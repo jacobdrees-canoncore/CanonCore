@@ -41,7 +41,8 @@ its own id says nothing.
 ## A tombstone that PROPAGATES, under CNCORE-31
 
 Every table carried a tombstone from migration 1 and every read path honoured
-one, but nothing propagated one: an item the owner deleted kept its statements
+one -- ONE READ DOES NOT NOW, and it is named below this section so the sentence
+is not read as still total -- but nothing propagated one: an item the owner deleted kept its statements
 LIVE. That was invisible until something needed a live statement to mean
 something -- ADR-0078's unique index, which a dead item's live claim on a
 provider's id then made refuse a correct re-import.
@@ -84,3 +85,21 @@ the statement they qualify, so one left live under a tombstoned statement is
 unreachable rather than wrong; and UN-DELETING, which nothing does, so a trigger
 for it would be code with nothing to run against. The matched timestamp is what leaves that door open
 without building the door.
+
+## The ONE read that does not honour a tombstone, under CNCORE-82
+
+A keyset cursor ([[0119-a-listing-is-walked-forward-from-the-last-item-it-showed]]) is the id of the
+last Item a page showed, and a listing answers it by looking that Item up to find WHERE IT SITS in
+the order. That lookup deliberately omits the `deleted_at` filter, and it is the only read in the
+repo that does.
+
+**It is not a read path in this record's sense: nothing about the row reaches a reader.** What comes
+back is a position -- one sort key and one id, used to write a comparison -- and the Item itself is
+never listed, named or linked. Honouring the tombstone here would delete a POSITION rather than an
+Item, and a link to page two would stop working the moment the Item it happened to be cut at was
+deleted. That is ordinary rather than a corner case: a cursor is cut at whatever Item the previous
+page ended on, and an owner deleting things is what an owner does.
+
+A purge is the case where the row is gone outright rather than tombstoned (ADR-0046, under
+CNCORE-34), so the lookup finds nothing and the walk starts at the beginning. Both endings are the
+same promise: a cursor that names no position does not error, it names no position.

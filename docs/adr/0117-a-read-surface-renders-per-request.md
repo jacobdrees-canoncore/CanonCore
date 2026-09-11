@@ -53,6 +53,15 @@ remains open because the declaration is where the read is.
 reads `searchParams` for `?via=` ([[0066-path-is-identity-query-is-the-route]]) and is dynamic by
 that alone, which is why this defect reached the front page and not the item page.
 
+**THAT IS ABOUT A PAGE THAT HAS NEVER CARRIED THE LINE, NOT A REASON TO TAKE ONE AWAY.** `/` reads
+`searchParams` itself since CNCORE-82 -- it carries the catalogue cursor
+([[0119-a-listing-is-walked-forward-from-the-last-item-it-showed]]) -- and it KEEPS `connection()`
+anyway. The declaration is the rule; being dynamic is the effect, and the effect is now owed to a
+query parameter that is there to walk a listing rather than to promise anything about rendering. The
+day paging changes shape, the page goes back to being a photograph of itself with nothing in the diff
+that says so. A line removed because something else happened to make it redundant is a line nobody
+will think to put back.
+
 ## The check a new read surface earns, stated because it is invisible afterwards
 
 Naming the rule is not enough on its own, because the failure is silent in exactly the place a test

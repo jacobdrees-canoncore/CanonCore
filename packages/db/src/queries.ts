@@ -409,6 +409,11 @@ export interface Catalogue {
  * THE ORDER IS `coalesce(sort_name, title)`, which is the pair ADR-0014 gives
  * `sort_name` its own index for, with the id behind it so two items sharing a
  * sort key list in the same order twice.
+ *
+ * AND `after` WALKS IT (ADR-0119): the id of the last item the page before this
+ * one carried. Both halves of the order are load-bearing in that comparison,
+ * which is what `past` below is about -- the cap says what is not being shown,
+ * and this is what reaches it.
  */
 export async function readCatalogue(
   db: Database,
