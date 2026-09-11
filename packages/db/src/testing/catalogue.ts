@@ -213,3 +213,79 @@ function describeRefusal(error: unknown): string {
   }
   throw new Error(`not a PostgreSQL refusal: ${String(error)}`);
 }
+
+/** A catalogue bigger than one answer, and the two pairs that make a walk hard. */
+export interface LargeCatalogue {
+  /** Every item in it. The set a walk has to arrive at, exactly. */
+  ids: string[];
+  /** Two items that sort the SAME, separated only by their ids. */
+  tied: string[];
+  /** Two items with no title and no sort name, so no sort key at all. */
+  keyless: string[];
+}
+
+/**
+ * A CATALOGUE LARGER THAN ONE PAGE, which is a state no other fixture here has
+ * and the only one in which paging is observable at all.
+ *
+ * IT CARRIES THE TWO HARD PAIRS rather than `plain` rows alone. A walk over a
+ * few hundred distinctly-titled items passes against a cursor that compares
+ * only the sort key and against one that cannot cross into the untitled tail --
+ * both of which lose items, silently and permanently, on a real catalogue. The
+ * pairs are what make the criterion "none is skipped" bite.
+ *
+ * WRITTEN IN BULK, because the per-item helpers above are three round trips
+ * each and this is the difference between a fixture that costs a moment and one
+ * that costs a minute.
+ */
+export async function aCatalogueLargerThanOnePage(
+  db: Database,
+  plain: number,
+): Promise<LargeCatalogue> {
+  const ownerId = await theOwner(db);
+  const sourceId = await ownerSource(db);
+  const title = await propertyNamed(db, "title");
+  const sortName = await propertyNamed(db, "sort_name");
+
+  const mint = async (count: number): Promise<string[]> =>
+    (
+      await db
+        .insert(items)
+        .values(Array.from({ length: count }, () => ({ ownerId, kind: "work" })))
+        .returning({ id: items.id })
+    ).map((row) => row.id);
+
+  // PADDED, so the titles sort the way a reader would count them. Nothing
+  // asserts on the order, but a fixture whose tenth item sorts between its
+  // first and second is one nobody can read a failure out of.
+  const titled = await mint(plain);
+  const tied = await mint(2);
+  const keyless = await mint(2);
+  await db.insert(statements).values([
+    ...titled.map((id, index) => ({
+      ownerId,
+      subjectItemId: id,
+      propertyId: title,
+      valueLiteral: `Story ${String(index + 1).padStart(4, "0")}`,
+      sourceId,
+    })),
+    ...tied.map((id, index) => ({
+      ownerId,
+      subjectItemId: id,
+      propertyId: title,
+      valueLiteral: `A story told twice (${index === 0 ? "novel" : "audio"})`,
+      sourceId,
+    })),
+    // THE TIE ITSELF: one sort key, two items. The order between them is their
+    // ids, which is the half of the cursor a key-only comparison leaves out.
+    ...tied.map((id) => ({
+      ownerId,
+      subjectItemId: id,
+      propertyId: sortName,
+      valueLiteral: "Story told twice, A",
+      sourceId,
+    })),
+  ]);
+
+  return { ids: [...titled, ...tied, ...keyless], tied, keyless };
+}
