@@ -152,12 +152,14 @@ export async function searchCatalogue(
        * count taken separately is taken at a different moment, so a page could
        * report 41 matches and list 42.
        *
-       * A WINDOW COUNT HERE, WHERE `readCatalogue` USES A SCALAR SUBQUERY, and
+       * A WINDOW COUNT HERE, WHERE `readListing` USES A SCALAR SUBQUERY, and
        * the difference is the cursor rather than an inconsistency. A window
        * count is taken AFTER `where`, which is exactly wrong for a keyset walk
        * -- with the cursor in the predicate it counts the items past the
        * cursor, so page two reports a smaller library than page one, and
-       * CNCORE-82 moved that one to an uncorrelated subquery for it. This query
+       * CNCORE-82 moved that one to an uncorrelated subquery for it (which
+       * CNCORE-67 then had to make take its `within`, since hardcoding the
+       * catalogue's predicate there gave a second listing the wrong size). This query
        * has no cursor in its predicate (CNCORE-88), so `where` IS the match
        * set, and counting after it is the number wanted: how many matched.
        *
@@ -177,7 +179,7 @@ export async function searchCatalogue(
     .innerJoin(itemKinds, eq(itemKinds.kind, items.kind))
     .where(
       and(
-        // ADR-0075, AND `readCatalogue`'S OWN PREDICATE rather than a second
+        // ADR-0075, AND THE LISTINGS' OWN PREDICATE rather than a second
         // spelling of it. A deleted item is gone to every reader, and a reader
         // who can search their way to one has not been told it is deleted --
         // but the hazard that makes this an import is the day "in the
@@ -195,7 +197,7 @@ export async function searchCatalogue(
       // merely mentions it.
       sql`similarity(${items.title}, ${wanted}) desc`,
       // AND THEN THE CATALOGUE'S OWN ORDER, so two equally close titles come
-      // back in the same order twice. `SORT_KEY` is `readCatalogue`'s own, not
+      // back in the same order twice. `SORT_KEY` is the listings' own, not
       // a second spelling: the catalogue has one order, and a search that broke
       // ties by a different one would list two items in an order no other
       // surface agrees with. `nulls last` is written out for the same reason it

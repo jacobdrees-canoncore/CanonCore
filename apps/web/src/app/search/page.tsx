@@ -2,7 +2,7 @@ import { createContext } from "@canoncore/api/context";
 import { appRouter } from "@canoncore/api/routers";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@canoncore/ui/components/empty";
 import { call } from "@orpc/server";
-import Link from "next/link";
+import { Holding, Listing } from "@/components/listing";
 
 /**
  * CATALOGUE SEARCH, which is what finding something without knowing its id
@@ -39,8 +39,6 @@ async function readSearch(query: string) {
   // oRPC documents `call` as the way to avoid it.
   return call(appRouter.catalogue.search, { query }, { context: await createContext() });
 }
-
-type Matched = Awaited<ReturnType<typeof readSearch>>;
 
 export default async function SearchPage({
   searchParams,
@@ -80,36 +78,13 @@ export default async function SearchPage({
         */}
         <h1 className="text-3xl font-medium">Catalogue search</h1>
         {results !== null && results.total > 0 && (
-          <Found showing={results.entries.length} total={results.total} />
+          <Holding showing={results.entries.length} total={results.total} noun="result" />
         )}
       </div>
       {results === null && <NothingAsked />}
       {results !== null && results.total === 0 && <NothingFound query={query} />}
-      {results !== null && results.entries.length > 0 && <Results entries={results.entries} />}
+      {results !== null && results.entries.length > 0 && <Listing entries={results.entries} />}
     </main>
-  );
-}
-
-/**
- * How many matched, and how many of them this page is showing.
- *
- * THE CAP IS NEVER SILENT, which is the front page's rule and is not weaker
- * here: a search answering "12 results" over a match set of a thousand tells a
- * reader their catalogue is smaller than it is.
- *
- * AND HERE IT IS THE ONLY THING SAYING SO. The listing has a `Next` link
- * carrying ADR-0119's cursor; this has none yet, because a keyset walk needs
- * its anchor's place in an order that leads on `similarity()` -- a function of
- * the query rather than a column of the item. CNCORE-88 carries that, and until
- * it lands this sentence is the whole of what stops the cap being a lie.
- */
-function Found({ showing, total }: { showing: number; total: number }) {
-  return (
-    <p className="text-muted-foreground text-sm">
-      {showing < total
-        ? `Showing ${showing} of ${total} results`
-        : `${total} ${total === 1 ? "result" : "results"}`}
-    </p>
   );
 }
 
@@ -177,45 +152,5 @@ function NothingFound({ query }: { query: string }) {
         </EmptyHeader>
       </Empty>
     </section>
-  );
-}
-
-/**
- * What matched, closest first.
- *
- * THE SAME ROW THE FRONT PAGE LISTS, deliberately: a result and a catalogue
- * entry carry the same four facts, and a reader should not have to learn two
- * ways of reading a list of items in one product.
- */
-function Results({ entries }: { entries: Matched["entries"] }) {
-  return (
-    <ul className="mt-6 divide-y">
-      {entries.map((entry) => (
-        <li key={entry.id} className="flex items-baseline justify-between gap-4 py-2">
-          {/*
-            A PLAIN LINK carrying no `?via=`. ADR-0066 makes the query the ROUTE
-            a reader arrived through, and a search is not an ordering -- nobody
-            arrives at an item "through a search" in the sense a placement
-            means. So this is the bare canonical address, the same one the front
-            page emits.
-
-            AND IT IS A `Link` RATHER THAN AN `a` (ADR-0109): a URL the
-            framework does not rewrite is never hand-built.
-          */}
-          <Link href={`/items/${entry.id}`} className="hover:underline">
-            {entry.title ?? "Untitled item"}
-          </Link>
-          <span className="flex items-baseline gap-3 text-muted-foreground text-sm">
-            {/*
-              ADR-0004 folds containers into `work`, so the kind alone cannot
-              tell a story from an ordering that holds stories.
-            */}
-            {entry.isContainer && <span>Container</span>}
-            {/* The reader's word for it, never the column (`CONTEXT.md`). */}
-            <span>{entry.kind}</span>
-          </span>
-        </li>
-      ))}
-    </ul>
   );
 }
