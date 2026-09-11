@@ -1,4 +1,4 @@
-import { and, eq, isNotNull, isNull, sql } from "drizzle-orm";
+import { and, eq, getTableColumns, isNotNull, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import type { Database } from "./index";
@@ -15,6 +15,22 @@ import {
 } from "./schema";
 
 export type ItemRow = typeof items.$inferSelect;
+
+/**
+ * One item as a reader is about to meet it: the stored row, and its kind IN THE
+ * READER'S WORDS beside it.
+ *
+ * BOTH, UNDER NAMES THAT SAY WHICH IS WHICH, rather than the label written over
+ * the key. `items.kind` is the foreign key into `item_kinds` and goes on being
+ * the key here, because a field that means `time_span` from one query and
+ * `Time span` from another is a hazard nothing in the types would catch.
+ *
+ * THE LABEL IS READ RATHER THAN MAPPED, exactly as `readCatalogue` reads it:
+ * migration 1 seeds a label beside every kind for this, and a map written in
+ * TypeScript would be the same rule in a second language -- stale the day the
+ * migration that owns the words revises one.
+ */
+export type FoundItem = ItemRow & { kindLabel: string };
 
 /** One ordering an item sits in, and where it sits (ADR-0009, ADR-0018). */
 export interface PlacementOfItem {
@@ -435,7 +451,7 @@ export async function readCatalogue(
  * about what an id MEANS, not about how a request is transported. Every reader
  * gets it, including ones that are not the web app.
  */
-export async function findItem(db: Database, id: string): Promise<ItemRow | undefined> {
+export async function findItem(db: Database, id: string): Promise<FoundItem | undefined> {
   if (!canBeAnId(id)) return undefined;
 
   const live = await findLiveItem(db, id);
@@ -477,10 +493,17 @@ function canBeAnId(id: string): boolean {
   return idShape.safeParse(id).success;
 }
 
-async function findLiveItem(db: Database, id: string): Promise<ItemRow | undefined> {
+async function findLiveItem(db: Database, id: string): Promise<FoundItem | undefined> {
   const [found] = await db
-    .select()
+    // THE ROW'S OWN COLUMNS, ASKED FOR BY THE TABLE rather than listed out. A
+    // list here would be a strip-list in reverse -- correct until a migration
+    // adds a column and nobody comes back -- and the read path's enumeration
+    // (ADR-0045) is the router's job, made one layer up and tested there.
+    .select({ ...getTableColumns(items), kindLabel: itemKinds.label })
     .from(items)
+    // INNER, because `items.kind` is a foreign key into this table: a row with
+    // no kind cannot exist, so there is nothing for a left join to preserve.
+    .innerJoin(itemKinds, eq(itemKinds.kind, items.kind))
     .where(and(eq(items.id, id), isNull(items.deletedAt)));
   return found;
 }

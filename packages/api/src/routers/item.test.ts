@@ -36,7 +36,27 @@ describe("item.get", () => {
 
     expect(item.title).toBe("The Daleks' Master Plan");
     expect(item.id).toBe(id);
-    expect(item.kind).toBe("work");
+    expect(item.kind).toBe("Work");
+  });
+
+  it("says what kind it is in the reader's words rather than in the column's", async () => {
+    // CNCORE-83. `CONTEXT.md` is binding on UI copy and calls this a Time span
+    // where the column says `time_span`, so a read path answering with the key
+    // is handing every one of its readers the schema to print.
+    //
+    // `Work` above and `Time span` here are the same rule, and this is the pair
+    // that can tell whether it is being followed: a capital is all that
+    // separates `work` from its label, and a test that only ever asked about
+    // one of the seven kinds would pass on the key for six of them.
+    //
+    // THE CATALOGUE LISTING ALREADY ANSWERS IN THESE WORDS, so this is the
+    // read path agreeing with itself rather than a second convention: `kind`
+    // means the reader's word for it wherever the read path emits one.
+    const era = await anItemTitled(db, "The Hartnell era", { kind: "time_span" });
+
+    const item = await call(appRouter.item.get, { id: era }, { context });
+
+    expect(item.kind).toBe("Time span");
   });
 
   it("names every field it emits, and no internal one", async () => {

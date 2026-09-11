@@ -41,6 +41,8 @@ export default async function setup(project: TestProject) {
   project.provide("placements", seeded.placements);
   const twoOrigins = await anItemPlacedTwoWays(databaseUrl);
   project.provide("twoOrigins", twoOrigins.fixture);
+  const timeSpan = await anItemOfAKindWhoseLabelDiffers(databaseUrl);
+  project.provide("timeSpan", timeSpan.fixture);
 
   // The providers have to exist before the server starts, because the server is
   // given the allowlist that makes them reachable.
@@ -107,6 +109,7 @@ export default async function setup(project: TestProject) {
     // The seed ends its own client; this pool has to be ended too, or the run
     // holds an idle connection open against a database it is finished with.
     await twoOrigins.close();
+    await timeSpan.close();
     await browsed.close();
     await provider.close();
     await tmdb.close();
@@ -475,6 +478,27 @@ async function anItemPlacedTwoWays(databaseUrl: string) {
   };
 }
 
+/**
+ * An item whose KIND'S LABEL DIFFERS FROM ITS KEY, which is the only pair that
+ * can tell whether a page is printing the reader's word or the column.
+ *
+ * `time_span` and `Time span` are that pair: `CONTEXT.md` is binding on UI copy
+ * and calls it a Time span, and the underscore is what a page leaks when it
+ * prints the column. The demo item is a `work`, whose label is `Work` -- a
+ * capital apart, so an assertion on it would pass either way.
+ */
+async function anItemOfAKindWhoseLabelDiffers(databaseUrl: string) {
+  const db = createDb(databaseUrl);
+  const title = "The Hartnell era";
+  const id = await anItemTitled(db, title, { kind: "time_span" });
+  return {
+    fixture: { id, title, key: "time_span", label: "Time span" },
+    // The seed ends its own client; this pool has to be ended too, or the run
+    // holds an idle connection open against a database it has finished with.
+    close: () => db.$client.end(),
+  };
+}
+
 function run(command: string, args: string[], env: NodeJS.ProcessEnv): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { cwd: webRoot, env, stdio: "inherit" });
@@ -537,6 +561,8 @@ declare module "vitest" {
     placements: SeededPlacement[];
     /** The fixture item, in one ordering filled by hand and one imported. */
     twoOrigins: { id: string; byHand: string; imported: string };
+    /** An item whose kind a reader and the column call by different names. */
+    timeSpan: { id: string; title: string; key: string; label: string };
     /** The story imported from a CMPP provider over HTTP, and what it claimed. */
     imported: { id: string; title: string; released: string; providerLabel: string };
     /**

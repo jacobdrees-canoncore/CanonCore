@@ -135,6 +135,25 @@ export type AttributionPublic = z.infer<typeof attributionPublic>;
 
 export const itemPublic = z.object({
   id: z.uuid(),
+  /**
+   * ADR-0005's kind, IN THE READER'S WORDS: `Time span`, never `time_span`.
+   *
+   * THE SAME THING `catalogueEntryPublic.kind` CARRIES, which is the point
+   * rather than a coincidence: `kind` means the reader's word for it wherever
+   * the read path emits one, so no surface has to know which of two spellings
+   * its own call answers with. `CONTEXT.md` is binding on UI copy and is where
+   * those words are settled.
+   *
+   * READ OFF `item_kinds` rather than mapped in TypeScript. Migration 1 seeds a
+   * label beside every kind for exactly this, so the words are the catalogue's
+   * own and a revision to one reaches every reader with the migration that
+   * makes it.
+   *
+   * THE KEY IS NOT EMITTED BESIDE IT, because nothing reads one: ADR-0004's
+   * fold is what a surface actually branches on and `isContainer` below carries
+   * that. A second field for the column would be a field added against a reader
+   * that does not exist (ADR-0045).
+   */
   kind: z.string(),
   /** ADR-0014: a cached copy of whichever title statement currently wins. */
   title: z.string().nullable(),
@@ -191,9 +210,9 @@ export const catalogueEntryPublic = z.object({
    * the column is showing a reader the schema. The label is seeded beside the
    * kind in migration 1, which is what makes this a read rather than a map.
    *
-   * `item.get` STILL EMITS THE KEY, and the item page still prints it: the same
-   * breach, one file away, and CNCORE-79 is it. It is not fixed here because
-   * fixing it means changing what `itemPublic` means for every reader of it.
+   * `itemPublic.kind` above carries the same words, and CNCORE-83 is where it
+   * started to: a listing and a page disagreeing about what `kind` holds would
+   * be two conventions in one read path.
    */
   kind: z.string(),
   /**
