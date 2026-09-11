@@ -22,6 +22,7 @@ export {
   type AttributionOwed,
   type Catalogue,
   type CatalogueEntry,
+  type FoundItem,
   findAttributionOwed,
   findItem,
   findPlacementsOfItem,
