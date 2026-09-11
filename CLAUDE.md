@@ -89,8 +89,8 @@ in for the library.
   and against GitHub's own rulesets docs, which are wrong at repository scope. See ADR-0118.
 - **Some tool calls are denied on purpose** by `.claude/settings.json`. `git worktree` and
   `gh issue` are blocked: use `orca worktree create` and `orca linear` instead. A denial here is the
-  config working, not a bug to route around. **`.env` reads were denied until 2026-09-11 and are
-  not now** — they stay gitignored, and no secret reaches a PR body, a commit or a log.
+  config working, not a bug to route around. `.env` files stay gitignored, and no secret reaches a
+  PR body, a commit or a log.
 - **File Linear issues with `--state Todo`.** `orca linear create` writes as an OAuth integration,
   and without a named state the issue lands in the team's default Backlog state rather than where
   the workflow expects it. On a team with Triage enabled it would be diverted to the Triage inbox
@@ -171,7 +171,9 @@ the sentence it corrects — placed beside one, it leaves the old claim standing
   more in the prompt. The binding is the brief — `--current` resolves the ticket, so there is no
   task spec to keep in step with it — and each slice lands on `main` behind its own PR, because a
   slice waiting on an integration branch is not demoable on its own (ADR-0051). Recompute the
-  frontier from the tracker as each PR merges, because no DAG is doing it here.
+  frontier from the tracker as each PR merges, because no DAG is doing it here — **then STOP.
+  Recomputing is yours; STARTING A WAVE IS THE USER'S.** Merging authorises removing ITS worktree,
+  not creating the next: four agents went out on "recalculate", 2026-09-11.
 
 **Removing the worktree is the dispatcher's job, and only the dispatcher's.** `implement` tells a
 worker to clean up only a worktree it created itself, and in this mode it never creates one, so it
