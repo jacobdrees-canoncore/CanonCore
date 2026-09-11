@@ -2,7 +2,7 @@
 status: accepted
 ---
 
-# CanonCore runs the newest LTS Node major, and CI is the only place that enforces it
+# CanonCore runs the newest LTS Node major, and the image is what pins it
 
 The major is a RULE rather than a number: **the newest Node major that has reached LTS**. Today
 that selects 24. On 2026-10-28 it selects 26.
@@ -48,24 +48,26 @@ worry that a contributor might be on it. It reached end of life on 2026-06-01, i
 LTS line at all, and Vitest's range refuses it. The odd majors are not a shorter-supported option
 here; they are not an option.
 
-## What is different about CanonCore: there is no artifact to pin it
+## What used to be different about CanonCore: it had no artifact to pin the major
 
-**CanonCore ships no image. There is no `Dockerfile` anywhere in this repository** (checked
-2026-09-11). That is the asymmetry with the provider repos and it decides where enforcement lives.
+**This section described an asymmetry that CNCORE-63 removed**, and the paragraph it replaces is
+worth quoting because the rest of this record was built on it: "CanonCore ships no image. There is
+no `Dockerfile` anywhere in this repository" (checked 2026-09-11, true for eleven days).
 
 A provider states its major in four places, and one of them — `FROM node:24-alpine` — is the thing
-it actually ships, so the major is pinned by the artifact whatever the other three say. CanonCore
-has no such place. Its major is `ci.yml`'s `runtime: node@24`, repeated across six jobs, and
-otherwise whatever a contributor happens to have installed.
+it actually ships, so the major is pinned by the artifact whatever the other three say. **CanonCore
+now has such a place.** Its `Dockerfile` builds and runs `FROM node:24-slim`, and an image is a
+harder statement than a CI input is: a runner can be reconfigured, and a published layer cannot.
 
 So:
 
 | Place | What it does |
 |---|---|
-| `.github/workflows/ci.yml` | **Enforces**, and is the only thing that does |
+| `Dockerfile` | **Pins it**, by being the thing that ships |
+| `.github/workflows/ci.yml` | **Enforces** it for everything that is not the image |
 | `package.json`'s `engines` | Advisory floor. Nothing reads it — see below |
 | `README.md` | Tells a contributor what to install |
-| `packages/config/src/node-major.test.ts` | Holds `ci.yml` and `README.md` to one number and to this rule, and `engines` to not contradicting it |
+| `packages/config/src/node-major.test.ts` | Holds the `Dockerfile`, `ci.yml` and `README.md` to one number and to this rule, and `engines` to not contradicting it |
 
 ## `engines` is an advisory FLOOR, and on this repo's pnpm it is completely silent
 
@@ -98,18 +100,23 @@ below this", which is all a floor can say.
 ## How the rule acts
 
 `packages/config/src/node-major.test.ts` is the half of this record that does something, and it is
-the answer to the four-assertions-one-decision defect rather than a fifth assertion. It reads
-`ci.yml`, `package.json` and `README.md` directly, for the reason ADR-0103 gives about values
-TypeScript cannot see, and holds six things across five assertions — the second is a throw inside
-the helper that answers "the major this repo runs", so a split `ci.yml` fails whichever test asked
-rather than needing an assertion of its own:
+the answer to the four-assertions-one-decision defect rather than a fifth assertion. It reads the
+`Dockerfile`, `ci.yml`, `package.json`, `README.md` and `.github/dependabot.yml` directly, for the
+reason ADR-0103 gives about values TypeScript cannot see, and holds nine things — two of them are
+throws inside the helpers that answer "the major this repo runs" and "the major it ships", so a
+split `ci.yml` or a split `Dockerfile` fails whichever test asked rather than needing an assertion
+of its own:
 
 - the rule's selector is right, including across the eight days when no line is Active LTS;
 - `ci.yml` names ONE major — six jobs state it, and a bump applied to five of them throws;
-- that major is the one this rule selects **on the day the suite runs**;
+- the `Dockerfile` names ONE major — every stage building `FROM node:` states it;
+- that major is the one this rule selects **on the day the suite runs**, in both files;
 - `README.md` tells a contributor to install that same major;
 - `engines.node` is a bare `>=<major>` floor that does not climb above it;
-- and the transcribed copy of Node's schedule has not gone blind.
+- the transcribed copy of Node's schedule has not gone blind;
+- the Dependabot ignore holds back the base image's major and nothing else;
+- and that ignore's `EXPIRES` marker is the day the rule starts selecting a newer major, stated
+  once, and has not passed.
 
 **The third of those goes RED ON 2026-10-28**, and so does the fourth. That is deliberate. CNCORE-50
 was filed because a rule nobody acts on reads exactly like a rule nobody has, and a date written in
@@ -117,9 +124,10 @@ a comment is a date nobody meets. The cost is real and is accepted: CI goes red 
 work happens to be in flight.
 
 **The repair then is not one line**, and the failure message says so rather than leaving someone to
-find out: six `runtime:` values in `ci.yml` and `README.md`'s "Requires Docker and Node" line, moved
-together. `NODE_SCHEDULE` does NOT need extending for that — it already carries 26 — which is why
-the expiry below is a separate test with its own date.
+find out: six `runtime:` values in `ci.yml`, every `FROM node:` in the `Dockerfile`, `README.md`'s
+"Requires Docker and Node" line, and the DELETION of the Dependabot ignore that was holding the base
+image back — moved together. `NODE_SCHEDULE` does NOT need extending for that — it already carries
+26 — which is why the expiry below is a separate test with its own date.
 
 **The fourth exists because the second is otherwise a ONE-SHOT device.** Node's schedule is
 transcribed rather than fetched — the suite takes no network, and the gate ADR-0103 installs would
@@ -174,7 +182,7 @@ stayed as written, this rule would have quietly invalidated a decision in anothe
 | `>=` range as the statement of support | Cannot express the supported set. Every floor that admits 24 also admits 25, which Vitest refuses and which is end-of-life. |
 | Tracking Current | Outside Node's own guidance for production applications, and outside Vitest 5's `engines`. Available to a project that wants it, at the cost of both. |
 | Widening ADR-0110 to cover both | CNCORE-44 deliberately scoped that record to provider repos. Three of the reasons above — no shipped image, Vitest as the binding dependency, pnpm 12.3.4's silence — are facts about this repository and do not hold in a four-route Hono service. |
-| A Dependabot `ignore`, as the providers carry | Nothing to ignore. The major lives in a `with:` input of `pnpm/setup`, which Dependabot's `github-actions` ecosystem does not bump, and there is no `Dockerfile` and so no docker entry. The recurring-noise problem CNCORE-43 solved does not exist here. |
+| A Dependabot `ignore`, as the providers carry | **Taken, under CNCORE-63, having been ruled out here while the premise held.** The row used to read "nothing to ignore ... there is no `Dockerfile` and so no docker entry", and the moment there was one this repository inherited the recurring-noise problem CNCORE-43 solved: Dependabot can edit one of the five places the major is written, so every weekly `node` major pull request goes red with no defect in it. The major still does not live in a `with:` input anything bumps; the base image is what changed. |
 
 ## Evidence
 
@@ -207,7 +215,8 @@ named only so a reader does not go looking for it under this record.
 ## Built, under CNCORE-50
 
 **BUILT: the rule, and the thing that makes it act.** `packages/config/src/node-major.test.ts`
-holds `ci.yml`, `package.json` and `README.md` to one major and to this rule.
+holds `ci.yml`, `package.json` and `README.md` to one major and to this rule. CNCORE-63 added the
+`Dockerfile` and the Dependabot ignore to what it reads.
 
 **Every assertion except one was shown failing against a broken version of its own subject before
 being kept**, which is worth stating exactly rather than as a round number. Run and observed: a
@@ -220,7 +229,9 @@ the changeover day.
 **THE EXCEPTION IS THE EXPIRY TEST**, and it is the one most worth knowing about. It cannot be shown
 failing without moving the clock past 2027-10-01, so what was observed is only that it fails when
 its own assertion is mis-written — it was red on a type error first, and fixed. Its real firing is
-unverified, and that is the weakest link in this mechanism.
+unverified, and that is the weakest link in this mechanism. **CNCORE-63's Dependabot expiry is a
+different test with the same shape and it does NOT share that weakness**: its date is 2026-10-28
+rather than 2027-10-01, and it was observed red by writing a date that had already passed.
 
 **BUILT: the README instruction, which was the one thing here that was wrong rather than merely
 unargued.** `corepack enable` alone fails on every major above 24, and the replacement was measured
@@ -242,29 +253,40 @@ when this landed. If CNCORE-44 changes shape, the sentence about the two rules a
 to re-read; nothing else here depends on it, because every reason in this record was measured
 against CanonCore rather than borrowed.
 
-## What shipping an image would change, and it is three things rather than one
+## What shipping the image changed, and it was the three things this record predicted
 
-This record's enforcement argument rests on a fact that is true today and is DECIDED TO STOP BEING
-TRUE: "CanonCore ships no image. There is no `Dockerfile` anywhere in this repository."
-[[0115-the-public-release-comes-before-the-playback-half]] adds one, because in this genre the
-container is the install instructions.
+This record's enforcement argument rested on a fact that was true when it was written and was
+DECIDED TO STOP BEING TRUE: "CanonCore ships no image. There is no `Dockerfile` anywhere in this
+repository." [[0115-the-public-release-comes-before-the-playback-half]] added one, because in this
+genre the container is the install instructions.
 
-Written now, while the premise still holds, so the ticket that adds the Dockerfile does not discover
-it late. **A Dockerfile is not one ticket here.** It drags three things:
+**It was written while the premise still held, so that the ticket adding the Dockerfile would not
+discover it late — and that worked.** CNCORE-63 priced all three from this section rather than
+meeting them one at a time, and all three landed with it. They are recorded here in the past tense
+because each one is now a thing somebody can go and read:
 
-1. **The asymmetry above disappears.** `FROM node:<major>-alpine` is an artifact that pins the
-   major, which is exactly the property this record uses to explain why a provider repo enforces
-   differently. "CI is the only place that enforces it" stops being true the moment the image
-   exists, and the sentence in the title has to move with it.
-2. **A FIFTH assertion appears, and nothing holds it.** `packages/config/src/node-major.test.ts`
-   reads `ci.yml`, `package.json` and `README.md`. It does not read a Dockerfile. Add one without
-   extending that test and its major can drift while every assertion still passes — **which is
-   CNCORE-50's four-assertions-one-decision defect, re-created by the fix for something else.**
-3. **Dependabot gains a docker entry.** The ruled-out table above says "there is no `Dockerfile` and
-   so no docker entry", and that is the whole reason this repository carries no Node-major `ignore`
-   block. Once an image exists it inherits the recurring-noise problem CNCORE-43, CNCORE-49,
-   CNCORE-52 and CNCORE-59 solved in the provider repos, including the 2026-10-28 expiry machinery.
+1. **The asymmetry is gone**, and the table above has moved with it. `FROM node:24-slim` is an
+   artifact that pins the major, which is exactly the property this record used to explain why a
+   provider repo enforces differently. "CI is the only place that enforces it" was the title of this
+   record and is no longer true of it.
+2. **The fifth assertion exists and is held.** `packages/config/src/node-major.test.ts` now reads
+   the `Dockerfile` as well, and holds every stage of it to one major and to the rule. Added without
+   that, its major could have drifted while every other assertion still passed — CNCORE-50's
+   four-assertions-one-decision defect, re-created by the fix for something else. **It was observed
+   failing against a broken Dockerfile rather than assumed**: a file bumped to 26 ahead of the rule,
+   a file whose two stages named different majors, and a file with no `node` base at all.
+3. **Dependabot gained a docker entry**, with the Node-major ignore and the `EXPIRES` marker the
+   provider repos carry. One thing was done better here than there, and it is the only part of this
+   that was not simply ported: **the expiry is derived rather than transcribed.** provider-wiki
+   writes the date and a test reads it; here the test asserts the marker equals the LTS date of the
+   next line in `NODE_SCHEDULE`, so the ignore cannot outlive the rule that justifies it, and a
+   marker moved by hand to buy quiet fails.
 
-None of this argues against the image. It argues that the image ticket owns a correction to this
-record, an extension to that test, and a `dependabot.yml` entry — and that pricing it as a Dockerfile
-alone is how the slice silently doubles.
+**One thing this section got wrong, in this repository's favour.** It said the image "inherits the
+recurring-noise problem ... including the 2026-10-28 expiry machinery", implying the same failure the
+providers met. The provider images' naked bump FAILED THE BUILD at `corepack enable` (exit 127),
+because the Node TSC stopped distributing corepack from the 25 line on. CanonCore's Dockerfile never
+had that defect to inherit: it installs pnpm from the `packageManager` pin, which works on every
+major, and CNCORE-63 wrote it that way from the first line rather than fixing it afterwards. What
+this repository inherited is the NOISE alone — a weekly red pull request with no defect in it — which
+is a smaller problem wearing the same clothes.

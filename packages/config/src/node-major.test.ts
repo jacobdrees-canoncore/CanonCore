@@ -1,13 +1,19 @@
 /**
- * CanonCore's Node major, held to ONE value across the three files that state
- * it -- `ci.yml`, `package.json` and `README.md` -- and to the rule that says
- * which value that is.
+ * CanonCore's Node major, held to ONE value across the four files that state
+ * it -- the `Dockerfile`, `ci.yml`, `package.json` and `README.md` -- and to
+ * the rule that says which value that is. A fifth file, `.github/
+ * dependabot.yml`, holds the major still until the rule moves, and its expiry
+ * is held here too.
  *
  * This exists because the major was asserted in four places and enforced in
  * none (CNCORE-50). ADR-0112 is the record that now decides it; this suite is
  * the half of that record which acts, and it reads the files directly for the
  * same reason `ci-workflow.test.ts` does: the values are written where
  * TypeScript cannot see them, so nothing else would catch one of them moving.
+ *
+ * THE `Dockerfile` JOINED THEM UNDER CNCORE-63 and it is the one that ships.
+ * ADR-0112 was written while this repository had no image and said what adding
+ * one would do to this file; this is that, built.
  */
 
 import { readFileSync } from "node:fs";
@@ -184,13 +190,13 @@ const dockerfile = join(repoRoot, "Dockerfile");
  */
 function dockerfileMajor(): string {
   const stages = [
-    ...readFileSync(dockerfile, "utf8").matchAll(
-      /^FROM\s+node:(\d+)[^\s]*(?:\s+AS\s+(\S+))?/gim,
-    ),
+    ...readFileSync(dockerfile, "utf8").matchAll(/^FROM\s+node:(\d+)[^\s]*(?:\s+AS\s+(\S+))?/gim),
   ].map((stage) => ({ major: stage[1] as string, name: stage[2] ?? "(unnamed)" }));
 
   if (stages.length === 0) {
-    throw new Error("no stage in the Dockerfile builds FROM the node image, so nothing states a major");
+    throw new Error(
+      "no stage in the Dockerfile builds FROM the node image, so nothing states a major",
+    );
   }
   const distinct = [...new Set(stages.map(({ major }) => major))];
   if (distinct.length > 1) {
@@ -335,7 +341,6 @@ describe("CanonCore's Node major", () => {
     ).toBe(selected);
   });
 });
-
 
 const dependabotFile = join(repoRoot, ".github", "dependabot.yml");
 

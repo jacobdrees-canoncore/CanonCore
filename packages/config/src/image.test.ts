@@ -36,7 +36,10 @@ const dockerignore = () => readFileSync(join(repoRoot, ".dockerignore"), "utf8")
  */
 const NEVER_IN_THE_CONTEXT = [
   { pattern: "**/.env*", cost: "a developer's credentials, published" },
-  { pattern: "**/node_modules", cost: "the host's modules, including the wrong platform's binaries" },
+  {
+    pattern: "**/node_modules",
+    cost: "the host's modules, including the wrong platform's binaries",
+  },
   { pattern: "**/.next", cost: "a stale build, shadowing the one this image makes" },
   { pattern: ".git", cost: "the whole history, in a layer" },
 ];
@@ -65,12 +68,15 @@ describe("the build context", () => {
       .split("\n")
       .map((line) => line.trim())
       .filter((line) => line.startsWith("!"))
-      .filter((line) => NEVER_IN_THE_CONTEXT.some(({ pattern }) => line.includes(pattern.replace("**/", "").replace("*", ""))));
+      .filter((line) =>
+        NEVER_IN_THE_CONTEXT.some(({ pattern }) =>
+          line.includes(pattern.replace("**/", "").replace("*", "")),
+        ),
+      );
 
     expect(reincluded).toStrictEqual([]);
   });
 });
-
 
 /** The registry and repository the image publishes to. */
 const IMAGE = "ghcr.io/jacobdrees-canoncore/canoncore";
@@ -296,9 +302,7 @@ describe("publishing the image", () => {
     const notPinned = metadata
       .filter(
         ({ step }) =>
-          !String(step.with?.labels ?? "").includes(
-            `org.opencontainers.image.licenses=${license}`,
-          ),
+          !String(step.with?.labels ?? "").includes(`org.opencontainers.image.licenses=${license}`),
       )
       .map(({ job }) => job);
     expect(notPinned).toStrictEqual([]);
@@ -398,7 +402,9 @@ describe("publishing the image", () => {
     );
     expect(asserts.length).toBe(1);
 
-    const [{ jobIf, step }] = asserts as [{ jobIf: unknown; step: Step }];
+    const [assertion] = asserts;
+    if (!assertion) throw new Error("no step reads the package's visibility");
+    const { jobIf, step } = assertion;
     expect(step.run).toContain(REQUIRED_VISIBILITY);
 
     // It runs where the package exists -- after a publish, never on a pull
