@@ -3,7 +3,7 @@ import { appRouter } from "@canoncore/api/routers";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@canoncore/ui/components/empty";
 import { call } from "@orpc/server";
 import { connection } from "next/server";
-import { Holding, Listing, PastTheEnd, Walk } from "@/components/listing";
+import { cursorFrom, Holding, Listing, PastTheEnd, Walk } from "@/components/listing";
 
 /**
  * WORK-BROWSING: what can I watch, without the cast.
@@ -53,18 +53,11 @@ export default async function WorksPage({
 }: {
   searchParams: Promise<{ after?: string | string[] }>;
 }) {
-  /*
-   * WHERE IN THE LISTING THIS READER IS, read on the SERVER so the page they
-   * are served is already the page they asked for.
-   *
-   * An array means the parameter was repeated, and a reader is at one place in
-   * one ordering -- so a repeated one names no place rather than the first of
-   * several. That is the rule `/` and `/items/<id>` both apply (ADR-0066), and
-   * a third surface answering it differently would be two conventions for one
-   * question.
-   */
+  // ADR-0119's cursor, read on the SERVER so the page a reader is served
+  // is already the page they asked for. `cursorFrom` owns what a repeated
+  // parameter means, so both reading surfaces answer that the same way.
   const { after } = await searchParams;
-  const from = typeof after === "string" && after !== "" ? after : undefined;
+  const from = cursorFrom(after);
   const works = await readWorkBrowsing(from);
   const listing = works.entries;
   const nothingToWatch = works.total === 0;
@@ -81,7 +74,7 @@ export default async function WorksPage({
         possible: the link was cut at an item, and nothing is after that item
         any more. Rare, and a DEAD END if nothing says so.
       */}
-      {!nothingToWatch && listing.length === 0 && <PastTheEnd path="/works" what="The works" />}
+      {!nothingToWatch && listing.length === 0 && <PastTheEnd path="/works" />}
       {listing.length > 0 && (
         <>
           <Listing entries={listing} />

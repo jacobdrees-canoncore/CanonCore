@@ -28,22 +28,42 @@ function memberRows(text: string): string[] {
 
 describe("/items/<a container>", () => {
   it("lists what the container holds, in position order", async () => {
-    // The criterion, and the fixture is a REAL BROWSE: `provider.browse` wrote
-    // these placements through the app, so the order asserted is the order a
-    // provider actually gave rather than one this suite arranged.
-    const { status, text } = await documentAt(`/items/${browsed.importedContainerId}`);
+    // The criterion, asserted against a container whose members were WRITTEN OUT
+    // OF ORDER -- third, first, second.
+    //
+    // THAT IS THE HALF THAT MAKES IT A TEST, and the first version of it did not
+    // have it. It asked a browsed container, whose members were inserted in the
+    // order the provider handed them over, so PostgreSQL returned them correctly
+    // ordered from a query with no `order by` at all. Measured: removing the
+    // `orderBy` from `findMembersOfContainer` left that assertion passing, and
+    // only reversing the sort could fail it. This one fails against both.
+    const { status, text } = await documentAt(`/items/${workBrowsing.workContainerId}`);
 
     expect(status).toBe(200);
     const rows = memberRows(text);
-    expect(rows.length).toBeGreaterThan(1);
-    // POSITIONS ASCENDING, read off the rendered rows. Asserting only that the
-    // titles are present would pass against any order at all, which is the one
-    // thing this test is about.
+    const titles = workBrowsing.inPositionOrder.map((title) =>
+      rows.findIndex((row) => row.includes(title)),
+    );
+    expect(titles).not.toContain(-1);
+    expect(titles).toStrictEqual([...titles].sort((a, b) => a - b));
+    // AND THE POSITIONS THEMSELVES ASCEND, so a page that happened to render the
+    // right titles in the right order while printing the wrong numbers beside
+    // them is not passing this either.
     const positions = rows.flatMap((row) => {
       const seen = row.match(/#(\d+)/);
       return seen?.[1] === undefined ? [] : [Number(seen[1])];
     });
-    expect(positions).toStrictEqual([...positions].sort((a, b) => a - b));
+    expect(positions).toStrictEqual([1, 2, 3]);
+  });
+
+  it("lists a REAL browsed ordering too, in the order the provider gave it", async () => {
+    // The fixture above is hand-seeded so that it can be written out of order.
+    // This one is a real `provider.browse` through the app, which is what says
+    // the surface works on an ordering nobody arranged for it.
+    const { status, text } = await documentAt(`/items/${browsed.importedContainerId}`);
+
+    expect(status).toBe(200);
+    expect(memberRows(text).length).toBeGreaterThan(1);
     expect(members(text)).toContain(browsed.title);
   });
 

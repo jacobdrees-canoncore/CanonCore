@@ -25,10 +25,18 @@ import Link from "next/link";
  * and the first of them is the one ADR-0109 says costs "a sweep through every
  * file, discovered on the day a host is chosen" when it is scattered.
  */
-type Catalogue = Awaited<ReturnType<AppRouterClient["catalogue"]["list"]>>;
+/**
+ * What a listing answers with, taken from the read path so the two cannot drift.
+ *
+ * READ OFF `list` AND TRUE OF `works` TOO, which is not luck: both procedures
+ * declare `cataloguePublic` as their output, because they answer two questions
+ * about one catalogue and differ in WHICH items rather than in what an entry
+ * is. A test at the router seam holds that agreement.
+ */
+type ListingAnswer = Awaited<ReturnType<AppRouterClient["catalogue"]["list"]>>;
 
-/** One row of a listing, taken from the read path so the two cannot drift. */
-type Entry = Catalogue["entries"][number];
+/** One row of a listing. */
+type Entry = ListingAnswer["entries"][number];
 
 /**
  * Which surface is rendering, and therefore what its own address is.
@@ -40,6 +48,34 @@ type Entry = Catalogue["entries"][number];
  * a member here and the compiler finds every link that needs it.
  */
 export type ListingPath = "/" | "/works";
+
+/**
+ * What each listing calls itself when it has to end a sentence.
+ *
+ * DERIVED FROM `path` RATHER THAN PASSED BESIDE IT, which is a fix rather than
+ * a tidy-up. `PastTheEnd` took a `path` and a free-text `what`, and nothing held
+ * the two in step: `what="The works"` met "{what} ends here" and rendered **"The
+ * works ends here"**. A caller-supplied noun phrase and a verb written here are
+ * two halves of one sentence owned by two files, so each surface writes its own
+ * whole clause instead.
+ */
+const ENDS_HERE: Record<ListingPath, string> = {
+  "/": "The catalogue ends here",
+  "/works": "The list of Works ends here",
+};
+
+/**
+ * WHERE IN A LISTING THIS READER IS, read off the request.
+ *
+ * An array means the parameter was repeated, and a reader is at one place in one
+ * ordering -- so a repeated one names no place rather than the first of several.
+ * That is the rule `/items/<id>` applies to `via` and `placed` (ADR-0066), and
+ * it is written ONCE here because two surfaces answering it differently would be
+ * two conventions for one question.
+ */
+export function cursorFrom(after: string | string[] | undefined): string | undefined {
+  return typeof after === "string" && after !== "" ? after : undefined;
+}
 
 /**
  * How much of a listing this page is showing, and how much there is.
@@ -168,7 +204,7 @@ export function Walk({
  * that is always somewhere, is the difference between an ending and a page that
  * looks broken.
  */
-export function PastTheEnd({ path, what }: { path: ListingPath; what: string }) {
+export function PastTheEnd({ path }: { path: ListingPath }) {
   return (
     <section aria-labelledby="past-the-end" className="mt-6">
       <Empty className="border">
@@ -179,7 +215,7 @@ export function PastTheEnd({ path, what }: { path: ListingPath; what: string }) 
             heading -- and a reader navigating by heading finds only the `h1`.
           */}
           <EmptyTitle>
-            <h2 id="past-the-end">{what} ends here</h2>
+            <h2 id="past-the-end">{ENDS_HERE[path]}</h2>
           </EmptyTitle>
           <EmptyDescription>
             Nothing sorts after the item this link was cut at. It may have been the last one, or it

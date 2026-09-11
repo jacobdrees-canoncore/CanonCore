@@ -675,6 +675,14 @@ export interface MemberOfContainer {
  * way round: that one answers every ordering an item sits in, and this one
  * answers every item one ordering holds. Both are the placement, read from the
  * end the reader is standing at.
+ *
+ * TODO(CNCORE-89): IT IS UNCAPPED, ALONE AMONG THIS FILE'S LISTINGS. ADR-0119's
+ * first sentence is "every listing in CanonCore is capped", and this one takes
+ * no `limit` and no `after` while `item.get` awaits it on every item page.
+ * `browse` imports a whole category in one call and ADR-0077 measures one at
+ * 1,049 stories, so this is a thousand rows on an ordinary page. The cap is not
+ * added here because the walk has to compose with `?via=` and `?placed=` on an
+ * address ADR-0066 governs, which is that ticket's decision to make.
  */
 export async function findMembersOfContainer(
   db: Database,

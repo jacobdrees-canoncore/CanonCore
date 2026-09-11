@@ -614,10 +614,36 @@ async function theThingsWorkBrowsingHasToTellApart(databaseUrl: string) {
     isOrdered: true,
   });
   const story = await anItemTitled(db, "A story in that season");
+  /*
+   * WRITTEN IN THE ANSWER'S REVERSE ORDER, which is the half that makes a
+   * position-order assertion a test rather than a coincidence.
+   *
+   * The browsed containers this suite already holds were INSERTED in position
+   * order, because that is the order the provider handed them over in -- so
+   * PostgreSQL returns them correctly ordered from a query carrying no `order
+   * by` at all, and an assertion against one cannot tell a sorted answer from an
+   * unsorted one. Measured: removing the `orderBy` from `findMembersOfContainer`
+   * left every page-level assertion passing. These three are written third,
+   * first, second for that reason.
+   */
   await aPlacement(db, {
     containerId: workContainer,
     itemId: story,
+    position: 3,
+    sourceId: owner,
+  });
+  const opener = await anItemTitled(db, "The story that opens that season");
+  const middle = await anItemTitled(db, "The story in the middle of that season");
+  await aPlacement(db, {
+    containerId: workContainer,
+    itemId: opener,
     position: 1,
+    sourceId: owner,
+  });
+  await aPlacement(db, {
+    containerId: workContainer,
+    itemId: middle,
+    position: 2,
     sourceId: owner,
   });
 
@@ -654,6 +680,12 @@ async function theThingsWorkBrowsingHasToTellApart(databaseUrl: string) {
       workContainer: "A season that holds stories",
       workContainerId: workContainer,
       story: "A story in that season",
+      /** Its members, in the order the container puts them -- NOT the order they were written. */
+      inPositionOrder: [
+        "The story that opens that season",
+        "The story in the middle of that season",
+        "A story in that season",
+      ],
       withARecapId: withARecap,
       repeated: "A story shown twice in one ordering",
       repeatedId: shownTwice,
@@ -741,6 +773,7 @@ declare module "vitest" {
       workContainer: string;
       workContainerId: string;
       story: string;
+      inPositionOrder: string[];
       withARecapId: string;
       repeated: string;
       repeatedId: string;

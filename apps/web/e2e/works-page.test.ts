@@ -30,6 +30,11 @@ describe("/works", () => {
     expect(status).toBe(200);
     expect(text).toContain(workBrowsing.story);
     expect(text).not.toContain(workBrowsing.person);
+    // AND A CHARACTER TOO, because the criterion names both and a Person alone
+    // does not prove the rule. `kind = 'work'` excludes all six entity kinds by
+    // construction, but a surface that had listed the kinds it wanted rather
+    // than the one it wanted would be one forgotten line from shipping the cast.
+    expect(text).not.toContain(workBrowsing.character);
   });
 
   it("shows a container that holds works and not one that holds only entities", async () => {

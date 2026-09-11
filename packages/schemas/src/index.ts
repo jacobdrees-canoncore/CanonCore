@@ -145,11 +145,21 @@ export type AttributionPublic = z.infer<typeof attributionPublic>;
  * one `itemId` between them (ADR-0009), so nothing but the placement id can
  * tell the recap from the episode.
  *
- * WHAT IT DOES NOT CARRY is `placedBy`. `placementPublic` has it because "Also
- * appears in" lists orderings from several sources at once and a reader is
- * choosing between them; a container's own member list is ONE ordering, so
- * every row would answer the same, and a column of one repeated word is noise
- * rather than provenance.
+ * WHAT IT DOES NOT CARRY is `placedBy`, and THE FIRST REASON GIVEN FOR THAT WAS
+ * WRONG. It said a container's own member list is one ordering "so every row
+ * would answer the same". ADR-0017 says otherwise: sources disagreeing about
+ * position produce TWO placement rows in one container, and nothing stops the
+ * owner hand-placing into a container a provider browsed. Rows here can differ
+ * in `placedBy`, and the consequence is that a Repeat (ADR-0009, one source,
+ * twice, on purpose) and a disagreement (two sources, one membership) render
+ * identically.
+ *
+ * TODO(CNCORE-90): make that distinguishable. It is left out here rather than
+ * fixed in place because no instance can hold a disagreement yet -- only
+ * `browse` writes placements, and one call writes one source's claims -- and
+ * because the fix is not just this field: `findPlacementsOfItem` resolves a
+ * spokesman by rank, and a member list cannot copy that ordering, since
+ * position leads inside a container (ADR-0018) where rank leads across them.
  */
 export const memberPublic = z.object({
   id: z.uuid(),

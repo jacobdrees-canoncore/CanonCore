@@ -10,7 +10,7 @@ import {
 } from "@canoncore/ui/components/empty";
 import { call } from "@orpc/server";
 import { connection } from "next/server";
-import { Holding, Listing, PastTheEnd, Walk } from "@/components/listing";
+import { cursorFrom, Holding, Listing, PastTheEnd, Walk } from "@/components/listing";
 
 /**
  * THE CATALOGUE, which is what opening CanonCore ought to tell you.
@@ -70,18 +70,11 @@ export default async function CataloguePage({
 }: {
   searchParams: Promise<{ after?: string | string[] }>;
 }) {
-  /*
-   * WHERE IN THE CATALOGUE THIS READER IS, read on the SERVER so the page they
-   * are served is already the page they asked for.
-   *
-   * An array means the parameter was repeated, and a reader is at one place in
-   * one ordering -- so a repeated one names no place rather than the first of
-   * several. That is the rule `/items/<id>` applies to `via` and `placed`
-   * (ADR-0066), and a second surface answering it differently would be two
-   * conventions for one question.
-   */
+  // ADR-0119's cursor, read on the SERVER so the page a reader is served
+  // is already the page they asked for. `cursorFrom` owns what a repeated
+  // parameter means, so both reading surfaces answer that the same way.
   const { after } = await searchParams;
-  const from = typeof after === "string" && after !== "" ? after : undefined;
+  const from = cursorFrom(after);
   const { catalogue, providers } = await readFrontPage(from);
   // ONE NAME FOR ONE FACT. It was three reads of `catalogue.total` in three
   // shapes -- `> 0`, `=== 0`, and a comparison inside `Holding` -- which is one
@@ -102,7 +95,7 @@ export default async function CataloguePage({
         cursor makes possible: the link was cut at an item, and nothing is after
         that item any more. It is rare and it is a DEAD END if nothing says so.
       */}
-      {!empty && listing.length === 0 && <PastTheEnd path="/" what="The catalogue" />}
+      {!empty && listing.length === 0 && <PastTheEnd path="/" />}
       {listing.length > 0 && (
         <>
           <Listing entries={listing} />
