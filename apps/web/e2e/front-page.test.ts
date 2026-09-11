@@ -177,24 +177,24 @@ describe("/ on a catalogue larger than one page", () => {
     // have been walked would be asking the mechanism under test to mark its own
     // work: a cursor that loses the untitled tail would lose it from both
     // sides and the two would agree.
-    const catalogue = inject("pagedCatalogue");
+    const everyItem = inject("pagedCatalogue");
     const walked: string[] = [];
     let path: string | undefined = "/";
     // BOUNDED, so a cursor that does not advance FAILS rather than hangs.
-    for (let pages = 0; pages <= catalogue.ids.length; pages += 1) {
+    for (let pages = 0; pages <= everyItem.length; pages += 1) {
       const { status, text } = await documentFrom(inject("pagedBaseUrl"), path);
       expect(status).toBe(200);
       walked.push(...itemsLinkedFrom(text));
       path = carriesOnAt(text);
       if (path === undefined) {
-        expect([...walked].sort()).toStrictEqual([...catalogue.ids].sort());
+        expect([...walked].sort()).toStrictEqual([...everyItem].sort());
         // SORTED SETS COMPARE EQUAL EVEN WITH A REPEAT IN THEM, so the one
         // criterion the comparison above cannot see gets its own line.
         expect(new Set(walked).size).toBe(walked.length);
         return;
       }
     }
-    throw new Error(`the walk never ended: ${walked.length} of ${catalogue.ids.length} items`);
+    throw new Error(`the walk never ended: ${walked.length} of ${everyItem.length} items`);
   });
 
   it("says the catalogue ends here, where a link outlived the items after it", async () => {
@@ -225,13 +225,13 @@ describe("/ on a catalogue larger than one page", () => {
     // was built for and has never been asserted in: every catalogue in this
     // suite until now arrived whole on the first page, so "Showing 100 of 254"
     // and "254 items" were the same sentence.
-    const { ids } = inject("pagedCatalogue");
+    const everyItem = inject("pagedCatalogue");
 
     const { text } = await documentFrom(inject("pagedBaseUrl"), "/");
 
     expect(itemsLinkedFrom(text)).toHaveLength(100);
     expect(text).toContain(
-      `<p class="text-muted-foreground text-sm">Showing 100 of ${ids.length} items</p>`,
+      `<p class="text-muted-foreground text-sm">Showing 100 of ${everyItem.length} items</p>`,
     );
   });
 });

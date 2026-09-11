@@ -137,6 +137,19 @@ describe("readCatalogue, walked a page at a time", () => {
     expect(rest.entries).toHaveLength(1);
   });
 
+  it("reports the size of the catalogue on every page, not of what is left", async () => {
+    // A WINDOW COUNT IS TAKEN AFTER `where`, so `count(*) over ()` beside a
+    // keyset predicate counts the items PAST THE CURSOR -- and an owner paging
+    // through their library would watch it shrink as they read. Measured: with
+    // the window count back in place the walk above still passes, so the
+    // property needs saying here rather than being assumed from it.
+    const first = await readCatalogue(db, { limit: 2 });
+
+    const second = await readCatalogue(db, { limit: 2, after: first.continuesAfter ?? "" });
+
+    expect(second.total).toBe(first.total);
+  });
+
   it("steps from one item to the next where the two sort the same", async () => {
     // THE TIEBREAK, AND IT NEEDS ITS OWN TEST rather than riding on the walk
     // above. Measured: with the id comparison taken out of the cursor, that
@@ -224,6 +237,13 @@ describe("readCatalogue, walked a page at a time", () => {
  * against a shared test database holding a few dozen items. How big a page is
  * belongs to the caller, which is what lets this ask for a small one.
  *
+ * IT FOLLOWS `continuesAfter` RATHER THAN THE LAST ENTRY IT SAW, which is the
+ * difference between modelling a caller and modelling the query. Measured: an
+ * earlier version advanced on `entries.at(-1)` and stopped on an empty page, so
+ * a `continuesAfter` that was ALWAYS NULL left this test passing -- it was
+ * walking a route no caller has, because a caller is only ever handed the one
+ * this answers with.
+ *
  * IT IS BOUNDED, and the bound is what makes a broken walk a FAILURE rather
  * than a hang: a cursor that does not advance repeats its first page forever,
  * and a test that only ever times out on it says nothing about what went wrong.
@@ -234,9 +254,9 @@ async function walk(db: Database, pageSize: number): Promise<string[]> {
   const { total } = await readCatalogue(db, { limit: 1 });
   for (let pages = 0; pages <= total; pages += 1) {
     const page = await readCatalogue(db, { limit: pageSize, after });
-    if (page.entries.length === 0) return walked;
     walked.push(...page.entries.map((entry) => entry.id));
-    after = page.entries.at(-1)?.id;
+    if (page.continuesAfter === null) return walked;
+    after = page.continuesAfter;
   }
   throw new Error(`the walk did not end after ${total} pages of ${pageSize}`);
 }

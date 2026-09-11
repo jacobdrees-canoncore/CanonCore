@@ -29,11 +29,12 @@ async function readFrontPage(after: string | undefined) {
    * PRERENDERING STOPS HERE, and this line is the whole difference between a
    * front page and a photograph of one.
    *
-   * This page reads a database and touches no request-time API -- no cookies,
-   * no headers, no `searchParams` -- so Next prerendered it at BUILD time and
-   * served that HTML to every reader forever. The item page is dynamic by
-   * accident of reading `searchParams`; this one has nothing to read, so it
-   * says so instead. Next documents `connection()` for exactly this shape: "a
+   * This page reads a database, and when the line was added it touched no
+   * request-time API at all -- no cookies, no headers, no `searchParams` -- so
+   * Next prerendered it at BUILD time and served that HTML to every reader
+   * forever. IT READS `searchParams` NOW, for the cursor (ADR-0119), so it is
+   * dynamic by that as well; the line stays anyway, for the reason at the foot
+   * of this comment. Next documents `connection()` for exactly this shape: "a
    * component doesn't use Request-time APIs ... but still needs to produce
    * different output per request".
    *
@@ -43,12 +44,11 @@ async function readFrontPage(after: string | undefined) {
    * self-hosted instance that is a front page frozen at the moment somebody
    * built the image, which no import would ever change.
    *
-   * IT STAYS NOW THAT THE PAGE READS `searchParams` FOR THE CURSOR, which by
-   * ADR-0117's letter makes it redundant: a request-time API opts the route in
-   * on its own. The declaration is the rule rather than the effect. `?after=`
-   * is here to walk the catalogue, not to promise this page renders per
-   * request, and the day paging changes shape the page would go back to being
-   * a photograph of itself with nothing in the diff to say so.
+   * WHY IT STAYS, now that `searchParams` makes it redundant by ADR-0117's
+   * letter: the declaration is the rule, and being dynamic is the effect.
+   * `?after=` is here to walk the catalogue rather than to promise this page
+   * renders per request, and the day paging changes shape the page would go
+   * back to being a photograph of itself with nothing in the diff to say so.
    */
   await connection();
   // ONE CONTEXT FOR BOTH, rather than one each. It opens no connection of its
@@ -81,7 +81,7 @@ export default async function CataloguePage({
    * conventions for one question.
    */
   const { after } = await searchParams;
-  const from = typeof after === "string" ? after : undefined;
+  const from = typeof after === "string" && after !== "" ? after : undefined;
   const { catalogue, providers } = await readFrontPage(from);
   // ONE NAME FOR ONE FACT. It was three reads of `catalogue.total` in three
   // shapes -- `> 0`, `=== 0`, and a comparison inside `Holding` -- which is one
@@ -126,6 +126,12 @@ export default async function CataloguePage({
  * `Link` RATHER THAN `a`, which is the rule `Listing` below states in full: a
  * URL the framework does not rewrite is one that points at the wrong place the
  * day this app is served from a path (ADR-0109).
+ *
+ * THE CURSOR IS ENCODED ON THE WAY INTO THE URL. It is a uuid today and every
+ * uuid survives encoding unchanged, so this changes no byte the app currently
+ * emits -- which is the point: what makes it safe is then the call here rather
+ * than an invariant held in a schema two packages away, and ADR-0119 leaves the
+ * cursor's format open to revisit.
  */
 function Walk({ from, continuesAfter }: { from?: string; continuesAfter: string | null }) {
   if (from === undefined && continuesAfter === null) return null;
@@ -137,7 +143,10 @@ function Walk({ from, continuesAfter }: { from?: string; continuesAfter: string 
         </Link>
       )}
       {continuesAfter !== null && (
-        <Link href={`/?after=${continuesAfter}`} className="ml-auto text-sm hover:underline">
+        <Link
+          href={`/?after=${encodeURIComponent(continuesAfter)}`}
+          className="ml-auto text-sm hover:underline"
+        >
           Next
         </Link>
       )}

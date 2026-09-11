@@ -214,34 +214,26 @@ function describeRefusal(error: unknown): string {
   throw new Error(`not a PostgreSQL refusal: ${String(error)}`);
 }
 
-/** A catalogue bigger than one answer, and the two pairs that make a walk hard. */
-export interface LargeCatalogue {
-  /** Every item in it. The set a walk has to arrive at, exactly. */
-  ids: string[];
-  /** Two items that sort the SAME, separated only by their ids. */
-  tied: string[];
-  /** Two items with no title and no sort name, so no sort key at all. */
-  keyless: string[];
-}
-
 /**
- * A CATALOGUE LARGER THAN ONE PAGE, which is a state no other fixture here has
- * and the only one in which paging is observable at all.
+ * A CATALOGUE LARGER THAN ONE PAGE, answering with every id it wrote.
  *
- * IT CARRIES THE TWO HARD PAIRS rather than `plain` rows alone. A walk over a
- * few hundred distinctly-titled items passes against a cursor that compares
- * only the sort key and against one that cannot cross into the untitled tail --
- * both of which lose items, silently and permanently, on a real catalogue. The
- * pairs are what make the criterion "none is skipped" bite.
+ * IT IS THE ONLY STATE IN WHICH PAGING IS OBSERVABLE AT ALL, and no other
+ * fixture here has it: everything the other two instances hold arrives on the
+ * first page.
+ *
+ * IT CARRIES TWO HARD PAIRS rather than distinctly-titled rows alone. A walk
+ * over a few hundred distinct titles passes against a cursor that compares only
+ * the sort key, and against one that cannot cross into the untitled tail --
+ * both of which lose items silently and permanently on a real catalogue. The
+ * pairs are what make "none is skipped" bite. They are not returned separately:
+ * a walk that has to arrive at EVERY id has already arrived at them, and a
+ * field naming them would be one nothing reads.
  *
  * WRITTEN IN BULK, because the per-item helpers above are three round trips
- * each and this is the difference between a fixture that costs a moment and one
- * that costs a minute.
+ * each and this is the difference between a fixture costing a moment and one
+ * costing a minute.
  */
-export async function aCatalogueLargerThanOnePage(
-  db: Database,
-  plain: number,
-): Promise<LargeCatalogue> {
+export async function aCatalogueLargerThanOnePage(db: Database, size: number): Promise<string[]> {
   const ownerId = await theOwner(db);
   const sourceId = await ownerSource(db);
   const title = await propertyNamed(db, "title");
@@ -255,13 +247,16 @@ export async function aCatalogueLargerThanOnePage(
         .returning({ id: items.id })
     ).map((row) => row.id);
 
-  // PADDED, so the titles sort the way a reader would count them. Nothing
-  // asserts on the order, but a fixture whose tenth item sorts between its
-  // first and second is one nobody can read a failure out of.
-  const titled = await mint(plain);
+  // FOUR OF THE SIZE ARE THE PAIRS, so the caller asks for the number of items
+  // it wants and gets exactly that many -- rather than for a number that turns
+  // out to be four short of the catalogue it is about to walk.
+  const titled = await mint(size - 4);
   const tied = await mint(2);
   const keyless = await mint(2);
   await db.insert(statements).values([
+    // PADDED, so the titles sort the way a reader would count them. Nothing
+    // asserts on the order, but a fixture whose tenth item sorts between its
+    // first and second is one nobody can read a failure out of.
     ...titled.map((id, index) => ({
       ownerId,
       subjectItemId: id,
@@ -287,5 +282,7 @@ export async function aCatalogueLargerThanOnePage(
     })),
   ]);
 
-  return { ids: [...titled, ...tied, ...keyless], tied, keyless };
+  // `keyless` gets NO statement at all, which is the whole of its fixture: no
+  // title and no sort name is no sort key, and those sort last as one block.
+  return [...titled, ...tied, ...keyless];
 }

@@ -11,7 +11,6 @@ import {
   anItemTitled,
   aPlacement,
   aProvider,
-  type LargeCatalogue,
   ownerSource,
 } from "@canoncore/db/testing/catalogue";
 import { createORPCClient } from "@orpc/client";
@@ -178,7 +177,7 @@ async function aCatalogueTooBigForOnePage() {
    * with a MIDDLE one -- reached by a cursor and handing one on -- and the
    * middle is where a cursor that works at the edges still fails.
    */
-  const catalogue = await aCatalogueLargerThanOnePage(db, 250);
+  const catalogue = await aCatalogueLargerThanOnePage(db, 254);
   const port = await freePort();
   const server = spawn("next", ["start", "--port", String(port)], {
     cwd: webRoot,
@@ -614,8 +613,8 @@ declare module "vitest" {
     freshBaseUrl: string;
     /** The same build again, serving a catalogue of several hundred items. */
     pagedBaseUrl: string;
-    /** Every item that instance holds, and the two pairs a walk trips over. */
-    pagedCatalogue: LargeCatalogue;
+    /** Every item that instance holds: the set a walk has to arrive at, exactly. */
+    pagedCatalogue: string[];
     /** The wiki provider this run stood up: the real image in CI, a stub here. */
     providerWikiUrl: string;
     /** The TMDB provider, whose source row is what a TMDB claim is recorded against. */

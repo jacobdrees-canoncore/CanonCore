@@ -27,6 +27,19 @@ inefficient". Page forty-three of the archive would have the server walk four th
 discard them. That is an argument about a big catalogue, and a reader may reasonably discount it at
 eleven thousand items.
 
+**AND AS BUILT IT IS ONLY HALF WON, WHICH IS WORTH KNOWING BEFORE SOMEBODY QUOTES IT.** Measured
+with `explain analyze` on the 254-item fixture, page two of a hundred: the cursor is applied at the
+scan ("Rows Removed by Filter: 101") so only the 153 rows still ahead of the reader reach the
+`Sort` — work that SHRINKS as the walk goes on, where an offset sorts the whole catalogue on every
+page. But there is no index scan. `items_sort_name` indexes the bare column and the order is on
+`coalesce(sort_name, title)`, so each page still sequentially scans the table: `Seq Scan on items`,
+not a seek. **The sort is cheaper per page and the scan is not, so what a cursor buys here today is
+less than the quotation above suggests.** An index on the expression — `(coalesce(sort_name, title),
+id)` — is what would turn this into a seek, and it is deliberately NOT added: nothing has measured a
+problem at this size, the ticket is explicit that the walk needs no index beyond ADR-0014's, and an
+index added against a number nobody has taken is a migration written on a guess. The reason that
+settles the choice is the next one, and it does not depend on any of this.
+
 The SECOND reason is correctness, and it holds at any size. **An offset addresses a POSITION IN A
 RESULT, and the result moves.** Import an item that sorts early while a reader is on page two and
 every later row shifts down one: the item at the boundary is served twice and one item is never
@@ -87,6 +100,14 @@ and each is a way to lose Items silently.**
 - **No jump to page seven**, and no page numbers. An A–Z jump (`nameStartsWith`, which Plex has as
   `firstCharacterKey`) is the navigation that fits this shape, and the sweep already named it as
   cheap and adjacent. It is not built.
+- **A cursor moves if the Item it names is RETITLED under the reader.** The anchor's key is re-read
+  on each request, so if an import changes the title or `sort_name` of the Item page one ended on
+  while the reader is still on page one, page two resumes from wherever that Item sorts NOW and
+  everything between the two positions is skipped. This is the one case an ENCODED-KEY cursor would
+  win, because a key is a value and cannot be edited out from under a reader — and it is the price
+  of the id, taken with the reasons above rather than overlooked. It is narrower than the offset's
+  failure it replaces: an offset shifts on any insert or delete ANYWHERE ahead of the reader, where
+  this needs an edit to the one Item the cursor names, inside the seconds between two clicks.
 - **No Previous, yet.** Reversing a keyset walk means the comparison and the ordering both flip and
   the rows come back reversed — a symmetric `before`, but a second query shape, so it is a layer on
   top of this rather than the missing half of it. Until something needs it, every page past the first
@@ -95,7 +116,9 @@ and each is a way to lose Items silently.**
 
 ## Evidence
 
-PostgreSQL's LIMIT/OFFSET documentation, read 2026-09-11, for both quotations above. Plex's and
+PostgreSQL's LIMIT/OFFSET documentation, read 2026-09-11, for both quotations above. The query plan
+above is `explain analyze` run 2026-09-11 against this repo's own e2e fixture database
+(`..._test_paged`, 254 Items) on the PostgreSQL the worktree container runs. Plex's and
 Jellyfin's paging shapes are taken from this repo's own sweep — `docs/research/competitor-sweep/`
 (G33) and `docs/research/verify-adr-plex.md` — rather than re-derived, because that sweep is where
 they were checked against the products.

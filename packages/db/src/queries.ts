@@ -443,15 +443,13 @@ export async function readCatalogue(
        * is where that becomes the number the type claims; without it `total`
        * is a string wearing a number's type.
        */
-      total: sql<number>`(select count(*) from ${items} where ${items.deletedAt} is null)`.mapWith(
-        Number,
-      ),
+      total: sql<number>`(select count(*) from ${items} where ${IN_THE_CATALOGUE})`.mapWith(Number),
     })
     .from(items)
     // INNER, because `items.kind` is a foreign key into this table: a row with
     // no kind cannot exist, so there is nothing for a left join to preserve.
     .innerJoin(itemKinds, eq(itemKinds.kind, items.kind))
-    .where(and(isNull(items.deletedAt), anchor && past(anchor)))
+    .where(and(IN_THE_CATALOGUE, anchor && past(anchor)))
     /*
      * `nulls last` IS THE DEFAULT FOR `asc` AND IS WRITTEN OUT ANYWAY, because
      * `past` below reads it: an item with no title at all has no sort key, and
@@ -489,6 +487,17 @@ export async function readCatalogue(
     continuesAfter: rows.length > limit ? (page.at(-1)?.id ?? null) : null,
   };
 }
+
+/**
+ * WHAT IS IN THE CATALOGUE: everything the owner has not deleted (ADR-0075).
+ *
+ * WRITTEN ONCE because it is read twice in one function -- by the page and by
+ * the count beside it -- and it had been written twice, once in Drizzle and
+ * once in raw SQL. That is one rule in two languages, which is the hazard this
+ * file already carries a paragraph about: the day the rule gains a second term
+ * the count agrees with a listing neither of them is describing.
+ */
+const IN_THE_CATALOGUE = isNull(items.deletedAt);
 
 /**
  * THE KEY THE CATALOGUE SORTS ON (ADR-0014), written once.
@@ -556,7 +565,7 @@ async function countCatalogue(db: Database): Promise<number> {
   const [counted] = await db
     .select({ total: sql<number>`count(*)`.mapWith(Number) })
     .from(items)
-    .where(isNull(items.deletedAt));
+    .where(IN_THE_CATALOGUE);
   return counted?.total ?? 0;
 }
 
