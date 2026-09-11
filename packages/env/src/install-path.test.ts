@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { allSteps, workflow } from "@canoncore/config/testing/ci-workflow";
 import { repoRoot } from "@canoncore/config/testing/repo-root";
@@ -50,6 +50,8 @@ describe("the env schema, read as data", () => {
 
 const readme = () => readFileSync(join(repoRoot, "README.md"), "utf8");
 
+const INSTALL_HEADING = "## Installing it";
+
 /**
  * The README's install section: the heading a stranger lands on, down to the
  * next heading of the same level.
@@ -58,17 +60,31 @@ const readme = () => readFileSync(join(repoRoot, "README.md"), "utf8");
  * one that cannot fail. `README.md` mentions `DATABASE_URL` three times in its
  * development and CI prose, so a search of the whole file finds every required
  * variable named whether or not the install section says a word about them.
+ *
+ * FOUND AND SLICED RATHER THAN CAPTURED BY ONE REGEX, because the regex that did
+ * it was wrong in two ways at once and passed anyway. It ended `(?=^## |\Z)`,
+ * and JAVASCRIPT HAS NO `\Z`: in a regex literal that is an identity escape for
+ * the LETTER Z, which Biome then formatted down to a bare `Z` and made look
+ * deliberate. So the section ran to the next `## ` or to the first capital Z,
+ * whichever came first -- and with no later heading at all it matched nothing,
+ * so this function reported a section that was plainly there as missing. Both
+ * are fixtures below. A heading search and a slice cannot express either
+ * mistake.
  */
 function installSection(contents: string = readme()): string {
-  const section = /^## Installing it$([\s\S]*?)(?=^## |Z)/m.exec(contents);
-  if (!section) {
+  const lines = contents.split("\n");
+  const start = lines.indexOf(INSTALL_HEADING);
+  if (start === -1) {
     throw new Error(
-      "README.md has no `## Installing it` section. It is the one thing " +
+      `README.md has no \`${INSTALL_HEADING}\` section. It is the one thing ` +
         "awesome-selfhosted's checklist asks for by name, and this suite and that " +
         "heading are edited together.",
     );
   }
-  return section[1] as string;
+
+  const after = lines.slice(start + 1);
+  const next = after.findIndex((line) => line.startsWith("## "));
+  return (next === -1 ? after : after.slice(0, next)).join("\n");
 }
 
 describe("the README's install section", () => {
@@ -84,6 +100,23 @@ describe("the README's install section", () => {
 
     expect(installSection(contents)).toContain("DATABASE_URL");
     expect(installSection(contents)).not.toContain("SOMETHING_ELSE");
+  });
+
+  /**
+   * THE TWO CASES THE OLD TERMINATOR GOT WRONG, kept as fixtures rather than as
+   * a sentence in a commit message. The first passed only because `## Layout`
+   * happened to follow the section; the second truncated it at a letter.
+   */
+  it("reads a section that is the last thing in the file", () => {
+    expect(installSection([INSTALL_HEADING, "Set DATABASE_URL.", ""].join("\n"))).toContain(
+      "DATABASE_URL",
+    );
+  });
+
+  it("is not ended by a capital Z in the prose", () => {
+    const contents = [INSTALL_HEADING, "Zero setup. Set DATABASE_URL.", "## Layout", ""].join("\n");
+
+    expect(installSection(contents)).toContain("DATABASE_URL");
   });
 
   /**
@@ -213,6 +246,33 @@ describe("the sample environment file and the schema", () => {
   });
 
   /**
+   * AND THE GAP BETWEEN THE TWO, which the assertion above accepts and should
+   * not. It takes "the compose file sets it" as an honest home, and that is
+   * true of `PROVIDER_ALLOWLIST` whether or not the sample file still mentions
+   * it -- because compose sets it FROM the installer's environment. Delete the
+   * variable and its explanation from `.env.example` and every check above goes
+   * on passing, while the one setting a self-hoster has to be told about
+   * silently stops being documented.
+   *
+   * SO THE RULE IS READ OFF THE VALUE RATHER THAN THE KEY. `PROVIDER_ALLOWLIST:
+   * ${PROVIDER_ALLOWLIST:-}` interpolates, so it is the installation's to set
+   * and the sample file owes them a line about it. `DATABASE_URL`'s value names
+   * `POSTGRES_PASSWORD` and never `DATABASE_URL`, so it is composed FOR them and
+   * the sample file must not offer it -- an offer compose would ignore, which
+   * the assertion below this one already refuses.
+   */
+  it("offers every schema variable an installation is the one to set", () => {
+    const environment = appService().environment ?? {};
+    const offered = new Set(sampleVariables());
+
+    const undocumented = Object.keys(serverSchema).filter(
+      (name) =>
+        interpolatedByCompose(String(environment[name] ?? "")).includes(name) && !offered.has(name),
+    );
+    expect(undocumented).toStrictEqual([]);
+  });
+
+  /**
    * THE OTHER DIRECTION, which is the half that rots quietly. A variable left
    * in the sample file after the compose file stops reading it is a setting an
    * installation can type, restart for, and watch do nothing -- and it reads as
@@ -328,5 +388,108 @@ describe("the image the install path pulls", () => {
       .map((match) => match[1] as string);
 
     expect(produced).toContain(tag);
+  });
+});
+
+/**
+ * Every file the README tells a stranger to download, as the path inside this
+ * repository that the URL names.
+ *
+ * THE TWO URLS ARE THE ONLY PART OF THE INSTALL PATH THAT IS RESTATED RATHER
+ * THAN DERIVED, and they are restated in prose, which is where a rename goes to
+ * hide. `compose.yaml` moving or being renamed leaves the README pointing at a
+ * 404, and the person who finds out is the stranger following it -- the one
+ * audience who cannot look in the repository to see what happened.
+ *
+ * WHAT THIS CANNOT CHECK is that the URL RESOLVES. Every suite here installs the
+ * network gate, so an outbound request throws rather than reaching GitHub, and
+ * a test that needed the network would be a test that fails on a train. The
+ * half that is checkable offline is the half that actually rots: the path.
+ */
+function downloadedFiles(section: string = installSection()): {
+  owner: string;
+  repository: string;
+  ref: string;
+  path: string;
+}[] {
+  return [
+    ...section.matchAll(
+      /https:\/\/raw\.githubusercontent\.com\/([^/\s]+)\/([^/\s]+)\/([^/\s]+)\/(\S+?)(?=["'\s]|$)/g,
+    ),
+  ].map((url) => ({
+    owner: url[1] as string,
+    repository: url[2] as string,
+    ref: url[3] as string,
+    path: url[4] as string,
+  }));
+}
+
+describe("the files the README tells a stranger to download", () => {
+  it("finds each one in the section's prose", () => {
+    const found = downloadedFiles(
+      [
+        "curl -fsSLO https://raw.githubusercontent.com/owner/repo/main/compose.yaml",
+        "curl -fsSL -o .env https://raw.githubusercontent.com/owner/repo/main/.env.example",
+      ].join("\n"),
+    );
+
+    expect(found).toStrictEqual([
+      { owner: "owner", repository: "repo", ref: "main", path: "compose.yaml" },
+      { owner: "owner", repository: "repo", ref: "main", path: ".env.example" },
+    ]);
+  });
+
+  it("names at least the compose file and the sample environment file", () => {
+    expect(
+      downloadedFiles()
+        .map(({ path }) => path)
+        .sort(),
+    ).toStrictEqual([".env.example", "compose.yaml"]);
+  });
+
+  it("names a path that exists in this repository", () => {
+    const missing = downloadedFiles()
+      .map(({ path }) => path)
+      .filter((path) => !existsSync(join(repoRoot, path)));
+
+    expect(missing).toStrictEqual([]);
+  });
+
+  /**
+   * AND THE REPOSITORY THEY COME FROM IS THE ONE THE IMAGE OFFERS ITS SOURCE
+   * FROM, taken off the `Dockerfile`'s label rather than restated here. That
+   * label is how somebody holding only a pulled image finds this code (ADR-0113),
+   * so the two are the same statement and a fork that changes one changes both.
+   */
+  it("comes from the repository the image names as its source", () => {
+    const source =
+      /org\.opencontainers\.image\.source="https:\/\/github\.com\/([^/]+)\/([^"]+)"/.exec(
+        readFileSync(dockerfile, "utf8"),
+      );
+    if (!source) throw new Error("the Dockerfile states no image source label");
+
+    const elsewhere = downloadedFiles().filter(
+      ({ owner, repository }) =>
+        owner.toLowerCase() !== (source[1] as string).toLowerCase() ||
+        repository.toLowerCase() !== (source[2] as string).toLowerCase(),
+    );
+    expect(elsewhere).toStrictEqual([]);
+  });
+});
+
+describe("what the README's install section says about the allowlist", () => {
+  /**
+   * THE FOURTH STATEMENT OF ONE FACT, and the one that was unpinned. `schema.ts`,
+   * `compose.yaml`, `.env.example` and this section all say that an empty
+   * allowlist refuses every Provider; the suite held two of them. That is
+   * CNCORE-50's four-assertions-one-decision shape, and the cost here is a
+   * self-hoster reading the empty default as "nothing restricted yet", which is
+   * the meaning exactly backwards.
+   */
+  it("says that an empty allowlist refuses every Provider", () => {
+    const section = installSection().toLowerCase();
+
+    expect(section).toContain("provider_allowlist");
+    expect(section).toMatch(/empty refuses every provider/);
   });
 });

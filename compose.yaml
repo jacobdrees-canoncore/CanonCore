@@ -48,6 +48,15 @@ services:
       # exactly one place. It is in the schema as a required variable all the
       # same -- `packages/env` is what refuses to start without it -- and the
       # README names it for that reason.
+      #
+      # THE PASSWORD GOES IN RAW AND THERE IS NOWHERE TO ENCODE IT. Compose
+      # interpolates text; it has no percent-encoding function, so a password
+      # carrying : / ? # [ ] @ % builds a different URI or an invalid one.
+      # MEASURED 2026-09-11 with `pa/ss?w#rd@123`: the container died at the
+      # migration on `ERR_INVALID_URL` and `restart: unless-stopped` sent it
+      # round again. `.env.example` therefore asks for letters and digits and
+      # hands over a command that generates them, rather than asking the reader
+      # to think of a password and hope.
       DATABASE_URL: postgresql://canoncore:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env; copy .env.example if you have not}@database:5432/canoncore
       # EMPTY REFUSES EVERY PROVIDER (ADR-0034), which is the safe end of the
       # failure and is what a fresh install runs with until somebody writes a

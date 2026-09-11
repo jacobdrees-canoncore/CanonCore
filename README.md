@@ -17,7 +17,10 @@ mkdir canoncore && cd canoncore
 curl -fsSLO https://raw.githubusercontent.com/jacobdrees-canoncore/CanonCore/main/compose.yaml
 curl -fsSL -o .env https://raw.githubusercontent.com/jacobdrees-canoncore/CanonCore/main/.env.example
 
-# Open .env and set POSTGRES_PASSWORD to something long. Nothing else is required.
+# Set the database password. Letters and digits only: it ends up inside a
+# connection URI, and : / ? # [ ] @ % would break it. Appending is enough --
+# a later line in .env wins, so this fills in the blank the sample file leaves.
+echo "POSTGRES_PASSWORD=$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 32)" >> .env
 
 docker compose up -d
 ```
@@ -43,7 +46,7 @@ that from `POSTGRES_PASSWORD` so there is only ever one copy of the password.
 | Variable | Set by | What it is |
 |---|---|---|
 | `DATABASE_URL` | `compose.yaml`, from `POSTGRES_PASSWORD` | **Required.** The Postgres the catalogue lives in. The app validates it at build and at boot, so an absent or empty one is a failure at the start rather than at the first request. |
-| `POSTGRES_PASSWORD` | you, in `.env` | **Required.** The database password. Compose refuses to start without one rather than defaulting to something nobody would change. |
+| `POSTGRES_PASSWORD` | you, in `.env` | **Required, letters and digits only.** The database password. Compose refuses to start without one rather than defaulting to something nobody would change, and it composes `DATABASE_URL` from it -- so a password carrying `: / ? # [ ] @ %` makes that URI invalid and the container crash-loops on `ERR_INVALID_URL` before it ever serves. The command above generates a safe one. |
 | `PROVIDER_ALLOWLIST` | you, in `.env` | The hosts and address ranges a Provider may be fetched from, separated by commas or whitespace. **Empty refuses every Provider**, which is the default and is deliberate (ADR-0034): a fresh instance reaches nothing at all until you name a host. An empty catalogue is that setting rather than a fault, and the front page says so. |
 | `CANONCORE_PORT` | you, in `.env` | The host port to answer on. The container always serves 3000; this is only the host side of the mapping. Defaults to 3000. |
 | `NODE_ENV` | the image | Already `production` in the image. Nothing to set. |
