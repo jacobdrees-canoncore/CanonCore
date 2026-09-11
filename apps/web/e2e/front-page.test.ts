@@ -1,6 +1,6 @@
 import { describe, expect, inject, it } from "vitest";
 
-import { documentAt } from "./document";
+import { documentAt, documentFrom } from "./document";
 
 /**
  * THE FRONT PAGE, over real HTTP. ADR-0103's fourth seam, which is the one
@@ -9,6 +9,21 @@ import { documentAt } from "./document";
  */
 const itemId = inject("itemId");
 const itemTitle = inject("itemTitle");
+/**
+ * THE SECOND SERVER: the same build, an empty database, and no
+ * `PROVIDER_ALLOWLIST`. That is what a stranger's first run of CanonCore
+ * actually is (ADR-0094), and neither state exists on the seeded instance
+ * above -- so without it the two criteria below could only be asserted a layer
+ * down from the page that has to satisfy them.
+ */
+const freshBaseUrl = inject("freshBaseUrl");
+
+/** One `<section>` of a page, by the heading it is labelled with. */
+function section(text: string, label: string): string {
+  const found = text.match(new RegExp(`<section[^>]*aria-labelledby="${label}".*?</section>`))?.[0];
+  if (!found) throw new Error(`the page rendered no \`${label}\` section`);
+  return found;
+}
 
 describe("/", () => {
   it("shows the catalogue", async () => {
@@ -40,5 +55,40 @@ describe("/", () => {
     expect(arrived.status).toBe(200);
     expect(arrived.text).toContain(`<link rel="canonical" href="${linked}"/>`);
     expect(arrived.text).toContain(`<h1 class="text-3xl font-medium">${itemTitle}</h1>`);
+  });
+});
+
+describe("/ on a fresh install", () => {
+  it("says the catalogue is empty, and names the two steps that fill it", async () => {
+    // ADR-0094 ships no catalogue to a stranger and is explicit that this is
+    // only half the decision: "an install that starts empty WITHOUT SAYING WHAT
+    // TO DO NEXT is a separate failure this record does not licence". Two
+    // shards of the competitor sweep rated that first run HIGH. This is it
+    // closed -- words on a page, not rows in a database.
+    const { status, text } = await documentFrom(freshBaseUrl, "/");
+
+    expect(status).toBe(200);
+    const next = section(text, "what-to-do-next");
+    // THE VARIABLE BY ITS OWN NAME. "Allowlist a provider" is the step; the
+    // thing an owner has to type is the identifier, and a page that gestured at
+    // the step without naming it would leave them where the README left them.
+    expect(next).toContain("PROVIDER_ALLOWLIST");
+    expect(next.toLowerCase()).toContain("import");
+  });
+
+  it("says no provider is allowlisted, where one is not", async () => {
+    // ADR-0034's allowlist is empty by default and refuses every provider, so
+    // an unconfigured instance and a broken one look identical from a page.
+    const fresh = await documentFrom(freshBaseUrl, "/");
+
+    expect(() => section(fresh.text, "no-provider")).not.toThrow();
+  });
+
+  it("does not say it where a provider IS allowlisted", async () => {
+    // The other half, and the half that makes the one above a test: a page that
+    // printed the notice unconditionally would pass that one and fail this.
+    const seeded = await documentAt("/");
+
+    expect(() => section(seeded.text, "no-provider")).toThrow();
   });
 });

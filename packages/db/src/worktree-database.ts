@@ -9,8 +9,14 @@ const MAX_IDENTIFIER_BYTES = 63;
  * what it derives. Kept in step by `worktree-database.test.ts`, which builds
  * the derived names the way the harness builds them rather than trusting this
  * number.
+ *
+ * `_test_fresh` is the web suite's SECOND database, the empty one it serves a
+ * fresh install from (CNCORE-65). It is longer than `_test_web`, which is why
+ * this line moved: a suffix added without moving it eats the room reserved here
+ * silently, and the thing at the other end of that silence is
+ * `drop database ... with (force)` against the worktree's own catalogue.
  */
-const LONGEST_DERIVED_SUFFIX = "_test_web".length;
+const LONGEST_DERIVED_SUFFIX = "_test_fresh".length;
 
 /** `canoncore_` + stem + `_` + fingerprint, within the reserved budget. */
 const FINGERPRINT_LENGTH = 8;
