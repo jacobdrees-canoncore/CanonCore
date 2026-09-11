@@ -1,14 +1,20 @@
 # Accepted gitleaks findings, with the reason each is accepted.
 #
-# EMPTY, AND THAT IS THE POINT. This repository begins at a single seed commit
-# (ADR-0114), so the two third-party values this file used to pin do not exist
-# anywhere in it: they were redacted from the working files long ago and lived
-# only in commits that this repository does not have. Their fingerprints pinned
-# those commits by SHA, so carrying them here would assert that values are in a
-# history that never contained them -- and one of the three named a file this
-# repository does not even hold.
+# EMPTY, AND THAT IS EARNED RATHER THAN ASSUMED. This repository begins at a
+# single seed commit (ADR-0114), so the three fingerprints this file used to
+# carry pinned commits it does not have -- and one named a file it does not
+# hold. Removing them was correct. Assuming nothing would then be found was NOT:
+# the first CI run on the public repository flagged Plex's GPG public key
+# fingerprint, still live in the working file, and the note those entries
+# carried ("the values have been redacted from the working files") turned out to
+# be true of one value and not the other.
+#
+# So the second one is redacted now too, in the file, beside a sentence saying
+# what was removed and why. That is the durable fix: a fingerprint is
+# `commit:file:rule:line`, so it dies again on the next commit that touches the
+# file, while a redaction holds.
 #
 # Do not add to this file to make a check pass. If a finding is genuinely ours,
-# rotate the credential -- do not record it here. If a finding is a third-party
-# public value quoted as research evidence, redact the value from the working
-# file and say so beside the quotation, which is what was done before.
+# rotate the credential -- do not record it here. If it is a third-party public
+# value quoted as research evidence, redact it from the working file and say so
+# beside the quotation.
