@@ -9,8 +9,10 @@ import {
   EmptyTitle,
 } from "@canoncore/ui/components/empty";
 import { call } from "@orpc/server";
+import Link from "next/link";
 import { connection } from "next/server";
-import { cursorFrom, Holding, Listing, PastTheEnd, Walk } from "@/components/listing";
+import { Holding, Listing, PastTheEnd, Walk } from "@/components/listing";
+import { oneValue } from "@/components/query-params";
 
 /**
  * THE CATALOGUE, which is what opening CanonCore ought to tell you.
@@ -71,10 +73,10 @@ export default async function CataloguePage({
   searchParams: Promise<{ after?: string | string[] }>;
 }) {
   // ADR-0119's cursor, read on the SERVER so the page a reader is served
-  // is already the page they asked for. `cursorFrom` owns what a repeated
+  // is already the page they asked for. `oneValue` owns what a repeated
   // parameter means, so both reading surfaces answer that the same way.
   const { after } = await searchParams;
-  const from = cursorFrom(after);
+  const from = oneValue(after);
   const { catalogue, providers } = await readFrontPage(from);
   // ONE NAME FOR ONE FACT. It was three reads of `catalogue.total` in three
   // shapes -- `> 0`, `=== 0`, and a comparison inside `Holding` -- which is one
@@ -183,13 +185,28 @@ function WhatToDoNext() {
         <EmptyContent>
           <ol className="space-y-3 text-left">
             <li>
-              <span className="font-medium">Allowlist a provider.</span> Put the host or address
-              range it answers on in PROVIDER_ALLOWLIST, then restart. A provider is a URL rather
-              than code you install, so nothing runs inside your catalogue.
+              <span className="font-medium">Name a provider, and allowlist it.</span> Put its base
+              URL in PROVIDER_URLS and the host or address range it answers on in
+              PROVIDER_ALLOWLIST, then restart. Both: one says which providers to search and the
+              other says what may be reached. A provider is a URL rather than code you install, so
+              nothing runs inside your catalogue.
             </li>
             <li>
-              <span className="font-medium">Import from it.</span> Give the provider&rsquo;s base
-              URL and the id of one of its records, and the record arrives here as an Item. A
+              {/*
+                THE STEP IS A LINK NOW (CNCORE-68). This used to say to give a
+                provider's base URL and the id of one of its records, which is the
+                hand-POSTing the import surface exists to remove -- so the copy and
+                the product agreed only for as long as there was no surface. A
+                record can be found by NAME, and the page that does it is one click
+                from here rather than an address to know.
+              */}
+              <span className="font-medium">
+                <Link className="underline" href="/import">
+                  Import from it
+                </Link>
+                .
+              </span>{" "}
+              Search it by name and take what you find: the record arrives here as an Item. A
               provider that offers browse imports a whole ordering at once.
             </li>
           </ol>

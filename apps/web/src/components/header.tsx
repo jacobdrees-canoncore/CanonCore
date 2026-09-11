@@ -43,6 +43,16 @@ export default function Header() {
           <Link href="/works" className="text-base hover:underline">
             Works
           </Link>
+          {/*
+            AND THE SURFACE A CATALOGUE IS FILLED FROM, for the same reason the
+            two reading surfaces are here: an import page reachable only by
+            typing its address is one an owner has to be told about. It is in the
+            header rather than on the empty catalogue alone, because an owner who
+            already has items is just as likely to want another.
+          */}
+          <Link className="text-base hover:underline" href="/import">
+            Import
+          </Link>
         </nav>
         <div className="flex items-center gap-2">
           {/*

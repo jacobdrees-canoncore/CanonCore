@@ -115,3 +115,11 @@ reading `canoncore` beside a heading reading CanonCore is the scaffold showing t
 **What replaces it is added by the slice that needs it**, not restored on the way out. CNCORE-68 is
 the first surface that mutates from the browser, and it picks what it needs rather than inheriting a
 generator's guess.
+
+**AS BUILT IT NEEDED NOTHING NEW, which is the cheapest possible vindication of the paragraph above.**
+`/import` mutates through two Server Actions and a pair of forms, and it is built from the primitives
+`packages/ui` already vendors -- `Button`, `Input`, `Card`, `Empty` -- plus one plain `select`, for
+which the library offers a component that needs client state this page does not have. No toast, no
+form library, no state manager: the surface reports what it did by RE-READING THE CATALOGUE, so there
+was no client-side outcome to hold. What the generator shipped and this removed would have supplied a
+toaster and a form abstraction to a page that wanted neither.

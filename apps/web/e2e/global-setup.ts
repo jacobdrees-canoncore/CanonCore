@@ -65,6 +65,18 @@ export default async function setup(project: TestProject) {
     // the whole job of the config boundary; the content deny rule still refuses
     // `loopback` and goes on refusing it.
     PROVIDER_ALLOWLIST: "127.0.0.0/8",
+    /*
+     * WHICH PROVIDERS THIS INSTANCE SEARCHES (CNCORE-68). The two this harness
+     * stood up, named to the app the way a self-hoster names them -- so the
+     * import surface fans out over the SAME providers the imports below reach,
+     * and a candidate it offers is one the catalogue can be asked about.
+     *
+     * A SEPARATE SETTING FROM THE ALLOWLIST ABOVE, and both are needed: the
+     * allowlist says loopback MAY be reached and this says which addresses on it
+     * to ask. Neither is derivable from the other -- `127.0.0.0/8` carries no
+     * scheme and no port.
+     */
+    PROVIDER_URLS: [provider.url, tmdb.url, UNREACHABLE_PROVIDER].join(","),
   };
   await run("next", ["build"], env);
 
@@ -112,6 +124,19 @@ export default async function setup(project: TestProject) {
 
   project.provide("imported", await importThroughTheApp(baseUrl, provider.url));
   project.provide("attributed", await importFromTmdb(baseUrl, tmdb.url));
+  /*
+   * WHAT THE IMPORT SURFACE SEARCHES FOR, and which of the answers this harness
+   * has already imported. Both are facts about what was set up rather than
+   * expectations, which is why they are handed over from here: a test cannot know
+   * that one Matrix film is held and another is not without being told, and that
+   * state is made above rather than in the test.
+   */
+  project.provide("providerSearch", {
+    query: MATRIX_QUERY,
+    held: THE_MATRIX.title,
+    unreachable: UNREACHABLE_PROVIDER,
+    browsable: { provider: tmdb.url, container: MATRIX_COLLECTION },
+  });
   const browsed = await browseThroughTheApp(baseUrl, provider.url, databaseUrl);
   project.provide("browsed", browsed.fixture);
 
@@ -149,7 +174,32 @@ async function freshInstall(): Promise<{ baseUrl: string; close: () => void }> {
   const port = await freePort();
   const server = spawn("next", ["start", "--port", String(port)], {
     cwd: webRoot,
-    env: { ...process.env, DATABASE_URL: databaseUrl, PROVIDER_ALLOWLIST: "" },
+    env: {
+      ...process.env,
+      DATABASE_URL: databaseUrl,
+      PROVIDER_ALLOWLIST: "",
+      /*
+       * AND NO PROVIDER NAMED EITHER, which is the second half of the same first
+       * run. `PROVIDER_URLS` defaults to the empty string and the empty string
+       * names nothing, so a stranger's instance searches no provider -- and the
+       * import surface has to SAY that rather than show an empty result
+       * (ADR-0094). Passed explicitly rather than omitted, for the reason the
+       * allowlist is: this process inherits its own environment, and an omitted
+       * key would let the parent's value through.
+       *
+       * AND THE EXPLICIT EMPTY STRING IS NOT ENOUGH ON ITS OWN, which is worth
+       * knowing before somebody loses an afternoon to it. A value for either of
+       * these in `apps/web/.env` REACHES THIS SERVER ANYWAY and this instance
+       * stops being a fresh install: both notices vanish and four tests here fail
+       * together, pointing at the page rather than at the file. Measured while
+       * building CNCORE-68, by putting a provider in `.env` to look at the surface
+       * in a browser -- and it is not dotenv doing it, which leaves an explicit
+       * empty string alone (checked on 17.4.2), but Next's own env loading inside
+       * the server. CI never sees it because a fresh checkout has no `.env`; a
+       * developer's machine sees it the first time they configure one.
+       */
+      PROVIDER_URLS: "",
+    },
     stdio: "inherit",
   });
   const baseUrl = `http://127.0.0.1:${port}`;
@@ -377,6 +427,72 @@ const TMDB_NOTICE =
 const THE_MATRIX = { id: "movie:603", title: "The Matrix" };
 
 /**
+ * A THIRD PROVIDER THAT CANNOT BE REACHED, configured on purpose.
+ *
+ * ONE PROVIDER FAILING MUST NOT EMPTY A SEARCH (ADR-0033 under CNCORE-77), and
+ * that cannot be asserted on an instance where every provider works. So the
+ * seeded server is configured with a provider it will never reach, and every
+ * search it serves has to go on answering with what the other two said.
+ *
+ * A HOST THAT IS NOT ALLOWLISTED rather than a dead port, and the difference is
+ * determinism: a port nothing listens on is a port something else may take
+ * between this harness choosing it and the test running, whereas this fails at
+ * ADR-0034's config boundary before a socket is opened -- no DNS, no connection,
+ * the same refusal every run. `.invalid` is reserved by RFC 2606 for exactly
+ * this, so it is also a name that cannot one day resolve.
+ *
+ * AND IT IS THE COMMONEST REAL MISCONFIGURATION, which is why it is the failure
+ * worth rendering: naming a provider in `PROVIDER_URLS` and forgetting to
+ * allowlist its host is the mistake two settings make easy to walk into.
+ */
+const UNREACHABLE_PROVIDER = "http://provider.invalid";
+
+/**
+ * The query the import surface searches, and a SECOND film it finds.
+ *
+ * WHY A SECOND ONE EXISTS AT ALL (CNCORE-68). Every record this harness imports
+ * is held by the catalogue before the first assertion runs, so a search that
+ * found only those would show an Item link on every row BEFORE anything was
+ * imported -- and an Import button wired to nothing would pass every assertion
+ * about it. The surface needs one candidate the catalogue does NOT hold, and
+ * this is it: `THE_MATRIX` above is imported at setup and this one never is.
+ *
+ * MEASURED AGAINST TMDB'S OWN API on 2026-09-11, not recalled:
+ * `/3/search/movie?query=The%20Matrix` answers 603 (`The Matrix`, 1999-03-31)
+ * first and 604 (`The Matrix Reloaded`, 2003-05-15) second. So the real image in
+ * CI offers both for this query and the stub below offers the same two.
+ *
+ * THE ASSERTIONS READ THE UNHELD ROW OFF THE PAGE rather than naming it, which
+ * is what keeps the two runs indistinguishable: the real image answers several
+ * more films for this query and the suite cannot tell, because it asks the page
+ * which candidate it is not holding instead of saying which one that should be.
+ */
+const MATRIX_QUERY = "The Matrix";
+const THE_MATRIX_RELOADED = { id: "movie:604", title: "The Matrix Reloaded" };
+
+/**
+ * The COLLECTION the import surface browses, and the one container in this suite
+ * that nothing else has already taken.
+ *
+ * IT IS NOT A CHOICE THIS FILE IS MAKING. `packages/contract/src/participants.ts`
+ * names `collection:2344` as "a container id this provider really holds" for
+ * `provider-tmdb`, and the contract suite holds the real image to it -- so this is
+ * that fact reused rather than an assumption about what TMDB can be browsed by.
+ *
+ * WHY NOT A WIKI CATEGORY. Every container in `wiki-fixture.ts` is browsed before
+ * the first assertion runs: 91997 and 388305 by this file, 47650 and 47651 by
+ * `multi-placement.test.ts`. A browse of one of those could not show an ORDERING
+ * ARRIVING, because it had already arrived -- and a button wired to nothing would
+ * pass. This collection is browsed by nothing else, so the transition is real.
+ *
+ * MEASURED AGAINST TMDB'S OWN API on 2026-09-11: `/3/collection/2344` is `The
+ * Matrix Collection` and its parts are 603, 604, 605 and 624860. The stub answers
+ * the first two of those, which is enough for an ordering to exist; the real image
+ * answers all four and no assertion can tell, because none of them counts members.
+ */
+const MATRIX_COLLECTION = "collection:2344";
+
+/**
  * A stand-in for the real image, for a machine that cannot pull a private one.
  *
  * The manifest is the real one's, `attribution` included, because that is the
@@ -416,15 +532,98 @@ async function stubTmdbProvider(): Promise<{ url: string; close: () => Promise<v
     images: [],
     external_ids: { tmdb: "603", imdb: "tt0133093" },
   };
+  /** The sequel, which nothing here imports. See `THE_MATRIX_RELOADED`. */
+  const reloaded = {
+    id: THE_MATRIX_RELOADED.id,
+    title: THE_MATRIX_RELOADED.title,
+    kind: "movie",
+    released: ["2003-05-15"],
+    writers: ["Lana Wachowski", "Lilly Wachowski"],
+    series: "The Matrix Collection",
+    series_id: "collection:2344",
+    url: "https://www.themoviedb.org/movie/604",
+    images: [],
+    external_ids: { tmdb: "604", imdb: "tt0234215" },
+  };
+  const records = [record, reloaded];
+  /**
+   * The collection as a browse answers it: the container, and its parts in
+   * release order.
+   *
+   * THE CONTAINER IS A RECORD TOO (ADR-0004), which is why it carries the same
+   * fields as a film. Its `kind` is the provider's own word for what it is.
+   */
+  const collection = {
+    container: {
+      id: MATRIX_COLLECTION,
+      title: "The Matrix Collection",
+      kind: "collection",
+      released: [],
+      writers: [],
+      series: null,
+      url: "https://www.themoviedb.org/collection/2344",
+      images: [],
+      external_ids: { tmdb: "2344" },
+    },
+    ordering: [
+      { position: 1, record },
+      { position: 2, record: reloaded },
+    ],
+    unplaced: [],
+  };
   return onLoopback((path, answer) => {
     if (path === "/") return answer(manifest, 200);
+    if (path.startsWith("/search")) return answer(searchOver(records, path), searchStatus(path));
+    if (path === `/browse/${encodeURIComponent(MATRIX_COLLECTION)}`) {
+      return answer(collection, 200);
+    }
     if (path === `/lookup/${encodeURIComponent(THE_MATRIX.id)}`) return answer(record, 200);
+    if (path === `/lookup/${encodeURIComponent(THE_MATRIX_RELOADED.id)}`) {
+      return answer(reloaded, 200);
+    }
     return answer({ error: "no such record" }, 404);
   });
 }
 
 /** What a stub answers one request with: a JSON body and a status. */
 type Answer = (body: unknown, status: number) => void;
+
+/** The `q` of a `/search` path, which is the only parameter CMPP's search takes. */
+function queryOf(path: string): string {
+  return new URL(path, "http://provider.test").searchParams.get("q") ?? "";
+}
+
+/**
+ * `search`, over whatever records a stub holds, MATCHED ON THE TITLE.
+ *
+ * THE LEAST A STUB CAN DO AND STILL BE A SEARCH. One answering every query with
+ * everything could not tell a query that found something from one that found
+ * nothing, so the page's "nothing matched" branch would never be reached here
+ * while CI reached it for real.
+ *
+ * SHARED BY BOTH STUBS, because a second copy is where the two quietly stop
+ * agreeing about what a CMPP search does -- the reason `onLoopback` below is
+ * shared.
+ */
+function searchOver(records: { title: string }[], path: string): unknown {
+  const query = queryOf(path);
+  if (query.trim() === "") return { error: "a query is required" };
+  return {
+    results: records.filter((record) => record.title.toLowerCase().includes(query.toLowerCase())),
+  };
+}
+
+/**
+ * `400` FOR A MISSING OR EMPTY QUERY, which is ADR-0033's reading as CNCORE-33
+ * settled it: an empty RESULT is an answer and a missing QUERY is a mistake, and
+ * `?q=` is the absent case wearing a different spelling. Both real providers
+ * answer it that way, so a stub that answered `200 {"results":[]}` would make
+ * this suite's two runs disagree about the contract they exist to hold each other
+ * to -- which is the exact divergence ADR-0110 records the contract test finding.
+ */
+function searchStatus(path: string): number {
+  return queryOf(path).trim() === "" ? 400 : 200;
+}
 
 /**
  * A JSON server on a loopback port the operating system picks.
@@ -482,8 +681,24 @@ async function theProvider(): Promise<{ url: string; close: () => Promise<void> 
 
 /** A stand-in for the real image, for a machine that cannot pull a private one. */
 async function stubWikiProvider(): Promise<{ url: string; close: () => Promise<void> }> {
+  /**
+   * Everything this stub can be asked for by name: the looked-up story, every
+   * container, and every member of every container.
+   *
+   * THE CONTAINERS ARE IN IT TOO, because a container is a record like any other
+   * (ADR-0004) and the real provider's search does not hide one.
+   */
+  const searchable = [
+    TENTH_PLANET,
+    ...Object.values(CONTAINERS).flatMap((browsed) => [
+      browsed.container,
+      ...browsed.ordering.map(({ record }) => record),
+      ...browsed.unplaced,
+    ]),
+  ];
   return onLoopback((path, answer) => {
     if (path === "/") return answer(WIKI_MANIFEST, 200);
+    if (path.startsWith("/search")) return answer(searchOver(searchable, path), searchStatus(path));
     if (path.startsWith("/browse/")) {
       // `Object.hasOwn` rather than a bare index: the id is a path segment, and
       // `/browse/constructor` otherwise finds `Object` on the prototype and
@@ -785,6 +1000,18 @@ declare module "vitest" {
      * show a notice and a mark (ADR-0036).
      */
     attributed: { id: string; title: string; notice: string };
+    /**
+     * A query the import surface can be driven with: one answer this catalogue
+     * already holds, and at least one it does not.
+     */
+    providerSearch: {
+      query: string;
+      held: string;
+      /** A provider this instance is configured with and can never reach. */
+      unreachable: string;
+      /** A container nothing in this suite has browsed, and who holds it. */
+      browsable: { provider: string; container: string };
+    };
     /** A real browsed story in two orderings, and the two shapes browse hands over. */
     browsed: {
       inTwoOrderings: string;

@@ -129,6 +129,21 @@ async function stubProvider(
     };
     const path = request.url ?? "/";
     if (path === "/") return json({ ...MANIFEST, operations, attribution });
+    // `search`, MATCHED ON THE TITLE, which is the least a stub can do and still
+    // be a search: a stub answering every query with everything could not tell a
+    // query that found something from one that found nothing. A missing or empty
+    // `q` is a `400` because that is the reading ADR-0033 settled under CNCORE-33
+    // and both real providers answer it.
+    if (path.startsWith("/search")) {
+      const query = new URL(path, "http://provider.test").searchParams.get("q") ?? "";
+      if (query.trim() === "") return json({ error: "a query is required" }, 400);
+      const matching = Object.values(records).filter((record) =>
+        String((record as { title: string }).title)
+          .toLowerCase()
+          .includes(query.toLowerCase()),
+      );
+      return json({ results: matching });
+    }
     // `Object.hasOwn` rather than a bare index on both: the id is a path segment
     // the caller writes, and `/browse/constructor` otherwise finds `Object` on
     // the prototype and answers 200 with a body of `undefined`.
@@ -597,5 +612,168 @@ describe("provider.allowlisted", () => {
     });
 
     expect(answer).toStrictEqual({ any: false });
+  });
+});
+
+/**
+ * THE FAN-OUT BEHIND A PROCEDURE (ADR-0033, CNCORE-68).
+ *
+ * `searchProviders` reaches several providers at once and `@canoncore/providers`
+ * has had it since CNCORE-77 with a test for its only caller. This is the
+ * operation: the owner's query, every configured provider asked, and -- the part
+ * neither the fan-out nor the client can answer -- which of the candidates this
+ * catalogue already holds.
+ */
+describe("provider.search", () => {
+  it("finds a record by name, with no id known in advance, and says who answered", async () => {
+    const baseUrl = await stubProvider();
+    const searching = { ...context, providerUrls: [baseUrl] };
+
+    const { answered } = await call(
+      appRouter.provider.search,
+      { query: "tenth planet" },
+      { context: searching },
+    );
+
+    // THE PROVIDER'S OWN NAME FOR ITSELF, read off its manifest. A source
+    // answers "who said this", and `http://127.0.0.1:39481` shows an owner a
+    // deployment detail where `provider-wiki` answers the question.
+    expect(answered).toEqual([
+      {
+        provider: { baseUrl, name: "provider-wiki" },
+        results: [
+          {
+            recordId: "265",
+            title: "The Tenth Planet (TV story)",
+            kind: "TV story",
+            released: ["1966-10-08"],
+            url: "https://tardis.wiki/wiki/The_Tenth_Planet_(TV_story)",
+            // Nothing has imported it, so there is no Item to reach yet.
+            itemId: null,
+          },
+        ],
+      },
+    ]);
+  });
+
+  /**
+   * EVERY PROVIDER, AND ONE OF THEM BEING DOWN IS NOT THE SEARCH BEING DOWN.
+   *
+   * The failure here is a REFUSAL rather than a dead socket, because a refusal is
+   * the one that would plausibly be raised as the whole search's error: it is
+   * ADR-0034's answer to a URL this instance may not reach, and `import` below
+   * quite rightly turns it into a declared error of its own. Raising it here
+   * would throw away every other provider's answers because one URL was not
+   * allowlisted -- and it would do it non-deterministically, whichever provider
+   * lost the race deciding.
+   */
+  it("answers with what the other providers said when one of them fails", async () => {
+    const answering = await stubProvider();
+    // A URL this instance may not reach: the suite allowlists loopback by name,
+    // and this is a public host that is on no allowlisted entry.
+    const refused = "http://provider.invalid";
+    const searching = { ...context, providerUrls: [refused, answering] };
+
+    const { answered, failed } = await call(
+      appRouter.provider.search,
+      { query: "tenth planet" },
+      { context: searching },
+    );
+
+    expect(answered.map(({ provider: p }) => p.baseUrl)).toEqual([answering]);
+    expect(answered[0]?.results.map((r) => r.recordId)).toEqual(["265"]);
+    // WHO, AND WHY, rather than a shorter list. A provider that is down and a
+    // provider that matched nothing are different answers, and an owner who
+    // cannot tell them apart concludes their query was wrong.
+    expect(failed).toHaveLength(1);
+    expect(failed[0]?.baseUrl).toBe(refused);
+    expect(failed[0]?.reason).toContain("not an allowlisted host");
+  });
+
+  /**
+   * AND A CANDIDATE THE CATALOGUE ALREADY HOLDS SAYS WHICH ITEM IT IS.
+   *
+   * This is the field a page has no other way to get. Without it the surface
+   * shows an identical row before and after an import, so nothing reports that
+   * the import happened -- and the alternative, redirecting to the new Item,
+   * emits a URL Next does not rewrite (ADR-0109; measured on 16.3.4).
+   *
+   * IT IS ALSO WHAT MAKES "re-importing changes nothing" VISIBLE. The second
+   * import answers the same item as the first, so the same row names the same
+   * Item rather than a second one.
+   */
+  it("names the item a candidate is already held as, and the same one on a re-import", async () => {
+    const baseUrl = await stubProvider();
+    const searching = { ...context, providerUrls: [baseUrl] };
+
+    const first = await call(appRouter.provider.import, { baseUrl, recordId: "265" }, { context });
+    const again = await call(appRouter.provider.import, { baseUrl, recordId: "265" }, { context });
+    const { answered } = await call(
+      appRouter.provider.search,
+      { query: "tenth planet" },
+      { context: searching },
+    );
+
+    expect(again.itemId).toBe(first.itemId);
+    expect(answered[0]?.results[0]?.itemId).toBe(first.itemId);
+  });
+});
+
+/**
+ * ADR-0094's first run, from the other end. The allowlist being empty is one way
+ * an instance reaches no provider; having no provider NAMED is the other, and
+ * the two are separate settings with separate remedies.
+ */
+describe("provider.configured", () => {
+  it("names the providers this instance searches", async () => {
+    const baseUrl = await stubProvider();
+
+    const answer = await call(appRouter.provider.configured, undefined, {
+      context: { ...context, providerUrls: [baseUrl] },
+    });
+
+    expect(answer).toStrictEqual({ providers: [baseUrl] });
+  });
+
+  it("answers with none where none is configured, rather than refusing", async () => {
+    // `PROVIDER_URLS` unset is the empty string, and the empty string names no
+    // provider. That is an ANSWER a surface has to be able to put in front of an
+    // owner -- an instance nobody has configured and one that is broken look
+    // identical otherwise -- rather than an error.
+    const answer = await call(appRouter.provider.configured, undefined, {
+      context: { ...context, providerUrls: [] },
+    });
+
+    expect(answer).toStrictEqual({ providers: [] });
+  });
+});
+
+/**
+ * WHAT THIS CATALOGUE ALREADY HOLDS OF ONE PROVIDER'S RECORDS, asked about ids the
+ * owner names rather than about a query.
+ *
+ * `search` answers the same question for the candidates IT found. This is for the
+ * record the owner names themselves -- a container id, which nothing in CMPP hands
+ * over (ADR-0033) -- so there is no search to carry the answer.
+ */
+describe("provider.held", () => {
+  it("answers the item one of a provider's records is held as, and omits the rest", async () => {
+    const baseUrl = await stubProvider();
+    const { itemId } = await call(
+      appRouter.provider.import,
+      { baseUrl, recordId: "265" },
+      { context },
+    );
+
+    const { items: held } = await call(
+      appRouter.provider.held,
+      { baseUrl, recordIds: ["265", "a record this catalogue has never seen"] },
+      { context },
+    );
+
+    // OMITTED RATHER THAN NULL for a record that is not held. The caller asked
+    // "which of these do you have", and a row per id with nothing in it is a
+    // longer way of saying the same thing.
+    expect(held).toEqual([{ recordId: "265", itemId }]);
   });
 });
