@@ -105,7 +105,9 @@ question about the index being right.
 is the surface and `apps/web/src/components/search-box.tsx` puts its box in the shell, on every page.
 
 **Search results are capped and the tail is not reachable yet.** `total` is what keeps that from
-being silent. CNCORE-88 carries the walk, and it is not a copy of
+being silent. CNCORE-88 carries the walk, and it is not a straight copy of
 [[0119-a-listing-is-walked-forward-from-the-last-item-it-showed]]: a keyset walk needs its anchor's
 place in the order, and this order leads on `similarity(title, query)`, which is a function of the
-QUERY rather than a column of the item.
+QUERY rather than a column of the Item — so the anchor's place is RECOMPUTED from a query the
+request resupplies, rather than read off the anchor row. **That is a cost and a design decision, not
+a barrier**: the walk is deferred here rather than ruled out.
