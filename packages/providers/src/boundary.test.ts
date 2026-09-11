@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  allowsAnything,
   assertConfigAddress,
   assertConfigUrl,
   assertContentAddress,
@@ -418,5 +419,22 @@ describe("the scheme", () => {
   it("refuses a content URL whose host is a literal address it may not reach", () => {
     expect(() => assertContentUrl(new URL("http://169.254.169.254/"))).toThrow(OutboundRefused);
     expect(() => assertContentUrl(new URL("http://[fd00:ec2::254]/"))).toThrow(OutboundRefused);
+  });
+});
+
+/**
+ * ADR-0034's allowlist is empty by default, which refuses every provider. That
+ * is the safe default AND the state a fresh install is in, so a surface has to
+ * be able to tell the owner they are in it rather than let an import fail
+ * later with a refusal they did not expect (ADR-0094).
+ */
+describe("whether an allowlist names anything at all", () => {
+  it("says no for the default, which is the empty string", () => {
+    expect(allowsAnything(parseAllowlist(""))).toBe(false);
+  });
+
+  it("says yes for a host, and yes for a range", () => {
+    expect(allowsAnything(parseAllowlist("wiki.example"))).toBe(true);
+    expect(allowsAnything(parseAllowlist("127.0.0.0/8"))).toBe(true);
   });
 });

@@ -20,12 +20,15 @@ export {
 export { type PurgedProvider, previewProviderPurge, purgeProvider } from "./purge";
 export {
   type AttributionOwed,
+  type Catalogue,
+  type CatalogueEntry,
   findAttributionOwed,
   findItem,
   findPlacementsOfItem,
   findStatementsOfItem,
   type ItemRow,
   type PlacementOfItem,
+  readCatalogue,
   type StatementOfItem,
 } from "./queries";
 export * from "./schema";

@@ -168,3 +168,45 @@ export const itemPublic = z.object({
 });
 
 export type ItemPublic = z.infer<typeof itemPublic>;
+
+/**
+ * What the read path emits for one entry in the catalogue listing.
+ *
+ * ADR-0045 again, and DELIBERATELY NARROWER THAN `itemPublic`: a listing is not
+ * an item page with the sections dropped. It carries what a reader needs to
+ * recognise a row and follow it -- its address, its name, what sort of thing it
+ * is -- and nothing a page would have to fetch the rest of the item to render.
+ */
+export const catalogueEntryPublic = z.object({
+  /** The item's ADDRESS. `/items/<id>` is canonical (ADR-0066). */
+  id: z.uuid(),
+  /** ADR-0014: the projected title. An item with no title statement has none. */
+  title: z.string().nullable(),
+  /**
+   * ADR-0005's kinds, so a Person and a Work sharing a name are distinguishable
+   * in a list rather than only once a reader has opened one of them.
+   */
+  kind: z.string(),
+  /**
+   * ADR-0004 folds containers into `work`, so `kind` alone cannot tell a story
+   * from an ordering that holds stories. This is what tells them apart.
+   */
+  isContainer: z.boolean(),
+});
+
+export type CatalogueEntryPublic = z.infer<typeof catalogueEntryPublic>;
+
+/**
+ * What the read path emits for the catalogue as a whole.
+ *
+ * `total` IS PART OF THE CONTRACT rather than something a caller counts for
+ * itself, because `entries` is capped: a surface that could only count what it
+ * was given would report the first page as the whole catalogue.
+ */
+export const cataloguePublic = z.object({
+  entries: z.array(catalogueEntryPublic),
+  /** How many items the catalogue holds altogether, cap or no cap. */
+  total: z.number().int().nonnegative(),
+});
+
+export type CataloguePublic = z.infer<typeof cataloguePublic>;

@@ -214,10 +214,18 @@ describe("item.get", () => {
     // The witness is a variant-`c` GUID: Postgres stores it and RFC 9562 rejects
     // it. Nothing here mints one -- every id comes from `gen_random_uuid()` --
     // so the row has to be written by hand to test the disagreement at all.
+    //
+    // AND IT IS TAKEN BACK OUT AGAIN, which is not tidiness. This suite shares
+    // one database, and a row the read path can never emit is a row every
+    // CATALOGUE-WIDE read in it then has to cope with -- `catalogue.list` met
+    // this one and failed output validation on the whole listing, which is one
+    // test's witness breaking another test's subject. It exists for the length
+    // of the call below and no longer.
     const unmintable = "c1eebc99-9c0b-4ef8-cb6d-6bb9bd380a11";
     await db.insert(items).values({ id: unmintable, ownerId: await theOwner(db), kind: "work" });
 
     const { error } = await safe(call(appRouter.item.get, { id: unmintable }, { context }));
+    await db.delete(items).where(eq(items.id, unmintable));
 
     // The guard both asserts and NARROWS: `safe` types the error as the
     // procedure's declared union, so past this line `code` exists.

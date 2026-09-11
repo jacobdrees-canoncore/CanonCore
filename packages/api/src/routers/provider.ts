@@ -10,6 +10,7 @@ import {
 } from "@canoncore/db";
 import {
   type Allowlist,
+  allowsAnything,
   type CmppManifest,
   type CmppRecord,
   createProviderClient,
@@ -198,6 +199,29 @@ const purgeCounts = z.object({
 });
 
 export const provider = {
+  /**
+   * Whether this instance may reach ANY provider at all.
+   *
+   * ADR-0034 makes the allowlist empty by default, and empty refuses
+   * everything. That is the right default and it is also invisible: an owner
+   * whose catalogue will not fill sees imports refused one at a time, with no
+   * way to tell a wrong URL from an instance that was never configured to reach
+   * anything. ADR-0094 names the same gap from the other end -- an install that
+   * starts empty without saying what to do next -- so this exists to be SAID on
+   * a page rather than discovered at the first failed import.
+   *
+   * A BOOLEAN RATHER THAN THE ALLOWLIST. What is on it is the owner's
+   * configuration and the answer to a different question; what a surface needs
+   * is whether there is anything on it at all. Handing over the entries would
+   * put a private network's addresses in a response to satisfy a yes-or-no.
+   *
+   * NO REQUEST LEAVES THE APP. It reads the configuration this process started
+   * with, which is what `createContext` parsed at module load.
+   */
+  allowlisted: publicProcedure
+    .output(z.object({ any: z.boolean() }))
+    .handler(({ context }) => ({ any: allowsAnything(context.providerAllowlist) })),
+
   /**
    * Imports one record from a provider, over HTTP, and answers with the item it
    * wrote.

@@ -125,6 +125,25 @@ export function parseAllowlist(configured: string): Allowlist {
 }
 
 /**
+ * Whether this allowlist names ANY destination, which is the question a surface
+ * asks before telling an owner why their catalogue cannot fill.
+ *
+ * ADR-0034 makes the allowlist empty by default and that refuses every
+ * provider, so an unconfigured instance and a misconfigured one look identical
+ * from a page: no import works, and nothing says why. ADR-0094 is explicit that
+ * an install starting empty WITHOUT SAYING WHAT TO DO NEXT is a separate
+ * failure, and this is the fact the saying rests on.
+ *
+ * IT LIVES BESIDE `parseAllowlist` RATHER THAN AT THE CALLER, because it is a
+ * question about the shape `parseAllowlist` returns: the two lists are two
+ * fields today, and a caller reading both by hand is a caller that keeps
+ * answering `true` the day a third arrives.
+ */
+export function allowsAnything(allowlist: Allowlist): boolean {
+  return allowlist.hosts.size > 0 || allowlist.ranges.length > 0;
+}
+
+/**
  * A URL's host as an ADDRESS would be written, with the brackets the URL syntax
  * puts round an IPv6 literal removed.
  *
