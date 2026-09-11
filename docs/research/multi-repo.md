@@ -1272,9 +1272,8 @@ repositories have no route to an enforced merge gate.** A public repo in a GitHu
 branch restrictions and a private one does not — GitHub's own words, read 2026-09-10:
 *"You can enable branch restrictions in public repositories owned by a GitHub Free organization and in
 all repositories owned by an organization using GitHub Team or GitHub Enterprise Cloud."* Keeping both
-provider repos private is a knowing choice to keep their merge gates conventions. This said "three
-repositories rather than one" when written, counting CanonCore; CNCORE-62 made CanonCore public the
-next day, and ADR-0118 measured and used the route there.
+provider repos private is a knowing choice to keep their merge gates conventions. It counted
+CanonCore too when written; entry 5 above carries why it no longer does.
 
 ---
 
