@@ -48,3 +48,15 @@ it make a new thing EXIST? The first is what this record is for. The second is A
 The demo sequences last and the clients after version one, so for the whole of version one the
 second audience has exactly one thing to read: this repository. That is an argument for the records
 being good, not for there being more of them.
+
+## Half built, under CNCORE-62 — and this record stays PROPOSED
+
+**BUILT: the flip.** The repository is public, under AGPL-3.0-or-later, and what the second audience
+reads is on it — 108 records with dated evidence, `CONTEXT.md`, and the research corpus they are
+argued from. `canoncore-history` keeps the pre-publication history and the forensic record, archived
+and read-only ([[0114-the-public-repository-is-a-fresh-one]]).
+
+**NOT BUILT: the other two things this record calls requirements rather than appendices.** There is
+no client and no demo, and this record is explicit that both are owed to the same audience. It flips
+to `accepted` when they exist, not before — which is the point of writing them down as requirements
+rather than as hopes.
