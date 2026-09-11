@@ -268,24 +268,6 @@ export const provider = {
     .handler(({ context }) => ({ any: allowsAnything(context.providerAllowlist) })),
 
   /**
-   * Imports one record from a provider, over HTTP, and answers with the item it
-   * wrote.
-   *
-   * THE WHOLE OPERATION AT ONCE, and that is a statement about where the
-   * project is rather than a design. ADR-0026 makes MATCHING and APPLYING two
-   * operations with two endpoints, precisely so a separation living only in a
-   * screen design does not get collapsed by the next screen design. Neither
-   * exists yet: nothing scores a candidate and nothing chooses among a record's
-   * values, so there is nothing for the split to separate. When the first of
-   * them lands it takes its own procedure, and this one is what it replaces.
-   *
-   * NO CREDENTIAL, ANYWHERE ON THIS PATH (ADR-0035). The instance supplies its
-   * own, and the wiki provider needs none at all -- no key, no rate limit, no
-   * attribution string -- which is exactly why ADR-0069 makes it the first
-   * provider written. There is no field here for one and nothing in this repo
-   * holds one.
-   */
-  /**
    * WHICH PROVIDERS THIS INSTANCE SEARCHES, so a surface can say "none" rather
    * than show an empty result.
    *
@@ -472,6 +454,24 @@ export const provider = {
       };
     }),
 
+  /**
+   * Imports one record from a provider, over HTTP, and answers with the item it
+   * wrote.
+   *
+   * THE WHOLE OPERATION AT ONCE, and that is a statement about where the
+   * project is rather than a design. ADR-0026 makes MATCHING and APPLYING two
+   * operations with two endpoints, precisely so a separation living only in a
+   * screen design does not get collapsed by the next screen design. Neither
+   * exists yet: nothing scores a candidate and nothing chooses among a record's
+   * values, so there is nothing for the split to separate. When the first of
+   * them lands it takes its own procedure, and this one is what it replaces.
+   *
+   * NO CREDENTIAL, ANYWHERE ON THIS PATH (ADR-0035). The instance supplies its
+   * own, and the wiki provider needs none at all -- no key, no rate limit, no
+   * attribution string -- which is exactly why ADR-0069 makes it the first
+   * provider written. There is no field here for one and nothing in this repo
+   * holds one.
+   */
   import: publicProcedure
     .input(
       z.object({

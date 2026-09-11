@@ -10,6 +10,13 @@ import Link from "next/link";
 
 import { browseOrdering, importRecord } from "./actions";
 
+/** Which container the owner has asked about, and at which provider. */
+interface Asked {
+  query?: string;
+  provider?: string;
+  container?: string;
+}
+
 /**
  * FINDING SOMETHING IN A PROVIDER AND IMPORTING IT, in one motion.
  *
@@ -24,13 +31,6 @@ import { browseOrdering, importRecord } from "./actions";
  * of the same name. That one is CNCORE-66 and lives at its own address. This page
  * searches PROVIDERS, so the word on it is Import rather than Search.
  */
-/** Which container the owner has asked about, and at which provider. */
-interface Asked {
-  query?: string;
-  provider?: string;
-  container?: string;
-}
-
 async function readImportPage({ query, provider, container }: Asked) {
   /*
    * NO `connection()` HERE, AND THAT IS ADR-0117 OBEYED RATHER THAN SKIPPED.

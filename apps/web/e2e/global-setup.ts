@@ -416,26 +416,6 @@ const TMDB_NOTICE =
 const THE_MATRIX = { id: "movie:603", title: "The Matrix" };
 
 /**
- * The query the import surface searches, and a SECOND film it finds.
- *
- * WHY A SECOND ONE EXISTS AT ALL (CNCORE-68). Every record this harness imports
- * is held by the catalogue before the first assertion runs, so a search that
- * found only those would show an Item link on every row BEFORE anything was
- * imported -- and an Import button wired to nothing would pass every assertion
- * about it. The surface needs one candidate the catalogue does NOT hold, and
- * this is it: `THE_MATRIX` above is imported at setup and this one never is.
- *
- * MEASURED AGAINST TMDB'S OWN API on 2026-09-11, not recalled:
- * `/3/search/movie?query=The%20Matrix` answers 603 (`The Matrix`, 1999-03-31)
- * first and 604 (`The Matrix Reloaded`, 2003-05-15) second. So the real image in
- * CI offers both for this query and the stub below offers the same two.
- *
- * THE ASSERTIONS READ THE UNHELD ROW OFF THE PAGE rather than naming it, which
- * is what keeps the two runs indistinguishable: the real image answers several
- * more films for this query and the suite cannot tell, because it asks the page
- * which candidate it is not holding instead of saying which one that should be.
- */
-/**
  * A THIRD PROVIDER THAT CANNOT BE REACHED, configured on purpose.
  *
  * ONE PROVIDER FAILING MUST NOT EMPTY A SEARCH (ADR-0033 under CNCORE-77), and
@@ -456,6 +436,26 @@ const THE_MATRIX = { id: "movie:603", title: "The Matrix" };
  */
 const UNREACHABLE_PROVIDER = "http://provider.invalid";
 
+/**
+ * The query the import surface searches, and a SECOND film it finds.
+ *
+ * WHY A SECOND ONE EXISTS AT ALL (CNCORE-68). Every record this harness imports
+ * is held by the catalogue before the first assertion runs, so a search that
+ * found only those would show an Item link on every row BEFORE anything was
+ * imported -- and an Import button wired to nothing would pass every assertion
+ * about it. The surface needs one candidate the catalogue does NOT hold, and
+ * this is it: `THE_MATRIX` above is imported at setup and this one never is.
+ *
+ * MEASURED AGAINST TMDB'S OWN API on 2026-09-11, not recalled:
+ * `/3/search/movie?query=The%20Matrix` answers 603 (`The Matrix`, 1999-03-31)
+ * first and 604 (`The Matrix Reloaded`, 2003-05-15) second. So the real image in
+ * CI offers both for this query and the stub below offers the same two.
+ *
+ * THE ASSERTIONS READ THE UNHELD ROW OFF THE PAGE rather than naming it, which
+ * is what keeps the two runs indistinguishable: the real image answers several
+ * more films for this query and the suite cannot tell, because it asks the page
+ * which candidate it is not holding instead of saying which one that should be.
+ */
 const MATRIX_QUERY = "The Matrix";
 const THE_MATRIX_RELOADED = { id: "movie:604", title: "The Matrix Reloaded" };
 
