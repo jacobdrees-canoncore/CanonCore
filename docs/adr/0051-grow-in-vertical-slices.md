@@ -31,3 +31,30 @@ position was held deliberately, for months, and lost to the forensic record rath
 ## Evidence
 
 The ten-project finding comes from `docs/research/build-order/`. The forensic record of this product's own previous attempts is self-reported rather than externally verifiable, and stays in the private repository rather than travelling to the public one ([[0114-the-public-repository-is-a-fresh-one]]).
+
+## A slice split across two pull requests -- under CNCORE-77
+
+**THE RULE ABOVE SAYS "DEMOABLE ON ITS OWN", AND CNCORE-77 IS NOT.** It gives the CMPP client
+`search` and a fan-out across several providers, and it renders nothing: no procedure, no screen,
+and its only caller is a test. CNCORE-68 is the page. Read against the opening sentence that is a
+departure, and it is recorded here rather than argued in the ticket, because a rule with an
+unwritten exception is one the next agent rejects a good ticket on.
+
+**WHAT MAKES IT A SPLIT RATHER THAN A RETURN TO MODEL-FIRST.** The failure this record is a record
+of is building a MODEL nobody can see, judged finished by its author, against an artefact revealing
+total cost. The test that separates the two is not whether one pull request renders: it is whether
+the thing that renders is ALREADY SPECIFIED AND ALREADY NEXT. CNCORE-68 existed, with its
+acceptance criteria written, before CNCORE-77 was cut out of it; the tracker carries the blocking
+edge; and the half landing first is the smaller one. Nothing here was built in the hope that a
+surface would later want it.
+
+**SO THE PERMISSION IS NARROW, AND THE NARROWNESS IS THE POINT.** A slice may land as two pull
+requests when the second is specified, blocked on the first, and next. It may not land as one pull
+request plus an intention. The difference is checkable by anyone reading the tracker, which is what
+stops this becoming the exception that swallows the rule -- and a library with no specified caller
+is exactly the artefact the opening sentence is defending against.
+
+**WHAT IT BUYS is a diff a reviewer can actually hold.** The alternative was one ticket across five
+packages: the client, a schema, a procedure, a page and its tests, with the protocol decisions and
+the rendering decisions in one review. The `?q=` reading alone took a decision at two levels; it
+would have arrived alongside a page, and the page is what a reviewer looks at.

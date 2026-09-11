@@ -154,6 +154,36 @@ describe.each(underTest.map((p) => [p.name, p] as const))(
         expect(results.length).toBeGreaterThan(0);
       });
 
+      /**
+       * THE OTHER HALF OF CNCORE-33'S SENTENCE, and the half nothing was
+       * holding anyone to.
+       *
+       * "An empty result is an answer; a missing query is a mistake" has two
+       * claims in it and the two tests below only ever checked the second. A
+       * provider answering `404`, or an error, to a query that simply matched
+       * nothing would satisfy every assertion here -- and it is a plausible
+       * thing to build, since `lookup` answers `404` for an id it does not hold
+       * and reusing that reflex for `search` looks consistent.
+       *
+       * IT BECAME LOAD-BEARING UNDER CNCORE-77, which is why it is pinned now
+       * rather than earlier. CanonCore's client reads a provider's refusal as
+       * that provider FAILING and an empty `results` as it ANSWERING, and a
+       * fan-out across several providers sorts them into different lists on
+       * exactly that distinction. A provider that reported "nothing matched" as
+       * a failure would show an owner a source that looks broken every time
+       * they search for something it does not hold.
+       */
+      it("answers a query it matches nothing for as an empty result, not as a failure", async () => {
+        // Nonsense rather than a plausible title, so that no provider can match
+        // it by accident and redden this for a reason that is not a contract
+        // failure. Nothing here asserts on a VALUE, only that answering
+        // "nothing" is an answer.
+        const response = await get(participant, "/search?q=qzzx%20noitartsnomed%20yreuq");
+
+        expect(response.status).toBe(200);
+        expect(searchResponse.parse(response.body).results).toEqual([]);
+      });
+
       it("treats a missing query as the caller's mistake, not as an empty result", async () => {
         const response = await get(participant, "/search");
 

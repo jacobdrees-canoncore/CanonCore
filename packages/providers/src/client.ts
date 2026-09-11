@@ -14,9 +14,11 @@ import {
   type CmppBrowse,
   type CmppManifest,
   type CmppRecord,
+  type CmppSearch,
   cmppBrowse,
   cmppManifest,
   cmppRecord,
+  cmppSearch,
 } from "./cmpp";
 
 /**
@@ -25,6 +27,15 @@ import {
  */
 export interface ProviderClient {
   manifest(): Promise<CmppManifest>;
+  /**
+   * Candidates matching a query. REQUIRED OF EVERY PROVIDER (ADR-0033), so
+   * unlike `browse` no caller asks the manifest whether this one offers it.
+   *
+   * An empty `results` is an answer -- a query nothing matched. A query that is
+   * empty is not: it is the caller's mistake, and it travels to the provider
+   * and comes back as the refusal the provider gives it.
+   */
+  search(query: string): Promise<CmppSearch>;
   /** One record by its stable id, or nothing when the provider holds none. */
   lookup(id: string): Promise<CmppRecord | null>;
   /**
@@ -36,15 +47,6 @@ export interface ProviderClient {
   browse(id: string): Promise<CmppBrowse | null>;
   close(): Promise<void>;
 }
-
-/*
- * NO `search` HERE, AND ITS ABSENCE IS DELIBERATE. ADR-0033 makes `search`
- * required OF A PROVIDER, which `provider-wiki` answers; that is a different
- * claim from this app needing to CALL it. Nothing in CanonCore searches yet --
- * an import names a record by id -- so a client method with only tests behind it
- * would be an abstraction ahead of a need. It arrives with the surface that
- * searches.
- */
 
 /**
  * How many hops before the client gives up. A provider that redirects is
@@ -189,6 +191,18 @@ export function createProviderClient({
 
   return {
     manifest: () => read("/", cmppManifest),
+    // `encodeURIComponent` RATHER THAN `URLSearchParams`, which is the obvious
+    // choice and spells a space `+`. `%20` is the spelling the contract test
+    // reaches both real providers with and is therefore the one proven against
+    // them; `+` is proven against neither.
+    //
+    // AN EMPTY QUERY IS SENT RATHER THAN REFUSED HERE, which is the reading
+    // ADR-0033 fixed and CNCORE-33 settled: `?q=` is the caller's mistake, both
+    // providers answer it `400`, and `read` turns that into a throw. Refusing
+    // it locally would make this client the one caller of `?q=` that never
+    // asks -- and the day a provider changed its mind about it, nothing on this
+    // side would notice.
+    search: (query) => read(`/search?q=${encodeURIComponent(query)}`, cmppSearch),
     // A record the provider does not hold is an ANSWER, not a failure: it is
     // what `search` returning an ambiguous candidate looks like once the
     // candidate turns out to be gone (ADR-0033).

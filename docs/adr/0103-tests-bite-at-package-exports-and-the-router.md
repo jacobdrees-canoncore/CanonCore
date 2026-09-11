@@ -594,3 +594,56 @@ reporting a disagreement that had ended. Both were GREEN, both were measuring so
 in both cases what the suite could not see was the thing it existed to watch. A seam is only as
 honest as its population: the question to ask of a new one is not "does it assert the right thing"
 but "what is in the count that is not answering the question".
+
+## A rule with two claims in it, and a suite checking one -- under CNCORE-77
+
+**THE FIFTH SEAM HELD PROVIDERS TO HALF OF ADR-0033'S SENTENCE FOR AS LONG AS IT EXISTED.** "An
+empty result is an answer; a missing query is a mistake" is two claims. The suite had a test for a
+missing `q`, a test for an empty `q`, and nothing at all for a query that simply matched nothing —
+so a provider answering `404` to one, or any other failure, passed everything in the file. That is
+not a hypothetical shape: `lookup` answers `404` for an id it does not hold, and reusing the reflex
+for `search` is the obvious thing to build.
+
+**IT WAS HARMLESS UNTIL SOMETHING DEPENDED ON IT, WHICH IS THE GENERAL CASE.** Nothing in CanonCore
+called `search`, so no behaviour rested on the difference between "answered nothing" and "did not
+answer". CNCORE-77's client rests on precisely that: a refusal is read as the provider FAILING, an
+empty `results` as it ANSWERING, and a fan-out sorts providers into two lists on the distinction.
+The gap became load-bearing without anything touching the suite.
+
+**THE RULE: when a record states a rule as a contrast, the suite needs a test per SIDE.** A
+contrast is written as one sentence and reads as one claim, which is exactly why the missing half is
+hard to see — the tests that exist look like they cover the sentence, because they quote it. The
+tell is grammatical rather than technical: `A, not B` and `X is an answer; Y is a mistake` are two
+assertions wearing one clause.
+
+**IT IS THE THIRD ENTRY IN THIS FILE'S FAMILY AND THE FIRST THAT WAS NEVER GREEN FOR THE WRONG
+REASON.** The CNCORE-9 stub asserted a number the image had stopped answering and the CNCORE-33 pin
+reported a disagreement that had ended; both were measuring something real and watching the wrong
+population. This one measured its population correctly and was simply not asked the second question.
+So the question to ask of a seam is not only "what is in the count that is not answering the
+question" but "how many questions did the record actually ask".
+
+Both real providers and the conformance witness already satisfied the missing half, which is the
+ordinary outcome and not a reason to have skipped it: what the assertion buys is that the day one of
+them stops, it is a contract failure rather than a source that looks broken to an owner.
+
+**AND THE SEPARATION IS REFUSED IN THE OTHER DIRECTION TOO, which this record did not say.** The
+guarantee above is one-directional: `packages/contract` depends on no `@canoncore/*` package, so it
+cannot reach the app's schema. Nothing in that sentence stops `@canoncore/providers` importing the
+CONTRACT'S schema, and CNCORE-77 met a ticket asking for exactly that -- "validated against the
+schema `packages/contract` already declares" -- which is the obvious repair and would have breached
+no rule written here.
+
+It is refused anyway, and the reason is not the dependency graph. **The two are different
+DOCUMENTS.** One is a SPECIFICATION and permits unknown keys, because ADR-0033 lets a provider
+declare more than it is asked for; the other is a CONSUMER'S reading and strips them, widens where
+the app does not care, and omits fields nothing renders. A single schema serving both collapses that
+distinction, and what it costs is the contract test's whole claim: the suite would prove that two
+providers satisfy CANONCORE, which is much weaker than that they satisfy one CONTRACT, and it is the
+substitution this seam exists to prevent. The app's copy of each response shape is therefore written
+out, `search`'s alongside the three that were already there.
+
+`@canoncore/contract` also has no `exports` map and carries `zod` as a devDependency, so it is not
+importable as it stands. That is a consequence of the rule rather than the rule, and it is worth
+saying which is which: making it importable would take two lines, and the two lines are not what is
+standing in the way.

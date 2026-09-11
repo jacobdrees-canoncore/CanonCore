@@ -40,7 +40,19 @@ export const cmppRecord = z.object({
   released: z.array(z.string()).default([]),
   writers: z.array(z.string()).default([]),
   series: z.string().nullable().default(null),
-  /** Where the record came from. A CONTENT URL: never fetched unchecked. */
+  /**
+   * Where the record came from. A CONTENT URL: never fetched unchecked.
+   *
+   * TODO(CNCORE-79): the sentence above is not true of this line. `z.url()`
+   * does not check the SCHEME -- measured against zod 4.5.4,
+   * `javascript:alert(1)`, `data:text/html,...`, `vbscript:` and `file:` all
+   * parse -- and nothing on this path calls `assertContentUrl`. It has been
+   * harmless because `asProvided` drops `url` and no reader has ever seen one;
+   * `search` is the first thing to carry these out of the package, and
+   * CNCORE-68 is the page that puts one in an `href`. Left here rather than
+   * fixed under CNCORE-77, because this field is shared with `lookup` and
+   * `browse` and the repair belongs with the contract's copy of it too.
+   */
   url: z.url(),
 });
 
@@ -90,12 +102,27 @@ export const cmppBrowse = z.object({
 export type CmppPlacement = z.infer<typeof cmppPlacement>;
 export type CmppBrowse = z.infer<typeof cmppBrowse>;
 
-/*
- * NO SEARCH RESPONSE SCHEMA. `search` is required of a PROVIDER (ADR-0033) and
- * `provider-wiki` answers it; nothing in CanonCore calls it yet, and a schema
- * with no reader is a shape nobody is holding anyone to. It arrives with the
- * surface that searches.
+/**
+ * What `search` answers: candidates, possibly none.
+ *
+ * AN EMPTY `results` IS AN ANSWER rather than a failure -- a query nothing
+ * matched -- which is exactly why a MISSING query must not produce one
+ * (ADR-0033, and the `?q=` reading CNCORE-33 settled). The client's job at this
+ * seam is to keep those two apart: a provider's refusal travels as a refusal,
+ * and only a provider that answered can produce an empty list.
+ *
+ * THE SHAPE IS THE ONE `packages/contract` SPECIFIES, and this is CanonCore's
+ * reading of it rather than an import of it -- the same arrangement the record
+ * and browse schemas above are under. That package writes the SPECIFICATION and
+ * depends on no `@canoncore/*` package so it cannot reach this one by accident
+ * (ADR-0103); this is a CONSUMER'S copy, which strips unknown keys where the
+ * specification keeps them. A single schema serving both would make the
+ * contract test prove that two providers satisfy CanonCore, which is a much
+ * weaker claim than that they satisfy one contract.
  */
+export const cmppSearch = z.object({ results: z.array(cmppRecord) });
+
+export type CmppSearch = z.infer<typeof cmppSearch>;
 
 /**
  * The longest `data:` URI a source's mark may be, in characters.

@@ -461,3 +461,78 @@ and already carries its sibling — a suite that was green for the wrong reason 
 this record is `proposed`. CNCORE-33 settled one failure mode in the required half of CMPP; it
 touched neither `max_cache_age` nor the image policy, which continue to travel the wire and be read
 by nothing.
+
+## And under CNCORE-77: the app finally CALLS `search` -- and this record STILL STAYS PROPOSED
+
+**BUILT: the operations half is now complete in BOTH DIRECTIONS for all three operations.** Every
+section above is about what a PROVIDER must answer, and `search` was the operation where that was
+the only half there was: both providers answered it, the contract test held them to it, and nothing
+in CanonCore had ever called it. The client's own comment said so and said why — a client method
+with only tests behind it would be an abstraction ahead of a need, and it would arrive with the
+surface that searches. It has arrived. `ProviderClient.search` is on the interface, the comment
+recording its absence is gone rather than left contradicting the code, and a record can be reached
+by NAME rather than by an id obtained from outside the product.
+
+**WHICH HALF THIS LEAVES STANDING, stated plainly because "half built" has meant different halves in
+each section above.** The OPERATIONS half is closed: three operations, declared by two providers,
+called by this app, with the optional one's optionality honoured in both directions. The DECLARED
+FIELDS half is exactly where CNCORE-8 left it — `max_cache_age` and the image policy travel the wire
+from two providers and are read by nothing — and it is still the only reason this record is
+`proposed`.
+
+**A SECOND CALLER, AND A DIFFERENT SHAPE OF ONE.** `lookup` and `browse` reach ONE provider that the
+owner named. Searching is the first thing that reaches SEVERAL at once, and it is the operation where
+the difference bites: an owner who does not know an id also does not know which source holds it.
+`searchProviders` is that fan-out, and it lives in `@canoncore/providers` beside the client rather
+than in the app, because it is about reaching providers and touches no catalogue.
+
+**ONE PROVIDER FAILING IS NOT THE SEARCH FAILING.** A fan-out that threw on the first failure would
+hand an owner nothing at all because one of several connected sources was having a bad day, and it
+would do it non-deterministically — whichever provider lost the race decides. So each provider's
+turn is caught on its own, and what comes back is TWO LISTS: who answered, and who did not and why.
+Collapsing them into one short list is how an owner concludes their query was wrong when their
+provider was merely offline.
+
+**THE REFUSAL TRAVELS AS AN `Error` AND NOT AS A SENTENCE ABOUT ONE.** ADR-0034's refusals are
+answers a UI must be able to put in front of an owner, and `packages/api` maps them onto a declared
+error rather than a 500; a `reason` flattened to prose would have made that distinction something to
+recover by reading the message. A URL the owner never allowlisted therefore fails as an
+`OutboundRefused` beside a provider that answered badly, in the same list, distinguishable.
+
+**AND THE `?q=` READING GAINED ITS THIRD CALLER, WHICH IS WHERE IT GOT INTERESTING.** The section
+above settles that `?q=` is the caller's mistake and both providers answer it `400`. This app is now
+a caller, and the two rules it just acquired cancel each other out if nothing says otherwise: an
+empty query fanned across every provider collects a refusal from each, every failure is tolerated,
+and the answer is `{ answered: [], failed: [...] }` — which an owner reads as "nothing matched". The
+mistake would have been hidden by the very leniency that makes a fan-out worth having.
+
+So the two sit at different levels ON PURPOSE. **The CLIENT sends `?q=`** and reports the provider's
+`400` as the failure it is, which is what keeps this app a caller of the case rather than a stranger
+to it: refusing locally would mean nothing on this side ever noticed a provider that changed its
+mind. **The FAN-OUT refuses before a socket opens**, because tolerance is exactly why the mistake has
+to be caught before it becomes tolerable.
+
+**A CONTRACT GAP THIS TICKET FOUND, AND IT WAS IN THIS RECORD'S OWN SENTENCE.** "An empty result is
+an answer; a missing query is a mistake" carries two claims, and the contract suite only ever checked
+the second. A provider answering `404` — or any failure — to a query that simply matched nothing
+satisfied every assertion in that suite, and it is a plausible thing to build, since `lookup` answers
+`404` for an id it does not hold and reusing that reflex looks consistent. It was harmless while
+nothing called `search`. It is not harmless now: the client reads a refusal as that provider FAILING
+and an empty `results` as it ANSWERING, and the fan-out sorts providers into two lists on exactly
+that distinction — so a provider reporting "nothing matched" as a failure would show an owner a
+source that looks broken every time they search for something it does not hold. The suite now pins
+the first claim against both real providers and the conformance witness. Both already satisfied it.
+
+The lesson in the SHAPE of that gap is a fact about the suite rather than about CMPP, so it is
+written up in [[0103-tests-bite-at-package-exports-and-the-router]] beside its two siblings, exactly
+as CNCORE-33's was.
+
+**NOT BUILT, AND DELIBERATELY SO: the surface.** This is the half with no UI in it. Nothing renders a
+result, nothing imports one, and no procedure exposes `search` — CNCORE-68 is the page, and this
+ticket exists so that the client change and the page that uses it are two reviewable slices rather
+than one across five packages. The fan-out has one caller today and it is a test, which is the state
+the client's own removed comment warned against; what makes it a need rather than an abstraction is
+that the surface is the next ticket and was specified before this one.
+
+**NOT BUILT, STILL: the declared fields this app is supposed to honour.** Unchanged, and still the
+reason this record is `proposed`. CNCORE-77 touched neither `max_cache_age` nor the image policy.
