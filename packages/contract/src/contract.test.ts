@@ -88,6 +88,31 @@ function camelCaseKeysIn(body: unknown, found: string[] = []): string[] {
 }
 
 /**
+ * Every value of a URL-BEARING CONTRACT FIELD in a response, however deeply
+ * nested: a record's `url`, and an image's `url` and `description_url`.
+ *
+ * BY FIELD NAME RATHER THAN BY WHAT LOOKS LIKE A URL, and the manifest is why.
+ * `attribution.logo.data_uri` is a `data:` URI ON PURPOSE (ADR-0036) -- the
+ * bytes travel inline precisely because the reader's browser, not this app,
+ * is what fetches a mark -- so a walk that judged anything URL-shaped would
+ * report the one field the contract requires to be a `data:` URI.
+ */
+function contractUrlsIn(body: unknown, found: string[] = []): string[] {
+  if (Array.isArray(body)) {
+    for (const entry of body) contractUrlsIn(entry, found);
+    return found;
+  }
+  if (body === null || typeof body !== "object") return found;
+  for (const [key, value] of Object.entries(body)) {
+    if ((key === "url" || key === "description_url") && typeof value === "string") {
+      found.push(value);
+    }
+    contractUrlsIn(value, found);
+  }
+  return found;
+}
+
+/**
  * Every participant, one test each, generated from the same list.
  *
  * ONE TABLE RATHER THAN A DESCRIBE PER PROVIDER, and that is the design. A suite
@@ -276,6 +301,56 @@ describe.each(underTest.map((p) => [p.name, p] as const))(
               "contract field respelled -- which parses as an unknown extension while the real " +
               "field reads as absent -- or a new one that has to pick the contract's casing.",
           );
+        }
+      });
+    });
+
+    /**
+     * WHAT A URL IS FOR, which the shape check above cannot ask.
+     *
+     * `z.url()` says a string parses as a URL and says nothing about its
+     * SCHEME, so until CNCORE-79 the contract admitted `javascript:alert(1)`,
+     * `data:text/html,...`, `vbscript:x` and `file:///etc/passwd` as a record's
+     * `url` -- measured against zod 4.5.4 rather than reasoned about. ADR-0031's
+     * whole position is that a provider is an untrusted URL rather than code we
+     * run, and a provider able to put a `javascript:` URL in front of the Owner
+     * is that position failing at the one place it has to hold.
+     *
+     * THE SCHEMA NOW REFUSES ONE, and `src/cmpp.test.ts` is where that is
+     * asserted against all four schemes. This is the other half: that the real
+     * providers actually send HTTP, checked against their live answers rather
+     * than against the specification. A provider whose links stopped being
+     * fetchable -- a relative path, a bare `www.`, an id where a URL belongs --
+     * fails here rather than at whatever renders it.
+     */
+    describe("its urls", () => {
+      it("sends an HTTP one everywhere the contract declares a URL", async () => {
+        const declared = manifest.parse((await get(participant, "/")).body);
+        const seen = [
+          (await get(participant, `/lookup/${encodeURIComponent(participant.aRecord)}`)).body,
+          (await get(participant, `/search?q=${encodeURIComponent(participant.aQuery)}`)).body,
+          ...(declared.operations.includes(OPTIONAL_OPERATION) && participant.aContainer !== null
+            ? [
+                (await get(participant, `/browse/${encodeURIComponent(participant.aContainer)}`))
+                  .body,
+              ]
+            : []),
+        ];
+
+        const urls = seen.flatMap((body) => contractUrlsIn(body));
+        // A provider whose every operation answered with no URL at all would
+        // pass a for-loop over nothing, which is the quiet version of this
+        // check never having run. `url` is REQUIRED of a record and each of
+        // these responses carries at least one.
+        expect(urls.length).toBeGreaterThan(0);
+
+        for (const url of urls) {
+          expect(
+            new URL(url).protocol,
+            `\`${url}\` is not an HTTP URL. CMPP is an HTTP contract and every URL it carries is a ` +
+              "CONTENT URL the reader's browser may be handed, so a scheme that executes or reads " +
+              "the reader's disk is not one a provider may send (CNCORE-79).",
+          ).toMatch(/^https?:$/);
         }
       });
     });
