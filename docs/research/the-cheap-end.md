@@ -232,16 +232,27 @@ SPLIT (row 2 plus a Storage Box), unless Whatbox fixes cron.** The slot passes e
 shape that was in doubt and fails one that was not: nothing restarts a process after a reboot, and
 an always-on instance that needs a human to log in and start it after every host reboot is not
 always-on. That is worth about GBP 1/month to fix, which is the gap between GBP 11 and the split's
-~GBP 12 at 4 TB. The condition is narrow and cheap to test: `@reboot` is documented by Whatbox and
-broken by what looks like a missing file on their side, so **ask support before deciding** — if it
-comes back working, row 1 wins on every axis and the split is a pound wasted.
+~GBP 12 at 4 TB.
+
+**The question this section left open has been asked, and is now closed as an action.** Whatbox
+support ticket 267784, filed 2026-09-11 under CNCORE-81, puts both halves to the vendor: whether cron
+is meant to work on this plan and whether the missing file can be looked at, and failing that,
+whether anything supported starts a process after a reboot. It was unanswered when this was written.
+ADR-0109 carries the ticket, its two questions, and the date — **2026-09-18** — after which silence is
+itself the answer.
+
+**Until then the split is the recommendation rather than a pending decision.** It costs about a pound
+a month, it is the option that is correct under either reply, and nothing downstream should wait on a
+vendor to answer. If the answer does come back working, row 1 wins on every axis, the split is a
+pound wasted, and ADR-0109 is where that lands first.
 
 When the playback spec starts, the order of operations is cheap and reversible:
 
 1. ~~**Spend GBP 11 on one Whatbox HDD slot and answer §4 in an evening.**~~ **Done, 2026-09-10.**
    Postgres runs by both routes and needed no compiling; what it does not do is come back by itself
-   after a reboot. The "if it survives a restart" test this step set is the one it fails, so the
-   next move is the support ticket above, then step 2 if the answer is no.
+   after a reboot. The "if it survives a restart" test this step set is the one it fails. The support
+   ticket that was the next move has been filed — 2026-09-11, recorded in ADR-0109 — so step 2 is
+   what happens unless it comes back working.
 2. **Take the split** — a ~GBP 4 VPS with root for Postgres and the app, plus a Storage Box at
    GBP 2.09/TB for bytes when there are bytes. Same money, root, storage that survives a later move,
    and a systemd that restarts things, which is the thing step 1 turned out to be buying.
@@ -277,6 +288,10 @@ belongs to the playback spec.
 selected — every plan price, storage figure, upload allowance and all five fine-print footnotes quoted
 above; and `whatbox.ca/wiki/` reachability for `PostgreSQL`, `postgres`, `Databases` and `Node.js`,
 checked by HTTP status.
+
+**Asked of the vendor, 2026-09-11 under CNCORE-81:** Whatbox support ticket 267784, on whether cron
+can be enabled on this slot and what else could start a process after a reboot. Unanswered when §5 was
+rewritten above; ADR-0109 carries the question, the ticket and the date after which silence answers it.
 
 **Repo-internal, and dated by the record that carries it:** ADR-0109 for the Hetzner Storage Box at
 GBP 2.09/TB and the Cloud Volume at GBP 45.36/TB, both verified there against Hetzner's own pricing
