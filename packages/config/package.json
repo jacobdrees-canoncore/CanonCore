@@ -6,7 +6,8 @@
   "exports": {
     "./tsconfig.base.json": "./tsconfig.base.json",
     "./testing/install-network-gate": "./src/testing/install-network-gate.ts",
-    "./testing/gate-global-setup": "./src/testing/gate-global-setup.ts"
+    "./testing/gate-global-setup": "./src/testing/gate-global-setup.ts",
+    "./testing/repo-root": "./src/testing/repo-root.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
