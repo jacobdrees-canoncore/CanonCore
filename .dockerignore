@@ -1,0 +1,49 @@
+# What never reaches the image's build context.
+#
+# THIS FILE IS A SECRET BOUNDARY BEFORE IT IS AN OPTIMISATION. `apps/web/.env`
+# is gitignored, so it is invisible in a diff and present on every developer's
+# machine, and a `COPY . .` puts it in a layer of a PUBLIC image. ADR-0114 is
+# the record that a published string cannot be taken back.
+#
+# `packages/config/src/image.test.ts` fails if one of the four load-bearing
+# patterns goes missing or is re-included below.
+
+# The credentials. Every form: `.env`, `.env.local`, `.env.production`.
+**/.env*
+
+# The host's modules. Wrong platform's binaries, and the image installs its own.
+**/node_modules
+
+# A stale build, which would shadow the one this image makes.
+**/.next
+**/.turbo
+
+# The history. Large, and nothing in the build reads it.
+.git
+.gitignore
+.gitleaksignore
+
+# Test and tooling output.
+**/coverage
+**/.vitest
+**/*.log
+**/*.tsbuildinfo
+
+# Nothing in the build reads these, and excluding them means editing a record
+# or a workflow does not invalidate the install layer.
+docs
+.github
+.claude
+CLAUDE.md
+CONTEXT.md
+README.md
+
+# LICENSE is deliberately NOT here. The image is a conveyance of the work, and
+# AGPL-3.0 section 4 asks that a copy of the licence go with it; the runner
+# stage copies it to /app/LICENSE. The `licenses` label names the election, and
+# the text is what the election is an election OF.
+
+# Editor and operating system leavings.
+**/.DS_Store
+.vscode
+.idea

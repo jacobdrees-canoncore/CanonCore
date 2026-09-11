@@ -108,6 +108,10 @@ COPY --from=build --chown=node:node /migrator ./migrator
 # rather than decorative.
 COPY --from=build --chown=node:node /app/packages/db/src/migrations ./migrations
 COPY --from=build /app/docker/entrypoint.sh /usr/local/bin/canoncore-entrypoint
+# THE LICENCE TRAVELS WITH THE WORK. An image is a conveyance under AGPL-3.0
+# section 4, and the `licenses` label states an election rather than granting
+# anything; this is the text that election is an election of (ADR-0113).
+COPY --from=build --chown=node:node /app/LICENSE ./LICENSE
 
 USER node
 EXPOSE 3000

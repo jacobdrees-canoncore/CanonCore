@@ -44,6 +44,14 @@ type Job = {
   permissions?: Record<string, string>;
   if?: unknown;
   "continue-on-error"?: unknown;
+  /**
+   * The two keys the image jobs are read through (CNCORE-63). A matrix that
+   * pairs `linux/arm64` with an x64 runner still builds -- under emulation,
+   * which Docker's own documentation calls "much slower" -- so which runner
+   * each platform lands on is a value worth reading back.
+   */
+  "runs-on"?: unknown;
+  strategy?: { matrix?: { include?: Record<string, unknown>[] } };
 };
 
 /**
