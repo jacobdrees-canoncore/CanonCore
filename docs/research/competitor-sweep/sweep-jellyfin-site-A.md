@@ -3,7 +3,7 @@
 STATUS: complete
 
 Page-by-page extraction of every product capability, setting, behaviour and concept
-documented on the 107 jellyfin.org URLs in `shards/jellyfin-aa`, classified against `prompt.md`.
+documented on the 107 jellyfin.org URLs in `urls/shards/jellyfin-aa`, classified against `prompt.md`.
 
 Classification key:
 - **ADOPTED** — the prompt takes the same position.

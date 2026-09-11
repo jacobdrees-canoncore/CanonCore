@@ -106,9 +106,14 @@ so the public tree never contains them and no history operation is needed:
   `docs/research/competitor-sweep/`** and one under `docs/research/resolution/`. `CLAUDE.md` forbids
   referencing such an attempt at all, and the paths carry the owner's home directory with them. Only
   the machine-specific prefix goes, leaving the bare names the sweep corpus already uses everywhere,
-  `shards/<name>` and `prompt.md`. The shard lists are in the tree; the swept document never was,
-  and naming it is the most a dated sweep can honestly do. An earlier version of this record said
-  ten files, all under the competitor sweep; both halves were wrong.
+  `urls/shards/<name>` and `prompt.md`. The shard lists are in the tree; the swept document never
+  was, and naming it is the most a dated sweep can honestly do. An earlier version of this record
+  said ten files, all under the competitor sweep; both halves were wrong. **So was the bare form it
+  named**, `shards/<name>`: the lists have always been tracked at `urls/shards/`, so the five lines
+  this scrub landed on the corpus's own convention resolved to nothing, and that is what showed the
+  convention wrong rather than the edit. CNCORE-78 corrected all twenty-one citations and put
+  `packages/config/src/sweep-shard-citations.test.ts` behind them, because a path wrong EVERYWHERE
+  is the one a reviewer reads past.
 - **And absolute paths into THIS checkout's own location**, three of them in
   `docs/research/competitor-sweep/verify-plex-claims.md`, pointing at schema dumps that are tracked
   in the tree and reachable by a relative path. Found by widening the gate rather than by reading,

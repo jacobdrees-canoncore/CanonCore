@@ -2,7 +2,7 @@
 
 STATUS: complete
 
-Purpose: triage every URL in `shards/plex-www-ab` against the CanonCore prompt.
+Purpose: triage every URL in `urls/shards/plex-www-ab` against the CanonCore prompt.
 Marketing/listicle pages get one line. Pages describing a real capability, launch,
 deprecation or reversal get a full entry.
 
@@ -651,7 +651,7 @@ from the cached text, not from slugs, except where an entry says SLUG-TRIAGED.*
 
 ## Coverage statement
 
-All 268 URLs in `shards/plex-www-ab` are accounted for, entries 1-268 above.
+All 268 URLs in `urls/shards/plex-www-ab` are accounted for, entries 1-268 above.
 
 **What was fetched.** All 268 pages were fetched with plain `curl` and the text extracted; the
 extracts are cached in the session scratchpad under `txtB/` and every entry from 191 onward was

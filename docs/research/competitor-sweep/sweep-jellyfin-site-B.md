@@ -2,7 +2,7 @@
 
 STATUS: complete
 
-Method: every URL in `shards/jellyfin-ab` fetched and read page-by-page, no relevance
+Method: every URL in `urls/shards/jellyfin-ab` fetched and read page-by-page, no relevance
 pre-filter. Each block records what the page documents, any concrete rule/limit/default,
 and a classification against the CanonCore prompt:
 
@@ -2065,7 +2065,7 @@ Grouped by theme. Each is genuinely unmentioned in the prompt.
 - Entries **50-106**: third pass, this session. Batched fetches of 15-20 URLs via `curl -sL`
   against `jellyfin.org` (plain curl works; no Cloudflare interstitial on this host), HTML
   stripped to text locally. Coverage verified programmatically: every one of the 106 URLs in
-  `shards/jellyfin-ab` appears verbatim in this file.
+  `urls/shards/jellyfin-ab` appears verbatim in this file.
 - Consolidated gaps written from all 106 blocks, MEDIUM/HIGH only.
 
 STATUS: complete

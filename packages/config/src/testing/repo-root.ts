@@ -4,7 +4,8 @@ import { fileURLToPath } from "node:url";
 /**
  * The root of the repository, for the suites in this package that read files
  * outside it: `.github/workflows/ci.yml`, `pnpm-workspace.yaml`, `biome.jsonc`,
- * the root `package.json` and `README.md`.
+ * the root `package.json`, `README.md` and the sweep corpus under
+ * `docs/research/competitor-sweep/`.
  *
  * A MODULE OF ITS OWN rather than a second export from the reader that first
  * needed it. Three of the four suites reading this path ask nothing about

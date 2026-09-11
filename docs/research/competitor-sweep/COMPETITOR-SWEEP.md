@@ -116,19 +116,19 @@ were destroyed because everything was held for a final report that never arrived
 |---|---|---:|
 | `gaps-jellyfin-docs.md` | Jellyfin docs, thematic sweep + OpenAPI | 114 sources |
 | `sweep-jellyfin-repo.md` | Jellyfin source: config, API, entities, scheduled tasks, plugins, user policy | repo |
-| `sweep-jellyfin-site-A.md` | `shards/jellyfin-aa` | 107 |
-| `sweep-jellyfin-site-B.md` | `shards/jellyfin-ab` | 106 |
+| `sweep-jellyfin-site-A.md` | `urls/shards/jellyfin-aa` | 107 |
+| `sweep-jellyfin-site-B.md` | `urls/shards/jellyfin-ab` | 106 |
 | `gaps-plex-docs.md` | Plex, thematic sweep by feature area | — |
-| `sweep-plex-support-A.md` | `shards/plex-support-aa` | 110 |
-| `sweep-plex-support-B.md` | `shards/plex-support-ab` | 110 |
-| `sweep-plex-support-C.md` | `shards/plex-support-ac` | 110 |
-| `sweep-plex-support-D.md` | `shards/plex-support-ad` | 107 |
-| `sweep-plex-www-A.md` | `shards/plex-www-aa` | 269 |
-| `sweep-plex-www-B.md` | `shards/plex-www-ab` | 268 |
+| `sweep-plex-support-A.md` | `urls/shards/plex-support-aa` | 110 |
+| `sweep-plex-support-B.md` | `urls/shards/plex-support-ab` | 110 |
+| `sweep-plex-support-C.md` | `urls/shards/plex-support-ac` | 110 |
+| `sweep-plex-support-D.md` | `urls/shards/plex-support-ad` | 107 |
+| `sweep-plex-www-A.md` | `urls/shards/plex-www-aa` | 269 |
+| `sweep-plex-www-B.md` | `urls/shards/plex-www-ab` | 268 |
 | `verify-jellyfin-claims.md` | The ~20 Jellyfin claims in `prompt.md` | 20 |
 | `verify-plex-claims.md` | The ~13 Plex + 1 Emby claims in `prompt.md` | 14 |
 
-Shard files are in `shards/`. The two thematic sweeps overlap the page-by-page shards
+Shard files are in `urls/shards/`. The two thematic sweeps overlap the page-by-page shards
 deliberately: the thematic pass gives structure and the shards give provable coverage, and
 where they disagree the shard wins because it is the one that actually read the page.
 

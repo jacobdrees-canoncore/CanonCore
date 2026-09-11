@@ -2,7 +2,7 @@
 
 STATUS: complete
 
-Source list: `shards/plex-support-ad` (107 URLs).
+Source list: `urls/shards/plex-support-ad` (107 URLs).
 Method: plain `curl` against support.plex.tv, HTML stripped locally to readable text.
 Classification key: ADOPTED / REFUSED (named in WHAT NOT TO BUILD or STANDING RULES) /
 DIVERGENT (prompt takes a deliberately different position) / ABSENT (prompt is silent).
@@ -696,7 +696,7 @@ Need: LOW. One observation: the portal's own structure is articles + forum + rel
 
 STATUS: complete
 
-All 107 URLs in `shards/plex-support-ad` covered (001-070 in the earlier pass, 071-107 in this one).
+All 107 URLs in `urls/shards/plex-support-ad` covered (001-070 in the earlier pass, 071-107 in this one).
 
 ---
 
