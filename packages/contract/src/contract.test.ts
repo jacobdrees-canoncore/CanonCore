@@ -88,14 +88,22 @@ function camelCaseKeysIn(body: unknown, found: string[] = []): string[] {
 }
 
 /**
- * Every value of a URL-BEARING CONTRACT FIELD in a response, however deeply
- * nested: a record's `url`, and an image's `url` and `description_url`.
+ * Every string under a key named `url` or `description_url`, however deeply
+ * nested. Those are the contract's URL-bearing fields: a record's `url`, and an
+ * image's `url` and `description_url`.
  *
- * BY FIELD NAME RATHER THAN BY WHAT LOOKS LIKE A URL, and the manifest is why.
- * `attribution.logo.data_uri` is a `data:` URI ON PURPOSE (ADR-0036) -- the
- * bytes travel inline precisely because the reader's browser, not this app,
- * is what fetches a mark -- so a walk that judged anything URL-shaped would
- * report the one field the contract requires to be a `data:` URI.
+ * BY KEY NAME RATHER THAN BY WHAT LOOKS LIKE A URL. A walk that judged anything
+ * URL-shaped would report a value the contract deliberately allows to be
+ * something else -- `attribution.logo.data_uri` is a `data:` URI ON PURPOSE
+ * (ADR-0036), because a mark is fetched by the READER'S BROWSER, which nothing
+ * promises can reach a provider on a private network. That field is in the
+ * manifest, which is not among the bodies walked below; it is named here
+ * because it is the standing example of why SHAPE is the wrong criterion.
+ *
+ * AN EXTENSION SPELLED `url` IS CAUGHT TOO, and that is the right answer rather
+ * than over-reach. A record is a `looseObject`, so a provider may nest fields
+ * the contract never declared -- but the objection to a `javascript:` URL has
+ * nothing to do with whether this document named the field it arrived in.
  */
 function contractUrlsIn(body: unknown, found: string[] = []): string[] {
   if (Array.isArray(body)) {
@@ -345,8 +353,15 @@ describe.each(underTest.map((p) => [p.name, p] as const))(
         expect(urls.length).toBeGreaterThan(0);
 
         for (const url of urls) {
+          // `URL.parse` RATHER THAN `new URL`, because the constructor THROWS on
+          // a string that is not an absolute URL -- and a relative path, a bare
+          // `www.` and an id where a URL belongs are exactly the cases this test
+          // promises to catch. Thrown, the failure reads `TypeError: Invalid
+          // URL` with neither the offending value nor the sentence below, which
+          // is the message going missing precisely where it was written to fire.
+          const scheme = URL.parse(url)?.protocol ?? "(not an absolute URL at all)";
           expect(
-            new URL(url).protocol,
+            scheme,
             `\`${url}\` is not an HTTP URL. CMPP is an HTTP contract and every URL it carries is a ` +
               "CONTENT URL the reader's browser may be handed, so a scheme that executes or reads " +
               "the reader's disk is not one a provider may send (CNCORE-79).",

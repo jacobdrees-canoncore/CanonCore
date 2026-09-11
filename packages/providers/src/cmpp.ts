@@ -62,9 +62,16 @@ export const cmppRecord = z.object({
    * scheme is what decides whether a reader's browser treats the value as a
    * destination or as a program.
    *
-   * THE REGEXP IS THE RULE SPELLED OUT, and zod reads it case-insensitively
-   * against the parsed scheme -- `HTTPS://` is the same scheme, so it passes --
-   * while `javascript://example.invalid/` does not, whatever it is shaped like.
+   * THE REGEXP IS THE RULE SPELLED OUT, AND IT IS MATCHED CASE-SENSITIVELY
+   * AGAINST AN ALREADY-LOWERCASED SCHEME. `HTTPS://Example.Invalid/1` passes
+   * because the WHATWG parser lowercases the scheme before zod tests it, NOT
+   * because the test is case-insensitive: measured against zod 4.5.4,
+   * `z.url({ protocol: /^HTTPS$/ }).safeParse("https://x.test/")` is `false`.
+   * So this pattern must stay lower case -- an upper-case one would refuse
+   * every URL there is, and it would look like the stricter spelling.
+   *
+   * `javascript://example.invalid/` is refused whatever it is shaped like,
+   * because the scheme is read from the parse rather than from the string.
    */
   url: z.url({ protocol: /^https?$/ }),
 });

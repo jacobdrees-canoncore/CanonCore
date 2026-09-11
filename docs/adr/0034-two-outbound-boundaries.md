@@ -161,9 +161,13 @@ the bytes travel inline precisely because the fetcher is the reader's browser an
 question is always which process acts, never what the value looks like.
 
 **AND DO NOT "FIX" THIS WITH `z.httpUrl()`, which is the obvious repair and ships a hole of the
-opposite kind.** zod's own helper checks the scheme AND requires the hostname to be a dotted public
-domain, so it refuses `http://127.0.0.1:8080/1` and `http://nas.local/1` -- the very deployments the
-allowlist above exists to make legal. It reads as stricter and is simply wrong here, in the same way
+opposite kind.** zod's own helper checks the scheme AND requires the hostname to be a dotted name,
+so it refuses an ADDRESS LITERAL and a SINGLE-LABEL HOST -- the very deployments the allowlist above
+exists to make legal. Measured against zod 4.5.4 rather than reasoned about: `z.httpUrl()` refuses
+`http://127.0.0.1:8080/1`, `http://192.168.1.5/1`, `http://[::1]/1` and `http://localhost/1`, and
+ADMITS `http://nas.local/1`. An earlier draft of this paragraph named `nas.local` among the
+refusals and was wrong -- a dotted private name passes zod's host rule, and only the address-literal
+and single-label halves are refused. The hole is real and is narrower than first written. It reads as stricter and is simply wrong here, in the same way
 that restating the address rule in IANA's terms reads as more rigorous and lets loopback through.
 Both traps are a plausible tightening applied to the wrong question, which is why they are recorded
 together. The rule CMPP's URL fields take is [[0033-search-lookup-required-browse-optional]]'s: the

@@ -45,10 +45,10 @@ const sourceWord = z.string().min(1);
  * untrusted URL rather than code we run, and a value that runs in the reader's
  * browser is that position failing at the one place it has to hold.
  *
- * THE SCHEME AND NOT THE HOST. `z.httpUrl()` would also require a dotted public
- * domain, which refuses `http://127.0.0.1:8080/1` -- an ordinary self-link from
- * a provider its owner runs on their own machine, and ADR-0034 makes such a
- * provider legal by name. The contract is the INTERSECTION every provider must
+ * THE SCHEME AND NOT THE HOST. `z.httpUrl()` would also require a dotted host
+ * name, which refuses `http://127.0.0.1:8080/1` and `http://localhost/1` --
+ * ordinary self-links from a provider its owner runs on their own machine, and
+ * ADR-0034 makes such a provider legal by name. The contract is the INTERSECTION every provider must
  * satisfy, so a rule that refuses a legitimate deployment is the contract saying
  * "be on the public internet", which is not a thing CMPP requires.
  */
