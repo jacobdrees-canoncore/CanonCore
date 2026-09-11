@@ -1,6 +1,7 @@
 import {
   findAttributionOwed,
   findItem,
+  findMembersOfContainer,
   findPlacementsOfItem,
   findStatementsOfItem,
 } from "@canoncore/db";
@@ -34,8 +35,15 @@ export const item = {
       // Read against the CANONICAL id rather than the one asked for, so an
       // alias reaching a merged-away item still answers with the survivor's
       // orderings and values rather than with none (ADR-0040).
-      const [placements, statements, attribution] = await Promise.all([
+      const [placements, members, statements, attribution] = await Promise.all([
         findPlacementsOfItem(context.db, found.id),
+        // ASKED UNCONDITIONALLY rather than only when `is_container`, because
+        // the two would be the same question answered twice: nothing can be
+        // placed in an item that is not a container, so a non-container's
+        // answer is empty either way -- and a branch here would be a second
+        // place for "what is a container" to be decided, free to disagree with
+        // the column.
+        findMembersOfContainer(context.db, found.id),
         findStatementsOfItem(context.db, found.id),
         findAttributionOwed(context.db, found.id),
       ]);
@@ -63,6 +71,12 @@ export const item = {
           containerTitle: placement.containerTitle,
           position: placement.position,
           placedBy: placement.placedBy,
+        })),
+        members: members.map((member) => ({
+          id: member.id,
+          title: member.title,
+          itemId: member.itemId,
+          position: member.position,
         })),
         statements: statements.map((statement) => ({
           property: statement.property,

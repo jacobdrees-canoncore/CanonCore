@@ -103,3 +103,19 @@ describe("catalogue.list", () => {
     await expect(asked).rejects.toThrow();
   });
 });
+
+describe("catalogue.works", () => {
+  it("answers with a work and not with a person", async () => {
+    // ADR-0077's two questions, and this is the narrow one. `catalogue.list`
+    // above answers "what is in this catalogue" and hides nothing; this answers
+    // "what can I watch", so the cast stays out of it.
+    const story = await anItemTitled(db, "A story somebody can watch");
+    const person = await anItemTitled(db, "Somebody in its cast", { kind: "person" });
+
+    const works = await call(appRouter.catalogue.works, {}, { context });
+    const listed = works.entries.map((entry) => entry.id);
+
+    expect(listed).toContain(story);
+    expect(listed).not.toContain(person);
+  });
+});

@@ -49,6 +49,8 @@ export default async function setup(project: TestProject) {
   project.provide("twoOrigins", twoOrigins.fixture);
   const timeSpan = await anItemOfAKindWhoseLabelDiffers(databaseUrl);
   project.provide("timeSpan", timeSpan.fixture);
+  const workBrowsing = await theThingsWorkBrowsingHasToTellApart(databaseUrl);
+  project.provide("workBrowsing", workBrowsing.fixture);
 
   // The providers have to exist before the server starts, because the server is
   // given the allowlist that makes them reachable.
@@ -121,6 +123,7 @@ export default async function setup(project: TestProject) {
     // holds an idle connection open against a database it is finished with.
     await twoOrigins.close();
     await timeSpan.close();
+    await workBrowsing.close();
     await browsed.close();
     await provider.close();
     await tmdb.close();
@@ -559,6 +562,99 @@ async function anItemOfAKindWhoseLabelDiffers(databaseUrl: string) {
   };
 }
 
+/**
+ * THE FOUR ITEMS ADR-0077 IS ABOUT, which no other fixture here holds.
+ *
+ * The record's rule is `kind = 'work' AND (NOT is_container OR holds_work)`, and
+ * it names the two ways of getting it wrong: "either people flood the browse
+ * grid, or the containers that justified the single-table decision cannot be
+ * built". A surface can only be shown to avoid both if both are reachable, so
+ * this seeds one of each.
+ *
+ * THE TWO CONTAINERS ARE THE HALF THAT MATTERS, and they are deliberately
+ * identical except in what they hold. Both are kind `work`, because ADR-0004
+ * folds containers into it; only `holds_work` separates them. A page filtering
+ * on the kind alone passes the person half of this and fails here, which is
+ * exactly the failure the record says its own first draft had.
+ *
+ * `The Doctors, in order` is the record's OWN example, and it is the case that
+ * stopped a kind filter being enough.
+ */
+async function theThingsWorkBrowsingHasToTellApart(databaseUrl: string) {
+  const db = createDb(databaseUrl);
+  const owner = await ownerSource(db);
+
+  // Placed in nothing, which is the point: a person floods the grid by being
+  // in the catalogue at all, not by being in a container.
+  await anItemTitled(db, "A person in the cast", { kind: "person" });
+  const character = await anItemTitled(db, "A character somebody plays", { kind: "character" });
+
+  const entityContainer = await anItemTitled(db, "The Doctors, in order", {
+    isContainer: true,
+    isOrdered: true,
+  });
+  await aPlacement(db, {
+    containerId: entityContainer,
+    itemId: character,
+    position: 1,
+    sourceId: owner,
+  });
+
+  const workContainer = await anItemTitled(db, "A season that holds stories", {
+    isContainer: true,
+    isOrdered: true,
+  });
+  const story = await anItemTitled(db, "A story in that season");
+  await aPlacement(db, {
+    containerId: workContainer,
+    itemId: story,
+    position: 1,
+    sourceId: owner,
+  });
+
+  /*
+   * A REPEAT, which CONTEXT.md defines and ADR-0009 licences: the same item
+   * twice in one container, "a recap at position 1 and the episode at position
+   * 5". It is seeded rather than browsed because no provider in this suite
+   * hands one over -- the wiki's categories hold each story once.
+   */
+  const withARecap = await anItemTitled(db, "An ordering that opens with its own recap", {
+    isContainer: true,
+    isOrdered: true,
+  });
+  const shownTwice = await anItemTitled(db, "A story shown twice in one ordering");
+  await aPlacement(db, {
+    containerId: withARecap,
+    itemId: shownTwice,
+    position: 1,
+    sourceId: owner,
+  });
+  await aPlacement(db, {
+    containerId: withARecap,
+    itemId: shownTwice,
+    position: 5,
+    sourceId: owner,
+  });
+
+  return {
+    fixture: {
+      person: "A person in the cast",
+      character: "A character somebody plays",
+      entityContainer: "The Doctors, in order",
+      entityContainerId: entityContainer,
+      workContainer: "A season that holds stories",
+      workContainerId: workContainer,
+      story: "A story in that season",
+      withARecapId: withARecap,
+      repeated: "A story shown twice in one ordering",
+      repeatedId: shownTwice,
+    },
+    // The seed ends its own client; this pool has to be ended too, or the run
+    // holds an idle connection open against a database it has finished with.
+    close: () => db.$client.end(),
+  };
+}
+
 function run(command: string, args: string[], env: NodeJS.ProcessEnv): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { cwd: webRoot, env, stdio: "inherit" });
@@ -627,6 +723,19 @@ declare module "vitest" {
     twoOrigins: { id: string; byHand: string; imported: string };
     /** An item whose kind a reader and the column call by different names. */
     timeSpan: { id: string; title: string; kind: string };
+    /** The items work-browsing has to tell apart, and the containers that prove it (ADR-0077). */
+    workBrowsing: {
+      person: string;
+      character: string;
+      entityContainer: string;
+      entityContainerId: string;
+      workContainer: string;
+      workContainerId: string;
+      story: string;
+      withARecapId: string;
+      repeated: string;
+      repeatedId: string;
+    };
     /** The story imported from a CMPP provider over HTTP, and what it claimed. */
     imported: { id: string; title: string; released: string; providerLabel: string };
     /**

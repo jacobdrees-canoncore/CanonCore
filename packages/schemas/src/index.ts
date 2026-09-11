@@ -133,6 +133,41 @@ export const attributionPublic = z.object({
 
 export type AttributionPublic = z.infer<typeof attributionPublic>;
 
+/**
+ * What the read path emits for one MEMBER of a container: the mirror of
+ * `placementPublic`, read from the container's end rather than the item's.
+ *
+ * ADR-0045 again -- every field named on purpose. `id` and `itemId` are both
+ * ADDRESSES rather than internal ids: `itemId` is the member's own
+ * `/items/<id>`, and `id` is the placement `?via=` carries, which is what says
+ * WHICH arrival this was. A repeat is why that distinction has to be in the
+ * payload at all -- the same item twice in one container is two members with
+ * one `itemId` between them (ADR-0009), so nothing but the placement id can
+ * tell the recap from the episode.
+ *
+ * WHAT IT DOES NOT CARRY is `placedBy`. `placementPublic` has it because "Also
+ * appears in" lists orderings from several sources at once and a reader is
+ * choosing between them; a container's own member list is ONE ordering, so
+ * every row would answer the same, and a column of one repeated word is noise
+ * rather than provenance.
+ */
+export const memberPublic = z.object({
+  id: z.uuid(),
+  /** ADR-0014: the member's projected title. */
+  title: z.string().nullable(),
+  itemId: z.uuid(),
+  /**
+   * Where this member sits in THIS container's ordering (ADR-0018), or NULL
+   * where no source gave it one. CONTEXT.md calls that Unplaced and is explicit
+   * that it is a placement with no position rather than an absent placement:
+   * dropping the row shrinks the container silently, and numbering it last
+   * asserts an order the source never gave.
+   */
+  position: z.number().int().nullable(),
+});
+
+export type MemberPublic = z.infer<typeof memberPublic>;
+
 export const itemPublic = z.object({
   id: z.uuid(),
   /**
@@ -168,6 +203,13 @@ export const itemPublic = z.object({
    * `placedBy` and by nothing else, because they are the same kind of fact.
    */
   placements: z.array(placementPublic),
+  /**
+   * What this container HOLDS, in its own order (ADR-0018) -- the mirror of
+   * `placements` above, which is every ordering this item sits IN. Empty for an
+   * item that is not a container, and for a container nothing has been placed
+   * in yet.
+   */
+  members: z.array(memberPublic),
   /**
    * Every value anybody has claimed about this item, with who claimed it. The
    * winner for a property comes first, by the same three terms the projection
