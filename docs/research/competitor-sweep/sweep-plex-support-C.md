@@ -2,7 +2,7 @@
 
 STATUS: complete
 
-Source list: `shards/plex-support-ac` (110 URLs).
+Source list: `urls/shards/plex-support-ac` (110 URLs).
 Method: articles 001-080 via plain `curl` through the `r.jina.ai` extraction proxy; articles
 081-110 via plain `curl` direct to support.plex.tv (HTTP 200, no proxy, no User-Agent header) with
 local HTML extraction, since the remaining URLs are category indexes whose value is the article

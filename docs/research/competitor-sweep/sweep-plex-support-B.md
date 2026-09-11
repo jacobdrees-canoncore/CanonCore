@@ -2,7 +2,7 @@
 
 STATUS: complete
 
-Source list: `shards/plex-support-ab`
+Source list: `urls/shards/plex-support-ab`
 Spec under test: `prompt.md`
 
 Classification key:

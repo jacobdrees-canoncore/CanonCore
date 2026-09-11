@@ -2,7 +2,7 @@
 
 STATUS: complete
 
-All 110 URLs in `shards/plex-support-aa` covered, in order, one entry each.
+All 110 URLs in `urls/shards/plex-support-aa` covered, in order, one entry each.
 
 Method: every URL fetched with `curl` — most via the `r.jina.ai` text proxy, the last
 batch (106-110, plus a re-fetch of 037) direct from `support.plex.tv`, which answers

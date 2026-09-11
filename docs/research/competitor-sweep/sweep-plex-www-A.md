@@ -2,7 +2,7 @@
 
 STATUS: complete
 
-Shard: `shards/plex-www-aa`
+Shard: `urls/shards/plex-www-aa`
 Method: plain `curl` with no User-Agent (www.plex.tv refuses browser UAs and WebFetch).
 Classification is against `prompt.md`.
 
@@ -1316,7 +1316,7 @@ orderings of Breaking Bad by hand. (`a-plexweb-update`, 2012-11-17.)
 
 STATUS: complete
 
-Coverage: 269 unique URLs in `shards/plex-www-aa`. 39 written up individually in Blocks 1-4
+Coverage: 269 unique URLs in `urls/shards/plex-www-aa`. 39 written up individually in Blocks 1-4
 (earlier sessions), 23 written up individually in Blocks 5-8, 93 fetched and bulk-listed, 113
 triaged by slug without fetching (59 category indexes, 1 blog index, 53 holiday/listicle/poll/
 codec-fix posts), 1 dead redirect. 39 + 23 + 93 + 113 + 1 = 269. Every skipped URL is named in
