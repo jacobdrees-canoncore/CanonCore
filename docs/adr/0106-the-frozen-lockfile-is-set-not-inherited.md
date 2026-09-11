@@ -103,10 +103,12 @@ guards and watching that test, and only that test, fail:
   `require-lockfile: true` back on the Build job fails it, naming Build.
 - **The setting is on at workflow level.** Flipping it to `false` fails it.
 - **No job or step shadows it.** A job-level `env:` re-declaring the key fails it, and so does a
-  step-level one — the live shape in this file, since CNCORE-35 merged `env-guard` into a step of
-  `static-checks` that blanks `DATABASE_URL` for itself alone
-  ([[0111-ci-optimises-billed-minutes-over-named-checks]]). It was a job-level block when this
-  record was written.
+  step-level one. The step-level half is the live shape in this file: `env-guard` is a job again
+  since CNCORE-80, but it blanks `DATABASE_URL` on its single STEP rather than on the job, so that a
+  step added beside it later would still get the real value
+  ([[0111-ci-optimises-billed-minutes-over-named-checks]] carries the two moves). It was a job-level
+  block when this record was written, and CNCORE-35 is what made the step-level form worth asserting
+  about in the first place.
 - **The name in the workflow is one pnpm honours.** The real pnpm binary, on a throwaway project
   outside the repository, with the `PNPM_CONFIG_*` variables lifted out of the workflow rather than
   retyped: a manifest ahead of its lockfile must fail with `ERR_PNPM_OUTDATED_LOCKFILE`, and the

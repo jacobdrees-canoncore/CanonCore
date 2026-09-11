@@ -277,10 +277,12 @@ describe("the CI workflow", () => {
   /**
    * A CHECK CAN BE TURNED INTO DECORATION WITHOUT LEAVING THE PULL REQUEST, and
    * that is what this test is about. Splitting the four back out did not fix
-   * it: `continue-on-error: true` on a job makes its failure not fail the
-   * workflow, and the job still reports a green check under its own unchanged
-   * name. An `if:` makes it not run at all. Either one is invisible to anyone
-   * reading the checks list rather than the file.
+   * it. GitHub documents `continue-on-error` as preventing "a workflow run from
+   * failing when a job fails": the job still runs, still sits on the pull
+   * request under its own name, and the run goes green regardless. An `if:`
+   * skips the job, and a skipped job is still listed rather than absent -- as
+   * `One image, both architectures` is on every pull request here. Neither key
+   * takes a check away, which is what a reader of the checks list would notice.
    *
    * So the assertion is the same one the merged job carried, now asked of each
    * of the four -- all four must still be able to fail the build
