@@ -82,13 +82,21 @@ describe("readCatalogue", () => {
     // same name are two rows a reader has to be able to tell apart (CNCORE-60's
     // story 12), and containers fold INTO `work` -- so the kind alone cannot
     // separate "The Daleks' Master Plan" from an ordering that holds it.
+    //
+    // THE ASSERTION IS ON THE LABEL RATHER THAN THE KEY, and `Time span` is the
+    // pair that makes the difference visible: `CONTEXT.md` is binding on UI
+    // copy and calls it that, where the column says `time_span`. Migration 1
+    // seeds the label beside the kind, so this is a read of the catalogue's own
+    // words rather than a map the app would have to keep in step.
     const person = await anItemTitled(db, "Verity Lambert", { kind: "person" });
+    const era = await anItemTitled(db, "The Hartnell era", { kind: "time_span" });
     const ordering = await anItemTitled(db, "An ordering of stories", { isContainer: true });
 
     const { entries } = await readCatalogue(db, { limit: 1000 });
     const byId = new Map(entries.map((entry) => [entry.id, entry]));
 
-    expect(byId.get(person)).toMatchObject({ kind: "person", isContainer: false });
-    expect(byId.get(ordering)).toMatchObject({ kind: "work", isContainer: true });
+    expect(byId.get(person)).toMatchObject({ kind: "Person", isContainer: false });
+    expect(byId.get(era)).toMatchObject({ kind: "Time span" });
+    expect(byId.get(ordering)).toMatchObject({ kind: "Work", isContainer: true });
   });
 });

@@ -60,15 +60,19 @@ type FrontPage = Awaited<ReturnType<typeof readFrontPage>>;
 
 export default async function CataloguePage() {
   const { catalogue, providers } = await readFrontPage();
+  // ONE NAME FOR ONE FACT. It was three reads of `catalogue.total` in three
+  // shapes -- `> 0`, `=== 0`, and a comparison inside `Holding` -- which is one
+  // condition spelt three ways with two of them inverted.
+  const empty = catalogue.total === 0;
 
   return (
     <main className="container mx-auto max-w-3xl px-4 py-8">
       <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
         <h1 className="text-3xl font-medium">Catalogue</h1>
-        {catalogue.total > 0 && <Holding catalogue={catalogue} />}
+        {!empty && <Holding showing={catalogue.entries.length} total={catalogue.total} />}
       </div>
       {!providers.any && <NoProviderAllowlisted />}
-      {catalogue.total === 0 ? <WhatToDoNext /> : <Listing entries={catalogue.entries} />}
+      {empty ? <WhatToDoNext /> : <Listing entries={catalogue.entries} />}
     </main>
   );
 }
@@ -80,13 +84,12 @@ export default async function CataloguePage() {
  * catalogue tells an owner their library is smaller than it is, which is the
  * one lie a catalogue must not tell about itself.
  */
-function Holding({ catalogue }: { catalogue: FrontPage["catalogue"] }) {
-  const showing = catalogue.entries.length;
+function Holding({ showing, total }: { showing: number; total: number }) {
   return (
     <p className="text-muted-foreground text-sm">
-      {showing < catalogue.total
-        ? `Showing ${showing} of ${catalogue.total} items`
-        : `${catalogue.total} ${catalogue.total === 1 ? "item" : "items"}`}
+      {showing < total
+        ? `Showing ${showing} of ${total} items`
+        : `${total} ${total === 1 ? "item" : "items"}`}
     </p>
   );
 }
@@ -100,10 +103,16 @@ function Holding({ catalogue }: { catalogue: FrontPage["catalogue"] }) {
  * configured and an instance that is broken look identical from here. Two
  * shards of the competitor sweep rated exactly this first run HIGH.
  *
- * IT STANDS WHETHER OR NOT THE CATALOGUE IS EMPTY. An owner with items already
- * and no allowlist is just as stuck -- nothing more can be imported -- and one
- * condition read off one fact is a page that says a true thing whenever it is
- * true, rather than two conditions that have to be kept in step.
+ * IT STANDS WHETHER OR NOT THE CATALOGUE IS EMPTY, because an owner with items
+ * already and no allowlist is just as stuck: nothing more can be imported. The
+ * condition is read off `providers.any` alone and never off the catalogue's
+ * size, which is what makes that true by construction rather than by care.
+ *
+ * ONLY ONE OF THE TWO COMBINATIONS IS EXERCISED, and saying so is cheaper than
+ * letting a reader assume both are. The suite has an instance with an empty
+ * catalogue AND an empty allowlist, and one with neither; items-present-with-no-
+ * allowlist would need a third server, and the page's condition cannot see the
+ * catalogue to get it wrong.
  *
  * THE VARIABLE IS NAMED. "Allowlist a provider" is the step; `PROVIDER_ALLOWLIST`
  * is the thing an owner has to type, and a page that gestured at the step
@@ -114,7 +123,16 @@ function NoProviderAllowlisted() {
     <section aria-labelledby="no-provider" className="mt-6">
       <Card>
         <CardHeader>
-          <CardTitle id="no-provider">No provider is allowlisted</CardTitle>
+          {/*
+            A REAL HEADING INSIDE THE PRIMITIVE. `CardTitle` and `EmptyTitle`
+            both render a `div`, so a section labelled by one is labelled by
+            something that is not a heading -- and a reader navigating this page
+            by heading finds only the `h1`. The id goes on the `h2` so
+            `aria-labelledby` points at the heading itself.
+          */}
+          <CardTitle>
+            <h2 id="no-provider">No provider is allowlisted</h2>
+          </CardTitle>
           <CardDescription>
             CanonCore reaches a provider only when its host or address range is named in
             PROVIDER_ALLOWLIST. That setting is empty until you write one, and empty refuses every
@@ -141,7 +159,10 @@ function WhatToDoNext() {
     <section aria-labelledby="what-to-do-next" className="mt-6">
       <Empty className="border">
         <EmptyHeader>
-          <EmptyTitle id="what-to-do-next">Your catalogue is empty</EmptyTitle>
+          {/* A real heading, for the reason `NoProviderAllowlisted` gives. */}
+          <EmptyTitle>
+            <h2 id="what-to-do-next">Your catalogue is empty</h2>
+          </EmptyTitle>
           <EmptyDescription>
             It starts that way on purpose: CanonCore ships no catalogue, so nothing here is anybody
             else&rsquo;s library. Two steps fill it.

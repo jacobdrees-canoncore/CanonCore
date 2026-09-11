@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { Database } from "./index";
 import {
   aliases,
+  itemKinds,
   items,
   placementSources,
   placements,
@@ -331,7 +332,16 @@ export interface CatalogueEntry {
   id: string;
   /** ADR-0014's projected column. An item with no title statement has none. */
   title: string | null;
-  /** ADR-0005's seven, so a Person and a Work of one name are told apart. */
+  /**
+   * ADR-0005's kind, IN THE READER'S WORDS: `Time span`, never `time_span`.
+   *
+   * READ OFF `item_kinds` RATHER THAN MAPPED IN TYPESCRIPT. Migration 1 seeds
+   * that table with a `label` beside every kind for exactly this, so the words
+   * a reader sees are the catalogue's own. A map written in the app would be
+   * the same rule in a second language -- the hazard this file already carries
+   * a paragraph about -- and it would go stale the day a kind's label is
+   * revised by the migration that owns it.
+   */
   kind: string;
   /**
    * ADR-0004 folds containers into `work`, so the kind alone cannot separate a
@@ -377,7 +387,7 @@ export async function readCatalogue(
     .select({
       id: items.id,
       title: items.title,
-      kind: items.kind,
+      kind: itemKinds.label,
       isContainer: items.isContainer,
       /*
        * THE COUNT COMES BACK ON THE ROWS rather than from a second query, and
@@ -394,6 +404,9 @@ export async function readCatalogue(
       total: sql<number>`count(*) over ()`.mapWith(Number),
     })
     .from(items)
+    // INNER, because `items.kind` is a foreign key into this table: a row with
+    // no kind cannot exist, so there is nothing for a left join to preserve.
+    .innerJoin(itemKinds, eq(itemKinds.kind, items.kind))
     .where(isNull(items.deletedAt))
     .orderBy(sql`coalesce(${items.sortName}, ${items.title})`, items.id)
     .limit(limit);

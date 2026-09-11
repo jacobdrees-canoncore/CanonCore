@@ -16,6 +16,11 @@ import { publicProcedure } from "../index";
  * AND THE CAP IS NEVER SILENT. `total` comes back beside the entries precisely
  * so a surface can say what it is not showing; a listing that reported only what
  * it returned would present the first hundred as the library.
+ *
+ * TODO(CNCORE-82): saying what is not shown is half of it. Nothing yet REACHES
+ * items past this ceiling -- there is no cursor here and no next-page link on
+ * the page -- so a catalogue larger than a page has a tail nobody can walk.
+ * The cap stays whatever that ticket chooses; what it adds is the other half.
  */
 const A_PAGE = 100;
 

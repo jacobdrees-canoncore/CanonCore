@@ -183,8 +183,17 @@ export const catalogueEntryPublic = z.object({
   /** ADR-0014: the projected title. An item with no title statement has none. */
   title: z.string().nullable(),
   /**
-   * ADR-0005's kinds, so a Person and a Work sharing a name are distinguishable
+   * ADR-0005's kind, so a Person and a Work sharing a name are distinguishable
    * in a list rather than only once a reader has opened one of them.
+   *
+   * THE LABEL, NOT THE KEY. `CONTEXT.md` is binding on UI copy, and it calls
+   * this "Time span" where the column says `time_span` -- so a surface printing
+   * the column is showing a reader the schema. The label is seeded beside the
+   * kind in migration 1, which is what makes this a read rather than a map.
+   *
+   * `item.get` STILL EMITS THE KEY, and the item page still prints it: the same
+   * breach, one file away, and CNCORE-79 is it. It is not fixed here because
+   * fixing it means changing what `itemPublic` means for every reader of it.
    */
   kind: z.string(),
   /**

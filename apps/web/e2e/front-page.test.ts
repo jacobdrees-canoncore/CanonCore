@@ -62,7 +62,10 @@ describe("/", () => {
 
     const { text } = await documentAt("/");
 
-    expect(text).toContain(`${total} items`);
+    // THE WHOLE ELEMENT, not a substring of it. `toContain(`${total} items`)`
+    // is also satisfied by "Showing 7 of 42 items", so it could not tell the
+    // two branches apart even in a database large enough to have both.
+    expect(text).toContain(`<p class="text-muted-foreground text-sm">${total} items</p>`);
   });
 
   it("carries the product's own name, not the scaffold's placeholder", async () => {
@@ -74,7 +77,15 @@ describe("/", () => {
 
     expect(text).toContain("<title>CanonCore</title>");
     // The banner the generator ships, and the health-check panel under it.
-    expect(text).not.toContain("BETTER T STACK");
+    //
+    // THE BANNER IS MATCHED BY ITS BOX-DRAWING BYTES rather than by the words
+    // it spells. It spelled BETTER T STACK in block capitals assembled from
+    // `█` and `╗`, so the string "BETTER T STACK" appears nowhere in the HTML
+    // it produced -- an assertion looking for it passes against the scaffold
+    // itself, which is what the first version of this line did. Checked:
+    // `git show main:apps/web/src/app/page.tsx | grep -c "BETTER T STACK"`
+    // answers 0, and the same command for `██████╗` answers 5.
+    expect(text).not.toContain("██████╗");
     expect(text).not.toContain("API Status");
   });
 
@@ -126,7 +137,13 @@ describe("/ on a fresh install", () => {
     // an unconfigured instance and a broken one look identical from a page.
     const fresh = await documentFrom(freshBaseUrl, "/");
 
-    expect(() => section(fresh.text, "no-provider")).not.toThrow();
+    // THE COPY, NOT MERELY THE SECTION. The criterion is that the page SAYS
+    // so, and an empty `<section aria-labelledby="no-provider">` satisfies a
+    // test that only asks whether the element is there. What an owner needs is
+    // the identifier they have to go and set.
+    const notice = section(fresh.text, "no-provider");
+    expect(notice).toContain("PROVIDER_ALLOWLIST");
+    expect(notice.toLowerCase()).toContain("no provider is allowlisted");
   });
 
   it("does not say it where a provider IS allowlisted", async () => {
