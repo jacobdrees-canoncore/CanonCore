@@ -9,6 +9,7 @@ import {
   EmptyTitle,
 } from "@canoncore/ui/components/empty";
 import { call } from "@orpc/server";
+import Link from "next/link";
 import { connection } from "next/server";
 import { cursorFrom, Holding, Listing, PastTheEnd, Walk } from "@/components/listing";
 
