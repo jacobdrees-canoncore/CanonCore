@@ -6,7 +6,13 @@ import type { AppRouterClient } from "@canoncore/api/routers";
 import { assertPlacement, createDb } from "@canoncore/db";
 import { type SeededPlacement, seedOneItemInTwoOrderings } from "@canoncore/db/seed";
 import { buildTestDatabase } from "@canoncore/db/testing/build-database";
-import { anItemTitled, aPlacement, aProvider, ownerSource } from "@canoncore/db/testing/catalogue";
+import {
+  aCatalogueLargerThanOnePage,
+  anItemTitled,
+  aPlacement,
+  aProvider,
+  ownerSource,
+} from "@canoncore/db/testing/catalogue";
 import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
 import type { TestProject } from "vitest/node";
@@ -98,6 +104,10 @@ export default async function setup(project: TestProject) {
   const fresh = await freshInstall();
   project.provide("freshBaseUrl", fresh.baseUrl);
 
+  const paged = await aCatalogueTooBigForOnePage();
+  project.provide("pagedBaseUrl", paged.baseUrl);
+  project.provide("pagedCatalogue", paged.fixture);
+
   project.provide("imported", await importThroughTheApp(baseUrl, provider.url));
   project.provide("attributed", await importFromTmdb(baseUrl, tmdb.url));
   const browsed = await browseThroughTheApp(baseUrl, provider.url, databaseUrl);
@@ -106,6 +116,7 @@ export default async function setup(project: TestProject) {
   return async () => {
     server.kill("SIGTERM");
     fresh.close();
+    await paged.close();
     // The seed ends its own client; this pool has to be ended too, or the run
     // holds an idle connection open against a database it is finished with.
     await twoOrigins.close();
@@ -141,6 +152,48 @@ async function freshInstall(): Promise<{ baseUrl: string; close: () => void }> {
   const baseUrl = `http://127.0.0.1:${port}`;
   await waitUntilAnswering(baseUrl, server);
   return { baseUrl, close: () => server.kill("SIGTERM") };
+}
+
+/**
+ * A THIRD INSTANCE, and what is new about it is the STATE rather than the
+ * surface: a catalogue LARGER THAN ONE PAGE.
+ *
+ * Neither server above can be it. The seeded one is read by every other file
+ * here for an item it can find on the front page, and a catalogue of several
+ * hundred pushes that item off it; the fresh one's emptiness IS its fixture
+ * (ADR-0094). Paging is invisible in both -- everything they hold arrives on
+ * the first page -- so a page-over-HTTP assertion about reaching item 101 has
+ * nowhere to be made.
+ *
+ * THE SAME BUILD AGAIN, started a third time. ADR-0117 makes the point about
+ * the second one: what a second environment proves is the SHIPPED page meeting
+ * a state, rather than a second build of it.
+ */
+async function aCatalogueTooBigForOnePage() {
+  const databaseUrl = await buildTestDatabase("paged");
+  const db = createDb(databaseUrl);
+  /*
+   * TWO AND A HALF PAGES, not one and a bit. Three pages is the smallest walk
+   * with a MIDDLE one -- reached by a cursor and handing one on -- and the
+   * middle is where a cursor that works at the edges still fails.
+   */
+  const catalogue = await aCatalogueLargerThanOnePage(db, 254);
+  const port = await freePort();
+  const server = spawn("next", ["start", "--port", String(port)], {
+    cwd: webRoot,
+    env: { ...process.env, DATABASE_URL: databaseUrl, PROVIDER_ALLOWLIST: "127.0.0.0/8" },
+    stdio: "inherit",
+  });
+  const baseUrl = `http://127.0.0.1:${port}`;
+  await waitUntilAnswering(baseUrl, server);
+  return {
+    baseUrl,
+    fixture: catalogue,
+    close: async () => {
+      server.kill("SIGTERM");
+      await db.$client.end();
+    },
+  };
 }
 
 /**
@@ -558,6 +611,10 @@ declare module "vitest" {
      * stranger's first run of CanonCore is (ADR-0094).
      */
     freshBaseUrl: string;
+    /** The same build again, serving a catalogue of several hundred items. */
+    pagedBaseUrl: string;
+    /** Every item that instance holds: the set a walk has to arrive at, exactly. */
+    pagedCatalogue: string[];
     /** The wiki provider this run stood up: the real image in CI, a stub here. */
     providerWikiUrl: string;
     /** The TMDB provider, whose source row is what a TMDB claim is recorded against. */

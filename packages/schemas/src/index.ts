@@ -235,6 +235,20 @@ export const cataloguePublic = z.object({
   entries: z.array(catalogueEntryPublic),
   /** How many items the catalogue holds altogether, cap or no cap. */
   total: z.number().int().nonnegative(),
+  /**
+   * The id to ask for the next page with, or `null` where the catalogue ends
+   * here (ADR-0119).
+   *
+   * IT IS AN ITEM'S ADDRESS rather than an encoded sort key, which is what
+   * keeps the projection behind this seam: a cursor spelling out `sort_name`
+   * would be emitting a column ADR-0045 never named, through a side door, into
+   * a URL a reader can read.
+   *
+   * AND IT SAYS BOTH THINGS AT ONCE -- whether there is more, and where it
+   * starts -- because a caller could only work the first out by subtracting,
+   * and a keyset walk has no offset to subtract from.
+   */
+  continuesAfter: z.uuid().nullable(),
 });
 
 export type CataloguePublic = z.infer<typeof cataloguePublic>;

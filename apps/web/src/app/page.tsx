@@ -24,16 +24,17 @@ import { connection } from "next/server";
  * component fetching its own API is a round trip to itself, and oRPC documents
  * `call` as the way to avoid it.
  */
-async function readFrontPage() {
+async function readFrontPage(after: string | undefined) {
   /*
    * PRERENDERING STOPS HERE, and this line is the whole difference between a
    * front page and a photograph of one.
    *
-   * This page reads a database and touches no request-time API -- no cookies,
-   * no headers, no `searchParams` -- so Next prerendered it at BUILD time and
-   * served that HTML to every reader forever. The item page is dynamic by
-   * accident of reading `searchParams`; this one has nothing to read, so it
-   * says so instead. Next documents `connection()` for exactly this shape: "a
+   * This page reads a database, and when the line was added it touched no
+   * request-time API at all -- no cookies, no headers, no `searchParams` -- so
+   * Next prerendered it at BUILD time and served that HTML to every reader
+   * forever. IT READS `searchParams` NOW, for the cursor (ADR-0119), so it is
+   * dynamic by that as well; the line stays anyway, for the reason at the foot
+   * of this comment. Next documents `connection()` for exactly this shape: "a
    * component doesn't use Request-time APIs ... but still needs to produce
    * different output per request".
    *
@@ -42,6 +43,12 @@ async function readFrontPage() {
    * catalogue as it stood in the database the BUILD happened to point at. On a
    * self-hosted instance that is a front page frozen at the moment somebody
    * built the image, which no import would ever change.
+   *
+   * WHY IT STAYS, now that `searchParams` makes it redundant by ADR-0117's
+   * letter: the declaration is the rule, and being dynamic is the effect.
+   * `?after=` is here to walk the catalogue rather than to promise this page
+   * renders per request, and the day paging changes shape the page would go
+   * back to being a photograph of itself with nothing in the diff to say so.
    */
   await connection();
   // ONE CONTEXT FOR BOTH, rather than one each. It opens no connection of its
@@ -50,7 +57,7 @@ async function readFrontPage() {
   // which is the thing a context exists to make one.
   const context = await createContext();
   const [catalogue, providers] = await Promise.all([
-    call(appRouter.catalogue.list, {}, { context }),
+    call(appRouter.catalogue.list, { after }, { context }),
     call(appRouter.provider.allowlisted, undefined, { context }),
   ]);
   return { catalogue, providers };
@@ -58,22 +65,125 @@ async function readFrontPage() {
 
 type FrontPage = Awaited<ReturnType<typeof readFrontPage>>;
 
-export default async function CataloguePage() {
-  const { catalogue, providers } = await readFrontPage();
+export default async function CataloguePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ after?: string | string[] }>;
+}) {
+  /*
+   * WHERE IN THE CATALOGUE THIS READER IS, read on the SERVER so the page they
+   * are served is already the page they asked for.
+   *
+   * An array means the parameter was repeated, and a reader is at one place in
+   * one ordering -- so a repeated one names no place rather than the first of
+   * several. That is the rule `/items/<id>` applies to `via` and `placed`
+   * (ADR-0066), and a second surface answering it differently would be two
+   * conventions for one question.
+   */
+  const { after } = await searchParams;
+  const from = typeof after === "string" && after !== "" ? after : undefined;
+  const { catalogue, providers } = await readFrontPage(from);
   // ONE NAME FOR ONE FACT. It was three reads of `catalogue.total` in three
   // shapes -- `> 0`, `=== 0`, and a comparison inside `Holding` -- which is one
   // condition spelt three ways with two of them inverted.
   const empty = catalogue.total === 0;
+  const listing = catalogue.entries;
 
   return (
     <main className="container mx-auto max-w-3xl px-4 py-8">
       <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
         <h1 className="text-3xl font-medium">Catalogue</h1>
-        {!empty && <Holding showing={catalogue.entries.length} total={catalogue.total} />}
+        {listing.length > 0 && <Holding showing={listing.length} total={catalogue.total} />}
       </div>
       {!providers.any && <NoProviderAllowlisted />}
-      {empty ? <WhatToDoNext /> : <Listing entries={catalogue.entries} />}
+      {empty && <WhatToDoNext />}
+      {/*
+        A CATALOGUE WITH ITEMS IN IT AND NOTHING ON THIS PAGE, which is what a
+        cursor makes possible: the link was cut at an item, and nothing is after
+        that item any more. It is rare and it is a DEAD END if nothing says so.
+      */}
+      {!empty && listing.length === 0 && <PastTheEnd />}
+      {listing.length > 0 && (
+        <>
+          <Listing entries={listing} />
+          <Walk from={from} continuesAfter={catalogue.continuesAfter} />
+        </>
+      )}
     </main>
+  );
+}
+
+/**
+ * HOW A READER REACHES THE REST OF IT (ADR-0119).
+ *
+ * FORWARD, AND BACK TO THE START. The walk is a keyset one, so `Next` is the
+ * direction it has -- reversing it is a second query shape and a capability of
+ * its own rather than half of this one. What a reader must never be is
+ * STRANDED, and a deep link is exactly where that happens: somebody arriving on
+ * page five from a shared URL has no history to go back through. So every page
+ * past the first carries the one address that is always somewhere.
+ *
+ * `Link` RATHER THAN `a`, which is the rule `Listing` below states in full: a
+ * URL the framework does not rewrite is one that points at the wrong place the
+ * day this app is served from a path (ADR-0109).
+ *
+ * THE CURSOR IS ENCODED ON THE WAY INTO THE URL. It is a uuid today and every
+ * uuid survives encoding unchanged, so this changes no byte the app currently
+ * emits -- which is the point: what makes it safe is then the call here rather
+ * than an invariant held in a schema two packages away, and ADR-0119 leaves the
+ * cursor's format open to revisit.
+ */
+function Walk({ from, continuesAfter }: { from?: string; continuesAfter: string | null }) {
+  if (from === undefined && continuesAfter === null) return null;
+  return (
+    <nav aria-label="More of the catalogue" className="mt-6 flex items-baseline gap-4">
+      {from !== undefined && (
+        <Link href="/" className="text-sm hover:underline">
+          Back to the start
+        </Link>
+      )}
+      {continuesAfter !== null && (
+        <Link
+          href={`/?after=${encodeURIComponent(continuesAfter)}`}
+          className="ml-auto text-sm hover:underline"
+        >
+          Next
+        </Link>
+      )}
+    </nav>
+  );
+}
+
+/**
+ * A LINK THAT OUTLIVED THE ITEMS AFTER IT.
+ *
+ * A cursor is cut at an item, and this page is what a reader gets when nothing
+ * sorts after that item any more -- a bookmark kept past a delete, or an
+ * address typed by hand. Saying the catalogue ends here, and pointing at the
+ * one address that is always somewhere, is the difference between an ending and
+ * a page that looks broken.
+ */
+function PastTheEnd() {
+  return (
+    <section aria-labelledby="past-the-end" className="mt-6">
+      <Empty className="border">
+        <EmptyHeader>
+          {/* A real heading, for the reason `NoProviderAllowlisted` gives. */}
+          <EmptyTitle>
+            <h2 id="past-the-end">The catalogue ends here</h2>
+          </EmptyTitle>
+          <EmptyDescription>
+            Nothing sorts after the item this link was cut at. It may have been the last one, or it
+            may have been removed since.
+          </EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          <Link href="/" className="hover:underline">
+            Back to the start of the catalogue
+          </Link>
+        </EmptyContent>
+      </Empty>
+    </section>
   );
 }
 

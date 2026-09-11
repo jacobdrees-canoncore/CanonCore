@@ -213,3 +213,76 @@ function describeRefusal(error: unknown): string {
   }
   throw new Error(`not a PostgreSQL refusal: ${String(error)}`);
 }
+
+/**
+ * A CATALOGUE LARGER THAN ONE PAGE, answering with every id it wrote.
+ *
+ * IT IS THE ONLY STATE IN WHICH PAGING IS OBSERVABLE AT ALL, and no other
+ * fixture here has it: everything the other two instances hold arrives on the
+ * first page.
+ *
+ * IT CARRIES TWO HARD PAIRS rather than distinctly-titled rows alone. A walk
+ * over a few hundred distinct titles passes against a cursor that compares only
+ * the sort key, and against one that cannot cross into the untitled tail --
+ * both of which lose items silently and permanently on a real catalogue. The
+ * pairs are what make "none is skipped" bite. They are not returned separately:
+ * a walk that has to arrive at EVERY id has already arrived at them, and a
+ * field naming them would be one nothing reads.
+ *
+ * WRITTEN IN BULK, because the per-item helpers above are three round trips
+ * each and this is the difference between a fixture costing a moment and one
+ * costing a minute.
+ */
+export async function aCatalogueLargerThanOnePage(db: Database, size: number): Promise<string[]> {
+  const ownerId = await theOwner(db);
+  const sourceId = await ownerSource(db);
+  const title = await propertyNamed(db, "title");
+  const sortName = await propertyNamed(db, "sort_name");
+
+  const mint = async (count: number): Promise<string[]> =>
+    (
+      await db
+        .insert(items)
+        .values(Array.from({ length: count }, () => ({ ownerId, kind: "work" })))
+        .returning({ id: items.id })
+    ).map((row) => row.id);
+
+  // FOUR OF THE SIZE ARE THE PAIRS, so the caller asks for the number of items
+  // it wants and gets exactly that many -- rather than for a number that turns
+  // out to be four short of the catalogue it is about to walk.
+  const titled = await mint(size - 4);
+  const tied = await mint(2);
+  const keyless = await mint(2);
+  await db.insert(statements).values([
+    // PADDED, so the titles sort the way a reader would count them. Nothing
+    // asserts on the order, but a fixture whose tenth item sorts between its
+    // first and second is one nobody can read a failure out of.
+    ...titled.map((id, index) => ({
+      ownerId,
+      subjectItemId: id,
+      propertyId: title,
+      valueLiteral: `Story ${String(index + 1).padStart(4, "0")}`,
+      sourceId,
+    })),
+    ...tied.map((id, index) => ({
+      ownerId,
+      subjectItemId: id,
+      propertyId: title,
+      valueLiteral: `A story told twice (${index === 0 ? "novel" : "audio"})`,
+      sourceId,
+    })),
+    // THE TIE ITSELF: one sort key, two items. The order between them is their
+    // ids, which is the half of the cursor a key-only comparison leaves out.
+    ...tied.map((id) => ({
+      ownerId,
+      subjectItemId: id,
+      propertyId: sortName,
+      valueLiteral: "Story told twice, A",
+      sourceId,
+    })),
+  ]);
+
+  // `keyless` gets NO statement at all, which is the whole of its fixture: no
+  // title and no sort name is no sort key, and those sort last as one block.
+  return [...titled, ...tied, ...keyless];
+}

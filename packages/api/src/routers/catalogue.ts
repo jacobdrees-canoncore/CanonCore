@@ -17,10 +17,9 @@ import { publicProcedure } from "../index";
  * so a surface can say what it is not showing; a listing that reported only what
  * it returned would present the first hundred as the library.
  *
- * TODO(CNCORE-82): saying what is not shown is half of it. Nothing yet REACHES
- * items past this ceiling -- there is no cursor here and no next-page link on
- * the page -- so a catalogue larger than a page has a tail nobody can walk.
- * The cap stays whatever that ticket chooses; what it adds is the other half.
+ * AND THE OTHER HALF IS `after`, which is what REACHES the items past this
+ * ceiling (ADR-0119). The cap is unchanged by it: one answer still costs one
+ * page, and a reader walks as many as they care to.
  */
 const A_PAGE = 100;
 
@@ -44,13 +43,28 @@ export const catalogue = {
          * sends the request.
          */
         limit: z.number().int().positive().max(A_PAGE).default(A_PAGE),
+        /**
+         * WHERE TO CARRY ON FROM: the id of the last entry the page before
+         * this one carried, which `continuesAfter` handed over (ADR-0119).
+         *
+         * `z.string()` RATHER THAN `z.uuid()`, which is ADR-0066's rule for a
+         * parameter that is not an identity: any string may be asked about,
+         * and the answer says whether it named anything. One that names no
+         * item names no position either, so the walk starts at the beginning
+         * rather than raising -- and a reader whose bookmark outlived the item
+         * it was cut at gets the catalogue rather than an error page.
+         */
+        after: z.string().optional(),
       }),
     )
     .output(cataloguePublic)
     .handler(async ({ input, context }) => {
       // ADR-0045: every field the read path emits is NAMED, here as on the item
       // page. Never the query's row with fields removed.
-      const { entries, total } = await readCatalogue(context.db, { limit: input.limit });
+      const { entries, total, continuesAfter } = await readCatalogue(context.db, {
+        limit: input.limit,
+        after: input.after,
+      });
       return {
         entries: entries.map((entry) => ({
           id: entry.id,
@@ -62,6 +76,7 @@ export const catalogue = {
           isContainer: entry.isContainer,
         })),
         total,
+        continuesAfter,
       };
     }),
 };
