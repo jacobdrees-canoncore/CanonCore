@@ -105,6 +105,10 @@ Both runs are `pull_request` runs on the branch that made the change:
 | Jobs | **11** | **14** |
 | The four checks | one job, `Static checks`, 41s | `Typecheck` 19s, `Lint` 19s, `Build` 33s, `Env guard` 19s |
 | Job-seconds for the four | 41 | **90** |
+
+**The four check names are `Typecheck`, `Lint`, `Build` and `Env guard`**, written here because a
+required-status-checks configuration pins context strings and this is the list it would pin. Renaming
+one is not a cosmetic change once anything requires it.
 | Billed minutes for the four | 1 if this were private, 0 as it is | 4 if this were private, **0** as it is |
 
 [run 34640281757]: https://github.com/jacobdrees-canoncore/CanonCore/actions/runs/34640281757
@@ -120,10 +124,10 @@ repository's rate and worth three billed minutes at a private one's.
 **Wall clock did not pay for it either, and the reason has moved since this record was written.**
 The four ran in parallel and the last of them finished 33 seconds in, while the run itself ran to
 1m53s. This record originally said the median was "pinned by the provider job"; since CNCORE-63 it
-is pinned by the **image** jobs, which took 65s in the before run and 109s in the after one — a
-difference twice the size of anything the split did, and caused by docker layer caching rather than
-by this change. Two runs cannot establish a median. What they do establish is that the four checks
-are nowhere near the critical path at either shape.
+is pinned by the **image** jobs: amd64 took 65s in the before run and 109s in the after one, arm64
+50s and 99s — a difference twice the size of anything the split did, and caused by docker layer
+caching rather than by this change. Two runs cannot establish a median. What they do establish is
+that the four checks are nowhere near the critical path at either shape.
 
 ## Why four and not six
 
@@ -272,8 +276,14 @@ way. Each was proven by breaking the thing it guards:
   valid job keys too and defang a whole check at once rather than one step of it — a
   first version of this test read only the steps, which is the half-built mechanism this record
   would otherwise have called complete. Planting `continue-on-error: true` on the Lint job fails it
-  with `lint: job level`. A third assertion catches `pnpm lint || true`, the shell form neither key
-  covers.
+  with `lint: job level`. A third assertion catches the shell form neither key covers: `pnpm lint ||
+  true`, and the shell's do-nothing builtin `pnpm lint || :`.
+
+  **That second form was not actually caught until CNCORE-80, and the record said it was.** The
+  regex read `(true|:)\b`, and `\b` after a non-word character needs a word character next, which
+  `|| :` at the end of a line does not have. Two comments and this paragraph claimed a match that
+  never happened. It is `(true\b|:)` now — the boundary on the word, where it belongs — and both
+  forms were planted in the file and observed to fail the test.
 
   **On the three one-command jobs that third assertion is not what bites, and the test says so
   rather than implying otherwise.** `pnpm build || true` is not `pnpm build`, so the carrier finder

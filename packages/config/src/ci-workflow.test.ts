@@ -172,6 +172,18 @@ function runsExactly(command: string) {
 const blanksDatabaseUrl = (step: Step) => step.env?.DATABASE_URL === "";
 
 /**
+ * A step that runs its check and then throws the verdict away: `pnpm lint ||
+ * true`, or the shell's do-nothing builtin `pnpm lint || :`.
+ *
+ * `true` carries a word boundary so `|| truthy` is not a match; `:` must not,
+ * because `\b` after a non-word character requires a word character next and
+ * `|| :` at the end of a line has none. The regex spelled `(true|:)\b` -- which
+ * is what this was until CNCORE-80 -- therefore never matched the `:` form at
+ * all, while two comments and an ADR claimed it did. Probed both ways.
+ */
+const swallowsFailure = (step: Step) => /\|\|\s*(true\b|:)/.test(step.run ?? "");
+
+/**
  * The four checks CNCORE-80 split back into named jobs, each mapped to the jobs
  * carrying it -- found by what the step RUNS rather than by the job's name, so
  * a rename cannot carry the subject away and leave a test passing over nothing.
@@ -297,9 +309,14 @@ describe("the CI workflow", () => {
     const parsed = workflow();
 
     const carrying = staticCheckCarriers(parsed);
-    // Not vacuous: renamed or deleted jobs would make every filter below empty
-    // and this test a formality.
-    expect(Object.keys(carrying)).toHaveLength(4);
+    // Not vacuous, and it is the VALUES that are counted rather than the keys.
+    // Counting the keys would be counting the object literal the helper returns,
+    // which is four whatever `ci.yml` contains -- an assertion that cannot fail
+    // is not a guard. A check that is dropped, or whose command changes, empties
+    // its carrier list, which this catches and that would not. A job RENAMED
+    // empties nothing, because these finders read what a step runs rather than
+    // what its job is called; that is the point of finding them that way.
+    expect(Object.values(carrying).flat()).toHaveLength(4);
 
     for (const [check, [name]] of Object.entries(carrying)) {
       const job = parsed.jobs?.[name ?? ""];
@@ -335,9 +352,7 @@ describe("the CI workflow", () => {
       // script can always be written to swallow its own failure, and no reading
       // of the file will ever settle that. What it buys is that the ACCIDENTAL
       // version, reached for to quieten a noisy check, does not pass unnoticed.
-      const swallowed = steps
-        .filter((step) => /\|\|\s*(true|:)\b/.test(step.run ?? ""))
-        .map((step) => step.name ?? step.run);
+      const swallowed = steps.filter(swallowsFailure).map((step) => step.name ?? step.run);
       expect(swallowed, `${check}: shell form`).toStrictEqual([]);
     }
   });
@@ -447,9 +462,7 @@ describe("the CI workflow", () => {
     const defanged = gates
       .filter(
         (step) =>
-          step["continue-on-error"] !== undefined ||
-          step.if !== undefined ||
-          /\|\|\s*(true|:)\b/.test(step.run ?? ""),
+          step["continue-on-error"] !== undefined || step.if !== undefined || swallowsFailure(step),
       )
       .map((step) => step.name ?? step.run);
     expect(defanged).toStrictEqual([]);

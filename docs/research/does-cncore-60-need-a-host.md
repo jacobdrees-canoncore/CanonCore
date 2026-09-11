@@ -332,6 +332,11 @@ CNCORE-63 or CNCORE-64 should carry it.
 
 ### ADR-0111 was bought with money this repository no longer spends
 
+**Resolved 2026-09-11 by CNCORE-80**, after this audit was written. ADR-0111 is corrected in the
+sentences below that were false, narrowed to `provider-wiki` and `provider-tmdb`, and the four
+checks are four named jobs again. The section is left standing as the audit found it; read the
+present tense below as "at audit time".
+
 Not a hosting dependency either, and the largest thing this audit turned up.
 
 ADR-0111 is `accepted`. It merged Typecheck, Lint, Build and the missing-`DATABASE_URL` guard into

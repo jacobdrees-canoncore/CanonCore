@@ -1042,6 +1042,12 @@ Thresholds were asked for at 50/75/90 and **are not configurable** — GitHub fi
 
 ### 2. Merge Typecheck, Lint, Build and env-guard into one static-checks job.
 
+**REVERSED 2026-09-11 by CNCORE-80, and the saving below is now zero for this repository.** CNCORE-62
+made CanonCore public, and GitHub bills standard runners nothing in a public repository, so there are
+no billed minutes here to save. The four are four named jobs again. The entry stands as researched
+because the arithmetic still decides this question in `provider-wiki` and `provider-tmdb`, which stay
+private; ADR-0111 carries the correction and the split.
+
 **Forces:** entry 1. **Saves: about 3 billed minutes per run, −24%,** roughly 400 minutes a day at
 the 2026-09-10 rate. The largest single saving available.
 
