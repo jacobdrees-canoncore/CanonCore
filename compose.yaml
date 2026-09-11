@@ -15,13 +15,22 @@
 #
 # NO `name:` KEY, AND THAT IS THE ONE DELIBERATE OMISSION HERE. Compose resolves
 # a project by name from any directory, and ADR-0104 spends `canoncore` on the
-# development container so that every worktree shares one Postgres. A second
-# project by that name on one daemon would adopt the other's containers as
-# orphans. Without the key the project is the DIRECTORY's name, so the README
-# says to make one called `canoncore` and a stranger -- who has no development
-# container -- gets exactly that. Run both on one machine and Compose says
-# "Found orphan containers"; it warns rather than removing them, and only
-# `--remove-orphans` would.
+# DEVELOPMENT container so that every worktree shares one Postgres. Without the
+# key the project is the DIRECTORY's name, so the README says to make one called
+# `canoncore` and a stranger -- who has no development container -- gets exactly
+# that, while a contributor testing from anywhere else does not collide at all.
+#
+# MEASURED RATHER THAN REASONED, 2026-09-11, with `docker compose up -d
+# --dry-run` from a directory named `canoncore` on a daemon already running the
+# development container. Compose said:
+#
+#   Found orphan containers (canoncore-postgres) for this project. If you
+#   removed or renamed this service in your compose file, you can run this
+#   command with the --remove-orphans flag to clean it up.
+#
+# So it WARNS and leaves the other project's container running; only
+# `--remove-orphans` would take it. That is the whole cost of the collision, and
+# it falls on a machine that has both, which a stranger's never does.
 
 services:
   canoncore:
@@ -72,8 +81,20 @@ volumes:
   # NAMED EXPLICITLY, so the catalogue survives the directory being renamed.
   # With no `name:` above, the project is the directory's name and every volume
   # would ordinarily be prefixed with it -- so `mv canoncore catalogue` would
-  # start a second, empty database and leave the first one orphaned under a
-  # name nobody is looking at. Pinning the volume's own name decouples the data
-  # from where the file happens to sit.
+  # start a second, EMPTY database and leave the first one orphaned under a name
+  # nobody is looking at. Pinning the volume's own name decouples the data from
+  # where the file happens to sit.
+  #
+  # MEASURED, 2026-09-11: an install brought up, its migration ledger's newest
+  # stamp read (1789131707803), the directory renamed, and the stack brought up
+  # again. The stamp read back identical, so it is the same database rather than
+  # a fresh one that migrated to the same place.
+  #
+  # THE COST, SAID OUT LOUD: after such a rename Compose warns that the volume
+  # "already exists but was created for project <the old name>" and suggests
+  # `external: true`. The data is correct and the warning is permanent. Taking
+  # the suggestion is worse: `external: true` makes Compose refuse to CREATE the
+  # volume, so a first install would fail on a volume that does not exist yet,
+  # which is the one run that has to work without help.
   canoncore_data:
     name: canoncore_data

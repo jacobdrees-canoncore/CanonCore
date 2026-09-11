@@ -871,6 +871,16 @@ jobs:
       # same class of manual step ADR-0089 already records for the registry
       # grant.
       #
+      # TWO CLICKS, IN TWO PLACES, AND THE FIRST ONE IS THE ONE NOBODY EXPECTS.
+      # Measured on 2026-09-11 under CNCORE-64: this organisation's Package
+      # creation policy allowed Private and Internal only, so the package's own
+      # Change visibility dialog rendered its Public option DISABLED, under the
+      # words "Setting is disabled by organization administrators". Somebody
+      # following an instruction that named only the package's own settings
+      # would arrive at a greyed-out radio button with nothing to click and no
+      # statement of what to do about it. The message below names both, in the
+      # order they have to happen.
+      #
       # ASSERTED BECAUSE THE FAILURE IS INVISIBLE TO US. Everyone who would test
       # the install path is logged in to ghcr.io, so a private package pulls
       # perfectly for them and for nobody else -- and "nobody else" is the whole
@@ -895,6 +905,6 @@ jobs:
           visibility=$(gh api "/orgs/$owner/packages/container/$package" --jq .visibility)
           echo "the published package reads $visibility"
           if [ "$visibility" != "public" ]; then
-            echo "::error::The image published to $IMAGE is '$visibility'. A package does NOT inherit its repository's visibility, so it starts private and no API can change it: open the package's settings on github.com and set it to public. Until then every docker pull by somebody who is not a member of this organisation fails, which is the only audience this image has."
+            echo "::error::The image published to $IMAGE is '$visibility'. A package does NOT inherit its repository's visibility, so it starts private and no API can change it. TWO web-UI steps, in this order: (1) https://github.com/organizations/$owner/settings/packages -> Package creation -> tick Public -> Save, because while that policy forbids public packages the dialog in step 2 renders its Public option disabled and says only 'Setting is disabled by organization administrators'; (2) https://github.com/orgs/$owner/packages/container/$package/settings -> Danger Zone -> Change visibility -> Public, typing '$package' to confirm. Until both are done every docker pull by somebody who is not a member of this organisation fails, which is the only audience this image has."
             exit 1
           fi

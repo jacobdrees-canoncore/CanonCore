@@ -22,11 +22,13 @@ curl -fsSL -o .env https://raw.githubusercontent.com/jacobdrees-canoncore/CanonC
 docker compose up -d
 ```
 
-CanonCore is then on <http://localhost:3000>. **The directory name is the Compose
-project name**, so keep it: `compose.yaml` deliberately sets no `name:` of its own,
-for the reason written in the file. The catalogue itself lives in a volume named
-`canoncore_data` and survives the directory being renamed or the stack being
-recreated.
+CanonCore is then on <http://localhost:3000>. **The directory name becomes the
+Compose project name**, because `compose.yaml` deliberately sets no `name:` of
+its own; the reason is written in the file. The catalogue itself lives in a
+volume named `canoncore_data`, which is pinned rather than derived from the
+project, so it survives the stack being recreated and the directory being
+renamed -- measured, not assumed. Compose does warn about the project label after
+a rename, and the data it uses is the right data.
 
 The container **migrates the database and only then serves it**. A migration that
 fails takes the container down with it rather than answering requests against a
