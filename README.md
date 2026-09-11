@@ -7,6 +7,61 @@ domain-general, and it is a media server in its own right rather than a client o
 `CONTEXT.md` is the glossary and is binding on names in code and UI copy alike. `docs/adr/` holds
 the decisions and the reason each was taken.
 
+## Installing it
+
+Requires Docker, and nothing else. No checkout of this repository, no Node, no
+toolchain: the image carries the app and its migration ladder.
+
+```bash
+mkdir canoncore && cd canoncore
+curl -fsSLO https://raw.githubusercontent.com/jacobdrees-canoncore/CanonCore/main/compose.yaml
+curl -fsSL -o .env https://raw.githubusercontent.com/jacobdrees-canoncore/CanonCore/main/.env.example
+
+# Set the database password. Letters and digits only: it ends up inside a
+# connection URI, and : / ? # [ ] @ % would break it. Appending is enough --
+# a later line in .env wins, so this fills in the blank the sample file leaves.
+echo "POSTGRES_PASSWORD=$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 32)" >> .env
+
+docker compose up -d
+```
+
+CanonCore is then on <http://localhost:3000>. **The directory name becomes the
+Compose project name**, because `compose.yaml` deliberately sets no `name:` of
+its own; the reason is written in the file. The catalogue itself lives in a
+volume named `canoncore_data`, which is pinned rather than derived from the
+project, so it survives the stack being recreated and the directory being
+renamed -- measured, not assumed. Compose does warn about the project label after
+a rename, and the data it uses is the right data.
+
+The container **migrates the database and only then serves it**. A migration that
+fails takes the container down with it rather than answering requests against a
+database in an unknown shape, so `docker compose logs canoncore` is the first
+place to look if nothing answers.
+
+### What it reads
+
+The app refuses to start unless `DATABASE_URL` is set, and `compose.yaml` builds
+that from `POSTGRES_PASSWORD` so there is only ever one copy of the password.
+
+| Variable | Set by | What it is |
+|---|---|---|
+| `DATABASE_URL` | `compose.yaml`, from `POSTGRES_PASSWORD` | **Required.** The Postgres the catalogue lives in. The app validates it at build and at boot, so an absent or empty one is a failure at the start rather than at the first request. |
+| `POSTGRES_PASSWORD` | you, in `.env` | **Required, letters and digits only.** The database password. Compose refuses to start without one rather than defaulting to something nobody would change, and it composes `DATABASE_URL` from it -- so a password carrying `: / ? # [ ] @ %` makes that URI invalid and the container crash-loops on `ERR_INVALID_URL` before it ever serves. The command above generates a safe one. |
+| `PROVIDER_ALLOWLIST` | you, in `.env` | The hosts and address ranges a Provider may be fetched from, separated by commas or whitespace. **Empty refuses every Provider**, which is the default and is deliberate (ADR-0034): a fresh instance reaches nothing at all until you name a host. An empty catalogue is that setting rather than a fault, and the front page says so. |
+| `CANONCORE_PORT` | you, in `.env` | The host port to answer on. The container always serves 3000; this is only the host side of the mapping. Defaults to 3000. |
+| `NODE_ENV` | the image | Already `production` in the image. Nothing to set. |
+
+`.env.example` documents the same set and is the file to copy.
+
+### Upgrading
+
+```bash
+docker compose pull && docker compose up -d
+```
+
+The new container applies whatever rungs of the ladder are missing before it
+serves, so an upgrade is a pull and a restart. The volume is not touched.
+
 ## Layout
 
 ```

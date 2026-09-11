@@ -2,10 +2,18 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 /**
- * The root of the repository, for the suites in this package that read files
- * outside it: `.github/workflows/ci.yml`, `pnpm-workspace.yaml`, `biome.jsonc`,
- * the root `package.json`, `README.md` and the sweep corpus under
- * `docs/research/competitor-sweep/`.
+ * The root of the repository, for the suites that read files outside their own
+ * package: `.github/workflows/ci.yml`, `pnpm-workspace.yaml`, `biome.jsonc`,
+ * the root `package.json`, `README.md`, the `Dockerfile`, `compose.yaml`,
+ * `.env.example` and the sweep corpus under `docs/research/competitor-sweep/`.
+ *
+ * PUBLISHED RATHER THAN PACKAGE-PRIVATE SINCE CNCORE-64, because the install
+ * path's suite reads four repo-root files and cannot live here: the schema it
+ * holds them to is `@canoncore/env`'s, and a devDependency from this package to
+ * that one closes a cycle that `turbo.json`'s `test` task -- which is
+ * `dependsOn: ["^test"]` -- would refuse to build a graph for. So the suite
+ * lives in `packages/env`, which already depends on this package, and imports
+ * this constant by the same public specifier the network gate uses.
  *
  * A MODULE OF ITS OWN rather than a second export from the reader that first
  * needed it. Three of the four suites reading this path ask nothing about

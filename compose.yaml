@@ -1,0 +1,109 @@
+# CanonCore, as somebody who is not its author installs it: this file, a `.env`
+# beside it, and `docker compose up -d`.
+#
+# THE INSTALL PATH IS THIS FILE RATHER THAN A README SECTION ABOUT IT. ADR-0115
+# measures itself against awesome-selfhosted's "has working installation
+# instructions", and the README's `## Installing it` is the prose half; a
+# stranger downloads THIS, and never a checkout of the repository.
+#
+# `compose.yaml` is the canonical name -- "The default path for a Compose file
+# is `compose.yaml` (preferred) or `compose.yml` ... If both files exist,
+# Compose prefers the canonical `compose.yaml`" (docs.docker.com, read
+# 2026-09-11). `packages/db/docker-compose.yml` keeps the older spelling because
+# it is a DEVELOPMENT file that ADR-0104 owns, and the two are not the same
+# artefact.
+#
+# NO `name:` KEY, AND THAT IS THE ONE DELIBERATE OMISSION HERE. Compose resolves
+# a project by name from any directory, and ADR-0104 spends `canoncore` on the
+# DEVELOPMENT container so that every worktree shares one Postgres. Without the
+# key the project is the DIRECTORY's name, so the README says to make one called
+# `canoncore` and a stranger -- who has no development container -- gets exactly
+# that, while a contributor testing from anywhere else does not collide at all.
+#
+# MEASURED RATHER THAN REASONED, 2026-09-11, with `docker compose up -d
+# --dry-run` from a directory named `canoncore` on a daemon already running the
+# development container. Compose said:
+#
+#   Found orphan containers (canoncore-postgres) for this project. If you
+#   removed or renamed this service in your compose file, you can run this
+#   command with the --remove-orphans flag to clean it up.
+#
+# So it WARNS and leaves the other project's container running; only
+# `--remove-orphans` would take it. That is the whole cost of the collision, and
+# it falls on a machine that has both, which a stranger's never does.
+
+services:
+  canoncore:
+    image: ghcr.io/jacobdrees-canoncore/canoncore:latest
+    restart: unless-stopped
+    # THE APP WAITS FOR THE DATABASE TO BE READY, not merely to be started.
+    # Its entrypoint migrates before it serves and a migration against a
+    # Postgres still doing its own first-boot initdb fails, which under
+    # `restart` is a crash loop rather than an error somebody sees.
+    depends_on:
+      database:
+        condition: service_healthy
+    environment:
+      # COMPOSED HERE RATHER THAN TYPED INTO `.env`, so the password exists in
+      # exactly one place. It is in the schema as a required variable all the
+      # same -- `packages/env` is what refuses to start without it -- and the
+      # README names it for that reason.
+      #
+      # THE PASSWORD GOES IN RAW AND THERE IS NOWHERE TO ENCODE IT. Compose
+      # interpolates text; it has no percent-encoding function, so a password
+      # carrying : / ? # [ ] @ % builds a different URI or an invalid one.
+      # MEASURED 2026-09-11 with `pa/ss?w#rd@123`: the container died at the
+      # migration on `ERR_INVALID_URL` and `restart: unless-stopped` sent it
+      # round again. `.env.example` therefore asks for letters and digits and
+      # hands over a command that generates them, rather than asking the reader
+      # to think of a password and hope.
+      DATABASE_URL: postgresql://canoncore:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env; copy .env.example if you have not}@database:5432/canoncore
+      # EMPTY REFUSES EVERY PROVIDER (ADR-0034), which is the safe end of the
+      # failure and is what a fresh install runs with until somebody writes a
+      # host here. The front page says so on its face rather than leaving an
+      # empty catalogue to read as breakage.
+      PROVIDER_ALLOWLIST: ${PROVIDER_ALLOWLIST:-}
+    ports:
+      - "${CANONCORE_PORT:-3000}:3000"
+
+  database:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: canoncore
+      POSTGRES_USER: canoncore
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env; copy .env.example if you have not}
+    # NO PUBLISHED PORT, which is a decision rather than an omission. Only the
+    # app talks to this, over the network Compose makes for the project, so
+    # publishing one would put a database on the host's interfaces for nothing.
+    # It is also why ADR-0104's 5432-shadowing hazard cannot arise here: the
+    # development file has to publish a port and this one does not.
+    volumes:
+      - canoncore_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U canoncore -d canoncore"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  # NAMED EXPLICITLY, so the catalogue survives the directory being renamed.
+  # With no `name:` above, the project is the directory's name and every volume
+  # would ordinarily be prefixed with it -- so `mv canoncore catalogue` would
+  # start a second, EMPTY database and leave the first one orphaned under a name
+  # nobody is looking at. Pinning the volume's own name decouples the data from
+  # where the file happens to sit.
+  #
+  # MEASURED, 2026-09-11: an install brought up, its migration ledger's newest
+  # stamp read (1789131707803), the directory renamed, and the stack brought up
+  # again. The stamp read back identical, so it is the same database rather than
+  # a fresh one that migrated to the same place.
+  #
+  # THE COST, SAID OUT LOUD: after such a rename Compose warns that the volume
+  # "already exists but was created for project <the old name>" and suggests
+  # `external: true`. The data is correct and the warning is permanent. Taking
+  # the suggestion is worse: `external: true` makes Compose refuse to CREATE the
+  # volume, so a first install would fail on a volume that does not exist yet,
+  # which is the one run that has to work without help.
+  canoncore_data:
+    name: canoncore_data

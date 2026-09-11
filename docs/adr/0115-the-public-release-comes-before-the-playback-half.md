@@ -40,8 +40,8 @@ project "was first released more than 4 months ago" and "has working installatio
 (read 2026-09-11). The clock runs from the FIRST release, not the good one. When this was written
 there was no tag, no image and no install path, so every week of playback work was a week added to a
 clock that had not begun. That is the external failure mode, and it is the half a scope document
-cannot see. **CNCORE-63 has since built the image**; the tag and the install path are still to come,
-so the clock still has not started and the argument holds on two of its three legs.
+cannot see. **CNCORE-63 has since built the image and CNCORE-64 the install path**; the tag alone is
+still to come, so the clock still has not started and the argument holds on one of its three legs.
 
 ## ADR-0107's flip was already due and owned by nothing
 
@@ -67,16 +67,19 @@ independently rated the empty first run HIGH:
 
 Today `/` is the unmodified create-better-t-stack banner, nothing reaches `/items/<id>` without a
 UUID you already hold, `PROVIDER_ALLOWLIST` defaults to refusing every provider, and the README
-never mentions it. **A release of that is a release of the first five minutes rather than of the
-product.** [[0094-a-fresh-install-starts-empty]] governs what content ships and deliberately says
-nothing about whether the emptiness is explained; that gap is what this effort closes.
+never mentions it (all four true when this was written; see below for what has since changed). **A
+release of that is a release of the first five minutes rather than of the product.**
+[[0094-a-fresh-install-starts-empty]] governs what content ships and deliberately says nothing about
+whether the emptiness is explained; that gap is what this effort closes.
 
 **The first clause of that paragraph is now history and the last is not.** CNCORE-65 replaced the
 banner with the catalogue: an empty one names the two steps that fill it, and an instance with
-nothing allowlisted says so, so an empty result reads as configuration rather than breakage. The
-README still does not mention the variable, which is CNCORE-64's, and nothing reaches `/items/<id>`
-by SEARCHING for it yet, which is CNCORE-66's. The paragraph is left standing because it is this
-record's reasoning at the moment it was taken; this is what has since been done about it.
+nothing allowlisted says so, so an empty result reads as configuration rather than breakage.
+CNCORE-64 has since put the variable in the README and in `.env.example`, both held to the schema by
+a suite rather than to a reader's memory, so the page and the documents now say the same thing about
+what empty means. Nothing reaches `/items/<id>` by SEARCHING for it yet, which is CNCORE-66's. The
+paragraph is left standing because it is this record's reasoning at the moment it was taken; this is
+what has since been done about it.
 
 **The owner write path is included for one reason: without it the product's central claim is not
 personally usable.** A catalogue filled only from providers holds only the orderings a provider
@@ -92,13 +95,25 @@ reason is the clock and not the polish**: it runs from the first release, so the
 before the product deserves it. Build-order's phrasing is "tag v0.1.0 and publish an image, however
 embarrassing."
 
-**HALF OF THAT PHRASE IS BUILT AND THIS RECORD STAYS `proposed` UNTIL THE OTHER HALF IS.** CNCORE-63
-publishes the image: multi-arch, from `main` alone, migrating before it serves. There is no tag, no
-compose file and no documented install path, so what exists today is an image a stranger cannot be
-told how to run (CNCORE-64) and cannot be pointed at a version of (the tag). Said here rather than
-left to be inferred from a green build: an image without instructions looks finished from outside,
-and the thing measuring this record -- awesome-selfhosted's "has working installation instructions"
--- is the half that is missing.
+**THE IMAGE HALF IS BUILT AND THIS RECORD STAYS `proposed` UNTIL THE TAG IS.** CNCORE-63 publishes
+the image: multi-arch, from `main` alone, migrating before it serves. CNCORE-64 has since made it
+installable -- `compose.yaml`, `.env.example` and the README's `## Installing it`, followed on a
+machine with no checkout and no `ghcr.io` credentials, which is the run that proves what a stranger
+gets rather than what the owner gets. So awesome-selfhosted's "has working installation
+instructions" is now satisfied and its "first released more than 4 months ago" is not: there is
+still no tag, so the clock has not started and the image cannot be pointed at a version (CNCORE-70).
+Said here rather than left to be inferred from a green build, because half a mechanism looks
+finished from outside.
+
+**AND THE PUBLISH HAD A SECOND MANUAL STEP NOBODY HAD WRITTEN DOWN.** CNCORE-63's CI asserts the
+package reads `public` on every publish, and that assertion sat red on `main` because the package
+was private -- correctly, which is what it is for. The instruction it carried was incomplete: this
+organisation's Package creation policy admitted Private and Internal only, so the package's own
+Change visibility dialog rendered Public DISABLED under "Setting is disabled by organization
+administrators", and there was nothing to click. Two settings pages, in order, and the first is the
+one nobody expects. Both were walked on 2026-09-11 and `ci.yml`'s failure message now names both,
+because an instruction that leads somebody to a greyed-out control is worse than no instruction: it
+reads as the product being broken rather than as a step being missing.
 
 This is a staging decision inside one effort and NOT a cadence rule.
 [[0001-no-release-cadence-rule-in-the-specification]] refuses a cadence rule in the SPECIFICATION,
