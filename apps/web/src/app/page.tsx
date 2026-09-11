@@ -11,7 +11,8 @@ import {
 import { call } from "@orpc/server";
 import Link from "next/link";
 import { connection } from "next/server";
-import { cursorFrom, Holding, Listing, PastTheEnd, Walk } from "@/components/listing";
+import { Holding, Listing, PastTheEnd, Walk } from "@/components/listing";
+import { oneValue } from "@/components/query-params";
 
 /**
  * THE CATALOGUE, which is what opening CanonCore ought to tell you.
@@ -72,10 +73,10 @@ export default async function CataloguePage({
   searchParams: Promise<{ after?: string | string[] }>;
 }) {
   // ADR-0119's cursor, read on the SERVER so the page a reader is served
-  // is already the page they asked for. `cursorFrom` owns what a repeated
+  // is already the page they asked for. `oneValue` owns what a repeated
   // parameter means, so both reading surfaces answer that the same way.
   const { after } = await searchParams;
-  const from = cursorFrom(after);
+  const from = oneValue(after);
   const { catalogue, providers } = await readFrontPage(from);
   // ONE NAME FOR ONE FACT. It was three reads of `catalogue.total` in three
   // shapes -- `> 0`, `=== 0`, and a comparison inside `Holding` -- which is one

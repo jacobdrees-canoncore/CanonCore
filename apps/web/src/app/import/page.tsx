@@ -8,6 +8,8 @@ import { call } from "@orpc/server";
 import Form from "next/form";
 import Link from "next/link";
 
+import { oneValue } from "@/components/query-params";
+
 import { browseOrdering, importRecord } from "./actions";
 
 /** Which container the owner has asked about, and at which provider. */
@@ -51,9 +53,19 @@ async function readImportPage({ query, provider, container }: Asked) {
   const context = await createContext();
   // ONE CONTEXT FOR ALL OF THEM, for the reason the front page gives: two calls
   // to it would be two answers to "what does this request carry".
-  const [allowlisted, configured, found, held] = await Promise.all([
+  //
+  // AND THE CONFIGURATION IS READ FIRST, because what may be asked of a provider
+  // depends on whether it is one this instance searches. Neither of these two
+  // makes a request or touches the database -- both read what `createContext`
+  // parsed at module load -- so the ordering costs nothing and buys the narrowing
+  // below.
+  const [allowlisted, configured] = await Promise.all([
     call(appRouter.provider.allowlisted, undefined, { context }),
     call(appRouter.provider.configured, undefined, { context }),
+  ]);
+  const searchable = searchableProvider(configured.providers, provider);
+
+  const [found, held] = await Promise.all([
     query === undefined
       ? Promise.resolve(undefined)
       : call(appRouter.provider.search, { query }, { context }),
@@ -68,27 +80,37 @@ async function readImportPage({ query, provider, container }: Asked) {
      * container would emit a URL Next does not rewrite (ADR-0109). So the page
      * reads the catalogue and says what it finds.
      */
-    provider === undefined || container === undefined
+    searchable === undefined || container === undefined
       ? Promise.resolve(undefined)
-      : call(appRouter.provider.held, { baseUrl: provider, recordIds: [container] }, { context }),
+      : call(appRouter.provider.held, { baseUrl: searchable, recordIds: [container] }, { context }),
   ]);
-  return { allowlisted, configured, found, held };
+  return { allowlisted, configured, found, held, searchable };
+}
+
+/**
+ * The provider a URL named, ONLY IF IT IS ONE THIS INSTANCE SEARCHES.
+ *
+ * A QUERY PARAMETER IS NOT A CONFIG URL, and the distinction is `CONTEXT.md`'s:
+ * a Config URL is "a URL the owner typed into settings", which is what makes
+ * ADR-0034 check it against an allowlist rather than against the content deny
+ * rule. A value arriving in a link somebody followed has none of that standing,
+ * and it reaches `provider.browse` -- which fetches it. The allowlist still
+ * stands in front of that, so this is not the only thing between a crafted URL
+ * and a request; it is the thing that makes the URL bar no wider a door than the
+ * form, which offers a `select` for exactly this reason.
+ *
+ * IT ALSO TURNS A MALFORMED ONE INTO AN ANSWER RATHER THAN A 500. `?provider=x`
+ * would otherwise reach `provider.held`'s `z.url()` and throw, where
+ * `/items/<id>` turns a URL-supplied id it cannot use into a `notFound()`
+ * (CNCORE-14, ADR-0066). Nothing that arrives in an address should be able to
+ * crash the page it addresses.
+ */
+function searchableProvider(configured: string[], named: string | undefined): string | undefined {
+  return named !== undefined && configured.includes(named) ? named : undefined;
 }
 
 type ImportPage = Awaited<ReturnType<typeof readImportPage>>;
 type Found = NonNullable<ImportPage["found"]>;
-
-/**
- * One value of a repeated query parameter is no value.
- *
- * The rule `/items/<id>` applies to `via` and `placed` (ADR-0066) and `/` applies
- * to `after` (ADR-0119): a page asks one question, so a repeated parameter names
- * no question rather than the first of several. A third surface answering it
- * differently would be three conventions for one thing.
- */
-function one(value: string | string[] | undefined): string | undefined {
-  return typeof value === "string" && value.trim() !== "" ? value : undefined;
-}
 
 export default async function ImportPage({
   searchParams,
@@ -100,10 +122,10 @@ export default async function ImportPage({
   }>;
 }) {
   const asked = await searchParams;
-  const query = one(asked.q);
-  const provider = one(asked.provider);
-  const container = one(asked.container);
-  const { allowlisted, configured, found, held } = await readImportPage({
+  const query = oneValue(asked.q);
+  const provider = oneValue(asked.provider);
+  const container = oneValue(asked.container);
+  const { allowlisted, configured, found, held, searchable } = await readImportPage({
     query,
     provider,
     container,
@@ -119,15 +141,18 @@ export default async function ImportPage({
       {!allowlisted.any && <NoProviderAllowlisted />}
       {configured.providers.length === 0 && <NoProviderConfigured />}
       <SearchBox query={query} />
-      {found !== undefined && <Results found={found} query={query ?? ""} />}
+      {found !== undefined && query !== undefined && <Results found={found} query={query} />}
       <BrowseBox configured={configured.providers} container={container} provider={provider} />
-      {provider !== undefined && container !== undefined && held !== undefined && (
-        <Container
-          baseUrl={provider}
-          containerId={container}
-          itemId={held.items[0]?.itemId ?? null}
-        />
-      )}
+      {container !== undefined &&
+        (searchable === undefined ? (
+          <NotOneOfOurs />
+        ) : (
+          <Container
+            baseUrl={searchable}
+            containerId={container}
+            itemId={held?.items[0]?.itemId ?? null}
+          />
+        ))}
     </main>
   );
 }
@@ -456,9 +481,19 @@ function BrowseBox({
           `defaultValue` for the reason the search box gives: this is
           server-rendered markup with no script behind it.
         */}
+        {/*
+          THE SAME TOKENS `Input` CARRIES, spelt out rather than inherited,
+          because `packages/ui` vendors no select and this control sits directly
+          beside an `Input` in the same row. A control an eighth of an inch taller
+          than its neighbour, in a different type size and with no focus ring, is
+          the "reads as part of this product" test failing at the one place a
+          keyboard user needs it most: `.claude/rules/frontend.md` puts
+          accessibility with the feature, and a select nobody can see the focus on
+          is operable and invisible.
+        */}
         <select
           aria-label="Which provider holds it"
-          className="h-9 rounded-none border bg-background px-2 text-sm"
+          className="h-8 rounded-none border border-input bg-transparent px-2.5 py-1 text-xs transition-colors outline-none focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring/50 dark:bg-input/30"
           defaultValue={provider ?? configured[0]}
           name="provider"
         >
@@ -479,6 +514,29 @@ function BrowseBox({
           Find it
         </Button>
       </Form>
+    </section>
+  );
+}
+
+/**
+ * A CONTAINER NAMED AT A PROVIDER THIS INSTANCE DOES NOT SEARCH.
+ *
+ * It says so rather than showing nothing, for the reason the two notices above
+ * say their own thing: an address that quietly produces no section is one an
+ * owner reads as breakage. The likely way to arrive here is a link kept past a
+ * change to `PROVIDER_URLS`, which is exactly the case where naming the setting
+ * is the whole of the help somebody needs.
+ */
+function NotOneOfOurs() {
+  return (
+    <section aria-labelledby="not-configured" className="mt-4">
+      <h3 className="sr-only" id="not-configured">
+        That provider
+      </h3>
+      <p className="border-t py-3 text-muted-foreground text-sm">
+        That is not a provider this instance searches. The ones it does are named in PROVIDER_URLS,
+        and the list above is what it currently holds.
+      </p>
     </section>
   );
 }

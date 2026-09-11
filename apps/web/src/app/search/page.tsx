@@ -3,6 +3,7 @@ import { appRouter } from "@canoncore/api/routers";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@canoncore/ui/components/empty";
 import { call } from "@orpc/server";
 import { Holding, Listing } from "@/components/listing";
+import { oneValue } from "@/components/query-params";
 
 /**
  * CATALOGUE SEARCH, which is what finding something without knowing its id
@@ -52,7 +53,11 @@ export default async function SearchPage({
    * front page applies to `after`, and a third surface answering it differently
    * would be three conventions for one question.
    */
-  const query = typeof q === "string" ? q : "";
+  // `oneValue` owns what a repeated or blank parameter means, for every
+  // surface that reads one. An absent query is a real state here -- the page
+  // renders its box and nothing else -- so the empty string is this page's
+  // answer to "nothing asked" rather than a second reading of the parameter.
+  const query = oneValue(q) ?? "";
   /*
    * THE EMPTY QUERY IS ANSWERED HERE AND AGAIN BELOW THIS SEAM, and the
    * repetition is deliberate. This decides what to RENDER -- a prompt rather

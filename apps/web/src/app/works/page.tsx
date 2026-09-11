@@ -3,7 +3,8 @@ import { appRouter } from "@canoncore/api/routers";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@canoncore/ui/components/empty";
 import { call } from "@orpc/server";
 import { connection } from "next/server";
-import { cursorFrom, Holding, Listing, PastTheEnd, Walk } from "@/components/listing";
+import { Holding, Listing, PastTheEnd, Walk } from "@/components/listing";
+import { oneValue } from "@/components/query-params";
 
 /**
  * WORK-BROWSING: what can I watch, without the cast.
@@ -54,10 +55,10 @@ export default async function WorksPage({
   searchParams: Promise<{ after?: string | string[] }>;
 }) {
   // ADR-0119's cursor, read on the SERVER so the page a reader is served
-  // is already the page they asked for. `cursorFrom` owns what a repeated
+  // is already the page they asked for. `oneValue` owns what a repeated
   // parameter means, so both reading surfaces answer that the same way.
   const { after } = await searchParams;
-  const from = cursorFrom(after);
+  const from = oneValue(after);
   const works = await readWorkBrowsing(from);
   const listing = works.entries;
   const nothingToWatch = works.total === 0;

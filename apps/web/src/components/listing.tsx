@@ -65,19 +65,6 @@ const ENDS_HERE: Record<ListingPath, string> = {
 };
 
 /**
- * WHERE IN A LISTING THIS READER IS, read off the request.
- *
- * An array means the parameter was repeated, and a reader is at one place in one
- * ordering -- so a repeated one names no place rather than the first of several.
- * That is the rule `/items/<id>` applies to `via` and `placed` (ADR-0066), and
- * it is written ONCE here because two surfaces answering it differently would be
- * two conventions for one question.
- */
-export function cursorFrom(after: string | string[] | undefined): string | undefined {
-  return typeof after === "string" && after !== "" ? after : undefined;
-}
-
-/**
  * How much of a listing this page is showing, and how much there is.
  *
  * THE CAP IS NEVER SILENT. A listing capped at a page and reported as the whole

@@ -100,10 +100,26 @@ function itemLinkedIn(candidate: string): string | undefined {
 
 describe("/import", () => {
   it("finds a record by name, with no id known in advance", async () => {
+    /*
+     * THE ROW, NOT THE DOCUMENT. `toContain(query)` is satisfied by the page's own
+     * heading -- it prints "Nothing matched The Matrix" -- so it passes against a
+     * search that found nothing at all. That was the first version of this test,
+     * and it is the shape of assertion this repo has been caught by twice before
+     * (ADR-0103 carries both). What is asserted instead is a candidate ROW
+     * carrying the title as the whole text of its own element, and the Import
+     * button on it: a result, rather than an echo of the question.
+     *
+     * AND THE QUERY IS A NAME RATHER THAN AN ID, which is the whole criterion. The
+     * record's own id is asserted to be something the search did NOT need: it
+     * comes back in the row's form, and it is not what went in.
+     */
     const { status, text } = await documentAt(searching(providerSearch.query));
 
     expect(status).toBe(200);
-    expect(text).toContain(providerSearch.held);
+    const found = rowTitled(text, providerSearch.held);
+    const recordId = field(formIn(found), "recordId");
+    expect(recordId).not.toBe(providerSearch.query);
+    expect(recordId.length).toBeGreaterThan(0);
   });
 });
 
@@ -157,7 +173,7 @@ describe("/import, across several providers", () => {
     // The providers' own names for themselves, off their manifests, which is what
     // lets an owner choose between two answers rather than inherit one.
     expect(answered.length).toBeGreaterThan(1);
-    for (const { provider } of answered) {
+    for (const { provider, results } of answered) {
       expect(text).toContain(provider.name);
       // ATTRIBUTED BY NAME, NOT BY ADDRESS. The candidates sit under a heading
       // carrying the provider's own name for itself, never the loopback address it
@@ -171,8 +187,19 @@ describe("/import, across several providers", () => {
       //
       // THE NAME OPENS THE HEADING rather than being its whole text, because a
       // provider that matched nothing says so in the same heading -- which is the
-      // point of listing it at all.
-      expect(text).toMatch(new RegExp(`<h3[^>]*>${provider.name}`));
+      // point of listing it at all. Matched as a STRING and not built into a
+      // regular expression: the name comes off a provider's manifest, so a
+      // provider calling itself `a+b` would break the assertion rather than the
+      // page.
+      expect(text).toContain(`>${provider.name}`);
+
+      // AND EACH ROW IS ATTRIBUTED TO THE PROVIDER IT SITS UNDER, which the
+      // heading alone cannot say: a page that grouped the rows correctly and
+      // posted the wrong provider back would satisfy every assertion above, and
+      // would import somebody else's record under this one's name.
+      for (const result of results) {
+        expect(field(formIn(rowTitled(text, result.title)), "baseUrl")).toBe(provider.baseUrl);
+      }
     }
 
     // And the one that failed, named by the URL the owner typed -- the only thing
@@ -365,5 +392,65 @@ describe("reaching /import", () => {
     const next = text.match(/<section[^>]*aria-labelledby="what-to-do-next".*?<\/section>/)?.[0];
     if (!next) throw new Error("the fresh install's front page says nothing about what to do next");
     expect(next).toContain('href="/import"');
+  });
+});
+
+describe("/import, when the provider refuses", () => {
+  it("fails visibly rather than looking like it worked", async () => {
+    /*
+     * THE ONE FIELD ON THIS PAGE THE OWNER TYPES IS THE ONE THAT CAN BE WRONG.
+     * `provider.browse` declares NO_SUCH_CONTAINER for exactly this, because
+     * ADR-0033 makes "no container at that id" an answer rather than a fault.
+     *
+     * WHAT THE OWNER GETS TODAY IS A BARE 500, AND THIS TEST DOES NOT ENDORSE IT.
+     * Measured while writing it: the response is the eighteen bytes
+     * `Internal Server Error`, with no HTML. An `error.tsx` was written and
+     * removed because it DOES NOT FIRE -- a Server Action that throws during a
+     * form POST with no script answers the bare 500 regardless -- and it could not
+     * have carried the provider's reason anyway, since Next redacts a server
+     * error's message before a boundary sees it. CNCORE-92 is the fix: ask the
+     * provider before offering the button.
+     *
+     * SO WHAT IS PINNED HERE IS THE INVARIANT THAT MATTERS MEANWHILE. The failure
+     * is LOUD -- the request fails rather than answering 200 with a page that
+     * looks like a success -- and it writes nothing. A silent catch would be worse
+     * than the 500: it would make a provider that is down indistinguishable from a
+     * provider that holds nothing, which is the distinction this codebase keeps
+     * everywhere else.
+     */
+    const at = browsing({
+      provider: providerSearch.browsable.provider,
+      container: "a container this provider does not hold",
+    });
+    const offered = await documentAt(at);
+    const { total } = await client.catalogue.list({});
+
+    const refused = await submit(baseUrl, at, formIn(section(offered.text, "container")));
+
+    expect(refused.status).toBeGreaterThanOrEqual(400);
+    expect((await client.catalogue.list({})).total).toBe(total);
+  });
+
+  it("treats a provider it does not search as no provider, rather than reaching it", async () => {
+    /*
+     * A QUERY PARAMETER IS NOT A CONFIG URL. `CONTEXT.md` defines one as "a URL
+     * the owner typed into settings", which is what earns it ADR-0034's allowlist
+     * rather than the content deny rule -- and a value in a link somebody followed
+     * has none of that standing while reaching the same fetch. The browse box
+     * offers a `select` for this reason; the address bar must not be the free-text
+     * box that comment says would be wrong.
+     *
+     * AND A MALFORMED ONE IS AN ANSWER RATHER THAN A 500, which is the rule
+     * `/items/<id>` already applies to an id it cannot use (CNCORE-14).
+     */
+    for (const named of ["http://somewhere.else.test", "not a url at all"]) {
+      const { status, text } = await documentAt(
+        browsing({ provider: named, container: providerSearch.browsable.container }),
+      );
+
+      expect(status).toBe(200);
+      expect(() => section(text, "container")).toThrow();
+      expect(section(text, "not-configured")).toContain("PROVIDER_URLS");
+    }
   });
 });

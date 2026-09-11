@@ -186,6 +186,17 @@ async function freshInstall(): Promise<{ baseUrl: string; close: () => void }> {
        * (ADR-0094). Passed explicitly rather than omitted, for the reason the
        * allowlist is: this process inherits its own environment, and an omitted
        * key would let the parent's value through.
+       *
+       * AND THE EXPLICIT EMPTY STRING IS NOT ENOUGH ON ITS OWN, which is worth
+       * knowing before somebody loses an afternoon to it. A value for either of
+       * these in `apps/web/.env` REACHES THIS SERVER ANYWAY and this instance
+       * stops being a fresh install: both notices vanish and four tests here fail
+       * together, pointing at the page rather than at the file. Measured while
+       * building CNCORE-68, by putting a provider in `.env` to look at the surface
+       * in a browser -- and it is not dotenv doing it, which leaves an explicit
+       * empty string alone (checked on 17.4.2), but Next's own env loading inside
+       * the server. CI never sees it because a fresh checkout has no `.env`; a
+       * developer's machine sees it the first time they configure one.
        */
       PROVIDER_URLS: "",
     },
