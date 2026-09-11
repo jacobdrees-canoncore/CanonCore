@@ -1,0 +1,214 @@
+import type { AppRouterClient } from "@canoncore/api/routers";
+import { createORPCClient } from "@orpc/client";
+import { RPCLink } from "@orpc/client/fetch";
+import { describe, expect, inject, it } from "vitest";
+
+import { documentAt, postFormsIn, type RenderedForm, submit } from "./document";
+
+/**
+ * THE IMPORT SURFACE, over real HTTP. ADR-0103's fourth seam, which is the one
+ * CNCORE-68 names: a page-over-HTTP assertion and no browser, because everything
+ * this page renders is in the HTML the server returns -- and the forms it carries
+ * are replayed exactly as a browser with JavaScript switched off submits them.
+ */
+const providerSearch = inject("providerSearch");
+const baseUrl = inject("baseUrl");
+const client: AppRouterClient = createORPCClient(new RPCLink({ url: `${baseUrl}/api/rpc` }));
+
+/**
+ * A candidate this catalogue does not hold, taken from the ROUTER's own answer
+ * rather than named here.
+ *
+ * WHY IT IS ASKED RATHER THAN WRITTEN DOWN: the harness imports some of what
+ * these providers answer and not others, so which candidate is unheld is a fact
+ * about the fixture at the moment the test runs. A literal would have to be
+ * revised every time the fixture imported one more -- and would be revised to
+ * whatever the page happened to say, which is the one source that must not be
+ * the authority for what the page should say.
+ *
+ * AND IT IS THE UNHELD ONE THAT MAKES THIS A TEST AT ALL. Every record this
+ * harness imports is held before the first assertion runs, so a candidate picked
+ * at random would often already link an Item -- and an Import button wired to
+ * nothing would satisfy every assertion about it.
+ */
+async function aCandidateNotHeld(): Promise<{ recordId: string; title: string }> {
+  const { answered } = await client.provider.search({ query: providerSearch.query });
+  const unheld = answered.flatMap(({ results }) => results).find(({ itemId }) => itemId === null);
+  if (!unheld) {
+    throw new Error(
+      `every candidate for ${providerSearch.query} is already held, so an import proves nothing`,
+    );
+  }
+  return { recordId: unheld.recordId, title: unheld.title };
+}
+
+/** A query as `next/form` puts it in the URL: the field's name and its value. */
+function searching(query: string): string {
+  return `/import?q=${encodeURIComponent(query)}`;
+}
+
+/** Every candidate row the results carry. */
+function rows(text: string): string[] {
+  return [...text.matchAll(/<li\b[^>]*>.*?<\/li>/gs)].map(([whole]) => whole);
+}
+
+/** The one form in a row, which is the one that takes that candidate. */
+function formIn(candidate: string): RenderedForm {
+  const [form] = postFormsIn(candidate);
+  if (!form) throw new Error(`that candidate carries no form to submit:\n${candidate}`);
+  return form;
+}
+
+/** What a rendered form carries under one name. */
+function field(form: RenderedForm, name: string): string {
+  const found = form.fields.find(([key]) => key === name);
+  if (!found) throw new Error(`that form carries no \`${name}\`: ${JSON.stringify(form.fields)}`);
+  return found[1];
+}
+
+/**
+ * The row for one candidate, found by its title as the page renders it.
+ *
+ * NOT BY THE ROW'S FORM, WHICH IS THE WHOLE DIFFICULTY: a candidate the catalogue
+ * already holds has no Import button, so the hidden `recordId` that identifies a
+ * row before the import is gone from it afterwards -- which is exactly the
+ * transition under test.
+ *
+ * `>title<` RATHER THAN A SUBSTRING, so the title has to be the whole text of its
+ * own element. "The Matrix" is a substring of "The Matrix Reloaded", and a
+ * containment check would find either row for either title and never say which it
+ * had.
+ */
+function rowTitled(text: string, title: string): string {
+  const found = rows(text).find((candidate) => candidate.includes(`>${title}<`));
+  if (!found) throw new Error(`the page showed no candidate titled ${title}`);
+  return found;
+}
+
+/** The `/items/<id>` an Item is reached at, where a row names one. */
+function itemLinkedIn(candidate: string): string | undefined {
+  return /href="(\/items\/[0-9a-f-]{36})"/.exec(candidate)?.[1];
+}
+
+describe("/import", () => {
+  it("finds a record by name, with no id known in advance", async () => {
+    const { status, text } = await documentAt(searching(providerSearch.query));
+
+    expect(status).toBe(200);
+    expect(text).toContain(providerSearch.held);
+  });
+});
+
+describe("/import, taking a record", () => {
+  it("imports a candidate the catalogue does not hold, and the Item is reachable", async () => {
+    const { recordId, title } = await aCandidateNotHeld();
+    const at = searching(providerSearch.query);
+
+    const before = await documentAt(at);
+    // THE ROW OFFERS TO TAKE IT AND NAMES NO ITEM, which is the state the POST
+    // below has to change. Asserted rather than assumed: without it this test
+    // would pass against a page that showed an Item link on every row from the
+    // start.
+    expect(itemLinkedIn(rowTitled(before.text, title))).toBeUndefined();
+    const form = formIn(rowTitled(before.text, title));
+    expect(field(form, "recordId")).toBe(recordId);
+
+    const taken = await submit(baseUrl, at, form);
+
+    expect(taken.status).toBe(200);
+    // THE SAME ROW, NOW NAMING AN ITEM, which is the import being reported rather
+    // than some other candidate that happened to be held all along.
+    const link = itemLinkedIn(rowTitled(taken.text, title));
+    expect(link).toBeDefined();
+
+    // AND THE ITEM IS ACTUALLY THERE, at the address the page gave, holding the
+    // provider's own id for the record -- so it is THIS candidate's Item rather
+    // than some other item the page linked.
+    const item = await documentAt(link as string);
+    expect(item.status).toBe(200);
+    expect(item.text).toContain(recordId);
+  });
+});
+
+describe("/import, across several providers", () => {
+  it("names every provider that answered, and the one that could not be reached", async () => {
+    /*
+     * BOTH PROVIDERS SEARCHED, AND SAYING SO IS THE CRITERION. A provider that
+     * matched nothing is still a provider that was asked, and one omitted for
+     * having no results is one an owner cannot tell from one that was never asked
+     * -- so the page lists it saying it matched nothing rather than leaving it out.
+     *
+     * AND THE THIRD ONE FAILING DOES NOT EMPTY THE PAGE. The seeded instance is
+     * configured with a provider whose host is not allowlisted, so every search it
+     * serves has one failure in it; the criterion is that the other providers'
+     * answers survive that, and that the owner is told which URL failed and why.
+     */
+    const { text } = await documentAt(searching(providerSearch.query));
+
+    const { answered, failed } = await client.provider.search({ query: providerSearch.query });
+    // The providers' own names for themselves, off their manifests, which is what
+    // lets an owner choose between two answers rather than inherit one.
+    expect(answered.length).toBeGreaterThan(1);
+    for (const { provider } of answered) {
+      expect(text).toContain(provider.name);
+      // ATTRIBUTED BY NAME, NOT BY ADDRESS. The candidates sit under a heading
+      // carrying the provider's own name for itself, never the loopback address it
+      // happens to be deployed at.
+      //
+      // THE ADDRESS IS STILL IN THE PAGE, in the hidden field the Import form has
+      // to post back, and that is not the same thing and not a breach. The rule
+      // about keeping a deployment address away is about a READER being handed a
+      // source's claims; the reader here is the OWNER, who typed these URLs and is
+      // the only person who can change one. So what is asserted is the heading.
+      //
+      // THE NAME OPENS THE HEADING rather than being its whole text, because a
+      // provider that matched nothing says so in the same heading -- which is the
+      // point of listing it at all.
+      expect(text).toMatch(new RegExp(`<h3[^>]*>${provider.name}`));
+    }
+
+    // And the one that failed, named by the URL the owner typed -- the only thing
+    // about it they can act on, since reading its name is what failed.
+    expect(failed.map(({ baseUrl }) => baseUrl)).toContain(providerSearch.unreachable);
+    expect(text).toContain(providerSearch.unreachable);
+    expect(text).toContain("not an allowlisted host");
+  });
+});
+
+describe("/import, taking a record it already holds", () => {
+  it("changes nothing: the same Item, and a catalogue no larger", async () => {
+    /*
+     * A RE-IMPORT IS A REFRESH, NOT A SECOND ITEM (ADR-0026 under CNCORE-28,
+     * migration 3). An item used to be written again on every import, because
+     * nothing in the catalogue held the provider's own id; the mapping now finds
+     * the item the first import wrote.
+     *
+     * ASSERTED HERE RATHER THAN ONLY AT THE ROUTER because the page is where the
+     * button is: a surface that offered an import and minted a second item each
+     * time would be the defect a reader of this criterion is worried about, and
+     * the router passing says nothing about what the page posts.
+     *
+     * THE CANDIDATE IS ONE THE HARNESS ALREADY IMPORTED, so the very first press
+     * of this button is already a re-import.
+     */
+    const at = searching(providerSearch.query);
+    const held = rowTitled((await documentAt(at)).text, providerSearch.held);
+    const before = itemLinkedIn(held);
+    expect(before).toBeDefined();
+    const form = formIn(held);
+    const { total } = await client.catalogue.list({});
+
+    const once = await submit(baseUrl, at, form);
+    const twice = await submit(baseUrl, at, form);
+
+    expect(once.status).toBe(200);
+    expect(twice.status).toBe(200);
+    // THE SAME ITEM BOTH TIMES, and the same one it was before either press.
+    expect(itemLinkedIn(rowTitled(once.text, providerSearch.held))).toBe(before);
+    expect(itemLinkedIn(rowTitled(twice.text, providerSearch.held))).toBe(before);
+    // AND NO ITEM ANYWHERE ELSE EITHER, which is the half a row cannot show: a
+    // second item for this record would be in the catalogue whether or not this
+    // row linked it.
+    expect((await client.catalogue.list({})).total).toBe(total);
+  });
+});
