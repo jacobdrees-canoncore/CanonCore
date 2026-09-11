@@ -1,11 +1,6 @@
 import { createContext } from "@canoncore/api/context";
 import { appRouter } from "@canoncore/api/routers";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle,
-} from "@canoncore/ui/components/empty";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@canoncore/ui/components/empty";
 import { call } from "@orpc/server";
 import { connection } from "next/server";
 import { Holding, Listing, PastTheEnd, Walk } from "@/components/listing";

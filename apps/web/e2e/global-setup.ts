@@ -294,6 +294,13 @@ async function browseThroughTheApp(baseUrl: string, providerUrl: string, databas
       /** The provider's own id for it, which is what found it again. */
       externalId: TENTH_PLANET.id,
       imported: "Category:Stories with missing episodes",
+      /**
+       * The container's own id, so a test can open the ordering rather than
+       * only the story inside it. `browse` hands it back, which is what makes
+       * this the ordering the provider actually wrote rather than one found by
+       * searching the page for a title.
+       */
+      importedContainerId: missingEpisodes.containerId,
       /*
        * SECOND, NOT THIRD, AND THAT IS THE FIXTURE MOVING RATHER THAN A TYPO.
        * ADR-0057 moved the fixture era to new Who and cut the missing-episode
@@ -313,6 +320,8 @@ async function browseThroughTheApp(baseUrl: string, providerUrl: string, databas
       /** A member of a container whose ordering could not place it. */
       unplaced: operationDusk,
       unplacedIn: "Category:Vashta Nerada audio stories",
+      /** That container's own id, for a test that opens it. */
+      unplacedInId: vashtaNerada.containerId,
     },
     close: () => db.$client.end(),
   };
@@ -754,6 +763,8 @@ declare module "vitest" {
       byHandPosition: number;
       unplaced: string;
       unplacedIn: string;
+      importedContainerId: string;
+      unplacedInId: string;
     };
   }
 }

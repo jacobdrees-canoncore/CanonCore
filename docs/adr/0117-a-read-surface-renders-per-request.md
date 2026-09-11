@@ -96,3 +96,19 @@ route segment config and `connection()` are both live and the `use cache` direct
 `apps/web/src/app/page.tsx` calls `connection()` as the first line of its read. The test that would
 have caught it before it shipped is `apps/web/e2e/front-page.test.ts`, which asks two instances of
 one build for the same path and expects different answers.
+
+## The second read surface, under CNCORE-67
+
+`/works` is the first page built AFTER this record, and it took the pair rather than only the line:
+`apps/web/e2e/works-page.test.ts` asks the seeded instance and the fresh one for `/works` and expects
+different bytes, in both directions. **The check was verified by MUTATION rather than assumed** --
+stripping the page's two request-time dependencies fails it, and fails the empty-state assertion with
+it, because the fresh instance then serves the seeded build's HTML.
+
+**AND THE MUTATION IS WHAT SHOWS WHICH LINE IS LOAD-BEARING, which is worth recording because it is
+not the obvious one.** Removing `connection()` ALONE changes nothing: the page reads `searchParams`
+for [[0119-a-listing-is-walked-forward-from-the-last-item-it-showed]]'s cursor and is dynamic by that
+anyway, exactly as `/items/<id>` is dynamic by reading `?via=`. The line is kept regardless, and the
+reason is this record's own: the declaration is the rule and being dynamic is the effect. The day
+paging changes shape, a page without the line goes back to being a photograph of itself with nothing
+in the diff to say so.

@@ -201,6 +201,14 @@ export default async function ItemPage({
         <dd>{item.kind}</dd>
       </dl>
       <Values statements={item.statements} />
+      {/*
+        BEFORE "Also appears in", because a container's own ordering is what a
+        reader browsing into it came for, and where this item sits in OTHER
+        orderings is the secondary question. On an item that is not a container
+        the section renders nothing, so the order costs a non-container reader
+        nothing.
+      */}
+      <Members members={item.members} />
       <AlsoAppearsIn
         itemId={item.id}
         placements={item.placements}
@@ -266,6 +274,76 @@ function Values({ statements }: { statements: ItemOnThePage["statements"] }) {
               sort of thing said it -- and the reader is asking the first.
             */}
             <span className="text-muted-foreground text-sm">{statement.sourceLabel}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/**
+ * WHAT THIS CONTAINER HOLDS, in its own order (ADR-0018) -- and the mirror of
+ * `AlsoAppearsIn` below, which is every ordering this item sits IN.
+ *
+ * THIS IS WHERE BROWSING INTO A CONTAINER LANDS. A Container is an Item
+ * (ADR-0004), so its page is the Item page: ADR-0066 makes the path identity,
+ * and a second route for a container would be one thing at two addresses, which
+ * is exactly what that record's canonical link relation exists to deny.
+ *
+ * A REPEAT RENDERS TWICE, which is the point rather than a bug to guard
+ * against: CONTEXT.md defines it as "a recap at position 1 and the episode at
+ * position 5 ... one item, twice, on purpose", and ADR-0009 is why it is
+ * allowed. The `key` is the PLACEMENT's id and not the item's for that reason --
+ * two rows here legitimately share one `itemId`, and React given the item id
+ * would see one key twice.
+ */
+function Members({ members }: { members: ItemOnThePage["members"] }) {
+  if (members.length === 0) return null;
+
+  return (
+    <section className="mt-8" aria-labelledby="members">
+      <h2 id="members" className="font-medium text-sm">
+        Members
+      </h2>
+      <ul className="mt-2 divide-y">
+        {members.map((member) => (
+          <li key={member.id} className="flex items-baseline justify-between gap-4 py-2">
+            {/*
+              A LINK CARRYING `?via=`, which is the one place on this page that
+              owes one. ADR-0066 makes the query the ROUTE a reader arrived
+              through, and a reader following this link IS arriving through this
+              ordering -- so the member's page can say so, and a refresh or a
+              shared link keeps it. That is the difference from `AlsoAppearsIn`
+              below, whose links go to the container ITSELF and therefore carry
+              nothing.
+
+              THE PLACEMENT'S ID RATHER THAN THIS CONTAINER'S, because a repeat
+              is one item twice in one container: the container cannot say which
+              of the two arrivals this was, and the placement is the only thing
+              that can.
+
+              AN OBJECT RATHER THAN A STRING, for the reason `FilterLink` below
+              gives: Next's typed routes match a string href against the route
+              patterns, and `/items/<id>?<query>` matches none of them.
+            */}
+            <Link
+              href={{ pathname: `/items/${member.itemId}`, query: { via: member.id } }}
+              className="hover:underline"
+            >
+              {member.title ?? "Untitled item"}
+            </Link>
+            {/*
+              One expression rather than `#{position}`, for the reason
+              `AlsoAppearsIn` gives: React server-renders a text literal beside
+              an expression with a `<!-- -->` between them.
+
+              AND AN UNPLACED MEMBER SAYS SO rather than being dropped or
+              numbered last. `positionLabel` is shared with the list below, so
+              the two surfaces cannot come to describe the same absence in two
+              different ways -- CONTEXT.md settles the words as "no position
+              given" and is binding on UI copy.
+            */}
+            <span className="text-muted-foreground text-sm">{positionLabel(member.position)}</span>
           </li>
         ))}
       </ul>

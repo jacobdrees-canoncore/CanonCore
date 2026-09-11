@@ -17,8 +17,10 @@ import { Holding, Listing, PastTheEnd, Walk } from "@/components/listing";
  *
  * ADR-0077 phrases its rule around the QUESTION A SURFACE ASKS, and this asks
  * the wide one: "what is in this catalogue", so it shows every kind and hides
- * no People. The narrow question -- "what can I watch" -- is a surface of its
- * own (CNCORE-67) rather than this one with a filter bolted to it.
+ * no People. The narrow question -- "what can I watch" -- is `/works`, a
+ * surface of its own rather than this one with a filter bolted to it, and the
+ * header offers both so a reader chooses the question rather than inheriting
+ * one.
  *
  * The router is called IN-PROCESS, as the item page calls it. A server
  * component fetching its own API is a round trip to itself, and oRPC documents
@@ -110,9 +112,6 @@ export default async function CataloguePage({
     </main>
   );
 }
-
-
-
 
 /**
  * WHY AN EMPTY CATALOGUE IS EMPTY, when the reason is configuration.
@@ -206,4 +205,3 @@ function WhatToDoNext() {
     </section>
   );
 }
-

@@ -94,3 +94,22 @@ describe("/works", () => {
     expect(empty).toContain("People");
   });
 });
+
+describe("reaching /works", () => {
+  it("is linked from the catalogue, so it can be found without typing its address", async () => {
+    // A SURFACE NOBODY CAN NAVIGATE TO DOES NOT ANSWER THE QUESTION. The ticket
+    // asks for "what can I watch" to be answerable; reachable only by typing a
+    // path is the same page nobody opens.
+    //
+    // ASSERTED BY FOLLOWING THE LINK rather than by matching an href, so this
+    // cannot pass against a link pointing somewhere that no longer serves.
+    const { text } = await documentAt("/");
+    const linked = [...text.matchAll(/href="(\/works[^"]*)"/g)].map(([, href]) => href)[0];
+    if (!linked) throw new Error("the catalogue linked nothing at /works");
+
+    const arrived = await documentAt(linked);
+
+    expect(arrived.status).toBe(200);
+    expect(arrived.text).toContain(workBrowsing.story);
+  });
+});

@@ -60,8 +60,8 @@ export const catalogue = {
    * ADR-0077 phrases its rule around the QUESTION A SURFACE ASKS, and this is
    * the wide one: work-browsing answers "what can I watch" and excludes the
    * entity kinds, and this excludes nothing. A front page that hid People would
-   * be answering the other question without saying so, and CNCORE-67 is where
-   * the other question gets its own surface.
+   * be answering the other question without saying so -- and the other question
+   * is `works` below rather than this one with a flag on it.
    */
   list: publicProcedure
     .input(listingInput)

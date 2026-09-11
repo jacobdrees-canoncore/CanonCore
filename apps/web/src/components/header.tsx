@@ -23,6 +23,25 @@ export default function Header() {
           <Link href="/" className="font-semibold" style={{ fontSize: `${OUR_MARK_PX}px` }}>
             CanonCore
           </Link>
+          {/*
+            THE TWO QUESTIONS ADR-0077 NAMES, side by side, which is what makes
+            them two surfaces a reader chooses between rather than one page with
+            a filter somewhere on it. `/` answers "what is in this catalogue"
+            and `/works` answers "what can I watch"; a work-browsing surface
+            reachable only by typing its address answers neither.
+
+            IT IS IN THE HEADER rather than on the catalogue page alone, because
+            the return journey matters as much: a reader who has narrowed to
+            Works needs the way back to everything, and ADR-0077's own words for
+            an entity container are that it is "reached deliberately" -- which
+            requires somewhere to reach it from.
+
+            `Link` RATHER THAN `a` (ADR-0109), as everything else that emits a
+            URL here does.
+          */}
+          <Link href="/works" className="text-base hover:underline">
+            Works
+          </Link>
         </nav>
         <div className="flex items-center gap-2">
           <ModeToggle />
