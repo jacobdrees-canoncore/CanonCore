@@ -1,20 +1,24 @@
 # Accepted gitleaks findings, with the reason each is accepted.
 #
-# EMPTY, AND THAT IS EARNED RATHER THAN ASSUMED. This repository begins at a
-# single seed commit (ADR-0114), so the three fingerprints this file used to
-# carry pinned commits it does not have -- and one named a file it does not
-# hold. Removing them was correct. Assuming nothing would then be found was NOT:
-# the first CI run on the public repository flagged Plex's GPG public key
-# fingerprint, still live in the working file, and the note those entries
-# carried ("the values have been redacted from the working files") turned out to
-# be true of one value and not the other.
+# ONE ENTRY, AND IT COVERS EXACTLY ONE COMMIT ON PURPOSE.
 #
-# So the second one is redacted now too, in the file, beside a sentence saying
-# what was removed and why. That is the durable fix: a fingerprint is
-# `commit:file:rule:line`, so it dies again on the next commit that touches the
-# file, while a redaction holds.
+# Plex's GPG PUBLIC key fingerprint, transcribed from Plex's own documentation
+# where it is labelled "Public key" and published precisely so users can verify
+# a download. A public key fingerprint is not a secret; gitleaks flags it on
+# shape alone.
+#
+# The value is REDACTED in the working file, so no future commit carries it.
+# What this entry covers is the seed commit, which does, and which is immutable
+# -- `gitleaks git` scans commits rather than the working tree, so redacting a
+# file does not remove the value from the commits that already have it. That is
+# the same fact ADR-0114 rests on, met again at a smaller scale.
+#
+# A fingerprint is `commit:file:rule:line`. Pinning a commit that will never
+# change is durable; pinning one that new work keeps touching is not, which is
+# why the redaction does the ongoing work and this line only closes the past.
+9cebb4618db6cd2aeedd47884900c5e6eccbb1e7:docs/research/competitor-sweep/sweep-plex-support-C.md:generic-api-key:868
 #
 # Do not add to this file to make a check pass. If a finding is genuinely ours,
 # rotate the credential -- do not record it here. If it is a third-party public
 # value quoted as research evidence, redact it from the working file and say so
-# beside the quotation.
+# beside the quotation, then pin only the commits that already carry it.
