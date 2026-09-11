@@ -615,8 +615,8 @@ jobs:
       # it from GitHub's own detected licence, which is the deprecated bare
       # `AGPL-3.0` for this repository -- `licensee` does not parse SPDX
       # expressions, so the `-or-later` election cannot reach it. The action
-      # de-duplicates by key with the caller's value last, which is what makes
-      # this line win.
+      # keeps the LAST value given for a label name, which is what makes this
+      # line win.
       - uses: docker/metadata-action@v6
         id: meta
         with:
@@ -831,6 +831,24 @@ jobs:
           # The digests are file NAMES rather than file contents, which is the
           # shape Docker's own documentation uses: an artifact per architecture,
           # merged into one directory, and every entry is one manifest.
+          #
+          # CHECKED BEFORE THEY ARE EXPANDED INTO AN ARGUMENT LIST, because an
+          # empty directory is the failure this cannot otherwise survive: `*`
+          # would go unexpanded and the command would be handed the literal
+          # `<image>@sha256:*`, failing somewhere further in with a message about
+          # a reference rather than about a missing artifact. A name that is not
+          # 64 hex characters means the same thing -- something other than the
+          # push step wrote here -- and the same loop catches both.
+          found=0
+          for digest in *; do
+            case "$digest" in
+              *[!0-9a-f]*) echo "::error::'$digest' in the digest directory is not a sha256 digest. Either the download found no artifact and left the glob unexpanded, or something other than the push step wrote here."; exit 1 ;;
+            esac
+            [ ${#digest} -eq 64 ] || { echo "::error::'$digest' is not 64 hex characters, so it is not a manifest digest."; exit 1; }
+            found=$((found + 1))
+          done
+          [ "$found" -ge 2 ] || { echo "::error::found $found digests and this image is built for two architectures. A manifest list bound to one of them publishes a tag that resolves for half the machines pulling it."; exit 1; }
+          echo "binding the tags to $found architecture digests"
           #
           # shellcheck disable=SC2046 # both expansions are lists of arguments,
           # and quoting them would pass each list as one argument.

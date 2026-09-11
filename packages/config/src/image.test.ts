@@ -18,7 +18,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { data, Evaluator, Lexer, Parser } from "@actions/expressions";
 import { describe, expect, it } from "vitest";
-import { type Step, type Workflow, workflow } from "./testing/ci-workflow";
+import { allSteps, type Step, type Workflow, workflow } from "./testing/ci-workflow";
 import { repoRoot } from "./testing/repo-root";
 
 const dockerignore = () => readFileSync(join(repoRoot, ".dockerignore"), "utf8");
@@ -156,13 +156,6 @@ function resolveEnv(value: unknown, parsed: Workflow): string {
   );
 }
 
-/** Every step of every job, carrying the job it sits in and that job's own `if`. */
-function allSteps(parsed: Workflow): { job: string; jobIf: unknown; step: Step }[] {
-  return Object.entries(parsed.jobs ?? {}).flatMap(([job, definition]) =>
-    (definition.steps ?? []).map((step) => ({ job, jobIf: definition.if, step })),
-  );
-}
-
 /**
  * Every step that would PUBLISH: one that pushes to a registry, or logs in so
  * that something else can.
@@ -185,6 +178,42 @@ function publishingSteps(parsed: Workflow): { job: string; jobIf: unknown; step:
     );
   });
 }
+
+describe("the image's own labels", () => {
+  /**
+   * THE LABELS THE DOCKERFILE STATES, which nothing was holding.
+   *
+   * `image.test.ts` checked the WORKFLOW's `labels:` input and stopped there, so
+   * an image built by hand -- `docker build .`, which is what somebody reading
+   * the repository does -- carried whatever the Dockerfile happened to say. The
+   * two are separate statements of one election and this is what keeps them
+   * equal to the manifest, which ADR-0113 makes the election's home.
+   */
+  it("declares the licence election the manifest declares", () => {
+    const { license } = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8")) as {
+      license: string;
+    };
+    const declared = /org\.opencontainers\.image\.licenses="([^"]+)"/.exec(
+      readFileSync(join(repoRoot, "Dockerfile"), "utf8"),
+    );
+
+    expect(declared?.[1]).toBe(license);
+  });
+
+  /**
+   * AND THE SOURCE, which is the label that makes the image's AGPL offer
+   * reachable: it is how somebody holding only a pulled image finds the
+   * corresponding source. It is required by the ticket alongside the licence and
+   * was equally unheld.
+   */
+  it("points at the repository the source is offered from", () => {
+    const declared = /org\.opencontainers\.image\.source="([^"]+)"/.exec(
+      readFileSync(join(repoRoot, "Dockerfile"), "utf8"),
+    );
+
+    expect(declared?.[1]).toBe("https://github.com/jacobdrees-canoncore/CanonCore");
+  });
+});
 
 describe("publishing the image", () => {
   /**
@@ -285,8 +314,9 @@ describe("publishing the image", () => {
    *
    * So the generated label is wrong unless the workflow overrides it, and a
    * label that is wrong looks exactly like one that is right. The action
-   * de-duplicates by key with the user's value last, which is what makes the
-   * override work; `licence.test.ts` holds the manifest's own election.
+   * keeps the LAST value given for a label name, which is what makes the
+   * override work. The Dockerfile states the same election for a hand-built
+   * image, and the two tests above hold both to the manifest.
    */
   it("states the licence election itself rather than inheriting GitHub's", () => {
     const parsed = workflow();
@@ -353,7 +383,9 @@ describe("publishing the image", () => {
    *
    * The references are resolved through the workflow's `env` block, so the
    * property held here is that they all come from ONE place, not that four
-   * literals happen to match.
+   * literals happen to match. The last assertion then pins what that one place
+   * says, which is the single literal this suite owns: without it a workflow
+   * that consistently named the wrong registry would pass.
    */
   it("names the published image in exactly one place", () => {
     const parsed = workflow();

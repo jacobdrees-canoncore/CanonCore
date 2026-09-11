@@ -188,10 +188,10 @@ const dockerfile = join(repoRoot, "Dockerfile");
  * by parsing rather than by matching the whole tag: `node:24.21.0-slim` names
  * the same major as `node:24-slim` and must not read as a different one.
  */
-function dockerfileMajor(): string {
-  const stages = [
-    ...readFileSync(dockerfile, "utf8").matchAll(/^FROM\s+node:(\d+)[^\s]*(?:\s+AS\s+(\S+))?/gim),
-  ].map((stage) => ({ major: stage[1] as string, name: stage[2] ?? "(unnamed)" }));
+function dockerfileMajor(contents: string = readFileSync(dockerfile, "utf8")): string {
+  const stages = [...contents.matchAll(/^FROM\s+node:(\d+)[^\s]*(?:\s+AS\s+(\S+))?/gim)].map(
+    (stage) => ({ major: stage[1] as string, name: stage[2] ?? "(unnamed)" }),
+  );
 
   if (stages.length === 0) {
     throw new Error(
@@ -331,6 +331,32 @@ describe("CanonCore's Node major", () => {
    * Comparing the two files to each other would let a bump applied to both
    * agree its way past the rule that decides which major is right.
    */
+  /**
+   * THE CHECK ITSELF, against fixtures rather than the real file, for the reason
+   * `docker-compose.test.ts` gives about its port reader: run only against the
+   * Dockerfile in the tree, this is exercised rather than tested, and it would
+   * pass just as well reading nothing.
+   *
+   * These three cases are the ones that were observed failing by breaking the
+   * real Dockerfile while this was written -- a major ahead of the rule, two
+   * stages disagreeing, and a base that is not node. Kept here so the
+   * observation is standing rather than a sentence in a commit message.
+   */
+  it("reads a major, a disagreement and an absence out of a Dockerfile", () => {
+    expect(dockerfileMajor("FROM node:24-slim AS build\nFROM node:24-slim AS runner\n")).toBe("24");
+    // A pinned patch names the same major as a bare one.
+    expect(dockerfileMajor("FROM node:24.21.0-slim AS build\n")).toBe("24");
+    // A stage built FROM another stage inherits rather than restating.
+    expect(dockerfileMajor("FROM node:24-slim AS build\nFROM build AS runner\n")).toBe("24");
+
+    expect(() =>
+      dockerfileMajor("FROM node:24-slim AS build\nFROM node:26-slim AS runner\n"),
+    ).toThrow(/more than one Node major: build=node:24, runner=node:26/);
+    expect(() => dockerfileMajor("FROM debian:trixie-slim AS build\n")).toThrow(
+      /nothing states a major/,
+    );
+  });
+
   it("is the major the Dockerfile builds and runs on", () => {
     const selected = newestLtsAsOf(new Date());
 

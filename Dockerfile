@@ -20,10 +20,22 @@ WORKDIR /app
 # PNPM FROM THE `packageManager` PIN, AND NEVER VIA COREPACK. `corepack enable
 # pnpm` is the line in both of Next's own example Dockerfiles and it has an
 # expiry here: the Node TSC stopped distributing corepack from the 25 line on,
-# so it is absent from `node:26-slim` and this image would stop building on
-# 2026-10-28, the day ADR-0112's rule selects 26. Reading the pin works on every
-# major, and it is the same field pnpm/setup reads in CI, so one value decides
-# the version in both places.
+# so this image would stop building on 2026-10-28, the day ADR-0112's rule
+# selects 26. Reading the pin works on every major, and it is the same field
+# pnpm/setup reads in CI, so one value decides the version in both places.
+#
+# MEASURED RATHER THAN REASONED, 2026-09-11, in the two images themselves:
+#
+#   node:26-slim (v26.8.2)   corepack ABSENT -- `corepack: not found`
+#                            npm install --global pnpm@12.3.4 -> pnpm 12.3.4
+#   node:24-slim (v24.21.0)  corepack present
+#                            npm install --global pnpm@12.3.4 -> pnpm 12.3.4
+#
+# THAT IS THE INSTALL LINE ON 26, NOT THE WHOLE IMAGE ON 26. A full build on a
+# 26 base has not been run: it needs more than the 2 GB the development machine
+# gives Docker, and CI builds the major this file ships. So the claim to trust
+# is the one measured above -- the line that was going to break does not -- and
+# the rest is to re-derive on the day the majors move.
 #
 # The `+sha` half of a hashed pin is dropped: npm cannot install that form, and
 # the field is allowed to carry one.
@@ -86,8 +98,8 @@ WORKDIR /app
 # bare `AGPL-3.0` however the project elected -- and `docker/metadata-action`
 # builds this label out of that same badge value. These labels are the one
 # artefact where `-or-later` survives, which is why the workflow overrides the
-# generated one rather than letting it win. `licence.test.ts` holds this string
-# to the manifest's.
+# generated one rather than letting it win. `image.test.ts` holds this string and
+# the source below to `package.json`'s, which ADR-0113 makes the election's home.
 LABEL org.opencontainers.image.title="CanonCore" \
       org.opencontainers.image.description="A self-hosted catalogue for collections that do not fit one folder tree." \
       org.opencontainers.image.source="https://github.com/jacobdrees-canoncore/CanonCore" \

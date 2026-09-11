@@ -31,8 +31,8 @@ builds this one as `org.opencontainers.image.licenses=${this.repo.license?.spdx_
 from the action's own `src/meta.ts` on 2026-09-11 — which is GitHub's flattened value, the very
 `AGPL-3.0` the paragraph below says to expect. So the one artefact that CAN carry the election
 inherits the one that cannot, and the result is indistinguishable from a correct label. The workflow
-states the value itself instead; the action de-duplicates labels by key with the caller's last,
-which is what makes the override win. `packages/config/src/image.test.ts` holds the workflow's value
+states the value itself instead; the action keeps the LAST value given for a label name, which is
+what makes the override win. `packages/config/src/image.test.ts` holds the workflow's value
 to this manifest's, so the two cannot drift.
 
 **Expect GitHub to report the deprecated `AGPL-3.0` regardless.** licensee's own documentation says
