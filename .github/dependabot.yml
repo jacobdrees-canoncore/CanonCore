@@ -34,3 +34,46 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+
+  # The Dockerfile's `node:<major>-slim` base, which since CNCORE-63 is the
+  # FIFTH place this repository states its Node major and the only one it ships.
+  # DISTINCT FROM the docker-compose entry above: that one watches a compose
+  # file in `packages/db` and this one watches a Dockerfile at the root, and
+  # Dependabot's docker ecosystem treats them as different manifests in
+  # different directories.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    # MAJOR BUMPS ARE HELD BACK, AND THIS BLOCK IS MEANT TO BE DELETED RATHER
+    # THAN KEPT. ADR-0112 decides the major by a RULE -- the newest Node line
+    # that has reached LTS -- and the rule selects 24 today. When it selects 26
+    # the bump Dependabot would raise is the bump this repository WANTS.
+    #
+    # WHAT IT BUYS UNTIL THEN is not protection from a broken build. The image
+    # builds on 26 already: pnpm comes from the `packageManager` pin rather than
+    # from corepack, which the Node TSC stopped shipping from the 25 line on and
+    # which is what made the equivalent bump fail in the provider repos
+    # (provider-wiki#9, closed at exit 127). What it buys is quiet. The major is
+    # written in five places and Dependabot can edit one, so every weekly pull
+    # request it raised would go red on `node-major.test.ts` with no defect in
+    # it -- and A WEEKLY RED PULL REQUEST TEACHES PEOPLE THAT RED IS NORMAL,
+    # which is the habit every gate in this repository depends on not forming.
+    # CNCORE-59 is where the provider repos reached the same conclusion.
+    #
+    # ONLY THE MAJOR. 24.x patch bumps still arrive and are still wanted: this
+    # holds back the one bump that cannot land alone, not the base image.
+    #
+    # THE MARKER BELOW IS READ BY A TEST, which is the only reason the date is
+    # more than prose. `packages/config/src/node-major.test.ts` takes the date
+    # from here rather than from a second copy, fails from that day with an
+    # instruction to DELETE this block, and asserts the date is the one the rule
+    # itself implies -- Node 26's LTS date, read off the schedule transcribed in
+    # that file rather than remembered here. So the expiry cannot drift from the
+    # rule that justifies it, and there is exactly one copy of it in this file.
+    #
+    # EXPIRES: 2026-10-28
+    ignore:
+      - dependency-name: "node"
+        update-types: ["version-update:semver-major"]

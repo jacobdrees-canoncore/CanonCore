@@ -13,6 +13,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { parse } from "yaml";
 import { pnpmSetupSteps, type Workflow, workflow } from "./testing/ci-workflow";
 import { repoRoot } from "./testing/repo-root";
 
@@ -332,5 +333,124 @@ describe("CanonCore's Node major", () => {
       `ADR-0112's rule now selects Node ${selected}. The Dockerfile is the fifth place the ` +
         `major is written and the only one that ships: move its FROM lines with the rest.`,
     ).toBe(selected);
+  });
+});
+
+
+const dependabotFile = join(repoRoot, ".github", "dependabot.yml");
+
+type Dependabot = {
+  updates?: {
+    "package-ecosystem"?: string;
+    directory?: string;
+    ignore?: { "dependency-name"?: string; "update-types"?: string[] }[];
+  }[];
+};
+
+/**
+ * The day the `docker` entry's Node-major ignore stops being wanted, taken from
+ * the `EXPIRES:` marker that is its ONE copy of the date.
+ *
+ * A marker rather than a YAML key because Dependabot has no field for "this
+ * rule has an end", and the alternative -- a date in prose -- is a date nobody
+ * meets. provider-wiki carries the same device under CNCORE-52, and the reason
+ * it gives is the one that matters: past its expiry the block goes on
+ * suppressing a bump that is by then WANTED, and the failure gets quieter with
+ * age, because the longer it sits the more it reads as a settled rule.
+ */
+function ignoreExpires(): string {
+  const marked = /^\s*#\s*EXPIRES:\s*(\d{4}-\d{2}-\d{2})\s*$/m.exec(
+    readFileSync(dependabotFile, "utf8"),
+  );
+  if (!marked) {
+    throw new Error(
+      ".github/dependabot.yml carries no `# EXPIRES: <date>` marker. The Node-major ignore " +
+        "is meant to be DELETED rather than kept, and the marker is what makes that happen.",
+    );
+  }
+  return marked[1] as string;
+}
+
+/** The `docker` ecosystem entry, which exists because this repo now ships an image. */
+function dockerEntry() {
+  const parsed = parse(readFileSync(dependabotFile, "utf8")) as Dependabot;
+  const entries = (parsed.updates ?? []).filter(
+    (update) => update["package-ecosystem"] === "docker",
+  );
+  if (entries.length !== 1) {
+    throw new Error(
+      `.github/dependabot.yml has ${entries.length} docker entries; the Dockerfile at the ` +
+        "repository root needs exactly one, and it is not the docker-compose entry",
+    );
+  }
+  return entries[0] as NonNullable<Dependabot["updates"]>[number];
+}
+
+/**
+ * THE THIRD THING A DOCKERFILE DRAGS IN, and ADR-0112 named it before it
+ * existed: "Once an image exists it inherits the recurring-noise problem
+ * CNCORE-43, CNCORE-49, CNCORE-52 and CNCORE-59 solved in the provider repos,
+ * including the 2026-10-28 expiry machinery."
+ *
+ * The noise is specific rather than general. Dependabot would raise `node` 24 ->
+ * 26 weekly from the day 26 ships, and every one of those pull requests fails
+ * `node-major.test.ts` above -- correctly, because the major moves in five
+ * places at once and Dependabot can only edit one. A WEEKLY RED PULL REQUEST
+ * TEACHES PEOPLE THAT RED IS NORMAL, which is the habit every gate in this
+ * repository depends on not forming.
+ */
+describe("the Dependabot ignore that holds the Node major still", () => {
+  it("holds back the major of the node image and nothing else", () => {
+    const ignored = dockerEntry().ignore ?? [];
+
+    expect(ignored).toStrictEqual([
+      { "dependency-name": "node", "update-types": ["version-update:semver-major"] },
+    ]);
+  });
+
+  /**
+   * THE EXPIRY IS DERIVED FROM THE RULE, NOT REMEMBERED BESIDE IT. The ignore is
+   * wanted exactly while the rule still selects the major the Dockerfile runs;
+   * the day the next transcribed line reaches LTS, the bump it suppresses is the
+   * bump this repository wants. Reading that day off `NODE_SCHEDULE` means the
+   * marker cannot drift from the rule that justifies it -- and when the majors
+   * do move, the next expiry comes from a line this table does not carry yet,
+   * which is what the going-blind test above is for.
+   */
+  it("expires on the day the rule starts selecting a newer major", () => {
+    const running = Number(ciMajor(workflow()));
+    const next = NODE_SCHEDULE.filter((line) => Number(line.major) > running).sort(
+      (a, b) => Number(a.major) - Number(b.major),
+    )[0];
+    expect(next, "no transcribed line is newer than the major this repo runs").toBeDefined();
+
+    expect(ignoreExpires()).toBe(next?.lts);
+  });
+
+  /**
+   * AND IT FIRES. Red from the expiry, with the repair in the message, for the
+   * same reason the rule's own alarm is: a block that outlives its reason is
+   * indistinguishable from one that still has it.
+   */
+  it("has not expired", () => {
+    const expires = ignoreExpires();
+
+    expect(
+      asDay(new Date()) < expires,
+      `The Node-major ignore in .github/dependabot.yml expired on ${expires}. DELETE the ` +
+        "ignore block and its EXPIRES marker rather than moving the date: the bump it " +
+        "suppresses is the one ADR-0112's rule now wants, and it lands together with the " +
+        "five places the major is written.",
+    ).toBe(true);
+  });
+
+  /**
+   * ONE COPY OF THE DATE. A second one in a comment is what the marker exists to
+   * avoid: two dates that agree today and are edited one at a time.
+   */
+  it("states that date exactly once", () => {
+    const occurrences = readFileSync(dependabotFile, "utf8").split(ignoreExpires()).length - 1;
+
+    expect(occurrences).toBe(1);
   });
 });
