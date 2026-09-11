@@ -53,6 +53,28 @@ remains open because the declaration is where the read is.
 reads `searchParams` for `?via=` ([[0066-path-is-identity-query-is-the-route]]) and is dynamic by
 that alone, which is why this defect reached the front page and not the item page.
 
+## The check a new read surface earns, stated because it is invisible afterwards
+
+Naming the rule is not enough on its own, because the failure is silent in exactly the place a test
+usually looks: one server's front page is correct, since the database it was built against is the
+database it is serving. Nothing about the HTML looks wrong, and no error is raised anywhere.
+
+**So the check is a SHAPE rather than an assertion about one page: ask two instances of one build,
+pointed at different databases, for the same path, and expect different answers.** That is what
+`apps/web/e2e/front-page.test.ts` does, and it is the only arrangement in this repo that can see a
+build-time artefact at all. It is a fourth-seam check in
+[[0103-tests-bite-at-package-exports-and-the-router]]'s terms — the app over real HTTP — and it
+needs no browser, because a prerendered page and a per-request one differ in the bytes the server
+returns.
+
+**A new read surface earns that pair, not merely the `connection()` line.** The line without the
+check is a rule somebody remembers; the second surface that forgets it looks exactly like the first
+one that did not. What makes the pair cheap is that the second instance already exists: the harness
+starts it for [[0094-a-fresh-install-starts-empty]]'s sake, so a new surface costs one more request
+against a server that is already running.
+
+This is written down because it is the kind of thing that is obvious once and invisible afterwards.
+
 ## Evidence
 
 Next.js 16.3.4's own documentation, read from `node_modules/next/dist/docs` on 2026-09-11, as
