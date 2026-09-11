@@ -129,6 +129,7 @@ jobs:
           }
           scan 'yuzu' "The owner's personal host is named in the tree. ADR-0109 argues from the slot's plan, price, region and what the SSH session proved; the name is an invitation and proves nothing."
           scan '/Users/jacobrees' "An absolute path into the owner's machine is in the tree. It resolves for nobody else, and it says where this checkout happens to sit."
+          scan 'heathways' "The owner's slot USERNAME is in the tree. CNCORE-61 removed the hostname of that pair and left this half, which is the more useful half to anyone holding the other: a name and a host is most of a login. Broader than the username itself, for the reason the first pattern is broader than the hostname."
           exit $fail
 
       - name: Agent docs referenced by CLAUDE.md exist

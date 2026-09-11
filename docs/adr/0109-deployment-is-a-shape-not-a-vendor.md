@@ -165,7 +165,7 @@ silence.
 did not say out loud.** With root, `systemd` supplies it for free and nobody writes it down. On this
 slot there is nothing:
 
-- **`crontab` is refused outright** — "You (jacobreesheathways) are not allowed to access to
+- **`crontab` is refused outright** — "You (<slot username, elided>) are not allowed to access to
   (crontab) because of pam configuration" — for read and for write, with a TTY and without, while
   the account *is* in the `cron` group. **Measured**: the refusal, the group membership, and that
   `/etc/pam.d/crond` carries `account required pam_access.so` while `/etc/security/access.conf` does
