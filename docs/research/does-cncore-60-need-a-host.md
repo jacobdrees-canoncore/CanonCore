@@ -140,7 +140,7 @@ spec's shopping list.** The slot was bought under CNCORE-18, whose own text says
 "Nothing in version one waits on this. CI runs Postgres as a service container on GitHub's runners."
 
 What the slot bought was an answer to a question that turned out to be the wrong one, and the answer
-now lives in ADR-0109:118-247. Post-CNCORE-61 that section argues from plan, price, region and what
+now lives in ADR-0109:118-324. Post-CNCORE-61 that section argues from plan, price, region and what
 the SSH session proved, and from nothing else. Searching the tree for the redacted hostname returns
 only the CI guard that enforces its absence (`.github/workflows/ci.yml:113-132`, "The owner's personal
 host is named in the tree ... the name is an invitation and proves nothing"). **That guard caught an
@@ -152,16 +152,16 @@ because the finding was never about that machine:
   sink row 1" — was **Postgres**, and Postgres was never the risk. ADR-0109:126-134.
 - What it found instead is now a clause of the SHAPE, at the top of the record rather than in the
   vendor section: ADR-0109:7-9, "a process that needs no root **and that something starts again when
-  the machine comes back**". ADR-0109:237-242 says so explicitly: "Nothing about the vendor question,
+  the machine comes back**". ADR-0109:313-318 says so explicitly: "Nothing about the vendor question,
   and one clause of the shape".
 
 Does that clause touch CNCORE-60? Only as a fact about a file the spec does not ship. The
 development compose file carries `restart: unless-stopped` (`packages/db/docker-compose.yml:32`) and
-a `healthcheck:`, and ADR-0109:180-189 measured both inert on a shared slot. That is a note for
+a `healthcheck:`, and ADR-0109:229-238 measured both inert on a shared slot. That is a note for
 whoever deploys, on the day there is a deployment. No CNCORE-60 criterion asserts anything about
 restart behaviour, and CNCORE-64's install path is exercised once by hand rather than left running.
 
-**So: entirely a playback-spec concern.** `docs/research/the-cheap-end.md:269` states its own
+**So: entirely a playback-spec concern.** `docs/research/the-cheap-end.md:280-281` states its own
 scope — "Nothing here needs a new record. It is a price correction to research, and the decision it
 feeds belongs to the playback spec" — and ADR-0109:105-109 does the same for the rung: "Deliberately
 not decided. Which rung beyond the entry plan, and when. That belongs to the playback spec, which is
@@ -169,7 +169,7 @@ the first spec that puts bytes anywhere."
 
 One factual note, offered rather than acted on: the slot is a recurring GBP 11/month whose question
 is answered and whose successor recommendation is the split rather than the slot
-(`docs/research/the-cheap-end.md:230-237`). Whether it keeps running is a money decision for the
+(`docs/research/the-cheap-end.md:230-235`). Whether it keeps running is a money decision for the
 playback spec, not a CNCORE-60 dependency in either direction.
 
 ---
@@ -270,17 +270,24 @@ reason, and says so in its own words: "Recorded because it dates the choice, not
 the product."
 
 **Jacob intends to run CanonCore on the Whatbox slot he already holds, once CNCORE-60 and all its
-children are done.** He also holds a written allowance from that vendor covering whatever he wants to
-run on it, which is why the demo prohibition in `where-it-runs.md:1324` does not bind his account even
-though the published AUP is unchanged for everyone else. CNCORE-81 exists to get both of those into
-the records with a date and an author, because today they are a conversation rather than evidence.
+children are done.** That intent stands.
+
+**The sentence that stood here was wrong, and CNCORE-81 is what corrected it.** It said he "also
+holds a written allowance from that vendor covering whatever he wants to run on it, which is why the
+demo prohibition in `where-it-runs.md:1324` does not bind his account even though the published AUP
+is unchanged for everyone else". **There is no written allowance.** CNCORE-81 searched the account's
+support history and the owner's mail on 2026-09-11, found nothing, and asked him directly: the grant
+was spoken and nothing was written down. So the demo prohibition binds this account exactly as it
+binds every other, and ADR-0109 carries the search, the answer, and what Whatbox's own Terms say it
+would take to make such a grant evidence. **The intent above survives it** — a personal single-owner
+instance is not what the AUP reaches; only the public demo is.
 
 **Nothing in this file derives that choice, and it should not be read as recommending it.** Three
 things stay true beside it:
 
 - **CNCORE-60 still needs no host**, which is the whole answer above. The intent changes the plan
   after this effort, not inside it.
-- **The repo's own priced comparison still recommends something else.** `the-cheap-end.md:230-237`,
+- **The repo's own priced comparison still recommends something else.** `the-cheap-end.md:230-235`,
   written 2026-09-10: the recommendation "for when it does start" is the SPLIT, a ~GBP 4 VPS with root
   plus a Storage Box at GBP 2.09/TB, "unless Whatbox fixes cron". Same money, and what it buys is root,
   a systemd that restarts things, and storage that survives a later move.
@@ -331,6 +338,11 @@ Stated as a finding, not as an edit: **the tickets are not changed by this file.
 CNCORE-63 or CNCORE-64 should carry it.
 
 ### ADR-0111 was bought with money this repository no longer spends
+
+**Resolved 2026-09-11 by CNCORE-80**, after this audit was written. ADR-0111 is corrected in the
+sentences below that were false, narrowed to `provider-wiki` and `provider-tmdb`, and the four
+checks are four named jobs again. The section is left standing as the audit found it; read the
+present tense below as "at audit time".
 
 Not a hosting dependency either, and the largest thing this audit turned up.
 
@@ -431,8 +443,10 @@ GitHub's "Configuring a package's access control and visibility" for the default
 permissions-not-visibility inheritance clause; GitHub's REST reference for organization packages,
 whose nine endpoints include none that changes visibility.
 
-**Not established, and stated rather than filled in**: the written allowance the owner holds from
-Whatbox, which overrides that vendor's published Acceptable Use Policy for his account and is the
-only thing standing between the AUP text and `where-it-runs.md:1324`. It is a document only he holds,
-so it is named here as a gap and filed as CNCORE-81 rather than quoted from memory. Nothing in
-CNCORE-60 reads that slot either way.
+**Asked and answered on 2026-09-11, and the answer was no**: this section named the owner's Whatbox
+allowance as a gap, called it "a document only he holds", and filed CNCORE-81 rather than quote it
+from memory. **CNCORE-81 found there is no document.** The grant was spoken, the owner confirmed it,
+and so it overrides nothing: the published Acceptable Use Policy stands against the demo finding in
+`where-it-runs.md` rather than being held off by it. ADR-0109 carries the search and the result.
+Nothing in CNCORE-60 reads that slot either way, which is why this correction changes no conclusion
+in this file.

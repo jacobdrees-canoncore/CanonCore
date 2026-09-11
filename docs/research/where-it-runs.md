@@ -1321,11 +1321,40 @@ Hetzner bills "the minimum amount, whether that is the monthly price cap OR the 
 multiplied by the number of hours you used the server". Cost should not decide this; blast radius
 should.
 
-**One thing IS decided, contractually.** On a shared seedbox the demo cannot be co-located at all —
-Whatbox forbids "public media streaming, public video libraries", Ultra.cc's 5.7 forbids "public
-media libraries [...] unless we agree in writing", and Seedboxes.cc requires the public HTTP part to be
-"password protected and not open to the public". ADR-0044 and ADR-0072 make the demo exactly the thing
-those clauses name. On rungs 3-5 there is no such clause, and Hetzner's 7.1 permits it expressly.
+**One thing IS decided, contractually**, and re-read at source on 2026-09-11 under CNCORE-81. On a
+shared seedbox the demo cannot be co-located at all — Whatbox's Acceptable Use Policy forbids using
+the Services "for IPTV hosting, IPTV sharing, IPTV resale, VOD hosting, VOD sharing, public media
+streaming, public video libraries, and commercial media access services", Ultra.cc's 5.7 forbids
+"public media libraries [...] unless we agree in writing", and Seedboxes.cc requires the public HTTP
+part to be "password protected and not open to the public". ADR-0044 and ADR-0072 make the demo
+exactly the thing those clauses name. On rungs 3-5 there is no such clause, and Hetzner's 7.1 permits
+it expressly.
+
+**Two things were wrong with that sentence as it stood, and both make it bind harder rather than
+softer.**
+
+**The media clause is not what catches the demo first.** The same Whatbox policy separately forbids
+running "a public directory service with no authentication", and ADR-0072 says the demo "shows
+visitors everything on it", there being no visibility system for it to hide behind. That clause bites
+on a catalogue holding no bytes at all — which is precisely what version one is, playback being
+"entirely a playback-spec concern" and no part of CNCORE-60
+(`docs/research/does-cncore-60-need-a-host.md`) — so a demo co-located there would be forbidden
+before the first file row exists.
+Quoting only the media clause invited the opposite reading, that a demo without media slips past.
+
+**The written-agreement escape hatch is Ultra.cc's alone.** The Whatbox text carries no equivalent:
+no "unless we agree in writing", and no exceptions clause of any kind. Setting the two quotes side by
+side, as this paragraph does, invited a reader to carry Ultra.cc's qualifier across to the vendor that
+does not have it.
+
+**The owner holds a spoken allowance from this vendor, and it moves nothing in this entry.** He
+recalls Whatbox telling him the account may run what he likes; asked directly on 2026-09-11 he
+confirmed nothing was written down. **ADR-0109 is where that sits** — the search, the result, and
+what Whatbox's own Terms say it would take to make such a grant evidence. This file does not re-argue
+it, because a claim argued in two places is one that drifts. **The AUP text above is unchanged — for
+this account and for everyone else.** An allowance no reader can open is not one this file can argue
+from, and the clause that decides the demo is the authentication clause, which no version of the
+recollection is specific about.
 
 No record requires a split: ADR-0097 counts instances rather than machines, ADR-0094's separation is
 between databases, and ADR-0045's is in the read path.

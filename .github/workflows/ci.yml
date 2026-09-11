@@ -26,7 +26,7 @@ concurrency:
 env:
   # Every job that builds needs this to be a non-empty string. The jobs carrying
   # a postgres service genuinely connect to it; the rest only need it non-empty,
-  # and one step of `static-checks` below deliberately blanks it for itself.
+  # and the `env-guard` job below deliberately blanks it for its one step.
   DATABASE_URL: postgresql://postgres:password@localhost:5432/canoncore
   # For the migration jobs, which make databases of their own.
   BASE_URL: postgresql://postgres:password@localhost:5432
@@ -147,23 +147,24 @@ jobs:
           done
           exit $fail
 
-  # ONE JOB, FOUR CHECKS, AND THAT IS A BILLING DECISION (ADR-0111). This file
-  # said the opposite here until CNCORE-35 -- "Separate jobs, so a red check
-  # names the thing that broke rather than making someone open the log to find
-  # out" -- and that principle was traded away deliberately rather than
-  # forgotten. GitHub bills per job ROUNDED UP TO THE WHOLE MINUTE, so four
-  # jobs doing 44 seconds of work between them billed four minutes.
+  # SEPARATE JOBS, SO A RED CHECK NAMES THE THING THAT BROKE rather than making
+  # someone open the log to find out. That is this file's own sentence, it was
+  # here before CNCORE-35, and CNCORE-80 put it back.
   #
-  # What replaces the named check is the STEP name: a failure is reported
-  # against `pnpm lint` or `pnpm typecheck` in the job summary, one click from
-  # the pull request rather than absent.
+  # WHAT MERGED THESE FOUR AND WHAT UNMERGED THEM ARE THE SAME ARGUMENT. GitHub
+  # bills per job ROUNDED UP TO THE WHOLE MINUTE, so four jobs doing 44 seconds
+  # of work between them billed four minutes and one billed one; ADR-0111 traded
+  # the sentence above for those three minutes deliberately. CNCORE-62 then made
+  # this repository PUBLIC, and GitHub bills standard runners nothing at all in a
+  # public repository. Four minutes and one are both zero here now, so the trade
+  # buys nothing and the principle comes back.
   #
-  # READ ADR-0111 BEFORE SPLITTING THESE BACK APART. It carries the measured
-  # saving, why Secret scan and Agent docs deliberately stayed out, and how
-  # little headroom this job has under the 60-second boundary. The saving
-  # reverses silently if you split them, which is why there is a record at all.
-  static-checks:
-    name: Static checks
+  # DO NOT COPY THIS SHAPE INTO provider-wiki OR provider-tmdb. They stay private
+  # under ADR-0089, their minutes are still billed, and ADR-0111's arithmetic is
+  # as load-bearing there as it ever was. The record carries which half of it
+  # survived and where.
+  typecheck:
+    name: Typecheck
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -172,10 +173,6 @@ jobs:
       # packageManager field, and `pnpm install` runs automatically. What makes
       # that install frozen is PNPM_CONFIG_FROZEN_LOCKFILE above, not anything
       # said here: this action has no input for lockfile strictness at all.
-      #
-      # PAID ONCE HERE, rather than the four times these checks used to cost it.
-      # The install runs 13 seconds at the median and was billed per job; it is
-      # the single largest reason this merge is worth anything.
       - uses: pnpm/setup@v2
         with:
           runtime: node@24
@@ -183,35 +180,63 @@ jobs:
 
       - run: pnpm typecheck
 
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/setup@v2
+        with:
+          runtime: node@24
+          cache: true
+
       # No "did it actually run anything?" guard here, and that is deliberate
       # rather than forgotten. The Test job needs one because `turbo run test`
       # exits 0 having run zero tasks. Biome does the opposite: it exits 1 with
       # "No files were processed in the specified paths" when nothing matches,
-      # so an empty or over-ignored config fails this step by itself. A test in
+      # so an empty or over-ignored config fails this job by itself. A test in
       # packages/config pins that, since it is the vendor's behaviour, not ours.
       #
       # `pnpm lint` is `biome ci`, which emits ::error annotations, so a failure
       # lands on the diff rather than only in this log.
       - run: pnpm lint
 
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/setup@v2
+        with:
+          runtime: node@24
+          cache: true
+
       - run: pnpm build
 
-      # THE SAME COMMAND AS THE STEP ABOVE, REQUIRED TO FAIL. The generator's
-      # env validation once passed a build with no DATABASE_URL at all, failing
-      # instead on the first request that touched the database. This step is
-      # what stops that regressing: apps/web/.env is gitignored, so a CI
-      # checkout genuinely has no value to find.
-      #
-      # IT DOES NOT CONFLICT WITH THE SUCCESSFUL BUILD ABOVE, and the mechanism
-      # is worth stating, because it is the one thing that could make this step
-      # lie. `turbo.json` declares DATABASE_URL in the `build` task's `env`, so
-      # the value is part of the task hash: blanking it is a cache MISS and the
-      # build genuinely re-runs. Measured in this repository against a warm
-      # cache -- `0 cached`, exit 1, 0.4 seconds. And the obvious way to break
-      # that is not silent either: drop the declaration and Turbo's strict env
-      # mode stops passing DATABASE_URL to the task at all, which fails the
-      # build step above on every run. There is no arrangement in which this
-      # step quietly stops biting.
+  # THE SAME COMMAND AS THE BUILD JOB ABOVE, REQUIRED TO FAIL. The generator's
+  # env validation once passed a build with no DATABASE_URL at all, failing
+  # instead on the first request that touched the database. This job is what
+  # stops that regressing: apps/web/.env is gitignored, so a CI checkout
+  # genuinely has no value to find.
+  #
+  # IT DOES NOT CONTRADICT THE BUILD JOB, and the mechanism is worth stating,
+  # because it is the one thing that could make this job lie. `turbo.json`
+  # declares DATABASE_URL in the `build` task's `env`, so the value is part of
+  # the task hash: blanking it can never replay a cached success, here or on any
+  # remote cache added later. And the obvious way to break that is not silent
+  # either: drop the declaration and Turbo's strict env mode stops passing
+  # DATABASE_URL to the task at all, which fails the Build job above on every
+  # run. There is no arrangement in which this job quietly stops biting.
+  env-guard:
+    name: Env guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/setup@v2
+        with:
+          runtime: node@24
+          cache: true
+
       - name: Missing DATABASE_URL fails the build
         env:
           DATABASE_URL: ""
@@ -227,6 +252,7 @@ jobs:
             exit 1
           fi
           echo "Build failed on env validation, as it should."
+
 
   test:
     name: Test

@@ -653,13 +653,14 @@ skipped by a conditional | The job reports 'Success'"*, and *"Successful check s
 `success`, `skipped`, and `neutral`."* So the silently-passing failure mode this repository fears
 lives in job-level conditionals, not in path filters — path filters fail loudly, by blocking.
 
-Today neither the block nor the workaround bites, by accident rather than by decision: this
-organisation is on GitHub Free with private repositories, so there are **no required status checks
-at all** (section 6). A skipped job would sit pending and nothing would be waiting on it. But
-`CLAUDE.md` already records that every merge gate here is convention rather than enforcement, and
-a path filter turns a convention someone is watching into a mechanism that is invisible when it
-misfires — and it lays a trap for the day the organisation moves to a plan where checks can be
-required, when the pending-forever behaviour arrives with no warning.
+Today neither the block nor the workaround bites, because **no check is required anywhere**: the
+two private provider repos have no route to requiring one (section 6), and CanonCore has the route
+since CNCORE-62 made it public but no required checks configured (ADR-0118). A skipped job would
+sit pending and nothing would be waiting on it. But `CLAUDE.md` records that a CI merge gate here
+is convention rather than enforcement, and a path filter turns a convention someone is watching
+into a mechanism that is invisible when it misfires — and on CanonCore that trap is now one
+decision away rather than one plan change away, since the pending-forever behaviour arrives with no
+warning the day anybody requires a check.
 
 If path filtering is ever wanted, the shape that does not break the rule is to make the **skip
 visible**: run the job, and have it print what it skipped and why. That costs a billed minute,
@@ -726,13 +727,19 @@ $ gh api repos/jacobdrees-canoncore/<repo>/branches/main/protection
  "status": "403"}
 ```
 
-Identical on all three, for both endpoints. **`CLAUDE.md`'s "No branch protection" gotcha holds,
-is now measured rather than asserted, and extends to rulesets and to both new repositories.**
-GitHub's own rulesets documentation agrees for a different reason — rulesets are *"for customers
-on GitHub Team and GitHub Enterprise plans"* — so neither route is open on Free.
+Identical on all three, for both endpoints — **and the second half of that message is the half
+that expired.** It names two ways out and CNCORE-62 took one: CanonCore is public as of
+2026-09-11, both endpoints answer on it, and every rule attempted at repository scope was
+accepted. ADR-0118 carries that measurement. **What survives here is the finding for a PRIVATE
+repository on Free**, which is `provider-wiki` and `provider-tmdb` and is no longer CanonCore.
+GitHub's own rulesets documentation says rulesets are *"for customers on GitHub Team and GitHub
+Enterprise plans"*, which measured false at repository scope on a Free-public repo and true at
+organisation scope (`403 Upgrade to GitHub Team`).
 
-The consequence governs three rows of the table at once: **there can be no required status checks,
-no required reviews, and no enforced code-owner review in any of these repositories.**
+The consequence governs three rows of the table at once **for the two private repositories**:
+there can be no required status checks, no required reviews, and no enforced code-owner review in
+either. On CanonCore all three are available; none is configured, and ADR-0118 records why the
+required-checks half stayed off.
 
 ### What should be identical
 
@@ -822,7 +829,8 @@ repository"* — so the one measurable effect of tagging provider-wiki is emitti
 about a repository ADR-0089 requires be invisible. **A cost with no case. Do not add topics.**
 
 **CODEOWNERS.** It cannot require anything here — enforcement is the "Require review from Code
-Owners" branch-protection or ruleset setting, both 403 on Free, as measured above. Without that it
+Owners" branch-protection or ruleset setting, 403 on the two private repos as measured above, and
+available but unconfigured on CanonCore since it went public (ADR-0118). Without that it
 only auto-requests review, and the organisation has **one member** (`filled_seats: 1`), so it
 would request review from the person opening the pull request. A file that names an owner nobody
 needs told, enforcing nothing. **A cost with no case. Do not add CODEOWNERS** until the
@@ -1042,6 +1050,12 @@ Thresholds were asked for at 50/75/90 and **are not configurable** — GitHub fi
 
 ### 2. Merge Typecheck, Lint, Build and env-guard into one static-checks job.
 
+**REVERSED 2026-09-11 by CNCORE-80, and the saving below is now zero for this repository.** CNCORE-62
+made CanonCore public, and GitHub bills standard runners nothing in a public repository, so there are
+no billed minutes here to save. The four are four named jobs again. The entry stands as researched
+because the arithmetic still decides this question in `provider-wiki` and `provider-tmdb`, which stay
+private; ADR-0111 carries the correction and the split.
+
 **Forces:** entry 1. **Saves: about 3 billed minutes per run, −24%,** roughly 400 minutes a day at
 the 2026-09-10 rate. The largest single saving available.
 
@@ -1147,8 +1161,9 @@ the workflow is required to pass before merging."* A skipped workflow leaves its
 *"with the same name, that will return true in any case"* — which is CNCORE-3's deleted defect
 reissued as vendor guidance.
 
-Neither behaviour bites today because Free private repositories have no required checks at all.
-That is an accident, and it becomes a trap the day the plan changes. **Closing it now is a
+Neither behaviour bites today because nothing requires a check: the private provider repos
+cannot, and CanonCore does not (ADR-0118). That is an accident on the providers and a live decision
+on CanonCore, where it becomes a trap the day somebody requires one. **Closing it now is a
 sentence; discovering it later is a debugging session.**
 
 **Decided 2026-09-11: as proposed.** Recorded as rejected alongside entry 10's three.
@@ -1223,8 +1238,9 @@ Each is a cost with no case here, and each has a measured reason rather than a p
   in topic search results"* and get no topic suggestions, so topics buy nothing. Worse, *"Topic
   names are always public"*, which for provider-wiki emits a public signal about a repository
   ADR-0089 requires stay invisible.
-- **CODEOWNERS** — enforcement needs branch protection or rulesets, both measured 403 on all three
-  repositories. Without it, it auto-requests review from an organisation with `filled_seats: 1`.
+- **CODEOWNERS** — enforcement needs branch protection or rulesets, measured 403 on the two
+  private repos and available on public CanonCore (ADR-0118), which configures neither. Without
+  enforcement it auto-requests review from an organisation with `filled_seats: 1`.
 - **Community-standards files** — Issues are off by decision, there are no outside contributors,
   and the checklist is built for public projects. `CLAUDE.md`: *"A list of things two mature
   products have is not a backlog."*
@@ -1236,9 +1252,9 @@ reasoning is re-derived from scratch.
 that `CLAUDE.md`'s existing rule — *"the next sweep is not automatically owed a response"* —
 already covers this and makes three named rejections redundant. Rejected on the grounds that the
 general rule defeats *parity* arguments but not a specific proposal backed by GitHub's own
-documentation. What settles those is the measurement: the 403 on rulesets and branch protection,
-and *"Topic names are always public"*. A future reader can check those rather than re-derive
-them.
+documentation. What settles those is the measurement: the 403 on rulesets and branch protection
+**for a private repo on Free**, since superseded for CanonCore alone by ADR-0118, and *"Topic names
+are always public"*. A future reader can check those rather than re-derive them.
 
 ---
 
@@ -1454,7 +1470,7 @@ against the forge are marked **[measured]** and carry the command that produced 
 - The **retired** same-name-workflow workaround, surviving only in archived GHES 3.1: <https://docs.github.com/en/enterprise-server@3.1/repositories/configuring-branches-and-merges-in-your-repository/defining-the-mergeability-of-pull-requests/troubleshooting-required-status-checks>
 - `github.head_ref` is available on `pull_request` **and `pull_request_target`**: <https://docs.github.com/en/actions/reference/workflows-and-actions/contexts#github-context>
 - Secure use reference (SHA pinning, minimum `GITHUB_TOKEN` permissions): <https://docs.github.com/en/actions/reference/secure-use-reference>
-- About rulesets (Team and Enterprise only): <https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/about-rulesets>
+- About rulesets (says Team and Enterprise only; **measured false at repository scope on a Free-public repo**, ADR-0118): <https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/about-rulesets>
 - GitHub security features, Free vs paid on private repositories: <https://docs.github.com/en/code-security/getting-started/github-security-features>
 - Licensing a repository (default copyright, the ToS fork right): <https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/licensing-a-repository>
 - Classifying your repository with topics (private-repo limits, public topic names): <https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/classifying-your-repository-with-topics>
@@ -1484,7 +1500,7 @@ against the forge are marked **[measured]** and carry the command that produced 
 | The 2,371s and 346s outliers are `run_attempt: 2` | `gh api .../actions/runs/34528480252` |
 | provider-wiki run #18: a push to `main`, cancelled, `image` never ran | `gh api repos/.../provider-wiki/actions/runs?per_page=100` and `.../jobs` |
 | 1,372 of 2,000 minutes; $0 budget with `prevent_further_usage` | `gh api "/orgs/jacobdrees-canoncore/settings/billing/usage?year=2026&month=9"` and `.../budgets` |
-| Branch protection and rulesets 403 on all three | `gh api repos/.../rulesets`, `gh api repos/.../branches/main/protection` |
+| Branch protection and rulesets 403 on all three **while all three were private**; re-measured on public CanonCore in ADR-0118 | `gh api repos/.../rulesets`, `gh api repos/.../branches/main/protection` |
 | Org and per-repo default workflow permissions are `read` | `gh api /orgs/jacobdrees-canoncore/actions/permissions/workflow` |
 | Repository metadata for all three | `gh api repos/jacobdrees-canoncore/<repo>` |
 | `build` executes 1 task; `typecheck` and `test` 9 each | `pnpm turbo run <task> --dry=json` |

@@ -159,6 +159,56 @@ anything that "negatively impacts other users by burdening the server". A catalo
 none of them, so it is allowed by explicit permission carrying a support disclaimer, rather than by
 silence.
 
+**That permission is about running software, and a SECOND policy governs what the software may
+serve.** Read at source on 2026-09-11 under CNCORE-81, Whatbox's Acceptable Use Policy forbids using
+the Services "for IPTV hosting, IPTV sharing, IPTV resale, VOD hosting, VOD sharing, public media
+streaming, public video libraries, and commercial media access services", and separately forbids
+running "a public directory service with no authentication". **Neither clause reaches the personal
+instance this record is about** — one owner, one password, ADR-0044 — and both name ADR-0097's
+public demo exactly, the second of them before any playback exists.
+`docs/research/where-it-runs.md` carries that finding and the corrections CNCORE-81 made to it.
+
+**The same policy forbids running "20 or more concurrent Plex streams" rather than forbidding Plex
+outright, so the ceiling it sets is nineteen.**
+**Measured**: that clause and the media clause sit in one list, and the vendor's FAQ says "Plex is
+available as a managed app on all plans. We provide one-click installation and updates".
+**Inferred, and not confirmed with the vendor**: that "public media streaming"
+therefore reaches the public, unauthenticated, library-shaped case rather than any streaming at all,
+since a Plex server serving authenticated people is streaming media inside the same document that
+caps it at twenty. The inference narrows the prohibition; it does not move the demo out of it, which
+is why nothing below rests on it.
+
+### The allowance the owner holds is spoken, and this record does not rest on it
+
+The owner recalls Whatbox granting this account a specific allowance covering whatever he wants to
+run. **CNCORE-81 went looking for the artefact, found none, and then asked him directly on
+2026-09-11: he confirmed the grant was spoken and that nothing was written down.** That confirmation
+is what makes this a closed question rather than a search that gave up. The account's support history
+holds a single ticket, the cron one filed 2026-09-11 and recorded below. A search of the owner's mail
+for everything `whatbox.ca` has sent returns subscription, traffic and slot notices and one 2023
+support reply about a Plex update, and no grant of any kind; a full-text search of that mailbox timed
+out rather than completing, so the mail result is a strong negative and not an exhaustive one.
+
+**So there is no verbatim text to quote here, no date, and nobody named.** That absence is what this
+section says instead of a quotation, because a record presenting recollection as evidence would be
+worse than one presenting it as recollection — and the next reader would have no way to tell which
+they were holding.
+
+**What would make it evidence is cheap and specific.** Whatbox's own Terms say at 13.2 that "The
+parties may use emails to satisfy written approval and consent requirements under the Agreement", so
+ONE EMAIL from Whatbox naming what this account may run would be quotable here and would carry
+contractual weight. It would still not be an amendment: 13.13 requires that "Except as stated in
+Section 1.3(b) (Modifications: To the Agreement), any amendment must be in writing, signed by both
+parties, and expressly state that it is amending this Agreement". **The carve-out is the half worth
+keeping**, because 1.3(b) is the clause letting Whatbox change the Agreement and its URL Terms
+unilaterally on 30 days' notice. So the ceiling on the best available version of this allowance is a
+consent a support agent gave, sitting under a policy the vendor may rewrite without asking — never a
+change to the AUP.
+
+**Nothing above depends on it.** The shape this record commits to is a personal single-owner
+instance, which the AUP does not reach in the first place. The allowance would only matter for the
+demo, and the demo is the one thing the AUP names twice.
+
 ### What fails is that nothing restarts it
 
 **A process that needs no root still needs something to start it, and that is the clause this shape
@@ -206,6 +256,32 @@ reboot kills it, nothing brought it back; restarted by hand it logged "database 
 properly shut down; automatic recovery in progress", redid its WAL and returned both rows. **The
 data is durable. The daemon is not resident.**
 
+**The question was put to the vendor on 2026-09-11: Whatbox support ticket 267784**, filed from the
+slot's own account under CNCORE-81, after `docs/research/the-cheap-end.md` §5 named it and nobody had
+done it for a day. It reports the `crontab` refusal verbatim, states the account's `cron` group
+membership, and names `/etc/pam.d/crond` and the missing `/etc/security/access.conf` as what is
+visible from the customer side **while marking the cause as a guess rather than a finding**. It gives
+the healthcheck measurement above as the reason a container restart policy is not a workaround, and
+notes that the support page showed Security Reboot notices 13 days and a month before, so a reboot is
+not a rare event. It asks two things: whether cron is meant to be available on this plan and whether
+the missing file can be looked at, and failing that, whether there is any supported way to have a
+process start after a reboot.
+
+**That ticket and that notice history are visible only from inside the account**, so the paragraph
+above is a report of them rather than something a reader can open — the same standing as the mail
+search earlier in this record, and worth saying because the rest of this section is measurement
+anybody with the slot could repeat.
+
+**Unanswered as of 2026-09-11, and this record names its own deadline because the vendor publishes
+none.** Whatbox's SLA at <https://whatbox.ca/policies/sla> covers downtime only — "If your system is
+offline for a period exceeding 6 hours" — and neither it nor the FAQ states a support response time,
+both checked the same day. So **if nothing has arrived by 2026-09-18, the silence is the answer**,
+the fifth clause stays failed
+for this vendor, and the split in `the-cheap-end.md` §5 stands on it. An answer of either kind is
+edited INTO this section rather than appended below it, so that a later reader meets one account of
+what restarts a process here and not two. **CNCORE-85 is what returns to it**, because a deadline
+living only in a sentence is one nobody keeps.
+
 ### The limits, and which of them the vendor actually documents
 
 The ticket asked for these from the provider's documentation. One of them is there. The rest are
@@ -242,9 +318,10 @@ free, and absent on every shared slot. It is a sharper test than "no root" ever 
 first on the next host's list rather than last.
 
 For the vendor actually measured: it satisfies the shape as long as a human logs in after each
-reboot. A support ticket about the missing `access.conf` is the cheap thing to try before concluding
-otherwise, because `@reboot` is documented and merely broken. `docs/research/the-cheap-end.md` §4 is
-answered there.
+reboot. A support ticket about the missing `access.conf` was the cheap thing to try before concluding
+otherwise, because `@reboot` is documented and merely broken — and it HAS been tried, filed
+2026-09-11 and recorded above with the date on which its silence becomes an answer.
+`docs/research/the-cheap-end.md` §4 is answered there, and its §5 no longer waits on anybody.
 
 ## Evidence
 
@@ -268,3 +345,10 @@ IPv4 addresses and on server hardware; its `Installing_Software`, `Cron`, `Redis
 and `manage_page` wiki pages. The podman healthcheck mechanism is Brent Baude's on Red Hat
 Developer, 2019-04-18, and is corroboration for a count we took ourselves rather than the basis of
 the finding.
+
+CNCORE-81 added the policy reading and the support question, both dated 2026-09-11: Whatbox's
+Acceptable Use Policy at <https://whatbox.ca/policies/acceptable_use> and its Terms of Service at
+<https://whatbox.ca/policies/terms>, sections 13.2 and 13.13, read at source; its SLA and FAQ checked
+for a support response time and carrying none; the account's own support history, holding one ticket;
+and the mail search described above. **The allowance itself has no source to cite, and that is the
+finding rather than a gap in the search.**

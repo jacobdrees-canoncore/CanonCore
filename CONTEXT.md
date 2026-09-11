@@ -295,7 +295,10 @@ against the allowlist.
 
 **Content URL**:
 A URL arriving inside a provider's response or a redirect. Checked against the
-deny-list, always.
+deny-list, always, before anything fetches it. One that is only READ — a record's
+`url`, rendered to the Owner as a link — is never fetched, so what it is held to
+is its scheme: HTTP or HTTPS, because the scheme is what decides whether the
+reader's browser treats it as a destination or as a program.
 
 ### Consumption
 

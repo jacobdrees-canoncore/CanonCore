@@ -41,19 +41,39 @@ export const cmppRecord = z.object({
   writers: z.array(z.string()).default([]),
   series: z.string().nullable().default(null),
   /**
-   * Where the record came from. A CONTENT URL: never fetched unchecked.
+   * Where the record came from. A CONTENT URL, AND HTTP IS PART OF READING IT
+   * rather than something checked later by whoever fetches it.
    *
-   * TODO(CNCORE-79): the sentence above is not true of this line. `z.url()`
-   * does not check the SCHEME -- measured against zod 4.5.4,
-   * `javascript:alert(1)`, `data:text/html,...`, `vbscript:` and `file:` all
-   * parse -- and nothing on this path calls `assertContentUrl`. It has been
-   * harmless because `asProvided` drops `url` and no reader has ever seen one;
-   * `search` is the first thing to carry these out of the package, and
-   * CNCORE-68 is the page that puts one in an `href`. Left here rather than
-   * fixed under CNCORE-77, because this field is shared with `lookup` and
-   * `browse` and the repair belongs with the contract's copy of it too.
+   * `z.url()` ALONE SAYS ONLY THAT A STRING PARSES AS A URL. Measured against
+   * zod 4.5.4, `javascript:alert(1)`, `data:text/html,...`, `vbscript:x` and
+   * `file:///etc/passwd` all parsed clean under it -- so this field is the sink
+   * a provider would reach a reader's browser through, and ADR-0031's whole
+   * position is that a provider is an untrusted URL rather than code we run.
+   * It was harmless only while `asProvided` dropped the value and no reader had
+   * ever seen one; CNCORE-77 carried these out of the package and CNCORE-68 is
+   * the page that puts one in an `href`.
+   *
+   * SAID AT THE SCHEMA RATHER THAN BY CALLING `assertContentUrl`, and the two
+   * are not the same rule. That function guards an outbound request and carries
+   * the ADDRESS deny-list with it, which would refuse `http://127.0.0.1:8080/1`
+   * -- a perfectly ordinary self-link from a provider the owner runs on
+   * loopback, which ADR-0034 makes legal by name. Nothing fetches this URL, so
+   * the address question is not this field's to ask; the scheme is, because the
+   * scheme is what decides whether a reader's browser treats the value as a
+   * destination or as a program.
+   *
+   * THE REGEXP IS THE RULE SPELLED OUT, AND IT IS MATCHED CASE-SENSITIVELY
+   * AGAINST AN ALREADY-LOWERCASED SCHEME. `HTTPS://Example.Invalid/1` passes
+   * because the WHATWG parser lowercases the scheme before zod tests it, NOT
+   * because the test is case-insensitive: measured against zod 4.5.4,
+   * `z.url({ protocol: /^HTTPS$/ }).safeParse("https://x.test/")` is `false`.
+   * So this pattern must stay lower case -- an upper-case one would refuse
+   * every URL there is, and it would look like the stricter spelling.
+   *
+   * `javascript://example.invalid/` is refused whatever it is shaped like,
+   * because the scheme is read from the parse rather than from the string.
    */
-  url: z.url(),
+  url: z.url({ protocol: /^https?$/ }),
 });
 
 export type CmppRecord = z.infer<typeof cmppRecord>;
