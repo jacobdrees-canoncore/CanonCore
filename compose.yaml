@@ -63,6 +63,11 @@ services:
       # host here. The front page says so on its face rather than leaving an
       # empty catalogue to read as breakage.
       PROVIDER_ALLOWLIST: ${PROVIDER_ALLOWLIST:-}
+      # WHICH PROVIDERS ARE SEARCHED, which is a different setting from which
+      # ones MAY be reached above: a Provider needs naming here and allowlisting
+      # there. Empty means none is searched, and the import surface says so
+      # rather than showing an empty result.
+      PROVIDER_URLS: ${PROVIDER_URLS:-}
     ports:
       - "${CANONCORE_PORT:-3000}:3000"
 

@@ -1,6 +1,6 @@
 import { getDb } from "@canoncore/db";
 import { env } from "@canoncore/env/server";
-import { parseAllowlist } from "@canoncore/providers";
+import { parseAllowlist, parseProviderUrls } from "@canoncore/providers";
 
 /**
  * ADR-0034's allowlist, parsed ONCE at module load rather than per request.
@@ -18,6 +18,14 @@ import { parseAllowlist } from "@canoncore/providers";
 const providerAllowlist = parseAllowlist(env.PROVIDER_ALLOWLIST);
 
 /**
+ * WHICH PROVIDERS THIS INSTANCE SEARCHES, parsed ONCE at module load for exactly
+ * the reason the allowlist above is: `parseProviderUrls` throws on an entry that
+ * is not a URL, and a typo that stops the server starting is a typo an owner
+ * meets at once rather than as a 500 out of the first search.
+ */
+const providerUrls = parseProviderUrls(env.PROVIDER_URLS);
+
+/**
  * What every request carries. Takes no argument: nothing in it is derived from
  * the request yet, and the route handler was passing one only because the
  * generator's signature asked for it. A session or a locale will want the
@@ -29,6 +37,7 @@ export async function createContext() {
     auth: null,
     session: null,
     providerAllowlist,
+    providerUrls,
   };
 }
 

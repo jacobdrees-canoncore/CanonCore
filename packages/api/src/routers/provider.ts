@@ -1,5 +1,6 @@
 import {
   type Database,
+  findItemsProvided,
   type ImportedContainer,
   type ImportedRecord,
   importBrowsedContainer,
@@ -15,6 +16,7 @@ import {
   type CmppRecord,
   createProviderClient,
   OutboundRefused,
+  searchProviders,
 } from "@canoncore/providers";
 import { z } from "zod";
 
@@ -198,6 +200,49 @@ const purgeCounts = z.object({
   items: z.number().int().nonnegative(),
 });
 
+/**
+ * One candidate, as the owner meets it: what the provider said about it, and
+ * WHETHER THIS CATALOGUE ALREADY HOLDS IT.
+ *
+ * `itemId` IS WHAT MAKES THIS A SURFACE RATHER THAN A LIST. Without it the page
+ * has no way to report an import at all -- it would show the same row before and
+ * after, and the only other way to say "here is what you just imported" is a
+ * redirect, which ADR-0109 rules out because Next does not apply `basePath` to
+ * one (measured on 16.3.4: `<Link>` emits `/canoncore/items/x` under a basePath
+ * and `redirect("/items/x")` sets `Location: /items/x`). It is also the answer to
+ * the question an owner searching a provider actually has, which is whether they
+ * already have this.
+ *
+ * IT IS IDENTITY AND NOT MATCHING (ADR-0026). The item is found by the id THIS
+ * provider knows the record by, so a record one provider holds and another does
+ * not reads as absent rather than as the other's item. Deciding that two
+ * providers' records describe one work needs a score and a review queue, and
+ * nothing here does it by accident.
+ */
+const candidate = z.object({
+  /** The provider's own id, which is what `lookup` and `import` take (ADR-0033). */
+  recordId: z.string().min(1),
+  title: z.string().min(1),
+  /**
+   * The PROVIDER'S taxonomy of works -- `TV story`, `audio story` -- and not the
+   * catalogue's seven item kinds, and never `medium`, which CONTEXT.md reserves
+   * for a playback medium. An owner choosing between two answers for one title is
+   * choosing on exactly this, so it is the field that makes the choice possible.
+   */
+  kind: z.string().min(1),
+  /** Every release date the provider holds, each at its own precision (ADR-0073). */
+  released: z.array(z.string()),
+  /**
+   * The record's own page at the provider. A CONTENT URL that is only READ, so
+   * what it is held to is its SCHEME and not its host (ADR-0034, CNCORE-79): the
+   * scheme is what decides whether the owner's browser treats it as a destination
+   * or as a program, and nothing fetches it.
+   */
+  url: z.url({ protocol: /^https?$/ }),
+  /** The Item this provider's record is already held as, or `null`. */
+  itemId: z.uuid().nullable(),
+});
+
 export const provider = {
   /**
    * Whether this instance may reach ANY provider at all.
@@ -240,6 +285,142 @@ export const provider = {
    * provider written. There is no field here for one and nothing in this repo
    * holds one.
    */
+  /**
+   * WHICH PROVIDERS THIS INSTANCE SEARCHES, so a surface can say "none" rather
+   * than show an empty result.
+   *
+   * THE SECOND HALF OF THE SAME SILENCE `allowlisted` ABOVE NAMES. An instance
+   * reaches no provider either because nothing is allowlisted or because nothing
+   * is named, and the two have different remedies -- `PROVIDER_ALLOWLIST` and
+   * `PROVIDER_URLS` -- so one answer could not tell an owner which to go and set.
+   *
+   * AND IT HANDS OVER THE URLS, WHICH IS THE OPPOSITE OF WHAT `allowlisted` DOES
+   * AND IS NOT AN INCONSISTENCY. That procedure answers a YES-OR-NO and would have
+   * had to disclose a private network's address ranges to do it. Here the URLs ARE
+   * the answer: the surface offers them to be chosen between -- a browse takes a
+   * container id at ONE provider, so the owner has to say which -- and they are
+   * configuration the owner typed rather than anything a provider told us. The
+   * contract test's rule about keeping a deployment address away from a reader is
+   * about a READER being handed a source's claims; this is the OWNER, who wrote
+   * these URLs and is the only person who can change one.
+   *
+   * NO REQUEST LEAVES THE APP. It reads what `createContext` parsed at module
+   * load, so it answers for a provider that is switched off exactly as for one
+   * that is running.
+   */
+  configured: publicProcedure
+    .output(z.object({ providers: z.array(z.url()) }))
+    .handler(({ context }) => ({ providers: context.providerUrls })),
+
+  /**
+   * Searches EVERY configured provider at once and answers what each of them
+   * offered, with the ones this catalogue already holds named.
+   *
+   * SEVERAL PROVIDERS, WHICH IS WHAT MAKES SEARCH A DIFFERENT SHAPE FROM THE
+   * REST OF THIS ROUTER. `import`, `browse` and `purge` each address ONE provider
+   * the owner named, because the owner already knows which one. An owner who does
+   * not know an id does not know which source holds it either, so this is the one
+   * operation that has to ask them all -- ADR-0033's as-built section under
+   * CNCORE-77 records the reasoning and `searchProviders` is the fan-out.
+   *
+   * ONE PROVIDER FAILING IS NOT THE SEARCH FAILING, which is why this answers
+   * with two lists rather than one. A provider that is down and a provider that
+   * matched nothing are different answers, and collapsing them is how an owner
+   * concludes their query was wrong when their source was merely offline.
+   *
+   * THE CONFIGURED SET RATHER THAN A URL ON THE INPUT. A provider is a URL
+   * (ADR-0031) and there is no registry, so the set comes from `PROVIDER_URLS`,
+   * parsed at module load. Taking it as input would make every caller name the
+   * providers, and a caller that named one would get one answer and no way to
+   * know it had missed the other.
+   */
+  search: publicProcedure
+    .input(
+      z.object({
+        /**
+         * TRIMMED BEFORE IT IS JUDGED, and that is load-bearing rather than
+         * tidy. `searchProviders` throws on a blank query on purpose -- fanning
+         * one out collects a `400` from every provider and answers `{ answered:
+         * [], failed: [...] }`, which an owner reads as "nothing matched"
+         * (ADR-0033 under CNCORE-77) -- and a thrown `Error` here would be a 500
+         * no caller can narrow. A box somebody tabbed through holds spaces
+         * rather than nothing, so `"   "` is the commonest spelling of the
+         * mistake: measured on zod 4.5.4, `.trim().min(1)` refuses it as bad
+         * INPUT, which is what it is.
+         */
+        query: z.string().trim().min(1),
+      }),
+    )
+    .output(
+      z.object({
+        answered: z.array(
+          z.object({
+            provider: z.object({
+              /**
+               * WHICH PROVIDER, as the URL that IS its identity (ADR-0031). The
+               * owner needs it back to import from it, and it is configuration
+               * they typed rather than anything the provider told us.
+               */
+              baseUrl: z.url(),
+              /** The name the provider gives itself, off its manifest. */
+              name: z.string().min(1),
+            }),
+            results: z.array(candidate),
+          }),
+        ),
+        /**
+         * Who was asked and did not answer, and why.
+         *
+         * NAMED BY URL, where an answering provider is named by its manifest --
+         * because reading the name is one of the things that failed. It is for
+         * the OWNER, who typed these URLs and is the only person who can fix
+         * one, and who cannot act on "a provider you configured is down".
+         */
+        failed: z.array(z.object({ baseUrl: z.url(), reason: z.string().min(1) })),
+      }),
+    )
+    .handler(async ({ input, context }) => {
+      // NO DECLARED ERROR FOR A REFUSAL HERE, WHICH IS THE OPPOSITE OF `import`
+      // BELOW AND IS NOT AN OVERSIGHT. A refusal reaches one provider's turn and
+      // is caught there, so it arrives as that provider's `failed` entry beside a
+      // provider that answered -- the fan-out's whole purpose. Raising it as the
+      // SEARCH's error would throw away every other provider's answers because
+      // one URL was not allowlisted.
+      const { answered, failed } = await searchProviders(
+        { baseUrls: context.providerUrls, allowlist: context.providerAllowlist },
+        input.query,
+      );
+
+      return {
+        answered: await Promise.all(
+          answered.map(async ({ provider: answering, results }) => {
+            // ONE QUERY PER PROVIDER, not one per candidate. The ids are that
+            // provider's namespace, so they can only be asked about together.
+            const held = await findItemsProvided(context.db, {
+              identity: answering.baseUrl,
+              externalIds: results.map((record) => record.id),
+            });
+            return {
+              provider: answering,
+              results: results.map((record) => ({
+                recordId: record.id,
+                title: record.title,
+                kind: record.kind,
+                released: record.released,
+                url: record.url,
+                itemId: held.get(record.id) ?? null,
+              })),
+            };
+          }),
+        ),
+        // THE MESSAGE RATHER THAN THE `Error`. It travels to a page, and an
+        // `Error` does not serialise across the wire; the message is the sentence
+        // the owner has to read. `OutboundRefused` and a provider that fell over
+        // are both in here, distinguishable by what they say.
+        failed: failed.map(({ baseUrl, reason }) => ({ baseUrl, reason: reason.message })),
+      };
+    }),
+
   import: publicProcedure
     .input(
       z.object({
