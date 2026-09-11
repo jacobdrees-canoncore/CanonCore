@@ -11,9 +11,12 @@ It answers. It decides nothing, and it changes no ticket and no record.
 ## The short answer: no, and nothing in the spec is close to it
 
 **CNCORE-60 installs CanonCore onto no host, and none of its eighteen children asks for one.** All
-eighteen were read on 2026-09-11 (CNCORE-61 and CNCORE-62 `Done`, CNCORE-63 through CNCORE-78
-`Todo`). Not one acceptance criterion names a server, a VPS, a slot, a domain, an origin, a TLS
-certificate, an A record, a public URL or a running instance anybody else can reach.
+eighteen were read on 2026-09-11. Their states moved while this was being written and are recorded
+here as read at the end of that day: CNCORE-60 `In Progress`; CNCORE-61 and CNCORE-62 `Done`;
+CNCORE-63, CNCORE-65 and CNCORE-77 `In Progress` in their own worktrees, each at its opening commit;
+CNCORE-78 `In Review`; the remaining eleven `Todo`. Not one acceptance criterion names a server, a
+VPS, a slot, a domain, an origin, a TLS certificate, an A record, a public URL or a running instance
+anybody else can reach.
 
 What the spec actually requires is four artefacts and a set of pages:
 
@@ -193,9 +196,17 @@ moves anything into CNCORE-60:
   advance: "**`basePath` is NOT added**", on `CLAUDE.md`'s rule against a configuration option
   nothing reads. What was adopted instead is a coding rule — "a URL that the framework does not
   rewrite is never hand-built" — and ADR-0109:55-60 names the first live member of that class, the
-  canonical at `apps/web/src/app/items/[id]/page.tsx:142`. **That rule is the only place hosting
-  touches this spec at all**, and it touches it as a constraint on how CNCORE-65, CNCORE-67 and
-  CNCORE-68 write links, not as a machine.
+  canonical at `apps/web/src/app/items/[id]/page.tsx:142`. It touches this spec as a constraint on
+  how CNCORE-65, CNCORE-67 and CNCORE-68 write links, not as a machine.
+
+  **An earlier version of this file said that rule was the only place hosting touches this spec, and
+  building CNCORE-65 falsified it the same day.** That slice found `/` being prerendered at BUILD
+  time, because it reads the catalogue but touches no request-time API: on self-hosted software that
+  is a front page frozen at the moment the image was built, which no import would ever change. It is
+  fixed with `connection()` and recorded as ADR-0117, "a read surface renders per request". The two
+  are different kinds of evidence for the same claim and both are worth keeping: ADR-0109's is a rule
+  about a host that does not exist yet, and ADR-0117's is a bug that would have shipped in the
+  artefact. Neither is a machine. Both are consequences of the fact that a stranger runs the image.
 - **Entry 3 is out of scope here by name.** CNCORE-60's Out of Scope lists "backup and restore" among
   the "Also out" items, so ADR-0048's forced test environment (ADR-0048:35-41, "somewhere to run a
   migration against a POPULATED database first is a requirement") does not arrive with this effort —
@@ -283,7 +294,46 @@ Three things make this worth writing down rather than shrugging at:
 Stated as a finding, not as an edit: **the tickets are not changed by this file.** Whoever picks up
 CNCORE-63 or CNCORE-64 should carry it.
 
-### Two smaller things noticed while reading, neither a hosting dependency
+### ADR-0111 was bought with money this repository no longer spends
+
+Not a hosting dependency either, and the largest thing this audit turned up.
+
+ADR-0111 is `accepted`. It merged Typecheck, Lint, Build and the missing-`DATABASE_URL` guard into
+one `static-checks` job, overriding a principle the workflow stated in its own words — "Separate
+jobs, so a red check names the thing that broke rather than making someone open the log to find
+out" — and it bought that override with money: "The stakes are the allowance rather than the money.
+GitHub Free gives this organisation 2,000 **private-repo** minutes a month."
+
+CNCORE-62 made this repository public. GitHub's Actions billing documentation, read 2026-09-11:
+"GitHub Actions usage is free for self-hosted runners and for public repositories that use standard
+GitHub-hosted runners", and "The use of standard GitHub-hosted runners is free: In public
+repositories." **The saving ADR-0111 measured — 2.98 minutes off a 13.4-minute run, 24% of what CI
+cost — is now exactly zero here.** What remains is the trade, still being paid, buying nothing.
+
+It reaches forward twice inside this spec: CNCORE-73 justifies folding the browser job on "~37-48s
+of paid headroom", and CNCORE-60's Further Notes says "CI is on a budget" and "the lever is job
+count". Both were measured while this repository was private, and the same clause makes the arm64
+half of CNCORE-63 free as well: `ubuntu-24.04-arm` and `ubuntu-22.04-arm` are standard runners at
+4 CPU / 16 GB, listed for public repositories.
+
+The arithmetic still holds where it was taken, since `provider-wiki` and `provider-tmdb` stay
+private under ADR-0089 and keep billing against the 2,000. **Filed as CNCORE-80**, which corrects
+the record in the sentences that are false and splits the named checks back out.
+
+### ADR-0109's one rule reached no ticket that needed it
+
+Measured across all eighteen children on 2026-09-11: **ADR-0109 is cited by exactly one of them,
+CNCORE-61, and there only as a file to scrub a hostname out of.** CNCORE-65 cites ADR-0094 and
+ADR-0114, CNCORE-67 cites ADR-0066 and ADR-0077, CNCORE-68 cites ADR-0033. None of the three
+surfaces that will write links carried the rule that governs how they write them.
+
+CLAUDE.md makes a proposed record binding whether or not a ticket names it, so this is not a licence
+to ignore it. It is a question of reach: with 116 records, nobody reads all of them per ticket, and
+a rule no ticket names is a rule the implementer does not meet. Fixed by messaging the live CNCORE-65
+worktree, which put the citation at the call site in the shell the other surfaces copy, and by a
+tracker note on CNCORE-66, CNCORE-67 and CNCORE-68 carrying both this rule and ADR-0117.
+
+### Two smaller things, neither a hosting dependency
 
 - **The redaction is complete in the tree and not on the tracker.** CNCORE-61 removed the hostname
   from the repository and `.github/workflows/ci.yml:113-132` keeps it out, scanning the tree only.
@@ -292,6 +342,24 @@ CNCORE-63 or CNCORE-64 should carry it.
   defect in what landed.
 - **CNCORE-60's own spec text is clean on hosting.** Its Implementation Decisions never mention a
   deployment, and the only appearance of the word "instance" is the sentence disclaiming one.
+
+### What this audit changed
+
+Recorded so the file says what happened rather than what was proposed:
+
+| Change | Where |
+|---|---|
+| GHCR visibility assertion and the manual web-UI step | Messaged the live CNCORE-63 worktree |
+| ADR-0109 and ADR-0117 at the call site | Messaged the live CNCORE-65 worktree |
+| The logged-out install run | CNCORE-64, appended criterion |
+| Both coding rules | CNCORE-66, CNCORE-67, CNCORE-68, appended criteria |
+| `website_url` is the repository URL | CNCORE-76, appended note |
+| Correct ADR-0111 and split the checks back out | **CNCORE-80**, filed under CNCORE-60 |
+| Pin what Whatbox permits and does, into the records | **CNCORE-81**, filed unparented |
+
+**No ADR was edited by this audit and no ticket had text removed from it.** CNCORE-80 and CNCORE-81
+carry the record changes as work for someone else to do, which is where a correction found by a
+reader belongs.
 
 ---
 
@@ -321,9 +389,14 @@ counting `website_url` against `source_code_url`. Its `.github/ISSUE_TEMPLATE/ad
 mandatoriness.
 
 **Read at vendor source 2026-09-11**: GitHub's GitHub-hosted runners reference for standard runner
-specifications and the public-repository free-and-unlimited clause; GitHub's "Configuring a package's
-access control and visibility" for the default-private rule and the permissions-not-visibility
-inheritance clause.
+specifications and the public-repository free-and-unlimited clause; GitHub's Actions billing page for
+"GitHub Actions usage is free ... for public repositories that use standard GitHub-hosted runners";
+GitHub's "Configuring a package's access control and visibility" for the default-private rule and the
+permissions-not-visibility inheritance clause; GitHub's REST reference for organization packages,
+whose nine endpoints include none that changes visibility.
 
-**Not established, and stated rather than filled in**: whether the Whatbox slot is still being paid
-for. It is outside this question either way — nothing in CNCORE-60 reads it.
+**Not established, and stated rather than filled in**: the written allowance the owner holds from
+Whatbox, which overrides that vendor's published Acceptable Use Policy for his account and is the
+only thing standing between the AUP text and `where-it-runs.md:1324`. It is a document only he holds,
+so it is named here as a gap and filed as CNCORE-81 rather than quoted from memory. Nothing in
+CNCORE-60 reads that slot either way.
