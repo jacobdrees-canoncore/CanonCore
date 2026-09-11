@@ -73,12 +73,15 @@ the build failing for the same reason, which is the shape of the bug.
 `passThroughEnv`, deliberately: Turborepo's reference says values in `passThroughEnv` "do not
 contribute to the cache key for the task", and a build whose success depends on a variable outside
 its hash is a build that can replay a cached success when the variable is missing. That would let
-the env guard stop testing anything the day remote caching is turned on. The guard is a step of
-`static-checks` since CNCORE-35 rather than a job of its own
-([[0111-ci-optimises-billed-minutes-over-named-checks]]), and that shortens the path to this: it now
-runs straight after a successful `pnpm build` in the same workspace, so a LOCAL warm cache would be
-enough and no remote one is needed. The `env` declaration above is the whole of what keeps the
-guard's build a cache miss, measured at `0 cached, 1 total` against a deliberately warmed cache.
+the env guard stop testing anything the day remote caching is turned on. The guard was a step of
+`static-checks` between CNCORE-35 and CNCORE-80, which made the question sharp — it ran straight
+after a successful `pnpm build` in the same workspace, so a LOCAL warm cache was enough to raise it
+and no remote one was needed. It is its own job again
+([[0111-ci-optimises-billed-minutes-over-named-checks]] carries why it moved twice), so it starts
+from a cold cache and nothing local can replay a success into it. **The `env` declaration above is
+still what the guard rests on**, because a remote cache would reach a fresh job too: it is what
+keeps the guard's build a cache miss, measured at `0 cached, 1 total` against a deliberately warmed
+cache while the two shared a job.
 
 ## The last of the generator's output, under CNCORE-65
 

@@ -4,18 +4,34 @@ status: accepted
 
 # CI optimises billed minutes over named checks
 
-`.github/workflows/ci.yml` runs Typecheck, Lint, Build and the missing-`DATABASE_URL` guard as four
-steps of ONE job called `static-checks`, rather than as four jobs. The pipeline also carries a
-workflow-level `concurrency` key whose fallback makes a push to `main` uncancellable.
+> **NARROWED, NOT REVERSED, on 2026-09-11 by CNCORE-80.** Everything below about how GitHub bills
+> is still true and is still load-bearing — in `provider-wiki` and `provider-tmdb`, which stay
+> private under ADR-0089 and were still drawing billed minutes on the day this was written. What
+> did not survive is the conclusion for THIS repository. CNCORE-62 made CanonCore public, and
+> GitHub's Actions billing documentation read 2026-09-11 says "The use of standard GitHub-hosted
+> runners is free: In public repositories." The saving this record was bought with — 2.98 minutes
+> off a 13.4-minute run, 24% of what CI cost — is **exactly zero here**, so the four checks are four
+> named jobs again and the title above describes the two provider repositories rather than this one.
+>
+> The title and filename are unchanged deliberately: three records link this one by slug, and the
+> decision it names is still in force where it was taken. Each sentence that went false is corrected
+> where it stands rather than in a note at the end.
 
-**This record exists because the merge contradicts a principle the file stated in its own words**,
+`.github/workflows/ci.yml` ran Typecheck, Lint, Build and the missing-`DATABASE_URL` guard as four
+steps of ONE job called `static-checks` rather than as four jobs, from CNCORE-35 until CNCORE-80
+split them back out on 2026-09-11. The pipeline also carries a workflow-level `concurrency` key
+whose fallback makes a push to `main` uncancellable, and **that half of this record is untouched by
+the correction**: it was never bought with money.
+
+**This record exists because the merge contradicted a principle the file stated in its own words**,
 and a contradiction with no record is one the next reader silently reverses:
 
 > Separate jobs, so a red check names the thing that broke rather than making someone open the log
 > to find out.
 
-That sentence was right about what it was defending and wrong about what it cost. It is gone from
-the file, and this is where it went.
+That sentence was right about what it was defending and wrong about what it cost — for as long as
+it cost anything. It was gone from the file and this is where it went; it is back in the file now,
+because in a public repository four jobs and one job bill the same nothing.
 
 ## The cost unit is job count, not job duration
 
@@ -33,28 +49,94 @@ the change it was **3 minutes off 14, or 21%** (the table under Evidence). Eithe
 largest single saving available that survives contact with a slow runner.
 
 The stakes are the allowance rather than the money. GitHub Free gives this organisation 2,000
-private-repo minutes a month, which at 13.4 min/run is **7.5 runs a day across 20 active days**.
+**private-repo** minutes a month, which at 13.4 min/run is **7.5 runs a day across 20 active days**.
 2026-09-10 ran 134. Post-merge the pipeline bills 10.4 min/run and the allowance reaches **9.6 runs
 a day**: not comfort, but a third more room on a budget that was already being blown through.
+
+**That word `private-repo` is the whole of what expired, and it expired the day after this was
+written.** CNCORE-62 made CanonCore public on 2026-09-11. GitHub's Actions billing documentation,
+read the same day: "GitHub Actions usage is free for self-hosted runners and for public
+repositories that use standard GitHub-hosted runners", and "The use of standard GitHub-hosted
+runners is free: In public repositories." Four billed minutes and one billed minute are both zero
+here, so **every figure in this section is now zero for CanonCore and unchanged for the two
+providers**, which stay private under ADR-0089 and keep billing against the same 2,000. Read off
+the organisation's billing API on 2026-09-11, September's usage
+(`GET /orgs/{org}/settings/billing/usage`): `provider-wiki` 227 Actions-Linux minutes at net
+$0.474, `provider-tmdb` 142 at net $0.378. The arithmetic did not stop being right. It stopped
+being about this repository.
+
+**CanonCore's own line in that same response is not a counter-example, and is stated rather than
+tidied away.** It reads 346 minutes, gross $2.076, net **$0.060** — spend from earlier in the month,
+while the repository was still private, the flip having happened part-way through the day. The API
+returns one rolled-up line per SKU per repository, so it cannot be split by hour: that figure is
+reported as the month's total, not attributed to a run either side of the flip.
+
+**"Standard" is load-bearing in that quotation, and the arm64 runners were checked against it**
+rather than assumed, because CNCORE-63's matrix landed the same day. GitHub's documented exception
+is that larger runners are always charged for, even when used by public repositories.
+`ubuntu-24.04-arm` is a standard runner, and the billing response carries CanonCore's Actions Linux
+ARM line at 9 minutes, gross $0.045, **net $0.000**. Free here too — but "Actions is free for public
+repos" is exactly the sentence a later reader will over-apply to a larger runner, which is why the
+exception is written down beside it.
 
 **Wall clock is not what this buys and must not be sold as such.** Runs finish in 74 seconds at the
 median, and that number does not move at all — it is pinned by the provider job, which this does
 not touch. Anyone optimising this file for speed is optimising the wrong variable.
 
-## What was traded, and what actually replaces it
+## What was traded, and what bought it back
 
-Eleven checks on a pull request become eight. A red `Static checks` does not say on its face
-whether the typecheck, the lint, the build or the env guard broke.
+Eleven checks on a pull request became eight. A red `Static checks` did not say on its face whether
+the typecheck, the lint, the build or the env guard broke.
 
-**The step name is what carries that information now.** A failing step is named in the job summary,
-so the answer is one click away rather than absent — and the steps are deliberately **fail-fast**
+**The step name was what carried that information.** A failing step is named in the job summary, so
+the answer was one click away rather than absent — and the steps were deliberately **fail-fast**
 rather than `continue-on-error` with a hand-rolled exit status. Fail-fast reports one failure per
 run and names it; the alternative reports four verdicts at the cost of a guard nobody asked for and
 a failing run that still pays for the build. The simpler arrangement was taken.
 
-It is a real loss, not a free lunch. It is worth 24% of the CI bill and it is written down.
+It was a real loss, not a free lunch. It was worth 24% of the CI bill and it was written down —
+which is the only reason it could be reversed deliberately rather than drifted back into.
+
+**CNCORE-80 bought it back for nothing, and the counts were observed rather than reasoned about.**
+Both runs are `pull_request` runs on the branch that made the change:
+
+| | Before ([run 34640281757]) | After ([run 34640682237]) |
+|---|---|---|
+| Jobs | **11** | **14** |
+| The four checks | one job, `Static checks`, 41s | `Typecheck` 19s, `Lint` 19s, `Build` 33s, `Env guard` 19s |
+| Job-seconds for the four | 41 | **90** |
+
+**The four check names are `Typecheck`, `Lint`, `Build` and `Env guard`**, written here because a
+required-status-checks configuration pins context strings and this is the list it would pin. Renaming
+one is not a cosmetic change once anything requires it.
+| Billed minutes for the four | 1 if this were private, 0 as it is | 4 if this were private, **0** as it is |
+
+[run 34640281757]: https://github.com/jacobdrees-canoncore/CanonCore/actions/runs/34640281757
+[run 34640682237]: https://github.com/jacobdrees-canoncore/CanonCore/actions/runs/34640682237
+
+**The billed row is GitHub's documented rule applied, not a per-run measurement, and the difference
+matters.** The usage API returns one rolled-up line per SKU per repository per month, so no run can
+be priced from it individually; what can be said is that these are standard runners in a public
+repository, which is the case the documentation quoted above calls free. The job-seconds row is the
+honest cost: three extra checkouts and installs, **49 more job-seconds**, worth nothing at this
+repository's rate and worth three billed minutes at a private one's.
+
+**Wall clock did not pay for it either, and the reason has moved since this record was written.**
+The four ran in parallel and the last of them finished 33 seconds in, while the run itself ran to
+1m53s. This record originally said the median was "pinned by the provider job"; since CNCORE-63 it
+is pinned by the **image** jobs: amd64 took 65s in the before run and 109s in the after one, arm64
+50s and 99s — a difference twice the size of anything the split did, and caused by docker layer
+caching rather than by this change. Two runs cannot establish a median. What they do establish is
+that the four checks are nowhere near the critical path at either shape.
 
 ## Why four and not six
+
+**The arithmetic in this section is dead letter here and retained for the repositories that still
+pay.** It is the part of the record most worth keeping: it is how to decide a merge anywhere the
+minutes are billed, and `provider-wiki` and `provider-tmdb` are both such places. The Postgres
+paragraph at the end is the exception — its conclusion is still the live shape of this file, and
+since CNCORE-80 it needs no billing argument at all: those four jobs test four different things, so
+four jobs is simply what they are.
 
 Merging Secret scan and Agent docs as well saves two further minutes on paper. It was rejected, and
 the deciding argument is arithmetic rather than taste:
@@ -79,22 +161,28 @@ worst idea here.** Test, Migration ladder, The page over HTTP and Import and bro
 of container initialisation each, and they are precisely the four that test different things — the
 ladder in particular must run against a database nothing else has touched. Left alone deliberately.
 
-## The env guard shares a job with the build it contradicts
+## The env guard runs the build and requires it to fail
 
-The guard requires `pnpm build` to **fail**; the step above it requires the same command to
-succeed. That looks like a conflict and is not, for a reason worth stating because it is the one
-thing that could make the guard lie.
+The guard requires `pnpm build` to **fail**; the `Build` job requires the same command to succeed.
+That looks like a conflict and is not, for a reason worth stating because it is the one thing that
+could make the guard lie.
+
+Under the merge the two were adjacent steps of one job, which made the question sharp: the guard
+ran against a cache the successful build had just warmed. It is its own job again since CNCORE-80,
+so it starts cold and the re-run is not in question at all. **The mechanism is recorded anyway,
+because it is what keeps the guard honest under any cache**, including a remote one added later —
+which is the use ADR-0053 puts it to.
 
 `turbo.json` declares `DATABASE_URL` in the `build` task's `env`, so the value is part of the task
-hash. Blanking it at step level is a **cache miss** and the build genuinely re-runs. Measured in
-this repository against a deliberately warmed cache: `0 cached, 1 total`, exit 1, `Invalid
-environment variables`, **0.4 seconds**.
+hash. Blanking it is a **cache miss** and the build genuinely re-runs. Measured in this repository
+against a deliberately warmed cache, while the two shared a job: `0 cached, 1 total`, exit 1,
+`Invalid environment variables`, **0.4 seconds**.
 
 The obvious way to break that is not silent either, which is why no test guards it. Remove the
 `env` declaration and Turbo 2's strict env mode stops passing `DATABASE_URL` to the task at all —
-so the **successful** build step fails, on every run, with the same validation error. Probed by
+so the **successful** `Build` job fails, on every run, with the same validation error. Probed by
 removing the declaration and running it: the build failed with a real `DATABASE_URL` in the
-environment. There is no arrangement in which this step quietly stops biting.
+environment. There is no arrangement in which this job quietly stops biting.
 
 ## Concurrency, which is insurance and not speed
 
@@ -128,8 +216,11 @@ a hole that has already fired. Price it as insurance.
 ## No per-run guard on the boundary
 
 A guard failing the job if `static-checks` exceeded ~50 seconds was proposed, fits this
-repository's habits, and **does not survive its own measurement.** Against the observed `Build`
-distribution a 50s threshold fails **27%** of builds, 55s fails 9%, 60s fails 2%. Any threshold
+repository's habits, and **does not survive its own measurement.** With the merge reversed there is
+no 60-second billing boundary left in this repository to guard, so the proposal is doubly dead
+here; the reasoning is kept because it is about measurement rather than about this pipeline.
+Against the observed `Build` distribution a 50s threshold fails **27%** of builds, 55s fails 9%,
+60s fails 2%. Any threshold
 tight enough to warn early fires constantly; any threshold loose enough not to flake says nothing
 the bill would not. A red check with no defect behind it gets disabled, and then it rots.
 
@@ -139,9 +230,11 @@ sample is a category error.** The instrument is the billing usage API, one call,
 at 75/90/100% of the included allowance.
 
 Also rejected, and recorded in the research rather than here so `docs/adr/` does not become a CI
-changelog: Turborepo remote caching (saves 1 billed minute, zero wall clock, and fails open —
-measured: warning, exit 0) and path filters (a skipped required check sits **Pending** and blocks
-the merge; the old same-name-workflow trick was retired around GHES 3.2-3.4).
+changelog: Turborepo remote caching (saved 1 billed minute, zero wall clock, and fails open —
+measured: warning, exit 0; the billed minute is worth nothing here now, and the fail-open behaviour
+is why ADR-0053 cares about the env guard's cache key regardless) and path filters (a skipped
+required check sits **Pending** and blocks the merge; the old same-name-workflow trick was retired
+around GHES 3.2-3.4).
 
 ## What the tests pin
 
@@ -160,18 +253,44 @@ way. Each was proven by breaking the thing it guards:
 - **Two runs of one pull request do share one, and `cancel-in-progress` is on.** A group of
   `${{ github.run_id }}` alone spares `main` perfectly and cancels nothing ever; it passes the test
   above and fails this one.
-- **All four static checks are carried by one job.** Splitting Typecheck back out fails it with
-  `Set{ 'static-checks', 'typecheck' }`; dropping `pnpm lint` in the merge fails it with `no job
-  runs the lint`.
-- **Nothing in the merged job stops failing the build.** This is the failure mode the merge
-  introduces: four separate jobs could not be neutered one at a time without a check disappearing
-  from the pull request, four steps in one job can be, and the job still reports green under an
-  unchanged name. `continue-on-error: true` on the lint step fails the test, naming `pnpm lint`,
-  and an `if:` does the same. **The job level is checked as well as the step level**, because
-  `continue-on-error` and `if` are valid job keys too and defang all four checks at once rather
-  than one — a first version of this test read only the steps, which is the half-built mechanism
-  this record would otherwise have called complete. A third assertion catches `pnpm lint || true`,
-  the shell form neither key covers.
+- **Each of the four static checks is its own named job**, since CNCORE-80 reversed the assertion
+  this test used to make. It asserted `Set{ 'static-checks' }`; it now asserts four pairwise
+  distinct carriers, each found by what its step RUNS rather than by a job name a rename could
+  carry away. Merging `pnpm lint` back into the Typecheck job fails it with `exactly one job must
+  carry the lint`; dropping a check fails the same assertion with an empty carrier list. Both forms
+  were planted and run.
+- **Nothing among the four stops failing the build.** Splitting the job back out did NOT retire this
+  test, and the reason is worth stating because the first version of this paragraph implied it
+  would. It claimed four separate jobs "could not be neutered one at a time without a check
+  disappearing from the pull request". **Nothing disappears, under either key.**
+  `continue-on-error` is documented as preventing "a workflow run from failing when a job fails":
+  the job still runs, still sits on the pull request under its own unchanged name, and the run goes
+  green regardless. An `if:` skips the job, and a skipped job is still listed — observed in this
+  repository's own runs, where `One image, both architectures` reports `skipped` on every pull
+  request rather than being absent. So separate jobs were never the protection that sentence
+  claimed, and the assertion is now asked of each of the four rather than of one job's steps.
+  **What GitHub renders as that individual check's conclusion is not documented and was not
+  measured here**; the run-level pass is what the argument needs and all that is claimed.
+
+  **The job level is checked as well as the step level**, because `continue-on-error` and `if` are
+  valid job keys too and defang a whole check at once rather than one step of it — a
+  first version of this test read only the steps, which is the half-built mechanism this record
+  would otherwise have called complete. Planting `continue-on-error: true` on the Lint job fails it
+  with `lint: job level`. A third assertion catches the shell form neither key covers: `pnpm lint ||
+  true`, and the shell's do-nothing builtin `pnpm lint || :`.
+
+  **That second form was not actually caught until CNCORE-80, and the record said it was.** The
+  regex read `(true|:)\b`, and `\b` after a non-word character needs a word character next, which
+  `|| :` at the end of a line does not have. Two comments and this paragraph claimed a match that
+  never happened. It is `(true\b|:)` now — the boundary on the word, where it belongs — and both
+  forms were planted in the file and observed to fail the test.
+
+  **On the three one-command jobs that third assertion is not what bites, and the test says so
+  rather than implying otherwise.** `pnpm build || true` is not `pnpm build`, so the carrier finder
+  stops matching it, the carrier list goes empty and the assertion above fails first — planted, and
+  it reports `exactly one job must carry the build`. What the shell form still catches is the env
+  guard, whose `run:` is a script rather than a command, and any step added beside one of the four
+  later.
 
   **It is a list of the forms worth catching, not a proof, and the difference is stated rather than
   glossed.** A shell script can always be written to swallow its own failure and no reading of the
@@ -199,6 +318,11 @@ around each `${{ }}` is still four lines here, because that part genuinely is tr
 ## Evidence
 
 ## What the runner taught that the model did not: the lockfile eats the headroom
+
+**Measured while this repository was private, and kept for the two that still are.** Every figure
+below is a real observation about how a merged job behaves near the billing boundary. None of it
+costs CanonCore anything any more, and all of it still applies in `provider-wiki` and
+`provider-tmdb`.
 
 The research modelled the merged job's risk as runner variance — the `Build` job ranges 35s to
 110s, so some proportion of runs cross 60s and bill two minutes. That is true and it is not the
@@ -247,8 +371,9 @@ the variance in the *work*. The thing that crossed the boundary was overhead tha
 subset of runs and was invisible in a median. A distribution taken across runs that all had a warm
 cache cannot see the cost of a cold one.
 
-**The merge was measured on the runner rather than only modelled.** Two successful runs of the same
-pipeline, one either side of the change:
+**The merge was measured on the runner rather than only modelled**, on the day it landed and while
+this repository was still private. Two successful runs of the same pipeline, one either side of the
+change:
 
 | | Pre-merge (`main`, run 34589848110) | Post-merge (run 34590960698) |
 |---|---|---|
