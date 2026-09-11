@@ -128,10 +128,14 @@ does not hold.
 
 `role` — string. What the image is FOR. Without it `per_role_limit` limits nothing.
 
-`url` — string. Where the BYTES are, and it is this field ADR-0037's store is filled from.
+`url` — string, and an HTTP one. Where the BYTES are, and it is this field ADR-0037's store is
+filled from. The scheme is part of the field rather than the fetcher's problem; CNCORE-79's
+section below is why.
 
-`description_url` — `string | null`. The page describing the file, which is where a wiki keeps the
-per-file licence and the photo credit. Null where the source has no such page.
+`description_url` — `string | null`, HTTP where it is not null. The page describing the file, which
+is where a wiki keeps the per-file licence and the photo credit. Null where the source has no such
+page. It is RENDERED AS A LINK beside the credit, so it is the same sink a record's own `url` is
+and takes the same rule.
 
 `licences` — array of strings, possibly empty. The source's own licence labels for this file. Empty
 means the source states none, which is different from the source stating a permissive one.
@@ -536,3 +540,41 @@ that the surface is the next ticket and was specified before this one.
 
 **NOT BUILT, STILL: the declared fields this app is supposed to honour.** Unchanged, and still the
 reason this record is `proposed`. CNCORE-77 touched neither `max_cache_age` nor the image policy.
+
+
+## And under CNCORE-79: every URL CMPP carries is an HTTP one -- and this record STILL STAYS PROPOSED
+
+**THE CONTRACT DID NOT OBLIGE A PROVIDER TO SEND AN HTTP URL AT ALL, and nothing above noticed
+because a URL is the one field that looks self-evidently checked.** `packages/contract`'s `record.url`,
+`images[].url` and `images[].description_url` were each `z.url()`, which asks whether a string PARSES
+as a URL and says nothing about its scheme. Measured against zod 4.5.4 rather than reasoned about:
+`javascript:alert(1)`, `data:text/html,<script>x</script>`, `vbscript:x` and `file:///etc/passwd`
+every one parsed clean. A provider sending any of them was conformant.
+
+**IT WAS HARMLESS FOR EXACTLY AS LONG AS NOBODY READ THE VALUE.** `asProvided` in
+`packages/api/src/routers/provider.ts` drops `url` on the floor, so no record's URL had ever reached
+a reader. CNCORE-77 is what changed that -- `search` now carries arrays of provider-supplied records
+out of `@canoncore/providers` -- and CNCORE-68 is the page that puts a candidate in front of the
+Owner with its URL in an `href`. So the hole predates both and was opened by neither: what those two
+tickets did was make it reachable.
+
+**WHY IT IS THE CONTRACT'S RULE AND NOT THE APP'S.** ADR-0031's position is that a provider is an
+untrusted URL rather than code we run, and a provider that can run script in the Owner's browser is
+that position failing at the one place it is supposed to hold. The app's consumer schema refusing one
+would protect THIS app; the contract refusing one is what obliges every provider, including the ones
+nobody has written yet. Both now do, which is the arrangement every other field here is under.
+
+**FOUR SCHEMES ASSERTED, NOT ONE REPRESENTATIVE OF THEM.** They are four different sinks --
+`javascript:` and `vbscript:` execute, `data:` carries a document with its own origin, `file:` reads
+the reader's own disk -- and a rule written against one can miss the others. The specification's own
+refusal is asserted in `packages/contract/src/cmpp.test.ts`; that the real providers actually comply
+is asserted against their live answers in the contract suite, because a schema that refuses a value
+no provider sends is a rule with nothing exercising it.
+
+**THE SCHEME AND NOT THE HOST, which is the part that looks like an omission.** [[0034-two-outbound-boundaries]]
+carries the reasoning, because the question is which boundary judges a URL rather than what a field
+holds.
+
+**NOT BUILT, STILL: the declared fields this app is supposed to honour.** Unchanged. `max_cache_age`
+and the image policy still travel the wire from two providers and are read by nothing, and that is
+still the only reason this record is `proposed`.

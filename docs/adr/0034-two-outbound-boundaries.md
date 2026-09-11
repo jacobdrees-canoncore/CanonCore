@@ -134,3 +134,45 @@ REDIRECT AT ALL. Its base URL is legal by allowlist and any hop it returns is co
 refused. The wiki provider does not redirect and nothing here is blocked by it, but a later provider
 reached over a private network will meet this, and it will look like a bug until it is read against
 this paragraph.
+
+
+## A THIRD PLACE A URL IS JUDGED, and it is not a third boundary -- under CNCORE-79
+
+This record splits URLs by WHO SUPPLIED THEM and judges both in front of a socket. CNCORE-79 found a
+URL that is judged before either boundary sees it and that no socket is ever opened for: a CMPP
+record's `url`, which is read out of a provider's response and rendered to the Owner as a link.
+
+**IT IS A CONTENT URL BY THIS RECORD'S OWN DEFINITION -- it arrives inside a provider's response --
+AND `assertContentUrl` IS THE WRONG RULE FOR IT.** That function carries the address deny-list with
+it, so it refuses `http://127.0.0.1:8080/1`. That is an ordinary self-link from a provider the owner
+runs on their own machine, and the paragraph above makes such a provider legal BY NAME. Applying the
+content rule at the parse would refuse a legal deployment's own links, and it would do it while
+looking like the more rigorous choice.
+
+**THE TWO RULES ANSWER DIFFERENT QUESTIONS ABOUT ONE URL, and the split is which process acts on
+it.** The address rule asks what THIS SERVER may open a socket to, and it is about SSRF: reaching a
+metadata endpoint the owner never named. Nothing fetches a record's `url` -- so the address question
+is not that field's to ask, and it stays where it is, in front of the fetch. What the field does
+decide is what the READER'S BROWSER is handed, and that is settled by the SCHEME alone: a
+`javascript:` or `vbscript:` URL executes, a `data:` URL is a document with its own origin, a `file:`
+URL reads the reader's disk. So the schema states the scheme rule and the boundaries go on stating
+the address rule. **THIS IS THE SAME SHAPE AS THE `attribution.logo` DECISION under ADR-0036**, where
+the bytes travel inline precisely because the fetcher is the reader's browser and not this app: the
+question is always which process acts, never what the value looks like.
+
+**AND DO NOT "FIX" THIS WITH `z.httpUrl()`, which is the obvious repair and ships a hole of the
+opposite kind.** zod's own helper checks the scheme AND requires the hostname to be a dotted name,
+so it refuses an ADDRESS LITERAL and a SINGLE-LABEL HOST -- the very deployments the allowlist above
+exists to make legal. Measured against zod 4.5.4 rather than reasoned about: `z.httpUrl()` refuses
+`http://127.0.0.1:8080/1`, `http://192.168.1.5/1`, `http://[::1]/1` and `http://localhost/1`, and
+ADMITS `http://nas.local/1`. An earlier draft of this paragraph named `nas.local` among the
+refusals and was wrong -- a dotted private name passes zod's host rule, and only the address-literal
+and single-label halves are refused. The hole is real and is narrower than first written. It reads as stricter and is simply wrong here, in the same way
+that restating the address rule in IANA's terms reads as more rigorous and lets loopback through.
+Both traps are a plausible tightening applied to the wrong question, which is why they are recorded
+together. The rule CMPP's URL fields take is [[0033-search-lookup-required-browse-optional]]'s: the
+scheme is HTTP or HTTPS, and the host is not this field's business.
+
+**WHAT IS UNCHANGED.** Both boundaries, their split, the deny-by-classification rule, the pinning
+hook. Nothing above moved; this section adds a place a URL is read that has no socket behind it, and
+records why the boundary's own function is not what guards it.
