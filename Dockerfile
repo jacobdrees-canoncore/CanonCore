@@ -55,6 +55,13 @@ RUN pnpm build
 # app never reaches. Measured on 16.3.4: 30 traced packages, `pg` among them,
 # `drizzle-orm` not.
 #
+# `--save-prod` RATHER THAN `--prod`, which is not a spelling difference. pnpm
+# 11 accepts `--prod` here and pnpm 12.3.4 -- the version `packageManager` pins
+# and therefore the one this image runs -- exits 2 on `unexpected argument
+# '--prod' found`. It was written the wrong way first, because the probe that
+# checked it ran in a throwaway project with no `packageManager` field and so
+# silently used the pnpm on PATH instead of the pinned one.
+#
 # The two versions are READ OUT OF THE WORKSPACE the lockfile just installed
 # rather than restated here, so this tree cannot drift from the one the app was
 # built against. `drizzle-orm` declares no runtime dependencies of its own and
@@ -63,7 +70,7 @@ RUN pnpm build
 # of a DEV dependency in the runner.
 RUN mkdir -p /migrator && cd /migrator \
     && printf '{"name":"canoncore-migrator","private":true,"type":"module"}\n' > package.json \
-    && pnpm add --prod --config.auto-install-peers=false \
+    && pnpm add --save-prod --config.auto-install-peers=false \
         "drizzle-orm@$(node -p "require('/app/packages/db/node_modules/drizzle-orm/package.json').version")" \
         "pg@$(node -p "require('/app/packages/db/node_modules/pg/package.json').version")" \
     && cp /app/packages/db/src/migrate.ts /app/docker/migrate.mjs /migrator/
