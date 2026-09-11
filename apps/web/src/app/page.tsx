@@ -182,6 +182,17 @@ function Listing({ entries }: { entries: FrontPage["catalogue"]["entries"] }) {
             sense a placement means. So the address here is the bare canonical
             one, which is the same address the item is reached at from anywhere
             else.
+
+            AND IT IS A `Link` RATHER THAN AN `a`, WHICH IS A SEPARATE RULE
+            (ADR-0109): a URL the framework does not rewrite is never
+            hand-built. Next prefixes `Link`, `Form` and `router.push()` and
+            nothing else, so a raw `<a href="/items/...">` here would read
+            identically and would point at the wrong place the day this app is
+            served from a path. This page emits exactly one URL and it goes
+            through the one thing that would be rewritten -- worth saying out
+            loud because this is the shell the other reading surfaces hang off,
+            and a raw `a`, an `img src` or a `fetch("/api/...")` copied from
+            here would scatter the class the rule exists to keep in one place.
           */}
           <Link href={`/items/${entry.id}`} className="hover:underline">
             {entry.title ?? "Untitled item"}
