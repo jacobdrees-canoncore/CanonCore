@@ -4,9 +4,14 @@ import { parse } from "yaml";
 import { repoRoot } from "./repo-root";
 
 /**
- * One reader for `.github/workflows/ci.yml`, for the two suites in this package
- * that ask questions of that file: `ci-workflow.test.ts` and
- * `node-major.test.ts`.
+ * One reader for `.github/workflows/ci.yml`, for the suites that ask questions
+ * of that file: `ci-workflow.test.ts` and `node-major.test.ts` here, and
+ * `@canoncore/env`'s `install-path.test.ts`, which asks the workflow what image
+ * it publishes so that `compose.yaml` cannot name a different one (CNCORE-64).
+ *
+ * PUBLISHED FOR THAT THIRD READER rather than copied to it, which is this
+ * module's own reason restated: a second reader of this file is the Shotgun
+ * Surgery below, and it does not stop being one for living in another package.
  *
  * Both read it for the reason ADR-0103 gives about the compose file: the values
  * are written where TypeScript cannot see them, so nothing else would catch one

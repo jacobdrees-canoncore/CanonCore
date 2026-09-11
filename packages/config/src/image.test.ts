@@ -416,7 +416,13 @@ describe("publishing the image", () => {
    * repository, the package automatically inherits the access permissions (but
    * not the visibility) of the linked repository" -- so a PUBLIC repository
    * publishes a PRIVATE package, and the REST API for organisation packages has
-   * no endpoint that changes visibility. It is a web-UI click.
+   * no endpoint that changes visibility. It is a web-UI click -- TWO of them, in
+   * two different settings pages, which CNCORE-64 found by walking it on
+   * 2026-09-11: the organisation's Package creation policy has to admit Public
+   * first, or the package's own Change visibility dialog renders Public disabled
+   * under "Setting is disabled by organization administrators". `ci.yml`'s
+   * failure message names both in order, because a reader who has only the
+   * second one arrives at a control they cannot click.
    *
    * WHICH MAKES THIS A FALSE GREEN WAITING TO HAPPEN, and the reason it is
    * asserted rather than trusted: everyone who would test the install path is
