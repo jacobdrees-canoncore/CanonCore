@@ -16,7 +16,8 @@
     "@canoncore/config": "workspace:*",
     "@types/node": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "yaml": "catalog:"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

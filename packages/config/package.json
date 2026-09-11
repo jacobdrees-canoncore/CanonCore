@@ -4,10 +4,11 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./tsconfig.base.json": "./tsconfig.base.json",
-    "./testing/install-network-gate": "./src/testing/install-network-gate.ts",
+    "./testing/ci-workflow": "./src/testing/ci-workflow.ts",
     "./testing/gate-global-setup": "./src/testing/gate-global-setup.ts",
-    "./testing/repo-root": "./src/testing/repo-root.ts"
+    "./testing/install-network-gate": "./src/testing/install-network-gate.ts",
+    "./testing/repo-root": "./src/testing/repo-root.ts",
+    "./tsconfig.base.json": "./tsconfig.base.json"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
