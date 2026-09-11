@@ -351,6 +351,13 @@ export interface CatalogueEntry {
   /**
    * ADR-0005's kind, IN THE READER'S WORDS: `Time span`, never `time_span`.
    *
+   * NAMED `kindLabel` LIKE `FoundItem`'S, so that inside this layer `kind` is
+   * always the key a row is filed under and `kindLabel` is always the words a
+   * reader is shown. It was `kind` and carried the label, one function away
+   * from a `kind` carrying the key -- which is the hazard `FoundItem` above
+   * has a paragraph about, standing in the file that states it. The read path
+   * is where the label becomes `kind` (ADR-0045), and both routers do that now.
+   *
    * READ OFF `item_kinds` RATHER THAN MAPPED IN TYPESCRIPT. Migration 1 seeds
    * that table with a `label` beside every kind for exactly this, so the words
    * a reader sees are the catalogue's own. A map written in the app would be
@@ -358,7 +365,7 @@ export interface CatalogueEntry {
    * a paragraph about -- and it would go stale the day a kind's label is
    * revised by the migration that owns it.
    */
-  kind: string;
+  kindLabel: string;
   /**
    * ADR-0004 folds containers into `work`, so the kind alone cannot separate a
    * story from an ordering that holds stories. This is what does.
@@ -403,7 +410,7 @@ export async function readCatalogue(
     .select({
       id: items.id,
       title: items.title,
-      kind: itemKinds.label,
+      kindLabel: itemKinds.label,
       isContainer: items.isContainer,
       /*
        * THE COUNT COMES BACK ON THE ROWS rather than from a second query, and
@@ -428,7 +435,12 @@ export async function readCatalogue(
     .limit(limit);
 
   return {
-    entries: rows.map(({ id, title, kind, isContainer }) => ({ id, title, kind, isContainer })),
+    entries: rows.map(({ id, title, kindLabel, isContainer }) => ({
+      id,
+      title,
+      kindLabel,
+      isContainer,
+    })),
     // An EMPTY catalogue returns no rows at all, so there is no window count to
     // read and nothing has been hidden: nought is the honest answer.
     total: rows[0]?.total ?? 0,

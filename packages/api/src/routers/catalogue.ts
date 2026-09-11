@@ -55,7 +55,10 @@ export const catalogue = {
         entries: entries.map((entry) => ({
           id: entry.id,
           title: entry.title,
-          kind: entry.kind,
+          // The LABEL under the name the read path gives it, exactly as
+          // `item.get` does: `kind` is the reader's word for it wherever the
+          // read path emits one, and the key stays below this seam (ADR-0045).
+          kind: entry.kindLabel,
           isContainer: entry.isContainer,
         })),
         total,

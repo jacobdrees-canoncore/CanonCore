@@ -102,7 +102,10 @@ describe("the kind, in the reader's words", () => {
     const { status, text } = await documentAt(`/items/${timeSpan.id}`);
 
     expect(status).toBe(200);
-    expect(text).toContain(`<dd>${timeSpan.label}</dd>`);
+    // THE WORDS ARE WRITTEN HERE rather than handed over by the fixture, so
+    // they can be checked against the source they come from: `CONTEXT.md`'s
+    // entity kinds, which is the glossary UI copy is bound to.
+    expect(text).toContain("<dd>Time span</dd>");
   });
 
   /**
@@ -118,7 +121,9 @@ describe("the kind, in the reader's words", () => {
     // GUARDED, because the negative below is satisfied by a 404 as well as by a
     // page that gets it right.
     expect(text).toContain(timeSpan.title);
-    expect(text).not.toContain(timeSpan.key);
+    // THE KEY THE FIXTURE ACTUALLY SEEDED, which is a fact about the fixture
+    // and so comes from it -- unlike the words above.
+    expect(text).not.toContain(timeSpan.kind);
   });
 });
 

@@ -32,3 +32,11 @@ A SURFACE MAY STILL HAVE WORDS OF ITS OWN, and that is not an exception. The ite
 that list asks is how the item came to be in this container rather than what sort of thing asserted
 it. The rule is that a label answering the reader's question is read rather than restated; where the
 reader is asking a different question, the surface answers it in its own words.
+
+**AND `placedBy` IS WHAT THAT LOOKS LIKE IN THE PAYLOAD**: it emits the source kind's KEY —
+`provider`, `owner` — which paragraph one would otherwise forbid. It is the key because no label in
+the catalogue answers the question that list asks, so the surface supplies the words and needs the
+key to choose them by. Said here rather than left to be worked out, because a field emitting a key
+looks the same from outside whether it is this case or the one CNCORE-83 fixed. The test is whether
+a seeded label answers the reader's question: where it does, the read path reads it and emits the
+words; where it does not, the read path emits the key and the surface writes the words.

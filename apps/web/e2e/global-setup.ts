@@ -482,17 +482,24 @@ async function anItemPlacedTwoWays(databaseUrl: string) {
  * An item whose KIND'S LABEL DIFFERS FROM ITS KEY, which is the only pair that
  * can tell whether a page is printing the reader's word or the column.
  *
- * `time_span` and `Time span` are that pair: `CONTEXT.md` is binding on UI copy
- * and calls it a Time span, and the underscore is what a page leaks when it
- * prints the column. The demo item is a `work`, whose label is `Work` -- a
- * capital apart, so an assertion on it would pass either way.
+ * `time_span` is the key it is seeded with, and the demo item's `work` is why a
+ * second item is needed at all: `Work` is a capital away from `work`, so a page
+ * printing the column would satisfy an assertion made on that one either way.
+ *
+ * WHAT THE WORDS SHOULD BE IS NOT HERE. This hands over the key it wrote, which
+ * is a fact about the fixture; `Time span` is an expectation, and it is written
+ * beside the assertion that reads it for the reason this file already gives of
+ * TMDB's positions -- an expectation set up one file away from its assertion is
+ * one nobody can check against the source it came from, which here is
+ * `CONTEXT.md`.
  */
 async function anItemOfAKindWhoseLabelDiffers(databaseUrl: string) {
   const db = createDb(databaseUrl);
   const title = "The Hartnell era";
-  const id = await anItemTitled(db, title, { kind: "time_span" });
+  const kind = "time_span";
+  const id = await anItemTitled(db, title, { kind });
   return {
-    fixture: { id, title, key: "time_span", label: "Time span" },
+    fixture: { id, title, kind },
     // The seed ends its own client; this pool has to be ended too, or the run
     // holds an idle connection open against a database it has finished with.
     close: () => db.$client.end(),
@@ -562,7 +569,7 @@ declare module "vitest" {
     /** The fixture item, in one ordering filled by hand and one imported. */
     twoOrigins: { id: string; byHand: string; imported: string };
     /** An item whose kind a reader and the column call by different names. */
-    timeSpan: { id: string; title: string; key: string; label: string };
+    timeSpan: { id: string; title: string; kind: string };
     /** The story imported from a CMPP provider over HTTP, and what it claimed. */
     imported: { id: string; title: string; released: string; providerLabel: string };
     /**
