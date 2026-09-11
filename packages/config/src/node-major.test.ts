@@ -362,8 +362,8 @@ describe("CanonCore's Node major", () => {
 
     expect(
       dockerfileMajor(),
-      `ADR-0112's rule now selects Node ${selected}. The Dockerfile is the fifth place the ` +
-        `major is written and the only one that ships: move its FROM lines with the rest.`,
+      `ADR-0112's rule now selects Node ${selected}. The Dockerfile is the only statement of ` +
+        `the major that SHIPS: move its FROM lines with the rest.`,
     ).toBe(selected);
   });
 });

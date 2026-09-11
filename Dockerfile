@@ -7,9 +7,9 @@
 # THE NODE MAJOR IS A RULE, NOT A NUMBER (ADR-0112): the newest Node major that
 # has reached LTS. Every `FROM` below states it, and `packages/config/src/
 # node-major.test.ts` reads them and fails when they disagree with each other,
-# with `ci.yml`, or with the rule itself. This file is the FIFTH place the major
-# is written and the only one that ships, which is what makes it the one that
-# pins it.
+# with `ci.yml`, or with the rule itself. Four files state that major -- this
+# one, `ci.yml`, `package.json`'s floor and `README.md` -- and THIS IS THE ONLY
+# ONE THAT SHIPS, which is what makes it the one that pins it.
 
 # ---------------------------------------------------------------------------
 # build: the workspace installed from the lockfile, built once.

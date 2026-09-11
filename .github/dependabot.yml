@@ -35,8 +35,9 @@ updates:
       interval: weekly
     open-pull-requests-limit: 5
 
-  # The Dockerfile's `node:<major>-slim` base, which since CNCORE-63 is the
-  # FIFTH place this repository states its Node major and the only one it ships.
+  # The Dockerfile's `node:<major>-slim` base, which since CNCORE-63 is the one
+  # statement of this repository's Node major that SHIPS. This entry states no
+  # major itself -- it names the dependency and holds its major bumps back.
   # DISTINCT FROM the docker-compose entry above: that one watches a compose
   # file in `packages/db` and this one watches a Dockerfile at the root, and
   # Dependabot's docker ecosystem treats them as different manifests in
@@ -56,7 +57,7 @@ updates:
     # from corepack, which the Node TSC stopped shipping from the 25 line on and
     # which is what made the equivalent bump fail in the provider repos
     # (provider-wiki#9, closed at exit 127). What it buys is quiet. The major is
-    # written in five places and Dependabot can edit one, so every weekly pull
+    # written in four files and Dependabot can edit one, so every weekly pull
     # request it raised would go red on `node-major.test.ts` with no defect in
     # it -- and A WEEKLY RED PULL REQUEST TEACHES PEOPLE THAT RED IS NORMAL,
     # which is the habit every gate in this repository depends on not forming.
