@@ -48,6 +48,13 @@ acceptance criteria written, before CNCORE-77 was cut out of it; the tracker car
 edge; and the half landing first is the smaller one. Nothing here was built in the hope that a
 surface would later want it.
 
+**AND THE OTHER HALF LANDED, which is the part a reader of the paragraph above cannot otherwise
+check.** CNCORE-68 shipped `/import`: the fan-out's caller is a page rather than a test, and the
+split reads in hindsight as two reviewable slices rather than as a model built ahead of its surface.
+The exception this section records is therefore spent rather than standing -- it licensed ONE
+non-demoable pull request, against a surface already specified and already next, and the surface
+arrived.
+
 **SO THE PERMISSION IS NARROW, AND THE NARROWNESS IS THE POINT.** A slice may land as two pull
 requests when the second is specified, blocked on the first, and next. It may not land as one pull
 request plus an intention. The difference is checkable by anyone reading the tracker, which is what

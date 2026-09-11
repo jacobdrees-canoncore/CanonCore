@@ -578,3 +578,50 @@ holds.
 **NOT BUILT, STILL: the declared fields this app is supposed to honour.** Unchanged. `max_cache_age`
 and the image policy still travel the wire from two providers and are read by nothing, and that is
 still the only reason this record is `proposed`.
+
+
+## And under CNCORE-68: the surface arrives -- and this record STILL STAYS PROPOSED
+
+**THE HALF THE SECTION ABOVE DEFERRED IS BUILT.** CNCORE-77 left it in as many words: "NOT BUILT,
+AND DELIBERATELY SO: the surface. Nothing renders a result, nothing imports one, and no procedure
+exposes `search` — CNCORE-68 is the page." It exists. `/import` searches every configured provider,
+renders what each of them offered, and takes a candidate into the catalogue without an id being known
+in advance. The fan-out's only caller is no longer a test.
+
+**WHICH HALF THIS LEAVES STANDING.** Still the DECLARED FIELDS half, and still exactly where CNCORE-8
+left it: `max_cache_age` and the image policy travel the wire from two providers and are read by
+nothing. There is no image store to bound and no read-time expiry check. That is the only reason this
+record is `proposed`, as it has been through four sections now.
+
+**A SURFACE THAT LISTS A PROVIDER THAT MATCHED NOTHING.** The fan-out answers two lists and that
+section explains why; what a PAGE adds is a third state those two lists cannot by themselves make
+visible. A provider that answered with no results is in `answered`, and a page that rendered only
+non-empty results would show the same thing for a provider that was never asked. So every provider
+that answered is listed, saying it matched nothing where it did. "Both providers are searched" is then
+something an owner can read rather than something the code happens to do.
+
+**WHERE A CONTAINER ID COMES FROM, HELD TO FROM THE OTHER SIDE.** The CNCORE-17 section above decided
+that the owner names it, because no CMPP operation answers "which containers do you have" and a
+record's `series` is a name that can be renamed out from under an import. The surface obeys it
+literally: the owner picks a provider and types the container's own id. That is the one field on this
+page somebody types, and it is the one that can be wrong -- which is why the same section's named
+refusals matter more now than when they were written. A provider that declines `browse` and an id that
+addresses no container both reach an owner as the procedure's declared errors rather than as an empty
+result to puzzle over.
+
+**AND THE OPERATION A PROVIDER-SIDE `list containers` WOULD SERVE IS NOW VISIBLE.** The CNCORE-17
+section says such an operation "is not refused here, it is simply not needed by anything yet. Whatever
+first wants to browse without knowing an id is what should propose it." This page is the first thing
+that wants it: an owner who has just found *The Matrix* by name still has to go and find out that its
+collection is `collection:2344` somewhere outside the product, which is the same wall search was built
+to knock down one level up. **It is still not proposed here**, because the cheaper fix is nearer: a
+record already carries `series` and `series_id`, and `series_id` IS a browsable container id at both
+providers -- so the candidate an owner is looking at could offer its own container without any new
+operation. Whatever builds that is where the choice gets made.
+
+**A NEW CALLER OF `search` THAT IS NOT A SEARCH.** `provider.held` asks which of a provider's records
+the catalogue already holds, by the external-id mapping migration 3 wrote, and it exists because of
+something a surface needs and a protocol cannot supply: a page must be able to report what an import
+did. The candidates a search answers carry the same field. Both are IDENTITY rather than matching
+(ADR-0026) -- one party, one namespace, no judgement -- so a record one provider holds and another
+does not reads as absent rather than as the other's Item.

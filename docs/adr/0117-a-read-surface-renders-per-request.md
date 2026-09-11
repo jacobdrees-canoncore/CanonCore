@@ -100,9 +100,26 @@ route segment config and `connection()` are both live and the `use cache` direct
   is the check — `e2e/search.test.ts` asks the seeded and the fresh instance for the same
   `/search?q=…` and expects different answers — which is the half this record says is actually
   earned. `next build` agrees independently, listing the route as `ƒ (Dynamic)`.
+- `/import` — `apps/web/src/app/import/page.tsx`, under CNCORE-68, and under the same exemption for
+  the same reason: `q` is the page. Its pair is `e2e/import-page.test.ts`, and it compares the thing
+  the CONFIGURATION decides rather than merely expecting two documents to differ — the fresh instance
+  carries a "no provider is configured" section and the seeded one has none. Two pages can differ over
+  a build id while both being photographs of the same state, so a bare inequality would be a check
+  that cannot fail for the right reason.
 
 `/items/<id>` is the third dynamic read surface and has no pair, which is the honest state rather
 than an oversight: it was dynamic before this record existed, by `searchParams` it reads for `?via=`.
+
+## What a surface that WRITES adds to this record, which is nothing -- under CNCORE-68
+
+`/import` is the first surface that mutates, through Server Actions, and it is worth saying that this
+record does not grow to meet it. A prerendered page cannot serve a POST, so the hazard named here has
+no write-surface form of its own.
+
+**The converse is not true, and that is the half worth keeping.** A page that writes almost always
+reads back to report what it wrote -- `/import` re-renders its own search so the row that offered a
+button names its Item afterwards -- and THAT reading is under this rule exactly as any other is. The
+declaration belongs to the reading half, wherever the writing half sits.
 
 ## As built, under CNCORE-65
 

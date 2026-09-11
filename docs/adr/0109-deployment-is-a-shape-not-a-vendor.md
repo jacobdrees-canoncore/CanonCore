@@ -66,6 +66,37 @@ them, and the canonical is the specific thing to re-check that day.
 Every other constraint a host imposes — a data directory, somebody else's TLS terminator, a path
 prefix — arrives with the host that reads it, and not before.
 
+## The list of what Next rewrites is MEASURED now, and `redirect()` is not on it — under CNCORE-68
+
+The rule above names `<Link>`, `<Form>` and `router.push()`, taken from Next's documentation. That
+documentation says nothing either way about `redirect()` from `next/navigation`, which is the lever a
+mutation reaches for: do the write, send the reader to what it wrote. **It does NOT get the
+`basePath`.** Measured on Next 16.3.4 by setting `basePath: "/canoncore"` and asking the running
+build: `<Link href="/items/abc">` emitted `href="/canoncore/items/abc"`, and a Server Action calling
+`redirect("/items/abc")` answered `303` with `Location: /items/abc`. So `redirect()` belongs in the
+exposed class with `fetch()`, `<a href>` and `<img src>`, and it is the most dangerous member of it:
+the other three are visibly strings in markup, while this one looks like navigation.
+
+**WHICH CHANGED A PAGE'S DESIGN RATHER THAN ADDING A LINE TO A LIST, and that is why it is here.**
+CNCORE-68's import surface has to report what an import did. The obvious shape is to redirect to the
+new Item, and that is the one thing it may not do — so the page reports by READING the catalogue
+instead: every candidate carries the Item it is already held as, so the row that offered a button
+before the POST names its Item after it. The field `provider.search` answers exists because of this
+measurement.
+
+**AND THE OTHER HALF OF THAT IS WHAT A SERVER ACTION BUYS.** A mutation must be a POST, and the only
+two ways to get one are a form whose target Next writes itself or a URL written by hand. So
+`<form action={serverAction}>` is not a framework fashion here, it is this rule's answer for every
+write surface after it: Next renders the target, there is no string for a later `basePath` to get
+wrong, and the form needs no JavaScript — which is what keeps the surface assertable at
+[[0103-tests-bite-at-package-exports-and-the-router]]'s fourth seam with no browser.
+
+**`useActionState` IS RULED OUT BY THE SAME REASONING, and it is worth saying because it is the
+documented way to get a value back from an action.** It is a client hook: with no script loaded it has
+nothing to give, so a surface reporting through it would answer differently depending on JavaScript.
+React offers `permalink` for exactly that case and a permalink is a hand-built URL, which is where
+this rule came in.
+
 ## The growth path, so a later move is not a cancellation
 
 Priced 2026-09-10 from Hetzner's own pages with UK VAT selected. Two axes grow independently and
