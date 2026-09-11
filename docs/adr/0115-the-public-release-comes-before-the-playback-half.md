@@ -37,9 +37,11 @@ one's TEN planned tickets (`docs/agents/issue-tracker.md`, measured 2026-09-11).
 
 **And the discovery clock has not started.** awesome-selfhosted's addition checklist requires that a
 project "was first released more than 4 months ago" and "has working installation instructions"
-(read 2026-09-11). The clock runs from the FIRST release, not the good one. There is no tag, no
-image and no install path today, so every week of playback work is a week added to a clock that has
-not begun. That is the external failure mode, and it is the half a scope document cannot see.
+(read 2026-09-11). The clock runs from the FIRST release, not the good one. When this was written
+there was no tag, no image and no install path, so every week of playback work was a week added to a
+clock that had not begun. That is the external failure mode, and it is the half a scope document
+cannot see. **CNCORE-63 has since built the image**; the tag and the install path are still to come,
+so the clock still has not started and the argument holds on two of its three legs.
 
 ## ADR-0107's flip was already due and owned by nothing
 
@@ -89,6 +91,14 @@ v0.1.0 is the release mechanics and the make-visible half; v0.2.0 is the owner w
 reason is the clock and not the polish**: it runs from the first release, so the tag is worth having
 before the product deserves it. Build-order's phrasing is "tag v0.1.0 and publish an image, however
 embarrassing."
+
+**HALF OF THAT PHRASE IS BUILT AND THIS RECORD STAYS `proposed` UNTIL THE OTHER HALF IS.** CNCORE-63
+publishes the image: multi-arch, from `main` alone, migrating before it serves. There is no tag, no
+compose file and no documented install path, so what exists today is an image a stranger cannot be
+told how to run (CNCORE-64) and cannot be pointed at a version of (the tag). Said here rather than
+left to be inferred from a green build: an image without instructions looks finished from outside,
+and the thing measuring this record -- awesome-selfhosted's "has working installation instructions"
+-- is the half that is missing.
 
 This is a staging decision inside one effort and NOT a cadence rule.
 [[0001-no-release-cadence-rule-in-the-specification]] refuses a cadence rule in the SPECIFICATION,

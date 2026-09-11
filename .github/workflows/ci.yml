@@ -43,6 +43,13 @@ env:
   # Both halves were run on a real runner rather than reasoned about; the runs
   # are in ADR-0106.
   PNPM_CONFIG_FROZEN_LOCKFILE: true
+  # THE PUBLISHED IMAGE'S IDENTITY, AND IT IS WRITTEN ONCE. The tags, the digest
+  # push, the manifest list and the visibility assert all take it from here.
+  # provider-wiki had those as separate derivations that agreed by coincidence
+  # until CNCORE-45: rename the package and the push writes the new name while
+  # the assert asks about the old one, reporting green having checked a package
+  # nothing published.
+  IMAGE: ghcr.io/jacobdrees-canoncore/canoncore
 
 jobs:
   secrets:
@@ -550,3 +557,344 @@ jobs:
           done
 
       - run: pnpm test:contract
+
+  # THE IMAGE, BUILT ON EVERY PULL REQUEST AND PUBLISHED FROM `main` ALONE.
+  #
+  # Two jobs rather than one, and a matrix rather than one buildx call with two
+  # platforms, because a cross-platform build on a single runner is EMULATED:
+  # Docker's own documentation says QEMU emulation is "much slower", and the
+  # arrangement that does it is one comma away from the arrangement that does
+  # not. GitHub's arm64 runners are free on public repositories, so the native
+  # matrix costs nothing here (verified 2026-09-11).
+  #
+  # `image.test.ts` holds the properties this file cannot show on its face: that
+  # nothing publishes from a pull request, that each architecture lands on its
+  # own metal, and that the licence label is stated rather than inherited.
+  image:
+    name: The image, built and run
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      # Both architectures are reported even when one fails. They fail for
+      # different reasons -- a missing arm64 wheel is not a missing amd64 one --
+      # and cancelling the other hides which.
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    services:
+      # The smoke test's database, and it starts EMPTY. That is the point: the
+      # container is what migrates it, so an image that ships a broken ladder
+      # fails here rather than in somebody's install.
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: canoncore
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      # Tags and labels in ONE place, shared by the per-architecture push and by
+      # the manifest list that merges them.
+      #
+      # THE LICENCE LABEL IS OVERRIDDEN RATHER THAN GENERATED. This action builds
+      # it from GitHub's own detected licence, which is the deprecated bare
+      # `AGPL-3.0` for this repository -- `licensee` does not parse SPDX
+      # expressions, so the `-or-later` election cannot reach it. The action
+      # keeps the LAST value given for a label name, which is what makes this
+      # line win.
+      - uses: docker/metadata-action@v6
+        id: meta
+        with:
+          images: ${{ env.IMAGE }}
+          labels: |
+            org.opencontainers.image.licenses=AGPL-3.0-or-later
+          tags: |
+            type=ref,event=branch
+            type=sha
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      # Loaded into the runner's own docker rather than pushed, so the steps
+      # below can run it. One platform: this runner's.
+      - name: Build it for this runner's architecture
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          load: true
+          tags: canoncore:smoke
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.platform }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
+
+      # THE ASSERTION THAT THE DATABASE STARTS EMPTY, which is what makes the
+      # next step mean anything. `psql` runs inside the service container rather
+      # than on the runner: the arm64 image is managed by Arm and is not the
+      # same fleet as ubuntu-latest, so a client on the host is not something to
+      # assume.
+      - name: The database has no ladder applied yet
+        env:
+          POSTGRES: ${{ job.services.postgres.id }}
+        run: |
+          set -euo pipefail
+          applied=$(docker exec "$POSTGRES" psql -U postgres -d canoncore -tAc \
+            "select count(*) from information_schema.schemata where schema_name = 'drizzle'")
+          echo "drizzle schemas before the container runs: $applied"
+          [ "$applied" = "0" ] || { echo "::error::the database was already migrated, so the next step proves nothing."; exit 1; }
+
+      - name: It migrates that database and then serves a page
+        run: |
+          set -euo pipefail
+          docker run -d --name canoncore --network host \
+            -e DATABASE_URL=postgresql://postgres:password@127.0.0.1:5432/canoncore \
+            -e PORT=3210 \
+            canoncore:smoke
+
+          answered=""
+          for _ in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:3210/ >/dev/null 2>&1; then answered=yes; break; fi
+            if [ -z "$(docker ps -q -f name=canoncore)" ]; then break; fi
+            sleep 1
+          done
+          docker logs canoncore
+          if [ -z "$answered" ]; then
+            echo "::error::the container never answered on 3210."
+            exit 1
+          fi
+
+          # A route that READS THE DATABASE. `/` is static and would answer 200
+          # with the server never having opened a connection. An unknown id must
+          # come back 404 -- the app asked and found nothing -- and never 500,
+          # which is what an unmigrated or unreachable database produces.
+          code=$(curl -s -o /dev/null -w '%{http_code}' \
+            http://127.0.0.1:3210/items/00000000-0000-0000-0000-000000000000)
+          echo "an unknown item answers $code"
+          [ "$code" = "404" ] || { echo "::error::a database-backed route answered $code, not 404."; exit 1; }
+
+      - name: And the ladder it applied is the one in this branch
+        env:
+          POSTGRES: ${{ job.services.postgres.id }}
+        run: |
+          set -euo pipefail
+          applied=$(docker exec "$POSTGRES" psql -U postgres -d canoncore -tAc \
+            "select count(*) from drizzle.__drizzle_migrations")
+          rungs=$(find packages/db/src/migrations -maxdepth 1 -name '*.sql' | wc -l | tr -d ' ')
+          echo "rungs in the branch: $rungs, rows in the ledger: $applied"
+          [ "$applied" = "$rungs" ] || { echo "::error::the image applied $applied rungs and this branch has $rungs."; exit 1; }
+
+      # THE ORDERING, TESTED RATHER THAN ASSUMED. The entrypoint migrates and
+      # then `exec`s the server, so a ladder that cannot be applied must take the
+      # container down with it. Without this, `set -e` in a shell script is a
+      # claim nobody has checked.
+      - name: It refuses to serve when the ladder cannot be applied
+        run: |
+          set -euo pipefail
+          if docker run --rm --network host \
+               -e DATABASE_URL=postgresql://postgres:password@127.0.0.1:1/canoncore \
+               canoncore:smoke > unmigrated.log 2>&1; then
+            echo "::error::the container started its server against a database it could not migrate."
+            tail -20 unmigrated.log
+            exit 1
+          fi
+          echo "it exited rather than serving, as it should:"
+          tail -5 unmigrated.log
+
+      # WHAT IS IN THE LAYERS, which is invisible until somebody pulls it.
+      # `/app` is the whole of this image's own content -- everything else came
+      # from `node:<major>-slim` -- so it is the complete search rather than a
+      # sample.
+      - name: It carries no .env, no pnpm, no dev dependencies, and the licence
+        run: |
+          set -euo pipefail
+          fail=0
+          found=$(docker run --rm --entrypoint find canoncore:smoke /app -name '.env*' | head -20)
+          if [ -n "$found" ]; then
+            echo "::error::the image carries an env file: $found"
+            fail=1
+          fi
+          if docker run --rm --entrypoint sh canoncore:smoke -c 'command -v pnpm' >/dev/null 2>&1; then
+            echo "::error::the runner stage has pnpm in it."
+            fail=1
+          fi
+          # typescript is the specific dev dependency that nearly arrived here:
+          # it is an OPTIONAL PEER of drizzle-orm, so a migrator tree resolved
+          # with peers on drags 30 MB of it into a production image.
+          for module in typescript vitest turbo; do
+            if docker run --rm --entrypoint find canoncore:smoke /app -maxdepth 6 -type d -name "$module" | grep -q .; then
+              echo "::error::the runner stage carries the $module dev dependency."
+              fail=1
+            fi
+          done
+          docker run --rm --entrypoint sh canoncore:smoke -c 'head -2 /app/LICENSE' \
+            || { echo "::error::the image conveys the work without the licence text."; fail=1; }
+          exit $fail
+
+      - name: Log in to the registry
+        if: github.ref == 'refs/heads/main'
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # PUSHED BY DIGEST, WITHOUT A TAG. Two runners cannot both write the same
+      # tag and have the second not replace the first; each pushes an untagged
+      # manifest instead and the job below binds the tags to a list of the two.
+      # The build itself is a cache hit on the one above.
+      - name: Push this architecture by digest
+        id: push
+        if: github.ref == 'refs/heads/main'
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.platform }}
+          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
+
+      - name: Hand the digest to the manifest job
+        if: github.ref == 'refs/heads/main'
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/digests
+          touch "/tmp/digests/${DIGEST#sha256:}"
+          echo "${PLATFORM} -> ${DIGEST}"
+
+      - name: Upload the digest
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v7
+        with:
+          # `/` is not legal in an artifact name.
+          name: digest-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  # ONE IMAGE OUT OF THE TWO BUILDS. A `docker pull` resolves the architecture
+  # it needs from this manifest list; without it the tag would name whichever
+  # architecture pushed last.
+  image-manifest:
+    name: One image, both architectures
+    needs: image
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: /tmp/digests
+          pattern: digest-*
+          merge-multiple: true
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/metadata-action@v6
+        id: meta
+        with:
+          images: ${{ env.IMAGE }}
+          labels: |
+            org.opencontainers.image.licenses=AGPL-3.0-or-later
+          tags: |
+            type=ref,event=branch
+            type=sha
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Bind the tags to both architectures
+        working-directory: /tmp/digests
+        run: |
+          set -euo pipefail
+          # The digests are file NAMES rather than file contents, which is the
+          # shape Docker's own documentation uses: an artifact per architecture,
+          # merged into one directory, and every entry is one manifest.
+          #
+          # CHECKED BEFORE THEY ARE EXPANDED INTO AN ARGUMENT LIST, because an
+          # empty directory is the failure this cannot otherwise survive: `*`
+          # would go unexpanded and the command would be handed the literal
+          # `<image>@sha256:*`, failing somewhere further in with a message about
+          # a reference rather than about a missing artifact. A name that is not
+          # 64 hex characters means the same thing -- something other than the
+          # push step wrote here -- and the same loop catches both.
+          found=0
+          for digest in *; do
+            case "$digest" in
+              *[!0-9a-f]*) echo "::error::'$digest' in the digest directory is not a sha256 digest. Either the download found no artifact and left the glob unexpanded, or something other than the push step wrote here."; exit 1 ;;
+            esac
+            [ ${#digest} -eq 64 ] || { echo "::error::'$digest' is not 64 hex characters, so it is not a manifest digest."; exit 1; }
+            found=$((found + 1))
+          done
+          [ "$found" -ge 2 ] || { echo "::error::found $found digests and this image is built for two architectures. A manifest list bound to one of them publishes a tag that resolves for half the machines pulling it."; exit 1; }
+          echo "binding the tags to $found architecture digests"
+          #
+          # shellcheck disable=SC2046 # both expansions are lists of arguments,
+          # and quoting them would pass each list as one argument.
+          docker buildx imagetools create \
+            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf "${IMAGE}@sha256:%s " *)
+
+      - name: Say what was published
+        run: |
+          docker buildx imagetools inspect "${IMAGE}:latest"
+
+      # THE PACKAGE IS PUBLIC, AND NO WORKFLOW CAN MAKE IT SO.
+      #
+      # GitHub's own words: "if you publish a package that is linked to a
+      # repository, the package automatically inherits the access permissions
+      # (but not the visibility) of the linked repository" -- so this PUBLIC
+      # repository publishes a PRIVATE package, and the organisation packages
+      # API has no endpoint that changes visibility. It is a web-UI click, the
+      # same class of manual step ADR-0089 already records for the registry
+      # grant.
+      #
+      # ASSERTED BECAUSE THE FAILURE IS INVISIBLE TO US. Everyone who would test
+      # the install path is logged in to ghcr.io, so a private package pulls
+      # perfectly for them and for nobody else -- and "nobody else" is the whole
+      # audience a published image has. ADR-0089 requires the mirror of this on
+      # the provider images, which assert they have not stopped reading
+      # `private`; this is the same mechanism with the opposite answer.
+      #
+      # The identity comes out of IMAGE rather than being rebuilt from
+      # `github.repository`, so this cannot end up asking about a package the
+      # push above did not write (CNCORE-45). `-u` is load-bearing: drop that
+      # env entry and this stops dead rather than querying an empty name.
+      - name: Assert a stranger can pull it
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          IFS=/ read -r registry owner package extra <<<"${IMAGE,,}"
+          if [ "$registry" != "ghcr.io" ] || [ -z "$owner" ] || [ -z "$package" ] || [ -n "$extra" ]; then
+            echo "::error::IMAGE is '$IMAGE', which this step cannot read as ghcr.io/<owner>/<package>. Teach it the new shape here rather than letting it assert on a package nothing pushed."
+            exit 1
+          fi
+          visibility=$(gh api "/orgs/$owner/packages/container/$package" --jq .visibility)
+          echo "the published package reads $visibility"
+          if [ "$visibility" != "public" ]; then
+            echo "::error::The image published to $IMAGE is '$visibility'. A package does NOT inherit its repository's visibility, so it starts private and no API can change it: open the package's settings on github.com and set it to public. Until then every docker pull by somebody who is not a member of this organisation fails, which is the only audience this image has."
+            exit 1
+          fi

@@ -44,6 +44,14 @@ type Job = {
   permissions?: Record<string, string>;
   if?: unknown;
   "continue-on-error"?: unknown;
+  /**
+   * The two keys the image jobs are read through (CNCORE-63). A matrix that
+   * pairs `linux/arm64` with an x64 runner still builds -- under emulation,
+   * which Docker's own documentation calls "much slower" -- so which runner
+   * each platform lands on is a value worth reading back.
+   */
+  "runs-on"?: unknown;
+  strategy?: { matrix?: { include?: Record<string, unknown>[] } };
 };
 
 /**
@@ -73,9 +81,24 @@ export function workflow(): Workflow {
  * having lost its subject.
  */
 export function pnpmSetupSteps(parsed: Workflow): { job: string; step: Step }[] {
+  return allSteps(parsed)
+    .filter(({ step }) => step.uses?.startsWith("pnpm/setup"))
+    .map(({ job, step }) => ({ job, step }));
+}
+
+/**
+ * Every step in the file, carrying the job it sits in and that job's own `if`.
+ *
+ * The walk itself -- `Object.entries(jobs).flatMap(steps)` -- had been written
+ * out three times across the two suites before `image.test.ts` would have made
+ * it four, which is the Duplicated Code this module was created to hold
+ * (CNCORE-56). The job's `if` travels with the step because a step's condition
+ * is only half of whether it runs: a job-level condition suppresses every step
+ * under it, and a reader that returned steps alone would report a publish as
+ * unguarded when its job guards it.
+ */
+export function allSteps(parsed: Workflow): { job: string; jobIf: unknown; step: Step }[] {
   return Object.entries(parsed.jobs ?? {}).flatMap(([job, definition]) =>
-    (definition.steps ?? [])
-      .filter((step) => step.uses?.startsWith("pnpm/setup"))
-      .map((step) => ({ job, step })),
+    (definition.steps ?? []).map((step) => ({ job, jobIf: definition.if, step })),
   );
 }

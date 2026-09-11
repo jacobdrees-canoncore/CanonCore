@@ -1,18 +1,25 @@
 /**
- * CanonCore's Node major, held to ONE value across the three files that state
- * it -- `ci.yml`, `package.json` and `README.md` -- and to the rule that says
- * which value that is.
+ * CanonCore's Node major, held to ONE value across the four files that state
+ * it -- the `Dockerfile`, `ci.yml`, `package.json` and `README.md` -- and to
+ * the rule that says which value that is. A fifth file, `.github/
+ * dependabot.yml`, holds the major still until the rule moves, and its expiry
+ * is held here too.
  *
  * This exists because the major was asserted in four places and enforced in
  * none (CNCORE-50). ADR-0112 is the record that now decides it; this suite is
  * the half of that record which acts, and it reads the files directly for the
  * same reason `ci-workflow.test.ts` does: the values are written where
  * TypeScript cannot see them, so nothing else would catch one of them moving.
+ *
+ * THE `Dockerfile` JOINED THEM UNDER CNCORE-63 and it is the one that ships.
+ * ADR-0112 was written while this repository had no image and said what adding
+ * one would do to this file; this is that, built.
  */
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { parse } from "yaml";
 import { pnpmSetupSteps, type Workflow, workflow } from "./testing/ci-workflow";
 import { repoRoot } from "./testing/repo-root";
 
@@ -161,6 +168,44 @@ function readmeMajor(): string {
   return stated[1] as string;
 }
 
+const dockerfile = join(repoRoot, "Dockerfile");
+
+/**
+ * The one Node major the `Dockerfile` builds and runs on, or a throw naming the
+ * stages that disagree.
+ *
+ * THE FIFTH ASSERTION, and the one ADR-0112 predicted before it existed. That
+ * record's enforcement argument rested on "CanonCore ships no image ... there is
+ * no `Dockerfile` anywhere in this repository", and said in terms what adding
+ * one would do: "Add one without extending that test and its major can drift
+ * while every assertion still passes -- which is CNCORE-50's
+ * four-assertions-one-decision defect, re-created by the fix for something
+ * else." This function is the extension that sentence asked for.
+ *
+ * It reads `FROM` lines naming the `node` image and nothing else, so a stage
+ * built `FROM base` inherits its major rather than restating it, and a
+ * `postgres` or `alpine` base would not be mistaken for one. The major is taken
+ * by parsing rather than by matching the whole tag: `node:24.21.0-slim` names
+ * the same major as `node:24-slim` and must not read as a different one.
+ */
+function dockerfileMajor(contents: string = readFileSync(dockerfile, "utf8")): string {
+  const stages = [...contents.matchAll(/^FROM\s+node:(\d+)[^\s]*(?:\s+AS\s+(\S+))?/gim)].map(
+    (stage) => ({ major: stage[1] as string, name: stage[2] ?? "(unnamed)" }),
+  );
+
+  if (stages.length === 0) {
+    throw new Error(
+      "no stage in the Dockerfile builds FROM the node image, so nothing states a major",
+    );
+  }
+  const distinct = [...new Set(stages.map(({ major }) => major))];
+  if (distinct.length > 1) {
+    const split = stages.map(({ name, major }) => `${name}=node:${major}`).join(", ");
+    throw new Error(`the Dockerfile names more than one Node major: ${split}`);
+  }
+  return distinct[0] as string;
+}
+
 /**
  * The one major `ci.yml` runs on, or a throw naming the jobs that disagree.
  *
@@ -270,5 +315,173 @@ describe("CanonCore's Node major", () => {
    */
   it("is the major README.md tells a contributor to install", () => {
     expect(readmeMajor()).toBe(newestLtsAsOf(new Date()));
+  });
+
+  /**
+   * THE ARTEFACT, which is the place this record's enforcement argument used to
+   * say did not exist.
+   *
+   * A provider repo's `FROM node:<major>` pins the major by BEING the thing it
+   * ships, whatever the other three statements say. CanonCore now has one too,
+   * so the asymmetry ADR-0112 used to explain why CI enforces alone is gone --
+   * and the defect it opens is that an image's major can drift while `ci.yml`,
+   * `package.json` and `README.md` still agree perfectly with each other.
+   *
+   * Held to the RULE rather than to `ci.yml`, like every other assertion here.
+   * Comparing the two files to each other would let a bump applied to both
+   * agree its way past the rule that decides which major is right.
+   */
+  /**
+   * THE CHECK ITSELF, against fixtures rather than the real file, for the reason
+   * `docker-compose.test.ts` gives about its port reader: run only against the
+   * Dockerfile in the tree, this is exercised rather than tested, and it would
+   * pass just as well reading nothing.
+   *
+   * These three cases are the ones that were observed failing by breaking the
+   * real Dockerfile while this was written -- a major ahead of the rule, two
+   * stages disagreeing, and a base that is not node. Kept here so the
+   * observation is standing rather than a sentence in a commit message.
+   */
+  it("reads a major, a disagreement and an absence out of a Dockerfile", () => {
+    expect(dockerfileMajor("FROM node:24-slim AS build\nFROM node:24-slim AS runner\n")).toBe("24");
+    // A pinned patch names the same major as a bare one.
+    expect(dockerfileMajor("FROM node:24.21.0-slim AS build\n")).toBe("24");
+    // A stage built FROM another stage inherits rather than restating.
+    expect(dockerfileMajor("FROM node:24-slim AS build\nFROM build AS runner\n")).toBe("24");
+
+    expect(() =>
+      dockerfileMajor("FROM node:24-slim AS build\nFROM node:26-slim AS runner\n"),
+    ).toThrow(/more than one Node major: build=node:24, runner=node:26/);
+    expect(() => dockerfileMajor("FROM debian:trixie-slim AS build\n")).toThrow(
+      /nothing states a major/,
+    );
+  });
+
+  it("is the major the Dockerfile builds and runs on", () => {
+    const selected = newestLtsAsOf(new Date());
+
+    expect(
+      dockerfileMajor(),
+      `ADR-0112's rule now selects Node ${selected}. The Dockerfile is the only statement of ` +
+        `the major that SHIPS: move its FROM lines with the rest.`,
+    ).toBe(selected);
+  });
+});
+
+const dependabotFile = join(repoRoot, ".github", "dependabot.yml");
+
+type Dependabot = {
+  updates?: {
+    "package-ecosystem"?: string;
+    directory?: string;
+    ignore?: { "dependency-name"?: string; "update-types"?: string[] }[];
+  }[];
+};
+
+/**
+ * The day the `docker` entry's Node-major ignore stops being wanted, taken from
+ * the `EXPIRES:` marker that is its ONE copy of the date.
+ *
+ * A marker rather than a YAML key because Dependabot has no field for "this
+ * rule has an end", and the alternative -- a date in prose -- is a date nobody
+ * meets. provider-wiki carries the same device under CNCORE-52, and the reason
+ * it gives is the one that matters: past its expiry the block goes on
+ * suppressing a bump that is by then WANTED, and the failure gets quieter with
+ * age, because the longer it sits the more it reads as a settled rule.
+ */
+function ignoreExpires(): string {
+  const marked = /^\s*#\s*EXPIRES:\s*(\d{4}-\d{2}-\d{2})\s*$/m.exec(
+    readFileSync(dependabotFile, "utf8"),
+  );
+  if (!marked) {
+    throw new Error(
+      ".github/dependabot.yml carries no `# EXPIRES: <date>` marker. The Node-major ignore " +
+        "is meant to be DELETED rather than kept, and the marker is what makes that happen.",
+    );
+  }
+  return marked[1] as string;
+}
+
+/** The `docker` ecosystem entry, which exists because this repo now ships an image. */
+function dockerEntry() {
+  const parsed = parse(readFileSync(dependabotFile, "utf8")) as Dependabot;
+  const entries = (parsed.updates ?? []).filter(
+    (update) => update["package-ecosystem"] === "docker",
+  );
+  if (entries.length !== 1) {
+    throw new Error(
+      `.github/dependabot.yml has ${entries.length} docker entries; the Dockerfile at the ` +
+        "repository root needs exactly one, and it is not the docker-compose entry",
+    );
+  }
+  return entries[0] as NonNullable<Dependabot["updates"]>[number];
+}
+
+/**
+ * THE THIRD THING A DOCKERFILE DRAGS IN, and ADR-0112 named it before it
+ * existed: "Once an image exists it inherits the recurring-noise problem
+ * CNCORE-43, CNCORE-49, CNCORE-52 and CNCORE-59 solved in the provider repos,
+ * including the 2026-10-28 expiry machinery."
+ *
+ * The noise is specific rather than general. Dependabot would raise `node` 24 ->
+ * 26 weekly from the day 26 ships, and every one of those pull requests fails
+ * `node-major.test.ts` above -- correctly, because the major moves in five
+ * places at once and Dependabot can only edit one. A WEEKLY RED PULL REQUEST
+ * TEACHES PEOPLE THAT RED IS NORMAL, which is the habit every gate in this
+ * repository depends on not forming.
+ */
+describe("the Dependabot ignore that holds the Node major still", () => {
+  it("holds back the major of the node image and nothing else", () => {
+    const ignored = dockerEntry().ignore ?? [];
+
+    expect(ignored).toStrictEqual([
+      { "dependency-name": "node", "update-types": ["version-update:semver-major"] },
+    ]);
+  });
+
+  /**
+   * THE EXPIRY IS DERIVED FROM THE RULE, NOT REMEMBERED BESIDE IT. The ignore is
+   * wanted exactly while the rule still selects the major the Dockerfile runs;
+   * the day the next transcribed line reaches LTS, the bump it suppresses is the
+   * bump this repository wants. Reading that day off `NODE_SCHEDULE` means the
+   * marker cannot drift from the rule that justifies it -- and when the majors
+   * do move, the next expiry comes from a line this table does not carry yet,
+   * which is what the going-blind test above is for.
+   */
+  it("expires on the day the rule starts selecting a newer major", () => {
+    const running = Number(ciMajor(workflow()));
+    const next = NODE_SCHEDULE.filter((line) => Number(line.major) > running).sort(
+      (a, b) => Number(a.major) - Number(b.major),
+    )[0];
+    expect(next, "no transcribed line is newer than the major this repo runs").toBeDefined();
+
+    expect(ignoreExpires()).toBe(next?.lts);
+  });
+
+  /**
+   * AND IT FIRES. Red from the expiry, with the repair in the message, for the
+   * same reason the rule's own alarm is: a block that outlives its reason is
+   * indistinguishable from one that still has it.
+   */
+  it("has not expired", () => {
+    const expires = ignoreExpires();
+
+    expect(
+      asDay(new Date()) < expires,
+      `The Node-major ignore in .github/dependabot.yml expired on ${expires}. DELETE the ` +
+        "ignore block and its EXPIRES marker rather than moving the date: the bump it " +
+        "suppresses is the one ADR-0112's rule now wants, and it lands together with the " +
+        "five places the major is written.",
+    ).toBe(true);
+  });
+
+  /**
+   * ONE COPY OF THE DATE. A second one in a comment is what the marker exists to
+   * avoid: two dates that agree today and are edited one at a time.
+   */
+  it("states that date exactly once", () => {
+    const occurrences = readFileSync(dependabotFile, "utf8").split(ignoreExpires()).length - 1;
+
+    expect(occurrences).toBe(1);
   });
 });
