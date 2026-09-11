@@ -161,6 +161,44 @@ function readmeMajor(): string {
   return stated[1] as string;
 }
 
+const dockerfile = join(repoRoot, "Dockerfile");
+
+/**
+ * The one Node major the `Dockerfile` builds and runs on, or a throw naming the
+ * stages that disagree.
+ *
+ * THE FIFTH ASSERTION, and the one ADR-0112 predicted before it existed. That
+ * record's enforcement argument rested on "CanonCore ships no image ... there is
+ * no `Dockerfile` anywhere in this repository", and said in terms what adding
+ * one would do: "Add one without extending that test and its major can drift
+ * while every assertion still passes -- which is CNCORE-50's
+ * four-assertions-one-decision defect, re-created by the fix for something
+ * else." This function is the extension that sentence asked for.
+ *
+ * It reads `FROM` lines naming the `node` image and nothing else, so a stage
+ * built `FROM base` inherits its major rather than restating it, and a
+ * `postgres` or `alpine` base would not be mistaken for one. The major is taken
+ * by parsing rather than by matching the whole tag: `node:24.21.0-slim` names
+ * the same major as `node:24-slim` and must not read as a different one.
+ */
+function dockerfileMajor(): string {
+  const stages = [
+    ...readFileSync(dockerfile, "utf8").matchAll(
+      /^FROM\s+node:(\d+)[^\s]*(?:\s+AS\s+(\S+))?/gim,
+    ),
+  ].map((stage) => ({ major: stage[1] as string, name: stage[2] ?? "(unnamed)" }));
+
+  if (stages.length === 0) {
+    throw new Error("no stage in the Dockerfile builds FROM the node image, so nothing states a major");
+  }
+  const distinct = [...new Set(stages.map(({ major }) => major))];
+  if (distinct.length > 1) {
+    const split = stages.map(({ name, major }) => `${name}=node:${major}`).join(", ");
+    throw new Error(`the Dockerfile names more than one Node major: ${split}`);
+  }
+  return distinct[0] as string;
+}
+
 /**
  * The one major `ci.yml` runs on, or a throw naming the jobs that disagree.
  *
@@ -270,5 +308,29 @@ describe("CanonCore's Node major", () => {
    */
   it("is the major README.md tells a contributor to install", () => {
     expect(readmeMajor()).toBe(newestLtsAsOf(new Date()));
+  });
+
+  /**
+   * THE ARTEFACT, which is the place this record's enforcement argument used to
+   * say did not exist.
+   *
+   * A provider repo's `FROM node:<major>` pins the major by BEING the thing it
+   * ships, whatever the other three statements say. CanonCore now has one too,
+   * so the asymmetry ADR-0112 used to explain why CI enforces alone is gone --
+   * and the defect it opens is that an image's major can drift while `ci.yml`,
+   * `package.json` and `README.md` still agree perfectly with each other.
+   *
+   * Held to the RULE rather than to `ci.yml`, like every other assertion here.
+   * Comparing the two files to each other would let a bump applied to both
+   * agree its way past the rule that decides which major is right.
+   */
+  it("is the major the Dockerfile builds and runs on", () => {
+    const selected = newestLtsAsOf(new Date());
+
+    expect(
+      dockerfileMajor(),
+      `ADR-0112's rule now selects Node ${selected}. The Dockerfile is the fifth place the ` +
+        `major is written and the only one that ships: move its FROM lines with the rest.`,
+    ).toBe(selected);
   });
 });
