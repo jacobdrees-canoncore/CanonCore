@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { type Database, readWorks } from "./index";
+import { type Database, readCatalogue, readWorks } from "./index";
 import { anItemTitled, aPlacement, connect, ownerSource } from "./testing/catalogue";
 
 /** Whether work-browsing lists one particular item. */
@@ -51,5 +51,43 @@ describe("readWorks", () => {
 
     expect(await lists(db, doctors)).toBe(false);
     expect(await lists(db, season)).toBe(true);
+  });
+
+  it("counts what it shows rather than what the catalogue holds", async () => {
+    // THE SIZE HAS TO ANSWER THE SAME QUESTION THE ENTRIES DO. `total` exists so
+    // a capped listing can say what it is not showing, and a work-browsing
+    // surface reporting the CATALOGUE's size would tell an owner it was hiding
+    // items it was never asked to show -- the same lie the cap exists to
+    // prevent, told by the number instead of by the list.
+    //
+    // THE TWO NUMBERS HAVE TO DIFFER FOR THIS TO BITE, so it seeds the entity
+    // that separates them rather than trusting the shared database to hold one.
+    await anItemTitled(db, "One more person than there were", { kind: "person" });
+
+    const works = await readWorks(db, { limit: 1 });
+    const catalogue = await readCatalogue(db, { limit: 1 });
+
+    expect(works.total).toBeLessThan(catalogue.total);
+  });
+
+  it("walks past its own first page without skipping a work", async () => {
+    // ADR-0119: a listing is walked forward from the last item it showed, and
+    // the cursor is an item's id rather than an offset. Work-browsing is a
+    // listing that can exceed a page, so it takes that shape rather than a
+    // second one of its own.
+    //
+    // ASKED ONE AT A TIME, which is what makes the walk observable at all: the
+    // whole catalogue fits in a page here, so a walk taken a page at a time
+    // would finish in one step and prove nothing.
+    const first = await readWorks(db, { limit: 1 });
+    if (first.continuesAfter === null) throw new Error("too few works to walk");
+
+    const second = await readWorks(db, { limit: 1, after: first.continuesAfter });
+
+    expect(second.entries).toHaveLength(1);
+    // NOT THE SAME ITEM AGAIN, which is the failure a cursor off by one gives,
+    // and the two pages agree about how big the listing is.
+    expect(second.entries[0]?.id).not.toBe(first.entries[0]?.id);
+    expect(second.total).toBe(first.total);
   });
 });
