@@ -78,23 +78,37 @@ mistake -- a script, a stray `--force`, an agent reaching for the fastest way ou
 ## Why the other half is off
 
 Requiring CI to pass before a merge is the obvious next rule and it is **not** turned on. Three
-things have to be true first, and none of them is true today.
+things had to be true first. **Two of them became true within the hour this record was merged**, and
+each is corrected in the sentence that got it wrong rather than annotated below it. One remains.
 
-**The merge path for a workflow-touching pull request is a direct push to `main`.** The `gh` token
-here carries `repo` but not `workflow`, and GitHub refuses to let an OAuth app update
-`.github/workflows/*` without it. CNCORE-63 was merged by pushing a merge commit over SSH for
-exactly this reason, after `gh pr merge` refused. A `pull_request` rule closes that path, and the
-next workflow-touching ticket would stop dead with no legible cause. The fix is one command --
-`gh auth refresh -s workflow` -- and it belongs to whoever turns the rule on, not to this record.
+**A `pull_request` rule does NOT close the merge path for a workflow-touching branch, and this
+precondition is void.** It said the opposite -- that the merge path for such a pull request is a
+direct push to `main`, because the token carries `repo` but not `workflow` and GitHub refuses to let
+an OAuth app update `.github/workflows/*` without it, citing CNCORE-63's SSH merge as proof.
+**Measured 2026-09-11, within the hour this record merged**: pull request #12 changed
+`.github/workflows/ci.yml` and merged cleanly with `gh pr merge --merge`, while `gh auth status`
+reported `repo`, `admin:org`, `admin:public_key`, `delete_repo`, `gist` and `write:packages` -- and
+**no `workflow`**.
 
-**The check names are about to change, and `Static checks` ceases to exist.** CNCORE-80 splits
-`static-checks` into four separately-named checks. Read off that ticket's own pull request run
-rather than from its description, 2026-09-11, the context strings are **`Typecheck`**, **`Lint`**,
+**The scope gates AUTHORING workflow content through the API, not merging a branch that already
+carries it.** A merge commit introduces no new blob: the implementer's own git pushed the file to
+the branch over SSH, and GitHub only moves a ref. That is why CNCORE-63's refusal and CNCORE-80's
+success are both true, and it is the distinction the original sentence missed.
+
+**Not claimed, because not tested: `--squash` and `--rebase`.** Each synthesises a new commit
+carrying the workflow blob under the API caller's identity, which is precisely the operation the
+scope is about, so neither follows from the measurement above. Whoever needs one tests it rather
+than reading this paragraph as covering it. `gh auth refresh -s workflow` remains one command and is
+still worth running; it is no longer load-bearing on whether this rule can be turned on.
+
+**The check names HAVE changed, `Static checks` no longer exists, and this precondition is
+satisfied.** It was written while CNCORE-80 was still open and said the names were about to change.
+CNCORE-80 merged 2026-09-11 as pull request #12. Read off `main`'s own run after that merge rather
+than off a pull request or a description, the four context strings are **`Typecheck`**, **`Lint`**,
 **`Build`** and **`Env guard`** -- note the last is not spelled after `DATABASE_URL`, which is what
-this record guessed before checking. A required-checks list pins context strings, so a list naming
-`Static checks` pends forever the moment that merges, and a required check that no longer exists
-blocks every pull request rather than failing one. Those four are the names such a list wants, once
-CNCORE-80 has landed.
+this record guessed before checking. A required-checks list pins context strings, so those four are
+the names such a list now wants, and the reason for waiting is spent: the list that would have
+pended forever is the one naming `Static checks`, and nothing names it any more.
 
 **A required check that never runs pends forever.** `CLAUDE.md` already records that a conflicted
 pull request gets no CI run at all. Under required checks that stops being "an absent check is the
@@ -102,11 +116,15 @@ tell" and becomes an unmergeable branch whose reason is invisible, and the docum
 GitHub is four words: *"Avoid requiring workflows that can be skipped."* Two checks in this
 pipeline are matrix-named rather than job-named -- `The image, built and run (linux/amd64,
 ubuntu-latest)` and `(linux/arm64, ubuntu-24.04-arm)`, from the two `include` entries at
-`.github/workflows/ci.yml:585` -- so the list cannot be transcribed from job names either, and
+`.github/workflows/ci.yml:611` -- so the list cannot be transcribed from job names either, and
 `One image, both architectures` skips on a pull request, which is the pending-forever case above.
+**That line number was `585` until CNCORE-80 split four jobs above it hours later**, which is the
+argument for grepping a cited range for the phrase that cites it rather than trusting the number.
 
 None of that is an argument against the rule. It is the precondition list, and it is here so that
-turning the rule on is an afternoon's work rather than a rediscovery.
+turning the rule on is an afternoon's work rather than a rediscovery. **One of the three is left**,
+and it is the one that needs a decision rather than a command: which contexts to require, given that
+`One image, both architectures` deliberately does not run on a pull request.
 
 ## What this does not change
 
@@ -135,6 +153,7 @@ All 2026-09-11, `jacobdrees-canoncore/CanonCore`, repository public, organisatio
 | Both removed, then `GET` each | `[]`, `protected: false`, pull request back to `CLEAN` |
 | `POST /repos/.../rulesets`, the ruleset this record keeps | id `22961356`, `deletion` + `non_fast_forward`, admin bypass `always` |
 | `GET /repos/.../rules/branches/main` after | both rules reported, `ruleset_id: 22961356` |
+| `gh pr merge --merge` on #12, which changes `.github/workflows/ci.yml`, token carrying no `workflow` scope | **merged** -- which is what voids the first precondition above |
 
 Sources, read 2026-09-11: GitHub's *About rulesets*
 <https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/about-rulesets>
