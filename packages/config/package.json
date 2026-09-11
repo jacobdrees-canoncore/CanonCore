@@ -1,0 +1,23 @@
+{
+  "name": "@canoncore/config",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./tsconfig.base.json": "./tsconfig.base.json",
+    "./testing/install-network-gate": "./src/testing/install-network-gate.ts",
+    "./testing/gate-global-setup": "./src/testing/gate-global-setup.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@actions/expressions": "catalog:",
+    "typescript": "catalog:",
+    "undici": "catalog:",
+    "vitest": "catalog:",
+    "yaml": "catalog:"
+  }
+}

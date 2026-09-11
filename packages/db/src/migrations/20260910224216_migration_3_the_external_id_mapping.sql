@@ -1,0 +1,66 @@
+-- Migration 3, under CNCORE-28. THE EXTERNAL-ID MAPPING.
+--
+-- An import took the provider's own id and DROPPED it, because nothing in the
+-- catalogue held one and only a migration may add a property (ADR-0029). So a
+-- second import of one record wrote a SECOND item. Under `lookup` that was a
+-- nuisance; under `browse` it is a defect a person meets, because one call
+-- imports a container and every member of it -- browsing the same container
+-- twice wrote a second container and a second copy of all sixty members, with
+-- their own placements, and nothing said so.
+--
+-- ADR-0078 decides the shape and this is it: identity stays a surrogate id,
+-- with EXTERNAL-ID MAPPINGS BESIDE IT. Jellyfin keys people on their name
+-- instead, so two people sharing one merge irreversibly and two spellings of one
+-- person cannot be merged even when their external ids agree -- its `People`
+-- table has no external-id column at all.
+--
+-- A STATEMENT RATHER THAN A COLUMN, which is what makes the mapping work at all.
+-- The id is a value the provider CLAIMED, so it carries that provider as its
+-- source like every other value (ADR-0012), and (source, external id) is then a
+-- pair the importer can find an item by. A column could hold one provider's id
+-- and would have to be widened, renamed or shadowed the moment a second
+-- provider held its own.
+--
+-- MULTIPLE, and that is the same argument from the other side. Cardinality is
+-- about the ITEM rather than about one source: one story legitimately carries
+-- the wiki's 265 and some other provider's id at once, each sourced to whoever
+-- said it. `single` would declare the very shape ADR-0026's enrichment is for
+-- to be an error.
+--
+-- IT IS NOT MATCHING. "This provider's record 265 is the item we already made
+-- from this provider's record 265" is IDENTITY -- one party, one namespace, no
+-- judgement -- and needs no score, threshold or review queue. Deciding that two
+-- DIFFERENT providers' records describe one work is ADR-0026's operation and is
+-- not built; ADR-0026 says so where a reader meeting duplicates will look.
+--
+-- STRATEGY (ADR-0047 asks every rung to state one): IT MIGRATES EVERYTHING, and
+-- trivially, because it only ADDS -- one property row and one index. No existing
+-- row is transformed, so nothing can fail to transform and there is nothing to
+-- quarantine.
+--
+-- WHAT IT CANNOT DO, named rather than left to be discovered: it backfills no
+-- external id for an item already imported. There is nothing to backfill FROM --
+-- the provider's id was dropped at the door, and no column, statement or log
+-- kept it. An item imported before this rung is therefore found by nothing, and
+-- the next import of that record writes a fresh item beside it, once. Deciding
+-- those two are one work is matching, which is ADR-0026's and is not this.
+
+INSERT INTO "properties"
+  ("owner_id", "name", "datatype", "value_kind", "cardinality", "reference_target")
+SELECT "id", 'external_id', 'text', 'literal', 'multiple', NULL::text[] FROM "owners";
+--> statement-breakpoint
+-- THE REVERSE LOOKUP the importer now makes on every record: not "what does this
+-- item claim" but "which item does this source's own id name". One browse asks
+-- it once per member, so without an index a bulk import scans every statement in
+-- the catalogue sixty times over.
+--
+-- IT INDEXES A HASH OF THE VALUE RATHER THAN THE VALUE. A btree index tuple is
+-- capped at 2704 bytes and `value_literal` is unbounded `text`, so indexing it
+-- directly would put that cap on EVERY literal statement in the catalogue --
+-- measured here, not assumed: 2600 random characters insert, 2800 fail with
+-- `index row size 2848 exceeds btree version 4 maximum 2704`. A provider with a
+-- long enough title would abort a whole import, and the first long-text property
+-- would inherit the same limit for nothing. `md5` is 32 characters whatever it
+-- is given. The lookup still compares the value itself, so a collision narrows
+-- the scan rather than answering wrongly.
+CREATE INDEX "statements_property_literal_source" ON "statements" USING btree ("property_id",md5("value_literal"),"source_id");

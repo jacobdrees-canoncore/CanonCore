@@ -1,0 +1,34 @@
+{
+  "name": "@canoncore/api",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./context": "./src/context.ts",
+    "./routers": "./src/routers/index.ts",
+    "./routers/provider": "./src/routers/provider.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@canoncore/db": "workspace:*",
+    "@canoncore/env": "workspace:*",
+    "@canoncore/providers": "workspace:*",
+    "@canoncore/schemas": "workspace:*",
+    "@orpc/client": "catalog:",
+    "@orpc/openapi": "catalog:",
+    "@orpc/server": "catalog:",
+    "@orpc/zod": "catalog:",
+    "dotenv": "catalog:",
+    "next": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@canoncore/config": "workspace:*",
+    "drizzle-orm": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

@@ -1,0 +1,393 @@
+import { and, eq, isNotNull, isNull, sql } from "drizzle-orm";
+import { z } from "zod";
+
+import type { Database } from "./index";
+import {
+  aliases,
+  items,
+  placementSources,
+  placements,
+  properties,
+  ranks,
+  sources,
+  statements,
+} from "./schema";
+
+export type ItemRow = typeof items.$inferSelect;
+
+/** One ordering an item sits in, and where it sits (ADR-0009, ADR-0018). */
+export interface PlacementOfItem {
+  id: string;
+  containerId: string;
+  /** ADR-0014: the projected column, so a reader sees a title and not an id. */
+  containerTitle: string | null;
+  /**
+   * Where it sits, or NULL when no source has asserted a position for it --
+   * a member of the container all the same (migration 2).
+   */
+  position: number | null;
+  /**
+   * The KIND of source that asserted this placement -- `owner` for the owner's
+   * own hand, `provider` for an imported ordering, and so on (ADR-0071). Null
+   * when nothing has claimed it, which is a placement no source stands behind.
+   */
+  placedBy: string | null;
+}
+
+/**
+ * WHICH source speaks for a placement, when several do -- and, when two of them
+ * disagree about position, WHICH OF THE TWO PLACEMENTS SPEAKS.
+ *
+ * THE SAME RULE `winning_literal` APPLIES TO A STATEMENT, written to match that
+ * function term for term -- migration 1, `winning_literal`. Rank first, because
+ * the owner's favourite is the lock and outranks the whole source order
+ * (ADR-0024); then the one global source order (ADR-0025); then the row id, an
+ * arbitrary but stable tiebreak. Recency is deliberately absent from both.
+ *
+ * IT IS ONE RULE IN TWO LANGUAGES, so the two are held identical rather than
+ * each being locally sensible. An earlier draft of this query also excluded a
+ * soft-deleted SOURCE, which `winning_literal` does not -- a difference that
+ * compiles perfectly and quietly makes one field's provenance disagree with
+ * another's. Neither honours it now, and ADR-0017 carries that as a named gap
+ * belonging to whatever first lets a source be deleted. Nothing can today.
+ *
+ * The tombstone that IS honoured is the placement source's own, the exact
+ * analogue of the statement's own that `winning_literal` checks.
+ *
+ * A LATERAL JOIN RATHER THAN A SUBQUERY PER FIELD, and that is the point of it.
+ * The spokesman's kind, its rank and its place in the source order are three
+ * facts about ONE row, and three correlated subqueries would each re-derive
+ * that row from its own copy of the ordering -- three copies of a rule that has
+ * to stay identical, which is the hazard this file already carries a paragraph
+ * about. Picked once, read three times.
+ */
+function spokesmanFor(db: Database) {
+  return db
+    .select({
+      kind: sources.kind,
+      /** ADR-0024, and the FIRST term: the favourite outranks everything. */
+      precedence: ranks.precedence,
+      /** ADR-0025, the second: one global order for the whole instance. */
+      sourceOrder: sources.sourceOrder,
+    })
+    .from(placementSources)
+    .innerJoin(sources, eq(sources.id, placementSources.sourceId))
+    .innerJoin(ranks, eq(ranks.rank, placementSources.rank))
+    .where(and(eq(placementSources.placementId, placements.id), isNull(placementSources.deletedAt)))
+    .orderBy(ranks.precedence, sources.sourceOrder, placementSources.id)
+    .limit(1)
+    .as("spokesman");
+}
+
+/**
+ * Every ordering one item belongs to. The product's central claim, read back:
+ * one item in many containers at once, each with a position of its own
+ * (ADR-0009), and the position lives on the PLACEMENT rather than on the item
+ * (ADR-0018) so no ordering can overwrite another's.
+ */
+export async function findPlacementsOfItem(
+  db: Database,
+  itemId: string,
+): Promise<PlacementOfItem[]> {
+  const spokesman = spokesmanFor(db);
+
+  return (
+    db
+      .select({
+        id: placements.id,
+        containerId: placements.containerId,
+        containerTitle: items.title,
+        position: placements.position,
+        placedBy: spokesman.kind,
+      })
+      .from(placements)
+      .innerJoin(items, eq(items.id, placements.containerId))
+      // LEFT, because a placement no source stands behind is still a placement.
+      // An inner join would silently drop it, which is the read path deciding a
+      // row does not exist because its provenance was never recorded.
+      .leftJoinLateral(spokesman, sql`true`)
+      .where(
+        and(
+          eq(placements.itemId, itemId),
+          isNull(placements.deletedAt),
+          // ADR-0075. A deleted container is gone to every reader, so an item
+          // cannot go on claiming membership of it.
+          isNull(items.deletedAt),
+        ),
+      )
+      .orderBy(
+        // ADR-0014 gives `sort_name` its own index for exactly this: it is what
+        // the catalogue sorts on, and the title is the fallback when no sort-name
+        // statement has ever won.
+        sql`coalesce(${items.sortName}, ${items.title})`,
+        // THEN THE DISAGREEMENT IS RESOLVED (ADR-0017). Two sources claiming
+        // different positions for one item in one container are two rows, both
+        // standing and both answered -- and these two terms are what decide which
+        // of them SPEAKS, so the winning claim is the one a reader meets first.
+        // A source that says nothing about a placement cannot outrank one that
+        // does, and NULLs sorting last is what says so.
+        spokesman.precedence,
+        spokesman.sourceOrder,
+        // A REPEAT ties on both of those, because one source asserted both rows.
+        // Position is what separates it, so a recap at 1 still reads before the
+        // episode at 5 -- and the id keeps even two identical rows in one order.
+        placements.position,
+        placements.id,
+      )
+  );
+}
+
+/** One value claimed about an item, and who claimed it (ADR-0012, ADR-0071). */
+export interface StatementOfItem {
+  /** The seeded property's name: `title`, `released` (ADR-0029). */
+  property: string;
+  value: string;
+  /** `provider`, `owner`, `sidecar` or `derived`. */
+  sourceKind: string;
+  /** What that source calls itself: a provider's manifest name, or `Owner`. */
+  sourceLabel: string;
+}
+
+/**
+ * Every value anybody has claimed about one item, with the source that claimed
+ * it -- which is the whole point of a statement over a column (ADR-0012).
+ *
+ * COMPETING VALUES ARE ALL RETURNED and the winner comes FIRST. The ordering is
+ * `winning_literal`'s three terms, in its order and for its reasons: rank first,
+ * because the owner's favourite is the lock and outranks the whole source order
+ * (ADR-0024); then the one global source order (ADR-0025); then a stable id.
+ * Recency is deliberately absent from both.
+ *
+ * IT IS ONE RULE IN TWO LANGUAGES, exactly as `spokesmanFor` above is, and
+ * the reason to keep them identical is the same: a list whose first row
+ * disagreed with the projected title in the page heading would be two answers to
+ * one question, on one page, both correct by their own lights.
+ *
+ * LITERALS ONLY. An item-valued statement -- `created_by` pointing at a person --
+ * has no literal to show, and rendering its target would mean putting an
+ * internal id in the read path (ADR-0045). It arrives with the slice that can
+ * render a person as a link.
+ *
+ * AND THE VALUE ITSELF IS THE LAST TERM BEFORE THE ID, which is a fix rather
+ * than a flourish. Two values of one MULTIPLE-valued property from one source
+ * at one rank -- two release dates, which is an ordinary shape (ADR-0057 keeps a
+ * row for it) -- tie on all three of the terms above, so without this they fell
+ * through to a random uuid and the page rendered them in a different order on
+ * every import. A test caught it by failing on the second run, having passed on
+ * the first.
+ *
+ * IT IS A TIEBREAK AND NOT A DATE SORT, and the difference matters because the
+ * two agree often enough to be confused. EDTF sorts lexically for the ordinary
+ * cases, so `2007-01-07` does come before `2007-03` -- but ADR-0073 is explicit
+ * that Level 1 qualifiers like `1984?` and `198X` break lexical ordering, and
+ * what fixes those is a DERIVED sort key, which nothing needs yet. This term
+ * exists so the same rows render in the same order twice.
+ */
+export async function findStatementsOfItem(
+  db: Database,
+  itemId: string,
+): Promise<StatementOfItem[]> {
+  return db
+    .select({
+      property: properties.name,
+      value: sql<string>`${statements.valueLiteral}`,
+      sourceKind: sources.kind,
+      sourceLabel: sources.label,
+    })
+    .from(statements)
+    .innerJoin(properties, eq(properties.id, statements.propertyId))
+    .innerJoin(sources, eq(sources.id, statements.sourceId))
+    .innerJoin(ranks, eq(ranks.rank, statements.rank))
+    .where(
+      and(
+        eq(statements.subjectItemId, itemId),
+        isNull(statements.deletedAt),
+        // CNCORE-29: a value that arrived broken from an import is held apart
+        // from the live set (migration 6). The claim still stands and its
+        // source still makes it -- what is refused is READING it as good, which
+        // is the whole difference from the tombstone above.
+        eq(statements.quarantined, false),
+        isNotNull(statements.valueLiteral),
+      ),
+    )
+    .orderBy(
+      properties.name,
+      ranks.precedence,
+      sources.sourceOrder,
+      statements.valueLiteral,
+      statements.id,
+    );
+}
+
+/**
+ * What a source's licence obliges the app to show, for one source (ADR-0036).
+ */
+export interface AttributionOwed {
+  /** Who imposed it, in their own words -- `provider-tmdb`, not a URL. */
+  sourceLabel: string;
+  /** Verbatim, and rendered unaltered. Paraphrasing a licence notice breaches it. */
+  notice: string;
+  /** The source's mark, where its licence requires one shown. */
+  logo: { dataUri: string; alt: string } | null;
+}
+
+/**
+ * Every attribution this item's page owes, because of what it is about to show.
+ *
+ * ADR-0036 puts the notice "prominently in or on Your Application", so the page
+ * rendering a source's claims is where the obligation falls due -- which makes
+ * "which notices does this page owe" a question the read path has to answer.
+ *
+ * READ OFF THE CLAIMS THEMSELVES rather than from a list kept somewhere. An item
+ * owes TMDB a notice because a TMDB statement or a TMDB placement is on it, so
+ * this is a join from exactly the rows that get displayed. The consequence is the
+ * valuable half: the obligation ends by itself the moment the last of those rows
+ * goes, with nothing to remember to update and no way for a notice to outlive the
+ * content that incurred it.
+ *
+ * A PLACEMENT COUNTS AS MUCH AS A VALUE. An ordering is a dated claim by a named
+ * source (ADR-0017), so a page listing "also appears in" is showing that source's
+ * work just as surely as a title is -- and an item a provider placed but said
+ * nothing else about still owes that provider its notice.
+ *
+ * AND SO DOES A CONTAINER'S TITLE, which is the clause review found missing. The
+ * "also appears in" list prints `containerTitle` for every ordering, and that
+ * title is a CLAIM BY WHOEVER MADE IT -- routinely the provider that browsed the
+ * container into existence. A page showing "The Matrix Collection" is showing
+ * TMDB's words, so it owes TMDB's notice, and the first two clauses alone missed
+ * it whenever the item itself came from somewhere else. The rule this keeps is
+ * simple and worth stating: EVERY SOURCE WHOSE WORDS APPEAR ON THE PAGE IS OWED,
+ * and the query has to track what the page actually renders.
+ *
+ * A SOURCE THAT OWES NOTHING IS ABSENT rather than present with nulls, because
+ * the caller's question is what to render and there is nothing to render for one.
+ */
+export async function findAttributionOwed(
+  db: Database,
+  itemId: string,
+): Promise<AttributionOwed[]> {
+  const rows = await db
+    .select({
+      sourceLabel: sources.label,
+      // The column's own nullable type, narrowed below rather than asserted here.
+      // It was `sql<string>` wrapping the column purely to launder the null away,
+      // which is a cast wearing a query's clothes: the `is not null` filter is in
+      // the WHERE, and TypeScript cannot see a WHERE.
+      notice: sources.attributionNotice,
+      logo: sources.attributionLogo,
+      alt: sources.attributionLogoAlt,
+    })
+    .from(sources)
+    .where(
+      and(
+        isNotNull(sources.attributionNotice),
+        isNull(sources.deletedAt),
+        sql`(
+          exists (select 1 from ${statements}
+            where ${statements.sourceId} = ${sources.id}
+              and ${statements.subjectItemId} = ${itemId}
+              and ${statements.deletedAt} is null)
+          or exists (select 1 from ${placementSources}
+            join ${placements} on ${placements.id} = ${placementSources.placementId}
+            where ${placementSources.sourceId} = ${sources.id}
+              and ${placements.itemId} = ${itemId}
+              and ${placementSources.deletedAt} is null
+              and ${placements.deletedAt} is null)
+          or exists (select 1 from ${statements} as container_claims
+            join ${placements} as memberships
+              on memberships.item_id = ${itemId}
+             and memberships.container_id = container_claims.subject_item_id
+            where container_claims.source_id = ${sources.id}
+              and container_claims.deleted_at is null
+              and memberships.deleted_at is null)
+        )`,
+      ),
+    )
+    // ADR-0025's one global source order, so a page showing two obligations shows
+    // them in the same order every time rather than in whatever the planner chose.
+    .orderBy(sources.sourceOrder);
+
+  return rows.flatMap(({ sourceLabel, notice, logo, alt }) =>
+    // NARROWED RATHER THAN ASSERTED. The `is not null` filter above means this
+    // never drops a row, and writing it as a filter rather than a `!` is what
+    // keeps that true if the WHERE ever changes -- a row with no notice is not an
+    // attribution, and there is nothing for a caller to render from one.
+    notice === null
+      ? []
+      : [
+          {
+            sourceLabel,
+            notice,
+            // The column pair is constrained to be both-or-neither (migration 4),
+            // so the `alt` check is TypeScript's question, not the database's.
+            logo: logo !== null && alt !== null ? { dataUri: logo, alt } : null,
+          },
+        ],
+  );
+}
+
+/**
+ * One item, by the id a reader arrived with.
+ *
+ * HONOURS THE TOMBSTONE (ADR-0075). A deleted item is gone to every reader, and
+ * so is a withdrawn alias. Every table in migration 1 carries `deleted_at`, and
+ * a tombstone nothing reads is half a mechanism: it looks like a delete and
+ * behaves like nothing.
+ *
+ * FOLLOWS AN ALIAS (ADR-0040). A merged-away id stays resolvable forever, so no
+ * URL ever breaks, and what comes back is the SURVIVOR under its own canonical
+ * id -- the path is identity (ADR-0066) and an alias is not the identity.
+ *
+ * This lives with the catalogue rather than in the router because it is a rule
+ * about what an id MEANS, not about how a request is transported. Every reader
+ * gets it, including ones that are not the web app.
+ */
+export async function findItem(db: Database, id: string): Promise<ItemRow | undefined> {
+  if (!canBeAnId(id)) return undefined;
+
+  const live = await findLiveItem(db, id);
+  if (live) return live;
+
+  const [alias] = await db
+    .select({ itemId: aliases.itemId })
+    .from(aliases)
+    .where(and(eq(aliases.aliasItemId, id), isNull(aliases.deletedAt)));
+  if (!alias) return undefined;
+
+  return findLiveItem(db, alias.itemId);
+}
+
+/** The shape of every id in this catalogue. Built once rather than per lookup. */
+const idShape = z.uuid();
+
+/**
+ * Whether a string could address anything here AT ALL.
+ *
+ * A string that is not shaped like an id addresses nothing, so it resolves to
+ * nothing -- the same answer as an id nobody minted (ADR-0066). Asked BEFORE
+ * the query rather than after it, because `items.id` is a Postgres `uuid` and
+ * comparing it against `not-a-uuid` is error 22P02 rather than an empty result:
+ * without this line a typo in a shared link reads as "this server is broken".
+ *
+ * `z.uuid()` is the SAME check `itemPublic` makes on the way out (ADR-0045).
+ * That agreement is the point rather than a coincidence. A guard looser than
+ * the output schema would let a row through here and fail it one layer up, as
+ * an output-validation error that is not a defined error -- which is the
+ * original 500 back again, moved.
+ *
+ * It can be this strict because every id here is one this system minted:
+ * `defaultRandom()` is `gen_random_uuid()`, and an alias id is a merged-away id
+ * of ours rather than one from outside (ADR-0040). Postgres would accept
+ * shapes RFC 9562 does not, but nothing puts one in these columns.
+ */
+function canBeAnId(id: string): boolean {
+  return idShape.safeParse(id).success;
+}
+
+async function findLiveItem(db: Database, id: string): Promise<ItemRow | undefined> {
+  const [found] = await db
+    .select()
+    .from(items)
+    .where(and(eq(items.id, id), isNull(items.deletedAt)));
+  return found;
+}

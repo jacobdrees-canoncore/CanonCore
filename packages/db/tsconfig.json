@@ -1,0 +1,10 @@
+{
+  "extends": "@canoncore/config/tsconfig.base.json",
+  "compilerOptions": {
+    // `scripts/check-ladder.ts` runs under bare `node`, whose ESM resolver
+    // needs the extension the rest of the repo's bundler-resolved imports omit.
+    "allowImportingTsExtensions": true,
+    "noEmit": true
+  },
+  "include": ["src/**/*.ts", "scripts/**/*.ts", "types/**/*.d.ts", "*.config.ts"]
+}

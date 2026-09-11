@@ -1,0 +1,98 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.12/schema.json",
+
+  // `.jsonc` rather than `.json` so every departure from Biome's defaults can
+  // carry its reason. Biome reads both.
+
+  // Reuse .gitignore rather than maintaining a second list of the same paths.
+  // Biome reads the nested ones too, which is what keeps apps/web/.next out.
+  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+
+  "files": {
+    "includes": [
+      "**",
+      // drizzle-kit's bookkeeping: `_journal.json` and one snapshot per rung.
+      // It rewrites them itself on every `db:generate` -- the journal minified,
+      // with no trailing newline -- so formatting them means the next generate
+      // un-formats them and the Lint job fails on files no human touched. The
+      // migration ladder of ADR-0047 is drizzle's ledger, not our source.
+      //
+      // Scoped to `meta` rather than to the whole migrations directory, so that
+      // anything hand-written alongside the rungs is still linted. The `.sql`
+      // files need no exclusion: Biome does not handle SQL at all.
+      "!packages/db/src/migrations/meta"
+    ]
+  },
+
+  "formatter": {
+    "enabled": true,
+
+    // Biome's own default is tabs. Spaces here, because every file in the tree
+    // already uses them and because the CLIs that write into this repo -- shadcn
+    // for components, drizzle-kit for migrations, next for AGENTS.md -- all emit
+    // spaces. Tabs would mean every generated file arrives non-conforming.
+    "indentStyle": "space",
+    "indentWidth": 2,
+
+    // Biome's default is 80. The prose in this repo already wraps at 100, and 80
+    // would rewrap 147 existing lines to no benefit.
+    "lineWidth": 100
+  },
+
+  // Tailwind v4 puts @theme, @custom-variant and @apply in the stylesheet, and
+  // Biome's CSS parser rejects them as unknown at-rules unless told. Without
+  // this the whole of packages/ui/src/styles/globals.css fails to parse, and a
+  // file that fails to parse is a file that is neither linted nor formatted.
+  "css": { "parser": { "tailwindDirectives": true } },
+
+  "linter": {
+    "enabled": true,
+    // `preset` rather than the deprecated `recommended: true`, which Biome
+    // says it removes in the next major.
+    "rules": { "preset": "recommended" }
+  },
+
+  // Import order is one of the differences that arrives as a merge conflict when
+  // several worktrees write at once, which is the cost this ticket exists to cut.
+  "assist": {
+    "enabled": true,
+    "actions": { "source": { "organizeImports": "on" } }
+  },
+
+  "overrides": [
+    {
+      // `!` throws away exactly the safety `noUncheckedIndexedAccess` buys, and
+      // in production code a wrong one is a TypeError in front of a user. So the
+      // rule stays on everywhere that ships.
+      //
+      // In a test it is a different trade. A wrong `!` there FAILS THE TEST,
+      // which is what a test is for; what is lost is the quality of the failure
+      // message -- "Cannot read properties of undefined" instead of a named
+      // assertion -- not a defect slipping through. CNCORE-4's suites lean on it
+      // ten times for rows they have just inserted, and rewriting another
+      // ticket's assertions to satisfy a style rule buys less than it risks.
+      "includes": ["**/*.test.ts", "**/*.test.tsx"],
+      "linter": { "rules": { "style": { "noNonNullAssertion": "off" } } }
+    },
+    {
+      // The shadcn primitives, which are wrappers that spread their props. The
+      // control association and the click handler these rules look for happen at
+      // the CALL SITE, which Biome cannot see from here. Three rules, four
+      // findings between them, and every one of the four is false.
+      //
+      // Scoped to this directory rather than suppressed at each site, because
+      // the shadcn CLI rewrites these files and would drop the comments. a11y
+      // stays fully on everywhere a page is actually written.
+      "includes": ["packages/ui/src/components/**"],
+      "linter": {
+        "rules": {
+          "a11y": {
+            "noLabelWithoutControl": "off",
+            "useSemanticElements": "off",
+            "useKeyWithClickEvents": "off"
+          }
+        }
+      }
+    }
+  ]
+}

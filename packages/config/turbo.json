@@ -1,0 +1,16 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "test": {
+      // Uncached, deliberately. This package's suite asks whether the linter
+      // reaches every file git tracks, so its real inputs are the whole
+      // repository -- not the contents of `packages/config`, which is what
+      // turbo would otherwise hash. Caching it on a subset means a new file in
+      // another package replays a stale pass, which is the same false green
+      // this suite exists to catch. The suite runs in about a second; that is
+      // cheaper than the lie.
+      "cache": false
+    }
+  }
+}

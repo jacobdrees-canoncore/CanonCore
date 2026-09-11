@@ -1,0 +1,16 @@
+{
+  "name": "@canoncore/contract",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test:contract": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@canoncore/config": "workspace:*",
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:",
+    "zod": "catalog:"
+  }
+}

@@ -1,0 +1,406 @@
+import {
+  type Database,
+  type ImportedContainer,
+  type ImportedRecord,
+  importBrowsedContainer,
+  importProvidedRecord,
+  type PurgedProvider,
+  previewProviderPurge,
+  purgeProvider,
+} from "@canoncore/db";
+import {
+  type Allowlist,
+  type CmppManifest,
+  type CmppRecord,
+  createProviderClient,
+  OutboundRefused,
+} from "@canoncore/providers";
+import { z } from "zod";
+
+import { publicProcedure } from "../index";
+
+/** What an import needs: the URL the owner typed, and which record to take. */
+export interface ImportRequest {
+  baseUrl: string;
+  recordId: string;
+}
+
+/**
+ * Reaching a provider and writing what it answers, as a plain function.
+ *
+ * SEPARATE FROM THE PROCEDURE so that anything that is not an oRPC call can do
+ * a real import -- the end-to-end suite stands up a provider and imports through
+ * THIS, rather than re-implementing the three steps and then proving its own
+ * re-implementation renders. The procedure below is the transport and the error
+ * mapping; this is the operation.
+ *
+ * Answers `null` when the provider holds no record at that id, because that is
+ * an answer rather than a failure: it is what an ambiguous `search` candidate
+ * looks like once the candidate turns out to be gone (ADR-0033).
+ */
+export async function importRecordFromProvider(
+  db: Database,
+  allowlist: Allowlist,
+  { baseUrl, recordId }: ImportRequest,
+): Promise<ImportedRecord | null> {
+  const client = createProviderClient({ baseUrl, allowlist });
+  try {
+    // The manifest first, for the provider's OWN name. A source answers "who
+    // said this", and `provider-wiki` answers it where `http://127.0.0.1:39481`
+    // shows a reader a deployment detail.
+    const manifest = await client.manifest();
+    const record = await client.lookup(recordId);
+    if (!record) return null;
+
+    return await importProvidedRecord(db, {
+      provider: providerFrom(baseUrl, manifest),
+      record: asProvided(record),
+    });
+  } finally {
+    // The client holds two undici agents and therefore two connection pools.
+    // Left open they keep sockets alive long after the one import that needed
+    // them.
+    await client.close();
+  }
+}
+
+/** What a browse needs: the URL the owner typed, and which container to take. */
+export interface BrowseRequest {
+  baseUrl: string;
+  containerId: string;
+}
+
+/**
+ * Raised when a provider does not declare `browse`.
+ *
+ * A NAMED REFUSAL RATHER THAN A SILENT SKIP. ADR-0033 makes `browse` optional
+ * AND DECLARED, so a provider that offers only `search` and `lookup` is
+ * perfectly well-formed and this is not an error on its part -- the owner asked
+ * for something this provider does not do, and that is a sentence to put in
+ * front of them rather than an empty result to puzzle over.
+ */
+export class BrowseNotOffered extends Error {}
+
+/**
+ * Reaching a provider's `browse` and writing the container and ordering it
+ * answers, as a plain function.
+ *
+ * SEPARATE FROM THE PROCEDURE for the reason `importRecordFromProvider` is: the
+ * end-to-end suite does a real browse through THIS, rather than re-implementing
+ * the steps and then proving its own re-implementation renders.
+ *
+ * THE MANIFEST IS READ BEFORE ANYTHING IS ASKED FOR, and its `operations` list
+ * is what decides whether to call at all (ADR-0033). A provider that does not
+ * declare `browse` is never asked -- the check is not an optimisation, it is
+ * the optionality being honoured: `browse` is the operation a provider may
+ * decline, and reading the declaration is the only way an app can tell.
+ *
+ * THE CONTAINER IS NAMED BY THE OWNER, and nothing in CMPP hands one over.
+ * `search` returns stories and `browse` takes a container's own id, so there is
+ * no operation that answers "which containers do you have". The owner supplies
+ * it exactly as they supply a record id to `import` -- see ADR-0033's as-built
+ * section, which records the decision rather than leaving it to be rediscovered.
+ *
+ * Answers `null` when that id addresses no container, which is an answer rather
+ * than a failure (ADR-0066).
+ */
+export async function browseIntoCatalogue(
+  db: Database,
+  allowlist: Allowlist,
+  { baseUrl, containerId }: BrowseRequest,
+): Promise<ImportedContainer | null> {
+  const client = createProviderClient({ baseUrl, allowlist });
+  try {
+    const manifest = await client.manifest();
+    if (!manifest.operations.includes("browse")) {
+      throw new BrowseNotOffered(`${manifest.name} declares no browse; it was not asked for one.`);
+    }
+
+    const browsed = await client.browse(containerId);
+    if (!browsed) return null;
+
+    return await importBrowsedContainer(db, {
+      provider: providerFrom(baseUrl, manifest),
+      browsed: {
+        container: asProvided(browsed.container),
+        ordering: browsed.ordering.map(({ position, record }) => ({
+          position,
+          record: asProvided(record),
+        })),
+        unplaced: browsed.unplaced.map(asProvided),
+      },
+    });
+  } finally {
+    await client.close();
+  }
+}
+
+/**
+ * The provider as the catalogue records it: who it is, what it calls itself, and
+ * what its licence obliges the app to show.
+ *
+ * THE ATTRIBUTION IS TAKEN OFF THE MANIFEST ON EVERY IMPORT rather than only the
+ * first. A licence changes, and the source row is made once and reused forever --
+ * so a notice captured at first import and never revisited goes stale the day the
+ * source revises its terms, and showing last year's notice is the same breach as
+ * showing none.
+ */
+function providerFrom(baseUrl: string, manifest: CmppManifest) {
+  return { identity: baseUrl, label: manifest.name, attribution: manifest.attribution };
+}
+
+/**
+ * A CMPP record in the terms the catalogue writes.
+ *
+ * The translation lives HERE rather than in `@canoncore/db`, which is what
+ * keeps the wire format out of the catalogue: that package knows nothing about
+ * HTTP and nothing about a provider's shape, and a change to the protocol stops
+ * at this function.
+ */
+function asProvided(record: CmppRecord) {
+  return {
+    externalId: record.id,
+    title: record.title,
+    // Every date, each at the precision it arrived with (ADR-0073).
+    //
+    // CARRIED OVER UNCHECKED, ON PURPOSE. The EDTF check is the CATALOGUE's
+    // (CNCORE-29), and it runs where the statement is written rather than here:
+    // ADR-0073 is a decision about what the catalogue holds, so a translation
+    // that silently dropped a value would leave `@canoncore/db` still able to
+    // write one and this function the only thing standing in the way. What
+    // arrives broken is quarantined at the door and counted, not lost here.
+    released: record.released,
+  };
+}
+
+/** Which provider, for both halves of the purge. */
+const purgeTarget = z.object({
+  /** The provider's identity, which for a provider IS its base URL (ADR-0031). */
+  baseUrl: z.url(),
+});
+
+/**
+ * What a purge took, and -- the same schema, deliberately -- what a preview says
+ * it WOULD take. Two shapes here would be two chances for the preview and the
+ * delete to describe different answers, which is the thing this pair exists to
+ * make impossible.
+ */
+const purgeCounts = z.object({
+  statements: z.number().int().nonnegative(),
+  placements: z.number().int().nonnegative(),
+  /**
+   * Items left with no claim on them and nowhere they sit. NOT every item the
+   * provider ever wrote: one the owner also placed somewhere survives, untitled,
+   * because the owner's placement is the owner's claim and a provider's licence
+   * ending has no bearing on it.
+   */
+  items: z.number().int().nonnegative(),
+});
+
+export const provider = {
+  /**
+   * Imports one record from a provider, over HTTP, and answers with the item it
+   * wrote.
+   *
+   * THE WHOLE OPERATION AT ONCE, and that is a statement about where the
+   * project is rather than a design. ADR-0026 makes MATCHING and APPLYING two
+   * operations with two endpoints, precisely so a separation living only in a
+   * screen design does not get collapsed by the next screen design. Neither
+   * exists yet: nothing scores a candidate and nothing chooses among a record's
+   * values, so there is nothing for the split to separate. When the first of
+   * them lands it takes its own procedure, and this one is what it replaces.
+   *
+   * NO CREDENTIAL, ANYWHERE ON THIS PATH (ADR-0035). The instance supplies its
+   * own, and the wiki provider needs none at all -- no key, no rate limit, no
+   * attribution string -- which is exactly why ADR-0069 makes it the first
+   * provider written. There is no field here for one and nothing in this repo
+   * holds one.
+   */
+  import: publicProcedure
+    .input(
+      z.object({
+        /**
+         * A CONFIG URL: the owner typed it, so it travels ADR-0034's allowlist.
+         * `z.url()` only says it parses as one -- whether it may be REACHED is
+         * the allowlist's answer, given below, and not a validation concern.
+         */
+        baseUrl: z.url(),
+        /** The provider's own id, the one `lookup` takes (ADR-0033). */
+        recordId: z.string().min(1),
+      }),
+    )
+    .output(
+      z.object({
+        itemId: z.uuid(),
+        /**
+         * How many of this record's values arrived broken and were held apart
+         * from the live set (CNCORE-29). ADR-0073 says a date is an EDTF
+         * string, and one that is not is kept, marked and not read as good.
+         *
+         * ON THE ANSWER RATHER THAN LEFT TO A QUERY, because the alternative is
+         * an import that reports success identically whether it wrote what the
+         * provider said or held half of it back.
+         */
+        quarantinedValues: z.number().int().nonnegative(),
+      }),
+    )
+    .errors({
+      PROVIDER_REFUSED: {
+        message: "That provider URL is not one this instance may reach.",
+      },
+      NO_SUCH_RECORD: {
+        message: "The provider holds no record at that id.",
+      },
+    })
+    .handler(async ({ input, context, errors }) => {
+      try {
+        const imported = await importRecordFromProvider(
+          context.db,
+          context.providerAllowlist,
+          input,
+        );
+        if (!imported) throw errors.NO_SUCH_RECORD();
+        return imported;
+      } catch (error) {
+        // A REFUSAL IS AN ANSWER, NOT A CRASH. The owner typed this URL, so a
+        // UI has to be able to put the reason in front of them -- and an
+        // undeclared throw is a 500 no caller can narrow on, which is the same
+        // defect CNCORE-14 fixed for a malformed item id.
+        if (error instanceof OutboundRefused) {
+          throw errors.PROVIDER_REFUSED({ message: error.message });
+        }
+        throw error;
+      }
+    }),
+
+  /**
+   * Imports a container AND its ordering from a provider that declares
+   * `browse`, and answers with the container and every member it wrote.
+   *
+   * ONE CALL RATHER THAN SIXTY. That is the whole difference from `import`
+   * above, and it is why `browse` exists at all (ADR-0033): the container and
+   * its ordering arrive together, so a bulk import yields placements for free
+   * instead of asking the owner to place sixty episodes by hand.
+   *
+   * IT TAKES THE CONTAINER'S ID FROM THE OWNER, because nothing in CMPP hands
+   * one over -- `search` returns stories and `browse` takes a container's own
+   * id, so no operation answers "which containers do you have". The owner names
+   * it, exactly as they name a record for `import`.
+   */
+  browse: publicProcedure
+    .input(
+      z.object({
+        /** A CONFIG URL, travelling ADR-0034's allowlist, as `import`'s does. */
+        baseUrl: z.url(),
+        /** The provider's own id for the container, the one `browse` takes. */
+        containerId: z.string().min(1),
+      }),
+    )
+    .output(
+      z.object({
+        containerId: z.uuid(),
+        /**
+         * Every member written, container-side. The placement id is here for
+         * the same reason `?via=` carries one (ADR-0066): it names the ordering
+         * a reader would arrive through, and it is an address rather than an
+         * internal id.
+         */
+        members: z.array(z.object({ itemId: z.uuid(), placementId: z.uuid() })),
+        /**
+         * How many values across the whole browse were held apart, the
+         * container's own included (CNCORE-29).
+         *
+         * THE BULK PATH IS WHY THIS FIELD EXISTS. One call writes a container's
+         * worth of dates, so a bad source fills the catalogue rather than a row
+         * of it -- and sixty members' worth of quarantined dates reported as a
+         * plain success is the "silently" this ticket refuses.
+         */
+        quarantinedValues: z.number().int().nonnegative(),
+      }),
+    )
+    .errors({
+      PROVIDER_REFUSED: {
+        message: "That provider URL is not one this instance may reach.",
+      },
+      BROWSE_NOT_OFFERED: {
+        message: "That provider does not offer browse, so it was not asked for one.",
+      },
+      NO_SUCH_CONTAINER: {
+        message: "The provider holds no container at that id.",
+      },
+    })
+    .handler(async ({ input, context, errors }) => {
+      try {
+        const browsed = await browseIntoCatalogue(context.db, context.providerAllowlist, input);
+        if (!browsed) throw errors.NO_SUCH_CONTAINER();
+        return browsed;
+      } catch (error) {
+        if (error instanceof OutboundRefused) {
+          throw errors.PROVIDER_REFUSED({ message: error.message });
+        }
+        // A DECLARED ERROR RATHER THAN A 500, for the same reason a refusal is
+        // one: the owner asked for this and a UI has to be able to tell them
+        // that this provider does not do it. ADR-0033 makes declining `browse`
+        // well-formed, so it must not read as the provider being broken.
+        if (error instanceof BrowseNotOffered) {
+          throw errors.BROWSE_NOT_OFFERED({ message: error.message });
+        }
+        throw error;
+      }
+    }),
+
+  /**
+   * Removes everything one provider ever said, in one operation.
+   *
+   * ADR-0036: TMDB's terms end in termination, and termination "requires purging
+   * all cached TMDB content". That record's claim about what this costs is that
+   * `source` on every row "already makes one delete" -- so this procedure exists
+   * to make the claim TRUE rather than to build a purge subsystem that works
+   * around its being false. There is no ownership column to sweep and no
+   * per-table policy, because every row that can carry a claim names who made it.
+   *
+   * NO REQUEST LEAVES THE APP, AND THAT IS WHY THERE IS NO `PROVIDER_REFUSED`
+   * HERE. `baseUrl` is an IDENTITY on this path rather than an address: the rows
+   * to delete are this catalogue's, and a provider whose licence has just been
+   * terminated is precisely the one nothing should be calling. So the allowlist
+   * has no say -- an owner must be able to purge a provider they can no longer
+   * reach, which is the ordinary case when a licence ends rather than an exotic
+   * one. ADR-0034's boundaries stand in front of requests, and this makes none.
+   *
+   * IT ANSWERS WITH COUNTS rather than with nothing, because "done" and "there
+   * was nothing there" are different answers and an owner running this after a
+   * termination notice needs to be able to tell them apart. It answers them
+   * AFTERWARDS, and `previewPurge` below is where ADR-0046's "counts shown
+   * first" is satisfied -- the same traversal, stopped before it commits.
+   */
+  purge: publicProcedure
+    .input(purgeTarget)
+    .output(purgeCounts)
+    .handler(async ({ input, context }): Promise<PurgedProvider> => {
+      return purgeProvider(context.db, { identity: input.baseUrl });
+    }),
+
+  /**
+   * What `purge` would take, answered before it takes it (ADR-0046).
+   *
+   * A purge is the delete where a preview matters most. It is the one an owner
+   * runs under time pressure, after a termination notice, against a provider
+   * whose content they can no longer inspect because the provider is
+   * unreachable -- so the counts are the only description of it they will get.
+   *
+   * THE SAME TRAVERSAL, ROLLED BACK, rather than a second one that describes it.
+   * A preview free to disagree with the delete is worse than no preview, because
+   * an owner deciding under a notice has already acted on it by the time the
+   * delete contradicts it.
+   *
+   * IT MAKES NO REQUEST EITHER, for the reason `purge` makes none: an owner must
+   * be able to ask this about a provider they can no longer reach, which is the
+   * ordinary case when a licence ends rather than an exotic one.
+   */
+  previewPurge: publicProcedure
+    .input(purgeTarget)
+    .output(purgeCounts)
+    .handler(async ({ input, context }): Promise<PurgedProvider> => {
+      return previewProviderPurge(context.db, { identity: input.baseUrl });
+    }),
+};

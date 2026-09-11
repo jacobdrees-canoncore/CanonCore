@@ -1,0 +1,3 @@
+{
+  "extends": "@canoncore/config/tsconfig.base.json"
+}

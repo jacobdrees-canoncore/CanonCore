@@ -1,0 +1,79 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "ui": "tui",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": ["dist/**", ".next/**", "!.next/cache/**"],
+      "env": ["DATABASE_URL"]
+    },
+    "typecheck": {
+      "dependsOn": ["^typecheck"]
+    },
+    "test": {
+      "dependsOn": ["^test"],
+      "env": ["DATABASE_URL"]
+    },
+    "test:watch": {
+      "cache": false,
+      "persistent": true,
+      "env": ["DATABASE_URL"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true,
+      "env": ["DATABASE_URL"]
+    },
+    "db:generate": {
+      "cache": false,
+      "env": ["DATABASE_URL"]
+    },
+    "db:migrate": {
+      "cache": false,
+      "env": ["DATABASE_URL"]
+    },
+    "db:studio": {
+      "cache": false,
+      "persistent": true,
+      "env": ["DATABASE_URL"]
+    },
+    "db:start": {
+      "cache": false,
+      "env": ["CANONCORE_DB_PORT"]
+    },
+    "db:stop": {
+      "cache": false,
+      "env": ["CANONCORE_DB_PORT"]
+    },
+    "db:watch": {
+      "cache": false,
+      "persistent": true,
+      "env": ["CANONCORE_DB_PORT"]
+    },
+    "db:down": {
+      "cache": false,
+      "env": ["CANONCORE_DB_PORT"]
+    },
+    "test:e2e": {
+      "cache": false,
+      "env": ["DATABASE_URL"]
+    },
+    "test:contract": {
+      "cache": false,
+      "env": ["PROVIDER_WIKI_URL", "PROVIDER_TMDB_URL"]
+    },
+    "db:seed": {
+      "cache": false,
+      "env": ["DATABASE_URL"]
+    },
+    "db:check-ladder": {
+      "cache": false,
+      "env": ["DATABASE_URL"]
+    },
+    "db:setup": {
+      "cache": false,
+      "env": ["CANONCORE_DB_PORT"]
+    }
+  }
+}

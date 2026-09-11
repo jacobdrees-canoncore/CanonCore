@@ -1,0 +1,35 @@
+name: canoncore
+
+services:
+  postgres:
+    image: postgres:18
+    container_name: canoncore-postgres
+    environment:
+      POSTGRES_DB: canoncore
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      # NOT 5432, deliberately and permanently. A developer machine very often
+      # already runs PostgreSQL, and the failure when it does is SILENT rather
+      # than loud: Docker binds the 0.0.0.0 wildcard, a local server binds the
+      # more specific 127.0.0.1, and the specific bind wins for `localhost`. So
+      # `docker compose up` reports success, the container is healthy, and every
+      # connection goes to the other server. Measured on this repo: `psql -h
+      # localhost` answered 17.11 (Homebrew) while `docker exec` answered 18.6
+      # (this container), and a whole ticket's tests ran against the wrong one.
+      #
+      # Supabase's CLI defaults its local database to 54322 for the same reason.
+      # Override with CANONCORE_DB_PORT when 55432 is taken too. See ADR-0104,
+      # and `src/docker-compose.test.ts`, which fails if this goes back to 5432.
+      - "${CANONCORE_DB_PORT:-55432}:5432"
+    volumes:
+      - canoncore_postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  canoncore_postgres_data:

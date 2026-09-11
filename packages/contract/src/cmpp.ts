@@ -1,0 +1,232 @@
+import { z } from "zod";
+
+/**
+ * WHAT CMPP REQUIRES OF ANY PROVIDER. This file is the specification.
+ *
+ * Until it existed, nothing anywhere defined the CMPP record shape -- not an ADR,
+ * not `CONTEXT.md`. It lived only in each provider's own `src/cmpp.ts` plus
+ * CanonCore's reading of it, which made `provider-wiki`'s copy the INCUMBENT
+ * DRAFT rather than the specification: whatever the first provider happened to
+ * send was the rule, and the second provider discovered that by diverging from it.
+ *
+ * IT IS DELIBERATELY NOT `@canoncore/providers`' SCHEMA, and this package depends
+ * on no `@canoncore/*` package at all so that it cannot become one by accident.
+ * That schema is a CONSUMER'S -- "what this app reads" -- and it strips unknown
+ * keys, widens where the app does not care, and omits fields nothing renders yet.
+ * Holding two providers to it would prove they both satisfy CanonCore, which is a
+ * different and much weaker claim than that they satisfy one contract.
+ *
+ * IT IS THE INTERSECTION, NOT THE UNION. A field one provider sends and the other
+ * cannot is not part of the contract, or the contract would be "be TMDB". So the
+ * required half is small and the extensions are checked ONLY FOR SHAPE WHEN
+ * PRESENT -- which is the half that actually stops drift, since an extension
+ * spelled two ways by two providers is exactly how a contract quietly becomes two
+ * integrations.
+ *
+ * UNKNOWN KEYS ARE PERMITTED rather than stripped or refused. ADR-0033 makes
+ * `browse` optional and lets a provider declare more than it is asked for, so a
+ * provider ahead of the contract is well-formed; what is refused is a provider
+ * that spells a KNOWN field wrongly.
+ */
+
+/** A source's own vocabulary for a role, size or kind: never a closed set here. */
+const sourceWord = z.string().min(1);
+
+/**
+ * One record: a candidate from `search`, or one thing by id from `lookup`.
+ *
+ * `kind` IS THE SOURCE'S OWN TAXONOMY -- `TV story`, `movie`, `audio story` -- and
+ * CMPP closes no list of them. `CONTEXT.md` reserves Medium for a PLAYBACK medium,
+ * so this must never be called that.
+ */
+export const record = z.looseObject({
+  id: z.string().min(1),
+  title: z.string().min(1),
+  kind: sourceWord,
+  /**
+   * Every release date the source holds, EACH AT ITS OWN PRECISION (ADR-0073).
+   * `2007-03` is a real date at a real precision, and a provider widening it to a
+   * day would be inventing one. Absent means the source holds none, which is a
+   * real answer -- a sixth of the archive's stories are like that.
+   */
+  released: z.array(z.string()).default([]),
+  writers: z.array(z.string()).default([]),
+  /** The container's NAME, where the source names one. Never its id: that is `series_id`. */
+  series: z.string().nullable().default(null),
+  url: z.url(),
+
+  /*
+   * THE EXTENSIONS. Not required of anybody -- `provider-wiki` serves no images
+   * and has one id space, so it can send none of these and is fully conformant.
+   * Checked for SHAPE when present, which is the whole anti-drift job: a second
+   * provider inventing `externalIds` or a bare `image` string would pass a test
+   * that only asked whether the required fields were there.
+   */
+
+  /**
+   * The CMPP id of the container `series` names, so the container can be BROWSED
+   * rather than only read. A NAME cannot be browsed, and multi-search never
+   * returns collections -- so without this a film named its collection and
+   * nothing could reach it. Plex requires `parentRatingKey` beside `parentTitle`
+   * for the same reason.
+   */
+  series_id: z.string().min(1).nullable().optional(),
+  /**
+   * References, never bytes (ADR-0031).
+   *
+   * ONLY `role` AND `url` ARE REQUIRED, and that is the intersection being taken
+   * seriously rather than a weak schema. ADR-0033 names five fields for an image
+   * reference -- `id`, `role`, `url`, `description_url`, `licences` -- and TMDB
+   * has none of the three this omits: it serves no file description pages and no
+   * per-file licence tags, because its images come from studios who keep those
+   * rights. It sends `width` instead, which ADR-0033's list does not name at all
+   * and which is the only thing `quality_floor` can be enforced against.
+   *
+   * So the two providers share exactly `role` and `url`, and requiring either
+   * one's full set would be writing "be that provider" into the contract. THIS
+   * SCHEMA REQUIRED `width` UNTIL CI RAN IT AGAINST THE REAL WIKI IMAGE, which is
+   * this file making the very mistake it exists to prevent -- taking the shape of
+   * whichever provider was in front of it as the rule.
+   *
+   * What the optional fields buy is the half a required set could not: each is
+   * checked WHEN PRESENT, so a provider inventing `licence` or `pixelWidth` fails
+   * here rather than passing as an unknown extension nobody reads.
+   */
+  images: z
+    .array(
+      z.looseObject({
+        /** What the image is FOR. Without it `per_role_limit` limits nothing. */
+        role: sourceWord,
+        /** Where the BYTES are: the field ADR-0037's store is filled from. */
+        url: z.url(),
+        /** The source's own stable handle, where it has one. */
+        id: z.string().min(1).nullable().optional(),
+        /** The page describing the file, where a source keeps licence and credit. */
+        description_url: z.url().nullable().optional(),
+        /** The source's own licence labels. Empty means the source states none. */
+        licences: z.array(z.string()).optional(),
+        /** Pixels, where the source publishes them: what `quality_floor` is checked against. */
+        width: z.number().int().positive().optional(),
+      }),
+    )
+    .optional(),
+  /**
+   * This record's id in other people's id spaces, KEYED BY SCHEME. What lets
+   * CanonCore know two providers are describing one work without matching on
+   * title and year against a confidence score (ADR-0028). Plex ships it as
+   * `Guid[]`, Jellyfin as `ProviderIds`.
+   */
+  external_ids: z.record(z.string(), z.string()).optional(),
+});
+
+export type CmppRecord = z.infer<typeof record>;
+
+/** What `search` answers. Candidates, possibly none: an empty result is an answer. */
+export const searchResponse = z.looseObject({ results: z.array(record) });
+
+/**
+ * One member of a container, at its position in that container's ordering.
+ *
+ * POSITION IS 1-BASED AND NOT UNIQUE. Two records the source asserts no order
+ * between share a position, because a provider that invented one would be handing
+ * over a claim nobody made (ADR-0009, ADR-0017). It is never the source's own
+ * numbering: TMDB files specials as season ZERO, and a position of 0 is not a
+ * position -- the source's numbering is already in the id.
+ */
+export const placement = z.looseObject({
+  position: z.number().int().positive(),
+  record,
+});
+
+/**
+ * What `browse` answers: a container AND its ordering, together.
+ *
+ * The togetherness is the whole reason the operation exists (ADR-0033) -- the two
+ * in one answer ARE placements, so sixty episodes arrive in one call rather than
+ * in sixty plus a guess at the order.
+ */
+export const browseResponse = z.looseObject({
+  /** A container is a record like any other (ADR-0004). */
+  container: record,
+  /**
+   * REQUIRED AND NOT DEFAULTED, where `unplaced` is defaulted. An absent ordering
+   * is a malformed browse rather than an empty one, and reading it as empty would
+   * import a container with no members and call that success.
+   */
+  ordering: z.array(placement),
+  /**
+   * Members the source serves that THIS ordering cannot place. MEMBERS WITH NO
+   * POSITION, not non-members: dropping them shrinks a container silently and
+   * positioning them last asserts an order the source never gave.
+   */
+  unplaced: z.array(record).default([]),
+});
+
+/**
+ * What a provider declares about itself.
+ *
+ * `versions` IS OPTIONAL AND ABSENCE MEANS THE FIRST VERSION (ADR-0032), never
+ * required -- the W3C Reconciliation Service API this is taken from contradicts
+ * itself by listing the field under `required` while inferring 0.1 from absence
+ * in its prose, and the prose is taken because a required field breaks every
+ * provider that already exists on the day it lands.
+ */
+export const manifest = z.looseObject({
+  name: z.string().min(1),
+  versions: z.array(z.number().int().positive()).default([1]),
+  /**
+   * WHICH OPERATIONS THIS PROVIDER ANSWERS. `search` and `lookup` are required of
+   * everyone and `browse` is the one a provider may decline (ADR-0033) -- so what
+   * is checked here is that the required two are declared, never that all three
+   * are.
+   */
+  operations: z.array(z.string().min(1)),
+  /** Seconds. A source's cache CEILING, where it imposes one (ADR-0037). */
+  max_cache_age: z.number().int().positive().optional(),
+  images: z
+    .looseObject({
+      /**
+       * One variant, or one per role, or null for a source that offers no choice
+       * of rendition. THE MAP IS NOT TMDB SPECIAL-CASING: TMDB's `/configuration`
+       * puts `w500` in `poster_sizes` and in neither `backdrop_sizes` nor
+       * `still_sizes`, so a single string names a size that 404s for two of three
+       * roles. ADR-0033 fixed this as `string | null` and was corrected by the
+       * second provider existing.
+       */
+      stored_variant: z.union([z.string(), z.record(z.string(), z.string())]).nullable(),
+      /** `0` says this source serves no images: a declaration, not an unset field. */
+      per_role_limit: z.number().int().nonnegative(),
+      /** A minimum stored width in pixels. `0` says the source publishes no dimensions. */
+      quality_floor: z.number().int().nonnegative(),
+    })
+    .optional(),
+  /**
+   * What this source's licence obliges an app to show, or null where it obliges
+   * nothing (ADR-0036). DECLARED rather than held in the app against a known
+   * provider, which is ADR-0033's rule at the field where breaking it is most
+   * tempting: a notice hardcoded for TMDB works perfectly and leaves the next
+   * source's obligation nowhere to go.
+   */
+  attribution: z
+    .looseObject({
+      notice: z.string().min(1),
+      logo: z
+        .looseObject({
+          /** Bytes, because the fetch is the READER'S BROWSER's and not the app's. */
+          data_uri: z.string().regex(/^data:image\/[a-z0-9.+-]+;base64,[A-Za-z0-9+/]+={0,2}$/),
+          alt: z.string().min(1),
+        })
+        .nullable()
+        .optional(),
+    })
+    .nullable()
+    .optional(),
+});
+
+export type CmppManifest = z.infer<typeof manifest>;
+
+/** The two operations every provider must answer (ADR-0033). */
+export const REQUIRED_OPERATIONS = ["search", "lookup"] as const;
+
+/** The one it may decline. Declared when offered, and never assumed. */
+export const OPTIONAL_OPERATION = "browse";

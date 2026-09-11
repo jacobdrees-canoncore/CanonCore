@@ -1,0 +1,36 @@
+version: 2
+updates:
+  # Keeps the actions in ci.yml current.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  # Every third-party range lives in the pnpm catalogue in pnpm-workspace.yaml,
+  # which Dependabot reads as part of the root manifest.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    groups:
+      # One PR per ecosystem rather than one per package: these move together
+      # and reviewing them apart wastes the review.
+      orpc:
+        patterns: ["@orpc/*"]
+      drizzle:
+        patterns: ["drizzle-*"]
+      react:
+        patterns: ["react", "react-dom", "@types/react", "@types/react-dom"]
+      tailwind:
+        patterns: ["tailwindcss", "@tailwindcss/*"]
+
+  # packages/db/docker-compose.yml pins postgres:18. This ecosystem CAN manage
+  # that; it cannot manage the gitleaks image in ci.yml, which lives inside a
+  # `run:` block and is pinned and bumped by hand.
+  - package-ecosystem: docker-compose
+    directory: /packages/db
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5

@@ -1,0 +1,551 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# One run per pull request branch, and the newest wins.
+#
+# THE FALLBACK IS THE LOAD-BEARING HALF. `github.head_ref` is defined only on
+# `pull_request` and `pull_request_target` events, so on a push to `main` it is
+# empty, the group becomes the run's own id, and that group has exactly one
+# member which nothing can cancel. The default branch is spared by the shape of
+# the key rather than by a condition somebody has to maintain.
+#
+# DO NOT REPLACE THIS WITH `github.ref`. It makes `refs/heads/main` a group like
+# any other, and it has already cost this organisation a verdict in
+# provider-wiki. ADR-0111 carries that incident and the numbers.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+env:
+  # Every job that builds needs this to be a non-empty string. The jobs carrying
+  # a postgres service genuinely connect to it; the rest only need it non-empty,
+  # and one step of `static-checks` below deliberately blanks it for itself.
+  DATABASE_URL: postgresql://postgres:password@localhost:5432/canoncore
+  # For the migration jobs, which make databases of their own.
+  BASE_URL: postgresql://postgres:password@localhost:5432
+  ADMIN_URL: postgresql://postgres:password@localhost:5432/postgres
+  # A manifest changed without its lockfile must fail the build rather than
+  # quietly resolving something else. pnpm loads any PNPM_CONFIG_* variable as
+  # configuration, so this is `--frozen-lockfile` reaching every install in the
+  # file -- including the one pnpm/setup runs before any `run:` step.
+  #
+  # pnpm's own "true in CI" default was already doing this, which is why the
+  # dead `require-lockfile` input this replaces cost nothing. Said outright
+  # anyway: that default is conditional on pnpm's CI detection, and a gate that
+  # holds for a reason the file does not state is one nobody can watch break.
+  # Both halves were run on a real runner rather than reasoned about; the runs
+  # are in ADR-0106.
+  PNPM_CONFIG_FROZEN_LOCKFILE: true
+
+jobs:
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      # GitHub's own secret scanning needs paid Secret Protection on private repos.
+      # gitleaks covers the same ground for free. Run the binary directly rather than
+      # gitleaks-action, which requires a paid licence key for organisation repos.
+      # `git` replaced `detect --source` in v8.19.0; the old form is deprecated and hidden.
+      #
+      # Pinned by tag AND digest. The digest is the multi-arch OCI index for
+      # v8.30.1, so it resolves on amd64 runners as well as arm64.
+      #
+      # BUMP THIS BY HAND. Dependabot cannot reach it: its docker and
+      # docker-compose ecosystems scan Dockerfiles, compose files and Kubernetes
+      # manifests, never shell inside a `run:` block. A secret scanner that goes
+      # stale quietly loses detection rules, so this line is worth a glance
+      # whenever CI is touched.
+      - name: Run gitleaks
+        run: |
+          docker run --rm -v "$PWD:/repo:ro" \
+            ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f \
+            git --no-banner --redact --verbose /repo
+
+  docs:
+    name: Agent docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: CLAUDE.md stays under 200 lines
+        run: |
+          lines=$(wc -l < CLAUDE.md)
+          echo "CLAUDE.md is $lines lines"
+          if [ "$lines" -gt 200 ]; then
+            echo "::error file=CLAUDE.md::CLAUDE.md is $lines lines, over the 200-line limit set in its own Principles."
+            exit 1
+          fi
+      # THE TREE IS SEEDED INTO A PUBLIC REPOSITORY, and a string that reaches
+      # it cannot be taken back: ADR-0114 records why a history rewrite does not
+      # undo publication. So the scrub CNCORE-61 did is a gate rather than an
+      # event. gitleaks above does not cover this ground -- it looks for
+      # credentials, and neither of these is one, which is the same reason
+      # ADR-0114 gives for GitHub Support declining to remove them.
+      #
+      # NEITHER PATTERN IS THE STRING IT GUARDS, and that is the point rather
+      # than obfuscation. This file is seeded like the rest of the tree, so a
+      # gate spelling the hostname would be the last copy of the very thing it
+      # removes, and CNCORE-61's acceptance criterion is that a plain grep for
+      # it returns NOTHING. Each pattern is deliberately broader than its
+      # target: the bare host label, which ADR-0109 carried on its own three
+      # times after the fully qualified name had gone, and the home directory
+      # that every absolute path into this machine starts with. Broader is also
+      # simply better here -- both leaks the reviewers found were the wider
+      # form, not the narrow one. `ci-workflow.test.ts` pins this, because
+      # spelling either value back in is a one-line "simplification" that CI
+      # cannot catch: the gate excludes itself from its own search.
+      #
+      # THE STATUS IS READ RATHER THAN BRANCHED ON. `git grep` exits 1 on no
+      # match but 2 or 128 on error, and an `if` cannot tell the second from the
+      # first -- so a mistyped pathspec would report this gate green having
+      # searched nothing. That is the silent pass ADR-0111 and CNCORE-3 are
+      # about, and it is the failure mode a gate is least likely to be caught
+      # having.
+      - name: Nothing unpublishable in the tree
+        run: |
+          fail=0
+          scan() {
+            # `found`, not `status`: zsh makes `status` read-only, so the obvious
+            # name breaks the moment somebody pastes this into a terminal on the
+            # Mac this repo is developed on. It runs under bash in CI either way.
+            local found=0
+            git grep -niF "$1" -- . ':!.github/workflows/ci.yml' || found=$?
+            if [ "$found" -gt 1 ]; then
+              echo "::error::The publishability search itself failed (git grep exit $found), so it has decided nothing."
+              exit 2
+            fi
+            [ "$found" -eq 0 ] || return 0
+            echo "::error::$2"
+            fail=1
+          }
+          scan 'yuzu' "The owner's personal host is named in the tree. ADR-0109 argues from the slot's plan, price, region and what the SSH session proved; the name is an invitation and proves nothing."
+          scan '/Users/jacobrees' "An absolute path into the owner's machine is in the tree. It resolves for nobody else, and it says where this checkout happens to sit."
+          exit $fail
+
+      - name: Agent docs referenced by CLAUDE.md exist
+        run: |
+          fail=0
+          for f in docs/agents/issue-tracker.md docs/agents/triage-labels.md docs/agents/domain.md; do
+            [ -f "$f" ] || { echo "::error::missing $f"; fail=1; }
+          done
+          exit $fail
+
+  # ONE JOB, FOUR CHECKS, AND THAT IS A BILLING DECISION (ADR-0111). This file
+  # said the opposite here until CNCORE-35 -- "Separate jobs, so a red check
+  # names the thing that broke rather than making someone open the log to find
+  # out" -- and that principle was traded away deliberately rather than
+  # forgotten. GitHub bills per job ROUNDED UP TO THE WHOLE MINUTE, so four
+  # jobs doing 44 seconds of work between them billed four minutes.
+  #
+  # What replaces the named check is the STEP name: a failure is reported
+  # against `pnpm lint` or `pnpm typecheck` in the job summary, one click from
+  # the pull request rather than absent.
+  #
+  # READ ADR-0111 BEFORE SPLITTING THESE BACK APART. It carries the measured
+  # saving, why Secret scan and Agent docs deliberately stayed out, and how
+  # little headroom this job has under the 60-second boundary. The saving
+  # reverses silently if you split them, which is why there is a record at all.
+  static-checks:
+    name: Static checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # pnpm/setup installs pnpm and Node in one step and is what pnpm itself
+      # recommends from pnpm 11 on. The pnpm version comes from the
+      # packageManager field, and `pnpm install` runs automatically. What makes
+      # that install frozen is PNPM_CONFIG_FROZEN_LOCKFILE above, not anything
+      # said here: this action has no input for lockfile strictness at all.
+      #
+      # PAID ONCE HERE, rather than the four times these checks used to cost it.
+      # The install runs 13 seconds at the median and was billed per job; it is
+      # the single largest reason this merge is worth anything.
+      - uses: pnpm/setup@v2
+        with:
+          runtime: node@24
+          cache: true
+
+      - run: pnpm typecheck
+
+      # No "did it actually run anything?" guard here, and that is deliberate
+      # rather than forgotten. The Test job needs one because `turbo run test`
+      # exits 0 having run zero tasks. Biome does the opposite: it exits 1 with
+      # "No files were processed in the specified paths" when nothing matches,
+      # so an empty or over-ignored config fails this step by itself. A test in
+      # packages/config pins that, since it is the vendor's behaviour, not ours.
+      #
+      # `pnpm lint` is `biome ci`, which emits ::error annotations, so a failure
+      # lands on the diff rather than only in this log.
+      - run: pnpm lint
+
+      - run: pnpm build
+
+      # THE SAME COMMAND AS THE STEP ABOVE, REQUIRED TO FAIL. The generator's
+      # env validation once passed a build with no DATABASE_URL at all, failing
+      # instead on the first request that touched the database. This step is
+      # what stops that regressing: apps/web/.env is gitignored, so a CI
+      # checkout genuinely has no value to find.
+      #
+      # IT DOES NOT CONFLICT WITH THE SUCCESSFUL BUILD ABOVE, and the mechanism
+      # is worth stating, because it is the one thing that could make this step
+      # lie. `turbo.json` declares DATABASE_URL in the `build` task's `env`, so
+      # the value is part of the task hash: blanking it is a cache MISS and the
+      # build genuinely re-runs. Measured in this repository against a warm
+      # cache -- `0 cached`, exit 1, 0.4 seconds. And the obvious way to break
+      # that is not silent either: drop the declaration and Turbo's strict env
+      # mode stops passing DATABASE_URL to the task at all, which fails the
+      # build step above on every run. There is no arrangement in which this
+      # step quietly stops biting.
+      - name: Missing DATABASE_URL fails the build
+        env:
+          DATABASE_URL: ""
+        run: |
+          if pnpm build > build.log 2>&1; then
+            echo "::error::pnpm build succeeded with no DATABASE_URL. The env validation is not reaching the build."
+            tail -40 build.log
+            exit 1
+          fi
+          if ! grep -q "Invalid environment variables" build.log; then
+            echo "::error::pnpm build failed, but not on env validation. Something else is broken."
+            tail -40 build.log
+            exit 1
+          fi
+          echo "Build failed on env validation, as it should."
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    services:
+      # Migration 1 lands real tables, so the suites that read them need a real
+      # server. postgres:18 matches packages/db/docker-compose.yml, so CI and a
+      # developer's machine agree about what the ladder is applied to.
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: canoncore
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/setup@v2
+        with:
+          runtime: node@24
+          cache: true
+      # `turbo run test` exits 0 when it runs ZERO tasks, so a suite that
+      # vanished would report success. ADR-0103 refuses --passWithNoTests per
+      # package for the same reason; this closes the same hole one level up.
+      - name: Test, and assert a suite actually ran
+        run: |
+          set -o pipefail
+          pnpm test 2>&1 | tee test.log
+          if ! grep -qE "Tasks: +[1-9][0-9]* successful" test.log; then
+            echo "::error::pnpm test ran no test tasks. A green result here would mean nothing."
+            exit 1
+          fi
+
+  migrations:
+    name: Migration ladder
+    runs-on: ubuntu-latest
+    services:
+      # As above: a real server, matching packages/db/docker-compose.yml.
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: canoncore
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The base commit is needed to build the ladder as it stands today.
+          fetch-depth: 0
+      - uses: pnpm/setup@v2
+        with:
+          runtime: node@24
+          cache: true
+
+      # THE GATE (ADR-0047). Empty to head, on every run, failing the build if
+      # the ladder does not compose from nothing.
+      #
+      # It is a local choice rather than an industry standard, and worth saying
+      # so: not one of Drizzle, Prisma, Alembic, Flyway or Rails ships an
+      # empty-to-head gate as a named command, and Rails documents preferring a
+      # schema load to replaying history -- because old migrations rot against
+      # application code that has moved on. At one rung that objection does not
+      # bite, and the gate is cheap and genuinely valuable.
+      - name: Build the database from empty and apply every migration
+        run: |
+          psql "$ADMIN_URL" -c 'create database empty_to_head'
+          DATABASE_URL="${BASE_URL}/empty_to_head" pnpm db:migrate
+
+      # AND WHAT THE GATE CANNOT SEE. Building from empty applies every rung
+      # regardless of the high-water mark Drizzle uses against a POPULATED
+      # database, so the gate above goes green on exactly the divergence that
+      # would break a real upgrade. This is that upgrade, run for real: the base
+      # branch's ladder first, then this branch's on top of it.
+      - name: Apply this branch's rungs on top of the base branch's
+        # BASE_REF is bound here rather than interpolated into the script below.
+        # A branch name comes from the webhook payload and may contain shell
+        # metacharacters; `${{ }}` pastes it into the shell before bash sees it,
+        # where `$VAR` is just a string.
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref || 'main' }}
+        run: |
+          # Fetched explicitly rather than assumed present: what a checkout
+          # leaves in the local ref namespace is not something to rely on.
+          git fetch --no-tags --depth=100 origin "$BASE_REF"
+          base=$(git merge-base FETCH_HEAD HEAD)
+          echo "base commit: $base"
+          psql "$ADMIN_URL" -c 'create database upgrade_path'
+          mkdir -p /tmp/base-ladder
+          if git cat-file -e "$base:packages/db/src/migrations/meta/_journal.json" 2>/dev/null; then
+            git archive "$base" packages/db/src/migrations | tar -x -C /tmp/base-ladder
+            DATABASE_URL="${BASE_URL}/upgrade_path" \
+              node packages/db/scripts/migrate.ts /tmp/base-ladder/packages/db/src/migrations
+          else
+            echo "the base commit carries no ladder; the upgrade path starts empty."
+          fi
+
+          # Between the two: the checks Drizzle's own migrator does not perform.
+          # This is the ONLY place the freeze check means anything -- the ledger
+          # here was written from the base branch's files, so a rung this branch
+          # edited or withdrew is visible. Run against a database this branch
+          # built itself it would be comparing files to their own hashes.
+          DATABASE_URL="${BASE_URL}/upgrade_path" pnpm db:check-ladder
+
+          DATABASE_URL="${BASE_URL}/upgrade_path" pnpm db:migrate
+
+      # A pg_dump comparison of the two databases was considered and left out.
+      # It would catch a rung silently SKIPPED -- but the journal check above
+      # makes a skip unreachable, because Drizzle can only skip what sits below
+      # the high-water mark and nothing is allowed below it. The comparison also
+      # needs a pg_dump matching the server major, which the runner does not
+      # ship. Revisit if the journal check is ever relaxed.
+
+  e2e:
+    name: The page over HTTP
+    runs-on: ubuntu-latest
+    services:
+      # As above: a real server, matching packages/db/docker-compose.yml.
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: canoncore
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/setup@v2
+        with:
+          runtime: node@24
+          cache: true
+      # Builds Next, starts it, and asks it for /items/<id> over real HTTP. The
+      # only check in the repo that fails if the page is unreachable: every
+      # other suite passes with the app never having been served.
+      - run: pnpm test:e2e
+
+  provider:
+    name: Import and browse over HTTP, against the real provider
+    runs-on: ubuntu-latest
+    # The ONLY job that needs this, and it needs only read. The image is
+    # private and stays private: ADR-0089 pins the wiki provider to one person,
+    # so a publicly pullable image would be distribution.
+    permissions:
+      contents: read
+      packages: read
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: canoncore
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      # CNCORE-15's image, carrying ADR-0057's fixture, and CNCORE-17's `browse`
+      # on top of it. `:latest` rather than a digest ON PURPOSE: this provider
+      # and this app are one contract in two repositories, and pinning would let
+      # them drift silently until somebody bumped a hash. The contract is what
+      # must not break, and this job is what says so.
+      #
+      # THE TAG IS WHY THIS JOB NEEDED NO EDIT FOR `browse`. The app reads
+      # `operations` from the manifest and calls `browse` only if it is declared
+      # (ADR-0033), so an image without it would fail the browse tests with
+      # BROWSE_NOT_OFFERED -- which is the contract breaking, named, rather than
+      # a green run against a capability nobody shipped. The wait step below
+      # prints the manifest, so `operations` is in the log either way.
+      #
+      # NO STORED CREDENTIAL. The provider-wiki package grants this repository
+      # read under Manage Actions access, so the workflow's own GITHUB_TOKEN is
+      # the whole authentication story. A fine-grained token was the original
+      # plan and does not exist for this registry -- GitHub Packages accepts
+      # only a classic personal access token -- and a classic one would be a
+      # broader credential than this job needs. ADR-0089 carries the reasoning.
+      provider:
+        image: ghcr.io/jacobdrees-canoncore/provider-wiki:latest
+        credentials:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+        # Published to the host, because this job runs directly on the runner
+        # rather than in a container: GitHub reaches a service container at
+        # 127.0.0.1:<port> only when the port is mapped.
+        ports:
+          - 8080:8080
+
+      # CNCORE-16's image, and the SECOND provider. It is here because TMDB is
+      # the first source whose licence obliges the app to show anything: the
+      # wiki's archive imposes no notice and no mark, so with it alone the
+      # attribution path would be a branch nothing ever takes.
+      #
+      # IT NEEDS A CREDENTIAL AND THE WIKI DOES NOT, which is ADR-0035 in
+      # operation rather than in principle: this image ships no key and REFUSES
+      # TO START without one, so a container that runs at all is one somebody
+      # configured. A token in the environment here is the instance supplying
+      # its own, which is exactly what that record asks for.
+      provider-tmdb:
+        image: ghcr.io/jacobdrees-canoncore/provider-tmdb:latest
+        credentials:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          TMDB_READ_ACCESS_TOKEN: ${{ secrets.TMDB_READ_ACCESS_TOKEN }}
+        ports:
+          - 8081:8080
+    env:
+      # A CONFIG URL, and loopback (ADR-0034). It is legal because the
+      # allowlist names 127.0.0.0/8 BY NAME -- the content deny rule still
+      # classifies loopback as `loopback` and still refuses it there.
+      PROVIDER_WIKI_URL: http://127.0.0.1:8080
+      PROVIDER_TMDB_URL: http://127.0.0.1:8081
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/setup@v2
+        with:
+          runtime: node@24
+          cache: true
+
+      # The image declares a HEALTHCHECK, and whether the runner waits on it is
+      # not something to assume. Waiting here is three lines and turns "the
+      # provider was not up yet" from a confusing e2e failure into a named one.
+      - name: Wait for both providers to answer
+        run: |
+          set -euo pipefail
+          for url in "$PROVIDER_WIKI_URL" "$PROVIDER_TMDB_URL"; do
+            answered=""
+            for _ in $(seq 1 30); do
+              if curl -sSf "$url/" >/dev/null 2>&1; then
+                echo "the provider at $url answers:"
+                curl -sS "$url/" | head -c 400; echo
+                answered=yes
+                break
+              fi
+              sleep 1
+            done
+            if [ -z "$answered" ]; then
+              echo "::error::the provider at $url never answered."
+              exit 1
+            fi
+          done
+
+      # The SAME suite the `e2e` job runs, with PROVIDER_WIKI_URL set: the
+      # difference between the two runs is which process answers CMPP and
+      # nothing else, so the assertions that hold the stub to the contract are
+      # the ones holding the real image to it.
+      - run: pnpm test:e2e
+
+  contract:
+    name: One contract, both providers, no app
+    runs-on: ubuntu-latest
+    # THE SECOND SEAM, and the whole reason this job is separate from `provider`
+    # above. That one drives the APP against a provider; this one calls both
+    # providers DIRECTLY and asserts they answer the same shapes, the same claim
+    # structure and the same failure modes. Run through the app they would both be
+    # normalised into one shape before any assertion saw them, so the suite would
+    # pass whether or not they agreed -- which is the exact failure it exists to
+    # catch. `packages/contract` depends on no `@canoncore/*` package, so that
+    # separation is structural rather than a rule somebody remembers.
+    permissions:
+      contents: read
+      packages: read
+    services:
+      provider-wiki:
+        image: ghcr.io/jacobdrees-canoncore/provider-wiki:latest
+        credentials:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+        ports:
+          - 8080:8080
+      provider-tmdb:
+        image: ghcr.io/jacobdrees-canoncore/provider-tmdb:latest
+        credentials:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          TMDB_READ_ACCESS_TOKEN: ${{ secrets.TMDB_READ_ACCESS_TOKEN }}
+        ports:
+          - 8081:8080
+    env:
+      PROVIDER_WIKI_URL: http://127.0.0.1:8080
+      PROVIDER_TMDB_URL: http://127.0.0.1:8081
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/setup@v2
+        with:
+          runtime: node@24
+          cache: true
+
+      # BOTH, OR THE RUN MEANS NOTHING. The suite skips a provider whose URL is
+      # unset, which is right on a laptop that cannot pull a private image and
+      # wrong here: a contract checked against one participant is a schema test.
+      - name: Both providers answer, and both are under test
+        run: |
+          set -euo pipefail
+          for url in "$PROVIDER_WIKI_URL" "$PROVIDER_TMDB_URL"; do
+            answered=""
+            for _ in $(seq 1 30); do
+              if curl -sSf "$url/" >/dev/null 2>&1; then answered=yes; break; fi
+              sleep 1
+            done
+            if [ -z "$answered" ]; then
+              echo "::error::the provider at $url never answered, so the contract would be checked against one participant."
+              exit 1
+            fi
+            echo "$url declares: $(curl -sS "$url/" | head -c 200)"
+          done
+
+      - run: pnpm test:contract

@@ -1,0 +1,45 @@
+{
+  "name": "@canoncore/db",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema": "./src/schema/index.ts",
+    "./migrate": "./src/migrate.ts",
+    "./ladder": "./src/ladder.ts",
+    "./testing/global-setup": "./src/testing/global-setup.ts",
+    "./testing/setup": "./src/testing/setup.ts",
+    "./testing/catalogue": "./src/testing/catalogue.ts",
+    "./testing/build-database": "./src/testing/build-database.ts",
+    "./seed": "./src/seed.ts"
+  },
+  "scripts": {
+    "db:generate": "drizzle-kit generate",
+    "db:studio": "drizzle-kit studio",
+    "db:migrate": "drizzle-kit migrate",
+    "db:setup": "node scripts/setup.ts",
+    "db:check-ladder": "node scripts/check-ladder.ts",
+    "db:seed": "node scripts/seed.ts",
+    "db:start": "docker compose up -d",
+    "db:watch": "docker compose up",
+    "db:stop": "docker compose stop",
+    "db:down": "docker compose down",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@canoncore/env": "workspace:*",
+    "dotenv": "catalog:",
+    "drizzle-orm": "catalog:",
+    "edtf": "catalog:",
+    "pg": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@canoncore/config": "workspace:*",
+    "@types/pg": "catalog:",
+    "drizzle-kit": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "$schema": "https://ui.shadcn.com/schema.json",
+  "style": "base-lyra",
+  "rsc": true,
+  "tsx": true,
+  "tailwind": {
+    "config": "",
+    "css": "src/styles/globals.css",
+    "baseColor": "neutral",
+    "cssVariables": true,
+    "prefix": ""
+  },
+  "iconLibrary": "lucide",
+  "aliases": {
+    "components": "@canoncore/ui/components",
+    "utils": "@canoncore/ui/lib/utils",
+    "hooks": "@canoncore/ui/hooks",
+    "lib": "@canoncore/ui/lib",
+    "ui": "@canoncore/ui/components"
+  },
+  "menuColor": "default",
+  "menuAccent": "subtle",
+  "registries": {
+    "@shadcnblocks": {
+      "url": "https://www.shadcnblocks.com/r/{name}",
+      "headers": {
+        "Authorization": "Bearer ${SHADCNBLOCKS_API_KEY}"
+      }
+    }
+  }
+}

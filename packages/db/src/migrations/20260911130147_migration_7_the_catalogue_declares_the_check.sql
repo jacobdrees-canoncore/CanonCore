@@ -1,0 +1,74 @@
+-- Migration 7, under CNCORE-47. THE CATALOGUE DECLARES WHICH VALUES IT CAN READ
+-- BACK, AND NOT A CALLBACK AT A CALL SITE.
+--
+-- ADR-0012 names validation among the four things the properties catalogue
+-- declares, and makes "the metadata catalogue lives in the DATABASE rather than
+-- in code" the test separating this model from `wp_postmeta`. Three of the four
+-- have been columns since migration 1. The fourth, `validation`, was `{}` on
+-- every row with nothing writing it and nothing reading it -- which is the
+-- shape of a declared mechanism that does not exist.
+--
+-- CNCORE-29 put the first real rule in and put it in CODE, as an `admits`
+-- callback named beside the value it checked. That answered "not dispatched from
+-- the `datatype` column" -- correctly, because `url` is a seeded datatype with
+-- no check and a dispatch over datatypes would read as though every datatype
+-- were guarded -- and left "why not in `validation`" unanswered. This answers it.
+--
+-- THE OBJECTION THAT KILLED THE DATATYPE DISPATCH DOES NOT REACH THIS ONE, and
+-- the difference is what `{}` means. A property declaring `{}` says "nothing is
+-- checked" in the catalogue's own words, so `image` -- seeded `url`, checked by
+-- nothing -- is visibly unguarded rather than implied to be guarded. Dispatching
+-- on `datatype` could not say that; dispatching on the declaration does.
+--
+-- THE EXECUTOR STAYS IN TYPESCRIPT WHATEVER HAPPENS. SQL cannot parse EDTF, and
+-- neither can Shopify's database run a metafield definition's regular
+-- expression, nor Wikibase's evaluate a property constraint. What lives in the
+-- data is the DECLARATION; the runner is code either way. What the move buys is
+-- that "which properties are checked, and how" is a query rather than a grep --
+-- and that the answer is one thing rather than one per door, which matters at
+-- the second door rather than at this one.
+--
+-- LEVEL 1 IS A FACT ABOUT `released` RATHER THAN ABOUT EDTF, which is why it
+-- sits here rather than as a constant beside the parser. ADR-0073 refuses Level
+-- 2 because its sets and lists -- `[1667,1668]`, `{1960..1964}` -- say in ONE
+-- string what this property already says with two statements, migration 1 having
+-- given it `multiple` cardinality. A date property whose cardinality were
+-- `single` could declare a higher ceiling without the parser changing.
+--
+-- NOTHING IS BACKFILLED AND NOTHING NEEDS TO BE. The rule this writes down is
+-- the rule CNCORE-29 was already running, so no row's standing changes; and the
+-- refresh re-checks what a provider still claims, which is the only door rows
+-- written earlier come back through (ADR-0073).
+UPDATE "properties" SET "validation" = '{"format": "edtf", "level": 1}'::jsonb
+WHERE "name" = 'released';
+--> statement-breakpoint
+-- A DECLARATION NAMES A FORMAT, and `{}` declares nothing.
+--
+-- `jsonb` takes a scalar, an array and a null as happily as an object, so
+-- without this the one declaration the database cannot type-check would also be
+-- the one it did not check at all -- and `validation` is EDITABLE where
+-- `datatype` and `reference_target` freeze (ADR-0015), so the shape has to hold
+-- against every later write rather than only against this one.
+--
+-- ITS STRATEGY AGAINST THE ROWS ALREADY HERE, which ADR-0047 requires of a rung
+-- that NARROWS: every row passes, and nothing is transformed or quarantined to
+-- make it. `validation` has defaulted to `{}` since migration 1 and nothing has
+-- ever written it, so every property but one satisfies this by the `= '{}'`
+-- branch -- and the UPDATE above runs FIRST, so `released` satisfies it by the
+-- `format` branch before the constraint exists to judge it. The order of the two
+-- statements is therefore load-bearing, not cosmetic.
+--
+-- `coalesce(..., false)` IS LOAD-BEARING AND WAS NOT THERE AT FIRST. `-> 'format'`
+-- on an object with no such key is SQL NULL, `jsonb_typeof(NULL)` is NULL, and
+-- `NULL = 'string'` is NULL -- and a CHECK constraint refuses a write only when
+-- its expression is FALSE, so a declaration of `{"level": 1}` naming no format
+-- at all was ACCEPTED by the constraint written to forbid exactly that. The
+-- constraint looked correct and enforced nothing; a test asserting the refusal
+-- is what found it.
+--
+-- IT STOPS SHORT OF THE PER-FORMAT SHAPE on purpose. `src/validation.ts` parses
+-- that and refuses a declaration it cannot execute, and `validation.test.ts`
+-- walks the whole seeded catalogue so a format with no checker fails in CI
+-- rather than at somebody's first import. The database says a declaration is
+-- well-formed; the executor says it is one this catalogue can run.
+ALTER TABLE "properties" ADD CONSTRAINT "properties_validation_declares_a_format" CHECK (jsonb_typeof("properties"."validation") = 'object' and ("properties"."validation" = '{}'::jsonb or coalesce(jsonb_typeof("properties"."validation" -> 'format') = 'string', false)));

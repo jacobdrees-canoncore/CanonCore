@@ -1,0 +1,62 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1789051984338,
+      "tag": "20260910145304_migration_1_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1789051987104,
+      "tag": "20260910145307_migration_1_catalogue_and_projection",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789076494259,
+      "tag": "20260910214134_migration_2_a_member_with_no_position",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1789080136007,
+      "tag": "20260910224216_migration_3_the_external_id_mapping",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1789113999175,
+      "tag": "20260911080639_migration_4_what_a_source_obliges",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1789119781167,
+      "tag": "20260911094301_migration_5_one_item_per_external_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789129566459,
+      "tag": "20260911122606_migration_6_a_date_that_is_not_edtf",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1789131707803,
+      "tag": "20260911130147_migration_7_the_catalogue_declares_the_check",
+      "breakpoints": true
+    }
+  ]
+}

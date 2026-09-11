@@ -1,0 +1,593 @@
+import { sql } from "drizzle-orm";
+import {
+  boolean,
+  check,
+  index,
+  integer,
+  jsonb,
+  numeric,
+  pgTable,
+  text,
+  timestamp,
+  unique,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
+import {
+  itemKinds,
+  propertyCardinalities,
+  propertyDatatypes,
+  propertyValueKinds,
+  ranks,
+  sourceKinds,
+} from "./reference";
+import { idColumn, lifecycleColumns, ownerColumn } from "./shared";
+
+/**
+ * ADR-0044. One row, and the unique index on a constant expression is what
+ * makes "one" a fact rather than an intention. Multi-user is a later migration,
+ * and dropping this index is the first thing that migration does.
+ *
+ * The only table besides the reference tables and Drizzle's own ledger that
+ * carries no `owner_id`: it IS the owner.
+ */
+export const owners = pgTable(
+  "owners",
+  {
+    id: idColumn(),
+    displayName: text("display_name").notNull(),
+    ...lifecycleColumns(),
+  },
+  () => [uniqueIndex("owners_single_row").on(sql`(true)`)],
+);
+
+/**
+ * ADR-0040. A merge stamps its id on every row it touches, so reversal is a
+ * query — "find everything stamped with merge 47" — rather than `merged_from`
+ * columns or a second history mechanism.
+ *
+ * WHAT IS BUILT HERE IS THE STAMP, NOT THE MERGE. Nothing writes a row to this
+ * table yet. The stamp is in migration 1 because it cannot be retrofitted: rows
+ * written before it carry no `merge_id` and no ordered `change_sequence`, so a
+ * reversal cannot see them. The merge operation itself can arrive whenever, and
+ * an unmerge UI later still.
+ */
+export const merges = pgTable("merges", {
+  id: idColumn(),
+  ownerId: ownerColumn().references(() => owners.id),
+  performedAt: timestamp("performed_at", { withTimezone: true }).notNull().defaultNow(),
+  ...lifecycleColumns(),
+});
+
+/**
+ * The merge stamp, on every table a merge can touch — which is the catalogue.
+ *
+ * `owners` and `merges` themselves carry no stamp, and that is not the type
+ * checker winning an argument: a merge merges ITEMS. It never rewrites the
+ * single owner row, and a merge stamped with its own id says nothing. Stated
+ * here beside the third exception in `reference.ts` so the absences read as
+ * decisions rather than as oversights.
+ */
+const stampColumns = () => ({
+  ...lifecycleColumns(),
+  mergeId: uuid("merge_id").references(() => merges.id),
+});
+
+const ownedColumns = () => ({
+  ownerId: ownerColumn().references(() => owners.id),
+});
+
+/**
+ * ADR-0071, ADR-0025. Who asserted a value: a provider, the owner, a sidecar or
+ * a derived computation. The ranking among them is ONE order for the whole
+ * instance (ADR-0025) — a per-group order cannot answer an item in two groups
+ * whose orders disagree, which is two answers for one field on one page reached
+ * by one URL.
+ */
+export const sources = pgTable(
+  "sources",
+  {
+    id: idColumn(),
+    ...ownedColumns(),
+    kind: text("kind")
+      .notNull()
+      .references(() => sourceKinds.kind),
+    /** `owner`, a provider's URL, a sidecar path, or `derived:palette-v2`. */
+    identity: text("identity").notNull(),
+    label: text("label").notNull(),
+    /** ADR-0025. Ascending: 0 wins. The owner sits first. */
+    sourceOrder: integer("source_order").notNull(),
+    /**
+     * ADR-0036, ADR-0033. What this source's licence obliges the app to SHOW,
+     * verbatim, wherever the source's claims are read. NULL means the source
+     * imposes nothing, which is the ordinary case — the owner's own claims and
+     * the archive's both.
+     *
+     * ON THE SOURCE ROW, AND THAT IS THE DECISION. Every statement already names
+     * its source, so "which claims does this notice cover" is a join rather than a
+     * column repeated on every claim. It also puts the obligation on the row a
+     * purge deletes, so the notice and the content it covers cannot come apart:
+     * TMDB's termination clause requires purging their content, and a notice
+     * outliving the content would be the harmless half of that failure.
+     *
+     * DECLARED BY THE PROVIDER, never held against a known identity in our code
+     * (ADR-0033). A notice hardcoded for TMDB works perfectly and leaves the next
+     * source's obligation nowhere to go.
+     */
+    attributionNotice: text("attribution_notice"),
+    /**
+     * The source's mark, as a complete `data:` URI, where its licence requires one
+     * shown. TMDB's terms open "You must use the TMDB logo", which is an obligation
+     * rather than a constraint on a choice.
+     *
+     * BYTES RATHER THAN A URL, because the fetch is the READER'S BROWSER's and not
+     * this server's: a provider on a LAN address is reachable by the app and not
+     * necessarily by the person reading, and that breach renders as whitespace.
+     */
+    attributionLogo: text("attribution_logo"),
+    /**
+     * The mark's accessible name, carrying the clause's third obligation — that
+     * the mark "must make it clear that use of any TMDB logos does not imply any
+     * endorsement, certification, or other approval by TMDB". A reader who cannot
+     * see the mark is precisely the one who needs that sentence as text.
+     */
+    attributionLogoAlt: text("attribution_logo_alt"),
+    ...stampColumns(),
+  },
+  (t) => [
+    unique("sources_identity").on(t.ownerId, t.kind, t.identity),
+    unique("sources_order").on(t.ownerId, t.sourceOrder),
+    // ADR-0071: `derived` names the computation AND ITS VERSION, never a bare
+    // `derived`. That is the load-bearing half — invalidating a computed claim
+    // when the algorithm changes is the only operation ever performed on one,
+    // and a bare flag cannot answer "which rows does the new extractor
+    // invalidate?".
+    check(
+      "sources_derived_names_its_version",
+      sql`${t.kind} <> 'derived' or ${t.identity} ~ '^derived:.+$'`,
+    ),
+    // A MARK WITH NO ALTERNATIVE TEXT IS A BREACH RENDERED AS A PICTURE. The
+    // disclaimer obligation is discharged by the alt text for any reader who
+    // cannot see the mark, so the two are one fact and the database says so
+    // rather than leaving every writer to remember it.
+    check(
+      "sources_logo_carries_its_alternative_text",
+      sql`num_nonnulls(${t.attributionLogo}, ${t.attributionLogoAlt}) <> 1`,
+    ),
+    // AND A MARK WITHOUT A NOTICE IS THE OTHER HALF MISSING. Every licence that
+    // asks for a mark asks for words with it; a row carrying a logo alone would
+    // render a third party's trademark with nothing saying why it is there.
+    check(
+      "sources_logo_comes_with_a_notice",
+      sql`${t.attributionLogo} is null or ${t.attributionNotice} is not null`,
+    ),
+  ],
+);
+
+/**
+ * ADR-0002 (the abstract thing, never the file), ADR-0004 (containers fold in),
+ * ADR-0005 (seven kinds), ADR-0077 (`holds_work`).
+ *
+ * `title`, `sort_name` and `release_date` are PROJECTIONS (ADR-0014): the
+ * statement is the truth and carries source, rank, language and favourite, and
+ * the column is a cached copy of whichever statement currently wins. They are
+ * maintained by a trigger on `statements`; see migration 1's second rung.
+ */
+export const items = pgTable(
+  "items",
+  {
+    id: idColumn(),
+    ...ownedColumns(),
+    kind: text("kind")
+      .notNull()
+      .references(() => itemKinds.kind),
+    /** Stored, never inferred from having members. */
+    isContainer: boolean("is_container").notNull().default(false),
+    isOrdered: boolean("is_ordered").notNull().default(false),
+    /**
+     * ADR-0077. Does this container hold at least one work? Stored and
+     * maintained on placement write, because work-browsing is
+     * `kind = 'work' AND (NOT is_container OR holds_work)` and a read-time
+     * membership walk would make an empty container watchable and then hide it
+     * the moment its first member arrived.
+     */
+    holdsWork: boolean("holds_work").notNull().default(false),
+    title: text("title"),
+    sortName: text("sort_name"),
+    /** EDTF (ADR-0073), so a year-only date stays a year. No precision column. */
+    releaseDate: text("release_date"),
+    ...stampColumns(),
+  },
+  (t) => [
+    check("items_ordered_implies_container", sql`not ${t.isOrdered} or ${t.isContainer}`),
+    index("items_sort_name").on(t.sortName),
+  ],
+);
+
+/**
+ * ADR-0012, ADR-0015, ADR-0029. The metadata catalogue lives in the DATABASE
+ * rather than in code — that is the test separating a sound attribute model
+ * from `wp_postmeta`, and Wikibase, Shopify metafields, the OpenMRS concept
+ * dictionary and Salesforce all pass it.
+ *
+ * Only the product adds properties (ADR-0029): neither a provider nor the owner
+ * can define one.
+ */
+export const properties = pgTable(
+  "properties",
+  {
+    id: idColumn(),
+    ...ownedColumns(),
+    name: text("name").notNull(),
+    datatype: text("datatype")
+      .notNull()
+      .references(() => propertyDatatypes.datatype),
+    valueKind: text("value_kind")
+      .notNull()
+      .references(() => propertyValueKinds.valueKind),
+    cardinality: text("cardinality")
+      .notNull()
+      .references(() => propertyCardinalities.cardinality),
+    /**
+     * Which item kinds a value may have, for a property whose value-kind is
+     * `item`. An ARRAY because `created_by` legitimately targets a person or an
+     * organisation, and a single column cannot say so. Frozen at creation
+     * alongside `datatype` (ADR-0015).
+     */
+    referenceTarget: text("reference_target").array(),
+    /**
+     * WHAT MAY BE READ BACK AS A VALUE OF THIS PROPERTY, as the catalogue
+     * declares it rather than as a callback names it (ADR-0012, CNCORE-47).
+     * `{}` is a declaration too and its content is "nothing is checked", which
+     * is the honest answer for `title`. Migration 7 fills `released`.
+     *
+     * THE EXECUTOR STAYS IN CODE, and that is not the column failing its own
+     * test: SQL cannot parse EDTF, and neither can Shopify's database run a
+     * metafield's regular expression. What the catalogue holds is the
+     * DECLARATION, which is what makes "which properties are checked, and how"
+     * a query rather than a grep. `src/validation.ts` is the executor.
+     *
+     * NOT FROZEN, where `datatype` and `reference_target` are (ADR-0015). A
+     * rule that can be tightened later is what makes "start loose, tighten
+     * afterwards" survivable, and tightening one marks offenders at the next
+     * refresh rather than rejecting rows that are already here.
+     */
+    validation: jsonb("validation").notNull().default({}),
+    /** ADR-0012: a capabilities object, so a new capability lands without changing shape. */
+    capabilities: jsonb("capabilities").notNull().default({}),
+    ...stampColumns(),
+  },
+  (t) => [
+    unique("properties_name").on(t.ownerId, t.name),
+    // A property taking a LITERAL names no reference target. One taking an item
+    // may leave the target open: ADR-0016's `category` genuinely points at any
+    // kind, and freezing it (ADR-0015) as a list of all seven would be a freeze
+    // on a fact nobody has.
+    check(
+      "properties_only_item_values_have_a_reference_target",
+      sql`${t.valueKind} = 'item' or ${t.referenceTarget} is null`,
+    ),
+    // `datatype` and `value_kind` answer the same question from two sides and
+    // ADR-0012 names both, so they are held consistent rather than trusted.
+    check(
+      "properties_datatype_agrees_with_value_kind",
+      sql`(${t.datatype} = 'item') = (${t.valueKind} = 'item')`,
+    ),
+    // A DECLARATION NAMES A FORMAT, and `{}` declares nothing. `jsonb` takes a
+    // scalar, an array and a null as happily as an object, so without this the
+    // one declaration the database cannot type-check is also the one it does not
+    // check at all. It deliberately stops short of the per-format shape, which
+    // `src/validation.ts` parses and `validation.test.ts` walks the whole
+    // catalogue for -- the database says a declaration is well-formed, the
+    // executor says it is one the catalogue can run.
+    check(
+      "properties_validation_declares_a_format",
+      sql`jsonb_typeof(${t.validation}) = 'object' and (${t.validation} = '{}'::jsonb or coalesce(jsonb_typeof(${t.validation} -> 'format') = 'string', false))`,
+    ),
+  ],
+);
+
+/**
+ * ADR-0030. One vocabulary backs one property's allowed values. Rows arrive at
+ * runtime from imports, which is the whole difference from a reference table.
+ *
+ * UNIQUENESS SITS ON THE RAW VALUE and there is no normalised match key. That
+ * was measured against the archive and refuted: normalising collapses 0 of 70
+ * `Medium` values and 1 of 1,566 `Writer` values. The wreckage is SEMANTIC —
+ * free text typed into a field expecting a term — and no amount of case-folding
+ * reaches it, which is what `quarantined` is for.
+ *
+ * Where uniqueness sits is the one frozen decision here: moving the constraint
+ * later means resolving whatever collided in the meantime.
+ */
+export const vocabularyValues = pgTable(
+  "vocabulary_values",
+  {
+    id: idColumn(),
+    ...ownedColumns(),
+    propertyId: uuid("property_id")
+      .notNull()
+      .references(() => properties.id),
+    value: text("value").notNull(),
+    /** Deliberately deprecated, kept only for the rows already using it. */
+    retired: boolean("retired").notNull().default(false),
+    /** Arrived broken from an import, held apart from the live set. */
+    quarantined: boolean("quarantined").notNull().default(false),
+    ...stampColumns(),
+  },
+  (t) => [unique("vocabulary_values_raw_value").on(t.ownerId, t.propertyId, t.value)],
+);
+
+/**
+ * ADR-0009, ADR-0017, ADR-0018, ADR-0092. One item's membership of one
+ * container, at one position. The product's central claim.
+ *
+ * The id is a STABLE SURROGATE rather than a key made of (container, position),
+ * which is what Jellyfin uses: under a composite key any reorder changes the
+ * key and every external reference goes stale.
+ */
+export const placements = pgTable(
+  "placements",
+  {
+    id: idColumn(),
+    ...ownedColumns(),
+    containerId: uuid("container_id")
+      .notNull()
+      .references(() => items.id),
+    itemId: uuid("item_id")
+      .notNull()
+      .references(() => items.id),
+    /**
+     * Where this placement sits in its container's ordering -- and NULL when
+     * the source that asserted the membership asserted no position for it.
+     *
+     * NULLABLE ON PURPOSE (migration 2, CNCORE-7). `browse` hands back members
+     * a container's ordering cannot place: for the wiki that is a story the
+     * archive holds no release date for, and its ordering IS release order, so
+     * a sixth of the archive's stories arrive this way. A MEMBER WITH NO
+     * POSITION IS STILL A MEMBER -- dropping it shrinks a container silently,
+     * and putting it last asserts it came out after everything else, which the
+     * source never said. So the absence is recorded rather than filled in.
+     */
+    position: integer("position"),
+    /**
+     * ADR-0092. A container may hold a SPECIFIC edition rather than the work: a
+     * 4K box set contains the 4K editions, not "the films". The column ships
+     * with migration 1 because placements do; `editions` arrives with its own
+     * slice, and the foreign key with it.
+     */
+    editionId: uuid("edition_id"),
+    ...stampColumns(),
+  },
+  (t) => [
+    // ADR-0017. The same item at the same position twice is never a deliberate
+    // duplicate; it is always agreement, recorded against one row.
+    //
+    // NULLS NOT DISTINCT, so that holds for a member with no position too. Under
+    // PostgreSQL's default two sources both saying "a member, position unknown"
+    // would be two rows, because NULL is distinct from NULL -- and agreement
+    // about the least certain fact in the table would be the one kind of
+    // agreement this constraint failed to record.
+    unique("placements_container_item_position")
+      .on(t.ownerId, t.containerId, t.itemId, t.position)
+      .nullsNotDistinct(),
+    // AND DELIBERATELY NO UNIQUE CONSTRAINT ON (container_id, position).
+    // ADR-0009: a story-order container holding both a novel and the film that
+    // adapts it must place them at the same point without inventing an order
+    // between them. Two DIFFERENT items sharing one position is what that is
+    // FOR; without the reason written down it reads as a missing constraint.
+    index("placements_container_position").on(t.containerId, t.position),
+    index("placements_item").on(t.itemId),
+  ],
+);
+
+/**
+ * ADR-0017. A placement has many sources. Sources agreeing are recorded against
+ * one placement row; sources disagreeing about position produce two placement
+ * rows, resolved by rank — exactly as two competing statements are.
+ *
+ * An ordering is a dated claim by a named source, not a neutral fact.
+ */
+export const placementSources = pgTable(
+  "placement_sources",
+  {
+    id: idColumn(),
+    ...ownedColumns(),
+    placementId: uuid("placement_id")
+      .notNull()
+      .references(() => placements.id, { onDelete: "cascade" }),
+    sourceId: uuid("source_id")
+      .notNull()
+      .references(() => sources.id),
+    rank: text("rank")
+      .notNull()
+      .default("normal")
+      .references(() => ranks.rank),
+    observedAt: timestamp("observed_at", { withTimezone: true }).notNull().defaultNow(),
+    ...stampColumns(),
+  },
+  (t) => [unique("placement_sources_placement_source").on(t.ownerId, t.placementId, t.sourceId)],
+);
+
+/**
+ * ADR-0012, ADR-0013, ADR-0090. Every claimed value and every relationship.
+ * The statement records only what changed, with who said it and when — not a
+ * versioned copy of the whole item, which would duplicate every unchanged field
+ * on every save.
+ *
+ * It carries the same four provenance facts as MARC 21 field 883: creation
+ * process (the source), a confidence 0..1, a creation date and a validity end.
+ *
+ * SUBJECTS. ADR-0012 names three addressable, field-bearing tables: items,
+ * editions and placements. Two of them exist, so two subject columns exist, and
+ * `subject_edition_id` arrives with `editions`.
+ *
+ * THAT LOOKS LIKE A CONTRADICTION OF `placements.edition_id` ABOVE, WHICH SHIPS
+ * WITHOUT ITS TABLE, and the difference is not a general principle about
+ * nullable columns -- it is which of them a record decides. ADR-0092 puts
+ * `placements.edition_id` in migration 1 by name, and gives the reason: a
+ * container may hold a specific edition rather than the work. Nothing decides
+ * `subject_edition_id`, so ADR-0051's default applies and it waits for the
+ * slice that can also give it a foreign key. Stated because an implementer
+ * reading these two columns together will otherwise assume one is a mistake.
+ */
+export const statements = pgTable(
+  "statements",
+  {
+    id: idColumn(),
+    ...ownedColumns(),
+    subjectItemId: uuid("subject_item_id").references(() => items.id, { onDelete: "cascade" }),
+    subjectPlacementId: uuid("subject_placement_id").references(() => placements.id, {
+      onDelete: "cascade",
+    }),
+    propertyId: uuid("property_id")
+      .notNull()
+      .references(() => properties.id),
+    valueLiteral: text("value_literal"),
+    valueItemId: uuid("value_item_id").references(() => items.id),
+    sourceId: uuid("source_id")
+      .notNull()
+      .references(() => sources.id),
+    observedAt: timestamp("observed_at", { withTimezone: true }).notNull().defaultNow(),
+    rank: text("rank")
+      .notNull()
+      .default("normal")
+      .references(() => ranks.rank),
+    confidence: numeric("confidence", { precision: 4, scale: 3 }),
+    validUntil: timestamp("valid_until", { withTimezone: true }),
+    /**
+     * ADR-0090. BCP 47, and unknown is the VALUE `none` rather than an absent
+     * one — copied from IIIF Presentation 3.0 §4.4, where it is a `must`.
+     * Without unknown-language being a real value, "show me the untagged ones"
+     * cannot be expressed at all.
+     */
+    language: text("language").notNull().default("none"),
+    /**
+     * ADR-0090. Where a claim applies, a SECOND AXIS beside language and never
+     * a synonym for it. Nullable, and NULL means the claim is not
+     * country-scoped at all, which is the ordinary case.
+     */
+    country: text("country"),
+    /**
+     * CNCORE-29. A value that arrived broken from an import, HELD APART FROM
+     * THE LIVE SET rather than refused at the door -- ADR-0030's posture for a
+     * vocabulary value, applied to a claim.
+     *
+     * NOT A SECOND TOMBSTONE. `deleted_at` says a claim was WITHDRAWN by
+     * whoever made it, and every reader honours it for that reason; this says
+     * the claim still stands and the catalogue cannot read it. The two are
+     * orthogonal exactly as `retired` and `quarantined` are on
+     * `vocabulary_values`, and a row can carry both.
+     *
+     * WHY THE VALUE IS KEPT AT ALL: it carries the provider that said it, so
+     * "what did this source actually send" stays answerable. Dropping it at the
+     * door would leave the catalogue unable to tell a provider that sends
+     * nothing from one that sends rubbish.
+     */
+    quarantined: boolean("quarantined").notNull().default(false),
+    ...stampColumns(),
+  },
+  (t) => [
+    check(
+      "statements_one_subject",
+      sql`num_nonnulls(${t.subjectItemId}, ${t.subjectPlacementId}) = 1`,
+    ),
+    check("statements_one_value", sql`num_nonnulls(${t.valueLiteral}, ${t.valueItemId}) = 1`),
+    check(
+      "statements_confidence_is_a_probability",
+      sql`${t.confidence} is null or (${t.confidence} >= 0 and ${t.confidence} <= 1)`,
+    ),
+    index("statements_subject_item_property").on(t.subjectItemId, t.propertyId),
+    index("statements_value_item").on(t.valueItemId),
+    // CNCORE-28. THE REVERSE LOOKUP: not "what does this item claim" but "which
+    // item does this source's own id name". Every import makes it once per
+    // record -- sixty times for one browse -- so without it a bulk import is a
+    // sequential scan of every statement in the catalogue per member.
+    //
+    // IT INDEXES A HASH OF THE VALUE RATHER THAN THE VALUE, and that is a fix
+    // rather than a flourish. A btree index tuple is capped at 2704 bytes, and
+    // `value_literal` is unbounded `text` -- so indexing it directly made every
+    // literal statement in the catalogue subject to that cap, and a provider
+    // returning a long enough title aborted the whole import transaction.
+    // MEASURED against this database, not assumed: at 2600 random characters the
+    // insert succeeds, at 2800 it fails with `index row size 2848 exceeds btree
+    // version 4 maximum 2704`. `md5` is 32 characters whatever it is given, so
+    // the cap is unreachable and no future long-text property inherits it.
+    // Collisions cannot give a wrong answer, because the lookup still compares
+    // the value itself; the hash only narrows what it compares.
+    //
+    // NOT UNIQUE, and the unique one is not here either. CNCORE-31 holds one
+    // provider's id to one item with `statements_one_item_per_external_id`,
+    // which is PARTIAL -- it covers the `external_id` property alone, because
+    // two items may legitimately share every other property's value -- and a
+    // partial index needs that property's id as a LITERAL, since PostgreSQL
+    // refuses a subquery in an index predicate. The id is minted per install
+    // and this file is one file shared by every install, so the index CANNOT BE
+    // DECLARED HERE and lives hand-written in migration 5. Stated so the
+    // absence reads as a decision rather than as a rule nobody got round to.
+    index("statements_property_literal_source").on(
+      t.propertyId,
+      sql`md5(${t.valueLiteral})`,
+      t.sourceId,
+    ),
+  ],
+);
+
+/**
+ * ADR-0067. A fact only true in a context: appeared in a place, in this work,
+ * at this time. How much of a source an adaptation covers is one of these, on
+ * the `based_on` statement — never `edition_coverage`, which describes what
+ * fraction of its OWN work an edition covers and cannot see across an
+ * adaptation at all.
+ */
+export const statementQualifiers = pgTable(
+  "statement_qualifiers",
+  {
+    id: idColumn(),
+    ...ownedColumns(),
+    statementId: uuid("statement_id")
+      .notNull()
+      .references(() => statements.id, { onDelete: "cascade" }),
+    propertyId: uuid("property_id")
+      .notNull()
+      .references(() => properties.id),
+    valueLiteral: text("value_literal"),
+    valueItemId: uuid("value_item_id").references(() => items.id),
+    ...stampColumns(),
+  },
+  (t) => [
+    check(
+      "statement_qualifiers_one_value",
+      sql`num_nonnulls(${t.valueLiteral}, ${t.valueItemId}) = 1`,
+    ),
+    index("statement_qualifiers_statement").on(t.statementId),
+  ],
+);
+
+/**
+ * ADR-0040. The retained id of a merged-away item, resolving to the item that
+ * survived. It is an IDENTITY, never an alternative name — an alternative name
+ * is a statement.
+ *
+ * In migration 1 because the first merge breaks every old URL without it.
+ *
+ * `alias_item_id` carries no foreign key ON PURPOSE: the row it names is gone,
+ * which is what makes it an alias rather than a second pointer at a live item.
+ */
+export const aliases = pgTable(
+  "aliases",
+  {
+    id: idColumn(),
+    ...ownedColumns(),
+    aliasItemId: uuid("alias_item_id").notNull(),
+    itemId: uuid("item_id")
+      .notNull()
+      .references(() => items.id),
+    ...stampColumns(),
+  },
+  (t) => [
+    unique("aliases_alias_item").on(t.aliasItemId),
+    // An alias resolving to another alias is a chain nothing walks.
+    check("aliases_do_not_point_at_themselves", sql`${t.aliasItemId} <> ${t.itemId}`),
+  ],
+);
