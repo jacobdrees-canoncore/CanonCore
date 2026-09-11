@@ -1,0 +1,34 @@
+-- Migration 8, under CNCORE-66. THE EXTENSION CATALOGUE SEARCH IS BUILT ON.
+--
+-- HAND-WRITTEN BECAUSE DRIZZLE-KIT DOES NOT EMIT IT. `drizzle-kit generate`
+-- diffs the schema file against the last snapshot and writes DDL for tables,
+-- columns, constraints and indexes. An extension is none of those: it is a
+-- precondition of the index in migration 9, and the generator has no way to
+-- know the index needs one. Without this rung that index fails outright --
+-- `operator class "gin_trgm_ops" does not exist` -- so the two rungs are in
+-- this order because the second cannot run before the first.
+--
+-- `pg_trgm` IS A TRUSTED EXTENSION, so a database owner installs it without
+-- being a superuser. That is what makes this acceptable in software a stranger
+-- self-hosts: nothing here asks for a privilege the application's own database
+-- role does not already have.
+--
+-- WHY TRIGRAMS RATHER THAN FULL-TEXT SEARCH, which is the obvious answer and is
+-- the wrong one. Measured on PostgreSQL 18.6 over 20,003 rows under CNCORE-66:
+-- `websearch_to_tsquery` returns ZERO results for `ros` against "Rose Tyler",
+-- and zero for `yler`. Full-text search matches LEXEMES, so it can neither
+-- prefix-match nor infix-match, and a search box whose reader has typed three
+-- letters is asking for exactly that. Trigram `ilike` answered 1032 and 1009 on
+-- the same data in 0.23 ms.
+--
+-- WHAT IT COSTS, said rather than discovered: trigram matching has no notion of
+-- word order, so "Tyler Rose" does not find "Rose Tyler". The fix for that when
+-- it is wanted is to AND the escaped terms together -- one pattern per word,
+-- all against this same index -- and never to add a `tsvector` alongside. Two
+-- search mechanisms is two answers to one question.
+--
+-- IT NEEDS NO STRATEGY AGAINST THE ROWS ALREADY HERE (ADR-0047). This rung
+-- narrows nothing and rewrites nothing: it adds a capability the database did
+-- not have, and every existing row is untouched and still passes every
+-- constraint it passed before.
+CREATE EXTENSION IF NOT EXISTS pg_trgm;

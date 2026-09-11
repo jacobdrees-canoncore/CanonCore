@@ -201,6 +201,25 @@ export const items = pgTable(
   (t) => [
     check("items_ordered_implies_container", sql`not ${t.isOrdered} or ${t.isContainer}`),
     index("items_sort_name").on(t.sortName),
+    /**
+     * CNCORE-66. Catalogue search, which matches ANYWHERE inside a title: a
+     * reader who has typed `yler` is looking for "Rose Tyler". A b-tree cannot
+     * serve that and neither can full-text search, which matches lexemes and
+     * answers nothing at all for a fragment -- measured, and written up in
+     * migration 8 beside the extension this opclass needs.
+     *
+     * ONE INDEX, and it serves both halves of the query: `gin_trgm_ops` is what
+     * makes `ilike '%...%'` indexable, and `similarity()` -- which orders the
+     * results -- comes from the same extension. A second index for the ordering
+     * would be a second thing to keep true.
+     *
+     * IT COVERS THE WINNING TITLE AND ONLY THAT. `title` is a projection
+     * (ADR-0014), so alternative and foreign-language titles live as statements
+     * and are not reachable through this. Making them searchable needs a
+     * partial expression index keyed to a property id that is minted per
+     * install, which cannot be declared in a schema file at all.
+     */
+    index("items_title_trigram").using("gin", t.title.op("gin_trgm_ops")),
   ],
 );
 

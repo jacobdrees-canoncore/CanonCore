@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { OUR_MARK_PX } from "./marks";
 import { ModeToggle } from "./mode-toggle";
+import { SearchBox } from "./search-box";
 
 export default function Header() {
   return (
@@ -44,6 +45,12 @@ export default function Header() {
           </Link>
         </nav>
         <div className="flex items-center gap-2">
+          {/*
+            IN THE SHELL, so Catalogue search is reachable from wherever a
+            reader already is rather than only from the front page. See
+            `search-box.tsx` for why it is a `Form` and not a `form`.
+          */}
+          <SearchBox />
           <ModeToggle />
         </div>
       </div>

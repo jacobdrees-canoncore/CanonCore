@@ -550,8 +550,15 @@ async function readListing(
  * once in raw SQL. That is one rule in two languages, which is the hazard this
  * file already carries a paragraph about: the day the rule gains a second term
  * the count agrees with a listing neither of them is describing.
+ *
+ * EXPORTED WITHIN THE PACKAGE (CNCORE-66), because Catalogue search is a second
+ * reader of "what is in the catalogue" and had re-inlined `isNull(deletedAt)`
+ * for itself. Two spellings of one rule is the same hazard one file away, and
+ * the day this gains a term the two surfaces would disagree about what the
+ * catalogue contains. It stays out of the package's public export: a caller
+ * outside gets `readCatalogue` or `searchCatalogue`, never a predicate.
  */
-const IN_THE_CATALOGUE = isNull(items.deletedAt);
+export const IN_THE_CATALOGUE = isNull(items.deletedAt);
 
 /**
  * WHAT WORK-BROWSING SHOWS (ADR-0077): `kind = 'work' AND (NOT is_container OR
@@ -581,8 +588,11 @@ const WORK_BROWSING = and(
  *
  * The order and the cursor that walks it are one rule, and spelling it twice is
  * how they come to disagree about where a page ended.
+ *
+ * EXPORTED WITHIN THE PACKAGE for the reason above it: Catalogue search breaks
+ * its own ties on the catalogue's order, so it is a third reader of this.
  */
-const SORT_KEY = sql<string | null>`coalesce(${items.sortName}, ${items.title})`;
+export const SORT_KEY = sql<string | null>`coalesce(${items.sortName}, ${items.title})`;
 
 /** Where one item sits in the catalogue's order. */
 interface PlaceInTheOrder {

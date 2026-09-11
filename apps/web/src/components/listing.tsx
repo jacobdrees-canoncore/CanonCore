@@ -83,13 +83,32 @@ export function cursorFrom(after: string | string[] | undefined): string | undef
  * THE CAP IS NEVER SILENT. A listing capped at a page and reported as the whole
  * thing tells an owner their library is smaller than it is, which is the one
  * lie a catalogue must not tell about itself.
+ *
+ * THE NOUN IS A PARAMETER BECAUSE CATALOGUE SEARCH COUNTS SOMETHING ELSE
+ * (CNCORE-66). The two listings count ITEMS -- what the catalogue holds -- and
+ * a search counts RESULTS, which is how many matched rather than how many
+ * exist. Same sentence, same cap, different thing being counted, so the word is
+ * the argument and the rule is not copied. It defaults to `item`, so the
+ * surfaces that were here first say exactly what they said before.
+ *
+ * PLURALISED WITH AN `s`, which is honest for both words this takes and would
+ * not be for every word. A caller needing a different plural is the point at
+ * which this takes the pair rather than the stem.
  */
-export function Holding({ showing, total }: { showing: number; total: number }) {
+export function Holding({
+  showing,
+  total,
+  noun = "item",
+}: {
+  showing: number;
+  total: number;
+  noun?: string;
+}) {
   return (
     <p className="text-muted-foreground text-sm">
       {showing < total
-        ? `Showing ${showing} of ${total} items`
-        : `${total} ${total === 1 ? "item" : "items"}`}
+        ? `Showing ${showing} of ${total} ${noun}s`
+        : `${total} ${total === 1 ? noun : `${noun}s`}`}
     </p>
   );
 }

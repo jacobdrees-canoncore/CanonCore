@@ -119,3 +119,55 @@ describe("catalogue.works", () => {
     expect(listed).not.toContain(person);
   });
 });
+
+describe("catalogue.search", () => {
+  it("finds a Work and an Entity alike, each saying which kind it is", async () => {
+    // The ticket's own case. A Character's name has to work as well as a
+    // Work's, and the kind is what keeps two things sharing a name apart -- in
+    // the READER'S words, because `CONTEXT.md` is binding on UI copy and the
+    // key stays below this seam (ADR-0045).
+    const work = await anItemTitled(db, "The Web Planet");
+    const character = await anItemTitled(db, "The Web Planet's Zarbi", { kind: "character" });
+
+    const found = await call(appRouter.catalogue.search, { query: "Web Planet" }, { context });
+
+    expect(found.entries).toContainEqual(expect.objectContaining({ id: work, kind: "Work" }));
+    expect(found.entries).toContainEqual(
+      expect.objectContaining({ id: character, kind: "Character" }),
+    );
+  });
+
+  it("answers an empty query with nothing", async () => {
+    // Deliberate rather than accidental: an escaped empty query is the pattern
+    // `%%` and matches every titled row, so an empty search box would otherwise
+    // answer with the whole catalogue (ADR-0120).
+    await anItemTitled(db, "An item the empty query must not reach");
+
+    const found = await call(appRouter.catalogue.search, { query: "" }, { context });
+
+    expect(found).toEqual({ entries: [], total: 0 });
+  });
+
+  it("refuses a limit above a page, and accepts one at it", async () => {
+    // The ceiling is what keeps one request's cost bounded by this app rather
+    // than by whoever sends the request, which is the same rule `list` carries.
+    //
+    // BOTH HALVES, because the refusal alone is satisfied by a procedure that
+    // refuses everything -- and while this was being written it was satisfied
+    // by a procedure that did not exist at all, since calling `undefined`
+    // throws as readily as a validator does. The pair is what makes it a test
+    // of the ceiling rather than of whether anything threw.
+    //
+    // THE MESSAGE IS oRPC'S OWN and does not name the field: the input schema
+    // rejects and the procedure answers "Input validation failed". Matched
+    // rather than left bare so that a `TypeError` -- which is what calling a
+    // procedure that is not there raises -- cannot satisfy it.
+    await expect(
+      call(appRouter.catalogue.search, { query: "anything", limit: 101 }, { context }),
+    ).rejects.toThrow("Input validation failed");
+
+    await expect(
+      call(appRouter.catalogue.search, { query: "anything", limit: 100 }, { context }),
+    ).resolves.toBeDefined();
+  });
+});

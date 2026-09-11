@@ -304,3 +304,32 @@ export const cataloguePublic = z.object({
 });
 
 export type CataloguePublic = z.infer<typeof cataloguePublic>;
+
+/**
+ * What the read path emits for a Catalogue search (`CONTEXT.md`), which is the
+ * surface that searches the owner's own catalogue -- never the CMPP operation
+ * of the same name, which asks a PROVIDER for candidates.
+ *
+ * THE SAME ENTRIES AS THE LISTING, DELIBERATELY. A result and a catalogue row
+ * carry the same four facts: an address, a name, what sort of thing it is, and
+ * whether it holds other things. Two schemas for that would be two places to
+ * add a field to.
+ *
+ * AND DELIBERATELY NOT `cataloguePublic`, WHICH IS THE DECISION HERE. That one
+ * carries `continuesAfter`, and ADR-0119 makes `null` there mean "the listing
+ * ends here". A search over a thousand matches has no cursor to offer yet
+ * (CNCORE-88), so answering `null` would tell every caller the hundred it
+ * returned were all there were -- a silent cap wearing a contract's clothes.
+ * The field is absent rather than present and false.
+ */
+export const catalogueSearchPublic = z.object({
+  entries: z.array(catalogueEntryPublic),
+  /**
+   * How many items MATCHED altogether, cap or no cap. With no cursor beside it
+   * this is the whole of what keeps the cap from being silent, which is why it
+   * is in the contract rather than left for a caller to count.
+   */
+  total: z.number().int().nonnegative(),
+});
+
+export type CatalogueSearchPublic = z.infer<typeof catalogueSearchPublic>;

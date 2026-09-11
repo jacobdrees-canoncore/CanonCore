@@ -91,6 +91,19 @@ Next.js 16.3.4's own documentation, read from `node_modules/next/dist/docs` on 2
 `01-app/02-guides/caching-without-cache-components.md`. This app sets no `cacheComponents`, so the
 route segment config and `connection()` are both live and the `use cache` directive is not in play.
 
+## The surfaces that have earned the pair
+
+- `/` — `apps/web/src/app/page.tsx`, under CNCORE-65. The defect that produced this record.
+- `/search` — `apps/web/src/app/search/page.tsx`, under CNCORE-66. It adds **no `connection()`**,
+  under the exemption two sections above: `q` is a request-time API it touches for its own reasons,
+  and it is the page's entire input rather than decoration it might stop reading. What it does add
+  is the check — `e2e/search.test.ts` asks the seeded and the fresh instance for the same
+  `/search?q=…` and expects different answers — which is the half this record says is actually
+  earned. `next build` agrees independently, listing the route as `ƒ (Dynamic)`.
+
+`/items/<id>` is the third dynamic read surface and has no pair, which is the honest state rather
+than an oversight: it was dynamic before this record existed, by `searchParams` it reads for `?via=`.
+
 ## As built, under CNCORE-65
 
 `apps/web/src/app/page.tsx` calls `connection()` as the first line of its read. The test that would
