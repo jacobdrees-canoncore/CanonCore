@@ -9,16 +9,18 @@ import {
   EmptyTitle,
 } from "@canoncore/ui/components/empty";
 import { call } from "@orpc/server";
-import Link from "next/link";
 import { connection } from "next/server";
+import { cursorFrom, Holding, Listing, PastTheEnd, Walk } from "@/components/listing";
 
 /**
  * THE CATALOGUE, which is what opening CanonCore ought to tell you.
  *
  * ADR-0077 phrases its rule around the QUESTION A SURFACE ASKS, and this asks
  * the wide one: "what is in this catalogue", so it shows every kind and hides
- * no People. The narrow question -- "what can I watch" -- is a surface of its
- * own (CNCORE-67) rather than this one with a filter bolted to it.
+ * no People. The narrow question -- "what can I watch" -- is `/works`, a
+ * surface of its own rather than this one with a filter bolted to it, and the
+ * header offers both so a reader chooses the question rather than inheriting
+ * one.
  *
  * The router is called IN-PROCESS, as the item page calls it. A server
  * component fetching its own API is a round trip to itself, and oRPC documents
@@ -63,25 +65,16 @@ async function readFrontPage(after: string | undefined) {
   return { catalogue, providers };
 }
 
-type FrontPage = Awaited<ReturnType<typeof readFrontPage>>;
-
 export default async function CataloguePage({
   searchParams,
 }: {
   searchParams: Promise<{ after?: string | string[] }>;
 }) {
-  /*
-   * WHERE IN THE CATALOGUE THIS READER IS, read on the SERVER so the page they
-   * are served is already the page they asked for.
-   *
-   * An array means the parameter was repeated, and a reader is at one place in
-   * one ordering -- so a repeated one names no place rather than the first of
-   * several. That is the rule `/items/<id>` applies to `via` and `placed`
-   * (ADR-0066), and a second surface answering it differently would be two
-   * conventions for one question.
-   */
+  // ADR-0119's cursor, read on the SERVER so the page a reader is served
+  // is already the page they asked for. `cursorFrom` owns what a repeated
+  // parameter means, so both reading surfaces answer that the same way.
   const { after } = await searchParams;
-  const from = typeof after === "string" && after !== "" ? after : undefined;
+  const from = cursorFrom(after);
   const { catalogue, providers } = await readFrontPage(from);
   // ONE NAME FOR ONE FACT. It was three reads of `catalogue.total` in three
   // shapes -- `> 0`, `=== 0`, and a comparison inside `Holding` -- which is one
@@ -102,105 +95,14 @@ export default async function CataloguePage({
         cursor makes possible: the link was cut at an item, and nothing is after
         that item any more. It is rare and it is a DEAD END if nothing says so.
       */}
-      {!empty && listing.length === 0 && <PastTheEnd />}
+      {!empty && listing.length === 0 && <PastTheEnd path="/" />}
       {listing.length > 0 && (
         <>
           <Listing entries={listing} />
-          <Walk from={from} continuesAfter={catalogue.continuesAfter} />
+          <Walk path="/" from={from} continuesAfter={catalogue.continuesAfter} />
         </>
       )}
     </main>
-  );
-}
-
-/**
- * HOW A READER REACHES THE REST OF IT (ADR-0119).
- *
- * FORWARD, AND BACK TO THE START. The walk is a keyset one, so `Next` is the
- * direction it has -- reversing it is a second query shape and a capability of
- * its own rather than half of this one. What a reader must never be is
- * STRANDED, and a deep link is exactly where that happens: somebody arriving on
- * page five from a shared URL has no history to go back through. So every page
- * past the first carries the one address that is always somewhere.
- *
- * `Link` RATHER THAN `a`, which is the rule `Listing` below states in full: a
- * URL the framework does not rewrite is one that points at the wrong place the
- * day this app is served from a path (ADR-0109).
- *
- * THE CURSOR IS ENCODED ON THE WAY INTO THE URL. It is a uuid today and every
- * uuid survives encoding unchanged, so this changes no byte the app currently
- * emits -- which is the point: what makes it safe is then the call here rather
- * than an invariant held in a schema two packages away, and ADR-0119 leaves the
- * cursor's format open to revisit.
- */
-function Walk({ from, continuesAfter }: { from?: string; continuesAfter: string | null }) {
-  if (from === undefined && continuesAfter === null) return null;
-  return (
-    <nav aria-label="More of the catalogue" className="mt-6 flex items-baseline gap-4">
-      {from !== undefined && (
-        <Link href="/" className="text-sm hover:underline">
-          Back to the start
-        </Link>
-      )}
-      {continuesAfter !== null && (
-        <Link
-          href={`/?after=${encodeURIComponent(continuesAfter)}`}
-          className="ml-auto text-sm hover:underline"
-        >
-          Next
-        </Link>
-      )}
-    </nav>
-  );
-}
-
-/**
- * A LINK THAT OUTLIVED THE ITEMS AFTER IT.
- *
- * A cursor is cut at an item, and this page is what a reader gets when nothing
- * sorts after that item any more -- a bookmark kept past a delete, or an
- * address typed by hand. Saying the catalogue ends here, and pointing at the
- * one address that is always somewhere, is the difference between an ending and
- * a page that looks broken.
- */
-function PastTheEnd() {
-  return (
-    <section aria-labelledby="past-the-end" className="mt-6">
-      <Empty className="border">
-        <EmptyHeader>
-          {/* A real heading, for the reason `NoProviderAllowlisted` gives. */}
-          <EmptyTitle>
-            <h2 id="past-the-end">The catalogue ends here</h2>
-          </EmptyTitle>
-          <EmptyDescription>
-            Nothing sorts after the item this link was cut at. It may have been the last one, or it
-            may have been removed since.
-          </EmptyDescription>
-        </EmptyHeader>
-        <EmptyContent>
-          <Link href="/" className="hover:underline">
-            Back to the start of the catalogue
-          </Link>
-        </EmptyContent>
-      </Empty>
-    </section>
-  );
-}
-
-/**
- * How much of the catalogue this page is showing, and how much there is.
- *
- * THE CAP IS NEVER SILENT. A listing capped at a page and reported as the whole
- * catalogue tells an owner their library is smaller than it is, which is the
- * one lie a catalogue must not tell about itself.
- */
-function Holding({ showing, total }: { showing: number; total: number }) {
-  return (
-    <p className="text-muted-foreground text-sm">
-      {showing < total
-        ? `Showing ${showing} of ${total} items`
-        : `${total} ${total === 1 ? "item" : "items"}`}
-    </p>
   );
 }
 
@@ -294,51 +196,5 @@ function WhatToDoNext() {
         </EmptyContent>
       </Empty>
     </section>
-  );
-}
-
-/**
- * Every item, in the order the catalogue keeps them: `sort_name` where a source
- * has claimed one, and the title otherwise (ADR-0014).
- */
-function Listing({ entries }: { entries: FrontPage["catalogue"]["entries"] }) {
-  return (
-    <ul className="mt-6 divide-y">
-      {entries.map((entry) => (
-        <li key={entry.id} className="flex items-baseline justify-between gap-4 py-2">
-          {/*
-            A PLAIN LINK, carrying no `?via=`. ADR-0066 makes the query the
-            ROUTE a reader arrived through, and the front page is not an
-            ordering -- nobody arrives at an item "through the catalogue" in the
-            sense a placement means. So the address here is the bare canonical
-            one, which is the same address the item is reached at from anywhere
-            else.
-
-            AND IT IS A `Link` RATHER THAN AN `a`, WHICH IS A SEPARATE RULE
-            (ADR-0109): a URL the framework does not rewrite is never
-            hand-built. Next prefixes `Link`, `Form` and `router.push()` and
-            nothing else, so a raw `<a href="/items/...">` here would read
-            identically and would point at the wrong place the day this app is
-            served from a path. This page emits exactly one URL and it goes
-            through the one thing that would be rewritten -- worth saying out
-            loud because this is the shell the other reading surfaces hang off,
-            and a raw `a`, an `img src` or a `fetch("/api/...")` copied from
-            here would scatter the class the rule exists to keep in one place.
-          */}
-          <Link href={`/items/${entry.id}`} className="hover:underline">
-            {entry.title ?? "Untitled item"}
-          </Link>
-          <span className="flex items-baseline gap-3 text-muted-foreground text-sm">
-            {/*
-              ADR-0004 folds containers into `work`, so the kind alone cannot
-              tell a story from an ordering that holds stories. A reader
-              scanning this list is asking which of the two they are looking at.
-            */}
-            {entry.isContainer && <span>Container</span>}
-            <span>{entry.kind}</span>
-          </span>
-        </li>
-      ))}
-    </ul>
   );
 }

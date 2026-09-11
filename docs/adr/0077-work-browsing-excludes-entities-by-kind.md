@@ -65,8 +65,51 @@ it is placed leaves every container holding it stale. Nothing can change an
 item's kind yet, so this is a gap named rather than a bug shipped, and it
 belongs to whatever first lets a kind be edited.
 
-**NOT BUILT: any surface that asks either question.** `kind = 'work' AND (NOT
-is_container OR holds_work)` is written down here and nowhere else yet, and
-catalogue search does not exist. The column is in migration 1 because the
+**AND WHEN THIS WAS WRITTEN, NEITHER QUESTION HAD A SURFACE.** `kind = 'work'
+AND (NOT is_container OR holds_work)` was written down here and nowhere else,
+and catalogue search did not exist. The column is in migration 1 because the
 trigger that maintains it has to see every placement ever written; the rule that
-reads it belongs to the first browsing surface.
+reads it belonged to the first browsing surface. That surface is below.
+
+## The first question gets its surface, under CNCORE-67 -- and this record STAYS PROPOSED
+
+**BUILT: "what can I watch".** `/works`, `catalogue.works` and `readWorks`, and
+the predicate is this record's own, whole. `items.holds_work` has a reader for
+the first time.
+
+**THE TWO HALVES ARE PINNED SEPARATELY, because passing one while failing the
+other is exactly how this record's first draft got it wrong.** The kind half is
+a Person and a Character against a story. The container half is TWO CONTAINERS
+DIFFERING ONLY IN WHAT THEY HOLD -- both `work`, both `is_container`, one
+holding a Character and one holding a story -- so nothing but `holds_work` can
+separate them, and a surface filtering on the kind alone passes the first
+assertion and fails the second. The entity container is this record's own
+example, "the Doctors, in order".
+
+**AND THE OTHER HALF OF THE RULE IS ASSERTED TOO: that an entity container is
+EXCLUDED, not DELETED.** This record says entity containers are "reached
+deliberately rather than turning up in latest", and a surface that had simply
+lost one would satisfy every exclusion test written above. So the catalogue page
+is asked for the same container in the same run and has to still show it.
+
+**THE PREDICATE LIVES WITH THE CATALOGUE'S OWN AND IS BUILT FROM IT**, in
+`packages/db/src/queries.ts`, rather than in the page or the router. The two
+questions differ in their WHERE and in nothing else, so the walk that answers
+them is written once -- and THE COUNT IS WHY THAT HAD TO BE SHARED rather than
+copied: a work-browsing surface reporting the whole catalogue's `total` would
+tell an owner it was hiding items it was never asked to show. A test pins it,
+and the mutation that reintroduces it fails.
+
+**NOT BUILT: catalogue search, which is the SECOND question.** This record also
+decides that search returns all seven kinds grouped with works first, and
+nothing searches the catalogue yet. That is CNCORE-66, and it is the only reason
+this record is still `proposed`: the half built here is complete, and the half
+that is missing is a whole surface rather than a corner of this one.
+
+**THE GAP NAMED ABOVE IS UNCHANGED AND IS NOW READ BY SOMETHING.** `holds_work`
+is still maintained on placement write only, so a member whose `kind` changes
+after it is placed still leaves every container holding it stale. Nothing can
+change an item's kind, so nothing can reach it -- but it has stopped being
+invisible: the flag now decides what a reader is shown rather than only sitting
+in a column, so whatever first lets a kind be edited owes this surface the
+trigger as well as the column.

@@ -100,9 +100,40 @@ write them in a fixed order -- `via` then `placed` -- so one narrowed list is on
 two spellings of it.
 
 **NOT BUILT: next.** This record also decides that the next item is DERIVED from the placement in
-the query rather than stored in a playqueue. Nothing derives one yet: there is no playback, and the
-container's own ordering has no page until CNCORE-7. The half built here is the half it needs --
-the container survives a refresh and a shared link, because it is in the URL.
+the query rather than stored in a playqueue. Nothing derives one yet, because there is no playback.
+The half built here is the half it needs -- the container survives a refresh and a shared link,
+because it is in the URL.
+
+**AND THE SECOND REASON THIS PARAGRAPH GAVE HAS EXPIRED, corrected here rather than left standing.**
+It read "the container's own ordering has no page until CNCORE-7", which was wrong twice over:
+CNCORE-7 built `browse`, which WRITES an ordering and renders nothing, and the page arrived under
+CNCORE-67 instead. A container's ordering is now rendered, at `/items/<id>` -- see below.
+
+## The container's own ordering gets a page -- under CNCORE-67
+
+**AND IT IS THE ITEM PAGE, which is this record operating rather than a choice made beside it.** A
+Container is an Item ([[0004-containers-are-items]]), so the path that addresses it is the one that
+already did: `/items/<id>`. A `/works/<id>` was the tempting alternative and it is the thing this
+record forbids -- one Item at two addresses, which is the case RFC 6596's canonical link relation
+exists to collapse. The Item page gained a `Members` section instead: the MIRROR of "Also appears
+in", which is every ordering an Item sits IN, where this is every Item one ordering HOLDS.
+
+**THIS IS WHERE `?via=` IS FINALLY EMITTED BY SOMETHING.** Until now the parameter was read and
+marked but never written: the front page deliberately links without one, because nobody arrives at an
+Item "through the catalogue" in the sense a Placement means. A container's member list IS an
+ordering, so its links carry `via=<placement-id>` and the Item page marks the row the reader came
+through. The round trip is asserted end to end at the page-over-HTTP seam, by FOLLOWING the link the
+container emitted rather than by constructing one -- a `via` written in a test would pass against two
+surfaces that had both drifted.
+
+**THE ID IS THE PLACEMENT'S AND A REPEAT IS WHY.** The same Item twice in one Container is two rows
+sharing one `itemId` ([[0009-multi-parent-membership-with-ordering]]), so the container cannot say
+which of the two arrivals a link is and only the Placement can. That is also why the read path emits
+`id` beside `itemId` for a member, and why React keys the rows on the Placement: keyed on the Item, a
+recap and its episode would be one key twice.
+
+**WHAT IS STILL NOT BUILT IS STILL `next`.** A page that walks an ordering is not a page that derives
+the next thing in it, and nothing does. This record stays PROPOSED for that reason and no other.
 
 ## What implementing it taught -- under CNCORE-14
 

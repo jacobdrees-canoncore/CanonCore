@@ -125,11 +125,31 @@ they were checked against the products.
 
 ## As built, under CNCORE-82
 
-**Built for the catalogue listing**, which is the only listing that exists: `readCatalogue`,
-`catalogue.list` and `/`. The rule is written for listings in general because CNCORE-66 (catalogue
-search) and CNCORE-67 (work-browsing) are both listings of Items and the sweep's point about
-retrofitting a contract is what makes choosing once worth doing — but neither exists yet, so neither
-has adopted it, and this record is not claiming they have.
+**Built for the catalogue listing**, which was the only listing that existed when this was written:
+`readCatalogue`, `catalogue.list` and `/`. The rule is written for listings in general because
+CNCORE-66 (catalogue search) and CNCORE-67 (work-browsing) are both listings of Items and the sweep's
+point about retrofitting a contract is what makes choosing once worth doing.
+
+**AND CNCORE-67 HAS SINCE ADOPTED IT, which is this record's premise holding rather than being
+restated.** `/works` walks the same way: the same `A_PAGE`, the same `after`, the same
+`continuesAfter` cut at an Item's id. It cost nothing to adopt, because `readCatalogue` and
+`readWorks` differ in their WHERE and in nothing else and the walk is now written once for both --
+which is the shape this record was hoping for when it declined to write the rule for one surface.
+The listing, the count and the walk are one shared component on the page for the same reason.
+
+**AND CNCORE-67 INTRODUCED A THIRD LISTING THAT HAS NOT ADOPTED IT, which is said here because an
+earlier draft of this paragraph did not say it.** A Container's own member list — `Members` on
+`/items/<id>` — is a listing by this record's first sentence, and it has no cap, no cursor and no
+count. `browse` imports a whole category in one call and ADR-0077 measures one at 1,049 stories, so
+that is a thousand rows on an ordinary page rather than a corner case. CNCORE-89 carries it, and the
+reason it was not done in the same pass is specific: the other two listings ARE their surface, so
+the cursor is the whole query, where an Item page's address already carries `?via=` and `?placed=`
+(ADR-0066) and a third parameter has to compose with both without moving the canonical. That is a
+decision about a governed address rather than a parameter to add.
+
+**So two of the four listings have adopted this record.** The catalogue and work-browsing have;
+catalogue search has not, because it does not exist (CNCORE-66); a Container's members have not, and
+CNCORE-89 is where they will.
 
 **The cap did not move.** `A_PAGE` is still 100 and a caller still cannot ask for more. Paging makes
 one answer's cost the same as it was and lets a reader ask again.

@@ -1,4 +1,15 @@
-import { and, eq, getTableColumns, gt, isNotNull, isNull, or, type SQL, sql } from "drizzle-orm";
+import {
+  and,
+  eq,
+  getTableColumns,
+  gt,
+  isNotNull,
+  isNull,
+  not,
+  or,
+  type SQL,
+  sql,
+} from "drizzle-orm";
 import { z } from "zod";
 
 import type { Database } from "./index";
@@ -396,11 +407,50 @@ export interface Catalogue {
  * WHAT IS IN THIS CATALOGUE -- every item, of every kind.
  *
  * ADR-0077 phrases the rule around THE QUESTION A SURFACE ASKS rather than
- * around a list of surfaces, and this is the other question from the one that
- * record mostly concerns itself with: work-browsing answers "what can I watch"
- * and excludes the entity kinds, and this answers "what is in this catalogue"
- * and excludes nothing. `holds_work` is deliberately not consulted here. The
- * surface that does consult it is CNCORE-67's.
+ * around a list of surfaces, and this asks the WIDE one: work-browsing answers
+ * "what can I watch" and excludes the entity kinds, and this excludes nothing.
+ * `holds_work` is deliberately not consulted here. `readWorks` below is the
+ * surface that does consult it.
+ */
+export async function readCatalogue(
+  db: Database,
+  { limit, after }: { limit: number; after?: string },
+): Promise<Catalogue> {
+  return readListing(db, { limit, after, within: IN_THE_CATALOGUE });
+}
+
+/**
+ * WHAT CAN I WATCH -- ADR-0077's other question, and the first reader
+ * `items.holds_work` has ever had.
+ *
+ * A SECOND QUESTION RATHER THAN A FLAG ON THE FIRST, which is what that record
+ * asks for: "naming the question lets a surface classify itself". A boolean
+ * parameter would make every caller classify itself by remembering to pass one,
+ * and whatever the default was would decide for the ones that forgot.
+ *
+ * IT WALKS THE SAME WAY (ADR-0119), because it is the same listing asked a
+ * narrower question: one ordering, one cap, one cursor cut at an item's id. A
+ * second paging shape here would be one rule in two places, and what that rule
+ * is protecting is a reader not being handed a page that skips items.
+ */
+export async function readWorks(
+  db: Database,
+  { limit, after }: { limit: number; after?: string },
+): Promise<Catalogue> {
+  return readListing(db, { limit, after, within: WORK_BROWSING });
+}
+
+/**
+ * ONE LISTING, WALKED -- shared by the two questions above, which differ in
+ * their WHERE and in nothing else.
+ *
+ * WRITTEN ONCE, AND THE COUNT IS WHY IT HAS TO BE. A listing and the size it
+ * reports must answer the same question: `readWorks` handing back the whole
+ * catalogue's `total` would tell an owner their work-browsing surface was
+ * hiding items it was never asked to show, which is the exact lie the cap
+ * exists to prevent. Two copies of this function would keep that true by care
+ * rather than by construction, which is the hazard this file already carries a
+ * paragraph about.
  *
  * IT HONOURS THE TOMBSTONE (ADR-0075) and reads the PROJECTED columns
  * (ADR-0014), so what a reader sees listed is the title statement that
@@ -415,9 +465,9 @@ export interface Catalogue {
  * which is what `past` below is about -- the cap says what is not being shown,
  * and this is what reaches it.
  */
-export async function readCatalogue(
+async function readListing(
   db: Database,
-  { limit, after }: { limit: number; after?: string },
+  { limit, after, within }: { limit: number; after?: string; within: SQL },
 ): Promise<Catalogue> {
   const anchor = after === undefined ? undefined : await findInTheOrder(db, after);
   const rows = await db
@@ -443,13 +493,17 @@ export async function readCatalogue(
        * is where that becomes the number the type claims; without it `total`
        * is a string wearing a number's type.
        */
-      total: sql<number>`(select count(*) from ${items} where ${IN_THE_CATALOGUE})`.mapWith(Number),
+      /*
+       * THE SAME PREDICATE THE ENTRIES USE, which is what makes `total` the
+       * size of the question that was ASKED rather than of the whole table.
+       */
+      total: sql<number>`(select count(*) from ${items} where ${within})`.mapWith(Number),
     })
     .from(items)
     // INNER, because `items.kind` is a foreign key into this table: a row with
     // no kind cannot exist, so there is nothing for a left join to preserve.
     .innerJoin(itemKinds, eq(itemKinds.kind, items.kind))
-    .where(and(IN_THE_CATALOGUE, anchor && past(anchor)))
+    .where(and(within, anchor && past(anchor)))
     /*
      * `nulls last` IS THE DEFAULT FOR `asc` AND IS WRITTEN OUT ANYWAY, because
      * `past` below reads it: an item with no title at all has no sort key, and
@@ -477,7 +531,7 @@ export async function readCatalogue(
      * last item in it. The size is asked for on its own exactly there, where
      * there are no entries for a second moment's answer to disagree with.
      */
-    total: rows[0]?.total ?? (await countCatalogue(db)),
+    total: rows[0]?.total ?? (await countListing(db, within)),
     /*
      * The id to ask for the next page with, or nothing when this is the end.
      * It is the LAST ITEM THIS PAGE SHOWED rather than an encoded sort key,
@@ -498,6 +552,29 @@ export async function readCatalogue(
  * the count agrees with a listing neither of them is describing.
  */
 const IN_THE_CATALOGUE = isNull(items.deletedAt);
+
+/**
+ * WHAT WORK-BROWSING SHOWS (ADR-0077): `kind = 'work' AND (NOT is_container OR
+ * holds_work)`, with the catalogue's own rule on top of it.
+ *
+ * THE SECOND TERM IS THE ONE THE RECORD'S FIRST DRAFT WAS MISSING, and it says
+ * so itself: containers fold into `work` (ADR-0004), so "the Doctors, in order"
+ * is an item of kind `work` and a kind filter cannot exclude it -- "the
+ * mechanism failed on the record's own example".
+ *
+ * `holds_work` IS READ, NEVER WALKED. It is a stored boolean maintained by a
+ * trigger on `placements` (migration 1), and the record gives the reason: a
+ * read-time membership walk "would also make an empty container watchable and
+ * then hide it the moment its first member arrived".
+ *
+ * WRITTEN BESIDE `IN_THE_CATALOGUE` AND BUILT FROM IT, so the narrower question
+ * cannot come to disagree with the wider one about what a deleted item is.
+ */
+const WORK_BROWSING = and(
+  IN_THE_CATALOGUE,
+  eq(items.kind, "work"),
+  or(not(items.isContainer), items.holdsWork),
+) as SQL;
 
 /**
  * THE KEY THE CATALOGUE SORTS ON (ADR-0014), written once.
@@ -560,13 +637,84 @@ async function findInTheOrder(db: Database, id: string): Promise<PlaceInTheOrder
   return place;
 }
 
-/** How many items the catalogue holds, asked on its own. */
-async function countCatalogue(db: Database): Promise<number> {
+/**
+ * How many items ONE LISTING holds, asked on its own.
+ *
+ * IT TAKES THE PREDICATE rather than assuming the catalogue's, for the reason
+ * `readListing` gives: the size has to answer the same question the entries do.
+ */
+async function countListing(db: Database, within: SQL): Promise<number> {
   const [counted] = await db
     .select({ total: sql<number>`count(*)`.mapWith(Number) })
     .from(items)
-    .where(IN_THE_CATALOGUE);
+    .where(within);
   return counted?.total ?? 0;
+}
+
+/** One member of one container, and where the container puts it (ADR-0009). */
+export interface MemberOfContainer {
+  /**
+   * The PLACEMENT's id, which is what `?via=` carries (ADR-0066): the ordering
+   * a reader arrived through. It is the placement's rather than the item's
+   * because a repeat is one item twice, so only the placement can say which of
+   * the two arrivals this link is.
+   */
+  id: string;
+  /** ADR-0014's projected title, so a reader sees a name rather than an id. */
+  title: string | null;
+  /** The member's own address: `/items/<id>` is canonical (ADR-0066). */
+  itemId: string;
+  /** Where this member sits in this container's ordering (ADR-0018). */
+  position: number | null;
+}
+
+/**
+ * What one container holds, in its own order.
+ *
+ * THE MIRROR OF `findPlacementsOfItem`, which reads the same table the other
+ * way round: that one answers every ordering an item sits in, and this one
+ * answers every item one ordering holds. Both are the placement, read from the
+ * end the reader is standing at.
+ *
+ * TODO(CNCORE-89): IT IS UNCAPPED, ALONE AMONG THIS FILE'S LISTINGS. ADR-0119's
+ * first sentence is "every listing in CanonCore is capped", and this one takes
+ * no `limit` and no `after` while `item.get` awaits it on every item page.
+ * `browse` imports a whole category in one call and ADR-0077 measures one at
+ * 1,049 stories, so this is a thousand rows on an ordinary page. The cap is not
+ * added here because the walk has to compose with `?via=` and `?placed=` on an
+ * address ADR-0066 governs, which is that ticket's decision to make.
+ */
+export async function findMembersOfContainer(
+  db: Database,
+  containerId: string,
+): Promise<MemberOfContainer[]> {
+  return db
+    .select({
+      id: placements.id,
+      title: items.title,
+      itemId: placements.itemId,
+      position: placements.position,
+    })
+    .from(placements)
+    .innerJoin(items, eq(items.id, placements.itemId))
+    .where(
+      and(
+        eq(placements.containerId, containerId),
+        isNull(placements.deletedAt),
+        // ADR-0075. A deleted member is gone to every reader, so a container
+        // cannot go on listing it.
+        isNull(items.deletedAt),
+      ),
+    )
+    .orderBy(
+      placements.position,
+      // ADR-0009 keeps NO unique constraint on (container_id, position), because
+      // a novel and the film adapting it must sit at one point without an order
+      // being invented between them. So position alone does not determine this
+      // answer, and without a stable tiebreak the same container renders in a
+      // different order on different runs.
+      placements.id,
+    );
 }
 
 /**

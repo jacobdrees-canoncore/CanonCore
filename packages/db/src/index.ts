@@ -25,11 +25,14 @@ export {
   type FoundItem,
   findAttributionOwed,
   findItem,
+  findMembersOfContainer,
   findPlacementsOfItem,
   findStatementsOfItem,
   type ItemRow,
+  type MemberOfContainer,
   type PlacementOfItem,
   readCatalogue,
+  readWorks,
   type StatementOfItem,
 } from "./queries";
 export * from "./schema";

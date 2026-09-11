@@ -78,6 +78,9 @@ describe("item.get", () => {
       "isContainer",
       "isOrdered",
       "kind",
+      // What this container HOLDS (CNCORE-67). It went red here when it was
+      // added, for the same reason `attribution` did: the enumeration working.
+      "members",
       "placements",
       "releaseDate",
       "sortName",
@@ -339,5 +342,48 @@ describe("item.get, on what each source claimed", () => {
     const item = await call(appRouter.item.get, { id: merged }, { context });
 
     expect(item.statements.map((claim) => claim.value)).toEqual(["The survivor"]);
+  });
+});
+
+describe("item.get on a container", () => {
+  it("answers with what the container holds, in its own order", async () => {
+    // A Container IS an Item (ADR-0004), so its page is the Item page and this
+    // is where browsing into one lands. The mirror of `placements` above: that
+    // answers every ordering this item sits IN, and this answers every item
+    // this ordering HOLDS.
+    const owner = await ownerSource(db);
+    const season = await anItemTitled(db, "An ordering read from the inside", {
+      isContainer: true,
+      isOrdered: true,
+    });
+    const second = await anItemTitled(db, "Its second story");
+    const first = await anItemTitled(db, "Its first story");
+    await aPlacement(db, { containerId: season, itemId: second, position: 2, sourceId: owner });
+    await aPlacement(db, { containerId: season, itemId: first, position: 1, sourceId: owner });
+
+    const container = await call(appRouter.item.get, { id: season }, { context });
+
+    expect(container.members.map((member) => member.itemId)).toStrictEqual([first, second]);
+    expect(container.members[0]).toMatchObject({ title: "Its first story", position: 1 });
+  });
+
+  it("names every field a member emits, and no internal one", async () => {
+    // ADR-0045's enumeration oracle, one level down, exactly as `placements`
+    // carries one. `owner_id`, the change sequence and `edition_id` are absent
+    // because no line was written for them.
+    const story = await anItemTitled(db, "A member to enumerate");
+    const container = await anItemTitled(db, "An ordering to enumerate", { isContainer: true });
+    await aPlacement(db, {
+      containerId: container,
+      itemId: story,
+      position: 1,
+      sourceId: await ownerSource(db),
+    });
+
+    const item = await call(appRouter.item.get, { id: container }, { context });
+
+    expect(item.members.map((member) => Object.keys(member).sort())).toStrictEqual([
+      ["id", "itemId", "position", "title"],
+    ]);
   });
 });
