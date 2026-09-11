@@ -747,3 +747,33 @@ describe("provider.configured", () => {
     expect(answer).toStrictEqual({ providers: [] });
   });
 });
+
+/**
+ * WHAT THIS CATALOGUE ALREADY HOLDS OF ONE PROVIDER'S RECORDS, asked about ids the
+ * owner names rather than about a query.
+ *
+ * `search` answers the same question for the candidates IT found. This is for the
+ * record the owner names themselves -- a container id, which nothing in CMPP hands
+ * over (ADR-0033) -- so there is no search to carry the answer.
+ */
+describe("provider.held", () => {
+  it("answers the item one of a provider's records is held as, and omits the rest", async () => {
+    const baseUrl = await stubProvider();
+    const { itemId } = await call(
+      appRouter.provider.import,
+      { baseUrl, recordId: "265" },
+      { context },
+    );
+
+    const { items: held } = await call(
+      appRouter.provider.held,
+      { baseUrl, recordIds: ["265", "a record this catalogue has never seen"] },
+      { context },
+    );
+
+    // OMITTED RATHER THAN NULL for a record that is not held. The caller asked
+    // "which of these do you have", and a row per id with nothing in it is a
+    // longer way of saying the same thing.
+    expect(held).toEqual([{ recordId: "265", itemId }]);
+  });
+});

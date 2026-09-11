@@ -313,6 +313,57 @@ export const provider = {
     .handler(({ context }) => ({ providers: context.providerUrls })),
 
   /**
+   * WHICH OF ONE PROVIDER'S RECORDS THIS CATALOGUE ALREADY HOLDS, for ids the
+   * owner names rather than for candidates a search found.
+   *
+   * `search` ANSWERS THIS ALREADY FOR WHAT IT FOUND, and this exists for the case
+   * it cannot reach: a CONTAINER id. Nothing in CMPP hands one over -- `search`
+   * returns stories and `browse` takes a container's own id (ADR-0033) -- so the
+   * owner types it, and a surface showing what they typed has no search answer to
+   * read the Item out of.
+   *
+   * NO REQUEST LEAVES THE APP. `baseUrl` is an IDENTITY here rather than an
+   * address, exactly as it is for `purge`: the rows are this catalogue's, and the
+   * question is about what was imported rather than about what the provider says
+   * now. So the allowlist has no say and a provider that is switched off answers
+   * the same as one that is running.
+   */
+  held: publicProcedure
+    .input(
+      z.object({
+        /** The provider's identity, which for a provider IS its base URL (ADR-0031). */
+        baseUrl: z.url(),
+        /** The provider's own ids, the ones `lookup` and `browse` take. */
+        recordIds: z.array(z.string().min(1)),
+      }),
+    )
+    .output(
+      z.object({
+        /**
+         * ONE ROW PER RECORD THAT IS HELD, and none for one that is not. The
+         * caller asked which of these the catalogue has; a row carrying nothing is
+         * a longer way of saying the same thing.
+         */
+        items: z.array(z.object({ recordId: z.string().min(1), itemId: z.uuid() })),
+      }),
+    )
+    .handler(async ({ input, context }) => {
+      const held = await findItemsProvided(context.db, {
+        identity: input.baseUrl,
+        externalIds: input.recordIds,
+      });
+      return {
+        // IN THE ORDER THE CALLER ASKED, rather than whatever the planner
+        // returned, so a surface rendering these rows renders them the same way
+        // twice.
+        items: input.recordIds.flatMap((recordId) => {
+          const itemId = held.get(recordId);
+          return itemId === undefined ? [] : [{ recordId, itemId }];
+        }),
+      };
+    }),
+
+  /**
    * Searches EVERY configured provider at once and answers what each of them
    * offered, with the ones this catalogue already holds named.
    *

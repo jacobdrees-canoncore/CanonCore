@@ -52,3 +52,31 @@ export async function importRecord(form: FormData): Promise<void> {
 
   await call(appRouter.provider.import, { baseUrl, recordId }, { context: await createContext() });
 }
+
+/**
+ * What the browse form carries. `containerId` is the one field on this page the
+ * owner TYPES, so it is the one that can be wrong -- and a provider answering "no
+ * container at that id" is an answer rather than a failure (ADR-0066), which the
+ * procedure already declares as an error of its own.
+ */
+const takeOrdering = z.object({ baseUrl: z.url(), containerId: z.string().min(1) });
+
+/**
+ * Imports a container AND its ordering, in one operation.
+ *
+ * ONE CALL RATHER THAN SIXTY, which is why `browse` exists (ADR-0033): the
+ * container and its ordering arrive together, so the members are placed rather
+ * than left for the owner to place by hand.
+ */
+export async function browseOrdering(form: FormData): Promise<void> {
+  const { baseUrl, containerId } = takeOrdering.parse({
+    baseUrl: form.get("baseUrl"),
+    containerId: form.get("containerId"),
+  });
+
+  await call(
+    appRouter.provider.browse,
+    { baseUrl, containerId },
+    { context: await createContext() },
+  );
+}

@@ -3,7 +3,7 @@ import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
 import { describe, expect, inject, it } from "vitest";
 
-import { documentAt, postFormsIn, type RenderedForm, submit } from "./document";
+import { documentAt, documentFrom, postFormsIn, type RenderedForm, submit } from "./document";
 
 /**
  * THE IMPORT SURFACE, over real HTTP. ADR-0103's fourth seam, which is the one
@@ -13,6 +13,14 @@ import { documentAt, postFormsIn, type RenderedForm, submit } from "./document";
  */
 const providerSearch = inject("providerSearch");
 const baseUrl = inject("baseUrl");
+/**
+ * THE SECOND SERVER: the same build, an empty database, no `PROVIDER_ALLOWLIST`
+ * and no `PROVIDER_URLS`. That is a stranger's first run of CanonCore (ADR-0094),
+ * and neither state exists on the seeded instance -- so without it the two
+ * criteria about an unconfigured instance could only be asserted a layer down
+ * from the page that has to satisfy them.
+ */
+const freshBaseUrl = inject("freshBaseUrl");
 const client: AppRouterClient = createORPCClient(new RPCLink({ url: `${baseUrl}/api/rpc` }));
 
 /**
@@ -210,5 +218,152 @@ describe("/import, taking a record it already holds", () => {
     // second item for this record would be in the catalogue whether or not this
     // row linked it.
     expect((await client.catalogue.list({})).total).toBe(total);
+  });
+});
+
+/** One `<section>` of a page, by the heading it is labelled with. */
+function section(text: string, label: string): string {
+  const found = text.match(new RegExp(`<section[^>]*aria-labelledby="${label}".*?</section>`))?.[0];
+  if (!found) throw new Error(`the page rendered no \`${label}\` section`);
+  return found;
+}
+
+describe("/import on a fresh install", () => {
+  it("says no provider is allowlisted, rather than returning an empty list", async () => {
+    // ADR-0034's allowlist is empty by default and the empty value refuses every
+    // provider, which is the safe end of the failure and is completely silent: an
+    // unconfigured instance and a broken one look identical from a page. The
+    // criterion is that the surface SAYS so, and an empty `<section>` satisfies a
+    // test that only asks whether the element is there -- so what is asserted is
+    // the identifier the owner has to go and set.
+    const { status, text } = await documentFrom(freshBaseUrl, "/import");
+
+    expect(status).toBe(200);
+    const notice = section(text, "no-provider");
+    expect(notice).toContain("PROVIDER_ALLOWLIST");
+    expect(notice.toLowerCase()).toContain("no provider is allowlisted");
+  });
+
+  it("says no provider is configured either, which is the other setting", async () => {
+    // TWO SETTINGS, TWO REMEDIES. An instance reaches no provider either because
+    // nothing is allowlisted or because nothing is NAMED, and neither is derivable
+    // from the other -- `127.0.0.0/8` carries no scheme and no port. A surface that
+    // said only the first would send an owner to fix the wrong one.
+    const fresh = await documentFrom(freshBaseUrl, "/import");
+
+    const notice = section(fresh.text, "no-provider-configured");
+    expect(notice).toContain("PROVIDER_URLS");
+    expect(notice.toLowerCase()).toContain("no provider is configured");
+  });
+
+  /**
+   * ADR-0117's CHECK, WHICH A NEW READ SURFACE EARNS RATHER THAN INHERITS.
+   *
+   * That record's rule is that a read surface declares it needs a request, and its
+   * check is a SHAPE rather than an assertion about one page: ask two instances of
+   * one build, pointed at different configuration, for the same path, and expect
+   * different answers. One server cannot see this at all -- its page looks correct,
+   * because the state it was built against is the state it is serving.
+   *
+   * THIS PAGE DECLARES IT BY READING `searchParams`, which is the second of the two
+   * ways ADR-0117 names ("a request-time API the page was going to touch anyway"):
+   * the query IS the page. So what is owed is this pair, and `next build` naming
+   * the route `ƒ` rather than `○` is the other half of the same fact.
+   */
+  it("is rendered per request, not once at build time", async () => {
+    const seeded = await documentAt("/import");
+    const fresh = await documentFrom(freshBaseUrl, "/import");
+
+    expect(seeded.status).toBe(200);
+    expect(fresh.status).toBe(200);
+    expect(fresh.text).not.toBe(seeded.text);
+    // AND THEY DIFFER IN THE RIGHT PLACE rather than merely somewhere. Two pages
+    // can differ over a build id or a hydration payload while both being
+    // photographs of the same configuration, so what is compared is the thing the
+    // configuration decides.
+    expect(() => section(seeded.text, "no-provider-configured")).toThrow();
+  });
+});
+
+/** A container named in the URL, as the browse form's fields put it there. */
+function browsing({ provider, container }: { provider: string; container: string }): string {
+  return `/import?provider=${encodeURIComponent(provider)}&container=${encodeURIComponent(container)}`;
+}
+
+describe("/import, taking a Container and its ordering", () => {
+  it("imports the container and the ordering it holds, in one operation", async () => {
+    /*
+     * ONE CALL RATHER THAN SIXTY, which is why `browse` exists at all (ADR-0033):
+     * the container and its ordering arrive together, so a bulk import yields
+     * placements instead of asking the owner to place every member by hand.
+     *
+     * THE OWNER NAMES THE CONTAINER, because nothing in CMPP hands one over --
+     * `search` returns stories and `browse` takes a container's own id, so no
+     * operation answers "which containers do you have". ADR-0033's as-built section
+     * records that decision, and this form is it.
+     *
+     * THE MEMBER THIS WATCHES IS ONE THE CATALOGUE ALREADY HOLDS, and that is the
+     * point: its Item exists before the browse and has no placement in this
+     * container, so what arrives is the ORDERING rather than the item. An import
+     * that wrote a second item for a member it already had would be CNCORE-28's
+     * defect, and it would not satisfy this.
+     */
+    const at = browsing(providerSearch.browsable);
+    const member = inject("attributed");
+    const placedBefore = (await client.item.get({ id: member.id })).placements;
+
+    const offered = await documentAt(at);
+    expect(offered.status).toBe(200);
+    const container = section(offered.text, "container");
+    expect(itemLinkedIn(container)).toBeUndefined();
+
+    const taken = await submit(baseUrl, at, formIn(container));
+
+    expect(taken.status).toBe(200);
+    // THE CONTAINER IS IN THE CATALOGUE, and reachable at the address given.
+    const link = itemLinkedIn(section(taken.text, "container"));
+    expect(link).toBeDefined();
+    const arrived = await documentAt(link as string);
+    expect(arrived.status).toBe(200);
+    expect(arrived.text).toContain(providerSearch.browsable.container);
+
+    // AND THE ORDERING CAME WITH IT: the member now sits in that container, at a
+    // position, placed by the provider that asserted the ordering (ADR-0017).
+    const placedAfter = (await client.item.get({ id: member.id })).placements;
+    const containerId = (link as string).slice("/items/".length);
+    expect(placedBefore.map(({ containerId: held }) => held)).not.toContain(containerId);
+    const placement = placedAfter.find(({ containerId: held }) => held === containerId);
+    expect(placement).toBeDefined();
+    expect(placement?.position).toBeGreaterThan(0);
+    expect(placement?.placedBy).toBe("provider");
+  });
+});
+
+describe("reaching /import", () => {
+  it("is linked from the catalogue, so the surface is reachable without typing a URL", async () => {
+    // A SURFACE NOBODY CAN REACH IS NOT ONE. The ticket hangs this off the front
+    // page (CNCORE-65), and an owner who has to know the address is in the position
+    // this page exists to get them out of -- knowing an id, or in this case a path,
+    // from somewhere outside the product.
+    const { text } = await documentAt("/");
+
+    const linked = [...text.matchAll(/href="(\/import)"/g)].map(([, href]) => href);
+    expect(linked).not.toHaveLength(0);
+    // AND IT IS A `Link`, WHICH IS A SEPARATE RULE (ADR-0109): raw `<a href>` is
+    // not rewritten, so under a `basePath` this would point at nothing. Asserted
+    // by the address arriving, which is the only part observable from here.
+    expect((await documentAt("/import")).status).toBe(200);
+  });
+
+  it("is what a fresh install is told to do next, in the words that now work", async () => {
+    // ADR-0094's other half: an install that starts empty WITHOUT SAYING WHAT TO DO
+    // NEXT is a failure of its own. That copy used to say to give a provider's base
+    // URL and the id of one of its records, which is exactly the hand-POSTing this
+    // ticket removes -- so the step is now a link to the surface that searches.
+    const { text } = await documentFrom(freshBaseUrl, "/");
+
+    const next = text.match(/<section[^>]*aria-labelledby="what-to-do-next".*?<\/section>/)?.[0];
+    if (!next) throw new Error("the fresh install's front page says nothing about what to do next");
+    expect(next).toContain('href="/import"');
   });
 });

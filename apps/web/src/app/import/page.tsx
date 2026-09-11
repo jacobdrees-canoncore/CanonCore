@@ -8,7 +8,7 @@ import { call } from "@orpc/server";
 import Form from "next/form";
 import Link from "next/link";
 
-import { importRecord } from "./actions";
+import { browseOrdering, importRecord } from "./actions";
 
 /**
  * FINDING SOMETHING IN A PROVIDER AND IMPORTING IT, in one motion.
@@ -24,7 +24,14 @@ import { importRecord } from "./actions";
  * of the same name. That one is CNCORE-66 and lives at its own address. This page
  * searches PROVIDERS, so the word on it is Import rather than Search.
  */
-async function readImportPage(query: string | undefined) {
+/** Which container the owner has asked about, and at which provider. */
+interface Asked {
+  query?: string;
+  provider?: string;
+  container?: string;
+}
+
+async function readImportPage({ query, provider, container }: Asked) {
   /*
    * NO `connection()` HERE, AND THAT IS ADR-0117 OBEYED RATHER THAN SKIPPED.
    * That record's rule is that a read surface declares it needs a request, and
@@ -44,14 +51,28 @@ async function readImportPage(query: string | undefined) {
   const context = await createContext();
   // ONE CONTEXT FOR ALL OF THEM, for the reason the front page gives: two calls
   // to it would be two answers to "what does this request carry".
-  const [allowlisted, configured, found] = await Promise.all([
+  const [allowlisted, configured, found, held] = await Promise.all([
     call(appRouter.provider.allowlisted, undefined, { context }),
     call(appRouter.provider.configured, undefined, { context }),
     query === undefined
       ? Promise.resolve(undefined)
       : call(appRouter.provider.search, { query }, { context }),
+    /*
+     * WHETHER THE NAMED CONTAINER IS ALREADY IN THE CATALOGUE. The owner typed
+     * this id, so -- unlike a candidate, which arrives from a search that answered
+     * the same question -- there is nothing else on the page that knows.
+     *
+     * IT IS THE ONLY WAY THIS SURFACE CAN REPORT A BROWSE. An action's return value
+     * reaches a page through `useActionState` alone, which is a client hook and has
+     * nothing to give when no script has loaded, and a redirect to the new
+     * container would emit a URL Next does not rewrite (ADR-0109). So the page
+     * reads the catalogue and says what it finds.
+     */
+    provider === undefined || container === undefined
+      ? Promise.resolve(undefined)
+      : call(appRouter.provider.held, { baseUrl: provider, recordIds: [container] }, { context }),
   ]);
-  return { allowlisted, configured, found };
+  return { allowlisted, configured, found, held };
 }
 
 type ImportPage = Awaited<ReturnType<typeof readImportPage>>;
@@ -72,10 +93,21 @@ function one(value: string | string[] | undefined): string | undefined {
 export default async function ImportPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string | string[] }>;
+  searchParams: Promise<{
+    q?: string | string[];
+    provider?: string | string[];
+    container?: string | string[];
+  }>;
 }) {
-  const query = one((await searchParams).q);
-  const { allowlisted, configured, found } = await readImportPage(query);
+  const asked = await searchParams;
+  const query = one(asked.q);
+  const provider = one(asked.provider);
+  const container = one(asked.container);
+  const { allowlisted, configured, found, held } = await readImportPage({
+    query,
+    provider,
+    container,
+  });
 
   return (
     <main className="container mx-auto max-w-3xl px-4 py-8">
@@ -88,6 +120,14 @@ export default async function ImportPage({
       {configured.providers.length === 0 && <NoProviderConfigured />}
       <SearchBox query={query} />
       {found !== undefined && <Results found={found} query={query ?? ""} />}
+      <BrowseBox configured={configured.providers} container={container} provider={provider} />
+      {provider !== undefined && container !== undefined && held !== undefined && (
+        <Container
+          baseUrl={provider}
+          containerId={container}
+          itemId={held.items[0]?.itemId ?? null}
+        />
+      )}
     </main>
   );
 }
@@ -362,6 +402,140 @@ function NoProviderConfigured() {
           </EmptyDescription>
         </EmptyHeader>
       </Empty>
+    </section>
+  );
+}
+
+/**
+ * NAMING A CONTAINER TO BROWSE, which the owner has to do because nothing in CMPP
+ * answers "which containers do you have".
+ *
+ * ADR-0033's as-built section records that decision and its reason: a record's
+ * `series` field is a NAME, and the archive links members by name while a page id
+ * does not move -- so deriving the container from `series` would bind an import to
+ * a string that can be renamed out from under it.
+ *
+ * A GET RATHER THAN THE BROWSE ITSELF, which is what puts the container in the
+ * URL -- and that is load-bearing rather than tidy. The POST that performs the
+ * browse comes back to this same address, so the page can read the catalogue and
+ * say whether the container arrived. A form that browsed directly would lose the
+ * id it was given the moment it answered.
+ *
+ * THE PROVIDERS ARE OFFERED BY URL, which is a deployment detail shown to the one
+ * person entitled to it: the owner typed these into `PROVIDER_URLS` and is the
+ * only person who can change one. A manifest read per provider would buy their
+ * own names for themselves at the cost of a request per provider on every render
+ * of this page, for a control the owner recognises by the URL they wrote.
+ */
+function BrowseBox({
+  configured,
+  container,
+  provider,
+}: {
+  configured: string[];
+  container?: string;
+  provider?: string;
+}) {
+  if (configured.length === 0) return null;
+
+  return (
+    <section aria-labelledby="browse" className="mt-10">
+      <h2 className="font-medium text-sm" id="browse">
+        Import a container and its ordering
+      </h2>
+      <p className="mt-1 text-muted-foreground text-sm">
+        A provider that offers browse hands over a container and its ordering together, so its
+        members arrive placed rather than waiting to be placed by hand.
+      </p>
+      <Form action="/import" className="mt-3 flex flex-wrap items-center gap-2">
+        {/*
+          A `select` RATHER THAN A SECOND URL FIELD. The providers are the
+          configured set, so a free-text box would invite a URL this instance is
+          not configured to search and would answer it with a refusal.
+
+          `defaultValue` for the reason the search box gives: this is
+          server-rendered markup with no script behind it.
+        */}
+        <select
+          aria-label="Which provider holds it"
+          className="h-9 rounded-none border bg-background px-2 text-sm"
+          defaultValue={provider ?? configured[0]}
+          name="provider"
+        >
+          {configured.map((baseUrl) => (
+            <option key={baseUrl} value={baseUrl}>
+              {baseUrl}
+            </option>
+          ))}
+        </select>
+        <Input
+          aria-label="The provider's own id for the container"
+          className="max-w-xs"
+          defaultValue={container}
+          name="container"
+          placeholder="The provider's id for it"
+        />
+        <Button type="submit" variant="outline">
+          Find it
+        </Button>
+      </Form>
+    </section>
+  );
+}
+
+/**
+ * THE CONTAINER THE OWNER NAMED: whether the catalogue holds it, and the button
+ * that takes it and its whole ordering.
+ *
+ * IT SAYS WHAT IT KNOWS AND NOT MORE. This is the catalogue's answer about an id
+ * rather than the provider's -- nothing here has asked the provider whether it
+ * holds a container at that id, because asking would be a request on every render
+ * of a page the owner may simply be typing into. What the provider says is found
+ * out by pressing the button, and a provider that holds no container at that id
+ * answers with the procedure's own declared error.
+ */
+function Container({
+  baseUrl,
+  containerId,
+  itemId,
+}: {
+  baseUrl: string;
+  containerId: string;
+  itemId: string | null;
+}) {
+  return (
+    <section aria-labelledby="container" className="mt-4">
+      <h3 className="sr-only" id="container">
+        The container you named
+      </h3>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 border-t py-3">
+        <span className="flex items-baseline gap-3">
+          <span>{containerId}</span>
+          <span className="text-muted-foreground text-sm">
+            {itemId === null ? "Not in your catalogue" : "Already imported"}
+          </span>
+        </span>
+        <span className="flex items-baseline gap-3">
+          {itemId !== null && <Held itemId={itemId} />}
+          {/*
+            A POST BOUND TO A SERVER ACTION, for the reason `Take` above gives:
+            Next writes the target itself, so there is no URL here for a later
+            `basePath` to get wrong (ADR-0109).
+          */}
+          <form action={browseOrdering}>
+            <input type="hidden" name="baseUrl" value={baseUrl} />
+            <input type="hidden" name="containerId" value={containerId} />
+            <Button type="submit" variant="secondary">
+              {/*
+                OFFERED AGAIN ONCE HELD, for the reason the record's button is: a
+                second browse refreshes the container and its ordering rather than
+                writing a second copy of either (migration 3).
+              */}
+              {itemId === null ? "Import its ordering" : "Import its ordering again"}
+            </Button>
+          </form>
+        </span>
+      </div>
     </section>
   );
 }

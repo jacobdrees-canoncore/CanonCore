@@ -135,6 +135,7 @@ export default async function setup(project: TestProject) {
     query: MATRIX_QUERY,
     held: THE_MATRIX.title,
     unreachable: UNREACHABLE_PROVIDER,
+    browsable: { provider: tmdb.url, container: MATRIX_COLLECTION },
   });
   const browsed = await browseThroughTheApp(baseUrl, provider.url, databaseUrl);
   project.provide("browsed", browsed.fixture);
@@ -459,6 +460,28 @@ const MATRIX_QUERY = "The Matrix";
 const THE_MATRIX_RELOADED = { id: "movie:604", title: "The Matrix Reloaded" };
 
 /**
+ * The COLLECTION the import surface browses, and the one container in this suite
+ * that nothing else has already taken.
+ *
+ * IT IS NOT A CHOICE THIS FILE IS MAKING. `packages/contract/src/participants.ts`
+ * names `collection:2344` as "a container id this provider really holds" for
+ * `provider-tmdb`, and the contract suite holds the real image to it -- so this is
+ * that fact reused rather than an assumption about what TMDB can be browsed by.
+ *
+ * WHY NOT A WIKI CATEGORY. Every container in `wiki-fixture.ts` is browsed before
+ * the first assertion runs: 91997 and 388305 by this file, 47650 and 47651 by
+ * `multi-placement.test.ts`. A browse of one of those could not show an ORDERING
+ * ARRIVING, because it had already arrived -- and a button wired to nothing would
+ * pass. This collection is browsed by nothing else, so the transition is real.
+ *
+ * MEASURED AGAINST TMDB'S OWN API on 2026-09-11: `/3/collection/2344` is `The
+ * Matrix Collection` and its parts are 603, 604, 605 and 624860. The stub answers
+ * the first two of those, which is enough for an ordering to exist; the real image
+ * answers all four and no assertion can tell, because none of them counts members.
+ */
+const MATRIX_COLLECTION = "collection:2344";
+
+/**
  * A stand-in for the real image, for a machine that cannot pull a private one.
  *
  * The manifest is the real one's, `attribution` included, because that is the
@@ -512,9 +535,37 @@ async function stubTmdbProvider(): Promise<{ url: string; close: () => Promise<v
     external_ids: { tmdb: "604", imdb: "tt0234215" },
   };
   const records = [record, reloaded];
+  /**
+   * The collection as a browse answers it: the container, and its parts in
+   * release order.
+   *
+   * THE CONTAINER IS A RECORD TOO (ADR-0004), which is why it carries the same
+   * fields as a film. Its `kind` is the provider's own word for what it is.
+   */
+  const collection = {
+    container: {
+      id: MATRIX_COLLECTION,
+      title: "The Matrix Collection",
+      kind: "collection",
+      released: [],
+      writers: [],
+      series: null,
+      url: "https://www.themoviedb.org/collection/2344",
+      images: [],
+      external_ids: { tmdb: "2344" },
+    },
+    ordering: [
+      { position: 1, record },
+      { position: 2, record: reloaded },
+    ],
+    unplaced: [],
+  };
   return onLoopback((path, answer) => {
     if (path === "/") return answer(manifest, 200);
     if (path.startsWith("/search")) return answer(searchOver(records, path), searchStatus(path));
+    if (path === `/browse/${encodeURIComponent(MATRIX_COLLECTION)}`) {
+      return answer(collection, 200);
+    }
     if (path === `/lookup/${encodeURIComponent(THE_MATRIX.id)}`) return answer(record, 200);
     if (path === `/lookup/${encodeURIComponent(THE_MATRIX_RELOADED.id)}`) {
       return answer(reloaded, 200);
@@ -947,6 +998,8 @@ declare module "vitest" {
       held: string;
       /** A provider this instance is configured with and can never reach. */
       unreachable: string;
+      /** A container nothing in this suite has browsed, and who holds it. */
+      browsable: { provider: string; container: string };
     };
     /** A real browsed story in two orderings, and the two shapes browse hands over. */
     browsed: {
