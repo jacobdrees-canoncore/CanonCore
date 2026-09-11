@@ -26,6 +26,7 @@ export {
   type FoundItem,
   findAttributionOwed,
   findItem,
+  findItemsProvided,
   findMembersOfContainer,
   findPlacementsOfItem,
   findStatementsOfItem,

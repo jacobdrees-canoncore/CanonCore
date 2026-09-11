@@ -3,6 +3,7 @@ import {
   eq,
   getTableColumns,
   gt,
+  inArray,
   isNotNull,
   isNull,
   not,
@@ -798,4 +799,75 @@ async function findLiveItem(db: Database, id: string): Promise<FoundItem | undef
     .innerJoin(itemKinds, eq(itemKinds.kind, items.kind))
     .where(and(eq(items.id, id), isNull(items.deletedAt)));
   return found;
+}
+
+/**
+ * WHICH OF ONE PROVIDER'S RECORDS THIS CATALOGUE ALREADY HOLDS, keyed by the id
+ * the provider knows each one by.
+ *
+ * THE READ HALF OF THE MAPPING `importProvidedRecord` WRITES (migration 3,
+ * ADR-0078). That function finds an item again by (source, external id) in order
+ * to refresh rather than double it, and the finding is private to it because
+ * nothing else had asked. A surface showing a provider's candidates asks out
+ * loud: which of these do I already have, and at which Item.
+ *
+ * IT IS IDENTITY RATHER THAN MATCHING, and the distinction is ADR-0026's. "This
+ * provider's record 265 is the item we made from this provider's record 265" is
+ * one party, one namespace and no judgement. Deciding that two DIFFERENT
+ * providers' records describe one work needs a score, a threshold and a review
+ * queue, none of which exists -- so a record one provider holds and another does
+ * not answers here as absent, correctly.
+ *
+ * A PROVIDER IS NAMED BY ITS IDENTITY, WHICH IS ITS URL (ADR-0031), exactly as
+ * `purgeProvider` names one. The source row is matched on that and on its KIND,
+ * so an owner whose own identity happened to collide with a URL could not answer
+ * for a provider's records.
+ */
+export async function findItemsProvided(
+  db: Database,
+  { identity, externalIds }: { identity: string; externalIds: string[] },
+): Promise<Map<string, string>> {
+  // NO QUERY FOR AN EMPTY SET. `inArray` against `[]` is a SQL `in ()`, which
+  // Drizzle emits as a false predicate -- so this is correctness-neutral and
+  // saves a round trip on the ordinary case of a page with no candidates on it.
+  if (externalIds.length === 0) return new Map();
+
+  const rows = await db
+    .select({ externalId: statements.valueLiteral, itemId: items.id })
+    .from(statements)
+    .innerJoin(items, eq(items.id, statements.subjectItemId))
+    .innerJoin(properties, eq(properties.id, statements.propertyId))
+    .innerJoin(sources, eq(sources.id, statements.sourceId))
+    .where(
+      and(
+        eq(properties.name, "external_id"),
+        eq(sources.kind, "provider"),
+        eq(sources.identity, identity),
+        // THE HASH FIRST, THEN THE VALUES, both load-bearing and both for the
+        // reason `itemWithExternalId` gives of its own pair: the index is on
+        // `md5(value_literal)` because a btree tuple is capped at 2704 bytes and
+        // `value_literal` is unbounded, so the first clause is what reaches the
+        // index and the second is what makes a collision harmless rather than a
+        // wrong answer. One rule, written the same way in both places.
+        inArray(
+          sql`md5(${statements.valueLiteral})`,
+          externalIds.map((id) => sql`md5(${id})`),
+        ),
+        inArray(statements.valueLiteral, externalIds),
+        isNull(statements.deletedAt),
+        isNull(items.deletedAt),
+        isNull(sources.deletedAt),
+      ),
+    );
+
+  // NARROWED RATHER THAN ASSERTED, which is the rule `findAttributionOwed` above
+  // already records: `value_literal` is nullable on the column, the `in` clauses
+  // make a null impossible here, and TypeScript cannot see a WHERE. A
+  // `sql<string>` wrapper would launder the null away and would also launder away
+  // a real one the day an item-valued statement could reach this query.
+  return new Map(
+    rows.flatMap(({ externalId, itemId }): [string, string][] =>
+      externalId === null ? [] : [[externalId, itemId]],
+    ),
+  );
 }

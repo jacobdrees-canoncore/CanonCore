@@ -34,6 +34,7 @@ export {
   cmppRecord,
   cmppSearch,
 } from "./cmpp";
+export { parseProviderUrls } from "./configured";
 export {
   type FailedProvider,
   type ProviderAnswer,

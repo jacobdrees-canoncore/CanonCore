@@ -3,6 +3,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import {
   type Database,
   findAttributionOwed,
+  findItemsProvided,
   importBrowsedContainer,
   importProvidedRecord,
   items,
@@ -1610,6 +1611,66 @@ describe("which attribution one item's page owes", () => {
     await purgeProvider(db, { identity: provider.identity });
 
     await expect(findAttributionOwed(db, itemId)).resolves.toEqual([]);
+  });
+});
+
+/**
+ * WHICH OF A PROVIDER'S RECORDS THIS CATALOGUE ALREADY HOLDS, which is the
+ * question a surface showing that provider's candidates has to ask.
+ *
+ * It is the READ half of the mapping `importProvidedRecord` writes (migration 3,
+ * ADR-0078): that function finds an item again by (source, external id) in order
+ * to refresh rather than double it, and this answers the same question out loud
+ * so a page can say which candidate is already held and at which Item.
+ */
+describe("findItemsProvided", () => {
+  it("answers the item a provider's record was imported as", async () => {
+    const provider = wikiProvider("http://127.0.0.1:9401");
+    const { itemId } = await importProvidedRecord(db, { provider, record: TENTH_PLANET });
+
+    const held = await findItemsProvided(db, {
+      identity: provider.identity,
+      externalIds: [TENTH_PLANET.externalId],
+    });
+
+    expect(held.get(TENTH_PLANET.externalId)).toBe(itemId);
+  });
+
+  /**
+   * AND IT ANSWERS FOR ONE PROVIDER ONLY, which is the half that would be wrong
+   * silently. Two providers using the SAME id for different records is ordinary
+   * -- an id is a record's id in ONE namespace (ADR-0078, CONTEXT.md's External
+   * id) -- so a read that ignored the provider would offer a page a link to
+   * somebody else's Item and look exactly like a correct answer.
+   *
+   * An id one provider holds and another does not answers as ABSENT rather than
+   * as the other's item, and that is ADR-0026's distinction standing: agreeing
+   * ids across providers are EVIDENCE for matching, never matching itself, and
+   * nothing here is allowed to do the matching by accident.
+   */
+  it("does not answer for another provider's record of the same id", async () => {
+    const wiki = wikiProvider("http://127.0.0.1:9402");
+    const tmdb = tmdbProvider("http://127.0.0.1:9403");
+    const theirs = await importProvidedRecord(db, { provider: wiki, record: TENTH_PLANET });
+    const ours = await importProvidedRecord(db, { provider: tmdb, record: TENTH_PLANET });
+
+    // ASKED OF BOTH, AND THAT IS WHAT MAKES THIS A TEST. Asking only one is
+    // satisfied by a read that ignores the provider entirely: both rows come
+    // back, the map keeps whichever the planner returned last, and half the time
+    // that is the right item for the wrong reason. Checked by removing the
+    // identity predicate -- one question passes, the pair cannot.
+    const byTmdb = await findItemsProvided(db, {
+      identity: tmdb.identity,
+      externalIds: [TENTH_PLANET.externalId, "a record this provider has never heard of"],
+    });
+    const byWiki = await findItemsProvided(db, {
+      identity: wiki.identity,
+      externalIds: [TENTH_PLANET.externalId],
+    });
+
+    expect(byTmdb.get(TENTH_PLANET.externalId)).toBe(ours.itemId);
+    expect(byWiki.get(TENTH_PLANET.externalId)).toBe(theirs.itemId);
+    expect(byTmdb.has("a record this provider has never heard of")).toBe(false);
   });
 });
 
