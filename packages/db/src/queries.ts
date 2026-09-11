@@ -1,4 +1,4 @@
-import { and, eq, getTableColumns, isNotNull, isNull, sql } from "drizzle-orm";
+import { and, eq, getTableColumns, gt, isNotNull, isNull, or, type SQL, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import type { Database } from "./index";
@@ -382,6 +382,14 @@ export interface Catalogue {
    * apart reports the first hundred as the whole library.
    */
   total: number;
+  /**
+   * The id to walk on from, or `null` where the catalogue ends here.
+   *
+   * IT SAYS BOTH THINGS AT ONCE -- whether there is more, and where it starts
+   * -- because a surface that had to work the first out for itself could only
+   * do it by subtracting, and a keyset walk has no offset to subtract from.
+   */
+  continuesAfter: string | null;
 }
 
 /**
@@ -404,8 +412,9 @@ export interface Catalogue {
  */
 export async function readCatalogue(
   db: Database,
-  { limit }: { limit: number },
+  { limit, after }: { limit: number; after?: string },
 ): Promise<Catalogue> {
+  const anchor = after === undefined ? undefined : await findInTheOrder(db, after);
   const rows = await db
     .select({
       id: items.id,
@@ -413,38 +422,137 @@ export async function readCatalogue(
       kindLabel: itemKinds.label,
       isContainer: items.isContainer,
       /*
-       * THE COUNT COMES BACK ON THE ROWS rather than from a second query, and
-       * that is the whole reason for the window function: a count taken
-       * separately is taken at a different moment, so a page could report 41
-       * items and list 42. Computed before `limit` is applied, which is what
-       * makes it the catalogue's size rather than the page's.
+       * THE COUNT COMES BACK ON THE ROWS rather than from a second query: a
+       * count taken separately is taken at a different moment, so a page could
+       * report 41 items and list 42. A scalar subquery rides in the same
+       * statement and therefore in the same snapshot.
+       *
+       * IT WAS `count(*) over ()`, AND THE CURSOR IS WHY IT NO LONGER IS. A
+       * window count is taken after `where`, so with a keyset predicate in
+       * there it counts the items PAST THE CURSOR rather than the catalogue --
+       * and page two would report a smaller library than page one. This
+       * subquery is uncorrelated, so the cursor cannot reach it.
        *
        * `count(*)` is a `bigint`, which node-postgres hands over as a STRING
        * because the range does not fit a JavaScript number. `mapWith(Number)`
        * is where that becomes the number the type claims; without it `total`
        * is a string wearing a number's type.
        */
-      total: sql<number>`count(*) over ()`.mapWith(Number),
+      total: sql<number>`(select count(*) from ${items} where ${items.deletedAt} is null)`.mapWith(
+        Number,
+      ),
     })
     .from(items)
     // INNER, because `items.kind` is a foreign key into this table: a row with
     // no kind cannot exist, so there is nothing for a left join to preserve.
     .innerJoin(itemKinds, eq(itemKinds.kind, items.kind))
-    .where(isNull(items.deletedAt))
-    .orderBy(sql`coalesce(${items.sortName}, ${items.title})`, items.id)
-    .limit(limit);
+    .where(and(isNull(items.deletedAt), anchor && past(anchor)))
+    /*
+     * `nulls last` IS THE DEFAULT FOR `asc` AND IS WRITTEN OUT ANYWAY, because
+     * `past` below reads it: an item with no title at all has no sort key, and
+     * where those sit decides which half of the cursor's comparison finds them.
+     * A default the walk depends on is one worth saying out loud.
+     */
+    .orderBy(sql`${SORT_KEY} nulls last`, items.id)
+    // ONE MORE THAN ASKED FOR, and it is never returned. Whether the catalogue
+    // continues past this page is not something `total` can answer -- a keyset
+    // walk knows no offset, so it cannot subtract -- and the cheapest thing
+    // that does know is a row that was there to be read.
+    .limit(limit + 1);
 
+  const page = rows.slice(0, limit);
   return {
-    entries: rows.map(({ id, title, kindLabel, isContainer }) => ({
+    entries: page.map(({ id, title, kindLabel, isContainer }) => ({
       id,
       title,
       kindLabel,
       isContainer,
     })),
-    // An EMPTY catalogue returns no rows at all, so there is no window count to
-    // read and nothing has been hidden: nought is the honest answer.
-    total: rows[0]?.total ?? 0,
+    /*
+     * The size rides on the rows, so a page with NO rows carries none -- and a
+     * page can be empty with a catalogue behind it, when a cursor names the
+     * last item in it. The size is asked for on its own exactly there, where
+     * there are no entries for a second moment's answer to disagree with.
+     */
+    total: rows[0]?.total ?? (await countCatalogue(db)),
+    /*
+     * The id to ask for the next page with, or nothing when this is the end.
+     * It is the LAST ITEM THIS PAGE SHOWED rather than an encoded sort key,
+     * which is what keeps the projection out of the contract and out of the
+     * address a reader can see (ADR-0119).
+     */
+    continuesAfter: rows.length > limit ? (page.at(-1)?.id ?? null) : null,
   };
+}
+
+/**
+ * THE KEY THE CATALOGUE SORTS ON (ADR-0014), written once.
+ *
+ * The order and the cursor that walks it are one rule, and spelling it twice is
+ * how they come to disagree about where a page ended.
+ */
+const SORT_KEY = sql<string | null>`coalesce(${items.sortName}, ${items.title})`;
+
+/** Where one item sits in the catalogue's order. */
+interface PlaceInTheOrder {
+  sortKey: string | null;
+  id: string;
+}
+
+/**
+ * Everything the catalogue lists AFTER one item (ADR-0119).
+ *
+ * TWO REGIMES, AND A ROW COMPARISON CANNOT EXPRESS BOTH. The order is the
+ * items with a sort key ascending and then the items with none, so `(null, x)
+ * > (k, y)` -- which is NULL rather than true -- would drop every untitled item
+ * off the walk permanently. An item nobody has titled is still an item, and the
+ * criterion is that none is skipped.
+ */
+function past({ sortKey, id }: PlaceInTheOrder): SQL | undefined {
+  // Already among the ones with no sort key, so the id is the whole order left.
+  if (sortKey === null) return and(isNull(SORT_KEY), gt(items.id, id));
+  return or(
+    // Every item with no sort key sorts after every item with one.
+    isNull(SORT_KEY),
+    gt(SORT_KEY, sortKey),
+    // THE TIEBREAK, and it is the half that makes the walk total: two items
+    // sorting the same are separated by their ids, and a cursor comparing only
+    // the key would step over the second of them.
+    and(eq(SORT_KEY, sortKey), gt(items.id, id)),
+  );
+}
+
+/**
+ * Where one id sits in the catalogue's order, by the id a reader arrived with.
+ *
+ * IT DOES NOT HONOUR THE TOMBSTONE, and that is the one place in this file
+ * where not honouring it is right. ADR-0075's rule is about what a reader is
+ * SHOWN, and this row is never shown: it is a position. Reading a deleted
+ * item's key is what keeps a link to page two working after the item the link
+ * was cut at is gone, which is the ordinary case rather than a corner of one.
+ *
+ * AN ID THAT NAMES NOTHING NAMES NO POSITION, so the walk starts at the
+ * beginning rather than erroring. That is ADR-0066's rule for a query
+ * parameter, and the shape guard is the one `findItem` uses for the reason it
+ * gives: comparing a non-uuid against a `uuid` column is error 22P02 rather
+ * than an empty result.
+ */
+async function findInTheOrder(db: Database, id: string): Promise<PlaceInTheOrder | undefined> {
+  if (!canBeAnId(id)) return undefined;
+  const [place] = await db
+    .select({ sortKey: SORT_KEY, id: items.id })
+    .from(items)
+    .where(eq(items.id, id));
+  return place;
+}
+
+/** How many items the catalogue holds, asked on its own. */
+async function countCatalogue(db: Database): Promise<number> {
+  const [counted] = await db
+    .select({ total: sql<number>`count(*)`.mapWith(Number) })
+    .from(items)
+    .where(isNull(items.deletedAt));
+  return counted?.total ?? 0;
 }
 
 /**
