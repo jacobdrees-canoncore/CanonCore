@@ -2,6 +2,7 @@ import { healthCheckResult } from "@canoncore/schemas";
 import type { RouterClient } from "@orpc/server";
 
 import { publicProcedure } from "../index";
+import { catalogue } from "./catalogue";
 import { item } from "./item";
 import { provider } from "./provider";
 
@@ -10,6 +11,7 @@ export const appRouter = {
   // catch-all route publishes, and what makes oRPC reject a handler that stops
   // answering what the contract promises.
   healthCheck: publicProcedure.output(healthCheckResult).handler(() => "OK" as const),
+  catalogue,
   item,
   provider,
 };

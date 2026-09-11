@@ -570,3 +570,32 @@ describe("provider.previewPurge", () => {
     expect(preview.statements).toBeGreaterThan(0);
   });
 });
+
+/**
+ * ADR-0034's allowlist is empty by default and that refuses every provider, so
+ * an unconfigured instance and a broken one look identical from a page: nothing
+ * imports, and nothing says why. ADR-0094 names that as a failure in its own
+ * right -- "an install that starts empty WITHOUT SAYING WHAT TO DO NEXT" -- and
+ * this is the fact a page says it with.
+ */
+describe("provider.allowlisted", () => {
+  it("says an instance whose allowlist names a destination can reach one", async () => {
+    // The suite's own configuration, which is the loopback CIDR the stub above
+    // is reached on -- so this is the real allowlist rather than a stand-in.
+    const answer = await call(appRouter.provider.allowlisted, undefined, { context });
+
+    expect(answer).toStrictEqual({ any: true });
+  });
+
+  it("says an instance with the default empty allowlist can reach none", async () => {
+    // The DEFAULT, parsed by the real parser: `PROVIDER_ALLOWLIST` unset is the
+    // empty string, and the empty string refuses everything.
+    const unconfigured = { ...context, providerAllowlist: parseAllowlist("") };
+
+    const answer = await call(appRouter.provider.allowlisted, undefined, {
+      context: unconfigured,
+    });
+
+    expect(answer).toStrictEqual({ any: false });
+  });
+});

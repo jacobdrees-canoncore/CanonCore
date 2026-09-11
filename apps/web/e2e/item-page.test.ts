@@ -1,5 +1,7 @@
 import { describe, expect, inject, it } from "vitest";
 
+import { documentAt } from "./document";
+
 /**
  * The app over real HTTP: a production build of Next, serving a real database.
  *
@@ -8,7 +10,6 @@ import { describe, expect, inject, it } from "vitest";
  * migration or the Next build were broken. Everything else passes with the app
  * never having been served.
  */
-const baseUrl = inject("baseUrl");
 const itemId = inject("itemId");
 const itemTitle = inject("itemTitle");
 const placements = inject("placements");
@@ -16,24 +17,6 @@ const twoOrigins = inject("twoOrigins");
 const imported = inject("imported");
 const browsed = inject("browsed");
 const attributed = inject("attributed");
-
-/**
- * Assertions are made against the DECODED document. React escapes `'` as
- * `&#x27;`, and a test that matched that literally would be asserting on
- * React's escaping table rather than on the page's content -- and would break
- * on a title whose punctuation happens to escape differently.
- */
-async function documentAt(path: string): Promise<{ status: number; text: string }> {
-  const response = await fetch(`${baseUrl}${path}`);
-  const raw = await response.text();
-  const text = raw
-    .replaceAll("&#x27;", "'")
-    .replaceAll("&quot;", '"')
-    .replaceAll("&amp;", "&")
-    .replaceAll("&lt;", "<")
-    .replaceAll("&gt;", ">");
-  return { status: response.status, text };
-}
 
 /**
  * The rows of the "Also appears in" list, one string each, so an assertion can

@@ -79,3 +79,36 @@ the env guard stop testing anything the day remote caching is turned on. The gua
 runs straight after a successful `pnpm build` in the same workspace, so a LOCAL warm cache would be
 enough and no remote one is needed. The `env` declaration above is the whole of what keeps the
 guard's build a cache miss, measured at `0 cached, 1 total` against a deliberately warmed cache.
+
+## The last of the generator's output, under CNCORE-65
+
+"Never depend on it again" was satisfied from the first commit; OWNING the output took longer, and
+what was left of it was a client-side data layer rather than a dependency.
+
+The generator's banner page ran a health check through TanStack Query, and `utils/orpc.ts`, the
+`QueryClientProvider`, its devtools and the Toaster existed to serve that one panel. When `/` became
+a server component reading the router in-process, nothing called any of them. **A data layer with no
+callers is scaffold however well it works**, so it went, and `loader.tsx` with it: nothing had ever
+imported that one at all.
+
+**THREE DEPENDENCIES WENT, NOT FOUR, AND THE DIFFERENCE IS WORTH STATING.** `@orpc/tanstack-query`,
+`@tanstack/react-query` and `@tanstack/react-query-devtools` are gone from `apps/web/package.json`
+AND from the catalogue in `pnpm-workspace.yaml`, which is where
+[[0101-the-catalogue-is-the-only-place-a-version-is-written]] puts every version. An earlier draft of
+this section said four and left all three pinned; a package deleted from a manifest and left in the
+catalogue is still a version this repo maintains.
+
+**`sonner` is the fourth and it STAYS**, which is a different judgement rather than an omission. The
+app's `<Toaster>` went with the query client, but `packages/ui/src/components/sonner.tsx` is a
+VENDORED PRIMITIVE, and nine of that package's seventeen primitives have no importer today. An
+unimported primitive is what a primitive library normally holds; deleting one because this slice
+stopped using it would be deleting the library a component at a time.
+
+The residue was not only code. `layout.tsx` carried `title: "canoncore"` and
+`description: "canoncore"` — a placeholder the generator writes from the directory name, and a tab
+reading `canoncore` beside a heading reading CanonCore is the scaffold showing through
+([[0058-the-name-is-settled]]).
+
+**What replaces it is added by the slice that needs it**, not restored on the way out. CNCORE-68 is
+the first surface that mutates from the browser, and it picks what it needs rather than inheriting a
+generator's guess.

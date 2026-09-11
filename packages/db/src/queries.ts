@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { Database } from "./index";
 import {
   aliases,
+  itemKinds,
   items,
   placementSources,
   placements,
@@ -324,6 +325,98 @@ export async function findAttributionOwed(
           },
         ],
   );
+}
+
+/** One item as the catalogue lists it. */
+export interface CatalogueEntry {
+  id: string;
+  /** ADR-0014's projected column. An item with no title statement has none. */
+  title: string | null;
+  /**
+   * ADR-0005's kind, IN THE READER'S WORDS: `Time span`, never `time_span`.
+   *
+   * READ OFF `item_kinds` RATHER THAN MAPPED IN TYPESCRIPT. Migration 1 seeds
+   * that table with a `label` beside every kind for exactly this, so the words
+   * a reader sees are the catalogue's own. A map written in the app would be
+   * the same rule in a second language -- the hazard this file already carries
+   * a paragraph about -- and it would go stale the day a kind's label is
+   * revised by the migration that owns it.
+   */
+  kind: string;
+  /**
+   * ADR-0004 folds containers into `work`, so the kind alone cannot separate a
+   * story from an ordering that holds stories. This is what does.
+   */
+  isContainer: boolean;
+}
+
+/** What the catalogue holds, and how much of it this answer carries. */
+export interface Catalogue {
+  entries: CatalogueEntry[];
+  /**
+   * How many items the catalogue holds ALTOGETHER, which is not
+   * `entries.length` whenever the cap bit. A surface that cannot tell the two
+   * apart reports the first hundred as the whole library.
+   */
+  total: number;
+}
+
+/**
+ * WHAT IS IN THIS CATALOGUE -- every item, of every kind.
+ *
+ * ADR-0077 phrases the rule around THE QUESTION A SURFACE ASKS rather than
+ * around a list of surfaces, and this is the other question from the one that
+ * record mostly concerns itself with: work-browsing answers "what can I watch"
+ * and excludes the entity kinds, and this answers "what is in this catalogue"
+ * and excludes nothing. `holds_work` is deliberately not consulted here. The
+ * surface that does consult it is CNCORE-67's.
+ *
+ * IT HONOURS THE TOMBSTONE (ADR-0075) and reads the PROJECTED columns
+ * (ADR-0014), so what a reader sees listed is the title statement that
+ * currently wins rather than an id.
+ *
+ * THE ORDER IS `coalesce(sort_name, title)`, which is the pair ADR-0014 gives
+ * `sort_name` its own index for, with the id behind it so two items sharing a
+ * sort key list in the same order twice.
+ */
+export async function readCatalogue(
+  db: Database,
+  { limit }: { limit: number },
+): Promise<Catalogue> {
+  const rows = await db
+    .select({
+      id: items.id,
+      title: items.title,
+      kind: itemKinds.label,
+      isContainer: items.isContainer,
+      /*
+       * THE COUNT COMES BACK ON THE ROWS rather than from a second query, and
+       * that is the whole reason for the window function: a count taken
+       * separately is taken at a different moment, so a page could report 41
+       * items and list 42. Computed before `limit` is applied, which is what
+       * makes it the catalogue's size rather than the page's.
+       *
+       * `count(*)` is a `bigint`, which node-postgres hands over as a STRING
+       * because the range does not fit a JavaScript number. `mapWith(Number)`
+       * is where that becomes the number the type claims; without it `total`
+       * is a string wearing a number's type.
+       */
+      total: sql<number>`count(*) over ()`.mapWith(Number),
+    })
+    .from(items)
+    // INNER, because `items.kind` is a foreign key into this table: a row with
+    // no kind cannot exist, so there is nothing for a left join to preserve.
+    .innerJoin(itemKinds, eq(itemKinds.kind, items.kind))
+    .where(isNull(items.deletedAt))
+    .orderBy(sql`coalesce(${items.sortName}, ${items.title})`, items.id)
+    .limit(limit);
+
+  return {
+    entries: rows.map(({ id, title, kind, isContainer }) => ({ id, title, kind, isContainer })),
+    // An EMPTY catalogue returns no rows at all, so there is no window count to
+    // read and nothing has been hidden: nought is the honest answer.
+    total: rows[0]?.total ?? 0,
+  };
 }
 
 /**

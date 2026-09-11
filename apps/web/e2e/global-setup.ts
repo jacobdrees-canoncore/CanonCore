@@ -83,6 +83,19 @@ export default async function setup(project: TestProject) {
   project.provide("providerWikiUrl", provider.url);
   project.provide("providerTmdbUrl", tmdb.url);
 
+  /*
+   * A SECOND INSTANCE, AND IT IS WHAT A STRANGER ACTUALLY GETS. The seeded
+   * server above has a catalogue and an allowlist, so two of the front page's
+   * four criteria have no state to be asserted in: an empty catalogue and an
+   * unconfigured `PROVIDER_ALLOWLIST` are precisely what this one has (ADR-0094).
+   *
+   * THE SAME BUILD, a different database and a different environment. Next is
+   * built once above and started twice, so what this proves is the SHIPPED page
+   * meeting a fresh install rather than a second build of it.
+   */
+  const fresh = await freshInstall();
+  project.provide("freshBaseUrl", fresh.baseUrl);
+
   project.provide("imported", await importThroughTheApp(baseUrl, provider.url));
   project.provide("attributed", await importFromTmdb(baseUrl, tmdb.url));
   const browsed = await browseThroughTheApp(baseUrl, provider.url, databaseUrl);
@@ -90,6 +103,7 @@ export default async function setup(project: TestProject) {
 
   return async () => {
     server.kill("SIGTERM");
+    fresh.close();
     // The seed ends its own client; this pool has to be ended too, or the run
     // holds an idle connection open against a database it is finished with.
     await twoOrigins.close();
@@ -97,6 +111,33 @@ export default async function setup(project: TestProject) {
     await provider.close();
     await tmdb.close();
   };
+}
+
+/**
+ * A CanonCore nobody has configured and nobody has filled: the state ADR-0094
+ * governs, standing up on its own port.
+ *
+ * NO `PROVIDER_ALLOWLIST` AT ALL, which is not the same as one this harness
+ * chose to leave narrow. ADR-0034 makes the variable default to the empty
+ * string and the empty string refuse every provider, so ABSENT is the
+ * configuration under test -- and it is passed as an explicit empty string
+ * rather than omitted, because this process inherits its own environment and an
+ * omitted key would let the parent's value through.
+ *
+ * The database is built from empty by the same ladder every other suite runs,
+ * and nothing seeds it. That is the whole fixture: the emptiness IS the state.
+ */
+async function freshInstall(): Promise<{ baseUrl: string; close: () => void }> {
+  const databaseUrl = await buildTestDatabase("fresh");
+  const port = await freePort();
+  const server = spawn("next", ["start", "--port", String(port)], {
+    cwd: webRoot,
+    env: { ...process.env, DATABASE_URL: databaseUrl, PROVIDER_ALLOWLIST: "" },
+    stdio: "inherit",
+  });
+  const baseUrl = `http://127.0.0.1:${port}`;
+  await waitUntilAnswering(baseUrl, server);
+  return { baseUrl, close: () => server.kill("SIGTERM") };
 }
 
 /**
@@ -481,6 +522,11 @@ async function waitUntilAnswering(baseUrl: string, server: ChildProcess): Promis
 declare module "vitest" {
   interface ProvidedContext {
     baseUrl: string;
+    /**
+     * The SAME BUILD serving an empty database with no allowlist: what a
+     * stranger's first run of CanonCore is (ADR-0094).
+     */
+    freshBaseUrl: string;
     /** The wiki provider this run stood up: the real image in CI, a stub here. */
     providerWikiUrl: string;
     /** The TMDB provider, whose source row is what a TMDB claim is recorded against. */

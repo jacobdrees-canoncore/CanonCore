@@ -69,6 +69,13 @@ never mentions it. **A release of that is a release of the first five minutes ra
 product.** [[0094-a-fresh-install-starts-empty]] governs what content ships and deliberately says
 nothing about whether the emptiness is explained; that gap is what this effort closes.
 
+**The first clause of that paragraph is now history and the last is not.** CNCORE-65 replaced the
+banner with the catalogue: an empty one names the two steps that fill it, and an instance with
+nothing allowlisted says so, so an empty result reads as configuration rather than breakage. The
+README still does not mention the variable, which is CNCORE-64's, and nothing reaches `/items/<id>`
+by SEARCHING for it yet, which is CNCORE-66's. The paragraph is left standing because it is this
+record's reasoning at the moment it was taken; this is what has since been done about it.
+
 **The owner write path is included for one reason: without it the product's central claim is not
 personally usable.** A catalogue filled only from providers holds only the orderings a provider
 gave. CNCORE-2's user story 7 is "each ordering is mine to curate", and CNCORE-5 was "One item, two

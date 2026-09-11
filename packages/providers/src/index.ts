@@ -10,6 +10,7 @@
 export {
   type Allowlist,
   type AssertAddress,
+  allowsAnything,
   assertConfigAddress,
   assertConfigUrl,
   assertContentAddress,

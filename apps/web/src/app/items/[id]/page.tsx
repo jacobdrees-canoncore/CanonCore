@@ -190,6 +190,14 @@ export default async function ItemPage({
       */}
       <dl className="mt-6 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
         <dt className="text-muted-foreground">Kind</dt>
+        {/*
+          TODO(CNCORE-83): this prints the KEY, so an item of kind `time_span`
+          shows a reader `time_span` where `CONTEXT.md` -- binding on UI copy --
+          says "Time span". `item_kinds` carries the label beside the kind and
+          the catalogue listing already reads it; fixing it here changes what
+          `itemPublic.kind` means for every reader of the read path, which is
+          why it is a ticket rather than a line.
+        */}
         <dd>{item.kind}</dd>
       </dl>
       <Values statements={item.statements} />

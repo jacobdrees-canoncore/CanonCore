@@ -125,9 +125,6 @@ catalogs:
     '@orpc/server':
       specifier: ^1.15.0
       version: 1.15.0
-    '@orpc/tanstack-query':
-      specifier: ^1.15.0
-      version: 1.15.0
     '@orpc/zod':
       specifier: ^1.15.0
       version: 1.15.0
@@ -143,12 +140,6 @@ catalogs:
     '@tailwindcss/postcss':
       specifier: ^4.3.3
       version: 4.3.3
-    '@tanstack/react-query':
-      specifier: ^5.101.4
-      version: 5.102.8
-    '@tanstack/react-query-devtools':
-      specifier: ^5.101.4
-      version: 5.102.8
     '@types/node':
       specifier: ^26.2.0
       version: 26.5.0
@@ -287,18 +278,12 @@ importers:
       '@orpc/server':
         specifier: 'catalog:'
         version: 1.15.0
-      '@orpc/tanstack-query':
-        specifier: 'catalog:'
-        version: 1.15.0(@orpc/client@1.15.0)(@tanstack/query-core@5.102.8)
       '@orpc/zod':
         specifier: 'catalog:'
         version: 1.15.0(@orpc/contract@1.15.0)(@orpc/server@1.15.0)(zod@4.5.4)
       '@swc/helpers':
         specifier: 'catalog:'
         version: 0.5.23
-      '@tanstack/react-query':
-        specifier: 'catalog:'
-        version: 5.102.8(react@19.2.8)
       babel-plugin-react-compiler:
         specifier: 'catalog:'
         version: 1.0.0
@@ -320,9 +305,6 @@ importers:
       react-dom:
         specifier: 'catalog:'
         version: 19.2.8(react@19.2.8)
-      sonner:
-        specifier: 'catalog:'
-        version: 2.0.8(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       zod:
         specifier: 'catalog:'
         version: 4.5.4
@@ -339,9 +321,6 @@ importers:
       '@tailwindcss/postcss':
         specifier: 'catalog:'
         version: 4.3.3
-      '@tanstack/react-query-devtools':
-        specifier: 'catalog:'
-        version: 5.102.8(@tanstack/react-query@5.102.8(react@19.2.8))(react@19.2.8)
       '@types/node':
         specifier: 'catalog:'
         version: 26.5.0
@@ -1653,12 +1632,6 @@ packages:
   '@orpc/standard-server@1.15.0':
     resolution: {integrity: sha512-bje/xn6thDqJY/JQ7xoOjmD1KWE4FsyZOPgnPxwqTZLx/r00stRhLuFvk1hDEGj9UlG7NLZEijDVx0wqvcyDzA==}
 
-  '@orpc/tanstack-query@1.15.0':
-    resolution: {integrity: sha512-Dp2JXqdmmRjBQu21Cq6oGBhxJF0Gel5ao5qMdOSYpVb5RjdqAEaXsDO9VMj1nEj6SseKGfm9pk10ZIskuI1jjg==}
-    peerDependencies:
-      '@orpc/client': 1.15.0
-      '@tanstack/query-core': '>=5.80.2'
-
   '@orpc/zod@1.15.0':
     resolution: {integrity: sha512-QaxvUaxemoz57ljE6GNoRHy6tUrLz9PZH+NjPtbL2SilTwrtTDPgWzS+D8TYW6VZqhdBJM6jY93j81ygVf88dQ==}
     peerDependencies:
@@ -1900,23 +1873,6 @@ packages:
 
   '@tailwindcss/postcss@4.3.3':
     resolution: {integrity: sha512-JTSZZGQi1AyKirbLN3azmjVzef92tcX7h+iSqPdaeStyFpGpDlKvvpxeOE8njhbUanbRwr3z8DyzhICWnMtQeg==}
-
-  '@tanstack/query-core@5.102.8':
-    resolution: {integrity: sha512-ZNjkJ33CqvPNec/6lZBnHqLc3EVGPZ9ySLhYahU9TcuRFdmwXewuj0c4hwSWcGHqEUwcSrKeZ+oGcvPBqXcQcg==}
-
-  '@tanstack/query-devtools@5.102.8':
-    resolution: {integrity: sha512-ZgeMKuF5d/zOE+tgWm3cSbD6Zcbr6IugVsnbHzUcSismqLZDSUPBKM6ILUxExgwe6rPAOox2x5bA5T+PSOQG0Q==}
-
-  '@tanstack/react-query-devtools@5.102.8':
-    resolution: {integrity: sha512-QKb7A44BZOU7nxsGA4gFN1fofjYovar5O0T83Ff4Y+2eRq09RGFrAzzutVdF/6/emfSaMDohp6e759BjB3fxEw==}
-    peerDependencies:
-      '@tanstack/react-query': ^5.102.8
-      react: ^18 || ^19
-
-  '@tanstack/react-query@5.102.8':
-    resolution: {integrity: sha512-TYBea4OuXWD7MhaSHq069TWbFe7rcwWN6kzT7JF0OKi1K6c1gTv2IzD6A6ExJsCMozdkqBWeuIUZmu4KQg0O5A==}
-    peerDependencies:
-      react: ^18 || ^19
 
   '@ts-morph/common@0.27.0':
     resolution: {integrity: sha512-Wf29UqxWDpc+i61k3oIOzcUfQt79PIT9y/MWfAGlrkjg6lBC1hwDECLXPVJAhWjiGbfBCxZd65F/LIZF3+jeJQ==}
@@ -4731,14 +4687,6 @@ snapshots:
     transitivePeerDependencies:
       - '@opentelemetry/api'
 
-  '@orpc/tanstack-query@1.15.0(@orpc/client@1.15.0)(@tanstack/query-core@5.102.8)':
-    dependencies:
-      '@orpc/client': 1.15.0
-      '@orpc/shared': 1.15.0
-      '@tanstack/query-core': 5.102.8
-    transitivePeerDependencies:
-      - '@opentelemetry/api'
-
   '@orpc/zod@1.15.0(@orpc/contract@1.15.0)(@orpc/server@1.15.0)(zod@4.5.4)':
     dependencies:
       '@orpc/contract': 1.15.0
@@ -4892,21 +4840,6 @@ snapshots:
       '@tailwindcss/oxide': 4.3.3
       postcss: 8.5.28
       tailwindcss: 4.3.3
-
-  '@tanstack/query-core@5.102.8': {}
-
-  '@tanstack/query-devtools@5.102.8': {}
-
-  '@tanstack/react-query-devtools@5.102.8(@tanstack/react-query@5.102.8(react@19.2.8))(react@19.2.8)':
-    dependencies:
-      '@tanstack/query-devtools': 5.102.8
-      '@tanstack/react-query': 5.102.8(react@19.2.8)
-      react: 19.2.8
-
-  '@tanstack/react-query@5.102.8(react@19.2.8)':
-    dependencies:
-      '@tanstack/query-core': 5.102.8
-      react: 19.2.8
 
   '@ts-morph/common@0.27.0':
     dependencies:

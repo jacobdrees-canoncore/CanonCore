@@ -7,7 +7,10 @@ allowBuilds:
 # Every third-party version in this repo is pinned here and nowhere else. A range
 # written inline in a package.json is drift waiting to happen: the generator left
 # @orpc/tanstack-query inline at the same version the other four @orpc packages
-# were catalogued at, which is exactly what a catalogue exists to prevent.
+# were catalogued at, which is exactly what a catalogue exists to prevent. That
+# package is gone now, along with the TanStack Query pair it fed -- CNCORE-65
+# deleted the last caller -- so the example survives its subject, which is fine:
+# it is the reason the rule exists rather than a description of the tree.
 catalog:
   # Toolchain
   typescript: ^7.0.2
@@ -37,9 +40,6 @@ catalog:
   "@orpc/client": ^1.15.0
   "@orpc/openapi": ^1.15.0
   "@orpc/zod": ^1.15.0
-  "@orpc/tanstack-query": ^1.15.0
-  "@tanstack/react-query": ^5.101.4
-  "@tanstack/react-query-devtools": ^5.101.4
 
   # Database. drizzle-orm stable has not moved since 2026-03-27 while 1.0.0 sits
   # at rc; see ADR-0102 for why this repo stays on the stable line for now.

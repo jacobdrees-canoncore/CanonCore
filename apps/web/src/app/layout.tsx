@@ -16,8 +16,15 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "canoncore",
-  description: "canoncore",
+  /*
+   * THE PRODUCT'S OWN NAME (ADR-0058), which the generator left as a lowercase
+   * placeholder. NO TEMPLATE: the item page sets its own title to the item's,
+   * and a `%s | CanonCore` template here would append the product's name to
+   * every one of them -- a tab that says what you are looking at beats one that
+   * says what application you are in, on a self-hosted app with one tab open.
+   */
+  title: "CanonCore",
+  description: "A self-hosted catalogue for collections that do not fit one folder tree.",
 };
 
 export default function RootLayout({

@@ -44,10 +44,11 @@ describe("worktreeDatabaseName", () => {
   });
 
   it("leaves room for the names the test harness derives and DROPS", () => {
-    // build-database.ts derives `<name>_test` and `<name>_test_web`, and drops
-    // them with `drop database ... with (force)`. PostgreSQL truncates at 63
-    // silently, so if a derived name truncated back onto the real one, running
-    // the suite would destroy the worktree's own database.
+    // build-database.ts derives `<name>_test`, `<name>_test_web` and
+    // `<name>_test_fresh`, and drops them with `drop database ... with (force)`.
+    // PostgreSQL truncates at 63 silently, so if a derived name truncated back
+    // onto the real one, running the suite would destroy the worktree's own
+    // database.
     //
     // Asserted against what the harness actually appends, not against a
     // constant this module also owns -- otherwise the two would agree by
@@ -57,7 +58,7 @@ describe("worktreeDatabaseName", () => {
     // Built by the HARNESS's own function, not by pasting its format here, so
     // that changing how a test database is named fails this instead of quietly
     // eating the room reserved for it.
-    for (const suffix of ["", "web"]) {
+    for (const suffix of ["", "web", "fresh"]) {
       const derived = testDatabaseNameFor(name, suffix);
       expect(derived.length).toBeLessThanOrEqual(63);
       expect(derived.slice(0, 63)).not.toBe(name);

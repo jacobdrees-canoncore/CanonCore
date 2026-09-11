@@ -55,3 +55,28 @@ DO NEXT is a separate failure this record does not licence.
 [[0115-the-public-release-comes-before-the-playback-half]] is where that is closed. Nothing in the
 refusal above softens: no seed data travels to a stranger, and the fix is words on a page rather
 than rows in a database.
+
+## As built, under CNCORE-65
+
+**THIS RECORD IS STILL `proposed`, AND THE REASON IS THE WORD "INSTALL".** Its own subject is what
+travels to a stranger, and there is no install path yet — no image and no documented command
+(CNCORE-63, CNCORE-64). A record about what somebody else's instance starts with cannot be accepted
+while nobody else can start one.
+
+What DID land is the first evidence for it. `apps/web/e2e/front-page.test.ts` stands up the same
+build a second time against a database built from empty, with `PROVIDER_ALLOWLIST` unset, and asks
+it for `/`. Until then "a fresh install starts empty" was a property nothing exercised: every suite
+in the repo ran against a seeded database, which is the one state this record does not govern.
+
+**And the half this record explicitly does not licence is now closed.** The section above ends "an
+install that starts empty WITHOUT SAYING WHAT TO DO NEXT is a separate failure", and points at
+[[0115-the-public-release-comes-before-the-playback-half]]. CNCORE-65 is where that was done: the
+empty catalogue names the two steps that fill it, and an instance with nothing allowlisted says so
+rather than leaving an empty result to read as breakage. Nothing in the refusal softened — the fix
+is words on a page, and no seed data travels anywhere.
+
+**The third state the page reports was not in this record and is worth naming**: an allowlist that
+names nothing is not the same fact as a catalogue that holds nothing, and an owner can be in either
+without the other. The page reads them as two conditions off two facts rather than as one
+"unconfigured" state, because an owner with items and no allowlist is stuck in a way an empty
+catalogue does not describe.
