@@ -141,9 +141,11 @@ spec's shopping list.** The slot was bought under CNCORE-18, whose own text says
 
 What the slot bought was an answer to a question that turned out to be the wrong one, and the answer
 now lives in ADR-0109:118-247. Post-CNCORE-61 that section argues from plan, price, region and what
-the SSH session proved, and from nothing else — `git grep -n "yuzu"` returns only the CI guard that
-enforces the absence (`.github/workflows/ci.yml:113-132`, "The owner's personal host is named in the
-tree ... the name is an invitation and proves nothing"). The argument survives the redaction intact
+the SSH session proved, and from nothing else. Searching the tree for the redacted hostname returns
+only the CI guard that enforces its absence (`.github/workflows/ci.yml:113-132`, "The owner's personal
+host is named in the tree ... the name is an invitation and proves nothing"). **That guard caught an
+earlier draft of this very file**, which spelled the hostname out while describing the search for it,
+which is a fair demonstration that it works. The argument survives the redaction intact
 because the finding was never about that machine:
 
 - The doubt it was bought to settle — `docs/research/the-cheap-end.md:173`, "the one thing that could
@@ -257,6 +259,40 @@ is not yet serving anything. The day it needs to resolve is entry 1 of `where-it
 canonical HTTPS origin — which is the playback spec's, and ADR-0109:94-96 already explains why the
 domain rather than the address is the product's identity: "the move is a repointed A record rather
 than a migration."
+
+---
+
+## 5a. The owner's intent, recorded because it dates the choice
+
+Everything above is what the spec and the records say. This section is what the OWNER wants, which is
+a different kind of claim and is marked as one. ADR-0109 carries an equivalent section for the same
+reason, and says so in its own words: "Recorded because it dates the choice, not because it constrains
+the product."
+
+**Jacob intends to run CanonCore on the Whatbox slot he already holds, once CNCORE-60 and all its
+children are done.** He also holds a written allowance from that vendor covering whatever he wants to
+run on it, which is why the demo prohibition in `where-it-runs.md:1324` does not bind his account even
+though the published AUP is unchanged for everyone else. CNCORE-81 exists to get both of those into
+the records with a date and an author, because today they are a conversation rather than evidence.
+
+**Nothing in this file derives that choice, and it should not be read as recommending it.** Three
+things stay true beside it:
+
+- **CNCORE-60 still needs no host**, which is the whole answer above. The intent changes the plan
+  after this effort, not inside it.
+- **The repo's own priced comparison still recommends something else.** `the-cheap-end.md:230-237`,
+  written 2026-09-10: the recommendation "for when it does start" is the SPLIT, a ~GBP 4 VPS with root
+  plus a Storage Box at GBP 2.09/TB, "unless Whatbox fixes cron". Same money, and what it buys is root,
+  a systemd that restarts things, and storage that survives a later move.
+- **One measured fact decides between them**, and it is the open half of CNCORE-81: nothing on a shared
+  slot restarts a process after a reboot, because cron is refused by PAM and there is no systemd user
+  session. If support fixes it, the slot satisfies all five clauses of ADR-0109's shape and the split
+  is a pound wasted. If not, an always-on instance that needs a human after every host reboot is not
+  always-on.
+
+**And ADR-0109 makes this reversible by construction**, which is why recording an intent here costs
+nothing: it commits to a shape rather than a vendor, the domain rather than the address is the
+product's identity, and a move is "a repointed A record rather than a migration".
 
 ---
 
@@ -380,8 +416,8 @@ descriptions. CNCORE-18 for what the Whatbox slot was bought to answer.
 `packages/db/docker-compose.yml`, `apps/web/src/app/items/[id]/page.tsx`, `README.md`.
 
 **Measured on this machine 2026-09-11**: `docker info` (colima, 2 CPU, 2053586944 bytes, Docker
-29.5.2) and `docker buildx version` (`unknown command`); `git grep` for `canoncore.com`, `yuzu` and
-`whatbox`.
+29.5.2) and `docker buildx version` (`unknown command`); `git grep` for `canoncore.com`, for the
+redacted hostname, and for `whatbox`.
 
 **Measured against upstream data 2026-09-11**: a shallow clone of
 `github.com/awesome-selfhosted/awesome-selfhosted-data` at `master`, 1,346 `software/*.yml` entries,
