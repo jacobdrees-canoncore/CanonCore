@@ -1,0 +1,137 @@
+import { createContext } from "@canoncore/api/context";
+import { appRouter } from "@canoncore/api/routers";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@canoncore/ui/components/empty";
+import { call } from "@orpc/server";
+import { connection } from "next/server";
+import { Holding, Listing, PastTheEnd, Walk } from "@/components/listing";
+
+/**
+ * WORK-BROWSING: what can I watch, without the cast.
+ *
+ * ADR-0077 phrases its rule around THE QUESTION A SURFACE ASKS rather than
+ * around a list of surfaces, and this asks the narrow one. The front page asks
+ * the wide one -- "what is in this catalogue" -- and hides nothing, which is
+ * why these are two surfaces rather than one with a filter bolted to it.
+ *
+ * THE RULE ITSELF IS NOT HERE, and that is deliberate. `kind = 'work' AND (NOT
+ * is_container OR holds_work)` lives in `packages/db/src/queries.ts` beside the
+ * catalogue's own predicate, so the listing and the count it reports cannot
+ * come to disagree about which question they answered. What this file decides
+ * is which question to ask.
+ *
+ * The router is called IN-PROCESS, as the front page and the item page call it.
+ * A server component fetching its own API is a round trip to itself, and oRPC
+ * documents `call` as the way to avoid it.
+ */
+async function readWorkBrowsing(after: string | undefined) {
+  /*
+   * PRERENDERING STOPS HERE (ADR-0117), and the line is the rule rather than
+   * the effect.
+   *
+   * This page reads the catalogue. It also reads `searchParams` for the cursor,
+   * which makes it dynamic on its own -- so by that record's letter this call
+   * is redundant today. It is here anyway, for the reason the front page gives
+   * in the same words: `?after=` is present to walk a listing rather than to
+   * promise this page renders per request, and the day paging changes shape the
+   * page would go back to being a photograph of itself with nothing in the diff
+   * to say so. On self-hosted software that photograph is a browse grid frozen
+   * at the moment somebody built the image, which no import would ever change.
+   *
+   * AND THE CHECK THAT CATCHES IT IS A SHAPE RATHER THAN AN ASSERTION about
+   * this page: two instances of one build, pointed at different databases, asked
+   * for this same path, must answer differently. ADR-0117 says a new read
+   * surface earns that pair rather than merely the line, because "the line
+   * without the check is a rule somebody remembers". It is in
+   * `apps/web/e2e/works-page.test.ts`.
+   */
+  await connection();
+  return call(appRouter.catalogue.works, { after }, { context: await createContext() });
+}
+
+export default async function WorksPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ after?: string | string[] }>;
+}) {
+  /*
+   * WHERE IN THE LISTING THIS READER IS, read on the SERVER so the page they
+   * are served is already the page they asked for.
+   *
+   * An array means the parameter was repeated, and a reader is at one place in
+   * one ordering -- so a repeated one names no place rather than the first of
+   * several. That is the rule `/` and `/items/<id>` both apply (ADR-0066), and
+   * a third surface answering it differently would be two conventions for one
+   * question.
+   */
+  const { after } = await searchParams;
+  const from = typeof after === "string" && after !== "" ? after : undefined;
+  const works = await readWorkBrowsing(from);
+  const listing = works.entries;
+  const nothingToWatch = works.total === 0;
+
+  return (
+    <main className="container mx-auto max-w-3xl px-4 py-8">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
+        <h1 className="text-3xl font-medium">Works</h1>
+        {listing.length > 0 && <Holding showing={listing.length} total={works.total} />}
+      </div>
+      {nothingToWatch && <NothingToWatch />}
+      {/*
+        ITEMS BEHIND IT AND NOTHING ON THIS PAGE, which is what a cursor makes
+        possible: the link was cut at an item, and nothing is after that item
+        any more. Rare, and a DEAD END if nothing says so.
+      */}
+      {!nothingToWatch && listing.length === 0 && <PastTheEnd path="/works" what="The works" />}
+      {listing.length > 0 && (
+        <>
+          <Listing entries={listing} />
+          <Walk path="/works" from={from} continuesAfter={works.continuesAfter} />
+        </>
+      )}
+    </main>
+  );
+}
+
+/**
+ * NOTHING TO WATCH, WHICH IS NOT THE SAME AS AN EMPTY CATALOGUE.
+ *
+ * A catalogue holding only People and Characters is a real state and a
+ * confusing one: the front page shows rows, this page shows none, and without a
+ * word here the difference reads as a fault. ADR-0077 is what produces it -- a
+ * surface answering "what can I watch" excludes the entity kinds -- so naming
+ * the rule is what turns an empty grid back into an answer.
+ *
+ * IT DOES NOT REPEAT THE FRONT PAGE'S TWO STEPS. Allowlisting a provider and
+ * importing are what fill an EMPTY catalogue (ADR-0094), and that page owns
+ * those words; a catalogue with entities in it has already been imported into.
+ * What this page points at is the surface that can show them.
+ */
+function NothingToWatch() {
+  return (
+    <section aria-labelledby="nothing-to-watch" className="mt-6">
+      <Empty className="border">
+        <EmptyHeader>
+          {/*
+            A REAL HEADING INSIDE THE PRIMITIVE. `EmptyTitle` renders a `div`,
+            so a section labelled by one is labelled by something that is not a
+            heading -- and a reader navigating this page by heading finds only
+            the `h1`.
+          */}
+          <EmptyTitle>
+            <h2 id="nothing-to-watch">Nothing to watch yet</h2>
+          </EmptyTitle>
+          <EmptyDescription>
+            This page shows Works: stories, and the orderings that hold them. People, Characters and
+            the other Entity kinds are deliberately left out of it, so a catalogue of only those
+            shows nothing here and everything on the catalogue page.
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
+    </section>
+  );
+}

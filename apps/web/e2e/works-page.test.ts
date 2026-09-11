@@ -1,6 +1,6 @@
 import { describe, expect, inject, it } from "vitest";
 
-import { documentAt } from "./document";
+import { documentAt, documentFrom } from "./document";
 
 /**
  * WORK-BROWSING, over real HTTP. ADR-0103's fourth seam, which is the one
@@ -13,6 +13,13 @@ import { documentAt } from "./document";
  * is one of those two.
  */
 const workBrowsing = inject("workBrowsing");
+/**
+ * THE SECOND SERVER: the same build, an empty database. ADR-0117 says a new
+ * read surface earns this PAIR rather than merely the `connection()` line,
+ * because "the line without the check is a rule somebody remembers; the second
+ * surface that forgets it looks exactly like the first one that did not".
+ */
+const freshBaseUrl = inject("freshBaseUrl");
 
 describe("/works", () => {
   it("shows a work and not a person", async () => {
@@ -23,5 +30,67 @@ describe("/works", () => {
     expect(status).toBe(200);
     expect(text).toContain(workBrowsing.story);
     expect(text).not.toContain(workBrowsing.person);
+  });
+
+  it("shows a container that holds works and not one that holds only entities", async () => {
+    // ADR-0077's SECOND half, which is the half its own first draft was missing:
+    // "a kind filter alone is not enough ... the mechanism failed on the
+    // record's own example". Containers fold into `work` (ADR-0004), so "the
+    // Doctors, in order" is itself an item of kind `work`.
+    //
+    // THE TWO CONTAINERS DIFFER ONLY IN WHAT THEY HOLD, so a page filtering on
+    // the kind alone passes the person assertion above and fails this one --
+    // which is the whole reason both are here.
+    const { text } = await documentAt("/works");
+
+    expect(text).toContain(workBrowsing.workContainer);
+    expect(text).not.toContain(workBrowsing.entityContainer);
+  });
+
+  it("shows the whole catalogue's entity containers on the catalogue page", async () => {
+    // THE OTHER HALF OF THE SAME RECORD, and the half that makes the assertion
+    // above a rule rather than a deletion. ADR-0077 says entity containers are
+    // "reached deliberately rather than turning up in 'latest'" -- reached, not
+    // removed. A page that had simply lost "the Doctors, in order" would pass
+    // the test above and fail this one.
+    const { text } = await documentAt("/");
+
+    expect(text).toContain(workBrowsing.entityContainer);
+  });
+
+  it("renders per request rather than being prerendered at build time", async () => {
+    // ADR-0117, and the check it names is a SHAPE rather than an assertion
+    // about one page: "ask two instances of one build, pointed at different
+    // databases, for the same path, and expect different answers".
+    //
+    // NOTHING ELSE CAN SEE THIS DEFECT. A prerendered page is not stale in any
+    // way a single server can show -- the database it was built against is the
+    // database it is serving, nothing errors, and no warning is raised
+    // anywhere. On self-hosted software it is a browse grid frozen at the
+    // moment somebody built the image, which no import would ever change.
+    //
+    // ASSERTED ON THE BYTES, both ways round. A one-directional check passes
+    // against a page that always says the same thing, so this pins what each
+    // instance says as well as that the two differ.
+    const seeded = await documentAt("/works");
+    const fresh = await documentFrom(freshBaseUrl, "/works");
+
+    expect(fresh.status).toBe(200);
+    expect(seeded.text).not.toBe(fresh.text);
+    expect(seeded.text).toContain(workBrowsing.story);
+    expect(fresh.text).not.toContain(workBrowsing.story);
+  });
+
+  it("says why a catalogue with no works shows nothing here", async () => {
+    // The empty state is what makes the pair above readable rather than
+    // alarming: a fresh install has nothing to watch, and ADR-0077 is the
+    // reason rather than a fault. It names the rule instead of leaving a
+    // reader to infer it from a blank page.
+    const { text } = await documentFrom(freshBaseUrl, "/works");
+    const empty = text.match(/<section[^>]*aria-labelledby="nothing-to-watch".*?<\/section>/)?.[0];
+    if (!empty) throw new Error("the page rendered no `nothing-to-watch` section");
+
+    expect(empty).toContain("Works");
+    expect(empty).toContain("People");
   });
 });
