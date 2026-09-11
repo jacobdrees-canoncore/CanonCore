@@ -33,6 +33,28 @@ import { z } from "zod";
 const sourceWord = z.string().min(1);
 
 /**
+ * EVERY URL CMPP CARRIES IS A CONTENT URL -- `CONTEXT.md`'s own word for a URL
+ * arriving inside a provider's response -- AND CMPP IS AN HTTP CONTRACT. So the
+ * scheme is part of the shape a provider is held to, not a caller's problem.
+ *
+ * `z.url()` ALONE DOES NOT SAY THIS. Measured against zod 4.5.4,
+ * `javascript:alert(1)`, `data:text/html,...`, `vbscript:x` and
+ * `file:///etc/passwd` every one parsed clean under it -- so until this line the
+ * contract did not oblige a provider to send an HTTP URL at all, and a provider
+ * sending a `javascript:` URL was conformant. ADR-0031 makes a provider an
+ * untrusted URL rather than code we run, and a value that runs in the reader's
+ * browser is that position failing at the one place it has to hold.
+ *
+ * THE SCHEME AND NOT THE HOST. `z.httpUrl()` would also require a dotted public
+ * domain, which refuses `http://127.0.0.1:8080/1` -- an ordinary self-link from
+ * a provider its owner runs on their own machine, and ADR-0034 makes such a
+ * provider legal by name. The contract is the INTERSECTION every provider must
+ * satisfy, so a rule that refuses a legitimate deployment is the contract saying
+ * "be on the public internet", which is not a thing CMPP requires.
+ */
+const contentUrl = z.url({ protocol: /^https?$/ });
+
+/**
  * One record: a candidate from `search`, or one thing by id from `lookup`.
  *
  * `kind` IS THE SOURCE'S OWN TAXONOMY -- `TV story`, `movie`, `audio story` -- and
@@ -53,7 +75,8 @@ export const record = z.looseObject({
   writers: z.array(z.string()).default([]),
   /** The container's NAME, where the source names one. Never its id: that is `series_id`. */
   series: z.string().nullable().default(null),
-  url: z.url(),
+  /** Where the record came from, on the web. A CONTENT URL, so HTTP or nothing. */
+  url: contentUrl,
 
   /*
    * THE EXTENSIONS. Not required of anybody -- `provider-wiki` serves no images
@@ -98,11 +121,11 @@ export const record = z.looseObject({
         /** What the image is FOR. Without it `per_role_limit` limits nothing. */
         role: sourceWord,
         /** Where the BYTES are: the field ADR-0037's store is filled from. */
-        url: z.url(),
+        url: contentUrl,
         /** The source's own stable handle, where it has one. */
         id: z.string().min(1).nullable().optional(),
         /** The page describing the file, where a source keeps licence and credit. */
-        description_url: z.url().nullable().optional(),
+        description_url: contentUrl.nullable().optional(),
         /** The source's own licence labels. Empty means the source states none. */
         licences: z.array(z.string()).optional(),
         /** Pixels, where the source publishes them: what `quality_floor` is checked against. */
