@@ -261,9 +261,11 @@ describe("the CI workflow", () => {
     const carriers = staticCheckCarriers(parsed);
 
     // Non-vacuous first, and named: a split that quietly dropped `pnpm lint`
-    // would otherwise satisfy the distinctness assertion below perfectly.
+    // would otherwise satisfy the distinctness assertion below perfectly. The
+    // message says "exactly one" rather than "none" because both failures land
+    // here -- zero jobs when a check is dropped, two when one is merged back in.
     for (const [check, jobs] of Object.entries(carriers)) {
-      expect(jobs, `no job runs the ${check}`).toHaveLength(1);
+      expect(jobs, `exactly one job must carry the ${check}`).toHaveLength(1);
     }
 
     // FOUR CHECKS, FOUR JOBS, PAIRWISE DISTINCT. This is the whole property:
@@ -316,12 +318,21 @@ describe("the CI workflow", () => {
         .map((step) => step.name ?? step.run ?? step.uses);
       expect(defanged, `${check}: step level`).toStrictEqual([]);
 
-      // And the shell form, which neither key catches: `pnpm lint || true` runs
-      // the check, discards its verdict and exits 0. This is a list of the forms
-      // worth catching rather than a proof -- a shell script can always be
-      // written to swallow its own failure, and no reading of the file will ever
-      // settle that. What it buys is that the ACCIDENTAL version, reached for to
-      // quieten a noisy check, does not pass unnoticed.
+      // And the shell form, which neither key catches: a step that runs the
+      // check, discards its verdict and exits 0.
+      //
+      // ON THE THREE ONE-COMMAND JOBS THIS IS NOT THE ASSERTION THAT BITES, and
+      // saying so is the point of the comment. `pnpm build || true` is not
+      // `pnpm build`, so `runsExactly` stops matching it, the carrier list goes
+      // empty and the test above fails first -- probed, and it reports
+      // `exactly one job must carry the build`. What this catches is the env
+      // guard, whose `run:` is a script rather than a command, and any step
+      // added beside one of the four later.
+      //
+      // It is a list of the forms worth catching rather than a proof -- a shell
+      // script can always be written to swallow its own failure, and no reading
+      // of the file will ever settle that. What it buys is that the ACCIDENTAL
+      // version, reached for to quieten a noisy check, does not pass unnoticed.
       const swallowed = steps
         .filter((step) => /\|\|\s*(true|:)\b/.test(step.run ?? ""))
         .map((step) => step.name ?? step.run);
