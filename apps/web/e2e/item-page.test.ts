@@ -17,6 +17,7 @@ const twoOrigins = inject("twoOrigins");
 const imported = inject("imported");
 const browsed = inject("browsed");
 const attributed = inject("attributed");
+const timeSpan = inject("timeSpan");
 
 /**
  * The rows of the "Also appears in" list, one string each, so an assertion can
@@ -86,6 +87,43 @@ describe("/items/<id>", () => {
     const { status } = await documentAt(`/items/${malformed}`);
 
     expect(status).toBe(404);
+  });
+});
+
+describe("the kind, in the reader's words", () => {
+  /**
+   * CNCORE-83. `CONTEXT.md` is binding on UI copy and calls this a Time span,
+   * so a page printing `time_span` is showing a reader the schema. The words
+   * come from `item_kinds`, which migration 1 seeds a label into beside every
+   * kind -- so this asserts a READ rather than a map the app would have to be
+   * kept in step with.
+   */
+  it("says Time span where the column says time_span", async () => {
+    const { status, text } = await documentAt(`/items/${timeSpan.id}`);
+
+    expect(status).toBe(200);
+    // THE WORDS ARE WRITTEN HERE rather than handed over by the fixture, so
+    // they can be checked against the source they come from: `CONTEXT.md`'s
+    // entity kinds, which is the glossary UI copy is bound to.
+    expect(text).toContain("<dd>Time span</dd>");
+  });
+
+  /**
+   * AND THE KEY IS NOWHERE IN THE DOCUMENT, which is a stronger claim than the
+   * cell above and deliberately so: the page ships its own props to the browser
+   * in the flight payload, so a version that rendered the label while still
+   * carrying the column alongside it would satisfy the first assertion and hand
+   * the schema to every reader anyway.
+   */
+  it("does not carry the column anywhere in what a reader is served", async () => {
+    const { text } = await documentAt(`/items/${timeSpan.id}`);
+
+    // GUARDED, because the negative below is satisfied by a 404 as well as by a
+    // page that gets it right.
+    expect(text).toContain(timeSpan.title);
+    // THE KEY THE FIXTURE ACTUALLY SEEDED, which is a fact about the fixture
+    // and so comes from it -- unlike the words above.
+    expect(text).not.toContain(timeSpan.kind);
   });
 });
 

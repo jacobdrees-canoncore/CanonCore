@@ -95,8 +95,8 @@ describe("readCatalogue", () => {
     const { entries } = await readCatalogue(db, { limit: 1000 });
     const byId = new Map(entries.map((entry) => [entry.id, entry]));
 
-    expect(byId.get(person)).toMatchObject({ kind: "Person", isContainer: false });
-    expect(byId.get(era)).toMatchObject({ kind: "Time span" });
-    expect(byId.get(ordering)).toMatchObject({ kind: "Work", isContainer: true });
+    expect(byId.get(person)).toMatchObject({ kindLabel: "Person", isContainer: false });
+    expect(byId.get(era)).toMatchObject({ kindLabel: "Time span" });
+    expect(byId.get(ordering)).toMatchObject({ kindLabel: "Work", isContainer: true });
   });
 });

@@ -46,7 +46,12 @@ export const item = {
       // is private until a line is written for it above and here.
       return {
         id: found.id,
-        kind: found.kind,
+        // THE LABEL RATHER THAN THE KEY, which is what `kind` means everywhere
+        // the read path emits one: the catalogue listing answers in these words
+        // too, and `CONTEXT.md` is binding on UI copy (CNCORE-83). The words are
+        // read off `item_kinds` rather than mapped in TypeScript, so the
+        // migration that owns them is the only place they are written.
+        kind: found.kindLabel,
         title: found.title,
         sortName: found.sortName,
         releaseDate: found.releaseDate,
