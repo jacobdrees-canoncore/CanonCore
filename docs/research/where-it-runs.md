@@ -1336,26 +1336,25 @@ softer.**
 **The media clause is not what catches the demo first.** The same Whatbox policy separately forbids
 running "a public directory service with no authentication", and ADR-0072 says the demo "shows
 visitors everything on it", there being no visibility system for it to hide behind. That clause bites
-on a catalogue holding no bytes at all — which is precisely what version one is, since CNCORE-60
-ships no playback — so a demo co-located there would be forbidden before the first file row exists.
+on a catalogue holding no bytes at all — which is precisely what version one is, playback being
+"entirely a playback-spec concern" and no part of CNCORE-60
+(`docs/research/does-cncore-60-need-a-host.md`) — so a demo co-located there would be forbidden
+before the first file row exists.
 Quoting only the media clause invited the opposite reading, that a demo without media slips past.
 
 **The written-agreement escape hatch is Ultra.cc's alone.** The Whatbox text carries no equivalent:
 no "unless we agree in writing", and no exceptions clause of any kind. Setting the two quotes side by
 side, as this paragraph does, invited a reader to carry Ultra.cc's qualifier across to the vendor that
-does not have it. Whatbox's Terms do say at 13.2 that "The parties may use emails to satisfy written
-approval and consent requirements under the Agreement", so a permission granted by email would be
-worth something here; 13.13 then requires that any amendment "must be in writing, signed by both
-parties, and expressly state that it is amending this Agreement", so even that email would be a
-consent the vendor could revisit rather than a change to the policy quoted above.
+does not have it.
 
 **The owner holds a spoken allowance from this vendor, and it moves nothing in this entry.** He
-recalls Whatbox telling him the account may run what he likes. CNCORE-81 went looking for the
-artefact and found none, and ADR-0109 records it as recollection for that reason, with what it would
-take to become evidence. **The AUP text above is unchanged — for this account and for everyone
-else.** An allowance no reader can open is not one this file can argue from, and the clause that
-decides the demo is the authentication clause, which no version of the recollection is specific
-about.
+recalls Whatbox telling him the account may run what he likes; asked directly on 2026-09-11 he
+confirmed nothing was written down. **ADR-0109 is where that sits** — the search, the result, and
+what Whatbox's own Terms say it would take to make such a grant evidence. This file does not re-argue
+it, because a claim argued in two places is one that drifts. **The AUP text above is unchanged — for
+this account and for everyone else.** An allowance no reader can open is not one this file can argue
+from, and the clause that decides the demo is the authentication clause, which no version of the
+recollection is specific about.
 
 No record requires a split: ADR-0097 counts instances rather than machines, ADR-0094's separation is
 between databases, and ADR-0045's is in the read path.

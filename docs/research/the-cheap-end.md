@@ -238,8 +238,8 @@ always-on. That is worth about GBP 1/month to fix, which is the gap between GBP 
 support ticket 267784, filed 2026-09-11 under CNCORE-81, puts both halves to the vendor: whether cron
 is meant to work on this plan and whether the missing file can be looked at, and failing that,
 whether anything supported starts a process after a reboot. It was unanswered when this was written.
-ADR-0109 carries the ticket, its two questions, and the date — **2026-09-18** — after which silence is
-itself the answer.
+ADR-0109 carries the ticket, its two questions, and the date — **2026-09-18** — after which silence
+is itself the answer, and **CNCORE-85 is the ticket that goes back and reads it**.
 
 **Until then the split is the recommendation rather than a pending decision.** It costs about a pound
 a month, it is the option that is correct under either reply, and nothing downstream should wait on a
