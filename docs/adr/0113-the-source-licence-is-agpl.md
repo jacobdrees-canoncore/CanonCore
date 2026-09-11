@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 ---
 
 # CanonCore's source is offered under AGPL-3.0-or-later
@@ -129,3 +129,14 @@ ADR-0100's citations, read 2026-09-11 and not re-fetched here.
 dependency's licence in `pnpm-lock.yaml` has not been audited. The stack is the usual MIT/Apache-2.0
 mix and no conflict is expected, but expectation is not a check, and a licence audit is work this
 record does not claim to have done.
+
+## As built, under CNCORE-62
+
+`LICENSE` is the verbatim AGPL text at the repository root with its appendix placeholders filled,
+and `package.json` declares `AGPL-3.0-or-later`. `packages/config/src/licence.test.ts` holds the two
+together: a licence file with no manifest declaration leaves the election unstated, and a manifest
+declaration with no licence file grants nothing.
+
+**The prediction in this record was confirmed rather than assumed.** GitHub reports `AGPL-3.0`, the
+deprecated bare form, exactly as the paragraph above says it would. That is licensee flattening the
+identifier and not a defect, and the test asserts the manifest rather than the badge for that reason.

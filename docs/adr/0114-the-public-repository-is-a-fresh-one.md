@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 ---
 
 # The public repository is a fresh one, and the forensic record stays in the private one
@@ -178,3 +178,24 @@ of length 7-40 from tracked Markdown and testing each with `git cat-file -e` —
 repository. Every SHA in the docs belongs to Jellyfin, Plex, Navidrome, Immich, Stash or Romm. That
 mattered when a rewrite was planned and no longer bites, but it is kept because it is the check a
 future reader would otherwise redo.
+
+## As built, under CNCORE-61 and CNCORE-62
+
+The scrub landed first as an ordinary pull request on the private repository, and it did more than
+this record asked: it turned the one-off redaction into a CI gate that greps the tree on every run
+and distinguishes `git grep`'s "no match" from its "search failed", so the gate cannot pass by
+having searched nothing.
+
+Then the tree was seeded into a new public repository at one commit, and the private one was renamed
+`canoncore-history` and ARCHIVED, which makes it read-only and removes the possibility of work
+landing in the wrong place. `CanonCore` names the public repository, because ADR-0058 settles that
+the product's name belongs on the surface the second audience reads.
+
+**One thing this record got wrong, found by the first CI run rather than by reading.** The
+`.gitleaksignore` it inherited claimed its values "have been redacted from the working files". That
+was true of one value and false of the other, and the fix then failed a second time for this
+record's own reason: `gitleaks git` scans COMMITS, so redacting a file does not remove a value from
+the commits that already carry it. The resolution splits by what each mechanism can do — the
+redaction stops any future commit carrying it, and one pinned fingerprint closes the single
+immutable commit that already does. The argument at the top of this record, met three orders of
+magnitude smaller.
