@@ -17,8 +17,17 @@ const itemTitle = inject("itemTitle");
  * `time_span` is the key; `Time span` is what `CONTEXT.md` says a reader sees.
  */
 const timeSpan = inject("timeSpan");
+/** The seeded demo item, which is a WORK (`itemTitle` is its title). */
+const itemId = inject("itemId");
 /** The same build, an empty database, and no allowlist (ADR-0094). */
 const freshBaseUrl = inject("freshBaseUrl");
+
+/** One `<section>` of a page, by the heading it is labelled with. */
+function section(text: string, label: string): string {
+  const found = text.match(new RegExp(`<section[^>]*aria-labelledby="${label}".*?</section>`))?.[0];
+  if (!found) throw new Error(`the page rendered no \`${label}\` section`);
+  return found;
+}
 
 describe("/search", () => {
   it("finds an item by a word inside its title, and links to its own address", async () => {
@@ -34,6 +43,21 @@ describe("/search", () => {
     // search result cannot make. The front page emits the same address for the
     // same reason, and the two must not be two spellings of one thing.
     expect(text).toContain(`href="/items/${timeSpan.id}"`);
+  });
+
+  it("finds a Work as well as an Entity, at this seam and not only below it", async () => {
+    // THE CRITERION IS "WORKS AND ENTITIES ALIKE" AND THIS IS THE SEAM THE
+    // TICKET NAMES BY HAND, so both halves have to be visible here rather than
+    // only at the package export. Review found the Work half asserted two
+    // layers down and only ever asserted ABSENT up here, which is a criterion
+    // met by the implementation and unmet by the test that covers it.
+    //
+    // The seeded demo item is a Work; `timeSpan` is an Entity.
+    const work = await documentAt(`/search?q=${encodeURIComponent(itemTitle)}`);
+    const entity = await documentAt(`/search?q=${encodeURIComponent("Hartnell")}`);
+
+    expect(work.text).toContain(`href="/items/${itemId}"`);
+    expect(entity.text).toContain(`href="/items/${timeSpan.id}"`);
   });
 
   it("says which kind each result is, in the reader's words", async () => {
@@ -64,21 +88,33 @@ describe("/search", () => {
 
   it("asks for a query rather than listing the catalogue, when none was typed", async () => {
     // DELIBERATE RATHER THAN ACCIDENTAL. An escaped empty query is the pattern
-    // `%%`, which matches every titled row -- so the accidental behaviour of an
-    // empty search box is the entire catalogue at its most expensive. The front
-    // page already answers "what is in this catalogue", and a search falling
-    // back to it would be a second surface giving the same reply.
+    // `%%`, which matches every titled row, so an empty search box would
+    // otherwise answer with the entire catalogue. The front page already
+    // answers "what is in this catalogue", and a search falling back to it
+    // would be a second surface giving the same reply (ADR-0120).
     const { status, text } = await documentAt("/search?q=");
 
     expect(status).toBe(200);
     expect(text).not.toContain(itemTitle);
-    expect(text.toLowerCase()).toContain("search");
+    // THE PROMPT ITSELF, BY ITS OWN SECTION. This was
+    // `expect(text.toLowerCase()).toContain("search")`, which the header's own
+    // search box satisfies on every page in the app -- so it passed whether or
+    // not the page said anything at all, and only the `not.toContain` half had
+    // teeth. Caught in review.
+    const prompt = section(text, "nothing-asked");
+    expect(prompt.toLowerCase()).toContain("type a name");
   });
 
   it("says a search found nothing, rather than rendering an empty page", async () => {
     const { text } = await documentAt(`/search?q=${encodeURIComponent("zzzznothinghere")}`);
 
-    expect(text.toLowerCase()).toContain("nothing");
+    // ITS OWN SECTION, for the reason above: an assertion on the whole document
+    // cannot tell the page's words from the shell's.
+    const nothing = section(text, "nothing-found");
+    expect(nothing).toContain("zzzznothinghere");
+    // ADR-0014's limit, named where a reader hunting a title they have
+    // definitely seen will otherwise spend a while disbelieving the search.
+    expect(nothing.toLowerCase()).toContain("title");
   });
 });
 

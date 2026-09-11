@@ -1,7 +1,7 @@
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 
 import type { Database } from "./index";
-import type { CatalogueEntry } from "./queries";
+import { type CatalogueEntry, IN_THE_CATALOGUE, SORT_KEY } from "./queries";
 import { itemKinds, items } from "./schema";
 
 /**
@@ -38,6 +38,25 @@ export function likePattern(query: string): string {
   // cannot offer at all, and the reason this is a trigram index rather than a
   // `tsvector` one.
   return `%${escaped}%`;
+}
+
+/**
+ * THE MATCH ITSELF, named once so that nothing can test a different one.
+ *
+ * IT EXISTS BECAUSE OF THE PLAN TEST. `catalogue-search.test.ts` asks
+ * PostgreSQL whether the trigram index can serve this predicate, and it can
+ * only ask by writing a predicate down. Written out a second time there, the
+ * probe and the real query were free to drift -- the probe would go on
+ * reporting a healthy index for a `where` clause the search had stopped using,
+ * which is precisely the silent failure that test exists to catch.
+ *
+ * `ilike` RATHER THAN `similarity() >`. Every row this returns CONTAINS the
+ * query; the ranking is a separate question, answered by the order rather than
+ * by the filter. That is what keeps "did it match" a fact a reader could check
+ * for themselves rather than a threshold nobody chose.
+ */
+export function titleMatches(query: string) {
+  return sql`${items.title} ilike ${likePattern(query)}`;
 }
 
 /**
@@ -101,15 +120,18 @@ export async function searchCatalogue(
    *
    * MEASURED: an escaped empty query is the pattern `%%`, which matches every
    * row that has a title at all. So the accidental behaviour of a search box
-   * somebody pressed Enter on is a full scan of the catalogue, returned as
-   * though it were a result set -- the most expensive query this surface can
-   * run, reached by typing nothing. The trigram index cannot help, because
-   * there are no trigrams to look up.
+   * somebody pressed Enter on is the WHOLE CATALOGUE returned as though a
+   * reader had asked for it.
    *
-   * NOTHING IS THE DELIBERATE ANSWER RATHER THAN EVERYTHING. The front page
-   * already answers "what is in this catalogue" (ADR-0077's wide question), so
-   * a search that fell back to listing it would be a second surface giving the
-   * same reply to a different question.
+   * IT IS NOT GUARDED FOR ITS COST, and this comment used to say it was. A
+   * one- or two-character query scans just as hard -- the index does nothing
+   * below three characters -- and is deliberately NOT short-circuited, because
+   * it is a real question with a real answer. ADR-0120 carries the measurement.
+   *
+   * WHAT MAKES THIS ONE DIFFERENT is that it answers a question nobody asked.
+   * The front page already answers "what is in this catalogue" (ADR-0077's wide
+   * question), so a search falling back to listing it would be a second surface
+   * giving the same reply to a different question.
    *
    * TRIMMED FIRST, so a reader who hit the space bar has typed nothing too.
    * The trimmed query is then what gets searched, rather than the raw one:
@@ -155,10 +177,13 @@ export async function searchCatalogue(
     .innerJoin(itemKinds, eq(itemKinds.kind, items.kind))
     .where(
       and(
-        // ADR-0075. A deleted item is gone to every reader, and a reader who
-        // can search their way to one has not been told it is deleted.
-        isNull(items.deletedAt),
-        sql`${items.title} ilike ${likePattern(wanted)}`,
+        // ADR-0075, AND `readCatalogue`'S OWN PREDICATE rather than a second
+        // spelling of it. A deleted item is gone to every reader, and a reader
+        // who can search their way to one has not been told it is deleted --
+        // but the hazard that makes this an import is the day "in the
+        // catalogue" gains a term and only one of the two surfaces learns it.
+        IN_THE_CATALOGUE,
+        titleMatches(wanted),
       ),
     )
     .orderBy(
@@ -170,9 +195,12 @@ export async function searchCatalogue(
       // merely mentions it.
       sql`similarity(${items.title}, ${wanted}) desc`,
       // AND THEN THE CATALOGUE'S OWN ORDER, so two equally close titles come
-      // back in the same order twice. `coalesce(sort_name, title)` is the pair
-      // ADR-0014 gives `sort_name` its own index for, with the id behind it.
-      sql`coalesce(${items.sortName}, ${items.title})`,
+      // back in the same order twice. `SORT_KEY` is `readCatalogue`'s own, not
+      // a second spelling: the catalogue has one order, and a search that broke
+      // ties by a different one would list two items in an order no other
+      // surface agrees with. `nulls last` is written out for the same reason it
+      // is there -- an item with no title at all has no sort key.
+      sql`${SORT_KEY} nulls last`,
       items.id,
     )
     .limit(limit);

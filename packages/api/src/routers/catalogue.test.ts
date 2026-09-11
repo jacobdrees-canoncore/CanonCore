@@ -139,8 +139,8 @@ describe("catalogue.search", () => {
 
   it("answers an empty query with nothing", async () => {
     // Deliberate rather than accidental: an escaped empty query is the pattern
-    // `%%` and matches every titled row, so the accidental behaviour of an
-    // empty search box is the whole catalogue at its most expensive.
+    // `%%` and matches every titled row, so an empty search box would otherwise
+    // answer with the whole catalogue (ADR-0120).
     await anItemTitled(db, "An item the empty query must not reach");
 
     const found = await call(appRouter.catalogue.search, { query: "" }, { context });

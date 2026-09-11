@@ -1,6 +1,6 @@
 import { eq, sql } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
-
+import { titleMatches } from "./catalogue-search";
 import { type Database, items, likePattern, searchCatalogue } from "./index";
 import { anItemTitled, connect } from "./testing/catalogue";
 
@@ -77,15 +77,15 @@ describe("searchCatalogue", () => {
 
   it("answers an empty query with nothing, rather than with the whole catalogue", async () => {
     // MEASURED, NOT ASSUMED: an escaped empty query is the pattern `%%`, which
-    // matches every row that has a title at all. So the accidental behaviour of
-    // an empty search box is a full scan of the catalogue returned as though it
-    // were a result set -- the most expensive query this surface can run,
-    // reached by pressing Enter on an empty box.
+    // matches every row that has a title at all, so pressing Enter on an empty
+    // box returns the whole catalogue as though a reader had asked for it.
     //
     // NOTHING is the deliberate answer rather than EVERYTHING, because the
     // front page already answers "what is in this catalogue" and a search that
     // duplicated it would be a second surface giving the same reply to a
-    // different question.
+    // different question. The guard is about answering an unasked question
+    // rather than about cost -- a two-character query scans just as hard and is
+    // deliberately allowed. ADR-0120.
     await anItemTitled(db, "An item that exists to be not found");
 
     expect(await searchCatalogue(db, { query: "", limit: 100 })).toEqual({
@@ -204,8 +204,13 @@ describe("the trigram index", () => {
     // connection next.
     const plan = await db.transaction(async (tx) => {
       await tx.execute(sql`set local enable_seqscan = off`);
+      // THE REAL PREDICATE, imported rather than written out again. Spelled a
+      // second time here, this probe and `searchCatalogue` were free to drift:
+      // it would go on reporting a healthy index for a `where` clause the
+      // search had stopped using, which is exactly the silent failure it is
+      // here to catch. Caught in review.
       const explained = await tx.execute(
-        sql`explain select "id" from "items" where "title" ilike ${likePattern("invasion")}`,
+        sql`explain select "id" from "items" where ${titleMatches("invasion")}`,
       );
       return explained.rows.map((row) => String(row["QUERY PLAN"])).join("\n");
     });

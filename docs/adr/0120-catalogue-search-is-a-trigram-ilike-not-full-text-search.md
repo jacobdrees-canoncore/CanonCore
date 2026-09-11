@@ -54,13 +54,57 @@ provider escape a reader's query the same way rather than each being locally sen
 ## An empty query is answered before the query runs
 
 An escaped empty query is the pattern `%%`, which matches every row with a title. So the accidental
-behaviour of a search box somebody pressed Enter on is a full scan of the catalogue returned as a
-result set — the most expensive query the surface can run, reached by typing nothing, and the
-trigram index cannot help because there are no trigrams to look up.
+behaviour of a search box somebody pressed Enter on is a full scan of the catalogue **returned as a
+result set** — every row it holds, rendered as though a reader had asked for them.
+
+**It is not the most expensive query this surface can run, and an earlier draft of this record said
+it was.** See the next section: a one- or two-character query scans just as hard and is not
+short-circuited, because unlike the empty query it is a real question with a real answer. What makes
+the empty query worth a guard is not its cost alone but that it returns EVERYTHING while answering
+nothing anybody asked.
 
 The answer is **nothing**, not everything. The front page already answers "what is in this
 catalogue" ([[0077-work-browsing-excludes-entities-by-kind]]'s wide question), so a search falling
 back to listing it would be a second surface giving the same reply to a different question.
+
+## The index does nothing below three characters, and that is what "trigram" means
+
+Measured on PostgreSQL 18.6 over 20,000 rows, `EXPLAIN (ANALYZE)`:
+
+| pattern   | plan                    | time     |
+| --------- | ----------------------- | -------- |
+| `%a%`     | Seq Scan                | 5.185 ms |
+| `%ab%`    | Seq Scan                | 5.593 ms |
+| `%ros%`   | Bitmap Index Scan       | 1.401 ms |
+| `%rose%`  | Bitmap Index Scan       | 1.383 ms |
+
+A wildcard pattern shorter than three characters yields **no trigram to look up**, so there is
+nothing for the index to narrow by. Left free to choose, the planner declines the index and scans:
+`%ab%` matched **nothing** in that data and still cost more than either indexed query, because it
+read all 20,000 rows to find out.
+
+**Forcing it does not help, and saying so is the precise version of the claim.** Under
+`set enable_seqscan = off` PostgreSQL *will* use the index for `%ab%` — and excludes nothing with it,
+rechecking every row on the heap. So the limit is not "the planner refuses the index", which is only
+what it does when free; it is that **there is no trigram, so the index cannot exclude anything**.
+The first phrasing of this section got that wrong, and the test written to pin it failed and is what
+found the error.
+
+**This is a real limit and it is stated rather than left to be discovered**, which is the standard
+this repo holds a measurement to. It is not a defect and nothing here guards against it: a
+two-character query is a legitimate question with a legitimate answer, and refusing it would break
+the feature to protect a scan that costs single-digit milliseconds at twenty thousand rows — well
+past the size a self-hosted catalogue is likely to reach. It is recorded because the day this
+becomes a complaint, the reason will be the threshold rather than anything anybody wrote.
+
+**It is a measurement in a document rather than an assertion in the suite, and that is a known
+weakness rather than an oversight.** The db fixtures hold a few dozen rows, where a sequential scan
+is the honest plan for every query and the phenomenon is invisible; forcing the planner hides it the
+other way, as above. A test that cannot observe what it claims to check is worse than a number with
+its conditions written beside it, so this is the number.
+
+**It also bounds what the empty-query guard is for.** That guard is not about cost, as the section
+below now says: it is about a query that answers a question nobody asked.
 
 ## Two rungs, and the order between them is load-bearing
 

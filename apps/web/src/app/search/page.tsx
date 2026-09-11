@@ -40,7 +40,7 @@ async function readSearch(query: string) {
   return call(appRouter.catalogue.search, { query }, { context: await createContext() });
 }
 
-type Results = Awaited<ReturnType<typeof readSearch>>;
+type Matched = Awaited<ReturnType<typeof readSearch>>;
 
 export default async function SearchPage({
   searchParams,
@@ -69,7 +69,16 @@ export default async function SearchPage({
   return (
     <main className="container mx-auto max-w-3xl px-4 py-8">
       <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
-        <h1 className="text-3xl font-medium">Search</h1>
+        {/*
+          QUALIFIED, BECAUSE `CONTEXT.md` BINDS UI COPY. It names this surface
+          "Catalogue search" and lists "search, unqualified" under _Avoid_ --
+          the word alone is the CMPP operation, which asks a provider for
+          candidates rather than asking this catalogue what it holds. Every
+          other string in this slice qualified it and this one, the only one a
+          reader actually sees, did not. Beside the front page's
+          `<h1>Catalogue</h1>` the pair now reads Catalogue / Catalogue search.
+        */}
+        <h1 className="text-3xl font-medium">Catalogue search</h1>
         {results !== null && results.total > 0 && (
           <Found showing={results.entries.length} total={results.total} />
         )}
@@ -111,28 +120,29 @@ function Found({ showing, total }: { showing: number; total: number }) {
  * IT SAYS SO RATHER THAN LISTING THE CATALOGUE. The front page already answers
  * "what is in this catalogue" (ADR-0077's wide question), so a search falling
  * back to it would be a second surface giving the same reply to a different
- * question -- and would do it by way of the most expensive query this surface
- * can run.
+ * question.
  */
 function NothingAsked() {
   return (
-    <Empty className="mt-6 border">
-      <EmptyHeader>
-        <EmptyTitle>
-          {/*
+    <section aria-labelledby="nothing-asked">
+      <Empty className="mt-6 border">
+        <EmptyHeader>
+          <EmptyTitle>
+            {/*
             A REAL HEADING INSIDE THE PRIMITIVE. `EmptyTitle` renders a `div`,
             so a reader navigating by heading would find only the `h1`. The
             front page carries the same note for the same reason.
           */}
-          <h2>Search the catalogue</h2>
-        </EmptyTitle>
-        <EmptyDescription>
-          Type a name into the box above. It matches anywhere inside a title, and it searches every
-          kind of item &mdash; a character&rsquo;s name finds the character as readily as a
-          story&rsquo;s finds the story.
-        </EmptyDescription>
-      </EmptyHeader>
-    </Empty>
+            <h2 id="nothing-asked">Search the catalogue</h2>
+          </EmptyTitle>
+          <EmptyDescription>
+            Type a name into the box above. It matches anywhere inside a title, and it searches
+            every kind of item &mdash; a character&rsquo;s name finds the character as readily as a
+            story&rsquo;s finds the story.
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
+    </section>
   );
 }
 
@@ -146,24 +156,27 @@ function NothingAsked() {
  */
 function NothingFound({ query }: { query: string }) {
   return (
-    <Empty className="mt-6 border">
-      <EmptyHeader>
-        <EmptyTitle>
-          <h2>Nothing matched {query}</h2>
-        </EmptyTitle>
-        <EmptyDescription>
-          {/*
+    <section aria-labelledby="nothing-found">
+      <Empty className="mt-6 border">
+        <EmptyHeader>
+          <EmptyTitle>
+            <h2 id="nothing-found">Nothing matched {query}</h2>
+          </EmptyTitle>
+          <EmptyDescription>
+            {/*
             ADR-0014: `title` is a PROJECTION -- whichever title statement
             currently wins. Alternative and foreign-language titles are held as
             statements and are not searched, which is a real limit rather than a
             bug, and one a reader hunting a title they have definitely seen will
             otherwise spend a while disbelieving.
           */}
-          Search reads the title each item goes by. An item known here under a different title
-          &mdash; a translation, or a name a source does not prefer &mdash; is not found by it yet.
-        </EmptyDescription>
-      </EmptyHeader>
-    </Empty>
+            Search reads the title each item goes by. An item known here under a different title
+            &mdash; a translation, or a name a source does not prefer &mdash; is not found by it
+            yet.
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
+    </section>
   );
 }
 
@@ -174,7 +187,7 @@ function NothingFound({ query }: { query: string }) {
  * entry carry the same four facts, and a reader should not have to learn two
  * ways of reading a list of items in one product.
  */
-function Results({ entries }: { entries: Results["entries"] }) {
+function Results({ entries }: { entries: Matched["entries"] }) {
   return (
     <ul className="mt-6 divide-y">
       {entries.map((entry) => (
