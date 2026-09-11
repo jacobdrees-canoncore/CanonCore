@@ -65,7 +65,10 @@ independently rated the empty first run HIGH:
 
 Today `/` is the unmodified create-better-t-stack banner, nothing reaches `/items/<id>` without a
 UUID you already hold, `PROVIDER_ALLOWLIST` defaults to refusing every provider, and the README
-never mentions it. **A release of that is a release of the first five minutes rather than of the
+never mentions it. **The first clause of that sentence is now history and the last is not:**
+CNCORE-65 replaced the banner with the catalogue, so an empty one names the two steps that fill it
+and an instance with nothing allowlisted says so — but the README still does not mention the
+variable, which is CNCORE-64's. **A release of that is a release of the first five minutes rather than of the
 product.** [[0094-a-fresh-install-starts-empty]] governs what content ships and deliberately says
 nothing about whether the emptiness is explained; that gap is what this effort closes.
 

@@ -1,3 +1,6 @@
+import type { AppRouterClient } from "@canoncore/api/routers";
+import { createORPCClient } from "@orpc/client";
+import { RPCLink } from "@orpc/client/fetch";
 import { describe, expect, inject, it } from "vitest";
 
 import { documentAt, documentFrom } from "./document";
@@ -31,6 +34,35 @@ describe("/", () => {
 
     expect(status).toBe(200);
     expect(text).toContain(itemTitle);
+  });
+
+  it("says how much the catalogue holds", async () => {
+    // NO SILENT CAP. The listing is capped at a page, so a page that reported
+    // only what it had listed would tell an owner their library is smaller than
+    // it is -- the one thing a catalogue must not get wrong about itself.
+    //
+    // WHAT THIS PROVES IS THE NUMBER, NOT THE CAP. This database holds fewer
+    // items than a page, so "how many there are" and "how many are listed" are
+    // the same number here and no assertion made against it can tell them
+    // apart. Seeding a hundred and one to separate them would push the seeded
+    // item off the first page and take the test above down with it. THE CAP
+    // ITSELF IS PROVED WHERE IT CAN BE: `readCatalogue` is asked for one entry
+    // out of many and has to answer with the size of the whole catalogue
+    // (`packages/db/src/catalogue.test.ts`), and the router refuses a limit
+    // above a page (`packages/api/src/routers/catalogue.test.ts`).
+    //
+    // The count is read off the page and compared against the router's own
+    // answer over HTTP, rather than against a number written here: a literal
+    // would have to be revised every time this suite seeds another fixture, and
+    // would be revised to whatever the page happened to say.
+    const client: AppRouterClient = createORPCClient(
+      new RPCLink({ url: `${inject("baseUrl")}/api/rpc` }),
+    );
+    const { total } = await client.catalogue.list({});
+
+    const { text } = await documentAt("/");
+
+    expect(text).toContain(`${total} items`);
   });
 
   it("carries the product's own name, not the scaffold's placeholder", async () => {

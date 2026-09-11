@@ -79,3 +79,23 @@ the env guard stop testing anything the day remote caching is turned on. The gua
 runs straight after a successful `pnpm build` in the same workspace, so a LOCAL warm cache would be
 enough and no remote one is needed. The `env` declaration above is the whole of what keeps the
 guard's build a cache miss, measured at `0 cached, 1 total` against a deliberately warmed cache.
+
+## The last of the generator's output, under CNCORE-65
+
+"Never depend on it again" was satisfied from the first commit; OWNING the output took longer, and
+what was left of it was a client-side data layer rather than a dependency.
+
+The generator's banner page ran a health check through TanStack Query, and `utils/orpc.ts`, the
+`QueryClientProvider`, its devtools and the Toaster existed to serve that one panel. When `/` became
+a server component reading the router in-process, nothing called any of them. **A data layer with no
+callers is scaffold however well it works**, so all five went, with four dependencies behind them.
+`loader.tsx` went too: nothing had ever imported it.
+
+The residue was not only code. `layout.tsx` carried `title: "canoncore"` and
+`description: "canoncore"` — a placeholder the generator writes from the directory name, and a tab
+reading `canoncore` beside a heading reading CanonCore is the scaffold showing through
+([[0058-the-name-is-settled]]).
+
+**What replaces it is added by the slice that needs it**, not restored on the way out. CNCORE-68 is
+the first surface that mutates from the browser, and it picks what it needs rather than inheriting a
+generator's guess.
