@@ -1,11 +1,6 @@
 import { createContext } from "@canoncore/api/context";
 import { appRouter } from "@canoncore/api/routers";
-import {
-  Card,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@canoncore/ui/components/card";
+import { Card, CardDescription, CardHeader, CardTitle } from "@canoncore/ui/components/card";
 import {
   Empty,
   EmptyContent,
@@ -73,11 +68,7 @@ export default async function CataloguePage() {
         {catalogue.total > 0 && <Holding catalogue={catalogue} />}
       </div>
       {!providers.any && <NoProviderAllowlisted />}
-      {catalogue.total === 0 ? (
-        <WhatToDoNext />
-      ) : (
-        <Listing entries={catalogue.entries} />
-      )}
+      {catalogue.total === 0 ? <WhatToDoNext /> : <Listing entries={catalogue.entries} />}
     </main>
   );
 }
@@ -164,9 +155,9 @@ function WhatToDoNext() {
               than code you install, so nothing runs inside your catalogue.
             </li>
             <li>
-              <span className="font-medium">Import from it.</span> Give the provider&rsquo;s base URL
-              and the id of one of its records, and the record arrives here as an Item. A provider
-              that offers browse imports a whole ordering at once.
+              <span className="font-medium">Import from it.</span> Give the provider&rsquo;s base
+              URL and the id of one of its records, and the record arrives here as an Item. A
+              provider that offers browse imports a whole ordering at once.
             </li>
           </ol>
         </EmptyContent>

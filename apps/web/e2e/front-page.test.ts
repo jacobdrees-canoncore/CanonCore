@@ -33,6 +33,19 @@ describe("/", () => {
     expect(text).toContain(itemTitle);
   });
 
+  it("carries the product's own name, not the scaffold's placeholder", async () => {
+    // ADR-0058 settles the name and ADR-0053 says to own the generator's output
+    // rather than keep it. `create-better-t-stack` left `title: "canoncore"` in
+    // the layout and an ASCII banner on this page; a tab reading `canoncore`
+    // beside a heading reading CanonCore is the scaffold showing through.
+    const { text } = await documentAt("/");
+
+    expect(text).toContain("<title>CanonCore</title>");
+    // The banner the generator ships, and the health-check panel under it.
+    expect(text).not.toContain("BETTER T STACK");
+    expect(text).not.toContain("API Status");
+  });
+
   it("reaches an item at the address every other surface reaches it at", async () => {
     // THE PATH IS IDENTITY (ADR-0066), so the front page's link has to BE the
     // item's canonical address rather than a second spelling of it -- no

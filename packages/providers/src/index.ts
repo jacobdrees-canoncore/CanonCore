@@ -9,8 +9,8 @@
  */
 export {
   type Allowlist,
-  allowsAnything,
   type AssertAddress,
+  allowsAnything,
   assertConfigAddress,
   assertConfigUrl,
   assertContentAddress,
