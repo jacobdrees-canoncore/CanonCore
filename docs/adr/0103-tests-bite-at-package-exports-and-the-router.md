@@ -594,3 +594,35 @@ reporting a disagreement that had ended. Both were GREEN, both were measuring so
 in both cases what the suite could not see was the thing it existed to watch. A seam is only as
 honest as its population: the question to ask of a new one is not "does it assert the right thing"
 but "what is in the count that is not answering the question".
+
+## A rule with two claims in it, and a suite checking one -- under CNCORE-77
+
+**THE FIFTH SEAM HELD PROVIDERS TO HALF OF ADR-0033'S SENTENCE FOR AS LONG AS IT EXISTED.** "An
+empty result is an answer; a missing query is a mistake" is two claims. The suite had a test for a
+missing `q`, a test for an empty `q`, and nothing at all for a query that simply matched nothing —
+so a provider answering `404` to one, or any other failure, passed everything in the file. That is
+not a hypothetical shape: `lookup` answers `404` for an id it does not hold, and reusing the reflex
+for `search` is the obvious thing to build.
+
+**IT WAS HARMLESS UNTIL SOMETHING DEPENDED ON IT, WHICH IS THE GENERAL CASE.** Nothing in CanonCore
+called `search`, so no behaviour rested on the difference between "answered nothing" and "did not
+answer". CNCORE-77's client rests on precisely that: a refusal is read as the provider FAILING, an
+empty `results` as it ANSWERING, and a fan-out sorts providers into two lists on the distinction.
+The gap became load-bearing without anything touching the suite.
+
+**THE RULE: when a record states a rule as a contrast, the suite needs a test per SIDE.** A
+contrast is written as one sentence and reads as one claim, which is exactly why the missing half is
+hard to see — the tests that exist look like they cover the sentence, because they quote it. The
+tell is grammatical rather than technical: `A, not B` and `X is an answer; Y is a mistake` are two
+assertions wearing one clause.
+
+**IT IS THE THIRD ENTRY IN THIS FILE'S FAMILY AND THE FIRST THAT WAS NEVER GREEN FOR THE WRONG
+REASON.** The CNCORE-9 stub asserted a number the image had stopped answering and the CNCORE-33 pin
+reported a disagreement that had ended; both were measuring something real and watching the wrong
+population. This one measured its population correctly and was simply not asked the second question.
+So the question to ask of a seam is not only "what is in the count that is not answering the
+question" but "how many questions did the record actually ask".
+
+Both real providers and the conformance witness already satisfied the missing half, which is the
+ordinary outcome and not a reason to have skipped it: what the assertion buys is that the day one of
+them stops, it is a contract failure rather than a source that looks broken to an owner.

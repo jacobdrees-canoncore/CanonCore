@@ -1,7 +1,7 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { createProviderClient, OutboundRefused, parseAllowlist } from "./index";
+import { createProviderClient, OutboundRefused, parseAllowlist, searchProviders } from "./index";
 
 /**
  * A stand-in for a provider, on a REAL SOCKET on loopback.
@@ -89,6 +89,24 @@ const TENTH_PLANET = {
   writers: ["Kit Pedler", "Gerry Davis"],
   series: "Doctor Who television stories",
   url: "https://tardis.wiki/wiki/The_Tenth_Planet_(TV_story)",
+};
+
+/**
+ * What `provider-tmdb` answers for the record the contract test names as its
+ * fixture. The id and the title are that suite's, chosen because they do not
+ * move; the rest is left EMPTY rather than transcribed, because nothing here
+ * asserts on a value and a half-remembered credit is a claim this file cannot
+ * back. What it is for is a SECOND provider's answer, distinguishable from the
+ * first.
+ */
+const THE_MATRIX = {
+  id: "movie:603",
+  title: "The Matrix",
+  kind: "movie",
+  released: [],
+  writers: [],
+  series: null,
+  url: "https://www.themoviedb.org/movie/603",
 };
 
 /**
@@ -319,6 +337,51 @@ describe("the CMPP client", () => {
     });
   });
 
+  /**
+   * ADR-0033's OTHER REQUIRED OPERATION, and the one this client did without
+   * until CNCORE-77: a record reached by NAME rather than by an id obtained
+   * from outside the product.
+   *
+   * `encodeURIComponent` RATHER THAN `URLSearchParams`, which is the obvious
+   * choice and spells a space `+`. `%20` is the spelling the contract test
+   * reaches both real providers with, so it is the one proven against them;
+   * `+` is proven against neither.
+   */
+  it("finds candidates by name, so a record needs no id known in advance", async () => {
+    const baseUrl = await stubProvider((request, response) => {
+      expect(request.url).toBe("/search?q=The%20Tenth%20Planet");
+      json(response, { results: [TENTH_PLANET] });
+    });
+    const client = createProviderClient({ baseUrl, allowlist: onLoopback() });
+
+    const found = await client.search("The Tenth Planet");
+
+    expect(found.results.map((candidate) => candidate.id)).toEqual(["265"]);
+    expect(found.results[0]).toMatchObject({ title: "The Tenth Planet (TV story)" });
+  });
+
+  /**
+   * CNCORE-33's READING, HELD FROM A THIRD CALLER OF `?q=`.
+   *
+   * AN EMPTY RESULT IS AN ANSWER; AN EMPTY QUERY IS A MISTAKE (ADR-0033). Both
+   * real providers answer `400` to `?q=`, the contract test pins them to it,
+   * and this is the app's side of the same rule: a client that turned that
+   * refusal into `{ results: [] }` would hand a caller who never filled the
+   * parameter in something shaped exactly like "nothing matched".
+   */
+  it("carries a provider's refusal of an empty query rather than reading it as no matches", async () => {
+    const baseUrl = await stubProvider((request, response) => {
+      const q = new URL(request.url ?? "/", "http://127.0.0.1").searchParams.get("q");
+      if (q === null || q === "") {
+        return json(response, { error: "a `q` query parameter is required" }, 400);
+      }
+      json(response, { results: [TENTH_PLANET] });
+    });
+    const client = createProviderClient({ baseUrl, allowlist: onLoopback() });
+
+    await expect(client.search("")).rejects.toThrow(/400/);
+  });
+
   it("looks one record up by its stable id", async () => {
     const baseUrl = await stubProvider((request, response) => {
       expect(request.url).toBe("/lookup/265");
@@ -532,5 +595,147 @@ describe("what the client will take from a provider", () => {
     const client = createProviderClient({ baseUrl, allowlist: onLoopback() });
 
     await expect(client.manifest()).resolves.toMatchObject({ name: "provider-wiki" });
+  });
+});
+
+/**
+ * A provider answering both operations a fan-out needs: the manifest, for the
+ * name the provider gives ITSELF, and the search.
+ *
+ * It refuses `?q=` exactly as both real providers do (ADR-0033, CNCORE-33), so
+ * that a fan-out which fanned an empty query out and then swallowed the
+ * refusals would be visible here rather than only in production.
+ */
+async function stubSearchingProvider(manifest: unknown, results: unknown[]): Promise<string> {
+  return stubProvider((request, response) => {
+    const url = new URL(request.url ?? "/", "http://127.0.0.1");
+    if (url.pathname === "/") return json(response, manifest);
+    const q = url.searchParams.get("q");
+    if (q === null || q === "") {
+      return json(response, { error: "a `q` query parameter is required" }, 400);
+    }
+    json(response, { results });
+  });
+}
+
+/**
+ * REACHING EVERY PROVIDER AT ONCE, which is a different operation from reaching
+ * one and is why it is not a method on the client.
+ *
+ * ADR-0031 makes a provider a URL and nothing more, so there is no registry to
+ * consult: the caller names the URLs, exactly as it names a record id for
+ * `lookup`. What this adds over a loop is the two things a loop gets wrong --
+ * whose answer each candidate is, and what happens when one of them falls over.
+ */
+describe("searching every provider at once", () => {
+  it("answers each provider's candidates under the name that provider gives itself", async () => {
+    // THE NAME RATHER THAN THE URL, because a source answers "who said this"
+    // and `http://127.0.0.1:39481` shows a reader a deployment detail. The
+    // manifest is where a provider says what it is called, so the fan-out reads
+    // it -- the same reason `importRecordFromProvider` reads it before writing.
+    const wiki = await stubSearchingProvider(MANIFEST, [TENTH_PLANET]);
+    const tmdb = await stubSearchingProvider(TMDB_MANIFEST, [THE_MATRIX]);
+
+    const found = await searchProviders(
+      { baseUrls: [wiki, tmdb], allowlist: onLoopback() },
+      "The Tenth Planet",
+    );
+
+    expect(
+      found.answered.map((answer) => [answer.provider.name, answer.results.map((r) => r.id)]),
+    ).toEqual([
+      ["provider-wiki", ["265"]],
+      ["provider-tmdb", ["movie:603"]],
+    ]);
+  });
+
+  /**
+   * ONE PROVIDER FALLING OVER IS NOT THE SEARCH FAILING, and the alternative is
+   * worse than it looks: a fan-out that throws on the first failure hands the
+   * owner nothing at all because one of the several sources they connected is
+   * having a bad day, and it does it non-deterministically -- whichever
+   * provider loses the race decides.
+   *
+   * THE FAILURE IS REPORTED RATHER THAN SWALLOWED. A provider that is down and
+   * a provider that matched nothing are different answers, and collapsing them
+   * into a short list is how an owner concludes their query was wrong.
+   */
+  it("goes on answering when one provider falls over, and says which one did", async () => {
+    const wiki = await stubSearchingProvider(MANIFEST, [TENTH_PLANET]);
+    const broken = await stubProvider((_, response) => json(response, { error: "boom" }, 500));
+
+    const found = await searchProviders(
+      { baseUrls: [wiki, broken], allowlist: onLoopback() },
+      "The Tenth Planet",
+    );
+
+    expect(
+      found.answered.map((answer) => [answer.provider.name, answer.results.map((r) => r.id)]),
+    ).toEqual([["provider-wiki", ["265"]]]);
+    expect(found.failed.map((failure) => failure.baseUrl)).toEqual([broken]);
+    // THE ERROR TRAVELS WHOLE rather than flattened to a sentence, so that a
+    // caller can still tell an `OutboundRefused` from a provider that answered
+    // badly -- which is the distinction `packages/api` maps onto a declared
+    // error rather than a 500 (ADR-0034).
+    expect(found.failed[0]?.reason.message).toMatch(/500/);
+  });
+
+  /**
+   * WHERE THIS FILE'S TWO RULES MEET, AND WOULD CANCEL EACH OTHER OUT.
+   *
+   * `?q=` is the caller's mistake and every provider answers it `400`
+   * (ADR-0033, CNCORE-33). A provider that fails is tolerated, just above. Put
+   * together without this, an empty query fans out, collects a refusal from
+   * every provider, tolerates each one -- and answers `{ answered: [], failed:
+   * [...] }`, which an owner reads as "nothing matched". The mistake would have
+   * been hidden by the very leniency that makes the fan-out worth having.
+   *
+   * SO THE FAN-OUT REFUSES WHERE THE CLIENT SENDS, and that is not the two
+   * disagreeing. The client is a transport and reports what came back, which is
+   * what keeps it a third caller of `?q=`; the fan-out is the thing that
+   * tolerates failure, and tolerance is exactly why the mistake has to be
+   * caught before it becomes tolerable.
+   */
+  it("refuses an empty query rather than fanning it out and tolerating the refusals", async () => {
+    const asked: string[] = [];
+    const wiki = await stubProvider((request, response) => {
+      asked.push(request.url ?? "");
+      json(response, MANIFEST);
+    });
+
+    await expect(
+      searchProviders({ baseUrls: [wiki], allowlist: onLoopback() }, ""),
+    ).rejects.toThrow();
+    // AND NOTHING WAS ASKED. A refusal after the requests went out would still
+    // have spent them, and would still have to decide what to do with a
+    // provider that answered `400` to a query nobody meant to send.
+    expect(asked).toEqual([]);
+  });
+
+  /**
+   * A URL THE OWNER NEVER ALLOWLISTED IS ONE PROVIDER FAILING, not the search
+   * failing -- and it arrives here as the SAME KIND of failure a broken
+   * provider does, which is why the two are one list.
+   *
+   * IT STAYS AN `OutboundRefused`, which is the whole reason `reason` carries
+   * the error rather than a sentence. ADR-0034's refusals are answers a UI has
+   * to be able to put in front of an owner, and `packages/api` maps them onto a
+   * declared error instead of a 500; flattened to a string, that distinction
+   * would have to be recovered by reading prose.
+   */
+  it("reports a provider it may not reach without emptying the answers of the ones it may", async () => {
+    const wiki = await stubSearchingProvider(MANIFEST, [TENTH_PLANET]);
+    // Refused before a socket opens, so nothing resolves this name and the
+    // suite's network gate never sees a request.
+    const unallowlisted = "http://provider.invalid/";
+
+    const found = await searchProviders(
+      { baseUrls: [wiki, unallowlisted], allowlist: onLoopback() },
+      "The Tenth Planet",
+    );
+
+    expect(found.answered.map((answer) => answer.provider.name)).toEqual(["provider-wiki"]);
+    expect(found.failed.map((failure) => failure.baseUrl)).toEqual([unallowlisted]);
+    expect(found.failed[0]?.reason).toBeInstanceOf(OutboundRefused);
   });
 });

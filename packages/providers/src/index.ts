@@ -26,8 +26,17 @@ export {
   type CmppManifest,
   type CmppPlacement,
   type CmppRecord,
+  type CmppSearch,
   cmppBrowse,
   cmppManifest,
   cmppPlacement,
   cmppRecord,
+  cmppSearch,
 } from "./cmpp";
+export {
+  type FailedProvider,
+  type ProviderAnswer,
+  type ProviderSearch,
+  type SearchedProvider,
+  searchProviders,
+} from "./search";
