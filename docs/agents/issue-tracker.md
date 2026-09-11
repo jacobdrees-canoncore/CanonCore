@@ -111,6 +111,7 @@ returns empty rather than erroring:
 | A person (assignee, member) | `.displayName` | `.name` (always `None`) |
 | A label or a state | `.name` | `.displayName` |
 | Whether a relation BLOCKS | `.relationship` == `"blocks"` / `"blockedBy"` | `.type`, which is `"blocks"` on BOTH directions |
+| An issue's PARENT | the parent's `result.children` | `result.issue.parent` — **there is no such key** |
 
 **The relation one bites the frontier**, which is the single most-run query here. A relation reads:
 
@@ -123,6 +124,15 @@ returns empty rather than erroring:
 nothing. Filter on `relationship`, or on `direction` (`inbound` means THIS issue is blocked).
 `relatedIssue` carries no state, so the blocker's status needs its own read — the frontier is two
 passes, not one.
+
+**The parent one is the newest and it reads as a failed write rather than a failed read**, which is
+worse than the others. `orca linear create --parent CNCORE-60` binds; the issue payload simply
+carries no `parent` key, so `.get("parent")` answers `None` for every ticket in the team — CNCORE-65,
+whose parent has never been in doubt, included. Measured 2026-09-11 while filing CNCORE-82 and
+CNCORE-83: both read `parent: None`, both were already in CNCORE-60's `children`, and a
+`save-issue --parent-id` "fix" was a no-op that re-set what was there. **Verify a parent from the
+parent's end.** `--full` does not help: it adds `children` and `relations` to the top level and adds
+nothing to `issue`.
 
 Reading children from the wrong place returned `0` and was written up as "the board is flat, the
 convention was never executed". It was not: 18 tickets declared a parent, 16 carried the link, and
