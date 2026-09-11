@@ -45,6 +45,55 @@ describe("catalogue.list", () => {
     expect(Object.keys(entry).sort()).toStrictEqual(["id", "isContainer", "kind", "title"]);
   });
 
+  it("carries a cursor onto the next page, and says where the catalogue ends", async () => {
+    // THE OTHER HALF OF THE CAP. `total` already said what was not being shown;
+    // this is what reaches it. The cursor is an ITEM ID rather than an encoded
+    // sort key (ADR-0119), so nothing about the projection crosses this seam.
+    await anItemTitled(db, "A story a reader has to page to");
+
+    const first = await call(appRouter.catalogue.list, { limit: 1 }, { context });
+    if (first.continuesAfter === null) throw new Error("a catalogue of one needs no paging");
+    const second = await call(
+      appRouter.catalogue.list,
+      { limit: 1, after: first.continuesAfter },
+      { context },
+    );
+
+    expect(second.entries[0]?.id).not.toBe(first.entries[0]?.id);
+    // THE SAME LIBRARY FROM BOTH PAGES. A count taken after the cursor bit
+    // would shrink page by page and tell an owner their catalogue was emptying
+    // as they read it.
+    expect(second.total).toBe(first.total);
+  });
+
+  it("starts at the beginning when the cursor names nothing", async () => {
+    // ADR-0066's rule for a parameter that is not an identity: one naming
+    // nothing matches nothing and changes nothing. A cursor is cut at an item,
+    // and an owner who deletes that item should not find a bookmarked page
+    // answering with an error -- they should find the catalogue.
+    //
+    // BOTH SHAPES, because they fail differently and only one of them looks
+    // like a cursor. A well-formed id for no row is an empty query; a MALFORMED
+    // one reaches a `uuid` column as PostgreSQL error 22P02, which is the
+    // measured 500 ADR-0066 records against `item.get` before CNCORE-14 -- a
+    // truncated id in a shared link reading as "this server is broken".
+    const beginning = await call(appRouter.catalogue.list, { limit: 3 }, { context });
+
+    const noSuchItem = await call(
+      appRouter.catalogue.list,
+      { limit: 3, after: crypto.randomUUID() },
+      { context },
+    );
+    const notAnId = await call(
+      appRouter.catalogue.list,
+      { limit: 3, after: "page-two-please" },
+      { context },
+    );
+
+    expect(noSuchItem.entries).toStrictEqual(beginning.entries);
+    expect(notAnId.entries).toStrictEqual(beginning.entries);
+  });
+
   it("refuses to answer with more than a page at a time", async () => {
     // THE CEILING IS THIS APP'S, not the caller's. A limit a request can raise
     // is not a cap on anything -- the cost of one answer would be a function of
