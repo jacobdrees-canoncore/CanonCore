@@ -104,6 +104,15 @@ orca linear issue <id> --json        # then check state, labels, assignee actual
 Every one of these produced a confident false negative in a single session, because a wrong key
 returns empty rather than erroring:
 
+**Before the key, the FLAG — and it fails the same way.** `children` and `relations` are absent from
+the payload entirely unless `--children` and `--relations` are passed, and an absent key is
+indistinguishable from an empty one at the reading end. So the table below is necessary and not
+sufficient: reading `result.relations` correctly, off a call that never asked for relations, answers
+"nothing blocks anything" for a board whose graph is dense. **Measured 2026-09-11**, recomputing the
+frontier after a wave: every one of twelve open tickets read as unblocked, and passing `--relations`
+turned the same twelve into a chain seven deep. The commands at the top of this file carry the flags
+for exactly this reason; a command retyped from memory is where they get dropped.
+
 | Want | It is at | NOT at |
 | --- | --- | --- |
 | An issue's children | `result.children` — **top level** | `result.issue.children` (always empty) |
@@ -224,7 +233,11 @@ Link a PR to an issue by putting the identifier in the branch name (Orca does th
 worktree is created with `--linear-issue`) or by a magic word in the PR body:
 `Fixes CNCORE-12`. Use `Refs CNCORE-12` to touch a ticket without closing it.
 
-`orca linear status set` is still correct for states no PR event covers, such as Canceled.
+`orca linear status set` is still correct for states no PR event covers, such as Canceled. **Its
+flag is `--to`, not `--state`** — `save-issue` spells the same field `--state`, and the two are not
+interchangeable. Reaching for `--state` here fails with `Unknown flag`, which is the loud kind and
+costs only a retry; it is noted because the inconsistency invites the guess. The listing verb differs
+too: there is no `orca linear issues`, only `list`, `list-issues` and `search`.
 
 ## Worktree binding
 
