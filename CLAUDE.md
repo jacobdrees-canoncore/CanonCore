@@ -82,9 +82,11 @@ in for the library.
 - **A conflicted PR gets no CI at all.** A `pull_request` workflow runs against
   `refs/pull/N/merge`, which GitHub cannot build while the branch conflicts -- so it creates no run
   rather than a failing one. An ABSENT check is the tell, not a red one. Merge `main` and it fires.
-- **No branch protection.** `jacobdrees-canoncore` is a GitHub Free org and this repo is private, so
-  branch protection rules are unavailable. Every merge gate here is convention, not enforcement.
-  Do not assume a check blocked anything.
+- **`main`'s history is enforced; its CI is not.** A ruleset refuses deletion and force-push on
+  `main`, admin bypass on, so it stops accident rather than intent. There are no required checks
+  and no required review, so a merge gate is still convention: do not assume a check blocked
+  anything. Protection IS available here, measured 2026-09-11 on this public repo in a Free org
+  and against GitHub's own rulesets docs, which are wrong at repository scope. See ADR-0118.
 - **Some tool calls are denied on purpose** by `.claude/settings.json`. `git worktree` and
   `gh issue` are blocked: use `orca worktree create` and `orca linear` instead. A denial here is the
   config working, not a bug to route around. **`.env` reads were denied until 2026-09-11 and are

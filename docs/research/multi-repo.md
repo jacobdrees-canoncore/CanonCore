@@ -1142,8 +1142,9 @@ Two decisions this entry did not reach, both taken the same day. The two reposit
 the org listing — and **both are private**. `provider-wiki` has no choice under ADR-0089 tier 3;
 `provider-tmdb` is private by decision rather than by rule, with ADR-0089 tier 2's CMPP store as the
 named trigger to reopen it. The cost accepted with it is stated rather than discovered: a public repo
-in a GitHub Free org gets branch restrictions and a private one does not, so `CLAUDE.md`'s standing
-"no branch protection" gotcha now covers three repos rather than one.
+in a GitHub Free org gets branch restrictions and a private one does not, so the two provider repos
+have no route to a merge gate. It read "three repos rather than one" when written; CNCORE-62 made
+CanonCore public the next day and ADR-0118 measured the route open there, so it is **two**.
 
 ---
 
@@ -1266,12 +1267,14 @@ not as proposed.
 | **A provider repo cannot create itself**: the repo exists before its ticket is dispatched | `orca worktree create --repo` needs a registered repo, so ticket A verifies rather than creates |
 | **The research phase is closed until version one renders** | Three research files landed in a day and no code did; `CLAUDE.md`'s governing rule names that shape |
 
-One of these has a cost worth restating because it is easy to lose: **`CLAUDE.md`'s standing "no
-branch protection" gotcha now covers three repositories rather than one.** A public repo in a GitHub
-Free org gets branch restrictions and a private one does not — GitHub's own words, read 2026-09-10:
+One of these has a cost worth restating because it is easy to lose: **the two provider
+repositories have no route to an enforced merge gate.** A public repo in a GitHub Free org gets
+branch restrictions and a private one does not — GitHub's own words, read 2026-09-10:
 *"You can enable branch restrictions in public repositories owned by a GitHub Free organization and in
 all repositories owned by an organization using GitHub Team or GitHub Enterprise Cloud."* Keeping both
-provider repos private is a knowing choice to keep every merge gate a convention.
+provider repos private is a knowing choice to keep their merge gates conventions. This said "three
+repositories rather than one" when written, counting CanonCore; CNCORE-62 made CanonCore public the
+next day, and ADR-0118 measured and used the route there.
 
 ---
 
