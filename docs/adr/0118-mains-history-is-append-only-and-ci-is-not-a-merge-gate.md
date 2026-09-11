@@ -51,10 +51,12 @@ the source a future reader will check first.** Read 2026-09-11, *"About rulesets
 applies *"for customers on GitHub Team and GitHub Enterprise plans"*. Measured at repository scope
 on Free, that is false. Measured at ORGANISATION scope it is exactly right, and `403 Upgrade to
 GitHub Team to enable this feature.` is the sentence the page is really describing. **Scope is the
-word the page is missing**, and it is what makes the page safe to read rather than merely wrong. The protected-branches page is the one that holds: *"You can enable branch
-restrictions in public repositories owned by a GitHub Free organization and in all repositories
-owned by an organization using GitHub Team or GitHub Enterprise Cloud."* **The measurement wins
-over both**, which is the whole reason this repository's rule is to measure rather than to cite.
+word the page is missing**, and it is what makes the page safe to read rather than merely wrong.
+
+The protected-branches page is the one that holds: *"You can enable branch restrictions in public
+repositories owned by a GitHub Free organization and in all repositories owned by an organization
+using GitHub Team or GitHub Enterprise Cloud."* **The measurement wins over both**, which is the
+whole reason this repository's rule is to measure rather than to cite.
 
 The earlier measurement in `docs/research/ci-and-repo-standards.md` was correct when taken and its
 own evidence predicted this: the 403 it recorded read *"Upgrade to GitHub Pro **or make this
@@ -85,10 +87,14 @@ exactly this reason, after `gh pr merge` refused. A `pull_request` rule closes t
 next workflow-touching ticket would stop dead with no legible cause. The fix is one command --
 `gh auth refresh -s workflow` -- and it belongs to whoever turns the rule on, not to this record.
 
-**The check names are about to change.** CNCORE-80 splits `static-checks` into separately-named
-Typecheck, Lint, Build and `DATABASE_URL`-guard checks. A required-checks list pins context strings,
-so any list written today goes stale the moment that lands, and a required check that no longer
-exists blocks every pull request rather than failing one.
+**The check names are about to change, and `Static checks` ceases to exist.** CNCORE-80 splits
+`static-checks` into four separately-named checks. Read off that ticket's own pull request run
+rather than from its description, 2026-09-11, the context strings are **`Typecheck`**, **`Lint`**,
+**`Build`** and **`Env guard`** -- note the last is not spelled after `DATABASE_URL`, which is what
+this record guessed before checking. A required-checks list pins context strings, so a list naming
+`Static checks` pends forever the moment that merges, and a required check that no longer exists
+blocks every pull request rather than failing one. Those four are the names such a list wants, once
+CNCORE-80 has landed.
 
 **A required check that never runs pends forever.** `CLAUDE.md` already records that a conflicted
 pull request gets no CI run at all. Under required checks that stops being "an absent check is the
