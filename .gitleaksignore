@@ -1,21 +1,24 @@
 # Accepted gitleaks findings, with the reason each is accepted.
 #
-# Every entry here is a THIRD-PARTY PUBLIC value quoted as research evidence, not a
-# CanonCore credential. The values have been redacted from the working files; these
-# fingerprints pin the commits that still carry them in history, which cannot be
-# changed without rewriting a branch that is already published.
+# ONE ENTRY, AND IT COVERS EXACTLY ONE COMMIT ON PURPOSE.
 #
-# Do not add to this file to make a check pass. If a finding is genuinely ours, rotate
-# the credential — do not record it here.
-
-# Jellyfin's hardcoded TMDb key, quoted from its own open-source repository
-# (MediaBrowser.Providers/Plugins/Tmdb/TmdbUtils.cs). That Jellyfin ships a key every
-# default install shares is the entire subject of ADR 0035, so the quotation is the
-# evidence for a decision. The key is Jellyfin's and is public in their repo.
-abafe133e2f5324247e052239439113bbda4e1ed:docs/research/verify-adr-jellyfin.md:generic-api-key:1161
-ad7bd14bdd23fc407da4995a5c2f0220e64f7202:docs/research/archive-2026-09-04/03-stack-and-platforms.md:generic-api-key:139
-
-# Plex's GPG PUBLIC key fingerprint, transcribed from Plex's own documentation where it
-# is labelled "Public key" and published precisely so users can verify a download.
-# A public key fingerprint is not a secret; gitleaks flags it on shape alone.
-ad7bd14bdd23fc407da4995a5c2f0220e64f7202:docs/research/competitor-sweep/sweep-plex-support-C.md:generic-api-key:868
+# Plex's GPG PUBLIC key fingerprint, transcribed from Plex's own documentation
+# where it is labelled "Public key" and published precisely so users can verify
+# a download. A public key fingerprint is not a secret; gitleaks flags it on
+# shape alone.
+#
+# The value is REDACTED in the working file, so no future commit carries it.
+# What this entry covers is the seed commit, which does, and which is immutable
+# -- `gitleaks git` scans commits rather than the working tree, so redacting a
+# file does not remove the value from the commits that already have it. That is
+# the same fact ADR-0114 rests on, met again at a smaller scale.
+#
+# A fingerprint is `commit:file:rule:line`. Pinning a commit that will never
+# change is durable; pinning one that new work keeps touching is not, which is
+# why the redaction does the ongoing work and this line only closes the past.
+9cebb4618db6cd2aeedd47884900c5e6eccbb1e7:docs/research/competitor-sweep/sweep-plex-support-C.md:generic-api-key:868
+#
+# Do not add to this file to make a check pass. If a finding is genuinely ours,
+# rotate the credential -- do not record it here. If it is a third-party public
+# value quoted as research evidence, redact it from the working file and say so
+# beside the quotation, then pin only the commits that already carry it.

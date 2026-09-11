@@ -865,9 +865,11 @@ Server on a router appliance. Mostly hardware-specific, three transferable lines
 **Distribution, concretely.** Signed apt and rpm repositories, published key fingerprints, a
 one-line installer, and a documented migration off the old repo. This is the answer to the
 deployment-shape gap that 025 and 043 opened.
-- Rule, verbatim: "Public key: 6EFFEB478A6559D75C7C4FE706C521790B9CFFDE / Signing subkey:
-  B406F0897A39A570804260540A05F1E6E7AFD573", with `gpg --show-keys --with-subkey-fingerprints` given
-  so the user can verify them independently.
+- Rule, verbatim: "Public key: <40-hex fingerprint, redacted here> / Signing subkey:
+  <40-hex fingerprint, redacted here>", with `gpg --show-keys --with-subkey-fingerprints` given
+  so the user can verify them independently. (The two fingerprints are redacted here: they are
+  Plex's PUBLIC key and are published by Plex for exactly this purpose, but gitleaks flags them on
+  shape alone, and the claim this evidences is that Plex publishes them at all.)
 - Rule, verbatim, on the key choice: "We chose Ed25519 for the new key because it offers equivalent
   or stronger practical security than RSA-4096 with significantly better performance … a 256-bit
   Ed25519 key provides security comparable to a 3072–4096-bit RSA key".
