@@ -24,7 +24,17 @@ export interface ProviderAnswer {
  * away here.
  */
 export interface FailedProvider {
-  /** Named by the URL, because at this point nothing has read a name for it. */
+  /**
+   * Named by the URL, because at this point nothing has read a name for it --
+   * reading the name is one of the things that failed.
+   *
+   * NOT THE INCONSISTENCY IT LOOKS LIKE beside `SearchedProvider`, which
+   * carries a name precisely so a URL need not be shown. The contract test's
+   * rule is about a READER of the catalogue, who is handed a source's claims
+   * and has no business being handed its deployment address. This is for the
+   * OWNER, who typed these URLs, is the only person who can fix one, and cannot
+   * act on "a provider you configured is down".
+   */
   baseUrl: string;
   reason: Error;
 }
@@ -70,7 +80,14 @@ export async function searchProviders(
   // and the mistake is hidden by the very leniency that makes a fan-out worth
   // having. The client itself still sends it, which is what keeps this app a
   // caller of `?q=` rather than a stranger to it.
-  if (query === "") {
+  //
+  // TRIMMED FIRST, because a box a user tabbed through holds spaces rather than
+  // nothing and the two are the same mistake. Both real providers trim before
+  // they judge -- `?q=%20%20%20` answers `400` on each, checked against the
+  // running images rather than assumed -- so an untrimmed check here would let
+  // exactly the outcome above through for the commonest spelling of the
+  // mistake.
+  if (query.trim() === "") {
     throw new Error("an empty query is not a query: `searchProviders` was given nothing to find.");
   }
 
@@ -117,6 +134,15 @@ function asError(thrown: unknown): Error {
  * THE MANIFEST IS READ FOR THE NAME, because a source answers "who said this"
  * and `http://127.0.0.1:39481` shows a reader a deployment detail -- the same
  * reason an import reads it before writing a source row.
+ *
+ * SO A PROVIDER WHOSE MANIFEST IS UNREADABLE FAILS EVEN IF ITS `search` WOULD
+ * HAVE ANSWERED, and that is the right answer rather than a gap in the
+ * tolerance above. A claim is a DATED CLAIM BY A NAMED SOURCE (ADR-0017), and
+ * these candidates exist to be imported as exactly that -- so a candidate
+ * nothing can attribute is not a lesser answer, it is one with no use to put it
+ * to. The available fallback makes the case: naming the provider by its base
+ * URL would hand a reader the deployment detail the contract test exists to
+ * keep away from them.
  */
 async function askOneProvider(
   baseUrl: string,

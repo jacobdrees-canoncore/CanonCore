@@ -626,3 +626,24 @@ question" but "how many questions did the record actually ask".
 Both real providers and the conformance witness already satisfied the missing half, which is the
 ordinary outcome and not a reason to have skipped it: what the assertion buys is that the day one of
 them stops, it is a contract failure rather than a source that looks broken to an owner.
+
+**AND THE SEPARATION IS REFUSED IN THE OTHER DIRECTION TOO, which this record did not say.** The
+guarantee above is one-directional: `packages/contract` depends on no `@canoncore/*` package, so it
+cannot reach the app's schema. Nothing in that sentence stops `@canoncore/providers` importing the
+CONTRACT'S schema, and CNCORE-77 met a ticket asking for exactly that -- "validated against the
+schema `packages/contract` already declares" -- which is the obvious repair and would have breached
+no rule written here.
+
+It is refused anyway, and the reason is not the dependency graph. **The two are different
+DOCUMENTS.** One is a SPECIFICATION and permits unknown keys, because ADR-0033 lets a provider
+declare more than it is asked for; the other is a CONSUMER'S reading and strips them, widens where
+the app does not care, and omits fields nothing renders. A single schema serving both collapses that
+distinction, and what it costs is the contract test's whole claim: the suite would prove that two
+providers satisfy CANONCORE, which is much weaker than that they satisfy one CONTRACT, and it is the
+substitution this seam exists to prevent. The app's copy of each response shape is therefore written
+out, `search`'s alongside the three that were already there.
+
+`@canoncore/contract` also has no `exports` map and carries `zod` as a devDependency, so it is not
+importable as it stands. That is a consequence of the rule rather than the rule, and it is worth
+saying which is which: making it importable would take two lines, and the two lines are not what is
+standing in the way.

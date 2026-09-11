@@ -696,21 +696,28 @@ describe("searching every provider at once", () => {
    * tolerates failure, and tolerance is exactly why the mistake has to be
    * caught before it becomes tolerable.
    */
-  it("refuses an empty query rather than fanning it out and tolerating the refusals", async () => {
-    const asked: string[] = [];
-    const wiki = await stubProvider((request, response) => {
-      asked.push(request.url ?? "");
-      json(response, MANIFEST);
-    });
+  it.each([
+    ["empty", ""],
+    ["only spaces", "   "],
+    ["other whitespace", "\t\n"],
+  ])(
+    "refuses a query that is %s rather than fanning it out and tolerating the refusals",
+    async (_description: string, query: string) => {
+      const asked: string[] = [];
+      const wiki = await stubProvider((request, response) => {
+        asked.push(request.url ?? "");
+        json(response, MANIFEST);
+      });
 
-    await expect(
-      searchProviders({ baseUrls: [wiki], allowlist: onLoopback() }, ""),
-    ).rejects.toThrow();
-    // AND NOTHING WAS ASKED. A refusal after the requests went out would still
-    // have spent them, and would still have to decide what to do with a
-    // provider that answered `400` to a query nobody meant to send.
-    expect(asked).toEqual([]);
-  });
+      await expect(
+        searchProviders({ baseUrls: [wiki], allowlist: onLoopback() }, query),
+      ).rejects.toThrow();
+      // AND NOTHING WAS ASKED. A refusal after the requests went out would
+      // still have spent them, and would still have to decide what to do with a
+      // provider that answered `400` to a query nobody meant to send.
+      expect(asked).toEqual([]);
+    },
+  );
 
   /**
    * A URL THE OWNER NEVER ALLOWLISTED IS ONE PROVIDER FAILING, not the search

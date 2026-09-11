@@ -40,7 +40,19 @@ export const cmppRecord = z.object({
   released: z.array(z.string()).default([]),
   writers: z.array(z.string()).default([]),
   series: z.string().nullable().default(null),
-  /** Where the record came from. A CONTENT URL: never fetched unchecked. */
+  /**
+   * Where the record came from. A CONTENT URL: never fetched unchecked.
+   *
+   * TODO(CNCORE-79): the sentence above is not true of this line. `z.url()`
+   * does not check the SCHEME -- measured against zod 4.5.4,
+   * `javascript:alert(1)`, `data:text/html,...`, `vbscript:` and `file:` all
+   * parse -- and nothing on this path calls `assertContentUrl`. It has been
+   * harmless because `asProvided` drops `url` and no reader has ever seen one;
+   * `search` is the first thing to carry these out of the package, and
+   * CNCORE-68 is the page that puts one in an `href`. Left here rather than
+   * fixed under CNCORE-77, because this field is shared with `lookup` and
+   * `browse` and the repair belongs with the contract's copy of it too.
+   */
   url: z.url(),
 });
 
