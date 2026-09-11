@@ -197,6 +197,30 @@ describe("/ on a catalogue larger than one page", () => {
     throw new Error(`the walk never ended: ${walked.length} of ${everyItem.length} items`);
   });
 
+  it("offers a way back to the start from every page but the first", async () => {
+    // A FORWARD WALK STRANDS A DEEP LINK. Browser history is the reverse of a
+    // walk somebody took; it is no use to a reader handed page two in a
+    // message, and `Previous` is a second query shape rather than half of this
+    // one (ADR-0119). So every page past the first carries the one address that
+    // is always somewhere.
+    const pagedBaseUrl = inject("pagedBaseUrl");
+    const first = await documentFrom(pagedBaseUrl, "/");
+    const next = carriesOnAt(first.text);
+    if (next === undefined) throw new Error("the fixture fits on one page");
+
+    const second = await documentFrom(pagedBaseUrl, next);
+
+    expect(second.text).toContain("Back to the start");
+    // AND NOT ON THE FIRST PAGE, which is the half that makes the line above a
+    // test: a page printing it unconditionally would satisfy that and fail this.
+    expect(first.text).not.toContain("Back to the start");
+    // AN EMPTY `after` NAMES NO PLACE, exactly as a repeated one does not
+    // (ADR-0066). `/?after=` is the start of the catalogue, so it must not
+    // offer to send a reader back to where they already are.
+    const empty = await documentFrom(pagedBaseUrl, "/?after=");
+    expect(empty.text).not.toContain("Back to the start");
+  });
+
   it("says the catalogue ends here, where a link outlived the items after it", async () => {
     // THE ONE DEAD END A CURSOR CREATES. `continuesAfter` is only handed over
     // when there is a row past the page, so a link FOLLOWED never lands here --
