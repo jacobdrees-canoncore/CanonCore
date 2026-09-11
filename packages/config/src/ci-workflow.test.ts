@@ -171,6 +171,25 @@ function runsExactly(command: string) {
  */
 const blanksDatabaseUrl = (step: Step) => step.env?.DATABASE_URL === "";
 
+/**
+ * The four checks CNCORE-80 split back into named jobs, each mapped to the jobs
+ * carrying it -- found by what the step RUNS rather than by the job's name, so
+ * a rename cannot carry the subject away and leave a test passing over nothing.
+ *
+ * Shared by the two tests below because they ask two halves of one question:
+ * that the four are four, and that none of the four has been defanged. Written
+ * out twice, a check added or renamed in one would silently stop being asked
+ * about in the other.
+ */
+function staticCheckCarriers(parsed: Workflow): Record<string, string[]> {
+  return {
+    typecheck: jobsWithStep(parsed, runsExactly("pnpm typecheck")),
+    lint: jobsWithStep(parsed, runsExactly("pnpm lint")),
+    build: jobsWithStep(parsed, runsExactly("pnpm build")),
+    "env guard": jobsWithStep(parsed, blanksDatabaseUrl),
+  };
+}
+
 describe("the CI workflow", () => {
   /**
    * THE DEFECT THIS KEY EXISTS TO REMOVE, and it has already fired in this
@@ -218,87 +237,96 @@ describe("the CI workflow", () => {
   });
 
   /**
-   * WHY ONE JOB RATHER THAN FOUR, which is a cost decision and not a taste one.
-   * GitHub bills per job ROUNDED UP TO THE WHOLE MINUTE, so four jobs that
-   * finish in 44 seconds between them bill four minutes and one bills one. 312
-   * of 442 sampled jobs ran under 60 seconds and each billed a full minute: the
-   * cost unit here is job COUNT, not job duration.
+   * WHY FOUR JOBS RATHER THAN ONE, which is a diagnosability decision that a
+   * cost decision overrode for as long as the cost was real. ADR-0111 merged
+   * these four into `static-checks` because GitHub bills per job ROUNDED UP TO
+   * THE WHOLE MINUTE, and four jobs doing 44 seconds of work between them
+   * billed four minutes. CNCORE-62 made this repository public, and GitHub's
+   * billing documentation read 2026-09-11 says "The use of standard
+   * GitHub-hosted runners is free: In public repositories". Four billed minutes
+   * and one are now both zero, so the thing the merge was bought with is gone
+   * and the principle it overrode comes back: a red check names the thing that
+   * broke rather than making someone open the log to find out.
    *
-   * This test is the merge's guard rail in both directions. Splitting the job
-   * back apart fails it -- which is the point, because `ci.yml` used to state
-   * the opposite principle in its own words and the next reader will be tempted
-   * (ADR-0111 carries the trade). Dropping a check on the way through fails it
-   * too: each of the four must still be findable.
+   * This test is the split's guard rail in both directions. Merging them back
+   * fails it -- which is the point, because the merge is what the next reader
+   * will be tempted by, and the arithmetic that justified it still holds in the
+   * two PRIVATE provider repositories (ADR-0089) and nowhere here. Dropping a
+   * check on the way through fails it too: each of the four must still be
+   * findable.
    */
-  it("carries all four static checks in one billed job", () => {
+  it("runs each static check as its own named job", () => {
     const parsed = workflow();
 
-    const carriers = {
-      typecheck: jobsWithStep(parsed, runsExactly("pnpm typecheck")),
-      lint: jobsWithStep(parsed, runsExactly("pnpm lint")),
-      build: jobsWithStep(parsed, runsExactly("pnpm build")),
-      "env guard": jobsWithStep(parsed, blanksDatabaseUrl),
-    };
+    const carriers = staticCheckCarriers(parsed);
 
-    // Non-vacuous first, and named: a merge that quietly dropped `pnpm lint`
-    // would otherwise satisfy the one-job assertion below perfectly.
+    // Non-vacuous first, and named: a split that quietly dropped `pnpm lint`
+    // would otherwise satisfy the distinctness assertion below perfectly.
     for (const [check, jobs] of Object.entries(carriers)) {
-      expect(jobs, `no job runs the ${check}`).not.toStrictEqual([]);
+      expect(jobs, `no job runs the ${check}`).toHaveLength(1);
     }
 
-    expect(new Set(Object.values(carriers).flat())).toStrictEqual(new Set(["static-checks"]));
+    // FOUR CHECKS, FOUR JOBS, PAIRWISE DISTINCT. This is the whole property:
+    // the pull request carries a check per thing that can break, so a red one
+    // says which. Two of them sharing a job fails here with the job they share.
+    expect(new Set(Object.values(carriers).flat()).size).toBe(4);
   });
 
   /**
-   * THE FAILURE MODE THE MERGE INTRODUCES, and the reason this test exists at
-   * all. Four separate jobs could not be quietly neutered one at a time: a job
-   * that stopped failing the build stopped appearing as a check, and its
-   * absence was visible on the pull request. Four STEPS inside one job can be,
-   * and the job still reports green with its name unchanged.
+   * A CHECK CAN BE TURNED INTO DECORATION WITHOUT LEAVING THE PULL REQUEST, and
+   * that is what this test is about. Splitting the four back out did not fix
+   * it: `continue-on-error: true` on a job makes its failure not fail the
+   * workflow, and the job still reports a green check under its own unchanged
+   * name. An `if:` makes it not run at all. Either one is invisible to anyone
+   * reading the checks list rather than the file.
    *
-   * `continue-on-error: true` makes a step's failure not fail the job. An `if:`
-   * makes it not run at all. Either one turns a check into decoration while
-   * everything above still passes, which is why the acceptance criterion asks
-   * that all four can still fail the build INDEPENDENTLY -- one job is a
-   * billing arrangement, not a weakening.
+   * So the assertion is the same one the merged job carried, now asked of each
+   * of the four -- all four must still be able to fail the build
+   * INDEPENDENTLY. Four named jobs is diagnosability, not a weakening, and this
+   * is what stops the second being quietly traded for the first.
    *
-   * The steps are deliberately fail-fast rather than `continue-on-error` with a
-   * hand-rolled exit status: a red job names the step that broke, which is the
-   * diagnosability ADR-0111 trades the separate checks for.
+   * The jobs are found by what they RUN rather than by name, for the reason
+   * `blanksDatabaseUrl` gives: a rename would otherwise carry the subject away
+   * and leave this passing over nothing.
    */
-  it("lets nothing in the merged job stop failing the build", () => {
+  it("lets nothing in the four static-check jobs stop failing the build", () => {
     const parsed = workflow();
 
-    const job = parsed.jobs?.["static-checks"];
-    const steps = job?.steps ?? [];
-    // Not vacuous: a renamed or deleted job would make every filter below empty
+    const carrying = staticCheckCarriers(parsed);
+    // Not vacuous: renamed or deleted jobs would make every filter below empty
     // and this test a formality.
-    expect(steps.length).toBeGreaterThan(0);
+    expect(Object.keys(carrying)).toHaveLength(4);
 
-    // THE JOB LEVEL FIRST, because it is the cheaper mistake and it defangs all
-    // four checks at once rather than one. `continue-on-error` and `if` are both
-    // valid job keys, and a job carrying either reports green having decided
-    // nothing.
-    const defangedJob = ["continue-on-error", "if"].filter(
-      (key) => job?.[key as "if"] !== undefined,
-    );
-    expect(defangedJob).toStrictEqual([]);
+    for (const [check, [name]] of Object.entries(carrying)) {
+      const job = parsed.jobs?.[name ?? ""];
+      const steps = job?.steps ?? [];
+      expect(steps.length, `${check}: no steps`).toBeGreaterThan(0);
 
-    const defanged = steps
-      .filter((step) => step["continue-on-error"] !== undefined || step.if !== undefined)
-      .map((step) => step.name ?? step.run ?? step.uses);
-    expect(defanged).toStrictEqual([]);
+      // THE JOB LEVEL FIRST, because it is the cheaper mistake and it defangs a
+      // whole check at once rather than one step of it. `continue-on-error` and
+      // `if` are both valid job keys, and a job carrying either reports green
+      // having decided nothing.
+      const defangedJob = ["continue-on-error", "if"].filter(
+        (key) => job?.[key as "if"] !== undefined,
+      );
+      expect(defangedJob, `${check}: job level`).toStrictEqual([]);
 
-    // And the shell form, which neither key catches: `pnpm lint || true` runs
-    // the check, discards its verdict and exits 0. This is a list of the forms
-    // worth catching rather than a proof -- a shell script can always be
-    // written to swallow its own failure, and no reading of the file will ever
-    // settle that. What it buys is that the ACCIDENTAL version, reached for to
-    // quieten a noisy check, does not pass unnoticed.
-    const swallowed = steps
-      .filter((step) => /\|\|\s*(true|:)\b/.test(step.run ?? ""))
-      .map((step) => step.name ?? step.run);
-    expect(swallowed).toStrictEqual([]);
+      const defanged = steps
+        .filter((step) => step["continue-on-error"] !== undefined || step.if !== undefined)
+        .map((step) => step.name ?? step.run ?? step.uses);
+      expect(defanged, `${check}: step level`).toStrictEqual([]);
+
+      // And the shell form, which neither key catches: `pnpm lint || true` runs
+      // the check, discards its verdict and exits 0. This is a list of the forms
+      // worth catching rather than a proof -- a shell script can always be
+      // written to swallow its own failure, and no reading of the file will ever
+      // settle that. What it buys is that the ACCIDENTAL version, reached for to
+      // quieten a noisy check, does not pass unnoticed.
+      const swallowed = steps
+        .filter((step) => /\|\|\s*(true|:)\b/.test(step.run ?? ""))
+        .map((step) => step.name ?? step.run);
+      expect(swallowed, `${check}: shell form`).toStrictEqual([]);
+    }
   });
 
   it("passes pnpm/setup nothing it does not declare as an input", () => {
@@ -460,10 +488,10 @@ describe("the CI workflow", () => {
     // A job-level `env:` block does not replace the workflow's wholesale, but a
     // key redefined in one shadows the outer value for that job -- silently,
     // and only for the job that did it. A step-level one does the same for its
-    // own step, which since CNCORE-35 is the live shape in this file: the env
-    // guard blanks DATABASE_URL that way, inside `static-checks` (ADR-0111).
-    // Both levels are checked, because the job-level form is what the merge
-    // removed rather than what it made impossible.
+    // own step, which is the live shape in this file: the `env-guard` job blanks
+    // DATABASE_URL on its single step rather than on the job, so that a step
+    // added beside it later would get the real value. Both levels are checked,
+    // because either would hide this setting from the install beneath it.
     const shadowed = Object.entries(parsed.jobs ?? {}).flatMap(([job, definition]) => [
       ...(FROZEN_LOCKFILE_VARIABLE in (definition.env ?? {}) ? [job] : []),
       ...(definition.steps ?? []).flatMap((step, index) =>
