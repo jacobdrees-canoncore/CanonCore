@@ -147,9 +147,32 @@ the cursor is the whole query, where an Item page's address already carries `?vi
 (ADR-0066) and a third parameter has to compose with both without moving the canonical. That is a
 decision about a governed address rather than a parameter to add.
 
-**So two of the four listings have adopted this record.** The catalogue and work-browsing have;
-catalogue search has not, because it does not exist (CNCORE-66); a Container's members have not, and
-CNCORE-89 is where they will.
+**AND CNCORE-66 HAS SINCE SHIPPED AND DEFERRED IT, which is a fourth case and not a fourth
+adoption.** Catalogue search orders on `similarity(title, query)` — **a function of the QUERY, not a
+column of the Item** — so the anchor's place cannot be READ off the anchor row the way this record's
+walk reads `coalesce(sort_name, title)` off it. It has to be **recomputed**, against the query
+resupplied on every page.
+
+**That is a cost, not an impossibility, and an earlier draft of this paragraph said otherwise.** It
+argued the query was unavailable "because the cursor does not carry it" — true of the cursor and
+irrelevant, since there is no such thing as a search request without a query: a paged search is
+`?q=<query>&after=<id>`, and `searchCatalogue` takes the query as a required parameter already.
+Given it, the anchor's place is one primary-key lookup plus `similarity(anchor.title, $query)`, and
+the walk is an ordinary keyset one. **The door is open.** The overstatement is corrected here rather
+than below, because "cannot" is what stops somebody trying.
+
+So this record governs listings whose order is **derivable from the row alone**. That is the
+catalogue's and work-browsing's, and it is not the same claim as "every listing". Meanwhile
+Catalogue search answers a shape with **no `continuesAfter` field at all** rather than one that is
+always `null`, because `null` here means "the listing ends here" and a search over a thousand
+matches saying so would be the silent cap this whole record exists to refuse — `total` is what keeps
+it honest. See [[0120-catalogue-search-is-a-trigram-ilike-not-full-text-search]].
+
+**So two of the four listings have adopted this record**, and the two that have not are held up by
+different things. The catalogue and work-browsing have. A Container's members have not, and
+CNCORE-89 is where they will — the obstacle there is a governed address. Catalogue search has not,
+and the obstacle there is an order that is not a column: **CNCORE-88 is where the relevance-ordered
+case is decided**, and whichever way it goes this record gets the clause.
 
 **The cap did not move.** `A_PAGE` is still 100 and a caller still cannot ask for more. Paging makes
 one answer's cost the same as it was and lets a reader ask again.

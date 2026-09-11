@@ -125,9 +125,28 @@ export async function searchCatalogue(
       title: items.title,
       kindLabel: itemKinds.label,
       isContainer: items.isContainer,
-      // The count over the whole match set, before the cap -- the same window
-      // function `readCatalogue` uses, for the same reason and with the same
-      // `mapWith(Number)`: `count(*)` arrives from node-postgres as a string.
+      /*
+       * THE COUNT COMES BACK ON THE ROWS rather than from a second query: a
+       * count taken separately is taken at a different moment, so a page could
+       * report 41 matches and list 42.
+       *
+       * A WINDOW COUNT HERE, WHERE `readCatalogue` USES A SCALAR SUBQUERY, and
+       * the difference is the cursor rather than an inconsistency. A window
+       * count is taken AFTER `where`, which is exactly wrong for a keyset walk
+       * -- with the cursor in the predicate it counts the items past the
+       * cursor, so page two reports a smaller library than page one, and
+       * CNCORE-82 moved that one to an uncorrelated subquery for it. This query
+       * has no cursor in its predicate (CNCORE-88), so `where` IS the match
+       * set, and counting after it is the number wanted: how many matched.
+       *
+       * THE DAY A CURSOR ARRIVES HERE, THIS LINE HAS TO MOVE WITH IT, which is
+       * why the reason is written down rather than the choice.
+       *
+       * `count(*)` is a `bigint`, which node-postgres hands over as a STRING
+       * because the range does not fit a JavaScript number. `mapWith(Number)`
+       * is where that becomes the number the type claims; without it `total`
+       * is a string wearing a number's type.
+       */
       total: sql<number>`count(*) over ()`.mapWith(Number),
     })
     .from(items)
