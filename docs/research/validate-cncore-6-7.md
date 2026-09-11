@@ -671,7 +671,8 @@ and
 
 The workflow **fails** — the remediation doc's own first step is "Open the failed workflow run in
 GitHub". Latest release `v2.21.1`, 2026-08-30; GitHub-hosted Linux runners supported; free for
-public repos. Note this repo is private, so check the tier before assuming it is free here.
+public repos — which since CNCORE-62 includes this one, so the free tier applies here. Check the
+tier before assuming the same of the private provider repos.
 
 `egress-policy: audit` records without blocking, which is the sensible first run: turn on audit,
 read the baseline, then move to `block` with `allowed-endpoints`.
