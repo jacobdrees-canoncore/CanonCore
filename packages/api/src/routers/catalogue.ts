@@ -1,5 +1,17 @@
-import { type Catalogue, readCatalogue, readWorks } from "@canoncore/db";
-import { type CataloguePublic, cataloguePublic } from "@canoncore/schemas";
+import {
+  type Catalogue,
+  type CatalogueSearch,
+  readCatalogue,
+  readWorks,
+  searchCatalogue,
+} from "@canoncore/db";
+import {
+  type CatalogueEntryPublic,
+  type CataloguePublic,
+  type CatalogueSearchPublic,
+  cataloguePublic,
+  catalogueSearchPublic,
+} from "@canoncore/schemas";
 import { z } from "zod";
 
 import { publicProcedure } from "../index";
@@ -53,6 +65,31 @@ const listingInput = z.object({
   after: z.string().optional(),
 });
 
+/**
+ * What Catalogue search takes: the same ceiling, and no cursor.
+ *
+ * DERIVED FROM `listingInput` RATHER THAN RESTATED, for the reason that
+ * declaration gives about itself -- the cap is a fact about what this app will
+ * serve in one answer rather than about which question was asked, and a second
+ * spelling is how two ceilings nobody chose come about.
+ *
+ * `after` IS OMITTED RATHER THAN IGNORED. Search has no cursor to resume from
+ * (CNCORE-88), and an input that accepted one and silently did nothing with it
+ * would be a promise the handler does not keep.
+ */
+const searchInput = listingInput.omit({ after: true }).extend({
+  /**
+   * What the reader typed, AS TEXT. `LIKE` metacharacters in it are escaped
+   * rather than honoured, and that happens in one place below this seam -- a
+   * caller cannot opt out of it, and no caller passes a pattern.
+   *
+   * UNCONSTRAINED IN LENGTH AND SHAPE ON PURPOSE. There is nothing a reader can
+   * type that this must refuse: the empty query is answered rather than
+   * rejected, and every metacharacter is text.
+   */
+  query: z.string(),
+});
+
 export const catalogue = {
   /**
    * WHAT IS IN THIS CATALOGUE -- every item, of every kind.
@@ -100,6 +137,36 @@ export const catalogue = {
       });
       return asListing(listing);
     }),
+
+  /**
+   * WHERE IS THE THING I AM THINKING OF -- Catalogue search (`CONTEXT.md`).
+   *
+   * NOT THE CMPP OPERATION OF THE SAME NAME. That one asks a PROVIDER for
+   * candidate matches and lives on the `provider` router; `CONTEXT.md` keeps
+   * the two apart and forbids `search` unqualified.
+   *
+   * ACROSS EVERY KIND, which makes this the WIDE question like `list` rather
+   * than the narrow one `works` asks: a Character's name has to find the
+   * Character, so `holds_work` is deliberately not consulted. What separates it
+   * from `list` is not which items it can return but that a reader has said
+   * what they are looking for.
+   *
+   * A THIRD SHAPE, AND THE ONLY ONE OF THE THREE WITHOUT A CURSOR. ADR-0119
+   * makes `continuesAfter: null` mean "the listing ends here", so a search over
+   * a thousand matches answering null would report the hundred it returned as
+   * all there were. The field is absent rather than present and false, and
+   * `total` is the whole of what keeps the cap honest until CNCORE-88 lands.
+   */
+  search: publicProcedure
+    .input(searchInput)
+    .output(catalogueSearchPublic)
+    .handler(async ({ input, context }) => {
+      const found = await searchCatalogue(context.db, {
+        query: input.query,
+        limit: input.limit,
+      });
+      return asSearch(found);
+    }),
 };
 
 /**
@@ -112,17 +179,41 @@ export const catalogue = {
  * about what a catalogue entry is.
  */
 function asListing({ entries, total, continuesAfter }: Catalogue): CataloguePublic {
+  return { entries: entries.map(asEntry), total, continuesAfter };
+}
+
+/**
+ * One Catalogue search answer, as the read path emits it.
+ *
+ * THE SAME ENTRIES AS A LISTING AND NO CURSOR, which is the difference between
+ * the two shapes and the whole of it. See `catalogue.search` above for why the
+ * field is absent rather than null.
+ */
+function asSearch({ entries, total }: CatalogueSearch): CatalogueSearchPublic {
+  return { entries: entries.map(asEntry), total };
+}
+
+/**
+ * One entry, for all THREE questions rather than two.
+ *
+ * `asListing` already existed to write this once "so the two cannot come to
+ * disagree about what a catalogue entry is" (CNCORE-67). Catalogue search is a
+ * third reader of the same four facts, so it shares the enumeration rather than
+ * adding a copy that would be correct until somebody changed one of them.
+ *
+ * ADR-0045: every field is NAMED, never the query's row with fields removed --
+ * so `holds_work`, `owner_id` and the change sequence are absent because no
+ * line was written for them rather than because somebody remembered to strip
+ * them.
+ */
+function asEntry(entry: Catalogue["entries"][number]): CatalogueEntryPublic {
   return {
-    entries: entries.map((entry) => ({
-      id: entry.id,
-      title: entry.title,
-      // The LABEL under the name the read path gives it, exactly as `item.get`
-      // does: `kind` is the reader's word for it wherever the read path emits
-      // one, and the key stays below this seam (ADR-0045).
-      kind: entry.kindLabel,
-      isContainer: entry.isContainer,
-    })),
-    total,
-    continuesAfter,
+    id: entry.id,
+    title: entry.title,
+    // The LABEL under the name the read path gives it, exactly as `item.get`
+    // does: `kind` is the reader's word for it wherever the read path emits
+    // one, and the key stays below this seam (ADR-0045).
+    kind: entry.kindLabel,
+    isContainer: entry.isContainer,
   };
 }

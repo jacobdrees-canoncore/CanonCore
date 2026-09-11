@@ -1,7 +1,7 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
 
 import type { Database } from "./index";
-import type { Catalogue } from "./queries";
+import type { CatalogueEntry } from "./queries";
 import { itemKinds, items } from "./schema";
 
 /**
@@ -54,10 +54,25 @@ export function likePattern(query: string): string {
  * carries its kind: a Person and a Work sharing a name are two rows here, and
  * the kind is what tells a reader which is which.
  *
- * IT ANSWERS `Catalogue`, THE SAME SHAPE THE LISTING DOES, and that is reuse
- * rather than coincidence: a capped list of entries plus how many there are
- * altogether is the same fact in both cases, and the cap must be no more silent
- * here than it is on the front page.
+ * IT ANSWERS ITS OWN SHAPE RATHER THAN `Catalogue`, AND THAT IS THE DECISION
+ * THIS FUNCTION MAKES. The entries are the listing's entries exactly -- a result
+ * and a catalogue row carry the same four facts -- but `Catalogue` grew a
+ * `continuesAfter` cursor under ADR-0119, and a search that answered with that
+ * shape would have to put something in it.
+ *
+ * `null` WOULD BE A LIE RATHER THAN A GAP. ADR-0119 makes `continuesAfter: null`
+ * mean "the listing ends here", so a search over a thousand matches answering
+ * null would tell every caller the hundred it returned were all of them --
+ * which is precisely the silent cap the front page has a paragraph refusing.
+ * Better a shape that cannot say it than a field that says it falsely.
+ *
+ * TODO(CNCORE-88): so the results ARE capped and the tail is not reachable
+ * yet, and `total` is what stops that being silent. Walking them wants
+ * ADR-0119's own shape rather than a second one -- but a keyset walk needs its
+ * anchor's place in the ORDER, and this order leads on `similarity()`, which is
+ * a function of the query rather than a column of the item. That is a real
+ * design question about relevance paging and it is CNCORE-66's criteria
+ * unasked, so it is filed rather than guessed at here.
  *
  * THE WINNING TITLE ONLY. `items.title` is a projection (ADR-0014), so what is
  * searched is whichever title statement currently wins. Alternative and
@@ -66,10 +81,20 @@ export function likePattern(query: string): string {
  * expression index keyed to a property id minted per install, which cannot live
  * in a schema file; it is out of scope for CNCORE-66 on purpose.
  */
+export interface CatalogueSearch {
+  entries: CatalogueEntry[];
+  /**
+   * How many items MATCHED altogether, which is not `entries.length` whenever
+   * the cap bit. It is the whole of what keeps the cap from being silent here,
+   * because unlike the listing there is no cursor saying there is more.
+   */
+  total: number;
+}
+
 export async function searchCatalogue(
   db: Database,
   { query, limit }: { query: string; limit: number },
-): Promise<Catalogue> {
+): Promise<CatalogueSearch> {
   /*
    * AN EMPTY QUERY IS ANSWERED BEFORE THE QUERY RUNS, and this line is a fix
    * rather than a guard against something that cannot happen.

@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { type Database, items, likePattern, searchCatalogue } from "./index";
@@ -179,5 +179,37 @@ describe("searchCatalogue", () => {
     const { entries } = await searchCatalogue(db, { query: "withdrawn", limit: 100 });
 
     expect(entries.map((entry) => entry.id)).not.toContain(id);
+  });
+});
+
+describe("the trigram index", () => {
+  it("can serve the ILIKE the search runs", async () => {
+    // THE FAILURE THIS CATCHES IS SILENT, which is the only reason a test
+    // reaches for a query plan at all. An index built with the wrong access
+    // method or the wrong operator class is still an index: every assertion
+    // above goes on passing, every result is still correct, and the search
+    // sequentially scans the whole catalogue for the rest of the product's
+    // life. Nothing errors and nothing looks wrong.
+    //
+    // `set local enable_seqscan = off` IS WHAT MAKES IT ASKABLE HERE. The
+    // fixtures hold a handful of rows and a sequential scan genuinely IS the
+    // cheaper plan for them, so on this data the planner would refuse the index
+    // even when the index is perfect. Turning the alternative off asks the
+    // question this test actually means: not "would PostgreSQL choose it today"
+    // -- which is about the size of the table -- but "CAN PostgreSQL use it for
+    // this operator at all", which is about the index being right.
+    //
+    // `local`, so it lasts the transaction rather than the pooled connection.
+    // A bare `SET` would leak the setting to whichever test drew that
+    // connection next.
+    const plan = await db.transaction(async (tx) => {
+      await tx.execute(sql`set local enable_seqscan = off`);
+      const explained = await tx.execute(
+        sql`explain select "id" from "items" where "title" ilike ${likePattern("invasion")}`,
+      );
+      return explained.rows.map((row) => String(row["QUERY PLAN"])).join("\n");
+    });
+
+    expect(plan).toContain("items_title_trigram");
   });
 });
