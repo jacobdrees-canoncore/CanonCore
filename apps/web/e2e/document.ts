@@ -414,6 +414,28 @@ export async function logInAt(baseUrl: string, password: string): Promise<string
 }
 
 /**
+ * The sources ONE RENDERED ROW names, one string each.
+ *
+ * READ OFF THE ELEMENTS RATHER THAN OFF A SEPARATOR, which is the whole of
+ * CNCORE-128. A source's label is a provider's own `name` off its manifest, so
+ * one calling itself `Acme, Inc.` carries the character the two placement lists
+ * joined names with -- and two names on one row is corroboration by two sources
+ * (ADR-0017). A reader splitting that text on commas cannot tell one source from
+ * two, and neither could a test: the page says where each name begins and ends,
+ * and this reads what it says rather than re-deriving it.
+ *
+ * SHARED, BECAUSE BOTH LISTS RENDER ONE COMPONENT. `AssertedBy` is the Members
+ * list's and "Also appears in"'s alike since CNCORE-121, so two readings of it
+ * in two files would be two ideas of what a row names -- which is the drift that
+ * sharing the component was for.
+ */
+export function sourcesIn(row: string): string[] {
+  return [...row.matchAll(/<span\b[^>]*\bdata-source\b[^>]*>(.*?)<\/span>/gs)].map(
+    ([, name]) => name ?? "",
+  );
+}
+
+/**
  * One `<section>` of a page, by the heading it is labelled with.
  *
  * IT THROWS RATHER THAN ANSWERING NOTHING, which is what makes

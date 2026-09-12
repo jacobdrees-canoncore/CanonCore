@@ -1,6 +1,6 @@
 import { describe, expect, inject, it } from "vitest";
 
-import { documentAt, documentFrom } from "./document";
+import { documentAt, documentFrom, sourcesIn } from "./document";
 
 /**
  * The app over real HTTP: a production build of Next, serving a real database.
@@ -209,7 +209,32 @@ describe("also appears in", () => {
     // so rendering it twice would show the reader a disagreement the catalogue
     // does not hold.
     expect(rows).toHaveLength(1);
-    for (const by of workBrowsing.arguedBy) expect(rows[0]).toContain(by);
+    // AND TWO NAMES ON IT, COUNTED RATHER THAN MATCHED (CNCORE-128). The names
+    // were joined into one string, so how many sources a row named was a
+    // question about where its commas fell: this row read as one name, and a
+    // source calling itself `Acme, Inc.` read as two. What the row NAMES is the
+    // assertion a character inside a label cannot forge.
+    const named = sourcesIn(rows[0] ?? "");
+    expect(named).toHaveLength(2);
+    for (const by of workBrowsing.arguedBy) expect(named).toContain(by);
+  });
+
+  it("reads a source whose own name carries a comma as ONE source", async () => {
+    // CNCORE-128 FROM THE ITEM'S END, over the same seeded source the Members
+    // list reads from the container's. A source's `label` is a provider's own
+    // `name` off its manifest, so `Acme, Inc.` is ONE source carrying the
+    // character these lists joined two names with -- and two names on one row is
+    // corroboration by two sources (ADR-0017).
+    //
+    // ASSERTED AT BOTH ENDS RATHER THAN ONLY AT ONE, because `AssertedBy` is one
+    // component for both lists since CNCORE-121: the whole point of sharing it
+    // is that the two cannot drift, and nothing holds them together unless both
+    // are read.
+    const { text } = await documentAt(`/items/${workBrowsing.commaNamedId}`);
+
+    const rows = orderingRows(text);
+    expect(rows).toHaveLength(1);
+    expect(sourcesIn(rows[0] ?? "")).toStrictEqual([workBrowsing.commaNamedBy]);
   });
 
   it("goes on filtering by KIND, which is the question the chips ask", async () => {

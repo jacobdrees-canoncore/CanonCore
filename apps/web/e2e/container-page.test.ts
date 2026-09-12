@@ -1,6 +1,6 @@
 import { describe, expect, inject, it } from "vitest";
 
-import { documentAt, documentFrom } from "./document";
+import { documentAt, documentFrom, sourcesIn } from "./document";
 
 /**
  * BROWSING INTO A CONTAINER, over real HTTP.
@@ -161,11 +161,41 @@ describe("/items/<a container>", () => {
 
     const agreed = memberRows(text).filter((row) => row.includes(workBrowsing.agreedOn));
     expect(agreed).toHaveLength(1);
-    for (const by of workBrowsing.arguedBy) expect(agreed[0]).toContain(by);
+    // AND AS TWO, WHICH IS WHAT A SUBSTRING CANNOT SAY (CNCORE-128). The names
+    // were joined into one string, so how many sources a row named was a
+    // question about where its commas fell: this row read as one name and a
+    // source calling itself `Acme, Inc.` read as two. Counting what the row
+    // NAMES is the assertion a character inside a label cannot forge.
+    const named = sourcesIn(agreed[0] ?? "");
+    expect(named).toHaveLength(2);
+    for (const by of workBrowsing.arguedBy) expect(named).toContain(by);
     // ONE ROW, NOT TWO. Agreement is corroboration rather than a second claim
     // (ADR-0017), so a page rendering this twice would be showing the reader a
     // disagreement that the catalogue does not hold.
     expect(agreed[0]).toContain("#2");
+  });
+
+  it("reads a source whose own name carries a comma as ONE source", async () => {
+    // CNCORE-128. A source's `label` is a provider's own `name` off its
+    // manifest, so `Acme, Inc.` is ONE source carrying the character this list
+    // joined two names with -- and two names on one row is corroboration by two
+    // sources (ADR-0017), which is the distinction this list exists to draw. A
+    // comma inside a label forged it.
+    //
+    // THE SAME CONTAINER AS THE CORROBORATED ROW ABOVE, because the criterion is
+    // a DIFFERENCE: this row is one source and that one is two, and a list that
+    // reads them alike fails one of the two whichever way it is wrong.
+    //
+    // MEASURED, AND IT TAKES BOTH OF THEM. This assertion is what catches the
+    // bare join -- it found no source at all. The corroboration one above is
+    // what catches the half-fix: against a rendering that marked the JOINED
+    // string as one source, this assertion passed and that one failed. Only the
+    // pair pins the rendering.
+    const { text } = await documentAt(`/items/${workBrowsing.disagreedAboutId}`);
+
+    const rows = memberRows(text).filter((row) => row.includes(workBrowsing.commaNamed));
+    expect(rows).toHaveLength(1);
+    expect(sourcesIn(rows[0] ?? "")).toStrictEqual([workBrowsing.commaNamedBy]);
   });
 
   it("carries the ordering a reader arrived through into the item page", async () => {
