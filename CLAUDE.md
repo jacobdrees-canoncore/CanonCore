@@ -128,14 +128,14 @@ in for the library. It ruled 11 claims contradicted on 2026-09-12, most of them 
 - Every worktree shares one Postgres container and gets its OWN database inside it, on **55432**
   rather than 5432, because a local Postgres shadows 5432 silently and you test the wrong engine
   (ADR-0104).
-- Use Orca's built-in browser (`orca tab`, `snapshot`, `click`, `fill`) rather than Playwright.
-- Use `orca terminal` rather than ad hoc PTYs. It is a real PTY, so an interactive prompt -- a
-  device code, a confirmation -- can be read with `terminal read` and answered with `terminal send`.
+- Prefer Orca's tools: the browser (`orca tab`, `snapshot`, `click`, `fill`) over Playwright, and
+  `orca terminal` over an ad hoc PTY, since a real PTY lets `terminal read`/`send` answer a prompt.
 - Run `actionlint` on a workflow before pushing it. A file that fails to parse creates NO run at
   all, so a broken workflow reads as Actions being switched off.
-- `gh` carries `read:packages`, so `docker pull ghcr.io/jacobdrees-canoncore/*` works here. The
-  other half of that lives outside git: a repo gets Read under the package's own Manage Actions
-  access, or its jobs die at `Initialize containers` on the single word `denied`.
+- **A CI image job dies on ONE WORD, and the word names the registry.** `denied` at `Initialize
+  containers` is GHCR, wanting the repo given Read under the package's own Manage Actions access,
+  which lives outside git. `unauthorized: authentication required` while booting buildkit is DOCKER
+  HUB pulling `moby/buildkit` anonymously: nothing to do with this repo, and it clears on a rerun.
 - Credentials live in `~/.config/canoncore/`, outside every repo so no commit can reach them and
   every worktree reads one copy: `provider-tmdb.env` (that provider throws at startup without its
   token; CI uses the repo secret) and `whatbox.env` (the slot's login, for SSH or its web UI).
