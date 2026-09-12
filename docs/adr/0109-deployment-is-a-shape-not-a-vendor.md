@@ -379,6 +379,7 @@ anyone:
 | Limit | Value | Where it comes from |
 |---|---|---|
 | Disk | **3632 GiB** for the plan, 0.04 GiB used | The slot's own `quota --raw`. Matches the advertised 3.90 TB, decimal against binary. |
+| Upload traffic | **10 TB/month** | **Documented in the panel rather than the wiki**, read 2026-09-12 under CNCORE-106: the Manage page reports usage against it and offers "Increase Traffic Allocation", and it resets monthly. It is the only limit here that a media path would meet before disk. |
 | Memory | **64 GiB** | **Measured, not documented**: `memory.max` on the slot's cgroup. The FAQ's "320 GB of RAM" is a floor across a varying fleet — "hardware specifications vary depending on the chosen plan, location, and availability" — and the host exceeds it at 755 GiB. Neither figure is the slot's; the cgroup is. |
 | Processes | **2000** | **Measured, not documented**: `pids.max` and `ulimit -u` agree. |
 | Open files | 65536 | **Measured**: `ulimit -n`. |
@@ -394,7 +395,223 @@ addresses. All servers have static IPv4 and IPv6 addresses shared with all users
 range, **verified rather than trusted at one point in it**: a listener on 31340 answered a
 connection from a UK machine first try, which tests that port and not the other 22,767. A hostname
 root without owning :443 comes from the `whatbox-apphost` process the slot ships, which terminates
-TLS with a certificate already installed at provisioning.
+TLS with a certificate installed at provisioning **and rotated, which an earlier version of this
+sentence missed. CNCORE-106 took this paragraph apart on 2026-09-12 and found the public port range is
+not on the serving path at all**; the section below carries how a name actually reaches the slot, and
+supersedes this paragraph wherever the two differ.
+
+### How `canoncore.com` reaches the slot: the vendor's own front end, and nothing in front of it
+
+CNCORE-106 asked this because the paragraph above reasons only about binding `:443`, while the owner
+holds `canoncore.com` rather than a name under the vendor's domain. **The answer is the vendor's own
+managed links plus Bring Your Own Domain. No proxy, no tunnel, and no second process.** Measured
+first-hand on the slot and read at source on 2026-09-12.
+
+**The ticket filed this as unconsidered ground and it was half-considered already, which is worth
+recording because the half that existed is the half that saved the work.** `docs/research/access-layer.md`
+§1.3 weighs port forwarding, Caddy, Tailscale, Tailscale Funnel and Cloudflare Tunnel, and rules
+**Cloudflare Tunnel out on terms** — for a different problem, a home machine behind CGNAT, which is
+why it reads as unrelated to a rented slot. And `docs/research/where-it-runs.md` §1.3 already quoted
+Bring Your Own Domain from the vendor's wiki, while `docs/research/the-cheap-end.md` §4 already drew
+the conclusion: "It documents Bring Your Own Domain at a hostname root, so no `basePath`." What was
+missing was never the mechanism's name. It was whether TLS exists for a name the slot has no
+certificate for, and that is what got measured.
+
+**`whatbox-apphost` is nginx, renamed.** `/usr/bin/apphost -h` answers `nginx version: nginx/1.30.3`.
+Its configuration is the slot's own, under `~/.config/box/`, and every file in it opens "Do not make
+manual edits to this file. It is managed by Whatbox and changes will be overwritten automatically" —
+the customer's to read, the vendor's to write.
+
+**It does not bind `:443` either, and that is what turns the shared address from a caveat into a
+non-problem.** Every `server` block listens on `unix:~/.config/box/nginx-ssl.sock ssl http2
+proxy_protocol`, and the plain-HTTP one on `nginx.sock`. The vendor's edge owns the TCP port and hands
+the connection over a UNIX socket with PROXY protocol, which is why each block recovers the client
+address with `set_real_ip_from unix:` and `real_ip_header proxy_protocol`. So ":80 and :443 are not
+yours to bind" is true and beside the point: they are bound by something whose job is to proxy to you.
+
+**TLS is terminated inside the slot, with a certificate the slot user holds — and it is rotated, not
+merely installed.** `~/.config/box/apps.crt` is `CN=*.<slot>.box.ca` with that single SAN, issued by
+`C=US, O=Google Trust Services, CN=WR1`, valid `Sep 10 17:22:41 2026 GMT` to `Dec 9 17:22:40 2026 GMT`.
+`notBefore` is the provisioning minute. **Ninety days on a wildcard is an ACME certificate**, so
+"already installed at provisioning" was half the story: something renews it inside the quarter, and
+that something is the vendor's, not ours.
+
+**A brought domain gets its own certificate, and the machinery is wired before any domain is brought.**
+The vendor-managed `nginx.conf` carries, in the plain-HTTP server,
+`location /.well-known/acme-challenge/ { alias ~/.config/box/custom/challenges/; }`. **`custom/` does
+not exist on this slot**, which has no custom domain configured, so that alias is the template waiting
+for one: an ACME HTTP-01 webroot for a name the slot does not yet answer for. The panel corroborates it
+from the other side, warning that "Your domain name will be public knowledge" over a link to
+Wikipedia's **Certificate Transparency** article — a vendor does not cite CT about a name it is not
+getting a certificate for. **That the vendor drives the issuance rather than the customer is inference**
+from the directory being vendor-managed and the wiki asking the customer for nothing but DNS records.
+
+### What a managed link is, measured by making one
+
+The wiki, read at source 2026-09-12, <https://whatbox.ca/wiki/Managed_Links>: "Your slot has a box.ca
+managed link by default, giving you app-specific WebUI links that include signed HTTPS access to all
+HTTP-only apps", and "Click 'Add a custom app' on the Manage Links page to add your own custom app".
+The form asks for an app name, an app subdomain and a port; its advanced options "allow you to add your
+app as a Unix domain socket on your slot instead of a port number" and to "enable WebSockets on the
+managed link". It also carries its own disclaimer, which matches the one this record already quotes for
+containers: "I understand that custom apps will not receive support from Whatbox."
+
+**The vendor probes the port before it will accept the app.** With nothing listening, the form refuses:
+"We were unable to detect an app being run by you on that port. Please start your custom app and try
+again." So a managed link cannot be registered speculatively.
+
+**A custom app was added, read, dialled and removed on 2026-09-12, and the generated vhost is the
+answer.** With a throwaway listener on 31341, Whatbox wrote one file, `apps/<name>_custom.conf`, and
+reloaded nginx. It is a single catch-all:
+
+```
+location / {
+    ...
+    proxy_read_timeout 10m;
+    client_max_body_size 100G;
+    proxy_pass http://127.0.0.1:31341;
+    proxy_buffering off;
+    include includes/.<name>_custom_location;
+}
+```
+
+Four things fall out of that, and the last one is the one this record most needed:
+
+- **The proxy hop is loopback plain HTTP, so the public 10000-32767 range is NOT on the path.** The app
+  need only listen on `127.0.0.1`. **That retires the caveat above rather than testing it**: the
+  22,767 untested ports do not matter for serving the catalogue, because nothing outside the host ever
+  dials one. CNCORE-106 expected a tunnel would be what retired it; the vendor's own front end does.
+- **`client_max_body_size 100G` and `proxy_buffering off`**, so neither an upload nor a range-request
+  read path meets a ceiling here. The `8m` at the `http` level applies only to the redirect server and
+  is overridden in every app block.
+- **Two documented extension points**, named in the file's own header: `includes/.<name>_custom_location`
+  is spliced inside `location /`, and `includes/<name>_custom_*.include` inside the `server`. So
+  per-app configuration is possible without editing a vendor-managed file.
+- **A custom app is served publicly, with no Whatbox login.** `https://<name>.<slot>.box.ca/` answered
+  `HTTP/2 200` with the listener's own bytes to an unauthenticated request from a UK machine, carrying
+  `strict-transport-security: max-age=63072000`.
+
+**"Signed HTTPS access" gates the vendor's own apps and not yours, and reading it the other way would
+have been the expensive mistake.** The slot's index link answers `303` to `/login` unauthenticated,
+setting `_UserID` and `_SessionID` and reporting `x-powered-by: PHP/8.4.25`. That is the vendor's panel
+authenticating the vendor's dashboard. It says nothing about a custom app, which the paragraph above
+measured as public — and had it been otherwise, ADR-0044's one password would have been sitting behind
+a second one that no CanonCore client could speak to.
+
+### The reserved paths are real, and they are not a custom app's problem
+
+**This was nearly recorded as a blocker on an inference, and measuring it cost one throwaway app.**
+Each of the three apps the slot ships — the index page, rtorrent and the file browser — includes an
+`<app>_whatbox.include`, and all three are identical: `location /login`, `/logout`, `/labs`, `/api`,
+`/static` and `/private`, each `proxy_pass`ed to the vendor's own web application on `127.0.0.1`.
+**`/api` is a longer prefix than `/`, so nginx prefers it**, and this app's only route handler is
+`apps/web/src/app/api/rpc/[[...rest]]/route.ts` — every call the read surface makes. On a vhost
+carrying that include, CanonCore's API would go to the vendor.
+
+**A custom app's vhost does not carry it.** The generated file includes only
+`includes/<name>_custom_*.include`, a glob matching nothing, and the catch-all `location /` above. So
+`/api/rpc` is CanonCore's on a managed link, measured rather than hoped. **The inference that the
+template was universal was wrong**, and it is recorded because the wiki names no reserved path and no
+conflict, so the next reader who sees those six locations in the slot's config will reach for the same
+wrong conclusion.
+
+### The name is a subdomain, and the apex is not served
+
+**`canoncore.com` itself does not reach the slot; a subdomain of it does.** A custom app's
+`server_name` is `<alias>.<domain>`, and the Bring Your Own Domain form at
+`/manage/custom_domain/<slot>` takes a bare `domain-name.tld` behind a fixed literal `app.` prefix. So
+Bring Your Own Domain replaces the slot's `<slot>.box.ca` with `canoncore.com` and the app links become
+`<alias>.canoncore.com`. **One registrable domain is still what the shape at the top of this record
+asks for**, and a subdomain of it satisfies that; what changes is only which host the canonical origin
+names.
+
+**Which is why the apex CNAME problem the wiki's wording invites never arises.** The page says to "set
+up your domain's name server with new CNAME entries", and a CNAME is illegal at a zone apex — Namecheap,
+which holds this domain, says an ALIAS record "can also be used if you wish to alias the root domain to
+another service (which you cannot do with a CNAME record)". Since every managed link is a subdomain, the
+records are ordinary CNAMEs and no ALIAS is needed. **Serving the bare `canoncore.com` at all is a
+separate want**, answered at the registrar with a redirect rather than by the slot.
+
+`canoncore.com` is registered and unpointed as of 2026-09-12: `dig` returns no A and no CNAME, and
+`dns1.registrar-servers.com` / `dns2.registrar-servers.com` for NS, which is Namecheap's BasicDNS.
+
+**Bring Your Own Domain was NOT exercised, and that is deliberate.** It repoints a real domain, and the
+slot-domain control warns "Be sure of your choice - there is a 60 day restriction" — reversible in
+direction, since the form offers "You can always return to a Whatbox provided domain", but not a free
+experiment. **So the DNS half is the one step in this chain still unmeasured**, and what is measured is
+everything it depends on: a public HTTPS link to a slot-local process, and a vendor-managed ACME webroot
+waiting for a custom domain.
+
+### What the policies permit, answered separately for the catalogue and for media
+
+**Whatbox's AUP reaches neither case for a single-owner instance, and this changes nothing in it.** Read
+at source 2026-09-12, <https://whatbox.ca/policies/acceptable_use>: it forbids using the Services "for
+IPTV hosting, IPTV sharing, IPTV resale, VOD hosting, VOD sharing, public media streaming, public video
+libraries, and commercial media access services", and separately "to run a public directory service with
+no authentication", "to run 20 or more concurrent Plex streams, or violate the Plex EULA", "to run a Tor
+node of any type" and "to run a Proof of work cryptocurrency miner". **Re-read for this question, it says
+nothing about proxies, tunnels, VPNs, reverse proxies, or serving a domain you own** — so Bring Your Own
+Domain is not a fact the AUP addresses, and the position recorded above stands unchanged. **The page
+carries no effective date and no version**, so it is quotable and not datable, which is a reason to
+re-read it rather than to cite this paragraph.
+
+**Cloudflare's terms decide nothing here, because Cloudflare is not on the path.** They are recorded
+because CNCORE-106 expected the answer to split on them, and because putting a CDN in front later would
+engage them. Read at source 2026-09-12: the
+[Service-Specific Terms](https://www.cloudflare.com/service-specific-terms-application-services/), last
+updated **June 02 2026**, reserve the right "to disable or limit your access to or use of the CDN [...]
+if you use or are suspected of using the CDN without such Paid Services to serve video or a
+disproportionate percentage of pictures, audio files, or other large files". Cloudflare's own
+[Delivering Videos with Cloudflare](https://developers.cloudflare.com/fundamentals/reference/policies-compliances/delivering-videos-with-cloudflare/)
+page, last updated **August 25 2026**, applies that to tunnels by name: "Cloudflare Tunnel public
+hostname routes proxy traffic through Cloudflare" and "On Free, Pro, and Business plans, this traffic is
+subject to the terms described on this page", while "The restriction does not apply to private network
+routes". It names **Stream and Stream Delivery** as the paid services and **does not mention R2 at all**,
+which is the same disagreement `where-it-runs.md` §3.6 records between those two documents.
+
+**So the split CNCORE-106 predicted is real and belongs to a route not taken.** Had Cloudflare been the
+answer, the catalogue — HTML and JSON — would be the ordinary use of a CDN and fine, while media through
+ADR-0097's opaque-id route is exactly "video or [...] other large files" and would be a live question.
+It is not the answer. **The media case is therefore governed by Whatbox's AUP alone**, where the
+single-owner instance is permitted and the public demo is the forbidden case, named twice — and the demo
+carries no media anyway, because this product never ingests any.
+
+### What was rejected, and why the vendor's own front end beats each
+
+- **Cloudflare Tunnel.** Root is not the obstacle: Cloudflare's own docs say "A remotely-managed tunnel
+  only requires a token to run", so a token-run binary in `$HOME` is available to an unprivileged slot.
+  The obstacles are that it adds a second process the cron watchdog would have to keep alive, for a
+  hostname the vendor already gives; and that it drags the non-HTML clause onto a path that otherwise
+  never touches Cloudflare. **It buys nothing here and costs the one thing this shape is short of.**
+- **Cloudflare proxying to a port in 10000-32767.** Needs a publicly reachable port, which is the thing
+  tested at one point of 22,768, and engages the same clause for the same nothing.
+- **The customer's own certificate plus a userland nginx.** The vendor documents it and it looks like the
+  obvious answer: <https://whatbox.ca/wiki/Certbot_(Lets_Encrypt)_SSL_Certificates> obtains a certificate
+  for "any website you own" over DNS-01 with `certbot certonly --manual --preferred-challenges dns`,
+  needs no root (it documents an alias around Certbot defaulting "to using directories only the root user
+  can access"), and ends "configure your nginx instance to use the certificate". **It cannot reach a
+  hostname root**: a userland nginx binds a port in the high range, so it serves `https://canoncore.com:31340`
+  and not `https://canoncore.com`. Ruled out on the port rather than the certificate — and its renewal is
+  manual besides, the page's only guidance being to run the same command "before the expiration date".
+- **Tailscale and Tailscale Funnel.** `access-layer.md` §1.3 covers both. Funnel serves a MagicDNS name
+  rather than a domain you own, and both answer the CGNAT problem that a rented slot does not have.
+- **`basePath`.** Not needed. Every managed link is a hostname root.
+
+### What this costs the code, which is nothing
+
+**The criterion CNCORE-106 wrote for itself was that if the answer is `basePath`, the cost to
+`next.config.ts` and `typedRoutes` is stated. The answer is not `basePath`, and the cost is zero.**
+`apps/web/next.config.ts` keeps `typedRoutes: true` and no `basePath`, and the coding rule further up
+this record — that a URL the framework does not rewrite is never hand-built — is unaffected, as is
+ADR-0066's relative self-referential canonical and its unset `metadataBase`. The two live members of the
+exposed class stay exactly as that section describes them.
+
+**And the daemon criterion is retired rather than satisfied.** CNCORE-106 asked what a tunnel daemon
+would need to stay up and required that it ride CNCORE-85's cron watchdog rather than inventing a second
+mechanism. **There is no daemon.** The only process to keep alive is CanonCore itself, which is what the
+watchdog was for. What the app must do is bind a port in 10000-32767 on loopback, which `PORT` already
+covers for a `standalone` Next server; the unix-socket option the panel offers is not reachable that way
+and is not needed.
 
 ### What this changes
 
@@ -415,6 +632,13 @@ and was merely broken — and trying it is what produced the answer: filed 2026-
 2026-09-12, re-measured the same day, all recorded above.
 `docs/research/the-cheap-end.md` §4 is answered there, and its §5 now recommends row 1 on this
 measurement rather than the split.
+
+**And one thing the vendor question never reached: how the owner's own domain gets there.** CNCORE-106
+answered it on 2026-09-12 with the vendor's own managed links and Bring Your Own Domain, no proxy and no
+tunnel, and the sections above carry it. Two of this record's caveats are retired by that rather than
+worked around — the public port range is not on the serving path, and `:443` not being ours to bind is
+beside the point when the thing that binds it exists to proxy inward. **The one step still unmeasured is
+the DNS change itself**, which repoints a real domain and is the owner's to make.
 
 **The clause stays in the shape at the top of this record, and the fix does not soften it.** What
 made it worth writing was never this vendor's verdict but that "a process that needs no root" was
@@ -454,6 +678,24 @@ are the contents of
 ticket 267784, received 2026-09-12 04:00:31 BST from `site@whatbox.ca`, quoted above in full where it
 is load-bearing; **like the ticket itself it is visible only to the account holder**, so it carries
 the same standing as the rest of this paragraph's account-only evidence.
+
+CNCORE-106 added the domain-reach section, dated 2026-09-12, and it is first-hand over SSH to the same
+slot plus one round trip through the vendor's panel: `/usr/bin/apphost -h` for `nginx/1.30.3`,
+`/proc/<pid>/cmdline` and `ps` for the master and its workers, `~/.config/box/nginx.conf` and
+`apps/*.conf` and `includes/*` read directly, `openssl x509` on `apps.crt` for the subject, SAN, issuer
+and dates, and `ls` for the absence of `custom/`. The custom app was added through
+<https://whatbox.ca/manage/domain/> with a throwaway `python3 -m http.server` on 31341, its generated
+`apps/<name>_custom.conf` read, its link dialled from a UK machine with `curl` for the `HTTP/2 200`, and
+**both the app and the listener were removed afterwards; the config directory was diffed back to its
+prior three files and CNCORE-85's `@reboot` crontab was re-checked intact**. The `303` to `/login` is
+`curl -I` against the slot's index link unauthenticated. `dig` supplied `canoncore.com`'s NS, A and
+CNAME. **Bring Your Own Domain itself was not exercised**, for the reason the section gives. Quoted from
+the vendor the same day: its `Managed_Links` and `Certbot_(Lets_Encrypt)_SSL_Certificates` wiki pages and
+its Acceptable Use Policy, the last carrying no date. Quoted from Cloudflare the same day: the
+Service-Specific Terms (last updated 2026-06-02), the `delivering-videos-with-cloudflare` docs page (last
+updated 2026-08-25) and the tunnel-tokens page. Namecheap's own knowledge base supplied the ALIAS-versus-
+CNAME rule at a zone apex. **The slot's hostname and username are deliberately absent from this record**,
+as they are from the rest of the repository.
 
 CNCORE-81 added the policy reading and the support question, both dated 2026-09-11: Whatbox's
 Acceptable Use Policy at <https://whatbox.ca/policies/acceptable_use> and its Terms of Service at

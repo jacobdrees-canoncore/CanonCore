@@ -200,7 +200,9 @@ and the conclusion was narrower than "seedboxes are out":
 
 - **Whatbox documents rootless `podman-compose`** running an arbitrary OCI image against an unmodified
   `docker-compose.yml` with a published port mapping — the same mechanism `packages/db/docker-compose.yml`
-  needs. It documents Bring Your Own Domain at a hostname root, so no `basePath`. It documents public
+  needs. It documents Bring Your Own Domain at a hostname root, so no `basePath` — **and CNCORE-106
+  measured that whole path on 2026-09-12, including the TLS the wiki is silent about**; the caveat it
+  found is that the root is a subdomain of your domain and not its apex. It documents public
   TCP ports 10000-32767.
 - **But Postgres is never named**, and the containers page carries Whatbox's own warning: *"At this
   time, Whatbox servers have limited support for Audiobookshelf and containers. It may stop working at

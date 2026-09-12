@@ -132,7 +132,12 @@ useful part.
 example on a public port — "A random port number between 10000 and 32767 is needed [...] If you
 navigate your browser to `http://server.whatbox.ca:15664/`, you should see 'Hello World!'". Its
 Managed Links page gives your own domain at a hostname root — "Bring Your Own Domain [...] This will
-allow you to use any domain name you own as your slot's managed links", so no `basePath`. And the
+allow you to use any domain name you own as your slot's managed links", so no `basePath`. **Measured
+end to end under CNCORE-106 on 2026-09-12, and the "root" is a SUBDOMAIN root rather than the apex**:
+each managed link is `<alias>.<your domain>`, the vendor's front end terminates TLS inside the slot and
+proxies to `127.0.0.1:<port>`, and an unauthenticated request from a UK machine answered `HTTP/2 200`.
+ADR-0109 carries the measurement; the apex serves nothing, so the bare domain needs a registrar
+redirect if it is wanted at all. And the
 container half is documented, though it lives under an application name rather than a container
 heading, which is why it is easy to miss:
 
