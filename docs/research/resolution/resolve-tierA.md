@@ -236,7 +236,8 @@ request alongside the device identity headers. Plex's *wire protocol* carries la
 first byte; its *database* does not.
 
 The library-language setting has regional variants ("Spanish (Mexico)", "English (United Kingdom)",
-"Chinese (Hong Kong)"): this comes from the sweep (`sweep-plex-support-D.md:601`, article 094) and
+"Chinese (Hong Kong)"): this comes from the sweep (`sweep-plex-support-D.md` under "094 —
+/articles/upgrading-a-movie-library-to-the-use-the-new-plex-movie-agent/", article 094) and
 I did not independently confirm it at a Plex URL in this pass. It is corroborated from the other
 side, though — see Jellyfin's shipped locale list below.
 

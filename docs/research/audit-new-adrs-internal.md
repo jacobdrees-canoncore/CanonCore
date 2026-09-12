@@ -53,7 +53,7 @@ rows are declared not to be minted rows. As written an implementer has to guess.
 ### 1.3 ADR-0074 conflates the category graph with the container graph, and leaves container cycles
 unaddressed
 
-`docs/adr/0074-...md:5` titles the record "CATEGORY cycles are refused by the database". Line 9-10:
+`docs/adr/0074-...md` titles the record "CATEGORY cycles are refused by the database". Line 9-10:
 "The database carries an acyclicity constraint and an ancestor closure". Line 18: "ADR-0068 reads the
 ancestor closure this creates."
 
@@ -71,10 +71,13 @@ half of 0074 would save it; the record's title says the constraint is about cate
 
 ### 1.4 ADR-0033's "archive extract" is the whole archive, and the arithmetic does not hold
 
-`docs/adr/0033-...md:27-29` (new): "roughly 50-150KB each, a few hundred megabytes across the archive
+`docs/adr/0033-...md` under "What the declared variant buys" (new): "roughly 50-150KB each, a few
+hundred megabytes across the archive
 extract's 11,285 stories".
 
-`docs/adr/0057-...md:20-22` measures the ARCHIVE at "stories 11,285". `docs/adr/0057-...md:49-50`:
+`docs/adr/0057-...md` under "The images are permitted, and the permission is personal" measures the
+ARCHIVE at "stories 11,285". `docs/adr/0057-...md` under "What the wiki grants, and what it does
+not":
 "The extract is a FIXTURE, not the archive ... it must stay small enough to read." `CONTEXT.md` **The fixture**
 defines "**The fixture**: The small deterministic extract of the archive that is committed".
 
@@ -87,7 +90,7 @@ survives; the number does not.
 
 ### 1.5 ADR-0076's "never incrementally" against ADR-0014's trigger option
 
-`docs/adr/0076-...md:7-8`: "Rebuild the read projection WHOLESALE, never incrementally".
+`docs/adr/0076-...md`: "Rebuild the read projection WHOLESALE, never incrementally".
 
 `docs/adr/0014-title-is-a-projection.md`: "the projection is trigger-maintained or
 application-maintained, and those have materially different failure modes ... Pick one deliberately."
@@ -95,7 +98,7 @@ application-maintained, and those have materially different failure modes ... Pi
 A trigger maintains the projection incrementally, per write, by definition. If 0076's "never
 incrementally" is read as covering steady-state maintenance it forecloses the trigger option 0014
 says to choose deliberately; if it is read as covering only the reconciliation pass
-(`docs/adr/0049-...md:7-8` schedules "projection reconciliation") it is compatible. The record does
+(`docs/adr/0049-...md` schedules "projection reconciliation") it is compatible. The record does
 not say which, and 0076 is the record that claims to close 0014's open question.
 
 ### 1.6 physical-schema drops ADR-0017's uniqueness constraint
@@ -122,8 +125,8 @@ country NULL`). Two unknowns, two representations, in one record, unexplained.
 
 ### 1.8 ADR-0012's "every value is a statement" against the column carve-outs
 
-`docs/adr/0012-...md:7-9`: "Every value and every relationship is a statement".
-`docs/adr/0042-...md:8` puts duration, container, codecs, resolution, bitrate and chapters on the file
+`docs/adr/0012-...md`: "Every value and every relationship is a statement".
+`docs/adr/0042-...md` puts duration, container, codecs, resolution, bitrate and chapters on the file
 row; `docs/adr/0038-artwork-is-a-table.md` makes artwork a table.
 
 0042's new section (`:23-29`) names and answers this ("measured off the bytes rather than claimed by
@@ -132,8 +135,9 @@ Low severity because 0042 defuses it, but 0012's opening sentence is now false a
 
 ### 1.9 ADR-0094 "no content of any kind" against the committed fixture
 
-`docs/adr/0094-...md:7-8`: "A fresh install by anyone else starts EMPTY, with no content of any kind."
-`docs/adr/0057-...md:49`: "The extract is a FIXTURE ... Committing it does not license vendoring the
+`docs/adr/0094-...md`: "A fresh install by anyone else starts EMPTY, with no content of any kind."
+`docs/adr/0057-...md` under "What the wiki grants, and what it does not": "The extract is a FIXTURE
+... Committing it does not license vendoring the
 database."
 
 The fixture ships in the repository, so a fresh clone does contain archive-derived rows. The intent
@@ -173,10 +177,10 @@ from a false premise.
 
 ### 2.1 ADR-0085 — the no-duration paragraph deletes the book branch
 
-`docs/adr/0085-...md:9-11`: "Where it does not [have a duration] — a book, a comic — completion is
+`docs/adr/0085-...md`: "Where it does not [have a duration] — a book, a comic — completion is
 `progression` crossing a threshold".
 
-`docs/adr/0085-...md:16-18`: "WHERE NEITHER THE PROBE NOR THE CLIENT HAS SUPPLIED A DURATION,
+`docs/adr/0085-...md`: "WHERE NEITHER THE PROBE NOR THE CLIENT HAS SUPPLIED A DURATION,
 COMPLETION IS UNKNOWN. There is no percentage fallback available, because a percentage IS a fraction
 of the duration: with no duration there is no percentage either."
 
@@ -190,15 +194,15 @@ through an edition a position is, from 0 to 1, whatever the medium."
 The intended rule is almost certainly "where the locator is one that HAS a duration behind it and the
 duration is missing, completion is unknown". As written the record's three paragraphs cannot all hold.
 
-Secondary, same record: the Evidence section (`:31-36`) says Audiobookshelf "ships the percentage mode
-this model rejects elsewhere", while the body (`:9-11`) cites Audiobookshelf as precedent for the
+Secondary, same record: the Evidence section says Audiobookshelf "ships the percentage mode
+this model rejects elsewhere", while the body cites Audiobookshelf as precedent for the
 percentage-threshold branch. Both can be true (rejected for timed media, adopted for untimed) but the
 record never says so, and this is exactly the "repeats a claim it corrected" shape the brief asks
 about.
 
 ### 2.2 ADR-0089 — the title counts four tiers, the body says there are three
 
-`docs/adr/0089-...md:5` "Providers come in four distribution tiers"; `:12-13` tier 4 is "Providers
+`docs/adr/0089-...md` "Providers come in four distribution tiers"; `:12-13` tier 4 is "Providers
 whose source has licensed them to ONE person are private and stay private"; `:15` "Tier 4 is a
 licence-compliance rule rather than a packaging preference".
 
@@ -207,7 +211,7 @@ attached, and the record admits it is not a distribution tier. Three tiers and o
 
 ### 2.3 ADR-0005 — the time_span argument uses the wrong shape
 
-`docs/adr/0005-...md:14-17` (new): time_span "earns its slot the same way the entity kinds do:
+`docs/adr/0005-...md` (new): time_span "earns its slot the same way the entity kinds do:
 'stories set in the Victorian era, in order' is an ordered container whose members are WORKS, which is
 the same shape as 'the Doctors, in order' — the case that justified putting entities in the items
 table at all."
@@ -227,22 +231,24 @@ is that a short list is the safe one, the count should be the count.
 
 ### 2.5 ADR-0059 — the register claims to be enumerable and is not
 
-`docs/adr/0059-...md:27-29` (new): "the departure is recorded HERE, as a list, so it can be read as a
+`docs/adr/0059-...md` under "The register of deliberate divergences" (new): "the departure is
+recorded HERE, as a list, so it can be read as a
 list ... a divergence nobody can enumerate has not been named, it has been mentioned."
 
 Six entries follow. At least four deliberate divergences already written down elsewhere are missing:
 
-- `docs/adr/0004-...md:13-14`: "This deviates from ORE Aggregations and IIIF Ranges, which are both
+- `docs/adr/0004-...md`: "This deviates from ORE Aggregations and IIIF Ranges, which are both
   their own classes."
-- `docs/adr/0006-...md:9` and `:12-16`: schema.org admits fictional persons; "The reason is ours, not
+- `docs/adr/0006-...md` and `:12-16`: schema.org admits fictional persons; "The reason is ours, not
   the standards'."
-- `docs/adr/0034-...md:33-35`: "WE ALSO DEPART FROM OWASP ON REDIRECTS, deliberately ... Written down
+- `docs/adr/0034-...md`: "WE ALSO DEPART FROM OWASP ON REDIRECTS, deliberately ... Written down
   as a departure rather than left as an omission."
-- `docs/adr/0070-...md:22-25`: "So the standards would permit one property. We split anyway, for a
+- `docs/adr/0070-...md`: "So the standards would permit one property. We split anyway, for a
   reason of ours."
 
-And one entry does not belong: `docs/adr/0059-...md:41-42` lists ADR-0016, whose argument
-(`docs/adr/0016-...md:11-20`) is made from the archive and from Plex's cross-library collections and
+And one entry does not belong: `docs/adr/0059-...md` under "The register of deliberate divergences"
+lists ADR-0016, whose argument
+(`docs/adr/0016-...md`) is made from the archive and from Plex's cross-library collections and
 names no standard it departs from.
 
 A register that omits four known departures and includes one non-departure fails its own test on the
@@ -254,68 +260,69 @@ day it is written.
 
 Each was checked by reading the target.
 
-### 3.1 `docs/adr/0074-...md:13-14` cites ADR-0016 for "7,236 categories on a cycle"
+### 3.1 `docs/adr/0074-...md` cites ADR-0016 for "7,236 categories on a cycle"
 
-`docs/adr/0016-...md:13-14` supports "cyclic DAG 22 levels deep". The 7,236 figure appears only at
-`docs/adr/0057-...md:25-26`. Half the claim is uncited.
+`docs/adr/0016-...md` supports "cyclic DAG 22 levels deep". The 7,236 figure appears only at
+`docs/adr/0057-...md` under "The images are permitted, and the permission is personal". Half the claim is uncited.
 
-### 3.2 `docs/adr/0074-...md:18` — "ADR-0068 reads the ancestor closure this creates"
+### 3.2 `docs/adr/0074-...md` — "ADR-0068 reads the ancestor closure this creates"
 
-0068 reads the CONTAINER ancestor closure (`docs/adr/0068-...md:7-8`), not the category closure 0074
+0068 reads the CONTAINER ancestor closure (`docs/adr/0068-...md`), not the category closure 0074
 creates. See 1.3.
 
-### 3.3 `docs/adr/0075-...md:10-12` — "ADR-0040 ... only works if the stamp has a sequence to sit in"
+### 3.3 `docs/adr/0075-...md` — "ADR-0040 ... only works if the stamp has a sequence to sit in"
 
-`docs/adr/0040-...md:7-8` says a merge stamps ITS ID on every row it touches and reversal is a query
+`docs/adr/0040-...md` says a merge stamps ITS ID on every row it touches and reversal is a query
 over that id. Nothing in 0040 needs a monotonic change sequence; it needs a merge-id column. The
 change sequence may well be a good idea, but 0040 is not the argument for it, and 0040 is half of
 0075's stated justification.
 
-### 3.4 `docs/adr/0076-...md:10` — "ADR-0014 ... requires naming its failure mode. This is that
+### 3.4 `docs/adr/0076-...md` — "ADR-0014 ... requires naming its failure mode. This is that
 failure mode named: two rebuilds racing"
 
-`docs/adr/0014-...md:13-16` names two failure modes and neither is a race: a trigger "runs inside every
+`docs/adr/0014-...md` names two failure modes and neither is a race: a trigger "runs inside every
 write", and application-maintained "can be bypassed by anything that writes directly". 0014's actual
 demand — "Pick one deliberately" — is not answered by 0076 or anywhere else. See 7.
 
-### 3.5 `docs/adr/0077-...md:8-11` — "the case that justified putting entities in the items table at
+### 3.5 `docs/adr/0077-...md` — "the case that justified putting entities in the items table at
 all (ADR-0004)"
 
 `docs/adr/0004-...md` is about containers folding into `work` and there being no collection kind. It
 says nothing about entities being items. The record that carries that case is ADR-0005, whose own new
-text (`docs/adr/0005-...md:16-17`) uses the identical phrase "the case that justified putting entities
+text (`docs/adr/0005-...md`) uses the identical phrase "the case that justified putting entities
 in the items table at all". The citation should be 0005.
 
-### 3.6 `docs/adr/0081-...md:14` — "the third of the three columns ADR-0014 projects"
+### 3.6 `docs/adr/0081-...md` — "the third of the three columns ADR-0014 projects"
 
-`docs/adr/0014-...md:5` is titled "`title` and `sort_name` are columns that project statements" and
+`docs/adr/0014-...md` is titled "`title` and `sort_name` are columns that project statements" and
 names two. `release_date` becomes a projected column by virtue of 0081 itself
 (`docs/physical-schema.md:55` credits both records). 0014 does not project three columns.
 
-### 3.7 `docs/adr/0085-...md:28-29` — "'unknown is never a fabricated true', which ADR-0060 otherwise
+### 3.7 `docs/adr/0085-...md` — "'unknown is never a fabricated true', which ADR-0060 otherwise
 asserts bare"
 
 `docs/adr/0060-...md` asserts "unknown is the absence of a row" and forbids deriving extent. The phrase
-"a fabricated true, which this model forbids" is asserted bare at `docs/adr/0041-...md:21`, and
-repeated at `docs/adr/0088-...md:8-9`. 0060 is the wrong target for that sentence.
+"a fabricated true, which this model forbids" is asserted bare at `docs/adr/0041-...md`, and
+repeated at `docs/adr/0088-...md`. 0060 is the wrong target for that sentence.
 
-### 3.8 `docs/adr/0085-...md:21-22` and `docs/adr/0087-...md:21-22` — what ADR-0041's refusal turns on
+### 3.8 `docs/adr/0085-...md` and `docs/adr/0087-...md` — what ADR-0041's refusal turns on
 
 Both new records say 0041's refusal of a force-complete rule turns on extras being solved properly
-elsewhere. `docs/adr/0041-...md:19-21` gives a different reason entirely: "an earlier one completed by
+elsewhere. `docs/adr/0041-...md` gives a different reason entirely: "an earlier one completed by
 duration rather than position, so thirty seconds into a four-minute trailer marked it watched — a
 fabricated true". Two records now attribute a rationale to 0041 that 0041 does not carry. Either 0041
 gains the sentence or the two citing records stop asserting it.
 
-### 3.9 `docs/adr/0094-...md:11-12` — "ADR-0057 gives the archive two jobs, both private: the test
+### 3.9 `docs/adr/0094-...md` — "ADR-0057 gives the archive two jobs, both private: the test
 fixture, and the owner's own library"
 
-`docs/adr/0057-...md:7-16` gives it one and a bit: a queried source for a committed fixture, and a
+`docs/adr/0057-...md` gives it one and a bit: a queried source for a committed fixture, and a
 stress test. "The owner's own library" appears at `CONTEXT.md` **The archive**, in the glossary, and nowhere in
 an ADR. The decision is real and is 0094's own; the citation sends the reader to a record that does
 not make it.
 
-### 3.10 `docs/adr/0009-...md:30-32` and `docs/adr/0078-...md:15-17` cite each other; the owner is 0018
+### 3.10 `docs/adr/0009-...md` under "Two rules that follow, and the reasons they need stating" and
+`docs/adr/0078-...md` cite each other; the owner is 0018
 
 0009's new text argues the stable surrogate placement id and cites ADR-0078 ("Same reasoning as").
 0078 argues surrogate entity ids and cites "ADR-0009's stable surrogate placement id ... taken for the
@@ -329,8 +336,9 @@ Nothing is implemented (`CLAUDE.md`, as it then read). The premise the exemption
 
 ### Direction of pointers
 
-`docs/adr/0047-...md:23` now correctly reads "described above" (the splice mechanics are at :11-15).
-`docs/adr/0051-...md:23` "the forensic record above" points to :11-14. `docs/adr/0059-...md:27` "the
+`docs/adr/0047-...md` now correctly reads "described above" (the splice mechanics are at :11-15).
+`docs/adr/0051-...md` "the forensic record above" points to :11-14. `docs/adr/0059-...md` under "The
+register of deliberate divergences" "the
 standards above" points to :14-17. No remaining wrong-direction pointers found in the new or amended
 text.
 
@@ -390,7 +398,7 @@ alternatives.
   its source), and that is a requirement, not a decision. It belongs on Linear beside the demo ticket,
   or in a `docs/demo.md`. Note that its provider-funding paragraph (`:21-26`) is planning content too.
 - **ADR-0098** (cataloguing and displaying are separable). Fails (b) and (c): it is a restatement.
-  `docs/adr/0003-...md` already decides items exist with no file; `docs/adr/0063-...md:10-11` already
+  `docs/adr/0003-...md` already decides items exist with no file; `docs/adr/0063-...md` already
   contains 0098's second paragraph verbatim. What is new is the reversal of an earlier rule, and this
   repo's established form for that is a `## Supersedes` section inside the affected record
   (`0005`, `0039` under "Supersedes", `0048`, `0051` under "Supersedes"). It should be a Supersedes section in 0063.
@@ -437,11 +445,12 @@ avoid. These smuggle in more:
 Also, but minor:
 
 - `CONTEXT.md` **Group** defines the scope as "the items, providers and scanner roots a view is
-  narrowed to", while `docs/adr/0010-...md:16` closes the list at five: browsing, search, which
+  narrowed to", while `docs/adr/0010-...md` closes the list at five: browsing, search, which
   providers are asked, scanner roots, and the review queue. The glossary drops two.
 - `CONTEXT.md` **Language** is now correct and glossary-shaped. Good.
-- **Redundant file** (`:128-130`) and **Multi-placement** (`:87-89`) both carry `_Avoid_: duplicate`,
-  for two different senses. Meanwhile `docs/adr/0009` under "Two rules that follow, and the reasons they need stating", `0017` and `0061` use "duplicate"
+- **Redundant file** and **Multi-placement** both carry `_Avoid_: duplicate`,
+  for two different senses. Meanwhile `docs/adr/0009` under "Two rules that follow, and the reasons
+  they need stating", `0017` and `0061` use "duplicate"
   in a third sense (the same item twice in one container). See 8.
 
 ---
@@ -453,33 +462,33 @@ that ADRs require. In order of how quickly an implementer would hit them:
 
 **Columns missing from tables that ARE listed:**
 
-1. **`files` has no path and no content hash.** `docs/adr/0023-...md:7-8` makes identity
+1. **`files` has no path and no content hash.** `docs/adr/0023-...md` makes identity
    `SHA1(ascii(decimal size) + hex(SHA1(first 64KB)) + hex(SHA1(last 64KB)))` and path "location".
    `docs/physical-schema.md:72-80` lists role, sidecar reference, ordinal, both derived readings,
    `manually_verified`, `excluded`, and the technical columns — no hash, no size, no path. The record
    is cited; the columns it decides are absent.
-2. **No date precision column anywhere.** `docs/adr/0073-...md:7-8` requires "a precision column saying
+2. **No date precision column anywhere.** `docs/adr/0073-...md` requires "a precision column saying
    what it actually resolves to". `statements` (`:82-90`) has no precision field, and `items` has
    `release_date` (`:55`) with none beside it. Both places need one.
 3. **No `bestRating` / `worstRating`.** `docs/adr/0080-...md:7-8` requires them "beside" the value; the
    statements shape has no room for them and no qualifier is nominated.
-4. **Confidence carries no component signals.** `docs/adr/0028-...md:22-23`: "The statement records the
+4. **Confidence carries no component signals.** `docs/adr/0028-...md`: "The statement records the
    named component signals, not only the total, because 0.8 cannot say which signal fired."
    `physical-schema.md:87` has `confidence NULL` alone.
-5. **No merge stamp.** `docs/adr/0040-...md:5-8` stamps the merge id "on every row it touches", and
+5. **No merge stamp.** `docs/adr/0040-...md` stamps the merge id "on every row it touches", and
    `0051` puts "a merge stamping its id" in migration 1. The "On every table" list
    (`physical-schema.md:30`) does not include it, and there is no merges table.
-6. **`providers` has no enabled flag and no tier.** `docs/adr/0035-...md:7-8` ships definitions
-   disabled; `docs/adr/0089-...md:7-13` sorts providers into tiers that govern distribution. Neither
+6. **`providers` has no enabled flag and no tier.** `docs/adr/0035-...md` ships definitions
+   disabled; `docs/adr/0089-...md` sorts providers into tiers that govern distribution. Neither
    is a column at `physical-schema.md:106-108`.
-7. **`items` has no external-id mapping.** `docs/adr/0078-...md:7`: "a surrogate id with external-id
+7. **`items` has no external-id mapping.** `docs/adr/0078-...md`: "a surrogate id with external-id
    mappings beside it". If those are identifier statements (`0064` suggests so), say it.
 
 **Tables required by an ADR and absent entirely:**
 
 8. **The review queue.** `docs/adr/0027` decides two thresholds and a queue; `0010` scopes it by
    group; `CONTEXT.md` **Review queue** defines it. No table.
-9. **The task registry and run history.** `docs/adr/0049-...md:11-13`: "Keyed tasks, each visible,
+9. **The task registry and run history.** `docs/adr/0049-...md`: "Keyed tasks, each visible,
    runnable by hand, cancellable, with a run history." No table.
 10. **Scanner roots.** `0010` scopes them by group, `0050` builds against a filesystem path,
     `CONTEXT.md` **Group** puts them in the Group definition. No table, and no group-to-root join.
@@ -492,7 +501,7 @@ that ADRs require. In order of how quickly an implementer would hit them:
 
 **Decisions with no home at all:**
 
-14. **Trigger-maintained or application-maintained?** `docs/adr/0014-...md:16` says "Pick one
+14. **Trigger-maintained or application-maintained?** `docs/adr/0014-...md` says "Pick one
     deliberately." Nothing picks. 0076 was the obvious place and answered a different question (3.4).
 15. **What relates an extra to its parent?** `0087` makes an extra a "WORK RELATED TO another work" and
     `CONTEXT.md` **Extra** agrees, but no property is named, and none of the nine seeded properties
@@ -522,7 +531,8 @@ Length: 142 lines. Under 200. Confirmed by `wc -l`.
 Every path referenced exists: `docs/research/competitor-sweep/`, the forensic record, `docs/adr/`,
 `docs/agents/`.
 
-**Internal contradiction, one, in the new section.** `CLAUDE.md` under "Reading the decisions": "Do not look for, read, or
+**Internal contradiction, one, in the new section.** `CLAUDE.md` under "Reading the decisions": "Do
+not look for, read, or
 reference any previous attempt at this product, in any repository or on the web, and do not search for
 one. `docs/research/archive-2026-09-04/` is the forensic record of those attempts and its salvage
 manifest is superseded: read it as evidence, never as instructions."
@@ -533,8 +543,8 @@ directory is the sanctioned evidence) is recoverable, but the two sentences as w
 ADR-0051 and ADR-0093 both reference the previous attempts, correctly, as evidence.
 
 **No other contradictions.** The Reading-the-decisions section sits consistently with the Principles:
-"a decision found there is CLOSED" (`:32-33`) against "Make architectural decisions for the long term"
-(`:19`) and "Do not preserve backward compatibility" (`:13`) — the first governs decisions already
+"a decision found there is CLOSED" against "Make architectural decisions for the long term"
+and "Do not preserve backward compatibility" — the first governs decisions already
 taken, the others govern new ones. No conflict.
 
 **Conventions, two notes:**

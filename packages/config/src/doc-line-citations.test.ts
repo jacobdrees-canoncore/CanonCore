@@ -36,8 +36,8 @@ import { repoRoot } from "./testing/repo-root";
  * the state of the repo when they were written, resolved through git history,
  * and "editing research to match a later deletion would falsify the record of
  * what was known when". An edit here cannot move a file that is not here, so
- * those citations cannot break the way this guards against. 407 of them are
- * legal and stay legal; the 136 this found pointed at files an edit in this
+ * those citations cannot break the way this guards against. 330 of them are
+ * legal and stay legal; the 213 this found pointed at files an edit in this
  * repository moves.
  *
  * CODE IS NOT PROSE. `ci.yml:113-132` and `docker-compose.yml:32` are
@@ -52,8 +52,17 @@ import { repoRoot } from "./testing/repo-root";
  * paths the tree actually holds decides it the same way everywhere.
  */
 
-/** The prose this rule governs: everything under `docs/`, plus the root documents. */
-const ROOT_PROSE = ["CONTEXT.md", "CLAUDE.md", "README.md"];
+/**
+ * The prose this rule governs is everything under `docs/` plus every markdown
+ * document at the root, READ FROM THE TREE rather than listed here: `CONTEXT.md`
+ * and `CLAUDE.md` are cited by line more than any record is, and a fourth root
+ * document added later would otherwise be silently uncovered.
+ */
+function rootProse(): string[] {
+  return readdirSync(repoRoot, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".md"))
+    .map((entry) => entry.name);
+}
 
 type Citation = { readonly file: string; readonly line: number; readonly cite: string };
 
@@ -63,6 +72,13 @@ type Citation = { readonly file: string; readonly line: number; readonly cite: s
  * established which record is under discussion (`0077:15-16`).
  */
 const FORMS = [
+  /**
+   * The path form also covers two spellings the corpus uses for the same thing:
+   * a record with its slug ELIDED (`docs/adr/0074-...md:5`), and a bare filename
+   * whose directory an earlier mention established (`verify-plex-claims.md:317`).
+   * Both are resolved in `resolvesPath`. A trailing comma list -- `:111,172,1017`
+   * -- is matched on its first line, which is enough to report the citation.
+   */
   { by: "path", pattern: /([A-Za-z0-9_./-]+\.md):(\d+)(?:-\d+)?/g },
   { by: "number", pattern: /ADR-(\d{4}):(\d+)(?:-\d+)?/g },
   /**
@@ -81,7 +97,23 @@ function prose(): string[] {
   const underDocs = readdirSync(join(repoRoot, "docs"), { recursive: true, withFileTypes: true })
     .filter((entry) => entry.isFile() && entry.name.endsWith(".md"))
     .map((entry) => relative(repoRoot, join(entry.parentPath, entry.name)));
-  return [...underDocs, ...ROOT_PROSE].sort();
+  return [...underDocs, ...rootProse()].sort();
+}
+
+/**
+ * Each document's path keyed by its BARE FILENAME, for the corpus's habit of
+ * citing `verify-plex-claims.md:317` once the directory is established by an
+ * earlier mention. Only names held by exactly one document are keyed: two files
+ * sharing a basename make the citation genuinely ambiguous, and guessing which
+ * was meant would report a file the author may never have been naming.
+ */
+function byBasename(): Map<string, string> {
+  const seen = new Map<string, string | null>();
+  for (const path of prose()) {
+    const name = path.slice(path.lastIndexOf("/") + 1);
+    seen.set(name, seen.has(name) ? null : path);
+  }
+  return new Map([...seen].flatMap(([n, p]) => (p === null ? [] : [[n, p] as const])));
 }
 
 /** Each record's path, keyed by the four digits its filename opens with. */
@@ -103,7 +135,20 @@ function recordsByNumber(): Map<string, string> {
 function resolvableLineCitations(): Citation[] {
   const held = new Set(prose());
   const records = recordsByNumber();
+  const named = byBasename();
   const found: Citation[] = [];
+
+  /** Whether this tree holds the document a path citation names. */
+  const resolvesPath = (file: string, cited: string): boolean => {
+    if ([cited, join(dirname(file), cited)].some((path) => held.has(path))) return true;
+    const base = cited.slice(cited.lastIndexOf("/") + 1);
+    // `docs/adr/0074-...md:5` — the corpus elides a record's slug and keeps its
+    // number, which still names one record exactly.
+    const elided = /^(\d{4})-\.{2,}\.?md$/.exec(base);
+    if (elided?.[1] !== undefined) return records.has(elided[1]);
+    // A bare `verify-plex-claims.md:317`, whose directory an earlier mention set.
+    return cited === base && named.has(base);
+  };
 
   for (const file of prose()) {
     readFileSync(join(repoRoot, file), "utf8")
@@ -112,10 +157,7 @@ function resolvableLineCitations(): Citation[] {
         for (const { by, pattern } of FORMS) {
           for (const match of text.matchAll(pattern)) {
             const cited = match[1] ?? "";
-            const resolves =
-              by === "number"
-                ? records.has(cited)
-                : [cited, join(dirname(file), cited)].some((path) => held.has(path));
+            const resolves = by === "number" ? records.has(cited) : resolvesPath(file, cited);
             if (resolves) found.push({ file, line: index + 1, cite: match[0] });
           }
         }
@@ -134,7 +176,7 @@ describe("a document citing another document", () => {
     expect(recordsByNumber().size).toBeGreaterThan(0);
   });
 
-  it("names a section rather than a line number", () => {
+  it("does not name a line number in a target this tree holds", () => {
     const byLine = resolvableLineCitations().map(
       ({ file, line, cite }) => `${file}:${line} cites \`${cite}\``,
     );

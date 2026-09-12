@@ -84,7 +84,8 @@ DROP reasons are either (a) restated at greater length in `SPEC.md` or an ADR, o
   has no answer once an item is multi-placed" verbatim.
 - **Collection** — the LRMoo F16/F17/F18 "use superclass F1 Work" citation survives at
   `SPEC.md:221-222`, ADR-0004, and is *corrected* at `verify-adr-standards.md`,
-  the F16/F17/F18 entry ruled "CONTRADICTED on F18" (F18 was retained, not deprecated). The surviving documents are strictly better here.
+  the F16/F17/F18 entry ruled "CONTRADICTED on F18" (F18 was retained, not deprecated). The
+  surviving documents are strictly better here.
 - **Tag** — "an owner-authored `category` statement" survives verbatim at `SPEC.md:1365`.
 - **Typed Item Relationship / Entity / Role / Franchise / Canonical CMPP Field / Provider
   Evidence** — all collapse into "it is a statement" or "it is a `category` statement", which
@@ -245,7 +246,8 @@ Nine files, 1,071 lines: `audiobookshelf`, `calibre-web`, `immich`, `karakeep`, 
 the consolidated file as its first section.)
 
 **The brief's stated worry does not hold, on either count.** Romm, Stash and Suwayomi *are* in the
-consolidated file — at `build-order-research.md:902-993`, `:731-793` and `:1355-1428`. And
+consolidated file — at `build-order-research.md` under "7 (continued). What a demo actually costs,
+and whether it pays", `:731-793` and `:1355-1428`. And
 "consolidated" here really does mean superset.
 
 ### How this was tested
@@ -282,7 +284,8 @@ Result of check 2, across all 1,071 lines:
 > **Research in progress.** Evidence-only, citing dated commits/tags/releases from
 > `advplyr/audiobookshelf` (server) and `advplyr/audiobookshelf-app` (mobile client).
 
-`build-order-research.md:363` carries the same sentence with the first two words removed. That is
+`build-order-research.md` under "Survivorship warning + outcome table (measured 2026-09-05, `gh api
+repos/<r>`)" carries the same sentence with the first two words removed. That is
 a status marker on an unfinished pass, and the pass finished — the consolidated file has all four
 numbered subsections for Audiobookshelf plus its own closing note on what remained evidence-thin
 (`:572-575`). Keeping the phrase would not preserve a finding; it would preserve a false statement
