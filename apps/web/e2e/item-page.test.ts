@@ -1,6 +1,6 @@
 import { describe, expect, inject, it } from "vitest";
 
-import { documentAt } from "./document";
+import { documentAt, documentFrom } from "./document";
 
 /**
  * The app over real HTTP: a production build of Next, serving a real database.
@@ -37,11 +37,24 @@ function values(text: string): string {
   return section;
 }
 
-/** Just the "Also appears in" section, so an assertion cannot match the header. */
+/**
+ * Just the "Also appears in" section, so an assertion cannot match the header.
+ *
+ * IT TAKES THE WHOLE SECTION, NESTED ONES INCLUDED, which is the same fix
+ * `container-page.test.ts` already carries for the Members list and is here for
+ * the same reason arriving one listing later. A non-greedy match stops at the
+ * FIRST `</section>` -- and past the end of the walk this listing renders
+ * `PastTheEnd`, whose own `<section>` is nested inside it, so everything below
+ * that notice fell outside what this returned. That is exactly where CNCORE-89's
+ * review found a defect hiding: a second "Back to the start" under the notice's
+ * own, which no assertion could see. This one ends at the LAST `</section>`,
+ * since "Also appears in" is the last section on the page but for the
+ * attribution notice, which carries no `aria-labelledby` to anchor on.
+ */
 function alsoAppearsIn(text: string): string {
-  const section = text.match(/<section[^>]*aria-labelledby="also-appears-in".*?<\/section>/)?.[0];
-  if (!section) throw new Error("the page rendered no `Also appears in` section");
-  return section;
+  const opened = text.indexOf('aria-labelledby="also-appears-in"');
+  if (opened === -1) throw new Error("the page rendered no `Also appears in` section");
+  return text.slice(text.lastIndexOf("<section", opened), text.lastIndexOf("</section>") + 10);
 }
 
 describe("/items/<id>", () => {
@@ -530,5 +543,173 @@ describe("an item imported from the second provider", () => {
     // network, an address a reader has no business being handed.
     expect(text).toContain("provider-tmdb");
     expect(text).not.toMatch(/127\.0\.0\.1:\d+/);
+  });
+});
+
+describe("/items/<an item in more orderings than one page>", () => {
+  const pagedBaseUrl = inject("pagedBaseUrl");
+  const appearsIn = inject("pagedAppearsIn");
+
+  /**
+   * Every ordering one rendered page links at: the CONTAINER each row names.
+   *
+   * THE CONTAINER AND NOT THE PLACEMENT, which is what this listing's rows can
+   * be oracled on and is ADR-0066 operating rather than a shortcoming. These
+   * links deliberately carry no `?via=`: a reader following one is arriving at
+   * the container ITSELF, not at this item through an ordering, so there is no
+   * placement id in the markup to collect. What makes that still an exact
+   * oracle is comparing MULTISETS -- the fixture's Repeat puts one container in
+   * the list twice, and a set comparison would forgive losing one of them.
+   *
+   * OFF THE ROWS RATHER THAN OFF THE SECTION, for the reason the Members list
+   * gives: the walk's own `Next` and the filter's chips are `/items/...` links
+   * in this section too, and a scan of the whole section would collect them.
+   */
+  function orderingsLinkedFrom(text: string): string[] {
+    return orderingRows(text).flatMap((row) => {
+      const named = row.match(/href="\/items\/([^"?&]+)"/)?.[1];
+      return named === undefined ? [] : [named];
+    });
+  }
+
+  /** Where the page says the list carries on, if it says so at all. */
+  function carriesOnAt(text: string): string | undefined {
+    return alsoAppearsIn(text)
+      .match(/href="(\/items\/[^"]*placedAfter=[^"]*)"/)?.[1]
+      ?.replaceAll("&amp;", "&");
+  }
+
+  it("shows one page at a time, and says how many orderings it is not showing", async () => {
+    // THE CAP, WHICH WAS MISSING HERE LAST OF ANYWHERE. ADR-0119's first
+    // sentence is that every listing in CanonCore is capped; after CNCORE-89
+    // this was the only one in the app that took no limit at all.
+    const { status, text } = await documentFrom(pagedBaseUrl, `/items/${appearsIn.id}`);
+
+    expect(status).toBe(200);
+    expect(orderingsLinkedFrom(text)).toHaveLength(100);
+    expect(alsoAppearsIn(text)).toContain(`Showing 100 of ${appearsIn.sitsIn.length} orderings`);
+  });
+
+  it("reaches every ordering by following links, and lands on none of them twice", async () => {
+    // THE OTHER HALF OF THE CAP, at the seam this ticket names by hand: a page
+    // that says "Showing 100 of 211" and offers no way to reach the
+    // hundred-and-first has told the reader the size of a list it will not let
+    // them see.
+    //
+    // THE ORACLE IS THE PLACEMENTS THE HARNESS WROTE rather than a second
+    // reading of the item: a cursor that lost the unnamed orderings would lose
+    // them from both sides and the two readings would agree.
+    const walked: string[] = [];
+    let path: string | undefined = `/items/${appearsIn.id}`;
+    // BOUNDED, so a cursor that does not advance FAILS rather than hangs.
+    for (let pages = 0; pages <= appearsIn.sitsIn.length; pages += 1) {
+      const { status, text } = await documentFrom(pagedBaseUrl, path);
+      expect(status).toBe(200);
+      walked.push(...orderingsLinkedFrom(text));
+      const next: string | undefined = carriesOnAt(text);
+      if (next === undefined) {
+        // A MULTISET, SORTED BOTH SIDES. The Repeat is one container twice, so
+        // this is the comparison that can see it going missing.
+        expect([...walked].sort()).toStrictEqual(
+          appearsIn.sitsIn.map((placement) => placement.containerId).sort(),
+        );
+        return;
+      }
+      path = next;
+    }
+    throw new Error(`the walk never ended: ${walked.length} of ${appearsIn.sitsIn.length}`);
+  });
+
+  it("keeps the cursor out of the canonical, and writes it behind the other three", async () => {
+    // ADR-0066: the PATH is identity and the QUERY is the route. A FOURTH
+    // non-identifying parameter has to compose with the three already there, in
+    // ONE fixed spelling order -- `via`, `placed`, `after`, `placedAfter`, each
+    // behind the ones that were out there before it -- and it must leave the
+    // canonical alone, because that declaration is what makes every route to
+    // this item one page.
+    const { text } = await documentFrom(
+      pagedBaseUrl,
+      `/items/${appearsIn.id}?placed=owner&via=nothing-at-all&after=nothing-either`,
+    );
+
+    const next = carriesOnAt(text);
+    if (next === undefined) throw new Error("the list offered no next page");
+    expect(next).toMatch(
+      new RegExp(
+        `^/items/${appearsIn.id}\\?via=nothing-at-all&placed=owner&after=nothing-either&placedAfter=[0-9a-f-]+$`,
+      ),
+    );
+    expect(text).toContain(`<link rel="canonical" href="/items/${appearsIn.id}"/>`);
+  });
+
+  it("carries the Members cursor through its chips, and drops its own", async () => {
+    // ADR-0066: two independent listings on one page, so a chip that dropped the
+    // Members cursor would send a reader deep in a container's ordering back to
+    // its first page for touching the other list.
+    //
+    // AND IT DROPS THIS LIST'S OWN, which is the half that is not symmetry. A
+    // chip changes what "Also appears in" is ASKING, so the answer is a
+    // different listing and the old cursor names a place in the one being left.
+    const { text } = await documentFrom(
+      pagedBaseUrl,
+      `/items/${appearsIn.id}?after=nothing-either&placedAfter=${appearsIn.sitsIn[0]?.id}`,
+    );
+
+    // SCOPED TO THE FILTER'S OWN `nav`, so the walk's `Next` and the rows
+    // themselves cannot be counted as chips.
+    const nav = alsoAppearsIn(text).match(
+      /<nav aria-label="Filter by how it was placed".*?<\/nav>/,
+    )?.[0];
+    if (nav === undefined) throw new Error("the list rendered no filter");
+    const chips = [...nav.matchAll(/href="([^"]*)"/g)].map(([, href]) =>
+      (href ?? "").replaceAll("&amp;", "&"),
+    );
+
+    expect(chips.length).toBeGreaterThan(0);
+    for (const chip of chips) {
+      expect(chip).toContain("after=nothing-either");
+      expect(chip).not.toContain("placedAfter=");
+    }
+  });
+
+  it("offers a way back to the start from every page but the first", async () => {
+    // A FORWARD WALK STRANDS A DEEP LINK (ADR-0119): somebody handed page two
+    // in a message has no history to go back through.
+    const first = await documentFrom(pagedBaseUrl, `/items/${appearsIn.id}`);
+    const next = carriesOnAt(first.text);
+    if (next === undefined) throw new Error("the fixture's orderings fit on one page");
+
+    const second = await documentFrom(pagedBaseUrl, next);
+
+    expect(alsoAppearsIn(second.text)).toContain("Back to the start");
+    // AND NOT ON THE FIRST PAGE, which is the half that makes the line above a
+    // test: a page printing it unconditionally would satisfy that and fail this.
+    expect(alsoAppearsIn(first.text)).not.toContain("Back to the start");
+  });
+
+  it("says the list ends here, where a link outlived the orderings after it", async () => {
+    // THE ONE DEAD END A CURSOR CREATES. `continuesAfter` is handed over only
+    // when there is a row past the page, so a link FOLLOWED never lands here --
+    // but a link KEPT can. Without this the reader gets a heading and an empty
+    // list, which reads as a section that failed to load.
+    // THE CURSOR COMES FROM THE HARNESS, because this listing's rows link to
+    // the CONTAINER and carry no placement id -- so unlike the Members walk,
+    // the id of the last row cannot be read off the page that shows it.
+    const beyond = await documentFrom(
+      pagedBaseUrl,
+      `/items/${appearsIn.id}?placedAfter=${appearsIn.endsAt}`,
+    );
+
+    expect(beyond.status).toBe(200);
+    expect(alsoAppearsIn(beyond.text)).toContain("end here");
+    // THE WAY OUT, not merely the notice. A section that said the list ended and
+    // offered nothing to click is the same dead end with a caption on it.
+    expect(alsoAppearsIn(beyond.text)).toContain(`href="/items/${appearsIn.id}"`);
+    // AND EXACTLY ONE OF IT, which is the defect CNCORE-89's review found on the
+    // mirror: the notice and the walk each offer a way back, and both rendered
+    // there until it was fixed. Counted as rendered anchors rather than as the
+    // phrase, because the phrase appears again in the RSC flight payload.
+    const waysBack = alsoAppearsIn(beyond.text).match(/<a[^>]*>Back to the start<\/a>/g) ?? [];
+    expect(waysBack).toHaveLength(1);
   });
 });

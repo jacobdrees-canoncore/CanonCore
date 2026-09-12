@@ -893,7 +893,7 @@ describe("item.get on an item in more orderings than one page", () => {
       placedAfter = page.placements.continuesAfter;
     }
 
-    expect([...walked].sort()).toStrictEqual([...sitsIn].sort());
+    expect([...walked].sort()).toStrictEqual(sitsIn.map((p) => p.id).sort());
     expect(new Set(walked).size).toBe(walked.length);
   });
 });

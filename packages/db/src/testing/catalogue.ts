@@ -523,7 +523,37 @@ export async function aContainerLargerThanOnePage(
 export async function anItemInMoreOrderingsThanOnePage(
   db: Database,
   { title, orderings }: { title: string; orderings: number },
-): Promise<{ id: string; containers: string[]; sitsIn: string[] }> {
+): Promise<{
+  id: string;
+  containers: string[];
+  /** The two with no title, which a catalogue search cannot reach either. */
+  unnamed: string[];
+  /**
+   * Every placement it wrote, each WITH THE ORDERING IT IS IN.
+   *
+   * THE PAIR RATHER THAN THE ID, because the two seams that walk this oracle
+   * can see different halves of it. The router answers placement ids; the
+   * rendered page does not -- its rows link to the CONTAINER, deliberately
+   * carrying no `?via=` (ADR-0066), because a reader following one is arriving
+   * at the container itself rather than at this item through an ordering. So
+   * the page's oracle is the containers, as a MULTISET: the Repeat below puts
+   * one of them in the list twice, and a set would quietly forgive losing it.
+   */
+  sitsIn: { id: string; containerId: string }[];
+  /**
+   * The placement that sorts LAST of all of them, which is what a test of the
+   * end of the walk needs and cannot read off a rendered page: these rows link
+   * to the container and carry no placement id (ADR-0066).
+   *
+   * IT IS DERIVED FROM THE CONSTRUCTION rather than observed. The order is the
+   * container's projected key, then ADR-0017's two terms, then the position.
+   * The last ordering minted is one of the two nobody NAMED, so its key is null
+   * and it is in the block that sorts last; and it is the one placement no
+   * source stands behind, so it is null on both rank terms too and sorts behind
+   * its neighbour in that block. Nothing is behind it on any term.
+   */
+  endsAt: string;
+}> {
   const ownerId = await theOwner(db);
   const sourceId = await ownerSource(db);
   const id = await anItemTitled(db, title);
@@ -562,7 +592,7 @@ export async function anItemInMoreOrderingsThanOnePage(
       { ownerId, containerId: second, itemId: id, position: null },
       ...rest.map((containerId) => ({ ownerId, containerId, itemId: id, position: 1 })),
     ])
-    .returning({ id: placements.id });
+    .returning({ id: placements.id, containerId: placements.containerId });
 
   // EVERY ROW BUT THE LAST GETS A SOURCE, so the one that does not is the
   // placement nobody asserted -- null on both of ADR-0017's terms.
@@ -571,5 +601,7 @@ export async function anItemInMoreOrderingsThanOnePage(
     .insert(placementSources)
     .values(asserted.map((placement) => ({ ownerId, placementId: placement.id, sourceId })));
 
-  return { id, containers, sitsIn: written.map((row) => row.id) };
+  const endsAt = written.at(-1);
+  if (endsAt === undefined) throw new Error("insert returned no placements");
+  return { id, containers, unnamed: containers.slice(named), sitsIn: written, endsAt: endsAt.id };
 }
