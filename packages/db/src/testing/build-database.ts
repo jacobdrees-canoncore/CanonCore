@@ -29,7 +29,15 @@ import { migrateToHead } from "../migrate";
  * file says what derives it wrong. `worktree-database.test.ts` is what holds
  * every member here to it.
  */
-export const TEST_DATABASE_SUFFIXES = ["", "web", "fresh", "paged", "purge", "still", "gone"] as const;
+export const TEST_DATABASE_SUFFIXES = [
+  "",
+  "web",
+  "fresh",
+  "paged",
+  "purge",
+  "still",
+  "gone",
+] as const;
 
 /** A suffix this repo has declared, which is the only kind there is. */
 export type TestDatabaseSuffix = (typeof TEST_DATABASE_SUFFIXES)[number];
