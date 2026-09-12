@@ -244,6 +244,14 @@ describe("/import, taking a record it already holds", () => {
     // AND NO ITEM ANYWHERE ELSE EITHER, which is the half a row cannot show: a
     // second item for this record would be in the catalogue whether or not this
     // row linked it.
+    //
+    // TODO(CNCORE-93): this total is catalogue-wide and another test FILE is
+    // writing to the same catalogue while it is read -- `multi-placement.test.ts`
+    // browses two containers in its own `beforeAll`, in another worker. Measured
+    // 2026-09-12 against the real provider images: this failed in two of four
+    // full runs and passed every time the file ran alone. Left standing rather
+    // than weakened here, because the claim it makes is the right one and the
+    // replacement has to be able to see a second Item.
     expect((await client.catalogue.list({})).total).toBe(total);
   });
 });
@@ -375,15 +383,27 @@ describe("/import, before a container's ordering is imported", () => {
      * ticket removes, and it would be invisible: the page would look exactly
      * like this one.
      *
-     * COUNTED EITHER SIDE OF THE SAME REQUEST rather than against a known total,
-     * so this holds wherever in the file it runs.
+     * ASKED ABOUT THIS CONTAINER RATHER THAN ABOUT THE CATALOGUE'S SIZE. A total
+     * counted either side of the request is a claim about the WHOLE catalogue
+     * while other files in this suite are importing into it, so it fails for
+     * somebody else's write -- measured against the real provider images, where
+     * the windows are wide enough to overlap. `held` asks the one question this
+     * test has: is the thing that was read now in the catalogue.
+     *
+     * IT RUNS BEFORE THE BROWSE BELOW TAKES IT, which is why "not held" is
+     * available to assert at all; the assertion before the request is what says
+     * so out loud rather than leaving it to file order.
      */
-    const before = await client.catalogue.list({});
+    const { provider, container } = providerSearch.browsable;
+    const asked = { baseUrl: provider, recordIds: [container] };
+    expect((await client.provider.held(asked)).items).toHaveLength(0);
 
-    const { status } = await documentAt(browsing(providerSearch.browsable));
+    const { status, text } = await documentAt(browsing(providerSearch.browsable));
 
     expect(status).toBe(200);
-    expect((await client.catalogue.list({})).total).toBe(before.total);
+    expect((await client.provider.held(asked)).items).toHaveLength(0);
+    // AND THE PAGE SAYS SO, which is the same fact the owner reads.
+    expect(section(text, "container")).toContain("Not in your catalogue");
   });
 });
 
