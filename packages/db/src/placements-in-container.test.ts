@@ -237,4 +237,27 @@ describe("findPlacementsInContainer, on who asserted each placement", () => {
       ["a source that came later and is preferred", "a source that came first"],
     ]);
   });
+
+  it("still answers a placement no source stands behind, naming nobody", async () => {
+    // A CLAIM NOBODY MADE IS STILL A ROW. `findPlacementsOfItem` joins its
+    // spokesman LEFT for this exact reason -- an inner join would be the read
+    // path deciding a placement does not exist because its provenance was never
+    // recorded -- and the aggregate here has to make the same refusal.
+    //
+    // ONLY A FIXTURE CAN BUILD ONE, which ADR-0017 says outright: `aPlacement`
+    // writes a placement with no source, and `assertPlacement` -- the one place
+    // THE PRODUCT writes one -- cannot. That is what makes this worth pinning
+    // rather than unreachable: the row shape exists, so the query meets it.
+    const container = await anItemTitled(db, "An ordering nobody vouches for", {
+      isContainer: true,
+      isOrdered: true,
+    });
+    const story = await anItemTitled(db, "A story placed by nobody");
+    await aPlacement(db, { containerId: container, itemId: story, position: 1 });
+
+    const held = await findPlacementsInContainer(db, container);
+
+    expect(held).toHaveLength(1);
+    expect(held[0]).toMatchObject({ title: "A story placed by nobody", assertedBy: [] });
+  });
 });
