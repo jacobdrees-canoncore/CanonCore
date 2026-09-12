@@ -113,6 +113,13 @@
       "when": 1789245000000,
       "tag": "20260912203000_migration_15_a_container_cannot_hold_itself",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1789249550159,
+      "tag": "20260912214550_migration_16_the_settings_the_owner_configured",
+      "breakpoints": true
     }
   ]
 }

@@ -332,12 +332,15 @@ export const provider = {
    * is whether there is anything on it at all. Handing over the entries would
    * put a private network's addresses in a response to satisfy a yes-or-no.
    *
-   * NO REQUEST LEAVES THE APP. It reads the configuration this process started
-   * with, which is what `createContext` parsed at module load.
+   * NO REQUEST LEAVES THE APP. It reads this instance's own settings, which the
+   * owner edits at `/settings` and `createContext` reads per request -- so the
+   * answer changes with the configuration rather than with a restart.
    */
   allowlisted: openProcedure
     .output(z.object({ any: z.boolean() }))
-    .handler(({ context }) => ({ any: allowsAnything(context.providerAllowlist) })),
+    .handler(async ({ context }) => ({
+      any: allowsAnything((await context.providerSettings()).allowlist),
+    })),
 
   /**
    * WHICH PROVIDERS THIS INSTANCE SEARCHES, so a surface can say "none" rather
@@ -358,13 +361,13 @@ export const provider = {
    * about a READER being handed a source's claims; this is the OWNER, who wrote
    * these URLs and is the only person who can change one.
    *
-   * NO REQUEST LEAVES THE APP. It reads what `createContext` parsed at module
-   * load, so it answers for a provider that is switched off exactly as for one
-   * that is running.
+   * NO REQUEST LEAVES THE APP. It reads this instance's own settings, so it
+   * answers for a provider that is switched off exactly as for one that is
+   * running.
    */
   configured: openProcedure
     .output(z.object({ providers: z.array(z.url()) }))
-    .handler(({ context }) => ({ providers: context.providerUrls })),
+    .handler(async ({ context }) => ({ providers: (await context.providerSettings()).urls })),
 
   /**
    * WHICH OF ONE PROVIDER'S RECORDS THIS CATALOGUE ALREADY HOLDS, for ids the
@@ -491,8 +494,9 @@ export const provider = {
       // provider that answered -- the fan-out's whole purpose. Raising it as the
       // SEARCH's error would throw away every other provider's answers because
       // one URL was not allowlisted.
+      const { allowlist, urls } = await context.providerSettings();
       const { answered, failed } = await searchProviders(
-        { baseUrls: context.providerUrls, allowlist: context.providerAllowlist },
+        { baseUrls: urls, allowlist },
         input.query,
       );
 
@@ -587,7 +591,7 @@ export const provider = {
       try {
         const imported = await importRecordFromProvider(
           context.db,
-          context.providerAllowlist,
+          (await context.providerSettings()).allowlist,
           input,
         );
         if (!imported) throw errors.NO_SUCH_RECORD();
@@ -696,7 +700,7 @@ export const provider = {
     .handler(async ({ input, context }) => {
       const client = createProviderClient({
         baseUrl: input.baseUrl,
-        allowlist: context.providerAllowlist,
+        allowlist: (await context.providerSettings()).allowlist,
       });
       try {
         // THE SAME PREAMBLE `browseIntoCatalogue` RUNS, which is what makes this
@@ -796,7 +800,11 @@ export const provider = {
     })
     .handler(async ({ input, context, errors }) => {
       try {
-        const browsed = await browseIntoCatalogue(context.db, context.providerAllowlist, input);
+        const browsed = await browseIntoCatalogue(
+          context.db,
+          (await context.providerSettings()).allowlist,
+          input,
+        );
         if (!browsed) throw errors.NO_SUCH_CONTAINER();
         return browsed;
       } catch (error) {

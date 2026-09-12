@@ -1,29 +1,17 @@
-import { getDb, seeSession } from "@canoncore/db";
-import { env } from "@canoncore/env/server";
-import { parseAllowlist, parseProviderUrls } from "@canoncore/providers";
+import { type Database, getDb, readProviderSettings, seeSession } from "@canoncore/db";
+import { type Allowlist, parseAllowlist, parseProviderUrls } from "@canoncore/providers";
 
 /**
- * ADR-0034's allowlist, parsed ONCE at module load rather than per request.
+ * WHAT THIS INSTANCE REACHES, parsed: the allowlist that says what MAY be
+ * reached and the URLs that say what IS reached (ADR-0034, ADR-0121).
  *
- * `parseAllowlist` THROWS on a malformed entry, deliberately, and that made
- * where it is called a real decision rather than a detail. Called inside
- * `createContext` it ran on every request -- including a page render that
- * touches no provider at all -- so a typo in `PROVIDER_ALLOWLIST` turned the
- * whole read path into 500s. Found in review.
- *
- * At module load the same typo stops the server from starting, which is what a
- * bad configuration value should do and what the missing-DATABASE_URL guard
- * already does for the other one.
+ * Neither is derivable from the other, which is why both are here and why the
+ * surface that edits them has to say which of the two is refusing a provider.
  */
-const providerAllowlist = parseAllowlist(env.PROVIDER_ALLOWLIST);
-
-/**
- * WHICH PROVIDERS THIS INSTANCE SEARCHES, parsed ONCE at module load for exactly
- * the reason the allowlist above is: `parseProviderUrls` throws on an entry that
- * is not a URL, and a typo that stops the server starting is a typo an owner
- * meets at once rather than as a 500 out of the first search.
- */
-const providerUrls = parseProviderUrls(env.PROVIDER_URLS);
+export interface ProviderSettings {
+  allowlist: Allowlist;
+  urls: string[];
+}
 
 /**
  * What every request carries.
@@ -48,9 +36,58 @@ export async function createContext({ sessionToken }: { sessionToken?: string } 
      * owner. `ownerProcedure` is what reads it; `openProcedure` never asks.
      */
     session: sessionToken === undefined ? null : await seeSession(db, sessionToken),
-    providerAllowlist,
-    providerUrls,
+    providerSettings: settingsReadOnce(db),
   };
 }
 
 export type Context = Awaited<ReturnType<typeof createContext>>;
+
+/**
+ * WHAT THIS INSTANCE REACHES, READ PER REQUEST AND ONLY WHEN SOMETHING ASKS.
+ *
+ * IT USED TO BE READ ONCE FOR THE WHOLE PROCESS (CNCORE-99). Both settings sat
+ * in the environment and were parsed at module load, which is why changing
+ * either meant editing a file and restarting -- the thing the settings surface
+ * exists to end. They are rows now (migration 16), so the read happens inside
+ * the request and a provider named a second ago is searched by the request
+ * after it.
+ *
+ * A FUNCTION RATHER THAN A VALUE, because most requests never ask. An item
+ * page, the catalogue, a health check and every refusal of an unauthorised
+ * caller touch no provider at all, and a context that read the settings row to
+ * build itself would put a query in front of all of them -- including the
+ * catch-all route's own tests, which state in their config that they need no
+ * database.
+ *
+ * READ ONCE PER REQUEST, THOUGH. The answer is memoised for the life of the
+ * context, so a handler that asks twice gets one row and one reading of it:
+ * two reads inside one request could disagree, and a request is where "what
+ * does this instance reach" has to hold still.
+ *
+ * THE PARSE STAYED WHERE IT WAS WHEN THE SOURCE MOVED. `parseAllowlist` and
+ * `parseProviderUrls` take a string from wherever it comes (ADR-0034,
+ * ADR-0121), so only the argument is new.
+ *
+ * AND THE THROW MOVED WITH IT, WHICH IS THE HALF WORTH READING SLOWLY. Both
+ * parsers refuse a malformed entry by throwing, and ADR-0121 records what that
+ * cost when it happened per request: a typo in `PROVIDER_ALLOWLIST` turned
+ * every read path into 500s, so the parse was moved to module load, where the
+ * same typo stopped the server starting instead. There is no module load to
+ * move to now. What stands in its place is that `settings.nameProvider` and
+ * `settings.editAllowlist` parse what they are given BEFORE they write it, so a
+ * value that cannot be parsed is refused at the surface that typed it and never
+ * reaches a row -- the store is validated at its only writer rather than at
+ * every reader. What that leaves is a value written around the product, by
+ * hand in SQL: it throws where it is read, which is the surfaces that reach
+ * providers rather than the whole app, because of the laziness above.
+ */
+function settingsReadOnce(db: Database): () => Promise<ProviderSettings> {
+  let reading: Promise<ProviderSettings> | undefined;
+  return () => {
+    reading ??= readProviderSettings(db).then((configured) => ({
+      allowlist: parseAllowlist(configured.providerAllowlist),
+      urls: parseProviderUrls(configured.providerUrls),
+    }));
+    return reading;
+  };
+}

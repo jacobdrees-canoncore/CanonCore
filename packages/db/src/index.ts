@@ -68,6 +68,11 @@ export {
   sweepSessions,
 } from "./sessions";
 export {
+  type ProviderSettings,
+  readProviderSettings,
+  writeProviderSettings,
+} from "./settings";
+export {
   closeTaskRunsLeftOpen,
   compactTaskRuns,
   endTaskRun,

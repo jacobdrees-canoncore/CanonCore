@@ -48,6 +48,17 @@ fails takes the container down with it rather than answering requests against a
 database in an unknown shape, so `docker compose logs canoncore` is the first
 place to look if nothing answers.
 
+**Which Providers this instance reaches is configured at
+<http://localhost:3000/settings>**, not in `.env`. Name a Provider there by its
+base URL, and write the hosts and address ranges it may be fetched from into the
+allowlist beside it; both take effect on the next request, with nothing to
+restart. **An empty allowlist refuses every Provider**, which is the default and
+is deliberate (ADR-0034): a fresh instance reaches nothing at all until you name
+a host, so an empty catalogue on a first run is that setting rather than a
+fault. A Provider needs to be in both -- named so it is searched, allowlisted so
+the request is permitted -- and the settings page says which of the two is
+refusing one.
+
 ### What it reads
 
 The app refuses to start unless `DATABASE_URL` is set, and `compose.yaml` builds
@@ -57,8 +68,6 @@ that from `POSTGRES_PASSWORD` so there is only ever one copy of the password.
 |---|---|---|
 | `DATABASE_URL` | `compose.yaml`, from `POSTGRES_PASSWORD` | **Required.** The Postgres the catalogue lives in. The app validates it at build and at boot, so an absent or empty one is a failure at the start rather than at the first request. |
 | `POSTGRES_PASSWORD` | you, in `.env` | **Required, letters and digits only.** The database password. Compose refuses to start without one rather than defaulting to something nobody would change, and it composes `DATABASE_URL` from it -- so a password carrying `: / ? # [ ] @ %` makes that URI invalid and the container crash-loops on `ERR_INVALID_URL` before it ever serves. The command above generates a safe one. |
-| `PROVIDER_ALLOWLIST` | you, in `.env` | The hosts and address ranges a Provider may be fetched from, separated by commas or whitespace. **Empty refuses every Provider**, which is the default and is deliberate (ADR-0034): a fresh instance reaches nothing at all until you name a host. An empty catalogue is that setting rather than a fault, and the front page says so. |
-| `PROVIDER_URLS` | you, in `.env` | The Providers to search, as their base URLs, separated by commas or whitespace. A different setting from the allowlist above and not derivable from it: that one holds hosts and ranges and says what MAY be reached, this holds the URLs themselves and says what IS reached, so a Provider needs to be in both. **Empty means no Provider is searched**, and the import surface says so rather than showing an empty result. |
 | `OWNER_PASSWORD` | you, in `.env` | The password you log in with. Everything that CHANGES the catalogue is behind it -- creating and editing an Item, placing it in a Container, reordering one, writing a note, importing from a Provider, browsing a Container in from one, purging one -- and reading is not, so anyone you show your instance to can browse it. **Empty means nobody can log in**, which is how the public demo runs read-only (ADR-0044) rather than a half-configured install. At least 12 characters; a shorter one stops the app starting. |
 | `CANONCORE_PORT` | you, in `.env` | The host port to answer on. The container always serves 3000; this is only the host side of the mapping. Defaults to 3000. |
 | `NODE_ENV` | the image | Already `production` in the image. Nothing to set. |

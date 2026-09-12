@@ -1,5 +1,5 @@
 import { createServer, type Server } from "node:http";
-import { type Database, items, sources } from "@canoncore/db";
+import { type Database, items, sources, writeProviderSettings } from "@canoncore/db";
 import { connect } from "@canoncore/db/testing/catalogue";
 import { env } from "@canoncore/env/server";
 import { parseAllowlist, REASON_MAX_LENGTH } from "@canoncore/providers";
@@ -30,7 +30,45 @@ import { appRouter } from "./index";
  * would keep passing on the day the shape of one changes, which is the day it
  * would matter most.
  */
+/** The CIDR this file's stub providers bind inside, and this suite's allowlist. */
+const LOOPBACK = "127.0.0.0/8";
+
+/**
+ * WHAT THIS INSTANCE IS CONFIGURED TO REACH, WRITTEN BEFORE THE FIRST CONTEXT
+ * IS BUILT.
+ *
+ * IT USED TO BE `vitest.config.ts`'s `env`, and it moved here with the settings
+ * themselves (CNCORE-99): the allowlist is a row now, so a suite that needs one
+ * writes it rather than exporting it. The value is unchanged and so is its
+ * reason -- the stub providers below bind real sockets on 127.0.0.1, and
+ * reaching them is legal only because a CIDR covering loopback is named, which
+ * is ADR-0034's config boundary being exercised rather than bypassed.
+ *
+ * BOTH SETTINGS ARE WRITTEN, NOT JUST THE ONE THIS FILE CARES ABOUT. One row
+ * holds the pair (migration 16) and the suite's files share one database, so a
+ * file that set only the allowlist would inherit whatever providers another
+ * file's last test had named -- and this file asserts on an instance that names
+ * none.
+ */
+await writeProviderSettings(await connect(), {
+  providerAllowlist: LOOPBACK,
+  providerUrls: "",
+});
+
 const context = await createContext({ sessionToken: await aTokenForTheOwner() });
+
+/**
+ * AN INSTANCE CONFIGURED TO REACH EXACTLY THIS, for a test that needs other
+ * settings than the ones this file wrote above.
+ *
+ * A FUNCTION BECAUSE THE CONTEXT'S OWN IS (CNCORE-99). `createContext` reads the
+ * settings when something asks for them rather than when a request arrives, so
+ * most requests -- an item page, a health check, a refusal -- pay no query at
+ * all; an override is therefore a function too, and stands in for the read.
+ */
+const reaching =
+  ({ providers = [], allowlist = LOOPBACK }: { providers?: string[]; allowlist?: string }) =>
+  async () => ({ allowlist: parseAllowlist(allowlist), urls: providers });
 
 async function aTokenForTheOwner(): Promise<string> {
   const password = env.OWNER_PASSWORD;
@@ -242,7 +280,7 @@ describe("a stub provider's identity", () => {
     const { answered, failed } = await call(
       appRouter.provider.search,
       { query: "tenth planet" },
-      { context: { ...context, providerUrls: [baseUrl] } },
+      { context: { ...context, providerSettings: reaching({ providers: [baseUrl] }) } },
     );
 
     expect(failed).toEqual([]);
@@ -639,7 +677,7 @@ describe("provider.purge", () => {
     await call(appRouter.provider.import, { baseUrl, recordId: "265" }, { context });
 
     // The same URL, purged through a context whose allowlist admits nothing.
-    const walledOff = { ...context, providerAllowlist: parseAllowlist("") };
+    const walledOff = { ...context, providerSettings: reaching({ allowlist: "" }) };
     const purged = await call(appRouter.provider.purge, { baseUrl }, { context: walledOff });
 
     expect(purged.statements).toBeGreaterThan(0);
@@ -682,7 +720,7 @@ describe("provider.previewPurge", () => {
     const baseUrl = await stubProvider(undefined, { attribution: ATTRIBUTION });
     await call(appRouter.provider.import, { baseUrl, recordId: "265" }, { context });
 
-    const walledOff = { ...context, providerAllowlist: parseAllowlist("") };
+    const walledOff = { ...context, providerSettings: reaching({ allowlist: "" }) };
     const preview = await call(
       appRouter.provider.previewPurge,
       { baseUrl },
@@ -712,7 +750,7 @@ describe("provider.allowlisted", () => {
   it("says an instance with the default empty allowlist can reach none", async () => {
     // The DEFAULT, parsed by the real parser: `PROVIDER_ALLOWLIST` unset is the
     // empty string, and the empty string refuses everything.
-    const unconfigured = { ...context, providerAllowlist: parseAllowlist("") };
+    const unconfigured = { ...context, providerSettings: reaching({ allowlist: "" }) };
 
     const answer = await call(appRouter.provider.allowlisted, undefined, {
       context: unconfigured,
@@ -734,7 +772,7 @@ describe("provider.allowlisted", () => {
 describe("provider.search", () => {
   it("finds a record by name, with no id known in advance, and says who answered", async () => {
     const baseUrl = await stubProvider();
-    const searching = { ...context, providerUrls: [baseUrl] };
+    const searching = { ...context, providerSettings: reaching({ providers: [baseUrl] }) };
 
     const { answered } = await call(
       appRouter.provider.search,
@@ -784,7 +822,10 @@ describe("provider.search", () => {
     // A URL this instance may not reach: the suite allowlists loopback by name,
     // and this is a public host that is on no allowlisted entry.
     const refused = "http://provider.invalid";
-    const searching = { ...context, providerUrls: [refused, answering] };
+    const searching = {
+      ...context,
+      providerSettings: reaching({ providers: [refused, answering] }),
+    };
 
     const { answered, failed } = await call(
       appRouter.provider.search,
@@ -822,7 +863,7 @@ describe("provider.search", () => {
    */
   it("names the item a candidate is already held as, and the same one on a re-import", async () => {
     const baseUrl = await stubProvider();
-    const searching = { ...context, providerUrls: [baseUrl] };
+    const searching = { ...context, providerSettings: reaching({ providers: [baseUrl] }) };
 
     const first = await call(appRouter.provider.import, { baseUrl, recordId: "265" }, { context });
     const again = await call(appRouter.provider.import, { baseUrl, recordId: "265" }, { context });
@@ -863,7 +904,7 @@ describe("provider.search", () => {
       ]),
     );
     const baseUrl = await stubProvider(malformed);
-    const searching = { ...context, providerUrls: [baseUrl] };
+    const searching = { ...context, providerSettings: reaching({ providers: [baseUrl] }) };
 
     const { answered, failed } = await call(
       appRouter.provider.search,
@@ -891,7 +932,7 @@ describe("provider.configured", () => {
     const baseUrl = await stubProvider();
 
     const answer = await call(appRouter.provider.configured, undefined, {
-      context: { ...context, providerUrls: [baseUrl] },
+      context: { ...context, providerSettings: reaching({ providers: [baseUrl] }) },
     });
 
     expect(answer).toStrictEqual({ providers: [baseUrl] });
@@ -903,7 +944,7 @@ describe("provider.configured", () => {
     // owner -- an instance nobody has configured and one that is broken look
     // identical otherwise -- rather than an error.
     const answer = await call(appRouter.provider.configured, undefined, {
-      context: { ...context, providerUrls: [] },
+      context: { ...context, providerSettings: reaching({ providers: [] }) },
     });
 
     expect(answer).toStrictEqual({ providers: [] });

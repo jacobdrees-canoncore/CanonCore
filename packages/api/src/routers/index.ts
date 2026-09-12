@@ -7,6 +7,7 @@ import { item } from "./item";
 import { placement } from "./placement";
 import { provider } from "./provider";
 import { session } from "./session";
+import { settings } from "./settings";
 import { task } from "./task";
 
 export type { ReportedRun } from "./task";
@@ -21,6 +22,7 @@ export const appRouter = {
   placement,
   provider,
   session,
+  settings,
   task,
 };
 export type AppRouter = typeof appRouter;
