@@ -37,8 +37,8 @@ describe("placements", () => {
     // ADR-0017. Two sources agreeing about a placement are corroboration, and
     // corroboration is recorded against ONE row.
     const container = await anItem(db, { isContainer: true, isOrdered: true });
-    const member = await anItem(db);
-    const row = { ownerId, containerId: container, itemId: member, position: 1 };
+    const story = await anItem(db);
+    const row = { ownerId, containerId: container, itemId: story, position: 1 };
     await db.insert(placements).values(row);
 
     expect(await refusal(db.insert(placements).values(row))).toBe(
