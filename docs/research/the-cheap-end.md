@@ -182,8 +182,8 @@ rootless `podman-compose`. Nothing needed compiling.
 stopped being true.** On 2026-09-10 `crontab` was refused by PAM on this host, so the `@reboot` line
 Whatbox's own Cron wiki documents could not be installed; the host had rebooted two days before the
 test. **CNCORE-85 re-measured it after Whatbox replied to the support ticket, and cron now runs**: a
-crontab installs, and the daemon fired a `* * * * *` line at 13:59:01, 14:00:01 and 14:01:01 UTC with
-nobody logged in. There is still no systemd user session, so the compose file's
+crontab installs, and the daemon fired a `* * * * *` line at 13:59:01, 14:00:01 and 14:01:01 UTC, on
+schedule and with nobody running it. There is still no systemd user session, so the compose file's
 `restart: unless-stopped` and its `healthcheck:` remain inert and the restart has to be a cron
 watchdog rather than a unit — but a minutely watchdog is enough for the clause, which asks only that
 something start the process when the machine comes back. **ADR-0109 carries both measurements, the

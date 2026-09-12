@@ -272,8 +272,8 @@ means anything against the first:
 - **Cron now runs an unattended job, which is the measurement the clause actually needs.** On
   2026-09-12 a crontab installed from stdin and read back, and the daemon fired it: installed at
   13:58:51 UTC, and `* * * * *` logged **13:59:01, 14:00:01 and 14:01:01 UTC**, three consecutive
-  minutes with nobody logged in. `cronie 1.7.0`. **Installing a crontab and having one run are
-  different things, and it is the second that was measured.**
+  minutes, on schedule, with nobody running them. `cronie 1.7.0`. **Installing a crontab and having
+  one run are different things, and it is the second that was measured.**
 - **No `systemd` user session, then or now**: no `systemctl`, no `loginctl`, no `~/.config/systemd`,
   re-checked 2026-09-12. **So the fifth clause is satisfied by cron and not by systemd**, and
   everything below that depends on systemd is still as true as it was.
@@ -304,9 +304,12 @@ watchdog is that something, with a worst case of one minute down after a boot.
 It installs and reads back in the same crontab, and Whatbox's wiki documents it, but installing it is
 not seeing it run. **CNCORE-85 left the `@reboot` probe in place on the slot** — a single `date` into
 `~/cncore85-reboot-probe.log` — so the next host reboot answers it at no cost to anybody, rather than
-leaving a second sentence for somebody to remember. That the daemon itself survives a boot is the
-better-supported half: the host had been up **4 days with 0 users logged in** when cron ran these
-jobs, so nobody started it by hand.
+leaving a second sentence for somebody to remember. **That the cron DAEMON survives a boot is not
+this account's to observe either, and is a weaker worry**: `crond` runs as root, outside the slot,
+and the slot user can neither start nor stop it, so it is a system service Whatbox operates rather
+than something of ours to supervise. The host had been up 4 days when these jobs ran. **`uptime`
+reported "0 users" throughout, including while this account held an open SSH session, so the user
+count on this host is not evidence of anything and is not used as any here.**
 
 The reboot is merely certain to come — the host reported an uptime of 2 days 5 hours on 2026-09-10,
 so it had rebooted two days before. Whatbox supervises its own processes as the slot user — a
@@ -436,7 +439,8 @@ CNCORE-85 added the answer and the re-measurement, both dated 2026-09-12, and th
 over SSH to the same slot: `crontab -l` returning clean, `crontab -` installing from stdin and
 reading back, `/etc/pam.d/crond` and `/etc/security/access.conf` re-checked unchanged, `cronnext`,
 `crond -V` for `cronie 1.7.0`, `which systemctl loginctl` and `~/.config/systemd` re-checked absent,
-and `uptime` for the 4 days and 0 users. The three firings are the contents of
+and `uptime` for the host's 4 days, whose user count is noted above as unusable. The three firings
+are the contents of
 `~/cncore85-cron-probe.log`, written by the probe itself. The vendor's reply is Whatbox's mail on
 ticket 267784, received 2026-09-12 04:00:31 BST from `site@whatbox.ca`, quoted above in full where it
 is load-bearing; **like the ticket itself it is visible only to the account holder**, so it carries
