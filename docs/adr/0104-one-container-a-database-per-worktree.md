@@ -70,16 +70,36 @@ derives `<name>_test` plus one database per suffix a suite asks for, and DROPS t
 enough for the derived one to truncate back onto it would drop the worktree's own database on a test
 run. `build-database.ts` already REFUSES rather than truncating, so the failure was a hard stop
 rather than data loss; reserving the room is what turns that stop into a working setup.
-`testDatabaseNameFor` is the one place that knows how a test database is named, and the reservation
-test builds the derived names by calling it — so the FORMAT cannot drift. **THE SET OF SUFFIXES
-DID**, and saying so is the correction CNCORE-93 owes this paragraph: that test names them in a
-list of its own, which read `["", "web", "fresh"]` while the web suite had grown to five. Two were
-missing and one of those, `_test_purgeable`, was four characters past the reservation — so any
-worktree whose branch stem ran to the limit met the hard stop above and could not run `pnpm
-test:e2e` at all. True of `cncore_47_properties_validation` on the day it was found, 2026-09-12,
-and found by adding a sixth rather than by anything failing. The suffix was shortened rather than
-the reservation widened, because widening it shortens every stem and so RENAMES the database of any
-worktree already past the new limit, leaving its `.env` pointing at the one it had.
+
+**The FORMAT could not drift and the SET did**, which is the distinction this paragraph took two
+tickets to state. `testDatabaseNameFor` is the one place that knows how a test database is named and
+the reservation test builds its derived names by calling it, so `<name>_test_<suffix>` was never in
+question. WHICH SUFFIXES EXIST was: `buildTestDatabase` took a `string`, so the set lived as literals
+at the call sites with a hand-written copy in the reservation test, which read `["", "web", "fresh"]`
+while the web suite had grown to five. Two were missing and one of those, `_test_purgeable`, was four
+characters past the reservation — so any worktree whose branch stem ran to the limit met the hard
+stop above and could not run `pnpm test:e2e` at all. True of `cncore_47_properties_validation` on the
+day it was found, 2026-09-12, and found by adding a sixth rather than by anything failing.
+
+**`TEST_DATABASE_SUFFIXES` is the mechanism that ships** (CNCORE-112). One declaration;
+`buildTestDatabase` takes a member of it and nothing else; the reservation test ranges over it rather
+than over a list of its own. A suffix invented at a call site is now a compile error —
+`buildTestDatabase("purgeable")` answers TS2345 — instead of a suite that dies on somebody else's
+branch. `""` is a member rather than an absence, because `packages/db`'s own suite takes the bare
+`<database>_test` and that case has to be measured like the rest.
+
+**The reservation stays a constant the declaration is HELD TO, never one derived from it.** Widening
+it shortens every stem and so RENAMES the database of any worktree already past the new limit,
+leaving its `.env` pointing at the one it had — so a suffix that does not fit gets shorter, which is
+what CNCORE-93 did to `purgeable`. A `Math.max` over the declared set is the refactor that reverses
+this, and it is tempting exactly because the constant and the declaration now sit one import apart:
+it would make the budget FOLLOW whatever suffix was added last and widen it silently.
+`worktree-database.ts` names that move so the next reader declines it on purpose rather than by luck.
+
+**The budget is nearly full, which is what to know before adding a sixth.** Four of the six declared
+suffixes — `_test_fresh`, `_test_paged`, `_test_purge`, `_test_still` — spend all eleven characters.
+A new one is likelier to need shortening than to fit, and the test now says so at the point of adding
+it rather than on the first branch long enough to break.
 
 **A name shared by two branches, at ANY length.** The name always carries a fingerprint of the whole
 branch, not only when it is too long. The readable stem is lossy on purpose — it strips the owner

@@ -3,9 +3,9 @@ import { createServer, type Server } from "node:http";
 import { createServer as createProbe } from "node:net";
 import { fileURLToPath } from "node:url";
 import type { AppRouterClient } from "@canoncore/api/routers";
-import { assertPlacement, createDb } from "@canoncore/db";
+import { assertPlacement, createDb, type Database } from "@canoncore/db";
 import { type SeededPlacement, seedOneItemInTwoOrderings } from "@canoncore/db/seed";
-import { buildTestDatabase } from "@canoncore/db/testing/build-database";
+import { buildTestDatabase, type TestDatabaseSuffix } from "@canoncore/db/testing/build-database";
 import {
   aCatalogueLargerThanOnePage,
   anItemTitled,
@@ -123,14 +123,15 @@ export default async function setup(project: TestProject) {
   };
   await run("next", ["build"], env);
 
-  const port = await freePort();
-  const server = spawn("next", ["start", "--port", String(port)], {
-    cwd: webRoot,
-    env,
-    stdio: "inherit",
-  });
-  const baseUrl = `http://127.0.0.1:${port}`;
-  await waitUntilAnswering(baseUrl, server);
+  /*
+   * THE ONE BUILD, STARTED HERE AND FOUR MORE TIMES BELOW. This instance takes
+   * `theBuildServing` rather than `anInstanceServing` because the build sits
+   * BETWEEN its database and its server and needs the environment carrying the
+   * database -- so the helper that does both halves cannot serve it without a
+   * flag. The four below have nothing between the two halves and use it.
+   */
+  const server = await theBuildServing(env);
+  const { baseUrl } = server;
   project.provide("baseUrl", baseUrl);
 
   /*
@@ -199,8 +200,8 @@ export default async function setup(project: TestProject) {
   project.provide("browsed", browsed.fixture);
 
   return async () => {
-    server.kill("SIGTERM");
-    fresh.close();
+    server.close();
+    await fresh.close();
     await paged.close();
     await purgeable.close();
     await still.close();
@@ -218,6 +219,112 @@ export default async function setup(project: TestProject) {
 }
 
 /**
+ * THE SERVER HALF, and every one of the five instances is made of it.
+ *
+ * Take a port nothing is on, start the ONE build against the environment given,
+ * wait until it answers. Nothing here knows about databases, which is what lets
+ * `setup` use it directly: that instance runs `next build` BETWEEN its database
+ * and its server, and a helper that did both halves would have to take a flag
+ * saying whether to build. `anInstanceServing` below is that helper for the four
+ * with nothing in between.
+ */
+async function theBuildServing(env: NodeJS.ProcessEnv): Promise<{
+  baseUrl: string;
+  close: () => void;
+}> {
+  const port = await freePort();
+  const server = spawn("next", ["start", "--port", String(port)], {
+    cwd: webRoot,
+    env,
+    stdio: "inherit",
+  });
+  const baseUrl = `http://127.0.0.1:${port}`;
+  await waitUntilAnswering(baseUrl, server);
+  return { baseUrl, close: () => server.kill("SIGTERM") };
+}
+
+/**
+ * A DATABASE OF ITS OWN, WHATEVER FILLS IT, AND A SERVER ON IT (CNCORE-111).
+ *
+ * Four fixtures below spelled this out a line at a time, and the fifth copy is
+ * what made the shape worth naming rather than the first. What each of them is
+ * FOR stays in its own docblock, because that is the part worth reading and the
+ * part an extraction must not swallow; what they share is only the plumbing.
+ *
+ * BOTH ENVIRONMENT VALUES ARE REQUIRED, WHICH IS THE POINT OF TAKING THEM. An
+ * instance inherits this process's environment, so a key left out is not a key
+ * unset -- it is a developer's `.env` reaching a fixture that was supposed to be
+ * without it. `aCatalogueTooBigForOnePage` omitted `PROVIDER_URLS` for exactly
+ * that reason and nothing said so. Now an instance that leaves either ambient
+ * does not compile, which is the same mechanism `TEST_DATABASE_SUFFIXES` uses on
+ * the suffix and not a second one to learn.
+ *
+ * THOSE TWO AND `DATABASE_URL`, AND NOTHING ELSE. The rest of this process's
+ * environment is inherited on purpose -- the server needs `PATH` and the rest to
+ * run at all -- so "cannot go ambient" is a claim about the three keys that
+ * decide what an instance IS, not about the environment as a whole.
+ *
+ * `fill` RUNS BEFORE THE SERVER ANSWERS, so a suite never sees a half-filled
+ * catalogue. An instance whose rows have to be written THROUGH the app cannot
+ * use it -- the app is not up yet -- so it fills nothing here and does its work
+ * on the returned `db` and `baseUrl` instead; `aCatalogueSafeToPurge` is the one
+ * that does.
+ *
+ * The pool is lazy, so an instance that fills nothing opens no connection to the
+ * database it is handed -- and `close` still ends it, so no caller has to know
+ * which kind it is.
+ */
+async function anInstanceServing<Fixture>({
+  suffix,
+  ownerPassword,
+  allowlist,
+  providers,
+  fill,
+}: {
+  suffix: TestDatabaseSuffix;
+  /**
+   * ADR-0044's one password, or the empty string for an instance nobody can log
+   * in to -- which is that record's demo, and is what a read-only instance is.
+   * Required for the reason the two below are: a key left out is not a key
+   * unset, it is this process's own environment reaching a fixture that was
+   * meant to be without it, and an instance that became writable by inheritance
+   * would take the whole point off the tests that assert a visitor sees no
+   * button.
+   */
+  ownerPassword: string;
+  /** ADR-0034's allowlist, as this instance's configuration. */
+  allowlist: string;
+  /** Which providers this instance searches (CNCORE-68), joined for the app. */
+  providers: readonly string[];
+  fill: (db: Database) => Promise<Fixture>;
+}): Promise<{
+  baseUrl: string;
+  db: Database;
+  fixture: Fixture;
+  close: () => Promise<void>;
+}> {
+  const databaseUrl = await buildTestDatabase(suffix);
+  const db = createDb(databaseUrl);
+  const fixture = await fill(db);
+  const server = await theBuildServing({
+    ...process.env,
+    DATABASE_URL: databaseUrl,
+    OWNER_PASSWORD: ownerPassword,
+    PROVIDER_ALLOWLIST: allowlist,
+    PROVIDER_URLS: providers.join(","),
+  });
+  return {
+    baseUrl: server.baseUrl,
+    db,
+    fixture,
+    close: async () => {
+      server.close();
+      await db.$client.end();
+    },
+  };
+}
+
+/**
  * A CanonCore nobody has configured and nobody has filled: the state ADR-0094
  * governs, standing up on its own port.
  *
@@ -231,50 +338,45 @@ export default async function setup(project: TestProject) {
  * The database is built from empty by the same ladder every other suite runs,
  * and nothing seeds it. That is the whole fixture: the emptiness IS the state.
  */
-async function freshInstall(): Promise<{ baseUrl: string; close: () => void }> {
-  const databaseUrl = await buildTestDatabase("fresh");
-  const port = await freePort();
-  const server = spawn("next", ["start", "--port", String(port)], {
-    cwd: webRoot,
-    env: {
-      ...process.env,
-      DATABASE_URL: databaseUrl,
-      /*
-       * AND NO OWNER PASSWORD, which makes this instance ADR-0044's demo as well
-       * as ADR-0094's fresh install: read-only, with no login, because nobody set
-       * one. Explicit for the reason the two below are -- this process inherits
-       * its own environment, and an omitted key would let a value through and
-       * quietly make the demo writable.
-       */
-      OWNER_PASSWORD: "",
-      PROVIDER_ALLOWLIST: "",
-      /*
-       * AND NO PROVIDER NAMED EITHER, which is the second half of the same first
-       * run. `PROVIDER_URLS` defaults to the empty string and the empty string
-       * names nothing, so a stranger's instance searches no provider -- and the
-       * import surface has to SAY that rather than show an empty result
-       * (ADR-0094). Passed explicitly rather than omitted, for the reason the
-       * allowlist is: this process inherits its own environment, and an omitted
-       * key would let the parent's value through.
-       *
-       * AND THE EXPLICIT EMPTY STRING IS NOT ENOUGH ON ITS OWN, which is worth
-       * knowing before somebody loses an afternoon to it. A value for either of
-       * these in `apps/web/.env` REACHES THIS SERVER ANYWAY and this instance
-       * stops being a fresh install: both notices vanish and four tests here fail
-       * together, pointing at the page rather than at the file. Measured while
-       * building CNCORE-68, by putting a provider in `.env` to look at the surface
-       * in a browser -- and it is not dotenv doing it, which leaves an explicit
-       * empty string alone (checked on 17.4.2), but Next's own env loading inside
-       * the server. CI never sees it because a fresh checkout has no `.env`; a
-       * developer's machine sees it the first time they configure one.
-       */
-      PROVIDER_URLS: "",
-    },
-    stdio: "inherit",
+function freshInstall() {
+  return anInstanceServing({
+    suffix: "fresh",
+    /*
+     * AND NO OWNER PASSWORD, which makes this instance ADR-0044's DEMO as well as
+     * ADR-0094's fresh install: read-only, with no login, because nobody set one.
+     * Empty rather than omitted for the reason the two below are, and
+     * `anInstanceServing` is what makes that structural -- an omitted key here
+     * would let a developer's `.env` through and quietly make the demo writable.
+     */
+    ownerPassword: "",
+    allowlist: "",
+    /*
+     * AND NO PROVIDER NAMED EITHER, which is the second half of the same first
+     * run. `PROVIDER_URLS` defaults to the empty string and the empty string
+     * names nothing, so a stranger's instance searches no provider -- and the
+     * import surface has to SAY that rather than show an empty result
+     * (ADR-0094). An empty list rather than an omitted key, for the reason the
+     * allowlist is: this process inherits its own environment, and an omitted
+     * key would let the parent's value through. `anInstanceServing` is what
+     * makes that structural -- there is no longer a way to omit it.
+     *
+     * AND THE EXPLICIT EMPTY STRING IS NOT ENOUGH ON ITS OWN, which is worth
+     * knowing before somebody loses an afternoon to it. A value for either of
+     * these in `apps/web/.env` REACHES THIS SERVER ANYWAY and this instance
+     * stops being a fresh install: both notices vanish and four tests here fail
+     * together, pointing at the page rather than at the file. Measured while
+     * building CNCORE-68, by putting a provider in `.env` to look at the surface
+     * in a browser -- and it is not dotenv doing it, which leaves an explicit
+     * empty string alone (checked on 17.4.2), but Next's own env loading inside
+     * the server. CI never sees it because a fresh checkout has no `.env`; a
+     * developer's machine sees it the first time they configure one.
+     */
+    providers: [],
+    // NOTHING SEEDS IT, and that is the fixture rather than an omission: the
+    // emptiness IS the state under test. Said here rather than left off, so an
+    // instance that forgot to seed and one that must not read differently.
+    fill: async () => {},
   });
-  const baseUrl = `http://127.0.0.1:${port}`;
-  await waitUntilAnswering(baseUrl, server);
-  return { baseUrl, close: () => server.kill("SIGTERM") };
 }
 
 /**
@@ -292,31 +394,25 @@ async function freshInstall(): Promise<{ baseUrl: string; close: () => void }> {
  * the second one: what a second environment proves is the SHIPPED page meeting
  * a state, rather than a second build of it.
  */
-async function aCatalogueTooBigForOnePage() {
-  const databaseUrl = await buildTestDatabase("paged");
-  const db = createDb(databaseUrl);
-  /*
-   * TWO AND A HALF PAGES, not one and a bit. Three pages is the smallest walk
-   * with a MIDDLE one -- reached by a cursor and handing one on -- and the
-   * middle is where a cursor that works at the edges still fails.
-   */
-  const catalogue = await aCatalogueLargerThanOnePage(db, 254);
-  const port = await freePort();
-  const server = spawn("next", ["start", "--port", String(port)], {
-    cwd: webRoot,
-    env: { ...process.env, DATABASE_URL: databaseUrl, PROVIDER_ALLOWLIST: "127.0.0.0/8" },
-    stdio: "inherit",
+function aCatalogueTooBigForOnePage() {
+  return anInstanceServing({
+    suffix: "paged",
+    // NOBODY WRITES TO IT, so nobody logs in to it: this instance exists to be
+    // walked, and a password it never uses would be a value nothing reads.
+    ownerPassword: "",
+    allowlist: "127.0.0.0/8",
+    // EXPLICIT AND EMPTY, WHERE IT USED TO BE NEITHER (CNCORE-111). This was the
+    // one instance that omitted `PROVIDER_URLS`, so a developer with providers
+    // in `apps/web/.env` gave it ones CI never has. Nothing here imports, so the
+    // difference was invisible rather than harmless.
+    providers: [],
+    /*
+     * TWO AND A HALF PAGES, not one and a bit. Three pages is the smallest walk
+     * with a MIDDLE one -- reached by a cursor and handing one on -- and the
+     * middle is where a cursor that works at the edges still fails.
+     */
+    fill: (db) => aCatalogueLargerThanOnePage(db, 254),
   });
-  const baseUrl = `http://127.0.0.1:${port}`;
-  await waitUntilAnswering(baseUrl, server);
-  return {
-    baseUrl,
-    fixture: catalogue,
-    close: async () => {
-      server.kill("SIGTERM");
-      await db.$client.end();
-    },
-  };
 }
 
 /**
@@ -349,29 +445,24 @@ async function aCatalogueTooBigForOnePage() {
  * own motivating case rather than an edge of it.
  */
 async function aCatalogueSafeToPurge(wikiUrl: string, tmdbUrl: string) {
-  // `purge` RATHER THAN `purgeable`, WHICH IS A LENGTH AND NOT A PREFERENCE.
-  // `worktreeDatabaseName` reserves room for the longest name derived from it,
-  // and `_test_purgeable` is four characters past that reservation -- so on a
-  // branch whose stem runs to the limit, `buildTestDatabase` refuses this one
-  // and the whole e2e suite dies before its first assertion. Measured against
-  // `cncore_47_properties_validation`, a stem this repo actually has.
-  const databaseUrl = await buildTestDatabase("purge");
-  const port = await freePort();
-  const server = spawn("next", ["start", "--port", String(port)], {
-    cwd: webRoot,
-    env: {
-      ...process.env,
-      DATABASE_URL: databaseUrl,
-      PROVIDER_ALLOWLIST: "127.0.0.0/8",
-      PROVIDER_URLS: [wikiUrl, tmdbUrl, UNREACHABLE_PROVIDER].join(","),
-      // Filled through the app and then purged through the page, both of which
-      // are the owner's.
-      OWNER_PASSWORD,
-    },
-    stdio: "inherit",
+  const instance = await anInstanceServing({
+    // `purge` RATHER THAN `purgeable`, WHICH IS A LENGTH AND NOT A PREFERENCE:
+    // `_test_purgeable` is four characters past the budget `worktree-database.ts`
+    // reserves, so on a branch whose stem ran to the limit the whole e2e suite
+    // died before its first assertion. The word is now a declared member of
+    // `TEST_DATABASE_SUFFIXES` rather than a literal, so the budget is checked
+    // rather than remembered (CNCORE-112).
+    suffix: "purge",
+    // FILLED THROUGH THE APP AND THEN PURGED THROUGH THE PAGE, both of which are
+    // the owner's since CNCORE-109.
+    ownerPassword: OWNER_PASSWORD,
+    allowlist: "127.0.0.0/8",
+    providers: [wikiUrl, tmdbUrl, UNREACHABLE_PROVIDER],
+    // NOTHING BEFORE THE SERVER, because everything this fixture holds has to go
+    // in THROUGH the app and the app is not up yet. The filling is below.
+    fill: async () => {},
   });
-  const baseUrl = `http://127.0.0.1:${port}`;
-  await waitUntilAnswering(baseUrl, server);
+  const { baseUrl, db } = instance;
 
   // FILLED THROUGH THE APP, for the reason every other fixture here is: the
   // rows a purge deletes have to be rows the app's own import path wrote, or
@@ -394,7 +485,6 @@ async function aCatalogueSafeToPurge(wikiUrl: string, tmdbUrl: string) {
    * state to be asserted in -- the numbers would be right for a catalogue nobody
    * had curated, which is the one catalogue this product is not for.
    */
-  const db = createDb(databaseUrl);
   const owner = await ownerSource(db);
   /*
    * A PLACEMENT AND A TITLE, because the criterion says EDITED and those are two
@@ -450,10 +540,7 @@ async function aCatalogueSafeToPurge(wikiUrl: string, tmdbUrl: string) {
       ),
       keptFromPurged: await kept(firstMemberOf(purged), "An ordering the owner keeps, of films"),
     },
-    close: async () => {
-      server.kill("SIGTERM");
-      await db.$client.end();
-    },
+    close: instance.close,
   };
 }
 
@@ -496,46 +583,32 @@ const HOLDING_STILL = [
  * page-agrees-with-router was the weaker assertion anyway -- the page reads its
  * total THROUGH that procedure, so the two agreeing is one code path agreeing
  * with itself.
- *
- * TODO(CNCORE-111): this is the fourth near-verbatim copy of build a database,
- * take a port, spawn `next start`, wait for it to answer, hand back a close.
- * Folding the four together touches three fixtures this ticket did not otherwise
- * change, and they differ in what an extraction has to carry rather than flatten.
  */
-async function aCatalogueThatHoldsStill() {
-  const databaseUrl = await buildTestDatabase("still");
-  const db = createDb(databaseUrl);
-  // In series, because `anItemTitled` writes a statement and reads the owner
-  // back for it -- and what this fixture is for is the COUNT, so two of them
-  // racing to the same number is the one thing it must not do.
-  for (const title of HOLDING_STILL) await anItemTitled(db, title);
-  const port = await freePort();
-  const server = spawn("next", ["start", "--port", String(port)], {
-    cwd: webRoot,
-    env: {
-      ...process.env,
-      DATABASE_URL: databaseUrl,
-      PROVIDER_ALLOWLIST: "127.0.0.0/8",
-      // EXPLICIT, NOT OMITTED, for the reason `freshInstall` spells out above:
-      // this process inherits its own environment, so an omitted key lets a
-      // developer's `.env` through. Nothing here imports, so a leaked provider
-      // could not actually write -- but "nothing writes to it" is this
-      // fixture's whole contract, and leaving the one channel open that could
-      // make that false locally is how a fixture stops meaning what it says.
-      PROVIDER_URLS: "",
+function aCatalogueThatHoldsStill() {
+  return anInstanceServing({
+    suffix: "still",
+    // NO PASSWORD, WHICH IS PART OF THIS FIXTURE'S CONTRACT rather than a
+    // setting it happens not to need: "nothing writes to it" is what it is for,
+    // and an instance nobody can log in to cannot be written to at all
+    // (CNCORE-109). The same reasoning as the empty provider list below, one
+    // channel over.
+    ownerPassword: "",
+    allowlist: "127.0.0.0/8",
+    // EXPLICIT, NOT OMITTED, for the reason `freshInstall` spells out above:
+    // this process inherits its own environment, so an omitted key lets a
+    // developer's `.env` through. Nothing here imports, so a leaked provider
+    // could not actually write -- but "nothing writes to it" is this fixture's
+    // whole contract, and leaving the one channel open that could make that
+    // false locally is how a fixture stops meaning what it says.
+    providers: [],
+    fill: async (db) => {
+      // In series, because `anItemTitled` writes a statement and reads the owner
+      // back for it -- and what this fixture is for is the COUNT, so two of them
+      // racing to the same number is the one thing it must not do.
+      for (const title of HOLDING_STILL) await anItemTitled(db, title);
+      return HOLDING_STILL;
     },
-    stdio: "inherit",
   });
-  const baseUrl = `http://127.0.0.1:${port}`;
-  await waitUntilAnswering(baseUrl, server);
-  return {
-    baseUrl,
-    fixture: HOLDING_STILL,
-    close: async () => {
-      server.kill("SIGTERM");
-      await db.$client.end();
-    },
-  };
 }
 
 /**

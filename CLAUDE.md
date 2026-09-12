@@ -135,12 +135,12 @@ in for the library. It ruled 11 claims contradicted on 2026-09-12, most of them 
 - `gh` carries `read:packages`, so `docker pull ghcr.io/jacobdrees-canoncore/*` works here. The
   other half of that lives outside git: a repo gets Read under the package's own Manage Actions
   access, or its jobs die at `Initialize containers` on the single word `denied`.
-- `provider-tmdb` takes `TMDB_READ_ACCESS_TOKEN` from the environment and throws at startup without
-  it; locally that comes from `~/.config/canoncore/provider-tmdb.env`, in CI from the repo secret.
+- Credentials live in `~/.config/canoncore/`, outside every repo so no commit can reach them and
+  every worktree reads one copy: `provider-tmdb.env` (that provider throws at startup without its
+  token; CI uses the repo secret) and `whatbox.env` (the slot's login, for SSH or its web UI).
 
-Install whatever makes the work easier, without asking: Homebrew for tools, corepack for package
-managers, whatever a ticket turns out to need. What earns a question first is anything that spends
-money, holds a licence, or runs as a background service.
+Install whatever makes the work easier, without asking. What earns a question first is anything
+that spends money, holds a licence, or runs as a background service.
 
 Machine state is not repo state. A tool the build or the tests reach for belongs in the manifests
 CI and a fresh clone read, never only on this Mac, because that gap is silent here and surfaces as
