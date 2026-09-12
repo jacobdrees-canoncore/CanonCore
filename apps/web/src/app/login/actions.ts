@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { callerContext, forgetSession, rememberSession } from "@/session";
+import { REFUSED } from "./refusal";
 
 /** What the form carries. A password is a string; nothing here judges it. */
 const offered = z.object({ password: z.string() });
@@ -37,7 +38,18 @@ export async function logIn(form: FormData): Promise<void> {
   // A REFUSED PASSWORD IS AN ANSWER, NOT A CRASH -- the same rule
   // `provider.import` takes for a URL the allowlist declines. Anything else that
   // went wrong is a genuine fault and goes on being one.
-  if (error instanceof ORPCError && error.code === "UNAUTHORIZED") redirect("/login?refused=1");
+  //
+  // TWO REFUSALS AND TWO SENTENCES (ADR-0125). `UNAUTHORIZED` is a fact about
+  // the password offered; `TOO_MANY_REQUESTS` is a fact about how often this
+  // instance has been asked, and the password in hand may well be the right one.
+  // Telling an owner who has just typed theirs correctly that it was refused
+  // would send them looking for a password that is not lost. The reason rides in
+  // the parameter rather than in a second one, because the page asks one
+  // question: what happened.
+  if (error instanceof ORPCError) {
+    if (error.code === "UNAUTHORIZED") redirect(`/login?refused=${REFUSED.password}`);
+    if (error.code === "TOO_MANY_REQUESTS") redirect(`/login?refused=${REFUSED.tooMany}`);
+  }
   if (error) throw error;
 
   await rememberSession(data.token);

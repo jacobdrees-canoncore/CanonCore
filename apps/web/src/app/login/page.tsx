@@ -8,6 +8,7 @@ import Link from "next/link";
 import { oneValue } from "@/components/query-params";
 import { callerContext } from "@/session";
 import { logIn, logOut } from "./actions";
+import { REFUSED } from "./refusal";
 
 /**
  * WHERE THE OWNER BECOMES THE OWNER (CNCORE-109).
@@ -40,7 +41,7 @@ export default async function LoginPage({
       {context.session !== null ? (
         <LoggedIn />
       ) : configured.password ? (
-        <LogInForm refused={oneValue(asked.refused) !== undefined} />
+        <LogInForm refused={oneValue(asked.refused)} />
       ) : (
         <NoPasswordSet />
       )}
@@ -67,7 +68,7 @@ function NoPasswordSet() {
   );
 }
 
-function LogInForm({ refused }: { refused: boolean }) {
+function LogInForm({ refused }: { refused?: string }) {
   return (
     <>
       <p className="mt-2 text-muted-foreground text-sm">
@@ -86,9 +87,25 @@ function LogInForm({ refused }: { refused: boolean }) {
           Log in
         </Button>
       </form>
-      {refused && (
+      {/*
+        WHAT HAPPENED, IN THE OWNER'S TERMS. Two refusals reach this page and
+        only one of them is about the password (ADR-0125): an owner who has just
+        typed theirs correctly into an instance somebody else has been guessing
+        at is told to wait, not told they got it wrong.
+
+        A VALUE THIS PAGE DOES NOT RECOGNISE SAYS NOTHING, which is what keeps
+        the parameter from being a way to put a sentence of somebody else's
+        choosing in front of a visitor.
+      */}
+      {refused === REFUSED.password && (
         <p className="mt-4 text-sm" role="alert">
           That password was refused.
+        </p>
+      )}
+      {refused === REFUSED.tooMany && (
+        <p className="mt-4 text-sm" role="alert">
+          Too many passwords have been tried on this instance, so it is checking them slowly now.
+          Wait a moment and try again.
         </p>
       )}
     </>

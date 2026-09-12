@@ -9,6 +9,15 @@ import type { NextRequest } from "next/server";
 
 import { SESSION_COOKIE } from "@/session";
 
+/*
+ * TODO(CNCORE-120): THIS LOGS AN EXPECTED REFUSAL AS A FAULT, AND WITHOUT A
+ * CEILING. `UNAUTHORIZED` from every write procedure and `TOO_MANY_REQUESTS`
+ * from `session.logIn` are answers this surface chose to give, and each one
+ * writes a stack trace per ARRIVING request -- so anybody who can reach the
+ * process can fill the owner's log at the rate it serves. ADR-0125 bounds the
+ * login refusal's OWN line to four a minute and says so; this is the half that
+ * is not bounded, and it is surface-wide rather than login-shaped.
+ */
 const rpcHandler = new RPCHandler(appRouter, {
   interceptors: [
     onError((error) => {
