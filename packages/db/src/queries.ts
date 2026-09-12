@@ -64,6 +64,44 @@ export interface PlacementOfItem {
 }
 
 /**
+ * THE THREE TERMS THAT DECIDE WHICH SOURCE SPEAKS, written once because two
+ * queries below read them and a third copy of this rule lives in SQL.
+ *
+ * They are `winning_literal`'s, in its order and for its reasons -- migration 1.
+ * Rank first, because the owner's favourite is the lock and outranks the whole
+ * source order (ADR-0024); then the one global source order (ADR-0025); then the
+ * row id, an arbitrary but stable tiebreak. Recency is deliberately absent.
+ *
+ * `spokesmanFor` applies them to PICK one source and `assertersOf` to ORDER
+ * every source, which is the same rule answering two questions rather than two
+ * rules. Named here rather than written out twice: this file already carries a
+ * paragraph about three copies of a rule whose whole point is that it is
+ * identical, and that paragraph was about the version with three copies.
+ *
+ * THE COPY IN `winning_literal` CANNOT JOIN THEM, and that is the one place the
+ * duplication is real: it is PL/pgSQL in a migration, which no TypeScript
+ * constant reaches. Two languages, and the ADR says to keep them identical by
+ * hand.
+ */
+const whoSpeaksFirst = [ranks.precedence, sources.sourceOrder, placementSources.id];
+
+/**
+ * THE LIVE CLAIMS BEHIND THE PLACEMENT THIS ROW IS FOR, and the tombstone both
+ * readers honour.
+ *
+ * The placement source's OWN, the exact analogue of the statement's own that
+ * `winning_literal` checks. `sources.deleted_at` is deliberately absent from
+ * this and from `winning_literal` alike (ADR-0017): a query locally more correct
+ * than its twin makes one field's provenance disagree with another's, in a way
+ * that compiles perfectly. Nothing can delete a source today; when something
+ * can, this is now ONE line rather than two.
+ */
+const standingBehindThePlacement = and(
+  eq(placementSources.placementId, placements.id),
+  isNull(placementSources.deletedAt),
+);
+
+/**
  * WHICH source speaks for a placement, when several do -- and, when two of them
  * disagree about position, WHICH OF THE TWO PLACEMENTS SPEAKS.
  *
@@ -102,8 +140,8 @@ function spokesmanFor(db: Database) {
     .from(placementSources)
     .innerJoin(sources, eq(sources.id, placementSources.sourceId))
     .innerJoin(ranks, eq(ranks.rank, placementSources.rank))
-    .where(and(eq(placementSources.placementId, placements.id), isNull(placementSources.deletedAt)))
-    .orderBy(ranks.precedence, sources.sourceOrder, placementSources.id)
+    .where(standingBehindThePlacement)
+    .orderBy(...whoSpeaksFirst)
     .limit(1)
     .as("spokesman");
 }
@@ -855,6 +893,52 @@ export interface PlacementInContainer {
   itemId: string;
   /** Where this placement sits in this container's ordering (ADR-0018). */
   position: number | null;
+  /**
+   * WHO SAYS IT SITS HERE: every source standing behind this placement, by the
+   * label each calls itself (ADR-0017). Empty for a placement no source
+   * asserted, which is a claim nobody made rather than a row to drop.
+   *
+   * THE SET RATHER THAN A SPOKESMAN, and that is the whole of CNCORE-90. One
+   * item twice in one container is a Repeat (ADR-0009) or two sources
+   * disagreeing about position (ADR-0017), nothing STORED tells the two apart,
+   * and what does is who asserted each row: one source saying it twice against
+   * two sources saying it once each.
+   */
+  assertedBy: string[];
+}
+
+/**
+ * EVERY SOURCE STANDING BEHIND ONE PLACEMENT, by the label each calls itself.
+ *
+ * THE SET, WHERE `spokesmanFor` ABOVE PICKS ONE, and the two answer different
+ * questions rather than one of them being the other done loosely. From the
+ * item's end the rows are competing ORDERINGS and rank decides which speaks, so
+ * one name is the answer. From the container's end the rows are what it HOLDS,
+ * in position order (ADR-0018) -- and there a Repeat and a disagreement are the
+ * same shape, so the reader is the one who tells them apart and needs every
+ * name to do it.
+ */
+function assertersOf(db: Database) {
+  return (
+    db
+      .select({
+        // `whoSpeaksFirst`, ORDERING EVERY NAME WHERE THE SPOKESMAN PICKS ONE.
+        // The same three terms, read from the same array rather than written out
+        // again, so the source that speaks for a placement leads the list that
+        // names them and the two queries cannot come to disagree about which one
+        // that is.
+        labels: sql<string[]>`coalesce(
+          json_agg(${sources.label} order by ${sql.join(whoSpeaksFirst, sql`, `)}),
+          '[]'::json
+        )`.as("labels"),
+      })
+      .from(placementSources)
+      .innerJoin(sources, eq(sources.id, placementSources.sourceId))
+      .innerJoin(ranks, eq(ranks.rank, placementSources.rank))
+      // The same predicate the spokesman reads, tombstone and all.
+      .where(standingBehindThePlacement)
+      .as("asserters")
+  );
 }
 
 /** What one container holds, and how much of it this answer carries. */
@@ -894,25 +978,34 @@ export interface PlacementsInContainer {
  * THAN THE ORDER. That function is a walk over `items`: it selects an item's
  * id, joins `item_kinds` for the reader's word and counts `items` matching the
  * question asked. This walks `placements` -- a different relation, whose rows
- * carry a placement's id, no kind at all, and a count of memberships rather
- * than of items. What the two DO share is the page itself, and that is shared:
- * the cap, the extra row, the cursor and the count-in-one-snapshot are
- * `onePage` above, written once for both, because those are the rules that have
- * historically gone wrong separately.
+ * carry a placement's id, no kind at all, an aggregate of who asserted them,
+ * and a count of memberships rather than of items. What the two DO share is the
+ * page itself, and that is shared: the cap, the extra row, the cursor and the
+ * count-in-one-snapshot are `onePage` above, and the two-regime cursor is
+ * `pastInTwoRegimes` -- both written once for both listings, because those are
+ * the rules that have historically gone wrong separately.
  *
  * THE ORDER IS `position` AND THEN THE PLACEMENT'S ID, which is the order this
  * query already had. Both halves are load-bearing in the cursor for the reasons
- * `pastInThisContainer` below gives, and they are the same two regimes the
- * catalogue's own walk has: a position nothing asserted is NULL and sorts last
- * as one block, and two placements may share a position (ADR-0009 keeps no
- * unique constraint on it, so a novel and the film adapting it can sit at one
- * point without an order being invented between them).
+ * `pastInTwoRegimes` gives, and they are the same two regimes the catalogue's
+ * own walk has: a position nothing asserted is NULL and sorts last as one
+ * block, and two placements may share a position (ADR-0009 keeps no unique
+ * constraint on it, so a novel and the film adapting it can sit at one point
+ * without an order being invented between them).
+ *
+ * AND THE CAP IS WHAT THE LATERAL MADE URGENT, which is CNCORE-90 measuring for
+ * this ticket rather than a coincidence. Each row carries a lateral naming who
+ * asserted it: 4.4 ms against 0.8 ms without it, over 1,049 members with two
+ * sources each, measured 2026-09-12 on the PostgreSQL 18.6 `compose.yaml` pins
+ * (ADR-0017 carries the measurement and what it rests on). That was the cost of
+ * the uncapped page this replaces; a capped one pays it over 100 rows.
  */
 export async function findPlacementsInContainer(
   db: Database,
   containerId: string,
   { limit, after }: { limit: number; after?: string },
 ): Promise<PlacementsInContainer> {
+  const asserters = assertersOf(db);
   const held = and(
     eq(placements.containerId, containerId),
     isNull(placements.deletedAt),
@@ -934,6 +1027,20 @@ export async function findPlacementsInContainer(
           itemId: placements.itemId,
           position: placements.position,
           /*
+           * WHO SAYS IT SITS HERE (ADR-0017, CNCORE-90). A CROSS join where the
+           * spokesman's is LEFT, and neither can drop a row: an aggregate with
+           * no `group by` answers exactly one row whatever it aggregates, so a
+           * placement no source stands behind joins an empty array rather than
+           * nothing. The refusal is `findPlacementsOfItem`'s -- the read path
+           * does not get to decide a row does not exist because its provenance
+           * was never recorded.
+           *
+           * IT IS ON THE PAGE RATHER THAN ON THE COUNT, which is what the cap
+           * buys: the lateral is 4.4 ms against 0.8 ms over 1,049 members, and
+           * a capped page pays it over 100 rows instead of over all of them.
+           */
+          assertedBy: asserters.labels,
+          /*
            * THE SAME PREDICATE THE ENTRIES USE, in the same statement and
            * therefore the same snapshot, and UNCORRELATED so the cursor cannot
            * reach it -- all three for the reasons `walkListing` gives above. The
@@ -947,6 +1054,7 @@ export async function findPlacementsInContainer(
         })
         .from(placements)
         .innerJoin(items, eq(items.id, placements.itemId))
+        .crossJoinLateral(asserters)
         .where(and(held, past))
         /*
          * `nulls last` IS THE DEFAULT FOR `asc` AND IS WRITTEN OUT ANYWAY, for
@@ -955,7 +1063,13 @@ export async function findPlacementsInContainer(
          */
         .orderBy(sql`${placements.position} nulls last`, sql`${placements.id}`)
         .limit(howMany),
-    asEntry: ({ id, title, itemId, position }) => ({ id, title, itemId, position }),
+    asEntry: ({ id, title, itemId, position, assertedBy }) => ({
+      id,
+      title,
+      itemId,
+      position,
+      assertedBy,
+    }),
     sizeOnItsOwn: () => countPlacements(db, held),
   });
 }

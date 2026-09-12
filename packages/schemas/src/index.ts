@@ -154,21 +154,27 @@ export type AttributionPublic = z.infer<typeof attributionPublic>;
  * one `itemId` between them (ADR-0009), so nothing but the placement id can
  * tell the recap from the episode.
  *
- * WHAT IT DOES NOT CARRY is `placedBy`, and THE FIRST REASON GIVEN FOR THAT WAS
- * WRONG. It said a container's own list is one ordering "so every row would
- * answer the same". ADR-0017 says otherwise: sources disagreeing about position
- * produce TWO placement rows in one container, and nothing stops the owner
- * hand-placing into a container a provider browsed. Rows here can differ in
- * `placedBy`, and the consequence is that a Repeat (ADR-0009, one source, twice,
- * on purpose) and a disagreement (two sources, one membership) render
- * identically.
+ * IT CARRIES `assertedBy` WHERE THE MIRROR CARRIES `placedBy`, and the asymmetry
+ * is CNCORE-90's decision rather than an oversight. A Repeat (ADR-0009: one
+ * source, one item, twice, on purpose) and a disagreement (ADR-0017: two sources
+ * claiming different positions for one membership) are THE SAME SHAPE in this
+ * list -- one title, twice, at two positions -- and ADR-0017 says outright that
+ * nothing STORED separates them. What separates them is WHO asserted each row.
  *
- * TODO(CNCORE-90): make that distinguishable. It is left out here rather than
- * fixed in place because no instance can hold a disagreement yet -- only
- * `browse` writes placements, and one call writes one source's claims -- and
- * because the fix is not just this field: `findPlacementsOfItem` resolves a
- * spokesman by rank, and this list cannot copy that ordering, since position
- * leads inside a container (ADR-0018) where rank leads across them.
+ * SO IT IS THE SET, AND THE LABELS, RATHER THAN ONE KIND. `placedBy` answers
+ * what SORT of thing placed it, which is what the item's end filters on, and it
+ * cannot carry this: the disagreement an instance can actually hold is a wiki
+ * against a broadcaster, two providers, and `placedBy` prints "Imported" for
+ * both. Naming the sources is what says a repeat's two rows came from one and a
+ * disagreement's from two -- and it closes ADR-0017's other named gap on the
+ * way, that two sources corroborating ONE placement were invisible to a reader.
+ *
+ * WHAT IT STILL DOES NOT CARRY is which of two competing rows SPEAKS. Position
+ * leads inside a container (ADR-0018), so the order cannot say it as the item's
+ * end does, and no field says it either: a repeat's rows and a disagreement's
+ * are one shape to the query, so marking a winner would mean guessing which
+ * pairs compete. The reader draws that conclusion from the names, exactly as
+ * ADR-0017 has them draw it from two rows on the item's end.
  */
 export const placementInContainerPublic = z.object({
   id: z.uuid(),
@@ -183,6 +189,21 @@ export const placementInContainerPublic = z.object({
    * asserts an order the source never gave.
    */
   position: z.number().int().nullable(),
+  /**
+   * Every source standing behind this placement, by the label each calls itself
+   * (ADR-0017), the one that SPEAKS for it first -- rank, then the one global
+   * source order, then a stable id, which is `spokesmanFor`'s rule applied to
+   * ORDER the names rather than to pick one of them.
+   *
+   * THE LABEL RATHER THAN THE KIND, because the question a reader asks of this
+   * list is who says so. `statementPublic` carries a `sourceLabel` for the same
+   * reason, and the page prints it for the same reason again.
+   *
+   * EMPTY FOR A PLACEMENT NO SOURCE ASSERTED -- a claim nobody made, which is
+   * still a placement. Dropping it would be the read path deciding a row does
+   * not exist because its provenance was never recorded.
+   */
+  assertedBy: z.array(z.string()),
 });
 
 export type PlacementInContainerPublic = z.infer<typeof placementInContainerPublic>;

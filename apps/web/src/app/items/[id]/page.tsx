@@ -465,19 +465,46 @@ function Members({
             >
               {placement.title ?? "Untitled item"}
             </Link>
-            {/*
-              One expression rather than `#{position}`, for the reason
-              `AlsoAppearsIn` gives: React server-renders a text literal beside
-              an expression with a `<!-- -->` between them.
+            <span className="flex items-baseline gap-3 text-muted-foreground text-sm">
+              {/*
+                WHO SAYS IT SITS HERE, which is what tells a Repeat from two
+                sources disagreeing (CNCORE-90). Both are one title twice at two
+                positions -- ADR-0009 licences the first and ADR-0017 produces
+                the second -- and nothing stored separates them, so a reader
+                telling them apart is a reader reading these names: one source
+                against two.
 
-              AND AN UNPLACED MEMBER SAYS SO rather than being dropped or
-              numbered last. `positionLabel` is shared with the list below, so
-              the two surfaces cannot come to describe the same absence in two
-              different ways -- CONTEXT.md settles the words as "no position
-              given" and is binding on UI copy.
-            */}
-            <span className="text-muted-foreground text-sm">
-              {positionLabel(placement.position)}
+                THE SOURCES' OWN LABELS RATHER THAN "Imported", and the strip in
+                `AlsoAppearsIn` below says the kind for a reason that does not
+                hold here. That list asks how an item came to be in a container,
+                which four words answer; this one asks WHO claims this position,
+                and the disagreement a catalogue really holds is a wiki against a
+                broadcaster -- two providers, one word between them. `Values`
+                above prints a statement's source label for the same reason.
+
+                THE ONE THAT SPEAKS LEADS (ADR-0017), because the read path
+                orders them by rank, the source order and a stable id -- the
+                spokesman's own three terms. A comma is enough of a separator: a
+                row naming two sources is two sources AGREEING, which is a fact
+                about the placement rather than a competition.
+
+                A PLACEMENT NOBODY ASSERTED PRINTS NOTHING rather than "nobody".
+                The row is still a member and still a link; what is absent is a
+                claim, and the page has no business inventing words for one.
+              */}
+              {placement.assertedBy.length > 0 && <span>{placement.assertedBy.join(", ")}</span>}
+              {/*
+                One expression rather than `#{position}`, for the reason
+                `AlsoAppearsIn` gives: React server-renders a text literal beside
+                an expression with a `<!-- -->` between them.
+
+                AND AN UNPLACED MEMBER SAYS SO rather than being dropped or
+                numbered last. `positionLabel` is shared with the list below, so
+                the two surfaces cannot come to describe the same absence in two
+                different ways -- CONTEXT.md settles the words as "no position
+                given" and is binding on UI copy.
+              */}
+              <span>{positionLabel(placement.position)}</span>
             </span>
           </li>
         ))}

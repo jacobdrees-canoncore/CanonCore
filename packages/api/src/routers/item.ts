@@ -234,6 +234,7 @@ export const item = {
             title: placement.title,
             itemId: placement.itemId,
             position: placement.position,
+            assertedBy: placement.assertedBy,
           })),
           total: holds.total,
           continuesAfter: holds.continuesAfter,

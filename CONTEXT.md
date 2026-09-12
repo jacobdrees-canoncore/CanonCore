@@ -112,7 +112,9 @@ _Avoid_: duplicate, cross-listing
 **Placed by**:
 Which kind of source put an item into a container, said in the words of the list rather than of the
 model: hand-placed, imported, from the files, rule-derived. One list filtered by it, never two lists
-split by it.
+split by it. These are the words of "Also appears in", the ITEM's end. From the container's end the
+rows name the SOURCES instead, because two providers disagreeing about a position are both
+"imported" and the kind cannot tell that from a Repeat.
 _Avoid_: manual, automatic, smart
 
 ### Renderings

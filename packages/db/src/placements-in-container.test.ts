@@ -1,8 +1,14 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { assertPlacement, type Database, findPlacementsInContainer, items } from "./index";
-import { anItemTitled, aPlacement, connect, ownerSource } from "./testing/catalogue";
+import {
+  assertPlacement,
+  type Database,
+  findPlacementsInContainer,
+  items,
+  placementSources,
+} from "./index";
+import { anItemTitled, aPlacement, aProvider, connect, ownerSource } from "./testing/catalogue";
 
 let db: Database;
 
@@ -327,3 +333,184 @@ async function walkEveryMemberOf(containerId: string, limit: number): Promise<st
   }
   throw new Error(`the walk never ended: ${walked.length} placements`);
 }
+
+describe("findPlacementsInContainer, on who asserted each placement", () => {
+  it("tells two sources disagreeing about position from one source saying it twice", async () => {
+    // THE CRITERION, at the query. ADR-0017: "sources disagreeing about position
+    // produce two placement rows", and ADR-0009 licences a Repeat -- which is
+    // ALSO one item twice in one container at two positions. ADR-0017 says
+    // outright that nothing STORED separates them: what does is who asserted
+    // them, a repeat's rows coming from one source and a disagreement's from two.
+    //
+    // BOTH SHAPES IN ONE TEST, because either alone passes against a query
+    // answering a constant. The difference between the two answers IS the
+    // criterion, and a test that only ever saw one of them could not state it.
+    const wiki = await aProvider(
+      db,
+      "https://provider.test/by-release",
+      "A wiki that orders by release",
+    );
+    const broadcaster = await aProvider(
+      db,
+      "https://provider.test/by-broadcast",
+      "A database that orders by broadcast",
+    );
+    const disputed = await anItemTitled(db, "An ordering two sources disagree about", {
+      isContainer: true,
+      isOrdered: true,
+    });
+    const argued = await anItemTitled(db, "A story the two of them place apart");
+    await assertPlacement(db, {
+      containerId: disputed,
+      itemId: argued,
+      position: 1,
+      sourceId: broadcaster,
+    });
+    await assertPlacement(db, {
+      containerId: disputed,
+      itemId: argued,
+      position: 3,
+      sourceId: wiki,
+    });
+
+    const agreed = await anItemTitled(db, "An ordering that opens with its own recap", {
+      isContainer: true,
+      isOrdered: true,
+    });
+    const recapped = await anItemTitled(db, "A story the wiki shows twice");
+    await assertPlacement(db, {
+      containerId: agreed,
+      itemId: recapped,
+      position: 1,
+      sourceId: wiki,
+    });
+    await assertPlacement(db, {
+      containerId: agreed,
+      itemId: recapped,
+      position: 5,
+      sourceId: wiki,
+    });
+
+    const disagreement = (await findPlacementsInContainer(db, disputed, { limit: 10 })).entries;
+    const repeat = (await findPlacementsInContainer(db, agreed, { limit: 10 })).entries;
+
+    expect(disagreement.map((placement) => placement.assertedBy)).toStrictEqual([
+      ["A database that orders by broadcast"],
+      ["A wiki that orders by release"],
+    ]);
+    expect(repeat.map((placement) => placement.assertedBy)).toStrictEqual([
+      ["A wiki that orders by release"],
+      ["A wiki that orders by release"],
+    ]);
+  });
+
+  it("names sources agreeing in the spokesman's order, so the one that speaks leads", async () => {
+    // ADR-0017: sources AGREEING about a placement are recorded against ONE row,
+    // and which of them speaks for it is decided by rank first (ADR-0024, the
+    // favourite is the lock), then the one global source order (ADR-0025), then
+    // a stable id. `spokesmanFor` applies those three terms to pick one name;
+    // this list applies the same three to ORDER every name, so the two cannot
+    // come to disagree about who is speaking.
+    //
+    // THE FAVOURITE IS CREATED SECOND AND RANKED UP, which is what makes this a
+    // test: under insertion order, or under the source order alone, it comes
+    // back second. Only rank-first puts it in front.
+    const first = await aProvider(
+      db,
+      "https://provider.test/came-first",
+      "A source that came first",
+    );
+    const later = await aProvider(
+      db,
+      "https://provider.test/came-later",
+      "A source that came later and is preferred",
+    );
+    const container = await anItemTitled(db, "An ordering two sources corroborate", {
+      isContainer: true,
+      isOrdered: true,
+    });
+    const story = await anItemTitled(db, "A story both of them place at one");
+    await assertPlacement(db, {
+      containerId: container,
+      itemId: story,
+      position: 1,
+      sourceId: first,
+    });
+    const corroborated = await assertPlacement(db, {
+      containerId: container,
+      itemId: story,
+      position: 1,
+      sourceId: later,
+    });
+    // Set here rather than passed in, for the reason `placements.test.ts` gives:
+    // nothing in the product sets a rank yet, and `assertPlacement` deliberately
+    // takes no parameter for one.
+    await db
+      .update(placementSources)
+      .set({ rank: "preferred" })
+      .where(
+        and(eq(placementSources.placementId, corroborated), eq(placementSources.sourceId, later)),
+      );
+
+    const held = (await findPlacementsInContainer(db, container, { limit: 10 })).entries;
+
+    expect(held.map((placement) => placement.assertedBy)).toStrictEqual([
+      ["A source that came later and is preferred", "A source that came first"],
+    ]);
+  });
+
+  it("stops naming a source that withdrew its claim", async () => {
+    // ADR-0075's tombstone, on the row that carries the claim. ADR-0017 is
+    // precise about WHICH tombstone this list honours: the placement source's
+    // own, "the exact analogue of the statement's own that `winning_literal`
+    // checks" -- and deliberately NOT `sources.deleted_at`, which neither that
+    // function nor the spokesman checks either, because one query locally more
+    // correct than its twins makes one field's provenance disagree with another's.
+    //
+    // THE PLACEMENT ITSELF SURVIVES, which is the half worth pinning. A source
+    // withdrawing its claim does not un-place the item: the other source still
+    // says it sits here, so the row stands and stops naming the one that left.
+    const stayed = await aProvider(db, "https://provider.test/stayed", "A source that stayed");
+    const left = await aProvider(db, "https://provider.test/left", "A source that withdrew");
+    const container = await anItemTitled(db, "An ordering one source walked away from", {
+      isContainer: true,
+      isOrdered: true,
+    });
+    const story = await anItemTitled(db, "A story two sources placed, then one");
+    for (const sourceId of [stayed, left]) {
+      await assertPlacement(db, { containerId: container, itemId: story, position: 1, sourceId });
+    }
+    await db
+      .update(placementSources)
+      .set({ deletedAt: new Date() })
+      .where(eq(placementSources.sourceId, left));
+
+    const held = (await findPlacementsInContainer(db, container, { limit: 10 })).entries;
+
+    expect(held).toHaveLength(1);
+    expect(held[0]).toMatchObject({ assertedBy: ["A source that stayed"] });
+  });
+
+  it("still answers a placement no source stands behind, naming nobody", async () => {
+    // A CLAIM NOBODY MADE IS STILL A ROW. `findPlacementsOfItem` joins its
+    // spokesman LEFT for this exact reason -- an inner join would be the read
+    // path deciding a placement does not exist because its provenance was never
+    // recorded -- and the aggregate here has to make the same refusal.
+    //
+    // ONLY A FIXTURE CAN BUILD ONE, which ADR-0017 says outright: `aPlacement`
+    // writes a placement with no source, and `assertPlacement` -- the one place
+    // THE PRODUCT writes one -- cannot. That is what makes this worth pinning
+    // rather than unreachable: the row shape exists, so the query meets it.
+    const container = await anItemTitled(db, "An ordering nobody vouches for", {
+      isContainer: true,
+      isOrdered: true,
+    });
+    const story = await anItemTitled(db, "A story placed by nobody");
+    await aPlacement(db, { containerId: container, itemId: story, position: 1 });
+
+    const held = (await findPlacementsInContainer(db, container, { limit: 10 })).entries;
+
+    expect(held).toHaveLength(1);
+    expect(held[0]).toMatchObject({ title: "A story placed by nobody", assertedBy: [] });
+  });
+});
