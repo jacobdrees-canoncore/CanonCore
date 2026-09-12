@@ -431,7 +431,7 @@ describe("provider.browse", () => {
     expect(placements).toHaveLength(2);
     for (const placement of placements) {
       const item = await call(appRouter.item.get, { id: placement.itemId }, { context });
-      expect(item.placements).toEqual([
+      expect(item.placements.entries).toEqual([
         expect.objectContaining({ position: 1, placedBy: "provider" }),
       ]);
     }

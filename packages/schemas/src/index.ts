@@ -85,6 +85,45 @@ export const placementPublic = z.object({
 export type PlacementPublic = z.infer<typeof placementPublic>;
 
 /**
+ * What "ALSO APPEARS IN" ANSWERS WITH: the page, its size, and where it carries
+ * on (ADR-0119) -- the mirror of `placementsInContainerPublic` below, which is
+ * the same three facts read from the container's end.
+ *
+ * IT WAS A BARE ARRAY UNTIL CNCORE-125, and it was the last listing in the app
+ * that was: ADR-0119's first sentence is "every listing in CanonCore is capped",
+ * CNCORE-89 capped the OTHER list on this same page, and this one answered every
+ * live placement. An array could carry the page and could not carry what the
+ * page was not showing.
+ *
+ * IT IS A SHAPE RATHER THAN THREE FIELDS ON `itemPublic`, for the reason its
+ * mirror gives: a surface takes the page, the size and the cursor together or
+ * not at all. Spread across the item they would be three fields a reader could
+ * pick one of, and the one they would pick is `entries`.
+ */
+export const placementsOfItemPublic = z.object({
+  entries: z.array(placementPublic),
+  /**
+   * How many orderings this item sits in ALTOGETHER, cap or no cap. A surface
+   * that could only count what it was given would report the first hundred as
+   * every ordering there is -- and multi-placement is the product's central
+   * claim, so that is the one number this list must not get wrong.
+   */
+  total: z.number().int().nonnegative(),
+  /**
+   * The placement to ask for the next page with, or `null` where the list ends
+   * here (ADR-0119).
+   *
+   * A PLACEMENT'S ID AND NOT A CONTAINER'S, which is the same departure from
+   * that record's letter its mirror makes and for the mirror of the reason: a
+   * Repeat is one item twice in ONE container (ADR-0009), so from this end too a
+   * container id names two rows and cannot say which of them a page ended on.
+   */
+  continuesAfter: z.uuid().nullable(),
+});
+
+export type PlacementsOfItemPublic = z.infer<typeof placementsOfItemPublic>;
+
+/**
  * What the read path emits for one claimed value (ADR-0012).
  *
  * ADR-0045 again, one level down: the statement's own id, its property id and
@@ -305,8 +344,12 @@ export const itemPublic = z.object({
    * Every ordering this item sits in, and where (ADR-0009). ONE list: a
    * container the owner filled by hand and one a provider imported differ by
    * `placedBy` and by nothing else, because they are the same kind of fact.
+   *
+   * A LISTING RATHER THAN AN ARRAY SINCE CNCORE-125, which is the cap arriving
+   * at the last listing in the app that had none -- the same change `holds`
+   * below took under CNCORE-89, for the same reason and one page later.
    */
-  placements: z.array(placementPublic),
+  placements: placementsOfItemPublic,
   /**
    * What this container HOLDS, in its own order (ADR-0018) -- the mirror of
    * `placements` above, which is every ordering this item sits IN. Empty for an

@@ -6,6 +6,7 @@ import { buildTestDatabase } from "@canoncore/db/testing/build-database";
 import {
   aCatalogueLargerThanOnePage,
   aContainerLargerThanOnePage,
+  anItemInMoreOrderingsThanOnePage,
   anItemTitled,
   aPlacement,
   aProvider,
@@ -161,8 +162,16 @@ export default async function setup(project: TestProject) {
   const paged = await aCatalogueTooBigForOnePage();
   project.provide("pagedBaseUrl", paged.baseUrl);
   project.provide("pagedCatalogue", paged.fixture.every);
-  project.provide("pagedUntitled", paged.fixture.untitled);
+  /*
+   * THE CATALOGUE'S OWN KEYLESS PAIR, AND THE TWO UNNAMED ORDERINGS WITH THEM
+   * (CNCORE-125). This is the set Catalogue search cannot reach -- the match is
+   * `title ilike ...`, which is NULL without a title -- so every untitled item
+   * on the instance belongs in it, whichever fixture wrote it. Left out, the two
+   * new ones would be in the catalogue's oracle and absent from the search's.
+   */
+  project.provide("pagedUntitled", [...paged.fixture.untitled, ...paged.fixture.appearsIn.unnamed]);
   project.provide("pagedContainer", paged.fixture.container);
+  project.provide("pagedAppearsIn", paged.fixture.appearsIn);
 
   const purgeable = await aCatalogueSafeToPurge(provider.url, tmdb.url);
   project.provide("purgeableBaseUrl", purgeable.baseUrl);
@@ -338,7 +347,36 @@ function aCatalogueTooBigForOnePage() {
         title: "Every story here, in one ordering",
         holding: catalogue.every,
       });
-      return { ...catalogue, every: [...catalogue.every, container.id], container };
+      /*
+       * AND ONE STORY IN MORE ORDERINGS THAN ONE PAGE (CNCORE-125), which is
+       * the MIRROR state and the only one in which "Also appears in" can be
+       * walked at all. Neither other server can hold it for the reason the
+       * catalogue above gives, and it belongs on this one because a page over
+       * two listings is where the two cursors have to be seen not to move each
+       * other.
+       *
+       * IT COSTS ITS OWN ITEMS WHERE THE CONTAINER ABOVE COST ONE, and the
+       * asymmetry is forced rather than careless: that fixture could reuse the
+       * catalogue because a container's members are ORDINARY ITEMS, and this one
+       * needs a hundred and more CONTAINERS, which a catalogue of plain stories
+       * holds none of. So they are counted into `every` below, which is what
+       * keeps `front-page.test.ts`'s set oracle exact.
+       *
+       * AND EVERY ONE OF THEM CARRIES `story`, for the reason the container's
+       * title does: that is the query `search.test.ts` walks this instance with,
+       * and an item in the catalogue's oracle but absent from the search's would
+       * be a difference no reader of either file could see.
+       */
+      const appearsIn = await anItemInMoreOrderingsThanOnePage(db, {
+        title: "A story in more orderings than one page",
+        orderings: 210,
+      });
+      return {
+        ...catalogue,
+        every: [...catalogue.every, container.id, appearsIn.id, ...appearsIn.containers],
+        container,
+        appearsIn,
+      };
     },
   });
 }
@@ -1713,6 +1751,28 @@ declare module "vitest" {
      * set it must arrive at exactly, which is the criterion anyway.
      */
     pagedContainer: { id: string; holds: string[] };
+    /**
+     * The ONE item on that instance sitting in more orderings than one page --
+     * the mirror of `pagedContainer` above, and the only state in which "Also
+     * appears in" is walkable at all (ADR-0119, CNCORE-125).
+     *
+     * `containers` IS EVERY ORDERING IT MINTED, which the caller counts into
+     * `pagedCatalogue`: they are items too, and a catalogue oracle that did not
+     * know about them would be exact about a catalogue that no longer exists.
+     *
+     * `sitsIn` IS EVERY PLACEMENT IT WROTE, as a SET rather than in order --
+     * two of the orderings share a name and which of them comes first is
+     * decided by the uuids that were handed out. A walk is oracled against the
+     * set it must arrive at exactly, which is the criterion anyway.
+     */
+    pagedAppearsIn: {
+      id: string;
+      containers: string[];
+      unnamed: string[];
+      sitsIn: { id: string; containerId: string }[];
+      /** The placement that sorts last, which is where the end of the walk is. */
+      endsAt: string;
+    };
     /**
      * And again, serving a catalogue NOTHING WRITES TO -- the one state in which
      * "how much this catalogue holds" can be asserted at all (CNCORE-93).

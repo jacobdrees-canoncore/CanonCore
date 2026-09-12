@@ -299,3 +299,31 @@ owner CAN now place an item into an ordering a provider already claims at anothe
 two rows that makes are a disagreement this page will render with two names on it. A corroboration
 still cannot be produced by hand -- ADR-0116 has the owner's hand make its own claim rather than join
 a provider's -- so the agreeing row remains a fixture.
+
+## And these two terms now decide where a PAGE ends, which is a second job -- CNCORE-125
+
+**THE ORDER STOPPED BEING ONLY AN ORDER.** "Also appears in" is capped and walked now
+([[0119-a-listing-is-walked-forward-from-the-last-item-it-showed]]), and a keyset cursor has to
+compare the WHOLE tuple its `ORDER BY` sorts on -- so the rank's precedence (ADR-0024) and the one
+global source order (ADR-0025) are terms of that comparison, not just of the sort.
+
+**WHAT THAT CHANGES IS THE COST OF GETTING THEM WRONG.** Until now a mistake in these two terms
+showed a reader the rows in the wrong order, which is visible and recoverable. In a cursor a term
+left out of the comparison SILENTLY SKIPS ROWS: two placements tied on the container's name and
+separated only by which source speaks would have the walk step over the second of them, and the page
+would simply not contain it. There is a test for each of the two, each cutting a page at a tie on
+that term alone, and each mutation-checked by dropping that term.
+
+**AND BOTH ARE NULLABLE, WHICH IS THE OTHER HALF.** A placement no source stands behind has neither
+term -- this record's own "a claim nobody made is still a placement" -- so those rows are a keyless
+BLOCK that sorts last, and a plain row comparison loses the whole block from every page because
+`(null, x) > (k, y)` is NULL. The rule that "a source that says nothing about a placement cannot
+outrank one that does" is now load-bearing twice: once for where those rows appear, and once for
+whether a reader can reach them at all.
+
+**AND IT IS WHY THE AGGREGATE ABOVE CANNOT REPLACE THE SPOKESMAN, which CNCORE-121 argued on the
+order alone and is now true twice over.** That section keeps both laterals because the spokesman's
+rank and source order are terms this query ORDERS BY and an aggregate cannot be ordered by. They are
+terms its CURSOR compares now as well, and an aggregate cannot be compared against either -- so
+collapsing the two would cost the walk that resumes inside the ordering, not only the ordering.
+

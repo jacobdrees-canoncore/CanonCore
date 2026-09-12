@@ -64,7 +64,7 @@ describe("placeItemByHand", () => {
     await placeItemByHand(db, { containerId: releaseOrder, itemId: story, position: 63 });
     await placeItemByHand(db, { containerId: storyOrder, itemId: story, position: 1 });
 
-    expect(await findPlacementsOfItem(db, story)).toStrictEqual(
+    expect((await findPlacementsOfItem(db, story, { limit: 10 })).entries).toStrictEqual(
       expect.arrayContaining([
         expect.objectContaining({ containerId: releaseOrder, position: 63 }),
         expect.objectContaining({ containerId: storyOrder, position: 1 }),
@@ -178,7 +178,7 @@ describe("removePlacementByHand", () => {
     expect(
       (await findPlacementsInContainer(db, releaseOrder, { limit: 100 })).entries,
     ).toStrictEqual([]);
-    expect(await findPlacementsOfItem(db, story)).toStrictEqual([
+    expect((await findPlacementsOfItem(db, story, { limit: 10 })).entries).toStrictEqual([
       expect.objectContaining({ containerId: storyOrder, position: 1 }),
     ]);
   });
