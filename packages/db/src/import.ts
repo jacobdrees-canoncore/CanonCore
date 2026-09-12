@@ -378,7 +378,8 @@ async function writeProvidedItem(
   const found = await itemWithExternalId(tx, { ownerId, sourceId, externalId: record.externalId });
 
   // A `browse` naming an id an earlier `lookup` wrote as a plain work: it is a
-  // container after all, and ADR-0009 makes that STORED rather than inferred
+  // container after all, and `CONTEXT.md`'s Container headword makes that
+  // STORED rather than inferred
   // from having members -- so an item left holding members with the flag off is
   // a container to every write path and a plain work to every read, offered by
   // work-browsing as something to watch (ADR-0077).
@@ -431,7 +432,8 @@ async function insertProvidedItem(
   const [item] = await tx
     .insert(items)
     // ADR-0004: a container folds into `work` too -- there is no collection
-    // kind. ADR-0009 makes `is_container` STORED rather than inferred from
+    // kind. `CONTEXT.md`'s Container headword makes `is_container` STORED
+    // rather than inferred from
     // having members, and `browse` returns an ORDERING, so a container written
     // from one is ordered.
     .values({ ownerId, kind: "work", isContainer: container, isOrdered: container })

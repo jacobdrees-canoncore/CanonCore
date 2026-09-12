@@ -71,23 +71,16 @@ function carrying(form: RenderedForm, values: Record<string, string>): RenderedF
 }
 
 /**
- * One rendered form with boxes TICKED, which is a different operation from
- * filling a field and cannot share `carrying`'s check.
+ * One rendered form with a RADIO moved to another of its options.
  *
- * AN UNTICKED BOX IS ABSENT FROM THE FORM ENTIRELY -- that is HTML's rule and
- * `document.ts` now honours it -- so ticking one ADDS a field where typing into
- * one REPLACES a value. A single helper would have to accept an unknown name to
- * do this, and would then accept a typo in the other case too.
+ * A RADIO GROUP SUBMITS EXACTLY ONE VALUE under one name, so choosing is
+ * REPLACING a value rather than adding a field -- which is why this can reuse
+ * `carrying` where an earlier checkbox helper could not. `document.ts` picks
+ * the option the server marked `checked`, so what arrives here is the group's
+ * default and this moves it.
  */
-function ticking(form: RenderedForm, boxes: string[]): RenderedForm {
-  const named = new Set(form.fields.map(([name]) => name));
-  for (const box of boxes) {
-    if (named.has(box)) throw new Error(`\`${box}\` is already ticked on the form the server sent`);
-  }
-  return {
-    ...form,
-    fields: [...form.fields, ...boxes.map((box): [string, string] => [box, "on"])],
-  };
+function choosing(form: RenderedForm, group: string, option: string): RenderedForm {
+  return carrying(form, { [group]: option });
 }
 
 /** A field's value as the server rendered it. */
@@ -186,23 +179,48 @@ describe("/new", () => {
     expect(valueRows(fresh.text)).toEqual(["Title A novel I do not own Owner"]);
   });
 
+  /**
+   * THE CRITERION IS "ANY OF THE SEVEN KINDS CAN BE CREATED", AND OFFERING THEM
+   * IS NOT CREATING THEM. The test above asserts the seven are on the page; this
+   * asserts the one the owner picked is the one that gets written. Without it an
+   * action hardcoding `kind: "work"` -- or a form whose `select` submitted
+   * nothing -- passes every other test in this file.
+   *
+   * A KIND WHOSE LABEL DIFFERS FROM ITS COLUMN VALUE, deliberately. `time_span`
+   * renders as "Time span" (CNCORE-83), so this pins the pass-through AND the
+   * reader's word in one assertion; `work`/`Work` differ by a capital and would
+   * hide a surface that printed the column at somebody.
+   */
+  it("creates the kind the owner picked, not the one the form opened on", async () => {
+    const form = formIn((await documentAt("/new", owner)).text, "new-item");
+
+    const created = await submit(
+      baseUrl,
+      "/new",
+      carrying(form, { title: "The Hartnell era", kind: "time_span" }),
+      owner,
+    );
+
+    expect(created.status).toBe(200);
+    const fresh = await documentAt(itemAddressIn(created.text));
+    expect(fresh.text).toContain("Time span");
+    expect(fresh.text).not.toContain(">Work<");
+  });
+
   it("creates a Container the owner marks ordered", async () => {
     const form = formIn((await documentAt("/new", owner)).text, "new-item");
 
     const created = await submit(
       baseUrl,
       "/new",
-      ticking(carrying(form, { title: "Series 1, in order", kind: "work" }), [
-        "isContainer",
-        "isOrdered",
-      ]),
+      choosing(carrying(form, { title: "Series 1, in order", kind: "work" }), "holds", "ordered"),
       owner,
     );
 
     // A CONTAINER IS AN ITEM (ADR-0004), so what comes back is an item page --
     // and the page says what sort of thing it is rather than leaving the owner
     // to infer it from an empty Members list.
-    expect(created.text).toContain("Ordered container");
+    expect(created.text).toContain("Other items, in order");
   });
 
   it("creates a Container the owner leaves unordered", async () => {
@@ -213,11 +231,11 @@ describe("/new", () => {
     const created = await submit(
       baseUrl,
       "/new",
-      ticking(carrying(form, { title: "Every Dalek story", kind: "work" }), ["isContainer"]),
+      choosing(carrying(form, { title: "Every Dalek story", kind: "work" }), "holds", "unordered"),
       owner,
     );
 
-    expect(created.text).toContain("Unordered container");
+    expect(created.text).toContain("Other items, in no particular order");
   });
 
   /**
@@ -240,7 +258,7 @@ describe("/new", () => {
     // `class="container mx-auto"`, so a substring check passes on every page
     // here and fails on none.
     expect(created.text).not.toContain("Holds");
-    expect(created.text).not.toContain("Unordered container");
+    expect(created.text).not.toContain("Other items,");
   });
 });
 
@@ -338,5 +356,60 @@ describe("the form the server rendered", () => {
     const { text } = await documentAt("/new", owner);
 
     expect(field(formIn(text, "new-item"), "kind")).toBe("work");
+  });
+});
+
+/**
+ * THE CRITERION THE WHOLE SOURCE MODEL EXISTS FOR, AT THE SEAM THE TICKET NAMES.
+ *
+ * `by-hand.test.ts` asserts this against `importProvidedRecord` directly, and
+ * that is the honest place for the RULE. This is the same claim made where the
+ * ticket asked for it -- "asserted at the page-over-HTTP seam" -- and both
+ * halves go through a page: the title is edited on the item page, and the
+ * re-import is driven by the browse form on `/import`.
+ *
+ * BROWSE RATHER THAN IMPORT, because the import surface offers no button for a
+ * record the catalogue already holds -- which is the whole difficulty of
+ * re-importing through a page. Browsing the container this record belongs to
+ * re-asserts every member, which is exactly the refresh an owner performs when a
+ * provider has updated a season.
+ */
+describe("/import, re-importing over an edited Item", () => {
+  it("leaves the Owner's title standing", async () => {
+    const at = `/items/${editable.imported}`;
+    await submit(
+      baseUrl,
+      at,
+      carrying(formIn((await documentAt(at, owner)).text, "edit-title"), {
+        title: "The title the owner insists on",
+      }),
+      owner,
+    );
+
+    // THE RE-IMPORT, THROUGH THE PAGE. The container is the one this record
+    // sits in, named to `/import` exactly as an owner names it.
+    const browsing = `/import?provider=${encodeURIComponent(editable.providerUrl)}&container=${editable.container}`;
+    const page = await documentAt(browsing, owner);
+    const browsed = await submit(baseUrl, browsing, formIn(page.text, "container"), owner);
+    expect(browsed.status).toBe(200);
+
+    const after = await documentAt(at);
+    /*
+     * THE BROWSE ACTUALLY RAN, and this is the line that says so. Everything
+     * below would hold just as well if the POST had done nothing at all -- the
+     * owner's title was already winning before it. A `lookup` import writes no
+     * placement and a `browse` writes one per member, so the item appearing in
+     * an ordering is the re-import's own footprint and nothing else's.
+     */
+    expect(sectionIn(after.text, "also-appears-in")).toContain("/items/");
+    // THE OWNER'S TITLE STILL WINS, and the provider's is still there beside it
+    // -- a source may only withdraw what IT said, so the refresh re-asserted the
+    // provider's claim and touched nothing of the owner's.
+    expect(after.text).toContain(
+      '<h1 class="text-3xl font-medium">The title the owner insists on</h1>',
+    );
+    const rows = valueRows(after.text);
+    expect(rows).toContain("Title The title the owner insists on Owner");
+    expect(rows).toContain(`Title ${editable.importedTitle} ${editable.providerLabel}`);
   });
 });

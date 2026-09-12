@@ -1,14 +1,25 @@
+import { eq, sql } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import {
+  createDb,
   createItemByHand,
   type Database,
   findItem,
   findStatementsOfItem,
+  ItemRefused,
   importProvidedRecord,
+  items,
   retitleItemByHand,
 } from "./index";
-import { anItem, aProvider, aStatement, connect, readItem } from "./testing/catalogue";
+import {
+  anItem,
+  anItemTitled,
+  aProvider,
+  aStatement,
+  connect,
+  readItem,
+} from "./testing/catalogue";
 
 let db: Database;
 
@@ -129,7 +140,8 @@ async function titleClaims(db: Database, itemId: string) {
 
 /**
  * ADR-0004: a Container IS an Item, folded into the `work` kind -- there is no
- * collection kind. ADR-0009 makes `is_container` STORED rather than inferred
+ * collection kind. `CONTEXT.md`'s Container headword makes `is_container`
+ * STORED rather than inferred
  * from having members, which is what lets an empty container exist at all.
  */
 describe("creating a Container by hand", () => {
@@ -163,5 +175,60 @@ describe("creating a Container by hand", () => {
 
     expect(written?.isContainer).toBe(true);
     expect(written?.isOrdered).toBe(false);
+  });
+});
+
+describe("what the catalogue refuses", () => {
+  /**
+   * ADR-0075: an item the owner deleted is gone to every reader, so retitling
+   * one would write a claim about a grave and report success while the owner
+   * sees nothing change.
+   *
+   * A REAL TOMBSTONE, NOT AN UNUSED ID. The NOT_FOUND case at the router seam
+   * uses an id that addresses nothing, which exercises the same branch by a
+   * different route -- this is the one that proves the `deleted_at` clause is
+   * doing anything at all. Remove it from the query and this test alone fails.
+   */
+  it("refuses to retitle an Item the owner has deleted", async () => {
+    const itemId = await anItemTitled(db, "Deleted, and not to be written about");
+    await db.update(items).set({ deletedAt: sql`now()` }).where(eq(items.id, itemId));
+
+    expect(await retitleItemByHand(db, { itemId, title: "A claim about a grave" })).toBe(false);
+  });
+
+  /**
+   * The foreign key on `item_kinds` (ADR-0005 closes the list), surfaced as a
+   * REFUSAL rather than as whatever the driver threw -- which is what lets the
+   * router answer BAD_REQUEST for this and 500 for a fault.
+   */
+  it("refuses a kind that is not one of the seven", async () => {
+    await expect(
+      createItemByHand(db, { kind: "spaceship", title: "Not one of the seven" }),
+    ).rejects.toBeInstanceOf(ItemRefused);
+  });
+
+  /** `items_ordered_implies_container` (migration 1): an ordering over nothing. */
+  it("refuses an ordering on something that holds nothing", async () => {
+    await expect(
+      createItemByHand(db, { kind: "work", title: "Ordered, holding nothing", isOrdered: true }),
+    ).rejects.toBeInstanceOf(ItemRefused);
+  });
+
+  /**
+   * AND A FAULT IS STILL A FAULT, which is the half the narrowing exists for.
+   * A bare `catch` in the router turned every failure into "No such kind of
+   * item", so a dead pool told the owner their kind did not exist. `ItemRefused`
+   * is what separates the two, and a test that only ever asserted the refusals
+   * would pass just as well against the bare catch.
+   */
+  it("does not dress a fault up as a refusal", async () => {
+    const broken = createDb("postgresql://nobody@127.0.0.1:1/nothing");
+    try {
+      await expect(
+        createItemByHand(broken, { kind: "work", title: "Never written" }),
+      ).rejects.not.toBeInstanceOf(ItemRefused);
+    } finally {
+      await broken.$client.end();
+    }
   });
 });

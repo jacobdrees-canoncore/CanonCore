@@ -120,7 +120,17 @@ function NewItemForm({ kinds }: { kinds: { value: string; label: string }[] }) {
             id="kind"
             name="kind"
             defaultValue="work"
-            className="h-9 w-full rounded-none border border-input bg-transparent px-3 py-1 text-base shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 md:text-sm dark:bg-input/30"
+            /*
+              THE SAME METRICS AS `packages/ui`'s `Input`, which is directly
+              above it on this form: `h-8`, `px-2.5`, `text-xs`, `ring-1`.
+              Stock shadcn ships `h-9 px-3 text-base ring-[3px]`, and a select
+              wearing those sat a step taller and larger than the Title field
+              beside it -- `.claude/rules/frontend.md`, "Ported code is where
+              this slips". There is no select in `packages/ui` to import, so
+              the identity is carried by matching its sibling rather than by
+              inheriting a component.
+            */
+            className="h-8 w-full rounded-none border border-input bg-transparent px-2.5 py-1 text-xs transition-colors outline-none focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring/50 md:text-xs dark:bg-input/30"
           >
             {kinds.map((kind) => (
               <option key={kind.value} value={kind.value}>
@@ -132,40 +142,63 @@ function NewItemForm({ kinds }: { kinds: { value: string; label: string }[] }) {
         {/*
           ADR-0004: a Container IS an Item, folded into `work` -- there is no
           collection kind, so this is a property of the item rather than a
-          different form. ADR-0009 makes it STORED rather than inferred from
-          having members, which is what lets an owner make an EMPTY one and fill
-          it afterwards.
+          different form. `CONTEXT.md`'s Container headword makes it STORED,
+          never inferred from having members, which is what lets an owner make
+          an EMPTY one and fill it afterwards.
+
+          THREE RADIOS RATHER THAN TWO CHECKBOXES, AND REVIEW IS WHY. Two boxes
+          can express "its order means something" WITHOUT "it is a container",
+          which `items_ordered_implies_container` (migration 1) refuses -- and
+          with no script a Server Action that throws renders a bare `Internal
+          Server Error`, so the owner would lose the page they were on. That is
+          the exact failure `NotYours` above refuses to inflict on a visitor,
+          and it was reachable here by ticking one box.
+
+          THE FIX IS TO MAKE THE STATE UNREPRESENTABLE rather than to validate
+          it. The column pair has three legal combinations and this offers
+          exactly those three, so the form cannot compose a request the database
+          will refuse -- which is better than a check in the action, because a
+          check there would bound this door and not the operation.
         */}
         <fieldset className="flex flex-col gap-3">
           <legend className="font-medium text-sm">Does it hold other items?</legend>
-          <label htmlFor="isContainer" className="flex items-center gap-2 text-sm">
+          <label htmlFor="holds-nothing" className="flex items-center gap-2 text-sm">
             <input
-              type="checkbox"
-              id="isContainer"
-              name="isContainer"
+              type="radio"
+              id="holds-nothing"
+              name="holds"
+              value="nothing"
+              defaultChecked
               className="size-4 accent-primary"
             />
-            It is a container
+            No, it is a thing in its own right
           </label>
           {/*
-            ADR-0018 puts ordering on the PLACEMENT, so this says whether the
-            positions in this container mean anything -- "Series 1, in order"
-            against "every Dalek story". A container left unordered is a real
-            and different thing rather than one nobody has sequenced yet.
-
-            `items_ordered_implies_container` (migration 1) refuses ordered
-            without container, and the procedure turns that refusal into a
-            BAD_REQUEST. Nothing here enforces it, deliberately: a check in this
-            form would bound one door and not the operation.
+            ADR-0018 puts ordering on the PLACEMENT, so the difference between
+            these two is whether the positions in this container MEAN anything
+            -- "Series 1, in order" against "every Dalek story". A container
+            without a meaningful order is a real and different thing rather than
+            one nobody has sequenced yet.
           */}
-          <label htmlFor="isOrdered" className="flex items-center gap-2 text-sm">
+          <label htmlFor="holds-unordered" className="flex items-center gap-2 text-sm">
             <input
-              type="checkbox"
-              id="isOrdered"
-              name="isOrdered"
+              type="radio"
+              id="holds-unordered"
+              name="holds"
+              value="unordered"
               className="size-4 accent-primary"
             />
-            Its order means something
+            Yes, in no particular order
+          </label>
+          <label htmlFor="holds-ordered" className="flex items-center gap-2 text-sm">
+            <input
+              type="radio"
+              id="holds-ordered"
+              name="holds"
+              value="ordered"
+              className="size-4 accent-primary"
+            />
+            Yes, and their order means something
           </label>
         </fieldset>
         <Button type="submit" className="self-start">

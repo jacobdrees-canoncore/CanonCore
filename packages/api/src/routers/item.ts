@@ -6,6 +6,7 @@ import {
   findPlacementsInContainer,
   findPlacementsOfItem,
   findStatementsOfItem,
+  ItemRefused,
   retitleItemByHand,
 } from "@canoncore/db";
 import { itemKindsPublic, itemPublic, itemWritten } from "@canoncore/schemas";
@@ -63,9 +64,15 @@ export const item = {
         kind: z.string(),
         title: titleByHand,
         /*
-         * ADR-0004, ADR-0009: whether an item is a Container is STORED rather
-         * than inferred from having members, which is what lets an EMPTY one
-         * exist -- and an empty container is exactly what an owner makes first.
+         * ADR-0004, and `CONTEXT.md`'s Container headword: whether an item is
+         * one is STORED, never inferred from having members. That is what lets
+         * an EMPTY container exist -- which is exactly what an owner makes
+         * first, and then fills.
+         *
+         * NOT ADR-0009, WHICH THIS USED TO CITE. That record is multi-parent
+         * membership and per-placement ordering; it says nothing about this
+         * column. The same miscitation stood twice in `import.ts` and is
+         * corrected there in the same change.
          */
         isContainer: z.boolean().default(false),
         /* ADR-0018: whether its ordering means anything. */
@@ -78,22 +85,30 @@ export const item = {
     })
     .handler(async ({ input, context, errors }) => {
       /*
-       * THE DATABASE DECIDES, AND ITS REFUSAL IS TRANSLATED HERE. Two rules can
-       * refuse this write and both live in the schema: the foreign key on
-       * `item_kinds`, and `items_ordered_implies_container` (migration 1). A
-       * handler that re-checked either would be a third copy of a rule the
-       * database already holds -- and the copy that goes stale.
+       * THE DATABASE DECIDES, AND ONLY ITS REFUSAL IS TRANSLATED HERE. Two
+       * rules can refuse this write and both live in the schema: the foreign
+       * key on `item_kinds`, and `items_ordered_implies_container` (migration
+       * 1). A handler that re-checked either would be a third copy of a rule
+       * the database already holds -- and the copy that goes stale.
        *
        * IT IS A BAD_REQUEST BECAUSE IT IS ONE: the caller named a kind that
        * does not exist, or asked for an ordering on something that holds
        * nothing. Left to propagate it is a 500, which tells a reader the server
        * is broken when what happened is that they asked for something.
+       *
+       * AND ONLY `ItemRefused` IS CAUGHT, WHICH REVIEW FOUND. A bare
+       * `catch` here answered BAD_REQUEST for ANYTHING thrown, so a dead
+       * connection pool told the owner their kind did not exist -- CNCORE-14's
+       * mistake on `item.get` run backwards. `@canoncore/db` decides which
+       * SQLSTATEs are the owner's doing, because that is a fact about the
+       * schema; this decides what such a refusal is called over the wire.
        */
       try {
         const { itemId } = await createItemByHand(context.db, input);
         return { id: itemId };
       } catch (cause) {
-        throw errors.BAD_REQUEST({ cause });
+        if (cause instanceof ItemRefused) throw errors.BAD_REQUEST({ cause });
+        throw cause;
       }
     }),
 

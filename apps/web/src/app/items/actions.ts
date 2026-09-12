@@ -2,6 +2,7 @@
 
 import { appRouter } from "@canoncore/api/routers";
 import { call } from "@orpc/server";
+import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
@@ -34,27 +35,34 @@ import { callerContext } from "@/session";
 /**
  * What the create form carries.
  *
- * A CHECKBOX IS ABSENT WHEN IT IS NOT TICKED, which is HTML's rule and the
- * reason these two are not `z.boolean()`. `form.get()` answers `null` for a
- * box the owner left alone and the string `on` for one they ticked, so the
- * coercion is "did this field arrive at all" rather than a parse of its value
- * -- and the value is deliberately not compared against `"on"`, because that
- * string is a browser default rather than something this app chose.
+ * `holds` IS ONE FIELD FOR TWO COLUMNS, and that is the form refusing to
+ * compose a request the database would reject. `items_ordered_implies_container`
+ * (migration 1) makes three of the four `(isContainer, isOrdered)` combinations
+ * legal, so the form offers three radios and this maps them back -- an owner
+ * cannot ask for an ordering on something that holds nothing, because there is
+ * no control that says it.
+ *
+ * THE DEFAULT IS `nothing` RATHER THAN A THROW. A radio group always submits
+ * one of its values from a browser, but this is `FormData` from anywhere, and
+ * an absent field means "no container" far more usefully than it means "fail".
  */
 const newItem = z.object({
   kind: z.string().min(1),
   title: z.string(),
-  isContainer: z.boolean(),
-  isOrdered: z.boolean(),
+  holds: z.enum(["nothing", "unordered", "ordered"]).catch("nothing"),
 });
 
 export async function createItem(form: FormData): Promise<void> {
-  const input = newItem.parse({
+  const { holds, ...named } = newItem.parse({
     kind: form.get("kind"),
     title: form.get("title"),
-    isContainer: form.get("isContainer") !== null,
-    isOrdered: form.get("isOrdered") !== null,
+    holds: form.get("holds"),
   });
+  const input = {
+    ...named,
+    isContainer: holds !== "nothing",
+    isOrdered: holds === "ordered",
+  };
 
   const { id } = await call(appRouter.item.create, input, { context: await callerContext() });
 
@@ -88,9 +96,23 @@ const editedTitle = z.object({ id: z.string(), title: z.string() });
  * again -- the new title is in the HTML that comes back, from the same read the
  * page always does. A redirect would be a second request for a page the server
  * is already rendering.
+ *
+ * `refresh()` IS FOR THE HALF THIS APP'S TEST SEAM CANNOT SEE. With no script
+ * loaded the sentence above is the whole story. With script loaded there is a
+ * CLIENT router cache holding the page the owner is looking at, and Next's own
+ * types say what clears it: `refresh` "allows you to refresh client cache from
+ * server actions ... as dynamic data can be cached on the client". The
+ * page-over-HTTP seam replays forms as a script-less browser, so it would go on
+ * passing while a real browser showed the old title -- which is exactly why the
+ * ticket named this call rather than leaving it to be noticed.
+ *
+ * NOT `revalidatePath` AND NOT `updateTag`: nothing here is cached on the
+ * SERVER (ADR-0117 renders per request) and Cache Components are off, so both
+ * would be clearing a cache this app does not have.
  */
 export async function retitleItem(form: FormData): Promise<void> {
   const input = editedTitle.parse({ id: form.get("id"), title: form.get("title") });
 
   await call(appRouter.item.retitle, input, { context: await callerContext() });
+  refresh();
 }

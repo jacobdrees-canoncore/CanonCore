@@ -227,7 +227,18 @@ export default async function ItemPage({
         {item.isContainer && (
           <>
             <dt className="text-muted-foreground">Holds</dt>
-            <dd>{item.isOrdered ? "Ordered container" : "Unordered container"}</dd>
+            {/*
+              NOT "Unordered container", WHICH THE GLOSSARY RESERVES. CONTEXT.md's
+              Unplaced entry `_Avoid_`s `unordered` -- it means a member with NO
+              POSITION -- and this page LISTS placements a few sections down,
+              where an unplaced member reads "no position given". Two senses of
+              one word on one page is exactly what that list exists to stop.
+              These words say what the container claims about its own members
+              instead, and they match the create form's.
+            */}
+            <dd>
+              {item.isOrdered ? "Other items, in order" : "Other items, in no particular order"}
+            </dd>
           </>
         )}
       </dl>

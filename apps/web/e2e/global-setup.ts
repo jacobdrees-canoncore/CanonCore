@@ -1236,6 +1236,16 @@ async function aCatalogueSafeToEdit(wikiUrl: string) {
       imported: itemId,
       importedTitle: TENTH_PLANET.title,
       providerLabel: "provider-wiki",
+      providerUrl: wikiUrl,
+      /*
+       * THE CONTAINER THAT HOLDS THE IMPORTED RECORD, so the re-import can be
+       * driven through `/import`'s browse form rather than through the client.
+       * 91997 carries 265 in its ordering (`wiki-fixture.ts`), and browsing it
+       * re-asserts every member -- which is the refresh an owner performs when a
+       * provider has updated a season, and the only re-import a PAGE can do: the
+       * import surface offers no button for a record already held.
+       */
+      container: "91997",
     },
   };
 }
@@ -1502,6 +1512,20 @@ declare module "vitest" {
      * And again, serving a catalogue NOBODY ELSE READS -- so a test may delete
      * from it. Every other instance here is somebody's fixture.
      */
+    purgeableBaseUrl: string;
+    /** Which provider on it may be purged, which may not, and what survives one. */
+    purgeable: {
+      /** Previewed and declined, never purged, so this half always stands. */
+      previewed: string;
+      /** The one the destructive test takes. */
+      purged: string;
+      /** Configured, and nothing was ever imported from it. */
+      neverImported: string;
+      /** An item the previewed provider wrote AND the owner places: it stays. */
+      keptFromPreviewed: string;
+      /** The same state, on the provider that gets purged. */
+      keptFromPurged: string;
+    };
     /**
      * And again, serving a catalogue NOBODY ELSE READS -- so a test may EDIT
      * it. `item-write.test.ts` retitles a provider's item, and every title on
@@ -1519,20 +1543,10 @@ declare module "vitest" {
       importedTitle: string;
       /** What the provider calls itself, which is what a Values row shows. */
       providerLabel: string;
-    };
-    purgeableBaseUrl: string;
-    /** Which provider on it may be purged, which may not, and what survives one. */
-    purgeable: {
-      /** Previewed and declined, never purged, so this half always stands. */
-      previewed: string;
-      /** The one the destructive test takes. */
-      purged: string;
-      /** Configured, and nothing was ever imported from it. */
-      neverImported: string;
-      /** An item the previewed provider wrote AND the owner places: it stays. */
-      keptFromPreviewed: string;
-      /** The same state, on the provider that gets purged. */
-      keptFromPurged: string;
+      /** Where it was imported from, for a re-import driven through `/import`. */
+      providerUrl: string;
+      /** A container holding that record, so browsing it re-asserts the record. */
+      container: string;
     };
     /** Every item that instance holds: the set a walk has to arrive at, exactly. */
     pagedCatalogue: string[];

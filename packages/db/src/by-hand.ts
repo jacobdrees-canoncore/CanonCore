@@ -6,6 +6,49 @@ import { theOwnerId } from "./placements";
 import { items, sources } from "./schema";
 
 /**
+ * The catalogue REFUSING an item the owner asked for, as opposed to failing to
+ * write one it accepted.
+ *
+ * A TYPE RATHER THAN A `catch` AT THE CALLER, and the difference is the whole
+ * reason this class exists. `item.create` used to wrap the call in a bare
+ * `try/catch` and answer BAD_REQUEST for anything thrown -- so a dead
+ * connection pool, a permissions change or a bug in this file all reported "No
+ * such kind of item" to the owner. That is the mistake CNCORE-14 records on
+ * `item.get` run backwards: there it was a missing item read as a broken
+ * server, here it is a broken server read as a missing kind.
+ *
+ * THE POSTGRES CODES LIVE HERE, NOT IN THE ROUTER. Which constraint means "you
+ * asked for something impossible" is a fact about the schema, and the schema is
+ * this package's. The router's job is to turn a refusal into a status.
+ */
+export class ItemRefused extends Error {}
+
+/**
+ * The two refusals the owner can actually provoke, by their SQLSTATE.
+ *
+ * `23503` is the foreign key on `item_kinds`: a kind that is not one of
+ * ADR-0005's seven. `23514` is `items_ordered_implies_container` (migration 1):
+ * an ordering on something that holds nothing. Anything else -- a dropped
+ * connection, a disk full, a trigger raising for a reason nobody predicted --
+ * is NOT the owner's doing and goes on being a fault.
+ */
+const REFUSALS = new Set(["23503", "23514"]);
+
+/**
+ * Whether a thrown thing is Postgres refusing this write on a rule the owner
+ * broke. Walks `cause`, because a driver error arrives wrapped.
+ */
+function isRefusal(error: unknown): boolean {
+  let current: unknown = error;
+  while (current instanceof Error) {
+    const { code } = current as { code?: unknown };
+    if (typeof code === "string" && REFUSALS.has(code)) return true;
+    current = current.cause;
+  }
+  return false;
+}
+
+/**
  * What the owner chooses when they make an Item themselves.
  *
  * NO `externalId`, AND THAT ABSENCE IS THE WHOLE POINT (ADR-0003). An Item may
@@ -42,22 +85,49 @@ export async function createItemByHand(
   db: Database,
   { kind, title, isContainer = false, isOrdered = false }: ItemByHand,
 ): Promise<{ itemId: string }> {
-  return db.transaction(async (tx) => {
-    const ownerId = await theOwnerId(tx);
-    const [written] = await tx
-      .insert(items)
-      .values({ ownerId, kind, isContainer, isOrdered })
-      .returning({ id: items.id });
-    if (!written) throw new Error("insert returned no item");
+  try {
+    return await db.transaction(async (tx) => {
+      const ownerId = await theOwnerId(tx);
+      const [written] = await tx
+        .insert(items)
+        .values({ ownerId, kind, isContainer, isOrdered })
+        .returning({ id: items.id });
+      if (!written) throw new Error("insert returned no item");
 
-    await assertClaims(tx, {
-      ownerId,
-      itemId: written.id,
-      sourceId: await theOwnerSource(tx, ownerId),
-      claims: [{ property: "title", values: [title] }],
+      await titledByTheOwner(tx, ownerId, written.id, title);
+
+      return { itemId: written.id };
     });
+  } catch (cause) {
+    // NARROWED, SO A FAULT STAYS A FAULT. Only the two rules the owner can
+    // break become a refusal; everything else is rethrown untouched.
+    if (isRefusal(cause))
+      throw new ItemRefused(`the catalogue refused an item of kind ${kind}`, { cause });
+    throw cause;
+  }
+}
 
-    return { itemId: written.id };
+/**
+ * The owner claiming a title for one item, which is the ONE operation both
+ * functions above perform.
+ *
+ * SHARED BECAUSE THEY MUST NOT DRIFT, not merely because it is four lines
+ * twice. A title the owner gave on CREATE and a title they gave by EDITING are
+ * the same claim by the same source -- if the two ever assert differently, an
+ * item's provenance would depend on which door its title came through, and
+ * nothing on the page could say so.
+ */
+async function titledByTheOwner(
+  tx: Transaction,
+  ownerId: string,
+  itemId: string,
+  title: string,
+): Promise<void> {
+  await assertClaims(tx, {
+    ownerId,
+    itemId,
+    sourceId: await theOwnerSource(tx, ownerId),
+    claims: [{ property: "title", values: [title] }],
   });
 }
 
@@ -116,12 +186,7 @@ export async function retitleItemByHand(
       .where(and(eq(items.id, itemId), isNull(items.deletedAt)));
     if (!found) return false;
 
-    await assertClaims(tx, {
-      ownerId,
-      itemId: found.id,
-      sourceId: await theOwnerSource(tx, ownerId),
-      claims: [{ property: "title", values: [title] }],
-    });
+    await titledByTheOwner(tx, ownerId, found.id, title);
     return true;
   });
 }
