@@ -647,3 +647,53 @@ out, `search`'s alongside the three that were already there.
 importable as it stands. That is a consequence of the rule rather than the rule, and it is worth
 saying which is which: making it importable would take two lines, and the two lines are not what is
 standing in the way.
+
+## An assertion taken across two reads of shared state -- under CNCORE-93
+
+**THE FOURTH SEAM RUNS ONE APP AGAINST SEVERAL INSTANCES, AND UNTIL THIS TICKET NOTHING SAID WHICH
+FACTS BELONG TO WHICH.** Vitest runs test files in parallel workers, so `import-page.test.ts` and
+`multi-placement.test.ts` write to the seeded catalogue at the same moment that a third file is
+reading a number out of it. Two assertions were built on that: a re-import compared
+`catalogue.list({}).total` either side of two POSTs, and the front page compared a total it had just
+read against the count the page printed.
+
+**THEY WERE NOT FLAKY. THEY WERE WRONG,** and the distinction decides the fix. "The number I read a
+moment ago is the number the page prints" is not a relationship that holds against state another
+worker writes, so neither assertion was entitled to pass even on the runs where it did. Measured
+2026-09-12 against the real provider images: the front page reported 59 items against a total read
+as 58, and a re-run of the same commit passed; the re-import assertion failed in two of four full
+runs and passed every time its file ran alone. `main` had been green for twelve consecutive runs
+because the window is small, and it opened when a fourth instance and an eighth test file added
+contention.
+
+**THE RULE: AN ASSERTION MAY ONLY SPAN A WRITE ITS OWN FILE MADE.** Where the fact can be narrowed
+to something only this test writes, narrow it -- the re-import's claim is about ONE provider record,
+and (this provider, this record) is a pair no other worker touches. Where it cannot, the fact needs
+an instance nothing else writes to, and paying for one is the honest price rather than a tolerance:
+"how much the catalogue holds" IS catalogue-wide, and a `within one` would assert something weaker
+than the one number a catalogue must not get wrong about itself.
+
+**NARROWING IS NOT AUTOMATICALLY WEAKENING, BUT IT CAN BE, AND THE CHECK IS WHETHER THE REPLACEMENT
+CAN STILL SEE THE DEFECT.** The obvious narrowing here was `provider.held`, and it is the wrong one:
+that procedure, `provider.search` under it, and the page's own row all run through
+`findItemsProvided`, which answers with a `Map` keyed by the record's id. A second Item carrying that
+id collapses into one entry there, so every surface above it reports a single Item while the
+catalogue holds two. The replacement reads the ROWS, which is the only place the second one is
+visible. Checked by mutation rather than by reading: with the importer's find-or-create broken,
+migration 5's unique index made ordinary, and the collapse ordered so the oldest Item wins it, the
+page went on linking the original and only the row-level assertion reported the extras.
+
+**A FIFTH INSTANCE COSTS LESS THAN IT LOOKS AND IS CHECKED BEFORE IT IS PAID FOR.** Each instance
+already running was tried first and written down: the fresh one renders no count at all, because an
+empty catalogue shows what to do next instead (ADR-0094), and the paged one is written to by nothing
+but holds 254 items, so it renders `Holding`'s other arm. What the plain-total arm needs is a
+catalogue that is non-empty, smaller than one page and written to by nothing, and no instance here
+was all three. Measured locally on 2026-09-12: the whole suite runs in 8.4 seconds with five
+instances, and each `next start` reports `Ready in` 60-64ms. What an instance costs after that is
+what it serves, and this one serves one request.
+
+**AND THE FIXTURE, NOT THE ROUTER, IS WHAT THE PAGE IS HELD TO.** On shared ground the count had to
+be read back from `catalogue.list` because nothing in the test could know it. That was always the
+weaker assertion -- the page reads its total by calling that same procedure, so the two agreeing is
+one code path agreeing with itself -- and an instance of its own removes the reason for it: the
+fixture wrote three items, so the page owes the word "3".

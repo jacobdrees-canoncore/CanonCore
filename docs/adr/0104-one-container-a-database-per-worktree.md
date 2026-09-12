@@ -66,12 +66,20 @@ migrates it, seeds it, and writes `apps/web/.env`. One command in a fresh worktr
 ## Two ways this could destroy work, and what stops each
 
 **A truncated name.** PostgreSQL truncates an identifier at 63 bytes SILENTLY, and the harness
-derives `<name>_test` and `<name>_test_web` and DROPS them. A name long enough for the derived one
-to truncate back onto it would drop the worktree's own database on a test run.
-`build-database.ts` already REFUSES rather than truncating, so the failure was a hard stop rather
-than data loss; reserving the room is what turns that stop into a working setup.
+derives `<name>_test` plus one database per suffix a suite asks for, and DROPS them. A name long
+enough for the derived one to truncate back onto it would drop the worktree's own database on a test
+run. `build-database.ts` already REFUSES rather than truncating, so the failure was a hard stop
+rather than data loss; reserving the room is what turns that stop into a working setup.
 `testDatabaseNameFor` is the one place that knows how a test database is named, and the reservation
-test builds the derived names by calling it — so the two cannot drift.
+test builds the derived names by calling it — so the FORMAT cannot drift. **THE SET OF SUFFIXES
+DID**, and saying so is the correction CNCORE-93 owes this paragraph: that test names them in a
+list of its own, which read `["", "web", "fresh"]` while the web suite had grown to five. Two were
+missing and one of those, `_test_purgeable`, was four characters past the reservation — so any
+worktree whose branch stem ran to the limit met the hard stop above and could not run `pnpm
+test:e2e` at all. True of `cncore_47_properties_validation` on the day it was found, 2026-09-12,
+and found by adding a sixth rather than by anything failing. The suffix was shortened rather than
+the reservation widened, because widening it shortens every stem and so RENAMES the database of any
+worktree already past the new limit, leaving its `.env` pointing at the one it had.
 
 **A name shared by two branches, at ANY length.** The name always carries a fingerprint of the whole
 branch, not only when it is too long. The readable stem is lossy on purpose — it strips the owner
