@@ -10,6 +10,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Attribution } from "@/components/attribution";
+import { Holding, type MembersPath, PastTheEnd, type TheRoute, Walk } from "@/components/listing";
+import { oneValue } from "@/components/query-params";
 import { callerContext } from "@/session";
 
 import { annotateItem, retitleItem } from "../actions";
@@ -21,9 +23,12 @@ import { annotateItem, retitleItem } from "../actions";
  * fetching its own API is a round trip to itself, and oRPC documents `call` as
  * the way to avoid it.
  */
-async function readItem(id: string, context?: Context) {
+async function readItem(
+  id: string,
+  { after, context }: { after?: string; context?: Context } = {},
+) {
   const { error, data } = await safe(
-    call(appRouter.item.get, { id }, { context: context ?? (await createContext()) }),
+    call(appRouter.item.get, { id, after }, { context: context ?? (await createContext()) }),
   );
   if (!error) return data;
   // Only a missing item is a 404. Anything else -- a database that is down, a
@@ -175,7 +180,11 @@ export default async function ItemPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ via?: string | string[]; placed?: string | string[] }>;
+  searchParams: Promise<{
+    via?: string | string[];
+    placed?: string | string[];
+    after?: string | string[];
+  }>;
 }) {
   const { id } = await params;
   /*
@@ -188,8 +197,6 @@ export default async function ItemPage({
    * be two answers to "what does this request carry".
    */
   const context = await callerContext();
-  const item = await readItem(id, context);
-  const owner = context.session !== null;
   /*
    * ADR-0066: the ordering the reader arrived through. Read HERE, on the
    * server, so it is in the HTML the reader is served rather than filled in by
@@ -204,9 +211,24 @@ export default async function ItemPage({
    * An array means the parameter was repeated; a route is one route, so a
    * repeated one names no ordering rather than the first of several.
    */
-  const { via, placed } = await searchParams;
-  const arrivedThrough = typeof via === "string" ? via : undefined;
-  const showingOnly = typeof placed === "string" ? placed : undefined;
+  const { via, placed, after } = await searchParams;
+  /*
+   * `oneValue` OWNS WHAT A REPEATED OR BLANK PARAMETER MEANS, and this page is
+   * the surface its own module was extracted for. It read `typeof via ===
+   * "string"` here, which is a THIRD spelling of a rule that had already
+   * drifted into three across four surfaces -- and the day a cursor arrived
+   * beside them was the day one page would have answered `?after=` differently
+   * from `/`. The two answers only ever differed on a blank value, which
+   * matches no placement either way, so nothing about `via` or `placed` moves.
+   */
+  const arrivedThrough = oneValue(via);
+  const showingOnly = oneValue(placed);
+  // ADR-0119's cursor for the Members listing below, read on the SERVER like
+  // the two above it, so the page a reader is served is the page they asked for.
+  const from = oneValue(after);
+
+  const item = await readItem(id, { after: from, context });
+  const owner = context.session !== null;
 
   return (
     <main className="container mx-auto max-w-3xl px-4 py-8">
@@ -285,12 +307,18 @@ export default async function ItemPage({
         the section renders nothing, so the order costs a non-container reader
         nothing.
       */}
-      <Members holds={item.holds} />
+      <Members
+        itemId={item.id}
+        holds={item.holds}
+        route={theRoute(arrivedThrough, showingOnly)}
+        from={from}
+      />
       <AlsoAppearsIn
         itemId={item.id}
         placements={item.placements}
         arrivedThrough={arrivedThrough}
         showingOnly={showingOnly}
+        from={from}
       />
       {/*
         LAST ON THE PAGE, AND THAT IS NOT A DEMOTION. TMDB's terms ask for the
@@ -380,16 +408,67 @@ function Values({ statements }: { statements: ItemOnThePage["statements"] }) {
  * two rows here legitimately share one `itemId`, and React given the item id
  * would see one key twice.
  */
-function Members({ holds }: { holds: ItemOnThePage["holds"] }) {
-  if (holds.length === 0) return null;
+function Members({
+  itemId,
+  holds,
+  route,
+  from,
+}: {
+  itemId: string;
+  holds: ItemOnThePage["holds"];
+  /** ADR-0066's other two parameters, which every link here has to keep. */
+  route: TheRoute;
+  /** The cursor this page was asked with, if it was asked with one. */
+  from?: string;
+}) {
+  const { entries, total, continuesAfter } = holds;
+  /*
+   * NOTHING AT ALL FOR AN ITEM THAT HOLDS NOTHING, which is `total` rather than
+   * `entries.length`: an item that is not a container and an empty container
+   * both hold none, and both rendered nothing before this listing was capped.
+   * The two are deliberately not told apart here -- ADR-0004's fold is what
+   * `isContainer` above carries, and the `Holds` row in the header is where an
+   * owner meets an empty container they have just made.
+   *
+   * AN ENTRIES-LENGTH TEST WOULD HIDE THE END OF THE WALK, which is the state
+   * below: a cursor past the last member answers a page with no rows over an
+   * ordering that has plenty.
+   */
+  if (total === 0) return null;
+  // `/items/<id>` is where this listing is walked, because a Container IS an
+  // Item and its page is the Item page (ADR-0004, ADR-0066).
+  const path: MembersPath = `/items/${itemId}`;
 
   return (
     <section className="mt-8" aria-labelledby="members">
-      <h2 id="members" className="font-medium text-sm">
-        Members
-      </h2>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
+        <h2 id="members" className="font-medium text-sm">
+          Members
+        </h2>
+        {/*
+          THE CAP IS NEVER SILENT (ADR-0119). This listing had no count at all,
+          so a container of 1,049 stories rendered as an ordering of however
+          many rows the page happened to carry.
+
+          THE NOUN IS `member` BECAUSE THAT IS THE READER'S WORD FROM THIS END.
+          `CONTEXT.md` bans `member` as a NAME in code -- a row here is a
+          Placement -- and settles "Members" as the heading a reader sees from
+          the container's end, which is the same word this sentence counts in.
+          It is not `item`, either: a Repeat is one item twice, so the count
+          would disagree with itself.
+        */}
+        {entries.length > 0 && <Holding showing={entries.length} total={total} noun="member" />}
+      </div>
+      {/*
+        MEMBERS BEHIND IT AND NONE ON THIS PAGE, which is what a cursor makes
+        possible: the link was cut at a member, and nothing is after that member
+        any more. Rare, and a DEAD END if nothing says so -- the reader would
+        get the heading with an empty list under it, which reads as a section
+        that failed to load rather than as an ending.
+      */}
+      {entries.length === 0 && <PastTheEnd path={path} asked={route} />}
       <ul className="mt-2 divide-y">
-        {holds.map((placement) => (
+        {entries.map((placement) => (
           <li key={placement.id} className="flex items-baseline justify-between gap-4 py-2">
             {/*
               A LINK CARRYING `?via=`, which is the one place on this page that
@@ -459,8 +538,54 @@ function Members({ holds }: { holds: ItemOnThePage["holds"] }) {
           </li>
         ))}
       </ul>
+      {/*
+        HOW A READER REACHES THE REST OF IT (ADR-0119), and the same component
+        the catalogue, work-browsing and Catalogue search walk with -- so the
+        rule that every page past the first carries a way back to the start is
+        written once rather than four times.
+
+        IT CARRIES `route` FORWARD, so walking this ordering does not lose the
+        `?via=` a reader arrived through or the origin they narrowed to. The
+        cursor goes last of the three, which is ADR-0066's fixed spelling order
+        with a third parameter appended rather than inserted.
+
+        AND IT IS GATED ON THERE BEING ROWS, exactly as `/` and `/works` gate
+        theirs -- which review of CNCORE-89 found this was not. Past the end of
+        the walk BOTH this and `PastTheEnd` above render, and both offer "Back
+        to the start": the reader met the same link twice, either side of an
+        empty list. The notice owns that page, so the walk stands down on it.
+      */}
+      {entries.length > 0 && (
+        <Walk path={path} asked={route} from={from} continuesAfter={continuesAfter} />
+      )}
     </section>
   );
+}
+
+/**
+ * THE ITEM PAGE'S NON-IDENTIFYING PARAMETERS, in ONE fixed spelling order.
+ *
+ * ADR-0066 declares `?via=` and `?placed=` non-identifying and writes them
+ * "in a fixed order -- `via` then `placed` -- so one narrowed list is one URL
+ * rather than two spellings of it". A cursor is the third, and it is appended
+ * rather than inserted: re-ordering the existing pair would give every link
+ * already emitted a second spelling, which is the one thing a fixed order
+ * exists to prevent.
+ *
+ * WRITTEN ONCE BECAUSE TWO SURFACES ON THIS PAGE EMIT IT -- the walk below the
+ * Members list, and every chip of the "Also appears in" filter. The order held
+ * by two copies is the order that drifts.
+ *
+ * A KEY IS ABSENT RATHER THAN EMPTY where there is no value. Next turns an
+ * `undefined` query value into an empty parameter, so an object carrying all
+ * three keys unconditionally would emit `?via=&placed=&after=` on the plainest
+ * address this page has.
+ */
+function theRoute(arrivedThrough?: string, showingOnly?: string): TheRoute {
+  const route: TheRoute = {};
+  if (arrivedThrough) route.via = arrivedThrough;
+  if (showingOnly) route.placed = showingOnly;
+  return route;
 }
 
 /**
@@ -473,6 +598,7 @@ function AlsoAppearsIn({
   placements,
   arrivedThrough,
   showingOnly,
+  from,
 }: {
   itemId: string;
   placements: ItemOnThePage["placements"];
@@ -484,6 +610,15 @@ function AlsoAppearsIn({
   arrivedThrough?: string;
   /** The origin the reader has narrowed to, if any. */
   showingOnly?: string;
+  /**
+   * The Members cursor, which these chips carry FORWARD rather than drop.
+   *
+   * The two listings on this page are independent -- `placed` narrows this one
+   * and `after` walks the one above -- so a reader deep in an ordering who
+   * narrows this list would otherwise be sent back to the ordering's first page
+   * by a chip that has nothing to do with it.
+   */
+  from?: string;
 }) {
   if (placements.length === 0) return null;
 
@@ -510,7 +645,12 @@ function AlsoAppearsIn({
           makes for `?via=`.
         */}
         <nav aria-label="Filter by how it was placed" className="flex gap-3 text-sm">
-          <FilterLink itemId={itemId} arrivedThrough={arrivedThrough} showingOnly={showingOnly}>
+          <FilterLink
+            itemId={itemId}
+            arrivedThrough={arrivedThrough}
+            showingOnly={showingOnly}
+            from={from}
+          >
             All
           </FilterLink>
           {origins.map((origin) => (
@@ -520,6 +660,7 @@ function AlsoAppearsIn({
               arrivedThrough={arrivedThrough}
               showingOnly={showingOnly}
               origin={origin}
+              from={from}
             >
               {placedByLabel(origin)}
             </FilterLink>
@@ -567,31 +708,35 @@ function AlsoAppearsIn({
 }
 
 /**
- * One chip of the filter. It carries `?via=` forward, so narrowing the list
- * does not lose the ordering the reader arrived through, and writes the two
- * parameters in a fixed order -- `via` then `placed` -- so one narrowed list is
- * one URL rather than two spellings of it.
+ * One chip of the filter. It carries `?via=` forward, so narrowing the list does
+ * not lose the ordering the reader arrived through, and the Members cursor with
+ * it -- all three in the fixed order `theRoute` holds (ADR-0066).
  */
 function FilterLink({
   itemId,
   arrivedThrough,
   showingOnly,
   origin,
+  from,
   children,
 }: {
   itemId: string;
   arrivedThrough?: string;
   showingOnly?: string;
   origin?: string;
+  from?: string;
   children: React.ReactNode;
 }) {
   // An object rather than a string: Next's typed routes match a string href
   // against the route patterns, and `/items/<id>?<query>` matches none of them.
   // The query keeps insertion order through to the URL, which is what holds the
-  // two parameters in one fixed order.
-  const query: Record<string, string> = {};
-  if (arrivedThrough) query.via = arrivedThrough;
-  if (origin) query.placed = origin;
+  // three parameters in one fixed order.
+  //
+  // `origin` RATHER THAN `showingOnly` IS WHAT THIS CHIP NARROWS TO: the chip
+  // for an origin points AT it, and the `All` chip has none and therefore drops
+  // `placed` -- which is what makes it All.
+  const query: Record<string, string> = { ...theRoute(arrivedThrough, origin) };
+  if (from) query.after = from;
 
   return (
     <Link

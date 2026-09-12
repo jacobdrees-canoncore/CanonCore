@@ -15,6 +15,7 @@ import { itemKindsPublic, itemPublic, itemWritten, ownerNote } from "@canoncore/
 import { z } from "zod";
 
 import { openProcedure, ownerProcedure } from "../index";
+import { A_PAGE, aCursor } from "./listing";
 
 /**
  * A title as the catalogue will accept one from the owner's own hand.
@@ -248,7 +249,23 @@ export const item = {
      * 500 -- so a typo in a shared link read as a broken server rather than as
      * the missing item it is (CNCORE-14, ADR-0066).
      */
-    .input(z.object({ id: z.string() }))
+    .input(
+      z.object({
+        id: z.string(),
+        /*
+         * THE MEMBERS LISTING'S CURSOR (ADR-0119, CNCORE-89), and the one input
+         * on this procedure that is not about which item is being asked for.
+         *
+         * IT SITS ON `item.get` RATHER THAN ON A LISTING PROCEDURE OF ITS OWN,
+         * because a Container IS an Item (ADR-0004) and its page is the Item
+         * page: a `container.members` would be one thing at two addresses, which
+         * is the case ADR-0066's canonical link relation exists to collapse.
+         * The other three listings ARE their surface, so their cursor is the
+         * whole query; this one rides beside the item it is a listing OF.
+         */
+        after: aCursor,
+      }),
+    )
     .output(itemPublic)
     .errors({ NOT_FOUND: { message: "No item at that id, and no alias resolving to one." } })
     .handler(async ({ input, context, errors }) => {
@@ -266,7 +283,14 @@ export const item = {
         // answer is empty either way -- and a branch here would be a second
         // place for "what is a container" to be decided, free to disagree with
         // the column.
-        findPlacementsInContainer(context.db, found.id),
+        /*
+         * CAPPED AND WALKED SINCE CNCORE-89. It answered every live placement,
+         * which ADR-0119's first sentence forbids -- and `browse` imports a
+         * whole category in one call, which ADR-0077 measures at 1,049 stories.
+         * The cap is `A_PAGE`, the same ceiling the other three listings serve,
+         * and the caller cannot raise it.
+         */
+        findPlacementsInContainer(context.db, found.id, { limit: A_PAGE, after: input.after }),
         findStatementsOfItem(context.db, found.id),
         findAttributionOwed(context.db, found.id),
       ]);
@@ -295,13 +319,21 @@ export const item = {
           position: placement.position,
           placedBy: placement.placedBy,
         })),
-        holds: holds.map((placement) => ({
-          id: placement.id,
-          title: placement.title,
-          itemId: placement.itemId,
-          position: placement.position,
-          assertedBy: placement.assertedBy,
-        })),
+        // THE LISTING AND NOT ONLY ITS ROWS (ADR-0045, ADR-0119): what this page
+        // carries, how much the container holds, and where it carries on. The
+        // three travel together because a surface handed only the first would
+        // report the cap as the whole ordering.
+        holds: {
+          entries: holds.entries.map((placement) => ({
+            id: placement.id,
+            title: placement.title,
+            itemId: placement.itemId,
+            position: placement.position,
+            assertedBy: placement.assertedBy,
+          })),
+          total: holds.total,
+          continuesAfter: holds.continuesAfter,
+        },
         statements: statements.map((statement) => ({
           property: statement.property,
           value: statement.value,

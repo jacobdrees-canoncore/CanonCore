@@ -44,6 +44,7 @@ export {
   type NoteOfItem,
   type PlacementInContainer,
   type PlacementOfItem,
+  type PlacementsInContainer,
   readCatalogue,
   readWorks,
   type StatementOfItem,

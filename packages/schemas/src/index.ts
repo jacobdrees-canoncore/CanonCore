@@ -208,6 +208,46 @@ export const placementInContainerPublic = z.object({
 
 export type PlacementInContainerPublic = z.infer<typeof placementInContainerPublic>;
 
+/**
+ * What a CONTAINER'S OWN LISTING answers with: the page, its size, and where it
+ * carries on (ADR-0119).
+ *
+ * THE SAME THREE FACTS `cataloguePublic` BELOW CARRIES, over a different kind
+ * of row. The catalogue, work-browsing and Catalogue search list ITEMS and
+ * share one shape for it; a container lists PLACEMENTS, because a Repeat is one
+ * item twice in one ordering and an entry has to be able to say which of the
+ * two it is. A single schema for both would have to make `entries` a union,
+ * which is a shape no caller wants: nothing asks a listing for "items or
+ * placements, whichever this one holds".
+ *
+ * IT IS A SHAPE RATHER THAN THREE FIELDS ON `itemPublic`, so a surface takes
+ * the page, the size and the cursor together or not at all. Spread across the
+ * item they would be three fields a reader could pick one of -- and the one
+ * they would pick is `entries`, which is the silent cap this record exists to
+ * refuse.
+ */
+export const placementsInContainerPublic = z.object({
+  entries: z.array(placementInContainerPublic),
+  /**
+   * How many placements this container holds ALTOGETHER, cap or no cap. A
+   * surface that could only count what it was given would report the first
+   * hundred as the whole ordering.
+   */
+  total: z.number().int().nonnegative(),
+  /**
+   * The placement to ask for the next page with, or `null` where the ordering
+   * ends here (ADR-0119).
+   *
+   * A PLACEMENT'S ID AND NOT AN ITEM'S, which is where this departs from that
+   * record's letter and for the reason `?via=` already departs the same way
+   * (ADR-0066): a Repeat is one item twice in one container, so an item id
+   * names two rows here and cannot say which of them a page ended on.
+   */
+  continuesAfter: z.uuid().nullable(),
+});
+
+export type PlacementsInContainerPublic = z.infer<typeof placementsInContainerPublic>;
+
 export const itemPublic = z.object({
   id: z.uuid(),
   /**
@@ -254,8 +294,14 @@ export const itemPublic = z.object({
    * field was called until CNCORE-91 -- is a word the Placement entry now
    * rejects. "Members" stays as the heading a reader sees; this is the name the
    * read path emits, and the two are allowed to differ (ADR-0045).
+   *
+   * A LISTING RATHER THAN AN ARRAY SINCE CNCORE-89, which is the cap arriving:
+   * `browse` imports a whole category in one call and ADR-0077 measures one at
+   * 1,049 stories, so this was a thousand rows on an ordinary item page. An
+   * array could carry the page and could not carry what the page was not
+   * showing.
    */
-  holds: z.array(placementInContainerPublic),
+  holds: placementsInContainerPublic,
   /**
    * Every value anybody has claimed about this item, with who claimed it. The
    * winner for a property comes first, by the same three terms the projection

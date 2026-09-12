@@ -121,9 +121,10 @@ describe("/search", () => {
 describe("/search on a result set larger than one page", () => {
   /**
    * WHAT `q` IS. Every titled item in the paged instance carries `story` in its
-   * title -- 250 of them are "Story 0001".."Story 0250" and two are "A story
-   * told twice" -- so this one query matches every item there EXCEPT the two
-   * with no title at all, which is the state the walk is asserted against.
+   * title -- 249 of them are "Story 0001".."Story 0249", two are "A story told
+   * twice", and one is the container titled "Every story here, in one ordering"
+   * -- so this one query matches every item there EXCEPT the two with no title
+   * at all, which is the state the walk is asserted against.
    */
   const QUERY = "story";
 

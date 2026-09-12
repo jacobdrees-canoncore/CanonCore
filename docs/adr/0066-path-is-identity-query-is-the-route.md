@@ -99,6 +99,36 @@ origin. It identifies nothing either, and the canonical is unchanged by it. Link
 write them in a fixed order -- `via` then `placed` -- so one narrowed list is one URL rather than
 two spellings of it.
 
+**AND A THIRD, UNDER CNCORE-89: `?after=`**, which walks the Members listing
+([[0119-a-listing-is-walked-forward-from-the-last-item-it-showed]]). It identifies nothing either --
+it names where a page of that listing carries on from -- and the canonical is unchanged by it, which
+is the half this record had to rule on before the cap could be built at all.
+
+**IT IS WRITTEN LAST, AND THAT IS THE DECISION RATHER THAN A DEFAULT.** The fixed order is now
+`via`, `placed`, `after`. Alphabetical would have put it first, and the argument against is this
+record's own: a fixed spelling order exists so that one narrowed list at one page is ONE URL, and
+re-ordering the existing pair would give every link already emitted a second spelling of itself. A
+parameter arriving later goes behind the ones that are already out there.
+
+**AND IT IS THE SAME WORD THE OTHER THREE LISTINGS WALK WITH**, rather than one named for this
+surface. `/` and `/works` and `/search` all take `?after=`, so a parameter called `member` or
+`holds` here would be a second convention for one question -- on the one surface in the app where a
+reader can see all three parameters at once.
+
+**THE MEMBERS LISTING IS WALKED ON `/items/<id>` AND NOWHERE ELSE, which is this record operating
+rather than a convenience.** A Container IS an Item ([[0004-containers-are-items]]), so a
+`/containers/<id>?after=` -- or a `container.members` procedure answering a listing of its own --
+would be one thing at two addresses, which is exactly what the canonical link relation above exists
+to collapse. The cursor rides beside the item it is a listing OF, which is what makes this address
+carry three parameters where the other three listings' addresses carry one: those surfaces ARE
+their listing, and this one is a page that HAS one.
+
+**WHAT COMPOSES WITH IT, said because it is the thing that breaks quietly.** `placed` narrows "Also
+appears in" and `after` walks `Members`: two independent listings on one page. So the filter chips
+carry the cursor forward rather than dropping it -- a chip that dropped it would send a reader deep
+in an ordering back to its first page for touching the other list -- and the order of all three is
+held in ONE function rather than in each of the two places that emit a link.
+
 **NOT BUILT: next.** This record also decides that the next item is DERIVED from the placement in
 the query rather than stored in a playqueue. Nothing derives one yet, because there is no playback.
 The half built here is the half it needs -- the container survives a refresh and a shared link,
@@ -133,7 +163,9 @@ which of the two arrivals a link is and only the Placement can. That is also why
 recap and its episode would be one key twice.
 
 **WHAT IS STILL NOT BUILT IS STILL `next`.** A page that walks an ordering is not a page that derives
-the next thing in it, and nothing does. This record stays PROPOSED for that reason and no other.
+the next thing in it, and nothing does. This record stays PROPOSED for that reason and no other --
+CNCORE-89 capped and walked that ordering without touching it, so the unbuilt half is the same half
+it has always been.
 
 ## What implementing it taught -- under CNCORE-14
 
