@@ -2,7 +2,13 @@ import { ORPCError, os } from "@orpc/server";
 
 import type { Context } from "./context";
 
-export const o = os.$context<Context>();
+/**
+ * The builder both of the ones below are made from, and NOT exported: since
+ * `openProcedure` is this object, exporting both would publish one builder under
+ * two names -- and the name a procedure is declared with is the only place this
+ * surface says who may call it.
+ */
+const o = os.$context<Context>();
 
 /**
  * ANYONE MAY CALL THIS, and that is a decision rather than the absence of one.
