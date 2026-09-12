@@ -95,10 +95,11 @@ export default async function WorksPage({
  * surface answering "what can I watch" excludes the entity kinds -- so naming
  * the rule is what turns an empty grid back into an answer.
  *
- * IT DOES NOT REPEAT THE FRONT PAGE'S TWO STEPS. Allowlisting a provider and
- * importing are what fill an EMPTY catalogue (ADR-0094), and that page owns
- * those words; a catalogue with entities in it has already been imported into.
- * What this page points at is the surface that can show them.
+ * IT DOES NOT REPEAT THE FRONT PAGE'S ROUTES OUT OF AN EMPTY CATALOGUE. Adding
+ * an item by hand and importing from a provider are the two that fill one
+ * (ADR-0094), and that page owns those words; a catalogue with entities in it
+ * has already been filled by one of them. What this page points at is the
+ * surface that can show them.
  */
 function NothingToWatch() {
   return (

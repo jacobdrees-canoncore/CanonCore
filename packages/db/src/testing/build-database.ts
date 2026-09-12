@@ -60,6 +60,19 @@ export const TEST_DATABASE_SUFFIXES = [
    * `worktree-database.ts` says why the constant leads and the suffix gives way.
    */
   "conf",
+  /*
+   * AN EMPTY CATALOGUE THAT IS NOT AN UNCONFIGURED ONE (CNCORE-131). Every
+   * other instance a test may READ is empty AND unconfigured or neither, so the
+   * two facts move together and no assertion made on one of them can tell them
+   * apart. `conf` above starts empty as well and is not the one to borrow: its
+   * configuration is what another suite writes. The front page reads the two as
+   * two conditions off two facts, and this is the combination that proves it:
+   * an owner who allowlisted something and still has nothing.
+   *
+   * `_test_allow` IS ELEVEN CHARACTERS, WHICH IS THE BUDGET EXACTLY:
+   * `LONGEST_DERIVED_SUFFIX` is `_test_fresh`, and this one is the same length.
+   */
+  "allow",
 ] as const;
 
 /** A suffix this repo has declared, which is the only kind there is. */

@@ -75,8 +75,11 @@ release of that is a release of the first five minutes rather than of the produc
 whether the emptiness is explained; that gap is what this effort closes.
 
 **The first clause of that paragraph is now history and the last is not.** CNCORE-65 replaced the
-banner with the catalogue: an empty one names the two steps that fill it, and an instance with
-nothing allowlisted says so, so an empty result reads as configuration rather than breakage.
+banner with the catalogue: an empty one names the routes that fill it, and an instance with
+nothing allowlisted says so, so an empty result reads as configuration rather than breakage. It
+named two STEPS until CNCORE-131 and both were a provider's, which stopped being the whole answer at
+v0.2.0 — building a catalogue by hand is a route of its own now, and it is the one that needs
+nothing configured.
 CNCORE-64 has since put the variable in the README and in `.env.example`, both held to the schema by
 a suite rather than to a reader's memory, so the page and the documents now say the same thing about
 what empty means. Nothing reaches `/items/<id>` by SEARCHING for it yet, which is CNCORE-66's. The

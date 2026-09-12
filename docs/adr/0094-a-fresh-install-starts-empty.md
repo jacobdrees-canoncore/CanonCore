@@ -75,14 +75,27 @@ touched them, the schema's own furniture written by the ladder as before. A reco
 about what somebody else's instance starts with can be accepted once somebody else can start one,
 and they can. The flip was owed by CNCORE-64 and is made by CNCORE-105.
 
-**AND THE EMPTINESS NOW HAS A SECOND WAY OUT THAT THE PAGE DOES NOT NAME, found under CNCORE-75.**
-This record's other half is that an install starting empty must say what to do next, and the front
-page says it in two steps that are both about a Provider: allowlist one, then import from it. Since
-v0.2.0 neither is necessary -- an owner fills a catalogue by hand, and the walk that proved it
-configured no Provider at all. So the copy is no longer wrong and is no longer the whole answer, and
-a reader whose instance reaches nothing is told to go and find something to reach. Filed as
-CNCORE-131 rather than fixed inside the release ticket, because it is product copy and the header's
-own `New item` link means the capability is reachable rather than hidden.
+**AND THE EMPTINESS HAS A SECOND WAY OUT, WHICH THE PAGE NAMES SINCE CNCORE-131.** This record's
+other half is that an install starting empty must say what to do next, and the front page said it in
+two steps that were both about a Provider: allowlist one, then import from it. Since v0.2.0 neither
+is necessary — an owner fills a catalogue by hand, and the walk that found this configured no
+Provider at all (CNCORE-75). So that copy was not wrong and was not the whole answer either: a
+reader whose instance reached nothing was sent to go and find something for it to reach, past the
+shorter path already on the page they were looking at. **THE PAGE OFFERS TWO ROUTES NOW, AND THE ONE
+THAT NEEDS NO PROVIDER GOES FIRST** — `/new`, which makes an Item with no file and no provider
+record (ADR-0003) — beside the provider's route, which keeps both its steps and names the two
+Settings it needs (ADR-0121). It was FILED rather than fixed inside the release ticket, because it
+is product copy and the header's own `New item` link meant the capability was reachable rather than
+hidden. Reachable and unsaid is exactly what this record does not licence, which is why reachable
+was not an answer.
+
+**AND THE ROUTE IS OFFERED WHETHER OR NOT A PROVIDER IS ALLOWLISTED**, which is the half that needed
+a fixture rather than words. Every empty instance in the suite was also an unconfigured one, so
+"the catalogue holds nothing" and "this instance reaches nothing" moved together and no assertion
+could tell which of them the page was reading. The e2e harness stands up an instance in the
+missing combination — an allowlist that admits something, a catalogue that is still empty — so an
+empty state that acquired a second condition, shown only where nothing is reachable, fails there
+rather than passing everything.
 
 **WHAT `accepted` DOES NOT ASSERT, BECAUSE THE TITLE IS TWO REFUSALS AND ONLY ONE HAS MET AN
 INSTANCE.** "Never shipped" is the half above, walked. "Never demoed" is not: there IS no public
@@ -115,13 +128,15 @@ govern.
 
 **And the half this record explicitly does not licence is now closed.** The section above ends "an
 install that starts empty WITHOUT SAYING WHAT TO DO NEXT is a separate failure", and points at
-[[0115-the-public-release-comes-before-the-playback-half]]. CNCORE-65 is where that was done: the
-empty catalogue names the two steps that fill it, and an instance with nothing allowlisted says so
-rather than leaving an empty result to read as breakage. Nothing in the refusal softened — the fix
-is words on a page, and no seed data travels anywhere.
+[[0115-the-public-release-comes-before-the-playback-half]]. CNCORE-65 is where that was done and
+CNCORE-131 is where it was finished: the empty catalogue names the ROUTES that fill it — by hand,
+and from a provider — and an instance with nothing allowlisted says so rather than leaving an empty
+result to read as breakage. Nothing in the refusal softened — the fix is words on a page, and no
+seed data travels anywhere.
 
 **The third state the page reports was not in this record and is worth naming**: an allowlist that
 names nothing is not the same fact as a catalogue that holds nothing, and an owner can be in either
-without the other. The page reads them as two conditions off two facts rather than as one
-"unconfigured" state, because an owner with items and no allowlist is stuck in a way an empty
-catalogue does not describe.
+without the other — which CNCORE-131 turned from a claim into a fixture, having found that no
+instance in the suite was in one without the other. The page reads them as two conditions off two
+facts rather than as one "unconfigured" state, because an owner with items and no allowlist is
+stuck in a way an empty catalogue does not describe.

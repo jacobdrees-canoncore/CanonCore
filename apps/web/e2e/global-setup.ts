@@ -167,6 +167,13 @@ export default async function setup(project: TestProject) {
   const fresh = await freshInstall();
   project.provide("freshBaseUrl", fresh.baseUrl);
 
+  /*
+   * AND THE SAME EMPTINESS WITH THE ALLOWLIST FILLED IN, which is the
+   * combination nothing here had (CNCORE-131). See `anInstanceAllowlistedAndEmpty`.
+   */
+  const allowlisted = await anInstanceAllowlistedAndEmpty();
+  project.provide("allowlistedBaseUrl", allowlisted.baseUrl);
+
   // WHAT A TEST LOGS IN WITH. Everything that writes is the owner's, so a file
   // that presses a button needs this; `document.ts`'s `logInAt` takes it.
   project.provide("ownerPassword", OWNER_PASSWORD);
@@ -231,6 +238,7 @@ export default async function setup(project: TestProject) {
   return async () => {
     server.close();
     await fresh.close();
+    await allowlisted.close();
     await paged.close();
     await purgeable.close();
     await still.close();
@@ -249,6 +257,50 @@ export default async function setup(project: TestProject) {
     await lookupOnly.close();
     await answersBadly.close();
   };
+}
+
+/**
+ * AN EMPTY CATALOGUE ON AN INSTANCE THAT IS NOT UNCONFIGURED (CNCORE-131).
+ *
+ * THE COMBINATION NOTHING HERE HAD. `freshInstall` below is empty AND
+ * unallowlisted and the seeded instance is neither, so "the catalogue holds
+ * nothing" and "this instance reaches nothing" moved together in every fixture
+ * a test could read, and an assertion could not tell which of them a page was
+ * reading. ADR-0094's own closing paragraph is that these are TWO facts with
+ * different remedies and an owner can be in either without the other.
+ *
+ * AND `anInstanceSafeToConfigure` IS NOT THE ONE TO REACH FOR, though it starts
+ * empty too. Its whole purpose is that `settings-page.test.ts` WRITES its
+ * configuration, so what it reaches changes underneath a reader mid-run --
+ * which is CNCORE-93's shape exactly, an assertion reading shared state across
+ * a write it does not own. This instance is nobody's to change.
+ *
+ * WHAT IT PROVES IS THE ROUTE THAT NEEDS NO PROVIDER. CNCORE-131's criterion is
+ * that building a catalogue by hand is offered "whether or not one is
+ * allowlisted", and the fresh install only ever shows the `or not` half. Here
+ * `provider.allowlisted` answers yes and the catalogue is still empty, so a
+ * page that quietly made the empty state conditional on reaching nothing fails
+ * here and passes everywhere else.
+ *
+ * AN ALLOWLIST AND NO PROVIDER NAMED, which is a real state rather than a
+ * half-built one: they are two settings and neither is derivable from the other
+ * (ADR-0121). It is also the CHEAP way to the fact under test -- `allowlisted`
+ * reads `allowsAnything(allowlist)` and nothing else, so naming a provider here
+ * would tie this instance to a fixture provider's lifetime to move a condition
+ * it does not read.
+ *
+ * NO PASSWORD, so nothing can write to it and the emptiness stays the fixture.
+ */
+function anInstanceAllowlistedAndEmpty() {
+  return anInstanceServing({
+    suffix: "allow",
+    ownerPassword: "",
+    // ADR-0034's own example range, as every configured instance here uses.
+    allowlist: "127.0.0.0/8",
+    providers: [],
+    // NOTHING SEEDS IT: the emptiness is the state under test, as above.
+    fill: async () => {},
+  });
 }
 
 /**
@@ -1720,6 +1772,12 @@ declare module "vitest" {
      * stranger's first run of CanonCore is (ADR-0094).
      */
     freshBaseUrl: string;
+    /**
+     * The same build serving an empty catalogue on an instance that HAS an
+     * allowlist: empty without being unconfigured, which is the combination no
+     * other instance here is in (CNCORE-131).
+     */
+    allowlistedBaseUrl: string;
     /**
      * What the owner logs in with on every instance that has a password. The
      * fresh one above deliberately has none, which is what ADR-0044's demo is.
