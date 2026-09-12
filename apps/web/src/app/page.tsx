@@ -122,11 +122,14 @@ export default async function CataloguePage({
  * condition is read off `providers.any` alone and never off the catalogue's
  * size, which is what makes that true by construction rather than by care.
  *
- * ONLY ONE OF THE TWO COMBINATIONS IS EXERCISED, and saying so is cheaper than
- * letting a reader assume both are. The suite has an instance with an empty
- * catalogue AND an empty allowlist, and one with neither; items-present-with-no-
- * allowlist would need a third server, and the page's condition cannot see the
- * catalogue to get it wrong.
+ * THREE OF THE FOUR COMBINATIONS ARE EXERCISED, and saying which is cheaper
+ * than letting a reader assume all of them are. The suite has an instance with
+ * an empty catalogue AND an empty allowlist, one with neither, and -- since
+ * CNCORE-131 -- one with an empty catalogue AND an allowlist that admits
+ * something, which is what holds the empty state to being offered whether or
+ * not a provider is reachable. ITEMS PRESENT WITH NO ALLOWLIST is the fourth
+ * and is still nobody's fixture: it would need a server of its own, and the
+ * condition here cannot see the catalogue to get it wrong.
  *
  * WHERE THE SETTING IS, NAMED AND LINKED (CNCORE-99). "Allowlist a provider" is
  * the step, and until this ticket the thing an owner had to type was an
@@ -173,6 +176,31 @@ function NoProviderAllowlisted() {
  * NEXT is a separate failure this record does not licence". This is the other
  * half, and it is deliberately WORDS ON A PAGE rather than rows in a database --
  * nothing here softens the refusal to ship somebody else's library.
+ *
+ * TWO ROUTES, AND THE ONE THAT NEEDS NOTHING GOES FIRST (CNCORE-131). It said
+ * two STEPS until then and both of them were a provider's: allowlist one, then
+ * import from it. That was the whole answer for as long as a provider was the
+ * only way in, and v0.2.0 ended it -- `/new` makes an Item with no file and no
+ * provider record (ADR-0003), and a Container holding it is a catalogue with
+ * nothing allowlisted and nothing running anywhere. So the copy was not wrong
+ * and was not the whole answer: a reader whose instance reaches nothing was
+ * being sent to find something for it to reach, past the shorter path already
+ * on the page they were looking at. Found walking a real v0.2.0 install
+ * (CNCORE-75).
+ *
+ * ROUTES RATHER THAN STEPS, WHICH IS WHY THE PROVIDER'S TWO ARE ONE ITEM. A
+ * list of steps is a sequence to complete and a list of routes is a choice
+ * between alternatives; naming a provider and importing from it are steps
+ * WITHIN one route, because an owner who does the first and stops has filled
+ * nothing.
+ *
+ * IT IS NOT CONDITIONAL ON REACHING ANYTHING, and that is the criterion rather
+ * than an accident of where the condition sits. The hand-built route is what an
+ * owner with no provider has, so an empty state that appeared only where
+ * nothing was allowlisted would withhold it from exactly the owner who
+ * configured one and still has an empty catalogue. Read off `empty` alone,
+ * never off `providers.any`, and `front-page.test.ts` has an instance in that
+ * combination to hold it there.
  */
 function WhatToDoNext() {
   return (
