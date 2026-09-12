@@ -11,6 +11,7 @@ import {
   anItemTitled,
   aPlacement,
   aProvider,
+  aStatement,
   ownerSource,
 } from "@canoncore/db/testing/catalogue";
 import { createORPCClient } from "@orpc/client";
@@ -123,6 +124,10 @@ export default async function setup(project: TestProject) {
   project.provide("pagedBaseUrl", paged.baseUrl);
   project.provide("pagedCatalogue", paged.fixture);
 
+  const purgeable = await aCatalogueSafeToPurge(provider.url, tmdb.url);
+  project.provide("purgeableBaseUrl", purgeable.baseUrl);
+  project.provide("purgeable", purgeable.fixture);
+
   project.provide("imported", await importThroughTheApp(baseUrl, provider.url));
   project.provide("attributed", await importFromTmdb(baseUrl, tmdb.url));
   /*
@@ -146,6 +151,7 @@ export default async function setup(project: TestProject) {
     server.kill("SIGTERM");
     fresh.close();
     await paged.close();
+    await purgeable.close();
     // The seed ends its own client; this pool has to be ended too, or the run
     // holds an idle connection open against a database it is finished with.
     await twoOrigins.close();
@@ -250,6 +256,150 @@ async function aCatalogueTooBigForOnePage() {
       await db.$client.end();
     },
   };
+}
+
+/**
+ * A FOURTH INSTANCE, and what is new about it is that IT CAN BE DESTROYED.
+ *
+ * A purge deletes everything one provider ever said, so asserting one against
+ * the seeded server would delete the fixtures every other file here reads --
+ * mid-run, in whatever order the files happened to start. The emptiness of the
+ * fresh install and the 254 items of the paged catalogue are each somebody's
+ * fixture too. So the state under test is a catalogue NOBODY ELSE READS, filled
+ * by the same two providers through the same app, and what a test takes from it
+ * is gone for that file alone.
+ *
+ * THE SAME PROVIDERS, NOT NEW ONES. The stubs are already running and a purge is
+ * about rows in a CATALOGUE rather than anything at a provider, so a second pair
+ * would be two more processes proving nothing -- and in CI these two are the real
+ * images, which is the whole reason they are passed in rather than stood up here.
+ *
+ * TWO PROVIDERS WITH CONTENT, AND THE DIVISION IS WHAT KEEPS THE FILE ORDERLESS.
+ * One of them is previewed and declined and never purged, so the tests that must
+ * find a catalogue still standing cannot be made to fail by a test that ran
+ * first; the other is the one the destructive test takes. A single provider would
+ * make every assertion in the file depend on the order vitest happened to run it.
+ *
+ * AND A THIRD THAT WAS NEVER IMPORTED FROM, which is not a gap in the fixture but
+ * a state the ticket names: a purge that would remove nothing has to say so
+ * rather than present an empty confirmation. `provider.invalid` is unreachable,
+ * which costs nothing here -- a purge makes no request, so this is the one
+ * surface where an unreachable provider is fully operable, and that is ADR-0046's
+ * own motivating case rather than an edge of it.
+ */
+async function aCatalogueSafeToPurge(wikiUrl: string, tmdbUrl: string) {
+  const databaseUrl = await buildTestDatabase("purgeable");
+  const port = await freePort();
+  const server = spawn("next", ["start", "--port", String(port)], {
+    cwd: webRoot,
+    env: {
+      ...process.env,
+      DATABASE_URL: databaseUrl,
+      PROVIDER_ALLOWLIST: "127.0.0.0/8",
+      PROVIDER_URLS: [wikiUrl, tmdbUrl, UNREACHABLE_PROVIDER].join(","),
+    },
+    stdio: "inherit",
+  });
+  const baseUrl = `http://127.0.0.1:${port}`;
+  await waitUntilAnswering(baseUrl, server);
+
+  // FILLED THROUGH THE APP, for the reason every other fixture here is: the
+  // rows a purge deletes have to be rows the app's own import path wrote, or
+  // what is purged is the harness's idea of an import.
+  const client: AppRouterClient = createORPCClient(new RPCLink({ url: `${baseUrl}/api/rpc` }));
+  const previewed = await client.provider.browse({ baseUrl: wikiUrl, containerId: "388305" });
+  const purged = await client.provider.browse({
+    baseUrl: tmdbUrl,
+    containerId: MATRIX_COLLECTION,
+  });
+
+  /*
+   * AND THEN THE OWNER PUTS THEIR OWN HAND ON ONE MEMBER OF EACH.
+   *
+   * THIS IS THE FIXTURE FOR THE CRITERION ABOUT ITEMS THE OWNER HAS EDITED. An
+   * item a provider wrote and the owner ALSO places does not go when the
+   * provider does: the owner's placement is the owner's claim, and a licence
+   * ending has no bearing on it (ADR-0046). Without a member in that state the
+   * preview would report every item as removed and the criterion would have no
+   * state to be asserted in -- the numbers would be right for a catalogue nobody
+   * had curated, which is the one catalogue this product is not for.
+   */
+  const db = createDb(databaseUrl);
+  const owner = await ownerSource(db);
+  /*
+   * A PLACEMENT AND A TITLE, because the criterion says EDITED and those are two
+   * different ways for the owner to have a claim on a provider's item. A
+   * placement is the owner saying where it sits; a title of their own is the
+   * owner OVERRIDING what the provider said, which is the literal reading of
+   * "items the Owner has edited" and is CNCORE-60's user story 25. Either keeps
+   * the item standing when the provider goes, and a fixture with only the first
+   * would leave the literal case asserted nowhere at this seam.
+   *
+   * `title` RATHER THAN `note`, WHICH IS NOT A CHOICE ABOUT WHICH IS TIDIER.
+   * ADR-0096's `note` property is not among the twelve migration 1 seeds, and
+   * CNCORE-60 puts seeding it in the v0.2.0 half -- so a fixture written against
+   * it would fail at `propertyNamed` rather than assert anything. `title` is
+   * seeded, and it is also the stronger case: it is the one an owner's edit and a
+   * provider's claim actually COMPETE over (ADR-0025 seeds the owner at
+   * `source_order` 0, so the owner's title outranks the provider's).
+   *
+   * NOT THROUGH A SURFACE, BECAUSE THERE IS NOT ONE YET. Item editing is
+   * CNCORE-60's v0.2.0 half, so the owner's rows are written here the way the
+   * rest of this harness writes its fixtures -- which is also why this is a
+   * fixture rather than a test of editing.
+   */
+  const kept = async (itemId: string, ordering: string): Promise<string> => {
+    await assertPlacement(db, {
+      containerId: await anItemTitled(db, ordering, { isContainer: true, isOrdered: true }),
+      itemId,
+      position: 1,
+      sourceId: owner,
+    });
+    await aStatement(db, {
+      subjectItemId: itemId,
+      property: "title",
+      valueLiteral: `${ordering}: the owner's own title for it`,
+      sourceId: owner,
+    });
+    return itemId;
+  };
+
+  return {
+    baseUrl,
+    fixture: {
+      /** Previewed, declined, and never purged -- so this half always stands. */
+      previewed: wikiUrl,
+      /** The one the destructive test takes. */
+      purged: tmdbUrl,
+      /** Configured, and nothing was ever imported from it. */
+      neverImported: UNREACHABLE_PROVIDER,
+      /** A member of each, which the owner also places and which therefore stays. */
+      keptFromPreviewed: await kept(
+        firstMemberOf(previewed),
+        "An ordering the owner keeps, of stories",
+      ),
+      keptFromPurged: await kept(firstMemberOf(purged), "An ordering the owner keeps, of films"),
+    },
+    close: async () => {
+      server.kill("SIGTERM");
+      await db.$client.end();
+    },
+  };
+}
+
+/**
+ * One member of a browse, whichever came first.
+ *
+ * WHICH ONE DOES NOT MATTER HERE, and that is deliberate rather than lazy: what
+ * the fixture needs is an item in the state "this provider wrote it AND the
+ * owner claims it", and every member is equally able to be put in it. Naming a
+ * particular story would also be naming one the real provider images have to go
+ * on holding, which is a promise this fixture does not need to make.
+ */
+function firstMemberOf({ members }: { members: { itemId: string }[] }): string {
+  const [first] = members;
+  if (!first) throw new Error("that browse placed no members, so nothing can be kept from it");
+  return first.itemId;
 }
 
 /**
@@ -1019,6 +1169,24 @@ declare module "vitest" {
     freshBaseUrl: string;
     /** The same build again, serving a catalogue of several hundred items. */
     pagedBaseUrl: string;
+    /**
+     * And again, serving a catalogue NOBODY ELSE READS -- so a test may delete
+     * from it. Every other instance here is somebody's fixture.
+     */
+    purgeableBaseUrl: string;
+    /** Which provider on it may be purged, which may not, and what survives one. */
+    purgeable: {
+      /** Previewed and declined, never purged, so this half always stands. */
+      previewed: string;
+      /** The one the destructive test takes. */
+      purged: string;
+      /** Configured, and nothing was ever imported from it. */
+      neverImported: string;
+      /** An item the previewed provider wrote AND the owner places: it stays. */
+      keptFromPreviewed: string;
+      /** The same state, on the provider that gets purged. */
+      keptFromPurged: string;
+    };
     /** Every item that instance holds: the set a walk has to arrive at, exactly. */
     pagedCatalogue: string[];
     /** The wiki provider this run stood up: the real image in CI, a stub here. */

@@ -243,7 +243,32 @@ const purgeCounts = z.object({
    * ending has no bearing on it.
    */
   items: z.number().int().nonnegative(),
-});
+  /**
+   * And how many of the provider's items THOSE are: the ones that stay, stripped
+   * of what it said about them (CNCORE-69).
+   *
+   * A COUNT OF REMOVALS DESCRIBES HALF OF WHAT A PURGE DOES. Without this, a
+   * preview answers "1 item" about a provider that touched five and reads as the
+   * whole answer -- and the surviving four turn up untitled on a page the owner
+   * did not expect to change. ADR-0046 names this outcome as the one the delete
+   * performs on its own to anything somebody else claims.
+   *
+   * DECLARED HERE OR IT IS DROPPED IN SILENCE. A zod object strips what it does
+   * not name, so a field the traversal computes and this schema omits leaves the
+   * procedure quietly answering without it -- which is how the page that reads it
+   * found this line missing.
+   */
+  keptItems: z.number().int().nonnegative(),
+  /*
+   * HELD TO THE TYPE THE TRAVERSAL RETURNS, so the next count cannot be dropped
+   * the way this one was. A zod object strips what it does not name and both
+   * procedures declare `Promise<PurgedProvider>`, so a field added to the
+   * traversal and forgotten here type-checked, ran, and answered without it --
+   * found by a page that read it rather than by anything nearer. `satisfies`
+   * makes that a compile error: a schema missing a field no longer produces a
+   * `PurgedProvider`.
+   */
+}) satisfies z.ZodType<PurgedProvider>;
 
 /**
  * One candidate, as the owner meets it: what the provider said about it, and

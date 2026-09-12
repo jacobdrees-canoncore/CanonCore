@@ -51,10 +51,12 @@ what happens anyway. The purge's dialogue is CANCEL and PURGE PERMANENTLY, and
 the second inherits this record's weighting: never a drawer, never a
 swipe-away sheet.
 
-COUNTS SHOWN FIRST IS BUILT, as `provider.previewPurge`. It answers three: the
-provider's statements, the placements this provider was the LAST claimant of
-(ADR-0017), and the items left with nothing asserting anything about them and
-nowhere they sit -- which is not every item the provider ever wrote.
+COUNTS SHOWN FIRST IS BUILT, as `provider.previewPurge`. It answers FOUR -- three
+under CNCORE-34 and a fourth under CNCORE-69, described in its own section below:
+the provider's statements, the placements this provider was the LAST claimant of
+(ADR-0017), the items left with nothing asserting anything about them and nowhere
+they sit -- which is not every item the provider ever wrote -- and how many of the
+items it touched STAY for that reason.
 
 THEY COME FROM THE DELETE ITSELF. `previewProviderPurge` runs the traversal
 `purgeProvider` runs, in a transaction it then rolls back, so there is no second
@@ -86,10 +88,109 @@ purge previews is therefore the provider's own claims counted directly, not the
 inferred consequence the section above describes.
 
 WHAT OF THIS RECORD IS STILL UNBUILT, and why it stays `proposed`: the
-three-outcome chooser, the confirmation weighting, the undo on a placement
-removal, and the deletion of an ITEM at all. There is still no UI in front of
-any of it. Counts-first is built for one operation, and that is the half.
+three-outcome chooser, the undo on a placement removal, and the deletion of an
+ITEM at all. Counts-first is built for one operation, and CNCORE-69 put a UI in
+front of THAT one -- so "there is still no UI in front of any of it", true when
+this section was written, is now true only of the item half. The purge's own
+confirmation and its weighting are built; the section below records what
+building them settled.
+
+## WHAT THE PURGE'S CONFIRMATION SETTLED, decided under CNCORE-69
+
+The counts now sit in front of an owner rather than in front of a caller. The
+surface is `/import`, because that is where an import comes from and an import
+with no un-import leaves a mistaken import unrecoverable through the product.
+
+A FOURTH COUNT, BECAUSE THREE DESCRIBE HALF OF WHAT A PURGE DOES. The three above
+are removals. This record already says the delete leaves standing anything
+somebody else still claims -- and that outcome had no number, so a preview
+answered "1 item" about a provider that touched five and read as the whole
+answer. The four survivors then turn up UNTITLED, on a page the owner did not
+expect to change, because the words that titled them were the purged provider's.
+`keptItems` is that number.
+
+IT IS READ OFF THE DELETE RATHER THAN PREDICTED BESIDE IT, which is this record's
+existing guarantee applied to the new number rather than an exception to it: the
+survivors are the items the traversal DECLINED to take, so the count is
+`touched - items` and there is no second predicate to drift. A "which items would
+survive" query would have been the seven rules restated, which is the thing
+`previewProviderPurge` exists to avoid.
+
+ONE PROVIDER IS PREVIEWED PER RENDER, NEVER THE WHOLE LIST. A preview costs the
+work and the write locks of a real purge, held for the length of the traversal --
+this record says so above and it is what decides the shape of the page. A surface
+that priced every provider it offered a button for would lock the catalogue
+against itself on every render, for numbers nobody had asked to see. So the page
+lists providers and previews only the one named in its own address.
+
+WHICH IS ALSO WHY THE CONTROL IS A FORM AND NOT A LINK, and this one is a trap
+rather than a preference. Next PREFETCHES a `<Link>`'s own address when it enters
+the viewport, and the address of a preview RUNS THE TRAVERSAL -- so a list of
+links would spend a purge's locks per provider because a reader scrolled past. A
+string-action `<Form>` prefetches its ACTION PATH instead -- the fields are not
+known until submission -- which here is `/import` naming no provider and
+previewing nothing. Next's `<Form>` reference, read 2026-09-12: `prefetch`
+defaults to true and what it fetches is "the destination path", with "shared UI
+such as layout and loading files for the target route".
+
+A PURGE WITH NOTHING TO TAKE GETS NO CONFIRMATION AT ALL. Offering to permanently
+delete "0 statements, 0 placements, 0 items" teaches an owner that this button is
+harmless, and the next one they meet is the one that is not -- which is the habit
+this record cites NN/g to avoid building, met from the other direction. It says
+nothing came from that provider instead, which is also the honest answer to a
+reasonable question: an owner may not know whether they ever imported from one.
+
+THE WEIGHTING, READ AS THIS SURFACE CAN READ IT. The record refuses a confirmation
+"dismissible by accident" -- never a drawer, never a swipe-away sheet -- and a page
+at its own address is the opposite of one: nothing dismisses it, and leaving is a
+choice rather than a gesture. Cancel is a plain link and costs nothing, which is
+the same rule from the other side: if the way out were expensive, the only safe
+move on a page opened by mistake would be closing the tab.
+
+AND THE BOUND THAT CAME WITH IT, stated as a bound on the PAGE rather than on the
+operation, because the difference is the whole of it: the page can only OFFER to
+purge a provider named in `PROVIDER_URLS`, since that list is the only one it has
+and a target outside it has no row to sit in. A provider removed from the setting
+is therefore not offered until it is named again, and naming it again is the
+remedy. THE PROCEDURE ITSELF IS DELIBERATELY NOT BOUNDED THAT WAY, and the action
+behind the button does not narrow either -- because the case this record is
+written for is an owner purging a provider whose licence has ended, which is
+exactly the provider they are likeliest to have already taken out of their
+configuration. The narrowing is a fact about what can be rendered, and making it
+a rule would refuse the motivating case.
+
+AND WHY THIS SURFACE OFFERS A BUTTON WHERE THE BROWSE BESIDE IT WOULD NOT, which
+needs saying because the two now sit on one page and the comparison is the
+obvious one to draw. CNCORE-92's rule for `browse` is that the button appears
+only where a browse would actually work -- "nothing to press is the difference
+between a refusal reported and a refusal reworded" -- so an unreachable provider
+gets a sentence rather than a control. THIS SURFACE OFFERS ONE FOR AN UNREACHABLE
+PROVIDER ANYWAY, and that is the same rule rather than an exception to it: a
+purge makes NO REQUEST. It is rows in this catalogue, found by the identity the
+source row carries, so none of the three refusals `browse` can meet exists here
+and the operation works perfectly against a provider that has not answered in
+months. That is ADR-0036's case exactly. A later reader applying CNCORE-92's rule
+mechanically here would remove a button that works, on a surface whose whole
+motive is the provider nobody can reach.
+
+WHICH ALSO SETS WHERE COUNTS-FIRST ACTUALLY HOLDS. It holds through the product:
+the page renders no button until `previewPurge` has answered, so an owner moving
+through the surface cannot meet the delete before its consequences. It is not
+ENFORCED, and nothing in this version can enforce it -- ADR-0107 ships a single
+owner and no login, so `provider.purge` is a public procedure anything reaching
+the instance can call directly. A check on the form would bound the form and not
+the operation, which is the appearance of a boundary rather than one. Enforcement
+arrives with authentication, and `docs/research/access-layer.md` puts that in the
+playback spec.
 
 ## Evidence
 
 Verified against source on 2026-09-10; corrections applied. Working in `docs/research/verify-adr-products.md`.
+
+The CNCORE-69 section's claim about `<Form>` prefetching was read from Next's own
+`<Form>` API reference on 2026-09-12. That reference is the CURRENT one rather
+than a copy pinned to 16.3.4, which is what this repo builds with -- so what is
+established is the documented behaviour of the component, and the version it was
+checked against is not. The decision does not turn on the difference: a form
+whose fields are unknown until submission cannot prefetch an address carrying
+them, whichever version prefetches.

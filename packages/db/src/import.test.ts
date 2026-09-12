@@ -1494,7 +1494,22 @@ describe("previewing what a purge would take", () => {
     // And the numbers themselves, which are what pins the traversal down: of the
     // five items this provider touched exactly one goes, and of the three
     // placements it spoke for exactly two.
-    expect(preview).toEqual({ statements: 11, placements: 2, items: 1 });
+    //
+    // `keptItems` IS THE OTHER FOUR, and it is here because a count of what a
+    // purge takes describes only half of what it does (CNCORE-69). An item this
+    // provider wrote and somebody else still claims does not go: it STAYS,
+    // stripped of the provider's words -- which is an outcome an owner deciding
+    // under a termination notice has to be told about rather than left to
+    // discover. ADR-0046 already says the delete does this on its own to
+    // anything somebody else claims; without a number for it the preview says
+    // "1 item" about a provider that touched five and sounds like the whole
+    // answer.
+    //
+    // AND THE FOUR ARE ENUMERATED BELOW, one assertion each, which is what keeps
+    // this from being the count agreeing with itself: the container, the
+    // co-asserted member, the one the owner placed, and the one standing as the
+    // value of the owner's claim.
+    expect(preview).toEqual({ statements: 11, placements: 2, items: 1, keptItems: 4 });
     expect(await readItem(db, containerId)).toBeDefined();
     expect(await readItem(db, coAsserted?.itemId ?? "")).toBeDefined();
     expect(await readItem(db, placedByTheOwner?.itemId ?? "")).toBeDefined();

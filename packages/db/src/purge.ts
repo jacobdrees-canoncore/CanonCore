@@ -22,6 +22,26 @@ export interface PurgedProvider {
   statements: number;
   placements: number;
   items: number;
+  /**
+   * The items this provider touched that STAY, because something else still
+   * claims them -- the owner's own placement, the owner's own words, or another
+   * provider saying the same thing.
+   *
+   * A COUNT OF WHAT GOES DESCRIBES HALF OF WHAT A PURGE DOES (CNCORE-69). The
+   * three above are removals; this is the outcome ADR-0046 says the delete
+   * performs on its own to anything somebody else claims, and an owner deciding
+   * under a termination notice has to be told about it rather than discover it.
+   * Without it a preview answers "1 item" about a provider that touched five and
+   * sounds like the whole answer.
+   *
+   * IT IS `touched - items` AND NOT A SECOND TRAVERSAL, which is the same
+   * guarantee the rest of this file is built on: the survivors are the ones the
+   * delete DECLINED to take, so the number is read off the delete rather than
+   * predicted beside it. A separate "which items would survive" query would be
+   * the seven rules restated, which is exactly what `previewProviderPurge`
+   * exists to avoid.
+   */
+  keptItems: number;
 }
 
 type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
@@ -133,7 +153,7 @@ async function purgeWithin(tx: Transaction, identity: string): Promise<PurgedPro
   // A provider this catalogue never imported from is nothing to do rather than
   // an error: purging is an operation an owner may reasonably run twice, and the
   // second run must not read as a failure.
-  if (!source) return { statements: 0, placements: 0, items: 0 };
+  if (!source) return { statements: 0, placements: 0, items: 0, keptItems: 0 };
 
   // WHICH ITEMS THIS PROVIDER EVER TOUCHED, read BEFORE anything is deleted --
   // afterwards there is nothing left pointing at them, which is the whole
@@ -205,6 +225,12 @@ async function purgeWithin(tx: Transaction, identity: string): Promise<PurgedPro
     statements: removedStatements.length,
     placements: removedPlacements.length,
     items: removedItems.length,
+    // WHAT THE DELETE DECLINED TO TAKE, read off the delete rather than asked
+    // for separately. `touched` is every item this provider asserted anything
+    // about or placed anywhere, and `removedItems` is the subset the seven rules
+    // above let go -- so the difference is the survivors, and it cannot disagree
+    // with the delete because it is computed FROM it.
+    keptItems: touched.length - removedItems.length,
   };
 }
 

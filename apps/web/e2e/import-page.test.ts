@@ -3,7 +3,14 @@ import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
 import { describe, expect, inject, it } from "vitest";
 
-import { documentAt, documentFrom, postFormsIn, type RenderedForm, submit } from "./document";
+import {
+  documentAt,
+  documentFrom,
+  postFormsIn,
+  type RenderedForm,
+  sectionIn,
+  submit,
+} from "./document";
 
 /**
  * THE IMPORT SURFACE, over real HTTP. ADR-0103's fourth seam, which is the one
@@ -256,13 +263,6 @@ describe("/import, taking a record it already holds", () => {
   });
 });
 
-/** One `<section>` of a page, by the heading it is labelled with. */
-function section(text: string, label: string): string {
-  const found = text.match(new RegExp(`<section[^>]*aria-labelledby="${label}".*?</section>`))?.[0];
-  if (!found) throw new Error(`the page rendered no \`${label}\` section`);
-  return found;
-}
-
 describe("/import on a fresh install", () => {
   it("says no provider is allowlisted, rather than returning an empty list", async () => {
     // ADR-0034's allowlist is empty by default and the empty value refuses every
@@ -274,7 +274,7 @@ describe("/import on a fresh install", () => {
     const { status, text } = await documentFrom(freshBaseUrl, "/import");
 
     expect(status).toBe(200);
-    const notice = section(text, "no-provider");
+    const notice = sectionIn(text, "no-provider");
     expect(notice).toContain("PROVIDER_ALLOWLIST");
     expect(notice.toLowerCase()).toContain("no provider is allowlisted");
   });
@@ -286,7 +286,7 @@ describe("/import on a fresh install", () => {
     // said only the first would send an owner to fix the wrong one.
     const fresh = await documentFrom(freshBaseUrl, "/import");
 
-    const notice = section(fresh.text, "no-provider-configured");
+    const notice = sectionIn(fresh.text, "no-provider-configured");
     expect(notice).toContain("PROVIDER_URLS");
     expect(notice.toLowerCase()).toContain("no provider is configured");
   });
@@ -316,7 +316,7 @@ describe("/import on a fresh install", () => {
     // can differ over a build id or a hydration payload while both being
     // photographs of the same configuration, so what is compared is the thing the
     // configuration decides.
-    expect(() => section(seeded.text, "no-provider-configured")).toThrow();
+    expect(() => sectionIn(seeded.text, "no-provider-configured")).toThrow();
   });
 });
 
@@ -355,7 +355,7 @@ describe("/import, before a container's ordering is imported", () => {
     // A REAL TITLE RATHER THAN AN ECHO OF THE ID. A page printing back what was
     // typed would satisfy a bare `toContain` against the section.
     expect(said.title).not.toBe(providerSearch.browsable.container);
-    expect(section(text, "container")).toContain(said.title);
+    expect(sectionIn(text, "container")).toContain(said.title);
   });
 
   it("says how many members the browse would write, before it writes them", async () => {
@@ -371,7 +371,7 @@ describe("/import, before a container's ordering is imported", () => {
       throw new Error(`the provider handed over no container: ${said.answer}`);
     }
     expect(said.members).toBeGreaterThan(0);
-    expect(section(text, "container")).toContain(`${said.members} members`);
+    expect(sectionIn(text, "container")).toContain(`${said.members} members`);
   });
 
   it("writes nothing, which is what asking on the GET has to mean", async () => {
@@ -403,7 +403,7 @@ describe("/import, before a container's ordering is imported", () => {
     expect(status).toBe(200);
     expect((await client.provider.held(asked)).items).toHaveLength(0);
     // AND THE PAGE SAYS SO, which is the same fact the owner reads.
-    expect(section(text, "container")).toContain("Not in your catalogue");
+    expect(sectionIn(text, "container")).toContain("Not in your catalogue");
   });
 });
 
@@ -431,14 +431,14 @@ describe("/import, taking a Container and its ordering", () => {
 
     const offered = await documentAt(at);
     expect(offered.status).toBe(200);
-    const container = section(offered.text, "container");
+    const container = sectionIn(offered.text, "container");
     expect(itemLinkedIn(container)).toBeUndefined();
 
     const taken = await submit(baseUrl, at, formIn(container));
 
     expect(taken.status).toBe(200);
     // THE CONTAINER IS IN THE CATALOGUE, and reachable at the address given.
-    const link = itemLinkedIn(section(taken.text, "container"));
+    const link = itemLinkedIn(sectionIn(taken.text, "container"));
     expect(link).toBeDefined();
     const arrived = await documentAt(link as string);
     expect(arrived.status).toBe(200);
@@ -517,7 +517,7 @@ describe("/import, when the provider refuses", () => {
       container: "a container this provider does not hold",
     });
     expect(said.answer).toBe("no-such-container");
-    const container = section(text, "container");
+    const container = sectionIn(text, "container");
     expect(container.toLowerCase()).toContain("no container at that id");
     // NOTHING TO PRESS. A page that said this and still rendered the button
     // would have moved the 500 rather than removed it.
@@ -546,7 +546,7 @@ describe("/import, when the provider refuses", () => {
     if (said.answer !== "browse-not-offered") {
       throw new Error(`the witness provider answered ${said.answer}`);
     }
-    const container = section(text, "container");
+    const container = sectionIn(text, "container");
     // ATTRIBUTED BY THE PROVIDER'S OWN NAME FOR ITSELF, as every other answering
     // provider on this page is.
     expect(container).toContain(said.providerName);
@@ -581,7 +581,7 @@ describe("/import, when the provider refuses", () => {
     if (said.answer !== "unreachable") {
       throw new Error(`the unreachable provider answered ${said.answer}`);
     }
-    const container = section(text, "container");
+    const container = sectionIn(text, "container");
     // NOT "could not be reached", WHICH WOULD BE FALSE OF A THIRD CASE THIS
     // BRANCH ALSO CARRIES: a provider that answered, badly. This URL really is
     // unreachable, so either sentence would pass here -- what is asserted is the
@@ -614,7 +614,7 @@ describe("/import, when the provider refuses", () => {
     const { status, text } = await documentAt(browsing(named));
 
     expect(status).toBe(200);
-    const container = section(text, "container");
+    const container = sectionIn(text, "container");
     expect(container.toLowerCase()).toContain("no container at that id");
     // AND THE CATALOGUE'S HALF OF THE ANSWER SURVIVES IT.
     expect(container).toContain("Already imported");
@@ -639,8 +639,8 @@ describe("/import, when the provider refuses", () => {
       );
 
       expect(status).toBe(200);
-      expect(() => section(text, "container")).toThrow();
-      expect(section(text, "not-configured")).toContain("PROVIDER_URLS");
+      expect(() => sectionIn(text, "container")).toThrow();
+      expect(sectionIn(text, "not-configured")).toContain("PROVIDER_URLS");
     }
   });
 });

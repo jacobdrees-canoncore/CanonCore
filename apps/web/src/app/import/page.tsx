@@ -10,13 +10,14 @@ import Link from "next/link";
 
 import { oneValue } from "@/components/query-params";
 
-import { browseOrdering, importRecord } from "./actions";
+import { browseOrdering, importRecord, purgeProvider } from "./actions";
 
 /** Which container the owner has asked about, and at which provider. */
 interface Asked {
   query?: string;
   provider?: string;
   container?: string;
+  purge?: string;
 }
 
 /**
@@ -33,7 +34,7 @@ interface Asked {
  * of the same name. That one is CNCORE-66 and lives at its own address. This page
  * searches PROVIDERS, so the word on it is Import rather than Search.
  */
-async function readImportPage({ query, provider, container }: Asked) {
+async function readImportPage({ query, provider, container, purge }: Asked) {
   /*
    * NO `connection()` HERE, AND THAT IS ADR-0117 OBEYED RATHER THAN SKIPPED.
    * That record's rule is that a read surface declares it needs a request, and
@@ -64,16 +65,37 @@ async function readImportPage({ query, provider, container }: Asked) {
     call(appRouter.provider.configured, undefined, { context }),
   ]);
   const searchable = searchableProvider(configured.providers, provider);
+  const purging = purgeableProvider(configured.providers, purge);
 
-  const [found, namedContainer] = await Promise.all([
+  const [found, namedContainer, preview] = await Promise.all([
     query === undefined
       ? Promise.resolve(undefined)
       : call(appRouter.provider.search, { query }, { context }),
     searchable === undefined || container === undefined
       ? Promise.resolve(undefined)
       : aboutTheContainer(context, searchable, container),
+    /*
+     * WHAT A PURGE WOULD TAKE, AND ONLY WHEN ONE IS ASKED ABOUT.
+     *
+     * ADR-0046: the preview IS the purge, run in a transaction it then rolls
+     * back, so it costs the work and the write locks of a real delete. That is
+     * the price of a preview that cannot contradict the delete an owner acted on
+     * it to authorise -- and it is why exactly one provider is previewed rather
+     * than every configured one. A page that priced every row it offered a button
+     * for would lock the catalogue against itself on every render, for numbers
+     * nobody had asked to see.
+     *
+     * IT IS A READ ASKED ON THE GET, which is the same seam `aboutTheContainer`
+     * moved to under CNCORE-92 and for a related reason. That one had to move
+     * because a POST cannot report a provider's refusal; this one was on the GET
+     * already, because the counts ARE the page. What the two share is the rule:
+     * a button is offered only once the thing behind it has answered.
+     */
+    purging === undefined
+      ? Promise.resolve(undefined)
+      : call(appRouter.provider.previewPurge, { baseUrl: purging }, { context }),
   ]);
-  return { allowlisted, configured, found, namedContainer };
+  return { allowlisted, configured, found, namedContainer, preview, purging };
 }
 
 /**
@@ -132,6 +154,36 @@ function searchableProvider(configured: string[], named: string | undefined): st
   return named !== undefined && configured.includes(named) ? named : undefined;
 }
 
+/**
+ * The provider a URL named for purging, ONLY IF THIS INSTANCE IS CONFIGURED WITH
+ * IT.
+ *
+ * NOT FOR `searchableProvider`'s REASON, and saying so matters because the two
+ * functions look identical and are not. That one narrows because the value
+ * reaches `provider.browse`, WHICH FETCHES, and a query parameter has none of a
+ * Config URL's standing. NOTHING HERE MAKES A REQUEST: `purge` and
+ * `previewPurge` both treat `baseUrl` as an IDENTITY -- the rows are this
+ * catalogue's -- and ADR-0034's boundary stands in front of requests, so it has
+ * nothing to say about either. A provider whose licence has just ended is
+ * precisely the one nothing should be calling, and it is the one an owner most
+ * needs to purge.
+ *
+ * THE REASON IS THAT THIS SURFACE CAN ONLY OFFER WHAT IT CAN LIST. The providers
+ * are `PROVIDER_URLS`, and a purge target outside that set has no row on the page
+ * to sit in and no name an owner could have pressed. The bound that follows is
+ * real and worth knowing: a provider REMOVED from `PROVIDER_URLS` cannot be
+ * purged until it is named again. Naming it again is how, and ADR-0046 records
+ * this as the half that is built.
+ *
+ * IT ALSO TURNS A MALFORMED URL INTO AN ANSWER RATHER THAN A 500, which is the
+ * rule `/items/<id>` already applies to an id it cannot use (CNCORE-14): `?purge=x`
+ * would otherwise reach `previewPurge`'s `z.url()` and throw. Nothing that
+ * arrives in an address should be able to crash the page it addresses.
+ */
+function purgeableProvider(configured: string[], named: string | undefined): string | undefined {
+  return named !== undefined && configured.includes(named) ? named : undefined;
+}
+
 type ImportPage = Awaited<ReturnType<typeof readImportPage>>;
 type Found = NonNullable<ImportPage["found"]>;
 /** The container the owner named: what the catalogue holds, and what the provider says. */
@@ -144,17 +196,21 @@ export default async function ImportPage({
     q?: string | string[];
     provider?: string | string[];
     container?: string | string[];
+    purge?: string | string[];
   }>;
 }) {
   const asked = await searchParams;
   const query = oneValue(asked.q);
   const provider = oneValue(asked.provider);
   const container = oneValue(asked.container);
-  const { allowlisted, configured, found, namedContainer } = await readImportPage({
-    query,
-    provider,
-    container,
-  });
+  const { allowlisted, configured, found, namedContainer, preview, purging } = await readImportPage(
+    {
+      query,
+      provider,
+      container,
+      purge: oneValue(asked.purge),
+    },
+  );
 
   return (
     <main className="container mx-auto max-w-3xl px-4 py-8">
@@ -170,8 +226,257 @@ export default async function ImportPage({
       <BrowseBox configured={configured.providers} container={container} provider={provider} />
       {container !== undefined &&
         (namedContainer === undefined ? <NotOneOfOurs /> : <Container {...namedContainer} />)}
+      <PurgeBox configured={configured.providers} />
+      {purging !== undefined && preview !== undefined && (
+        <Purge baseUrl={purging} preview={preview} />
+      )}
     </main>
   );
+}
+
+/**
+ * EVERY PROVIDER THIS INSTANCE IS CONFIGURED WITH, and the way to undo one.
+ *
+ * WHY THE SURFACE EXISTS AT ALL: an import with no un-import leaves a mistaken
+ * import unrecoverable through the product, and the owner who most needs this is
+ * the one who cannot inspect the provider any more because its licence ended.
+ *
+ * EVERY CONFIGURED PROVIDER AND NOT ONLY THE ONES WITH SOMETHING TO TAKE. Which
+ * of them contributed anything is precisely what the preview answers, and an
+ * owner who is not sure whether they ever imported from one is exactly the owner
+ * asking. Listing only providers with rows would need a preview per provider to
+ * decide the list, which is a purge traversal each, on every render of this page.
+ *
+ * A FORM RATHER THAN A LINK, WHICH IS NOT A STYLE CHOICE. Next prefetches a
+ * `<Link>`'s own address when it enters the viewport, and the address of a
+ * preview RUNS THE PURGE TRAVERSAL -- it takes the write locks of a real delete
+ * and rolls them back (ADR-0046). A link here would spend that on every provider
+ * in this list, for numbers nobody asked to see, because a reader scrolled past.
+ * A string-action `<Form>` prefetches its ACTION PATH instead -- its fields are
+ * not known until submission -- which here is `/import` naming no provider and
+ * previewing nothing (Next's `<Form>` reference, read 2026-09-12).
+ *
+ * NAMED BY URL, which is a deployment detail shown to the one person entitled to
+ * it, for the reason `BrowseBox` gives: the owner typed these into
+ * `PROVIDER_URLS` and is the only person who can change one. It is also the only
+ * name a purge can use -- reading a provider's own name for itself means asking
+ * it, and the provider an owner is purging is frequently the one that no longer
+ * answers.
+ *
+ * AND IT IS OFFERED FOR AN UNREACHABLE PROVIDER TOO, which looks like a breach of
+ * the rule the browse half of this page follows and is not. That rule (CNCORE-92)
+ * is that a button appears only where the operation behind it would work, so a
+ * provider that cannot be reached gets a sentence instead of a control. A PURGE
+ * MAKES NO REQUEST: it is rows in this catalogue, found by the identity on the
+ * source row, so none of the refusals `browse` can meet exists here and the
+ * operation works against a provider that has not answered in months. Which is
+ * ADR-0036's case exactly -- a licence ends, the provider goes away, and the
+ * obligation to purge does not. Removing this button to match the one above would
+ * take the surface away from the owner it was built for.
+ */
+function PurgeBox({ configured }: { configured: string[] }) {
+  if (configured.length === 0) return null;
+
+  return (
+    <section aria-labelledby="providers" className="mt-10">
+      <h2 className="font-medium text-sm" id="providers">
+        Purge a provider&apos;s contributions
+      </h2>
+      <p className="mt-1 text-muted-foreground text-sm">
+        You are shown what a purge would remove before anything is removed.
+      </p>
+      <ul className="mt-3 divide-y">
+        {configured.map((baseUrl) => (
+          <li
+            className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 py-3"
+            key={baseUrl}
+          >
+            <span className="text-sm">{baseUrl}</span>
+            <Form action="/import">
+              <input type="hidden" name="purge" value={baseUrl} />
+              {/*
+                IT SAYS WHAT PRESSING IT DOES, WHICH IS SHOW RATHER THAN REMOVE.
+                This button was "Remove everything", and that is mislabelled in
+                the one direction that matters: it promises a destruction it does
+                not perform, so an owner either presses it expecting to be asked
+                (and is, which teaches them the label lies) or does not press it
+                at all for fear of what it claims. The button that removes is the
+                one at the end of the confirmation, and it is the only one on this
+                surface that says Purge.
+              */}
+              <Button type="submit" variant="outline">
+                See what would go
+              </Button>
+            </Form>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/**
+ * WHAT A PURGE WOULD TAKE, IN FRONT OF THE PURGE (ADR-0046).
+ *
+ * A purge is the delete where a preview matters most. It is the one an owner
+ * runs under time pressure, after a termination notice, against a provider whose
+ * content they can no longer inspect -- so these counts are the only description
+ * of it they are going to get.
+ */
+function Purge({ baseUrl, preview }: { baseUrl: string; preview: PurgePreview }) {
+  /*
+   * A PURGE THAT WOULD CHANGE NOTHING GETS NO CONFIRMATION, which is a criterion
+   * rather than a nicety. A dialogue offering to permanently delete "0
+   * statements, 0 placements, 0 items" teaches an owner that this button is
+   * harmless, and the next one they meet is the one that is not. It is also the
+   * ordinary answer to a reasonable question -- an owner who is not sure whether
+   * they ever imported from a provider -- and an answer is what it should read as.
+   *
+   * `keptItems` IS IN THE TEST, and leaving it out is the way to get this wrong.
+   * The other three count REMOVALS, so all three are zero for a provider whose
+   * only contribution is AGREEMENT: one that co-asserts placements another source
+   * already made says nothing of its own to delete, and its items survive on the
+   * other source's claim. A purge of it still deletes real rows -- its claim on
+   * every one of those placements, and its source row -- so a page reading only
+   * the removals would report "nothing to remove" about an operation that does
+   * something, and would offer no button to perform it.
+   *
+   * NOTHING IN THE PRODUCT WRITES THAT STATE TODAY, because every import path
+   * writes the statements that carry a title, so a source with placements and no
+   * statements cannot currently arise. It is guarded anyway: the cost is one
+   * clause, and the failure it prevents is an operation an owner cannot reach at
+   * all rather than a sentence that reads oddly.
+   */
+  const takesNothing =
+    preview.statements === 0 &&
+    preview.placements === 0 &&
+    preview.items === 0 &&
+    preview.keptItems === 0;
+
+  return (
+    <section aria-labelledby="purge" className="mt-10">
+      <h2 className="font-medium text-sm" id="purge">
+        Purge everything {baseUrl} contributed
+      </h2>
+      {takesNothing ? (
+        <NothingLeft />
+      ) : (
+        <>
+          <p className="mt-1 text-muted-foreground text-sm">
+            This cannot be undone. Purging it would take
+          </p>
+          <ul className="mt-3 list-disc space-y-1 pl-5 text-sm">
+            <li>{counted(preview.statements, "statement")}</li>
+            <li>{counted(preview.placements, "placement")}</li>
+            <li>{counted(preview.items, "item")}</li>
+          </ul>
+          <Stays howMany={preview.keptItems} />
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            {/*
+              CANCEL FIRST AND AS A PLAIN LINK, which is the weighting ADR-0046
+              asks for read the only way this surface can read it. The record
+              refuses a confirmation "dismissible by accident" -- never a drawer,
+              never a swipe-away sheet -- and a page at its own address is the
+              opposite of one: nothing dismisses it, and leaving is a choice an
+              owner makes rather than a gesture they make by mistake.
+
+              `Link` RATHER THAN `a`, which is ADR-0109's rule: this is a path
+              this app owns, so it is one the framework has to be allowed to
+              rewrite under a `basePath`.
+            */}
+            <Link className="text-sm hover:underline" href="/import">
+              Cancel
+            </Link>
+            {/*
+              A POST BOUND TO A SERVER ACTION, for the reason `Take` gives: Next
+              writes the target itself, so there is no URL here for a later
+              `basePath` to get wrong -- and it needs no JavaScript, which is what
+              lets this surface be asserted with no browser.
+            */}
+            <form action={purgeProvider}>
+              <input type="hidden" name="baseUrl" value={baseUrl} />
+              <Button type="submit" variant="destructive">
+                Purge permanently
+              </Button>
+            </form>
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
+/**
+ * A PROVIDER WITH NOTHING LEFT TO PURGE, which is TWO states the page cannot tell
+ * apart and must not try to.
+ *
+ * One is a provider nothing was ever imported from. The other is a provider
+ * purged a moment ago -- a purge deletes the source row, so asking again finds
+ * nothing either way, and this is the only report of the outcome the surface can
+ * give (an action's return value reaches a page through `useActionState` alone,
+ * which is a client hook with nothing to give when no script has loaded).
+ *
+ * SO IT CLAIMS ONLY WHAT IS TRUE OF BOTH. This copy used to say "no statement,
+ * placement or item in your catalogue came from this provider", which is false in
+ * the second state and falsest at the worst moment: the owner has just been told
+ * that some items STAY, and those came from exactly there. What holds either way
+ * is that there is nothing left to purge.
+ */
+function NothingLeft() {
+  return (
+    <p className="mt-1 text-muted-foreground text-sm">
+      There is nothing to purge: this provider has no claims left in your catalogue.
+    </p>
+  );
+}
+
+/**
+ * WHAT A PURGE LEAVES STANDING, which is the half the removals cannot describe.
+ *
+ * An item this provider wrote and the owner ALSO claims does not go: the owner's
+ * placement is the owner's claim, and a provider's licence ending has no bearing
+ * on it (ADR-0046). It survives STRIPPED -- the provider's words are gone, so an
+ * item whose only title came from here is left untitled -- and an owner who is
+ * not told that discovers it afterwards on a page full of blanks.
+ *
+ * SAID ONLY WHEN THERE IS SOMETHING TO SAY. A standing sentence about survivors
+ * on a purge that leaves none is a reassurance about nothing, and the next owner
+ * to read it believes it about a purge where it is false.
+ */
+function Stays({ howMany }: { howMany: number }) {
+  if (howMany === 0) return null;
+
+  /*
+   * ONE EXPRESSION AND NOT A COUNT WITH PROSE AROUND IT, for two reasons that
+   * happen to have one fix. The sentence has to AGREE -- "1 item stay" is the
+   * count and the verb disagreeing in the one sentence an owner has to trust --
+   * and React separates adjacent text nodes in server-rendered HTML with an empty
+   * `<!-- -->` comment, so a number and its sentence written as two expressions
+   * arrive spliced apart. Invisible to a reader; not invisible to anything
+   * reading the document.
+   */
+  const one = howMany === 1;
+
+  return (
+    <p className="mt-3 text-muted-foreground text-sm">
+      {`${counted(howMany, "item")} ${one ? "stays" : "stay"}, stripped of what this provider said about ${one ? "it" : "them"}, because you or another source still ${one ? "claims" : "claim"} ${one ? "it" : "them"}.`}
+    </p>
+  );
+}
+
+/** What `previewPurge` answers, which is what `purge` then takes. */
+type PurgePreview = NonNullable<ImportPage["preview"]>;
+
+/**
+ * A count and the thing it counts, agreeing about number.
+ *
+ * THE COUNTS ARE THE CONTENT of this surface rather than decoration on it, so
+ * "1 statements" is not a typo an owner reads past -- it is the one part of a
+ * permanent delete they have to trust, printed by something that plainly did not
+ * read what it was printing.
+ */
+function counted(howMany: number, noun: string): string {
+  return `${howMany} ${noun}${howMany === 1 ? "" : "s"}`;
 }
 
 /**

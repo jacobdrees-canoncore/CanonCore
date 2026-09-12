@@ -269,6 +269,13 @@ The CMPP operation returning one record by its stable id. Required of every prov
 The optional CMPP operation returning a container together with its ordering, so it yields
 placements directly.
 
+**Purge**:
+Removing everything one source ever contributed, in one operation. The word is the OWNER'S as well
+as the code's: it is on the button, because ADR-0036's obligation when a licence ends is to purge
+cached content rather than to hide it, and "remove" would understate what the owner is authorising.
+An item the owner also claims is not removed by one — it stays, stripped of what that source said.
+_Avoid_: delete, uninstall, disconnect, unimport
+
 **Enrichment**:
 Reaching every connected provider at once to propose values, each matched independently.
 

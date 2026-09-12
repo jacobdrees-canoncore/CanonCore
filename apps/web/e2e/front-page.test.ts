@@ -58,9 +58,8 @@ describe("/", () => {
     const client: AppRouterClient = createORPCClient(
       new RPCLink({ url: `${inject("baseUrl")}/api/rpc` }),
     );
-    const { total } = await client.catalogue.list({});
 
-    const { text } = await documentAt("/");
+    const { total, text } = await theFrontPageAndWhatItShouldSay(client);
 
     // THE WHOLE ELEMENT, not a substring of it. `toContain(`${total} items`)`
     // is also satisfied by "Showing 7 of 42 items", so it could not tell the
@@ -259,3 +258,68 @@ describe("/ on a catalogue larger than one page", () => {
     );
   });
 });
+
+/**
+ * The front page, and the catalogue size it ought to be reporting, read over a
+ * window in which the catalogue PROVABLY DID NOT MOVE.
+ *
+ * WHAT THIS REPLACES WAS NOT FLAKY, IT WAS WRONG, and the distinction decides the
+ * fix. It read the total, then fetched the page, and compared them: two reads at
+ * two moments against a catalogue that OTHER FILES IN THIS SUITE WRITE TO while
+ * it runs -- `import-page.test.ts` imports a candidate, `multi-placement.test.ts`
+ * browses two containers in its own `beforeAll` -- with vitest running test files
+ * in parallel, in separate workers. "The number I read a moment ago is the number
+ * the page prints" is not a relationship that holds against shared mutable state,
+ * so the assertion was not entitled to pass even on the runs where it did.
+ *
+ * MEASURED, 2026-09-12, against the real provider images in CI: it failed on a
+ * page reporting 59 items against a total read as 58, and passed on a re-run of
+ * the same commit. It had never been seen before because the window is small --
+ * `main` was green for twelve consecutive runs -- and it surfaced when CNCORE-69
+ * added a fourth `next start` and an eighth test file, which is enough extra
+ * contention on a two-core runner to lose a race that was always there.
+ *
+ * SO THE WINDOW IS CLOSED RATHER THAN THE NUMBER LOOSENED. The total is read
+ * either side of the fetch and the pair is used only when both agree, which is
+ * the honest statement of the invariant this test exists for: while the catalogue
+ * held still, the page reported its size. A tolerance -- "within one", or a
+ * substring match -- would have made the test pass by asserting something weaker
+ * than the thing worth asserting, which is the one number a catalogue must not
+ * get wrong about itself.
+ *
+ * IT IS NOT THE WHOLE OF CNCORE-93. That ticket owns this class, and its third
+ * criterion asks that no test here assert on a catalogue-wide total across a
+ * write it does not own. This one still does assert on a catalogue-wide total,
+ * because "how much the catalogue holds" IS catalogue-wide and cannot be
+ * re-expressed as a claim about one record the way the re-import assertion can.
+ *
+ * AND NO INSTANCE THIS SUITE ALREADY RUNS CAN TAKE IT, which is the part worth
+ * writing down because it is the obvious fix and it does not work. The count is
+ * gated on `listing.length > 0`, so the FRESH instance renders no count element
+ * at all -- an empty catalogue shows `WhatToDoNext` instead (ADR-0094). The PAGED
+ * instance is never written to and would do, except that 254 items is more than
+ * a page, so it renders `Holding`'s OTHER branch -- "Showing 100 of 254 items",
+ * already asserted below. The plain-total branch needs a catalogue that is
+ * non-empty, smaller than one page, and written to by nothing, and this suite
+ * has no such instance: the seeded one is the only one small enough and it is
+ * the one two other files import into.
+ *
+ * SO CNCORE-93's THIRD CRITERION IS MEETABLE AS WRITTEN, at the price of a fifth
+ * `next start`. That is a real option and a real cost, and it is that ticket's
+ * call rather than this one's. The window above is the minimum that makes this
+ * assertion true rather than lucky.
+ */
+async function theFrontPageAndWhatItShouldSay(
+  client: AppRouterClient,
+  attempts = 5,
+): Promise<{ total: number; text: string }> {
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    const before = (await client.catalogue.list({})).total;
+    const { text } = await documentAt("/");
+    const after = (await client.catalogue.list({})).total;
+    if (before === after) return { total: before, text };
+  }
+  throw new Error(
+    `the catalogue never held still across ${attempts} reads of the front page, so what it should say could not be established`,
+  );
+}
