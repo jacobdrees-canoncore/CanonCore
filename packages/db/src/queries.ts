@@ -853,30 +853,34 @@ export interface PlacementInContainer {
  * name to do it.
  */
 function assertersOf(db: Database) {
-  return db
-    .select({
-      // THE SPOKESMAN'S THREE TERMS, IN ITS ORDER AND FOR ITS REASONS: rank
-      // first, because the owner's favourite is the lock and outranks the whole
-      // source order (ADR-0024); then the one global source order (ADR-0025);
-      // then a stable id. The same rule `winning_literal` and `spokesmanFor`
-      // apply to PICK a name, applied here to ORDER every name -- so the source
-      // that speaks for a placement leads the list that names them, and the two
-      // cannot come to disagree about which one that is.
-      labels: sql<string[]>`coalesce(
+  return (
+    db
+      .select({
+        // THE SPOKESMAN'S THREE TERMS, IN ITS ORDER AND FOR ITS REASONS: rank
+        // first, because the owner's favourite is the lock and outranks the whole
+        // source order (ADR-0024); then the one global source order (ADR-0025);
+        // then a stable id. The same rule `winning_literal` and `spokesmanFor`
+        // apply to PICK a name, applied here to ORDER every name -- so the source
+        // that speaks for a placement leads the list that names them, and the two
+        // cannot come to disagree about which one that is.
+        labels: sql<string[]>`coalesce(
         json_agg(${sources.label} order by ${ranks.precedence}, ${sources.sourceOrder}, ${placementSources.id}),
         '[]'::json
       )`.as("labels"),
-    })
-    .from(placementSources)
-    .innerJoin(sources, eq(sources.id, placementSources.sourceId))
-    .innerJoin(ranks, eq(ranks.rank, placementSources.rank))
-    // The placement source's own tombstone, the one `spokesmanFor` honours and
-    // for the same reason: a withdrawn claim is not a source standing behind
-    // anything. The SOURCE's own is deliberately not checked here either, which
-    // ADR-0017 carries as a named gap belonging to whatever first lets a source
-    // be deleted -- one rule in two languages, and now in three.
-    .where(and(eq(placementSources.placementId, placements.id), isNull(placementSources.deletedAt)))
-    .as("asserters");
+      })
+      .from(placementSources)
+      .innerJoin(sources, eq(sources.id, placementSources.sourceId))
+      .innerJoin(ranks, eq(ranks.rank, placementSources.rank))
+      // The placement source's own tombstone, the one `spokesmanFor` honours and
+      // for the same reason: a withdrawn claim is not a source standing behind
+      // anything. The SOURCE's own is deliberately not checked here either, which
+      // ADR-0017 carries as a named gap belonging to whatever first lets a source
+      // be deleted -- one rule in two languages, and now in three.
+      .where(
+        and(eq(placementSources.placementId, placements.id), isNull(placementSources.deletedAt)),
+      )
+      .as("asserters")
+  );
 }
 
 /**
@@ -901,42 +905,44 @@ export async function findPlacementsInContainer(
 ): Promise<PlacementInContainer[]> {
   const asserters = assertersOf(db);
 
-  return db
-    .select({
-      id: placements.id,
-      title: items.title,
-      itemId: placements.itemId,
-      position: placements.position,
-      assertedBy: asserters.labels,
-    })
-    .from(placements)
-    .innerJoin(items, eq(items.id, placements.itemId))
-    // CROSS, WHERE THE SPOKESMAN'S IS LEFT, and neither can drop a row. An
-    // aggregate with no `group by` answers exactly one row whatever it
-    // aggregates, so a placement no source stands behind joins an empty array
-    // rather than nothing -- and a condition here would be the constant true
-    // written out. The refusal is the one `findPlacementsOfItem` makes: the read
-    // path does not get to decide a row does not exist because its provenance
-    // was never recorded.
-    .crossJoinLateral(asserters)
-    .where(
-      and(
-        eq(placements.containerId, containerId),
-        isNull(placements.deletedAt),
-        // ADR-0075. A deleted item is gone to every reader, so a container
-        // cannot go on listing a placement that reaches one.
-        isNull(items.deletedAt),
-      ),
-    )
-    .orderBy(
-      placements.position,
-      // ADR-0009 keeps NO unique constraint on (container_id, position), because
-      // a novel and the film adapting it must sit at one point without an order
-      // being invented between them. So position alone does not determine this
-      // answer, and without a stable tiebreak the same container renders in a
-      // different order on different runs.
-      placements.id,
-    );
+  return (
+    db
+      .select({
+        id: placements.id,
+        title: items.title,
+        itemId: placements.itemId,
+        position: placements.position,
+        assertedBy: asserters.labels,
+      })
+      .from(placements)
+      .innerJoin(items, eq(items.id, placements.itemId))
+      // CROSS, WHERE THE SPOKESMAN'S IS LEFT, and neither can drop a row. An
+      // aggregate with no `group by` answers exactly one row whatever it
+      // aggregates, so a placement no source stands behind joins an empty array
+      // rather than nothing -- and a condition here would be the constant true
+      // written out. The refusal is the one `findPlacementsOfItem` makes: the read
+      // path does not get to decide a row does not exist because its provenance
+      // was never recorded.
+      .crossJoinLateral(asserters)
+      .where(
+        and(
+          eq(placements.containerId, containerId),
+          isNull(placements.deletedAt),
+          // ADR-0075. A deleted item is gone to every reader, so a container
+          // cannot go on listing a placement that reaches one.
+          isNull(items.deletedAt),
+        ),
+      )
+      .orderBy(
+        placements.position,
+        // ADR-0009 keeps NO unique constraint on (container_id, position), because
+        // a novel and the film adapting it must sit at one point without an order
+        // being invented between them. So position alone does not determine this
+        // answer, and without a stable tiebreak the same container renders in a
+        // different order on different runs.
+        placements.id,
+      )
+  );
 }
 
 /**

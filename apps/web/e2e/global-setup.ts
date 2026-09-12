@@ -1424,6 +1424,50 @@ async function theThingsWorkBrowsingHasToTellApart(databaseUrl: string) {
     sourceId: owner,
   });
 
+  /*
+   * A DISAGREEMENT, which is the thing the repeat above renders identically to
+   * until the rows name their sources: ADR-0017 has two sources claiming
+   * different positions for one membership producing TWO placement rows, which
+   * is the recap's own shape -- one item, twice, at two positions.
+   *
+   * SEEDED RATHER THAN WRITTEN BY THE PRODUCT, because nothing in the product
+   * can write one. `browse` writes one source's claims per call and the owner's
+   * hand has no surface that places anything yet, which ADR-0017 says in its own
+   * words -- so this is the one place in the suite where the two shapes can be
+   * put side by side and told apart.
+   *
+   * TWO PROVIDERS RATHER THAN THE OWNER AND A PROVIDER, and that is the half
+   * that makes it bite. A kind would separate `owner` from `provider`; it
+   * cannot separate a wiki from a broadcaster, and two providers disagreeing is
+   * what this catalogue actually holds -- the wiki's series against TMDB's
+   * season. The rows have to name the sources, not their kinds.
+   */
+  const disagreedAbout = await anItemTitled(db, "An ordering two sources disagree about", {
+    isContainer: true,
+    isOrdered: true,
+  });
+  const argued = await anItemTitled(db, "A story two sources place differently");
+  await aPlacement(db, {
+    containerId: disagreedAbout,
+    itemId: argued,
+    position: 1,
+    sourceId: await aProvider(
+      db,
+      "https://provider.test/by-transmission",
+      "A broadcaster that orders by transmission",
+    ),
+  });
+  await aPlacement(db, {
+    containerId: disagreedAbout,
+    itemId: argued,
+    position: 3,
+    sourceId: await aProvider(
+      db,
+      "https://provider.test/by-release",
+      "A wiki that orders by release",
+    ),
+  });
+
   return {
     fixture: {
       person: "A person in the cast",
@@ -1442,6 +1486,12 @@ async function theThingsWorkBrowsingHasToTellApart(databaseUrl: string) {
       withARecapId: withARecap,
       repeated: "A story shown twice in one ordering",
       repeatedId: shownTwice,
+      /** Who asserted BOTH of the recap's rows, which is what makes it a repeat. */
+      repeatedBy: "Owner",
+      disagreedAboutId: disagreedAbout,
+      argued: "A story two sources place differently",
+      /** The two sources that place it apart, in the positions they claim. */
+      arguedBy: ["A broadcaster that orders by transmission", "A wiki that orders by release"],
     },
     // The seed ends its own client; this pool has to be ended too, or the run
     // holds an idle connection open against a database it has finished with.
@@ -1591,6 +1641,10 @@ declare module "vitest" {
       withARecapId: string;
       repeated: string;
       repeatedId: string;
+      repeatedBy: string;
+      disagreedAboutId: string;
+      argued: string;
+      arguedBy: string[];
     };
     /** The story imported from a CMPP provider over HTTP, and what it claimed. */
     imported: {

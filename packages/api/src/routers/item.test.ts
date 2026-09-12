@@ -376,8 +376,16 @@ describe("item.get on a container", () => {
     // -- one source placing one item twice on purpose. Nothing STORED tells them
     // apart, so the payload has to carry who asserted each row or the page
     // cannot either.
-    const wiki = await aProvider(db, "https://provider.test/router-wiki", "A wiki this router asked");
-    const broadcaster = await aProvider(db, "https://provider.test/router-broadcaster", "A broadcaster this router asked");
+    const wiki = await aProvider(
+      db,
+      "https://provider.test/router-wiki",
+      "A wiki this router asked",
+    );
+    const broadcaster = await aProvider(
+      db,
+      "https://provider.test/router-broadcaster",
+      "A broadcaster this router asked",
+    );
     const season = await anItemTitled(db, "A season the payload disagrees about", {
       isContainer: true,
       isOrdered: true,

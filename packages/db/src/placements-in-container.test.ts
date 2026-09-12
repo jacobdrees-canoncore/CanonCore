@@ -147,8 +147,16 @@ describe("findPlacementsInContainer, on who asserted each placement", () => {
     // BOTH SHAPES IN ONE TEST, because either alone passes against a query
     // answering a constant. The difference between the two answers IS the
     // criterion, and a test that only ever saw one of them could not state it.
-    const wiki = await aProvider(db, "https://provider.test/by-release", "A wiki that orders by release");
-    const broadcaster = await aProvider(db, "https://provider.test/by-broadcast", "A database that orders by broadcast");
+    const wiki = await aProvider(
+      db,
+      "https://provider.test/by-release",
+      "A wiki that orders by release",
+    );
+    const broadcaster = await aProvider(
+      db,
+      "https://provider.test/by-broadcast",
+      "A database that orders by broadcast",
+    );
     const disputed = await anItemTitled(db, "An ordering two sources disagree about", {
       isContainer: true,
       isOrdered: true,
@@ -160,7 +168,12 @@ describe("findPlacementsInContainer, on who asserted each placement", () => {
       position: 1,
       sourceId: broadcaster,
     });
-    await assertPlacement(db, { containerId: disputed, itemId: argued, position: 3, sourceId: wiki });
+    await assertPlacement(db, {
+      containerId: disputed,
+      itemId: argued,
+      position: 3,
+      sourceId: wiki,
+    });
 
     const agreed = await anItemTitled(db, "An ordering that opens with its own recap", {
       isContainer: true,
@@ -204,14 +217,27 @@ describe("findPlacementsInContainer, on who asserted each placement", () => {
     // THE FAVOURITE IS CREATED SECOND AND RANKED UP, which is what makes this a
     // test: under insertion order, or under the source order alone, it comes
     // back second. Only rank-first puts it in front.
-    const first = await aProvider(db, "https://provider.test/came-first", "A source that came first");
-    const later = await aProvider(db, "https://provider.test/came-later", "A source that came later and is preferred");
+    const first = await aProvider(
+      db,
+      "https://provider.test/came-first",
+      "A source that came first",
+    );
+    const later = await aProvider(
+      db,
+      "https://provider.test/came-later",
+      "A source that came later and is preferred",
+    );
     const container = await anItemTitled(db, "An ordering two sources corroborate", {
       isContainer: true,
       isOrdered: true,
     });
     const story = await anItemTitled(db, "A story both of them place at one");
-    await assertPlacement(db, { containerId: container, itemId: story, position: 1, sourceId: first });
+    await assertPlacement(db, {
+      containerId: container,
+      itemId: story,
+      position: 1,
+      sourceId: first,
+    });
     const corroborated = await assertPlacement(db, {
       containerId: container,
       itemId: story,
@@ -225,10 +251,7 @@ describe("findPlacementsInContainer, on who asserted each placement", () => {
       .update(placementSources)
       .set({ rank: "preferred" })
       .where(
-        and(
-          eq(placementSources.placementId, corroborated),
-          eq(placementSources.sourceId, later),
-        ),
+        and(eq(placementSources.placementId, corroborated), eq(placementSources.sourceId, later)),
       );
 
     const held = await findPlacementsInContainer(db, container);

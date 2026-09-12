@@ -100,6 +100,36 @@ describe("/items/<a container>", () => {
     expect(rows[1]).toContain("#5");
   });
 
+  it("tells a repeat from two sources disagreeing, by naming who asserted each row", async () => {
+    // THE CRITERION, where a reader meets it. Both pages show one title twice at
+    // two positions: the recap because one source placed it twice on purpose
+    // (ADR-0009), and the disputed ordering because two sources claim different
+    // positions for one membership (ADR-0017). Nothing STORED separates them, so
+    // the only thing that can is the name beside each row -- one source saying
+    // it twice against two sources saying it once each.
+    //
+    // BOTH PAGES IN ONE TEST, because the criterion is a DIFFERENCE. Either page
+    // alone passes against a list that prints the same name on every row.
+    const repeat = await documentAt(`/items/${workBrowsing.withARecapId}`);
+    const disagreement = await documentAt(`/items/${workBrowsing.disagreedAboutId}`);
+
+    const repeated = memberRows(repeat.text).filter((row) => row.includes(workBrowsing.repeated));
+    expect(repeated).toHaveLength(2);
+    expect(repeated.filter((row) => row.includes(workBrowsing.repeatedBy))).toHaveLength(2);
+
+    const argued = memberRows(disagreement.text).filter((row) => row.includes(workBrowsing.argued));
+    expect(argued).toHaveLength(2);
+    expect(
+      argued.map((row) => workBrowsing.arguedBy.filter((by) => row.includes(by))),
+    ).toStrictEqual([[workBrowsing.arguedBy[0]], [workBrowsing.arguedBy[1]]]);
+    // AND POSITION STILL LEADS (ADR-0018). A container's member list is in its
+    // own order by definition, so naming the sources must not reorder it the way
+    // `findPlacementsOfItem` does on the item's end -- where rank leads because
+    // the rows there are competing orderings rather than one ordering's contents.
+    expect(argued[0]).toContain("#1");
+    expect(argued[1]).toContain("#3");
+  });
+
   it("carries the ordering a reader arrived through into the item page", async () => {
     // ADR-0066: the path is identity and the QUERY is the route. The member link
     // carries `?via=<placement-id>`, and the item page marks that ordering --
