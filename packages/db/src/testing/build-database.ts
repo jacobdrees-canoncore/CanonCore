@@ -39,6 +39,16 @@ export const TEST_DATABASE_SUFFIXES = [
   "gone",
   "edit",
   "place",
+  /*
+   * A REORDER CHANGES THE ORDERING IT IS ASSERTED AGAINST, so the two suites
+   * that reorder cannot share one instance with anything -- `place` included,
+   * whose file asserts a container's rows by position. `order` is the
+   * script-less path at the page seam and `drag` is the browser suite
+   * (CNCORE-73), and they are two rather than one because they run as two
+   * Vitest projects in two CI jobs, each standing up its own server.
+   */
+  "order",
+  "drag",
 ] as const;
 
 /** A suffix this repo has declared, which is the only kind there is. */

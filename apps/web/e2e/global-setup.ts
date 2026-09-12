@@ -1,11 +1,8 @@
-import { type ChildProcess, spawn } from "node:child_process";
 import { createServer, type Server } from "node:http";
-import { createServer as createProbe } from "node:net";
-import { fileURLToPath } from "node:url";
 import type { AppRouterClient } from "@canoncore/api/routers";
-import { assertPlacement, createDb, type Database } from "@canoncore/db";
+import { assertPlacement, createDb, placeItemByHand } from "@canoncore/db";
 import { type SeededPlacement, seedOneItemInTwoOrderings } from "@canoncore/db/seed";
-import { buildTestDatabase, type TestDatabaseSuffix } from "@canoncore/db/testing/build-database";
+import { buildTestDatabase } from "@canoncore/db/testing/build-database";
 import {
   aCatalogueLargerThanOnePage,
   aContainerLargerThanOnePage,
@@ -21,6 +18,12 @@ import { RPCLink } from "@orpc/client/fetch";
 import type { TestProject } from "vitest/node";
 
 import { logInAt } from "./document";
+/*
+ * THE INSTANCE HELPERS NOW LIVE BESIDE THIS FILE RATHER THAN IN IT (CNCORE-73),
+ * because the browser suite is a second Vitest PROJECT that needs the same
+ * thing. What they are and why is in `instance.ts`, unchanged by the move.
+ */
+import { anInstanceServing, OWNER_PASSWORD, theAppBuilt, theBuildServing } from "./instance";
 import { CONTAINERS, TENTH_PLANET, WIKI_MANIFEST } from "./wiki-fixture";
 
 /**
@@ -31,31 +34,19 @@ import { CONTAINERS, TENTH_PLANET, WIKI_MANIFEST } from "./wiki-fixture";
  * slice that first has one" -- but the sentence it reserved it with is "what
  * genuinely needs a browser", and a server-rendered title does not. The title
  * is in the HTML the server returns, so `fetch` observes exactly what a browser
- * would and costs no dependency and no browser binaries in CI. Playwright is
- * still the answer for the first slice with real interactivity.
+ * would and costs no dependency and no browser binaries in CI.
+ *
+ * THAT RESERVATION IS NOW SPENT, AND NOT ON THIS PROJECT (CNCORE-73). A drag
+ * is the first interactivity that genuinely needs one, and it has a Vitest
+ * project of its own in `apps/web/browser` -- so nothing in THIS file launches
+ * a browser and nothing in it ever will. The split is the point: a browser test
+ * is the most expensive and most brittle thing in this repository, and keeping
+ * it out of here is what stops a flake in it reddening the page seam.
  *
  * WHY A PRODUCTION BUILD rather than `next dev`. Dev-mode rendering is not what
  * ships, and the build turned out to cost about three seconds -- which is
  * cheaper than the class of bug it rules out.
  */
-const webRoot = fileURLToPath(new URL("..", import.meta.url));
-
-/**
- * THE OWNER'S PASSWORD, for the instances this harness has to WRITE to.
- *
- * Everything that changes a catalogue is behind a session since CNCORE-109, and
- * a session is what `OWNER_PASSWORD` is exchanged for (ADR-0044). So an instance
- * the harness fills -- or that a test file presses a button on -- is configured
- * with one, and `asTheOwner` below logs in through the page exactly as an owner
- * does.
- *
- * THE FRESH INSTALL IS DELIBERATELY WITHOUT ONE. That instance is what a
- * stranger's first run looks like, and it is also ADR-0044's demo: read-only,
- * with no login, because no password was set. It is passed an explicit empty
- * string for the reason its allowlist is -- this process inherits its own
- * environment, and an omitted key lets the parent's value through.
- */
-const OWNER_PASSWORD = "the owner's own password for the e2e suite";
 
 /**
  * An RPC client that has logged in, for the fixtures this harness fills through
@@ -123,7 +114,7 @@ export default async function setup(project: TestProject) {
     // below are filled through the app's own write path, which is the owner's.
     OWNER_PASSWORD,
   };
-  await run("next", ["build"], env);
+  await theAppBuilt(env);
 
   /*
    * THE ONE BUILD, STARTED HERE AND FOUR MORE TIMES BELOW. This instance takes
@@ -194,6 +185,10 @@ export default async function setup(project: TestProject) {
   project.provide("curatableBaseUrl", curatable.baseUrl);
   project.provide("curatable", curatable.fixture);
 
+  const reorderable = await aCatalogueSafeToReorder();
+  project.provide("reorderableBaseUrl", reorderable.baseUrl);
+  project.provide("reorderable", reorderable.fixture);
+
   const still = await aCatalogueThatHoldsStill();
   project.provide("stillBaseUrl", still.baseUrl);
   project.provide("stillCatalogue", still.fixture);
@@ -226,6 +221,7 @@ export default async function setup(project: TestProject) {
     await still.close();
     await editable.close();
     await curatable.close();
+    await reorderable.close();
     // The seed ends its own client; this pool has to be ended too, or the run
     // holds an idle connection open against a database it is finished with.
     await twoOrigins.close();
@@ -236,112 +232,6 @@ export default async function setup(project: TestProject) {
     await tmdb.close();
     await lookupOnly.close();
     await answersBadly.close();
-  };
-}
-
-/**
- * THE SERVER HALF, and every one of the five instances is made of it.
- *
- * Take a port nothing is on, start the ONE build against the environment given,
- * wait until it answers. Nothing here knows about databases, which is what lets
- * `setup` use it directly: that instance runs `next build` BETWEEN its database
- * and its server, and a helper that did both halves would have to take a flag
- * saying whether to build. `anInstanceServing` below is that helper for the four
- * with nothing in between.
- */
-async function theBuildServing(env: NodeJS.ProcessEnv): Promise<{
-  baseUrl: string;
-  close: () => void;
-}> {
-  const port = await freePort();
-  const server = spawn("next", ["start", "--port", String(port)], {
-    cwd: webRoot,
-    env,
-    stdio: "inherit",
-  });
-  const baseUrl = `http://127.0.0.1:${port}`;
-  await waitUntilAnswering(baseUrl, server);
-  return { baseUrl, close: () => server.kill("SIGTERM") };
-}
-
-/**
- * A DATABASE OF ITS OWN, WHATEVER FILLS IT, AND A SERVER ON IT (CNCORE-111).
- *
- * Four fixtures below spelled this out a line at a time, and the fifth copy is
- * what made the shape worth naming rather than the first. What each of them is
- * FOR stays in its own docblock, because that is the part worth reading and the
- * part an extraction must not swallow; what they share is only the plumbing.
- *
- * BOTH ENVIRONMENT VALUES ARE REQUIRED, WHICH IS THE POINT OF TAKING THEM. An
- * instance inherits this process's environment, so a key left out is not a key
- * unset -- it is a developer's `.env` reaching a fixture that was supposed to be
- * without it. `aCatalogueTooBigForOnePage` omitted `PROVIDER_URLS` for exactly
- * that reason and nothing said so. Now an instance that leaves either ambient
- * does not compile, which is the same mechanism `TEST_DATABASE_SUFFIXES` uses on
- * the suffix and not a second one to learn.
- *
- * THOSE TWO AND `DATABASE_URL`, AND NOTHING ELSE. The rest of this process's
- * environment is inherited on purpose -- the server needs `PATH` and the rest to
- * run at all -- so "cannot go ambient" is a claim about the three keys that
- * decide what an instance IS, not about the environment as a whole.
- *
- * `fill` RUNS BEFORE THE SERVER ANSWERS, so a suite never sees a half-filled
- * catalogue. An instance whose rows have to be written THROUGH the app cannot
- * use it -- the app is not up yet -- so it fills nothing here and does its work
- * on the returned `db` and `baseUrl` instead; `aCatalogueSafeToPurge` is the one
- * that does.
- *
- * The pool is lazy, so an instance that fills nothing opens no connection to the
- * database it is handed -- and `close` still ends it, so no caller has to know
- * which kind it is.
- */
-async function anInstanceServing<Fixture>({
-  suffix,
-  ownerPassword,
-  allowlist,
-  providers,
-  fill,
-}: {
-  suffix: TestDatabaseSuffix;
-  /**
-   * ADR-0044's one password, or the empty string for an instance nobody can log
-   * in to -- which is that record's demo, and is what a read-only instance is.
-   * Required for the reason the two below are: a key left out is not a key
-   * unset, it is this process's own environment reaching a fixture that was
-   * meant to be without it, and an instance that became writable by inheritance
-   * would take the whole point off the tests that assert a visitor sees no
-   * button.
-   */
-  ownerPassword: string;
-  /** ADR-0034's allowlist, as this instance's configuration. */
-  allowlist: string;
-  /** Which providers this instance searches (CNCORE-68), joined for the app. */
-  providers: readonly string[];
-  fill: (db: Database) => Promise<Fixture>;
-}): Promise<{
-  baseUrl: string;
-  db: Database;
-  fixture: Fixture;
-  close: () => Promise<void>;
-}> {
-  const databaseUrl = await buildTestDatabase(suffix);
-  const db = createDb(databaseUrl);
-  const fixture = await fill(db);
-  const server = await theBuildServing({
-    ...process.env,
-    DATABASE_URL: databaseUrl,
-    OWNER_PASSWORD: ownerPassword,
-    PROVIDER_ALLOWLIST: allowlist,
-    PROVIDER_URLS: providers.join(","),
-  });
-  return {
-    baseUrl: server.baseUrl,
-    db,
-    fixture,
-    close: async () => {
-      server.close();
-      await db.$client.end();
-    },
   };
 }
 
@@ -1310,6 +1200,83 @@ async function aCatalogueSafeToCurate() {
 }
 
 /**
+ * AN INSTANCE WHOSE ORDERINGS A TEST MAY REARRANGE.
+ *
+ * `aCatalogueSafeToCurate`'s reason, one operation along -- and the operation is
+ * what makes this a seventh instance rather than two more containers on the
+ * sixth. A REORDER MOVES THE POSITIONS EVERY OTHER ASSERTION IS WRITTEN AGAINST:
+ * `placement-write.test.ts` reads its rows back by `#63` and `#77`, and a
+ * reorder running beside it in another worker would put those numbers on other
+ * rows. The two files would fail each other at random, which is the one failure
+ * mode a fixture instance exists to remove.
+ *
+ * POSITIONS 1, 5 AND 63, AND A FOURTH WITH NONE. The GAPS are the fixture: an
+ * ordering of 1, 2, 3 cannot tell a permutation of asserted positions from a
+ * renumbering that happens to agree with it, and ADR-0116 refuses to confuse
+ * those two. The fourth is CONTEXT.md's Unplaced, so the boundary a reorder can
+ * cross is on the page rather than imagined.
+ *
+ * `placeItemByHand` RATHER THAN `aPlacement`, because that helper's `position`
+ * is a `number` and the whole point of the fourth row is that it has none.
+ * Going through the owner's own mutation also gives every row the Owner as its
+ * source, which is the state the page renders.
+ */
+async function aCatalogueSafeToReorder() {
+  const instance = await anInstanceServing({
+    suffix: "order",
+    ownerPassword: OWNER_PASSWORD,
+    // ADR-0034's default: an instance nobody has configured reaches nothing.
+    allowlist: "",
+    providers: [],
+    fill: async (db) => {
+      const releaseOrder = await anItemTitled(db, "Release order", {
+        isContainer: true,
+        isOrdered: true,
+      });
+      const storyOrder = await anItemTitled(db, "Story order", {
+        isContainer: true,
+        isOrdered: true,
+      });
+
+      const held = [
+        { title: "An Unearthly Child", position: 1 },
+        { title: "The Daleks", position: 5 },
+        { title: "The Edge of Destruction", position: 63 },
+        { title: "Mission to the Unknown", position: null },
+      ];
+      const placed: Record<string, string> = {};
+      for (const { title, position } of held) {
+        const itemId = await anItemTitled(db, title);
+        placed[title] = itemId;
+        await placeItemByHand(db, { containerId: releaseOrder, itemId, position });
+      }
+
+      /*
+       * AND ONE OF THEM IN A SECOND ORDERING, which is the ticket's third
+       * criterion: reordering one container must not move the item in another.
+       * Read back from the OTHER container's page, so the claim is about what a
+       * reader sees rather than about what the reordered page happened to say.
+       */
+      const alsoElsewhere = placed["The Daleks"];
+      if (!alsoElsewhere) throw new Error("the fixture placed nothing titled The Daleks");
+      await placeItemByHand(db, { containerId: storyOrder, itemId: alsoElsewhere, position: 29 });
+
+      return {
+        releaseOrder,
+        storyOrder,
+        first: "An Unearthly Child",
+        second: "The Daleks",
+        third: "The Edge of Destruction",
+        unplaced: "Mission to the Unknown",
+        secondPositionElsewhere: 29,
+      };
+    },
+  });
+
+  return { baseUrl: instance.baseUrl, close: instance.close, fixture: instance.fixture };
+}
+
+/**
  * A SIXTH INSTANCE, and what is new about it is that IT CAN BE EDITED.
  *
  * `aCatalogueSafeToPurge`'s reason, one operation along. Editing a title
@@ -1704,50 +1671,6 @@ async function theThingsWorkBrowsingHasToTellApart(databaseUrl: string) {
   };
 }
 
-function run(command: string, args: string[], env: NodeJS.ProcessEnv): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { cwd: webRoot, env, stdio: "inherit" });
-    child.on("error", reject);
-    child.on("exit", (code) =>
-      code === 0 ? resolve() : reject(new Error(`${command} ${args.join(" ")} exited ${code}`)),
-    );
-  });
-}
-
-/** Asks the operating system for a port nothing else is on. */
-function freePort(): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const probe = createProbe();
-    probe.on("error", reject);
-    probe.listen(0, "127.0.0.1", () => {
-      const address = probe.address();
-      if (address === null || typeof address === "string") {
-        reject(new Error("could not read a port from the probe socket"));
-        return;
-      }
-      probe.close(() => resolve(address.port));
-    });
-  });
-}
-
-async function waitUntilAnswering(baseUrl: string, server: ChildProcess): Promise<void> {
-  const deadline = Date.now() + 60_000;
-  while (Date.now() < deadline) {
-    if (server.exitCode !== null) {
-      throw new Error(`next start exited with ${server.exitCode} before answering`);
-    }
-    try {
-      const response = await fetch(baseUrl);
-      if (response.status < 500) return;
-    } catch {
-      // Not up yet.
-    }
-    await new Promise((resolve) => setTimeout(resolve, 200));
-  }
-  server.kill("SIGTERM");
-  throw new Error(`next start did not answer on ${baseUrl} within 60s`);
-}
-
 declare module "vitest" {
   interface ProvidedContext {
     baseUrl: string;
@@ -1819,6 +1742,24 @@ declare module "vitest" {
       otherTitle: string;
       releaseOrderTitle: string;
       storyOrderTitle: string;
+    };
+    /**
+     * And again, serving a catalogue whose ORDERINGS a test may rearrange. A
+     * reorder moves the positions every other assertion is written against, so
+     * it cannot share an instance even with the one that places.
+     */
+    reorderableBaseUrl: string;
+    /** An ordering with gaps and an unplaced tail, and one member in a second ordering. */
+    reorderable: {
+      releaseOrder: string;
+      storyOrder: string;
+      /** The titles, in the order the page shows them: 1, 5, 63, then no position given. */
+      first: string;
+      second: string;
+      third: string;
+      unplaced: string;
+      /** Where `second` sits in `storyOrder`, which reordering the other must not touch. */
+      secondPositionElsewhere: number;
     };
     /** Every item that instance holds: the set a walk has to arrive at, exactly. */
     pagedCatalogue: string[];

@@ -778,3 +778,93 @@ none today. The repo's four other loopback stubs are unaffected for reasons rath
 `packages/providers`, `packages/contract` and `packages/config`'s network-gate suite keep no
 database, so nothing is keyed on the identities they mint, and `apps/web/e2e` already closes its
 stubs in its `globalSetup` teardown at the end of the run rather than between tests.
+
+## The sixth seam: THE PAGE IN A BROWSER, and the reservation is spent -- under CNCORE-73
+
+**PLAYWRIGHT WAS RESERVED FROM THIS RECORD'S FIRST DRAFT, AND THIS IS WHERE IT IS SPENT.** The
+reservation moved twice as slices arrived without needing it -- "a rendered page, on the slice that
+first has one", sharpened by CNCORE-4 to "the first slice with real INTERACTIVITY", restated
+unchanged under CNCORE-9. Dragging a Placement to reorder a Container is that slice. There is no
+reservation left after this one, and a seventh seam is a new argument rather than a draw on this
+record's credit.
+
+**WHAT THE SEAM MAY ASSERT IS BOUNDED, AND THE BOUND IS THE POINT OF WRITING THIS SECTION.** Two
+claims, both of which need a browser and neither of which anything else can make:
+
+1. **That dragging reorders.** A pointer press, a move that crosses the sensor's activation, a
+   release over another row, and the list in a new order.
+2. **That the new order survives a reload.** The catalogue moved, not merely the DOM.
+
+**EVERYTHING ELSE ABOUT REORDERING IS ASSERTED WITHOUT ONE, and it is a lot.** The arithmetic is a
+pure function with its own unit test. The write is asserted at the second seam, the refusals at the
+package export, the whole capability at the fourth seam -- because every row carries Move up and
+Move down as native forms and `CLAUDE.md` requires that visible path to exist anyway. The browser is
+spent on the gesture and nothing else.
+
+**THE TEST TO APPLY TO THE NEXT CANDIDATE IS THIS ONE:** could a `fetch` observe it? If the answer
+is yes, it belongs at the fourth seam, and the fact that a browser COULD also observe it is not an
+argument. That is the same criterion this record refused Playwright with three times.
+
+### Its own project and its own CI job
+
+**A SEVENTH INSTANCE WOULD HAVE BEEN CHEAPER AND IT IS STILL THE WRONG SHAPE.** `apps/web/browser`
+is a Vitest project of its own -- its own config, its own global setup, its own database suffix,
+its own `next build` -- and it runs as a fourteenth CI job called `The page in a browser`.
+
+What that costs is one duplicated instance and one duplicated build. What it buys is that the most
+expensive and most brittle thing in this repository fails under its own name: a flake in a drag
+reddens a check that says so, rather than the one that says the app serves pages at all. The ticket
+asked for this to be decided on duplicated setup rather than on money, because CNCORE-80 established
+that standard runners are free in a public repository (ADR-0111, corrected) -- so folding saves
+nothing and the diagnosability is free.
+
+**`anInstanceServing` MOVED TO `e2e/instance.ts` RATHER THAN BEING COPIED.** CNCORE-111 named that
+shape when a fifth copy of the same lines appeared; a second Vitest project is a sixth caller, and a
+copy of it would be exactly the drift the extraction was performed to stop. `theAppBuilt` is
+exported beside it and is NOT folded into it, for that record's own reason: the page seam stands up
+seven instances off ONE build, so a helper that built per instance would build seven times.
+
+### The gate has a half it cannot reach here, and `context.route()` is the other half
+
+`install-network-gate` patches undici inside the Vitest process. **A BROWSER IS A SUBPROCESS MAKING
+ITS OWN REQUESTS**, so this is the one suite in the repository where a page reaching a public host
+would go unseen. `browser/reorder.test.ts` routes every request through `context.route()`, continues
+the ones whose origin is the instance under test, and RECORDS the rest before aborting them -- an
+abort alone makes the page fail in whatever way a blocked request makes it fail, which is a puzzle
+rather than a message. The recorded list is asserted empty when the suite ends.
+
+### Three false greens, met in one afternoon
+
+Worth writing down because all three pass silently, and because the guard that caught them was put
+in on the strength of the ticket's warning rather than on experience:
+
+- **A PRESS BEFORE HYDRATION DOES NOTHING.** The rows are server-rendered, so every drag handle is
+  on the page and has a bounding box before any script has run. The suite waits for
+  `aria-roledescription`, which dnd-kit attaches imperatively once its sensor registers -- the
+  attribute appearing IS the list becoming draggable, where `networkidle` or a sleep would only
+  correlate with it.
+- **A BOUNDING BOX BELOW THE FOLD PUTS THE PRESS ON `<html>`.** `boundingBox` answers
+  document-relative coordinates whether or not the element is on screen, and `page.mouse` moves in
+  VIEWPORT coordinates without the auto-scroll `click` performs. A row at y=771 in a 720-tall window
+  was pressed on the page behind it. A taller viewport, a scroll, and an assertion that the box is
+  reachable.
+- **dnd-kit'S DRAG CLONE MAKES EVERY ROW LOCATOR MATCH TWICE.** It lifts the dragged row into a
+  `popover` and leaves an `inert` placeholder where it was, both carrying the row's
+  `data-placement`. Playwright's strict mode refused the ambiguous locator -- and that refusal
+  reached the runner as `expect.poll` retrying quietly until it timed out, reported as "expected
+  null to be true", which is a message about the wrong thing entirely. **A POLL SWALLOWS THE ERROR
+  IT IS RETRYING**, which is the transferable lesson.
+
+**AND THE SUITE WAS THEN MUTATED TO PROVE IT FAILS.** A write aimed at a placement id that is not
+there turns it red on the reload assertion. The first attempt at that mutation PASSED, which is how
+`theAppBuilt` came to be called here at all: `anInstanceServing` only starts a build, so the project
+had been serving whatever `.next` happened to be on disk -- green against code that was not the code
+under test, and unable to start at all on a fresh runner.
+
+### `browser/` had to be excluded from the unit config by name
+
+Vitest's default `include` sweeps every `*.test.ts` under a package, so a new suite directory is IN
+the default config until it is named out of it. `apps/web/vitest.config.ts` excluded `e2e/` and
+nothing else, so the browser suite ran under it and failed at its first `inject` -- naming a
+variable rather than the config that had swept it. Exclusion is part of adding a project here, not
+tidiness after the fact.

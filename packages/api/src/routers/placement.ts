@@ -1,4 +1,5 @@
 import {
+  movePlacementByHand,
   PlacementRefused,
   placeItemByHand,
   removePlacementByHand,
@@ -94,6 +95,64 @@ export const placement = {
     .handler(async ({ input, context, errors }) => {
       if (!(await removePlacementByHand(context.db, input.id))) throw errors.NOT_FOUND();
       return { id: input.id };
+    }),
+
+  /**
+   * DRAGGING A MEMBER INTO A NEW PLACE (CNCORE-73), which is ADR-0116's own
+   * subject and the fourth of the four mutations ADR-0061 left unbuilt.
+   *
+   * IT TAKES THE DELTA, NOT THE ORDERING. The placement that moved and the
+   * siblings whose Position actually changed -- never the rebuilt list. Handing
+   * it the whole ordering would rewrite every Placement in the container on
+   * every drop, so a position a PROVIDER asserted would come back
+   * owner-asserted and the disagreement it might have had would be gone
+   * (ADR-0017). The arithmetic that produces the delta is the caller's, and
+   * ADR-0116 accepts that cost by name.
+   *
+   * `containerId` IS THE DESTINATION AND IT MAY DIFFER FROM WHERE THE PLACEMENT
+   * SITS. That is ADR-0116's stated shape -- "its new container and its new
+   * position" -- and it is what makes a placement cycle expressible at all,
+   * which is why migration 15 refuses one in the database rather than leaving
+   * it to a drag's drop targets.
+   */
+  move: ownerProcedure
+    .input(
+      z.object({
+        id: z.uuid(),
+        containerId: z.uuid(),
+        /* Nullable with a default, for `place`'s reason: an Unplaced member. */
+        position: z.number().int().nullable().default(null),
+        /**
+         * WHO SHIFTED, AND ONLY THEM. Empty is ordinary rather than suspicious:
+         * a placement dragged into a gap nothing else occupies moves alone.
+         */
+        siblings: z
+          .array(z.object({ id: z.uuid(), position: z.number().int().nullable() }))
+          .default([]),
+      }),
+    )
+    .output(placementWritten)
+    .errors({
+      NOT_FOUND: { message: "No placement at that id to move." },
+      BAD_REQUEST: {
+        message: "That move is refused: a container cannot hold something it already sits inside.",
+      },
+    })
+    .handler(async ({ input, context, errors }) => {
+      /*
+       * TWO ANSWERS, AND THEY ARE DIFFERENT THINGS. A placement that is not
+       * there is NOT_FOUND -- a stale page, a shared link -- and a move the
+       * catalogue refuses is BAD_REQUEST, which today is a cycle (migration 15)
+       * or a Repeat landing on a tuple another copy holds (ADR-0009). Neither
+       * is a fault, and `by-hand.ts` is where that narrowing is argued.
+       */
+      try {
+        if (!(await movePlacementByHand(context.db, input))) throw errors.NOT_FOUND();
+        return { id: input.id };
+      } catch (cause) {
+        if (cause instanceof PlacementRefused) throw errors.BAD_REQUEST({ cause });
+        throw cause;
+      }
     }),
 
   /**

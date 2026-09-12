@@ -1,0 +1,50 @@
+-- Migration 14, under CNCORE-73. A REORDER IS ONE PERMUTATION, AND THE RULE IS
+-- ABOUT ITS END STATE.
+--
+-- `placements_container_item_position` is checked ROW BY ROW, which is what a
+-- non-deferrable unique means. A reorder is several UPDATEs whose end state
+-- keeps the rule and whose INTERMEDIATE states need not -- so a Repeat dragged
+-- past its own other copy lands on that copy's tuple mid-statement and the
+-- write fails on a constraint the finished ordering does not break. Measured
+-- against PostgreSQL 18: an owner dragging an episode above its own recap gets
+-- `duplicate key value violates unique constraint`, with a detail naming the
+-- position it was about to vacate.
+--
+-- ADR-0009 licences the Repeat and ADR-0116 makes the tuple the rule, so
+-- neither is the thing to weaken. What is wrong is WHEN the rule is read: "the
+-- same item is never in one container twice at one position" is a claim about
+-- a container, and a container is only observable between transactions.
+--
+-- `INITIALLY IMMEDIATE`, SO NOTHING ELSE CHANGES. Every existing write is
+-- checked exactly where it was, at the statement, and only a transaction that
+-- says `SET CONSTRAINTS ... DEFERRED` for itself gets the end-of-transaction
+-- reading -- which is `movePlacementByHand` and nothing else. `INITIALLY
+-- DEFERRED` would have moved every import's refusal to its commit, where the
+-- row that broke it is no longer the row being written.
+--
+-- THE COST IS THAT A DEFERRED REFUSAL ARRIVES AT COMMIT. `placements.ts`
+-- catches it there rather than at the statement, and the SQLSTATE is the same
+-- `23505` -- so the owner still meets the sentence ADR-0116 asks for rather
+-- than a 500.
+--
+-- HAND-WRITTEN, AND `drizzle-kit generate` CANNOT DRIFT FROM IT. Migration 12
+-- records the opposite case and its rule: declare in `schema/tables.ts`
+-- whatever the generator can emit, so the schema and the head snapshot go on
+-- agreeing. drizzle-orm 0.45.2's `unique()` builder has no `deferrable()` --
+-- `pg-core/unique-constraint.d.ts` publishes `nullsNotDistinct()` and nothing
+-- else -- so deferrability is not in the schema, not in the snapshot, and not
+-- something a later `generate` can diff or re-emit. `tables.ts` gains the
+-- reason as a comment instead, which is the only place it can live.
+--
+-- NULLS NOT DISTINCT IS CARRIED OVER DELIBERATELY. It is migration 2's
+-- decision: two sources both saying "a member, position unknown" are one claim,
+-- and dropping it here would quietly re-admit the duplicate that rung refused.
+--
+-- STRATEGY (ADR-0047 asks every rung to state one): IT REPLACES A CONSTRAINT
+-- WITH THE SAME CONSTRAINT, deferrable. No row is read or rewritten and no data
+-- can fail it -- every row already satisfies the rule being re-added, because
+-- the rule is unchanged and it held a moment ago. An instance upgrading onto
+-- this rung sees nothing different until it drags something.
+
+ALTER TABLE "placements" DROP CONSTRAINT "placements_container_item_position";--> statement-breakpoint
+ALTER TABLE "placements" ADD CONSTRAINT "placements_container_item_position" UNIQUE NULLS NOT DISTINCT("owner_id","container_id","item_id","position") DEFERRABLE INITIALLY IMMEDIATE;

@@ -24,6 +24,10 @@ catalog:
   # the concurrency-key test evaluates the key rather than string-matching it.
   # 0.x, so the caret pins it below 0.4: worth watching on a bump.
   "@actions/expressions": ^0.3.61
+  # The browser seam (ADR-0103, CNCORE-73). The `playwright` LIBRARY inside the
+  # Vitest suite rather than its test runner or Vitest's browser mode -- see
+  # `apps/web/browser/global-setup.ts` for why.
+  playwright: ^1.63.0
 
   # Framework
   next: ^16.3.4
@@ -72,5 +76,15 @@ catalog:
   class-variance-authority: ^0.7.1
   cn: ^0.2.4
   lucide-react: ^1.27.0
+  # THE DRAG (CNCORE-73), AND EXACT VERSIONS RATHER THAN CARETS. dnd-kit's 0.x
+  # packages release in lockstep and ship breaking changes in MINOR bumps, filed
+  # under "Minor Changes": 0.4.0 split `DragDropEvents` and moved `feedback` into
+  # plugin configuration, each with a migration guide. A caret would take those
+  # on a `pnpm update`. Only the two this repo IMPORTS are declared; `@dnd-kit/dom`,
+  # `@dnd-kit/state` and `@dnd-kit/abstract` come in underneath them and are held
+  # by the frozen lockfile (ADR-0106), which is where a transitive bump has to
+  # pass through a reviewed diff.
+  "@dnd-kit/react": 0.5.0
+  "@dnd-kit/helpers": 0.5.0
   sonner: ^2.0.7
   tw-animate-css: ^1.4.0

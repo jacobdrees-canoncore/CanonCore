@@ -59,6 +59,10 @@
       "cache": false,
       "env": ["DATABASE_URL"]
     },
+    "test:browser": {
+      "cache": false,
+      "env": ["DATABASE_URL"]
+    },
     "test:contract": {
       "cache": false,
       "env": ["PROVIDER_WIKI_URL", "PROVIDER_TMDB_URL"]
