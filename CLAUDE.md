@@ -17,11 +17,11 @@ describes.
 Four projects, in order, each ending in something demoable:
 
 1. **Version one** — done. Multi-placement, rendered.
-2. **The public release** — in progress. v0.1.0 tagged and published; v0.2.0 is the owner write
-   path, CNCORE-71 to 75.
-3. **A real catalogue, live** — CNCORE-96, tickets 97 to 103. The wiki provider serves tardis.wiki
-   on a credential the owner supplies, a real Doctor Who catalogue is imported, and the archive is
-   deleted once that is proven.
+2. **The public release** — done. Both tags shipped and CNCORE-60 closed, but the PROJECT outlives
+   its spec and still takes public-surface defects; 76 alone is fused to 2027-01-12.
+3. **A real catalogue, live** — in progress. CNCORE-96, tickets 98 to 103; 97 is superseded by 118.
+   The wiki provider serves tardis.wiki on a credential the owner supplies, a real Doctor Who
+   catalogue is imported, and the archive is deleted once that is proven.
 4. **A catalogue you can navigate** — CNCORE-104. Groups scope the catalogue and every row says
    where it sits. Split it into tickets only after 3 lands: it is designed against real data, and a
    three-item seed is what made the front page unreadable in the first place.
