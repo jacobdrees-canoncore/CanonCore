@@ -57,6 +57,23 @@ describe("/login", () => {
     expect(refused.text).toContain("That password was refused");
   });
 
+  it("tells the owner to wait when too many passwords have been tried", async () => {
+    // A DIFFERENT SENTENCE FOR A DIFFERENT REFUSAL (ADR-0125). "That password
+    // was refused" is a fact about the password; this one is a fact about how
+    // often this instance has been asked, and an owner who has just typed theirs
+    // correctly would be told a lie by the first.
+    //
+    // THE PAGE IS ASKED DIRECTLY RATHER THAN THE BOUND BEING DRIVEN OVER HTTP.
+    // The allowance belongs to the server, and these files run in parallel
+    // against ONE of them: a test that spent it here would refuse the logins
+    // every other file in this suite makes.
+    const { status, text } = await documentAt("/login?refused=too-many");
+
+    expect(status).toBe(200);
+    expect(text).toContain("Too many passwords have been tried");
+    expect(text).not.toContain("That password was refused");
+  });
+
   it("logs the owner in, and says so on the way back", async () => {
     const cookie = await logInAt(baseUrl, ownerPassword);
 

@@ -210,3 +210,148 @@ describe("the demo, which is an instance that sets no password", () => {
     ).toBe("UNAUTHORIZED");
   });
 });
+
+/**
+ * WHAT BOUNDS THE GUESSING (ADR-0125, CNCORE-117).
+ *
+ * `logIn` is open by necessity, and until this it answered wrong passwords as
+ * fast as the process could hash them -- measured at this very seam, 70,299 a
+ * second in sequence and 102,206 a second at a concurrency of 100.
+ *
+ * EACH TEST TAKES A FRESH INSTANCE, because the allowance is one instance's
+ * state and a test that spent it would be handing the next one an instance
+ * mid-flood. It is the same re-import the demo above uses, for the same reason:
+ * a module evaluated again is a different instance of this server.
+ */
+async function aFreshInstance() {
+  vi.resetModules();
+  return (await import("./session")).session;
+}
+
+describe("guessing at the owner's password", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+    vi.resetModules();
+  });
+
+  it("stops checking passwords once the allowance is spent", async () => {
+    const instance = await aFreshInstance();
+
+    // FORTY, which is Audiobookshelf's shipped figure restated as an allowance
+    // (ADR-0125). Every one of them is looked at and refused on its merits.
+    for (let n = 0; n < 40; n++) {
+      expect(
+        await refusalOf(call(instance.logIn, { password: `guess ${n}` }, { context: anyone })),
+      ).toBe("UNAUTHORIZED");
+    }
+
+    // AND THE FORTY-FIRST IS NOT LOOKED AT. A different answer from a different
+    // reason: "that password was refused" is a fact about the password, and this
+    // one is a fact about how often this instance has been asked.
+    expect(
+      await refusalOf(call(instance.logIn, { password: "guess 40" }, { context: anyone })),
+    ).toBe("TOO_MANY_REQUESTS");
+  });
+
+  it("gives the whole allowance back to a password that is right", async () => {
+    const instance = await aFreshInstance();
+    for (let n = 0; n < 39; n++) {
+      await refusalOf(call(instance.logIn, { password: `guess ${n}` }, { context: anyone }));
+    }
+
+    await expect(
+      call(instance.logIn, { password: OWNER_PASSWORD }, { context: anyone }),
+    ).resolves.toBeDefined();
+
+    // THE OWNER'S OWN USE DOES NOT SPEND THE GUESSING BUDGET, which is the half
+    // of Audiobookshelf's limiter that does not survive one account: it counts
+    // ATTEMPTS, success included, so an owner logging in repeatedly exhausts the
+    // allowance they would need (ADR-0125). Forty more are looked at here, and
+    // it is the forty-first that is not.
+    for (let n = 0; n < 40; n++) {
+      expect(
+        await refusalOf(call(instance.logIn, { password: `after ${n}` }, { context: anyone })),
+      ).toBe("UNAUTHORIZED");
+    }
+  });
+
+  it("lets the owner back in by itself, with nobody lifting anything", async () => {
+    // THE ACCEPTANCE CRITERION THIS TICKET TURNS ON. Jellyfin's lockout is
+    // lifted by an administrator a single-owner instance has not got, and its
+    // own documented remedy is two UPDATEs against `jellyfin.db` (ADR-0125).
+    // Nothing here outlives the guessing.
+    //
+    // ONLY `Date` IS FAKED. The password check and the session insert are real,
+    // and a suite that faked every timer would be faking the database driver's.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const instance = await aFreshInstance();
+    for (let n = 0; n < 40; n++) {
+      await refusalOf(call(instance.logIn, { password: `guess ${n}` }, { context: anyone }));
+    }
+
+    // SPENT, AND THE OWNER'S OWN PASSWORD IS TURNED AWAY TOO. That is what makes
+    // this a bound rather than theatre: if the right password always got through
+    // at once, every candidate would still cost exactly one test and a search
+    // would not be slowed at all.
+    expect(
+      await refusalOf(call(instance.logIn, { password: OWNER_PASSWORD }, { context: anyone })),
+    ).toBe("TOO_MANY_REQUESTS");
+
+    vi.setSystemTime(Date.now() + 15_000);
+
+    await expect(
+      call(instance.logIn, { password: OWNER_PASSWORD }, { context: anyone }),
+    ).resolves.toBeDefined();
+  });
+
+  it("tells the owner a password was refused, and cannot be made to flood the log", async () => {
+    // THE ONLY SURFACE THIS EVENT HAS. All four products studied write a line
+    // per refusal and three of them have nothing else (ADR-0125); this instance
+    // has no owner dashboard to put a row on.
+    const saidSo = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const instance = await aFreshInstance();
+
+    for (let n = 0; n < 40; n++) {
+      await refusalOf(call(instance.logIn, { password: `guess ${n}` }, { context: anyone }));
+    }
+
+    expect(saidSo).toHaveBeenCalledTimes(40);
+    expect(String(saidSo.mock.calls[0]?.[0])).toContain("refused");
+
+    // AND NOW THE FLOOD, every one of which is turned away unchecked. A line per
+    // ARRIVING request would be a way to fill an owner's disk from the outside,
+    // which is what Audiobookshelf's `[RateLimiter] Rate limit exceeded` line is:
+    // the log is bounded here by the same allowance that bounds the guessing.
+    for (let n = 0; n < 100; n++) {
+      await refusalOf(call(instance.logIn, { password: `flood ${n}` }, { context: anyone }));
+    }
+
+    expect(saidSo).toHaveBeenCalledTimes(40);
+  });
+
+  it("cannot be raced: two hundred simultaneous guesses still spend forty checks", async () => {
+    // WHAT A PER-REQUEST SLEEP WOULD FAIL. Nextcloud's `usleep` occupies one
+    // worker for its delay, so an attacker holding C connections gets roughly C
+    // guesses per period and the bound is per connection rather than aggregate
+    // (ADR-0125). Measured at this seam before any of this landed, concurrency
+    // took the procedure from 70,299 guesses a second to 102,206.
+    //
+    // THE CLOCK IS FROZEN so nothing is earned back mid-race, which makes the
+    // two counts exact rather than nearly exact.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const instance = await aFreshInstance();
+
+    const answers = await Promise.all(
+      Array.from({ length: 200 }, (_, n) =>
+        refusalOf(call(instance.logIn, { password: `race ${n}` }, { context: anyone })),
+      ),
+    );
+
+    // EXACTLY THE ALLOWANCE, because the claim is taken before anything yields:
+    // `isTheOwner` is synchronous, so testing the allowance and spending it
+    // happen in one turn of the event loop and two guesses cannot interleave.
+    expect(answers.filter((code) => code === "UNAUTHORIZED")).toHaveLength(40);
+    expect(answers.filter((code) => code === "TOO_MANY_REQUESTS")).toHaveLength(160);
+  });
+});
