@@ -43,8 +43,11 @@ measured against `~/tardis-pipeline`" and the record has never carried one: it m
 about the archive's contents.
 
 **MEASURED AGAIN 2026-09-12, and the protection has hardened.** The challenge is now an
-INTERACTIVE Cloudflare Turnstile ("Verify you are human") rather than the passive JavaScript
-challenge of 2026-09-05. A real browser under automation does not clear it: Orca's own browser sat
+INTERACTIVE Cloudflare challenge ("Verify you are human") rather than the passive JavaScript
+challenge of 2026-09-05. **It is a challenge PAGE and not Turnstile** — probed 2026-09-12, the response carries
+`cf-mitigated: challenge` and the word "turnstile" appears in it zero times; Turnstile is the
+widget a site owner embeds and Cloudflare documents it separately. A real browser under
+automation does not clear it: Orca's own browser sat
 on the widget through six polls and never passed. A `cf_clearance` captured 2026-09-04 was dead
 eight days later while its own `expires` attribute still claimed 2027-09-03, so the cookie's stated
 lifetime says nothing about its real one.

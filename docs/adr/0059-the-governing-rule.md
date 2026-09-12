@@ -35,6 +35,11 @@ depends on — a divergence nobody can enumerate has not been named, it has been
   both use it for the file.
 - ADR-0009 — per-placement ordering combines OAI-ORE's Proxy with IIIF's
   `behavior:"sequence"`; no standard in play gives both in one construct.
+  **A DERIVATION RATHER THAN A DIVERGENCE ARRIVED LATER, and it is the only shipped precedent this
+  model has**: Audiobookshelf lets "a book be part of multiple series to assist with organization,
+  such as in a larger universe like Star Wars", carrying a sequence number per membership with
+  decimals for insertions. Read at source 2026-09-12. That is this construct, in a product — and it
+  is trapped inside a single library, which is precisely why ADR-0010 above is still a divergence.
 - ADR-0005 — species are `character`, not `schema:Taxon`.
 - ADR-0063 — medium is a playback medium, closed at four values, and not
   a taxonomy of works.
@@ -43,6 +48,12 @@ depends on — a divergence nobody can enumerate has not been named, it has been
 - ADR-0034 — the outbound boundary splits by who supplied the URL, where OWASP files deny-lists
   under "Last Resort" and prefers a single allow-list.
 - ADR-0070 — `created_by` and `credited_to` are two properties, where the standards permit one.
+- ADR-0010 — a group is a NON-PARTITIONING, untyped, many-to-many browsing scope at the top level.
+  No standard speaks to this, and measured across the category on 2026-09-12 no product does either:
+  Plex, Jellyfin, Emby, Kodi and Audiobookshelf all require a type at library creation and put each
+  item in exactly one, and Komga partitions by path. Every many-to-many construct in the category
+  sits BELOW the partition. This is the divergence that rests on multi-placement rather than on
+  precedent, and it was absent from this register until 2026-09-12.
 
 ADR-0016 is NOT on this list: `category` taking an item rather than a literal departs from no
 standard, and an earlier version of this register included it. That version also omitted the four
