@@ -11,6 +11,7 @@ import {
   anItemTitled,
   aPlacement,
   aProvider,
+  aStatement,
   ownerSource,
 } from "@canoncore/db/testing/catalogue";
 import { createORPCClient } from "@orpc/client";
@@ -325,11 +326,39 @@ async function aCatalogueSafeToPurge(wikiUrl: string, tmdbUrl: string) {
    */
   const db = createDb(databaseUrl);
   const owner = await ownerSource(db);
+  /*
+   * A PLACEMENT AND A TITLE, because the criterion says EDITED and those are two
+   * different ways for the owner to have a claim on a provider's item. A
+   * placement is the owner saying where it sits; a title of their own is the
+   * owner OVERRIDING what the provider said, which is the literal reading of
+   * "items the Owner has edited" and is CNCORE-60's user story 25. Either keeps
+   * the item standing when the provider goes, and a fixture with only the first
+   * would leave the literal case asserted nowhere at this seam.
+   *
+   * `title` RATHER THAN `note`, WHICH IS NOT A CHOICE ABOUT WHICH IS TIDIER.
+   * ADR-0096's `note` property is not among the twelve migration 1 seeds, and
+   * CNCORE-60 puts seeding it in the v0.2.0 half -- so a fixture written against
+   * it would fail at `propertyNamed` rather than assert anything. `title` is
+   * seeded, and it is also the stronger case: it is the one an owner's edit and a
+   * provider's claim actually COMPETE over (ADR-0025 seeds the owner at
+   * `source_order` 0, so the owner's title outranks the provider's).
+   *
+   * NOT THROUGH A SURFACE, BECAUSE THERE IS NOT ONE YET. Item editing is
+   * CNCORE-60's v0.2.0 half, so the owner's rows are written here the way the
+   * rest of this harness writes its fixtures -- which is also why this is a
+   * fixture rather than a test of editing.
+   */
   const kept = async (itemId: string, ordering: string): Promise<string> => {
     await assertPlacement(db, {
       containerId: await anItemTitled(db, ordering, { isContainer: true, isOrdered: true }),
       itemId,
       position: 1,
+      sourceId: owner,
+    });
+    await aStatement(db, {
+      subjectItemId: itemId,
+      property: "title",
+      valueLiteral: `${ordering}: the owner's own title for it`,
       sourceId: owner,
     });
     return itemId;

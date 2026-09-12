@@ -134,11 +134,12 @@ describe("/import, previewing a purge", () => {
     expect(removing(confirmation, "item")).toBe(expected.items);
     expect(removing(confirmation, "item")).not.toBe(expected.items + expected.keptItems);
 
-    // AND THE ITEM THE OWNER PLACED IS ONE OF THEM, which is what makes the number
+    // AND THE ITEM THE OWNER EDITED IS ONE OF THEM, which is what makes the number
     // a fact about this catalogue rather than an arithmetic identity: it is still
     // reachable, and it is still reachable after a preview that priced its removal.
     const kept = await documentFrom(baseUrl, `/items/${purgeable.keptFromPreviewed}`);
     expect(kept.status).toBe(200);
+    expect(kept.text).toContain("the owner's own title for it");
   });
 });
 
@@ -190,12 +191,16 @@ describe("/import, confirming a purge", () => {
     expect(sectionIn(done.text, "purge")).toContain("nothing");
     expect(postFormsIn(sectionIn(done.text, "purge"))).toHaveLength(0);
 
-    // AND THE ITEM THE OWNER ALSO PLACED IS STILL THERE, which is the half a
-    // count cannot show. It survives STRIPPED -- the provider's words are gone --
-    // because the owner's placement is the owner's claim and a provider's licence
-    // ending has no bearing on it (ADR-0046).
+    // AND THE ITEM THE OWNER EDITED IS STILL THERE, WITH THEIR WORDS ON IT, which
+    // is the half a count cannot show. It survives STRIPPED of the provider's
+    // claims, because the owner's own are the owner's and a provider's licence
+    // ending has no bearing on them (ADR-0046). Asserted through the item's own
+    // page rather than a row count: a purge that over-reached would answer 404
+    // here, and one that took the owner's statements with the provider's would
+    // answer 200 with the title gone.
     const survivor = await documentFrom(baseUrl, `/items/${purgeable.keptFromPurged}`);
     expect(survivor.status).toBe(200);
+    expect(survivor.text).toContain("the owner's own title for it");
   });
 });
 
@@ -311,7 +316,7 @@ describe("/import, a purge with nothing to take", () => {
 
     expect(asked.status).toBe(200);
     const answer = sectionIn(asked.text, "purge");
-    expect(answer.toLowerCase()).toContain("nothing to remove");
+    expect(answer.toLowerCase()).toContain("nothing to purge");
     // NO BUTTON, which is the "rather than" half of the criterion. A page that
     // said the words and still rendered the confirmation would satisfy the
     // sentence above and none of the point of it.

@@ -259,7 +259,16 @@ const purgeCounts = z.object({
    * found this line missing.
    */
   keptItems: z.number().int().nonnegative(),
-});
+  /*
+   * HELD TO THE TYPE THE TRAVERSAL RETURNS, so the next count cannot be dropped
+   * the way this one was. A zod object strips what it does not name and both
+   * procedures declare `Promise<PurgedProvider>`, so a field added to the
+   * traversal and forgotten here type-checked, ran, and answered without it --
+   * found by a page that read it rather than by anything nearer. `satisfies`
+   * makes that a compile error: a schema missing a field no longer produces a
+   * `PurgedProvider`.
+   */
+}) satisfies z.ZodType<PurgedProvider>;
 
 /**
  * One candidate, as the owner meets it: what the provider said about it, and

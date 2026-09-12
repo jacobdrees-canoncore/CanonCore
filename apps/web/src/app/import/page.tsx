@@ -225,7 +225,7 @@ export default async function ImportPage({
       <BrowseBox configured={configured.providers} container={container} provider={provider} />
       {container !== undefined &&
         (namedContainer === undefined ? <NotOneOfOurs /> : <Container {...namedContainer} />)}
-      <Providers configured={configured.providers} />
+      <PurgeBox configured={configured.providers} />
       {purging !== undefined && preview !== undefined && (
         <Purge baseUrl={purging} preview={preview} />
       )}
@@ -262,16 +262,16 @@ export default async function ImportPage({
  * it, and the provider an owner is purging is frequently the one that no longer
  * answers.
  */
-function Providers({ configured }: { configured: string[] }) {
+function PurgeBox({ configured }: { configured: string[] }) {
   if (configured.length === 0) return null;
 
   return (
     <section aria-labelledby="providers" className="mt-10">
       <h2 className="font-medium text-sm" id="providers">
-        Remove a provider&apos;s contributions
+        Purge a provider&apos;s contributions
       </h2>
       <p className="mt-1 text-muted-foreground text-sm">
-        You are shown what this would remove before anything is removed.
+        You are shown what a purge would remove before anything is removed.
       </p>
       <ul className="mt-3 divide-y">
         {configured.map((baseUrl) => (
@@ -282,8 +282,18 @@ function Providers({ configured }: { configured: string[] }) {
             <span className="text-sm">{baseUrl}</span>
             <Form action="/import">
               <input type="hidden" name="purge" value={baseUrl} />
+              {/*
+                IT SAYS WHAT PRESSING IT DOES, WHICH IS SHOW RATHER THAN REMOVE.
+                This button was "Remove everything", and that is mislabelled in
+                the one direction that matters: it promises a destruction it does
+                not perform, so an owner either presses it expecting to be asked
+                (and is, which teaches them the label lies) or does not press it
+                at all for fear of what it claims. The button that removes is the
+                one at the end of the confirmation, and it is the only one on this
+                surface that says Purge.
+              */}
               <Button type="submit" variant="outline">
-                Remove everything
+                See what would go
               </Button>
             </Form>
           </li>
@@ -334,17 +344,14 @@ function Purge({ baseUrl, preview }: { baseUrl: string; preview: PurgePreview })
   return (
     <section aria-labelledby="purge" className="mt-10">
       <h2 className="font-medium text-sm" id="purge">
-        Remove everything {baseUrl} contributed
+        Purge everything {baseUrl} contributed
       </h2>
       {takesNothing ? (
-        <p className="mt-1 text-muted-foreground text-sm">
-          There is nothing to remove: no statement, placement or item in your catalogue came from
-          this provider.
-        </p>
+        <NothingLeft />
       ) : (
         <>
           <p className="mt-1 text-muted-foreground text-sm">
-            This cannot be undone. Removing it would take
+            This cannot be undone. Purging it would take
           </p>
           <ul className="mt-3 list-disc space-y-1 pl-5 text-sm">
             <li>{counted(preview.statements, "statement")}</li>
@@ -384,6 +391,30 @@ function Purge({ baseUrl, preview }: { baseUrl: string; preview: PurgePreview })
         </>
       )}
     </section>
+  );
+}
+
+/**
+ * A PROVIDER WITH NOTHING LEFT TO PURGE, which is TWO states the page cannot tell
+ * apart and must not try to.
+ *
+ * One is a provider nothing was ever imported from. The other is a provider
+ * purged a moment ago -- a purge deletes the source row, so asking again finds
+ * nothing either way, and this is the only report of the outcome the surface can
+ * give (an action's return value reaches a page through `useActionState` alone,
+ * which is a client hook with nothing to give when no script has loaded).
+ *
+ * SO IT CLAIMS ONLY WHAT IS TRUE OF BOTH. This copy used to say "no statement,
+ * placement or item in your catalogue came from this provider", which is false in
+ * the second state and falsest at the worst moment: the owner has just been told
+ * that some items STAY, and those came from exactly there. What holds either way
+ * is that there is nothing left to purge.
+ */
+function NothingLeft() {
+  return (
+    <p className="mt-1 text-muted-foreground text-sm">
+      There is nothing to purge: this provider has no claims left in your catalogue.
+    </p>
   );
 }
 

@@ -85,16 +85,27 @@ export async function browseOrdering(form: FormData): Promise<void> {
  * Which provider to purge. `baseUrl` here is an IDENTITY rather than an address:
  * these are the catalogue's own rows, and nothing on this path makes a request.
  */
-const takeEverything = z.object({ baseUrl: z.url() });
+const purgeTarget = z.object({ baseUrl: z.url() });
 
 /**
  * Removes everything one provider ever contributed, having shown the owner what
  * that is (ADR-0046).
  *
- * IT IS ONLY REACHED FROM A CONFIRMATION THE PAGE RENDERED WITH COUNTS ON IT,
- * which is where "counts shown first" actually holds. The page renders no button
- * until `previewPurge` has answered, and none at all when the answer is nothing --
- * so the POST cannot be the first thing an owner learns about the consequences.
+ * COUNTS-FIRST IS THE PAGE'S SHAPE RATHER THAN THIS ACTION'S GUARANTEE, and the
+ * difference is worth stating because the two read alike. The page renders no
+ * button until `previewPurge` has answered and none at all when the answer is
+ * nothing, so an owner moving through the product cannot meet the POST before the
+ * consequences. Nothing here ENFORCES that, and nothing can: this instance ships
+ * no login (ADR-0107's single owner), so `provider.purge` is a `publicProcedure`
+ * anything reaching the app can call directly at `/api/rpc`. A check added here
+ * would bound the form and not the operation, which is the appearance of a
+ * boundary rather than one. The enforcement arrives with authentication.
+ *
+ * AND IT IS DELIBERATELY NOT NARROWED TO `PROVIDER_URLS` the way the PREVIEW is.
+ * That narrowing exists because the page can only offer what it can list; making
+ * it a rule here would refuse the case ADR-0046 is written for, an owner purging
+ * a provider whose licence has ended -- which is exactly the provider they are
+ * most likely to have already taken out of their configuration.
  *
  * NO ALLOWLIST STANDS IN FRONT OF IT, AND THAT IS ADR-0034 OBEYED RATHER THAN
  * SKIPPED. That boundary checks URLs the app is about to FETCH, and this fetches
@@ -111,7 +122,7 @@ const takeEverything = z.object({ baseUrl: z.url() });
  * looks like from there.
  */
 export async function purgeProvider(form: FormData): Promise<void> {
-  const { baseUrl } = takeEverything.parse({ baseUrl: form.get("baseUrl") });
+  const { baseUrl } = purgeTarget.parse({ baseUrl: form.get("baseUrl") });
 
   await call(appRouter.provider.purge, { baseUrl }, { context: await createContext() });
 }

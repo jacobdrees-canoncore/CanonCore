@@ -147,13 +147,27 @@ choice rather than a gesture. Cancel is a plain link and costs nothing, which is
 the same rule from the other side: if the way out were expensive, the only safe
 move on a page opened by mistake would be closing the tab.
 
-AND THE BOUND THAT CAME WITH IT: the page can only offer to purge a provider named
-in `PROVIDER_URLS`, because that list is the only one it has and a target outside
-it has no row to sit in. A provider REMOVED from the setting cannot be purged
-until it is named again. That is not the unreachable-provider case this record is
-motivated by -- an unreachable provider is still a configured one, and purging it
-makes no request, so it works -- but it is a real edge and naming it again is the
-remedy.
+AND THE BOUND THAT CAME WITH IT, stated as a bound on the PAGE rather than on the
+operation, because the difference is the whole of it: the page can only OFFER to
+purge a provider named in `PROVIDER_URLS`, since that list is the only one it has
+and a target outside it has no row to sit in. A provider removed from the setting
+is therefore not offered until it is named again, and naming it again is the
+remedy. THE PROCEDURE ITSELF IS DELIBERATELY NOT BOUNDED THAT WAY, and the action
+behind the button does not narrow either -- because the case this record is
+written for is an owner purging a provider whose licence has ended, which is
+exactly the provider they are likeliest to have already taken out of their
+configuration. The narrowing is a fact about what can be rendered, and making it
+a rule would refuse the motivating case.
+
+WHICH ALSO SETS WHERE COUNTS-FIRST ACTUALLY HOLDS. It holds through the product:
+the page renders no button until `previewPurge` has answered, so an owner moving
+through the surface cannot meet the delete before its consequences. It is not
+ENFORCED, and nothing in this version can enforce it -- ADR-0107 ships a single
+owner and no login, so `provider.purge` is a public procedure anything reaching
+the instance can call directly. A check on the form would bound the form and not
+the operation, which is the appearance of a boundary rather than one. Enforcement
+arrives with authentication, and `docs/research/access-layer.md` puts that in the
+playback spec.
 
 ## Evidence
 
