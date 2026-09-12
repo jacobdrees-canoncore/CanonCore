@@ -704,14 +704,14 @@ fixture wrote three items, so the page owes the word "3".
 `apps/web/e2e/global-setup.ts` spelled out the same run of lines: build a database with a suffix,
 take a free port, spawn `next start`, wait until it answers, hand back a close. One copy is a
 function; four is a shape nobody declared. `anInstanceServing` is that declaration, over
-`aServerServing` for the port-spawn-wait half.
+`theBuildServing` for the port-spawn-wait half.
 
 **THE SPLIT IS TWO HELPERS RATHER THAN ONE, AND THE REASON IS `next build`.** The seeded instance
 runs the build BETWEEN its database and its server, because the build needs the environment that
 carries the database. A single helper covering both halves could only serve it by taking a flag that
 says whether to build, and a boolean deciding which half of a function runs is the shape that makes
 the other four harder to read. So the four with nothing in between take `anInstanceServing`, and all
-five take `aServerServing` underneath it.
+five take `theBuildServing` underneath it.
 
 **WHAT AN INSTANCE IS FOR STAYS IN ITS OWN DOCBLOCK.** The near-verbatim lines were worth folding;
 the paragraphs above them were not. Each of the five says which state it exists to serve and why no

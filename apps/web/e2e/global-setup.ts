@@ -91,12 +91,12 @@ export default async function setup(project: TestProject) {
 
   /*
    * THE ONE BUILD, STARTED HERE AND FOUR MORE TIMES BELOW. This instance takes
-   * `aServerServing` rather than `anInstanceServing` because the build sits
+   * `theBuildServing` rather than `anInstanceServing` because the build sits
    * BETWEEN its database and its server and needs the environment carrying the
    * database -- so the helper that does both halves cannot serve it without a
    * flag. The four below have nothing between the two halves and use it.
    */
-  const server = await aServerServing(env);
+  const server = await theBuildServing(env);
   const { baseUrl } = server;
   project.provide("baseUrl", baseUrl);
 
@@ -190,7 +190,7 @@ export default async function setup(project: TestProject) {
  * saying whether to build. `anInstanceServing` below is that helper for the four
  * with nothing in between.
  */
-async function aServerServing(env: NodeJS.ProcessEnv): Promise<{
+async function theBuildServing(env: NodeJS.ProcessEnv): Promise<{
   baseUrl: string;
   close: () => void;
 }> {
@@ -220,6 +220,11 @@ async function aServerServing(env: NodeJS.ProcessEnv): Promise<{
  * that reason and nothing said so. Now an instance that leaves either ambient
  * does not compile, which is the same mechanism `TEST_DATABASE_SUFFIXES` uses on
  * the suffix and not a second one to learn.
+ *
+ * THOSE TWO AND `DATABASE_URL`, AND NOTHING ELSE. The rest of this process's
+ * environment is inherited on purpose -- the server needs `PATH` and the rest to
+ * run at all -- so "cannot go ambient" is a claim about the three keys that
+ * decide what an instance IS, not about the environment as a whole.
  *
  * `fill` RUNS BEFORE THE SERVER ANSWERS, so a suite never sees a half-filled
  * catalogue. An instance whose rows have to be written THROUGH the app cannot
@@ -252,7 +257,7 @@ async function anInstanceServing<Fixture>({
   const databaseUrl = await buildTestDatabase(suffix);
   const db = createDb(databaseUrl);
   const fixture = await fill(db);
-  const server = await aServerServing({
+  const server = await theBuildServing({
     ...process.env,
     DATABASE_URL: databaseUrl,
     PROVIDER_ALLOWLIST: allowlist,
@@ -514,7 +519,6 @@ const HOLDING_STILL = [
  * page-agrees-with-router was the weaker assertion anyway -- the page reads its
  * total THROUGH that procedure, so the two agreeing is one code path agreeing
  * with itself.
-
  */
 function aCatalogueThatHoldsStill() {
   return anInstanceServing({

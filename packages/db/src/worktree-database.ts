@@ -19,9 +19,9 @@ const MAX_IDENTIFIER_BYTES = 63;
  * shorter instead -- `_test_purgeable` was four characters over, and it cost one
  * existing worktree its whole e2e suite before anybody noticed.
  *
- * SO DO NOT DERIVE THIS FROM `TEST_DATABASE_SUFFIXES`. That is the DRY refactor
- * a constant sitting beside a declaration invites, it looks like removing
- * duplication, and it is the one move that reverses the direction above: a
+ * SO DO NOT DERIVE THIS FROM `TEST_DATABASE_SUFFIXES`. That is the refactor a
+ * constant sitting beside a declaration invites, it looks like removing a second
+ * copy of one number, and it is the one move that reverses the direction above: a
  * `Math.max` over the declared set makes the budget FOLLOW whatever suffix was
  * added last, so the first long one silently widens it and renames those
  * worktrees' databases. The constant leads; the declaration is held to it, by
