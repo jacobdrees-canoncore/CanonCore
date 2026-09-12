@@ -11,12 +11,23 @@ const MAX_IDENTIFIER_BYTES = 63;
  * number.
  *
  * ELEVEN IS A BUDGET THE SUITES ARE HELD TO, rather than a measurement of them.
- * `_test_fresh`, `_test_paged` and `_test_still` each spend exactly it, and that
- * is the direction the constraint runs on purpose: WIDENING this number shortens
- * every stem, which renames the database of any worktree already past the new
- * limit and leaves its `.env` pointing at the one it had. A suffix that does not
- * fit gets shorter instead -- `_test_purgeable` was four characters over, and it
- * cost one existing worktree its whole e2e suite before anybody noticed.
+ * FOUR OF THE SIX declared suffixes spend exactly it -- `_test_fresh`,
+ * `_test_paged`, `_test_purge` and `_test_still` -- and that is the direction
+ * the constraint runs on purpose: WIDENING this number shortens every stem,
+ * which renames the database of any worktree already past the new limit and
+ * leaves its `.env` pointing at the one it had. A suffix that does not fit gets
+ * shorter instead -- `_test_purgeable` was four characters over, and it cost one
+ * existing worktree its whole e2e suite before anybody noticed.
+ *
+ * SO DO NOT DERIVE THIS FROM `TEST_DATABASE_SUFFIXES`. That is the DRY refactor
+ * a constant sitting beside a declaration invites, it looks like removing
+ * duplication, and it is the one move that reverses the direction above: a
+ * `Math.max` over the declared set makes the budget FOLLOW whatever suffix was
+ * added last, so the first long one silently widens it and renames those
+ * worktrees' databases. The constant leads; the declaration is held to it, by
+ * `worktree-database.test.ts`. Refused twice now -- by CNCORE-93, which
+ * shortened the suffix rather than the stem, and again by CNCORE-112, which had
+ * both of them in one diff and is why this paragraph names the move.
  *
  * The thing at the other end of getting this wrong is
  * `drop database ... with (force)` against the worktree's own catalogue, which
