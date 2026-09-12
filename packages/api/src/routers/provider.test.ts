@@ -529,7 +529,10 @@ describe("provider.purge", () => {
       { context },
     );
 
-    expect(purged).toEqual({ statements: 0, placements: 0, items: 0 });
+    // AND NOTHING STAYS EITHER, which is a different zero and worth pinning as
+    // one: `keptItems` counts the provider's OWN items that survive, so a
+    // provider that never wrote any has none to leave behind (CNCORE-69).
+    expect(purged).toEqual({ statements: 0, placements: 0, items: 0, keptItems: 0 });
   });
 
   /**

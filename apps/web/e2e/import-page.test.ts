@@ -3,7 +3,14 @@ import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
 import { describe, expect, inject, it } from "vitest";
 
-import { documentAt, documentFrom, postFormsIn, type RenderedForm, submit } from "./document";
+import {
+  documentAt,
+  documentFrom,
+  postFormsIn,
+  type RenderedForm,
+  sectionIn,
+  submit,
+} from "./document";
 
 /**
  * THE IMPORT SURFACE, over real HTTP. ADR-0103's fourth seam, which is the one
@@ -256,13 +263,6 @@ describe("/import, taking a record it already holds", () => {
   });
 });
 
-/** One `<section>` of a page, by the heading it is labelled with. */
-function section(text: string, label: string): string {
-  const found = text.match(new RegExp(`<section[^>]*aria-labelledby="${label}".*?</section>`))?.[0];
-  if (!found) throw new Error(`the page rendered no \`${label}\` section`);
-  return found;
-}
-
 describe("/import on a fresh install", () => {
   it("says no provider is allowlisted, rather than returning an empty list", async () => {
     // ADR-0034's allowlist is empty by default and the empty value refuses every
@@ -274,7 +274,7 @@ describe("/import on a fresh install", () => {
     const { status, text } = await documentFrom(freshBaseUrl, "/import");
 
     expect(status).toBe(200);
-    const notice = section(text, "no-provider");
+    const notice = sectionIn(text, "no-provider");
     expect(notice).toContain("PROVIDER_ALLOWLIST");
     expect(notice.toLowerCase()).toContain("no provider is allowlisted");
   });
@@ -286,7 +286,7 @@ describe("/import on a fresh install", () => {
     // said only the first would send an owner to fix the wrong one.
     const fresh = await documentFrom(freshBaseUrl, "/import");
 
-    const notice = section(fresh.text, "no-provider-configured");
+    const notice = sectionIn(fresh.text, "no-provider-configured");
     expect(notice).toContain("PROVIDER_URLS");
     expect(notice.toLowerCase()).toContain("no provider is configured");
   });
@@ -316,7 +316,7 @@ describe("/import on a fresh install", () => {
     // can differ over a build id or a hydration payload while both being
     // photographs of the same configuration, so what is compared is the thing the
     // configuration decides.
-    expect(() => section(seeded.text, "no-provider-configured")).toThrow();
+    expect(() => sectionIn(seeded.text, "no-provider-configured")).toThrow();
   });
 });
 
@@ -431,14 +431,14 @@ describe("/import, taking a Container and its ordering", () => {
 
     const offered = await documentAt(at);
     expect(offered.status).toBe(200);
-    const container = section(offered.text, "container");
+    const container = sectionIn(offered.text, "container");
     expect(itemLinkedIn(container)).toBeUndefined();
 
     const taken = await submit(baseUrl, at, formIn(container));
 
     expect(taken.status).toBe(200);
     // THE CONTAINER IS IN THE CATALOGUE, and reachable at the address given.
-    const link = itemLinkedIn(section(taken.text, "container"));
+    const link = itemLinkedIn(sectionIn(taken.text, "container"));
     expect(link).toBeDefined();
     const arrived = await documentAt(link as string);
     expect(arrived.status).toBe(200);
@@ -639,8 +639,8 @@ describe("/import, when the provider refuses", () => {
       );
 
       expect(status).toBe(200);
-      expect(() => section(text, "container")).toThrow();
-      expect(section(text, "not-configured")).toContain("PROVIDER_URLS");
+      expect(() => sectionIn(text, "container")).toThrow();
+      expect(sectionIn(text, "not-configured")).toContain("PROVIDER_URLS");
     }
   });
 });

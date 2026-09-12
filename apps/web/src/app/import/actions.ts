@@ -80,3 +80,38 @@ export async function browseOrdering(form: FormData): Promise<void> {
     { context: await createContext() },
   );
 }
+
+/**
+ * Which provider to purge. `baseUrl` here is an IDENTITY rather than an address:
+ * these are the catalogue's own rows, and nothing on this path makes a request.
+ */
+const takeEverything = z.object({ baseUrl: z.url() });
+
+/**
+ * Removes everything one provider ever contributed, having shown the owner what
+ * that is (ADR-0046).
+ *
+ * IT IS ONLY REACHED FROM A CONFIRMATION THE PAGE RENDERED WITH COUNTS ON IT,
+ * which is where "counts shown first" actually holds. The page renders no button
+ * until `previewPurge` has answered, and none at all when the answer is nothing --
+ * so the POST cannot be the first thing an owner learns about the consequences.
+ *
+ * NO ALLOWLIST STANDS IN FRONT OF IT, AND THAT IS ADR-0034 OBEYED RATHER THAN
+ * SKIPPED. That boundary checks URLs the app is about to FETCH, and this fetches
+ * nothing: the rows are this catalogue's, found by the identity the source row
+ * carries. A provider whose licence has just ended is precisely the one nothing
+ * should be calling and the one an owner most needs to purge, so a check here
+ * would fail exactly when the operation is wanted.
+ *
+ * IT RETURNS NOTHING, AND THE PAGE REPORTS THE OUTCOME BY READING THE CATALOGUE,
+ * for the reason `importRecord` above gives: an action's return value reaches a
+ * page through `useActionState` alone, which is a client hook and loses the value
+ * when no script has loaded. The page asks `previewPurge` again at the same
+ * address, and a provider with nothing left to take is what a completed purge
+ * looks like from there.
+ */
+export async function purgeProvider(form: FormData): Promise<void> {
+  const { baseUrl } = takeEverything.parse({ baseUrl: form.get("baseUrl") });
+
+  await call(appRouter.provider.purge, { baseUrl }, { context: await createContext() });
+}
