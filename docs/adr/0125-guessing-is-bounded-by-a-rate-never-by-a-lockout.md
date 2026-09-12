@@ -270,8 +270,10 @@ exactly like a frame.
 `U+2028` and `U+2029` pass through both `inspect` and `JSON.stringify` raw. That is not a hole here
 and the reason is worth writing down rather than rediscovering: **they do not terminate a line in a
 POSIX text file**, which is what an owner reads and what a fail2ban regex is fed. What splits a line
-there is the C0 set, and `inspect` escapes all of it — including `U+0085`, which `JSON.stringify`
-leaves raw, and which is the reason `inspect` is the renderer here rather than the JSON one.
+there is the C0 set, and `inspect` escapes all of it. Measured across the whole range on
+Node v24.19.0: `inspect` leaves NO C0 character raw, nor `U+007F` or `U+0085`, while
+`JSON.stringify` leaves those last two — which is why the renderer here is `inspect` rather than the
+JSON one.
 
 ### As built
 
