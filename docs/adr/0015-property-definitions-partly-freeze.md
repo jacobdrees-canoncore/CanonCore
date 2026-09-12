@@ -52,6 +52,13 @@ The freeze itself is ENFORCED rather than intended, by a trigger on `properties`
 that refuses a change to `datatype`, `value_kind` or `reference_target` after
 creation. `cardinality` stays editable, and a test tightens it and puts it back.
 
+THE CATALOGUE IS THIRTEEN PROPERTIES SINCE, and both additions are this record's own rule working
+rather than the count drifting: "everything else enters when a screen or an import actually needs
+it". Migration 3 added `external_id` for the importer (CNCORE-28) and migration 12 added `note` for
+the owner's own words (ADR-0096, CNCORE-74). Eleven remains the count of what MIGRATION 1 seeds,
+which is what the paragraph above is about -- the properties whose reference targets froze before
+anything could write one.
+
 `reference_target` is an ARRAY. A single column cannot express `created_by`,
 which ADR-0070 targets at a person while `published_by` targets an organisation
 -- but the general case is a property legitimately pointing at more than one

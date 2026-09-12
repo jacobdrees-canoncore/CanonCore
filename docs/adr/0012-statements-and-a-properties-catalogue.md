@@ -93,6 +93,39 @@ declaration that did not exist, and because the rule genuinely belongs to the pr
 the door -- `assertClaims` is the only writer of statements today, and version one's stories 16 and
 20 both add another, which cannot name a checker at a call site for a property it does not know.
 
+## As built: the capabilities object holds something (CNCORE-74)
+
+"Prefer a capabilities object over booleans on a property definition" was the same shape of
+declared-but-absent mechanism `validation` was until CNCORE-47: `capabilities` was `jsonb('{}')` on
+every row, written by nothing and read by nothing. Migration 12 fills it, and the FIRST capability
+is two keys on one property rather than one, which is the argument for the object made by the thing
+itself.
+
+`note` declares `{"assertableBy": ["owner"], "public": false}` (ADR-0096). `assertableBy` names
+which of ADR-0071's four source KINDS may assert a value of this property, and
+`refuse_an_unadmitted_source` -- a trigger on `statements` -- reads it and refuses the rest.
+`public` says whether the property's statements may travel on the public read path, and
+`findStatementsOfItem` reads it, which is what makes ADR-0045's "no notes" a declaration rather than
+a filter naming one property.
+
+THE EXECUTOR IS IN THE DATABASE HERE AND IN TYPESCRIPT FOR `validation`, AND THAT IS THIS RECORD'S
+OWN TEST APPLIED TWICE RATHER THAN ABANDONED. The section above says the runner is code because SQL
+cannot parse EDTF, and names Shopify's regular expressions and Wikibase's property constraints as
+the same case. SQL can compare a source kind against a list of them, so the reason does not reach
+this capability -- and what decides it instead is migration 1's argument for the projection trigger:
+a trigger cannot be forgotten, where an application-maintained rule is silently bypassed by anything
+writing directly. What lives in the data is the DECLARATION either way, which is the sentence this
+record is actually about.
+
+`properties_capabilities_are_an_object` (migration 12) is the second constraint of
+`properties_validation_declares_a_format`'s kind and exists for the same reason: `capabilities` is
+`jsonb`, ADR-0015 leaves it editable, and no foreign key can reach inside it. It refuses a non-object,
+an `assertableBy` that is not a non-empty array, and a `public` that is not a boolean -- the last
+because `jsonb` would take the string `"false"` as happily as the boolean, which reads as truthy
+wherever it is cast. What it CANNOT reach is whether each `assertableBy` string names a real source
+kind, which is the same gap this record already names for `format` and bounded the same way: only the
+product writes a property, and it writes them in the ladder (ADR-0029).
+
 ## Evidence
 
 Verified against source on 2026-09-10; corrections applied. Working in `docs/research/verify-adr-standards.md`, `docs/research/verify-adr-products.md`.

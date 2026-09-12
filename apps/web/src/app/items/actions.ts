@@ -116,3 +116,31 @@ export async function retitleItem(form: FormData): Promise<void> {
   await call(appRouter.item.retitle, input, { context: await callerContext() });
   refresh();
 }
+
+/** What the note form carries: which item, and what the owner now says about it. */
+const editedNote = z.object({ id: z.string(), note: z.string() });
+
+/**
+ * Writing, editing and REMOVING the Owner's note about an item (ADR-0096), on
+ * one action, because all three are one claim: what the owner now says about
+ * this item.
+ *
+ * CLEARING THE BOX IS THE REMOVAL, and there is no second button for it,
+ * because the model has no second operation for one to call. `assertClaims`
+ * makes what a source holds EQUAL to what it now claims, so a source claiming
+ * nothing withdraws what it said -- which means a Remove control would either
+ * do exactly what saving an empty box does, or have to mean something else
+ * nobody has defined. The owner is offered one control that says what they
+ * think, including when that is nothing.
+ *
+ * NO REDIRECT, and `refresh()` for the same reason `retitleItem` above gives:
+ * this form posts to the item's own address, so the response IS the page
+ * rendered again, and the call is what clears the CLIENT router cache that the
+ * page-over-HTTP seam cannot see.
+ */
+export async function annotateItem(form: FormData): Promise<void> {
+  const input = editedNote.parse({ id: form.get("id"), note: form.get("note") });
+
+  await call(appRouter.item.annotate, input, { context: await callerContext() });
+  refresh();
+}
