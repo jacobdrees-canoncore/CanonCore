@@ -12,8 +12,10 @@ import { GET, POST } from "./route";
  * function of a Request, though, so it can be driven directly without booting
  * Next -- and it is the longest thing in the generated output to get right.
  */
-async function callRoute(request: Request): Promise<Response> {
-  const handler = request.method === "GET" ? GET : POST;
+async function callRoute(
+  request: Request,
+  handler = request.method === "GET" ? GET : POST,
+): Promise<Response> {
   // NextRequest extends Request; the handler only reads url, method and body.
   const { NextRequest } = await import("next/server");
   return handler(new NextRequest(request));
@@ -25,22 +27,6 @@ const client: AppRouterClient = createORPCClient(
     fetch: (_url, init) => callRoute(new Request(_url, init)),
   }),
 );
-
-/**
- * WHAT THE MOUNT WROTE TO THE OWNER'S LOG. The interceptor is only observable
- * through `console.error`, so the spy IS the seam's output here -- the response
- * says what the caller was told, and this says what the owner was told.
- */
-let faultsLogged: unknown[][];
-beforeEach(() => {
-  faultsLogged = [];
-  vi.spyOn(console, "error").mockImplementation((...args: unknown[]) => {
-    faultsLogged.push(args);
-  });
-});
-afterEach(() => {
-  vi.restoreAllMocks();
-});
 
 /**
  * The REAL route module, mounted on a router that does the one thing the app's
@@ -59,15 +45,13 @@ async function callRouteMountedOn(faulting: () => never): Promise<Response> {
   vi.doMock("@canoncore/api/routers", () => ({ appRouter: { boom: os.handler(faulting) } }));
   try {
     const { POST } = await import("./route");
-    const { NextRequest } = await import("next/server");
-    return await POST(
-      new NextRequest(
-        new Request("http://localhost/api/rpc/boom", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: '{"json":{}}',
-        }),
-      ),
+    return await callRoute(
+      new Request("http://localhost/api/rpc/boom", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: '{"json":{}}',
+      }),
+      POST,
     );
   } finally {
     vi.doUnmock("@canoncore/api/routers");
@@ -92,6 +76,36 @@ describe("the catch-all oRPC route", () => {
 
 describe("what the mount writes to the owner's log", () => {
   /**
+   * EVERY LEVEL, NOT JUST `error`. ADR-0125's claim is that a quieter line was
+   * never the answer -- anything written once per ARRIVING request is unbounded
+   * whatever it is called -- so a spy watching `console.error` alone would pass
+   * a change that moved the line to `console.warn` and left the claim false.
+   * Each level is captured separately, because `login-bound.ts` writes its own
+   * BOUNDED line at `warn` and the whole point is telling the two apart.
+   */
+  const written: Record<"error" | "warn" | "info" | "log" | "debug", unknown[][]> = {
+    error: [],
+    warn: [],
+    info: [],
+    log: [],
+    debug: [],
+  };
+  beforeEach(() => {
+    for (const level of Object.keys(written) as (keyof typeof written)[]) {
+      written[level] = [];
+      vi.spyOn(console, level).mockImplementation((...args: unknown[]) => {
+        written[level].push(args);
+      });
+    }
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  /** Everything the mount wrote, at any level, in one list. */
+  const everythingWritten = (): unknown[][] => Object.values(written).flat();
+
+  /**
    * ADR-0125: a line per ARRIVING request is a way to fill an owner's disk from
    * the outside. `UNAUTHORIZED` is what `ownerProcedure` answers anyone with no
    * session (CNCORE-109), so this is a refusal a stranger can ask for as fast as
@@ -104,7 +118,36 @@ describe("what the mount writes to the owner's log", () => {
       ).rejects.toMatchObject({ code: "UNAUTHORIZED" });
     }
 
-    expect(faultsLogged).toEqual([]);
+    expect(everythingWritten()).toEqual([]);
+  });
+
+  /**
+   * THE SECOND REFUSAL ADR-0125 NAMES, and the one that shows what the record
+   * actually claims: the mount says nothing, and the line an owner DOES get is
+   * the one written where the refusal was COUNTED.
+   *
+   * SO THE ASSERTION IS A RATIO RATHER THAN A COUNT. Every attempt here arrives;
+   * only the ones with allowance left are CHECKED, and only a checked refusal
+   * writes. Asserting "one line per checked refusal, and fewer lines than
+   * arrivals" is the bound itself, and it does not depend on how many attempts
+   * the allowance happens to cover on the machine running it.
+   */
+  it("says nothing when the login bound holds, and leaves that line to the bound", async () => {
+    const answers: string[] = [];
+    for (let attempt = 0; attempt < 41; attempt += 1) {
+      const refusal = await client.session
+        .logIn({ password: "not the owner's password" })
+        .then(() => "let in")
+        .catch((error: unknown) => (error instanceof ORPCError ? error.code : "something else"));
+      answers.push(refusal);
+    }
+
+    // The bound held: arriving attempts outran checked ones.
+    expect(answers).toContain("TOO_MANY_REQUESTS");
+    expect(written.error).toEqual([]);
+    // One line per CHECKED refusal, and nothing for the attempts turned away.
+    expect(written.warn).toHaveLength(answers.filter((code) => code === "UNAUTHORIZED").length);
+    expect(written.warn.length).toBeLessThan(answers.length);
   });
 
   /**
@@ -121,8 +164,8 @@ describe("what the mount writes to the owner's log", () => {
     });
 
     expect(response.status).toBe(500);
-    expect(faultsLogged).toEqual([[thrown]]);
-    expect(faultsLogged[0]?.[0]).toHaveProperty("stack", expect.stringContaining(thrown.message));
+    expect(written.error).toEqual([[thrown]]);
+    expect(written.error[0]?.[0]).toHaveProperty("stack", expect.stringContaining(thrown.message));
   });
 
   /**
@@ -139,6 +182,6 @@ describe("what the mount writes to the owner's log", () => {
     });
 
     expect(response.status).toBe(500);
-    expect(faultsLogged).toEqual([[thrown]]);
+    expect(written.error).toEqual([[thrown]]);
   });
 });

@@ -34,8 +34,25 @@ import { SESSION_COOKIE } from "@/session";
  * remembered would be logged as a fault. `ORPCError` carries the status it will
  * answer with, so "below 500" is the whole test: the caller was told what they
  * asked for was refused. Anything at 500 or above, and anything that is not an
- * `ORPCError` at all -- a dead connection pool, a bug -- is a genuine fault and
- * is logged in full, with its stack, because that is what this exists for.
+ * `ORPCError` at all -- a bug in a handler, a query that failed -- is a genuine
+ * fault and is logged in full, with its stack, because that is what this exists
+ * for.
+ *
+ * WHAT THIS CLASSIFIES IS WHAT REACHES IT, AND `createContext` RUNS BEFORE ANY
+ * OF IT DOES. `handleRequest` builds the context first, and `seeSession` inside
+ * it touches the database for any caller presenting a session cookie -- so a
+ * dead pool on THAT path throws out of the handler entirely and is Next's to
+ * report rather than this interceptor's. Measured: with `DATABASE_URL` pointed
+ * at a closed port and a cookie on the request, the `DrizzleQueryError` escapes
+ * `handleRequest` and this function is never called. That is unchanged by
+ * CNCORE-120 and is not a hole in the rule above; it is the reason the rule is
+ * stated about errors the HANDLERS raise.
+ *
+ * TODO(CNCORE-122): what is written here is not escaped, and an error message
+ * can carry text the caller supplied -- so a message holding a newline writes a
+ * second line into the owner's log that the owner did not write. Narrowed by
+ * this change rather than introduced by it: every 4xx was logged before, and
+ * `BAD_REQUEST` quotes the caller's own input.
  *
  * ONE RULE FOR BOTH HANDLERS. They mount the same router and answer the same
  * refusals, so two copies would be one decision written twice and free to

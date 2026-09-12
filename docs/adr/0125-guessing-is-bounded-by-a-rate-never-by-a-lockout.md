@@ -185,9 +185,21 @@ as a fault.
 
 **A REFUSAL IS LOGGED WHERE IT IS COUNTED, OR IT IS NOT LOGGED.** That is the rule the two halves
 make together, and it is why the bounded line above is now the only thing this instance writes when
-a password is refused — which is what this section claimed before it was true. Asserted at
-ADR-0103's third seam: a caller with no session asks a write procedure twenty-five times and the log
-stays empty, and a router that throws is logged whole.
+a password is refused — which is what this section claimed before it was true.
+
+Asserted at ADR-0103's third seam, AGAINST EVERY CONSOLE LEVEL rather than `error` alone: a spy
+watching one level would pass the quieter line this record has just said is not the answer, so the
+assertion would have been weaker than the claim. A caller with no session asks a write procedure
+twenty-five times and nothing is written anywhere. Forty-one wrong passwords arrive at the route,
+forty are CHECKED and write forty lines, the forty-first is turned away with no allowance left and
+writes none, and the mount itself writes nothing at any level throughout — so this mechanism's bound
+and this section's claim are measured in the same test, which is the only way the sentence joining
+them can be checked. A router that throws is logged whole, with its stack.
+
+**WHAT THE MOUNT CLASSIFIES IS WHAT REACHES IT**, and `createContext` runs first: `seeSession`
+touches the database for any caller presenting a session cookie, so a failure THERE leaves the
+handler before any interceptor and is Next's to report. Measured against a closed port. That is not
+a hole in the rule — it is why the rule is stated about what the handlers raise.
 
 ## What this deliberately does not do
 
