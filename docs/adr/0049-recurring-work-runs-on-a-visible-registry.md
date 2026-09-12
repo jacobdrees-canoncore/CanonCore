@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 ---
 
 # Recurring work runs on a visible task registry
@@ -21,28 +21,96 @@ needs scheduling in this category.
 The minimum is that last night's failure is VISIBLE. A recurring job whose result nobody can see is
 one that silently stopped months ago.
 
-## Not built, and one task that now exists -- under CNCORE-116
+## As built, under CNCORE-119
 
-**THE REGISTRY IS NOT BUILT.** No keyed tasks, no run history, nothing to run by hand and nothing
-to cancel. Tracked as CNCORE-119.
+**THE REGISTRY IS BUILT, AND SO IS THE THING THAT FIRES IT.** `@canoncore/tasks` holds the keyed
+tasks and runs them; `task_runs` (migration 13) holds the history; `task.list`, `task.run`,
+`task.history` and `task.cancel` are the owner's surface and `/tasks` is the page. An earlier version of this section
+said the registry was not built and tracked it as CNCORE-119; that ticket is this one.
 
-**AND THE NINTH TASK NOW EXISTS AS A FUNCTION.** The eight above were work nobody had written;
-`sweepSessions` in `packages/db` is written, tested and called by NOTHING -- it removes every
-session row past its lifetime, which is the tombstone compaction this record lists, one table at a
-time. CNCORE-116 built it and stopped there deliberately: the alternatives were a login, a page
-render or the container's boot doing maintenance on the side, and a sweep smuggled into an event
-that happens to be nearby is precisely the hidden timer this record refuses. "The minimum is that
-last night's failure is VISIBLE" cannot be met by something that was never announced to have run.
+**THE FIRST TASK DID NOT HAVE TO BE WRITTEN FOR IT, which is what made this record cheaper to
+implement than it reads.** The eight above were work nobody had written; `sweepSessions` in
+`packages/db` was written, tested and called by NOTHING — it removes every session row past its
+lifetime, which is the tombstone compaction this record lists, one table at a time. CNCORE-116 built
+it and stopped there deliberately: the alternatives were a login, a page render or the container's
+boot doing maintenance on the side, and a sweep smuggled into an event that happens to be nearby is
+precisely the hidden timer this record refuses. It is `sweep-sessions` now, on a daily trigger, and
+the TODO that named this ticket is gone from that file.
 
-**WHICH MAKES THIS RECORD CHEAPER TO IMPLEMENT THAN IT READS.** The first task the registry carries
-does not have to be written for it, so what CNCORE-119 has to prove is the registry itself: a task
-that can be listed, run, cancelled and read back afterwards, with `Aborted` distinct from `Failed`.
+**ONE TRIGGER KIND, AND THAT IS THE RULE RATHER THAN A GAP.** Jellyfin carries four — daily, weekly,
+interval and startup — and only `dailyAt` exists here, because `sweep-sessions` is the only task and
+it wants a daily one. `CLAUDE.md` refuses a configuration option nothing in the repo reads, and three
+unused trigger kinds are three schedules no test can bite on.
+
+**AND A SECOND KIND CHANGES EVERY READER, which an earlier version of this section denied.** It
+claimed `Trigger` was "a union so the second arrives without every reader changing". It is not a
+union — it is one object type, `{ kind: "daily"; atHour: number }` — and the readers hardcode that
+kind: the router states `z.literal("daily")` and the page's `whenItRuns` takes the daily shape and
+writes the sentence for it. Both are correct for one kind and both are edits on the day there are
+two, together with `nextFiring`. That is the honest cost of not building the other three, and it is
+small; the sentence claiming otherwise was the thing worth removing. Found in review.
+
+**THE SCHEDULE IS NOT THE OWNER'S TO EDIT, and Plex's eight toggles are not adopted.** The trigger is
+declared in code beside the task. An owner-editable cadence is a settings surface, a table and a
+migration for a catalogue that today runs one task; what that would buy over a sensible hour is
+nothing this record argued for. The eight remain what this record says they are — a list of what
+needs scheduling, not a list of switches owed.
+
+**THREE NON-SUCCESS OUTCOMES RATHER THAN TWO, WHICH THIS REPOSITORY HAD ALREADY MEASURED AND SAID.**
+`cancelled` is the owner stopping a run, `aborted` is the server dying under one, and `failed` is the
+task breaking. The first draft of this section collapsed the first two and argued that "a fifth value
+would be a column the page renders identically" — which was wrong twice over. `docs/research/verify-adr-jellyfin.md`
+§34 had already read Jellyfin's `TaskCompletionStatus`, found `Cancelled` ("manually cancelled by the
+user") apart from `Aborted` ("due to a system failure or shutdown"), and reported that the third value
+is the one worth copying because THIS RECORD'S OWN ARGUMENT reaches it: a job the owner stopped and a
+job the machine stopped are different answers too. And the page does not render them identically — it
+says "You stopped it" against "The server stopped while this was running", which is a decision read
+back against a machine worth going to look at. Overriding a verified finding on the strength of a
+first draft's convenience is the mistake here, and it is recorded rather than quietly fixed.
+
+**AND THE SIGNAL DECIDES THE OUTCOME, NOT THE TASK'S RETURN.** Cancelling is cooperative, because
+nothing else is available: a JavaScript runtime cannot interrupt a promise from outside, so a task
+that never consults its `AbortSignal` runs to its own end. What the registry guarantees is the
+ANSWER — the run reads `aborted` from the moment the owner asked, whether the task rejected, ignored
+it and returned a sentence, or threw something unrelated on the way out. Recording such a run as
+`completed` would tell the owner their instruction had no effect AND that everything was fine.
+
+**A RUN IS OPENED WHEN IT STARTS, WHICH IS WHAT MAKES A RUN THAT NEVER FINISHED READABLE.** A history
+written only on completion answers "nothing ran" for the one case this record exists to surface — the
+night the process died mid-sweep — and answers it in the same words as a night nothing was scheduled.
+The cost is rows that outlive the process that opened them, so the scheduler closes every run still
+reading `running` before it arms anything, as `aborted`.
+
+**ONE PROCESS IS ASSUMED, and it is ADR-0109's shape rather than an oversight.** The live runs are a
+map of `AbortController`s in one process's memory, because the object that can stop a promise is the
+object that created it; the startup close treats every open row as the dead process's. Two servers on
+one database would each fire every trigger and each close the other's live runs. ADR-0109 commits to
+a process that something restarts and the image runs one `node server.js`, so whatever first runs two
+is what has to key a run to the process that opened it — and that needs a column `task_runs` does not
+have.
 
 **NOTHING'S CORRECTNESS WAITS ON THE SWEEP.** A dead session row is refused by `seeSession` on the
 clock whether or not anything has removed it (ADR-0043), so an unswept table is a table that grew.
 That is true of tombstone compaction generally and is why this whole category is maintenance rather
-than mechanism -- but a maintenance job nobody can see is one that silently stopped months ago,
-which is this record's own sentence and the reason it exists.
+than mechanism — but a maintenance job nobody can see is one that silently stopped months ago, which
+is this record's own sentence and the reason it exists.
+
+**THE HISTORY IS READ AS A HISTORY, not as a last outcome.** `task.history` answers one task's runs
+newest first and `/tasks` renders the ones before the last behind a `details`. An earlier build
+surfaced `lastRun` alone, which left "last night failed" reading identically to "every night for a
+fortnight has failed" — a glitch and a broken machine, told apart only by the runs in between. The
+depth is 30, which is a month of a daily task. Found in review.
+
+**AND THIS TABLE ONLY GROWS, WHICH IS THIS RECORD'S OWN CATEGORY ARRIVING BACK AT IT.** A daily task
+writes 365 rows a year and nothing removes them; `task_runs` carries a tombstone and a change
+sequence (ADR-0075) that nothing writes and no read filters on. The compaction this record lists is
+therefore owed to its own history table, and the task that does it is CNCORE-124 — a second task on
+the registry, which is the shape this whole record is for. It is not urgent at one task and a row a
+night, and it is not free to forget, so it is a ticket rather than a sentence.
+
+**WHAT A RUN LEAVES BEHIND IS BOUNDED AT ADR-0123's 300.** A task answers a sentence it wrote, but
+what a task THROWS is written by whatever broke it, and that column is read onto a page. It is
+collapsed onto one line before it is cut, which is the correction that record records against itself.
 
 ## Evidence
 

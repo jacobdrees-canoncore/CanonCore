@@ -686,3 +686,79 @@ export const aliases = pgTable(
     check("aliases_do_not_point_at_themselves", sql`${t.aliasItemId} <> ${t.itemId}`),
   ],
 );
+
+/**
+ * ADR-0049. One row per RUN of one task: when it started, when it stopped, and
+ * how it ended.
+ *
+ * THE ROW IS THE VISIBILITY. That record's minimum is that last night's failure
+ * can be seen, and a registry that ran things in memory would answer "what
+ * happened last night" only until the process restarted -- which is the
+ * maintenance job that silently stopped months ago, wearing a page.
+ *
+ * KEYED BY THE TASK'S KEY AND NOT BY A FOREIGN KEY, because a task is CODE
+ * rather than a row: `sweep-sessions` is a function this repository ships, and
+ * a table of tasks would be a second place to add one from, out of step with
+ * the code the moment either moved. The key is the join, and a run whose task
+ * has been deleted from the code still reads as history rather than dangling.
+ *
+ * `outcome` CARRIES `running` RATHER THAN LEAVING IT TO A NULL `ended_at`. The
+ * two would be one fact stored twice, so the check below makes them one fact
+ * the database keeps: a row is running exactly while it has no end.
+ *
+ * TODO(CNCORE-124): NOTHING REMOVES A ROW FROM HERE. A daily task writes 365 a
+ * year and ADR-0049 names eight more kinds of work that will each want a key,
+ * so this table is the tombstone compaction that record lists arriving back at
+ * the registry's own history. A second task on the registry is the shape for
+ * it, which is what that ticket builds.
+ *
+ * A CHECK RATHER THAN A REFERENCE TABLE, which is a departure worth stating.
+ * The reference tables hold the CATALOGUE'S closed vocabularies (ADR-0029) --
+ * kinds, ranks, datatypes -- each carrying a label a page prints and each
+ * referenced by the owner's own rows. An outcome is none of that: it is this
+ * mechanism's own state, read by this mechanism, and a four-row table to hold
+ * it would be ceremony rather than the rule being followed.
+ */
+export const taskRuns = pgTable(
+  "task_runs",
+  {
+    id: idColumn(),
+    ...ownedColumns(),
+    /** The key of the task this was a run of. See `@canoncore/tasks`. */
+    taskKey: text("task_key").notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+    endedAt: timestamp("ended_at", { withTimezone: true }),
+    /**
+     * STOPPED IS DISTINCT FROM BROKEN, which is ADR-0049's own instruction and
+     * the reason it names Jellyfin's shape: a sweep the owner stopped is not an
+     * incident and a sweep that threw is.
+     *
+     * AND `cancelled` IS DISTINCT FROM `aborted`, which is the third value
+     * Jellyfin ships and `verify-adr-jellyfin.md` §34 says is the one worth
+     * copying: the owner stopping a run and the server dying under one are
+     * different facts, and only the second is a machine to go and look at.
+     */
+    outcome: text("outcome").notNull().default("running"),
+    /**
+     * What the run did, or what broke it -- the sentence an owner reads.
+     *
+     * NULL WHILE IT RUNS, because nothing has been done yet. Bounded by the
+     * registry that writes it rather than by this column: see `BOUNDED_DETAIL`
+     * in `@canoncore/tasks`.
+     */
+    detail: text("detail"),
+    ...lifecycleColumns(),
+  },
+  (t) => [
+    check(
+      "task_runs_outcome_is_known",
+      sql`${t.outcome} in ('running', 'completed', 'failed', 'cancelled', 'aborted')`,
+    ),
+    // RUNNING IS EXACTLY "HAS NOT ENDED". Stored as one fact rather than two
+    // that can disagree, which is what a row reading `completed` with no end
+    // time would be.
+    check("task_runs_running_has_no_end", sql`(${t.outcome} = 'running') = (${t.endedAt} is null)`),
+    // WHAT EVERY READ OF THIS TABLE ASKS: this task's runs, newest first.
+    index("task_runs_by_task").on(t.taskKey, t.startedAt.desc()),
+  ],
+);

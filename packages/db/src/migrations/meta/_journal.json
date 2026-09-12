@@ -92,6 +92,13 @@
       "when": 1789239600000,
       "tag": "20260912190000_migration_12_the_owner_note",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1789241400000,
+      "tag": "20260912193000_migration_13_a_run_of_one_task",
+      "breakpoints": true
     }
   ]
 }

@@ -17,6 +17,7 @@
     "@canoncore/env": "workspace:*",
     "@canoncore/providers": "workspace:*",
     "@canoncore/schemas": "workspace:*",
+    "@canoncore/tasks": "workspace:*",
     "@orpc/client": "catalog:",
     "@orpc/openapi": "catalog:",
     "@orpc/server": "catalog:",
