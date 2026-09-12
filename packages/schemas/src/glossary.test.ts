@@ -309,10 +309,12 @@ describe("matching a name's word against the glossary", () => {
 describe("every name the read path emits", () => {
   it("walks into arrays and nullables, so a nested field is not missed", () => {
     // Against the real schemas: `containerTitle` sits inside an array of objects
-    // on `itemPublic`, which is the shape a walk that stopped at the top would
-    // report clean.
+    // inside a listing object on `itemPublic`, which is the shape a walk that
+    // stopped at the top would report clean. It gained the middle level under
+    // CNCORE-125, when "Also appears in" stopped being a bare array -- so the
+    // walk now has to go one deeper here than it did to catch the same field.
     const names = namesEmittedBy({ itemPublic: schemas.itemPublic });
-    expect(names).toContain("itemPublic.placements.containerTitle");
+    expect(names).toContain("itemPublic.placements.entries.containerTitle");
   });
 
   it("refuses to walk past a composite it does not understand", () => {
@@ -349,6 +351,12 @@ describe("every name the read path emits", () => {
      * renames four listings instead of three, which is the cost of the word
      * being wrong once rather than of its being wrong here.
      *
+     * AND "ALSO APPEARS IN" JOINED THEM UNDER CNCORE-125, on that same
+     * argument and now for the fifth and LAST time: that ticket capped the last
+     * uncapped listing in the app, so there is no sixth listing left to adopt
+     * ADR-0119 and this allowance cannot grow again by that route. Every name
+     * on it is one word under one ticket.
+     *
      * AN EXACT MATCH RATHER THAN A SUBSET, which is the half that makes this
      * self-expiring: the day CNCORE-114 renames one of these, this assertion
      * fails until the name is DELETED from the list. An allowance written as
@@ -359,7 +367,9 @@ describe("every name the read path emits", () => {
       "catalogueEntryPublic",
       "cataloguePublic.entries",
       "itemPublic.holds.entries",
+      "itemPublic.placements.entries",
       "placementsInContainerPublic.entries",
+      "placementsOfItemPublic.entries",
     ];
 
     // SORTED BOTH SIDES, because an exact match on walk order would make

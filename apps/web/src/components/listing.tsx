@@ -99,22 +99,38 @@ export type MembersPath = `/items/${string}`;
 type Asked = { q: string };
 
 /**
- * WHAT THE ITEM PAGE'S ADDRESS ALREADY CARRIES, which the members cursor joins
- * rather than replaces.
+ * WHAT THE ITEM PAGE'S ADDRESS ALREADY CARRIES, which the listing being walked
+ * joins rather than replaces.
  *
  * `?via=` names the ordering the reader arrived through and `?placed=` narrows
  * "Also appears in" to one origin; ADR-0066 declares both NON-IDENTIFYING and
- * writes them in a fixed order, `via` then `placed`. The cursor goes THIRD, and
- * it goes third here rather than anywhere else because re-ordering the existing
- * pair would mint a second spelling of every link already emitted -- which is
- * the exact thing a fixed order exists to prevent.
+ * writes them in a fixed order, `via` then `placed`. A cursor is APPENDED rather
+ * than inserted, because re-ordering the pair already out there would mint a
+ * second spelling of every link already emitted -- which is the exact thing a
+ * fixed order exists to prevent.
  *
- * BOTH OPTIONAL, and a missing one is ABSENT rather than empty: the item page
- * builds this object with only the keys it has, so `?via=&placed=&after=x` is
- * not a URL this app can emit. `Walk` below spreads it and appends `after`, so
- * the order is held by the spread rather than by anybody remembering it.
+ * SO THE ORDER IS `via`, `placed`, `after`, `placedAfter`, each behind the ones
+ * that were there before it -- and BOTH cursors are keys here, because each of
+ * the two listings has to carry the OTHER's through. Walking either one must
+ * leave the other where the reader left it.
+ *
+ * EVERY KEY OPTIONAL, and a missing one is ABSENT rather than empty: the item
+ * page builds this object with only the keys it has, so `?via=&placed=&after=`
+ * is not a URL this app can emit.
  */
-export type TheRoute = { via?: string; placed?: string };
+export type TheRoute = { via?: string; placed?: string; after?: string; placedAfter?: string };
+
+/**
+ * WHICH OF THE ITEM PAGE'S TWO LISTINGS IS BEING WALKED, which the path cannot
+ * say because both are walked on `/items/<id>`.
+ *
+ * A Container IS an Item (ADR-0004), so one address can be both a container with
+ * Members and an item sitting in orderings -- and ADR-0066 keeps it ONE address
+ * rather than giving the second listing a page of its own. So the surfaces that
+ * ARE their listing are told apart by their path, and these two are told apart
+ * by this: the sentence each ends with, and the parameter each walks with.
+ */
+export type ItemPageListing = "members" | "appearances";
 
 /**
  * WHICH LISTING IS BEING WALKED, and therefore whether it owes a query.
@@ -128,9 +144,9 @@ export type TheRoute = { via?: string; placed?: string };
  * may not pass one, and the one that is not must.
  */
 type Walking =
-  | { path: "/" | "/works"; asked?: never }
-  | { path: "/search"; asked: Asked }
-  | { path: MembersPath; asked: TheRoute };
+  | { path: "/" | "/works"; asked?: never; listing?: never }
+  | { path: "/search"; asked: Asked; listing?: never }
+  | { path: MembersPath; asked: TheRoute; listing: ItemPageListing };
 
 /**
  * What each listing calls itself when it has to end a sentence.
@@ -147,12 +163,41 @@ const ENDS_HERE = {
   "/works": "The list of Works ends here",
   "/search": "These results end here",
   /*
-   * THE ONE THAT IS NOT KEYED BY ITS PATH, because a container's address
-   * carries an id. `CONTEXT.md` settles "Members" as the reader's word from the
-   * container's end, so that is the word the sentence ends with.
+   * THE TWO THAT ARE NOT KEYED BY THEIR PATH, because both are walked on one
+   * address whose path carries an id. `CONTEXT.md` settles "Members" as the
+   * reader's word from the container's end and "Also appears in" from the
+   * item's, so those are the words these sentences end with -- and the noun
+   * inside the second is the glossary's own: an item sits in ORDERINGS.
    */
   members: "This container's Members end here",
-} as const satisfies Record<ListingPath | "members", string>;
+  appearances: "The orderings this item appears in end here",
+} as const satisfies Record<ListingPath | ItemPageListing, string>;
+
+/**
+ * WHAT EACH LISTING WALKS WITH, which is the same word for four of the five and
+ * a second one for the fifth.
+ *
+ * ADR-0066 argues `after` for the Members listing precisely because it is "the
+ * same word the other three listings walk with", and a parameter named for one
+ * surface would be a second convention for one question. That argument holds
+ * until ONE PAGE HAS TO SPELL BOTH AT ONCE, which is what CNCORE-125 arrived
+ * at: two independent listings on `/items/<id>`, so one of the two cursors has
+ * to be qualified or neither can be read.
+ *
+ * THE BARE WORD STAYS WITH THE ONE THAT ALREADY EMITTED IT. Re-spelling the
+ * Members cursor would give every link CNCORE-89 has put into the world a second
+ * spelling of itself, which is the one thing ADR-0066's fixed order exists to
+ * prevent -- so the parameter arriving later is the one that takes a name.
+ *
+ * AND IT IS NAMED FOR ITS PAIR RATHER THAN FOR ITS SURFACE. `?placed=` already
+ * narrows "Also appears in" to one origin, so `placed` and `placedAfter` read
+ * as the one listing's pair; a name like `appearsAfter` would have said the
+ * same thing without saying it belonged with the parameter beside it.
+ */
+const CURSOR = {
+  members: "after",
+  appearances: "placedAfter",
+} as const satisfies Record<ItemPageListing, string>;
 
 /**
  * Which listing is ending, from the address it is walked on.
@@ -171,10 +216,60 @@ const ENDS_HERE = {
  * where a bare fallthrough would silently have rendered a container's sentence
  * over somebody else's listing.
  */
-function endsHere(path: Walking["path"]): string {
-  if (path === "/" || path === "/works" || path === "/search") return ENDS_HERE[path];
-  path satisfies MembersPath;
-  return ENDS_HERE.members;
+function endsHere(walking: Walking): string {
+  // NARROWED ON `listing` RATHER THAN ON `path`, which is a fix rather than a
+  // preference: `MembersPath` is a TEMPLATE LITERAL type, so excluding the three
+  // literal paths does not narrow this union the way excluding literals would.
+  // `listing` is present on exactly the member whose path is not a literal, so
+  // it discriminates where the path cannot.
+  if (walking.listing !== undefined) {
+    walking.path satisfies MembersPath;
+    return ENDS_HERE[walking.listing];
+  }
+  return ENDS_HERE[walking.path];
+}
+
+/**
+ * THE ITEM PAGE'S PARAMETERS IN THEIR ONE FIXED SPELLING ORDER (ADR-0066), read
+ * off this array rather than off the order anybody happens to write keys in.
+ *
+ * A LIST RATHER THAN A SPREAD, WHICH IS A FIX. `Walk` built its query as
+ * `{ ...asked, [cursor]: at }` -- and a spread APPENDS a key that was not
+ * already there. That is correct while every parameter behind the cursor is
+ * absent and wrong the moment one is not: walking `Members` on a page that
+ * already carried `?placedAfter=` appended `after` BEHIND it, which is a second
+ * spelling of one address and the exact thing a fixed order exists to prevent.
+ */
+const IN_FIXED_ORDER = [
+  "via",
+  "placed",
+  "after",
+  "placedAfter",
+] as const satisfies readonly (keyof TheRoute)[];
+
+/**
+ * The query one link on this listing carries: everything the address already
+ * held, with THIS listing's own cursor set to where the link goes.
+ *
+ * `at` IS `undefined` FOR A LINK BACK TO THE START, which DROPS this listing's
+ * cursor and keeps every other parameter -- including the OTHER listing's
+ * cursor, which a reader has not asked to move.
+ *
+ * THE THREE SURFACES THAT ARE THEIR LISTING TAKE THE OTHER BRANCH, because
+ * nothing composes on them: `/search` carries its query and the cursor, and `/`
+ * and `/works` carry the cursor alone.
+ */
+function queryFor(walking: Walking, at: string | undefined): Record<string, string> {
+  if (walking.listing === undefined) {
+    return at === undefined ? { ...walking.asked } : { ...walking.asked, after: at };
+  }
+  const own = CURSOR[walking.listing];
+  const query: Record<string, string> = {};
+  for (const key of IN_FIXED_ORDER) {
+    const value = key === own ? at : walking.asked[key];
+    if (value) query[key] = value;
+  }
+  return query;
 }
 
 /**
@@ -286,25 +381,32 @@ export function Listing({ entries }: { entries: Entry[] }) {
  * encoding rather than a template literal doing it by hand.
  */
 export function Walk({
-  path,
-  asked,
   from,
   continuesAfter,
+  ...walking
 }: Walking & {
   from?: string;
   continuesAfter: string | null;
 }) {
   if (from === undefined && continuesAfter === null) return null;
+  const { path } = walking;
   return (
     <nav aria-label="More of this listing" className="mt-6 flex items-baseline gap-4">
       {from !== undefined && (
-        <Link href={{ pathname: path, query: asked }} className="text-sm hover:underline">
+        /*
+         * WITHOUT THIS LISTING'S OWN CURSOR, which is what makes it the start --
+         * and WITH the other listing's, which the reader has not asked to move.
+         */
+        <Link
+          href={{ pathname: path, query: queryFor(walking, undefined) }}
+          className="text-sm hover:underline"
+        >
           Back to the start
         </Link>
       )}
       {continuesAfter !== null && (
         <Link
-          href={{ pathname: path, query: { ...asked, after: continuesAfter } }}
+          href={{ pathname: path, query: queryFor(walking, continuesAfter) }}
           className="ml-auto text-sm hover:underline"
         >
           Next
@@ -329,7 +431,8 @@ export function Walk({
  * CNCORE-110). The sentence read "or it may have been removed since", which
  * named a state this page can no longer be in.
  */
-export function PastTheEnd({ path, asked }: Walking) {
+export function PastTheEnd(walking: Walking) {
+  const { path } = walking;
   return (
     <section aria-labelledby="past-the-end" className="mt-6">
       <Empty className="border">
@@ -340,7 +443,7 @@ export function PastTheEnd({ path, asked }: Walking) {
             heading -- and a reader navigating by heading finds only the `h1`.
           */}
           <EmptyTitle>
-            <h2 id="past-the-end">{endsHere(path)}</h2>
+            <h2 id="past-the-end">{endsHere(walking)}</h2>
           </EmptyTitle>
           <EmptyDescription>
             Nothing sorts after the one this link was cut at. It is the last one in this listing
@@ -348,7 +451,11 @@ export function PastTheEnd({ path, asked }: Walking) {
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
-          <Link href={{ pathname: path, query: asked }} className="hover:underline">
+          {/* The start of THIS listing, with the other one left where it is. */}
+          <Link
+            href={{ pathname: path, query: queryFor(walking, undefined) }}
+            className="hover:underline"
+          >
             Back to the start
           </Link>
         </EmptyContent>

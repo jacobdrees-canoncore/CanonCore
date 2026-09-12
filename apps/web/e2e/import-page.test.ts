@@ -491,7 +491,7 @@ describe("/import, taking a Container and its ordering", () => {
      */
     const at = browsing(providerSearch.browsable);
     const story = inject("attributed");
-    const placedBefore = (await client.item.get({ id: story.id })).placements;
+    const placedBefore = (await client.item.get({ id: story.id })).placements.entries;
 
     const offered = await documentAt(at, owner);
     expect(offered.status).toBe(200);
@@ -510,7 +510,7 @@ describe("/import, taking a Container and its ordering", () => {
 
     // AND THE ORDERING CAME WITH IT: the story now sits in that container, at a
     // position, placed by the provider that asserted the ordering (ADR-0017).
-    const placedAfter = (await client.item.get({ id: story.id })).placements;
+    const placedAfter = (await client.item.get({ id: story.id })).placements.entries;
     const containerId = (link as string).slice("/items/".length);
     expect(placedBefore.map(({ containerId: held }) => held)).not.toContain(containerId);
     const placement = placedAfter.find(({ containerId: held }) => held === containerId);

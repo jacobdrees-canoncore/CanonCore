@@ -31,10 +31,14 @@ import {
  */
 async function readItem(
   id: string,
-  { after, context }: { after?: string; context?: Context } = {},
+  { after, placedAfter, context }: { after?: string; placedAfter?: string; context?: Context } = {},
 ) {
   const { error, data } = await safe(
-    call(appRouter.item.get, { id, after }, { context: context ?? (await createContext()) }),
+    call(
+      appRouter.item.get,
+      { id, after, placedAfter },
+      { context: context ?? (await createContext()) },
+    ),
   );
   if (!error) return data;
   // Only a missing item is a 404. Anything else -- a database that is down, a
@@ -225,6 +229,7 @@ export default async function ItemPage({
     via?: string | string[];
     placed?: string | string[];
     after?: string | string[];
+    placedAfter?: string | string[];
     undo?: string | string[];
     refused?: string | string[];
   }>;
@@ -254,7 +259,7 @@ export default async function ItemPage({
    * An array means the parameter was repeated; a route is one route, so a
    * repeated one names no ordering rather than the first of several.
    */
-  const { via, placed, after, undo, refused } = await searchParams;
+  const { via, placed, after, placedAfter, undo, refused } = await searchParams;
   /*
    * `oneValue` OWNS WHAT A REPEATED OR BLANK PARAMETER MEANS, and this page is
    * the surface its own module was extracted for. It read `typeof via ===
@@ -270,6 +275,14 @@ export default async function ItemPage({
   // the two above it, so the page a reader is served is the page they asked for.
   const from = oneValue(after);
   /*
+   * AND "ALSO APPEARS IN"'S OWN (CNCORE-125). TWO CURSORS ON ONE ADDRESS,
+   * because a Container IS an Item (ADR-0004) and one page therefore carries
+   * two independent listings: what this item HOLDS, and every ordering it SITS
+   * IN. Neither may move the other, which is why the second has a name rather
+   * than being a second `after` -- `listing.tsx`'s `CURSOR` has the argument.
+   */
+  const appearingFrom = oneValue(placedAfter);
+  /*
    * THE PLACEMENT A REMOVAL JUST TOOK OUT, so this page can offer it back
    * (ADR-0046). It identifies nothing -- the path is the container's identity
    * and this is how the reader arrived at this view of it -- so a stale or
@@ -283,7 +296,7 @@ export default async function ItemPage({
    */
   const refusedItem = oneValue(refused);
 
-  const item = await readItem(id, { after: from, context });
+  const item = await readItem(id, { after: from, placedAfter: appearingFrom, context });
   const owner = context.session !== null;
 
   return (
@@ -379,7 +392,7 @@ export default async function ItemPage({
       <Members
         itemId={item.id}
         holds={item.holds}
-        route={theRoute(arrivedThrough, showingOnly)}
+        route={theRoute({ arrivedThrough, showingOnly, appearingFrom })}
         owner={owner}
         from={from}
       />
@@ -389,6 +402,7 @@ export default async function ItemPage({
         arrivedThrough={arrivedThrough}
         showingOnly={showingOnly}
         from={from}
+        appearingFrom={appearingFrom}
       />
       {/*
         LAST ON THE PAGE, AND THAT IS NOT A DEMOTION. TMDB's terms ask for the
@@ -539,7 +553,7 @@ function Members({
         get the heading with an empty list under it, which reads as a section
         that failed to load rather than as an ending.
       */}
-      {entries.length === 0 && <PastTheEnd path={path} asked={route} />}
+      {entries.length === 0 && <PastTheEnd path={path} listing="members" asked={route} />}
       <ul className="mt-2 divide-y">
         {entries.map((placement) => (
           <li key={placement.id} className="flex items-baseline justify-between gap-4 py-2">
@@ -633,7 +647,13 @@ function Members({
         empty list. The notice owns that page, so the walk stands down on it.
       */}
       {entries.length > 0 && (
-        <Walk path={path} asked={route} from={from} continuesAfter={continuesAfter} />
+        <Walk
+          path={path}
+          listing="members"
+          asked={route}
+          from={from}
+          continuesAfter={continuesAfter}
+        />
       )}
     </section>
   );
@@ -644,24 +664,52 @@ function Members({
  *
  * ADR-0066 declares `?via=` and `?placed=` non-identifying and writes them
  * "in a fixed order -- `via` then `placed` -- so one narrowed list is one URL
- * rather than two spellings of it". A cursor is the third, and it is appended
- * rather than inserted: re-ordering the existing pair would give every link
- * already emitted a second spelling, which is the one thing a fixed order
- * exists to prevent.
+ * rather than two spellings of it". A cursor is appended rather than inserted:
+ * re-ordering the pair already out there would give every link already emitted a
+ * second spelling, which is the one thing a fixed order exists to prevent.
  *
- * WRITTEN ONCE BECAUSE TWO SURFACES ON THIS PAGE EMIT IT -- the walk below the
- * Members list, and every chip of the "Also appears in" filter. The order held
- * by two copies is the order that drifts.
+ * SO THE ORDER IS `via`, `placed`, `after`, `placedAfter`, and this function
+ * holds the first three. The fourth is appended by `Walk`, which is where the
+ * listing being walked is known.
+ *
+ * WRITTEN ONCE BECAUSE THREE SURFACES ON THIS PAGE EMIT IT -- the walk below
+ * the Members list, the walk below "Also appears in", and every chip of that
+ * list's filter. The order held by three copies is the order that drifts.
  *
  * A KEY IS ABSENT RATHER THAN EMPTY where there is no value. Next turns an
- * `undefined` query value into an empty parameter, so an object carrying all
- * three keys unconditionally would emit `?via=&placed=&after=` on the plainest
- * address this page has.
+ * `undefined` query value into an empty parameter, so an object carrying every
+ * key unconditionally would emit `?via=&placed=&after=` on the plainest address
+ * this page has.
  */
-function theRoute(arrivedThrough?: string, showingOnly?: string): TheRoute {
+function theRoute({
+  arrivedThrough,
+  showingOnly,
+  from,
+  appearingFrom,
+}: {
+  arrivedThrough?: string;
+  showingOnly?: string;
+  /**
+   * THE TWO CURSORS, and a caller passes the ones its own links must CARRY.
+   *
+   * The two listings on this page are independent, so a link that walks or
+   * narrows one must not send a reader deep in the other back to its first page.
+   * Each walk passes BOTH: `Walk` owns which of the two is its own, setting it
+   * where the link goes and dropping it for a `Back to the start`, so neither
+   * caller has to remember which cursor it is holding.
+   *
+   * A CHIP PASSES ONLY `from`, which is the one asymmetry here and is argued at
+   * `FilterLink`: narrowing changes what "Also appears in" is ASKING, so its
+   * cursor names a place in the listing being left.
+   */
+  from?: string;
+  appearingFrom?: string;
+}): TheRoute {
   const route: TheRoute = {};
   if (arrivedThrough) route.via = arrivedThrough;
   if (showingOnly) route.placed = showingOnly;
+  if (from) route.after = from;
+  if (appearingFrom) route.placedAfter = appearingFrom;
   return route;
 }
 
@@ -669,6 +717,12 @@ function theRoute(arrivedThrough?: string, showingOnly?: string): TheRoute {
  * Every ordering this item sits in, at once (ADR-0009). The product's central
  * claim, and the thing no incumbent can express: a `series_index` on the item
  * itself holds one of these and locks the reader out of the rest forever.
+ *
+ * CAPPED, COUNTED AND WALKED SINCE CNCORE-125, and it was the LAST listing in
+ * the app to be none of those. ADR-0119's first sentence is "every listing in
+ * CanonCore is capped", and the count matters more here than anywhere: a page
+ * reporting a hundred orderings over three hundred would understate exactly the
+ * claim this section exists to make.
  */
 function AlsoAppearsIn({
   itemId,
@@ -676,6 +730,7 @@ function AlsoAppearsIn({
   arrivedThrough,
   showingOnly,
   from,
+  appearingFrom,
 }: {
   itemId: string;
   placements: ItemOnThePage["placements"];
@@ -688,22 +743,52 @@ function AlsoAppearsIn({
   /** The origin the reader has narrowed to, if any. */
   showingOnly?: string;
   /**
-   * The Members cursor, which these chips carry FORWARD rather than drop.
+   * The Members cursor, which this section's links carry FORWARD rather than
+   * drop.
    *
-   * The two listings on this page are independent -- `placed` narrows this one
-   * and `after` walks the one above -- so a reader deep in an ordering who
-   * narrows this list would otherwise be sent back to the ordering's first page
-   * by a chip that has nothing to do with it.
+   * The two listings on this page are independent, so a reader deep in a
+   * container's ordering who narrows or walks this one would otherwise be sent
+   * back to that ordering's first page by a link that has nothing to do with it.
    */
   from?: string;
+  /** This listing's OWN cursor, if the page was asked with one. */
+  appearingFrom?: string;
 }) {
-  if (placements.length === 0) return null;
+  const { entries, total, continuesAfter } = placements;
+  /*
+   * NOTHING AT ALL FOR AN ITEM IN NO ORDERING, which is `total` rather than
+   * `entries.length` for the reason `Members` above gives: an entries-length
+   * test would hide the END of the walk, where a cursor past the last ordering
+   * answers a page with no rows over a list that has plenty.
+   */
+  if (total === 0) return null;
 
-  // Read off the data rather than written down: an origin nothing arrived by is
-  // not offered, and the day a provider's browse writes placements the chip for
-  // it appears without anyone adding it.
-  const origins = [...new Set(placements.map((p) => p.placedBy).filter((by) => by !== null))];
-  const showing = placements.filter((p) => !showingOnly || p.placedBy === showingOnly);
+  // `/items/<id>` is where this listing is walked, for the same reason the
+  // Members list is: a Container IS an Item and this is the item's own page.
+  const path: MembersPath = `/items/${itemId}`;
+  const route = theRoute({ arrivedThrough, showingOnly, from, appearingFrom });
+
+  /*
+   * READ OFF THE PAGE, WHICH IS A NARROWER CLAIM THAN IT WAS. An origin nothing
+   * arrived by is not offered, and the day a provider's browse writes placements
+   * the chip for it appears without anyone adding it.
+   *
+   * TODO(CNCORE-129): BOTH THE CHIPS AND THE FILTER BELOW SEE ONLY THIS PAGE.
+   * Until CNCORE-125 this list was uncapped, so "the rows the page was handed"
+   * and "every ordering the item sits in" were the same set and the distinction
+   * did not exist. With a cap they are not, and the honest fix is to push
+   * `?placed=` into the query so the narrowed list is a listing with its own
+   * total, cap and walk -- which also needs a second read for the chips, since
+   * a filtered page can only ever show the one origin it was filtered to. That
+   * is a bigger change than this ticket, so what is done here instead is to SAY
+   * SO: the notice below counts the narrowing against the page rather than
+   * against the listing, so the page never claims more than it looked at.
+   */
+  const origins = [...new Set(entries.map((p) => p.placedBy).filter((by) => by !== null))];
+  const showing = entries.filter((p) => !showingOnly || p.placedBy === showingOnly);
+  // WHETHER THE CAP BIT, which is what decides whether the narrowing above is
+  // over the whole listing or only over what this page was handed.
+  const capped = entries.length < total;
 
   return (
     <section className="mt-8" aria-labelledby="also-appears-in">
@@ -712,38 +797,65 @@ function AlsoAppearsIn({
           Also appears in
         </h2>
         {/*
-          A FILTER RATHER THAN A SPLIT LAYOUT. A container the owner filled by
-          hand and one a provider imported are the same kind of fact -- they
-          differ by who asserted them (ADR-0017) and by nothing else -- so two
-          sections would tell the reader they are two kinds of thing.
+          THE CAP IS NEVER SILENT (ADR-0119). This listing had no count at all,
+          so an item in three hundred orderings rendered as however many rows the
+          page happened to carry -- and multi-placement is the product's central
+          claim, so that is the one count it could least afford to get wrong.
 
-          Links rather than a control, so the whole thing works server-side and
-          a narrowed list is a URL somebody can send, the same argument ADR-0066
-          makes for `?via=`.
+          THE NOUN IS `ordering` BECAUSE THAT IS THE GLOSSARY'S OWN WORD FROM
+          THIS END. `CONTEXT.md` defines Multi-placement as "one item sitting in
+          several orderings at once", and its Placement entry says the same
+          construct is "an ordering it sits in" from the item's end and something
+          the container "holds" from the other. It is not `container`, either: a
+          Repeat is one item twice in ONE ordering, so counting containers would
+          make the count disagree with the rows under it.
+
+          IT COUNTS THE LISTING AND NOT THE NARROWING, which is why it sits
+          beside the heading and above the chips. What the chips do to it is the
+          notice further down.
         */}
-        <nav aria-label="Filter by how it was placed" className="flex gap-3 text-sm">
+        {entries.length > 0 && <Holding showing={entries.length} total={total} noun="ordering" />}
+      </div>
+      {/*
+        A FILTER RATHER THAN A SPLIT LAYOUT. A container the owner filled by
+        hand and one a provider imported are the same kind of fact -- they
+        differ by who asserted them (ADR-0017) and by nothing else -- so two
+        sections would tell the reader they are two kinds of thing.
+
+        Links rather than a control, so the whole thing works server-side and
+        a narrowed list is a URL somebody can send, the same argument ADR-0066
+        makes for `?via=`.
+      */}
+      <nav aria-label="Filter by how it was placed" className="mt-2 flex gap-3 text-sm">
+        <FilterLink
+          itemId={itemId}
+          arrivedThrough={arrivedThrough}
+          showingOnly={showingOnly}
+          from={from}
+        >
+          All
+        </FilterLink>
+        {origins.map((origin) => (
           <FilterLink
+            key={origin}
             itemId={itemId}
             arrivedThrough={arrivedThrough}
             showingOnly={showingOnly}
+            origin={origin}
             from={from}
           >
-            All
+            {placedByLabel(origin)}
           </FilterLink>
-          {origins.map((origin) => (
-            <FilterLink
-              key={origin}
-              itemId={itemId}
-              arrivedThrough={arrivedThrough}
-              showingOnly={showingOnly}
-              origin={origin}
-              from={from}
-            >
-              {placedByLabel(origin)}
-            </FilterLink>
-          ))}
-        </nav>
-      </div>
+        ))}
+      </nav>
+      {/*
+        ORDERINGS BEHIND IT AND NONE ON THIS PAGE, which is what a cursor makes
+        possible: the link was cut at an ordering, and nothing sorts after that
+        ordering any more. A DEAD END if nothing says so -- the reader would get
+        the heading with an empty list under it, which reads as a section that
+        failed to load rather than as an ending.
+      */}
+      {entries.length === 0 && <PastTheEnd path={path} listing="appearances" asked={route} />}
       <ul className="mt-2 divide-y">
         {showing.map((placement) => (
           <li
@@ -800,10 +912,60 @@ function AlsoAppearsIn({
           </li>
         ))}
       </ul>
-      {showing.length === 0 && (
+      {/*
+        WHAT THE NARROWING LOOKED AT, said rather than left to be assumed.
+
+        While this list was uncapped, a chip narrowed EVERY ordering the item
+        sat in and the count needed no qualifying. Capped, it narrows the page --
+        so a reader who sees three Imported rows has to be told whether that is
+        three of the item's orderings or three of the hundred in front of them.
+        Saying nothing is the silent cap ADR-0119 exists to refuse, arriving
+        through the filter instead of through the listing.
+
+        ONLY WHEN THE CAP ACTUALLY BIT. On an item whose every ordering fits on
+        one page the narrowing IS over the whole listing, so a qualification
+        would be a caveat about a limit the reader never met.
+      */}
+      {showingOnly && capped && showing.length > 0 && (
         <p className="mt-2 text-muted-foreground text-sm">
-          Nothing placed that way. The whole list is under All.
+          Showing {showing.length} of the {entries.length} orderings on this page. Walk on to narrow
+          the rest.
         </p>
+      )}
+      {showing.length === 0 &&
+        entries.length > 0 &&
+        (capped ? (
+          <p className="mt-2 text-muted-foreground text-sm">
+            Nothing on this page was placed that way. Walk on, or see the whole list under All.
+          </p>
+        ) : (
+          <p className="mt-2 text-muted-foreground text-sm">
+            Nothing placed that way. The whole list is under All.
+          </p>
+        ))}
+      {/*
+        HOW A READER REACHES THE REST OF IT (ADR-0119), and the same component
+        the other four listings walk with -- so the rule that every page past the
+        first carries a way back to the start is written once rather than five
+        times.
+
+        IT CARRIES `route` FORWARD, which here is `via`, `placed` AND the Members
+        cursor: walking this list must not move the other one. `Walk` appends
+        `placedAfter` behind all three, which is ADR-0066's fixed spelling order
+        with a fourth parameter appended rather than inserted.
+
+        AND IT IS GATED ON THERE BEING ROWS, exactly as the Members walk is:
+        past the end of the walk the notice above owns the page, and a walk
+        rendering beside it would offer "Back to the start" twice.
+      */}
+      {entries.length > 0 && (
+        <Walk
+          path={path}
+          listing="appearances"
+          asked={route}
+          from={appearingFrom}
+          continuesAfter={continuesAfter}
+        />
       )}
     </section>
   );
@@ -812,7 +974,15 @@ function AlsoAppearsIn({
 /**
  * One chip of the filter. It carries `?via=` forward, so narrowing the list does
  * not lose the ordering the reader arrived through, and the Members cursor with
- * it -- all three in the fixed order `theRoute` holds (ADR-0066).
+ * it -- in the fixed order `theRoute` holds (ADR-0066).
+ *
+ * AND IT DROPS THIS LISTING'S OWN CURSOR, which is the one parameter here that
+ * is NOT carried forward. A chip changes what "Also appears in" is ASKING, so
+ * the answer is a different listing and `?placedAfter=` names a place in the one
+ * the reader is leaving. Keeping it would open the narrowed list halfway down
+ * for no reason a reader could see. The Members cursor is carried for the exact
+ * mirror of that reason: a chip has nothing to do with that listing, so it must
+ * not move it.
  */
 function FilterLink({
   itemId,
@@ -832,13 +1002,12 @@ function FilterLink({
   // An object rather than a string: Next's typed routes match a string href
   // against the route patterns, and `/items/<id>?<query>` matches none of them.
   // The query keeps insertion order through to the URL, which is what holds the
-  // three parameters in one fixed order.
+  // parameters in one fixed order.
   //
   // `origin` RATHER THAN `showingOnly` IS WHAT THIS CHIP NARROWS TO: the chip
   // for an origin points AT it, and the `All` chip has none and therefore drops
   // `placed` -- which is what makes it All.
-  const query: Record<string, string> = { ...theRoute(arrivedThrough, origin) };
-  if (from) query.after = from;
+  const query = theRoute({ arrivedThrough, showingOnly: origin, from });
 
   return (
     <Link

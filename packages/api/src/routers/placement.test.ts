@@ -79,7 +79,7 @@ describe("placement.remove", () => {
     await call(appRouter.placement.remove, { id: inRelease }, { context: asTheOwner });
 
     const item = await call(appRouter.item.get, { id: story }, { context });
-    expect(item.placements).toStrictEqual([
+    expect(item.placements.entries).toStrictEqual([
       expect.objectContaining({ containerId: storyOrder, position: 1 }),
     ]);
   });

@@ -288,6 +288,33 @@ describe("/items/<a container holding more than one page>", () => {
     expect(text).toContain(`<link rel="canonical" href="/items/${container.id}"/>`);
   });
 
+  it("carries the other listing's cursor through, so walking Members leaves it alone", async () => {
+    // THE TWO LISTINGS ON THIS PAGE ARE INDEPENDENT, and this is the half of
+    // that the mirror already held. "Also appears in" carries `after` through
+    // when it walks; Members has to carry `placedAfter` through the same way, or
+    // a reader deep in one ordering is sent back to the first page of the other
+    // for touching a list that has nothing to do with it.
+    //
+    // ADR-0066 and ADR-0119 both say "the two cursors do not move each other",
+    // and until CNCORE-125's own review only one direction was built.
+    //
+    // `placedAfter` NAMES NOTHING HERE, which is the point: it is
+    // non-identifying (ADR-0066), so what is under test is the LINK carrying it
+    // rather than what it resolves to.
+    const { text } = await documentFrom(
+      pagedBaseUrl,
+      `/items/${container.id}?placedAfter=nothing-at-all`,
+    );
+
+    const next = carriesOnAt(text);
+    if (next === undefined) throw new Error("the members list offered no next page");
+    // AND BEHIND `after`, which is ADR-0066's fixed spelling order: `via`,
+    // `placed`, `after`, `placedAfter`, whichever of the two listings is walking.
+    expect(next).toBe(
+      `/items/${container.id}?after=${membersLinkedFrom(text).at(-1)}&placedAfter=nothing-at-all`,
+    );
+  });
+
   it("offers a way back to the start from every page but the first", async () => {
     // A FORWARD WALK STRANDS A DEEP LINK (ADR-0119): somebody handed page two in
     // a message has no history to go back through, and `Previous` is a second
