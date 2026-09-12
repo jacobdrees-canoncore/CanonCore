@@ -530,6 +530,77 @@ export const provider = {
     }),
 
   /**
+   * WHAT ONE PROVIDER SAYS ABOUT ONE CONTAINER, asked before anything is
+   * written.
+   *
+   * A READ WHERE `browse` IS A WRITE, and that is the whole of why it exists.
+   * `browse` below declares three refusals precisely so each is an ANSWER
+   * rather than a fault (ADR-0033), and a POST is the one place none of them
+   * can be read: a Server Action that throws during a form submission with no
+   * script answers a bare `Internal Server Error`, and Next redacts a server
+   * error's message before any boundary sees it. Asked on the GET instead,
+   * every one of the three is a value a page can print.
+   */
+  container: publicProcedure
+    .input(
+      z.object({
+        /** A CONFIG URL, travelling ADR-0034's allowlist, as `browse`'s does. */
+        baseUrl: z.url(),
+        /** The provider's own id for the container, the one `browse` takes. */
+        containerId: z.string().min(1),
+      }),
+    )
+    /*
+     * A UNION RATHER THAN DECLARED ERRORS, WHICH IS THE WHOLE POINT OF THIS
+     * PROCEDURE EXISTING BESIDE `browse`. Every one of these is an ANSWER: the
+     * provider was asked and said something, and the caller renders whichever
+     * sentence it got. An error -- declared or not -- would put the same
+     * outcomes back on the throwing path this exists to get them off.
+     */
+    .output(
+      z.discriminatedUnion("answer", [
+        z.object({
+          answer: z.literal("container"),
+          /** The name the provider gives itself, off its manifest. */
+          providerName: z.string().min(1),
+          /** The container's own title, which is what the owner cannot see today. */
+          title: z.string().min(1),
+        }),
+        /**
+         * THE PROVIDER WAS ASKED AND HOLDS NOTHING THERE, which ADR-0066 makes
+         * an answer rather than a failure: an id that cannot BE an identity
+         * addresses nothing, exactly as one nobody minted does.
+         */
+        z.object({
+          answer: z.literal("no-such-container"),
+          providerName: z.string().min(1),
+        }),
+      ]),
+    )
+    .handler(async ({ input, context }) => {
+      const client = createProviderClient({
+        baseUrl: input.baseUrl,
+        allowlist: context.providerAllowlist,
+      });
+      try {
+        const manifest = await client.manifest();
+        const browsed = await client.browse(input.containerId);
+        if (!browsed) {
+          return { answer: "no-such-container" as const, providerName: manifest.name };
+        }
+        return {
+          answer: "container" as const,
+          providerName: manifest.name,
+          title: browsed.container.title,
+        };
+      } finally {
+        // Two undici agents and therefore two connection pools, as everywhere
+        // else on this path.
+        await client.close();
+      }
+    }),
+
+  /**
    * Imports a container AND its ordering from a provider that declares
    * `browse`, and answers with the container and every member it wrote.
    *

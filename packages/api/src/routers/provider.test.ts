@@ -777,3 +777,51 @@ describe("provider.held", () => {
     expect(held).toEqual([{ recordId: "265", itemId }]);
   });
 });
+
+/**
+ * WHAT THE PROVIDER SAYS ABOUT A CONTAINER, ASKED BEFORE ANYTHING IS WRITTEN.
+ *
+ * `provider.browse` declares three refusals so that each is an ANSWER rather
+ * than a fault (ADR-0033), and a POST is the wrong place to find any of them
+ * out: a Server Action that throws during a form submission with no script
+ * answers a bare 500, and Next redacts the message before a boundary could
+ * read it. So the question is asked on the GET instead, where a read belongs,
+ * and every one of the three arrives as a value a page can print.
+ */
+describe("provider.container", () => {
+  it("answers the container's own title, and the name of the provider that holds it", async () => {
+    const baseUrl = await stubProvider();
+
+    const answer = await call(
+      appRouter.provider.container,
+      { baseUrl, containerId: "388305" },
+      { context },
+    );
+
+    // THE TITLE IS THE WHOLE POINT OF ASKING EARLY. A browse writes a
+    // container's worth of placements, and until this the only thing naming
+    // the one about to be written was an id the owner typed.
+    expect(answer).toMatchObject({
+      answer: "container",
+      providerName: "provider-wiki",
+      title: "Category:Vashta Nerada audio stories",
+    });
+  });
+
+  it("says a provider holds no container at that id, rather than throwing", async () => {
+    const baseUrl = await stubProvider();
+
+    // AN ID THIS PROVIDER REALLY HOLDS, AND NOT AS A CONTAINER. `265` is a
+    // story, which is the case an owner reaches by typing a record id into the
+    // box that wants a container's -- and the case a `lookup` could not tell
+    // from a container, since it would answer with the story's own title and
+    // offer a browse the provider then refuses.
+    const answer = await call(
+      appRouter.provider.container,
+      { baseUrl, containerId: "265" },
+      { context },
+    );
+
+    expect(answer).toEqual({ answer: "no-such-container", providerName: "provider-wiki" });
+  });
+});

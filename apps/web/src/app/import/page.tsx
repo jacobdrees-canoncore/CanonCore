@@ -65,26 +65,53 @@ async function readImportPage({ query, provider, container }: Asked) {
   ]);
   const searchable = searchableProvider(configured.providers, provider);
 
-  const [found, held] = await Promise.all([
+  const [found, namedContainer] = await Promise.all([
     query === undefined
       ? Promise.resolve(undefined)
       : call(appRouter.provider.search, { query }, { context }),
-    /*
-     * WHETHER THE NAMED CONTAINER IS ALREADY IN THE CATALOGUE. The owner typed
-     * this id, so -- unlike a candidate, which arrives from a search that answered
-     * the same question -- there is nothing else on the page that knows.
-     *
-     * IT IS THE ONLY WAY THIS SURFACE CAN REPORT A BROWSE. An action's return value
-     * reaches a page through `useActionState` alone, which is a client hook and has
-     * nothing to give when no script has loaded, and a redirect to the new
-     * container would emit a URL Next does not rewrite (ADR-0109). So the page
-     * reads the catalogue and says what it finds.
-     */
     searchable === undefined || container === undefined
       ? Promise.resolve(undefined)
-      : call(appRouter.provider.held, { baseUrl: searchable, recordIds: [container] }, { context }),
+      : aboutTheContainer(context, searchable, container),
   ]);
-  return { allowlisted, configured, found, held, searchable };
+  return { allowlisted, configured, found, namedContainer };
+}
+
+/**
+ * THE TWO QUESTIONS THIS PAGE HAS ABOUT THE CONTAINER THE OWNER NAMED, and they
+ * are two because they are asked of two different parties.
+ *
+ * WHETHER THE CATALOGUE ALREADY HOLDS IT is `held`'s. The owner typed this id,
+ * so -- unlike a candidate, which arrives from a search that answered the same
+ * question -- there is nothing else on the page that knows. It is also the only
+ * way this surface can report a browse: an action's return value reaches a page
+ * through `useActionState` alone, which is a client hook with nothing to give
+ * when no script has loaded, and a redirect to the new container would emit a
+ * URL Next does not rewrite (ADR-0109). So the page reads the catalogue and says
+ * what it finds.
+ *
+ * WHAT THE PROVIDER SAYS ABOUT IT is the other, and `held` cannot reach it: an
+ * id the catalogue has never seen is either a container waiting to be imported
+ * or nothing at all, and only the provider knows which. ASKED ON THE GET, WHICH
+ * IS WHERE A READ BELONGS -- `provider.browse` declares its three refusals so
+ * that each is an answer (ADR-0033), and the POST is the one place none of them
+ * can be read: a Server Action that throws during a form submission with no
+ * script answers a bare `Internal Server Error`, and Next redacts a server
+ * error's message before any boundary could carry it. So the provider is asked
+ * before the button is offered.
+ *
+ * THEY TRAVEL AS ONE VALUE because they are answered together or not at all:
+ * both need a provider this instance searches AND an id to ask about.
+ */
+async function aboutTheContainer(
+  context: Awaited<ReturnType<typeof createContext>>,
+  baseUrl: string,
+  containerId: string,
+) {
+  const [held, said] = await Promise.all([
+    call(appRouter.provider.held, { baseUrl, recordIds: [containerId] }, { context }),
+    call(appRouter.provider.container, { baseUrl, containerId }, { context }),
+  ]);
+  return { baseUrl, containerId, itemId: held.items[0]?.itemId ?? null, said };
 }
 
 /**
@@ -111,6 +138,8 @@ function searchableProvider(configured: string[], named: string | undefined): st
 
 type ImportPage = Awaited<ReturnType<typeof readImportPage>>;
 type Found = NonNullable<ImportPage["found"]>;
+/** The container the owner named: what the catalogue holds, and what the provider says. */
+type NamedContainer = NonNullable<ImportPage["namedContainer"]>;
 
 export default async function ImportPage({
   searchParams,
@@ -125,7 +154,7 @@ export default async function ImportPage({
   const query = oneValue(asked.q);
   const provider = oneValue(asked.provider);
   const container = oneValue(asked.container);
-  const { allowlisted, configured, found, held, searchable } = await readImportPage({
+  const { allowlisted, configured, found, namedContainer } = await readImportPage({
     query,
     provider,
     container,
@@ -144,15 +173,7 @@ export default async function ImportPage({
       {found !== undefined && query !== undefined && <Results found={found} query={query} />}
       <BrowseBox configured={configured.providers} container={container} provider={provider} />
       {container !== undefined &&
-        (searchable === undefined ? (
-          <NotOneOfOurs />
-        ) : (
-          <Container
-            baseUrl={searchable}
-            containerId={container}
-            itemId={held?.items[0]?.itemId ?? null}
-          />
-        ))}
+        (namedContainer === undefined ? <NotOneOfOurs /> : <Container {...namedContainer} />)}
     </main>
   );
 }
@@ -542,33 +563,66 @@ function NotOneOfOurs() {
 }
 
 /**
- * THE CONTAINER THE OWNER NAMED: whether the catalogue holds it, and the button
- * that takes it and its whole ordering.
+ * THE CONTAINER THE OWNER NAMED, AS THE PROVIDER ANSWERS FOR IT.
  *
- * IT SAYS WHAT IT KNOWS AND NOT MORE. This is the catalogue's answer about an id
- * rather than the provider's -- nothing here has asked the provider whether it
- * holds a container at that id, because asking would be a request on every render
- * of a page the owner may simply be typing into. What the provider says is found
- * out by pressing the button, and a provider that holds no container at that id
- * answers with the procedure's own declared error.
+ * EVERY BRANCH HERE IS A SENTENCE RATHER THAN A FAILURE, which is what asking on
+ * the GET buys: `provider.container` reaches the provider, and each of the things
+ * it can say -- here it is, there is nothing at that id, this provider does not
+ * do browse, this provider could not be reached -- is page copy an owner can act
+ * on. Until CNCORE-92 all three refusals were found out by PRESSING the button,
+ * where they arrived as a bare `Internal Server Error` with the provider's own
+ * reason redacted out of it.
+ *
+ * SO THE BUTTON IS OFFERED ONLY WHERE A BROWSE WOULD WORK. Nothing to press is
+ * the difference between a refusal reported and a refusal merely reworded.
  */
-function Container({
-  baseUrl,
-  containerId,
-  itemId,
-}: {
-  baseUrl: string;
-  containerId: string;
-  itemId: string | null;
-}) {
+function Container({ baseUrl, containerId, itemId, said }: NamedContainer) {
   return (
     <section aria-labelledby="container" className="mt-4">
       <h3 className="sr-only" id="container">
         The container you named
       </h3>
+      {said.answer === "container" ? (
+        <ItsOrdering
+          baseUrl={baseUrl}
+          containerId={containerId}
+          itemId={itemId}
+          said={said}
+        />
+      ) : (
+        <NoSuchContainer providerName={said.providerName} />
+      )}
+    </section>
+  );
+}
+
+/**
+ * WHAT THE PROVIDER HOLDS AT THAT ID, and the button that takes it and its whole
+ * ordering.
+ */
+function ItsOrdering({
+  baseUrl,
+  containerId,
+  itemId,
+  said,
+}: {
+  baseUrl: string;
+  containerId: string;
+  itemId: string | null;
+  said: Extract<NamedContainer["said"], { answer: "container" }>;
+}) {
+  return (
+    <>
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 border-t py-3">
-        <span className="flex items-baseline gap-3">
-          <span>{containerId}</span>
+        <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          {/*
+            THE PROVIDER'S OWN TITLE FOR IT, which is what an owner has to go on
+            before sixty placements are written. The id they typed stays beside
+            it: it is what they can correct, and it is the only thing tying this
+            row to the box above.
+          */}
+          <span>{said.title}</span>
+          <span className="text-muted-foreground text-sm">{containerId}</span>
           <span className="text-muted-foreground text-sm">
             {itemId === null ? "Not in your catalogue" : "Already imported"}
           </span>
@@ -594,6 +648,33 @@ function Container({
           </form>
         </span>
       </div>
-    </section>
+    </>
+  );
+}
+
+/**
+ * AN ID THAT ADDRESSES NO CONTAINER AT THAT PROVIDER.
+ *
+ * THE SENTENCE `provider.browse` DECLARES, REACHING THE OWNER AT LAST. ADR-0066
+ * makes this an answer rather than a fault -- an id that cannot BE an identity
+ * addresses nothing, exactly as one nobody minted does -- and ADR-0033's
+ * `NO_SUCH_CONTAINER` exists to say so. It used to arrive as a 500 with the
+ * message redacted; here it is what the page says instead of offering a button.
+ *
+ * NAMED BY THE PROVIDER'S OWN NAME FOR ITSELF, off its manifest, as every other
+ * answering provider on this page is. A reader choosing between two providers
+ * chooses on this rather than on a loopback address.
+ *
+ * IT SAYS WHICH KIND OF ID IS WANTED, because that is the likeliest mistake: a
+ * browse takes a CONTAINER'S own id, and a record id -- which the search results
+ * above are full of -- reaches exactly this answer at a provider that holds the
+ * record perfectly well.
+ */
+function NoSuchContainer({ providerName }: { providerName: string }) {
+  return (
+    <p className="border-t py-3 text-muted-foreground text-sm">
+      {providerName} holds no container at that id. A browse takes a container's own id rather than
+      a record's, so check it at the provider before trying again.
+    </p>
   );
 }

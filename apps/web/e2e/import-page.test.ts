@@ -317,6 +317,40 @@ function browsing({ provider, container }: { provider: string; container: string
   return `/import?provider=${encodeURIComponent(provider)}&container=${encodeURIComponent(container)}`;
 }
 
+/** What one provider says about the container the URL names, asked of the router. */
+async function whatTheProviderSays(named: { provider: string; container: string }) {
+  return client.provider.container({ baseUrl: named.provider, containerId: named.container });
+}
+
+describe("/import, before a container's ordering is imported", () => {
+  it("shows the container's own title, and not merely the id the owner typed", async () => {
+    /*
+     * A BROWSE CAN WRITE SIXTY PLACEMENTS, and until this the only thing naming
+     * the container about to be written was an id the owner typed into a box.
+     * The provider is asked on the GET -- where a read belongs -- so the title
+     * is on the page before the button is pressed rather than afterwards.
+     *
+     * THE TITLE IS TAKEN FROM THE PROVIDER RATHER THAN WRITTEN DOWN HERE, for
+     * the reason `aCandidateNotHeld` above gives: this suite runs against a stub
+     * on one machine and the real image in CI, and a literal would be asserting
+     * that one of those two was running.
+     */
+    const at = browsing(providerSearch.browsable);
+
+    const { status, text } = await documentAt(at);
+
+    expect(status).toBe(200);
+    const said = await whatTheProviderSays(providerSearch.browsable);
+    if (said.answer !== "container") {
+      throw new Error(`the provider handed over no container: ${said.answer}`);
+    }
+    // A REAL TITLE RATHER THAN AN ECHO OF THE ID. A page printing back what was
+    // typed would satisfy a bare `toContain` against the section.
+    expect(said.title).not.toBe(providerSearch.browsable.container);
+    expect(section(text, "container")).toContain(said.title);
+  });
+});
+
 describe("/import, taking a Container and its ordering", () => {
   it("imports the container and the ordering it holds, in one operation", async () => {
     /*
@@ -396,39 +430,42 @@ describe("reaching /import", () => {
 });
 
 describe("/import, when the provider refuses", () => {
-  it("fails visibly rather than looking like it worked", async () => {
+  it("says the provider holds no container at that id, rather than answering a 500", async () => {
     /*
-     * THE ONE FIELD ON THIS PAGE THE OWNER TYPES IS THE ONE THAT CAN BE WRONG.
-     * `provider.browse` declares NO_SUCH_CONTAINER for exactly this, because
+     * THE ONE FIELD ON THIS PAGE THE OWNER TYPES IS THE ONE THAT CAN BE WRONG,
+     * and `provider.browse` declares NO_SUCH_CONTAINER for exactly this because
      * ADR-0033 makes "no container at that id" an answer rather than a fault.
      *
-     * WHAT THE OWNER GETS TODAY IS A BARE 500, AND THIS TEST DOES NOT ENDORSE IT.
-     * Measured while writing it: the response is the eighteen bytes
-     * `Internal Server Error`, with no HTML. An `error.tsx` was written and
-     * removed because it DOES NOT FIRE -- a Server Action that throws during a
-     * form POST with no script answers the bare 500 regardless -- and it could not
-     * have carried the provider's reason anyway, since Next redacts a server
-     * error's message before a boundary sees it. CNCORE-92 is the fix: ask the
-     * provider before offering the button.
+     * WHAT THE OWNER USED TO GET WAS A BARE 500. Measured under CNCORE-68: the
+     * response was the eighteen bytes `Internal Server Error`, with no HTML at
+     * all. An `error.tsx` was written and removed because it DOES NOT FIRE -- a
+     * Server Action that throws during a form POST with no script answers the
+     * bare 500 regardless -- and it could not have carried the provider's reason
+     * anyway, since Next redacts a server error's message before a boundary sees
+     * it. So the refusal is read on the GET instead, where a read belongs.
      *
-     * SO WHAT IS PINNED HERE IS THE INVARIANT THAT MATTERS MEANWHILE. The failure
-     * is LOUD -- the request fails rather than answering 200 with a page that
-     * looks like a success -- and it writes nothing. A silent catch would be worse
-     * than the 500: it would make a provider that is down indistinguishable from a
-     * provider that holds nothing, which is the distinction this codebase keeps
-     * everywhere else.
+     * AND THE BUTTON IS NOT OFFERED, which is the half that makes this more than
+     * a nicer error: there is nothing on the page to press, so the POST that
+     * used to 500 cannot be reached from the surface that used to offer it.
      */
     const at = browsing({
       provider: providerSearch.browsable.provider,
       container: "a container this provider does not hold",
     });
-    const offered = await documentAt(at);
-    const { total } = await client.catalogue.list({});
 
-    const refused = await submit(baseUrl, at, formIn(section(offered.text, "container")));
+    const { status, text } = await documentAt(at);
 
-    expect(refused.status).toBeGreaterThanOrEqual(400);
-    expect((await client.catalogue.list({})).total).toBe(total);
+    expect(status).toBe(200);
+    const said = await whatTheProviderSays({
+      provider: providerSearch.browsable.provider,
+      container: "a container this provider does not hold",
+    });
+    expect(said.answer).toBe("no-such-container");
+    const container = section(text, "container");
+    expect(container.toLowerCase()).toContain("no container at that id");
+    // NOTHING TO PRESS. A page that said this and still rendered the button
+    // would have moved the 500 rather than removed it.
+    expect(postFormsIn(container)).toHaveLength(0);
   });
 
   it("treats a provider it does not search as no provider, rather than reaching it", async () => {
