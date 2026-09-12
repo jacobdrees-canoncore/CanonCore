@@ -181,6 +181,10 @@ export default async function setup(project: TestProject) {
   project.provide("editableBaseUrl", editable.baseUrl);
   project.provide("editable", editable.fixture);
 
+  const curatable = await aCatalogueSafeToCurate();
+  project.provide("curatableBaseUrl", curatable.baseUrl);
+  project.provide("curatable", curatable.fixture);
+
   const still = await aCatalogueThatHoldsStill();
   project.provide("stillBaseUrl", still.baseUrl);
   project.provide("stillCatalogue", still.fixture);
@@ -212,6 +216,7 @@ export default async function setup(project: TestProject) {
     await purgeable.close();
     await still.close();
     await editable.close();
+    await curatable.close();
     // The seed ends its own client; this pool has to be ended too, or the run
     // holds an idle connection open against a database it is finished with.
     await twoOrigins.close();
@@ -1213,6 +1218,60 @@ async function stubWikiProvider(): Promise<{ url: string; close: () => Promise<v
 }
 
 /**
+ * A SEVENTH INSTANCE, and what is new about it is that ITS MEMBERSHIP MOVES.
+ *
+ * `aCatalogueSafeToEdit`'s reason, one operation along. Placing and removing
+ * CHANGE WHAT A CONTAINER HOLDS, and every container on the seeded instance is
+ * somebody's fixture -- `container-page.test.ts` asserts its ordering row by row
+ * and `multi-placement.test.ts` counts what the seeded item sits in. So the
+ * state under test is a catalogue nobody else reads, and what
+ * `placement-write.test.ts` places and removes is gone for that file alone.
+ *
+ * TWO CONTAINERS, BECAUSE THE TICKET'S CENTRAL CRITERION NEEDS TWO. CNCORE-72
+ * asks that one item sit in several orderings at different positions and that
+ * removing it from one leave the others standing -- neither of which can be
+ * asserted against a catalogue with one ordering in it.
+ *
+ * EMPTY, AND FILLED THROUGH THE PAGE. What these containers hold is what the
+ * test puts in them, because putting it there IS the behaviour under test --
+ * a fixture that pre-placed the members would asserting the removal against
+ * rows the harness wrote rather than against the owner's own hand.
+ *
+ * NO PROVIDER, so this instance reaches nothing: every claim on it is the
+ * owner's, which is exactly the state `assertedBy` is read in.
+ */
+async function aCatalogueSafeToCurate() {
+  const instance = await anInstanceServing({
+    suffix: "place",
+    ownerPassword: OWNER_PASSWORD,
+    // ADR-0034's default: an instance nobody has configured reaches nothing.
+    allowlist: "",
+    providers: [],
+    fill: async (db) => ({
+      releaseOrder: await anItemTitled(db, "Release order", {
+        isContainer: true,
+        isOrdered: true,
+      }),
+      storyOrder: await anItemTitled(db, "Story order", { isContainer: true, isOrdered: true }),
+      story: await anItemTitled(db, "The Tenth Planet"),
+      otherStory: await anItemTitled(db, "The Daleks"),
+    }),
+  });
+
+  return {
+    baseUrl: instance.baseUrl,
+    close: instance.close,
+    fixture: {
+      ...instance.fixture,
+      storyTitle: "The Tenth Planet",
+      otherTitle: "The Daleks",
+      releaseOrderTitle: "Release order",
+      storyOrderTitle: "Story order",
+    },
+  };
+}
+
+/**
  * A SIXTH INSTANCE, and what is new about it is that IT CAN BE EDITED.
  *
  * `aCatalogueSafeToPurge`'s reason, one operation along. Editing a title
@@ -1667,6 +1726,23 @@ declare module "vitest" {
       providerUrl: string;
       /** A container holding that record, so browsing it re-asserts the record. */
       container: string;
+    };
+    /**
+     * And again, serving a catalogue NOBODY ELSE READS -- so a test may change
+     * WHAT ITS CONTAINERS HOLD. Every container on the seeded instance is
+     * somebody's fixture, asserted row by row.
+     */
+    curatableBaseUrl: string;
+    /** Two empty orderings and two items, for the owner's own hand to place. */
+    curatable: {
+      releaseOrder: string;
+      storyOrder: string;
+      story: string;
+      otherStory: string;
+      storyTitle: string;
+      otherTitle: string;
+      releaseOrderTitle: string;
+      storyOrderTitle: string;
     };
     /** Every item that instance holds: the set a walk has to arrive at, exactly. */
     pagedCatalogue: string[];

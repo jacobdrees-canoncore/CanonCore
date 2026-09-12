@@ -38,6 +38,7 @@ export const TEST_DATABASE_SUFFIXES = [
   "still",
   "gone",
   "edit",
+  "place",
 ] as const;
 
 /** A suffix this repo has declared, which is the only kind there is. */
