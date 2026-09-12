@@ -270,10 +270,10 @@ export async function removePlacement(form: FormData): Promise<void> {
   if (named === undefined) return;
   const { id, containerId } = named;
 
-  const { answered } = await whatTheProcedureAnswered(
+  const { refused } = await whatTheProcedureAnswered(
     call(appRouter.placement.remove, { id }, { context: await callerContext() }),
   );
-  if (answered === undefined) return;
+  if (refused) return;
 
   redirect(`/items/${containerId}?undo=${id}`);
 }

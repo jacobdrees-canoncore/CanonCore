@@ -82,10 +82,10 @@ export async function logIn(form: FormData): Promise<void> {
 export async function logOut(): Promise<void> {
   const context = await callerContext();
   if (context.session) {
-    const { answered } = await whatTheProcedureAnswered(
+    const { refused } = await whatTheProcedureAnswered(
       call(appRouter.session.logOut, {}, { context }),
     );
-    if (answered === undefined) return;
+    if (refused) return;
   }
   await forgetSession();
   redirect("/login");

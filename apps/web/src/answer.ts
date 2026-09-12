@@ -55,17 +55,19 @@ export type Answered<TOutput, TError> =
  *
  * WHAT A REFUSAL MEANS IS THEN THE ACTION'S, and most of them have nothing to
  * add: the action writes nothing and the page it was posted to renders again,
- * which is what five of these docstrings already say they do. That is Next's
- * whole palette rather than a preference -- ADR-0066 reads the four ways an
- * action can end out of the installed 16.3.4 and finds no 400 among them. An
- * action WITH something to say about a particular refusal reads `refused`
- * instead, which is how `/login` tells a mistyped password from a bound that is
- * holding.
+ * which is the sentence "it returns nothing and the page reports by re-reading"
+ * that `tasks`, `devices` and `import` already carry. That is Next's whole
+ * palette rather than a preference -- ADR-0066 reads the four ways an action
+ * can end out of the installed 16.3.4 and finds no 400 among them. An action
+ * WITH something to say about a particular refusal reads `refused` instead,
+ * which is how `/login` tells a mistyped password from a bound that is holding.
  *
- * `safe` RATHER THAN `try`, because `redirect()` works by THROWING and every
- * caller here redirects. It is only the `call` that is handed over, so a
- * redirect raised on the outcome is nobody's to catch -- but a `try` written at
- * a call site would be one `catch` away from swallowing it as a refusal.
+ * `safe` RATHER THAN `try`, because `redirect()` works by THROWING and six of
+ * the fourteen call sites redirect on what comes back -- counted with
+ * `git grep -o` rather than by eye. Only the `call` is handed over here, so a
+ * redirect raised on the outcome is outside this function and nobody's to
+ * catch; a `try` written at a call site instead would be one `catch` away from
+ * swallowing that redirect as though it were the refusal.
  */
 export async function whatTheProcedureAnswered<TOutput, TError>(
   work: ClientPromiseResult<TOutput, TError>,
