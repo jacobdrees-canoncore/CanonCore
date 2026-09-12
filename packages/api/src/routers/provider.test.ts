@@ -820,6 +820,49 @@ describe("provider.container", () => {
     });
   });
 
+  it("counts every member a browse would write, the ones it cannot place included", async () => {
+    /*
+     * WHAT PRESSING THE BUTTON COSTS, said before it is pressed. One call writes
+     * a container's worth of placements -- that is why `browse` exists at all
+     * (ADR-0033) -- and the owner's only description of it beforehand is this.
+     *
+     * THE UNPLACED ONES ARE MEMBERS TOO (ADR-0009, and `importBrowsedContainer`
+     * writes them with a null position). They are members WITH NO POSITION
+     * rather than non-members, so a count that left them out would understate
+     * what arrives -- for the wiki, by about a sixth.
+     */
+    const baseUrl = await stubProvider(
+      {},
+      {
+        containers: {
+          "388305": {
+            ...VASHTA_NERADA,
+            unplaced: [
+              {
+                id: "355593",
+                title: "Operation Dusk (audio story)",
+                kind: "audio story",
+                released: [],
+                writers: [],
+                series: null,
+                url: "https://tardis.wiki/wiki/Operation_Dusk_(audio_story)",
+              },
+            ],
+          },
+        },
+      },
+    );
+
+    const answer = await call(
+      appRouter.provider.container,
+      { baseUrl, containerId: "388305" },
+      { context },
+    );
+
+    // TWO IN THE ORDERING AND ONE OUTSIDE IT.
+    expect(answer).toMatchObject({ answer: "container", members: 3 });
+  });
+
   it("says a provider holds no container at that id, rather than throwing", async () => {
     const baseUrl = await stubProvider();
 

@@ -349,6 +349,42 @@ describe("/import, before a container's ordering is imported", () => {
     expect(said.title).not.toBe(providerSearch.browsable.container);
     expect(section(text, "container")).toContain(said.title);
   });
+
+  it("says how many members the browse would write, before it writes them", async () => {
+    /*
+     * ONE PRESS WRITES A CONTAINER'S WORTH OF PLACEMENTS -- that is the whole
+     * reason `browse` exists (ADR-0033) -- and the page used to describe what
+     * was about to happen with nothing but the id that had been typed.
+     */
+    const { text } = await documentAt(browsing(providerSearch.browsable));
+
+    const said = await whatTheProviderSays(providerSearch.browsable);
+    if (said.answer !== "container") {
+      throw new Error(`the provider handed over no container: ${said.answer}`);
+    }
+    expect(said.members).toBeGreaterThan(0);
+    expect(section(text, "container")).toContain(`${said.members} members`);
+  });
+
+  it("writes nothing, which is what asking on the GET has to mean", async () => {
+    /*
+     * THE READ REACHES THE PROVIDER'S `browse`, which is the very operation the
+     * button performs -- so the one thing that must stay true is that reading it
+     * IMPORTS NOTHING. A page that quietly wrote sixty placements because
+     * somebody followed a link would be a far worse defect than the 500 this
+     * ticket removes, and it would be invisible: the page would look exactly
+     * like this one.
+     *
+     * COUNTED EITHER SIDE OF THE SAME REQUEST rather than against a known total,
+     * so this holds wherever in the file it runs.
+     */
+    const before = await client.catalogue.list({});
+
+    const { status } = await documentAt(browsing(providerSearch.browsable));
+
+    expect(status).toBe(200);
+    expect((await client.catalogue.list({})).total).toBe(before.total);
+  });
 });
 
 describe("/import, taking a Container and its ordering", () => {

@@ -565,6 +565,18 @@ export const provider = {
           providerName: z.string().min(1),
           /** The container's own title, which is what the owner cannot see today. */
           title: z.string().min(1),
+          /**
+           * HOW MANY MEMBERS A BROWSE WOULD WRITE, which is what pressing the
+           * button costs. One call writes a container's worth of placements --
+           * that is why `browse` exists (ADR-0033) -- and this is the owner's
+           * only description of it beforehand.
+           *
+           * THE ONES THE ORDERING CANNOT PLACE ARE COUNTED TOO, because they
+           * are members with no position rather than non-members and
+           * `importBrowsedContainer` writes them exactly as it writes the rest.
+           * For the wiki that is about a sixth of a category.
+           */
+          members: z.number().int().nonnegative(),
         }),
         /**
          * THE PROVIDER WAS ASKED AND HOLDS NOTHING THERE, which ADR-0066 makes
@@ -622,6 +634,7 @@ export const provider = {
           answer: "container" as const,
           providerName: manifest.name,
           title: browsed.container.title,
+          members: browsed.ordering.length + browsed.unplaced.length,
         };
       } catch (error) {
         /*

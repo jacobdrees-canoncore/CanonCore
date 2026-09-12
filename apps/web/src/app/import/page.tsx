@@ -589,9 +589,7 @@ function Container({ baseUrl, containerId, itemId, said }: NamedContainer) {
       {said.answer === "browse-not-offered" && (
         <BrowseNotOffered providerName={said.providerName} />
       )}
-      {said.answer === "unreachable" && (
-        <NotReached baseUrl={baseUrl} reason={said.reason} />
-      )}
+      {said.answer === "unreachable" && <NotReached baseUrl={baseUrl} reason={said.reason} />}
     </section>
   );
 }
@@ -623,6 +621,24 @@ function ItsOrdering({
           */}
           <span>{said.title}</span>
           <span className="text-muted-foreground text-sm">{containerId}</span>
+          {/*
+            AND WHAT PRESSING THE BUTTON COSTS. One press writes this many
+            placements, which is the whole reason `browse` exists (ADR-0033) and
+            was the one thing the page could not say before it happened.
+
+            PLURALISED WITH AN `s`, as `Holding` does it, which is honest for
+            this word.
+
+            ONE TEMPLATE STRING RATHER THAN TWO EXPRESSIONS SIDE BY SIDE, which
+            is also how `Holding` writes it. React separates adjacent text nodes
+            with a `<!-- -->` marker so it can find the boundary again when it
+            hydrates, so `{n} {noun}` reaches the document as `2<!-- --> <!--
+            -->members` -- correct on screen, and not a string anything reading
+            the HTML can match.
+          */}
+          <span className="text-muted-foreground text-sm">
+            {`${said.members} ${said.members === 1 ? "member" : "members"}`}
+          </span>
           <span className="text-muted-foreground text-sm">
             {itemId === null ? "Not in your catalogue" : "Already imported"}
           </span>
