@@ -175,15 +175,20 @@ function propertyLabel(name: string): string {
  * spokesman's own three terms. This renders that order and does not re-derive
  * it.
  *
- * A COMMA IS ENOUGH OF A SEPARATOR: a row naming two sources is two sources
- * AGREEING, which is a fact about the placement rather than a competition.
+ * A ROW NAMING TWO SOURCES IS TWO SOURCES AGREEING, which is a fact about the
+ * placement rather than a competition.
  *
- * TODO(CNCORE-128): a label containing a comma reads as two sources. `label` is
- * a provider's own `name` off its manifest, so one reading "Acme, Inc." renders
- * as corroboration by two -- the precise distinction both lists exist to draw.
- * Not this ticket's to fix: it predates it in the Members list and the fix is a
- * rendering decision (separate elements rather than a joined string) that both
- * lists and the e2e assertions would move with.
+ * SO EACH NAME IS AN ELEMENT, AND WHAT SITS BETWEEN THEM IS LAYOUT (CNCORE-128).
+ * They were joined with `", "`, and a label is a provider's own `name` off its
+ * manifest -- so one calling itself `Acme, Inc.` read as two names where there
+ * is one, which is corroboration forged. Why no separating CHARACTER can be
+ * trusted, and exactly how far the gap can, is ADR-0017's CNCORE-128 section.
+ *
+ * THE SAME GAP THE ROW ALREADY PUTS BETWEEN ITS FACTS, rather than a second
+ * spacing rule: both call sites lay their row out as `flex items-baseline
+ * gap-3`, which is what separates "Imported" from the names and the names from
+ * `#2`. Held here rather than inherited from either parent, so the component
+ * owns how a SET reads wherever it is rendered.
  *
  * NOTHING FOR A PLACEMENT NOBODY ASSERTED, rather than the word "nobody". The
  * row is still a placement and still a link; what is absent is a claim, and the
@@ -191,7 +196,24 @@ function propertyLabel(name: string): string {
  */
 function AssertedBy({ sources }: { sources: string[] }) {
   if (sources.length === 0) return null;
-  return <span>{sources.join(", ")}</span>;
+  return (
+    <span className="flex items-baseline gap-3">
+      {sources.map((source, place) => (
+        /*
+         * KEYED BY PLACE, BECAUSE A NAME IS NOT AN IDENTITY. Sources are unique
+         * on their identity and not their label, so two providers can call
+         * themselves the same thing and both stand behind one row -- and keyed
+         * by name, those are two siblings with one key. The read path carries
+         * no source id to key by instead (ADR-0045), and place is safe here:
+         * these spans hold no state, so a place that names a different source
+         * after a refresh has nothing to carry across to the wrong one.
+         */
+        <span data-source key={place}>
+          {source}
+        </span>
+      ))}
+    </span>
+  );
 }
 
 export async function generateMetadata({

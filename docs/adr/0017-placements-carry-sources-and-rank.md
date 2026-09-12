@@ -172,7 +172,9 @@ end too and "the opposite of what this record set out to make legible" is now tr
 **AND CORROBORATION IS VISIBLE FROM THIS END AT LAST.** Two providers agreeing about one position
 are ONE placement row carrying two names, which the end-to-end suite renders and asserts -- so the
 gap above ("corroboration being INVISIBLE is the cost until then") is closed for the container's
-end rather than merely arguable from the field's existence.
+end rather than merely arguable from the field's existence. The names were JOINED INTO ONE STRING
+with a comma until CNCORE-128, below, which is a rendering a label carrying a comma can forge a
+second name in.
 
 **BUILT: a member list a reader can tell a Repeat from a disagreement in.** `findPlacementsInContainer`
 answers `assertedBy` -- every source standing behind a placement, by the label each calls itself --
@@ -256,7 +258,9 @@ an implementer reading CNCORE-90's asymmetry as the destination would delete the
 corroborate and a placement one provider asserts are indistinguishable to every reader" was true of
 the item's end until this ticket; agreement lands on ONE placement carrying a source each, so
 corroboration is only ever visible as two NAMES on one row, and the end-to-end suite renders and
-asserts exactly that. The gap paragraph above is rewritten in place rather than answered from here,
+asserts exactly that -- by looking for both names in the row's text, which is a reading that cannot
+say HOW MANY names a row carries. CNCORE-128 is where that mattered and where both halves were
+fixed, below. The gap paragraph above is rewritten in place rather than answered from here,
 because a correction placed beside a claim leaves the old claim standing.
 
 **RANK STILL LEADS, AND THAT IS THE ASSERTION MOST WORTH KEEPING.** This list is ordered by the
@@ -327,3 +331,46 @@ rank and source order are terms this query ORDERS BY and an aggregate cannot be 
 terms its CURSOR compares now as well, and an aggregate cannot be compared against either -- so
 collapsing the two would cost the walk that resumes inside the ordering, not only the ordering.
 
+## And under CNCORE-128: two names are two ELEMENTS, because a source names itself
+
+**THE SEPARATOR CANNOT BE A CHARACTER THE SOURCE CONTROLS.** Both lists joined the names behind a
+placement with `", "`, and a source's `label` is a provider's own `name` off its manifest -- so a
+provider calling itself `Acme, Inc.` rendered as two names where there is one. This record makes two
+names on one row mean CORROBORATION BY TWO SOURCES, so a comma inside a label forged the exact
+distinction the two lists were built to draw: one source saying it twice is a Repeat
+([[0009-multi-parent-membership-with-ordering]]), two sources saying it once each is a disagreement,
+two names on one row is agreement. Telling the first from the second is COUNTING NAMES, and the
+count was being taken off a punctuation mark the provider chooses.
+
+**A RARER GLYPH WOULD NOT HAVE FIXED IT**, which is the half worth keeping. Any character a label
+MAY contain is a character a reader may be wrong to split on, and the provider is the one doing the
+naming -- so a middot or a semicolon narrows the collision rather than closing it. What closes it is
+STRUCTURE: each name is its own ELEMENT, so anything that reads the markup counts one source per
+name, whatever the name contains.
+
+**WHAT A SIGHTED READER SEES IS A NARROWER PROMISE, and it is stated as one.** Between the names is
+the row's own `gap-3`, the gap it already puts between the kind, the names and the position, so the
+rendering gained no spacing rule. Ordinary spaces collapse, so no ordinary name can produce that
+gap. CSS does not collapse a no-break space or an em space, though, and the contract accepts any
+non-empty string as a provider's `name`, so a provider set on imitating a second name could. That
+would be a source forging its own corroboration, which is a different defect from the one this
+section is about: a legal name's ordinary comma. Review of CNCORE-128 caught the first draft of
+this paragraph claiming no label could forge a gap at all.
+
+**AND THE TEST HAD THE SAME DEFECT AS THE PAGE.** The end-to-end suite asserted corroboration, the
+Repeat and the disagreement by looking for names in a row's TEXT, which is the reading that
+produced the defect: a substring says a name is present and never how many there are. All three
+count elements now, at both ends. The count alone is not enough, and review proved it: a rendering
+that put `, ` back BETWEEN the elements passed every assertion. So the reader refuses a row with
+anything at all between two names. The one-source and two-source assertions are only a test
+together: one catches the bare join, the other catches a join with a mark around it, measured both
+ways under CNCORE-128.
+
+The reader has one limit, the same one every regex in `document.ts` has. It reads the DECODED
+document, so a label containing a literal `<` could still split it. Every label it reads was seeded
+by the suite itself, and none contains one.
+
+**NOTHING ABOUT THE RULE MOVED.** Agreement still lands on one placement row carrying a source each,
+the names on it are still ordered by the spokesman's three terms, and the reader still draws the
+conclusion from them. What was wrong was the rendering of a SET -- in `AssertedBy`, the one
+component both lists share since CNCORE-121, which is why this was one site to change and not two.

@@ -418,6 +418,40 @@ export async function logInAt(baseUrl: string, password: string): Promise<string
 }
 
 /**
+ * The sources ONE RENDERED ROW names, one string each.
+ *
+ * READ OFF THE ELEMENTS RATHER THAN OFF A SEPARATOR, which is the whole of
+ * CNCORE-128: a label can carry any character, so a reader splitting on one
+ * cannot tell `Acme, Inc.` from two sources, and neither could a test.
+ *
+ * IT THROWS ON ANYTHING BETWEEN TWO NAMES, which is the half a count alone
+ * misses. Review found a rendering that put `, ` back BETWEEN the elements
+ * passing every assertion: each name still its own element, and the reader
+ * seeing the comma again. The separator is layout (ADR-0017), so what sits
+ * between two names in the markup is nothing at all.
+ *
+ * SHARED, BECAUSE BOTH LISTS RENDER ONE COMPONENT. `AssertedBy` is the Members
+ * list's and "Also appears in"'s alike since CNCORE-121, so two readings of it
+ * in two files would be two ideas of what a row names.
+ *
+ * IT READS THE DECODED DOCUMENT, so a label carrying a literal `<` could still
+ * split it -- the standing limit `textareasIn` names for every regex in this
+ * file. Every label it reads is one this suite seeded, and none carries one.
+ */
+export function sourcesIn(row: string): string[] {
+  const names = [...row.matchAll(/<span\b[^>]*\bdata-source\b[^>]*>(.*?)<\/span>/gs)];
+  names.forEach((name, place) => {
+    const next = names[place + 1];
+    if (next === undefined) return;
+    const between = row.slice((name.index ?? 0) + name[0].length, next.index);
+    if (between !== "") {
+      throw new Error(`that row puts \`${between}\` between two sources: ${row}`);
+    }
+  });
+  return names.map(([, name]) => name ?? "");
+}
+
+/**
  * One `<section>` of a page, by the heading it is labelled with.
  *
  * IT THROWS RATHER THAN ANSWERING NOTHING, which is what makes

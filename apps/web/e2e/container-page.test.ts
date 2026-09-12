@@ -1,6 +1,6 @@
 import { describe, expect, inject, it } from "vitest";
 
-import { documentAt, documentFrom } from "./document";
+import { documentAt, documentFrom, sourcesIn } from "./document";
 
 /**
  * BROWSING INTO A CONTAINER, over real HTTP.
@@ -129,13 +129,20 @@ describe("/items/<a container>", () => {
 
     const repeated = memberRows(repeat.text).filter((row) => row.includes(workBrowsing.repeated));
     expect(repeated).toHaveLength(2);
-    expect(repeated.filter((row) => row.includes(workBrowsing.repeatedBy))).toHaveLength(2);
+    // COUNTED RATHER THAN MATCHED (CNCORE-128): one source per row is the
+    // Repeat's whole definition, and a substring says a name is present without
+    // saying it is the only one.
+    expect(repeated.map((row) => sourcesIn(row))).toStrictEqual([
+      [workBrowsing.repeatedBy],
+      [workBrowsing.repeatedBy],
+    ]);
 
     const argued = memberRows(disagreement.text).filter((row) => row.includes(workBrowsing.argued));
     expect(argued).toHaveLength(2);
-    expect(
-      argued.map((row) => workBrowsing.arguedBy.filter((by) => row.includes(by))),
-    ).toStrictEqual([[workBrowsing.arguedBy[0]], [workBrowsing.arguedBy[1]]]);
+    expect(argued.map((row) => sourcesIn(row))).toStrictEqual([
+      [workBrowsing.arguedBy[0]],
+      [workBrowsing.arguedBy[1]],
+    ]);
     // AND POSITION STILL LEADS (ADR-0018). A container's member list is in its
     // own order by definition, so naming the sources must not reorder it the way
     // `findPlacementsOfItem` does on the item's end -- where rank leads because
@@ -161,11 +168,38 @@ describe("/items/<a container>", () => {
 
     const agreed = memberRows(text).filter((row) => row.includes(workBrowsing.agreedOn));
     expect(agreed).toHaveLength(1);
-    for (const by of workBrowsing.arguedBy) expect(agreed[0]).toContain(by);
+    // AND AS TWO NAMES, COUNTED (CNCORE-128). While they were one joined
+    // string, how many sources a row named was a question about where its
+    // commas fell. They come in the spokesman's order (ADR-0017), and the wiki
+    // outranks the broadcaster.
+    expect(sourcesIn(agreed[0] ?? "")).toStrictEqual([
+      workBrowsing.arguedBy[1],
+      workBrowsing.arguedBy[0],
+    ]);
     // ONE ROW, NOT TWO. Agreement is corroboration rather than a second claim
     // (ADR-0017), so a page rendering this twice would be showing the reader a
     // disagreement that the catalogue does not hold.
     expect(agreed[0]).toContain("#2");
+  });
+
+  it("reads a source whose own name carries a comma as ONE source", async () => {
+    // CNCORE-128, and ADR-0017's section for it says why a comma inside a label
+    // forged corroboration.
+    //
+    // THE SAME CONTAINER AS THE CORROBORATED ROW ABOVE, because the criterion is
+    // a DIFFERENCE: this row is one source and that one is two, and a list that
+    // reads them alike fails one of the two whichever way it is wrong.
+    //
+    // MEASURED, AND IT TAKES BOTH OF THEM. This assertion is what catches the
+    // bare join -- it found no source at all. The corroboration one above is
+    // what catches the half-fix: against a rendering that marked the JOINED
+    // string as one source, this assertion passed and that one failed. Only the
+    // pair pins the rendering.
+    const { text } = await documentAt(`/items/${workBrowsing.disagreedAboutId}`);
+
+    const rows = memberRows(text).filter((row) => row.includes(workBrowsing.singlySourced));
+    expect(rows).toHaveLength(1);
+    expect(sourcesIn(rows[0] ?? "")).toStrictEqual([workBrowsing.singlySourcedBy]);
   });
 
   it("carries the ordering a reader arrived through into the item page", async () => {

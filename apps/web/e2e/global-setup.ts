@@ -1601,6 +1601,30 @@ async function theThingsWorkBrowsingHasToTellApart(databaseUrl: string) {
     });
   }
 
+  /*
+   * AND ONE MEMBER A SINGLE SOURCE PLACES, WHOSE OWN NAME CARRIES A COMMA
+   * (CNCORE-128, and ADR-0017's section for it says why a comma in a label
+   * forged corroboration).
+   *
+   * IN THE SAME CONTAINER AS THE OTHER TWO SHAPES, because the criterion is a
+   * DIFFERENCE: a page holding only this row passes against a list that still
+   * joins on a comma, and a page holding only `agreedOn` passes against one
+   * that never separates names at all.
+   *
+   * AND IT IS SEEDED LAST, so the source it creates takes the next place in the
+   * global order (ADR-0025) and leaves the wiki still ahead of the broadcaster
+   * -- which is what the rank-order assertions either side of it read.
+   */
+  const callsItselfAcme = "A wiki that calls itself Acme, Inc.";
+  const acme = await aProvider(db, "https://provider.test/acme", callsItselfAcme);
+  const placedByOne = await anItemTitled(db, "A story one source places");
+  await assertPlacement(db, {
+    containerId: disagreedAbout,
+    itemId: placedByOne,
+    position: 4,
+    sourceId: acme,
+  });
+
   return {
     fixture: {
       person: "A person in the cast",
@@ -1635,6 +1659,11 @@ async function theThingsWorkBrowsingHasToTellApart(databaseUrl: string) {
       agreedOn: "A story both sources place at two",
       /** The corroborated story's own page, for the same reason `arguedId` is here. */
       agreedOnId: agreedOn,
+      singlySourced: "A story one source places",
+      /** Its own page, for the same reason `arguedId` is here: both ends, one fixture. */
+      singlySourcedId: placedByOne,
+      /** The ONE source behind it, whose own name carries the comma that joined two. */
+      singlySourcedBy: callsItselfAcme,
     },
     // The seed ends its own client; this pool has to be ended too, or the run
     // holds an idle connection open against a database it has finished with.
@@ -1821,6 +1850,9 @@ declare module "vitest" {
       arguedBy: string[];
       agreedOn: string;
       agreedOnId: string;
+      singlySourced: string;
+      singlySourcedId: string;
+      singlySourcedBy: string;
     };
     /** The story imported from a CMPP provider over HTTP, and what it claimed. */
     imported: {

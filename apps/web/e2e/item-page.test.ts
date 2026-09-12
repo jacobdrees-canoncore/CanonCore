@@ -1,6 +1,6 @@
 import { describe, expect, inject, it } from "vitest";
 
-import { documentAt, documentFrom } from "./document";
+import { documentAt, documentFrom, sourcesIn } from "./document";
 
 /**
  * The app over real HTTP: a production build of Next, serving a real database.
@@ -178,7 +178,11 @@ describe("also appears in", () => {
 
     const repeated = orderingRows(repeat.text);
     expect(repeated).toHaveLength(2);
-    expect(repeated.filter((row) => row.includes(workBrowsing.repeatedBy))).toHaveLength(2);
+    // Counted rather than matched, for the reason the Members list gives.
+    expect(repeated.map((row) => sourcesIn(row))).toStrictEqual([
+      [workBrowsing.repeatedBy],
+      [workBrowsing.repeatedBy],
+    ]);
 
     const argued = orderingRows(disagreement.text);
     expect(argued).toHaveLength(2);
@@ -189,9 +193,10 @@ describe("also appears in", () => {
     // it, and it is the wiki that claims #3. The winning claim is therefore the
     // row a reader meets first: the OPPOSITE of the #1-then-#3 the Members list
     // renders, and naming the sources must not disturb it.
-    expect(
-      argued.map((row) => workBrowsing.arguedBy.filter((by) => row.includes(by))),
-    ).toStrictEqual([[workBrowsing.arguedBy[1]], [workBrowsing.arguedBy[0]]]);
+    expect(argued.map((row) => sourcesIn(row))).toStrictEqual([
+      [workBrowsing.arguedBy[1]],
+      [workBrowsing.arguedBy[0]],
+    ]);
     expect(argued[0]).toContain("#3");
     expect(argued[1]).toContain("#1");
   });
@@ -209,7 +214,27 @@ describe("also appears in", () => {
     // so rendering it twice would show the reader a disagreement the catalogue
     // does not hold.
     expect(rows).toHaveLength(1);
-    for (const by of workBrowsing.arguedBy) expect(rows[0]).toContain(by);
+    // AND TWO NAMES ON IT, counted and in the spokesman's order, for the reason
+    // the Members list gives (CNCORE-128).
+    expect(sourcesIn(rows[0] ?? "")).toStrictEqual([
+      workBrowsing.arguedBy[1],
+      workBrowsing.arguedBy[0],
+    ]);
+  });
+
+  it("reads a source whose own name carries a comma as ONE source", async () => {
+    // CNCORE-128 FROM THE ITEM'S END, over the same seeded source the Members
+    // list reads from the container's.
+    //
+    // ASSERTED AT BOTH ENDS RATHER THAN ONLY AT ONE, because `AssertedBy` is one
+    // component for both lists since CNCORE-121: the whole point of sharing it
+    // is that the two cannot drift, and nothing holds them together unless both
+    // are read.
+    const { text } = await documentAt(`/items/${workBrowsing.singlySourcedId}`);
+
+    const rows = orderingRows(text);
+    expect(rows).toHaveLength(1);
+    expect(sourcesIn(rows[0] ?? "")).toStrictEqual([workBrowsing.singlySourcedBy]);
   });
 
   it("goes on filtering by KIND, which is the question the chips ask", async () => {
