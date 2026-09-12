@@ -37,6 +37,7 @@ export const TEST_DATABASE_SUFFIXES = [
   "purge",
   "still",
   "gone",
+  "edit",
 ] as const;
 
 /** A suffix this repo has declared, which is the only kind there is. */

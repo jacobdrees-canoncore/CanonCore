@@ -175,6 +175,10 @@ export default async function setup(project: TestProject) {
   project.provide("purgeableBaseUrl", purgeable.baseUrl);
   project.provide("purgeable", purgeable.fixture);
 
+  const editable = await aCatalogueSafeToEdit(provider.url);
+  project.provide("editableBaseUrl", editable.baseUrl);
+  project.provide("editable", editable.fixture);
+
   const still = await aCatalogueThatHoldsStill();
   project.provide("stillBaseUrl", still.baseUrl);
   project.provide("stillCatalogue", still.fixture);
@@ -205,6 +209,7 @@ export default async function setup(project: TestProject) {
     await paged.close();
     await purgeable.close();
     await still.close();
+    await editable.close();
     // The seed ends its own client; this pool has to be ended too, or the run
     // holds an idle connection open against a database it is finished with.
     await twoOrigins.close();
@@ -503,10 +508,13 @@ async function aCatalogueSafeToPurge(wikiUrl: string, tmdbUrl: string) {
    * provider's claim actually COMPETE over (ADR-0025 seeds the owner at
    * `source_order` 0, so the owner's title outranks the provider's).
    *
-   * NOT THROUGH A SURFACE, BECAUSE THERE IS NOT ONE YET. Item editing is
-   * CNCORE-60's v0.2.0 half, so the owner's rows are written here the way the
-   * rest of this harness writes its fixtures -- which is also why this is a
-   * fixture rather than a test of editing.
+   * NOT THROUGH A SURFACE, AND SINCE CNCORE-71 THAT IS A CHOICE RATHER THAN THE
+   * ONLY OPTION. This used to read "because there is not one yet"; there is one
+   * now -- `/new` and the title form on an item page -- and this fixture still
+   * does not use it, because what these tests need is an item in that STATE and
+   * going through the page would make every purge assertion depend on the edit
+   * path staying green. `item-write.test.ts` is where editing is tested, on an
+   * instance of its own.
    */
   const kept = async (itemId: string, ordering: string): Promise<string> => {
     await assertPlacement(db, {
@@ -1174,6 +1182,65 @@ async function stubWikiProvider(): Promise<{ url: string; close: () => Promise<v
 }
 
 /**
+ * A SIXTH INSTANCE, and what is new about it is that IT CAN BE EDITED.
+ *
+ * `aCatalogueSafeToPurge`'s reason, one operation along. Editing a title
+ * REPLACES what a page shows, and the seeded instance's titles are all somebody
+ * else's fixture -- `item-page.test.ts` asserts the imported item's down to its
+ * `<h1>`, and the seeded item's is what `front-page.test.ts` reads. So the
+ * state under test is a catalogue nobody else reads, and what `item-write`
+ * changes is gone for that file alone.
+ *
+ * TWO ITEMS, BECAUSE THE TICKET HAS TWO CRITERIA ABOUT WHOSE VALUE WINS. One is
+ * made BY HAND and carries only the owner's own title -- ADR-0003's item with
+ * no provider record and no file, which is what proves an edit needs no
+ * provider to have gone first. The other is IMPORTED, so its title is a
+ * provider's and the owner's edit has something to beat (ADR-0025).
+ *
+ * THE IMPORT GOES THROUGH THE APP, for the reason every other fixture here
+ * does: a provider title written by hand would assert the owner's edit against
+ * the harness's idea of an import rather than against one.
+ *
+ * THE HAND-MADE ONE DOES NOT, and that is not an inconsistency. It is written
+ * before the server starts, through `@canoncore/db`'s own export, because what
+ * this file needs is an item in that STATE rather than a second test of the
+ * create path -- `item-write.test.ts` creates items through the page itself,
+ * which is where creating is actually asserted.
+ */
+async function aCatalogueSafeToEdit(wikiUrl: string) {
+  const handTitle = "A title only the owner has ever given anything";
+  let hand = "";
+  const instance = await anInstanceServing({
+    suffix: "edit",
+    // FILLED AND THEN EDITED THROUGH THE PAGE, both of which are the owner's.
+    ownerPassword: OWNER_PASSWORD,
+    allowlist: "127.0.0.0/8",
+    providers: [wikiUrl],
+    fill: async (db) => {
+      hand = await anItemTitled(db, handTitle);
+    },
+  });
+
+  const client = await asTheOwner(instance.baseUrl);
+  const { itemId } = await client.provider.import({
+    baseUrl: wikiUrl,
+    recordId: TENTH_PLANET.id,
+  });
+
+  return {
+    baseUrl: instance.baseUrl,
+    close: instance.close,
+    fixture: {
+      hand,
+      handTitle,
+      imported: itemId,
+      importedTitle: TENTH_PLANET.title,
+      providerLabel: "provider-wiki",
+    },
+  };
+}
+
+/**
  * A FIXTURE, not part of the demo: one item in two orderings that arrived by
  * two DIFFERENT routes, one from the owner's hand and one from a provider.
  *
@@ -1435,6 +1502,24 @@ declare module "vitest" {
      * And again, serving a catalogue NOBODY ELSE READS -- so a test may delete
      * from it. Every other instance here is somebody's fixture.
      */
+    /**
+     * And again, serving a catalogue NOBODY ELSE READS -- so a test may EDIT
+     * it. `item-write.test.ts` retitles a provider's item, and every title on
+     * the seeded instance is somebody's fixture (`item-page.test.ts` asserts
+     * the imported one down to its `<h1>`).
+     */
+    editableBaseUrl: string;
+    /** The two items on it, and what they are titled before anything edits them. */
+    editable: {
+      /** Made by hand, with no provider record and no file (ADR-0003). */
+      hand: string;
+      handTitle: string;
+      /** Imported, so its title is a PROVIDER's and the owner's can beat it. */
+      imported: string;
+      importedTitle: string;
+      /** What the provider calls itself, which is what a Values row shows. */
+      providerLabel: string;
+    };
     purgeableBaseUrl: string;
     /** Which provider on it may be purged, which may not, and what survives one. */
     purgeable: {

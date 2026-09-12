@@ -44,3 +44,21 @@ The same three terms also settle WHICH OF TWO PLACEMENTS SPEAKS when two sources
 position -- two rows, both standing, the winner first. That is not a new rule, it is this one
 reaching the case [[0017-placements-carry-sources-and-rank]] was waiting for a second origin to
 produce, and `browse` is that origin.
+
+## The owner's place in the order gets a WRITER, under CNCORE-71
+
+**BUILT: something that actually writes at `source_order` 0.** Migration 1 seeded
+the owner into the order and, until this slice, nothing in the product ever wrote
+a statement against that row -- the seed did, and the purge fixture did, and both
+are harness rather than product. `createItemByHand` and `retitleItemByHand` are
+the first writers, so "nothing the owner asserts is ever beaten by a provider" is
+now a property a user can produce rather than one only a fixture could
+demonstrate.
+
+**AND IT IS WHAT MAKES THE ORDER'S POINT VISIBLE.** An owner retitling an imported
+item outranks the provider with no rank set and no favourite chosen, because 0
+comes first -- and the provider's claim STILL STANDS beside it, since a source may
+only withdraw what it said itself. That pair is asserted at all three seams.
+
+**THIS RECORD STAYS `proposed` FOR THE REASON IT ALREADY GAVE.** The group half is
+still missing, groups are still not a table, and CNCORE-71 adds neither.

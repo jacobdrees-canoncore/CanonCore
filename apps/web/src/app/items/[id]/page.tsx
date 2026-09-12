@@ -1,10 +1,17 @@
+import type { Context } from "@canoncore/api/context";
 import { createContext } from "@canoncore/api/context";
 import { appRouter } from "@canoncore/api/routers";
+import { Button } from "@canoncore/ui/components/button";
+import { Input } from "@canoncore/ui/components/input";
+import { Label } from "@canoncore/ui/components/label";
 import { call, isDefinedError, safe } from "@orpc/server";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Attribution } from "@/components/attribution";
+import { callerContext } from "@/session";
+
+import { retitleItem } from "../actions";
 
 /**
  * ADR-0066: `/items/<id>` is canonical and addresses the item.
@@ -13,9 +20,9 @@ import { Attribution } from "@/components/attribution";
  * fetching its own API is a round trip to itself, and oRPC documents `call` as
  * the way to avoid it.
  */
-async function readItem(id: string) {
+async function readItem(id: string, context?: Context) {
   const { error, data } = await safe(
-    call(appRouter.item.get, { id }, { context: await createContext() }),
+    call(appRouter.item.get, { id }, { context: context ?? (await createContext()) }),
   );
   if (!error) return data;
   // Only a missing item is a 404. Anything else -- a database that is down, a
@@ -151,7 +158,18 @@ export default async function ItemPage({
   searchParams: Promise<{ via?: string | string[]; placed?: string | string[] }>;
 }) {
   const { id } = await params;
-  const item = await readItem(id);
+  /*
+   * THE CALLER'S OWN CONTEXT, which on this page decides what is OFFERED rather
+   * than what is answered. Every read here is open (ADR-0044), and the one
+   * thing that WRITES is the owner's (CNCORE-109) -- so a visitor is shown the
+   * whole item and no way to change it, rather than a button that answers 401.
+   *
+   * ONE CONTEXT FOR BOTH, for the reason `/import` gives: two calls to it would
+   * be two answers to "what does this request carry".
+   */
+  const context = await callerContext();
+  const item = await readItem(id, context);
+  const owner = context.session !== null;
   /*
    * ADR-0066: the ordering the reader arrived through. Read HERE, on the
    * server, so it is in the HTML the reader is served rather than filled in by
@@ -199,7 +217,26 @@ export default async function ItemPage({
           copy -- so neither surface keeps a map of its own to go stale.
         */}
         <dd>{item.kind}</dd>
+        {/*
+          WHAT SORT OF THING IT IS BEYOND ITS KIND (ADR-0004, ADR-0018). A
+          container folds into `work`, so `kind` alone cannot tell an owner
+          whether the item they just made holds things -- and an EMPTY container
+          has no Members list to infer it from, which is exactly the state an
+          owner meets straight after creating one.
+        */}
+        {item.isContainer && (
+          <>
+            <dt className="text-muted-foreground">Holds</dt>
+            <dd>{item.isOrdered ? "Ordered container" : "Unordered container"}</dd>
+          </>
+        )}
       </dl>
+      {/*
+        THE OWNER'S OWN HAND ON THE VALUE, directly above the list of who claims
+        what -- so an owner who disagrees with a provider edits in the place
+        they saw the disagreement.
+      */}
+      {owner && <EditTitle itemId={item.id} title={item.title} />}
       <Values statements={item.statements} />
       {/*
         BEFORE "Also appears in", because a container's own ordering is what a
@@ -497,5 +534,55 @@ function FilterLink({
     >
       {children}
     </Link>
+  );
+}
+
+/**
+ * THE OWNER'S JUDGEMENT BEATING THE RANKING (ADR-0025), as a form.
+ *
+ * IT WRITES A STATEMENT rather than the column. `items.title` is a projection
+ * of whichever title statement currently wins (ADR-0014), so the edit below is
+ * a claim with the owner's name on it -- which is why the Values list under it
+ * gains a row sourced to Owner rather than silently changing the provider's.
+ * Jellyfin cannot express this: its merge discards the losing answer, so there
+ * is nothing for the owner's edit to outrank (ADR-0026).
+ *
+ * THE FIELD OPENS ON THE CURRENT TITLE, because this is an EDIT. An owner
+ * correcting one word should not have to retype the sentence, and a blank field
+ * beside a heading that shows a title reads as "add another" rather than
+ * "change this".
+ *
+ * `defaultValue` RATHER THAN `value`, which is what keeps this working with no
+ * script: a controlled input needs an `onChange` handler and therefore a client
+ * component, and the whole surface is asserted at a seam with no browser.
+ *
+ * THE ITEM'S ID TRAVELS AS A HIDDEN FIELD rather than being read from the URL
+ * in the action. A Server Action gets no request URL -- it is a function call,
+ * not a route -- so the subject has to be in the form. It is input like any
+ * other and the procedure treats it as such.
+ */
+function EditTitle({ itemId, title }: { itemId: string; title: string | null }) {
+  return (
+    <section className="mt-8" aria-labelledby="edit-title">
+      <h2 id="edit-title" className="font-medium text-sm">
+        Title
+      </h2>
+      <form action={retitleItem} className="mt-2 flex items-end gap-2">
+        <input type="hidden" name="id" value={itemId} />
+        <div className="flex flex-1 flex-col gap-2">
+          <Label htmlFor="title" className="sr-only">
+            Title
+          </Label>
+          {/*
+            `title ?? ""` IS AN ITEM WITH NO TITLE STATEMENT, which is a real
+            state rather than a defensive default: ADR-0003 lets an item exist
+            with nothing said about it, and the heading above renders "Untitled
+            item" for one. The field is what an owner fixes that in.
+          */}
+          <Input id="title" name="title" defaultValue={title ?? ""} required autoComplete="off" />
+        </div>
+        <Button type="submit">Save</Button>
+      </form>
+    </section>
   );
 }
