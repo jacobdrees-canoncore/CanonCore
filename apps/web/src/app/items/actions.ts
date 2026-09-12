@@ -6,6 +6,7 @@ import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
+import { given } from "@/form";
 import { callerContext } from "@/session";
 
 /**
@@ -28,16 +29,11 @@ import { callerContext } from "@/session";
  * ordinary `multipart/form-data` request when no script has loaded, which is
  * why these surfaces are asserted at the page-over-HTTP seam with no browser.
  *
- * A FORM FIELD IS INPUT, whoever rendered the form, so everything below is
- * parsed rather than trusted.
- *
- * TODO(CNCORE-123): `form.get` answers `File | string | null`, and a `z.string()`
- * field handed a `File` throws a `ZodError` nothing catches -- so a request
- * composed by hand gets `Internal Server Error` where CNCORE-14 and ADR-0066
- * both say it should get a refusal. Found by review on CNCORE-74 and left to
- * that ticket, because the shape is the same in all four of this app's actions
- * and predates this one: fixing it here would be one of four, and the rule
- * belongs in one place the next action inherits.
+ * A FORM FIELD IS INPUT, whoever rendered the form, so everything below is read
+ * through `given` rather than trusted -- which is where `FormData.get` answering
+ * `File | string | null` is dealt with, once, for every action in this app
+ * (CNCORE-123). An action that cannot read a field it needs writes nothing and
+ * lets the page it was posted to render again.
  */
 
 /**
@@ -61,11 +57,10 @@ const newItem = z.object({
 });
 
 export async function createItem(form: FormData): Promise<void> {
-  const { holds, ...named } = newItem.parse({
-    kind: form.get("kind"),
-    title: form.get("title"),
-    holds: form.get("holds"),
-  });
+  const carried = given(form, newItem);
+  if (carried === undefined) return;
+
+  const { holds, ...named } = carried;
   const input = {
     ...named,
     isContainer: holds !== "nothing",
@@ -119,7 +114,8 @@ const editedTitle = z.object({ id: z.string(), title: z.string() });
  * would be clearing a cache this app does not have.
  */
 export async function retitleItem(form: FormData): Promise<void> {
-  const input = editedTitle.parse({ id: form.get("id"), title: form.get("title") });
+  const input = given(form, editedTitle);
+  if (input === undefined) return;
 
   await call(appRouter.item.retitle, input, { context: await callerContext() });
   refresh();
@@ -145,7 +141,8 @@ const editedNote = z.object({ id: z.string(), note: z.string() });
  * page-over-HTTP seam cannot see.
  */
 export async function annotateItem(form: FormData): Promise<void> {
-  const input = editedNote.parse({ id: form.get("id"), note: form.get("note") });
+  const input = given(form, editedNote);
+  if (input === undefined) return;
 
   await call(appRouter.item.annotate, input, { context: await callerContext() });
   refresh();

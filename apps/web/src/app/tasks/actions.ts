@@ -4,6 +4,7 @@ import { appRouter } from "@canoncore/api/routers";
 import { call } from "@orpc/server";
 import { z } from "zod";
 
+import { given } from "@/form";
 import { callerContext } from "@/session";
 
 /**
@@ -32,9 +33,10 @@ const theTaskNamed = z.object({ key: z.string() });
  * is ADR-0049's minimum met by the ordinary path rather than by an error page.
  */
 export async function runTask(form: FormData): Promise<void> {
-  const { key } = theTaskNamed.parse({ key: form.get("key") });
+  const named = given(form, theTaskNamed);
+  if (named === undefined) return;
 
-  await call(appRouter.task.run, { key }, { context: await callerContext() });
+  await call(appRouter.task.run, named, { context: await callerContext() });
 }
 
 /**
@@ -46,7 +48,8 @@ export async function runTask(form: FormData): Promise<void> {
  * on.
  */
 export async function cancelTask(form: FormData): Promise<void> {
-  const { key } = theTaskNamed.parse({ key: form.get("key") });
+  const named = given(form, theTaskNamed);
+  if (named === undefined) return;
 
-  await call(appRouter.task.cancel, { key }, { context: await callerContext() });
+  await call(appRouter.task.cancel, named, { context: await callerContext() });
 }

@@ -5,6 +5,7 @@ import { call, ORPCError, safe } from "@orpc/server";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
+import { given } from "@/form";
 import { callerContext, forgetSession, rememberSession } from "@/session";
 import { REFUSED } from "./refusal";
 
@@ -29,10 +30,11 @@ const offered = z.object({ password: z.string() });
  * imposes one.
  */
 export async function logIn(form: FormData): Promise<void> {
-  const { password } = offered.parse({ password: form.get("password") });
+  const named = given(form, offered);
+  if (named === undefined) return;
 
   const { error, data } = await safe(
-    call(appRouter.session.logIn, { password }, { context: await callerContext() }),
+    call(appRouter.session.logIn, named, { context: await callerContext() }),
   );
 
   // A REFUSED PASSWORD IS AN ANSWER, NOT A CRASH -- the same rule
