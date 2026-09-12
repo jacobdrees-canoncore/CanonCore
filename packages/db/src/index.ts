@@ -25,6 +25,7 @@ export {
   assertPlacement,
   PlacementRefused,
   placeItemByHand,
+  movePlacementByHand,
   removePlacementByHand,
   restorePlacementByHand,
   type Writer,

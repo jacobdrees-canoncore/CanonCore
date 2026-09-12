@@ -183,8 +183,16 @@ export class PlacementRefused extends Error {}
  * there. Anything else -- a dropped connection, a disk full -- is NOT the
  * owner's doing and goes on being a fault, which is the narrowing `by-hand.ts`
  * records at greater length.
+ *
+ * `23514` is `refuse_placement_cycle` (migration 15): a container asked to hold
+ * itself, or to hold something it already sits inside. ADR-0074 makes that the
+ * DATABASE's refusal rather than the drag's, and it is the owner asking for
+ * something impossible rather than the server breaking -- so it belongs with
+ * the other two rather than escaping as a fault. The trigger raises
+ * `check_violation` for the reason migration 1's category trigger does: there
+ * is no SQLSTATE for "that would make a cycle", and a check is what this is.
  */
-const PLACEMENT_REFUSALS = new Set(["23505", "23503"]);
+const PLACEMENT_REFUSALS = new Set(["23505", "23503", "23514"]);
 
 /**
  * THE OWNER PUTTING AN ITEM IN A CONTAINER, naming the placement it creates.
@@ -382,4 +390,105 @@ export async function restorePlacementByHand(
     .returning({ id: placements.id });
 
   return restored.length > 0;
+}
+
+/**
+ * THE OWNER DRAGGING A MEMBER INTO A NEW PLACE (ADR-0116), which is the fourth
+ * of the four mutations ADR-0061 left unbuilt and the one that record is about.
+ *
+ * IT TAKES THE DELTA, NOT THE ORDERING. The placement that moved -- its
+ * container and its position -- together with the siblings whose Position
+ * actually changed. Handing it the rebuilt list would be simpler and is refused
+ * for one reason: it rewrites every Placement in the container on every drop,
+ * so a position a PROVIDER asserted comes back owner-asserted and the
+ * disagreement it might have had is gone (ADR-0017). Provenance is what this
+ * product is for.
+ *
+ * THE ARITHMETIC IS THE CALLER'S, and ADR-0116 accepts that cost by name: a bug
+ * in it writes FEWER rows than it should rather than more, which fails visibly
+ * as an ordering that does not match what was dragged. The whole-ordering bug
+ * fails invisibly, by laundering provenance nobody was looking at.
+ *
+ * Answers whether it moved anything, so a stale row is an answer rather than a
+ * fault -- the posture `removePlacementByHand` takes.
+ */
+export async function movePlacementByHand(
+  db: Database,
+  {
+    id,
+    containerId,
+    position,
+    siblings,
+  }: {
+    id: string;
+    containerId: string;
+    position: number | null;
+    siblings: readonly { id: string; position: number | null }[];
+  },
+): Promise<boolean> {
+  try {
+    return await inOneTransaction(db, { id, containerId, position, siblings });
+  } catch (cause) {
+    /*
+     * NARROWED, SO A FAULT STAYS A FAULT -- `placeItemByHand`'s rule, and it
+     * has one more thing to catch here. The unique is DEFERRED for this
+     * transaction (migration 14), so a Repeat that really is a Repeat at one
+     * position surfaces at the COMMIT rather than at the statement; the
+     * SQLSTATE is the same `23505` and this is still the place that translates
+     * it. The cycle trigger's `23514` arrives at its statement as usual.
+     */
+    if (isRefusalOn(PLACEMENT_REFUSALS, cause)) {
+      throw new PlacementRefused("the catalogue refused that move", { cause });
+    }
+    throw cause;
+  }
+}
+
+/** The move itself, so the narrowing above wraps the COMMIT and not just the writes. */
+async function inOneTransaction(
+  db: Database,
+  {
+    id,
+    containerId,
+    position,
+    siblings,
+  }: {
+    id: string;
+    containerId: string;
+    position: number | null;
+    siblings: readonly { id: string; position: number | null }[];
+  },
+): Promise<boolean> {
+  return db.transaction(async (tx) => {
+    /*
+     * THE RULE IS ABOUT THE ORDERING, WHICH IS ONLY OBSERVABLE BETWEEN
+     * TRANSACTIONS (migration 14). `placements_container_item_position` is
+     * checked row by row, and a permutation's intermediate states need not keep
+     * a rule its end state keeps: a Repeat dragged past its own other copy lands
+     * on that copy's tuple mid-way and fails on a constraint the finished
+     * ordering does not break. Deferring reads it where it means something.
+     *
+     * FOR THIS TRANSACTION ONLY. The constraint is `INITIALLY IMMEDIATE`, so
+     * every other write in this repository is checked exactly where it was --
+     * an import's refusal still arrives at the statement that caused it rather
+     * than at a commit where the offending row is no longer in hand.
+     */
+    await tx.execute(sql`set constraints "placements_container_item_position" deferred`);
+
+    const [moved] = await tx
+      .update(placements)
+      .set({ containerId, position })
+      .where(and(eq(placements.id, id), isNull(placements.deletedAt)))
+      .returning({ id: placements.id });
+    if (!moved) return false;
+
+    for (const sibling of siblings) {
+      await tx
+        .update(placements)
+        .set({ position: sibling.position })
+        .where(and(eq(placements.id, sibling.id), isNull(placements.deletedAt)));
+    }
+
+    return true;
+  });
 }

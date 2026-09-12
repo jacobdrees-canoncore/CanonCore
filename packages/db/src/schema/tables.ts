@@ -463,6 +463,16 @@ export const placements = pgTable(
     // would be two rows, because NULL is distinct from NULL -- and agreement
     // about the least certain fact in the table would be the one kind of
     // agreement this constraint failed to record.
+    //
+    // AND IT IS `DEFERRABLE INITIALLY IMMEDIATE` IN THE DATABASE, WHICH THIS
+    // LINE CANNOT SAY. drizzle-orm 0.45.2's `unique()` publishes
+    // `nullsNotDistinct()` and nothing else, so migration 14 hand-writes the
+    // deferrability and there is no way to declare it here. Nothing drifts:
+    // `drizzle-kit generate` diffs this file against the head snapshot and
+    // neither models deferrability, so a later `generate` can neither notice
+    // nor re-emit it. The reason it is deferrable lives in that rung -- a
+    // reorder is one permutation, and a rule about an ordering is only
+    // observable between transactions.
     unique("placements_container_item_position")
       .on(t.ownerId, t.containerId, t.itemId, t.position)
       .nullsNotDistinct(),
