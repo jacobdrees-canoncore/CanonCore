@@ -14,7 +14,8 @@ sizing premise nobody checked.
 
 Section 1 attacks the sizing premise, because that is where GBP 86.60 came from. Section 2 is the
 ranked table. Section 3 is the split nobody priced. Section 4 is the one capability question that
-could still sink the cheap answer. Section 5 says what to do.
+looked like it could sink the cheap answer, tested 2026-09-10 and settled 2026-09-12. Section 5 says
+what to do.
 
 Every price is dated 2026-09-10 and marked **vendor-verified** or **second-hand**. That distinction
 is load-bearing here: two vendors render prices client-side and could not be read directly, and
