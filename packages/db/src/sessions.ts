@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 
 import type { Database } from "./index";
 import { theOwnerId } from "./placements";
@@ -38,6 +38,53 @@ export interface OwnerSession extends DeclaredDevice {
  */
 function mintToken(): string {
   return randomBytes(32).toString("base64url");
+}
+
+/**
+ * HOW LONG A SESSION LASTS, whatever it does (ADR-0043, CNCORE-116).
+ *
+ * THIRTY DAYS FROM THE LOGIN THAT MINTED IT, which is the same thirty days the
+ * cookie carries as its `Max-Age` -- and the web app reads this constant for it
+ * rather than writing the number down a second time. The two were already the
+ * same length by coincidence; they are the same VALUE now, so a session cannot
+ * outlive the browser's copy of its token or the reverse.
+ */
+export const SESSION_LIFETIME_SECONDS = 60 * 60 * 24 * 30;
+
+/**
+ * HOW LONG A SESSION SURVIVES BEING UNUSED (ADR-0043, CNCORE-116).
+ *
+ * SEVEN DAYS SINCE THE DEVICE WAS LAST SEEN, which is the limit the lifetime
+ * above cannot express: a device the owner stopped using in week one holds a
+ * live token for the three weeks left on its lifetime, and a machine somebody
+ * stopped using is precisely where a copied token comes from. A week is long
+ * enough that an owner who opens their catalogue on Sundays never meets it.
+ *
+ * IT COSTS NO COLUMN. `last_seen_at` is one of ADR-0043's seven, stamped by
+ * `seeSession` on every request the owner makes, so the policy reads what the
+ * row already carried rather than a rung on the ladder.
+ */
+export const SESSION_IDLE_LIMIT_SECONDS = 60 * 60 * 24 * 7;
+
+/**
+ * A session is live if it has not been ended and has not lapsed.
+ *
+ * WRITTEN ONCE AND SHARED, because every question about a session asks it: the
+ * lookup the whole write path rests on, and the list the owner reads when
+ * deciding which device to log out. A list that showed a session the write path
+ * would refuse is a list offering to end something already over.
+ *
+ * THE CLOCK IS POSTGRES'S. ADR-0043 records what happens when it is not: the
+ * application's clock against the database's default `now()` read BACKWARDS by
+ * 60ms on this machine, which is a comparison this policy cannot afford to get
+ * wrong in either direction.
+ */
+function isLive() {
+  return and(
+    isNull(sessions.deletedAt),
+    sql`${sessions.createdAt} > now() - make_interval(secs => ${SESSION_LIFETIME_SECONDS})`,
+    sql`${sessions.lastSeenAt} > now() - make_interval(secs => ${SESSION_IDLE_LIMIT_SECONDS})`,
+  );
 }
 
 /** The verifier stored against a token. See `sessions.tokenHash`. */
@@ -112,9 +159,38 @@ export async function seeSession(db: Database, token: string): Promise<OwnerSess
   const [row] = await db
     .update(sessions)
     .set({ lastSeenAt: sql`now()` })
-    .where(and(eq(sessions.tokenHash, hashOf(token)), isNull(sessions.deletedAt)))
+    .where(and(eq(sessions.tokenHash, hashOf(token)), isLive()))
     .returning();
   return row ? asSession(row) : null;
+}
+
+/**
+ * Every device the owner is logged in on, most recently seen first.
+ *
+ * THE SURFACE ADR-0043 SAYS EVERYONE ACTUALLY WANTS. That record refuses a
+ * token on the user row because logging ONE device out has to be possible, and
+ * `endSession` has taken a session id since CNCORE-109 for exactly this reason.
+ * What was missing was a way to find out which ids there are.
+ *
+ * LIVE ONLY, on the same predicate the write path is guarded by, so the list
+ * cannot offer to end a session that is already refused.
+ *
+ * THE OWNER IS READ RATHER THAN PASSED, for the reason `startSession` gives: a
+ * caller free to name an owner is a caller free to name the wrong one on the day
+ * multi-user arrives (ADR-0044 makes exactly one today).
+ *
+ * ORDERED BY THE SIGHTING RATHER THAN BY WHEN THE DEVICE LOGGED IN, because
+ * what the owner is looking for is the device they are not holding, and "last
+ * seen" is the column that tells them apart. An id they cannot place at the top
+ * of the list is the one worth ending.
+ */
+export async function listSessions(db: Database): Promise<OwnerSession[]> {
+  const rows = await db
+    .select()
+    .from(sessions)
+    .where(and(eq(sessions.ownerId, await theOwnerId(db)), isLive()))
+    .orderBy(desc(sessions.lastSeenAt));
+  return rows.map(asSession);
 }
 
 /**
@@ -140,6 +216,38 @@ export async function endSession(db: Database, sessionId: string): Promise<boole
     .where(and(eq(sessions.id, sessionId), isNull(sessions.deletedAt)))
     .returning({ id: sessions.id });
   return ended.length > 0;
+}
+
+/**
+ * Removes the sessions that can never answer again, and says how many went.
+ *
+ * ONE RULE: A ROW GOES WHEN IT IS PAST ITS LIFETIME, whatever happened to it on
+ * the way. Thirty days after it was minted a session is refused by every
+ * question this module answers -- ended, idle or simply old -- so the row holds
+ * nothing but a fact about a device that stopped mattering a month ago.
+ *
+ * WHICH IS WHY IT IS NOT "DELETE EVERYTHING `seeSession` REFUSES". A tombstone
+ * that vanished the moment `endSession` wrote it would cost the distinction that
+ * function exists to keep -- "the owner logged this device out" against "this
+ * device was never logged in" -- and cost it for every row rather than after a
+ * month.
+ *
+ * A HARD DELETE, WHICH IS ADR-0075's TOMBSTONE COMPACTION rather than an
+ * exception to it: the tombstone has already been written and has already
+ * outlived the question it answers. Compaction is on ADR-0049's own list of what
+ * the task registry is for.
+ *
+ * NOTHING'S SECURITY RESTS ON THIS RUNNING. `seeSession` refuses a lapsed
+ * session whether or not it has been swept, so a sweep nobody has run is a table
+ * that grew rather than a door left open. See ADR-0049's as-built section for
+ * what runs it today and what does not.
+ */
+export async function sweepSessions(db: Database): Promise<number> {
+  const swept = await db
+    .delete(sessions)
+    .where(sql`${sessions.createdAt} <= now() - make_interval(secs => ${SESSION_LIFETIME_SECONDS})`)
+    .returning({ id: sessions.id });
+  return swept.length;
 }
 
 type SessionRow = typeof sessions.$inferSelect;

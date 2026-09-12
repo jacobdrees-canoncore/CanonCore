@@ -41,9 +41,13 @@ export * from "./schema";
 export {
   type DeclaredDevice,
   endSession,
+  listSessions,
   type OwnerSession,
   seeSession,
+  SESSION_IDLE_LIMIT_SECONDS,
+  SESSION_LIFETIME_SECONDS,
   startSession,
+  sweepSessions,
 } from "./sessions";
 export { worktreeDatabaseName } from "./worktree-database";
 
