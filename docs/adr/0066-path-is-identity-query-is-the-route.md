@@ -254,17 +254,40 @@ would delete the owner's words on a request nobody made. Nothing given is not th
 nothing said. That is the one substitution this rule is forbidden to make, and it is asserted at the
 page-over-HTTP seam rather than left as prose.
 
-**THE RULE IS ONE READER KEYED OFF THE SCHEMA'S OWN FIELD NAMES.** `whatTheFormCarries(form, schema)` in
-`apps/web/src/form.ts` reads each key the `z.object` declares, maps a non-string to "not given", and
-`safeParse`s. That deleted nine `form.get("...")` literals, which were nine chances for a name here
-to drift from the name on the page.
+**THE RULE IS ONE READER KEYED OFF THE SCHEMA'S OWN FIELD NAMES.** `whatTheFormCarries(form, schema)`
+in `apps/web/src/form.ts` reads each key the `z.object` declares, maps a non-string to "not given",
+and `safeParse`s. That deleted twenty-three `form.get("...")` literals over thirteen call sites in
+five action files -- counted with `git grep -o` rather than by eye, after a first draft of this
+paragraph said "nine" and a review caught it. Twenty-three chances for a name here to drift from the
+name on the page.
+
+**AND THE INHERITANCE IS NOT HYPOTHETICAL.** Three of those thirteen sites did not exist when this
+work started: CNCORE-72's `placeItemInContainer`, `removePlacement` and `restorePlacement` landed on
+`main` mid-flight, each written in the old shape. That is the ticket's own sentence -- "the next one
+inherits whatever this does" -- observed rather than predicted, four days after it was written.
 
 **THE COST, ACCEPTED RATHER THAN OVERLOOKED.** `safeParse` refuses everything the schema refuses, not
-only a wrong part type -- a missing field, a `baseUrl` that is not a URL, an id that is not a uuid --
-and all of them now do nothing QUIETLY where they used to answer 500 LOUDLY. A field renamed on a
-page and not in its schema is the case that bites. What catches it is the page-over-HTTP suite, which
-submits the form the server actually rendered and asserts the write happened, so a name that drifts
-fails a test rather than a reader.
+only a wrong part type -- a missing field, or a value that schema declines such as `takeRecord`'s
+`z.url()` -- and all of them now do nothing QUIETLY where they used to answer 500 LOUDLY. A field
+renamed on a page and not in its schema is the case that bites. What catches it is the
+page-over-HTTP suite, which submits the form the server actually rendered and asserts the write
+happened, so a name that drifts fails a test rather than a reader.
+
+**WHAT DID NOT LAND, SAID HERE BECAUSE HALF A MECHANISM LOOKS FINISHED FROM OUTSIDE.** This closes
+the 500 for a field that is not TEXT. It does NOT close it for a field that IS text, which the
+ACTION's schema accepts and the ROUTER's refuses. `editedTitle` declares `id: z.string()` where
+`item.retitle` demands `z.uuid()`, so a hand-composed id passes the reader and raises `BAD_REQUEST`
+inside `call()` -- uncaught, and the same bare `Internal Server Error`. MEASURED at the
+page-over-HTTP seam on 2026-09-12: `id=not-a-uuid` and an empty `title` both answered
+`500 Internal Server Error`. `theDeviceNamed` and `namedPlacement` are the two that ARE closed,
+because they declare `z.uuid()` on both sides -- which is why the `/devices` assertion passes and is
+not evidence about the others.
+
+**AND THE FIX FOR IT IS NOT TO RESTATE THE ROUTER'S SCHEMA IN THE ACTION**, which is the obvious move
+and the wrong one: `items/actions.ts` says "the rule about what a write accepts lives in one place",
+and a second copy is a second place for the two to disagree. What is left is to treat an `ORPCError`
+under 500 as the ANSWER it is, which `/api/rpc` already does one layer over. CNCORE-127, with a
+`TODO` at the site.
 
 **THIS RECORD STILL STAYS PROPOSED, and for the same reason as before.** Next is DERIVED and nothing
 derives one. This section widened what "a refusal" means on the write path; it did not touch the

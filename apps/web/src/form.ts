@@ -28,10 +28,12 @@ import type { z } from "zod";
  * made. Nothing given is not the same claim as nothing said.
  *
  * THE SCHEMA NAMES THE FIELDS, rather than each caller listing them beside it.
- * A `z.object` already knows its own keys, so the nine `form.get("...")` calls
- * this replaces were nine chances for a name here to drift from the name on the
- * page -- and the next action to be written inherits the rule instead of
- * repeating it.
+ * A `z.object` already knows its own keys, so the twenty-three `form.get("...")`
+ * calls this replaces -- thirteen call sites across five action files, counted
+ * with `git grep -o` rather than by eye -- were twenty-three chances for a name
+ * here to drift from the name on the page. The next action to be written
+ * inherits the rule instead of repeating it, which is not hypothetical: three of
+ * those thirteen arrived with CNCORE-72 while this change was in flight.
  */
 export function whatTheFormCarries<Schema extends z.ZodObject>(
   form: FormData,
@@ -44,10 +46,22 @@ export function whatTheFormCarries<Schema extends z.ZodObject>(
   /*
    * `safeParse` RATHER THAN `parse`, WHICH IS THE WHOLE REFUSAL. What a caller
    * composed by hand can be wrong in more ways than one -- a `File` where text
-   * goes, a field left off entirely, a `baseUrl` that is not a URL, an id that
-   * is not a uuid -- and every one of them is the same fact about the request:
-   * it does not say what this action needs to act on. The action stops, nothing
-   * is written, and the page it was posted to renders again.
+   * goes, a field left off entirely, or a value THIS schema refuses, such as
+   * `takeRecord`'s `z.url()` or `namedPlacement`'s `z.uuid()` -- and every one of
+   * them is the same fact about the request: it does not say what this action
+   * needs to act on. The action stops, nothing is written, and the page it was
+   * posted to renders again.
+   *
+   * WHAT THIS DOES NOT CLOSE, AND IT IS THE SAME 500: a value this schema
+   * ACCEPTS and the ROUTER refuses. `editedTitle` declares `id: z.string()`
+   * where `item.retitle` demands `z.uuid()`, so a hand-composed `id=not-a-uuid`
+   * passes here and raises `BAD_REQUEST` inside `call()`, which is uncaught and
+   * renders the same bare `Internal Server Error`. MEASURED at the
+   * page-over-HTTP seam, both `id=not-a-uuid` and an empty `title` answering
+   * `500 Internal Server Error`. The fix is NOT to restate the router's schema
+   * here -- this file's own docstring refuses that, because the rule about what
+   * a write accepts lives in one place -- but to treat an `ORPCError` under 500
+   * as the answer it is, the way `/api/rpc` already does. TODO(CNCORE-127).
    *
    * THE COST, ACCEPTED RATHER THAN OVERLOOKED: a field RENAMED on a page and not
    * here now does nothing quietly where it used to answer 500 loudly. What
