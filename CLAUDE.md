@@ -99,6 +99,7 @@ in for the library. It ruled 11 claims contradicted on 2026-09-12, most of them 
 - **A conflicted PR gets no CI at all.** A `pull_request` workflow runs against
   `refs/pull/N/merge`, which GitHub cannot build while the branch conflicts -- so it creates no run
   rather than a failing one. An ABSENT check is the tell, not a red one. Merge `main` and it fires.
+  That ref keys the run too: a `--commit <head>` poll finds nothing; watch with `gh pr checks <n>`.
 - **`main`'s history is enforced; its CI is not.** A ruleset refuses deletion and force-push on
   `main`, admin bypass on, so it stops accident rather than intent. There are no required checks
   and no required review, so a merge gate is still convention: do not assume a check blocked
@@ -112,8 +113,8 @@ in for the library. It ruled 11 claims contradicted on 2026-09-12, most of them 
 ## Agent skills
 
 - **Filing, reading or relating an issue** — Linear (workspace `jacobrees-canoncore`, team
-  `CNCORE`) through the `orca linear` CLI; GitHub Issues is unused. Its JSON lies in three ways and
-  the doc names them. `docs/agents/issue-tracker.md`.
+  `CNCORE`) through the `orca linear` CLI; GitHub Issues is unused. It lies five ways, one being
+  `ok: false` on writes that LANDED. `docs/agents/issue-tracker.md`.
 - **Labelling or triaging one** — `docs/agents/triage-labels.md`. Triage roles are workspace
   labels, `wontfix` is the Canceled state, and `to-spec` / `provider-repo` are kinds rather than
   roles.
@@ -146,8 +147,7 @@ Machine state is not repo state. A tool the build or the tests reach for belongs
 CI and a fresh clone read, never only on this Mac, because that gap is silent here and surfaces as
 a broken clone on a machine nobody is watching.
 
-**Every implementer runs in an Orca worktree**, never a raw `git worktree` and never the Claude
-Code subagent tool's built-in worktree isolation.
+**Every implementer runs in an Orca worktree**, never the Claude Code subagent tool's own isolation.
 
 ## Implementing
 
