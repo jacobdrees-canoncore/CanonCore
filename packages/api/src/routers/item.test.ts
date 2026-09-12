@@ -370,6 +370,35 @@ describe("item.get on a container", () => {
     expect(container.holds[0]).toMatchObject({ title: "Its first story", position: 1 });
   });
 
+  it("carries who asserted each member, so a repeat is not a disagreement", async () => {
+    // ADR-0017, read through the payload. Two sources claiming different
+    // positions for one membership are two rows, and so is a Repeat (ADR-0009)
+    // -- one source placing one item twice on purpose. Nothing STORED tells them
+    // apart, so the payload has to carry who asserted each row or the page
+    // cannot either.
+    const wiki = await aProvider(db, "a wiki this router asked");
+    const broadcaster = await aProvider(db, "a broadcaster this router asked");
+    const season = await anItemTitled(db, "A season the payload disagrees about", {
+      isContainer: true,
+      isOrdered: true,
+    });
+    const argued = await anItemTitled(db, "A story the payload places twice");
+    await aPlacement(db, {
+      containerId: season,
+      itemId: argued,
+      position: 1,
+      sourceId: broadcaster,
+    });
+    await aPlacement(db, { containerId: season, itemId: argued, position: 3, sourceId: wiki });
+
+    const container = await call(appRouter.item.get, { id: season }, { context });
+
+    expect(container.holds.map((placement) => placement.assertedBy)).toStrictEqual([
+      ["a broadcaster this router asked"],
+      ["a wiki this router asked"],
+    ]);
+  });
+
   it("names every field a placement in a container emits, and no internal one", async () => {
     // ADR-0045's enumeration oracle, one level down, exactly as `placements`
     // carries one. `owner_id`, the change sequence and `edition_id` are absent
@@ -386,7 +415,10 @@ describe("item.get on a container", () => {
     const item = await call(appRouter.item.get, { id: container }, { context });
 
     expect(item.holds.map((placement) => Object.keys(placement).sort())).toStrictEqual([
-      ["id", "itemId", "position", "title"],
+      // It went red here when CNCORE-90 added `assertedBy`, which is the
+      // enumeration working: who asserted a placement is emitted because a line
+      // was written for it, and the sources' own ids still are not.
+      ["assertedBy", "id", "itemId", "position", "title"],
     ]);
   });
 });
