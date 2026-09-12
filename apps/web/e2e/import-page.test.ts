@@ -327,9 +327,14 @@ describe("/import, taking a record it already holds", () => {
      *
      * WHAT IT ASSERTS IS NOT WEAKER FOR BEING NARROWER. `itemsCarrying` answers
      * with ROWS, so it sees a second Item carrying this id where every procedure
-     * above it would collapse the pair into one -- and unlike a total, no other
-     * worker can move it: (this provider, this record) is a pair only this test
-     * writes to.
+     * above it would collapse the pair into one.
+     *
+     * AND NO OTHER WORKER CAN MOVE IT, which a total could never be. Nothing else
+     * in this suite writes to (this provider, this record): the only other file
+     * that writes to the seeded instance is `multi-placement.test.ts`, and it
+     * browses the WIKI provider. Nor would it matter if one did -- a second
+     * import of this record FINDS the item the first wrote (ADR-0026 under
+     * CNCORE-28), so the answer is one Item and the same Item whoever asks.
      *
      * WHAT IT NO LONGER SEES, said plainly rather than left to be discovered: an
      * Item minted with NO `external_id` statement tying it to this record. Only a
