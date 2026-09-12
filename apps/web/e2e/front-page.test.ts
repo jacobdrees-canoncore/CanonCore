@@ -25,6 +25,24 @@ function section(text: string, label: string): string {
   return found;
 }
 
+/**
+ * THE ROUTES OUT OF AN EMPTY CATALOGUE, one string each, in the order the page
+ * offers them.
+ *
+ * ONE LIST ITEM IS ONE ROUTE, and that is the whole reason this reads `<li>`
+ * rather than searching the section for a link. CNCORE-131's criterion is that
+ * building a catalogue by hand is "a route of its own, not a footnote to
+ * importing" -- and a section CONTAINING `/new` anywhere satisfies a test that
+ * only greps the section, including the version of this page where the words
+ * were a final sentence hanging off the import step. Splitting first is what
+ * lets an assertion say WHICH route a link is in.
+ */
+function routesOutOf(text: string): string[] {
+  return [...section(text, "what-to-do-next").matchAll(/<li[^>]*>(.*?)<\/li>/g)].map(
+    ([, inner]) => inner as string,
+  );
+}
+
 describe("/", () => {
   it("shows the catalogue", async () => {
     const { status, text } = await documentAt("/");
@@ -80,24 +98,35 @@ describe("/", () => {
 });
 
 describe("/ on a fresh install", () => {
-  it("says the catalogue is empty, and names the two steps that fill it", async () => {
+  it("offers building a catalogue by hand as a route of its own", async () => {
     // ADR-0094 ships no catalogue to a stranger and is explicit that this is
     // only half the decision: "an install that starts empty WITHOUT SAYING WHAT
     // TO DO NEXT is a separate failure this record does not licence". Two
     // shards of the competitor sweep rated that first run HIGH. This is it
     // closed -- words on a page, not rows in a database.
+    //
+    // AND IT USED TO SAY TWO STEPS, BOTH OF THEM A PROVIDER'S (CNCORE-131).
+    // Allowlist one, then import from it -- which was the whole answer until
+    // v0.2.0 and is not one any more: `/new` fills a catalogue with no provider
+    // running, nothing allowlisted and nothing reached. A reader whose instance
+    // reaches nothing was being sent to find something for it to reach.
+    //
+    // A ROUTE OF ITS OWN, WHICH IS WHY THE ASSERTION SPLITS THE LIST FIRST. The
+    // hand route is its own list item and the provider's is another, so a
+    // sentence about `/new` tacked onto the end of the import step fails this
+    // rather than passing it on the strength of the link being somewhere in the
+    // section.
     const { status, text } = await documentFrom(freshBaseUrl, "/");
 
     expect(status).toBe(200);
-    const next = section(text, "what-to-do-next");
-    // WHERE THE SETTING IS, NOT MERELY THAT THERE IS ONE. "Allowlist a
-    // provider" is the step, and until CNCORE-99 the thing an owner had to type
-    // was an environment variable, so this asserted its name. The setting is a
-    // page of this app now, so what the notice owes them is the way to it -- a
-    // step that gestured at settings without saying where they are would leave
-    // them exactly where the README left them.
-    expect(next).toContain("/settings");
-    expect(next.toLowerCase()).toContain("import");
+    const routes = routesOutOf(text);
+    const byHand = routes.filter((route) => route.includes('href="/new"'));
+    expect(byHand).toHaveLength(1);
+    // AND IT ASKS FOR NO PROVIDER, which is the half that makes it a SECOND
+    // route rather than a restatement of the first: a route that sent the
+    // reader to Settings on the way would be the provider route again.
+    expect(byHand[0]).not.toContain('href="/settings"');
+    expect(byHand[0]).not.toContain('href="/import"');
   });
 
   it("says no provider is allowlisted, where one is not", async () => {

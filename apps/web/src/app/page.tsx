@@ -185,11 +185,23 @@ function WhatToDoNext() {
           </EmptyTitle>
           <EmptyDescription>
             It starts that way on purpose: CanonCore ships no catalogue, so nothing here is anybody
-            else&rsquo;s library. Two steps fill it.
+            else&rsquo;s library. There is more than one way to fill it, and the first needs nothing
+            configured.
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
-          <ol className="space-y-3 text-left">
+          <ul className="space-y-3 text-left">
+            <li>
+              <span className="font-medium">
+                <Link className="underline" href="/new">
+                  Add an item yourself
+                </Link>
+                .
+              </span>{" "}
+              A story, a person, a place &mdash; whether or not you have the file and whether or not
+              a provider has ever heard of it (ADR-0003). Make a Container the same way, place items
+              in it, and the catalogue is yours. Nothing to configure and nothing to reach.
+            </li>
             <li>
               <span className="font-medium">Name a provider, and allowlist it.</span> In{" "}
               <Link className="underline" href="/settings">
@@ -218,7 +230,7 @@ function WhatToDoNext() {
               Search it by name and take what you find: the record arrives here as an Item. A
               provider that offers browse imports a whole ordering at once.
             </li>
-          </ol>
+          </ul>
         </EmptyContent>
       </Empty>
     </section>
