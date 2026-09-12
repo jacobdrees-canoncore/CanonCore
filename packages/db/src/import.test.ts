@@ -878,7 +878,8 @@ describe("importing a container and its ordering", () => {
    * and then to `browse` -- and the browse now finds the item the lookup wrote
    * rather than minting its own.
    *
-   * ADR-0009 makes `is_container` STORED rather than inferred from having
+   * `CONTEXT.md`'s Container headword makes `is_container` STORED rather
+   * than inferred from having
    * members, which is what makes this a defect instead of a cosmetic flag: an
    * item left holding members with the flag off is a container to every write
    * path and a plain work to every read, and work-browsing offers it as

@@ -335,3 +335,51 @@ export const cataloguePublic = z.object({
 });
 
 export type CataloguePublic = z.infer<typeof cataloguePublic>;
+
+/**
+ * What a write answers with: the Item it addressed, and nothing else.
+ *
+ * ADR-0045 REACHES A MUTATION TOO. The temptation is to answer with the whole
+ * item so the caller need not ask again, and that is the strip-list problem
+ * arriving through a second door: a field added to `items` later would ride out
+ * on every create without a line being written for it. An id is what a caller
+ * actually needs -- it is the address to go to next (ADR-0066) -- and the page
+ * that wants the rest asks `item.get`, which names every field it emits.
+ */
+export const itemWritten = z.object({ id: z.uuid() });
+
+export type ItemWritten = z.infer<typeof itemWritten>;
+
+/**
+ * ADR-0005's seven kinds, as the catalogue holds them: the key a column takes
+ * and the word a reader is shown.
+ *
+ * BOTH, UNDER NAMES THAT SAY WHICH IS WHICH, which is the pairing `findItem`
+ * already answers with. A create form has to submit the VALUE while showing the
+ * LABEL, so this is the one place on the read path where a surface legitimately
+ * needs each -- everywhere a reader is merely SHOWN a kind, `kind` means the
+ * label alone.
+ *
+ * READ OFF `item_kinds` RATHER THAN LISTED HERE. The seven and their words are
+ * migration 1's, and `CONTEXT.md` is binding on them; a copy in this file would
+ * be the same closed set in a second language, free to disagree.
+ */
+export const itemKindPublic = z.object({
+  /**
+   * What `items.kind` stores: `time_span`, never `Time span`.
+   *
+   * NAMED `value` RATHER THAN `key` OR `kind`, and both rejections are the
+   * glossary's own. `CONTEXT.md` reserves `key` for a Credential, and `kind`
+   * already means THE READER'S WORD everywhere else the read path emits one --
+   * so reusing it here for the column's spelling would make `kind` answer two
+   * things on one surface. `value` is what HTML calls the half of an option a
+   * form submits, which is the only thing this field is ever used as.
+   */
+  value: z.string(),
+  /** The reader's word for it, seeded beside the value (CNCORE-83). */
+  label: z.string(),
+});
+
+export type ItemKindPublic = z.infer<typeof itemKindPublic>;
+
+export const itemKindsPublic = z.object({ kinds: z.array(itemKindPublic) });

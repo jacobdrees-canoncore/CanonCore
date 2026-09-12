@@ -113,12 +113,63 @@ function formsIn(text: string): (RenderedForm & { method: string })[] {
   return [...text.matchAll(/<form\b([^>]*)>(.*?)<\/form>/gis)].map(([, attributes, body]) => ({
     method: (/\bmethod\s*=\s*"([^"]*)"/i.exec(attributes ?? "")?.[1] ?? "get").toLowerCase(),
     action: /\baction\s*=\s*"([^"]*)"/i.exec(attributes ?? "")?.[1] ?? "",
-    fields: [...(body ?? "").matchAll(/<input\b([^>]*)>/gi)].flatMap(([, input]) => {
-      const name = /\bname\s*=\s*"([^"]*)"/i.exec(input ?? "")?.[1];
-      if (name === undefined) return [];
-      return [[name, /\bvalue\s*=\s*"([^"]*)"/i.exec(input ?? "")?.[1] ?? ""] as [string, string]];
-    }),
+    fields: [...inputsIn(body ?? ""), ...selectsIn(body ?? "")],
   }));
+}
+
+/**
+ * Every `<input>` a browser would SUBMIT, which is not every `<input>` there is.
+ *
+ * AN UNCHECKED BOX SUBMITS NOTHING, and that is HTML's rule rather than a
+ * convenience: a checkbox contributes its name and value only when checked, and
+ * a form replayer that sent `isContainer=""` for a cleared box would post a
+ * request no browser can produce -- turning "the owner left this alone" into a
+ * value the server has to interpret. A CHECKED box with no `value` submits the
+ * string `on`, which is where that default comes from.
+ *
+ * This was an open gap rather than a rule nobody had needed: until CNCORE-71 no
+ * form in this app carried a checkbox, so every input on every page submitted
+ * unconditionally and the distinction never arose.
+ */
+function inputsIn(body: string): [string, string][] {
+  return [...body.matchAll(/<input\b([^>]*)>/gi)].flatMap(([, input]) => {
+    const attributes = input ?? "";
+    const name = /\bname\s*=\s*"([^"]*)"/i.exec(attributes)?.[1];
+    if (name === undefined) return [];
+    const value = /\bvalue\s*=\s*"([^"]*)"/i.exec(attributes)?.[1];
+    const type = (/\btype\s*=\s*"([^"]*)"/i.exec(attributes)?.[1] ?? "text").toLowerCase();
+    if (type === "checkbox" || type === "radio") {
+      if (!/\bchecked\b/i.test(attributes)) return [];
+      return [[name, value ?? "on"] as [string, string]];
+    }
+    return [[name, value ?? ""] as [string, string]];
+  });
+}
+
+/**
+ * Every `<select>`, as the option the server marked selected.
+ *
+ * PARSED AT ALL, WHICH IT WAS NOT UNTIL CNCORE-71. This reader claims to submit
+ * a form "exactly as a browser with JavaScript switched off submits it", and it
+ * silently ignored selects -- so a page carrying one would have its form
+ * replayed with that field missing entirely, and the test would be asserting
+ * against a request no browser sends. A create form choosing one of ADR-0005's
+ * seven kinds is the first form here to have one.
+ *
+ * FALLING BACK TO THE FIRST OPTION, which is what a browser does when no option
+ * carries `selected`.
+ */
+function selectsIn(body: string): [string, string][] {
+  return [...body.matchAll(/<select\b([^>]*)>(.*?)<\/select>/gis)].flatMap(([, attrs, options]) => {
+    const name = /\bname\s*=\s*"([^"]*)"/i.exec(attrs ?? "")?.[1];
+    if (name === undefined) return [];
+    const all = [...(options ?? "").matchAll(/<option\b([^>]*)>/gi)].map(([, option]) => ({
+      value: /\bvalue\s*=\s*"([^"]*)"/i.exec(option ?? "")?.[1] ?? "",
+      selected: /\bselected\b/i.test(option ?? ""),
+    }));
+    const chosen = all.find((option) => option.selected) ?? all[0];
+    return chosen === undefined ? [] : [[name, chosen.value] as [string, string]];
+  });
 }
 
 /**

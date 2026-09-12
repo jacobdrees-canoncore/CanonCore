@@ -1021,3 +1021,34 @@ export async function findItemsProvided(
     ),
   );
 }
+
+/** One of ADR-0005's seven kinds: what the column stores, and the reader's word. */
+export interface ItemKind {
+  value: string;
+  label: string;
+}
+
+/**
+ * ADR-0005's seven kinds, in the order migration 1 seeds them.
+ *
+ * READ RATHER THAN LISTED, which is the same rule `findItem` follows for one
+ * item's kind: the words are `item_kinds`' own and `CONTEXT.md` is binding on
+ * them (CNCORE-83), so a create form offering a hardcoded list would go on
+ * offering the old word after a migration renamed it -- and would offer seven
+ * after a migration added an eighth.
+ *
+ * ORDERED BY THE READER'S WORD, and that is the only order available rather
+ * than the best one. `item_kinds` carries no sort column, so the seed order --
+ * which opens on `work`, the kind an owner cataloguing stories wants nearly
+ * every time -- is not a fact this query can recover; an unordered select would
+ * leave the list to the planner and let it change between two renders of one
+ * page. Alphabetical is stable, and WHICH KIND A FORM OPENS ON IS A SEPARATE
+ * QUESTION from what order it lists: the create form preselects `work` itself,
+ * so nothing here has to carry that preference.
+ */
+export async function findItemKinds(db: Database): Promise<ItemKind[]> {
+  return db
+    .select({ value: itemKinds.kind, label: itemKinds.label })
+    .from(itemKinds)
+    .orderBy(itemKinds.label);
+}

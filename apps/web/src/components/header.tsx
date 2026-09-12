@@ -53,6 +53,21 @@ export default function Header() {
           <Link className="text-base hover:underline" href="/import">
             Import
           </Link>
+          {/*
+            AND THE SURFACE A CATALOGUE IS FILLED FROM BY HAND (CNCORE-71),
+            beside the one it is filled from by a provider. ADR-0003's item with
+            no file and no provider record is the case no incumbent serves, and
+            a page reachable only by typing its address serves it to nobody.
+
+            OFFERED TO EVERYONE, like Import above it, because this header knows
+            nothing about sessions -- it is a client component and the session
+            is a server-side cookie. The PAGE is what tells a visitor the
+            catalogue is not theirs to add to, which is the same division
+            `/import` already uses: the surface renders, its buttons do not.
+          */}
+          <Link className="text-base hover:underline" href="/new">
+            New item
+          </Link>
         </nav>
         <div className="flex items-center gap-2">
           {/*
