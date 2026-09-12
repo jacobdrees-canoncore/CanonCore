@@ -292,9 +292,22 @@ describe("/ on a catalogue larger than one page", () => {
  * write it does not own. This one still does assert on a catalogue-wide total,
  * because "how much the catalogue holds" IS catalogue-wide and cannot be
  * re-expressed as a claim about one record the way the re-import assertion can.
- * What that ticket has to settle for this test is whether the window above is
- * enough or whether the front page's count belongs on an instance nothing writes
- * to; this is the minimum that makes the assertion true rather than lucky.
+ *
+ * AND NO INSTANCE THIS SUITE ALREADY RUNS CAN TAKE IT, which is the part worth
+ * writing down because it is the obvious fix and it does not work. The count is
+ * gated on `listing.length > 0`, so the FRESH instance renders no count element
+ * at all -- an empty catalogue shows `WhatToDoNext` instead (ADR-0094). The PAGED
+ * instance is never written to and would do, except that 254 items is more than
+ * a page, so it renders `Holding`'s OTHER branch -- "Showing 100 of 254 items",
+ * already asserted below. The plain-total branch needs a catalogue that is
+ * non-empty, smaller than one page, and written to by nothing, and this suite
+ * has no such instance: the seeded one is the only one small enough and it is
+ * the one two other files import into.
+ *
+ * SO CNCORE-93's THIRD CRITERION IS MEETABLE AS WRITTEN, at the price of a fifth
+ * `next start`. That is a real option and a real cost, and it is that ticket's
+ * call rather than this one's. The window above is the minimum that makes this
+ * assertion true rather than lucky.
  */
 async function theFrontPageAndWhatItShouldSay(
   client: AppRouterClient,
