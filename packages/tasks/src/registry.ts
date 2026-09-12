@@ -129,7 +129,7 @@ export function createRegistry(tasks: Task[]) {
    * place they could be: the controller that can stop a promise is the object
    * that created it. A second server would neither see these nor be able to
    * stop them, and the container this app ships in runs one (ADR-0109's shape).
-   * `abandonOpenRuns` is what makes the rows honest when that process dies.
+   * `closeRunsLeftOpen` is what makes the rows honest when that process dies.
    */
   const running = new Map<string, AbortController>();
 
