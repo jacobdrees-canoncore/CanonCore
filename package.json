@@ -26,6 +26,7 @@
     "db:stop": "turbo run db:stop -F @canoncore/db --",
     "db:down": "turbo run db:down -F @canoncore/db --",
     "test:e2e": "turbo run test:e2e",
+    "test:browser": "turbo run test:browser",
     "test:contract": "turbo run test:contract"
   },
   "dependencies": {

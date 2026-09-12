@@ -131,7 +131,7 @@ describe("what the owner is refused", () => {
     expect(isDefinedError(error) && error.code).toBe("BAD_REQUEST");
   });
 
-  it("refuses a visitor with no session, on all three procedures", async () => {
+  it("refuses a visitor with no session, on all four procedures", async () => {
     // ADR-0044 makes the demo READ-ONLY: everything that changes a catalogue is
     // behind a session (CNCORE-109). Asserted on every procedure rather than on
     // one, because the guard is declared per procedure and a new one added
@@ -149,12 +149,145 @@ describe("what the owner is refused", () => {
       ),
       safe(call(appRouter.placement.remove, { id: crypto.randomUUID() }, { context })),
       safe(call(appRouter.placement.restore, { id: crypto.randomUUID() }, { context })),
+      safe(
+        call(
+          appRouter.placement.move,
+          { id: crypto.randomUUID(), containerId: container, position: 1, siblings: [] },
+          { context },
+        ),
+      ),
     ]);
 
     expect(refusals.map(({ error }) => (error as { code?: string })?.code)).toStrictEqual([
       "UNAUTHORIZED",
       "UNAUTHORIZED",
       "UNAUTHORIZED",
+      "UNAUTHORIZED",
     ]);
+  });
+});
+
+describe("placement.move", () => {
+  it("reorders a container, and the container's own page reads the new order", async () => {
+    // ASSERTED BACK THROUGH `item.get`, which is this file's rule: a write
+    // asserted against its own return value proves only that the procedure
+    // answered.
+    const releaseOrder = await anItem(db, { isContainer: true, isOrdered: true });
+    const first = await anItemTitled(db, "An Unearthly Child");
+    const second = await anItemTitled(db, "The Daleks");
+
+    const a = await call(
+      appRouter.placement.place,
+      { containerId: releaseOrder, itemId: first, position: 1 },
+      { context: asTheOwner },
+    );
+    const b = await call(
+      appRouter.placement.place,
+      { containerId: releaseOrder, itemId: second, position: 2 },
+      { context: asTheOwner },
+    );
+
+    await call(
+      appRouter.placement.move,
+      {
+        id: b.id,
+        containerId: releaseOrder,
+        position: 1,
+        siblings: [{ id: a.id, position: 2 }],
+      },
+      { context: asTheOwner },
+    );
+
+    const container = await call(appRouter.item.get, { id: releaseOrder }, { context });
+    expect(container.holds.entries.map(({ id, position }) => ({ id, position }))).toStrictEqual([
+      { id: b.id, position: 1 },
+      { id: a.id, position: 2 },
+    ]);
+  });
+
+  it("leaves the item's position in every OTHER ordering alone", async () => {
+    // The ticket's third criterion, and ADR-0061's rule: every container owns
+    // its membership outright, so reordering one says nothing about another.
+    const releaseOrder = await anItem(db, { isContainer: true, isOrdered: true });
+    const storyOrder = await anItem(db, { isContainer: true, isOrdered: true });
+    const story = await anItemTitled(db, "The Tenth Planet");
+    const other = await anItemTitled(db, "The War Machines");
+
+    const here = await call(
+      appRouter.placement.place,
+      { containerId: releaseOrder, itemId: story, position: 1 },
+      { context: asTheOwner },
+    );
+    const alongside = await call(
+      appRouter.placement.place,
+      { containerId: releaseOrder, itemId: other, position: 2 },
+      { context: asTheOwner },
+    );
+    await call(
+      appRouter.placement.place,
+      { containerId: storyOrder, itemId: story, position: 29 },
+      { context: asTheOwner },
+    );
+
+    await call(
+      appRouter.placement.move,
+      {
+        id: here.id,
+        containerId: releaseOrder,
+        position: 2,
+        siblings: [{ id: alongside.id, position: 1 }],
+      },
+      { context: asTheOwner },
+    );
+
+    const elsewhere = await call(appRouter.item.get, { id: storyOrder }, { context });
+    expect(elsewhere.holds.entries).toStrictEqual([
+      expect.objectContaining({ itemId: story, position: 29 }),
+    ]);
+  });
+
+  it("says NOT_FOUND for a placement that is not there to move", async () => {
+    const container = await anItem(db, { isContainer: true, isOrdered: true });
+
+    const { error } = await safe(
+      call(
+        appRouter.placement.move,
+        { id: crypto.randomUUID(), containerId: container, position: 1, siblings: [] },
+        { context: asTheOwner },
+      ),
+    );
+
+    expect(isDefinedError(error) && error.code).toBe("NOT_FOUND");
+  });
+
+  it("refuses a move that would close a placement cycle, as a sentence", async () => {
+    // ADR-0074's container half, reached THROUGH THE MUTATION rather than
+    // through a UI guard -- which is the ticket's own criterion, because a
+    // client-side guard reads as an enforced rule to everyone except the person
+    // who bypasses it.
+    const outer = await anItem(db, { isContainer: true, isOrdered: true });
+    const inner = await anItem(db, { isContainer: true, isOrdered: true });
+    const elsewhere = await anItem(db, { isContainer: true, isOrdered: true });
+
+    await call(
+      appRouter.placement.place,
+      { containerId: outer, itemId: inner, position: 1 },
+      { context: asTheOwner },
+    );
+    const stray = await call(
+      appRouter.placement.place,
+      { containerId: elsewhere, itemId: outer, position: 1 },
+      { context: asTheOwner },
+    );
+
+    const { error } = await safe(
+      call(
+        appRouter.placement.move,
+        { id: stray.id, containerId: inner, position: 1, siblings: [] },
+        { context: asTheOwner },
+      ),
+    );
+
+    expect(isDefinedError(error) && error.code).toBe("BAD_REQUEST");
   });
 });

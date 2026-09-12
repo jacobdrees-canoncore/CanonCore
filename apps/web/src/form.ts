@@ -74,6 +74,23 @@ export function whatTheFormCarries<Schema extends z.ZodObject>(
   return parsed.success ? parsed.data : undefined;
 }
 
+/**
+ * Every value ONE REPEATED FIELD carries, each as the text it has to be.
+ *
+ * A LIST IS THE ONE SHAPE `whatTheFormCarries` ABOVE CANNOT READ, because it
+ * asks the schema for its keys and reads ONE value per key. HTML expresses a
+ * list as a repeated name and `FormData.getAll` keeps those in document order,
+ * so two parallel names zip by index -- which no schema's keys can describe.
+ *
+ * IT IS THE SAME RULE, NOT A SECOND ONE. Each value goes through `asText`, so a
+ * part with a filename is "not given" here exactly as it is there, and the
+ * caller's schema says what "not given" means for its own field. Added by
+ * CNCORE-73, whose reorder carries the siblings that shifted.
+ */
+export function whatTheFormRepeats(form: FormData, name: string): (string | undefined)[] {
+  return form.getAll(name).map(asText);
+}
+
 /** One field, as the text it has to be -- or nothing, when it is not text. */
 function asText(value: FormDataEntryValue | null): string | undefined {
   return typeof value === "string" ? value : undefined;
