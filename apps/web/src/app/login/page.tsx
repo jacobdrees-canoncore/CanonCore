@@ -8,6 +8,7 @@ import Link from "next/link";
 import { oneValue } from "@/components/query-params";
 import { callerContext } from "@/session";
 import { logIn, logOut } from "./actions";
+import { REFUSED } from "./refusal";
 
 /**
  * WHERE THE OWNER BECOMES THE OWNER (CNCORE-109).
@@ -96,12 +97,12 @@ function LogInForm({ refused }: { refused?: string }) {
         the parameter from being a way to put a sentence of somebody else's
         choosing in front of a visitor.
       */}
-      {refused === "password" && (
+      {refused === REFUSED.password && (
         <p className="mt-4 text-sm" role="alert">
           That password was refused.
         </p>
       )}
-      {refused === "too-many" && (
+      {refused === REFUSED.tooMany && (
         <p className="mt-4 text-sm" role="alert">
           Too many passwords have been tried on this instance, so it is checking them slowly now.
           Wait a moment and try again.

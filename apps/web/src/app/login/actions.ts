@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { callerContext, forgetSession, rememberSession } from "@/session";
+import { REFUSED } from "./refusal";
 
 /** What the form carries. A password is a string; nothing here judges it. */
 const offered = z.object({ password: z.string() });
@@ -46,8 +47,8 @@ export async function logIn(form: FormData): Promise<void> {
   // the parameter rather than in a second one, because the page asks one
   // question: what happened.
   if (error instanceof ORPCError) {
-    if (error.code === "UNAUTHORIZED") redirect("/login?refused=password");
-    if (error.code === "TOO_MANY_REQUESTS") redirect("/login?refused=too-many");
+    if (error.code === "UNAUTHORIZED") redirect(`/login?refused=${REFUSED.password}`);
+    if (error.code === "TOO_MANY_REQUESTS") redirect(`/login?refused=${REFUSED.tooMany}`);
   }
   if (error) throw error;
 

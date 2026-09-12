@@ -16,8 +16,10 @@ instance, held in memory, spent only by refusals, and reset whole by a success. 
 with no allowance left is refused WITHOUT the password being looked at, and a checked refusal writes
 one line to the log.
 
-That takes the guess rate from 6,073,867,081 a day to 5,760 a day, which is a millionfold, and it
-costs an owner who has just mistyped their password nothing at all.
+That takes the guess rate from roughly six billion a day to 5,760 a day per door, which is a
+millionfold, and it costs an owner who has just mistyped their password nothing at all. Every daily
+figure in this record is a measured per-second rate multiplied out, and carries that measurement's
+precision and no more.
 
 ## A lockout is refused, and Jellyfin is the measurement
 
@@ -164,12 +166,32 @@ The line names no IP and no username, because this instance has neither to name 
 trustworthy source address on the path the form posts to. It names what it knows, which is how much
 of the allowance is left.
 
+**THAT BOUND COVERS THIS MECHANISM'S OWN LINE AND NOTHING ELSE, WHICH IS WORTH SAYING BECAUSE THE
+FIRST DRAFT OF THIS SECTION READ AS THOUGH IT COVERED THE LOG.** The RPC mount wraps both handlers in
+`onError((error) => console.error(error))`, so every refusal arriving over `/api/rpc` — this one, and
+`UNAUTHORIZED` from every other procedure since CNCORE-109 — writes a stack trace per ARRIVING
+request, which is exactly the unbounded shape described above. It predates this change and is
+surface-wide rather than login-shaped: an expected refusal is an answer and is being logged as a
+fault. Tracked as CNCORE-120, with a note at the site.
+
 ## What this deliberately does not do
 
-- **It does not stop a flood from denying service while the flood is running.** With the allowance
-  empty the owner competes for checks alongside the guesser and may be turned away. That is the flood
-  denying service, which it would do to every other page as well; what this record refuses is a state
-  that OUTLIVES the guessing, and there is none.
+- **It does not stop somebody who keeps guessing from keeping the owner waiting, and that costs them
+  FOUR REQUESTS A MINUTE rather than a flood.** An earlier version of this record called this case a
+  flood and waved it off as something that would deny service anyway. It is not a flood, and the
+  review of CNCORE-117 was right to say so: steady state is one check every fifteen seconds, so four
+  requests a minute hold the allowance under one indefinitely while degrading nothing else on the
+  instance. `TOO_MANY_REQUESTS` is refused BEFORE the comparison runs, so polling for the moment a
+  check frees up costs nothing, and a guesser who wants every slot can have them. The owner then
+  competes for checks and mostly loses, for as long as somebody cares to keep it up.
+
+  **What remains true is what this record actually refuses: no state OUTLIVES the guessing, and
+  nothing has to be lifted by anybody.** The guessing stops and the owner is in within fifteen
+  seconds. And the owner holds a lever the guesser does not: a restart returns a full burst of forty,
+  which four requests a minute cannot drain before the owner spends one of them. A per-caller bound
+  would answer this properly and is unavailable here for the reasons above. This is still a far
+  better answer than Jellyfin's, where the equivalent lever is two `UPDATE` statements against the
+  database.
 - **It does not distinguish callers.** See above: there is no trustworthy address on the path that
   matters.
 - **It is not configuration.** No environment variable, per `CLAUDE.md`: nothing in the repo would
@@ -179,6 +201,33 @@ of the allowance is left.
   surface for this, an activity-log row in its admin dashboard, and CanonCore has no owner dashboard
   to put one on. The log is the surface, and a page is worth having on the day there is somewhere for
   it to live rather than a page invented to hold one row.
+
+## One allowance per door, which was measured rather than assumed
+
+The argument above is that a bound belongs at the procedure because both doors arrive there, and that
+is how it is built. **What that does not give is ONE allowance, and this record implied otherwise
+until it was measured.** Next bundles the Server Action graph and the route handler separately, so
+`login-bound.ts` is evaluated twice in one server and each door carries an allowance of its own.
+
+Measured on 2026-09-12 against a production build of this app on Next 16.3.4: forty wrong passwords
+through `/api/rpc/session/logIn` were answered `401` and the forty-first `429`, and the login FORM
+then took the correct password at once — which one shared allowance would have refused. Driven the
+other way, the form refused forty and said "too many" on the forty-first while the RPC door went on
+answering `401`.
+
+Two consequences, and they do not point the same way:
+
+- **The ceiling is twice what one allowance would give**: 11,520 checks a day rather than 5,760.
+  Against the six billion measured before this, that is the same order of protection.
+- **The doors cannot starve each other**, which is the better half of the same fact. Somebody
+  hammering `/api/rpc` does not spend the allowance the owner's browser needs, so the residual named
+  above costs a guesser the door the owner is actually using.
+
+**The claim that survives does not depend on the count: EVERY door is bounded, because the bound is
+inside the procedure every door calls.** A proxy rule on `/api/rpc` would have bounded one of these
+two and left the other open, which is the Immich answer this record refuses. How many instances Next
+makes is a fact about a bundler and may change with a version; that every caller meets the mechanism
+is a fact about where the mechanism was put.
 
 ## As built, under CNCORE-117
 

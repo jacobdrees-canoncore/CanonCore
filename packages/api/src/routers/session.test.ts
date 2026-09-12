@@ -354,4 +354,22 @@ describe("guessing at the owner's password", () => {
     expect(answers.filter((code) => code === "UNAUTHORIZED")).toHaveLength(40);
     expect(answers.filter((code) => code === "TOO_MANY_REQUESTS")).toHaveLength(160);
   });
+
+  it("does not shut the owner out because the clock stepped backwards", async () => {
+    // A WALL CLOCK RUNS BOTH WAYS. What is earned back is worked out from the
+    // time since the last attempt, and an NTP correction makes that negative --
+    // so an hour's step back would have SPENT four hours of allowance and shut
+    // the owner out until it refilled. ADR-0043 already measured this clock
+    // running backwards on this very machine, by 60ms, which is why it is a test
+    // rather than a note.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const instance = await aFreshInstance();
+    await refusalOf(call(instance.logIn, { password: "one guess" }, { context: anyone }));
+
+    vi.setSystemTime(Date.now() - 60 * 60 * 1000);
+
+    await expect(
+      call(instance.logIn, { password: OWNER_PASSWORD }, { context: anyone }),
+    ).resolves.toBeDefined();
+  });
 });

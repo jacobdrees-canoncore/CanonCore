@@ -2,8 +2,13 @@
  * WHAT BOUNDS THE GUESSING AT THE OWNER'S ONE PASSWORD (ADR-0125).
  *
  * A burst of refusals, and then one password check every so often. The
- * allowance is spent only when a password is WRONG, so an owner who can type
- * theirs never meets this at all.
+ * allowance is spent only when a password is WRONG, so an owner typing theirs
+ * into an instance nobody is guessing at never meets this.
+ *
+ * THEY DO MEET IT WHILE SOMEBODY IS, and that is not a defect: a bound that let
+ * the right password through at once would leave every candidate costing exactly
+ * one test, which is no bound at all. What ADR-0125 refuses is a state that
+ * OUTLIVES the guessing, and nothing here is one.
  */
 
 /**
@@ -25,6 +30,9 @@ let countedAt = Date.now();
 /**
  * Earns back whatever time has passed since this was last asked.
  *
+ * NAMED FOR THE WRITE, as `seeSession` is one package over: it reads as a sum
+ * and is an assignment to both of this module's values.
+ *
  * CONTINUOUS RATHER THAN A WINDOW THAT RESETS, which is the one place this
  * departs from Audiobookshelf's shape without a single-owner reason: a fixed
  * window hands back the whole allowance on a boundary and nothing at all a
@@ -32,13 +40,25 @@ let countedAt = Date.now();
  * the flood happened to start. Earning one back every fifteen seconds means the
  * wait is always at most fifteen seconds.
  */
-function earnedBack(): void {
+function earnBack(): void {
   const now = Date.now();
-  allowance = Math.min(A_BURST_OF, allowance + (now - countedAt) / ONE_CHECK_EVERY_MS);
+  // NEVER LESS THAN NOTHING, BECAUSE A WALL CLOCK RUNS BOTH WAYS. `Date.now()`
+  // is corrected by NTP, and a step BACKWARDS makes this term negative -- so an
+  // hour's correction would have spent four hours of allowance and shut the
+  // owner out until it refilled, which is the one state this mechanism is not
+  // allowed to have. ADR-0043 measured this clock running backwards on this
+  // machine already, by 60ms against the container on 55432.
+  const earned = Math.max(0, now - countedAt) / ONE_CHECK_EVERY_MS;
+  allowance = Math.min(A_BURST_OF, allowance + earned);
   countedAt = now;
 }
 
-export type Attempt = "the owner" | "not the owner" | "too many attempts";
+/**
+ * What became of one attempt. NOT EXPORTED: nothing outside needs to name it,
+ * and `packages/api` publishes an enumerated `exports` map (ADR-0103) that this
+ * file is deliberately not in.
+ */
+type Verdict = "the owner" | "not the owner" | "too many attempts";
 
 /**
  * Runs a password check, if this instance has an attempt left to spend on one.
@@ -50,8 +70,8 @@ export type Attempt = "the owner" | "not the owner" | "too many attempts";
  * under concurrency: refilling, testing, spending and comparing all complete in
  * one turn of the event loop, so simultaneous guesses cannot interleave.
  */
-export function checkWithinTheBound(check: () => boolean): Attempt {
-  earnedBack();
+export function checkWithinTheBound(check: () => boolean): Verdict {
+  earnBack();
   if (allowance < 1) return "too many attempts";
   if (check()) {
     // THE WHOLE ALLOWANCE BACK, which is what Jellyfin and Nextcloud both do on
