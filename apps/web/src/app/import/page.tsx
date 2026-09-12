@@ -303,14 +303,33 @@ function Providers({ configured }: { configured: string[] }) {
  */
 function Purge({ baseUrl, preview }: { baseUrl: string; preview: PurgePreview }) {
   /*
-   * A PURGE THAT WOULD TAKE NOTHING GETS NO CONFIRMATION, which is a criterion
+   * A PURGE THAT WOULD CHANGE NOTHING GETS NO CONFIRMATION, which is a criterion
    * rather than a nicety. A dialogue offering to permanently delete "0
    * statements, 0 placements, 0 items" teaches an owner that this button is
    * harmless, and the next one they meet is the one that is not. It is also the
    * ordinary answer to a reasonable question -- an owner who is not sure whether
    * they ever imported from a provider -- and an answer is what it should read as.
+   *
+   * `keptItems` IS IN THE TEST, and leaving it out is the way to get this wrong.
+   * The other three count REMOVALS, so all three are zero for a provider whose
+   * only contribution is AGREEMENT: one that co-asserts placements another source
+   * already made says nothing of its own to delete, and its items survive on the
+   * other source's claim. A purge of it still deletes real rows -- its claim on
+   * every one of those placements, and its source row -- so a page reading only
+   * the removals would report "nothing to remove" about an operation that does
+   * something, and would offer no button to perform it.
+   *
+   * NOTHING IN THE PRODUCT WRITES THAT STATE TODAY, because every import path
+   * writes the statements that carry a title, so a source with placements and no
+   * statements cannot currently arise. It is guarded anyway: the cost is one
+   * clause, and the failure it prevents is an operation an owner cannot reach at
+   * all rather than a sentence that reads oddly.
    */
-  const takesNothing = preview.statements === 0 && preview.placements === 0 && preview.items === 0;
+  const takesNothing =
+    preview.statements === 0 &&
+    preview.placements === 0 &&
+    preview.items === 0 &&
+    preview.keptItems === 0;
 
   return (
     <section aria-labelledby="purge" className="mt-10">
