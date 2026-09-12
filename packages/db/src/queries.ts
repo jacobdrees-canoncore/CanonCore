@@ -323,12 +323,12 @@ export async function findAttributionOwed(
               and ${placementSources.deletedAt} is null
               and ${placements.deletedAt} is null)
           or exists (select 1 from ${statements} as container_claims
-            join ${placements} as memberships
-              on memberships.item_id = ${itemId}
-             and memberships.container_id = container_claims.subject_item_id
+            join ${placements} as container_placements
+              on container_placements.item_id = ${itemId}
+             and container_placements.container_id = container_claims.subject_item_id
             where container_claims.source_id = ${sources.id}
               and container_claims.deleted_at is null
-              and memberships.deleted_at is null)
+              and container_placements.deleted_at is null)
         )`,
       ),
     )
@@ -804,8 +804,16 @@ async function countListing(db: Database, within: SQL): Promise<number> {
   return counted?.total ?? 0;
 }
 
-/** One member of one container, and where the container puts it (ADR-0009). */
-export interface MemberOfContainer {
+/**
+ * One placement read from the container's end, and where that container puts it
+ * (ADR-0009).
+ *
+ * NAMED PLACEMENT RATHER THAN MEMBER, settled by CNCORE-91: `CONTEXT.md` rejects
+ * `member` as a name for this, because a row here IS a placement and a second
+ * noun for it would be a second name for a relationship the glossary has already
+ * settled. "Members" remains the reader's heading over this list.
+ */
+export interface PlacementInContainer {
   /**
    * The PLACEMENT's id, which is what `?via=` carries (ADR-0066): the ordering
    * a reader arrived through. It is the placement's rather than the item's
@@ -815,9 +823,9 @@ export interface MemberOfContainer {
   id: string;
   /** ADR-0014's projected title, so a reader sees a name rather than an id. */
   title: string | null;
-  /** The member's own address: `/items/<id>` is canonical (ADR-0066). */
+  /** The placed item's own address: `/items/<id>` is canonical (ADR-0066). */
   itemId: string;
-  /** Where this member sits in this container's ordering (ADR-0018). */
+  /** Where this placement sits in this container's ordering (ADR-0018). */
   position: number | null;
 }
 
@@ -837,10 +845,10 @@ export interface MemberOfContainer {
  * added here because the walk has to compose with `?via=` and `?placed=` on an
  * address ADR-0066 governs, which is that ticket's decision to make.
  */
-export async function findMembersOfContainer(
+export async function findPlacementsInContainer(
   db: Database,
   containerId: string,
-): Promise<MemberOfContainer[]> {
+): Promise<PlacementInContainer[]> {
   return db
     .select({
       id: placements.id,
@@ -854,8 +862,8 @@ export async function findMembersOfContainer(
       and(
         eq(placements.containerId, containerId),
         isNull(placements.deletedAt),
-        // ADR-0075. A deleted member is gone to every reader, so a container
-        // cannot go on listing it.
+        // ADR-0075. A deleted item is gone to every reader, so a container
+        // cannot go on listing a placement that reaches one.
         isNull(items.deletedAt),
       ),
     )

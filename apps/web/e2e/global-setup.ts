@@ -469,12 +469,15 @@ async function aCatalogueSafeToPurge(wikiUrl: string, tmdbUrl: string) {
       purged: tmdbUrl,
       /** Configured, and nothing was ever imported from it. */
       neverImported: UNREACHABLE_PROVIDER,
-      /** A member of each, which the owner also places and which therefore stays. */
+      /** A story from each, which the owner also places and which therefore stays. */
       keptFromPreviewed: await kept(
-        firstMemberOf(previewed),
+        firstItemPlacedBy(previewed),
         "An ordering the owner keeps, of stories",
       ),
-      keptFromPurged: await kept(firstMemberOf(purged), "An ordering the owner keeps, of films"),
+      keptFromPurged: await kept(
+        firstItemPlacedBy(purged),
+        "An ordering the owner keeps, of films",
+      ),
     },
     close: instance.close,
   };
@@ -542,17 +545,17 @@ function aCatalogueThatHoldsStill() {
 }
 
 /**
- * One member of a browse, whichever came first.
+ * One item a browse placed, whichever came first.
  *
  * WHICH ONE DOES NOT MATTER HERE, and that is deliberate rather than lazy: what
  * the fixture needs is an item in the state "this provider wrote it AND the
- * owner claims it", and every member is equally able to be put in it. Naming a
+ * owner claims it", and every placed story is equally able to be put in it. Naming a
  * particular story would also be naming one the real provider images have to go
  * on holding, which is a promise this fixture does not need to make.
  */
-function firstMemberOf({ members }: { members: { itemId: string }[] }): string {
-  const [first] = members;
-  if (!first) throw new Error("that browse placed no members, so nothing can be kept from it");
+function firstItemPlacedBy({ placements }: { placements: { itemId: string }[] }): string {
+  const [first] = placements;
+  if (!first) throw new Error("that browse wrote no placements, so nothing can be kept from it");
   return first.itemId;
 }
 
@@ -614,13 +617,17 @@ async function browseThroughTheApp(baseUrl: string, providerUrl: string, databas
     containerId: "388305",
   });
 
-  // FOUND BY TITLE rather than by index. The members come back in the order the
-  // provider gave them, so `members[2]` would work -- and would also pass if the
-  // ordering silently changed, which is the one thing this fixture is about.
-  const tenthPlanet = await memberTitled(client, missingEpisodes.members, TENTH_PLANET.title);
-  const operationDusk = await memberTitled(
+  // FOUND BY TITLE rather than by index. The placements come back in the order
+  // the provider gave them, so `placements[2]` would work -- and would also pass
+  // if the ordering silently changed, which is the one thing this fixture is about.
+  const tenthPlanet = await itemPlacedTitled(
     client,
-    vashtaNerada.members,
+    missingEpisodes.placements,
+    TENTH_PLANET.title,
+  );
+  const operationDusk = await itemPlacedTitled(
+    client,
+    vashtaNerada.placements,
     "Operation Dusk (audio story)",
   );
 
@@ -665,7 +672,7 @@ async function browseThroughTheApp(baseUrl: string, providerUrl: string, databas
       /*
        * SECOND, NOT THIRD, AND THAT IS THE FIXTURE MOVING RATHER THAN A TYPO.
        * ADR-0057 moved the fixture era to new Who and cut the missing-episode
-       * roster from five stories to two, because NOT ONE of the 29 members of
+       * roster from five stories to two, because NOT ONE of the 29 stories in
        * `Stories with missing episodes` is a new Who story. *Marco Polo* used
        * to sit ahead of *The Tenth Planet* in this ordering and no longer
        * exists in the extract, so the position it computes to moved with it.
@@ -688,17 +695,17 @@ async function browseThroughTheApp(baseUrl: string, providerUrl: string, databas
   };
 }
 
-/** The member of a browse whose imported item carries this title. */
-async function memberTitled(
+/** The id of the item a browse placed under this title. */
+async function itemPlacedTitled(
   client: AppRouterClient,
-  members: { itemId: string }[],
+  placements: { itemId: string }[],
   title: string,
 ): Promise<string> {
-  for (const member of members) {
-    const item = await client.item.get({ id: member.itemId });
-    if (item.title === title) return member.itemId;
+  for (const placement of placements) {
+    const item = await client.item.get({ id: placement.itemId });
+    if (item.title === title) return placement.itemId;
   }
-  throw new Error(`the browse placed no member titled ${title}`);
+  throw new Error(`the browse placed nothing titled ${title}`);
 }
 
 /**
@@ -799,7 +806,7 @@ const THE_MATRIX_RELOADED = { id: "movie:604", title: "The Matrix Reloaded" };
  * MEASURED AGAINST TMDB'S OWN API on 2026-09-11: `/3/collection/2344` is `The
  * Matrix Collection` and its parts are 603, 604, 605 and 624860. The stub answers
  * the first two of those, which is enough for an ordering to exist; the real image
- * answers all four and no assertion can tell, because none of them counts members.
+ * answers all four and no assertion can tell, because none of them counts rows.
  */
 const MATRIX_COLLECTION = "collection:2344";
 
@@ -1221,7 +1228,7 @@ async function theThingsWorkBrowsingHasToTellApart(databaseUrl: string) {
    * order, because that is the order the provider handed them over in -- so
    * PostgreSQL returns them correctly ordered from a query carrying no `order
    * by` at all, and an assertion against one cannot tell a sorted answer from an
-   * unsorted one. Measured: removing the `orderBy` from `findMembersOfContainer`
+   * unsorted one. Measured: removing the `orderBy` from `findPlacementsInContainer`
    * left every page-level assertion passing. These three are written third,
    * first, second for that reason.
    */
@@ -1279,7 +1286,7 @@ async function theThingsWorkBrowsingHasToTellApart(databaseUrl: string) {
       workContainer: "A season that holds stories",
       workContainerId: workContainer,
       story: "A story in that season",
-      /** Its members, in the order the container puts them -- NOT the order they were written. */
+      /** What it holds, in the order the container puts them -- NOT the order they were written. */
       inPositionOrder: [
         "The story that opens that season",
         "The story in the middle of that season",

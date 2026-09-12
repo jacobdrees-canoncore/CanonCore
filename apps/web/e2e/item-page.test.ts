@@ -406,7 +406,7 @@ describe("one record imported twice, by two routes", () => {
   });
 });
 
-describe("a member the ordering could not place", () => {
+describe("a placement the ordering could not position", () => {
   /**
    * `browse` hands back members its ordering cannot place, and a member with no
    * position is still a member. Operation Dusk carries no release date, and the

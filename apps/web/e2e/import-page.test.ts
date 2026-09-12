@@ -405,7 +405,7 @@ describe("/import, before a container's ordering is imported", () => {
     expect(sectionIn(text, "container")).toContain(said.title);
   });
 
-  it("says how many members the browse would write, before it writes them", async () => {
+  it("says how many placements the browse would write, before it writes them", async () => {
     /*
      * ONE PRESS WRITES A CONTAINER'S WORTH OF PLACEMENTS -- that is the whole
      * reason `browse` exists (ADR-0033) -- and the page used to describe what
@@ -417,8 +417,8 @@ describe("/import, before a container's ordering is imported", () => {
     if (said.answer !== "container") {
       throw new Error(`the provider handed over no container: ${said.answer}`);
     }
-    expect(said.members).toBeGreaterThan(0);
-    expect(sectionIn(text, "container")).toContain(`${said.members} members`);
+    expect(said.placements).toBeGreaterThan(0);
+    expect(sectionIn(text, "container")).toContain(`${said.placements} members`);
   });
 
   it("writes nothing, which is what asking on the GET has to mean", async () => {
@@ -469,12 +469,12 @@ describe("/import, taking a Container and its ordering", () => {
      * THE MEMBER THIS WATCHES IS ONE THE CATALOGUE ALREADY HOLDS, and that is the
      * point: its Item exists before the browse and has no placement in this
      * container, so what arrives is the ORDERING rather than the item. An import
-     * that wrote a second item for a member it already had would be CNCORE-28's
+     * that wrote a second item for a story it already had would be CNCORE-28's
      * defect, and it would not satisfy this.
      */
     const at = browsing(providerSearch.browsable);
-    const member = inject("attributed");
-    const placedBefore = (await client.item.get({ id: member.id })).placements;
+    const story = inject("attributed");
+    const placedBefore = (await client.item.get({ id: story.id })).placements;
 
     const offered = await documentAt(at);
     expect(offered.status).toBe(200);
@@ -491,9 +491,9 @@ describe("/import, taking a Container and its ordering", () => {
     expect(arrived.status).toBe(200);
     expect(arrived.text).toContain(providerSearch.browsable.container);
 
-    // AND THE ORDERING CAME WITH IT: the member now sits in that container, at a
+    // AND THE ORDERING CAME WITH IT: the story now sits in that container, at a
     // position, placed by the provider that asserted the ordering (ADR-0017).
-    const placedAfter = (await client.item.get({ id: member.id })).placements;
+    const placedAfter = (await client.item.get({ id: story.id })).placements;
     const containerId = (link as string).slice("/items/".length);
     expect(placedBefore.map(({ containerId: held }) => held)).not.toContain(containerId);
     const placement = placedAfter.find(({ containerId: held }) => held === containerId);
