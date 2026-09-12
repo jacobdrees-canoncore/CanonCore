@@ -153,7 +153,8 @@ export function createRegistry(tasks: Task[]) {
       if (!task) throw new TaskRefused("no such task", `No task is keyed ${key}.`);
       // BEFORE THE ROW IS OPENED, so a refused second run leaves no history
       // entry for a run that never ran.
-      if (running.has(key)) throw new TaskRefused("already running", `${task.name} is already running.`);
+      if (running.has(key))
+        throw new TaskRefused("already running", `${task.name} is already running.`);
 
       const stop = new AbortController();
       running.set(task.key, stop);
@@ -248,7 +249,9 @@ async function endingOf(
     const detail = bounded(await task.run(context));
     return context.signal.aborted ? stopped() : { outcome: "completed", detail };
   } catch (thrown) {
-    return context.signal.aborted ? stopped() : { outcome: "failed", detail: bounded(reasonFor(thrown)) };
+    return context.signal.aborted
+      ? stopped()
+      : { outcome: "failed", detail: bounded(reasonFor(thrown)) };
   }
 }
 

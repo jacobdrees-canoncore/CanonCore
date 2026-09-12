@@ -111,10 +111,11 @@ session and an idle one both wait out the rest of their thirty days rather than 
 they stop answering. That is deliberate -- a tombstone that vanished as `endSession` wrote it would
 cost the distinction that function keeps, between the owner having logged a device out and the
 device never having logged in -- and it means a row refused on the idle clock at day eight is still
-in the table on day nine. Nothing calls the sweep at all. Recurring work
-runs on a VISIBLE REGISTRY there rather than a hidden timer, and no registry exists (CNCORE-119);
-attaching a sweep to a login, a page render or the container's boot would be exactly the shape that
-record refuses. Nothing's security waits on it either way: `seeSession` refuses a lapsed session
+in the table on day nine. The registry ADR-0049 decides now exists and now calls it (CNCORE-119):
+`sweep-sessions`, on a daily trigger, with a run history the owner reads at `/tasks`. It was
+uncalled until then rather than attached to a login, a page render or the container's boot, because
+each of those is exactly the hidden timer that record refuses. Nothing's security waits on it
+either way: `seeSession` refuses a lapsed session
 whether or not it has been swept, so an unswept table is a table that grew rather than a door left
 open.
 

@@ -196,8 +196,10 @@ describe("a session that has lapsed", () => {
  * A BROWSER THAT FORGETS ITS COOKIE LEAVES A LIVE ROW NOTHING WILL EVER PRESENT
  * AGAIN, and so does every session that lapses: the row goes on being a row. The
  * write path does not depend on this running -- `seeSession` refuses a lapsed
- * session whether or not anything has swept it -- which is why a sweep nobody
- * has scheduled yet is a tidiness problem rather than a hole.
+ * session whether or not anything has swept it -- which is why an unswept table
+ * is a tidiness problem rather than a hole. ADR-0049's registry schedules it
+ * daily since CNCORE-119; this asserts the OPERATION, and that the registry
+ * reaches it is asserted in `@canoncore/tasks`.
  */
 describe("sweeping the rows that can no longer answer", () => {
   it("removes what is past its lifetime and leaves what is not", async () => {

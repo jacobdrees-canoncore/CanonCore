@@ -3,7 +3,7 @@ import { connect } from "@canoncore/db/testing/catalogue";
 import { eq } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { createRegistry, dailyAt, type Task, TaskRefused, taskRegistry } from "./index";
+import { createRegistry, dailyAt, type Task, taskRegistry } from "./index";
 
 let db: Database;
 

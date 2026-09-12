@@ -277,12 +277,14 @@ export async function endSession(db: Database, sessionId: string): Promise<boole
  * that grew rather than a door left open. One owner logging in monthly leaves a
  * dozen rows a year.
  *
- * TODO(CNCORE-119): NOTHING CALLS THIS YET, and that is ADR-0049 rather than an
- * oversight. Recurring work belongs on a VISIBLE REGISTRY there -- keyed,
- * runnable by hand, cancellable, with a run history -- and no registry exists.
- * Attaching it to an event that happens to be nearby (a login, a page render,
- * the container's boot) would be the hidden timer that record refuses, so the
- * operation is here and its scheduler is that ticket's.
+ * ITS RUNNER IS ADR-0049'S REGISTRY (CNCORE-119), and this stays a plain
+ * function that takes a database. `sweep-sessions` in `@canoncore/tasks` is the
+ * task that calls it, on a daily trigger, with a run history the owner reads --
+ * so the sweep is scheduled without this package knowing anything about
+ * schedules. It was uncalled until that registry existed rather than attached
+ * to an event that happened to be nearby (a login, a page render, the
+ * container's boot), because each of those is the hidden timer that record
+ * refuses.
  */
 export async function sweepSessions(db: Database): Promise<number> {
   const swept = await db

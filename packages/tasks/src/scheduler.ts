@@ -73,21 +73,18 @@ export async function startScheduler(registry: Registry, db: Database): Promise<
   const arm = (task: { key: string; trigger: Trigger }) => {
     if (stopped) return;
     const due = nextFiring(task.trigger, new Date());
-    const timer = setTimeout(
-      () => {
-        timers.delete(timer);
-        // RE-ARMED BEFORE THE RUN RATHER THAN AFTER IT. A sweep that takes an
-        // hour would otherwise push tomorrow's firing an hour later every day,
-        // and a task that never returns would end the schedule silently.
-        arm(task);
-        void registry.run(db, task.key).catch(() => {
-          // Every ending a run can have is already written to the history by
-          // `registry.run`; what reaches here is the refusal of a task already
-          // running, which is not one.
-        });
-      },
-      due.getTime() - Date.now(),
-    );
+    const timer = setTimeout(() => {
+      timers.delete(timer);
+      // RE-ARMED BEFORE THE RUN RATHER THAN AFTER IT. A sweep that takes an
+      // hour would otherwise push tomorrow's firing an hour later every day,
+      // and a task that never returns would end the schedule silently.
+      arm(task);
+      void registry.run(db, task.key).catch(() => {
+        // Every ending a run can have is already written to the history by
+        // `registry.run`; what reaches here is the refusal of a task already
+        // running, which is not one.
+      });
+    }, due.getTime() - Date.now());
     timers.add(timer);
   };
 

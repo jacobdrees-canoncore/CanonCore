@@ -103,12 +103,14 @@ function whenItRuns(trigger: { kind: "daily"; atHour: number }): string {
  * and `Failed` are different words here rather than one shared "did not
  * finish".
  */
-function lastRunOf(run: {
-  startedAt: Date;
-  endedAt: Date | null;
-  outcome: "running" | "completed" | "failed" | "aborted";
-  detail: string | null;
-} | null): string {
+function lastRunOf(
+  run: {
+    startedAt: Date;
+    endedAt: Date | null;
+    outcome: "running" | "completed" | "failed" | "aborted";
+    detail: string | null;
+  } | null,
+): string {
   if (run === null) return "Has not run yet.";
   if (run.outcome === "running") return `Running, started ${on(run.startedAt)}.`;
 

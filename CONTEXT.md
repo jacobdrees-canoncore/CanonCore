@@ -364,6 +364,30 @@ The computed list of editions in progress. Offered, never auto-played.
 A provider-supplied image with its role, its licence, its attribution string and its extracted
 palette.
 
+### Maintenance
+
+**Task**:
+One named piece of recurring work the catalogue does for itself, keyed so its history outlives any
+renaming. Code rather than a row: a task is a function this repository ships, and there is no table
+of them to add one from.
+_Avoid_: job, cron, chore
+
+**Trigger**:
+When a task runs without being asked. A named kind rather than a cron expression, so a schedule can
+only say things the catalogue is willing to keep.
+_Avoid_: schedule (as a noun for this), cron
+
+**Run**:
+One execution of one task, with when it started, when it stopped and how it ended. What makes last
+night's failure visible: a registry holding this in memory would answer only until the process
+restarted.
+
+**Outcome**:
+How a run ended, and one of four. `running` while it has not; `completed`; `failed` when the task
+broke; `aborted` when it was STOPPED, by the owner or by the server going away. The last two are
+different answers on purpose -- a job that was killed and a job that broke need different answers.
+_Avoid_: status, cancelled (as a fifth value)
+
 ### Named instances
 
 **The archive**:

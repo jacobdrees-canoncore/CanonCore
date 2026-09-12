@@ -727,10 +727,7 @@ export const taskRuns = pgTable(
     // RUNNING IS EXACTLY "HAS NOT ENDED". Stored as one fact rather than two
     // that can disagree, which is what a row reading `completed` with no end
     // time would be.
-    check(
-      "task_runs_running_has_no_end",
-      sql`(${t.outcome} = 'running') = (${t.endedAt} is null)`,
-    ),
+    check("task_runs_running_has_no_end", sql`(${t.outcome} = 'running') = (${t.endedAt} is null)`),
     // WHAT EVERY READ OF THIS TABLE ASKS: this task's runs, newest first.
     index("task_runs_by_task").on(t.taskKey, t.startedAt.desc()),
   ],
