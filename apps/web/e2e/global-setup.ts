@@ -399,6 +399,19 @@ async function aCatalogueSafeToPurge(wikiUrl: string, tmdbUrl: string) {
 }
 
 /**
+ * EVERY ITEM THE FIFTH INSTANCE HOLDS, and so how much it holds.
+ *
+ * THREE, WHICH IS NOT ONE. `Holding` says "1 item" and "3 items" from different
+ * arms of one expression, so a fixture of one would assert the SINGULAR while
+ * claiming to be about the count. Nothing asserts the singular arm yet.
+ */
+const HOLDING_STILL = [
+  "A catalogue nobody is filling",
+  "An item that arrived before the run",
+  "And a third, so the plural is a plural",
+];
+
+/**
  * A FIFTH INSTANCE, and what is new about it is that NOTHING WRITES TO IT.
  *
  * CNCORE-93. "How much does this catalogue hold" is a fact about a WHOLE
@@ -413,31 +426,23 @@ async function aCatalogueSafeToPurge(wikiUrl: string, tmdbUrl: string) {
  * listing, so the FRESH instance renders no count at all -- an empty catalogue
  * shows what to do next instead (ADR-0094). The PAGED one is written to by
  * nothing and would serve, except that 254 items is more than a page, so it
- * renders `Holding`'s OTHER branch -- "Showing 100 of 254 items", which
- * `front-page.test.ts` already asserts. The plain-total branch needs a catalogue
+ * renders `Holding`'s OTHER arm -- "Showing 100 of 254 items", which
+ * `front-page.test.ts` already asserts. The plain-total arm needs a catalogue
  * that is NON-EMPTY, SMALLER THAN ONE PAGE and WRITTEN TO BY NOTHING, and that
  * is the whole of this fixture.
  *
- * THE COUNT IS A PROPERTY OF THIS LIST rather than a number asked of the router.
- * On a shared instance it had to be read back from `catalogue.list` because
- * nothing here could know it; here the fixture knows it, and page-agrees-with-
- * router was the weaker assertion anyway -- the page reads its total THROUGH
- * that procedure, so the two agreeing is one code path agreeing with itself.
+ * THE COUNT IS A PROPERTY OF `HOLDING_STILL` rather than a number asked of the
+ * router. On a shared instance it had to be read back from `catalogue.list`
+ * because nothing here could know it; here the fixture knows it, and
+ * page-agrees-with-router was the weaker assertion anyway -- the page reads its
+ * total THROUGH that procedure, so the two agreeing is one code path agreeing
+ * with itself.
  *
- * THREE, WHICH IS NOT ONE. `Holding` says "1 item" and "3 items" from different
- * arms of the same expression, and a fixture of one would assert the singular
- * while claiming to be about the count. Nothing asserts the singular arm yet.
+ * TODO(CNCORE-111): this is the fourth near-verbatim copy of build a database,
+ * take a port, spawn `next start`, wait for it to answer, hand back a close.
+ * Folding the four together touches three fixtures this ticket did not otherwise
+ * change, and they differ in what an extraction has to carry rather than flatten.
  */
-const HOLDING_STILL = [
-  "A catalogue nobody is filling",
-  "An item that arrived before the run",
-  "And a third, so the plural is a plural",
-];
-
-// TODO(CNCORE-111): this is the fourth near-verbatim copy of build a database,
-// take a port, spawn `next start`, wait for it to answer, hand back a close.
-// Folding the four together touches three fixtures this ticket did not otherwise
-// change, and they differ in what an extraction has to carry rather than flatten.
 async function aCatalogueThatHoldsStill() {
   const databaseUrl = await buildTestDatabase("still");
   const db = createDb(databaseUrl);
