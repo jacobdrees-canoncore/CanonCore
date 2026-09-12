@@ -132,9 +132,13 @@ useful part.
 example on a public port — "A random port number between 10000 and 32767 is needed [...] If you
 navigate your browser to `http://server.whatbox.ca:15664/`, you should see 'Hello World!'". Its
 Managed Links page gives your own domain at a hostname root — "Bring Your Own Domain [...] This will
-allow you to use any domain name you own as your slot's managed links", so no `basePath`. And the
-container half is documented, though it lives under an application name rather than a container
-heading, which is why it is easy to miss:
+allow you to use any domain name you own as your slot's managed links", so no `basePath`. **Measured
+end to end under CNCORE-106 on 2026-09-12, and the "root" is a SUBDOMAIN root rather than the
+apex**: each managed link is `<alias>.<your domain>`, the vendor's front end terminates TLS inside
+the slot and proxies to `127.0.0.1:<port>`, and an unauthenticated request from a UK machine
+answered `HTTP/2 200`. ADR-0109 carries the measurement; the apex serves nothing, so the bare domain
+needs a registrar redirect if it is wanted at all. And the container half is documented, though it
+lives under an application name rather than a container heading, which is why it is easy to miss:
 
 > Create a compose file. `touch ~/audiobookshelf/docker-compose.yml`
 >
@@ -155,6 +159,11 @@ published is the same shape of thing for Redis: "Compile the source [...] `make 
 install` [...] A random port number between 10000 and 32767 is needed and will be used by the Redis
 server to bind to." **A user-compiled, port-binding data-store daemon, blessed by the provider.** That
 is strong analogy, not a yes.
+
+**One limit this table has no column for, measured under CNCORE-106 on 2026-09-12: a 10 TB monthly
+upload allocation**, stated in the account panel rather than the wiki. It binds before disk does for
+a media path, and §4.2's arithmetic puts a heavy single viewer at about 1 TB a month, so it is
+comfortable for the owner and is the figure to check before a public surface.
 
 **The analogy was not needed, and CNCORE-18 replaced it with a measurement on 2026-09-10.** The wiki
 is still silent and the box still has PostgreSQL 18.6 installed, five slots deep; both the native and

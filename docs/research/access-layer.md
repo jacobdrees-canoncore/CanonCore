@@ -178,7 +178,12 @@ And Cloudflare's own guidance page (last updated 2026-08-25) now names Tunnel ex
 
 The carve-out requires the viewer to run Cloudflare's WARP client, which makes it a VPN — the
 Tailscale shape with extra steps. Two agents reached this clause independently, from the front-door
-and the demo directions.
+and the demo directions. **Both documents were re-read at source on 2026-09-12 under CNCORE-106 and
+both still say this**, the Service-Specific Terms last updated 2026-06-02 and the docs page
+2026-08-25. That ticket also found this section answers a question it had been filed as unconsidered
+ground: a proxy in front of a rented slot is the same clause as a tunnel out of a home machine. **It
+is moot for the slot**, which reaches the owner's domain through the vendor's own front end with no
+Cloudflare on the path at all — ADR-0109 carries that.
 
 *Gap:* no published Cloudflare Tunnel bandwidth cap was found; the binding constraint is the
 content-type clause, not a metered figure. Separately, Cloudflare's 100 MB free-plan limit is a
