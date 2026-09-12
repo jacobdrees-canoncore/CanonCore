@@ -120,6 +120,17 @@ async function stubProvider(
     operations = ["search", "lookup", "browse"],
     containers = { "388305": VASHTA_NERADA } as Record<string, unknown>,
     attribution = null as typeof ATTRIBUTION | null,
+    /**
+     * Every path this provider was asked for, in order, for a caller that needs
+     * to assert what was NOT asked.
+     *
+     * ADR-0033 makes `browse` the operation a provider may decline, and
+     * "declines it and is therefore not asked" is a claim about a request that
+     * never happened -- which an answer cannot witness. A provider that answered
+     * 404 on `/browse/...` and one that was never called produce the same value
+     * at every other seam.
+     */
+    asked = [] as string[],
   } = {},
 ) {
   const server = createServer((request, response) => {
@@ -128,6 +139,7 @@ async function stubProvider(
       response.end(JSON.stringify(body));
     };
     const path = request.url ?? "/";
+    asked.push(path);
     if (path === "/") return json({ ...MANIFEST, operations, attribution });
     // `search`, MATCHED ON THE TITLE, which is the least a stub can do and still
     // be a search: a stub answering every query with everything could not tell a
@@ -775,5 +787,143 @@ describe("provider.held", () => {
     // "which of these do you have", and a row per id with nothing in it is a
     // longer way of saying the same thing.
     expect(held).toEqual([{ recordId: "265", itemId }]);
+  });
+});
+
+/**
+ * WHAT THE PROVIDER SAYS ABOUT A CONTAINER, ASKED BEFORE ANYTHING IS WRITTEN.
+ *
+ * `provider.browse` declares three refusals so that each is an ANSWER rather
+ * than a fault (ADR-0033), and a POST is the wrong place to find any of them
+ * out: a Server Action that throws during a form submission with no script
+ * answers a bare 500, and Next redacts the message before a boundary could
+ * read it. So the question is asked on the GET instead, where a read belongs,
+ * and every one of the three arrives as a value a page can print.
+ */
+describe("provider.container", () => {
+  it("answers the container's own title, and the name of the provider that holds it", async () => {
+    const baseUrl = await stubProvider();
+
+    const answer = await call(
+      appRouter.provider.container,
+      { baseUrl, containerId: "388305" },
+      { context },
+    );
+
+    // THE TITLE IS THE WHOLE POINT OF ASKING EARLY. A browse writes a
+    // container's worth of placements, and until this the only thing naming
+    // the one about to be written was an id the owner typed.
+    expect(answer).toMatchObject({
+      answer: "container",
+      providerName: "provider-wiki",
+      title: "Category:Vashta Nerada audio stories",
+    });
+  });
+
+  it("counts every member a browse would write, the ones it cannot place included", async () => {
+    /*
+     * WHAT PRESSING THE BUTTON COSTS, said before it is pressed. One call writes
+     * a container's worth of placements -- that is why `browse` exists at all
+     * (ADR-0033) -- and the owner's only description of it beforehand is this.
+     *
+     * THE UNPLACED ONES ARE MEMBERS TOO (ADR-0009, and `importBrowsedContainer`
+     * writes them with a null position). They are members WITH NO POSITION
+     * rather than non-members, so a count that left them out would understate
+     * what arrives -- for the wiki, by about a sixth.
+     */
+    const baseUrl = await stubProvider(
+      {},
+      {
+        containers: {
+          "388305": {
+            ...VASHTA_NERADA,
+            unplaced: [
+              {
+                id: "355593",
+                title: "Operation Dusk (audio story)",
+                kind: "audio story",
+                released: [],
+                writers: [],
+                series: null,
+                url: "https://tardis.wiki/wiki/Operation_Dusk_(audio_story)",
+              },
+            ],
+          },
+        },
+      },
+    );
+
+    const answer = await call(
+      appRouter.provider.container,
+      { baseUrl, containerId: "388305" },
+      { context },
+    );
+
+    // TWO IN THE ORDERING AND ONE OUTSIDE IT.
+    expect(answer).toMatchObject({ answer: "container", members: 3 });
+  });
+
+  it("says a provider holds no container at that id, rather than throwing", async () => {
+    const baseUrl = await stubProvider();
+
+    // AN ID THIS PROVIDER REALLY HOLDS, AND NOT AS A CONTAINER. `265` is a
+    // story, which is the case an owner reaches by typing a record id into the
+    // box that wants a container's -- and the case a `lookup` could not tell
+    // from a container, since it would answer with the story's own title and
+    // offer a browse the provider then refuses.
+    const answer = await call(
+      appRouter.provider.container,
+      { baseUrl, containerId: "265" },
+      { context },
+    );
+
+    expect(answer).toEqual({ answer: "no-such-container", providerName: "provider-wiki" });
+  });
+
+  it("says a provider declares no browse, and does not ask it for one", async () => {
+    /*
+     * THE OPTIONALITY BEING HONOURED (ADR-0033) rather than an optimisation.
+     * `browse` is the operation a provider may decline, and a provider that
+     * offers only `search` and `lookup` is perfectly well-formed -- so the
+     * manifest decides whether to call at all, and the owner is told that this
+     * provider does not do it rather than that their id was wrong.
+     */
+    const asked: string[] = [];
+    const baseUrl = await stubProvider(
+      { "265": TENTH_PLANET },
+      { operations: ["search", "lookup"], asked },
+    );
+
+    const answer = await call(
+      appRouter.provider.container,
+      { baseUrl, containerId: "388305" },
+      { context },
+    );
+
+    expect(answer).toEqual({ answer: "browse-not-offered", providerName: "provider-wiki" });
+    // THE MANIFEST, AND NOTHING ELSE. A `/browse/388305` here would be the
+    // declaration read and then ignored.
+    expect(asked).toEqual(["/"]);
+  });
+
+  it("says a provider could not be reached, and not that it holds nothing", async () => {
+    /*
+     * A PROVIDER THAT IS DOWN AND A PROVIDER THAT HOLDS NOTHING ARE DIFFERENT
+     * ANSWERS, which is the distinction this codebase keeps everywhere else --
+     * `provider.search` answers two lists for the same reason. An owner who
+     * cannot tell them apart goes back to check an id that was right all along.
+     *
+     * THE REASON TRAVELS WITH IT because it is the only part they can act on:
+     * this URL is refused by ADR-0034's allowlist rather than being offline, and
+     * those are two different things to go and fix.
+     */
+    const answer = await call(
+      appRouter.provider.container,
+      { baseUrl: "http://169.254.169.254/", containerId: "388305" },
+      { context },
+    );
+
+    expect(answer.answer).toBe("unreachable");
+    expect(answer).toMatchObject({ reason: expect.stringContaining("allowlisted") });
   });
 });

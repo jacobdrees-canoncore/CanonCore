@@ -56,6 +56,7 @@ export default async function setup(project: TestProject) {
   // given the allowlist that makes them reachable.
   const provider = await theProvider();
   const tmdb = await theTmdbProvider();
+  const lookupOnly = await aProviderThatDeclinesBrowse();
 
   const env = {
     ...process.env,
@@ -76,7 +77,7 @@ export default async function setup(project: TestProject) {
      * to ask. Neither is derivable from the other -- `127.0.0.0/8` carries no
      * scheme and no port.
      */
-    PROVIDER_URLS: [provider.url, tmdb.url, UNREACHABLE_PROVIDER].join(","),
+    PROVIDER_URLS: [provider.url, tmdb.url, lookupOnly.url, UNREACHABLE_PROVIDER].join(","),
   };
   await run("next", ["build"], env);
 
@@ -136,6 +137,7 @@ export default async function setup(project: TestProject) {
     held: THE_MATRIX.title,
     unreachable: UNREACHABLE_PROVIDER,
     browsable: { provider: tmdb.url, container: MATRIX_COLLECTION },
+    declinesBrowse: lookupOnly.url,
   });
   const browsed = await browseThroughTheApp(baseUrl, provider.url, databaseUrl);
   project.provide("browsed", browsed.fixture);
@@ -152,6 +154,7 @@ export default async function setup(project: TestProject) {
     await browsed.close();
     await provider.close();
     await tmdb.close();
+    await lookupOnly.close();
   };
 }
 
@@ -269,6 +272,10 @@ async function importThroughTheApp(baseUrl: string, providerUrl: string) {
   });
   return {
     id: itemId,
+    // THE PROVIDER'S OWN ID FOR IT, as well as the Item's. A surface that takes
+    // an id from the owner has to be askable about one the catalogue already
+    // holds, and this record is the only one this harness imports by hand.
+    recordId: TENTH_PLANET.id,
     title: TENTH_PLANET.title,
     released: TENTH_PLANET.released[0] as string,
     providerLabel: "provider-wiki",
@@ -581,6 +588,53 @@ async function stubTmdbProvider(): Promise<{ url: string; close: () => Promise<v
     if (path === `/lookup/${encodeURIComponent(THE_MATRIX_RELOADED.id)}`) {
       return answer(reloaded, 200);
     }
+    return answer({ error: "no such record" }, 404);
+  });
+}
+
+/**
+ * A CONFORMANCE WITNESS: a provider that satisfies CMPP while DECLINING the one
+ * operation ADR-0033 lets a provider decline.
+ *
+ * IT IS A STUB EVEN IN CI, WHERE THE OTHER TWO ARE REAL IMAGES, and that is not
+ * a gap in the arrangement -- it is the reason this exists.
+ * `packages/contract/src/participants.ts` carries the same witness for the same
+ * reason and says why: `provider-wiki` and `provider-tmdb` both declare `browse`
+ * since CNCORE-17, so NO REAL PROVIDER LACKS IT and there is nothing else in
+ * version one exercising the optionality. A surface that must say "this provider
+ * does not do that" has nothing to say it about otherwise.
+ *
+ * IT IS NOT A STAND-IN FOR A REAL PROVIDER and must not grow into one. It stands
+ * for one claim -- that a provider may decline `browse` and still be well-formed
+ * -- and it is configured in `PROVIDER_URLS` like any other, so the import page
+ * fans out over it and has to handle it.
+ *
+ * `browse` IS NOT ROUTED AT ALL, deliberately: a provider that does not DECLARE
+ * the operation is under no obligation about what the path does, so an app that
+ * asked it anyway would get the 404 an unrouted path answers -- which is how
+ * `asked` in `provider.test.ts` tells "declined" from "asked and refused".
+ */
+async function aProviderThatDeclinesBrowse(): Promise<{ url: string; close: () => Promise<void> }> {
+  const manifest = {
+    name: "provider-lookup-only",
+    versions: [1],
+    operations: ["search", "lookup"],
+    max_cache_age: 86400,
+    images: { stored_variant: null, per_role_limit: 0, quality_floor: 0 },
+  };
+  const record = {
+    id: "1",
+    title: "A work this provider holds",
+    kind: "a kind of its own",
+    released: ["1999"],
+    writers: [],
+    series: null,
+    url: "https://example.invalid/1",
+  };
+  return onLoopback((path, answer) => {
+    if (path === "/") return answer(manifest, 200);
+    if (path.startsWith("/search")) return answer(searchOver([record], path), searchStatus(path));
+    if (path === `/lookup/${record.id}`) return answer(record, 200);
     return answer({ error: "no such record" }, 404);
   });
 }
@@ -994,7 +1048,14 @@ declare module "vitest" {
       repeatedId: string;
     };
     /** The story imported from a CMPP provider over HTTP, and what it claimed. */
-    imported: { id: string; title: string; released: string; providerLabel: string };
+    imported: {
+      id: string;
+      /** The provider's own id for it, which is what `lookup` and `browse` take. */
+      recordId: string;
+      title: string;
+      released: string;
+      providerLabel: string;
+    };
     /**
      * An item imported from the SECOND provider, whose licence obliges the app to
      * show a notice and a mark (ADR-0036).
@@ -1011,6 +1072,12 @@ declare module "vitest" {
       unreachable: string;
       /** A container nothing in this suite has browsed, and who holds it. */
       browsable: { provider: string; container: string };
+      /**
+       * A provider this instance searches that declares no `browse`, which
+       * ADR-0033 makes well-formed. No real provider lacks it, so this is the
+       * conformance witness rather than one of the images.
+       */
+      declinesBrowse: string;
     };
     /** A real browsed story in two orderings, and the two shapes browse hands over. */
     browsed: {

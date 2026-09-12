@@ -12,10 +12,12 @@ import {
 import {
   type Allowlist,
   allowsAnything,
+  type CmppBrowse,
   type CmppManifest,
   type CmppRecord,
   createProviderClient,
   OutboundRefused,
+  type ProviderClient,
   searchProviders,
 } from "@canoncore/providers";
 import { z } from "zod";
@@ -85,6 +87,48 @@ export interface BrowseRequest {
 export class BrowseNotOffered extends Error {}
 
 /**
+ * What one provider answers when asked to browse: whether it OFFERS the
+ * operation at all, and what it held at that id if it does.
+ *
+ * TWO QUESTIONS AND NOT ONE, because ADR-0033 makes them separate facts. A
+ * provider may decline `browse` and still be well-formed, which is not the same
+ * as holding nothing at an id -- and a caller that could not tell them apart
+ * would report a provider that does not do this as a provider whose id was
+ * wrong.
+ */
+type BrowseAttempt =
+  | { manifest: CmppManifest; offered: false }
+  | { manifest: CmppManifest; offered: true; browsed: CmppBrowse | null };
+
+/**
+ * The CMPP preamble every browse begins with: read the manifest, and let its
+ * `operations` decide whether to ask at all.
+ *
+ * ONE COPY BECAUSE THE TWO CALLERS MUST NOT DRIFT. `browseIntoCatalogue` below
+ * performs a browse and `provider.container` reads what one would do, and the
+ * page offers its button on the strength of the second -- so a precondition
+ * that got stricter in one and not the other would put a button in front of an
+ * owner that the import then refuses, which is the exact defect CNCORE-92 was
+ * filed to remove. Sharing the check is what makes the page's answer a
+ * prediction rather than a guess.
+ *
+ * IT DOES NOT DECIDE WHAT TO DO ABOUT EITHER ANSWER, which is why it returns
+ * them rather than throwing: one caller raises a declared error and the other
+ * prints a sentence, and that difference is the whole distance between them.
+ */
+async function browseIfOffered(
+  client: ProviderClient,
+  containerId: string,
+): Promise<BrowseAttempt> {
+  // THE MANIFEST FIRST, for the provider's OWN name as much as for its
+  // operations. A source answers "who said this", and `provider-wiki` answers
+  // it where `http://127.0.0.1:39481` shows a reader a deployment detail.
+  const manifest = await client.manifest();
+  if (!manifest.operations.includes("browse")) return { manifest, offered: false };
+  return { manifest, offered: true, browsed: await client.browse(containerId) };
+}
+
+/**
  * Reaching a provider's `browse` and writing the container and ordering it
  * answers, as a plain function.
  *
@@ -114,16 +158,17 @@ export async function browseIntoCatalogue(
 ): Promise<ImportedContainer | null> {
   const client = createProviderClient({ baseUrl, allowlist });
   try {
-    const manifest = await client.manifest();
-    if (!manifest.operations.includes("browse")) {
-      throw new BrowseNotOffered(`${manifest.name} declares no browse; it was not asked for one.`);
+    const attempt = await browseIfOffered(client, containerId);
+    if (!attempt.offered) {
+      throw new BrowseNotOffered(
+        `${attempt.manifest.name} declares no browse; it was not asked for one.`,
+      );
     }
-
-    const browsed = await client.browse(containerId);
+    const browsed = attempt.browsed;
     if (!browsed) return null;
 
     return await importBrowsedContainer(db, {
-      provider: providerFrom(baseUrl, manifest),
+      provider: providerFrom(baseUrl, attempt.manifest),
       browsed: {
         container: asProvided(browsed.container),
         ordering: browsed.ordering.map(({ position, record }) => ({
@@ -526,6 +571,145 @@ export const provider = {
           throw errors.PROVIDER_REFUSED({ message: error.message });
         }
         throw error;
+      }
+    }),
+
+  /**
+   * WHAT ONE PROVIDER SAYS ABOUT ONE CONTAINER, asked before anything is
+   * written.
+   *
+   * A READ WHERE `browse` IS A WRITE, and that is the whole of why it exists.
+   * `browse` below declares three refusals precisely so each is an ANSWER
+   * rather than a fault (ADR-0033), and a POST is the one place none of them
+   * can be read: a Server Action that throws during a form submission with no
+   * script answers a bare `Internal Server Error`, and Next redacts a server
+   * error's message before any boundary sees it. Asked on the GET instead,
+   * every one of the three is a value a page can print.
+   */
+  container: publicProcedure
+    .input(
+      z.object({
+        /** A CONFIG URL, travelling ADR-0034's allowlist, as `browse`'s does. */
+        baseUrl: z.url(),
+        /** The provider's own id for the container, the one `browse` takes. */
+        containerId: z.string().min(1),
+      }),
+    )
+    /*
+     * A UNION RATHER THAN DECLARED ERRORS, WHICH IS THE WHOLE POINT OF THIS
+     * PROCEDURE EXISTING BESIDE `browse`. Every one of these is an ANSWER: the
+     * provider was asked and said something, and the caller renders whichever
+     * sentence it got. An error -- declared or not -- would put the same
+     * outcomes back on the throwing path this exists to get them off.
+     */
+    .output(
+      z.discriminatedUnion("answer", [
+        z.object({
+          answer: z.literal("container"),
+          /** The name the provider gives itself, off its manifest. */
+          providerName: z.string().min(1),
+          /** The container's own title, which is what the owner cannot see today. */
+          title: z.string().min(1),
+          /**
+           * HOW MANY MEMBERS A BROWSE WOULD WRITE, which is what pressing the
+           * button costs. One call writes a container's worth of placements --
+           * that is why `browse` exists (ADR-0033) -- and this is the owner's
+           * only description of it beforehand.
+           *
+           * THE ONES THE ORDERING CANNOT PLACE ARE COUNTED TOO, because they
+           * are members with no position rather than non-members and
+           * `importBrowsedContainer` writes them exactly as it writes the rest.
+           * For the wiki that is about a sixth of a category.
+           */
+          members: z.number().int().nonnegative(),
+        }),
+        /**
+         * THE PROVIDER WAS ASKED AND HOLDS NOTHING THERE, which ADR-0066 makes
+         * an answer rather than a failure: an id that cannot BE an identity
+         * addresses nothing, exactly as one nobody minted does.
+         */
+        z.object({
+          answer: z.literal("no-such-container"),
+          providerName: z.string().min(1),
+        }),
+        /**
+         * THE PROVIDER DOES NOT DO THIS, which ADR-0033 makes well-formed
+         * rather than broken: `browse` is the operation a provider may decline,
+         * and one offering only `search` and `lookup` satisfies CMPP. The owner
+         * asked for something this provider does not do, which is a sentence to
+         * put in front of them rather than an empty result to puzzle over.
+         */
+        z.object({
+          answer: z.literal("browse-not-offered"),
+          providerName: z.string().min(1),
+        }),
+        /**
+         * NOTHING USABLE CAME BACK, so there is no name to attribute this to --
+         * reading the provider's own name is one of the things that failed,
+         * exactly as in `search`'s `failed` list.
+         *
+         * THREE THINGS ARE IN HERE, not two: a URL ADR-0034 refused before a
+         * socket opened, a provider that never answered, and a provider that
+         * ANSWERED BADLY -- a non-2xx status, or a body `packages/providers`
+         * refuses to parse. The last is why the page's copy for this does not
+         * say "could not be reached": that provider was reached.
+         *
+         * THE REASON IS THE SENTENCE THE OWNER ACTS ON, and it is what keeps the
+         * three apart, because the three have different remedies.
+         */
+        z.object({
+          answer: z.literal("unreachable"),
+          reason: z.string().min(1),
+        }),
+      ]),
+    )
+    .handler(async ({ input, context }) => {
+      const client = createProviderClient({
+        baseUrl: input.baseUrl,
+        allowlist: context.providerAllowlist,
+      });
+      try {
+        // THE SAME PREAMBLE `browseIntoCatalogue` RUNS, which is what makes this
+        // a prediction of the button rather than a second opinion about it.
+        const attempt = await browseIfOffered(client, input.containerId);
+        const providerName = attempt.manifest.name;
+        if (!attempt.offered) return { answer: "browse-not-offered" as const, providerName };
+        if (!attempt.browsed) return { answer: "no-such-container" as const, providerName };
+        return {
+          answer: "container" as const,
+          providerName,
+          title: attempt.browsed.container.title,
+          members: attempt.browsed.ordering.length + attempt.browsed.unplaced.length,
+        };
+      } catch (error) {
+        /*
+         * EVERY FAILURE IS AN ANSWER HERE, which is the opposite of `browse`
+         * below and is the reason this procedure exists. The caller is a page
+         * being READ: it has already decided to show the owner something about
+         * this id, and a throw would take the whole page down over one provider
+         * having a bad day.
+         *
+         * WHATEVER WENT WRONG, RATHER THAN A LIST OF WHAT MIGHT. An
+         * `OutboundRefused` from ADR-0034's boundary, a socket that never
+         * opened, and a manifest that does not parse are all a provider this
+         * page could not get an answer out of -- and they stay apart by what
+         * they SAY, as they do in `search`'s `failed` list. Narrowing to the
+         * ones foreseen here would leave the rest as the 500 this removes.
+         */
+        // TODO(CNCORE-95): this message is app-authored only for an
+        // `OutboundRefused`. It is also undici's, the DNS layer's, or zod's --
+        // and a zod message serialises the value it received, so a provider
+        // that answers badly chooses the length and content of a string this
+        // catalogue then prints. `provider.search`'s `failed` list has carried
+        // the same field since CNCORE-68, so the rule belongs to both.
+        return {
+          answer: "unreachable" as const,
+          reason: error instanceof Error ? error.message : String(error),
+        };
+      } finally {
+        // Two undici agents and therefore two connection pools, as everywhere
+        // else on this path.
+        await client.close();
       }
     }),
 

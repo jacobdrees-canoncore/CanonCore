@@ -605,9 +605,13 @@ that the owner names it, because no CMPP operation answers "which containers do 
 record's `series` is a name that can be renamed out from under an import. The surface obeys it
 literally: the owner picks a provider and types the container's own id. That is the one field on this
 page somebody types, and it is the one that can be wrong -- which is why the same section's named
-refusals matter more now than when they were written. A provider that declines `browse` and an id that
-addresses no container both reach an owner as the procedure's declared errors rather than as an empty
-result to puzzle over.
+refusals matter more now than when they were written. **A provider that declines `browse` and an id
+that addresses no container reached the owner as neither: the surface this section describes threw
+all three declared errors away and answered a bare `Internal Server Error`, eighteen bytes of plain
+text with no HTML at all.** The sentence that stood here said they reached an owner "as the
+procedure's declared errors rather than as an empty result to puzzle over", and it was wrong on the
+day it was written -- a declared error is what the PROCEDURE answers, and nothing carried it to a
+page. CNCORE-92 is the correction and the section below is what it built.
 
 **AND THE OPERATION A PROVIDER-SIDE `list containers` WOULD SERVE IS NOW VISIBLE.** The CNCORE-17
 section says such an operation "is not refused here, it is simply not needed by anything yet. Whatever
@@ -625,3 +629,97 @@ something a surface needs and a protocol cannot supply: a page must be able to r
 did. The candidates a search answers carry the same field. Both are IDENTITY rather than matching
 (ADR-0026) -- one party, one namespace, no judgement -- so a record one provider holds and another
 does not reads as absent rather than as the other's Item.
+
+
+## And under CNCORE-92: the three refusals are read BEFORE the button is offered
+
+**THE DECLARED ERRORS EXISTED AND NOBODY COULD READ THEM.** The section above claimed they reached
+the owner; the sentence is corrected where it stands. What the owner actually got, measured against
+the production build by posting the browse form with a container id the provider does not hold, was
+`Internal Server Error`: eighteen bytes of plain text, no HTML, and none of `NO_SUCH_CONTAINER`,
+`BROWSE_NOT_OFFERED` or `PROVIDER_REFUSED` anywhere in it. Declaring an error is not delivering one.
+
+**AND TWO MECHANISMS FOR DELIVERING IT ON THE POST DO NOT EXIST.** An `error.tsx` was written and
+removed because it DOES NOT FIRE: a Server Action that throws during a form POST with no JavaScript
+answers the bare 500 regardless, since rendering that boundary is the client router's job and this
+surface's whole point is working before a script loads. It could not have carried the sentence
+anyway — Next redacts a server error's message in production before a boundary sees it, handing over
+a digest. So the reason is not recoverable on the POST at all, by any route.
+
+**SO THE QUESTION MOVED TO THE GET, WHERE A READ BELONGS.** `provider.container` reads the manifest
+and asks about the container the owner named, and answers a UNION rather than throwing: the
+container, no container at that id, this provider declares no browse, or this provider could not be
+reached with the reason it failed for. The page prints whichever it gets. Nothing about ADR-0033's
+optionality changed — the manifest is still what decides whether `browse` is called, and a provider
+that declares none is still never asked.
+
+**THE READ IS `browse`, NOT `lookup`, AND THAT IS THE DECISION THIS TICKET TURNED ON.** Asking
+`lookup` for the container id is cheaper and is wrong twice.
+
+CMPP DOES NOT PROMISE A CONTAINER ID IS LOOKUP-ABLE, and `provider-wiki` does not answer one.
+Measured 2026-09-12 against the real image rather than the stub
+(`ghcr.io/jacobdrees-canoncore/provider-wiki@sha256:fc69c217bd16ccd4080897922b38689f9339b2a975b177ba0643ce41d9658de9`):
+`/lookup/91997` answers `404 {"error":"no such record"}` while `/browse/91997` answers `200` with
+`Category:Stories with missing episodes` and its ordering. That id is `packages/contract`'s own
+fixture for a container this provider really holds, so a preflight built on `lookup` would have
+reported every wiki category as a container that does not exist, on the one provider this project
+ships first (ADR-0069).
+
+AND `lookup` CANNOT TELL A CONTAINER FROM A STORY. Where it does answer, it answers for records of
+every kind, so a record id typed into the container box comes back with a title and a button: the
+button then meets the very 500 this ticket removes. `browse` is the operation the button performs,
+so its answer is the only one that predicts the button.
+
+**WHICH REVERSES A COST THE CNCORE-68 SECTION DECLINED TO PAY, and the reversal is worth stating
+honestly because the first version of this section got it wrong.** That section refused to ask the
+provider because asking "would be a request on every render of a page the owner may simply be typing
+into". The premise is wrong: the browse box is a GET form with no script behind it, so the page
+renders on SUBMIT and not on keystrokes. But the sentence that stood here went on to call the
+preflight "the same request the button was going to make anyway, moved earlier", and it is ADDED
+rather than moved.
+
+**THE ARITHMETIC, COUNTED AT THE PROVIDER RATHER THAN ASSERTED.** Logging every request the e2e
+stub received while one container was imported through the page gives six, in three identical
+pairs:
+
+```
+/  /browse/collection%3A2344     the GET that offers the button
+/  /browse/collection%3A2344     the Server Action
+/  /browse/collection%3A2344     the render Next performs after the action returns
+```
+
+A manifest and a FULL browse each time, because `browseIfOffered` reads the declaration before it
+asks and a browse carries the container's whole ordering. Before this ticket the same import cost
+the middle pair alone. A refresh or a back-button on that URL costs another pair, and there is no
+cache and no conditional request in front of any of it.
+
+**AND THAT IS ACCEPTED RATHER THAN OVERLOOKED.** Six requests for one deliberate act, against a
+provider the owner runs or chose, on a single-owner self-hosted catalogue, buys the difference
+between a refusal an owner can read and eighteen bytes of `Internal Server Error`. If it ever stops
+being worth it, the place to spend is the render after the action: it re-asks a provider a question
+it answered a moment ago, and nothing on that render can act on a different answer.
+
+
+**A READ THAT WRITES NOTHING, PINNED AS SUCH.** The preflight calls the same provider operation the
+import does, so the one invariant worth a test of its own is that reading it imports nothing: the
+catalogue is counted either side of the GET. A page that quietly wrote sixty placements because
+somebody followed a link would be a worse defect than the 500, and it would look exactly like a page
+that worked.
+
+**IT NARROWS THE WINDOW RATHER THAN CLOSING IT, AND THAT IS ON PURPOSE.** A provider can still fall
+over between the GET that offered the button and the POST that presses it, and that POST still
+answers a loud 500. Nothing here catches it, because the alternative was refused when this ticket was
+written: an action that swallowed the three refusals would re-render as if nothing had happened,
+which makes a provider that is down indistinguishable from a provider that holds nothing. Loud and
+rare beats quiet and wrong.
+
+**A CONFORMANCE WITNESS NOW STANDS IN THE APP'S HARNESS TOO.** `packages/contract` keeps one because
+`provider-wiki` and `provider-tmdb` both declare `browse` since CNCORE-17, so no real provider
+exercises this record's optionality. The import surface needs the same thing for the same reason: a
+page that must say "this provider does not do that" has nothing to say it about otherwise. It is
+configured in `PROVIDER_URLS` like any other provider, and it is a stub even in the CI job where the
+other two are real images.
+
+**STILL NOT BUILT, AND STILL THE ONLY REASON THIS RECORD IS `proposed`:** the declared fields.
+`max_cache_age` and the image policy travel the wire from two providers and are read by nothing.
+There is no image store to bound and no read-time expiry check. Five sections have now said so.

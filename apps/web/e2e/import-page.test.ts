@@ -244,6 +244,14 @@ describe("/import, taking a record it already holds", () => {
     // AND NO ITEM ANYWHERE ELSE EITHER, which is the half a row cannot show: a
     // second item for this record would be in the catalogue whether or not this
     // row linked it.
+    //
+    // TODO(CNCORE-93): this total is catalogue-wide and another test FILE is
+    // writing to the same catalogue while it is read -- `multi-placement.test.ts`
+    // browses two containers in its own `beforeAll`, in another worker. Measured
+    // 2026-09-12 against the real provider images: this failed in two of four
+    // full runs and passed every time the file ran alone. Left standing rather
+    // than weakened here, because the claim it makes is the right one and the
+    // replacement has to be able to see a second Item.
     expect((await client.catalogue.list({})).total).toBe(total);
   });
 });
@@ -316,6 +324,88 @@ describe("/import on a fresh install", () => {
 function browsing({ provider, container }: { provider: string; container: string }): string {
   return `/import?provider=${encodeURIComponent(provider)}&container=${encodeURIComponent(container)}`;
 }
+
+/** What one provider says about the container the URL names, asked of the router. */
+async function whatTheProviderSays(named: { provider: string; container: string }) {
+  return client.provider.container({ baseUrl: named.provider, containerId: named.container });
+}
+
+describe("/import, before a container's ordering is imported", () => {
+  it("shows the container's own title, and not merely the id the owner typed", async () => {
+    /*
+     * A BROWSE CAN WRITE SIXTY PLACEMENTS, and until this the only thing naming
+     * the container about to be written was an id the owner typed into a box.
+     * The provider is asked on the GET -- where a read belongs -- so the title
+     * is on the page before the button is pressed rather than afterwards.
+     *
+     * THE TITLE IS TAKEN FROM THE PROVIDER RATHER THAN WRITTEN DOWN HERE, for
+     * the reason `aCandidateNotHeld` above gives: this suite runs against a stub
+     * on one machine and the real image in CI, and a literal would be asserting
+     * that one of those two was running.
+     */
+    const at = browsing(providerSearch.browsable);
+
+    const { status, text } = await documentAt(at);
+
+    expect(status).toBe(200);
+    const said = await whatTheProviderSays(providerSearch.browsable);
+    if (said.answer !== "container") {
+      throw new Error(`the provider handed over no container: ${said.answer}`);
+    }
+    // A REAL TITLE RATHER THAN AN ECHO OF THE ID. A page printing back what was
+    // typed would satisfy a bare `toContain` against the section.
+    expect(said.title).not.toBe(providerSearch.browsable.container);
+    expect(section(text, "container")).toContain(said.title);
+  });
+
+  it("says how many members the browse would write, before it writes them", async () => {
+    /*
+     * ONE PRESS WRITES A CONTAINER'S WORTH OF PLACEMENTS -- that is the whole
+     * reason `browse` exists (ADR-0033) -- and the page used to describe what
+     * was about to happen with nothing but the id that had been typed.
+     */
+    const { text } = await documentAt(browsing(providerSearch.browsable));
+
+    const said = await whatTheProviderSays(providerSearch.browsable);
+    if (said.answer !== "container") {
+      throw new Error(`the provider handed over no container: ${said.answer}`);
+    }
+    expect(said.members).toBeGreaterThan(0);
+    expect(section(text, "container")).toContain(`${said.members} members`);
+  });
+
+  it("writes nothing, which is what asking on the GET has to mean", async () => {
+    /*
+     * THE READ REACHES THE PROVIDER'S `browse`, which is the very operation the
+     * button performs -- so the one thing that must stay true is that reading it
+     * IMPORTS NOTHING. A page that quietly wrote sixty placements because
+     * somebody followed a link would be a far worse defect than the 500 this
+     * ticket removes, and it would be invisible: the page would look exactly
+     * like this one.
+     *
+     * ASKED ABOUT THIS CONTAINER RATHER THAN ABOUT THE CATALOGUE'S SIZE. A total
+     * counted either side of the request is a claim about the WHOLE catalogue
+     * while other files in this suite are importing into it, so it fails for
+     * somebody else's write -- measured against the real provider images, where
+     * the windows are wide enough to overlap. `held` asks the one question this
+     * test has: is the thing that was read now in the catalogue.
+     *
+     * IT RUNS BEFORE THE BROWSE BELOW TAKES IT, which is why "not held" is
+     * available to assert at all; the assertion before the request is what says
+     * so out loud rather than leaving it to file order.
+     */
+    const { provider, container } = providerSearch.browsable;
+    const asked = { baseUrl: provider, recordIds: [container] };
+    expect((await client.provider.held(asked)).items).toHaveLength(0);
+
+    const { status, text } = await documentAt(browsing(providerSearch.browsable));
+
+    expect(status).toBe(200);
+    expect((await client.provider.held(asked)).items).toHaveLength(0);
+    // AND THE PAGE SAYS SO, which is the same fact the owner reads.
+    expect(section(text, "container")).toContain("Not in your catalogue");
+  });
+});
 
 describe("/import, taking a Container and its ordering", () => {
   it("imports the container and the ordering it holds, in one operation", async () => {
@@ -396,39 +486,139 @@ describe("reaching /import", () => {
 });
 
 describe("/import, when the provider refuses", () => {
-  it("fails visibly rather than looking like it worked", async () => {
+  it("says the provider holds no container at that id, rather than answering a 500", async () => {
     /*
-     * THE ONE FIELD ON THIS PAGE THE OWNER TYPES IS THE ONE THAT CAN BE WRONG.
-     * `provider.browse` declares NO_SUCH_CONTAINER for exactly this, because
+     * THE ONE FIELD ON THIS PAGE THE OWNER TYPES IS THE ONE THAT CAN BE WRONG,
+     * and `provider.browse` declares NO_SUCH_CONTAINER for exactly this because
      * ADR-0033 makes "no container at that id" an answer rather than a fault.
      *
-     * WHAT THE OWNER GETS TODAY IS A BARE 500, AND THIS TEST DOES NOT ENDORSE IT.
-     * Measured while writing it: the response is the eighteen bytes
-     * `Internal Server Error`, with no HTML. An `error.tsx` was written and
-     * removed because it DOES NOT FIRE -- a Server Action that throws during a
-     * form POST with no script answers the bare 500 regardless -- and it could not
-     * have carried the provider's reason anyway, since Next redacts a server
-     * error's message before a boundary sees it. CNCORE-92 is the fix: ask the
-     * provider before offering the button.
+     * WHAT THE OWNER USED TO GET WAS A BARE 500. Measured under CNCORE-68: the
+     * response was the eighteen bytes `Internal Server Error`, with no HTML at
+     * all. An `error.tsx` was written and removed because it DOES NOT FIRE -- a
+     * Server Action that throws during a form POST with no script answers the
+     * bare 500 regardless -- and it could not have carried the provider's reason
+     * anyway, since Next redacts a server error's message before a boundary sees
+     * it. So the refusal is read on the GET instead, where a read belongs.
      *
-     * SO WHAT IS PINNED HERE IS THE INVARIANT THAT MATTERS MEANWHILE. The failure
-     * is LOUD -- the request fails rather than answering 200 with a page that
-     * looks like a success -- and it writes nothing. A silent catch would be worse
-     * than the 500: it would make a provider that is down indistinguishable from a
-     * provider that holds nothing, which is the distinction this codebase keeps
-     * everywhere else.
+     * AND THE BUTTON IS NOT OFFERED, which is the half that makes this more than
+     * a nicer error: there is nothing on the page to press, so the POST that
+     * used to 500 cannot be reached from the surface that used to offer it.
      */
     const at = browsing({
       provider: providerSearch.browsable.provider,
       container: "a container this provider does not hold",
     });
-    const offered = await documentAt(at);
-    const { total } = await client.catalogue.list({});
 
-    const refused = await submit(baseUrl, at, formIn(section(offered.text, "container")));
+    const { status, text } = await documentAt(at);
 
-    expect(refused.status).toBeGreaterThanOrEqual(400);
-    expect((await client.catalogue.list({})).total).toBe(total);
+    expect(status).toBe(200);
+    const said = await whatTheProviderSays({
+      provider: providerSearch.browsable.provider,
+      container: "a container this provider does not hold",
+    });
+    expect(said.answer).toBe("no-such-container");
+    const container = section(text, "container");
+    expect(container.toLowerCase()).toContain("no container at that id");
+    // NOTHING TO PRESS. A page that said this and still rendered the button
+    // would have moved the 500 rather than removed it.
+    expect(postFormsIn(container)).toHaveLength(0);
+  });
+
+  it("says a provider declares no browse, rather than reporting a missing container", async () => {
+    /*
+     * ADR-0033 MAKES `browse` THE OPERATION A PROVIDER MAY DECLINE, so a
+     * provider offering only `search` and `lookup` is perfectly well-formed and
+     * this is not an error on its part: the owner asked for something this
+     * provider does not do.
+     *
+     * WHICH IS A DIFFERENT ANSWER FROM AN ID THAT ADDRESSES NOTHING, and the
+     * difference is the whole of what an owner needs. One says to check the id;
+     * the other says to stop looking here whatever the id is. Collapsing them
+     * would send somebody back to a box that can never work.
+     */
+    const named = { provider: providerSearch.declinesBrowse, container: "any container at all" };
+    const at = browsing(named);
+
+    const { status, text } = await documentAt(at);
+
+    expect(status).toBe(200);
+    const said = await whatTheProviderSays(named);
+    if (said.answer !== "browse-not-offered") {
+      throw new Error(`the witness provider answered ${said.answer}`);
+    }
+    const container = section(text, "container");
+    // ATTRIBUTED BY THE PROVIDER'S OWN NAME FOR ITSELF, as every other answering
+    // provider on this page is.
+    expect(container).toContain(said.providerName);
+    expect(container.toLowerCase()).toContain("does not offer browse");
+    // AND NOT THE OTHER ANSWER, which is the distinction this test exists for.
+    expect(container.toLowerCase()).not.toContain("no container at that id");
+    expect(postFormsIn(container)).toHaveLength(0);
+  });
+
+  it("says a provider could not be reached, rather than that it holds nothing", async () => {
+    /*
+     * A PROVIDER THAT IS DOWN AND A PROVIDER THAT HOLDS NOTHING ARE DIFFERENT
+     * ANSWERS. The seeded instance is configured with a provider it can never
+     * reach -- ADR-0034's allowlist refuses the host -- so this is the same
+     * distinction the search results above keep, at the surface where it used to
+     * be a 500 instead.
+     *
+     * THE PROVIDER'S OWN REASON IS ON THE PAGE, named by the URL the owner typed
+     * rather than by a name: reading the name off the manifest is one of the
+     * things that failed, and the URL is the only part of this they can act on.
+     */
+    const named = {
+      provider: providerSearch.unreachable,
+      container: providerSearch.browsable.container,
+    };
+    const at = browsing(named);
+
+    const { status, text } = await documentAt(at);
+
+    expect(status).toBe(200);
+    const said = await whatTheProviderSays(named);
+    if (said.answer !== "unreachable") {
+      throw new Error(`the unreachable provider answered ${said.answer}`);
+    }
+    const container = section(text, "container");
+    // NOT "could not be reached", WHICH WOULD BE FALSE OF A THIRD CASE THIS
+    // BRANCH ALSO CARRIES: a provider that answered, badly. This URL really is
+    // unreachable, so either sentence would pass here -- what is asserted is the
+    // one the page has to be able to say about all three.
+    expect(container.toLowerCase()).toContain("nothing could be learned about that id");
+    expect(container).toContain(said.reason);
+    // AND NOT EITHER OF THE OTHER TWO, which is what distinguishing them means.
+    expect(container.toLowerCase()).not.toContain("no container at that id");
+    expect(container.toLowerCase()).not.toContain("does not offer browse");
+    expect(postFormsIn(container)).toHaveLength(0);
+  });
+
+  it("still names the Item the catalogue holds, when the provider refuses the id", async () => {
+    /*
+     * A REFUSAL FROM THE PROVIDER IS NOT THE CATALOGUE FORGETTING. These are two
+     * parties answering two questions, and the page asks both: a provider that
+     * holds no container at that id says nothing about whether this catalogue
+     * already has the thing. An owner whose provider has gone down or dropped an
+     * id is exactly the owner who most needs the local copy pointed at.
+     *
+     * THE ID IS ONE THE HARNESS IMPORTED, AND IT IS NOT A CONTAINER. That is the
+     * commonest way to reach this state honestly: a record id typed into a box
+     * that wants a container's. Measured against the real image as well as the
+     * stub -- `/browse/265` answers 404 `no such container` while `/lookup/265`
+     * answers 200 -- so both runs of this suite reach the same branch.
+     */
+    const imported = inject("imported");
+    const named = { provider: inject("providerWikiUrl"), container: imported.recordId };
+
+    const { status, text } = await documentAt(browsing(named));
+
+    expect(status).toBe(200);
+    const container = section(text, "container");
+    expect(container.toLowerCase()).toContain("no container at that id");
+    // AND THE CATALOGUE'S HALF OF THE ANSWER SURVIVES IT.
+    expect(container).toContain("Already imported");
+    expect(itemLinkedIn(container)).toBe(`/items/${imported.id}`);
   });
 
   it("treats a provider it does not search as no provider, rather than reaching it", async () => {
