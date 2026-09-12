@@ -80,7 +80,7 @@ Cost inc UK VAT where VAT applies. **Lead row first, because it is the honest an
 | # | Option | Cost/month | What it cannot do | Stops being enough at |
 |---|---|---|---|---|
 | 0 | **Local machine + GitHub Actions** | **GBP 0** | No public URL, no always-on instance, nothing anyone else can reach | **The first slice that must be reachable from another device** — the playback spec. Not version one. |
-| 1 | **Whatbox HDD 3.90 TB** | **GBP 11** vendor-verified | No root; non-redundant disk; no systemd, so a restart is a cron watchdog rather than a unit (§4) | Only if the library exceeds 3.9 TB |
+| 1 | **Whatbox HDD 3.90 TB** | **GBP 11** vendor-verified | No root; non-redundant disk; no systemd, so a restart is a cron watchdog rather than a unit, and no reboot has been observed to confirm it (§4) | Only if the library exceeds 3.9 TB, or an unwitnessed reboot has to be provably survived |
 | 2 | Contabo VPS S (4 vCPU, 8 GB, 100 GB NVMe) | ~EUR 4.50 ≈ **GBP 4** second-hand | 100 GB total — holds the catalogue, holds no library | The day media needs to live somewhere. Pairs with §3's split. |
 | 3 | netcup entry (2 vCPU, 2 GB, 64 GB SSD) | ~EUR 3.35 ≈ **GBP 3** second-hand | 2 GB RAM is thin for Postgres plus a Next build; 64 GB total | Same as above, sooner |
 | 4 | Hetzner CX23 (2 vCPU, 4 GB, 40 GB) | EUR 5.49 ≈ **GBP 5** second-hand | **Currently unbuyable** — see below | n/a today |
@@ -266,13 +266,13 @@ When the playback spec starts, the order of operations is cheap and reversible:
 2. ~~**Take the split**~~ — **not needed for the restart clause any more.** A ~GBP 4 VPS with root
    plus a Storage Box at GBP 2.09/TB was what step 1 was going to buy a systemd from. It stays priced
    in §3 and stays the answer if root, redundancy or storage that survives a move to dedicated
-   hardware becomes the binding constraint. Neither is today.
-3. **Write the restart as a cron watchdog rather than a systemd unit**, because that is the shape the
-   slot actually supports: a `* * * * *` line that starts the process if it is not running. `@reboot`
-   is documented by Whatbox and installs, but whether it fires at boot is unobserved — ADR-0109 says
-   why, and a probe is installed on the slot to answer it at the next host reboot.
-4. **Re-check Hetzner when the Cost-Optimized line returns**, which ADR-0109 says "would roughly halve
+   hardware becomes the binding constraint. None of them is today.
+3. **Re-check Hetzner when the Cost-Optimized line returns**, which ADR-0109 says "would roughly halve
    the entry cost".
+
+**How the restart is actually written is the playback spec's to decide, not this file's.** What §4
+settles is that the slot has a mechanism at all; ADR-0109 records what it is, what was measured, and
+the one step still inferred.
 
 **Do not buy for 32 TB until the library size is known.** It has been asked for three times. Every row
 above scales on that axis alone, and no row below GBP 10 changes with it, because none of them holds

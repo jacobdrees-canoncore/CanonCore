@@ -161,8 +161,8 @@ a `healthcheck:`, and ADR-0109:229-238 measured both inert on a shared slot. Tha
 whoever deploys, on the day there is a deployment. No CNCORE-60 criterion asserts anything about
 restart behaviour, and CNCORE-64's install path is exercised once by hand rather than left running.
 
-**So: entirely a playback-spec concern.** `docs/research/the-cheap-end.md:280-281` states its own
-scope — "Nothing here needs a new record. It is a price correction to research, and the decision it
+**So: entirely a playback-spec concern.** `docs/research/the-cheap-end.md` §5, under "What this
+reopens in the records", states its own scope — "Nothing here needs a new record. It is a price correction to research, and the decision it
 feeds belongs to the playback spec" — and ADR-0109:105-109 does the same for the rung: "Deliberately
 not decided. Which rung beyond the entry plan, and when. That belongs to the playback spec, which is
 the first spec that puts bytes anywhere."
@@ -289,7 +289,8 @@ things stay true beside it:
   after this effort, not inside it.
 - **The repo's own priced comparison now recommends the slot, having recommended against it.**
   `the-cheap-end.md` §5, written 2026-09-10, recommended the SPLIT — a ~GBP 4 VPS with root plus a
-  Storage Box at GBP 2.09/TB — "unless Whatbox fixes cron". **Whatbox fixed cron**, so that file flipped
+  Storage Box at GBP 2.09/TB — "unless Whatbox fixes cron". **Cron works as of 2026-09-12** (who or what
+  fixed it is not known), so that file flipped
   to row 1 under CNCORE-85 and the intent above and the priced recommendation now agree.
 - **The one measured fact that decided between them has been measured twice**, and it was the open half
   of CNCORE-81: on 2026-09-10 nothing on a shared slot restarted a process after a reboot, because cron

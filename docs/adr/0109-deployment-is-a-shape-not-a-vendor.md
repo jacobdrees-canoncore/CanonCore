@@ -152,8 +152,9 @@ would roughly halve the entry cost when it returns.
 
 CNCORE-18 bought the cheapest thing that could plausibly satisfy this shape — a Whatbox HDD slot at
 GBP 11/month, plan H3-4, Netherlands — and ran the shape against it on 2026-09-10, the day it was
-bought. **Four clauses held outright and the fifth failed; the vendor fixed the fifth on 2026-09-12
-and all five hold now.** Noticing why the fifth one failed is still worth more than the vendor
+bought. **Four clauses held outright and the fifth failed. The fifth stopped failing on 2026-09-12:
+cron works on the slot, measured, though what changed is not known and nobody has claimed it.**
+Noticing why the fifth one failed is still worth more than the vendor
 verdict, because the clause it exposed outlives this vendor: it is the first thing to test on the
 next host, and it was invisible until a slot without root made it visible.
 
@@ -298,14 +299,19 @@ a mechanism now exists**, so what replaces it is this: **a `* * * * *` line that
 if it is not running needs no boot-time semantics at all.** The daemon comes back with the host, the
 minute ticks, and the process starts — which the three consecutive firings above show happening
 unattended. The clause asks that "something starts again when the machine comes back", and a minutely
-watchdog is that something, with a worst case of one minute down after a boot.
+watchdog is that something. **The worst case of one minute down after a boot is INFERRED, not
+measured**, and it rests on the step below: that `crond` is running again by then.
 
 **`@reboot` would close that minute, and whether it fires at boot is the one thing still unobserved.**
 It installs and reads back in the same crontab, and Whatbox's wiki documents it, but installing it is
 not seeing it run. **CNCORE-85 left the `@reboot` probe in place on the slot** — a single `date` into
-`~/cncore85-reboot-probe.log` — so the next host reboot answers it at no cost to anybody, rather than
-leaving a second sentence for somebody to remember. **That the cron DAEMON survives a boot is not
-this account's to observe either, and is a weaker worry**: `crond` runs as root, outside the slot,
+`~/cncore85-reboot-probe.log` — so the next host reboot answers it at no cost to anybody. **CNCORE-107
+is the ticket that reads it**, because this record has already learned once what a deadline living
+only in a sentence is worth. **Nothing waits on it**: the clause holds on the watchdog either way, and
+what the probe settles is whether the worst case is one minute or zero.
+
+**That the cron DAEMON survives a boot is not this account's to observe either, and is a weaker
+worry**: `crond` runs as root, outside the slot,
 and the slot user can neither start nor stop it, so it is a system service Whatbox operates rather
 than something of ours to supervise. The host had been up 4 days when these jobs ran. **`uptime`
 reported "0 users" throughout, including while this account held an open SSH session, so the user
@@ -339,7 +345,7 @@ not a rare event. It asks two things: whether cron is meant to be available on t
 the missing file can be looked at, and failing that, whether there is any supported way to have a
 process start after a reboot.
 
-**It was answered on 2026-09-12, six days inside the window this record set.** Devon, signing
+**It was answered on 2026-09-12.** Devon, signing
 "Whatbox Staff", replied: "Sorry for the hassle. Unfortunately at the moment I am not showing this
 error anymore, for @reboot crons or otherwise. Were you still seeing it?", and asked which commands
 and which cron tasks were involved. **That is neither a yes nor a no, and reading it as either would
@@ -400,7 +406,10 @@ free, and absent on every shared slot. It is a sharper test than "no root" ever 
 first on the next host's list rather than last.
 
 **For the vendor actually measured: it satisfied the shape only while a human logged in after each
-reboot, and since 2026-09-12 it satisfies the shape outright.** The support ticket about the missing
+reboot, and since 2026-09-12 the thing that forced that is gone.** Cron runs, so the mechanism the
+fifth clause asks for exists and works; **that it is still there after a reboot is inference rather
+than measurement**, marked as such two sections up and left for the probe to settle. The support
+ticket about the missing
 `access.conf` was the cheap thing to try before concluding otherwise, because `@reboot` is documented
 and was merely broken — and trying it is what produced the answer: filed 2026-09-11, replied to
 2026-09-12, re-measured the same day, all recorded above.
