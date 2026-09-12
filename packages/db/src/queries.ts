@@ -443,7 +443,8 @@ export async function readWorks(
 
 /**
  * ONE LISTING, WALKED -- shared by the two questions above, which differ in
- * their WHERE and in nothing else.
+ * their WHERE and in nothing else. Catalogue search differs in its ORDER too,
+ * so it goes through `walkListing` below rather than through this.
  *
  * WRITTEN ONCE, AND THE COUNT IS WHY IT HAS TO BE. A listing and the size it
  * reports must answer the same question: `readWorks` handing back the whole
@@ -463,14 +464,58 @@ export async function readWorks(
  *
  * AND `after` WALKS IT (ADR-0119): the id of the last item the page before this
  * one carried. Both halves of the order are load-bearing in that comparison,
- * which is what `past` below is about -- the cap says what is not being shown,
+ * which is what `pastInTheOrder` below is about -- the cap says what is not being shown,
  * and this is what reaches it.
  */
 async function readListing(
   db: Database,
   { limit, after, within }: { limit: number; after?: string; within: SQL },
 ): Promise<Catalogue> {
-  const anchor = after === undefined ? undefined : await findInTheOrder(db, after);
+  const anchor = after === undefined ? undefined : await findTheAnchor(db, after);
+  return walkListing(db, {
+    within,
+    /*
+     * `nulls last` IS THE DEFAULT FOR `asc` AND IS WRITTEN OUT ANYWAY, because
+     * `pastInTheOrder` below reads it: an item with no title at all has no sort key, and
+     * where those sit decides which half of the cursor's comparison finds them.
+     * A default the walk depends on is one worth saying out loud.
+     */
+    orderBy: [sql`${SORT_KEY} nulls last`, sql`${items.id}`],
+    past: anchor && pastInTheOrder(anchor),
+    limit,
+  });
+}
+
+/**
+ * ONE PAGE OF ONE LISTING, WALKED -- whatever question the listing asks, and
+ * whatever order it asks it in.
+ *
+ * THE ORDER IS A PARAMETER AND THE CURSOR IS ANOTHER, because those are the
+ * two things this repo's listings differ in and NOTHING ELSE IS. The catalogue
+ * and work-browsing sort on `coalesce(sort_name, title)`; Catalogue search
+ * sorts on how close a title is to what a reader typed, which is a function of
+ * the QUERY rather than a column of the item (ADR-0119, ADR-0120). Everything
+ * around that -- the fields, the join, the count, the cap, the extra row that
+ * says whether to offer another page -- is one rule, and this is the one place
+ * it is written.
+ *
+ * IT IS WRITTEN ONCE BECAUSE THE COUNT KEPT GOING WRONG SEPARATELY. Catalogue
+ * search had its own copy of this shape and its own `count(*) over ()`, which
+ * was right only while it had no cursor: CNCORE-82 had already found that a
+ * window count is taken AFTER `where`, fixed it here, and left a comment in the
+ * other file predicting the day it would have to be fixed there too. That day
+ * was CNCORE-88 and the prediction was correct, which is the argument for there
+ * being one copy rather than a comment pointing at the other one.
+ *
+ * EXPORTED WITHIN THE PACKAGE, like `IN_THE_CATALOGUE` and `SORT_KEY` above it
+ * and for the same reason. It stays out of the package's public export: a
+ * caller outside gets `readCatalogue`, `readWorks` or `searchCatalogue`, never
+ * a walk it has to supply an order to.
+ */
+export async function walkListing(
+  db: Database,
+  { within, orderBy, past, limit }: { within: SQL; orderBy: SQL[]; past?: SQL; limit: number },
+): Promise<Catalogue> {
   const rows = await db
     .select({
       id: items.id,
@@ -504,15 +549,9 @@ async function readListing(
     // INNER, because `items.kind` is a foreign key into this table: a row with
     // no kind cannot exist, so there is nothing for a left join to preserve.
     .innerJoin(itemKinds, eq(itemKinds.kind, items.kind))
-    .where(and(within, anchor && past(anchor)))
-    /*
-     * `nulls last` IS THE DEFAULT FOR `asc` AND IS WRITTEN OUT ANYWAY, because
-     * `past` below reads it: an item with no title at all has no sort key, and
-     * where those sit decides which half of the cursor's comparison finds them.
-     * A default the walk depends on is one worth saying out loud.
-     */
-    .orderBy(sql`${SORT_KEY} nulls last`, items.id)
-    // ONE MORE THAN ASKED FOR, and it is never returned. Whether the catalogue
+    .where(and(within, past))
+    .orderBy(...orderBy)
+    // ONE MORE THAN ASKED FOR, and it is never returned. Whether the listing
     // continues past this page is not something `total` can answer -- a keyset
     // walk knows no offset, so it cannot subtract -- and the cheapest thing
     // that does know is a row that was there to be read.
@@ -528,16 +567,17 @@ async function readListing(
     })),
     /*
      * The size rides on the rows, so a page with NO rows carries none -- and a
-     * page can be empty with a catalogue behind it, when a cursor names the
-     * last item in it. The size is asked for on its own exactly there, where
-     * there are no entries for a second moment's answer to disagree with.
+     * page can be empty with a listing behind it, when a cursor names the last
+     * item in it. The size is asked for on its own exactly there, where there
+     * are no entries for a second moment's answer to disagree with.
      */
     total: rows[0]?.total ?? (await countListing(db, within)),
     /*
      * The id to ask for the next page with, or nothing when this is the end.
      * It is the LAST ITEM THIS PAGE SHOWED rather than an encoded sort key,
      * which is what keeps the projection out of the contract and out of the
-     * address a reader can see (ADR-0119).
+     * address a reader can see (ADR-0119) -- and it is the last of THIS
+     * listing's order, whichever order that was.
      */
     continuesAfter: rows.length > limit ? (page.at(-1)?.id ?? null) : null,
   };
@@ -604,13 +644,18 @@ interface PlaceInTheOrder {
 /**
  * Everything the catalogue lists AFTER one item (ADR-0119).
  *
+ * NAMED FOR THE ORDER IT WALKS, because `walkListing` above takes a `past` of
+ * its own -- the SQL rather than the function that builds it -- and a parameter
+ * sharing a name with a function in the same file reads as that function.
+ * Catalogue search's `pastInTheRanking` is the same pairing one file over.
+ *
  * TWO REGIMES, AND A ROW COMPARISON CANNOT EXPRESS BOTH. The order is the
  * items with a sort key ascending and then the items with none, so `(null, x)
  * > (k, y)` -- which is NULL rather than true -- would drop every untitled item
  * off the walk permanently. An item nobody has titled is still an item, and the
  * criterion is that none is skipped.
  */
-function past({ sortKey, id }: PlaceInTheOrder): SQL | undefined {
+function pastInTheOrder({ sortKey, id }: PlaceInTheOrder): SQL | undefined {
   // Already among the ones with no sort key, so the id is the whole order left.
   if (sortKey === null) return and(isNull(SORT_KEY), gt(items.id, id));
   return or(
@@ -624,25 +669,61 @@ function past({ sortKey, id }: PlaceInTheOrder): SQL | undefined {
   );
 }
 
+/** One row a cursor might name, read the way every walk has to read it. */
+export interface TheAnchor {
+  /** ADR-0014's projected key. Null for an item with neither column. */
+  sortKey: string | null;
+  /**
+   * READ BESIDE THE KEY BECAUSE A RELEVANCE-ORDERED WALK NEEDS IT. The
+   * catalogue's order is the key alone; Catalogue search ranks on
+   * `similarity(title, query)`, so its anchor has no place in the order at all
+   * without a title. One read answers both (CNCORE-88).
+   */
+  title: string | null;
+  id: string;
+}
+
 /**
- * Where one id sits in the catalogue's order, by the id a reader arrived with.
+ * WHERE ONE ID SITS, by the id a reader arrived with -- the read every walk
+ * starts from, written once.
+ *
+ * WRITTEN ONCE BECAUSE THE RULES BELOW ARE THE HAZARD, not the query. The
+ * tombstone exception and the shape guard are two decisions that must hold for
+ * every cursor in this app, and they were spelled twice -- here and in
+ * `catalogue-search.ts` -- which is the hazard this file already carries a
+ * paragraph about. What each caller keeps for itself is what to DO with the
+ * answer, because that is the part their orders genuinely differ on.
  *
  * IT DOES NOT HONOUR THE TOMBSTONE, and that is the one place in this file
  * where not honouring it is right. ADR-0075's rule is about what a reader is
  * SHOWN, and this row is never shown: it is a position. Reading a deleted
  * item's key is what keeps a link to page two working after the item the link
- * was cut at is gone, which is the ordinary case rather than a corner of one.
+ * was cut at is gone.
  *
  * AN ID THAT NAMES NOTHING NAMES NO POSITION, so the walk starts at the
  * beginning rather than erroring. That is ADR-0066's rule for a query
  * parameter, and the shape guard is the one `findItem` uses for the reason it
  * gives: comparing a non-uuid against a `uuid` column is error 22P02 rather
  * than an empty result.
+ *
+ * TODO(CNCORE-110): AND THE DELETED ANCHOR ABOVE DOES NOT ACTUALLY WORK, which
+ * is the one claim in this comment that is false. A deleted item has no title
+ * and no sort name -- migration 5 tombstones its statements, which re-fires the
+ * projection, and a projection over no live statements is NULL -- so this reads
+ * `sortKey: null` and `past` takes its no-sort-key regime, resuming from the
+ * UNTITLED TAIL with everything between skipped. MEASURED 2026-09-12: five
+ * items walked two at a time answered page two with `Probe walk 3, 4` before
+ * the anchor was deleted and with NOTHING after, which `/` renders as "The
+ * catalogue ends here". Found while building Catalogue search's walk, which
+ * meets the same fact and cannot take this route at all -- closeness needs a
+ * title to measure -- so it treats such an anchor as naming no position and
+ * starts over. That is probably the answer here too, and it is a behaviour
+ * change with a record to correct rather than a line to fix in passing.
  */
-async function findInTheOrder(db: Database, id: string): Promise<PlaceInTheOrder | undefined> {
+export async function findTheAnchor(db: Database, id: string): Promise<TheAnchor | undefined> {
   if (!canBeAnId(id)) return undefined;
   const [place] = await db
-    .select({ sortKey: SORT_KEY, id: items.id })
+    .select({ sortKey: SORT_KEY, title: items.title, id: items.id })
     .from(items)
     .where(eq(items.id, id));
   return place;

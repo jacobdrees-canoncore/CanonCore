@@ -67,12 +67,29 @@ stores one.
 encoding scheme of our own. The cost is one indexed primary-key lookup per page to find where that
 Item sits, which is the cheapest query this app makes.
 
-It also survives a delete. The anchor is read WITHOUT the tombstone filter, deliberately — ADR-0075's
-rule is about what a reader is SHOWN, and the anchor is never shown, it is a position. So a kept link
-to page two still works after the Item it was cut at is gone, which is ordinary rather than a corner
-case. An `after` naming nothing at all names no position either, so the walk starts at the beginning:
-that is ADR-0066's rule for a non-identifying parameter, and it means a stale bookmark answers with
-the catalogue rather than with an error.
+The anchor is read WITHOUT the tombstone filter, deliberately — ADR-0075's rule is about what a
+reader is SHOWN, and the anchor is never shown, it is a position. An `after` naming nothing at all
+names no position either, so the walk starts at the beginning: that is ADR-0066's rule for a
+non-identifying parameter, and it means a stale bookmark answers with the catalogue rather than with
+an error.
+
+**IT DOES NOT ACTUALLY SURVIVE A DELETE, AND THIS PARAGRAPH SAID IT DID.** The sentence removed from
+here read "So a kept link to page two still works after the Item it was cut at is gone, which is
+ordinary rather than a corner case." **Measured 2026-09-12** against `readCatalogue`, five Items
+walked two at a time: page two answered `Probe walk 3, Probe walk 4` before the anchor was deleted
+and **nothing at all** after, which `/` renders as "The catalogue ends here" over a catalogue with
+three Items still unseen.
+
+The mechanism is one nothing here anticipated: **a deleted Item has no title and no sort name.**
+Migration 5's `items_tombstone_statements` tombstones every statement of a deleted Item, that
+re-fires the projection trigger, and the projection over no live statements is NULL — so the columns
+are GONE rather than merely hidden ([[0014-title-is-a-projection]]). Reading the anchor past the
+tombstone therefore finds a row whose sort key is null, and the comparison's no-sort-key regime
+resumes from the untitled tail with everything between skipped. Reading it without the tombstone
+filter is still right; what is missing is an answer for an anchor that no longer has a place.
+**CNCORE-110 carries it**, and Catalogue search below has already had to answer the same fact the
+only way its order allows: an anchor with no title has no closeness to anything, so it names no
+position and the walk starts over — every result still reachable, none skipped.
 
 ## The order has to be TOTAL, and it is the part that gets built wrong
 
@@ -147,11 +164,11 @@ the cursor is the whole query, where an Item page's address already carries `?vi
 (ADR-0066) and a third parameter has to compose with both without moving the canonical. That is a
 decision about a governed address rather than a parameter to add.
 
-**AND CNCORE-66 HAS SINCE SHIPPED AND DEFERRED IT, which is a fourth case and not a fourth
-adoption.** Catalogue search orders on `similarity(title, query)` — **a function of the QUERY, not a
-column of the Item** — so the anchor's place cannot be READ off the anchor row the way this record's
-walk reads `coalesce(sort_name, title)` off it. It has to be **recomputed**, against the query
-resupplied on every page.
+**AND CNCORE-66 SHIPPED WITHOUT IT AND CNCORE-88 ADDED IT, which is a fourth adoption and the one
+this record's scope had to widen for.** Catalogue search orders on `similarity(title, query)` — **a
+function of the QUERY, not a column of the Item** — so the anchor's place cannot be READ off the
+anchor row the way this record's walk reads `coalesce(sort_name, title)` off it. It is
+**recomputed**, against the query resupplied on every page.
 
 **That is a cost, not an impossibility, and an earlier draft of this paragraph said otherwise.** It
 argued the query was unavailable "because the cursor does not carry it" — true of the cursor and
@@ -159,20 +176,88 @@ irrelevant, since there is no such thing as a search request without a query: a 
 `?q=<query>&after=<id>`, and `searchCatalogue` takes the query as a required parameter already.
 Given it, the anchor's place is one primary-key lookup plus `similarity(anchor.title, $query)`, and
 the walk is an ordinary keyset one. **The door is open.** The overstatement is corrected here rather
-than below, because "cannot" is what stops somebody trying.
+than below, because "cannot" is what stops somebody trying — and CNCORE-88 then walked through it,
+which is what the next section records.
 
-So this record governs listings whose order is **derivable from the row alone**. That is the
-catalogue's and work-browsing's, and it is not the same claim as "every listing". Meanwhile
-Catalogue search answers a shape with **no `continuesAfter` field at all** rather than one that is
-always `null`, because `null` here means "the listing ends here" and a search over a thousand
-matches saying so would be the silent cap this whole record exists to refuse — `total` is what keeps
-it honest. See [[0120-catalogue-search-is-a-trigram-ilike-not-full-text-search]].
+## The relevance-ordered case, decided under CNCORE-88
 
-**So two of the four listings have adopted this record**, and the two that have not are held up by
-different things. The catalogue and work-browsing have. A Container's members have not, and
-CNCORE-89 is where they will — the obstacle there is a governed address. Catalogue search has not,
-and the obstacle there is an order that is not a column: **CNCORE-88 is where the relevance-ordered
-case is decided**, and whichever way it goes this record gets the clause.
+**This record governs listings ordered by ANY total order the request can reconstruct, not only ones
+derivable from the row alone.** That sentence is the correction: it read "derivable from the row
+alone" while the relevance case was open, which was an accurate description of what had been built
+and the wrong rule to leave standing, because it reads as a boundary on what the shape CAN cover.
+
+**The cursor is still an Item's id.** Three options were weighed and the ticket named all three:
+recompute the anchor's rank; drop relevance ordering for paged results and walk the catalogue order
+alone; or widen the cursor beyond an id. The third is the one this record already refuses two
+sections above — a cursor spelling out a sort key emits a column ADR-0045 never named into a URL a
+reader can read — and it gets no easier when the key is a number derived from the reader's own
+query. The second buys one shape at the price of the best match no longer coming first, which is
+most of what a search is for. So: **recompute**.
+
+**It costs TWO primary-key lookups per page, not one, and that is measured rather than reasoned.**
+The comparison names the anchor's closeness twice — once for `<` and once for `=` — and PostgreSQL
+hoists each into its own `InitPlan`: `explain (analyze)` on the paged query shows `InitPlan 1` and
+`InitPlan 2`, each an `Index Scan using items_pkey`, each at `loops=1`. Uncorrelated, so twice per
+PAGE rather than per row. Folding them into one would mean joining the anchor row in as a relation,
+which puts a parameter on the shared walk that only one of its three callers would ever pass — a
+worse trade than a second lookup on a unique key. The number is here because this record prices the
+id cursor at "one indexed primary-key lookup per page" two sections above, and a relevance-ordered
+walk pays that twice.
+
+**THE COMPARISON IS THE WHOLE TUPLE THE `ORDER BY` USES, and each of the three terms is a way to
+lose rows.** `(similarity DESC, coalesce(sort_name, title), id)`:
+
+- **Closeness alone steps over every result tied with the anchor, and ties are the COMMON case
+  here rather than a corner of one.** Titles of one shape rank identically: `Story 0001` and
+  `Story 0250` are both `0.54545456` against `story`, measured. A four-item fixture sharing one
+  title walked to ONE of them.
+- **The sort key and then the id**, for the reasons the section above gives — except that a search
+  needs only ONE regime where the catalogue needs two. The catalogue has to write its comparison in
+  two halves because an Item nobody has titled has no sort key, and `(null, x) > (k, y)` is NULL. No
+  such row can be in a RESULT SET: the match is `title ilike …`, which is NULL without a title. So
+  the untitled block the catalogue must reach is a block a search cannot reach at all.
+
+**A CURSOR PREDICATE WITH A TOP-LEVEL `or` MUST BE PARENTHESISED, AND WHAT GOES WRONG IS NOT THE
+COMPARISON.** Written as one raw `sql` template — `A or (B and C)` — and composed as
+`and(within, past)`, the query builder parenthesises the PAIR it is handed and not the operands
+inside it, so the predicate renders as `(within and A or (B and C))`. `and` binds tighter than `or`,
+so it parses as `((within and A) or (B and C))` and **the tie branch escapes the listing's own
+`WHERE` entirely**: on page two a search returned an Item it had never matched. Built with the query
+builder's own `or`/`and`, which wrap their own results, it renders
+`(within and (A or (B and C)))`. The catalogue's walk was safe from this only incidentally, because
+it already used `or()`.
+
+**It is a precedence bug rather than a logic one, so every walk test in the suite was blind to it.**
+Set equality and no-repeats say nothing about rows that should never have been candidates, and every
+fixture in this repo ties only among rows that also match. What catches it is a decoy that RANKS
+level with the anchor without matching at all, and ADR-0120's own stated limit builds one by
+construction: trigram matching has no notion of word order, and `pg_trgm` pads and splits per WORD,
+so `Zagreus Antimony` and `Antimony Zagreus` hold the identical trigram set and rank identically
+against any query. Only one of them contains it.
+
+**THE ANCHOR'S CLOSENESS DOES NOT LEAVE THE SERVER, and the reason is exact rather than dramatic.**
+`similarity()` returns a `real`. Measured against one row: `= $1::float8` is FALSE where `= $1::real`
+is true, with `$1` the value read out of that same row. Carrying it out and back WOULD work today —
+node-postgres sends a JavaScript number untyped and PostgreSQL infers `real` from the comparison —
+so this is a choice against depending on an inference nothing at the call site states, not a repair
+of a bug. It is an uncorrelated scalar subquery, so there is no type to infer and no digits to round.
+
+**AND `total` MOVED, exactly as the code predicted it would have to.** Catalogue search counted with
+`count(*) over ()`, correct only while it had no cursor, and `catalogue-search.ts` carried a comment
+saying so: "THE DAY A CURSOR ARRIVES HERE, THIS LINE HAS TO MOVE WITH IT". Measured before the fix:
+page two of three matches reported a match set of **2**. The walk is now ONE function for all three
+listings — the order and the cursor are its parameters, and the fields, the join, the count, the cap
+and the extra row that says whether to offer another page are written once.
+
+**Catalogue search answered a shape with no `continuesAfter` field at all**, because `null` here
+means "the listing ends here" and a search over a thousand matches saying so would be the silent cap
+this whole record exists to refuse. It has a cursor now, so `null` means what it means everywhere
+and the second shape is gone: `cataloguePublic` is what all three listings answer with. See
+[[0120-catalogue-search-is-a-trigram-ilike-not-full-text-search]].
+
+**So three of the four listings have adopted this record.** The catalogue, work-browsing and
+Catalogue search have. A Container's members have not, and CNCORE-89 is where they will — the
+obstacle there is a governed address rather than an order.
 
 **The cap did not move.** `A_PAGE` is still 100 and a caller still cannot ask for more. Paging makes
 one answer's cost the same as it was and lets a reader ask again.
@@ -184,11 +269,25 @@ subquery now, which the cursor cannot reach, in the same statement and therefore
 The one case it cannot cover is a page with no rows to carry it, where the size is asked for on its
 own: there are no entries there for a second moment's answer to disagree with.
 
-**It is asserted at three seams** ([[0103-tests-bite-at-package-exports-and-the-router]]): the
-package export, the router in-process, and — the one CNCORE-82 names as decisive — the page over real
-HTTP, against a THIRD instance of the same build serving a catalogue of 254 Items. Neither existing
+**It is asserted at three seams** ([[0103-tests-bite-at-package-exports-and-the-router]]), for the
+listing and for Catalogue search alike: the package export, the router in-process, and — the one
+CNCORE-82 names as decisive — the page over real HTTP, against a THIRD instance of the same build
+serving a catalogue of 254 Items. Neither existing
 instance could be it: the seeded one is read by every other file for an Item on its front page, and
 several hundred Items push that Item off it; the fresh one's emptiness is its fixture
 ([[0094-a-fresh-install-starts-empty]]). That walk is checked against the ids the harness WROTE
 rather than against a second reading of the catalogue, because a cursor that loses the untitled tail
 would lose it from both sides and the two readings would agree.
+
+**The search walk takes the same instance and the same oracle MINUS TWO IDS**, and the subtraction is
+the point: a query matching every titled Item there cannot reach the two with no title at all, because
+the match is `title ilike …` and that is NULL without one. So the fixture names its keyless pair now,
+having deliberately not named it before — "a field naming them would be one nothing reads" was true
+until a listing existed that could not reach them.
+
+**The relevance tie is BUILT rather than hoped for**, which is this record's own rule about cutting a
+page at a tie, applied to an order that ties far more often than the catalogue's. Four Items sharing
+one title rank at exactly 1 and a page of one cuts between every adjacent pair; two of them carry a
+sort name and two do not, so the second and third terms of the comparison are each the only thing
+separating some pair. Mutation-checked: dropping the id fails it, dropping the sort key fails it and
+the plain page-two test as well.

@@ -271,15 +271,26 @@ function describeRefusal(error: unknown): string {
  * over a few hundred distinct titles passes against a cursor that compares only
  * the sort key, and against one that cannot cross into the untitled tail --
  * both of which lose items silently and permanently on a real catalogue. The
- * pairs are what make "none is skipped" bite. They are not returned separately:
- * a walk that has to arrive at EVERY id has already arrived at them, and a
- * field naming them would be one nothing reads.
+ * pairs are what make "none is skipped" bite.
+ *
+ * THE KEYLESS PAIR IS NAMED NOW, AND IT USED NOT TO BE. This said they were not
+ * returned separately because "a walk that has to arrive at EVERY id has
+ * already arrived at them, and a field naming them would be one nothing reads".
+ * CNCORE-88 is the reader: Catalogue search matches on `title ilike ...`, which
+ * is NULL for an item with no title, so a search CANNOT reach these two and a
+ * walk over its results must arrive at `every` minus `untitled` exactly. A test
+ * that used the whole list as its oracle would fail for a correct search, and
+ * one that used a second reading of the search would let a cursor mark its own
+ * work.
  *
  * WRITTEN IN BULK, because the per-item helpers above are three round trips
  * each and this is the difference between a fixture costing a moment and one
  * costing a minute.
  */
-export async function aCatalogueLargerThanOnePage(db: Database, size: number): Promise<string[]> {
+export async function aCatalogueLargerThanOnePage(
+  db: Database,
+  size: number,
+): Promise<{ every: string[]; untitled: string[] }> {
   const ownerId = await theOwner(db);
   const sourceId = await ownerSource(db);
   const title = await propertyNamed(db, "title");
@@ -329,6 +340,7 @@ export async function aCatalogueLargerThanOnePage(db: Database, size: number): P
   ]);
 
   // `keyless` gets NO statement at all, which is the whole of its fixture: no
-  // title and no sort name is no sort key, and those sort last as one block.
-  return [...titled, ...tied, ...keyless];
+  // title and no sort name is no sort key, and those sort last as one block --
+  // and no title is also no MATCH, which is why the two are named apart.
+  return { every: [...titled, ...tied, ...keyless], untitled: keyless };
 }

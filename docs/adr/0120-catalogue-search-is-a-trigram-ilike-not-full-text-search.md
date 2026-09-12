@@ -145,13 +145,50 @@ question about the index being right.
 ## As built, under CNCORE-66
 
 `packages/db/src/catalogue-search.ts` holds `likePattern` and `searchCatalogue`;
-`catalogue.search` on the router answers `catalogueSearchPublic`; `apps/web/src/app/search/page.tsx`
-is the surface and `apps/web/src/components/search-box.tsx` puts its box in the shell, on every page.
+`catalogue.search` on the router answers `cataloguePublic`; `apps/web/src/app/search/page.tsx` is
+the surface and `apps/web/src/components/search-box.tsx` puts its box in the shell, on every page.
 
-**Search results are capped and the tail is not reachable yet.** `total` is what keeps that from
-being silent. CNCORE-88 carries the walk, and it is not a straight copy of
-[[0119-a-listing-is-walked-forward-from-the-last-item-it-showed]]: a keyset walk needs its anchor's
-place in the order, and this order leads on `similarity(title, query)`, which is a function of the
-QUERY rather than a column of the Item — so the anchor's place is RECOMPUTED from a query the
-request resupplies, rather than read off the anchor row. **That is a cost and a design decision, not
-a barrier**: the walk is deferred here rather than ruled out.
+It answered a `catalogueSearchPublic` of its own until CNCORE-88, and the reason it no longer does
+is in the section below: the only thing that made a search a second shape was having no cursor.
+
+## The results are walked, under CNCORE-88
+
+**They were capped with no way past the cap, and `total` was the whole of what kept that from being
+silent.** They walk now, on
+[[0119-a-listing-is-walked-forward-from-the-last-item-it-showed]]'s own shape rather than a second
+one: `/search?q=<query>&after=<item-id>`, the cursor an Item's id, `continuesAfter` saying where the
+results carry on. That record carries the decision and the three options it was taken from; what
+belongs HERE is what the CHOICE OF MECHANISM costs, because every line of it follows from
+`similarity()` being the thing this record chose.
+
+**The query is resupplied on every page, and it costs nothing to ask for.** The order leads on
+`similarity(title, query)` — a function of the QUERY rather than a column of the Item — so the
+anchor's place cannot be read off the anchor row and is RECOMPUTED. There is no such thing as a
+search request without a query, so the only thing paging needed was the cursor beside it.
+
+**Relevance ties are the common case, not a corner of one, and that is a property of trigram
+similarity rather than of this catalogue.** The measure is the ratio of shared trigrams to the union,
+so titles of one SHAPE land on one value: `Story 0001` and `Story 0250` are both `0.54545456`
+against `story`, measured on the fixture this repo already had. A cursor comparing closeness alone
+steps over every result tied with its anchor — four Items sharing a title walked to one of them — so
+the comparison is the whole `(similarity DESC, coalesce(sort_name, title), id)` tuple.
+
+**A result set can hold no row without a sort key**, which is the one way the search walk is SIMPLER
+than the listing's. The match is `title ilike …`, NULL for an Item with no title, so the untitled
+block that forces ADR-0119's comparison into two regimes cannot appear here at all. The same fact
+costs something at the other end: a DELETED Item has no title either (migration 5 tombstones its
+statements and the projection empties), so a cursor cut at a result that is then deleted has no
+closeness to be ranked by. It names no position and the walk starts over — every result still
+reachable and none skipped, which is not what the listing does with the same input (CNCORE-110).
+
+**`similarity()` returns a `real`, and the anchor's closeness never leaves the server.** Measured
+against one row: `= $1::float8` is FALSE where `= $1::real` is true, `$1` being the value read out of
+that very row. An untyped parameter infers `real`, so carrying it out through the driver and back
+would work today — which is why this is written down as a choice against depending on an invisible
+inference rather than as a bug that was fixed.
+
+**`count(*) over ()` is gone, as this file's own comment said it would have to be.** A window count
+is taken AFTER `where`, so with a cursor in the predicate it counted the results past the cursor:
+measured, page two of three matches reported a match set of 2. It is the listing's uncorrelated
+scalar subquery now, and the walk itself is one function shared by all three listings so that the
+next such fix cannot land in one of them only.

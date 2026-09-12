@@ -9,12 +9,15 @@ import {
 import Link from "next/link";
 
 /**
- * ONE LISTING, RENDERED -- shared by the two questions ADR-0077 names.
+ * ONE LISTING, RENDERED -- shared by THREE surfaces now.
  *
- * The front page asks "what is in this catalogue" and `/works` asks "what can I
- * watch". They differ in WHICH items they are handed and in the words around
- * them; the list itself, the count above it and the walk below it are the same
- * three rules, and those rules are ones that must not drift:
+ * The front page asks "what is in this catalogue", `/works` asks "what can I
+ * watch" (the two questions ADR-0077 names), and `/search` asks "where is the
+ * thing I am thinking of" -- which is not one of that record's two, and is a
+ * reader of this file all the same. They differ in WHICH items they are handed,
+ * in the order they are handed them, and in the words around them; the list
+ * itself, the count above it and the walk below it are the same three rules,
+ * and those rules are ones that must not drift:
  *
  * - a URL the framework does not rewrite is never hand-built (ADR-0109),
  * - a cap is never silent (the count),
@@ -28,10 +31,16 @@ import Link from "next/link";
 /**
  * What a listing answers with, taken from the read path so the two cannot drift.
  *
- * READ OFF `list` AND TRUE OF `works` TOO, which is not luck: both procedures
- * declare `cataloguePublic` as their output, because they answer two questions
- * about one catalogue and differ in WHICH items rather than in what an entry
- * is. A test at the router seam holds that agreement.
+ * READ OFF `list` AND TRUE OF `works` AND `search` TOO, which is not luck: all
+ * three procedures declare `cataloguePublic` as their output, because they
+ * answer three questions about one catalogue and differ in WHICH items and in
+ * what order rather than in what an entry is. A test at the router seam holds
+ * that agreement.
+ *
+ * SEARCH WAS THE EXCEPTION UNTIL CNCORE-88, answering a shape of its own
+ * because it had no cursor to put in `continuesAfter` -- and null there means
+ * "the listing ends here", which a search over a thousand matches must not say.
+ * It walks now, so there is one shape.
  */
 type ListingAnswer = Awaited<ReturnType<AppRouterClient["catalogue"]["list"]>>;
 
@@ -47,7 +56,41 @@ type Entry = ListingAnswer["entries"][number];
  * looking exactly where ADR-0109 wants it looking. A third reading surface adds
  * a member here and the compiler finds every link that needs it.
  */
-export type ListingPath = "/" | "/works";
+export type ListingPath = "/" | "/works" | "/search";
+
+/**
+ * WHAT THE LISTING WAS ASKED, where the path alone does not say.
+ *
+ * The catalogue and work-browsing ARE their address: `/` is the whole question,
+ * so the start of the listing is the path with nothing on it. Catalogue search
+ * is not -- `/search` with no `q` is the page that ASKS for a query rather than
+ * the first page of anybody's results, so a `Back to the start` pointing there
+ * would answer a reader who wanted their first page with an empty prompt.
+ *
+ * SO THE QUERY RIDES ALONGSIDE THE CURSOR rather than being folded into the
+ * path. It is what every link on the surface has to keep, which is the same
+ * thing the read path needs it for: this order is a function of the query, so
+ * the walk resupplies it on every page (ADR-0119).
+ *
+ * AN OBJECT NEXT'S OWN ROUTER ENCODES, never a string spliced together here.
+ * That is ADR-0109's rule -- a URL the framework does not rewrite is never
+ * hand-built -- and the encoding is the second half of it: a reader searching
+ * for `100%` or `a&b` builds an address this file must not be writing by hand.
+ */
+type Asked = { q: string };
+
+/**
+ * WHICH LISTING IS BEING WALKED, and therefore whether it owes a query.
+ *
+ * A UNION RATHER THAN AN OPTIONAL PROP, so the pairing is true by construction
+ * rather than by care. `asked` was simply optional, which let
+ * `<Walk path="/search" />` compile -- and that renders exactly the failure the
+ * type above has a paragraph warning about: a `Back to the start` pointing at
+ * `/search` with no `q`, which is the page that ASKS for a query rather than
+ * the first page of anybody's results. The two surfaces that ARE their address
+ * may not pass one, and the one that is not must.
+ */
+type Walking = { path: "/" | "/works"; asked?: never } | { path: "/search"; asked: Asked };
 
 /**
  * What each listing calls itself when it has to end a sentence.
@@ -62,6 +105,7 @@ export type ListingPath = "/" | "/works";
 const ENDS_HERE: Record<ListingPath, string> = {
   "/": "The catalogue ends here",
   "/works": "The list of Works ends here",
+  "/search": "These results end here",
 };
 
 /**
@@ -174,10 +218,10 @@ export function Listing({ entries }: { entries: Entry[] }) {
  */
 export function Walk({
   path,
+  asked,
   from,
   continuesAfter,
-}: {
-  path: ListingPath;
+}: Walking & {
   from?: string;
   continuesAfter: string | null;
 }) {
@@ -185,13 +229,13 @@ export function Walk({
   return (
     <nav aria-label="More of this listing" className="mt-6 flex items-baseline gap-4">
       {from !== undefined && (
-        <Link href={{ pathname: path }} className="text-sm hover:underline">
+        <Link href={{ pathname: path, query: asked }} className="text-sm hover:underline">
           Back to the start
         </Link>
       )}
       {continuesAfter !== null && (
         <Link
-          href={{ pathname: path, query: { after: continuesAfter } }}
+          href={{ pathname: path, query: { ...asked, after: continuesAfter } }}
           className="ml-auto text-sm hover:underline"
         >
           Next
@@ -210,7 +254,7 @@ export function Walk({
  * that is always somewhere, is the difference between an ending and a page that
  * looks broken.
  */
-export function PastTheEnd({ path }: { path: ListingPath }) {
+export function PastTheEnd({ path, asked }: Walking) {
   return (
     <section aria-labelledby="past-the-end" className="mt-6">
       <Empty className="border">
@@ -229,7 +273,7 @@ export function PastTheEnd({ path }: { path: ListingPath }) {
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
-          <Link href={{ pathname: path }} className="hover:underline">
+          <Link href={{ pathname: path, query: asked }} className="hover:underline">
             Back to the start
           </Link>
         </EmptyContent>

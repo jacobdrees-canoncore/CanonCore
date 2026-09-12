@@ -3,7 +3,7 @@ import { drizzle } from "drizzle-orm/node-postgres";
 
 import * as schema from "./schema";
 
-export { type CatalogueSearch, likePattern, searchCatalogue } from "./catalogue-search";
+export { likePattern, searchCatalogue } from "./catalogue-search";
 export {
   type ImportedContainer,
   type ImportedRecord,
