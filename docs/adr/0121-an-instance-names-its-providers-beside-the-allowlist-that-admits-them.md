@@ -43,10 +43,17 @@ the file they are already editing.
 
 ## It is env for exactly as long as the allowlist is
 
-ADR-0034's own note says the allowlist "is env rather than a settings table because there is no
-settings table yet. When there is one, this moves into it and the boundary does not change". The same
-sentence governs this one, and the two move together: `parseProviderUrls` takes a string from
-wherever it comes, as `parseAllowlist` does.
+The allowlist's own note says it "is env rather than a settings table because there is no settings
+table yet. When there is one, this moves into it and the boundary does not change". The same sentence
+governs this one, and the two move together: `parseProviderUrls` takes a string from wherever it
+comes, as `parseAllowlist` does.
+
+**THAT QUOTE IS A CODE COMMENT, NOT AN ADR, and this record said otherwise.** It attributed the
+sentence to "ADR-0034's own note". ADR-0034 contains no sentence about a settings table and
+`git log -S` shows it never did; the words are at `packages/env/src/schema.ts:34`, beside
+`PROVIDER_ALLOWLIST` itself. The commitment is real and the boundary argument is unchanged — but it
+lives in the code, so a reader checking ADR-0034 for it finds nothing, and two tickets have already
+cited it as something ADR-0034 "committed to".
 
 **THE ENTRIES ARE TAKEN AS WRITTEN AND NEVER NORMALISED**, which looks like an omission and is the
 load-bearing half. A provider's URL is its IDENTITY (ADR-0031), and the identity is what the source

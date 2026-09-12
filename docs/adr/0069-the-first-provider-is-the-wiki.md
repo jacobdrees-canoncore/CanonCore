@@ -43,11 +43,21 @@ measured against `~/tardis-pipeline`" and the record has never carried one: it m
 about the archive's contents.
 
 **MEASURED AGAIN 2026-09-12, and the protection has hardened.** The challenge is now an
-INTERACTIVE Cloudflare Turnstile ("Verify you are human") rather than the passive JavaScript
-challenge of 2026-09-05. A real browser under automation does not clear it: Orca's own browser sat
+INTERACTIVE Cloudflare challenge ("Verify you are human") rather than the passive JavaScript
+challenge of 2026-09-05. **It is a challenge PAGE and not Turnstile** — probed 2026-09-12, the response carries
+`cf-mitigated: challenge` and the word "turnstile" appears in it zero times; Turnstile is the
+widget a site owner embeds and Cloudflare documents it separately. A real browser under
+automation does not clear it: Orca's own browser sat
 on the widget through six polls and never passed. A `cf_clearance` captured 2026-09-04 was dead
 eight days later while its own `expires` attribute still claimed 2027-09-03, so the cookie's stated
 lifetime says nothing about its real one.
+
+**AND THE REAL INTERVAL IS BRACKETED RATHER THAN KNOWN, which is worth stating because both ends have
+been guessed wrong once.** Cloudflare's published default is 30 minutes and **this zone is not on
+it**: a clearance issued 2026-09-12 12:22 still answered `api.php` at 14:20, surviving at least
+1h 58m, four times the default. Against the eight-day death above, the durable window is somewhere
+between two hours and eight days, and nobody has isolated it. Expiry is an ordinary event to be
+handled, not a treadmill and not a formality.
 
 **AND THE THING THAT DOES WORK, measured the same day**: a cookie from a person's ordinary browser,
 paired with that browser's exact User-Agent, answers from a plain HTTP client. Four endpoints,
