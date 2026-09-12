@@ -15,7 +15,7 @@ import { callerContext } from "@/session";
  * the procedure's job rather than this one's, because a second surface would be
  * a second place for the two rules to disagree.
  */
-const named = z.object({ id: z.uuid() });
+const theDeviceNamed = z.object({ id: z.uuid() });
 
 /**
  * Logs one OTHER device out (ADR-0043's per-device logout).
@@ -32,7 +32,7 @@ const named = z.object({ id: z.uuid() });
  * browser, and the two halves have to happen together.
  */
 export async function endDevice(form: FormData): Promise<void> {
-  const { id } = named.parse({ id: form.get("id") });
+  const { id } = theDeviceNamed.parse({ id: form.get("id") });
 
   await call(appRouter.session.end, { id }, { context: await callerContext() });
 }

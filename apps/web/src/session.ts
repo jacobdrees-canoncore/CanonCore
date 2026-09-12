@@ -54,11 +54,20 @@ export async function rememberSession(token: string): Promise<void> {
      * ONE NUMBER since CNCORE-116 rather than two that happened to agree.
      *
      * The row lapses thirty days after it was minted (ADR-0043) and this is
-     * that same thirty days, so the cookie cannot outlive the session it
-     * carries or the reverse. Written out here a second time, the two would be
-     * a pair nothing keeps in step: a browser holding a token the server had
-     * already stopped honouring, or a session going on being valid for a device
-     * that threw the token away.
+     * that same thirty days, so neither outlives the other at the OUTSIDE
+     * limit. Written out here a second time, the two would be a pair nothing
+     * keeps in step, and a session going on being valid for a device that threw
+     * its token away is the harmless direction.
+     *
+     * THE IDLE LIMIT CAN STILL END THE SESSION FIRST, and this cookie will
+     * outlive it when it does -- seven days unused ends the row with up to
+     * twenty-three days left on the browser's copy. That is not a mismatch to
+     * close: what the browser then presents is a token that answers nothing,
+     * and what it meets is the login form, which is the right thing to put in
+     * front of somebody who has not opened their catalogue in a week. An
+     * earlier draft of this comment claimed the two numbers being one closed
+     * the gap in both directions; the idle limit landed in the same change and
+     * makes that false. Found in review.
      */
     maxAge: SESSION_LIFETIME_SECONDS,
   });

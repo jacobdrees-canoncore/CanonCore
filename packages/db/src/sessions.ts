@@ -82,9 +82,27 @@ export const SESSION_IDLE_LIMIT_SECONDS = 60 * 60 * 24 * 7;
 function isLive() {
   return and(
     isNull(sessions.deletedAt),
-    sql`${sessions.createdAt} > now() - make_interval(secs => ${SESSION_LIFETIME_SECONDS})`,
-    sql`${sessions.lastSeenAt} > now() - make_interval(secs => ${SESSION_IDLE_LIMIT_SECONDS})`,
+    sql`${sessions.createdAt} > ${nowLess(SESSION_LIFETIME_SECONDS)}`,
+    sql`${sessions.lastSeenAt} > ${nowLess(SESSION_IDLE_LIMIT_SECONDS)}`,
   );
+}
+
+/**
+ * A moment in the past, by the DATABASE'S clock -- `now()` less that many
+ * seconds.
+ *
+ * WRITTEN ONCE BECAUSE TWO STATEMENTS COMPARE AGAINST IT IN OPPOSITE
+ * DIRECTIONS. `isLive` asks which sessions are inside the window and
+ * `sweepSessions` deletes the rows outside it, so the same cutoff appearing
+ * twice is two places to change and one of them forgotten -- and the failure it
+ * would produce is the sweep deleting rows the write path still honours, which
+ * is an owner logged out of a device they were using. Found in review.
+ *
+ * `make_interval` TAKES THE SECONDS AS A PARAMETER, and the only values reaching
+ * it are the two module constants above.
+ */
+function nowLess(seconds: number) {
+  return sql`now() - make_interval(secs => ${seconds})`;
 }
 
 /** The verifier stored against a token. See `sessions.tokenHash`. */
@@ -216,7 +234,21 @@ export async function endSession(db: Database, sessionId: string): Promise<boole
   const ended = await db
     .update(sessions)
     .set({ deletedAt: sql`now()` })
-    .where(and(eq(sessions.id, sessionId), isNull(sessions.deletedAt)))
+    .where(
+      and(
+        eq(sessions.id, sessionId),
+        // THE OWNER'S OWN, WHICH THIS DID NOT SAY UNTIL CNCORE-116. `listSessions`
+        // and `startSession` both read the single owner rather than trusting a
+        // caller, and this one took an id alone -- so the two halves of one
+        // surface disagreed about whose session it was. Nothing could exploit
+        // that under ADR-0044, which makes exactly one owner row: the guard was
+        // "only one owner exists" rather than anything in the code, and the
+        // first thing multi-user does is drop the index that makes it true.
+        // Found in review.
+        eq(sessions.ownerId, await theOwnerId(db)),
+        isNull(sessions.deletedAt),
+      ),
+    )
     .returning({ id: sessions.id });
   return ended.length > 0;
 }
@@ -255,7 +287,7 @@ export async function endSession(db: Database, sessionId: string): Promise<boole
 export async function sweepSessions(db: Database): Promise<number> {
   const swept = await db
     .delete(sessions)
-    .where(sql`${sessions.createdAt} <= now() - make_interval(secs => ${SESSION_LIFETIME_SECONDS})`)
+    .where(sql`${sessions.createdAt} <= ${nowLess(SESSION_LIFETIME_SECONDS)}`)
     .returning({ id: sessions.id });
   return swept.length;
 }

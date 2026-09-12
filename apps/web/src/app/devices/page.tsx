@@ -52,7 +52,7 @@ export default async function DevicesPage() {
       </p>
       <section aria-labelledby="devices" className="mt-6">
         <h2 className="sr-only" id="devices">
-          Devices
+          Devices you are logged in on
         </h2>
         <ul className="flex flex-col divide-y">
           {devices.map((device) => (
@@ -100,10 +100,8 @@ export default async function DevicesPage() {
  * would be this app asserting something no device ever said (ADR-0043). The
  * names arrive with the clients, and the column is already there for them.
  */
-function nameOf(device: { clientName?: string; deviceName?: string; clientVersion?: string }) {
-  const declared = [device.deviceName, device.clientName, device.clientVersion].filter(
-    (field) => field !== undefined,
-  );
+function nameOf(device: { clientName?: string; deviceName?: string }) {
+  const declared = [device.deviceName, device.clientName].filter((field) => field !== undefined);
   return declared.length === 0 ? "A browser, which declared nothing" : declared.join(" · ");
 }
 

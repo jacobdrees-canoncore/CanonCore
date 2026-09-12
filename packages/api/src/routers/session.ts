@@ -33,6 +33,14 @@ function digestOf(value: string): Buffer {
 /**
  * One device on the owner's list.
  *
+ * `device` RATHER THAN `session`, WHICH IS THE READER'S WORD AND NOT A SECOND
+ * NAME FOR THE ROW. `CONTEXT.md` defines a Session as "one logged-in device", so
+ * the two are one thing from two sides: the mechanism is a session all the way
+ * down -- `session.list`, `session.end`, `listSessions`, `endSession` -- and what
+ * the owner reads is a list of devices, which is also ADR-0043's own phrase for
+ * the operation ("per-device logout"). This shape is where the two meet, and it
+ * takes the reader's word because a page is what consumes it.
+ *
  * IT NAMES ITS FIELDS rather than answering the session row, which is the rule
  * ADR-0045 takes for the read path and the same reason `asSession` leaves
  * `token_hash` behind: a shape that spread the row would publish whatever a
@@ -43,9 +51,14 @@ function digestOf(value: string): Buffer {
  * holds nulls in all of them and the page has to be able to say so rather than
  * print a placeholder this app invented (ADR-0043).
  *
- * `deviceId` AND `capabilities` ARE NOT HERE. One is an identifier and the
- * other is an opaque blob the clients have yet to settle; neither is something
- * a reader deciding which device to log out can act on.
+ * `deviceId`, `clientVersion` AND `capabilities` ARE NOT HERE. An id and an
+ * opaque blob the clients have yet to settle are not things a reader deciding
+ * which device to log out can act on, and a version number is diagnostics rather
+ * than recognition -- the two that are left are the two the schema's own
+ * comments say name a device: what the owner would recognise it by, and what it
+ * calls its software. `clientVersion` was on this shape until review pointed out
+ * that every field here is null for the only device that can log in today, which
+ * makes each one a cost to justify rather than a column to mirror.
  */
 const listedDevice = z.object({
   id: z.uuid(),
@@ -59,7 +72,6 @@ const listedDevice = z.object({
   lastSeenAt: z.date(),
   clientName: z.string().optional(),
   deviceName: z.string().optional(),
-  clientVersion: z.string().optional(),
 });
 
 export const session = {
@@ -156,7 +168,6 @@ export const session = {
       lastSeenAt: device.lastSeenAt,
       ...(device.clientName === undefined ? {} : { clientName: device.clientName }),
       ...(device.deviceName === undefined ? {} : { deviceName: device.deviceName }),
-      ...(device.clientVersion === undefined ? {} : { clientVersion: device.clientVersion }),
     }));
   }),
 

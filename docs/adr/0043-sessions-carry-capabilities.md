@@ -85,8 +85,12 @@ timeout here would be an instance that asks for a password every time a tablet i
 is how an owner ends up choosing a password worth guessing.
 
 THIRTY DAYS IS NOW ONE NUMBER RATHER THAN TWO THAT AGREED. `SESSION_LIFETIME_SECONDS` is the row's
-lifetime and the cookie's `Max-Age`, read from one place, so the browser cannot hold a token the
-server has stopped honouring or the reverse.
+lifetime and the cookie's `Max-Age`, read from one place, so neither outlives the other at the
+OUTSIDE limit. It does NOT make the two agree in every case, and an earlier draft of this paragraph
+said it did: the idle limit ends a session after seven unused days with up to twenty-three still on
+the browser's copy of the token. That is the harmless direction -- a cookie that answers nothing
+meets the login form -- but it is a gap rather than no gap, and the sentence claiming otherwise was
+falsified by the limit added in the same change.
 
 **AND IT COST NO COLUMN, WHICH IS THE HALF CNCORE-116 EXPECTED TO BE WRONG ABOUT.** That ticket
 reads "ADR-0043 names seven columns and no expiry, so adding one is a DECISION" -- and the decision
@@ -102,7 +106,12 @@ pressing End, which is the page above. The three things CNCORE-116 carried are o
 from three sides rather than three features that happened to be filed together.
 
 **AND THE SWEEP IS ADR-0049'S, WHICH IS WHY IT IS HALF HERE.** `sweepSessions` removes every row
-past its lifetime -- ended, idle or simply old, one rule -- and nothing calls it. Recurring work
+past its LIFETIME and nothing else: one rule, whatever state the row reached on the way, so an ended
+session and an idle one both wait out the rest of their thirty days rather than going the moment
+they stop answering. That is deliberate -- a tombstone that vanished as `endSession` wrote it would
+cost the distinction that function keeps, between the owner having logged a device out and the
+device never having logged in -- and it means a row refused on the idle clock at day eight is still
+in the table on day nine. Nothing calls the sweep at all. Recurring work
 runs on a VISIBLE REGISTRY there rather than a hidden timer, and no registry exists (CNCORE-119);
 attaching a sweep to a login, a page render or the container's boot would be exactly the shape that
 record refuses. Nothing's security waits on it either way: `seeSession` refuses a lapsed session

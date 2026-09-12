@@ -263,6 +263,9 @@ importers:
       '@canoncore/api':
         specifier: workspace:*
         version: link:../../packages/api
+      '@canoncore/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       '@canoncore/env':
         specifier: workspace:*
         version: link:../../packages/env
@@ -312,9 +315,6 @@ importers:
       '@canoncore/config':
         specifier: workspace:*
         version: link:../../packages/config
-      '@canoncore/db':
-        specifier: workspace:*
-        version: link:../../packages/db
       '@canoncore/providers':
         specifier: workspace:*
         version: link:../../packages/providers
