@@ -74,13 +74,15 @@ describe("item.get", () => {
       // every other field, which is the point of this test: it went red when
       // `attribution` was added, which is the enumeration working.
       "attribution",
+      // What this container HOLDS (CNCORE-67). It went red here when it was
+      // added, for the same reason `attribution` did: the enumeration working --
+      // and again when CNCORE-91 renamed it from `members`, which `CONTEXT.md`
+      // rejects as a name for a list of placements.
+      "holds",
       "id",
       "isContainer",
       "isOrdered",
       "kind",
-      // What this container HOLDS (CNCORE-67). It went red here when it was
-      // added, for the same reason `attribution` did: the enumeration working.
-      "members",
       "placements",
       "releaseDate",
       "sortName",
@@ -363,15 +365,15 @@ describe("item.get on a container", () => {
 
     const container = await call(appRouter.item.get, { id: season }, { context });
 
-    expect(container.members.map((member) => member.itemId)).toStrictEqual([first, second]);
-    expect(container.members[0]).toMatchObject({ title: "Its first story", position: 1 });
+    expect(container.holds.map((placement) => placement.itemId)).toStrictEqual([first, second]);
+    expect(container.holds[0]).toMatchObject({ title: "Its first story", position: 1 });
   });
 
-  it("names every field a member emits, and no internal one", async () => {
+  it("names every field a placement in a container emits, and no internal one", async () => {
     // ADR-0045's enumeration oracle, one level down, exactly as `placements`
     // carries one. `owner_id`, the change sequence and `edition_id` are absent
     // because no line was written for them.
-    const story = await anItemTitled(db, "A member to enumerate");
+    const story = await anItemTitled(db, "A story to enumerate");
     const container = await anItemTitled(db, "An ordering to enumerate", { isContainer: true });
     await aPlacement(db, {
       containerId: container,
@@ -382,7 +384,7 @@ describe("item.get on a container", () => {
 
     const item = await call(appRouter.item.get, { id: container }, { context });
 
-    expect(item.members.map((member) => Object.keys(member).sort())).toStrictEqual([
+    expect(item.holds.map((placement) => Object.keys(placement).sort())).toStrictEqual([
       ["id", "itemId", "position", "title"],
     ]);
   });

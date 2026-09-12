@@ -330,15 +330,15 @@ describe("provider.browse", () => {
     // neutral fact, so a placement written without one is a claim nobody made.
     const baseUrl = await stubProvider();
 
-    const { members } = await call(
+    const { placements } = await call(
       appRouter.provider.browse,
       { baseUrl, containerId: "388305" },
       { context },
     );
 
-    expect(members).toHaveLength(2);
-    for (const member of members) {
-      const item = await call(appRouter.item.get, { id: member.itemId }, { context });
+    expect(placements).toHaveLength(2);
+    for (const placement of placements) {
+      const item = await call(appRouter.item.get, { id: placement.itemId }, { context });
       expect(item.placements).toEqual([
         expect.objectContaining({ position: 1, placedBy: "provider" }),
       ]);
@@ -454,15 +454,15 @@ describe("a provider whose dates are not EDTF", () => {
     };
     const baseUrl = await stubProvider({}, { containers: { "388305": container } });
 
-    const { members, quarantinedValues } = await call(
+    const { placements, quarantinedValues } = await call(
       appRouter.provider.browse,
       { baseUrl, containerId: "388305" },
       { context },
     );
 
-    // Both members land. Losing the container over one member's date is the
+    // Both placements land. Losing the container over one story's date is the
     // trade this ticket exists to refuse.
-    expect(members).toHaveLength(2);
+    expect(placements).toHaveLength(2);
     expect(quarantinedValues).toBe(1);
   });
 });
@@ -873,14 +873,14 @@ describe("provider.container", () => {
     });
   });
 
-  it("counts every member a browse would write, the ones it cannot place included", async () => {
+  it("counts every placement a browse would write, the ones it cannot position included", async () => {
     /*
      * WHAT PRESSING THE BUTTON COSTS, said before it is pressed. One call writes
      * a container's worth of placements -- that is why `browse` exists at all
      * (ADR-0033) -- and the owner's only description of it beforehand is this.
      *
      * THE UNPLACED ONES ARE MEMBERS TOO (ADR-0009, and `importBrowsedContainer`
-     * writes them with a null position). They are members WITH NO POSITION
+     * writes them with a null position). They are PLACEMENTS WITH NO POSITION
      * rather than non-members, so a count that left them out would understate
      * what arrives -- for the wiki, by about a sixth.
      */
@@ -913,7 +913,7 @@ describe("provider.container", () => {
     );
 
     // TWO IN THE ORDERING AND ONE OUTSIDE IT.
-    expect(answer).toMatchObject({ answer: "container", members: 3 });
+    expect(answer).toMatchObject({ answer: "container", placements: 3 });
   });
 
   it("says a provider holds no container at that id, rather than throwing", async () => {
@@ -1002,7 +1002,7 @@ describe("provider.container", () => {
       {
         containers: {
           // A body that is well-formed JSON and is not a CMPP browse: one zod
-          // issue per bad member, so the provider sets the length.
+          // issue per bad story, so the provider sets the length.
           "388305": {
             container: { id: 388305, title: 388305, kind: 388305, released: 388305, url: 388305 },
             ordering: Array.from({ length: 200 }, (_, n) => ({ position: "x", record: n })),

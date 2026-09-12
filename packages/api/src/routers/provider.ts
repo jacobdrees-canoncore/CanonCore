@@ -641,17 +641,17 @@ export const provider = {
           /** The container's own title, which is what the owner cannot see today. */
           title: z.string().min(1),
           /**
-           * HOW MANY MEMBERS A BROWSE WOULD WRITE, which is what pressing the
+           * HOW MANY PLACEMENTS A BROWSE WOULD WRITE, which is what pressing the
            * button costs. One call writes a container's worth of placements --
            * that is why `browse` exists (ADR-0033) -- and this is the owner's
            * only description of it beforehand.
            *
-           * THE ONES THE ORDERING CANNOT PLACE ARE COUNTED TOO, because they
-           * are members with no position rather than non-members and
+           * THE ONES THE ORDERING CANNOT POSITION ARE COUNTED TOO, because they
+           * are placements with no position rather than non-members, and
            * `importBrowsedContainer` writes them exactly as it writes the rest.
            * For the wiki that is about a sixth of a category.
            */
-          members: z.number().int().nonnegative(),
+          placements: z.number().int().nonnegative(),
         }),
         /**
          * THE PROVIDER WAS ASKED AND HOLDS NOTHING THERE, which ADR-0066 makes
@@ -709,7 +709,7 @@ export const provider = {
           answer: "container" as const,
           providerName,
           title: attempt.browsed.container.title,
-          members: attempt.browsed.ordering.length + attempt.browsed.unplaced.length,
+          placements: attempt.browsed.ordering.length + attempt.browsed.unplaced.length,
         };
       } catch (error) {
         /*
@@ -765,19 +765,19 @@ export const provider = {
       z.object({
         containerId: z.uuid(),
         /**
-         * Every member written, container-side. The placement id is here for
+         * Every placement written, container-side. The placement id is here for
          * the same reason `?via=` carries one (ADR-0066): it names the ordering
          * a reader would arrive through, and it is an address rather than an
          * internal id.
          */
-        members: z.array(z.object({ itemId: z.uuid(), placementId: z.uuid() })),
+        placements: z.array(z.object({ itemId: z.uuid(), placementId: z.uuid() })),
         /**
          * How many values across the whole browse were held apart, the
          * container's own included (CNCORE-29).
          *
          * THE BULK PATH IS WHY THIS FIELD EXISTS. One call writes a container's
          * worth of dates, so a bad source fills the catalogue rather than a row
-         * of it -- and sixty members' worth of quarantined dates reported as a
+         * of it -- and sixty stories' worth of quarantined dates reported as a
          * plain success is the "silently" this ticket refuses.
          */
         quarantinedValues: z.number().int().nonnegative(),

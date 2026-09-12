@@ -661,7 +661,7 @@ const VASHTA_NERADA = {
  * is the withdrawn claim itself. A helper that still showed them would report an
  * ordering no page renders.
  */
-async function membersOf(containerId: string) {
+async function placementsIn(containerId: string) {
   return db
     .select({
       itemId: placements.itemId,
@@ -707,7 +707,7 @@ describe("importing a container and its ordering", () => {
       browsed: VASHTA_NERADA,
     });
 
-    expect(await membersOf(containerId)).toMatchObject([
+    expect(await placementsIn(containerId)).toMatchObject([
       { title: DAY.title, position: 1 },
       { title: NIGHT.title, position: 1 },
     ]);
@@ -728,10 +728,10 @@ describe("importing a container and its ordering", () => {
       browsed: VASHTA_NERADA,
     });
 
-    const members = await membersOf(containerId);
-    expect(members).toHaveLength(2);
-    for (const member of members) {
-      expect(member.sourceIdentity).toBe(identity);
+    const written = await placementsIn(containerId);
+    expect(written).toHaveLength(2);
+    for (const placement of written) {
+      expect(placement.sourceIdentity).toBe(identity);
     }
   });
 
@@ -741,13 +741,13 @@ describe("importing a container and its ordering", () => {
    * the archive dates the same day. A container that renumbered them would be
    * asserting an order its source never gave.
    */
-  it("keeps two members at one position rather than inventing an order", async () => {
+  it("keeps two placements at one position rather than inventing an order", async () => {
     const { containerId } = await importBrowsedContainer(db, {
       provider: wikiProvider("http://127.0.0.1:9104"),
       browsed: VASHTA_NERADA,
     });
 
-    const positions = (await membersOf(containerId)).map((member) => member.position);
+    const positions = (await placementsIn(containerId)).map((placement) => placement.position);
     expect(positions).toEqual([1, 1]);
   });
 
@@ -778,7 +778,7 @@ describe("importing a container and its ordering", () => {
    * with a recap in it is exactly what ADR-0009 says the model is for.
    */
   it("places one record twice as a REPEAT, rather than as two items", async () => {
-    const { containerId, members } = await importBrowsedContainer(db, {
+    const { containerId, placements: written } = await importBrowsedContainer(db, {
       provider: wikiProvider("http://127.0.0.1:9107"),
       browsed: {
         ...VASHTA_NERADA,
@@ -791,8 +791,8 @@ describe("importing a container and its ordering", () => {
       },
     });
 
-    expect(new Set(members.map((member) => member.itemId)).size).toBe(2);
-    expect(await membersOf(containerId)).toMatchObject([
+    expect(new Set(written.map((placement) => placement.itemId)).size).toBe(2);
+    expect(await placementsIn(containerId)).toMatchObject([
       { title: NIGHT.title, position: 1 },
       { title: DAY.title, position: 2 },
       { title: NIGHT.title, position: 3 },
@@ -832,7 +832,7 @@ describe("importing a container and its ordering", () => {
       browsed: ordering(3),
     });
 
-    expect(await membersOf(containerId)).toMatchObject([
+    expect(await placementsIn(containerId)).toMatchObject([
       { title: NIGHT.title, position: 1 },
       { title: DAY.title, position: 3 },
     ]);
@@ -848,21 +848,25 @@ describe("importing a container and its ordering", () => {
    * not the story: it may sit in other orderings, and the owner may have placed
    * it by hand.
    */
-  it("drops a member the provider no longer holds, keeping the item itself", async () => {
+  it("drops a placement the provider no longer holds, keeping the item itself", async () => {
     const identity = "http://127.0.0.1:9111";
 
     const first = await importBrowsedContainer(db, {
       provider: wikiProvider(identity),
       browsed: VASHTA_NERADA,
     });
-    const day = first.members.find((member) => member.itemId !== first.members[0]?.itemId);
+    const day = first.placements.find(
+      (placement) => placement.itemId !== first.placements[0]?.itemId,
+    );
 
     await importBrowsedContainer(db, {
       provider: wikiProvider(identity),
       browsed: { ...VASHTA_NERADA, ordering: [{ position: 1, record: NIGHT }] },
     });
 
-    expect(await membersOf(first.containerId)).toMatchObject([{ title: NIGHT.title, position: 1 }]);
+    expect(await placementsIn(first.containerId)).toMatchObject([
+      { title: NIGHT.title, position: 1 },
+    ]);
     expect(day).toBeDefined();
     expect(await readItem(db, day?.itemId ?? "")).toMatchObject({ title: DAY.title });
   });
@@ -926,7 +930,7 @@ describe("importing a container and its ordering", () => {
     expect(second.containerId).toBe(first.containerId);
     // The same placements, not merely the same number of them: a browse that
     // wrote fresh rows and answered with those would pass a count.
-    expect(second.members).toEqual(first.members);
+    expect(second.placements).toEqual(first.placements);
     expect(await db.select({ id: items.id }).from(items)).toHaveLength(itemsBefore.length);
     expect(await db.select({ id: placements.id }).from(placements)).toHaveLength(
       placementsBefore.length,
@@ -945,7 +949,7 @@ describe("importing a container and its ordering", () => {
       browsed: { ...VASHTA_NERADA, unplaced: [OPERATION_DUSK] },
     });
 
-    expect(await membersOf(containerId)).toMatchObject([
+    expect(await placementsIn(containerId)).toMatchObject([
       { title: DAY.title, position: 1 },
       { title: NIGHT.title, position: 1 },
       { title: OPERATION_DUSK.title, position: null },
@@ -1167,7 +1171,7 @@ describe("a date that is not EDTF", () => {
     });
   });
 
-  it("counts what a whole browsed container held back, across its members", async () => {
+  it("counts what a whole browsed container held back, across everything in it", async () => {
     const { quarantinedValues } = await importBrowsedContainer(db, {
       provider: wikiProvider("http://127.0.0.1:9406"),
       browsed: {
@@ -1192,7 +1196,7 @@ describe("a date that is not EDTF", () => {
    * stories to save one field of one of them.
    */
   it("keeps the rest of a browsed container when one member's date is not EDTF", async () => {
-    const { containerId, members } = await importBrowsedContainer(db, {
+    const { containerId, placements: written } = await importBrowsedContainer(db, {
       provider: wikiProvider("http://127.0.0.1:9403"),
       browsed: {
         container: { externalId: "9403", title: "Category:Dated badly", released: [] },
@@ -1205,8 +1209,10 @@ describe("a date that is not EDTF", () => {
       },
     });
 
-    expect(members).toHaveLength(3);
-    expect((await membersOf(containerId)).map((member) => member.position)).toEqual([1, 2, 3]);
+    expect(written).toHaveLength(3);
+    expect((await placementsIn(containerId)).map((placement) => placement.position)).toEqual([
+      1, 2, 3,
+    ]);
 
     // The two good dates are readable dates, and the bad one is held apart --
     // in one import, rather than the import being all good or all lost.
@@ -1215,7 +1221,7 @@ describe("a date that is not EDTF", () => {
         .filter((claim) => claim.property === "released")
         .map((claim) => ({ value: claim.value, quarantined: claim.quarantined }));
 
-    const [night, undatable, day] = members;
+    const [night, undatable, day] = written;
     expect(await dates(night!.itemId)).toEqual([{ value: NIGHT.released[0], quarantined: false }]);
     expect(await dates(undatable!.itemId)).toEqual([{ value: "soon", quarantined: true }]);
     expect(await dates(day!.itemId)).toEqual([{ value: DAY.released[0], quarantined: false }]);
@@ -1247,7 +1253,7 @@ describe("a date that is not EDTF", () => {
 describe("purging everything one provider ever said", () => {
   it("takes the statements, the placements and the source row together", async () => {
     const provider = tmdbProvider("http://127.0.0.1:9201");
-    const { containerId, members } = await importBrowsedContainer(db, {
+    const { containerId, placements: written } = await importBrowsedContainer(db, {
       provider,
       browsed: {
         container: { externalId: "collection:1", title: "A collection", released: [] },
@@ -1271,7 +1277,7 @@ describe("purging everything one provider ever said", () => {
       .where(and(eq(sources.kind, "provider"), eq(sources.identity, provider.identity)));
     expect(left).toEqual([]);
     expect(await readItem(db, containerId)).toBeUndefined();
-    expect(await readItem(db, members[0]?.itemId ?? "")).toBeUndefined();
+    expect(await readItem(db, written[0]?.itemId ?? "")).toBeUndefined();
   });
 
   /**
@@ -1375,7 +1381,7 @@ describe("purging everything one provider ever said", () => {
 describe("previewing what a purge would take", () => {
   it("answers the counts, and takes nothing", async () => {
     const provider = tmdbProvider("http://127.0.0.1:9207");
-    const { containerId, members } = await importBrowsedContainer(db, {
+    const { containerId, placements: written } = await importBrowsedContainer(db, {
       provider,
       browsed: {
         container: { externalId: "collection:11", title: "A collection", released: [] },
@@ -1395,7 +1401,7 @@ describe("previewing what a purge would take", () => {
     // keeps the `change_sequence` values the traversal spent, which ADR-0046
     // records and nothing reads.
     expect(await readItem(db, containerId)).toBeDefined();
-    expect(await readItem(db, members[0]?.itemId ?? "")).toBeDefined();
+    expect(await readItem(db, written[0]?.itemId ?? "")).toBeDefined();
     const stillThere = await db
       .select()
       .from(sources)
@@ -1427,9 +1433,9 @@ describe("previewing what a purge would take", () => {
     const provider = tmdbProvider("http://127.0.0.1:9208");
     const owner = await ownerSource(db);
 
-    // THREE MEMBERS, because each one is about to survive or not for a
+    // THREE PLACEMENTS, because each one is about to survive or not for a
     // different reason, and one traversal has to get all three right.
-    const { containerId, members } = await importBrowsedContainer(db, {
+    const { containerId, placements: written } = await importBrowsedContainer(db, {
       provider,
       browsed: {
         container: { externalId: "collection:12", title: "A collection", released: [] },
@@ -1444,7 +1450,7 @@ describe("previewing what a purge would take", () => {
         unplaced: [],
       },
     });
-    const [coAsserted, placedByTheOwner, claimedByNobodyElse] = members;
+    const [coAsserted, placedByTheOwner, claimedByNobodyElse] = written;
 
     // ONE: THE OWNER STANDS BEHIND THE PROVIDER'S OWN PLACEMENT. The row has two
     // claimants, so losing one leaves it standing -- and its container end keeps
@@ -1561,7 +1567,7 @@ describe("which attribution one item's page owes", () => {
    */
   it("owes it for an ordering too, not only for a value", async () => {
     const provider = tmdbProvider("http://127.0.0.1:9303");
-    const { members } = await importBrowsedContainer(db, {
+    const { placements: written } = await importBrowsedContainer(db, {
       provider,
       browsed: {
         container: { externalId: "collection:9", title: "A collection", released: [] },
@@ -1570,7 +1576,7 @@ describe("which attribution one item's page owes", () => {
       },
     });
 
-    const owed = await findAttributionOwed(db, members[0]?.itemId ?? "");
+    const owed = await findAttributionOwed(db, written[0]?.itemId ?? "");
     expect(owed.map((o) => o.sourceLabel)).toEqual(["provider-tmdb"]);
   });
 

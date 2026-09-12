@@ -139,11 +139,11 @@ export interface ProvidedContainer {
 
 export interface ImportedContainer {
   containerId: string;
-  /** Every member written, container-side, in the order it arrived. */
-  members: { itemId: string; placementId: string }[];
+  /** Every placement written, container-side, in the order it arrived. */
+  placements: { itemId: string; placementId: string }[];
   /**
    * How many values across the WHOLE browse were quarantined -- the container's
-   * own and every member's, since a container is a record like any other
+   * own and every placed item's, since a container is a record like any other
    * (ADR-0004) and its claims go through the same door.
    *
    * THIS IS THE NUMBER THE BULK PATH EXISTS TO MAKE VISIBLE. One call writes a
@@ -206,8 +206,8 @@ export async function importBrowsedContainer(
       container: true,
     });
     const containerId = written.itemId;
-    // The container's own claims go through the same door as a member's, so
-    // what it held back is part of the same answer.
+    // The container's own claims go through the same door as a placed item's,
+    // so what it held back is part of the same answer.
     let quarantinedValues = written.quarantinedValues;
 
     /**
@@ -225,12 +225,12 @@ export async function importBrowsedContainer(
      * question with one answer, rather than two mechanisms that could disagree.
      */
     const item = async (record: ProvidedRecord) => {
-      const member = await writeProvidedItem(tx, { ownerId, sourceId, record });
-      quarantinedValues += member.quarantinedValues;
-      return member.itemId;
+      const writtenItem = await writeProvidedItem(tx, { ownerId, sourceId, record });
+      quarantinedValues += writtenItem.quarantinedValues;
+      return writtenItem.itemId;
     };
 
-    const members: { itemId: string; placementId: string }[] = [];
+    const writtenPlacements: { itemId: string; placementId: string }[] = [];
     for (const { position, record } of browsed.ordering) {
       const itemId = await item(record);
       const placementId = await assertPlacement(tx, {
@@ -239,10 +239,10 @@ export async function importBrowsedContainer(
         position,
         sourceId,
       });
-      members.push({ itemId, placementId });
+      writtenPlacements.push({ itemId, placementId });
     }
 
-    // AND THE ONES THE ORDERING CANNOT PLACE, which are members all the same.
+    // AND THE ONES THE ORDERING CANNOT POSITION, which are placements all the same.
     // They go through the very same write, with no position: what makes them
     // different is the absence of a claim about where they sit, and nothing
     // else. Dropping them would shrink the container silently.
@@ -254,17 +254,17 @@ export async function importBrowsedContainer(
         position: null,
         sourceId,
       });
-      members.push({ itemId, placementId });
+      writtenPlacements.push({ itemId, placementId });
     }
 
     await withdrawPlacementsNotAsserted(tx, {
       ownerId,
       containerId,
       sourceId,
-      asserted: members.map((member) => member.placementId),
+      asserted: writtenPlacements.map((placement) => placement.placementId),
     });
 
-    return { containerId, members, quarantinedValues };
+    return { containerId, placements: writtenPlacements, quarantinedValues };
   });
 }
 
