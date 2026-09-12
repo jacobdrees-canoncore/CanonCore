@@ -1,5 +1,7 @@
+import { getDb, sessions } from "@canoncore/db";
 import { env } from "@canoncore/env/server";
 import { call, ORPCError, safe } from "@orpc/server";
+import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createContext } from "../context";
@@ -106,6 +108,32 @@ if (OWNER_PASSWORD === undefined) {
   throw new Error("this suite's vitest.config.ts sets OWNER_PASSWORD, and it is not set");
 }
 
+/**
+ * One logged-in device: its token, the context a request from it carries, and
+ * the id of the row behind both.
+ *
+ * THE ID COMES OFF THE CONTEXT rather than out of a query, because the context
+ * is what the application itself reads -- `createContext` resolves the token to
+ * the session, so a test that looked the row up another way could pass against a
+ * context pointing somewhere else.
+ *
+ * AN ARROW RATHER THAN A `function`, WHICH THE TYPE CHECKER DECIDED. A hoisted
+ * declaration could be called before the guard above runs, so TypeScript will
+ * not carry `OWNER_PASSWORD`'s narrowing into it and the password reads as
+ * possibly undefined -- which is why every other use of it here is inside a
+ * callback written after the guard.
+ */
+const logInAs = async () => {
+  const { token } = await call(
+    appRouter.session.logIn,
+    { password: OWNER_PASSWORD },
+    { context: anyone },
+  );
+  const context = await createContext({ sessionToken: token });
+  if (context.session === null) throw new Error("the token this suite just minted was refused");
+  return { token, context, sessionId: context.session.id };
+};
+
 describe("logging in", () => {
   it("says this instance has a password, without saying what it is", async () => {
     await expect(
@@ -208,5 +236,169 @@ describe("the demo, which is an instance that sets no password", () => {
     expect(
       await refusalOf(call(demo.logIn, { password: OWNER_PASSWORD }, { context: anyone })),
     ).toBe("UNAUTHORIZED");
+  });
+});
+
+/**
+ * ADR-0043's per-device logout, at the seam ADR-0103 names for the router.
+ *
+ * THE RECORD CALLS IT THE THING EVERYONE ACTUALLY WANTS, and it was unreachable
+ * until CNCORE-116: `endSession` has taken a session id since CNCORE-109 --
+ * deliberately, so that this would be a page rather than a change to the
+ * mechanism -- and nothing could tell the owner what the ids were.
+ */
+describe("the devices the owner is logged in on", () => {
+  it("is refused to a caller with no session", async () => {
+    // IT IS NOT A READ, whatever it looks like. ADR-0044 leaves the CATALOGUE
+    // open; who is logged in to an instance is the owner's own business, and a
+    // list of devices answered to anybody is a list of what to go looking for.
+    expect(await refusalOf(call(appRouter.session.list, {}, { context: anyone }))).toBe(
+      "UNAUTHORIZED",
+    );
+  });
+
+  it("marks the session the caller is using, and only that one", async () => {
+    // THE WHOLE SAFETY OF THE SURFACE IS THIS FLAG. The one row the owner must
+    // not press End on is the one drawing the page, and the page has no other
+    // way to know which it is: every session on the list belongs to the same
+    // owner and looks alike.
+    const mine = await logInAs();
+    const other = await logInAs();
+
+    const listed = await call(appRouter.session.list, {}, { context: mine.context });
+
+    expect(listed.filter(({ current }) => current).map(({ id }) => id)).toStrictEqual([
+      mine.sessionId,
+    ]);
+    expect(listed.map(({ id }) => id)).toContain(other.sessionId);
+  });
+});
+
+describe("ending another device's session", () => {
+  it("ends the one it names and leaves the caller's own working", async () => {
+    // THE OPERATION ADR-0043 EXISTS FOR. A token on the user row cannot do this
+    // -- ending one device would end them all -- which is that record's whole
+    // argument for a session ROW, and Audiobookshelf's 52 files and 3,168 lines
+    // are what it cost to acquire one afterwards.
+    const mine = await logInAs();
+    const other = await logInAs();
+
+    await call(appRouter.session.end, { id: other.sessionId }, { context: mine.context });
+
+    // A FRESH CONTEXT FOR EACH, because what is under test is the SESSION rather
+    // than the object this process is holding: both tokens are presented again,
+    // which is what two browsers with cookies do.
+    expect(
+      await refusalOf(
+        call(
+          appRouter.provider.purge,
+          { baseUrl },
+          { context: await createContext({ sessionToken: other.token }) },
+        ),
+      ),
+    ).toBe("UNAUTHORIZED");
+    await expect(
+      call(
+        appRouter.provider.purge,
+        { baseUrl },
+        { context: await createContext({ sessionToken: mine.token }) },
+      ),
+    ).resolves.toBeDefined();
+  });
+});
+
+describe("ending the session the caller is using, which is not this operation", () => {
+  it("is refused, and the caller is still logged in afterwards", async () => {
+    // TWO HALVES, AND THIS ONE ONLY HAS THE FIRST. Logging THIS browser out is
+    // the row AND the cookie (`logOut`, and the action behind it); ending the row
+    // alone would leave a browser holding a token that opens nothing, on a page
+    // that still says it is logged in, with no button left to fix it.
+    const mine = await logInAs();
+
+    expect(
+      await refusalOf(
+        call(appRouter.session.end, { id: mine.sessionId }, { context: mine.context }),
+      ),
+    ).toBe("BAD_REQUEST");
+
+    // AND IT WAS REFUSED BEFORE IT WROTE, which is the half that matters: a
+    // guard that ended the row and then complained would have locked the owner
+    // out while telling them it had not.
+    await expect(
+      call(
+        appRouter.provider.purge,
+        { baseUrl },
+        { context: await createContext({ sessionToken: mine.token }) },
+      ),
+    ).resolves.toBeDefined();
+  });
+});
+
+/**
+ * CNCORE-116's first acceptance criterion, at the seam ADR-0103 names for the
+ * router.
+ *
+ * IT PASSED THE MOMENT IT WAS WRITTEN, and that is worth saying rather than
+ * hiding: the refusal is enforced in `seeSession`, which landed first, so this
+ * file did not drive it. What it is here for is the JOIN -- `createContext`
+ * resolves a token and `ownerProcedure` reads the result, and either could stop
+ * consulting the clock without a single test in `packages/db` noticing.
+ *
+ * BACK-DATED ROWS RATHER THAN A FAKE CLOCK, for the reason `packages/db`'s own
+ * suite gives: the clock this policy is measured against is Postgres's.
+ */
+const daysAgo = (days: number) => new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+describe("a session that has lapsed", () => {
+  it("is refused the write path, exactly as no session at all is", async () => {
+    const mine = await logInAs();
+    await getDb()
+      .update(sessions)
+      .set({ createdAt: daysAgo(31) })
+      .where(eq(sessions.id, mine.sessionId));
+
+    expect(
+      await refusalOf(
+        call(
+          appRouter.provider.purge,
+          { baseUrl },
+          { context: await createContext({ sessionToken: mine.token }) },
+        ),
+      ),
+    ).toBe("UNAUTHORIZED");
+  });
+
+  it("is refused when the device has simply stopped being used", async () => {
+    const mine = await logInAs();
+    await getDb()
+      .update(sessions)
+      .set({ lastSeenAt: daysAgo(8) })
+      .where(eq(sessions.id, mine.sessionId));
+
+    expect(
+      await refusalOf(
+        call(
+          appRouter.provider.purge,
+          { baseUrl },
+          { context: await createContext({ sessionToken: mine.token }) },
+        ),
+      ),
+    ).toBe("UNAUTHORIZED");
+  });
+
+  it("is gone from the owner's device list as well as from the write path", async () => {
+    // ONE QUESTION, ASKED IN TWO PLACES. A list that went on offering a session
+    // the write path refuses would have the owner pressing End on something
+    // already over while the device they meant to reach stayed logged in.
+    const mine = await logInAs();
+    const lapsed = await logInAs();
+    await getDb()
+      .update(sessions)
+      .set({ lastSeenAt: daysAgo(8) })
+      .where(eq(sessions.id, lapsed.sessionId));
+
+    const listed = await call(appRouter.session.list, {}, { context: mine.context });
+
+    expect(listed.map(({ id }) => id)).not.toContain(lapsed.sessionId);
   });
 });
