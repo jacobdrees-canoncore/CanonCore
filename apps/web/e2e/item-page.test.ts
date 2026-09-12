@@ -18,6 +18,13 @@ const imported = inject("imported");
 const browsed = inject("browsed");
 const attributed = inject("attributed");
 const timeSpan = inject("timeSpan");
+/**
+ * THE SAME FIXTURE `container-page.test.ts` READS THE OTHER END OF. Its
+ * disagreement and its corroboration are seeded once and rendered twice -- the
+ * Members list in position order, "Also appears in" with rank leading -- so the
+ * two ends cannot come to be seeded apart and agree by accident.
+ */
+const workBrowsing = inject("workBrowsing");
 
 /**
  * The rows of the "Also appears in" list, one string each, so an assertion can
@@ -139,6 +146,69 @@ describe("also appears in", () => {
       expect(text).toContain(placement.containerTitle);
       expect(text).toContain(`#${placement.position}`);
     }
+  });
+
+  it("tells a repeat from two sources disagreeing, by naming who asserted each row", async () => {
+    // THE CRITERION, where a reader meets it -- CNCORE-121, and the mirror of
+    // the assertion `container-page.test.ts` makes over the Members list. Both
+    // pages show ONE CONTAINER twice at two positions: the recap because one
+    // source placed it twice on purpose (ADR-0009), and the disputed ordering
+    // because two sources claim different positions for one membership
+    // (ADR-0017). Nothing STORED separates them, and `placedBy` cannot -- both
+    // rows of both pages read "Imported", these being two providers. The only
+    // thing that can is the name beside each row.
+    //
+    // BOTH PAGES IN ONE TEST, because the criterion is a DIFFERENCE. Either
+    // alone passes against a list printing the same name on every row.
+    const repeat = await documentAt(`/items/${workBrowsing.repeatedId}`);
+    const disagreement = await documentAt(`/items/${workBrowsing.arguedId}`);
+
+    const repeated = orderingRows(repeat.text);
+    expect(repeated).toHaveLength(2);
+    expect(repeated.filter((row) => row.includes(workBrowsing.repeatedBy))).toHaveLength(2);
+
+    const argued = orderingRows(disagreement.text);
+    expect(argued).toHaveLength(2);
+    // AND THE SPOKESMAN'S TERMS STILL LEAD (ADR-0017), which is where this end
+    // differs from the container's. Both sources sit at the default rank --
+    // nothing in the product sets one -- so it is the one global source order
+    // (ADR-0025) that separates them, the wiki sits ahead of the broadcaster in
+    // it, and it is the wiki that claims #3. The winning claim is therefore the
+    // row a reader meets first: the OPPOSITE of the #1-then-#3 the Members list
+    // renders, and naming the sources must not disturb it.
+    expect(
+      argued.map((row) => workBrowsing.arguedBy.filter((by) => row.includes(by))),
+    ).toStrictEqual([[workBrowsing.arguedBy[1]], [workBrowsing.arguedBy[0]]]);
+    expect(argued[0]).toContain("#3");
+    expect(argued[1]).toContain("#1");
+  });
+
+  it("shows two sources agreeing as two names on one row", async () => {
+    // ADR-0017'S NAMED GAP, closed from the end it was still open at: "a
+    // placement two providers corroborate and a placement one provider asserts
+    // are indistinguishable to every reader". Sources agreeing land on ONE
+    // placement row carrying a source each, so corroboration is only ever
+    // visible if the row names them both.
+    const { text } = await documentAt(`/items/${workBrowsing.agreedOnId}`);
+
+    const rows = orderingRows(text);
+    // ONE ROW, NOT TWO. Agreement is corroboration rather than a second claim,
+    // so rendering it twice would show the reader a disagreement the catalogue
+    // does not hold.
+    expect(rows).toHaveLength(1);
+    for (const by of workBrowsing.arguedBy) expect(rows[0]).toContain(by);
+  });
+
+  it("goes on filtering by KIND, which is the question the chips ask", async () => {
+    // ADR-0017 settles the filter's four words -- Hand-placed, Imported, From
+    // the files, Rule-derived -- and they are KINDS. CNCORE-121 adds the names
+    // BESIDE `placedBy` rather than in place of it, so the chip survives: both
+    // of the disputed rows are a provider's, so "Imported" is offered and
+    // narrowing to it keeps both.
+    const { text } = await documentAt(`/items/${workBrowsing.arguedId}?placed=provider`);
+
+    expect(orderingRows(text)).toHaveLength(2);
+    expect(alsoAppearsIn(text)).toContain("Imported");
   });
 });
 

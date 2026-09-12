@@ -435,3 +435,159 @@ describe("a placement several sources assert", () => {
     expect(rows.map((row) => row.position)).toEqual([3, 5]);
   });
 });
+
+describe("findPlacementsOfItem, on who asserted each placement", () => {
+  it("tells two sources disagreeing about position from one source saying it twice", async () => {
+    // THE CRITERION, at the query, and the MIRROR of the one CNCORE-90 pinned at
+    // the container's end. ADR-0017: "sources disagreeing about position produce
+    // two placement rows", and ADR-0009 licences a Repeat -- which is ALSO one
+    // item twice in one container at two positions. Nothing STORED separates
+    // them; what does is who asserted them, a repeat's rows coming from one
+    // source and a disagreement's from two.
+    //
+    // BOTH SHAPES IN ONE TEST, because either alone passes against a query
+    // answering a constant. The difference between the two answers IS the
+    // criterion, and a test that only ever saw one of them could not state it.
+    //
+    // AND BOTH ARE TWO PROVIDERS, which is where `placedBy` gives out: the
+    // disagreement this catalogue actually holds is the wiki's series against
+    // TMDB's season, so the KIND prints "Imported" on both rows and the reader
+    // is back where they started.
+    const wiki = await aProvider(
+      db,
+      "https://item-end.test/by-release",
+      "A wiki that orders by release",
+    );
+    const broadcaster = await aProvider(
+      db,
+      "https://item-end.test/by-broadcast",
+      "A database that orders by broadcast",
+    );
+    const disputed = await anItemTitled(db, "An ordering the item's end disagrees about", {
+      isContainer: true,
+      isOrdered: true,
+    });
+    const argued = await anItemTitled(db, "A story the two of them place apart");
+    await assertPlacement(db, {
+      containerId: disputed,
+      itemId: argued,
+      position: 1,
+      sourceId: broadcaster,
+    });
+    await assertPlacement(db, {
+      containerId: disputed,
+      itemId: argued,
+      position: 3,
+      sourceId: wiki,
+    });
+
+    const repeated = await anItemTitled(db, "An ordering the item's end sees a recap in", {
+      isContainer: true,
+      isOrdered: true,
+    });
+    const recapped = await anItemTitled(db, "A story the wiki shows twice");
+    await assertPlacement(db, {
+      containerId: repeated,
+      itemId: recapped,
+      position: 1,
+      sourceId: wiki,
+    });
+    await assertPlacement(db, {
+      containerId: repeated,
+      itemId: recapped,
+      position: 5,
+      sourceId: wiki,
+    });
+
+    const disagreement = await findPlacementsOfItem(db, argued);
+    const repeat = await findPlacementsOfItem(db, recapped);
+
+    // THE WIKI LEADS BECAUSE IT SPEAKS, NOT BECAUSE IT SITS FIRST -- it holds
+    // the lower `source_order` and the broadcaster put the story at position 1.
+    // This is where the two ends differ and the difference is ADR-0017's: the
+    // container's end is in POSITION order (ADR-0018), and here rank leads, so
+    // the winning claim is the one a reader meets first. Naming the sources
+    // does not get to reorder that.
+    expect(
+      disagreement.map((placement) => [placement.position, placement.assertedBy]),
+    ).toStrictEqual([
+      [3, ["A wiki that orders by release"]],
+      [1, ["A database that orders by broadcast"]],
+    ]);
+    expect(repeat.map((placement) => placement.assertedBy)).toStrictEqual([
+      ["A wiki that orders by release"],
+      ["A wiki that orders by release"],
+    ]);
+    // AND THE KIND CANNOT TELL THEM APART, which is why this field exists.
+    expect(disagreement.map((placement) => placement.placedBy)).toStrictEqual([
+      "provider",
+      "provider",
+    ]);
+  });
+
+  it("shows two sources corroborating ONE placement as two, in the spokesman's order", async () => {
+    // ADR-0017'S NAMED GAP, from the end it was still open at: "a placement two
+    // providers corroborate and a placement one provider asserts are
+    // indistinguishable to every reader". CNCORE-90 closed it at the container's
+    // end; this is the other half. Agreement lands on ONE row carrying a source
+    // each, so corroboration is only ever visible as two NAMES on one placement
+    // -- never as two rows, which would be the disagreement above.
+    //
+    // THE FAVOURITE IS CREATED SECOND AND RANKED UP, which is what makes the
+    // order a test rather than an accident: under insertion order, or under the
+    // source order alone, it comes back second. Only rank-first (ADR-0024, the
+    // favourite is the lock) puts it in front, and that is `spokesmanFor`'s own
+    // first term applied to ORDER the names instead of to pick one.
+    const first = await aProvider(
+      db,
+      "https://item-end.test/came-first",
+      "A source the item's end saw first",
+    );
+    const later = await aProvider(
+      db,
+      "https://item-end.test/came-later",
+      "A source the item's end saw later",
+    );
+    const agreed = await anItemTitled(db, "An ordering two sources corroborate", {
+      isContainer: true,
+      isOrdered: true,
+    });
+    const story = await anItemTitled(db, "A story both of them place the same way");
+    await assertPlacement(db, { containerId: agreed, itemId: story, position: 2, sourceId: first });
+    const corroborated = await assertPlacement(db, {
+      containerId: agreed,
+      itemId: story,
+      position: 2,
+      sourceId: later,
+    });
+    await db
+      .update(placementSources)
+      .set({ rank: "preferred" })
+      .where(
+        and(eq(placementSources.placementId, corroborated), eq(placementSources.sourceId, later)),
+      );
+
+    const found = await findPlacementsOfItem(db, story);
+
+    // ONE PLACEMENT, TWO NAMES -- the corroboration, visible at last.
+    expect(found.map((placement) => placement.assertedBy)).toStrictEqual([
+      ["A source the item's end saw later", "A source the item's end saw first"],
+    ]);
+  });
+
+  it("still answers a placement no source stands behind, naming nobody", async () => {
+    // A CLAIM NOBODY MADE IS STILL A PLACEMENT, and the read path does not get
+    // to decide a row does not exist because its provenance was never recorded.
+    // `aPlacement` can build one where `assertPlacement` cannot, which is what
+    // ADR-0017 says test fixtures are for.
+    const container = await anItemTitled(db, "An ordering nobody claims from the item's end", {
+      isContainer: true,
+    });
+    const story = await anItemTitled(db, "A story nobody claims from the item's end");
+    await aPlacement(db, { containerId: container, itemId: story, position: 1 });
+
+    const found = await findPlacementsOfItem(db, story);
+
+    expect(found.map((placement) => placement.assertedBy)).toStrictEqual([[]]);
+  });
+});

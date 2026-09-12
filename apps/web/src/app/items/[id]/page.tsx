@@ -146,6 +146,41 @@ function propertyLabel(name: string): string {
   return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 }
 
+/**
+ * Every source standing behind one placement, named (ADR-0017).
+ *
+ * ONE COMPONENT FOR BOTH LISTS, because how a SET of claims reads is one rule
+ * and the two lists that render it -- Members from the container's end, "Also
+ * appears in" from the item's -- had a byte-identical copy each. Why each list
+ * names sources at all differs and stays at each site; this is the part that
+ * must not drift, which is the same argument `placements.ts` makes about
+ * `isRefusalOn`: shared because they must not diverge, not merely because it is
+ * one line twice.
+ *
+ * THE ONE THAT SPEAKS LEADS, because the read path ordered them by rank, the
+ * one global source order and a stable id before they got here -- the
+ * spokesman's own three terms. This renders that order and does not re-derive
+ * it.
+ *
+ * A COMMA IS ENOUGH OF A SEPARATOR: a row naming two sources is two sources
+ * AGREEING, which is a fact about the placement rather than a competition.
+ *
+ * TODO(CNCORE-128): a label containing a comma reads as two sources. `label` is
+ * a provider's own `name` off its manifest, so one reading "Acme, Inc." renders
+ * as corroboration by two -- the precise distinction both lists exist to draw.
+ * Not this ticket's to fix: it predates it in the Members list and the fix is a
+ * rendering decision (separate elements rather than a joined string) that both
+ * lists and the e2e assertions would move with.
+ *
+ * NOTHING FOR A PLACEMENT NOBODY ASSERTED, rather than the word "nobody". The
+ * row is still a placement and still a link; what is absent is a claim, and the
+ * page has no business inventing words for one.
+ */
+function AssertedBy({ sources }: { sources: string[] }) {
+  if (sources.length === 0) return null;
+  return <span>{sources.join(", ")}</span>;
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -541,25 +576,15 @@ function Members({
                 telling them apart is a reader reading these names: one source
                 against two.
 
-                THE SOURCES' OWN LABELS RATHER THAN "Imported", and the strip in
-                `AlsoAppearsIn` below says the kind for a reason that does not
-                hold here. That list asks how an item came to be in a container,
-                which four words answer; this one asks WHO claims this position,
-                and the disagreement a catalogue really holds is a wiki against a
-                broadcaster -- two providers, one word between them. `Values`
-                above prints a statement's source label for the same reason.
-
-                THE ONE THAT SPEAKS LEADS (ADR-0017), because the read path
-                orders them by rank, the source order and a stable id -- the
-                spokesman's own three terms. A comma is enough of a separator: a
-                row naming two sources is two sources AGREEING, which is a fact
-                about the placement rather than a competition.
-
-                A PLACEMENT NOBODY ASSERTED PRINTS NOTHING rather than "nobody".
-                The row is still a member and still a link; what is absent is a
-                claim, and the page has no business inventing words for one.
+                AND ONLY THE NAMES HERE, where `AlsoAppearsIn` below prints them
+                beside a kind. That list carries a FILTER whose four words are
+                kinds; this one asks only WHO claims this position, which a kind
+                cannot answer -- the disagreement a catalogue really holds is a
+                wiki against a broadcaster, two providers, one word between them.
+                `Values` above prints a statement's source label for the same
+                reason.
               */}
-              {placement.assertedBy.length > 0 && <span>{placement.assertedBy.join(", ")}</span>}
+              <AssertedBy sources={placement.assertedBy} />
               {/*
                 One expression rather than `#{position}`, for the reason
                 `AlsoAppearsIn` gives: React server-renders a text literal beside
@@ -745,6 +770,31 @@ function AlsoAppearsIn({
             <span className="flex items-baseline gap-3 text-muted-foreground text-sm">
               {placement.id === arrivedThrough && <span>Arrived through</span>}
               {placement.placedBy && <span>{placedByLabel(placement.placedBy)}</span>}
+              {/*
+                WHO SAYS SO, BESIDE WHAT SORT OF THING SAID IT (CNCORE-121).
+                This list shows one container TWICE at two positions for two
+                different reasons -- a Repeat, which is one source placing it
+                twice on purpose (ADR-0009), and a disagreement, which is two
+                sources claiming different positions for one membership
+                (ADR-0017). Nothing stored separates them, and the kind beside
+                this cannot: the disagreement this catalogue actually holds is
+                the wiki's series against TMDB's season, so `placedBy` prints
+                "Imported" on both rows and the reader is back where they
+                started. The names are what tell them apart.
+
+                BOTH, RATHER THAN THE NAMES INSTEAD OF THE KIND. They answer
+                different questions -- how the item came to be in there, and who
+                claims it -- and the chips above filter on the kind, whose four
+                words ADR-0017 settles. Dropping it to save a word would delete
+                the filter's only input.
+
+                AND TWO NAMES ON ONE ROW ARE CORROBORATION, which is ADR-0017's
+                other named gap closed from this end: sources agreeing land on
+                ONE placement carrying a source each, so two providers backing an
+                ordering were a single row indistinguishable from one provider
+                asserting it.
+              */}
+              <AssertedBy sources={placement.assertedBy} />
               <span>{positionLabel(placement.position)}</span>
             </span>
           </li>

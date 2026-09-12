@@ -58,8 +58,28 @@ export const placementPublic = z.object({
    * an ordering is a dated claim by a named source rather than a neutral fact:
    * `owner` is the owner's own hand, `provider` an imported ordering. Null when
    * no source stands behind it.
+   *
+   * IT SURVIVES `assertedBy` BESIDE IT rather than being replaced by it
+   * (CNCORE-121). The filter over this list is BY KIND -- Hand-placed,
+   * Imported, From the files, Rule-derived, the four words ADR-0017 settles --
+   * and it reads this field. The two answer different questions: how the item
+   * came to be in there, and who says so.
    */
   placedBy: z.string().nullable(),
+  /**
+   * THE SAME FIELD `placementInContainerPublic.assertedBy` BELOW CARRIES, with
+   * the same meaning, the same ordering and the same empty case -- read that
+   * one for all three rather than a second copy of them here, because two
+   * statements of one rule are two things to keep in step.
+   *
+   * WHAT IS PARTICULAR TO THIS END is that it sits BESIDE `placedBy` rather
+   * than instead of it, and that CNCORE-121 rather than CNCORE-90 put it here.
+   * One CONTAINER twice at two positions is a Repeat (ADR-0009) or two sources
+   * disagreeing about position (ADR-0017); the kind above cannot separate them,
+   * the disagreement an instance actually holds being a wiki against a
+   * broadcaster -- two PROVIDERS, one word between them.
+   */
+  assertedBy: z.array(z.string()),
 });
 
 export type PlacementPublic = z.infer<typeof placementPublic>;
@@ -154,20 +174,24 @@ export type AttributionPublic = z.infer<typeof attributionPublic>;
  * one `itemId` between them (ADR-0009), so nothing but the placement id can
  * tell the recap from the episode.
  *
- * IT CARRIES `assertedBy` WHERE THE MIRROR CARRIES `placedBy`, and the asymmetry
- * is CNCORE-90's decision rather than an oversight. A Repeat (ADR-0009: one
- * source, one item, twice, on purpose) and a disagreement (ADR-0017: two sources
- * claiming different positions for one membership) are THE SAME SHAPE in this
- * list -- one title, twice, at two positions -- and ADR-0017 says outright that
- * nothing STORED separates them. What separates them is WHO asserted each row.
+ * IT CARRIES `assertedBy`, AND SINCE CNCORE-121 SO DOES THE MIRROR -- which
+ * carried only `placedBy` when CNCORE-90 wrote this, the asymmetry being that
+ * ticket's scope rather than a decision that the item's end should go without.
+ * A Repeat (ADR-0009: one source, one item, twice, on purpose) and a
+ * disagreement (ADR-0017: two sources claiming different positions for one
+ * membership) are THE SAME SHAPE in either list -- one title, twice, at two
+ * positions -- and ADR-0017 says outright that nothing STORED separates them.
+ * What separates them is WHO asserted each row.
  *
  * SO IT IS THE SET, AND THE LABELS, RATHER THAN ONE KIND. `placedBy` answers
- * what SORT of thing placed it, which is what the item's end filters on, and it
- * cannot carry this: the disagreement an instance can actually hold is a wiki
- * against a broadcaster, two providers, and `placedBy` prints "Imported" for
- * both. Naming the sources is what says a repeat's two rows came from one and a
- * disagreement's from two -- and it closes ADR-0017's other named gap on the
- * way, that two sources corroborating ONE placement were invisible to a reader.
+ * what SORT of thing placed it, which is what the item's end FILTERS on and
+ * still carries for that, and it cannot carry this: the disagreement an instance
+ * can actually hold is a wiki against a broadcaster, two providers, and
+ * `placedBy` prints "Imported" for both. Naming the sources is what says a
+ * repeat's two rows came from one and a disagreement's from two -- and it closes
+ * ADR-0017's other named gap on the way, that two sources corroborating ONE
+ * placement were invisible to a reader. THE ONE FIELD THIS LIST STILL DOES NOT
+ * SHARE WITH THE MIRROR IS `placedBy` ITSELF, because no filter reads this one.
  *
  * WHAT IT STILL DOES NOT CARRY is which of two competing rows SPEAKS. Position
  * leads inside a container (ADR-0018), so the order cannot say it as the item's
