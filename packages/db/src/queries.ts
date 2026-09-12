@@ -855,10 +855,21 @@ export interface PlacementInContainer {
 function assertersOf(db: Database) {
   return db
     .select({
-      labels: sql<string[]>`coalesce(json_agg(${sources.label}), '[]'::json)`.as("labels"),
+      // THE SPOKESMAN'S THREE TERMS, IN ITS ORDER AND FOR ITS REASONS: rank
+      // first, because the owner's favourite is the lock and outranks the whole
+      // source order (ADR-0024); then the one global source order (ADR-0025);
+      // then a stable id. The same rule `winning_literal` and `spokesmanFor`
+      // apply to PICK a name, applied here to ORDER every name -- so the source
+      // that speaks for a placement leads the list that names them, and the two
+      // cannot come to disagree about which one that is.
+      labels: sql<string[]>`coalesce(
+        json_agg(${sources.label} order by ${ranks.precedence}, ${sources.sourceOrder}, ${placementSources.id}),
+        '[]'::json
+      )`.as("labels"),
     })
     .from(placementSources)
     .innerJoin(sources, eq(sources.id, placementSources.sourceId))
+    .innerJoin(ranks, eq(ranks.rank, placementSources.rank))
     // The placement source's own tombstone, the one `spokesmanFor` honours and
     // for the same reason: a withdrawn claim is not a source standing behind
     // anything. The SOURCE's own is deliberately not checked here either, which

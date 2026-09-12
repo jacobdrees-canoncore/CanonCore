@@ -1,6 +1,12 @@
+import { and, eq } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { assertPlacement, type Database, findPlacementsInContainer } from "./index";
+import {
+  assertPlacement,
+  type Database,
+  findPlacementsInContainer,
+  placementSources,
+} from "./index";
 import { anItemTitled, aPlacement, aProvider, connect, ownerSource } from "./testing/catalogue";
 
 let db: Database;
@@ -184,6 +190,51 @@ describe("findPlacementsInContainer, on who asserted each placement", () => {
     expect(repeat.map((placement) => placement.assertedBy)).toStrictEqual([
       ["a wiki that orders by release"],
       ["a wiki that orders by release"],
+    ]);
+  });
+
+  it("names sources agreeing in the spokesman's order, so the one that speaks leads", async () => {
+    // ADR-0017: sources AGREEING about a placement are recorded against ONE row,
+    // and which of them speaks for it is decided by rank first (ADR-0024, the
+    // favourite is the lock), then the one global source order (ADR-0025), then
+    // a stable id. `spokesmanFor` applies those three terms to pick one name;
+    // this list applies the same three to ORDER every name, so the two cannot
+    // come to disagree about who is speaking.
+    //
+    // THE FAVOURITE IS CREATED SECOND AND RANKED UP, which is what makes this a
+    // test: under insertion order, or under the source order alone, it comes
+    // back second. Only rank-first puts it in front.
+    const first = await aProvider(db, "a source that came first");
+    const later = await aProvider(db, "a source that came later and is preferred");
+    const container = await anItemTitled(db, "An ordering two sources corroborate", {
+      isContainer: true,
+      isOrdered: true,
+    });
+    const story = await anItemTitled(db, "A story both of them place at one");
+    await assertPlacement(db, { containerId: container, itemId: story, position: 1, sourceId: first });
+    const corroborated = await assertPlacement(db, {
+      containerId: container,
+      itemId: story,
+      position: 1,
+      sourceId: later,
+    });
+    // Set here rather than passed in, for the reason `placements.test.ts` gives:
+    // nothing in the product sets a rank yet, and `assertPlacement` deliberately
+    // takes no parameter for one.
+    await db
+      .update(placementSources)
+      .set({ rank: "preferred" })
+      .where(
+        and(
+          eq(placementSources.placementId, corroborated),
+          eq(placementSources.sourceId, later),
+        ),
+      );
+
+    const held = await findPlacementsInContainer(db, container);
+
+    expect(held.map((placement) => placement.assertedBy)).toStrictEqual([
+      ["a source that came later and is preferred", "a source that came first"],
     ]);
   });
 });
