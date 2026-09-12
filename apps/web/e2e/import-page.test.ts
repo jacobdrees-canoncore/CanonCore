@@ -1,7 +1,9 @@
 import type { AppRouterClient } from "@canoncore/api/routers";
+import { createDb, items, properties, sources, statements } from "@canoncore/db";
 import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
-import { describe, expect, inject, it } from "vitest";
+import { and, eq, isNull } from "drizzle-orm";
+import { afterAll, describe, expect, inject, it } from "vitest";
 
 import {
   documentAt,
@@ -29,6 +31,63 @@ const baseUrl = inject("baseUrl");
  */
 const freshBaseUrl = inject("freshBaseUrl");
 const client: AppRouterClient = createORPCClient(new RPCLink({ url: `${baseUrl}/api/rpc` }));
+
+/**
+ * THE CATALOGUE'S OWN ROWS, which this file reaches for exactly once and for a
+ * fact no surface above them can state. `multi-placement.test.ts` opens the same
+ * seam in this suite for the same shape of reason.
+ */
+const db = createDb(inject("databaseUrl"));
+
+afterAll(async () => {
+  await db.$client.end();
+});
+
+/**
+ * Every Item this catalogue holds for ONE of a provider's records, named by the
+ * id that provider knows the record by.
+ *
+ * WHY NOT `provider.held`, WHICH IS THE OBVIOUS ANSWER AND IS THE WRONG ONE.
+ * That procedure -- and `provider.search` under it, and the row this page
+ * renders from it -- runs through `findItemsProvided`, which answers with a
+ * `Map` keyed by the record's id. A second Item carrying the same id collapses
+ * into ONE entry there, whichever row the planner returned last, so every
+ * surface built on it would report a single Item while the catalogue held two.
+ * The rows underneath are the only place that can see the second one, which is
+ * the whole of CNCORE-93's "it has to be able to see one".
+ *
+ * (SOURCE IDENTITY, EXTERNAL ID) IS THE PAIR, never the id alone: a provider's
+ * id is unique in its own namespace and nowhere else (ADR-0026), so two
+ * providers both calling something `movie:603` have said nothing to each other.
+ * It is the same pair `findItemsProvided` matches on, spelt the same way and
+ * honouring the same three tombstones (ADR-0075).
+ *
+ * THE HASH CLAUSE IS DELIBERATELY ABSENT. In `queries.ts` `md5(value_literal)`
+ * is what reaches the index, because `value_literal` is unbounded text and a
+ * btree tuple is capped at 2704 bytes. Here the point is to see every row that
+ * matches rather than to see it quickly, and an index hint in a test would be
+ * one more thing that could agree with the query it is checking.
+ */
+async function itemsCarrying(identity: string, recordId: string): Promise<string[]> {
+  const rows = await db
+    .select({ itemId: items.id })
+    .from(statements)
+    .innerJoin(items, eq(items.id, statements.subjectItemId))
+    .innerJoin(properties, eq(properties.id, statements.propertyId))
+    .innerJoin(sources, eq(sources.id, statements.sourceId))
+    .where(
+      and(
+        eq(properties.name, "external_id"),
+        eq(sources.kind, "provider"),
+        eq(sources.identity, identity),
+        eq(statements.valueLiteral, recordId),
+        isNull(statements.deletedAt),
+        isNull(items.deletedAt),
+        isNull(sources.deletedAt),
+      ),
+    );
+  return rows.map(({ itemId }) => itemId);
+}
 
 /**
  * A candidate this catalogue does not hold, taken from the ROUTER's own answer
@@ -218,7 +277,7 @@ describe("/import, across several providers", () => {
 });
 
 describe("/import, taking a record it already holds", () => {
-  it("changes nothing: the same Item, and a catalogue no larger", async () => {
+  it("changes nothing: the same Item, and no second one for that record", async () => {
     /*
      * A RE-IMPORT IS A REFRESH, NOT A SECOND ITEM (ADR-0026 under CNCORE-28,
      * migration 3). An item used to be written again on every import, because
@@ -238,7 +297,12 @@ describe("/import, taking a record it already holds", () => {
     const before = itemLinkedIn(held);
     expect(before).toBeDefined();
     const form = formIn(held);
-    const { total } = await client.catalogue.list({});
+    // THE PROVIDER AND THE RECORD AS THE PAGE ITSELF NAMES THEM, read off the
+    // hidden fields this form posts back rather than written down here. What the
+    // assertion below is about is the record this button takes, and the button is
+    // the only thing that knows which that is.
+    const provider = field(form, "baseUrl");
+    const recordId = field(form, "recordId");
 
     const once = await submit(baseUrl, at, form);
     const twice = await submit(baseUrl, at, form);
@@ -248,18 +312,35 @@ describe("/import, taking a record it already holds", () => {
     // THE SAME ITEM BOTH TIMES, and the same one it was before either press.
     expect(itemLinkedIn(rowTitled(once.text, providerSearch.held))).toBe(before);
     expect(itemLinkedIn(rowTitled(twice.text, providerSearch.held))).toBe(before);
-    // AND NO ITEM ANYWHERE ELSE EITHER, which is the half a row cannot show: a
-    // second item for this record would be in the catalogue whether or not this
-    // row linked it.
-    //
-    // TODO(CNCORE-93): this total is catalogue-wide and another test FILE is
-    // writing to the same catalogue while it is read -- `multi-placement.test.ts`
-    // browses two containers in its own `beforeAll`, in another worker. Measured
-    // 2026-09-12 against the real provider images: this failed in two of four
-    // full runs and passed every time the file ran alone. Left standing rather
-    // than weakened here, because the claim it makes is the right one and the
-    // replacement has to be able to see a second Item.
-    expect((await client.catalogue.list({})).total).toBe(total);
+    /*
+     * AND NO ITEM ANYWHERE ELSE EITHER, which is the half a row cannot show: a
+     * second item for this record would be in the catalogue whether or not this
+     * row linked it.
+     *
+     * ONE RECORD RATHER THAN THE CATALOGUE'S SIZE (CNCORE-93). This read
+     * `catalogue.list({}).total` either side of the two POSTs, which is a fact
+     * about the WHOLE catalogue -- and `multi-placement.test.ts` browses two wiki
+     * containers into the same catalogue from its own worker while this runs. A
+     * browse landing between the two reads failed this assertion for somebody
+     * else's write: measured 2026-09-12 against the real provider images, two of
+     * four full runs, and green every time this file ran alone.
+     *
+     * WHAT IT ASSERTS IS NOT WEAKER FOR BEING NARROWER. `itemsCarrying` answers
+     * with ROWS, so it sees a second Item carrying this id where every procedure
+     * above it would collapse the pair into one -- and unlike a total, no other
+     * worker can move it: (this provider, this record) is a pair only this test
+     * writes to.
+     *
+     * WHAT IT NO LONGER SEES, said plainly rather than left to be discovered: an
+     * Item minted with NO `external_id` statement tying it to this record. Only a
+     * catalogue-wide count could see that, which is the thing that cannot be
+     * asserted here -- and the import writes the mapping in the same transaction
+     * as the Item (`importProvidedRecord`), so an Item without one is a defect in
+     * a different mechanism from the one this test is about.
+     */
+    const carrying = await itemsCarrying(provider, recordId);
+    expect(carrying).toHaveLength(1);
+    expect(before).toBe(`/items/${carrying[0]}`);
   });
 });
 
