@@ -158,9 +158,12 @@ is strong analogy, not a yes.
 
 **The analogy was not needed, and CNCORE-18 replaced it with a measurement on 2026-09-10.** The wiki
 is still silent and the box still has PostgreSQL 18.6 installed, five slots deep; both the native and
-the `podman-compose` routes round-trip a row as an unprivileged user. The real constraint sits
-elsewhere: nothing on the slot restarts a process after a reboot, because `crontab` is PAM-refused
-and there is no systemd user session. ADR-0109 carries the measurement.
+the `podman-compose` routes round-trip a row as an unprivileged user. The real constraint sat
+elsewhere: on 2026-09-10 nothing on the slot restarted a process after a reboot, because `crontab`
+was PAM-refused and there is no systemd user session. **CNCORE-85 re-measured that on 2026-09-12 and
+cron now works** — the PAM refusal is gone and the daemon fires an unattended job — so the restart is
+a cron watchdog rather than a systemd unit. **The blocker is gone; that cron is still there after a
+reboot is inference**, and ADR-0109 carries both measurements and says which parts are which.
 
 **Bytesized Hosting is the same story with the sign flipped**: technically the cleanest fit found —
 its own Immich guide runs a `postgres` container through Compose — and contractually refused: "You are
@@ -1248,9 +1251,12 @@ The finding "paying more does not buy eligibility here" survives per terabyte an
 point at this scale. **The cheapest thing that satisfies ADR-0109's shape is a GBP 11/month Whatbox
 HDD slot at 3.90 TB, vendor-verified** — and the open question here (Postgres, §1.3's gap, a 404 on
 their wiki) was settled on 2026-09-10 by buying the slot and testing it. Postgres was never the
-problem: the box ships 18.6 and both routes work. **What the test found instead is that nothing on
-a shared slot restarts a process after a reboot**, which is now a clause of ADR-0109's shape in its
-own right. So "satisfies the shape" above holds only where a human restarts things by hand. Also
+problem: the box ships 18.6 and both routes work. **What the test found instead was that nothing on
+a shared slot restarted a process after a reboot**, which is now a clause of ADR-0109's shape in its
+own right — and the clause stays there even though this vendor stopped failing it. **On 2026-09-12,
+after the support ticket was answered, CNCORE-85 measured cron working on the slot**, so "satisfies
+the shape" above no longer depends on a human restarting things by hand, subject to the one step
+ADR-0109 marks as inference rather than measurement: that cron is still there after a boot. Also
 worth carrying forward: Hetzner is now stocked out at both ends, so ADR-0109's entry Cloud plan is
 no more orderable than this entry's SX65-2.
 

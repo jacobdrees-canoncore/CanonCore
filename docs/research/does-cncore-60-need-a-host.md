@@ -161,8 +161,8 @@ a `healthcheck:`, and ADR-0109:229-238 measured both inert on a shared slot. Tha
 whoever deploys, on the day there is a deployment. No CNCORE-60 criterion asserts anything about
 restart behaviour, and CNCORE-64's install path is exercised once by hand rather than left running.
 
-**So: entirely a playback-spec concern.** `docs/research/the-cheap-end.md:280-281` states its own
-scope — "Nothing here needs a new record. It is a price correction to research, and the decision it
+**So: entirely a playback-spec concern.** `docs/research/the-cheap-end.md` §5, under "What this
+reopens in the records", states its own scope — "Nothing here needs a new record. It is a price correction to research, and the decision it
 feeds belongs to the playback spec" — and ADR-0109:105-109 does the same for the rung: "Deliberately
 not decided. Which rung beyond the entry plan, and when. That belongs to the playback spec, which is
 the first spec that puts bytes anywhere."
@@ -287,15 +287,16 @@ things stay true beside it:
 
 - **CNCORE-60 still needs no host**, which is the whole answer above. The intent changes the plan
   after this effort, not inside it.
-- **The repo's own priced comparison still recommends something else.** `the-cheap-end.md:230-235`,
-  written 2026-09-10: the recommendation "for when it does start" is the SPLIT, a ~GBP 4 VPS with root
-  plus a Storage Box at GBP 2.09/TB, "unless Whatbox fixes cron". Same money, and what it buys is root,
-  a systemd that restarts things, and storage that survives a later move.
-- **One measured fact decides between them**, and it is the open half of CNCORE-81: nothing on a shared
-  slot restarts a process after a reboot, because cron is refused by PAM and there is no systemd user
-  session. If support fixes it, the slot satisfies all five clauses of ADR-0109's shape and the split
-  is a pound wasted. If not, an always-on instance that needs a human after every host reboot is not
-  always-on.
+- **The repo's own priced comparison now recommends the slot, having recommended against it.**
+  `the-cheap-end.md` §5, written 2026-09-10, recommended the SPLIT — a ~GBP 4 VPS with root plus a
+  Storage Box at GBP 2.09/TB — "unless Whatbox fixes cron". **Cron works as of 2026-09-12** (who or what
+  fixed it is not known), so that file flipped
+  to row 1 under CNCORE-85 and the intent above and the priced recommendation now agree.
+- **The one measured fact that decided between them has been measured twice**, and it was the open half
+  of CNCORE-81: on 2026-09-10 nothing on a shared slot restarted a process after a reboot, because cron
+  was refused by PAM and there is no systemd user session. **On 2026-09-12 cron ran an unattended job on
+  the slot**, so it satisfies all five clauses of ADR-0109's shape and the split is the pound this file
+  said it would be. There is still no systemd, so the restart is a cron watchdog rather than a unit.
 
 **And ADR-0109 makes this reversible by construction**, which is why recording an intent here costs
 nothing: it commits to a shape rather than a vendor, the domain rather than the address is the
