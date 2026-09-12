@@ -40,3 +40,22 @@ key to choose them by. Said here rather than left to be worked out, because a fi
 looks the same from outside whether it is this case or the one CNCORE-83 fixed. The test is whether
 a seeded label answers the reader's question: where it does, the read path reads it and emits the
 words; where it does not, the read path emits the key and the surface writes the words.
+
+## "No notes" is a declaration, not a filter (CNCORE-74)
+
+This record's second paragraph enumerates what the public read path carries and says "no notes",
+and until ADR-0096 was built there was no note for that to be true of. It is true of one now, and
+HOW it is kept is this record's own first line applied to itself.
+
+`note` declares `"public": false` in its `capabilities` (migration 12) and `findStatementsOfItem`
+reads that declaration. The alternative was `name <> 'note'` in the query that builds
+`itemPublic.statements` -- which is a strip-list one property wide, and "a strip-list works until
+someone adds a field and forgets" is the sentence this record opens with. Declared beside the
+property, the exclusion sits where every other fact about that property already lives (ADR-0015,
+ADR-0029), and the next property that should not be public is private in the query by declaring it.
+
+THE FIELD ENUMERATION IS UNCHANGED AND THAT IS THE POINT. `itemPublic` gained nothing: the note is
+not a field of the public payload that is sometimes filled, it is absent from it. A conditional
+field would have made this record's enumeration conditional too -- readable only by knowing who was
+asking -- so the note is answered by `item.note`, the one read on that router behind
+`ownerProcedure` rather than open (ADR-0044).

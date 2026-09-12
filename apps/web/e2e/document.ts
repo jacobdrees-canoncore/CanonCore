@@ -113,7 +113,7 @@ function formsIn(text: string): (RenderedForm & { method: string })[] {
   return [...text.matchAll(/<form\b([^>]*)>(.*?)<\/form>/gis)].map(([, attributes, body]) => ({
     method: (/\bmethod\s*=\s*"([^"]*)"/i.exec(attributes ?? "")?.[1] ?? "get").toLowerCase(),
     action: /\baction\s*=\s*"([^"]*)"/i.exec(attributes ?? "")?.[1] ?? "",
-    fields: [...inputsIn(body ?? ""), ...selectsIn(body ?? "")],
+    fields: [...inputsIn(body ?? ""), ...selectsIn(body ?? ""), ...textareasIn(body ?? "")],
   }));
 }
 
@@ -170,6 +170,37 @@ function selectsIn(body: string): [string, string][] {
     const chosen = all.find((option) => option.selected) ?? all[0];
     return chosen === undefined ? [] : [[name, chosen.value] as [string, string]];
   });
+}
+
+/**
+ * Every `<textarea>`, as the text the server put INSIDE it.
+ *
+ * PARSED AT ALL, WHICH IT WAS NOT UNTIL CNCORE-74, and the gap is the one
+ * `selectsIn` above was until CNCORE-71: this reader claims to submit a form
+ * "exactly as a browser with JavaScript switched off submits it", and a form
+ * carrying a textarea would have been replayed with that field missing
+ * entirely -- so a test would assert against a request no browser sends, and
+ * the server would read the absence as a value. The Owner note is the first
+ * field here that is free text over more than one line.
+ *
+ * ITS VALUE IS ITS CONTENT, not a `value` attribute -- which is HTML's rule for
+ * this one element and the reason it needs a reader of its own rather than a
+ * line in `inputsIn`. An empty textarea submits its name with an empty value,
+ * which is what makes "the owner cleared the box" expressible here.
+ *
+ * THE CONTENT IS ALREADY DECODED by the time this runs, because `decoded`
+ * reads the whole document before any form is parsed. What it cannot survive is
+ * a value containing a literal `<`, which is the standing limit of every regex
+ * in this file rather than a new one.
+ */
+function textareasIn(body: string): [string, string][] {
+  return [...body.matchAll(/<textarea\b([^>]*)>(.*?)<\/textarea>/gis)].flatMap(
+    ([, attributes, content]) => {
+      const name = /\bname\s*=\s*"([^"]*)"/i.exec(attributes ?? "")?.[1];
+      if (name === undefined) return [];
+      return [[name, content ?? ""] as [string, string]];
+    },
+  );
 }
 
 /**

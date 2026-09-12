@@ -50,7 +50,7 @@ describe("placement.place", () => {
     );
 
     const container = await call(appRouter.item.get, { id: releaseOrder }, { context });
-    expect(container.holds).toStrictEqual([
+    expect(container.holds.entries).toStrictEqual([
       expect.objectContaining({ id, itemId: story, title: "The Tenth Planet", position: 63 }),
     ]);
   });
@@ -110,7 +110,7 @@ describe("placement.restore", () => {
     await call(appRouter.placement.restore, { id }, { context: asTheOwner });
 
     const container = await call(appRouter.item.get, { id: releaseOrder }, { context });
-    expect(container.holds).toStrictEqual([
+    expect(container.holds.entries).toStrictEqual([
       expect.objectContaining({ id, position: 2, assertedBy: ["Owner"] }),
     ]);
   });

@@ -3,7 +3,13 @@ import { drizzle } from "drizzle-orm/node-postgres";
 
 import * as schema from "./schema";
 
-export { createItemByHand, type ItemByHand, ItemRefused, retitleItemByHand } from "./by-hand";
+export {
+  annotateItemByHand,
+  createItemByHand,
+  type ItemByHand,
+  ItemRefused,
+  retitleItemByHand,
+} from "./by-hand";
 export { likePattern, searchCatalogue } from "./catalogue-search";
 export {
   type ImportedContainer,
@@ -33,13 +39,16 @@ export {
   findItem,
   findItemKinds,
   findItemsProvided,
+  findNoteOfItem,
   findPlacementsInContainer,
   findPlacementsOfItem,
   findStatementsOfItem,
   type ItemKind,
   type ItemRow,
+  type NoteOfItem,
   type PlacementInContainer,
   type PlacementOfItem,
+  type PlacementsInContainer,
   readCatalogue,
   readWorks,
   type StatementOfItem,

@@ -8,6 +8,7 @@ import { type SeededPlacement, seedOneItemInTwoOrderings } from "@canoncore/db/s
 import { buildTestDatabase, type TestDatabaseSuffix } from "@canoncore/db/testing/build-database";
 import {
   aCatalogueLargerThanOnePage,
+  aContainerLargerThanOnePage,
   anItemTitled,
   aPlacement,
   aProvider,
@@ -170,6 +171,7 @@ export default async function setup(project: TestProject) {
   project.provide("pagedBaseUrl", paged.baseUrl);
   project.provide("pagedCatalogue", paged.fixture.every);
   project.provide("pagedUntitled", paged.fixture.untitled);
+  project.provide("pagedContainer", paged.fixture.container);
 
   const purgeable = await aCatalogueSafeToPurge(provider.url, tmdb.url);
   project.provide("purgeableBaseUrl", purgeable.baseUrl);
@@ -415,8 +417,34 @@ function aCatalogueTooBigForOnePage() {
      * TWO AND A HALF PAGES, not one and a bit. Three pages is the smallest walk
      * with a MIDDLE one -- reached by a cursor and handing one on -- and the
      * middle is where a cursor that works at the edges still fails.
+     *
+     * AND THE SAME ITEMS ARE A CONTAINER'S MEMBERS TOO (CNCORE-89), because a
+     * members listing larger than one page is the same family of state this
+     * instance already exists for and neither other server can hold it: the
+     * seeded one is read by every file here for an item on its front page, and
+     * the fresh one's emptiness is its fixture (ADR-0094).
+     *
+     * IT HOLDS WHAT THE CATALOGUE ALREADY WROTE, so the ordering costs ONE new
+     * item rather than two hundred and fifty. That matters because `every` below
+     * is an exact oracle: `front-page.test.ts` walks the catalogue and compares
+     * the set, and `search.test.ts` walks it minus the untitled pair. So the
+     * catalogue is asked for one item short and the container is the one that
+     * makes it up.
+     *
+     * AND ITS TITLE CARRIES `story`, which is not decoration: that is the query
+     * `search.test.ts` walks this instance with, and every other titled item
+     * here matches it. A container that did not would be an item in the
+     * catalogue's oracle and absent from the search's, for no reason a reader of
+     * either file could see.
      */
-    fill: (db) => aCatalogueLargerThanOnePage(db, 254),
+    fill: async (db) => {
+      const catalogue = await aCatalogueLargerThanOnePage(db, 253);
+      const container = await aContainerLargerThanOnePage(db, {
+        title: "Every story here, in one ordering",
+        holding: catalogue.every,
+      });
+      return { ...catalogue, every: [...catalogue.every, container.id], container };
+    },
   });
 }
 
@@ -501,12 +529,15 @@ async function aCatalogueSafeToPurge(wikiUrl: string, tmdbUrl: string) {
    * would leave the literal case asserted nowhere at this seam.
    *
    * `title` RATHER THAN `note`, WHICH IS NOT A CHOICE ABOUT WHICH IS TIDIER.
-   * ADR-0096's `note` property is not among the twelve migration 1 seeds, and
-   * CNCORE-60 puts seeding it in the v0.2.0 half -- so a fixture written against
-   * it would fail at `propertyNamed` rather than assert anything. `title` is
-   * seeded, and it is also the stronger case: it is the one an owner's edit and a
-   * provider's claim actually COMPETE over (ADR-0025 seeds the owner at
-   * `source_order` 0, so the owner's title outranks the provider's).
+   * THE FIRST REASON GIVEN FOR IT HAS EXPIRED: it said ADR-0096's `note`
+   * property was not seeded and that a fixture written against it would fail at
+   * `propertyNamed`. Migration 12 seeds it (CNCORE-74), so that is no longer
+   * true -- and the reason that remains is the one that was always the stronger
+   * half. `title` is the claim an owner's edit and a provider's actually COMPETE
+   * over (ADR-0025 seeds the owner at `source_order` 0, so the owner's title
+   * outranks the provider's), which is the literal reading of "items the Owner
+   * has edited". A note cannot express that at all: migration 12 declares it
+   * assertable by the owner alone, so there is no provider claim for one to beat.
    *
    * NOT THROUGH A SURFACE, AND SINCE CNCORE-71 THAT IS A CHOICE RATHER THAN THE
    * ONLY OPTION. This used to read "because there is not one yet"; there is one
@@ -1645,6 +1676,17 @@ declare module "vitest" {
      * So a search walk's oracle is `pagedCatalogue` minus these.
      */
     pagedUntitled: string[];
+    /**
+     * The ONE item on that instance that holds all the others: an ordering
+     * larger than one page, which is the only state a members walk is
+     * observable in (ADR-0119, CNCORE-89).
+     *
+     * `holds` IS EVERY PLACEMENT IT WROTE, as a SET rather than in order -- the
+     * ordering ties two of them on one position and which comes first is
+     * decided by the uuids that were handed out. A walk is oracled against the
+     * set it must arrive at exactly, which is the criterion anyway.
+     */
+    pagedContainer: { id: string; holds: string[] };
     /**
      * And again, serving a catalogue NOTHING WRITES TO -- the one state in which
      * "how much this catalogue holds" can be asserted at all (CNCORE-93).

@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import {
@@ -483,6 +483,63 @@ describe("property definitions", () => {
       ),
     ).toMatch(/properties_validation_declares_a_format/);
   });
+
+  /**
+   * THE SAME ARGUMENT ONE COLUMN OVER (migration 12). `capabilities` is the
+   * second declaration on `properties` no foreign key can reach, and ADR-0015
+   * leaves it editable -- so its shape is held against every later write rather
+   * than only against the seed that first filled it.
+   */
+  it("refuses capabilities that are not an object", async () => {
+    const note = await propertyNamed(db, "note");
+
+    expect(
+      await refusal(
+        db
+          .update(properties)
+          .set({ capabilities: ["owner"] })
+          .where(eq(properties.id, note)),
+      ),
+    ).toMatch(/properties_capabilities_are_an_object/);
+  });
+
+  /**
+   * AN EMPTY LIST OF ADMITTED SOURCES IS A PROPERTY NOTHING MAY ASSERT, which
+   * is a typo rather than a decision: a field no source can write is a field
+   * with no way in. A property open to everything says so by declaring nothing.
+   */
+  /**
+   * THE ARM THE MIGRATION SINGLES OUT AS ITS OWN REASON, and it was asserted
+   * nowhere until review said so. `jsonb` takes the STRING `"false"` as happily
+   * as the boolean, and a string reads as truthy wherever it is cast -- so a
+   * private property made public by a pair of quotes is exactly the write this
+   * clause exists to refuse.
+   */
+  it("refuses a `public` that is a string rather than a boolean", async () => {
+    const note = await propertyNamed(db, "note");
+
+    expect(
+      await refusal(
+        db
+          .update(properties)
+          .set({ capabilities: { assertableBy: ["owner"], public: "false" } })
+          .where(eq(properties.id, note)),
+      ),
+    ).toMatch(/properties_capabilities_are_an_object/);
+  });
+
+  it("refuses an empty list of admitted sources", async () => {
+    const note = await propertyNamed(db, "note");
+
+    expect(
+      await refusal(
+        db
+          .update(properties)
+          .set({ capabilities: { assertableBy: [] } })
+          .where(eq(properties.id, note)),
+      ),
+    ).toMatch(/properties_capabilities_are_an_object/);
+  });
 });
 
 describe("the change sequence", () => {
@@ -602,5 +659,133 @@ describe("an item's kind", () => {
     await db.update(items).set({ isContainer: true }).where(eq(items.id, work));
 
     expect((await readItem(db, work))?.isContainer).toBe(true);
+  });
+});
+
+/**
+ * ADR-0096: a note is a Statement with a `note` property, and ADR-0045 says
+ * nothing but the Owner can assert one.
+ */
+describe("the Owner note", () => {
+  it("refuses a note from a provider", async () => {
+    const story = await anItem(db);
+    const provider = await aProvider(db, "provider-that-tries-to-annotate");
+
+    expect(
+      await refusal(
+        aStatement(db, {
+          subjectItemId: story,
+          property: "note",
+          valueLiteral: "A provider speaking for the owner",
+          sourceId: provider,
+        }),
+      ),
+    ).toMatch(/property note: only a source of kind owner may assert one; this source is provider/);
+  });
+
+  it("takes one from the Owner", async () => {
+    const story = await anItem(db);
+
+    const note = await aStatement(db, {
+      subjectItemId: story,
+      property: "note",
+      valueLiteral: "The one I always come back to",
+      sourceId: await ownerSource(db),
+    });
+
+    expect(note).toBeTruthy();
+  });
+
+  /**
+   * THE OTHER HALF, and it is what makes the rule a declaration rather than a
+   * lock on the table. Twelve of the thirteen properties declare no
+   * `assertableBy` and are open to every source -- so a trigger that refused a
+   * provider's claim outright would break the import that exists today.
+   */
+  /**
+   * THE OTHER HALF OF `UPDATE OF "source_id", "property_id"`, and without it the
+   * test below would pass just as well against a trigger that had stopped
+   * firing on updates altogether. Moving an existing claim onto a source the
+   * property does not admit IS an assertion by that source, and it is refused.
+   */
+  it("refuses a note moved onto a provider's source", async () => {
+    const story = await anItem(db);
+    const note = await aStatement(db, {
+      subjectItemId: story,
+      property: "note",
+      valueLiteral: "A note about to change hands",
+      sourceId: await ownerSource(db),
+    });
+    const provider = await aProvider(db, "provider-that-tries-to-adopt-a-note");
+
+    expect(
+      await refusal(
+        db.update(statements).set({ sourceId: provider }).where(eq(statements.id, note)),
+      ),
+    ).toMatch(/property note: only a source of kind owner may assert one/);
+  });
+
+  /**
+   * TIGHTENING A DECLARATION MUST NOT TRAP THE ROWS ALREADY WRITTEN, which is
+   * ADR-0015's own rule: `capabilities` is editable, and "tightening a rule
+   * never rejects existing rows either -- it marks the property as having
+   * offenders and lets you list them".
+   *
+   * THE ROW THAT CANNOT BE WITHDRAWN IS A ROW THAT CANNOT BE DELETED. Review
+   * found this: a rule re-checked on EVERY update of a statement bites the two
+   * writes that are not assertions at all -- `assertClaims` tombstoning what a
+   * source no longer claims, and migration 1's cascade taking an item's
+   * statements down with the item. Narrow `note` to a kind the owner is not,
+   * and the owner's own note became impossible to remove and its item
+   * impossible to delete.
+   */
+  it("lets a statement be withdrawn after its property stops admitting its source", async () => {
+    const story = await anItem(db);
+    await aStatement(db, {
+      subjectItemId: story,
+      property: "note",
+      valueLiteral: "A note written while the owner was still admitted",
+      sourceId: await ownerSource(db),
+    });
+    const note = await propertyNamed(db, "note");
+
+    try {
+      await db
+        .update(properties)
+        .set({ capabilities: { assertableBy: ["sidecar"], public: false } })
+        .where(eq(properties.id, note));
+
+      // THE WITHDRAWAL, which is an update of `deleted_at` and asserts nothing.
+      await db
+        .update(statements)
+        .set({ deletedAt: sql`now()` })
+        .where(eq(statements.subjectItemId, story));
+
+      // AND THE ITEM GOES DOWN WITH IT (migration 1's cascade), which is the
+      // second write the rule must not reach.
+      await db.update(items).set({ deletedAt: sql`now()` }).where(eq(items.id, story));
+    } finally {
+      // PUT IT BACK, or every later test in this file reads a `note` property
+      // the migration did not write. The cardinality test above does the same.
+      await db
+        .update(properties)
+        .set({ capabilities: { assertableBy: ["owner"], public: false } })
+        .where(eq(properties.id, note));
+    }
+
+    expect((await readItem(db, story))?.deletedAt).not.toBeNull();
+  });
+
+  it("leaves a property that declares nothing open to a provider", async () => {
+    const story = await anItem(db);
+
+    const title = await aStatement(db, {
+      subjectItemId: story,
+      property: "title",
+      valueLiteral: "What the provider calls it",
+      sourceId: await aProvider(db, "provider-that-may-still-title"),
+    });
+
+    expect(title).toBeTruthy();
   });
 });

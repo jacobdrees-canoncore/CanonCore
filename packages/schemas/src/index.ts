@@ -208,6 +208,46 @@ export const placementInContainerPublic = z.object({
 
 export type PlacementInContainerPublic = z.infer<typeof placementInContainerPublic>;
 
+/**
+ * What a CONTAINER'S OWN LISTING answers with: the page, its size, and where it
+ * carries on (ADR-0119).
+ *
+ * THE SAME THREE FACTS `cataloguePublic` BELOW CARRIES, over a different kind
+ * of row. The catalogue, work-browsing and Catalogue search list ITEMS and
+ * share one shape for it; a container lists PLACEMENTS, because a Repeat is one
+ * item twice in one ordering and an entry has to be able to say which of the
+ * two it is. A single schema for both would have to make `entries` a union,
+ * which is a shape no caller wants: nothing asks a listing for "items or
+ * placements, whichever this one holds".
+ *
+ * IT IS A SHAPE RATHER THAN THREE FIELDS ON `itemPublic`, so a surface takes
+ * the page, the size and the cursor together or not at all. Spread across the
+ * item they would be three fields a reader could pick one of -- and the one
+ * they would pick is `entries`, which is the silent cap this record exists to
+ * refuse.
+ */
+export const placementsInContainerPublic = z.object({
+  entries: z.array(placementInContainerPublic),
+  /**
+   * How many placements this container holds ALTOGETHER, cap or no cap. A
+   * surface that could only count what it was given would report the first
+   * hundred as the whole ordering.
+   */
+  total: z.number().int().nonnegative(),
+  /**
+   * The placement to ask for the next page with, or `null` where the ordering
+   * ends here (ADR-0119).
+   *
+   * A PLACEMENT'S ID AND NOT AN ITEM'S, which is where this departs from that
+   * record's letter and for the reason `?via=` already departs the same way
+   * (ADR-0066): a Repeat is one item twice in one container, so an item id
+   * names two rows here and cannot say which of them a page ended on.
+   */
+  continuesAfter: z.uuid().nullable(),
+});
+
+export type PlacementsInContainerPublic = z.infer<typeof placementsInContainerPublic>;
+
 export const itemPublic = z.object({
   id: z.uuid(),
   /**
@@ -254,8 +294,14 @@ export const itemPublic = z.object({
    * field was called until CNCORE-91 -- is a word the Placement entry now
    * rejects. "Members" stays as the heading a reader sees; this is the name the
    * read path emits, and the two are allowed to differ (ADR-0045).
+   *
+   * A LISTING RATHER THAN AN ARRAY SINCE CNCORE-89, which is the cap arriving:
+   * `browse` imports a whole category in one call and ADR-0077 measures one at
+   * 1,049 stories, so this was a thousand rows on an ordinary item page. An
+   * array could carry the page and could not carry what the page was not
+   * showing.
    */
-  holds: z.array(placementInContainerPublic),
+  holds: placementsInContainerPublic,
   /**
    * Every value anybody has claimed about this item, with who claimed it. The
    * winner for a property comes first, by the same three terms the projection
@@ -356,6 +402,47 @@ export const cataloguePublic = z.object({
 });
 
 export type CataloguePublic = z.infer<typeof cataloguePublic>;
+
+/**
+ * The Owner's own note about one item (ADR-0096), as the read path answers one.
+ *
+ * NOT `...Public`, AND THE SUFFIX IS THE DECISION. Every other schema in this
+ * file is what the read path emits to ANYONE, because ADR-0044 leaves reads open
+ * and ADR-0072 gives a visitor everything on the page. A note is the exception
+ * ADR-0045 named before there was one to name: that record enumerates what the
+ * public read path carries and says "no notes". So this rides on a procedure of
+ * the OWNER'S, and a name claiming it was public would be the one field in this
+ * file whose name said the opposite of its rule.
+ *
+ * ADR-0045'S ENUMERATION STILL APPLIES. Every field is named on purpose: the
+ * statement's own id, its property id and its source id all stay out, exactly as
+ * they do from `statementPublic`. What is emitted is what the page renders --
+ * what the owner wrote, and who is on record as having written it.
+ *
+ * TWO FIELDS, AND NEITHER `property` NOR `sourceKind` IS AMONG THEM, where
+ * `statementPublic` carries both. This shape answers about `note` and nothing
+ * else, and migration 12 declares that property assertable by the owner alone --
+ * so each would be the same constant on every row a reader ever sees, which is a
+ * field added against a reader that does not exist. REVIEW CAUGHT `sourceKind`
+ * HERE: it was emitted and read by nothing, under a docstring rejecting
+ * `property` on exactly that ground. The day a second kind may assert a note is
+ * the day the field earns its line, and ADR-0045 makes adding one the
+ * deliberate act.
+ *
+ * `sourceLabel` STAYS BECAUSE THE PAGE RENDERS IT. It is as constant as the kind
+ * -- `Owner`, seeded by migration 1 -- and the difference is that something reads
+ * it: the note has to say whose it is, and a surface printing that word for
+ * itself would be asserting what the row says instead of reading it, which is
+ * the rule ADR-0045 settles for every other label the read path carries.
+ */
+export const ownerNote = z.object({
+  /** What the owner wrote. Free text: `note` declares no validation (ADR-0012). */
+  value: z.string(),
+  /** What the source calls itself. Migration 1 seeds the owner's as `Owner`. */
+  sourceLabel: z.string(),
+});
+
+export type OwnerNote = z.infer<typeof ownerNote>;
 
 /**
  * What a write answers with: the Item it addressed, and nothing else.

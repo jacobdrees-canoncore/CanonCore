@@ -189,15 +189,15 @@ restated.** `/works` walks the same way: the same `A_PAGE`, the same `after`, th
 which is the shape this record was hoping for when it declined to write the rule for one surface.
 The listing, the count and the walk are one shared component on the page for the same reason.
 
-**AND CNCORE-67 INTRODUCED A THIRD LISTING THAT HAS NOT ADOPTED IT, which is said here because an
-earlier draft of this paragraph did not say it.** A Container's own member list — `Members` on
-`/items/<id>` — is a listing by this record's first sentence, and it has no cap, no cursor and no
-count. `browse` imports a whole category in one call and ADR-0077 measures one at 1,049 stories, so
-that is a thousand rows on an ordinary page rather than a corner case. CNCORE-89 carries it, and the
-reason it was not done in the same pass is specific: the other two listings ARE their surface, so
-the cursor is the whole query, where an Item page's address already carries `?via=` and `?placed=`
-(ADR-0066) and a third parameter has to compose with both without moving the canonical. That is a
-decision about a governed address rather than a parameter to add.
+**AND CNCORE-67 INTRODUCED A THIRD LISTING, WHICH CNCORE-89 HAS SINCE BROUGHT IN.** A Container's
+own member list — `Members` on `/items/<id>` — is a listing by this record's first sentence, and it
+had no cap, no cursor and no count. `browse` imports a whole category in one call and ADR-0077
+measures one at 1,049 stories, so that was a thousand rows on an ordinary page rather than a corner
+case. It was not done in CNCORE-67's own pass for a specific reason, kept here because it is what
+made it a ticket rather than a line: the other two listings ARE their surface, so the cursor is the
+whole query, where an Item page's address already carries `?via=` and `?placed=` (ADR-0066) and a
+third parameter has to compose with both without moving the canonical. That is a decision about a
+governed address rather than a parameter to add, and the section below is where it was taken.
 
 **AND CNCORE-66 SHIPPED WITHOUT IT AND CNCORE-88 ADDED IT, which is a fourth adoption and the one
 this record's scope had to widen for.** Catalogue search orders on `similarity(title, query)` — **a
@@ -290,9 +290,9 @@ this whole record exists to refuse. It has a cursor now, so `null` means what it
 and the second shape is gone: `cataloguePublic` is what all three listings answer with. See
 [[0120-catalogue-search-is-a-trigram-ilike-not-full-text-search]].
 
-**So three of the four listings have adopted this record.** The catalogue, work-browsing and
-Catalogue search have. A Container's members have not, and CNCORE-89 is where they will — the
-obstacle there is a governed address rather than an order.
+**So three of the four listings had adopted this record, and the section below is the fourth.** The
+catalogue, work-browsing and Catalogue search were the three; a Container's members are the fourth,
+under CNCORE-89, and the obstacle there was a governed address rather than an order.
 
 **The cap did not move.** `A_PAGE` is still 100 and a caller still cannot ask for more. Paging makes
 one answer's cost the same as it was and lets a reader ask again.
@@ -326,3 +326,112 @@ one title rank at exactly 1 and a page of one cuts between every adjacent pair; 
 sort name and two do not, so the second and third terms of the comparison are each the only thing
 separating some pair. Mutation-checked: dropping the id fails it, dropping the sort key fails it and
 the plain page-two test as well.
+
+## A Container's members, decided under CNCORE-89
+
+**THE FOURTH LISTING HAS ADOPTED THIS RECORD, and it is the first one that had to depart from its
+letter.** `Members` on `/items/<id>` is capped at `A_PAGE`, says what it is not showing, and is
+walked forward — and its cursor is **a PLACEMENT's id rather than an Item's**, where the sentence
+that opens this record says "the cursor is the id of the last Item the page before it showed".
+
+**A REPEAT IS WHY, AND IT IS ADR-0009'S LICENCE RATHER THAN AN EDGE CASE.** The same Item placed
+twice in one Container is two rows sharing one `item_id` — `CONTEXT.md`'s Repeat, "a recap at
+position 1 and the episode at position 5 ... one item, twice, on purpose". An Item id therefore
+names TWO rows in this listing and cannot say which of them a page ended on: cut at one, the walk
+either serves the recap again or skips the episode. The Placement is the only thing that can tell
+the two arrivals apart, which is the SAME fact that already makes `?via=` a placement's id rather
+than a container's ([[0066-path-is-identity-query-is-the-route]]). So the departure is this record
+meeting a listing whose rows are not Items, rather than a second convention: the rule is that a
+cursor names the ROW the page ended on, and in three of the four listings that row is an Item.
+
+**THE ORDER IS `position` AND THEN THE PLACEMENT'S ID, and it has the SAME TWO REGIMES the
+catalogue's does, over different columns.** A position nothing asserted is NULL and sorts last as
+one block — `CONTEXT.md`'s Unplaced, which the wiki's release-order ordering produces for a sixth of
+the archive's stories — so a plain row comparison loses that whole block from every page, because
+`(null, x) > (k, y)` is NULL rather than true. And ADR-0009 keeps no unique constraint on
+`(container_id, position)`, because a novel and the film adapting it must sit at one point without
+an order being invented between them: two placements may share a position, so a cursor comparing
+only the position steps over the second of them. **Both halves are mutation-checked**, each
+removed in turn against a container whose page is cut AT the tie — this record's own rule about
+testing a keyset walk, applied to an order that ties by design rather than by accident.
+
+## The walk is shared, and the QUERY is not — which is the question the ticket asked
+
+**CNCORE-89 asked for `readListing`'s walk to be reused "unless the Placement ordering makes that
+impossible", and the honest answer is that half of it was and half of it could not be.** Said as
+two halves because "reused" and "not reused" are both wrong on their own.
+
+**WHAT IS SHARED IS THE PAGE, and it is now written once for all four listings.** `onePage` holds
+the three rules this file has got wrong separately before: the extra row read and never returned,
+which is the only thing that knows whether a listing carries on; the size taken in the SAME
+statement and therefore the same snapshot, falling back to a query of its own exactly where a page
+has no rows to carry it; and the cursor cut at the last row the page showed. It takes the READ
+rather than the rows, so `limit + 1` is spent beside the slice that undoes it — a caller that
+fetched `limit` rows and handed them over would answer `continuesAfter: null` on every page, which
+this record makes mean "the listing ends here".
+
+**WHAT IS NOT SHARED IS `walkListing` ITSELF, AND THE REASON IS THE RELATION RATHER THAN THE
+ORDER.** The ticket guessed the obstacle would be the Placement ordering; it is not. That function
+is a walk over `items`: it selects an Item's id, joins `item_kinds` for the reader's word, and
+counts the `items` matching the question asked. A Container's members walk `placements` — rows that
+carry a Placement's id, no kind at all, and a count of memberships rather than of Items. Three of
+its four moving parts would have had to become parameters, leaving `and(within, past)` as the only
+shared line, which is the abstraction that costs more than the copy it saves. The order is a
+parameter there ALREADY and would have cost nothing.
+
+## A kept link into a container RESUMES, which this record predicted and had no instance of
+
+**THE TOMBSTONE SPLIT ABOVE NOW HAS ITS OTHER HALF, and it behaves exactly as that section said it
+would.** The rule there is that the anchor is read WITHOUT the tombstone filter and each order
+decides what it found — and that the two orders built on the projection lose their anchor's place,
+because a deleted Item has neither `sort_name` nor `title` left. Its own words for the other case:
+"An order this app does not yet hold — on `release_date`, or on when a row was made — reads a column
+a delete does NOT destroy, so its anchor still has a place and can still be resumed from."
+
+**`placements.position` IS THAT COLUMN.** No tombstone touches it: deleting the Item filters the row
+out of the listing and leaves the placement row untouched, and tombstoning the placement leaves its
+position standing too. So an anchor here keeps its place after the member it names is gone, and a
+reader five pages into a Container is NOT sent back to its first page because one member went away
+under them. **Asserted rather than reasoned, on BOTH tombstones** — a container walked to a cursor, then the
+anchor's Item deleted in one test and the anchor's PLACEMENT deleted in another, the cursor asked
+again each time — and mutation-checked by applying the catalogue's own rule here, which starts the
+ordering over and fails it. The second test exists because review of CNCORE-89 found this paragraph
+claiming both halves while only the first was held.
+
+**So the split was worth having, and this is the evidence rather than the argument.** A rule written
+as "a deleted anchor names no position" would have been true of the two orders that existed and
+wrong here, and nothing would have been checking.
+
+## The address, and where the cursor sits in it
+
+**`?after=` IS THE THIRD NON-IDENTIFYING PARAMETER on `/items/<id>`, and it is written LAST of the
+three.** `via`, then `placed`, then `after` — appended rather than inserted, because ADR-0066
+already fixed the order of the first two and re-ordering them would give every link already emitted
+a second spelling, which is the one thing a fixed order exists to prevent. The canonical is
+unchanged by any of them, which is what makes every route to a Container one page.
+
+**IT IS THE SAME WORD THE OTHER THREE LISTINGS WALK WITH.** A parameter named for this surface would
+have been a second convention for one question, on the one surface where a reader can see all three
+at once.
+
+**AND THE FILTER CHIPS CARRY IT.** `placed` narrows "Also appears in" and `after` walks `Members`:
+two independent listings on one page, so a chip that dropped the cursor would send a reader deep in
+an ordering back to its first page for touching the other list. The order is held in one function
+rather than in each of the two places that emit it.
+
+**THE CAP IS THE ONE THE OTHER THREE SERVE, read from one place now.** `A_PAGE` moved beside the
+routers rather than staying inside the catalogue's, because four listings read it and only three of
+them are on that router — a Container is an Item ([[0004-containers-are-items]]) so its members hang
+off `item.get`, and a copy of the number over there would have been a second ceiling nobody chose.
+`item.get` takes no `limit`: a caller may not raise the cap, and nothing in the product wants to
+lower it.
+
+**Asserted at the three seams** [[0103-tests-bite-at-package-exports-and-the-router]]: the package
+export, the router in process, and — the one the ticket names by hand — the page over real HTTP,
+against a Container holding 254 placements on the same instance this record's catalogue walk uses.
+That instance holds ONE new item for it, the container itself, because the ordering is built over
+the catalogue the fixture had already written: `every` is an exact oracle two other files compare
+against, so two hundred and fifty new items would have had to be added to both. The members oracle
+is the PLACEMENTS the harness wrote, and the ordering carries a tie, an Unplaced tail and a Repeat
+by construction — the Repeat being what says the walk is over placements, since an item-id cursor
+cannot survive one item appearing twice.
