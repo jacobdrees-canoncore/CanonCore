@@ -1,3 +1,4 @@
+import { env } from "@canoncore/env/server";
 import { call, ORPCError, safe } from "@orpc/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -51,22 +52,6 @@ describe("a caller with no session", () => {
       ),
     ).toBe("UNAUTHORIZED");
   });
-
-  /**
-   * AND IT IS REFUSED BEFORE THE PROVIDER IS REACHED, which is what makes this a
-   * closed door rather than a slow one. `http://provider.example/` is not on
-   * this suite's allowlist (127.0.0.0/8), so a guard that ran after the handler
-   * had begun would answer `PROVIDER_REFUSED` -- a refusal, passing the
-   * assertions above if they only checked that something was thrown, and
-   * reached by making this instance open a socket first.
-   */
-  it("is refused without the app reaching anything", async () => {
-    expect(
-      await refusalOf(
-        call(appRouter.provider.import, { baseUrl, recordId: "265" }, { context: anyone }),
-      ),
-    ).not.toBe("PROVIDER_REFUSED");
-  });
 });
 
 describe("the read path", () => {
@@ -89,25 +74,37 @@ describe("the read path", () => {
   it("answers healthCheck with no session", async () => {
     await expect(call(appRouter.healthCheck, {}, { context: anyone })).resolves.toBe("OK");
   });
+});
 
+describe("a purge preview, which is not a read", () => {
   /**
-   * A PURGE PREVIEW READS AND A PURGE WRITES, and the pair is where the line
-   * between them is easiest to get wrong: the two take the same input, answer
-   * the same shape, and run the same traversal (ADR-0046). One rolls back.
+   * THE PAIR WHERE THE LINE IS EASIEST TO GET WRONG, and this branch got it
+   * wrong first: `previewPurge` and `purge` take the same input, answer the same
+   * shape and run the SAME TRAVERSAL (ADR-0046), which is the whole point of the
+   * preview -- one rolls back. So a preview costs the work and the write locks of
+   * a real delete, and "preview" naming it does not make it a read.
+   *
+   * LEFT OPEN IT WOULD BE THE ONE WRITE ANYONE COULD RUN, repeatedly, taking the
+   * locks an import queues behind.
    */
-  it("answers previewPurge with no session", async () => {
-    await expect(
-      call(appRouter.provider.previewPurge, { baseUrl }, { context: anyone }),
-    ).resolves.toBeDefined();
+  it("is refused without a session, exactly as the purge is", async () => {
+    expect(
+      await refusalOf(call(appRouter.provider.previewPurge, { baseUrl }, { context: anyone })),
+    ).toBe("UNAUTHORIZED");
   });
 });
 
 /**
- * THE PASSWORD THIS SUITE'S INSTANCE IS CONFIGURED WITH, set in
- * `vitest.config.ts` beside the allowlist. An instance that sets none is the
- * demo, and `the demo` below is where that half is asserted.
+ * THE PASSWORD THIS SUITE'S INSTANCE IS CONFIGURED WITH, read from the
+ * environment rather than written down again -- `vitest.config.ts` sets it
+ * beside the allowlist, and `provider.test.ts` reads it the same way. A copy
+ * here would be a second place to change, and the test that would then fail is
+ * the one asserting the door opens.
  */
-const OWNER_PASSWORD = "the owner's own password";
+const OWNER_PASSWORD = env.OWNER_PASSWORD;
+if (OWNER_PASSWORD === undefined) {
+  throw new Error("this suite's vitest.config.ts sets OWNER_PASSWORD, and it is not set");
+}
 
 describe("logging in", () => {
   it("says this instance has a password, without saying what it is", async () => {

@@ -1,6 +1,14 @@
 import { describe, expect, inject, it } from "vitest";
 
-import { documentAt, documentFrom, logInAt, postFormsIn, sectionIn, submit } from "./document";
+import {
+  carrying,
+  documentAt,
+  documentFrom,
+  logInAt,
+  postFormsIn,
+  sectionIn,
+  submit,
+} from "./document";
 
 /**
  * THE DOOR IN FRONT OF EVERYTHING THAT WRITES (CNCORE-109), over real HTTP.
@@ -41,12 +49,7 @@ describe("/login", () => {
     const [form] = postFormsIn(text);
     if (!form) throw new Error("/login rendered no form");
 
-    const refused = await submit(baseUrl, "/login", {
-      ...form,
-      fields: form.fields.map(([name, value]): [string, string] =>
-        name === "password" ? [name, "not the owner's password"] : [name, value],
-      ),
-    });
+    const refused = await submit(baseUrl, "/login", carrying(form, "not the owner's password"));
 
     // THE OWNER IS TOLD. With no script loaded an action's return value goes
     // nowhere, so a refusal that did not reach the URL would leave a page

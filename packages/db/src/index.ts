@@ -42,7 +42,7 @@ export {
   type DeclaredDevice,
   endSession,
   type OwnerSession,
-  sessionFor,
+  seeSession,
   startSession,
 } from "./sessions";
 export { worktreeDatabaseName } from "./worktree-database";

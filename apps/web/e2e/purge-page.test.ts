@@ -31,14 +31,26 @@ import {
  */
 const baseUrl = inject("purgeableBaseUrl");
 const purgeable = inject("purgeable");
-const client: AppRouterClient = createORPCClient(new RPCLink({ url: `${baseUrl}/api/rpc` }));
-
 /**
- * THE OWNER, LOGGED IN. `provider.purge` is theirs since CNCORE-109, so the page
- * offers the confirmation's button only to a caller holding a session -- and the
- * preview, which is a read, is offered to anyone.
+ * THE OWNER, LOGGED IN, and every request in this file carries the cookie.
+ *
+ * THE WHOLE SURFACE IS THEIRS, not only the button at the end of it. A preview
+ * is not a read: it runs the purge traversal and rolls it back (ADR-0046), so it
+ * costs a real delete's work and write locks -- which is why `previewPurge` is an
+ * `ownerProcedure` alongside `purge` itself (CNCORE-109), and why the page
+ * renders no provider list to a visitor rather than a list of 401s.
  */
 const owner = await logInAt(baseUrl, inject("ownerPassword"));
+
+/**
+ * The router, asked directly, as the owner too -- `previewPurge` is theirs for
+ * the reason above, and this file asks it for the numbers the PAGE is then held
+ * to. `catalogue.list` beside it is an open read and does not need the cookie;
+ * one client for the file beats two that differ in a way no assertion is about.
+ */
+const client: AppRouterClient = createORPCClient(
+  new RPCLink({ url: `${baseUrl}/api/rpc`, headers: { cookie: owner } }),
+);
 
 /** A provider named for purging, as the page's own form puts it in the URL. */
 function purging(provider: string): string {
@@ -102,7 +114,7 @@ describe("/import, previewing a purge", () => {
     expect(expected.statements).toBeGreaterThan(0);
     const held = await client.catalogue.list({});
 
-    const asked = await documentFrom(baseUrl, purging(purgeable.previewed));
+    const asked = await documentFrom(baseUrl, purging(purgeable.previewed), owner);
 
     expect(asked.status).toBe(200);
     const confirmation = sectionIn(asked.text, "purge");
@@ -135,7 +147,7 @@ describe("/import, previewing a purge", () => {
     const expected = await client.provider.previewPurge({ baseUrl: purgeable.previewed });
     expect(expected.keptItems).toBeGreaterThan(0);
 
-    const asked = await documentFrom(baseUrl, purging(purgeable.previewed));
+    const asked = await documentFrom(baseUrl, purging(purgeable.previewed), owner);
 
     const confirmation = sectionIn(asked.text, "purge");
     expect(staying(confirmation)).toBe(expected.keptItems);
@@ -145,7 +157,7 @@ describe("/import, previewing a purge", () => {
     // AND THE ITEM THE OWNER EDITED IS ONE OF THEM, which is what makes the number
     // a fact about this catalogue rather than an arithmetic identity: it is still
     // reachable, and it is still reachable after a preview that priced its removal.
-    const kept = await documentFrom(baseUrl, `/items/${purgeable.keptFromPreviewed}`);
+    const kept = await documentFrom(baseUrl, `/items/${purgeable.keptFromPreviewed}`, owner);
     expect(kept.status).toBe(200);
     expect(kept.text).toContain("the owner's own title for it");
   });
@@ -206,7 +218,7 @@ describe("/import, confirming a purge", () => {
     // page rather than a row count: a purge that over-reached would answer 404
     // here, and one that took the owner's statements with the provider's would
     // answer 200 with the title gone.
-    const survivor = await documentFrom(baseUrl, `/items/${purgeable.keptFromPurged}`);
+    const survivor = await documentFrom(baseUrl, `/items/${purgeable.keptFromPurged}`, owner);
     expect(survivor.status).toBe(200);
     expect(survivor.text).toContain("the owner's own title for it");
   });
@@ -253,7 +265,7 @@ describe("reaching a purge", () => {
     const { providers } = await client.provider.configured();
     expect(providers).toContain(purgeable.previewed);
 
-    const { text } = await documentFrom(baseUrl, "/import");
+    const { text } = await documentFrom(baseUrl, "/import", owner);
 
     for (const provider of providers) {
       const offer = offerFor(text, provider);
@@ -261,7 +273,7 @@ describe("reaching a purge", () => {
 
       // AND FOLLOWING IT ARRIVES AT THE COUNTS. An offer that led anywhere else
       // would satisfy every assertion above and still leave the button unwired.
-      const reached = await documentFrom(baseUrl, follow(offer as RenderedForm));
+      const reached = await documentFrom(baseUrl, follow(offer as RenderedForm), owner);
       expect(reached.status).toBe(200);
       expect(sectionIn(reached.text, "purge")).toContain(provider);
     }
@@ -289,11 +301,11 @@ describe("/import, declining a purge", () => {
      * something to lose throughout.
      */
     const before = await client.catalogue.list({});
-    const offered = await documentFrom(baseUrl, purging(purgeable.previewed));
+    const offered = await documentFrom(baseUrl, purging(purgeable.previewed), owner);
     const confirmation = sectionIn(offered.text, "purge");
     expect(removing(confirmation, "statement")).toBeGreaterThan(0);
 
-    const declined = await documentFrom(baseUrl, cancelIn(confirmation));
+    const declined = await documentFrom(baseUrl, cancelIn(confirmation), owner);
 
     expect(declined.status).toBe(200);
     // THE CONFIRMATION IS GONE, which is what declining means from here: the page
@@ -301,7 +313,7 @@ describe("/import, declining a purge", () => {
     expect(() => sectionIn(declined.text, "purge")).toThrow();
     // AND EVERY ROW IS WHERE IT WAS.
     expect((await client.catalogue.list({})).total).toBe(before.total);
-    const kept = await documentFrom(baseUrl, `/items/${purgeable.keptFromPreviewed}`);
+    const kept = await documentFrom(baseUrl, `/items/${purgeable.keptFromPreviewed}`, owner);
     expect(kept.status).toBe(200);
   });
 });
@@ -320,7 +332,7 @@ describe("/import, a purge with nothing to take", () => {
      * it can never reach and never imported from, which is both halves at once:
      * unreachable costs nothing here, because a purge makes no request.
      */
-    const asked = await documentFrom(baseUrl, purging(purgeable.neverImported));
+    const asked = await documentFrom(baseUrl, purging(purgeable.neverImported), owner);
 
     expect(asked.status).toBe(200);
     const answer = sectionIn(asked.text, "purge");
@@ -347,7 +359,7 @@ describe("/import, asked to purge something it is not configured with", () => {
      * what an owner holding a stale link needs to read.
      */
     for (const named of ["http://somewhere.else.test", "not a url at all", ""]) {
-      const { status, text } = await documentFrom(baseUrl, purging(named));
+      const { status, text } = await documentFrom(baseUrl, purging(named), owner);
 
       expect(status).toBe(200);
       expect(() => sectionIn(text, "purge")).toThrow();

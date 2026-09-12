@@ -172,6 +172,23 @@ async function post(
 }
 
 /**
+ * One rendered login form with the password typed into it, leaving Next's own
+ * hidden fields exactly as the server wrote them.
+ *
+ * SHARED WITH `login-page.test.ts`, which submits this form with the WRONG
+ * password on purpose. Two copies of the same field-filling would be two places
+ * to change on the day the form grows a field.
+ */
+export function carrying(form: RenderedForm, password: string): RenderedForm {
+  return {
+    ...form,
+    fields: form.fields.map(([name, value]): [string, string] =>
+      name === "password" ? [name, password] : [name, value],
+    ),
+  };
+}
+
+/**
  * Logs in the way an owner does: the form on `/login`, submitted with no
  * JavaScript, and the cookie the server hands back.
  *
@@ -195,13 +212,7 @@ export async function logInAt(baseUrl: string, password: string): Promise<string
   const [form] = postFormsIn(text);
   if (!form) throw new Error(`${baseUrl}/login offered no form to log in with`);
 
-  const filled = {
-    ...form,
-    fields: form.fields.map(([name, value]): [string, string] =>
-      name === "password" ? [name, password] : [name, value],
-    ),
-  };
-  const response = await post(baseUrl, "/login", filled, undefined, "manual");
+  const response = await post(baseUrl, "/login", carrying(form, password), undefined, "manual");
   const [issued] = response.headers.getSetCookie();
   if (issued === undefined) {
     throw new Error(`logging in at ${baseUrl} set no cookie; answered ${response.status}`);

@@ -51,9 +51,19 @@ opaque: the column is whole, its contents are the clients' to settle.
 this record says everyone actually wants is one page away -- and the page is not here, because
 with one device and no client there is nothing to list.
 
-**NOR IS ANYTHING SWEEPING DEAD ROWS.** A browser that forgets its cookie leaves a live session
-nothing will present again. That is ADR-0049's visible registry, unbuilt; one owner logging in
-monthly makes a dozen rows a year, so it is recorded here rather than worked around.
+**NOT BUILT, AND LARGER THAN IT FIRST READ: A SESSION DOES NOT LAPSE.** This record names seven
+columns and no expiry, so what landed has none: `seeSession` reads `deleted_at IS NULL` and nothing
+else, and the cookie's thirty-day `Max-Age` is the BROWSER forgetting rather than the session ending.
+A token copied off a request is good until somebody logs that session out by hand — and the surface
+to do it by hand is the per-device logout above, which is also unbuilt. An earlier version of this
+section recorded only the harmless half of that, the dead rows nothing sweeps (ADR-0049's registry,
+which is where a sweep belongs). Tracked as CNCORE-116, which carries all three, because an expiry
+policy is a decision this record does not make rather than an implementation of one it does.
+
+**AND THE DECLARATION, WHEN IT ARRIVES, VALIDATES AT THE PROCEDURE.** `startSession` takes a
+`DeclaredDevice` and writes it; that is a TypeScript interface, so today's only caller passing `{}`
+is the whole of what checks it. A client declaring five fields is a client sending five strings, and
+the procedure that accepts them states a schema for them like every other input on this surface.
 
 **AND ONE THING THE BUILD TAUGHT, because it cost a passing test its meaning.** `created_at`
 defaults to the DATABASE'S `now()`, so stamping `last_seen_at` from the application's clock

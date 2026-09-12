@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { type Database, endSession, sessionFor, startSession } from "./index";
+import { type Database, endSession, seeSession, startSession } from "./index";
 import { connect, theOwner } from "./testing/catalogue";
 
 let db: Database;
@@ -22,7 +22,7 @@ describe("starting a session", () => {
   it("answers the owner for the token it minted", async () => {
     const { token } = await startSession(db, {});
 
-    expect(await sessionFor(db, token)).toMatchObject({ ownerId });
+    expect(await seeSession(db, token)).toMatchObject({ ownerId });
   });
 
   it("answers nobody for a token it never minted", async () => {
@@ -30,7 +30,7 @@ describe("starting a session", () => {
     // an empty token against a null column, a prefix, a row whose hash was never
     // set -- would hand the owner's session to a caller who guessed nothing at
     // all, and the procedures above would be refusing an empty set.
-    expect(await sessionFor(db, "a token nobody minted")).toBeNull();
+    expect(await seeSession(db, "a token nobody minted")).toBeNull();
   });
 });
 
@@ -54,7 +54,7 @@ describe("what a device declared", () => {
     };
     const { token } = await startSession(db, declared);
 
-    expect(await sessionFor(db, token)).toMatchObject(declared);
+    expect(await seeSession(db, token)).toMatchObject(declared);
   });
 
   it("says a browser declared nothing rather than inventing a declaration", async () => {
@@ -80,7 +80,7 @@ describe("last seen", () => {
     // last seen in March is a false signal on the one surface that acts on it.
     const { token, session } = await startSession(db, {});
 
-    const seen = await sessionFor(db, token);
+    const seen = await seeSession(db, token);
 
     expect(seen?.lastSeenAt.getTime()).toBeGreaterThan(session.lastSeenAt.getTime());
   });
@@ -97,7 +97,7 @@ describe("ending a session", () => {
 
     await endSession(db, session.id);
 
-    expect(await sessionFor(db, token)).toBeNull();
-    expect(await sessionFor(db, other.token)).toMatchObject({ id: other.session.id });
+    expect(await seeSession(db, token)).toBeNull();
+    expect(await seeSession(db, other.token)).toMatchObject({ id: other.session.id });
   });
 });

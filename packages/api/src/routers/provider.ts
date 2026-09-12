@@ -861,8 +861,17 @@ export const provider = {
    * IT MAKES NO REQUEST EITHER, for the reason `purge` makes none: an owner must
    * be able to ask this about a provider they can no longer reach, which is the
    * ordinary case when a licence ends rather than an exotic one.
+   *
+   * AND IT IS THE OWNER'S, WHICH AN EARLIER DRAFT OF CNCORE-109 GOT WRONG BY
+   * READING THE NAME. A preview is not a read: it IS the delete, run in a
+   * transaction it then rolls back, so it takes the work and the WRITE LOCKS of
+   * a real purge -- `purge.ts` says so in those words, and the guarantee this
+   * procedure exists to give depends on it. Left open, any caller could make
+   * this instance execute the whole traversal, repeatedly, and lock the rows an
+   * import was queued behind. The rows are identical to the ones `purge` would
+   * delete, so the door in front of them is the same door.
    */
-  previewPurge: openProcedure
+  previewPurge: ownerProcedure
     .input(purgeTarget)
     .output(purgeCounts)
     .handler(async ({ input, context }): Promise<PurgedProvider> => {

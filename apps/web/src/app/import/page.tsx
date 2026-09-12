@@ -73,7 +73,15 @@ async function readImportPage({ query, provider, container, purge }: Asked) {
     call(appRouter.provider.configured, undefined, { context }),
   ]);
   const searchable = searchableProvider(configured.providers, provider);
-  const purging = purgeableProvider(configured.providers, purge);
+  /*
+   * AND ONLY FOR THE OWNER, WHICH IS THE PREVIEW BEING A WRITE RATHER THAN THE
+   * PAGE BEING SHY. `previewPurge` runs the purge traversal and rolls it back
+   * (ADR-0046), so it takes a real delete's work and write locks -- it is an
+   * `ownerProcedure` for that reason, and asking it on behalf of a visitor would
+   * be asking for a 401 in the middle of a page that otherwise renders.
+   */
+  const purging =
+    context.session === null ? undefined : purgeableProvider(configured.providers, purge);
 
   const [found, namedContainer, preview] = await Promise.all([
     query === undefined
@@ -265,9 +273,9 @@ export default async function ImportPage({
         ) : (
           <Container {...namedContainer} owner={owner} />
         ))}
-      <PurgeBox configured={configured.providers} />
+      {owner && <PurgeBox configured={configured.providers} />}
       {purging !== undefined && preview !== undefined && (
-        <Purge baseUrl={purging} owner={owner} preview={preview} />
+        <Purge baseUrl={purging} preview={preview} />
       )}
     </main>
   );
@@ -275,6 +283,13 @@ export default async function ImportPage({
 
 /**
  * EVERY PROVIDER THIS INSTANCE IS CONFIGURED WITH, and the way to undo one.
+ *
+ * THE OWNER'S, WHOLE. Every other section of this page is rendered for anyone --
+ * the demo shows a visitor everything on the instance (ADR-0044, ADR-0072) and
+ * only the buttons are withheld -- and this one is not, because the thing it
+ * leads to is not a read: `previewPurge` runs the delete and rolls it back
+ * (ADR-0046), so it sits behind the same door as the delete (CNCORE-109). A list
+ * whose every entry answered 401 would be a worse surface than no list.
  *
  * WHY THE SURFACE EXISTS AT ALL: an import with no un-import leaves a mistaken
  * import unrecoverable through the product, and the owner who most needs this is
@@ -362,15 +377,7 @@ function PurgeBox({ configured }: { configured: string[] }) {
  * content they can no longer inspect -- so these counts are the only description
  * of it they are going to get.
  */
-function Purge({
-  baseUrl,
-  owner,
-  preview,
-}: {
-  baseUrl: string;
-  owner: boolean;
-  preview: PurgePreview;
-}) {
+function Purge({ baseUrl, preview }: { baseUrl: string; preview: PurgePreview }) {
   /*
    * A PURGE THAT WOULD CHANGE NOTHING GETS NO CONFIRMATION, which is a criterion
    * rather than a nicety. A dialogue offering to permanently delete "0
@@ -440,16 +447,12 @@ function Purge({
               `basePath` to get wrong -- and it needs no JavaScript, which is what
               lets this surface be asserted with no browser.
             */}
-            {owner ? (
-              <form action={purgeProvider}>
-                <input type="hidden" name="baseUrl" value={baseUrl} />
-                <Button type="submit" variant="destructive">
-                  Purge permanently
-                </Button>
-              </form>
-            ) : (
-              <LogIn to="purge a provider" />
-            )}
+            <form action={purgeProvider}>
+              <input type="hidden" name="baseUrl" value={baseUrl} />
+              <Button type="submit" variant="destructive">
+                Purge permanently
+              </Button>
+            </form>
           </div>
         </>
       )}

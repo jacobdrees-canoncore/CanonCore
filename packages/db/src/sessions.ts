@@ -72,13 +72,33 @@ export async function startSession(
 }
 
 /**
- * Whose session a token is, or `null` if it is nobody's.
+ * Whose session a token is, or `null` if it is nobody's -- and the sighting of
+ * the device that presented it.
+ *
+ * IT IS NAMED FOR THE WRITE rather than for the answer, and an earlier draft was
+ * not: `sessionFor` read as a lookup and was an `UPDATE`, which is the shape of
+ * name this repo renames on sight. Seeing a session IS the sighting
+ * (ADR-0043's `last_seen_at`), so a caller cannot ask this question without the
+ * device being seen -- and should not, because a device answering requests and
+ * reading as last seen in March is a false signal on the one surface that acts
+ * on it.
  *
  * `null` COVERS EVERY WAY A TOKEN FAILS — never minted, guessed, logged out, or
  * ended — and that is deliberate: a caller that could tell them apart would be
  * an oracle for which tokens have ever existed.
+ *
+ * WHAT THE WRITE COSTS, stated because it is not free: every request the owner
+ * makes takes a `nextval` from ADR-0075's single global `change_sequence`,
+ * through the `sessions_touch` trigger. ADR-0040 needs that sequence's ORDER
+ * rather than its density -- `purge.ts` records the same conclusion about the
+ * gaps a rolled-back preview leaves -- so this is a fact to know rather than a
+ * cost to avoid.
+ *
+ * AND A SESSION DOES NOT LAPSE. Nothing here reads a clock except to stamp one:
+ * a token is good until the row is ended, so a copy of it is good until then
+ * too. That is CNCORE-116 rather than an oversight, and ADR-0043 carries it.
  */
-export async function sessionFor(db: Database, token: string): Promise<OwnerSession | null> {
+export async function seeSession(db: Database, token: string): Promise<OwnerSession | null> {
   // AN UPDATE RATHER THAN A SELECT, because reading a session IS seeing the
   // device (ADR-0043's `last_seen_at`). Written as one statement so the sighting
   // cannot be recorded for a session the same call failed to find, and so the
@@ -104,7 +124,7 @@ export async function sessionFor(db: Database, token: string): Promise<OwnerSess
  * takes and which this one has its own reason for: "the owner logged this device
  * out" and "this device was never logged in" are different facts, and a row
  * removed outright leaves an instance unable to tell them apart afterwards.
- * `sessionFor` reads live rows only, so the token stops answering either way.
+ * `seeSession` reads live rows only, so the token stops answering either way.
  *
  * IT ENDS ONE SESSION AND NOT THE OWNER'S OTHERS, which is ADR-0043's per-device
  * logout and the thing that record says a token on the user row cannot do.

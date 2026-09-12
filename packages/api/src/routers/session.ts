@@ -72,6 +72,13 @@ export const session = {
    * who could tell those apart could ask any instance on the internet whether it
    * is somebody's catalogue or the demo, which is a question the surface has no
    * reason to answer.
+   *
+   * TODO(CNCORE-117): NOTHING BOUNDS HOW OFTEN THIS MAY BE ASKED. An instance on
+   * a public address answers unlimited guesses at the one password it has, and
+   * keeps no record of them -- the twelve-character minimum is a bound on the
+   * password rather than on the guessing. A lockout on a single-owner instance is
+   * a denial of service against the only person who can lift it, so what to do
+   * here wants deciding rather than reaching for.
    */
   logIn: openProcedure
     .input(z.object({ password: z.string() }))

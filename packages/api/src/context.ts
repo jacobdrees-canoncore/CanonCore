@@ -1,4 +1,4 @@
-import { getDb, sessionFor } from "@canoncore/db";
+import { getDb, seeSession } from "@canoncore/db";
 import { env } from "@canoncore/env/server";
 import { parseAllowlist, parseProviderUrls } from "@canoncore/providers";
 
@@ -35,7 +35,7 @@ const providerUrls = parseProviderUrls(env.PROVIDER_URLS);
  * to know about. What it needs is the secret itself.
  *
  * A TOKEN NOBODY MINTED IS NO SESSION AT ALL, which is the same answer as
- * presenting none: `sessionFor` cannot tell a guess from a logout from a token
+ * presenting none: `seeSession` cannot tell a guess from a logout from a token
  * that expired, and a caller that could would have an oracle for which tokens
  * have ever existed.
  */
@@ -47,7 +47,7 @@ export async function createContext({ sessionToken }: { sessionToken?: string } 
      * WHO IS CALLING, or `null` for anyone who has not proved they are the
      * owner. `ownerProcedure` is what reads it; `openProcedure` never asks.
      */
-    session: sessionToken === undefined ? null : await sessionFor(db, sessionToken),
+    session: sessionToken === undefined ? null : await seeSession(db, sessionToken),
     providerAllowlist,
     providerUrls,
   };

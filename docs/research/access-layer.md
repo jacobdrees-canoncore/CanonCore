@@ -25,7 +25,7 @@ nothing below re-argues one.
 
 | Question | Record | What it settles |
 |---|---|---|
-| Is there a login at all? | ADR-0044 | Yes. "Single user, one password, no signup, no multi-tenancy." A password EXISTS. Its mechanism does not. |
+| Is there a login at all? | ADR-0044 | Yes. "Single user, one password, no signup, no multi-tenancy." A password EXISTS — and since CNCORE-109 (2026-09-12) so does its mechanism: `OWNER_PASSWORD`, exchanged for a session by `session.logIn`. This row read "Its mechanism does not" when this document was written. |
 | Does the demo log anyone in? | ADR-0044 | No: "The public demo is read-only with no login." |
 | What is a logged-in device? | ADR-0043 | One row per device — client name, device name, stable device id, client version, capabilities, created_at, last_seen_at — arriving WHOLE, because "the row is the expensive part rather than any column on it". |
 | Who can see what? | ADR-0072 | Nobody asks. No visibility column, no propagation, no resolution rule. The owner sees everything; demo visitors see everything on the demo. |
@@ -49,11 +49,19 @@ Two further records constrain the access layer without being about it:
 
 ADR-0097 puts playback behind an opaque-id route so that ACCESS CONTROL works. ADR-0043's session row
 "arrives with the slice that first logs something in". ADR-0053 scaffolded the repo with `auth none`,
-so there is no login today at all.
+so when this document was written there was no login at all.
 
-Those three compose into a sequencing fact rather than a new decision: **the first playback slice is
-the slice that first logs something in.** Login is not a spec of its own competing with playback. It
-is a prerequisite inside it.
+Those three composed into what read as a sequencing fact rather than a new decision: **the first
+playback slice is the slice that first logs something in.** Login was not a spec of its own competing
+with playback; it was a prerequisite inside it.
+
+**THAT IS SUPERSEDED, AND BY A SLICE THAT IS NOT PLAYBACK.** CNCORE-109 logged something in on
+2026-09-12, and the reason was the RPC surface rather than a file: every procedure was reachable by
+anyone who could reach the process, `provider.purge` included, so the WRITE path needed the session
+before any playback slice existed to need it. ADR-0043's row landed whole; its capability
+declaration did not, and that half is still the clients' — which is the part of the inference above
+that survives. What this document got wrong is that it read "the first slice that logs something in"
+as necessarily a PLAYBACK slice, when what forces a login is whatever first has something to protect.
 
 ---
 
