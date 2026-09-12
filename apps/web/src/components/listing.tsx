@@ -59,6 +59,23 @@ type Entry = ListingAnswer["entries"][number];
 export type ListingPath = "/" | "/works" | "/search";
 
 /**
+ * THE FOURTH LISTING'S ADDRESS, and the one that is not a literal.
+ *
+ * A Container's own members are a listing by ADR-0119's first sentence, and a
+ * Container IS an Item (ADR-0004) -- so the surface they are walked on is
+ * `/items/<id>`, whose path carries an id rather than naming a page. That is
+ * why `ListingPath` above stays a union of literals and this is separate: the
+ * three that ARE their listing can be enumerated, and this one cannot.
+ *
+ * A TEMPLATE LITERAL RATHER THAN `string`, so a caller still cannot hand this
+ * an arbitrary path. `typedRoutes` resolves a `Link`'s object href against the
+ * routes it generated and this is the shape of the one it generated for
+ * `/items/[id]`, which is the same form the member rows themselves are linked
+ * with.
+ */
+export type MembersPath = `/items/${string}`;
+
+/**
  * WHAT THE LISTING WAS ASKED, where the path alone does not say.
  *
  * The catalogue and work-browsing ARE their address: `/` is the whole question,
@@ -80,6 +97,24 @@ export type ListingPath = "/" | "/works" | "/search";
 type Asked = { q: string };
 
 /**
+ * WHAT THE ITEM PAGE'S ADDRESS ALREADY CARRIES, which the members cursor joins
+ * rather than replaces.
+ *
+ * `?via=` names the ordering the reader arrived through and `?placed=` narrows
+ * "Also appears in" to one origin; ADR-0066 declares both NON-IDENTIFYING and
+ * writes them in a fixed order, `via` then `placed`. The cursor goes THIRD, and
+ * it goes third here rather than anywhere else because re-ordering the existing
+ * pair would mint a second spelling of every link already emitted -- which is
+ * the exact thing a fixed order exists to prevent.
+ *
+ * BOTH OPTIONAL, and a missing one is ABSENT rather than empty: the item page
+ * builds this object with only the keys it has, so `?via=&placed=&after=x` is
+ * not a URL this app can emit. `Walk` below spreads it and appends `after`, so
+ * the order is held by the spread rather than by anybody remembering it.
+ */
+export type TheRoute = { via?: string; placed?: string };
+
+/**
  * WHICH LISTING IS BEING WALKED, and therefore whether it owes a query.
  *
  * A UNION RATHER THAN AN OPTIONAL PROP, so the pairing is true by construction
@@ -90,7 +125,10 @@ type Asked = { q: string };
  * the first page of anybody's results. The two surfaces that ARE their address
  * may not pass one, and the one that is not must.
  */
-type Walking = { path: "/" | "/works"; asked?: never } | { path: "/search"; asked: Asked };
+type Walking =
+  | { path: "/" | "/works"; asked?: never }
+  | { path: "/search"; asked: Asked }
+  | { path: MembersPath; asked: TheRoute };
 
 /**
  * What each listing calls itself when it has to end a sentence.
@@ -102,11 +140,32 @@ type Walking = { path: "/" | "/works"; asked?: never } | { path: "/search"; aske
  * two halves of one sentence owned by two files, so each surface writes its own
  * whole clause instead.
  */
-const ENDS_HERE: Record<ListingPath, string> = {
+const ENDS_HERE = {
   "/": "The catalogue ends here",
   "/works": "The list of Works ends here",
   "/search": "These results end here",
-};
+  /*
+   * THE ONE THAT IS NOT KEYED BY ITS PATH, because a container's address
+   * carries an id. `CONTEXT.md` settles "Members" as the reader's word from the
+   * container's end, so that is the word the sentence ends with.
+   */
+  members: "This container's Members end here",
+} as const;
+
+/**
+ * Which listing is ending, from the address it is walked on.
+ *
+ * A LOOKUP RATHER THAN A PARAMETER, which is the fix `PastTheEnd` already
+ * carries a paragraph about: it took a `path` and a free-text `what`, nothing
+ * held the two in step, and `what="The works"` rendered "The works ends here".
+ * The three literal paths key themselves; the fourth cannot, so it is named --
+ * and the record above is exhaustive over the union either way, so a fifth
+ * surface does not compile without a sentence.
+ */
+function endsHere(path: Walking["path"]): string {
+  if (path === "/" || path === "/works" || path === "/search") return ENDS_HERE[path];
+  return ENDS_HERE.members;
+}
 
 /**
  * How much of a listing this page is showing, and how much there is.
@@ -271,10 +330,10 @@ export function PastTheEnd({ path, asked }: Walking) {
             heading -- and a reader navigating by heading finds only the `h1`.
           */}
           <EmptyTitle>
-            <h2 id="past-the-end">{ENDS_HERE[path]}</h2>
+            <h2 id="past-the-end">{endsHere(path)}</h2>
           </EmptyTitle>
           <EmptyDescription>
-            Nothing sorts after the item this link was cut at. It is the last one in this listing
+            Nothing sorts after the entry this link was cut at. It is the last one in this listing
             now, whether or not it was when the link was made.
           </EmptyDescription>
         </EmptyHeader>

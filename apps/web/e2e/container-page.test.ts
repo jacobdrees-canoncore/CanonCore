@@ -1,6 +1,6 @@
 import { describe, expect, inject, it } from "vitest";
 
-import { documentAt } from "./document";
+import { documentAt, documentFrom } from "./document";
 
 /**
  * BROWSING INTO A CONTAINER, over real HTTP.
@@ -14,7 +14,16 @@ import { documentAt } from "./document";
 const browsed = inject("browsed");
 const workBrowsing = inject("workBrowsing");
 
-/** Just the "Members" section, so an assertion cannot match the rest of the page. */
+/**
+ * Just the "Members" section, so an assertion cannot match the rest of the page.
+ *
+ * IT STOPS AT THE FIRST `</section>`, which matters on ONE page: past the end of
+ * the walk the listing renders `PastTheEnd`, whose own `<section>` is nested
+ * inside this one -- so what comes back there is the heading down to the end of
+ * that notice, and the `Walk` below it is outside. Every assertion made on that
+ * page is about the notice, so this is a limit to know rather than a fault; an
+ * assertion about the walk on a past-the-end page would need the whole section.
+ */
 function members(text: string): string {
   const found = text.match(/<section[^>]*aria-labelledby="members".*?<\/section>/)?.[0];
   if (!found) throw new Error("the page rendered no `members` section");
@@ -124,5 +133,137 @@ describe("/items/<a container>", () => {
     expect(arrived.text).toContain(
       `<link rel="canonical" href="/items/${workBrowsing.repeatedId}"/>`,
     );
+  });
+});
+
+describe("/items/<a container holding more than one page>", () => {
+  const pagedBaseUrl = inject("pagedBaseUrl");
+  const container = inject("pagedContainer");
+
+  /**
+   * Every member one rendered page links at: the PLACEMENT each link names.
+   *
+   * OFF THE ROWS RATHER THAN OFF THE SECTION, which is a fix rather than a
+   * tidy-up. The walk's own `Next` href lives in this section too and carries
+   * the page's `?via=` forward, so a scan of the whole section collected that
+   * one as though it were a member -- and the composition test below then
+   * asserted its cursor against it, which is a test marking its own work.
+   */
+  function membersLinkedFrom(text: string): string[] {
+    return memberRows(text).flatMap((row) => {
+      const named = row.match(/href="\/items\/[^"]*via=([^"&]+)/)?.[1];
+      return named === undefined ? [] : [named];
+    });
+  }
+
+  /** Where the page says the ordering carries on, if it says so at all. */
+  function carriesOnAt(text: string): string | undefined {
+    return members(text)
+      .match(/href="(\/items\/[^"]*after=[^"]*)"/)?.[1]
+      ?.replaceAll("&amp;", "&");
+  }
+
+  it("still shows one page at a time, and says how much it is not showing", async () => {
+    // THE CAP, WHICH WAS MISSING HERE ALONE. ADR-0119's first sentence is that
+    // every listing in CanonCore is capped, and this one took no limit at all:
+    // `browse` imports a whole category in one call and ADR-0077 measures one at
+    // 1,049 stories, so an ordinary imported Container rendered a thousand rows.
+    const { status, text } = await documentFrom(pagedBaseUrl, `/items/${container.id}`);
+
+    expect(status).toBe(200);
+    expect(membersLinkedFrom(text)).toHaveLength(100);
+    expect(members(text)).toContain(`Showing 100 of ${container.holds.length} members`);
+  });
+
+  it("reaches every member by following links, and lands on none of them twice", async () => {
+    // THE OTHER HALF OF THE CAP, at the seam CNCORE-89 names by hand: a surface
+    // that says "Showing 100 of 254" and offers no way to reach member 101 has
+    // told the owner the size of an ordering it will not let them see.
+    //
+    // THE ORACLE IS THE PLACEMENTS THE HARNESS WROTE rather than a second
+    // reading of the container: a cursor that lost the Unplaced tail would lose
+    // it from both sides and the two readings would agree.
+    //
+    // AND THE WALK IS OVER PLACEMENTS RATHER THAN ITEMS, which is what the
+    // Repeat in the fixture is for: one item sits in this ordering twice, so the
+    // ids collected here can only come out right if each link names the
+    // PLACEMENT it was reached through (ADR-0009, ADR-0066).
+    const walked: string[] = [];
+    let path: string | undefined = `/items/${container.id}`;
+    // BOUNDED, so a cursor that does not advance FAILS rather than hangs.
+    for (let pages = 0; pages <= container.holds.length; pages += 1) {
+      const { status, text } = await documentFrom(pagedBaseUrl, path);
+      expect(status).toBe(200);
+      walked.push(...membersLinkedFrom(text));
+      const next: string | undefined = carriesOnAt(text);
+      if (next === undefined) {
+        expect([...walked].sort()).toStrictEqual([...container.holds].sort());
+        // SORTED SETS COMPARE EQUAL EVEN WITH A REPEAT IN THEM, so the one
+        // criterion the comparison above cannot see gets its own line.
+        expect(new Set(walked).size).toBe(walked.length);
+        return;
+      }
+      path = next;
+    }
+    throw new Error(`the walk never ended: ${walked.length} of ${container.holds.length}`);
+  });
+
+  it("keeps the cursor out of the canonical, and composes it with `via` and `placed`", async () => {
+    // ADR-0066: the PATH is identity and the QUERY is the route. A third
+    // non-identifying parameter has to compose with the two already there, in
+    // ONE fixed spelling order so a narrowed list at a given page is one URL
+    // rather than several -- and it must leave the canonical alone, because that
+    // declaration is what makes every route to this container one page.
+    const { text } = await documentFrom(
+      pagedBaseUrl,
+      `/items/${container.id}?placed=owner&via=nothing-at-all`,
+    );
+
+    const next = carriesOnAt(text);
+    if (next === undefined) throw new Error("the members list offered no next page");
+    expect(next).toBe(
+      `/items/${container.id}?via=nothing-at-all&placed=owner&after=${membersLinkedFrom(text).at(
+        -1,
+      )}`,
+    );
+    expect(text).toContain(`<link rel="canonical" href="/items/${container.id}"/>`);
+  });
+
+  it("offers a way back to the start from every page but the first", async () => {
+    // A FORWARD WALK STRANDS A DEEP LINK (ADR-0119): somebody handed page two in
+    // a message has no history to go back through, and `Previous` is a second
+    // query shape rather than half of this one.
+    const first = await documentFrom(pagedBaseUrl, `/items/${container.id}`);
+    const next = carriesOnAt(first.text);
+    if (next === undefined) throw new Error("the fixture's members fit on one page");
+
+    const second = await documentFrom(pagedBaseUrl, next);
+
+    expect(members(second.text)).toContain("Back to the start");
+    // AND NOT ON THE FIRST PAGE, which is the half that makes the line above a
+    // test: a page printing it unconditionally would satisfy that and fail this.
+    expect(members(first.text)).not.toContain("Back to the start");
+  });
+
+  it("says the ordering ends here, where a link outlived the members after it", async () => {
+    // THE ONE DEAD END A CURSOR CREATES. `continuesAfter` is handed over only
+    // when there is a row past the page, so a link FOLLOWED never lands here --
+    // but a link KEPT can. Without this the reader gets a heading and an empty
+    // list, which reads as a section that failed to load.
+    let text = (await documentFrom(pagedBaseUrl, `/items/${container.id}`)).text;
+    for (let pages = 0; pages < 10; pages += 1) {
+      const next = carriesOnAt(text);
+      if (next === undefined) break;
+      text = (await documentFrom(pagedBaseUrl, next)).text;
+    }
+    const last = membersLinkedFrom(text).at(-1);
+
+    const beyond = await documentFrom(pagedBaseUrl, `/items/${container.id}?after=${last}`);
+
+    expect(beyond.status).toBe(200);
+    // THE WAY OUT, not merely the notice. A section that said the ordering ended
+    // and offered nothing to click is the same dead end with a caption on it.
+    expect(members(beyond.text)).toContain(`href="/items/${container.id}"`);
+    expect(members(beyond.text)).toContain("end here");
   });
 });
