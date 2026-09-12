@@ -31,22 +31,29 @@ beforeAll(async () => {
   db = await connect();
 });
 
-/** A container holding three members at the positions given, in that order. */
+/**
+ * A container holding one placement per position given, in that order.
+ *
+ * `placed` RATHER THAN `members`, which `CONTEXT.md` rejects as a name for the
+ * thing: "Members" is the reader's heading from the container's end and
+ * Placement is the word in code, because a Repeat puts one item in one
+ * container twice and only the placement tells those two rows apart.
+ */
 async function anOrderingOf(positions: number[]) {
   const container = await anItem(db, { isContainer: true, isOrdered: true });
-  const members = [];
+  const placed = [];
   for (const position of positions) {
     const itemId = await anItem(db);
-    members.push({
+    placed.push({
       itemId,
       id: await placeItemByHand(db, { containerId: container, itemId, position }),
       position,
     });
   }
-  return { container, members };
+  return { container, placed };
 }
 
-/** The ordering as a reader reads it: each member's position, in page order. */
+/** The ordering as a reader reads it: each placement's position, in page order. */
 async function orderingIn(container: string) {
   const { entries } = await findPlacementsInContainer(db, container, { limit: 100 });
   return entries.map(({ id, position }) => ({ id, position }));
@@ -54,9 +61,9 @@ async function orderingIn(container: string) {
 
 describe("movePlacementByHand", () => {
   it("moves a member to a new position, and writes the siblings the drag passed", async () => {
-    const { container, members } = await anOrderingOf([1, 2, 3]);
-    const [first, second, third] = members;
-    if (!first || !second || !third) throw new Error("the fixture seeded three members");
+    const { container, placed } = await anOrderingOf([1, 2, 3]);
+    const [first, second, third] = placed;
+    if (!first || !second || !third) throw new Error("the fixture seeded three placements");
 
     // The last member dragged to the top. ADR-0116: the client computes which
     // siblings moved, and this is that delta -- the two it passed, and nothing
