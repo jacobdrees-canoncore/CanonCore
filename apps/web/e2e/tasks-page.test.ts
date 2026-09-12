@@ -29,6 +29,14 @@ describe("/tasks", () => {
     // leave the owner unable to tell a job that is not due from one that has
     // stopped -- which is the distinction the whole record is about.
     expect(tasks).toContain("Every day at 03:00");
+
+    // AND THE SECOND TASK, WHICH IS THE REGISTRY COMPACTING ITS OWN HISTORY
+    // (CNCORE-124). ADR-0049 lists tombstone compaction among the eight things
+    // its registry exists to run, and `task_runs` was itself a table that only
+    // grew -- so this row is that record's category arriving back at its own
+    // table, on its own trigger an hour behind the sweep.
+    expect(tasks).toContain("Remove runs the history no longer shows");
+    expect(tasks).toContain("Every day at 04:00");
   });
 
   it("says a task has never run rather than showing it as one that did nothing", async () => {
@@ -43,13 +51,23 @@ describe("/tasks", () => {
     expect(sectionIn(text, "tasks")).toContain("Has not run yet");
   });
 
-  it("runs a task from the page, and the page then says what it did", async () => {
+  it("runs the tasks from the page, and the page then says what each did", async () => {
     const cookie = await logInAt(baseUrl, ownerPassword);
     const { text } = await documentFrom(baseUrl, "/tasks", cookie);
-    const [run] = postFormsIn(sectionIn(text, "tasks"));
-    if (!run) throw new Error("/tasks offered no form to run a task with");
+    // EVERY FORM THE PAGE OFFERS, rather than the first of them. The negative
+    // below is the point of this test -- a row that reports its run AND still
+    // claims it has never run is the failure it catches -- and that assertion
+    // reads the whole section, so it only ever meant "this task" while the
+    // registry carried one task. CNCORE-124 made it two, and scoping it back to
+    // the first form would have left the second task's never-run sentence
+    // failing a test about the first. Running all of them keeps the assertion
+    // exactly as strong as it was written to be, and keeps it true as ADR-0049's
+    // remaining seven arrive.
+    const [first, ...rest] = postFormsIn(sectionIn(text, "tasks"));
+    if (!first) throw new Error("/tasks offered no form to run a task with");
 
-    const after = await submit(baseUrl, "/tasks", run, cookie);
+    let after = await submit(baseUrl, "/tasks", first, cookie);
+    for (const form of rest) after = await submit(baseUrl, "/tasks", form, cookie);
 
     expect(after.status).toBe(200);
     // THE REPORT IS THE RE-RENDERED LIST rather than the action's return value,
@@ -88,6 +106,33 @@ describe("/tasks", () => {
     // AND THE HISTORY IS A LIST OF RUNS rather than a count in a label: at
     // least the earlier of the two this test made is rendered under it.
     expect(tasks.match(/Removed no sessions/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
+  });
+
+  it("runs the history compaction from the page, and reports what it removed", async () => {
+    // ADR-0049's MINIMUM, APPLIED TO THE TABLE THAT MAKES IT REACHABLE. A
+    // compaction whose result nobody can see is the maintenance job that
+    // silently stopped months ago -- and it is the one task here whose stopping
+    // would be invisible in the ordinary way, because what it leaves behind is
+    // a table nobody looks at until it is large.
+    const cookie = await logInAt(baseUrl, ownerPassword);
+    const { text } = await documentFrom(baseUrl, "/tasks", cookie);
+    // FOUND BY ITS KEY RATHER THAN BY ITS POSITION. The page renders the tasks
+    // in the order `theTasks` was written in, so an index here is a test that
+    // silently retargets the day a task is inserted above this one -- and goes
+    // on passing, against the wrong task. Found in review.
+    const compact = postFormsIn(sectionIn(text, "tasks")).find(({ fields }) =>
+      fields.some(([name, value]) => name === "key" && value === "compact-task-runs"),
+    );
+    if (!compact) throw new Error("/tasks offered no form to run compact-task-runs with");
+
+    const after = await submit(baseUrl, "/tasks", compact, cookie);
+
+    expect(after.status).toBe(200);
+    // WHAT IT DID, IN A SENTENCE. This instance is minutes old, so nothing in
+    // it is a month past the window and "no runs" is the true answer -- which
+    // is the report that says the job ran and found nothing, rather than a
+    // blank that reads the same as never having run.
+    expect(sectionIn(after.text, "tasks")).toContain("Removed no runs.");
   });
 
   it("tells a visitor where the door is, and nothing else", async () => {

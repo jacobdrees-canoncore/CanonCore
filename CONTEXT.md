@@ -385,10 +385,11 @@ night's failure visible: a registry holding this in memory would answer only unt
 restarted.
 
 **Outcome**:
-How a run ended, and one of four. `running` while it has not; `completed`; `failed` when the task
-broke; `aborted` when it was STOPPED, by the owner or by the server going away. The last two are
-different answers on purpose -- a job that was killed and a job that broke need different answers.
-_Avoid_: status, cancelled (as a fifth value)
+How a run ended, and one of five. `running` while it has not; `completed`; `failed` when the task
+broke; `cancelled` when the OWNER stopped it; `aborted` when the SERVER went away under it. The last
+three are different answers on purpose -- a job that broke, a job its owner stopped and a job the
+machine stopped need different answers, and only the first and last are a machine to go and look at.
+_Avoid_: status
 
 ### Named instances
 
