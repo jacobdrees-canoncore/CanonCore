@@ -246,6 +246,35 @@ describe("placement.move", () => {
     ]);
   });
 
+  it("moves a member into ANOTHER container, which then holds it where the first no longer does", async () => {
+    // ADR-0061's third mutation, and ADR-0116's shape: a move names the
+    // Placement, and `containerId` is where it goes rather than where it was.
+    // Every other test here moves within one container, so without this one
+    // the cross-container half is a signature nobody has watched succeed.
+    const releaseOrder = await anItem(db, { isContainer: true, isOrdered: true });
+    const storyOrder = await anItem(db, { isContainer: true, isOrdered: true });
+    const story = await anItemTitled(db, "The Moonbase");
+
+    const { id } = await call(
+      appRouter.placement.place,
+      { containerId: releaseOrder, itemId: story, position: 4 },
+      { context: asTheOwner },
+    );
+
+    await call(
+      appRouter.placement.move,
+      { id, containerId: storyOrder, position: 1, siblings: [] },
+      { context: asTheOwner },
+    );
+
+    const destination = await call(appRouter.item.get, { id: storyOrder }, { context });
+    expect(destination.holds.entries).toStrictEqual([
+      expect.objectContaining({ id, itemId: story, title: "The Moonbase", position: 1 }),
+    ]);
+    const origin = await call(appRouter.item.get, { id: releaseOrder }, { context });
+    expect(origin.holds.entries).toStrictEqual([]);
+  });
+
   it("says NOT_FOUND for a placement that is not there to move", async () => {
     const container = await anItem(db, { isContainer: true, isOrdered: true });
 

@@ -90,10 +90,11 @@ orderings, **hand-placed**". [[0061-containers-own-their-membership]] recorded "
 naming a PLACEMENT. There are none." Shipping multi-placement that the owner cannot perform is
 shipping the demo of the feature rather than the feature.
 
-**Most of that half landed under CNCORE-72**, which is why the quotation above is in the past tense:
-place, remove and restore name a Placement by id, and a container's own page is where an owner
-reaches them. What is still a provider's alone is the REORDER and the move between containers, under
-CNCORE-73 — which is also why ADR-0061 is still `proposed`.
+**That half landed under CNCORE-72 and CNCORE-73**, which is why the quotation above is in the past
+tense. Place, remove and restore name a Placement by id under CNCORE-72; the reorder and the move
+between containers arrived with the drag under CNCORE-73, so ADR-0061 is `accepted`. A container's
+own page is where an owner reaches all of them except the move between containers, which only
+`placement.move` offers until a tree exists.
 
 ## Staged in two tags
 
@@ -113,10 +114,14 @@ somebody who is not a member of this organisation. Both of awesome-selfhosted's 
 satisfied and the clock runs.
 
 **WHAT `accepted` DOES NOT MEAN HERE, SAID PLAINLY.** This record stages one effort across two tags
-and only the FIRST has shipped. v0.2.0's owner write path -- CNCORE-71 to CNCORE-75 -- is unbuilt,
-so the argument three sections up, that "shipping multi-placement that the owner cannot perform is
-shipping the demo of the feature rather than the feature", is still an outstanding debt rather than
-a settled one. The status is flipped because the gate this record wrote for itself was the tag and
+and only the FIRST had shipped when this status flipped. v0.2.0's owner write path -- CNCORE-71 to
+CNCORE-74 -- was unbuilt then, so the argument three sections up, that "shipping multi-placement that
+the owner cannot perform is shipping the demo of the feature rather than the feature", was an
+outstanding debt rather than a settled one. It is built now, and CNCORE-75 ships it as the second
+tag: an owner creates an Item, places it in as many Containers as they like, reorders one by
+dragging and removes a member, each at its own Position. The one mutation their hands cannot reach
+is the move BETWEEN Containers, which only `placement.move` offers, because the Members list is flat
+and no tree was ported (ADR-0116). The status is flipped because the gate this record wrote for itself was the tag and
 nothing else; the half that has not landed is named here so `accepted` cannot be read as the whole
 effort being done.
 

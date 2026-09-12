@@ -42,7 +42,8 @@ provider already placed it therefore gets ONE row with a second source attached,
 owner-asserted placement of their own. That is right for import and wrong for an owner's hand.
 
 The write path needs its own mutations that name a Placement by id — place, move, remove, restore —
-which is [[0061-containers-own-their-membership]]'s explicitly unbuilt half.
+which was [[0061-containers-own-their-membership]]'s explicitly unbuilt half until CNCORE-72 and
+CNCORE-73 built all four, and is why that record is now `accepted` too.
 
 **ALL FOUR ARE BUILT.** Place, remove and restore landed under CNCORE-72; `move` — the one the drag
 needs, and the half this record is actually ABOUT — arrived with the drag under CNCORE-73, which is
