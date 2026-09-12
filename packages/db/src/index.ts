@@ -26,6 +26,7 @@ export {
   movePlacementByHand,
   PlacementRefused,
   placeItemByHand,
+  type Reorder,
   removePlacementByHand,
   restorePlacementByHand,
   type Writer,

@@ -1,7 +1,7 @@
 import { defineConfig } from "vitest/config";
 
 /**
- * THE PAGE IN A BROWSER: ADR-0103's fifth seam and the one it held in reserve.
+ * THE PAGE IN A BROWSER: ADR-0103's sixth seam and the one it held in reserve.
  *
  * A PROJECT OF ITS OWN RATHER THAN MORE OF `e2e/` (CNCORE-73). The two suites
  * want opposite things from a harness. `e2e` stands up seven instances and two

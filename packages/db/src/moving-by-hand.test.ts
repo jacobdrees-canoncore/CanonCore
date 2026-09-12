@@ -208,3 +208,67 @@ describe("a Placement cycle", () => {
     ).resolves.toEqual(expect.any(String));
   });
 });
+
+describe("what a move may not reach", () => {
+  it("leaves a sibling in ANOTHER container alone", async () => {
+    /*
+     * THE ARITHMETIC IS THE CALLER'S, THE SCOPE IS NOT (ADR-0116). That record
+     * hands the client the job of working out which siblings moved, and in the
+     * same breath says "the client guard is not the check" about the cycle. The
+     * sibling SET is the same shape of guard: a request naming a placement in
+     * another ordering would rewrite a position nobody dragged, in a container
+     * the owner was not even looking at.
+     *
+     * Found by review, which read the `where` and saw it matched on id alone.
+     */
+    const container = await anItem(db, { isContainer: true, isOrdered: true });
+    const elsewhere = await anItem(db, { isContainer: true, isOrdered: true });
+    const here = await anItem(db);
+    const there = await anItem(db);
+
+    const moving = await placeItemByHand(db, { containerId: container, itemId: here, position: 1 });
+    const untouched = await placeItemByHand(db, {
+      containerId: elsewhere,
+      itemId: there,
+      position: 9,
+    });
+
+    await expect(
+      movePlacementByHand(db, {
+        id: moving,
+        containerId: container,
+        position: 2,
+        siblings: [{ id: untouched, position: 400 }],
+      }),
+    ).rejects.toThrow(PlacementRefused);
+
+    // AND NOTHING MOVED AT ALL, which is the half a rejection alone would not
+    // give: the whole delta is one transaction, so a sibling it may not reach
+    // takes the move down with it rather than half-applying.
+    expect(await orderingIn(elsewhere)).toStrictEqual([{ id: untouched, position: 9 }]);
+    expect(await orderingIn(container)).toStrictEqual([{ id: moving, position: 1 }]);
+  });
+
+  it("refuses a position the column cannot hold, as a refusal rather than a fault", async () => {
+    // `position` is a 32-bit `integer` (migration 1) and the procedure's schema
+    // accepts any safe integer, so the gap between them is reachable. It is the
+    // owner asking for something impossible, which is what `PlacementRefused`
+    // is for -- not a broken catalogue.
+    const container = await anItem(db, { isContainer: true, isOrdered: true });
+    const story = await anItem(db);
+    const placed = await placeItemByHand(db, {
+      containerId: container,
+      itemId: story,
+      position: 1,
+    });
+
+    await expect(
+      movePlacementByHand(db, {
+        id: placed,
+        containerId: container,
+        position: Number.MAX_SAFE_INTEGER,
+        siblings: [],
+      }),
+    ).rejects.toThrow(PlacementRefused);
+  });
+});

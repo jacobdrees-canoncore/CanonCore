@@ -623,10 +623,17 @@ function Members({
                 reads as broken rather than as the end of the list.
               */}
           {owner && (
-            <MovePlacement
+            <MoveTo
               containerId={itemId}
-              up={reorderedTo(entries, placement.id, index - 1)}
-              down={reorderedTo(entries, placement.id, index + 1)}
+              to={reorderedTo(entries, placement.id, index - 1)}
+              label="Move up"
+            />
+          )}
+          {owner && (
+            <MoveTo
+              containerId={itemId}
+              to={reorderedTo(entries, placement.id, index + 1)}
+              label="Move down"
             />
           )}
           {owner && <RemovePlacement placementId={placement.id} containerId={itemId} />}
@@ -1176,7 +1183,7 @@ async function PlaceAnItem({
 }
 
 /**
- * MOVING ONE MEMBER UP OR DOWN, as two forms carrying the delta (ADR-0116).
+ * MOVING ONE PLACEMENT UP OR DOWN, as a form carrying the delta (ADR-0116).
  *
  * THE DELTA IS IN THE FORM, which is what lets a Server Action apply it without
  * re-reading the ordering. A reorder sends the placement that moved and the
@@ -1191,26 +1198,23 @@ async function PlaceAnItem({
  * AN ABSENT POSITION IS AN EMPTY FIELD, never a missing one. A member with no
  * position is still a member (CONTEXT.md's Unplaced), and an omitted field and
  * an empty one would be the same request with two meanings.
+ *
+ * NOTHING AT ALL FOR A MOVE THAT CANNOT HAPPEN. `reorderedTo` answers null for
+ * a landing a placement already occupies, so the first row renders no Move up
+ * and the last no Move down -- a control that cannot do anything reads as
+ * broken rather than as the end of the list. Taking that null HERE is review's
+ * finding: the wrapper this replaces did nothing but render two of these.
  */
-function MovePlacement({
+function MoveTo({
   containerId,
-  up,
-  down,
+  to,
+  label,
 }: {
   containerId: string;
-  up: Reorder | null;
-  down: Reorder | null;
+  to: Reorder | null;
+  label: string;
 }) {
-  return (
-    <>
-      {up && <MoveTo containerId={containerId} to={up} label="Move up" />}
-      {down && <MoveTo containerId={containerId} to={down} label="Move down" />}
-    </>
-  );
-}
-
-/** One direction of the above, since the two differ only in where they land. */
-function MoveTo({ containerId, to, label }: { containerId: string; to: Reorder; label: string }) {
+  if (!to) return null;
   return (
     <form action={movePlacement}>
       <input type="hidden" name="id" value={to.id} />

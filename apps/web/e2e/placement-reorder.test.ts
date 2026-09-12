@@ -115,14 +115,57 @@ describe("reordering a container with no script", () => {
   });
 
   it("survives a reload, because the ordering is what changed and not the page", async () => {
+    /*
+     * THE WHOLE ORDERING, EXACTLY, BOTH SIDES OF THE MOVE. The first version of
+     * this asserted only that the moved row was "not last" -- which it was
+     * before the move as well, so it would have passed had nothing happened at
+     * all. Found by review, and it is the failure this file exists to catch.
+     *
+     * READ BEFORE rather than written down, because the tests above this one
+     * rearrange the same ordering: an expectation spelled out as titles would
+     * be asserting what this FILE has done so far rather than what this test
+     * did.
+     */
+    const before = titlesIn((await containerPage(reorderable.releaseOrder, owner)).text);
+    const from = before.indexOf(reorderable.third);
+    expect(from).toBeGreaterThan(0);
+
     await move(reorderable.releaseOrder, reorderable.third, "up");
 
-    const reloaded = await containerPage(reorderable.releaseOrder, owner);
+    const expected = [...before];
+    const [moved] = expected.splice(from, 1);
+    expected.splice(from - 1, 0, moved as string);
 
-    expect(titlesIn(reloaded.text)).toContain(reorderable.third);
-    expect(titlesIn(reloaded.text).indexOf(reorderable.third)).toBeLessThan(
-      titlesIn(reloaded.text).length - 1,
-    );
+    const reloaded = await containerPage(reorderable.releaseOrder, owner);
+    expect(titlesIn(reloaded.text)).toStrictEqual(expected);
+  });
+
+  it("reads the Placements back with the positions they now hold", async () => {
+    /*
+     * THE TICKET ASKS FOR PERSISTENCE READ BACK AS PLACEMENTS, not merely as an
+     * order of titles. Positions are SLOTS and a reorder permutes the members
+     * among them (ADR-0116), so the set of positions a container holds is
+     * invariant -- which is a claim about the rows rather than about the list,
+     * and the one a renumbering would break while the titles still looked right.
+     */
+    const positionsNow = () =>
+      containerPage(reorderable.releaseOrder, owner).then(({ text }) =>
+        membersIn(text).map((row) => /#(\d+)/.exec(row)?.[1] ?? "none"),
+      );
+
+    const before = await positionsNow();
+    const titlesBefore = titlesIn((await containerPage(reorderable.releaseOrder, owner)).text);
+
+    await move(reorderable.releaseOrder, reorderable.first, "down");
+
+    const after = await positionsNow();
+    const titlesAfter = titlesIn((await containerPage(reorderable.releaseOrder, owner)).text);
+
+    // THE ORDER MOVED, which is what stops this passing over a reorder that did
+    // nothing: the multiset below is invariant either way, so on its own it
+    // would be an assertion about arithmetic nobody performed.
+    expect(titlesAfter).not.toStrictEqual(titlesBefore);
+    expect([...after].sort()).toStrictEqual([...before].sort());
   });
 
   it("leaves the item's position in every OTHER ordering alone", async () => {

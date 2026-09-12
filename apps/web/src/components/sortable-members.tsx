@@ -79,10 +79,10 @@ export function SortableMembers({
    * documented way to reset state when a prop changes: an effect would paint
    * the stale order first and correct it a frame later.
    */
-  const answered = rows.map((row) => `${row.id}:${row.position ?? ""}`).join(",");
-  const [lastAnswered, setLastAnswered] = useState(answered);
-  if (lastAnswered !== answered) {
-    setLastAnswered(answered);
+  const served = rows.map((row) => `${row.id}:${row.position ?? ""}`).join(",");
+  const [lastServed, setLastServed] = useState(served);
+  if (lastServed !== served) {
+    setLastServed(served);
     setOrder(rows.map((row) => row.id));
     setPositions(new Map(rows.map((row) => [row.id, row.position])));
   }
@@ -153,9 +153,9 @@ export function SortableMembers({
     >
       <ul className="mt-2 divide-y">
         {showing.map((id, index) => (
-          <SortableMember key={id} id={id} index={index}>
+          <SortablePlacement key={id} id={id} index={index}>
             {content.get(id)}
-          </SortableMember>
+          </SortablePlacement>
         ))}
       </ul>
     </DragDropProvider>
@@ -164,6 +164,12 @@ export function SortableMembers({
 
 /**
  * ONE ROW, DRAGGABLE BY A HANDLE RATHER THAN BY ITS WHOLE SURFACE.
+ *
+ * `SortablePlacement` RATHER THAN THE SINGULAR OF THE LIST ABOVE. `CONTEXT.md`
+ * rejects `member` as a NAME for a Placement, and settles "Members" as the
+ * reader's word from the container's end -- so the LIST may carry it and one
+ * ROW may not, because a row is one Placement and nothing else. Found by
+ * review.
  *
  * THE HANDLE IS WHY THE REST OF THE ROW STILL WORKS. A row carries a link to
  * the item and up to three buttons; making the whole row a drag source would
@@ -174,7 +180,7 @@ export function SortableMembers({
  * and moves it with the arrow keys. The visible Move controls beside it are the
  * path that requirement actually asks for; this is the accelerator.
  */
-function SortableMember({
+function SortablePlacement({
   id,
   index,
   children,
