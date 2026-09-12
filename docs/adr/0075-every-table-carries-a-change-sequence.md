@@ -16,6 +16,12 @@ compacted by rank rather than by tombstone (CNCORE-124), because nothing deletes
 no tombstone to sweep and what makes a run removable is that it has fallen behind every reader. That
 table's `deleted_at` and change sequence are still written by nothing.
 
+`settings` (migration 16, CNCORE-99) is a second table with a tombstone nothing writes, and it is
+here for the same reason `task_runs` is: nothing DELETES the one settings row -- removing a Provider
+rewrites a value on it -- so there is no tombstone to sweep. Its change sequence is not idle,
+though, and that is the difference worth keeping: every change an Owner makes is an UPDATE of one
+row, so the trigger is the only record that the configuration changed at all.
+
 Retrofitting a change sequence means backfilling one for every row already written, and every row
 written before it is indistinguishable from every other, so the reversal query cannot see history it
 was not present for.

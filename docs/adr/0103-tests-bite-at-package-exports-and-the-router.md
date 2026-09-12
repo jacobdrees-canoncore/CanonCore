@@ -727,6 +727,10 @@ is whatever the developer's `apps/web/.env` holds, reaching a fixture defined by
 paged instance omitted `PROVIDER_URLS` for exactly that reason and nothing said so: CNCORE-93 named
 it and left it, because on CI, where there is no `.env`, the difference is invisible. `allowlist` and
 `providers` are now required fields, so an instance that leaves either ambient does not compile.
+**AND THE CHANNEL ITSELF IS GONE SINCE CNCORE-99**: both are Settings rows now, written into an
+instance's own database before its server starts, so there is no ambient value left for a
+developer's `.env` to supply. The required fields stay, because an instance that did not say what it
+reaches is one a reader has to go and work out.
 
 **THAT IS THE SAME MECHANISM AS `TEST_DATABASE_SUFFIXES`, DELIBERATELY.** CNCORE-112 folded into this
 ticket because its subject is this helper's first parameter, and both halves land on the same rule:

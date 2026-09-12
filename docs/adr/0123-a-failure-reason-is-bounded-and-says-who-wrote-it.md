@@ -171,5 +171,5 @@ right place for it precisely because the reason cannot be relied on to contain i
 **The `provider` branch is rendered by a test, which it was not at first.** The suite's one
 unreachable provider is refused at the config boundary, so every page assertion reached the
 `canoncore` branch and the quoting this record turns on was rendered by nothing. `aProviderThatAnswersBadly`
-is the witness, and it is configured in `PROVIDER_URLS` like `aProviderThatDeclinesBrowse` — the page
+is the witness, and the instance names it like `aProviderThatDeclinesBrowse` — the page
 refuses a base URL it does not know, so a stub standing up inside one test cannot reach the branch.

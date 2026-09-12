@@ -47,8 +47,9 @@ produce the worst possible first five minutes") and `sweep-jellyfin-repo.md` ("A
 product's first five minutes are unspecified in the prompt", classified ABSENT — HIGH). A third
 shard names the mechanism without rating it: "CanonCore's equivalent path has an extra mandatory
 step nobody has written down — connect a provider." The mandatory step is real and was not merely
-undocumented: `PROVIDER_ALLOWLIST` defaults to `""`, which the code comment describes as refusing
-every provider, and the README did not mention the variable at all. CNCORE-64 gave it a row in the
+undocumented: the allowlist defaults to empty, which refuses every provider, and the README did not
+mention it at all. (It was `PROVIDER_ALLOWLIST` then; the default survived the move to a Setting
+under CNCORE-99 unchanged, which is the half that mattered.) CNCORE-64 gave it a row in the
 README's `### What it reads` table and a line in `.env.example`, and CNCORE-65 put it on the front
 page. The default is untouched and still deliberate; what changed is that it is now told to the
 person it governs.
@@ -105,8 +106,10 @@ written and has to stay that way** — "nothing in the catalogue", never "nothin
 third run at "no content of any kind" would be refuted by a row count that takes half a minute.
 
 The first evidence for it was CNCORE-65's suite. `apps/web/e2e/front-page.test.ts` stands up the
-same build a second time against a database built from empty, with `PROVIDER_ALLOWLIST` unset, and
-asks it for `/`. Until then "a fresh install starts empty" was a property nothing exercised: every
+same build a second time against a database built from empty, reaching nothing, and asks it for
+`/`. (It was `PROVIDER_ALLOWLIST` unset when this was written; since CNCORE-99 the allowlist is a
+Settings row and the fixture writes an empty one, which is the same state arrived at through the
+store the surface writes.) Until then "a fresh install starts empty" was a property nothing exercised: every
 suite in the repo ran against a seeded database, which is the one state this record does not
 govern.
 

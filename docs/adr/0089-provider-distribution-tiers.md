@@ -91,7 +91,8 @@ drift into a default.
 
 **Tier 1 and tier 2 are still unbuilt.** No provider definition ships with CanonCore, bundled or
 otherwise, and there is no store. Both providers are reached the tier 3 way: a URL an owner writes
-into `PROVIDER_ALLOWLIST`. This record stays `proposed` for that reason.
+into their own settings (`PROVIDER_ALLOWLIST` until CNCORE-99). This record stays `proposed` for
+that reason.
 
 ## A PUBLIC consumer of private images, which this record had not met
 

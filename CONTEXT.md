@@ -318,6 +318,19 @@ own endpoint.
 **Review queue**:
 Where a match lands when its confidence falls between the two thresholds.
 
+**Setting**:
+Something about this INSTANCE that the Owner configures and CanonCore stores: which Providers it
+reaches, and the Allowlist that admits them. A Setting belongs to the catalogue, which is what
+distinguishes it from a Credential — that belongs to the Provider and is never stored here. Edited
+from a surface rather than from a file, so changing one needs no restart.
+_Avoid_: preference, option, config value, environment variable
+
+**Allowlist**:
+The hosts and address ranges a Provider may be fetched from. A Setting, and a different one from the
+Providers beside it: this says what MAY be reached, that says what IS reached, and a Provider needs
+to be in both. Empty admits nothing, which is what a fresh instance starts with.
+_Avoid_: whitelist, safelist, permitted hosts
+
 **Config URL**:
 A URL the owner typed into settings, such as a provider's base URL. Checked
 against the allowlist.

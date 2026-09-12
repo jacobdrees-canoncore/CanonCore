@@ -158,7 +158,7 @@ move on a page opened by mistake would be closing the tab.
 
 AND THE BOUND THAT CAME WITH IT, stated as a bound on the PAGE rather than on the
 operation, because the difference is the whole of it: the page can only OFFER to
-purge a provider named in `PROVIDER_URLS`, since that list is the only one it has
+purge a provider the instance NAMES, since that list is the only one it has
 and a target outside it has no row to sit in. A provider removed from the setting
 is therefore not offered until it is named again, and naming it again is the
 remedy. THE PROCEDURE ITSELF IS DELIBERATELY NOT BOUNDED THAT WAY, and the action

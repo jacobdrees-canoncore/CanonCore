@@ -50,8 +50,9 @@ here. It also costs nothing that was wanted: the owner still sees the need, the 
 lapsed, without a terminal.
 
 **Storing it stays refused, for one reason rather than the two an earlier draft gave.** A
-`credential` column beside `PROVIDER_URLS`
-([[0121-an-instance-names-its-providers-beside-the-allowlist-that-admits-them]]) would put one
+`credential` column on the Settings store, beside the providers an instance names
+([[0121-an-instance-names-its-providers-beside-the-allowlist-that-admits-them]], built under
+CNCORE-99) would put one
 provider's upstream secret in CanonCore's database, and nothing else in this product is a secret at
 rest — [[0035-ship-no-api-keys]] is the same instinct pointed outward. The other reason, that a
 stored credential would have to travel on the CMPP request and grow a header every provider must
