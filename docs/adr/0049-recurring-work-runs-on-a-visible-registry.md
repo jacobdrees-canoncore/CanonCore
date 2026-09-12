@@ -40,8 +40,15 @@ the TODO that named this ticket is gone from that file.
 **ONE TRIGGER KIND, AND THAT IS THE RULE RATHER THAN A GAP.** Jellyfin carries four — daily, weekly,
 interval and startup — and only `dailyAt` exists here, because `sweep-sessions` is the only task and
 it wants a daily one. `CLAUDE.md` refuses a configuration option nothing in the repo reads, and three
-unused trigger kinds are three schedules no test can bite on. `Trigger` is a union so the second
-arrives without every reader changing, and the task that needs it is what earns it.
+unused trigger kinds are three schedules no test can bite on.
+
+**AND A SECOND KIND CHANGES EVERY READER, which an earlier version of this section denied.** It
+claimed `Trigger` was "a union so the second arrives without every reader changing". It is not a
+union — it is one object type, `{ kind: "daily"; atHour: number }` — and the readers hardcode that
+kind: the router states `z.literal("daily")` and the page's `whenItRuns` takes the daily shape and
+writes the sentence for it. Both are correct for one kind and both are edits on the day there are
+two, together with `nextFiring`. That is the honest cost of not building the other three, and it is
+small; the sentence claiming otherwise was the thing worth removing. Found in review.
 
 **THE SCHEDULE IS NOT THE OWNER'S TO EDIT, and Plex's eight toggles are not adopted.** The trigger is
 declared in code beside the task. An owner-editable cadence is a settings surface, a table and a
@@ -49,11 +56,17 @@ migration for a catalogue that today runs one task; what that would buy over a s
 nothing this record argued for. The eight remain what this record says they are — a list of what
 needs scheduling, not a list of switches owed.
 
-**`aborted` COVERS BOTH WAYS A RUN IS STOPPED, which is this record's distinction used as it means
-it.** Jellyfin separates `Cancelled` (a person asked) from `Aborted` (the shutdown killed it); here
-both read `aborted` and the detail says which — "Stopped before it finished." against "The server
-stopped while this was running." The distinction this record actually asks for is STOPPED against
-BROKE, and that is kept. A fifth value would be a column the page renders identically.
+**THREE NON-SUCCESS OUTCOMES RATHER THAN TWO, WHICH THIS REPOSITORY HAD ALREADY MEASURED AND SAID.**
+`cancelled` is the owner stopping a run, `aborted` is the server dying under one, and `failed` is the
+task breaking. The first draft of this section collapsed the first two and argued that "a fifth value
+would be a column the page renders identically" — which was wrong twice over. `docs/research/verify-adr-jellyfin.md`
+§34 had already read Jellyfin's `TaskCompletionStatus`, found `Cancelled` ("manually cancelled by the
+user") apart from `Aborted` ("due to a system failure or shutdown"), and reported that the third value
+is the one worth copying because THIS RECORD'S OWN ARGUMENT reaches it: a job the owner stopped and a
+job the machine stopped are different answers too. And the page does not render them identically — it
+says "You stopped it" against "The server stopped while this was running", which is a decision read
+back against a machine worth going to look at. Overriding a verified finding on the strength of a
+first draft's convenience is the mistake here, and it is recorded rather than quietly fixed.
 
 **AND THE SIGNAL DECIDES THE OUTCOME, NOT THE TASK'S RETURN.** Cancelling is cooperative, because
 nothing else is available: a JavaScript runtime cannot interrupt a promise from outside, so a task
@@ -81,6 +94,19 @@ clock whether or not anything has removed it (ADR-0043), so an unswept table is 
 That is true of tombstone compaction generally and is why this whole category is maintenance rather
 than mechanism — but a maintenance job nobody can see is one that silently stopped months ago, which
 is this record's own sentence and the reason it exists.
+
+**THE HISTORY IS READ AS A HISTORY, not as a last outcome.** `task.history` answers one task's runs
+newest first and `/tasks` renders the ones before the last behind a `details`. An earlier build
+surfaced `lastRun` alone, which left "last night failed" reading identically to "every night for a
+fortnight has failed" — a glitch and a broken machine, told apart only by the runs in between. The
+depth is 30, which is a month of a daily task. Found in review.
+
+**AND THIS TABLE ONLY GROWS, WHICH IS THIS RECORD'S OWN CATEGORY ARRIVING BACK AT IT.** A daily task
+writes 365 rows a year and nothing removes them; `task_runs` carries a tombstone and a change
+sequence (ADR-0075) that nothing writes and no read filters on. The compaction this record lists is
+therefore owed to its own history table, and the task that does it is CNCORE-124 — a second task on
+the registry, which is the shape this whole record is for. It is not urgent at one task and a row a
+night, and it is not free to forget, so it is a ticket rather than a sentence.
 
 **WHAT A RUN LEAVES BEHIND IS BOUNDED AT ADR-0123's 300.** A task answers a sentence it wrote, but
 what a task THROWS is written by whatever broke it, and that column is read onto a page. It is

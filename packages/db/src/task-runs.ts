@@ -7,13 +7,21 @@ import { taskRuns } from "./schema";
 /**
  * How a run ended (ADR-0049).
  *
- * `aborted` IS NOT `failed`, which is that record's own instruction and the
- * reason it points at Jellyfin's shape: a job that was STOPPED and a job that
- * BROKE need different answers from whoever reads the history. An owner who
- * cancelled last night's sweep is reading their own decision; an owner whose
- * sweep threw is reading an incident.
+ * STOPPED IS NOT BROKEN, which is that record's own instruction and the reason
+ * it points at Jellyfin's shape: an owner who stopped last night's sweep is
+ * reading their own decision back, and an owner whose sweep threw is reading an
+ * incident.
+ *
+ * AND THE OWNER STOPPING IT IS NOT THE SERVER DYING UNDER IT. Jellyfin ships
+ * three non-success values rather than two -- `Cancelled` is "manually
+ * cancelled by the user" and `Aborted` is "due to a system failure or
+ * shutdown" -- and `docs/research/verify-adr-jellyfin.md` §34 read that enum
+ * and says the third is the one worth copying, because ADR-0049's own argument
+ * reaches it. A fortnight of the owner's own cancellations and a fortnight of
+ * the server dying mid-sweep are the same column otherwise, and only one of
+ * them is a machine that needs looking at.
  */
-export type TaskOutcome = "running" | "completed" | "failed" | "aborted";
+export type TaskOutcome = "running" | "completed" | "failed" | "cancelled" | "aborted";
 
 /** One run of one task, as anything reading the history sees it. */
 export interface TaskRun {
@@ -57,21 +65,36 @@ export async function startTaskRun(db: Database, taskKey: string): Promise<TaskR
  * from this process would be two clocks subtracted. ADR-0043 measured that skew
  * running BACKWARDS here -- a row that ended 60ms before it began.
  *
- * IT CLOSES ONLY A RUN THAT IS STILL OPEN. A run already ended is one something
- * else has already had the last word on -- the scheduler's shutdown sweep and a
- * task's own return racing over the same row -- and the first answer is the
- * true one.
+ * IT CLOSES ONLY A RUN THAT IS STILL OPEN, and answers `null` when there was
+ * nothing to close. A run already ended is one something else has already had
+ * the last word on -- a restart's startup close and a task's own return racing
+ * over the same row -- and the first answer is the true one.
+ *
+ * IT ANSWERS THE ROW RATHER THAN NOTHING, because the caller's own copy of the
+ * run is the one it opened, whose `ended_at` is null. Assembling an answer out
+ * of that copy and the ending produces a run reading `completed` with no end --
+ * the one state `task_runs_running_has_no_end` refuses, so a shape the database
+ * would never have stored. Found in review.
  */
 export async function endTaskRun(
   db: Database,
   runId: string,
   outcome: Exclude<TaskOutcome, "running">,
   detail: string,
-): Promise<void> {
-  await db
+): Promise<TaskRun> {
+  const [ended] = await db
     .update(taskRuns)
     .set({ outcome, detail, endedAt: sql`now()` })
-    .where(and(eq(taskRuns.id, runId), eq(taskRuns.outcome, "running")));
+    .where(and(eq(taskRuns.id, runId), eq(taskRuns.outcome, "running")))
+    .returning();
+  if (ended) return asRun(ended);
+
+  // NOTHING WAS UPDATED, so something else closed this run first -- a restart's
+  // startup close, reaching a run whose process was gone. The stored row is the
+  // true one and this reads it rather than answering the ending that lost.
+  const [stored] = await db.select().from(taskRuns).where(eq(taskRuns.id, runId));
+  if (!stored) throw new Error(`no task run is ${runId}`);
+  return asRun(stored);
 }
 
 /**

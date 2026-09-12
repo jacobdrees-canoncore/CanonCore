@@ -686,6 +686,12 @@ export const aliases = pgTable(
  * two would be one fact stored twice, so the check below makes them one fact
  * the database keeps: a row is running exactly while it has no end.
  *
+ * TODO(CNCORE-124): NOTHING REMOVES A ROW FROM HERE. A daily task writes 365 a
+ * year and ADR-0049 names eight more kinds of work that will each want a key,
+ * so this table is the tombstone compaction that record lists arriving back at
+ * the registry's own history. A second task on the registry is the shape for
+ * it, which is what that ticket builds.
+ *
  * A CHECK RATHER THAN A REFERENCE TABLE, which is a departure worth stating.
  * The reference tables hold the CATALOGUE'S closed vocabularies (ADR-0029) --
  * kinds, ranks, datatypes -- each carrying a label a page prints and each
@@ -703,10 +709,14 @@ export const taskRuns = pgTable(
     startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
     endedAt: timestamp("ended_at", { withTimezone: true }),
     /**
-     * `aborted` IS DISTINCT FROM `failed`, which is ADR-0049's own instruction
-     * and the reason it names Jellyfin's shape: a job that was STOPPED and a
-     * job that BROKE need different answers from whoever reads this. A sweep
-     * the owner cancelled is not an incident; a sweep that threw is.
+     * STOPPED IS DISTINCT FROM BROKEN, which is ADR-0049's own instruction and
+     * the reason it names Jellyfin's shape: a sweep the owner stopped is not an
+     * incident and a sweep that threw is.
+     *
+     * AND `cancelled` IS DISTINCT FROM `aborted`, which is the third value
+     * Jellyfin ships and `verify-adr-jellyfin.md` §34 says is the one worth
+     * copying: the owner stopping a run and the server dying under one are
+     * different facts, and only the second is a machine to go and look at.
      */
     outcome: text("outcome").notNull().default("running"),
     /**
@@ -722,7 +732,7 @@ export const taskRuns = pgTable(
   (t) => [
     check(
       "task_runs_outcome_is_known",
-      sql`${t.outcome} in ('running', 'completed', 'failed', 'aborted')`,
+      sql`${t.outcome} in ('running', 'completed', 'failed', 'cancelled', 'aborted')`,
     ),
     // RUNNING IS EXACTLY "HAS NOT ENDED". Stored as one fact rather than two
     // that can disagree, which is what a row reading `completed` with no end

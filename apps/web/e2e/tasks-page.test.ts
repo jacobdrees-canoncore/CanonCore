@@ -61,6 +61,35 @@ describe("/tasks", () => {
     expect(tasks).not.toContain("Has not run yet");
   });
 
+  it("shows the runs before the last one, so one outcome reads as a pattern", async () => {
+    // ADR-0049 ASKS FOR A HISTORY AND NOT A LAST OUTCOME. A sweep that failed
+    // last night reads the same as one that has failed every night for a
+    // fortnight, and those are a glitch and a broken machine.
+    const cookie = await logInAt(baseUrl, ownerPassword);
+    const runOnce = async () => {
+      const { text } = await documentFrom(baseUrl, "/tasks", cookie);
+      const [form] = postFormsIn(sectionIn(text, "tasks"));
+      if (!form) throw new Error("/tasks offered no form to run a task with");
+      return submit(baseUrl, "/tasks", form, cookie);
+    };
+
+    await runOnce();
+    const { text } = await runOnce();
+
+    // THE RUNS BEFORE THE LAST ONE, folded away behind a `details` that needs
+    // no JavaScript to open.
+    //
+    // MATCHED WITHOUT THE COUNT, because this instance is shared with every
+    // other file in this suite and the sweep is the one task any of them can
+    // run. Asserting "2 runs" would be asserting what the files before this one
+    // happened to do.
+    const tasks = sectionIn(text, "tasks");
+    expect(tasks).toMatch(/runs? before it/);
+    // AND THE HISTORY IS A LIST OF RUNS rather than a count in a label: at
+    // least the earlier of the two this test made is rendered under it.
+    expect(tasks.match(/Removed no sessions/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
+  });
+
   it("tells a visitor where the door is, and nothing else", async () => {
     // ADR-0044's VISITOR. The catalogue is open because the demo shows them
     // everything in it; what maintenance this instance runs is not in the

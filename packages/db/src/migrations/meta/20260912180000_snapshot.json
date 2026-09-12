@@ -2056,7 +2056,7 @@
       "checkConstraints": {
         "task_runs_outcome_is_known": {
           "name": "task_runs_outcome_is_known",
-          "value": "\"task_runs\".\"outcome\" in ('running', 'completed', 'failed', 'aborted')"
+          "value": "\"task_runs\".\"outcome\" in ('running', 'completed', 'failed', 'cancelled', 'aborted')"
         },
         "task_runs_running_has_no_end": {
           "name": "task_runs_running_has_no_end",

@@ -43,11 +43,19 @@ describe("running a task by hand", () => {
       aTask({ key: "recording", run: async () => "Removed 12 sessions" }),
     ]);
 
-    await registry.run(db, "recording");
+    const run = await registry.run(db, "recording");
 
     expect(await registry.history(db, "recording")).toMatchObject([
       { outcome: "completed", detail: "Removed 12 sessions" },
     ]);
+    // AND THE ANSWER MATCHES THE ROW. A run answered as `completed` with no
+    // `ended_at` is the one state the table's own check refuses -- running is
+    // exactly "has not ended" -- so a caller handed that shape is holding
+    // something the database would not have stored. Found in review, by both
+    // axes independently: the answer was assembled from the OPENING row plus
+    // the ending, and the opening row's `endedAt` is null.
+    expect(run).toMatchObject({ outcome: "completed", detail: "Removed 12 sessions" });
+    expect(run.endedAt).toBeInstanceOf(Date);
   });
 });
 
@@ -135,6 +143,13 @@ describe("cancelling a task that is running", () => {
     // who stopped last night's sweep is reading their own decision back; an
     // owner whose sweep threw is reading an incident. One value for both would
     // put a fortnight of deliberate cancellations in front of them as failures.
+    //
+    // AND THE OWNER STOPPING IT IS NOT THE SERVER DYING UNDER IT, which is the
+    // third value `verify-adr-jellyfin.md` §34 says is the one worth copying:
+    // Jellyfin ships `Cancelled` ("manually cancelled by the user") apart from
+    // `Aborted` ("due to a system failure or shutdown"), and this record's own
+    // argument reaches it -- a job the owner stopped and a job the machine
+    // stopped are different answers too.
     const { task, started } = aTaskThatWaits("cancelling");
     const registry = createRegistry([task]);
 
@@ -142,8 +157,8 @@ describe("cancelling a task that is running", () => {
     await started;
     registry.cancel("cancelling");
 
-    expect((await running).outcome).toBe("aborted");
-    expect(await registry.history(db, "cancelling")).toMatchObject([{ outcome: "aborted" }]);
+    expect((await running).outcome).toBe("cancelled");
+    expect(await registry.history(db, "cancelling")).toMatchObject([{ outcome: "cancelled" }]);
   });
 });
 

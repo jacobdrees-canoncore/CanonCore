@@ -8,6 +8,8 @@ import { provider } from "./provider";
 import { session } from "./session";
 import { task } from "./task";
 
+export type { ReportedRun } from "./task";
+
 export const appRouter = {
   // .output() is what puts the response into the OpenAPI document the
   // catch-all route publishes, and what makes oRPC reject a handler that stops

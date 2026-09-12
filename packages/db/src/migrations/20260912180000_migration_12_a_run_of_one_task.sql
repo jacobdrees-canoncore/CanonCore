@@ -16,9 +16,16 @@
 --
 -- `outcome` CARRIES `running` rather than leaving it to a null `ended_at`: the
 -- two would be one fact stored twice, and the second check below makes them one
--- fact the database keeps. `aborted` is distinct from `failed` because ADR-0049
--- says so in those words -- a job that was STOPPED and a job that BROKE need
--- different answers from whoever reads this.
+-- fact the database keeps.
+--
+-- THREE NON-SUCCESS VALUES RATHER THAN TWO. ADR-0049 asks for STOPPED apart
+-- from BROKE in those words, which is `cancelled`/`aborted` against `failed`;
+-- the split WITHIN stopped is Jellyfin's, whose enum
+-- `docs/research/verify-adr-jellyfin.md` §34 read and reported as the one worth
+-- copying -- `Cancelled` is "manually cancelled by the user" and `Aborted` is
+-- "due to a system failure or shutdown". The owner stopping a run and the
+-- server dying under one are different facts, and only the second is a machine
+-- to go and look at.
 --
 -- STRATEGY (ADR-0047 asks every rung to state one): IT ADDS, and it can say so
 -- in one line because nothing before it ran a task. No existing row is read or
@@ -37,7 +44,7 @@ CREATE TABLE "task_runs" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"deleted_at" timestamp with time zone,
 	"change_sequence" bigint DEFAULT nextval('change_sequence') NOT NULL,
-	CONSTRAINT "task_runs_outcome_is_known" CHECK ("task_runs"."outcome" in ('running', 'completed', 'failed', 'aborted')),
+	CONSTRAINT "task_runs_outcome_is_known" CHECK ("task_runs"."outcome" in ('running', 'completed', 'failed', 'cancelled', 'aborted')),
 	CONSTRAINT "task_runs_running_has_no_end" CHECK (("task_runs"."outcome" = 'running') = ("task_runs"."ended_at" is null))
 );
 --> statement-breakpoint

@@ -1,4 +1,4 @@
-import { appRouter } from "@canoncore/api/routers";
+import { appRouter, type ReportedRun as Run } from "@canoncore/api/routers";
 import { Button } from "@canoncore/ui/components/button";
 import { call } from "@orpc/server";
 import Link from "next/link";
@@ -29,6 +29,21 @@ export default async function TasksPage() {
   if (context.session === null) return <NotLoggedIn />;
 
   const tasks = await call(appRouter.task.list, {}, { context });
+  /*
+   * THE HISTORY BESIDE THE LIST, because ADR-0049 asks for a run history rather
+   * than a last outcome: a sweep that failed last night reads the same as one
+   * that has failed every night for a fortnight, and those are a glitch and a
+   * broken machine. One read per task, which is one today and is the same
+   * number of round trips the list already makes.
+   */
+  const histories = new Map(
+    await Promise.all(
+      tasks.map(
+        async (task) =>
+          [task.key, await call(appRouter.task.history, { key: task.key }, { context })] as const,
+      ),
+    ),
+  );
 
   return (
     <main className="container mx-auto max-w-2xl px-4 py-8">
@@ -68,11 +83,41 @@ export default async function TasksPage() {
                   </Button>
                 </form>
               )}
+              {/*
+                WHAT IT DID BEFORE, which is what turns one outcome into a
+                pattern. Folded away because the last run is the answer most
+                readings want, and `details` needs no JavaScript to open.
+              */}
+              <Runs runs={(histories.get(task.key) ?? []).slice(1)} />
             </li>
           ))}
         </ul>
       </section>
     </main>
+  );
+}
+
+/**
+ * The runs before the last one, or nothing at all when there are none.
+ *
+ * IT RENDERS NOTHING RATHER THAN AN EMPTY DISCLOSURE for a task that has run
+ * once or never: a control that opens onto nothing is a reader's wasted press.
+ */
+function Runs({ runs }: { runs: Run[] }) {
+  if (runs.length === 0) return null;
+  return (
+    <details className="mt-1">
+      <summary className="cursor-pointer text-muted-foreground text-xs">
+        {runs.length === 1 ? "The run before it" : `The ${runs.length} runs before it`}
+      </summary>
+      <ul className="mt-1 flex flex-col gap-1">
+        {runs.map((run) => (
+          <li className="text-muted-foreground text-xs" key={run.startedAt.toISOString()}>
+            {lastRunOf(run)}
+          </li>
+        ))}
+      </ul>
+    </details>
   );
 }
 
@@ -98,19 +143,21 @@ function whenItRuns(trigger: { kind: "daily"; atHour: number }): string {
  * found nothing, and rendering the two alike would report the silent stoppage
  * this page exists to surface as health.
  *
- * THE FOUR OUTCOMES READ DIFFERENTLY because ADR-0049 says two of them must: a
- * job that was STOPPED and a job that BROKE need different answers, so `Stopped`
- * and `Failed` are different words here rather than one shared "did not
- * finish".
+ * EACH OUTCOME READS DIFFERENTLY because ADR-0049 says two of them must: a job
+ * that was STOPPED and a job that BROKE need different answers, so they are
+ * different sentences here rather than one shared "did not finish".
+ *
+ * AND THE OWNER'S OWN DECISION IS NOT THE SERVER DYING, which is the third
+ * value Jellyfin ships: "You stopped it" is something they did, and "the server
+ * stopped" is something that happened to the machine. Only the second is worth
+ * going to look at.
+ *
+ * IT TAKES THE PACKAGE'S OWN TYPE rather than restating the shape, which an
+ * earlier version did here and in the router both -- a union written down twice
+ * is two lists to add a value to, and the forgotten one fails as a page
+ * rendering an outcome it has no word for. Found in review.
  */
-function lastRunOf(
-  run: {
-    startedAt: Date;
-    endedAt: Date | null;
-    outcome: "running" | "completed" | "failed" | "aborted";
-    detail: string | null;
-  } | null,
-): string {
+function lastRunOf(run: Run | null): string {
   if (run === null) return "Has not run yet.";
   if (run.outcome === "running") return `Running, started ${on(run.startedAt)}.`;
 
@@ -118,7 +165,11 @@ function lastRunOf(
   const said = run.detail ?? "It said nothing.";
   if (run.outcome === "completed") return `${said} Ran ${when}.`;
   if (run.outcome === "failed") return `Failed ${when}. ${said}`;
-  return `Stopped ${when}. ${said}`;
+  // THE OWNER'S OWN DECISION READS BACK AS ONE. "Stopped" is what they did;
+  // "the server stopped" is something that happened to the machine, and only
+  // the second is worth going to look at.
+  if (run.outcome === "cancelled") return `You stopped it ${when}.`;
+  return `The server stopped ${when}, while this was running.`;
 }
 
 /**

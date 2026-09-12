@@ -1,4 +1,4 @@
-import { TaskRefused, taskRegistry } from "@canoncore/tasks";
+import { TaskRefused, type TaskRun, taskRegistry } from "@canoncore/tasks";
 import { ORPCError } from "@orpc/server";
 import { z } from "zod";
 
@@ -17,16 +17,41 @@ const reportedRun = z.object({
   /** `null` exactly while the run is still going. */
   endedAt: z.date().nullable(),
   /**
-   * `aborted` IS NOT `failed`, which is ADR-0049's instruction and the reason
-   * this is a four-value union rather than a boolean and a message: a job that
-   * was stopped and a job that broke need different answers, and a page that
-   * printed "failed" over a fortnight of deliberate cancellations would be
+   * STOPPED IS NOT BROKEN, which is ADR-0049's instruction and the reason this
+   * is an enum rather than a boolean and a message: a page that printed
+   * "failed" over a fortnight of the owner's own cancellations would be
    * reporting incidents that never happened.
+   *
+   * AND `cancelled` IS NOT `aborted`: the owner stopped this one, the server
+   * died under that one, and only the second is a machine to go and look at.
+   * Jellyfin ships both and `verify-adr-jellyfin.md` §34 says the split is
+   * worth copying.
    */
-  outcome: z.enum(["running", "completed", "failed", "aborted"]),
+  outcome: z.enum(["running", "completed", "failed", "cancelled", "aborted"]),
   /** What the run did, or what broke it. `null` while it is still running. */
   detail: z.string().nullable(),
 });
+
+/**
+ * HOW LONG A KEY MAY BE.
+ *
+ * A KEY ARRIVES FROM A FORM, and a key that names no task is quoted back in the
+ * refusal -- so an unbounded one is a caller choosing the length of a sentence
+ * this app utters, which is the defect ADR-0123 exists to close. Every key this
+ * repository ships is a short slug; 100 is far above them and far below a
+ * flood. Found in review.
+ */
+const KEY_LENGTH = 100;
+
+/**
+ * A run as this surface publishes it, which is NOT the row.
+ *
+ * PUBLISHED SO THE PAGE TAKES IT rather than restating the shape: `id` and
+ * `taskKey` are deliberately absent here (ADR-0045 names the fields the read
+ * path carries), so `TaskRun` from the registry is the wrong type for a reader
+ * and copying this shape by hand is how the two drift. Found in review.
+ */
+export type ReportedRun = z.infer<typeof reportedRun>;
 
 const listedTask = z.object({
   key: z.string(),
@@ -79,7 +104,7 @@ export const task = {
    * work.
    */
   run: ownerProcedure
-    .input(z.object({ key: z.string() }))
+    .input(z.object({ key: z.string().max(KEY_LENGTH) }))
     .output(reportedRun)
     .handler(async ({ input, context }) => {
       try {
@@ -106,18 +131,40 @@ export const task = {
    * same either way, which is a list without it running on. `session.end` takes
    * the same posture towards a session that had already lapsed.
    */
+  /**
+   * One task's runs, newest first -- the RUN HISTORY rather than the last of
+   * them (ADR-0049).
+   *
+   * THE RECORD ASKS FOR A HISTORY AND NOT A LAST OUTCOME. "Last night's failure
+   * is visible" is its minimum rather than its whole: a sweep that failed last
+   * night reads the same as one that has failed every night for a fortnight,
+   * and those are a glitch and a broken machine. An earlier version of this
+   * surface answered only `lastRun`, which left the depth `readTaskRuns` reads
+   * with no reader. Found in review.
+   */
+  history: ownerProcedure
+    .input(z.object({ key: z.string().max(KEY_LENGTH) }))
+    .output(z.array(reportedRun))
+    .handler(async ({ input, context }) =>
+      (await taskRegistry().history(context.db, input.key)).map(reported),
+    ),
+
   cancel: ownerProcedure
-    .input(z.object({ key: z.string() }))
+    .input(z.object({ key: z.string().max(KEY_LENGTH) }))
     .output(z.object({ cancelled: z.boolean() }))
     .handler(({ input }) => ({ cancelled: taskRegistry().cancel(input.key) })),
 };
 
-function reported(run: {
-  startedAt: Date;
-  endedAt: Date | null;
-  outcome: "running" | "completed" | "failed" | "aborted";
-  detail: string | null;
-}) {
+/**
+ * A run as the shape above, naming its fields (ADR-0045).
+ *
+ * IT TAKES THE PACKAGE'S OWN TYPE rather than restating the union, which an
+ * earlier version did in three places -- here, on the shape above, and on the
+ * page. A union written down twice is two lists to add a value to, and the one
+ * that gets forgotten fails as a page that renders an outcome it has no word
+ * for. Found in review.
+ */
+function reported(run: TaskRun) {
   return {
     startedAt: run.startedAt,
     endedAt: run.endedAt,

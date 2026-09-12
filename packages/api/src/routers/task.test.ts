@@ -110,3 +110,31 @@ describe("the owner", () => {
     ).toEqual({ cancelled: false });
   });
 });
+
+describe("the run history", () => {
+  it("answers every run of one task, newest first", async () => {
+    // THE RECORD ASKS FOR A HISTORY AND NOT A LAST OUTCOME. A sweep that failed
+    // last night reads the same as one that has failed every night for a
+    // fortnight, and those are a glitch and a broken machine.
+    const context = await logInAs();
+    await call(appRouter.task.run, { key: "sweep-sessions" }, { context });
+    await call(appRouter.task.run, { key: "sweep-sessions" }, { context });
+
+    const history = await call(appRouter.task.history, { key: "sweep-sessions" }, { context });
+
+    expect(history.length).toBeGreaterThanOrEqual(2);
+    const [newest, older] = history;
+    if (!newest || !older) throw new Error("the history answered fewer runs than it was given");
+    expect(newest.startedAt.getTime()).toBeGreaterThanOrEqual(older.startedAt.getTime());
+    // EVERY RUN CARRIES ITS END, which the answer did not until review: a run
+    // reading `completed` with no `ended_at` is the state the table's own check
+    // refuses.
+    expect(newest.endedAt).toBeInstanceOf(Date);
+  });
+
+  it("is refused to a caller with no session", async () => {
+    expect(
+      await refusalOf(call(appRouter.task.history, { key: "sweep-sessions" }, { context: anyone })),
+    ).toBe("UNAUTHORIZED");
+  });
+});

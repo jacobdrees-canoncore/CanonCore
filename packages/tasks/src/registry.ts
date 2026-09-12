@@ -161,8 +161,17 @@ export function createRegistry(tasks: Task[]) {
       const run = await startTaskRun(db, task.key);
       try {
         const ending = await endingOf(task, { db, signal: stop.signal });
-        await endTaskRun(db, run.id, ending.outcome, ending.detail);
-        return { ...run, ...ending };
+        // THE ROW AS IT WAS STORED, not this copy of the opening plus the
+        // ending. `run` is what `startTaskRun` answered, whose `endedAt` is
+        // null, so spreading the ending over it produced a run reading
+        // `completed` with no end -- the one state the table's own check
+        // refuses, and a shape the database would never have held. Found in
+        // review, by both axes independently.
+        //
+        // AND IF SOMETHING ELSE CLOSED IT FIRST -- a restart's startup close,
+        // reaching a run whose process was gone -- `endTaskRun` answers the
+        // stored row rather than the ending that lost the race.
+        return endTaskRun(db, run.id, ending.outcome, ending.detail);
       } finally {
         running.delete(task.key);
       }
@@ -255,12 +264,12 @@ async function endingOf(
   }
 }
 
-/** THE SIGNAL DECIDES, so every way out of a cancelled run reads the same. */
-function stopped(): { outcome: "aborted"; detail: string } {
-  return { outcome: "aborted", detail: STOPPED };
+/** THE SIGNAL DECIDES, so every way out of a stopped run reads the same. */
+function stopped(): { outcome: "cancelled"; detail: string } {
+  return { outcome: "cancelled", detail: STOPPED };
 }
 
-/** What a run stopped by hand leaves in the history. */
+/** What a run the owner stopped leaves in the history. */
 const STOPPED = "Stopped before it finished.";
 
 /** What a run the server died under leaves in the history. */
