@@ -58,8 +58,38 @@ export const placementPublic = z.object({
    * an ordering is a dated claim by a named source rather than a neutral fact:
    * `owner` is the owner's own hand, `provider` an imported ordering. Null when
    * no source stands behind it.
+   *
+   * IT SURVIVES `assertedBy` BESIDE IT rather than being replaced by it
+   * (CNCORE-121). The filter over this list is BY KIND -- Hand-placed,
+   * Imported, From the files, Rule-derived, the four words ADR-0017 settles --
+   * and it reads this field. The two answer different questions: how the item
+   * came to be in there, and who says so.
    */
   placedBy: z.string().nullable(),
+  /**
+   * Every source standing behind this placement, by the label each calls itself
+   * (ADR-0017), the one that SPEAKS for it first -- rank, then the one global
+   * source order, then a stable id, which is `spokesmanFor`'s rule applied to
+   * ORDER the names rather than to pick one of them.
+   *
+   * THE SET, WHERE `placedBy` IS ONE KIND, and CNCORE-121 is why it is here.
+   * One container twice at two positions is a Repeat (ADR-0009) or two sources
+   * disagreeing about position (ADR-0017), nothing STORED separates them, and
+   * the kind cannot: the disagreement an instance actually holds is a wiki
+   * against a broadcaster, two PROVIDERS, so `placedBy` prints "Imported" on
+   * both rows and the reader is back where they started.
+   *
+   * IT CLOSES ADR-0017'S CORROBORATION GAP ON THE WAY, from the end that was
+   * still open. Agreement lands on ONE placement carrying a source each, so two
+   * providers corroborating an ordering were a single row reading "Imported" --
+   * indistinguishable from one provider asserting it. Two names on one row are
+   * that corroboration, visible.
+   *
+   * EMPTY FOR A PLACEMENT NO SOURCE ASSERTED -- a claim nobody made, which is
+   * still a placement. Dropping it would be the read path deciding a row does
+   * not exist because its provenance was never recorded.
+   */
+  assertedBy: z.array(z.string()),
 });
 
 export type PlacementPublic = z.infer<typeof placementPublic>;
@@ -154,20 +184,24 @@ export type AttributionPublic = z.infer<typeof attributionPublic>;
  * one `itemId` between them (ADR-0009), so nothing but the placement id can
  * tell the recap from the episode.
  *
- * IT CARRIES `assertedBy` WHERE THE MIRROR CARRIES `placedBy`, and the asymmetry
- * is CNCORE-90's decision rather than an oversight. A Repeat (ADR-0009: one
- * source, one item, twice, on purpose) and a disagreement (ADR-0017: two sources
- * claiming different positions for one membership) are THE SAME SHAPE in this
- * list -- one title, twice, at two positions -- and ADR-0017 says outright that
- * nothing STORED separates them. What separates them is WHO asserted each row.
+ * IT CARRIES `assertedBy`, AND SINCE CNCORE-121 SO DOES THE MIRROR -- which
+ * carried only `placedBy` when CNCORE-90 wrote this, the asymmetry being that
+ * ticket's scope rather than a decision that the item's end should go without.
+ * A Repeat (ADR-0009: one source, one item, twice, on purpose) and a
+ * disagreement (ADR-0017: two sources claiming different positions for one
+ * membership) are THE SAME SHAPE in either list -- one title, twice, at two
+ * positions -- and ADR-0017 says outright that nothing STORED separates them.
+ * What separates them is WHO asserted each row.
  *
  * SO IT IS THE SET, AND THE LABELS, RATHER THAN ONE KIND. `placedBy` answers
- * what SORT of thing placed it, which is what the item's end filters on, and it
- * cannot carry this: the disagreement an instance can actually hold is a wiki
- * against a broadcaster, two providers, and `placedBy` prints "Imported" for
- * both. Naming the sources is what says a repeat's two rows came from one and a
- * disagreement's from two -- and it closes ADR-0017's other named gap on the
- * way, that two sources corroborating ONE placement were invisible to a reader.
+ * what SORT of thing placed it, which is what the item's end FILTERS on and
+ * still carries for that, and it cannot carry this: the disagreement an instance
+ * can actually hold is a wiki against a broadcaster, two providers, and
+ * `placedBy` prints "Imported" for both. Naming the sources is what says a
+ * repeat's two rows came from one and a disagreement's from two -- and it closes
+ * ADR-0017's other named gap on the way, that two sources corroborating ONE
+ * placement were invisible to a reader. THE ONE FIELD THIS LIST STILL DOES NOT
+ * SHARE WITH THE MIRROR IS `placedBy` ITSELF, because no filter reads this one.
  *
  * WHAT IT STILL DOES NOT CARRY is which of two competing rows SPEAKS. Position
  * leads inside a container (ADR-0018), so the order cannot say it as the item's

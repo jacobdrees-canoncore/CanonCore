@@ -109,7 +109,47 @@ describe("item.get", () => {
     const item = await call(appRouter.item.get, { id: story }, { context });
 
     expect(item.placements.map((placement) => Object.keys(placement).sort())).toStrictEqual([
-      ["containerId", "containerTitle", "id", "placedBy", "position"],
+      // It went red here when CNCORE-121 added `assertedBy`, exactly as the
+      // members listing below went red when CNCORE-90 added it there. The
+      // enumeration working: who asserted a placement is emitted because a line
+      // was written for it, and the sources' own ids still are not.
+      ["assertedBy", "containerId", "containerTitle", "id", "placedBy", "position"],
+    ]);
+  });
+
+  it("names the sources behind each ordering, so a Repeat reads apart from a disagreement", async () => {
+    // THE CRITERION AT THE ROUTER (CNCORE-121), the mirror of the one the
+    // members listing carries below. Two PROVIDERS disagreeing about position
+    // is the disagreement this catalogue actually holds -- the wiki's series
+    // against TMDB's season -- and `placedBy` answers "provider" for both, so
+    // the payload has to carry the names for a reader to tell them apart.
+    const wiki = await aProvider(db, "https://payload.test/wiki", "A wiki this payload asked");
+    const broadcaster = await aProvider(
+      db,
+      "https://payload.test/broadcaster",
+      "A broadcaster this payload asked",
+    );
+    const season = await anItemTitled(db, "An ordering the payload disagrees about", {
+      isContainer: true,
+      isOrdered: true,
+    });
+    const argued = await anItemTitled(db, "A story the payload places twice");
+    await aPlacement(db, {
+      containerId: season,
+      itemId: argued,
+      position: 1,
+      sourceId: broadcaster,
+    });
+    await aPlacement(db, { containerId: season, itemId: argued, position: 3, sourceId: wiki });
+
+    const item = await call(appRouter.item.get, { id: argued }, { context });
+
+    // RANK STILL LEADS (ADR-0017): the wiki holds the lower source order and so
+    // speaks first, though the broadcaster put the story earlier. Naming the
+    // sources does not reorder the list.
+    expect(item.placements.map((p) => [p.position, p.placedBy, p.assertedBy])).toStrictEqual([
+      [3, "provider", ["A wiki this payload asked"]],
+      [1, "provider", ["A broadcaster this payload asked"]],
     ]);
   });
 

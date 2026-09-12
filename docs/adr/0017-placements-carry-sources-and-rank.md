@@ -146,27 +146,26 @@ mechanisms, and collapsing the second into the first would make multi-placement 
 assertion still passed.
 
 **AND HERE IS THE GAP, WHICH THAT TEST HAD TO ROUTE AROUND: THE READ PATH ANSWERED ONE SOURCE, NEVER
-THE SET -- AND FROM THE ITEM'S END IT STILL DOES.** `findPlacementsOfItem` returns `placedBy`, the
-KIND of the source that SPEAKS for the placement, and `placementPublic` carries nothing else. So a
-placement two providers corroborate and a placement one provider asserts are indistinguishable to a
-reader of THAT list, and the page prints one row reading "Imported" for both. This record's first
-sentence is that a placement has many sources; what a reader of the item's own page can see of that
-is which kind of thing one of them is. The CONTAINER's end answers the set from CNCORE-90, under
+THE SET -- AND IT IS NOW CLOSED AT BOTH ENDS.** `findPlacementsOfItem` returned `placedBy` alone, the
+KIND of the source that SPEAKS for the placement, and `placementPublic` carried nothing else. So a
+placement two providers corroborate and a placement one provider asserts were indistinguishable to a
+reader of THAT list, and the page printed one row reading "Imported" for both. This record's first
+sentence is that a placement has many sources; what a reader of the item's own page could see of that
+was which kind of thing one of them is. The CONTAINER's end answered the set from CNCORE-90, under
 "And under CNCORE-90: the container's end names the SET, and the half of the resolution it cannot
-carry"; CNCORE-121 is the same fix for this one.
+carry"; CNCORE-121 made the same fix for this one, below.
 
 The test asserts the second source through its CONSEQUENCE instead -- the page owes TMDB a notice,
 and it can only owe one because a TMDB placement source sits on that item
 ([[0036-tmdb-licence-constraints]] reads the obligation off the claims themselves). That works, and
 it is indirect: attribution is being used as a probe for provenance because provenance has no field.
 
-It is named as a gap rather than fixed here, because the fix is a read-path field and a rendering
-decision -- what a reader should be told when two sources agree -- and nothing has asked for one.
+It was named as a gap rather than fixed here, because the fix is a read-path field and a rendering
+decision -- what a reader should be told when two sources agree -- and nothing had asked for one.
 Whatever first shows a placement's provenance to a person closes it: CNCORE-90 was that thing and it
 closed HALF, the container's end, where a row now names every source behind it and two names on one
-row ARE the corroboration. From the item's end corroboration is still invisible, and CNCORE-121 is
-what closes the rest -- so "the opposite of what this record set out to make legible" is now true of
-one list rather than of both.
+row ARE the corroboration. CNCORE-121 closed the rest, so corroboration is visible from the item's
+end too and "the opposite of what this record set out to make legible" is now true of NEITHER list.
 
 ## And under CNCORE-90: the container's end names the SET, and the half of the resolution it cannot carry
 
@@ -230,3 +229,54 @@ this query would have meant, so the predicate and the three ordering terms are e
 `winning_literal` cannot read them, being PL/pgSQL in a migration, and that copy is still held
 identical by hand. Nothing can delete a source today; when something can, it is two lines in two
 places rather than three in three.
+
+## And under CNCORE-121: the item's end names the SET too, so the gap above is closed at both ends
+
+**BUILT: "Also appears in" a reader can tell a Repeat from a disagreement in.** `findPlacementsOfItem`
+answers `assertedBy` -- every source standing behind a placement, by the label each calls itself, the
+one that speaks first -- `placementPublic` carries it, and the list prints the names beside each row.
+One source saying it twice is a Repeat; two sources saying it once each is a disagreement. Both are
+one CONTAINER twice at two positions and were rendered identically until this, exactly as the
+container's end rendered one TITLE twice identically until CNCORE-90.
+
+**IT IS THE SAME LATERAL, NOT A SECOND ONE.** `assertersOf` was written for the container's end and
+this query reads it unchanged, so the two ends cannot come to disagree about who asserted a placement
+or about which of them leads -- the aggregate orders its names by `whoSpeaksFirst`, the same three
+terms `spokesmanFor` picks with. That is the rule this record has already had to state twice about
+`winning_literal`, applied before a third copy could exist rather than after.
+
+**AND `placedBy` SURVIVES BESIDE IT, which is the half that is NOT a mirror of CNCORE-90.** The
+container's end carries the set INSTEAD of a kind, because nothing there filters. This list does: the
+chips over it are BY KIND and this record's own "reader's half" settles their four words --
+Hand-placed, Imported, From the files, Rule-derived. So the kind goes on answering how the item came
+to be in there and the names answer who says so, and the row prints both. They are two questions, and
+an implementer reading CNCORE-90's asymmetry as the destination would delete the filter's only input.
+
+**THE CORROBORATION GAP THIS RECORD NAMED IS NOW CLOSED AT BOTH ENDS.** "A placement two providers
+corroborate and a placement one provider asserts are indistinguishable to every reader" was true of
+the item's end until this ticket; agreement lands on ONE placement carrying a source each, so
+corroboration is only ever visible as two NAMES on one row, and the end-to-end suite renders and
+asserts exactly that. The gap paragraph above is rewritten in place rather than answered from here,
+because a correction placed beside a claim leaves the old claim standing.
+
+**RANK STILL LEADS, AND THAT IS THE ASSERTION MOST WORTH KEEPING.** This list is ordered by the
+container's sort name, then the spokesman's rank and source order, then position -- so the winning
+claim of a disagreement is the row a reader meets first, which is how this record expresses a
+resolution it will not MARK. Naming the sources adds a column to the row and touches none of that.
+The e2e fixture is shared with the container's end and pins the difference: the source that outranks
+the other claims position 3, so the Members list renders #1 then #3 and "Also appears in" renders #3
+then #1, off ONE seeded disagreement. A page that had quietly adopted position order here would pass
+the container's assertion and fail this one.
+
+**WHAT IS STILL NOT BUILT is what CNCORE-90 already said was undecidable, and it is unchanged.**
+Nothing MARKS which of two rows speaks. From this end it does not need to: the order says it, which
+is the fall-through a mark has no equivalent of. Both ends now name the sources and let the reader
+draw the conclusion, arrived at from opposite directions.
+
+**NOR CAN ANYTHING STILL WRITE THE DISAGREEMENT IT RENDERS -- and that is now HALF true.** `browse`
+writes one source's claims per call, so a disagreement between two providers is still seeded in both
+suites. What changed under CNCORE-72 is the owner's hand: `placeItemByHand` is a real surface, so an
+owner CAN now place an item into an ordering a provider already claims at another position, and the
+two rows that makes are a disagreement this page will render with two names on it. A corroboration
+still cannot be produced by hand -- ADR-0116 has the owner's hand make its own claim rather than join
+a provider's -- so the agreeing row remains a fixture.

@@ -60,8 +60,26 @@ export interface PlacementOfItem {
    * The KIND of source that asserted this placement -- `owner` for the owner's
    * own hand, `provider` for an imported ordering, and so on (ADR-0071). Null
    * when nothing has claimed it, which is a placement no source stands behind.
+   *
+   * IT STAYS BESIDE `assertedBy` RATHER THAN BEING REPLACED BY IT. The filter
+   * over this list is BY KIND and ADR-0017 settles its four words, so the two
+   * fields answer different questions: this one how the item came to be in
+   * there, the other who says so.
    */
   placedBy: string | null;
+  /**
+   * WHO SAYS IT SITS THERE: every source standing behind this placement, by the
+   * label each calls itself, the one that SPEAKS for it first (ADR-0017). Empty
+   * for a placement no source asserted.
+   *
+   * THE SET, WHERE `placedBy` IS ONE KIND, and that is the whole of CNCORE-121.
+   * One container twice at two positions is a Repeat (ADR-0009) or two sources
+   * disagreeing about position (ADR-0017), nothing STORED tells them apart, and
+   * the kind cannot: the disagreement this catalogue holds is a wiki against a
+   * broadcaster, so `placedBy` prints `provider` on both rows. It is CNCORE-90's
+   * field, read from the other end of the same table.
+   */
+  assertedBy: string[];
 }
 
 /**
@@ -170,6 +188,7 @@ export async function findPlacementsOfItem(
   itemId: string,
 ): Promise<PlacementOfItem[]> {
   const spokesman = spokesmanFor(db);
+  const asserters = assertersOf(db);
 
   return (
     db
@@ -179,6 +198,18 @@ export async function findPlacementsOfItem(
         containerTitle: items.title,
         position: placements.position,
         placedBy: spokesman.kind,
+        /*
+         * WHO SAYS IT SITS THERE (ADR-0017, CNCORE-121). The same lateral the
+         * container's end reads, correlated the same way -- one aggregate of
+         * every live claim behind this placement, in the spokesman's own order.
+         *
+         * IT DOES NOT REPLACE THE SPOKESMAN LATERAL ABOVE, and both are needed
+         * rather than one being tidier. The spokesman PICKS a row, and its rank
+         * and source order are two of the terms this query ORDERS BY -- an
+         * aggregate cannot be ordered by, so collapsing the two would cost the
+         * resolution ADR-0017 expresses as order.
+         */
+        assertedBy: asserters.labels,
       })
       .from(placements)
       .innerJoin(items, eq(items.id, placements.containerId))
@@ -186,6 +217,13 @@ export async function findPlacementsOfItem(
       // An inner join would silently drop it, which is the read path deciding a
       // row does not exist because its provenance was never recorded.
       .leftJoinLateral(spokesman, sql`true`)
+      /*
+       * CROSS WHERE THE SPOKESMAN IS LEFT, and neither can drop a row: an
+       * aggregate with no `group by` answers exactly one row whatever it
+       * aggregates, so a placement no source stands behind joins an empty array
+       * rather than nothing. The same pairing `findPlacementsInContainer` uses.
+       */
+      .crossJoinLateral(asserters)
       .where(
         and(
           eq(placements.itemId, itemId),
