@@ -235,30 +235,37 @@ async function stubProvider(
  * running alone.
  */
 describe("a stub provider's identity", () => {
-  let minted: string;
+  let identity: string | undefined;
 
-  it("answers the search made by the test that minted it", async () => {
-    minted = await stubProvider();
-
+  /** ONE CHECK, so the only difference between the two tests is WHEN it runs. */
+  async function answersASearch(baseUrl: string): Promise<void> {
     const { answered, failed } = await call(
       appRouter.provider.search,
       { query: "tenth planet" },
-      { context: { ...context, providerUrls: [minted] } },
+      { context: { ...context, providerUrls: [baseUrl] } },
     );
 
     expect(failed).toEqual([]);
-    expect(answered.map(({ provider }) => provider.baseUrl)).toEqual([minted]);
+    expect(answered.map(({ provider }) => provider.baseUrl)).toEqual([baseUrl]);
+  }
+
+  it("answers the search made by the test that minted it", async () => {
+    identity = await stubProvider();
+
+    await answersASearch(identity);
   });
 
   it("answers the next test's search too, so the OS cannot hand its port on", async () => {
-    const { answered, failed } = await call(
-      appRouter.provider.search,
-      { query: "tenth planet" },
-      { context: { ...context, providerUrls: [minted] } },
-    );
+    // SAID OUT LOUD RATHER THAN LET THROUGH. Run alone -- under `-t`, or an
+    // `.only` on this one -- the test above never minted, and an `undefined`
+    // reaches the router as a provider URL and comes back `fetch failed`: the
+    // same words a socket closed too early produces, which is the one failure
+    // this pair exists to tell apart from everything else.
+    if (identity === undefined) {
+      throw new Error("the test above mints this identity; the two run in order, neither alone");
+    }
 
-    expect(failed).toEqual([]);
-    expect(answered.map(({ provider }) => provider.baseUrl)).toEqual([minted]);
+    await answersASearch(identity);
   });
 });
 
