@@ -47,9 +47,11 @@ exist, and the next offence can be added to it without argument.
 
 ## As built, under CNCORE-91 — and this record stays PROPOSED
 
-**BUILT: the payload is checked.** The check reads the live `CONTEXT.md`, its parser is tested against
-fixtures rather than only exercised against the real file (the argument `docker-compose.test.ts`
-makes about the same kind of check), and it carries an assertion that the real glossary yields more
+**BUILT: the payload is checked.** The check reads the live `CONTEXT.md` — on a COLD cache from
+CNCORE-91, and on a warm one only since CNCORE-132, for the reason the last section gives — its
+parser is tested against fixtures rather than only exercised against the real file (the argument
+`docker-compose.test.ts` makes about the same kind of check), and it carries an assertion that the
+real glossary yields more
 than twenty words — so a renamed heading or a moved file fails loudly instead of passing while
 guarding nothing. It caught `catalogueEntryPublic` and `cataloguePublic.entries` on its first run;
 CNCORE-114 owns those.
@@ -82,3 +84,40 @@ its own line rather than to leave it uncounted.
 review**, which is the same standing the rest of the glossary had before it. It is worth having
 because the payload is the surface a reader and every client sees, and because it found CNCORE-114 on
 its first run. It is not worth quoting as though the repository were now covered.
+
+## A check the build can skip is a check that runs less often than it reads
+
+`turbo` hashes a task against the files of its OWN package. This check lives in `packages/schemas`
+and reads a file at the ROOT, so for its first day it was **cached against everything except the
+glossary**: editing `CONTEXT.md` did not invalidate it, and the check replayed a stale pass. Only a
+cold cache ran it for real.
+
+**THE FAILURE POINTED THE WRONG WAY**, which is what makes it worth a record rather than a commit
+message. CNCORE-101 added an `_Avoid_` entry banning `health`, colliding with `healthCheckResult` on
+the read path; `pnpm test` passed locally across ten tasks and CI failed. The difference was the
+cache, not the code — so the person best placed to fix the name was the one who never saw it fail,
+and everyone else saw a green suite certifying a rule it had not read.
+
+**THE FIX DECLARES THE FILE, IT DOES NOT DISABLE THE CACHE.** `packages/schemas/turbo.json` names
+`$TURBO_ROOT$/CONTEXT.md` among the task's `inputs`, which puts the glossary's own bytes inside the
+cache key: an edit MUST miss. `globalDependencies` was refused because it asserts every task in the
+repository depends on the glossary, which is false and would rebuild the world on each domain-model
+edit; `cache: false` was refused because this task's extra input is exactly one enumerable file, so
+the reason `packages/config` opts out — that its real inputs are the whole repository — does not
+transfer. Measured: a glossary edit now misses 3 of 10 test tasks, `@canoncore/schemas` plus the two
+that depend on it through `dependsOn: ["^test"]`.
+
+**IT IS GUARDED BY ASKING `turbo`, NOT BY READING `turbo.json`.**
+`packages/config/src/turbo-cache-inputs.test.ts` runs `turbo run test --dry=json` and asserts the
+file appears among the task's real inputs, carrying the hash git holds for it. Asserting the
+`inputs` entry back out of the config file would restate the fix in a second language — the thing
+this record already refuses for the `_Avoid_` lists — and it would pass by construction wherever it
+was wrong: an unmatched glob is dropped SILENTLY, so `$TURBO_ROOT$/CONTEXT.MD` reads fine, matches
+nothing, and caches exactly as badly as no entry at all. Measured on 2026-09-13: turbo emits no
+warning for it.
+
+**AND `@canoncore/env` HAD THE SAME DEFECT**, found by looking rather than by failing: its suite
+holds the install path a stranger follows — `README.md`, `.env.example`, `compose.yaml`, the
+`Dockerfile`, `ci.yml` — and was hashed against none of them. Fixed in the same pass, because it is
+one reason to change. The guard recomputes from the sources which packages reach outside themselves
+and fails on one that is unlisted, so the next such suite cannot arrive quietly.
