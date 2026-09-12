@@ -294,7 +294,7 @@ export async function findPlacementsOfItem(
          * rather than nothing. The same pairing `findPlacementsInContainer` uses.
          */
         .crossJoinLateral(asserters)
-        .where(and(sitsIn, place && pastInThisItemsOrderings(spokesman, place)))
+        .where(and(sitsIn, place && pastAmongItsOrderings(spokesman, place)))
         .orderBy(
           /*
            * `nulls last` IS THE DEFAULT FOR `asc` AND IS WRITTEN OUT ANYWAY on
@@ -432,8 +432,11 @@ async function findInThisItemsOrder(
   // either half -- `containerDeletedAt` alone would refuse an anchor in a
   // deleted container that still had a key, and a null key alone would refuse
   // the untitled container the paragraph above keeps this walk reaching.
-  if (place.containerKey === null && place.containerDeletedAt !== null) return undefined;
-  return place;
+  const { containerDeletedAt, ...place_ } = place;
+  if (place_.containerKey === null && containerDeletedAt !== null) return undefined;
+  // THE TOMBSTONE DOES NOT TRAVEL WITH THE PLACE. It is read to DECIDE whether
+  // there is one, and a place carrying it would read as a term of the order.
+  return place_;
 }
 
 /**
@@ -450,19 +453,18 @@ async function findInThisItemsOrder(
  * a second `spokesmanFor(db)` would alias a second subquery this statement never
  * joined.
  */
-function pastInThisItemsOrderings(
+function pastAmongItsOrderings(
   spokesman: ReturnType<typeof spokesmanFor>,
   place: PlaceAmongOrderings,
 ): SQL | undefined {
   return pastTheRow(
-    {
-      keys: [THE_CONTAINERS_KEY, spokesman.precedence, spokesman.sourceOrder, placements.position],
-      id: placements.id,
-    },
-    {
-      keys: [place.containerKey, place.precedence, place.sourceOrder, place.position],
-      id: place.id,
-    },
+    [
+      { key: THE_CONTAINERS_KEY, at: place.containerKey },
+      { key: spokesman.precedence, at: place.precedence },
+      { key: spokesman.sourceOrder, at: place.sourceOrder },
+      { key: placements.position, at: place.position },
+    ],
+    { id: placements.id, at: place.id },
   );
 }
 
@@ -1085,13 +1087,19 @@ interface PlaceInTheOrder {
  * `walkListing`'s QUERY is what could not be shared (a different relation),
  * which is a narrower claim than the one the copy was making.
  *
- * IT TAKES A LIST OF KEYS BECAUSE "ALSO APPEARS IN" HAS FOUR, and that is the
+ * IT TAKES A LIST OF TERMS BECAUSE "ALSO APPEARS IN" HAS FOUR, and that is the
  * question CNCORE-125 was told to ask rather than assume: the shared comparison
- * did NOT cover that order and had to grow. Two keys was never the rule -- one
- * was the number the first two listings happened to need -- and the rule
+ * did NOT cover that order and had to grow. One key was never the rule -- it
+ * was the number the first four listings happened to need -- and the rule
  * underneath is that the comparison must name EVERY term the `ORDER BY` does.
  * A key left out of it is rows silently stepped over, which is what the two
  * paragraphs above are each an instance of.
+ *
+ * A TERM IS A KEY AND ITS ANCHOR VALUE TOGETHER, rather than two lists read by
+ * the same index. Review of CNCORE-125 made the point and it is this function's
+ * own subject: two parallel arrays can come apart, and the shorter one would
+ * silently drop a term -- which is precisely the "rows stepped over" failure the
+ * paragraph above names. Paired, a mismatch cannot be written down.
  *
  * THE NESTING IS BUILT FROM THE INSIDE OUT, so each key's tie branch is the
  * whole of the comparison on the keys behind it and the id is the innermost. A
@@ -1100,26 +1108,23 @@ interface PlaceInTheOrder {
  * after it on a late one.
  */
 function pastTheRow(
-  order: { keys: SQLWrapper[]; id: SQLWrapper },
-  at: { keys: (string | number | null)[]; id: string },
+  terms: { key: SQLWrapper; at: string | number | null }[],
+  row: { id: SQLWrapper; at: string },
 ): SQL | undefined {
   // The id is the whole order left once every key has tied, and it is total.
-  let past: SQL | undefined = gt(order.id, at.id);
-  for (let term = order.keys.length - 1; term >= 0; term--) {
-    const key = order.keys[term];
-    const value = at.keys[term];
-    if (key === undefined) continue;
+  let past: SQL | undefined = gt(row.id, row.at);
+  for (const { key, at } of [...terms].reverse()) {
     past =
-      value === undefined || value === null
+      at === null
         ? // Already among the rows with no key HERE, so everything still ahead
           // has no key here either and the terms behind it decide.
           and(isNull(key), past)
         : or(
             // Every row with no key sorts after every row with one.
             isNull(key),
-            gt(key, value),
+            gt(key, at),
             // THE TIE, and it is what carries the comparison to the next term.
-            and(eq(key, value), past),
+            and(eq(key, at), past),
           );
   }
   return past;
@@ -1138,7 +1143,7 @@ function pastTheRow(
  * comparison.
  */
 function pastInTheOrder({ sortKey, id }: PlaceInTheOrder): SQL | undefined {
-  return pastTheRow({ keys: [SORT_KEY], id: items.id }, { keys: [sortKey], id });
+  return pastTheRow([{ key: SORT_KEY, at: sortKey }], { id: items.id, at: id });
 }
 
 /** One row a cursor might name, read the way every walk has to read it. */
@@ -1555,7 +1560,10 @@ async function findInTheContainersOrder(
  * unique constraint on (container_id, position).
  */
 function pastInThisContainer({ position, id }: PlaceInTheContainer): SQL | undefined {
-  return pastTheRow({ keys: [placements.position], id: placements.id }, { keys: [position], id });
+  return pastTheRow([{ key: placements.position, at: position }], {
+    id: placements.id,
+    at: id,
+  });
 }
 
 /**

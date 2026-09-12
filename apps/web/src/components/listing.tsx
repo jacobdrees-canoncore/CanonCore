@@ -110,19 +110,15 @@ type Asked = { q: string };
  * fixed order exists to prevent.
  *
  * SO THE ORDER IS `via`, `placed`, `after`, `placedAfter`, each behind the ones
- * that were there before it. `after` is here as a key rather than only as the
- * thing `Walk` appends because the OTHER listing carries it: walking "Also
- * appears in" must not send a reader deep in a container's ordering back to its
- * first page, so that listing's links keep this one's cursor and append their
- * own behind it (`CURSOR` below).
+ * that were there before it -- and BOTH cursors are keys here, because each of
+ * the two listings has to carry the OTHER's through. Walking either one must
+ * leave the other where the reader left it.
  *
  * EVERY KEY OPTIONAL, and a missing one is ABSENT rather than empty: the item
  * page builds this object with only the keys it has, so `?via=&placed=&after=`
- * is not a URL this app can emit. `Walk` below spreads it and appends the
- * cursor, so the order is held by the spread rather than by anybody remembering
- * it.
+ * is not a URL this app can emit.
  */
-export type TheRoute = { via?: string; placed?: string; after?: string };
+export type TheRoute = { via?: string; placed?: string; after?: string; placedAfter?: string };
 
 /**
  * WHICH OF THE ITEM PAGE'S TWO LISTINGS IS BEING WALKED, which the path cannot
@@ -234,18 +230,46 @@ function endsHere(walking: Walking): string {
 }
 
 /**
- * Which parameter this listing carries on from, by the same lookup `endsHere`
- * above uses and for the same reason: the three literal paths key themselves,
- * and the two that share an address cannot.
+ * THE ITEM PAGE'S PARAMETERS IN THEIR ONE FIXED SPELLING ORDER (ADR-0066), read
+ * off this array rather than off the order anybody happens to write keys in.
  *
- * WRITTEN HERE RATHER THAN AT EITHER CALL SITE, so the walk below and the item
- * page's filter chips cannot come to disagree about what this listing's cursor
- * is called -- which is the drift `theRoute` on that page already exists to stop
- * for the three parameters in front of it.
+ * A LIST RATHER THAN A SPREAD, WHICH IS A FIX. `Walk` built its query as
+ * `{ ...asked, [cursor]: at }` -- and a spread APPENDS a key that was not
+ * already there. That is correct while every parameter behind the cursor is
+ * absent and wrong the moment one is not: walking `Members` on a page that
+ * already carried `?placedAfter=` appended `after` BEHIND it, which is a second
+ * spelling of one address and the exact thing a fixed order exists to prevent.
  */
-function cursorFor(walking: Walking): string {
-  // On `listing` for the reason `endsHere` above gives.
-  return walking.listing === undefined ? "after" : CURSOR[walking.listing];
+const IN_FIXED_ORDER = [
+  "via",
+  "placed",
+  "after",
+  "placedAfter",
+] as const satisfies readonly (keyof TheRoute)[];
+
+/**
+ * The query one link on this listing carries: everything the address already
+ * held, with THIS listing's own cursor set to where the link goes.
+ *
+ * `at` IS `undefined` FOR A LINK BACK TO THE START, which DROPS this listing's
+ * cursor and keeps every other parameter -- including the OTHER listing's
+ * cursor, which a reader has not asked to move.
+ *
+ * THE THREE SURFACES THAT ARE THEIR LISTING TAKE THE OTHER BRANCH, because
+ * nothing composes on them: `/search` carries its query and the cursor, and `/`
+ * and `/works` carry the cursor alone.
+ */
+function queryFor(walking: Walking, at: string | undefined): Record<string, string> {
+  if (walking.listing === undefined) {
+    return at === undefined ? { ...walking.asked } : { ...walking.asked, after: at };
+  }
+  const own = CURSOR[walking.listing];
+  const query: Record<string, string> = {};
+  for (const key of IN_FIXED_ORDER) {
+    const value = key === own ? at : walking.asked[key];
+    if (value) query[key] = value;
+  }
+  return query;
 }
 
 /**
@@ -365,24 +389,24 @@ export function Walk({
   continuesAfter: string | null;
 }) {
   if (from === undefined && continuesAfter === null) return null;
-  const { path, asked } = walking;
+  const { path } = walking;
   return (
     <nav aria-label="More of this listing" className="mt-6 flex items-baseline gap-4">
       {from !== undefined && (
-        <Link href={{ pathname: path, query: asked }} className="text-sm hover:underline">
+        /*
+         * WITHOUT THIS LISTING'S OWN CURSOR, which is what makes it the start --
+         * and WITH the other listing's, which the reader has not asked to move.
+         */
+        <Link
+          href={{ pathname: path, query: queryFor(walking, undefined) }}
+          className="text-sm hover:underline"
+        >
           Back to the start
         </Link>
       )}
       {continuesAfter !== null && (
-        /*
-         * THE CURSOR GOES LAST, and the spread is what puts it there rather than
-         * anybody remembering to. ADR-0066 fixes the order of the parameters an
-         * item page already carries, and one arriving later is APPENDED: on
-         * "Also appears in" `asked` is `via`, `placed` and the Members cursor,
-         * and `placedAfter` lands behind all three.
-         */
         <Link
-          href={{ pathname: path, query: { ...asked, [cursorFor(walking)]: continuesAfter } }}
+          href={{ pathname: path, query: queryFor(walking, continuesAfter) }}
           className="ml-auto text-sm hover:underline"
         >
           Next
@@ -408,7 +432,7 @@ export function Walk({
  * named a state this page can no longer be in.
  */
 export function PastTheEnd(walking: Walking) {
-  const { path, asked } = walking;
+  const { path } = walking;
   return (
     <section aria-labelledby="past-the-end" className="mt-6">
       <Empty className="border">
@@ -427,7 +451,11 @@ export function PastTheEnd(walking: Walking) {
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
-          <Link href={{ pathname: path, query: asked }} className="hover:underline">
+          {/* The start of THIS listing, with the other one left where it is. */}
+          <Link
+            href={{ pathname: path, query: queryFor(walking, undefined) }}
+            className="hover:underline"
+          >
             Back to the start
           </Link>
         </EmptyContent>

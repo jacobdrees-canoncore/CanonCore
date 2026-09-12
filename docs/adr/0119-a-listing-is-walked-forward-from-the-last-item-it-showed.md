@@ -549,9 +549,23 @@ listing, so `placed` and `placedAfter` read as the one listing's pair. `appearsA
 candidate and it names the heading instead -- true, and it says nothing about the parameter sitting
 beside it in the same URL.
 
-**THE TWO CURSORS MUST NOT MOVE EACH OTHER**, which is what the name buys and what is asserted: the
-"Also appears in" walk carries `after` THROUGH and appends its own behind it, so a reader deep in a
-Container's ordering is not sent back to its first page for walking the other list.
+**THE TWO CURSORS MUST NOT MOVE EACH OTHER**, which is what the name buys: each walk carries the
+OTHER listing's cursor through and sets only its own, so a reader deep in one list is not sent back
+to the first page of the other for walking a list that has nothing to do with it.
+
+**AND IT WAS BUILT IN ONE DIRECTION ONLY, WHICH REVIEW OF CNCORE-125 CAUGHT WHILE THIS PARAGRAPH
+ALREADY CLAIMED BOTH.** "Also appears in" carried `after` through; the Members walk dropped
+`placedAfter`, so walking Members silently reset the other list to its first page. Both directions
+are held by a test now, one on each listing.
+
+**THE MECHANISM THAT LET IT HAPPEN IS WORTH MORE THAN THE BUG.** The query was built as
+`{ ...asked, [cursor]: at }`, and a SPREAD APPENDS a key that was not already there. That is correct
+while every parameter behind the cursor is absent and wrong the moment one is not -- walking Members
+on an address already carrying `?placedAfter=` would have put `after` BEHIND it, which is a second
+spelling of one address and the exact thing a fixed order exists to prevent. So the order is read off
+a LIST of the four names now rather than off the order keys happen to be written in, and the same
+function serves `Next` and `Back to the start`: the cursor it owns is set for one and DROPPED for the
+other, which is what makes a start a start without dropping the other listing's.
 
 **AND THE FILTER CHIPS CARRY ONE AND DROP THE OTHER, which is not an asymmetry to tidy away.** A
 chip carries `after` forward because it has nothing to do with the Members listing and must not move
@@ -580,7 +594,9 @@ only ever hold the one origin it was filtered to. A `TODO` sits at the site nami
 
 [[0103-tests-bite-at-package-exports-and-the-router]]: the package export, the router in process,
 and -- the one the ticket names by hand -- the page over real HTTP, against an Item sitting in 211
-placements across 210 orderings on the same instance the other four walks use.
+placements across 210 CONTAINERS on the same instance the other four walks use -- 211 orderings by
+`CONTEXT.md`'s word, which counts the placement rather than the container, because the fixture's
+Repeat puts the Item in one of them twice. The page's count says 211 for that reason.
 
 **THAT FIXTURE COSTS ITS OWN ITEMS WHERE CNCORE-89'S COST ONE, and the asymmetry is forced rather
 than careless.** A Container's members are ORDINARY ITEMS, so that fixture could hold the catalogue

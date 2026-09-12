@@ -152,8 +152,10 @@ listing, so `placed` and `placedAfter` read as the one listing's pair in a URL c
 `appearsAfter` was the alternative and names the reader's heading instead -- accurate, and silent
 about the parameter standing next to it.
 
-**THE TWO CURSORS DO NOT MOVE EACH OTHER, and the chips carry one and DROP the other.** The "Also
-appears in" walk carries `after` through and appends its own behind it. A chip carries `after`
+**THE TWO CURSORS DO NOT MOVE EACH OTHER, and the chips carry one and DROP the other.** Each walk
+carries the other listing's cursor through and sets only its own -- asserted in BOTH directions,
+which review of CNCORE-125 is why: this sentence claimed both while the Members walk still dropped
+`placedAfter`, resetting the other list to its first page. A chip carries `after`
 forward, because it has nothing to do with the Members listing; a chip DROPS `placedAfter`, because
 it changes what "Also appears in" is ASKING and the old cursor names a place in the listing being
 left. The fixed order of all four is held in one function and which cursor a walk appends in one

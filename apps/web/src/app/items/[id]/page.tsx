@@ -392,7 +392,7 @@ export default async function ItemPage({
       <Members
         itemId={item.id}
         holds={item.holds}
-        route={theRoute({ arrivedThrough, showingOnly })}
+        route={theRoute({ arrivedThrough, showingOnly, appearingFrom })}
         owner={owner}
         from={from}
       />
@@ -685,23 +685,31 @@ function theRoute({
   arrivedThrough,
   showingOnly,
   from,
+  appearingFrom,
 }: {
   arrivedThrough?: string;
   showingOnly?: string;
   /**
-   * THE MEMBERS CURSOR, carried by the links of the OTHER listing.
+   * THE TWO CURSORS, and a caller passes the ones its own links must CARRY.
    *
    * The two listings on this page are independent, so a link that walks or
    * narrows one must not send a reader deep in the other back to its first page.
-   * The Members walk passes nothing here: `Walk` appends its own cursor, and a
-   * `Back to the start` that kept it would not be one.
+   * Each walk passes BOTH: `Walk` owns which of the two is its own, setting it
+   * where the link goes and dropping it for a `Back to the start`, so neither
+   * caller has to remember which cursor it is holding.
+   *
+   * A CHIP PASSES ONLY `from`, which is the one asymmetry here and is argued at
+   * `FilterLink`: narrowing changes what "Also appears in" is ASKING, so its
+   * cursor names a place in the listing being left.
    */
   from?: string;
+  appearingFrom?: string;
 }): TheRoute {
   const route: TheRoute = {};
   if (arrivedThrough) route.via = arrivedThrough;
   if (showingOnly) route.placed = showingOnly;
   if (from) route.after = from;
+  if (appearingFrom) route.placedAfter = appearingFrom;
   return route;
 }
 
@@ -758,7 +766,7 @@ function AlsoAppearsIn({
   // `/items/<id>` is where this listing is walked, for the same reason the
   // Members list is: a Container IS an Item and this is the item's own page.
   const path: MembersPath = `/items/${itemId}`;
-  const route = theRoute({ arrivedThrough, showingOnly, from });
+  const route = theRoute({ arrivedThrough, showingOnly, from, appearingFrom });
 
   /*
    * READ OFF THE PAGE, WHICH IS A NARROWER CLAIM THAN IT WAS. An origin nothing
