@@ -60,8 +60,26 @@ export interface PlacementOfItem {
    * The KIND of source that asserted this placement -- `owner` for the owner's
    * own hand, `provider` for an imported ordering, and so on (ADR-0071). Null
    * when nothing has claimed it, which is a placement no source stands behind.
+   *
+   * IT STAYS BESIDE `assertedBy` RATHER THAN BEING REPLACED BY IT. The filter
+   * over this list is BY KIND and ADR-0017 settles its four words, so the two
+   * fields answer different questions: this one how the item came to be in
+   * there, the other who says so.
    */
   placedBy: string | null;
+  /**
+   * WHO SAYS IT SITS THERE: every source standing behind this placement, by the
+   * label each calls itself, the one that SPEAKS for it first (ADR-0017). Empty
+   * for a placement no source asserted.
+   *
+   * THE SET, WHERE `placedBy` IS ONE KIND, and that is the whole of CNCORE-121.
+   * One container twice at two positions is a Repeat (ADR-0009) or two sources
+   * disagreeing about position (ADR-0017), nothing STORED tells them apart, and
+   * the kind cannot: the disagreement this catalogue holds is a wiki against a
+   * broadcaster, so `placedBy` prints `provider` on both rows. It is CNCORE-90's
+   * field, read from the other end of the same table.
+   */
+  assertedBy: string[];
 }
 
 /**
@@ -195,6 +213,17 @@ export interface PlacementsOfItem {
  * terms deciding which source speaks, then the position, then the placement's
  * id. Every one of the four keys is nullable and each therefore has the two
  * regimes that comparison is named for.
+ *
+ * AND THE CAP IS WHAT BOUNDS CNCORE-121's LATERAL, which is the figure that
+ * ticket measured and handed to this one rather than a coincidence. Each row
+ * carries an aggregate naming every source behind it: MEASURED on one item
+ * placed in 1,000 orderings with two sources each, 6.3-12.3 ms with it against
+ * 3.6-4.1 ms without, over three runs on the PostgreSQL 18.6 `compose.yaml`
+ * pins, the planner using `Index Scan using placement_sources_placement_source`
+ * exactly as the container's end does. That ticket read it as sharpening the
+ * cap's case rather than making it urgent, and said so because it could not
+ * bound it itself. It is bounded now: the same lateral rides 100 rows rather
+ * than an unbounded count, which is what CNCORE-89 already bought the mirror.
  */
 export async function findPlacementsOfItem(
   db: Database,
@@ -202,6 +231,7 @@ export async function findPlacementsOfItem(
   { limit, after }: { limit: number; after?: string },
 ): Promise<PlacementsOfItem> {
   const spokesman = spokesmanFor(db);
+  const asserters = assertersOf(db);
   const sitsIn = and(
     eq(placements.itemId, itemId),
     isNull(placements.deletedAt),
@@ -221,6 +251,20 @@ export async function findPlacementsOfItem(
           containerTitle: items.title,
           position: placements.position,
           placedBy: spokesman.kind,
+          /*
+           * WHO SAYS IT SITS THERE (ADR-0017, CNCORE-121). The same lateral the
+           * container's end reads, correlated the same way -- one aggregate of
+           * every live claim behind this placement, in the spokesman's own order.
+           *
+           * IT DOES NOT REPLACE THE SPOKESMAN LATERAL ABOVE, and both are needed
+           * rather than one being tidier. The spokesman PICKS a row, and its rank
+           * and source order are two of the terms this query ORDERS BY -- and now
+           * two of the terms its CURSOR compares, since CNCORE-125 (ADR-0119). An
+           * aggregate can be neither ordered by nor compared against, so
+           * collapsing the two would cost the resolution ADR-0017 expresses as
+           * order and the walk that resumes inside it.
+           */
+          assertedBy: asserters.labels,
           /*
            * THE SAME PREDICATE THE ENTRIES USE, in the same statement and
            * therefore the same snapshot, and UNCORRELATED so the cursor cannot
@@ -243,6 +287,13 @@ export async function findPlacementsOfItem(
         // An inner join would silently drop it, which is the read path deciding a
         // row does not exist because its provenance was never recorded.
         .leftJoinLateral(spokesman, sql`true`)
+        /*
+         * CROSS WHERE THE SPOKESMAN IS LEFT, and neither can drop a row: an
+         * aggregate with no `group by` answers exactly one row whatever it
+         * aggregates, so a placement no source stands behind joins an empty array
+         * rather than nothing. The same pairing `findPlacementsInContainer` uses.
+         */
+        .crossJoinLateral(asserters)
         .where(and(sitsIn, place && pastInThisItemsOrderings(spokesman, place)))
         .orderBy(
           /*
@@ -271,12 +322,13 @@ export async function findPlacementsOfItem(
           sql`${placements.id}`,
         )
         .limit(howMany),
-    asEntry: ({ id, containerId, containerTitle, position, placedBy }) => ({
+    asEntry: ({ id, containerId, containerTitle, position, placedBy, assertedBy }) => ({
       id,
       containerId,
       containerTitle,
       position,
       placedBy,
+      assertedBy,
     }),
     sizeOnItsOwn: () => countOrderings(db, sitsIn),
   });
@@ -1265,12 +1317,19 @@ export interface PlacementInContainer {
  * EVERY SOURCE STANDING BEHIND ONE PLACEMENT, by the label each calls itself.
  *
  * THE SET, WHERE `spokesmanFor` ABOVE PICKS ONE, and the two answer different
- * questions rather than one of them being the other done loosely. From the
- * item's end the rows are competing ORDERINGS and rank decides which speaks, so
- * one name is the answer. From the container's end the rows are what it HOLDS,
- * in position order (ADR-0018) -- and there a Repeat and a disagreement are the
- * same shape, so the reader is the one who tells them apart and needs every
- * name to do it.
+ * questions rather than one of them being the other done loosely. What each
+ * question is FOR differs by end: from the container's end the rows are what it
+ * HOLDS, in position order (ADR-0018), and from the item's end they are
+ * competing ORDERINGS whose order rank decides. But a Repeat and a disagreement
+ * are the same shape at BOTH ends -- one title twice here, one container twice
+ * there -- so the reader is the one who tells them apart, and needs every name
+ * to do it either way.
+ *
+ * SO BOTH ENDS READ THIS ONE AGGREGATE (CNCORE-90, then CNCORE-121). An earlier
+ * draft of this comment said one name was the answer from the item's end, which
+ * was true only while that end answered `placedBy` alone: it now reads exactly
+ * this lateral, and the two cannot come to disagree about who asserted a
+ * placement or about which of them leads.
  */
 function assertersOf(db: Database) {
   return (

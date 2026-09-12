@@ -4,11 +4,12 @@ import { createContext } from "@canoncore/api/context";
 import { appRouter } from "@canoncore/api/routers";
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
-import { ORPCError, onError } from "@orpc/server";
+import { onError } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
 import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 import type { NextRequest } from "next/server";
 
+import { isARefusal } from "@/answer";
 import { SESSION_COOKIE } from "@/session";
 
 /**
@@ -40,6 +41,13 @@ import { SESSION_COOKIE } from "@/session";
  * fault and is logged in full, with its stack, because that is what this exists
  * for.
  *
+ * AND THAT TEST IS NOW IMPORTED RATHER THAN WRITTEN HERE (CNCORE-127). The
+ * Server Action path asks the same question of the same errors -- there, to
+ * answer with the page instead of a 500 -- and had the line copied into it. The
+ * paragraph below about two handlers is the same argument at a smaller scale:
+ * one decision written twice is free to drift, and a drift here would mean one
+ * of the two surfaces calling a refusal a fault.
+ *
  * WHAT THIS CLASSIFIES IS WHAT REACHES IT, AND `createContext` RUNS BEFORE ANY
  * OF IT DOES. `handleRequest` builds the context first, and `seeSession` inside
  * it touches the database for any caller presenting a session cookie -- so a
@@ -61,7 +69,7 @@ import { SESSION_COOKIE } from "@/session";
  * carry one and the first branch here has to be allowed to ask.
  */
 function sayWhatBroke(error: unknown): void {
-  if (error instanceof ORPCError && error.status < 500) return;
+  if (isARefusal(error)) return;
   console.error(asOneEvent(error));
 }
 

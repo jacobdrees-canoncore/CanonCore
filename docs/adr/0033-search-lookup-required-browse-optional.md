@@ -639,6 +639,14 @@ the production build by posting the browse form with a container id the provider
 `Internal Server Error`: eighteen bytes of plain text, no HTML, and none of `NO_SUCH_CONTAINER`,
 `BROWSE_NOT_OFFERED` or `PROVIDER_REFUSED` anywhere in it. Declaring an error is not delivering one.
 
+**THE 500 ITSELF IS GONE SINCE CNCORE-127, AND THE PREFLIGHT IS STILL WHY.** That change made every
+Server Action read a sub-500 `ORPCError` as the answer it is, so `browseOrdering` no longer throws
+`NO_SUCH_CONTAINER` out of the POST -- the page it was posted to renders again instead. What it did
+NOT do is carry the REASON: the paragraph below is about delivering a sentence on the POST, and none
+of it changed. So the preflight remains the only thing that can say which of the three refusals was
+met, and the price argued further down is still the price of saying it rather than the price of
+avoiding a 500.
+
 **AND TWO MECHANISMS FOR DELIVERING IT ON THE POST DO NOT EXIST.** An `error.tsx` was written and
 removed because it DOES NOT FIRE: a Server Action that throws during a form POST with no JavaScript
 answers the bare 500 regardless, since rendering that boundary is the client router's job and this

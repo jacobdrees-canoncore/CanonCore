@@ -4,6 +4,7 @@ import { appRouter } from "@canoncore/api/routers";
 import { call } from "@orpc/server";
 import { z } from "zod";
 
+import { whatTheProcedureAnswered } from "@/answer";
 import { whatTheFormCarries } from "@/form";
 import { callerContext } from "@/session";
 
@@ -36,5 +37,7 @@ export async function endDevice(form: FormData): Promise<void> {
   const input = whatTheFormCarries(form, theDeviceNamed);
   if (input === undefined) return;
 
-  await call(appRouter.session.end, input, { context: await callerContext() });
+  await whatTheProcedureAnswered(
+    call(appRouter.session.end, input, { context: await callerContext() }),
+  );
 }

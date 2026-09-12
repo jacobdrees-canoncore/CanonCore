@@ -349,6 +349,10 @@ export const item = {
             containerTitle: placement.containerTitle,
             position: placement.position,
             placedBy: placement.placedBy,
+            // WHO SAYS SO, beside what SORT of thing said it (CNCORE-121). The
+            // filter over this list reads the kind; telling a Repeat from two
+            // providers disagreeing needs the names.
+            assertedBy: placement.assertedBy,
           })),
           total: placements.total,
           continuesAfter: placements.continuesAfter,
