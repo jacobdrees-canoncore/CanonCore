@@ -1,4 +1,4 @@
-import { type Database, sessions, startSession, taskRuns } from "@canoncore/db";
+import { type Database, RUN_HISTORY_DEPTH, sessions, startSession } from "@canoncore/db";
 import { connect } from "@canoncore/db/testing/catalogue";
 import { eq } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -315,14 +315,6 @@ describe("the dead-session sweep", () => {
 });
 
 describe("the run-history compaction", () => {
-  /**
-   * A run's age, written into the row rather than faked on the clock, for the
-   * reason `task-runs.test.ts` gives at greater length: the window is measured
-   * against POSTGRES'S clock, and stubbing `Date` moves the only clock the
-   * policy never consults.
-   */
-  const daysAgo = (days: number) => new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-
   it("runs from the registry, and reports what it removed", async () => {
     // ADR-0049's OWN CATEGORY, ARRIVING BACK AT ITS OWN TABLE. That record
     // lists tombstone compaction among the eight things its registry exists to
@@ -335,21 +327,19 @@ describe("the run-history compaction", () => {
     // than a tally of what the tests above happened to leave lying around.
     await registry.run(db, "compact-task-runs");
 
-    // A TASK WITH A HISTORY BEHIND IT. Two runs, because the newer one is what
-    // makes the older one compactable at all -- a key's last run never goes.
+    // ONE RUN MORE THAN THE PAGE CAN SHOW, which is the only thing that makes
+    // anything compactable: retention is a DEPTH IN ROWS, so no amount of age
+    // would have made this fixture removable and an earlier version of this
+    // test that aged a row thirty-one days proved nothing once the rule was
+    // corrected. The oldest of these falls off the end; the rest are what
+    // `/tasks` would still render.
     const watched = createRegistry([aTask({ key: "compacted", run: async () => "did something" })]);
-    const stale = await watched.run(db, "compacted");
-    await watched.run(db, "compacted");
-    await db
-      .update(taskRuns)
-      .set({ startedAt: daysAgo(31) })
-      .where(eq(taskRuns.id, stale.id));
+    for (let made = 0; made < RUN_HISTORY_DEPTH + 1; made++) {
+      await watched.run(db, "compacted");
+    }
 
     const run = await registry.run(db, "compact-task-runs");
 
-    // THIRTY-ONE DAYS IS THE DECISION WRITTEN DOWN, not arithmetic on the
-    // exported window, so widening it fails this rather than passing whatever
-    // it became.
     expect(run).toMatchObject({ outcome: "completed", detail: "Removed 1 run." });
   });
 });

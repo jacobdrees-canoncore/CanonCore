@@ -5,7 +5,7 @@ import {
   compactTaskRuns,
   type Database,
   endTaskRun,
-  readLatestTaskRuns,
+  RUN_HISTORY_DEPTH,
   readTaskRuns,
   startTaskRun,
 } from "./index";
@@ -39,10 +39,10 @@ async function aFinishedRun(taskKey: string, detail: string) {
  * 60ms BEHIND it on this machine. A test that stubbed `Date` would move the one
  * clock the policy never consults.
  *
- * THE AGES PASSED TO IT ARE LITERALS rather than arithmetic on the exported
- * window. "One day past `RUN_HISTORY_RETENTION_SECONDS`" would pass whatever
- * that constant became, which is the policy asserting itself; thirty-one days
- * is the decision written down, and it fails if somebody widens the window.
+ * THE AGES PASSED TO IT ARE LITERALS rather than arithmetic on any constant.
+ * Age is what this file has to prove compaction does NOT consult, so an age
+ * computed from the policy would be the policy asserting itself; sixty days is
+ * written down, and it is a number no rule here is allowed to care about.
  */
 async function aged(runId: string, days: number) {
   await db
@@ -52,47 +52,56 @@ async function aged(runId: string, days: number) {
 }
 
 describe("compacting the run history", () => {
-  it("removes the runs past the window and leaves the ones inside it", async () => {
-    // THE TABLE ADR-0049's OWN CATEGORY ARRIVES BACK AT. A task on a daily
-    // trigger writes 365 rows a year and nothing removed any of them, which is
-    // the tombstone compaction that record schedules, owed to its own history.
-    const stale = await aFinishedRun("compacting", "a run nothing can reach");
-    await aged(stale.id, 31);
-    const yesterday = await aFinishedRun("compacting", "a run the page still shows");
+  it("keeps the runs the page can show and removes the ones behind them", async () => {
+    // WHAT COMPACTION KEEPS IS WHAT THE PRODUCT CAN READ, exactly. `readTaskRuns`
+    // answers the newest `RUN_HISTORY_DEPTH` of a task's runs and `/tasks`
+    // renders what it answers, so a run behind that depth is one no surface in
+    // this app can reach. Both sides take the same constant and the same order,
+    // which is what makes this a boundary rather than two policies that happen
+    // to agree today.
+    const runs = [];
+    for (let made = 0; made < RUN_HISTORY_DEPTH + 2; made++) {
+      runs.push(await aFinishedRun("compacting", `run ${made}`));
+    }
 
-    expect(await compactTaskRuns(db)).toBe(1);
+    expect(await compactTaskRuns(db)).toBe(2);
 
-    expect(await readTaskRuns(db, "compacting", 30)).toMatchObject([
-      { id: yesterday.id, detail: "a run the page still shows" },
-    ]);
+    const kept = await readTaskRuns(db, "compacting", RUN_HISTORY_DEPTH + 2);
+    expect(kept).toHaveLength(RUN_HISTORY_DEPTH);
+    // THE OLDEST TWO WENT AND THE NEWEST STAYED, rather than some thirty of
+    // them: a count alone would pass an implementation that kept the wrong end.
+    expect(kept.at(0)?.id).toBe(runs.at(-1)?.id);
+    // THE TWO OLDEST WENT, so the oldest survivor is the third run made.
+    expect(kept.at(-1)?.id).toBe(runs.at(2)?.id);
   });
 });
 
 describe("a task that stopped months ago", () => {
-  it("keeps the last thing it did, however far past the window that is", async () => {
-    // THE ONE THING COMPACTION MUST NOT DO, and the reason ADR-0049 exists at
-    // all: "a recurring job whose result nobody can see is one that silently
-    // stopped months ago" is that record's own sentence. A window applied
-    // without this takes every row of a task that stopped in July, and
-    // `readLatestTaskRuns` then answers nothing for it -- which `/tasks`
-    // renders as "Has not run yet". The compaction written to serve that record
-    // would be manufacturing the exact lie it was built to expose, and would
-    // erase the evidence of the stoppage in the act of doing it.
-    const earlier = await aFinishedRun("stopped-long-ago", "a night further back still");
-    await aged(earlier.id, 61);
-    const lastWorking = await aFinishedRun("stopped-long-ago", "the last night it ran");
-    await aged(lastWorking.id, 60);
+  it("keeps every run the page would still show, however old they all are", async () => {
+    // AGE IS NOT WHAT MAKES A RUN UNREADABLE, and an earlier version of this
+    // compaction got that wrong. It took rows past a thirty-DAY window, on the
+    // reasoning that the page shows thirty runs and thirty runs is a month --
+    // which is true only for a task that runs exactly daily. A task an owner
+    // ran six times across two months has all six on the page, and that window
+    // deleted four of them: history the product was still displaying, removed
+    // by the maintenance meant to remove only what nothing could read.
+    //
+    // AND THE STOPPAGE IS THE CASE THAT MATTERS, because ADR-0049 exists for it:
+    // "a recurring job whose result nobody can see is one that silently stopped
+    // months ago". Every run of this task is older than any window anybody would
+    // pick, and all of them are still the answer to "what did it do before it
+    // stopped".
+    const stopped = [];
+    for (const daysOld of [62, 61, 60]) {
+      const run = await aFinishedRun("stopped-long-ago", `a night ${daysOld} days back`);
+      await aged(run.id, daysOld);
+      stopped.push(run);
+    }
 
-    await compactTaskRuns(db);
+    expect(await compactTaskRuns(db)).toBe(0);
 
-    const latest = await readLatestTaskRuns(db, ["stopped-long-ago"]);
-    expect(latest.get("stopped-long-ago")).toMatchObject({
-      id: lastWorking.id,
-      detail: "the last night it ran",
-    });
-    // AND ONLY THE LAST ONE. Keeping the newest is not keeping the task exempt:
-    // everything behind it still goes, or a task that stopped would be the one
-    // task whose history grew forever.
-    expect(await readTaskRuns(db, "stopped-long-ago", 30)).toHaveLength(1);
+    expect(await readTaskRuns(db, "stopped-long-ago", RUN_HISTORY_DEPTH)).toHaveLength(
+      stopped.length,
+    );
   });
 });

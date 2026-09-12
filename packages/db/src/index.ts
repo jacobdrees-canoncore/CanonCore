@@ -65,7 +65,7 @@ export {
   closeTaskRunsLeftOpen,
   compactTaskRuns,
   endTaskRun,
-  RUN_HISTORY_RETENTION_SECONDS,
+  RUN_HISTORY_DEPTH,
   readLatestTaskRuns,
   readTaskRuns,
   startTaskRun,

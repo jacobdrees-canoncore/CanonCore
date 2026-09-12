@@ -35,17 +35,14 @@ export { sweepSessionsTask } from "./sweep-sessions";
  * task IS code, so a table of them would be a second place to add one from,
  * out of step with this list the moment either moved.
  *
- * TWO ENTRIES, AND THE SECOND IS THIS LIST'S OWN HISTORY BEING COMPACTED.
- * ADR-0049 names tombstone compaction among the eight pieces of work its
- * registry exists to run, and `task_runs` -- what makes every line here
- * readable after the fact -- was itself a table that only grew. A registry
- * whose own history needed the category it schedules is the shape that record
- * is for, rather than an awkwardness in it.
+ * TWO ENTRIES, AND THE SECOND IS THIS LIST'S OWN HISTORY BEING COMPACTED --
+ * the reasoning is in `compact-task-runs.ts` and in ADR-0049.
  *
- * SIX MORE TO COME: scans, the six-month TMDB cache eviction, projection
+ * SEVEN MORE TO COME: scans, the six-month TMDB cache eviction, projection
  * reconciliation, provider re-refresh, orphan collection, palette extraction
  * and the analysis pass -- each arriving as a line here and a file beside this
- * one, when the work it runs exists.
+ * one, when the work it runs exists. (Eight, less the tombstone compaction both
+ * entries above are an instance of.)
  *
  * THE ORDER IS THE ORDER AN OWNER READS THEM IN, which `registry.list` keeps
  * deliberately: `/tasks` renders this list as written rather than sorted, so a

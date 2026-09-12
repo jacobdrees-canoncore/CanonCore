@@ -62,7 +62,7 @@ describe("/tasks", () => {
     // the first form would have left the second task's never-run sentence
     // failing a test about the first. Running all of them keeps the assertion
     // exactly as strong as it was written to be, and keeps it true as ADR-0049's
-    // remaining six arrive.
+    // remaining seven arrive.
     const [first, ...rest] = postFormsIn(sectionIn(text, "tasks"));
     if (!first) throw new Error("/tasks offered no form to run a task with");
 
@@ -116,10 +116,14 @@ describe("/tasks", () => {
     // a table nobody looks at until it is large.
     const cookie = await logInAt(baseUrl, ownerPassword);
     const { text } = await documentFrom(baseUrl, "/tasks", cookie);
-    // THE SECOND FORM IS THE SECOND TASK, which holds because `registry.list`
-    // keeps the order `theTasks` was written in rather than sorting.
-    const [, compact] = postFormsIn(sectionIn(text, "tasks"));
-    if (!compact) throw new Error("/tasks offered no form to run the compaction with");
+    // FOUND BY ITS KEY RATHER THAN BY ITS POSITION. The page renders the tasks
+    // in the order `theTasks` was written in, so an index here is a test that
+    // silently retargets the day a task is inserted above this one -- and goes
+    // on passing, against the wrong task. Found in review.
+    const compact = postFormsIn(sectionIn(text, "tasks")).find(({ fields }) =>
+      fields.some(([name, value]) => name === "key" && value === "compact-task-runs"),
+    );
+    if (!compact) throw new Error("/tasks offered no form to run compact-task-runs with");
 
     const after = await submit(baseUrl, "/tasks", compact, cookie);
 

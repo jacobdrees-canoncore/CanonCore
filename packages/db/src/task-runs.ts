@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, notInArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, lte, notInArray, sql } from "drizzle-orm";
 
 import type { Database } from "./index";
 import { theOwnerId } from "./placements";
@@ -100,9 +100,9 @@ export async function endTaskRun(
 /**
  * One task's runs, newest first.
  *
- * BOUNDED BY THE CALLER, because this table only grows: a task on a daily
- * trigger writes 365 rows a year and a page showing all of them is a page that
- * gets slower every night it works.
+ * BOUNDED BY THE CALLER, because a page showing every run is a page that gets
+ * slower every night it works. `RUN_HISTORY_DEPTH` below is the bound the
+ * product passes, and compaction keeps exactly what this read can reach.
  */
 export async function readTaskRuns(
   db: Database,
@@ -172,71 +172,91 @@ export async function closeTaskRunsLeftOpen(db: Database, detail: string): Promi
 }
 
 /**
- * HOW LONG A RUN IS KEPT (ADR-0049, CNCORE-124).
+ * HOW MANY OF A TASK'S RUNS ARE KEPT, and read (ADR-0049, CNCORE-124).
  *
- * THIRTY DAYS, BECAUSE THAT IS WHERE THE PRODUCT STOPS READING. `registry.history`
- * asks this table for 30 runs and `/tasks` renders what it answers, so for a task
- * on a daily trigger a run older than a month is one no surface in this app can
- * reach -- it is bytes behind a page that will never show them. The window is
- * chosen to sit exactly where the reader already stops rather than at a round
- * number picked for its own sake.
+ * ONE CONSTANT FOR BOTH SIDES, which is the whole reason it sits here rather
+ * than beside either caller. `registry.history` passes it to `readTaskRuns` so
+ * the page shows this many; `compactTaskRuns` keeps this many so the rows behind
+ * them go. The two compare against it in opposite directions -- the same shape
+ * `sessions.ts` gives for `SESSION_LIFETIME_SECONDS` and for the same reason:
+ * the cutoff written twice is two places to change and one of them forgotten,
+ * and the failure it produces here is compaction deleting rows the page is still
+ * rendering.
  *
- * THE TWO ARE NOT ONE CONSTANT, and cannot be: the read is bounded in ROWS and
- * this is an AGE, which coincide only for a task that runs once a day. A task an
- * owner ran forty times this afternoon keeps all forty for a month and the page
- * shows the newest thirty, and that is the right way round -- the window may keep
- * more than the page shows, and must never keep less.
+ * THIRTY, WHICH IS A MONTH OF A DAILY TASK -- enough to see that last night
+ * failed and that the four before it did not, which is the question ADR-0049
+ * says the history is read to answer.
+ *
+ * A DEPTH IN ROWS AND NOT A WINDOW IN DAYS, and that distinction is the
+ * correction this ticket's first implementation needed. Thirty rows is a month
+ * ONLY for a task that runs exactly daily; `/tasks` offers a Run-now button, so
+ * an owner who ran a task six times across two months has all six on the page.
+ * A thirty-day window deleted four of those -- history the product was still
+ * displaying, removed by the maintenance meant to remove only what nothing can
+ * read. Rank is what the page actually bounds by, so rank is what compaction
+ * has to bound by. Found in review.
  */
-export const RUN_HISTORY_RETENTION_SECONDS = 60 * 60 * 24 * 30;
+export const RUN_HISTORY_DEPTH = 30;
 
 /**
- * Removes the runs past the retention window, and answers how many went.
+ * Removes the runs no surface can reach, and answers how many went.
  *
- * THIS RECORD'S OWN CATEGORY, ARRIVING BACK AT ITS OWN TABLE. ADR-0049 lists
- * tombstone compaction as one of the eight things its registry exists to run,
- * and the registry's history is a table that only grows: a daily task writes 365
- * rows a year and, until this, nothing removed one.
+ * ADR-0049's OWN CATEGORY, ARRIVING BACK AT ITS OWN TABLE. That record lists
+ * tombstone compaction among the eight pieces of work its registry exists to
+ * run, and `task_runs` -- what makes its history readable at all -- only grew: a
+ * daily task writes 365 rows a year and nothing removed one.
+ *
+ * IT KEEPS EXACTLY WHAT THE PAGE CAN SHOW: the newest `RUN_HISTORY_DEPTH` runs
+ * OF EACH TASK, by the same order `readTaskRuns` answers in. So this is not a
+ * policy that happens to agree with the read path, it is the read path's own
+ * bound turned around -- and a run it removes is one no surface in this app
+ * could have rendered.
+ *
+ * WHICH IS ALSO WHY THERE IS NO EXEMPTION FOR A TASK'S LAST RUN. It needs none:
+ * rank one is inside every depth, so the newest run of every task survives by
+ * construction, however old it is. That matters because ADR-0049 exists for the
+ * job that "silently stopped months ago" -- a rule that could take the last run
+ * of a task that stopped in July would leave `readLatestTaskRuns` answering
+ * nothing for it, and `/tasks` rendering "Has not run yet": the stoppage this
+ * record exists to surface, reported as a fresh install.
+ *
+ * AND IT IS WHAT KEEPS AN OPEN RUN SAFE, at no clause of its own. A row still
+ * reading `running` is one something means to write the ending of, and deleting
+ * it under that process would leave `endTaskRun` no row to close. The registry
+ * refuses a second concurrent run of one key, so a key's open run is always that
+ * key's newest -- rank one, and kept.
+ *
+ * NO TIEBREAK ON THE ORDER, matching `readTaskRuns` exactly. Two runs of ONE
+ * task sharing a `started_at` to the microsecond would need two runs of that key
+ * at once, which is the thing the registry refuses; across keys the ranking is
+ * partitioned and ties cannot meet.
  *
  * THE ROWS GO OUTRIGHT RATHER THAN BEING TOMBSTONED, though this table carries a
  * `deleted_at` like every other (ADR-0075). A tombstone here would compact
  * nothing twice over: the row stays in the table, and no read of this table
  * filters on that column -- so the history would go on rendering every run it
- * had supposedly removed. Compaction is what REMOVES tombstoned rows rather than
- * a thing that writes them, and `sweepSessions` deletes for the same reason one
- * table over.
+ * had supposedly removed. `sweepSessions` deletes one table over for the same
+ * reason.
  */
 export async function compactTaskRuns(db: Database): Promise<number> {
-  /**
-   * THE LAST RUN OF EVERY TASK, WHICH NEVER GOES, however far past the window
-   * it is. This is the one thing compaction must not do, and it is ADR-0049's
-   * own sentence that says so: "a recurring job whose result nobody can see is
-   * one that silently stopped months ago". A task that stopped in July has
-   * every row past the window, so an age alone takes all of them --
-   * `readLatestTaskRuns` then answers nothing for that key and `/tasks` renders
-   * "Has not run yet", which is the stoppage this whole record exists to
-   * surface, reported as a fresh install. The compaction would be erasing the
-   * evidence in the act of serving the record that asked for it.
-   *
-   * IT IS ALSO WHAT KEEPS AN OPEN RUN SAFE, at no extra clause. A row still
-   * reading `running` is one something is going to write the ending of, and
-   * deleting it under the process holding it would leave `endTaskRun` with no
-   * row to close; the registry refuses a second concurrent run of one key
-   * (`TaskRefused`, "already running"), so a key's open run is always that
-   * key's newest and is always the row this protects.
-   */
-  const theLastRunOfEachTask = db
-    .selectDistinctOn([taskRuns.taskKey], { id: taskRuns.id })
+  const ranked = db
+    .select({
+      id: taskRuns.id,
+      rank: sql<number>`row_number() over (partition by ${taskRuns.taskKey} order by ${taskRuns.startedAt} desc)`.as(
+        "rank",
+      ),
+    })
     .from(taskRuns)
-    .orderBy(taskRuns.taskKey, desc(taskRuns.startedAt));
+    .as("ranked");
+
+  const theRunsThePageCanShow = db
+    .select({ id: ranked.id })
+    .from(ranked)
+    .where(lte(ranked.rank, RUN_HISTORY_DEPTH));
 
   const removed = await db
     .delete(taskRuns)
-    .where(
-      and(
-        sql`${taskRuns.startedAt} <= now() - make_interval(secs => ${RUN_HISTORY_RETENTION_SECONDS})`,
-        notInArray(taskRuns.id, theLastRunOfEachTask),
-      ),
-    )
+    .where(notInArray(taskRuns.id, theRunsThePageCanShow))
     .returning({ id: taskRuns.id });
   return removed.length;
 }

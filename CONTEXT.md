@@ -389,9 +389,6 @@ How a run ended, and one of five. `running` while it has not; `completed`; `fail
 broke; `cancelled` when the OWNER stopped it; `aborted` when the SERVER went away under it. The last
 three are different answers on purpose -- a job that broke, a job its owner stopped and a job the
 machine stopped need different answers, and only the first and last are a machine to go and look at.
-This entry said "one of four" and listed `cancelled` as a fifth value to avoid; the code has shipped
-five since CNCORE-119, and ADR-0049 records at length why the split between the owner stopping a run
-and the server dying under one is the one worth copying from Jellyfin.
 _Avoid_: status
 
 ### Named instances
