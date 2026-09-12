@@ -71,9 +71,10 @@ The anchor is read WITHOUT the tombstone filter, deliberately — ADR-0075's rul
 reader is SHOWN, and the anchor is never shown, it is a position. An `after` naming nothing at all
 names no position either, so the walk starts at the beginning: that is ADR-0066's rule for a
 non-identifying parameter, and it means a stale bookmark answers with the catalogue rather than with
-an error.
+an error. **And so does an anchor whose sort key the tombstone took** — read, found, and no more
+placeable in this order than an id nobody minted, which is the next paragraph's whole subject.
 
-**IT DOES NOT ACTUALLY SURVIVE A DELETE, AND THIS PARAGRAPH SAID IT DID.** The sentence removed from
+**IT DID NOT RESUME PAST A DELETE, AND THIS PARAGRAPH SAID IT DID.** The sentence removed from
 here read "So a kept link to page two still works after the Item it was cut at is gone, which is
 ordinary rather than a corner case." **Measured 2026-09-12** against `readCatalogue`, five Items
 walked two at a time: page two answered `Probe walk 3, Probe walk 4` before the anchor was deleted
@@ -110,9 +111,14 @@ resumed from. Only the two orders built on the projection lose one, and they are
 **Asserted on BOTH shapes of catalogue, because they fail differently and only one of them looks like
 an ending.** The suite's shared database has an untitled tail; "no untitled Item anywhere" is a
 property of a whole catalogue rather than of a query, so the second shape is a catalogue of its own —
-the same reason the page-level walk below needed a third instance. Mutation-checked by removing the
-clause: the catalogue with a tail answers 1 of 13 Items, the one without answers none, and
-work-browsing answers 1 of 13 through the same walk.
+the same reason the page-level walk below needed a third instance.
+
+**Mutation-checked by removing the clause, and the FIGURE moves with the invocation while the SHAPE
+does not.** The suite's database is shared and accumulates, so those two files run alone answer 1
+Item of 13 where the whole package answers 9 of 99 and work-browsing 26 of 222 — which is worth
+saying because a number quoted off one invocation reads as a property of the catalogue. What holds
+either way: the catalogue with an untitled tail answers that tail and skips everything before it,
+the catalogue without one answers NOTHING, and work-browsing fails with them through the same walk.
 
 ## The order has to be TOTAL, and it is the part that gets built wrong
 
@@ -148,6 +154,12 @@ and each is a way to lose Items silently.**
   of the id, taken with the reasons above rather than overlooked. It is narrower than the offset's
   failure it replaces: an offset shifts on any insert or delete ANYWHERE ahead of the reader, where
   this needs an edit to the one Item the cursor names, inside the seconds between two clicks.
+- **A kept link does not RESUME past its anchor's own deletion: it starts the listing over.** The
+  same family as the retitle above — the anchor's key changing under the reader — with the key GONE
+  rather than moved, so there is no position left to resume from and the reader is shown the listing
+  from the top. Nothing is skipped and nothing is lost, which is the criterion; what it costs is
+  that a reader five pages in walks those five again. The section above has the mechanism, the
+  measurement and why the alternative was refused.
 - **No Previous, yet.** Reversing a keyset walk means the comparison and the ordering both flip and
   the rows come back reversed — a symmetric `before`, but a second query shape, so it is a layer on
   top of this rather than the missing half of it. Until something needs it, every page past the first

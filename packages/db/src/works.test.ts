@@ -115,8 +115,10 @@ describe("readWorks", () => {
     const kept = await readWorks(db, { limit: 10_000, after: cut.continuesAfter ?? "" });
 
     // WORK-BROWSING OVER AGAIN, oracled against the same listing read in one go
-    // -- and against `readWorks` rather than the catalogue, so a walk that
-    // started over into the WIDER listing would fail this rather than pass it.
+    // -- two code paths, which is what makes this an assertion rather than the
+    // walk marking its own work. NOT against the catalogue's own read: these
+    // two listings hold different sets, and only this one answers the question
+    // `readWorks` was asked.
     expect(kept.entries.map((entry) => entry.id)).toStrictEqual(
       (await readWorks(db, { limit: 10_000 })).entries.map((entry) => entry.id),
     );

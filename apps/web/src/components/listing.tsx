@@ -249,10 +249,16 @@ export function Walk({
  * A LINK THAT OUTLIVED THE ITEMS AFTER IT.
  *
  * A cursor is cut at an item, and this is what a reader gets when nothing sorts
- * after that item any more -- a bookmark kept past a delete, or an address
- * typed by hand. Saying the listing ends here, and pointing at the one address
- * that is always somewhere, is the difference between an ending and a page that
- * looks broken.
+ * after that item any more -- a bookmark kept while the items that followed it
+ * were deleted, or an address typed by hand. Saying the listing ends here, and
+ * pointing at the one address that is always somewhere, is the difference
+ * between an ending and a page that looks broken.
+ *
+ * NOT AN ANCHOR DELETED ITSELF, AND THE COPY BELOW SAID IT WAS. A deleted item
+ * has no sort key left to place it by, so it names no position at all and the
+ * walk starts the listing over rather than arriving here (ADR-0119,
+ * CNCORE-110). The sentence read "or it may have been removed since", which
+ * named a state this page can no longer be in.
  */
 export function PastTheEnd({ path, asked }: Walking) {
   return (
@@ -268,8 +274,8 @@ export function PastTheEnd({ path, asked }: Walking) {
             <h2 id="past-the-end">{ENDS_HERE[path]}</h2>
           </EmptyTitle>
           <EmptyDescription>
-            Nothing sorts after the item this link was cut at. It may have been the last one, or it
-            may have been removed since.
+            Nothing sorts after the item this link was cut at. It is the last one in this listing
+            now, whether or not it was when the link was made.
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent>

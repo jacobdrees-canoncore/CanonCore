@@ -686,6 +686,12 @@ export interface TheAnchor {
    * the second as though it were the first is what dead-ended a kept link
    * (CNCORE-110): the walk resumed from the untitled tail with every titled
    * item between skipped. Read it and decide, rather than inferring it.
+   *
+   * A RELEVANCE ORDER NEEDS NO SUCH DISTINCTION, which is why only one caller
+   * reads this. Closeness is `similarity(title, ...)`, so Catalogue search has
+   * no place for EITHER kind of untitled row and turns both away on the title
+   * alone -- the same answer for two facts, arrived at honestly rather than by
+   * failing to tell them apart.
    */
   deletedAt: Date | null;
   /**
@@ -776,7 +782,11 @@ export async function findTheAnchor(db: Database, id: string): Promise<TheAnchor
  */
 async function findInTheOrder(db: Database, id: string): Promise<PlaceInTheOrder | undefined> {
   const anchor = await findTheAnchor(db, id);
-  if (anchor === undefined || anchor.deletedAt !== null) return undefined;
+  if (anchor === undefined) return undefined;
+  // A KEY MISSING BECAUSE THE ROW IS DEAD, which is the pair and not either
+  // half: `deletedAt` alone would refuse an anchor whose key a delete had left
+  // alone, and that is the case the paragraph above keeps this exception for.
+  if (anchor.sortKey === null && anchor.deletedAt !== null) return undefined;
   return { sortKey: anchor.sortKey, id: anchor.id };
 }
 

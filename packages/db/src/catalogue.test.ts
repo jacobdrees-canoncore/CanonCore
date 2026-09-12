@@ -273,9 +273,6 @@ describe("readCatalogue, walked a page at a time", () => {
     expect(kept.entries.map((entry) => entry.id)).toStrictEqual(
       fromTheStart.entries.map((entry) => entry.id),
     );
-    // AND NOT THE ANCHOR ITSELF. It named the position and is gone from the
-    // listing (ADR-0075), which is the pair of facts this walk holds at once.
-    expect(kept.entries.map((entry) => entry.id)).not.toContain(anchorId);
   });
 
   it("says so on a catalogue with no untitled tail, which is the shape that reads as an ending", async () => {
@@ -337,9 +334,10 @@ describe("readCatalogue, walked a page at a time", () => {
  *
  * `gen_random_uuid` mints version 4, whose version and variant nibbles are
  * fixed: `4`, and one of `8` `9` `a` `b`. This is every other nibble at `f` and
- * those two at the top of their range, so no id the column can hold is above
+ * those two at the top of their range, so no id this catalogue MINTS is above
  * it and a fixture naming it is past every drawn id rather than probably past
- * them.
+ * them. The `uuid` type itself holds larger values -- `ffffffff-...-ffff` is
+ * one -- and only another fixture naming its own id could produce one.
  */
 const LAST_ID = "ffffffff-ffff-4fff-bfff-ffffffffffff";
 
