@@ -1,7 +1,7 @@
 import type { AppRouterClient } from "@canoncore/api/routers";
 import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { GET, POST } from "./route";
 
@@ -25,6 +25,22 @@ const client: AppRouterClient = createORPCClient(
   }),
 );
 
+/**
+ * WHAT THE MOUNT WROTE TO THE OWNER'S LOG. The interceptor is only observable
+ * through `console.error`, so the spy IS the seam's output here -- the response
+ * says what the caller was told, and this says what the owner was told.
+ */
+let faultsLogged: unknown[][];
+beforeEach(() => {
+  faultsLogged = [];
+  vi.spyOn(console, "error").mockImplementation((...args: unknown[]) => {
+    faultsLogged.push(args);
+  });
+});
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
 describe("the catch-all oRPC route", () => {
   it("answers healthCheck over the RPC protocol", async () => {
     await expect(client.healthCheck()).resolves.toBe("OK");
@@ -37,5 +53,23 @@ describe("the catch-all oRPC route", () => {
     expect(response.status).toBe(200);
     const spec = (await response.json()) as { paths?: Record<string, unknown> };
     expect(Object.keys(spec.paths ?? {})).toContain("/healthCheck");
+  });
+});
+
+describe("what the mount writes to the owner's log", () => {
+  /**
+   * ADR-0125: a line per ARRIVING request is a way to fill an owner's disk from
+   * the outside. `UNAUTHORIZED` is what `ownerProcedure` answers anyone with no
+   * session (CNCORE-109), so this is a refusal a stranger can ask for as fast as
+   * the process serves.
+   */
+  it("says nothing when a caller with no session is refused, however often they ask", async () => {
+    for (let attempt = 0; attempt < 25; attempt += 1) {
+      await expect(
+        client.item.create({ kind: "work", title: "A title nobody is allowed to write" }),
+      ).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+    }
+
+    expect(faultsLogged).toEqual([]);
   });
 });
