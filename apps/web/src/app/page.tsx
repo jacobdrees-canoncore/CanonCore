@@ -122,14 +122,17 @@ export default async function CataloguePage({
  * condition is read off `providers.any` alone and never off the catalogue's
  * size, which is what makes that true by construction rather than by care.
  *
- * THREE OF THE FOUR COMBINATIONS ARE EXERCISED, and saying which is cheaper
- * than letting a reader assume all of them are. The suite has an instance with
- * an empty catalogue AND an empty allowlist, one with neither, and -- since
- * CNCORE-131 -- one with an empty catalogue AND an allowlist that admits
- * something, which is what holds the empty state to being offered whether or
- * not a provider is reachable. ITEMS PRESENT WITH NO ALLOWLIST is the fourth
- * and is still nobody's fixture: it would need a server of its own, and the
- * condition here cannot see the catalogue to get it wrong.
+ * ALL FOUR COMBINATIONS EXIST IN THE SUITE AND THIS PAGE'S ASSERTIONS READ
+ * THREE, which is worth saying exactly rather than leaving a reader to assume
+ * either number. Empty with an empty allowlist is `fresh`; neither is the
+ * seeded instance; empty WITH an allowlist that admits something is `ready`
+ * since CNCORE-131, and that is what holds the empty state to being offered
+ * whether or not a provider is reachable. ITEMS PRESENT WITH NO ALLOWLIST is
+ * the fourth and it is NOT missing -- `place` and `order` are both in it -- but
+ * their suites assert container pages rather than `/`, so this notice has never
+ * been read in that state. It has cost nothing because the condition here
+ * cannot see the catalogue to get it wrong, which is the same reason a server
+ * of its own was never worth standing up for it.
  *
  * WHERE THE SETTING IS, NAMED AND LINKED (CNCORE-99). "Allowlist a provider" is
  * the step, and until this ticket the thing an owner had to type was an
