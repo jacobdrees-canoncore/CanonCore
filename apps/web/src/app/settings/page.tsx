@@ -38,6 +38,21 @@ import { editAllowlist, nameProvider, removeProvider } from "./actions";
  *
  * IT NEEDS NO JAVASCRIPT, like every other form in this app: Name, Remove and
  * Save are ordinary form posts and the answer is the re-rendered page.
+ *
+ * NO `connection()` HERE, AND THAT IS ADR-0117 OBEYED RATHER THAN SKIPPED, under
+ * the same exemption `/search` and `/import` take: the rule is that a read
+ * surface declares it needs a request, and the second way of declaring it is "a
+ * request-time API the page was going to touch anyway". This one reads the
+ * session cookie before it decides whether there is a page at all, so it is
+ * dynamic by the thing it exists to do rather than by a line that could be
+ * removed.
+ *
+ * AND THE CHECK THAT RECORD SAYS IS ACTUALLY EARNED IS TAKEN, in the shape this
+ * surface makes available: `e2e/settings-page.test.ts` writes a setting and
+ * re-reads the same running server, which a page prerendered at build time
+ * cannot do. Two instances differing is the usual form of that check; one
+ * instance CHANGING its answer is the stronger form, and it is the one a
+ * settings surface can make.
  */
 export default async function SettingsPage({
   searchParams,

@@ -107,8 +107,20 @@ route segment config and `connection()` are both live and the `use cache` direct
   a build id while both being photographs of the same state, so a bare inequality would be a check
   that cannot fail for the right reason.
 
+- `/settings` — `apps/web/src/app/settings/page.tsx`, under CNCORE-99, and under the same exemption
+  for a different request-time API: it reads the SESSION COOKIE before it decides whether there is a
+  page at all, so it is dynamic by the thing it exists to do. **Its pair is not two instances, and
+  the shape is worth recording because it is stronger rather than weaker**: the settings surface
+  WRITES what it reads, so `e2e/settings-page.test.ts` names a Provider and re-reads the same
+  running server, which a page prerendered at build time cannot answer differently. Two servers
+  differing proves the HTML is not frozen at build time; one server changing its own answer proves
+  it too, and proves the read reaches the database on every request as well.
+
 `/items/<id>` is the third dynamic read surface and has no pair, which is the honest state rather
 than an oversight: it was dynamic before this record existed, by `searchParams` it reads for `?via=`.
+`/devices` and `/tasks` are in the same position for the same kind of reason — both read the session
+cookie — and neither added an entry here when it landed. Named under CNCORE-99 so the list reads as
+a record of what has been checked rather than as a claim about every surface.
 
 ## What a surface that WRITES adds to this record, which is nothing -- under CNCORE-68
 

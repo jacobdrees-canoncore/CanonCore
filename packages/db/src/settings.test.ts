@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import { type Database, readProviderSettings, writeProviderSettings } from "./index";
 import { settings } from "./schema";
-import { connect } from "./testing/catalogue";
+import { connect, theOwner } from "./testing/catalogue";
 
 let db: Database;
 
@@ -98,5 +98,52 @@ describe("what the owner configured", () => {
       providerUrls: "http://wiki.test:8080",
       providerAllowlist: "wiki.test, 127.0.0.0/8",
     });
+  });
+});
+
+/**
+ * THE CEREMONY ADR-0075 ASKS OF EVERY TABLE, on the one this rung adds.
+ *
+ * IT IS NOT COVERED BY THE TESTS ABOVE, WHICH IS WHY IT IS HERE. Those read
+ * what the store answers, and the store answers the two settings -- so the owner
+ * id, the timestamps and the change sequence could all be absent and every one
+ * of them would pass. Migration 16 attaches `settings_touch` itself, because
+ * migration 1's loop named the eleven tables that existed then: a rung that
+ * forgot would carry the columns and advance none of them, and nothing else in
+ * this repository would notice.
+ */
+describe("what the settings row carries besides the settings", () => {
+  it("belongs to the owner, and is stamped the moment it is written", async () => {
+    await anInstanceNobodyHasConfigured();
+    await writeProviderSettings(db, { providerAllowlist: "wiki.test" });
+
+    const [row] = await db.select().from(settings);
+    const owner = await theOwner(db);
+
+    expect(row?.ownerId).toBe(owner);
+    expect(row?.changeSequence).toBeGreaterThan(0);
+    expect(row?.deletedAt).toBeNull();
+  });
+
+  it("advances the change sequence on every change the owner makes", async () => {
+    /*
+     * ADR-0075's SUBSTRATE, and this table is where it is easiest to lose. Every
+     * change an Owner makes is an UPDATE of ONE row, so the change sequence is
+     * the only record that the configuration changed at all: without the
+     * trigger the row would read as though it had always said what it says now.
+     */
+    await anInstanceNobodyHasConfigured();
+    await writeProviderSettings(db, { providerUrls: "http://wiki.test:8080" });
+    const [first] = await db.select().from(settings);
+
+    await writeProviderSettings(db, { providerUrls: "http://tmdb.test:8080" });
+    const [second] = await db.select().from(settings);
+
+    expect(second?.changeSequence).toBeGreaterThan(first?.changeSequence ?? 0);
+    // `updated_at` IS THE TRIGGER'S OTHER HALF, and it advances by the database's
+    // own clock rather than by whoever wrote the row -- which is the reason
+    // ADR-0075 gives for the trigger existing: a write that forgets is exactly
+    // the write a reversal query needs to find.
+    expect(second?.updatedAt.getTime()).toBeGreaterThan(first?.updatedAt.getTime() ?? 0);
   });
 });

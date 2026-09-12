@@ -98,31 +98,67 @@ describe("/settings", () => {
     expect(providersIn(text)).not.toContain(`${asTyped}/`);
   });
 
+  /**
+   * THE ONE THING ON THIS PAGE A PERSON CAN GET WRONG, and the one a re-read
+   * cannot report: "that was not a URL" and "nothing happened" render as the
+   * same unchanged list. So the action ends at the page with the entry named,
+   * and this is the assertion that the owner is actually told.
+   */
+  it("says an entry that is not a URL was refused, rather than doing nothing", async () => {
+    const cookie = await logInAt(baseUrl, ownerPassword);
+    // NO SCHEME, which is what `parseProviderUrls` refuses: a provider is a URL
+    // and nothing more (ADR-0031), and a bare host is not one.
+    const notAUrl = "wiki.test";
+
+    const answer = await name(cookie, notAUrl);
+
+    expect(answer).toContain("was not named");
+    expect(answer).toContain(notAUrl);
+    expect(providersIn(answer)).not.toContain(notAUrl);
+  });
+
   it("removes a provider the owner is finished with", async () => {
     const cookie = await logInAt(baseUrl, ownerPassword);
     const provider = "http://no-longer-wanted.test:8080";
     await name(cookie, provider);
 
     const { text } = await documentFrom(baseUrl, "/settings", cookie);
-    const removed = await submit(baseUrl, "/settings", removeFormFor(text, provider), cookie);
+    await submit(baseUrl, "/settings", removeFormFor(text, provider), cookie);
 
-    expect(providersIn(removed.text)).not.toContain(provider);
+    // READ AGAIN RATHER THAN OFF THE POST'S OWN RE-RENDER, for the reason the
+    // naming test above gives: what is asserted is that the setting CHANGED,
+    // and only a second request asks that of the server rather than of the
+    // response.
+    const after = await documentFrom(baseUrl, "/settings", cookie);
+    expect(providersIn(after.text)).not.toContain(provider);
   });
 
-  it("says which setting refuses a provider it does not admit", async () => {
+  it("says which setting refuses a provider it does not admit, and says it of that one alone", async () => {
     const cookie = await logInAt(baseUrl, ownerPassword);
     // THE COMMONEST REAL MISCONFIGURATION (ADR-0121): a Provider named and its
     // host never allowlisted. Two settings for one concept is a cost that
     // record accepts, and paying it is this page's job.
     await allow(cookie, "admitted.test");
-    const refused = "http://refused-by-the-allowlist.test:8080";
+    await name(cookie, "http://admitted.test:8080");
+    await name(cookie, "http://elsewhere.test:8080");
 
-    const { text } = await name(cookie, refused).then(() =>
-      documentFrom(baseUrl, "/settings", cookie),
-    );
+    const { text } = await documentFrom(baseUrl, "/settings", cookie);
 
-    const row = rowFor(text, refused);
-    expect(row).toMatch(/allowlist/i);
+    /*
+     * THE NOTICE'S OWN WORDS, AND A HOST THAT DOES NOT CONTAIN THEM. The first
+     * version of this asserted `/allowlist/i` against a row whose Provider was
+     * `http://refused-by-the-allowlist.test:8080` -- so the URL satisfied the
+     * match and the test passed with the notice deleted. Found in review, and it
+     * is the shape CNCORE-96 warns about: an assertion that reads back something
+     * the fixture put there.
+     */
+    expect(rowFor(text, "http://elsewhere.test:8080")).toContain("does not admit this host");
+    /*
+     * AND THE OTHER HALF, WHICH IS WHAT MAKES IT A TEST. A page that printed the
+     * notice on every row would pass the assertion above and tell an owner their
+     * working Provider was unreachable.
+     */
+    expect(rowFor(text, "http://admitted.test:8080")).not.toContain("does not admit this host");
   });
 
   it("edits the allowlist, and still holds it on the next request", async () => {
@@ -142,8 +178,14 @@ describe("/settings", () => {
    * restricted yet" has the meaning exactly backwards. `install-path.test.ts`
    * pinned that explanation while the setting was a variable, and this is the
    * surface it is edited on now.
+   *
+   * IT IS AN ASSERTION ABOUT COPY, NOT ABOUT STATE, and the name says so since
+   * review: the explanation is on the page whatever the allowlist currently
+   * holds, which is the point -- the moment it is needed is BEFORE an owner has
+   * written anything, and a sentence that appeared only when the box was already
+   * empty would be a sentence nobody meets while filling it in.
    */
-  it("says what an empty allowlist does", async () => {
+  it("explains what an empty allowlist does, whatever this one holds", async () => {
     const cookie = await logInAt(baseUrl, ownerPassword);
 
     const { text } = await documentFrom(baseUrl, "/settings", cookie);

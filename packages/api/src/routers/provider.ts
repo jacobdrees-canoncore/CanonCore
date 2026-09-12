@@ -336,11 +336,10 @@ export const provider = {
    * owner edits at `/settings` and `createContext` reads per request -- so the
    * answer changes with the configuration rather than with a restart.
    */
-  allowlisted: openProcedure
-    .output(z.object({ any: z.boolean() }))
-    .handler(async ({ context }) => ({
-      any: allowsAnything((await context.providerSettings()).allowlist),
-    })),
+  allowlisted: openProcedure.output(z.object({ any: z.boolean() })).handler(async ({ context }) => {
+    const { allowlist } = await context.providerSettings();
+    return { any: allowsAnything(allowlist) };
+  }),
 
   /**
    * WHICH PROVIDERS THIS INSTANCE SEARCHES, so a surface can say "none" rather
@@ -368,7 +367,10 @@ export const provider = {
    */
   configured: openProcedure
     .output(z.object({ providers: z.array(z.url()) }))
-    .handler(async ({ context }) => ({ providers: (await context.providerSettings()).urls })),
+    .handler(async ({ context }) => {
+      const { urls } = await context.providerSettings();
+      return { providers: urls };
+    }),
 
   /**
    * WHICH OF ONE PROVIDER'S RECORDS THIS CATALOGUE ALREADY HOLDS, for ids the
@@ -590,11 +592,8 @@ export const provider = {
     })
     .handler(async ({ input, context, errors }) => {
       try {
-        const imported = await importRecordFromProvider(
-          context.db,
-          (await context.providerSettings()).allowlist,
-          input,
-        );
+        const { allowlist } = await context.providerSettings();
+        const imported = await importRecordFromProvider(context.db, allowlist, input);
         if (!imported) throw errors.NO_SUCH_RECORD();
         return imported;
       } catch (error) {
@@ -699,10 +698,8 @@ export const provider = {
       ]),
     )
     .handler(async ({ input, context }) => {
-      const client = createProviderClient({
-        baseUrl: input.baseUrl,
-        allowlist: (await context.providerSettings()).allowlist,
-      });
+      const { allowlist } = await context.providerSettings();
+      const client = createProviderClient({ baseUrl: input.baseUrl, allowlist });
       try {
         // THE SAME PREAMBLE `browseIntoCatalogue` RUNS, which is what makes this
         // a prediction of the button rather than a second opinion about it.
@@ -801,11 +798,8 @@ export const provider = {
     })
     .handler(async ({ input, context, errors }) => {
       try {
-        const browsed = await browseIntoCatalogue(
-          context.db,
-          (await context.providerSettings()).allowlist,
-          input,
-        );
+        const { allowlist } = await context.providerSettings();
+        const browsed = await browseIntoCatalogue(context.db, allowlist, input);
         if (!browsed) throw errors.NO_SUCH_CONTAINER();
         return browsed;
       } catch (error) {

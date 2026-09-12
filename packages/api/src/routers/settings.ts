@@ -12,6 +12,20 @@ import { z } from "zod";
 import { ownerProcedure } from "../index";
 
 /**
+ * WHAT A SETTING THIS INSTANCE CANNOT READ IS ANSWERED WITH.
+ *
+ * ONE SENTENCE FOR THE THREE WRITES BELOW, because it is one fact about all of
+ * them: the value did not survive the parse every read of it goes through. Three
+ * copies would be three chances for the wording to drift while the rule stayed
+ * the same. The SPECIFIC refusal still reaches the owner -- each handler passes
+ * `OutboundRefused`'s own message, which names the entry and what is wrong with
+ * it -- and this is the fallback the code carries.
+ */
+const NOT_A_SETTING = {
+  BAD_REQUEST: { message: "That is not a setting this instance can read." },
+} as const;
+
+/**
  * WHAT THIS INSTANCE IS CONFIGURED TO REACH, AND THE OWNER CHANGING IT
  * (CNCORE-99).
  *
@@ -86,11 +100,7 @@ export const settings = {
    */
   nameProvider: ownerProcedure
     .input(z.object({ baseUrl: z.string().min(1) }))
-    .errors({
-      BAD_REQUEST: {
-        message: "That is not a setting this instance can read.",
-      },
-    })
+    .errors(NOT_A_SETTING)
     .handler(async ({ input, context, errors }) => {
       const configured = await readProviderSettings(context.db);
       try {
@@ -116,11 +126,7 @@ export const settings = {
    */
   removeProvider: ownerProcedure
     .input(z.object({ baseUrl: z.string().min(1) }))
-    .errors({
-      BAD_REQUEST: {
-        message: "That is not a setting this instance can read.",
-      },
-    })
+    .errors(NOT_A_SETTING)
     .handler(async ({ input, context, errors }) => {
       const configured = await readProviderSettings(context.db);
       try {
@@ -147,11 +153,7 @@ export const settings = {
    */
   editAllowlist: ownerProcedure
     .input(z.object({ allowlist: z.string() }))
-    .errors({
-      BAD_REQUEST: {
-        message: "That is not a setting this instance can read.",
-      },
-    })
+    .errors(NOT_A_SETTING)
     .handler(async ({ input, context, errors }) => {
       try {
         // PARSED FOR ITS REFUSAL, NOT FOR ITS ANSWER. What is stored is the

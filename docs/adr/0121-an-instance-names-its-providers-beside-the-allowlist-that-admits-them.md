@@ -4,10 +4,16 @@ status: accepted
 
 # An instance names its providers, beside the allowlist that admits them
 
-`PROVIDER_URLS` holds the base URLs of the providers an instance searches, separated by commas or
-whitespace. It sits beside `PROVIDER_ALLOWLIST` and neither is derivable from the other: that one
-holds HOSTS AND RANGES and says what MAY be reached, this one holds URLS and says what IS reached. A
-provider needs to be in both.
+An instance holds the base URLs of the providers it searches, separated by commas or whitespace.
+They sit beside the allowlist and neither is derivable from the other: that one holds HOSTS AND
+RANGES and says what MAY be reached, this one holds URLS and says what IS reached. A provider needs
+to be in both.
+
+**BOTH WERE ENVIRONMENT VARIABLES — `PROVIDER_URLS` and `PROVIDER_ALLOWLIST` — AND ARE SETTINGS THE
+OWNER EDITS AT `/settings` SINCE CNCORE-99.** The decision above is untouched by that move: what
+changed is where the string comes from, and the as-built section at the foot of this record is the
+whole of it. The old names are kept in this record wherever the sentence is about what was decided
+then, because two tickets and three other records cite them.
 
 ## The question nothing had asked before
 
@@ -79,10 +85,12 @@ naming a provider and forgetting to allowlist its host. That is accepted rather 
 around, because the alternative — inferring the allowlist from the URLs — would silently admit
 whatever an owner pasted and is the opposite of what ADR-0034 decided an allowlist is for.
 
-So the cost is paid in the surface instead. The import page carries TWO notices, not one: no
-provider allowlisted names `PROVIDER_ALLOWLIST`, and no provider configured names `PROVIDER_URLS`.
-An instance that reaches nothing says which of the two settings to go and set, because one answer
-could not. The end-to-end suite configures a provider whose host is not allowlisted for the same
+So the cost is paid in the surface instead. The import page carries TWO notices, not one: one for no
+provider allowlisted and one for no provider configured. An instance that reaches nothing says which
+of the two settings to go and set, because one answer could not. **Each notice NAMED ITS VARIABLE
+until CNCORE-99 and LINKS TO `/settings` now**, which is the same sentence doing the same job: what
+an owner needs is the thing they have to go and change, and that used to be a name in a file and is
+now a page. The end-to-end suite configures a provider whose host is not allowlisted for the same
 reason — the commonest real mistake is the one the page has to render.
 
 ## As built, under CNCORE-68
@@ -92,6 +100,13 @@ reason — the commonest real mistake is the one the page has to render.
 an empty list; `provider.search` fans out over them. `.env.example`, `compose.yaml` and the README's
 table all account for the variable, which CNCORE-64's install-path check enforced before any of it
 was written down.
+
+**TWO OF THOSE THREE SENTENCES ARE NOW HISTORY, and the section below is what replaced them.** The
+parse is no longer "once in `createContext`" — it is per request and lazy — and the three install-path
+documents no longer account for the variable, because there is no variable: CNCORE-99 deleted it
+from all three along with the schema field they were checked against. `parseProviderUrls`,
+`provider.configured` and `provider.search` are unchanged, which is the half this record's "the
+boundary does not change" was betting on.
 
 
 ## As built, under CNCORE-99 — the Settings store, and what did NOT move with it

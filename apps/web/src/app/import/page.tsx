@@ -199,12 +199,12 @@ function searchableProvider(configured: string[], named: string | undefined): st
  * precisely the one nothing should be calling, and it is the one an owner most
  * needs to purge.
  *
- * THE REASON IS THAT THIS SURFACE CAN ONLY OFFER WHAT IT CAN LIST. The providers
- * are the ones this instance names (`/settings`), and a purge target outside
- * that set has no row on the page to sit in and no name an owner could have
- * pressed. The bound that follows is real and worth knowing: a provider REMOVED
- * from the settings cannot be purged until it is named again. Naming it again is how, and ADR-0046 records
- * this as the half that is built.
+ * THE REASON IS THAT THIS SURFACE CAN ONLY OFFER WHAT IT CAN LIST. The
+ * providers are the ones this instance names (`/settings`), and a purge target
+ * outside that set has no row on the page to sit in and no name an owner could
+ * have pressed. The bound that follows is real and worth knowing: a provider
+ * REMOVED from the settings cannot be purged until it is named again. Naming it
+ * again is how, and ADR-0046 records this as the half that is built.
  *
  * IT ALSO TURNS A MALFORMED URL INTO AN ANSWER RATHER THAN A 500, which is the
  * rule `/items/<id>` already applies to an id it cannot use (CNCORE-14): `?purge=x`
