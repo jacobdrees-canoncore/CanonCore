@@ -131,18 +131,22 @@ const PUSH_OF_A_VERSION_TAG: GithubContext = {
 };
 
 /**
- * A PUSH OF A TAG THAT IS NOT A VERSION, and the case that tells a correct
+ * A PUSH OF A TAG THAT IS NOT A RELEASE, and the case that tells a correct
  * release condition from a lazy one. `startsWith(github.ref, 'refs/tags/')`
  * admits this and reads exactly as plausibly as the condition that does not.
  *
  * NOT HYPOTHETICAL: this is the tag ADR-0115's evidence records against these
  * repositories -- `archive/tardis-pipeline-2026-09-04`, a snapshot of a data
  * pipeline. An image published from it would carry that name in the registry
- * beside the versions, and `on:` admitting only `v*` is the OTHER half of the
- * same guard rather than a reason not to state this one. Two halves, because
- * either can be widened alone.
+ * beside the versions.
+ *
+ * WHAT EXCLUDES IT HERE IS THE `v`, and that is worth saying plainly because
+ * the obvious second reason is wrong: `on:` could not have admitted this tag
+ * under ANY single-star pattern, since GitHub's `*` does not match `/` and
+ * reaching across one needs `**`. So this fixture exercises the step
+ * conditions and not the trigger, which the trigger's own test covers.
  */
-const PUSH_OF_A_TAG_THAT_IS_NOT_A_VERSION: GithubContext = {
+const PUSH_OF_A_TAG_THAT_IS_NOT_A_RELEASE: GithubContext = {
   ref: "refs/tags/archive/tardis-pipeline-2026-09-04",
   event_name: "push",
   repository: "jacobdrees-canoncore/CanonCore",
@@ -253,13 +257,21 @@ describe("publishing the image", () => {
    * every assertion in this file about what it does under a tag passes on the
    * strength of a condition nothing evaluates.
    *
-   * `v*` rather than `*`: a tag is a name anybody can push, and this repository
-   * already carries one that is not a version -- `archive/tardis-pipeline-2026-09-04`,
-   * which ADR-0115's evidence names. A trigger admitting every tag would build
-   * and publish an image from whatever that pointed at.
+   * AND IT IS THE AUTHORITATIVE GATE, which is why the exact pattern is pinned
+   * rather than merely "some tag". The `if:` conditions can only ask
+   * `startsWith(..., 'refs/tags/v')`, because Actions expressions have no
+   * globbing -- so `vtest` satisfies every one of them and publishes nothing
+   * at all, purely because this line refuses to start a run for it. The two
+   * gates are deliberately different strengths and this is the strong one.
+   *
+   * A `v` PREFIX IS NOT A VERSION, which is the mistake this pattern replaced.
+   * `v*` reads like "a version tag" and means "starts with v". The shape here
+   * is GitHub's own documented one for semantic versions, whose cheat sheet
+   * gives `v[12].[0-9]+.[0-9]+`: `[0-9]` is a character range and `+` is
+   * one-or-more of what precedes it (read 2026-09-12).
    */
   it("runs at all on a push of a version tag", () => {
-    expect(workflow().on?.push?.tags).toStrictEqual(["v*"]);
+    expect(workflow().on?.push?.tags).toStrictEqual(["v[0-9]+.[0-9]+.[0-9]+"]);
   });
 
   /**
@@ -283,7 +295,7 @@ describe("publishing the image", () => {
     for (const [event, github] of [
       ["a pull request", PULL_REQUEST],
       ["a push to a branch that is not the default", PUSH_TO_A_BRANCH],
-      ["a push of a tag that is not a version", PUSH_OF_A_TAG_THAT_IS_NOT_A_VERSION],
+      ["a push of a tag that is not a release", PUSH_OF_A_TAG_THAT_IS_NOT_A_RELEASE],
     ] as const) {
       const published = publishers
         .filter(({ jobIf, step }) => runs(jobIf, github) && runs(step.if, github))
@@ -337,7 +349,7 @@ describe("publishing the image", () => {
     const events = [
       ["a pull request", PULL_REQUEST],
       ["a push to a branch that is not the default", PUSH_TO_A_BRANCH],
-      ["a push of a tag that is not a version", PUSH_OF_A_TAG_THAT_IS_NOT_A_VERSION],
+      ["a push of a tag that is not a release", PUSH_OF_A_TAG_THAT_IS_NOT_A_RELEASE],
       ["a push to the default branch", PUSH_TO_MAIN],
       ["a push of a version tag", PUSH_OF_A_VERSION_TAG],
     ] as const;
@@ -459,10 +471,14 @@ describe("publishing the image", () => {
    * of a semver version, which is why the tag and the image tag differ by it.
    * Read from docker/metadata-action's own README, 2026-09-12.
    *
-   * ASKED OF BOTH METADATA STEPS, because there are two -- the per-architecture
-   * build and the manifest list that binds the tags -- and it is the SECOND one
-   * that actually names what a stranger pulls. A semver pattern on the first
-   * alone publishes a version tag on nothing.
+   * ASKED OF BOTH METADATA STEPS, and the honest reason is that they are one
+   * statement written twice rather than that both are load-bearing. Only the
+   * MANIFEST step's tags reach the registry: the per-architecture job pushes
+   * with `push-by-digest=true`, which ignores tags entirely, and uses its
+   * metadata step for the labels alone. The two blocks are identical today,
+   * every entry in them, and holding them identical is what stops a later
+   * reader wiring the first one up and getting a different tag set from the
+   * one this file checks.
    */
   it("tags the image with the version when a version tag builds it", () => {
     const parsed = workflow();
@@ -549,6 +565,44 @@ describe("publishing the image", () => {
     expect(references.length).toBeGreaterThan(2);
     expect([...new Set(references)]).toStrictEqual([IMAGE]);
     expect(parsed.env?.IMAGE).toBe(IMAGE);
+  });
+
+  /**
+   * AND A RELEASE DOES NOT MOVE `latest`, SAID RATHER THAN ARRIVED AT.
+   *
+   * `latest` here means the head of `main`: it is published by the explicit
+   * `type=raw,value=latest,enable={{is_default_branch}}` entry, `compose.yaml`
+   * names it, and the README documents it as what a merge publishes. A release
+   * re-pointing it would change that meaning silently and backwards -- tag an
+   * older commit for a 0.1.1 and `latest` would go back in time.
+   *
+   * IT WAS ALREADY NOT HAPPENING, BY ACCIDENT, WHICH IS WHY THIS IS PINNED.
+   * `flavor.latest` defaults to `auto`, and under `auto` metadata-action's
+   * `procSemver` computes `latest = true` for any non-prerelease semver tag.
+   * The only thing suppressing it is the ORDER of the tag list: `setVersion`
+   * is `if (version.latest == undefined) version.latest = latest`, so the
+   * first entry processed freezes the flag, and `type=sha` happens to sit
+   * above `type=semver` and freezes it `false`. Move one line past the other,
+   * or drop `type=sha`, and the next release re-points `latest` with nothing
+   * in the diff saying so. Read from `src/meta.ts` on 2026-09-12.
+   *
+   * `latest=false` MAKES IT A STATEMENT instead, and costs `main` nothing: the
+   * flavor governs only the AUTOMATIC latest, while `procRaw` emits the value
+   * it was given either way -- so the raw entry above goes on publishing
+   * `latest` from the default branch exactly as before.
+   */
+  it("never lets a release re-point latest", () => {
+    const parsed = workflow();
+
+    const metadata = allSteps(parsed).filter(({ step }) =>
+      step.uses?.startsWith("docker/metadata-action"),
+    );
+    expect(metadata.length).toBeGreaterThan(1);
+
+    const automatic = metadata
+      .filter(({ step }) => !/latest=false/.test(String(step.with?.flavor ?? "")))
+      .map(({ job }) => job);
+    expect(automatic).toStrictEqual([]);
   });
 
   /**

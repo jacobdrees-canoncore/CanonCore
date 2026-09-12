@@ -10,11 +10,22 @@ on:
     # here already distinguishes `main` from a branch; the conditions in the
     # image jobs name this ref explicitly rather than widening to every push.
     #
-    # `v*` AND NOT `*`, because a tag is a name anybody can push and this
-    # repository already carries one that is not a version:
-    # `archive/tardis-pipeline-2026-09-04` (ADR-0115's evidence). Admitting
-    # every tag would build and publish an image from whatever that points at.
-    tags: ["v*"]
+    # THE PATTERN IS A VERSION AND NOT MERELY A `v`. A tag is a name anybody can
+    # push, `v*` would admit `vtest`, and a release path that publishes under
+    # the project's own name is not a thing to leave open on a prefix. The shape
+    # is GitHub's own documented one for semantic versions -- its cheat sheet
+    # gives `v[12].[0-9]+.[0-9]+` -- where `[0-9]` is a character range and `+`
+    # is one-or-more of the preceding character (read 2026-09-12).
+    #
+    # AND IT IS THE AUTHORITATIVE GATE, tighter than the `if:` conditions below,
+    # which can only say `startsWith(..., 'refs/tags/v')` because expressions
+    # have no globbing. A `v`-prefixed tag that is not a version satisfies those
+    # conditions and still publishes nothing, because it never starts a run.
+    #
+    # A CONSEQUENCE WORTH STATING: a pre-release tag such as `v0.2.0-rc1` does
+    # not match, so it neither builds nor publishes. That is the safe end and it
+    # is a choice; widen this line when a pre-release is actually wanted.
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
 
 permissions:
   contents: read
@@ -659,6 +670,23 @@ jobs:
         id: meta
         with:
           images: ${{ env.IMAGE }}
+          # `latest` MEANS THE HEAD OF `main` HERE, and a release must not move
+          # it: `compose.yaml` names it and the README documents it as what a
+          # merge publishes, so a tag re-pointing it would change that meaning
+          # silently, and backwards if an older commit were ever tagged.
+          #
+          # IT WAS ALREADY NOT HAPPENING, BY ACCIDENT. `flavor.latest` defaults
+          # to `auto`, under which `procSemver` computes latest for any
+          # non-prerelease semver tag; `setVersion` only assigns when the flag
+          # is still undefined, so the FIRST entry processed wins and `type=sha`
+          # sits above `type=semver` and freezes it false. Swap those two lines
+          # and the next release re-points `latest` with nothing in the diff
+          # saying so (`src/meta.ts`, read 2026-09-12).
+          #
+          # This costs the default branch nothing: the flavor governs only the
+          # AUTOMATIC latest, and the explicit `type=raw,value=latest` below is
+          # emitted either way.
+          flavor: latest=false
           labels: |
             org.opencontainers.image.licenses=AGPL-3.0-or-later
           tags: |
@@ -793,8 +821,8 @@ jobs:
             || { echo "::error::the image conveys the work without the licence text."; fail=1; }
           exit $fail
 
-      # WHAT MAY PUBLISH, AND IT IS REPEATED RATHER THAN DERIVED. Five steps
-      # carry this condition: a job-level `if` cannot read `env`, so a computed
+      # WHAT MAY PUBLISH, AND IT IS REPEATED RATHER THAN DERIVED. Four steps
+      # and one job carry this condition: a job-level `if` cannot read `env`, so a computed
       # one would have to be spelled out here anyway and would then be two
       # derivations instead of one. `image.test.ts` evaluates EVERY conditioned
       # step in these jobs against five events with GitHub's own parser, so the
@@ -879,23 +907,17 @@ jobs:
         id: meta
         with:
           images: ${{ env.IMAGE }}
+          # Same statement as the build job above, where the reasoning is.
+          flavor: latest=false
           labels: |
             org.opencontainers.image.licenses=AGPL-3.0-or-later
           tags: |
             type=ref,event=branch
             type=sha
             type=raw,value=latest,enable={{is_default_branch}}
-            # THE RELEASE'S OWN TAG, and the only one a release note can name.
-            # `type=semver` is documented for push-tag events and produces
-            # nothing on a branch push, so `main` publishes exactly what it
-            # published before this line existed. On `v0.1.0` it writes `0.1.0`:
-            # the leading `v` is not part of a semver version, which is why the
-            # git tag and the image tag differ by it.
-            #
-            # `{{version}}` ALONE. `{{major}}.{{minor}}` would add a moving
-            # `0.1`, and `{{major}}` a `0` shared by the whole 0.x series --
-            # neither is asked for, and a moving tag is a promise to keep
-            # moving it.
+            # The release's own tag. Same line as the build job above, where
+            # the reasoning is; it is the manifest list that binds it to both
+            # architectures, so both steps must write it.
             type=semver,pattern={{version}}
 
       - name: Bind the tags to both architectures
@@ -939,7 +961,13 @@ jobs:
       - name: Say what was published
         run: |
           set -euo pipefail
-          jq -r '.tags[]' <<< "$DOCKER_METADATA_OUTPUT_JSON" | while read -r tag; do
+          # COUNTED BEFORE IT IS WALKED, for the reason the digest loop above
+          # gives about an empty directory: `while read` over no lines exits 0
+          # having printed nothing, so a run that bound no tags at all would
+          # report success by saying nothing rather than by saying so.
+          mapfile -t tags < <(jq -r '.tags[]' <<< "$DOCKER_METADATA_OUTPUT_JSON")
+          [ "${#tags[@]}" -gt 0 ] || { echo "::error::the metadata step produced no tags, so this run bound none and published nothing under a name."; exit 1; }
+          for tag in "${tags[@]}"; do
             docker buildx imagetools inspect "$tag"
           done
 

@@ -76,7 +76,7 @@ export type Workflow = {
    * with no error. The `yaml` package defaults to the 1.2 core schema, where it
    * is a plain string; checked against this very file rather than assumed.
    */
-  on?: { pull_request?: unknown; push?: { branches?: string[]; tags?: string[] } };
+  on?: { push?: { tags?: string[] } };
   env?: Env;
   jobs?: Record<string, Job>;
   concurrency?: { group?: string; "cancel-in-progress"?: boolean };
