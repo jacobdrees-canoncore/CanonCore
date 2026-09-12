@@ -166,13 +166,28 @@ The line names no IP and no username, because this instance has neither to name 
 trustworthy source address on the path the form posts to. It names what it knows, which is how much
 of the allowance is left.
 
-**THAT BOUND COVERS THIS MECHANISM'S OWN LINE AND NOTHING ELSE, WHICH IS WORTH SAYING BECAUSE THE
-FIRST DRAFT OF THIS SECTION READ AS THOUGH IT COVERED THE LOG.** The RPC mount wraps both handlers in
-`onError((error) => console.error(error))`, so every refusal arriving over `/api/rpc` — this one, and
-`UNAUTHORIZED` from every other procedure since CNCORE-109 — writes a stack trace per ARRIVING
-request, which is exactly the unbounded shape described above. It predates this change and is
-surface-wide rather than login-shaped: an expected refusal is an answer and is being logged as a
-fault. Tracked as CNCORE-120, with a note at the site.
+**THAT BOUND COVERS THIS MECHANISM'S OWN LINE, AND THE REST OF THE SURFACE IS COVERED BY WRITING NO
+LINE AT ALL.** The first draft of this section read as though the bound covered the log, and it did
+not. The RPC mount wrapped both handlers in `onError((error) => console.error(error))`, so every
+refusal arriving over `/api/rpc` — this one, and `UNAUTHORIZED` from every other procedure since
+CNCORE-109 — wrote a stack trace per ARRIVING request, which is exactly the unbounded shape
+described above. It predated CNCORE-117 and was surface-wide rather than login-shaped.
+
+**CNCORE-120 CLOSED IT, AND THE ANSWER WAS NOT A QUIETER LINE BUT NO LINE.** A quieter line is the
+tempting answer and it is not one: the interceptor runs once per ARRIVING request, so anything it
+writes AT ANY LEVEL is a line a stranger can ask for as fast as the process serves. There is no
+level at which a per-request line is bounded, which is what makes this a different question from
+what to call the event. So the mount says nothing about an `ORPCError` below 500 — those are answers
+this surface chose to give — and logs a fault in full, with its stack: a 500, or anything that is
+not an `ORPCError` at all. The test is the STATUS rather than a list of codes, because a list is
+added to by every procedure that learns a new refusal and the one nobody remembered would be logged
+as a fault.
+
+**A REFUSAL IS LOGGED WHERE IT IS COUNTED, OR IT IS NOT LOGGED.** That is the rule the two halves
+make together, and it is why the bounded line above is now the only thing this instance writes when
+a password is refused — which is what this section claimed before it was true. Asserted at
+ADR-0103's third seam: a caller with no session asks a write procedure twenty-five times and the log
+stays empty, and a router that throws is logged whole.
 
 ## What this deliberately does not do
 
