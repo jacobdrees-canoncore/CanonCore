@@ -213,6 +213,48 @@ describe("what the mount writes to the owner's log", () => {
   });
 
   /**
+   * A CAUSE IS CALLER TEXT TOO, which the first cut of this missed. `inspect`
+   * renders a nested `Error` as its RAW stack, so a cause's message kept its
+   * real newlines and only indentation stood between a caller and a forged
+   * FRAME -- printed at the same depth as the cause's genuine frames, which is
+   * the depth an owner chasing a fault would read and go looking for.
+   *
+   * It is the live path, not a contrived one: a driver fault wraps the pg error
+   * as its cause, and oRPC puts the offending value under one.
+   */
+  it("does not let a fault's cause forge a frame", async () => {
+    const response = await callRouteMountedOn(() => {
+      throw new Error("the connection pool is dead", {
+        cause: new Error("invalid input syntax\n    at notARealFrame (/app/forged.ts:1:1)"),
+      });
+    });
+
+    expect(response.status).toBe(500);
+    expect(linesWritten().map((line) => line.trim())).not.toContain(
+      "at notARealFrame (/app/forged.ts:1:1)",
+    );
+  });
+
+  /**
+   * AND FOLLOWING A CAUSE IS RECURSIVE, so the bound on it is load-bearing: a
+   * chain is somebody else's length, and a cycle in one would recurse until the
+   * process died -- inside the handler that exists to REPORT a fault, which is
+   * the worst place to put a crash.
+   */
+  it("survives a cause that points back at its own error", async () => {
+    const response = await callRouteMountedOn(() => {
+      const first = new Error("the connection pool is dead");
+      const second = new Error("and the retry failed", { cause: first });
+      (first as Error & { cause?: unknown }).cause = second;
+      throw first;
+    });
+
+    expect(response.status).toBe(500);
+    expect(linesWritten().join("\n")).toContain("longer than one entry");
+    expect(linesWritten().slice(1).filter(atTheMargin)).toEqual([]);
+  });
+
+  /**
    * THE FAULT THIS ACTUALLY HAPPENS TO, and the reason the rule is an INVARIANT
    * rather than "escape the message". A `DrizzleQueryError`'s message is TWO
    * LINES BEFORE ANYBODY ATTACKS IT -- `Failed query: <sql>` then

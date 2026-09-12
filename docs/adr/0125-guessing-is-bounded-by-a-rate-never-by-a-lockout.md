@@ -246,9 +246,10 @@ CNCORE-120 kept ON PURPOSE, being the part an owner cannot reconstruct from a re
 only "Internal server error". So the entry stays multi-line and the boundary is made legible
 instead, twice over:
 
-1. **Caller text is QUOTED.** The message is rendered by `inspect`, so it arrives in quotes with its
-   newlines escaped as `\n` — the same rendering every other string in the entry already got.
-   Inside the quotes is what somebody sent; outside them is what this process said.
+1. **Caller text is QUOTED** — the message, AND THE MESSAGE OF EVERY CAUSE. Both are rendered by
+   `inspect`, so they arrive in quotes with their newlines escaped as `\n`, the same rendering every
+   other string in the entry already got. Inside the quotes is what somebody sent; outside them is
+   what this process said.
 2. **An entry STARTS AT COLUMN 0, and nothing else does.** V8 indents its own frames, the carried
    properties are indented to match, and `breakLength` stops `inspect` wrapping a long value onto a
    fresh line of its own — which it does by default at 80 columns, and a long message is exactly
@@ -256,9 +257,25 @@ instead, twice over:
    is the rule a reader skims by and a log pattern is written against.
 
 **WHAT IS CARRIED ALONGSIDE IS WHAT `console.error` ALREADY WROTE**: the code and status on an
-`ORPCError`, the query, parameters and `cause` on a driver fault. This closes an escaping defect and
-is not licence to write less than before — the `cause` in particular is where oRPC puts the
-offending value, so dropping it would have taken away the diagnosis while fixing the forgery.
+`ORPCError`, the query and parameters on a driver fault. This closes an escaping defect and is not
+licence to write less than before — the `cause` in particular is where oRPC puts the offending
+value, so dropping it would have taken away the diagnosis while fixing the forgery.
+
+**THE CAUSE IS FOLLOWED RATHER THAN HANDED OVER, WHICH THE FIRST CUT OF THIS GOT WRONG.** Rule 1 was
+written as though `inspect` escaped every nested value, and it does that for a nested STRING and not
+for a nested `Error` — which it renders as its own raw stack. So a cause's message kept its real
+newlines, and the only thing between a caller and a forged line was the indentation. **Measured: a
+cause message of `invalid input syntax\n    at notARealFrame (/app/forged.ts:1:1)` printed that
+frame at EXACTLY the indentation of the cause's genuine frames** — a line an owner chasing a fault
+would read as a frame this process recorded and go looking for. It is the live path, too, since a
+driver fault wraps its pg error as a cause and oRPC wraps its validation error as one. So a cause is
+rendered by the same rule, recursively, rather than passed to `inspect` whole.
+
+**AND FOLLOWING IT IS BOUNDED AT TWO, because a chain is somebody else's length.** Two covers what
+this surface raises. The bound is what stops a CYCLE recursing until the process dies — inside the
+handler that exists to report a fault, which is the worst place to put a crash — and what stops a
+long chain writing an entry sized by whoever built it, which is this record's own concern one level
+down. Beyond it the entry says the chain was longer rather than pretending it ended.
 
 **AND WHERE THE CALLER'S TEXT CANNOT BE LOCATED, NO FRAME IS WRITTEN.** The message is found by the
 span V8 pasted atop `stack`; an error arriving without one offers nothing to measure against, and
@@ -270,10 +287,15 @@ exactly like a frame.
 `U+2028` and `U+2029` pass through both `inspect` and `JSON.stringify` raw. That is not a hole here
 and the reason is worth writing down rather than rediscovering: **they do not terminate a line in a
 POSIX text file**, which is what an owner reads and what a fail2ban regex is fed. What splits a line
-there is the C0 set, and `inspect` escapes all of it. Measured across the whole range on
-Node v24.19.0: `inspect` leaves NO C0 character raw, nor `U+007F` or `U+0085`, while
-`JSON.stringify` leaves those last two — which is why the renderer here is `inspect` rather than the
-JSON one.
+there is the C0 set, and BOTH renderers escape the two that matter, `\n` and `\r`.
+
+Measured across the whole range on Node v24.19.0: `inspect` leaves no C0 character raw, nor `U+007F`
+or `U+0085`; `JSON.stringify` leaves those last two. **That is not why `inspect` is the renderer
+here, and an earlier draft of this section said it was.** `U+0085` is a C1 control rather than C0,
+and in UTF-8 it does not split a POSIX line either — so on line-splitting alone the two renderers
+are equal. `inspect` is chosen because it is what renders every OTHER value in the entry, so the
+message and the values beside it read as one piece of text rather than two conventions; escaping
+more of the control set than the JSON one is a second benefit and not the argument.
 
 ### As built
 
@@ -283,6 +305,12 @@ assertions above and sharing their spy across every console level. **The forgery
 mistake for one this process wrote" is asserted against the real one rather than an invented string.
 The driver fault is built from the real `DrizzleQueryError` with a forged parameter AND a forged
 cause, and the assertion is the invariant itself: after the first, no line begins at the margin.
+
+**THE MARGIN IS OWNED IN ONE PLACE**, which is what makes that invariant structural rather than
+hoped for: the indent is applied once to the finished entry rather than per span, so frames, the
+class label and anything added later are all inside it and none can quietly opt out. A cycle in a
+cause chain has a test of its own, because the recursion that followed from fixing the cause is the
+one thing here that could take the process down.
 
 ## What this deliberately does not do
 
