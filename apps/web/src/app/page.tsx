@@ -111,11 +111,11 @@ export default async function CataloguePage({
 /**
  * WHY AN EMPTY CATALOGUE IS EMPTY, when the reason is configuration.
  *
- * ADR-0034 makes `PROVIDER_ALLOWLIST` empty by default and the empty value
- * refuses every provider. That is the safe end of the failure and it is also
- * completely silent: with nothing allowlisted, an instance nobody has
- * configured and an instance that is broken look identical from here. Two
- * shards of the competitor sweep rated exactly this first run HIGH.
+ * ADR-0034 makes the allowlist empty by default and the empty value refuses
+ * every provider. That is the safe end of the failure and it is also completely
+ * silent: with nothing allowlisted, an instance nobody has configured and an
+ * instance that is broken look identical from here. Two shards of the
+ * competitor sweep rated exactly this first run HIGH.
  *
  * IT STANDS WHETHER OR NOT THE CATALOGUE IS EMPTY, because an owner with items
  * already and no allowlist is just as stuck: nothing more can be imported. The
@@ -128,9 +128,13 @@ export default async function CataloguePage({
  * allowlist would need a third server, and the page's condition cannot see the
  * catalogue to get it wrong.
  *
- * THE VARIABLE IS NAMED. "Allowlist a provider" is the step; `PROVIDER_ALLOWLIST`
- * is the thing an owner has to type, and a page that gestured at the step
- * without naming it would leave them exactly where the README left them.
+ * WHERE THE SETTING IS, NAMED AND LINKED (CNCORE-99). "Allowlist a provider" is
+ * the step, and until this ticket the thing an owner had to type was an
+ * environment variable -- so the page named `PROVIDER_ALLOWLIST`, because a page
+ * that gestured at the step without naming it would leave them exactly where
+ * the README left them. The setting is on a page of this app now, so what the
+ * notice owes them is the way TO it: a link they can follow rather than a
+ * variable they have to go and find a file for.
  */
 function NoProviderAllowlisted() {
   return (
@@ -148,10 +152,12 @@ function NoProviderAllowlisted() {
             <h2 id="no-provider">No provider is allowlisted</h2>
           </CardTitle>
           <CardDescription>
-            CanonCore reaches a provider only when its host or address range is named in
-            PROVIDER_ALLOWLIST. That setting is empty until you write one, and empty refuses every
-            provider, so nothing can be imported yet. An empty result here is this setting rather
-            than a fault.
+            CanonCore reaches a provider only when its host or address range is on the allowlist in{" "}
+            <Link className="underline" href="/settings">
+              Settings
+            </Link>
+            . That setting is empty until you write one, and empty refuses every provider, so
+            nothing can be imported yet. An empty result here is this setting rather than a fault.
           </CardDescription>
         </CardHeader>
       </Card>
@@ -185,11 +191,14 @@ function WhatToDoNext() {
         <EmptyContent>
           <ol className="space-y-3 text-left">
             <li>
-              <span className="font-medium">Name a provider, and allowlist it.</span> Put its base
-              URL in PROVIDER_URLS and the host or address range it answers on in
-              PROVIDER_ALLOWLIST, then restart. Both: one says which providers to search and the
-              other says what may be reached. A provider is a URL rather than code you install, so
-              nothing runs inside your catalogue.
+              <span className="font-medium">Name a provider, and allowlist it.</span> In{" "}
+              <Link className="underline" href="/settings">
+                Settings
+              </Link>
+              , give its base URL and the host or address range it answers on. Both: one says which
+              providers to search and the other says what may be reached, and neither needs a
+              restart. A provider is a URL rather than code you install, so nothing runs inside your
+              catalogue.
             </li>
             <li>
               {/*

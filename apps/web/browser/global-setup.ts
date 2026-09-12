@@ -49,8 +49,6 @@ export default async function setup(project: TestProject) {
   await theAppBuilt({
     ...process.env,
     OWNER_PASSWORD,
-    PROVIDER_ALLOWLIST: "",
-    PROVIDER_URLS: "",
   });
 
   const instance = await anInstanceServing({

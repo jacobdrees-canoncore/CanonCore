@@ -748,8 +748,8 @@ describe("provider.allowlisted", () => {
   });
 
   it("says an instance with the default empty allowlist can reach none", async () => {
-    // The DEFAULT, parsed by the real parser: `PROVIDER_ALLOWLIST` unset is the
-    // empty string, and the empty string refuses everything.
+    // The DEFAULT, parsed by the real parser: an instance nobody has configured
+    // holds the empty string, and the empty string refuses everything.
     const unconfigured = { ...context, providerSettings: reaching({ allowlist: "" }) };
 
     const answer = await call(appRouter.provider.allowlisted, undefined, {
@@ -939,7 +939,7 @@ describe("provider.configured", () => {
   });
 
   it("answers with none where none is configured, rather than refusing", async () => {
-    // `PROVIDER_URLS` unset is the empty string, and the empty string names no
+    // An instance that has named none is the empty string, which names no
     // provider. That is an ANSWER a surface has to be able to put in front of an
     // owner -- an instance nobody has configured and one that is broken look
     // identical otherwise -- rather than an error.

@@ -102,7 +102,8 @@ const purgeTarget = z.object({ baseUrl: z.url() });
  * session: it builds its context from the caller's cookie rather than from
  * nobody.
  *
- * AND IT IS DELIBERATELY NOT NARROWED TO `PROVIDER_URLS` the way the PREVIEW is.
+ * AND IT IS DELIBERATELY NOT NARROWED TO THE PROVIDERS THIS INSTANCE NAMES, the
+ * way the PREVIEW is.
  * That narrowing exists because the page can only offer what it can list; making
  * it a rule here would refuse the case ADR-0046 is written for, an owner purging
  * a provider whose licence has ended -- which is exactly the provider they are

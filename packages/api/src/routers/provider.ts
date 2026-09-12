@@ -348,8 +348,9 @@ export const provider = {
    *
    * THE SECOND HALF OF THE SAME SILENCE `allowlisted` ABOVE NAMES. An instance
    * reaches no provider either because nothing is allowlisted or because nothing
-   * is named, and the two have different remedies -- `PROVIDER_ALLOWLIST` and
-   * `PROVIDER_URLS` -- so one answer could not tell an owner which to go and set.
+   * is named, and the two have different remedies -- the allowlist and the
+   * providers beside it, both on `/settings` -- so one answer could not tell an
+   * owner which of them to go and change.
    *
    * AND IT HANDS OVER THE URLS, WHICH IS THE OPPOSITE OF WHAT `allowlisted` DOES
    * AND IS NOT AN INCONSISTENCY. That procedure answers a YES-OR-NO and would have
@@ -437,7 +438,7 @@ export const provider = {
    * concludes their query was wrong when their source was merely offline.
    *
    * THE CONFIGURED SET RATHER THAN A URL ON THE INPUT. A provider is a URL
-   * (ADR-0031) and there is no registry, so the set comes from `PROVIDER_URLS`,
+   * (ADR-0031) and there is no registry, so the set comes from the settings,
    * parsed at module load. Taking it as input would make every caller name the
    * providers, and a caller that named one would get one answer and no way to
    * know it had missed the other.

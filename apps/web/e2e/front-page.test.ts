@@ -11,7 +11,7 @@ const itemId = inject("itemId");
 const itemTitle = inject("itemTitle");
 /**
  * THE SECOND SERVER: the same build, an empty database, and no
- * `PROVIDER_ALLOWLIST`. That is what a stranger's first run of CanonCore
+ * an empty allowlist. That is what a stranger's first run of CanonCore
  * actually is (ADR-0094), and neither state exists on the seeded instance
  * above -- so without it the two criteria below could only be asserted a layer
  * down from the page that has to satisfy them.
@@ -90,10 +90,13 @@ describe("/ on a fresh install", () => {
 
     expect(status).toBe(200);
     const next = section(text, "what-to-do-next");
-    // THE VARIABLE BY ITS OWN NAME. "Allowlist a provider" is the step; the
-    // thing an owner has to type is the identifier, and a page that gestured at
-    // the step without naming it would leave them where the README left them.
-    expect(next).toContain("PROVIDER_ALLOWLIST");
+    // WHERE THE SETTING IS, NOT MERELY THAT THERE IS ONE. "Allowlist a
+    // provider" is the step, and until CNCORE-99 the thing an owner had to type
+    // was an environment variable, so this asserted its name. The setting is a
+    // page of this app now, so what the notice owes them is the way to it -- a
+    // step that gestured at settings without saying where they are would leave
+    // them exactly where the README left them.
+    expect(next).toContain("/settings");
     expect(next.toLowerCase()).toContain("import");
   });
 
@@ -105,9 +108,9 @@ describe("/ on a fresh install", () => {
     // THE COPY, NOT MERELY THE SECTION. The criterion is that the page SAYS
     // so, and an empty `<section aria-labelledby="no-provider">` satisfies a
     // test that only asks whether the element is there. What an owner needs is
-    // the identifier they have to go and set.
+    // the way to the setting they have to go and change.
     const notice = section(fresh.text, "no-provider");
-    expect(notice).toContain("PROVIDER_ALLOWLIST");
+    expect(notice).toContain("/settings");
     expect(notice.toLowerCase()).toContain("no provider is allowlisted");
   });
 

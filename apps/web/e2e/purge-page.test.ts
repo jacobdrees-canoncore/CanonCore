@@ -352,7 +352,8 @@ describe("/import, asked to purge something it is not configured with", () => {
      * cannot use (CNCORE-14, ADR-0066). `previewPurge` takes a `z.url()`, so a
      * `?purge=` the page passed through unchecked would meet that and throw --
      * and the likely way to arrive with one is a link kept past a change to
-     * `PROVIDER_URLS`, which is the case where a working page matters most.
+     * this instance's own settings, which is the case where a working page
+     * matters most.
      *
      * THE PROVIDER LIST IS STILL THERE, and that is the answer rather than a
      * silence: it names every provider this instance can purge, which is exactly

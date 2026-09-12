@@ -18,10 +18,12 @@ describe("parseProviderUrls", () => {
   });
 
   /**
-   * AT MODULE LOAD RATHER THAN AT THE FIRST SEARCH, which is the lesson
-   * `createContext` already carries about `parseAllowlist`: a typo caught where
-   * the value is parsed stops the server starting, and a typo caught where the
-   * value is USED turns a read path into 500s.
+   * WHERE THE VALUE IS PARSED RATHER THAN WHERE IT IS USED, which is the lesson
+   * `createContext` already carries about `parseAllowlist`: a typo caught at the
+   * parse is one an owner is told about, and a typo caught where the value is
+   * USED turns a read path into 500s. The settings surface is what that parse
+   * now stands in front of (CNCORE-99): `settings.nameProvider` refuses an entry
+   * here, so no value that cannot be read reaches a row.
    */
   it("refuses an entry that is not a URL at all", () => {
     expect(() => parseProviderUrls("http://wiki.test:8080, wiki.test")).toThrow(OutboundRefused);

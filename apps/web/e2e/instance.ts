@@ -1,7 +1,7 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import { createServer as createProbe } from "node:net";
 import { fileURLToPath } from "node:url";
-import { createDb, type Database } from "@canoncore/db";
+import { createDb, type Database, writeProviderSettings } from "@canoncore/db";
 import { buildTestDatabase, type TestDatabaseSuffix } from "@canoncore/db/testing/build-database";
 
 /**
@@ -15,6 +15,16 @@ import { buildTestDatabase, type TestDatabaseSuffix } from "@canoncore/db/testin
  * IS changed in the move.
  */
 export const webRoot = fileURLToPath(new URL("..", import.meta.url));
+
+/**
+ * HOW MANY CONNECTIONS ONE HARNESS HANDLE MAY HOLD.
+ *
+ * TWO RATHER THAN node-postgres's TEN, because a fixture does one thing at a
+ * time and the connections it would otherwise hold idle are ones the SERVERS
+ * under test cannot have. Shared by every handle this suite opens, so the
+ * budget is one number rather than a decision taken eight times.
+ */
+export const HARNESS_CONNECTIONS = 2;
 
 /**
  * THE OWNER'S PASSWORD, for the instances this harness has to WRITE to.
@@ -66,18 +76,22 @@ export async function theBuildServing(env: NodeJS.ProcessEnv): Promise<{
  * FOR stays in its own docblock, because that is the part worth reading and the
  * part an extraction must not swallow; what they share is only the plumbing.
  *
- * BOTH ENVIRONMENT VALUES ARE REQUIRED, WHICH IS THE POINT OF TAKING THEM. An
- * instance inherits this process's environment, so a key left out is not a key
- * unset -- it is a developer's `.env` reaching a fixture that was supposed to be
- * without it. `aCatalogueTooBigForOnePage` omitted `PROVIDER_URLS` for exactly
- * that reason and nothing said so. Now an instance that leaves either ambient
- * does not compile, which is the same mechanism `TEST_DATABASE_SUFFIXES` uses on
- * the suffix and not a second one to learn.
+ * WHAT THIS INSTANCE REACHES IS WRITTEN INTO ITS DATABASE, NOT ITS ENVIRONMENT
+ * (CNCORE-99). Both settings are rows now (migration 16), so the harness
+ * configures an instance the way an owner does -- through the store the settings
+ * surface writes -- rather than through variables the app no longer reads.
  *
- * THOSE TWO AND `DATABASE_URL`, AND NOTHING ELSE. The rest of this process's
- * environment is inherited on purpose -- the server needs `PATH` and the rest to
- * run at all -- so "cannot go ambient" is a claim about the three keys that
- * decide what an instance IS, not about the environment as a whole.
+ * AND THAT ENDED A WHOLE CLASS OF LEAK RATHER THAN MOVING IT. While they were
+ * environment variables an omitted key was not an unset one: this process
+ * inherits its own environment, so a developer with providers in
+ * `apps/web/.env` gave a fixture ones CI never had, and `freshInstall`'s
+ * comment below records an afternoon lost to exactly that. A row is written or
+ * it is not, and nothing on this machine can put one there.
+ *
+ * BOTH VALUES ARE STILL REQUIRED, WHICH IS THE POINT OF TAKING THEM: an
+ * instance that did not say what it reaches would be one whose configuration a
+ * reader has to go and find. That is the same mechanism `TEST_DATABASE_SUFFIXES`
+ * uses on the suffix and not a second one to learn.
  *
  * `fill` RUNS BEFORE THE SERVER ANSWERS, so a suite never sees a half-filled
  * catalogue. An instance whose rows have to be written THROUGH the app cannot
@@ -107,9 +121,9 @@ export async function anInstanceServing<Fixture>({
    * button.
    */
   ownerPassword: string;
-  /** ADR-0034's allowlist, as this instance's configuration. */
+  /** ADR-0034's allowlist, written into this instance's settings. */
   allowlist: string;
-  /** Which providers this instance searches (CNCORE-68), joined for the app. */
+  /** Which providers this instance searches (CNCORE-68, ADR-0121). */
   providers: readonly string[];
   fill: (db: Database) => Promise<Fixture>;
 }): Promise<{
@@ -119,14 +133,30 @@ export async function anInstanceServing<Fixture>({
   close: () => Promise<void>;
 }> {
   const databaseUrl = await buildTestDatabase(suffix);
-  const db = createDb(databaseUrl);
+  /*
+   * A HANDLE THE HARNESS HOLDS, BOUNDED (CNCORE-99). One PostgreSQL serves
+   * every server this suite stands up and every handle it holds itself, and a
+   * fixture pool uses one connection at a time -- so the ten node-postgres
+   * would open are nine held against a ceiling the servers are also drawing on.
+   * Measured: the ninth instance took a run past PostgreSQL's default hundred,
+   * and the failures landed in whichever file happened to be reading.
+   */
+  const db = createDb(databaseUrl, { maxConnections: HARNESS_CONNECTIONS });
+  /*
+   * BEFORE THE SERVER ANSWERS, like the fixture below it, so no suite ever sees
+   * an instance half-configured. It is written first because `fill` may IMPORT
+   * -- and an import reaches a provider through the very allowlist this line
+   * writes.
+   */
+  await writeProviderSettings(db, {
+    providerAllowlist: allowlist,
+    providerUrls: providers.join("\n"),
+  });
   const fixture = await fill(db);
   const server = await theBuildServing({
     ...process.env,
     DATABASE_URL: databaseUrl,
     OWNER_PASSWORD: ownerPassword,
-    PROVIDER_ALLOWLIST: allowlist,
-    PROVIDER_URLS: providers.join(","),
   });
   return {
     baseUrl: server.baseUrl,

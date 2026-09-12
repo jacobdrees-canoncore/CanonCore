@@ -49,6 +49,17 @@ export const TEST_DATABASE_SUFFIXES = [
    */
   "order",
   "drag",
+  /*
+   * THE ONE WHOSE CONFIGURATION A TEST WRITES (CNCORE-99). The settings surface
+   * changes what an instance REACHES, and every other instance here is
+   * somebody's fixture -- three of them assert on which providers are
+   * configured. A suite that edited one of those would be CNCORE-93's shape
+   * exactly: an assertion reading shared state across a write it does not own.
+   *
+   * FOUR CHARACTERS BECAUSE THE BUDGET IS ELEVEN, and `_test_config` is twelve.
+   * `worktree-database.ts` says why the constant leads and the suffix gives way.
+   */
+  "conf",
 ] as const;
 
 /** A suffix this repo has declared, which is the only kind there is. */

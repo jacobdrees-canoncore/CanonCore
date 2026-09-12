@@ -4,7 +4,6 @@ import { itemsCarrying } from "@canoncore/db/testing/catalogue";
 import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
 import { afterAll, describe, expect, inject, it } from "vitest";
-
 import {
   documentAt,
   documentFrom,
@@ -14,6 +13,7 @@ import {
   sectionIn,
   submit,
 } from "./document";
+import { HARNESS_CONNECTIONS } from "./instance";
 
 /**
  * THE IMPORT SURFACE, over real HTTP. ADR-0103's fourth seam, which is the one
@@ -24,8 +24,8 @@ import {
 const providerSearch = inject("providerSearch");
 const baseUrl = inject("baseUrl");
 /**
- * THE SECOND SERVER: the same build, an empty database, no `PROVIDER_ALLOWLIST`
- * and no `PROVIDER_URLS`. That is a stranger's first run of CanonCore (ADR-0094),
+ * THE SECOND SERVER: the same build, an empty database, an empty allowlist and
+ * no provider named. That is a stranger's first run of CanonCore (ADR-0094),
  * and neither state exists on the seeded instance -- so without it the two
  * criteria about an unconfigured instance could only be asserted a layer down
  * from the page that has to satisfy them.
@@ -49,7 +49,7 @@ const owner = await logInAt(baseUrl, inject("ownerPassword"));
  * fact no surface above them can state. `multi-placement.test.ts` opens the same
  * seam in this suite for the same shape of reason.
  */
-const db = createDb(inject("databaseUrl"));
+const db = createDb(inject("databaseUrl"), { maxConnections: HARNESS_CONNECTIONS });
 
 afterAll(async () => {
   await db.$client.end();
@@ -334,12 +334,12 @@ describe("/import on a fresh install", () => {
     // unconfigured instance and a broken one look identical from a page. The
     // criterion is that the surface SAYS so, and an empty `<section>` satisfies a
     // test that only asks whether the element is there -- so what is asserted is
-    // the identifier the owner has to go and set.
+    // the way to the setting the owner has to go and change (CNCORE-99).
     const { status, text } = await documentFrom(freshBaseUrl, "/import");
 
     expect(status).toBe(200);
     const notice = sectionIn(text, "no-provider");
-    expect(notice).toContain("PROVIDER_ALLOWLIST");
+    expect(notice).toContain("/settings");
     expect(notice.toLowerCase()).toContain("no provider is allowlisted");
   });
 
@@ -351,7 +351,7 @@ describe("/import on a fresh install", () => {
     const fresh = await documentFrom(freshBaseUrl, "/import");
 
     const notice = sectionIn(fresh.text, "no-provider-configured");
-    expect(notice).toContain("PROVIDER_URLS");
+    expect(notice).toContain("/settings");
     expect(notice.toLowerCase()).toContain("no provider is configured");
   });
 
@@ -670,7 +670,7 @@ describe("/import, when the provider refuses", () => {
    * rendered by nothing.
    *
    * THE PROVIDER IS CONFIGURED RATHER THAN STOOD UP HERE, because this page
-   * refuses a base URL that is not in `PROVIDER_URLS` and renders its
+   * refuses a base URL this instance does not name and renders its
    * `not-configured` notice instead -- so a stub of this test's own never
    * reaches the branch under test.
    */
@@ -740,7 +740,7 @@ describe("/import, when the provider refuses", () => {
 
       expect(status).toBe(200);
       expect(() => sectionIn(text, "container")).toThrow();
-      expect(sectionIn(text, "not-configured")).toContain("PROVIDER_URLS");
+      expect(sectionIn(text, "not-configured")).toContain("/settings");
     }
   });
 });
