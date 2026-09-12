@@ -8,6 +8,11 @@ It is domain-general, and it is a media server in its own right rather than a cl
 
 ## Language
 
+An `_Avoid_` list rejects those words AS NAMES for the term above it: a type, a field, a function, a
+SQL alias. It does not ban the word from prose, which is why **Placement** below is free to define
+itself as "one item's membership" while rejecting `membership` as a name. Where a term's own entry
+settles a different word for what a reader sees, that word is the reader's and is not a second name.
+
 ### The catalogue
 
 **Item**:
@@ -90,9 +95,9 @@ Where a placement sits in its container's ordering. Two placements may share one
 may have none.
 
 **Unplaced**:
-A placement no source has given a position in. IT IS A PLACEMENT ALL THE SAME, never an absent one:
-dropping it shrinks the container silently and numbering it last asserts an order the source never
-gave. The reader's words are "no position given".
+A member of a container no source has given a position in. It is a PLACEMENT WITH NO POSITION, never
+an absent placement: dropping it shrinks the container silently and numbering it last asserts an
+order the source never gave. The reader's words are "no position given".
 _Avoid_: unordered, unsorted, orphan, missing
 
 **Repeat**:

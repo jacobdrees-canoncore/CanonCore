@@ -178,9 +178,9 @@ export const placementInContainerPublic = z.object({
   /**
    * Where this placement sits in THIS container's ordering (ADR-0018), or NULL
    * where no source gave it one. CONTEXT.md calls that Unplaced and is explicit
-   * that it is a placement all the same rather than an absent one: dropping the
-   * row shrinks the container silently, and numbering it last asserts an order
-   * the source never gave.
+   * that it is a placement with no position rather than an absent placement:
+   * dropping the row shrinks the container silently, and numbering it last
+   * asserts an order the source never gave.
    */
   position: z.number().int().nullable(),
 });

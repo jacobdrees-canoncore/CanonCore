@@ -406,11 +406,10 @@ describe("one record imported twice, by two routes", () => {
   });
 });
 
-describe("a member the ordering could not place", () => {
+describe("a placement the ordering could not position", () => {
   /**
-   * `browse` hands back members its ordering cannot place, and a placement with
-   * no position is A PLACEMENT ALL THE SAME -- CONTEXT.md's Unplaced entry, in
-   * its words. Operation Dusk carries no release date, and the
+   * `browse` hands back members its ordering cannot place, and a member with no
+   * position is still a member. Operation Dusk carries no release date, and the
    * archive's ordering for a category IS release order -- so the container holds
    * it and says nothing about where.
    *

@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import * as schemas from "./index";
 
@@ -34,42 +35,67 @@ import * as schemas from "./index";
 const contextFile = fileURLToPath(new URL("../../../CONTEXT.md", import.meta.url));
 
 /**
- * The single words the glossary rejects, read off its `_Avoid_` lists.
+ * What the glossary rejects, read off its `_Avoid_` lists, split by how widely
+ * each entry is rejected.
  *
- * ONLY SINGLE WORDS PARTICIPATE. A multi-word entry -- `custom field`,
- * `provider id`, `materialised view` -- is a phrase about prose, and an
- * identifier is not prose: no name is spelled with a space, and the words those
- * phrases are built from appear on the lists separately where they are banned on
- * their own (`field` does, `key` does). A parenthetical qualifier is stripped
- * first, so `lookup (unqualified)` bans `lookup`.
+ * `anywhere` is rejected as ANY WORD OF A NAME, which is the ordinary case.
+ * `bare` is rejected only as a WHOLE NAME, and that is the glossary's own
+ * notation rather than a softening invented here: `_Avoid_: search, unqualified`
+ * and `_Avoid_: lookup (unqualified)` mark the word as wrong UNQUALIFIED, so
+ * `catalogueSearchPublic` is the qualified form the entry is asking for and a
+ * check that rejected it would be arguing with the document it reads. Getting
+ * this wrong is how the check dies: ADR-0124 records that a check which has to be
+ * argued with is one that gets deleted, and a false positive on the next
+ * legitimate name is exactly that argument.
  *
- * THE PARSE IS DELIBERATELY A LITTLE LOOSE IN ONE PLACE, and saying so here is
- * cheaper than pretending otherwise: `_Avoid_: search, unqualified` is one word
- * and a qualifier on it rather than two words, so this reads `unqualified` as
- * banned in its own right. It costs nothing -- no identifier contains it -- and
- * the alternative is grammar in a test.
+ * ONLY WORDS THAT COULD EVER MATCH A NAME PARTICIPATE. An entry carrying a space
+ * or a hyphen -- `custom field`, `materialised view`, `cross-listing`, `version
+ * 1.0` -- is dropped, because `wordsIn` splits a name on exactly those characters
+ * and no name can produce one. They are kept out rather than kept in and left
+ * dead: a rejected set padded with entries that can never fire would inflate the
+ * canary below into passing on a parser that had stopped working. Where such a
+ * phrase's parts are banned on their own the lists say so separately, and `field`
+ * does; `licence` and `view` do not, which is the honest limit of this check
+ * rather than a claim it can be talked out of.
  */
-export function wordsTheGlossaryRejects(context: string): string[] {
-  const lines = [...context.matchAll(/^_Avoid_:(.*)$/gm)];
-  const entries = lines.flatMap((line) => (line[1] ?? "").split(","));
-  return [
-    ...new Set(
-      entries
-        .map((entry) =>
-          entry
-            .replace(/\([^)]*\)/g, "")
-            .trim()
-            .toLowerCase(),
-        )
-        .filter((entry) => entry.length > 0 && !/\s/.test(entry)),
-    ),
-  ];
+function wordsTheGlossaryRejects(context: string): {
+  anywhere: Set<string>;
+  bare: Set<string>;
+} {
+  const anywhere = new Set<string>();
+  const bare = new Set<string>();
+
+  for (const line of context.matchAll(/^_Avoid_:(.*)$/gm)) {
+    const raw = line[1] ?? "";
+    // A trailing `, unqualified` qualifies every word on its line, and a
+    // `(unqualified)` qualifies only the entry carrying it.
+    const lineIsBare = /(^|,)\s*unqualified\s*$/.test(raw);
+    for (const entry of raw.split(",")) {
+      const qualifiedHere = lineIsBare || /\(\s*unqualified\s*\)/.test(entry);
+      const word = entry
+        .replace(/\([^)]*\)/g, "")
+        .trim()
+        .toLowerCase();
+      if (word.length === 0 || word === "unqualified") continue;
+      if (/[^a-z0-9]/.test(word)) continue;
+      (qualifiedHere ? bare : anywhere).add(word);
+    }
+  }
+  return { anywhere, bare };
 }
 
-/** The words an identifier is built from, lower-cased. */
-export function wordsIn(name: string): string[] {
+/**
+ * The words an identifier is built from, lower-cased.
+ *
+ * TWO CASE BOUNDARIES, NOT ONE. `lower->Upper` splits `placementInContainer`, and
+ * `UPPER->UpperLower` is what splits an acronym off the word after it, so
+ * `APIKey` is `api` + `key` rather than one unrecognisable token. Without the
+ * second rung a banned word hidden behind an acronym walks straight through.
+ */
+function wordsIn(name: string): string[] {
   return name
     .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
     .split(/[^A-Za-z0-9]+/)
     .filter((word) => word.length > 0)
     .map((word) => word.toLowerCase());
@@ -90,11 +116,38 @@ export function wordsIn(name: string): string[] {
  * would have to be right about the language. An earlier version of this file put
  * the rung in `wordsIn` and had to be right; this one does not.
  */
-export function rejects(rejected: ReadonlySet<string>, word: string): boolean {
+function rejects(rejected: ReadonlySet<string>, word: string): boolean {
   if (rejected.has(word)) return true;
   if (word.endsWith("ies") && rejected.has(`${word.slice(0, -3)}y`)) return true;
   return word.endsWith("s") && rejected.has(word.slice(0, -1));
 }
+
+/** Whether one emitted name uses a word the glossary rejects, at either width. */
+function offends(
+  rejected: { anywhere: ReadonlySet<string>; bare: ReadonlySet<string> },
+  name: string,
+): boolean {
+  const words = wordsIn(name);
+  if (words.some((word) => rejects(rejected.anywhere, word))) return true;
+  // A `bare` word is only wrong ALONE, so a compound built on it is the qualified
+  // form the glossary is asking for rather than an offence.
+  return words.length === 1 && words[0] !== undefined && rejects(rejected.bare, words[0]);
+}
+
+/**
+ * Every type this walk stops at because there is nothing underneath it to name.
+ *
+ * AN ALLOWLIST RATHER THAN A DEFAULT OF STOPPING, and that is the whole design.
+ * The walk knows `object`, `array` and `nullable`; the day a schema here uses a
+ * `union`, `record`, `tuple`, `lazy` or `discriminatedUnion`, every field beneath
+ * it would be skipped and the check would go green over names it never read.
+ * Silence is the one failure mode a guard must not have, so an unknown composite
+ * THROWS and the suite says which type it was.
+ *
+ * Measured against `packages/schemas` on 2026-09-12: the only types reachable are
+ * the four below plus `object`, `array` and `nullable`.
+ */
+const NAMES_NOTHING = new Set(["string", "number", "boolean", "literal"]);
 
 /**
  * Every name the read path emits, as `export.path.to.field`, walking into arrays
@@ -103,7 +156,7 @@ export function rejects(rejected: ReadonlySet<string>, word: string): boolean {
  * The path is the point of the return type: a bare list of offending words would
  * say the read path has one, and a reviewer still has to find it.
  */
-export function namesEmittedBy(module: Record<string, unknown>): string[] {
+function namesEmittedBy(module: Record<string, unknown>): string[] {
   const found: string[] = [];
 
   function walk(schema: unknown, path: string): void {
@@ -121,7 +174,17 @@ export function namesEmittedBy(module: Record<string, unknown>): string[] {
     const inner =
       (def as { element?: unknown; innerType?: unknown }).element ??
       (def as { element?: unknown; innerType?: unknown }).innerType;
-    if (inner) walk(inner, path);
+    if (inner) {
+      walk(inner, path);
+      return;
+    }
+    if (!NAMES_NOTHING.has(def.type ?? "")) {
+      throw new Error(
+        `this walk does not know how to look inside a \`${def.type}\` (at ${path}), so every ` +
+          "field under it would go unchecked. Teach it that type rather than widening " +
+          "NAMES_NOTHING, unless the type genuinely has no fields beneath it.",
+      );
+    }
   }
 
   for (const [name, schema] of Object.entries(module)) {
@@ -146,29 +209,40 @@ describe("the words the glossary rejects", () => {
       "_Avoid_: enum, lookup (unqualified)",
     ].join("\n");
 
-    expect(wordsTheGlossaryRejects(fixture)).toStrictEqual([
-      "record",
-      "edge",
-      "membership",
-      "link",
-      "enum",
-      "lookup",
-    ]);
+    const { anywhere, bare } = wordsTheGlossaryRejects(fixture);
+    expect([...anywhere]).toStrictEqual(["record", "edge", "membership", "link", "enum"]);
+    // `lookup (unqualified)` is wrong ALONE, which is narrower than the rest.
+    expect([...bare]).toStrictEqual(["lookup"]);
   });
 
-  it("leaves a multi-word entry out, because no identifier is spelled with a space", () => {
-    const fixture = "_Avoid_: field, attribute, custom field";
-    expect(wordsTheGlossaryRejects(fixture)).toStrictEqual(["field", "attribute"]);
+  it("reads a trailing `unqualified` as qualifying its whole line", () => {
+    // CONTEXT.md's Catalogue search entry: `_Avoid_: search, unqualified` is one
+    // word and a qualifier on it, NOT two banned words.
+    const { anywhere, bare } = wordsTheGlossaryRejects("_Avoid_: search, unqualified");
+    expect([...anywhere]).toStrictEqual([]);
+    expect([...bare]).toStrictEqual(["search"]);
+  });
+
+  it("leaves out any entry no identifier could ever produce", () => {
+    // A name is split on spaces and hyphens, so an entry containing one can never
+    // match. Dropped rather than kept dead, because dead entries would pad the
+    // canary below into passing over a parser that had stopped working.
+    const fixture = "_Avoid_: field, attribute, custom field, cross-listing, version 1.0";
+    expect([...wordsTheGlossaryRejects(fixture).anywhere]).toStrictEqual(["field", "attribute"]);
   });
 
   it("finds the real glossary's lists, so the check cannot pass by reading nothing", async () => {
     // The assertion below would pass vacuously against an empty list, which is
     // exactly how this check would rot: a renamed heading, a moved file, and it
     // goes green while guarding nothing.
-    const rejected = wordsTheGlossaryRejects(await readFile(contextFile, "utf8"));
-    expect(rejected).toContain("membership");
-    expect(rejected).toContain("duplicate");
-    expect(rejected.length).toBeGreaterThan(20);
+    const { anywhere, bare } = wordsTheGlossaryRejects(await readFile(contextFile, "utf8"));
+    expect(anywhere).toContain("membership");
+    expect(anywhere).toContain("member");
+    expect(anywhere).toContain("duplicate");
+    expect(anywhere.size).toBeGreaterThan(20);
+    // The glossary really does use the notation, so the narrower width is live
+    // rather than a branch nothing reaches.
+    expect(bare).toContain("search");
   });
 });
 
@@ -185,6 +259,31 @@ describe("the words an identifier is built from", () => {
   it("says the words, not a guess at their singulars", () => {
     expect(wordsIn("isContainer")).toStrictEqual(["is", "container"]);
     expect(wordsIn("members")).toStrictEqual(["members"]);
+  });
+
+  it("splits an acronym off the word after it", () => {
+    // Without the second case boundary this is one token, and a banned word
+    // hidden behind an acronym walks through unread.
+    expect(wordsIn("APIKey")).toStrictEqual(["api", "key"]);
+    expect(wordsIn("providerSDKRecord")).toStrictEqual(["provider", "sdk", "record"]);
+  });
+});
+
+describe("how widely a rejected word is rejected", () => {
+  const rejected = { anywhere: new Set(["member"]), bare: new Set(["search"]) };
+
+  it("rejects an `anywhere` word as any part of a name", () => {
+    expect(offends(rejected, "memberPublic")).toBe(true);
+    expect(offends(rejected, "members")).toBe(true);
+  });
+
+  it("rejects a `bare` word only when it is the whole name", () => {
+    expect(offends(rejected, "search")).toBe(true);
+    // THE QUALIFIED FORM THE GLOSSARY IS ASKING FOR. A check that rejected this
+    // would be arguing with the entry it read, and ADR-0124 records that a check
+    // which has to be argued with is one that gets deleted.
+    expect(offends(rejected, "catalogueSearchPublic")).toBe(false);
+    expect(offends(rejected, "searchQuery")).toBe(false);
   });
 });
 
@@ -216,13 +315,21 @@ describe("every name the read path emits", () => {
     expect(names).toContain("itemPublic.placements.containerTitle");
   });
 
-  it("uses no word the glossary rejects", async () => {
-    const rejected = new Set(wordsTheGlossaryRejects(await readFile(contextFile, "utf8")));
+  it("refuses to walk past a composite it does not understand", () => {
+    // THE FAILURE MODE A GUARD MUST NOT HAVE is going quiet. A `union` holding
+    // objects would hide every field under it, and a walk that shrugged at
+    // unknown types would report the read path clean.
+    expect(() =>
+      namesEmittedBy({ odd: z.union([z.object({ membership: z.string() }), z.string()]) }),
+    ).toThrow(/does not know how to look inside a `union`/);
+  });
 
-    const offences = namesEmittedBy(schemas).filter((name) => {
-      const last = name.split(".").at(-1) ?? name;
-      return wordsIn(last).some((word) => rejects(rejected, word));
-    });
+  it("uses no word the glossary rejects", async () => {
+    const rejected = wordsTheGlossaryRejects(await readFile(contextFile, "utf8"));
+
+    const offences = namesEmittedBy(schemas).filter((name) =>
+      offends(rejected, name.split(".").at(-1) ?? name),
+    );
 
     /**
      * THE TWO NAMES THIS CHECK CAUGHT THAT CNCORE-91 DID NOT FIX, and they are
@@ -242,6 +349,10 @@ describe("every name the read path emits", () => {
      */
     const allowedUntil_CNCORE_114 = ["catalogueEntryPublic", "cataloguePublic.entries"];
 
-    expect(offences).toStrictEqual(allowedUntil_CNCORE_114);
+    // SORTED BOTH SIDES, because an exact match on walk order would make
+    // reordering the exports in `index.ts` fail this test for no domain reason --
+    // which is the arguing-with-the-check death ADR-0124 warns about, arriving by
+    // a different door.
+    expect([...offences].sort()).toStrictEqual([...allowedUntil_CNCORE_114].sort());
   });
 });

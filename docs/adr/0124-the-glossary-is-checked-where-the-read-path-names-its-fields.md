@@ -15,6 +15,12 @@ that instance. This is the decision that it not recur.
 `packages/schemas/src/glossary.test.ts` parses them out of `CONTEXT.md` and fails when a name the
 read path emits uses a word they reject.
 
+**AND AN `_Avoid_` LIST REJECTS ITS WORDS AS NAMES, NOT AS PROSE**, which CNCORE-91 had to write into
+`CONTEXT.md` because nothing said it and two independent reviewers of that ticket both read the lists
+as bans on the word outright. The file's own **Placement** entry settles it: it defines itself as
+"one item's membership of one container" while rejecting `membership`, so a prose ban would make the
+glossary violate itself. What the lists reject is a type, a field, a function or a SQL alias.
+
 It reads the glossary rather than restating it, for the reason
 [[0045-the-public-read-path-names-every-field]] gives for reading a seeded label instead of mapping
 it in the app: a list of banned words copied into a test is the same rule in a second language, and
@@ -61,3 +67,15 @@ half a reader would otherwise assume was covered:
   shapes inside the procedure rather than in `packages/schemas`, so its fields — `placements` on the
   dry run and on what a browse wrote, both renamed by hand under CNCORE-91 — are outside the check.
   Reaching them means going through oRPC's contract internals, which is why it was not done here.
+- **Every name that is not a payload field: a SQL alias, a test name, a local.** The check reads
+  schemas, so it reads none of these. CNCORE-91's own review found `join placements as memberships`
+  in `findAttributionOwed` — a banned word as a name, in the file whose interface the same ticket was
+  renaming — and `docs/agents/domain.md` puts test names under the same rule ("When your output names
+  a domain concept … (a test name), use the term as defined in `CONTEXT.md`"). Both were fixed by
+  hand. `packages/db/src/placements.test.ts` still names the Unplaced concept "a member with no
+  position" in two test titles, left alone because that file is outside CNCORE-91's diff.
+
+**The honest summary is that this check guards one surface and the other surfaces are guarded by
+review**, which is the same standing the rest of the glossary had before it. It is worth having
+because the payload is the surface a reader and every client sees, and because it found CNCORE-114 on
+its first run. It is not worth quoting as though the repository were now covered.

@@ -643,7 +643,7 @@ async function browseThroughTheApp(baseUrl: string, providerUrl: string, databas
   };
 }
 
-/** The placement of a browse whose imported item carries this title. */
+/** The id of the item a browse placed under this title. */
 async function itemPlacedTitled(
   client: AppRouterClient,
   placements: { itemId: string }[],

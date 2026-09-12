@@ -88,8 +88,8 @@ const PROPERTY: Record<string, string> = {
 /**
  * Where a placement sits, in the reader's words.
  *
- * A PLACEMENT WITH NO POSITION IS STILL A PLACEMENT (migration 2), and this is
- * where a reader meets one: the source put the item in this container and said
+ * A MEMBER WITH NO POSITION IS STILL A MEMBER (migration 2), and this is where
+ * a reader meets one: the source put the item in this container and said
  * nothing about where. Printing `#null` would be the model leaking, and leaving
  * the row out would hide a membership that is real.
  *

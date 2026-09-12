@@ -36,8 +36,8 @@ describe("findPlacementsInContainer", () => {
   });
 
   it("keeps a placement the source could not position, after the ones it could", async () => {
-    // CONTEXT.md: an Unplaced row is A PLACEMENT ALL THE SAME, never an absent
-    // one -- "dropping it shrinks the container silently and
+    // CONTEXT.md: an Unplaced member is a PLACEMENT WITH NO POSITION, never an
+    // absent placement -- "dropping it shrinks the container silently and
     // numbering it last asserts an order the source never gave". So it is
     // answered, and answered with the absence intact.
     //

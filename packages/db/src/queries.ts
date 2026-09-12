@@ -323,12 +323,12 @@ export async function findAttributionOwed(
               and ${placementSources.deletedAt} is null
               and ${placements.deletedAt} is null)
           or exists (select 1 from ${statements} as container_claims
-            join ${placements} as memberships
-              on memberships.item_id = ${itemId}
-             and memberships.container_id = container_claims.subject_item_id
+            join ${placements} as container_placements
+              on container_placements.item_id = ${itemId}
+             and container_placements.container_id = container_claims.subject_item_id
             where container_claims.source_id = ${sources.id}
               and container_claims.deleted_at is null
-              and memberships.deleted_at is null)
+              and container_placements.deleted_at is null)
         )`,
       ),
     )
