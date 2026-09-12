@@ -1,22 +1,41 @@
-import { os } from "@orpc/server";
+import { ORPCError, os } from "@orpc/server";
 
 import type { Context } from "./context";
 
 export const o = os.$context<Context>();
 
 /**
- * TODO(CNCORE-109): `public` IS THE WHOLE TRUTH HERE AND SHOULD NOT BE. This is
- * the only builder this package exports, so every procedure in `./routers` is
- * reachable by anyone who can reach the process -- the ones that WRITE
- * included: `provider.purge` deletes a provider's placements and is as
- * reachable as a read.
+ * ANYONE MAY CALL THIS, and that is a decision rather than the absence of one.
  *
- * FOUND WHILE BOUNDING A FAILURE REASON (CNCORE-95, ADR-0123). That ticket
- * asked whether an unauthenticated caller should read a raw failure message,
- * and the answer is that the message is not the oracle -- `provider.configured`
- * already hands any caller every configured provider URL -- so the reason was
- * bounded and attributed, and the OPEN SURFACE was filed rather than papered
- * over by degrading a sentence the Owner needs. ADR-0043 and ADR-0044 already
- * decide what closes it.
+ * ADR-0044 makes the public demo read-only with no login, and ADR-0072 gives a
+ * visitor everything on it -- there is no visibility system, because "inherit
+ * from which parent?" has no answer once an item is multi-placed. So a read
+ * asks for nothing, and the demo is an instance that simply never sets
+ * `OWNER_PASSWORD`.
  */
-export const publicProcedure = o;
+export const openProcedure = o;
+
+/**
+ * THE OWNER MAY CALL THIS. Everything that writes is behind it (CNCORE-109).
+ *
+ * Until this existed `packages/api` exported one builder, named `public`, and it
+ * was the whole truth: every procedure was reachable by anyone who could reach
+ * the process, `provider.purge` -- which deletes everything one provider ever
+ * said -- as reachable as a read. ADR-0043 and ADR-0044 had already decided what
+ * closes that, and neither was implemented.
+ *
+ * A SESSION AND NOT A PASSWORD PER CALL. The password is checked once, by
+ * `session.logIn`, and what every later call presents is the token that check
+ * minted (ADR-0043). A secret compared on every procedure would be a secret sent
+ * on every procedure.
+ *
+ * IT NARROWS THE CONTEXT rather than only refusing, so a handler behind this
+ * reads `context.session` as a session rather than as one that might be null.
+ * Nothing needs the owner's id yet; the first thing that writes an `owner_id`
+ * from the caller rather than from `theOwnerId` will, and it should not have to
+ * re-check what this already proved.
+ */
+export const ownerProcedure = o.use(({ context, next }) => {
+  if (!context.session) throw new ORPCError("UNAUTHORIZED");
+  return next({ context: { session: context.session } });
+});

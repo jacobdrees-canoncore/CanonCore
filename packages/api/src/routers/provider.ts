@@ -24,7 +24,7 @@ import {
 } from "@canoncore/providers";
 import { z } from "zod";
 
-import { publicProcedure } from "../index";
+import { openProcedure, ownerProcedure } from "../index";
 
 /** What an import needs: the URL the owner typed, and which record to take. */
 export interface ImportRequest {
@@ -335,7 +335,7 @@ export const provider = {
    * NO REQUEST LEAVES THE APP. It reads the configuration this process started
    * with, which is what `createContext` parsed at module load.
    */
-  allowlisted: publicProcedure
+  allowlisted: openProcedure
     .output(z.object({ any: z.boolean() }))
     .handler(({ context }) => ({ any: allowsAnything(context.providerAllowlist) })),
 
@@ -362,7 +362,7 @@ export const provider = {
    * load, so it answers for a provider that is switched off exactly as for one
    * that is running.
    */
-  configured: publicProcedure
+  configured: openProcedure
     .output(z.object({ providers: z.array(z.url()) }))
     .handler(({ context }) => ({ providers: context.providerUrls })),
 
@@ -382,7 +382,7 @@ export const provider = {
    * now. So the allowlist has no say and a provider that is switched off answers
    * the same as one that is running.
    */
-  held: publicProcedure
+  held: openProcedure
     .input(
       z.object({
         /** The provider's identity, which for a provider IS its base URL (ADR-0031). */
@@ -439,7 +439,7 @@ export const provider = {
    * providers, and a caller that named one would get one answer and no way to
    * know it had missed the other.
    */
-  search: publicProcedure
+  search: openProcedure
     .input(
       z.object({
         /**
@@ -547,7 +547,7 @@ export const provider = {
    * provider written. There is no field here for one and nothing in this repo
    * holds one.
    */
-  import: publicProcedure
+  import: ownerProcedure
     .input(
       z.object({
         /**
@@ -616,7 +616,7 @@ export const provider = {
    * error's message before any boundary sees it. Asked on the GET instead,
    * every one of the three is a value a page can print.
    */
-  container: publicProcedure
+  container: openProcedure
     .input(
       z.object({
         /** A CONFIG URL, travelling ADR-0034's allowlist, as `browse`'s does. */
@@ -752,7 +752,7 @@ export const provider = {
    * id, so no operation answers "which containers do you have". The owner names
    * it, exactly as they name a record for `import`.
    */
-  browse: publicProcedure
+  browse: ownerProcedure
     .input(
       z.object({
         /** A CONFIG URL, travelling ADR-0034's allowlist, as `import`'s does. */
@@ -838,7 +838,7 @@ export const provider = {
    * AFTERWARDS, and `previewPurge` below is where ADR-0046's "counts shown
    * first" is satisfied -- the same traversal, stopped before it commits.
    */
-  purge: publicProcedure
+  purge: ownerProcedure
     .input(purgeTarget)
     .output(purgeCounts)
     .handler(async ({ input, context }): Promise<PurgedProvider> => {
@@ -862,7 +862,7 @@ export const provider = {
    * be able to ask this about a provider they can no longer reach, which is the
    * ordinary case when a licence ends rather than an exotic one.
    */
-  previewPurge: publicProcedure
+  previewPurge: openProcedure
     .input(purgeTarget)
     .output(purgeCounts)
     .handler(async ({ input, context }): Promise<PurgedProvider> => {

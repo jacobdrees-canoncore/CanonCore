@@ -42,6 +42,62 @@ export const owners = pgTable(
 );
 
 /**
+ * ADR-0043. One row per logged-in device, and the row that decides whether a
+ * caller may WRITE (CNCORE-109).
+ *
+ * WHOLE RATHER THAN AS MUCH AS TODAY READS, which is that record's own
+ * instruction: the row is the expensive part rather than any column on it, and
+ * Audiobookshelf is the measurement behind the instruction — a signed token on
+ * the user row, then 52 files and 3,168 lines to put a real session row under
+ * it. So the declaration columns ship now and stand empty until something
+ * declares one.
+ *
+ * A DEVICE, WHICH IS NOT THE SAME AS A CLIENT (`CONTEXT.md`). The web UI is not
+ * a Client — the server serves it, at the server's own origin — and a browser
+ * logging in declares nothing, so its row holds nulls in all four. That is the
+ * honest reading of "what it declared" rather than a placeholder: the channel a
+ * declaration arrives on is the client work's, and no client exists yet.
+ */
+export const sessions = pgTable("sessions", {
+  id: idColumn(),
+  ownerId: ownerColumn().references(() => owners.id),
+  /**
+   * SHA-256 OF THE TOKEN, never the token. The cookie holds the secret and this
+   * holds a verifier: a database dump, a backup or a log of a query is then a
+   * list of sessions rather than a set of live credentials. Unique because the
+   * token IS the lookup key, and two rows answering one token would make which
+   * session a caller holds depend on the planner.
+   */
+  tokenHash: text("token_hash").notNull().unique(),
+  /** What the device calls the software: ADR-0043's client name. */
+  clientName: text("client_name"),
+  /** What the owner would recognise the device by, for a per-device logout. */
+  deviceName: text("device_name"),
+  /** Stable across the device's logins, which is what makes the row per-DEVICE. */
+  deviceId: text("device_id"),
+  clientVersion: text("client_version"),
+  /**
+   * What the device declared it can play, as the device declared it.
+   *
+   * OPAQUE HERE ON PURPOSE. ADR-0043 records that Plex carries this on two
+   * channels that are not the same field — roles on `X-Plex-Provides`, the codec
+   * decision on `X-Plex-Client-Profile-Name` and its `add-direct-play-profile`
+   * grammar — and direct play (ADR-0041) is what makes the distinction decisive.
+   * Nothing plays anything yet, so pinning a shape now would be inventing the
+   * one the first client has to answer.
+   */
+  capabilities: jsonb("capabilities").$type<Record<string, unknown>>(),
+  /**
+   * ADR-0043's own column, and not a synonym for `updated_at` beside it.
+   * `updated_at` is what the `touch_row` trigger advances on any write to the
+   * row; this is the claim the owner reads when deciding which device to log
+   * out, and it survives that column coming to mean something else.
+   */
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+  ...lifecycleColumns(),
+});
+
+/**
  * ADR-0040. A merge stamps its id on every row it touches, so reversal is a
  * query — "find everything stamped with merge 47" — rather than `merged_from`
  * columns or a second history mechanism.
