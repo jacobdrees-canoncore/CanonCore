@@ -30,11 +30,11 @@ const offered = z.object({ password: z.string() });
  * imposes one.
  */
 export async function logIn(form: FormData): Promise<void> {
-  const named = given(form, offered);
-  if (named === undefined) return;
+  const input = given(form, offered);
+  if (input === undefined) return;
 
   const { error, data } = await safe(
-    call(appRouter.session.logIn, named, { context: await callerContext() }),
+    call(appRouter.session.logIn, input, { context: await callerContext() }),
   );
 
   // A REFUSED PASSWORD IS AN ANSWER, NOT A CRASH -- the same rule

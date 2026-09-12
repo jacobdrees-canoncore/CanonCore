@@ -56,6 +56,16 @@ item and there is one of them, so editing REPLACES -- and `assertClaims` making 
 equal to what it now claims means an empty note withdraws the last one, tombstoned rather than
 deleted (ADR-0075). One procedure writes, edits and removes, and the page offers one control.
 
+**AND THAT IS WHY AN UNREADABLE FIELD MUST NOT BECOME AN EMPTY ONE -- under CNCORE-123.** If
+clearing the box is the removal, then anything a surface silently reads AS a cleared box performs the
+removal too. `FormData.get` answers `File | string | null`, so a note field sent as a file part is
+not text at all, and the tempting narrow fix -- coerce it to `""` and carry on -- would withdraw the
+owner's note on a request nobody made. It is read as NOT GIVEN instead and the write does not happen:
+nothing given is not the same claim as nothing said. ADR-0066 carries the shared rule and why the
+refusal takes the shape it does; what belongs here is that this property is the one where getting it
+wrong DESTROYS something, which is why the `note` field is where that rule is asserted at the
+page-over-HTTP seam.
+
 **AN EMPTY NOTE IS ACCEPTED WHERE AN EMPTY TITLE IS REFUSED**, and the asymmetry is the projection.
 An empty title projects onto `items.title` as a heading that renders blank, where an item with no
 title statement renders "Untitled item" -- two states, one of them useless. A note projects onto

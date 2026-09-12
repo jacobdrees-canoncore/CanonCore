@@ -33,8 +33,8 @@ const theDeviceNamed = z.object({ id: z.uuid() });
  * browser, and the two halves have to happen together.
  */
 export async function endDevice(form: FormData): Promise<void> {
-  const named = given(form, theDeviceNamed);
-  if (named === undefined) return;
+  const input = given(form, theDeviceNamed);
+  if (input === undefined) return;
 
-  await call(appRouter.session.end, named, { context: await callerContext() });
+  await call(appRouter.session.end, input, { context: await callerContext() });
 }

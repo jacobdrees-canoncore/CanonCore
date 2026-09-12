@@ -33,10 +33,10 @@ const theTaskNamed = z.object({ key: z.string() });
  * is ADR-0049's minimum met by the ordinary path rather than by an error page.
  */
 export async function runTask(form: FormData): Promise<void> {
-  const named = given(form, theTaskNamed);
-  if (named === undefined) return;
+  const input = given(form, theTaskNamed);
+  if (input === undefined) return;
 
-  await call(appRouter.task.run, named, { context: await callerContext() });
+  await call(appRouter.task.run, input, { context: await callerContext() });
 }
 
 /**
@@ -48,8 +48,8 @@ export async function runTask(form: FormData): Promise<void> {
  * on.
  */
 export async function cancelTask(form: FormData): Promise<void> {
-  const named = given(form, theTaskNamed);
-  if (named === undefined) return;
+  const input = given(form, theTaskNamed);
+  if (input === undefined) return;
 
-  await call(appRouter.task.cancel, named, { context: await callerContext() });
+  await call(appRouter.task.cancel, input, { context: await callerContext() });
 }

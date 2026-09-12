@@ -47,10 +47,10 @@ const takeRecord = z.object({ baseUrl: z.url(), recordId: z.string().min(1) });
 
 /** Imports one record from one provider, leaving the page to report it. */
 export async function importRecord(form: FormData): Promise<void> {
-  const named = given(form, takeRecord);
-  if (named === undefined) return;
+  const input = given(form, takeRecord);
+  if (input === undefined) return;
 
-  await call(appRouter.provider.import, named, { context: await callerContext() });
+  await call(appRouter.provider.import, input, { context: await callerContext() });
 }
 
 /**
@@ -69,10 +69,10 @@ const takeOrdering = z.object({ baseUrl: z.url(), containerId: z.string().min(1)
  * than left for the owner to place by hand.
  */
 export async function browseOrdering(form: FormData): Promise<void> {
-  const named = given(form, takeOrdering);
-  if (named === undefined) return;
+  const input = given(form, takeOrdering);
+  if (input === undefined) return;
 
-  await call(appRouter.provider.browse, named, { context: await callerContext() });
+  await call(appRouter.provider.browse, input, { context: await callerContext() });
 }
 
 /**
@@ -118,8 +118,8 @@ const purgeTarget = z.object({ baseUrl: z.url() });
  * looks like from there.
  */
 export async function purgeProvider(form: FormData): Promise<void> {
-  const named = given(form, purgeTarget);
-  if (named === undefined) return;
+  const input = given(form, purgeTarget);
+  if (input === undefined) return;
 
-  await call(appRouter.provider.purge, named, { context: await callerContext() });
+  await call(appRouter.provider.purge, input, { context: await callerContext() });
 }
