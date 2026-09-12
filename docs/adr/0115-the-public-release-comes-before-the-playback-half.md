@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 ---
 
 # The public release comes before the playback half
@@ -35,13 +35,15 @@ origin, the deployment rung and a test environment: "Three of the seven land on 
 and that concentration is the finding." That is roughly two dozen proposed records against version
 one's TEN planned tickets (`docs/agents/issue-tracker.md`, measured 2026-09-11). Opening with it is the internal failure mode by construction.
 
-**And the discovery clock has not started.** awesome-selfhosted's addition checklist requires that a
+**And the discovery clock had not started.** awesome-selfhosted's addition checklist requires that a
 project "was first released more than 4 months ago" and "has working installation instructions"
 (read 2026-09-11). The clock runs from the FIRST release, not the good one. When this was written
 there was no tag, no image and no install path, so every week of playback work was a week added to a
 clock that had not begun. That is the external failure mode, and it is the half a scope document
-cannot see. **CNCORE-63 has since built the image and CNCORE-64 the install path**; the tag alone is
-still to come, so the clock still has not started and the argument holds on one of its three legs.
+cannot see. **CNCORE-63 built the image, CNCORE-64 the install path, and CNCORE-70 cut the tag on
+2026-09-12**, so all three legs now stand and the clock has started. That date is the one that
+matters rather than this record's: awesome-selfhosted counts from the release's `published_at`, and
+CNCORE-76 cannot be filed before 2027-01-12.
 
 ## ADR-0107's flip was already due and owned by nothing
 
@@ -95,15 +97,47 @@ reason is the clock and not the polish**: it runs from the first release, so the
 before the product deserves it. Build-order's phrasing is "tag v0.1.0 and publish an image, however
 embarrassing."
 
-**THE IMAGE HALF IS BUILT AND THIS RECORD STAYS `proposed` UNTIL THE TAG IS.** CNCORE-63 publishes
-the image: multi-arch, from `main` alone, migrating before it serves. CNCORE-64 has since made it
-installable -- `compose.yaml`, `.env.example` and the README's `## Installing it`, followed on a
-machine with no checkout and no `ghcr.io` credentials, which is the run that proves what a stranger
-gets rather than what the owner gets. So awesome-selfhosted's "has working installation
-instructions" is now satisfied and its "first released more than 4 months ago" is not: there is
-still no tag, so the clock has not started and the image cannot be pointed at a version (CNCORE-70).
-Said here rather than left to be inferred from a green build, because half a mechanism looks
-finished from outside.
+**THE TAG IS CUT, WHICH IS THE CONDITION THIS RECORD SET FOR ITSELF, AND IT IS NOW `accepted`.**
+CNCORE-63 publishes the image: multi-arch, from `main` alone, migrating before it serves. CNCORE-64
+made it installable -- `compose.yaml`, `.env.example` and the README's `## Installing it`, followed
+on a machine with no checkout and no `ghcr.io` credentials, which is the run that proves what a
+stranger gets rather than what the owner gets. CNCORE-70 added the release trigger and tagged
+`v0.1.0` at `b45a4ff` on 2026-09-12, so `ghcr.io/jacobdrees-canoncore/canoncore:0.1.0` exists,
+resolves for amd64 and arm64, and was fetched with an anonymous registry token to prove it answers
+somebody who is not a member of this organisation. Both of awesome-selfhosted's conditions are
+satisfied and the clock runs.
+
+**WHAT `accepted` DOES NOT MEAN HERE, SAID PLAINLY.** This record stages one effort across two tags
+and only the FIRST has shipped. v0.2.0's owner write path -- CNCORE-71 to CNCORE-75 -- is unbuilt,
+so the argument three sections up, that "shipping multi-placement that the owner cannot perform is
+shipping the demo of the feature rather than the feature", is still an outstanding debt rather than
+a settled one. The status is flipped because the gate this record wrote for itself was the tag and
+nothing else; the half that has not landed is named here so `accepted` cannot be read as the whole
+effort being done.
+
+**WHAT TAGGING TAUGHT, WHICH IS THAT `latest` WAS ONE LINE ORDER AWAY FROM MOVING.** The release
+publishes `0.1.0` and `sha-<short>` and deliberately does NOT touch `latest`, because `latest` here
+means the head of `main`: `compose.yaml` names it and the README documents it that way, so a
+release re-pointing it would change that meaning silently, and backwards the first time an older
+commit were tagged. That was ALREADY the behaviour before CNCORE-70 pinned it, and only by
+accident. `docker/metadata-action`'s `flavor.latest` defaults to `auto`, under which `procSemver`
+computes latest for every non-prerelease semver tag; `setVersion` assigns the flag only while it is
+still undefined, so the FIRST tag entry processed freezes it, and `type=sha` happened to sit above
+`type=semver` and froze it false. Swapping those two lines, or dropping `type=sha`, would have
+re-pointed `latest` on the next release with nothing in the diff saying so. `flavor: latest=false`
+makes it a statement instead (`src/meta.ts`, read 2026-09-12).
+
+**AND THE TRIGGER IS THE GATE, NOT THE CONDITIONS.** A tag carries no branch, so the publish
+conditions have to admit `refs/tags/v` explicitly -- but Actions expressions have no globbing, so
+those conditions cannot tell a version from any `v`. What refuses `vtest` is `on: push: tags`,
+which does glob: the pattern is `v[0-9]+.[0-9]+.[0-9]+`, GitHub's own documented shape for semantic
+versions. A consequence worth knowing before v0.2.0: a pre-release tag such as `v0.2.0-rc1` does not
+match it, so it neither builds nor publishes until that line is widened.
+
+**AND A RELEASE IS NOT A BRANCH BUILD RERUN.** The tag's run is a full CI run at the tagged commit,
+which is what makes the release's claims checkable rather than inherited: at `v0.1.0` every job was
+green, including the provider job carrying CNCORE-2's multi-placement assertion against two
+independent Sources.
 
 **AND THE PUBLISH HAD A SECOND MANUAL STEP NOBODY HAD WRITTEN DOWN.** CNCORE-63's CI asserts the
 package reads `public` on every publish, and that assertion sat red on `main` because the package
