@@ -434,6 +434,10 @@ const HOLDING_STILL = [
   "And a third, so the plural is a plural",
 ];
 
+// TODO(CNCORE-111): this is the fourth near-verbatim copy of build a database,
+// take a port, spawn `next start`, wait for it to answer, hand back a close.
+// Folding the four together touches three fixtures this ticket did not otherwise
+// change, and they differ in what an extraction has to carry rather than flatten.
 async function aCatalogueThatHoldsStill() {
   const databaseUrl = await buildTestDatabase("still");
   const db = createDb(databaseUrl);

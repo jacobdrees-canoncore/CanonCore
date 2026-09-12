@@ -65,6 +65,9 @@ describe("worktreeDatabaseName", () => {
     // Built by the HARNESS's own function, not by pasting its format here, so
     // that changing how a test database is named fails this instead of quietly
     // eating the room reserved for it.
+    // TODO(CNCORE-112): this list is hand-written, and the suffixes it has to
+    // cover are string literals in another package. Filling it in restores the
+    // invariant and leaves the mechanism that broke it standing.
     for (const suffix of ["", "web", "fresh", "paged", "purge", "still"]) {
       const derived = testDatabaseNameFor(name, suffix);
       expect(derived.length).toBeLessThanOrEqual(63);
