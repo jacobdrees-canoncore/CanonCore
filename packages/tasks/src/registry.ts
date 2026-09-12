@@ -85,6 +85,9 @@ export interface Task {
  */
 export class TaskRefused extends Error {}
 
+/** ADR-0049's registry, as everything that holds one refers to it. */
+export type Registry = ReturnType<typeof createRegistry>;
+
 /** One task as the owner's page reads it. */
 export interface ListedTask {
   key: string;
@@ -117,6 +120,13 @@ export function createRegistry(tasks: Task[]) {
   const running = new Map<string, AbortController>();
 
   return {
+    /**
+     * The tasks this registry carries, for a caller that needs their triggers
+     * without asking the database anything -- which the scheduler does, every
+     * time it re-arms.
+     */
+    tasks: tasks as readonly Task[],
+
     /**
      * Runs one task NOW, and answers the finished run.
      *

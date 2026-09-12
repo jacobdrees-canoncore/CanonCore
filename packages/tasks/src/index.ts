@@ -15,6 +15,7 @@ export {
   createRegistry,
   dailyAt,
   type ListedTask,
+  type Registry,
   type Task,
   type TaskContext,
   type TaskOutcome,
@@ -22,6 +23,7 @@ export {
   type TaskRun,
   type Trigger,
 } from "./registry";
+export { nextFiring, startScheduler } from "./scheduler";
 export { sweepSessionsTask } from "./sweep-sessions";
 
 /**
