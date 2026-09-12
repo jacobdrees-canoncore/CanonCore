@@ -264,6 +264,22 @@ export const item = {
          * whole query; this one rides beside the item it is a listing OF.
          */
         after: aCursor,
+        /*
+         * "ALSO APPEARS IN"'S OWN CURSOR (ADR-0119, CNCORE-125), and the second
+         * one on this procedure because there are two independent listings on
+         * one item page: `after` walks what a container HOLDS, and this walks
+         * every ordering the item SITS IN.
+         *
+         * NAMED FOR THE LISTING RATHER THAN BEING A SECOND `after`, because one
+         * page has to spell both at once. `?placed=` already narrows this same
+         * list to one origin (ADR-0066), so `placed` and `placedAfter` read as
+         * the pair they are -- where a bare second `after` could not be told
+         * from the first. The bare word stays with the listing that already
+         * emitted it: re-spelling that one would give every link CNCORE-89 has
+         * already put into the world a second spelling of itself, which is the
+         * one thing ADR-0066's fixed order exists to prevent.
+         */
+        placedAfter: aCursor,
       }),
     )
     .output(itemPublic)
@@ -276,7 +292,16 @@ export const item = {
       // alias reaching a merged-away item still answers with the survivor's
       // orderings and values rather than with none (ADR-0040).
       const [placements, holds, statements, attribution] = await Promise.all([
-        findPlacementsOfItem(context.db, found.id),
+        /*
+         * CAPPED AND WALKED SINCE CNCORE-125, and it was the LAST listing in
+         * the app that was neither. It answered every live placement, which
+         * ADR-0119's first sentence forbids. The cap is `A_PAGE`, the same
+         * ceiling the other four serve, and the caller cannot raise it.
+         */
+        findPlacementsOfItem(context.db, found.id, {
+          limit: A_PAGE,
+          after: input.placedAfter,
+        }),
         // ASKED UNCONDITIONALLY rather than only when `is_container`, because
         // the two would be the same question answered twice: nothing can be
         // placed in an item that is not a container, so a non-container's
@@ -312,13 +337,22 @@ export const item = {
         releaseDate: found.releaseDate,
         isContainer: found.isContainer,
         isOrdered: found.isOrdered,
-        placements: placements.map((placement) => ({
-          id: placement.id,
-          containerId: placement.containerId,
-          containerTitle: placement.containerTitle,
-          position: placement.position,
-          placedBy: placement.placedBy,
-        })),
+        // THE LISTING AND NOT ONLY ITS ROWS (ADR-0045, ADR-0119), exactly as
+        // `holds` below: what this page carries, how many orderings there are,
+        // and where to carry on from. The three travel together because a
+        // surface handed only the first would report the cap as every ordering
+        // the item sits in -- and multi-placement is the product's claim.
+        placements: {
+          entries: placements.entries.map((placement) => ({
+            id: placement.id,
+            containerId: placement.containerId,
+            containerTitle: placement.containerTitle,
+            position: placement.position,
+            placedBy: placement.placedBy,
+          })),
+          total: placements.total,
+          continuesAfter: placements.continuesAfter,
+        },
         // THE LISTING AND NOT ONLY ITS ROWS (ADR-0045, ADR-0119): what this page
         // carries, how much the container holds, and where it carries on. The
         // three travel together because a surface handed only the first would

@@ -2,6 +2,7 @@ import { aliases, type Database, items } from "@canoncore/db";
 import {
   aContainerLargerThanOnePage,
   anItem,
+  anItemInMoreOrderingsThanOnePage,
   anItemTitled,
   aPlacement,
   aProvider,
@@ -12,7 +13,7 @@ import {
   theOwner,
 } from "@canoncore/db/testing/catalogue";
 import { env } from "@canoncore/env/server";
-import { placementsInContainerPublic } from "@canoncore/schemas";
+import { placementsInContainerPublic, placementsOfItemPublic } from "@canoncore/schemas";
 import { call, isDefinedError, safe } from "@orpc/server";
 import { eq } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -108,9 +109,9 @@ describe("item.get", () => {
 
     const item = await call(appRouter.item.get, { id: story }, { context });
 
-    expect(item.placements.map((placement) => Object.keys(placement).sort())).toStrictEqual([
-      ["containerId", "containerTitle", "id", "placedBy", "position"],
-    ]);
+    expect(item.placements.entries.map((placement) => Object.keys(placement).sort())).toStrictEqual(
+      [["containerId", "containerTitle", "id", "placedBy", "position"]],
+    );
   });
 
   it("answers with every ordering the item sits in, and its position in each", async () => {
@@ -140,7 +141,9 @@ describe("item.get", () => {
 
     const item = await call(appRouter.item.get, { id: story }, { context });
 
-    expect(item.placements.map((p) => [p.containerTitle, p.position, p.placedBy])).toStrictEqual([
+    expect(
+      item.placements.entries.map((p) => [p.containerTitle, p.position, p.placedBy]),
+    ).toStrictEqual([
       ["Release order", 63, "owner"],
       ["Story order", 1, "owner"],
     ]);
@@ -170,7 +173,7 @@ describe("item.get", () => {
     // And the orderings come back with it. Reading them against the id that was
     // ASKED FOR would answer an empty list here, which reads as "this item is
     // in nothing" rather than as the bug it is.
-    expect(item.placements.map((p) => p.containerTitle)).toStrictEqual([
+    expect(item.placements.entries.map((p) => p.containerTitle)).toStrictEqual([
       "An ordering the survivor is in",
     ]);
   });
@@ -433,6 +436,17 @@ describe("item.get on a container", () => {
       // enumeration working: who asserted a placement is emitted because a line
       // was written for it, and the sources' own ids still are not.
       ["assertedBy", "id", "itemId", "position", "title"],
+    ]);
+  });
+
+  it('names every field the "Also appears in" listing itself emits', () => {
+    // THE SAME THREE FACTS, one listing over (ADR-0045, ADR-0119). This was a
+    // bare array until CNCORE-125 and it was the last one in the app that was:
+    // an array can carry the page and cannot carry what the page is not showing.
+    expect(Object.keys(placementsOfItemPublic.shape).sort()).toStrictEqual([
+      "continuesAfter",
+      "entries",
+      "total",
     ]);
   });
 
@@ -832,5 +846,54 @@ describe("item.kinds", () => {
       { value: "time_span", label: "Time span" },
       { value: "work", label: "Work" },
     ]);
+  });
+});
+
+describe("item.get on an item in more orderings than one page", () => {
+  it("caps the orderings it answers with, and says how many there are", async () => {
+    // ADR-0119, and the cap is this seam's rather than the caller's: `item.get`
+    // takes no `limit`, so a caller may not raise it and nothing wants it lower.
+    //
+    // `total` IS THE OTHER HALF, and on this listing it is the one number that
+    // must not be wrong: multi-placement is the product's central claim, so a
+    // page reporting a hundred orderings over three hundred would understate
+    // exactly what the product exists to show.
+    const { id, sitsIn } = await anItemInMoreOrderingsThanOnePage(db, {
+      title: "A story the router has to cap",
+      orderings: 120,
+    });
+
+    const item = await call(appRouter.item.get, { id }, { context });
+
+    expect(item.placements.entries).toHaveLength(100);
+    expect(item.placements.total).toBe(sitsIn.length);
+    expect(item.placements.continuesAfter).toBe(item.placements.entries.at(-1)?.id);
+  });
+
+  it("reaches every ordering by walking, and lands on none of them twice", async () => {
+    // THE OTHER HALF OF THE CAP (ADR-0119): a page that says "Showing 100 of
+    // 121" and offers no way to reach the hundred-and-first has told the reader
+    // the size of a list it will not let them see.
+    //
+    // THE ORACLE IS THE PLACEMENTS THE FIXTURE WROTE rather than a second
+    // reading of the item: asking the read path to say what should have been
+    // walked is asking the mechanism under test to mark its own work.
+    const { id, sitsIn } = await anItemInMoreOrderingsThanOnePage(db, {
+      title: "A story the router has to walk",
+      orderings: 120,
+    });
+
+    const walked: string[] = [];
+    let placedAfter: string | undefined;
+    // BOUNDED, so a cursor that does not advance FAILS rather than hangs.
+    for (let pages = 0; pages <= sitsIn.length; pages += 1) {
+      const page = await call(appRouter.item.get, { id, placedAfter }, { context });
+      walked.push(...page.placements.entries.map((placement) => placement.id));
+      if (page.placements.continuesAfter === null) break;
+      placedAfter = page.placements.continuesAfter;
+    }
+
+    expect([...walked].sort()).toStrictEqual([...sitsIn].sort());
+    expect(new Set(walked).size).toBe(walked.length);
   });
 });

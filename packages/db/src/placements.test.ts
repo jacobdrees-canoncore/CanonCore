@@ -16,7 +16,6 @@ import {
   aProvider,
   connect,
   ownerSource,
-  theOwner,
 } from "./testing/catalogue";
 
 let db: Database;
@@ -485,41 +484,6 @@ describe("findPlacementsOfItem, capped and walked", () => {
 });
 
 /**
- * A placement whose id is CHOSEN rather than minted, which is what makes the
- * checks below deterministic instead of lucky.
- *
- * The placement's id is the LAST term of this listing's order, so a comparison
- * that drops one of the four keys in front of it falls through to the id -- and
- * whether that loses a row is then decided by which uuids `gen_random_uuid`
- * handed out. ADR-0119 records exactly that flakiness on the catalogue's own
- * walk: the test "passed on one run and failed on the next, because ids are
- * random and whether a tied pair straddles a page boundary is luck". Naming the
- * ids puts them in the OPPOSITE order to the key under test, so dropping that
- * key loses a row every time rather than half the time.
- */
-async function aPlacementIded(
-  db: Database,
-  id: string,
-  values: {
-    containerId: string;
-    itemId: string;
-    position: number | null;
-    sourceId?: string;
-    rank?: string;
-  },
-): Promise<string> {
-  const { sourceId, rank, ...placement } = values;
-  const ownerId = await theOwner(db);
-  await db.insert(placements).values({ id, ownerId, ...placement });
-  if (sourceId) {
-    await db
-      .insert(placementSources)
-      .values({ ownerId, placementId: id, sourceId, ...(rank ? { rank } : {}) });
-  }
-  return id;
-}
-
-/**
  * Two ids in a KNOWN order, so a test can say which of a tied pair sorts first.
  *
  * MINTED PER CALL rather than written as two constants, because this suite
@@ -570,13 +534,15 @@ describe("findPlacementsOfItem, the terms of its order", () => {
     const beta = await anItemTitled(db, "Term ordering beta", { isContainer: true });
     // The id order is the OPPOSITE of the key order, so a comparison that falls
     // through to the id loses beta rather than finding it by luck.
-    await aPlacementIded(db, later, {
+    await aPlacement(db, {
+      id: later,
       containerId: alpha,
       itemId: story,
       position: 1,
       sourceId: owner,
     });
-    await aPlacementIded(db, earlier, {
+    await aPlacement(db, {
+      id: earlier,
       containerId: beta,
       itemId: story,
       position: 1,
@@ -599,14 +565,16 @@ describe("findPlacementsOfItem, the terms of its order", () => {
     // THE PREFERRED ROW SORTS LAST BY POSITION, which is what makes this a test
     // of the rank rather than of the term behind it: drop the rank and the
     // comparison falls through to a position that is already past this one.
-    await aPlacementIded(db, later, {
+    await aPlacement(db, {
+      id: later,
       containerId: ordering,
       itemId: story,
       position: 5,
       sourceId: owner,
       rank: "preferred",
     });
-    await aPlacementIded(db, earlier, {
+    await aPlacement(db, {
+      id: earlier,
       containerId: ordering,
       itemId: story,
       position: 1,
@@ -627,13 +595,15 @@ describe("findPlacementsOfItem, the terms of its order", () => {
     const behindTheOwner = await aProvider(db, "provider-term-order");
     const story = await anItem(db);
     const ordering = await anItemTitled(db, "Term ordering by source", { isContainer: true });
-    await aPlacementIded(db, later, {
+    await aPlacement(db, {
+      id: later,
       containerId: ordering,
       itemId: story,
       position: 5,
       sourceId: owner,
     });
-    await aPlacementIded(db, earlier, {
+    await aPlacement(db, {
+      id: earlier,
       containerId: ordering,
       itemId: story,
       position: 1,
@@ -651,13 +621,15 @@ describe("findPlacementsOfItem, the terms of its order", () => {
     const owner = await ownerSource(db);
     const story = await anItem(db);
     const ordering = await anItemTitled(db, "Term ordering with a repeat", { isContainer: true });
-    await aPlacementIded(db, later, {
+    await aPlacement(db, {
+      id: later,
       containerId: ordering,
       itemId: story,
       position: 1,
       sourceId: owner,
     });
-    await aPlacementIded(db, earlier, {
+    await aPlacement(db, {
+      id: earlier,
       containerId: ordering,
       itemId: story,
       position: 5,
@@ -678,13 +650,15 @@ describe("findPlacementsOfItem, the terms of its order", () => {
     const story = await anItem(db);
     const one = await anItemTitled(db, "Term ordering tied outright", { isContainer: true });
     const other = await anItemTitled(db, "Term ordering tied outright", { isContainer: true });
-    await aPlacementIded(db, earlier, {
+    await aPlacement(db, {
+      id: earlier,
       containerId: one,
       itemId: story,
       position: 1,
       sourceId: owner,
     });
-    await aPlacementIded(db, later, {
+    await aPlacement(db, {
+      id: later,
       containerId: other,
       itemId: story,
       position: 1,
@@ -775,7 +749,8 @@ describe("findPlacementsOfItem, the rows with no key at all", () => {
       position: 1,
       sourceId: owner,
     });
-    const unplaced = await aPlacementIded(db, twoIdsInOrder().later, {
+    const unplaced = await aPlacement(db, {
+      id: twoIdsInOrder().later,
       containerId: ordering,
       itemId: story,
       position: null,

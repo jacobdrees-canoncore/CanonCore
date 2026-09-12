@@ -140,13 +140,24 @@ export async function itemsCarrying(
 /**
  * One item's membership of one container, at one position (ADR-0009), and the
  * source that asserted it (ADR-0017) when one is named.
+ *
+ * `position` MAY BE NULL, which is CONTEXT.md's Unplaced rather than a missing
+ * argument: a source may put an item in a container and say nothing about where.
+ *
+ * `id` IS HERE FOR THE REASON `SeededItem` ABOVE GIVES, applied to the other
+ * table a cursor cuts at. The last term of every placement ordering in this app
+ * is the placement's own id, so a comparison that drops a key in front of it
+ * falls through to one -- and whether that loses a row is then decided by
+ * whichever uuids `gen_random_uuid` handed out. Naming the ids is how a test of
+ * a tie asserts rather than hopes.
  */
 export async function aPlacement(
   db: Database,
   values: {
+    id?: string;
     containerId: string;
     itemId: string;
-    position: number;
+    position: number | null;
     sourceId?: string;
     rank?: string;
   },
@@ -472,4 +483,93 @@ export async function aContainerLargerThanOnePage(
     .returning({ id: placements.id });
 
   return { id, holds: written.map((row) => row.id) };
+}
+
+/**
+ * AN ITEM SITTING IN MORE ORDERINGS THAN ONE PAGE, answering with every
+ * placement it wrote -- the MIRROR of `aContainerLargerThanOnePage` above.
+ *
+ * IT MINTS THE CONTAINERS WHERE THAT ONE TAKES THE ITEMS, and the asymmetry is
+ * forced rather than chosen. That fixture could reuse a catalogue somebody had
+ * already written because a container's members are ORDINARY ITEMS; this needs a
+ * hundred and more CONTAINERS, and a catalogue of plain items holds none. So the
+ * containers it mints are items too, and the caller has to count them into
+ * whatever oracle counts that catalogue.
+ *
+ * IT CARRIES THE SHAPES THIS WALK CAN LOSE ROWS ON, which are not the same three
+ * as the mirror's because the order is not the same order. "Also appears in"
+ * sorts on FOUR keys -- the container's projected name (ADR-0014), ADR-0017's
+ * two deciding which source speaks, then ADR-0018's position -- where a
+ * container's own members sort on one. Every one of the four is nullable:
+ *
+ * - TWO ORDERINGS SHARING A NAME, which is a tie on the leading key. Nothing
+ *   stops two containers being called the same thing, and only the three terms
+ *   behind the name separate them.
+ * - AN ORDERING NOBODY NAMED. No title statement is no key at all (ADR-0014), so
+ *   those sort last as one block -- and `(null, x) > (k, y)` is NULL rather than
+ *   true, so a plain row comparison loses the whole block from every page.
+ * - A PLACEMENT NO SOURCE STANDS BEHIND, which is null on BOTH of ADR-0017's
+ *   terms. A claim nobody made is still a placement.
+ * - AN UNPLACED ONE. CONTEXT.md's Unplaced: a placement with no position, which
+ *   the wiki's release order produces for a sixth of the archive's stories.
+ * - A REPEAT. One item twice in ONE ordering (ADR-0009), which is what says this
+ *   cursor is a PLACEMENT's id from this end too: two rows share a `containerId`,
+ *   so a container-id cursor could not say which of them a page ended on.
+ *
+ * THE PLACEMENTS COME BACK AS A SET, for the reason the mirror gives: the order
+ * within a tied pair is decided by which uuids `gen_random_uuid` handed out, and
+ * a fixture claiming to know it would be claiming luck.
+ */
+export async function anItemInMoreOrderingsThanOnePage(
+  db: Database,
+  { title, orderings }: { title: string; orderings: number },
+): Promise<{ id: string; containers: string[]; sitsIn: string[] }> {
+  const ownerId = await theOwner(db);
+  const sourceId = await ownerSource(db);
+  const id = await anItemTitled(db, title);
+
+  // TWO OF THEM GO UNNAMED, which is the keyless block. The rest are padded so
+  // they sort the way a reader would count them -- nothing asserts on the order,
+  // but a fixture whose tenth ordering sorts between its first and second is one
+  // nobody can read a failure out of.
+  const named = orderings - 2;
+  const containers = await Promise.all(
+    Array.from({ length: orderings }, (_, index) =>
+      index < named
+        ? anItemTitled(
+            db,
+            // THE LAST TWO NAMED ONES SHARE A NAME, which is the tie on the
+            // leading key -- and it sits near the end rather than at the start
+            // so a page boundary can fall on it.
+            `${title}, ordering ${String(Math.min(index, named - 2) + 1).padStart(4, "0")}`,
+            { isContainer: true, isOrdered: true },
+          )
+        : anItem(db, { isContainer: true, isOrdered: true }),
+    ),
+  );
+
+  const [first, second, ...rest] = containers;
+  if (first === undefined || second === undefined) {
+    throw new Error("a listing larger than one page needs more orderings than this");
+  }
+  const written = await db
+    .insert(placements)
+    .values([
+      // THE REPEAT, in the first ordering: one item, twice, at two positions.
+      { ownerId, containerId: first, itemId: id, position: 1 },
+      { ownerId, containerId: first, itemId: id, position: 5 },
+      // THE UNPLACED ONE: in an ordering, at no position anybody claimed.
+      { ownerId, containerId: second, itemId: id, position: null },
+      ...rest.map((containerId) => ({ ownerId, containerId, itemId: id, position: 1 })),
+    ])
+    .returning({ id: placements.id });
+
+  // EVERY ROW BUT THE LAST GETS A SOURCE, so the one that does not is the
+  // placement nobody asserted -- null on both of ADR-0017's terms.
+  const asserted = written.slice(0, -1);
+  await db
+    .insert(placementSources)
+    .values(asserted.map((placement) => ({ ownerId, placementId: placement.id, sourceId })));
+
+  return { id, containers, sitsIn: written.map((row) => row.id) };
 }
