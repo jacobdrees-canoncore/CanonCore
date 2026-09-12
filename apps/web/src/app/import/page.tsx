@@ -251,9 +251,9 @@ export default async function ImportPage({
  * preview RUNS THE PURGE TRAVERSAL -- it takes the write locks of a real delete
  * and rolls them back (ADR-0046). A link here would spend that on every provider
  * in this list, for numbers nobody asked to see, because a reader scrolled past.
- * A string-action `<Form>` prefetches the route's shared UI instead, which is
- * `/import` naming no provider and previewing nothing (Next 16.3.4's `<Form>`
- * reference, read 2026-09-12).
+ * A string-action `<Form>` prefetches its ACTION PATH instead -- its fields are
+ * not known until submission -- which here is `/import` naming no provider and
+ * previewing nothing (Next's `<Form>` reference, read 2026-09-12).
  *
  * NAMED BY URL, which is a deployment detail shown to the one person entitled to
  * it, for the reason `BrowseBox` gives: the owner typed these into

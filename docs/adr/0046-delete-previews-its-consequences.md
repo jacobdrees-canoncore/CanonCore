@@ -127,9 +127,11 @@ WHICH IS ALSO WHY THE CONTROL IS A FORM AND NOT A LINK, and this one is a trap
 rather than a preference. Next PREFETCHES a `<Link>`'s own address when it enters
 the viewport, and the address of a preview RUNS THE TRAVERSAL -- so a list of
 links would spend a purge's locks per provider because a reader scrolled past. A
-string-action `<Form>` prefetches the route's shared UI instead, which is
-`/import` naming no provider and previewing nothing. Next 16.3.4's `<Form>`
-reference, read 2026-09-12.
+string-action `<Form>` prefetches its ACTION PATH instead -- the fields are not
+known until submission -- which here is `/import` naming no provider and
+previewing nothing. Next's `<Form>` reference, read 2026-09-12: `prefetch`
+defaults to true and what it fetches is "the destination path", with "shared UI
+such as layout and loading files for the target route".
 
 A PURGE WITH NOTHING TO TAKE GETS NO CONFIRMATION AT ALL. Offering to permanently
 delete "0 statements, 0 placements, 0 items" teaches an owner that this button is
@@ -158,5 +160,9 @@ remedy.
 Verified against source on 2026-09-10; corrections applied. Working in `docs/research/verify-adr-products.md`.
 
 The CNCORE-69 section's claim about `<Form>` prefetching was read from Next's own
-`<Form>` API reference on 2026-09-12, against 16.3.4, which is the version this
-repo builds with.
+`<Form>` API reference on 2026-09-12. That reference is the CURRENT one rather
+than a copy pinned to 16.3.4, which is what this repo builds with -- so what is
+established is the documented behaviour of the component, and the version it was
+checked against is not. The decision does not turn on the difference: a form
+whose fields are unknown until submission cannot prefetch an address carrying
+them, whichever version prefetches.

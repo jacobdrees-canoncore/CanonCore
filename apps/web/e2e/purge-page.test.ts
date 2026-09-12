@@ -208,9 +208,9 @@ describe("/import, confirming a purge", () => {
  * would be PREFETCHED -- Next fetches a link's own address when it enters the
  * viewport -- and the address of a preview runs the purge traversal, taking the
  * write locks of a real delete because an owner moved the mouse near the button.
- * A string-action `<Form>` prefetches the ROUTE's shared UI instead, which is
- * `/import` carrying no provider and previewing nothing (checked against Next's
- * own `<Form>` reference for 16.3.4).
+ * A string-action `<Form>` prefetches its ACTION PATH instead -- its fields are
+ * not known until submission -- which here is `/import` carrying no provider and
+ * previewing nothing (Next's own `<Form>` reference, read 2026-09-12).
  */
 function follow(form: RenderedForm): string {
   const asked = new URLSearchParams(form.fields);
