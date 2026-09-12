@@ -180,8 +180,19 @@ export async function aPlacement(
  * SO A TEST EXPRESSES ORDER BY THE ORDER IT CREATES THEM IN. Earlier is better
  * placed, which is what every assertion here was ever about -- no test wanted a
  * particular number, they wanted one source to outrank another.
+ *
+ * THE LABEL IS SEPARABLE FROM THE IDENTITY, and defaults to it. A real provider
+ * source carries its URL as the identity and the name from its manifest as the
+ * label (ADR-0031, ADR-0033), and a test whose assertion READS the label -- the
+ * member list names the sources standing behind a placement -- needs the two to
+ * differ the way they really do. Tests that assert nothing about the label go on
+ * passing one string.
  */
-export async function aProvider(db: Database, identity: string): Promise<string> {
+export async function aProvider(
+  db: Database,
+  identity: string,
+  label: string = identity,
+): Promise<string> {
   const ownerId = await theOwner(db);
   const [source] = await db
     .insert(sources)
@@ -189,7 +200,7 @@ export async function aProvider(db: Database, identity: string): Promise<string>
       ownerId,
       kind: "provider",
       identity,
-      label: identity,
+      label,
       sourceOrder: sql`(select coalesce(max("source_order"), 0) + 1 from "sources" where "owner_id" = ${ownerId})`,
     })
     .returning({ id: sources.id });

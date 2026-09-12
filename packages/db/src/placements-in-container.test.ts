@@ -147,8 +147,8 @@ describe("findPlacementsInContainer, on who asserted each placement", () => {
     // BOTH SHAPES IN ONE TEST, because either alone passes against a query
     // answering a constant. The difference between the two answers IS the
     // criterion, and a test that only ever saw one of them could not state it.
-    const wiki = await aProvider(db, "a wiki that orders by release");
-    const broadcaster = await aProvider(db, "a database that orders by broadcast");
+    const wiki = await aProvider(db, "https://provider.test/by-release", "A wiki that orders by release");
+    const broadcaster = await aProvider(db, "https://provider.test/by-broadcast", "A database that orders by broadcast");
     const disputed = await anItemTitled(db, "An ordering two sources disagree about", {
       isContainer: true,
       isOrdered: true,
@@ -184,12 +184,12 @@ describe("findPlacementsInContainer, on who asserted each placement", () => {
     const repeat = await findPlacementsInContainer(db, agreed);
 
     expect(disagreement.map((placement) => placement.assertedBy)).toStrictEqual([
-      ["a database that orders by broadcast"],
-      ["a wiki that orders by release"],
+      ["A database that orders by broadcast"],
+      ["A wiki that orders by release"],
     ]);
     expect(repeat.map((placement) => placement.assertedBy)).toStrictEqual([
-      ["a wiki that orders by release"],
-      ["a wiki that orders by release"],
+      ["A wiki that orders by release"],
+      ["A wiki that orders by release"],
     ]);
   });
 
@@ -204,8 +204,8 @@ describe("findPlacementsInContainer, on who asserted each placement", () => {
     // THE FAVOURITE IS CREATED SECOND AND RANKED UP, which is what makes this a
     // test: under insertion order, or under the source order alone, it comes
     // back second. Only rank-first puts it in front.
-    const first = await aProvider(db, "a source that came first");
-    const later = await aProvider(db, "a source that came later and is preferred");
+    const first = await aProvider(db, "https://provider.test/came-first", "A source that came first");
+    const later = await aProvider(db, "https://provider.test/came-later", "A source that came later and is preferred");
     const container = await anItemTitled(db, "An ordering two sources corroborate", {
       isContainer: true,
       isOrdered: true,
@@ -234,7 +234,7 @@ describe("findPlacementsInContainer, on who asserted each placement", () => {
     const held = await findPlacementsInContainer(db, container);
 
     expect(held.map((placement) => placement.assertedBy)).toStrictEqual([
-      ["a source that came later and is preferred", "a source that came first"],
+      ["A source that came later and is preferred", "A source that came first"],
     ]);
   });
 
