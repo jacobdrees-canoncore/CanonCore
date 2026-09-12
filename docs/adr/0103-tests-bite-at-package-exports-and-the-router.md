@@ -688,8 +688,9 @@ already running was tried first and written down: the fresh one renders no count
 empty catalogue shows what to do next instead (ADR-0094), and the paged one is written to by nothing
 but holds 254 items, so it renders `Holding`'s other arm. What the plain-total arm needs is a
 catalogue that is non-empty, smaller than one page and written to by nothing, and no instance here
-was all three. Measured locally: five `next start`s against four leave the whole suite at 8.4
-seconds, because an instance that serves two requests costs its startup and nothing else.
+was all three. Measured locally on 2026-09-12: the whole suite runs in 8.4 seconds with five
+instances, and each `next start` reports `Ready in` 60-64ms. What an instance costs after that is
+what it serves, and this one serves one request.
 
 **AND THE FIXTURE, NOT THE ROUTER, IS WHAT THE PAGE IS HELD TO.** On shared ground the count had to
 be read back from `catalogue.list` because nothing in the test could know it. That was always the
