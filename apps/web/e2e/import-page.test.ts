@@ -582,12 +582,43 @@ describe("/import, when the provider refuses", () => {
       throw new Error(`the unreachable provider answered ${said.answer}`);
     }
     const container = section(text, "container");
-    expect(container.toLowerCase()).toContain("could not be reached");
+    // NOT "could not be reached", WHICH WOULD BE FALSE OF A THIRD CASE THIS
+    // BRANCH ALSO CARRIES: a provider that answered, badly. This URL really is
+    // unreachable, so either sentence would pass here -- what is asserted is the
+    // one the page has to be able to say about all three.
+    expect(container.toLowerCase()).toContain("nothing could be learned about that id");
     expect(container).toContain(said.reason);
     // AND NOT EITHER OF THE OTHER TWO, which is what distinguishing them means.
     expect(container.toLowerCase()).not.toContain("no container at that id");
     expect(container.toLowerCase()).not.toContain("does not offer browse");
     expect(postFormsIn(container)).toHaveLength(0);
+  });
+
+  it("still names the Item the catalogue holds, when the provider refuses the id", async () => {
+    /*
+     * A REFUSAL FROM THE PROVIDER IS NOT THE CATALOGUE FORGETTING. These are two
+     * parties answering two questions, and the page asks both: a provider that
+     * holds no container at that id says nothing about whether this catalogue
+     * already has the thing. An owner whose provider has gone down or dropped an
+     * id is exactly the owner who most needs the local copy pointed at.
+     *
+     * THE ID IS ONE THE HARNESS IMPORTED, AND IT IS NOT A CONTAINER. That is the
+     * commonest way to reach this state honestly: a record id typed into a box
+     * that wants a container's. Measured against the real image as well as the
+     * stub -- `/browse/265` answers 404 `no such container` while `/lookup/265`
+     * answers 200 -- so both runs of this suite reach the same branch.
+     */
+    const imported = inject("imported");
+    const named = { provider: inject("providerWikiUrl"), container: imported.recordId };
+
+    const { status, text } = await documentAt(browsing(named));
+
+    expect(status).toBe(200);
+    const container = section(text, "container");
+    expect(container.toLowerCase()).toContain("no container at that id");
+    // AND THE CATALOGUE'S HALF OF THE ANSWER SURVIVES IT.
+    expect(container).toContain("Already imported");
+    expect(itemLinkedIn(container)).toBe(`/items/${imported.id}`);
   });
 
   it("treats a provider it does not search as no provider, rather than reaching it", async () => {

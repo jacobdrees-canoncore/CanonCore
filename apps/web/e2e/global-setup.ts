@@ -272,6 +272,10 @@ async function importThroughTheApp(baseUrl: string, providerUrl: string) {
   });
   return {
     id: itemId,
+    // THE PROVIDER'S OWN ID FOR IT, as well as the Item's. A surface that takes
+    // an id from the owner has to be askable about one the catalogue already
+    // holds, and this record is the only one this harness imports by hand.
+    recordId: TENTH_PLANET.id,
     title: TENTH_PLANET.title,
     released: TENTH_PLANET.released[0] as string,
     providerLabel: "provider-wiki",
@@ -1044,7 +1048,14 @@ declare module "vitest" {
       repeatedId: string;
     };
     /** The story imported from a CMPP provider over HTTP, and what it claimed. */
-    imported: { id: string; title: string; released: string; providerLabel: string };
+    imported: {
+      id: string;
+      /** The provider's own id for it, which is what `lookup` and `browse` take. */
+      recordId: string;
+      title: string;
+      released: string;
+      providerLabel: string;
+    };
     /**
      * An item imported from the SECOND provider, whose licence obliges the app to
      * show a notice and a mark (ADR-0036).

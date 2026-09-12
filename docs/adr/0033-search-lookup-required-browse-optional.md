@@ -670,11 +670,35 @@ every kind, so a record id typed into the container box comes back with a title 
 button then meets the very 500 this ticket removes. `browse` is the operation the button performs,
 so its answer is the only one that predicts the button.
 
-**WHICH REVERSES A COST THE CNCORE-68 SECTION DECLINED TO PAY, and the reversal is arithmetic rather
-than a change of mind.** That section refused to ask the provider because asking "would be a request
-on every render of a page the owner may simply be typing into". It is not: the browse box is a GET
-form with no script behind it, so it renders on SUBMIT and not on keystrokes, and the request is one
-per submission — the same one the button was going to make anyway, moved earlier.
+**WHICH REVERSES A COST THE CNCORE-68 SECTION DECLINED TO PAY, and the reversal is worth stating
+honestly because the first version of this section got it wrong.** That section refused to ask the
+provider because asking "would be a request on every render of a page the owner may simply be typing
+into". The premise is wrong: the browse box is a GET form with no script behind it, so the page
+renders on SUBMIT and not on keystrokes. But the sentence that stood here went on to call the
+preflight "the same request the button was going to make anyway, moved earlier", and it is ADDED
+rather than moved.
+
+**THE ARITHMETIC, COUNTED AT THE PROVIDER RATHER THAN ASSERTED.** Logging every request the e2e
+stub received while one container was imported through the page gives six, in three identical
+pairs:
+
+```
+/  /browse/collection%3A2344     the GET that offers the button
+/  /browse/collection%3A2344     the Server Action
+/  /browse/collection%3A2344     the render Next performs after the action returns
+```
+
+A manifest and a FULL browse each time, because `browseIfOffered` reads the declaration before it
+asks and a browse carries the container's whole ordering. Before this ticket the same import cost
+the middle pair alone. A refresh or a back-button on that URL costs another pair, and there is no
+cache and no conditional request in front of any of it.
+
+**AND THAT IS ACCEPTED RATHER THAN OVERLOOKED.** Six requests for one deliberate act, against a
+provider the owner runs or chose, on a single-owner self-hosted catalogue, buys the difference
+between a refusal an owner can read and eighteen bytes of `Internal Server Error`. If it ever stops
+being worth it, the place to spend is the render after the action: it re-asks a provider a question
+it answered a moment ago, and nothing on that render can act on a different answer.
+
 
 **A READ THAT WRITES NOTHING, PINNED AS SUCH.** The preflight calls the same provider operation the
 import does, so the one invariant worth a test of its own is that reading it imports nothing: the

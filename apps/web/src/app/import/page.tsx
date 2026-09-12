@@ -1,4 +1,4 @@
-import { createContext } from "@canoncore/api/context";
+import { type Context, createContext } from "@canoncore/api/context";
 import { appRouter } from "@canoncore/api/routers";
 import { Button } from "@canoncore/ui/components/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@canoncore/ui/components/card";
@@ -102,11 +102,7 @@ async function readImportPage({ query, provider, container }: Asked) {
  * THEY TRAVEL AS ONE VALUE because they are answered together or not at all:
  * both need a provider this instance searches AND an id to ask about.
  */
-async function aboutTheContainer(
-  context: Awaited<ReturnType<typeof createContext>>,
-  baseUrl: string,
-  containerId: string,
-) {
+async function aboutTheContainer(context: Context, baseUrl: string, containerId: string) {
   const [held, said] = await Promise.all([
     call(appRouter.provider.held, { baseUrl, recordIds: [containerId] }, { context }),
     call(appRouter.provider.container, { baseUrl, containerId }, { context }),
@@ -582,14 +578,30 @@ function Container({ baseUrl, containerId, itemId, said }: NamedContainer) {
       <h3 className="sr-only" id="container">
         The container you named
       </h3>
-      {said.answer === "container" && (
+      {said.answer === "container" ? (
         <ItsOrdering baseUrl={baseUrl} containerId={containerId} itemId={itemId} said={said} />
+      ) : (
+        /*
+          A REFUSAL FROM THE PROVIDER IS NOT THE CATALOGUE FORGETTING, so the
+          catalogue's own answer survives all three of them. These are two
+          parties answering two questions -- `provider.container` speaks for the
+          provider and `provider.held` for this catalogue -- and an owner whose
+          provider has gone down or dropped an id is exactly the owner who most
+          needs the local copy pointed at. Dropping the link here was the first
+          version of this section and it lost something the page had before
+          CNCORE-92.
+        */
+        <div className="border-t py-3">
+          {said.answer === "no-such-container" && (
+            <NoSuchContainer providerName={said.providerName} />
+          )}
+          {said.answer === "browse-not-offered" && (
+            <DeclinesBrowse providerName={said.providerName} />
+          )}
+          {said.answer === "unreachable" && <NotReached baseUrl={baseUrl} reason={said.reason} />}
+          {itemId !== null && <StillHeld itemId={itemId} />}
+        </div>
       )}
-      {said.answer === "no-such-container" && <NoSuchContainer providerName={said.providerName} />}
-      {said.answer === "browse-not-offered" && (
-        <BrowseNotOffered providerName={said.providerName} />
-      )}
-      {said.answer === "unreachable" && <NotReached baseUrl={baseUrl} reason={said.reason} />}
     </section>
   );
 }
@@ -669,7 +681,24 @@ function ItsOrdering({
 }
 
 /**
- * A PROVIDER THAT DID NOT ANSWER AT ALL.
+ * WHAT THIS CATALOGUE HOLDS AT THAT ID, said even though the provider refused.
+ *
+ * `Held` ALONE WOULD BE A LINK WITH NO SENTENCE. The row above pairs the link
+ * with "Already imported" and this branch has no row, so the words come with it
+ * -- an owner who has just been told a provider holds nothing needs to be told
+ * what they have, not handed an unexplained link.
+ */
+function StillHeld({ itemId }: { itemId: string }) {
+  return (
+    <p className="mt-2 flex items-baseline gap-3 text-sm">
+      <span className="text-muted-foreground">Already imported</span>
+      <Held itemId={itemId} />
+    </p>
+  );
+}
+
+/**
+ * A PROVIDER THAT GAVE THIS INSTANCE NOTHING IT COULD USE.
  *
  * THE THIRD OF THE THREE, AND IT MUST NOT READ AS EITHER OF THE OTHER TWO. A
  * provider that is down and a provider that holds nothing are different answers,
@@ -678,20 +707,28 @@ function ItsOrdering({
  * above exists for search, and the same distinction this codebase keeps
  * everywhere else.
  *
+ * IT DOES NOT SAY "COULD NOT BE REACHED", AND THAT IS NOT A SMALLER CLAIM BUT A
+ * TRUE ONE. The answer this renders covers three things: a URL ADR-0034 refused
+ * before a socket opened, a provider that never answered, and a provider that
+ * answered with something `packages/providers` would not parse -- a `500`, or a
+ * browse with no `ordering`. "Could not be reached" is false of the third, and
+ * it is false of it while the reason printed underneath says `answered 500`,
+ * which is a sentence contradicting itself in two lines.
+ *
  * NAMED BY THE URL THE OWNER TYPED, where the two answers above are named by the
  * provider's own name for itself. That is not the inconsistency it looks like:
  * reading the name off the manifest is one of the things that just failed, and
  * the URL is the only part of this the owner can go and fix.
  *
- * AND THE PROVIDER'S OWN REASON IS PRINTED, because ADR-0034 refusing a host and
- * a provider being switched off have different remedies, and the sentence is
- * what separates them.
+ * AND THE PROVIDER'S OWN REASON IS PRINTED, because ADR-0034 refusing a host, a
+ * provider being switched off, and one answering badly have three different
+ * remedies, and the sentence is the only thing that separates them.
  */
 function NotReached({ baseUrl, reason }: { baseUrl: string; reason: string }) {
   return (
-    <p className="border-t py-3 text-muted-foreground text-sm">
-      <span className="font-medium">{baseUrl}</span> could not be reached, so nothing is known about
-      that id. {reason}
+    <p className="text-muted-foreground text-sm">
+      Nothing could be learned about that id from <span className="font-medium">{baseUrl}</span>.{" "}
+      {reason}
     </p>
   );
 }
@@ -704,6 +741,10 @@ function NotReached({ baseUrl, reason }: { baseUrl: string; reason: string }) {
  * owner asked for something this provider does not do, which is a sentence to
  * put in front of them rather than an empty result to puzzle over.
  *
+ * NAMED FOR WHAT THE PROVIDER DOES rather than after `BrowseNotOffered`, which
+ * is the Error `packages/api` raises for the same fact on the write path. One
+ * word for two kinds of thing, a layer apart, is one grep that answers twice.
+ *
  * AND IT IS NOT THE SAME SENTENCE AS `NoSuchContainer` BELOW, which is the point
  * of having two: one says to check the id, this one says that no id will work
  * here. An owner handed the first for the second goes back to a box that can
@@ -714,9 +755,9 @@ function NotReached({ baseUrl, reason }: { baseUrl: string; reason: string }) {
  * required of every provider, so this one remains perfectly useful one record at
  * a time -- which is the import the page already offers above.
  */
-function BrowseNotOffered({ providerName }: { providerName: string }) {
+function DeclinesBrowse({ providerName }: { providerName: string }) {
   return (
-    <p className="border-t py-3 text-muted-foreground text-sm">
+    <p className="text-muted-foreground text-sm">
       {providerName} does not offer browse, so it was not asked for one. It can still be searched,
       and its records imported one at a time.
     </p>
@@ -743,7 +784,7 @@ function BrowseNotOffered({ providerName }: { providerName: string }) {
  */
 function NoSuchContainer({ providerName }: { providerName: string }) {
   return (
-    <p className="border-t py-3 text-muted-foreground text-sm">
+    <p className="text-muted-foreground text-sm">
       {providerName} holds no container at that id. A browse takes a container's own id rather than
       a record's, so check it at the provider before trying again.
     </p>
