@@ -230,3 +230,24 @@ this query would have meant, so the predicate and the three ordering terms are e
 `winning_literal` cannot read them, being PL/pgSQL in a migration, and that copy is still held
 identical by hand. Nothing can delete a source today; when something can, it is two lines in two
 places rather than three in three.
+
+## These two terms now decide where a PAGE ends, which is a second job for them -- CNCORE-125
+
+**THE ORDER STOPPED BEING ONLY AN ORDER.** "Also appears in" is capped and walked now
+([[0119-a-listing-is-walked-forward-from-the-last-item-it-showed]]), and a keyset cursor has to
+compare the WHOLE tuple its `ORDER BY` sorts on -- so the rank's precedence (ADR-0024) and the one
+global source order (ADR-0025) are terms of that comparison, not just of the sort.
+
+**WHAT THAT CHANGES IS THE COST OF GETTING THEM WRONG.** Until now a mistake in these two terms
+showed a reader the rows in the wrong order, which is visible and recoverable. In a cursor a term
+left out of the comparison SILENTLY SKIPS ROWS: two placements tied on the container's name and
+separated only by which source speaks would have the walk step over the second of them, and the page
+would simply not contain it. There is a test for each of the two, each cutting a page at a tie on
+that term alone, and each mutation-checked by dropping that term.
+
+**AND BOTH ARE NULLABLE, WHICH IS THE OTHER HALF.** A placement no source stands behind has neither
+term -- this record's own "a claim nobody made is still a placement" -- so those rows are a keyless
+BLOCK that sorts last, and a plain row comparison loses the whole block from every page because
+`(null, x) > (k, y)` is NULL. The rule that "a source that says nothing about a placement cannot
+outrank one that does" is now load-bearing twice: once for where those rows appear, and once for
+whether a reader can reach them at all.

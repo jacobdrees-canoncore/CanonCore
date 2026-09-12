@@ -129,6 +129,36 @@ carry the cursor forward rather than dropping it -- a chip that dropped it would
 in an ordering back to its first page for touching the other list -- and the order of all three is
 held in ONE function rather than in each of the two places that emit a link.
 
+**AND A FOURTH, UNDER CNCORE-125: `?placedAfter=`**, which walks "Also appears in" itself
+([[0119-a-listing-is-walked-forward-from-the-last-item-it-showed]]). It identifies nothing either,
+the canonical is unchanged by it, and it is written LAST: the order is now `via`, `placed`, `after`,
+`placedAfter`, each appended behind the parameters already out there, for the reason this record
+gives above about re-spelling links that have already been emitted.
+
+**IT IS THE ONE PARAMETER HERE THAT IS NOT THE SAME WORD THE OTHER LISTINGS USE, AND THE ARGUMENT
+FOR `after` ABOVE IS EXACTLY WHY.** That argument is that a parameter named for one surface would be
+a second convention for one question -- and it holds until ONE PAGE HAS TO SPELL BOTH CURSORS AT
+ONCE. A Container IS an Item ([[0004-containers-are-items]]), so `/items/<id>` is both a container
+with Members and an item sitting in orderings; two listings on one address need two cursors, and
+spelled alike neither can be read. One of them has to be qualified.
+
+**THE BARE WORD STAYS WITH THE ONE THAT HAS ALREADY EMITTED LINKS**, which is this record's fixed
+order applied to a NAME rather than to a position: re-spelling the Members cursor would give every
+link CNCORE-89 put into the world a second spelling of itself. The parameter arriving later is the
+one that takes a name, exactly as the parameter arriving later is the one written last.
+
+**AND IT IS NAMED FOR ITS PAIR RATHER THAN FOR ITS SURFACE.** `?placed=` already narrows that same
+listing, so `placed` and `placedAfter` read as the one listing's pair in a URL carrying all four.
+`appearsAfter` was the alternative and names the reader's heading instead -- accurate, and silent
+about the parameter standing next to it.
+
+**THE TWO CURSORS DO NOT MOVE EACH OTHER, and the chips carry one and DROP the other.** The "Also
+appears in" walk carries `after` through and appends its own behind it. A chip carries `after`
+forward, because it has nothing to do with the Members listing; a chip DROPS `placedAfter`, because
+it changes what "Also appears in" is ASKING and the old cursor names a place in the listing being
+left. The fixed order of all four is held in one function and which cursor a walk appends in one
+more, so no surface writes either by hand.
+
 **NOT BUILT: next.** This record also decides that the next item is DERIVED from the placement in
 the query rather than stored in a playqueue. Nothing derives one yet, because there is no playback.
 The half built here is the half it needs -- the container survives a refresh and a shared link,
@@ -164,8 +194,8 @@ recap and its episode would be one key twice.
 
 **WHAT IS STILL NOT BUILT IS STILL `next`.** A page that walks an ordering is not a page that derives
 the next thing in it, and nothing does. This record stays PROPOSED for that reason and no other --
-CNCORE-89 capped and walked that ordering without touching it, so the unbuilt half is the same half
-it has always been.
+CNCORE-89 capped and walked that ordering and CNCORE-125 capped and walked the other listing on the
+same page, and neither touched it, so the unbuilt half is the same half it has always been.
 
 ## What implementing it taught -- under CNCORE-14
 

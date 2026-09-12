@@ -435,3 +435,170 @@ against, so two hundred and fifty new items would have had to be added to both. 
 is the PLACEMENTS the harness wrote, and the ordering carries a tie, an Unplaced tail and a Repeat
 by construction — the Repeat being what says the walk is over placements, since an item-id cursor
 cannot survive one item appearing twice.
+
+## "Also appears in", decided under CNCORE-125 -- and the SHARED COMPARISON HAD TO GROW
+
+**THE FIFTH LISTING HAS ADOPTED THIS RECORD, AND IT IS THE LAST ONE THERE IS.** Every ordering one
+Item sits in -- "Also appears in" on `/items/<id>` -- is capped at `A_PAGE`, says what it is not
+showing, and is walked forward. After CNCORE-89 it was the only listing in the app that was none of
+those: `findPlacementsOfItem` took no `limit` and no `after` while `item.get` awaited it on every
+Item page. So this record's first sentence is now true of the app rather than of its intentions.
+
+**Said with its limit, because the ticket asked for it plainly.** Multi-placement is the product's
+central claim, but an Item in a thousand orderings is not the ordinary case a Container holding a
+thousand members is: ADR-0077 measures a real imported category at 1,049 stories, and NOTHING
+measures an Item's placement count. This is the rule applied for consistency rather than a page
+anybody has watched fall over -- which is also why no index was added for it, on the reasoning the
+top of this record already gives about indexes written against a number nobody has taken.
+
+**THE CURSOR IS A PLACEMENT'S ID**, the same departure from this record's letter that CNCORE-89
+made and for the mirror of its reason. A Repeat is one Item twice in ONE Container (ADR-0009), so
+from this end a CONTAINER id names two rows and cannot say which of them a page ended on. Both
+listings whose rows are placements name the row the page ended on; the rule underneath is that a
+cursor names the ROW, and in three of the five listings that row is an Item.
+
+## The comparison covered FOUR of the five listings and not this one
+
+**THE TICKET ASKED WHETHER `pastInTwoRegimes` COVERED THIS ORDER AND SAID TO CHECK RATHER THAN
+ASSUME. IT DID NOT, AND IT GREW -- INCLUDING OUT OF ITS NAME.** That function took ONE key and an
+id, and is `pastTheRow` now. This order is FIVE terms:
+the CONTAINER's projected key `coalesce(sort_name, title)` (ADR-0014), then ADR-0017's two deciding
+which source SPEAKS -- the rank's precedence (ADR-0024) and the one global source order (ADR-0025)
+-- then ADR-0018's position, then the placement's id.
+
+**SO IT TAKES A LIST OF KEYS NOW, and is named `pastTheRow`.** One key was never the rule; it was
+the number the first four listings happened to need. The rule underneath is that **the comparison
+must name EVERY term the `ORDER BY` does**, and a key left out of it is rows silently stepped over
+-- which is what the two paragraphs above it in this record are each an instance of, at N=1. The
+nesting is built from the inside out, so each key's tie branch is the whole comparison on the keys
+behind it; a flat `or` of per-key clauses is a DIFFERENT AND WRONG predicate, answering true for a
+row that sorts before the anchor on an early key and after it on a late one.
+
+**EVERY ONE OF THE FOUR KEYS IS NULLABLE, so this listing has FOUR keyless blocks where the
+catalogue has one and a Container has one.** A Container nobody has named has no key at all
+(ADR-0014); a placement no source stands behind is null on BOTH of ADR-0017's terms; an Unplaced one
+has no position. The row this listing lists is a placement JOINED TO ITS CONTAINER, and both ends can
+be silent.
+
+**MUTATION-CHECKED TERM BY TERM, which this record's own rule about cutting a page AT a tie demands
+and which an order this long makes cheap to get wrong.** Each of the five terms has ONE test that
+dies when that term is dropped from the comparison, against a pair tied on every other term, and
+each of the two regimes has its own: removing the `isNull(key)` disjunct kills the three
+keyless-block tests, and treating a keyless ANCHOR as a keyed one kills two more.
+
+**THE IDS ARE NAMED RATHER THAN MINTED IN THOSE TESTS, and that is what makes them assert rather
+than hope.** The last term is the placement's id, so a comparison that drops a key falls through to
+one -- and whether that loses a row is then decided by whichever uuids `gen_random_uuid` handed out.
+This record already records that flakiness on the catalogue's own walk ("passed on one run and
+failed on the next"). Each pair is written with the id order OPPOSITE to the key under test, so
+dropping that key loses a row every time instead of half the time. `aPlacement` takes an `id` for
+this, exactly as `SeededItem` already did one table over.
+
+**AND ONE SHAPE THIS ORDER CANNOT HOLD, found by trying to build it**: migration 1 keeps a unique
+constraint on `(owner_id, container_id, item_id, position)`, so one Item cannot sit twice in ONE
+Container at ONE point. ADR-0009's "no unique constraint on (container_id, position)" is about two
+DIFFERENT Items sharing a position and does not license this. So a tie on all four keys has to be
+TWO CONTAINERS SHARING A NAME, and that is what the test for the id term is built from.
+
+## The tombstone split meets the first order with BOTH KINDS OF TERM IN IT
+
+**THIS IS WHERE THAT SPLIT PAYS FOR ITSELF A SECOND TIME, and differently.** The rule above is that
+the anchor is read WITHOUT the tombstone filter and each order decides what it found: an order on
+ADR-0014's projection loses its anchor's place to a delete, because the projection over no live
+statements is NULL and the columns are GONE rather than hidden; an order on a stored column a delete
+does not touch keeps it, which is why a kept link into a Container RESUMES.
+
+**This order is BOTH.** It LEADS on the projection -- of the CONTAINER, which is another row
+entirely -- and continues on three stored columns that no tombstone touches. And **a place that has
+lost its FIRST term has lost the whole place**: the survivors behind it cannot rescue it, because
+resuming from `(null, precedence, ...)` resumes from the unnamed-Container block with every named
+one between SKIPPED, which is exactly the dead end CNCORE-110 measured on `/`. So a kept link whose
+ordering has since been deleted starts this listing over, and one whose own PLACEMENT was removed
+resumes past it. Both are asserted, and the guard is mutation-checked.
+
+**AND IT IS THE PAIR RATHER THAN THE TOMBSTONE ALONE, for the reason `findInTheOrder` gives one
+listing over.** A Container nobody NAMED has no key either and sits at the end of the order as one
+block, resumed from by the three keys behind it. `deletedAt` alone would refuse an anchor whose key
+a delete had left alone; a null key alone would refuse the unnamed Container. There is a test for
+each.
+
+**So the split's own words -- "an order this app does not yet hold ... reads a column a delete does
+NOT destroy" -- were right and INCOMPLETE.** They imagined an order made entirely of one kind of
+term. A MIXED order takes the answer of whichever term LEADS, and nothing was checking that until
+there was one.
+
+## The address, and the second cursor on it
+
+**`?placedAfter=` IS THE FOURTH NON-IDENTIFYING PARAMETER on `/items/<id>`, written LAST of the
+four**: `via`, `placed`, `after`, `placedAfter`, each appended behind the ones already emitted
+(ADR-0066). The canonical is unchanged by it.
+
+**IT IS NOT A SECOND `after`, AND THIS RECORD'S OWN ARGUMENT IS WHY IT COULD NOT BE.** ADR-0066
+argues the bare word for the Members cursor precisely because it is "the same word the other three
+listings walk with", and a parameter named for one surface would be a second convention for one
+question. That argument holds right up until ONE PAGE HAS TO SPELL BOTH AT ONCE -- which is what a
+Container being an Item (ADR-0004) produces, and what this ticket arrived at. One of the two has to
+be qualified or neither can be read.
+
+**THE BARE WORD STAYS WITH THE LISTING THAT HAS ALREADY EMITTED LINKS.** Re-spelling the Members
+cursor would give every link CNCORE-89 put into the world a second spelling of itself, which is the
+one thing a fixed order exists to prevent. The parameter arriving later is the one that takes a name.
+
+**AND IT IS NAMED FOR ITS PAIR RATHER THAN FOR ITS SURFACE.** `?placed=` already narrows this same
+listing, so `placed` and `placedAfter` read as the one listing's pair. `appearsAfter` was the other
+candidate and it names the heading instead -- true, and it says nothing about the parameter sitting
+beside it in the same URL.
+
+**THE TWO CURSORS MUST NOT MOVE EACH OTHER**, which is what the name buys and what is asserted: the
+"Also appears in" walk carries `after` THROUGH and appends its own behind it, so a reader deep in a
+Container's ordering is not sent back to its first page for walking the other list.
+
+**AND THE FILTER CHIPS CARRY ONE AND DROP THE OTHER, which is not an asymmetry to tidy away.** A
+chip carries `after` forward because it has nothing to do with the Members listing and must not move
+it. A chip DROPS `placedAfter` because it changes what "Also appears in" is ASKING -- the answer is a
+different listing, and the old cursor names a place in the one the reader is leaving.
+
+## The cap made the filter narrow a PAGE, which is recorded here rather than left to be found
+
+**`?placed=` RUNS OVER THE ROWS THE PAGE WAS HANDED, and so do the chips offered beside it.** While
+this listing was uncapped that was exactly right: "the rows the page was handed" and "every ordering
+the Item sits in" were the same set. **Capping it is what created the gap**, and a narrowing that
+silently looked at only the first hundred would be this record's own silent cap arriving through the
+filter instead of through the listing.
+
+**WHAT LANDED IS THE SAYING, NOT THE FIXING, and that is a deliberate split rather than a gap.** The
+notice under a narrowed list counts against the PAGE -- "Showing 12 of the 100 orderings on this
+page" -- and only when the cap actually bit, so an Item whose orderings all fit says nothing extra.
+The page never claims more than it looked at.
+
+**THE FIXING IS CNCORE-129**, because it is bigger than it looks: pushing `placed` into the query
+means a `placed` input on `item.get`, the lateral inside the count subquery that deliberately has
+none, and -- the part that is easy to miss -- a SECOND READ for the chips, since a filtered page can
+only ever hold the one origin it was filtered to. A `TODO` sits at the site naming it.
+
+## Asserted at the three seams
+
+[[0103-tests-bite-at-package-exports-and-the-router]]: the package export, the router in process,
+and -- the one the ticket names by hand -- the page over real HTTP, against an Item sitting in 211
+placements across 210 orderings on the same instance the other four walks use.
+
+**THAT FIXTURE COSTS ITS OWN ITEMS WHERE CNCORE-89'S COST ONE, and the asymmetry is forced rather
+than careless.** A Container's members are ORDINARY ITEMS, so that fixture could hold the catalogue
+the harness had already written. This one needs a hundred and more CONTAINERS, and a catalogue of
+plain stories holds none -- so its orderings are minted and counted into `pagedCatalogue`, which is
+what keeps the front page's set oracle exact. Its two unnamed orderings are counted into
+`pagedUntitled` for the same reason one listing over: they are untitled Items on that instance, and
+Catalogue search cannot reach an untitled row whatever wrote it.
+
+**THE PAGE'S ORACLE IS THE CONTAINERS AND NOT THE PLACEMENTS, which is ADR-0066 operating rather
+than a shortcoming.** These rows link to the Container itself and deliberately carry no `?via=` --
+a reader following one is arriving AT the Container, not at this Item through an ordering -- so
+there is no placement id in the markup to collect, where the Members list has one in every row. What
+keeps it exact is comparing MULTISETS: the fixture's Repeat puts one Container in the list twice,
+and a set comparison would forgive losing one of them.
+
+**AND THE END OF THE WALK IS NAMED BY THE FIXTURE for the same reason.** The last row's id cannot be
+read off the page that shows it, so the fixture says which placement sorts last and why it does:
+the last ordering minted is one of the two nobody named, and its placement is the one no source
+stands behind, so it is null on the leading key and on both rank terms and nothing is behind it on
+any term. Mutation-checked by aiming that test at a row that is NOT last, which fails it.
