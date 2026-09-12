@@ -17,6 +17,16 @@ const itemTitle = inject("itemTitle");
  * down from the page that has to satisfy them.
  */
 const freshBaseUrl = inject("freshBaseUrl");
+/**
+ * THE THIRD SERVER: an empty catalogue on an instance that HAS an allowlist.
+ *
+ * EMPTY WITHOUT BEING UNCONFIGURED, which the one above cannot be. ADR-0094
+ * closes on these being two facts with different remedies, and every other
+ * instance in this suite holds them together -- so the criterion that the
+ * hand-built route is offered "whether or not one is allowlisted" had only its
+ * `or not` half anywhere it could be read.
+ */
+const readyBaseUrl = inject("readyBaseUrl");
 
 /** One `<section>` of a page, by the heading it is labelled with. */
 function section(text: string, label: string): string {
@@ -173,6 +183,30 @@ describe("/ on a fresh install", () => {
     const notice = section(fresh.text, "no-provider");
     expect(notice).toContain("/settings");
     expect(notice.toLowerCase()).toContain("no provider is allowlisted");
+  });
+
+  it("offers the hand-built route on an instance that IS allowlisted", async () => {
+    // THE OTHER HALF OF "WHETHER OR NOT" (CNCORE-131), and the half the fresh
+    // install cannot show: it is empty AND unallowlisted, so every assertion
+    // made on it reads both facts at once. Here the allowlist admits something
+    // and the catalogue is still empty.
+    //
+    // WHAT IT WOULD CATCH is the empty state quietly acquiring a second
+    // condition -- rendered only where nothing is reachable, on the reasoning
+    // that an owner who configured a provider wants the import route. That
+    // page would pass every other test in this file. Checked by gating
+    // `WhatToDoNext` on `!providers.any` and re-running: this fails and
+    // nothing else in the suite does.
+    const { status, text } = await documentFrom(readyBaseUrl, "/");
+
+    expect(status).toBe(200);
+    const byHand = routesOutOf(text).filter((route) => route.includes('href="/new"'));
+    expect(byHand).toHaveLength(1);
+    // AND THE NOTICE ABOUT THE ALLOWLIST IS GONE, which is what makes this
+    // instance the state it claims: the two conditions are read off two facts,
+    // so an empty catalogue here says so without also saying nothing is
+    // reachable.
+    expect(() => section(text, "no-provider")).toThrow();
   });
 
   it("does not say it where a provider IS allowlisted", async () => {
