@@ -100,11 +100,13 @@ copied: a work-browsing surface reporting the whole catalogue's `total` would
 tell an owner it was hiding items it was never asked to show. A test pins it,
 and the mutation that reintroduces it fails.
 
-**NOT BUILT: catalogue search, which is the SECOND question.** This record also
-decides that search returns all seven kinds grouped with works first, and
-nothing searches the catalogue yet. That is CNCORE-66, and it is the only reason
-this record is still `proposed`: the half built here is complete, and the half
-that is missing is a whole surface rather than a corner of this one.
+**NOT BUILT WHEN THIS WAS WRITTEN: catalogue search, which is the SECOND
+question.** This record also decides that search returns all seven kinds grouped
+with works first, and nothing searched the catalogue then. That was CNCORE-66,
+and it was the only reason this record was still `proposed`: the half built here
+is complete, and the half that was missing was a whole surface rather than a
+corner of this one. The surface has since landed, and only part of the decision
+with it; the last section says which part.
 
 **THE GAP NAMED ABOVE IS UNCHANGED AND IS NOW READ BY SOMETHING.** `holds_work`
 is still maintained on placement write only, so a member whose `kind` changes
@@ -151,4 +153,37 @@ into.
 **THIS RECORD'S STATUS IS UNCHANGED BY THIS SLICE.** The gap above is closed, but
 the reason the record is `proposed` is the SECOND question -- catalogue search --
 and CNCORE-71 touches neither it nor the surface that answers it. Whoever
-confirms that half is built owes the flip; this slice does not claim it.
+confirms that half is built owes the flip; this slice does not claim it. The
+section below is that check, and it does not flip the record.
+
+## The second question gets its surface, under CNCORE-66 and CNCORE-88 -- and this record STAYS PROPOSED
+
+**BUILT: search returns every kind, and says which kind each result is.**
+`searchCatalogue`, `catalogue.search` and `/search` read the catalogue's own
+predicate and no kind filter, so a Character's name finds the Character, and
+every entry carries its kind, so a Person and a Work sharing a title are two
+rows a reader can tell apart. `catalogue-search.test.ts` holds both: an Entity
+is found as readily as a Work, and two items sharing a name come back with
+different kinds. CNCORE-88 gave the result set a cursor, so a search over more
+matches than one page holds is walked rather than cut off
+([[0119-a-listing-is-walked-forward-from-the-last-item-it-showed]]).
+
+**NOT BUILT: grouped by kind, with works first.** Results are ordered by how
+close each title is to the query, through `similarity()` from the same
+`pg_trgm` extension the index needs
+([[0120-catalogue-search-is-a-trigram-ilike-not-full-text-search]]), then by the
+catalogue's own sort key. Kind decides nothing about the order. So a Character
+whose name is nearly the query sits above a Work that merely mentions it, which
+is the opposite of what this record decides. Nothing superseded that part:
+ADR-0120 chose how a title MATCHES and says relevance ordering costs no second
+mechanism, and it does not rule on kind. CNCORE-66 did not name grouping in its
+acceptance criteria, so it went unbuilt without anybody deciding against it.
+
+**WHICH IS WHY THIS RECORD STAYS `proposed`, found under CNCORE-75.** Checking
+every record the public release implements, this one turned out to still say
+nothing searched the catalogue, a claim false since v0.1.0. Both questions now
+have a surface. The work-browsing half is complete, and the search half is
+complete except for its ordering. The grouping has to put kind before closeness
+in the order and in the cursor that walks it, because ADR-0119 makes the order
+and the walk one rule. So it is a change to the walk and not only to a sort
+key, and it is the slice that makes it that flips this record.
