@@ -245,9 +245,13 @@ export function formIn(text: string, label: string): RenderedForm {
  * Action form needs no script to work -- React's progressive enhancement posts
  * it as an ordinary `multipart/form-data` request -- so replaying the form the
  * server just rendered observes exactly what such a browser would, at no
- * dependency and no browser binaries in CI. ADR-0103's reservation of Playwright
- * for "what genuinely needs a browser" is untouched: a form that submits without
- * script does not.
+ * dependency and no browser binaries in CI.
+ *
+ * ADR-0103's Playwright reservation HAS since been spent -- on the drag, in
+ * `apps/web/browser`, under CNCORE-73 -- and that changes nothing here, which
+ * is worth saying rather than leaving a reader to check. The criterion was
+ * always "what genuinely needs a browser", and a form that submits without
+ * script does not. Nothing that can be replayed here belongs over there.
  *
  * THE `Origin` HEADER IS SENT, because a browser sends one and Next checks it:
  * without it the server logs `Missing 'origin' header from a forwarded Server
