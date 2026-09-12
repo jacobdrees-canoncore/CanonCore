@@ -201,7 +201,17 @@ describe("/ on a fresh install", () => {
     expect(notice.toLowerCase()).toContain("no provider is allowlisted");
   });
 
-  it("offers the hand-built route on an instance that IS allowlisted", async () => {
+  it("does not say it where a provider IS allowlisted", async () => {
+    // The other half, and the half that makes the one above a test: a page that
+    // printed the notice unconditionally would pass that one and fail this.
+    const seeded = await documentAt("/");
+
+    expect(() => section(seeded.text, "no-provider")).toThrow();
+  });
+});
+
+describe("/ on an instance that reaches something and holds nothing", () => {
+  it("still offers the route that needs no provider", async () => {
     // THE OTHER HALF OF "WHETHER OR NOT" (CNCORE-131), and the half the fresh
     // install cannot show: it is empty AND unallowlisted, so every assertion
     // made on it reads both facts at once. Here the allowlist admits something
@@ -222,14 +232,6 @@ describe("/ on a fresh install", () => {
     // so an empty catalogue here says so without also saying nothing is
     // reachable.
     expect(() => section(text, "no-provider")).toThrow();
-  });
-
-  it("does not say it where a provider IS allowlisted", async () => {
-    // The other half, and the half that makes the one above a test: a page that
-    // printed the notice unconditionally would pass that one and fail this.
-    const seeded = await documentAt("/");
-
-    expect(() => section(seeded.text, "no-provider")).toThrow();
   });
 });
 
