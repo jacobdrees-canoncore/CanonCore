@@ -7,14 +7,14 @@ import { Label } from "@canoncore/ui/components/label";
 import { Textarea } from "@canoncore/ui/components/textarea";
 import { call, isDefinedError, safe } from "@orpc/server";
 import type { Metadata } from "next";
-import { Fragment } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Fragment } from "react";
 import { Attribution } from "@/components/attribution";
 import { Holding, type MembersPath, PastTheEnd, type TheRoute, Walk } from "@/components/listing";
 import { type Reorder, reorderedTo } from "@/components/ordering";
-import { SortableMembers } from "@/components/sortable-members";
 import { oneValue } from "@/components/query-params";
+import { SortableMembers } from "@/components/sortable-members";
 import { callerContext } from "@/session";
 
 import {
@@ -494,7 +494,7 @@ function Members({
     position: placement.position,
     content: (
       <>
-            {/*
+        {/*
               A LINK CARRYING `?via=`, which is the one place on this page that
               owes one. ADR-0066 makes the query the ROUTE a reader arrived
               through, and a reader following this link IS arriving through this
@@ -512,13 +512,13 @@ function Members({
               gives: Next's typed routes match a string href against the route
               patterns, and `/items/<id>?<query>` matches none of them.
             */}
-            <Link
-              href={{ pathname: `/items/${placement.itemId}`, query: { via: placement.id } }}
-              className="hover:underline"
-            >
-              {placement.title ?? "Untitled item"}
-            </Link>
-            {/*
+        <Link
+          href={{ pathname: `/items/${placement.itemId}`, query: { via: placement.id } }}
+          className="hover:underline"
+        >
+          {placement.title ?? "Untitled item"}
+        </Link>
+        {/*
               `ml-auto` RATHER THAN `justify-between` ON THE ROW, because the row
               gained a third child: an owner's rows lead with a drag handle, and
               `justify-between` over three children spreads the title into the
@@ -526,8 +526,8 @@ function Members({
               the same layout for two children and for three, which is what lets
               the sortable and the plain wrapper share one row (CNCORE-73).
             */}
-            <span className="ml-auto flex items-baseline gap-3 text-muted-foreground text-sm">
-              {/*
+        <span className="ml-auto flex items-baseline gap-3 text-muted-foreground text-sm">
+          {/*
                 WHO SAYS IT SITS HERE, which is what tells a Repeat from two
                 sources disagreeing (CNCORE-90). Both are one title twice at two
                 positions -- ADR-0009 licences the first and ADR-0017 produces
@@ -553,8 +553,8 @@ function Members({
                 The row is still a member and still a link; what is absent is a
                 claim, and the page has no business inventing words for one.
               */}
-              {placement.assertedBy.length > 0 && <span>{placement.assertedBy.join(", ")}</span>}
-              {/*
+          {placement.assertedBy.length > 0 && <span>{placement.assertedBy.join(", ")}</span>}
+          {/*
                 One expression rather than `#{position}`, for the reason
                 `AlsoAppearsIn` gives: React server-renders a text literal beside
                 an expression with a `<!-- -->` between them.
@@ -565,8 +565,8 @@ function Members({
                 different ways -- CONTEXT.md settles the words as "no position
                 given" and is binding on UI copy.
               */}
-              <span>{positionLabel(placement.position)}</span>
-              {/*
+          <span>{positionLabel(placement.position)}</span>
+          {/*
                 NO CONFIRMATION IN FRONT OF IT, WHICH IS ADR-0046's RULE rather
                 than an omission: removing a placement is the most frequent
                 editing act in a product built on multi-placement, and NN/g's
@@ -579,7 +579,7 @@ function Members({
                 one item twice in one container, so "remove this item from that
                 container" cannot say which row the owner pressed.
               */}
-              {/*
+          {/*
                 THE VISIBLE PATH TO THE DRAG (CNCORE-73). `CLAUDE.md` requires
                 every keyboard accelerator to have an equivalent visible UI
                 path, and a sortable list is the case that bites: a keyboard
@@ -597,16 +597,16 @@ function Members({
                 and the last no Move down -- a control that cannot do anything
                 reads as broken rather than as the end of the list.
               */}
-              {owner && (
-                <MovePlacement
-                  containerId={itemId}
-                  up={reorderedTo(entries, placement.id, index - 1)}
-                  down={reorderedTo(entries, placement.id, index + 1)}
-                />
-              )}
-              {owner && <RemovePlacement placementId={placement.id} containerId={itemId} />}
-            </span>
-          </>
+          {owner && (
+            <MovePlacement
+              containerId={itemId}
+              up={reorderedTo(entries, placement.id, index - 1)}
+              down={reorderedTo(entries, placement.id, index + 1)}
+            />
+          )}
+          {owner && <RemovePlacement placementId={placement.id} containerId={itemId} />}
+        </span>
+      </>
     ),
   }));
 
@@ -1160,15 +1160,7 @@ function MovePlacement({
 }
 
 /** One direction of the above, since the two differ only in where they land. */
-function MoveTo({
-  containerId,
-  to,
-  label,
-}: {
-  containerId: string;
-  to: Reorder;
-  label: string;
-}) {
+function MoveTo({ containerId, to, label }: { containerId: string; to: Reorder; label: string }) {
   return (
     <form action={movePlacement}>
       <input type="hidden" name="id" value={to.id} />

@@ -76,7 +76,10 @@ export function reorderedTo(ordering: readonly Placed[], id: string, to: number)
   // renumbering.
   const changed = rearranged
     .map((placed, index) => ({ id: placed.id, position: ordering[index]?.position ?? null }))
-    .filter(({ id: movedId, position }, index) => position !== rearranged[index]?.position || movedId === id);
+    .filter(
+      ({ id: movedId, position }, index) =>
+        position !== rearranged[index]?.position || movedId === id,
+    );
 
   const moved = changed.find((placed) => placed.id === id);
   if (!moved) return null;

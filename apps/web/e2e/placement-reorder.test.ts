@@ -53,7 +53,11 @@ function membersIn(text: string): string[] {
  */
 function titlesIn(text: string): string[] {
   return rowsIn(text).map(
-    (row) => /<a\b[^>]*>(.*?)<\/a>/s.exec(row)?.[1]?.replaceAll(/<[^>]*>/g, "").trim() ?? "",
+    (row) =>
+      /<a\b[^>]*>(.*?)<\/a>/s
+        .exec(row)?.[1]
+        ?.replaceAll(/<[^>]*>/g, "")
+        .trim() ?? "",
   );
 }
 
@@ -105,10 +109,7 @@ describe("reordering a container with no script", () => {
     const after = await move(reorderable.releaseOrder, reorderable.second, "up");
 
     expect(after.status).toBe(200);
-    expect(titlesIn(after.text).slice(0, 2)).toStrictEqual([
-      reorderable.second,
-      reorderable.first,
-    ]);
+    expect(titlesIn(after.text).slice(0, 2)).toStrictEqual([reorderable.second, reorderable.first]);
     expect(membersIn(after.text)[0]).toContain("#1");
     expect(membersIn(after.text)[1]).toContain("#5");
   });

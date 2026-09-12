@@ -4,8 +4,8 @@ import {
   type Database,
   findPlacementsInContainer,
   movePlacementByHand,
-  placeItemByHand,
   PlacementRefused,
+  placeItemByHand,
 } from "./index";
 import { anItem, connect } from "./testing/catalogue";
 
@@ -102,8 +102,16 @@ describe("a Repeat reordered past its own other copy", () => {
     const repeated = await anItem(db);
     const other = await anItem(db);
 
-    const recap = await placeItemByHand(db, { containerId: container, itemId: repeated, position: 1 });
-    const between = await placeItemByHand(db, { containerId: container, itemId: other, position: 2 });
+    const recap = await placeItemByHand(db, {
+      containerId: container,
+      itemId: repeated,
+      position: 1,
+    });
+    const between = await placeItemByHand(db, {
+      containerId: container,
+      itemId: other,
+      position: 2,
+    });
     const episode = await placeItemByHand(db, {
       containerId: container,
       itemId: repeated,

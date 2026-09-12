@@ -173,7 +173,6 @@ export async function waitUntilAnswering(baseUrl: string, server: ChildProcess):
   throw new Error(`next start did not answer on ${baseUrl} within 60s`);
 }
 
-
 /**
  * `next build`, which every instance's server then serves.
  *

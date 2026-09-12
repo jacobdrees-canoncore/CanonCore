@@ -193,11 +193,7 @@ describe("dragging a Placement", () => {
     await drag(second, first);
 
     // THE PAGE MOVED, which is the half only a browser can see.
-    await expect.poll(titlesOnThePage).toStrictEqual([
-      second,
-      first,
-      ...dragging.inOrder.slice(2),
-    ]);
+    await expect.poll(titlesOnThePage).toStrictEqual([second, first, ...dragging.inOrder.slice(2)]);
 
     /*
      * AND THE CATALOGUE MOVED, which is what a reload asks. A drag that only

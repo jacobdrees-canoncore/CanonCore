@@ -23,9 +23,9 @@ export {
 export {
   type AssertedPlacement,
   assertPlacement,
+  movePlacementByHand,
   PlacementRefused,
   placeItemByHand,
-  movePlacementByHand,
   removePlacementByHand,
   restorePlacementByHand,
   type Writer,

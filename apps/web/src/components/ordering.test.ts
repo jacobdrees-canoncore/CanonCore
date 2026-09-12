@@ -69,9 +69,9 @@ describe("what a reorder must not quietly fix", () => {
 
     const after = reorderedTo(ordering, "a", 2);
 
-    expect([after?.position, ...(after?.siblings ?? []).map((s) => s.position)].sort()).toStrictEqual(
-      [1, 5, 63],
-    );
+    expect(
+      [after?.position, ...(after?.siblings ?? []).map((s) => s.position)].sort(),
+    ).toStrictEqual([1, 5, 63]);
   });
 });
 
