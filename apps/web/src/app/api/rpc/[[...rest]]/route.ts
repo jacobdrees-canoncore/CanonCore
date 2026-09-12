@@ -1,3 +1,5 @@
+import { inspect } from "node:util";
+
 import { createContext } from "@canoncore/api/context";
 import { appRouter } from "@canoncore/api/routers";
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
@@ -48,12 +50,6 @@ import { SESSION_COOKIE } from "@/session";
  * CNCORE-120 and is not a hole in the rule above; it is the reason the rule is
  * stated about errors the HANDLERS raise.
  *
- * TODO(CNCORE-122): what is written here is not escaped, and an error message
- * can carry text the caller supplied -- so a message holding a newline writes a
- * second line into the owner's log that the owner did not write. Narrowed by
- * this change rather than introduced by it: every 4xx was logged before, and
- * `BAD_REQUEST` quotes the caller's own input.
- *
  * ONE RULE FOR BOTH HANDLERS. They mount the same router and answer the same
  * refusals, so two copies would be one decision written twice and free to
  * drift. It is the CALLBACK that is shared rather than the `onError(...)`
@@ -66,8 +62,82 @@ import { SESSION_COOKIE } from "@/session";
  */
 function sayWhatBroke(error: unknown): void {
   if (error instanceof ORPCError && error.status < 500) return;
-  console.error(error);
+  console.error(asOneEvent(error));
 }
+
+/**
+ * ONE ENTRY, AND THE CALLER CANNOT WRITE A SECOND (CNCORE-122).
+ *
+ * AN ERROR MESSAGE IS CALLER TEXT. `console.error(error)` renders an `Error` as
+ * its `stack`, and V8 builds that string by pasting the message in RAW at the
+ * top -- so a message holding a newline wrote a line into the owner's log that
+ * the owner did not write. A CAUSE IS CALLER TEXT TOO, and by the same
+ * mechanism: `inspect` renders a nested `Error` as its own raw stack, which is
+ * why one is followed here rather than handed over whole.
+ *
+ * THE RULE, which ADR-0125 argues under "Bounded in COUNT is not bounded in
+ * SHAPE" and does not need repeating here: caller text is QUOTED, and an entry
+ * STARTS AT COLUMN 0 while nothing else does. Both are structural rather than
+ * hoped for -- every span that could carry a newline goes through `inspect`,
+ * and the single `indented` on the way out owns the margin for the whole entry,
+ * frames and label included, so no future span can quietly opt out of it.
+ *
+ * `name` FOR THE SPAN AND THE CONSTRUCTOR FOR THE LABEL, which are two
+ * different questions. `pastedAtop` has to be what V8 ACTUALLY pasted, or the
+ * slice removing it would leave part of the message behind; the label is what
+ * an owner scans for, and `ORPCError` and `DrizzleQueryError` both inherit a
+ * `name` of `"Error"` while `console.error` named their class. Where the stack
+ * does not begin with that span -- absent, or reassigned since -- no frame is
+ * written rather than a guess at which lines came from V8, because a message
+ * can carry a line that reads exactly like a frame.
+ *
+ * WHAT IS CARRIED ALONGSIDE IS WHAT `console.error` ALREADY WROTE: the code and
+ * status on an `ORPCError`, the query and parameters on a driver fault. This is
+ * about escaping what is written, not writing less than before.
+ */
+function asOneEvent(error: unknown, follow = FOLLOW_CAUSES): string {
+  if (!(error instanceof Error)) return indented(inspect(error, ONE_LINE));
+
+  const pastedAtop = error.message ? `${error.name}: ${error.message}` : error.name;
+  const frames = error.stack?.startsWith(pastedAtop) ? error.stack.slice(pastedAtop.length) : "";
+
+  // Rendered below rather than here, so a cause's message is quoted like any other.
+  const carried: Record<string, unknown> = { ...error };
+  delete carried.cause;
+  const alongside = Object.keys(carried).length > 0 ? ` ${inspect(carried, ONE_LINE)}` : "";
+
+  let causedBy = "";
+  if (error.cause !== undefined) {
+    causedBy =
+      follow > 0
+        ? `\ncaused by ${asOneEvent(error.cause, follow - 1)}`
+        : "\ncaused by a chain longer than one entry follows";
+  }
+
+  const label = error.constructor?.name ?? error.name;
+  return indented(`${label}: ${inspect(error.message, ONE_LINE)}${frames}${alongside}${causedBy}`);
+}
+
+/** Every line below the first belongs to the entry above it, so it is moved off the margin. */
+function indented(text: string): string {
+  return text.replaceAll("\n", "\n  ");
+}
+
+/**
+ * `inspect` otherwise breaks a long value across lines to keep it under 80
+ * columns, which is the one thing this must not do: the wrapped remainder is a
+ * fresh line, and a long message is exactly what a caller controls.
+ */
+const ONE_LINE = { breakLength: Number.POSITIVE_INFINITY } as const;
+
+/**
+ * A CAUSE CHAIN IS SOMEBODY ELSE'S LENGTH, so following it is bounded. Two
+ * covers what this surface actually raises -- a driver fault wrapping its pg
+ * error, an oRPC failure wrapping its validation error -- and the bound is what
+ * stops a cycle recursing and a long chain writing an entry sized by whoever
+ * built it, which is the concern ADR-0125 exists for.
+ */
+const FOLLOW_CAUSES = 2;
 
 const rpcHandler = new RPCHandler(appRouter, { interceptors: [onError(sayWhatBroke)] });
 const apiHandler = new OpenAPIHandler(appRouter, {
