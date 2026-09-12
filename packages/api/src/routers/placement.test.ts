@@ -275,6 +275,55 @@ describe("placement.move", () => {
     expect(origin.holds.entries).toStrictEqual([]);
   });
 
+  it("refuses to resettle the container it LEFT, and writes nothing when asked to", async () => {
+    // WHAT A CROSS-CONTAINER MOVE CANNOT DO, pinned because ADR-0061 now reads
+    // `accepted` on the strength of this mutation. The siblings a move writes
+    // are scoped to its DESTINATION, so the origin keeps its remaining members
+    // exactly where they were and a hole is left at the position vacated --
+    // which is what a removal does too, and ADR-0116's "no number is invented".
+    // Naming an origin sibling anyway takes the WHOLE move down rather than
+    // half-applying it.
+    const releaseOrder = await anItem(db, { isContainer: true, isOrdered: true });
+    const storyOrder = await anItem(db, { isContainer: true, isOrdered: true });
+    const leaving = await anItemTitled(db, "The Underwater Menace");
+    const staying = await anItemTitled(db, "The Macra Terror");
+
+    const moved = await call(
+      appRouter.placement.place,
+      { containerId: releaseOrder, itemId: leaving, position: 1 },
+      { context: asTheOwner },
+    );
+    const behind = await call(
+      appRouter.placement.place,
+      { containerId: releaseOrder, itemId: staying, position: 2 },
+      { context: asTheOwner },
+    );
+
+    const { error } = await safe(
+      call(
+        appRouter.placement.move,
+        {
+          id: moved.id,
+          containerId: storyOrder,
+          position: 1,
+          // The member left behind, asked to close the gap. It is in the ORIGIN.
+          siblings: [{ id: behind.id, position: 1 }],
+        },
+        { context: asTheOwner },
+      ),
+    );
+
+    expect(isDefinedError(error) && error.code).toBe("BAD_REQUEST");
+    // AND NOTHING LANDED, which is the half a refusal alone would not prove.
+    const origin = await call(appRouter.item.get, { id: releaseOrder }, { context });
+    expect(origin.holds.entries.map(({ id, position }) => ({ id, position }))).toStrictEqual([
+      { id: moved.id, position: 1 },
+      { id: behind.id, position: 2 },
+    ]);
+    const destination = await call(appRouter.item.get, { id: storyOrder }, { context });
+    expect(destination.holds.entries).toStrictEqual([]);
+  });
+
   it("says NOT_FOUND for a placement that is not there to move", async () => {
     const container = await anItem(db, { isContainer: true, isOrdered: true });
 
