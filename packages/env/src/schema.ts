@@ -56,4 +56,26 @@ export const serverSchema = {
    * from wherever it comes.
    */
   PROVIDER_URLS: z.string().default(""),
+  /**
+   * THE OWNER'S ONE PASSWORD (ADR-0044, CNCORE-109). Everything that writes is
+   * behind a session, and this is what a session is exchanged for.
+   *
+   * ABSENT MEANS NOBODY CAN LOG IN, and that is not a degraded state: it is
+   * ADR-0044's public demo, which is read-only WITH NO LOGIN, reached by leaving
+   * a variable unset rather than by a deployment flag or a mode. The read path
+   * needs no session at all (ADR-0072), so an instance that sets none serves
+   * every page it serves today and refuses every write.
+   *
+   * IT IS CONFIGURATION RATHER THAN A COLUMN, which keeps ADR-0044's "no
+   * password column ships" true. The owner already holds this instance's other
+   * secrets here -- the database's password is composed into `DATABASE_URL` --
+   * and a password in the database would need a signup surface to set it, which
+   * that record refuses in the same sentence.
+   *
+   * MINIMUM 12 CHARACTERS, so the one credential guarding the write path cannot
+   * be set to something a stranger reaches by typing. It is not hashed at rest:
+   * it sits in the owner's own `.env`, which is where `POSTGRES_PASSWORD` sits,
+   * and hashing a value the same file holds in the clear protects nothing.
+   */
+  OWNER_PASSWORD: z.string().min(12).optional(),
 };

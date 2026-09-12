@@ -18,6 +18,7 @@ import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
 import type { TestProject } from "vitest/node";
 
+import { logInAt } from "./document";
 import { CONTAINERS, TENTH_PLANET, WIKI_MANIFEST } from "./wiki-fixture";
 
 /**
@@ -36,6 +37,36 @@ import { CONTAINERS, TENTH_PLANET, WIKI_MANIFEST } from "./wiki-fixture";
  * cheaper than the class of bug it rules out.
  */
 const webRoot = fileURLToPath(new URL("..", import.meta.url));
+
+/**
+ * THE OWNER'S PASSWORD, for the instances this harness has to WRITE to.
+ *
+ * Everything that changes a catalogue is behind a session since CNCORE-109, and
+ * a session is what `OWNER_PASSWORD` is exchanged for (ADR-0044). So an instance
+ * the harness fills -- or that a test file presses a button on -- is configured
+ * with one, and `asTheOwner` below logs in through the page exactly as an owner
+ * does.
+ *
+ * THE FRESH INSTALL IS DELIBERATELY WITHOUT ONE. That instance is what a
+ * stranger's first run looks like, and it is also ADR-0044's demo: read-only,
+ * with no login, because no password was set. It is passed an explicit empty
+ * string for the reason its allowlist is -- this process inherits its own
+ * environment, and an omitted key lets the parent's value through.
+ */
+const OWNER_PASSWORD = "the owner's own password for the e2e suite";
+
+/**
+ * An RPC client that has logged in, for the fixtures this harness fills through
+ * the app.
+ *
+ * IT LOGS IN THROUGH THE PAGE and sends back the cookie it was given, which is
+ * what a browser does. A token minted straight into the database would fill
+ * these catalogues through a door the app never opened.
+ */
+async function asTheOwner(baseUrl: string): Promise<AppRouterClient> {
+  const cookie = await logInAt(baseUrl, OWNER_PASSWORD);
+  return createORPCClient(new RPCLink({ url: `${baseUrl}/api/rpc`, headers: { cookie } }));
+}
 
 export default async function setup(project: TestProject) {
   const databaseUrl = await buildTestDatabase("web");
@@ -86,6 +117,9 @@ export default async function setup(project: TestProject) {
       answersBadly.url,
       UNREACHABLE_PROVIDER,
     ].join(","),
+    // THE OWNER'S PASSWORD, because this instance is IMPORTED INTO: the fixtures
+    // below are filled through the app's own write path, which is the owner's.
+    OWNER_PASSWORD,
   };
   await run("next", ["build"], env);
 
@@ -127,6 +161,10 @@ export default async function setup(project: TestProject) {
    */
   const fresh = await freshInstall();
   project.provide("freshBaseUrl", fresh.baseUrl);
+
+  // WHAT A TEST LOGS IN WITH. Everything that writes is the owner's, so a file
+  // that presses a button needs this; `document.ts`'s `logInAt` takes it.
+  project.provide("ownerPassword", OWNER_PASSWORD);
 
   const paged = await aCatalogueTooBigForOnePage();
   project.provide("pagedBaseUrl", paged.baseUrl);
@@ -238,11 +276,22 @@ async function theBuildServing(env: NodeJS.ProcessEnv): Promise<{
  */
 async function anInstanceServing<Fixture>({
   suffix,
+  ownerPassword,
   allowlist,
   providers,
   fill,
 }: {
   suffix: TestDatabaseSuffix;
+  /**
+   * ADR-0044's one password, or the empty string for an instance nobody can log
+   * in to -- which is that record's demo, and is what a read-only instance is.
+   * Required for the reason the two below are: a key left out is not a key
+   * unset, it is this process's own environment reaching a fixture that was
+   * meant to be without it, and an instance that became writable by inheritance
+   * would take the whole point off the tests that assert a visitor sees no
+   * button.
+   */
+  ownerPassword: string;
   /** ADR-0034's allowlist, as this instance's configuration. */
   allowlist: string;
   /** Which providers this instance searches (CNCORE-68), joined for the app. */
@@ -260,6 +309,7 @@ async function anInstanceServing<Fixture>({
   const server = await theBuildServing({
     ...process.env,
     DATABASE_URL: databaseUrl,
+    OWNER_PASSWORD: ownerPassword,
     PROVIDER_ALLOWLIST: allowlist,
     PROVIDER_URLS: providers.join(","),
   });
@@ -291,6 +341,14 @@ async function anInstanceServing<Fixture>({
 function freshInstall() {
   return anInstanceServing({
     suffix: "fresh",
+    /*
+     * AND NO OWNER PASSWORD, which makes this instance ADR-0044's DEMO as well as
+     * ADR-0094's fresh install: read-only, with no login, because nobody set one.
+     * Empty rather than omitted for the reason the two below are, and
+     * `anInstanceServing` is what makes that structural -- an omitted key here
+     * would let a developer's `.env` through and quietly make the demo writable.
+     */
+    ownerPassword: "",
     allowlist: "",
     /*
      * AND NO PROVIDER NAMED EITHER, which is the second half of the same first
@@ -339,6 +397,9 @@ function freshInstall() {
 function aCatalogueTooBigForOnePage() {
   return anInstanceServing({
     suffix: "paged",
+    // NOBODY WRITES TO IT, so nobody logs in to it: this instance exists to be
+    // walked, and a password it never uses would be a value nothing reads.
+    ownerPassword: "",
     allowlist: "127.0.0.0/8",
     // EXPLICIT AND EMPTY, WHERE IT USED TO BE NEITHER (CNCORE-111). This was the
     // one instance that omitted `PROVIDER_URLS`, so a developer with providers
@@ -392,6 +453,9 @@ async function aCatalogueSafeToPurge(wikiUrl: string, tmdbUrl: string) {
     // `TEST_DATABASE_SUFFIXES` rather than a literal, so the budget is checked
     // rather than remembered (CNCORE-112).
     suffix: "purge",
+    // FILLED THROUGH THE APP AND THEN PURGED THROUGH THE PAGE, both of which are
+    // the owner's since CNCORE-109.
+    ownerPassword: OWNER_PASSWORD,
     allowlist: "127.0.0.0/8",
     providers: [wikiUrl, tmdbUrl, UNREACHABLE_PROVIDER],
     // NOTHING BEFORE THE SERVER, because everything this fixture holds has to go
@@ -403,7 +467,7 @@ async function aCatalogueSafeToPurge(wikiUrl: string, tmdbUrl: string) {
   // FILLED THROUGH THE APP, for the reason every other fixture here is: the
   // rows a purge deletes have to be rows the app's own import path wrote, or
   // what is purged is the harness's idea of an import.
-  const client: AppRouterClient = createORPCClient(new RPCLink({ url: `${baseUrl}/api/rpc` }));
+  const client = await asTheOwner(baseUrl);
   const previewed = await client.provider.browse({ baseUrl: wikiUrl, containerId: "388305" });
   const purged = await client.provider.browse({
     baseUrl: tmdbUrl,
@@ -526,6 +590,12 @@ const HOLDING_STILL = [
 function aCatalogueThatHoldsStill() {
   return anInstanceServing({
     suffix: "still",
+    // NO PASSWORD, WHICH IS PART OF THIS FIXTURE'S CONTRACT rather than a
+    // setting it happens not to need: "nothing writes to it" is what it is for,
+    // and an instance nobody can log in to cannot be written to at all
+    // (CNCORE-109). The same reasoning as the empty provider list below, one
+    // channel over.
+    ownerPassword: "",
     allowlist: "127.0.0.0/8",
     // EXPLICIT, NOT OMITTED, for the reason `freshInstall` spells out above:
     // this process inherits its own environment, so an omitted key lets a
@@ -572,7 +642,7 @@ function firstItemPlacedBy({ placements }: { placements: { itemId: string }[] })
  * which then reaches the provider over HTTP itself. Two hops, both real.
  */
 async function importThroughTheApp(baseUrl: string, providerUrl: string) {
-  const client: AppRouterClient = createORPCClient(new RPCLink({ url: `${baseUrl}/api/rpc` }));
+  const client = await asTheOwner(baseUrl);
   const { itemId } = await client.provider.import({
     baseUrl: providerUrl,
     recordId: TENTH_PLANET.id,
@@ -606,7 +676,7 @@ async function importThroughTheApp(baseUrl: string, providerUrl: string) {
  * library in-process would prove none of them.
  */
 async function browseThroughTheApp(baseUrl: string, providerUrl: string, databaseUrl: string) {
-  const client: AppRouterClient = createORPCClient(new RPCLink({ url: `${baseUrl}/api/rpc` }));
+  const client = await asTheOwner(baseUrl);
 
   const missingEpisodes = await client.provider.browse({
     baseUrl: providerUrl,
@@ -1049,7 +1119,7 @@ async function onLoopback(
  * and a mark, so this import is the one that makes the page owe something.
  */
 async function importFromTmdb(baseUrl: string, providerUrl: string) {
-  const client: AppRouterClient = createORPCClient(new RPCLink({ url: `${baseUrl}/api/rpc` }));
+  const client = await asTheOwner(baseUrl);
   const { itemId } = await client.provider.import({
     baseUrl: providerUrl,
     recordId: THE_MATRIX.id,
@@ -1354,6 +1424,11 @@ declare module "vitest" {
      * stranger's first run of CanonCore is (ADR-0094).
      */
     freshBaseUrl: string;
+    /**
+     * What the owner logs in with on every instance that has a password. The
+     * fresh one above deliberately has none, which is what ADR-0044's demo is.
+     */
+    ownerPassword: string;
     /** The same build again, serving a catalogue of several hundred items. */
     pagedBaseUrl: string;
     /**

@@ -38,6 +38,13 @@ export {
   type StatementOfItem,
 } from "./queries";
 export * from "./schema";
+export {
+  type DeclaredDevice,
+  endSession,
+  type OwnerSession,
+  seeSession,
+  startSession,
+} from "./sessions";
 export { worktreeDatabaseName } from "./worktree-database";
 
 /**

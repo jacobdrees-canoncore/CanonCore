@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
 /**
@@ -9,6 +10,16 @@ import { defineConfig } from "vitest/config";
  * of every local test run is the cost that separation avoids.
  */
 export default defineConfig({
+  /**
+   * `@/` AS THE APP RESOLVES IT. Next reads the alias out of `tsconfig.json`'s
+   * `paths` and Vitest does not, so a file under test that imports `@/session`
+   * -- as the route handler does, for the session cookie's name -- fails to
+   * resolve at all rather than failing an assertion. One alias here rather than
+   * a relative path in the source, because the source is what ships.
+   */
+  resolve: {
+    alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
+  },
   test: {
     setupFiles: ["@canoncore/config/testing/install-network-gate"],
     exclude: ["e2e/**", "node_modules/**", ".next/**"],

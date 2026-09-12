@@ -23,6 +23,16 @@ export default defineConfig({
      * a CIDR covering it is named here -- which is the config boundary being
      * exercised rather than bypassed.
      */
-    env: { PROVIDER_ALLOWLIST: "127.0.0.0/8" },
+    env: {
+      PROVIDER_ALLOWLIST: "127.0.0.0/8",
+      /**
+       * THE OWNER'S PASSWORD, because this suite asserts both sides of the door
+       * CNCORE-109 put in: what a caller with a session may do, and what one
+       * without it may not. An instance that set none could only assert the
+       * second half -- which is ADR-0044's demo, and is covered by a test that
+       * takes this value away rather than by the whole suite running without it.
+       */
+      OWNER_PASSWORD: "the owner's own password",
+    },
   },
 });

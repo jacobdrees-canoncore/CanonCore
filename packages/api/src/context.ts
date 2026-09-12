@@ -1,4 +1,4 @@
-import { getDb } from "@canoncore/db";
+import { getDb, seeSession } from "@canoncore/db";
 import { env } from "@canoncore/env/server";
 import { parseAllowlist, parseProviderUrls } from "@canoncore/providers";
 
@@ -26,16 +26,28 @@ const providerAllowlist = parseAllowlist(env.PROVIDER_ALLOWLIST);
 const providerUrls = parseProviderUrls(env.PROVIDER_URLS);
 
 /**
- * What every request carries. Takes no argument: nothing in it is derived from
- * the request yet, and the route handler was passing one only because the
- * generator's signature asked for it. A session or a locale will want the
- * request back, and can add it then.
+ * What every request carries.
+ *
+ * IT TAKES THE TOKEN RATHER THAN THE REQUEST, and that is what keeps this
+ * package free of a framework. A cookie is read by whatever served the request
+ * -- `cookies()` in a Server Action, `request.cookies` in the route handler --
+ * both of which already know how, and neither of which this package should have
+ * to know about. What it needs is the secret itself.
+ *
+ * A TOKEN NOBODY MINTED IS NO SESSION AT ALL, which is the same answer as
+ * presenting none: `seeSession` cannot tell a guess from a logout from a token
+ * that expired, and a caller that could would have an oracle for which tokens
+ * have ever existed.
  */
-export async function createContext() {
+export async function createContext({ sessionToken }: { sessionToken?: string } = {}) {
+  const db = getDb();
   return {
-    db: getDb(),
-    auth: null,
-    session: null,
+    db,
+    /**
+     * WHO IS CALLING, or `null` for anyone who has not proved they are the
+     * owner. `ownerProcedure` is what reads it; `openProcedure` never asks.
+     */
+    session: sessionToken === undefined ? null : await seeSession(db, sessionToken),
     providerAllowlist,
     providerUrls,
   };

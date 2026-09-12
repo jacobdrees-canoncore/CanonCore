@@ -7,6 +7,8 @@ import { RPCHandler } from "@orpc/server/fetch";
 import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 import type { NextRequest } from "next/server";
 
+import { SESSION_COOKIE } from "@/session";
+
 const rpcHandler = new RPCHandler(appRouter, {
   interceptors: [
     onError((error) => {
@@ -28,15 +30,26 @@ const apiHandler = new OpenAPIHandler(appRouter, {
 });
 
 async function handleRequest(req: NextRequest) {
-  const rpcResult = await rpcHandler.handle(req, {
-    prefix: "/api/rpc",
-    context: await createContext(),
+  /*
+   * THE CALLER'S OWN SESSION, off the request rather than out of `cookies()`.
+   * Both work in a route handler; this one is already holding the request, and a
+   * handler that reads the ambient store when it has the thing itself is a
+   * handler that cannot be called with a `Request` in a test -- which is exactly
+   * how ADR-0103's third seam drives this file.
+   *
+   * BUILT ONCE FOR BOTH HANDLERS, because a session lookup touches the database
+   * and the second handler only ever runs when the first declined the request.
+   */
+  const context = await createContext({
+    sessionToken: req.cookies.get(SESSION_COOKIE)?.value,
   });
+
+  const rpcResult = await rpcHandler.handle(req, { prefix: "/api/rpc", context });
   if (rpcResult.response) return rpcResult.response;
 
   const apiResult = await apiHandler.handle(req, {
     prefix: "/api/rpc/api-reference",
-    context: await createContext(),
+    context,
   });
   if (apiResult.response) return apiResult.response;
 

@@ -1,6 +1,7 @@
 import { createServer, type Server } from "node:http";
 import { type Database, items, sources } from "@canoncore/db";
 import { connect } from "@canoncore/db/testing/catalogue";
+import { env } from "@canoncore/env/server";
 import { parseAllowlist, REASON_MAX_LENGTH } from "@canoncore/providers";
 import { call, isDefinedError, safe } from "@orpc/server";
 import { eq } from "drizzle-orm";
@@ -18,7 +19,31 @@ import { appRouter } from "./index";
  * What the real image adds over this is the fixture's own data, and that is the
  * CI job's to prove rather than this suite's.
  */
-const context = await createContext();
+/**
+ * THE OWNER'S CONTEXT, because most of what this file drives WRITES: `import`,
+ * `browse` and `purge` are behind `ownerProcedure` since CNCORE-109, and a
+ * caller with no session is refused before it reaches any of the behaviour
+ * asserted below.
+ *
+ * IT LOGS IN THROUGH THE ROUTER rather than assembling a session object, so the
+ * context these tests run on is the one a real caller gets. A hand-made session
+ * would keep passing on the day the shape of one changes, which is the day it
+ * would matter most.
+ */
+const context = await createContext({ sessionToken: await aTokenForTheOwner() });
+
+async function aTokenForTheOwner(): Promise<string> {
+  const password = env.OWNER_PASSWORD;
+  if (password === undefined) {
+    throw new Error("this suite's vitest.config.ts sets OWNER_PASSWORD, and it is not set");
+  }
+  const { token } = await call(
+    appRouter.session.logIn,
+    { password },
+    { context: await createContext() },
+  );
+  return token;
+}
 
 let db: Database;
 

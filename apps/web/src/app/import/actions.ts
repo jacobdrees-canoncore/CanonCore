@@ -1,9 +1,10 @@
 "use server";
 
-import { createContext } from "@canoncore/api/context";
 import { appRouter } from "@canoncore/api/routers";
 import { call } from "@orpc/server";
 import { z } from "zod";
+
+import { callerContext } from "@/session";
 
 /**
  * TAKING A RECORD INTO THE CATALOGUE, as a Server Action.
@@ -50,7 +51,7 @@ export async function importRecord(form: FormData): Promise<void> {
     recordId: form.get("recordId"),
   });
 
-  await call(appRouter.provider.import, { baseUrl, recordId }, { context: await createContext() });
+  await call(appRouter.provider.import, { baseUrl, recordId }, { context: await callerContext() });
 }
 
 /**
@@ -77,7 +78,7 @@ export async function browseOrdering(form: FormData): Promise<void> {
   await call(
     appRouter.provider.browse,
     { baseUrl, containerId },
-    { context: await createContext() },
+    { context: await callerContext() },
   );
 }
 
@@ -95,11 +96,13 @@ const purgeTarget = z.object({ baseUrl: z.url() });
  * difference is worth stating because the two read alike. The page renders no
  * button until `previewPurge` has answered and none at all when the answer is
  * nothing, so an owner moving through the product cannot meet the POST before the
- * consequences. Nothing here ENFORCES that, and nothing can: this instance ships
- * no login (ADR-0107's single owner), so `provider.purge` is a `publicProcedure`
- * anything reaching the app can call directly at `/api/rpc`. A check added here
- * would bound the form and not the operation, which is the appearance of a
- * boundary rather than one. The enforcement arrives with authentication.
+ * consequences. Nothing here ENFORCES that, and nothing can: a check added here
+ * would bound the form and not the operation, since `/api/rpc` carries the same
+ * procedure. WHO may run it IS enforced, and not here either -- `provider.purge`
+ * is an `ownerProcedure` since CNCORE-109, so a caller with no session is refused
+ * at the procedure whichever way they arrive. What this action contributes is the
+ * session: it builds its context from the caller's cookie rather than from
+ * nobody.
  *
  * AND IT IS DELIBERATELY NOT NARROWED TO `PROVIDER_URLS` the way the PREVIEW is.
  * That narrowing exists because the page can only offer what it can list; making
@@ -124,5 +127,5 @@ const purgeTarget = z.object({ baseUrl: z.url() });
 export async function purgeProvider(form: FormData): Promise<void> {
   const { baseUrl } = purgeTarget.parse({ baseUrl: form.get("baseUrl") });
 
-  await call(appRouter.provider.purge, { baseUrl }, { context: await createContext() });
+  await call(appRouter.provider.purge, { baseUrl }, { context: await callerContext() });
 }

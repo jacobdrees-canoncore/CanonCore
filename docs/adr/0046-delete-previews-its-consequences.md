@@ -176,12 +176,18 @@ motive is the provider nobody can reach.
 WHICH ALSO SETS WHERE COUNTS-FIRST ACTUALLY HOLDS. It holds through the product:
 the page renders no button until `previewPurge` has answered, so an owner moving
 through the surface cannot meet the delete before its consequences. It is not
-ENFORCED, and nothing in this version can enforce it -- ADR-0107 ships a single
-owner and no login, so `provider.purge` is a public procedure anything reaching
-the instance can call directly. A check on the form would bound the form and not
-the operation, which is the appearance of a boundary rather than one. Enforcement
-arrives with authentication, and `docs/research/access-layer.md` puts that in the
-playback spec.
+ENFORCED, and a check on the form could not enforce it: it would bound the form
+and not the operation, since `/api/rpc` carries the same procedure. So an owner
+who calls `provider.purge` directly meets no preview, and that is unchanged.
+
+WHAT DID CHANGE IS WHO CAN, and this paragraph said otherwise until CNCORE-109.
+It read "nothing in this version can enforce it -- ADR-0107 ships a single owner
+and no login, so `provider.purge` is a public procedure anything reaching the
+instance can call directly", and that was true when it was written and is not
+now: `purge` is an `ownerProcedure`, so the caller is the owner or the call is
+refused (ADR-0043, ADR-0044). The preview is still the OWNER'S discipline rather
+than the product's guarantee -- which is the honest version of counts-first, and
+is why it is stated here rather than claimed as a boundary.
 
 ## Evidence
 

@@ -68,6 +68,12 @@ services:
       # there. Empty means none is searched, and the import surface says so
       # rather than showing an empty result.
       PROVIDER_URLS: ${PROVIDER_URLS:-}
+      # THE OWNER'S PASSWORD, and the only thing standing in front of everything
+      # that WRITES (CNCORE-109). Unset means nobody can log in and the whole
+      # instance is read-only, which is ADR-0044's public demo rather than a
+      # broken install -- so this interpolates to empty instead of refusing to
+      # start the way POSTGRES_PASSWORD does.
+      OWNER_PASSWORD: ${OWNER_PASSWORD:-}
     ports:
       - "${CANONCORE_PORT:-3000}:3000"
 

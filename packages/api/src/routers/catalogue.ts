@@ -6,7 +6,7 @@ import {
 } from "@canoncore/schemas";
 import { z } from "zod";
 
-import { publicProcedure } from "../index";
+import { openProcedure } from "../index";
 
 /**
  * HOW MANY ITEMS ONE ANSWER CARRIES, when the caller does not say.
@@ -101,7 +101,7 @@ export const catalogue = {
    * be answering the other question without saying so -- and the other question
    * is `works` below rather than this one with a flag on it.
    */
-  list: publicProcedure
+  list: openProcedure
     .input(listingInput)
     .output(cataloguePublic)
     .handler(async ({ input, context }) => {
@@ -128,7 +128,7 @@ export const catalogue = {
    * swapping one for the other changes what it is asking and nothing else --
    * the cap, the cursor and `continuesAfter` included (ADR-0119).
    */
-  works: publicProcedure
+  works: openProcedure
     .input(listingInput)
     .output(cataloguePublic)
     .handler(async ({ input, context }) => {
@@ -160,7 +160,7 @@ export const catalogue = {
    * says what it says everywhere and `total` is no longer carrying the cap's
    * honesty alone.
    */
-  search: publicProcedure
+  search: openProcedure
     .input(searchInput)
     .output(cataloguePublic)
     .handler(async ({ input, context }) => {

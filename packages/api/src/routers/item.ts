@@ -8,10 +8,10 @@ import {
 import { itemPublic } from "@canoncore/schemas";
 import { z } from "zod";
 
-import { publicProcedure } from "../index";
+import { openProcedure } from "../index";
 
 export const item = {
-  get: publicProcedure
+  get: openProcedure
     /*
      * `z.string()` rather than `z.uuid()`, which is not a loosening of the
      * contract but a statement of where the contract lives. ANY string may be
