@@ -126,8 +126,32 @@ describe("/items/<a container>", () => {
     // own order by definition, so naming the sources must not reorder it the way
     // `findPlacementsOfItem` does on the item's end -- where rank leads because
     // the rows there are competing orderings rather than one ordering's contents.
+    //
+    // THE FIXTURE IS WHAT MAKES THIS BITE, and it did not at first. The source
+    // that outranks the other is the one claiming #3, so a rank-first ordering
+    // renders these two rows the other way up. Measured: with the two sources
+    // created in the other order, this assertion passed against a member query
+    // ordering by the spokesman's terms ahead of position.
     expect(argued[0]).toContain("#1");
     expect(argued[1]).toContain("#3");
+  });
+
+  it("shows two sources agreeing as two names on one row", async () => {
+    // ADR-0017's other half, and the gap that record names: "a placement two
+    // providers corroborate and a placement one provider asserts are
+    // indistinguishable to every reader". Sources agreeing land on ONE placement
+    // row carrying a source each, so corroboration is only ever visible if the
+    // row names them both -- and the record calls its invisibility "the opposite
+    // of what this record set out to make legible".
+    const { text } = await documentAt(`/items/${workBrowsing.disagreedAboutId}`);
+
+    const agreed = memberRows(text).filter((row) => row.includes(workBrowsing.agreedOn));
+    expect(agreed).toHaveLength(1);
+    for (const by of workBrowsing.arguedBy) expect(agreed[0]).toContain(by);
+    // ONE ROW, NOT TWO. Agreement is corroboration rather than a second claim
+    // (ADR-0017), so a page rendering this twice would be showing the reader a
+    // disagreement that the catalogue does not hold.
+    expect(agreed[0]).toContain("#2");
   });
 
   it("carries the ordering a reader arrived through into the item page", async () => {

@@ -64,6 +64,44 @@ export interface PlacementOfItem {
 }
 
 /**
+ * THE THREE TERMS THAT DECIDE WHICH SOURCE SPEAKS, written once because two
+ * queries below read them and a third copy of this rule lives in SQL.
+ *
+ * They are `winning_literal`'s, in its order and for its reasons -- migration 1.
+ * Rank first, because the owner's favourite is the lock and outranks the whole
+ * source order (ADR-0024); then the one global source order (ADR-0025); then the
+ * row id, an arbitrary but stable tiebreak. Recency is deliberately absent.
+ *
+ * `spokesmanFor` applies them to PICK one source and `assertersOf` to ORDER
+ * every source, which is the same rule answering two questions rather than two
+ * rules. Named here rather than written out twice: this file already carries a
+ * paragraph about three copies of a rule whose whole point is that it is
+ * identical, and that paragraph was about the version with three copies.
+ *
+ * THE COPY IN `winning_literal` CANNOT JOIN THEM, and that is the one place the
+ * duplication is real: it is PL/pgSQL in a migration, which no TypeScript
+ * constant reaches. Two languages, and the ADR says to keep them identical by
+ * hand.
+ */
+const whoSpeaksFirst = [ranks.precedence, sources.sourceOrder, placementSources.id];
+
+/**
+ * THE LIVE CLAIMS BEHIND THE PLACEMENT THIS ROW IS FOR, and the tombstone both
+ * readers honour.
+ *
+ * The placement source's OWN, the exact analogue of the statement's own that
+ * `winning_literal` checks. `sources.deleted_at` is deliberately absent from
+ * this and from `winning_literal` alike (ADR-0017): a query locally more correct
+ * than its twin makes one field's provenance disagree with another's, in a way
+ * that compiles perfectly. Nothing can delete a source today; when something
+ * can, this is now ONE line rather than two.
+ */
+const standingBehindThePlacement = and(
+  eq(placementSources.placementId, placements.id),
+  isNull(placementSources.deletedAt),
+);
+
+/**
  * WHICH source speaks for a placement, when several do -- and, when two of them
  * disagree about position, WHICH OF THE TWO PLACEMENTS SPEAKS.
  *
@@ -102,8 +140,8 @@ function spokesmanFor(db: Database) {
     .from(placementSources)
     .innerJoin(sources, eq(sources.id, placementSources.sourceId))
     .innerJoin(ranks, eq(ranks.rank, placementSources.rank))
-    .where(and(eq(placementSources.placementId, placements.id), isNull(placementSources.deletedAt)))
-    .orderBy(ranks.precedence, sources.sourceOrder, placementSources.id)
+    .where(standingBehindThePlacement)
+    .orderBy(...whoSpeaksFirst)
     .limit(1)
     .as("spokesman");
 }
@@ -856,32 +894,21 @@ function assertersOf(db: Database) {
   return (
     db
       .select({
-        // THE SPOKESMAN'S THREE TERMS, IN ITS ORDER AND FOR ITS REASONS: rank
-        // first, because the owner's favourite is the lock and outranks the whole
-        // source order (ADR-0024); then the one global source order (ADR-0025);
-        // then a stable id. The same rule `winning_literal` and `spokesmanFor`
-        // apply to PICK a name, applied here to ORDER every name -- so the source
-        // that speaks for a placement leads the list that names them, and the two
-        // cannot come to disagree about which one that is.
+        // `whoSpeaksFirst`, ORDERING EVERY NAME WHERE THE SPOKESMAN PICKS ONE.
+        // The same three terms, read from the same array rather than written out
+        // again, so the source that speaks for a placement leads the list that
+        // names them and the two queries cannot come to disagree about which one
+        // that is.
         labels: sql<string[]>`coalesce(
-          json_agg(
-            ${sources.label}
-            order by ${ranks.precedence}, ${sources.sourceOrder}, ${placementSources.id}
-          ),
+          json_agg(${sources.label} order by ${sql.join(whoSpeaksFirst, sql`, `)}),
           '[]'::json
         )`.as("labels"),
       })
       .from(placementSources)
       .innerJoin(sources, eq(sources.id, placementSources.sourceId))
       .innerJoin(ranks, eq(ranks.rank, placementSources.rank))
-      // The placement source's own tombstone, the one `spokesmanFor` honours and
-      // for the same reason: a withdrawn claim is not a source standing behind
-      // anything. The SOURCE's own is deliberately not checked here either, which
-      // ADR-0017 carries as a named gap belonging to whatever first lets a source
-      // be deleted -- one rule in two languages, and now in three.
-      .where(
-        and(eq(placementSources.placementId, placements.id), isNull(placementSources.deletedAt)),
-      )
+      // The same predicate the spokesman reads, tombstone and all.
+      .where(standingBehindThePlacement)
       .as("asserters")
   );
 }

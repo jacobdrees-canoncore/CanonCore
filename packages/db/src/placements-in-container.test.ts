@@ -261,6 +261,38 @@ describe("findPlacementsInContainer, on who asserted each placement", () => {
     ]);
   });
 
+  it("stops naming a source that withdrew its claim", async () => {
+    // ADR-0075's tombstone, on the row that carries the claim. ADR-0017 is
+    // precise about WHICH tombstone this list honours: the placement source's
+    // own, "the exact analogue of the statement's own that `winning_literal`
+    // checks" -- and deliberately NOT `sources.deleted_at`, which neither that
+    // function nor the spokesman checks either, because one query locally more
+    // correct than its twins makes one field's provenance disagree with another's.
+    //
+    // THE PLACEMENT ITSELF SURVIVES, which is the half worth pinning. A source
+    // withdrawing its claim does not un-place the item: the other source still
+    // says it sits here, so the row stands and stops naming the one that left.
+    const stayed = await aProvider(db, "https://provider.test/stayed", "A source that stayed");
+    const left = await aProvider(db, "https://provider.test/left", "A source that withdrew");
+    const container = await anItemTitled(db, "An ordering one source walked away from", {
+      isContainer: true,
+      isOrdered: true,
+    });
+    const story = await anItemTitled(db, "A story two sources placed, then one");
+    for (const sourceId of [stayed, left]) {
+      await assertPlacement(db, { containerId: container, itemId: story, position: 1, sourceId });
+    }
+    await db
+      .update(placementSources)
+      .set({ deletedAt: new Date() })
+      .where(eq(placementSources.sourceId, left));
+
+    const held = await findPlacementsInContainer(db, container);
+
+    expect(held).toHaveLength(1);
+    expect(held[0]).toMatchObject({ assertedBy: ["A source that stayed"] });
+  });
+
   it("still answers a placement no source stands behind, naming nobody", async () => {
     // A CLAIM NOBODY MADE IS STILL A ROW. `findPlacementsOfItem` joins its
     // spokesman LEFT for this exact reason -- an inner join would be the read

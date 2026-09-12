@@ -151,8 +151,9 @@ KIND of the source that SPEAKS for the placement, and `placementPublic` carries 
 placement two providers corroborate and a placement one provider asserts are indistinguishable to a
 reader of THAT list, and the page prints one row reading "Imported" for both. This record's first
 sentence is that a placement has many sources; what a reader of the item's own page can see of that
-is which kind of thing one of them is. The CONTAINER's end answers the set from CNCORE-90, the last
-section below; CNCORE-121 is the same fix for this one.
+is which kind of thing one of them is. The CONTAINER's end answers the set from CNCORE-90, under
+"And under CNCORE-90: the container's end names the SET, and the half of the resolution it cannot
+carry"; CNCORE-121 is the same fix for this one.
 
 The test asserts the second source through its CONSEQUENCE instead -- the page owes TMDB a notice,
 and it can only owe one because a TMDB placement source sits on that item
@@ -168,6 +169,11 @@ what closes the rest -- so "the opposite of what this record set out to make leg
 one list rather than of both.
 
 ## And under CNCORE-90: the container's end names the SET, and the half of the resolution it cannot carry
+
+**AND CORROBORATION IS VISIBLE FROM THIS END AT LAST.** Two providers agreeing about one position
+are ONE placement row carrying two names, which the end-to-end suite renders and asserts -- so the
+gap above ("corroboration being INVISIBLE is the cost until then") is closed for the container's
+end rather than merely arguable from the field's existence.
 
 **BUILT: a member list a reader can tell a Repeat from a disagreement in.** `findPlacementsInContainer`
 answers `assertedBy` -- every source standing behind a placement, by the label each calls itself --
@@ -209,14 +215,18 @@ the lateral removed. Measured 2026-09-12 on PostgreSQL 18.6, the version `compos
 six times a very small number and it rides on the listing [[0119-a-listing-is-walked-forward-from-the-last-item-it-showed]] has not
 capped yet, which is CNCORE-89's decision and now has a figure in it.
 
-**NOR CAN ANYTHING YET WRITE THE DISAGREEMENT IT RENDERS.** Unchanged from CNCORE-7's section and
-worth repeating rather than assuming: `browse` writes one source's claims per call and the owner's
+**NOR CAN ANYTHING YET WRITE THE DISAGREEMENT IT RENDERS.** Unchanged from "And the rest of it,
+under CNCORE-7 -- so this record is now ACCEPTED" above, and worth repeating rather than assuming: `browse` writes one source's claims per call and the owner's
 hand still has no surface that places anything, so both the db suite and the e2e suite SEED the two
 sources. CNCORE-72 is the first thing that can produce one in a running instance, and this landing
 before it is the point -- the list that would have had to render it was already wrong.
 
-**AND THE DELETED SOURCE IS STILL NOT HONOURED, now in three places rather than two.** The aggregate
-checks the placement source's own tombstone and not `sources.deleted_at`, exactly as `spokesmanFor`
-and `winning_literal` do, for the reason this record gives above: a query locally more correct than
-its twins makes one field's provenance disagree with another's. Nothing can delete a source today.
-It is three lines in three places when something can.
+**AND THE DELETED SOURCE IS STILL NOT HONOURED -- IN TWO PLACES, WHICH IS FEWER THAN BEFORE.** The
+aggregate checks the placement source's own tombstone and not `sources.deleted_at`, exactly as
+`spokesmanFor` and `winning_literal` do, for the reason this record gives above: a query locally more
+correct than its twins makes one field's provenance disagree with another's. A third copy is what
+this query would have meant, so the predicate and the three ordering terms are each written ONCE in
+`queries.ts` now and read by both readers -- `standingBehindThePlacement` and `whoSpeaksFirst`.
+`winning_literal` cannot read them, being PL/pgSQL in a migration, and that copy is still held
+identical by hand. Nothing can delete a source today; when something can, it is two lines in two
+places rather than three in three.
