@@ -36,6 +36,12 @@ export {
 } from "./cmpp";
 export { parseProviderUrls } from "./configured";
 export {
+  type FailureReason,
+  failureReason,
+  REASON_MAX_LENGTH,
+  reasonFor,
+} from "./reason";
+export {
   type FailedProvider,
   type ProviderAnswer,
   type ProviderSearch,

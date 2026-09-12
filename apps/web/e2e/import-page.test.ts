@@ -587,7 +587,7 @@ describe("/import, when the provider refuses", () => {
     // unreachable, so either sentence would pass here -- what is asserted is the
     // one the page has to be able to say about all three.
     expect(container.toLowerCase()).toContain("nothing could be learned about that id");
-    expect(container).toContain(said.reason);
+    expect(container).toContain(said.reason.text);
     // AND NOT EITHER OF THE OTHER TWO, which is what distinguishing them means.
     expect(container.toLowerCase()).not.toContain("no container at that id");
     expect(container.toLowerCase()).not.toContain("does not offer browse");

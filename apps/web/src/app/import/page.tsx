@@ -1,5 +1,6 @@
 import { type Context, createContext } from "@canoncore/api/context";
 import { appRouter } from "@canoncore/api/routers";
+import type { FailureReason } from "@canoncore/providers";
 import { Button } from "@canoncore/ui/components/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@canoncore/ui/components/card";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@canoncore/ui/components/empty";
@@ -685,7 +686,8 @@ function Unreachable({ failed }: { failed: Found["failed"] }) {
       <ul className="mt-2 divide-y">
         {failed.map(({ baseUrl, reason }) => (
           <li key={baseUrl} className="py-2 text-sm">
-            <span className="font-medium">{baseUrl}</span> <span>{reason}</span>
+            <span className="font-medium">{baseUrl}</span>{" "}
+            <Reason baseUrl={baseUrl} reason={reason} />
           </li>
         ))}
       </ul>
@@ -1029,12 +1031,48 @@ function StillHeld({ itemId }: { itemId: string }) {
  * provider being switched off, and one answering badly have three different
  * remedies, and the sentence is the only thing that separates them.
  */
-function NotReached({ baseUrl, reason }: { baseUrl: string; reason: string }) {
+function NotReached({ baseUrl, reason }: { baseUrl: string; reason: FailureReason }) {
   return (
     <p className="text-muted-foreground text-sm">
-      Nothing could be learned about that id from <span className="font-medium">{baseUrl}</span>.{" "}
-      {reason}
+      {/*
+        THE URL IS NOT NAMED TWICE. `Reason` names the provider itself when the
+        sentence is the PROVIDER'S, and ADR-0034's own refusals open `refused
+        <origin>:` when it is CANONCORE'S -- so either branch already tells the
+        owner which provider this is about, and the lead sentence saying it too
+        read as a stutter.
+      */}
+      Nothing could be learned about that id. <Reason baseUrl={baseUrl} reason={reason} />
     </p>
+  );
+}
+
+/**
+ * A REASON, SAID BY WHOEVER SAID IT (ADR-0123, CNCORE-95).
+ *
+ * TWO KINDS OF STRING ARRIVE HERE AND THEY ARE NOT THE SAME KIND. CanonCore's
+ * own sentence is this app telling the owner about a setting only they can
+ * change -- ADR-0034's config boundary refused a URL they typed -- so it is
+ * printed as this catalogue speaking, which is what it is.
+ *
+ * A PROVIDER'S TEXT IS QUOTED AND ATTRIBUTED TO IT. The provider chose those
+ * words, and run on unmarked after the app's own sentence they read as the
+ * app's: CNCORE-96 binds every reason surface to saying "which Provider it came
+ * from so the Owner reads it as a Provider's claim rather than as CanonCore
+ * speaking". The LENGTH is not the provider's to choose either, and that is
+ * already settled before it arrives here -- `reasonFor` caps it at the seam
+ * rather than the page truncating what it is handed.
+ *
+ * NOT A REWORDING, THOUGH. CNCORE-92's rule is that a provider which cannot be
+ * reached must never look like one that holds nothing, and a reason replaced by
+ * a house sentence would do exactly that -- "a refusal reworded is not a
+ * refusal reported". It is marked as theirs and left as theirs.
+ */
+function Reason({ baseUrl, reason }: { baseUrl: string; reason: FailureReason }) {
+  if (reason.wrote === "canoncore") return <span>{reason.text}</span>;
+  return (
+    <span>
+      <span className="font-medium">{baseUrl}</span> said: <q>{reason.text}</q>
+    </span>
   );
 }
 

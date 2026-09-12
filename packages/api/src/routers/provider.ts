@@ -16,8 +16,10 @@ import {
   type CmppManifest,
   type CmppRecord,
   createProviderClient,
+  failureReason,
   OutboundRefused,
   type ProviderClient,
+  reasonFor,
   searchProviders,
 } from "@canoncore/providers";
 import { z } from "zod";
@@ -479,7 +481,7 @@ export const provider = {
          * the OWNER, who typed these URLs and is the only person who can fix
          * one, and who cannot act on "a provider you configured is down".
          */
-        failed: z.array(z.object({ baseUrl: z.url(), reason: z.string().min(1) })),
+        failed: z.array(z.object({ baseUrl: z.url(), reason: failureReason })),
       }),
     )
     .handler(async ({ input, context }) => {
@@ -516,11 +518,14 @@ export const provider = {
             };
           }),
         ),
-        // THE MESSAGE RATHER THAN THE `Error`. It travels to a page, and an
-        // `Error` does not serialise across the wire; the message is the sentence
-        // the owner has to read. `OutboundRefused` and a provider that fell over
-        // are both in here, distinguishable by what they say.
-        failed: failed.map(({ baseUrl, reason }) => ({ baseUrl, reason: reason.message })),
+        // BOUNDED AND ATTRIBUTED RATHER THAN THE RAW MESSAGE (ADR-0123). An
+        // `Error` does not serialise across the wire, and the message alone let
+        // the provider choose how much of the owner's page it filled -- a
+        // refused body is one zod issue per bad field, so 200 malformed records
+        // is a reason no page can show. `reasonFor` caps it and says whose
+        // sentence it is, which is what keeps ADR-0034's refusal -- the one
+        // naming the setting to fix -- readable as CanonCore's own.
+        failed: failed.map(({ baseUrl, reason }) => ({ baseUrl, reason: reasonFor(reason) })),
       };
     }),
 
@@ -684,7 +689,7 @@ export const provider = {
          */
         z.object({
           answer: z.literal("unreachable"),
-          reason: z.string().min(1),
+          reason: failureReason,
         }),
       ]),
     )
@@ -721,16 +726,11 @@ export const provider = {
          * they SAY, as they do in `search`'s `failed` list. Narrowing to the
          * ones foreseen here would leave the rest as the 500 this removes.
          */
-        // TODO(CNCORE-95): this message is app-authored only for an
-        // `OutboundRefused`. It is also undici's, the DNS layer's, or zod's --
-        // and a zod message serialises the value it received, so a provider
-        // that answers badly chooses the length and content of a string this
-        // catalogue then prints. `provider.search`'s `failed` list has carried
-        // the same field since CNCORE-68, so the rule belongs to both.
-        return {
-          answer: "unreachable" as const,
-          reason: error instanceof Error ? error.message : String(error),
-        };
+        // BOUNDED AND ATTRIBUTED, by the one rule `provider.search`'s `failed`
+        // list takes (ADR-0123). The two carried this field independently --
+        // CNCORE-68 and CNCORE-92 -- and each mapped its own catch, which is how
+        // one defect came to have two sites.
+        return { answer: "unreachable" as const, reason: reasonFor(error) };
       } finally {
         // Two undici agents and therefore two connection pools, as everywhere
         // else on this path.

@@ -11,9 +11,31 @@ import ipaddr from "ipaddr.js";
  * a refusal that throws cannot be forgotten by a caller who meant to check.
  */
 export class OutboundRefused extends Error {
-  constructor(message: string) {
+  /**
+   * WHICH OF THIS RECORD'S TWO BOUNDARIES REFUSED, which is what decides whose
+   * sentence this is (ADR-0123). The CONFIG boundary judges a URL the OWNER
+   * typed, so its refusal names a setting only they can change and is this app
+   * talking to them. The CONTENT boundary judges a URL a PROVIDER wrote, so its
+   * refusal quotes the provider's own text back -- `hopTo` interpolates a raw
+   * `Location` header -- and is that provider's claim rather than ours.
+   *
+   * `content` BY DEFAULT, so a refusal added later is capped and attributed to
+   * the provider until somebody decides otherwise. That is the conservative
+   * direction: the cost of getting it wrong this way is a sentence the Owner
+   * reads as a provider's, and the other way it is a provider choosing text the
+   * Owner reads as CanonCore's.
+   *
+   * READ BY `reasonFor` AND NOWHERE ELSE. The refusals raised while PARSING
+   * settings at startup never reach it -- they stop the server rather than
+   * travelling to a page -- so they are left at the default rather than
+   * annotated for a reader that does not exist.
+   */
+  readonly boundary: "config" | "content";
+
+  constructor(message: string, boundary: "config" | "content" = "content") {
     super(message);
     this.name = "OutboundRefused";
+    this.boundary = boundary;
   }
 }
 
@@ -165,10 +187,11 @@ function bareHost(url: URL): string {
  * from whichever client happens to be underneath, and ADR-0034's boundary has
  * to hold on its own.
  */
-function assertHttpScheme(url: URL): void {
+function assertHttpScheme(url: URL, boundary: "config" | "content"): void {
   if (url.protocol === "http:" || url.protocol === "https:") return;
   throw new OutboundRefused(
     `refused ${url.href}: the scheme is \`${url.protocol}\` and a provider is reached over HTTP.`,
+    boundary,
   );
 }
 
@@ -180,7 +203,7 @@ function assertHttpScheme(url: URL): void {
  * twice and trusting the first answer.
  */
 export function assertContentUrl(url: URL): void {
-  assertHttpScheme(url);
+  assertHttpScheme(url, "content");
   const host = bareHost(url);
   // A hostname is not an address and must fall through to the lookup hook
   // rather than be refused as unparseable, so this asks whether it IS one.
@@ -202,7 +225,7 @@ export function assertContentUrl(url: URL): void {
  * A port is not a destination and ADR-0034's allowlist takes hosts and CIDRs.
  */
 export function assertConfigUrl(url: URL, allowlist: Allowlist): void {
-  assertHttpScheme(url);
+  assertHttpScheme(url, "config");
   const hostname = url.hostname;
   const bare = bareHost(url);
 
@@ -211,12 +234,14 @@ export function assertConfigUrl(url: URL, allowlist: Allowlist): void {
     if (allowlist.ranges.some((range) => matches(address, range))) return;
     throw new OutboundRefused(
       `refused ${url.origin}: ${bare} is on no allowlisted CIDR. A provider on a private network goes on the allowlist by name (ADR-0034).`,
+      "config",
     );
   }
 
   if (allowlist.hosts.has(hostname.toLowerCase())) return;
   throw new OutboundRefused(
     `refused ${url.origin}: ${hostname} is not an allowlisted host. The allowlist takes exact hosts, so a parent domain does not cover it.`,
+    "config",
   );
 }
 
@@ -339,13 +364,14 @@ export function pinnedLookup(
 export function assertConfigAddress(allowlist: Allowlist): AssertAddress {
   return (address) => {
     if (!ipaddr.isValid(address)) {
-      throw new OutboundRefused(`refused ${address}: it is not a readable address.`);
+      throw new OutboundRefused(`refused ${address}: it is not a readable address.`, "config");
     }
     const parsed = ipaddr.parse(address);
     if (parsed.range() === UNICAST) return;
     if (allowlist.ranges.some((range) => matches(parsed, range))) return;
     throw new OutboundRefused(
       `refused ${address}: ipaddr.js classifies it as \`${parsed.range()}\` and no allowlisted CIDR covers it. A provider on a private network goes on the allowlist by name (ADR-0034).`,
+      "config",
     );
   };
 }

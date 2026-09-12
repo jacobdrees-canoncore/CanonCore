@@ -1,7 +1,7 @@
 import { createServer, type Server } from "node:http";
 import { type Database, items, sources } from "@canoncore/db";
 import { connect } from "@canoncore/db/testing/catalogue";
-import { parseAllowlist } from "@canoncore/providers";
+import { parseAllowlist, REASON_MAX_LENGTH } from "@canoncore/providers";
 import { call, isDefinedError, safe } from "@orpc/server";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
@@ -702,7 +702,13 @@ describe("provider.search", () => {
     // cannot tell them apart concludes their query was wrong.
     expect(failed).toHaveLength(1);
     expect(failed[0]?.baseUrl).toBe(refused);
-    expect(failed[0]?.reason).toContain("not an allowlisted host");
+    // AND IT IS CANONCORE'S OWN SENTENCE, WHOLE (ADR-0123). ADR-0034's config
+    // boundary refused a URL the OWNER typed, so the refusal names the setting
+    // only they can change -- it is not a provider's text, it is not cut, and a
+    // page does not attribute it to the provider.
+    expect(failed[0]?.reason.wrote).toBe("canoncore");
+    expect(failed[0]?.reason.text).toContain("not an allowlisted host");
+    expect(failed[0]?.reason.text).toContain("a parent domain does not cover it");
   });
 
   /**
@@ -731,6 +737,50 @@ describe("provider.search", () => {
 
     expect(again.itemId).toBe(first.itemId);
     expect(answered[0]?.results[0]?.itemId).toBe(first.itemId);
+  });
+
+  /**
+   * AND A PROVIDER DOES NOT GET TO CHOOSE HOW MUCH OF THE OWNER'S PAGE IT FILLS
+   * (ADR-0123, CNCORE-95).
+   *
+   * THE PAYLOAD IS THE LEVER, NOT THE PROSE. `cmppSearch.parse` refuses a
+   * malformed body, and a `ZodError`'s message is the ISSUE LIST serialised as
+   * JSON -- one issue per bad field per record. So the provider sets the length
+   * by how many bad records it sends. THE PAYLOAD BELOW IS MEASURED, not
+   * imagined: uncapped it is a 151,362-character reason, and `MAX_BODY_BYTES`
+   * lets a provider send 4 MiB of such records rather than the 200 used here.
+   *
+   * THIS IS NOT WHAT CNCORE-95 SAID THE MECHANISM WAS. Its words are "a zod
+   * message that serialises the received value", and zod 4.5.4 does not put the
+   * received value in the message at all -- it puts `code`, `expected`, `path`
+   * and its own sentence. The defect is real and is LARGER than that reading;
+   * only the route to it was misdescribed. ADR-0123 carries the correction.
+   */
+  it("caps what a provider's malformed payload puts on the Owner's page", async () => {
+    const malformed = Object.fromEntries(
+      // Each one matches the query on its title and is refused on every other
+      // field, so the body is well-formed JSON that CMPP does not accept.
+      Array.from({ length: 200 }, (_, n) => [
+        String(n),
+        { id: n, title: "tenth planet", kind: n, released: n, url: n },
+      ]),
+    );
+    const baseUrl = await stubProvider(malformed);
+    const searching = { ...context, providerUrls: [baseUrl] };
+
+    const { answered, failed } = await call(
+      appRouter.provider.search,
+      { query: "tenth planet" },
+      { context: searching },
+    );
+
+    // REFUSED RATHER THAN PARTLY ACCEPTED: a body CMPP does not accept is a
+    // provider that answered badly, which is a failure and not an empty result.
+    expect(answered).toEqual([]);
+    expect(failed).toHaveLength(1);
+    expect(failed[0]?.reason.text.length).toBeLessThanOrEqual(REASON_MAX_LENGTH);
+    // AND IT IS THE PROVIDER'S CLAIM, not CanonCore's sentence about a setting.
+    expect(failed[0]?.reason.wrote).toBe("provider");
   });
 });
 
@@ -927,6 +977,51 @@ describe("provider.container", () => {
     );
 
     expect(answer.answer).toBe("unreachable");
-    expect(answer).toMatchObject({ reason: expect.stringContaining("allowlisted") });
+    // THE SAME RULE AS `provider.search`'s `failed` LIST, at the other procedure
+    // (ADR-0123). One rule applied to the newer of the two would have left this
+    // surface exactly as CNCORE-95 found it.
+    expect(answer).toMatchObject({
+      reason: { wrote: "canoncore", text: expect.stringContaining("allowlisted") },
+    });
+  });
+
+  /**
+   * AND THE CAP HOLDS HERE TOO, asserted at this procedure rather than inferred
+   * from `provider.search` (ADR-0123, CNCORE-95).
+   *
+   * THE TWO GREW THE FIELD SEPARATELY -- CNCORE-68 and CNCORE-92 -- and each
+   * mapped its own catch, which is how one defect came to have two sites. A rule
+   * proven only at the newer of them would leave the older surface as it was,
+   * which is the thing the ticket asks for by name.
+   *
+   * MEASURED: uncapped, the payload below is a 78,287-character reason.
+   */
+  it("caps a provider's malformed container payload too, and calls it the provider's", async () => {
+    const baseUrl = await stubProvider(
+      {},
+      {
+        containers: {
+          // A body that is well-formed JSON and is not a CMPP browse: one zod
+          // issue per bad member, so the provider sets the length.
+          "388305": {
+            container: { id: 388305, title: 388305, kind: 388305, released: 388305, url: 388305 },
+            ordering: Array.from({ length: 200 }, (_, n) => ({ position: "x", record: n })),
+            unplaced: [],
+          },
+        },
+      },
+    );
+
+    const answer = await call(
+      appRouter.provider.container,
+      { baseUrl, containerId: "388305" },
+      { context },
+    );
+
+    if (answer.answer !== "unreachable") {
+      throw new Error(`a provider that answered badly was reported ${answer.answer}`);
+    }
+    expect(answer.reason.text.length).toBeLessThanOrEqual(REASON_MAX_LENGTH);
+    expect(answer.reason.wrote).toBe("provider");
   });
 });

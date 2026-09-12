@@ -1,0 +1,101 @@
+import { z } from "zod";
+
+import { OutboundRefused } from "./boundary";
+
+/**
+ * ADR-0123. How much of a reason the Owner reads before it is cut.
+ *
+ * CHOSEN ABOVE EVERY SENTENCE THIS APP WRITES AND BELOW ANYTHING A PROVIDER
+ * COULD FLOOD A PAGE WITH. The longest refusal in `boundary.ts` is 172
+ * characters with an ordinary base URL in it, so the sentences the Owner has to
+ * act on are nowhere near this and arrive whole. What is stopped is measured
+ * rather than imagined: 200 malformed search results is a 151,362-character
+ * reason, and `MAX_BODY_BYTES` admits 4 MiB of such records.
+ *
+ * THE CAP IS ASSERTED AGAINST THE REAL BOUNDARY rather than trusted. A sentence
+ * edited past it would be truncated silently and the Owner would lose the half
+ * naming the setting, so a test throws the refusal from `assertConfigUrl` and
+ * asserts the reason equals it exactly.
+ */
+export const REASON_MAX_LENGTH = 300;
+
+/** What stands in for the part of a reason the Owner does not get to read. */
+const CUT = "…";
+
+/**
+ * Why a provider could not be reached, in a form a page may print (ADR-0123).
+ *
+ * TWO FIELDS BECAUSE THERE ARE TWO KINDS OF STRING HERE, and until CNCORE-95
+ * they travelled as one. A page handed only the text has no way to tell the
+ * Owner which of the two it is holding, so it prints a provider's sentence in
+ * CanonCore's voice -- and that is the half a cap alone does not buy.
+ */
+export const failureReason = z.object({
+  /**
+   * WHOSE SENTENCE THIS IS. `canoncore` is this app telling the Owner about
+   * their own configuration: ADR-0034's config boundary refused a URL they
+   * typed, and the refusal names the setting to change. `provider` is a third
+   * party's text -- undici's, the DNS layer's, or zod's report on a body the
+   * provider chose.
+   *
+   * MEASURED ON ZOD 4.5.4 RATHER THAN ASSUMED, because CNCORE-95 described this
+   * as "a zod message that serialises the received value" and it does not. A
+   * `ZodError`'s message is the ISSUE LIST as JSON -- `code`, `expected`,
+   * `path`, and zod's own sentence -- so the lever is ONE ISSUE PER BAD FIELD
+   * and the provider sets the length by how many bad records it sends. Its own
+   * strings do reach the message, through `path`. ADR-0123 carries the
+   * correction.
+   *
+   * A PAGE ATTRIBUTES THE SECOND AND NOT THE FIRST. CNCORE-96 binds every new
+   * reason surface to it: the Owner reads a provider's text "as a Provider's
+   * claim rather than as CanonCore speaking".
+   */
+  wrote: z.enum(["canoncore", "provider"]),
+  /**
+   * BOUNDED IN THE CONTRACT AND NOT ONLY IN THE HANDLER, so the ceiling is in
+   * the OpenAPI document a caller reads rather than an invariant they have to
+   * take on trust from two handlers that each remembered it.
+   */
+  text: z.string().min(1).max(REASON_MAX_LENGTH),
+});
+
+export type FailureReason = z.infer<typeof failureReason>;
+
+/**
+ * The reason a caller may read, out of whatever was thrown reaching a provider.
+ *
+ * ONE FUNCTION FOR EVERY REASON SURFACE, which is why it is published from this
+ * package rather than written at each procedure. `provider.search` and
+ * `provider.container` had the same defect independently because each mapped
+ * its own catch (CNCORE-68, then CNCORE-92), and CNCORE-100 and CNCORE-101 add
+ * two more surfaces that would have made it four.
+ *
+ * EVERYTHING IS CAPPED, INCLUDING OUR OWN. The cap is what makes the field
+ * bounded at all, and exempting one branch would mean the bound held only while
+ * every caller agreed about which branch it was on.
+ */
+export function reasonFor(thrown: unknown): FailureReason {
+  const message = thrown instanceof Error ? thrown.message : String(thrown);
+  const wrote = thrown instanceof OutboundRefused && thrown.boundary === "config";
+  return { wrote: wrote ? "canoncore" : "provider", text: cap(message) || SILENT };
+}
+
+/**
+ * What is said when the thrown thing said nothing.
+ *
+ * `new Error()` carries an empty message and so does a thrown `""`. The schema
+ * above declares `text` as `min(1)`, so an empty one fails OUTPUT validation and
+ * becomes exactly the 500 `provider.container` exists to remove -- a provider
+ * must not be able to crash the request that is reading it.
+ *
+ * IT REPORTS THE SILENCE RATHER THAN DRESSING IT UP. CNCORE-92's rule is that a
+ * refusal reworded is not a refusal reported, and the honest thing to say about
+ * a failure that named no reason is that it named none.
+ */
+const SILENT = "the provider failed without saying why.";
+
+/** The text, cut to `REASON_MAX_LENGTH` INCLUDING the marker that says so. */
+function cap(text: string): string {
+  if (text.length <= REASON_MAX_LENGTH) return text;
+  return `${text.slice(0, REASON_MAX_LENGTH - CUT.length)}${CUT}`;
+}
