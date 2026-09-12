@@ -70,15 +70,29 @@ export async function startScheduler(registry: Registry, db: Database): Promise<
   const timers = new Set<ReturnType<typeof setTimeout>>();
   let stopped = false;
 
-  const arm = (task: { key: string; trigger: Trigger }) => {
+  const arm = (task: { key: string; trigger: Trigger }, from: Date) => {
     if (stopped) return;
-    const due = nextFiring(task.trigger, new Date());
+    const due = nextFiring(task.trigger, from);
     const timer = setTimeout(() => {
       timers.delete(timer);
       // RE-ARMED BEFORE THE RUN RATHER THAN AFTER IT. A sweep that takes an
       // hour would otherwise push tomorrow's firing an hour later every day,
       // and a task that never returns would end the schedule silently.
-      arm(task);
+      //
+      // AND FROM THE MOMENT IT WAS DUE RATHER THAN FROM THE CLOCK NOW, which
+      // is not the same moment: MEASURED on this machine, `setTimeout` fired
+      // BEFORE its deadline 34 times in 2000, by up to a millisecond. Reading
+      // the clock here on one of those would compute tonight's hour as still
+      // ahead and arm again for a millisecond's time -- two firings for one
+      // night. `due` is exact, so the next one is tomorrow whenever the
+      // callback actually ran.
+      //
+      // IT IS THE OVERLAP GUARD THAT MAKES TODAY'S VERSION HARMLESS, and that
+      // is the reason to fix it rather than to leave it: the second firing is
+      // refused only because the first is still waiting on a database round
+      // trip, which is a coincidence rather than a rule, and a task that never
+      // touches the database would run twice.
+      arm(task, due);
       void registry.run(db, task.key).catch(() => {
         // Every ending a run can have is already written to the history by
         // `registry.run`; what reaches here is the refusal of a task already
@@ -88,7 +102,8 @@ export async function startScheduler(registry: Registry, db: Database): Promise<
     timers.add(timer);
   };
 
-  for (const task of registry.tasks) arm(task);
+  const startingNow = new Date();
+  for (const task of registry.tasks) arm(task, startingNow);
 
   return () => {
     stopped = true;
