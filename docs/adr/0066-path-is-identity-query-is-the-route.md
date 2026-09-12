@@ -232,3 +232,93 @@ Dropping `z.uuid()` alone would have moved the 500 from oRPC into the database i
 
 **THIS RECORD STAYS PROPOSED.** Next is still DERIVED and nothing derives one yet. Addressing was the
 half already built.
+
+## A REQUEST BODY that cannot be read is the same rule -- under CNCORE-123
+
+The section above is about an id in a PATH. The same 500 was standing in the request BODY, on every
+Server Action in the app: `FormData.get` answers `File | string | null`, a `z.string()` field handed
+a `File` throws a `ZodError` nothing catches, and with no script loaded that renders a bare
+`Internal Server Error`. Found by review on CNCORE-74 and fixed once rather than four times, because
+the shape was identical in all of them and an action written next would have inherited it.
+
+**A CALLER HAS TO COMPOSE THAT REQUEST BY HAND, and it is still worth answering properly.** No
+browser sends a text input as a file part. So this is posture rather than a hole -- and posture is
+exactly what this record is about: the answer a reader gets should describe what they asked for, not
+claim the server is broken.
+
+**THE ANSWER IS "NOTHING WAS WRITTEN, HERE IS THE PAGE AGAIN", AND THAT IS NEXT'S PALETTE RATHER
+THAN A PREFERENCE.** A Server Action can end four ways and no more. Read out of the installed
+16.3.4 rather than remembered, in `next/dist/server/app-render/action-handler.js`: a redirect error
+sets `RedirectStatusCode.SeeOther`; an HTTP access-fallback error sets its own status; anything else
+sets 500. `http-access-fallback.js` closes that middle set to exactly three --
+`HTTPAccessErrorStatus` is `{ NOT_FOUND: 404, FORBIDDEN: 403, UNAUTHORIZED: 401 }` and `ALLOWED_CODES`
+is its values -- and `next/navigation` exports `notFound`, `forbidden`, `unauthorized`, `redirect`,
+`permanentRedirect` and nothing else that sets a status. `forbidden` and `unauthorized` additionally
+throw unless `experimental.authInterrupts` is on.
+
+**SO THERE IS NO 400 TO REACH FOR, AND THIS TIME 400 WOULD HAVE BEEN THE RIGHT ANSWER.** That is the
+difference from the section above and it is worth stating plainly rather than letting this record
+read as consistent when it is not: for an id in a path there IS nothing to fix and 400 is the
+tempting wrong answer, while for a body sent as the wrong part type there is something to fix and
+400 is what says so. It is simply not expressible here. Of what IS expressible, 404 would say the
+address holds nothing when the page is right there, 401 and 403 would say the caller lacks
+permission when they do not, and 500 is the defect being removed. What is left is the ordinary
+outcome the surface already has: the action writes nothing and the page it was posted to renders
+again, which is what five of these actions' docstrings already say they do -- "it returns nothing and
+the page reports by re-reading".
+
+**IT ALSO COSTS THE READER NOTHING, WHICH IS THE COMPLAINT THE 500 EARNED.** `item-write.test.ts`
+had already written the sentence this turns on: a Server Action that throws "costs the reader the
+page they were on". A refusal that leaves them on it is the one answer here that does not.
+
+**A `File` AND A `null` ARE ONE ANSWER, WHICH IS "NOT GIVEN"** -- this record's own refusal to split
+one absence into two, applied to a field instead of an id. Neither is text, and a surface that told
+them apart would be reporting on the shape of the request rather than on what was asked for. What
+"not given" MEANS is then the schema's to say, per field: `holds` on the create form carries a
+`.catch("nothing")` and reads it as "no container", because an absent radio group means that far
+more usefully than it means "fail". Every other field has no reading for it, so the action stops.
+
+**AND IT MUST NEVER BECOME AN EMPTY STRING.** ADR-0096 makes an empty note a REMOVAL -- one control,
+and clearing it is how the owner takes their note back -- so coercing an unusable field to `""`
+would delete the owner's words on a request nobody made. Nothing given is not the same claim as
+nothing said. That is the one substitution this rule is forbidden to make, and it is asserted at the
+page-over-HTTP seam rather than left as prose.
+
+**THE RULE IS ONE READER KEYED OFF THE SCHEMA'S OWN FIELD NAMES.** `whatTheFormCarries(form, schema)`
+in `apps/web/src/form.ts` reads each key the `z.object` declares, maps a non-string to "not given",
+and `safeParse`s. That deleted twenty-three `form.get("...")` literals over thirteen call sites in
+five action files -- counted with `git grep -o` rather than by eye, after a first draft of this
+paragraph said "nine" and a review caught it. Twenty-three chances for a name here to drift from the
+name on the page.
+
+**AND THE INHERITANCE IS NOT HYPOTHETICAL.** Three of those thirteen sites did not exist when this
+work started: CNCORE-72's `placeItemInContainer`, `removePlacement` and `restorePlacement` landed on
+`main` mid-flight, each written in the old shape. That is the ticket's own sentence -- "the next one
+inherits whatever this does" -- observed rather than predicted, four days after it was written.
+
+**THE COST, ACCEPTED RATHER THAN OVERLOOKED.** `safeParse` refuses everything the schema refuses, not
+only a wrong part type -- a missing field, or a value that schema declines such as `takeRecord`'s
+`z.url()` -- and all of them now do nothing QUIETLY where they used to answer 500 LOUDLY. A field
+renamed on a page and not in its schema is the case that bites. What catches it is the
+page-over-HTTP suite, which submits the form the server actually rendered and asserts the write
+happened, so a name that drifts fails a test rather than a reader.
+
+**WHAT DID NOT LAND, SAID HERE BECAUSE HALF A MECHANISM LOOKS FINISHED FROM OUTSIDE.** This closes
+the 500 for a field that is not TEXT. It does NOT close it for a field that IS text, which the
+ACTION's schema accepts and the ROUTER's refuses. `editedTitle` declares `id: z.string()` where
+`item.retitle` demands `z.uuid()`, so a hand-composed id passes the reader and raises `BAD_REQUEST`
+inside `call()` -- uncaught, and the same bare `Internal Server Error`. MEASURED at the
+page-over-HTTP seam on 2026-09-12: `id=not-a-uuid` and an empty `title` both answered
+`500 Internal Server Error`. `theDeviceNamed` and `namedPlacement` are the two that ARE closed,
+because they declare `z.uuid()` on both sides -- which is why the `/devices` assertion passes and is
+not evidence about the others.
+
+**AND THE FIX FOR IT IS NOT TO RESTATE THE ROUTER'S SCHEMA IN THE ACTION**, which is the obvious move
+and the wrong one: `items/actions.ts` says "the rule about what a write accepts lives in one place",
+and a second copy is a second place for the two to disagree. What is left is to treat an `ORPCError`
+under 500 as the ANSWER it is, which `/api/rpc` already does one layer over. CNCORE-127, with a
+`TODO` at the site.
+
+**THIS RECORD STILL STAYS PROPOSED, and for the same reason as before.** Next is DERIVED and nothing
+derives one. This section widened what "a refusal" means on the write path; it did not touch the
+half that is unbuilt.

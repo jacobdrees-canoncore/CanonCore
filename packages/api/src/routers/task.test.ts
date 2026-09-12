@@ -69,11 +69,21 @@ describe("the owner", () => {
   it("reads every task this instance runs, with its trigger", async () => {
     const listed = await call(appRouter.task.list, {}, { context: await logInAs() });
 
+    // EVERY TASK, IN THE ORDER `theTasks` WAS WRITTEN IN, which `registry.list`
+    // keeps rather than sorting. Asserting the whole list is what makes a task
+    // added to that file and forgotten here fail rather than pass unseen -- and
+    // the second of them is ADR-0049's own compaction, turned on the run history
+    // this router publishes (CNCORE-124).
     expect(listed).toMatchObject([
       {
         key: "sweep-sessions",
         name: "Remove sessions that can no longer answer",
         trigger: { kind: "daily", atHour: 3 },
+      },
+      {
+        key: "compact-task-runs",
+        name: "Remove runs the history no longer shows",
+        trigger: { kind: "daily", atHour: 4 },
       },
     ]);
   });

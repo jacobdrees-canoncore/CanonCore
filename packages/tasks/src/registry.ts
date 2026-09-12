@@ -2,6 +2,7 @@ import {
   closeTaskRunsLeftOpen,
   type Database,
   endTaskRun,
+  RUN_HISTORY_DEPTH,
   readLatestTaskRuns,
   readTaskRuns,
   startTaskRun,
@@ -224,23 +225,20 @@ export function createRegistry(tasks: Task[]) {
       return closeTaskRunsLeftOpen(db, LEFT_OPEN);
     },
 
-    /** One task's runs, newest first. */
+    /**
+     * One task's runs, newest first, as deep as the history is kept.
+     *
+     * THE SAME CONSTANT COMPACTION KEEPS BY (`RUN_HISTORY_DEPTH`, in
+     * `packages/db` beside the table). This read and that delete are the two
+     * halves of one decision, so they take one constant rather than agreeing by
+     * coincidence -- and the failure the second copy produces is compaction
+     * removing rows this page is still rendering.
+     */
     async history(db: Database, key: string): Promise<TaskRun[]> {
-      return readTaskRuns(db, key, HISTORY_DEPTH);
+      return readTaskRuns(db, key, RUN_HISTORY_DEPTH);
     },
   };
 }
-
-/**
- * HOW FAR BACK A HISTORY IS READ.
- *
- * A DAILY TASK WRITES 365 ROWS A YEAR and this table only grows, so a history
- * that answered all of them would be a page that gets slower every night it
- * works. Thirty is a month of a daily task -- enough to see that last night
- * failed and that the four before it did not, which is the question ADR-0049
- * says the history is read to answer.
- */
-const HISTORY_DEPTH = 30;
 
 /**
  * Runs the task and answers how it ended, rather than raising.

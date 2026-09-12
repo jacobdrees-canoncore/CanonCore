@@ -7,6 +7,7 @@ import {
   type RenderedForm,
   sectionIn,
   submit,
+  submitAsAFilePart,
   withFields,
 } from "./document";
 
@@ -557,5 +558,111 @@ describe("/items/<id>, the Owner note", () => {
     const { text } = await documentAt(at, owner);
 
     expect(valueRows(text)).toEqual(["Title An item whose claims stay the claims Owner"]);
+  });
+});
+
+/**
+ * A FIELD SENT AS A FILE PART (CNCORE-123), at the seam the ticket names.
+ *
+ * NO BROWSER COMPOSES THIS REQUEST, which is why it is asserted here rather than
+ * left to the surfaces above: a text input submits a part with no `filename`, so
+ * every test in this file so far has posted what a browser posts. A caller
+ * composing a request by hand can send any part it likes, and `FormData.get`
+ * answers `File` for one that carries a `filename` -- so a `z.string()` field
+ * over it throws a `ZodError` nothing catches and the answer is a bare
+ * `Internal Server Error`. CNCORE-14 and ADR-0066 both say a caller who asked
+ * for something impossible gets a refusal, and a 500 tells a reader the server
+ * is broken when what happened is that they asked.
+ */
+describe("a field sent as a file part", () => {
+  /**
+   * THE NOTE IS THE FIELD WHERE GETTING THIS WRONG COSTS SOMETHING, which is why
+   * it is the first assertion. ADR-0096 makes an EMPTY note a REMOVAL -- there is
+   * one control and clearing it is how the owner takes the note back -- so a fix
+   * that read an unusable field as an empty string would delete the owner's words
+   * on a request they never made. Refusing the write is the only answer that
+   * leaves the note alone.
+   */
+  it("leaves the Owner's note standing rather than removing it", async () => {
+    const at = await anItemOfMyOwn("An item I have written a note about");
+    const noted = await submit(
+      baseUrl,
+      at,
+      withFields(formIn((await documentAt(at, owner)).text, "note"), {
+        note: "What I actually think of it",
+      }),
+      owner,
+    );
+    expect(noteIn(noted.text)).toBe("What I actually think of it Owner");
+
+    const refused = await submitAsAFilePart(baseUrl, at, formIn(noted.text, "note"), "note", owner);
+
+    // NOT THE 500, which is the defect: a bare `Internal Server Error` costs the
+    // reader the page they were on and says the server broke.
+    expect(refused.status).toBe(200);
+    expect(refused.text).not.toContain("Internal Server Error");
+    // AND THE NOTE IS STILL THERE, asked for again rather than read out of the
+    // response, so this is the catalogue's answer rather than one render's.
+    expect(noteIn((await documentAt(at, owner)).text)).toBe("What I actually think of it Owner");
+  });
+
+  /**
+   * THE FILE'S CONTENT IS THE TITLE THIS WOULD HAVE MADE, which is what stops a
+   * weaker fix passing: a rule that read an unusable field as the text INSIDE the
+   * part would create exactly this item, and the assertion below is that the
+   * catalogue never hears of it.
+   */
+  it("creates no Item when the title is sent as a file part", async () => {
+    const form = formIn((await documentAt("/new", owner)).text, "new-item");
+
+    const refused = await submitAsAFilePart(
+      baseUrl,
+      "/new",
+      withFields(form, { title: "An item nobody asked for", kind: "work" }),
+      "title",
+      owner,
+    );
+
+    expect(refused.status).toBe(200);
+    expect(refused.text).not.toContain("Internal Server Error");
+    // THE PAGE THE OWNER WAS ON, RENDERED AGAIN. A create that ran would have
+    // redirected to `/items/<id>` and the document coming back would declare
+    // that address canonical (ADR-0066); this one is `/new`, still offering the
+    // form.
+    expect(() => itemAddressIn(refused.text)).toThrow();
+    expect(() => sectionIn(refused.text, "new-item")).not.toThrow();
+    expect(refused.text).not.toContain("An item nobody asked for");
+  });
+
+  /**
+   * `holds` IS THE ONE FIELD WITH A READING FOR "NOT GIVEN", so it is the one
+   * that does NOT refuse -- and that asymmetry is the rule rather than a hole in
+   * it. The radio group carries a `.catch("nothing")` because an absent field
+   * means "no container" far more usefully than it means "fail", and a `File` is
+   * the same absence arriving by another route. Without this, a reader of the
+   * shared rule could not tell whether "not given" refuses the request or is
+   * answered by the schema that asked for the field.
+   */
+  it("still creates the Item when `holds` is the file part, holding nothing", async () => {
+    const form = formIn((await documentAt("/new", owner)).text, "new-item");
+
+    const created = await submitAsAFilePart(
+      baseUrl,
+      "/new",
+      choosing(
+        withFields(form, { title: "An item whose radio never arrived", kind: "work" }),
+        "holds",
+        "ordered",
+      ),
+      "holds",
+      owner,
+    );
+
+    expect(created.status).toBe(200);
+    // IT EXISTS, at an address of its own.
+    expect(created.text).toContain("An item whose radio never arrived");
+    // AND IT HOLDS NOTHING, which is what the `.catch` reads the absence as --
+    // NOT the `ordered` the file part displaced.
+    expect(created.text).not.toContain("Other items,");
   });
 });

@@ -10,7 +10,11 @@ The change sequence is not bookkeeping. It is the substrate ADR-0040 needs: that
 reversal a query ("find everything stamped with merge 47 and put it back") rather than a second
 history mechanism, and a stamp is only findable across every table if every table is ordered the
 same way. ADR-0040 specifies the merge id and is silent on what it sits in; this is that. ADR-0049 schedules tombstone compaction,
-which presupposes tombstones exist.
+which presupposes tombstones exist -- for the eight pieces of work that record lists. Its OWN history
+table is the exception and is named here so the presupposition is not read as total: `task_runs` is
+compacted by rank rather than by tombstone (CNCORE-124), because nothing deletes a run, so there is
+no tombstone to sweep and what makes a run removable is that it has fallen behind every reader. That
+table's `deleted_at` and change sequence are still written by nothing.
 
 Retrofitting a change sequence means backfilling one for every row already written, and every row
 written before it is indistinguishable from every other, so the reversal query cannot see history it

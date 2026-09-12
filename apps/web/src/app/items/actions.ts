@@ -6,6 +6,7 @@ import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
+import { whatTheFormCarries } from "@/form";
 import { callerContext } from "@/session";
 
 /**
@@ -28,16 +29,11 @@ import { callerContext } from "@/session";
  * ordinary `multipart/form-data` request when no script has loaded, which is
  * why these surfaces are asserted at the page-over-HTTP seam with no browser.
  *
- * A FORM FIELD IS INPUT, whoever rendered the form, so everything below is
- * parsed rather than trusted.
- *
- * TODO(CNCORE-123): `form.get` answers `File | string | null`, and a `z.string()`
- * field handed a `File` throws a `ZodError` nothing catches -- so a request
- * composed by hand gets `Internal Server Error` where CNCORE-14 and ADR-0066
- * both say it should get a refusal. Found by review on CNCORE-74 and left to
- * that ticket, because the shape is the same in all four of this app's actions
- * and predates this one: fixing it here would be one of four, and the rule
- * belongs in one place the next action inherits.
+ * A FORM FIELD IS INPUT, whoever rendered the form, so everything below is read
+ * through `whatTheFormCarries` rather than trusted -- which is where `FormData.get` answering
+ * `File | string | null` is dealt with, once, for every action in this app
+ * (CNCORE-123). An action that cannot read a field it needs writes nothing and
+ * lets the page it was posted to render again.
  */
 
 /**
@@ -61,11 +57,10 @@ const newItem = z.object({
 });
 
 export async function createItem(form: FormData): Promise<void> {
-  const { holds, ...named } = newItem.parse({
-    kind: form.get("kind"),
-    title: form.get("title"),
-    holds: form.get("holds"),
-  });
+  const carried = whatTheFormCarries(form, newItem);
+  if (carried === undefined) return;
+
+  const { holds, ...named } = carried;
   const input = {
     ...named,
     isContainer: holds !== "nothing",
@@ -119,7 +114,8 @@ const editedTitle = z.object({ id: z.string(), title: z.string() });
  * would be clearing a cache this app does not have.
  */
 export async function retitleItem(form: FormData): Promise<void> {
-  const input = editedTitle.parse({ id: form.get("id"), title: form.get("title") });
+  const input = whatTheFormCarries(form, editedTitle);
+  if (input === undefined) return;
 
   await call(appRouter.item.retitle, input, { context: await callerContext() });
   refresh();
@@ -145,7 +141,8 @@ const editedNote = z.object({ id: z.string(), note: z.string() });
  * page-over-HTTP seam cannot see.
  */
 export async function annotateItem(form: FormData): Promise<void> {
-  const input = editedNote.parse({ id: form.get("id"), note: form.get("note") });
+  const input = whatTheFormCarries(form, editedNote);
+  if (input === undefined) return;
 
   await call(appRouter.item.annotate, input, { context: await callerContext() });
   refresh();
@@ -170,8 +167,16 @@ const placedMember = z.object({
   itemId: z.string(),
   position: z
     .string()
-    .transform((given) => (given.trim() === "" ? null : Number(given)))
-    .transform((given) => (given === null || Number.isInteger(given) ? given : null)),
+    .transform((typed) => (typed.trim() === "" ? null : Number(typed)))
+    .transform((typed) => (typed === null || Number.isInteger(typed) ? typed : null))
+    /*
+     * AND A FIELD THAT IS NOT TEXT AT ALL READS AS `null` TOO (CNCORE-123). The
+     * sentence above says anything unparseable is `null` "because this is
+     * `FormData` from anywhere", and a part sent with a filename is exactly
+     * that -- so refusing the whole placement over it would be this field's own
+     * rule broken by the shape of the request rather than by its content.
+     */
+    .catch(null),
 });
 
 /**
@@ -182,11 +187,8 @@ const placedMember = z.object({
  * again and the new member is in the HTML that comes back.
  */
 export async function placeItemInContainer(form: FormData): Promise<void> {
-  const input = placedMember.parse({
-    containerId: form.get("containerId"),
-    itemId: form.get("itemId"),
-    position: form.get("position"),
-  });
+  const input = whatTheFormCarries(form, placedMember);
+  if (input === undefined) return;
 
   /*
    * `safe` RATHER THAN `try`, because `redirect()` below works by THROWING and a
@@ -253,10 +255,9 @@ const namedPlacement = z.object({ id: z.uuid(), containerId: z.uuid() });
  * `restorePlacement` below turns back into the plain container page.
  */
 export async function removePlacement(form: FormData): Promise<void> {
-  const { id, containerId } = namedPlacement.parse({
-    id: form.get("id"),
-    containerId: form.get("containerId"),
-  });
+  const named = whatTheFormCarries(form, namedPlacement);
+  if (named === undefined) return;
+  const { id, containerId } = named;
 
   await call(appRouter.placement.remove, { id }, { context: await callerContext() });
   redirect(`/items/${containerId}?undo=${id}`);
@@ -271,10 +272,9 @@ export async function removePlacement(form: FormData): Promise<void> {
  * happened.
  */
 export async function restorePlacement(form: FormData): Promise<void> {
-  const { id, containerId } = namedPlacement.parse({
-    id: form.get("id"),
-    containerId: form.get("containerId"),
-  });
+  const named = whatTheFormCarries(form, namedPlacement);
+  if (named === undefined) return;
+  const { id, containerId } = named;
 
   /*
    * A DECLINED UNDO IS THE PLAIN CONTAINER PAGE, not a 500. `?undo=` is a

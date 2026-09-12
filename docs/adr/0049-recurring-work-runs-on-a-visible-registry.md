@@ -38,9 +38,11 @@ precisely the hidden timer this record refuses. It is `sweep-sessions` now, on a
 the TODO that named this ticket is gone from that file.
 
 **ONE TRIGGER KIND, AND THAT IS THE RULE RATHER THAN A GAP.** Jellyfin carries four — daily, weekly,
-interval and startup — and only `dailyAt` exists here, because `sweep-sessions` is the only task and
-it wants a daily one. `CLAUDE.md` refuses a configuration option nothing in the repo reads, and three
-unused trigger kinds are three schedules no test can bite on.
+interval and startup — and only `dailyAt` exists here, because every task this instance runs wants a
+daily one. That was one task when this was written and is two since CNCORE-124, which is the same
+sentence rather than a weaker one: a second task earns a second trigger kind only if it needs one,
+and nightly maintenance is exactly what `dailyAt` says. `CLAUDE.md` refuses a configuration option
+nothing in the repo reads, and three unused trigger kinds are three schedules no test can bite on.
 
 **AND A SECOND KIND CHANGES EVERY READER, which an earlier version of this section denied.** It
 claimed `Trigger` was "a union so the second arrives without every reader changing". It is not a
@@ -52,7 +54,7 @@ small; the sentence claiming otherwise was the thing worth removing. Found in re
 
 **THE SCHEDULE IS NOT THE OWNER'S TO EDIT, and Plex's eight toggles are not adopted.** The trigger is
 declared in code beside the task. An owner-editable cadence is a settings surface, a table and a
-migration for a catalogue that today runs one task; what that would buy over a sensible hour is
+migration for a catalogue that runs two tasks; what that would buy over a sensible hour is
 nothing this record argued for. The eight remain what this record says they are — a list of what
 needs scheduling, not a list of switches owed.
 
@@ -102,15 +104,73 @@ fortnight has failed" — a glitch and a broken machine, told apart only by the 
 depth is 30, which is a month of a daily task. Found in review.
 
 **AND THIS TABLE ONLY GROWS, WHICH IS THIS RECORD'S OWN CATEGORY ARRIVING BACK AT IT.** A daily task
-writes 365 rows a year and nothing removes them; `task_runs` carries a tombstone and a change
-sequence (ADR-0075) that nothing writes and no read filters on. The compaction this record lists is
-therefore owed to its own history table, and the task that does it is CNCORE-124 — a second task on
-the registry, which is the shape this whole record is for. It is not urgent at one task and a row a
-night, and it is not free to forget, so it is a ticket rather than a sentence.
+writes 365 rows a year and nothing removed them; `task_runs` carries a tombstone and a change
+sequence (ADR-0075) that nothing writes and no read filters on. The compaction this record lists was
+therefore owed to its own history table, and CNCORE-124 BUILT IT — a second task on the registry,
+which is the shape this whole record is for. It was not urgent at one task and a row a night, and it
+was not free to forget, so it was a ticket rather than a sentence; the section below is what that
+ticket did.
 
 **WHAT A RUN LEAVES BEHIND IS BOUNDED AT ADR-0123's 300.** A task answers a sentence it wrote, but
 what a task THROWS is written by whatever broke it, and that column is read onto a page. It is
 collapsed onto one line before it is cut, which is the correction that record records against itself.
+
+## The history is compacted by a task on itself, under CNCORE-124
+
+`compact-task-runs` is the second task on this registry, daily at four, and what it compacts is this
+record's own run history. The category this record schedules, turned on the table that makes this
+record's minimum reachable.
+
+**A SECOND TASK IS WHAT TURNS A REGISTRY INTO A LIST.** CNCORE-119 had to prove the mechanism — a
+task listed, run by hand, cancelled and read back — and one task can prove a registry without ever
+being a list of them. Nothing in the registry, the page or the scheduler had to change to carry the
+second; the whole of the change is a file beside `sweep-sessions.ts`, a line in `theTasks` and a
+query in `packages/db`. That is the claim this record has been making since CNCORE-119, tested for
+the first time.
+
+**IT KEEPS WHAT THE PAGE CAN SHOW, AND THAT IS A DEPTH IN ROWS RATHER THAN A WINDOW IN DAYS.** The
+newest `RUN_HISTORY_DEPTH` runs of each task survive and everything behind them goes, by the same
+order and the same constant `readTaskRuns` answers in — so a row this removes is one no surface in
+the app could have rendered. The two are not a policy agreeing with a read path by coincidence; they
+are one decision, and the constant lives in `packages/db` beside the table because
+`SESSION_LIFETIME_SECONDS` is written once for the same reason one table over.
+
+**THE FIRST IMPLEMENTATION USED A THIRTY-DAY WINDOW, AND IT WAS WRONG.** The reasoning was that the
+page reads thirty runs and thirty runs is a month — true only for a task that runs exactly daily.
+`/tasks` carries a Run-now button, so an owner who ran a task six times across two months has all six
+on the page, and that window deleted four of them: history the product was still displaying, removed
+by the maintenance that exists to remove only what nothing can read. Rank is what the page bounds by,
+so rank is what compaction bounds by. Recorded rather than quietly fixed, because the mistake is the
+instructive half — a retention rule stated in the wrong UNIT reads correct, tests green on a daily
+task, and loses data only for the cadences nobody wrote a test for. Found in review.
+
+**SO THERE IS NO EXEMPTION FOR A TASK'S LAST RUN, AND NONE IS NEEDED.** Rank one is inside every
+depth, so the newest run of every task survives by construction however old it is. That is not a
+detail: this record exists for the job that "silently stopped months ago", and a rule that could take
+the last run of a task that stopped in July would leave `readLatestTaskRuns` answering nothing for it
+and `/tasks` rendering "Has not run yet" — the stoppage this record exists to surface, reported as a
+fresh install, with the evidence destroyed in the same act. An earlier draft bought that safety with
+a second clause exempting the last run; ranking gives it for nothing.
+
+**AND IT IS WHAT KEEPS AN OPEN RUN SAFE, at no clause of its own.** A row still reading `running` is
+one something means to write the ending of, and deleting it under that process would leave
+`endTaskRun` no row to close. The registry refuses a second concurrent run of one key, so a key's
+open run is always that key's newest — rank one, and kept.
+
+**IT DELETES OUTRIGHT RATHER THAN TOMBSTONING, though `task_runs` carries a `deleted_at` like every
+other table (ADR-0075).** A tombstone here would compact nothing twice over: the row stays in the
+table, and no read of this table filters on that column, so the history would go on rendering every
+run it had supposedly removed. Compaction is what REMOVES tombstoned rows rather than a thing that
+writes them, and `sweepSessions` deletes one table over for the same reason.
+
+**WHICH MEANS THIS COMPACTS BY RANK AND NOT BY TOMBSTONE, and ADR-0075 has been corrected to say so.**
+That record's sentence — this one "schedules tombstone compaction, which presupposes tombstones
+exist" — holds for the eight pieces of work listed above and not for this ninth. Nothing deletes a
+run, so there is no tombstone to sweep; what makes a run removable is that it has fallen behind every
+reader. **`task_runs`'s own tombstone and change sequence are STILL WRITTEN BY NOTHING AND FILTERED ON
+BY NOTHING, exactly as before this ticket.** They are ADR-0075's blanket rather than a mechanism this
+table uses, and the ticket that gives them a reader is not this one. Said plainly because a history
+table that now has a compaction task looks from outside like one whose soft-delete path is in use.
 
 ## Evidence
 
