@@ -1,13 +1,14 @@
 ---
 name: dispatch
-description: "Merge ready PRs, remove their worktrees, recompute the frontier and dispatch what frees up, watching Linear for state the worktrees no longer match. Run it by typing /dispatch; it is never entered by inference."
+description: "Merge ready PRs, remove their worktrees, recompute the frontier and put it to the user to spend, watching Linear for state the worktrees no longer match. Run it by typing /dispatch; it is never entered by inference."
 disable-model-invocation: true
 ---
 
 `CLAUDE.md`'s **Implementing** is the contract: dispatch mode, whose job the worktree is, the fold
 test. This is the LOOP that runs it, and the drift the loop leaks.
 
-You do not implement. You read diffs, merge, remove worktrees, recompute the frontier, dispatch.
+You do not implement and you do not dispatch. You read diffs, merge, remove worktrees, recompute
+the frontier, and hand it back.
 
 ## The loop
 
@@ -28,11 +29,20 @@ removing.
 **3. Recompute the frontier.** Nothing else is doing it. A ticket is dispatchable when every file
 it names is free of every open branch.
 
-**4. Dispatch what the files freed.** One ticket per worktree, `--prompt "/implement"` and nothing
-more. Fold only on one reason to change (`CLAUDE.md`).
+**4. ASK, with `AskUserQuestion`, and wait.** One question, one option per ticket whose files are
+free, each option carrying what that ticket unblocks. A candidate you leave out is named with what
+still blocks it, so the shape of the frontier is visible and not just your pick of it.
 
-Done when no open ticket has a free file set and no PR is unmerged. New tickets arriving is the
-review working; a ticket arriving that nothing blocks is the loop's next pass, not its end.
+Recomputing the frontier is yours; SPENDING it is the user's, and they invoke. A prose summary is
+not the ask: it reads as a report and the next turn carries on building, which is how four agents
+went out on "recalculate", 2026-09-11.
+
+When the answer comes back: one ticket per worktree, `--prompt "/implement"` and nothing more. Fold
+only on one reason to change (`CLAUDE.md`).
+
+Done when every merged PR's worktree is gone and the frontier is in front of the user. New tickets
+arriving is the review working; one arriving that nothing blocks belongs in the next ask rather than
+in a worktree.
 
 ## Drift, and why it is yours
 

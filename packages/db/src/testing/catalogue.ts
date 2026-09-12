@@ -43,10 +43,25 @@ export async function propertyNamed(db: Database, name: string): Promise<string>
   return property.id;
 }
 
-export async function anItem(
-  db: Database,
-  values: { kind?: string; isContainer?: boolean; isOrdered?: boolean } = {},
-): Promise<string> {
+/**
+ * What a test may choose about an item it seeds.
+ *
+ * `id` IS HERE BECAUSE ONE RULE IN THIS CATALOGUE COMPARES IDS AND NOTHING
+ * ELSE. The walk's no-sort-key regime is `id > the anchor's` (ADR-0119), so
+ * whether a fixture reaches the untitled tail from a given anchor is decided by
+ * whichever uuids `gen_random_uuid` handed out -- and a test of that regime
+ * against random ids passes or fails on luck. Naming the id is how such a test
+ * asserts rather than hopes, which is the record's own rule about cutting a
+ * page AT the tie rather than at a size that might land there.
+ */
+interface SeededItem {
+  id?: string;
+  kind?: string;
+  isContainer?: boolean;
+  isOrdered?: boolean;
+}
+
+export async function anItem(db: Database, values: SeededItem = {}): Promise<string> {
   const [item] = await db
     .insert(items)
     .values({ ownerId: await theOwner(db), kind: values.kind ?? "work", ...values })
@@ -59,7 +74,7 @@ export async function anItem(
 export async function anItemTitled(
   db: Database,
   title: string,
-  values: { kind?: string; isContainer?: boolean; isOrdered?: boolean } = {},
+  values: SeededItem = {},
 ): Promise<string> {
   const id = await anItem(db, values);
   await aStatement(db, {

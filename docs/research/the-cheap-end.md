@@ -198,13 +198,15 @@ piece that failed.** The reasoning below is why it looked like the risk.
 `where-it-runs.md` §1.2 already did this work per provider, from each provider's own documentation,
 and the conclusion was narrower than "seedboxes are out":
 
-- **Whatbox documents rootless `podman-compose`** running an arbitrary OCI image against an unmodified
-  `docker-compose.yml` with a published port mapping — the same mechanism `packages/db/docker-compose.yml`
-  needs. It documents Bring Your Own Domain at a hostname root, so no `basePath`. It documents public
-  TCP ports 10000-32767.
+- **Whatbox documents rootless `podman-compose`** running an arbitrary OCI image against an
+  unmodified `docker-compose.yml` with a published port mapping — the same mechanism
+  `packages/db/docker-compose.yml` needs. It documents Bring Your Own Domain at a hostname root, so
+  no `basePath` — **and CNCORE-106 measured that whole path on 2026-09-12, including the TLS the
+  wiki is silent about**; the caveat it found is that the root is a subdomain of your domain and not
+  its apex. It documents public TCP ports 10000-32767.
 - **But Postgres is never named**, and the containers page carries Whatbox's own warning: *"At this
-  time, Whatbox servers have limited support for Audiobookshelf and containers. It may stop working at
-  any time."*
+  time, Whatbox servers have limited support for Audiobookshelf and containers. It may stop working
+  at any time."*
 
 **Re-checked directly on 2026-09-10**, and the gap is still there: `whatbox.ca/wiki/PostgreSQL`,
 `/wiki/postgres` and `/wiki/Databases` all return **404**, while `/wiki/Node.js` returns 200. What the
@@ -270,6 +272,14 @@ When the playback spec starts, the order of operations is cheap and reversible:
    hardware becomes the binding constraint. None of them is today.
 3. **Re-check Hetzner when the Cost-Optimized line returns**, which ADR-0109 says "would roughly halve
    the entry cost".
+
+**One limit this file never priced, added by CNCORE-106 on 2026-09-12: the slot carries a 10 TB
+monthly UPLOAD allocation**, stated in the account panel rather than the wiki, and it is the first
+limit a media path meets rather than disk. It is not binding at one viewer — `where-it-runs.md` §4.2
+computes a heavy single viewer at "about 1 TB a month" — so row 1 stands. **It is the figure to
+re-check before the demo**, because a public surface is the case where viewers are not one, and the
+panel offers to increase the allocation rather than treating it as fixed. ADR-0109's limits table
+carries it.
 
 **How the restart is actually written is the playback spec's to decide, not this file's.** What §4
 settles is that the slot has a mechanism at all; ADR-0109 records what it is, what was measured, and

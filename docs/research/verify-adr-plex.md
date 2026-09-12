@@ -1298,8 +1298,9 @@ t/191227 (2017-05-07). Nothing from 2008 is reachable: `forums.plexapp.com` is d
 Discourse instance does not carry pre-2011 content with original dates intact.
 
 Tracing it inside this repo, the date comes from
-`docs/research/competitor-sweep/CONSOLIDATED-FINDINGS.md:1033` — "The company that has refused
-sidecar metadata files since 2008 reversed it in 2026" — where **2008 is Plex's founding year**, not
+`docs/research/competitor-sweep/CONSOLIDATED-FINDINGS.md` §4, "COUNTER-SIGNALS AGAINST
+SETTLED REFUSALS" — "The company that has refused sidecar metadata files since 2008 reversed it in
+2026" — where **2008 is Plex's founding year**, not
 the date of a refusal. That is a rhetorical "since forever", and it reads in the ADR as a citation.
 
 **What would settle it:** a Wayback capture of `forums.plexapp.com` carrying a 2008-dated NFO

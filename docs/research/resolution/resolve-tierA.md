@@ -236,7 +236,8 @@ request alongside the device identity headers. Plex's *wire protocol* carries la
 first byte; its *database* does not.
 
 The library-language setting has regional variants ("Spanish (Mexico)", "English (United Kingdom)",
-"Chinese (Hong Kong)"): this comes from the sweep (`sweep-plex-support-D.md:601`, article 094) and
+"Chinese (Hong Kong)"): this comes from the sweep (`sweep-plex-support-D.md` under "094 —
+/articles/upgrading-a-movie-library-to-the-use-the-new-plex-movie-agent/", article 094) and
 I did not independently confirm it at a Plex URL in this pass. It is corroborated from the other
 side, though — see Jellyfin's shipped locale list below.
 
@@ -993,7 +994,7 @@ Every occurrence in the live documents:
 - `SPEC.md:82` — "This is the test that fails if CMPP is secretly two bespoke integrations"
 - `SPEC.md:810` — "CMPP is CanonCore's own contract. No compatibility layer with any other product."
 - `SPEC.md:815` — "THE CMPP STORE — publicly addable providers, ACCEPTED rather than open."
-- `CONTEXT.md:171-172` — the glossary headword, defined but not expanded:
+- `CONTEXT.md`, the **CMPP** headword under "Sources" — defined but not expanded:
   "**CMPP**: / CanonCore's own provider contract, answered over HTTP by every provider."
 - `HANDOFF.md:97` — "Providers are URLs answering a contract (CMPP)"
 

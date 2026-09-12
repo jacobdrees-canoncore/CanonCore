@@ -17,12 +17,27 @@ import { migrateToHead } from "../migrate";
  * bare `<database>_test`, so "no suffix" is a declared value that gets held to
  * the budget like any other, rather than a case the union quietly excludes.
  *
+ * `gone` IS THE ONE MEMBER `packages/db` ASKS FOR ON TOP OF THE BARE ONE, and
+ * it is here because what it holds is a property of a WHOLE CATALOGUE rather
+ * than of a query: "no untitled item anywhere" cannot be arranged by a WHERE
+ * over the shared database, only by building one from empty (CNCORE-110). A
+ * suffix earns its place by that test -- a suite that could have narrowed
+ * instead does not need a database.
+ *
  * THE BUDGET IS ELEVEN CHARACTERS, set by `LONGEST_DERIVED_SUFFIX` in
  * `worktree-database.ts` and deliberately NOT derived from this list -- that
  * file says what derives it wrong. `worktree-database.test.ts` is what holds
  * every member here to it.
  */
-export const TEST_DATABASE_SUFFIXES = ["", "web", "fresh", "paged", "purge", "still"] as const;
+export const TEST_DATABASE_SUFFIXES = [
+  "",
+  "web",
+  "fresh",
+  "paged",
+  "purge",
+  "still",
+  "gone",
+] as const;
 
 /** A suffix this repo has declared, which is the only kind there is. */
 export type TestDatabaseSuffix = (typeof TEST_DATABASE_SUFFIXES)[number];

@@ -8,6 +8,11 @@ It is domain-general, and it is a media server in its own right rather than a cl
 
 ## Language
 
+An `_Avoid_` list rejects those words AS NAMES for the term above it: a type, a field, a function, a
+SQL alias. It does not ban the word from prose, which is why **Placement** below is free to define
+itself as "one item's membership" while rejecting `membership` as a name. Where a term's own entry
+settles a different word for what a reader sees, that word is the reader's and is not a second name.
+
 ### The catalogue
 
 **Item**:
@@ -78,8 +83,12 @@ An abstract or fictional thing that is none of the above, including physical obj
 
 **Placement**:
 One item's membership of one container, at one position, carrying every source that
-asserted it.
-_Avoid_: record, edge, membership, link
+asserted it. THE SAME CONSTRUCT FROM EITHER END: from the item's, an ordering it sits in; from the
+container's, something that container holds. Both ends are named Placement in code, because a Repeat
+puts one item in one container twice and the placement is the only thing that can tell those two
+rows apart. The reader's words are "Also appears in" from the item's end and "Members" from the
+container's.
+_Avoid_: record, edge, member, membership, link
 
 **Position**:
 Where a placement sits in its container's ordering. Two placements may share one, and a placement

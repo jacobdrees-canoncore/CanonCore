@@ -134,40 +134,49 @@ export const attributionPublic = z.object({
 export type AttributionPublic = z.infer<typeof attributionPublic>;
 
 /**
- * What the read path emits for one MEMBER of a container: the mirror of
- * `placementPublic`, read from the container's end rather than the item's.
+ * What the read path emits for one placement read FROM THE CONTAINER'S END: the
+ * mirror of `placementPublic`, which reads the same construct from the item's.
+ *
+ * NAMED PLACEMENT RATHER THAN MEMBER, and CNCORE-91 is where that was settled.
+ * The rows here ARE placements -- each carries the placement's `id` beside
+ * `itemId`, and it has to, for the repeat reason below -- so a second noun for
+ * them would be a second name for a relationship `CONTEXT.md` has already
+ * settled, which is exactly what its `_Avoid_` lists exist to prevent. "Members"
+ * survives as THE READER'S WORD for this list and has no type behind it, the way
+ * the item page prints "Also appears in" over `placementPublic`; the glossary's
+ * Placement entry now says both, so neither is a word nobody decided on.
  *
  * ADR-0045 again -- every field named on purpose. `id` and `itemId` are both
- * ADDRESSES rather than internal ids: `itemId` is the member's own
+ * ADDRESSES rather than internal ids: `itemId` is the placed item's own
  * `/items/<id>`, and `id` is the placement `?via=` carries, which is what says
  * WHICH arrival this was. A repeat is why that distinction has to be in the
- * payload at all -- the same item twice in one container is two members with
+ * payload at all -- the same item twice in one container is two placements with
  * one `itemId` between them (ADR-0009), so nothing but the placement id can
  * tell the recap from the episode.
  *
  * WHAT IT DOES NOT CARRY is `placedBy`, and THE FIRST REASON GIVEN FOR THAT WAS
- * WRONG. It said a container's own member list is one ordering "so every row
- * would answer the same". ADR-0017 says otherwise: sources disagreeing about
- * position produce TWO placement rows in one container, and nothing stops the
- * owner hand-placing into a container a provider browsed. Rows here can differ
- * in `placedBy`, and the consequence is that a Repeat (ADR-0009, one source,
- * twice, on purpose) and a disagreement (two sources, one membership) render
+ * WRONG. It said a container's own list is one ordering "so every row would
+ * answer the same". ADR-0017 says otherwise: sources disagreeing about position
+ * produce TWO placement rows in one container, and nothing stops the owner
+ * hand-placing into a container a provider browsed. Rows here can differ in
+ * `placedBy`, and the consequence is that a Repeat (ADR-0009, one source, twice,
+ * on purpose) and a disagreement (two sources, one membership) render
  * identically.
  *
  * TODO(CNCORE-90): make that distinguishable. It is left out here rather than
  * fixed in place because no instance can hold a disagreement yet -- only
  * `browse` writes placements, and one call writes one source's claims -- and
  * because the fix is not just this field: `findPlacementsOfItem` resolves a
- * spokesman by rank, and a member list cannot copy that ordering, since
- * position leads inside a container (ADR-0018) where rank leads across them.
+ * spokesman by rank, and this list cannot copy that ordering, since position
+ * leads inside a container (ADR-0018) where rank leads across them.
  */
-export const memberPublic = z.object({
+export const placementInContainerPublic = z.object({
   id: z.uuid(),
-  /** ADR-0014: the member's projected title. */
+  /** ADR-0014: the placed item's projected title. */
   title: z.string().nullable(),
   itemId: z.uuid(),
   /**
-   * Where this member sits in THIS container's ordering (ADR-0018), or NULL
+   * Where this placement sits in THIS container's ordering (ADR-0018), or NULL
    * where no source gave it one. CONTEXT.md calls that Unplaced and is explicit
    * that it is a placement with no position rather than an absent placement:
    * dropping the row shrinks the container silently, and numbering it last
@@ -176,7 +185,7 @@ export const memberPublic = z.object({
   position: z.number().int().nullable(),
 });
 
-export type MemberPublic = z.infer<typeof memberPublic>;
+export type PlacementInContainerPublic = z.infer<typeof placementInContainerPublic>;
 
 export const itemPublic = z.object({
   id: z.uuid(),
@@ -218,8 +227,14 @@ export const itemPublic = z.object({
    * `placements` above, which is every ordering this item sits IN. Empty for an
    * item that is not a container, and for a container nothing has been placed
    * in yet.
+   *
+   * THE FIELD IS NAMED FOR THE GLOSSARY'S OWN VERB. `CONTEXT.md` defines a
+   * Container as "an item that holds other items", and `members` -- what this
+   * field was called until CNCORE-91 -- is a word the Placement entry now
+   * rejects. "Members" stays as the heading a reader sees; this is the name the
+   * read path emits, and the two are allowed to differ (ADR-0045).
    */
-  members: z.array(memberPublic),
+  holds: z.array(placementInContainerPublic),
   /**
    * Every value anybody has claimed about this item, with who claimed it. The
    * winner for a property comes first, by the same three terms the projection

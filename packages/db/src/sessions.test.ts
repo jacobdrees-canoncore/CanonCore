@@ -1,6 +1,8 @@
+import { eq } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { type Database, endSession, seeSession, startSession } from "./index";
+import { sessions } from "./schema";
 import { connect, theOwner } from "./testing/catalogue";
 
 let db: Database;
@@ -78,11 +80,22 @@ describe("last seen", () => {
     // again is `created_at` spelled differently. It is what the owner reads when
     // deciding which device to log out, so a device in daily use that reads as
     // last seen in March is a false signal on the one surface that acts on it.
+    // BACK-DATED RATHER THAN RACED AGAINST THE CLOCK. This read
+    // `startSession` then `seeSession` and asserted the second was strictly
+    // later, which FLAKES: both statements call `now()`, Postgres keeps
+    // microseconds, and `getTime()` is milliseconds -- so two statements inside
+    // one millisecond are equal and the assertion fails on a fast machine.
+    // Observed 2026-09-12, failing in the full suite and passing alone. Moving
+    // the stored sighting into the past tests what the column is FOR, which is
+    // that using a session advances it, and it cannot be decided by how quickly
+    // two queries ran.
     const { token, session } = await startSession(db, {});
+    const longAgo = new Date("2026-03-01T00:00:00.000Z");
+    await db.update(sessions).set({ lastSeenAt: longAgo }).where(eq(sessions.id, session.id));
 
     const seen = await seeSession(db, token);
 
-    expect(seen?.lastSeenAt.getTime()).toBeGreaterThan(session.lastSeenAt.getTime());
+    expect(seen?.lastSeenAt.getTime()).toBeGreaterThan(longAgo.getTime());
   });
 });
 

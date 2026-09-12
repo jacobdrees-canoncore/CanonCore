@@ -506,8 +506,8 @@ FROM (SELECT s.title,
 
 **Extent is unrecorded for 66.85% of stories — almost exactly two thirds.** Which is the figure
 `SPEC.md:1124-1126` carried before ADR-0060 replaced it with "none at all"
-(`docs/research/supersession-check-3.md:812-817` records the swap and calls the ADR's version "the
-measured one"). It was the superseded figure that was right.
+(`docs/research/supersession-check-3.md`, under "And one figure that disagrees three ways",
+records the swap and calls the ADR's version "the measured one"). It was the superseded figure that was right.
 
 Extent is also recorded a second way, as categories:
 
@@ -802,7 +802,8 @@ The DuckDB file is **1,816,932,352 bytes = 1.69 GiB = 1.82 GB**. No `.wal` along
 2.3G is `du -sh` on the `data/db` DIRECTORY, which also holds the two raw JSONL dumps the database
 was built from (689MB of them). Those are inputs, not the archive.
 
-`docs/research/supersession-check-3.md:820-821` already flagged this: "SPEC.md:1496 says 'the
+`docs/research/supersession-check-3.md`, under "And one figure that disagrees three ways", already
+flagged this: "SPEC.md:1496 says 'the
 **1.8GB** database'; ADR-0057 and CNCORE-2 both say **2.3GB**." SPEC.md was right.
 
 **CONTRADICTED.** The DuckDB file is 1.8GB. The 2.3GB figure describes a directory, and the

@@ -1067,7 +1067,7 @@ function ItsOrdering({
           the HTML can match.
         */}
         <span className="text-muted-foreground text-sm">
-          {`${said.members} ${said.members === 1 ? "member" : "members"}`}
+          {`${said.placements} ${said.placements === 1 ? "member" : "members"}`}
         </span>
         <span className="text-muted-foreground text-sm">
           {itemId === null ? "Not in your catalogue" : "Already imported"}

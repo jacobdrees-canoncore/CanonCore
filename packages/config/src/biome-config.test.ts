@@ -185,6 +185,13 @@ describe("the shared Biome configuration", () => {
       expect(skipped).toEqual(excluded);
     }
 
+    // A COUNT SHORT BY TWO DURING AN UNCOMMITTED MERGE IS THIS TEST, NOT A GAP.
+    // `git ls-files` lists a conflicted path once per stage -- base, ours,
+    // theirs -- so one unresolved file inflates `tracked` by two while Biome
+    // dedupes and reports the real number. The per-file diagnostic above then
+    // says nothing is skipped, which reads as a contradiction and sends the
+    // reader hunting for two files that do not exist. `git add` the resolution
+    // and re-run. Met 2026-09-12 merging `main` into CNCORE-109.
     expect(checked).toBe(tracked.length - excluded.length);
   });
 
