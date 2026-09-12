@@ -1406,23 +1406,105 @@ async function theThingsWorkBrowsingHasToTellApart(databaseUrl: string) {
    * 5". It is seeded rather than browsed because no provider in this suite
    * hands one over -- the wiki's categories hold each story once.
    */
+  const byRelease = await aProvider(
+    db,
+    "https://provider.test/by-release",
+    "A wiki that orders by release",
+  );
+
   const withARecap = await anItemTitled(db, "An ordering that opens with its own recap", {
     isContainer: true,
     isOrdered: true,
   });
   const shownTwice = await anItemTitled(db, "A story shown twice in one ordering");
+  /*
+   * THE SAME SOURCE ASSERTS BOTH ROWS, and it is a PROVIDER rather than the
+   * owner on purpose. What the page has to show is one-source-twice against
+   * two-sources-once-each, and a recap sourced to the owner would differ from
+   * the disagreement below in TWO ways at once -- how many sources, and whether
+   * they are the owner's hand -- so a page that had merely learnt to print
+   * "Owner" would satisfy the comparison. It is the wiki both times, and the
+   * count is the only thing left that differs.
+   */
   await aPlacement(db, {
     containerId: withARecap,
     itemId: shownTwice,
     position: 1,
-    sourceId: owner,
+    sourceId: byRelease,
   });
   await aPlacement(db, {
     containerId: withARecap,
     itemId: shownTwice,
     position: 5,
-    sourceId: owner,
+    sourceId: byRelease,
   });
+
+  /*
+   * A DISAGREEMENT, which is the thing the repeat above renders identically to
+   * until the rows name their sources: ADR-0017 has two sources claiming
+   * different positions for one membership producing TWO placement rows, which
+   * is the recap's own shape -- one item, twice, at two positions.
+   *
+   * SEEDED RATHER THAN WRITTEN BY THE PRODUCT, because nothing in the product
+   * can write one. `browse` writes one source's claims per call and the owner's
+   * hand has no surface that places anything yet, which ADR-0017 says in its own
+   * words -- so this is the one place in the suite where the two shapes can be
+   * put side by side and told apart.
+   *
+   * TWO PROVIDERS RATHER THAN THE OWNER AND A PROVIDER, and that is the half
+   * that makes it bite. A kind would separate `owner` from `provider`; it
+   * cannot separate a wiki from a broadcaster, and two providers disagreeing is
+   * what this catalogue actually holds -- the wiki's series against TMDB's
+   * season. The rows have to name the sources, not their kinds.
+   */
+  const disagreedAbout = await anItemTitled(db, "An ordering two sources disagree about", {
+    isContainer: true,
+    isOrdered: true,
+  });
+  const argued = await anItemTitled(db, "A story two sources place differently");
+  /*
+   * THE BETTER-PLACED SOURCE CLAIMS THE LATER POSITION, and that is what makes
+   * the page assertion a test rather than a coincidence. `aProvider` allocates
+   * the next place in the global source order, so the wiki created above
+   * outranks the broadcaster created here -- and it is the wiki that says 3.
+   * A member list that let rank lead, which is what `findPlacementsOfItem` does
+   * on the item's end and what ADR-0018 forbids here, would therefore render #3
+   * before #1. MEASURED: with both sources the other way round, the same page
+   * assertion passed against exactly that mutation.
+   */
+  const byTransmission = await aProvider(
+    db,
+    "https://provider.test/by-transmission",
+    "A broadcaster that orders by transmission",
+  );
+  await aPlacement(db, {
+    containerId: disagreedAbout,
+    itemId: argued,
+    position: 1,
+    sourceId: byTransmission,
+  });
+  await aPlacement(db, {
+    containerId: disagreedAbout,
+    itemId: argued,
+    position: 3,
+    sourceId: byRelease,
+  });
+  /*
+   * AND ONE MEMBER THE TWO AGREE ABOUT, which is the other half of ADR-0017:
+   * sources agreeing land on ONE placement row carrying a source each, and that
+   * record carries "corroboration is invisible to every reader" as a named gap.
+   * Invisible is what it stays unless a page somewhere renders both names, so
+   * this is the row that proves it does.
+   */
+  const agreedOn = await anItemTitled(db, "A story both sources place at two");
+  for (const sourceId of [byRelease, byTransmission]) {
+    await assertPlacement(db, {
+      containerId: disagreedAbout,
+      itemId: agreedOn,
+      position: 2,
+      sourceId,
+    });
+  }
 
   return {
     fixture: {
@@ -1442,6 +1524,13 @@ async function theThingsWorkBrowsingHasToTellApart(databaseUrl: string) {
       withARecapId: withARecap,
       repeated: "A story shown twice in one ordering",
       repeatedId: shownTwice,
+      /** Who asserted BOTH of the recap's rows, which is what makes it a repeat. */
+      repeatedBy: "A wiki that orders by release",
+      disagreedAboutId: disagreedAbout,
+      argued: "A story two sources place differently",
+      /** The two sources that place it apart, in the positions they claim. */
+      arguedBy: ["A broadcaster that orders by transmission", "A wiki that orders by release"],
+      agreedOn: "A story both sources place at two",
     },
     // The seed ends its own client; this pool has to be ended too, or the run
     // holds an idle connection open against a database it has finished with.
@@ -1591,6 +1680,11 @@ declare module "vitest" {
       withARecapId: string;
       repeated: string;
       repeatedId: string;
+      repeatedBy: string;
+      disagreedAboutId: string;
+      argued: string;
+      arguedBy: string[];
+      agreedOn: string;
     };
     /** The story imported from a CMPP provider over HTTP, and what it claimed. */
     imported: {

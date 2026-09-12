@@ -205,6 +205,7 @@ export const item = {
           title: placement.title,
           itemId: placement.itemId,
           position: placement.position,
+          assertedBy: placement.assertedBy,
         })),
         statements: statements.map((statement) => ({
           property: statement.property,
