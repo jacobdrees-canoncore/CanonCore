@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { assertPlacement, type Database, findPlacementsInContainer } from "./index";
-import { anItemTitled, aPlacement, connect, ownerSource } from "./testing/catalogue";
+import { anItemTitled, aPlacement, aProvider, connect, ownerSource } from "./testing/catalogue";
 
 let db: Database;
 
@@ -127,5 +127,63 @@ describe("findPlacementsInContainer", () => {
     const held = await findPlacementsInContainer(db, container);
 
     expect(held.map((placement) => placement.id)).toEqual([recap, episode]);
+  });
+});
+
+describe("findPlacementsInContainer, on who asserted each placement", () => {
+  it("tells two sources disagreeing about position from one source saying it twice", async () => {
+    // THE CRITERION, at the query. ADR-0017: "sources disagreeing about position
+    // produce two placement rows", and ADR-0009 licences a Repeat -- which is
+    // ALSO one item twice in one container at two positions. ADR-0017 says
+    // outright that nothing STORED separates them: what does is who asserted
+    // them, a repeat's rows coming from one source and a disagreement's from two.
+    //
+    // BOTH SHAPES IN ONE TEST, because either alone passes against a query
+    // answering a constant. The difference between the two answers IS the
+    // criterion, and a test that only ever saw one of them could not state it.
+    const wiki = await aProvider(db, "a wiki that orders by release");
+    const broadcaster = await aProvider(db, "a database that orders by broadcast");
+    const disputed = await anItemTitled(db, "An ordering two sources disagree about", {
+      isContainer: true,
+      isOrdered: true,
+    });
+    const argued = await anItemTitled(db, "A story the two of them place apart");
+    await assertPlacement(db, {
+      containerId: disputed,
+      itemId: argued,
+      position: 1,
+      sourceId: broadcaster,
+    });
+    await assertPlacement(db, { containerId: disputed, itemId: argued, position: 3, sourceId: wiki });
+
+    const agreed = await anItemTitled(db, "An ordering that opens with its own recap", {
+      isContainer: true,
+      isOrdered: true,
+    });
+    const recapped = await anItemTitled(db, "A story the wiki shows twice");
+    await assertPlacement(db, {
+      containerId: agreed,
+      itemId: recapped,
+      position: 1,
+      sourceId: wiki,
+    });
+    await assertPlacement(db, {
+      containerId: agreed,
+      itemId: recapped,
+      position: 5,
+      sourceId: wiki,
+    });
+
+    const disagreement = await findPlacementsInContainer(db, disputed);
+    const repeat = await findPlacementsInContainer(db, agreed);
+
+    expect(disagreement.map((placement) => placement.assertedBy)).toStrictEqual([
+      ["a database that orders by broadcast"],
+      ["a wiki that orders by release"],
+    ]);
+    expect(repeat.map((placement) => placement.assertedBy)).toStrictEqual([
+      ["a wiki that orders by release"],
+      ["a wiki that orders by release"],
+    ]);
   });
 });

@@ -827,6 +827,45 @@ export interface PlacementInContainer {
   itemId: string;
   /** Where this placement sits in this container's ordering (ADR-0018). */
   position: number | null;
+  /**
+   * WHO SAYS IT SITS HERE: every source standing behind this placement, by the
+   * label each calls itself (ADR-0017). Empty for a placement no source
+   * asserted, which is a claim nobody made rather than a row to drop.
+   *
+   * THE SET RATHER THAN A SPOKESMAN, and that is the whole of CNCORE-90. One
+   * item twice in one container is a Repeat (ADR-0009) or two sources
+   * disagreeing about position (ADR-0017), nothing STORED tells the two apart,
+   * and what does is who asserted each row: one source saying it twice against
+   * two sources saying it once each.
+   */
+  assertedBy: string[];
+}
+
+/**
+ * EVERY SOURCE STANDING BEHIND ONE PLACEMENT, by the label each calls itself.
+ *
+ * THE SET, WHERE `spokesmanFor` ABOVE PICKS ONE, and the two answer different
+ * questions rather than one of them being the other done loosely. From the
+ * item's end the rows are competing ORDERINGS and rank decides which speaks, so
+ * one name is the answer. From the container's end the rows are what it HOLDS,
+ * in position order (ADR-0018) -- and there a Repeat and a disagreement are the
+ * same shape, so the reader is the one who tells them apart and needs every
+ * name to do it.
+ */
+function assertersOf(db: Database) {
+  return db
+    .select({
+      labels: sql<string[]>`coalesce(json_agg(${sources.label}), '[]'::json)`.as("labels"),
+    })
+    .from(placementSources)
+    .innerJoin(sources, eq(sources.id, placementSources.sourceId))
+    // The placement source's own tombstone, the one `spokesmanFor` honours and
+    // for the same reason: a withdrawn claim is not a source standing behind
+    // anything. The SOURCE's own is deliberately not checked here either, which
+    // ADR-0017 carries as a named gap belonging to whatever first lets a source
+    // be deleted -- one rule in two languages, and now in three.
+    .where(and(eq(placementSources.placementId, placements.id), isNull(placementSources.deletedAt)))
+    .as("asserters");
 }
 
 /**
@@ -849,15 +888,26 @@ export async function findPlacementsInContainer(
   db: Database,
   containerId: string,
 ): Promise<PlacementInContainer[]> {
+  const asserters = assertersOf(db);
+
   return db
     .select({
       id: placements.id,
       title: items.title,
       itemId: placements.itemId,
       position: placements.position,
+      assertedBy: asserters.labels,
     })
     .from(placements)
     .innerJoin(items, eq(items.id, placements.itemId))
+    // CROSS, WHERE THE SPOKESMAN'S IS LEFT, and neither can drop a row. An
+    // aggregate with no `group by` answers exactly one row whatever it
+    // aggregates, so a placement no source stands behind joins an empty array
+    // rather than nothing -- and a condition here would be the constant true
+    // written out. The refusal is the one `findPlacementsOfItem` makes: the read
+    // path does not get to decide a row does not exist because its provenance
+    // was never recorded.
+    .crossJoinLateral(asserters)
     .where(
       and(
         eq(placements.containerId, containerId),
