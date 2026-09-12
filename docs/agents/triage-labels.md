@@ -49,3 +49,32 @@ itself a unit of work.
 Before adding any label, check `orca linear team labels --team CNCORE --json`. The workspace also
 ships Linear's defaults (`Bug`, `Feature`, `Improvement`); those are categorisation, unrelated to
 triage roles, and should not be repurposed.
+
+## `to-spec` and `provider-repo` are KINDS, not triage roles
+
+Two labels here answer "what is this issue" rather than "how ready is it", which is the axis
+Linear's own `Bug` / `Feature` / `Improvement` sit on. They compose with a triage role rather than
+replacing one, so an issue carries one of each.
+
+- **`to-spec`** — this issue IS a spec, produced by `/to-spec`, and is a container rather than a
+  unit of work. It names the four: CNCORE-2, CNCORE-60, CNCORE-96 and CNCORE-104. A spec carries
+  `--state Backlog` for the reason above, and `ready-for-human` once it needs `/to-tickets` run on
+  it, because splitting a spec is a human's call.
+- **`provider-repo`** — the work lands in `provider-wiki` or `provider-tmdb` rather than here.
+
+**The name says which skill made it, not what to do with it.** `to-spec` marks the output of
+`/to-spec`; the action a labelled issue is usually waiting for is `/to-tickets`. That is worth
+knowing before renaming it to something that reads like an instruction.
+
+## Creating a label needs the web UI, and the CLI will not tell you gently
+
+`orca linear label add` matches an EXISTING label only: an unknown name answers
+`linear_invalid_label: No label exactly matched "<name>"`. The same is true of
+`save-issue --project`. So a new label is made at **Settings → Workspace → Labels**
+(`/settings/issue-labels`), NOT the team page — the triage labels are workspace-scoped, and a label
+made on the team page is a different thing that happens to look the same in a list.
+
+Linear's inline label row does not commit on a typed key or a global Enter. What works, verified
+2026-09-12: set the textarea through React's native value setter, then dispatch `input`, `change`,
+the three `Enter` keyboard events, `blur()` and `focusout`. Anything less leaves the value on screen
+and unsaved, which reads exactly like success.

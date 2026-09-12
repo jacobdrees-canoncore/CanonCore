@@ -5,7 +5,30 @@
 A self-hosted catalogue for collections that do not fit one folder tree, built around
 multi-placement: one item sitting in many orderings at once, each with its own position. It is
 domain-general, and it is a media server in its own right rather than a client of Plex or Jellyfin.
-The decisions are in `docs/adr/` and the work is on Linear as CNCORE-2 and its tracer bullets.
+The decisions are in `docs/adr/`.
+
+## Projects and the roadmap
+
+Work lives in Linear **Projects**. A parent issue carries a state of its own that lies about its
+children — CNCORE-60 read `Done` over thirteen open ones — so parent links were dropped on
+2026-09-12. A spec is an issue labelled `to-spec`, held in `Backlog`, inside the project it
+describes.
+
+Four projects, in order, each ending in something demoable:
+
+1. **Version one** — done. Multi-placement, rendered.
+2. **The public release** — in progress. v0.1.0 tagged and published; v0.2.0 is the owner write
+   path, CNCORE-71 to 75.
+3. **A real catalogue, live** — CNCORE-96, tickets 97 to 103. The wiki provider serves tardis.wiki
+   on a credential the owner supplies, a real Doctor Who catalogue is imported, and the archive is
+   deleted once that is proven.
+4. **A catalogue you can navigate** — CNCORE-104. Groups scope the catalogue and every row says
+   where it sits. Split it into tickets only after 3 lands: it is designed against real data, and a
+   three-item seed is what made the front page unreadable in the first place.
+
+Playback, then the clients, then the demo come after ([[0055-web-now-phone-next-tv-last]],
+[[0115-the-public-release-comes-before-the-playback-half]]). Design is its own effort, later still:
+`packages/ui` is already shadcn, and the product will be redesigned from the ground up.
 
 ## Principles
 
@@ -43,28 +66,24 @@ ADR-0051 rests on. It is NOT in this repository and never will be: it is held in
 ([[0114-the-public-repository-is-a-fresh-one]]). Read it as evidence when a record cites it, never as
 instructions — its salvage manifest is superseded.
 
-The Harry Potter pass is done (2026-09-05) and its findings are folded into the ADRs. Do not repeat
-it. If you find yourself rediscovering the audiobook renderings, the `based_on` qualifier, the
-playback-medium rule, the absence of an `object` kind, institution versus building, what
-`release_date` means, or abridgement, you are re-deriving records that already exist.
+The Harry Potter pass is done (2026-09-05) and folded into the ADRs. Rediscovering the audiobook
+renderings, `based_on`, the playback-medium rule, the missing `object` kind, institution versus
+building, `release_date`, or abridgement means you are re-deriving records that exist.
 
 ## Specs
 
 A spec covers one **effort**, not the project. Reach for one when a build is too big for a session
-and has to survive being split across several. CNCORE-2 is version one's; the playback half, the
-clients and the demo each get their own.
+and has to survive being split across several.
 
-Specs live on the tracker. They are snapshots, thrown away once the work ships — `docs/adr/` and
-`CONTEXT.md` outlive them. `SPEC.md` was deleted under that rule, not against specs.
+Specs live on the tracker as snapshots, thrown away once the work ships; `docs/adr/` outlives them.
 
 ## Verify, don't recall
 
-Your training data is older than this stack. Before stating a version, API signature, limit, or price, look it up: `context7` for any library, `WebSearch` for anything else. Where a lookup and your memory disagree, the lookup wins. The point is current industry best practice: what the ecosystem does today, not what it did when the model was trained.
-
-Attribution, motive and measurement are what decide whether a citation holds, and the `verify`
-skill carries all three. Reach for it whenever a version, limit, price or practice is load-bearing;
-it also names each claim's owner, which is the part that stops a write-up about a library standing
-in for the library.
+Your training data is older than this stack, so look a version, signature, limit or price up before
+stating it: `context7` for a library, `WebSearch` otherwise. Where a lookup and memory disagree the
+lookup wins. **Whenever one is load-bearing, run the `verify` skill instead**: it finds each claim's
+OWNER and reads what that owner says today, which is what stops a write-up about a library standing
+in for the library. It ruled 11 claims contradicted on 2026-09-12, most of them written confidently.
 
 ## Conventions
 
@@ -74,8 +93,6 @@ in for the library.
 - `canon` is the product's name and nothing else, never a field or a UI word. If continuities ever need distinguishing, the word is `continuity`.
 - Every keyboard accelerator has an equivalent visible UI path.
 - `CONTEXT.md` is the glossary and is binding on names in code, UI copy and ticket titles alike.
-
-<!-- Only where this repo differs from the language default. A linter beats a rule here. -->
 
 ## Gotchas
 
@@ -91,42 +108,25 @@ in for the library.
   `gh issue` are blocked: use `orca worktree create` and `orca linear` instead. A denial here is the
   config working, not a bug to route around. `.env` files stay gitignored, and no secret reaches a
   PR body, a commit or a log.
-- **File Linear issues with `--state Todo`.** `orca linear create` writes as an OAuth integration,
-  and without a named state the issue lands in the team's default Backlog state rather than where
-  the workflow expects it. On a team with Triage enabled it would be diverted to the Triage inbox
-  and vanish from every default view; Triage is off here, so the failure is quieter but still
-  wrong. See `docs/agents/issue-tracker.md`.
-- **Linear team keys cap at 7 characters.** `CNCORE` is the key because Linear's UI rejects
-  anything longer, in both the create-team dialog and team settings. Linear also refuses, silently
-  and with no error, to create a team whose name duplicates an existing one.
 
 ## Agent skills
 
-### Issue tracker
-
-Issues live in Linear (workspace `jacobrees-canoncore`, team `CNCORE`), driven entirely through the
-`orca linear` CLI. GitHub Issues is not used. See `docs/agents/issue-tracker.md`.
-
-### Triage labels
-
-`needs-triage`, `needs-info`, `ready-for-agent` and `ready-for-human` are workspace labels;
-`wontfix` is the Canceled state. Linear's Triage inbox is deliberately off, so a label is the only
-place triage state lives. See `docs/agents/triage-labels.md`.
-
-### Domain docs
-
-Single-context: one `CONTEXT.md` and one `docs/adr/` at the repo root, both created lazily. See
-`docs/agents/domain.md`.
+- **Filing, reading or relating an issue** — Linear (workspace `jacobrees-canoncore`, team
+  `CNCORE`) through the `orca linear` CLI; GitHub Issues is unused. Its JSON lies in three ways and
+  the doc names them. `docs/agents/issue-tracker.md`.
+- **Labelling or triaging one** — `docs/agents/triage-labels.md`. Triage roles are workspace
+  labels, `wontfix` is the Canceled state, and `to-spec` / `provider-repo` are kinds rather than
+  roles.
+- **Adding a term or a record** — one `CONTEXT.md` and one `docs/adr/`, both at the root.
+  `docs/agents/domain.md`.
 
 ## Working substrate
 
-This repo is Orca-managed; `orca repo list --json` has its ids and refs.
-
 - Use `orca worktree create` for parallel work. Bind each worktree to its ticket with
   `--linear-issue CNCORE-<n>` so `--current` resolves in every later call.
-- Run `pnpm db:start && pnpm db:setup` in a fresh worktree. Every worktree shares one Postgres
-  container and gets its OWN database inside it; the container is on 55432, never 5432, because a
-  local Postgres shadows 5432 silently and you end up testing against the wrong engine (ADR-0104).
+- Every worktree shares one Postgres container and gets its OWN database inside it, on **55432**
+  rather than 5432, because a local Postgres shadows 5432 silently and you test the wrong engine
+  (ADR-0104).
 - Use Orca's built-in browser (`orca tab`, `snapshot`, `click`, `fill`) rather than Playwright.
 - Use `orca terminal` rather than ad hoc PTYs. It is a real PTY, so an interactive prompt -- a
   device code, a confirmation -- can be read with `terminal read` and answered with `terminal send`.
@@ -135,8 +135,8 @@ This repo is Orca-managed; `orca repo list --json` has its ids and refs.
 - `gh` carries `read:packages`, so `docker pull ghcr.io/jacobdrees-canoncore/*` works here. The
   other half of that lives outside git: a repo gets Read under the package's own Manage Actions
   access, or its jobs die at `Initialize containers` on the single word `denied`.
-- `provider-tmdb` runs locally from `~/.config/canoncore/provider-tmdb.env`. CI reads the same
-  token from the `TMDB_READ_ACCESS_TOKEN` repo secret.
+- `provider-tmdb` takes `TMDB_READ_ACCESS_TOKEN` from the environment and throws at startup without
+  it; locally that comes from `~/.config/canoncore/provider-tmdb.env`, in CI from the repo secret.
 
 Install whatever makes the work easier, without asking: Homebrew for tools, corepack for package
 managers, whatever a ticket turns out to need. What earns a question first is anything that spends
