@@ -288,10 +288,7 @@ async function resurrectTombstoned(
  * Answers whether it removed anything, so a stale button is an answer rather
  * than a fault.
  */
-export async function removePlacementByHand(
-  writer: Writer,
-  placementId: string,
-): Promise<boolean> {
+export async function removePlacementByHand(writer: Writer, placementId: string): Promise<boolean> {
   const removed = await writer
     .update(placements)
     .set({ deletedAt: sql`now()` })

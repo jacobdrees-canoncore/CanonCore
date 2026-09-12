@@ -86,9 +86,13 @@ what has since been done about it.
 **The owner write path is included for one reason: without it the product's central claim is not
 personally usable.** A catalogue filled only from providers holds only the orderings a provider
 gave. CNCORE-2's user story 7 is "each ordering is mine to curate", and CNCORE-5 was "One item, two
-orderings, **hand-placed**". [[0061-containers-own-their-membership]] records "NOT BUILT: mutations
+orderings, **hand-placed**". [[0061-containers-own-their-membership]] recorded "NOT BUILT: mutations
 naming a PLACEMENT. There are none." Shipping multi-placement that the owner cannot perform is
 shipping the demo of the feature rather than the feature.
+
+**That half landed under CNCORE-72**, which is why the quotation above is in the past tense: place,
+remove and restore name a Placement by id, and a container's own page is where an owner reaches
+them. What is still a provider's alone is the REORDER, under CNCORE-73.
 
 ## Staged in two tags
 

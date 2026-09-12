@@ -1043,13 +1043,7 @@ async function PlaceAMember({
  * the undo offer -- and a Server Action gets no request URL, so anything it
  * needs has to be in the form.
  */
-function RemoveMember({
-  placementId,
-  containerId,
-}: {
-  placementId: string;
-  containerId: string;
-}) {
+function RemoveMember({ placementId, containerId }: { placementId: string; containerId: string }) {
   return (
     <form action={removeMember}>
       <input type="hidden" name="id" value={placementId} />
@@ -1069,13 +1063,7 @@ function RemoveMember({
  * tombstoned only the placement: every source that ever stood behind it was
  * left standing, so there is nothing here to reconstruct (ADR-0017).
  */
-function UndoRemoval({
-  placementId,
-  containerId,
-}: {
-  placementId: string;
-  containerId: string;
-}) {
+function UndoRemoval({ placementId, containerId }: { placementId: string; containerId: string }) {
   return (
     <form action={restoreMember} className="mt-2 flex items-baseline gap-3">
       <input type="hidden" name="id" value={placementId} />

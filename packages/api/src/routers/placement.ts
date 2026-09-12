@@ -1,6 +1,6 @@
 import {
-  placeItemByHand,
   PlacementRefused,
+  placeItemByHand,
   removePlacementByHand,
   restorePlacementByHand,
 } from "@canoncore/db";
@@ -11,7 +11,7 @@ import { ownerProcedure } from "../index";
 
 /**
  * THE OWNER'S OWN HAND ON A CONTAINER'S MEMBERSHIP (CNCORE-72), which is
- * ADR-0061's explicitly unbuilt half.
+ * what was ADR-0061's explicitly unbuilt half until this ticket built it.
  *
  * EVERY MUTATION HERE NAMES A PLACEMENT, never an item-and-container pair. That
  * is forced by Repeats being allowed (ADR-0009): a recap at position 1 and the

@@ -55,7 +55,10 @@ async function place(
 /** The Members rows a page is showing, as the reader reads them. */
 function membersIn(text: string): string[] {
   return [...sectionIn(text, "members").matchAll(/<li\b[^>]*>(.*?)<\/li>/gs)].map(([, row]) =>
-    (row ?? "").replaceAll(/<[^>]*>/g, " ").replaceAll(/\s+/g, " ").trim(),
+    (row ?? "")
+      .replaceAll(/<[^>]*>/g, " ")
+      .replaceAll(/\s+/g, " ")
+      .trim(),
   );
 }
 
@@ -85,9 +88,7 @@ describe("placing an item in a container", () => {
     });
 
     expect(after.status).toBe(200);
-    expect(membersIn(after.text)).toStrictEqual([
-      expect.stringContaining(curatable.storyTitle),
-    ]);
+    expect(membersIn(after.text)).toStrictEqual([expect.stringContaining(curatable.storyTitle)]);
     expect(membersIn(after.text)[0]).toContain("#63");
   });
 
@@ -103,16 +104,14 @@ describe("placing an item in a container", () => {
       position: "9",
     });
 
-    expect(membersIn(after.text)).toStrictEqual([
-      expect.stringContaining(curatable.otherTitle),
-    ]);
+    expect(membersIn(after.text)).toStrictEqual([expect.stringContaining(curatable.otherTitle)]);
     expect(membersIn(after.text)[0]).toContain("#9");
 
     // AND THE FIRST ORDERING IS UNTOUCHED, read back from its own page.
     const release = await containerPage(curatable.releaseOrder, owner);
-    expect(membersIn(release.text).filter((row) => row.includes(curatable.otherTitle))).toStrictEqual([
-      expect.stringContaining("#1"),
-    ]);
+    expect(
+      membersIn(release.text).filter((row) => row.includes(curatable.otherTitle)),
+    ).toStrictEqual([expect.stringContaining("#1")]);
   });
 
   it("places an item with NO position, and the row says so rather than guessing", async () => {
@@ -121,9 +120,9 @@ describe("placing an item in a container", () => {
     // says it.
     const after = await place(curatable.storyOrder, { itemId: curatable.story, position: "" });
 
-    expect(membersIn(after.text).filter((row) => row.includes(curatable.storyTitle))).toStrictEqual([
-      expect.stringContaining("No position given"),
-    ]);
+    expect(membersIn(after.text).filter((row) => row.includes(curatable.storyTitle))).toStrictEqual(
+      [expect.stringContaining("No position given")],
+    );
   });
 });
 

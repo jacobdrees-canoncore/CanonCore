@@ -5,18 +5,18 @@ import {
   type Database,
   findPlacementsInContainer,
   findPlacementsOfItem,
-  placeItemByHand,
   PlacementRefused,
-  removePlacementByHand,
+  placeItemByHand,
   readWorks,
+  removePlacementByHand,
   restorePlacementByHand,
 } from "./index";
 import { anItem, anItemTitled, aProvider, connect } from "./testing/catalogue";
 
 /**
  * THE OWNER'S OWN HAND ON A CONTAINER'S MEMBERSHIP (CNCORE-72), which is
- * ADR-0061's explicitly unbuilt half: mutations naming a PLACEMENT rather than
- * an item.
+ * what was ADR-0061's explicitly unbuilt half: mutations naming a PLACEMENT
+ * rather than an item.
  *
  * ASSERTED THROUGH THE READ PATH rather than by selecting from `placements`.
  * What an owner is owed is that the member appears in the container, and a test
@@ -43,7 +43,9 @@ describe("placeItemByHand", () => {
     // `assertedBy` NAMES THE OWNER, which is what makes a hand-placed member
     // distinguishable from an imported one (ADR-0017, ADR-0071). A placement
     // written with no source would render with no origin at all.
-    expect((await findPlacementsInContainer(db, releaseOrder, { limit: 100 })).entries).toStrictEqual([
+    expect(
+      (await findPlacementsInContainer(db, releaseOrder, { limit: 100 })).entries,
+    ).toStrictEqual([
       { id: placementId, itemId: story, title: null, position: 63, assertedBy: ["Owner"] },
     ]);
   });
@@ -170,7 +172,9 @@ describe("removePlacementByHand", () => {
 
     expect(await removePlacementByHand(db, inRelease)).toBe(true);
 
-    expect((await findPlacementsInContainer(db, releaseOrder, { limit: 100 })).entries).toStrictEqual([]);
+    expect(
+      (await findPlacementsInContainer(db, releaseOrder, { limit: 100 })).entries,
+    ).toStrictEqual([]);
     expect(await findPlacementsOfItem(db, story)).toStrictEqual([
       expect.objectContaining({ containerId: storyOrder, position: 1 }),
     ]);
@@ -205,7 +209,9 @@ describe("restorePlacementByHand", () => {
 
     expect(await restorePlacementByHand(db, placementId)).toBe(true);
 
-    expect((await findPlacementsInContainer(db, releaseOrder, { limit: 100 })).entries).toStrictEqual([
+    expect(
+      (await findPlacementsInContainer(db, releaseOrder, { limit: 100 })).entries,
+    ).toStrictEqual([
       { id: placementId, itemId: story, title: null, position: 63, assertedBy: ["Owner"] },
     ]);
   });
@@ -229,7 +235,9 @@ describe("restorePlacementByHand", () => {
     await removePlacementByHand(db, placementId);
     await restorePlacementByHand(db, placementId);
 
-    expect((await findPlacementsInContainer(db, releaseOrder, { limit: 100 })).entries).toStrictEqual([
+    expect(
+      (await findPlacementsInContainer(db, releaseOrder, { limit: 100 })).entries,
+    ).toStrictEqual([
       { id: placementId, itemId: story, title: null, position: 63, assertedBy: ["The Wiki"] },
     ]);
   });
@@ -269,7 +277,9 @@ describe("a removal and a re-placement meeting over one tuple", () => {
     // THE SAME PLACEMENT RETURNING, not a second one: the tuple admits one row
     // and the id is a stable surrogate every external reference already holds.
     expect(replaced).toBe(placementId);
-    expect((await findPlacementsInContainer(db, releaseOrder, { limit: 100 })).entries).toStrictEqual([
+    expect(
+      (await findPlacementsInContainer(db, releaseOrder, { limit: 100 })).entries,
+    ).toStrictEqual([
       { id: placementId, itemId: story, title: null, position: 63, assertedBy: ["Owner"] },
     ]);
   });
@@ -291,7 +301,9 @@ describe("a removal and a re-placement meeting over one tuple", () => {
 
     await restorePlacementByHand(db, placementId);
 
-    expect((await findPlacementsInContainer(db, releaseOrder, { limit: 100 })).entries).toStrictEqual([
+    expect(
+      (await findPlacementsInContainer(db, releaseOrder, { limit: 100 })).entries,
+    ).toStrictEqual([
       { id: placementId, itemId: story, title: null, position: 63, assertedBy: ["Owner"] },
     ]);
   });

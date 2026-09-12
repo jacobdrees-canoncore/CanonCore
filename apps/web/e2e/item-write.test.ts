@@ -221,7 +221,11 @@ describe("/new", () => {
     const created = await submit(
       baseUrl,
       "/new",
-      choosing(withFields(form, { title: "Every Dalek story", kind: "work" }), "holds", "unordered"),
+      choosing(
+        withFields(form, { title: "Every Dalek story", kind: "work" }),
+        "holds",
+        "unordered",
+      ),
       owner,
     );
 
@@ -441,7 +445,9 @@ describe("/items/<id>, the Owner note", () => {
     await submit(
       baseUrl,
       at,
-      withFields(formIn((await documentAt(at, owner)).text, "note"), { note: "What I wrote before" }),
+      withFields(formIn((await documentAt(at, owner)).text, "note"), {
+        note: "What I wrote before",
+      }),
       owner,
     );
 

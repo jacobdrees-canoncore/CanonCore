@@ -126,9 +126,7 @@ describe("what the owner is refused", () => {
     const placed = { containerId: season, itemId: episode, position: 1 };
     await call(appRouter.placement.place, placed, { context: asTheOwner });
 
-    const { error } = await safe(
-      call(appRouter.placement.place, placed, { context: asTheOwner }),
-    );
+    const { error } = await safe(call(appRouter.placement.place, placed, { context: asTheOwner }));
 
     expect(isDefinedError(error) && error.code).toBe("BAD_REQUEST");
   });

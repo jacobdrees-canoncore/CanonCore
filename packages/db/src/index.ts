@@ -23,8 +23,8 @@ export {
 export {
   type AssertedPlacement,
   assertPlacement,
-  placeItemByHand,
   PlacementRefused,
+  placeItemByHand,
   removePlacementByHand,
   restorePlacementByHand,
   type Writer,
