@@ -31,12 +31,17 @@ import {
  */
 async function readItem(
   id: string,
-  { after, placedAfter, context }: { after?: string; placedAfter?: string; context?: Context } = {},
+  {
+    placed,
+    after,
+    placedAfter,
+    context,
+  }: { placed?: string; after?: string; placedAfter?: string; context?: Context } = {},
 ) {
   const { error, data } = await safe(
     call(
       appRouter.item.get,
-      { id, after, placedAfter },
+      { id, placed, after, placedAfter },
       { context: context ?? (await createContext()) },
     ),
   );
@@ -296,7 +301,19 @@ export default async function ItemPage({
    */
   const refusedItem = oneValue(refused);
 
-  const item = await readItem(id, { after: from, placedAfter: appearingFrom, context });
+  /*
+   * THE NARROWING GOES TO THE READ PATH (CNCORE-129), where it used to be
+   * applied to the rows that came back. The listing answered is the narrow one,
+   * so its size, its cap and its walk are the narrowing's own -- and the chips
+   * ride back beside it, because they are the one thing narrowing must not
+   * change.
+   */
+  const item = await readItem(id, {
+    placed: showingOnly,
+    after: from,
+    placedAfter: appearingFrom,
+    context,
+  });
   const owner = context.session !== null;
 
   return (
@@ -754,41 +771,33 @@ function AlsoAppearsIn({
   /** This listing's OWN cursor, if the page was asked with one. */
   appearingFrom?: string;
 }) {
-  const { entries, total, continuesAfter } = placements;
+  const { entries, total, continuesAfter, origins } = placements;
   /*
    * NOTHING AT ALL FOR AN ITEM IN NO ORDERING, which is `total` rather than
    * `entries.length` for the reason `Members` above gives: an entries-length
    * test would hide the END of the walk, where a cursor past the last ordering
    * answers a page with no rows over a list that has plenty.
+   *
+   * AND THE ORIGINS BESIDE IT SINCE CNCORE-129, because `total` is the size of
+   * the NARROWED listing now: narrowed to an origin the item has nothing from it
+   * is zero over a list with plenty in it, and a section that vanished there
+   * would take the way back to All with it. The origins are the listing's own
+   * whatever it was narrowed to, so they are what says the section belongs on
+   * this page at all.
+   *
+   * THE ONE ITEM BOTH MISS is one whose every ordering is a placement NO SOURCE
+   * STANDS BEHIND, narrowed by hand to some origin: it has orderings and no
+   * origins, so this hides a section the address asked to narrow. Nothing in the
+   * app emits that address -- a chip is offered only for an origin the item has
+   * -- and the reader who typed it gets the page they would get by not typing
+   * it, which is the recovery rather than the dead end.
    */
-  if (total === 0) return null;
+  if (total === 0 && origins.length === 0) return null;
 
   // `/items/<id>` is where this listing is walked, for the same reason the
   // Members list is: a Container IS an Item and this is the item's own page.
   const path: MembersPath = `/items/${itemId}`;
   const route = theRoute({ arrivedThrough, showingOnly, from, appearingFrom });
-
-  /*
-   * READ OFF THE PAGE, WHICH IS A NARROWER CLAIM THAN IT WAS. An origin nothing
-   * arrived by is not offered, and the day a provider's browse writes placements
-   * the chip for it appears without anyone adding it.
-   *
-   * TODO(CNCORE-129): BOTH THE CHIPS AND THE FILTER BELOW SEE ONLY THIS PAGE.
-   * Until CNCORE-125 this list was uncapped, so "the rows the page was handed"
-   * and "every ordering the item sits in" were the same set and the distinction
-   * did not exist. With a cap they are not, and the honest fix is to push
-   * `?placed=` into the query so the narrowed list is a listing with its own
-   * total, cap and walk -- which also needs a second read for the chips, since
-   * a filtered page can only ever show the one origin it was filtered to. That
-   * is a bigger change than this ticket, so what is done here instead is to SAY
-   * SO: the notice below counts the narrowing against the page rather than
-   * against the listing, so the page never claims more than it looked at.
-   */
-  const origins = [...new Set(entries.map((p) => p.placedBy).filter((by) => by !== null))];
-  const showing = entries.filter((p) => !showingOnly || p.placedBy === showingOnly);
-  // WHETHER THE CAP BIT, which is what decides whether the narrowing above is
-  // over the whole listing or only over what this page was handed.
-  const capped = entries.length < total;
 
   return (
     <section className="mt-8" aria-labelledby="also-appears-in">
@@ -810,9 +819,11 @@ function AlsoAppearsIn({
           Repeat is one item twice in ONE ordering, so counting containers would
           make the count disagree with the rows under it.
 
-          IT COUNTS THE LISTING AND NOT THE NARROWING, which is why it sits
-          beside the heading and above the chips. What the chips do to it is the
-          notice further down.
+          AND SINCE CNCORE-129 THE NARROWING IS PART OF THE LISTING, so this one
+          count serves both: narrowed, it is the size of the narrowing, its cap
+          and its walk. It sat above the chips while it could only describe the
+          unnarrowed list and a second notice below carried what the chips did to
+          it; there is one number now, and it is the one the reader is looking at.
         */}
         {entries.length > 0 && <Holding showing={entries.length} total={total} noun="ordering" />}
       </div>
@@ -855,9 +866,11 @@ function AlsoAppearsIn({
         the heading with an empty list under it, which reads as a section that
         failed to load rather than as an ending.
       */}
-      {entries.length === 0 && <PastTheEnd path={path} listing="appearances" asked={route} />}
+      {entries.length === 0 && total > 0 && (
+        <PastTheEnd path={path} listing="appearances" asked={route} />
+      )}
       <ul className="mt-2 divide-y">
-        {showing.map((placement) => (
+        {entries.map((placement) => (
           <li
             key={placement.id}
             aria-current={placement.id === arrivedThrough ? "true" : undefined}
@@ -913,36 +926,27 @@ function AlsoAppearsIn({
         ))}
       </ul>
       {/*
-        WHAT THE NARROWING LOOKED AT, said rather than left to be assumed.
+        AN ORIGIN WITH NOTHING IN IT, which is the only way this listing is empty
+        while the section still renders: the gate above kept it for the chips, so
+        the way back to the whole list is a click rather than an edit.
 
-        While this list was uncapped, a chip narrowed EVERY ordering the item
-        sat in and the count needed no qualifying. Capped, it narrows the page --
-        so a reader who sees three Imported rows has to be told whether that is
-        three of the item's orderings or three of the hundred in front of them.
-        Saying nothing is the silent cap ADR-0119 exists to refuse, arriving
-        through the filter instead of through the listing.
+        AND NO QUALIFICATION ABOUT THE PAGE ANY MORE (CNCORE-129). While the
+        narrowing ran over the rows the cap had handed the surface, a notice here
+        counted it against the page -- "Showing 12 of the 100 orderings on this
+        page" -- because that was all the page could honestly claim. The
+        narrowing is the query's now and the count above it is the narrowed
+        listing's own, so the caveat described a limit that had stopped holding:
+        one outliving its cause is worse than none.
 
-        ONLY WHEN THE CAP ACTUALLY BIT. On an item whose every ordering fits on
-        one page the narrowing IS over the whole listing, so a qualification
-        would be a caveat about a limit the reader never met.
+        A CHIP NEVER LANDS HERE, because the chips are the origins the item
+        actually has. What does is an address typed by hand, which is ADR-0066's
+        non-identifying parameter naming nothing.
       */}
-      {showingOnly && capped && showing.length > 0 && (
+      {total === 0 && (
         <p className="mt-2 text-muted-foreground text-sm">
-          Showing {showing.length} of the {entries.length} orderings on this page. Walk on to narrow
-          the rest.
+          Nothing placed that way. The whole list is under All.
         </p>
       )}
-      {showing.length === 0 &&
-        entries.length > 0 &&
-        (capped ? (
-          <p className="mt-2 text-muted-foreground text-sm">
-            Nothing on this page was placed that way. Walk on, or see the whole list under All.
-          </p>
-        ) : (
-          <p className="mt-2 text-muted-foreground text-sm">
-            Nothing placed that way. The whole list is under All.
-          </p>
-        ))}
       {/*
         HOW A READER REACHES THE REST OF IT (ADR-0119), and the same component
         the other four listings walk with -- so the rule that every page past the

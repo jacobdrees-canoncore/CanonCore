@@ -99,6 +99,15 @@ origin. It identifies nothing either, and the canonical is unchanged by it. Link
 write them in a fixed order -- `via` then `placed` -- so one narrowed list is one URL rather than
 two spellings of it.
 
+**IT REACHES THE READ PATH SINCE CNCORE-129, AND THIS RECORD'S OWN RULE IS WHAT DECIDES WHAT AN
+UNKNOWN VALUE MEANS.** The narrowing is a term of the query rather than a filter the surface applies
+to the rows ([[0119-a-listing-is-walked-forward-from-the-last-item-it-showed]]), so `placed` is an
+input on `item.get` -- typed as a STRING and not as the four source kinds, for the reason `?via=`
+and a malformed id already settle here: whether a value names anything is what the ANSWER says. An
+origin the Item has nothing from narrows to an empty listing, beside the chips that lead back out of
+it. A validated enum would raise a BAD_REQUEST no caller can narrow on, so a stale link would read
+as a broken server rather than as the narrowing of nothing it is.
+
 **AND A THIRD, UNDER CNCORE-89: `?after=`**, which walks the Members listing
 ([[0119-a-listing-is-walked-forward-from-the-last-item-it-showed]]). It identifies nothing either --
 it names where a page of that listing carries on from -- and the canonical is unchanged by it, which

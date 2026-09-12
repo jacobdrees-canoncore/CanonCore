@@ -757,6 +757,90 @@ describe("/items/<an item in more orderings than one page>", () => {
     expect(alsoAppearsIn(first.text)).not.toContain("Back to the start");
   });
 
+  /**
+   * THE CHIPS THE FILTER OFFERS, scoped to their own `nav` so the walk's `Next`
+   * and the rows themselves cannot be counted as chips.
+   */
+  function chipsOn(text: string): string[] {
+    const nav = alsoAppearsIn(text).match(
+      /<nav aria-label="Filter by how it was placed".*?<\/nav>/,
+    )?.[0];
+    if (nav === undefined) throw new Error("the list rendered no filter");
+    return [...nav.matchAll(/>([^<>]+)<\/a>/g)].map(([, word]) => word ?? "");
+  }
+
+  it("narrows the LISTING, so an origin off this page is still reachable", async () => {
+    // CNCORE-129, and the fixture is what makes it observable: one of this
+    // item's orderings was placed by a provider and the rest by the owner's own
+    // hand, and that one sits past the first page. A filter over the rows the
+    // cap handed the surface answers nothing at all here.
+    const { text } = await documentFrom(pagedBaseUrl, `/items/${appearsIn.id}?placed=provider`);
+
+    expect(orderingsLinkedFrom(text)).toStrictEqual([appearsIn.imported.containerId]);
+    // THE SIZE OF THE NARROWING, not of the list it was cut out of, and not of
+    // the page: "1 ordering" is `Holding` saying the cap did not bite.
+    expect(alsoAppearsIn(text)).toContain("1 ordering");
+    expect(alsoAppearsIn(text)).not.toContain(`of ${appearsIn.sitsIn.length} orderings`);
+  });
+
+  it("caps and walks the narrowing, so a reader can reach past row 100 of it", async () => {
+    // THE OTHER HALF: the narrowed listing is a listing, so it is capped at a
+    // page and walked from the row that page ended on -- carrying `placed`
+    // alongside its cursor, or page two would answer the whole list again.
+    //
+    // THE ORACLE IS THE FIXTURE'S OWN ARITHMETIC: every placement it wrote but
+    // the one a provider asserted and the one nobody did.
+    const byHand = appearsIn.sitsIn.length - 2;
+    const first = await documentFrom(pagedBaseUrl, `/items/${appearsIn.id}?placed=owner`);
+
+    expect(alsoAppearsIn(first.text)).toContain(`Showing 100 of ${byHand} orderings`);
+
+    const walked: string[] = [];
+    let path: string | undefined = `/items/${appearsIn.id}?placed=owner`;
+    for (let pages = 0; pages <= appearsIn.sitsIn.length; pages += 1) {
+      const { status, text } = await documentFrom(pagedBaseUrl, path);
+      expect(status).toBe(200);
+      walked.push(...orderingsLinkedFrom(text));
+      const next: string | undefined = carriesOnAt(text);
+      if (next === undefined) {
+        expect(walked).toHaveLength(byHand);
+        // AND NOTHING FROM THE OTHER ORIGIN GOT IN, which is the half a walk
+        // that dropped `placed` on page two would fail.
+        expect(walked).not.toContain(appearsIn.imported.containerId);
+        return;
+      }
+      path = next;
+    }
+    throw new Error(`the narrowed walk never ended: ${walked.length} of ${byHand}`);
+  });
+
+  it("offers every origin as a chip, whichever page and whichever narrowing", async () => {
+    // THE SECOND READ, AT THE SURFACE IT EXISTS FOR. Page one carries a hundred
+    // hand-placed orderings and no imported row at all, and the narrowed page
+    // carries the imported one alone -- so chips read off the rows would offer
+    // the reader only what they were already looking at, and All would be
+    // reachable only by editing the address.
+    const first = await documentFrom(pagedBaseUrl, `/items/${appearsIn.id}`);
+    const narrowed = await documentFrom(pagedBaseUrl, `/items/${appearsIn.id}?placed=provider`);
+
+    expect(orderingsLinkedFrom(first.text)).not.toContain(appearsIn.imported.containerId);
+    // The reader's words for the two origins (ADR-0045): the page supplies them
+    // and the read path answers the keys.
+    expect(chipsOn(first.text)).toStrictEqual(["All", "Hand-placed", "Imported"]);
+    expect(chipsOn(narrowed.text)).toStrictEqual(["All", "Hand-placed", "Imported"]);
+  });
+
+  it("says nothing about what the page looked at, because it looked at the listing", async () => {
+    // CNCORE-125 counted the narrowing against the PAGE -- "Showing 12 of the
+    // 100 orderings on this page" -- because that was all a filter over the rows
+    // could honestly claim. The narrowing is the query's now, so the caveat
+    // describes a limit that no longer holds, and a caveat outliving its cause
+    // is worse than none.
+    const { text } = await documentFrom(pagedBaseUrl, `/items/${appearsIn.id}?placed=owner`);
+
+    expect(alsoAppearsIn(text)).not.toContain("on this page");
+  });
+
   it("says the list ends here, where a link outlived the orderings after it", async () => {
     // THE ONE DEAD END A CURSOR CREATES. `continuesAfter` is handed over only
     // when there is a row past the page, so a link FOLLOWED never lands here --

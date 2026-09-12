@@ -263,6 +263,25 @@ export const item = {
          * The other three listings ARE their surface, so their cursor is the
          * whole query; this one rides beside the item it is a listing OF.
          */
+        /*
+         * WHICH ORIGIN "ALSO APPEARS IN" IS NARROWED TO (ADR-0066, CNCORE-129),
+         * and it sits ahead of the two cursors because that is the order the
+         * address is spelled in -- `via`, `placed`, `after`, `placedAfter`.
+         *
+         * IT IS THE QUESTION RATHER THAN A FILTER OVER THE ANSWER, which is the
+         * whole of this ticket. `?placed=` reached the surface and ran over the
+         * rows the cap had handed it, so the size it reported, the cap it met
+         * and the walk it offered were the WHOLE listing's. Asked here they are
+         * the narrowing's own.
+         *
+         * `z.string()` RATHER THAN THE FOUR SOURCE KINDS, for the reason `id`
+         * above gives: whether a value names anything is what the ANSWER says.
+         * A kind nothing was placed by narrows to an empty listing, which is
+         * ADR-0066's rule for a non-identifying parameter that is out of scope
+         * -- and a `z.enum` here would make it a BAD_REQUEST this procedure does
+         * not declare, so a stale link would read as a broken server.
+         */
+        placed: z.string().optional(),
         after: aCursor,
         /*
          * "ALSO APPEARS IN"'S OWN CURSOR (ADR-0119, CNCORE-125), and the second
@@ -301,6 +320,10 @@ export const item = {
         findPlacementsOfItem(context.db, found.id, {
           limit: A_PAGE,
           after: input.placedAfter,
+          // NARROWED IN THE QUERY SINCE CNCORE-129, so the cap above is the cap
+          // ON THE NARROWING: a reader who has chosen one origin walks that
+          // listing rather than the hundred rows the whole one starts with.
+          placedBy: input.placed,
         }),
         // ASKED UNCONDITIONALLY rather than only when `is_container`, because
         // the two would be the same question answered twice: nothing can be
@@ -356,6 +379,13 @@ export const item = {
           })),
           total: placements.total,
           continuesAfter: placements.continuesAfter,
+          /*
+           * WHAT THIS LISTING CAN BE NARROWED TO (CNCORE-129), which the three
+           * above cannot answer: they describe the listing as ASKED, and after a
+           * narrowing that is one origin wide. A surface deriving its chips from
+           * the rows would offer only the origin the reader already chose.
+           */
+          origins: placements.origins,
         },
         // THE LISTING AND NOT ONLY ITS ROWS (ADR-0045, ADR-0119): what this page
         // carries, how much the container holds, and where it carries on. The

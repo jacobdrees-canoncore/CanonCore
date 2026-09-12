@@ -490,6 +490,11 @@ describe("item.get on a container", () => {
     expect(Object.keys(placementsOfItemPublic.shape).sort()).toStrictEqual([
       "continuesAfter",
       "entries",
+      // IT WENT RED HERE WHEN CNCORE-129 ADDED `origins`, which is the
+      // enumeration working: a listing a reader can narrow has to say what it
+      // can be narrowed TO, and that is a field because it is a second question
+      // rather than something derivable from the rows.
+      "origins",
       "total",
     ]);
   });
@@ -894,6 +899,28 @@ describe("item.kinds", () => {
 });
 
 describe("item.get on an item in more orderings than one page", () => {
+  /**
+   * ONE FIXTURE FOR THE WHOLE BLOCK, and that is a cost rather than tidiness.
+   * This suite shares ONE catalogue and each of these mints a hundred and twenty
+   * containers into it, so a fixture per test puts hundreds of items in front of
+   * every listing assertion in the package -- which is how CNCORE-129 first
+   * found the front page's own test failing on a fixture it had never heard of.
+   *
+   * IT IS READ AND NEVER WRITTEN TO, which is what makes sharing safe here: each
+   * test below asks this item a different question and none of them changes it.
+   */
+  let paged: Awaited<ReturnType<typeof anItemInMoreOrderingsThanOnePage>>;
+
+  beforeAll(async () => {
+    paged = await anItemInMoreOrderingsThanOnePage(db, {
+      // THE TITLE SORTS AFTER the items the catalogue's own tests assert are on
+      // its first page, which is not a coincidence to be re-derived: a hundred
+      // and twenty containers named ahead of one push it off a capped listing.
+      title: "A story the router has to walk",
+      orderings: 120,
+    });
+  });
+
   it("caps the orderings it answers with, and says how many there are", async () => {
     // ADR-0119, and the cap is this seam's rather than the caller's: `item.get`
     // takes no `limit`, so a caller may not raise it and nothing wants it lower.
@@ -902,10 +929,7 @@ describe("item.get on an item in more orderings than one page", () => {
     // must not be wrong: multi-placement is the product's central claim, so a
     // page reporting a hundred orderings over three hundred would understate
     // exactly what the product exists to show.
-    const { id, sitsIn } = await anItemInMoreOrderingsThanOnePage(db, {
-      title: "A story the router has to cap",
-      orderings: 120,
-    });
+    const { id, sitsIn } = paged;
 
     const item = await call(appRouter.item.get, { id }, { context });
 
@@ -922,10 +946,7 @@ describe("item.get on an item in more orderings than one page", () => {
     // THE ORACLE IS THE PLACEMENTS THE FIXTURE WROTE rather than a second
     // reading of the item: asking the read path to say what should have been
     // walked is asking the mechanism under test to mark its own work.
-    const { id, sitsIn } = await anItemInMoreOrderingsThanOnePage(db, {
-      title: "A story the router has to walk",
-      orderings: 120,
-    });
+    const { id, sitsIn } = paged;
 
     const walked: string[] = [];
     let placedAfter: string | undefined;
@@ -939,5 +960,66 @@ describe("item.get on an item in more orderings than one page", () => {
 
     expect([...walked].sort()).toStrictEqual(sitsIn.map((p) => p.id).sort());
     expect(new Set(walked).size).toBe(walked.length);
+  });
+
+  it("narrows to one origin at the query, and counts what the narrowing holds", async () => {
+    // CNCORE-129. `?placed=` reached this listing as a filter over whatever page
+    // the cap had handed the surface, which was every ordering the item sits in
+    // only while the listing was uncapped. Asked here it is the listing that is
+    // narrow, so its size, its cap and its walk are its own.
+    const { id, imported } = paged;
+
+    const item = await call(appRouter.item.get, { id, placed: "provider" }, { context });
+
+    // ONE ORDERING OUT OF A HUNDRED AND TWENTY-ONE, and the fixture puts it past
+    // the first page on purpose: a filter over the rows the page carried would
+    // answer nothing at all here.
+    expect(item.placements.entries.map((placement) => placement.containerId)).toStrictEqual([
+      imported.containerId,
+    ]);
+    expect(item.placements.total).toBe(1);
+    expect(item.placements.continuesAfter).toBeNull();
+  });
+
+  it("names every origin it has a placement from, on a page holding one of them", async () => {
+    // THE SECOND READ (ADR-0045): the chips are what a reader narrows WITH, so
+    // they cannot be read off the rows the narrowing answered. This page carries
+    // the hand-placed hundred and no imported row at all, and has to offer both.
+    const { id } = paged;
+
+    const whole = await call(appRouter.item.get, { id }, { context });
+    const narrowed = await call(appRouter.item.get, { id, placed: "provider" }, { context });
+
+    expect(whole.placements.entries.map((placement) => placement.placedBy)).not.toContain(
+      "provider",
+    );
+    expect(whole.placements.origins).toStrictEqual(["owner", "provider"]);
+    // AND NARROWED TO ONE OF THEM IT STILL OFFERS BOTH, which is the way back to
+    // All: chips derived from a narrowed page would hold only the origin the
+    // reader had already chosen.
+    expect(narrowed.placements.origins).toStrictEqual(["owner", "provider"]);
+  });
+
+  it("answers an empty listing for an origin it has nothing from, and the chips all the same", async () => {
+    // ADR-0066: a non-identifying parameter that names nothing narrows to
+    // nothing rather than erroring -- and the origins beside it are what makes
+    // that recoverable instead of a dead end.
+    // A SMALL ITEM RATHER THAN THE FIXTURE ABOVE, because nothing here needs a
+    // listing larger than a page: what is under test is an origin with no rows,
+    // and the cap has no part in it.
+    const story = await anItem(db);
+    const ordering = await anItemTitled(db, "An ordering nothing derived", { isContainer: true });
+    await aPlacement(db, {
+      containerId: ordering,
+      itemId: story,
+      position: 1,
+      sourceId: await ownerSource(db),
+    });
+
+    const item = await call(appRouter.item.get, { id: story, placed: "derived" }, { context });
+
+    expect(item.placements.entries).toStrictEqual([]);
+    expect(item.placements.total).toBe(0);
+    expect(item.placements.origins).toStrictEqual(["owner"]);
   });
 });

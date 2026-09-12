@@ -185,6 +185,22 @@ export interface PlacementsOfItem {
    * placements it is the row the page ended on instead.
    */
   continuesAfter: string | null;
+  /**
+   * EVERY ORIGIN THE ITEM HAS A PLACEMENT FROM -- the source kinds of ADR-0071,
+   * as `placedBy` on a row carries one.
+   *
+   * IT IS THE ONE FACT HERE THE NARROWING DOES NOT TOUCH, which is what it is
+   * for: these are what a reader narrows WITH, so they are the origins of the
+   * WHOLE listing whichever page this is and whichever origin it was cut to.
+   * Derived from the entries they would collapse to the origin already chosen,
+   * and the way back to All would be to edit the address by hand.
+   *
+   * EMPTY FOR AN ITEM NOTHING HAS ASSERTED A PLACEMENT OF, which is not the same
+   * as an item in no ordering: a placement no source stands behind is a real
+   * ordering with no origin (ADR-0017), so it is counted in `total` and named
+   * here by nothing.
+   */
+  origins: string[];
 }
 
 /**
@@ -228,7 +244,7 @@ export interface PlacementsOfItem {
 export async function findPlacementsOfItem(
   db: Database,
   itemId: string,
-  { limit, after }: { limit: number; after?: string },
+  { limit, after, placedBy }: { limit: number; after?: string; placedBy?: string },
 ): Promise<PlacementsOfItem> {
   const spokesman = spokesmanFor(db);
   const asserters = assertersOf(db);
@@ -239,109 +255,206 @@ export async function findPlacementsOfItem(
     // cannot go on claiming membership of it.
     isNull(items.deletedAt),
   ) as SQL;
+  /*
+   * THE NARROWING, AND IT IS PART OF THE QUESTION RATHER THAN OF THE ANSWER
+   * (CNCORE-129). `?placed=` ran over the rows the page had been handed, which
+   * was every ordering the item sits in only while this listing was uncapped.
+   * Asked here it is the listing that is narrow: the cap, the count and the
+   * walk are all over the rows that survive it, so a reader can reach past row
+   * 100 OF THE NARROWING rather than past row 100 of the list it was cut from.
+   *
+   * IT COMPARES THE SPOKESMAN'S KIND, which is what `placedBy` on a row already
+   * is: one placement can carry several sources, and the one that SPEAKS for it
+   * is the one the row names (ADR-0017). Narrowing on any of them would answer
+   * rows the page then labels with a different origin than the one asked for.
+   *
+   * AN ORIGIN THE ITEM HAS NOTHING FROM NARROWS TO NOTHING, which is ADR-0066's
+   * rule for a parameter that is not an identity: out of scope it names nothing
+   * rather than erroring, and a listing of no rows is what "nothing" looks like.
+   */
+  const narrowedTo = placedBy === undefined ? undefined : eq(spokesman.kind, placedBy);
+  const theseOrderings = and(sitsIn, narrowedTo) as SQL;
   const place = after === undefined ? undefined : await findInThisItemsOrder(db, itemId, after);
 
-  return onePage({
-    limit,
-    read: (howMany) =>
-      db
-        .select({
-          id: placements.id,
-          containerId: placements.containerId,
-          containerTitle: items.title,
-          position: placements.position,
-          placedBy: spokesman.kind,
+  /*
+   * TWO READS, AND THE SECOND IS THE HALF THAT IS EASY TO MISS (CNCORE-129).
+   * The chips a reader narrows WITH cannot be derived from the rows narrowing
+   * hands back: a narrowed page holds the one origin it was narrowed to, so
+   * they would collapse to the origin already chosen and leave no way back to
+   * All but by hand. Which origins an item has placements from is a question of
+   * its own, and this is it being asked.
+   *
+   * TWO STATEMENTS RATHER THAN ONE, so the two are not in one snapshot: an
+   * origin whose last placement goes between them is offered as a chip that
+   * answers nothing. The page reads as "nothing placed that way", which is the
+   * ordinary answer for an origin with no rows -- where folding the second read
+   * into the first would cost the page the lateral over every row of the count
+   * to remove a state the reader cannot tell from the truthful one.
+   */
+  const [page, origins] = await Promise.all([
+    onePage({
+      limit,
+      read: (howMany) =>
+        db
+          .select({
+            id: placements.id,
+            containerId: placements.containerId,
+            containerTitle: items.title,
+            position: placements.position,
+            placedBy: spokesman.kind,
+            /*
+             * WHO SAYS IT SITS THERE (ADR-0017, CNCORE-121). The same lateral the
+             * container's end reads, correlated the same way -- one aggregate of
+             * every live claim behind this placement, in the spokesman's own order.
+             *
+             * IT DOES NOT REPLACE THE SPOKESMAN LATERAL ABOVE, and both are needed
+             * rather than one being tidier. The spokesman PICKS a row, and its rank
+             * and source order are two of the terms this query ORDERS BY -- and now
+             * two of the terms its CURSOR compares, since CNCORE-125 (ADR-0119). An
+             * aggregate can be neither ordered by nor compared against, so
+             * collapsing the two would cost the resolution ADR-0017 expresses as
+             * order and the walk that resumes inside it.
+             */
+            assertedBy: asserters.labels,
+            /*
+             * THE SAME PREDICATE THE ENTRIES USE, in the same statement and
+             * therefore the same snapshot, and UNCORRELATED so the cursor cannot
+             * reach it -- all three for the reasons `walkListing` gives. The
+             * subquery names `placements` and `items` in its own FROM, so those
+             * names resolve to its own rows rather than to the walk's.
+             *
+             * THE NARROWING IS IN IT TOO SINCE CNCORE-129, which is what makes a
+             * narrowed list report its own size rather than the size of the list
+             * it was cut out of. `countingOrderings` is where the lateral that
+             * costs comes and goes with it.
+             */
+            total:
+              sql<number>`(${countingOrderings(db, theseOrderings, narrowedTo !== undefined)})`.mapWith(
+                Number,
+              ),
+          })
+          .from(placements)
+          .innerJoin(items, eq(items.id, placements.containerId))
+          // LEFT, because a placement no source stands behind is still a placement.
+          // An inner join would silently drop it, which is the read path deciding a
+          // row does not exist because its provenance was never recorded.
+          .leftJoinLateral(spokesman, sql`true`)
           /*
-           * WHO SAYS IT SITS THERE (ADR-0017, CNCORE-121). The same lateral the
-           * container's end reads, correlated the same way -- one aggregate of
-           * every live claim behind this placement, in the spokesman's own order.
-           *
-           * IT DOES NOT REPLACE THE SPOKESMAN LATERAL ABOVE, and both are needed
-           * rather than one being tidier. The spokesman PICKS a row, and its rank
-           * and source order are two of the terms this query ORDERS BY -- and now
-           * two of the terms its CURSOR compares, since CNCORE-125 (ADR-0119). An
-           * aggregate can be neither ordered by nor compared against, so
-           * collapsing the two would cost the resolution ADR-0017 expresses as
-           * order and the walk that resumes inside it.
+           * CROSS WHERE THE SPOKESMAN IS LEFT, and neither can drop a row: an
+           * aggregate with no `group by` answers exactly one row whatever it
+           * aggregates, so a placement no source stands behind joins an empty array
+           * rather than nothing. The same pairing `findPlacementsInContainer` uses.
            */
-          assertedBy: asserters.labels,
-          /*
-           * THE SAME PREDICATE THE ENTRIES USE, in the same statement and
-           * therefore the same snapshot, and UNCORRELATED so the cursor cannot
-           * reach it -- all three for the reasons `walkListing` gives. The
-           * subquery names `placements` and `items` in its own FROM, so those
-           * names resolve to its own rows rather than to the walk's.
-           *
-           * NO LATERAL IN IT, because counting does not need to know WHO
-           * asserted a row. The spokesman decides the order, and an order is
-           * not part of a count.
-           */
-          total:
-            sql<number>`(select count(*) from ${placements} inner join ${items} on ${eq(items.id, placements.containerId)} where ${sitsIn})`.mapWith(
-              Number,
-            ),
-        })
-        .from(placements)
-        .innerJoin(items, eq(items.id, placements.containerId))
-        // LEFT, because a placement no source stands behind is still a placement.
-        // An inner join would silently drop it, which is the read path deciding a
-        // row does not exist because its provenance was never recorded.
-        .leftJoinLateral(spokesman, sql`true`)
-        /*
-         * CROSS WHERE THE SPOKESMAN IS LEFT, and neither can drop a row: an
-         * aggregate with no `group by` answers exactly one row whatever it
-         * aggregates, so a placement no source stands behind joins an empty array
-         * rather than nothing. The same pairing `findPlacementsInContainer` uses.
-         */
-        .crossJoinLateral(asserters)
-        .where(and(sitsIn, place && pastAmongItsOrderings(spokesman, place)))
-        .orderBy(
-          /*
-           * `nulls last` IS THE DEFAULT FOR `asc` AND IS WRITTEN OUT ANYWAY on
-           * all four keys, for the reason `readListing` gives: the cursor reads
-           * it, and a default a walk depends on is one worth saying out loud.
-           * Every one of these four columns can be null, so every one of them
-           * has a keyless block behind it that a walk must still reach.
-           */
-          // ADR-0014 gives `sort_name` its own index for exactly this: it is what
-          // the catalogue sorts on, and the title is the fallback when no sort-name
-          // statement has ever won.
-          sql`${THE_CONTAINERS_KEY} nulls last`,
-          // THEN THE DISAGREEMENT IS RESOLVED (ADR-0017). Two sources claiming
-          // different positions for one item in one container are two rows, both
-          // standing and both answered -- and these two terms are what decide which
-          // of them SPEAKS, so the winning claim is the one a reader meets first.
-          // A source that says nothing about a placement cannot outrank one that
-          // does, and NULLs sorting last is what says so.
-          sql`${spokesman.precedence} nulls last`,
-          sql`${spokesman.sourceOrder} nulls last`,
-          // A REPEAT ties on both of those, because one source asserted both rows.
-          // Position is what separates it, so a recap at 1 still reads before the
-          // episode at 5 -- and the id keeps even two identical rows in one order.
-          sql`${placements.position} nulls last`,
-          sql`${placements.id}`,
-        )
-        .limit(howMany),
-    asEntry: ({ id, containerId, containerTitle, position, placedBy, assertedBy }) => ({
-      id,
-      containerId,
-      containerTitle,
-      position,
-      placedBy,
-      assertedBy,
+          .crossJoinLateral(asserters)
+          .where(and(theseOrderings, place && pastAmongItsOrderings(spokesman, place)))
+          .orderBy(
+            /*
+             * `nulls last` IS THE DEFAULT FOR `asc` AND IS WRITTEN OUT ANYWAY on
+             * all four keys, for the reason `readListing` gives: the cursor reads
+             * it, and a default a walk depends on is one worth saying out loud.
+             * Every one of these four columns can be null, so every one of them
+             * has a keyless block behind it that a walk must still reach.
+             */
+            // ADR-0014 gives `sort_name` its own index for exactly this: it is what
+            // the catalogue sorts on, and the title is the fallback when no sort-name
+            // statement has ever won.
+            sql`${THE_CONTAINERS_KEY} nulls last`,
+            // THEN THE DISAGREEMENT IS RESOLVED (ADR-0017). Two sources claiming
+            // different positions for one item in one container are two rows, both
+            // standing and both answered -- and these two terms are what decide which
+            // of them SPEAKS, so the winning claim is the one a reader meets first.
+            // A source that says nothing about a placement cannot outrank one that
+            // does, and NULLs sorting last is what says so.
+            sql`${spokesman.precedence} nulls last`,
+            sql`${spokesman.sourceOrder} nulls last`,
+            // A REPEAT ties on both of those, because one source asserted both rows.
+            // Position is what separates it, so a recap at 1 still reads before the
+            // episode at 5 -- and the id keeps even two identical rows in one order.
+            sql`${placements.position} nulls last`,
+            sql`${placements.id}`,
+          )
+          .limit(howMany),
+      asEntry: ({ id, containerId, containerTitle, position, placedBy, assertedBy }) => ({
+        id,
+        containerId,
+        containerTitle,
+        position,
+        placedBy,
+        assertedBy,
+      }),
+      sizeOnItsOwn: () => countOrderings(db, theseOrderings, narrowedTo !== undefined),
     }),
-    sizeOnItsOwn: () => countOrderings(db, sitsIn),
-  });
+    originsOfItsOrderings(db, sitsIn),
+  ]);
+  return { ...page, origins };
+}
+
+/**
+ * EVERY ORIGIN ONE ITEM HAS A PLACEMENT FROM, and deliberately over `sitsIn`
+ * rather than over the narrowing: this is the question the chips ask, and a
+ * chip that vanished when the reader used it is a filter a reader cannot leave.
+ *
+ * THE KIND OF THE SOURCE THAT SPEAKS, which is the same thing `placedBy` on a
+ * row is -- so every origin offered names rows the narrowing will actually
+ * answer, and one that speaks for nothing is not offered.
+ *
+ * A CROSS LATERAL WHERE THE WALK'S IS LEFT, and the difference IS the answer: a
+ * placement no source stands behind is a placement all the same and has no
+ * origin at all, so it belongs in the listing and not in this. An outer join
+ * would answer a null here, which is a chip with no word for it.
+ *
+ * ORDERED BY THE KIND, so the chips do not reorder between one page and the
+ * next. It is the key rather than the reader's word because the read path emits
+ * keys here (ADR-0045) -- the four words belong to the surface, and sorting on
+ * words this query does not hold would be a second place for them to live.
+ */
+async function originsOfItsOrderings(db: Database, sitsIn: SQL): Promise<string[]> {
+  const spokesman = spokesmanFor(db);
+  const found = await db
+    .selectDistinct({ kind: spokesman.kind })
+    .from(placements)
+    .innerJoin(items, eq(items.id, placements.containerId))
+    .crossJoinLateral(spokesman)
+    .where(sitsIn)
+    .orderBy(spokesman.kind);
+  return found.map(({ kind }) => kind);
 }
 
 /** How many orderings one item sits in, asked on its own. */
-async function countOrderings(db: Database, sitsIn: SQL): Promise<number> {
-  const [counted] = await db
+async function countOrderings(db: Database, within: SQL, narrowed: boolean): Promise<number> {
+  const [counted] = await countingOrderings(db, within, narrowed);
+  return counted?.total ?? 0;
+}
+
+/**
+ * HOW MANY ORDERINGS THE LISTING HOLDS, as one query its two readers share: the
+ * scalar subquery that rides on the entries, and `sizeOnItsOwn` for the page
+ * with no rows for one to ride on. Written once because the two must agree, and
+ * since CNCORE-129 they have a narrowing to agree about as well as a predicate.
+ *
+ * THE LATERAL COMES AND GOES WITH THE NARROWING, and that is a measured cost
+ * rather than tidiness. Counting does not need to know WHO asserted a row --
+ * the spokesman decides an ORDER, and an order is not part of a count -- so
+ * unnarrowed there is none, exactly as before. Narrowed, the kind being
+ * compared IS the spokesman's, so the join that picks it has to be here: CNCORE-121
+ * measured it at 6.3-12.3 ms against 3.6-4.1 ms over 1,000 placements, and that
+ * is the price of a narrowed count rather than of every count.
+ *
+ * AND THE PREDICATE RESOLVES IN WHICHEVER SCOPE IT IS SPLICED INTO. `narrowedTo`
+ * is built from the walk's own spokesman and renders as `"spokesman"."kind"`;
+ * spliced in here it binds to the lateral this query joins, because SQL resolves
+ * a name in the innermost scope that has one. That is what lets one fragment be
+ * the entries' narrowing and the count's at once -- which is the whole reason
+ * they cannot drift.
+ */
+function countingOrderings(db: Database, within: SQL, narrowed: boolean) {
+  const counted = db
     .select({ total: sql<number>`count(*)`.mapWith(Number) })
     .from(placements)
-    .innerJoin(items, eq(items.id, placements.containerId))
-    .where(sitsIn);
-  return counted?.total ?? 0;
+    .innerJoin(items, eq(items.id, placements.containerId));
+  return narrowed
+    ? counted.leftJoinLateral(spokesmanFor(db), sql`true`).where(within)
+    : counted.where(within);
 }
 
 /**

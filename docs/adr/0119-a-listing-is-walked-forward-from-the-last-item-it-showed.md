@@ -572,23 +572,61 @@ chip carries `after` forward because it has nothing to do with the Members listi
 it. A chip DROPS `placedAfter` because it changes what "Also appears in" is ASKING -- the answer is a
 different listing, and the old cursor names a place in the one the reader is leaving.
 
-## The cap made the filter narrow a PAGE, which is recorded here rather than left to be found
+## A narrowing is part of the QUESTION, not a filter over the answer (CNCORE-129)
 
-**`?placed=` RUNS OVER THE ROWS THE PAGE WAS HANDED, and so do the chips offered beside it.** While
-this listing was uncapped that was exactly right: "the rows the page was handed" and "every ordering
-the Item sits in" were the same set. **Capping it is what created the gap**, and a narrowing that
-silently looked at only the first hundred would be this record's own silent cap arriving through the
-filter instead of through the listing.
+**`?placed=` RAN OVER THE ROWS THE PAGE HAD BEEN HANDED, and so did the chips offered beside it.**
+While this listing was uncapped that was exactly right: "the rows the page was handed" and "every
+ordering the Item sits in" were the same set. **Capping it is what created the gap**, and a
+narrowing that silently looked at only the first hundred was this record's own silent cap arriving
+through the filter instead of through the listing. CNCORE-125 SAID SO AND CNCORE-129 FIXED IT: for
+one ticket the notice under a narrowed list counted against the PAGE -- "Showing 12 of the 100
+orderings on this page" -- so the surface never claimed more than it had looked at.
 
-**WHAT LANDED IS THE SAYING, NOT THE FIXING, and that is a deliberate split rather than a gap.** The
-notice under a narrowed list counts against the PAGE -- "Showing 12 of the 100 orderings on this
-page" -- and only when the cap actually bit, so an Item whose orderings all fit says nothing extra.
-The page never claims more than it looked at.
+**THE NARROWING IS A TERM OF THE QUERY NOW, so a narrowed "Also appears in" is a LISTING**: its own
+size, its own cap, its own walk. `item.get` takes `placed` beside its two cursors, and the walk
+carries it on every page -- an origin with three hundred orderings in it is walked to the end of
+itself rather than cut off at the cap of the list it was cut out of.
 
-**THE FIXING IS CNCORE-129**, because it is bigger than it looks: pushing `placed` into the query
-means a `placed` input on `item.get`, the lateral inside the count subquery that deliberately has
-none, and -- the part that is easy to miss -- a SECOND READ for the chips, since a filtered page can
-only ever hold the one origin it was filtered to. A `TODO` sits at the site naming it.
+**AND THE NOTICE CNCORE-125 ADDED IS GONE, WHICH IS THE HALF THAT IS EASY TO LEAVE STANDING.** It
+described a limit that had stopped holding the moment the query learned the narrowing, and a caveat
+outliving its cause is worse than none: it teaches a reader to distrust a count that is now exact.
+
+**THE COUNT'S LATERAL COMES AND GOES WITH THE NARROWING.** The origin a row carries is the kind of
+the source that SPEAKS for it, which is an output of the join that picks the spokesman -- so the
+count subquery beside the entries, which deliberately had none, grows one when and only when it is
+counting a narrowing. CNCORE-121 measured that join at 6.3-12.3 ms against 3.6-4.1 ms over a
+thousand placements; unnarrowed the count still pays nothing.
+
+**ONE PREDICATE SERVES THE ENTRIES AND THE COUNT, and what makes that possible is worth writing
+down: a fragment naming `spokesman.kind` resolves in WHICHEVER SCOPE IT IS SPLICED INTO.** The walk
+binds it to its own lateral and the count subquery to the one inside itself, because SQL resolves a
+name in the innermost scope that has one. So the two cannot disagree about what was narrowed -- the
+hazard `queries.ts` already carries a paragraph about, met with one fragment rather than two.
+
+**A SECOND READ IS WHAT THE CHIPS COST, and it is the part that is easy to miss.** Which origins an
+Item has placements from cannot be derived from the rows a narrowing answered: a narrowed page holds
+the one origin it was cut to, so the chips would collapse to the choice the reader had already made
+and the way back to All would be to edit the address by hand. It is a field of its own on the
+listing -- `origins`, named there because [[0045-the-public-read-path-names-every-field]] admits no
+other way -- and it is the one fact in that shape the narrowing does not touch.
+
+**IT IS TWO STATEMENTS RATHER THAN ONE, which is the opposite of the rule about the count**, and the
+asymmetry is argued rather than overlooked. A count in a second statement can disagree with the rows
+it is printed beside; an origin whose last placement goes between the two reads is offered as a chip
+that answers nothing, and what the reader meets is "Nothing placed that way" -- the ordinary answer
+for an origin with no rows. Folding it in would cost the spokesman's lateral over every row of the
+count to remove a state indistinguishable from the truthful one.
+
+**AND THE SECTION IS NO LONGER GATED ON `total`, WHICH IS THE THING IMPLEMENTATION TAUGHT.** That
+number is the NARROWED listing's size now, so it is zero for an origin the Item has nothing from --
+over a list with plenty in it. A section that vanished there would take the chips with it, which is
+the dead end this whole ticket is about. It renders when the Item has orderings OR origins; the one
+Item both miss is one whose every ordering is a Placement no source stands behind, narrowed by hand,
+and what that reader gets is the page they would have got by not narrowing at all.
+
+**THE EMPTY PAGE SPLITS CLEANLY FOR THE SAME REASON.** No rows with a total behind them is the end
+of a walk; no rows and no total is an origin with nothing in it. Those were one state while `total`
+described the whole listing, and the page had to ask whether the cap had bitten to tell them apart.
 
 ## Asserted at the three seams
 
@@ -612,6 +650,19 @@ a reader following one is arriving AT the Container, not at this Item through an
 there is no placement id in the markup to collect, where the Members list has one in every row. What
 keeps it exact is comparing MULTISETS: the fixture's Repeat puts one Container in the list twice,
 and a set comparison would forgive losing one of them.
+
+**THAT FIXTURE HAS TWO ORIGINS SINCE CNCORE-129, and the second is ONE ordering sitting past the
+first page.** Every other is the Owner's own hand, so the two criteria a narrowing has are
+observable at all: chips read off the rows a page carries would not offer that origin, and a
+narrowing applied to those rows would answer nothing where the listing holds a row. It is the last
+ordering anybody asserted rather than an index picked by hand, which would be right for one fixture
+size and wrong for the next.
+
+**AND THE ROUTER SEAM MINTS ONE OF IT FOR THE WHOLE BLOCK, which is a cost this ticket paid to
+learn.** That suite shares ONE catalogue and each of these fixtures puts a hundred and twenty
+Containers in it, so a fixture per test pushed the item the FRONT PAGE's own test asserts off the
+first page of a capped listing -- a test in another file, failing on a fixture it has never heard
+of. Read and never written to, one fixture serves every question the block asks.
 
 **AND THE END OF THE WALK IS NAMED BY THE FIXTURE for the same reason.** The last row's id cannot be
 read off the page that shows it, so the fixture says which placement sorts last and why it does:
