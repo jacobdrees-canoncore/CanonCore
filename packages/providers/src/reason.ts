@@ -77,7 +77,26 @@ export type FailureReason = z.infer<typeof failureReason>;
 export function reasonFor(thrown: unknown): FailureReason {
   const message = thrown instanceof Error ? thrown.message : String(thrown);
   const ours = thrown instanceof OutboundRefused && thrown.boundary === "config";
-  return { wrote: ours ? "canoncore" : "provider", text: cap(oneLine(message)) || SILENT };
+  return { wrote: ours ? "canoncore" : "provider", text: bounded(message) || SILENT };
+}
+
+/**
+ * A provider's text, as one line and no longer than the Owner reads (ADR-0123).
+ *
+ * PUBLISHED BECAUSE A REASON IS NOT THE ONLY PROSE A PROVIDER PUTS ON A PAGE.
+ * CNCORE-101 renders a declared credential's `label`, which the contract bounds
+ * only by `min(1)` -- so it is a stranger choosing the length of text on a page
+ * it does not own, which is the sentence that record opens with. What made that
+ * defect worth a record is that it had two sites already; a second truncation
+ * written beside this one would be the third.
+ *
+ * IT IS THE CAP WITHOUT THE ATTRIBUTION, and that split is deliberate. `wrote`
+ * answers "whose sentence is this" by asking WHICH BOUNDARY REFUSED, and a label
+ * was refused by nothing -- it is a provider's text on the manifest it chose to
+ * send, known to be the provider's without anything having to decide.
+ */
+export function bounded(text: string): string {
+  return cap(oneLine(text));
 }
 
 /**

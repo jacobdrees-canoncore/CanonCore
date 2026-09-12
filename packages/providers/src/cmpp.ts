@@ -292,6 +292,64 @@ export const cmppManifest = z.object({
     })
     .nullable()
     .default(null),
+  /**
+   * What this provider needs to reach its own upstream, where it needs
+   * anything (ADR-0122). Absent from a provider that needs nothing, which is
+   * every provider that existed before this field.
+   *
+   * `z.object` AND NOT `z.looseObject`, WHICH IS THE WHOLE OF CANONCORE'S HALF
+   * OF ADR-0122. The contract declares this loosely because a provider may say
+   * more about its own credential than CanonCore reads; this is the CONSUMER'S
+   * copy, and zod strips what it does not name. So `fields` -- the contract's
+   * list of what the Owner supplies -- is dropped HERE, and there is no
+   * property anywhere in this app for a credential value to sit in.
+   *
+   * THAT IS STRUCTURAL RATHER THAN REMEMBERED, and it is the point. An earlier
+   * draft of ADR-0122 had CanonCore rendering the provider's form and
+   * forwarding what was typed; the record now refuses the value "not even in
+   * transit", because MCP's 2026-07-28 revision prohibits form elicitation for
+   * credentials by name and BCP 240 removed OAuth's password grant over the
+   * same leak surface. A schema that cannot hold the value is how this app
+   * stays on the right side of that without a rule anybody has to keep.
+   */
+  credential: z
+    .object({
+      /** One sentence for the OWNER: the only prose CanonCore renders about a credential. */
+      label: z.string().min(1),
+      /**
+       * WHERE THE OWNER GOES, ON THE PROVIDER. A PATH and not a URL, which is
+       * the one place in CMPP that distinction is load-bearing: the provider
+       * does not know the URL CanonCore reaches it on -- one behind a proxy
+       * could not -- and CanonCore holds that base URL already.
+       *
+       * A LEADING SLASH IS NOT ENOUGH TO KEEP THE LINK ON THE PROVIDER, and
+       * `joinUnlockPath` is where that is settled rather than here. Measured on
+       * node 24.19.0: `//evil.test/unlock`, `/\evil.test/unlock` and a path
+       * whose first character is a tab all satisfy `startsWith("/")` and all
+       * resolve to a DIFFERENT ORIGIN against a provider's base URL. So this
+       * field is checked for the contract's own rule and the origin is checked
+       * on the joined URL, where the escape actually happens.
+       */
+      unlock_path: z.string().startsWith("/"),
+      /**
+       * ONLY THE PROVIDER CAN KNOW THIS. It is the one being refused by its
+       * upstream, and a credential's validity is not something CanonCore could
+       * test without performing the provider's own job (ADR-0122).
+       *
+       * THREE AND NOT FOUR: a provider holding something malformed reports
+       * `absent`, because from the Owner's side it has nothing to answer with.
+       */
+      state: z.enum(["absent", "valid", "expired"]),
+      /**
+       * When it last became that, or null where nothing was ever supplied.
+       *
+       * `expired` ALONE IS NOT AN ANSWER. It does not say whether the session
+       * lapsed a minute ago or three weeks ago, which is the difference between
+       * renewing it and going to look at what else broke.
+       */
+      state_changed_at: z.iso.datetime().nullable(),
+    })
+    .optional(),
 });
 
 export type CmppManifest = z.infer<typeof cmppManifest>;

@@ -1,10 +1,11 @@
 import { readProviderSettings, writeProviderSettings } from "@canoncore/db";
 import {
-  assertConfigUrl,
+  failureReason,
   nameProvider,
   OutboundRefused,
   parseAllowlist,
   parseProviderUrls,
+  reachProviders,
   removeProvider,
 } from "@canoncore/providers";
 import { z } from "zod";
@@ -24,6 +25,56 @@ import { ownerProcedure } from "../index";
 const NOT_A_SETTING = {
   BAD_REQUEST: { message: "That is not a setting this instance can read." },
 } as const;
+
+/**
+ * HOW FAR THIS INSTANCE GOT WITH ONE NAMED PROVIDER, and what it found there.
+ *
+ * THREE OUTCOMES THE OWNER MUST BE ABLE TO TELL APART, which is CNCORE-101's
+ * own acceptance criterion: a Provider that needs Unlocking, one that cannot be
+ * reached, and one the allowlist never admitted are three different faults with
+ * three different fixes. ADR-0121 already made the surface pay the cost of two
+ * settings for one concept by saying WHICH of the two refuses a Provider; this
+ * is that obligation extended to the Provider's own end of the wire.
+ *
+ * A DISCRIMINATED UNION IN THE CONTRACT RATHER THAN OPTIONAL FIELDS, so the
+ * OpenAPI document a caller reads says the impossible combinations are
+ * impossible: a credential belongs only to a Provider that answered, and a
+ * reason only to one that did not. `@canoncore/providers` owns the shape and
+ * this states it, the same arrangement `failureReason` is already under.
+ *
+ * IT REPLACES `admitted: boolean`, which said one of these three things and left
+ * the page to guess the other two. Two fields for one fact is two chances for
+ * them to disagree.
+ */
+const theReach = z.discriminatedUnion("kind", [
+  /** ADR-0034's config boundary refuses this Provider's host, so nothing was sent. */
+  z.object({ kind: z.literal("not-admitted") }),
+  /** Admitted, and it did not answer -- or answered something CMPP does not accept. */
+  z.object({ kind: z.literal("unreachable"), reason: failureReason }),
+  /**
+   * It answered a manifest. `credential: null` is a Provider that needs nothing,
+   * which is every Provider that existed before ADR-0122.
+   *
+   * NOTHING HERE CAN HOLD A CREDENTIAL, and that is the point rather than an
+   * omission. CanonCore renders the label, the state and a LINK to the
+   * Provider's own unlock path; the value goes from the Owner to the Provider
+   * and never through this app, not even in transit (ADR-0122).
+   */
+  z.object({
+    kind: z.literal("reached"),
+    credential: z
+      .object({
+        /** One sentence for the Owner, in the Provider's words, bounded by ADR-0123. */
+        label: z.string(),
+        /** Where the Owner goes, or null where the declared path left the Provider. */
+        unlockUrl: z.string().nullable(),
+        state: z.enum(["absent", "valid", "expired"]),
+        /** When it last became that, or null where nothing was ever supplied. */
+        changedAt: z.string().nullable(),
+      })
+      .nullable(),
+  }),
+]);
 
 /**
  * WHAT THIS INSTANCE IS CONFIGURED TO REACH, AND THE OWNER CHANGING IT
@@ -66,8 +117,7 @@ export const settings = {
           z.object({
             /** As the owner typed it, which is the provider's identity (ADR-0031). */
             baseUrl: z.string().min(1),
-            /** Whether ADR-0034's allowlist admits this provider's host. */
-            admitted: z.boolean(),
+            reach: theReach,
           }),
         ),
         /** ADR-0034's allowlist, as the owner wrote it: hosts and CIDRs. */
@@ -77,10 +127,10 @@ export const settings = {
     .handler(async ({ context }) => {
       const configured = await readProviderSettings(context.db);
       return {
-        providers: parseProviderUrls(configured.providerUrls).map((baseUrl) => ({
-          baseUrl,
-          admitted: admits(configured.providerAllowlist, baseUrl),
-        })),
+        providers: await reachProviders({
+          baseUrls: parseProviderUrls(configured.providerUrls),
+          allowlist: parseAllowlist(configured.providerAllowlist),
+        }),
         allowlist: configured.providerAllowlist,
       };
     }),
@@ -167,24 +217,3 @@ export const settings = {
       await writeProviderSettings(context.db, { providerAllowlist: input.allowlist });
     }),
 };
-
-/**
- * Whether ADR-0034's allowlist admits this provider's host.
- *
- * IT ASKS `assertConfigUrl`, WHICH IS THE BOUNDARY ITSELF. The question a page
- * renders and the question asked in front of a request must be one question: a
- * surface that said "admitted" where the boundary refuses would be telling the
- * owner their configuration works, and the import would fail anyway.
- *
- * A PROVIDER WHOSE ENTRY THE BOUNDARY CANNOT EVEN READ IS NOT ADMITTED. Nothing
- * can name such an entry through this router, but a row written by hand could
- * hold one, and "not admitted" is the safe reading of it.
- */
-function admits(allowlist: string, baseUrl: string): boolean {
-  try {
-    assertConfigUrl(new URL(baseUrl), parseAllowlist(allowlist));
-    return true;
-  } catch {
-    return false;
-  }
-}

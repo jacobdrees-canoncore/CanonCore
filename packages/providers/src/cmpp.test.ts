@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { cmppRecord } from "./index";
+import { cmppManifest, cmppRecord } from "./index";
 
 /** A record that parses, so a case below differs from it in exactly one field. */
 const A_RECORD = {
@@ -52,5 +52,62 @@ describe("a record's url", () => {
     ["http://127.0.0.1:8080/265", "a provider the owner runs on loopback, linking to itself"],
   ])("admits %s: %s", (url) => {
     expect(cmppRecord.safeParse({ ...A_RECORD, url }).success).toBe(true);
+  });
+});
+
+/**
+ * WHAT CANONCORE READS OF A DECLARED CREDENTIAL, AND WHAT IT REFUSES TO HOLD
+ * (ADR-0122, CNCORE-101).
+ *
+ * THE INTERESTING ASSERTION IS THE ABSENCE. ADR-0122 corrected an earlier draft
+ * in which CanonCore rendered the provider's form and forwarded what the Owner
+ * typed; the record now refuses the value "not even in transit", because MCP's
+ * 2026-07-28 revision prohibits exactly that mechanism for credentials and BCP
+ * 240 removed OAuth's password grant over the same leak surface. A consumer
+ * schema that never reads `fields` is how that refusal is made structural rather
+ * than remembered: zod strips unknown keys, so there is no property on the
+ * parsed manifest for a credential value to sit in.
+ */
+describe("a declared credential", () => {
+  const DECLARING = {
+    name: "a provider that needs something",
+    credential: {
+      label: "a browser session for the wiki",
+      fields: [{ name: "cf_clearance", label: "the clearance cookie" }],
+      unlock_path: "/unlock",
+      state: "absent",
+      state_changed_at: null,
+    },
+  };
+
+  it("reads the label, the path, the state and when it changed", () => {
+    const manifest = cmppManifest.parse(DECLARING);
+
+    expect(manifest.credential).toMatchObject({
+      label: "a browser session for the wiki",
+      unlock_path: "/unlock",
+      state: "absent",
+      state_changed_at: null,
+    });
+  });
+
+  /**
+   * THE PIN ON "CANONCORE CARRIES NOTHING". `fields` is the provider's list of
+   * what to supply, and it exists in the contract so that the Owner knows what
+   * is being asked and a script renewing the credential knows what to send --
+   * neither of which is CanonCore's job. Reading it here would give the value a
+   * place to live in this app the day somebody rendered the form again.
+   */
+  it("does not read the fields, so no credential value has anywhere to land", () => {
+    const manifest = cmppManifest.parse(DECLARING);
+
+    expect(manifest.credential).not.toHaveProperty("fields");
+  });
+
+  /** A provider that needs nothing declares nothing, and stays conformant. */
+  it("is absent from a provider that declares none", () => {
+    expect(
+      cmppManifest.parse({ name: "a provider that needs nothing" }).credential,
+    ).toBeUndefined();
   });
 });

@@ -1,4 +1,6 @@
-import { describe, expect, inject, it } from "vitest";
+import { createServer, type Server } from "node:http";
+
+import { afterAll, describe, expect, inject, it } from "vitest";
 
 import {
   documentFrom,
@@ -60,6 +62,93 @@ async function allow(cookie: string, allowlist: string): Promise<string> {
     cookie,
   );
   return edited.text;
+}
+
+/**
+ * A PROVIDER THE OWNER CAN ACTUALLY UNLOCK, on a real socket on loopback.
+ *
+ * IT HOLDS ITS OWN STATE, which is what makes the round trip assertable at all.
+ * ADR-0122 puts the Provider's own config file at the centre: whatever writes it
+ * Unlocks the Provider, and the manifest then REPORTS what the file says. So
+ * this stub flips from `absent` to `valid` when its unlock path is posted to,
+ * exactly as `provider-wiki` does when it writes `wiki-session.json` -- and the
+ * test can then ask CanonCore what it sees WITHOUT CanonCore having been
+ * anywhere near the value.
+ *
+ * IT IS NOT A STAND-IN FOR A REAL PROVIDER and must not grow into one. It serves
+ * a manifest and an unlock path, which is the whole of what this page reads.
+ */
+const stubs: Server[] = [];
+
+interface StubProvider {
+  url: string;
+  /** What the Owner does in their own browser, which never touches CanonCore. */
+  unlock: () => Promise<void>;
+}
+
+async function aProviderDeclaring(
+  credential: Record<string, unknown> | null,
+): Promise<StubProvider> {
+  let state = credential;
+  const server = createServer((request, response) => {
+    if (request.url === "/unlock" && request.method === "POST") {
+      // THE PROVIDER'S OWN WRITE. It is the only thing that ever sees a value,
+      // and what it reports afterwards is read from what it wrote.
+      state =
+        state === null
+          ? null
+          : { ...state, state: "valid", state_changed_at: "2026-09-13T10:00:00.000Z" };
+      response.writeHead(204);
+      return response.end();
+    }
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end(
+      JSON.stringify({
+        name: "a provider",
+        ...(state === null ? {} : { credential: state }),
+      }),
+    );
+  });
+  stubs.push(server);
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  if (typeof address === "string" || address === null) throw new Error("no port");
+  const url = `http://127.0.0.1:${address.port}`;
+  return {
+    url,
+    unlock: async () => {
+      await fetch(`${url}/unlock`, { method: "POST" });
+    },
+  };
+}
+
+afterAll(async () => {
+  await Promise.all(
+    stubs.splice(0).map((server) => new Promise<void>((resolve) => server.close(() => resolve()))),
+  );
+});
+
+/**
+ * A loopback URL nothing answers on: ADMITTED by the allowlist and REFUSING the
+ * connection, which is the third fault and the one with a third fix.
+ *
+ * A PORT TAKEN AND THEN RELEASED, rather than a number picked out of the air. A
+ * hardcoded one is a port something else on the machine may well be holding, and
+ * the test would then read a stranger's server as this Provider.
+ */
+async function aPortNothingListensOn(): Promise<string> {
+  const server = createServer();
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  if (typeof address === "string" || address === null) throw new Error("no port");
+  const url = `http://127.0.0.1:${address.port}`;
+  await new Promise<void>((resolve) => server.close(() => resolve()));
+  return url;
+}
+
+/** Where a row's row sends the Owner to Unlock the Provider, if anywhere. */
+function unlockLinkIn(row: string): string | null {
+  return row.match(/<a[^>]+href="([^"]*)"/)?.[1] ?? null;
 }
 
 describe("/settings", () => {
@@ -234,3 +323,191 @@ function rowFor(text: string, provider: string): string {
   if (row === undefined) throw new Error(`the page renders no row for ${provider}`);
   return row;
 }
+
+/**
+ * THE OWNER UNLOCKING A PROVIDER FROM THE SETTINGS SURFACE (CNCORE-101,
+ * ADR-0122).
+ *
+ * WHAT IS RENDERED IS A LINK AND NEVER A FORM, and that is this whole ticket
+ * after its correction. The ticket was filed asking for a form CanonCore would
+ * POST to the Provider; MCP's 2026-07-28 revision prohibits exactly that
+ * mechanism for credentials -- "Servers MUST NOT use form mode elicitation to
+ * request sensitive information such as passwords, API keys, access tokens" --
+ * and BCP 240 removed OAuth's password grant over the same leak surface. So the
+ * Owner supplies the value TO THE PROVIDER and CanonCore shows only the label
+ * and the state.
+ *
+ * ITS OWN INSTANCE, like the file it sits in: these tests WRITE the
+ * configuration, and the allowlist each one needs is written by that test.
+ */
+describe("/settings, unlocking a provider", () => {
+  it("shows the label a provider declared, and links to that provider's own unlock path", async () => {
+    const cookie = await logInAt(baseUrl, ownerPassword);
+    const provider = await aProviderDeclaring({
+      label: "a browser session for the wiki",
+      fields: [{ name: "cf_clearance", label: "the clearance cookie" }],
+      unlock_path: "/unlock",
+      state: "absent",
+      state_changed_at: null,
+    });
+    await allow(cookie, "127.0.0.1/32");
+    await name(cookie, provider.url);
+
+    const { text } = await documentFrom(baseUrl, "/settings", cookie);
+
+    const row = rowFor(text, provider.url);
+    expect(row).toContain("a browser session for the wiki");
+    expect(unlockLinkIn(row)).toBe(`${provider.url}/unlock`);
+  });
+
+  /**
+   * THE PIN ON ADR-0122'S CENTRAL REFUSAL, taken where it would actually be
+   * broken. A form on this page posting to CanonCore is precisely the mechanism
+   * that record refuses, and it is what an earlier draft of this ticket asked
+   * for -- so the assertion is that the Owner's control is an ANCHOR and that
+   * the Provider's field names are nowhere on the page.
+   */
+  it("renders a link rather than a form, and names no field of the credential", async () => {
+    const cookie = await logInAt(baseUrl, ownerPassword);
+    const provider = await aProviderDeclaring({
+      label: "a browser session",
+      fields: [{ name: "cf_clearance", label: "the clearance cookie" }],
+      unlock_path: "/unlock",
+      state: "absent",
+      state_changed_at: null,
+    });
+    await allow(cookie, "127.0.0.1/32");
+    await name(cookie, provider.url);
+
+    const { text } = await documentFrom(baseUrl, "/settings", cookie);
+
+    const row = rowFor(text, provider.url);
+    // The only form on a Provider's row is the one that stops naming it.
+    expect(postFormsIn(row).every(({ fields }) => fields.some(([key]) => key === "baseUrl"))).toBe(
+      true,
+    );
+    expect(text).not.toContain("cf_clearance");
+  });
+
+  /** A Provider that needs nothing declares nothing, and is untouched by any of this. */
+  it("offers no unlock at all for a provider that declares no credential", async () => {
+    const cookie = await logInAt(baseUrl, ownerPassword);
+    const provider = await aProviderDeclaring(null);
+    await allow(cookie, "127.0.0.1/32");
+    await name(cookie, provider.url);
+
+    const { text } = await documentFrom(baseUrl, "/settings", cookie);
+
+    const row = rowFor(text, provider.url);
+    expect(unlockLinkIn(row)).toBeNull();
+    expect(row).toContain(provider.url);
+  });
+
+  /**
+   * THE ROUND TRIP, AND THE ONE ASSERTION THAT PROVES CANONCORE CARRIES NOTHING.
+   * The Owner Unlocks AT THE PROVIDER -- this test posts to the Provider itself,
+   * which is what their browser does after following the link -- and CanonCore
+   * reports it on the NEXT MANIFEST READ, having been nowhere near the value.
+   */
+  it("reports a provider valid on the next read once it was unlocked at the provider", async () => {
+    const cookie = await logInAt(baseUrl, ownerPassword);
+    const provider = await aProviderDeclaring({
+      label: "a browser session",
+      unlock_path: "/unlock",
+      state: "absent",
+      state_changed_at: null,
+    });
+    await allow(cookie, "127.0.0.1/32");
+    await name(cookie, provider.url);
+    const before = await documentFrom(baseUrl, "/settings", cookie);
+    expect(rowFor(before.text, provider.url).toLowerCase()).toContain("not been unlocked");
+
+    await provider.unlock();
+
+    const after = await documentFrom(baseUrl, "/settings", cookie);
+    expect(rowFor(after.text, provider.url).toLowerCase()).toContain("unlocked");
+    expect(rowFor(after.text, provider.url).toLowerCase()).not.toContain("not been unlocked");
+  });
+
+  /**
+   * THREE STATES THAT MUST NOT RENDER ALIKE, and the expired one has to say WHEN.
+   * `expired` alone does not tell the Owner whether the session lapsed a minute
+   * ago or three weeks ago, which is the difference between renewing it and
+   * going to look at what else broke.
+   *
+   * AND THE EXPIRED ONE STILL CARRIES ITS LINK, which is the criterion that an
+   * expired Provider can be re-Unlocked without being removed and re-added.
+   */
+  it("renders absent, valid and expired differently, and says when an expired one lapsed", async () => {
+    const cookie = await logInAt(baseUrl, ownerPassword);
+    const absent = await aProviderDeclaring({
+      label: "a session",
+      unlock_path: "/unlock",
+      state: "absent",
+      state_changed_at: null,
+    });
+    const valid = await aProviderDeclaring({
+      label: "a session",
+      unlock_path: "/unlock",
+      state: "valid",
+      state_changed_at: "2026-09-12T09:00:00.000Z",
+    });
+    const expired = await aProviderDeclaring({
+      label: "a session",
+      unlock_path: "/unlock",
+      state: "expired",
+      state_changed_at: "2026-09-04T11:00:00.000Z",
+    });
+    await allow(cookie, "127.0.0.1/32");
+    for (const provider of [absent, valid, expired]) await name(cookie, provider.url);
+
+    const { text } = await documentFrom(baseUrl, "/settings", cookie);
+
+    const rows = {
+      absent: rowFor(text, absent.url).toLowerCase(),
+      valid: rowFor(text, valid.url).toLowerCase(),
+      expired: rowFor(text, expired.url).toLowerCase(),
+    };
+    expect(rows.absent).toContain("not been unlocked");
+    expect(rows.valid).toContain("unlocked");
+    expect(rows.valid).not.toContain("not been unlocked");
+    expect(rows.expired).toContain("lapsed");
+    // WHEN IT LAPSED, rendered rather than merely carried.
+    expect(rows.expired).toContain("2026");
+    // AND IT CAN STILL BE RE-UNLOCKED, with nothing removed and re-added.
+    expect(unlockLinkIn(rowFor(text, expired.url))).toBe(`${expired.url}/unlock`);
+  });
+
+  /**
+   * THE THREE FAULTS WITH THREE DIFFERENT FIXES, told apart on the page. A
+   * Provider that needs Unlocking, one that cannot be reached, and one the
+   * allowlist never admitted are the ticket's own criterion, and a surface that
+   * collapsed any two of them would send the Owner to the wrong setting.
+   */
+  it("tells needing-unlocking, unreachable and not-allowlisted apart", async () => {
+    const cookie = await logInAt(baseUrl, ownerPassword);
+    const locked = await aProviderDeclaring({
+      label: "a session",
+      unlock_path: "/unlock",
+      state: "absent",
+      state_changed_at: null,
+    });
+    const deadUrl = await aPortNothingListensOn();
+    await allow(cookie, "127.0.0.1/32");
+    await name(cookie, locked.url);
+    await name(cookie, deadUrl);
+    await name(cookie, "http://never-allowlisted.test:8080");
+
+    const { text } = await documentFrom(baseUrl, "/settings", cookie);
+
+    expect(rowFor(text, locked.url).toLowerCase()).toContain("not been unlocked");
+    expect(rowFor(text, deadUrl).toLowerCase()).toContain("nothing could be read from");
+    expect(rowFor(text, "http://never-allowlisted.test:8080")).toContain(
+      "does not admit this host",
+    );
+    // AND NOT THE OTHERS' SENTENCES, which is what makes this a test rather than
+    // an assertion every row would satisfy.
+    expect(rowFor(text, locked.url).toLowerCase()).not.toContain("nothing could be read from");
+    expect(rowFor(text, deadUrl).toLowerCase()).not.toContain("not been unlocked");
+  });
+});
