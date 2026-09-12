@@ -88,6 +88,22 @@ function field(form: RenderedForm, name: string): string | undefined {
   return form.fields.find(([key]) => key === name)?.[1];
 }
 
+/**
+ * The Owner note as a reader is shown it, as `note … source`.
+ *
+ * READ OUT OF ITS OWN SECTION rather than out of `valueRows`, because it is not
+ * in that list: ADR-0045 keeps notes out of the public payload, so the note
+ * cannot travel on the one list every visitor is served.
+ */
+function noteIn(text: string): string {
+  const found = /<p\b[^>]*data-note[^>]*>(.*?)<\/p>/s.exec(sectionIn(text, "note"))?.[1];
+  if (found === undefined) throw new Error("the `note` section carried no note to read");
+  return found
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 /** Every value row on an item page, as `property … value … source`. */
 function valueRows(text: string): string[] {
   return [...sectionIn(text, "values").matchAll(/<li\b[^>]*>(.*?)<\/li>/gs)].map(([, row]) =>
@@ -411,5 +427,155 @@ describe("/import, re-importing over an edited Item", () => {
     const rows = valueRows(after.text);
     expect(rows).toContain("Title The title the owner insists on Owner");
     expect(rows).toContain(`Title ${editable.importedTitle} ${editable.providerLabel}`);
+  });
+});
+
+/**
+ * THE OWNER NOTE (CNCORE-74, ADR-0096), at the seam that ticket names.
+ *
+ * ON THIS FILE'S INSTANCE AND ITS OWN ITEMS. Every test below makes an item
+ * through `anItemOfMyOwn` and annotates only that, for the reason the header of
+ * this file gives: a test that edits a shared fixture changes what every later
+ * reader of it sees, and vitest decides the order.
+ */
+describe("/items/<id>, the Owner note", () => {
+  it("writes one, and shows the Owner as its source", async () => {
+    const at = await anItemOfMyOwn("An item I have thoughts about");
+    const before = await documentAt(at, owner);
+
+    const noted = await submit(
+      baseUrl,
+      at,
+      carrying(formIn(before.text, "note"), { note: "The one I always come back to" }),
+      owner,
+    );
+
+    expect(noted.status).toBe(200);
+    // THE SOURCE BESIDE THE WORDS, which is the criterion: a note is
+    // distinguishable from a provider's claim because the page says who made it,
+    // read off the row rather than printed by the surface.
+    expect(noteIn(noted.text)).toBe("The one I always come back to Owner");
+  });
+
+  /**
+   * THE FIELD OPENS ON THE NOTE THE ITEM ALREADY HAS, which is what makes the
+   * form an edit rather than a replace-from-blank -- and it is what makes
+   * clearing it a deliberate act rather than the default.
+   */
+  it("carries the current note as the field's value", async () => {
+    const at = await anItemOfMyOwn("An item I have already annotated");
+    await submit(
+      baseUrl,
+      at,
+      carrying(formIn((await documentAt(at, owner)).text, "note"), { note: "What I wrote before" }),
+      owner,
+    );
+
+    const again = await documentAt(at, owner);
+
+    expect(field(formIn(again.text, "note"), "note")).toBe("What I wrote before");
+  });
+
+  it("edits one, leaving a single note rather than two", async () => {
+    const at = await anItemOfMyOwn("An item I changed my mind about");
+    await submit(
+      baseUrl,
+      at,
+      carrying(formIn((await documentAt(at, owner)).text, "note"), {
+        note: "What I first thought",
+      }),
+      owner,
+    );
+
+    const edited = await submit(
+      baseUrl,
+      at,
+      carrying(formIn((await documentAt(at, owner)).text, "note"), { note: "What I think now" }),
+      owner,
+    );
+
+    // `noteIn` READS THE ONE NOTE, so this asserting the new words is also the
+    // assertion that the old ones are not standing beside them: a second live
+    // note would render as a second paragraph and the first is what this reads.
+    expect(noteIn(edited.text)).toBe("What I think now Owner");
+    expect(edited.text).not.toContain("What I first thought");
+  });
+
+  /**
+   * REMOVING IS SAVING AN EMPTY BOX, and this is the test that says the page
+   * offers that at all: the field is not `required`, so a browser submits the
+   * cleared form rather than refusing it, and the empty value reaches the
+   * action as the owner withdrawing what they said.
+   */
+  it("removes one when the owner clears the field and saves", async () => {
+    const at = await anItemOfMyOwn("An item I thought better of annotating");
+    await submit(
+      baseUrl,
+      at,
+      carrying(formIn((await documentAt(at, owner)).text, "note"), {
+        note: "Something I later thought better of",
+      }),
+      owner,
+    );
+
+    const cleared = await submit(
+      baseUrl,
+      at,
+      carrying(formIn((await documentAt(at, owner)).text, "note"), { note: "" }),
+      owner,
+    );
+
+    expect(cleared.status).toBe(200);
+    // THE SECTION IS STILL THERE -- it is how the owner writes another -- and it
+    // carries no note to read, which is what `noteIn` throwing says.
+    expect(() => noteIn(cleared.text)).toThrow();
+    expect(cleared.text).not.toContain("Something I later thought better of");
+  });
+
+  /**
+   * ADR-0045'S SENTENCE ON A PAGE: the public read path carries no notes. This
+   * is the reading that matters, because the note is the one thing on this page
+   * that an owner would be shocked to find published.
+   */
+  it("shows a visitor no note, and no offer to write one", async () => {
+    const at = await anItemOfMyOwn("An item with a note nobody else may read");
+    await submit(
+      baseUrl,
+      at,
+      carrying(formIn((await documentAt(at, owner)).text, "note"), {
+        note: "Between me and the catalogue",
+      }),
+      owner,
+    );
+
+    const { status, text } = await documentAt(at);
+
+    expect(status).toBe(200);
+    // THE WORDS ARE NOWHERE IN THE DOCUMENT, which is the assertion rather than
+    // "the section is missing": a note rendered outside the section, or left in
+    // a form field, would be just as published.
+    expect(text).not.toContain("Between me and the catalogue");
+    expect(() => sectionIn(text, "note")).toThrow();
+  });
+
+  /**
+   * AND IT NEVER JOINS THE VALUES LIST, which is the same rule one layer down:
+   * that list is `itemPublic.statements`, so a note reaching it would be
+   * published by construction rather than by a surface's mistake.
+   */
+  it("keeps the note out of the claims list, even on the Owner's own page", async () => {
+    const at = await anItemOfMyOwn("An item whose claims stay the claims");
+    await submit(
+      baseUrl,
+      at,
+      carrying(formIn((await documentAt(at, owner)).text, "note"), {
+        note: "Not one of the values",
+      }),
+      owner,
+    );
+
+    const { text } = await documentAt(at, owner);
+
+    expect(valueRows(text)).toEqual(["Title An item whose claims stay the claims Owner"]);
   });
 });

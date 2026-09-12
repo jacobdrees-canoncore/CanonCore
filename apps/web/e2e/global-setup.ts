@@ -529,12 +529,15 @@ async function aCatalogueSafeToPurge(wikiUrl: string, tmdbUrl: string) {
    * would leave the literal case asserted nowhere at this seam.
    *
    * `title` RATHER THAN `note`, WHICH IS NOT A CHOICE ABOUT WHICH IS TIDIER.
-   * ADR-0096's `note` property is not among the twelve migration 1 seeds, and
-   * CNCORE-60 puts seeding it in the v0.2.0 half -- so a fixture written against
-   * it would fail at `propertyNamed` rather than assert anything. `title` is
-   * seeded, and it is also the stronger case: it is the one an owner's edit and a
-   * provider's claim actually COMPETE over (ADR-0025 seeds the owner at
-   * `source_order` 0, so the owner's title outranks the provider's).
+   * THE FIRST REASON GIVEN FOR IT HAS EXPIRED: it said ADR-0096's `note`
+   * property was not seeded and that a fixture written against it would fail at
+   * `propertyNamed`. Migration 12 seeds it (CNCORE-74), so that is no longer
+   * true -- and the reason that remains is the one that was always the stronger
+   * half. `title` is the claim an owner's edit and a provider's actually COMPETE
+   * over (ADR-0025 seeds the owner at `source_order` 0, so the owner's title
+   * outranks the provider's), which is the literal reading of "items the Owner
+   * has edited". A note cannot express that at all: migration 12 declares it
+   * assertable by the owner alone, so there is no provider claim for one to beat.
    *
    * NOT THROUGH A SURFACE, AND SINCE CNCORE-71 THAT IS A CHOICE RATHER THAN THE
    * ONLY OPTION. This used to read "because there is not one yet"; there is one

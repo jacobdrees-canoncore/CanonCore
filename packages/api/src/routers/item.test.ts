@@ -631,6 +631,188 @@ describe("item.retitle", () => {
   });
 });
 
+/**
+ * ADR-0096: a note is a Statement with a `note` property, sourced to the Owner.
+ * ADR-0045: the public read path carries no notes, so it has a procedure of its
+ * own rather than a field on `item.get`.
+ */
+describe("item.annotate and item.note", () => {
+  it("answers with the note and the Owner as its source", async () => {
+    const id = await anItemTitled(db, "The Tenth Planet");
+
+    await call(
+      appRouter.item.annotate,
+      { id, note: "The one I always come back to" },
+      { context: asTheOwner },
+    );
+
+    expect(await call(appRouter.item.note, { id }, { context: asTheOwner })).toEqual({
+      value: "The one I always come back to",
+      sourceLabel: "Owner",
+    });
+  });
+
+  /**
+   * `noteByHand` TRIMS, so a box holding nothing but whitespace removes the
+   * note rather than writing a blank one. Asserted here because the trim is
+   * this seam's: `annotateItemByHand` is handed what came out of it.
+   */
+  it("removes the note when nothing but whitespace is submitted", async () => {
+    const id = await anItemTitled(db, "An item annotated in error");
+    await call(
+      appRouter.item.annotate,
+      { id, note: "What I thought at the time" },
+      { context: asTheOwner },
+    );
+
+    await call(appRouter.item.annotate, { id, note: "   \n  " }, { context: asTheOwner });
+
+    expect(await call(appRouter.item.note, { id }, { context: asTheOwner })).toBeNull();
+  });
+
+  /**
+   * AND THE LINE BREAKS INSIDE ONE SURVIVE IT, which is the other half of the
+   * trim: it reaches the ends of the value and nothing else, because a
+   * paragraph break is something the owner typed on purpose.
+   */
+  it("keeps the owner's own line breaks inside a note", async () => {
+    const id = await anItemTitled(db, "An item I wrote paragraphs about");
+
+    await call(
+      appRouter.item.annotate,
+      { id, note: "  The first thing.\n\nThe second thing.  " },
+      { context: asTheOwner },
+    );
+
+    expect(await call(appRouter.item.note, { id }, { context: asTheOwner })).toMatchObject({
+      value: "The first thing.\n\nThe second thing.",
+    });
+  });
+
+  /**
+   * ADR-0045'S OWN SENTENCE, AT THE SEAM IT IS ABOUT: the public read path
+   * "carries no internal ids, no owner id and NO NOTES". `item.get` is open
+   * (ADR-0044), so a note reaching its `statements` list is a note on every
+   * item page a stranger opens -- and it would arrive there sourced to the
+   * owner, which is the one claim the owner most plainly did not publish.
+   *
+   * THE OWNER'S OWN CONTEXT IS USED FOR THE READ, not a visitor's, which is
+   * what makes this the stricter assertion. A test asking as a visitor would
+   * pass against a handler that emitted the note conditionally on the session;
+   * asking as the owner and getting nothing says the payload has no note in it
+   * AT ALL.
+   */
+  it("keeps the note out of `item.get`, which anyone may call", async () => {
+    const id = await anItemTitled(db, "The Tenth Planet (TV story)");
+    await call(
+      appRouter.item.annotate,
+      { id, note: "Not for anybody else to read" },
+      { context: asTheOwner },
+    );
+
+    const item = await call(appRouter.item.get, { id }, { context: asTheOwner });
+
+    expect(item.statements.map(({ property }) => property)).toEqual(["title"]);
+    expect(JSON.stringify(item)).not.toContain("Not for anybody else to read");
+  });
+
+  it("removes the note when the owner clears it", async () => {
+    const id = await anItemTitled(db, "Something I thought better of");
+    await call(
+      appRouter.item.annotate,
+      { id, note: "What I thought at the time" },
+      { context: asTheOwner },
+    );
+
+    await call(appRouter.item.annotate, { id, note: "" }, { context: asTheOwner });
+
+    // NULL RATHER THAN AN EMPTY NOTE, which is the difference between a note
+    // removed and a page rendering an empty box under a heading.
+    expect(await call(appRouter.item.note, { id }, { context: asTheOwner })).toBeNull();
+  });
+
+  it("answers null for an item nobody has written a note about", async () => {
+    const id = await anItemTitled(db, "Nothing said about it");
+
+    expect(await call(appRouter.item.note, { id }, { context: asTheOwner })).toBeNull();
+  });
+
+  /**
+   * AND `null` FOR A WELL-FORMED ID THAT ADDRESSES NOTHING, which is the half
+   * of that answer the docstring makes a claim about: an owner asking about a
+   * deleted item and one asking about an item they have said nothing about get
+   * the same page, and neither is an error (ADR-0066).
+   */
+  it("answers null for a well-formed id that addresses nothing", async () => {
+    expect(
+      await call(
+        appRouter.item.note,
+        { id: "00000000-0000-4000-8000-000000000000" },
+        { context: asTheOwner },
+      ),
+    ).toBeNull();
+  });
+
+  /**
+   * A MALFORMED ID IS A BAD_REQUEST HERE, WHERE `item.get` ANSWERS NOT_FOUND --
+   * and the difference is who does the asking rather than an inconsistency.
+   * CNCORE-14's argument is about an id A READER TYPED OR SHARED, reached at
+   * `/items/<id>`; nothing types an id at this procedure, because the page calls
+   * it with the canonical id `item.get` just answered with. So "that is not an
+   * id" is the honest answer to a client composing a request by hand, and this
+   * pins it rather than leaving the pair to read as a slip.
+   */
+  it("refuses a malformed id rather than answering null for one", async () => {
+    const { error, data } = await safe(
+      call(appRouter.item.note, { id: "not-a-uuid" }, { context: asTheOwner }),
+    );
+
+    expect(data).toBeUndefined();
+    expect((error as { code?: string })?.code).toBe("BAD_REQUEST");
+  });
+
+  it("answers NOT_FOUND when the id addresses nothing to annotate", async () => {
+    const { error } = await safe(
+      call(
+        appRouter.item.annotate,
+        { id: "00000000-0000-4000-8000-000000000000", note: "A note on nothing" },
+        { context: asTheOwner },
+      ),
+    );
+
+    expect(isDefinedError(error) && error.code).toBe("NOT_FOUND");
+  });
+
+  it("refuses to write a note for a caller with no session", async () => {
+    const id = await anItemTitled(db, "Not yours to annotate");
+
+    const { error } = await safe(
+      call(appRouter.item.annotate, { id, note: "Mine now" }, { context }),
+    );
+
+    expect((error as { code?: string })?.code).toBe("UNAUTHORIZED");
+    expect(await call(appRouter.item.note, { id }, { context: asTheOwner })).toBeNull();
+  });
+
+  /**
+   * THE ONLY READ ON THIS ROUTER A VISITOR IS REFUSED, and the refusal is the
+   * other half of keeping notes out of the public payload: a procedure a
+   * stranger could call would publish what `item.get` was careful not to.
+   */
+  it("refuses to read a note to a caller with no session", async () => {
+    const id = await anItemTitled(db, "Annotated, and not for you");
+    await call(
+      appRouter.item.annotate,
+      { id, note: "Between me and the catalogue" },
+      { context: asTheOwner },
+    );
+
+    const { error } = await safe(call(appRouter.item.note, { id }, { context }));
+
+    expect((error as { code?: string })?.code).toBe("UNAUTHORIZED");
+  });
+});
+
 describe("item.kinds", () => {
   it("offers all seven of ADR-0005's kinds, in the reader's words", async () => {
     const { kinds } = await call(appRouter.item.kinds, undefined, { context });

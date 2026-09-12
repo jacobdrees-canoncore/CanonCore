@@ -1,15 +1,17 @@
 import {
+  annotateItemByHand,
   createItemByHand,
   findAttributionOwed,
   findItem,
   findItemKinds,
+  findNoteOfItem,
   findPlacementsInContainer,
   findPlacementsOfItem,
   findStatementsOfItem,
   ItemRefused,
   retitleItemByHand,
 } from "@canoncore/db";
-import { itemKindsPublic, itemPublic, itemWritten } from "@canoncore/schemas";
+import { itemKindsPublic, itemPublic, itemWritten, ownerNote } from "@canoncore/schemas";
 import { z } from "zod";
 
 import { openProcedure, ownerProcedure } from "../index";
@@ -27,6 +29,29 @@ import { A_PAGE, aCursor } from "./listing";
  * would otherwise turn the second into the first.
  */
 const titleByHand = z.string().trim().min(1, "A title cannot be empty.");
+
+/**
+ * A note as the catalogue will accept one from the owner's own hand.
+ *
+ * TRIMMED, AND EMPTY IS ACCEPTED, which is the opposite of `titleByHand` one
+ * line up and not an inconsistency. An empty title projects onto `items.title`
+ * as a heading that renders blank, where an item with NO title statement
+ * renders "Untitled item" -- two different states, so the empty one has to be
+ * refused. A note projects onto nothing, so an empty note and an absent one are
+ * the same claim: the owner says nothing about this item. That makes `''` the
+ * REMOVAL, and it is why removing a note needs no procedure of its own.
+ *
+ * SO A NOTE OF NOTHING BUT WHITESPACE REMOVES IT TOO, which review asked to
+ * have said out loud rather than left to be discovered. The trim is what makes
+ * that true, and it is the right answer: a box holding three spaces is a box
+ * the owner cleared. It reaches only the ENDS of the value -- the line breaks
+ * an owner typed inside a note are theirs, and the page renders them.
+ *
+ * NO LENGTH CAP. `note` is `text` and declares no validation (ADR-0012) --
+ * there is no such thing as a malformed note, and a ceiling nobody asked for is
+ * a rule the owner meets by surprise on the one note that matters.
+ */
+const noteByHand = z.string().trim();
 
 export const item = {
   /**
@@ -139,6 +164,76 @@ export const item = {
       if (!retitled) throw errors.NOT_FOUND();
       return { id: input.id };
     }),
+
+  /**
+   * THE OWNER'S OWN WORDS ABOUT AN ITEM (ADR-0096), and the one thing on this
+   * router that both writes AND removes through one door.
+   *
+   * `''` REMOVES IT -- `noteByHand` above is where that is argued, and a second
+   * procedure would be a second answer to "what does the owner say about this
+   * item".
+   *
+   * THE OWNER'S, AND THE DATABASE AGREES SEPARATELY. `ownerProcedure` is what
+   * stops a visitor reaching this (CNCORE-109), and migration 12 declares the
+   * property assertable by a source of kind `owner` -- so a caller who got past
+   * this line with a provider's source would still be refused at the table.
+   * Neither is redundant: this one decides who may ASK, and that one decides
+   * what a claim may be FILED UNDER.
+   */
+  annotate: ownerProcedure
+    .input(z.object({ id: z.uuid(), note: noteByHand }))
+    .output(itemWritten)
+    .errors({ NOT_FOUND: { message: "No item at that id to annotate." } })
+    .handler(async ({ input, context, errors }) => {
+      const annotated = await annotateItemByHand(context.db, {
+        itemId: input.id,
+        note: input.note,
+      });
+      if (!annotated) throw errors.NOT_FOUND();
+      return { id: input.id };
+    }),
+
+  /**
+   * READING ONE BACK, AND IT IS THE OWNER'S RATHER THAN OPEN -- the only read on
+   * this router that is.
+   *
+   * ADR-0044 leaves reads open and ADR-0072 gives a visitor everything on the
+   * page, and ADR-0045 is the sentence that carves this out: the public read
+   * path "carries no internal ids, no owner id and NO NOTES". So the note cannot
+   * ride on `item.get`, which anyone may call -- a field there would be public
+   * by construction, and one emitted only sometimes would make the enumeration
+   * that record exists for conditional.
+   *
+   * `null` FOR AN ITEM WITH NO NOTE, AND FOR A WELL-FORMED ID THAT ADDRESSES
+   * NOTHING. That is the posture ADR-0066 gives `findItem` and is right here for
+   * a reason of its own: an owner asking for the note on a deleted item and one
+   * asking about an item they have said nothing about want the same page, and
+   * neither is an error. `item.get` is what answers NOT_FOUND for a missing
+   * item, once, where a page can act on it.
+   *
+   * WELL-FORMED IS THE QUALIFICATION AND IT IS LOAD-BEARING -- review read the
+   * unqualified sentence and asked what a malformed id gets. It gets a
+   * BAD_REQUEST from the input schema below, which is the right answer here for
+   * the reason the next paragraph gives, and is why this sentence says which
+   * ids it is about rather than leaving the claim to be tested.
+   *
+   * `z.uuid()` HERE AND `z.string()` ON `get`, WHICH IS NOT THE INCONSISTENCY IT
+   * LOOKS LIKE -- review raised it, and the difference is who does the asking.
+   * CNCORE-14's argument is about an id A READER TYPED OR SHARED: `/items/<id>`
+   * is reached with whatever is in the URL, so whether a string can be an
+   * identity has to be an ANSWER rather than a validation failure. Nothing types
+   * an id at this procedure. The page calls it with `item.id` -- the CANONICAL
+   * id `item.get` just answered with, an alias already resolved (ADR-0040) --
+   * so the only caller that can present a malformed one is an RPC client
+   * composing a request by hand, and "that is not an id" is the honest answer to
+   * give it. It also matches `annotate` and `retitle`, which take `z.uuid()` for
+   * the same reason: `findNoteOfItem` compares against a Postgres `uuid` column,
+   * where a non-uuid is error 22P02 rather than an empty result.
+   */
+  note: ownerProcedure
+    .input(z.object({ id: z.uuid() }))
+    .output(ownerNote.nullable())
+    .handler(async ({ input, context }) => findNoteOfItem(context.db, input.id)),
 
   get: openProcedure
     /*
