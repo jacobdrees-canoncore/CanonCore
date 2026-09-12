@@ -44,8 +44,8 @@ describe("worktreeDatabaseName", () => {
   });
 
   it("leaves room for the names the test harness derives and DROPS", () => {
-    // build-database.ts derives `<name>_test`, `<name>_test_web` and
-    // `<name>_test_fresh`, and drops them with `drop database ... with (force)`.
+    // build-database.ts derives `<name>_test` and one database per suffix any
+    // suite passes it, and drops them with `drop database ... with (force)`.
     // PostgreSQL truncates at 63 silently, so if a derived name truncated back
     // onto the real one, running the suite would destroy the worktree's own
     // database.
@@ -53,12 +53,19 @@ describe("worktreeDatabaseName", () => {
     // Asserted against what the harness actually appends, not against a
     // constant this module also owns -- otherwise the two would agree by
     // construction and never catch a change to either.
+    //
+    // EVERY SUFFIX, WHICH IS THE PART THAT DRIFTED. This listed three while the
+    // web suite passed five, and the two it was missing arrived with the
+    // instances that use them -- one of which did not fit, so a worktree whose
+    // branch stem ran to the limit could not run `pnpm test:e2e` at all. A
+    // suffix added to `apps/web/e2e/global-setup.ts` belongs here in the same
+    // change; this test is the only thing that says so.
     const name = worktreeDatabaseName(`feat/${"a".repeat(200)}`);
 
     // Built by the HARNESS's own function, not by pasting its format here, so
     // that changing how a test database is named fails this instead of quietly
     // eating the room reserved for it.
-    for (const suffix of ["", "web", "fresh"]) {
+    for (const suffix of ["", "web", "fresh", "paged", "purge", "still"]) {
       const derived = testDatabaseNameFor(name, suffix);
       expect(derived.length).toBeLessThanOrEqual(63);
       expect(derived.slice(0, 63)).not.toBe(name);

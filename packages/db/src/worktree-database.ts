@@ -10,11 +10,18 @@ const MAX_IDENTIFIER_BYTES = 63;
  * the derived names the way the harness builds them rather than trusting this
  * number.
  *
- * `_test_fresh` is the web suite's SECOND database, the empty one it serves a
- * fresh install from (CNCORE-65). It is longer than `_test_web`, which is why
- * this line moved: a suffix added without moving it eats the room reserved here
- * silently, and the thing at the other end of that silence is
- * `drop database ... with (force)` against the worktree's own catalogue.
+ * ELEVEN IS A BUDGET THE SUITES ARE HELD TO, rather than a measurement of them.
+ * `_test_fresh`, `_test_paged` and `_test_still` each spend exactly it, and that
+ * is the direction the constraint runs on purpose: WIDENING this number shortens
+ * every stem, which renames the database of any worktree already past the new
+ * limit and leaves its `.env` pointing at the one it had. A suffix that does not
+ * fit gets shorter instead -- `_test_purgeable` was four characters over, and it
+ * cost one existing worktree its whole e2e suite before anybody noticed.
+ *
+ * The thing at the other end of getting this wrong is
+ * `drop database ... with (force)` against the worktree's own catalogue, which
+ * is why `build-database.ts` refuses rather than truncates and why the test
+ * holds every suffix to the budget rather than the two it started with.
  */
 const LONGEST_DERIVED_SUFFIX = "_test_fresh".length;
 

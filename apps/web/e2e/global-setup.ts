@@ -128,6 +128,10 @@ export default async function setup(project: TestProject) {
   project.provide("purgeableBaseUrl", purgeable.baseUrl);
   project.provide("purgeable", purgeable.fixture);
 
+  const still = await aCatalogueThatHoldsStill();
+  project.provide("stillBaseUrl", still.baseUrl);
+  project.provide("stillCatalogue", still.fixture);
+
   project.provide("imported", await importThroughTheApp(baseUrl, provider.url));
   project.provide("attributed", await importFromTmdb(baseUrl, tmdb.url));
   /*
@@ -152,6 +156,7 @@ export default async function setup(project: TestProject) {
     fresh.close();
     await paged.close();
     await purgeable.close();
+    await still.close();
     // The seed ends its own client; this pool has to be ended too, or the run
     // holds an idle connection open against a database it is finished with.
     await twoOrigins.close();
@@ -259,6 +264,67 @@ async function aCatalogueTooBigForOnePage() {
 }
 
 /**
+ * A FIFTH INSTANCE, and what is new about it is that NOTHING WRITES TO IT.
+ *
+ * CNCORE-93. "How much does this catalogue hold" is a fact about a WHOLE
+ * catalogue and cannot be narrowed to one record the way a re-import's claim
+ * can, so the only way to assert it honestly is against a catalogue that does
+ * not move while it is being read. Every other instance here moves: two files
+ * import into the seeded one from their own workers, and the purgeable one
+ * exists precisely to be written to.
+ *
+ * NO INSTANCE ALREADY RUNNING COULD TAKE IT, which is worth writing down because
+ * reusing one is the first thing to try. The count is gated on a non-empty
+ * listing, so the FRESH instance renders no count at all -- an empty catalogue
+ * shows what to do next instead (ADR-0094). The PAGED one is written to by
+ * nothing and would serve, except that 254 items is more than a page, so it
+ * renders `Holding`'s OTHER branch -- "Showing 100 of 254 items", which
+ * `front-page.test.ts` already asserts. The plain-total branch needs a catalogue
+ * that is NON-EMPTY, SMALLER THAN ONE PAGE and WRITTEN TO BY NOTHING, and that
+ * is the whole of this fixture.
+ *
+ * THE COUNT IS A PROPERTY OF THIS LIST rather than a number asked of the router.
+ * On a shared instance it had to be read back from `catalogue.list` because
+ * nothing here could know it; here the fixture knows it, and page-agrees-with-
+ * router was the weaker assertion anyway -- the page reads its total THROUGH
+ * that procedure, so the two agreeing is one code path agreeing with itself.
+ *
+ * THREE, WHICH IS NOT ONE. `Holding` says "1 item" and "3 items" from different
+ * arms of the same expression, and a fixture of one would assert the singular
+ * while claiming to be about the count. Nothing asserts the singular arm yet.
+ */
+const HOLDING_STILL = [
+  "A catalogue nobody is filling",
+  "An item that arrived before the run",
+  "And a third, so the plural is a plural",
+];
+
+async function aCatalogueThatHoldsStill() {
+  const databaseUrl = await buildTestDatabase("still");
+  const db = createDb(databaseUrl);
+  // In series, because `anItemTitled` writes a statement and reads the owner
+  // back for it -- and what this fixture is for is the COUNT, so two of them
+  // racing to the same number is the one thing it must not do.
+  for (const title of HOLDING_STILL) await anItemTitled(db, title);
+  const port = await freePort();
+  const server = spawn("next", ["start", "--port", String(port)], {
+    cwd: webRoot,
+    env: { ...process.env, DATABASE_URL: databaseUrl, PROVIDER_ALLOWLIST: "127.0.0.0/8" },
+    stdio: "inherit",
+  });
+  const baseUrl = `http://127.0.0.1:${port}`;
+  await waitUntilAnswering(baseUrl, server);
+  return {
+    baseUrl,
+    fixture: { items: HOLDING_STILL.length },
+    close: async () => {
+      server.kill("SIGTERM");
+      await db.$client.end();
+    },
+  };
+}
+
+/**
  * A FOURTH INSTANCE, and what is new about it is that IT CAN BE DESTROYED.
  *
  * A purge deletes everything one provider ever said, so asserting one against
@@ -288,7 +354,13 @@ async function aCatalogueTooBigForOnePage() {
  * own motivating case rather than an edge of it.
  */
 async function aCatalogueSafeToPurge(wikiUrl: string, tmdbUrl: string) {
-  const databaseUrl = await buildTestDatabase("purgeable");
+  // `purge` RATHER THAN `purgeable`, WHICH IS A LENGTH AND NOT A PREFERENCE.
+  // `worktreeDatabaseName` reserves room for the longest name derived from it,
+  // and `_test_purgeable` is four characters past that reservation -- so on a
+  // branch whose stem runs to the limit, `buildTestDatabase` refuses this one
+  // and the whole e2e suite dies before its first assertion. Measured against
+  // `cncore_47_properties_validation`, a stem this repo actually has.
+  const databaseUrl = await buildTestDatabase("purge");
   const port = await freePort();
   const server = spawn("next", ["start", "--port", String(port)], {
     cwd: webRoot,
@@ -1189,6 +1261,13 @@ declare module "vitest" {
     };
     /** Every item that instance holds: the set a walk has to arrive at, exactly. */
     pagedCatalogue: string[];
+    /**
+     * And again, serving a catalogue NOTHING WRITES TO -- the one state in which
+     * "how much this catalogue holds" can be asserted at all (CNCORE-93).
+     */
+    stillBaseUrl: string;
+    /** How much it holds, from the fixture that wrote it rather than from the app. */
+    stillCatalogue: { items: number };
     /** The wiki provider this run stood up: the real image in CI, a stub here. */
     providerWikiUrl: string;
     /** The TMDB provider, whose source row is what a TMDB claim is recorded against. */
