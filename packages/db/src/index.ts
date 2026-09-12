@@ -20,13 +20,6 @@ export {
 } from "./placements";
 export { type PurgedProvider, previewProviderPurge, purgeProvider } from "./purge";
 export {
-  type DeclaredDevice,
-  endSession,
-  type OwnerSession,
-  sessionFor,
-  startSession,
-} from "./sessions";
-export {
   type AttributionOwed,
   type Catalogue,
   type CatalogueEntry,
@@ -45,6 +38,13 @@ export {
   type StatementOfItem,
 } from "./queries";
 export * from "./schema";
+export {
+  type DeclaredDevice,
+  endSession,
+  type OwnerSession,
+  sessionFor,
+  startSession,
+} from "./sessions";
 export { worktreeDatabaseName } from "./worktree-database";
 
 /**

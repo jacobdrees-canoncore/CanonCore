@@ -32,6 +32,28 @@ function digestOf(value: string): Buffer {
 
 export const session = {
   /**
+   * WHETHER ANYONE CAN LOG IN TO THIS INSTANCE AT ALL.
+   *
+   * THE SAME SILENCE `provider.allowlisted` NAMES, one setting over. That
+   * procedure exists because an instance that reaches no provider refuses
+   * imports one at a time with no way to tell a wrong URL from a setting nobody
+   * ever wrote; this is the same shape -- an instance with no `OWNER_PASSWORD`
+   * refuses every password forever, and "that password was refused" is the wrong
+   * sentence to put in front of a visitor to a demo that has none.
+   *
+   * A BOOLEAN, OBVIOUSLY. The question is whether there is a password, and the
+   * answer is never the password.
+   *
+   * IT IS NOT A DISCLOSURE WORTH WITHHOLDING. An instance's read path is open by
+   * ADR-0044 and `provider.configured` already hands any caller every provider
+   * URL; whether this one is somebody's catalogue or the demo is answered by
+   * whether it has a login form, which is a page anybody can fetch.
+   */
+  configured: openProcedure
+    .output(z.object({ password: z.boolean() }))
+    .handler(() => ({ password: env.OWNER_PASSWORD !== undefined })),
+
+  /**
    * The owner's one password, exchanged for the token everything that writes
    * asks for (ADR-0043, ADR-0044).
    *
@@ -80,10 +102,8 @@ export const session = {
    * `endSession` already takes the session it ends, so that surface is a page
    * rather than a change here.
    */
-  logOut: ownerProcedure
-    .output(z.object({ ended: z.uuid() }))
-    .handler(async ({ context }) => {
-      await endSession(context.db, context.session.id);
-      return { ended: context.session.id };
-    }),
+  logOut: ownerProcedure.output(z.object({ ended: z.uuid() })).handler(async ({ context }) => {
+    await endSession(context.db, context.session.id);
+    return { ended: context.session.id };
+  }),
 };

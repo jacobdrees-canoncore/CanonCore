@@ -1,4 +1,4 @@
-import { ORPCError, call, safe } from "@orpc/server";
+import { call, ORPCError, safe } from "@orpc/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createContext } from "../context";
@@ -110,6 +110,12 @@ describe("the read path", () => {
 const OWNER_PASSWORD = "the owner's own password";
 
 describe("logging in", () => {
+  it("says this instance has a password, without saying what it is", async () => {
+    await expect(
+      call(appRouter.session.configured, {}, { context: anyone }),
+    ).resolves.toStrictEqual({ password: true });
+  });
+
   it("mints a token that the write path then accepts", async () => {
     const { token } = await call(
       appRouter.session.logIn,
@@ -187,6 +193,16 @@ describe("the demo, which is an instance that sets no password", () => {
    * THE PASSWORD OFFERED IS THE RIGHT ONE, so this cannot pass by accident: if
    * the variable were still set, the login would succeed.
    */
+  it("says it has no password, so a surface can say so rather than refuse forever", async () => {
+    vi.stubEnv("OWNER_PASSWORD", undefined);
+    vi.resetModules();
+    const { session: demo } = await import("./session");
+
+    await expect(call(demo.configured, {}, { context: anyone })).resolves.toStrictEqual({
+      password: false,
+    });
+  });
+
   it("refuses to log anyone in, whatever they offer", async () => {
     vi.stubEnv("OWNER_PASSWORD", undefined);
     vi.resetModules();

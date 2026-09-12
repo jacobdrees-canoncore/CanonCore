@@ -1,4 +1,4 @@
-import { type Context, createContext } from "@canoncore/api/context";
+import type { Context } from "@canoncore/api/context";
 import { appRouter } from "@canoncore/api/routers";
 import { Button } from "@canoncore/ui/components/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@canoncore/ui/components/card";
@@ -9,6 +9,7 @@ import Form from "next/form";
 import Link from "next/link";
 
 import { oneValue } from "@/components/query-params";
+import { callerContext } from "@/session";
 
 import { browseOrdering, importRecord, purgeProvider } from "./actions";
 
@@ -51,7 +52,14 @@ async function readImportPage({ query, provider, container, purge }: Asked) {
    * for `/import` and they answer differently, which is the only arrangement in
    * this repo that can see a build-time artefact at all.
    */
-  const context = await createContext();
+  /*
+   * THE CALLER'S OWN CONTEXT, which on this page decides what is OFFERED as much
+   * as what is answered. Every read below is open (ADR-0044's demo is read-only
+   * with no login), and the three things that WRITE are the owner's since
+   * CNCORE-109 -- so a visitor is shown the whole surface and none of its
+   * buttons, rather than buttons that answer 401.
+   */
+  const context = await callerContext();
   // ONE CONTEXT FOR ALL OF THEM, for the reason the front page gives: two calls
   // to it would be two answers to "what does this request carry".
   //
@@ -95,7 +103,22 @@ async function readImportPage({ query, provider, container, purge }: Asked) {
       ? Promise.resolve(undefined)
       : call(appRouter.provider.previewPurge, { baseUrl: purging }, { context }),
   ]);
-  return { allowlisted, configured, found, namedContainer, preview, purging };
+  return {
+    allowlisted,
+    configured,
+    found,
+    namedContainer,
+    preview,
+    purging,
+    /**
+     * WHETHER THIS READER MAY CHANGE ANYTHING, which is what decides whether a
+     * control is rendered at all. A button whose action answers UNAUTHORIZED is
+     * worse than no button: with no script loaded a Server Action that throws
+     * renders a bare `Internal Server Error`, so an offer this page cannot honour
+     * costs the reader the page they were on.
+     */
+    owner: context.session !== null,
+  };
 }
 
 /**
@@ -214,14 +237,13 @@ export default async function ImportPage({
   const query = oneValue(asked.q);
   const provider = oneValue(asked.provider);
   const container = oneValue(asked.container);
-  const { allowlisted, configured, found, namedContainer, preview, purging } = await readImportPage(
-    {
+  const { allowlisted, configured, found, namedContainer, owner, preview, purging } =
+    await readImportPage({
       query,
       provider,
       container,
       purge: oneValue(asked.purge),
-    },
-  );
+    });
 
   return (
     <main className="container mx-auto max-w-3xl px-4 py-8">
@@ -233,13 +255,19 @@ export default async function ImportPage({
       {!allowlisted.any && <NoProviderAllowlisted />}
       {configured.providers.length === 0 && <NoProviderConfigured />}
       <SearchBox query={query} />
-      {found !== undefined && query !== undefined && <Results found={found} query={query} />}
+      {found !== undefined && query !== undefined && (
+        <Results found={found} owner={owner} query={query} />
+      )}
       <BrowseBox configured={configured.providers} container={container} provider={provider} />
       {container !== undefined &&
-        (namedContainer === undefined ? <NotOneOfOurs /> : <Container {...namedContainer} />)}
+        (namedContainer === undefined ? (
+          <NotOneOfOurs />
+        ) : (
+          <Container {...namedContainer} owner={owner} />
+        ))}
       <PurgeBox configured={configured.providers} />
       {purging !== undefined && preview !== undefined && (
-        <Purge baseUrl={purging} preview={preview} />
+        <Purge baseUrl={purging} owner={owner} preview={preview} />
       )}
     </main>
   );
@@ -334,7 +362,15 @@ function PurgeBox({ configured }: { configured: string[] }) {
  * content they can no longer inspect -- so these counts are the only description
  * of it they are going to get.
  */
-function Purge({ baseUrl, preview }: { baseUrl: string; preview: PurgePreview }) {
+function Purge({
+  baseUrl,
+  owner,
+  preview,
+}: {
+  baseUrl: string;
+  owner: boolean;
+  preview: PurgePreview;
+}) {
   /*
    * A PURGE THAT WOULD CHANGE NOTHING GETS NO CONFIRMATION, which is a criterion
    * rather than a nicety. A dialogue offering to permanently delete "0
@@ -404,12 +440,16 @@ function Purge({ baseUrl, preview }: { baseUrl: string; preview: PurgePreview })
               `basePath` to get wrong -- and it needs no JavaScript, which is what
               lets this surface be asserted with no browser.
             */}
-            <form action={purgeProvider}>
-              <input type="hidden" name="baseUrl" value={baseUrl} />
-              <Button type="submit" variant="destructive">
-                Purge permanently
-              </Button>
-            </form>
+            {owner ? (
+              <form action={purgeProvider}>
+                <input type="hidden" name="baseUrl" value={baseUrl} />
+                <Button type="submit" variant="destructive">
+                  Purge permanently
+                </Button>
+              </form>
+            ) : (
+              <LogIn to="purge a provider" />
+            )}
           </div>
         </>
       )}
@@ -527,7 +567,7 @@ function SearchBox({ query }: { query?: string }) {
  * visible. A provider omitted for having no results is one an owner cannot tell
  * from a provider that was never asked.
  */
-function Results({ found, query }: { found: Found; query: string }) {
+function Results({ found, owner, query }: { found: Found; owner: boolean; query: string }) {
   const matched = found.answered.reduce((total, { results }) => total + results.length, 0);
 
   return (
@@ -550,7 +590,7 @@ function Results({ found, query }: { found: Found; query: string }) {
             <ul className="mt-2 divide-y">
               {results.map((result) => (
                 <li key={result.recordId} className="py-3">
-                  <Candidate baseUrl={provider.baseUrl} result={result} />
+                  <Candidate baseUrl={provider.baseUrl} owner={owner} result={result} />
                 </li>
               ))}
             </ul>
@@ -565,9 +605,11 @@ function Results({ found, query }: { found: Found; query: string }) {
 /** One candidate: what the provider claims about it, and what to do with it. */
 function Candidate({
   baseUrl,
+  owner,
   result,
 }: {
   baseUrl: string;
+  owner: boolean;
   result: Found["answered"][number]["results"][number];
 }) {
   return (
@@ -615,9 +657,37 @@ function Candidate({
       </span>
       <span className="flex items-baseline gap-3">
         {result.itemId !== null && <Held itemId={result.itemId} />}
-        <Take baseUrl={baseUrl} held={result.itemId !== null} recordId={result.recordId} />
+        <Take
+          baseUrl={baseUrl}
+          held={result.itemId !== null}
+          owner={owner}
+          recordId={result.recordId}
+        />
       </span>
     </div>
+  );
+}
+
+/**
+ * WHAT STANDS WHERE A CONTROL WOULD, for a reader who is not the owner.
+ *
+ * THE SURFACE IS NOT HIDDEN, only its buttons. ADR-0044's demo is read-only with
+ * no login and ADR-0072 gives a visitor everything on the instance, so a visitor
+ * still searches the providers, still sees what a container holds and still reads
+ * what a purge would take. What they are not offered is the operation, and this
+ * says which operation it was rather than leaving a gap where a button was.
+ *
+ * `Link` RATHER THAN `a` (ADR-0109): a path this app owns is one the framework
+ * has to be allowed to rewrite.
+ */
+function LogIn({ to }: { to: string }) {
+  return (
+    <span className="text-muted-foreground text-sm">
+      <Link className="underline" href="/login">
+        Log in
+      </Link>
+      {` to ${to}.`}
+    </span>
   );
 }
 
@@ -636,7 +706,23 @@ function Candidate({
  * then meets ADR-0034's config boundary exactly as it does when an owner POSTs
  * the RPC by hand, so the page is not a way round the allowlist.
  */
-function Take({ baseUrl, held, recordId }: { baseUrl: string; held: boolean; recordId: string }) {
+function Take({
+  baseUrl,
+  held,
+  owner,
+  recordId,
+}: {
+  baseUrl: string;
+  held: boolean;
+  owner: boolean;
+  recordId: string;
+}) {
+  // A VISITOR IS TOLD WHAT THE BUTTON WOULD BE RATHER THAN SHOWN ONE THAT FAILS.
+  // `provider.import` is the owner's since CNCORE-109, and with no script loaded
+  // a Server Action that throws renders a bare `Internal Server Error` -- so an
+  // offer this page cannot honour costs the reader the page they were reading.
+  if (!owner) return <LogIn to="import" />;
+
   return (
     <form action={importRecord}>
       <input type="hidden" name="baseUrl" value={baseUrl} />
@@ -888,14 +974,26 @@ function NotOneOfOurs() {
  * SO THE BUTTON IS OFFERED ONLY WHERE A BROWSE WOULD WORK. Nothing to press is
  * the difference between a refusal reported and a refusal merely reworded.
  */
-function Container({ baseUrl, containerId, itemId, said }: NamedContainer) {
+function Container({
+  baseUrl,
+  containerId,
+  itemId,
+  owner,
+  said,
+}: NamedContainer & { owner: boolean }) {
   return (
     <section aria-labelledby="container" className="mt-4">
       <h3 className="sr-only" id="container">
         The container you named
       </h3>
       {said.answer === "container" ? (
-        <ItsOrdering baseUrl={baseUrl} containerId={containerId} itemId={itemId} said={said} />
+        <ItsOrdering
+          baseUrl={baseUrl}
+          containerId={containerId}
+          itemId={itemId}
+          owner={owner}
+          said={said}
+        />
       ) : (
         /*
           A REFUSAL FROM THE PROVIDER IS NOT THE CATALOGUE FORGETTING, so the
@@ -930,69 +1028,73 @@ function ItsOrdering({
   baseUrl,
   containerId,
   itemId,
+  owner,
   said,
 }: {
   baseUrl: string;
   containerId: string;
   itemId: string | null;
+  owner: boolean;
   said: Extract<NamedContainer["said"], { answer: "container" }>;
 }) {
   return (
-    <>
-      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 border-t py-3">
-        <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          {/*
-            THE PROVIDER'S OWN TITLE FOR IT, which is what an owner has to go on
-            before sixty placements are written. The id they typed stays beside
-            it: it is what they can correct, and it is the only thing tying this
-            row to the box above.
-          */}
-          <span>{said.title}</span>
-          <span className="text-muted-foreground text-sm">{containerId}</span>
-          {/*
-            AND WHAT PRESSING THE BUTTON COSTS. One press writes this many
-            placements, which is the whole reason `browse` exists (ADR-0033) and
-            was the one thing the page could not say before it happened.
+    <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 border-t py-3">
+      <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        {/*
+          THE PROVIDER'S OWN TITLE FOR IT, which is what an owner has to go on
+          before sixty placements are written. The id they typed stays beside
+          it: it is what they can correct, and it is the only thing tying this
+          row to the box above.
+        */}
+        <span>{said.title}</span>
+        <span className="text-muted-foreground text-sm">{containerId}</span>
+        {/*
+          AND WHAT PRESSING THE BUTTON COSTS. One press writes this many
+          placements, which is the whole reason `browse` exists (ADR-0033) and
+          was the one thing the page could not say before it happened.
 
-            PLURALISED WITH AN `s`, as `Holding` does it, which is honest for
-            this word.
+          PLURALISED WITH AN `s`, as `Holding` does it, which is honest for
+          this word.
 
-            ONE TEMPLATE STRING RATHER THAN TWO EXPRESSIONS SIDE BY SIDE, which
-            is also how `Holding` writes it. React separates adjacent text nodes
-            with a `<!-- -->` marker so it can find the boundary again when it
-            hydrates, so `{n} {noun}` reaches the document as `2<!-- --> <!--
-            -->members` -- correct on screen, and not a string anything reading
-            the HTML can match.
-          */}
-          <span className="text-muted-foreground text-sm">
-            {`${said.members} ${said.members === 1 ? "member" : "members"}`}
-          </span>
-          <span className="text-muted-foreground text-sm">
-            {itemId === null ? "Not in your catalogue" : "Already imported"}
-          </span>
+          ONE TEMPLATE STRING RATHER THAN TWO EXPRESSIONS SIDE BY SIDE, which
+          is also how `Holding` writes it. React separates adjacent text nodes
+          with a `<!-- -->` marker so it can find the boundary again when it
+          hydrates, so `{n} {noun}` reaches the document as `2<!-- --> <!--
+          -->members` -- correct on screen, and not a string anything reading
+          the HTML can match.
+        */}
+        <span className="text-muted-foreground text-sm">
+          {`${said.members} ${said.members === 1 ? "member" : "members"}`}
         </span>
-        <span className="flex items-baseline gap-3">
-          {itemId !== null && <Held itemId={itemId} />}
-          {/*
-            A POST BOUND TO A SERVER ACTION, for the reason `Take` above gives:
-            Next writes the target itself, so there is no URL here for a later
-            `basePath` to get wrong (ADR-0109).
-          */}
+        <span className="text-muted-foreground text-sm">
+          {itemId === null ? "Not in your catalogue" : "Already imported"}
+        </span>
+      </span>
+      <span className="flex items-baseline gap-3">
+        {itemId !== null && <Held itemId={itemId} />}
+        {/*
+          A POST BOUND TO A SERVER ACTION, for the reason `Take` above gives:
+          Next writes the target itself, so there is no URL here for a later
+          `basePath` to get wrong (ADR-0109).
+        */}
+        {owner ? (
           <form action={browseOrdering}>
             <input type="hidden" name="baseUrl" value={baseUrl} />
             <input type="hidden" name="containerId" value={containerId} />
             <Button type="submit" variant="secondary">
               {/*
-                OFFERED AGAIN ONCE HELD, for the reason the record's button is: a
-                second browse refreshes the container and its ordering rather than
-                writing a second copy of either (migration 3).
+              OFFERED AGAIN ONCE HELD, for the reason the record's button is: a
+                second browse refreshes the container and its ordering rather
+                than writing a second copy of either (migration 3).
               */}
               {itemId === null ? "Import its ordering" : "Import its ordering again"}
             </Button>
           </form>
-        </span>
-      </div>
-    </>
+        ) : (
+          <LogIn to="import an ordering" />
+        )}
+      </span>
+    </div>
   );
 }
 
