@@ -993,7 +993,7 @@ Every occurrence in the live documents:
 - `SPEC.md:82` — "This is the test that fails if CMPP is secretly two bespoke integrations"
 - `SPEC.md:810` — "CMPP is CanonCore's own contract. No compatibility layer with any other product."
 - `SPEC.md:815` — "THE CMPP STORE — publicly addable providers, ACCEPTED rather than open."
-- `CONTEXT.md:171-172` — the glossary headword, defined but not expanded:
+- `CONTEXT.md`, the **CMPP** headword under "Sources" — defined but not expanded:
   "**CMPP**: / CanonCore's own provider contract, answered over HTTP by every provider."
 - `HANDOFF.md:97` — "Providers are URLs answering a contract (CMPP)"
 

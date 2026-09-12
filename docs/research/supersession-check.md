@@ -120,8 +120,8 @@ SPEC.md does not:
 A refusal is easier to hold when the failure that produced it is named.
 
 **L18. WITHDRAWN on re-check — the file-identity material is fully superseded.**
-This was filed as a loss and it is not one. `competitor-sweep/verify-plex-claims.md:242-346` and
-`resolution/resolve-X7-X13.md:950-956` both carry the test vector, and in better form than the
+This was filed as a loss and it is not one. `competitor-sweep/verify-plex-claims.md` §6a, "The
+algorithm — CONFIRMED", and `resolution/resolve-X7-X13.md`'s X11 §0 both carry the test vector, and in better form than the
 archive's: the full digests, a live re-verification against real bytes over HTTP range requests,
 and two traps the archive does not mention — a trailing newline breaks the hash
 (`verify-plex-claims.md:317-318`) and so does uppercase hex (`:319`). `open_subtitle_hash`/OSHash
@@ -504,8 +504,8 @@ SPEC.md:298-309 reverses this explicitly — `?via=<placement-id>` is in the URL
 non-identifying — and names the old wording as having "overshot". Unmarked.
 
 **S9. OPDS is undecided.** `decisions.md:1436-1440` (P15): "A client-facing protocol such as OPDS
-remains UNDECIDED and is not refused." `resolution/resolve-counter-signals.md:1707-1748` (R12)
-later resolves it: "**SURVIVES, and should be written down as a refusal rather than a silence.**"
+remains UNDECIDED and is not refused." `resolution/resolve-counter-signals.md`'s R12 §4, "SURVIVES
+or MOVES", later resolves it: "**SURVIVES, and should be written down as a refusal rather than a silence.**"
 Note the resolution's own recommended one-sentence edit to SPEC.md was never applied — SPEC.md:1435-1439
 still carries only the OPDS *evidence* with no verdict, so this contradiction is currently
 unresolved in the live document as well as in the log.
