@@ -279,20 +279,16 @@ describe("/import, taking a record it already holds", () => {
      * else's write: measured 2026-09-12 against the real provider images, two of
      * four full runs, and green every time this file ran alone.
      *
-     * WHAT IT ASSERTS IS NOT WEAKER FOR BEING NARROWER. `itemsCarrying` answers
-     * with ROWS, so it sees a second Item carrying this id where every procedure
-     * above it would collapse the pair into one.
-     *
-     * THOUGH TWO ROWS ARE UNREACHABLE IN THE SHIPPED SCHEMA, and a reader owes
-     * that fact before they read the line above as more than it is. Two
-     * constraints hold this to one: `sources_identity` is unique on (owner, kind,
-     * identity), and migration 5's partial unique index covers (source_id,
-     * md5(value_literal)) for a live `external_id`. So an importer that tried to
-     * mint a second Item for this record would be REFUSED, and what catches that
-     * is `twice.status` above rather than this. What this buys is that the suite
-     * is not BLIND to the pair the way every procedure above it is: the day that
-     * index is dropped, relaxed or gone round, this assertion sees the second
-     * Item and `provider.held` goes on answering with one.
+     * NARROWER, AND NOT WEAKER -- but say exactly what that means, because two
+     * rows are UNREACHABLE in the shipped schema. `sources_identity` is unique on
+     * (owner, kind, identity) and migration 5's partial unique index covers
+     * (source_id, md5(value_literal)) for a live `external_id`, so an importer
+     * that tried to mint a second Item for this record is REFUSED -- and what
+     * catches that is `twice.status` above rather than this line. What this line
+     * buys is that the suite is not BLIND to the pair the way every procedure
+     * above it is: `itemsCarrying` answers with ROWS, so the day that index is
+     * dropped, relaxed or gone round it sees the second Item while
+     * `provider.held` goes on reporting one.
      *
      * AND NO OTHER WORKER CAN MOVE IT, which a total could never be. Nothing else
      * in this suite writes to (this provider, this record): the only other file
