@@ -66,6 +66,17 @@ type Job = {
  * is a claim about the file that nothing checks.
  */
 export type Workflow = {
+  /**
+   * The triggers, read because a condition is only half of whether a step runs
+   * (CNCORE-70): `if: startsWith(github.ref, 'refs/tags/v')` on a workflow
+   * whose `on:` admits no tag is a publish that reads correct and never fires.
+   *
+   * `on` SURVIVES THE PARSE AS THE STRING `on`, which is worth saying because
+   * YAML 1.1 reads it as the boolean `true` and this key would then be absent
+   * with no error. The `yaml` package defaults to the 1.2 core schema, where it
+   * is a plain string; checked against this very file rather than assumed.
+   */
+  on?: { push?: { tags?: string[] } };
   env?: Env;
   jobs?: Record<string, Job>;
   concurrency?: { group?: string; "cancel-in-progress"?: boolean };
