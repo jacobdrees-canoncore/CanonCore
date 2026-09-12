@@ -104,7 +104,7 @@ export default async function SettingsPage({
                     spellings would be two Providers.
                   */}
                   <p className="text-sm">{provider.baseUrl}</p>
-                  <Standing reach={provider.reach} />
+                  <ReachNotice reach={provider.reach} />
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   <UnlockAt reach={provider.reach} />
@@ -203,7 +203,7 @@ export default async function SettingsPage({
  * declares no credential, and a line reassuring the Owner about each of them is
  * noise on the page where the one that DOES need something has to stand out.
  */
-function Standing({ reach }: { reach: Reach }) {
+function ReachNotice({ reach }: { reach: Reach }) {
   if (reach.kind === "not-admitted") {
     /*
       WHICH OF THE TWO SETTINGS REFUSES IT, which is ADR-0121's own condition on

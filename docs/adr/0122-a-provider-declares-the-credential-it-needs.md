@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 ---
 
 # A provider declares the credential it needs, and CanonCore links to it rather than carrying it
@@ -120,19 +120,24 @@ file is the interface, and this record deliberately says nothing about who fills
 but nothing here obliges it and a working thing is not changed for symmetry. It would also have to
 stop throwing at startup, which is its own decision with its own reason behind it.
 
-## As built, under CNCORE-98 — ONE HALF OF TWO, WHICH IS WHY THIS STAYS `proposed`
+## As built, under CNCORE-98 AND CNCORE-101 — BOTH HALVES, WHICH IS WHY THIS IS `accepted`
 
-**The provider half landed and the CanonCore half did not**, so this record is not yet implemented
-however finished the provider looks from outside. The provider half is
+**The provider half landed first and the CanonCore half followed.** The provider half is
 `jacobdrees-canoncore/provider-wiki#23`, squashed to `a550681` on that repo's `main` — named here
 because no PR in a provider repo reaches this directory, so a reader checking what this section
-claims has nothing else to check it against. What exists: CMPP's manifest carries the optional
-`credential` (`packages/contract/src/cmpp.ts`), `provider-wiki` declares one, serves `/unlock` and
-writes `~/.config/canoncore/wiki-session.json`, and the contract suite holds any provider that
-declares one to the round trip over HTTP. What does not: **CanonCore renders nothing**. Its consumer
-schema does not read the field, there is no settings surface, and no link reaches the unlock path —
-which is this record's own title half. CNCORE-101 is that half, and it is the ticket this record
-flips on. `provider-tmdb` is untouched, as the record says it may be.
+claims has nothing else to check it against. It gave CMPP's manifest the optional `credential`
+(`packages/contract/src/cmpp.ts`), made `provider-wiki` declare one, serve `/unlock` and write
+`~/.config/canoncore/wiki-session.json`, and held any provider declaring one to the round trip over
+HTTP in the contract suite.
+
+**CNCORE-101 is the half in this record's own title, and it is what flipped it.** CanonCore's
+consumer schema now reads the declaration, `settings.read` answers what each named Provider had to
+say for itself, and `/settings` renders the label, the state and a LINK to the Provider's own unlock
+path. `provider-tmdb` is untouched, as the record says it may be.
+
+**A CROSS-REPO PAIR FLIPS ON THE SECOND TICKET**, which is why this section could not be written
+under CNCORE-98 however finished the provider looked from outside: `docs/adr/` is in THIS repository
+and no PR in a provider repo reaches it.
 
 ### What building it taught, which the record did not say
 
@@ -206,3 +211,69 @@ person.
 a credential stored is a provider reporting `valid` about something its upstream is about to refuse,
 which points the Owner's diagnosis at their source for a fault that is in the form they just
 submitted.
+
+### What the CanonCore half taught, under CNCORE-101
+
+**A LEADING SLASH DOES NOT KEEP THE LINK ON THE PROVIDER, AND THIS RECORD IMPLIED IT DID.** The
+contract requires `unlock_path` to start with `/` and gives the reason as a relative path joining
+against the base URL's last segment — a 404 argument, which is true and is not the dangerous one.
+Measured on node 24.19.0 against `http://provider-wiki:8080`, three spellings satisfy
+`startsWith("/")` and resolve to `http://evil.test/`:
+
+| declared `unlock_path` | resolves to |
+| --- | --- |
+| `//evil.test/unlock` | `http://evil.test/unlock` |
+| `/\evil.test/unlock` | `http://evil.test/unlock` |
+| `/⇥/evil.test` (leading tab) | `http://evil.test/` |
+
+The WHATWG parser reads a backslash as a second slash and strips leading tabs before it reads the
+rest, so no check on the STRING can see what the JOIN does. **Where this lands is what makes it
+matter rather than untidy**: a Provider is an untrusted URL ([[0031-a-provider-is-a-url]]), and this
+value goes into an `href` the Owner is asked to click and then type a credential into. It is the one
+place in this design that could hand a stranger the very credential the design exists to keep out of
+CanonCore's hands, and this record's central refusal would have been satisfied on paper while being
+defeated in practice.
+
+So `unlockUrlFor` JOINS AND THEN COMPARES ORIGINS, and answers `null` where the origin changed. The
+label and the state still render — the Provider is up and what it says about itself is still worth
+reading — and only the link is withheld, for the reason this record gives for a locked provider not
+refusing to start: refusing the whole manifest would report a reachable Provider as unreachable,
+which is the wrong diagnosis shown to the one person who can fix it.
+
+**THE CONTRACT IS NOT TIGHTENED TO MATCH, DELIBERATELY.** It could refuse these three spellings, and
+that would be belt and braces rather than the mechanism: the contract binds providers that WANT to
+conform, and the whole premise here is a Provider that may not. The check has to live where the
+value is used, so that is where it lives — and a conformance suite passing would otherwise start to
+look like a reason for the consumer not to check.
+
+**THE OWNER'S BROWSER HAS TO REACH THE PROVIDER, AND THIS RECORD NEVER SAID SO.** Every other URL in
+CMPP is fetched by CanonCore, whose allowlist says what it may reach ([[0034-two-outbound-boundaries]]);
+this one is followed by the OWNER. A Provider at `http://provider-wiki:8080` — a container hostname,
+which is the spelling this repository's own examples use — is reachable by the app and not by the
+person reading the page, so the link resolves to nothing in their browser. That is a real cost of
+choosing a link over a form and it is not a defect to fix here: the address the Owner needs is a
+deployment fact CanonCore does not hold, and inventing one would be guessing. It is written down so
+the next reader meets it as a known consequence rather than as a bug.
+
+**`admitted: boolean` BECAME A THREE-WAY ANSWER.** The settings surface has to tell "this Provider
+needs Unlocking" from "this Provider cannot be reached" from "this Provider is not admitted by the
+allowlist", which this record requires and a boolean cannot carry. It is a discriminated union in
+the procedure's own output schema, so the OpenAPI document says the impossible combinations are
+impossible: a credential belongs only to a Provider that answered, a reason only to one that did
+not. [[0121-an-instance-names-its-providers-beside-the-allowlist-that-admits-them]] carries the
+correction where it described the old field.
+
+**THE DECLARED LABEL IS PROVIDER PROSE, AND NOTHING HAD BOUNDED IT.**
+[[0123-a-failure-reason-is-bounded-and-says-who-wrote-it]] caps what a Provider can put on the
+Owner's page, and its argument — "a stranger choosing the length and content of text on a page it
+does not own" — reaches the label exactly as it reaches a reason, which neither record had noticed.
+The contract bounds it only by `min(1)`. It now goes through that record's own cap, and the page
+quotes it beside the named Provider, so a Provider cannot flood the settings page and cannot be read
+as CanonCore speaking.
+
+**THE CREDENTIAL IS KEPT OUT STRUCTURALLY RATHER THAN BY A RULE ANYBODY REMEMBERS.** CanonCore's
+consumer schema is a `z.object` where the contract's is a `looseObject`, so `fields` — the
+contract's list of what the Owner supplies — is STRIPPED on the way in. There is no property
+anywhere in this app for a credential value to sit in, which is a stronger guarantee than a
+convention that nothing reads one: the day somebody reaches for the form again, they have to widen
+a schema to do it.
