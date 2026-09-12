@@ -118,3 +118,90 @@ file is the interface, and this record deliberately says nothing about who fills
 **Whether `provider-tmdb` adopts it.** It could declare a credential and serve its own unlock path,
 but nothing here obliges it and a working thing is not changed for symmetry. It would also have to
 stop throwing at startup, which is its own decision with its own reason behind it.
+
+## As built, under CNCORE-98 — ONE HALF OF TWO, WHICH IS WHY THIS STAYS `proposed`
+
+**The provider half landed and the CanonCore half did not**, so this record is not yet implemented
+however finished the provider looks from outside. The provider half is
+`jacobdrees-canoncore/provider-wiki#23`, squashed to `a550681` on that repo's `main` — named here
+because no PR in a provider repo reaches this directory, so a reader checking what this section
+claims has nothing else to check it against. What exists: CMPP's manifest carries the optional
+`credential` (`packages/contract/src/cmpp.ts`), `provider-wiki` declares one, serves `/unlock` and
+writes `~/.config/canoncore/wiki-session.json`, and the contract suite holds any provider that
+declares one to the round trip over HTTP. What does not: **CanonCore renders nothing**. Its consumer
+schema does not read the field, there is no settings surface, and no link reaches the unlock path —
+which is this record's own title half. CNCORE-101 is that half, and it is the ticket this record
+flips on. `provider-tmdb` is untouched, as the record says it may be.
+
+### What building it taught, which the record did not say
+
+**`expired` needed a WRITER, and the record named the state without naming one.** Only a refusal
+tells you a session has lapsed — [[0069-the-first-provider-is-the-wiki]] measured a `cf_clearance`
+dead eight days after capture while its own `expires` still claimed 2027-09-03 — so a provider
+computing expiry from the cookie's stated lifetime would report `valid` about a session the wiki had
+already stopped accepting. The file therefore carries a `lapsed` marker written by whatever met the
+refusal, and `expired` is read from it. That keeps the asymmetry this record wants: nothing
+DERIVES the state, everything READS it.
+
+**"When that last changed" is the file's mtime rather than a timestamp inside it**, and that is what
+keeps "anything able to write the file can Unlock the Provider" true without a clause. Every state
+this provider can report is reached by WRITING the file, so the filesystem already records the
+answer; requiring the writer to stamp one too would mean a script that wrote the credential and no
+timestamp had half-unlocked the provider.
+
+**A file that exists is not a credential, and there is no fourth state to say so in.** Empty,
+truncated, valid JSON of the wrong shape and a field present-but-blank all report `absent`, because
+from the Owner's side the provider holds nothing it can answer with — and `valid` would send them
+looking at the wiki for a fault that is half a `cp`.
+
+**The declared path is a PATH and not a URL**, which is the one place in CMPP that distinction is
+load-bearing. Every other URL the contract carries comes FROM the source and is rendered to a
+reader; this one addresses the PROVIDER, which does not know the URL CanonCore reaches it on — one
+behind a proxy could not — and CanonCore holds that base URL already.
+
+**The contract had to pick a body shape, because "a script can supply it" is not a contract until
+the script knows what to send.** JSON is required of a provider that declares a credential and
+anything else is permitted beside it; `provider-wiki` also takes a form submission, because the
+Owner arrives at a page rather than at a terminal.
+
+**Proving the round trip means performing it, so the contract suite UNLOCKS every provider under
+test**, replacing whatever it held. There is no way to assert "POST the declared fields and it
+reports valid" without POSTing. That suite is CI's, against ephemeral service containers, and it is
+not CanonCore carrying a credential — `packages/contract` depends on no `@canoncore/*` package and
+the app is absent from that seam entirely. Pointed by hand at a provider holding a real one, it will
+overwrite it, and both provider READMEs say so.
+
+**The unlock route authenticates nobody AND refuses exactly one caller, which is not the same thing
+as either extreme.** The file is the source of truth, so anything that can write it can already
+Unlock the provider, and a login on the route would guard one writer while leaving the others open.
+But that argument has a hole this record did not see, found in review: **a page on another site
+cannot write the file and can still make the OWNER'S OWN BROWSER submit the form.** Form encoding is
+a CORS-simple content type, so no preflight stands in the way and the attacker never needs to read
+the answer — the write lands and the Owner's session is gone. An earlier version of this paragraph
+said the exposure was bounded by where the provider listens, loopback by default; **loopback is not a
+boundary against the Owner's own browser**, which is the client this design sends to the unlock page
+on purpose.
+
+So the route refuses a cross-site BROWSER submission and nothing else, told apart by
+`Sec-Fetch-Site`. That header cannot be forged by a page: the `Sec-` prefix makes it a forbidden
+request header, set by the browser from the real request context, and it has been Baseline across
+browsers since March 2023. A request carrying no such header — a script, a scheduled job, `curl` — is
+allowed, which is the point rather than a gap: those are precisely the writers this record means to
+keep.
+
+### What the contract had to decide that this record does not
+
+Two obligations fall on every provider that declares a credential, and neither is written above.
+They were settled in `packages/contract/src/contract.test.ts` because a conformance suite cannot
+assert a round trip without them, and they are recorded here so the next provider meets a decision
+rather than a test:
+
+**The declared `unlock_path` must ANSWER** — anything below 400 — because the Owner reaches it by
+clicking a link and a path that addresses nothing leaves them with no way in at all. Reachable
+rather than HTML: a provider may serve a form, or redirect to wherever its own upstream takes a
+person.
+
+**A submission missing a declared field must be refused with 400**, rather than stored in part. Half
+a credential stored is a provider reporting `valid` about something its upstream is about to refuse,
+which points the Owner's diagnosis at their source for a fault that is in the form they just
+submitted.
