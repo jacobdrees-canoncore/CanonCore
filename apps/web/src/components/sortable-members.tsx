@@ -5,7 +5,7 @@ import { move } from "@dnd-kit/helpers";
 import { DragDropProvider, type DragEndEvent } from "@dnd-kit/react";
 import { useSortable } from "@dnd-kit/react/sortable";
 import { GripVertical } from "lucide-react";
-import { type ReactNode, useRef, useState } from "react";
+import { type ReactNode, useRef, useState, useTransition } from "react";
 
 import { movePlacement } from "@/app/items/actions";
 import { type Placed, reorderedTo } from "./ordering";
@@ -65,6 +65,7 @@ export function SortableMembers({
     () => new Map(rows.map((row) => [row.id, row.position])),
   );
   const startedFrom = useRef<string[]>(order);
+  const [, startWriting] = useTransition();
 
   /*
    * THE SERVER'S ANSWER WINS, AND THAT IS WHAT MAKES A REFUSAL VISIBLE.
@@ -126,12 +127,20 @@ export function SortableMembers({
     }
 
     /*
-     * THE PAGE HAS ALREADY MOVED, so there is nothing to await here: the action
-     * writes and calls `refresh()`, which replaces these rows with the server's
-     * answer. A refusal -- a cycle, a tuple another Repeat holds -- comes back
-     * as the container AS IT STANDS, so the row snaps back to where it was.
+     * IN A TRANSITION, SO REACT KNOWS A WRITE IS OUTSTANDING. The page has
+     * already moved -- the rows above are local state -- so nothing here waits
+     * for the answer; what a transition adds is that React treats the action
+     * and the `refresh()` it ends with as one pending update rather than as a
+     * promise nobody is holding. A bare call is dropped on the floor the moment
+     * the reader navigates, which is exactly when a reorder most needs to have
+     * been written.
+     *
+     * A REFUSAL -- a cycle, a tuple another Repeat holds -- comes back as the
+     * container AS IT STANDS, and the resync above is what puts the row back.
      */
-    void movePlacement(form);
+    startWriting(async () => {
+      await movePlacement(form);
+    });
   }
 
   return (
@@ -174,15 +183,10 @@ function SortableMember({
   index: number;
   children: ReactNode;
 }) {
-  const { ref, handleRef, isDragging } = useSortable({ id, index });
+  const { ref, handleRef } = useSortable({ id, index });
 
   return (
-    <li
-      ref={ref}
-      data-placement={id}
-      data-dragging={isDragging ? "true" : undefined}
-      className="flex items-baseline gap-4 py-2"
-    >
+    <li ref={ref} data-placement={id} className="flex items-baseline gap-4 py-2">
       <Button
         ref={handleRef}
         type="button"
