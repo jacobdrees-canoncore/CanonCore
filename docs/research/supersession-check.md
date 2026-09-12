@@ -120,11 +120,13 @@ SPEC.md does not:
 A refusal is easier to hold when the failure that produced it is named.
 
 **L18. WITHDRAWN on re-check — the file-identity material is fully superseded.**
-This was filed as a loss and it is not one. `competitor-sweep/verify-plex-claims.md:242-346` and
-`resolution/resolve-X7-X13.md:950-956` both carry the test vector, and in better form than the
+This was filed as a loss and it is not one. `competitor-sweep/verify-plex-claims.md` §6a, "The
+algorithm — CONFIRMED", and `resolution/resolve-X7-X13.md`'s X11 §0 both carry the test vector, and
+in better form than the
 archive's: the full digests, a live re-verification against real bytes over HTTP range requests,
 and two traps the archive does not mention — a trailing newline breaks the hash
-(`verify-plex-claims.md:317-318`) and so does uppercase hex (`:319`). `open_subtitle_hash`/OSHash
+(`verify-plex-claims.md` under "6a. The algorithm — CONFIRMED") and so does uppercase hex (`:319`).
+`open_subtitle_hash`/OSHash
 and `EnableCaseSensitiveItemIds` are likewise covered (`verify-plex-claims.md`,
 `verify-jellyfin-claims.md`, `sweep-jellyfin-repo.md`). **`16-file-identity.md` can go.**
 Recorded rather than quietly dropped, because it is the one place this check's first pass
@@ -504,8 +506,8 @@ SPEC.md:298-309 reverses this explicitly — `?via=<placement-id>` is in the URL
 non-identifying — and names the old wording as having "overshot". Unmarked.
 
 **S9. OPDS is undecided.** `decisions.md:1436-1440` (P15): "A client-facing protocol such as OPDS
-remains UNDECIDED and is not refused." `resolution/resolve-counter-signals.md:1707-1748` (R12)
-later resolves it: "**SURVIVES, and should be written down as a refusal rather than a silence.**"
+remains UNDECIDED and is not refused." `resolution/resolve-counter-signals.md`'s R12 §4, "SURVIVES
+or MOVES", later resolves it: "**SURVIVES, and should be written down as a refusal rather than a silence.**"
 Note the resolution's own recommended one-sentence edit to SPEC.md was never applied — SPEC.md:1435-1439
 still carries only the OPDS *evidence* with no verdict, so this contradiction is currently
 unresolved in the live document as well as in the log.
@@ -545,11 +547,12 @@ newer than most of the document.
   CEILING".
 - **D3** (delete "WHY THIS DOES NOT ALREADY EXIST") → the section is gone from SPEC.md, and
   all three evidential reasons survive at source:
-  - Jellyfin collections DO cross libraries → `verify-jellyfin-claims.md:111,172,1017`
-    ("Claim 4 … **WRONG**").
-  - Plex per-show ordering since PMS 1.40.4 (2024-07) → `verify-plex-claims.md:95,1107`.
-  - Jellyfin `.disc` placeholders → `gaps-jellyfin-docs.md:28,499`,
-    `sweep-jellyfin-site-A.md:1024`, `sweep-jellyfin-repo.md:1355`.
+  - Jellyfin collections DO cross libraries → `verify-jellyfin-claims.md` under "Claim 4 — Jellyfin
+    cannot link collections across libraries at all" ("Claim 4 … **WRONG**").
+  - Plex per-show ordering since PMS 1.40.4 (2024-07) → `verify-plex-claims.md` under "Claim 2".
+  - Jellyfin `.disc` placeholders → `gaps-jellyfin-docs.md` under "1. Libraries, library types and
+    on-disk media layout", `sweep-jellyfin-site-A.md` entry 82, and `sweep-jellyfin-repo.md` under
+    "7.5 `Emby.Naming` — filename parsing is its own assembly, and it is big".
 - **D4/D5** (.nfo, sidecar as third source kind) → SPEC.md:1128-1151, 1103-1106.
 - **D6** (placements source column) → SPEC.md:252-262, including the Disney+ MCU August 2025
   example verbatim.
@@ -562,15 +565,16 @@ newer than most of the document.
   `resolution/` in exactly that five-part shape (`### 1. What Plex actually does` /
   `### 2. What Jellyfin actually does` / `### 3. Industry standard` / `### 4. SURVIVES or
   MOVES`). The mandate is legible from its output.
-- **Tier B (31) and Tier C (45) gap counts** → `CONSOLIDATED-FINDINGS.md:19`.
-- **"7 refusals came back CORROBORATED"** → `CONSOLIDATED-FINDINGS.md:20` and its
+- **Tier B (31) and Tier C (45) gap counts** → `CONSOLIDATED-FINDINGS.md` under "Counts".
+- **"7 refusals came back CORROBORATED"** → `CONSOLIDATED-FINDINGS.md` under "Counts" and its
   §"Checked and NOT contradicted" at line 1269.
 - **`.nfo` referencing local artwork** (listed as still open at line 74) → now CLOSED in
   SPEC.md:1150-1151 "NO ARTWORK COMES FROM IT. Not embedded, and not by following a local
   image path it names."
 - **`lockedfields`/`lockdata`** (line 73) → the evidence survives at
-  `gaps-jellyfin-docs.md:68,451` and `sweep-jellyfin-site-A.md:1097-1100`, where it is
-  recorded as **ABSENT — MEDIUM** (an item-level "never touch this again" lock has no
+  `gaps-jellyfin-docs.md` under "2. Metadata: providers, identifiers, NFO, chapters, media
+  segments" and `sweep-jellyfin-site-A.md` entry 88, where it is recorded as **ABSENT — MEDIUM** (an
+  item-level "never touch this again" lock has no
   CanonCore equivalent). The *question* GRILL-DECISIONS asks is therefore still findable, in
   a tier-ranked list, which is where it belongs.
 
@@ -591,7 +595,8 @@ that the TMDB half of the stop condition is awaiting confirmation, and SPEC.md w
 as settled when it is not.
 
 **L2. That "what CMPP stands for" is an OPEN DECISION rather than a deliberate silence.**
-`GRILL-DECISIONS.md:22-25`. The evidence itself survives — `resolve-tierA.md:985-1023` quotes
+`GRILL-DECISIONS.md:22-25`. The evidence itself survives — `resolve-tierA.md` under "First: what
+does CMPP stand for?" quotes
 the archive's three candidate expansions in full and says "**I am not inventing one.** The
 decision is open". So the *content* is safe. What is lost is its placement on a short list of
 things still to decide; buried at line 985 of a 2,718-line resolution document it is
@@ -710,7 +715,8 @@ conclusion is not.
 > exactly as `title`, `sort_name` and `release_date` do on items, and leaving it as a statement
 > means every edition list query joins to statements to render its own labels.
 
-Still true of the current SPEC.md. `resolve-tierA.md:397-460` (G2) considered language at length
+Still true of the current SPEC.md. `resolve-tierA.md` under "Is it genuinely non-retrofittable?"
+(G2) considered language at length
 and upheld `statements.language` and the `title` column — it never considered a column on
 `editions`, so this was not resolved against, it was never asked. The vertical-slicing reversal
 does soften the urgency: `editions` is no longer in migration 1 (SPEC.md:86-101 lists what is,
@@ -768,7 +774,7 @@ Dumbledore was played by three actors, the pass corrected it to six, and SPEC.md
 | # | Thing | Where it lives now | Why it matters |
 |---|---|---|---|
 | L1 | Second provider should be cheap, not TMDB — "Confirm" | GRILL:28 | Changes a stop condition |
-| L2 | CMPP expansion is an open decision | GRILL:22 | Content survives in `resolve-tierA.md:985`; the flag does not |
+| L2 | CMPP expansion is an open decision | GRILL:22 | Content survives in `resolve-tierA.md` under "First: what does CMPP stand for?"; the flag does not |
 | L3 | D1 taken against advice, with the advice | GRILL:34 | Standing caution against backlog creep |
 | L4 | B1 `created_by` reference target | HP:23 | Frozen at creation; "sharpest finding of the pass" |
 | L5 | B3 `category` value-kind | HP:80 | Frozen at creation; every escape hatch depends on it |
@@ -784,7 +790,7 @@ Dumbledore was played by three actors, the pass corrected it to six, and SPEC.md
 | L15 | Datomic / delta argument for statements | dec:438 | "An argument nobody had made" |
 | L16 | Salvage manifest, incl. advisory-lock + P0001 + PGlite | 01:245-276, 06 | Only implementation guidance for the DAG and the test harness |
 | L17 | Drive sync wedged-cursor landmine | 06:120 | Second half of a refusal SPEC.md states |
-| ~~L18~~ | ~~File-identity test vector~~ | **WITHDRAWN** — superseded by `verify-plex-claims.md:242-346` | — |
+| ~~L18~~ | ~~File-identity test vector~~ | **WITHDRAWN** — superseded by `verify-plex-claims.md` under "6a. The algorithm — CONFIRMED" | — |
 | L19 | Row-count sizing, "nothing exceeds 10M" | 13:40 | The affordability verdict on the whole design |
 | L20 | Citation markers, views-not-tables, literal traps | 13:126, 13:34, 13:84 | Silent corruption of a first import |
 | L21 | Provider licence matrix + no-legal-source list | 02 | Direct input to L1 |
@@ -814,7 +820,7 @@ read cold rather than a reason to delete it.
 Two contradictions were found *inside the surviving documents*, and are noted as a by-product:
 
 - **SPEC.md:696 says "70 `Medium` values"; SPEC.md:1527 says "71 distinct values".** One is wrong.
-- **`resolve-counter-signals.md:1744-1748` (R12) recommends a one-sentence OPDS refusal be added to
+- **`resolve-counter-signals.md` under "4. SURVIVES or MOVES" (R12) recommends a one-sentence OPDS refusal be added to
   SPEC.md after "Do not re-argue it, and do not quietly drop them either". It was not added.**
   SPEC.md:1435-1439 still carries the OPDS evidence with no verdict, so whether a client protocol
   is refused or merely undecided is currently ambiguous in the live document.

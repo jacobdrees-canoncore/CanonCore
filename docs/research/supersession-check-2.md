@@ -40,10 +40,10 @@ ones:
 | Term and its stated reason | Where it survives now |
 |---|---|
 | Owner — `owners` table, one row, `owner_id` on everything | `SPEC.md:152`, ADR-0044 |
-| Item — the abstract thing, deliberate divergence from LRM/BIBFRAME | `CONTEXT.md:11-15`, `SPEC.md:900-901`, ADR-0002 |
+| Item — the abstract thing, deliberate divergence from LRM/BIBFRAME | `CONTEXT.md` **Item**, `SPEC.md:900-901`, ADR-0002 |
 | Container / Container Behaviour — `is_container`, `is_ordered`, stored not inferred | `SPEC.md:204-205`, ADR-0004 |
-| Placement, Position | `CONTEXT.md:68-74`, ADR-0009, ADR-0018 |
-| Multi-placed — 93.4% of the stress corpus | `SPEC.md:1445`, `:1461`, `CONTEXT.md:76-78` |
+| Placement, Position | `CONTEXT.md` **Placement**, **Position**, ADR-0009, ADR-0018 |
+| Multi-placed — 93.4% of the stress corpus | `SPEC.md:1445`, `:1461`, `CONTEXT.md` **Multi-placement** |
 | Root — the ABSENCE of a placement row | `SPEC.md:295-296`, ADR-0062 |
 | Cycle — refused by the database, not the interface | `SPEC.md:780` ("an acyclicity constraint"), ADR-0009 |
 | Also Appears In | `SPEC.md:113`, `:1396` |
@@ -51,16 +51,16 @@ ones:
 | Edition — one level, BIBFRAME-style collapse | ADR-0011 |
 | Default Edition, CORRECTED — editions are 0..n | `SPEC.md:377-378` ("EDITIONS ARE 0..n, NOT 1..n") |
 | Edition Coverage, PROMOTED — a table of intervals with a per-interval kind | `SPEC.md:394-400` |
-| Media Source → File — identity is content, path is location | `CONTEXT.md:113-116`, ADR-0023 |
+| Media Source → File — identity is content, path is location | `CONTEXT.md` **File**, ADR-0023 |
 | Claim / Provenance — per field, not per item | `SPEC.md:75`, `:480`, ADR-0012 |
-| Metadata Source — Owner is a source and sits at the top | `CONTEXT.md:175-179`, ADR-0025 |
-| Scheme — what an identifier IS vs who ASSERTED it | `CONTEXT.md:150-151` (near-verbatim) |
+| Metadata Source — Owner is a source and sits at the top | `CONTEXT.md` **Owner**, **Source order**, ADR-0025 |
+| Scheme — what an identifier IS vs who ASSERTED it | `CONTEXT.md` **Scheme** (near-verbatim) |
 | Enrichment — never a wizard | `SPEC.md:981`, `:1359`, ADR-0027 |
 | Date — EDTF, precision as asserted | `SPEC.md:1639`, `:1654` |
 | Note — owner free-text, never provider-sourced | `SPEC.md:730-732` ("never provider-assertable") |
 | Artwork Role — poster / backdrop / title-logo / still | `SPEC.md:684` (verbatim, as a vocabulary) |
-| CMPP / Provider | `CONTEXT.md:181-192`, ADR-0031 |
-| Progress / Watched / Continue Watching | `CONTEXT.md:237-252`, ADR-0019, ADR-0020 |
+| CMPP / Provider | `CONTEXT.md` **CMPP**, **Provider**, ADR-0031 |
+| Progress / Watched / Continue Watching | `CONTEXT.md` **Progress**, **Continue Watching**, ADR-0019, ADR-0020 |
 | Container Progress — each item counted ONCE even when multi-placed | ADR-0068 (`COUNT(DISTINCT item)`) |
 | Stress Fixture — the governing rule inverts the corpus | ADR-0059 |
 | Backlink — derived from statements | `SPEC.md` statements model |
@@ -83,19 +83,20 @@ DROP reasons are either (a) restated at greater length in `SPEC.md` or an ADR, o
   `SPEC.md:1353-1356` carry the refusal *and* the argument, including "Inherit from which parent?"
   has no answer once an item is multi-placed" verbatim.
 - **Collection** — the LRMoo F16/F17/F18 "use superclass F1 Work" citation survives at
-  `SPEC.md:221-222`, ADR-0004, and is *corrected* at `verify-adr-standards.md:692-717` (F18 was
-  retained, not deprecated). The surviving documents are strictly better here.
+  `SPEC.md:221-222`, ADR-0004, and is *corrected* at `verify-adr-standards.md`,
+  the F16/F17/F18 entry ruled "CONTRADICTED on F18" (F18 was retained, not deprecated). The
+  surviving documents are strictly better here.
 - **Tag** — "an owner-authored `category` statement" survives verbatim at `SPEC.md:1365`.
 - **Typed Item Relationship / Entity / Role / Franchise / Canonical CMPP Field / Provider
   Evidence** — all collapse into "it is a statement" or "it is a `category` statement", which
-  `SPEC.md:495`, `:570` and `CONTEXT.md:127-130` all state.
+  `SPEC.md:495`, `:570` and `CONTEXT.md` **Statement** all state.
 - **Agent (self-hosted) / External Metadata Source / Official-Custom-First-Party-Demo Provider /
-  Provider Catalog / CMPP Capability** — `CONTEXT.md:181-183` collapses all of them into
+  Provider Catalog / CMPP Capability** — `CONTEXT.md` **Provider** collapses all of them into
   **Provider**, with `_Avoid_: plugin, agent, scraper, integration`.
 - **Universora Drive Folder / External Storage Sync** — ADR-0050 and the `SPEC.md:1389-1392`
   standing rule ("The scanner NEVER writes storage").
 - **Fork** — `SPEC.md:1345`.
-- **Version** — `CONTEXT.md:85` (`_Avoid_: version, instance, copy`).
+- **Version** — `CONTEXT.md` **Edition** (`_Avoid_: version, instance, copy`).
 - **Control plane / Provider gateway** — `SPEC.md:1017` ("Separate deploy, separate lifecycle, no
   shared code. CanonCore knows only a URL") plus ADR-0031.
 
@@ -106,7 +107,7 @@ and the accelerator rule — all at `SPEC.md:1375-1394`. Contradicted: see S3 an
 see L31 below.
 
 **RENAME (5) and DEFER (8)** — the renames all landed (Work → `kind=work`, Section → nested
-container, Chronology → `CONTEXT.md:30-31`, Media Source → File). The DEFERs are the loss; see L32.
+container, Chronology → `CONTEXT.md` **Chronology**, Media Source → File). The DEFERs are the loss; see L32.
 
 ### LOST if deleted
 
@@ -182,7 +183,7 @@ who supplied the URL" and which says explicitly:
 > The single boundary denied the very provider the stop condition requires, and it picked the
 > wrong control.
 
-`CONTEXT.md:218-224` ships both halves as separate headwords, **Config URL** (allowlist) and
+`CONTEXT.md` ships both halves as separate headwords, **Config URL** (allowlist) and
 **Content URL** (deny-list, no exception ever). A reader taking tier3's rule at face value would
 build the refused design.
 
@@ -190,7 +191,7 @@ build the refused design.
 
 > | Entity | **DROP** | Entities are Items with a kind |
 
-`CONTEXT.md:21-23` keeps **Entity** as a live headword: "An item of any kind other than `work`: a
+`CONTEXT.md` keeps **Entity** as a live headword: "An item of any kind other than `work`: a
 person, character, organisation, place, time span or concept." `SPEC.md:1398-1400` has a standing
 rule that begins "Entities must not leak into work-browsing surfaces", which requires the word.
 The term was reinstated; the file still says it was dropped.
@@ -245,7 +246,8 @@ Nine files, 1,071 lines: `audiobookshelf`, `calibre-web`, `immich`, `karakeep`, 
 the consolidated file as its first section.)
 
 **The brief's stated worry does not hold, on either count.** Romm, Stash and Suwayomi *are* in the
-consolidated file — at `build-order-research.md:902-993`, `:731-793` and `:1355-1428`. And
+consolidated file — at `build-order-research.md` under "7 (continued). What a demo actually costs,
+and whether it pays", `:731-793` and `:1355-1428`. And
 "consolidated" here really does mean superset.
 
 ### How this was tested
@@ -282,7 +284,8 @@ Result of check 2, across all 1,071 lines:
 > **Research in progress.** Evidence-only, citing dated commits/tags/releases from
 > `advplyr/audiobookshelf` (server) and `advplyr/audiobookshelf-app` (mobile client).
 
-`build-order-research.md:363` carries the same sentence with the first two words removed. That is
+`build-order-research.md` under "Survivorship warning + outcome table (measured 2026-09-05, `gh api
+repos/<r>`)" carries the same sentence with the first two words removed. That is
 a status marker on an unfinished pass, and the pass finished — the consolidated file has all four
 numbered subsections for Audiobookshelf plus its own closing note on what remained evidence-thin
 (`:572-575`). Keeping the phrase would not preserve a finding; it would preserve a false statement
@@ -331,9 +334,10 @@ case is the first check's L10, successfully rehoused out of the deleted `decisio
 
 ### Two dangling pointers to fix on deletion
 
-- `build-order/build-order-research.md:13` — "Per-project source files: `sections/*.md` in this
-  directory."
-- `docs/research/README.md:19` — "`sections/` holds the per-project source."
+- `build-order/build-order-research.md`, under "Contents" — "Per-project source files:
+  `sections/*.md` in this directory."
+- `docs/research/README.md`, under "The passes, newest first" — "`sections/` holds the
+  per-project source."
 
 ### Verdict
 
@@ -357,7 +361,7 @@ and remove the two pointers above.
 Seven, all in `tier3-vocabulary.md`, none revealing a defect in the surviving documents:
 
 S1 eight kinds (SEVEN, ADR-0005) · S2 the container is "never in the URL" (reversed, ADR-0066) ·
-S3 one SSRF boundary (reversed, ADR-0034) · S4 Entity dropped (reinstated, `CONTEXT.md:21`) ·
+S3 one SSRF boundary (reversed, ADR-0034) · S4 Entity dropped (reinstated, `CONTEXT.md` **Entity**) ·
 S5 kind determines the renderer / a kind needs a committed renderer (both reversed, ADR-0063 and
 `SPEC.md:1387`) · S6 field-bearing is two tables (three, `SPEC.md:1384`) · S7 both pointers to the
 deleted `decisions.md` dangle.
@@ -371,18 +375,19 @@ explicitly refuse. Together with the old-repo ADR numbers in its NAMING RULES ta
 Noted because the method turns them up, not because they bear on either verdict:
 
 - **The Karakeep rename commit count disagrees between ADR-0058 and `SPEC.md`, and the audit
-  already knows the ADR is the corrected one.** `verify-adr-products.md:2431` records the "27
+  already knows the ADR is the corrected one.** `verify-adr-products.md` §"The 3 UNFOUNDED" records the "27
   rename commits" figure as "**Not reproducible by any method tried**… The tight rename cluster is
-  14 commits (2025-04-05 → 2025-04-21)." ADR-0058:11 was duly corrected to 14. `SPEC.md:1684` still
+  14 commits (2025-04-05 → 2025-04-21)." ADR-0058's opening statement was duly corrected to 14. `SPEC.md:1684` still
   says 27. The correction reached the ADR and not the spec. Neither `sections/karakeep.md` nor
   `build-order-research.md` is the source of either figure, so this bears on neither verdict.
-- `docs/research/README.md:26` describes `tier3-vocabulary.md` as having "not been checked against"
+- `docs/research/README.md` describes `tier3-vocabulary.md` as having "not been checked against"
   `CONTEXT.md`. That is now done, and the line needs updating whichever way the file goes.
 
 ## Recommendation
 
-1. **`build-order/sections/`** — delete, and remove the two pointers at
-   `build-order-research.md:13` and `README.md:19`.
+1. **`build-order/sections/`** — delete, and remove the two pointers in
+   `build-order-research.md` under "Contents" and `docs/research/README.md` under "The passes,
+   newest first".
 2. **`tier3-vocabulary.md`** — add L31 to `SPEC.md`'s STANDING RULES (one line, next to the
    existing rename rule at `:1681`), record L32's three open terms somewhere durable, then delete.
    It is the only file in either check whose remaining content is more likely to mislead than to

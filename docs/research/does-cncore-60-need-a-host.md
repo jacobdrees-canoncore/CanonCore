@@ -30,7 +30,8 @@ What the spec actually requires is four artefacts and a set of pages:
 
 "Self-hosted" in this spec is a property of the SOFTWARE — installable by someone else — and not a
 description of where it runs. The distinction is the whole answer. Version one's own research
-already said so and named the cost of the alternative: `docs/research/the-cheap-end.md:226` —
+already said so and named the cost of the alternative: `docs/research/the-cheap-end.md` §5,
+"What to do" —
 "**Nothing, this month.** ... Buying anything now buys capacity for a spec that has not started."
 
 **Where CanonCore runs is the playback spec's question, entirely.** Not shared with this one, not
@@ -79,7 +80,8 @@ And the spec says the negative itself, in the sentence that would most easily ha
 CNCORE-60, Out of Scope, on authentication: **"This effort ships a single-owner instance with no
 login, exactly as version one did. The public repository is not a public instance."** The same
 section puts "the public demo" out of scope outright, which is the only surface in the whole product
-that is defined by being reachable (ADR-0097, via `docs/research/where-it-runs.md:33`).
+that is defined by being reachable (ADR-0097, via `docs/research/where-it-runs.md` §0, "What is
+already closed").
 
 Test seams agree, and they are where a hosting dependency would have to surface if one existed.
 CNCORE-60's Testing Decisions name three: the existing `apps/web/e2e` suite which "builds the app,
@@ -140,36 +142,40 @@ spec's shopping list.** The slot was bought under CNCORE-18, whose own text says
 "Nothing in version one waits on this. CI runs Postgres as a service container on GitHub's runners."
 
 What the slot bought was an answer to a question that turned out to be the wrong one, and the answer
-now lives in ADR-0109:118-324. Post-CNCORE-61 that section argues from plan, price, region and what
-the SSH session proved, and from nothing else. Searching the tree for the redacted hostname returns
+now lives in ADR-0109, under "The growth path, so a later move is not a cancellation" and "The
+shape measured against a shared host, and the clause that was hiding inside it". Post-CNCORE-61 those
+sections argue from plan, price, region and what the SSH session proved, and from nothing else.
+Searching the tree for the redacted hostname returns
 only the CI guard that enforces its absence (`.github/workflows/ci.yml:113-132`, "The owner's personal
 host is named in the tree ... the name is an invitation and proves nothing"). **That guard caught an
 earlier draft of this very file**, which spelled the hostname out while describing the search for it,
 which is a fair demonstration that it works. The argument survives the redaction intact
 because the finding was never about that machine:
 
-- The doubt it was bought to settle — `docs/research/the-cheap-end.md:173`, "the one thing that could
-  sink row 1" — was **Postgres**, and Postgres was never the risk. ADR-0109:126-134.
+- The doubt it was bought to settle — `docs/research/the-cheap-end.md` §4, "The one thing that could
+  sink row 1" — was **Postgres**, and Postgres was never the risk. ADR-0109's "The shape measured
+  against a shared host, and the clause that was hiding inside it" is where that now sits.
 - What it found instead is now a clause of the SHAPE, at the top of the record rather than in the
-  vendor section: ADR-0109:7-9, "a process that needs no root **and that something starts again when
-  the machine comes back**". ADR-0109:313-318 says so explicitly: "Nothing about the vendor question,
-  and one clause of the shape".
+  vendor section: ADR-0109's opening statement, "a process that needs no root **and that something
+  starts again when the machine comes back**". Its "What this changes" says so explicitly: "Nothing
+  about the vendor question, and one clause of the shape".
 
 Does that clause touch CNCORE-60? Only as a fact about a file the spec does not ship. The
 development compose file carries `restart: unless-stopped` (`packages/db/docker-compose.yml:32`) and
-a `healthcheck:`, and ADR-0109:229-238 measured both inert on a shared slot. That is a note for
+a `healthcheck:`, and ADR-0109's "What restarts it: nothing did on 2026-09-10, and cron does on
+2026-09-12" measured both inert on a shared slot. That is a note for
 whoever deploys, on the day there is a deployment. No CNCORE-60 criterion asserts anything about
 restart behaviour, and CNCORE-64's install path is exercised once by hand rather than left running.
 
 **So: entirely a playback-spec concern.** `docs/research/the-cheap-end.md` §5, under "What this
 reopens in the records", states its own scope — "Nothing here needs a new record. It is a price correction to research, and the decision it
-feeds belongs to the playback spec" — and ADR-0109:105-109 does the same for the rung: "Deliberately
-not decided. Which rung beyond the entry plan, and when. That belongs to the playback spec, which is
-the first spec that puts bytes anywhere."
+feeds belongs to the playback spec" — and ADR-0109's "Deliberately not decided" does the same for the
+rung: "Which rung beyond the entry plan, and when. That belongs to the playback spec, which is the
+first spec that puts bytes anywhere."
 
 One factual note, offered rather than acted on: the slot is a recurring GBP 11/month whose question
 is answered and whose successor recommendation is the split rather than the slot
-(`docs/research/the-cheap-end.md:230-235`). Whether it keeps running is a money decision for the
+(`docs/research/the-cheap-end.md` §5, "What to do"). Whether it keeps running is a money decision for the
 playback spec, not a CNCORE-60 dependency in either direction.
 
 ---
@@ -194,10 +200,11 @@ canonical HTTPS origin) and entry 2 (the rung). Confirmed, with two refinements 
 moves anything into CNCORE-60:
 
 - **Entry 2's code half was already answered without a host, and answered NO.** The entry says the
-  `basePath` half lands "in whichever slice first deploys the web app". ADR-0109:36-45 closed it in
-  advance: "**`basePath` is NOT added**", on `CLAUDE.md`'s rule against a configuration option
+  `basePath` half lands "in whichever slice first deploys the web app". ADR-0109's "The only half
+  that lands before a host is chosen, and it is not a config option" closed it in advance:
+  "**`basePath` is NOT added**", on `CLAUDE.md`'s rule against a configuration option
   nothing reads. What was adopted instead is a coding rule — "a URL that the framework does not
-  rewrite is never hand-built" — and ADR-0109:55-60 names the first live member of that class, the
+  rewrite is never hand-built" — and that same section names the first live member of that class, the
   canonical at `apps/web/src/app/items/[id]/page.tsx:142`. It touches this spec as a constraint on
   how CNCORE-65, CNCORE-67 and CNCORE-68 write links, not as a machine.
 
@@ -210,20 +217,24 @@ moves anything into CNCORE-60:
   about a host that does not exist yet, and ADR-0117's is a bug that would have shipped in the
   artefact. Neither is a machine. Both are consequences of the fact that a stranger runs the image.
 - **Entry 3 is out of scope here by name.** CNCORE-60's Out of Scope lists "backup and restore" among
-  the "Also out" items, so ADR-0048's forced test environment (ADR-0048:35-41, "somewhere to run a
-  migration against a POPULATED database first is a requirement") does not arrive with this effort —
+  the "Also out" items, so ADR-0048's forced test environment (under "What counts as the same system,
+  and the case that forced the question": "somewhere to run a migration against a POPULATED database
+  first is a requirement") does not arrive with this effort —
   even though this effort adds migration rungs (CNCORE-66's `pg_trgm`, CNCORE-74's `note`). Those
-  rungs meet ADR-0047's gate where that gate already lives, which is CI: ADR-0047:35, "CI RUNS
-  EMPTY-TO-HEAD EVERY RELEASE, as a gate".
+  rungs meet ADR-0047's gate where that gate already lives, which is CI: ADR-0047's opening
+  statement, "CI RUNS EMPTY-TO-HEAD EVERY RELEASE, as a gate".
 
-`where-it-runs.md:1177` is the sentence that settles the ownership question outright: "**No entry
+`where-it-runs.md` §9, "The decision list", holds the sentence that settles the ownership question
+outright: "**No entry
 needs an ADR before version one ships.**" CNCORE-60 is the effort that ships version one's work to
 strangers; it adds no entry to that list and answers none of them.
 
 For completeness, the third file in the reading list agrees from the other side:
-`docs/research/access-layer.md:803-805` — "**The playback spec absorbs login.** Entries 1, 2 and 5 all
+`docs/research/access-layer.md` §8, "So what is the next spec?" — "**The playback spec absorbs
+login.** Entries 1, 2 and 5 all
 land inside it" — which is the reason CNCORE-60 can ship "a single-owner instance with no login".
-ADR-0115:33-36 restates the whole concentration as the reason THIS effort goes first.
+ADR-0115's "Why: ADR-0001's two failure modes both point the same way" restates the whole
+concentration as the reason THIS effort goes first.
 
 **Plainly: the playback spec owns "where CanonCore runs".** CNCORE-60 owns "what somebody else can
 install", and the two do not overlap.
@@ -256,8 +267,9 @@ out of scope for this spec anyway.
 
 MX records with no A or AAAA are a mail-only configuration and are exactly right for a domain that
 is not yet serving anything. The day it needs to resolve is entry 1 of `where-it-runs.md` — the
-canonical HTTPS origin — which is the playback spec's, and ADR-0109:94-96 already explains why the
-domain rather than the address is the product's identity: "the move is a repointed A record rather
+canonical HTTPS origin — which is the playback spec's, and ADR-0109's "The growth path, so a later
+move is not a cancellation" already explains why the domain rather than the address is the product's
+identity: "the move is a repointed A record rather
 than a migration."
 
 ---
@@ -274,7 +286,8 @@ children are done.** That intent stands.
 
 **The sentence that stood here was wrong, and CNCORE-81 is what corrected it.** It said he "also
 holds a written allowance from that vendor covering whatever he wants to run on it, which is why the
-demo prohibition in `where-it-runs.md:1324` does not bind his account even though the published AUP
+demo prohibition in `where-it-runs.md`, under "One box for all three roles, or a split?" at "One
+thing IS decided, contractually", does not bind his account even though the published AUP
 is unchanged for everyone else". **There is no written allowance.** CNCORE-81 searched the account's
 support history and the owner's mail on 2026-09-11, found nothing, and asked him directly: the grant
 was spoken and nothing was written down. So the demo prohibition binds this account exactly as it
@@ -326,7 +339,8 @@ Three things make this worth writing down rather than shrugging at:
 
 1. **The failure is a false green.** The install test passes for whoever runs it and fails for the
    audience it exists to serve. It would most likely be found by a stranger, after the tag.
-2. **The repository already knows the pattern, in the mirror image.** ADR-0089:62-64 requires each
+2. **The repository already knows the pattern, in the mirror image.** ADR-0089's "Half built, under
+   CNCORE-6 and CNCORE-15" requires each
    provider image's own CI to assert its package visibility on every publish and to fail "if the
    package's visibility ever stops reading `private`, because **a default is what a later click
    changes**". CanonCore's image needs the same assertion with the opposite value, and has no
