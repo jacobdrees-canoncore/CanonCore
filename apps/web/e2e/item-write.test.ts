@@ -710,4 +710,35 @@ describe("a field the procedure refuses", () => {
     const after = await documentAt(at, owner);
     expect(valueRows(after.text)).toEqual(["Title An item whose id I mistyped Owner"]);
   });
+
+  /**
+   * THE SECOND FIELD MEASURED, AND THE ONE THE CATALOGUE HAS A REASON TO
+   * REFUSE. `titleByHand` trims and demands one character, because an empty
+   * title projects onto `items.title` as an item whose heading renders BLANK,
+   * where an item with no title statement at all renders "Untitled item" and is
+   * an honest state (ADR-0003). So the procedure declining this is the model
+   * holding, and the owner keeping the title they had is the right outcome of
+   * it.
+   */
+  it("leaves the title standing when the owner is sent an empty one", async () => {
+    const at = await anItemOfMyOwn("An item I still have a name for");
+
+    const refused = await submit(
+      baseUrl,
+      at,
+      withFields(formIn((await documentAt(at, owner)).text, "edit-title"), { title: "" }),
+      owner,
+    );
+
+    expect(refused.status).toBe(200);
+    expect(refused.text).not.toContain("Internal Server Error");
+    const after = await documentAt(at, owner);
+    expect(valueRows(after.text)).toEqual(["Title An item I still have a name for Owner"]);
+    // AND THE HEADING IS THE TITLE RATHER THAN BLANK, which is what ADR-0003
+    // separates from "Untitled item" and is the whole of what the refusal
+    // protects.
+    expect(after.text).toContain(
+      '<h1 class="text-3xl font-medium">An item I still have a name for</h1>',
+    );
+  });
 });
