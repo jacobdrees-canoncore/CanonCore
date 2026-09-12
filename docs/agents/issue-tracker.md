@@ -298,6 +298,24 @@ So, for any body edit:
 - **Sweep at the end, not per write.** A per-write check cannot see a later regression. The only
   sound verification is one final pass over every touched document, searching for every string that
   should no longer exist.
+- **`--write-id <uuid>` is the retry the section above says you cannot have.** It is an idempotency
+  key: the same id twice applies once, so a write reporting `ok: false` can be re-sent SAFELY under
+  the id it already used, instead of being re-derived from a fresh read. Pass one on every body edit
+  and the read-modify-write race stops being reachable. Measured 2026-09-12: four corrections and
+  two creations, every one `ok: true` first try, against five consecutive false failures on one
+  issue the day the discipline above was written.
+
+## A fifth way it lies: `--relations` fills the TEXT output and not the JSON
+
+**`orca linear issue <id> --relations --json` returns no `relations` key at all**, so every JSON
+read of a relation answers "none" whether or not one exists. Drop `--json` and the same call prints
+`Relations: <n>`.
+
+This is worse than an absent key, because the natural verification reads as a clean pass. Measured
+2026-09-12: a `relation remove` failed with a GraphQL 503 and reported `ok: false` HONESTLY, the JSON
+read said `relations: null`, that was taken as "removed, verified by absence", and the edge was still
+there. So **verify a relation from the text output, never the JSON**, and note that this is the
+opposite failure to the write path above: here `ok: false` meant what it said, and the READ lied.
 
 **A corrected record contains the string it corrects, by design** — `CLAUDE.md` requires the
 correction to sit in the sentence it corrects. So an absence sweep needs to allow the quoting case,
