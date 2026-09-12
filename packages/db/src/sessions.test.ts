@@ -151,7 +151,10 @@ describe("a session that has lapsed", () => {
     // Until CNCORE-116 it opened the write path forever, because `seeSession`
     // read `deleted_at IS NULL` and nothing else.
     const { token, session } = await startSession(db, {});
-    await db.update(sessions).set({ createdAt: daysAgo(31) }).where(eq(sessions.id, session.id));
+    await db
+      .update(sessions)
+      .set({ createdAt: daysAgo(31) })
+      .where(eq(sessions.id, session.id));
 
     expect(await seeSession(db, token)).toBeNull();
   });
@@ -163,7 +166,10 @@ describe("a session that has lapsed", () => {
     // copy comes from. `last_seen_at` already answers this question on every
     // request (ADR-0043), so the limit reads a column that was already there.
     const { token, session } = await startSession(db, {});
-    await db.update(sessions).set({ lastSeenAt: daysAgo(8) }).where(eq(sessions.id, session.id));
+    await db
+      .update(sessions)
+      .set({ lastSeenAt: daysAgo(8) })
+      .where(eq(sessions.id, session.id));
 
     expect(await seeSession(db, token)).toBeNull();
   });
@@ -200,7 +206,10 @@ describe("sweeping the rows that can no longer answer", () => {
     // in live rows, so after this line nothing in the table is sweepable.
     await sweepSessions(db);
     const { session } = await startSession(db, {});
-    await db.update(sessions).set({ createdAt: daysAgo(31) }).where(eq(sessions.id, session.id));
+    await db
+      .update(sessions)
+      .set({ createdAt: daysAgo(31) })
+      .where(eq(sessions.id, session.id));
     const live = await startSession(db, {});
 
     expect(await sweepSessions(db)).toBe(1);
@@ -247,9 +256,15 @@ describe("listing the owner's devices", () => {
     // FIRST, so a list that simply answered the rows in the order Postgres
     // happened to hold them would come back the wrong way round.
     const older = await startSession(db, { deviceName: "The one in a drawer" });
-    await db.update(sessions).set({ lastSeenAt: daysAgo(3) }).where(eq(sessions.id, older.session.id));
+    await db
+      .update(sessions)
+      .set({ lastSeenAt: daysAgo(3) })
+      .where(eq(sessions.id, older.session.id));
     const newer = await startSession(db, { deviceName: "The one in a hand" });
-    await db.update(sessions).set({ lastSeenAt: daysAgo(1) }).where(eq(sessions.id, newer.session.id));
+    await db
+      .update(sessions)
+      .set({ lastSeenAt: daysAgo(1) })
+      .where(eq(sessions.id, newer.session.id));
 
     const listed = (await listSessions(db)).map(({ id }) => id);
 
@@ -261,7 +276,10 @@ describe("listing the owner's devices", () => {
     // owner's catalogue would refuse is not one they are logged in on, and a row
     // for it here would be an End button against something already over.
     const lapsed = await startSession(db, { deviceName: "A laptop nobody opens" });
-    await db.update(sessions).set({ lastSeenAt: daysAgo(8) }).where(eq(sessions.id, lapsed.session.id));
+    await db
+      .update(sessions)
+      .set({ lastSeenAt: daysAgo(8) })
+      .where(eq(sessions.id, lapsed.session.id));
 
     expect((await listSessions(db)).map(({ id }) => id)).not.toContain(lapsed.session.id);
   });

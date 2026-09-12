@@ -141,9 +141,12 @@ export async function startSession(
  * gaps a rolled-back preview leaves -- so this is a fact to know rather than a
  * cost to avoid.
  *
- * AND A SESSION DOES NOT LAPSE. Nothing here reads a clock except to stamp one:
- * a token is good until the row is ended, so a copy of it is good until then
- * too. That is CNCORE-116 rather than an oversight, and ADR-0043 carries it.
+ * AND IT READS THE CLOCK (CNCORE-116). A session lapses thirty days after it was
+ * minted and seven days after the device was last seen, so a token copied off a
+ * request, out of a backup of a browser profile or off a machine the owner
+ * stopped using stops opening anything without anybody having to notice. Until
+ * that landed, a copy was good until somebody logged that session out by hand.
+ * `isLive` is the predicate and ADR-0043 carries the decision.
  */
 export async function seeSession(db: Database, token: string): Promise<OwnerSession | null> {
   // AN UPDATE RATHER THAN A SELECT, because reading a session IS seeing the
@@ -239,8 +242,15 @@ export async function endSession(db: Database, sessionId: string): Promise<boole
  *
  * NOTHING'S SECURITY RESTS ON THIS RUNNING. `seeSession` refuses a lapsed
  * session whether or not it has been swept, so a sweep nobody has run is a table
- * that grew rather than a door left open. See ADR-0049's as-built section for
- * what runs it today and what does not.
+ * that grew rather than a door left open. One owner logging in monthly leaves a
+ * dozen rows a year.
+ *
+ * TODO(CNCORE-119): NOTHING CALLS THIS YET, and that is ADR-0049 rather than an
+ * oversight. Recurring work belongs on a VISIBLE REGISTRY there -- keyed,
+ * runnable by hand, cancellable, with a run history -- and no registry exists.
+ * Attaching it to an event that happens to be nearby (a login, a page render,
+ * the container's boot) would be the hidden timer that record refuses, so the
+ * operation is here and its scheduler is that ticket's.
  */
 export async function sweepSessions(db: Database): Promise<number> {
   const swept = await db

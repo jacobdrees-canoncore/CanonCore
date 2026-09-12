@@ -1,7 +1,7 @@
 import { getDb, sessions } from "@canoncore/db";
 import { env } from "@canoncore/env/server";
-import { eq } from "drizzle-orm";
 import { call, ORPCError, safe } from "@orpc/server";
+import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createContext } from "../context";
@@ -109,19 +109,21 @@ if (OWNER_PASSWORD === undefined) {
 }
 
 /**
- * One logged-in device: the token, the context a request of its carries, and
- * the id of the row behind it.
+ * One logged-in device: its token, the context a request from it carries, and
+ * the id of the row behind both.
  *
  * THE ID COMES OFF THE CONTEXT rather than out of a query, because the context
  * is what the application itself reads -- `createContext` resolves the token to
- * the session, so a test that looked the row up another way could pass against
- * a context pointing somewhere else.
+ * the session, so a test that looked the row up another way could pass against a
+ * context pointing somewhere else.
+ *
+ * AN ARROW RATHER THAN A `function`, WHICH THE TYPE CHECKER DECIDED. A hoisted
+ * declaration could be called before the guard above runs, so TypeScript will
+ * not carry `OWNER_PASSWORD`'s narrowing into it and the password reads as
+ * possibly undefined -- which is why every other use of it here is inside a
+ * callback written after the guard.
  */
-async function logInAs(): Promise<{
-  token: string;
-  context: Awaited<ReturnType<typeof createContext>>;
-  sessionId: string;
-}> {
+const logInAs = async () => {
   const { token } = await call(
     appRouter.session.logIn,
     { password: OWNER_PASSWORD },
@@ -130,7 +132,7 @@ async function logInAs(): Promise<{
   const context = await createContext({ sessionToken: token });
   if (context.session === null) throw new Error("the token this suite just minted was refused");
   return { token, context, sessionId: context.session.id };
-}
+};
 
 describe("logging in", () => {
   it("says this instance has a password, without saying what it is", async () => {
@@ -314,7 +316,9 @@ describe("ending the session the caller is using, which is not this operation", 
     const mine = await logInAs();
 
     expect(
-      await refusalOf(call(appRouter.session.end, { id: mine.sessionId }, { context: mine.context })),
+      await refusalOf(
+        call(appRouter.session.end, { id: mine.sessionId }, { context: mine.context }),
+      ),
     ).toBe("BAD_REQUEST");
 
     // AND IT WAS REFUSED BEFORE IT WROTE, which is the half that matters: a

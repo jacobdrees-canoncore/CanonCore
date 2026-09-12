@@ -43,9 +43,9 @@ export {
   endSession,
   listSessions,
   type OwnerSession,
-  seeSession,
   SESSION_IDLE_LIMIT_SECONDS,
   SESSION_LIFETIME_SECONDS,
+  seeSession,
   startSession,
   sweepSessions,
 } from "./sessions";
