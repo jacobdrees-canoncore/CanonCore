@@ -1,7 +1,7 @@
 "use server";
 
 import { appRouter } from "@canoncore/api/routers";
-import { call } from "@orpc/server";
+import { call, isDefinedError, safe } from "@orpc/server";
 import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -149,4 +149,146 @@ export async function annotateItem(form: FormData): Promise<void> {
 
   await call(appRouter.item.annotate, input, { context: await callerContext() });
   refresh();
+}
+
+/**
+ * What the place form carries: which container, which item, and where.
+ *
+ * `position` IS A STRING THAT MAY BE EMPTY, and that is the form expressing an
+ * absence rather than failing to parse one. A member with no position is still a
+ * member (migration 2, CONTEXT.md's Unplaced), and an empty number field submits
+ * `""` -- so the empty string is how an owner says "in here, I am not saying
+ * where", and the procedure is handed `null` for it.
+ *
+ * ANYTHING ELSE UNPARSEABLE IS ALSO `null` RATHER THAN A THROW, for the reason
+ * `newItem` above gives about its radio group: this is `FormData` from anywhere,
+ * and `z.coerce.number()` on a non-numeric string yields `NaN`, which is not a
+ * position either.
+ */
+const placedMember = z.object({
+  containerId: z.string(),
+  itemId: z.string(),
+  position: z
+    .string()
+    .transform((given) => (given.trim() === "" ? null : Number(given)))
+    .transform((given) => (given === null || Number.isInteger(given) ? given : null)),
+});
+
+/**
+ * The owner putting an item in a container (CNCORE-72).
+ *
+ * NO REDIRECT, which is `retitleItem`'s reason: this form posts to the
+ * container's own address, so the response to the POST is that page rendered
+ * again and the new member is in the HTML that comes back.
+ */
+export async function placeItemInContainer(form: FormData): Promise<void> {
+  const input = placedMember.parse({
+    containerId: form.get("containerId"),
+    itemId: form.get("itemId"),
+    position: form.get("position"),
+  });
+
+  /*
+   * `safe` RATHER THAN `try`, because `redirect()` below works by THROWING and a
+   * `catch` around it would swallow the redirect as though it were the refusal.
+   * oRPC documents `safe` as the way to get the error back as a value instead.
+   */
+  const { error } = await safe(
+    call(appRouter.placement.place, input, { context: await callerContext() }),
+  );
+
+  /*
+   * A REFUSAL COMES BACK AS A SENTENCE, NOT A 500. ADR-0116: "a UI that permits
+   * the gesture and then fails the write is worse than one that refuses the
+   * gesture." With no script a form cannot know which positions are already
+   * taken -- the pair is chosen at submit time -- so refusing the GESTURE is not
+   * available to this surface, and the honest version is that the page says what
+   * happened and keeps the owner where they were.
+   *
+   * ONLY THE DEFINED REFUSAL, so a real fault stays a fault: the narrowing
+   * `by-hand.ts` makes at the bottom of this stack, kept at the top of it.
+   */
+  if (error) {
+    if (isDefinedError(error) && error.code === "BAD_REQUEST") {
+      redirect(`/items/${input.containerId}?refused=${input.itemId}`);
+    }
+    throw error;
+  }
+  refresh();
+}
+
+/**
+ * What the remove and undo forms carry: which placement, and where to go back to.
+ *
+ * BOTH ARE `uuid()`, AND `containerId` IS THE ONE THAT NEEDS SAYING. `id` is
+ * checked again downstream -- `placement.remove` declares `z.uuid()` -- but
+ * `containerId` reaches NO procedure: it exists only to build the address these
+ * actions redirect to. So nothing else was ever going to check it, and a Server
+ * Action endpoint accepts whatever `FormData` it is sent. Unchecked, a `?` or a
+ * `#` in it lands unescaped beside `?undo=` and a `../` walks out of `/items/`.
+ * Found by review.
+ */
+const namedPlacement = z.object({ id: z.uuid(), containerId: z.uuid() });
+
+/**
+ * The owner taking a member out of one container, and being offered it back.
+ *
+ * IT REDIRECTS WHERE `placeItemInContainer` ABOVE DOES NOT, and the difference is the
+ * undo. ADR-0046 gives a removal no confirmation at all and an undo instead --
+ * "removing a placement is the most frequent editing act in a product built on
+ * multi-placement", and a heavyweight dialog on the common action is what
+ * teaches people to dismiss the dangerous one unread.
+ *
+ * WITH NO SCRIPT, AN OFFER HAS TO BE IN THE URL. A Server Action's return value
+ * reaches a page only through `useActionState`, a client hook with nothing to
+ * give when nothing has loaded -- so post/redirect/get is what carries "you just
+ * removed this" to the page that offers it back. `?undo=` names the placement,
+ * LAST of the parameters this page takes: ADR-0066's fixed spelling order is
+ * `via` then `placed`, CNCORE-89 appended `after`, and this appends rather than
+ * inserts for the same reason.
+ *
+ * IT IDENTIFIES NOTHING, which is what keeps it ADR-0066-shaped: the path is the
+ * container's identity and the query is how the reader got to this view of it. A
+ * stale or foreign id offers an undo the catalogue then declines, which
+ * `restorePlacement` below turns back into the plain container page.
+ */
+export async function removePlacement(form: FormData): Promise<void> {
+  const { id, containerId } = namedPlacement.parse({
+    id: form.get("id"),
+    containerId: form.get("containerId"),
+  });
+
+  await call(appRouter.placement.remove, { id }, { context: await callerContext() });
+  redirect(`/items/${containerId}?undo=${id}`);
+}
+
+/**
+ * The undo itself: the placement comes back with its position and its origin.
+ *
+ * IT REDIRECTS TO THE CONTAINER WITHOUT `?undo=`, so the offer is spent. Leaving
+ * it on would re-offer an undo of a removal that has already been taken back,
+ * and a reader refreshing would meet a button that reads as though nothing had
+ * happened.
+ */
+export async function restorePlacement(form: FormData): Promise<void> {
+  const { id, containerId } = namedPlacement.parse({
+    id: form.get("id"),
+    containerId: form.get("containerId"),
+  });
+
+  /*
+   * A DECLINED UNDO IS THE PLAIN CONTAINER PAGE, not a 500. `?undo=` is a
+   * transient offer carried in a URL, so it can be stale, shared, or pointed at
+   * a placement this owner may not bring back -- one a PROVIDER withdrew, which
+   * `restorePlacementByHand` refuses (ADR-0017). All three answer NOT_FOUND, and
+   * none of them is a fault: the honest response is the container as it stands,
+   * with the spent offer dropped. Found by review, which caught this reaching
+   * the reader as an error page.
+   */
+  const { error } = await safe(
+    call(appRouter.placement.restore, { id }, { context: await callerContext() }),
+  );
+  if (error && !(isDefinedError(error) && error.code === "NOT_FOUND")) throw error;
+
+  redirect(`/items/${containerId}`);
 }

@@ -4,6 +4,7 @@ import type { RouterClient } from "@orpc/server";
 import { openProcedure } from "../index";
 import { catalogue } from "./catalogue";
 import { item } from "./item";
+import { placement } from "./placement";
 import { provider } from "./provider";
 import { session } from "./session";
 import { task } from "./task";
@@ -17,6 +18,7 @@ export const appRouter = {
   healthCheck: openProcedure.output(healthCheckResult).handler(() => "OK" as const),
   catalogue,
   item,
+  placement,
   provider,
   session,
   task,

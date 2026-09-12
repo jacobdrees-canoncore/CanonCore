@@ -204,6 +204,40 @@ function textareasIn(body: string): [string, string][] {
 }
 
 /**
+ * One rendered form with fields TYPED INTO, leaving Next's own hidden ones alone.
+ *
+ * IT REFUSES A NAME THE FORM DOES NOT CARRY, which is what stops a typo here
+ * posting a field the server ignores and a test passing on a page that never
+ * offered it.
+ *
+ * SHARED, BECAUSE TWO FILES NOW WRITE THROUGH FORMS. `item-write.test.ts` wrote
+ * this first and kept it to itself; CNCORE-72 gave it a second caller, and two
+ * copies of "fill a form the way a browser fills one" is how two suites come to
+ * disagree about what a browser sends.
+ */
+export function withFields(form: RenderedForm, values: Record<string, string>): RenderedForm {
+  const named = new Set(form.fields.map(([name]) => name));
+  for (const name of Object.keys(values)) {
+    if (!named.has(name)) {
+      throw new Error(`that form carries no \`${name}\`: ${JSON.stringify(form.fields)}`);
+    }
+  }
+  return {
+    ...form,
+    fields: form.fields.map(([name, value]): [string, string] => [name, values[name] ?? value]),
+  };
+}
+
+/**
+ * The form in a labelled section, which is the one that section's button posts.
+ */
+export function formIn(text: string, label: string): RenderedForm {
+  const [form] = postFormsIn(sectionIn(text, label));
+  if (!form) throw new Error(`the \`${label}\` section carried no form to submit`);
+  return form;
+}
+
+/**
  * Submits one rendered form, exactly as a browser with JavaScript switched off
  * submits it.
  *

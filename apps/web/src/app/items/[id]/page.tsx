@@ -14,7 +14,13 @@ import { Holding, type MembersPath, PastTheEnd, type TheRoute, Walk } from "@/co
 import { oneValue } from "@/components/query-params";
 import { callerContext } from "@/session";
 
-import { annotateItem, retitleItem } from "../actions";
+import {
+  annotateItem,
+  placeItemInContainer,
+  removePlacement,
+  restorePlacement,
+  retitleItem,
+} from "../actions";
 
 /**
  * ADR-0066: `/items/<id>` is canonical and addresses the item.
@@ -184,6 +190,8 @@ export default async function ItemPage({
     via?: string | string[];
     placed?: string | string[];
     after?: string | string[];
+    undo?: string | string[];
+    refused?: string | string[];
   }>;
 }) {
   const { id } = await params;
@@ -211,7 +219,7 @@ export default async function ItemPage({
    * An array means the parameter was repeated; a route is one route, so a
    * repeated one names no ordering rather than the first of several.
    */
-  const { via, placed, after } = await searchParams;
+  const { via, placed, after, undo, refused } = await searchParams;
   /*
    * `oneValue` OWNS WHAT A REPEATED OR BLANK PARAMETER MEANS, and this page is
    * the surface its own module was extracted for. It read `typeof via ===
@@ -226,6 +234,19 @@ export default async function ItemPage({
   // ADR-0119's cursor for the Members listing below, read on the SERVER like
   // the two above it, so the page a reader is served is the page they asked for.
   const from = oneValue(after);
+  /*
+   * THE PLACEMENT A REMOVAL JUST TOOK OUT, so this page can offer it back
+   * (ADR-0046). It identifies nothing -- the path is the container's identity
+   * and this is how the reader arrived at this view of it -- so a stale or
+   * foreign id simply offers an undo that restores nothing.
+   */
+  const undone = oneValue(undo);
+  /*
+   * THE PLACEMENT THE CATALOGUE WOULD NOT MAKE, so the page can say so rather
+   * than the owner meeting a 500 (ADR-0116). Like `?undo=` it identifies
+   * nothing, and an id naming no item simply says an item is already there.
+   */
+  const refusedItem = oneValue(refused);
 
   const item = await readItem(id, { after: from, context });
   const owner = context.session !== null;
@@ -307,10 +328,24 @@ export default async function ItemPage({
         the section renders nothing, so the order costs a non-container reader
         nothing.
       */}
+      {/*
+        THE OWNER'S OWN HAND ON THE MEMBERSHIP, directly above the list it
+        changes -- so an owner reading an ordering edits it where they read it.
+        A visitor is shown neither control (ADR-0044, CNCORE-109).
+      */}
+      {owner && item.isContainer && (
+        <PlaceAnItem
+          containerId={item.id}
+          undone={undone}
+          refused={refusedItem}
+          context={context}
+        />
+      )}
       <Members
         itemId={item.id}
         holds={item.holds}
         route={theRoute(arrivedThrough, showingOnly)}
+        owner={owner}
         from={from}
       />
       <AlsoAppearsIn
@@ -413,6 +448,7 @@ function Members({
   holds,
   route,
   from,
+  owner,
 }: {
   itemId: string;
   holds: ItemOnThePage["holds"];
@@ -420,6 +456,8 @@ function Members({
   route: TheRoute;
   /** The cursor this page was asked with, if it was asked with one. */
   from?: string;
+  /** Whether to offer the controls that CHANGE this ordering (CNCORE-109). */
+  owner: boolean;
 }) {
   const { entries, total, continuesAfter } = holds;
   /*
@@ -534,6 +572,20 @@ function Members({
                 given" and is binding on UI copy.
               */}
               <span>{positionLabel(placement.position)}</span>
+              {/*
+                NO CONFIRMATION IN FRONT OF IT, WHICH IS ADR-0046's RULE rather
+                than an omission: removing a placement is the most frequent
+                editing act in a product built on multi-placement, and NN/g's
+                "do not use confirmation dialogs for routine actions" is cited
+                there because a heavyweight prompt on the common action is what
+                teaches people to dismiss the dangerous one unread. What it gets
+                instead is the undo above.
+
+                IT NAMES THE PLACEMENT, never the item (ADR-0061). A Repeat is
+                one item twice in one container, so "remove this item from that
+                container" cannot say which row the owner pressed.
+              */}
+              {owner && <RemovePlacement placementId={placement.id} containerId={itemId} />}
             </span>
           </li>
         ))}
@@ -872,5 +924,182 @@ function Note({ itemId, note }: { itemId: string; note: NoteOnThePage }) {
         <Button type="submit">Save</Button>
       </form>
     </section>
+  );
+}
+
+/**
+ * PUTTING AN ITEM IN THIS CONTAINER, and offering back the one just taken out.
+ *
+ * ON THE CONTAINER'S PAGE, because a Container IS an Item (ADR-0004) and its
+ * page is the Item page -- so the place a reader meets an ordering is the place
+ * its owner curates it. ADR-0061 is why it belongs here rather than on the
+ * item's end: every container owns its membership outright, so this list is
+ * this container's to change and nothing else's.
+ *
+ * THE ITEMS COME FROM THE CATALOGUE LISTING THAT ALREADY EXISTS, capped by
+ * ADR-0119 like every other listing -- rather than a new read that would be a
+ * second answer to "what is in this catalogue". The cap is named to the owner
+ * rather than left silent, which is that record's rule: a picker that quietly
+ * showed the first hundred of a thousand would be the listing lying about its
+ * own extent.
+ */
+async function PlaceAnItem({
+  containerId,
+  undone,
+  refused,
+  context,
+}: {
+  containerId: string;
+  undone?: string;
+  /** The item a placement was just refused for, if one was (ADR-0116). */
+  refused?: string;
+  context: Context;
+}) {
+  /*
+   * THE CALLER'S OWN CONTEXT, not a second one built here. The page's own
+   * comment says why: two calls to `callerContext` would be two answers to
+   * "what does this request carry". The listing itself is open (ADR-0044) --
+   * what makes this section the owner's is that the page renders it only for
+   * them, which is the same posture `Note` and `EditTitle` take.
+   */
+  const { entries, total } = await call(appRouter.catalogue.list, {}, { context });
+
+  return (
+    <section className="mt-8" aria-labelledby="place-an-item">
+      <h2 id="place-an-item" className="font-medium text-sm">
+        Place an item here
+      </h2>
+      {/*
+        THE UNDO ADR-0046 REQUIRES, ABOVE THE FORM AND NOT IN A DIALOG. It is
+        offered only when a removal just happened, which `?undo=` is how a page
+        with no script gets told.
+      */}
+      {undone && <UndoRemoval placementId={undone} containerId={containerId} />}
+      {/*
+        WHAT THE CATALOGUE WOULD NOT DO, in the reader's words. ADR-0009 licences
+        a Repeat at DIFFERENT positions, so the refusal is usually about the
+        POSITION rather than about placing the item twice -- and saying so is the
+        difference between a rule an owner can work with and a wall.
+
+        IT NAMES BOTH REASONS, BECAUSE `BAD_REQUEST` CARRIES BOTH. Review found
+        this asserting the first one alone while `PLACEMENT_REFUSALS` also holds
+        `23503` -- an item or container that is not there -- so an owner whose
+        item had since been deleted was told it was already placed, which is a
+        false reason rather than a vague one. The router's own message says both;
+        this is that message in the reader's words.
+      */}
+      {refused && (
+        <p className="mt-2 text-sm text-destructive">
+          Nothing was placed. That item is either already here at that position, in which case a
+          Repeat is allowed at a different one, or it is no longer in the catalogue.
+        </p>
+      )}
+      <form action={placeItemInContainer} className="mt-2 flex items-end gap-2">
+        <input type="hidden" name="containerId" value={containerId} />
+        <div className="flex flex-1 flex-col gap-2">
+          <Label htmlFor="itemId">Item</Label>
+          {/*
+            A `<select>` RATHER THAN AN ID TYPED IN, because an owner curating an
+            ordering knows what they want to add by its NAME. It needs no script:
+            a select posts its chosen option as an ordinary field, which is the
+            same constraint `/new` meets the same way.
+
+            THE SAME METRICS AS `packages/ui`'s `Input`, which stands beside it
+            in this row: `h-8`, `px-2.5`, `text-xs`, `ring-1`. This wore stock
+            shadcn's `h-9 rounded-md text-sm` until review caught it, and that is
+            precisely the step-taller-and-larger mismatch `/new` records against
+            the Title field -- `.claude/rules/frontend.md`, "Ported code is where
+            this slips". There is still no select in `packages/ui` to import, so
+            the identity is carried by matching its sibling.
+          */}
+          <select
+            id="itemId"
+            name="itemId"
+            required
+            className="h-8 w-full rounded-none border border-input bg-transparent px-2.5 py-1 text-xs transition-colors outline-none focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring/50 md:text-xs dark:bg-input/30"
+          >
+            {entries.map((entry) => (
+              <option key={entry.id} value={entry.id}>
+                {entry.title ?? "Untitled item"}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="position">Position</Label>
+          {/*
+            NOT `required`, AND THAT IS THE WHOLE OF CONTEXT.md's Unplaced. An
+            owner may say "this belongs in here" without claiming where, and an
+            empty field is how they say it -- the action reads `""` as no
+            position rather than as a number it failed to parse.
+          */}
+          <Input
+            id="position"
+            name="position"
+            type="number"
+            step="1"
+            autoComplete="off"
+            className="w-28"
+          />
+        </div>
+        <Button type="submit">Place</Button>
+      </form>
+      {/*
+        THE CAP IS NEVER SILENT (ADR-0119). A picker offering the first hundred
+        items of a larger catalogue has to say so, or an owner who cannot find
+        what they are looking for reads it as the item not existing.
+      */}
+      {entries.length < total && (
+        <p className="mt-2 text-muted-foreground text-sm">
+          Showing {entries.length} of {total} items. Search for one to place it from its own page.
+        </p>
+      )}
+    </section>
+  );
+}
+
+/**
+ * TAKING ONE MEMBER OUT, as a form naming the PLACEMENT (ADR-0061).
+ *
+ * IT CARRIES THE CONTAINER TOO, because the action redirects back to it with
+ * the undo offer -- and a Server Action gets no request URL, so anything it
+ * needs has to be in the form.
+ */
+function RemovePlacement({
+  placementId,
+  containerId,
+}: {
+  placementId: string;
+  containerId: string;
+}) {
+  return (
+    <form action={removePlacement}>
+      <input type="hidden" name="id" value={placementId} />
+      <input type="hidden" name="containerId" value={containerId} />
+      <Button type="submit" variant="ghost" size="sm">
+        Remove
+      </Button>
+    </form>
+  );
+}
+
+/**
+ * THE OFFER BACK (ADR-0046), which is what a removal gets instead of a
+ * confirmation.
+ *
+ * THE PLACEMENT RETURNS WITH ITS POSITION AND ITS ORIGIN, because the removal
+ * tombstoned only the placement: every source that ever stood behind it was
+ * left standing, so there is nothing here to reconstruct (ADR-0017).
+ */
+function UndoRemoval({ placementId, containerId }: { placementId: string; containerId: string }) {
+  return (
+    <form action={restorePlacement} className="mt-2 flex items-baseline gap-3">
+      <input type="hidden" name="id" value={placementId} />
+      <input type="hidden" name="containerId" value={containerId} />
+      <p className="text-muted-foreground text-sm">Removed from this container.</p>
+      <Button type="submit" variant="outline" size="sm">
+        Undo
+      </Button>
+    </form>
   );
 }
