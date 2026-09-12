@@ -1,6 +1,7 @@
+import { eq } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { type Database, readCatalogue, readWorks } from "./index";
+import { type Database, items, readCatalogue, readWorks } from "./index";
 import { anItemTitled, aPlacement, connect, ownerSource } from "./testing/catalogue";
 
 /** Whether work-browsing lists one particular item. */
@@ -89,5 +90,35 @@ describe("readWorks", () => {
     // and the two pages agree about how big the listing is.
     expect(second.entries[0]?.id).not.toBe(first.entries[0]?.id);
     expect(second.total).toBe(first.total);
+  });
+
+  it("starts over, where the work a page was cut at has since been deleted", async () => {
+    // THE SAME WALK, WHICH IS WHAT THIS ASSERTS rather than a second rule of
+    // its own: `readWorks` and `readCatalogue` differ in their WHERE and in
+    // nothing else, so what a listing does with an anchor that has lost its
+    // place is one decision taken in one place (ADR-0119). A deleted item has
+    // no title and no sort name -- `catalogue.test.ts` carries the mechanism
+    // and both shapes of the failure -- so this order has no place left for it,
+    // it names no position, and the walk starts at the beginning.
+    //
+    // THE TICKET NAMES THIS SURFACE, which is why it is asserted here and not
+    // left to the shared function: `/works` walked the same defect, and a fix
+    // reported for the catalogue alone would leave a reader wondering which of
+    // the two was fixed.
+    const anchorId = await anItemTitled(db, "A work a kept link was cut at");
+
+    const order = (await readWorks(db, { limit: 10_000 })).entries.map((entry) => entry.id);
+    const cut = await readWorks(db, { limit: order.indexOf(anchorId) + 1 });
+    expect(cut.continuesAfter).toBe(anchorId);
+    await db.update(items).set({ deletedAt: new Date() }).where(eq(items.id, anchorId));
+
+    const kept = await readWorks(db, { limit: 10_000, after: cut.continuesAfter ?? "" });
+
+    // WORK-BROWSING OVER AGAIN, oracled against the same listing read in one go
+    // -- and against `readWorks` rather than the catalogue, so a walk that
+    // started over into the WIDER listing would fail this rather than pass it.
+    expect(kept.entries.map((entry) => entry.id)).toStrictEqual(
+      (await readWorks(db, { limit: 10_000 })).entries.map((entry) => entry.id),
+    );
   });
 });

@@ -85,11 +85,34 @@ Migration 5's `items_tombstone_statements` tombstones every statement of a delet
 re-fires the projection trigger, and the projection over no live statements is NULL — so the columns
 are GONE rather than merely hidden ([[0014-title-is-a-projection]]). Reading the anchor past the
 tombstone therefore finds a row whose sort key is null, and the comparison's no-sort-key regime
-resumes from the untitled tail with everything between skipped. Reading it without the tombstone
-filter is still right; what is missing is an answer for an anchor that no longer has a place.
-**CNCORE-110 carries it**, and Catalogue search below has already had to answer the same fact the
-only way its order allows: an anchor with no title has no closeness to anything, so it names no
-position and the walk starts over — every result still reachable, none skipped.
+resumes from the untitled tail with everything between skipped.
+
+**THE ANSWER, UNDER CNCORE-110: an anchor whose place is gone names no position, so the walk starts
+at the beginning.** Reading it without the tombstone filter stays, and only the reading is shared
+now — the row comes back WITH its tombstone and each order decides what it found. This order is
+`coalesce(sort_name, title)` and a deleted Item has neither column, so there is nothing to resume
+from: that is [[0066-path-is-identity-query-is-the-route]]'s answer for an id naming nothing at all,
+and the one Catalogue search below reached the only way its order allows — an anchor with no title
+has no closeness to anything, so it names no position and the search is shown again.
+
+**So a kept link SURVIVES its anchor's deletion without RESUMING at it, which is the price taken
+rather than a thing left undone.** A reader following one is shown the catalogue from the top and can
+walk it again: every Item still reachable and none skipped, which is the criterion the cap exists to
+keep. What is gone is the empty page — and the worse shape measured beside it, a catalogue with no
+untitled tail at all, where the walk answered NOTHING and `/` rendered "The catalogue ends here"
+over four Items still in it.
+
+**The split is what keeps the tombstone exception worth having, and it is a reason this record did
+not have before.** An order this app does not yet hold — on `release_date`, or on when a row was
+made — reads a column a delete does NOT destroy, so its anchor still has a place and can still be
+resumed from. Only the two orders built on the projection lose one, and they are the two that say so.
+
+**Asserted on BOTH shapes of catalogue, because they fail differently and only one of them looks like
+an ending.** The suite's shared database has an untitled tail; "no untitled Item anywhere" is a
+property of a whole catalogue rather than of a query, so the second shape is a catalogue of its own —
+the same reason the page-level walk below needed a third instance. Mutation-checked by removing the
+clause: the catalogue with a tail answers 1 of 13 Items, the one without answers none, and
+work-browsing answers 1 of 13 through the same walk.
 
 ## The order has to be TOTAL, and it is the part that gets built wrong
 
