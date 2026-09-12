@@ -1,16 +1,20 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import {
+  annotateItemByHand,
   createDb,
   createItemByHand,
   type Database,
   findItem,
+  findNoteOfItem,
   findStatementsOfItem,
   ItemRefused,
   importProvidedRecord,
   items,
+  properties,
   retitleItemByHand,
+  statements,
 } from "./index";
 import {
   anItem,
@@ -232,3 +236,85 @@ describe("what the catalogue refuses", () => {
     }
   });
 });
+
+/**
+ * ADR-0096: a note is a Statement with a `note` property, sourced to the Owner.
+ * `CONTEXT.md` calls it "the owner's own free text about an item. Theirs alone:
+ * nothing else can assert one."
+ */
+describe("annotating an Item by hand", () => {
+  it("writes a note sourced to the Owner", async () => {
+    const { itemId } = await createItemByHand(db, { kind: "work", title: "The Tenth Planet" });
+
+    await annotateItemByHand(db, { itemId, note: "The one I always come back to" });
+
+    expect(await findNoteOfItem(db, itemId)).toEqual({
+      value: "The one I always come back to",
+      sourceKind: "owner",
+      sourceLabel: "Owner",
+    });
+  });
+
+  /**
+   * EDITING REPLACES, and the `single` cardinality migration 12 declares is
+   * what that means: a note is the owner's own free text about an item, so a
+   * second one is a correction rather than a rival value. `assertClaims` makes
+   * what this source holds EQUAL to what it now claims, which is what withdraws
+   * the first without anything having to name it.
+   */
+  it("replaces the note the owner wrote before, leaving one", async () => {
+    const { itemId } = await createItemByHand(db, { kind: "work", title: "The Tenth Planet" });
+    await annotateItemByHand(db, { itemId, note: "What I first thought of it" });
+
+    await annotateItemByHand(db, { itemId, note: "What I think of it now" });
+
+    expect(await findNoteOfItem(db, itemId)).toMatchObject({ value: "What I think of it now" });
+    // AND THE FIRST IS GONE RATHER THAN OUTRANKED. Two live notes from one
+    // mouth would tie on rank and on the source order and fall through to a
+    // uuid, so which one the page showed would flip on nothing.
+    expect(await liveNotesOn(itemId)).toBe(1);
+  });
+
+  it("removes the note when the owner clears it", async () => {
+    const { itemId } = await createItemByHand(db, { kind: "work", title: "The Tenth Planet" });
+    await annotateItemByHand(db, { itemId, note: "Something I later thought better of" });
+
+    await annotateItemByHand(db, { itemId, note: "" });
+
+    // NULL AND NOT AN EMPTY STRING, which is the difference between a note
+    // removed and a note that renders as an empty box on the page.
+    expect(await findNoteOfItem(db, itemId)).toBeNull();
+  });
+
+  it("refuses to annotate an Item the owner has deleted", async () => {
+    const { itemId } = await createItemByHand(db, { kind: "work", title: "Gone" });
+    await db.update(items).set({ deletedAt: sql`now()` }).where(eq(items.id, itemId));
+
+    // ADR-0075, and the same answer `retitleItemByHand` gives: writing a claim
+    // about a grave would report success while the owner sees nothing change.
+    expect(await annotateItemByHand(db, { itemId, note: "A note on a grave" })).toBe(false);
+  });
+});
+
+/**
+ * How many notes stand on one item, counted PAST the read above.
+ *
+ * `findNoteOfItem` answers one by design, so it cannot tell one note from two
+ * -- which is exactly what the replacement test has to know. Counting the rows
+ * is reaching behind the seam on purpose and only here: the claim under test is
+ * about what the catalogue HOLDS rather than about what a reader is served.
+ */
+async function liveNotesOn(itemId: string): Promise<number> {
+  const rows = await db
+    .select({ id: statements.id })
+    .from(statements)
+    .innerJoin(properties, eq(properties.id, statements.propertyId))
+    .where(
+      and(
+        eq(statements.subjectItemId, itemId),
+        eq(properties.name, "note"),
+        isNull(statements.deletedAt),
+      ),
+    );
+  return rows.length;
+}

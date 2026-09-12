@@ -132,6 +132,62 @@ async function titledByTheOwner(
 }
 
 /**
+ * The owner's note about one item (ADR-0096), and `''` IS ITS REMOVAL.
+ *
+ * A NOTE IS A STATEMENT LIKE ANY OTHER, which is that record's whole decision:
+ * it gets rank, language and provenance from ADR-0012 rather than a table with
+ * three of those columns copied onto it. So writing one is `assertClaims` with
+ * the owner's source, exactly as a title is -- and the property declares that
+ * nothing else may assert it (migration 12), rather than this function being
+ * the place that knows.
+ *
+ * `[]` RATHER THAN `['']` FOR AN EMPTY NOTE, and that is what makes removal the
+ * same operation as editing. `assertClaims` makes what a source holds EQUAL to
+ * what it now claims, so a source claiming nothing withdraws what it said --
+ * tombstoned (ADR-0075) rather than deleted, so the removal is as findable as
+ * the writing was.
+ *
+ * IT IS ALSO WHY AN EMPTY NOTE IS NOT REFUSED THE WAY AN EMPTY TITLE IS. An
+ * empty title projects onto `items.title` as a heading that renders blank,
+ * where an item with no title statement renders "Untitled item" -- two
+ * different states, one of them useless. A note projects onto nothing, so an
+ * empty one and an absent one are the same claim: the owner says nothing about
+ * this item.
+ */
+async function notedByTheOwner(
+  tx: Transaction,
+  ownerId: string,
+  itemId: string,
+  note: string,
+): Promise<void> {
+  await assertClaims(tx, {
+    ownerId,
+    itemId,
+    sourceId: await theOwnerSource(tx, ownerId),
+    claims: [{ property: "note", values: note === "" ? [] : [note] }],
+  });
+}
+
+/**
+ * The item that id addresses, or `undefined` where it addresses none.
+ *
+ * THE TOMBSTONE IS HONOURED (ADR-0075). An item the owner deleted is gone to
+ * every reader, so writing a claim about one would write about a grave and
+ * report success while the owner sees nothing change.
+ *
+ * SHARED BY EVERY EDIT BELOW rather than repeated in each, for the reason
+ * `titledByTheOwner` gives one function up: two copies of a tombstone check are
+ * two chances for the next edit path to be added to one of them.
+ */
+async function aLiveItem(tx: Transaction, itemId: string): Promise<string | undefined> {
+  const [found] = await tx
+    .select({ id: items.id })
+    .from(items)
+    .where(and(eq(items.id, itemId), isNull(items.deletedAt)));
+  return found?.id;
+}
+
+/**
  * The owner's own source row: kind `owner`, first in the global order at
  * `source_order` 0 (ADR-0025, migration 1).
  *
@@ -177,16 +233,43 @@ export async function retitleItemByHand(
 ): Promise<boolean> {
   return db.transaction(async (tx) => {
     const ownerId = await theOwnerId(tx);
-    const [found] = await tx
-      .select({ id: items.id })
-      .from(items)
-      // THE TOMBSTONE IS HONOURED (ADR-0075). An item the owner deleted is gone
-      // to every reader, so retitling one would write a claim about a grave and
-      // report success while the owner sees nothing change.
-      .where(and(eq(items.id, itemId), isNull(items.deletedAt)));
+    const found = await aLiveItem(tx, itemId);
     if (!found) return false;
 
-    await titledByTheOwner(tx, ownerId, found.id, title);
+    await titledByTheOwner(tx, ownerId, found, title);
+    return true;
+  });
+}
+
+/**
+ * The owner noting something about an item in their own words (ADR-0096), and
+ * REMOVING that note by passing an empty one.
+ *
+ * ONE OPERATION FOR WRITING, EDITING AND REMOVING, because all three are one
+ * claim: what the owner now says about this item. `assertClaims` makes what a
+ * source holds equal to what it claims, so a second note replaces the first
+ * without either becoming a rival value, and an empty one withdraws it.
+ *
+ * THE OWNER IS THE ONLY SOURCE THAT CAN REACH THIS, and the property is what
+ * says so rather than this function: migration 12 declares `note` assertable by
+ * a source of kind `owner`, and the database refuses any other -- so the
+ * importer, the scanner and a psql session are refused alike, none of which
+ * this file could speak for.
+ *
+ * Answers `false` when that id addresses no live item, which is an answer
+ * rather than a failure (ADR-0066) -- the posture `findItem` and
+ * `retitleItemByHand` both take.
+ */
+export async function annotateItemByHand(
+  db: Database,
+  { itemId, note }: { itemId: string; note: string },
+): Promise<boolean> {
+  return db.transaction(async (tx) => {
+    const ownerId = await theOwnerId(tx);
+    const found = await aLiveItem(tx, itemId);
+    if (!found) return false;
+
+    await notedByTheOwner(tx, ownerId, found, note);
     return true;
   });
 }

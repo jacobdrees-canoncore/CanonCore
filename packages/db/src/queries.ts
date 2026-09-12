@@ -237,6 +237,23 @@ export async function findStatementsOfItem(
         // is the whole difference from the tombstone above.
         eq(statements.quarantined, false),
         isNotNull(statements.valueLiteral),
+        /*
+         * ADR-0045: the public read path carries NO NOTES, and this list is
+         * what `itemPublic.statements` is built from -- so a note reaching here
+         * is a note on every item page a stranger opens.
+         *
+         * IT READS THE PROPERTY'S OWN DECLARATION (migration 12) rather than
+         * naming `note`, which is ADR-0045's argument about strip-lists applied
+         * to itself: a filter naming one property "works until someone adds a
+         * field and forgets", and the field is the next property that should not
+         * be public. `capabilities` is where every other fact about a property
+         * already lives (ADR-0015, ADR-0029).
+         *
+         * ABSENT MEANS PUBLIC, which is true of the other twelve properties and
+         * is why the `coalesce` defaults to true. The database refuses a `public`
+         * that is not a boolean, so the cast cannot meet a string.
+         */
+        sql`coalesce((${properties.capabilities} -> 'public')::boolean, true)`,
       ),
     )
     .orderBy(
@@ -246,6 +263,76 @@ export async function findStatementsOfItem(
       statements.valueLiteral,
       statements.id,
     );
+}
+
+/**
+ * The owner's own note about one item (ADR-0096): what they wrote, and the
+ * source it is filed under.
+ *
+ * THE SOURCE IS READ RATHER THAN ASSUMED, even though only the owner can ever
+ * assert one (migration 12). The page has to say WHO said this to meet
+ * CNCORE-74's criterion that the note is distinguishable from a provider's
+ * claim, and a surface that printed the word "Owner" for itself would be
+ * asserting what the row says instead of reading it -- which is the rule
+ * ADR-0045 settles for every other label the read path carries.
+ */
+export interface NoteOfItem {
+  value: string;
+  /** ADR-0071's kind. `owner`, and the declaration is what keeps it so. */
+  sourceKind: string;
+  /** What that source calls itself, seeded as `Owner` by migration 1. */
+  sourceLabel: string;
+}
+
+/**
+ * The note on one item, or `null` where nobody has written one.
+ *
+ * IT IS NOT IN `findStatementsOfItem`, and that is ADR-0045 rather than an
+ * oversight: the public read path carries no notes, so a note cannot travel on
+ * the list every visitor is served. Reading it separately is what lets the
+ * procedure that answers it be the OWNER'S while `item.get` stays open.
+ *
+ * ONE NOTE, because `note` declares `single` cardinality (migration 12) and a
+ * note is the owner's own free text about an item -- editing one replaces it.
+ * Cardinality is declared and not yet enforced, so this orders by the same
+ * three terms the projection uses (ADR-0024, ADR-0025) and takes the winner:
+ * if a second note ever exists, the page shows the same one twice running
+ * rather than whichever uuid the planner returned last.
+ *
+ * THE TOMBSTONE AND THE QUARANTINE ARE BOTH HONOURED, as `findStatementsOfItem`
+ * honours them. A withdrawn note has to leave the page -- removing one is how
+ * ADR-0075 records the removal -- and a note is free text that no declaration
+ * checks, so the quarantine clause is a rule kept in one place rather than a
+ * branch anything reaches today.
+ */
+export async function findNoteOfItem(db: Database, itemId: string): Promise<NoteOfItem | null> {
+  const [note] = await db
+    .select({
+      value: sql<string>`${statements.valueLiteral}`,
+      sourceKind: sources.kind,
+      sourceLabel: sources.label,
+    })
+    .from(statements)
+    .innerJoin(properties, eq(properties.id, statements.propertyId))
+    .innerJoin(sources, eq(sources.id, statements.sourceId))
+    .innerJoin(ranks, eq(ranks.rank, statements.rank))
+    .where(
+      and(
+        eq(statements.subjectItemId, itemId),
+        // NAMED HERE, WHERE `findStatementsOfItem` READS A DECLARATION INSTEAD.
+        // The difference is what each query is for: that one emits a SET and a
+        // filter naming one member of it is the strip-list ADR-0045 refuses,
+        // where this one's whole subject is this property.
+        eq(properties.name, "note"),
+        isNull(statements.deletedAt),
+        eq(statements.quarantined, false),
+        isNotNull(statements.valueLiteral),
+      ),
+    )
+    .orderBy(ranks.precedence, sources.sourceOrder, statements.id)
+    .limit(1);
+
+  return note ?? null;
 }
 
 /**

@@ -483,6 +483,43 @@ describe("property definitions", () => {
       ),
     ).toMatch(/properties_validation_declares_a_format/);
   });
+
+  /**
+   * THE SAME ARGUMENT ONE COLUMN OVER (migration 12). `capabilities` is the
+   * second declaration on `properties` no foreign key can reach, and ADR-0015
+   * leaves it editable -- so its shape is held against every later write rather
+   * than only against the seed that first filled it.
+   */
+  it("refuses capabilities that are not an object", async () => {
+    const note = await propertyNamed(db, "note");
+
+    expect(
+      await refusal(
+        db
+          .update(properties)
+          .set({ capabilities: ["owner"] })
+          .where(eq(properties.id, note)),
+      ),
+    ).toMatch(/properties_capabilities_are_an_object/);
+  });
+
+  /**
+   * AN EMPTY LIST OF ADMITTED SOURCES IS A PROPERTY NOTHING MAY ASSERT, which
+   * is a typo rather than a decision: a field no source can write is a field
+   * with no way in. A property open to everything says so by declaring nothing.
+   */
+  it("refuses an empty list of admitted sources", async () => {
+    const note = await propertyNamed(db, "note");
+
+    expect(
+      await refusal(
+        db
+          .update(properties)
+          .set({ capabilities: { assertableBy: [] } })
+          .where(eq(properties.id, note)),
+      ),
+    ).toMatch(/properties_capabilities_are_an_object/);
+  });
 });
 
 describe("the change sequence", () => {
@@ -602,5 +639,59 @@ describe("an item's kind", () => {
     await db.update(items).set({ isContainer: true }).where(eq(items.id, work));
 
     expect((await readItem(db, work))?.isContainer).toBe(true);
+  });
+});
+
+/**
+ * ADR-0096: a note is a Statement with a `note` property, and ADR-0045 says
+ * nothing but the Owner can assert one.
+ */
+describe("the Owner note", () => {
+  it("refuses a note from a provider", async () => {
+    const story = await anItem(db);
+    const provider = await aProvider(db, "provider-that-tries-to-annotate");
+
+    expect(
+      await refusal(
+        aStatement(db, {
+          subjectItemId: story,
+          property: "note",
+          valueLiteral: "A provider speaking for the owner",
+          sourceId: provider,
+        }),
+      ),
+    ).toMatch(/property note: only a source of kind owner may assert one; this source is provider/);
+  });
+
+  it("takes one from the Owner", async () => {
+    const story = await anItem(db);
+
+    const note = await aStatement(db, {
+      subjectItemId: story,
+      property: "note",
+      valueLiteral: "The one I always come back to",
+      sourceId: await ownerSource(db),
+    });
+
+    expect(note).toBeTruthy();
+  });
+
+  /**
+   * THE OTHER HALF, and it is what makes the rule a declaration rather than a
+   * lock on the table. Twelve of the thirteen properties declare no
+   * `assertableBy` and are open to every source -- so a trigger that refused a
+   * provider's claim outright would break the import that exists today.
+   */
+  it("leaves a property that declares nothing open to a provider", async () => {
+    const story = await anItem(db);
+
+    const title = await aStatement(db, {
+      subjectItemId: story,
+      property: "title",
+      valueLiteral: "What the provider calls it",
+      sourceId: await aProvider(db, "provider-that-may-still-title"),
+    });
+
+    expect(title).toBeTruthy();
   });
 });
