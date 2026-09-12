@@ -7,25 +7,7 @@ import {
 import { z } from "zod";
 
 import { openProcedure } from "../index";
-
-/**
- * HOW MANY ITEMS ONE ANSWER CARRIES, when the caller does not say.
- *
- * A CAP RATHER THAN THE WHOLE CATALOGUE, because the front page is the surface
- * every reader opens first and an uncapped listing makes its cost a function of
- * the library behind it. The number is arbitrary in the way a first page always
- * is: enough that a small catalogue arrives whole, small enough that a large one
- * does not arrive at all.
- *
- * AND THE CAP IS NEVER SILENT. `total` comes back beside the entries precisely
- * so a surface can say what it is not showing; a listing that reported only what
- * it returned would present the first hundred as the library.
- *
- * AND THE OTHER HALF IS `after`, which is what REACHES the items past this
- * ceiling (ADR-0119). The cap is unchanged by it: one answer still costs one
- * page, and a reader walks as many as they care to.
- */
-const A_PAGE = 100;
+import { A_PAGE, aCursor } from "./listing";
 
 /**
  * What a listing procedure takes: the two questions ADR-0077 names, and the
@@ -44,18 +26,8 @@ const listingInput = z.object({
    * request.
    */
   limit: z.number().int().positive().max(A_PAGE).default(A_PAGE),
-  /**
-   * WHERE TO CARRY ON FROM: the id of the last entry the page before this one
-   * carried, which `continuesAfter` handed over (ADR-0119).
-   *
-   * `z.string()` RATHER THAN `z.uuid()`, which is ADR-0066's rule for a
-   * parameter that is not an identity: any string may be asked about, and the
-   * answer says whether it named anything. One that names no item names no
-   * position either, so the walk starts at the beginning rather than raising --
-   * and a reader whose bookmark outlived the item it was cut at gets the
-   * catalogue rather than an error page.
-   */
-  after: z.string().optional(),
+  /** ADR-0119's cursor, written once for every listing in `./listing`. */
+  after: aCursor,
 });
 
 /**

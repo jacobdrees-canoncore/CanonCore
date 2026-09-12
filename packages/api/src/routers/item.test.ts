@@ -1,5 +1,6 @@
 import { aliases, type Database, items } from "@canoncore/db";
 import {
+  aContainerLargerThanOnePage,
   anItem,
   anItemTitled,
   aPlacement,
@@ -7,9 +8,11 @@ import {
   aStatement,
   connect,
   ownerSource,
+  someStories,
   theOwner,
 } from "@canoncore/db/testing/catalogue";
 import { env } from "@canoncore/env/server";
+import { placementsInContainerPublic } from "@canoncore/schemas";
 import { call, isDefinedError, safe } from "@orpc/server";
 import { eq } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -366,8 +369,11 @@ describe("item.get on a container", () => {
 
     const container = await call(appRouter.item.get, { id: season }, { context });
 
-    expect(container.holds.map((placement) => placement.itemId)).toStrictEqual([first, second]);
-    expect(container.holds[0]).toMatchObject({ title: "Its first story", position: 1 });
+    expect(container.holds.entries.map((placement) => placement.itemId)).toStrictEqual([
+      first,
+      second,
+    ]);
+    expect(container.holds.entries[0]).toMatchObject({ title: "Its first story", position: 1 });
   });
 
   it("names every field a placement in a container emits, and no internal one", async () => {
@@ -385,9 +391,79 @@ describe("item.get on a container", () => {
 
     const item = await call(appRouter.item.get, { id: container }, { context });
 
-    expect(item.holds.map((placement) => Object.keys(placement).sort())).toStrictEqual([
+    expect(item.holds.entries.map((placement) => Object.keys(placement).sort())).toStrictEqual([
       ["id", "itemId", "position", "title"],
     ]);
+  });
+
+  it("names every field the members listing itself emits", () => {
+    // THE LISTING AROUND THE ROWS IS PART OF THE CONTRACT TOO (ADR-0045), and
+    // it is the same three facts the catalogue, work-browsing and Catalogue
+    // search all answer with: what this page carries, how much there is, and
+    // where to carry on from. A `holds` that was still a bare array would fail
+    // this, which is the enumeration working.
+    expect(Object.keys(placementsInContainerPublic.shape).sort()).toStrictEqual([
+      "continuesAfter",
+      "entries",
+      "total",
+    ]);
+  });
+});
+
+describe("item.get on a container larger than one page", () => {
+  it("caps the members it answers with, and says how much it is not showing", async () => {
+    // ADR-0119, and the cap is this seam's rather than the caller's: `A_PAGE` is
+    // what this app will serve in one answer, and `item.get` takes no `limit` to
+    // raise or lower it.
+    //
+    // `total` IS THE OTHER HALF. A page that reported only what it listed would
+    // tell an owner their ordering is a hundred long however much it holds,
+    // which is the silent cap ADR-0119 exists to refuse.
+    const { id, holds } = await aContainerLargerThanOnePage(db, {
+      title: "An ordering the router has to cap",
+      holding: await someStories(db, 120, "A story the router caps"),
+    });
+
+    const container = await call(appRouter.item.get, { id }, { context });
+
+    expect(container.holds.entries).toHaveLength(100);
+    expect(container.holds.total).toBe(holds.length);
+    expect(container.holds.continuesAfter).toBe(container.holds.entries.at(-1)?.id);
+  });
+
+  it("reaches every member by walking, and lands on none of them twice", async () => {
+    // THE OTHER HALF OF THE CAP (ADR-0119): a surface that says "Showing 100 of
+    // 121" and offers no way to reach member 101 has told the owner the size of
+    // an ordering it will not let them see.
+    //
+    // THE ORACLE IS THE PLACEMENTS THE FIXTURE WROTE rather than a second
+    // reading of the container: asking the read path to say what should have
+    // been walked is asking the mechanism under test to mark its own work.
+    //
+    // AND THE FIXTURE HOLDS A REPEAT, which is what says the cursor is a
+    // PLACEMENT's id. One item twice in one container is two rows sharing an
+    // `itemId`, so an item-id cursor could not tell which of them a page ended
+    // on -- it would serve one twice or skip the other, and the no-repeats line
+    // below is what catches that.
+    const { id, holds } = await aContainerLargerThanOnePage(db, {
+      title: "An ordering the router has to walk",
+      holding: await someStories(db, 120, "A story the router walks"),
+    });
+
+    const walked: string[] = [];
+    let after: string | undefined;
+    // BOUNDED, so a cursor that does not advance FAILS rather than hangs.
+    for (let pages = 0; pages <= holds.length; pages += 1) {
+      const page = await call(appRouter.item.get, { id, after }, { context });
+      walked.push(...page.holds.entries.map((placement) => placement.id));
+      if (page.holds.continuesAfter === null) break;
+      after = page.holds.continuesAfter;
+    }
+
+    expect([...walked].sort()).toStrictEqual([...holds].sort());
+    // SORTED SETS COMPARE EQUAL EVEN WITH A REPEAT IN THEM, so the one criterion
+    // the comparison above cannot see gets its own line.
+    expect(new Set(walked).size).toBe(walked.length);
   });
 });
 

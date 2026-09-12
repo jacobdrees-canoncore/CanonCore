@@ -359,3 +359,106 @@ export async function aCatalogueLargerThanOnePage(
   // and no title is also no MATCH, which is why the two are named apart.
   return { every: [...titled, ...tied, ...keyless], untitled: keyless };
 }
+
+/**
+ * A run of titled items, written in bulk.
+ *
+ * IN BULK BECAUSE THE PER-ITEM HELPERS ABOVE ARE THREE ROUND TRIPS EACH, and a
+ * fixture that has to be LARGER THAN ONE PAGE needs a hundred of them -- which
+ * is the difference between a fixture costing a moment and one costing a minute.
+ *
+ * PADDED, so the titles sort the way a reader would count them. Nothing here
+ * asserts on that order, but a fixture whose tenth item sorts between its first
+ * and second is one nobody can read a failure out of.
+ */
+export async function someStories(db: Database, count: number, titled: string): Promise<string[]> {
+  const ownerId = await theOwner(db);
+  const sourceId = await ownerSource(db);
+  const title = await propertyNamed(db, "title");
+
+  const minted = (
+    await db
+      .insert(items)
+      .values(Array.from({ length: count }, () => ({ ownerId, kind: "work" })))
+      .returning({ id: items.id })
+  ).map((row) => row.id);
+
+  await db.insert(statements).values(
+    minted.map((id, index) => ({
+      ownerId,
+      subjectItemId: id,
+      propertyId: title,
+      valueLiteral: `${titled} ${String(index + 1).padStart(4, "0")}`,
+      sourceId,
+    })),
+  );
+  return minted;
+}
+
+/**
+ * A CONTAINER HOLDING MORE THAN ONE PAGE, answering with every placement it
+ * wrote.
+ *
+ * IT IS THE ONLY STATE IN WHICH A MEMBERS WALK IS OBSERVABLE AT ALL, which is
+ * what `aCatalogueLargerThanOnePage` above says about the catalogue's own.
+ *
+ * IT TAKES THE ITEMS RATHER THAN MINTING THEM, and that is what lets one
+ * instance be both fixtures at once: the e2e harness hands this the catalogue it
+ * already wrote, so an ordering over two and a half pages costs ONE new item --
+ * the container -- rather than two hundred and fifty that would have to be added
+ * to every oracle counting that catalogue.
+ *
+ * IT CARRIES THE THREE HARD SHAPES a members walk can lose rows on, none of
+ * which is invented for the test:
+ *
+ * - A TIE. ADR-0009 keeps no unique constraint on (container_id, position),
+ *   because a novel and the film adapting it must sit at one point without an
+ *   order being invented between them. A cursor comparing only the position
+ *   steps over the second of two placements sharing one.
+ * - AN UNPLACED TAIL. CONTEXT.md's Unplaced is a placement with NO POSITION,
+ *   which sorts last as one block -- and `(null, x) > (k, y)` is NULL rather
+ *   than true, so a plain row comparison loses the whole block from every page.
+ *   The wiki's ordering is release order and the archive holds no release date
+ *   for a sixth of its stories, so this is the ordinary case rather than an edge.
+ * - A REPEAT. One item twice in one container (ADR-0009), which is what says the
+ *   cursor is a PLACEMENT's id: two rows share an `itemId`, so an item-id cursor
+ *   cannot say which of them a page ended on.
+ *
+ * THE PLACEMENTS COME BACK AS A SET RATHER THAN IN ORDER, because the order
+ * between the tied pair is decided by which uuids `gen_random_uuid` handed out
+ * and a fixture claiming to know it would be claiming luck. A walk is oracled
+ * against the set it must arrive at exactly, which is the criterion anyway.
+ */
+export async function aContainerLargerThanOnePage(
+  db: Database,
+  { title, holding }: { title: string; holding: string[] },
+): Promise<{ id: string; holds: string[] }> {
+  const ownerId = await theOwner(db);
+  const id = await anItemTitled(db, title, { isContainer: true, isOrdered: true });
+
+  const unplaced = holding.slice(-2);
+  const placed = holding.slice(0, -2);
+  // THE TIE IS IN THE MIDDLE, where a page boundary can fall on it: the item
+  // after the midpoint takes the midpoint's own position rather than the next.
+  const tied = Math.floor(placed.length / 2);
+  const positionOf = (index: number) => (index === tied ? tied : index + 1);
+
+  const written = await db
+    .insert(placements)
+    .values([
+      ...placed.map((itemId, index) => ({
+        ownerId,
+        containerId: id,
+        itemId,
+        position: positionOf(index),
+      })),
+      ...unplaced.map((itemId) => ({ ownerId, containerId: id, itemId, position: null })),
+      // THE REPEAT: the first of them again, at the end of the ordering.
+      ...(placed[0] === undefined
+        ? []
+        : [{ ownerId, containerId: id, itemId: placed[0], position: placed.length + 1 }]),
+    ])
+    .returning({ id: placements.id });
+
+  return { id, holds: written.map((row) => row.id) };
+}
