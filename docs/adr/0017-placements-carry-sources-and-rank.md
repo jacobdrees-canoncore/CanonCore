@@ -199,6 +199,16 @@ say yes or no about a pair, on data that cannot answer. So the read path names t
 READER draws the conclusion -- the same shape this record chose for the item's end, winner first and
 no marker, arrived at from the other direction.
 
+**AND IT IS ONE LATERAL AGAIN, MEASURED RATHER THAN ASSUMED.** The aggregate filters
+`placement_sources` by `placement_id` alone, and the only index on that table leads with `owner_id`
+-- so the seek this depends on is PostgreSQL 18's btree SKIP SCAN over a column holding exactly one
+value ([[0044-one-owner-row]]). It works: on a container of 1,049 members with two sources each --
+ADR-0077's measured size -- the planner answers `Index Scan using placement_sources_placement_source,
+Index Cond: (placement_id = p.id)`, and the list costs 4.4 ms against 0.8 ms for the same query with
+the lateral removed. Measured 2026-09-12 on PostgreSQL 18.6, the version `compose.yaml` pins. It is
+six times a very small number and it rides on the listing [[0119-a-listing-is-walked-forward-from-the-last-item-it-showed]] has not
+capped yet, which is CNCORE-89's decision and now has a figure in it.
+
 **NOR CAN ANYTHING YET WRITE THE DISAGREEMENT IT RENDERS.** Unchanged from CNCORE-7's section and
 worth repeating rather than assuming: `browse` writes one source's claims per call and the owner's
 hand still has no surface that places anything, so both the db suite and the e2e suite SEED the two

@@ -901,6 +901,11 @@ function assertersOf(db: Database) {
  * 1,049 stories, so this is a thousand rows on an ordinary page. The cap is not
  * added here because the walk has to compose with `?via=` and `?placed=` on an
  * address ADR-0066 governs, which is that ticket's decision to make.
+ *
+ * AND EACH ROW NOW CARRIES A LATERAL, which that decision should know the size
+ * of: 4.4 ms against 0.8 ms without it, over 1,049 members with two sources
+ * each, measured 2026-09-12 on the PostgreSQL 18.6 `compose.yaml` pins.
+ * ADR-0017 carries the measurement and what it rests on.
  */
 export async function findPlacementsInContainer(
   db: Database,
