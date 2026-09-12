@@ -666,7 +666,10 @@ runs and passed every time its file ran alone. `main` had been green for twelve 
 because the window is small, and it opened when a fourth instance and an eighth test file added
 contention.
 
-**THE RULE: AN ASSERTION MAY ONLY SPAN A WRITE ITS OWN FILE MADE.** Where the fact can be narrowed
+**THE RULE: AN ASSERTION MAY ONLY SPAN A WRITE ITS OWN FILE MADE -- WHICH IS NECESSARY AND NOT
+SUFFICIENT.** CNCORE-126, at the foot of this record, is the case that shows the gap: an assertion
+can span only its own file's writes and still be answered by another test's, when the KEY those
+writes were made under is one the OS may hand out twice. Where the fact can be narrowed
 to something only this test writes, narrow it -- the re-import's claim is about ONE provider record,
 and (this provider, this record) is a pair no other worker touches. Where it cannot, the fact needs
 an instance nothing else writes to, and paying for one is the honest price rather than a tolerance:
@@ -729,3 +732,49 @@ it and left it, because on CI, where there is no `.env`, the difference is invis
 ticket because its subject is this helper's first parameter, and both halves land on the same rule:
 the harness's variable parts are DECLARED and checked by the compiler, rather than written at each
 call site and checked by whoever remembers. One mechanism to learn, in one file, rather than two.
+
+## A fact the file owned, under a key it did not -- under CNCORE-126
+
+**CNCORE-93's RULE HELD HERE, AND THE ASSERTION FAILED ANYWAY.** `provider.search`'s "finds a record
+by name, with no id known in advance, and says who answered" spans no write another file made:
+`packages/api` runs `fileParallelism: false` and `provider.test.ts` is the only file in that package
+that binds a stub, so every write the assertion spans is its own file's. It still read
+`itemId: "a35cbedf-1ffc-4dec-acb7-e0523c74ba5a"` where it asserts `null`. The evidence is run
+34711644736 **attempt 1**, whose `Test` job failed -- the attempt and not the run, because the
+re-run passed and `gh run view 34711644736` now shows `success` to anyone checking the citation.
+That log does not witness the reuse directly: no earlier stub on port 40871 appears in it, because
+this suite prints a stub's URL only when an assertion fails. The failure is the symptom, and the
+mechanism below is what explains it.
+
+**THE KEY WAS NOT THE TEST'S TO KEEP.** A provider's URL is its IDENTITY (ADR-0031); a stub's URL is
+`http://127.0.0.1:<whichever port the OS picked>`; and this suite closed each stub's socket as its
+test ended, handing that port back while the rows keyed on it stayed in the one database this record
+gives the whole run. The OS may hand that port to the next stub, and two tests are then one
+provider, the earlier one's imports answering the later one's lookups. Timing rather than logic,
+which is why the file passed 36 on six consecutive local runs and failed on a runner.
+
+**SO THE RULE GAINS A SECOND HALF: A FIXTURE'S IDENTITY MUST OUTLIVE THE STATE KEYED ON IT.** The
+stubs now close in `afterAll` rather than in `afterEach`. That is not thrift about teardown, it is
+what makes two stubs two providers, and the premise is measured rather than reasoned from: on node
+v24.19.0, two hundred simultaneous `listen(0)` calls returned two hundred DISTINCT ports, because a
+port a live listener holds is not one the allocator may hand out -- binding it explicitly is refused
+`EADDRINUSE`. It protects more than the assertion that failed: `previewPurge` asserts its provider
+provided exactly two placements, which a shared identity would have made wrong the same way.
+
+**THE EXPOSURE WAS ONLY EVER WITHIN ONE RUN**, which is worth saying because it bounds what had to
+be fixed. `buildTestDatabase` drops and recreates the database at the start of every run, so no
+identity minted by a previous run has a row left to answer with. What remained was reuse inside a
+run, and holding the sockets closes it.
+
+**TWO ALTERNATIVES, WEIGHED AND WRITTEN DOWN RATHER THAN LEFT AS OMISSIONS.** A unique path per stub
+is not available: the CMPP client builds every request as `new URL(path, base)` with a leading-slash
+path (`packages/providers/src/client.ts`), so a base path is discarded, and only a production change
+teaching the client to serve under one could make a path an identity. A database per test would
+answer a timing bug by rebuilding the harness the `globalSetup` half of this record describes.
+
+**WHERE THE FIX DOES NOT REACH.** Holding the sockets makes reuse impossible WITHIN a file, so a
+second file in `packages/api` binding its own stubs would cross that guarantee silently. There is
+none today. The repo's four other loopback stubs are unaffected for reasons rather than by luck:
+`packages/providers`, `packages/contract` and `packages/config`'s network-gate suite keep no
+database, so nothing is keyed on the identities they mint, and `apps/web/e2e` already closes its
+stubs in its `globalSetup` teardown at the end of the run rather than between tests.
