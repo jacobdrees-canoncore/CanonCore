@@ -666,3 +666,140 @@ describe("a field sent as a file part", () => {
     expect(created.text).not.toContain("Other items,");
   });
 });
+
+/**
+ * A FIELD THE ACTION ACCEPTS AND THE PROCEDURE REFUSES (CNCORE-127), at the
+ * seam the ticket names.
+ *
+ * THE OTHER HALF OF THE 500 ABOVE. The block before this one is a field that is
+ * not TEXT, which the reader in `form.ts` answers. This is a field that IS text
+ * -- `editedTitle` declares `id: z.string()` where `item.retitle` demands
+ * `z.uuid()`, and `title: z.string()` where it demands a title that is not
+ * empty -- so the value passes the ACTION's schema and the ROUTER refuses it.
+ * oRPC raises `BAD_REQUEST` for that, and thrown out of a Server Action it is
+ * neither a redirect nor an HTTP access-fallback error, so Next answers the
+ * bare `Internal Server Error`. MEASURED at this seam on 2026-09-12: both
+ * fields, both 500.
+ *
+ * NO BROWSER COMPOSES EITHER REQUEST, which is why they are asserted here
+ * rather than left to the surfaces above: the id is a hidden field the server
+ * wrote, and the title input carries `required`. A caller composing a request
+ * by hand is bound by neither -- and ADR-0066 says the answer a reader gets
+ * should describe what they asked for rather than claim the server is broken.
+ */
+describe("a field the procedure refuses", () => {
+  it("writes no title when the id names nothing the catalogue could hold", async () => {
+    const at = await anItemOfMyOwn("An item whose id I mistyped");
+
+    const refused = await submit(
+      baseUrl,
+      at,
+      withFields(formIn((await documentAt(at, owner)).text, "edit-title"), {
+        id: "not-a-uuid",
+        title: "A title nobody can have asked for",
+      }),
+      owner,
+    );
+
+    // NOT THE 500, which is the defect: a bare `Internal Server Error` costs the
+    // reader the page they were on and says the server broke.
+    expect(refused.status).toBe(200);
+    expect(refused.text).not.toContain("Internal Server Error");
+    // AND NOTHING WAS WRITTEN, asked for again rather than read out of the
+    // response, so this is the catalogue's answer rather than one render's.
+    const after = await documentAt(at, owner);
+    expect(valueRows(after.text)).toEqual(["Title An item whose id I mistyped Owner"]);
+  });
+
+  /**
+   * THE SECOND FIELD MEASURED, AND THE ONE THE CATALOGUE HAS A REASON TO
+   * REFUSE. `titleByHand` trims and demands one character, because an empty
+   * title projects onto `items.title` as an item whose heading renders BLANK,
+   * where an item with no title statement at all renders "Untitled item" and is
+   * an honest state (ADR-0003). So the procedure declining this is the model
+   * holding, and the owner keeping the title they had is the right outcome of
+   * it.
+   */
+  it("leaves the title standing when the owner is sent an empty one", async () => {
+    const at = await anItemOfMyOwn("An item I still have a name for");
+
+    const refused = await submit(
+      baseUrl,
+      at,
+      withFields(formIn((await documentAt(at, owner)).text, "edit-title"), { title: "" }),
+      owner,
+    );
+
+    expect(refused.status).toBe(200);
+    expect(refused.text).not.toContain("Internal Server Error");
+    const after = await documentAt(at, owner);
+    expect(valueRows(after.text)).toEqual(["Title An item I still have a name for Owner"]);
+    // AND THE HEADING IS THE TITLE RATHER THAN BLANK, which is what ADR-0003
+    // separates from "Untitled item" and is the whole of what the refusal
+    // protects.
+    expect(after.text).toContain(
+      '<h1 class="text-3xl font-medium">An item I still have a name for</h1>',
+    );
+  });
+
+  /**
+   * A SECOND ACTION, WHICH IS WHAT SAYS THE RULE IS SHARED. Everything above is
+   * `retitleItem`, and a fix written into that one function would pass all of
+   * it. `newItem` declares `title: z.string()` against the same `titleByHand`
+   * `item.create` demands, so the create form carries the identical defect --
+   * and `editedNote` and `theTaskNamed` are loose against their routers the same
+   * way. What must not be true is that closing one closed only one.
+   */
+  it("creates no Item when the title the create form carries is empty", async () => {
+    const form = formIn((await documentAt("/new", owner)).text, "new-item");
+
+    const refused = await submit(
+      baseUrl,
+      "/new",
+      withFields(form, { title: "", kind: "work" }),
+      owner,
+    );
+
+    expect(refused.status).toBe(200);
+    expect(refused.text).not.toContain("Internal Server Error");
+    // THE PAGE THE OWNER WAS ON, RENDERED AGAIN. A create that ran would have
+    // redirected to `/items/<id>` and the document coming back would declare
+    // that address canonical (ADR-0066); this one is `/new`, still offering the
+    // form.
+    expect(() => itemAddressIn(refused.text)).toThrow();
+    expect(() => sectionIn(refused.text, "new-item")).not.toThrow();
+  });
+
+  /**
+   * AND THE REFUSAL THAT IS NOT ABOUT A FIELD AT ALL. `ownerProcedure` throws
+   * `UNAUTHORIZED` for a caller with no session (CNCORE-109), which is 401 and
+   * therefore the same answer under the same rule -- so a visitor who composes
+   * the POST the page declines to offer them gets the page rather than a 500.
+   *
+   * THE FORM IS THE OWNER'S OWN RENDER, SENT BACK WITHOUT THE COOKIE, because
+   * a visitor is never shown one: the test above asserts `/items/<id>` carries
+   * no `edit-title` section for them. That is what makes this a request
+   * composed by hand rather than a form replayed.
+   *
+   * IT IS WHAT `what a visitor is offered` ALREADY WORRIES ABOUT, from the
+   * other side. That block's reason for offering no button is that "a Server
+   * Action that throws renders a bare `Internal Server Error` ... an offer the
+   * page cannot honour costs the reader the page they were on". Not offering it
+   * is still right; this is the cost, gone for anyone who asks anyway.
+   */
+  it("writes nothing when a visitor composes the POST the page never offered", async () => {
+    const at = await anItemOfMyOwn("An item only its owner may rename");
+    const theOwnersForm = formIn((await documentAt(at, owner)).text, "edit-title");
+
+    const refused = await submit(
+      baseUrl,
+      at,
+      withFields(theOwnersForm, { title: "A title a visitor chose" }),
+    );
+
+    expect(refused.status).toBe(200);
+    expect(refused.text).not.toContain("Internal Server Error");
+    const after = await documentAt(at, owner);
+    expect(valueRows(after.text)).toEqual(["Title An item only its owner may rename Owner"]);
+  });
+});

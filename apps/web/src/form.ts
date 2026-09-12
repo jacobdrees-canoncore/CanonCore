@@ -55,13 +55,14 @@ export function whatTheFormCarries<Schema extends z.ZodObject>(
    * WHAT THIS DOES NOT CLOSE, AND IT IS THE SAME 500: a value this schema
    * ACCEPTS and the ROUTER refuses. `editedTitle` declares `id: z.string()`
    * where `item.retitle` demands `z.uuid()`, so a hand-composed `id=not-a-uuid`
-   * passes here and raises `BAD_REQUEST` inside `call()`, which is uncaught and
-   * renders the same bare `Internal Server Error`. MEASURED at the
-   * page-over-HTTP seam, both `id=not-a-uuid` and an empty `title` answering
-   * `500 Internal Server Error`. The fix is NOT to restate the router's schema
-   * here -- this file's own docstring refuses that, because the rule about what
-   * a write accepts lives in one place -- but to treat an `ORPCError` under 500
-   * as the answer it is, the way `/api/rpc` already does. TODO(CNCORE-127).
+   * passes here and raises `BAD_REQUEST` inside `call()`. That half is CLOSED
+   * now, and closed somewhere else: `whatTheProcedureAnswered` in `answer.ts`
+   * reads an `ORPCError` under 500 as the answer it is, the way `/api/rpc`
+   * already does one layer over (CNCORE-127). NOT by restating the router's
+   * schema here -- this file's own docstring refuses that, because the rule
+   * about what a write accepts lives in one place. The two readers are one
+   * sentence each side of `call()`: a form field is input whoever rendered the
+   * form, and a procedure's refusal is an answer whoever asked for it.
    *
    * THE COST, ACCEPTED RATHER THAN OVERLOOKED: a field RENAMED on a page and not
    * here now does nothing quietly where it used to answer 500 loudly. What

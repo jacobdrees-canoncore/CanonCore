@@ -273,21 +273,56 @@ renamed on a page and not in its schema is the case that bites. What catches it 
 page-over-HTTP suite, which submits the form the server actually rendered and asserts the write
 happened, so a name that drifts fails a test rather than a reader.
 
-**WHAT DID NOT LAND, SAID HERE BECAUSE HALF A MECHANISM LOOKS FINISHED FROM OUTSIDE.** This closes
-the 500 for a field that is not TEXT. It does NOT close it for a field that IS text, which the
-ACTION's schema accepts and the ROUTER's refuses. `editedTitle` declares `id: z.string()` where
-`item.retitle` demands `z.uuid()`, so a hand-composed id passes the reader and raises `BAD_REQUEST`
-inside `call()` -- uncaught, and the same bare `Internal Server Error`. MEASURED at the
-page-over-HTTP seam on 2026-09-12: `id=not-a-uuid` and an empty `title` both answered
-`500 Internal Server Error`. `theDeviceNamed` and `namedPlacement` are the two that ARE closed,
-because they declare `z.uuid()` on both sides -- which is why the `/devices` assertion passes and is
-not evidence about the others.
+**WHAT DID NOT LAND UNDER CNCORE-123, AND LANDED UNDER CNCORE-127.** That change closed the 500 for
+a field that is not TEXT and left it standing for a field that IS text, which the ACTION's schema
+accepts and the ROUTER's refuses. `editedTitle` declares `id: z.string()` where `item.retitle`
+demands `z.uuid()`, so a hand-composed id passed the reader and raised `BAD_REQUEST` inside `call()`
+-- uncaught, and the same bare `Internal Server Error`. MEASURED at the page-over-HTTP seam on
+2026-09-12: `id=not-a-uuid` and an empty `title` both answered `500 Internal Server Error`.
+`theDeviceNamed` and `namedPlacement` were the two that were already closed, because they declare
+`z.uuid()` on both sides -- which is why the `/devices` assertion passed and was not evidence about
+the others.
 
-**AND THE FIX FOR IT IS NOT TO RESTATE THE ROUTER'S SCHEMA IN THE ACTION**, which is the obvious move
-and the wrong one: `items/actions.ts` says "the rule about what a write accepts lives in one place",
-and a second copy is a second place for the two to disagree. What is left is to treat an `ORPCError`
-under 500 as the ANSWER it is, which `/api/rpc` already does one layer over. CNCORE-127, with a
-`TODO` at the site.
+**AND THE FIX WAS NOT TO RESTATE THE ROUTER'S SCHEMA IN THE ACTION**, which is the obvious move and
+the wrong one: `items/actions.ts` says "the rule about what a write accepts lives in one place", and
+a second copy is a second place for the two to disagree. What was left was to treat an `ORPCError`
+under 500 as the ANSWER it is, which `/api/rpc` already does one layer over. That is
+`whatTheProcedureAnswered` in `apps/web/src/answer.ts`, and it is ONE reader for the same reason
+`whatTheFormCarries` is: written per action, the site nobody remembered would be the site that 500s,
+which is exactly how this survived CNCORE-123.
+
+**THE THREE ACTIONS THAT SAY MORE THAN "NOTHING WAS WRITTEN" STILL DO, and that is what the shared
+reader had to leave room for.** `/login` tells a mistyped password from a bound that is holding
+(ADR-0125), `placeItemInContainer` tells the owner a position is taken, and `logOut` stops on a
+refusal rather than carrying on -- its next line clears the cookie, and a refusal would mean the row
+it names is still there, which is exactly the half-logout ADR-0043 refuses. Each reads the refusal
+the shared rule handed it; none of them classifies one for itself.
+
+**`logOut`'S BRANCH IS UNREACHABLE TODAY, said because the sentence above reads as a live
+distinction and is not one.** `session.logOut` declares no input to refuse, and the only sub-500
+error `ownerProcedure` raises is `UNAUTHORIZED` for a caller with no session -- which that action
+has already established there is. It is a guard on an ordering, kept because the day the procedure
+learns a refusal is the day the guard's absence becomes a silent half-logout, and written down here
+because an unfalsifiable claim in a record is worse than a stated one. Found by review, which
+reached the branch and could not enter it.
+
+**AND THE SAME RULE NOW ANSWERS THE REFUSAL THAT IS NOT ABOUT A FIELD AT ALL.** `ownerProcedure`
+throws `UNAUTHORIZED` for a caller with no session (CNCORE-109), which is 401 and therefore under
+500, so a visitor composing a write this app never offered them gets the page rather than the 500.
+That is wider than the ticket asked for and is the shared rule rather than a second decision: a
+reader that classified by CODE would need adding to for every refusal a procedure learns, and the
+one nobody remembered would be the 500. It is asserted at the page-over-HTTP seam alongside the two
+fields. `/tasks`, `/devices` and the owner's half of `/import` render `NotLoggedIn` for a visitor
+anyway, so what comes back says Log in rather than resembling a write that worked.
+
+**AND `restorePlacement` LOST A NARROWING RATHER THAN GAINING ONE.** It let `NOT_FOUND` past and
+threw everything else, which made a hand-composed id answer 500 on the one surface whose whole
+subject is an id that may be stale. Every refusal now takes the same answer it already gave that
+one: the container as it stands, with the spent offer dropped.
+
+**ASSERTED AT THE PAGE-OVER-HTTP SEAM, on both fields measured above and on a second ACTION** --
+`newItem` declares `title: z.string()` against the same `titleByHand` `item.create` demands, so a
+fix written into `retitleItem` alone would have passed every assertion about the first one.
 
 **THIS RECORD STILL STAYS PROPOSED, and for the same reason as before.** Next is DERIVED and nothing
 derives one. This section widened what "a refusal" means on the write path; it did not touch the

@@ -4,6 +4,7 @@ import { appRouter } from "@canoncore/api/routers";
 import { call } from "@orpc/server";
 import { z } from "zod";
 
+import { whatTheProcedureAnswered } from "@/answer";
 import { whatTheFormCarries } from "@/form";
 import { callerContext } from "@/session";
 
@@ -50,7 +51,9 @@ export async function importRecord(form: FormData): Promise<void> {
   const input = whatTheFormCarries(form, takeRecord);
   if (input === undefined) return;
 
-  await call(appRouter.provider.import, input, { context: await callerContext() });
+  await whatTheProcedureAnswered(
+    call(appRouter.provider.import, input, { context: await callerContext() }),
+  );
 }
 
 /**
@@ -72,7 +75,9 @@ export async function browseOrdering(form: FormData): Promise<void> {
   const input = whatTheFormCarries(form, takeOrdering);
   if (input === undefined) return;
 
-  await call(appRouter.provider.browse, input, { context: await callerContext() });
+  await whatTheProcedureAnswered(
+    call(appRouter.provider.browse, input, { context: await callerContext() }),
+  );
 }
 
 /**
@@ -121,5 +126,7 @@ export async function purgeProvider(form: FormData): Promise<void> {
   const input = whatTheFormCarries(form, purgeTarget);
   if (input === undefined) return;
 
-  await call(appRouter.provider.purge, input, { context: await callerContext() });
+  await whatTheProcedureAnswered(
+    call(appRouter.provider.purge, input, { context: await callerContext() }),
+  );
 }
