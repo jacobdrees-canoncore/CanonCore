@@ -78,17 +78,21 @@ An abstract or fictional thing that is none of the above, including physical obj
 
 **Placement**:
 One item's membership of one container, at one position, carrying every source that
-asserted it.
-_Avoid_: record, edge, membership, link
+asserted it. THE SAME CONSTRUCT FROM EITHER END: from the item's, an ordering it sits in; from the
+container's, something that container holds. Both ends are named Placement in code, because a Repeat
+puts one item in one container twice and the placement is the only thing that can tell those two
+rows apart. The reader's words are "Also appears in" from the item's end and "Members" from the
+container's.
+_Avoid_: record, edge, member, membership, link
 
 **Position**:
 Where a placement sits in its container's ordering. Two placements may share one, and a placement
 may have none.
 
 **Unplaced**:
-A member of a container no source has given a position in. It is a PLACEMENT WITH NO POSITION, never
-an absent placement: dropping it shrinks the container silently and numbering it last asserts an
-order the source never gave. The reader's words are "no position given".
+A placement no source has given a position in. IT IS A PLACEMENT ALL THE SAME, never an absent one:
+dropping it shrinks the container silently and numbering it last asserts an order the source never
+gave. The reader's words are "no position given".
 _Avoid_: unordered, unsorted, orphan, missing
 
 **Repeat**:
