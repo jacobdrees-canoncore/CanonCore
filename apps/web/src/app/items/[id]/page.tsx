@@ -13,6 +13,7 @@ import { notFound } from "next/navigation";
 import { Attribution } from "@/components/attribution";
 import { Holding, type MembersPath, PastTheEnd, type TheRoute, Walk } from "@/components/listing";
 import { type Reorder, reorderedTo } from "@/components/ordering";
+import { SortableMembers } from "@/components/sortable-members";
 import { oneValue } from "@/components/query-params";
 import { callerContext } from "@/session";
 
@@ -480,37 +481,19 @@ function Members({
   // Item and its page is the Item page (ADR-0004, ADR-0066).
   const path: MembersPath = `/items/${itemId}`;
 
-  return (
-    <section className="mt-8" aria-labelledby="members">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
-        <h2 id="members" className="font-medium text-sm">
-          Members
-        </h2>
-        {/*
-          THE CAP IS NEVER SILENT (ADR-0119). This listing had no count at all,
-          so a container of 1,049 stories rendered as an ordering of however
-          many rows the page happened to carry.
+  /*
+    WHAT EACH ROW SAYS, RENDERED ONCE (CNCORE-73). The list below is wrapped two
+    ways -- sortable for an owner, plain for a visitor -- and a row built twice
+    is a row the two wrappers would drift apart on.
 
-          THE NOUN IS `member` BECAUSE THAT IS THE READER'S WORD FROM THIS END.
-          `CONTEXT.md` bans `member` as a NAME in code -- a row here is a
-          Placement -- and settles "Members" as the heading a reader sees from
-          the container's end, which is the same word this sentence counts in.
-          It is not `item`, either: a Repeat is one item twice, so the count
-          would disagree with itself.
-        */}
-        {entries.length > 0 && <Holding showing={entries.length} total={total} noun="member" />}
-      </div>
-      {/*
-        MEMBERS BEHIND IT AND NONE ON THIS PAGE, which is what a cursor makes
-        possible: the link was cut at a member, and nothing is after that member
-        any more. Rare, and a DEAD END if nothing says so -- the reader would
-        get the heading with an empty list under it, which reads as a section
-        that failed to load rather than as an ending.
-      */}
-      {entries.length === 0 && <PastTheEnd path={path} asked={route} />}
-      <ul className="mt-2 divide-y">
-        {entries.map((placement, index) => (
-          <li key={placement.id} className="flex items-baseline justify-between gap-4 py-2">
+    THE POSITION TRAVELS WITH IT, because the sortable list needs it to compute
+    what a drop does (ADR-0116) and only this scope has read it.
+  */
+  const rows = entries.map((placement, index) => ({
+    id: placement.id,
+    position: placement.position,
+    content: (
+      <>
             {/*
               A LINK CARRYING `?via=`, which is the one place on this page that
               owes one. ADR-0066 makes the query the ROUTE a reader arrived
@@ -535,7 +518,15 @@ function Members({
             >
               {placement.title ?? "Untitled item"}
             </Link>
-            <span className="flex items-baseline gap-3 text-muted-foreground text-sm">
+            {/*
+              `ml-auto` RATHER THAN `justify-between` ON THE ROW, because the row
+              gained a third child: an owner's rows lead with a drag handle, and
+              `justify-between` over three children spreads the title into the
+              middle of the line. The trailing group taking the space itself is
+              the same layout for two children and for three, which is what lets
+              the sortable and the plain wrapper share one row (CNCORE-73).
+            */}
+            <span className="ml-auto flex items-baseline gap-3 text-muted-foreground text-sm">
               {/*
                 WHO SAYS IT SITS HERE, which is what tells a Repeat from two
                 sources disagreeing (CNCORE-90). Both are one title twice at two
@@ -615,9 +606,57 @@ function Members({
               )}
               {owner && <RemovePlacement placementId={placement.id} containerId={itemId} />}
             </span>
-          </li>
-        ))}
-      </ul>
+          </>
+    ),
+  }));
+
+  return (
+    <section className="mt-8" aria-labelledby="members">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
+        <h2 id="members" className="font-medium text-sm">
+          Members
+        </h2>
+        {/*
+          THE CAP IS NEVER SILENT (ADR-0119). This listing had no count at all,
+          so a container of 1,049 stories rendered as an ordering of however
+          many rows the page happened to carry.
+
+          THE NOUN IS `member` BECAUSE THAT IS THE READER'S WORD FROM THIS END.
+          `CONTEXT.md` bans `member` as a NAME in code -- a row here is a
+          Placement -- and settles "Members" as the heading a reader sees from
+          the container's end, which is the same word this sentence counts in.
+          It is not `item`, either: a Repeat is one item twice, so the count
+          would disagree with itself.
+        */}
+        {entries.length > 0 && <Holding showing={entries.length} total={total} noun="member" />}
+      </div>
+      {/*
+        MEMBERS BEHIND IT AND NONE ON THIS PAGE, which is what a cursor makes
+        possible: the link was cut at a member, and nothing is after that member
+        any more. Rare, and a DEAD END if nothing says so -- the reader would
+        get the heading with an empty list under it, which reads as a section
+        that failed to load rather than as an ending.
+      */}
+      {entries.length === 0 && <PastTheEnd path={path} asked={route} />}
+      {/*
+        TWO WRAPPERS, ONE ROW. A visitor gets a plain `<ul>` and no drag code at
+        all; an owner gets the sortable list, which is the accelerator on top of
+        the Move controls the row already carries (CNCORE-73). What each row
+        SAYS is rendered here either way -- its link, its sources, its position
+        and its forms -- so the read path, `?via=` and the Server Actions are
+        the same markup for both, and only the ordering is a client concern.
+      */}
+      {owner ? (
+        <SortableMembers containerId={itemId} rows={rows} />
+      ) : (
+        <ul className="mt-2 divide-y">
+          {rows.map((row) => (
+            <li key={row.id} className="flex items-baseline gap-4 py-2">
+              {row.content}
+            </li>
+          ))}
+        </ul>
+      )}
       {/*
         HOW A READER REACHES THE REST OF IT (ADR-0119), and the same component
         the catalogue, work-browsing and Catalogue search walk with -- so the
