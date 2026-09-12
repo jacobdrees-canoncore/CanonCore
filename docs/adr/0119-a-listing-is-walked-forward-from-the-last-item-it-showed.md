@@ -594,8 +594,10 @@ outliving its cause is worse than none: it teaches a reader to distrust a count 
 **THE COUNT'S LATERAL COMES AND GOES WITH THE NARROWING.** The origin a row carries is the kind of
 the source that SPEAKS for it, which is an output of the join that picks the spokesman -- so the
 count subquery beside the entries, which deliberately had none, grows one when and only when it is
-counting a narrowing. CNCORE-121 measured that join at 6.3-12.3 ms against 3.6-4.1 ms over a
-thousand placements; unnarrowed the count still pays nothing.
+counting a narrowing. MEASURED FOR THIS JOIN under CNCORE-129, on one Item in 1,000 orderings with
+two sources each over three runs on PostgreSQL 18.6: 2.7-3.4 ms narrowed against 0.24-0.28 ms
+unnarrowed, the planner using `Index Scan using placement_sources_placement_source`. Unnarrowed the
+count still pays nothing it did not pay before.
 
 **ONE PREDICATE SERVES THE ENTRIES AND THE COUNT, and what makes that possible is worth writing
 down: a fragment naming `spokesman.kind` resolves in WHICHEVER SCOPE IT IS SPLICED INTO.** The walk
@@ -603,12 +605,47 @@ binds it to its own lateral and the count subquery to the one inside itself, bec
 name in the innermost scope that has one. So the two cannot disagree about what was narrowed -- the
 hazard `queries.ts` already carries a paragraph about, met with one fragment rather than two.
 
+**THE EMITTED COUNT, READ OFF THE BUILDER RATHER THAN ASSUMED**, because scope resolution is exactly
+the kind of claim that reads as true and compiles either way:
+
+```sql
+select count(*) from "placements"
+  inner join "items" on "items"."id" = "placements"."container_id"
+  left join lateral (
+    select "sources"."kind", "ranks"."precedence", "sources"."source_order"
+    from "placement_sources"
+      inner join "sources" on "sources"."id" = "placement_sources"."source_id"
+      inner join "ranks" on "ranks"."rank" = "placement_sources"."rank"
+    where ("placement_sources"."placement_id" = "placements"."id"
+      and "placement_sources"."deleted_at" is null)
+    order by "ranks"."precedence", "sources"."source_order", "placement_sources"."id"
+    limit $1
+  ) "spokesman" on true
+where (("placements"."item_id" = $2 and "placements"."deleted_at" is null
+  and "items"."deleted_at" is null) and "spokesman"."kind" = $3)
+```
+
+Its `placements` and `items` are its own, its lateral correlates to its own `placements.id`, and
+`$3` is a BOUND PARAMETER: the origin arrives from a URL and never reaches the statement as text.
+Nothing in it is correlated to the walk outside, which is what keeps the cursor out of the count --
+the property this record already required of it before there was a narrowing to keep out too.
+
 **A SECOND READ IS WHAT THE CHIPS COST, and it is the part that is easy to miss.** Which origins an
 Item has placements from cannot be derived from the rows a narrowing answered: a narrowed page holds
 the one origin it was cut to, so the chips would collapse to the choice the reader had already made
 and the way back to All would be to edit the address by hand. It is a field of its own on the
-listing -- `origins`, named there because [[0045-the-public-read-path-names-every-field]] admits no
-other way -- and it is the one fact in that shape the narrowing does not touch.
+listing -- `everyPlacedBy`, named there because [[0045-the-public-read-path-names-every-field]]
+admits no other way -- and it is the one fact in that shape the narrowing does not touch.
+
+**IT IS NAMED FOR `CONTEXT.md`'s Placed by AND NOT FOR "ORIGIN"**, which review of CNCORE-129 caught
+after the field had shipped under the second name. "Origin" is the prose word the records and the
+ticket use for one Placed-by value, and it has no entry -- and ADR-0066 and the glossary already use
+it for a WEB origin, so a public field named for it would have been a third sense of one word.
+
+**AND IT RUNS ON EVERY ITEM PAGE, NARROWED OR NOT**, because the chips render either way: the
+spokesman's lateral over every Placement of the Item rather than over a capped page of them.
+MEASURED on the same 1,000 orderings: 2.7-2.8 ms. Nothing yet measures an Item in that many
+orderings, so it is a ceiling a real catalogue has not reached rather than a price anybody pays.
 
 **IT IS TWO STATEMENTS RATHER THAN ONE, which is the opposite of the rule about the count**, and the
 asymmetry is argued rather than overlooked. A count in a second statement can disagree with the rows
@@ -620,9 +657,19 @@ count to remove a state indistinguishable from the truthful one.
 **AND THE SECTION IS NO LONGER GATED ON `total`, WHICH IS THE THING IMPLEMENTATION TAUGHT.** That
 number is the NARROWED listing's size now, so it is zero for an origin the Item has nothing from --
 over a list with plenty in it. A section that vanished there would take the chips with it, which is
-the dead end this whole ticket is about. It renders when the Item has orderings OR origins; the one
-Item both miss is one whose every ordering is a Placement no source stands behind, narrowed by hand,
-and what that reader gets is the page they would have got by not narrowing at all.
+the dead end this whole ticket is about. It renders when the Item has orderings OR origins.
+
+**THE ONE ITEM BOTH MISS IS STRANDED, AND IS LEFT, which is said rather than dressed up.** An Item
+whose every ordering is a Placement no source stands behind, narrowed by hand, has neither -- so the
+section vanishes where the address without `?placed=` would show it. An earlier draft of this
+paragraph claimed that reader got "the page they would have got by not narrowing", and review of
+CNCORE-129 found it false. It is left because the app cannot make that Item: `assertPlacement`
+writes a source with every Placement, a withdrawal tombstones the Placement its last source leaves
+([[0075-every-table-carries-a-change-sequence]]), and a purge deletes the ones it orphans. The
+obvious fix, rendering whenever `?placed=` is present, gives an Item in NO ordering a section on any
+address with a `placed` typed onto it -- a non-identifying parameter changing a page when it names
+nothing, which [[0066-path-is-identity-query-is-the-route]] refuses. Telling the two apart needs the
+unnarrowed size as a second field, for an Item nothing can produce.
 
 **THE EMPTY PAGE SPLITS CLEANLY FOR THE SAME REASON.** No rows with a total behind them is the end
 of a walk; no rows and no total is an origin with nothing in it. Those were one state while `total`

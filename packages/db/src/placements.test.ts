@@ -1151,7 +1151,7 @@ describe("findPlacementsOfItem, narrowed to one origin", () => {
     // the cap may reach this answer, or the chips are the page again.
     const narrow = await findPlacementsOfItem(db, story, { limit: 1, placedBy: "provider" });
 
-    expect(whole.origins).toStrictEqual(["owner", "provider"]);
-    expect(narrow.origins).toStrictEqual(["owner", "provider"]);
+    expect(whole.everyPlacedBy).toStrictEqual(["owner", "provider"]);
+    expect(narrow.everyPlacedBy).toStrictEqual(["owner", "provider"]);
   });
 });

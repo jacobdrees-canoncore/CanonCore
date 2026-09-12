@@ -490,11 +490,11 @@ describe("item.get on a container", () => {
     expect(Object.keys(placementsOfItemPublic.shape).sort()).toStrictEqual([
       "continuesAfter",
       "entries",
-      // IT WENT RED HERE WHEN CNCORE-129 ADDED `origins`, which is the
+      // IT WENT RED HERE WHEN CNCORE-129 ADDED `everyPlacedBy`, which is the
       // enumeration working: a listing a reader can narrow has to say what it
       // can be narrowed TO, and that is a field because it is a second question
       // rather than something derivable from the rows.
-      "origins",
+      "everyPlacedBy",
       "total",
     ]);
   });
@@ -993,11 +993,11 @@ describe("item.get on an item in more orderings than one page", () => {
     expect(whole.placements.entries.map((placement) => placement.placedBy)).not.toContain(
       "provider",
     );
-    expect(whole.placements.origins).toStrictEqual(["owner", "provider"]);
+    expect(whole.placements.everyPlacedBy).toStrictEqual(["owner", "provider"]);
     // AND NARROWED TO ONE OF THEM IT STILL OFFERS BOTH, which is the way back to
     // All: chips derived from a narrowed page would hold only the origin the
     // reader had already chosen.
-    expect(narrowed.placements.origins).toStrictEqual(["owner", "provider"]);
+    expect(narrowed.placements.everyPlacedBy).toStrictEqual(["owner", "provider"]);
   });
 
   it("answers an empty listing for an origin it has nothing from, and the chips all the same", async () => {
@@ -1020,6 +1020,6 @@ describe("item.get on an item in more orderings than one page", () => {
 
     expect(item.placements.entries).toStrictEqual([]);
     expect(item.placements.total).toBe(0);
-    expect(item.placements.origins).toStrictEqual(["owner"]);
+    expect(item.placements.everyPlacedBy).toStrictEqual(["owner"]);
   });
 });

@@ -385,7 +385,7 @@ export const item = {
            * narrowing that is one origin wide. A surface deriving its chips from
            * the rows would offer only the origin the reader already chose.
            */
-          origins: placements.origins,
+          everyPlacedBy: placements.everyPlacedBy,
         },
         // THE LISTING AND NOT ONLY ITS ROWS (ADR-0045, ADR-0119): what this page
         // carries, how much the container holds, and where it carries on. The

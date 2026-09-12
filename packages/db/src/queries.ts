@@ -189,6 +189,13 @@ export interface PlacementsOfItem {
    * EVERY ORIGIN THE ITEM HAS A PLACEMENT FROM -- the source kinds of ADR-0071,
    * as `placedBy` on a row carries one.
    *
+   * NAMED FOR `CONTEXT.md`'s **Placed by**, which is the glossary's word for
+   * this and is binding on names in code. "Origin" is the prose word the
+   * records and the ticket use for one of its values, and it stays prose: the
+   * glossary gives it no entry, and the same word already means a WEB origin in
+   * that file and in ADR-0066, so a field named for it would be a third sense.
+   * `every` because this is the whole set and not the narrowing that was asked.
+   *
    * IT IS THE ONE FACT HERE THE NARROWING DOES NOT TOUCH, which is what it is
    * for: these are what a reader narrows WITH, so they are the origins of the
    * WHOLE listing whichever page this is and whichever origin it was cut to.
@@ -200,7 +207,7 @@ export interface PlacementsOfItem {
    * ordering with no origin (ADR-0017), so it is counted in `total` and named
    * here by nothing.
    */
-  origins: string[];
+  everyPlacedBy: string[];
 }
 
 /**
@@ -273,7 +280,6 @@ export async function findPlacementsOfItem(
    * rather than erroring, and a listing of no rows is what "nothing" looks like.
    */
   const narrowedTo = placedBy === undefined ? undefined : eq(spokesman.kind, placedBy);
-  const theseOrderings = and(sitsIn, narrowedTo) as SQL;
   const place = after === undefined ? undefined : await findInThisItemsOrder(db, itemId, after);
 
   /*
@@ -291,7 +297,7 @@ export async function findPlacementsOfItem(
    * into the first would cost the page the lateral over every row of the count
    * to remove a state the reader cannot tell from the truthful one.
    */
-  const [page, origins] = await Promise.all([
+  const [page, everyPlacedBy] = await Promise.all([
     onePage({
       limit,
       read: (howMany) =>
@@ -328,10 +334,7 @@ export async function findPlacementsOfItem(
              * it was cut out of. `countingOrderings` is where the lateral that
              * costs comes and goes with it.
              */
-            total:
-              sql<number>`(${countingOrderings(db, theseOrderings, narrowedTo !== undefined)})`.mapWith(
-                Number,
-              ),
+            total: sql<number>`(${countingOrderings(db, sitsIn, narrowedTo)})`.mapWith(Number),
           })
           .from(placements)
           .innerJoin(items, eq(items.id, placements.containerId))
@@ -346,7 +349,7 @@ export async function findPlacementsOfItem(
            * rather than nothing. The same pairing `findPlacementsInContainer` uses.
            */
           .crossJoinLateral(asserters)
-          .where(and(theseOrderings, place && pastAmongItsOrderings(spokesman, place)))
+          .where(and(sitsIn, narrowedTo, place && pastAmongItsOrderings(spokesman, place)))
           .orderBy(
             /*
              * `nulls last` IS THE DEFAULT FOR `asc` AND IS WRITTEN OUT ANYWAY on
@@ -382,11 +385,11 @@ export async function findPlacementsOfItem(
         placedBy,
         assertedBy,
       }),
-      sizeOnItsOwn: () => countOrderings(db, theseOrderings, narrowedTo !== undefined),
+      sizeOnItsOwn: async () => (await countingOrderings(db, sitsIn, narrowedTo))[0]?.total ?? 0,
     }),
-    originsOfItsOrderings(db, sitsIn),
+    readEveryPlacedBy(db, sitsIn),
   ]);
-  return { ...page, origins };
+  return { ...page, everyPlacedBy };
 }
 
 /**
@@ -407,8 +410,17 @@ export async function findPlacementsOfItem(
  * next. It is the key rather than the reader's word because the read path emits
  * keys here (ADR-0045) -- the four words belong to the surface, and sorting on
  * words this query does not hold would be a second place for them to live.
+ *
+ * AND IT RUNS ON EVERY ITEM PAGE, NARROWED OR NOT, which is the cost the chips
+ * carry: the spokesman's lateral over every placement of the item rather than
+ * over a capped page of them. MEASURED under CNCORE-129 on one item in 1,000
+ * orderings with two sources each: 2.7-2.8 ms over three runs on PostgreSQL
+ * 18.6, `Index Scan using placement_sources_placement_source`, where the
+ * unnarrowed count beside it takes 0.24-0.28 ms. Nothing measures an item in
+ * that many orderings yet, so this is a ceiling a real catalogue has not reached
+ * rather than a price anybody pays today.
  */
-async function originsOfItsOrderings(db: Database, sitsIn: SQL): Promise<string[]> {
+async function readEveryPlacedBy(db: Database, sitsIn: SQL): Promise<string[]> {
   const spokesman = spokesmanFor(db);
   const found = await db
     .selectDistinct({ kind: spokesman.kind })
@@ -420,25 +432,27 @@ async function originsOfItsOrderings(db: Database, sitsIn: SQL): Promise<string[
   return found.map(({ kind }) => kind);
 }
 
-/** How many orderings one item sits in, asked on its own. */
-async function countOrderings(db: Database, within: SQL, narrowed: boolean): Promise<number> {
-  const [counted] = await countingOrderings(db, within, narrowed);
-  return counted?.total ?? 0;
-}
-
 /**
  * HOW MANY ORDERINGS THE LISTING HOLDS, as one query its two readers share: the
  * scalar subquery that rides on the entries, and `sizeOnItsOwn` for the page
  * with no rows for one to ride on. Written once because the two must agree, and
  * since CNCORE-129 they have a narrowing to agree about as well as a predicate.
  *
+ * IT TAKES THE NARROWING ITSELF RATHER THAN A PREDICATE AND A FLAG, so what it
+ * counts and whether it joins the lateral that count needs are one argument and
+ * cannot disagree -- a caller passing a narrowed predicate with `false` would
+ * compare `"spokesman"."kind"` in a query that has no spokesman.
+ *
  * THE LATERAL COMES AND GOES WITH THE NARROWING, and that is a measured cost
  * rather than tidiness. Counting does not need to know WHO asserted a row --
  * the spokesman decides an ORDER, and an order is not part of a count -- so
  * unnarrowed there is none, exactly as before. Narrowed, the kind being
- * compared IS the spokesman's, so the join that picks it has to be here: CNCORE-121
- * measured it at 6.3-12.3 ms against 3.6-4.1 ms over 1,000 placements, and that
- * is the price of a narrowed count rather than of every count.
+ * compared IS the spokesman's, so the join that picks it has to be here.
+ * MEASURED under CNCORE-129 on one item in 1,000 orderings with two sources
+ * each, over three runs on PostgreSQL 18.6: 2.7-3.4 ms narrowed against
+ * 0.24-0.28 ms unnarrowed, the planner using
+ * `Index Scan using placement_sources_placement_source`. That is the price of a
+ * narrowed count rather than of every count.
  *
  * AND THE PREDICATE RESOLVES IN WHICHEVER SCOPE IT IS SPLICED INTO. `narrowedTo`
  * is built from the walk's own spokesman and renders as `"spokesman"."kind"`;
@@ -447,14 +461,14 @@ async function countOrderings(db: Database, within: SQL, narrowed: boolean): Pro
  * the entries' narrowing and the count's at once -- which is the whole reason
  * they cannot drift.
  */
-function countingOrderings(db: Database, within: SQL, narrowed: boolean) {
+function countingOrderings(db: Database, sitsIn: SQL, narrowedTo: SQL | undefined) {
   const counted = db
     .select({ total: sql<number>`count(*)`.mapWith(Number) })
     .from(placements)
     .innerJoin(items, eq(items.id, placements.containerId));
-  return narrowed
-    ? counted.leftJoinLateral(spokesmanFor(db), sql`true`).where(within)
-    : counted.where(within);
+  return narrowedTo === undefined
+    ? counted.where(sitsIn)
+    : counted.leftJoinLateral(spokesmanFor(db), sql`true`).where(and(sitsIn, narrowedTo));
 }
 
 /**

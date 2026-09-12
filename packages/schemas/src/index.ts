@@ -139,8 +139,13 @@ export const placementsOfItemPublic = z.object({
    * EMPTY FOR AN ITEM NOTHING HAS ASSERTED A PLACEMENT OF, which is not an item
    * in no ordering: a placement no source stands behind is an ordering with no
    * origin (ADR-0017), counted in `total` and named here by nothing.
+   *
+   * NAMED FOR `CONTEXT.md`'s **Placed by** rather than for "origin", which is
+   * the prose word for one of its values and has no entry -- and already means a
+   * web origin in that file and in ADR-0066. `every`, because this is the whole
+   * set rather than the narrowing a reader asked for.
    */
-  origins: z.array(z.string()),
+  everyPlacedBy: z.array(z.string()),
 });
 
 export type PlacementsOfItemPublic = z.infer<typeof placementsOfItemPublic>;

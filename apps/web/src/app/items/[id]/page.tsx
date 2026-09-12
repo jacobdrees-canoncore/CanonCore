@@ -845,7 +845,7 @@ function AlsoAppearsIn({
   /** This listing's OWN cursor, if the page was asked with one. */
   appearingFrom?: string;
 }) {
-  const { entries, total, continuesAfter, origins } = placements;
+  const { entries, total, continuesAfter, everyPlacedBy } = placements;
   /*
    * NOTHING AT ALL FOR AN ITEM IN NO ORDERING, which is `total` rather than
    * `entries.length` for the reason `Members` above gives: an entries-length
@@ -861,12 +861,22 @@ function AlsoAppearsIn({
    *
    * THE ONE ITEM BOTH MISS is one whose every ordering is a placement NO SOURCE
    * STANDS BEHIND, narrowed by hand to some origin: it has orderings and no
-   * origins, so this hides a section the address asked to narrow. Nothing in the
-   * app emits that address -- a chip is offered only for an origin the item has
-   * -- and the reader who typed it gets the page they would get by not typing
-   * it, which is the recovery rather than the dead end.
+   * origins, so this hides the section -- and the page without `?placed=` would
+   * SHOW it, so that reader is stranded exactly as this ticket describes. It is
+   * left, because nothing in the app can make that item: `assertPlacement` writes
+   * a source with every placement it writes, a withdrawal tombstones the
+   * placement its last source leaves (ADR-0075), and a purge deletes the ones it
+   * orphans. The fixture's source-less row is written by hand for the walk's
+   * keyless block, and the item it sits on has other origins.
+   *
+   * AND THE OBVIOUS FIX COSTS A REAL CASE FOR THAT ONE. Gating on the narrowing
+   * too -- render whenever `?placed=` is present -- would give an item in NO
+   * ordering an "Also appears in" section on any address somebody typed a
+   * `placed` onto, which is a non-identifying parameter changing the page when it
+   * names nothing (ADR-0066). Telling the two apart needs the unnarrowed size as
+   * well, which is a field for an item the app cannot produce.
    */
-  if (total === 0 && origins.length === 0) return null;
+  if (total === 0 && everyPlacedBy.length === 0) return null;
 
   // `/items/<id>` is where this listing is walked, for the same reason the
   // Members list is: a Container IS an Item and this is the item's own page.
@@ -920,7 +930,7 @@ function AlsoAppearsIn({
         >
           All
         </FilterLink>
-        {origins.map((origin) => (
+        {everyPlacedBy.map((origin) => (
           <FilterLink
             key={origin}
             itemId={itemId}
