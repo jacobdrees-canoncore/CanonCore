@@ -2,8 +2,8 @@ import { and, eq, isNull } from "drizzle-orm";
 
 import { assertClaims, type Transaction } from "./claims";
 import type { Database } from "./index";
-import { theOwnerId } from "./placements";
-import { items, sources } from "./schema";
+import { theOwnerId, theOwnerSource } from "./placements";
+import { items } from "./schema";
 
 /**
  * The catalogue REFUSING an item the owner asked for, as opposed to failing to
@@ -129,26 +129,6 @@ async function titledByTheOwner(
     sourceId: await theOwnerSource(tx, ownerId),
     claims: [{ property: "title", values: [title] }],
   });
-}
-
-/**
- * The owner's own source row: kind `owner`, first in the global order at
- * `source_order` 0 (ADR-0025, migration 1).
- *
- * FOUND, NEVER CREATED, which is the difference from `providerSource`. A
- * provider takes a row on its first import because providers arrive over time;
- * there is exactly one owner (ADR-0044) and migration 1 seeds their source, so
- * a missing row here is a broken install rather than a row to write. Writing
- * one would also have to pick a `source_order`, and every value but 0 would
- * silently put the owner behind a provider.
- */
-async function theOwnerSource(tx: Transaction, ownerId: string): Promise<string> {
-  const [source] = await tx
-    .select({ id: sources.id })
-    .from(sources)
-    .where(and(eq(sources.ownerId, ownerId), eq(sources.kind, "owner")));
-  if (!source) throw new Error("migration 1 seeds the owner as a source; none found");
-  return source.id;
 }
 
 /**

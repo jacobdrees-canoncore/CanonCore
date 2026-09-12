@@ -17,6 +17,10 @@ export {
 export {
   type AssertedPlacement,
   assertPlacement,
+  placeItemByHand,
+  PlacementRefused,
+  removePlacementByHand,
+  restorePlacementByHand,
   type Writer,
 } from "./placements";
 export { type PurgedProvider, previewProviderPurge, purgeProvider } from "./purge";
