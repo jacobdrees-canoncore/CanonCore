@@ -1,4 +1,4 @@
-import { type Database, sessions, startSession } from "@canoncore/db";
+import { type Database, RUN_HISTORY_DEPTH, sessions, startSession } from "@canoncore/db";
 import { connect } from "@canoncore/db/testing/catalogue";
 import { eq } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -290,8 +290,56 @@ describe("the dead-session sweep", () => {
   });
 
   it("is on the list an owner reads, named and triggered", async () => {
+    // BOTH TASKS, IN THE ORDER THIS REPOSITORY WROTE THEM DOWN, which is the
+    // order `/tasks` renders and the order `registry.list` keeps on purpose.
+    // Asserting the whole list rather than one entry is what makes a task added
+    // to `theTasks` and forgotten here fail rather than pass unnoticed.
+    //
+    // AND EACH WITH ITS OWN TRIGGER. Two tasks at one instant would be two jobs
+    // competing for one small machine at no benefit, and a page that could not
+    // tell an owner which hour either runs at would leave them unable to tell a
+    // job that is not due from one that has stopped.
     expect(await taskRegistry().list(db)).toMatchObject([
-      { key: "sweep-sessions", name: "Remove sessions that can no longer answer" },
+      {
+        key: "sweep-sessions",
+        name: "Remove sessions that can no longer answer",
+        trigger: { kind: "daily", atHour: 3 },
+      },
+      {
+        key: "compact-task-runs",
+        name: "Remove runs the history no longer shows",
+        trigger: { kind: "daily", atHour: 4 },
+      },
     ]);
+  });
+});
+
+describe("the run-history compaction", () => {
+  it("runs from the registry, and reports what it removed", async () => {
+    // ADR-0049's OWN CATEGORY, ARRIVING BACK AT ITS OWN TABLE. That record
+    // lists tombstone compaction among the eight things its registry exists to
+    // run, and `task_runs` is a table that only grew: a daily task writes 365
+    // rows a year and nothing removed one. This asserts the registry reaches
+    // the operation -- which is what makes the second task the shape the
+    // registry is FOR rather than another demonstration of it.
+    const registry = taskRegistry();
+    // Compacted first, so the count below is this test's own fixture rather
+    // than a tally of what the tests above happened to leave lying around.
+    await registry.run(db, "compact-task-runs");
+
+    // ONE RUN MORE THAN THE PAGE CAN SHOW, which is the only thing that makes
+    // anything compactable: retention is a DEPTH IN ROWS, so no amount of age
+    // would have made this fixture removable and an earlier version of this
+    // test that aged a row thirty-one days proved nothing once the rule was
+    // corrected. The oldest of these falls off the end; the rest are what
+    // `/tasks` would still render.
+    const watched = createRegistry([aTask({ key: "compacted", run: async () => "did something" })]);
+    for (let made = 0; made < RUN_HISTORY_DEPTH + 1; made++) {
+      await watched.run(db, "compacted");
+    }
+
+    const run = await registry.run(db, "compact-task-runs");
+
+    expect(run).toMatchObject({ outcome: "completed", detail: "Removed 1 run." });
   });
 });
