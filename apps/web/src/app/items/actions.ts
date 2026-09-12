@@ -7,7 +7,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { whatTheProcedureAnswered } from "@/answer";
-import { whatTheFormCarries } from "@/form";
+import { whatTheFormCarries, whatTheFormRepeats } from "@/form";
 import { callerContext } from "@/session";
 
 /**
@@ -172,21 +172,37 @@ export async function annotateItem(form: FormData): Promise<void> {
  * and `z.coerce.number()` on a non-numeric string yields `NaN`, which is not a
  * position either.
  */
+/**
+ * A POSITION, AS A FIELD: a number, or an absence.
+ *
+ * SHARED BY PLACING AND BY REORDERING, because it is one field with one
+ * reading and two forms carry it. Written twice it would be two chances for
+ * "what an empty position box means" to drift.
+ *
+ * AN EMPTY STRING IS THE ABSENCE, and that is the form expressing something the
+ * model has rather than failing to parse: a member with no position is still a
+ * member (migration 2, CONTEXT.md's Unplaced), and an empty number field
+ * submits `""`.
+ *
+ * ANYTHING ELSE UNPARSEABLE IS ALSO `null` RATHER THAN A THROW, for `newItem`'s
+ * reason about its radio group: this is `FormData` from anywhere, and
+ * `Number("banana")` is `NaN`, which is not a position either.
+ *
+ * AND A FIELD THAT IS NOT TEXT AT ALL READS AS `null` TOO (CNCORE-123). A part
+ * sent with a filename reaches `whatTheFormCarries` as "not given", so refusing
+ * the whole write over it would be this field's own rule broken by the shape of
+ * the request rather than by its content.
+ */
+const positionField = z
+  .string()
+  .transform((typed) => (typed.trim() === "" ? null : Number(typed)))
+  .transform((typed) => (typed === null || Number.isInteger(typed) ? typed : null))
+  .catch(null);
+
 const placedMember = z.object({
   containerId: z.string(),
   itemId: z.string(),
-  position: z
-    .string()
-    .transform((typed) => (typed.trim() === "" ? null : Number(typed)))
-    .transform((typed) => (typed === null || Number.isInteger(typed) ? typed : null))
-    /*
-     * AND A FIELD THAT IS NOT TEXT AT ALL READS AS `null` TOO (CNCORE-123). The
-     * sentence above says anything unparseable is `null` "because this is
-     * `FormData` from anywhere", and a part sent with a filename is exactly
-     * that -- so refusing the whole placement over it would be this field's own
-     * rule broken by the shape of the request rather than by its content.
-     */
-    .catch(null),
+  position: positionField,
 });
 
 /**
@@ -324,4 +340,95 @@ export async function restorePlacement(form: FormData): Promise<void> {
   );
 
   redirect(`/items/${containerId}`);
+}
+
+/**
+ * What a Move form carries: the delta, spelled out as fields.
+ *
+ * THE FORM CARRIES THE DELTA RATHER THAN THE GESTURE, which is ADR-0116's
+ * decision about the mutation reaching down here. A reorder writes the
+ * placement that moved and the siblings whose Position actually changed, never
+ * the rebuilt ordering -- and the page knows both, because it rendered the
+ * ordering and `reorderedTo` computed the consequence of this one button.
+ *
+ * AN ACTION THAT RE-READ THE ORDERING WOULD BE A DIFFERENT MUTATION. It would
+ * take "move this up" and work out the rest, which is the shape that record
+ * refuses: the delta is the caller's to compute, and this is the caller.
+ */
+const movedPlacement = z.object({
+  id: z.uuid(),
+  containerId: z.uuid(),
+  position: positionField,
+});
+
+/**
+ * And who shifted for it, which is the one thing on this page that is a LIST.
+ *
+ * TWO PARALLEL FIELDS RATHER THAN ONE ENCODED ONE. `FormData` keeps repeated
+ * names in document order, so `siblingId` and `siblingPosition` zip by index --
+ * ordinary HTML rather than a private format this file would then own the
+ * parser for. The drag builds the same two fields, so both doors post the
+ * identical request.
+ *
+ * NOT `whatTheFormCarries`, AND THE REASON IS THE SHAPE RATHER THAN THE RULE.
+ * That helper reads ONE value per field name, which is every other field in
+ * this app; a list needs `getAll`, and a pair of parallel lists cannot be
+ * derived from a schema's keys. `whatTheFormRepeats` applies the SAME reading
+ * to each value -- a part that is not text is "not given" -- so this is an
+ * extension of that rule rather than a second one.
+ */
+const movedSiblings = z.array(z.object({ id: z.uuid(), position: positionField }));
+
+/**
+ * The owner reordering a container (CNCORE-73), from either door.
+ *
+ * ONE ACTION FOR THE BUTTON AND THE DRAG, because they are one gesture. A page
+ * where the mouse and the keyboard disagreed about what a reorder means would
+ * be two products, and `CLAUDE.md` requires the visible path to exist at all --
+ * so the drag is the accelerator and Move up is the path, over one rule.
+ */
+export async function movePlacement(form: FormData): Promise<void> {
+  const named = whatTheFormCarries(form, movedPlacement);
+  if (named === undefined) return;
+
+  const ids = whatTheFormRepeats(form, "siblingId");
+  const positions = whatTheFormRepeats(form, "siblingPosition");
+  /*
+   * TWO LISTS OF DIFFERENT LENGTHS IS A MALFORMED REQUEST, not a short one.
+   * `positionField` reads a missing value as `null`, which for a position
+   * MEANS unplaced -- so zipping a short list would quietly unplace whatever
+   * ran off the end. No form this page renders can produce it, and refusing is
+   * the reading that cannot be mistaken for a claim.
+   */
+  if (ids.length !== positions.length) return;
+  const shifted = movedSiblings.safeParse(
+    ids.map((id, index) => ({ id, position: positions[index] })),
+  );
+  if (!shifted.success) return;
+
+  /*
+   * A REFUSAL IS AN ANSWER (CNCORE-127), and this action has nothing to add to
+   * either of the two it can meet, so what comes back is not read. NOT_FOUND is
+   * a stale page -- the placement was removed in another tab, or the link was
+   * shared -- and BAD_REQUEST is the catalogue refusing the move itself, which today is a container asked to
+   * hold something it already sits inside (migration 15). Neither is a fault,
+   * and the container AS IT STANDS is the honest answer to both.
+   */
+  await whatTheProcedureAnswered(
+    call(
+      appRouter.placement.move,
+      { ...named, siblings: shifted.data },
+      { context: await callerContext() },
+    ),
+  );
+
+  /*
+   * `refresh()` ON BOTH OUTCOMES, and the refusal is the one that needs it.
+   * With no script the page re-renders anyway, because this form posts to the
+   * container's own address. With script the DRAG has already moved the row on
+   * local state, so a refused move that cleared no client cache would leave the
+   * page showing a reorder that never happened -- the refresh is what hands the
+   * component the server's ordering back and puts the row where it belongs.
+   */
+  refresh();
 }

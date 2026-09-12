@@ -19,7 +19,9 @@ import {
  * bound to one posts as an ordinary `multipart/form-data` request when no
  * script has loaded, so replaying the form the server just rendered observes
  * exactly what a browser with JavaScript switched off observes. ADR-0103's
- * reservation of Playwright for "what genuinely needs a browser" is untouched.
+ * Playwright reservation was spent on the drag under CNCORE-73 and this file is
+ * unaffected: the criterion is "what genuinely needs a browser", and none of
+ * these controls does.
  *
  * ON AN INSTANCE OF ITS OWN, and that is `aCatalogueSafeToPurge`'s reason
  * rather than a new one. This file RETITLES a provider's item, and the seeded

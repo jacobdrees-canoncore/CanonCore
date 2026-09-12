@@ -9,13 +9,17 @@ import { call, isDefinedError, safe } from "@orpc/server";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Fragment } from "react";
 import { Attribution } from "@/components/attribution";
 import { Holding, type MembersPath, PastTheEnd, type TheRoute, Walk } from "@/components/listing";
+import { type Reorder, reorderedTo } from "@/components/ordering";
 import { oneValue } from "@/components/query-params";
+import { SortableMembers } from "@/components/sortable-members";
 import { callerContext } from "@/session";
 
 import {
   annotateItem,
+  movePlacement,
   placeItemInContainer,
   removePlacement,
   restorePlacement,
@@ -526,6 +530,132 @@ function Members({
   // Item and its page is the Item page (ADR-0004, ADR-0066).
   const path: MembersPath = `/items/${itemId}`;
 
+  /*
+    WHAT EACH ROW SAYS, RENDERED ONCE (CNCORE-73). The list below is wrapped two
+    ways -- sortable for an owner, plain for a visitor -- and a row built twice
+    is a row the two wrappers would drift apart on.
+
+    THE POSITION TRAVELS WITH IT, because the sortable list needs it to compute
+    what a drop does (ADR-0116) and only this scope has read it.
+  */
+  const rows = entries.map((placement, index) => ({
+    id: placement.id,
+    position: placement.position,
+    content: (
+      <>
+        {/*
+              A LINK CARRYING `?via=`, which is the one place on this page that
+              owes one. ADR-0066 makes the query the ROUTE a reader arrived
+              through, and a reader following this link IS arriving through this
+              ordering -- so the item's own page can say so, and a refresh or a
+              shared link keeps it. That is the difference from `AlsoAppearsIn`
+              below, whose links go to the container ITSELF and therefore carry
+              nothing.
+
+              THE PLACEMENT'S ID RATHER THAN THIS CONTAINER'S, because a repeat
+              is one item twice in one container: the container cannot say which
+              of the two arrivals this was, and the placement is the only thing
+              that can.
+
+              AN OBJECT RATHER THAN A STRING, for the reason `FilterLink` below
+              gives: Next's typed routes match a string href against the route
+              patterns, and `/items/<id>?<query>` matches none of them.
+            */}
+        <Link
+          href={{ pathname: `/items/${placement.itemId}`, query: { via: placement.id } }}
+          className="hover:underline"
+        >
+          {placement.title ?? "Untitled item"}
+        </Link>
+        {/*
+              `ml-auto` RATHER THAN `justify-between` ON THE ROW, because the row
+              gained a third child: an owner's rows lead with a drag handle, and
+              `justify-between` over three children spreads the title into the
+              middle of the line. The trailing group taking the space itself is
+              the same layout for two children and for three, which is what lets
+              the sortable and the plain wrapper share one row (CNCORE-73).
+            */}
+        <span className="ml-auto flex items-baseline gap-3 text-muted-foreground text-sm">
+          {/*
+                WHO SAYS IT SITS HERE, which is what tells a Repeat from two
+                sources disagreeing (CNCORE-90). Both are one title twice at two
+                positions -- ADR-0009 licences the first and ADR-0017 produces
+                the second -- and nothing stored separates them, so a reader
+                telling them apart is a reader reading these names: one source
+                against two.
+
+                AND ONLY THE NAMES HERE, where `AlsoAppearsIn` below prints them
+                beside a kind. That list carries a FILTER whose four words are
+                kinds; this one asks only WHO claims this position, which a kind
+                cannot answer -- the disagreement a catalogue really holds is a
+                wiki against a broadcaster, two providers, one word between them.
+                `Values` above prints a statement's source label for the same
+                reason.
+              */}
+          <AssertedBy sources={placement.assertedBy} />
+          {/*
+                One expression rather than `#{position}`, for the reason
+                `AlsoAppearsIn` gives: React server-renders a text literal beside
+                an expression with a `<!-- -->` between them.
+
+                AND AN UNPLACED MEMBER SAYS SO rather than being dropped or
+                numbered last. `positionLabel` is shared with the list below, so
+                the two surfaces cannot come to describe the same absence in two
+                different ways -- CONTEXT.md settles the words as "no position
+                given" and is binding on UI copy.
+              */}
+          <span>{positionLabel(placement.position)}</span>
+          {/*
+                NO CONFIRMATION IN FRONT OF IT, WHICH IS ADR-0046's RULE rather
+                than an omission: removing a placement is the most frequent
+                editing act in a product built on multi-placement, and NN/g's
+                "do not use confirmation dialogs for routine actions" is cited
+                there because a heavyweight prompt on the common action is what
+                teaches people to dismiss the dangerous one unread. What it gets
+                instead is the undo above.
+
+                IT NAMES THE PLACEMENT, never the item (ADR-0061). A Repeat is
+                one item twice in one container, so "remove this item from that
+                container" cannot say which row the owner pressed.
+              */}
+          {/*
+                THE VISIBLE PATH TO THE DRAG (CNCORE-73). `CLAUDE.md` requires
+                every keyboard accelerator to have an equivalent visible UI
+                path, and a sortable list is the case that bites: a keyboard
+                sensor makes the surface operable and these make it visible.
+                They are also the WHOLE capability with no script loaded, which
+                is why the page seam can assert reordering without a browser.
+
+                THE FORM CARRIES THE DELTA (ADR-0116), computed here because
+                here is where the ordering is. A reorder writes the placement
+                that moved and the siblings whose Position actually changed,
+                never the rebuilt list.
+
+                NOTHING AT THE ENDS. `reorderedTo` answers null for a landing a
+                placement already occupies, so the first row renders no Move up
+                and the last no Move down -- a control that cannot do anything
+                reads as broken rather than as the end of the list.
+              */}
+          {owner && (
+            <MoveTo
+              containerId={itemId}
+              to={reorderedTo(entries, placement.id, index - 1)}
+              label="Move up"
+            />
+          )}
+          {owner && (
+            <MoveTo
+              containerId={itemId}
+              to={reorderedTo(entries, placement.id, index + 1)}
+              label="Move down"
+            />
+          )}
+          {owner && <RemovePlacement placementId={placement.id} containerId={itemId} />}
+        </span>
+      </>
+    ),
+  }));
+
   return (
     <section className="mt-8" aria-labelledby="members">
       <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
@@ -554,81 +684,25 @@ function Members({
         that failed to load rather than as an ending.
       */}
       {entries.length === 0 && <PastTheEnd path={path} listing="members" asked={route} />}
-      <ul className="mt-2 divide-y">
-        {entries.map((placement) => (
-          <li key={placement.id} className="flex items-baseline justify-between gap-4 py-2">
-            {/*
-              A LINK CARRYING `?via=`, which is the one place on this page that
-              owes one. ADR-0066 makes the query the ROUTE a reader arrived
-              through, and a reader following this link IS arriving through this
-              ordering -- so the item's own page can say so, and a refresh or a
-              shared link keeps it. That is the difference from `AlsoAppearsIn`
-              below, whose links go to the container ITSELF and therefore carry
-              nothing.
-
-              THE PLACEMENT'S ID RATHER THAN THIS CONTAINER'S, because a repeat
-              is one item twice in one container: the container cannot say which
-              of the two arrivals this was, and the placement is the only thing
-              that can.
-
-              AN OBJECT RATHER THAN A STRING, for the reason `FilterLink` below
-              gives: Next's typed routes match a string href against the route
-              patterns, and `/items/<id>?<query>` matches none of them.
-            */}
-            <Link
-              href={{ pathname: `/items/${placement.itemId}`, query: { via: placement.id } }}
-              className="hover:underline"
-            >
-              {placement.title ?? "Untitled item"}
-            </Link>
-            <span className="flex items-baseline gap-3 text-muted-foreground text-sm">
-              {/*
-                WHO SAYS IT SITS HERE, which is what tells a Repeat from two
-                sources disagreeing (CNCORE-90). Both are one title twice at two
-                positions -- ADR-0009 licences the first and ADR-0017 produces
-                the second -- and nothing stored separates them, so a reader
-                telling them apart is a reader reading these names: one source
-                against two.
-
-                AND ONLY THE NAMES HERE, where `AlsoAppearsIn` below prints them
-                beside a kind. That list carries a FILTER whose four words are
-                kinds; this one asks only WHO claims this position, which a kind
-                cannot answer -- the disagreement a catalogue really holds is a
-                wiki against a broadcaster, two providers, one word between them.
-                `Values` above prints a statement's source label for the same
-                reason.
-              */}
-              <AssertedBy sources={placement.assertedBy} />
-              {/*
-                One expression rather than `#{position}`, for the reason
-                `AlsoAppearsIn` gives: React server-renders a text literal beside
-                an expression with a `<!-- -->` between them.
-
-                AND AN UNPLACED MEMBER SAYS SO rather than being dropped or
-                numbered last. `positionLabel` is shared with the list below, so
-                the two surfaces cannot come to describe the same absence in two
-                different ways -- CONTEXT.md settles the words as "no position
-                given" and is binding on UI copy.
-              */}
-              <span>{positionLabel(placement.position)}</span>
-              {/*
-                NO CONFIRMATION IN FRONT OF IT, WHICH IS ADR-0046's RULE rather
-                than an omission: removing a placement is the most frequent
-                editing act in a product built on multi-placement, and NN/g's
-                "do not use confirmation dialogs for routine actions" is cited
-                there because a heavyweight prompt on the common action is what
-                teaches people to dismiss the dangerous one unread. What it gets
-                instead is the undo above.
-
-                IT NAMES THE PLACEMENT, never the item (ADR-0061). A Repeat is
-                one item twice in one container, so "remove this item from that
-                container" cannot say which row the owner pressed.
-              */}
-              {owner && <RemovePlacement placementId={placement.id} containerId={itemId} />}
-            </span>
-          </li>
-        ))}
-      </ul>
+      {/*
+        TWO WRAPPERS, ONE ROW. A visitor gets a plain `<ul>` and no drag code at
+        all; an owner gets the sortable list, which is the accelerator on top of
+        the Move controls the row already carries (CNCORE-73). What each row
+        SAYS is rendered here either way -- its link, its sources, its position
+        and its forms -- so the read path, `?via=` and the Server Actions are
+        the same markup for both, and only the ordering is a client concern.
+      */}
+      {owner ? (
+        <SortableMembers containerId={itemId} rows={rows} />
+      ) : (
+        <ul className="mt-2 divide-y">
+          {rows.map((row) => (
+            <li key={row.id} className="flex items-baseline gap-4 py-2">
+              {row.content}
+            </li>
+          ))}
+        </ul>
+      )}{" "}
       {/*
         HOW A READER REACHES THE REST OF IT (ADR-0119), and the same component
         the catalogue, work-browsing and Catalogue search walk with -- so the
@@ -1274,6 +1348,57 @@ async function PlaceAnItem({
         </p>
       )}
     </section>
+  );
+}
+
+/**
+ * MOVING ONE PLACEMENT UP OR DOWN, as a form carrying the delta (ADR-0116).
+ *
+ * THE DELTA IS IN THE FORM, which is what lets a Server Action apply it without
+ * re-reading the ordering. A reorder sends the placement that moved and the
+ * siblings whose Position actually changed; an action that took "move this up"
+ * and worked the rest out would be a different mutation from the one that
+ * record decides on.
+ *
+ * `siblingId` AND `siblingPosition` IN PARALLEL, because `FormData` keeps
+ * repeated names in document order and zipping them by index is ordinary HTML.
+ * The drag posts the identical two fields, so both doors reach one parser.
+ *
+ * AN ABSENT POSITION IS AN EMPTY FIELD, never a missing one. A member with no
+ * position is still a member (CONTEXT.md's Unplaced), and an omitted field and
+ * an empty one would be the same request with two meanings.
+ *
+ * NOTHING AT ALL FOR A MOVE THAT CANNOT HAPPEN. `reorderedTo` answers null for
+ * a landing a placement already occupies, so the first row renders no Move up
+ * and the last no Move down -- a control that cannot do anything reads as
+ * broken rather than as the end of the list. Taking that null HERE is review's
+ * finding: the wrapper this replaces did nothing but render two of these.
+ */
+function MoveTo({
+  containerId,
+  to,
+  label,
+}: {
+  containerId: string;
+  to: Reorder | null;
+  label: string;
+}) {
+  if (!to) return null;
+  return (
+    <form action={movePlacement}>
+      <input type="hidden" name="id" value={to.id} />
+      <input type="hidden" name="containerId" value={containerId} />
+      <input type="hidden" name="position" value={to.position ?? ""} />
+      {to.siblings.map((sibling) => (
+        <Fragment key={sibling.id}>
+          <input type="hidden" name="siblingId" value={sibling.id} />
+          <input type="hidden" name="siblingPosition" value={sibling.position ?? ""} />
+        </Fragment>
+      ))}
+      <Button type="submit" variant="ghost" size="sm">
+        {label}
+      </Button>
+    </form>
   );
 }
 

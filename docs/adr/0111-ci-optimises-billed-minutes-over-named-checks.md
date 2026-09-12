@@ -394,3 +394,21 @@ tables, the commands that produced each measurement, and section 10's record of 
 under verification. GitHub's workflow-syntax and contexts references supplied the `head_ref`
 semantics; the billing behaviour came from the usage API and the billing documentation. The Turbo
 cache-miss and strict-env probes above were run in this worktree rather than reasoned about.
+
+## The fourteenth job, under CNCORE-73
+
+`The page in a browser` is a job of its own, and the argument for it is the one this record's title
+no longer makes here: **it was decided on DIAGNOSABILITY, because there is no cost left to decide it
+on.** CNCORE-80 established that standard runners are free in a public repository, so folding the
+browser suite into `The page over HTTP` would save $0.00 — and what a separate job buys is that a
+flake in the most expensive and most brittle suite in the repository reddens a check that names the
+browser rather than the check that says the app serves pages at all.
+
+**WHAT IT COSTS IS SETUP RATHER THAN MONEY, AND THAT IS WHAT WAS WEIGHED.** The job pays for its own
+Postgres, its own `next build` and a `playwright install`. It duplicates ONE instance, not the seven
+`The page over HTTP` stands up, because a suite asserting one claim needs one ordering to drag.
+
+**THE COUNT IS FOURTEEN**, from thirteen: secrets, docs, typecheck, lint, build, env-guard, test,
+migrations, e2e, browser, provider, contract, image, image-manifest. Stated because a reader of this
+record should be able to check the claim above against the file rather than take it, and because the
+four static checks being four named jobs is only visible as a count if somebody keeps one.

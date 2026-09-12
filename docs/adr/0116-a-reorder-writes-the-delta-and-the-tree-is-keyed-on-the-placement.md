@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 ---
 
 # A reorder writes the delta, and the tree is keyed on the Placement
@@ -44,11 +44,11 @@ owner-asserted placement of their own. That is right for import and wrong for an
 The write path needs its own mutations that name a Placement by id — place, move, remove, restore —
 which is [[0061-containers-own-their-membership]]'s explicitly unbuilt half.
 
-**THREE OF THE FOUR ARE BUILT, under CNCORE-72: place, remove and restore.** `move` is the one the
-drag needs and it arrives with the drag, under CNCORE-73 — so this record stays `proposed`, and what
-is missing is the half this record is actually ABOUT. The three that landed confirmed the paragraph
-above at the seam: `assertPlacement` is untouched and goes on being the import path, and the owner's
-hand has its own function that refuses where that one corroborates.
+**ALL FOUR ARE BUILT.** Place, remove and restore landed under CNCORE-72; `move` — the one the drag
+needs, and the half this record is actually ABOUT — arrived with the drag under CNCORE-73, which is
+what flips this record to `accepted`. The four confirmed the paragraph above at the seam:
+`assertPlacement` is untouched and goes on being the import path, and the owner's hand has its own
+functions that refuse where that one corroborates.
 
 ## Positions are nullable and shareable, and the tree must not quietly fix that
 
@@ -120,3 +120,99 @@ this one is the reason it would be worth doing.
 **The mutation is the seam, not the component.** The tree maths — flatten, project a depth, find the
 descendants — stays behind this repository's own boundary rather than living inside the drag
 library's component, so a library bump touches one file and not the rules.
+
+## As built, under CNCORE-73: positions are SLOTS, and a reorder permutes the members among them
+
+This record said what a reorder must NOT do — invent numbers, break ties, number the unplaced — and
+left the arithmetic to whoever wrote it. Writing it produced one rule that yields all three, and the
+rule is worth naming because it is shorter than the list it replaces:
+
+> **THE ORDERING'S POSITIONS STAY ATTACHED TO THEIR INDEX AND THE PLACEMENTS MOVE BETWEEN THEM.**
+> The multiset of positions a container holds is invariant under a reorder.
+
+- **No number is invented.** An ordering of 1, 5 and 63 reordered still reads 1, 5 and 63. The
+  obvious alternative — shift the neighbours by one — writes positions nobody asserted into rows a
+  provider placed, which is the laundering this record refuses whole-ordering writes for. The same
+  mistake with a smaller blast radius, and it would have arrived wearing the word "delta".
+- **No tie is broken**, including one the drag passes through, because tied slots stay tied.
+- **An unplaced member keeps its absence**, because `null` is a slot like any other. "Dropping INTO
+  the unpositioned group leaves the dropped Placement unpositioned" falls out of the model rather
+  than being special-cased.
+
+**WHAT THE MODEL COSTS IS NAMED HERE BECAUSE IT IS SURPRISING.** Dragging ACROSS the boundary
+between positioned and unpositioned MOVES that boundary: pull an unplaced member to the top and the
+last positioned row takes the null it left behind. That is the honest reading of a gesture saying
+"this one is first and that one is no longer placed", and it is licensed by this record's own
+qualification — a drag that does not touch an unpositioned member does not give it a number, and
+this one touches it. It is also the arithmetic becoming painful in exactly the place the
+Consequences above point at fractional indexing for.
+
+**A TIE THE DRAG LANDS IN CANNOT BE LANDED IN PRECISELY, and that is the model telling the truth.**
+The read path orders by `(position, id)`, so two placements sharing a slot are ordered by ids nobody
+chose, and a drop between them renders wherever those ids put it. Refusing the gesture would be
+worse — the tie is legal and [[0009-multi-parent-membership-with-ordering]] put it there on purpose
+— so the drop is honoured and the page shows where it actually landed.
+
+**THE ARITHMETIC RUNS OVER THE PAGE, NOT THE ORDERING.** The Members list is walked
+([[0119-a-listing-is-walked-forward-from-the-last-item-it-showed]]), so a reorder permutes the slots
+the reader can see and cannot move a member onto a page it is not on. That is a consequence of the
+cap rather than a rule chosen here, and it is honest: the gesture cannot express what the page
+cannot show.
+
+## The mutation is one rule called from two doors
+
+**THE DRAG IS AN ACCELERATOR, NOT THE CAPABILITY.** `CLAUDE.md` requires every keyboard accelerator
+to have an equivalent visible UI path, so each row carries Move up and Move down as native forms
+bound to a Server Action — and those are the whole of reordering before any script loads. A reader
+who never gets the drag loses nothing, and the page seam can assert reordering without a browser.
+
+**BOTH DOORS POST THE IDENTICAL REQUEST**, which is what stops them drifting: `reorderedTo` is a
+pure module this repository owns, the fields are the same `siblingId`/`siblingPosition` pairs
+whether a button or a drop built them, and one parser reads both. A page where the mouse and the
+keyboard disagreed about what a reorder means would be two products.
+
+**THE FORM CARRIES THE DELTA RATHER THAN THE GESTURE.** The page has the ordering, so it computes
+what each button would do and renders that consequence into the form. An action that took "move this
+up" and re-read the ordering to work the rest out would be a different mutation from the one this
+record decides on, and it would put the arithmetic somewhere the drag could not share.
+
+## A reorder is one permutation, and the unique had to learn that — migration 14
+
+**`placements_container_item_position` IS CHECKED ROW BY ROW, AND A PERMUTATION'S INTERMEDIATE
+STATES NEED NOT KEEP A RULE ITS END STATE KEEPS.** A Repeat dragged past its own other copy lands on
+that copy's tuple mid-transaction and fails on a constraint the finished ordering does not break.
+Measured against PostgreSQL 18: an owner dragging an episode above its own recap got
+`duplicate key value violates unique constraint`.
+
+[[0009-multi-parent-membership-with-ordering]] licences the Repeat and this record makes the tuple
+the rule, so neither is the thing to weaken. What was wrong is WHEN the rule is read: "the same item
+is never in one container twice at one position" is a claim about a container, and a container is
+only observable between transactions. The constraint is now `DEFERRABLE INITIALLY IMMEDIATE`, so
+every other write in the repository is checked exactly where it was and only the move defers, for
+itself.
+
+**THE COST IS THAT A DEFERRED REFUSAL ARRIVES AT THE COMMIT**, where the row that broke it is no
+longer in hand. `placements.ts` catches it there rather than at the statement; the SQLSTATE is the
+same `23505`, so the owner still meets the sentence this record asks for rather than a 500.
+
+## The tree, and what it will owe when it arrives
+
+**NO TREE WAS PORTED UNDER CNCORE-73.** The Members list is flat and sortable; a Container cannot be
+dragged INTO another Container from the page. That was the right scope — every acceptance criterion
+on that ticket is about reordering within one container — but this record talks about a tree
+throughout, so what the port still owes is written here rather than left to be rediscovered:
+
+- **`buildTree` SILENTLY DROPS ORPHANS.** The reference implementation's `if (!parent) continue;`
+  makes a member whose parent is not in the projected set VANISH from the rendering. A member that
+  disappears is the same failure as a dropped Placement, which this model refuses everywhere else:
+  the port makes it an explicit error or reparents to root, and does not inherit the `continue`.
+- **The descendant guard is interaction, never the invariant**, which the section above already
+  says. The database refuses the cycle and already does — migration 15, under
+  [[0074-cycles-are-refused-and-walks-carry-a-visited-set]].
+- **Keying is already settled**, and it is the part most likely to be "simplified" back to the item
+  id by whoever ports the reference file.
+
+**THE MUTATION IS ALREADY TREE-SHAPED.** `placement.move` takes a DESTINATION container, because
+this record's own first sentence is "its new container and its new position" — so the cycle a tree
+could express is expressible today through the mutation, which is why the refusal was built with the
+drag rather than deferred to the tree.
