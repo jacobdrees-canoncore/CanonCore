@@ -1,11 +1,13 @@
 import { appRouter } from "@canoncore/api/routers";
-import { Button } from "@canoncore/ui/components/button";
+import type { DeclaredCredential, Reach } from "@canoncore/providers";
+import { Button, buttonVariants } from "@canoncore/ui/components/button";
 import { Input } from "@canoncore/ui/components/input";
 import { Textarea } from "@canoncore/ui/components/textarea";
 import { call } from "@orpc/server";
 import Link from "next/link";
 
 import { oneValue } from "@/components/query-params";
+import { Reason } from "@/components/reason";
 import { callerContext } from "@/session";
 
 import { editAllowlist, nameProvider, removeProvider } from "./actions";
@@ -102,25 +104,17 @@ export default async function SettingsPage({
                     spellings would be two Providers.
                   */}
                   <p className="text-sm">{provider.baseUrl}</p>
-                  {provider.admitted ? null : (
-                    /*
-                      WHICH OF THE TWO SETTINGS REFUSES IT, which is ADR-0121's
-                      own condition on accepting two settings for one concept.
-                      An instance that reaches nothing has to say which one to go
-                      and change, because one answer could not.
-                    */
-                    <p className="text-muted-foreground text-xs">
-                      The allowlist below does not admit this host, so it is never reached. Add its
-                      host or address range to the allowlist.
-                    </p>
-                  )}
+                  <ReachNotice reach={provider.reach} />
                 </div>
-                <form action={removeProvider}>
-                  <input name="baseUrl" type="hidden" value={provider.baseUrl} />
-                  <Button size="sm" type="submit" variant="outline">
-                    Remove
-                  </Button>
-                </form>
+                <div className="flex shrink-0 items-center gap-2">
+                  <UnlockAt reach={provider.reach} />
+                  <form action={removeProvider}>
+                    <input name="baseUrl" type="hidden" value={provider.baseUrl} />
+                    <Button size="sm" type="submit" variant="outline">
+                      Remove
+                    </Button>
+                  </form>
+                </div>
               </li>
             ))}
           </ul>
@@ -190,6 +184,221 @@ export default async function SettingsPage({
         </form>
       </section>
     </main>
+  );
+}
+
+/**
+ * A PROVIDER'S READING, IN WHICHEVER OF THREE FAULTS IT IS IN (CNCORE-101).
+ *
+ * THREE THINGS WITH THREE DIFFERENT FIXES, and the whole job of this component
+ * is that they never render alike. A Provider the allowlist refuses, one that
+ * did not answer, and one that answered and needs Unlocking send the Owner to
+ * three different places -- a setting on this page, their own network, and the
+ * Provider's own unlock path -- so a surface that collapsed any two of them
+ * would send them to the wrong one. ADR-0121 already made this page pay that
+ * cost for the two settings; ADR-0122 extends it to the Provider's end.
+ *
+ * THE REACHED-AND-NEEDING-NOTHING CASE RENDERS NOTHING, which is the fourth
+ * outcome and the ordinary one. Every Provider that existed before ADR-0122
+ * declares no credential, and a line reassuring the Owner about each of them is
+ * noise on the page where the one that DOES need something has to stand out.
+ */
+function ReachNotice({ reach }: { reach: Reach }) {
+  if (reach.kind === "not-admitted") {
+    /*
+      WHICH OF THE TWO SETTINGS REFUSES IT, which is ADR-0121's own condition on
+      accepting two settings for one concept. An instance that reaches nothing
+      has to say which one to go and change, because one answer could not.
+    */
+    return (
+      <p className="text-muted-foreground text-xs">
+        The allowlist below does not admit this host, so it is never reached. Add its host or
+        address range to the allowlist.
+      </p>
+    );
+  }
+
+  if (reach.kind === "unreachable") {
+    /*
+      IT DOES NOT SAY "COULD NOT BE REACHED", AND THAT IS THE TRUER SENTENCE
+      RATHER THAN THE WEAKER ONE. This branch covers a Provider that never
+      answered AND one that answered something `packages/providers` will not
+      parse -- a 500, a manifest with a number where its name goes. "Could not
+      be reached" is false of the second, and it is false of it directly above a
+      reason that says `answered 500`, which is a sentence contradicting itself
+      in two lines. `/import`'s `NotReached` reached the same wording by the same
+      argument.
+    */
+    return (
+      <p className="text-muted-foreground text-xs">
+        Nothing could be read from this Provider. <Reason reason={reach.reason} />
+      </p>
+    );
+  }
+
+  return reach.credential === null ? null : <Credential credential={reach.credential} />;
+}
+
+/**
+ * WHAT THIS PROVIDER NEEDS, AND WHETHER IT HAS IT (ADR-0122).
+ *
+ * THE LABEL IS QUOTED BECAUSE IT IS THE PROVIDER'S SENTENCE, which is ADR-0123's
+ * rule applied to the one piece of provider prose that is not a failure reason.
+ * The Provider is named on the row directly above, so the quotation marks are
+ * the whole of what is needed to stop the Owner reading it as CanonCore
+ * speaking. Its LENGTH was settled before it arrived, at the same seam and by
+ * the same function as every other provider text this app prints.
+ *
+ * THREE STATES THAT SAY THREE DIFFERENT THINGS, and the expired one says WHEN.
+ * `expired` alone does not tell the Owner whether the session lapsed a minute
+ * ago or three weeks ago, and those are the difference between renewing it and
+ * going to find out what else broke.
+ */
+function Credential({ credential }: { credential: DeclaredCredential }) {
+  return (
+    <p className="text-muted-foreground text-xs">
+      <q>{credential.label}</q> <State credential={credential} />
+      {credential.unlockUrl === null ? <PathRefused /> : null}
+    </p>
+  );
+}
+
+/**
+ * WHY THERE IS NO LINK, WHEN THERE IS NO LINK.
+ *
+ * `unlockUrlFor` withholds the URL where the declared path would have left the
+ * Provider's own origin, because that value's one destination is an `href` the
+ * Owner is about to click and then hand a credential to. Saying NOTHING about
+ * that would leave them reading "has not been Unlocked" beside no way to Unlock
+ * it -- a Provider that looks merely locked while it is actually misbehaving,
+ * which is the collapse of two different faults this surface exists to keep
+ * apart.
+ *
+ * THE PATH ITSELF IS NOT PRINTED. It is the Provider's string and naming the
+ * host it points at would put the destination on the page in text, which is most
+ * of what withholding the link was for.
+ */
+function PathRefused() {
+  return (
+    <>
+      {" "}
+      CanonCore is not linking to it: the unlock path this Provider declared leads somewhere other
+      than the Provider, so it is refused.
+    </>
+  );
+}
+
+function State({ credential }: { credential: DeclaredCredential }) {
+  const when = credential.changedAt;
+  if (credential.state === "absent") {
+    return <>This Provider has not been Unlocked, so it can answer nothing yet.</>;
+  }
+  if (credential.state === "expired") {
+    return (
+      <>
+        Its Credential lapsed
+        <On at={when} />, so it can answer nothing until it is Unlocked again.
+      </>
+    );
+  }
+  return (
+    <>
+      Unlocked
+      <On at={when} />.
+    </>
+  );
+}
+
+/**
+ * ` on <date>`, or nothing at all where the Provider gave no date.
+ *
+ * ONE FRAGMENT RATHER THAN TWO IDENTICAL ONES. Both sentences above need the
+ * same optional clause, and written out twice they are two places for the
+ * spacing to drift -- which on a rendered sentence shows up as a missing space
+ * before a date rather than as anything a type would catch.
+ */
+function On({ at }: { at: string | null }) {
+  if (at === null) return null;
+  return (
+    <>
+      {" "}
+      on <When at={at} />
+    </>
+  );
+}
+
+/**
+ * A TIME, IN UTC AND SAID SO -- the convention `/devices` set and for its reason.
+ *
+ * THE SERVER CANNOT KNOW THE READER'S TIMEZONE, and this page is rendered on the
+ * server with no script to correct it afterwards. A time printed in whatever
+ * zone the server happens to run in, unlabelled, is one the Owner cannot compare
+ * against "I unlocked that last week", which is the entire question this is read
+ * to answer.
+ *
+ * IT DOES NOT RE-CHECK THAT THE PROVIDER SENT A DATE. `cmppManifest` holds
+ * `state_changed_at` to `z.iso.datetime()` on the way in and `settings.read`
+ * states the same type on the way out, so a value reaching here is one both have
+ * already accepted. An earlier version of this parsed defensively and rendered
+ * the raw string on `NaN`; that branch could not be reached, and a guard nothing
+ * can trip reads as protection while protecting nothing.
+ */
+function When({ at }: { at: string }) {
+  return (
+    <time dateTime={at}>
+      {`${new Intl.DateTimeFormat("en-GB", {
+        dateStyle: "long",
+        timeStyle: "short",
+        timeZone: "UTC",
+      }).format(new Date(at))} UTC`}
+    </time>
+  );
+}
+
+/**
+ * THE LINK, WHICH IS THIS TICKET AFTER ITS CORRECTION (ADR-0122).
+ *
+ * A LINK AND NEVER A FORM. CNCORE-101 was filed asking for a form CanonCore
+ * would render from the Provider's manifest and POST what the Owner typed;
+ * MCP's 2026-07-28 revision prohibits exactly that mechanism by name -- "Servers
+ * MUST NOT use form mode elicitation to request sensitive information such as
+ * passwords, API keys, access tokens" -- and BCP 240 removed OAuth's password
+ * grant over the same leak surface. "CanonCore stores nothing" bought NOT AT
+ * REST and never bought NEVER SEES IT, because a forwarded value still passes
+ * through this app's request handler. So the Owner goes to the Provider and
+ * CanonCore holds nothing at all.
+ *
+ * OFFERED IN EVERY STATE A CREDENTIAL IS DECLARED IN, INCLUDING `valid`. An
+ * expired Provider must be re-Unlockable without being removed and re-added,
+ * which is a criterion of its own; and a valid one is worth offering too,
+ * because a credential the Owner wants to replace early is not a fault anything
+ * here would know about.
+ *
+ * `rel="noreferrer"` BECAUSE THE DESTINATION IS A THIRD PARTY'S. ADR-0031 makes
+ * a Provider an untrusted URL, and the referrer would hand it the address of the
+ * settings page it was reached from. It is NOT opened in a new tab: the Owner is
+ * going there to do something and come back, and `target="_blank"` on a link the
+ * Provider chose the destination of is the combination that earns `noopener`
+ * arguments this avoids having.
+ *
+ * WHERE THE LINK IS MISSING, THE NEED IS STILL SHOWN. `unlockUrl` is null when
+ * the declared path left the Provider's own origin, which `unlockUrlFor`
+ * refuses; the label and the state above still render, because the Provider is
+ * up and what it says about itself is still worth the Owner reading.
+ */
+function UnlockAt({ reach }: { reach: Reach }) {
+  if (reach.kind !== "reached" || reach.credential === null) return null;
+  const { unlockUrl } = reach.credential;
+  if (unlockUrl === null) return null;
+
+  return (
+    <a
+      className={buttonVariants({ size: "sm", variant: "secondary" })}
+      href={unlockUrl}
+      rel="noreferrer"
+    >
+      Unlock it
+    </a>
   );
 }
 

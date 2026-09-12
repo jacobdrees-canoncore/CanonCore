@@ -290,6 +290,15 @@ ADR-0122 corrected: forwarding buys not-at-rest rather than never-sees-it, since
 still passes through CanonCore's request handler.
 _Avoid_: token, secret, key, api key
 
+**Reach**:
+How far this instance got with one Provider, as the settings surface reports it: refused by the
+allowlist, reached, or reached and unreadable. Three standings rather than a flag, because they have
+three different fixes — a setting on the page, the Provider's own unlock path, and the Owner's
+network — and a surface that collapsed any two would send them to the wrong one (ADR-0122).
+`health` is deliberately NOT on the list below: ADR-0122 uses "health check" for the thing it
+declines to add, and `healthCheckResult` on the read path is that legitimate other meaning.
+_Avoid_: status, online
+
 **Unlock**:
 Giving a Provider its Credential, at the Provider's own unlock path. A Provider with none stays
 reachable and answers nothing, saying so — it is not broken and it is not empty. The act is not the

@@ -37,6 +37,14 @@ export {
 } from "./cmpp";
 export { nameProvider, parseProviderUrls, removeProvider } from "./configured";
 export {
+  type DeclaredCredential,
+  type ProviderReach,
+  type Reach,
+  reachProviders,
+  unlockUrlFor,
+} from "./credential";
+export {
+  bounded,
   type FailureReason,
   failureReason,
   REASON_MAX_LENGTH,
