@@ -54,8 +54,11 @@ than twenty words — so a renamed heading or a moved file fails loudly instead 
 guarding nothing. It caught `catalogueEntryPublic` and `cataloguePublic.entries` on its first run;
 CNCORE-114 owns those.
 
-**NOT BUILT: everything that names the read path without emitting it.** Three gaps, and they are the
-half a reader would otherwise assume was covered:
+**NOT BUILT: everything that names the read path without emitting it.** Four things the check does
+not reach, and they are the half a reader would otherwise assume was covered. This paragraph said
+"three" over a list of four, which is the kind of arithmetic a record should not be trusted on: one
+of the four argues it is the right line rather than a gap, and the fix is to let it argue that on
+its own line rather than to leave it uncounted.
 
 - **Type aliases.** `PlacementInContainerPublic` is erased before the test runs, so only value
   exports and their keys are seen. This is arguably the right line rather than a gap — a type alias
