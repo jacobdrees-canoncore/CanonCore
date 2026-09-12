@@ -519,8 +519,16 @@ function Members({
         `?via=` a reader arrived through or the origin they narrowed to. The
         cursor goes last of the three, which is ADR-0066's fixed spelling order
         with a third parameter appended rather than inserted.
+
+        AND IT IS GATED ON THERE BEING ROWS, exactly as `/` and `/works` gate
+        theirs -- which review of CNCORE-89 found this was not. Past the end of
+        the walk BOTH this and `PastTheEnd` above render, and both offer "Back
+        to the start": the reader met the same link twice, either side of an
+        empty list. The notice owns that page, so the walk stands down on it.
       */}
-      <Walk path={path} asked={route} from={from} continuesAfter={continuesAfter} />
+      {entries.length > 0 && (
+        <Walk path={path} asked={route} from={from} continuesAfter={continuesAfter} />
+      )}
     </section>
   );
 }

@@ -7,6 +7,7 @@ import {
   findPlacementsInContainer,
   items,
   placementSources,
+  placements,
 } from "./index";
 import { anItemTitled, aPlacement, aProvider, connect, ownerSource } from "./testing/catalogue";
 
@@ -253,6 +254,52 @@ describe("findPlacementsInContainer, walked", () => {
     expect(kept.entries.map((placement) => placement.id)).toStrictEqual(written.slice(2));
     // AND THE DELETED MEMBER IS GONE TO THE READER (ADR-0075), which is what
     // separates "the anchor keeps its place" from "the anchor is still shown".
+    expect(kept.total).toBe(3);
+  });
+
+  it("RESUMES past an anchor whose PLACEMENT was deleted, which is the other tombstone", async () => {
+    // THE SECOND HALF OF THE CLAIM ADR-0119 MAKES, asserted because the record
+    // said "tombstoning the placement leaves its position standing too" and only
+    // the ITEM half was tested -- which review of CNCORE-89 found. The two
+    // tombstones are different rows: the test above deletes the member's Item,
+    // and this deletes the membership itself while the Item goes on existing.
+    //
+    // BOTH MUST RESUME, and for the same reason: `placements.position` is a
+    // stored column, so neither delete destroys the anchor's place in this
+    // ordering the way a delete destroys `coalesce(sort_name, title)`.
+    const owner = await ownerSource(db);
+    const container = await anItemTitled(db, "An ordering a membership left", {
+      isContainer: true,
+      isOrdered: true,
+    });
+    const written: string[] = [];
+    for (const position of [1, 2, 3, 4]) {
+      const story = await anItemTitled(
+        db,
+        `A story of the ordering a membership left, ${position}`,
+      );
+      written.push(
+        await assertPlacement(db, {
+          containerId: container,
+          itemId: story,
+          position,
+          sourceId: owner,
+        }),
+      );
+    }
+    const cut = await findPlacementsInContainer(db, container, { limit: 2 });
+    expect(cut.continuesAfter).toBe(written[1]);
+    await db
+      .update(placements)
+      .set({ deletedAt: new Date() })
+      .where(eq(placements.id, cut.continuesAfter ?? ""));
+
+    const kept = await findPlacementsInContainer(db, container, {
+      limit: 10,
+      after: cut.continuesAfter ?? "",
+    });
+
+    expect(kept.entries.map((placement) => placement.id)).toStrictEqual(written.slice(2));
     expect(kept.total).toBe(3);
   });
 

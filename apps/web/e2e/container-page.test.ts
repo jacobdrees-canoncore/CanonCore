@@ -17,17 +17,22 @@ const workBrowsing = inject("workBrowsing");
 /**
  * Just the "Members" section, so an assertion cannot match the rest of the page.
  *
- * IT STOPS AT THE FIRST `</section>`, which matters on ONE page: past the end of
- * the walk the listing renders `PastTheEnd`, whose own `<section>` is nested
- * inside this one -- so what comes back there is the heading down to the end of
- * that notice, and the `Walk` below it is outside. Every assertion made on that
- * page is about the notice, so this is a limit to know rather than a fault; an
- * assertion about the walk on a past-the-end page would need the whole section.
+ * IT TAKES THE WHOLE SECTION, NESTED ONES INCLUDED, which is a fix rather than a
+ * tidy-up. It stopped at the FIRST `</section>`, and past the end of the walk
+ * the listing renders `PastTheEnd` -- whose own `<section>` is nested inside
+ * this one -- so everything below that notice fell outside what this returned.
+ * What was hiding there was a defect: the walk rendered a second "Back to the
+ * start" under the notice's own, and no assertion could see it (CNCORE-89
+ * review). The end is now the LAST `</section>` before the next sibling
+ * heading, which is `also-appears-in`.
  */
 function members(text: string): string {
-  const found = text.match(/<section[^>]*aria-labelledby="members".*?<\/section>/)?.[0];
-  if (!found) throw new Error("the page rendered no `members` section");
-  return found;
+  const opened = text.indexOf('aria-labelledby="members"');
+  if (opened === -1) throw new Error("the page rendered no `members` section");
+  const start = text.lastIndexOf("<section", opened);
+  const next = text.indexOf('aria-labelledby="also-appears-in"', opened);
+  const end = next === -1 ? text.length : text.lastIndexOf("<section", next);
+  return text.slice(start, end);
 }
 
 /** The rows of that list, one string each, so an assertion can ask WHICH row. */
@@ -319,5 +324,16 @@ describe("/items/<a container holding more than one page>", () => {
     // and offered nothing to click is the same dead end with a caption on it.
     expect(members(beyond.text)).toContain(`href="/items/${container.id}"`);
     expect(members(beyond.text)).toContain("end here");
+    // AND EXACTLY ONE OF IT. The notice and the walk each offer a way back, and
+    // both rendered here until CNCORE-89's review: the reader met the same link
+    // twice, either side of an empty list. The notice owns this page.
+    //
+    // COUNTED AS RENDERED ANCHORS RATHER THAN AS THE PHRASE, because the phrase
+    // appears again in the RSC flight payload this document carries -- the
+    // serialised tree, in a `<script>`, which is not something a reader can
+    // click. A count of the words answers 2 for a correct page and would have
+    // made this assertion fail against the fix it exists to hold.
+    const waysBack = members(beyond.text).match(/<a[^>]*>Back to the start<\/a>/g) ?? [];
+    expect(waysBack).toHaveLength(1);
   });
 });

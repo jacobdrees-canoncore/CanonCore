@@ -67,11 +67,13 @@ export type ListingPath = "/" | "/works" | "/search";
  * why `ListingPath` above stays a union of literals and this is separate: the
  * three that ARE their listing can be enumerated, and this one cannot.
  *
- * A TEMPLATE LITERAL RATHER THAN `string`, so a caller still cannot hand this
- * an arbitrary path. `typedRoutes` resolves a `Link`'s object href against the
- * routes it generated and this is the shape of the one it generated for
- * `/items/[id]`, which is the same form the member rows themselves are linked
- * with.
+ * A TEMPLATE LITERAL RATHER THAN `string`, which narrows this to the shape
+ * `typedRoutes` generated for `/items/[id]` -- the same form the member rows
+ * themselves are linked with. It is a SHAPE and not a guarantee: `/items/../x`
+ * satisfies it too, and what makes every emitted address an item's is that the
+ * one caller builds it from `item.id`. A type that could enforce that would be
+ * a branded id, which is a change to how every route in this app is written
+ * rather than something this listing gets to introduce.
  */
 export type MembersPath = `/items/${string}`;
 
@@ -150,7 +152,7 @@ const ENDS_HERE = {
    * container's end, so that is the word the sentence ends with.
    */
   members: "This container's Members end here",
-} as const;
+} as const satisfies Record<ListingPath | "members", string>;
 
 /**
  * Which listing is ending, from the address it is walked on.
@@ -158,12 +160,20 @@ const ENDS_HERE = {
  * A LOOKUP RATHER THAN A PARAMETER, which is the fix `PastTheEnd` already
  * carries a paragraph about: it took a `path` and a free-text `what`, nothing
  * held the two in step, and `what="The works"` rendered "The works ends here".
- * The three literal paths key themselves; the fourth cannot, so it is named --
- * and the record above is exhaustive over the union either way, so a fifth
- * surface does not compile without a sentence.
+ * The three literal paths key themselves; the fourth cannot, so it is named.
+ *
+ * AND BOTH HALVES ARE CHECKED, WHICH REVIEW OF CNCORE-89 FOUND THEY WERE NOT.
+ * This record carried `Record<ListingPath, string>` until a key arrived that is
+ * not a path, and dropping the annotation dropped the check with it -- leaving
+ * a comment here claiming an exhaustiveness nothing held. The `satisfies` above
+ * is one half: every listing path still owes a sentence. The `satisfies` below
+ * is the other: a fifth surface added to `Walking` fails to compile here,
+ * where a bare fallthrough would silently have rendered a container's sentence
+ * over somebody else's listing.
  */
 function endsHere(path: Walking["path"]): string {
   if (path === "/" || path === "/works" || path === "/search") return ENDS_HERE[path];
+  path satisfies MembersPath;
   return ENDS_HERE.members;
 }
 
@@ -333,7 +343,7 @@ export function PastTheEnd({ path, asked }: Walking) {
             <h2 id="past-the-end">{endsHere(path)}</h2>
           </EmptyTitle>
           <EmptyDescription>
-            Nothing sorts after the entry this link was cut at. It is the last one in this listing
+            Nothing sorts after the one this link was cut at. It is the last one in this listing
             now, whether or not it was when the link was made.
           </EmptyDescription>
         </EmptyHeader>

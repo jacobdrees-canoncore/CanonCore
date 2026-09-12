@@ -9,6 +9,7 @@ import {
   not,
   or,
   type SQL,
+  type SQLWrapper,
   sql,
 } from "drizzle-orm";
 import { z } from "zod";
@@ -151,6 +152,18 @@ function spokesmanFor(db: Database) {
  * one item in many containers at once, each with a position of its own
  * (ADR-0009), and the position lives on the PLACEMENT rather than on the item
  * (ADR-0018) so no ordering can overwrite another's.
+ *
+ * TODO(CNCORE-125): IT IS UNCAPPED, AND SINCE CNCORE-89 IT IS THE ONLY LISTING
+ * IN THE APP THAT IS. ADR-0119's first sentence is "every listing in CanonCore
+ * is capped"; this takes no `limit` and no `after` while `item.get` awaits it
+ * on every item page. The cap is not added here because this page now carries
+ * one cursor already and a second needs a name of its own -- and because the
+ * order is `coalesce(sort_name, title)` then the two rank terms then the id,
+ * which is more terms than `pastInTwoRegimes` below takes. Both are that
+ * ticket's to decide. Said with its limit: nothing measures how many orderings
+ * one item sits in, where ADR-0077 measures a container at 1,049 members, so
+ * this is the rule applied for consistency rather than a page seen to fall
+ * over.
  */
 export async function findPlacementsOfItem(
   db: Database,
@@ -708,6 +721,49 @@ interface PlaceInTheOrder {
 }
 
 /**
+ * EVERYTHING A LISTING SHOWS AFTER ONE ROW, where the order is a key that may
+ * be NULL and an id behind it (ADR-0119). Written ONCE for both such walks.
+ *
+ * TWO REGIMES, AND A ROW COMPARISON CANNOT EXPRESS BOTH. The order is the rows
+ * with a key ascending and then the rows with none, so `(null, x) > (k, y)` --
+ * which is NULL rather than true -- would drop that whole keyless block off the
+ * walk permanently, from every page. The catalogue's keyless block is the items
+ * nobody has titled and a container's is its Unplaced members; both are real
+ * rows a reader must reach, and the criterion is that none is skipped.
+ *
+ * AND THE ID IS THE HALF THAT MAKES IT TOTAL. Two rows sharing a key are
+ * separated by their ids, and a cursor comparing only the key steps over the
+ * second of them -- a tie in the catalogue's order, and in a container's a pair
+ * ADR-0009 licenses by keeping no unique constraint on (container_id, position).
+ *
+ * BUILT WITH THE QUERY BUILDER'S OWN `or` AND `and` rather than one raw `sql`
+ * template, which ADR-0119 records as a precedence bug no walk test can see:
+ * `A or (B and C)` written raw and composed with a listing's own `WHERE`
+ * renders as `(within and A) or (B and C)`, and the tie branch escapes the
+ * listing entirely.
+ *
+ * ONE FUNCTION AND NOT TWO, WHICH REVIEW OF CNCORE-89 ASKED FOR. The two walks
+ * had a copy each, identical but for which columns they named -- and every
+ * paragraph above is a rule that has to hold in both. `walkListing`'s QUERY is
+ * what could not be shared (a different relation), which is a narrower claim
+ * than the one the copy was making.
+ */
+function pastInTwoRegimes(
+  order: { key: SQLWrapper; id: SQLWrapper },
+  at: { key: string | number | null; id: string },
+): SQL | undefined {
+  // Already among the rows with no key, so the id is the whole order left.
+  if (at.key === null) return and(isNull(order.key), gt(order.id, at.id));
+  return or(
+    // Every row with no key sorts after every row with one.
+    isNull(order.key),
+    gt(order.key, at.key),
+    // THE TIEBREAK, and it is the half that makes the walk total.
+    and(eq(order.key, at.key), gt(order.id, at.id)),
+  );
+}
+
+/**
  * Everything the catalogue lists AFTER one item (ADR-0119).
  *
  * NAMED FOR THE ORDER IT WALKS, because `walkListing` above takes a `past` of
@@ -715,24 +771,12 @@ interface PlaceInTheOrder {
  * sharing a name with a function in the same file reads as that function.
  * Catalogue search's `pastInTheRanking` is the same pairing one file over.
  *
- * TWO REGIMES, AND A ROW COMPARISON CANNOT EXPRESS BOTH. The order is the
- * items with a sort key ascending and then the items with none, so `(null, x)
- * > (k, y)` -- which is NULL rather than true -- would drop every untitled item
- * off the walk permanently. An item nobody has titled is still an item, and the
- * criterion is that none is skipped.
+ * THE ORDER IS ADR-0014's PROJECTED KEY and then the item's id. What that
+ * costs to get wrong is on `pastInTwoRegimes` above, which is the whole of the
+ * comparison.
  */
 function pastInTheOrder({ sortKey, id }: PlaceInTheOrder): SQL | undefined {
-  // Already among the ones with no sort key, so the id is the whole order left.
-  if (sortKey === null) return and(isNull(SORT_KEY), gt(items.id, id));
-  return or(
-    // Every item with no sort key sorts after every item with one.
-    isNull(SORT_KEY),
-    gt(SORT_KEY, sortKey),
-    // THE TIEBREAK, and it is the half that makes the walk total: two items
-    // sorting the same are separated by their ids, and a cursor comparing only
-    // the key would step over the second of them.
-    and(eq(SORT_KEY, sortKey), gt(items.id, id)),
-  );
+  return pastInTwoRegimes({ key: SORT_KEY, id: items.id }, { key: sortKey, id });
 }
 
 /** One row a cursor might name, read the way every walk has to read it. */
@@ -1135,35 +1179,14 @@ async function findInTheContainersOrder(
 /**
  * Everything a container holds AFTER one of its own placements (ADR-0119).
  *
- * TWO REGIMES, AND A ROW COMPARISON CANNOT EXPRESS BOTH -- the same shape
- * `pastInTheOrder` has above, over a different pair of columns. The order is
- * the placements with a position ascending and then the ones with none, so
- * `(null, x) > (k, y)` -- NULL rather than true -- would drop every Unplaced
- * member off the walk permanently. CONTEXT.md is explicit that an Unplaced
- * member is a placement with no position rather than an absent one, and the
- * criterion is that none is skipped.
- *
- * AND THE ID IS THE HALF THAT MAKES IT TOTAL. ADR-0009 keeps no unique
- * constraint on (container_id, position), so two placements may share one
- * position -- a cursor comparing only the position would step over the second
- * of them.
- *
- * BUILT WITH THE QUERY BUILDER'S OWN `or` AND `and` rather than one raw `sql`
- * template, which ADR-0119 records as a precedence bug that no walk test can
- * see: `A or (B and C)` written raw and composed with the listing's own `WHERE`
- * renders as `(held and A) or (B and C)`, and the tie branch escapes the
- * container entirely.
+ * THE ORDER IS ADR-0018's POSITION and then the placement's id, and both halves
+ * are load-bearing for the reasons `pastInTwoRegimes` gives: the keyless block
+ * here is CONTEXT.md's Unplaced -- a placement with no position rather than an
+ * absent one -- and the ties are the ones ADR-0009 licenses by keeping no
+ * unique constraint on (container_id, position).
  */
 function pastInThisContainer({ position, id }: PlaceInTheContainer): SQL | undefined {
-  // Already among the ones with no position, so the id is the whole order left.
-  if (position === null) return and(isNull(placements.position), gt(placements.id, id));
-  return or(
-    // Every placement with no position sorts after every placement with one.
-    isNull(placements.position),
-    gt(placements.position, position),
-    // THE TIEBREAK, and it is the half that makes the walk total.
-    and(eq(placements.position, position), gt(placements.id, id)),
-  );
+  return pastInTwoRegimes({ key: placements.position, id: placements.id }, { key: position, id });
 }
 
 /**

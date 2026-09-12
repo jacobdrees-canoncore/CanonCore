@@ -392,9 +392,11 @@ a delete does NOT destroy, so its anchor still has a place and can still be resu
 out of the listing and leaves the placement row untouched, and tombstoning the placement leaves its
 position standing too. So an anchor here keeps its place after the member it names is gone, and a
 reader five pages into a Container is NOT sent back to its first page because one member went away
-under them. **Asserted rather than reasoned** — a container walked to a cursor, the anchor's Item
-deleted, the cursor asked again — and mutation-checked by applying the catalogue's own rule here,
-which starts the ordering over and fails it.
+under them. **Asserted rather than reasoned, on BOTH tombstones** — a container walked to a cursor, then the
+anchor's Item deleted in one test and the anchor's PLACEMENT deleted in another, the cursor asked
+again each time — and mutation-checked by applying the catalogue's own rule here, which starts the
+ordering over and fails it. The second test exists because review of CNCORE-89 found this paragraph
+claiming both halves while only the first was held.
 
 **So the split was worth having, and this is the evidence rather than the argument.** A rule written
 as "a deleted anchor names no position" would have been true of the two orders that existed and
