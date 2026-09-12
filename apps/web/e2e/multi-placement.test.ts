@@ -108,7 +108,7 @@ let tmdbSpecials: string;
 let wikiSeries1: string;
 let rose: string;
 /** Every member of the wiki's `Series 2`, by the title the import gave it. */
-let series2Members: Map<string, string>;
+let series2Items: Map<string, string>;
 
 beforeAll(async () => {
   db = createDb(inject("databaseUrl"));
@@ -121,14 +121,14 @@ beforeAll(async () => {
     containerId: SERIES_2,
   });
   wikiSeries2 = browsed.containerId;
-  series2Members = await membersByTitle(browsed.members);
+  series2Items = await itemsByTitle(browsed.placements);
 
   const series1 = await client.provider.browse({
     baseUrl: inject("providerWikiUrl"),
     containerId: SERIES_1,
   });
   wikiSeries1 = series1.containerId;
-  const roseId = (await membersByTitle(series1.members)).get("Rose (TV story)");
+  const roseId = (await itemsByTitle(series1.placements)).get("Rose (TV story)");
   if (roseId === undefined) throw new Error("the browse of Series 1 placed no Rose");
   rose = roseId;
 
@@ -376,24 +376,24 @@ function positionIn(
 }
 
 /**
- * Every member a browse wrote, by title.
+ * Every item a browse placed, by title.
  *
- * BY TITLE RATHER THAN BY INDEX. `members[2]` would work and would also go on
+ * BY TITLE RATHER THAN BY INDEX. `placements[2]` would work and would also go on
  * working if the ordering silently changed, which is the one thing this fixture
  * is about.
  */
-async function membersByTitle(members: { itemId: string }[]): Promise<Map<string, string>> {
+async function itemsByTitle(placements: { itemId: string }[]): Promise<Map<string, string>> {
   const byTitle = new Map<string, string>();
-  for (const member of members) {
-    const item = await client.item.get({ id: member.itemId });
-    if (item.title !== null) byTitle.set(item.title, member.itemId);
+  for (const placement of placements) {
+    const item = await client.item.get({ id: placement.itemId });
+    if (item.title !== null) byTitle.set(item.title, placement.itemId);
   }
   return byTitle;
 }
 
 /** One of the wiki's `Series 2` stories, by the title the archive gives it. */
 function story(title: string): string {
-  const id = series2Members.get(title);
+  const id = series2Items.get(title);
   if (id === undefined) throw new Error(`the browse of Series 2 placed no ${title}`);
   return id;
 }

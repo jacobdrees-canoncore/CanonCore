@@ -35,7 +35,7 @@ describe("/items/<a container>", () => {
     // have it. It asked a browsed container, whose members were inserted in the
     // order the provider handed them over, so PostgreSQL returned them correctly
     // ordered from a query with no `order by` at all. Measured: removing the
-    // `orderBy` from `findMembersOfContainer` left that assertion passing, and
+    // `orderBy` from `findPlacementsInContainer` left that assertion passing, and
     // only reversing the sort could fail it. This one fails against both.
     const { status, text } = await documentAt(`/items/${workBrowsing.workContainerId}`);
 

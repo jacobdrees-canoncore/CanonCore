@@ -88,8 +88,8 @@ const PROPERTY: Record<string, string> = {
 /**
  * Where a placement sits, in the reader's words.
  *
- * A MEMBER WITH NO POSITION IS STILL A MEMBER (migration 2), and this is where
- * a reader meets one: the source put the item in this container and said
+ * A PLACEMENT WITH NO POSITION IS STILL A PLACEMENT (migration 2), and this is
+ * where a reader meets one: the source put the item in this container and said
  * nothing about where. Printing `#null` would be the model leaking, and leaving
  * the row out would hide a membership that is real.
  *
@@ -208,7 +208,7 @@ export default async function ItemPage({
         the section renders nothing, so the order costs a non-container reader
         nothing.
       */}
-      <Members members={item.members} />
+      <Members holds={item.holds} />
       <AlsoAppearsIn
         itemId={item.id}
         placements={item.placements}
@@ -285,6 +285,12 @@ function Values({ statements }: { statements: ItemOnThePage["statements"] }) {
  * WHAT THIS CONTAINER HOLDS, in its own order (ADR-0018) -- and the mirror of
  * `AlsoAppearsIn` below, which is every ordering this item sits IN.
  *
+ * NAMED FOR ITS HEADING RATHER THAN FOR ITS TYPE, which is why `Members`
+ * survives CNCORE-91 while `memberPublic` did not. `AlsoAppearsIn` is named the
+ * same way -- neither component is called after the shape it renders -- and
+ * `CONTEXT.md` settles "Members" as the reader's word from the container's end.
+ * The rows are `placementInContainerPublic`, and the reader never sees that.
+ *
  * THIS IS WHERE BROWSING INTO A CONTAINER LANDS. A Container is an Item
  * (ADR-0004), so its page is the Item page: ADR-0066 makes the path identity,
  * and a second route for a container would be one thing at two addresses, which
@@ -297,8 +303,8 @@ function Values({ statements }: { statements: ItemOnThePage["statements"] }) {
  * two rows here legitimately share one `itemId`, and React given the item id
  * would see one key twice.
  */
-function Members({ members }: { members: ItemOnThePage["members"] }) {
-  if (members.length === 0) return null;
+function Members({ holds }: { holds: ItemOnThePage["holds"] }) {
+  if (holds.length === 0) return null;
 
   return (
     <section className="mt-8" aria-labelledby="members">
@@ -306,13 +312,13 @@ function Members({ members }: { members: ItemOnThePage["members"] }) {
         Members
       </h2>
       <ul className="mt-2 divide-y">
-        {members.map((member) => (
-          <li key={member.id} className="flex items-baseline justify-between gap-4 py-2">
+        {holds.map((placement) => (
+          <li key={placement.id} className="flex items-baseline justify-between gap-4 py-2">
             {/*
               A LINK CARRYING `?via=`, which is the one place on this page that
               owes one. ADR-0066 makes the query the ROUTE a reader arrived
               through, and a reader following this link IS arriving through this
-              ordering -- so the member's page can say so, and a refresh or a
+              ordering -- so the item's own page can say so, and a refresh or a
               shared link keeps it. That is the difference from `AlsoAppearsIn`
               below, whose links go to the container ITSELF and therefore carry
               nothing.
@@ -327,10 +333,10 @@ function Members({ members }: { members: ItemOnThePage["members"] }) {
               patterns, and `/items/<id>?<query>` matches none of them.
             */}
             <Link
-              href={{ pathname: `/items/${member.itemId}`, query: { via: member.id } }}
+              href={{ pathname: `/items/${placement.itemId}`, query: { via: placement.id } }}
               className="hover:underline"
             >
-              {member.title ?? "Untitled item"}
+              {placement.title ?? "Untitled item"}
             </Link>
             {/*
               One expression rather than `#{position}`, for the reason
@@ -343,7 +349,9 @@ function Members({ members }: { members: ItemOnThePage["members"] }) {
               different ways -- CONTEXT.md settles the words as "no position
               given" and is binding on UI copy.
             */}
-            <span className="text-muted-foreground text-sm">{positionLabel(member.position)}</span>
+            <span className="text-muted-foreground text-sm">
+              {positionLabel(placement.position)}
+            </span>
           </li>
         ))}
       </ul>

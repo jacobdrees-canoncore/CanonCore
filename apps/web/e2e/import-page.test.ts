@@ -405,7 +405,7 @@ describe("/import, before a container's ordering is imported", () => {
     expect(sectionIn(text, "container")).toContain(said.title);
   });
 
-  it("says how many members the browse would write, before it writes them", async () => {
+  it("says how many placements the browse would write, before it writes them", async () => {
     /*
      * ONE PRESS WRITES A CONTAINER'S WORTH OF PLACEMENTS -- that is the whole
      * reason `browse` exists (ADR-0033) -- and the page used to describe what
@@ -417,8 +417,8 @@ describe("/import, before a container's ordering is imported", () => {
     if (said.answer !== "container") {
       throw new Error(`the provider handed over no container: ${said.answer}`);
     }
-    expect(said.members).toBeGreaterThan(0);
-    expect(sectionIn(text, "container")).toContain(`${said.members} members`);
+    expect(said.placements).toBeGreaterThan(0);
+    expect(sectionIn(text, "container")).toContain(`${said.placements} members`);
   });
 
   it("writes nothing, which is what asking on the GET has to mean", async () => {
