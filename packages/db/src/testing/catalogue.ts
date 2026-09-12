@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { inject } from "vitest";
 
 import "./provided";
@@ -74,6 +74,52 @@ export async function anItemTitled(
 export async function readItem(db: Database, id: string) {
   const [item] = await db.select().from(items).where(eq(items.id, id));
   return item;
+}
+
+/**
+ * EVERY Item that carries one provider record's id, rather than the one
+ * `findItemsProvided` answers with.
+ *
+ * IT IS THAT QUERY WITHOUT THE `Map`. The production one keys its answer by the
+ * record's id, so two Items carrying that id collapse into a single entry --
+ * whichever row the planner returned last -- and every surface built on it
+ * (`provider.held`, `provider.search`, the import page's own rows) reports one
+ * Item while the catalogue holds two. This answers with the rows, so a test can
+ * assert HOW MANY there are rather than only which one won.
+ *
+ * IT LIVES HERE AND NOT IN THE SUITE THAT USES IT, because it repeats six
+ * predicates and three tombstones that `findItemsProvided` also spells out. A
+ * copy in an app's e2e file would drift the first time a column moved and would
+ * go on passing while it did; here it is one grep from the query it shadows.
+ *
+ * NO md5 CLAUSE, which changes no row. In `queries.ts` that clause is what
+ * reaches the index -- `value_literal` is unbounded text and a btree tuple is
+ * capped at 2704 bytes -- and the value comparison beside it is what makes a
+ * collision harmless. Equality on the value alone is strictly narrower than
+ * equality on its hash, so the row set is identical and only the plan differs.
+ */
+export async function itemsCarrying(
+  db: Database,
+  { identity, externalId }: { identity: string; externalId: string },
+): Promise<string[]> {
+  const rows = await db
+    .select({ itemId: items.id })
+    .from(statements)
+    .innerJoin(items, eq(items.id, statements.subjectItemId))
+    .innerJoin(properties, eq(properties.id, statements.propertyId))
+    .innerJoin(sources, eq(sources.id, statements.sourceId))
+    .where(
+      and(
+        eq(properties.name, "external_id"),
+        eq(sources.kind, "provider"),
+        eq(sources.identity, identity),
+        eq(statements.valueLiteral, externalId),
+        isNull(statements.deletedAt),
+        isNull(items.deletedAt),
+        isNull(sources.deletedAt),
+      ),
+    );
+  return rows.map(({ itemId }) => itemId);
 }
 
 /**

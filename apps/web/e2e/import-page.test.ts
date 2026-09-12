@@ -1,8 +1,8 @@
 import type { AppRouterClient } from "@canoncore/api/routers";
-import { createDb, items, properties, sources, statements } from "@canoncore/db";
+import { createDb } from "@canoncore/db";
+import { itemsCarrying } from "@canoncore/db/testing/catalogue";
 import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
-import { and, eq, isNull } from "drizzle-orm";
 import { afterAll, describe, expect, inject, it } from "vitest";
 
 import {
@@ -42,52 +42,6 @@ const db = createDb(inject("databaseUrl"));
 afterAll(async () => {
   await db.$client.end();
 });
-
-/**
- * Every Item this catalogue holds for ONE of a provider's records, named by the
- * id that provider knows the record by.
- *
- * WHY NOT `provider.held`, WHICH IS THE OBVIOUS ANSWER AND IS THE WRONG ONE.
- * That procedure -- and `provider.search` under it, and the row this page
- * renders from it -- runs through `findItemsProvided`, which answers with a
- * `Map` keyed by the record's id. A second Item carrying the same id collapses
- * into ONE entry there, whichever row the planner returned last, so every
- * surface built on it would report a single Item while the catalogue held two.
- * The rows underneath are the only place that can see the second one, which is
- * the whole of CNCORE-93's "it has to be able to see one".
- *
- * (SOURCE IDENTITY, EXTERNAL ID) IS THE PAIR, never the id alone: a provider's
- * id is unique in its own namespace and nowhere else (ADR-0026), so two
- * providers both calling something `movie:603` have said nothing to each other.
- * It is the same pair `findItemsProvided` matches on, spelt the same way and
- * honouring the same three tombstones (ADR-0075).
- *
- * THE HASH CLAUSE IS DELIBERATELY ABSENT. In `queries.ts` `md5(value_literal)`
- * is what reaches the index, because `value_literal` is unbounded text and a
- * btree tuple is capped at 2704 bytes. Here the point is to see every row that
- * matches rather than to see it quickly, and an index hint in a test would be
- * one more thing that could agree with the query it is checking.
- */
-async function itemsCarrying(identity: string, recordId: string): Promise<string[]> {
-  const rows = await db
-    .select({ itemId: items.id })
-    .from(statements)
-    .innerJoin(items, eq(items.id, statements.subjectItemId))
-    .innerJoin(properties, eq(properties.id, statements.propertyId))
-    .innerJoin(sources, eq(sources.id, statements.sourceId))
-    .where(
-      and(
-        eq(properties.name, "external_id"),
-        eq(sources.kind, "provider"),
-        eq(sources.identity, identity),
-        eq(statements.valueLiteral, recordId),
-        isNull(statements.deletedAt),
-        isNull(items.deletedAt),
-        isNull(sources.deletedAt),
-      ),
-    );
-  return rows.map(({ itemId }) => itemId);
-}
 
 /**
  * A candidate this catalogue does not hold, taken from the ROUTER's own answer
@@ -329,6 +283,17 @@ describe("/import, taking a record it already holds", () => {
      * with ROWS, so it sees a second Item carrying this id where every procedure
      * above it would collapse the pair into one.
      *
+     * THOUGH TWO ROWS ARE UNREACHABLE IN THE SHIPPED SCHEMA, and a reader owes
+     * that fact before they read the line above as more than it is. Two
+     * constraints hold this to one: `sources_identity` is unique on (owner, kind,
+     * identity), and migration 5's partial unique index covers (source_id,
+     * md5(value_literal)) for a live `external_id`. So an importer that tried to
+     * mint a second Item for this record would be REFUSED, and what catches that
+     * is `twice.status` above rather than this. What this buys is that the suite
+     * is not BLIND to the pair the way every procedure above it is: the day that
+     * index is dropped, relaxed or gone round, this assertion sees the second
+     * Item and `provider.held` goes on answering with one.
+     *
      * AND NO OTHER WORKER CAN MOVE IT, which a total could never be. Nothing else
      * in this suite writes to (this provider, this record): the only other file
      * that writes to the seeded instance is `multi-placement.test.ts`, and it
@@ -343,7 +308,7 @@ describe("/import, taking a record it already holds", () => {
      * as the Item (`importProvidedRecord`), so an Item without one is a defect in
      * a different mechanism from the one this test is about.
      */
-    const carrying = await itemsCarrying(provider, recordId);
+    const carrying = await itemsCarrying(db, { identity: provider, externalId: recordId });
     expect(carrying).toHaveLength(1);
     expect(before).toBe(`/items/${carrying[0]}`);
   });

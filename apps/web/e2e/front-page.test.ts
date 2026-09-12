@@ -255,14 +255,16 @@ describe("/ on a catalogue nothing is writing to", () => {
      * when nothing here could know the number, and not worth keeping now that
      * the fixture does.
      */
-    const { items } = inject("stillCatalogue");
+    const everyItem = inject("stillCatalogue");
 
     const { status, text } = await documentFrom(inject("stillBaseUrl"), "/");
 
     expect(status).toBe(200);
-    // THE WHOLE ELEMENT, not a substring of it. `toContain(`${items} items`)`
-    // is also satisfied by "Showing 3 of 42 items", so it could not tell the two
+    // THE WHOLE ELEMENT, not a substring of it. ``toContain(`${n} items`)`` is
+    // also satisfied by "Showing 3 of 42 items", so it could not tell the two
     // arms apart even in a catalogue large enough to have both.
-    expect(text).toContain(`<p class="text-muted-foreground text-sm">${items} items</p>`);
+    expect(text).toContain(
+      `<p class="text-muted-foreground text-sm">${everyItem.length} items</p>`,
+    );
   });
 });

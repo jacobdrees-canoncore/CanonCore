@@ -444,14 +444,25 @@ async function aCatalogueThatHoldsStill() {
   const port = await freePort();
   const server = spawn("next", ["start", "--port", String(port)], {
     cwd: webRoot,
-    env: { ...process.env, DATABASE_URL: databaseUrl, PROVIDER_ALLOWLIST: "127.0.0.0/8" },
+    env: {
+      ...process.env,
+      DATABASE_URL: databaseUrl,
+      PROVIDER_ALLOWLIST: "127.0.0.0/8",
+      // EXPLICIT, NOT OMITTED, for the reason `freshInstall` spells out above:
+      // this process inherits its own environment, so an omitted key lets a
+      // developer's `.env` through. Nothing here imports, so a leaked provider
+      // could not actually write -- but "nothing writes to it" is this
+      // fixture's whole contract, and leaving the one channel open that could
+      // make that false locally is how a fixture stops meaning what it says.
+      PROVIDER_URLS: "",
+    },
     stdio: "inherit",
   });
   const baseUrl = `http://127.0.0.1:${port}`;
   await waitUntilAnswering(baseUrl, server);
   return {
     baseUrl,
-    fixture: { items: HOLDING_STILL.length },
+    fixture: HOLDING_STILL,
     close: async () => {
       server.kill("SIGTERM");
       await db.$client.end();
@@ -1266,8 +1277,11 @@ declare module "vitest" {
      * "how much this catalogue holds" can be asserted at all (CNCORE-93).
      */
     stillBaseUrl: string;
-    /** How much it holds, from the fixture that wrote it rather than from the app. */
-    stillCatalogue: { items: number };
+    /**
+     * Every item it holds, as `pagedCatalogue` above does -- so how much it holds
+     * comes from the fixture that wrote them rather than from the app.
+     */
+    stillCatalogue: string[];
     /** The wiki provider this run stood up: the real image in CI, a stub here. */
     providerWikiUrl: string;
     /** The TMDB provider, whose source row is what a TMDB claim is recorded against. */
