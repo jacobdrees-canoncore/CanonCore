@@ -515,6 +515,118 @@ describe("item.retitle", () => {
   });
 });
 
+/**
+ * ADR-0096: a note is a Statement with a `note` property, sourced to the Owner.
+ * ADR-0045: the public read path carries no notes, so it has a procedure of its
+ * own rather than a field on `item.get`.
+ */
+describe("item.annotate and item.note", () => {
+  it("answers with the note and the Owner as its source", async () => {
+    const id = await anItemTitled(db, "The Tenth Planet");
+
+    await call(
+      appRouter.item.annotate,
+      { id, note: "The one I always come back to" },
+      { context: asTheOwner },
+    );
+
+    expect(await call(appRouter.item.note, { id }, { context: asTheOwner })).toEqual({
+      value: "The one I always come back to",
+      sourceKind: "owner",
+      sourceLabel: "Owner",
+    });
+  });
+
+  /**
+   * ADR-0045'S OWN SENTENCE, AT THE SEAM IT IS ABOUT: the public read path
+   * "carries no internal ids, no owner id and NO NOTES". `item.get` is open
+   * (ADR-0044), so a note reaching its `statements` list is a note on every
+   * item page a stranger opens -- and it would arrive there sourced to the
+   * owner, which is the one claim the owner most plainly did not publish.
+   *
+   * THE OWNER'S OWN CONTEXT IS USED FOR THE READ, not a visitor's, which is
+   * what makes this the stricter assertion. A test asking as a visitor would
+   * pass against a handler that emitted the note conditionally on the session;
+   * asking as the owner and getting nothing says the payload has no note in it
+   * AT ALL.
+   */
+  it("keeps the note out of `item.get`, which anyone may call", async () => {
+    const id = await anItemTitled(db, "The Tenth Planet (TV story)");
+    await call(
+      appRouter.item.annotate,
+      { id, note: "Not for anybody else to read" },
+      { context: asTheOwner },
+    );
+
+    const item = await call(appRouter.item.get, { id }, { context: asTheOwner });
+
+    expect(item.statements.map(({ property }) => property)).toEqual(["title"]);
+    expect(JSON.stringify(item)).not.toContain("Not for anybody else to read");
+  });
+
+  it("removes the note when the owner clears it", async () => {
+    const id = await anItemTitled(db, "Something I thought better of");
+    await call(
+      appRouter.item.annotate,
+      { id, note: "What I thought at the time" },
+      { context: asTheOwner },
+    );
+
+    await call(appRouter.item.annotate, { id, note: "" }, { context: asTheOwner });
+
+    // NULL RATHER THAN AN EMPTY NOTE, which is the difference between a note
+    // removed and a page rendering an empty box under a heading.
+    expect(await call(appRouter.item.note, { id }, { context: asTheOwner })).toBeNull();
+  });
+
+  it("answers null for an item nobody has written a note about", async () => {
+    const id = await anItemTitled(db, "Nothing said about it");
+
+    expect(await call(appRouter.item.note, { id }, { context: asTheOwner })).toBeNull();
+  });
+
+  it("answers NOT_FOUND when the id addresses nothing to annotate", async () => {
+    const { error } = await safe(
+      call(
+        appRouter.item.annotate,
+        { id: "00000000-0000-4000-8000-000000000000", note: "A note on nothing" },
+        { context: asTheOwner },
+      ),
+    );
+
+    expect(isDefinedError(error) && error.code).toBe("NOT_FOUND");
+  });
+
+  it("refuses to write a note for a caller with no session", async () => {
+    const id = await anItemTitled(db, "Not yours to annotate");
+
+    const { error } = await safe(
+      call(appRouter.item.annotate, { id, note: "Mine now" }, { context }),
+    );
+
+    expect((error as { code?: string })?.code).toBe("UNAUTHORIZED");
+    expect(await call(appRouter.item.note, { id }, { context: asTheOwner })).toBeNull();
+  });
+
+  /**
+   * THE ONLY READ ON THIS ROUTER A VISITOR IS REFUSED, and the refusal is the
+   * other half of keeping notes out of the public payload: a procedure a
+   * stranger could call would publish what `item.get` was careful not to.
+   */
+  it("refuses to read a note to a caller with no session", async () => {
+    const id = await anItemTitled(db, "Annotated, and not for you");
+    await call(
+      appRouter.item.annotate,
+      { id, note: "Between me and the catalogue" },
+      { context: asTheOwner },
+    );
+
+    const { error } = await safe(call(appRouter.item.note, { id }, { context }));
+
+    expect((error as { code?: string })?.code).toBe("UNAUTHORIZED");
+  });
+});
+
 describe("item.kinds", () => {
   it("offers all seven of ADR-0005's kinds, in the reader's words", async () => {
     const { kinds } = await call(appRouter.item.kinds, undefined, { context });

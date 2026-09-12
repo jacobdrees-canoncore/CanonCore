@@ -337,6 +337,47 @@ export const cataloguePublic = z.object({
 export type CataloguePublic = z.infer<typeof cataloguePublic>;
 
 /**
+ * The Owner's own note about one item (ADR-0096), as the read path answers one.
+ *
+ * NOT `...Public`, AND THE SUFFIX IS THE DECISION. Every other schema in this
+ * file is what the read path emits to ANYONE, because ADR-0044 leaves reads open
+ * and ADR-0072 gives a visitor everything on the page. A note is the exception
+ * ADR-0045 named before there was one to name: that record enumerates what the
+ * public read path carries and says "no notes". So this rides on a procedure of
+ * the OWNER'S, and a name claiming it was public would be the one field in this
+ * file whose name said the opposite of its rule.
+ *
+ * ADR-0045'S ENUMERATION STILL APPLIES. Every field is named on purpose: the
+ * statement's own id, its property id and its source id all stay out, exactly as
+ * they do from `statementPublic`. What is emitted is what the page renders --
+ * what the owner wrote, and who is on record as having written it.
+ *
+ * THE PROPERTY IS NOT AMONG THEM, where `statementPublic` carries one. This
+ * shape answers about `note` and nothing else, so a `property` field would be
+ * the same constant on every row -- a field added against a reader that does not
+ * exist, which ADR-0045 is the record for.
+ */
+export const ownerNote = z.object({
+  /** What the owner wrote. Free text: `note` declares no validation (ADR-0012). */
+  value: z.string(),
+  /**
+   * ADR-0071's kind, which is `owner` and can be nothing else -- migration 12
+   * declares the property assertable by that kind alone.
+   *
+   * EMITTED ANYWAY, because the page's job is to show that a note is the
+   * OWNER'S claim and not a provider's, and a surface that printed the word for
+   * itself would be asserting what this row says rather than reading it. It is
+   * also what makes the declaration observable from outside the database: the
+   * day the rule is loosened, this field says so without a surface changing.
+   */
+  sourceKind: z.string(),
+  /** What that source calls itself. Migration 1 seeds the owner's as `Owner`. */
+  sourceLabel: z.string(),
+});
+
+export type OwnerNote = z.infer<typeof ownerNote>;
+
+/**
  * What a write answers with: the Item it addressed, and nothing else.
  *
  * ADR-0045 REACHES A MUTATION TOO. The temptation is to answer with the whole
