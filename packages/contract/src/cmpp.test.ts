@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { record } from "./cmpp";
+import { manifest, record } from "./cmpp";
 
 /**
  * WHAT THE SPECIFICATION REFUSES, asserted against the specification itself.
@@ -101,5 +101,91 @@ describe("the contract's image urls", () => {
 
     expect(omitted.success).toBe(true);
     expect(explicit.success).toBe(true);
+  });
+});
+
+/** A manifest that satisfies the contract, so a case below differs in one field. */
+const A_MANIFEST = {
+  name: "a provider",
+  operations: ["search", "lookup"],
+};
+
+/** A credential declaration that satisfies it, for the same reason. */
+const A_CREDENTIAL = {
+  label: "A browser session for the upstream this provider reads",
+  fields: [{ name: "cf_clearance", label: "The cookie a browser gets by passing the check" }],
+  unlock_path: "/unlock",
+  state: "absent",
+  state_changed_at: null,
+};
+
+describe("the contract's credential declaration", () => {
+  it("is optional, so a provider whose upstream wants nothing declares nothing", async () => {
+    // ADR-0122 rests on this and ADR-0032 governs the version: `manifest` is a
+    // loose object, so an OPTIONAL field is an addition rather than a change and
+    // CMPP's version does not move for it. `provider-tmdb` declares no credential
+    // and is untouched by this ticket -- a contract addition that obliged every
+    // existing provider to answer for itself would be a new contract.
+    const declared = manifest.safeParse(A_MANIFEST);
+
+    expect(declared.success).toBe(true);
+    expect(declared.data?.credential).toBeUndefined();
+  });
+
+  it("carries a label, the fields, the path and the state when it is there", async () => {
+    const declared = manifest.parse({ ...A_MANIFEST, credential: A_CREDENTIAL });
+
+    expect(declared.credential).toEqual(A_CREDENTIAL);
+  });
+
+  it.each(["absent", "valid", "expired"])("admits the state %s", (state) => {
+    expect(
+      manifest.safeParse({ ...A_MANIFEST, credential: { ...A_CREDENTIAL, state } }).success,
+    ).toBe(true);
+  });
+
+  /**
+   * WHAT IS REFUSED, which is the half that stops the rule being "accept
+   * anything shaped like an object".
+   *
+   * The declaration is the ONLY thing CanonCore renders about a credential --
+   * it does not render the fields and it never carries the answer (ADR-0122) --
+   * so a malformed one is a settings page with a blank where the Owner's
+   * instruction should be, and nothing downstream can reconstruct it.
+   */
+  it.each([
+    [
+      { ...A_CREDENTIAL, state: "unknown" },
+      "a fourth state, which ADR-0122 closes the set against",
+    ],
+    [{ ...A_CREDENTIAL, label: "" }, "an empty label, which tells the Owner nothing"],
+    [{ ...A_CREDENTIAL, fields: [] }, "no fields, so there is nothing to supply"],
+    [
+      { ...A_CREDENTIAL, unlock_path: "https://example.invalid/unlock" },
+      "a URL where a path belongs: the provider does not know the address CanonCore reaches it on",
+    ],
+    [{ ...A_CREDENTIAL, unlock_path: "unlock" }, "a relative path, which joins to the wrong place"],
+    [
+      { ...A_CREDENTIAL, state_changed_at: "a while ago" },
+      "a time that is not a time, which renders as prose the Owner cannot act on",
+    ],
+    [
+      { ...A_CREDENTIAL, fields: [{ name: "cf_clearance" }] },
+      "a field with no label, which is the provider naming itself rather than saying what it wants",
+    ],
+  ])("refuses %o -- %s", (credential, _why) => {
+    expect(manifest.safeParse({ ...A_MANIFEST, credential }).success).toBe(false);
+  });
+
+  it("takes a null state_changed_at, because nothing supplied has no moment", async () => {
+    // Absent-and-never-supplied is the ordinary case on a fresh install, and a
+    // provider inventing `now` for it would tell the Owner it had just lost
+    // something it never had.
+    const declared = manifest.parse({
+      ...A_MANIFEST,
+      credential: { ...A_CREDENTIAL, state_changed_at: null },
+    });
+
+    expect(declared.credential?.state_changed_at).toBeNull();
   });
 });

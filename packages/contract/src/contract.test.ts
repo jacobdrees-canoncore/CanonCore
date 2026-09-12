@@ -67,6 +67,25 @@ async function get(participant: Participant, path: string) {
 }
 
 /**
+ * A JSON POST, which the contract needs exactly one of: the unlock path.
+ *
+ * JSON RATHER THAN A FORM, and the suite taking a side here is the point. A
+ * provider may accept anything else it likes -- `provider-wiki` also takes a
+ * form submission, because the Owner arrives at a page -- but "a script can
+ * supply the credential" (ADR-0122) is not a contract until the script knows
+ * what to send. Two providers each picking their own body shape is how one
+ * contract quietly becomes two integrations, which is this file's whole subject.
+ */
+async function post(participant: Participant, path: string, body: unknown) {
+  const response = await fetch(`${participant.baseUrl}${path}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return { status: response.status, text: await response.text() };
+}
+
+/**
  * Every camelCase key anywhere in a response, however deeply nested.
  *
  * Walks rather than checking the top level, because the fields most likely to
@@ -370,6 +389,90 @@ describe.each(underTest.map((p) => [p.name, p] as const))(
       });
     });
 
+    /**
+     * WHAT A PROVIDER NEEDS IN ORDER TO ANSWER, AND BEING GIVEN IT (ADR-0122).
+     *
+     * DECLINED BY DEFAULT, like `browse` and for a different reason: `browse` is
+     * an operation a provider may not offer, and this is an upstream that may
+     * want nothing. `provider-tmdb` declares no credential and is untouched by
+     * the field existing, which is the whole basis on which it could be added to
+     * a shipped contract at all.
+     *
+     * **THIS SUITE UNLOCKS EVERY PROVIDER THAT DECLARES A CREDENTIAL, REPLACING
+     * WHATEVER IT HELD.** That is not a side effect to be tidied away: ADR-0122
+     * makes the round trip the claim -- POST the declared fields at the declared
+     * path, and the provider reports `valid` -- and there is no way to assert it
+     * without performing it. CI is where this runs, against ephemeral service
+     * containers, and the README of any provider under test says so. Pointed by
+     * hand at a provider holding a real credential, it will overwrite it.
+     *
+     * IT IS NOT CANONCORE CARRYING A CREDENTIAL, which ADR-0122 forbids. This
+     * package depends on no `@canoncore/*` package and the app is absent from
+     * this seam entirely; what posts here is a conformance harness standing in
+     * for the Owner's own browser, which is exactly who the ADR says supplies it.
+     */
+    describe("its credential, which it may decline", () => {
+      it("declares a path the Owner can actually reach, if it declares a credential", async () => {
+        const declared = manifest.parse((await get(participant, "/")).body).credential;
+        if (declared === undefined) return;
+
+        // The Owner clicks a LINK in CanonCore's settings surface and arrives
+        // here (ADR-0122), so a declared path that addresses nothing is the one
+        // failure that leaves them with no way in at all. Reachable rather than
+        // HTML: a provider may serve a form, or redirect to wherever its own
+        // upstream takes a person.
+        const reached = await fetch(`${participant.baseUrl}${declared.unlock_path}`);
+
+        expect(
+          reached.status,
+          `\`${declared.unlock_path}\` is declared as this provider's unlock path and does not answer.`,
+        ).toBeLessThan(400);
+      });
+
+      it("takes the fields it declared, at the path it declared, and then reports valid", async () => {
+        const before = manifest.parse((await get(participant, "/")).body).credential;
+        if (before === undefined) return;
+
+        const supplied = await post(
+          participant,
+          before.unlock_path,
+          Object.fromEntries(
+            before.fields.map((field) => [
+              field.name,
+              `a value supplied by CanonCore's contract suite`,
+            ]),
+          ),
+        );
+
+        expect(supplied.status).toBeLessThan(400);
+        const after = manifest.parse((await get(participant, "/")).body).credential;
+        // VALID MEANS "I HOLD ONE AND NOTHING HAS REFUSED IT YET", which is all
+        // it has ever meant -- the provider cannot check a credential without
+        // doing its own job, and a dummy value is indistinguishable from a real
+        // one until an upstream says otherwise.
+        expect(after?.state).toBe("valid");
+        // AND THE MOMENT MOVED. Without this the assertion above passes against a
+        // provider that reported `valid` before the POST and ignored it: the
+        // state alone cannot tell "it took what I sent" from "it was already
+        // like that".
+        expect(after?.state_changed_at).not.toBeNull();
+        expect(after?.state_changed_at).not.toBe(before.state_changed_at);
+      });
+
+      it("refuses a submission missing a field it declared, if it declares a credential", async () => {
+        const declared = manifest.parse((await get(participant, "/")).body).credential;
+        if (declared === undefined) return;
+
+        // A FAILURE MODE RATHER THAN A VALUE. Half a credential stored is a
+        // provider reporting `valid` about something its upstream is about to
+        // refuse, which points the Owner's diagnosis at the wiki for a fault
+        // that is in the form they just submitted.
+        const supplied = await post(participant, declared.unlock_path, {});
+
+        expect(supplied.status).toBe(400);
+      });
+    });
+
     describe("its browse, which it may decline", () => {
       it("answers a container and its ordering together, if it declares browse", async () => {
         const declared = manifest.parse((await get(participant, "/")).body);
@@ -465,5 +568,43 @@ describe("ADR-0033's optionality", () => {
       declared.some((operations) => operations.includes(OPTIONAL_OPERATION)),
       "Nothing under test declares `browse`, so every browse assertion is a no-op.",
     ).toBe(true);
+  });
+});
+
+/**
+ * ADR-0122'S OPTIONALITY, KEPT EXERCISED IN BOTH DIRECTIONS -- the same device
+ * ADR-0033's `browse` gets above, and for the same reason.
+ *
+ * A credential declaration is an addition to a shipped contract, and the entire
+ * basis on which it could be added is that a provider wanting nothing declares
+ * nothing and is untouched. Both halves of that have to be under test or the
+ * claim is only half-checked: with nothing declaring one, every assertion in
+ * "its credential" is a no-op returning early; with nothing declining one, the
+ * field has quietly become required and nobody would find out until a third
+ * provider appeared.
+ */
+describe("ADR-0122's optionality", () => {
+  it("is exercised: something under test declares a credential, and something declares none", async () => {
+    const declared = await Promise.all(
+      underTest.map(async (participant) => ({
+        name: participant.name,
+        credential: manifest.parse((await get(participant, "/")).body).credential,
+      })),
+    );
+
+    expect(
+      declared.filter((p) => p.credential !== undefined).length,
+      "Nothing under test declares a credential, so every assertion in `its credential` returned early. " +
+        "ADR-0122 makes the declaration optional and this suite is what proves it works at all. " +
+        "Restore a participant that declares one rather than deleting this test.",
+    ).toBeGreaterThan(0);
+
+    expect(
+      declared.filter((p) => p.credential === undefined).length,
+      "Every provider under test declares a credential, so nothing here is checking that a provider " +
+        "may decline one. That optionality is why ADR-0122 could be added to a shipped contract " +
+        "without moving its version (ADR-0032), and a required field would break every provider that " +
+        "already exists on the day it landed.",
+    ).toBeGreaterThan(0);
   });
 });

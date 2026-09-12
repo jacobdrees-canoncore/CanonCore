@@ -118,3 +118,57 @@ file is the interface, and this record deliberately says nothing about who fills
 **Whether `provider-tmdb` adopts it.** It could declare a credential and serve its own unlock path,
 but nothing here obliges it and a working thing is not changed for symmetry. It would also have to
 stop throwing at startup, which is its own decision with its own reason behind it.
+
+## As built, under CNCORE-98 — ONE HALF OF TWO, WHICH IS WHY THIS STAYS `proposed`
+
+**The provider half landed and the CanonCore half did not**, so this record is not yet implemented
+however finished the provider looks from outside. What exists: CMPP's manifest carries the optional
+`credential` (`packages/contract/src/cmpp.ts`), `provider-wiki` declares one, serves `/unlock` and
+writes `~/.config/canoncore/wiki-session.json`, and the contract suite holds any provider that
+declares one to the round trip over HTTP. What does not: **CanonCore renders nothing**. Its consumer
+schema does not read the field, there is no settings surface, and no link reaches the unlock path —
+which is this record's own title half. CNCORE-101 is that half, and it is the ticket this record
+flips on. `provider-tmdb` is untouched, as the record says it may be.
+
+### What building it taught, which the record did not say
+
+**`expired` needed a WRITER, and the record named the state without naming one.** Only a refusal
+tells you a session has lapsed — [[0069-the-first-provider-is-the-wiki]] measured a `cf_clearance`
+dead eight days after capture while its own `expires` still claimed 2027-09-03 — so a provider
+computing expiry from the cookie's stated lifetime would report `valid` about a session the wiki had
+already stopped accepting. The file therefore carries a `lapsed` marker written by whatever met the
+refusal, and `expired` is read from it. That keeps the asymmetry this record wants: nothing
+DERIVES the state, everything READS it.
+
+**"When that last changed" is the file's mtime rather than a timestamp inside it**, and that is what
+keeps "anything able to write the file can Unlock the Provider" true without a clause. Every state
+this provider can report is reached by WRITING the file, so the filesystem already records the
+answer; requiring the writer to stamp one too would mean a script that wrote the credential and no
+timestamp had half-unlocked the provider.
+
+**A file that exists is not a credential, and there is no fourth state to say so in.** Empty,
+truncated, valid JSON of the wrong shape and a field present-but-blank all report `absent`, because
+from the Owner's side the provider holds nothing it can answer with — and `valid` would send them
+looking at the wiki for a fault that is half a `cp`.
+
+**The declared path is a PATH and not a URL**, which is the one place in CMPP that distinction is
+load-bearing. Every other URL the contract carries comes FROM the source and is rendered to a
+reader; this one addresses the PROVIDER, which does not know the URL CanonCore reaches it on — one
+behind a proxy could not — and CanonCore holds that base URL already.
+
+**The contract had to pick a body shape, because "a script can supply it" is not a contract until
+the script knows what to send.** JSON is required of a provider that declares a credential and
+anything else is permitted beside it; `provider-wiki` also takes a form submission, because the
+Owner arrives at a page rather than at a terminal.
+
+**Proving the round trip means performing it, so the contract suite UNLOCKS every provider under
+test**, replacing whatever it held. There is no way to assert "POST the declared fields and it
+reports valid" without POSTing. That suite is CI's, against ephemeral service containers, and it is
+not CanonCore carrying a credential — `packages/contract` depends on no `@canoncore/*` package and
+the app is absent from that seam entirely. Pointed by hand at a provider holding a real one, it will
+overwrite it, and both provider READMEs say so.
+
+**Nothing authenticates the unlock route, and that follows from this record rather than falling
+short of it.** The file is the source of truth, so anything that can write it can already Unlock the
+provider; a check on the route would guard one writer and leave the others open. What bounds the
+exposure is where the provider listens — loopback by default, one person by licence (ADR-0089).

@@ -282,13 +282,19 @@ placements directly.
 
 **Credential**:
 What a Provider needs to reach its own upstream — a token, a session, whatever that upstream asks
-of it. A Provider declares the one it needs; the Owner supplies it; CanonCore forwards it and never
-stores it. It belongs to the Provider, not to this catalogue, which is why it is not a Setting.
+of it. A Provider declares the one it needs and where to supply it; the Owner supplies it TO THE
+PROVIDER; CanonCore shows the label and the state and links to that path, never carrying the value
+itself. It belongs to the Provider, not to this catalogue, which is why it is not a Setting.
+This entry read "CanonCore forwards it and never stores it" until CNCORE-98, which was the draft
+ADR-0122 corrected: forwarding buys not-at-rest rather than never-sees-it, since a forwarded value
+still passes through CanonCore's request handler.
 _Avoid_: token, secret, key, api key
 
 **Unlock**:
-Giving a Provider its Credential. A Provider with none stays reachable and answers nothing, saying
-so — it is not broken and it is not empty.
+Giving a Provider its Credential, at the Provider's own unlock path. A Provider with none stays
+reachable and answers nothing, saying so — it is not broken and it is not empty. The act is not the
+form: the Provider's own configuration file is the source of truth, so a script or a scheduled job
+Unlocks one exactly as a person does (ADR-0122).
 _Avoid_: authenticate, connect, log in, authorise
 
 **Purge**:

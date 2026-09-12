@@ -230,6 +230,91 @@ export const manifest = z.looseObject({
    * tempting: a notice hardcoded for TMDB works perfectly and leaves the next
    * source's obligation nowhere to go.
    */
+  /**
+   * WHAT THIS PROVIDER NEEDS IN ORDER TO REACH ITS OWN UPSTREAM, and where the
+   * OWNER goes to supply it (ADR-0122).
+   *
+   * OPTIONAL, AND THAT IS THE WHOLE REASON IT COULD BE ADDED AT ALL. A provider
+   * whose upstream wants nothing declares nothing and stays conformant with no
+   * change -- `provider-tmdb` is exactly that -- so this is an addition rather
+   * than a new contract, and ADR-0032's version does not move for an optional
+   * field. A required one would break every provider that already exists on the
+   * day it landed, which is the same argument `versions` itself is settled by.
+   *
+   * CANONCORE READS THE LABEL AND THE STATE AND LINKS TO THE PATH. It does not
+   * render the fields and it never carries the answer -- not in storage and not
+   * in transit. That is not this contract being cautious: the Model Context
+   * Protocol's 2026-07-28 revision prohibits the same thing by name ("the
+   * third-party credentials MUST NOT transit through the MCP client"), and BCP
+   * 240 removed OAuth's password grant over it, because "credentials can leak in
+   * more places than just the authorization server". An earlier draft of
+   * ADR-0122 had CanonCore rendering the form and forwarding what was typed.
+   *
+   * SO WHY DECLARE THE FIELDS AT ALL, if CanonCore does not render them. Because
+   * the Owner reads them to know what is being asked for before they click, and
+   * because the file the provider writes is the real interface (ADR-0122) -- a
+   * script or a scheduled job renewing the credential needs the field names, and
+   * a provider that kept them to itself would oblige every such writer to read
+   * its source.
+   */
+  credential: z
+    .looseObject({
+      /**
+       * One sentence for the OWNER, and the only prose CanonCore renders about a
+       * credential. Empty is refused because a blank here is a settings page
+       * with nothing in it where the instruction should be.
+       */
+      label: z.string().min(1),
+      /**
+       * What to supply, by name and in words. AT LEAST ONE: a declaration with
+       * no fields asks for nothing, which is a provider that should have
+       * declared no credential.
+       */
+      fields: z
+        .array(
+          z.looseObject({
+            /** The key a submission carries it under. */
+            name: z.string().min(1),
+            /** What it IS, in words. A field that only named itself would leave the Owner guessing. */
+            label: z.string().min(1),
+          }),
+        )
+        .min(1),
+      /**
+       * A PATH, NOT A CONTENT URL, and this is the one place in CMPP where that
+       * distinction is load-bearing rather than pedantic. Every other URL the
+       * contract carries comes FROM the source and is rendered to a reader
+       * (`contentUrl` above); this one addresses the PROVIDER, which does not
+       * know the URL CanonCore reaches it on -- one behind a proxy could not --
+       * and CanonCore holds that base URL already. So the provider names the
+       * path and CanonCore joins the two.
+       *
+       * LEADING SLASH REQUIRED, because a relative path joins against whatever
+       * the base URL's last segment happens to be, which is a link that works on
+       * one deployment and 404s on the next.
+       */
+      unlock_path: z.string().startsWith("/"),
+      /**
+       * ONLY THE PROVIDER CAN KNOW THIS. It is the one being refused by the
+       * upstream, and a credential's validity is not something CanonCore could
+       * test without performing the provider's own job. CanonCore already
+       * fetches the manifest, so the state arrives with a read it was making
+       * anyway -- no polling, and no health check the contract does not define.
+       *
+       * THREE AND NOT FOUR. A provider that held something malformed reports
+       * `absent`, because from the Owner's side there is nothing to answer with.
+       */
+      state: z.enum(["absent", "valid", "expired"]),
+      /**
+       * When it last became that, or null where nothing has ever been supplied.
+       *
+       * `expired` ALONE IS NOT AN ANSWER: it does not tell the Owner whether the
+       * session lapsed a minute ago or three weeks ago, which is the difference
+       * between renewing it and going to look at what else broke.
+       */
+      state_changed_at: z.iso.datetime().nullable(),
+    })
+    .optional(),
   attribution: z
     .looseObject({
       notice: z.string().min(1),
