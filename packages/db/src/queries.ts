@@ -864,9 +864,12 @@ function assertersOf(db: Database) {
         // that speaks for a placement leads the list that names them, and the two
         // cannot come to disagree about which one that is.
         labels: sql<string[]>`coalesce(
-        json_agg(${sources.label} order by ${ranks.precedence}, ${sources.sourceOrder}, ${placementSources.id}),
-        '[]'::json
-      )`.as("labels"),
+          json_agg(
+            ${sources.label}
+            order by ${ranks.precedence}, ${sources.sourceOrder}, ${placementSources.id}
+          ),
+          '[]'::json
+        )`.as("labels"),
       })
       .from(placementSources)
       .innerJoin(sources, eq(sources.id, placementSources.sourceId))

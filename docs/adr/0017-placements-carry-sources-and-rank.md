@@ -145,12 +145,14 @@ matched, because one ordering two sources describe and two orderings that disagr
 mechanisms, and collapsing the second into the first would make multi-placement untested while every
 assertion still passed.
 
-**AND HERE IS THE GAP, WHICH THAT TEST HAD TO ROUTE AROUND: THE READ PATH ANSWERS ONE SOURCE, NEVER
-THE SET.** `findPlacementsOfItem` returns `placedBy`, the KIND of the source that SPEAKS for the
-placement, and `placementPublic` carries nothing else. So a placement two providers corroborate and
-a placement one provider asserts are indistinguishable to every reader, and the page prints one row
-reading "Imported" for both. This record's first sentence is that a placement has many sources; what
-a reader can see of that is which kind of thing one of them is.
+**AND HERE IS THE GAP, WHICH THAT TEST HAD TO ROUTE AROUND: THE READ PATH ANSWERED ONE SOURCE, NEVER
+THE SET -- AND FROM THE ITEM'S END IT STILL DOES.** `findPlacementsOfItem` returns `placedBy`, the
+KIND of the source that SPEAKS for the placement, and `placementPublic` carries nothing else. So a
+placement two providers corroborate and a placement one provider asserts are indistinguishable to a
+reader of THAT list, and the page prints one row reading "Imported" for both. This record's first
+sentence is that a placement has many sources; what a reader of the item's own page can see of that
+is which kind of thing one of them is. The CONTAINER's end answers the set from CNCORE-90, the last
+section below; CNCORE-121 is the same fix for this one.
 
 The test asserts the second source through its CONSEQUENCE instead -- the page owes TMDB a notice,
 and it can only owe one because a TMDB placement source sits on that item
@@ -159,5 +161,52 @@ it is indirect: attribution is being used as a probe for provenance because prov
 
 It is named as a gap rather than fixed here, because the fix is a read-path field and a rendering
 decision -- what a reader should be told when two sources agree -- and nothing has asked for one.
-Whatever first shows a placement's provenance to a person closes it. Corroboration being INVISIBLE
-is the cost until then, and it is the opposite of what this record set out to make legible.
+Whatever first shows a placement's provenance to a person closes it: CNCORE-90 was that thing and it
+closed HALF, the container's end, where a row now names every source behind it and two names on one
+row ARE the corroboration. From the item's end corroboration is still invisible, and CNCORE-121 is
+what closes the rest -- so "the opposite of what this record set out to make legible" is now true of
+one list rather than of both.
+
+## And under CNCORE-90: the container's end names the SET, and the half of the resolution it cannot carry
+
+**BUILT: a member list a reader can tell a Repeat from a disagreement in.** `findPlacementsInContainer`
+answers `assertedBy` -- every source standing behind a placement, by the label each calls itself --
+`placementInContainerPublic` carries it, and the Members list prints the names beside each row. One
+source saying it twice is a repeat; two sources saying it once each is a disagreement. Both are one
+title at two positions and were rendered identically until this.
+
+**IT NAMES THE SOURCES RATHER THAN THEIR KINDS, and that is the load-bearing choice.** `placedBy`
+answers what SORT of thing placed it, which is the right answer for the filter over the item's end,
+and it cannot separate the disagreement a catalogue actually holds: the wiki's series against TMDB's
+season is two PROVIDERS, so a kind prints "Imported" on both rows and the reader is back where they
+started. The reader's four words -- Hand-placed, Imported, From the files, Rule-derived -- stay the
+item's end's. This list answers "who claims this position", which is a name.
+
+**WHICH HALF OF THE RESOLUTION RULE IT IMPLEMENTS, exactly.** The spokesman's three terms -- rank,
+then the one global source order, then a stable id -- order the NAMES INSIDE a row, so the source
+that speaks for a placement is the one a reader meets first, and `spokesmanFor` and this aggregate
+cannot come to disagree about which that is. They do NOT order the rows: a container's member list
+is in POSITION order by definition ([[0018-ordering-lives-on-the-placement]]), so rank cannot lead
+here as it leads across containers. The winning claim of a disagreement is therefore answered, and
+named, and not moved to the front.
+
+**AND THE OTHER HALF IS NOT MERELY UNBUILT -- IT IS UNDECIDABLE FROM THIS END.** Marking which of
+two rows SPEAKS would mean first deciding which pairs of rows COMPETE, and this record already says
+a repeat is indistinguishable from a disagreement in the schema. Across containers that costs
+nothing, because `findPlacementsOfItem` expresses the resolution as ORDER and a repeat simply TIES
+on every term rank can decide and falls through to position. A MARK has no fall-through: it has to
+say yes or no about a pair, on data that cannot answer. So the read path names the sources and the
+READER draws the conclusion -- the same shape this record chose for the item's end, winner first and
+no marker, arrived at from the other direction.
+
+**NOR CAN ANYTHING YET WRITE THE DISAGREEMENT IT RENDERS.** Unchanged from CNCORE-7's section and
+worth repeating rather than assuming: `browse` writes one source's claims per call and the owner's
+hand still has no surface that places anything, so both the db suite and the e2e suite SEED the two
+sources. CNCORE-72 is the first thing that can produce one in a running instance, and this landing
+before it is the point -- the list that would have had to render it was already wrong.
+
+**AND THE DELETED SOURCE IS STILL NOT HONOURED, now in three places rather than two.** The aggregate
+checks the placement source's own tombstone and not `sources.deleted_at`, exactly as `spokesmanFor`
+and `winning_literal` do, for the reason this record gives above: a query locally more correct than
+its twins makes one field's provenance disagree with another's. Nothing can delete a source today.
+It is three lines in three places when something can.
