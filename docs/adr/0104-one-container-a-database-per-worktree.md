@@ -123,6 +123,31 @@ It is deliberately NOT on the package's root export. It reaches for `node:fs`, `
 migrator, and the root export is what the web app bundles — re-exporting that from the root broke
 `next build` once already.
 
+## What sharing one container costs, and the ceiling nobody had counted
+
+**ONE CONTAINER MEANS ONE `max_connections`, AND POSTGRES'S DEFAULT IS SIZED FOR ONE APP.** The
+decision above is untouched by this; what it needed was a number nobody had put on it.
+
+`pnpm test:e2e` stands up TEN CanonCore servers at once, each a real app process holding the pool a
+real one holds, against ten databases in this container. That is ONE worktree. The whole point of
+the decision above is that the next worktree's ten live here too, and the default budget of 100 is
+for all of them together.
+
+**MEASURED ON 2026-09-13, sampling `pg_stat_activity` once a second across a full run: one suite
+peaks at about 100 CLIENT connections on its own.** So a single worktree was already spending the
+entire budget, and a second one running its suite beside it went over. That is not a hypothetical:
+it was found under CNCORE-131 as `sorry, too many clients already`, with a neighbouring worktree's
+databases visible in `pg_stat_activity` at the moment of the failure.
+
+**IT SURFACES AS SOMETHING ELSE, WHICH IS THE PART WORTH RECORDING.** The connection that loses the
+race is whichever one asked last, so the failure lands in an unrelated suite as a single red test
+with an internal server error behind it. It reads as a flake in that test rather than as a limit
+being hit, and re-running it passes whenever the neighbour has finished.
+
+`docker-compose.yml` sets `max_connections=300`, which is three of those suites. CI is untouched and
+needs no equivalent: each job gets a `postgres:18` service container of its own and runs one
+worktree against it, so the contention this fixes does not exist there.
+
 ## Evidence
 
 `docker image inspect postgres:18` (digest `sha256:4ef4dbc9…`), `lsof -nP -iTCP:5432`, and

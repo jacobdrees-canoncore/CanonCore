@@ -22,6 +22,26 @@ services:
       # Override with CANONCORE_DB_PORT when 55432 is taken too. See ADR-0104,
       # and `src/docker-compose.test.ts`, which fails if this goes back to 5432.
       - "${CANONCORE_DB_PORT:-55432}:5432"
+    # ONE CONTAINER SERVES EVERY WORKTREE (ADR-0104), AND POSTGRES'S DEFAULT
+    # CEILING IS SIZED FOR ONE APP RATHER THAN FOR THAT.
+    #
+    # `pnpm test:e2e` stands up TEN CanonCore servers at once, each a real app
+    # process with the pool a real one has, against ten databases in here. That
+    # is one worktree. ADR-0104 puts the next worktree's ten in the same
+    # container, and the default `max_connections` is 100 for all of them
+    # together.
+    #
+    # MEASURED ON THIS REPO, 2026-09-13, sampling `pg_stat_activity` once a
+    # second through a full run: ONE suite peaks at about 100 CLIENT connections
+    # on its own -- already the whole budget -- and a second worktree running
+    # its suite beside it takes the total past the ceiling. The failure is
+    # `sorry, too many clients already`, and it surfaces as an unrelated test
+    # failing in whichever suite asked last rather than as anything naming the
+    # limit.
+    #
+    # 300 IS THREE OF THOSE SUITES, which is what a machine running three
+    # worktrees needs and is the number ADR-0104's own decision implies.
+    command: ["postgres", "-c", "max_connections=300"]
     volumes:
       - canoncore_postgres_data:/var/lib/postgresql
     healthcheck:

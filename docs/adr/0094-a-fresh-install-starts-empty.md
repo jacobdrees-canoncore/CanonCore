@@ -92,7 +92,7 @@ was not an answer.
 **AND THE ROUTE IS OFFERED WHETHER OR NOT A PROVIDER IS ALLOWLISTED**, which is the half that needed
 a fixture rather than words. Every empty instance in the suite was also an unconfigured one, so
 "the catalogue holds nothing" and "this instance reaches nothing" moved together and no assertion
-could tell which of them the page was reading. `front-page.test.ts` stands up an instance in the
+could tell which of them the page was reading. The e2e harness stands up an instance in the
 missing combination — an allowlist that admits something, a catalogue that is still empty — so an
 empty state that acquired a second condition, shown only where nothing is reachable, fails there
 rather than passing everything.

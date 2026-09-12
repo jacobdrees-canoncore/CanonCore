@@ -202,8 +202,8 @@ function NoProviderAllowlisted() {
  * owner with no provider has, so an empty state that appeared only where
  * nothing was allowlisted would withhold it from exactly the owner who
  * configured one and still has an empty catalogue. Read off `empty` alone,
- * never off `providers.any`, and `front-page.test.ts` has an instance in that
- * combination to hold it there.
+ * never off `providers.any`, and the e2e harness stands up an instance in that
+ * combination (`anInstanceAllowlistedAndEmpty`) to hold it there.
  */
 function WhatToDoNext() {
   return (

@@ -171,8 +171,8 @@ export default async function setup(project: TestProject) {
    * AND THE SAME EMPTINESS WITH THE ALLOWLIST FILLED IN, which is the
    * combination nothing here had (CNCORE-131). See `anInstanceAllowlistedAndEmpty`.
    */
-  const ready = await anInstanceAllowlistedAndEmpty();
-  project.provide("readyBaseUrl", ready.baseUrl);
+  const allowlisted = await anInstanceAllowlistedAndEmpty();
+  project.provide("allowlistedBaseUrl", allowlisted.baseUrl);
 
   // WHAT A TEST LOGS IN WITH. Everything that writes is the owner's, so a file
   // that presses a button needs this; `document.ts`'s `logInAt` takes it.
@@ -238,7 +238,7 @@ export default async function setup(project: TestProject) {
   return async () => {
     server.close();
     await fresh.close();
-    await ready.close();
+    await allowlisted.close();
     await paged.close();
     await purgeable.close();
     await still.close();
@@ -293,7 +293,7 @@ export default async function setup(project: TestProject) {
  */
 function anInstanceAllowlistedAndEmpty() {
   return anInstanceServing({
-    suffix: "ready",
+    suffix: "allow",
     ownerPassword: "",
     // ADR-0034's own example range, as every configured instance here uses.
     allowlist: "127.0.0.0/8",
@@ -1777,7 +1777,7 @@ declare module "vitest" {
      * allowlist: empty without being unconfigured, which is the combination no
      * other instance here is in (CNCORE-131).
      */
-    readyBaseUrl: string;
+    allowlistedBaseUrl: string;
     /**
      * What the owner logs in with on every instance that has a password. The
      * fresh one above deliberately has none, which is what ADR-0044's demo is.

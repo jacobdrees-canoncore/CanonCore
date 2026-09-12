@@ -69,10 +69,10 @@ export const TEST_DATABASE_SUFFIXES = [
    * two conditions off two facts, and this is the combination that proves it:
    * an owner who allowlisted something and still has nothing.
    *
-   * FIVE CHARACTERS, WHICH IS THE BUDGET EXACTLY -- `_test_ready` is eleven and
-   * so is `LONGEST_DERIVED_SUFFIX`.
+   * `_test_allow` IS ELEVEN CHARACTERS, WHICH IS THE BUDGET EXACTLY:
+   * `LONGEST_DERIVED_SUFFIX` is `_test_fresh`, and this one is the same length.
    */
-  "ready",
+  "allow",
 ] as const;
 
 /** A suffix this repo has declared, which is the only kind there is. */

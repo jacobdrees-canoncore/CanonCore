@@ -26,7 +26,7 @@ const freshBaseUrl = inject("freshBaseUrl");
  * hand-built route is offered "whether or not one is allowlisted" had only its
  * `or not` half anywhere it could be read.
  */
-const readyBaseUrl = inject("readyBaseUrl");
+const allowlistedBaseUrl = inject("allowlistedBaseUrl");
 
 /** One `<section>` of a page, by the heading it is labelled with. */
 function section(text: string, label: string): string {
@@ -51,6 +51,26 @@ function routesOutOf(text: string): string[] {
   return [...section(text, "what-to-do-next").matchAll(/<li[^>]*>(.*?)<\/li>/g)].map(
     ([, inner]) => inner as string,
   );
+}
+
+/**
+ * THE ONE ROUTE THAT LEADS TO AN ADDRESS, or a failure naming what was found.
+ *
+ * EXACTLY ONE IS THE CLAIM, which is why it is checked here rather than left to
+ * each caller: two routes offering `/new` would be the footnote this ticket
+ * removed, growing back as a second bullet.
+ *
+ * A NESTED LIST WOULD BE CAUGHT RATHER THAN MISREAD. `routesOutOf` splits on
+ * `<li>` without the `s` flag, so a route containing a list of its own would
+ * split into three where the caller counts two -- and `toHaveLength(2)` below
+ * fails on that rather than quietly comparing the wrong strings.
+ */
+function theRouteLinking(text: string, href: string): string {
+  const found = routesOutOf(text).filter((route) => route.includes(`href="${href}"`));
+  if (found.length !== 1) {
+    throw new Error(`the empty catalogue offered ${found.length} routes to ${href}, not one`);
+  }
+  return found[0] as string;
 }
 
 describe("/", () => {
@@ -129,14 +149,12 @@ describe("/ on a fresh install", () => {
     const { status, text } = await documentFrom(freshBaseUrl, "/");
 
     expect(status).toBe(200);
-    const routes = routesOutOf(text);
-    const byHand = routes.filter((route) => route.includes('href="/new"'));
-    expect(byHand).toHaveLength(1);
+    const byHand = theRouteLinking(text, "/new");
     // AND IT ASKS FOR NO PROVIDER, which is the half that makes it a SECOND
     // route rather than a restatement of the first: a route that sent the
     // reader to Settings on the way would be the provider route again.
-    expect(byHand[0]).not.toContain('href="/settings"');
-    expect(byHand[0]).not.toContain('href="/import"');
+    expect(byHand).not.toContain('href="/settings"');
+    expect(byHand).not.toContain('href="/import"');
   });
 
   it("keeps the provider route, and names the two settings it needs", async () => {
@@ -162,13 +180,11 @@ describe("/ on a fresh install", () => {
     // longer exist.
     const { text } = await documentFrom(freshBaseUrl, "/");
 
-    const routes = routesOutOf(text);
-    expect(routes).toHaveLength(2);
-    const fromAProvider = routes.filter((route) => route.includes('href="/import"'));
-    expect(fromAProvider).toHaveLength(1);
-    expect(fromAProvider[0]).toContain('href="/settings"');
-    expect(fromAProvider[0]).toContain("Providers");
-    expect(fromAProvider[0]).toContain("Allowlist");
+    expect(routesOutOf(text)).toHaveLength(2);
+    const fromAProvider = theRouteLinking(text, "/import");
+    expect(fromAProvider).toContain('href="/settings"');
+    expect(fromAProvider).toContain("Providers");
+    expect(fromAProvider).toContain("Allowlist");
   });
 
   it("says no provider is allowlisted, where one is not", async () => {
@@ -197,11 +213,10 @@ describe("/ on a fresh install", () => {
     // page would pass every other test in this file. Checked by gating
     // `WhatToDoNext` on `!providers.any` and re-running: this fails and
     // nothing else in the suite does.
-    const { status, text } = await documentFrom(readyBaseUrl, "/");
+    const { status, text } = await documentFrom(allowlistedBaseUrl, "/");
 
     expect(status).toBe(200);
-    const byHand = routesOutOf(text).filter((route) => route.includes('href="/new"'));
-    expect(byHand).toHaveLength(1);
+    expect(theRouteLinking(text, "/new")).toContain("Add an item yourself");
     // AND THE NOTICE ABOUT THE ALLOWLIST IS GONE, which is what makes this
     // instance the state it claims: the two conditions are read off two facts,
     // so an empty catalogue here says so without also saying nothing is
