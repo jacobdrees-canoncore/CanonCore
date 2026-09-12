@@ -68,6 +68,12 @@ function membersIn(text: string): string[] {
  * BY THE ROW RATHER THAN BY POSITION IN THE LIST, because a Repeat puts one
  * title in an ordering twice and the position is what tells the two apart --
  * which is the same fact that makes every mutation name a Placement (ADR-0061).
+ *
+ * AND BY THE BUTTON'S LABEL RATHER THAN BY BEING THE ROW'S ONLY FORM, which is
+ * what CNCORE-73 turned from true into false: a row now carries Move up and
+ * Move down beside Remove, so "the first form in this row" silently became the
+ * reorder and this file went on calling it a removal. The label is the handle a
+ * reader uses, so it is the one to find the form by.
  */
 function rowFor(text: string, title: string, position: string): RenderedForm {
   const rows = [...sectionIn(text, "members").matchAll(/<li\b[^>]*>(.*?)<\/li>/gs)];
@@ -75,8 +81,12 @@ function rowFor(text: string, title: string, position: string): RenderedForm {
     ([, body]) => (body ?? "").includes(title) && (body ?? "").includes(position),
   );
   if (!row) throw new Error(`no member row for ${title} at ${position}`);
-  const [form] = postFormsIn(row[1] ?? "");
-  if (!form) throw new Error(`the row for ${title} at ${position} carried no form`);
+  const removing = [...(row[1] ?? "").matchAll(/<form\b[^>]*>.*?<\/form>/gis)]
+    .map(([whole]) => whole)
+    .find((form) => form.includes("Remove"));
+  if (!removing) throw new Error(`the row for ${title} at ${position} carried no Remove`);
+  const [form] = postFormsIn(removing);
+  if (!form) throw new Error(`the Remove on ${title} at ${position} did not parse as a form`);
   return form;
 }
 

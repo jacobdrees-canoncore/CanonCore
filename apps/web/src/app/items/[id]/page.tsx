@@ -7,15 +7,18 @@ import { Label } from "@canoncore/ui/components/label";
 import { Textarea } from "@canoncore/ui/components/textarea";
 import { call, isDefinedError, safe } from "@orpc/server";
 import type { Metadata } from "next";
+import { Fragment } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Attribution } from "@/components/attribution";
 import { Holding, type MembersPath, PastTheEnd, type TheRoute, Walk } from "@/components/listing";
+import { type Reorder, reorderedTo } from "@/components/ordering";
 import { oneValue } from "@/components/query-params";
 import { callerContext } from "@/session";
 
 import {
   annotateItem,
+  movePlacement,
   placeItemInContainer,
   removePlacement,
   restorePlacement,
@@ -506,7 +509,7 @@ function Members({
       */}
       {entries.length === 0 && <PastTheEnd path={path} asked={route} />}
       <ul className="mt-2 divide-y">
-        {entries.map((placement) => (
+        {entries.map((placement, index) => (
           <li key={placement.id} className="flex items-baseline justify-between gap-4 py-2">
             {/*
               A LINK CARRYING `?via=`, which is the one place on this page that
@@ -585,6 +588,31 @@ function Members({
                 one item twice in one container, so "remove this item from that
                 container" cannot say which row the owner pressed.
               */}
+              {/*
+                THE VISIBLE PATH TO THE DRAG (CNCORE-73). `CLAUDE.md` requires
+                every keyboard accelerator to have an equivalent visible UI
+                path, and a sortable list is the case that bites: a keyboard
+                sensor makes the surface operable and these make it visible.
+                They are also the WHOLE capability with no script loaded, which
+                is why the page seam can assert reordering without a browser.
+
+                THE FORM CARRIES THE DELTA (ADR-0116), computed here because
+                here is where the ordering is. A reorder writes the placement
+                that moved and the siblings whose Position actually changed,
+                never the rebuilt list.
+
+                NOTHING AT THE ENDS. `reorderedTo` answers null for a landing a
+                placement already occupies, so the first row renders no Move up
+                and the last no Move down -- a control that cannot do anything
+                reads as broken rather than as the end of the list.
+              */}
+              {owner && (
+                <MovePlacement
+                  containerId={itemId}
+                  up={reorderedTo(entries, placement.id, index - 1)}
+                  down={reorderedTo(entries, placement.id, index + 1)}
+                />
+              )}
               {owner && <RemovePlacement placementId={placement.id} containerId={itemId} />}
             </span>
           </li>
@@ -1055,6 +1083,68 @@ async function PlaceAnItem({
         </p>
       )}
     </section>
+  );
+}
+
+/**
+ * MOVING ONE MEMBER UP OR DOWN, as two forms carrying the delta (ADR-0116).
+ *
+ * THE DELTA IS IN THE FORM, which is what lets a Server Action apply it without
+ * re-reading the ordering. A reorder sends the placement that moved and the
+ * siblings whose Position actually changed; an action that took "move this up"
+ * and worked the rest out would be a different mutation from the one that
+ * record decides on.
+ *
+ * `siblingId` AND `siblingPosition` IN PARALLEL, because `FormData` keeps
+ * repeated names in document order and zipping them by index is ordinary HTML.
+ * The drag posts the identical two fields, so both doors reach one parser.
+ *
+ * AN ABSENT POSITION IS AN EMPTY FIELD, never a missing one. A member with no
+ * position is still a member (CONTEXT.md's Unplaced), and an omitted field and
+ * an empty one would be the same request with two meanings.
+ */
+function MovePlacement({
+  containerId,
+  up,
+  down,
+}: {
+  containerId: string;
+  up: Reorder | null;
+  down: Reorder | null;
+}) {
+  return (
+    <>
+      {up && <MoveTo containerId={containerId} to={up} label="Move up" />}
+      {down && <MoveTo containerId={containerId} to={down} label="Move down" />}
+    </>
+  );
+}
+
+/** One direction of the above, since the two differ only in where they land. */
+function MoveTo({
+  containerId,
+  to,
+  label,
+}: {
+  containerId: string;
+  to: Reorder;
+  label: string;
+}) {
+  return (
+    <form action={movePlacement}>
+      <input type="hidden" name="id" value={to.id} />
+      <input type="hidden" name="containerId" value={containerId} />
+      <input type="hidden" name="position" value={to.position ?? ""} />
+      {to.siblings.map((sibling) => (
+        <Fragment key={sibling.id}>
+          <input type="hidden" name="siblingId" value={sibling.id} />
+          <input type="hidden" name="siblingPosition" value={sibling.position ?? ""} />
+        </Fragment>
+      ))}
+      <Button type="submit" variant="ghost" size="sm">
+        {label}
+      </Button>
+    </form>
   );
 }
 

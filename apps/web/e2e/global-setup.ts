@@ -3,7 +3,7 @@ import { createServer, type Server } from "node:http";
 import { createServer as createProbe } from "node:net";
 import { fileURLToPath } from "node:url";
 import type { AppRouterClient } from "@canoncore/api/routers";
-import { assertPlacement, createDb, type Database } from "@canoncore/db";
+import { assertPlacement, createDb, type Database, placeItemByHand } from "@canoncore/db";
 import { type SeededPlacement, seedOneItemInTwoOrderings } from "@canoncore/db/seed";
 import { buildTestDatabase, type TestDatabaseSuffix } from "@canoncore/db/testing/build-database";
 import {
@@ -185,6 +185,10 @@ export default async function setup(project: TestProject) {
   project.provide("curatableBaseUrl", curatable.baseUrl);
   project.provide("curatable", curatable.fixture);
 
+  const reorderable = await aCatalogueSafeToReorder();
+  project.provide("reorderableBaseUrl", reorderable.baseUrl);
+  project.provide("reorderable", reorderable.fixture);
+
   const still = await aCatalogueThatHoldsStill();
   project.provide("stillBaseUrl", still.baseUrl);
   project.provide("stillCatalogue", still.fixture);
@@ -217,6 +221,7 @@ export default async function setup(project: TestProject) {
     await still.close();
     await editable.close();
     await curatable.close();
+    await reorderable.close();
     // The seed ends its own client; this pool has to be ended too, or the run
     // holds an idle connection open against a database it is finished with.
     await twoOrigins.close();
@@ -1272,6 +1277,83 @@ async function aCatalogueSafeToCurate() {
 }
 
 /**
+ * AN INSTANCE WHOSE ORDERINGS A TEST MAY REARRANGE.
+ *
+ * `aCatalogueSafeToCurate`'s reason, one operation along -- and the operation is
+ * what makes this a seventh instance rather than two more containers on the
+ * sixth. A REORDER MOVES THE POSITIONS EVERY OTHER ASSERTION IS WRITTEN AGAINST:
+ * `placement-write.test.ts` reads its rows back by `#63` and `#77`, and a
+ * reorder running beside it in another worker would put those numbers on other
+ * rows. The two files would fail each other at random, which is the one failure
+ * mode a fixture instance exists to remove.
+ *
+ * POSITIONS 1, 5 AND 63, AND A FOURTH WITH NONE. The GAPS are the fixture: an
+ * ordering of 1, 2, 3 cannot tell a permutation of asserted positions from a
+ * renumbering that happens to agree with it, and ADR-0116 refuses to confuse
+ * those two. The fourth is CONTEXT.md's Unplaced, so the boundary a reorder can
+ * cross is on the page rather than imagined.
+ *
+ * `placeItemByHand` RATHER THAN `aPlacement`, because that helper's `position`
+ * is a `number` and the whole point of the fourth row is that it has none.
+ * Going through the owner's own mutation also gives every row the Owner as its
+ * source, which is the state the page renders.
+ */
+async function aCatalogueSafeToReorder() {
+  const instance = await anInstanceServing({
+    suffix: "order",
+    ownerPassword: OWNER_PASSWORD,
+    // ADR-0034's default: an instance nobody has configured reaches nothing.
+    allowlist: "",
+    providers: [],
+    fill: async (db) => {
+      const releaseOrder = await anItemTitled(db, "Release order", {
+        isContainer: true,
+        isOrdered: true,
+      });
+      const storyOrder = await anItemTitled(db, "Story order", {
+        isContainer: true,
+        isOrdered: true,
+      });
+
+      const held = [
+        { title: "An Unearthly Child", position: 1 },
+        { title: "The Daleks", position: 5 },
+        { title: "The Edge of Destruction", position: 63 },
+        { title: "Mission to the Unknown", position: null },
+      ];
+      const placed: Record<string, string> = {};
+      for (const { title, position } of held) {
+        const itemId = await anItemTitled(db, title);
+        placed[title] = itemId;
+        await placeItemByHand(db, { containerId: releaseOrder, itemId, position });
+      }
+
+      /*
+       * AND ONE OF THEM IN A SECOND ORDERING, which is the ticket's third
+       * criterion: reordering one container must not move the item in another.
+       * Read back from the OTHER container's page, so the claim is about what a
+       * reader sees rather than about what the reordered page happened to say.
+       */
+      const alsoElsewhere = placed["The Daleks"];
+      if (!alsoElsewhere) throw new Error("the fixture placed nothing titled The Daleks");
+      await placeItemByHand(db, { containerId: storyOrder, itemId: alsoElsewhere, position: 29 });
+
+      return {
+        releaseOrder,
+        storyOrder,
+        first: "An Unearthly Child",
+        second: "The Daleks",
+        third: "The Edge of Destruction",
+        unplaced: "Mission to the Unknown",
+        secondPositionElsewhere: 29,
+      };
+    },
+  });
+
+  return { baseUrl: instance.baseUrl, close: instance.close, fixture: instance.fixture };
+}
+
+/**
  * A SIXTH INSTANCE, and what is new about it is that IT CAN BE EDITED.
  *
  * `aCatalogueSafeToPurge`'s reason, one operation along. Editing a title
@@ -1743,6 +1825,24 @@ declare module "vitest" {
       otherTitle: string;
       releaseOrderTitle: string;
       storyOrderTitle: string;
+    };
+    /**
+     * And again, serving a catalogue whose ORDERINGS a test may rearrange. A
+     * reorder moves the positions every other assertion is written against, so
+     * it cannot share an instance even with the one that places.
+     */
+    reorderableBaseUrl: string;
+    /** An ordering with gaps and an unplaced tail, and one member in a second ordering. */
+    reorderable: {
+      releaseOrder: string;
+      storyOrder: string;
+      /** The titles, in the order the page shows them: 1, 5, 63, then no position given. */
+      first: string;
+      second: string;
+      third: string;
+      unplaced: string;
+      /** Where `second` sits in `storyOrder`, which reordering the other must not touch. */
+      secondPositionElsewhere: number;
     };
     /** Every item that instance holds: the set a walk has to arrive at, exactly. */
     pagedCatalogue: string[];

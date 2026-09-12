@@ -165,13 +165,15 @@ export async function annotateItem(form: FormData): Promise<void> {
  * and `z.coerce.number()` on a non-numeric string yields `NaN`, which is not a
  * position either.
  */
+const positionField = z
+  .string()
+  .transform((given) => (given.trim() === "" ? null : Number(given)))
+  .transform((given) => (given === null || Number.isInteger(given) ? given : null));
+
 const placedMember = z.object({
   containerId: z.string(),
   itemId: z.string(),
-  position: z
-    .string()
-    .transform((given) => (given.trim() === "" ? null : Number(given)))
-    .transform((given) => (given === null || Number.isInteger(given) ? given : null)),
+  position: positionField,
 });
 
 /**
@@ -291,4 +293,72 @@ export async function restorePlacement(form: FormData): Promise<void> {
   if (error && !(isDefinedError(error) && error.code === "NOT_FOUND")) throw error;
 
   redirect(`/items/${containerId}`);
+}
+
+/**
+ * What a Move form carries: the delta, spelled out as fields.
+ *
+ * THE FORM CARRIES THE DELTA RATHER THAN THE GESTURE, which is ADR-0116's
+ * decision about the mutation reaching down here. A reorder writes the
+ * placement that moved and the siblings whose Position actually changed, never
+ * the rebuilt ordering -- and the page knows both, because it rendered the
+ * ordering and `reorderedTo` computed the consequence of this one button.
+ *
+ * AN ACTION THAT RE-READ THE ORDERING WOULD BE A DIFFERENT MUTATION. It would
+ * take "move this up" and work out the rest, which is the shape that record
+ * refuses: the delta is the caller's to compute, and this is the caller.
+ *
+ * TWO PARALLEL FIELDS RATHER THAN ONE ENCODED ONE. `FormData` keeps repeated
+ * names in document order, so `siblingId` and `siblingPosition` zip by index --
+ * which is ordinary HTML rather than a private format this file would then own
+ * the parser for. The same two fields are what the drag builds, so the two
+ * doors post the identical request.
+ */
+const reorderedMembers = z.object({
+  id: z.uuid(),
+  containerId: z.uuid(),
+  position: positionField,
+  siblings: z.array(z.object({ id: z.uuid(), position: positionField })),
+});
+
+/**
+ * The owner reordering a container (CNCORE-73), from either door.
+ *
+ * ONE ACTION FOR THE BUTTON AND THE DRAG, because they are one gesture. A page
+ * where the mouse and the keyboard disagreed about what a reorder means would
+ * be two products, and `CLAUDE.md` requires the visible path to exist at all --
+ * so the drag is the accelerator and Move up is the path, over one rule.
+ *
+ * NO REDIRECT, which is `retitleItem`'s reason: this form posts to the
+ * container's own address, so the response to the POST is that page rendered
+ * again with the new ordering in it. `refresh()` is for the CLIENT router cache
+ * that the page-over-HTTP seam cannot see.
+ */
+export async function movePlacement(form: FormData): Promise<void> {
+  const ids = form.getAll("siblingId");
+  const positions = form.getAll("siblingPosition");
+  const input = reorderedMembers.parse({
+    id: form.get("id"),
+    containerId: form.get("containerId"),
+    position: form.get("position"),
+    siblings: ids.map((id, index) => ({ id, position: positions[index] })),
+  });
+
+  /*
+   * A REFUSAL IS NOT A FAULT, and there are two of them. NOT_FOUND is a stale
+   * page -- the placement was removed in another tab, or the link was shared --
+   * and BAD_REQUEST is the catalogue refusing the move itself, which today is a
+   * container asked to hold something it already sits inside (migration 15).
+   * Neither is a 500, and the container as it actually stands is the honest
+   * answer to both: the reader sees that the move did not happen.
+   *
+   * `safe` RATHER THAN `try`, for the reason `placeItemInContainer` gives:
+   * `redirect()` works by throwing, so a `catch` would swallow one.
+   */
+  const { error } = await safe(
+    call(appRouter.placement.move, input, { context: await callerContext() }),
+  );
+  if (error && !isDefinedError(error)) throw error;
+
+  refresh();
 }
