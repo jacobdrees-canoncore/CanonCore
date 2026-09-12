@@ -54,9 +54,10 @@ provider's id then made refuse a correct re-import.
   cannot be forgotten, and application-maintained is silently bypassed by
   anything writing directly. It bites harder here, because the path that would
   otherwise carry the rule DOES NOT EXIST. Nothing in the product TOMBSTONES an
-  item; ADR-0046 designs the confirmation and no slice has built it. The delete
-  slice inherits the rule instead of having to know it. A provider purge does
-  delete items, and is not the exception it looks like: it deletes the rows
+  item; ADR-0046 designs that confirmation and no slice has built it -- CNCORE-69
+  built the PURGE's confirmation, which is a different path and not a tombstone.
+  The delete slice inherits the rule instead of having to know it. A provider purge
+  does delete items, and is not the exception it looks like: it deletes the rows
   outright rather than setting `deleted_at`, because ADR-0036's obligation on
   termination is to purge cached content rather than to hide it -- so this
   trigger, `AFTER UPDATE OF "deleted_at"`, never fires on that path at all
