@@ -278,3 +278,43 @@ already configured.
 
 **PRs as a request surface: no.** _(Set to `yes` if this repo treats external PRs as feature
 requests; `/triage` reads this flag.)_
+
+## A fourth way this CLI lies: it reports failure on writes that succeeded
+
+The three keys above return empty when guessed. This one is worse, because the natural response to
+it corrupts data.
+
+**`save-issue` answers `ok: false` on writes that landed.** Measured 2026-09-12 while correcting
+eleven tickets: five consecutive attempts on one issue all reported failure, and reading the issue
+back showed the first had applied. Retrying a "failed" write means read-modify-write, and a read
+taken before a landed write is visible overwrites it. **One correction was silently reverted that
+way** — a claim removed from CNCORE-96 came back after four more edit cycles on the same body.
+
+So, for any body edit:
+
+- **One write per document.** Batch every change to one issue into a single read and a single write.
+- **Verify by ABSENCE, not presence.** Checking that the new sentence is there does not show the old
+  one is gone; both can be true, and were. Grep the stale string.
+- **Sweep at the end, not per write.** A per-write check cannot see a later regression. The only
+  sound verification is one final pass over every touched document, searching for every string that
+  should no longer exist.
+
+**A corrected record contains the string it corrects, by design** — `CLAUDE.md` requires the
+correction to sit in the sentence it corrects. So an absence sweep needs to allow the quoting case,
+or it will flag every honest correction as a survival.
+
+## Creating anything needs the web UI
+
+`save-issue --project`, `label add` and `relation add` all match EXISTING objects only; an unknown
+name answers `linear_invalid_project` / `linear_invalid_label`. Projects are made at
+`/settings/...` or the projects view, labels at **Settings → Workspace → Labels**
+(`/settings/issue-labels`) rather than the team page, since the triage labels are workspace-scoped.
+
+Both dialogs defeat the obvious automation. What works, verified 2026-09-12: focus the field through
+`orca eval`, type with `orca type` for real key events, then invoke the button with `.click()` from
+`orca eval`. Linear's inline LABEL row needs more — React's native value setter, then `input`,
+`change`, the three `Enter` keyboard events, `blur()` and `focusout`. Anything less leaves the value
+on screen and unsaved, which looks exactly like success.
+
+**The API rate-limits after roughly seven rapid writes.** Pace them about a second apart and retry
+with backoff; a burst produces a run of failures that look like rejections and are not.
