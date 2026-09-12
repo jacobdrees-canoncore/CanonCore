@@ -169,23 +169,14 @@ function propertyLabel(name: string): string {
  * A ROW NAMING TWO SOURCES IS TWO SOURCES AGREEING, which is a fact about the
  * placement rather than a competition.
  *
- * SO EACH NAME IS AN ELEMENT, SEPARATED BY LAYOUT RATHER THAN BY A CHARACTER
- * (CNCORE-128). The names were joined with `", "`, and a source's `label` is a
- * provider's own `name` off its manifest -- so one calling itself `Acme, Inc.`
- * rendered as two names where there is one. That forges the precise distinction
- * both lists exist to draw: one source saying it twice is a Repeat (ADR-0009),
- * two sources saying it once each is a disagreement, and two names on ONE row is
- * corroboration.
+ * SO EACH NAME IS AN ELEMENT, AND WHAT SITS BETWEEN THEM IS LAYOUT (CNCORE-128).
+ * They were joined with `", "`, and a label is a provider's own `name` off its
+ * manifest -- so one calling itself `Acme, Inc.` read as two names where there
+ * is one, which is corroboration forged. Why no separating CHARACTER can be
+ * trusted, and exactly how far the gap can, is ADR-0017's CNCORE-128 section.
  *
- * A RARER SEPARATOR WOULD NOT HAVE FIXED IT, which is why the gap is the answer.
- * Any character a label MAY contain is a character a reader may be wrong to
- * split on, and a provider names itself -- so picking a glyph narrows the
- * collision rather than closing it. The gap is CSS and the names are elements,
- * so the separator is not content at all: HTML collapses whitespace, and nothing
- * a source can call itself can forge a gap.
- *
- * IT IS THE SAME GAP THE ROW ALREADY PUTS BETWEEN ITS FACTS, rather than a
- * second spacing rule: both call sites lay their row out as `flex items-baseline
+ * THE SAME GAP THE ROW ALREADY PUTS BETWEEN ITS FACTS, rather than a second
+ * spacing rule: both call sites lay their row out as `flex items-baseline
  * gap-3`, which is what separates "Imported" from the names and the names from
  * `#2`. Held here rather than inherited from either parent, so the component
  * owns how a SET reads wherever it is rendered.
@@ -198,12 +189,17 @@ function AssertedBy({ sources }: { sources: string[] }) {
   if (sources.length === 0) return null;
   return (
     <span className="flex items-baseline gap-3">
-      {sources.map((source) => (
-        // THE NAME IS THE KEY, exactly as the attribution notice keys the
-        // sources it is owed to. The read path answers labels and no ids
-        // (ADR-0045), so the name is the only thing here that identifies one --
-        // to React and to the reader alike.
-        <span data-source key={source}>
+      {sources.map((source, place) => (
+        /*
+         * KEYED BY PLACE, BECAUSE A NAME IS NOT AN IDENTITY. Sources are unique
+         * on their identity and not their label, so two providers can call
+         * themselves the same thing and both stand behind one row -- and keyed
+         * by name, those are two siblings with one key. The read path carries
+         * no source id to key by instead (ADR-0045), and place is safe here:
+         * these spans hold no state, so a place that names a different source
+         * after a refresh has nothing to carry across to the wrong one.
+         */
+        <span data-source key={place}>
           {source}
         </span>
       ))}

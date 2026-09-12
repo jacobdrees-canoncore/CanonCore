@@ -345,16 +345,30 @@ count was being taken off a punctuation mark the provider chooses.
 **A RARER GLYPH WOULD NOT HAVE FIXED IT**, which is the half worth keeping. Any character a label
 MAY contain is a character a reader may be wrong to split on, and the provider is the one doing the
 naming -- so a middot or a semicolon narrows the collision rather than closing it. What closes it is
-a separator a label cannot be: each name is its own ELEMENT and the space between them is LAYOUT, so
-HTML collapses whitespace and nothing a source can call itself forges a gap. It is the same gap the
-row already puts between the kind, the names and the position, so the rendering gained no new
-spacing rule.
+STRUCTURE: each name is its own ELEMENT, so anything that reads the markup counts one source per
+name, whatever the name contains.
 
-**AND THE TEST HAD THE SAME DEFECT AS THE PAGE.** The end-to-end suite asserted corroboration by
-looking for both names in a row's TEXT, which is the reading that produced the defect: a substring
-says a name is present and never how many there are. It counts elements now, and the two assertions
-are only a test together -- one catches the bare join, the other catches a join with a mark around
-it, measured both ways under CNCORE-128.
+**WHAT A SIGHTED READER SEES IS A NARROWER PROMISE, and it is stated as one.** Between the names is
+the row's own `gap-3`, the gap it already puts between the kind, the names and the position, so the
+rendering gained no spacing rule. Ordinary spaces collapse, so no ordinary name can produce that
+gap. CSS does not collapse a no-break space or an em space, though, and the contract accepts any
+non-empty string as a provider's `name`, so a provider set on imitating a second name could. That
+would be a source forging its own corroboration, which is a different defect from the one this
+section is about: a legal name's ordinary comma. Review of CNCORE-128 caught the first draft of
+this paragraph claiming no label could forge a gap at all.
+
+**AND THE TEST HAD THE SAME DEFECT AS THE PAGE.** The end-to-end suite asserted corroboration, the
+Repeat and the disagreement by looking for names in a row's TEXT, which is the reading that
+produced the defect: a substring says a name is present and never how many there are. All three
+count elements now, at both ends. The count alone is not enough, and review proved it: a rendering
+that put `, ` back BETWEEN the elements passed every assertion. So the reader refuses a row with
+anything at all between two names. The one-source and two-source assertions are only a test
+together: one catches the bare join, the other catches a join with a mark around it, measured both
+ways under CNCORE-128.
+
+The reader has one limit, the same one every regex in `document.ts` has. It reads the DECODED
+document, so a label containing a literal `<` could still split it. Every label it reads was seeded
+by the suite itself, and none contains one.
 
 **NOTHING ABOUT THE RULE MOVED.** Agreement still lands on one placement row carrying a source each,
 the names on it are still ordered by the spokesman's three terms, and the reader still draws the

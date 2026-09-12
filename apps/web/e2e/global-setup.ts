@@ -1636,11 +1636,8 @@ async function theThingsWorkBrowsingHasToTellApart(databaseUrl: string) {
 
   /*
    * AND ONE MEMBER A SINGLE SOURCE PLACES, WHOSE OWN NAME CARRIES A COMMA
-   * (CNCORE-128). A source's label is a provider's own `name` off its manifest,
-   * so a provider calling itself `Acme, Inc.` is ONE source whose name holds
-   * the character both lists joined two names with -- and two names on one row
-   * is corroboration by two sources (ADR-0017), which is the distinction the
-   * three rows above this one exist to draw.
+   * (CNCORE-128, and ADR-0017's section for it says why a comma in a label
+   * forged corroboration).
    *
    * IN THE SAME CONTAINER AS THE OTHER TWO SHAPES, because the criterion is a
    * DIFFERENCE: a page holding only this row passes against a list that still
@@ -1695,11 +1692,11 @@ async function theThingsWorkBrowsingHasToTellApart(databaseUrl: string) {
       agreedOn: "A story both sources place at two",
       /** The corroborated story's own page, for the same reason `arguedId` is here. */
       agreedOnId: agreedOn,
-      commaNamed: "A story one source places",
+      singlySourced: "A story one source places",
       /** Its own page, for the same reason `arguedId` is here: both ends, one fixture. */
-      commaNamedId: placedByOne,
-      /** The ONE source behind it, whose own name carries the character that joined two. */
-      commaNamedBy: callsItselfAcme,
+      singlySourcedId: placedByOne,
+      /** The ONE source behind it, whose own name carries the comma that joined two. */
+      singlySourcedBy: callsItselfAcme,
     },
     // The seed ends its own client; this pool has to be ended too, or the run
     // holds an idle connection open against a database it has finished with.
@@ -1906,9 +1903,9 @@ declare module "vitest" {
       arguedBy: string[];
       agreedOn: string;
       agreedOnId: string;
-      commaNamed: string;
-      commaNamedId: string;
-      commaNamedBy: string;
+      singlySourced: string;
+      singlySourcedId: string;
+      singlySourcedBy: string;
     };
     /** The story imported from a CMPP provider over HTTP, and what it claimed. */
     imported: {

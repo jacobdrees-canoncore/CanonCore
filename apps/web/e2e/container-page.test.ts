@@ -129,13 +129,20 @@ describe("/items/<a container>", () => {
 
     const repeated = memberRows(repeat.text).filter((row) => row.includes(workBrowsing.repeated));
     expect(repeated).toHaveLength(2);
-    expect(repeated.filter((row) => row.includes(workBrowsing.repeatedBy))).toHaveLength(2);
+    // COUNTED RATHER THAN MATCHED (CNCORE-128): one source per row is the
+    // Repeat's whole definition, and a substring says a name is present without
+    // saying it is the only one.
+    expect(repeated.map((row) => sourcesIn(row))).toStrictEqual([
+      [workBrowsing.repeatedBy],
+      [workBrowsing.repeatedBy],
+    ]);
 
     const argued = memberRows(disagreement.text).filter((row) => row.includes(workBrowsing.argued));
     expect(argued).toHaveLength(2);
-    expect(
-      argued.map((row) => workBrowsing.arguedBy.filter((by) => row.includes(by))),
-    ).toStrictEqual([[workBrowsing.arguedBy[0]], [workBrowsing.arguedBy[1]]]);
+    expect(argued.map((row) => sourcesIn(row))).toStrictEqual([
+      [workBrowsing.arguedBy[0]],
+      [workBrowsing.arguedBy[1]],
+    ]);
     // AND POSITION STILL LEADS (ADR-0018). A container's member list is in its
     // own order by definition, so naming the sources must not reorder it the way
     // `findPlacementsOfItem` does on the item's end -- where rank leads because
@@ -161,14 +168,14 @@ describe("/items/<a container>", () => {
 
     const agreed = memberRows(text).filter((row) => row.includes(workBrowsing.agreedOn));
     expect(agreed).toHaveLength(1);
-    // AND AS TWO, WHICH IS WHAT A SUBSTRING CANNOT SAY (CNCORE-128). The names
-    // were joined into one string, so how many sources a row named was a
-    // question about where its commas fell: this row read as one name and a
-    // source calling itself `Acme, Inc.` read as two. Counting what the row
-    // NAMES is the assertion a character inside a label cannot forge.
-    const named = sourcesIn(agreed[0] ?? "");
-    expect(named).toHaveLength(2);
-    for (const by of workBrowsing.arguedBy) expect(named).toContain(by);
+    // AND AS TWO NAMES, COUNTED (CNCORE-128). While they were one joined
+    // string, how many sources a row named was a question about where its
+    // commas fell. They come in the spokesman's order (ADR-0017), and the wiki
+    // outranks the broadcaster.
+    expect(sourcesIn(agreed[0] ?? "")).toStrictEqual([
+      workBrowsing.arguedBy[1],
+      workBrowsing.arguedBy[0],
+    ]);
     // ONE ROW, NOT TWO. Agreement is corroboration rather than a second claim
     // (ADR-0017), so a page rendering this twice would be showing the reader a
     // disagreement that the catalogue does not hold.
@@ -176,11 +183,8 @@ describe("/items/<a container>", () => {
   });
 
   it("reads a source whose own name carries a comma as ONE source", async () => {
-    // CNCORE-128. A source's `label` is a provider's own `name` off its
-    // manifest, so `Acme, Inc.` is ONE source carrying the character this list
-    // joined two names with -- and two names on one row is corroboration by two
-    // sources (ADR-0017), which is the distinction this list exists to draw. A
-    // comma inside a label forged it.
+    // CNCORE-128, and ADR-0017's section for it says why a comma inside a label
+    // forged corroboration.
     //
     // THE SAME CONTAINER AS THE CORROBORATED ROW ABOVE, because the criterion is
     // a DIFFERENCE: this row is one source and that one is two, and a list that
@@ -193,9 +197,9 @@ describe("/items/<a container>", () => {
     // pair pins the rendering.
     const { text } = await documentAt(`/items/${workBrowsing.disagreedAboutId}`);
 
-    const rows = memberRows(text).filter((row) => row.includes(workBrowsing.commaNamed));
+    const rows = memberRows(text).filter((row) => row.includes(workBrowsing.singlySourced));
     expect(rows).toHaveLength(1);
-    expect(sourcesIn(rows[0] ?? "")).toStrictEqual([workBrowsing.commaNamedBy]);
+    expect(sourcesIn(rows[0] ?? "")).toStrictEqual([workBrowsing.singlySourcedBy]);
   });
 
   it("carries the ordering a reader arrived through into the item page", async () => {

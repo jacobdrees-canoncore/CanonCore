@@ -178,7 +178,11 @@ describe("also appears in", () => {
 
     const repeated = orderingRows(repeat.text);
     expect(repeated).toHaveLength(2);
-    expect(repeated.filter((row) => row.includes(workBrowsing.repeatedBy))).toHaveLength(2);
+    // Counted rather than matched, for the reason the Members list gives.
+    expect(repeated.map((row) => sourcesIn(row))).toStrictEqual([
+      [workBrowsing.repeatedBy],
+      [workBrowsing.repeatedBy],
+    ]);
 
     const argued = orderingRows(disagreement.text);
     expect(argued).toHaveLength(2);
@@ -189,9 +193,10 @@ describe("also appears in", () => {
     // it, and it is the wiki that claims #3. The winning claim is therefore the
     // row a reader meets first: the OPPOSITE of the #1-then-#3 the Members list
     // renders, and naming the sources must not disturb it.
-    expect(
-      argued.map((row) => workBrowsing.arguedBy.filter((by) => row.includes(by))),
-    ).toStrictEqual([[workBrowsing.arguedBy[1]], [workBrowsing.arguedBy[0]]]);
+    expect(argued.map((row) => sourcesIn(row))).toStrictEqual([
+      [workBrowsing.arguedBy[1]],
+      [workBrowsing.arguedBy[0]],
+    ]);
     expect(argued[0]).toContain("#3");
     expect(argued[1]).toContain("#1");
   });
@@ -209,32 +214,27 @@ describe("also appears in", () => {
     // so rendering it twice would show the reader a disagreement the catalogue
     // does not hold.
     expect(rows).toHaveLength(1);
-    // AND TWO NAMES ON IT, COUNTED RATHER THAN MATCHED (CNCORE-128). The names
-    // were joined into one string, so how many sources a row named was a
-    // question about where its commas fell: this row read as one name, and a
-    // source calling itself `Acme, Inc.` read as two. What the row NAMES is the
-    // assertion a character inside a label cannot forge.
-    const named = sourcesIn(rows[0] ?? "");
-    expect(named).toHaveLength(2);
-    for (const by of workBrowsing.arguedBy) expect(named).toContain(by);
+    // AND TWO NAMES ON IT, counted and in the spokesman's order, for the reason
+    // the Members list gives (CNCORE-128).
+    expect(sourcesIn(rows[0] ?? "")).toStrictEqual([
+      workBrowsing.arguedBy[1],
+      workBrowsing.arguedBy[0],
+    ]);
   });
 
   it("reads a source whose own name carries a comma as ONE source", async () => {
     // CNCORE-128 FROM THE ITEM'S END, over the same seeded source the Members
-    // list reads from the container's. A source's `label` is a provider's own
-    // `name` off its manifest, so `Acme, Inc.` is ONE source carrying the
-    // character these lists joined two names with -- and two names on one row is
-    // corroboration by two sources (ADR-0017).
+    // list reads from the container's.
     //
     // ASSERTED AT BOTH ENDS RATHER THAN ONLY AT ONE, because `AssertedBy` is one
     // component for both lists since CNCORE-121: the whole point of sharing it
     // is that the two cannot drift, and nothing holds them together unless both
     // are read.
-    const { text } = await documentAt(`/items/${workBrowsing.commaNamedId}`);
+    const { text } = await documentAt(`/items/${workBrowsing.singlySourcedId}`);
 
     const rows = orderingRows(text);
     expect(rows).toHaveLength(1);
-    expect(sourcesIn(rows[0] ?? "")).toStrictEqual([workBrowsing.commaNamedBy]);
+    expect(sourcesIn(rows[0] ?? "")).toStrictEqual([workBrowsing.singlySourcedBy]);
   });
 
   it("goes on filtering by KIND, which is the question the chips ask", async () => {

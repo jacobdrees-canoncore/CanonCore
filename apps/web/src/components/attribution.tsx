@@ -44,6 +44,8 @@ export function Attribution({ attribution }: { attribution: AttributionOnThePage
       </h2>
       <ul className="mt-3 space-y-3">
         {attribution.map((owed) => (
+          // TODO(CNCORE-130): a label is not an identity, so two sources sharing
+          // one and each owing a notice are two siblings with one key.
           <li key={owed.sourceLabel} className="flex items-center gap-3">
             {owed.logo && (
               /*
