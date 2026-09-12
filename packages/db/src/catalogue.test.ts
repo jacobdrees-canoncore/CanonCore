@@ -1,7 +1,8 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { type Database, items, readCatalogue } from "./index";
+import { createDb, type Database, items, readCatalogue } from "./index";
+import { buildTestDatabase } from "./testing/build-database";
 import { anItem, anItemTitled, aStatement, connect, ownerSource } from "./testing/catalogue";
 
 /** Whether the catalogue lists one particular item. */
@@ -228,7 +229,117 @@ describe("readCatalogue, walked a page at a time", () => {
     });
     expect(through.entries[0]?.id).toBe(order[tail + 1]);
   });
+
+  it("starts the catalogue over, where the item a page was cut at has since been deleted", async () => {
+    // A DELETED ITEM HAS NO SORT KEY, which is the fact this rests on and it is
+    // not obvious. Migration 5 tombstones every statement of a deleted item,
+    // that re-fires the projection, and the projection over no live statements
+    // is NULL (ADR-0014) -- so `title` and `sort_name` are GONE rather than
+    // merely hidden, and the anchor a kept link names has no place left in the
+    // order at all.
+    //
+    // SO IT NAMES NO POSITION, AND THE WALK STARTS AT THE BEGINNING: the answer
+    // ADR-0066 already gives an id that names nothing, and the one Catalogue
+    // search gives this same fact. A reader following a kept link is shown the
+    // catalogue again and can walk it again -- every item still reachable and
+    // none skipped, which is the criterion.
+    //
+    // MEASURED BEFORE THE FIX: the walk read that null as "already among the
+    // items with no sort key" and resumed from the UNTITLED TAIL, skipping
+    // every titled item between the reader's page and it.
+    //
+    // THE TAIL IS REACHABLE FROM THE ANCHOR BY CONSTRUCTION, which is what
+    // makes this the catalogue that resumes from a tail rather than the one
+    // beside it that answers with nothing. That regime is `id > the anchor's`,
+    // so the id is chosen rather than drawn: `LAST_ID` is the largest uuid
+    // there is of the version `gen_random_uuid` mints, so every anchor's id is
+    // below it and the tail is past every one of them.
+    await anItem(db, { id: LAST_ID });
+    const anchorId = await anItemTitled(db, "A story a kept link was cut at");
+
+    const order = (await readCatalogue(db, { limit: 10_000 })).entries.map((entry) => entry.id);
+    const cut = await readCatalogue(db, { limit: order.indexOf(anchorId) + 1 });
+    // THE PAGE ENDS ON THE ANCHOR, so what follows is a cursor a reader was
+    // actually handed rather than an id written here.
+    expect(cut.continuesAfter).toBe(anchorId);
+    await db.update(items).set({ deletedAt: new Date() }).where(eq(items.id, anchorId));
+
+    const kept = await readCatalogue(db, { limit: 10_000, after: cut.continuesAfter ?? "" });
+
+    // THE CATALOGUE OVER AGAIN, oracled against the same catalogue read in one
+    // go -- a different code path from the walk, which is what makes this an
+    // assertion rather than the walk marking its own work.
+    const fromTheStart = await readCatalogue(db, { limit: 10_000 });
+    expect(kept.entries.map((entry) => entry.id)).toStrictEqual(
+      fromTheStart.entries.map((entry) => entry.id),
+    );
+  });
+
+  it("says so on a catalogue with no untitled tail, which is the shape that reads as an ending", async () => {
+    // THE SAME DEFECT'S OTHER FACE, AND THE WORSE ONE. The walk above resumed
+    // from the untitled tail, so it answered with rows and skipped the ones
+    // between. Where a catalogue has no untitled item at all there is nothing
+    // for that regime to find, so page two came back EMPTY -- and an empty page
+    // with a null cursor is what `/` renders as "The catalogue ends here"
+    // (`PastTheEnd`), over a catalogue with items still unseen. A listing that
+    // lies about where it ends is the silent cap ADR-0119 exists to refuse,
+    // reached through that record's own claim about a kept link.
+    //
+    // SO THIS IS ASSERTED ON A CATALOGUE OF ITS OWN. The suite's database holds
+    // untitled items -- the walk above needs them, and so do the two tests
+    // before it -- and "no untitled item anywhere" is a property of a whole
+    // catalogue rather than of a query, so no listing over that database can
+    // have it. It is the reason ADR-0119's own page-level walk is asserted
+    // against a third instance rather than either existing one.
+    //
+    // FIVE ITEMS WALKED TWO AT A TIME, which is the measurement the ticket
+    // carries, so what this asserts and what was reported are one thing.
+    const own = createDb(await buildTestDatabase("gone"));
+    for (const title of ["The Sensorites", "The Aztecs", "The Chase", "The Keys of Marinus"]) {
+      await anItemTitled(own, title);
+    }
+    const anchorId = await anItemTitled(own, "The Edge of Destruction");
+
+    // THE FIXTURE'S OWN PRECONDITION, asserted rather than assumed: a fresh
+    // install starts empty (ADR-0094), and the day a migration seeds an item
+    // with no title this test would go on passing while testing the case
+    // beside it.
+    const untitled = await own
+      .select({ id: items.id })
+      .from(items)
+      .where(and(isNull(items.title), isNull(items.sortName), isNull(items.deletedAt)));
+    expect(untitled).toHaveLength(0);
+
+    const order = (await readCatalogue(own, { limit: 10_000 })).entries.map((entry) => entry.id);
+    const cut = await readCatalogue(own, { limit: order.indexOf(anchorId) + 1 });
+    expect(cut.continuesAfter).toBe(anchorId);
+    await own.update(items).set({ deletedAt: new Date() }).where(eq(items.id, anchorId));
+
+    const kept = await readCatalogue(own, { limit: 2, after: cut.continuesAfter ?? "" });
+
+    // A PAGE OF THE CATALOGUE FROM THE TOP, and a page rather than the whole of
+    // it: two of the four still there, with a cursor onto the rest. Measured
+    // before the fix, this was `[]` with a null cursor and a `total` of 4 --
+    // a page claiming the catalogue ended while reporting four items in it.
+    const theRest = (await readCatalogue(own, { limit: 10_000 })).entries.map((entry) => entry.id);
+    expect(theRest).toHaveLength(4);
+    expect(kept.entries.map((entry) => entry.id)).toStrictEqual(theRest.slice(0, 2));
+    expect(kept.continuesAfter).toBe(theRest[1]);
+    expect(kept.total).toBe(4);
+  });
 });
+
+/**
+ * The largest id this catalogue can hold, for the one rule that compares them.
+ *
+ * `gen_random_uuid` mints version 4, whose version and variant nibbles are
+ * fixed: `4`, and one of `8` `9` `a` `b`. This is every other nibble at `f` and
+ * those two at the top of their range, so no id this catalogue MINTS is above
+ * it and a fixture naming it is past every drawn id rather than probably past
+ * them. The `uuid` type itself holds larger values -- `ffffffff-...-ffff` is
+ * one -- and only another fixture naming its own id could produce one.
+ */
+const LAST_ID = "ffffffff-ffff-4fff-bfff-ffffffffffff";
 
 /**
  * Every item the catalogue holds, reached a page at a time.

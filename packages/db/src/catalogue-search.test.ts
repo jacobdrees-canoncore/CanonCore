@@ -464,11 +464,12 @@ describe("searchCatalogue", () => {
     // id that names nothing: a reader following a kept link is shown the search
     // again and can walk it again. Every result is still reachable and none is
     // skipped, which is the criterion. The alternative is the one the CATALOGUE
-    // walk takes today: a deleted anchor there has a NULL sort key, which its
-    // cursor reads as "already among the items with no sort key" and resumes
-    // from the untitled tail -- MEASURED, an empty page two over a catalogue
-    // with three items still unseen, rendered as "The catalogue ends here".
-    // CNCORE-110 carries that; this surface must not copy it.
+    // walk took until CNCORE-110: a deleted anchor there had a NULL sort key,
+    // which its cursor read as "already among the items with no sort key" and
+    // resumed from the untitled tail -- MEASURED, an empty page two over a
+    // catalogue with three items still unseen, rendered as "The catalogue ends
+    // here". It takes this answer now, so the two surfaces agree by decision
+    // rather than by this one being careful.
     const shared = "The Macra Terror in the colony";
     for (const suffix of ["one", "two", "six"]) await anItemTitled(db, `${shared} ${suffix}`);
 

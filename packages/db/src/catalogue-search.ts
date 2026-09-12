@@ -322,8 +322,9 @@ async function findInTheRanking(db: Database, id: string): Promise<PlaceInTheRan
    * projection over no live statements is NULL -- so `title` and `sort_name`
    * are GONE rather than hidden. A link kept past a delete therefore starts the
    * search over rather than resuming, and every result is still reachable. The
-   * catalogue's walk meets the same fact and does something worse with it,
-   * which is CNCORE-110.
+   * catalogue's walk meets the same fact and now answers it the same way, for
+   * the same reason: a deleted anchor has no place in either order, so it names
+   * no position (CNCORE-110, `findInTheOrder` in `queries.ts`).
    *
    * AND THE SAME FACT LEAVES A RACE THIS DOES NOT CLOSE. The anchor is read
    * here and its closeness is computed in the NEXT statement, so an item
@@ -332,9 +333,16 @@ async function findInTheRanking(db: Database, id: string): Promise<PlaceInTheRan
    * "These results end here" rather than starting over. The window is two
    * statements wide, where ADR-0119 already prices a WIDER version of the same
    * race -- an anchor retitled "inside the seconds between two clicks" -- as
-   * the cost of a cursor that is an id. CNCORE-110 owns what a walk should do
-   * with an anchor that has lost its place, and this is that question inside a
-   * smaller window rather than a second one.
+   * the cost of a cursor that is an id.
+   *
+   * TODO(CNCORE-113): AND IT IS THAT TICKET'S, NOT CNCORE-110'S. This comment
+   * named CNCORE-110 as owning it, and that one has since closed by answering
+   * what a walk does with an anchor that has lost its place AT READ TIME --
+   * which is the check above, not the window below it. The catalogue's walk has
+   * no equivalent race: it embeds the anchor's sort key as a VALUE read in the
+   * first statement, so a delete between the two changes no predicate. Only a
+   * relevance order re-derives the place on the server, and closing the window
+   * means deciding against ADR-0119's reason for keeping that value there.
    */
   if (anchor.title === null || anchor.sortKey === null) return undefined;
   return { sortKey: anchor.sortKey, id: anchor.id };

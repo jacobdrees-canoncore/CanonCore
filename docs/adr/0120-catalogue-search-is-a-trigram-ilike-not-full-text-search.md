@@ -179,7 +179,9 @@ block that forces ADR-0119's comparison into two regimes cannot appear here at a
 costs something at the other end: a DELETED Item has no title either (migration 5 tombstones its
 statements and the projection empties), so a cursor cut at a result that is then deleted has no
 closeness to be ranked by. It names no position and the walk starts over — every result still
-reachable and none skipped, which is not what the listing does with the same input (CNCORE-110).
+reachable and none skipped. **The listing answered the same input from its untitled tail until
+CNCORE-110**, which took this surface's answer for the same reason, so the two are now one decision
+rather than a difference to remember ([[0119-a-listing-is-walked-forward-from-the-last-item-it-showed]]).
 
 **`similarity()` returns a `real`, and the anchor's closeness never leaves the server.** Measured
 against one row: `= $1::float8` is FALSE where `= $1::real` is true, `$1` being the value read out of

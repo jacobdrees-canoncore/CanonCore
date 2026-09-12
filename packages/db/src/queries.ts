@@ -471,7 +471,7 @@ async function readListing(
   db: Database,
   { limit, after, within }: { limit: number; after?: string; within: SQL },
 ): Promise<Catalogue> {
-  const anchor = after === undefined ? undefined : await findTheAnchor(db, after);
+  const place = after === undefined ? undefined : await findInTheOrder(db, after);
   return walkListing(db, {
     within,
     /*
@@ -481,7 +481,7 @@ async function readListing(
      * A default the walk depends on is one worth saying out loud.
      */
     orderBy: [sql`${SORT_KEY} nulls last`, sql`${items.id}`],
-    past: anchor && pastInTheOrder(anchor),
+    past: place && pastInTheOrder(place),
     limit,
   });
 }
@@ -674,6 +674,27 @@ export interface TheAnchor {
   /** ADR-0014's projected key. Null for an item with neither column. */
   sortKey: string | null;
   /**
+   * WHETHER THE ROW IS A TOMBSTONE, WHICH IS WHAT SEPARATES THE TWO WAYS THE
+   * KEY ABOVE CAN BE NULL. An item nobody has titled has no key and is still
+   * IN the order -- it sorts last, as one block, and a walk has to reach it. A
+   * DELETED item has no key because its key is GONE: migration 5 tombstones
+   * every statement of a deleted item, that re-fires the projection, and the
+   * projection over no live statements is NULL (ADR-0014). So the columns are
+   * absent rather than hidden.
+   *
+   * THE TWO ROWS ARE IDENTICAL TO ANYTHING READING ONLY THE KEY, and answering
+   * the second as though it were the first is what dead-ended a kept link
+   * (CNCORE-110): the walk resumed from the untitled tail with every titled
+   * item between skipped. Read it and decide, rather than inferring it.
+   *
+   * A RELEVANCE ORDER NEEDS NO SUCH DISTINCTION, which is why only one caller
+   * reads this. Closeness is `similarity(title, ...)`, so Catalogue search has
+   * no place for EITHER kind of untitled row and turns both away on the title
+   * alone -- the same answer for two facts, arrived at honestly rather than by
+   * failing to tell them apart.
+   */
+  deletedAt: Date | null;
+  /**
    * READ BESIDE THE KEY BECAUSE A RELEVANCE-ORDERED WALK NEEDS IT. The
    * catalogue's order is the key alone; Catalogue search ranks on
    * `similarity(title, query)`, so its anchor has no place in the order at all
@@ -696,9 +717,25 @@ export interface TheAnchor {
  *
  * IT DOES NOT HONOUR THE TOMBSTONE, and that is the one place in this file
  * where not honouring it is right. ADR-0075's rule is about what a reader is
- * SHOWN, and this row is never shown: it is a position. Reading a deleted
- * item's key is what keeps a link to page two working after the item the link
- * was cut at is gone.
+ * SHOWN, and this row is never shown: it is a position.
+ *
+ * IT ALSO DOES NOT DECIDE WHAT A DELETED ROW MEANS, and an earlier version of
+ * this paragraph claimed it did -- that reading a deleted item's key "keeps a
+ * link to page two working after the item the link was cut at is gone". It
+ * does not: a deleted item has NO key to read (see `TheAnchor`), so what comes
+ * back is a row with no place in the catalogue's order at all, and the walk
+ * answered it as though it were an untitled one. MEASURED 2026-09-12, five
+ * items walked two at a time: page two answered the untitled tail rather than
+ * the items after the anchor, and nothing at all where there was no tail --
+ * which `/` renders as "The catalogue ends here" (ADR-0119, CNCORE-110).
+ *
+ * SO THE ROW COMES BACK WITH ITS TOMBSTONE AND EACH ORDER DECIDES, which is
+ * the split that keeps the exception above worth having. An order this app
+ * does not yet have -- on `release_date`, or on when a row was made -- reads a
+ * column a delete does NOT destroy, so its anchor still has a place and can
+ * still be resumed from. Only the orders built on the projection lose one, and
+ * they are the ones that say so: `findInTheOrder` below and `findInTheRanking`
+ * one file over.
  *
  * AN ID THAT NAMES NOTHING NAMES NO POSITION, so the walk starts at the
  * beginning rather than erroring. That is ADR-0066's rule for a query
@@ -706,27 +743,51 @@ export interface TheAnchor {
  * gives: comparing a non-uuid against a `uuid` column is error 22P02 rather
  * than an empty result.
  *
- * TODO(CNCORE-110): AND THE DELETED ANCHOR ABOVE DOES NOT ACTUALLY WORK, which
- * is the one claim in this comment that is false. A deleted item has no title
- * and no sort name -- migration 5 tombstones its statements, which re-fires the
- * projection, and a projection over no live statements is NULL -- so this reads
- * `sortKey: null` and `past` takes its no-sort-key regime, resuming from the
- * UNTITLED TAIL with everything between skipped. MEASURED 2026-09-12: five
- * items walked two at a time answered page two with `Probe walk 3, 4` before
- * the anchor was deleted and with NOTHING after, which `/` renders as "The
- * catalogue ends here". Found while building Catalogue search's walk, which
- * meets the same fact and cannot take this route at all -- closeness needs a
- * title to measure -- so it treats such an anchor as naming no position and
- * starts over. That is probably the answer here too, and it is a behaviour
- * change with a record to correct rather than a line to fix in passing.
  */
 export async function findTheAnchor(db: Database, id: string): Promise<TheAnchor | undefined> {
   if (!canBeAnId(id)) return undefined;
   const [place] = await db
-    .select({ sortKey: SORT_KEY, title: items.title, id: items.id })
+    .select({
+      sortKey: SORT_KEY,
+      title: items.title,
+      id: items.id,
+      deletedAt: items.deletedAt,
+    })
     .from(items)
     .where(eq(items.id, id));
   return place;
+}
+
+/**
+ * Where one id sits in THE CATALOGUE'S order, by the id a reader arrived with.
+ *
+ * THE READ IS `findTheAnchor`'S, AND ONLY THE RULES ARE THIS FUNCTION'S -- the
+ * same pairing Catalogue search has one file over, for the same reason: the
+ * shape guard and the tombstone exception hold for every cursor in this app,
+ * and what to DO with the answer is the part the orders genuinely differ on.
+ *
+ * A DELETED ANCHOR HAS LOST ITS PLACE RATHER THAN SITTING AT THE END OF THE
+ * ORDER, and the two are one predicate apart. This order is
+ * `coalesce(sort_name, title)` and a deleted item has neither column left (see
+ * `TheAnchor`), so there is nothing to resume from: it names no position, and
+ * the walk starts at the beginning. That is the answer ADR-0066 already gives
+ * an id that names nothing at all, and the one Catalogue search gives this
+ * same fact -- a reader following a kept link is shown the catalogue again and
+ * can walk it again, every item still reachable and none skipped, which is the
+ * criterion the cap exists to keep (ADR-0119, CNCORE-110).
+ *
+ * IT IS THE UNTITLED TAIL THIS SEPARATES IT FROM, which is the case that must
+ * go on working: an item nobody has titled has no sort key either, sits at the
+ * end of the order as one block, and is resumed from by the id alone.
+ */
+async function findInTheOrder(db: Database, id: string): Promise<PlaceInTheOrder | undefined> {
+  const anchor = await findTheAnchor(db, id);
+  if (anchor === undefined) return undefined;
+  // A KEY MISSING BECAUSE THE ROW IS DEAD, which is the pair and not either
+  // half: `deletedAt` alone would refuse an anchor whose key a delete had left
+  // alone, and that is the case the paragraph above keeps this exception for.
+  if (anchor.sortKey === null && anchor.deletedAt !== null) return undefined;
+  return { sortKey: anchor.sortKey, id: anchor.id };
 }
 
 /**
