@@ -122,7 +122,10 @@ stop throwing at startup, which is its own decision with its own reason behind i
 ## As built, under CNCORE-98 — ONE HALF OF TWO, WHICH IS WHY THIS STAYS `proposed`
 
 **The provider half landed and the CanonCore half did not**, so this record is not yet implemented
-however finished the provider looks from outside. What exists: CMPP's manifest carries the optional
+however finished the provider looks from outside. The provider half is
+`jacobdrees-canoncore/provider-wiki#23`, squashed to `a550681` on that repo's `main` — named here
+because no PR in a provider repo reaches this directory, so a reader checking what this section
+claims has nothing else to check it against. What exists: CMPP's manifest carries the optional
 `credential` (`packages/contract/src/cmpp.ts`), `provider-wiki` declares one, serves `/unlock` and
 writes `~/.config/canoncore/wiki-session.json`, and the contract suite holds any provider that
 declares one to the round trip over HTTP. What does not: **CanonCore renders nothing**. Its consumer
