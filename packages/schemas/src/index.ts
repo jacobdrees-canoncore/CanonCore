@@ -358,6 +358,47 @@ export const cataloguePublic = z.object({
 export type CataloguePublic = z.infer<typeof cataloguePublic>;
 
 /**
+ * The Owner's own note about one item (ADR-0096), as the read path answers one.
+ *
+ * NOT `...Public`, AND THE SUFFIX IS THE DECISION. Every other schema in this
+ * file is what the read path emits to ANYONE, because ADR-0044 leaves reads open
+ * and ADR-0072 gives a visitor everything on the page. A note is the exception
+ * ADR-0045 named before there was one to name: that record enumerates what the
+ * public read path carries and says "no notes". So this rides on a procedure of
+ * the OWNER'S, and a name claiming it was public would be the one field in this
+ * file whose name said the opposite of its rule.
+ *
+ * ADR-0045'S ENUMERATION STILL APPLIES. Every field is named on purpose: the
+ * statement's own id, its property id and its source id all stay out, exactly as
+ * they do from `statementPublic`. What is emitted is what the page renders --
+ * what the owner wrote, and who is on record as having written it.
+ *
+ * TWO FIELDS, AND NEITHER `property` NOR `sourceKind` IS AMONG THEM, where
+ * `statementPublic` carries both. This shape answers about `note` and nothing
+ * else, and migration 12 declares that property assertable by the owner alone --
+ * so each would be the same constant on every row a reader ever sees, which is a
+ * field added against a reader that does not exist. REVIEW CAUGHT `sourceKind`
+ * HERE: it was emitted and read by nothing, under a docstring rejecting
+ * `property` on exactly that ground. The day a second kind may assert a note is
+ * the day the field earns its line, and ADR-0045 makes adding one the
+ * deliberate act.
+ *
+ * `sourceLabel` STAYS BECAUSE THE PAGE RENDERS IT. It is as constant as the kind
+ * -- `Owner`, seeded by migration 1 -- and the difference is that something reads
+ * it: the note has to say whose it is, and a surface printing that word for
+ * itself would be asserting what the row says instead of reading it, which is
+ * the rule ADR-0045 settles for every other label the read path carries.
+ */
+export const ownerNote = z.object({
+  /** What the owner wrote. Free text: `note` declares no validation (ADR-0012). */
+  value: z.string(),
+  /** What the source calls itself. Migration 1 seeds the owner's as `Owner`. */
+  sourceLabel: z.string(),
+});
+
+export type OwnerNote = z.infer<typeof ownerNote>;
+
+/**
  * What a write answers with: the Item it addressed, and nothing else.
  *
  * ADR-0045 REACHES A MUTATION TOO. The temptation is to answer with the whole
