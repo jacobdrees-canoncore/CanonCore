@@ -265,8 +265,82 @@ export async function submit(
   form: RenderedForm,
   cookie?: string,
 ): Promise<{ status: number; text: string }> {
-  const response = await post(baseUrl, form.action === "" ? at : form.action, form, cookie);
+  return submitted(baseUrl, at, form, cookie);
+}
+
+/**
+ * Submits one rendered form with ONE FIELD SENT AS A FILE PART.
+ *
+ * THE REQUEST NO BROWSER MAKES, which is the whole point of it (CNCORE-123). A
+ * text input submits a part with no `filename` and `FormData.get` answers a
+ * string for one; a part that CARRIES a filename is answered as a `File`
+ * instead, whatever the field was called on the page that rendered it. A caller
+ * composing a request by hand can send either, so this composes the one the app
+ * never asked for -- and it is the only way to observe the server's answer to
+ * it.
+ *
+ * A SUBMISSION RATHER THAN A FORM, which is why this is a second `submit` and
+ * not a helper that edits `RenderedForm`. Every reader above produces strings
+ * because the server renders text, and widening what a PARSED form may hold to
+ * make one test expressible would put `File` in the type that five other files
+ * read out as strings.
+ *
+ * IT REFUSES A NAME THE FORM DOES NOT CARRY, for the reason the helpers that
+ * type into forms do: a typo here would post a field the server ignores, and the
+ * test would pass against a surface that never offered it.
+ */
+export async function submitAsAFilePart(
+  baseUrl: string,
+  at: string,
+  form: RenderedForm,
+  name: string,
+  cookie?: string,
+): Promise<{ status: number; text: string }> {
+  if (!form.fields.some(([key]) => key === name)) {
+    throw new Error(`that form carries no \`${name}\`: ${JSON.stringify(form.fields)}`);
+  }
+  return submitted(baseUrl, at, form, cookie, name);
+}
+
+/**
+ * One submission, however its parts are composed: where it goes, and the
+ * document that comes back.
+ *
+ * AN EMPTY `action` IS THE DOCUMENT'S OWN URL, QUERY INCLUDED, which is the HTML
+ * rule and is load-bearing here: the surface re-renders its own search after the
+ * action runs, and a replay that dropped the query string would come back to a
+ * page with nothing on it.
+ */
+async function submitted(
+  baseUrl: string,
+  at: string,
+  form: RenderedForm,
+  cookie?: string,
+  asAFilePart?: string,
+): Promise<{ status: number; text: string }> {
+  const response = await post(baseUrl, form.action === "" ? at : form.action, form, cookie, {
+    asAFilePart,
+  });
   return { status: response.status, text: decoded(await response.text()) };
+}
+
+/**
+ * The body a browser would send for this form, with one part optionally sent as
+ * a FILE rather than as text.
+ *
+ * `append` TAKES BOTH, and the difference is the part's `Content-Disposition`:
+ * a string becomes a bare `name`, a `File` gains a `filename` -- which is what
+ * makes `FormData.get` answer one on the server.
+ */
+function bodyOf(form: RenderedForm, asAFilePart?: string): FormData {
+  const body = new FormData();
+  for (const [name, value] of form.fields) {
+    body.append(
+      name,
+      name === asAFilePart ? new File([value], "not-text.txt", { type: "text/plain" }) : value,
+    );
+  }
+  return body;
 }
 
 /** The request itself, for the one caller that needs the response's headers. */
@@ -275,14 +349,12 @@ async function post(
   at: string,
   form: RenderedForm,
   cookie?: string,
-  redirect: RequestRedirect = "follow",
+  { redirect = "follow", asAFilePart }: { redirect?: RequestRedirect; asAFilePart?: string } = {},
 ): Promise<Response> {
-  const body = new FormData();
-  for (const [name, value] of form.fields) body.append(name, value);
   return fetch(`${baseUrl}${at}`, {
     method: "POST",
     headers: { origin: baseUrl, ...headersWith(cookie) },
-    body,
+    body: bodyOf(form, asAFilePart),
     redirect,
   });
 }
@@ -328,7 +400,9 @@ export async function logInAt(baseUrl: string, password: string): Promise<string
   const [form] = postFormsIn(text);
   if (!form) throw new Error(`${baseUrl}/login offered no form to log in with`);
 
-  const response = await post(baseUrl, "/login", carrying(form, password), undefined, "manual");
+  const response = await post(baseUrl, "/login", carrying(form, password), undefined, {
+    redirect: "manual",
+  });
   const [issued] = response.headers.getSetCookie();
   if (issued === undefined) {
     throw new Error(`logging in at ${baseUrl} set no cookie; answered ${response.status}`);
