@@ -516,69 +516,97 @@ export async function walkListing(
   db: Database,
   { within, orderBy, past, limit }: { within: SQL; orderBy: SQL[]; past?: SQL; limit: number },
 ): Promise<Catalogue> {
-  const rows = await db
-    .select({
-      id: items.id,
-      title: items.title,
-      kindLabel: itemKinds.label,
-      isContainer: items.isContainer,
-      /*
-       * THE COUNT COMES BACK ON THE ROWS rather than from a second query: a
-       * count taken separately is taken at a different moment, so a page could
-       * report 41 items and list 42. A scalar subquery rides in the same
-       * statement and therefore in the same snapshot.
-       *
-       * IT WAS `count(*) over ()`, AND THE CURSOR IS WHY IT NO LONGER IS. A
-       * window count is taken after `where`, so with a keyset predicate in
-       * there it counts the items PAST THE CURSOR rather than the catalogue --
-       * and page two would report a smaller library than page one. This
-       * subquery is uncorrelated, so the cursor cannot reach it.
-       *
-       * `count(*)` is a `bigint`, which node-postgres hands over as a STRING
-       * because the range does not fit a JavaScript number. `mapWith(Number)`
-       * is where that becomes the number the type claims; without it `total`
-       * is a string wearing a number's type.
-       */
-      /*
-       * THE SAME PREDICATE THE ENTRIES USE, which is what makes `total` the
-       * size of the question that was ASKED rather than of the whole table.
-       */
-      total: sql<number>`(select count(*) from ${items} where ${within})`.mapWith(Number),
-    })
-    .from(items)
-    // INNER, because `items.kind` is a foreign key into this table: a row with
-    // no kind cannot exist, so there is nothing for a left join to preserve.
-    .innerJoin(itemKinds, eq(itemKinds.kind, items.kind))
-    .where(and(within, past))
-    .orderBy(...orderBy)
-    // ONE MORE THAN ASKED FOR, and it is never returned. Whether the listing
-    // continues past this page is not something `total` can answer -- a keyset
-    // walk knows no offset, so it cannot subtract -- and the cheapest thing
-    // that does know is a row that was there to be read.
-    .limit(limit + 1);
+  return onePage({
+    limit,
+    read: (howMany) =>
+      db
+        .select({
+          id: items.id,
+          title: items.title,
+          kindLabel: itemKinds.label,
+          isContainer: items.isContainer,
+          /*
+           * THE COUNT COMES BACK ON THE ROWS rather than from a second query: a
+           * count taken separately is taken at a different moment, so a page
+           * could report 41 items and list 42. A scalar subquery rides in the
+           * same statement and therefore in the same snapshot.
+           *
+           * IT WAS `count(*) over ()`, AND THE CURSOR IS WHY IT NO LONGER IS. A
+           * window count is taken after `where`, so with a keyset predicate in
+           * there it counts the items PAST THE CURSOR rather than the catalogue
+           * -- and page two would report a smaller library than page one. This
+           * subquery is uncorrelated, so the cursor cannot reach it.
+           *
+           * `count(*)` is a `bigint`, which node-postgres hands over as a
+           * STRING because the range does not fit a JavaScript number.
+           * `mapWith(Number)` is where that becomes the number the type claims;
+           * without it `total` is a string wearing a number's type.
+           */
+          /*
+           * THE SAME PREDICATE THE ENTRIES USE, which is what makes `total` the
+           * size of the question that was ASKED rather than of the whole table.
+           */
+          total: sql<number>`(select count(*) from ${items} where ${within})`.mapWith(Number),
+        })
+        .from(items)
+        // INNER, because `items.kind` is a foreign key into this table: a row
+        // with no kind cannot exist, so there is nothing for a left join to
+        // preserve.
+        .innerJoin(itemKinds, eq(itemKinds.kind, items.kind))
+        .where(and(within, past))
+        .orderBy(...orderBy)
+        .limit(howMany),
+    asEntry: ({ id, title, kindLabel, isContainer }) => ({ id, title, kindLabel, isContainer }),
+    sizeOnItsOwn: () => countListing(db, within),
+  });
+}
 
+/**
+ * ONE PAGE CUT OUT OF A LISTING, whatever rows the listing is made of.
+ *
+ * THREE RULES, AND EACH OF THEM HAS GONE WRONG HERE ALREADY, which is the
+ * argument for their being written once rather than per listing:
+ *
+ * - THE EXTRA ROW. Whether a listing carries on past this page is not
+ *   something `total` can answer -- a keyset walk knows no offset, so it
+ *   cannot subtract -- and the cheapest thing that does know is a row that was
+ *   there to be read. It is read here and never returned, so the reading and
+ *   the discarding cannot come apart: a caller that fetched `limit` rows and
+ *   handed them over would answer `continuesAfter: null` at every page, which
+ *   ADR-0119 makes mean "the listing ends here".
+ * - THE SIZE, IN THE SAME SNAPSHOT. It rides on the rows, so a page with NO
+ *   rows carries none -- and a page can be empty with a listing behind it,
+ *   when a cursor names the last row in it. `sizeOnItsOwn` is asked exactly
+ *   there, where there are no entries for a second moment's answer to
+ *   disagree with. Catalogue search kept its own copy of this and its own
+ *   `count(*) over ()`, which was right only until it had a cursor
+ *   (CNCORE-88).
+ * - THE CURSOR. The id of the LAST ROW THIS PAGE SHOWED, in whatever order the
+ *   listing was read in.
+ *
+ * IT TAKES THE READ RATHER THAN THE ROWS, so `limit + 1` is spent here beside
+ * the slice that undoes it. WHAT IT DOES NOT TAKE IS THE QUERY: the catalogue,
+ * work-browsing and Catalogue search all read `items` and go through
+ * `walkListing` above, and a Container's members read `placements` -- a
+ * different relation, a different id and a different count, so they supply
+ * their own select and share these three rules and nothing else.
+ */
+async function onePage<Row extends { id: string; total: number }, Entry>({
+  limit,
+  read,
+  asEntry,
+  sizeOnItsOwn,
+}: {
+  limit: number;
+  read: (howMany: number) => Promise<Row[]>;
+  asEntry: (row: Row) => Entry;
+  sizeOnItsOwn: () => Promise<number>;
+}): Promise<{ entries: Entry[]; total: number; continuesAfter: string | null }> {
+  const rows = await read(limit + 1);
   const page = rows.slice(0, limit);
   return {
-    entries: page.map(({ id, title, kindLabel, isContainer }) => ({
-      id,
-      title,
-      kindLabel,
-      isContainer,
-    })),
-    /*
-     * The size rides on the rows, so a page with NO rows carries none -- and a
-     * page can be empty with a listing behind it, when a cursor names the last
-     * item in it. The size is asked for on its own exactly there, where there
-     * are no entries for a second moment's answer to disagree with.
-     */
-    total: rows[0]?.total ?? (await countListing(db, within)),
-    /*
-     * The id to ask for the next page with, or nothing when this is the end.
-     * It is the LAST ITEM THIS PAGE SHOWED rather than an encoded sort key,
-     * which is what keeps the projection out of the contract and out of the
-     * address a reader can see (ADR-0119) -- and it is the last of THIS
-     * listing's order, whichever order that was.
-     */
+    entries: page.map(asEntry),
+    total: rows[0]?.total ?? (await sizeOnItsOwn()),
     continuesAfter: rows.length > limit ? (page.at(-1)?.id ?? null) : null,
   };
 }
@@ -829,53 +857,199 @@ export interface PlacementInContainer {
   position: number | null;
 }
 
+/** What one container holds, and how much of it this answer carries. */
+export interface PlacementsInContainer {
+  entries: PlacementInContainer[];
+  /**
+   * How many placements the container holds ALTOGETHER, which is not
+   * `entries.length` whenever the cap bit. A surface that cannot tell the two
+   * apart reports the first hundred as the whole ordering.
+   */
+  total: number;
+  /**
+   * The PLACEMENT to walk on from, or `null` where the ordering ends here.
+   *
+   * A PLACEMENT'S ID AND NOT AN ITEM'S, which is the one place this walk
+   * departs from ADR-0119's letter -- that record says "the cursor is the id of
+   * the last Item the page before it showed". A Repeat is one item twice in one
+   * container (ADR-0009), so an item id names TWO rows here and cannot say
+   * which of them a page ended on: a cursor cut at one would either serve the
+   * recap twice or skip the episode. The placement is the only thing that can
+   * tell the two apart, which is the same fact that makes `?via=` a placement's
+   * id rather than a container's (ADR-0066).
+   */
+  continuesAfter: string | null;
+}
+
 /**
- * What one container holds, in its own order.
+ * What one container holds, in its own order -- CAPPED, COUNTED AND WALKED
+ * (ADR-0119, CNCORE-89).
  *
  * THE MIRROR OF `findPlacementsOfItem`, which reads the same table the other
  * way round: that one answers every ordering an item sits in, and this one
  * answers every item one ordering holds. Both are the placement, read from the
  * end the reader is standing at.
  *
- * TODO(CNCORE-89): IT IS UNCAPPED, ALONE AMONG THIS FILE'S LISTINGS. ADR-0119's
- * first sentence is "every listing in CanonCore is capped", and this one takes
- * no `limit` and no `after` while `item.get` awaits it on every item page.
- * `browse` imports a whole category in one call and ADR-0077 measures one at
- * 1,049 stories, so this is a thousand rows on an ordinary page. The cap is not
- * added here because the walk has to compose with `?via=` and `?placed=` on an
- * address ADR-0066 governs, which is that ticket's decision to make.
+ * IT DOES NOT GO THROUGH `walkListing`, AND THE REASON IS THE RELATION RATHER
+ * THAN THE ORDER. That function is a walk over `items`: it selects an item's
+ * id, joins `item_kinds` for the reader's word and counts `items` matching the
+ * question asked. This walks `placements` -- a different relation, whose rows
+ * carry a placement's id, no kind at all, and a count of memberships rather
+ * than of items. What the two DO share is the page itself, and that is shared:
+ * the cap, the extra row, the cursor and the count-in-one-snapshot are
+ * `onePage` above, written once for both, because those are the rules that have
+ * historically gone wrong separately.
+ *
+ * THE ORDER IS `position` AND THEN THE PLACEMENT'S ID, which is the order this
+ * query already had. Both halves are load-bearing in the cursor for the reasons
+ * `pastInThisContainer` below gives, and they are the same two regimes the
+ * catalogue's own walk has: a position nothing asserted is NULL and sorts last
+ * as one block, and two placements may share a position (ADR-0009 keeps no
+ * unique constraint on it, so a novel and the film adapting it can sit at one
+ * point without an order being invented between them).
  */
 export async function findPlacementsInContainer(
   db: Database,
   containerId: string,
-): Promise<PlacementInContainer[]> {
-  return db
-    .select({
-      id: placements.id,
-      title: items.title,
-      itemId: placements.itemId,
-      position: placements.position,
-    })
+  { limit, after }: { limit: number; after?: string },
+): Promise<PlacementsInContainer> {
+  const held = and(
+    eq(placements.containerId, containerId),
+    isNull(placements.deletedAt),
+    // ADR-0075. A deleted item is gone to every reader, so a container
+    // cannot go on listing a placement that reaches one.
+    isNull(items.deletedAt),
+  ) as SQL;
+  const place =
+    after === undefined ? undefined : await findInTheContainersOrder(db, containerId, after);
+  const past = place && pastInThisContainer(place);
+
+  return onePage({
+    limit,
+    read: (howMany) =>
+      db
+        .select({
+          id: placements.id,
+          title: items.title,
+          itemId: placements.itemId,
+          position: placements.position,
+          /*
+           * THE SAME PREDICATE THE ENTRIES USE, in the same statement and
+           * therefore the same snapshot, and UNCORRELATED so the cursor cannot
+           * reach it -- all three for the reasons `walkListing` gives above. The
+           * subquery names `placements` and `items` in its own FROM, so those
+           * names resolve to its own rows rather than to the walk's.
+           */
+          total:
+            sql<number>`(select count(*) from ${placements} inner join ${items} on ${eq(items.id, placements.itemId)} where ${held})`.mapWith(
+              Number,
+            ),
+        })
+        .from(placements)
+        .innerJoin(items, eq(items.id, placements.itemId))
+        .where(and(held, past))
+        /*
+         * `nulls last` IS THE DEFAULT FOR `asc` AND IS WRITTEN OUT ANYWAY, for
+         * the reason `readListing` gives: `pastInThisContainer` reads it, and a
+         * default the walk depends on is one worth saying out loud.
+         */
+        .orderBy(sql`${placements.position} nulls last`, sql`${placements.id}`)
+        .limit(howMany),
+    asEntry: ({ id, title, itemId, position }) => ({ id, title, itemId, position }),
+    sizeOnItsOwn: () => countPlacements(db, held),
+  });
+}
+
+/** How many placements one container holds, asked on its own. */
+async function countPlacements(db: Database, held: SQL): Promise<number> {
+  const [counted] = await db
+    .select({ total: sql<number>`count(*)`.mapWith(Number) })
     .from(placements)
     .innerJoin(items, eq(items.id, placements.itemId))
-    .where(
-      and(
-        eq(placements.containerId, containerId),
-        isNull(placements.deletedAt),
-        // ADR-0075. A deleted item is gone to every reader, so a container
-        // cannot go on listing a placement that reaches one.
-        isNull(items.deletedAt),
-      ),
-    )
-    .orderBy(
-      placements.position,
-      // ADR-0009 keeps NO unique constraint on (container_id, position), because
-      // a novel and the film adapting it must sit at one point without an order
-      // being invented between them. So position alone does not determine this
-      // answer, and without a stable tiebreak the same container renders in a
-      // different order on different runs.
-      placements.id,
-    );
+    .where(held);
+  return counted?.total ?? 0;
+}
+
+/** Where one placement sits in its own container's ordering. */
+interface PlaceInTheContainer {
+  position: number | null;
+  id: string;
+}
+
+/**
+ * Where one placement sits in THE CONTAINER'S OWN order, by the id a reader
+ * arrived with.
+ *
+ * SCOPED TO THE CONTAINER, which `findTheAnchor` has no equivalent of because
+ * the catalogue is one listing and this is one per container. A position is a
+ * number inside ONE ordering, so a placement belonging to a different container
+ * names a position that means nothing here -- and resuming at it would cut this
+ * container at a number a reader never saw. Out of scope it names nothing, which
+ * is ADR-0066's rule for a parameter that is not an identity: the walk starts at
+ * the beginning rather than erroring.
+ *
+ * IT DOES NOT HONOUR THE TOMBSTONE, for ADR-0119's reason: that rule is about
+ * what a reader is SHOWN, and this row is never shown -- it is a position.
+ *
+ * AND HERE THE POSITION SURVIVES THE DELETE, WHICH IS THE CASE ADR-0119
+ * PREDICTED AND HAD NO INSTANCE OF. That record splits the tombstone exception
+ * because the catalogue's own order is `coalesce(sort_name, title)` and a
+ * deleted item has NEITHER column left -- the projection over no live statements
+ * is NULL (ADR-0014) -- so its anchor names no position and the walk has to
+ * start over. `placements.position` is a stored column that no tombstone
+ * touches: the record's own words are that "an order this app does not yet hold
+ * ... reads a column a delete does NOT destroy, so its anchor still has a place
+ * and can still be resumed from". This is that order, so a kept link into a
+ * container RESUMES past its anchor's deletion rather than starting the
+ * ordering over.
+ */
+async function findInTheContainersOrder(
+  db: Database,
+  containerId: string,
+  id: string,
+): Promise<PlaceInTheContainer | undefined> {
+  // The shape guard `findItem` uses, for the reason it gives: comparing a
+  // non-uuid against a `uuid` column is error 22P02 rather than an empty result.
+  if (!canBeAnId(id)) return undefined;
+  const [place] = await db
+    .select({ position: placements.position, id: placements.id })
+    .from(placements)
+    .where(and(eq(placements.id, id), eq(placements.containerId, containerId)));
+  return place;
+}
+
+/**
+ * Everything a container holds AFTER one of its own placements (ADR-0119).
+ *
+ * TWO REGIMES, AND A ROW COMPARISON CANNOT EXPRESS BOTH -- the same shape
+ * `pastInTheOrder` has above, over a different pair of columns. The order is
+ * the placements with a position ascending and then the ones with none, so
+ * `(null, x) > (k, y)` -- NULL rather than true -- would drop every Unplaced
+ * member off the walk permanently. CONTEXT.md is explicit that an Unplaced
+ * member is a placement with no position rather than an absent one, and the
+ * criterion is that none is skipped.
+ *
+ * AND THE ID IS THE HALF THAT MAKES IT TOTAL. ADR-0009 keeps no unique
+ * constraint on (container_id, position), so two placements may share one
+ * position -- a cursor comparing only the position would step over the second
+ * of them.
+ *
+ * BUILT WITH THE QUERY BUILDER'S OWN `or` AND `and` rather than one raw `sql`
+ * template, which ADR-0119 records as a precedence bug that no walk test can
+ * see: `A or (B and C)` written raw and composed with the listing's own `WHERE`
+ * renders as `(held and A) or (B and C)`, and the tie branch escapes the
+ * container entirely.
+ */
+function pastInThisContainer({ position, id }: PlaceInTheContainer): SQL | undefined {
+  // Already among the ones with no position, so the id is the whole order left.
+  if (position === null) return and(isNull(placements.position), gt(placements.id, id));
+  return or(
+    // Every placement with no position sorts after every placement with one.
+    isNull(placements.position),
+    gt(placements.position, position),
+    // THE TIEBREAK, and it is the half that makes the walk total.
+    and(eq(placements.position, position), gt(placements.id, id)),
+  );
 }
 
 /**

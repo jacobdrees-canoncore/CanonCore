@@ -36,6 +36,7 @@ export {
   type ItemRow,
   type PlacementInContainer,
   type PlacementOfItem,
+  type PlacementsInContainer,
   readCatalogue,
   readWorks,
   type StatementOfItem,
