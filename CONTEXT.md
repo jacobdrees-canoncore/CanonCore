@@ -269,6 +269,17 @@ The CMPP operation returning one record by its stable id. Required of every prov
 The optional CMPP operation returning a container together with its ordering, so it yields
 placements directly.
 
+**Credential**:
+What a Provider needs to reach its own upstream — a token, a session, whatever that upstream asks
+of it. A Provider declares the one it needs; the Owner supplies it; CanonCore forwards it and never
+stores it. It belongs to the Provider, not to this catalogue, which is why it is not a Setting.
+_Avoid_: token, secret, key, api key
+
+**Unlock**:
+Giving a Provider its Credential. A Provider with none stays reachable and answers nothing, saying
+so — it is not broken and it is not empty.
+_Avoid_: authenticate, connect, log in, authorise
+
 **Purge**:
 Removing everything one source ever contributed, in one operation. The word is the OWNER'S as well
 as the code's: it is on the button, because ADR-0036's obligation when a licence ends is to purge
