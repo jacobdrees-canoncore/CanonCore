@@ -398,13 +398,20 @@ describe.each(underTest.map((p) => [p.name, p] as const))(
      * the field existing, which is the whole basis on which it could be added to
      * a shipped contract at all.
      *
-     * **THIS SUITE UNLOCKS EVERY PROVIDER THAT DECLARES A CREDENTIAL, REPLACING
-     * WHATEVER IT HELD.** That is not a side effect to be tidied away: ADR-0122
-     * makes the round trip the claim -- POST the declared fields at the declared
-     * path, and the provider reports `valid` -- and there is no way to assert it
-     * without performing it. CI is where this runs, against ephemeral service
-     * containers, and the README of any provider under test says so. Pointed by
-     * hand at a provider holding a real credential, it will overwrite it.
+     * **THIS SUITE UNLOCKS EVERY PROVIDER THAT DECLARES A CREDENTIAL.** That is
+     * not a side effect to be tidied away: ADR-0122 makes the round trip the claim
+     * -- POST the declared fields at the declared path, and the provider reports
+     * `valid` -- and there is no way to assert it without performing it. CI is
+     * where this runs, against ephemeral service containers.
+     *
+     * IT WILL NOT OVERWRITE A CREDENTIAL IT DID NOT PUT THERE, and that guard is
+     * in code rather than in a README because the thing it protects is the Owner's
+     * real session. A provider already reporting `valid` or `expired` is holding
+     * something somebody supplied, and replacing it with a dummy would leave that
+     * provider reporting `valid` about garbage -- the exact mis-diagnosis ADR-0122
+     * exists to prevent, caused by the suite that checks it. So the round trip
+     * runs from `absent` and FAILS LOUDLY otherwise rather than skipping, because
+     * a skip is how an assertion stops running without anybody noticing.
      *
      * IT IS NOT CANONCORE CARRYING A CREDENTIAL, which ADR-0122 forbids. This
      * package depends on no `@canoncore/*` package and the app is absent from
@@ -433,13 +440,21 @@ describe.each(underTest.map((p) => [p.name, p] as const))(
         const before = manifest.parse((await get(participant, "/")).body).credential;
         if (before === undefined) return;
 
+        expect(
+          before.state,
+          `${participant.name} already holds a credential, and this suite will not replace one it ` +
+            "did not supply: a dummy value would leave it reporting `valid` about garbage. Point " +
+            "PROVIDER_WIKI_URL/PROVIDER_TMDB_URL at a provider with an empty configuration " +
+            "directory -- which is what CI's service containers are -- and run it again.",
+        ).toBe("absent");
+
         const supplied = await post(
           participant,
           before.unlock_path,
           Object.fromEntries(
             before.fields.map((field) => [
               field.name,
-              `a value supplied by CanonCore's contract suite`,
+              "a value supplied by CanonCore's contract suite",
             ]),
           ),
         );

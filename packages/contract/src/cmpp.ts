@@ -230,6 +230,20 @@ export const manifest = z.looseObject({
    * tempting: a notice hardcoded for TMDB works perfectly and leaves the next
    * source's obligation nowhere to go.
    */
+  attribution: z
+    .looseObject({
+      notice: z.string().min(1),
+      logo: z
+        .looseObject({
+          /** Bytes, because the fetch is the READER'S BROWSER's and not the app's. */
+          data_uri: z.string().regex(/^data:image\/[a-z0-9.+-]+;base64,[A-Za-z0-9+/]+={0,2}$/),
+          alt: z.string().min(1),
+        })
+        .nullable()
+        .optional(),
+    })
+    .nullable()
+    .optional(),
   /**
    * WHAT THIS PROVIDER NEEDS IN ORDER TO REACH ITS OWN UPSTREAM, and where the
    * OWNER goes to supply it (ADR-0122).
@@ -314,20 +328,6 @@ export const manifest = z.looseObject({
        */
       state_changed_at: z.iso.datetime().nullable(),
     })
-    .optional(),
-  attribution: z
-    .looseObject({
-      notice: z.string().min(1),
-      logo: z
-        .looseObject({
-          /** Bytes, because the fetch is the READER'S BROWSER's and not the app's. */
-          data_uri: z.string().regex(/^data:image\/[a-z0-9.+-]+;base64,[A-Za-z0-9+/]+={0,2}$/),
-          alt: z.string().min(1),
-        })
-        .nullable()
-        .optional(),
-    })
-    .nullable()
     .optional(),
 });
 

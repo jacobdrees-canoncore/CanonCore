@@ -85,8 +85,10 @@ ship.
 
 NOTHING IN THIS REPOSITORY EVER REACHES `tardis.wiki`, **and that survives the change above rather
 than being undone by it.** CanonCore reaches `provider-wiki`; `provider-wiki` reaches the wiki. The
-credential lives in the provider and CanonCore never stores it
-([[0122-a-provider-declares-the-credential-it-needs]]), so this sentence is true for the same reason
+credential lives in the provider and CanonCore never CARRIES it, in storage or in transit
+([[0122-a-provider-declares-the-credential-it-needs]]) -- this read "never stores it" until CNCORE-98,
+which is the weaker claim that record corrected, since a value forwarded through CanonCore's request
+handler is not stored and has still been seen. So this sentence is true for the same reason
 it was before: the provider is a URL answering a contract ([[0031-a-provider-is-a-url]]), and how it
 reaches its own upstream is behind that seam. The record's URL field still carries a link that is
 stored and never followed -- it is a CONTENT URL, so following it would put it through the deny rule

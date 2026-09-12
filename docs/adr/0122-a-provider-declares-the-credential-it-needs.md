@@ -168,7 +168,37 @@ not CanonCore carrying a credential — `packages/contract` depends on no `@cano
 the app is absent from that seam entirely. Pointed by hand at a provider holding a real one, it will
 overwrite it, and both provider READMEs say so.
 
-**Nothing authenticates the unlock route, and that follows from this record rather than falling
-short of it.** The file is the source of truth, so anything that can write it can already Unlock the
-provider; a check on the route would guard one writer and leave the others open. What bounds the
-exposure is where the provider listens — loopback by default, one person by licence (ADR-0089).
+**The unlock route authenticates nobody AND refuses exactly one caller, which is not the same thing
+as either extreme.** The file is the source of truth, so anything that can write it can already
+Unlock the provider, and a login on the route would guard one writer while leaving the others open.
+But that argument has a hole this record did not see, found in review: **a page on another site
+cannot write the file and can still make the OWNER'S OWN BROWSER submit the form.** Form encoding is
+a CORS-simple content type, so no preflight stands in the way and the attacker never needs to read
+the answer — the write lands and the Owner's session is gone. An earlier version of this paragraph
+said the exposure was bounded by where the provider listens, loopback by default; **loopback is not a
+boundary against the Owner's own browser**, which is the client this design sends to the unlock page
+on purpose.
+
+So the route refuses a cross-site BROWSER submission and nothing else, told apart by
+`Sec-Fetch-Site`. That header cannot be forged by a page: the `Sec-` prefix makes it a forbidden
+request header, set by the browser from the real request context, and it has been Baseline across
+browsers since March 2023. A request carrying no such header — a script, a scheduled job, `curl` — is
+allowed, which is the point rather than a gap: those are precisely the writers this record means to
+keep.
+
+### What the contract had to decide that this record does not
+
+Two obligations fall on every provider that declares a credential, and neither is written above.
+They were settled in `packages/contract/src/contract.test.ts` because a conformance suite cannot
+assert a round trip without them, and they are recorded here so the next provider meets a decision
+rather than a test:
+
+**The declared `unlock_path` must ANSWER** — anything below 400 — because the Owner reaches it by
+clicking a link and a path that addresses nothing leaves them with no way in at all. Reachable
+rather than HTML: a provider may serve a form, or redirect to wherever its own upstream takes a
+person.
+
+**A submission missing a declared field must be refused with 400**, rather than stored in part. Half
+a credential stored is a provider reporting `valid` about something its upstream is about to refuse,
+which points the Owner's diagnosis at their source for a fault that is in the form they just
+submitted.
