@@ -741,4 +741,32 @@ describe("a field the procedure refuses", () => {
       '<h1 class="text-3xl font-medium">An item I still have a name for</h1>',
     );
   });
+
+  /**
+   * A SECOND ACTION, WHICH IS WHAT SAYS THE RULE IS SHARED. Everything above is
+   * `retitleItem`, and a fix written into that one function would pass all of
+   * it. `newItem` declares `title: z.string()` against the same `titleByHand`
+   * `item.create` demands, so the create form carries the identical defect --
+   * and `editedNote` and `theTaskNamed` are loose against their routers the same
+   * way. What must not be true is that closing one closed only one.
+   */
+  it("creates no Item when the title the create form carries is empty", async () => {
+    const form = formIn((await documentAt("/new", owner)).text, "new-item");
+
+    const refused = await submit(
+      baseUrl,
+      "/new",
+      withFields(form, { title: "", kind: "work" }),
+      owner,
+    );
+
+    expect(refused.status).toBe(200);
+    expect(refused.text).not.toContain("Internal Server Error");
+    // THE PAGE THE OWNER WAS ON, RENDERED AGAIN. A create that ran would have
+    // redirected to `/items/<id>` and the document coming back would declare
+    // that address canonical (ADR-0066); this one is `/new`, still offering the
+    // form.
+    expect(() => itemAddressIn(refused.text)).toThrow();
+    expect(() => sectionIn(refused.text, "new-item")).not.toThrow();
+  });
 });

@@ -1,4 +1,4 @@
-import type { ClientPromiseResult } from "@orpc/client";
+import type { ClientPromiseResult, ORPCErrorCode } from "@orpc/client";
 import { ORPCError, safe } from "@orpc/server";
 
 /**
@@ -21,10 +21,21 @@ import { ORPCError, safe } from "@orpc/server";
  * with, so "below 500" is the whole test. Anything at 500 or above, and
  * anything that is not an `ORPCError` at all -- a bug in a handler, a query
  * that failed -- is a genuine fault and goes on being thrown.
+ *
+ * A REFUSAL IS AN `ORPCError` AND THE TYPE SAYS SO, which is what stops the
+ * caller asking again. `call` infers its error as the procedure's declared map
+ * WIDENED to anything throwable -- the honest type for a `throw`, and the
+ * reason `login/actions.ts` used to open with `error instanceof ORPCError`
+ * before it could read a code. Everything throwable that is not a refusal has
+ * already been rethrown by the time this is handed back, so the intersection is
+ * a narrowing this function has actually done rather than a claim about it.
  */
 export type Answered<TOutput, TError> =
   | { readonly answered: TOutput; readonly refused: undefined }
-  | { readonly answered: undefined; readonly refused: TError };
+  | {
+      readonly answered: undefined;
+      readonly refused: TError & ORPCError<ORPCErrorCode, unknown>;
+    };
 
 /**
  * ONE ASK, AND WHAT COMES BACK IS THE ANSWER OR THE REFUSAL (CNCORE-127).

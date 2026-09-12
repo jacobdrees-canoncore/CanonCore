@@ -1,7 +1,7 @@
 "use server";
 
 import { appRouter } from "@canoncore/api/routers";
-import { call, isDefinedError, safe } from "@orpc/server";
+import { call, isDefinedError } from "@orpc/server";
 import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -68,7 +68,10 @@ export async function createItem(form: FormData): Promise<void> {
     isOrdered: holds === "ordered",
   };
 
-  const { id } = await call(appRouter.item.create, input, { context: await callerContext() });
+  const { answered } = await whatTheProcedureAnswered(
+    call(appRouter.item.create, input, { context: await callerContext() }),
+  );
+  if (answered === undefined) return;
 
   /*
    * TO THE ITEM ITSELF, which is the one thing an owner who has just made one
@@ -86,7 +89,7 @@ export async function createItem(form: FormData): Promise<void> {
    * give when no script has loaded -- so post/redirect/get is what reports the
    * outcome here, and it stops a refresh making a second item as well.
    */
-  redirect(`/items/${id}`);
+  redirect(`/items/${answered.id}`);
 }
 
 /** What the edit form carries: which item, and what the owner now calls it. */
@@ -148,7 +151,10 @@ export async function annotateItem(form: FormData): Promise<void> {
   const input = whatTheFormCarries(form, editedNote);
   if (input === undefined) return;
 
-  await call(appRouter.item.annotate, input, { context: await callerContext() });
+  const { refused } = await whatTheProcedureAnswered(
+    call(appRouter.item.annotate, input, { context: await callerContext() }),
+  );
+  if (refused) return;
   refresh();
 }
 
@@ -194,12 +200,7 @@ export async function placeItemInContainer(form: FormData): Promise<void> {
   const input = whatTheFormCarries(form, placedMember);
   if (input === undefined) return;
 
-  /*
-   * `safe` RATHER THAN `try`, because `redirect()` below works by THROWING and a
-   * `catch` around it would swallow the redirect as though it were the refusal.
-   * oRPC documents `safe` as the way to get the error back as a value instead.
-   */
-  const { error } = await safe(
+  const { refused } = await whatTheProcedureAnswered(
     call(appRouter.placement.place, input, { context: await callerContext() }),
   );
 
@@ -211,14 +212,20 @@ export async function placeItemInContainer(form: FormData): Promise<void> {
    * available to this surface, and the honest version is that the page says what
    * happened and keeps the owner where they were.
    *
-   * ONLY THE DEFINED REFUSAL, so a real fault stays a fault: the narrowing
-   * `by-hand.ts` makes at the bottom of this stack, kept at the top of it.
+   * ONLY THE DEFINED REFUSAL GETS THAT SENTENCE, which is the narrowing
+   * `by-hand.ts` makes at the bottom of this stack kept at the top of it: the
+   * position being taken is a fact about the CATALOGUE and is worth telling the
+   * owner, where a `BAD_REQUEST` raised by the procedure's own `.input()` is a
+   * fact about a request no browser composed. Every other refusal takes the
+   * ordinary answer this surface already has -- nothing written, and the
+   * container's page rendered again (CNCORE-127) -- and a real fault is still a
+   * fault, thrown before `whatTheProcedureAnswered` hands anything back.
    */
-  if (error) {
-    if (isDefinedError(error) && error.code === "BAD_REQUEST") {
+  if (refused) {
+    if (isDefinedError(refused) && refused.code === "BAD_REQUEST") {
       redirect(`/items/${input.containerId}?refused=${input.itemId}`);
     }
-    throw error;
+    return;
   }
   refresh();
 }
@@ -263,7 +270,11 @@ export async function removePlacement(form: FormData): Promise<void> {
   if (named === undefined) return;
   const { id, containerId } = named;
 
-  await call(appRouter.placement.remove, { id }, { context: await callerContext() });
+  const { answered } = await whatTheProcedureAnswered(
+    call(appRouter.placement.remove, { id }, { context: await callerContext() }),
+  );
+  if (answered === undefined) return;
+
   redirect(`/items/${containerId}?undo=${id}`);
 }
 
@@ -288,11 +299,17 @@ export async function restorePlacement(form: FormData): Promise<void> {
    * none of them is a fault: the honest response is the container as it stands,
    * with the spent offer dropped. Found by review, which caught this reaching
    * the reader as an error page.
+   *
+   * IT NAMES NO CODE ANY MORE, AND THAT IS THE SHARED RULE ARRIVING
+   * (CNCORE-127). This used to let NOT_FOUND past and throw everything else,
+   * which made a hand-composed id answer 500 on the one surface whose whole
+   * subject is an id that may be stale. `whatTheProcedureAnswered` reads every
+   * refusal the same way, so the sentence above is now true of all of them
+   * rather than of the one that had been met.
    */
-  const { error } = await safe(
+  await whatTheProcedureAnswered(
     call(appRouter.placement.restore, { id }, { context: await callerContext() }),
   );
-  if (error && !(isDefinedError(error) && error.code === "NOT_FOUND")) throw error;
 
   redirect(`/items/${containerId}`);
 }
