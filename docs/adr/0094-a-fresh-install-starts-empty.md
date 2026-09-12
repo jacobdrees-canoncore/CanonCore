@@ -68,9 +68,20 @@ then WALKED it: the README followed from a directory with no checkout, with no `
 `~/.docker/config.json` at all, which is what proves the run a stranger gets rather than the one
 the owner gets. That run read the page as well as the status code — it served `Your catalogue is
 empty` and `No provider is allowlisted` — so this record's own subject was observed on it rather
-than inferred from a 200. CNCORE-70 repeated the walk at `v0.1.0` from a clean volume. A record
+than inferred from a 200. CNCORE-70 repeated the walk at `v0.1.0` from a clean volume, and CNCORE-75 at `v0.2.0`
+from a volume it had removed first: `items`, `placements` and `statements` all zero before a hand
+touched them, the schema's own furniture written by the ladder as before. A record
 about what somebody else's instance starts with can be accepted once somebody else can start one,
 and they can. The flip was owed by CNCORE-64 and is made by CNCORE-105.
+
+**AND THE EMPTINESS NOW HAS A SECOND WAY OUT THAT THE PAGE DOES NOT NAME, found under CNCORE-75.**
+This record's other half is that an install starting empty must say what to do next, and the front
+page says it in two steps that are both about a Provider: allowlist one, then import from it. Since
+v0.2.0 neither is necessary -- an owner fills a catalogue by hand, and the walk that proved it
+configured no Provider at all. So the copy is no longer wrong and is no longer the whole answer, and
+a reader whose instance reaches nothing is told to go and find something to reach. Filed as
+CNCORE-131 rather than fixed inside the release ticket, because it is product copy and the header's
+own `New item` link means the capability is reachable rather than hidden.
 
 **WHAT `accepted` DOES NOT ASSERT, BECAUSE THE TITLE IS TWO REFUSALS AND ONLY ONE HAS MET AN
 INSTANCE.** "Never shipped" is the half above, walked. "Never demoed" is not: there IS no public
