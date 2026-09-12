@@ -258,7 +258,33 @@ function Credential({ credential }: { credential: DeclaredCredential }) {
   return (
     <p className="text-muted-foreground text-xs">
       <q>{credential.label}</q> <State credential={credential} />
+      {credential.unlockUrl === null ? <PathRefused /> : null}
     </p>
+  );
+}
+
+/**
+ * WHY THERE IS NO LINK, WHEN THERE IS NO LINK.
+ *
+ * `unlockUrlFor` withholds the URL where the declared path would have left the
+ * Provider's own origin, because that value's one destination is an `href` the
+ * Owner is about to click and then hand a credential to. Saying NOTHING about
+ * that would leave them reading "has not been Unlocked" beside no way to Unlock
+ * it -- a Provider that looks merely locked while it is actually misbehaving,
+ * which is the collapse of two different faults this surface exists to keep
+ * apart.
+ *
+ * THE PATH ITSELF IS NOT PRINTED. It is the Provider's string and naming the
+ * host it points at would put the destination on the page in text, which is most
+ * of what withholding the link was for.
+ */
+function PathRefused() {
+  return (
+    <>
+      {" "}
+      CanonCore is not linking to it: the unlock path this Provider declared leads somewhere other
+      than the Provider, so it is refused.
+    </>
   );
 }
 
@@ -271,30 +297,32 @@ function State({ credential }: { credential: DeclaredCredential }) {
     return (
       <>
         Its Credential lapsed
-        {when === null ? (
-          ""
-        ) : (
-          <>
-            {" "}
-            on <When at={when} />
-          </>
-        )}
-        , so it can answer nothing until it is Unlocked again.
+        <On at={when} />, so it can answer nothing until it is Unlocked again.
       </>
     );
   }
   return (
     <>
       Unlocked
-      {when === null ? (
-        ""
-      ) : (
-        <>
-          {" "}
-          on <When at={when} />
-        </>
-      )}
-      .
+      <On at={when} />.
+    </>
+  );
+}
+
+/**
+ * ` on <date>`, or nothing at all where the Provider gave no date.
+ *
+ * ONE FRAGMENT RATHER THAN TWO IDENTICAL ONES. Both sentences above need the
+ * same optional clause, and written out twice they are two places for the
+ * spacing to drift -- which on a rendered sentence shows up as a missing space
+ * before a date rather than as anything a type would catch.
+ */
+function On({ at }: { at: string | null }) {
+  if (at === null) return null;
+  return (
+    <>
+      {" "}
+      on <When at={at} />
     </>
   );
 }
@@ -308,22 +336,21 @@ function State({ credential }: { credential: DeclaredCredential }) {
  * against "I unlocked that last week", which is the entire question this is read
  * to answer.
  *
- * THE PROVIDER CHOSE THIS STRING, so it is parsed rather than trusted. The
- * contract requires an ISO datetime and this app's schema holds it to one, but a
- * value that survived both and still will not parse must not take the settings
- * page down -- a Provider must not be able to crash the request reading it. The
- * string it sent is then shown as it arrived, which is the honest fallback.
+ * IT DOES NOT RE-CHECK THAT THE PROVIDER SENT A DATE. `cmppManifest` holds
+ * `state_changed_at` to `z.iso.datetime()` on the way in and `settings.read`
+ * states the same type on the way out, so a value reaching here is one both have
+ * already accepted. An earlier version of this parsed defensively and rendered
+ * the raw string on `NaN`; that branch could not be reached, and a guard nothing
+ * can trip reads as protection while protecting nothing.
  */
 function When({ at }: { at: string }) {
-  const on = new Date(at);
-  if (Number.isNaN(on.getTime())) return <>{at}</>;
   return (
     <time dateTime={at}>
       {`${new Intl.DateTimeFormat("en-GB", {
         dateStyle: "long",
         timeStyle: "short",
         timeZone: "UTC",
-      }).format(on)} UTC`}
+      }).format(new Date(at))} UTC`}
     </time>
   );
 }

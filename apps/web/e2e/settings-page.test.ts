@@ -1,4 +1,4 @@
-import { createServer, type Server } from "node:http";
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 
 import { afterAll, describe, expect, inject, it } from "vitest";
 
@@ -80,17 +80,39 @@ async function allow(cookie: string, allowlist: string): Promise<string> {
  */
 const stubs: Server[] = [];
 
+/**
+ * A SERVER ON A LOOPBACK PORT THE OPERATING SYSTEM PICKS.
+ *
+ * SHARED BY THE TWO STUBS BELOW, which had written it out twice: the
+ * `listen(0)`, the narrowing of `address()` back to a port, and the URL built
+ * from it. None of that is what either stub is ABOUT, and a second copy is where
+ * the two quietly stop agreeing on what a stub provider is.
+ */
+type Route = (request: IncomingMessage, response: ServerResponse) => void;
+
+async function onLoopback(route?: Route): Promise<{ url: string; server: Server }> {
+  const server = route === undefined ? createServer() : createServer(route);
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  if (typeof address === "string" || address === null) throw new Error("no port");
+  return { url: `http://127.0.0.1:${address.port}`, server };
+}
+
 interface StubProvider {
   url: string;
   /** What the Owner does in their own browser, which never touches CanonCore. */
   unlock: () => Promise<void>;
+  /** Every path this Provider was asked for, and by whom it was asked. */
+  asked: string[];
 }
 
 async function aProviderDeclaring(
   credential: Record<string, unknown> | null,
 ): Promise<StubProvider> {
   let state = credential;
-  const server = createServer((request, response) => {
+  const asked: string[] = [];
+  const { url, server } = await onLoopback((request, response) => {
+    asked.push(`${request.method} ${request.url}`);
     if (request.url === "/unlock" && request.method === "POST") {
       // THE PROVIDER'S OWN WRITE. It is the only thing that ever sees a value,
       // and what it reports afterwards is read from what it wrote.
@@ -110,12 +132,9 @@ async function aProviderDeclaring(
     );
   });
   stubs.push(server);
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  const address = server.address();
-  if (typeof address === "string" || address === null) throw new Error("no port");
-  const url = `http://127.0.0.1:${address.port}`;
   return {
     url,
+    asked,
     unlock: async () => {
       await fetch(`${url}/unlock`, { method: "POST" });
     },
@@ -137,11 +156,7 @@ afterAll(async () => {
  * the test would then read a stranger's server as this Provider.
  */
 async function aPortNothingListensOn(): Promise<string> {
-  const server = createServer();
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  const address = server.address();
-  if (typeof address === "string" || address === null) throw new Error("no port");
-  const url = `http://127.0.0.1:${address.port}`;
+  const { url, server } = await onLoopback();
   await new Promise<void>((resolve) => server.close(() => resolve()));
   return url;
 }
@@ -509,5 +524,67 @@ describe("/settings, unlocking a provider", () => {
     // an assertion every row would satisfy.
     expect(rowFor(text, locked.url).toLowerCase()).not.toContain("nothing could be read from");
     expect(rowFor(text, deadUrl).toLowerCase()).not.toContain("not been unlocked");
+  });
+  /**
+   * THE ASSERTION THAT CANONCORE NEVER WALKS THROUGH THE DOOR IT RENDERS.
+   *
+   * ADR-0122's refusal is that the Credential never reaches this app, "not even
+   * in transit", and the schema half of that is pinned at the router. This is the
+   * other half: the unlock path is somewhere CanonCore LINKS to and must never
+   * REQUEST, because a request is how a value would come to pass through its
+   * client. The Provider records what it was asked for, so the assertion is made
+   * from the Provider's side rather than from CanonCore's account of itself.
+   */
+  it("never requests the unlock path it links to", async () => {
+    const cookie = await logInAt(baseUrl, ownerPassword);
+    const provider = await aProviderDeclaring({
+      label: "a browser session",
+      fields: [{ name: "cf_clearance", label: "the clearance cookie" }],
+      unlock_path: "/unlock",
+      state: "absent",
+      state_changed_at: null,
+    });
+    await allow(cookie, "127.0.0.1/32");
+    await name(cookie, provider.url);
+
+    await documentFrom(baseUrl, "/settings", cookie);
+
+    expect(provider.asked.length).toBeGreaterThan(0);
+    expect(provider.asked.every((one) => one === "GET /")).toBe(true);
+  });
+
+  /**
+   * A DECLARED PATH THAT LEAVES THE PROVIDER IS REFUSED, AND THE OWNER IS TOLD
+   * WHY.
+   *
+   * `unlockUrlFor` withholds the link, because the value's one destination is an
+   * `href` the Owner is about to click and then type a credential into. Saying
+   * nothing about it would leave them reading "has not been Unlocked" beside no
+   * way to Unlock it -- a Provider that looks merely locked when it is actually
+   * misbehaving, which is the collapse this ticket exists to prevent one row up.
+   */
+  it("says why there is no link when the declared path leaves the provider", async () => {
+    const cookie = await logInAt(baseUrl, ownerPassword);
+    const provider = await aProviderDeclaring({
+      label: "a browser session",
+      unlock_path: "//evil.test/unlock",
+      state: "absent",
+      state_changed_at: null,
+    });
+    await allow(cookie, "127.0.0.1/32");
+    await name(cookie, provider.url);
+
+    const { text } = await documentFrom(baseUrl, "/settings", cookie);
+
+    const row = rowFor(text, provider.url);
+    // NO LINK ANYWHERE ON THE ROW, and `evil.test` nowhere on the page.
+    expect(unlockLinkIn(row)).toBeNull();
+    expect(text).not.toContain("evil.test");
+    // AND THE OWNER IS TOLD, rather than left with a Provider that cannot be
+    // Unlocked and does not say so.
+    expect(row.toLowerCase()).toContain("unlock path");
+    // The state it declared still renders: the Provider is up, and what it says
+    // about itself is still worth reading.
+    expect(row.toLowerCase()).toContain("not been unlocked");
   });
 });

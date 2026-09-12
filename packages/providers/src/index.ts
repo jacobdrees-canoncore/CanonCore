@@ -37,7 +37,6 @@ export {
 } from "./cmpp";
 export { nameProvider, parseProviderUrls, removeProvider } from "./configured";
 export {
-  admits,
   type DeclaredCredential,
   type ProviderReach,
   type Reach,

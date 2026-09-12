@@ -168,6 +168,15 @@ async function reachOne(baseUrl: string, allowlist: Allowlist): Promise<Reach> {
   }
 }
 
+/**
+ * What stands in for a label the provider left blank.
+ *
+ * The Owner still has to be told this Provider wants something, and the honest
+ * thing to say about a Provider that described it in no words is that it
+ * described it in no words.
+ */
+const SAID_NOTHING = "this Provider needs something, and did not say what.";
+
 /** The provider's declaration, as this app renders it. */
 function asDeclared(
   baseUrl: string,
@@ -178,7 +187,14 @@ function asDeclared(
     // The contract bounds this only by `min(1)`, and the same function every
     // other provider text in this app goes through is what keeps the ceiling
     // one ceiling rather than one per surface.
-    label: bounded(credential.label),
+    //
+    // AND A FLOOR, for the reason `reasonFor` has one. `min(1)` admits a label
+    // of a single space, which `bounded` collapses to nothing -- so without
+    // this the page renders an empty quotation where the instruction goes, and
+    // the procedure's own `min(1)` output check turns that into the 500 a
+    // provider must not be able to cause. It REPORTS the silence rather than
+    // dressing it up, which is CNCORE-92's rule.
+    label: bounded(credential.label) || SAID_NOTHING,
     unlockUrl: unlockUrlFor(baseUrl, credential.unlock_path),
     state: credential.state,
     changedAt: credential.state_changed_at,
@@ -199,7 +215,7 @@ function asDeclared(
  * can name such an entry through the settings router, but a row written by hand
  * could hold one, and "not admitted" is the safe reading of it.
  */
-export function admits(allowlist: Allowlist, baseUrl: string): boolean {
+function admits(allowlist: Allowlist, baseUrl: string): boolean {
   try {
     assertConfigUrl(new URL(baseUrl), allowlist);
     return true;

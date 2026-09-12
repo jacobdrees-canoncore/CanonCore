@@ -260,4 +260,31 @@ describe("reaching each named provider", () => {
     if (reached?.reach.kind !== "reached") throw new Error("expected it to be reached");
     expect(reached.reach.credential?.label.length).toBeLessThanOrEqual(REASON_MAX_LENGTH);
   });
+
+  /**
+   * A LABEL OF NOTHING IS STILL A PROVIDER ASKING FOR SOMETHING.
+   *
+   * The contract's `min(1)` admits a single space, which the cap collapses to
+   * nothing — so without a floor the page renders an empty quotation where the
+   * instruction goes, and the procedure's own `min(1)` on the way out turns that
+   * into the 500 a Provider must not be able to cause. Found in review.
+   *
+   * IT REPORTS THE SILENCE RATHER THAN DRESSING IT UP, which is CNCORE-92's rule
+   * and the one `reasonFor` already follows for a failure that named no reason.
+   */
+  it("says a provider needs something even when it described it in no words", async () => {
+    const baseUrl = await declaring({
+      label: "   ",
+      unlock_path: "/unlock",
+      state: "absent",
+      state_changed_at: null,
+    });
+
+    const [reached] = await reachProviders({ baseUrls: [baseUrl], allowlist: LOOPBACK });
+
+    if (reached?.reach.kind !== "reached") throw new Error("expected it to be reached");
+    expect(reached.reach.credential?.label).toBe(
+      "this Provider needs something, and did not say what.",
+    );
+  });
 });

@@ -240,6 +240,14 @@ reading — and only the link is withheld, for the reason this record gives for 
 refusing to start: refusing the whole manifest would report a reachable Provider as unreachable,
 which is the wrong diagnosis shown to the one person who can fix it.
 
+**AND THE PAGE SAYS WHY THE LINK IS MISSING, which withholding it silently would have undone.** Found
+in review: the first build rendered nothing at all in that case, so the Owner read "has not been
+Unlocked" beside no way to Unlock it — a Provider that looks merely locked while it is actually
+misbehaving, which is precisely the collapse of two faults into one that this record's own
+three-way distinction exists to prevent. The declared path itself is NOT printed, because naming the
+host it points at would put the destination on the page in text, and that is most of what
+withholding the link was for.
+
 **THE CONTRACT IS NOT TIGHTENED TO MATCH, DELIBERATELY.** It could refuse these three spellings, and
 that would be belt and braces rather than the mechanism: the contract binds providers that WANT to
 conform, and the whole premise here is a Provider that may not. The check has to live where the
@@ -271,9 +279,26 @@ The contract bounds it only by `min(1)`. It now goes through that record's own c
 quotes it beside the named Provider, so a Provider cannot flood the settings page and cannot be read
 as CanonCore speaking.
 
+**THE SETTINGS SURFACE NOW MAKES A NETWORK CALL, AND IT DID NOT BEFORE.** This record says the state
+arrives with "a read CanonCore already makes", which is true of the app and was NOT true of this
+page: `settings.read` was a pure database read until CNCORE-101. The manifest is still the only
+place the state can come from — only the Provider knows it — so the read is right, but the cost is
+real and belongs here rather than in a PR nobody will find. A Provider that ACCEPTS a connection and
+never answers holds `/settings` for the client's ten-second timeout, and `/settings` is where that
+Provider is removed. The reads are concurrent, so it is one timeout rather than one per Provider,
+and a Provider that refuses the connection outright fails immediately. Whether this surface deserves
+a shorter deadline than an import does is a question this record leaves open rather than settles
+with a second constant.
+
 **THE CREDENTIAL IS KEPT OUT STRUCTURALLY RATHER THAN BY A RULE ANYBODY REMEMBERS.** CanonCore's
 consumer schema is a `z.object` where the contract's is a `looseObject`, so `fields` — the
 contract's list of what the Owner supplies — is STRIPPED on the way in. There is no property
 anywhere in this app for a credential value to sit in, which is a stronger guarantee than a
 convention that nothing reads one: the day somebody reaches for the form again, they have to widen
 a schema to do it.
+
+**AND WHAT CANONCORE MUST NEVER DO IS PINNED FROM THE PROVIDER'S SIDE.** The schema half of "not
+even in transit" is asserted where the value would enter; the other half is that the unlock path is
+somewhere this app LINKS to and must never REQUEST, since a request is how a value would come to
+pass through its client at all. The e2e stub records every path it was asked for, and the assertion
+is made from what the PROVIDER saw rather than from CanonCore's account of itself.

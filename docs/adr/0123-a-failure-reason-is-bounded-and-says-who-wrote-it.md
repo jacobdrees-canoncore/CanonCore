@@ -170,6 +170,24 @@ attribution: `wrote` is decided by WHICH BOUNDARY REFUSED, and a label was refus
 a provider's text on a manifest it chose to send, known to be the provider's with nothing having to
 decide.
 
+**A THIRD TRUNCATION ALREADY EXISTS AND IS DELIBERATELY LEFT.** `packages/tasks/src/registry.ts` has
+its own private `bounded` at this same 300, collapsing and cutting the same way, for what a task
+THREW. Publishing this one does not absorb it: `@canoncore/tasks` depends on `@canoncore/db` alone,
+and taking a dependency on `@canoncore/providers` — the outbound HTTP client, two undici dispatchers
+and ADR-0034's boundaries — to reach a four-line string function would couple the task registry to
+the provider stack for nothing. The number is the shared thing and this record is where it is
+shared; that file takes it "rather than chosen again" and says so. Recorded because a reader who
+finds the second copy should meet a decision rather than an oversight.
+
+**THE CAP IS NOT THE ONLY LEVER A PROVIDER HAS OVER A PAGE, which this record framed as a question of
+LENGTH alone.** Bidirectional overrides (U+202A–U+202E, U+2066–U+2069) re-order the glyphs around
+themselves, so a short reason can run backwards through the sentence CanonCore wrote about it, and
+the zero-width family (U+200B–U+200D, U+FEFF) splits a word a reader is scanning for. Neither is
+whitespace, so `oneLine`'s `\s+` never touched them, and a 300-character ceiling is no answer to
+either. They are stripped rather than escaped: a reason and a credential's label are single
+sentences of prose, not documents with a mixed-direction layout to preserve. Found reviewing
+CNCORE-101, on the page whose next control is a link the Owner is about to give a credential to.
+
 **THE `Reason` COMPONENT MOVED OUT OF `/import` FOR THE SAME REASON THE MAPPING DID.** This record
 says both `/import` sections take the same component, which held while `/import` was the only
 surface; the settings page is the third, and a second two-line component deciding whose voice a
@@ -178,8 +196,11 @@ is `apps/web/src/components/reason.tsx` now. `reasonFor` decides WHOSE the text 
 component decides how the page says so — the half a shared mapping alone does not buy.
 
 **The page prints CanonCore's sentence plainly and QUOTES everything else, with the provider named
-beside it.** Both `/import` sections take the same component, and each keeps naming the provider in
-its own lead sentence. An earlier build moved that naming into the component instead, which rendered
+beside it.** All THREE reason surfaces take the same component — `/import`'s two sections and, since
+CNCORE-101, the settings surface — and each keeps naming the provider in its own lead sentence. It
+lived inside `/import/page.tsx` while that page was the only caller and moved to
+`apps/web/src/components/reason.tsx` when the third arrived; this sentence said "both `/import`
+sections" until then. An earlier build moved that naming into the component instead, which rendered
 the URL twice in the search list and — worse — dropped it entirely when the reason came from
 `assertConfigAddress`, which names an ADDRESS rather than the provider. The lead sentence is the
 right place for it precisely because the reason cannot be relied on to contain it.
