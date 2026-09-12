@@ -6,6 +6,7 @@ import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
+import { whatTheProcedureAnswered } from "@/answer";
 import { whatTheFormCarries } from "@/form";
 import { callerContext } from "@/session";
 
@@ -117,7 +118,10 @@ export async function retitleItem(form: FormData): Promise<void> {
   const input = whatTheFormCarries(form, editedTitle);
   if (input === undefined) return;
 
-  await call(appRouter.item.retitle, input, { context: await callerContext() });
+  const { refused } = await whatTheProcedureAnswered(
+    call(appRouter.item.retitle, input, { context: await callerContext() }),
+  );
+  if (refused) return;
   refresh();
 }
 

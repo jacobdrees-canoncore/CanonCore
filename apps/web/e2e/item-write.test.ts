@@ -666,3 +666,48 @@ describe("a field sent as a file part", () => {
     expect(created.text).not.toContain("Other items,");
   });
 });
+
+/**
+ * A FIELD THE ACTION ACCEPTS AND THE PROCEDURE REFUSES (CNCORE-127), at the
+ * seam the ticket names.
+ *
+ * THE OTHER HALF OF THE 500 ABOVE. The block before this one is a field that is
+ * not TEXT, which the reader in `form.ts` answers. This is a field that IS text
+ * -- `editedTitle` declares `id: z.string()` where `item.retitle` demands
+ * `z.uuid()`, and `title: z.string()` where it demands a title that is not
+ * empty -- so the value passes the ACTION's schema and the ROUTER refuses it.
+ * oRPC raises `BAD_REQUEST` for that, and thrown out of a Server Action it is
+ * neither a redirect nor an HTTP access-fallback error, so Next answers the
+ * bare `Internal Server Error`. MEASURED at this seam on 2026-09-12: both
+ * fields, both 500.
+ *
+ * NO BROWSER COMPOSES EITHER REQUEST, which is why they are asserted here
+ * rather than left to the surfaces above: the id is a hidden field the server
+ * wrote, and the title input carries `required`. A caller composing a request
+ * by hand is bound by neither -- and ADR-0066 says the answer a reader gets
+ * should describe what they asked for rather than claim the server is broken.
+ */
+describe("a field the procedure refuses", () => {
+  it("writes no title when the id names nothing the catalogue could hold", async () => {
+    const at = await anItemOfMyOwn("An item whose id I mistyped");
+
+    const refused = await submit(
+      baseUrl,
+      at,
+      withFields(formIn((await documentAt(at, owner)).text, "edit-title"), {
+        id: "not-a-uuid",
+        title: "A title nobody can have asked for",
+      }),
+      owner,
+    );
+
+    // NOT THE 500, which is the defect: a bare `Internal Server Error` costs the
+    // reader the page they were on and says the server broke.
+    expect(refused.status).toBe(200);
+    expect(refused.text).not.toContain("Internal Server Error");
+    // AND NOTHING WAS WRITTEN, asked for again rather than read out of the
+    // response, so this is the catalogue's answer rather than one render's.
+    const after = await documentAt(at, owner);
+    expect(valueRows(after.text)).toEqual(["Title An item whose id I mistyped Owner"]);
+  });
+});
