@@ -118,7 +118,10 @@ and only the FIRST had shipped when this status flipped. v0.2.0's owner write pa
 CNCORE-74 -- was unbuilt then, so the argument three sections up, that "shipping multi-placement that
 the owner cannot perform is shipping the demo of the feature rather than the feature", was an
 outstanding debt rather than a settled one. It is built now, and CNCORE-75 ships it as the second
-tag. The status is flipped because the gate this record wrote for itself was the tag and
+tag: an owner creates an Item, places it in as many Containers as they like, reorders one by
+dragging and removes a member, each at its own Position. The one mutation their hands cannot reach
+is the move BETWEEN Containers, which only `placement.move` offers, because the Members list is flat
+and no tree was ported (ADR-0116). The status is flipped because the gate this record wrote for itself was the tag and
 nothing else; the half that has not landed is named here so `accepted` cannot be read as the whole
 effort being done.
 

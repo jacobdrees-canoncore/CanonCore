@@ -73,7 +73,8 @@ function LogInForm({ refused }: { refused?: string }) {
     <>
       <p className="mt-2 text-muted-foreground text-sm">
         Reading this catalogue needs no password. Changing it does: creating and editing items,
-        placing and reordering them, writing notes, importing from a provider, purging one.
+        placing and reordering them, writing notes, importing from a provider, taking a
+        container&apos;s ordering from one, purging one.
       </p>
       <form action={logIn} className="mt-6 flex flex-col gap-3">
         <Label htmlFor="password">Password</Label>
