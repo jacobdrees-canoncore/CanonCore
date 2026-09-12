@@ -58,6 +58,7 @@ export default async function setup(project: TestProject) {
   const provider = await theProvider();
   const tmdb = await theTmdbProvider();
   const lookupOnly = await aProviderThatDeclinesBrowse();
+  const answersBadly = await aProviderThatAnswersBadly();
 
   const env = {
     ...process.env,
@@ -78,7 +79,13 @@ export default async function setup(project: TestProject) {
      * to ask. Neither is derivable from the other -- `127.0.0.0/8` carries no
      * scheme and no port.
      */
-    PROVIDER_URLS: [provider.url, tmdb.url, lookupOnly.url, UNREACHABLE_PROVIDER].join(","),
+    PROVIDER_URLS: [
+      provider.url,
+      tmdb.url,
+      lookupOnly.url,
+      answersBadly.url,
+      UNREACHABLE_PROVIDER,
+    ].join(","),
   };
   await run("next", ["build"], env);
 
@@ -143,6 +150,7 @@ export default async function setup(project: TestProject) {
     unreachable: UNREACHABLE_PROVIDER,
     browsable: { provider: tmdb.url, container: MATRIX_COLLECTION },
     declinesBrowse: lookupOnly.url,
+    answersBadly: answersBadly.url,
   });
   const browsed = await browseThroughTheApp(baseUrl, provider.url, databaseUrl);
   project.provide("browsed", browsed.fixture);
@@ -161,6 +169,7 @@ export default async function setup(project: TestProject) {
     await provider.close();
     await tmdb.close();
     await lookupOnly.close();
+    await answersBadly.close();
   };
 }
 
@@ -789,6 +798,32 @@ async function aProviderThatDeclinesBrowse(): Promise<{ url: string; close: () =
   });
 }
 
+/**
+ * A provider that is REACHED and answers a body CMPP does not accept.
+ *
+ * THE THIRD THING AN `unreachable` ANSWER CARRIES, and the only one of the three
+ * with no witness here before: a URL ADR-0034 refused is `UNREACHABLE_PROVIDER`,
+ * a dead socket needs no stub, and a provider that ANSWERED BADLY is what makes
+ * the reason a THIRD PARTY'S TEXT rather than this app's prose (ADR-0123). The
+ * page renders those two differently -- CanonCore's sentence plainly, anything
+ * else quoted beside the provider -- and without this nothing renders the second.
+ *
+ * ITS MANIFEST IS THE MALFORMED PART, because that is the first thing every
+ * operation reads: one bad answer reaches `search` and `container` alike without
+ * the stub implementing the rest of CMPP correctly to get there.
+ *
+ * IT IS NOT A STAND-IN FOR A REAL PROVIDER and must not grow into one, exactly
+ * as `aProviderThatDeclinesBrowse` is not. It stands for one claim.
+ */
+async function aProviderThatAnswersBadly(): Promise<{ url: string; close: () => Promise<void> }> {
+  // Well-formed JSON and not a CMPP manifest: every field is the wrong type, so
+  // `cmppManifest` refuses it and zod's report -- not this app's prose -- is
+  // what travels back to the page.
+  return onLoopback((_path, answer) =>
+    answer({ name: 12345, versions: "one", operations: 7 }, 200),
+  );
+}
+
 /** What a stub answers one request with: a JSON body and a status. */
 type Answer = (body: unknown, status: number) => void;
 
@@ -1246,6 +1281,14 @@ declare module "vitest" {
        * conformance witness rather than one of the images.
        */
       declinesBrowse: string;
+      /**
+       * A provider this instance searches that IS REACHED and answers a body
+       * CMPP does not accept -- the third thing an `unreachable` answer carries,
+       * beside a refused URL and a dead socket (ADR-0123). Its reason is a third
+       * party's text rather than this app's, which is the case no image
+       * produces and the one the page has to QUOTE rather than speak.
+       */
+      answersBadly: string;
     };
     /** A real browsed story in two orderings, and the two shapes browse hands over. */
     browsed: {

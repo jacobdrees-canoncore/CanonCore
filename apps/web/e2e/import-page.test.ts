@@ -587,11 +587,47 @@ describe("/import, when the provider refuses", () => {
     // unreachable, so either sentence would pass here -- what is asserted is the
     // one the page has to be able to say about all three.
     expect(container.toLowerCase()).toContain("nothing could be learned about that id");
-    expect(container).toContain(said.reason);
+    expect(container).toContain(said.reason.text);
     // AND NOT EITHER OF THE OTHER TWO, which is what distinguishing them means.
     expect(container.toLowerCase()).not.toContain("no container at that id");
     expect(container.toLowerCase()).not.toContain("does not offer browse");
     expect(postFormsIn(container)).toHaveLength(0);
+  });
+
+  /*
+   * THE THIRD CASE THE BRANCH ABOVE CARRIES: a provider that WAS reached and
+   * answered badly, whose reason is therefore its own rather than this app's.
+   *
+   * ADR-0123 makes those two render differently -- CanonCore's own sentence
+   * plainly, anything else in quotation marks beside the provider that produced
+   * it -- and every other test here reaches the `canoncore` branch, because the
+   * suite's one unreachable provider is refused by the allowlist before a socket
+   * opens. Without this, the quoting CNCORE-96 binds every reason surface to is
+   * rendered by nothing.
+   *
+   * THE PROVIDER IS CONFIGURED RATHER THAN STOOD UP HERE, because this page
+   * refuses a base URL that is not in `PROVIDER_URLS` and renders its
+   * `not-configured` notice instead -- so a stub of this test's own never
+   * reaches the branch under test.
+   */
+  it("quotes a provider's own text beside the provider, rather than printing it as CanonCore's", async () => {
+    const named = { provider: providerSearch.answersBadly, container: "388305" };
+
+    const { status, text } = await documentAt(browsing(named));
+    const said = await whatTheProviderSays(named);
+
+    expect(status).toBe(200);
+    if (said.answer !== "unreachable") {
+      throw new Error(`a provider that answered badly was reported ${said.answer}`);
+    }
+    // ITS OWN TEXT, so the Owner can tell this from a refusal -- CNCORE-92's
+    // rule that a refusal reworded is not a refusal reported.
+    expect(said.reason.wrote).toBe("provider");
+    const container = sectionIn(text, "container");
+    // QUOTED. `<q>` is the whole of what says the catalogue is not the one
+    // making this claim, and the lead sentence names the provider beside it.
+    expect(container).toContain(`<q>${said.reason.text}</q>`);
+    expect(container).toContain(named.provider);
   });
 
   it("still names the Item the catalogue holds, when the provider refuses the id", async () => {

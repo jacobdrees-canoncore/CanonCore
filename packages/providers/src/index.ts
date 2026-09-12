@@ -15,6 +15,7 @@ export {
   assertConfigUrl,
   assertContentAddress,
   assertContentUrl,
+  type Boundary,
   OutboundRefused,
   parseAllowlist,
   pinnedLookup,
@@ -35,6 +36,12 @@ export {
   cmppSearch,
 } from "./cmpp";
 export { parseProviderUrls } from "./configured";
+export {
+  type FailureReason,
+  failureReason,
+  REASON_MAX_LENGTH,
+  reasonFor,
+} from "./reason";
 export {
   type FailedProvider,
   type ProviderAnswer,
