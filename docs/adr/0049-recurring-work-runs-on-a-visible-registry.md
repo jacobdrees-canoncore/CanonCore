@@ -24,8 +24,8 @@ one that silently stopped months ago.
 ## As built, under CNCORE-119
 
 **THE REGISTRY IS BUILT, AND SO IS THE THING THAT FIRES IT.** `@canoncore/tasks` holds the keyed
-tasks and runs them; `task_runs` (migration 12) holds the history; `task.list`, `task.run` and
-`task.cancel` are the owner's surface and `/tasks` is the page. An earlier version of this section
+tasks and runs them; `task_runs` (migration 13) holds the history; `task.list`, `task.run`,
+`task.history` and `task.cancel` are the owner's surface and `/tasks` is the page. An earlier version of this section
 said the registry was not built and tracked it as CNCORE-119; that ticket is this one.
 
 **THE FIRST TASK DID NOT HAVE TO BE WRITTEN FOR IT, which is what made this record cheaper to

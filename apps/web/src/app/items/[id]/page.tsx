@@ -4,6 +4,7 @@ import { appRouter } from "@canoncore/api/routers";
 import { Button } from "@canoncore/ui/components/button";
 import { Input } from "@canoncore/ui/components/input";
 import { Label } from "@canoncore/ui/components/label";
+import { Textarea } from "@canoncore/ui/components/textarea";
 import { call, isDefinedError, safe } from "@orpc/server";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -11,7 +12,7 @@ import { notFound } from "next/navigation";
 import { Attribution } from "@/components/attribution";
 import { callerContext } from "@/session";
 
-import { retitleItem } from "../actions";
+import { annotateItem, retitleItem } from "../actions";
 
 /**
  * ADR-0066: `/items/<id>` is canonical and addresses the item.
@@ -44,6 +45,25 @@ async function readItem(id: string, context?: Context) {
  * one fewer dependency for it.
  */
 type ItemOnThePage = Awaited<ReturnType<typeof readItem>>;
+
+/**
+ * The Owner's own note about this item (ADR-0096), on a call of its own.
+ *
+ * A SECOND READ RATHER THAN A FIELD ON THE FIRST, and ADR-0045 is why: the
+ * public read path "carries no internal ids, no owner id and NO NOTES", so the
+ * note cannot ride on `item.get` -- which anyone may call (ADR-0044). Asking
+ * separately is what lets the procedure that answers it be the owner's.
+ *
+ * ONLY CALLED FOR THE OWNER, and the procedure refuses everybody else anyway.
+ * The page asks at all only when it has a session, so a visitor's page makes no
+ * call that would answer UNAUTHORIZED and render as a 500.
+ */
+async function readNote(id: string, context: Context) {
+  return call(appRouter.item.note, { id }, { context });
+}
+
+/** What the note section renders, taken from the read rather than restated. */
+type NoteOnThePage = Awaited<ReturnType<typeof readNote>>;
 
 /**
  * How a placement got where it is, in the reader's words rather than the
@@ -248,6 +268,15 @@ export default async function ItemPage({
         they saw the disagreement.
       */}
       {owner && <EditTitle itemId={item.id} title={item.title} />}
+      {/*
+        THE OWNER'S NOTE, AND ONLY THE OWNER'S PAGE HAS ONE (ADR-0045). A
+        visitor is not shown an empty section either: there is nothing there to
+        render and nothing they could put in it.
+
+        ABOVE the claims list for the reason `EditTitle` is: this is the owner's
+        own words about the item, and the list under it is everybody's.
+      */}
+      {owner && <Note itemId={item.id} note={await readNote(item.id, context)} />}
       <Values statements={item.statements} />
       {/*
         BEFORE "Also appears in", because a container's own ordering is what a
@@ -386,19 +415,46 @@ function Members({ holds }: { holds: ItemOnThePage["holds"] }) {
             >
               {placement.title ?? "Untitled item"}
             </Link>
-            {/*
-              One expression rather than `#{position}`, for the reason
-              `AlsoAppearsIn` gives: React server-renders a text literal beside
-              an expression with a `<!-- -->` between them.
+            <span className="flex items-baseline gap-3 text-muted-foreground text-sm">
+              {/*
+                WHO SAYS IT SITS HERE, which is what tells a Repeat from two
+                sources disagreeing (CNCORE-90). Both are one title twice at two
+                positions -- ADR-0009 licences the first and ADR-0017 produces
+                the second -- and nothing stored separates them, so a reader
+                telling them apart is a reader reading these names: one source
+                against two.
 
-              AND AN UNPLACED MEMBER SAYS SO rather than being dropped or
-              numbered last. `positionLabel` is shared with the list below, so
-              the two surfaces cannot come to describe the same absence in two
-              different ways -- CONTEXT.md settles the words as "no position
-              given" and is binding on UI copy.
-            */}
-            <span className="text-muted-foreground text-sm">
-              {positionLabel(placement.position)}
+                THE SOURCES' OWN LABELS RATHER THAN "Imported", and the strip in
+                `AlsoAppearsIn` below says the kind for a reason that does not
+                hold here. That list asks how an item came to be in a container,
+                which four words answer; this one asks WHO claims this position,
+                and the disagreement a catalogue really holds is a wiki against a
+                broadcaster -- two providers, one word between them. `Values`
+                above prints a statement's source label for the same reason.
+
+                THE ONE THAT SPEAKS LEADS (ADR-0017), because the read path
+                orders them by rank, the source order and a stable id -- the
+                spokesman's own three terms. A comma is enough of a separator: a
+                row naming two sources is two sources AGREEING, which is a fact
+                about the placement rather than a competition.
+
+                A PLACEMENT NOBODY ASSERTED PRINTS NOTHING rather than "nobody".
+                The row is still a member and still a link; what is absent is a
+                claim, and the page has no business inventing words for one.
+              */}
+              {placement.assertedBy.length > 0 && <span>{placement.assertedBy.join(", ")}</span>}
+              {/*
+                One expression rather than `#{position}`, for the reason
+                `AlsoAppearsIn` gives: React server-renders a text literal beside
+                an expression with a `<!-- -->` between them.
+
+                AND AN UNPLACED MEMBER SAYS SO rather than being dropped or
+                numbered last. `positionLabel` is shared with the list below, so
+                the two surfaces cannot come to describe the same absence in two
+                different ways -- CONTEXT.md settles the words as "no position
+                given" and is binding on UI copy.
+              */}
+              <span>{positionLabel(placement.position)}</span>
             </span>
           </li>
         ))}
@@ -592,6 +648,82 @@ function EditTitle({ itemId, title }: { itemId: string; title: string | null }) 
           */}
           <Input id="title" name="title" defaultValue={title ?? ""} required autoComplete="off" />
         </div>
+        <Button type="submit">Save</Button>
+      </form>
+    </section>
+  );
+}
+
+/**
+ * THE OWNER'S OWN WORDS ABOUT AN ITEM (ADR-0096), and the one section of this
+ * page a visitor never sees.
+ *
+ * A NOTE IS A STATEMENT, which is that record's decision and is why this looks
+ * like the Values list rather than like a comment box: what the owner wrote,
+ * and the source it is filed under, beside each other. `CONTEXT.md` calls a
+ * note "the owner's own free text about an item. Theirs alone: nothing else can
+ * assert one" -- and the page says whose it is by READING the source off the
+ * row rather than printing the word for itself, which is what makes it
+ * distinguishable from a provider's claim by the same means every other value
+ * on this page is.
+ *
+ * IT IS NOT IN THE VALUES LIST, and that is ADR-0045 rather than a layout
+ * choice: that list is `itemPublic.statements`, which every visitor is served.
+ * A note on it would be published by construction.
+ *
+ * ONE FORM FOR WRITING, EDITING AND REMOVING. The field opens on the note the
+ * item already has, so correcting a sentence does not mean retyping the
+ * paragraph -- and clearing it and saving is the removal (ADR-0096).
+ *
+ * A `<textarea>` RATHER THAN AN `<input>`, because a note is prose and an owner
+ * writing about an item writes sentences. `defaultValue` keeps it working with
+ * no script, for the reason `EditTitle` gives: a controlled field needs an
+ * `onChange` and therefore a client component.
+ */
+function Note({ itemId, note }: { itemId: string; note: NoteOnThePage }) {
+  return (
+    <section className="mt-8" aria-labelledby="note">
+      <h2 id="note" className="font-medium text-sm">
+        Note
+      </h2>
+      {note && (
+        <p data-note className="mt-2 flex items-baseline justify-between gap-4 py-2">
+          {/*
+            `whitespace-pre-wrap` BECAUSE THE OWNER'S LINE BREAKS ARE THEIRS. A
+            note is written in a textarea, so a paragraph break is something the
+            owner typed on purpose and HTML would otherwise collapse it.
+          */}
+          <span className="whitespace-pre-wrap">{note.value}</span>
+          {/*
+            The source's own LABEL rather than its kind, exactly as the Values
+            list prints one: "who asserted this" is answered by `Owner`, where
+            `owner` answers only what sort of thing said it.
+          */}
+          <span className="text-muted-foreground text-sm">{note.sourceLabel}</span>
+        </p>
+      )}
+      <form action={annotateItem} className="mt-2 flex flex-col items-start gap-2">
+        <input type="hidden" name="id" value={itemId} />
+        <Label htmlFor="note-text" className="sr-only">
+          Note
+        </Label>
+        {/*
+          NOT `id="note"`, WHICH THE HEADING ABOVE ALREADY HOLDS. `aria-labelledby`
+          on the section points at that heading, and two elements sharing one id
+          make the document invalid and the reference ambiguous.
+
+          NOT `required`, WHERE THE TITLE FIELD IS. An empty note is a real
+          submission here -- it is how the owner removes one -- so a browser
+          refusing to submit the empty form would take the removal away.
+        */}
+        <Textarea
+          id="note-text"
+          name="note"
+          defaultValue={note?.value ?? ""}
+          rows={3}
+          className="w-full"
+          autoComplete="off"
+        />
         <Button type="submit">Save</Button>
       </form>
     </section>

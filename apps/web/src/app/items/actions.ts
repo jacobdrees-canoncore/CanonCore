@@ -30,6 +30,14 @@ import { callerContext } from "@/session";
  *
  * A FORM FIELD IS INPUT, whoever rendered the form, so everything below is
  * parsed rather than trusted.
+ *
+ * TODO(CNCORE-123): `form.get` answers `File | string | null`, and a `z.string()`
+ * field handed a `File` throws a `ZodError` nothing catches -- so a request
+ * composed by hand gets `Internal Server Error` where CNCORE-14 and ADR-0066
+ * both say it should get a refusal. Found by review on CNCORE-74 and left to
+ * that ticket, because the shape is the same in all four of this app's actions
+ * and predates this one: fixing it here would be one of four, and the rule
+ * belongs in one place the next action inherits.
  */
 
 /**
@@ -114,5 +122,31 @@ export async function retitleItem(form: FormData): Promise<void> {
   const input = editedTitle.parse({ id: form.get("id"), title: form.get("title") });
 
   await call(appRouter.item.retitle, input, { context: await callerContext() });
+  refresh();
+}
+
+/** What the note form carries: which item, and what the owner now says about it. */
+const editedNote = z.object({ id: z.string(), note: z.string() });
+
+/**
+ * Writing, editing and REMOVING the Owner's note about an item (ADR-0096), on
+ * one action, because all three are one claim: what the owner now says about
+ * this item.
+ *
+ * CLEARING THE BOX IS THE REMOVAL, and there is no second button for it,
+ * because the model has no second operation for one to call: a Remove control
+ * would either do exactly what saving an empty box does, or mean something
+ * nobody has defined. ADR-0096 carries why. The owner is offered one control
+ * that says what they think, including when that is nothing.
+ *
+ * NO REDIRECT, and `refresh()` for the same reason `retitleItem` above gives:
+ * this form posts to the item's own address, so the response IS the page
+ * rendered again, and the call is what clears the CLIENT router cache that the
+ * page-over-HTTP seam cannot see.
+ */
+export async function annotateItem(form: FormData): Promise<void> {
+  const input = editedNote.parse({ id: form.get("id"), note: form.get("note") });
+
+  await call(appRouter.item.annotate, input, { context: await callerContext() });
   refresh();
 }

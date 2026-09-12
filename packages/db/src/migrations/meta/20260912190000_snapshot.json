@@ -1,5 +1,5 @@
 {
-  "id": "2e07cc74-3c6f-41d1-b342-1fc7aed0c35b",
+  "id": "892c893a-4ed2-4faf-b938-07846b6d1580",
   "prevId": "3b08b625-f825-46da-9ca6-6f3738ba24b2",
   "version": "7",
   "dialect": "postgresql",
@@ -1148,6 +1148,10 @@
         "properties_validation_declares_a_format": {
           "name": "properties_validation_declares_a_format",
           "value": "jsonb_typeof(\"properties\".\"validation\") = 'object' and (\"properties\".\"validation\" = '{}'::jsonb or coalesce(jsonb_typeof(\"properties\".\"validation\" -> 'format') = 'string', false))"
+        },
+        "properties_capabilities_are_an_object": {
+          "name": "properties_capabilities_are_an_object",
+          "value": "jsonb_typeof(\"properties\".\"capabilities\") = 'object' and coalesce(jsonb_typeof(\"properties\".\"capabilities\" -> 'assertableBy') = 'array' and jsonb_array_length(\"properties\".\"capabilities\" -> 'assertableBy') > 0, \"properties\".\"capabilities\" -> 'assertableBy' is null) and coalesce(jsonb_typeof(\"properties\".\"capabilities\" -> 'public') = 'boolean', \"properties\".\"capabilities\" -> 'public' is null)"
         }
       },
       "isRLSEnabled": false
@@ -1931,136 +1935,6 @@
         "statements_confidence_is_a_probability": {
           "name": "statements_confidence_is_a_probability",
           "value": "\"statements\".\"confidence\" is null or (\"statements\".\"confidence\" >= 0 and \"statements\".\"confidence\" <= 1)"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.task_runs": {
-      "name": "task_runs",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "owner_id": {
-          "name": "owner_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "task_key": {
-          "name": "task_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "started_at": {
-          "name": "started_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "ended_at": {
-          "name": "ended_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "outcome": {
-          "name": "outcome",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'running'"
-        },
-        "detail": {
-          "name": "detail",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "deleted_at": {
-          "name": "deleted_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "change_sequence": {
-          "name": "change_sequence",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "nextval('change_sequence')"
-        }
-      },
-      "indexes": {
-        "task_runs_by_task": {
-          "name": "task_runs_by_task",
-          "columns": [
-            {
-              "expression": "task_key",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "started_at",
-              "isExpression": false,
-              "asc": false,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "task_runs_owner_id_owners_id_fk": {
-          "name": "task_runs_owner_id_owners_id_fk",
-          "tableFrom": "task_runs",
-          "tableTo": "owners",
-          "columnsFrom": [
-            "owner_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "task_runs_outcome_is_known": {
-          "name": "task_runs_outcome_is_known",
-          "value": "\"task_runs\".\"outcome\" in ('running', 'completed', 'failed', 'cancelled', 'aborted')"
-        },
-        "task_runs_running_has_no_end": {
-          "name": "task_runs_running_has_no_end",
-          "value": "(\"task_runs\".\"outcome\" = 'running') = (\"task_runs\".\"ended_at\" is null)"
         }
       },
       "isRLSEnabled": false

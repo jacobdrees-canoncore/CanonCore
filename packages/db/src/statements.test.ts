@@ -172,4 +172,37 @@ describe("the values claimed about one item", () => {
 
     expect(await findStatementsOfItem(db, itemId)).toEqual([]);
   });
+
+  /**
+   * ADR-0045: the public read path "carries no internal ids, no owner id and NO
+   * NOTES". This is the list it names, so this is where that sentence has to
+   * hold -- a note reaching here is a note on every item page a stranger opens.
+   *
+   * IT READS THE DECLARATION rather than naming the property, which is
+   * ADR-0045's own argument about strip-lists made one layer down: `name <>
+   * 'note'` works right up until a second property should not be public and
+   * nobody remembers this query. `capabilities` is where every other fact about
+   * a property already lives (ADR-0015, ADR-0029), so the exclusion is declared
+   * beside the property in the migration that seeds it.
+   */
+  it("leaves out a note, which the public read path never carries", async () => {
+    const itemId = await anItem(db);
+    const owner = await ownerSource(db);
+    await aStatement(db, {
+      subjectItemId: itemId,
+      property: "title",
+      valueLiteral: "The Tenth Planet",
+      sourceId: owner,
+    });
+    await aStatement(db, {
+      subjectItemId: itemId,
+      property: "note",
+      valueLiteral: "The one I always come back to",
+      sourceId: owner,
+    });
+
+    expect(await findStatementsOfItem(db, itemId)).toEqual([
+      { property: "title", value: "The Tenth Planet", sourceKind: "owner", sourceLabel: "Owner" },
+    ]);
+  });
 });

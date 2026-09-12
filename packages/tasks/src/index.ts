@@ -29,7 +29,7 @@ export { sweepSessionsTask } from "./sweep-sessions";
 /**
  * EVERYTHING THIS INSTANCE RUNS, in the order an owner reads it.
  *
- * A LIST IN CODE AND NOT A TABLE, which migration 12 says in its own words: a
+ * A LIST IN CODE AND NOT A TABLE, which migration 13 says in its own words: a
  * task IS code, so a table of them would be a second place to add one from,
  * out of step with this list the moment either moved.
  *

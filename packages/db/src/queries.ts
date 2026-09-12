@@ -64,6 +64,44 @@ export interface PlacementOfItem {
 }
 
 /**
+ * THE THREE TERMS THAT DECIDE WHICH SOURCE SPEAKS, written once because two
+ * queries below read them and a third copy of this rule lives in SQL.
+ *
+ * They are `winning_literal`'s, in its order and for its reasons -- migration 1.
+ * Rank first, because the owner's favourite is the lock and outranks the whole
+ * source order (ADR-0024); then the one global source order (ADR-0025); then the
+ * row id, an arbitrary but stable tiebreak. Recency is deliberately absent.
+ *
+ * `spokesmanFor` applies them to PICK one source and `assertersOf` to ORDER
+ * every source, which is the same rule answering two questions rather than two
+ * rules. Named here rather than written out twice: this file already carries a
+ * paragraph about three copies of a rule whose whole point is that it is
+ * identical, and that paragraph was about the version with three copies.
+ *
+ * THE COPY IN `winning_literal` CANNOT JOIN THEM, and that is the one place the
+ * duplication is real: it is PL/pgSQL in a migration, which no TypeScript
+ * constant reaches. Two languages, and the ADR says to keep them identical by
+ * hand.
+ */
+const whoSpeaksFirst = [ranks.precedence, sources.sourceOrder, placementSources.id];
+
+/**
+ * THE LIVE CLAIMS BEHIND THE PLACEMENT THIS ROW IS FOR, and the tombstone both
+ * readers honour.
+ *
+ * The placement source's OWN, the exact analogue of the statement's own that
+ * `winning_literal` checks. `sources.deleted_at` is deliberately absent from
+ * this and from `winning_literal` alike (ADR-0017): a query locally more correct
+ * than its twin makes one field's provenance disagree with another's, in a way
+ * that compiles perfectly. Nothing can delete a source today; when something
+ * can, this is now ONE line rather than two.
+ */
+const standingBehindThePlacement = and(
+  eq(placementSources.placementId, placements.id),
+  isNull(placementSources.deletedAt),
+);
+
+/**
  * WHICH source speaks for a placement, when several do -- and, when two of them
  * disagree about position, WHICH OF THE TWO PLACEMENTS SPEAKS.
  *
@@ -102,8 +140,8 @@ function spokesmanFor(db: Database) {
     .from(placementSources)
     .innerJoin(sources, eq(sources.id, placementSources.sourceId))
     .innerJoin(ranks, eq(ranks.rank, placementSources.rank))
-    .where(and(eq(placementSources.placementId, placements.id), isNull(placementSources.deletedAt)))
-    .orderBy(ranks.precedence, sources.sourceOrder, placementSources.id)
+    .where(standingBehindThePlacement)
+    .orderBy(...whoSpeaksFirst)
     .limit(1)
     .as("spokesman");
 }
@@ -237,6 +275,23 @@ export async function findStatementsOfItem(
         // is the whole difference from the tombstone above.
         eq(statements.quarantined, false),
         isNotNull(statements.valueLiteral),
+        /*
+         * ADR-0045: the public read path carries NO NOTES, and this list is
+         * what `itemPublic.statements` is built from -- so a note reaching here
+         * is a note on every item page a stranger opens.
+         *
+         * IT READS THE PROPERTY'S OWN DECLARATION (migration 12) rather than
+         * naming `note`, which is ADR-0045's argument about strip-lists applied
+         * to itself: a filter naming one property "works until someone adds a
+         * field and forgets", and the field is the next property that should not
+         * be public. `capabilities` is where every other fact about a property
+         * already lives (ADR-0015, ADR-0029).
+         *
+         * ABSENT MEANS PUBLIC, which is true of the other twelve properties and
+         * is why the `coalesce` defaults to true. The database refuses a `public`
+         * that is not a boolean, so the cast cannot meet a string.
+         */
+        sql`coalesce((${properties.capabilities} -> 'public')::boolean, true)`,
       ),
     )
     .orderBy(
@@ -246,6 +301,77 @@ export async function findStatementsOfItem(
       statements.valueLiteral,
       statements.id,
     );
+}
+
+/**
+ * The owner's own note about one item (ADR-0096): what they wrote, and the
+ * source it is filed under.
+ *
+ * THE SOURCE IS READ RATHER THAN ASSUMED, even though only the owner can ever
+ * assert one (migration 12). The page has to say WHO said this to meet
+ * CNCORE-74's criterion that the note is distinguishable from a provider's
+ * claim, and a surface that printed the word "Owner" for itself would be
+ * asserting what the row says instead of reading it -- which is the rule
+ * ADR-0045 settles for every other label the read path carries.
+ *
+ * THE KIND IS NOT READ BESIDE IT. It can only ever be `owner` while the
+ * declaration stands, and nothing branches on it, so emitting it would be a
+ * field added against a reader that does not exist (ADR-0045).
+ */
+export interface NoteOfItem {
+  value: string;
+  /** What that source calls itself, seeded as `Owner` by migration 1. */
+  sourceLabel: string;
+}
+
+/**
+ * The note on one item, or `null` where nobody has written one.
+ *
+ * IT IS NOT IN `findStatementsOfItem`, and that is ADR-0045 rather than an
+ * oversight: the public read path carries no notes, so a note cannot travel on
+ * the list every visitor is served. Reading it separately is what lets the
+ * procedure that answers it be the OWNER'S while `item.get` stays open.
+ *
+ * ONE NOTE, because `note` declares `single` cardinality (migration 12) and a
+ * note is the owner's own free text about an item -- editing one replaces it.
+ * Cardinality is declared and not yet enforced, so this orders by the same
+ * three terms the projection uses (ADR-0024, ADR-0025) and takes the winner:
+ * if a second note ever exists, the page shows the same one twice running
+ * rather than whichever uuid the planner returned last.
+ *
+ * THE TOMBSTONE AND THE QUARANTINE ARE BOTH HONOURED, as `findStatementsOfItem`
+ * honours them. A withdrawn note has to leave the page -- removing one is how
+ * ADR-0075 records the removal -- and a note is free text that no declaration
+ * checks, so the quarantine clause is a rule kept in one place rather than a
+ * branch anything reaches today.
+ */
+export async function findNoteOfItem(db: Database, itemId: string): Promise<NoteOfItem | null> {
+  const [note] = await db
+    .select({
+      value: sql<string>`${statements.valueLiteral}`,
+      sourceLabel: sources.label,
+    })
+    .from(statements)
+    .innerJoin(properties, eq(properties.id, statements.propertyId))
+    .innerJoin(sources, eq(sources.id, statements.sourceId))
+    .innerJoin(ranks, eq(ranks.rank, statements.rank))
+    .where(
+      and(
+        eq(statements.subjectItemId, itemId),
+        // NAMED HERE, WHERE `findStatementsOfItem` READS A DECLARATION INSTEAD.
+        // The difference is what each query is for: that one emits a SET and a
+        // filter naming one member of it is the strip-list ADR-0045 refuses,
+        // where this one's whole subject is this property.
+        eq(properties.name, "note"),
+        isNull(statements.deletedAt),
+        eq(statements.quarantined, false),
+        isNotNull(statements.valueLiteral),
+      ),
+    )
+    .orderBy(ranks.precedence, sources.sourceOrder, statements.id)
+    .limit(1);
+
+  return note ?? null;
 }
 
 /**
@@ -827,6 +953,52 @@ export interface PlacementInContainer {
   itemId: string;
   /** Where this placement sits in this container's ordering (ADR-0018). */
   position: number | null;
+  /**
+   * WHO SAYS IT SITS HERE: every source standing behind this placement, by the
+   * label each calls itself (ADR-0017). Empty for a placement no source
+   * asserted, which is a claim nobody made rather than a row to drop.
+   *
+   * THE SET RATHER THAN A SPOKESMAN, and that is the whole of CNCORE-90. One
+   * item twice in one container is a Repeat (ADR-0009) or two sources
+   * disagreeing about position (ADR-0017), nothing STORED tells the two apart,
+   * and what does is who asserted each row: one source saying it twice against
+   * two sources saying it once each.
+   */
+  assertedBy: string[];
+}
+
+/**
+ * EVERY SOURCE STANDING BEHIND ONE PLACEMENT, by the label each calls itself.
+ *
+ * THE SET, WHERE `spokesmanFor` ABOVE PICKS ONE, and the two answer different
+ * questions rather than one of them being the other done loosely. From the
+ * item's end the rows are competing ORDERINGS and rank decides which speaks, so
+ * one name is the answer. From the container's end the rows are what it HOLDS,
+ * in position order (ADR-0018) -- and there a Repeat and a disagreement are the
+ * same shape, so the reader is the one who tells them apart and needs every
+ * name to do it.
+ */
+function assertersOf(db: Database) {
+  return (
+    db
+      .select({
+        // `whoSpeaksFirst`, ORDERING EVERY NAME WHERE THE SPOKESMAN PICKS ONE.
+        // The same three terms, read from the same array rather than written out
+        // again, so the source that speaks for a placement leads the list that
+        // names them and the two queries cannot come to disagree about which one
+        // that is.
+        labels: sql<string[]>`coalesce(
+          json_agg(${sources.label} order by ${sql.join(whoSpeaksFirst, sql`, `)}),
+          '[]'::json
+        )`.as("labels"),
+      })
+      .from(placementSources)
+      .innerJoin(sources, eq(sources.id, placementSources.sourceId))
+      .innerJoin(ranks, eq(ranks.rank, placementSources.rank))
+      // The same predicate the spokesman reads, tombstone and all.
+      .where(standingBehindThePlacement)
+      .as("asserters")
+  );
 }
 
 /**
@@ -844,38 +1016,56 @@ export interface PlacementInContainer {
  * 1,049 stories, so this is a thousand rows on an ordinary page. The cap is not
  * added here because the walk has to compose with `?via=` and `?placed=` on an
  * address ADR-0066 governs, which is that ticket's decision to make.
+ *
+ * AND EACH ROW NOW CARRIES A LATERAL, which that decision should know the size
+ * of: 4.4 ms against 0.8 ms without it, over 1,049 members with two sources
+ * each, measured 2026-09-12 on the PostgreSQL 18.6 `compose.yaml` pins.
+ * ADR-0017 carries the measurement and what it rests on.
  */
 export async function findPlacementsInContainer(
   db: Database,
   containerId: string,
 ): Promise<PlacementInContainer[]> {
-  return db
-    .select({
-      id: placements.id,
-      title: items.title,
-      itemId: placements.itemId,
-      position: placements.position,
-    })
-    .from(placements)
-    .innerJoin(items, eq(items.id, placements.itemId))
-    .where(
-      and(
-        eq(placements.containerId, containerId),
-        isNull(placements.deletedAt),
-        // ADR-0075. A deleted item is gone to every reader, so a container
-        // cannot go on listing a placement that reaches one.
-        isNull(items.deletedAt),
-      ),
-    )
-    .orderBy(
-      placements.position,
-      // ADR-0009 keeps NO unique constraint on (container_id, position), because
-      // a novel and the film adapting it must sit at one point without an order
-      // being invented between them. So position alone does not determine this
-      // answer, and without a stable tiebreak the same container renders in a
-      // different order on different runs.
-      placements.id,
-    );
+  const asserters = assertersOf(db);
+
+  return (
+    db
+      .select({
+        id: placements.id,
+        title: items.title,
+        itemId: placements.itemId,
+        position: placements.position,
+        assertedBy: asserters.labels,
+      })
+      .from(placements)
+      .innerJoin(items, eq(items.id, placements.itemId))
+      // CROSS, WHERE THE SPOKESMAN'S IS LEFT, and neither can drop a row. An
+      // aggregate with no `group by` answers exactly one row whatever it
+      // aggregates, so a placement no source stands behind joins an empty array
+      // rather than nothing -- and a condition here would be the constant true
+      // written out. The refusal is the one `findPlacementsOfItem` makes: the read
+      // path does not get to decide a row does not exist because its provenance
+      // was never recorded.
+      .crossJoinLateral(asserters)
+      .where(
+        and(
+          eq(placements.containerId, containerId),
+          isNull(placements.deletedAt),
+          // ADR-0075. A deleted item is gone to every reader, so a container
+          // cannot go on listing a placement that reaches one.
+          isNull(items.deletedAt),
+        ),
+      )
+      .orderBy(
+        placements.position,
+        // ADR-0009 keeps NO unique constraint on (container_id, position), because
+        // a novel and the film adapting it must sit at one point without an order
+        // being invented between them. So position alone does not determine this
+        // answer, and without a stable tiebreak the same container renders in a
+        // different order on different runs.
+        placements.id,
+      )
+  );
 }
 
 /**
