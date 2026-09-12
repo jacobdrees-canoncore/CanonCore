@@ -1,8 +1,15 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, type SQL, type SQLWrapper, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 
 import type { Database } from "./index";
-import { type CatalogueEntry, IN_THE_CATALOGUE, SORT_KEY } from "./queries";
-import { itemKinds, items } from "./schema";
+import {
+  canBeAnId,
+  type Catalogue,
+  IN_THE_CATALOGUE,
+  SORT_KEY,
+  walkListing,
+} from "./queries";
+import { items } from "./schema";
 
 /**
  * Turns what a reader typed into a `LIKE` pattern that matches it AS TEXT.
@@ -73,25 +80,24 @@ export function titleMatches(query: string) {
  * carries its kind: a Person and a Work sharing a name are two rows here, and
  * the kind is what tells a reader which is which.
  *
- * IT ANSWERS ITS OWN SHAPE RATHER THAN `Catalogue`, AND THAT IS THE DECISION
- * THIS FUNCTION MAKES. The entries are the listing's entries exactly -- a result
- * and a catalogue row carry the same four facts -- but `Catalogue` grew a
- * `continuesAfter` cursor under ADR-0119, and a search that answered with that
- * shape would have to put something in it.
+ * IT ANSWERS `Catalogue`, AND IT USED TO ANSWER A SHAPE OF ITS OWN. The entries
+ * were always the listing's entries exactly -- a result and a catalogue row
+ * carry the same four facts -- and the one difference was the cursor: a search
+ * had none, and ADR-0119 makes `continuesAfter: null` mean "the listing ends
+ * here", so a search over a thousand matches answering null would have told
+ * every caller the hundred it returned were all of them. A shape that could not
+ * say it was better than a field that said it falsely.
  *
- * `null` WOULD BE A LIE RATHER THAN A GAP. ADR-0119 makes `continuesAfter: null`
- * mean "the listing ends here", so a search over a thousand matches answering
- * null would tell every caller the hundred it returned were all of them --
- * which is precisely the silent cap the front page has a paragraph refusing.
- * Better a shape that cannot say it than a field that says it falsely.
+ * CNCORE-88 GAVE IT ONE, so the reason for the second shape is spent: `null`
+ * here now means what it means everywhere, because there is an `after` that
+ * reaches what it is not showing. Two identical interfaces one file apart is
+ * the hazard `queries.ts` carries a paragraph about, so there is one.
  *
- * TODO(CNCORE-88): so the results ARE capped and the tail is not reachable
- * yet, and `total` is what stops that being silent. Walking them wants
- * ADR-0119's own shape rather than a second one -- but a keyset walk needs its
- * anchor's place in the ORDER, and this order leads on `similarity()`, which is
- * a function of the query rather than a column of the item. That is a real
- * design question about relevance paging and it is CNCORE-66's criteria
- * unasked, so it is filed rather than guessed at here.
+ * IT IS ORDERED BY RELEVANCE AND IT STILL WALKS (ADR-0119). The anchor's place
+ * in that order is RECOMPUTED from the query the request resupplies, rather
+ * than read off the anchor row the way a listing reads its sort key -- which is
+ * what `past` below is about, and the whole of what this surface costs that the
+ * catalogue's walk does not.
  *
  * THE WINNING TITLE ONLY. `items.title` is a projection (ADR-0014), so what is
  * searched is whichever title statement currently wins. Alternative and
@@ -100,20 +106,10 @@ export function titleMatches(query: string) {
  * expression index keyed to a property id minted per install, which cannot live
  * in a schema file; it is out of scope for CNCORE-66 on purpose.
  */
-export interface CatalogueSearch {
-  entries: CatalogueEntry[];
-  /**
-   * How many items MATCHED altogether, which is not `entries.length` whenever
-   * the cap bit. It is the whole of what keeps the cap from being silent here,
-   * because unlike the listing there is no cursor saying there is more.
-   */
-  total: number;
-}
-
 export async function searchCatalogue(
   db: Database,
-  { query, limit }: { query: string; limit: number },
-): Promise<CatalogueSearch> {
+  { query, limit, after }: { query: string; limit: number; after?: string },
+): Promise<Catalogue> {
   /*
    * AN EMPTY QUERY IS ANSWERED BEFORE THE QUERY RUNS, and this line is a fix
    * rather than a guard against something that cannot happen.
@@ -139,82 +135,172 @@ export async function searchCatalogue(
    * and `rose` two different searches for no reason a reader could see.
    */
   const wanted = query.trim();
-  if (wanted === "") return { entries: [], total: 0 };
+  // Nothing was asked, so nothing matched and there is nowhere to walk on to.
+  if (wanted === "") return { entries: [], total: 0, continuesAfter: null };
 
-  const rows = await db
-    .select({
-      id: items.id,
-      title: items.title,
-      kindLabel: itemKinds.label,
-      isContainer: items.isContainer,
-      /*
-       * THE COUNT COMES BACK ON THE ROWS rather than from a second query: a
-       * count taken separately is taken at a different moment, so a page could
-       * report 41 matches and list 42.
-       *
-       * A WINDOW COUNT HERE, WHERE `readListing` USES A SCALAR SUBQUERY, and
-       * the difference is the cursor rather than an inconsistency. A window
-       * count is taken AFTER `where`, which is exactly wrong for a keyset walk
-       * -- with the cursor in the predicate it counts the items past the
-       * cursor, so page two reports a smaller library than page one, and
-       * CNCORE-82 moved that one to an uncorrelated subquery for it (which
-       * CNCORE-67 then had to make take its `within`, since hardcoding the
-       * catalogue's predicate there gave a second listing the wrong size). This query
-       * has no cursor in its predicate (CNCORE-88), so `where` IS the match
-       * set, and counting after it is the number wanted: how many matched.
-       *
-       * THE DAY A CURSOR ARRIVES HERE, THIS LINE HAS TO MOVE WITH IT, which is
-       * why the reason is written down rather than the choice.
-       *
-       * `count(*)` is a `bigint`, which node-postgres hands over as a STRING
-       * because the range does not fit a JavaScript number. `mapWith(Number)`
-       * is where that becomes the number the type claims; without it `total`
-       * is a string wearing a number's type.
-       */
-      total: sql<number>`count(*) over ()`.mapWith(Number),
-    })
-    .from(items)
-    // INNER, because `items.kind` is a foreign key into this table: a row with
-    // no kind cannot exist, so there is nothing for a left join to preserve.
-    .innerJoin(itemKinds, eq(itemKinds.kind, items.kind))
-    .where(
-      and(
-        // ADR-0075, AND THE LISTINGS' OWN PREDICATE rather than a second
-        // spelling of it. A deleted item is gone to every reader, and a reader
-        // who can search their way to one has not been told it is deleted --
-        // but the hazard that makes this an import is the day "in the
-        // catalogue" gains a term and only one of the two surfaces learns it.
-        IN_THE_CATALOGUE,
-        titleMatches(wanted),
-      ),
-    )
-    .orderBy(
+
+  const anchor = after === undefined ? undefined : await findInTheRanking(db, after);
+
+  return walkListing(db, {
+    /*
+     * ADR-0075, AND THE LISTINGS' OWN PREDICATE rather than a second spelling
+     * of it. A deleted item is gone to every reader, and a reader who can
+     * search their way to one has not been told it is deleted -- but the hazard
+     * that makes this an import is the day "in the catalogue" gains a term and
+     * only one of the two surfaces learns it.
+     *
+     * AND IT IS WHAT `total` COUNTS, which is the second thing this parameter
+     * decides: how many MATCHED, rather than how many the catalogue holds.
+     */
+    within: and(IN_THE_CATALOGUE, titleMatches(wanted)) as SQL,
+    orderBy: [
       // CLOSEST FIRST, which is what the trigram index is for beyond speed:
       // `similarity()` comes from the same `pg_trgm` extension the index needs,
       // so ranking costs no second mechanism. Every row here CONTAINS the query
       // already -- `ilike` decided that -- so what this separates is how much
       // else the title says: a title that is nearly the query outranks one that
       // merely mentions it.
-      sql`similarity(${items.title}, ${wanted}) desc`,
-      // AND THEN THE CATALOGUE'S OWN ORDER, so two equally close titles come
-      // back in the same order twice. `SORT_KEY` is the listings' own, not
-      // a second spelling: the catalogue has one order, and a search that broke
-      // ties by a different one would list two items in an order no other
-      // surface agrees with. `nulls last` is written out for the same reason it
-      // is there -- an item with no title at all has no sort key.
+      sql`${closenessTo(items.title, wanted)} desc`,
+      /*
+       * AND THEN THE CATALOGUE'S OWN ORDER, so two equally close titles come
+       * back in the same order twice. `SORT_KEY` is the listings' own, not a
+       * second spelling: the catalogue has one order, and a search that broke
+       * ties by a different one would list two items in an order no other
+       * surface agrees with.
+       *
+       * `nulls last` IS SPELLED THE WAY THE LISTING SPELLS IT and CANNOT BITE
+       * HERE, which is worth the line because the listing's copy says it is
+       * load-bearing. There it is: an item with no title at all has no sort key
+       * and sorts last as a block. No such row can be in a result set -- the
+       * match is `title ilike ...`, which is NULL without a title -- so this is
+       * the two orders held identical rather than a case being handled.
+       */
       sql`${SORT_KEY} nulls last`,
-      items.id,
-    )
-    .limit(limit);
+      sql`${items.id}`,
+    ],
+    past: anchor && past(db, anchor, wanted),
+    limit,
+  });
+}
 
-  return {
-    entries: rows.map(({ id, title, kindLabel, isContainer }) => ({
-      id,
-      title,
-      kindLabel,
-      isContainer,
-    })),
-    // No rows means no window count to read, and nothing has been hidden.
-    total: rows[0]?.total ?? 0,
-  };
+/**
+ * HOW CLOSE ONE TITLE IS TO WHAT THE READER TYPED, written once.
+ *
+ * The order and the cursor that walks it are ONE RULE (ADR-0119), and spelling
+ * it twice is how they come to disagree about where a page ended. `SORT_KEY`
+ * next door exists for the same reason and says so.
+ */
+function closenessTo(title: SQLWrapper, query: string): SQL {
+  return sql`similarity(${title}, ${query})`;
+}
+
+/** Where one result sits in the ranking one search produced. */
+interface PlaceInTheRanking {
+  /**
+   * NOT NULL, unlike the catalogue's. See `past` below: a result set cannot
+   * hold a row without a sort key, so neither can an anchor that has a place
+   * in one.
+   */
+  sortKey: string;
+  id: string;
+}
+
+/**
+ * Everything this search ranks AFTER one result (ADR-0119).
+ *
+ * THE ORDER HAS THREE TERMS AND SO DOES THIS, because each of the three is a
+ * separate way to lose rows silently:
+ *
+ * - CLOSENESS FIRST, which is the term the catalogue's walk does not have.
+ * - THEN THE SORT KEY, because relevance ties are the COMMON case here rather
+ *   than a corner of one -- titles of one shape rank identically, and a cursor
+ *   comparing closeness alone steps over every result tied with its anchor.
+ *   Measured: a four-row fixture sharing one title walked to ONE of them.
+ * - THEN THE ID, because two results can tie on both -- the same title and the
+ *   same sort name is one item filmed twice, not a contrivance -- and ids are
+ *   random, so which of a tied pair a page ends on is luck.
+ *
+ * A ROW COMPARISON FOR THE LAST TWO, WHICH `readListing`'S `past` CANNOT USE,
+ * and the difference is worth the sentence. That one has to write two regimes
+ * because an item nobody has titled has no sort key, and `(null, x) > (k, y)`
+ * is NULL rather than true -- so a row comparison would drop the untitled tail
+ * off the catalogue's walk permanently. NO SUCH ROW CAN BE IN A RESULT SET:
+ * matching is `title ilike ...`, which is NULL for an untitled item, so every
+ * row here has a title and therefore a sort key. The regime that needs two
+ * halves cannot arise, so the comparison is written as the one it is.
+ */
+function past(db: Database, { sortKey, id }: PlaceInTheRanking, query: string): SQL {
+  const closeness = closenessTo(items.title, query);
+  const anchor = closenessOfTheAnchor(db, id, query);
+  return sql`${closeness} < ${anchor} or (${closeness} = ${anchor} and (${SORT_KEY}, ${items.id}) > (${sortKey}, ${id}))`;
+}
+
+/**
+ * THE ANCHOR'S OWN CLOSENESS, COMPUTED INSIDE THE QUERY rather than carried out
+ * through the driver and back -- because the equality below has to hold on a
+ * `real`, and what a `real` compares equal to depends on its TYPE rather than
+ * on its digits.
+ *
+ * MEASURED on this repo's PostgreSQL, against
+ * `similarity('Zagreus 0001', 'zagreus')`, which is `0.61538464`:
+ *
+ *   = $1 (untyped)     true      $1 = 0.61538464 read back out of that same row
+ *   = $1::float8       FALSE
+ *   = $1::real         true
+ *
+ * SO CARRYING IT OUT AND BACK WOULD WORK TODAY, and that is the reason to say
+ * this precisely rather than to claim it would not: node-postgres sends a
+ * JavaScript number UNTYPED, and PostgreSQL then infers `real` from the
+ * comparison itself. The value survives because of an inference nothing at the
+ * call site says out loud -- and the day anything types that parameter as a
+ * double, every tie compares false and the walk steps over every result tied
+ * with its own anchor, silently and permanently. Ties are the common case here
+ * rather than a corner of one: titles of one shape rank identically.
+ *
+ * THIS DEPENDS ON NEITHER. The value is never rendered as text and never
+ * re-parsed, so there is no type to infer and no digits to round. It costs one
+ * more primary-key lookup inside the page's own statement, which is the price
+ * ADR-0119 already takes for a cursor that is an item's id.
+ *
+ * ALIASED, so the inner `items` cannot be read as the outer one.
+ */
+function closenessOfTheAnchor(db: Database, id: string, query: string): SQL {
+  const anchor = alias(items, "anchor");
+  return sql`(${db
+    .select({ closeness: closenessTo(anchor.title, query) })
+    .from(anchor)
+    .where(eq(anchor.id, id))})`;
+}
+
+/**
+ * Where one id sits in THIS search's ranking, by the id a reader arrived with.
+ *
+ * IT DOES NOT HONOUR THE TOMBSTONE, exactly as `findInTheOrder` does not: the
+ * anchor is a position rather than something a reader is shown (ADR-0075), and
+ * reading a deleted item's place is what keeps a link to page two working after
+ * the result it was cut at is gone.
+ *
+ * AN ID THAT NAMES NOTHING NAMES NO POSITION, so the walk starts at the
+ * beginning rather than erroring (ADR-0066).
+ */
+async function findInTheRanking(
+  db: Database,
+  id: string,
+): Promise<PlaceInTheRanking | undefined> {
+  if (!canBeAnId(id)) return undefined;
+  const [place] = await db
+    .select({ sortKey: SORT_KEY, id: items.id, title: items.title })
+    .from(items)
+    .where(eq(items.id, id));
+  if (place === undefined) return undefined;
+  /*
+   * AN ITEM WITH NO TITLE HAS NO PLACE IN THIS ORDER, which is a state the
+   * catalogue's walk has no analogue for. Closeness is `similarity(title, ...)`
+   * and is NULL without a title, so such an anchor can be ranked against
+   * nothing -- and no search ever handed one out as a cursor, because an
+   * untitled item cannot match. It names no position, so the walk starts at the
+   * beginning: the same answer ADR-0066 gives an id that names nothing at all.
+   */
+  if (place.title === null || place.sortKey === null) return undefined;
+  return { sortKey: place.sortKey, id: place.id };
 }

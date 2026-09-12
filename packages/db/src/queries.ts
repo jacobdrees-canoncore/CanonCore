@@ -443,7 +443,8 @@ export async function readWorks(
 
 /**
  * ONE LISTING, WALKED -- shared by the two questions above, which differ in
- * their WHERE and in nothing else.
+ * their WHERE and in nothing else. Catalogue search differs in its ORDER too,
+ * so it goes through `walkListing` below rather than through this.
  *
  * WRITTEN ONCE, AND THE COUNT IS WHY IT HAS TO BE. A listing and the size it
  * reports must answer the same question: `readWorks` handing back the whole
@@ -471,6 +472,55 @@ async function readListing(
   { limit, after, within }: { limit: number; after?: string; within: SQL },
 ): Promise<Catalogue> {
   const anchor = after === undefined ? undefined : await findInTheOrder(db, after);
+  return walkListing(db, {
+    within,
+    /*
+     * `nulls last` IS THE DEFAULT FOR `asc` AND IS WRITTEN OUT ANYWAY, because
+     * `past` below reads it: an item with no title at all has no sort key, and
+     * where those sit decides which half of the cursor's comparison finds them.
+     * A default the walk depends on is one worth saying out loud.
+     */
+    orderBy: [sql`${SORT_KEY} nulls last`, sql`${items.id}`],
+    past: anchor && past(anchor),
+    limit,
+  });
+}
+
+/**
+ * ONE PAGE OF ONE LISTING, WALKED -- whatever question the listing asks, and
+ * whatever order it asks it in.
+ *
+ * THE ORDER IS A PARAMETER AND THE CURSOR IS ANOTHER, because those are the
+ * two things this repo's listings differ in and NOTHING ELSE IS. The catalogue
+ * and work-browsing sort on `coalesce(sort_name, title)`; Catalogue search
+ * sorts on how close a title is to what a reader typed, which is a function of
+ * the QUERY rather than a column of the item (ADR-0119, ADR-0120). Everything
+ * around that -- the fields, the join, the count, the cap, the extra row that
+ * says whether to offer another page -- is one rule, and this is the one place
+ * it is written.
+ *
+ * IT IS WRITTEN ONCE BECAUSE THE COUNT KEPT GOING WRONG SEPARATELY. Catalogue
+ * search had its own copy of this shape and its own `count(*) over ()`, which
+ * was right only while it had no cursor: CNCORE-82 had already found that a
+ * window count is taken AFTER `where`, fixed it here, and left a comment in the
+ * other file predicting the day it would have to be fixed there too. That day
+ * was CNCORE-88 and the prediction was correct, which is the argument for there
+ * being one copy rather than a comment pointing at the other one.
+ *
+ * EXPORTED WITHIN THE PACKAGE, like `IN_THE_CATALOGUE` and `SORT_KEY` above it
+ * and for the same reason. It stays out of the package's public export: a
+ * caller outside gets `readCatalogue`, `readWorks` or `searchCatalogue`, never
+ * a walk it has to supply an order to.
+ */
+export async function walkListing(
+  db: Database,
+  {
+    within,
+    orderBy,
+    past,
+    limit,
+  }: { within: SQL; orderBy: SQL[]; past?: SQL; limit: number },
+): Promise<Catalogue> {
   const rows = await db
     .select({
       id: items.id,
@@ -504,15 +554,9 @@ async function readListing(
     // INNER, because `items.kind` is a foreign key into this table: a row with
     // no kind cannot exist, so there is nothing for a left join to preserve.
     .innerJoin(itemKinds, eq(itemKinds.kind, items.kind))
-    .where(and(within, anchor && past(anchor)))
-    /*
-     * `nulls last` IS THE DEFAULT FOR `asc` AND IS WRITTEN OUT ANYWAY, because
-     * `past` below reads it: an item with no title at all has no sort key, and
-     * where those sit decides which half of the cursor's comparison finds them.
-     * A default the walk depends on is one worth saying out loud.
-     */
-    .orderBy(sql`${SORT_KEY} nulls last`, items.id)
-    // ONE MORE THAN ASKED FOR, and it is never returned. Whether the catalogue
+    .where(and(within, past))
+    .orderBy(...orderBy)
+    // ONE MORE THAN ASKED FOR, and it is never returned. Whether the listing
     // continues past this page is not something `total` can answer -- a keyset
     // walk knows no offset, so it cannot subtract -- and the cheapest thing
     // that does know is a row that was there to be read.
@@ -528,16 +572,17 @@ async function readListing(
     })),
     /*
      * The size rides on the rows, so a page with NO rows carries none -- and a
-     * page can be empty with a catalogue behind it, when a cursor names the
-     * last item in it. The size is asked for on its own exactly there, where
-     * there are no entries for a second moment's answer to disagree with.
+     * page can be empty with a listing behind it, when a cursor names the last
+     * item in it. The size is asked for on its own exactly there, where there
+     * are no entries for a second moment's answer to disagree with.
      */
     total: rows[0]?.total ?? (await countListing(db, within)),
     /*
      * The id to ask for the next page with, or nothing when this is the end.
      * It is the LAST ITEM THIS PAGE SHOWED rather than an encoded sort key,
      * which is what keeps the projection out of the contract and out of the
-     * address a reader can see (ADR-0119).
+     * address a reader can see (ADR-0119) -- and it is the last of THIS
+     * listing's order, whichever order that was.
      */
     continuesAfter: rows.length > limit ? (page.at(-1)?.id ?? null) : null,
   };
@@ -638,6 +683,20 @@ function past({ sortKey, id }: PlaceInTheOrder): SQL | undefined {
  * parameter, and the shape guard is the one `findItem` uses for the reason it
  * gives: comparing a non-uuid against a `uuid` column is error 22P02 rather
  * than an empty result.
+ *
+ * TODO(CNCORE-110): AND THE DELETED ANCHOR ABOVE DOES NOT ACTUALLY WORK, which
+ * is the one claim in this comment that is false. A deleted item has no title
+ * and no sort name -- migration 5 tombstones its statements, which re-fires the
+ * projection, and a projection over no live statements is NULL -- so this reads
+ * `sortKey: null` and `past` takes its no-sort-key regime, resuming from the
+ * UNTITLED TAIL with everything between skipped. MEASURED 2026-09-12: five
+ * items walked two at a time answered page two with `Probe walk 3, 4` before
+ * the anchor was deleted and with NOTHING after, which `/` renders as "The
+ * catalogue ends here". Found while building Catalogue search's walk, which
+ * meets the same fact and cannot take this route at all -- closeness needs a
+ * title to measure -- so it treats such an anchor as naming no position and
+ * starts over. That is probably the answer here too, and it is a behaviour
+ * change with a record to correct rather than a line to fix in passing.
  */
 async function findInTheOrder(db: Database, id: string): Promise<PlaceInTheOrder | undefined> {
   if (!canBeAnId(id)) return undefined;
@@ -777,12 +836,17 @@ const idShape = z.uuid();
  * an output-validation error that is not a defined error -- which is the
  * original 500 back again, moved.
  *
+ * EXPORTED WITHIN THE PACKAGE (CNCORE-88), because Catalogue search walks on an
+ * id a reader supplies too and asks this same question of it before the query.
+ * It stays out of the package's public export: the guard is what a cursor goes
+ * through, never something a caller outside is handed to apply for itself.
+ *
  * It can be this strict because every id here is one this system minted:
  * `defaultRandom()` is `gen_random_uuid()`, and an alias id is a merged-away id
  * of ours rather than one from outside (ADR-0040). Postgres would accept
  * shapes RFC 9562 does not, but nothing puts one in these columns.
  */
-function canBeAnId(id: string): boolean {
+export function canBeAnId(id: string): boolean {
   return idShape.safeParse(id).success;
 }
 
