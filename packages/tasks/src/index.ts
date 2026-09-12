@@ -7,9 +7,11 @@
  * import loop -- one that happens to work today only because `dailyAt` is a
  * hoisted declaration, and breaks the day somebody writes it as a `const`.
  */
+import { compactTaskRunsTask } from "./compact-task-runs";
 import { createRegistry, type Task } from "./registry";
 import { sweepSessionsTask } from "./sweep-sessions";
 
+export { compactTaskRunsTask } from "./compact-task-runs";
 export {
   BOUNDED_DETAIL,
   createRegistry,
@@ -33,13 +35,23 @@ export { sweepSessionsTask } from "./sweep-sessions";
  * task IS code, so a table of them would be a second place to add one from,
  * out of step with this list the moment either moved.
  *
- * ONE ENTRY TODAY. ADR-0049 names eight more -- scans, the six-month TMDB cache
- * eviction, projection reconciliation, provider re-refresh, orphan collection,
- * tombstone compaction, palette extraction and the analysis pass -- and each
- * arrives as a line here and a file beside this one, when the work it runs
- * exists.
+ * TWO ENTRIES, AND THE SECOND IS THIS LIST'S OWN HISTORY BEING COMPACTED.
+ * ADR-0049 names tombstone compaction among the eight pieces of work its
+ * registry exists to run, and `task_runs` -- what makes every line here
+ * readable after the fact -- was itself a table that only grew. A registry
+ * whose own history needed the category it schedules is the shape that record
+ * is for, rather than an awkwardness in it.
+ *
+ * SIX MORE TO COME: scans, the six-month TMDB cache eviction, projection
+ * reconciliation, provider re-refresh, orphan collection, palette extraction
+ * and the analysis pass -- each arriving as a line here and a file beside this
+ * one, when the work it runs exists.
+ *
+ * THE ORDER IS THE ORDER AN OWNER READS THEM IN, which `registry.list` keeps
+ * deliberately: `/tasks` renders this list as written rather than sorted, so a
+ * line added here is a row added at the bottom of that page.
  */
-export const theTasks: Task[] = [sweepSessionsTask];
+export const theTasks: Task[] = [sweepSessionsTask, compactTaskRunsTask];
 
 let instance: ReturnType<typeof createRegistry> | undefined;
 

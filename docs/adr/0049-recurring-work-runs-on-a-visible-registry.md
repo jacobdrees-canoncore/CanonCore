@@ -38,8 +38,10 @@ precisely the hidden timer this record refuses. It is `sweep-sessions` now, on a
 the TODO that named this ticket is gone from that file.
 
 **ONE TRIGGER KIND, AND THAT IS THE RULE RATHER THAN A GAP.** Jellyfin carries four — daily, weekly,
-interval and startup — and only `dailyAt` exists here, because `sweep-sessions` is the only task and
-it wants a daily one. `CLAUDE.md` refuses a configuration option nothing in the repo reads, and three
+interval and startup — and only `dailyAt` exists here, because every task this instance runs wants a
+daily one. That was one task when this was written and is two since CNCORE-124, which is the same
+sentence rather than a weaker one: a second task earned a second trigger kind only if it needed one,
+and nightly maintenance is exactly what `dailyAt` says. `CLAUDE.md` refuses a configuration option nothing in the repo reads, and three
 unused trigger kinds are three schedules no test can bite on.
 
 **AND A SECOND KIND CHANGES EVERY READER, which an earlier version of this section denied.** It
@@ -102,15 +104,67 @@ fortnight has failed" — a glitch and a broken machine, told apart only by the 
 depth is 30, which is a month of a daily task. Found in review.
 
 **AND THIS TABLE ONLY GROWS, WHICH IS THIS RECORD'S OWN CATEGORY ARRIVING BACK AT IT.** A daily task
-writes 365 rows a year and nothing removes them; `task_runs` carries a tombstone and a change
-sequence (ADR-0075) that nothing writes and no read filters on. The compaction this record lists is
-therefore owed to its own history table, and the task that does it is CNCORE-124 — a second task on
-the registry, which is the shape this whole record is for. It is not urgent at one task and a row a
-night, and it is not free to forget, so it is a ticket rather than a sentence.
+writes 365 rows a year and nothing removed them; `task_runs` carries a tombstone and a change
+sequence (ADR-0075) that nothing writes and no read filters on. The compaction this record lists was
+therefore owed to its own history table, and CNCORE-124 BUILT IT — a second task on the registry,
+which is the shape this whole record is for. It was not urgent at one task and a row a night, and it
+was not free to forget, so it was a ticket rather than a sentence; the section below is what that
+ticket did.
 
 **WHAT A RUN LEAVES BEHIND IS BOUNDED AT ADR-0123's 300.** A task answers a sentence it wrote, but
 what a task THROWS is written by whatever broke it, and that column is read onto a page. It is
 collapsed onto one line before it is cut, which is the correction that record records against itself.
+
+## The history is compacted by a task on itself, under CNCORE-124
+
+`compact-task-runs` is the second task on this registry, daily at four, and what it compacts is this
+record's own run history. The category this record schedules, turned on the table that makes this
+record's minimum reachable.
+
+**A SECOND TASK IS WHAT TURNS A REGISTRY INTO A LIST.** CNCORE-119 had to prove the mechanism — a
+task listed, run by hand, cancelled and read back — and one task can prove a registry without ever
+being a list of them. Nothing in the registry, the page or the scheduler had to change to carry the
+second; the whole of the change is a file beside `sweep-sessions.ts`, a line in `theTasks` and a
+query in `packages/db`. That is the claim this record has been making since CNCORE-119, tested for
+the first time.
+
+**THIRTY DAYS, BECAUSE THAT IS WHERE THE PRODUCT STOPS READING.** `registry.history` asks for 30 runs
+and `/tasks` renders what it answers, so for a task on a daily trigger a run older than a month is
+already unreachable through every surface this app has. The window sits where the reader stops rather
+than at a round number chosen for itself. It is NOT the same constant as that depth and cannot be:
+one is a bound in ROWS and the other an AGE, and they coincide only for a task that runs once a day.
+A task an owner ran forty times this afternoon keeps all forty for a month while the page shows the
+newest thirty — the window may keep more than the page shows, and must never keep less.
+
+**THE LAST RUN OF EVERY TASK SURVIVES, HOWEVER OLD IT IS, AND THAT IS THE WHOLE DESIGN RATHER THAN A
+REFINEMENT OF IT.** A window applied on age alone takes every row of a task that stopped in July;
+`readLatestTaskRuns` then answers nothing for that key, and `/tasks` renders "Has not run yet". The
+compaction would report a machine that silently stopped months ago as a fresh install — this record's
+own sentence, manufactured by the maintenance written to serve it, destroying the evidence in the
+same act. So the delete exempts each task's newest run and takes everything behind it. A task that
+stopped is not thereby a task whose history grows forever; it keeps exactly one row.
+
+**IT IS ALSO WHAT KEEPS AN OPEN RUN SAFE, at no extra clause.** A row still reading `running` is one
+something intends to write the ending of, and deleting it under that process would leave `endTaskRun`
+with no row to close. The registry refuses a second concurrent run of one key, so a key's open run is
+always that key's newest, and the exemption above already covers it.
+
+**IT DELETES OUTRIGHT RATHER THAN TOMBSTONING, though `task_runs` carries a `deleted_at` like every
+other table (ADR-0075).** A tombstone here would compact nothing twice over: the row stays in the
+table, and no read of this table filters on that column, so the history would go on rendering every
+run it had supposedly removed. Compaction is what REMOVES tombstoned rows rather than a thing that
+writes them, and `sweepSessions` deletes one table over for the same reason.
+
+**WHICH MEANS THIS COMPACTS BY AGE AND NOT BY TOMBSTONE, and the distinction is worth stating because
+ADR-0075 does not draw it.** That record says this one "schedules tombstone compaction, which
+presupposes tombstones exist". For the eight pieces of work listed above that is right. It is not what
+this task does: a run is not deleted by anybody, so there is nothing to tombstone and nothing to
+sweep afterwards — what makes a run removable is that it has aged past every reader. **So
+`task_runs`'s own tombstone and change sequence are STILL WRITTEN BY NOTHING AND FILTERED ON BY
+NOTHING, exactly as before this ticket.** They are ADR-0075's blanket rather than a mechanism this
+table uses, and the ticket that gives them a reader is not this one. Said plainly here because a
+history table that now has a compaction task looks from outside like one whose soft-delete path is
+in use, and it is not.
 
 ## Evidence
 

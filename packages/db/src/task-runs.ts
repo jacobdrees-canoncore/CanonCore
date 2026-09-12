@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, notInArray, sql } from "drizzle-orm";
 
 import type { Database } from "./index";
 import { theOwnerId } from "./placements";
@@ -169,6 +169,76 @@ export async function closeTaskRunsLeftOpen(db: Database, detail: string): Promi
     .where(eq(taskRuns.outcome, "running"))
     .returning({ id: taskRuns.id });
   return closed.length;
+}
+
+/**
+ * HOW LONG A RUN IS KEPT (ADR-0049, CNCORE-124).
+ *
+ * THIRTY DAYS, BECAUSE THAT IS WHERE THE PRODUCT STOPS READING. `registry.history`
+ * asks this table for 30 runs and `/tasks` renders what it answers, so for a task
+ * on a daily trigger a run older than a month is one no surface in this app can
+ * reach -- it is bytes behind a page that will never show them. The window is
+ * chosen to sit exactly where the reader already stops rather than at a round
+ * number picked for its own sake.
+ *
+ * THE TWO ARE NOT ONE CONSTANT, and cannot be: the read is bounded in ROWS and
+ * this is an AGE, which coincide only for a task that runs once a day. A task an
+ * owner ran forty times this afternoon keeps all forty for a month and the page
+ * shows the newest thirty, and that is the right way round -- the window may keep
+ * more than the page shows, and must never keep less.
+ */
+export const RUN_HISTORY_RETENTION_SECONDS = 60 * 60 * 24 * 30;
+
+/**
+ * Removes the runs past the retention window, and answers how many went.
+ *
+ * THIS RECORD'S OWN CATEGORY, ARRIVING BACK AT ITS OWN TABLE. ADR-0049 lists
+ * tombstone compaction as one of the eight things its registry exists to run,
+ * and the registry's history is a table that only grows: a daily task writes 365
+ * rows a year and, until this, nothing removed one.
+ *
+ * THE ROWS GO OUTRIGHT RATHER THAN BEING TOMBSTONED, though this table carries a
+ * `deleted_at` like every other (ADR-0075). A tombstone here would compact
+ * nothing twice over: the row stays in the table, and no read of this table
+ * filters on that column -- so the history would go on rendering every run it
+ * had supposedly removed. Compaction is what REMOVES tombstoned rows rather than
+ * a thing that writes them, and `sweepSessions` deletes for the same reason one
+ * table over.
+ */
+export async function compactTaskRuns(db: Database): Promise<number> {
+  /**
+   * THE LAST RUN OF EVERY TASK, WHICH NEVER GOES, however far past the window
+   * it is. This is the one thing compaction must not do, and it is ADR-0049's
+   * own sentence that says so: "a recurring job whose result nobody can see is
+   * one that silently stopped months ago". A task that stopped in July has
+   * every row past the window, so an age alone takes all of them --
+   * `readLatestTaskRuns` then answers nothing for that key and `/tasks` renders
+   * "Has not run yet", which is the stoppage this whole record exists to
+   * surface, reported as a fresh install. The compaction would be erasing the
+   * evidence in the act of serving the record that asked for it.
+   *
+   * IT IS ALSO WHAT KEEPS AN OPEN RUN SAFE, at no extra clause. A row still
+   * reading `running` is one something is going to write the ending of, and
+   * deleting it under the process holding it would leave `endTaskRun` with no
+   * row to close; the registry refuses a second concurrent run of one key
+   * (`TaskRefused`, "already running"), so a key's open run is always that
+   * key's newest and is always the row this protects.
+   */
+  const theLastRunOfEachTask = db
+    .selectDistinctOn([taskRuns.taskKey], { id: taskRuns.id })
+    .from(taskRuns)
+    .orderBy(taskRuns.taskKey, desc(taskRuns.startedAt));
+
+  const removed = await db
+    .delete(taskRuns)
+    .where(
+      and(
+        sql`${taskRuns.startedAt} <= now() - make_interval(secs => ${RUN_HISTORY_RETENTION_SECONDS})`,
+        notInArray(taskRuns.id, theLastRunOfEachTask),
+      ),
+    )
+    .returning({ id: taskRuns.id });
+  return removed.length;
 }
 
 function asRun(row: typeof taskRuns.$inferSelect): TaskRun {
