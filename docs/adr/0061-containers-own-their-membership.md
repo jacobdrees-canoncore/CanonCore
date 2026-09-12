@@ -56,6 +56,16 @@ was a signature nobody had watched work. `placement.test.ts` now moves a member 
 container and reads both containers back: the destination holds it at its new position and the
 origin holds nothing. Made to ignore its destination, the move turns that test red.
 
+**AND THE MOVE RESETTLES THE DESTINATION ONLY, WHICH THE FLIP MADE WORTH SAYING.** The siblings a
+move writes are scoped to the container it moves INTO, so the one it LEFT keeps its remaining
+members exactly where they were and a hole stands at the position vacated. That is this record's own
+posture on a removal, which tombstones the placement and renumbers nothing, and
+[[0116-a-reorder-writes-the-delta-and-the-tree-is-keyed-on-the-placement]]'s "no number is invented".
+A caller naming an origin sibling anyway is refused and NOTHING is written, rather than the move
+landing and the resettle being dropped: a half-permuted ordering is a state to refuse. Both halves
+are in `placement.test.ts`, and removing the refusal turns that test red. Whatever first wants the
+gap closed is writing a second operation, not widening this one.
+
 **WHICH IS WHY THIS RECORD IS `accepted` NOW AND WAS NOT UNDER CNCORE-72, when the first draft of
 that section had it `accepted`.** The argument for flipping then was that this record's RULE -- a
 mutation names a placement -- was built and applied, and that the reorder belonged to ADR-0018 and
