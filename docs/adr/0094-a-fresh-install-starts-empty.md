@@ -59,38 +59,39 @@ DO NEXT is a separate failure this record does not licence.
 refusal above softens: no seed data travels to a stranger, and the fix is words on a page rather
 than rows in a database.
 
-## As built, under CNCORE-65
+## As built, under CNCORE-65, and accepted under CNCORE-105
 
 **THIS RECORD IS `accepted`, AND THE WORD IT WAITED ON WAS "INSTALL".** Its own subject is what
 travels to a stranger, and when CNCORE-65 landed there was no install path — no image and no
-documented command. CNCORE-63 published the image and CNCORE-64 documented the command, and each
-was walked rather than merely written: CNCORE-64 followed the README from a directory with no
-checkout after `docker logout ghcr.io`, which is what proves the run a stranger gets rather than
-the one the owner gets, and CNCORE-70 repeated it at `v0.1.0` from a clean volume. A record about
-what somebody else's instance starts with can be accepted once somebody else can start one, and
-they can. The flip was owed by CNCORE-64 and made by CNCORE-105.
+documented command. CNCORE-63 published the image, CNCORE-64 documented the command, and CNCORE-64
+then WALKED it: the README followed from a directory with no checkout, with no `auths` entry in
+`~/.docker/config.json` at all, which is what proves the run a stranger gets rather than the one
+the owner gets. That run read the page as well as the status code — it served `Your catalogue is
+empty` and `No provider is allowlisted` — so this record's own subject was observed on it rather
+than inferred from a 200. CNCORE-70 repeated the walk at `v0.1.0` from a clean volume. A record
+about what somebody else's instance starts with can be accepted once somebody else can start one,
+and they can. The flip was owed by CNCORE-64 and is made by CNCORE-105.
 
-**AND THE WALK THAT SETTLES THIS RECORD IS THE ONE THAT READ THE PAGE.** Both of those proved the
-PATH — `/` answered 200, an unknown item answered 404 — which is a claim about installing rather
-than about what the install starts with, and this record is only ever about the second. So it was
-run once more under CNCORE-105 on 2026-09-12: the README's commands verbatim in an empty directory,
-on a daemon whose `~/.docker/config.json` carried no `auths` entry at all, pulling
-`ghcr.io/jacobdrees-canoncore/canoncore:latest` fresh at `sha256:c64e7309`, whose revision label
-reads `5c16778`. The front page came up saying **"Your catalogue is empty"**, naming the two steps
-that fill it, with **"No provider is allowlisted"** beside it. The one departure from the README was
-the directory's name, because this machine's development project already spends `canoncore`
-(ADR-0104) and the data volume is pinned rather than derived from it, which `compose.yaml` says in
-the file.
+**WHAT `accepted` DOES NOT ASSERT, BECAUSE THE TITLE IS TWO REFUSALS AND ONLY ONE HAS MET AN
+INSTANCE.** "Never shipped" is the half above, walked. "Never demoed" is not: there IS no public
+demo, it sequences LAST behind playback and the clients (`docs/demo.md`,
+[[0055-web-now-phone-next-tv-last]]), so that half is a refusal held in advance rather than one
+anything has yet had the chance to break. It binds whoever builds that surface exactly as it did
+while this record read `proposed`; it is named here only so `accepted` cannot be read as both
+halves having been tested.
 
-**AND WHAT A FRESH INSTALL DOES CARRY WAS COUNTED IN THAT RUN, BECAUSE "EMPTY" HAS BEEN OVERSTATED
-HERE TWICE.** `items`, `placements`, `statements`, `aliases`, `merges` and `placement_sources` each
-held zero rows. What is not zero is the schema's own furniture, written by migration 1 at first boot
-rather than shipped from anywhere: the vocabulary tables (`item_kinds` 7, `properties` 12, `ranks`
-3, `source_kinds` 4, and the three `property_*` enumerations), ONE `owners` row labelled "Owner"
-whose id is generated per install (ADR-0044), and its `owner` Source sitting first in the global
-source order (ADR-0025). **So the opening sentence is exact as written and has to stay that way** —
-"nothing in the catalogue", never "nothing in the database". A third run at "no content of any kind"
-would be refuted by a row count that takes half a minute.
+**AND WHAT A FRESH INSTALL DOES CARRY WAS COUNTED UNDER CNCORE-105, BECAUSE "EMPTY" HAS BEEN
+OVERSTATED HERE TWICE.** The path was walked once more on 2026-09-12, against
+`ghcr.io/jacobdrees-canoncore/canoncore:latest` pulled with no credentials at revision `5c16778`,
+and this time the database was counted rather than only the page read. `items`, `placements`,
+`statements`, `aliases`, `merges` and `placement_sources` each held zero rows. What is not zero is
+the schema's own furniture, written by the migration ladder at first boot rather than shipped from
+anywhere: migration 1 seeds the vocabulary (`item_kinds` 7, `ranks` 3, `source_kinds` 4, the three
+`property_*` enumerations, and ELEVEN properties — migration 3's `external_id` makes the twelfth),
+ONE `owners` row labelled "Owner" whose id is generated per install (ADR-0044), and its `owner`
+Source sitting first in the global source order (ADR-0025). **So the opening sentence is exact as
+written and has to stay that way** — "nothing in the catalogue", never "nothing in the database". A
+third run at "no content of any kind" would be refuted by a row count that takes half a minute.
 
 The first evidence for it was CNCORE-65's suite. `apps/web/e2e/front-page.test.ts` stands up the
 same build a second time against a database built from empty, with `PROVIDER_ALLOWLIST` unset, and
