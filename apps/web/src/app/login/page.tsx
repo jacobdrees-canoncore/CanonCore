@@ -137,6 +137,16 @@ function LoggedIn() {
         <Link className="text-sm hover:underline" href="/devices">
           Devices
         </Link>
+        {/*
+          AND THE WAY TO WHAT THE CATALOGUE DOES FOR ITSELF (ADR-0049). Here
+          for the same reason Devices is: the header is served to every reader
+          and this page is where an owner already comes to deal with being
+          logged in, and a visitor who found it would be told only that they
+          are not the owner.
+        */}
+        <Link className="text-sm hover:underline" href="/tasks">
+          Tasks
+        </Link>
       </div>
     </>
   );

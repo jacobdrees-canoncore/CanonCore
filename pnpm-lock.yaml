@@ -269,6 +269,9 @@ importers:
       '@canoncore/env':
         specifier: workspace:*
         version: link:../../packages/env
+      '@canoncore/tasks':
+        specifier: workspace:*
+        version: link:../../packages/tasks
       '@canoncore/ui':
         specifier: workspace:*
         version: link:../../packages/ui
