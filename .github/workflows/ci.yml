@@ -4,6 +4,17 @@ on:
   pull_request:
   push:
     branches: [main]
+    # THE RELEASE TRIGGER (CNCORE-70). A version tag runs the whole file again
+    # at the tagged commit and publishes the image at that version, which is
+    # what gives a release note something a stranger can pull. Everything else
+    # here already distinguishes `main` from a branch; the conditions in the
+    # image jobs name this ref explicitly rather than widening to every push.
+    #
+    # `v*` AND NOT `*`, because a tag is a name anybody can push and this
+    # repository already carries one that is not a version:
+    # `archive/tardis-pipeline-2026-09-04` (ADR-0115's evidence). Admitting
+    # every tag would build and publish an image from whatever that points at.
+    tags: ["v*"]
 
 permissions:
   contents: read
@@ -654,6 +665,18 @@ jobs:
             type=ref,event=branch
             type=sha
             type=raw,value=latest,enable={{is_default_branch}}
+            # THE RELEASE'S OWN TAG, and the only one a release note can name.
+            # `type=semver` is documented for push-tag events and produces
+            # nothing on a branch push, so `main` publishes exactly what it
+            # published before this line existed. On `v0.1.0` it writes `0.1.0`:
+            # the leading `v` is not part of a semver version, which is why the
+            # git tag and the image tag differ by it.
+            #
+            # `{{version}}` ALONE. `{{major}}.{{minor}}` would add a moving
+            # `0.1`, and `{{major}}` a `0` shared by the whole 0.x series --
+            # neither is asked for, and a moving tag is a promise to keep
+            # moving it.
+            type=semver,pattern={{version}}
 
       # Loaded into the runner's own docker rather than pushed, so the steps
       # below can run it. One platform: this runner's.
@@ -770,8 +793,20 @@ jobs:
             || { echo "::error::the image conveys the work without the licence text."; fail=1; }
           exit $fail
 
+      # WHAT MAY PUBLISH, AND IT IS REPEATED RATHER THAN DERIVED. Five steps
+      # carry this condition: a job-level `if` cannot read `env`, so a computed
+      # one would have to be spelled out here anyway and would then be two
+      # derivations instead of one. `image.test.ts` evaluates EVERY conditioned
+      # step in these jobs against five events with GitHub's own parser, so the
+      # copies cannot drift without going red -- which is what makes repeating
+      # it the cheaper of the two.
+      #
+      # A VERSION TAG PUBLISHES AND A TAG IS NOT A BRANCH. `github.ref` on a tag
+      # push is `refs/tags/v0.1.0`, so every one of these was false under the
+      # release and CNCORE-70 would have tagged a commit and published nothing.
+      # `refs/tags/v` and not `refs/tags/`: see `on:` at the top of the file.
       - name: Log in to the registry
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
         uses: docker/login-action@v4
         with:
           registry: ghcr.io
@@ -784,7 +819,7 @@ jobs:
       # The build itself is a cache hit on the one above.
       - name: Push this architecture by digest
         id: push
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -794,7 +829,7 @@ jobs:
           outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
 
       - name: Hand the digest to the manifest job
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
         env:
           DIGEST: ${{ steps.push.outputs.digest }}
           PLATFORM: ${{ matrix.platform }}
@@ -805,7 +840,7 @@ jobs:
           echo "${PLATFORM} -> ${DIGEST}"
 
       - name: Upload the digest
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
         uses: actions/upload-artifact@v7
         with:
           # `/` is not legal in an artifact name.
@@ -820,7 +855,7 @@ jobs:
   image-manifest:
     name: One image, both architectures
     needs: image
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -850,6 +885,18 @@ jobs:
             type=ref,event=branch
             type=sha
             type=raw,value=latest,enable={{is_default_branch}}
+            # THE RELEASE'S OWN TAG, and the only one a release note can name.
+            # `type=semver` is documented for push-tag events and produces
+            # nothing on a branch push, so `main` publishes exactly what it
+            # published before this line existed. On `v0.1.0` it writes `0.1.0`:
+            # the leading `v` is not part of a semver version, which is why the
+            # git tag and the image tag differ by it.
+            #
+            # `{{version}}` ALONE. `{{major}}.{{minor}}` would add a moving
+            # `0.1`, and `{{major}}` a `0` shared by the whole 0.x series --
+            # neither is asked for, and a moving tag is a promise to keep
+            # moving it.
+            type=semver,pattern={{version}}
 
       - name: Bind the tags to both architectures
         working-directory: /tmp/digests
@@ -883,9 +930,18 @@ jobs:
             $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
             $(printf "${IMAGE}@sha256:%s " *)
 
+      # THE RUN LOG'S ONLY RECORD OF A RELEASE, so it reports the tags THIS run
+      # bound rather than a tag it assumes exists. It named `:latest`, which was
+      # true while `main` was the only thing that published; a version tag does
+      # not write `latest` (`{{is_default_branch}}` is false with no branch), so
+      # on a release that line inspected the previous push's image and presented
+      # it as this one's.
       - name: Say what was published
         run: |
-          docker buildx imagetools inspect "${IMAGE}:latest"
+          set -euo pipefail
+          jq -r '.tags[]' <<< "$DOCKER_METADATA_OUTPUT_JSON" | while read -r tag; do
+            docker buildx imagetools inspect "$tag"
+          done
 
       # THE PACKAGE IS PUBLIC, AND NO WORKFLOW CAN MAKE IT SO.
       #

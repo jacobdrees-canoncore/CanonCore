@@ -119,6 +119,36 @@ const PUSH_TO_A_BRANCH: GithubContext = {
 };
 
 /**
+ * A PUSH OF A VERSION TAG, which is the release (CNCORE-70) and the second
+ * event allowed to publish. It carries no branch at all, so every condition
+ * written as `github.ref == 'refs/heads/main'` is false under it and the
+ * release would publish nothing.
+ */
+const PUSH_OF_A_VERSION_TAG: GithubContext = {
+  ref: "refs/tags/v0.1.0",
+  event_name: "push",
+  repository: "jacobdrees-canoncore/CanonCore",
+};
+
+/**
+ * A PUSH OF A TAG THAT IS NOT A VERSION, and the case that tells a correct
+ * release condition from a lazy one. `startsWith(github.ref, 'refs/tags/')`
+ * admits this and reads exactly as plausibly as the condition that does not.
+ *
+ * NOT HYPOTHETICAL: this is the tag ADR-0115's evidence records against these
+ * repositories -- `archive/tardis-pipeline-2026-09-04`, a snapshot of a data
+ * pipeline. An image published from it would carry that name in the registry
+ * beside the versions, and `on:` admitting only `v*` is the OTHER half of the
+ * same guard rather than a reason not to state this one. Two halves, because
+ * either can be widened alone.
+ */
+const PUSH_OF_A_TAG_THAT_IS_NOT_A_VERSION: GithubContext = {
+  ref: "refs/tags/archive/tardis-pipeline-2026-09-04",
+  event_name: "push",
+  repository: "jacobdrees-canoncore/CanonCore",
+};
+
+/**
  * Whether Actions would run a step carrying `condition`, under `github`.
  *
  * EVALUATED WITH GITHUB'S OWN PARSER rather than compared as a string, for the
@@ -217,6 +247,22 @@ describe("the image's own labels", () => {
 
 describe("publishing the image", () => {
   /**
+   * THE TRIGGER, WHICH EVERY CONDITION BELOW IS CONDITIONAL ON. A step guarded
+   * `if: startsWith(github.ref, 'refs/tags/v')` on a workflow whose `on:` never
+   * admits a tag is a publish that reads correct and has never once run, and
+   * every assertion in this file about what it does under a tag passes on the
+   * strength of a condition nothing evaluates.
+   *
+   * `v*` rather than `*`: a tag is a name anybody can push, and this repository
+   * already carries one that is not a version -- `archive/tardis-pipeline-2026-09-04`,
+   * which ADR-0115's evidence names. A trigger admitting every tag would build
+   * and publish an image from whatever that pointed at.
+   */
+  it("runs at all on a push of a version tag", () => {
+    expect(workflow().on?.push?.tags).toStrictEqual(["v*"]);
+  });
+
+  /**
    * THE ONE THAT COSTS SOMETHING IF IT IS WRONG. A pull request comes from a
    * branch nobody has reviewed; a push from it to `:latest` is an unreviewed
    * image under the project's own name, and the people who would notice are the
@@ -226,7 +272,7 @@ describe("publishing the image", () => {
    * expression parser, so a condition that is merely PRESENT but wrong -- keyed
    * on the event name instead of the branch, say -- fails here.
    */
-  it("publishes on a push to the default branch and never on a pull request", () => {
+  it("publishes on a push to the default branch or a version tag, and never on a pull request", () => {
     const parsed = workflow();
     const publishers = publishingSteps(parsed);
 
@@ -237,6 +283,7 @@ describe("publishing the image", () => {
     for (const [event, github] of [
       ["a pull request", PULL_REQUEST],
       ["a push to a branch that is not the default", PUSH_TO_A_BRANCH],
+      ["a push of a tag that is not a version", PUSH_OF_A_TAG_THAT_IS_NOT_A_VERSION],
     ] as const) {
       const published = publishers
         .filter(({ jobIf, step }) => runs(jobIf, github) && runs(step.if, github))
@@ -244,12 +291,69 @@ describe("publishing the image", () => {
       expect(published, `these steps publish on ${event}`).toStrictEqual([]);
     }
 
-    const onMain = publishers.filter(
-      ({ jobIf, step }) => runs(jobIf, PUSH_TO_MAIN) && runs(step.if, PUSH_TO_MAIN),
-    );
     // And the other half: a condition that never fires publishes nothing ever,
-    // which passes the assertion above perfectly.
-    expect(onMain.length).toBe(publishers.length);
+    // which passes the assertion above perfectly. BOTH events are required to
+    // reach EVERY publishing step -- a release that logs in, pushes one
+    // architecture and never binds the manifest list publishes two untagged
+    // digests and no version anybody can pull.
+    for (const [event, github] of [
+      ["a push to the default branch", PUSH_TO_MAIN],
+      ["a push of a version tag", PUSH_OF_A_VERSION_TAG],
+    ] as const) {
+      const published = publishers.filter(
+        ({ jobIf, step }) => runs(jobIf, github) && runs(step.if, github),
+      );
+      expect(published.length, `these steps publish on ${event}`).toBe(publishers.length);
+    }
+  });
+
+  /**
+   * AND THE PIPELINE FIRES AS ONE THING, which the assertion above cannot see.
+   *
+   * It enumerates the steps that PUBLISH -- the two logins, the digest push and
+   * the manifest list -- and two more steps in the `image` job are conditional
+   * on the same ref without publishing anything themselves: the one that writes
+   * the digest to a file and the one that uploads it. Narrow either and the
+   * publish still "runs": both architectures push their digests, the manifest
+   * job starts, downloads nothing, and dies on its own `found -ge 2` guard. A
+   * release that got as far as two untagged manifests in the registry and no
+   * tag binding them.
+   *
+   * SO THE PROPERTY IS AGREEMENT rather than a second list of steps to keep in
+   * step with the file. Every step in these jobs that is keyed on `github.ref`
+   * at all must admit exactly the same events, and this asks that of the set
+   * without naming a single one of them.
+   */
+  it("runs every ref-conditional step of the publish on the same events", () => {
+    const parsed = workflow();
+
+    const conditioned = allSteps(parsed).filter(({ step }) =>
+      String(step.if ?? "").includes("github.ref"),
+    );
+    // Not vacuous: conditions rewritten to key on anything else would empty
+    // this and leave the loop below agreeing about nothing.
+    expect(conditioned.length).toBeGreaterThan(2);
+
+    const events = [
+      ["a pull request", PULL_REQUEST],
+      ["a push to a branch that is not the default", PUSH_TO_A_BRANCH],
+      ["a push of a tag that is not a version", PUSH_OF_A_TAG_THAT_IS_NOT_A_VERSION],
+      ["a push to the default branch", PUSH_TO_MAIN],
+      ["a push of a version tag", PUSH_OF_A_VERSION_TAG],
+    ] as const;
+
+    const disagreeing = events
+      .map(([event, github]) => ({
+        event,
+        // Read off the STEP's own condition rather than the job's, because a
+        // job-level `if` suppressing everything under it would make every step
+        // in that job agree perfectly on `false`.
+        running: conditioned.filter(({ step }) => runs(step.if, github)).length,
+      }))
+      .filter(({ running }) => running !== 0 && running !== conditioned.length)
+      .map(({ event, running }) => `${event}: ${running} of ${conditioned.length}`);
+
+    expect(disagreeing).toStrictEqual([]);
   });
 
   /**
@@ -339,6 +443,44 @@ describe("publishing the image", () => {
   });
 
   /**
+   * THE VERSION IS ON THE IMAGE, which is the whole of what CNCORE-70 buys.
+   *
+   * The trigger and the conditions above get a tag build as far as PUSHING, and
+   * a push whose metadata step writes only `type=ref` and `type=sha` publishes
+   * `sha-1a2b3c4` and nothing else -- so the release note has no version to
+   * name and `docker pull ...:0.1.0` answers `manifest unknown`. Everything
+   * would be green: the build ran, the image published, the assert found the
+   * package public.
+   *
+   * `type=semver,pattern={{version}}` is the tagger for this, and only for
+   * this: it is documented as being for push-tag events and produces nothing on
+   * a branch push, so `latest` is unaffected and `main` publishes exactly what
+   * it published before. On `v0.1.0` it writes `0.1.0` -- the `v` is not part
+   * of a semver version, which is why the tag and the image tag differ by it.
+   * Read from docker/metadata-action's own README, 2026-09-12.
+   *
+   * ASKED OF BOTH METADATA STEPS, because there are two -- the per-architecture
+   * build and the manifest list that binds the tags -- and it is the SECOND one
+   * that actually names what a stranger pulls. A semver pattern on the first
+   * alone publishes a version tag on nothing.
+   */
+  it("tags the image with the version when a version tag builds it", () => {
+    const parsed = workflow();
+
+    const metadata = allSteps(parsed).filter(({ step }) =>
+      step.uses?.startsWith("docker/metadata-action"),
+    );
+    expect(metadata.length).toBeGreaterThan(1);
+
+    const versionless = metadata
+      .filter(
+        ({ step }) => !/type=semver,pattern=\{\{version\}\}/.test(String(step.with?.tags ?? "")),
+      )
+      .map(({ job }) => job);
+    expect(versionless).toStrictEqual([]);
+  });
+
+  /**
    * The scope, for the same reason `ci-workflow.test.ts` asserts `packages: read`
    * on the jobs pulling a private image: a push with no `packages: write` fails
    * at the registry with a permission error that names nothing useful.
@@ -407,6 +549,36 @@ describe("publishing the image", () => {
     expect(references.length).toBeGreaterThan(2);
     expect([...new Set(references)]).toStrictEqual([IMAGE]);
     expect(parsed.env?.IMAGE).toBe(IMAGE);
+  });
+
+  /**
+   * AND WHAT IT SAYS IT PUBLISHED IS WHAT IT PUBLISHED.
+   *
+   * The manifest job ends by inspecting the image and printing it, which is the
+   * only human-readable record of a release in the run log. It named `:latest`
+   * outright, and that was true for as long as `main` was the only thing that
+   * published. A VERSION TAG DOES NOT WRITE `latest` -- `enable={{is_default_branch}}`
+   * is false when no branch triggered the run -- so the release run would have
+   * inspected the tag the PREVIOUS push wrote and reported it as this one's,
+   * which is a false green of the kind that reads like evidence.
+   *
+   * DERIVED RATHER THAN RESTATED, which is the same rule the `IMAGE` test above
+   * holds the four identity references to: the tags this run wrote are an
+   * output of the metadata step, so the report takes them from there and cannot
+   * name one that was not written.
+   */
+  it("reports the tags this run wrote rather than a tag it assumes", () => {
+    const reports = allSteps(workflow()).filter(({ step }) =>
+      /imagetools\s+inspect/.test(step.run ?? ""),
+    );
+    expect(reports.length).toBe(1);
+
+    const [report] = reports;
+    if (!report) throw new Error("nothing reports what was published");
+    expect(report.step.run).toContain("DOCKER_METADATA_OUTPUT_JSON");
+    // The specific restatement it used to carry, and the one a reader adding a
+    // "just show me latest" line back would reach for first.
+    expect(report.step.run).not.toContain(":latest");
   });
 
   /**
