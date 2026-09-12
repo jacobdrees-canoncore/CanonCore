@@ -126,10 +126,12 @@ that defect reintroduced by the fix for a different one.
 
 **It should, and capping it is not what would change that.**
 
-CNCORE-95 records the second half correctly: neither procedure is behind anything.
-`packages/api/src/index.ts` exports exactly one builder, `publicProcedure`, and there is no session
-or capability check anywhere on the RPC surface. So "an unauthenticated caller" is EVERY caller,
-`purge` is as reachable as this, and a bounded reason changes none of it.
+CNCORE-95 records the second half correctly, AS IT STOOD THEN: neither procedure was behind
+anything. `packages/api/src/index.ts` exported exactly one builder, `publicProcedure`, and there was
+no session or capability check anywhere on the RPC surface -- so "an unauthenticated caller" was
+EVERY caller, `purge` was as reachable as this, and a bounded reason changed none of it. CNCORE-109
+closed that surface; these two procedures are READS and stay open, which is the conclusion below
+rather than an exception to it.
 
 **And narrowing the reason would buy nothing here, because the surface already answers the question
 more directly.** `provider.configured` hands any caller the full list of configured provider URLs,
@@ -140,9 +142,12 @@ and a provider that answered badly — the three that CNCORE-92 built this field
 would leave the oracle standing.
 
 The door that needs closing is the RPC surface, not this field. [[0043-sessions-carry-capabilities]]
-and [[0044-one-owner-row]] already decide what closes it and neither is implemented yet. Tracked as
-CNCORE-109, which is where that work belongs; do not pre-empt it by degrading a reason the Owner
-reads.
+and [[0044-one-owner-row]] already decide what closes it, and CNCORE-109 built it: everything that
+writes is behind an owner session, and the reason above was not degraded to get there. **What that
+door does NOT close is this one.** `provider.search` and `provider.container` are reads, so they are
+open on the demo as everything else is, and an unauthenticated caller still reads a bounded,
+attributed reason -- which is what this section decided and why narrowing the field would have cost
+the Owner the distinction without shutting anything.
 
 ## As built, under CNCORE-95
 

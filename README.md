@@ -22,8 +22,18 @@ curl -fsSL -o .env https://raw.githubusercontent.com/jacobdrees-canoncore/CanonC
 # a later line in .env wins, so this fills in the blank the sample file leaves.
 echo "POSTGRES_PASSWORD=$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 32)" >> .env
 
+# And the password you log in with, which is what lets this instance be changed
+# rather than only read. Print it and keep it; it is the only copy.
+echo "OWNER_PASSWORD=$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 32)" >> .env
+grep OWNER_PASSWORD .env
+
 docker compose up -d
 ```
+
+Reading the catalogue needs no password and changing it does, so the first thing
+to do at <http://localhost:3000/login> is log in with the one you just generated.
+Leave `OWNER_PASSWORD` empty instead and the instance is read-only for everybody,
+which is how the public demo runs.
 
 CanonCore is then on <http://localhost:3000>. **The directory name becomes the
 Compose project name**, because `compose.yaml` deliberately sets no `name:` of
