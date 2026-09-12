@@ -53,6 +53,7 @@ export {
   sweepSessions,
 } from "./sessions";
 export {
+  closeTaskRunsLeftOpen,
   endTaskRun,
   readLatestTaskRuns,
   readTaskRuns,

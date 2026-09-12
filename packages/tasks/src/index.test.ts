@@ -1,8 +1,9 @@
-import type { Database } from "@canoncore/db";
+import { type Database, sessions, startSession } from "@canoncore/db";
 import { connect } from "@canoncore/db/testing/catalogue";
+import { eq } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { createRegistry, dailyAt, type Task } from "./index";
+import { createRegistry, dailyAt, type Task, TaskRefused, taskRegistry } from "./index";
 
 let db: Database;
 
@@ -172,6 +173,100 @@ describe("listing what this instance runs", () => {
         name: "Run once",
         lastRun: { outcome: "completed", detail: "did the thing" },
       },
+    ]);
+  });
+});
+
+describe("a task that is already running", () => {
+  it("is refused a second run rather than started twice", async () => {
+    // NOT A THEORETICAL RACE. The scheduler fires a task on its trigger and the
+    // owner runs one from a page, so the two meet the first night an owner
+    // presses Run at three in the morning -- and two sweeps deleting the same
+    // rows is the tamest thing in ADR-0049's list of eight to do it twice at
+    // once.
+    const { task, started } = aTaskThatWaits("overlapping");
+    const registry = createRegistry([task]);
+
+    const first = registry.run(db, "overlapping");
+    await started;
+
+    await expect(registry.run(db, "overlapping")).rejects.toBeInstanceOf(TaskRefused);
+
+    // AND THE REFUSAL LEAVES NO ROW. A second run that wrote a history entry
+    // before being turned away would put a run in the history that never ran.
+    registry.cancel("overlapping");
+    await first;
+    expect(await registry.history(db, "overlapping")).toHaveLength(1);
+  });
+});
+
+describe("a run whose process went away", () => {
+  it("is closed as aborted when the registry next starts, not left reading as running", async () => {
+    // THE ROW OUTLIVES THE PROCESS AND THE CONTROLLER DOES NOT. A run lives in
+    // one process's memory -- that is where the `AbortController` is -- so a
+    // row still reading `running` after a restart is a run nothing will ever
+    // write the ending of. Left alone it reads as a sweep that has been going
+    // for a fortnight, which is a worse lie than either ending it could have
+    // had, and it is the exact shape of the silent stoppage ADR-0049 exists to
+    // surface.
+    const { task, started } = aTaskThatWaits("orphaned");
+    const killed = createRegistry([task]);
+    const inFlight = killed.run(db, "orphaned");
+    await started;
+
+    // The process came back, with nothing of the old one in it.
+    const restarted = createRegistry([task]);
+    await restarted.closeRunsLeftOpen(db);
+
+    expect(await restarted.history(db, "orphaned")).toMatchObject([
+      { outcome: "aborted", endedAt: expect.any(Date) },
+    ]);
+
+    // AND THE OLD RUN CANNOT REOPEN IT. The killed process is a fiction here --
+    // it is still running in this test -- so its own ending arrives after the
+    // restart has already had the last word, and `endTaskRun` refuses it.
+    killed.cancel("orphaned");
+    await inFlight;
+    expect(await restarted.history(db, "orphaned")).toMatchObject([{ outcome: "aborted" }]);
+  });
+});
+
+describe("the dead-session sweep", () => {
+  /**
+   * A row's age, written into the row rather than faked on the clock, for the
+   * reason `sessions.test.ts` gives: the lifetime is measured against
+   * POSTGRES'S clock, and stubbing `Date` moves the only clock the policy does
+   * not consult.
+   */
+  const daysAgo = (days: number) => new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+  it("runs from the registry, and reports what it removed", async () => {
+    // THE CRITERION THIS TICKET TURNS ON. `sweepSessions` has existed since
+    // CNCORE-116 and was called by NOTHING -- an operation waiting for a
+    // runner. This asserts the runner reaches it, which is what makes the
+    // registry carry a real task rather than a demonstration.
+    const registry = taskRegistry();
+    // Whatever earlier rows this shared database holds, swept first, so the
+    // count below is this test's own session and not a tally of the suite.
+    await registry.run(db, "sweep-sessions");
+
+    const { session } = await startSession(db, { deviceName: "A laptop sold last month" });
+    await db
+      .update(sessions)
+      .set({ createdAt: daysAgo(31) })
+      .where(eq(sessions.id, session.id));
+
+    const run = await registry.run(db, "sweep-sessions");
+
+    // THIRTY-ONE DAYS IS THE DECISION WRITTEN DOWN, not arithmetic on the
+    // exported limit, so widening the window fails this rather than passing
+    // whatever it became.
+    expect(run).toMatchObject({ outcome: "completed", detail: "Removed 1 session." });
+  });
+
+  it("is on the list an owner reads, named and triggered", async () => {
+    expect(await taskRegistry().list(db)).toMatchObject([
+      { key: "sweep-sessions", name: "Remove sessions that can no longer answer" },
     ]);
   });
 });

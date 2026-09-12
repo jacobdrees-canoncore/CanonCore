@@ -120,6 +120,34 @@ export async function readLatestTaskRuns(
   return new Map(rows.map((row) => [row.taskKey, asRun(row)]));
 }
 
+/**
+ * Closes every run still reading `running`, and answers how many it closed.
+ *
+ * THE ROWS A KILLED PROCESS LEAVES BEHIND. A run lives in one process -- the
+ * `AbortController` that could stop it is in that process's memory -- so a row
+ * still reading `running` when the registry starts is a run nothing will ever
+ * write the ending of.
+ *
+ * IT CLOSES EVERY OPEN ROW AND NOT ONLY THIS PROCESS'S, which is safe because
+ * of the shape this app ships in rather than by luck: ADR-0109 commits to one
+ * process that something restarts, and the container runs one `node server.js`.
+ * A second server sharing this database would have its live runs closed under
+ * it -- so whatever first runs two is what has to key these rows by the process
+ * that opened them, and the rows would need a column they do not have.
+ *
+ * `aborted` AND NOT `failed`, using ADR-0049's distinction exactly as that
+ * record means it: the run was STOPPED, by the machine going away, rather than
+ * BROKEN by anything it did.
+ */
+export async function closeTaskRunsLeftOpen(db: Database, detail: string): Promise<number> {
+  const closed = await db
+    .update(taskRuns)
+    .set({ outcome: "aborted", detail, endedAt: sql`now()` })
+    .where(eq(taskRuns.outcome, "running"))
+    .returning({ id: taskRuns.id });
+  return closed.length;
+}
+
 function asRun(row: typeof taskRuns.$inferSelect): TaskRun {
   return {
     id: row.id,
