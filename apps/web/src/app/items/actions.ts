@@ -1,11 +1,13 @@
 "use server";
 
 import { appRouter } from "@canoncore/api/routers";
-import { call, isDefinedError, safe } from "@orpc/server";
+import { call, isDefinedError } from "@orpc/server";
 import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
+import { whatTheProcedureAnswered } from "@/answer";
+import { whatTheFormCarries, whatTheFormRepeats } from "@/form";
 import { callerContext } from "@/session";
 
 /**
@@ -28,16 +30,11 @@ import { callerContext } from "@/session";
  * ordinary `multipart/form-data` request when no script has loaded, which is
  * why these surfaces are asserted at the page-over-HTTP seam with no browser.
  *
- * A FORM FIELD IS INPUT, whoever rendered the form, so everything below is
- * parsed rather than trusted.
- *
- * TODO(CNCORE-123): `form.get` answers `File | string | null`, and a `z.string()`
- * field handed a `File` throws a `ZodError` nothing catches -- so a request
- * composed by hand gets `Internal Server Error` where CNCORE-14 and ADR-0066
- * both say it should get a refusal. Found by review on CNCORE-74 and left to
- * that ticket, because the shape is the same in all four of this app's actions
- * and predates this one: fixing it here would be one of four, and the rule
- * belongs in one place the next action inherits.
+ * A FORM FIELD IS INPUT, whoever rendered the form, so everything below is read
+ * through `whatTheFormCarries` rather than trusted -- which is where `FormData.get` answering
+ * `File | string | null` is dealt with, once, for every action in this app
+ * (CNCORE-123). An action that cannot read a field it needs writes nothing and
+ * lets the page it was posted to render again.
  */
 
 /**
@@ -61,18 +58,20 @@ const newItem = z.object({
 });
 
 export async function createItem(form: FormData): Promise<void> {
-  const { holds, ...named } = newItem.parse({
-    kind: form.get("kind"),
-    title: form.get("title"),
-    holds: form.get("holds"),
-  });
+  const carried = whatTheFormCarries(form, newItem);
+  if (carried === undefined) return;
+
+  const { holds, ...named } = carried;
   const input = {
     ...named,
     isContainer: holds !== "nothing",
     isOrdered: holds === "ordered",
   };
 
-  const { id } = await call(appRouter.item.create, input, { context: await callerContext() });
+  const { answered } = await whatTheProcedureAnswered(
+    call(appRouter.item.create, input, { context: await callerContext() }),
+  );
+  if (answered === undefined) return;
 
   /*
    * TO THE ITEM ITSELF, which is the one thing an owner who has just made one
@@ -90,7 +89,7 @@ export async function createItem(form: FormData): Promise<void> {
    * give when no script has loaded -- so post/redirect/get is what reports the
    * outcome here, and it stops a refresh making a second item as well.
    */
-  redirect(`/items/${id}`);
+  redirect(`/items/${answered.id}`);
 }
 
 /** What the edit form carries: which item, and what the owner now calls it. */
@@ -119,9 +118,13 @@ const editedTitle = z.object({ id: z.string(), title: z.string() });
  * would be clearing a cache this app does not have.
  */
 export async function retitleItem(form: FormData): Promise<void> {
-  const input = editedTitle.parse({ id: form.get("id"), title: form.get("title") });
+  const input = whatTheFormCarries(form, editedTitle);
+  if (input === undefined) return;
 
-  await call(appRouter.item.retitle, input, { context: await callerContext() });
+  const { refused } = await whatTheProcedureAnswered(
+    call(appRouter.item.retitle, input, { context: await callerContext() }),
+  );
+  if (refused) return;
   refresh();
 }
 
@@ -145,9 +148,13 @@ const editedNote = z.object({ id: z.string(), note: z.string() });
  * page-over-HTTP seam cannot see.
  */
 export async function annotateItem(form: FormData): Promise<void> {
-  const input = editedNote.parse({ id: form.get("id"), note: form.get("note") });
+  const input = whatTheFormCarries(form, editedNote);
+  if (input === undefined) return;
 
-  await call(appRouter.item.annotate, input, { context: await callerContext() });
+  const { refused } = await whatTheProcedureAnswered(
+    call(appRouter.item.annotate, input, { context: await callerContext() }),
+  );
+  if (refused) return;
   refresh();
 }
 
@@ -165,10 +172,32 @@ export async function annotateItem(form: FormData): Promise<void> {
  * and `z.coerce.number()` on a non-numeric string yields `NaN`, which is not a
  * position either.
  */
+/**
+ * A POSITION, AS A FIELD: a number, or an absence.
+ *
+ * SHARED BY PLACING AND BY REORDERING, because it is one field with one
+ * reading and two forms carry it. Written twice it would be two chances for
+ * "what an empty position box means" to drift.
+ *
+ * AN EMPTY STRING IS THE ABSENCE, and that is the form expressing something the
+ * model has rather than failing to parse: a member with no position is still a
+ * member (migration 2, CONTEXT.md's Unplaced), and an empty number field
+ * submits `""`.
+ *
+ * ANYTHING ELSE UNPARSEABLE IS ALSO `null` RATHER THAN A THROW, for `newItem`'s
+ * reason about its radio group: this is `FormData` from anywhere, and
+ * `Number("banana")` is `NaN`, which is not a position either.
+ *
+ * AND A FIELD THAT IS NOT TEXT AT ALL READS AS `null` TOO (CNCORE-123). A part
+ * sent with a filename reaches `whatTheFormCarries` as "not given", so refusing
+ * the whole write over it would be this field's own rule broken by the shape of
+ * the request rather than by its content.
+ */
 const positionField = z
   .string()
-  .transform((given) => (given.trim() === "" ? null : Number(given)))
-  .transform((given) => (given === null || Number.isInteger(given) ? given : null));
+  .transform((typed) => (typed.trim() === "" ? null : Number(typed)))
+  .transform((typed) => (typed === null || Number.isInteger(typed) ? typed : null))
+  .catch(null);
 
 const placedMember = z.object({
   containerId: z.string(),
@@ -184,18 +213,10 @@ const placedMember = z.object({
  * again and the new member is in the HTML that comes back.
  */
 export async function placeItemInContainer(form: FormData): Promise<void> {
-  const input = placedMember.parse({
-    containerId: form.get("containerId"),
-    itemId: form.get("itemId"),
-    position: form.get("position"),
-  });
+  const input = whatTheFormCarries(form, placedMember);
+  if (input === undefined) return;
 
-  /*
-   * `safe` RATHER THAN `try`, because `redirect()` below works by THROWING and a
-   * `catch` around it would swallow the redirect as though it were the refusal.
-   * oRPC documents `safe` as the way to get the error back as a value instead.
-   */
-  const { error } = await safe(
+  const { refused } = await whatTheProcedureAnswered(
     call(appRouter.placement.place, input, { context: await callerContext() }),
   );
 
@@ -207,14 +228,32 @@ export async function placeItemInContainer(form: FormData): Promise<void> {
    * available to this surface, and the honest version is that the page says what
    * happened and keeps the owner where they were.
    *
-   * ONLY THE DEFINED REFUSAL, so a real fault stays a fault: the narrowing
-   * `by-hand.ts` makes at the bottom of this stack, kept at the top of it.
+   * ONLY THE DEFINED REFUSAL GETS THAT SENTENCE, which is the narrowing
+   * `by-hand.ts` makes at the bottom of this stack kept at the top of it: the
+   * position being taken is a fact about the CATALOGUE and is worth telling the
+   * owner, where a `BAD_REQUEST` raised by the procedure's own `.input()` is a
+   * fact about a request no browser composed. Every other refusal takes the
+   * ordinary answer this surface already has -- nothing written, and the
+   * container's page rendered again (CNCORE-127) -- and a real fault is still a
+   * fault, thrown before `whatTheProcedureAnswered` hands anything back.
+   *
+   * AND THAT NARROWING IS ALSO WHAT MAKES THE ADDRESS BELOW SAFE TO BUILD.
+   * `placedMember` declares both ids `z.string()` where `namedPlacement` below
+   * declares them `z.uuid()`, and the difference is not an oversight: these two
+   * REACH `placement.place`, which declares `containerId: z.uuid()` and
+   * `itemId: z.uuid()` itself. A DEFINED `BAD_REQUEST` is raised inside that
+   * handler, so reaching this line at all means both values already satisfied
+   * `z.uuid()` one layer down and neither can carry the `?`, `#` or `../` that
+   * `namedPlacement`'s docstring is about. Restating `z.uuid()` here would be
+   * the second copy this ticket exists to refuse; `namedPlacement` has one
+   * because its `containerId` reaches NO procedure. Raised by review, which read
+   * the two schemas side by side and could not see which of them was checked.
    */
-  if (error) {
-    if (isDefinedError(error) && error.code === "BAD_REQUEST") {
+  if (refused) {
+    if (isDefinedError(refused) && refused.code === "BAD_REQUEST") {
       redirect(`/items/${input.containerId}?refused=${input.itemId}`);
     }
-    throw error;
+    return;
   }
   refresh();
 }
@@ -255,12 +294,15 @@ const namedPlacement = z.object({ id: z.uuid(), containerId: z.uuid() });
  * `restorePlacement` below turns back into the plain container page.
  */
 export async function removePlacement(form: FormData): Promise<void> {
-  const { id, containerId } = namedPlacement.parse({
-    id: form.get("id"),
-    containerId: form.get("containerId"),
-  });
+  const named = whatTheFormCarries(form, namedPlacement);
+  if (named === undefined) return;
+  const { id, containerId } = named;
 
-  await call(appRouter.placement.remove, { id }, { context: await callerContext() });
+  const { refused } = await whatTheProcedureAnswered(
+    call(appRouter.placement.remove, { id }, { context: await callerContext() }),
+  );
+  if (refused) return;
+
   redirect(`/items/${containerId}?undo=${id}`);
 }
 
@@ -273,10 +315,9 @@ export async function removePlacement(form: FormData): Promise<void> {
  * happened.
  */
 export async function restorePlacement(form: FormData): Promise<void> {
-  const { id, containerId } = namedPlacement.parse({
-    id: form.get("id"),
-    containerId: form.get("containerId"),
-  });
+  const named = whatTheFormCarries(form, namedPlacement);
+  if (named === undefined) return;
+  const { id, containerId } = named;
 
   /*
    * A DECLINED UNDO IS THE PLAIN CONTAINER PAGE, not a 500. `?undo=` is a
@@ -286,11 +327,17 @@ export async function restorePlacement(form: FormData): Promise<void> {
    * none of them is a fault: the honest response is the container as it stands,
    * with the spent offer dropped. Found by review, which caught this reaching
    * the reader as an error page.
+   *
+   * IT NAMES NO CODE ANY MORE, AND THAT IS THE SHARED RULE ARRIVING
+   * (CNCORE-127). This used to let NOT_FOUND past and throw everything else,
+   * which made a hand-composed id answer 500 on the one surface whose whole
+   * subject is an id that may be stale. `whatTheProcedureAnswered` reads every
+   * refusal the same way, so the sentence above is now true of all of them
+   * rather than of the one that had been met.
    */
-  const { error } = await safe(
+  await whatTheProcedureAnswered(
     call(appRouter.placement.restore, { id }, { context: await callerContext() }),
   );
-  if (error && !(isDefinedError(error) && error.code === "NOT_FOUND")) throw error;
 
   redirect(`/items/${containerId}`);
 }
@@ -307,19 +354,30 @@ export async function restorePlacement(form: FormData): Promise<void> {
  * AN ACTION THAT RE-READ THE ORDERING WOULD BE A DIFFERENT MUTATION. It would
  * take "move this up" and work out the rest, which is the shape that record
  * refuses: the delta is the caller's to compute, and this is the caller.
- *
- * TWO PARALLEL FIELDS RATHER THAN ONE ENCODED ONE. `FormData` keeps repeated
- * names in document order, so `siblingId` and `siblingPosition` zip by index --
- * which is ordinary HTML rather than a private format this file would then own
- * the parser for. The same two fields are what the drag builds, so the two
- * doors post the identical request.
  */
-const reorderedMembers = z.object({
+const movedPlacement = z.object({
   id: z.uuid(),
   containerId: z.uuid(),
   position: positionField,
-  siblings: z.array(z.object({ id: z.uuid(), position: positionField })),
 });
+
+/**
+ * And who shifted for it, which is the one thing on this page that is a LIST.
+ *
+ * TWO PARALLEL FIELDS RATHER THAN ONE ENCODED ONE. `FormData` keeps repeated
+ * names in document order, so `siblingId` and `siblingPosition` zip by index --
+ * ordinary HTML rather than a private format this file would then own the
+ * parser for. The drag builds the same two fields, so both doors post the
+ * identical request.
+ *
+ * NOT `whatTheFormCarries`, AND THE REASON IS THE SHAPE RATHER THAN THE RULE.
+ * That helper reads ONE value per field name, which is every other field in
+ * this app; a list needs `getAll`, and a pair of parallel lists cannot be
+ * derived from a schema's keys. `whatTheFormRepeats` applies the SAME reading
+ * to each value -- a part that is not text is "not given" -- so this is an
+ * extension of that rule rather than a second one.
+ */
+const movedSiblings = z.array(z.object({ id: z.uuid(), position: positionField }));
 
 /**
  * The owner reordering a container (CNCORE-73), from either door.
@@ -328,37 +386,49 @@ const reorderedMembers = z.object({
  * where the mouse and the keyboard disagreed about what a reorder means would
  * be two products, and `CLAUDE.md` requires the visible path to exist at all --
  * so the drag is the accelerator and Move up is the path, over one rule.
- *
- * NO REDIRECT, which is `retitleItem`'s reason: this form posts to the
- * container's own address, so the response to the POST is that page rendered
- * again with the new ordering in it. `refresh()` is for the CLIENT router cache
- * that the page-over-HTTP seam cannot see.
  */
 export async function movePlacement(form: FormData): Promise<void> {
-  const ids = form.getAll("siblingId");
-  const positions = form.getAll("siblingPosition");
-  const input = reorderedMembers.parse({
-    id: form.get("id"),
-    containerId: form.get("containerId"),
-    position: form.get("position"),
-    siblings: ids.map((id, index) => ({ id, position: positions[index] })),
-  });
+  const named = whatTheFormCarries(form, movedPlacement);
+  if (named === undefined) return;
+
+  const ids = whatTheFormRepeats(form, "siblingId");
+  const positions = whatTheFormRepeats(form, "siblingPosition");
+  /*
+   * TWO LISTS OF DIFFERENT LENGTHS IS A MALFORMED REQUEST, not a short one.
+   * `positionField` reads a missing value as `null`, which for a position
+   * MEANS unplaced -- so zipping a short list would quietly unplace whatever
+   * ran off the end. No form this page renders can produce it, and refusing is
+   * the reading that cannot be mistaken for a claim.
+   */
+  if (ids.length !== positions.length) return;
+  const shifted = movedSiblings.safeParse(
+    ids.map((id, index) => ({ id, position: positions[index] })),
+  );
+  if (!shifted.success) return;
 
   /*
-   * A REFUSAL IS NOT A FAULT, and there are two of them. NOT_FOUND is a stale
-   * page -- the placement was removed in another tab, or the link was shared --
-   * and BAD_REQUEST is the catalogue refusing the move itself, which today is a
-   * container asked to hold something it already sits inside (migration 15).
-   * Neither is a 500, and the container as it actually stands is the honest
-   * answer to both: the reader sees that the move did not happen.
-   *
-   * `safe` RATHER THAN `try`, for the reason `placeItemInContainer` gives:
-   * `redirect()` works by throwing, so a `catch` would swallow one.
+   * A REFUSAL IS AN ANSWER (CNCORE-127), and this action has nothing to add to
+   * either of the two it can meet, so what comes back is not read. NOT_FOUND is
+   * a stale page -- the placement was removed in another tab, or the link was
+   * shared -- and BAD_REQUEST is the catalogue refusing the move itself, which today is a container asked to
+   * hold something it already sits inside (migration 15). Neither is a fault,
+   * and the container AS IT STANDS is the honest answer to both.
    */
-  const { error } = await safe(
-    call(appRouter.placement.move, input, { context: await callerContext() }),
+  await whatTheProcedureAnswered(
+    call(
+      appRouter.placement.move,
+      { ...named, siblings: shifted.data },
+      { context: await callerContext() },
+    ),
   );
-  if (error && !isDefinedError(error)) throw error;
 
+  /*
+   * `refresh()` ON BOTH OUTCOMES, and the refusal is the one that needs it.
+   * With no script the page re-renders anyway, because this form posts to the
+   * container's own address. With script the DRAG has already moved the row on
+   * local state, so a refused move that cleared no client cache would leave the
+   * page showing a reorder that never happened -- the refresh is what hands the
+   * component the server's ordering back and puts the row where it belongs.
+   */
   refresh();
 }

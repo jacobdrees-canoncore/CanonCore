@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, lte, notInArray, sql } from "drizzle-orm";
 
 import type { Database } from "./index";
 import { theOwnerId } from "./placements";
@@ -100,9 +100,9 @@ export async function endTaskRun(
 /**
  * One task's runs, newest first.
  *
- * BOUNDED BY THE CALLER, because this table only grows: a task on a daily
- * trigger writes 365 rows a year and a page showing all of them is a page that
- * gets slower every night it works.
+ * BOUNDED BY THE CALLER, because a page showing every run is a page that gets
+ * slower every night it works. `RUN_HISTORY_DEPTH` below is the bound the
+ * product passes, and compaction keeps exactly what this read can reach.
  */
 export async function readTaskRuns(
   db: Database,
@@ -169,6 +169,96 @@ export async function closeTaskRunsLeftOpen(db: Database, detail: string): Promi
     .where(eq(taskRuns.outcome, "running"))
     .returning({ id: taskRuns.id });
   return closed.length;
+}
+
+/**
+ * HOW MANY OF A TASK'S RUNS ARE KEPT, and read (ADR-0049, CNCORE-124).
+ *
+ * ONE CONSTANT FOR BOTH SIDES, which is the whole reason it sits here rather
+ * than beside either caller. `registry.history` passes it to `readTaskRuns` so
+ * the page shows this many; `compactTaskRuns` keeps this many so the rows behind
+ * them go. The two compare against it in opposite directions -- the same shape
+ * `sessions.ts` gives for `SESSION_LIFETIME_SECONDS` and for the same reason:
+ * the cutoff written twice is two places to change and one of them forgotten,
+ * and the failure it produces here is compaction deleting rows the page is still
+ * rendering.
+ *
+ * THIRTY, WHICH IS A MONTH OF A DAILY TASK -- enough to see that last night
+ * failed and that the four before it did not, which is the question ADR-0049
+ * says the history is read to answer.
+ *
+ * A DEPTH IN ROWS AND NOT A WINDOW IN DAYS, and that distinction is the
+ * correction this ticket's first implementation needed. Thirty rows is a month
+ * ONLY for a task that runs exactly daily; `/tasks` offers a Run-now button, so
+ * an owner who ran a task six times across two months has all six on the page.
+ * A thirty-day window deleted four of those -- history the product was still
+ * displaying, removed by the maintenance meant to remove only what nothing can
+ * read. Rank is what the page actually bounds by, so rank is what compaction
+ * has to bound by. Found in review.
+ */
+export const RUN_HISTORY_DEPTH = 30;
+
+/**
+ * Removes the runs no surface can reach, and answers how many went.
+ *
+ * ADR-0049's OWN CATEGORY, ARRIVING BACK AT ITS OWN TABLE. That record lists
+ * tombstone compaction among the eight pieces of work its registry exists to
+ * run, and `task_runs` -- what makes its history readable at all -- only grew: a
+ * daily task writes 365 rows a year and nothing removed one.
+ *
+ * IT KEEPS EXACTLY WHAT THE PAGE CAN SHOW: the newest `RUN_HISTORY_DEPTH` runs
+ * OF EACH TASK, by the same order `readTaskRuns` answers in. So this is not a
+ * policy that happens to agree with the read path, it is the read path's own
+ * bound turned around -- and a run it removes is one no surface in this app
+ * could have rendered.
+ *
+ * WHICH IS ALSO WHY THERE IS NO EXEMPTION FOR A TASK'S LAST RUN. It needs none:
+ * rank one is inside every depth, so the newest run of every task survives by
+ * construction, however old it is. That matters because ADR-0049 exists for the
+ * job that "silently stopped months ago" -- a rule that could take the last run
+ * of a task that stopped in July would leave `readLatestTaskRuns` answering
+ * nothing for it, and `/tasks` rendering "Has not run yet": the stoppage this
+ * record exists to surface, reported as a fresh install.
+ *
+ * AND IT IS WHAT KEEPS AN OPEN RUN SAFE, at no clause of its own. A row still
+ * reading `running` is one something means to write the ending of, and deleting
+ * it under that process would leave `endTaskRun` no row to close. The registry
+ * refuses a second concurrent run of one key, so a key's open run is always that
+ * key's newest -- rank one, and kept.
+ *
+ * NO TIEBREAK ON THE ORDER, matching `readTaskRuns` exactly. Two runs of ONE
+ * task sharing a `started_at` to the microsecond would need two runs of that key
+ * at once, which is the thing the registry refuses; across keys the ranking is
+ * partitioned and ties cannot meet.
+ *
+ * THE ROWS GO OUTRIGHT RATHER THAN BEING TOMBSTONED, though this table carries a
+ * `deleted_at` like every other (ADR-0075). A tombstone here would compact
+ * nothing twice over: the row stays in the table, and no read of this table
+ * filters on that column -- so the history would go on rendering every run it
+ * had supposedly removed. `sweepSessions` deletes one table over for the same
+ * reason.
+ */
+export async function compactTaskRuns(db: Database): Promise<number> {
+  const ranked = db
+    .select({
+      id: taskRuns.id,
+      rank: sql<number>`row_number() over (partition by ${taskRuns.taskKey} order by ${taskRuns.startedAt} desc)`.as(
+        "rank",
+      ),
+    })
+    .from(taskRuns)
+    .as("ranked");
+
+  const theRunsThePageCanShow = db
+    .select({ id: ranked.id })
+    .from(ranked)
+    .where(lte(ranked.rank, RUN_HISTORY_DEPTH));
+
+  const removed = await db
+    .delete(taskRuns)
+    .where(notInArray(taskRuns.id, theRunsThePageCanShow))
+    .returning({ id: taskRuns.id });
+  return removed.length;
 }
 
 function asRun(row: typeof taskRuns.$inferSelect): TaskRun {

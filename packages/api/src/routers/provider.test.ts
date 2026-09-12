@@ -5,7 +5,7 @@ import { env } from "@canoncore/env/server";
 import { parseAllowlist, REASON_MAX_LENGTH } from "@canoncore/providers";
 import { call, isDefinedError, safe } from "@orpc/server";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { createContext } from "../context";
 import { appRouter } from "./index";
@@ -53,7 +53,14 @@ beforeAll(async () => {
 
 const servers: Server[] = [];
 
-afterEach(async () => {
+/**
+ * AT THE END OF THE FILE RATHER THAN OF EACH TEST, because a stub's port is the
+ * provider's IDENTITY (ADR-0031) and the rows keyed on it live as long as the
+ * database does -- which here is the whole run. Closing after each test hands
+ * the port back to the OS with those rows still standing, and the next stub to
+ * be given it inherits them. The describe below is what holds this here.
+ */
+afterAll(async () => {
   await Promise.all(
     servers
       .splice(0)
@@ -201,6 +208,66 @@ async function stubProvider(
   if (typeof address === "string" || address === null) throw new Error("no port");
   return `http://127.0.0.1:${address.port}`;
 }
+
+/**
+ * WHAT EVERY ASSERTION BELOW RESTS ON, asserted before any of them.
+ *
+ * A stub's base URL is not only where it listens. It is the PROVIDER'S IDENTITY
+ * (ADR-0031), and every row an import writes is keyed on it -- so the identity
+ * outlives the test that minted it, in a database this whole file shares. A
+ * socket closed at the end of a test hands its port back to the OS while those
+ * rows are still there, and the OS may hand that port to the next stub: two
+ * tests then share one provider, and the earlier one's imports answer the
+ * later one's lookups.
+ *
+ * SO THE SOCKET LIVES AS LONG AS THE IDENTITY DOES, which is the file. That is
+ * not thrift about teardown, it is what makes two stubs two providers: no two
+ * live listeners can hold one port, so no two stubs can mint one identity.
+ *
+ * MEASURED, NOT IMAGINED. Run 34711644736 ATTEMPT 1 read an Item's uuid where
+ * `provider.search` asserts none is held yet, on a branch whose whole diff was
+ * one Markdown file (CNCORE-126). The attempt is the half that matters: the
+ * re-run passed, so the run itself now reads `success`.
+ *
+ * IT TAKES TWO TESTS TO SAY, and that is the claim rather than a smell: what
+ * survives the END of a test is not something a single test can observe. They
+ * run in order and the second reads what the first minted, so neither is worth
+ * running alone.
+ */
+describe("a stub provider's identity", () => {
+  let identity: string | undefined;
+
+  /** ONE CHECK, so the only difference between the two tests is WHEN it runs. */
+  async function answersASearch(baseUrl: string): Promise<void> {
+    const { answered, failed } = await call(
+      appRouter.provider.search,
+      { query: "tenth planet" },
+      { context: { ...context, providerUrls: [baseUrl] } },
+    );
+
+    expect(failed).toEqual([]);
+    expect(answered.map(({ provider }) => provider.baseUrl)).toEqual([baseUrl]);
+  }
+
+  it("answers the search made by the test that minted it", async () => {
+    identity = await stubProvider();
+
+    await answersASearch(identity);
+  });
+
+  it("answers the next test's search too, so the OS cannot hand its port on", async () => {
+    // SAID OUT LOUD RATHER THAN LET THROUGH. Run alone -- under `-t`, or an
+    // `.only` on this one -- the test above never minted, and an `undefined`
+    // reaches the router as a provider URL and comes back `fetch failed`: the
+    // same words a socket closed too early produces, which is the one failure
+    // this pair exists to tell apart from everything else.
+    if (identity === undefined) {
+      throw new Error("the test above mints this identity; the two run in order, neither alone");
+    }
+
+    await answersASearch(identity);
+  });
+});
 
 describe("provider.import", () => {
   it("imports one record over HTTP and answers with the item it wrote", async () => {
@@ -688,7 +755,12 @@ describe("provider.search", () => {
             kind: "TV story",
             released: ["1966-10-08"],
             url: "https://tardis.wiki/wiki/The_Tenth_Planet_(TV_story)",
-            // Nothing has imported it, so there is no Item to reach yet.
+            // Nothing has imported it, so there is no Item to reach yet --
+            // and "nothing" means nothing under THIS STUB'S IDENTITY, which is
+            // its `127.0.0.1:<port>` (ADR-0031) rather than the catalogue as a
+            // whole. That is why every stub in this file holds its socket to
+            // the end of the file: this line read an Item's uuid in CI when an
+            // earlier test's stub had been handed the same port (CNCORE-126).
             itemId: null,
           },
         ],

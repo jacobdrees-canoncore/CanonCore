@@ -4,6 +4,8 @@ import { appRouter } from "@canoncore/api/routers";
 import { call } from "@orpc/server";
 import { z } from "zod";
 
+import { whatTheProcedureAnswered } from "@/answer";
+import { whatTheFormCarries } from "@/form";
 import { callerContext } from "@/session";
 
 /**
@@ -39,19 +41,19 @@ import { callerContext } from "@/session";
  * A FORM FIELD IS INPUT, whoever rendered the form. These two are hidden fields
  * on a page this instance served, and they are still a request body: `baseUrl`
  * reaches ADR-0034's config boundary, which is what decides whether it may be
- * reached at all, and this is the parse that gets it there as a string rather
- * than as a `File` or as nothing.
+ * reached at all, and `whatTheFormCarries` is what gets it there as a string rather than as a
+ * `File` or as nothing.
  */
 const takeRecord = z.object({ baseUrl: z.url(), recordId: z.string().min(1) });
 
 /** Imports one record from one provider, leaving the page to report it. */
 export async function importRecord(form: FormData): Promise<void> {
-  const { baseUrl, recordId } = takeRecord.parse({
-    baseUrl: form.get("baseUrl"),
-    recordId: form.get("recordId"),
-  });
+  const input = whatTheFormCarries(form, takeRecord);
+  if (input === undefined) return;
 
-  await call(appRouter.provider.import, { baseUrl, recordId }, { context: await callerContext() });
+  await whatTheProcedureAnswered(
+    call(appRouter.provider.import, input, { context: await callerContext() }),
+  );
 }
 
 /**
@@ -70,15 +72,11 @@ const takeOrdering = z.object({ baseUrl: z.url(), containerId: z.string().min(1)
  * than left for the owner to place by hand.
  */
 export async function browseOrdering(form: FormData): Promise<void> {
-  const { baseUrl, containerId } = takeOrdering.parse({
-    baseUrl: form.get("baseUrl"),
-    containerId: form.get("containerId"),
-  });
+  const input = whatTheFormCarries(form, takeOrdering);
+  if (input === undefined) return;
 
-  await call(
-    appRouter.provider.browse,
-    { baseUrl, containerId },
-    { context: await callerContext() },
+  await whatTheProcedureAnswered(
+    call(appRouter.provider.browse, input, { context: await callerContext() }),
   );
 }
 
@@ -125,7 +123,10 @@ const purgeTarget = z.object({ baseUrl: z.url() });
  * looks like from there.
  */
 export async function purgeProvider(form: FormData): Promise<void> {
-  const { baseUrl } = purgeTarget.parse({ baseUrl: form.get("baseUrl") });
+  const input = whatTheFormCarries(form, purgeTarget);
+  if (input === undefined) return;
 
-  await call(appRouter.provider.purge, { baseUrl }, { context: await callerContext() });
+  await whatTheProcedureAnswered(
+    call(appRouter.provider.purge, input, { context: await callerContext() }),
+  );
 }

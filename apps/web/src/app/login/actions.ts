@@ -1,10 +1,12 @@
 "use server";
 
 import { appRouter } from "@canoncore/api/routers";
-import { call, ORPCError, safe } from "@orpc/server";
+import { call } from "@orpc/server";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
+import { whatTheProcedureAnswered } from "@/answer";
+import { whatTheFormCarries } from "@/form";
 import { callerContext, forgetSession, rememberSession } from "@/session";
 import { REFUSED } from "./refusal";
 
@@ -29,15 +31,18 @@ const offered = z.object({ password: z.string() });
  * imposes one.
  */
 export async function logIn(form: FormData): Promise<void> {
-  const { password } = offered.parse({ password: form.get("password") });
+  const input = whatTheFormCarries(form, offered);
+  if (input === undefined) return;
 
-  const { error, data } = await safe(
-    call(appRouter.session.logIn, { password }, { context: await callerContext() }),
+  const { answered, refused } = await whatTheProcedureAnswered(
+    call(appRouter.session.logIn, input, { context: await callerContext() }),
   );
 
   // A REFUSED PASSWORD IS AN ANSWER, NOT A CRASH -- the same rule
-  // `provider.import` takes for a URL the allowlist declines. Anything else that
-  // went wrong is a genuine fault and goes on being one.
+  // `provider.import` takes for a URL the allowlist declines, and since
+  // CNCORE-127 the rule every action in this app takes. Anything else that went
+  // wrong is a genuine fault and goes on being one, thrown before
+  // `whatTheProcedureAnswered` hands anything back.
   //
   // TWO REFUSALS AND TWO SENTENCES (ADR-0125). `UNAUTHORIZED` is a fact about
   // the password offered; `TOO_MANY_REQUESTS` is a fact about how often this
@@ -46,13 +51,13 @@ export async function logIn(form: FormData): Promise<void> {
   // would send them looking for a password that is not lost. The reason rides in
   // the parameter rather than in a second one, because the page asks one
   // question: what happened.
-  if (error instanceof ORPCError) {
-    if (error.code === "UNAUTHORIZED") redirect(`/login?refused=${REFUSED.password}`);
-    if (error.code === "TOO_MANY_REQUESTS") redirect(`/login?refused=${REFUSED.tooMany}`);
+  if (refused) {
+    if (refused.code === "UNAUTHORIZED") redirect(`/login?refused=${REFUSED.password}`);
+    if (refused.code === "TOO_MANY_REQUESTS") redirect(`/login?refused=${REFUSED.tooMany}`);
+    return;
   }
-  if (error) throw error;
 
-  await rememberSession(data.token);
+  await rememberSession(answered.token);
   // WHERE THE SESSION IS FOR. Importing is the only thing a session currently
   // unlocks, so an owner who has just logged in is one call away from what they
   // logged in to do.
@@ -66,10 +71,31 @@ export async function logIn(form: FormData): Promise<void> {
  * while the row lived would leave a token that still opens the write path for
  * anyone holding a copy, and the browser -- the one party that no longer has it
  * -- would be the only one logged out.
+ *
+ * WHICH IS WHY THIS IS THE ONE ACTION THAT STOPS ON A REFUSAL RATHER THAN
+ * CARRYING ON (CNCORE-127). Everywhere else a refusal means "nothing was
+ * written, here is the page again", and going on to the next line costs
+ * nothing. Here the next line clears the cookie, and a refusal means the row is
+ * still there -- so taking it would be exactly the half-logout the paragraph
+ * above refuses, arrived at by a shared rule instead of by a bug.
+ *
+ * NO REFUSAL CAN REACH IT TODAY, AND THAT IS SAID HERE RATHER THAN LEFT FOR A
+ * READER TO WORK OUT. `session.logOut` declares no input to refuse and the only
+ * sub-500 error `ownerProcedure` raises is `UNAUTHORIZED` for a caller with no
+ * session -- which the line above has just established there IS one. So this is
+ * a guard on an ordering ADR-0043 argues in security terms, not a branch with a
+ * case behind it, and the day that procedure learns a refusal is the day it
+ * would otherwise become a silent half-logout. Raised by review, which reached
+ * the branch and found nothing that could enter it.
  */
 export async function logOut(): Promise<void> {
   const context = await callerContext();
-  if (context.session) await call(appRouter.session.logOut, {}, { context });
+  if (context.session) {
+    const { refused } = await whatTheProcedureAnswered(
+      call(appRouter.session.logOut, {}, { context }),
+    );
+    if (refused) return;
+  }
   await forgetSession();
   redirect("/login");
 }

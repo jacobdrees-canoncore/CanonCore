@@ -68,7 +68,9 @@ export {
 } from "./sessions";
 export {
   closeTaskRunsLeftOpen,
+  compactTaskRuns,
   endTaskRun,
+  RUN_HISTORY_DEPTH,
   readLatestTaskRuns,
   readTaskRuns,
   startTaskRun,

@@ -4,6 +4,8 @@ import { appRouter } from "@canoncore/api/routers";
 import { call } from "@orpc/server";
 import { z } from "zod";
 
+import { whatTheProcedureAnswered } from "@/answer";
+import { whatTheFormCarries } from "@/form";
 import { callerContext } from "@/session";
 
 /**
@@ -32,7 +34,10 @@ const theDeviceNamed = z.object({ id: z.uuid() });
  * browser, and the two halves have to happen together.
  */
 export async function endDevice(form: FormData): Promise<void> {
-  const { id } = theDeviceNamed.parse({ id: form.get("id") });
+  const input = whatTheFormCarries(form, theDeviceNamed);
+  if (input === undefined) return;
 
-  await call(appRouter.session.end, { id }, { context: await callerContext() });
+  await whatTheProcedureAnswered(
+    call(appRouter.session.end, input, { context: await callerContext() }),
+  );
 }

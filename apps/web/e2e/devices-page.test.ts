@@ -3,7 +3,15 @@ import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
 import { describe, expect, inject, it } from "vitest";
 
-import { documentAt, documentFrom, logInAt, postFormsIn, sectionIn, submit } from "./document";
+import {
+  documentAt,
+  documentFrom,
+  logInAt,
+  postFormsIn,
+  sectionIn,
+  submit,
+  submitAsAFilePart,
+} from "./document";
 
 /**
  * ADR-0043's PER-DEVICE LOGOUT, over real HTTP (CNCORE-116).
@@ -90,6 +98,38 @@ describe("/devices", () => {
     // browser they were using to tidy up.
     const kept = await documentFrom(baseUrl, "/login", mine);
     expect(kept.text).toContain("You are logged in");
+  });
+
+  /**
+   * THE SAME RULE AS `items/actions.ts`, ON ANOTHER ACTION FILE (CNCORE-123),
+   * which is what makes this worth asserting twice. `FormData.get` answers
+   * `File | string | null` on every surface in this app, and the fix is one
+   * shared reader rather than a guard per field -- so the assertion that matters
+   * is that a SECOND action inherits it without having been taught.
+   *
+   * ENDING A SESSION IS THE WRITE WITH THE LOUDEST CONSEQUENCE, and it is the
+   * one that must not happen on a request that named nothing: the id here is a
+   * `z.uuid()`, and a `File` is no more a uuid than it is a string.
+   */
+  it("ends no device when the id is sent as a file part", async () => {
+    const other = await logInAt(baseUrl, ownerPassword);
+    const mine = await logInAt(baseUrl, ownerPassword);
+    const ending = await theSessionBehind(other);
+
+    const { text } = await documentFrom(baseUrl, "/devices", mine);
+    const [form] = postFormsIn(sectionIn(text, "devices")).filter(({ fields }) =>
+      fields.some(([name, value]) => name === "id" && value === ending),
+    );
+    if (!form) throw new Error("/devices offered no button against the other device");
+
+    const refused = await submitAsAFilePart(baseUrl, "/devices", form, "id", mine);
+
+    expect(refused.status).toBe(200);
+    expect(refused.text).not.toContain("Internal Server Error");
+    // THE OTHER DEVICE IS STILL LOGGED IN, asked with its own cookie rather than
+    // read off the list: a row that survived a render is not the same claim as a
+    // session that still opens something.
+    expect((await documentFrom(baseUrl, "/login", other)).text).toContain("You are logged in");
   });
 
   it("tells a reader who is not the owner nothing about the devices", async () => {

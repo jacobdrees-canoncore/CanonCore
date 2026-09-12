@@ -194,12 +194,123 @@ twenty-five times and nothing is written anywhere. Forty-one wrong passwords arr
 forty are CHECKED and write forty lines, the forty-first is turned away with no allowance left and
 writes none, and the mount itself writes nothing at any level throughout — so this mechanism's bound
 and this section's claim are measured in the same test, which is the only way the sentence joining
-them can be checked. A router that throws is logged whole, with its stack.
+them can be checked. A router that throws is logged whole, with its stack — and, since
+CNCORE-122, with its message ESCAPED rather than pasted in raw; see below.
 
 **WHAT THE MOUNT CLASSIFIES IS WHAT REACHES IT**, and `createContext` runs first: `seeSession`
 touches the database for any caller presenting a session cookie, so a failure THERE leaves the
 handler before any interceptor and is Next's to report. Measured against a closed port. That is not
 a hole in the rule — it is why the rule is stated about what the handlers raise.
+
+## Bounded in COUNT is not bounded in SHAPE — under CNCORE-122
+
+Everything above bounds HOW OFTEN this instance writes. It says nothing about WHAT it writes, and
+until CNCORE-122 that second bound was open: `console.error(error)` renders an `Error` as its
+`stack`, and V8 builds that string by pasting the message in RAW at the top. **A message carrying a
+newline therefore wrote a SECOND LINE into the owner's log, and the second line was composed by the
+caller.** An owner reading the log, or the fail2ban-style tooling this record names as the reason
+the log is the surface at all, could not tell an entry this process wrote from one somebody sent it.
+
+That is the log-INJECTION cousin of the log-FILLING problem this record exists to close, and the
+same family as [[0123-a-failure-reason-is-bounded-and-says-who-wrote-it]] one surface over: a
+stranger choosing the content of text on a surface they do not own. There it was the owner's page
+and the lever was length; here it is the owner's log and the lever is a line break.
+
+**IT IS NOT A REGRESSION FROM CNCORE-120, WHICH MADE IT STRICTLY NARROWER.** Before that change
+every 4xx was logged too, so any refusal reached the log with no session and no bound. Only faults
+are logged now, so reaching this at all means provoking a 500.
+
+### The way in is the DRIVER, and the validation failures the ticket named are not
+
+Measured on this stack, @orpc/server 1.15.0 and drizzle-orm 0.45.2, Node v24.19.0:
+
+- **`DrizzleQueryError` is the live vector, and it needs no attack to demonstrate.** Its message is
+  built as `Failed query: <sql>` then `params: <params>` — **ALREADY TWO LINES before anybody
+  interferes** — with the parameters the caller supplied interpolated into the second. The pg error
+  it wraps as `cause` quotes offending values in its own message too.
+- **oRPC's validation failures do NOT carry caller text in a message, which the ticket assumed and
+  this record checked.** Both `BAD_REQUEST` and the output-validation `INTERNAL_SERVER_ERROR` have
+  a CONSTANT message — "Input validation failed", "Output validation failed" — and the received
+  value arrives nested, under `data.issues` and under `cause.data`. **`inspect` has always escaped a
+  string in a nested position**, so those were never the hole the message was. This agrees with
+  ADR-0123's measurement of zod 4.5.4, where the received value is absent from a `ZodError`'s
+  message as well.
+
+So the defect had exactly ONE raw span — the top-level message — and it is the span every renderer
+treats differently from the values around it.
+
+### The boundary is drawn twice, because the stack cannot be the thing that is discarded
+
+"One line per event" cannot mean dropping the stack: a stack is multi-line by nature and is the half
+CNCORE-120 kept ON PURPOSE, being the part an owner cannot reconstruct from a response that says
+only "Internal server error". So the entry stays multi-line and the boundary is made legible
+instead, twice over:
+
+1. **Caller text is QUOTED** — the message, AND THE MESSAGE OF EVERY CAUSE. Both are rendered by
+   `inspect`, so they arrive in quotes with their newlines escaped as `\n`, the same rendering every
+   other string in the entry already got. Inside the quotes is what somebody sent; outside them is
+   what this process said.
+2. **An entry STARTS AT COLUMN 0, and nothing else does.** V8 indents its own frames, the carried
+   properties are indented to match, and `breakLength` stops `inspect` wrapping a long value onto a
+   fresh line of its own — which it does by default at 80 columns, and a long message is exactly
+   what a caller controls. A line flush to the left margin is this app speaking, every time, which
+   is the rule a reader skims by and a log pattern is written against.
+
+**WHAT IS CARRIED ALONGSIDE IS WHAT `console.error` ALREADY WROTE**: the code and status on an
+`ORPCError`, the query and parameters on a driver fault. This closes an escaping defect and is not
+licence to write less than before — the `cause` in particular is where oRPC puts the offending
+value, so dropping it would have taken away the diagnosis while fixing the forgery.
+
+**THE CAUSE IS FOLLOWED RATHER THAN HANDED OVER, WHICH THE FIRST CUT OF THIS GOT WRONG.** Rule 1 was
+written as though `inspect` escaped every nested value, and it does that for a nested STRING and not
+for a nested `Error` — which it renders as its own raw stack. So a cause's message kept its real
+newlines, and the only thing between a caller and a forged line was the indentation. **Measured: a
+cause message of `invalid input syntax\n    at notARealFrame (/app/forged.ts:1:1)` printed that
+frame at EXACTLY the indentation of the cause's genuine frames** — a line an owner chasing a fault
+would read as a frame this process recorded and go looking for. It is the live path, too, since a
+driver fault wraps its pg error as a cause and oRPC wraps its validation error as one. So a cause is
+rendered by the same rule, recursively, rather than passed to `inspect` whole.
+
+**AND FOLLOWING IT IS BOUNDED AT TWO, because a chain is somebody else's length.** Two covers what
+this surface raises. The bound is what stops a CYCLE recursing until the process dies — inside the
+handler that exists to report a fault, which is the worst place to put a crash — and what stops a
+long chain writing an entry sized by whoever built it, which is this record's own concern one level
+down. Beyond it the entry says the chain was longer rather than pretending it ended.
+
+**AND WHERE THE CALLER'S TEXT CANNOT BE LOCATED, NO FRAME IS WRITTEN.** The message is found by the
+span V8 pasted atop `stack`; an error arriving without one offers nothing to measure against, and
+guessing which lines came from V8 is the hole itself, since a message can carry a line that reads
+exactly like a frame.
+
+### What is NOT escaped, measured rather than assumed
+
+`U+2028` and `U+2029` pass through both `inspect` and `JSON.stringify` raw. That is not a hole here
+and the reason is worth writing down rather than rediscovering: **they do not terminate a line in a
+POSIX text file**, which is what an owner reads and what a fail2ban regex is fed. What splits a line
+there is the C0 set, and BOTH renderers escape the two that matter, `\n` and `\r`.
+
+Measured across the whole range on Node v24.19.0: `inspect` leaves no C0 character raw, nor `U+007F`
+or `U+0085`; `JSON.stringify` leaves those last two. **That is not why `inspect` is the renderer
+here, and an earlier draft of this section said it was.** `U+0085` is a C1 control rather than C0,
+and in UTF-8 it does not split a POSIX line either — so on line-splitting alone the two renderers
+are equal. `inspect` is chosen because it is what renders every OTHER value in the entry, so the
+message and the values beside it read as one piece of text rather than two conventions; escaping
+more of the control set than the JSON one is a second benefit and not the argument.
+
+### As built
+
+Whole. Asserted at ADR-0103's third seam, the catch-all route handler driven directly, alongside the
+assertions above and sharing their spy across every console level. **The forgery each test plants is
+`login-bound.ts`'s OWN line** — the one this record bounds four-a-minute — so "a line an owner could
+mistake for one this process wrote" is asserted against the real one rather than an invented string.
+The driver fault is built from the real `DrizzleQueryError` with a forged parameter AND a forged
+cause, and the assertion is the invariant itself: after the first, no line begins at the margin.
+
+**THE MARGIN IS OWNED IN ONE PLACE**, which is what makes that invariant structural rather than
+hoped for: the indent is applied once to the finished entry rather than per span, so frames, the
+class label and anything added later are all inside it and none can quietly opt out. A cycle in a
+cause chain has a test of its own, because the recursion that followed from fixing the cause is the
+one thing here that could take the process down.
 
 ## What this deliberately does not do
 

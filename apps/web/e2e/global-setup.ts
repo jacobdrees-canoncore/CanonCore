@@ -1585,9 +1585,18 @@ async function theThingsWorkBrowsingHasToTellApart(databaseUrl: string) {
       repeatedBy: "A wiki that orders by release",
       disagreedAboutId: disagreedAbout,
       argued: "A story two sources place differently",
+      /**
+       * THE ARGUED STORY'S OWN PAGE, which is where CNCORE-121 reads the same
+       * disagreement from the other end: the container's list shows it twice in
+       * POSITION order, and "Also appears in" shows the same two rows with rank
+       * leading. One fixture, both ends, so the two cannot be seeded apart.
+       */
+      arguedId: argued,
       /** The two sources that place it apart, in the positions they claim. */
       arguedBy: ["A broadcaster that orders by transmission", "A wiki that orders by release"],
       agreedOn: "A story both sources place at two",
+      /** The corroborated story's own page, for the same reason `arguedId` is here. */
+      agreedOnId: agreedOn,
     },
     // The seed ends its own client; this pool has to be ended too, or the run
     // holds an idle connection open against a database it has finished with.
@@ -1742,8 +1751,10 @@ declare module "vitest" {
       repeatedBy: string;
       disagreedAboutId: string;
       argued: string;
+      arguedId: string;
       arguedBy: string[];
       agreedOn: string;
+      agreedOnId: string;
     };
     /** The story imported from a CMPP provider over HTTP, and what it claimed. */
     imported: {
