@@ -62,11 +62,12 @@ export const TEST_DATABASE_SUFFIXES = [
   "conf",
   /*
    * AN EMPTY CATALOGUE THAT IS NOT AN UNCONFIGURED ONE (CNCORE-131). Every
-   * other empty instance here is empty AND unconfigured, so the two facts move
-   * together and no assertion made on one of them can tell them apart. The
-   * front page reads them as two conditions off two facts, and this is the
-   * combination that proves it: an owner who allowlisted something and still
-   * has nothing.
+   * other instance a test may READ is empty AND unconfigured or neither, so the
+   * two facts move together and no assertion made on one of them can tell them
+   * apart. `conf` above starts empty as well and is not the one to borrow: its
+   * configuration is what another suite writes. The front page reads the two as
+   * two conditions off two facts, and this is the combination that proves it:
+   * an owner who allowlisted something and still has nothing.
    *
    * FIVE CHARACTERS, WHICH IS THE BUDGET EXACTLY -- `_test_ready` is eleven and
    * so is `LONGEST_DERIVED_SUFFIX`.

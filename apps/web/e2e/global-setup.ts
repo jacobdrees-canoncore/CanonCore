@@ -263,12 +263,17 @@ export default async function setup(project: TestProject) {
  * AN EMPTY CATALOGUE ON AN INSTANCE THAT IS NOT UNCONFIGURED (CNCORE-131).
  *
  * THE COMBINATION NOTHING HERE HAD. `freshInstall` below is empty AND
- * unallowlisted, the seeded instance is neither, and no other instance is
- * empty at all -- so "the catalogue holds nothing" and "this instance reaches
- * nothing" moved together in every fixture, and an assertion could not tell
- * which of them a page was reading. ADR-0094's own closing paragraph is that
- * these are TWO facts with different remedies and an owner can be in either
- * without the other.
+ * unallowlisted and the seeded instance is neither, so "the catalogue holds
+ * nothing" and "this instance reaches nothing" moved together in every fixture
+ * a test could read, and an assertion could not tell which of them a page was
+ * reading. ADR-0094's own closing paragraph is that these are TWO facts with
+ * different remedies and an owner can be in either without the other.
+ *
+ * AND `anInstanceSafeToConfigure` IS NOT THE ONE TO REACH FOR, though it starts
+ * empty too. Its whole purpose is that `settings-page.test.ts` WRITES its
+ * configuration, so what it reaches changes underneath a reader mid-run --
+ * which is CNCORE-93's shape exactly, an assertion reading shared state across
+ * a write it does not own. This instance is nobody's to change.
  *
  * WHAT IT PROVES IS THE ROUTE THAT NEEDS NO PROVIDER. CNCORE-131's criterion is
  * that building a catalogue by hand is offered "whether or not one is
