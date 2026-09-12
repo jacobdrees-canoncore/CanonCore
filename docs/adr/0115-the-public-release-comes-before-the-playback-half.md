@@ -121,7 +121,24 @@ outstanding debt rather than a settled one. It is built now, and CNCORE-75 ships
 tag: an owner creates an Item, places it in as many Containers as they like, reorders one by
 dragging and removes a member, each at its own Position. The one mutation their hands cannot reach
 is the move BETWEEN Containers, which only `placement.move` offers, because the Members list is flat
-and no tree was ported (ADR-0116). The status is flipped because the gate this record wrote for itself was the tag and
+and no tree was ported (ADR-0116).
+
+**BOTH TAGS HAVE NOW SHIPPED, WHICH IS THIS RECORD'S STAGING CARRIED OUT.** CNCORE-75 tagged
+`v0.2.0` at `ff7bc33` on 2026-09-12, its run was green in full at the tagged commit, and
+`ghcr.io/jacobdrees-canoncore/canoncore:0.2.0` resolves amd64 and arm64 to an anonymous registry
+token. What the second tag adds over the first is checkable rather than asserted, and was checked
+the way this record checks the first: the install path followed from a directory with no checkout,
+and then a catalogue BUILT from nothing with no Provider configured at all -- two Items and two
+ordered Containers created by hand, one Item placed in both orderings at its own Position in each, a
+member dragged past another with the new order surviving a reload, and a note written and rendered
+with the Owner as its Source. That walk is the argument this record makes, performed: multi-placement
+is now something an owner does rather than something they are shown.
+
+**AND THE UPGRADE WAS WALKED TOO, because a second tag is the first release this project has ever
+asked anybody to move ONTO.** A `:0.1.0` instance installed fresh stood at ten rungs; `docker compose
+pull` and `up -d` at `:0.2.0` applied the ladder to sixteen and the row written under v0.1.0 was
+still there afterwards. The README's upgrade paragraph is therefore measured rather than reasoned
+about, on the only pair of releases that exist. The status is flipped because the gate this record wrote for itself was the tag and
 nothing else; the half that has not landed is named here so `accepted` cannot be read as the whole
 effort being done.
 
