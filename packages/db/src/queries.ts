@@ -464,24 +464,24 @@ export async function readWorks(
  *
  * AND `after` WALKS IT (ADR-0119): the id of the last item the page before this
  * one carried. Both halves of the order are load-bearing in that comparison,
- * which is what `past` below is about -- the cap says what is not being shown,
+ * which is what `pastInTheOrder` below is about -- the cap says what is not being shown,
  * and this is what reaches it.
  */
 async function readListing(
   db: Database,
   { limit, after, within }: { limit: number; after?: string; within: SQL },
 ): Promise<Catalogue> {
-  const anchor = after === undefined ? undefined : await findInTheOrder(db, after);
+  const anchor = after === undefined ? undefined : await findTheAnchor(db, after);
   return walkListing(db, {
     within,
     /*
      * `nulls last` IS THE DEFAULT FOR `asc` AND IS WRITTEN OUT ANYWAY, because
-     * `past` below reads it: an item with no title at all has no sort key, and
+     * `pastInTheOrder` below reads it: an item with no title at all has no sort key, and
      * where those sit decides which half of the cursor's comparison finds them.
      * A default the walk depends on is one worth saying out loud.
      */
     orderBy: [sql`${SORT_KEY} nulls last`, sql`${items.id}`],
-    past: anchor && past(anchor),
+    past: anchor && pastInTheOrder(anchor),
     limit,
   });
 }
@@ -644,13 +644,18 @@ interface PlaceInTheOrder {
 /**
  * Everything the catalogue lists AFTER one item (ADR-0119).
  *
+ * NAMED FOR THE ORDER IT WALKS, because `walkListing` above takes a `past` of
+ * its own -- the SQL rather than the function that builds it -- and a parameter
+ * sharing a name with a function in the same file reads as that function.
+ * Catalogue search's `pastInTheRanking` is the same pairing one file over.
+ *
  * TWO REGIMES, AND A ROW COMPARISON CANNOT EXPRESS BOTH. The order is the
  * items with a sort key ascending and then the items with none, so `(null, x)
  * > (k, y)` -- which is NULL rather than true -- would drop every untitled item
  * off the walk permanently. An item nobody has titled is still an item, and the
  * criterion is that none is skipped.
  */
-function past({ sortKey, id }: PlaceInTheOrder): SQL | undefined {
+function pastInTheOrder({ sortKey, id }: PlaceInTheOrder): SQL | undefined {
   // Already among the ones with no sort key, so the id is the whole order left.
   if (sortKey === null) return and(isNull(SORT_KEY), gt(items.id, id));
   return or(
@@ -664,14 +669,36 @@ function past({ sortKey, id }: PlaceInTheOrder): SQL | undefined {
   );
 }
 
+/** One row a cursor might name, read the way every walk has to read it. */
+export interface TheAnchor {
+  /** ADR-0014's projected key. Null for an item with neither column. */
+  sortKey: string | null;
+  /**
+   * READ BESIDE THE KEY BECAUSE A RELEVANCE-ORDERED WALK NEEDS IT. The
+   * catalogue's order is the key alone; Catalogue search ranks on
+   * `similarity(title, query)`, so its anchor has no place in the order at all
+   * without a title. One read answers both (CNCORE-88).
+   */
+  title: string | null;
+  id: string;
+}
+
 /**
- * Where one id sits in the catalogue's order, by the id a reader arrived with.
+ * WHERE ONE ID SITS, by the id a reader arrived with -- the read every walk
+ * starts from, written once.
+ *
+ * WRITTEN ONCE BECAUSE THE RULES BELOW ARE THE HAZARD, not the query. The
+ * tombstone exception and the shape guard are two decisions that must hold for
+ * every cursor in this app, and they were spelled twice -- here and in
+ * `catalogue-search.ts` -- which is the hazard this file already carries a
+ * paragraph about. What each caller keeps for itself is what to DO with the
+ * answer, because that is the part their orders genuinely differ on.
  *
  * IT DOES NOT HONOUR THE TOMBSTONE, and that is the one place in this file
  * where not honouring it is right. ADR-0075's rule is about what a reader is
  * SHOWN, and this row is never shown: it is a position. Reading a deleted
  * item's key is what keeps a link to page two working after the item the link
- * was cut at is gone, which is the ordinary case rather than a corner of one.
+ * was cut at is gone.
  *
  * AN ID THAT NAMES NOTHING NAMES NO POSITION, so the walk starts at the
  * beginning rather than erroring. That is ADR-0066's rule for a query
@@ -693,10 +720,10 @@ function past({ sortKey, id }: PlaceInTheOrder): SQL | undefined {
  * starts over. That is probably the answer here too, and it is a behaviour
  * change with a record to correct rather than a line to fix in passing.
  */
-async function findInTheOrder(db: Database, id: string): Promise<PlaceInTheOrder | undefined> {
+export async function findTheAnchor(db: Database, id: string): Promise<TheAnchor | undefined> {
   if (!canBeAnId(id)) return undefined;
   const [place] = await db
-    .select({ sortKey: SORT_KEY, id: items.id })
+    .select({ sortKey: SORT_KEY, title: items.title, id: items.id })
     .from(items)
     .where(eq(items.id, id));
   return place;
@@ -831,17 +858,12 @@ const idShape = z.uuid();
  * an output-validation error that is not a defined error -- which is the
  * original 500 back again, moved.
  *
- * EXPORTED WITHIN THE PACKAGE (CNCORE-88), because Catalogue search walks on an
- * id a reader supplies too and asks this same question of it before the query.
- * It stays out of the package's public export: the guard is what a cursor goes
- * through, never something a caller outside is handed to apply for itself.
- *
  * It can be this strict because every id here is one this system minted:
  * `defaultRandom()` is `gen_random_uuid()`, and an alias id is a merged-away id
  * of ours rather than one from outside (ADR-0040). Postgres would accept
  * shapes RFC 9562 does not, but nothing puts one in these columns.
  */
-export function canBeAnId(id: string): boolean {
+function canBeAnId(id: string): boolean {
   return idShape.safeParse(id).success;
 }
 

@@ -192,7 +192,17 @@ alone; or widen the cursor beyond an id. The third is the one this record alread
 sections above — a cursor spelling out a sort key emits a column ADR-0045 never named into a URL a
 reader can read — and it gets no easier when the key is a number derived from the reader's own
 query. The second buys one shape at the price of the best match no longer coming first, which is
-most of what a search is for. So: **recompute**, at one extra primary-key lookup per page.
+most of what a search is for. So: **recompute**.
+
+**It costs TWO primary-key lookups per page, not one, and that is measured rather than reasoned.**
+The comparison names the anchor's closeness twice — once for `<` and once for `=` — and PostgreSQL
+hoists each into its own `InitPlan`: `explain (analyze)` on the paged query shows `InitPlan 1` and
+`InitPlan 2`, each an `Index Scan using items_pkey`, each at `loops=1`. Uncorrelated, so twice per
+PAGE rather than per row. Folding them into one would mean joining the anchor row in as a relation,
+which puts a parameter on the shared walk that only one of its three callers would ever pass — a
+worse trade than a second lookup on a unique key. The number is here because this record prices the
+id cursor at "one indexed primary-key lookup per page" two sections above, and a relevance-ordered
+walk pays that twice.
 
 **THE COMPARISON IS THE WHOLE TUPLE THE `ORDER BY` USES, and each of the three terms is a way to
 lose rows.** `(similarity DESC, coalesce(sort_name, title), id)`:
@@ -206,6 +216,24 @@ lose rows.** `(similarity DESC, coalesce(sort_name, title), id)`:
   two halves because an Item nobody has titled has no sort key, and `(null, x) > (k, y)` is NULL. No
   such row can be in a RESULT SET: the match is `title ilike …`, which is NULL without a title. So
   the untitled block the catalogue must reach is a block a search cannot reach at all.
+
+**A CURSOR PREDICATE WITH A TOP-LEVEL `or` MUST BE PARENTHESISED, AND WHAT GOES WRONG IS NOT THE
+COMPARISON.** Written as one raw `sql` template — `A or (B and C)` — and composed as
+`and(within, past)`, the query builder parenthesises the PAIR it is handed and not the operands
+inside it, so the predicate renders as `(within and A or (B and C))`. `and` binds tighter than `or`,
+so it parses as `((within and A) or (B and C))` and **the tie branch escapes the listing's own
+`WHERE` entirely**: on page two a search returned an Item it had never matched. Built with the query
+builder's own `or`/`and`, which wrap their own results, it renders
+`(within and (A or (B and C)))`. The catalogue's walk was safe from this only incidentally, because
+it already used `or()`.
+
+**It is a precedence bug rather than a logic one, so every walk test in the suite was blind to it.**
+Set equality and no-repeats say nothing about rows that should never have been candidates, and every
+fixture in this repo ties only among rows that also match. What catches it is a decoy that RANKS
+level with the anchor without matching at all, and ADR-0120's own stated limit builds one by
+construction: trigram matching has no notion of word order, and `pg_trgm` pads and splits per WORD,
+so `Zagreus Antimony` and `Antimony Zagreus` hold the identical trigram set and rank identically
+against any query. Only one of them contains it.
 
 **THE ANCHOR'S CLOSENESS DOES NOT LEAVE THE SERVER, and the reason is exact rather than dramatic.**
 `similarity()` returns a `real`. Measured against one row: `= $1::float8` is FALSE where `= $1::real`

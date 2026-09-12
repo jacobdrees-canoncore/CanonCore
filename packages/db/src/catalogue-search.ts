@@ -1,8 +1,8 @@
-import { and, eq, type SQL, type SQLWrapper, sql } from "drizzle-orm";
+import { and, eq, or, type SQL, type SQLWrapper, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 import type { Database } from "./index";
-import { type Catalogue, canBeAnId, IN_THE_CATALOGUE, SORT_KEY, walkListing } from "./queries";
+import { type Catalogue, findTheAnchor, IN_THE_CATALOGUE, SORT_KEY, walkListing } from "./queries";
 import { items } from "./schema";
 
 /**
@@ -171,7 +171,7 @@ export async function searchCatalogue(
       sql`${SORT_KEY} nulls last`,
       sql`${items.id}`,
     ],
-    past: anchor && past(db, anchor, wanted),
+    past: anchor && pastInTheRanking(db, anchor, wanted),
     limit,
   });
 }
@@ -222,10 +222,34 @@ interface PlaceInTheRanking {
  * row here has a title and therefore a sort key. The regime that needs two
  * halves cannot arise, so the comparison is written as the one it is.
  */
-function past(db: Database, { sortKey, id }: PlaceInTheRanking, query: string): SQL {
+function pastInTheRanking(db: Database, { sortKey, id }: PlaceInTheRanking, query: string): SQL {
   const closeness = closenessTo(items.title, query);
   const anchor = closenessOfTheAnchor(db, id, query);
-  return sql`${closeness} < ${anchor} or (${closeness} = ${anchor} and (${SORT_KEY}, ${items.id}) > (${sortKey}, ${id}))`;
+  /*
+   * BUILT WITH `or` AND `and` RATHER THAN WRITTEN AS ONE STRING, and that is a
+   * FIX rather than a preference. Written as one `sql` template with a
+   * top-level `or`, this returned rows the search had not matched.
+   *
+   * `and(within, past)` parenthesises the PAIR it is handed and not the
+   * operands inside it, so the predicate rendered as
+   * `(within and A or (B and C))` -- and `and` binds tighter than `or`, so it
+   * parsed as `((within and A) or (B and C))`. THE TIE BRANCH ESCAPED THE MATCH
+   * ENTIRELY: anything ranking level with the anchor and sorting after it came
+   * back on page two whether or not it contained the query.
+   *
+   * MEASURED, and reachable by construction rather than by luck: pg_trgm pads
+   * and splits per WORD, so `Zagreus Antimony` and `Antimony Zagreus` hold the
+   * identical trigram set and rank identically against any query (ADR-0120's
+   * "trigram matching has no notion of word order", read as a hazard rather
+   * than a limit). Only one of them contains the query. The walk returned both.
+   *
+   * `or()` wraps its own result, so the parenthesising is drizzle's job here
+   * rather than something this file has to get right by hand.
+   */
+  return or(
+    sql`${closeness} < ${anchor}`,
+    and(sql`${closeness} = ${anchor}`, sql`(${SORT_KEY}, ${items.id}) > (${sortKey}, ${id})`),
+  ) as SQL;
 }
 
 /**
@@ -251,9 +275,14 @@ function past(db: Database, { sortKey, id }: PlaceInTheRanking, query: string): 
  * rather than a corner of one: titles of one shape rank identically.
  *
  * THIS DEPENDS ON NEITHER. The value is never rendered as text and never
- * re-parsed, so there is no type to infer and no digits to round. It costs one
- * more primary-key lookup inside the page's own statement, which is the price
- * ADR-0119 already takes for a cursor that is an item's id.
+ * re-parsed, so there is no type to infer and no digits to round.
+ *
+ * IT IS READ TWICE PER PAGE, MEASURED, because the comparison names it twice -- once
+ * for `<` and once for `=`. `explain (analyze)` shows two `InitPlan`s, each an
+ * `Index Scan using items_pkey` at `loops=1`: uncorrelated, so twice per page
+ * rather than per row. Folding them into one would mean joining the anchor in
+ * as a relation and putting a parameter on `walkListing` that only this caller
+ * would ever pass, which is a worse trade than a second lookup on a unique key.
  *
  * ALIASED, so the inner `items` cannot be read as the outer one.
  */
@@ -268,29 +297,45 @@ function closenessOfTheAnchor(db: Database, id: string, query: string): SQL {
 /**
  * Where one id sits in THIS search's ranking, by the id a reader arrived with.
  *
- * IT DOES NOT HONOUR THE TOMBSTONE, exactly as `findInTheOrder` does not: the
- * anchor is a position rather than something a reader is shown (ADR-0075), and
- * reading a deleted item's place is what keeps a link to page two working after
- * the result it was cut at is gone.
- *
- * AN ID THAT NAMES NOTHING NAMES NO POSITION, so the walk starts at the
- * beginning rather than erroring (ADR-0066).
+ * THE READ IS `findTheAnchor`'S, AND ONLY THE RULES ARE THIS FILE'S. That
+ * function owns the two decisions every cursor in this app shares -- the shape
+ * guard, and reading past the tombstone because an anchor is a position rather
+ * than something a reader is shown -- and they were spelled twice here until
+ * review. What is left below is the part a RELEVANCE order genuinely decides
+ * differently.
  */
 async function findInTheRanking(db: Database, id: string): Promise<PlaceInTheRanking | undefined> {
-  if (!canBeAnId(id)) return undefined;
-  const [place] = await db
-    .select({ sortKey: SORT_KEY, id: items.id, title: items.title })
-    .from(items)
-    .where(eq(items.id, id));
-  if (place === undefined) return undefined;
+  const anchor = await findTheAnchor(db, id);
+  if (anchor === undefined) return undefined;
   /*
    * AN ITEM WITH NO TITLE HAS NO PLACE IN THIS ORDER, which is a state the
-   * catalogue's walk has no analogue for. Closeness is `similarity(title, ...)`
-   * and is NULL without a title, so such an anchor can be ranked against
-   * nothing -- and no search ever handed one out as a cursor, because an
-   * untitled item cannot match. It names no position, so the walk starts at the
-   * beginning: the same answer ADR-0066 gives an id that names nothing at all.
+   * catalogue's walk has no analogue for. Closeness is
+   * `similarity(title, ...)` and is NULL without a title, so such an anchor can
+   * be ranked against nothing -- and a NULL on one side of the comparison makes
+   * the whole predicate NULL, which answers with an EMPTY PAGE rather than with
+   * the results. No search ever handed such an id out, because an untitled item
+   * cannot match. It names no position, so the walk starts at the beginning:
+   * the same answer ADR-0066 gives an id that names nothing at all.
+   *
+   * A DELETED ITEM IS THIS CASE, which is not obvious. Migration 5 tombstones
+   * every statement of a deleted item, that re-fires the projection, and a
+   * projection over no live statements is NULL -- so `title` and `sort_name`
+   * are GONE rather than hidden. A link kept past a delete therefore starts the
+   * search over rather than resuming, and every result is still reachable. The
+   * catalogue's walk meets the same fact and does something worse with it,
+   * which is CNCORE-110.
+   *
+   * AND THE SAME FACT LEAVES A RACE THIS DOES NOT CLOSE. The anchor is read
+   * here and its closeness is computed in the NEXT statement, so an item
+   * deleted between the two is titled for this check and untitled for that one:
+   * the subquery answers NULL, the predicate is NULL, and the page renders
+   * "These results end here" rather than starting over. The window is two
+   * statements wide, where ADR-0119 already prices a WIDER version of the same
+   * race -- an anchor retitled "inside the seconds between two clicks" -- as
+   * the cost of a cursor that is an id. CNCORE-110 owns what a walk should do
+   * with an anchor that has lost its place, and this is that question inside a
+   * smaller window rather than a second one.
    */
-  if (place.title === null || place.sortKey === null) return undefined;
-  return { sortKey: place.sortKey, id: place.id };
+  if (anchor.title === null || anchor.sortKey === null) return undefined;
+  return { sortKey: anchor.sortKey, id: anchor.id };
 }

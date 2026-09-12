@@ -322,6 +322,89 @@ describe("searchCatalogue", () => {
     expect(second.total).toBe(3);
   });
 
+  it("returns nothing on page two that page one would not have matched", async () => {
+    // THE CURSOR MUST NOT ESCAPE THE MATCH, and it is a PRECEDENCE bug rather
+    // than a logic one -- which is why no other walk test here can see it.
+    //
+    // `pastInTheRanking` is one raw expression with a top-level `or`, and
+    // drizzle's `and()` parenthesises the pair it is handed but NOT the
+    // operands inside it. Rendered, the predicate is
+    // `(within and A or (B and C))`, and `and` binds tighter than `or` -- so
+    // THE TIE BRANCH IS EVALUATED WITHOUT `within`. Anything tying with the
+    // anchor and sorting after it comes back on page two whether or not it
+    // matched the query at all.
+    //
+    // THE DECOY IS THE SAME WORDS IN THE OTHER ORDER, which is ADR-0120's own
+    // stated limit turned into a fixture: "trigram matching has no notion of
+    // word order". pg_trgm pads and splits per WORD, so `Zagreus Antimony` and
+    // `Antimony Zagreus` have the identical trigram set and therefore rank
+    // identically against any query -- an EXACT tie by construction rather than
+    // a coincidence hunted for. Only one of them contains the query as a
+    // substring, so only one matches; and the decoy sorts after the other, so
+    // the leaked branch admits it.
+    //
+    // MEASURED: both rank at 1 against `antimony zagreus`;
+    // `'Zagreus Antimony' ilike '%antimony zagreus%'` is false.
+    const query = "antimony zagreus";
+    const matching = await anItemTitled(db, "Antimony Zagreus");
+    const decoy = await anItemTitled(db, "Zagreus Antimony");
+    // A THIRD, so there is a page two to reach at all.
+    const alsoMatching = await anItemTitled(db, "Antimony Zagreus and the Divergence");
+
+    const walked: string[] = [];
+    let after: string | undefined;
+    for (let pages = 0; pages <= 4; pages += 1) {
+      const page = await searchCatalogue(db, { query, limit: 1, after });
+      walked.push(...page.entries.map((entry) => entry.id));
+      if (page.continuesAfter === null) break;
+      after = page.continuesAfter;
+    }
+
+    expect(walked).not.toContain(decoy);
+    expect(walked).toContain(matching);
+    expect(walked).toContain(alsoMatching);
+  });
+
+  it("keeps the ranking ACROSS a page boundary, closest first", async () => {
+    // THE SECOND CRITERION: the walk keeps its place in the order the first
+    // page used. Every other walk test here asserts set equality and no
+    // repeats, and NEITHER CAN SEE ORDER -- a page two handing back rows that
+    // outrank page one's last would satisfy both of them.
+    //
+    // THE ORACLE IS FOUR MEASURED NUMBERS rather than a second reading of the
+    // search. Against `menoptra`, these four rank 1, 0.47368422, 0.28125 and
+    // 0.15254237 -- strictly decreasing, so ONE sequence is correct and this
+    // test knows it without asking the code. Titles get longer as relevance
+    // falls, which is the property `similarity()` has: a title that is nearly
+    // the query outranks one that merely mentions it.
+    //
+    // WRITTEN IN THE WRONG ORDER ON PURPOSE, so that a walk returning creation
+    // order, or id order, disagrees with this rather than accidentally
+    // matching it.
+    const query = "menoptra";
+    const distant = await anItemTitled(
+      db,
+      "A very long tale in which the Menoptra appear only once near the end",
+    );
+    const exact = await anItemTitled(db, "Menoptra");
+    const middling = await anItemTitled(db, "The Menoptra and the Animus of Vortis");
+    const near = await anItemTitled(db, "Menoptra of Vortis");
+
+    const walked: string[] = [];
+    let after: string | undefined;
+    // ONE AT A TIME, so every adjacent pair in the expected order is separated
+    // by a page boundary: this asserts the ranking the CURSOR reconstructs,
+    // not the ranking one query happened to return.
+    for (let pages = 0; pages <= 4; pages += 1) {
+      const page = await searchCatalogue(db, { query, limit: 1, after });
+      walked.push(...page.entries.map((entry) => entry.id));
+      if (page.continuesAfter === null) break;
+      after = page.continuesAfter;
+    }
+
+    expect(walked).toStrictEqual([exact, near, middling, distant]);
+  });
+
   it("says the results end here, where nothing matched past this page", async () => {
     // THE HALF THAT MAKES THE LINE ABOVE A TEST. An implementation handing over
     // the last id unconditionally passes that one and fails this, and a reader
