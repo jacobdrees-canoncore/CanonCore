@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@canoncore/api": "workspace:*",
+    "@canoncore/db": "workspace:*",
     "@canoncore/env": "workspace:*",
     "@canoncore/ui": "workspace:*",
     "@orpc/client": "catalog:",
@@ -31,7 +32,6 @@
   },
   "devDependencies": {
     "@canoncore/config": "workspace:*",
-    "@canoncore/db": "workspace:*",
     "@canoncore/providers": "workspace:*",
     "@tailwindcss/postcss": "catalog:",
     "@types/node": "catalog:",

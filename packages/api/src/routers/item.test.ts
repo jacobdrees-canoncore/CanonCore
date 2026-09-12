@@ -9,6 +9,7 @@ import {
   ownerSource,
   theOwner,
 } from "@canoncore/db/testing/catalogue";
+import { env } from "@canoncore/env/server";
 import { call, isDefinedError, safe } from "@orpc/server";
 import { eq } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -386,6 +387,152 @@ describe("item.get on a container", () => {
 
     expect(item.holds.map((placement) => Object.keys(placement).sort())).toStrictEqual([
       ["id", "itemId", "position", "title"],
+    ]);
+  });
+});
+
+/**
+ * THE OWNER'S CONTEXT, because everything below WRITES. `item.create` and
+ * `item.retitle` are `ownerProcedure`s (CNCORE-109, ADR-0043), so a caller with
+ * no session is refused before reaching any of the behaviour asserted here.
+ *
+ * IT LOGS IN THROUGH THE ROUTER rather than assembling a session object, for
+ * the reason `provider.test.ts` gives: a hand-made session would keep passing
+ * on the day the shape of one changes.
+ */
+const asTheOwner = await createContext({ sessionToken: await aTokenForTheOwner() });
+
+async function aTokenForTheOwner(): Promise<string> {
+  const password = env.OWNER_PASSWORD;
+  if (password === undefined) {
+    throw new Error("this suite's vitest.config.ts sets OWNER_PASSWORD, and it is not set");
+  }
+  const { token } = await call(appRouter.session.logIn, { password }, { context });
+  return token;
+}
+
+/**
+ * ADR-0003 made usable: an Item with no Provider record and no file is a
+ * COMPLETE entry, and the criterion is that it is reachable afterwards -- so
+ * the assertion goes back through `item.get` rather than reading the row.
+ */
+describe("item.create", () => {
+  it("creates an Item reachable at its own id, titled by the Owner", async () => {
+    const { id } = await call(
+      appRouter.item.create,
+      { kind: "concept", title: "A novel nobody has catalogued" },
+      { context: asTheOwner },
+    );
+
+    const item = await call(appRouter.item.get, { id }, { context });
+
+    expect(item.title).toBe("A novel nobody has catalogued");
+    // The reader's word for the kind, which is what the read path emits
+    // everywhere (ADR-0045, CNCORE-83).
+    expect(item.kind).toBe("Concept");
+    expect(item.statements).toEqual([
+      {
+        property: "title",
+        value: "A novel nobody has catalogued",
+        sourceKind: "owner",
+        sourceLabel: "Owner",
+      },
+    ]);
+  });
+
+  it("refuses a caller with no session", async () => {
+    // ADR-0044: the demo is read-only with no login, so a write reached by
+    // anyone who can reach the process is the hole CNCORE-109 closed.
+    const { error } = await safe(
+      call(appRouter.item.create, { kind: "work", title: "Uninvited" }, { context }),
+    );
+
+    expect((error as { code?: string })?.code).toBe("UNAUTHORIZED");
+  });
+});
+
+describe("item.retitle", () => {
+  it("shows the Owner as the source of the new value", async () => {
+    const id = await anItemTitled(db, "The Tenth Planet (TV story)");
+
+    await call(appRouter.item.retitle, { id, title: "The Tenth Planet" }, { context: asTheOwner });
+
+    const item = await call(appRouter.item.get, { id }, { context });
+    expect(item.title).toBe("The Tenth Planet");
+    expect(item.statements).toContainEqual({
+      property: "title",
+      value: "The Tenth Planet",
+      sourceKind: "owner",
+      sourceLabel: "Owner",
+    });
+  });
+
+  it("beats a provider's title on the same property", async () => {
+    // ADR-0025: the owner is at `source_order` 0, so this needs no rank set.
+    // The winner comes FIRST in `statements` by the same three terms the
+    // projection uses, so the heading and the list cannot disagree.
+    const id = await anItem(db);
+    await aStatement(db, {
+      subjectItemId: id,
+      property: "title",
+      valueLiteral: "Marco Polo (TV story)",
+      sourceId: await aProvider(db, "http://127.0.0.1:8402"),
+    });
+
+    await call(appRouter.item.retitle, { id, title: "Marco Polo" }, { context: asTheOwner });
+
+    const item = await call(appRouter.item.get, { id }, { context });
+    expect(item.title).toBe("Marco Polo");
+    expect(item.statements.map(({ value, sourceLabel }) => [value, sourceLabel])).toEqual([
+      ["Marco Polo", "Owner"],
+      ["Marco Polo (TV story)", "http://127.0.0.1:8402"],
+    ]);
+  });
+
+  it("answers NOT_FOUND for an id that addresses nothing", async () => {
+    // ADR-0066: an id that names nothing is an ANSWER rather than a failure,
+    // which is what lets the page render a 404 instead of a 500.
+    const { error } = await safe(
+      call(
+        appRouter.item.retitle,
+        { id: "00000000-0000-4000-8000-000000000000", title: "Nowhere" },
+        { context: asTheOwner },
+      ),
+    );
+
+    expect(isDefinedError(error) && error.code).toBe("NOT_FOUND");
+  });
+
+  it("refuses a caller with no session", async () => {
+    const id = await anItemTitled(db, "Not yours to edit");
+
+    const { error } = await safe(
+      call(appRouter.item.retitle, { id, title: "Mine now" }, { context }),
+    );
+
+    expect((error as { code?: string })?.code).toBe("UNAUTHORIZED");
+    expect((await call(appRouter.item.get, { id }, { context })).title).toBe("Not yours to edit");
+  });
+});
+
+describe("item.kinds", () => {
+  it("offers all seven of ADR-0005's kinds, in the reader's words", async () => {
+    const { kinds } = await call(appRouter.item.kinds, undefined, { context });
+
+    // THE SEVEN ARE NAMED HERE because ADR-0005 says the list is CLOSED: an
+    // eighth arriving is a decision somebody has to take, and this is what
+    // makes them take it rather than discover it. The pairing is the point --
+    // `time_span` is what a form submits and `Time span` is what a reader is
+    // shown (CNCORE-83), and a surface that confused them would print the
+    // column at somebody.
+    expect(kinds).toEqual([
+      { value: "character", label: "Character" },
+      { value: "concept", label: "Concept" },
+      { value: "organisation", label: "Organisation" },
+      { value: "person", label: "Person" },
+      { value: "place", label: "Place" },
+      { value: "time_span", label: "Time span" },
+      { value: "work", label: "Work" },
     ]);
   });
 });

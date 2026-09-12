@@ -1,4 +1,5 @@
 import { createContext } from "@canoncore/api/context";
+import { SESSION_LIFETIME_SECONDS } from "@canoncore/db";
 import { env } from "@canoncore/env/server";
 import { cookies } from "next/headers";
 
@@ -11,20 +12,6 @@ import { cookies } from "next/headers";
  * and a hidden field carrying the token would put it in the page's own HTML.
  */
 export const SESSION_COOKIE = "canoncore_session";
-
-/**
- * How long a browser keeps the token. Thirty days, which is what a self-hosted
- * catalogue's owner expects: the alternative is a session cookie, gone when the
- * browser closes, and logging in again every morning is what makes an owner pick
- * a password they can type.
- *
- * THE ROW OUTLIVES THE COOKIE, and that is stated here rather than left to be
- * discovered. A browser that forgets the token leaves a live `sessions` row
- * nothing will ever present again; ADR-0049's visible registry is where sweeping
- * those belongs, and it is not built. One owner logging in monthly makes a dozen
- * rows a year, so this is a note rather than a problem.
- */
-const THIRTY_DAYS_IN_SECONDS = 60 * 60 * 24 * 30;
 
 /**
  * What the request carries, for a caller that may or may not be the owner.
@@ -62,7 +49,27 @@ export async function rememberSession(token: string): Promise<void> {
     sameSite: "lax",
     secure: env.NODE_ENV === "production",
     path: "/",
-    maxAge: THIRTY_DAYS_IN_SECONDS,
+    /*
+     * HOW LONG THE BROWSER KEEPS IT, AND THE SESSION'S OWN LIFETIME, which are
+     * ONE NUMBER since CNCORE-116 rather than two that happened to agree.
+     *
+     * The row lapses thirty days after it was minted (ADR-0043) and this is
+     * that same thirty days, so neither outlives the other at the OUTSIDE
+     * limit. Written out here a second time, the two would be a pair nothing
+     * keeps in step, and a session going on being valid for a device that threw
+     * its token away is the harmless direction.
+     *
+     * THE IDLE LIMIT CAN STILL END THE SESSION FIRST, and this cookie will
+     * outlive it when it does -- seven days unused ends the row with up to
+     * twenty-three days left on the browser's copy. That is not a mismatch to
+     * close: what the browser then presents is a token that answers nothing,
+     * and what it meets is the login form, which is the right thing to put in
+     * front of somebody who has not opened their catalogue in a week. An
+     * earlier draft of this comment claimed the two numbers being one closed
+     * the gap in both directions; the idle limit landed in the same change and
+     * makes that false. Found in review.
+     */
+    maxAge: SESSION_LIFETIME_SECONDS,
   });
 }
 

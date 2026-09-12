@@ -3,6 +3,7 @@ import { drizzle } from "drizzle-orm/node-postgres";
 
 import * as schema from "./schema";
 
+export { createItemByHand, type ItemByHand, ItemRefused, retitleItemByHand } from "./by-hand";
 export { likePattern, searchCatalogue } from "./catalogue-search";
 export {
   type ImportedContainer,
@@ -26,10 +27,12 @@ export {
   type FoundItem,
   findAttributionOwed,
   findItem,
+  findItemKinds,
   findItemsProvided,
   findPlacementsInContainer,
   findPlacementsOfItem,
   findStatementsOfItem,
+  type ItemKind,
   type ItemRow,
   type PlacementInContainer,
   type PlacementOfItem,
@@ -41,9 +44,13 @@ export * from "./schema";
 export {
   type DeclaredDevice,
   endSession,
+  listSessions,
   type OwnerSession,
+  SESSION_IDLE_LIMIT_SECONDS,
+  SESSION_LIFETIME_SECONDS,
   seeSession,
   startSession,
+  sweepSessions,
 } from "./sessions";
 export { worktreeDatabaseName } from "./worktree-database";
 

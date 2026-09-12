@@ -24,7 +24,7 @@ decision") plus `X-Plex-Client-Profile-Extra`, with its `add-direct-play-profile
 Single-owner is not an argument against any of it: one owner routinely has several devices, which is
 the case the opaque token did not survive.
 
-## Half built, under CNCORE-109 — and this record stays PROPOSED
+## Half built, under CNCORE-109 and CNCORE-116 — and this record stays PROPOSED
 
 **BUILT: THE ROW, WHOLE.** Migration 10 adds `sessions` with every column this record names --
 client name, device name, stable device id, client version, capabilities, `created_at`,
@@ -47,18 +47,76 @@ DIRECT PLAY (ADR-0041), and nothing in this product plays anything yet, so a sha
 would be the one the first client has to argue with. `capabilities` is therefore `jsonb` and
 opaque: the column is whole, its contents are the clients' to settle.
 
-**NOT BUILT: A SURFACE TO LOG A DEVICE OUT FROM.** `endSession` names a session, so the operation
-this record says everyone actually wants is one page away -- and the page is not here, because
-with one device and no client there is nothing to list.
+**BUILT, UNDER CNCORE-116: THE SURFACE TO LOG A DEVICE OUT FROM.** `/devices` lists the sessions
+the owner is live on, marks the one drawing the page, and offers an End button against each of the
+others. `session.list` and `session.end` are both behind `ownerProcedure` -- who is logged in to an
+instance is not in the catalogue, so ADR-0044's open read path does not reach it -- and
+`session.end` REFUSES the caller's own session, because logging THIS browser out is the row and the
+cookie together and `logOut` is the operation that does both halves. `endSession` needed no change
+to reach any of it, which is what CNCORE-109 was holding the shape of that function for.
 
-**NOT BUILT, AND LARGER THAN IT FIRST READ: A SESSION DOES NOT LAPSE.** This record names seven
-columns and no expiry, so what landed has none: `seeSession` reads `deleted_at IS NULL` and nothing
-else, and the cookie's thirty-day `Max-Age` is the BROWSER forgetting rather than the session ending.
-A token copied off a request is good until somebody logs that session out by hand — and the surface
-to do it by hand is the per-device logout above, which is also unbuilt. An earlier version of this
-section recorded only the harmless half of that, the dead rows nothing sweeps (ADR-0049's registry,
-which is where a sweep belongs). Tracked as CNCORE-116, which carries all three, because an expiry
-policy is a decision this record does not make rather than an implementation of one it does.
+**AND THE PAGE TAUGHT THAT IT IS HALF-LEGIBLE WITHOUT THE DECLARATION ABOVE.** Every row a browser
+writes is identical: five null columns, so the page can honestly say only "A browser, which declared
+nothing" and a sighting to tell them apart by. An owner with a laptop and a phone reads two rows
+differing in one timestamp and has to work out which is which from when they last used each. The
+surface is finished; what makes it LEGIBLE is the declaration channel, and the two are more tightly
+coupled than this record read before one of them existed. Jellyfin's own Devices page is worth
+knowing beside that: read 2026-09-12, it offers RENAME and REMOVE, calls removal "cleans out old
+entries" rather than a logout, and says nothing about a session expiring at all. A NAME THE OWNER
+TYPED is the other way to make a list legible, and it is a decision for the day a second device
+exists rather than one to take now.
+
+**BUILT, UNDER CNCORE-116: A SESSION LAPSES, ON BOTH CLOCKS.** Thirty days from `created_at`
+whatever the device does, and seven days from `last_seen_at` when it does nothing. `seeSession` and
+the device list ask one predicate, so a session the write path refuses is never one the list offers
+to end.
+
+BOTH RATHER THAN EITHER, WHICH IS OWASP'S OWN INSTRUCTION in its Session Management Cheat Sheet
+(read 2026-09-12): "All sessions should implement an idle or inactivity timeout", and separately
+"All sessions should implement an absolute timeout, regardless of session activity." They close
+different doors. The absolute limit bounds every copy of a token; the idle limit reaches the device
+that stopped being used in week one, which the absolute limit leaves live for the other three.
+
+AND THE NUMBERS ARE DAYS RATHER THAN OWASP'S MINUTES, DELIBERATELY. That page's ranges are "2-5
+minutes for high-value applications and 15-30 minutes for low risk" idle, and "between 4 and 8
+hours" absolute for an office worker's day. This is a catalogue somebody reads from a sofa, and the
+product had already decided thirty days when it set the cookie's `Max-Age`. A quarter-hour idle
+timeout here would be an instance that asks for a password every time a tablet is picked up, which
+is how an owner ends up choosing a password worth guessing.
+
+THIRTY DAYS IS NOW ONE NUMBER RATHER THAN TWO THAT AGREED. `SESSION_LIFETIME_SECONDS` is the row's
+lifetime and the cookie's `Max-Age`, read from one place, so neither outlives the other at the
+OUTSIDE limit. It does NOT make the two agree in every case, and an earlier draft of this paragraph
+said it did: the idle limit ends a session after seven unused days with up to twenty-three still on
+the browser's copy of the token. That is the harmless direction -- a cookie that answers nothing
+meets the login form -- but it is a gap rather than no gap, and the sentence claiming otherwise was
+falsified by the limit added in the same change.
+
+**AND IT COST NO COLUMN, WHICH IS THE HALF CNCORE-116 EXPECTED TO BE WRONG ABOUT.** That ticket
+reads "ADR-0043 names seven columns and no expiry, so adding one is a DECISION" -- and the decision
+turned out to need nothing added: `created_at` and `last_seen_at` are two of the seven, and both
+clocks the policy compares were already on the row. The expiry is a predicate over what this record
+already asked for rather than a rung on the ladder, which is why it could be taken as a policy
+argument alone.
+
+**WHAT NEITHER LIMIT CLOSES, AND WHICH HALF DOES.** A copy IN ACTIVE USE. Whoever holds it keeps
+`last_seen_at` fresh by using it, so the idle limit never fires and the absolute one is the only
+bound -- thirty days. What ends it sooner is the owner reading a device they do not recognise and
+pressing End, which is the page above. The three things CNCORE-116 carried are one mechanism seen
+from three sides rather than three features that happened to be filed together.
+
+**AND THE SWEEP IS ADR-0049'S, WHICH IS WHY IT IS HALF HERE.** `sweepSessions` removes every row
+past its LIFETIME and nothing else: one rule, whatever state the row reached on the way, so an ended
+session and an idle one both wait out the rest of their thirty days rather than going the moment
+they stop answering. That is deliberate -- a tombstone that vanished as `endSession` wrote it would
+cost the distinction that function keeps, between the owner having logged a device out and the
+device never having logged in -- and it means a row refused on the idle clock at day eight is still
+in the table on day nine. Nothing calls the sweep at all. Recurring work
+runs on a VISIBLE REGISTRY there rather than a hidden timer, and no registry exists (CNCORE-119);
+attaching a sweep to a login, a page render or the container's boot would be exactly the shape that
+record refuses. Nothing's security waits on it either way: `seeSession` refuses a lapsed session
+whether or not it has been swept, so an unswept table is a table that grew rather than a door left
+open.
 
 **AND THE DECLARATION, WHEN IT ARRIVES, VALIDATES AT THE PROCEDURE.** `startSession` takes a
 `DeclaredDevice` and writes it; that is a TypeScript interface, so today's only caller passing `{}`
@@ -74,3 +132,9 @@ same statement that finds the row.
 ## Evidence
 
 Verified against source on 2026-09-10; corrections applied. Working in `docs/research/verify-adr-plex.md`, `docs/research/verify-adr-products.md`.
+
+The expiry policy's two external claims were read from the source that owns each, on 2026-09-12:
+OWASP's Session Management Cheat Sheet for the instruction to implement both timeouts and for the
+ranges it names, and Jellyfin's own Devices documentation for what a comparable product's device
+page actually offers. Neither is quoted from memory, and the Jellyfin claim is deliberately no wider
+than what that page says: it is silent on expiry rather than known to have none.

@@ -127,6 +127,16 @@ function LoggedIn() {
         <Link className="text-sm hover:underline" href="/import">
           Import
         </Link>
+        {/*
+          AND THE WAY TO THE OTHER DEVICES (ADR-0043's per-device logout). It is
+          here rather than in the header because the header is served to every
+          reader and this page is where an owner already comes to deal with
+          being logged in -- and because a visitor who found it would be told
+          only that they are not the owner.
+        */}
+        <Link className="text-sm hover:underline" href="/devices">
+          Devices
+        </Link>
       </div>
     </>
   );

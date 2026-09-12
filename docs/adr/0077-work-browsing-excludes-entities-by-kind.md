@@ -113,3 +113,42 @@ change an item's kind, so nothing can reach it -- but it has stopped being
 invisible: the flag now decides what a reader is shown rather than only sitting
 in a column, so whatever first lets a kind be edited owes this surface the
 trigger as well as the column.
+
+## The gap is CLOSED, under CNCORE-71 -- by refusal rather than by reprojection
+
+**THE EDIT PATH THE PARAGRAPH ABOVE WAS WAITING FOR HAS ARRIVED, and it does not
+let a kind be edited.** CNCORE-71 builds creating an Item by hand and editing its
+TITLE. Its own ticket names the two ways to close this gap -- maintain
+`holds_work` when `items.kind` changes, or refuse the change -- and the second is
+taken.
+
+**WHY REFUSAL IS THE RIGHT HALF RATHER THAN THE CHEAP ONE.** Migration 1 declined
+to write the reprojection because it "would be untestable code guarding an
+impossible event". Building it under CNCORE-71 would not have changed that: this
+slice adds no way to change a kind, so the trigger would still guard an event
+nothing can raise, and it would be the first mechanism in this repo whose only
+test had to reach around the product to fire it. A refusal is testable today --
+`constraints.test.ts` changes a kind and is refused -- so the rule that ships is
+the one the suite can actually hold.
+
+**IT IS A TRIGGER, NOT AN ABSENT FORM FIELD, and that distinction is the whole
+value.** `item.retitle` takes no `kind`, but an input schema bounds ONE door;
+`items_freeze_kind` (migration 11) bounds the TABLE, so `/api/rpc`, a later
+surface, an import and a psql session are refused alike. It is modelled on
+`properties_freeze_definition` (migration 1, ADR-0015), which freezes three
+columns of a property row and leaves the rest editable -- and it freezes
+`kind` alone for the same reason: `is_container` is turned on by a real write
+path already (`writeProvidedItem`, when a `browse` finds members), so a trigger
+refusing every update would break the import that exists today.
+
+**AND IT MAKES THE GAP UNMISSABLE RATHER THAN MERELY UNREACHED, which is what
+this record has wanted since migration 1.** Whatever first wants a kind to be
+editable has to DROP `items_freeze_kind`, and the drop is where the `holds_work`
+reprojection gets written. The rule is no longer a sentence in a migration
+comment that a later slice has to happen to read; it is a wall that slice walks
+into.
+
+**THIS RECORD'S STATUS IS UNCHANGED BY THIS SLICE.** The gap above is closed, but
+the reason the record is `proposed` is the SECOND question -- catalogue search --
+and CNCORE-71 touches neither it nor the surface that answers it. Whoever
+confirms that half is built owes the flip; this slice does not claim it.

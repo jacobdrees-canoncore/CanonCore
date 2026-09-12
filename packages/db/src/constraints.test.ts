@@ -566,3 +566,41 @@ describe("aliases", () => {
     ).toBe("aliases_alias_item");
   });
 });
+
+/**
+ * ADR-0077, CNCORE-71. `items.holds_work` is maintained by a trigger on
+ * `placements`, never on `items` -- so a member whose `kind` changed after it
+ * was placed would leave every container holding it stale, and work-browsing
+ * READS that flag to decide what an owner is shown.
+ *
+ * CNCORE-71 is the edit path migration 1 anticipated, and it takes the SECOND
+ * of the two options that ticket names: editing a kind is explicitly REFUSED.
+ * The refusal is a trigger rather than an absent form field, because an absence
+ * bounds one door and this bounds the table -- `/api/rpc`, a later surface and a
+ * psql session included. Whatever first wants to edit a kind has to drop this
+ * trigger, and dropping it is where the `holds_work` reprojection gets written.
+ */
+describe("an item's kind", () => {
+  it("refuses to change after creation", async () => {
+    const person = await anItem(db, { kind: "person" });
+
+    expect(
+      await refusal(db.update(items).set({ kind: "character" }).where(eq(items.id, person))),
+    ).toMatch(/kind freezes at creation/);
+  });
+
+  /**
+   * THE OTHER HALF, and it is what makes the freeze a freeze rather than a lock
+   * on the row. Everything else about an item stays editable -- the import
+   * itself turns `is_container` on when a `browse` finds members (CNCORE-28) --
+   * so a trigger that refused every update would break the write path that
+   * already exists.
+   */
+  it("leaves the rest of the row editable", async () => {
+    const work = await anItem(db, { kind: "work" });
+
+    await db.update(items).set({ isContainer: true }).where(eq(items.id, work));
+
+    expect((await readItem(db, work))?.isContainer).toBe(true);
+  });
+});
