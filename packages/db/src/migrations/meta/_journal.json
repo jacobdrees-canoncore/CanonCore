@@ -85,6 +85,13 @@
       "when": 1789235400000,
       "tag": "20260912173000_migration_11_a_kind_freezes_at_creation",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1789237200000,
+      "tag": "20260912180000_migration_12_a_run_of_one_task",
+      "breakpoints": true
     }
   ]
 }

@@ -52,6 +52,14 @@ export {
   startSession,
   sweepSessions,
 } from "./sessions";
+export {
+  endTaskRun,
+  readLatestTaskRuns,
+  readTaskRuns,
+  startTaskRun,
+  type TaskOutcome,
+  type TaskRun,
+} from "./task-runs";
 export { worktreeDatabaseName } from "./worktree-database";
 
 /**

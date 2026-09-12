@@ -531,6 +531,25 @@ importers:
         specifier: 'catalog:'
         version: 5.0.0(@types/node@26.5.0)(vite@8.2.2(@types/node@26.5.0)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0))
 
+  packages/tasks:
+    dependencies:
+      '@canoncore/db':
+        specifier: workspace:*
+        version: link:../db
+    devDependencies:
+      '@canoncore/config':
+        specifier: workspace:*
+        version: link:../config
+      drizzle-orm:
+        specifier: 'catalog:'
+        version: 0.45.2(@types/pg@8.23.1)(pg@8.23.0)
+      typescript:
+        specifier: 'catalog:'
+        version: 7.0.2
+      vitest:
+        specifier: 'catalog:'
+        version: 5.0.0(@types/node@26.5.0)(vite@8.2.2(@types/node@26.5.0)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0))
+
   packages/tokens:
     devDependencies:
       '@canoncore/config':
