@@ -185,8 +185,8 @@ function WhatToDoNext() {
           </EmptyTitle>
           <EmptyDescription>
             It starts that way on purpose: CanonCore ships no catalogue, so nothing here is anybody
-            else&rsquo;s library. There is more than one way to fill it, and the first needs nothing
-            configured.
+            else&rsquo;s library. Two routes fill it, and neither waits on the other: the first
+            needs nothing configured and reaches nothing.
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
@@ -203,18 +203,15 @@ function WhatToDoNext() {
               in it, and the catalogue is yours. Nothing to configure and nothing to reach.
             </li>
             <li>
-              <span className="font-medium">Name a provider, and allowlist it.</span> In{" "}
-              <Link className="underline" href="/settings">
-                Settings
-              </Link>
-              , give its base URL and the host or address range it answers on. Both: one says which
-              providers to search and the other says what may be reached, and neither needs a
-              restart. A provider is a URL rather than code you install, so nothing runs inside your
-              catalogue.
-            </li>
-            <li>
               {/*
-                THE STEP IS A LINK NOW (CNCORE-68). This used to say to give a
+                ONE ROUTE WITH TWO STEPS IN IT, rather than the two list items
+                this was (CNCORE-131). Configuring a provider and importing from
+                one were siblings while everything on this list was a step, and
+                the list is ROUTES now -- so leaving them apart would offer an
+                owner a way of filling a catalogue that fills nothing, which is
+                what "name a provider" on its own is.
+
+                THE STEP IS A LINK (CNCORE-68). It used to say to give a
                 provider's base URL and the id of one of its records, which is the
                 hand-POSTing the import surface exists to remove -- so the copy and
                 the product agreed only for as long as there was no surface. A
@@ -223,12 +220,32 @@ function WhatToDoNext() {
               */}
               <span className="font-medium">
                 <Link className="underline" href="/import">
-                  Import from it
+                  Import from a provider
                 </Link>
                 .
               </span>{" "}
-              Search it by name and take what you find: the record arrives here as an Item. A
-              provider that offers browse imports a whole ordering at once.
+              Two settings first, in{" "}
+              <Link className="underline" href="/settings">
+                Settings
+              </Link>
+              , and a provider needs both:{" "}
+              {/*
+                BOTH NAMED, AND NAMED AS THAT PAGE NAMES THEM. ADR-0121 makes
+                them two settings that are not derivable from each other -- one
+                holds URLs and says what IS reached, the other holds hosts and
+                ranges and says what MAY be -- so a step naming one leaves an
+                owner with a provider that is never reached and nothing on the
+                page to say why. They were `PROVIDER_URLS` and
+                `PROVIDER_ALLOWLIST` until CNCORE-99 and are rows now, so the
+                words here are the headings a reader meets on arrival rather
+                than variables they would go looking for in a file.
+              */}
+              <span className="font-medium">Providers</span> holds its base URL, and the{" "}
+              <span className="font-medium">Allowlist</span> holds the host or address range it
+              answers on. Neither needs a restart, and a provider is a URL rather than code you
+              install, so nothing runs inside your catalogue. Then search it by name and take what
+              you find: the record arrives here as an Item, and a provider that offers browse
+              imports a whole ordering at once.
             </li>
           </ul>
         </EmptyContent>

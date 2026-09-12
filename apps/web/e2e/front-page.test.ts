@@ -129,6 +129,38 @@ describe("/ on a fresh install", () => {
     expect(byHand[0]).not.toContain('href="/import"');
   });
 
+  it("keeps the provider route, and names the two settings it needs", async () => {
+    // THE ROUTE IS NOT REPLACED BY THE ONE ABOVE (CNCORE-131). Importing is
+    // still how a catalogue gets a provider's claims into it, and an empty
+    // state that dropped the step would trade one missing half for another.
+    //
+    // TWO ROUTES AND NOT THREE. Naming a provider and importing from it are two
+    // STEPS OF ONE ROUTE rather than two routes of their own: an owner who does
+    // the first and stops has filled nothing, which is exactly what "route"
+    // claims and "step" does not.
+    //
+    // BOTH SETTINGS BY NAME, which is the criterion and is why this asserts two
+    // words rather than one link. They are not derivable from each other
+    // (ADR-0121): Providers holds URLS and says what IS reached, the Allowlist
+    // holds HOSTS AND RANGES and says what MAY be, and a provider needs to be in
+    // both -- so a step naming only one leaves an owner with a provider that is
+    // never reached and no way to tell why. The names are the ones `/settings`
+    // gives its own sections, because a page sending a reader somewhere owes
+    // them the words they will find when they arrive. They were the environment
+    // variables `PROVIDER_URLS` and `PROVIDER_ALLOWLIST` until CNCORE-99 and are
+    // rows now, so naming the variables here would name two things that no
+    // longer exist.
+    const { text } = await documentFrom(freshBaseUrl, "/");
+
+    const routes = routesOutOf(text);
+    expect(routes).toHaveLength(2);
+    const fromAProvider = routes.filter((route) => route.includes('href="/import"'));
+    expect(fromAProvider).toHaveLength(1);
+    expect(fromAProvider[0]).toContain('href="/settings"');
+    expect(fromAProvider[0]).toContain("Providers");
+    expect(fromAProvider[0]).toContain("Allowlist");
+  });
+
   it("says no provider is allowlisted, where one is not", async () => {
     // ADR-0034's allowlist is empty by default and refuses every provider, so
     // an unconfigured instance and a broken one look identical from a page.
