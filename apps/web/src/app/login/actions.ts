@@ -5,7 +5,7 @@ import { call, ORPCError, safe } from "@orpc/server";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
-import { given } from "@/form";
+import { whatTheFormCarries } from "@/form";
 import { callerContext, forgetSession, rememberSession } from "@/session";
 import { REFUSED } from "./refusal";
 
@@ -30,7 +30,7 @@ const offered = z.object({ password: z.string() });
  * imposes one.
  */
 export async function logIn(form: FormData): Promise<void> {
-  const input = given(form, offered);
+  const input = whatTheFormCarries(form, offered);
   if (input === undefined) return;
 
   const { error, data } = await safe(

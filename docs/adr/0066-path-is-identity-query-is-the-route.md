@@ -254,7 +254,7 @@ would delete the owner's words on a request nobody made. Nothing given is not th
 nothing said. That is the one substitution this rule is forbidden to make, and it is asserted at the
 page-over-HTTP seam rather than left as prose.
 
-**THE RULE IS ONE READER KEYED OFF THE SCHEMA'S OWN FIELD NAMES.** `given(form, schema)` in
+**THE RULE IS ONE READER KEYED OFF THE SCHEMA'S OWN FIELD NAMES.** `whatTheFormCarries(form, schema)` in
 `apps/web/src/form.ts` reads each key the `z.object` declares, maps a non-string to "not given", and
 `safeParse`s. That deleted nine `form.get("...")` literals, which were nine chances for a name here
 to drift from the name on the page.

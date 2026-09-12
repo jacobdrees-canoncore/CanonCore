@@ -88,8 +88,17 @@ purge previews is therefore the provider's own claims counted directly, not the
 inferred consequence the section above describes.
 
 WHAT OF THIS RECORD IS STILL UNBUILT, and why it stays `proposed`: the
-three-outcome chooser, the undo on a placement removal, and the deletion of an
-ITEM at all. Counts-first is built for one operation, and CNCORE-69 put a UI in
+three-outcome chooser and the deletion of an ITEM at all. THE UNDO ON A
+PLACEMENT REMOVAL IS BUILT, under CNCORE-72, and it is built the way this record
+asks for: removing a member from a container gets no dialog at all, and what it
+gets instead is an offer back. With no script that offer has to travel in the
+URL -- a Server Action's return value reaches a page only through a client hook
+-- so the removal redirects to the container with `?undo=` naming the placement,
+and the page renders the offer. The placement returns with its position AND its
+origin, because the removal tombstones only the placement and leaves every
+source that stood behind it standing (ADR-0017, ADR-0061).
+
+Counts-first is built for one operation, and CNCORE-69 put a UI in
 front of THAT one -- so "there is still no UI in front of any of it", true when
 this section was written, is now true only of the item half. The purge's own
 confirmation and its weighting are built; the section below records what

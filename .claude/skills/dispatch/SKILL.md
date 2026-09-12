@@ -18,16 +18,34 @@ It wakes you on change and never on a heartbeat. One pass per event.
 **1. Read the diff, then re-check its central claim.** A green check is not a review, and the PR's
 own reasoning is not evidence either. Take the one load-bearing claim the work rests on and put it
 back to its owner yourself: the npm registry, `schedule.json`, the tag ref, the running image, the
-file on `main`. Today that confirmed five action digests and a Vitest engines range, and it caught
+file on `main`, the installed `.d.ts` under `node_modules`, the Postgres on 55432 — which answers a
+question about trigger or constraint semantics in one `docker exec` and answers it for the engine
+this repo runs. Today that confirmed five action digests and a Vitest engines range, and it caught
 a PR body asserting a fold it had not done. Done when the claim has a lookup from this run behind
 it, not a citation you recognise.
+
+**Read the declaration whole.** oRPC's `ORPCError` spends a paragraph warning that `instanceof`
+breaks across Next.js dependency graphs, and four lines below it overrides
+`static [Symbol.hasInstance]` to fix exactly that. Stopping at the warning manufactures a confident
+finding the next line refutes.
 
 **2. Merge, and remove the worktree in the same action.** Squash where the repo refuses merge
 commits — then ancestry is the wrong safety test, so compare CONTENT against `origin/main` before
 removing.
 
+**A merge that claims a RUNG tells every live agent the new number, in the same action.** A rung is
+a line on a ladder no ticket owns: the migration index, the shared fixture, a tool list. CNCORE-74
+and CNCORE-119 each built `migration_12`; the second was still in its worktree when the first
+merged, and one `terminal send` turned a silent overwrite into a renumber.
+
 **3. Recompute the frontier.** Nothing else is doing it. A ticket is dispatchable when every file
 it names is free of every open branch.
+
+**A ticket filed mid-wave carries its dependency in PROSE and no edge under it.** Five of seven did
+on 2026-09-12: each body named the ticket it was built on top of, and each read dispatchable to the
+graph. Add the `blocked-by` yourself before it can reach an ask, and move it to Todo — the CLI
+writes as an OAuth integration, so a ticket an agent filed lands in Backlog and Backlog is where the
+frontier cannot see it.
 
 **4. ASK, with `AskUserQuestion`, and wait.** One question, one option per ticket whose files are
 free, each option carrying what that ticket unblocks. A candidate you leave out is named with what
@@ -51,10 +69,11 @@ Linear cannot see a worktree, so the board lies in two directions and the monito
 onto the same files. `DRIFT-STALE` is In Progress with nothing behind it: the work died, or it
 merged and nobody closed the ticket.
 
-Both appear the moment you FOLD, never later, because nothing in Linear knows a ticket is being
-built inside another ticket's branch. So move folded tickets to In Progress in the same action as
-the brief, and add the pair to `folded.txt`. `DRIFT-FILING` is `tracker-sweep`'s subject; that skill
-owns the repair.
+`DRIFT-BEHIND` also fires on every ordinary dispatch, in the window between creating the worktree
+and the PR opening, and clears itself when Linear sees the PR. It is a STANDING lie only after a
+FOLD, because nothing in Linear knows a ticket is being built inside another ticket's branch. So
+move folded tickets to In Progress in the same action as the brief, and add the pair to
+`folded.txt`. `DRIFT-FILING` is `tracker-sweep`'s subject; that skill owns the repair.
 
 ## Twins
 

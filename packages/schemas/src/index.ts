@@ -456,6 +456,17 @@ export type OwnerNote = z.infer<typeof ownerNote>;
  */
 export const itemWritten = z.object({ id: z.uuid() });
 
+/**
+ * A Placement the Owner just wrote, by the id that names it.
+ *
+ * ITS OWN SCHEMA RATHER THAN `itemWritten`, though the shape is identical. The
+ * two name different subjects, and every mutation in this product names a
+ * PLACEMENT rather than an item on purpose (ADR-0061) -- a contract that called
+ * a placement id an item id would be the one place that ambiguity was written
+ * back in.
+ */
+export const placementWritten = z.object({ id: z.uuid() });
+
 export type ItemWritten = z.infer<typeof itemWritten>;
 
 /**

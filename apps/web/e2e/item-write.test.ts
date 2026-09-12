@@ -2,12 +2,13 @@ import { describe, expect, inject, it } from "vitest";
 
 import {
   documentFrom,
+  formIn,
   logInAt,
-  postFormsIn,
   type RenderedForm,
   sectionIn,
   submit,
   submitAsAFilePart,
+  withFields,
 } from "./document";
 
 /**
@@ -44,44 +45,17 @@ function documentAt(path: string, cookie?: string) {
   return documentFrom(baseUrl, path, cookie);
 }
 
-/** The form in a labelled section, which is the one that section's button posts. */
-function formIn(text: string, label: string): RenderedForm {
-  const [form] = postFormsIn(sectionIn(text, label));
-  if (!form) throw new Error(`the \`${label}\` section carried no form to submit`);
-  return form;
-}
-
-/**
- * One rendered form with fields TYPED INTO, leaving Next's own hidden ones alone.
- *
- * IT REFUSES A NAME THE FORM DOES NOT CARRY, which is what stops a typo here
- * posting a field the server ignores and a test passing on a page that never
- * offered it.
- */
-function carrying(form: RenderedForm, values: Record<string, string>): RenderedForm {
-  const named = new Set(form.fields.map(([name]) => name));
-  for (const name of Object.keys(values)) {
-    if (!named.has(name)) {
-      throw new Error(`that form carries no \`${name}\`: ${JSON.stringify(form.fields)}`);
-    }
-  }
-  return {
-    ...form,
-    fields: form.fields.map(([name, value]): [string, string] => [name, values[name] ?? value]),
-  };
-}
-
 /**
  * One rendered form with a RADIO moved to another of its options.
  *
  * A RADIO GROUP SUBMITS EXACTLY ONE VALUE under one name, so choosing is
  * REPLACING a value rather than adding a field -- which is why this can reuse
- * `carrying` where an earlier checkbox helper could not. `document.ts` picks
+ * `withFields` where an earlier checkbox helper could not. `document.ts` picks
  * the option the server marked `checked`, so what arrives here is the group's
  * default and this moves it.
  */
 function choosing(form: RenderedForm, group: string, option: string): RenderedForm {
-  return carrying(form, { [group]: option });
+  return withFields(form, { [group]: option });
 }
 
 /** A field's value as the server rendered it. */
@@ -137,7 +111,7 @@ function itemAddressIn(text: string): string {
  */
 async function anItemOfMyOwn(title: string): Promise<string> {
   const form = formIn((await documentAt("/new", owner)).text, "new-item");
-  const created = await submit(baseUrl, "/new", carrying(form, { title, kind: "work" }), owner);
+  const created = await submit(baseUrl, "/new", withFields(form, { title, kind: "work" }), owner);
   return itemAddressIn(created.text);
 }
 
@@ -174,7 +148,7 @@ describe("/new", () => {
     const created = await submit(
       baseUrl,
       "/new",
-      carrying(form, { title: "A novel I do not own", kind: "work" }),
+      withFields(form, { title: "A novel I do not own", kind: "work" }),
       owner,
     );
 
@@ -214,7 +188,7 @@ describe("/new", () => {
     const created = await submit(
       baseUrl,
       "/new",
-      carrying(form, { title: "The Hartnell era", kind: "time_span" }),
+      withFields(form, { title: "The Hartnell era", kind: "time_span" }),
       owner,
     );
 
@@ -230,7 +204,7 @@ describe("/new", () => {
     const created = await submit(
       baseUrl,
       "/new",
-      choosing(carrying(form, { title: "Series 1, in order", kind: "work" }), "holds", "ordered"),
+      choosing(withFields(form, { title: "Series 1, in order", kind: "work" }), "holds", "ordered"),
       owner,
     );
 
@@ -248,7 +222,11 @@ describe("/new", () => {
     const created = await submit(
       baseUrl,
       "/new",
-      choosing(carrying(form, { title: "Every Dalek story", kind: "work" }), "holds", "unordered"),
+      choosing(
+        withFields(form, { title: "Every Dalek story", kind: "work" }),
+        "holds",
+        "unordered",
+      ),
       owner,
     );
 
@@ -266,7 +244,7 @@ describe("/new", () => {
     const created = await submit(
       baseUrl,
       "/new",
-      carrying(form, { title: "The Tenth Planet, as I think of it", kind: "work" }),
+      withFields(form, { title: "The Tenth Planet, as I think of it", kind: "work" }),
       owner,
     );
 
@@ -288,7 +266,7 @@ describe("/items/<id>, editing a title", () => {
     const edited = await submit(
       baseUrl,
       at,
-      carrying(formIn(before.text, "edit-title"), { title: "A better title" }),
+      withFields(formIn(before.text, "edit-title"), { title: "A better title" }),
       owner,
     );
 
@@ -316,7 +294,7 @@ describe("/items/<id>, editing a title", () => {
     const edited = await submit(
       baseUrl,
       at,
-      carrying(formIn(before.text, "edit-title"), { title: "The Tenth Planet" }),
+      withFields(formIn(before.text, "edit-title"), { title: "The Tenth Planet" }),
       owner,
     );
 
@@ -397,7 +375,7 @@ describe("/import, re-importing over an edited Item", () => {
     await submit(
       baseUrl,
       at,
-      carrying(formIn((await documentAt(at, owner)).text, "edit-title"), {
+      withFields(formIn((await documentAt(at, owner)).text, "edit-title"), {
         title: "The title the owner insists on",
       }),
       owner,
@@ -447,7 +425,7 @@ describe("/items/<id>, the Owner note", () => {
     const noted = await submit(
       baseUrl,
       at,
-      carrying(formIn(before.text, "note"), { note: "The one I always come back to" }),
+      withFields(formIn(before.text, "note"), { note: "The one I always come back to" }),
       owner,
     );
 
@@ -468,7 +446,9 @@ describe("/items/<id>, the Owner note", () => {
     await submit(
       baseUrl,
       at,
-      carrying(formIn((await documentAt(at, owner)).text, "note"), { note: "What I wrote before" }),
+      withFields(formIn((await documentAt(at, owner)).text, "note"), {
+        note: "What I wrote before",
+      }),
       owner,
     );
 
@@ -482,7 +462,7 @@ describe("/items/<id>, the Owner note", () => {
     await submit(
       baseUrl,
       at,
-      carrying(formIn((await documentAt(at, owner)).text, "note"), {
+      withFields(formIn((await documentAt(at, owner)).text, "note"), {
         note: "What I first thought",
       }),
       owner,
@@ -491,7 +471,7 @@ describe("/items/<id>, the Owner note", () => {
     const edited = await submit(
       baseUrl,
       at,
-      carrying(formIn((await documentAt(at, owner)).text, "note"), { note: "What I think now" }),
+      withFields(formIn((await documentAt(at, owner)).text, "note"), { note: "What I think now" }),
       owner,
     );
 
@@ -513,7 +493,7 @@ describe("/items/<id>, the Owner note", () => {
     await submit(
       baseUrl,
       at,
-      carrying(formIn((await documentAt(at, owner)).text, "note"), {
+      withFields(formIn((await documentAt(at, owner)).text, "note"), {
         note: "Something I later thought better of",
       }),
       owner,
@@ -522,7 +502,7 @@ describe("/items/<id>, the Owner note", () => {
     const cleared = await submit(
       baseUrl,
       at,
-      carrying(formIn((await documentAt(at, owner)).text, "note"), { note: "" }),
+      withFields(formIn((await documentAt(at, owner)).text, "note"), { note: "" }),
       owner,
     );
 
@@ -543,7 +523,7 @@ describe("/items/<id>, the Owner note", () => {
     await submit(
       baseUrl,
       at,
-      carrying(formIn((await documentAt(at, owner)).text, "note"), {
+      withFields(formIn((await documentAt(at, owner)).text, "note"), {
         note: "Between me and the catalogue",
       }),
       owner,
@@ -569,7 +549,7 @@ describe("/items/<id>, the Owner note", () => {
     await submit(
       baseUrl,
       at,
-      carrying(formIn((await documentAt(at, owner)).text, "note"), {
+      withFields(formIn((await documentAt(at, owner)).text, "note"), {
         note: "Not one of the values",
       }),
       owner,
@@ -608,7 +588,7 @@ describe("a field sent as a file part", () => {
     const noted = await submit(
       baseUrl,
       at,
-      carrying(formIn((await documentAt(at, owner)).text, "note"), {
+      withFields(formIn((await documentAt(at, owner)).text, "note"), {
         note: "What I actually think of it",
       }),
       owner,
@@ -638,7 +618,7 @@ describe("a field sent as a file part", () => {
     const refused = await submitAsAFilePart(
       baseUrl,
       "/new",
-      carrying(form, { title: "An item nobody asked for", kind: "work" }),
+      withFields(form, { title: "An item nobody asked for", kind: "work" }),
       "title",
       owner,
     );
@@ -670,7 +650,7 @@ describe("a field sent as a file part", () => {
       baseUrl,
       "/new",
       choosing(
-        carrying(form, { title: "An item whose radio never arrived", kind: "work" }),
+        withFields(form, { title: "An item whose radio never arrived", kind: "work" }),
         "holds",
         "ordered",
       ),

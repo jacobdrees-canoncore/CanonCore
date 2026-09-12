@@ -44,6 +44,12 @@ owner-asserted placement of their own. That is right for import and wrong for an
 The write path needs its own mutations that name a Placement by id — place, move, remove, restore —
 which is [[0061-containers-own-their-membership]]'s explicitly unbuilt half.
 
+**THREE OF THE FOUR ARE BUILT, under CNCORE-72: place, remove and restore.** `move` is the one the
+drag needs and it arrives with the drag, under CNCORE-73 — so this record stays `proposed`, and what
+is missing is the half this record is actually ABOUT. The three that landed confirmed the paragraph
+above at the seam: `assertPlacement` is untouched and goes on being the import path, and the owner's
+hand has its own function that refuses where that one corroborates.
+
 ## Positions are nullable and shareable, and the tree must not quietly fix that
 
 A tree assumes a total order. This model does not have one, deliberately:
@@ -65,6 +71,38 @@ A tree assumes a total order. This model does not have one, deliberately:
 The reference implementation removes a node's descendants from the drop targets during a drag, so
 the gesture cannot express a cycle. That is good interaction design and no guarantee at all. The
 mutation validates independently, per [[0074-cycles-are-refused-and-walks-carry-a-visited-set]].
+
+## What a tombstone does to the tuple, found under CNCORE-72
+
+**A REMOVED PLACEMENT GOES ON OCCUPYING `(owner, container, item, position)`.** The unique carries no
+`deleted_at` predicate, so the row a removal tombstoned still holds its tuple and nothing can take
+it. Measured against PostgreSQL 18 rather than reasoned about: re-inserting the tuple while the
+tombstone stands fails on `placements_container_item_position`.
+
+**SO THE COLLISION THIS RECORD'S TICKET ANTICIPATED CANNOT HAPPEN, and a different one can.**
+CNCORE-72 was briefed to decide what an UNDO does when the same tuple was recreated meanwhile. It
+cannot be recreated — the tombstone is in the way — so an undo has nothing to collide with and is a
+safe single-row clear. What an owner really meets is the other order: they remove a member and then
+put it back where it was, and the row standing in the way is one they cannot see.
+
+**THE DECISION: a re-placement RESURRECTS the tombstoned row rather than being refused by it**, and
+the placement keeps the id it always had — which is what an external reference, a `?via=` link or a
+pending undo is already holding ([[0078-entity-identity-is-a-surrogate-id]]). Refusing would be the
+product reporting a conflict with something invisible, which is this record's own rule about
+gestures met from the other side: there is no gesture to refuse, because the member is not on the
+page.
+
+**IT IS NOT `assertPlacement`'S FIND-OR-CREATE, and the difference is the whole of the paragraph
+above.** That one finds a LIVE row and attaches a source to it, which is agreement between sources.
+This one finds only a REMOVED row; a live row at that tuple still refuses, so an owner placing an
+item where a provider already placed it goes on getting a refusal rather than silently corroborating
+the provider.
+
+**AND A REFUSAL REACHES THE OWNER AS A SENTENCE, not a 500.** This record says a UI that permits the
+gesture and then fails the write is worse than one that refuses the gesture. A script-less form
+cannot refuse this gesture: the item and the position are chosen together at submit time, so the
+page cannot know the pair is taken until it asks. What it does instead is say which rule bit — a
+Repeat is allowed at a different position — and keep the owner where they were.
 
 ## `collapsed` is view state
 

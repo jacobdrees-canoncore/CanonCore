@@ -2,8 +2,8 @@ import { and, eq, isNull } from "drizzle-orm";
 
 import { assertClaims, type Transaction } from "./claims";
 import type { Database } from "./index";
-import { theOwnerId } from "./placements";
-import { items, sources } from "./schema";
+import { isRefusalOn, theOwnerId, theOwnerSource } from "./placements";
+import { items } from "./schema";
 
 /**
  * The catalogue REFUSING an item the owner asked for, as opposed to failing to
@@ -33,20 +33,6 @@ export class ItemRefused extends Error {}
  * is NOT the owner's doing and goes on being a fault.
  */
 const REFUSALS = new Set(["23503", "23514"]);
-
-/**
- * Whether a thrown thing is Postgres refusing this write on a rule the owner
- * broke. Walks `cause`, because a driver error arrives wrapped.
- */
-function isRefusal(error: unknown): boolean {
-  let current: unknown = error;
-  while (current instanceof Error) {
-    const { code } = current as { code?: unknown };
-    if (typeof code === "string" && REFUSALS.has(code)) return true;
-    current = current.cause;
-  }
-  return false;
-}
 
 /**
  * What the owner chooses when they make an Item themselves.
@@ -101,7 +87,7 @@ export async function createItemByHand(
   } catch (cause) {
     // NARROWED, SO A FAULT STAYS A FAULT. Only the two rules the owner can
     // break become a refusal; everything else is rethrown untouched.
-    if (isRefusal(cause))
+    if (isRefusalOn(REFUSALS, cause))
       throw new ItemRefused(`the catalogue refused an item of kind ${kind}`, { cause });
     throw cause;
   }
@@ -186,26 +172,6 @@ async function isALiveItem(tx: Transaction, itemId: string): Promise<boolean> {
     .from(items)
     .where(and(eq(items.id, itemId), isNull(items.deletedAt)));
   return found !== undefined;
-}
-
-/**
- * The owner's own source row: kind `owner`, first in the global order at
- * `source_order` 0 (ADR-0025, migration 1).
- *
- * FOUND, NEVER CREATED, which is the difference from `providerSource`. A
- * provider takes a row on its first import because providers arrive over time;
- * there is exactly one owner (ADR-0044) and migration 1 seeds their source, so
- * a missing row here is a broken install rather than a row to write. Writing
- * one would also have to pick a `source_order`, and every value but 0 would
- * silently put the owner behind a provider.
- */
-async function theOwnerSource(tx: Transaction, ownerId: string): Promise<string> {
-  const [source] = await tx
-    .select({ id: sources.id })
-    .from(sources)
-    .where(and(eq(sources.ownerId, ownerId), eq(sources.kind, "owner")));
-  if (!source) throw new Error("migration 1 seeds the owner as a source; none found");
-  return source.id;
 }
 
 /**

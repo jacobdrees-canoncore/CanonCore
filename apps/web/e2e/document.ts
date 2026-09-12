@@ -204,6 +204,40 @@ function textareasIn(body: string): [string, string][] {
 }
 
 /**
+ * One rendered form with fields TYPED INTO, leaving Next's own hidden ones alone.
+ *
+ * IT REFUSES A NAME THE FORM DOES NOT CARRY, which is what stops a typo here
+ * posting a field the server ignores and a test passing on a page that never
+ * offered it.
+ *
+ * SHARED, BECAUSE TWO FILES NOW WRITE THROUGH FORMS. `item-write.test.ts` wrote
+ * this first and kept it to itself; CNCORE-72 gave it a second caller, and two
+ * copies of "fill a form the way a browser fills one" is how two suites come to
+ * disagree about what a browser sends.
+ */
+export function withFields(form: RenderedForm, values: Record<string, string>): RenderedForm {
+  const named = new Set(form.fields.map(([name]) => name));
+  for (const name of Object.keys(values)) {
+    if (!named.has(name)) {
+      throw new Error(`that form carries no \`${name}\`: ${JSON.stringify(form.fields)}`);
+    }
+  }
+  return {
+    ...form,
+    fields: form.fields.map(([name, value]): [string, string] => [name, values[name] ?? value]),
+  };
+}
+
+/**
+ * The form in a labelled section, which is the one that section's button posts.
+ */
+export function formIn(text: string, label: string): RenderedForm {
+  const [form] = postFormsIn(sectionIn(text, label));
+  if (!form) throw new Error(`the \`${label}\` section carried no form to submit`);
+  return form;
+}
+
+/**
  * Submits one rendered form, exactly as a browser with JavaScript switched off
  * submits it.
  *
@@ -231,8 +265,7 @@ export async function submit(
   form: RenderedForm,
   cookie?: string,
 ): Promise<{ status: number; text: string }> {
-  const response = await post(baseUrl, form.action === "" ? at : form.action, form, cookie);
-  return { status: response.status, text: decoded(await response.text()) };
+  return submitted(baseUrl, at, form, cookie);
 }
 
 /**
@@ -266,14 +299,28 @@ export async function submitAsAFilePart(
   if (!form.fields.some(([key]) => key === name)) {
     throw new Error(`that form carries no \`${name}\`: ${JSON.stringify(form.fields)}`);
   }
-  const response = await post(
-    baseUrl,
-    form.action === "" ? at : form.action,
-    form,
-    cookie,
-    "follow",
-    name,
-  );
+  return submitted(baseUrl, at, form, cookie, name);
+}
+
+/**
+ * One submission, however its parts are composed: where it goes, and the
+ * document that comes back.
+ *
+ * AN EMPTY `action` IS THE DOCUMENT'S OWN URL, QUERY INCLUDED, which is the HTML
+ * rule and is load-bearing here: the surface re-renders its own search after the
+ * action runs, and a replay that dropped the query string would come back to a
+ * page with nothing on it.
+ */
+async function submitted(
+  baseUrl: string,
+  at: string,
+  form: RenderedForm,
+  cookie?: string,
+  asAFilePart?: string,
+): Promise<{ status: number; text: string }> {
+  const response = await post(baseUrl, form.action === "" ? at : form.action, form, cookie, {
+    asAFilePart,
+  });
   return { status: response.status, text: decoded(await response.text()) };
 }
 
@@ -302,8 +349,7 @@ async function post(
   at: string,
   form: RenderedForm,
   cookie?: string,
-  redirect: RequestRedirect = "follow",
-  asAFilePart?: string,
+  { redirect = "follow", asAFilePart }: { redirect?: RequestRedirect; asAFilePart?: string } = {},
 ): Promise<Response> {
   return fetch(`${baseUrl}${at}`, {
     method: "POST",
@@ -354,7 +400,9 @@ export async function logInAt(baseUrl: string, password: string): Promise<string
   const [form] = postFormsIn(text);
   if (!form) throw new Error(`${baseUrl}/login offered no form to log in with`);
 
-  const response = await post(baseUrl, "/login", carrying(form, password), undefined, "manual");
+  const response = await post(baseUrl, "/login", carrying(form, password), undefined, {
+    redirect: "manual",
+  });
   const [issued] = response.headers.getSetCookie();
   if (issued === undefined) {
     throw new Error(`logging in at ${baseUrl} set no cookie; answered ${response.status}`);

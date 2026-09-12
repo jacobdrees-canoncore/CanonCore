@@ -33,7 +33,7 @@ import type { z } from "zod";
  * page -- and the next action to be written inherits the rule instead of
  * repeating it.
  */
-export function given<Schema extends z.ZodObject>(
+export function whatTheFormCarries<Schema extends z.ZodObject>(
   form: FormData,
   schema: Schema,
 ): z.output<Schema> | undefined {
