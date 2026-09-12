@@ -41,6 +41,18 @@ looks the same from outside whether it is this case or the one CNCORE-83 fixed. 
 a seeded label answers the reader's question: where it does, the read path reads it and emits the
 words; where it does not, the read path emits the key and the surface writes the words.
 
+**`everyPlacedBy` JOINED IT UNDER CNCORE-129 AND CARRIES A SECOND REASON BESIDE THAT ONE.** It names
+every origin an Item has a Placement from — the set the four words on the chips are chosen from, so
+the first reason is `placedBy`'s exactly. The second is that this key is also what a reader SPELLS:
+a chip points at `?placed=<kind>`, so a payload of labels would leave the surface mapping words back
+onto keys to build the link, which is the same rule in a second language and pointing the wrong way.
+
+**AND IT IS A FIELD BECAUSE IT IS A SECOND QUESTION, which is this record's first sentence read
+forwards.** It cannot be derived from the rows it sits beside: `?placed=` narrows the listing in the
+query now ([[0119-a-listing-is-walked-forward-from-the-last-item-it-showed]]), so a narrowed page
+holds the one origin it was cut to and a capped page holds whatever fitted. A surface deriving the
+chips from `entries` would offer the reader only the choice they had already made.
+
 ## "No notes" is a declaration, not a filter (CNCORE-74)
 
 This record's second paragraph enumerates what the public read path carries and says "no notes",

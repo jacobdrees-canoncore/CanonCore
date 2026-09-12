@@ -541,6 +541,19 @@ export async function anItemInMoreOrderingsThanOnePage(
    */
   sitsIn: { id: string; containerId: string }[];
   /**
+   * THE ONE ORDERING A PROVIDER PLACED IT IN, where every other is the owner's
+   * own hand -- so this item has TWO origins and one of them is a single row
+   * (CNCORE-129).
+   *
+   * IT IS PAST THE FIRST PAGE BY CONSTRUCTION, which is what makes the two
+   * criteria observable at all: chips read off the rows a page carries would not
+   * offer it, and a narrowing applied to those rows would answer nothing. It is
+   * the last ordering anybody asserted -- an unnamed one, so it sits in the
+   * keyless block that sorts last -- rather than an index picked by hand, which
+   * would be right for one `orderings` count and wrong for the next.
+   */
+  imported: { id: string; containerId: string };
+  /**
    * The placement that sorts LAST of all of them, which is what a test of the
    * end of the walk needs and cannot read off a rendered page: these rows link
    * to the container and carry no placement id (ADR-0066).
@@ -597,11 +610,28 @@ export async function anItemInMoreOrderingsThanOnePage(
   // EVERY ROW BUT THE LAST GETS A SOURCE, so the one that does not is the
   // placement nobody asserted -- null on both of ADR-0017's terms.
   const asserted = written.slice(0, -1);
+  // AND THE LAST OF THOSE IS A PROVIDER'S, which is what gives this item a
+  // SECOND origin -- one ordering out of all of them, and past the first page.
+  const imported = asserted.at(-1);
+  if (imported === undefined) throw new Error("a listing with two origins needs more rows");
+  const importer = await aProvider(db, `the provider that placed ${id}`);
   await db
     .insert(placementSources)
-    .values(asserted.map((placement) => ({ ownerId, placementId: placement.id, sourceId })));
+    .values([
+      ...asserted
+        .slice(0, -1)
+        .map((placement) => ({ ownerId, placementId: placement.id, sourceId })),
+      { ownerId, placementId: imported.id, sourceId: importer },
+    ]);
 
   const endsAt = written.at(-1);
   if (endsAt === undefined) throw new Error("insert returned no placements");
-  return { id, containers, unnamed: containers.slice(named), sitsIn: written, endsAt: endsAt.id };
+  return {
+    id,
+    containers,
+    unnamed: containers.slice(named),
+    sitsIn: written,
+    imported,
+    endsAt: endsAt.id,
+  };
 }

@@ -1770,6 +1770,12 @@ declare module "vitest" {
       containers: string[];
       unnamed: string[];
       sitsIn: { id: string; containerId: string }[];
+      /**
+       * The ONE of those a PROVIDER asserted, where every other is the owner's
+       * own hand -- so this item has two origins, and one of them is a single
+       * row sitting past the first page (CNCORE-129).
+       */
+      imported: { id: string; containerId: string };
       /** The placement that sorts last, which is where the end of the walk is. */
       endsAt: string;
     };

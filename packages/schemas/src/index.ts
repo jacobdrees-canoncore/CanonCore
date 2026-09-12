@@ -119,6 +119,33 @@ export const placementsOfItemPublic = z.object({
    * container id names two rows and cannot say which of them a page ended on.
    */
   continuesAfter: z.uuid().nullable(),
+  /**
+   * EVERY ORIGIN THE ITEM HAS A PLACEMENT FROM -- the source kinds ADR-0071
+   * settles, as `placedBy` on a row carries one, and the FOURTH fact this shape
+   * holds where its mirror holds three (CNCORE-129).
+   *
+   * THE ASYMMETRY IS THE NARROWING. `?placed=` narrows this listing and nothing
+   * narrows a container's members, so this is the only one of the five that has
+   * to say what it can be narrowed to. It is NOT derivable from `entries`: a
+   * narrowed page holds the one origin it was cut to and a capped page holds
+   * whatever fitted, so chips built from the rows would collapse to the reader's
+   * own choice and leave no way back to the whole list.
+   *
+   * THE KEY RATHER THAN THE READER'S WORD, exactly as `placedBy` beside it and
+   * for the reason ADR-0045 gives for that field: no seeded label answers the
+   * question this list asks, so the surface supplies the words and needs the key
+   * to pick them by -- and to spell into `?placed=`, which is the same key.
+   *
+   * EMPTY FOR AN ITEM NOTHING HAS ASSERTED A PLACEMENT OF, which is not an item
+   * in no ordering: a placement no source stands behind is an ordering with no
+   * origin (ADR-0017), counted in `total` and named here by nothing.
+   *
+   * NAMED FOR `CONTEXT.md`'s **Placed by** rather than for "origin", which is
+   * the prose word for one of its values and has no entry -- and already means a
+   * web origin in that file and in ADR-0066. `every`, because this is the whole
+   * set rather than the narrowing a reader asked for.
+   */
+  everyPlacedBy: z.array(z.string()),
 });
 
 export type PlacementsOfItemPublic = z.infer<typeof placementsOfItemPublic>;

@@ -1024,3 +1024,134 @@ describe("findPlacementsOfItem, on who asserted each placement", () => {
     expect(found.map((placement) => placement.assertedBy)).toStrictEqual([[]]);
   });
 });
+
+/**
+ * NARROWING IS A QUESTION FOR THE QUERY, WHICH IS CNCORE-129 (ADR-0119).
+ *
+ * `?placed=` ran over the rows the page was handed, and while this listing was
+ * uncapped that was the same set as every ordering the item sits in. CNCORE-125
+ * capped it, and a narrowing that looked at the first hundred only would be that
+ * record's own silent cap arriving through the filter rather than the listing.
+ */
+describe("findPlacementsOfItem, narrowed to one origin", () => {
+  it("counts the narrowing rather than the listing it was cut out of", async () => {
+    const story = await anItem(db);
+    const owner = await ownerSource(db);
+    const provider = await aProvider(db, `a provider narrowing reaches ${story}`);
+    for (const [position, sourceId] of [
+      [1, owner],
+      [2, owner],
+      [3, provider],
+    ] as const) {
+      const ordering = await anItemTitled(db, `Narrowed ordering ${position}`, {
+        isContainer: true,
+        isOrdered: true,
+      });
+      await aPlacement(db, { containerId: ordering, itemId: story, position, sourceId });
+    }
+
+    const { entries, total } = await findPlacementsOfItem(db, story, {
+      limit: 10,
+      placedBy: "provider",
+    });
+
+    expect(entries.map((placement) => placement.position)).toStrictEqual([3]);
+    // NOT 3, WHICH IS THE WHOLE TICKET: the size a narrowed listing reports is
+    // its own, or the page says "Showing 1 of 3" over a list holding one.
+    expect(total).toBe(1);
+  });
+
+  it("caps and walks the narrowing, so the rest of it is reachable", async () => {
+    // THE SECOND HALF, AND THE ONE A FILTER OVER A PAGE CANNOT HAVE: a
+    // narrowing that is part of the question is walked like any other listing,
+    // so an origin with more rows than one page is not cut off at the cap of
+    // the list it was cut out of.
+    const story = await anItem(db);
+    const owner = await ownerSource(db);
+    const provider = await aProvider(db, `a provider the walk stays inside ${story}`);
+    const imported: string[] = [];
+    for (const [position, sourceId] of [
+      [1, provider],
+      [2, owner],
+      [3, provider],
+      [4, owner],
+      [5, provider],
+    ] as const) {
+      const ordering = await anItemTitled(db, `Walked narrowing ${position}`, {
+        isContainer: true,
+        isOrdered: true,
+      });
+      const placement = await aPlacement(db, {
+        containerId: ordering,
+        itemId: story,
+        position,
+        sourceId,
+      });
+      if (sourceId === provider) imported.push(placement);
+    }
+
+    const reached: string[] = [];
+    let after: string | undefined;
+    // ONE ROW AT A TIME, so every page but the last is capped and the walk has
+    // to resume INSIDE the narrowing rather than in the listing behind it.
+    for (let page = 0; page < 10; page++) {
+      const { entries, total, continuesAfter } = await findPlacementsOfItem(db, story, {
+        limit: 1,
+        after,
+        placedBy: "provider",
+      });
+      // THE SIZE IS THE NARROWING'S ON EVERY PAGE OF IT.
+      expect(total).toBe(3);
+      reached.push(...entries.map((placement) => placement.id));
+      if (continuesAfter === null) break;
+      after = continuesAfter;
+    }
+
+    expect(reached).toStrictEqual(imported);
+
+    // AND PAST THE END OF IT, where the size is counted on its own rather than
+    // read off a row -- the count's other reader, and the one a narrowing is
+    // easiest to forget in, because no row is there to carry it.
+    const beyond = await findPlacementsOfItem(db, story, {
+      limit: 1,
+      after: reached.at(-1),
+      placedBy: "provider",
+    });
+
+    expect(beyond.entries).toStrictEqual([]);
+    expect(beyond.total).toBe(3);
+  });
+
+  it("names every origin the item has a placement from, whatever the page shows", async () => {
+    // THE SECOND READ, and the reason it is one: a narrowed page holds the one
+    // origin it was narrowed to, and a capped page holds whatever fitted. Chips
+    // read off either would collapse to what the reader already chose, leaving
+    // no way back to All but by hand.
+    const story = await anItem(db);
+    const owner = await ownerSource(db);
+    const provider = await aProvider(db, `a provider the chips have to offer ${story}`);
+    for (const [position, sourceId] of [
+      [1, owner],
+      [2, provider],
+    ] as const) {
+      const ordering = await anItemTitled(db, `Origin-bearing ordering ${position}`, {
+        isContainer: true,
+        isOrdered: true,
+      });
+      await aPlacement(db, { containerId: ordering, itemId: story, position, sourceId });
+    }
+    // A PLACEMENT NOBODY ASSERTED HAS NO ORIGIN, and is still a placement: it is
+    // in the listing and contributes no chip, because there is no word for an
+    // origin nothing claimed.
+    const unclaimed = await anItemTitled(db, "An ordering nobody asserted", { isContainer: true });
+    await aPlacement(db, { containerId: unclaimed, itemId: story, position: 3 });
+
+    const whole = await findPlacementsOfItem(db, story, { limit: 10 });
+    // NARROWED TO ONE OF THEM, AND CAPPED TO ONE ROW: neither the narrowing nor
+    // the cap may reach this answer, or the chips are the page again.
+    const narrow = await findPlacementsOfItem(db, story, { limit: 1, placedBy: "provider" });
+
+    expect(whole.everyPlacedBy).toStrictEqual(["owner", "provider"]);
+    expect(narrow.everyPlacedBy).toStrictEqual(["owner", "provider"]);
+  });
+});
