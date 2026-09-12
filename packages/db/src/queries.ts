@@ -514,12 +514,7 @@ async function readListing(
  */
 export async function walkListing(
   db: Database,
-  {
-    within,
-    orderBy,
-    past,
-    limit,
-  }: { within: SQL; orderBy: SQL[]; past?: SQL; limit: number },
+  { within, orderBy, past, limit }: { within: SQL; orderBy: SQL[]; past?: SQL; limit: number },
 ): Promise<Catalogue> {
   const rows = await db
     .select({

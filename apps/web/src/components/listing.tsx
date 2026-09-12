@@ -47,7 +47,28 @@ type Entry = ListingAnswer["entries"][number];
  * looking exactly where ADR-0109 wants it looking. A third reading surface adds
  * a member here and the compiler finds every link that needs it.
  */
-export type ListingPath = "/" | "/works";
+export type ListingPath = "/" | "/works" | "/search";
+
+/**
+ * WHAT THE LISTING WAS ASKED, where the path alone does not say.
+ *
+ * The catalogue and work-browsing ARE their address: `/` is the whole question,
+ * so the start of the listing is the path with nothing on it. Catalogue search
+ * is not -- `/search` with no `q` is the page that ASKS for a query rather than
+ * the first page of anybody's results, so a `Back to the start` pointing there
+ * would answer a reader who wanted their first page with an empty prompt.
+ *
+ * SO THE QUERY RIDES ALONGSIDE THE CURSOR rather than being folded into the
+ * path. It is what every link on the surface has to keep, which is the same
+ * thing the read path needs it for: this order is a function of the query, so
+ * the walk resupplies it on every page (ADR-0119).
+ *
+ * AN OBJECT NEXT'S OWN ROUTER ENCODES, never a string spliced together here.
+ * That is ADR-0109's rule -- a URL the framework does not rewrite is never
+ * hand-built -- and the encoding is the second half of it: a reader searching
+ * for `100%` or `a&b` builds an address this file must not be writing by hand.
+ */
+type Asked = { q: string };
 
 /**
  * What each listing calls itself when it has to end a sentence.
@@ -62,6 +83,7 @@ export type ListingPath = "/" | "/works";
 const ENDS_HERE: Record<ListingPath, string> = {
   "/": "The catalogue ends here",
   "/works": "The list of Works ends here",
+  "/search": "These results end here",
 };
 
 /**
@@ -174,10 +196,12 @@ export function Listing({ entries }: { entries: Entry[] }) {
  */
 export function Walk({
   path,
+  asked,
   from,
   continuesAfter,
 }: {
   path: ListingPath;
+  asked?: Asked;
   from?: string;
   continuesAfter: string | null;
 }) {
@@ -185,13 +209,13 @@ export function Walk({
   return (
     <nav aria-label="More of this listing" className="mt-6 flex items-baseline gap-4">
       {from !== undefined && (
-        <Link href={{ pathname: path }} className="text-sm hover:underline">
+        <Link href={{ pathname: path, query: asked }} className="text-sm hover:underline">
           Back to the start
         </Link>
       )}
       {continuesAfter !== null && (
         <Link
-          href={{ pathname: path, query: { after: continuesAfter } }}
+          href={{ pathname: path, query: { ...asked, after: continuesAfter } }}
           className="ml-auto text-sm hover:underline"
         >
           Next
@@ -210,7 +234,7 @@ export function Walk({
  * that is always somewhere, is the difference between an ending and a page that
  * looks broken.
  */
-export function PastTheEnd({ path }: { path: ListingPath }) {
+export function PastTheEnd({ path, asked }: { path: ListingPath; asked?: Asked }) {
   return (
     <section aria-labelledby="past-the-end" className="mt-6">
       <Empty className="border">
@@ -229,7 +253,7 @@ export function PastTheEnd({ path }: { path: ListingPath }) {
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
-          <Link href={{ pathname: path }} className="hover:underline">
+          <Link href={{ pathname: path, query: asked }} className="hover:underline">
             Back to the start
           </Link>
         </EmptyContent>

@@ -118,6 +118,135 @@ describe("/search", () => {
   });
 });
 
+describe("/search on a result set larger than one page", () => {
+  /**
+   * WHAT `q` IS. Every titled item in the paged instance carries `story` in its
+   * title -- 250 of them are "Story 0001".."Story 0250" and two are "A story
+   * told twice" -- so this one query matches every item there EXCEPT the two
+   * with no title at all, which is the state the walk is asserted against.
+   */
+  const QUERY = "story";
+
+  /** Every item one rendered page links at, in the order it links them. */
+  function itemsLinkedFrom(text: string): string[] {
+    return [...text.matchAll(/href="\/items\/([^"?]+)"/g)].map(([, id]) => id as string);
+  }
+
+  /**
+   * Where the page says the results carry on, if it says so at all.
+   *
+   * UNESCAPED, because this href carries TWO parameters and React writes the
+   * separator as `&amp;`. A test fetching the raw attribute would ask for a
+   * query string with a parameter called `amp;after`, which names no cursor --
+   * so the walk would restart every page and the bug would look like the app's.
+   */
+  function carriesOnAt(text: string): string | undefined {
+    return text.match(/href="(\/search\?[^"]*after=[^"]*)"/)?.[1]?.replaceAll("&amp;", "&");
+  }
+
+  it("reaches every match by following links, and lands on none of them twice", async () => {
+    // THE TICKET'S CRITERIA AT THE SEAM IT NAMES BY HAND: a search matching
+    // more than one page walked to the next, over real HTTP, against a
+    // catalogue large enough for the cap to bite.
+    //
+    // THE ORACLE IS THE IDS THE HARNESS WROTE, minus the two it wrote with no
+    // title -- which a search cannot reach, because the match is
+    // `title ilike ...` and that is NULL without one. Not a second reading of
+    // the search: a cursor that loses rows would lose them from both sides and
+    // the two readings would agree.
+    const searchable = inject("pagedCatalogue").filter(
+      (id) => !inject("pagedUntitled").includes(id),
+    );
+    const walked: string[] = [];
+    let path: string | undefined = `/search?q=${QUERY}`;
+    let pages = 0;
+    // BOUNDED, so a cursor that does not advance FAILS rather than hangs.
+    for (; pages <= searchable.length; pages += 1) {
+      const { status, text } = await documentFrom(inject("pagedBaseUrl"), path);
+      expect(status).toBe(200);
+      walked.push(...itemsLinkedFrom(text));
+      const next: string | undefined = carriesOnAt(text);
+      if (next === undefined) break;
+      path = next;
+    }
+
+    expect([...walked].sort()).toStrictEqual([...searchable].sort());
+    // SORTED SETS COMPARE EQUAL EVEN WITH A REPEAT IN THEM, so the criterion
+    // the comparison above cannot see gets its own line.
+    expect(new Set(walked).size).toBe(walked.length);
+    // AND IT TOOK MORE THAN ONE PAGE, which is what makes the rest of this a
+    // test of a walk rather than of a single answer that happened to fit.
+    expect(pages).toBeGreaterThan(1);
+  });
+
+  it("still shows one page at a time, and says how much it is not showing", async () => {
+    // THE CAP, WHICH PAGING DOES NOT LIFT. `total` counts what MATCHED, and
+    // every page has to report the same number: it was a window count taken
+    // after `where`, so with a cursor in the predicate page two reported the
+    // results left rather than the results found.
+    const pagedBaseUrl = inject("pagedBaseUrl");
+    const searchable = inject("pagedCatalogue").length - inject("pagedUntitled").length;
+
+    const first = await documentFrom(pagedBaseUrl, `/search?q=${QUERY}`);
+    const next = carriesOnAt(first.text);
+    if (next === undefined) throw new Error("the fixture's matches fit on one page");
+    const second = await documentFrom(pagedBaseUrl, next);
+
+    expect(itemsLinkedFrom(first.text)).toHaveLength(100);
+    const holding = `<p class="text-muted-foreground text-sm">Showing 100 of ${searchable} results</p>`;
+    expect(first.text).toContain(holding);
+    // THE SAME SENTENCE ON PAGE TWO. A shrinking total renders here as a page
+    // quietly reporting a smaller library than the one before it.
+    expect(second.text).toContain(holding);
+  });
+
+  it("offers a way back to the start of the SAME search from every page but the first", async () => {
+    // A FORWARD WALK STRANDS A DEEP LINK (ADR-0119): somebody handed page two
+    // in a message has no history to go back through.
+    //
+    // AND THE WAY BACK KEEPS THE QUERY, which is what makes this different from
+    // the listing's. `/search` with no `q` is not the start of this search, it
+    // is the page that asks for one -- so a link there would answer a reader
+    // who wanted the first page of their results with an empty prompt.
+    const pagedBaseUrl = inject("pagedBaseUrl");
+    const first = await documentFrom(pagedBaseUrl, `/search?q=${QUERY}`);
+    const next = carriesOnAt(first.text);
+    if (next === undefined) throw new Error("the fixture's matches fit on one page");
+
+    const second = await documentFrom(pagedBaseUrl, next);
+
+    expect(second.text).toContain("Back to the start");
+    expect(second.text).toContain(`href="/search?q=${QUERY}"`);
+    // AND NOT ON THE FIRST PAGE, which is the half that makes the line above a
+    // test: a page printing it unconditionally would satisfy that and fail this.
+    expect(first.text).not.toContain("Back to the start");
+  });
+
+  it("says the results end here, where a link outlived the matches after it", async () => {
+    // THE ONE DEAD END A CURSOR CREATES. `continuesAfter` is handed over only
+    // when there is a row past the page, so a link FOLLOWED never lands here --
+    // but a link KEPT can, once the results after the one it was cut at are
+    // gone. Without this the reader gets a heading and an empty list, which is
+    // indistinguishable from a page that failed to load.
+    const pagedBaseUrl = inject("pagedBaseUrl");
+    let text = (await documentFrom(pagedBaseUrl, `/search?q=${QUERY}`)).text;
+    for (let pages = 0; pages < 10; pages += 1) {
+      const next = carriesOnAt(text);
+      if (next === undefined) break;
+      text = (await documentFrom(pagedBaseUrl, next)).text;
+    }
+    const last = itemsLinkedFrom(text).at(-1);
+
+    const beyond = await documentFrom(pagedBaseUrl, `/search?q=${QUERY}&after=${last}`);
+
+    expect(beyond.status).toBe(200);
+    // THE WAY OUT, and it keeps the query for the reason the test above gives:
+    // a reader stranded past the end of their results wants the results, not
+    // the prompt.
+    expect(section(beyond.text, "past-the-end")).toContain(`href="/search?q=${QUERY}"`);
+  });
+});
+
 describe("the search box", () => {
   it("is on every page, and submits to the search surface", async () => {
     // IT IS IN THE SHELL rather than on the front page, because "finding

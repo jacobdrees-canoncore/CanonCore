@@ -129,7 +129,8 @@ export default async function setup(project: TestProject) {
 
   const paged = await aCatalogueTooBigForOnePage();
   project.provide("pagedBaseUrl", paged.baseUrl);
-  project.provide("pagedCatalogue", paged.fixture);
+  project.provide("pagedCatalogue", paged.fixture.every);
+  project.provide("pagedUntitled", paged.fixture.untitled);
 
   const purgeable = await aCatalogueSafeToPurge(provider.url, tmdb.url);
   project.provide("purgeableBaseUrl", purgeable.baseUrl);
@@ -1316,6 +1317,12 @@ declare module "vitest" {
     };
     /** Every item that instance holds: the set a walk has to arrive at, exactly. */
     pagedCatalogue: string[];
+    /**
+     * The two of those with NO TITLE, which is the set Catalogue search cannot
+     * reach: the match is `title ilike ...`, and that is NULL without a title.
+     * So a search walk's oracle is `pagedCatalogue` minus these.
+     */
+    pagedUntitled: string[];
     /**
      * And again, serving a catalogue NOTHING WRITES TO -- the one state in which
      * "how much this catalogue holds" can be asserted at all (CNCORE-93).

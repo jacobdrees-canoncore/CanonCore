@@ -2,7 +2,7 @@ import { createContext } from "@canoncore/api/context";
 import { appRouter } from "@canoncore/api/routers";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@canoncore/ui/components/empty";
 import { call } from "@orpc/server";
-import { Holding, Listing } from "@/components/listing";
+import { Holding, Listing, PastTheEnd, Walk } from "@/components/listing";
 import { oneValue } from "@/components/query-params";
 
 /**
@@ -34,19 +34,25 @@ import { oneValue } from "@/components/query-params";
  * page looks correct on the server it was built against, which is every server
  * anybody would think to look at.
  */
-async function readSearch(query: string) {
+async function readSearch(query: string, after: string | undefined) {
   // The router is called IN-PROCESS, as the front page and the item page call
   // it. A server component fetching its own API is a round trip to itself, and
   // oRPC documents `call` as the way to avoid it.
-  return call(appRouter.catalogue.search, { query }, { context: await createContext() });
+  //
+  // THE QUERY GOES DOWN WITH THE CURSOR, AND BOTH ARE NEEDED (ADR-0119). This
+  // order leads on how close a title is to what was typed, so the anchor's
+  // place in it is RECOMPUTED against the query rather than read off the anchor
+  // row -- which is why a paged search is `?q=<query>&after=<id>` and not a
+  // cursor that could stand on its own.
+  return call(appRouter.catalogue.search, { query, after }, { context: await createContext() });
 }
 
 export default async function SearchPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string | string[] }>;
+  searchParams: Promise<{ q?: string | string[]; after?: string | string[] }>;
 }) {
-  const { q } = await searchParams;
+  const { q, after } = await searchParams;
   /*
    * A REPEATED PARAMETER NAMES NO QUERY rather than the first of several. That
    * is the rule `/items/<id>` applies to `via` and `placed` (ADR-0066) and the
@@ -67,7 +73,11 @@ export default async function SearchPage({
    * caller rather than for this page.
    */
   const asked = query.trim() !== "";
-  const results = asked ? await readSearch(query) : null;
+  // ADR-0119's cursor, read on the SERVER so the page a reader is served is
+  // already the page they asked for. `oneValue` owns what a repeated parameter
+  // means, so all three reading surfaces answer that the same way.
+  const from = oneValue(after);
+  const results = asked ? await readSearch(query, from) : null;
 
   return (
     <main className="container mx-auto max-w-3xl px-4 py-8">
@@ -88,7 +98,26 @@ export default async function SearchPage({
       </div>
       {results === null && <NothingAsked />}
       {results !== null && results.total === 0 && <NothingFound query={query} />}
-      {results !== null && results.entries.length > 0 && <Listing entries={results.entries} />}
+      {/*
+        MATCHES, AND NONE OF THEM ON THIS PAGE, which is what a cursor makes
+        possible: the link was cut at a result, and nothing ranks after that
+        result any more. It is rare and it is a DEAD END if nothing says so --
+        an empty list under a heading reads as a page that failed to load.
+      */}
+      {results !== null && results.total > 0 && results.entries.length === 0 && (
+        <PastTheEnd path="/search" asked={{ q: query }} />
+      )}
+      {results !== null && results.entries.length > 0 && (
+        <>
+          <Listing entries={results.entries} />
+          <Walk
+            path="/search"
+            asked={{ q: query }}
+            from={from}
+            continuesAfter={results.continuesAfter}
+          />
+        </>
+      )}
     </main>
   );
 }

@@ -1,16 +1,8 @@
-import {
-  type Catalogue,
-  type CatalogueSearch,
-  readCatalogue,
-  readWorks,
-  searchCatalogue,
-} from "@canoncore/db";
+import { type Catalogue, readCatalogue, readWorks, searchCatalogue } from "@canoncore/db";
 import {
   type CatalogueEntryPublic,
   type CataloguePublic,
-  type CatalogueSearchPublic,
   cataloguePublic,
-  catalogueSearchPublic,
 } from "@canoncore/schemas";
 import { z } from "zod";
 
@@ -36,12 +28,13 @@ import { publicProcedure } from "../index";
 const A_PAGE = 100;
 
 /**
- * What a listing procedure takes, shared by the two questions ADR-0077 names.
+ * What a listing procedure takes: the two questions ADR-0077 names, and the
+ * base Catalogue search extends.
  *
- * ONE INPUT FOR BOTH, because the cap is a fact about what this app will serve
- * in one answer rather than about which question was asked. Two declarations
- * would be one rule in two places, free to drift into two ceilings that nobody
- * chose.
+ * ONE INPUT FOR ALL THREE, because the cap is a fact about what this app will
+ * serve in one answer rather than about which question was asked. Two
+ * declarations would be one rule in two places, free to drift into two ceilings
+ * that nobody chose.
  */
 const listingInput = z.object({
   /**
@@ -66,18 +59,26 @@ const listingInput = z.object({
 });
 
 /**
- * What Catalogue search takes: the same ceiling, and no cursor.
+ * What Catalogue search takes: the same ceiling, the same cursor, and the query.
  *
- * DERIVED FROM `listingInput` RATHER THAN RESTATED, for the reason that
+ * EXTENDED FROM `listingInput` RATHER THAN RESTATED, for the reason that
  * declaration gives about itself -- the cap is a fact about what this app will
  * serve in one answer rather than about which question was asked, and a second
  * spelling is how two ceilings nobody chose come about.
  *
- * `after` IS OMITTED RATHER THAN IGNORED. Search has no cursor to resume from
- * (CNCORE-88), and an input that accepted one and silently did nothing with it
- * would be a promise the handler does not keep.
+ * `after` WAS OMITTED HERE UNTIL CNCORE-88, because search had no cursor to
+ * resume from and an input that accepted one and silently did nothing with it
+ * would have been a promise the handler does not keep. It keeps it now.
+ *
+ * AND THE QUERY COMES BACK WITH THE CURSOR, WHICH IS THE WHOLE MECHANISM. This
+ * order leads on how close a title is to what the reader typed, so the anchor's
+ * place in it cannot be read off the anchor row -- it is RECOMPUTED, against
+ * the query this input carries on every page. There is no such thing as a
+ * search request without one, so nothing had to be added for the walk: a paged
+ * search is `?q=<query>&after=<id>` and the two parameters were already here
+ * separately.
  */
-const searchInput = listingInput.omit({ after: true }).extend({
+const searchInput = listingInput.extend({
   /**
    * What the reader typed, AS TEXT. `LIKE` metacharacters in it are escaped
    * rather than honoured, and that happens in one place below this seam -- a
@@ -151,21 +152,24 @@ export const catalogue = {
    * from `list` is not which items it can return but that a reader has said
    * what they are looking for.
    *
-   * A THIRD SHAPE, AND THE ONLY ONE OF THE THREE WITHOUT A CURSOR. ADR-0119
-   * makes `continuesAfter: null` mean "the listing ends here", so a search over
-   * a thousand matches answering null would report the hundred it returned as
-   * all there were. The field is absent rather than present and false, and
-   * `total` is the whole of what keeps the cap honest until CNCORE-88 lands.
+   * THE SAME SHAPE AS THE OTHER TWO, AND IT WAS A THIRD ONE UNTIL CNCORE-88.
+   * ADR-0119 makes `continuesAfter: null` mean "the listing ends here", so a
+   * search that had no cursor could not answer with this shape at all: null
+   * would have reported the hundred it returned as all there were, which is
+   * the silent cap that record exists to refuse. It walks now, so the field
+   * says what it says everywhere and `total` is no longer carrying the cap's
+   * honesty alone.
    */
   search: publicProcedure
     .input(searchInput)
-    .output(catalogueSearchPublic)
+    .output(cataloguePublic)
     .handler(async ({ input, context }) => {
       const found = await searchCatalogue(context.db, {
         query: input.query,
         limit: input.limit,
+        after: input.after,
       });
-      return asSearch(found);
+      return asListing(found);
     }),
 };
 
@@ -175,26 +179,15 @@ export const catalogue = {
  * ADR-0045: every field is NAMED, never the query's row with fields removed --
  * so `holds_work`, `owner_id` and the change sequence are absent because no
  * line was written for them rather than because somebody remembered to strip
- * them. Written ONCE for both questions, so the two cannot come to disagree
- * about what a catalogue entry is.
+ * them. Written ONCE for all THREE questions, so they cannot come to disagree
+ * about what a listing is.
  */
 function asListing({ entries, total, continuesAfter }: Catalogue): CataloguePublic {
   return { entries: entries.map(asEntry), total, continuesAfter };
 }
 
 /**
- * One Catalogue search answer, as the read path emits it.
- *
- * THE SAME ENTRIES AS A LISTING AND NO CURSOR, which is the difference between
- * the two shapes and the whole of it. See `catalogue.search` above for why the
- * field is absent rather than null.
- */
-function asSearch({ entries, total }: CatalogueSearch): CatalogueSearchPublic {
-  return { entries: entries.map(asEntry), total };
-}
-
-/**
- * One entry, for all THREE questions rather than two.
+ * One entry, for all three questions.
  *
  * `asListing` already existed to write this once "so the two cannot come to
  * disagree about what a catalogue entry is" (CNCORE-67). Catalogue search is a

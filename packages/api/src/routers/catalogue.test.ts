@@ -145,7 +145,38 @@ describe("catalogue.search", () => {
 
     const found = await call(appRouter.catalogue.search, { query: "" }, { context });
 
-    expect(found).toEqual({ entries: [], total: 0 });
+    expect(found).toEqual({ entries: [], total: 0, continuesAfter: null });
+  });
+
+  it("walks to the next page of results, and reports one match set from both", async () => {
+    // THE SAME SHAPE AS `list`, WHICH IS THE POINT OF IT (ADR-0119). Search had
+    // no cursor at all until CNCORE-88 -- deliberately, since
+    // `continuesAfter: null` means "the listing ends here" and a search over a
+    // thousand matches saying so is the silent cap that record refuses. Now it
+    // has one, so the field means here what it means everywhere.
+    //
+    // AND THE COUNT IS THE HALF THAT USED TO BREAK. `total` was a window count,
+    // taken AFTER `where`, so with a cursor in the predicate page two counted
+    // what was left rather than what matched -- a search reporting a smaller
+    // match set the further a reader walked.
+    const shared = "The Sensorites hear everything";
+    for (const suffix of ["one", "two", "six"]) await anItemTitled(db, `${shared} ${suffix}`);
+
+    const first = await call(appRouter.catalogue.search, { query: shared, limit: 2 }, { context });
+    if (first.continuesAfter === null) throw new Error("three matches do not fit a page of two");
+    const second = await call(
+      appRouter.catalogue.search,
+      { query: shared, limit: 2, after: first.continuesAfter },
+      { context },
+    );
+
+    expect(first.entries).toHaveLength(2);
+    expect(second.entries).toHaveLength(1);
+    expect(second.total).toBe(first.total);
+    expect(second.total).toBe(3);
+    // NO RESULT TWICE, which the lengths above cannot see.
+    const walked = [...first.entries, ...second.entries].map((entry) => entry.id);
+    expect(new Set(walked).size).toBe(3);
   });
 
   it("refuses a limit above a page, and accepts one at it", async () => {

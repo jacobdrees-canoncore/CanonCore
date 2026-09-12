@@ -2,13 +2,7 @@ import { and, eq, type SQL, type SQLWrapper, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 import type { Database } from "./index";
-import {
-  canBeAnId,
-  type Catalogue,
-  IN_THE_CATALOGUE,
-  SORT_KEY,
-  walkListing,
-} from "./queries";
+import { type Catalogue, canBeAnId, IN_THE_CATALOGUE, SORT_KEY, walkListing } from "./queries";
 import { items } from "./schema";
 
 /**
@@ -137,7 +131,6 @@ export async function searchCatalogue(
   const wanted = query.trim();
   // Nothing was asked, so nothing matched and there is nowhere to walk on to.
   if (wanted === "") return { entries: [], total: 0, continuesAfter: null };
-
 
   const anchor = after === undefined ? undefined : await findInTheRanking(db, after);
 
@@ -283,10 +276,7 @@ function closenessOfTheAnchor(db: Database, id: string, query: string): SQL {
  * AN ID THAT NAMES NOTHING NAMES NO POSITION, so the walk starts at the
  * beginning rather than erroring (ADR-0066).
  */
-async function findInTheRanking(
-  db: Database,
-  id: string,
-): Promise<PlaceInTheRanking | undefined> {
+async function findInTheRanking(db: Database, id: string): Promise<PlaceInTheRanking | undefined> {
   if (!canBeAnId(id)) return undefined;
   const [place] = await db
     .select({ sortKey: SORT_KEY, id: items.id, title: items.title })
