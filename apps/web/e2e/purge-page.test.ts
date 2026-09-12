@@ -5,6 +5,7 @@ import { describe, expect, inject, it } from "vitest";
 
 import {
   documentFrom,
+  logInAt,
   navigatingFormsIn,
   postFormsIn,
   type RenderedForm,
@@ -31,6 +32,13 @@ import {
 const baseUrl = inject("purgeableBaseUrl");
 const purgeable = inject("purgeable");
 const client: AppRouterClient = createORPCClient(new RPCLink({ url: `${baseUrl}/api/rpc` }));
+
+/**
+ * THE OWNER, LOGGED IN. `provider.purge` is theirs since CNCORE-109, so the page
+ * offers the confirmation's button only to a caller holding a session -- and the
+ * preview, which is a read, is offered to anyone.
+ */
+const owner = await logInAt(baseUrl, inject("ownerPassword"));
 
 /** A provider named for purging, as the page's own form puts it in the URL. */
 function purging(provider: string): string {
@@ -164,7 +172,7 @@ describe("/import, confirming a purge", () => {
     const at = purging(purgeable.purged);
     const before = await client.catalogue.list({});
 
-    const offered = await documentFrom(baseUrl, at);
+    const offered = await documentFrom(baseUrl, at, owner);
     const confirmation = sectionIn(offered.text, "purge");
     // WHAT THE OWNER IS SHOWN, which is what the delete is then held to. Read off
     // the page rather than from the procedure, because the number an owner ACTED
@@ -174,7 +182,7 @@ describe("/import, confirming a purge", () => {
     expect(promised).toBeGreaterThan(0);
     expect(kept).toBeGreaterThan(0);
 
-    const done = await submit(baseUrl, at, formIn(confirmation));
+    const done = await submit(baseUrl, at, formIn(confirmation), owner);
 
     expect(done.status).toBe(200);
     // THE CATALOGUE LOST EXACTLY WHAT THE PAGE SAID IT WOULD. Not merely "fewer

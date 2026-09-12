@@ -8,6 +8,7 @@ import { afterAll, describe, expect, inject, it } from "vitest";
 import {
   documentAt,
   documentFrom,
+  logInAt,
   postFormsIn,
   type RenderedForm,
   sectionIn,
@@ -31,6 +32,17 @@ const baseUrl = inject("baseUrl");
  */
 const freshBaseUrl = inject("freshBaseUrl");
 const client: AppRouterClient = createORPCClient(new RPCLink({ url: `${baseUrl}/api/rpc` }));
+
+/**
+ * THE OWNER, LOGGED IN, as a cookie this file sends back.
+ *
+ * EVERY BUTTON ON THIS PAGE IS THE OWNER'S since CNCORE-109, so a test that
+ * presses one asks for the page as the owner AND posts as the owner. The reads
+ * below deliberately do neither: what a visitor to ADR-0044's demo sees is a
+ * page with every result on it and no button, and that is asserted in
+ * `login-page.test.ts` rather than assumed here.
+ */
+const owner = await logInAt(baseUrl, inject("ownerPassword"));
 
 /**
  * THE CATALOGUE'S OWN ROWS, which this file reaches for exactly once and for a
@@ -133,7 +145,10 @@ describe("/import", () => {
      * record's own id is asserted to be something the search did NOT need: it
      * comes back in the row's form, and it is not what went in.
      */
-    const { status, text } = await documentAt(searching(providerSearch.query));
+    // ASKED AS THE OWNER, because the id is read off the Import button's own
+    // hidden field and that button is the owner's (CNCORE-109). What a visitor
+    // sees on this page instead is asserted in `login-page.test.ts`.
+    const { status, text } = await documentAt(searching(providerSearch.query), owner);
 
     expect(status).toBe(200);
     const found = rowTitled(text, providerSearch.held);
@@ -148,7 +163,7 @@ describe("/import, taking a record", () => {
     const { recordId, title } = await aCandidateNotHeld();
     const at = searching(providerSearch.query);
 
-    const before = await documentAt(at);
+    const before = await documentAt(at, owner);
     // THE ROW OFFERS TO TAKE IT AND NAMES NO ITEM, which is the state the POST
     // below has to change. Asserted rather than assumed: without it this test
     // would pass against a page that showed an Item link on every row from the
@@ -157,7 +172,7 @@ describe("/import, taking a record", () => {
     const form = formIn(rowTitled(before.text, title));
     expect(field(form, "recordId")).toBe(recordId);
 
-    const taken = await submit(baseUrl, at, form);
+    const taken = await submit(baseUrl, at, form, owner);
 
     expect(taken.status).toBe(200);
     // THE SAME ROW, NOW NAMING AN ITEM, which is the import being reported rather
@@ -187,7 +202,9 @@ describe("/import, across several providers", () => {
      * serves has one failure in it; the criterion is that the other providers'
      * answers survive that, and that the owner is told which URL failed and why.
      */
-    const { text } = await documentAt(searching(providerSearch.query));
+    // AS THE OWNER, for the reason above: what each row posts BACK is on a form
+    // only the owner is offered.
+    const { text } = await documentAt(searching(providerSearch.query), owner);
 
     const { answered, failed } = await client.provider.search({ query: providerSearch.query });
     // The providers' own names for themselves, off their manifests, which is what
@@ -247,7 +264,7 @@ describe("/import, taking a record it already holds", () => {
      * of this button is already a re-import.
      */
     const at = searching(providerSearch.query);
-    const held = rowTitled((await documentAt(at)).text, providerSearch.held);
+    const held = rowTitled((await documentAt(at, owner)).text, providerSearch.held);
     const before = itemLinkedIn(held);
     expect(before).toBeDefined();
     const form = formIn(held);
@@ -258,8 +275,8 @@ describe("/import, taking a record it already holds", () => {
     const provider = field(form, "baseUrl");
     const recordId = field(form, "recordId");
 
-    const once = await submit(baseUrl, at, form);
-    const twice = await submit(baseUrl, at, form);
+    const once = await submit(baseUrl, at, form, owner);
+    const twice = await submit(baseUrl, at, form, owner);
 
     expect(once.status).toBe(200);
     expect(twice.status).toBe(200);
@@ -476,12 +493,12 @@ describe("/import, taking a Container and its ordering", () => {
     const member = inject("attributed");
     const placedBefore = (await client.item.get({ id: member.id })).placements;
 
-    const offered = await documentAt(at);
+    const offered = await documentAt(at, owner);
     expect(offered.status).toBe(200);
     const container = sectionIn(offered.text, "container");
     expect(itemLinkedIn(container)).toBeUndefined();
 
-    const taken = await submit(baseUrl, at, formIn(container));
+    const taken = await submit(baseUrl, at, formIn(container), owner);
 
     expect(taken.status).toBe(200);
     // THE CONTAINER IS IN THE CATALOGUE, and reachable at the address given.

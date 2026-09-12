@@ -18,6 +18,7 @@ import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
 import type { TestProject } from "vitest/node";
 
+import { logInAt } from "./document";
 import { CONTAINERS, TENTH_PLANET, WIKI_MANIFEST } from "./wiki-fixture";
 
 /**
@@ -36,6 +37,36 @@ import { CONTAINERS, TENTH_PLANET, WIKI_MANIFEST } from "./wiki-fixture";
  * cheaper than the class of bug it rules out.
  */
 const webRoot = fileURLToPath(new URL("..", import.meta.url));
+
+/**
+ * THE OWNER'S PASSWORD, for the instances this harness has to WRITE to.
+ *
+ * Everything that changes a catalogue is behind a session since CNCORE-109, and
+ * a session is what `OWNER_PASSWORD` is exchanged for (ADR-0044). So an instance
+ * the harness fills -- or that a test file presses a button on -- is configured
+ * with one, and `asTheOwner` below logs in through the page exactly as an owner
+ * does.
+ *
+ * THE FRESH INSTALL IS DELIBERATELY WITHOUT ONE. That instance is what a
+ * stranger's first run looks like, and it is also ADR-0044's demo: read-only,
+ * with no login, because no password was set. It is passed an explicit empty
+ * string for the reason its allowlist is -- this process inherits its own
+ * environment, and an omitted key lets the parent's value through.
+ */
+const OWNER_PASSWORD = "the owner's own password for the e2e suite";
+
+/**
+ * An RPC client that has logged in, for the fixtures this harness fills through
+ * the app.
+ *
+ * IT LOGS IN THROUGH THE PAGE and sends back the cookie it was given, which is
+ * what a browser does. A token minted straight into the database would fill
+ * these catalogues through a door the app never opened.
+ */
+async function asTheOwner(baseUrl: string): Promise<AppRouterClient> {
+  const cookie = await logInAt(baseUrl, OWNER_PASSWORD);
+  return createORPCClient(new RPCLink({ url: `${baseUrl}/api/rpc`, headers: { cookie } }));
+}
 
 export default async function setup(project: TestProject) {
   const databaseUrl = await buildTestDatabase("web");
@@ -86,6 +117,9 @@ export default async function setup(project: TestProject) {
       answersBadly.url,
       UNREACHABLE_PROVIDER,
     ].join(","),
+    // THE OWNER'S PASSWORD, because this instance is IMPORTED INTO: the fixtures
+    // below are filled through the app's own write path, which is the owner's.
+    OWNER_PASSWORD,
   };
   await run("next", ["build"], env);
 
@@ -126,6 +160,10 @@ export default async function setup(project: TestProject) {
    */
   const fresh = await freshInstall();
   project.provide("freshBaseUrl", fresh.baseUrl);
+
+  // WHAT A TEST LOGS IN WITH. Everything that writes is the owner's, so a file
+  // that presses a button needs this; `document.ts`'s `logInAt` takes it.
+  project.provide("ownerPassword", OWNER_PASSWORD);
 
   const paged = await aCatalogueTooBigForOnePage();
   project.provide("pagedBaseUrl", paged.baseUrl);
@@ -201,6 +239,14 @@ async function freshInstall(): Promise<{ baseUrl: string; close: () => void }> {
     env: {
       ...process.env,
       DATABASE_URL: databaseUrl,
+      /*
+       * AND NO OWNER PASSWORD, which makes this instance ADR-0044's demo as well
+       * as ADR-0094's fresh install: read-only, with no login, because nobody set
+       * one. Explicit for the reason the two below are -- this process inherits
+       * its own environment, and an omitted key would let a value through and
+       * quietly make the demo writable.
+       */
+      OWNER_PASSWORD: "",
       PROVIDER_ALLOWLIST: "",
       /*
        * AND NO PROVIDER NAMED EITHER, which is the second half of the same first
@@ -318,6 +364,9 @@ async function aCatalogueSafeToPurge(wikiUrl: string, tmdbUrl: string) {
       DATABASE_URL: databaseUrl,
       PROVIDER_ALLOWLIST: "127.0.0.0/8",
       PROVIDER_URLS: [wikiUrl, tmdbUrl, UNREACHABLE_PROVIDER].join(","),
+      // Filled through the app and then purged through the page, both of which
+      // are the owner's.
+      OWNER_PASSWORD,
     },
     stdio: "inherit",
   });
@@ -327,7 +376,7 @@ async function aCatalogueSafeToPurge(wikiUrl: string, tmdbUrl: string) {
   // FILLED THROUGH THE APP, for the reason every other fixture here is: the
   // rows a purge deletes have to be rows the app's own import path wrote, or
   // what is purged is the harness's idea of an import.
-  const client: AppRouterClient = createORPCClient(new RPCLink({ url: `${baseUrl}/api/rpc` }));
+  const client = await asTheOwner(baseUrl);
   const previewed = await client.provider.browse({ baseUrl: wikiUrl, containerId: "388305" });
   const purged = await client.provider.browse({
     baseUrl: tmdbUrl,
@@ -517,7 +566,7 @@ function firstMemberOf({ members }: { members: { itemId: string }[] }): string {
  * which then reaches the provider over HTTP itself. Two hops, both real.
  */
 async function importThroughTheApp(baseUrl: string, providerUrl: string) {
-  const client: AppRouterClient = createORPCClient(new RPCLink({ url: `${baseUrl}/api/rpc` }));
+  const client = await asTheOwner(baseUrl);
   const { itemId } = await client.provider.import({
     baseUrl: providerUrl,
     recordId: TENTH_PLANET.id,
@@ -551,7 +600,7 @@ async function importThroughTheApp(baseUrl: string, providerUrl: string) {
  * library in-process would prove none of them.
  */
 async function browseThroughTheApp(baseUrl: string, providerUrl: string, databaseUrl: string) {
-  const client: AppRouterClient = createORPCClient(new RPCLink({ url: `${baseUrl}/api/rpc` }));
+  const client = await asTheOwner(baseUrl);
 
   const missingEpisodes = await client.provider.browse({
     baseUrl: providerUrl,
@@ -990,7 +1039,7 @@ async function onLoopback(
  * and a mark, so this import is the one that makes the page owe something.
  */
 async function importFromTmdb(baseUrl: string, providerUrl: string) {
-  const client: AppRouterClient = createORPCClient(new RPCLink({ url: `${baseUrl}/api/rpc` }));
+  const client = await asTheOwner(baseUrl);
   const { itemId } = await client.provider.import({
     baseUrl: providerUrl,
     recordId: THE_MATRIX.id,
@@ -1295,6 +1344,11 @@ declare module "vitest" {
      * stranger's first run of CanonCore is (ADR-0094).
      */
     freshBaseUrl: string;
+    /**
+     * What the owner logs in with on every instance that has a password. The
+     * fresh one above deliberately has none, which is what ADR-0044's demo is.
+     */
+    ownerPassword: string;
     /** The same build again, serving a catalogue of several hundred items. */
     pagedBaseUrl: string;
     /**

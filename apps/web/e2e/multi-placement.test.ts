@@ -6,6 +6,8 @@ import { RPCLink } from "@orpc/client/fetch";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 
+import { logInAt } from "./document";
+
 /**
  * THE TEST THAT PROVES THIS IS NOT A TREE.
  *
@@ -112,7 +114,12 @@ let series2Members: Map<string, string>;
 
 beforeAll(async () => {
   db = createDb(inject("databaseUrl"));
-  client = createORPCClient(new RPCLink({ url: `${inject("baseUrl")}/api/rpc` }));
+  // LOGGED IN, because a browse WRITES and writing is the owner's since
+  // CNCORE-109. The cookie is the one the login page hands a browser.
+  const cookie = await logInAt(inject("baseUrl"), inject("ownerPassword"));
+  client = createORPCClient(
+    new RPCLink({ url: `${inject("baseUrl")}/api/rpc`, headers: { cookie } }),
+  );
 
   // THE WIKI'S HALF, IMPORTED FOR REAL, through the app and then over HTTP to
   // the provider. Nothing here writes a wiki position.

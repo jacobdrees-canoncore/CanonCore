@@ -15,9 +15,22 @@ import { inject } from "vitest";
 export async function documentFrom(
   baseUrl: string,
   path: string,
+  cookie?: string,
 ): Promise<{ status: number; text: string }> {
-  const response = await fetch(`${baseUrl}${path}`);
+  const response = await fetch(`${baseUrl}${path}`, { headers: headersWith(cookie) });
   return { status: response.status, text: decoded(await response.text()) };
+}
+
+/**
+ * WHO IS ASKING, as a browser says it: a `Cookie` header or nothing at all.
+ *
+ * NOTHING IS THE DEFAULT, and that is the right default for this suite. Most of
+ * what these files assert is the READ path, which ADR-0044 leaves open -- so a
+ * test that says nothing about a session is asserting what a visitor to the demo
+ * sees, which is the stricter of the two readings.
+ */
+function headersWith(cookie: string | undefined): HeadersInit {
+  return cookie === undefined ? {} : { cookie };
 }
 
 /**
@@ -49,8 +62,11 @@ function decoded(raw: string): string {
 }
 
 /** The seeded instance, which is the one most of this suite asks. */
-export async function documentAt(path: string): Promise<{ status: number; text: string }> {
-  return documentFrom(inject("baseUrl"), path);
+export async function documentAt(
+  path: string,
+  cookie?: string,
+): Promise<{ status: number; text: string }> {
+  return documentFrom(inject("baseUrl"), path, cookie);
 }
 
 /**
@@ -131,15 +147,69 @@ export async function submit(
   baseUrl: string,
   at: string,
   form: RenderedForm,
+  cookie?: string,
 ): Promise<{ status: number; text: string }> {
+  const response = await post(baseUrl, form.action === "" ? at : form.action, form, cookie);
+  return { status: response.status, text: decoded(await response.text()) };
+}
+
+/** The request itself, for the one caller that needs the response's headers. */
+async function post(
+  baseUrl: string,
+  at: string,
+  form: RenderedForm,
+  cookie?: string,
+  redirect: RequestRedirect = "follow",
+): Promise<Response> {
   const body = new FormData();
   for (const [name, value] of form.fields) body.append(name, value);
-  const response = await fetch(`${baseUrl}${form.action === "" ? at : form.action}`, {
+  return fetch(`${baseUrl}${at}`, {
     method: "POST",
-    headers: { origin: baseUrl },
+    headers: { origin: baseUrl, ...headersWith(cookie) },
     body,
+    redirect,
   });
-  return { status: response.status, text: decoded(await response.text()) };
+}
+
+/**
+ * Logs in the way an owner does: the form on `/login`, submitted with no
+ * JavaScript, and the cookie the server hands back.
+ *
+ * EVERY FILE THAT WRITES GOES THROUGH HERE, because a write is the owner's since
+ * CNCORE-109 and this is the only way to become the owner. The alternative --
+ * minting a session in the database and spelling the cookie out -- would assert
+ * the write path against a session the app never issued.
+ *
+ * `redirect: "manual"` IS LOAD-BEARING. The action answers `303` and the cookie
+ * is on THAT response; `fetch` follows a redirect by default and hands back the
+ * final one, which carries no `Set-Cookie` at all -- and node's fetch keeps no
+ * jar, so the followed request would arrive logged out. A silent empty answer
+ * rather than an error, which is why it is spelled out here.
+ *
+ * THE COOKIE'S NAME IS NOT WRITTEN DOWN, and is read off the response instead.
+ * This suite is a browser's view of the app: a browser sends back what it was
+ * given, and a name hardcoded here would be a second place to change it.
+ */
+export async function logInAt(baseUrl: string, password: string): Promise<string> {
+  const { text } = await documentFrom(baseUrl, "/login");
+  const [form] = postFormsIn(text);
+  if (!form) throw new Error(`${baseUrl}/login offered no form to log in with`);
+
+  const filled = {
+    ...form,
+    fields: form.fields.map(([name, value]): [string, string] =>
+      name === "password" ? [name, password] : [name, value],
+    ),
+  };
+  const response = await post(baseUrl, "/login", filled, undefined, "manual");
+  const [issued] = response.headers.getSetCookie();
+  if (issued === undefined) {
+    throw new Error(`logging in at ${baseUrl} set no cookie; answered ${response.status}`);
+  }
+  // `name=value`, which is all a browser sends back. The attributes after it --
+  // HttpOnly, Path, SameSite -- are instructions TO the browser rather than
+  // anything it repeats.
+  return issued.split(";")[0] ?? "";
 }
 
 /**
