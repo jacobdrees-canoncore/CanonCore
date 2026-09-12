@@ -14,12 +14,12 @@ named in the brief plus every pair the reading turned up.
 
 ### 1.1 ADR-0077's exclude-by-kind cannot exclude the thing it says it excludes
 
-`docs/adr/0077-work-browsing-excludes-entities-by-kind.md:13-16` decides "exclude BY KIND", and
+`docs/adr/0077-work-browsing-excludes-entities-by-kind.md` decides "exclude BY KIND", and
 closes the paragraph with "Entity containers are reached deliberately rather than turning up in
 'latest'."
 
-But `docs/adr/0004-containers-are-items.md:7-8` says "containers fold into `work` rather than getting
-a kind of their own", and `CONTEXT.md:19-21` repeats it: "**Work**: The item kind for stories and for
+But `docs/adr/0004-containers-are-items.md` says "containers fold into `work` rather than getting
+a kind of their own", and `CONTEXT.md` **Work** repeats it: "**Work**: The item kind for stories and for
 containers. Containers fold into it; there is no separate kind."
 
 So "the Doctors, in order" is an item of kind `work` with `is_container` true
@@ -28,16 +28,16 @@ MEMBERS of an entity container and cannot touch the container itself, which is t
 
 This is the record's central mechanism failing on the record's own example. Either work-browsing
 filters on something besides kind (a category statement, a `is_container` + member-kind test, a
-per-container flag), or the sentence at 0077:15-16 is not deliverable. Nothing anywhere else supplies
+per-container flag), or the sentence quoted from 0077 above is not deliverable. Nothing anywhere else supplies
 the missing test.
 
 ### 1.2 ADR-0029's reference-table rule contradicts vocabularies
 
-`docs/adr/0029-only-the-product-adds-fields.md:15-17` (new): "A reference table holds no owner data,
+`docs/adr/0029-only-the-product-adds-fields.md` (new): "A reference table holds no owner data,
 and nothing is minted into one outside a migration."
 
-`docs/adr/0030-vocabularies-raw-uniqueness.md:7-8`: "Every vocabulary is a lookup table with
-`retired` and a separate `quarantine` state". `CONTEXT.md:184-185`: "**Quarantine**: A vocabulary
+`docs/adr/0030-vocabularies-raw-uniqueness.md`: "Every vocabulary is a lookup table with
+`retired` and a separate `quarantine` state". `CONTEXT.md` **Quarantine**: "**Quarantine**: A vocabulary
 value that arrived broken from an import, held apart from the live set."
 `docs/physical-schema.md:102-104` calls vocabularies "One lookup table per property's allowed
 values".
@@ -57,7 +57,7 @@ unaddressed
 "The database carries an acyclicity constraint and an ancestor closure". Line 18: "ADR-0068 reads the
 ancestor closure this creates."
 
-`docs/adr/0068-container-progress-is-computed-on-read.md:7-8` derives container progress "from the
+`docs/adr/0068-container-progress-is-computed-on-read.md` derives container progress "from the
 ancestor closure, deduped with `COUNT(DISTINCT item)`" — that is the CONTAINER ancestry built from
 placements, not the category graph. Two different graphs over two different tables.
 
@@ -75,7 +75,7 @@ half of 0074 would save it; the record's title says the constraint is about cate
 extract's 11,285 stories".
 
 `docs/adr/0057-...md:20-22` measures the ARCHIVE at "stories 11,285". `docs/adr/0057-...md:49-50`:
-"The extract is a FIXTURE, not the archive ... it must stay small enough to read." `CONTEXT.md:289-292`
+"The extract is a FIXTURE, not the archive ... it must stay small enough to read." `CONTEXT.md` **The fixture**
 defines "**The fixture**: The small deterministic extract of the archive that is committed".
 
 So 11,285 stories is the archive, not the extract, and 0033 attaches the archive's figure to the word
@@ -89,7 +89,7 @@ survives; the number does not.
 
 `docs/adr/0076-...md:7-8`: "Rebuild the read projection WHOLESALE, never incrementally".
 
-`docs/adr/0014-title-is-a-projection.md:13-16`: "the projection is trigger-maintained or
+`docs/adr/0014-title-is-a-projection.md`: "the projection is trigger-maintained or
 application-maintained, and those have materially different failure modes ... Pick one deliberately."
 
 A trigger maintains the projection incrementally, per write, by definition. If 0076's "never
@@ -104,16 +104,16 @@ not say which, and 0076 is the record that claims to close 0014's open question.
 edition_id NULL, rank)` with "No unique constraint on `(container_id, position)`, and duplicates
 within one container are allowed", citing ADR-0009 and ADR-0092.
 
-`docs/adr/0017-placements-carry-sources-and-rank.md:7`: "(container, item, position) is unique."
+`docs/adr/0017-placements-carry-sources-and-rank.md`: "(container, item, position) is unique."
 
 The two constraints are compatible — 0009's is about (container, position), 0017's about the triple —
-and 0017:15-17 explicitly reconciles them. But the column list states only the NEGATIVE, cites only
+and 0017 explicitly reconciles them. But the column list states only the NEGATIVE, cites only
 the record carrying the negative, and omits the one constraint an implementer must actually create.
 Read alone, the placements entry says there is no uniqueness on placements at all.
 
 ### 1.7 ADR-0090: country is nullable, and unknown is never absent
 
-`docs/adr/0090-country-is-a-second-axis.md:7`: "A statement carries a NULLABLE `country` alongside its
+`docs/adr/0090-country-is-a-second-axis.md`: "A statement carries a NULLABLE `country` alongside its
 language." Line 15: "Unknown is the value `none`, never an absent one."
 
 The `none` spelling comes from IIIF and is about language, but the sentence is unqualified and sits in
@@ -124,7 +124,7 @@ country NULL`). Two unknowns, two representations, in one record, unexplained.
 
 `docs/adr/0012-...md:7-9`: "Every value and every relationship is a statement".
 `docs/adr/0042-...md:8` puts duration, container, codecs, resolution, bitrate and chapters on the file
-row; `docs/adr/0038-artwork-is-a-table.md:5` makes artwork a table.
+row; `docs/adr/0038-artwork-is-a-table.md` makes artwork a table.
 
 0042's new section (`:23-29`) names and answers this ("measured off the bytes rather than claimed by
 anybody"), which is the right treatment. 0038 does not, and 0012 itself still asserts the absolute.
@@ -145,15 +145,15 @@ contradiction to anyone checking whether the fixture may be loaded at first run.
 `docs/adr/0093-...md:7-11` forbids naming screens before they exist: "These are decided when screens
 exist." `docs/adr/0099-...md:14-16` claims the exemption "because this screen does exist."
 
-It does not: `CLAUDE.md:8` says "Nothing is implemented yet". The screen exists in a stop condition,
+It does not: `CLAUDE.md` said "Nothing is implemented yet". The screen exists in a stop condition,
 which is a requirement, not a screen. 0099 is a screen-layout decision (one list plus a filter, not a
 split layout) taken before the screen exists, i.e. the thing 0093 refuses, with the exemption argued
 from a false premise.
 
 ### 1.11 Pairs checked and found CONSISTENT
 
-- 0009 (no unique constraint on container_id, position) vs 0018, 0061, 0062: consistent. 0017:15-17
-  reconciles duplicates with the triple constraint; 0061:14 depends on duplicates being allowed;
+- 0009 (no unique constraint on container_id, position) vs 0018, 0061, 0062: consistent. 0017
+  reconciles duplicates with the triple constraint; 0061 depends on duplicates being allowed;
   0062 is unaffected.
 - 0085 vs 0041 on force-complete: both refuse it (the CITATION is wrong, see 3.8, but the positions
   agree). 0085 vs 0060 on extent: consistent.
@@ -162,7 +162,7 @@ from a false premise.
 - 0073 vs 0014 and 0081: consistent (0081's storage defers to 0073). The precision column has no home
   in the schema — see 7.
 - 0091 vs 0090 and CONTEXT.md's Language headword: consistent.
-- 0075 vs 0049: consistent (0049:7-8 does schedule tombstone compaction).
+- 0075 vs 0049: consistent (0049 does schedule tombstone compaction).
 - 0089 vs 0035 and 0069: consistent.
 - 0094 vs 0095: consistent (demo content is deliberately not the archive).
 - 0010's scope list vs 0025: consistent, and correctly cited.
@@ -182,9 +182,9 @@ of the duration: with no duration there is no percentage either."
 
 A book has no duration ever. By the letter of the third paragraph every book's completion is UNKNOWN,
 which deletes the branch two sentences earlier. And "a percentage IS a fraction of the duration"
-contradicts `docs/adr/0020-progress-is-per-edition.md:11-13`, where progression is a normalised
+contradicts `docs/adr/0020-progress-is-per-edition.md`, where progression is a normalised
 `totalProgression` 0..1 adopted precisely "because `text` is a first-class medium and every
-clock-shaped rule is inexpressible for a book", and `CONTEXT.md:266-267`: "**Progression**: How far
+clock-shaped rule is inexpressible for a book", and `CONTEXT.md` **Progression**: "**Progression**: How far
 through an edition a position is, from 0 to 1, whatever the medium."
 
 The intended rule is almost certainly "where the locator is one that HAS a duration behind it and the
@@ -311,7 +311,7 @@ gains the sentence or the two citing records stop asserting it.
 fixture, and the owner's own library"
 
 `docs/adr/0057-...md:7-16` gives it one and a bit: a queried source for a committed fixture, and a
-stress test. "The owner's own library" appears at `CONTEXT.md:285-287`, in the glossary, and nowhere in
+stress test. "The owner's own library" appears at `CONTEXT.md` **The archive**, in the glossary, and nowhere in
 an ADR. The decision is real and is 0094's own; the citation sends the reader to a record that does
 not make it.
 
@@ -319,13 +319,13 @@ not make it.
 
 0009's new text argues the stable surrogate placement id and cites ADR-0078 ("Same reasoning as").
 0078 argues surrogate entity ids and cites "ADR-0009's stable surrogate placement id ... taken for the
-same reason". Neither cites `docs/adr/0018-ordering-lives-on-the-placement.md:12-14`, which already
+same reason". Neither cites `docs/adr/0018-ordering-lives-on-the-placement.md`, which already
 decided it, in the same words, against the same Jellyfin evidence. Circular citation around an
 uncited owner.
 
 ### 3.11 `docs/adr/0099-...md:14-16` — "because this screen does exist"
 
-Nothing is implemented (`CLAUDE.md:8`). The premise the exemption from 0093 rests on is false.
+Nothing is implemented (`CLAUDE.md`, as it then read). The premise the exemption from 0093 rests on is false.
 
 ### Direction of pointers
 
@@ -342,19 +342,19 @@ Verbatim or near-verbatim, with the record that already owned the text:
 
 | Duplicate | Owner | Note |
 |---|---|---|
-| `0089:20-22` | `0031:14-16` | "Every provider we write lives in a separate repo ... separate deploy, separate lifecycle, no shared code. CanonCore knows only a URL, a credential and a validated response shape" — near-verbatim, whole paragraph. 0089 cites 0031 mid-sentence and restates it anyway. |
-| `0098:14-16` | `0063:10-11` | "A stage production and a video game are neither, and both are still complete [catalogue] entries: a `work` item with a category statement and zero editions." Verbatim. |
-| `0009:30-32` | `0018:12-14` | Stable surrogate placement id, Jellyfin's (parent, position) key, stale external references. Same argument, same evidence. |
-| `0085:13-14`, `0041:18-19`, `0063:14-15` | 0085 (by title) | "Completion branches on the locator rather than the medium enum, so a fifth medium never reopens the rule" is asserted in three records. 0085 is the record whose title it is; the other two state it as a decision without citing it. |
-| `0009:36-38` | `0057:24-26` | 93.4% multi-placement, median 4, maximum 52. Same measurement, twice, no citation between them. |
-| `0057:44-47` | `0028:11-13` | "on a set of only true matches a false positive is impossible, so precision is pinned at 1.0 however bad the scorer" — near-verbatim. 0057 does cite 0028, then restates the argument in full. |
-| `0012:26-28` and `0057:27-28` | either | "no property is ever both a link and a literal across 518,768 rows" appears in both; 0057 cites 0012, so this one is acceptable. |
-| `physical-schema.md:22-26` | `0051:16-19` | Migration 1's contents, verbatim. Defensible in a column list, but it is a decision copied rather than referenced. |
+| `0089` under "A publicly pullable container image is distribution" | `0031` under "The repository boundary, and this record owns it" | "Every provider we write lives in a separate repo ... separate deploy, separate lifecycle, no shared code. CanonCore knows only a URL, a credential and a validated response shape" — near-verbatim, whole paragraph. 0089 cites 0031 mid-sentence and restates it anyway. |
+| `0098:14-16` | `0063` | "A stage production and a video game are neither, and both are still complete [catalogue] entries: a `work` item with a category statement and zero editions." Verbatim. |
+| `0009` under "Two rules that follow, and the reasons they need stating" | `0018` | Stable surrogate placement id, Jellyfin's (parent, position) key, stale external references. Same argument, same evidence. |
+| `0085`, `0041`, `0063` | 0085 (by title) | "Completion branches on the locator rather than the medium enum, so a fifth medium never reopens the rule" is asserted in three records. 0085 is the record whose title it is; the other two state it as a decision without citing it. |
+| `0009` under "Scale" | `0057` under "The images are permitted, and the permission is personal" | 93.4% multi-placement, median 4, maximum 52. Same measurement, twice, no citation between them. |
+| `0057` under "What the wiki grants, and what it does not" | `0028` | "on a set of only true matches a false positive is impossible, so precision is pinned at 1.0 however bad the scorer" — near-verbatim. 0057 does cite 0028, then restates the argument in full. |
+| `0012` under "What can be pointed at, and what can carry statements" and `0057` under "The images are permitted, and the permission is personal" | either | "no property is ever both a link and a literal across 518,768 rows" appears in both; 0057 cites 0012, so this one is acceptable. |
+| `physical-schema.md:22-26` | `0051` | Migration 1's contents, verbatim. Defensible in a column list, but it is a decision copied rather than referenced. |
 | `physical-schema.md:99-100` | `0079:7-8` | Seeded property list, verbatim, including the dozen-versus-nine mismatch. |
-| `0089:7-9` | `0035:7-8` | "bundled provider definitions ship disabled" / "all disabled by default". Cited, so acceptable. |
-| `0097:19-20`, `CONTEXT.md:7`, `CLAUDE.md:6-7` | — | "domain-general ... a media server in its own right rather than a client of one" in three files. Positioning, not a decision; fine in CLAUDE.md and CONTEXT.md, redundant as the closing paragraph of an ADR about media ingestion. |
-| `CLAUDE.md:25` | `0051:21-23` | "cut scope inside this repository" verbatim. Deliberate reinforcement. |
-| `CLAUDE.md:27` | `0093` (whole record) | "The first version ends in a rendered page, not a report." CLAUDE.md already carries 0093's entire operative content. |
+| `0089` | `0035` | "bundled provider definitions ship disabled" / "all disabled by default". Cited, so acceptable. |
+| `0097`, `CONTEXT.md`'s opening, `CLAUDE.md` under "Project summary" | — | "domain-general ... a media server in its own right rather than a client of one" in three files. Positioning, not a decision; fine in CLAUDE.md and CONTEXT.md, redundant as the closing paragraph of an ADR about media ingestion. |
+| `CLAUDE.md` under "Principles" | `0051` | "cut scope inside this repository" verbatim. Deliberate reinforcement. |
+| `CLAUDE.md` under "Principles" | `0093` (whole record) | "The first version ends in a rendered page, not a report." CLAUDE.md already carries 0093's entire operative content. |
 
 Two records deciding the same thing: 0083 (role list closed at three, so an extra cannot be a file
 role) and 0087 (an extra is a work, not a file role) close the same question from two directions with
@@ -381,7 +381,7 @@ alternatives.
   slice, or as one line in 0019.
 - **ADR-0093** (no screen vocabulary before the screen exists). Fails (a) and (c): it is a process
   instruction, trivially reversible, and its own text says it is "the same evidence ADR-0051 rests on
-  read from the other end", i.e. it introduces no new evidence and no alternative. `CLAUDE.md:27`
+  read from the other end", i.e. it introduces no new evidence and no alternative. `CLAUDE.md` under "Principles"
   already carries it as a principle, which is where an instruction to the people doing the work
   belongs.
 - **ADR-0095** (the demo is four groups). Fails (a): demo content is the most reversible thing in the
@@ -393,7 +393,7 @@ alternatives.
   `docs/adr/0003-...md` already decides items exist with no file; `docs/adr/0063-...md:10-11` already
   contains 0098's second paragraph verbatim. What is new is the reversal of an earlier rule, and this
   repo's established form for that is a `## Supersedes` section inside the affected record
-  (`0005:23-31`, `0039:29-33`, `0048:26-31`, `0051:25-29`). It should be a Supersedes section in 0063.
+  (`0005`, `0039` under "Supersedes", `0048`, `0051` under "Supersedes"). It should be a Supersedes section in 0063.
 - **ADR-0099** ("Also appears in" is one list with a filter). Fails (a): a list layout with a filter
   versus two lists is a UI choice reversible in an afternoon, and the record makes no claim otherwise.
   It also breaks 0093 on a false premise (1.10). If the stop condition needs the page to read a
@@ -408,40 +408,40 @@ alternatives.
 
 ## 6. CONTEXT.md discipline
 
-`CLAUDE.md:72` makes CONTEXT.md "the glossary". A glossary entry says what a word means and what to
+`CLAUDE.md` under "Conventions" makes CONTEXT.md "the glossary". A glossary entry says what a word means and what to
 avoid. These smuggle in more:
 
-- `CONTEXT.md:44-46` **Work-browsing** — "It returns works and ignores the entity kinds; a surface
+- `CONTEXT.md` **Work-browsing** — "It returns works and ignores the entity kinds; a surface
   answering 'what is in this catalogue' returns everything." That is ADR-0077's decision, restated. A
   definition would stop at "any surface answering 'what can I watch'".
-- `CONTEXT.md:48-51` **Catalogue search** — "returning all seven item kinds grouped by kind with works
-  first". Grouping and ordering are output decisions (0077:23-24), not meaning. "Not the CMPP
+- `CONTEXT.md` **Catalogue search** — "returning all seven item kinds grouped by kind with works
+  first". Grouping and ordering are output decisions (0077), not meaning. "Not the CMPP
   operation of the same name" and the `_Avoid_` line are correct glossary content and should be all
   that remains.
-- `CONTEXT.md:167-169` **Date** — "held as an EDTF string with its precision beside it" is a storage
+- `CONTEXT.md` **Date** — "held as an EDTF string with its precision beside it" is a storage
   format (ADR-0073). The meaning is "a date value that may be partial"; the rest is implementation.
-- `CONTEXT.md:171-173` **Note** — "Never provider-assertable and never in a public payload" is two
+- `CONTEXT.md` **Note** — "Never provider-assertable and never in a public payload" is two
   decisions (0096, 0045).
-- `CONTEXT.md:163-165` **Country** — "Content ratings key on it where artwork keys on language" is
+- `CONTEXT.md` **Country** — "Content ratings key on it where artwork keys on language" is
   0090's rationale, not a definition.
-- `CONTEXT.md:285-287` **The archive** — "the owner's own library seed" is a decision that appears in
+- `CONTEXT.md` **The archive** — "the owner's own library seed" is a decision that appears in
   no ADR (0094 makes the negative half; see 3.9), and "never shipped to anyone else" is 0094 restated.
-- `CONTEXT.md:294-296` **The demo** — "it never stands in for the fixture as proof" is an argument
+- `CONTEXT.md` **The demo** — "it never stands in for the fixture as proof" is an argument
   from 0095:28-29.
-- `CONTEXT.md:289-292` **The fixture** — acceptable, apart from "The fixture is what TESTS the model",
+- `CONTEXT.md` **The fixture** — acceptable, apart from "The fixture is what TESTS the model",
   which is 0095's sentence.
-- `CONTEXT.md:7` — "It is domain-general, and it is a media server in its own right rather than a
+- `CONTEXT.md`'s opening — "It is domain-general, and it is a media server in its own right rather than a
   client of one" is positioning, and the file's preamble is arguably the right place for it, but it is
   not vocabulary.
 
 Also, but minor:
 
-- `CONTEXT.md:35-37` **Group** defines the scope as "the items, providers and scanner roots a view is
+- `CONTEXT.md` **Group** defines the scope as "the items, providers and scanner roots a view is
   narrowed to", while `docs/adr/0010-...md:16` closes the list at five: browsing, search, which
   providers are asked, scanner roots, and the review queue. The glossary drops two.
-- `CONTEXT.md:157-161` **Language** is now correct and glossary-shaped. Good.
+- `CONTEXT.md` **Language** is now correct and glossary-shaped. Good.
 - **Redundant file** (`:128-130`) and **Multi-placement** (`:87-89`) both carry `_Avoid_: duplicate`,
-  for two different senses. Meanwhile `docs/adr/0009:22`, `0017:15-16` and `0061:14` use "duplicate"
+  for two different senses. Meanwhile `docs/adr/0009` under "Two rules that follow, and the reasons they need stating", `0017` and `0061` use "duplicate"
   in a third sense (the same item twice in one container). See 8.
 
 ---
@@ -467,27 +467,27 @@ that ADRs require. In order of how quickly an implementer would hit them:
    named component signals, not only the total, because 0.8 cannot say which signal fired."
    `physical-schema.md:87` has `confidence NULL` alone.
 5. **No merge stamp.** `docs/adr/0040-...md:5-8` stamps the merge id "on every row it touches", and
-   `0051:18` puts "a merge stamping its id" in migration 1. The "On every table" list
+   `0051` puts "a merge stamping its id" in migration 1. The "On every table" list
    (`physical-schema.md:30`) does not include it, and there is no merges table.
 6. **`providers` has no enabled flag and no tier.** `docs/adr/0035-...md:7-8` ships definitions
    disabled; `docs/adr/0089-...md:7-13` sorts providers into tiers that govern distribution. Neither
    is a column at `physical-schema.md:106-108`.
 7. **`items` has no external-id mapping.** `docs/adr/0078-...md:7`: "a surrogate id with external-id
-   mappings beside it". If those are identifier statements (`0064:7-8` suggests so), say it.
+   mappings beside it". If those are identifier statements (`0064` suggests so), say it.
 
 **Tables required by an ADR and absent entirely:**
 
-8. **The review queue.** `docs/adr/0027` decides two thresholds and a queue; `0010:16` scopes it by
-   group; `CONTEXT.md:240-241` defines it. No table.
+8. **The review queue.** `docs/adr/0027` decides two thresholds and a queue; `0010` scopes it by
+   group; `CONTEXT.md` **Review queue** defines it. No table.
 9. **The task registry and run history.** `docs/adr/0049-...md:11-13`: "Keyed tasks, each visible,
    runnable by hand, cancellable, with a run history." No table.
-10. **Scanner roots.** `0010:16` scopes them by group, `0050` builds against a filesystem path,
-    `CONTEXT.md:36` puts them in the Group definition. No table, and no group-to-root join.
-11. **The group-to-provider link.** `0010:16` and `0025:7-8` both turn on which providers a group asks.
+10. **Scanner roots.** `0010` scopes them by group, `0050` builds against a filesystem path,
+    `CONTEXT.md` **Group** puts them in the Group definition. No table, and no group-to-root join.
+11. **The group-to-provider link.** `0010` and `0025` both turn on which providers a group asks.
     No join table.
-12. **The source order.** `0025` makes it global and `0071:7-8` ranks all four source kinds in it. It
+12. **The source order.** `0025` makes it global and `0071` ranks all four source kinds in it. It
     has to be stored somewhere; nothing says where.
-13. **The container ancestor closure.** `0068:7` reads one. `physical-schema.md:31` provides a closure
+13. **The container ancestor closure.** `0068` reads one. `physical-schema.md:31` provides a closure
     only "over the category graph". See 1.3.
 
 **Decisions with no home at all:**
@@ -495,13 +495,13 @@ that ADRs require. In order of how quickly an implementer would hit them:
 14. **Trigger-maintained or application-maintained?** `docs/adr/0014-...md:16` says "Pick one
     deliberately." Nothing picks. 0076 was the obvious place and answered a different question (3.4).
 15. **What relates an extra to its parent?** `0087` makes an extra a "WORK RELATED TO another work" and
-    `CONTEXT.md:98-100` agrees, but no property is named, and none of the nine seeded properties
+    `CONTEXT.md` **Extra** agrees, but no property is named, and none of the nine seeded properties
     (`0079:7-8`) fits.
 16. **Does `placements.edition_id` narrow the watched test?** `0092` lets a container hold a specific
-    edition; `0020:10-11` makes progress placement-independent; `0068` counts distinct items. Whether a
+    edition; `0020` makes progress placement-independent; `0068` counts distinct items. Whether a
     4K box set counts as watched when the owner watched the DVD edition is undecided.
 17. **Is a report sent at end of playback?** `0086:7` reports every 10 seconds and on interaction;
-    `0085:22-23` completes at ten seconds remaining. A play that runs to its end can pass through the
+    `0085` completes at ten seconds remaining. A play that runs to its end can pass through the
     completion window between two reports, and end-of-playback is not listed as a report trigger.
 18. **What is `edition_coverage.kind`?** `physical-schema.md:69-70` introduces a per-interval `kind`
     that neither `0060` nor `0082` mentions. Likely "survives / animated / missing", but it is a
@@ -517,12 +517,12 @@ that ADRs require. In order of how quickly an implementer would hit them:
 
 Length: 142 lines. Under 200. Confirmed by `wc -l`.
 
-`CLAUDE.md:8` says "99 records"; `ls docs/adr/ | wc -l` gives 99. Correct.
+`CLAUDE.md` then said "99 records"; `ls docs/adr/ | wc -l` gives 99. Correct.
 
 Every path referenced exists: `docs/research/competitor-sweep/`, the forensic record, `docs/adr/`,
 `docs/agents/`.
 
-**Internal contradiction, one, in the new section.** `CLAUDE.md:41-43`: "Do not look for, read, or
+**Internal contradiction, one, in the new section.** `CLAUDE.md` under "Reading the decisions": "Do not look for, read, or
 reference any previous attempt at this product, in any repository or on the web, and do not search for
 one. `docs/research/archive-2026-09-04/` is the forensic record of those attempts and its salvage
 manifest is superseded: read it as evidence, never as instructions."
@@ -539,14 +539,16 @@ taken, the others govern new ones. No conflict.
 
 **Conventions, two notes:**
 
-- `CLAUDE.md:69`: "`duplicate` is banned in code. Two files with the same content are a REDUNDANT
+- `CLAUDE.md` under "Conventions": "`duplicate` is banned in code. Two files with the same content are a REDUNDANT
   FILE; 'duplicate' would otherwise name multi-placement." The rationale mislabels the collision.
-  CONTEXT.md avoids "duplicate" under BOTH Multi-placement (`:89`) and Redundant file (`:130`), and
-  ADR-0009:22, ADR-0017:15-16 and ADR-0061:14 use "duplicate" for a third thing entirely — the same
+  CONTEXT.md avoids "duplicate" under BOTH **Multi-placement** and **Redundant file**, and ADR-0009
+  under "Two rules that follow, and the reasons they need stating", ADR-0017 and ADR-0061 all use
+  "duplicate" for a third thing entirely — the same
   item at two positions in ONE container, which is neither multi-placement nor a redundant file. The
   ban is right; the reason given is not, and the third sense currently has no word.
-- `CLAUDE.md:25` and `:27` duplicate ADR-0051 and ADR-0093 respectively (see 4). For :25 that is
-  deliberate reinforcement of a rule agents break under pressure. For :27 it means ADR-0093 carries
+- `CLAUDE.md`'s "cut scope inside this repository" and "ends in a rendered page, not a report", both
+  under "Principles", duplicate ADR-0051 and ADR-0093 respectively (see 4). The first is deliberate
+  reinforcement of a rule agents break under pressure. The second means ADR-0093 carries
   nothing CLAUDE.md does not.
 
 ---
