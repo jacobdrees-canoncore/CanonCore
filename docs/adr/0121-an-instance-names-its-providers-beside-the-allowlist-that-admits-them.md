@@ -121,6 +121,15 @@ refuse what the parsers refuse, so the surface that typed the entry is told, and
 cannot be read reaches a row. The store is validated at its only writer rather than at every reader,
 which is the posture every configuration file in this class of product takes.
 
+**AND THE STATE THAT LEAVES IS WORTH NAMING RATHER THAN GLOSSING**: a value written AROUND the
+product, by hand in SQL. It throws where it is read -- and `/settings` is one of the places that
+reads it, so the surface an owner would repair it from is down too. That is accepted rather than
+designed around, on the same ground the validation stands on: nothing in the product can create
+that row, and somebody who can write SQL into `settings` can write SQL to fix it. What it must not
+become is the cheap-looking repair -- a reader that splits the entries WITHOUT validating them --
+because that is this record's "one rule in two places is two rules that drift", arriving as a
+kindness.
+
 **AND THE READ IS LAZY, WHICH IS NOT AN OPTIMISATION.** `createContext` reads the settings when
 something asks what this instance reaches, rather than when a request arrives. Most requests never
 ask — an item page, the catalogue, a health check, a refusal — and an eager read would have put a

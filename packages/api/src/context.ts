@@ -77,9 +77,12 @@ export type Context = Awaited<ReturnType<typeof createContext>>;
  * `settings.editAllowlist` parse what they are given BEFORE they write it, so a
  * value that cannot be parsed is refused at the surface that typed it and never
  * reaches a row -- the store is validated at its only writer rather than at
- * every reader. What that leaves is a value written around the product, by
- * hand in SQL: it throws where it is read, which is the surfaces that reach
- * providers rather than the whole app, because of the laziness above.
+ * every reader. What that leaves is a value written around the product, by hand
+ * in SQL: it throws where it is READ, which the laziness above keeps to the
+ * surfaces that ask what this instance reaches rather than spreading over the
+ * whole app -- `/settings` among them, so the page that would repair it is down
+ * with the rest. Accepted rather than designed around: nothing in the product
+ * can write that row, and whoever wrote it by hand can fix it the same way.
  */
 function settingsReadOnce(db: Database): () => Promise<ProviderSettings> {
   let reading: Promise<ProviderSettings> | undefined;
