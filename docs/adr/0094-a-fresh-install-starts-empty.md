@@ -131,13 +131,12 @@ install that starts empty WITHOUT SAYING WHAT TO DO NEXT is a separate failure",
 [[0115-the-public-release-comes-before-the-playback-half]]. CNCORE-65 is where that was done and
 CNCORE-131 is where it was finished: the empty catalogue names the ROUTES that fill it — by hand,
 and from a provider — and an instance with nothing allowlisted says so rather than leaving an empty
-result to read as breakage. Nothing in the refusal softened — the fix
-is words on a page, and no seed data travels anywhere.
+result to read as breakage. Nothing in the refusal softened — the fix is words on a page, and no
+seed data travels anywhere.
 
 **The third state the page reports was not in this record and is worth naming**: an allowlist that
 names nothing is not the same fact as a catalogue that holds nothing, and an owner can be in either
 without the other — which CNCORE-131 turned from a claim into a fixture, having found that no
 instance in the suite was in one without the other. The page reads them as two conditions off two
-facts rather than as one
-"unconfigured" state, because an owner with items and no allowlist is stuck in a way an empty
-catalogue does not describe.
+facts rather than as one "unconfigured" state, because an owner with items and no allowlist is
+stuck in a way an empty catalogue does not describe.
