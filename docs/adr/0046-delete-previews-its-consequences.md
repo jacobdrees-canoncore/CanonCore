@@ -159,6 +159,20 @@ exactly the provider they are likeliest to have already taken out of their
 configuration. The narrowing is a fact about what can be rendered, and making it
 a rule would refuse the motivating case.
 
+AND WHY THIS SURFACE OFFERS A BUTTON WHERE THE BROWSE BESIDE IT WOULD NOT, which
+needs saying because the two now sit on one page and the comparison is the
+obvious one to draw. CNCORE-92's rule for `browse` is that the button appears
+only where a browse would actually work -- "nothing to press is the difference
+between a refusal reported and a refusal reworded" -- so an unreachable provider
+gets a sentence rather than a control. THIS SURFACE OFFERS ONE FOR AN UNREACHABLE
+PROVIDER ANYWAY, and that is the same rule rather than an exception to it: a
+purge makes NO REQUEST. It is rows in this catalogue, found by the identity the
+source row carries, so none of the three refusals `browse` can meet exists here
+and the operation works perfectly against a provider that has not answered in
+months. That is ADR-0036's case exactly. A later reader applying CNCORE-92's rule
+mechanically here would remove a button that works, on a surface whose whole
+motive is the provider nobody can reach.
+
 WHICH ALSO SETS WHERE COUNTS-FIRST ACTUALLY HOLDS. It holds through the product:
 the page renders no button until `previewPurge` has answered, so an owner moving
 through the surface cannot meet the delete before its consequences. It is not

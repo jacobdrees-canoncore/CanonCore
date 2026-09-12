@@ -355,7 +355,7 @@ describe("/import, before a container's ordering is imported", () => {
     // A REAL TITLE RATHER THAN AN ECHO OF THE ID. A page printing back what was
     // typed would satisfy a bare `toContain` against the section.
     expect(said.title).not.toBe(providerSearch.browsable.container);
-    expect(section(text, "container")).toContain(said.title);
+    expect(sectionIn(text, "container")).toContain(said.title);
   });
 
   it("says how many members the browse would write, before it writes them", async () => {
@@ -371,7 +371,7 @@ describe("/import, before a container's ordering is imported", () => {
       throw new Error(`the provider handed over no container: ${said.answer}`);
     }
     expect(said.members).toBeGreaterThan(0);
-    expect(section(text, "container")).toContain(`${said.members} members`);
+    expect(sectionIn(text, "container")).toContain(`${said.members} members`);
   });
 
   it("writes nothing, which is what asking on the GET has to mean", async () => {
@@ -403,7 +403,7 @@ describe("/import, before a container's ordering is imported", () => {
     expect(status).toBe(200);
     expect((await client.provider.held(asked)).items).toHaveLength(0);
     // AND THE PAGE SAYS SO, which is the same fact the owner reads.
-    expect(section(text, "container")).toContain("Not in your catalogue");
+    expect(sectionIn(text, "container")).toContain("Not in your catalogue");
   });
 });
 
@@ -517,7 +517,7 @@ describe("/import, when the provider refuses", () => {
       container: "a container this provider does not hold",
     });
     expect(said.answer).toBe("no-such-container");
-    const container = section(text, "container");
+    const container = sectionIn(text, "container");
     expect(container.toLowerCase()).toContain("no container at that id");
     // NOTHING TO PRESS. A page that said this and still rendered the button
     // would have moved the 500 rather than removed it.
@@ -546,7 +546,7 @@ describe("/import, when the provider refuses", () => {
     if (said.answer !== "browse-not-offered") {
       throw new Error(`the witness provider answered ${said.answer}`);
     }
-    const container = section(text, "container");
+    const container = sectionIn(text, "container");
     // ATTRIBUTED BY THE PROVIDER'S OWN NAME FOR ITSELF, as every other answering
     // provider on this page is.
     expect(container).toContain(said.providerName);
@@ -581,7 +581,7 @@ describe("/import, when the provider refuses", () => {
     if (said.answer !== "unreachable") {
       throw new Error(`the unreachable provider answered ${said.answer}`);
     }
-    const container = section(text, "container");
+    const container = sectionIn(text, "container");
     // NOT "could not be reached", WHICH WOULD BE FALSE OF A THIRD CASE THIS
     // BRANCH ALSO CARRIES: a provider that answered, badly. This URL really is
     // unreachable, so either sentence would pass here -- what is asserted is the
@@ -614,7 +614,7 @@ describe("/import, when the provider refuses", () => {
     const { status, text } = await documentAt(browsing(named));
 
     expect(status).toBe(200);
-    const container = section(text, "container");
+    const container = sectionIn(text, "container");
     expect(container.toLowerCase()).toContain("no container at that id");
     // AND THE CATALOGUE'S HALF OF THE ANSWER SURVIVES IT.
     expect(container).toContain("Already imported");

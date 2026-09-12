@@ -203,13 +203,14 @@ export default async function ImportPage({
   const query = oneValue(asked.q);
   const provider = oneValue(asked.provider);
   const container = oneValue(asked.container);
-  const { allowlisted, configured, found, namedContainer, preview, purging } =
-    await readImportPage({
+  const { allowlisted, configured, found, namedContainer, preview, purging } = await readImportPage(
+    {
       query,
       provider,
       container,
       purge: oneValue(asked.purge),
-    });
+    },
+  );
 
   return (
     <main className="container mx-auto max-w-3xl px-4 py-8">
@@ -261,6 +262,17 @@ export default async function ImportPage({
  * name a purge can use -- reading a provider's own name for itself means asking
  * it, and the provider an owner is purging is frequently the one that no longer
  * answers.
+ *
+ * AND IT IS OFFERED FOR AN UNREACHABLE PROVIDER TOO, which looks like a breach of
+ * the rule the browse half of this page follows and is not. That rule (CNCORE-92)
+ * is that a button appears only where the operation behind it would work, so a
+ * provider that cannot be reached gets a sentence instead of a control. A PURGE
+ * MAKES NO REQUEST: it is rows in this catalogue, found by the identity on the
+ * source row, so none of the refusals `browse` can meet exists here and the
+ * operation works against a provider that has not answered in months. Which is
+ * ADR-0036's case exactly -- a licence ends, the provider goes away, and the
+ * obligation to purge does not. Removing this button to match the one above would
+ * take the surface away from the owner it was built for.
  */
 function PurgeBox({ configured }: { configured: string[] }) {
   if (configured.length === 0) return null;
