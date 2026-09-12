@@ -69,6 +69,7 @@ contract test reaches the provider rather than TMDB.
 
 **NOT BUILT: bundled provider definitions, disabled by default.** That is the other half of this
 record's first sentence and there is nothing to disable — no definition ships with CanonCore at all,
-bundled or otherwise, and a provider becomes reachable only by an owner writing a URL into
-`PROVIDER_ALLOWLIST` and naming it in a call. ADR-0089's tier 1 is where that arrives, and whatever
+bundled or otherwise, and a provider becomes reachable only by an owner naming it in their own
+settings and allowlisting the host it answers on (CNCORE-99; it was `PROVIDER_ALLOWLIST` when this
+was written). ADR-0089's tier 1 is where that arrives, and whatever
 builds it is what closes this record.

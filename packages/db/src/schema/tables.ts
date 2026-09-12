@@ -772,3 +772,58 @@ export const taskRuns = pgTable(
     index("task_runs_by_task").on(t.taskKey, t.startedAt.desc()),
   ],
 );
+
+/**
+ * WHAT THE OWNER CONFIGURED ABOUT THIS INSTANCE, in the catalogue rather than
+ * in the environment (CNCORE-99, ADR-0121).
+ *
+ * `PROVIDER_URLS` AND `PROVIDER_ALLOWLIST` MOVED HERE TOGETHER, which is what
+ * `packages/env/src/schema.ts` committed to beside the allowlist itself: "when
+ * there is one, this moves into it and the boundary does not change". Both are
+ * held as the STRING the owner wrote, because `parseProviderUrls` and
+ * `parseAllowlist` take a string from wherever it comes -- so only the source
+ * moved and the parsing boundary is exactly where it was.
+ *
+ * TWO COLUMNS RATHER THAN A KEY AND A VALUE. A settings row per key would be a
+ * bag this instance could put anything in, and what exists is two settings; a
+ * third arrives as a rung that names it, which is the same posture ADR-0029
+ * takes towards fields. It also keeps every value TYPED at the schema, where a
+ * `value text` column makes every setting a string that happens to parse.
+ *
+ * ONE ROW, ENFORCED THE WAY `owners` IS. Settings belong to the instance and
+ * there is one instance, so a second row would make "what is configured" depend
+ * on which row a query happened to read first.
+ *
+ * ITS TOMBSTONE IS WRITTEN BY NOTHING, and that is named here rather than left
+ * to be noticed: ADR-0075 puts a tombstone on every table and nothing deletes
+ * this row -- removing a provider rewrites a value on it. The column is what
+ * that record refuses to retrofit, and it stands empty the way `task_runs`'s
+ * does.
+ */
+export const settings = pgTable(
+  "settings",
+  {
+    id: idColumn(),
+    ...ownedColumns(),
+    /**
+     * WHICH PROVIDERS THIS INSTANCE SEARCHES, as their base URLs separated by
+     * commas or whitespace (ADR-0031, ADR-0121).
+     *
+     * EMPTY BY DEFAULT, so an instance nobody has configured searches nothing
+     * and a surface says so rather than showing an empty result (ADR-0094).
+     */
+    providerUrls: text("provider_urls").notNull().default(""),
+    /**
+     * ADR-0034'S ALLOWLIST: the exact hosts and CIDRs a provider base URL may
+     * name, separated by commas or whitespace.
+     *
+     * EMPTY BY DEFAULT, WHICH REFUSES EVERY PROVIDER. That is the safe end of
+     * the failure and it survived the move out of the environment unchanged: an
+     * instance nobody has configured reaches nothing, and moving the setting to
+     * a surface must not quietly turn that into a permissive default.
+     */
+    providerAllowlist: text("provider_allowlist").notNull().default(""),
+    ...lifecycleColumns(),
+  },
+  () => [uniqueIndex("settings_single_row").on(sql`(true)`)],
+);

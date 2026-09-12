@@ -65,9 +65,9 @@ async function readImportPage({ query, provider, container, purge }: Asked) {
   //
   // AND THE CONFIGURATION IS READ FIRST, because what may be asked of a provider
   // depends on whether it is one this instance searches. Neither of these two
-  // makes a request or touches the database -- both read what `createContext`
-  // parsed at module load -- so the ordering costs nothing and buys the narrowing
-  // below.
+  // makes a request of a provider -- both read this instance's own settings,
+  // which is one row (CNCORE-99) -- so the ordering costs nothing and buys the
+  // narrowing below.
   const [allowlisted, configured] = await Promise.all([
     call(appRouter.provider.allowlisted, undefined, { context }),
     call(appRouter.provider.configured, undefined, { context }),
@@ -199,12 +199,12 @@ function searchableProvider(configured: string[], named: string | undefined): st
  * precisely the one nothing should be calling, and it is the one an owner most
  * needs to purge.
  *
- * THE REASON IS THAT THIS SURFACE CAN ONLY OFFER WHAT IT CAN LIST. The providers
- * are `PROVIDER_URLS`, and a purge target outside that set has no row on the page
- * to sit in and no name an owner could have pressed. The bound that follows is
- * real and worth knowing: a provider REMOVED from `PROVIDER_URLS` cannot be
- * purged until it is named again. Naming it again is how, and ADR-0046 records
- * this as the half that is built.
+ * THE REASON IS THAT THIS SURFACE CAN ONLY OFFER WHAT IT CAN LIST. The
+ * providers are the ones this instance names (`/settings`), and a purge target
+ * outside that set has no row on the page to sit in and no name an owner could
+ * have pressed. The bound that follows is real and worth knowing: a provider
+ * REMOVED from the settings cannot be purged until it is named again. Naming it
+ * again is how, and ADR-0046 records this as the half that is built.
  *
  * IT ALSO TURNS A MALFORMED URL INTO AN ANSWER RATHER THAN A 500, which is the
  * rule `/items/<id>` already applies to an id it cannot use (CNCORE-14): `?purge=x`
@@ -311,8 +311,8 @@ export default async function ImportPage({
  * previewing nothing (Next's `<Form>` reference, read 2026-09-12).
  *
  * NAMED BY URL, which is a deployment detail shown to the one person entitled to
- * it, for the reason `BrowseBox` gives: the owner typed these into
- * `PROVIDER_URLS` and is the only person who can change one. It is also the only
+ * it, for the reason `BrowseBox` gives: the owner typed these into their own
+ * settings and is the only person who can change one. It is also the only
  * name a purge can use -- reading a provider's own name for itself means asking
  * it, and the provider an owner is purging is frequently the one that no longer
  * answers.
@@ -797,10 +797,10 @@ function Unreachable({ failed }: { failed: Found["failed"] }) {
  * WHY NOTHING CAN BE IMPORTED, when the reason is the allowlist.
  *
  * The front page says this too, and it says it for the whole instance; here it is
- * the reason this page in particular cannot work. ADR-0034 makes
- * `PROVIDER_ALLOWLIST` empty by default and the empty value refuses every
- * provider -- so without this, an owner meets a search that returns a refusal per
- * provider and no way to tell a wrong URL from an instance nobody configured.
+ * the reason this page in particular cannot work. ADR-0034 makes the allowlist
+ * empty by default and the empty value refuses every provider -- so without
+ * this, an owner meets a search that returns a refusal per provider and no way
+ * to tell a wrong URL from an instance nobody configured.
  */
 function NoProviderAllowlisted() {
   return (
@@ -814,9 +814,12 @@ function NoProviderAllowlisted() {
             <h2 id="no-provider">No provider is allowlisted</h2>
           </CardTitle>
           <CardDescription>
-            CanonCore reaches a provider only when its host or address range is named in
-            PROVIDER_ALLOWLIST. That setting is empty until you write one, and empty refuses every
-            provider, so nothing here can be searched or imported yet.
+            CanonCore reaches a provider only when its host or address range is on the allowlist in{" "}
+            <Link className="underline" href="/settings">
+              Settings
+            </Link>
+            . That setting is empty until you write one, and empty refuses every provider, so
+            nothing here can be searched or imported yet.
           </CardDescription>
         </CardHeader>
       </Card>
@@ -829,10 +832,14 @@ function NoProviderAllowlisted() {
  *
  * TWO NOTICES RATHER THAN ONE, because there are two settings with two remedies
  * and an owner has to know which to go and set. The allowlist says what MAY be
- * reached; `PROVIDER_URLS` says which providers there ARE. An instance with a
+ * reached; the providers beside it say which there ARE. An instance with a
  * generous allowlist and no provider named searches nothing at all, and ADR-0094
  * is explicit that an install which starts empty without saying what to do next
  * is a failure of its own.
+ *
+ * BOTH REMEDIES ARE ON ONE PAGE NOW (CNCORE-99), which changes the link and not
+ * the notices: they are still two, because which of the two settings is refusing
+ * is still the thing an owner cannot work out for themselves.
  */
 function NoProviderConfigured() {
   return (
@@ -843,9 +850,13 @@ function NoProviderConfigured() {
             <h2 id="no-provider-configured">No provider is configured</h2>
           </EmptyTitle>
           <EmptyDescription>
-            Name the providers to search in PROVIDER_URLS, as their base URLs, then restart. A
-            provider is a URL answering the CMPP contract rather than code you install, so nothing
-            you name here runs inside your catalogue.
+            Name the providers to search in{" "}
+            <Link className="underline" href="/settings">
+              Settings
+            </Link>
+            , as their base URLs. Nothing needs a restart. A provider is a URL answering the CMPP
+            contract rather than code you install, so nothing you name there runs inside your
+            catalogue.
           </EmptyDescription>
         </EmptyHeader>
       </Empty>
@@ -869,8 +880,8 @@ function NoProviderConfigured() {
  * id it was given the moment it answered.
  *
  * THE PROVIDERS ARE OFFERED BY URL, which is a deployment detail shown to the one
- * person entitled to it: the owner typed these into `PROVIDER_URLS` and is the
- * only person who can change one. A manifest read per provider would buy their
+ * person entitled to it: the owner typed these into their own settings and is
+ * the only person who can change one. A manifest read per provider would buy their
  * own names for themselves at the cost of a request per provider on every render
  * of this page, for a control the owner recognises by the URL they wrote.
  */
@@ -946,8 +957,8 @@ function BrowseBox({
  * It says so rather than showing nothing, for the reason the two notices above
  * say their own thing: an address that quietly produces no section is one an
  * owner reads as breakage. The likely way to arrive here is a link kept past a
- * change to `PROVIDER_URLS`, which is exactly the case where naming the setting
- * is the whole of the help somebody needs.
+ * change to the providers this instance names, which is exactly the case where
+ * saying where that setting lives is the whole of the help somebody needs.
  */
 function NotOneOfOurs() {
   return (
@@ -956,8 +967,11 @@ function NotOneOfOurs() {
         That provider
       </h3>
       <p className="border-t py-3 text-muted-foreground text-sm">
-        That is not a provider this instance searches. The ones it does are named in PROVIDER_URLS,
-        and the list above is what it currently holds.
+        That is not a provider this instance searches. The ones it does are named in{" "}
+        <Link className="underline" href="/settings">
+          Settings
+        </Link>
+        , and the list above is what it currently holds.
       </p>
     </section>
   );

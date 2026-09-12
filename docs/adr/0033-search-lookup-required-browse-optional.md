@@ -724,8 +724,8 @@ rare beats quiet and wrong.
 **A CONFORMANCE WITNESS NOW STANDS IN THE APP'S HARNESS TOO.** `packages/contract` keeps one because
 `provider-wiki` and `provider-tmdb` both declare `browse` since CNCORE-17, so no real provider
 exercises this record's optionality. The import surface needs the same thing for the same reason: a
-page that must say "this provider does not do that" has nothing to say it about otherwise. It is
-configured in `PROVIDER_URLS` like any other provider, and it is a stub even in the CI job where the
+page that must say "this provider does not do that" has nothing to say it about otherwise. The instance names it like any other provider (in `PROVIDER_URLS` when this was written; a
+Setting since CNCORE-99), and it is a stub even in the CI job where the
 other two are real images.
 
 **STILL NOT BUILT, AND STILL THE ONLY REASON THIS RECORD IS `proposed`:** the declared fields.

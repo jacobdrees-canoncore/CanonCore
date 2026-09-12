@@ -35,8 +35,10 @@ migration 1 to what is not.
 nothing implemented. Both are now mechanisms rather than intentions.
 
 **THE PASSWORD IS CONFIGURATION, WHICH IS WHAT KEEPS "no password column ships" TRUE.**
-`OWNER_PASSWORD` sits beside `DATABASE_URL` and `PROVIDER_ALLOWLIST`, where this instance's other
-secrets already are, and `session.logIn` compares it in constant time on SHA-256 digests -- on
+`OWNER_PASSWORD` sits beside `DATABASE_URL`, where this instance's other secrets already are
+(`PROVIDER_ALLOWLIST` sat there too when this was written, and is a Setting since CNCORE-99 --
+which changes nothing here: a password is not configuration an owner edits from a page, because the
+page is what it guards), and `session.logIn` compares it in constant time on SHA-256 digests -- on
 DIGESTS because `timingSafeEqual` refuses buffers of unequal length, so comparing the raw strings
 would throw on almost every wrong guess and run in constant time only for the ones that happened to
 be the right length. A hash column would have needed a surface to SET it, and "no signup" is this

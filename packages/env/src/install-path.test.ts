@@ -248,14 +248,15 @@ describe("the sample environment file and the schema", () => {
   /**
    * AND THE GAP BETWEEN THE TWO, which the assertion above accepts and should
    * not. It takes "the compose file sets it" as an honest home, and that is
-   * true of `PROVIDER_ALLOWLIST` whether or not the sample file still mentions
-   * it -- because compose sets it FROM the installer's environment. Delete the
-   * variable and its explanation from `.env.example` and every check above goes
-   * on passing, while the one setting a self-hoster has to be told about
-   * silently stops being documented.
+   * true of any variable compose sets FROM the installer's environment. Delete
+   * such a variable and its explanation from `.env.example` and every check
+   * above goes on passing, while a setting a self-hoster has to be told about
+   * silently stops being documented. `PROVIDER_ALLOWLIST` was the case this was
+   * written for; it is a Setting rather than a variable since CNCORE-99, and
+   * `OWNER_PASSWORD` is the shape the rule now guards.
    *
-   * SO THE RULE IS READ OFF THE VALUE RATHER THAN THE KEY. `PROVIDER_ALLOWLIST:
-   * ${PROVIDER_ALLOWLIST:-}` interpolates, so it is the installation's to set
+   * SO THE RULE IS READ OFF THE VALUE RATHER THAN THE KEY. `OWNER_PASSWORD:
+   * ${OWNER_PASSWORD:-}` interpolates, so it is the installation's to set
    * and the sample file owes them a line about it. `DATABASE_URL`'s value names
    * `POSTGRES_PASSWORD` and never `DATABASE_URL`, so it is composed FOR them and
    * the sample file must not offer it -- an offer compose would ignore, which
@@ -324,20 +325,6 @@ describe("what the sample environment file explains", () => {
   it("explains every variable it offers", () => {
     const unexplained = sampleVariables().filter((name) => commentAbove(name).trim() === "");
     expect(unexplained).toStrictEqual([]);
-  });
-
-  /**
-   * THE ONE THE TICKET NAMES, and the reason it is singled out: ADR-0034 makes
-   * the empty value REFUSE EVERY PROVIDER, which is the safe end of the failure
-   * and is completely silent. An installation that reads the empty default as
-   * "no restriction yet" has the meaning exactly backwards, and the only place
-   * that can be corrected before it happens is here.
-   */
-  it("says that an empty PROVIDER_ALLOWLIST refuses every provider", () => {
-    const explanation = commentAbove("PROVIDER_ALLOWLIST").toLowerCase();
-
-    expect(explanation).toMatch(/empty/);
-    expect(explanation).toMatch(/refuses every provider/);
   });
 });
 
@@ -479,17 +466,23 @@ describe("the files the README tells a stranger to download", () => {
 
 describe("what the README's install section says about the allowlist", () => {
   /**
-   * THE FOURTH STATEMENT OF ONE FACT, and the one that was unpinned. `schema.ts`,
-   * `compose.yaml`, `.env.example` and this section all say that an empty
-   * allowlist refuses every Provider; the suite held two of them. That is
-   * CNCORE-50's four-assertions-one-decision shape, and the cost here is a
-   * self-hoster reading the empty default as "nothing restricted yet", which is
-   * the meaning exactly backwards.
+   * THE STATEMENT THAT OUTLIVED ITS VARIABLE. `schema.ts`, `compose.yaml`,
+   * `.env.example` and this section all used to say that an empty allowlist
+   * refuses every Provider, and the suite held two of them -- CNCORE-50's
+   * four-assertions-one-decision shape. The allowlist is a Setting rather than
+   * an environment variable since CNCORE-99, so three of those four are gone and
+   * the FACT is unchanged: the cost of leaving it unsaid is a self-hoster
+   * reading the empty default as "nothing restricted yet", which is the meaning
+   * exactly backwards.
+   *
+   * IT NO LONGER ASKS FOR A VARIABLE NAME, because there is none to name. What
+   * the section owes a reader now is where the setting IS -- the surface it is
+   * edited on -- and what its empty value does.
    */
   it("says that an empty allowlist refuses every Provider", () => {
     const section = installSection().toLowerCase();
 
-    expect(section).toContain("provider_allowlist");
-    expect(section).toMatch(/empty refuses every provider/);
+    expect(section).toContain("/settings");
+    expect(section).toMatch(/empty allowlist refuses every provider/);
   });
 });

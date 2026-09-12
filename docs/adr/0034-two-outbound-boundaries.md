@@ -176,3 +176,21 @@ scheme is HTTP or HTTPS, and the host is not this field's business.
 **WHAT IS UNCHANGED.** Both boundaries, their split, the deny-by-classification rule, the pinning
 hook. Nothing above moved; this section adds a place a URL is read that has no socket behind it, and
 records why the boundary's own function is not what guards it.
+
+**A FOURTH URL, AND THE TRAP IT SETS FOR A LATER SURFACE -- under CNCORE-99.** A provider's BASE URL
+is now a Setting the Owner types into a page and this catalogue stores
+([[0121-an-instance-names-its-providers-beside-the-allowlist-that-admits-them]]). What validates it
+on the way in is `parseProviderUrls`, and that record states plainly what it asks: only whether the
+entry IS a URL, because its scheme and its host are `assertConfigUrl`'s questions, asked in front of
+the request. **So `javascript:alert(1)` is a storable Setting.** It is not a hole today and the
+reason is worth writing down rather than rediscovering: it is written by the OWNER through
+`ownerProcedure`, who already holds the write path; nothing fetches it without `assertConfigUrl`,
+which carries `assertHttpScheme`; and every surface renders it as TEXT -- `/settings` and `/import`
+print it and put it in a `data-` attribute, both escaped by React.
+
+**THE DAY ONE OF THEM RENDERS IT AS A LINK, IT IS STORED XSS**, and that surface owes it the SCHEME
+RULE this section already states for a record's `url` -- HTTP or HTTPS, checked where the reader's
+browser is what acts on the value. Do not repair it by tightening `parseProviderUrls` instead:
+ADR-0121 refuses that in its own words, because the scheme asked in two places is two rules that
+drift, and the fetch boundary is the one with a socket behind it. Raised by review on CNCORE-99 and
+recorded here rather than fixed, because there is no `href` to fix.

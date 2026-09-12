@@ -68,7 +68,7 @@ independently rated the empty first run HIGH:
 > produce the worst possible first five minutes.**
 
 Today `/` is the unmodified create-better-t-stack banner, nothing reaches `/items/<id>` without a
-UUID you already hold, `PROVIDER_ALLOWLIST` defaults to refusing every provider, and the README
+UUID you already hold, the allowlist defaults to refusing every provider, and the README
 never mentions it (all four true when this was written; see below for what has since changed). **A
 release of that is a release of the first five minutes rather than of the product.**
 [[0094-a-fresh-install-starts-empty]] governs what content ships and deliberately says nothing about

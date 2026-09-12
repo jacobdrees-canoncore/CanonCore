@@ -18,13 +18,15 @@ export default defineConfig({
     setupFiles: ["@canoncore/config/testing/install-network-gate", "@canoncore/db/testing/setup"],
     fileParallelism: false,
     /**
-     * ADR-0034's allowlist, as this suite's configuration. The stub provider
-     * binds a real socket on 127.0.0.1, and reaching it is legal only because
-     * a CIDR covering it is named here -- which is the config boundary being
-     * exercised rather than bypassed.
+     * WHAT IS LEFT HERE IS THE ONE SETTING THAT IS STILL CONFIGURATION.
+     *
+     * ADR-0034's allowlist used to sit beside it and does not any more: it is a
+     * row in the settings store since CNCORE-99, so the file that needs one
+     * writes it (`provider.test.ts`) instead of the whole suite inheriting it
+     * from here. The password stays because ADR-0044 keeps it out of the
+     * database on purpose -- "no password column ships".
      */
     env: {
-      PROVIDER_ALLOWLIST: "127.0.0.0/8",
       /**
        * THE OWNER'S PASSWORD, because this suite asserts both sides of the door
        * CNCORE-109 put in: what a caller with a session may do, and what one

@@ -68,6 +68,11 @@ export {
   sweepSessions,
 } from "./sessions";
 export {
+  type ProviderSettings,
+  readProviderSettings,
+  writeProviderSettings,
+} from "./settings";
+export {
   closeTaskRunsLeftOpen,
   compactTaskRuns,
   endTaskRun,
@@ -84,9 +89,26 @@ export { worktreeDatabaseName } from "./worktree-database";
  * A handle on one database. The connection string is an argument rather than a
  * read of the environment so that a test can point at its own database without
  * the package reaching around it.
+ *
+ * `maxConnections` BOUNDS THE POOL, and it exists because one PostgreSQL serves
+ * far more processes here than a deployment's does. node-postgres opens up to
+ * TEN connections per pool and PostgreSQL's own default ceiling is a hundred,
+ * so a page-seam run -- nine servers, each with a pool, plus the harness's own
+ * handles against the same container -- can ask for more than the server will
+ * give and fails with `sorry, too many clients already` (measured on this repo,
+ * 2026-09-12, adding the ninth instance). The app leaves it at the default: it
+ * is one process, and ten is the number that process was already using.
  */
-export function createDb(connectionString: string) {
-  return drizzle(connectionString, { schema });
+export function createDb(connectionString: string, { maxConnections }: DbOptions = {}) {
+  return drizzle({
+    connection: { connectionString, max: maxConnections },
+    schema,
+  });
+}
+
+export interface DbOptions {
+  /** How many connections this handle may hold open. Defaults to node-postgres's ten. */
+  maxConnections?: number;
 }
 
 export type Database = ReturnType<typeof createDb>;

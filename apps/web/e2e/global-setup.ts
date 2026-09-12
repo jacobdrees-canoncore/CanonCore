@@ -1,6 +1,6 @@
 import { createServer, type Server } from "node:http";
 import type { AppRouterClient } from "@canoncore/api/routers";
-import { assertPlacement, createDb, placeItemByHand } from "@canoncore/db";
+import { assertPlacement, createDb, placeItemByHand, writeProviderSettings } from "@canoncore/db";
 import { type SeededPlacement, seedOneItemInTwoOrderings } from "@canoncore/db/seed";
 import { buildTestDatabase } from "@canoncore/db/testing/build-database";
 import {
@@ -23,7 +23,13 @@ import { logInAt } from "./document";
  * because the browser suite is a second Vitest PROJECT that needs the same
  * thing. What they are and why is in `instance.ts`, unchanged by the move.
  */
-import { anInstanceServing, OWNER_PASSWORD, theAppBuilt, theBuildServing } from "./instance";
+import {
+  anInstanceServing,
+  HARNESS_CONNECTIONS,
+  OWNER_PASSWORD,
+  theAppBuilt,
+  theBuildServing,
+} from "./instance";
 import { CONTAINERS, TENTH_PLANET, WIKI_MANIFEST } from "./wiki-fixture";
 
 /**
@@ -84,32 +90,38 @@ export default async function setup(project: TestProject) {
   const lookupOnly = await aProviderThatDeclinesBrowse();
   const answersBadly = await aProviderThatAnswersBadly();
 
-  const env = {
-    ...process.env,
-    DATABASE_URL: databaseUrl,
-    // ADR-0034. The app's OWN allowlist, read by the app's own environment --
-    // not a value the harness holds. Loopback is legal here BY NAME, which is
-    // the whole job of the config boundary; the content deny rule still refuses
-    // `loopback` and goes on refusing it.
-    PROVIDER_ALLOWLIST: "127.0.0.0/8",
-    /*
-     * WHICH PROVIDERS THIS INSTANCE SEARCHES (CNCORE-68). The two this harness
-     * stood up, named to the app the way a self-hoster names them -- so the
-     * import surface fans out over the SAME providers the imports below reach,
-     * and a candidate it offers is one the catalogue can be asked about.
-     *
-     * A SEPARATE SETTING FROM THE ALLOWLIST ABOVE, and both are needed: the
-     * allowlist says loopback MAY be reached and this says which addresses on it
-     * to ask. Neither is derivable from the other -- `127.0.0.0/8` carries no
-     * scheme and no port.
-     */
-    PROVIDER_URLS: [
+  /*
+   * WHAT THIS INSTANCE REACHES, WRITTEN INTO ITS DATABASE (CNCORE-99). Both
+   * settings are rows since migration 16, so the harness configures this
+   * instance the way an owner does rather than through variables the app no
+   * longer reads.
+   *
+   * ADR-0034's ALLOWLIST: loopback is legal here BY NAME, which is the whole
+   * job of the config boundary; the content deny rule still refuses `loopback`
+   * and goes on refusing it.
+   *
+   * AND WHICH PROVIDERS ARE SEARCHED (CNCORE-68), which is a SEPARATE setting
+   * and not derivable from the one above -- `127.0.0.0/8` carries no scheme and
+   * no port. The ones this harness stood up, named the way a self-hoster names
+   * them, so the import surface fans out over the SAME providers the imports
+   * below reach.
+   */
+  const configuring = createDb(databaseUrl, { maxConnections: HARNESS_CONNECTIONS });
+  await writeProviderSettings(configuring, {
+    providerAllowlist: "127.0.0.0/8",
+    providerUrls: [
       provider.url,
       tmdb.url,
       lookupOnly.url,
       answersBadly.url,
       UNREACHABLE_PROVIDER,
-    ].join(","),
+    ].join("\n"),
+  });
+  await configuring.$client.end();
+
+  const env = {
+    ...process.env,
+    DATABASE_URL: databaseUrl,
     // THE OWNER'S PASSWORD, because this instance is IMPORTED INTO: the fixtures
     // below are filled through the app's own write path, which is the owner's.
     OWNER_PASSWORD,
@@ -146,7 +158,7 @@ export default async function setup(project: TestProject) {
    * A SECOND INSTANCE, AND IT IS WHAT A STRANGER ACTUALLY GETS. The seeded
    * server above has a catalogue and an allowlist, so two of the front page's
    * four criteria have no state to be asserted in: an empty catalogue and an
-   * unconfigured `PROVIDER_ALLOWLIST` are precisely what this one has (ADR-0094).
+   * unconfigured allowlist are precisely what this one has (ADR-0094).
    *
    * THE SAME BUILD, a different database and a different environment. Next is
    * built once above and started twice, so what this proves is the SHIPPED page
@@ -193,6 +205,9 @@ export default async function setup(project: TestProject) {
   project.provide("stillBaseUrl", still.baseUrl);
   project.provide("stillCatalogue", still.fixture);
 
+  const configurable = await anInstanceSafeToConfigure();
+  project.provide("configurableBaseUrl", configurable.baseUrl);
+
   project.provide("imported", await importThroughTheApp(baseUrl, provider.url));
   project.provide("attributed", await importFromTmdb(baseUrl, tmdb.url));
   /*
@@ -222,6 +237,7 @@ export default async function setup(project: TestProject) {
     await editable.close();
     await curatable.close();
     await reorderable.close();
+    await configurable.close();
     // The seed ends its own client; this pool has to be ended too, or the run
     // holds an idle connection open against a database it is finished with.
     await twoOrigins.close();
@@ -239,12 +255,11 @@ export default async function setup(project: TestProject) {
  * A CanonCore nobody has configured and nobody has filled: the state ADR-0094
  * governs, standing up on its own port.
  *
- * NO `PROVIDER_ALLOWLIST` AT ALL, which is not the same as one this harness
- * chose to leave narrow. ADR-0034 makes the variable default to the empty
- * string and the empty string refuse every provider, so ABSENT is the
- * configuration under test -- and it is passed as an explicit empty string
- * rather than omitted, because this process inherits its own environment and an
- * omitted key would let the parent's value through.
+ * AN EMPTY ALLOWLIST, which is not the same as one this harness chose to leave
+ * narrow. ADR-0034 makes it empty by default and the empty value refuse every
+ * provider, so an instance nobody has configured is the state under test. It is
+ * written explicitly rather than left out, because "what this instance reaches"
+ * is what an instance IS here and a reader should not have to infer it.
  *
  * The database is built from empty by the same ladder every other suite runs,
  * and nothing seeds it. That is the whole fixture: the emptiness IS the state.
@@ -263,24 +278,19 @@ function freshInstall() {
     allowlist: "",
     /*
      * AND NO PROVIDER NAMED EITHER, which is the second half of the same first
-     * run. `PROVIDER_URLS` defaults to the empty string and the empty string
-     * names nothing, so a stranger's instance searches no provider -- and the
-     * import surface has to SAY that rather than show an empty result
-     * (ADR-0094). An empty list rather than an omitted key, for the reason the
-     * allowlist is: this process inherits its own environment, and an omitted
-     * key would let the parent's value through. `anInstanceServing` is what
-     * makes that structural -- there is no longer a way to omit it.
+     * run: an instance that names none searches none -- and the import surface
+     * has to SAY that rather than show an empty result (ADR-0094).
      *
-     * AND THE EXPLICIT EMPTY STRING IS NOT ENOUGH ON ITS OWN, which is worth
-     * knowing before somebody loses an afternoon to it. A value for either of
-     * these in `apps/web/.env` REACHES THIS SERVER ANYWAY and this instance
-     * stops being a fresh install: both notices vanish and four tests here fail
-     * together, pointing at the page rather than at the file. Measured while
-     * building CNCORE-68, by putting a provider in `.env` to look at the surface
-     * in a browser -- and it is not dotenv doing it, which leaves an explicit
-     * empty string alone (checked on 17.4.2), but Next's own env loading inside
-     * the server. CI never sees it because a fresh checkout has no `.env`; a
-     * developer's machine sees it the first time they configure one.
+     * THE AFTERNOON THIS USED TO COST IS GONE, and it is worth recording what
+     * ended it. While these were environment variables, a value for either in
+     * `apps/web/.env` REACHED THIS SERVER ANYWAY and the instance stopped being
+     * a fresh install: both notices vanished and four tests here failed
+     * together, pointing at the page rather than at the file. It was not dotenv
+     * doing it -- that leaves an explicit empty string alone (checked on
+     * 17.4.2) -- but Next's own env loading inside the server, and CI never saw
+     * it because a fresh checkout has no `.env`. They are rows now (CNCORE-99),
+     * and nothing on a developer's machine can put one in this instance's
+     * database.
      */
     providers: [],
     // NOTHING SEEDS IT, and that is the fixture rather than an omission: the
@@ -313,9 +323,10 @@ function aCatalogueTooBigForOnePage() {
     ownerPassword: "",
     allowlist: "127.0.0.0/8",
     // EXPLICIT AND EMPTY, WHERE IT USED TO BE NEITHER (CNCORE-111). This was the
-    // one instance that omitted `PROVIDER_URLS`, so a developer with providers
-    // in `apps/web/.env` gave it ones CI never has. Nothing here imports, so the
-    // difference was invisible rather than harmless.
+    // one instance that omitted the setting while it was an environment
+    // variable, so a developer with providers in `apps/web/.env` gave it ones CI
+    // never has. Nothing here imports, so the difference was invisible rather
+    // than harmless.
     providers: [],
     /*
      * TWO AND A HALF PAGES, not one and a bit. Three pages is the smallest walk
@@ -587,6 +598,36 @@ function aCatalogueThatHoldsStill() {
 }
 
 /**
+ * AN INSTANCE WHOSE CONFIGURATION A TEST MAY WRITE (CNCORE-99).
+ *
+ * THE SETTINGS SURFACE CHANGES WHAT AN INSTANCE REACHES, so no other instance
+ * here can carry it. Three files assert on which providers are configured --
+ * the import surface's two notices and the purge page's rows -- and a suite
+ * that named a provider on the instance they read would be CNCORE-93's shape
+ * exactly: an assertion reading shared state across a write it does not own.
+ *
+ * IT STARTS AS AN INSTANCE NOBODY HAS CONFIGURED, which is more than a default
+ * here: the page has to render the empty case, and the first thing the file
+ * does is name something.
+ *
+ * A PASSWORD, BECAUSE CONFIGURING IS WRITING. Everything that changes an
+ * instance is behind a session (CNCORE-109), and the settings surface is no
+ * exception -- what a visitor sees here is one of the things the file asserts.
+ *
+ * NOTHING SEEDS IT. What this instance is for is its settings, and a catalogue
+ * in it would be a fixture nobody reads.
+ */
+function anInstanceSafeToConfigure() {
+  return anInstanceServing({
+    suffix: "conf",
+    ownerPassword: OWNER_PASSWORD,
+    allowlist: "",
+    providers: [],
+    fill: async () => {},
+  });
+}
+
+/**
  * One item a browse placed, whichever came first.
  *
  * WHICH ONE DOES NOT MATTER HERE, and that is deliberate rather than lazy: what
@@ -606,8 +647,8 @@ function firstItemPlacedBy({ placements }: { placements: { itemId: string }[] })
  *
  * An earlier version of this called the import function in-process with an
  * allowlist the harness held. That proved the library and left the app's own
- * path untested: `provider.import`, the real `createContext`, and the real
- * `PROVIDER_ALLOWLIST` were never exercised against a provider. Found in
+ * path untested: `provider.import`, the real `createContext`, and this
+ * instance's own allowlist were never exercised against a provider. Found in
  * review, and it mattered -- the ticket's criterion is that THE APP imports.
  *
  * So this is an oRPC call over real HTTP into the running production build,
@@ -643,8 +684,8 @@ async function importThroughTheApp(baseUrl: string, providerUrl: string) {
  * other forever (ADR-0018); this holds both, and the page prints both.
  *
  * IT GOES THROUGH THE APP rather than round it, for the reason the import above
- * does: `provider.browse`, the real `createContext` and the real
- * `PROVIDER_ALLOWLIST` are what the ticket says must work, and calling the
+ * does: `provider.browse`, the real `createContext` and this instance's own
+ * allowlist are what the ticket says must work, and calling the
  * library in-process would prove none of them.
  */
 async function browseThroughTheApp(baseUrl: string, providerUrl: string, databaseUrl: string) {
@@ -676,7 +717,7 @@ async function browseThroughTheApp(baseUrl: string, providerUrl: string, databas
   // The owner's own hand, on the item the provider just imported. A second
   // ordering that disagrees with the first about where the story sits, because
   // a demo where both orderings agree proves nothing a `series_index` could not.
-  const db = createDb(databaseUrl);
+  const db = createDb(databaseUrl, { maxConnections: HARNESS_CONNECTIONS });
   const byHand = await anItemTitled(db, "A story order the owner keeps", {
     isContainer: true,
     isOrdered: true,
@@ -802,8 +843,8 @@ const THE_MATRIX = { id: "movie:603", title: "The Matrix" };
  * this, so it is also a name that cannot one day resolve.
  *
  * AND IT IS THE COMMONEST REAL MISCONFIGURATION, which is why it is the failure
- * worth rendering: naming a provider in `PROVIDER_URLS` and forgetting to
- * allowlist its host is the mistake two settings make easy to walk into.
+ * worth rendering: naming a provider and forgetting to allowlist its host is
+ * the mistake two settings make easy to walk into.
  */
 const UNREACHABLE_PROVIDER = "http://provider.invalid";
 
@@ -959,7 +1000,7 @@ async function stubTmdbProvider(): Promise<{ url: string; close: () => Promise<v
  *
  * IT IS NOT A STAND-IN FOR A REAL PROVIDER and must not grow into one. It stands
  * for one claim -- that a provider may decline `browse` and still be well-formed
- * -- and it is configured in `PROVIDER_URLS` like any other, so the import page
+ * -- and this instance names it like any other, so the import page
  * fans out over it and has to handle it.
  *
  * `browse` IS NOT ROUTED AT ALL, deliberately: a provider that does not DECLARE
@@ -1357,7 +1398,7 @@ async function aCatalogueSafeToEdit(wikiUrl: string) {
  * is the only place two origins meet, and the filter needs two to narrow.
  */
 async function anItemPlacedTwoWays(databaseUrl: string) {
-  const db = createDb(databaseUrl);
+  const db = createDb(databaseUrl, { maxConnections: HARNESS_CONNECTIONS });
   const item = await anItemTitled(db, "An item placed two ways");
   const byHand = await anItemTitled(db, "An ordering filled by hand", {
     isContainer: true,
@@ -1407,7 +1448,7 @@ async function anItemPlacedTwoWays(databaseUrl: string) {
  * `CONTEXT.md`.
  */
 async function anItemOfAKindWhoseLabelDiffers(databaseUrl: string) {
-  const db = createDb(databaseUrl);
+  const db = createDb(databaseUrl, { maxConnections: HARNESS_CONNECTIONS });
   const title = "The Hartnell era";
   const kind = "time_span";
   const id = await anItemTitled(db, title, { kind });
@@ -1438,7 +1479,7 @@ async function anItemOfAKindWhoseLabelDiffers(databaseUrl: string) {
  * stopped a kind filter being enough.
  */
 async function theThingsWorkBrowsingHasToTellApart(databaseUrl: string) {
-  const db = createDb(databaseUrl);
+  const db = createDb(databaseUrl, { maxConnections: HARNESS_CONNECTIONS });
   const owner = await ownerSource(db);
 
   // Placed in nothing, which is the point: a person floods the grid by being
@@ -1813,6 +1854,11 @@ declare module "vitest" {
      * "how much this catalogue holds" can be asserted at all (CNCORE-93).
      */
     stillBaseUrl: string;
+    /**
+     * And again, serving an instance whose own CONFIGURATION a test may write:
+     * the only one the settings surface may be used on (CNCORE-99).
+     */
+    configurableBaseUrl: string;
     /**
      * Every item it holds, as `pagedCatalogue` above does -- so how much it holds
      * comes from the fixture that wrote them rather than from the app.

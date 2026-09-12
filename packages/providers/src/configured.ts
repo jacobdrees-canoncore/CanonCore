@@ -46,3 +46,73 @@ export function parseProviderUrls(configured: string): string[] {
   }
   return entries;
 }
+
+/**
+ * What separates the entries this file writes back.
+ *
+ * A NEWLINE RATHER THAN A COMMA, because the string is read by a person only
+ * when something has gone wrong with it -- a row in a database, a value in a
+ * log -- and one provider per line is what reads there. `parseProviderUrls`
+ * splits on either (ADR-0121), so this is a choice about legibility and never
+ * about meaning.
+ *
+ * IT SEPARATES, AND THAT IS ALL IT TOUCHES. Every entry on either side of it is
+ * the owner's own spelling, byte for byte: this rejoins a list, it does not
+ * rewrite one.
+ */
+const BETWEEN_ENTRIES = "\n";
+
+/**
+ * Names one more provider, answering the configuration the owner now has.
+ *
+ * IT VALIDATES THROUGH `parseProviderUrls` RATHER THAN BESIDE IT. Whether an
+ * entry is a URL is that function's question and it throws `OutboundRefused`
+ * with a sentence the owner can act on; asking it again here in different words
+ * would be two rules for one fact, and the settings surface would refuse things
+ * a configured instance accepts.
+ *
+ * A REPEAT IS NOT AN ADDITION. A provider named twice is searched twice, so an
+ * owner who types one they already have gets the configuration they already
+ * had. The comparison is EXACT, because a provider's URL is its identity
+ * (ADR-0031) and two spellings of one host are two identities to every source
+ * row in the catalogue.
+ */
+export function nameProvider(configured: string, baseUrl: string): string {
+  const named = parseProviderUrls(configured);
+  // The entry is parsed rather than trusted: `parseProviderUrls` is what refuses
+  // one that is not a URL, and what strips the whitespace around what the owner
+  // typed into a form.
+  const [entry, ...rest] = parseProviderUrls(baseUrl);
+  if (entry === undefined || rest.length > 0) {
+    throw new OutboundRefused(
+      `\`${baseUrl}\` is not one provider. A provider is a URL and nothing more (ADR-0031), so name them one at a time.`,
+    );
+  }
+  if (named.includes(entry)) return configured;
+  return [...named, entry].join(BETWEEN_ENTRIES);
+}
+
+/**
+ * Stops this instance naming one provider, answering the configuration the
+ * owner now has.
+ *
+ * IT REMOVES THE PROVIDER FROM THE LIST, NOT FROM THE CATALOGUE. `CONTEXT.md`
+ * keeps Purge for the second thing and it is a different operation with a
+ * different confirmation (ADR-0046): everything this provider ever claimed
+ * stays, attributed to it, and the only change is that nothing asks it again.
+ *
+ * AN EXACT MATCH, for the reason `nameProvider` above is exact. A provider's URL
+ * is its identity (ADR-0031), so removing `http://host:8080/` when the owner
+ * named `http://host:8080` would be this app deciding the two were one -- which
+ * is the same decision the store refuses to make by never normalising an entry.
+ *
+ * REMOVING WHAT WAS NEVER NAMED CHANGES NOTHING, rather than refusing. The
+ * configuration the owner asked for is the one they already have, and a second
+ * click on a Remove button is not an error.
+ */
+export function removeProvider(configured: string, baseUrl: string): string {
+  const [entry] = parseProviderUrls(baseUrl);
+  return parseProviderUrls(configured)
+    .filter((named) => named !== entry)
+    .join(BETWEEN_ENTRIES);
+}

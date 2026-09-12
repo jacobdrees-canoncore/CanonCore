@@ -148,6 +148,15 @@ function LoggedIn() {
         <Link className="text-sm hover:underline" href="/tasks">
           Tasks
         </Link>
+        {/*
+          AND THE WAY TO WHAT THIS INSTANCE REACHES (CNCORE-99), here for the
+          same reason the two above are. The empty-catalogue notices link
+          straight to it, which is where an owner meets it first; this is where
+          they come back to it once their catalogue is no longer empty.
+        */}
+        <Link className="text-sm hover:underline" href="/settings">
+          Settings
+        </Link>
       </div>
     </>
   );

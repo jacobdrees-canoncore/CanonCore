@@ -58,16 +58,6 @@ services:
       # hands over a command that generates them, rather than asking the reader
       # to think of a password and hope.
       DATABASE_URL: postgresql://canoncore:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env; copy .env.example if you have not}@database:5432/canoncore
-      # EMPTY REFUSES EVERY PROVIDER (ADR-0034), which is the safe end of the
-      # failure and is what a fresh install runs with until somebody writes a
-      # host here. The front page says so on its face rather than leaving an
-      # empty catalogue to read as breakage.
-      PROVIDER_ALLOWLIST: ${PROVIDER_ALLOWLIST:-}
-      # WHICH PROVIDERS ARE SEARCHED, which is a different setting from which
-      # ones MAY be reached above: a Provider needs naming here and allowlisting
-      # there. Empty means none is searched, and the import surface says so
-      # rather than showing an empty result.
-      PROVIDER_URLS: ${PROVIDER_URLS:-}
       # THE OWNER'S PASSWORD, and the only thing standing in front of everything
       # that WRITES (CNCORE-109). Unset means nobody can log in and the whole
       # instance is read-only, which is ADR-0044's public demo rather than a

@@ -5,8 +5,8 @@ import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
-
 import { logInAt } from "./document";
+import { HARNESS_CONNECTIONS } from "./instance";
 
 /**
  * THE TEST THAT PROVES THIS IS NOT A TREE.
@@ -113,7 +113,7 @@ let rose: string;
 let series2Items: Map<string, string>;
 
 beforeAll(async () => {
-  db = createDb(inject("databaseUrl"));
+  db = createDb(inject("databaseUrl"), { maxConnections: HARNESS_CONNECTIONS });
   // LOGGED IN, because a browse WRITES and writing is the owner's since
   // CNCORE-109. The cookie is the one the login page hands a browser.
   const cookie = await logInAt(inject("baseUrl"), inject("ownerPassword"));

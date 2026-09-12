@@ -332,12 +332,14 @@ export const provider = {
    * is whether there is anything on it at all. Handing over the entries would
    * put a private network's addresses in a response to satisfy a yes-or-no.
    *
-   * NO REQUEST LEAVES THE APP. It reads the configuration this process started
-   * with, which is what `createContext` parsed at module load.
+   * NO REQUEST LEAVES THE APP. It reads this instance's own settings, which the
+   * owner edits at `/settings` and `createContext` reads per request -- so the
+   * answer changes with the configuration rather than with a restart.
    */
-  allowlisted: openProcedure
-    .output(z.object({ any: z.boolean() }))
-    .handler(({ context }) => ({ any: allowsAnything(context.providerAllowlist) })),
+  allowlisted: openProcedure.output(z.object({ any: z.boolean() })).handler(async ({ context }) => {
+    const { allowlist } = await context.providerSettings();
+    return { any: allowsAnything(allowlist) };
+  }),
 
   /**
    * WHICH PROVIDERS THIS INSTANCE SEARCHES, so a surface can say "none" rather
@@ -345,8 +347,9 @@ export const provider = {
    *
    * THE SECOND HALF OF THE SAME SILENCE `allowlisted` ABOVE NAMES. An instance
    * reaches no provider either because nothing is allowlisted or because nothing
-   * is named, and the two have different remedies -- `PROVIDER_ALLOWLIST` and
-   * `PROVIDER_URLS` -- so one answer could not tell an owner which to go and set.
+   * is named, and the two have different remedies -- the allowlist and the
+   * providers beside it, both on `/settings` -- so one answer could not tell an
+   * owner which of them to go and change.
    *
    * AND IT HANDS OVER THE URLS, WHICH IS THE OPPOSITE OF WHAT `allowlisted` DOES
    * AND IS NOT AN INCONSISTENCY. That procedure answers a YES-OR-NO and would have
@@ -358,13 +361,16 @@ export const provider = {
    * about a READER being handed a source's claims; this is the OWNER, who wrote
    * these URLs and is the only person who can change one.
    *
-   * NO REQUEST LEAVES THE APP. It reads what `createContext` parsed at module
-   * load, so it answers for a provider that is switched off exactly as for one
-   * that is running.
+   * NO REQUEST LEAVES THE APP. It reads this instance's own settings, so it
+   * answers for a provider that is switched off exactly as for one that is
+   * running.
    */
   configured: openProcedure
     .output(z.object({ providers: z.array(z.url()) }))
-    .handler(({ context }) => ({ providers: context.providerUrls })),
+    .handler(async ({ context }) => {
+      const { urls } = await context.providerSettings();
+      return { providers: urls };
+    }),
 
   /**
    * WHICH OF ONE PROVIDER'S RECORDS THIS CATALOGUE ALREADY HOLDS, for ids the
@@ -434,7 +440,7 @@ export const provider = {
    * concludes their query was wrong when their source was merely offline.
    *
    * THE CONFIGURED SET RATHER THAN A URL ON THE INPUT. A provider is a URL
-   * (ADR-0031) and there is no registry, so the set comes from `PROVIDER_URLS`,
+   * (ADR-0031) and there is no registry, so the set comes from the settings,
    * parsed at module load. Taking it as input would make every caller name the
    * providers, and a caller that named one would get one answer and no way to
    * know it had missed the other.
@@ -491,8 +497,9 @@ export const provider = {
       // provider that answered -- the fan-out's whole purpose. Raising it as the
       // SEARCH's error would throw away every other provider's answers because
       // one URL was not allowlisted.
+      const { allowlist, urls } = await context.providerSettings();
       const { answered, failed } = await searchProviders(
-        { baseUrls: context.providerUrls, allowlist: context.providerAllowlist },
+        { baseUrls: urls, allowlist },
         input.query,
       );
 
@@ -585,11 +592,8 @@ export const provider = {
     })
     .handler(async ({ input, context, errors }) => {
       try {
-        const imported = await importRecordFromProvider(
-          context.db,
-          context.providerAllowlist,
-          input,
-        );
+        const { allowlist } = await context.providerSettings();
+        const imported = await importRecordFromProvider(context.db, allowlist, input);
         if (!imported) throw errors.NO_SUCH_RECORD();
         return imported;
       } catch (error) {
@@ -694,10 +698,8 @@ export const provider = {
       ]),
     )
     .handler(async ({ input, context }) => {
-      const client = createProviderClient({
-        baseUrl: input.baseUrl,
-        allowlist: context.providerAllowlist,
-      });
+      const { allowlist } = await context.providerSettings();
+      const client = createProviderClient({ baseUrl: input.baseUrl, allowlist });
       try {
         // THE SAME PREAMBLE `browseIntoCatalogue` RUNS, which is what makes this
         // a prediction of the button rather than a second opinion about it.
@@ -796,7 +798,8 @@ export const provider = {
     })
     .handler(async ({ input, context, errors }) => {
       try {
-        const browsed = await browseIntoCatalogue(context.db, context.providerAllowlist, input);
+        const { allowlist } = await context.providerSettings();
+        const browsed = await browseIntoCatalogue(context.db, allowlist, input);
         if (!browsed) throw errors.NO_SUCH_CONTAINER();
         return browsed;
       } catch (error) {
