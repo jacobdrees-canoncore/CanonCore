@@ -169,11 +169,13 @@ describe("also appears in", () => {
 
     const argued = orderingRows(disagreement.text);
     expect(argued).toHaveLength(2);
-    // AND RANK STILL LEADS (ADR-0017), which is where this end differs from the
-    // container's. The wiki outranks the broadcaster in the one global source
-    // order (ADR-0025) and it is the wiki that claims #3, so the winning claim
-    // is the row a reader meets first -- the OPPOSITE of the #1-then-#3 the
-    // Members list renders, and naming the sources must not disturb it.
+    // AND THE SPOKESMAN'S TERMS STILL LEAD (ADR-0017), which is where this end
+    // differs from the container's. Both sources sit at the default rank --
+    // nothing in the product sets one -- so it is the one global source order
+    // (ADR-0025) that separates them, the wiki sits ahead of the broadcaster in
+    // it, and it is the wiki that claims #3. The winning claim is therefore the
+    // row a reader meets first: the OPPOSITE of the #1-then-#3 the Members list
+    // renders, and naming the sources must not disturb it.
     expect(
       argued.map((row) => workBrowsing.arguedBy.filter((by) => row.includes(by))),
     ).toStrictEqual([[workBrowsing.arguedBy[1]], [workBrowsing.arguedBy[0]]]);

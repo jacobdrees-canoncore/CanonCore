@@ -263,10 +263,29 @@ because a correction placed beside a claim leaves the old claim standing.
 container's sort name, then the spokesman's rank and source order, then position -- so the winning
 claim of a disagreement is the row a reader meets first, which is how this record expresses a
 resolution it will not MARK. Naming the sources adds a column to the row and touches none of that.
-The e2e fixture is shared with the container's end and pins the difference: the source that outranks
-the other claims position 3, so the Members list renders #1 then #3 and "Also appears in" renders #3
-then #1, off ONE seeded disagreement. A page that had quietly adopted position order here would pass
-the container's assertion and fail this one.
+The e2e fixture is shared with the container's end and pins the difference: the source that SPEAKS
+FIRST claims position 3, so the Members list renders #1 then #3 and "Also appears in" renders #3 then
+#1, off ONE seeded disagreement. A page that had quietly adopted position order here would pass the
+container's assertion and fail this one.
+
+**AND IT IS THE SOURCE ORDER DOING THAT, NOT A RANK**, which this record keeps strictly apart
+everywhere else and an earlier draft of this section blurred by saying one source "outranks" the
+other. Nothing in the product sets a rank -- `assertPlacement` takes no such parameter and the column
+defaults to `normal` -- so both fixture sources tie on the FIRST term and it is the one global source
+order ([[0025-the-source-order-is-global]]) that separates them. ADR-0024's lock is what would
+override that, and it still arrives with the surface that locks something. The db suite covers the
+rank term separately, by setting one by hand.
+
+**WHAT IT COSTS, ON THE ONE LISTING THAT IS NOT CAPPED.** The container's end could justify this
+aggregate on a measured 4.4 ms against 0.8 ms because CNCORE-89 had capped it; "Also appears in"
+takes no `limit`, so the same lateral rides an unbounded row count and CNCORE-125 owns the cap.
+MEASURED for that ticket rather than left to it: one item placed in 1,000 orderings with two sources
+each costs 6.3-12.3 ms with the aggregate against 3.6-4.1 ms without, over three runs on the
+PostgreSQL 18.6 `compose.yaml` pins, the planner answering `Index Scan using
+placement_sources_placement_source` exactly as the container's end does. Two to three times a small
+number, at a size nothing has been seen to reach -- nothing measures how many orderings one item
+really sits in, where ADR-0077 measures a container at 1,049 members. It sharpens the cap's case
+rather than making it urgent.
 
 **WHAT IS STILL NOT BUILT is what CNCORE-90 already said was undecidable, and it is unchanged.**
 Nothing MARKS which of two rows speaks. From this end it does not need to: the order says it, which

@@ -67,27 +67,17 @@ export const placementPublic = z.object({
    */
   placedBy: z.string().nullable(),
   /**
-   * Every source standing behind this placement, by the label each calls itself
-   * (ADR-0017), the one that SPEAKS for it first -- rank, then the one global
-   * source order, then a stable id, which is `spokesmanFor`'s rule applied to
-   * ORDER the names rather than to pick one of them.
+   * THE SAME FIELD `placementInContainerPublic.assertedBy` BELOW CARRIES, with
+   * the same meaning, the same ordering and the same empty case -- read that
+   * one for all three rather than a second copy of them here, because two
+   * statements of one rule are two things to keep in step.
    *
-   * THE SET, WHERE `placedBy` IS ONE KIND, and CNCORE-121 is why it is here.
-   * One container twice at two positions is a Repeat (ADR-0009) or two sources
-   * disagreeing about position (ADR-0017), nothing STORED separates them, and
-   * the kind cannot: the disagreement an instance actually holds is a wiki
-   * against a broadcaster, two PROVIDERS, so `placedBy` prints "Imported" on
-   * both rows and the reader is back where they started.
-   *
-   * IT CLOSES ADR-0017'S CORROBORATION GAP ON THE WAY, from the end that was
-   * still open. Agreement lands on ONE placement carrying a source each, so two
-   * providers corroborating an ordering were a single row reading "Imported" --
-   * indistinguishable from one provider asserting it. Two names on one row are
-   * that corroboration, visible.
-   *
-   * EMPTY FOR A PLACEMENT NO SOURCE ASSERTED -- a claim nobody made, which is
-   * still a placement. Dropping it would be the read path deciding a row does
-   * not exist because its provenance was never recorded.
+   * WHAT IS PARTICULAR TO THIS END is that it sits BESIDE `placedBy` rather
+   * than instead of it, and that CNCORE-121 rather than CNCORE-90 put it here.
+   * One CONTAINER twice at two positions is a Repeat (ADR-0009) or two sources
+   * disagreeing about position (ADR-0017); the kind above cannot separate them,
+   * the disagreement an instance actually holds being a wiki against a
+   * broadcaster -- two PROVIDERS, one word between them.
    */
   assertedBy: z.array(z.string()),
 });

@@ -182,6 +182,19 @@ function spokesmanFor(db: Database) {
  * one item sits in, where ADR-0077 measures a container at 1,049 members, so
  * this is the rule applied for consistency rather than a page seen to fall
  * over.
+ *
+ * AND SINCE CNCORE-121 IT CARRIES A LATERAL PER ROW, WHICH THAT TICKET OWES
+ * THIS ONE A FIGURE FOR. The container's end justified the same aggregate on
+ * cost -- 4.4 ms against 0.8 ms over 1,049 members -- and could, because
+ * CNCORE-89 had capped it. This listing is the one that is not, so the same
+ * lateral rides an unbounded row count. MEASURED on one item placed in 1,000
+ * orderings with two sources each: 6.3-12.3 ms with the aggregate against
+ * 3.6-4.1 ms without, over three runs on the PostgreSQL 18.6 `compose.yaml`
+ * pins, the planner using `Index Scan using placement_sources_placement_source`
+ * exactly as the container's end does. Roughly two to three times a small
+ * number at a size no catalogue has been seen to reach -- so it sharpens the
+ * cap's case rather than making it urgent, and the figure is here so CNCORE-125
+ * decides with one instead of re-deriving it.
  */
 export async function findPlacementsOfItem(
   db: Database,
@@ -1081,12 +1094,19 @@ export interface PlacementInContainer {
  * EVERY SOURCE STANDING BEHIND ONE PLACEMENT, by the label each calls itself.
  *
  * THE SET, WHERE `spokesmanFor` ABOVE PICKS ONE, and the two answer different
- * questions rather than one of them being the other done loosely. From the
- * item's end the rows are competing ORDERINGS and rank decides which speaks, so
- * one name is the answer. From the container's end the rows are what it HOLDS,
- * in position order (ADR-0018) -- and there a Repeat and a disagreement are the
- * same shape, so the reader is the one who tells them apart and needs every
- * name to do it.
+ * questions rather than one of them being the other done loosely. What each
+ * question is FOR differs by end: from the container's end the rows are what it
+ * HOLDS, in position order (ADR-0018), and from the item's end they are
+ * competing ORDERINGS whose order rank decides. But a Repeat and a disagreement
+ * are the same shape at BOTH ends -- one title twice here, one container twice
+ * there -- so the reader is the one who tells them apart, and needs every name
+ * to do it either way.
+ *
+ * SO BOTH ENDS READ THIS ONE AGGREGATE (CNCORE-90, then CNCORE-121). An earlier
+ * draft of this comment said one name was the answer from the item's end, which
+ * was true only while that end answered `placedBy` alone: it now reads exactly
+ * this lateral, and the two cannot come to disagree about who asserted a
+ * placement or about which of them leads.
  */
 function assertersOf(db: Database) {
   return (
