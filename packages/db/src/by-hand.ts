@@ -141,18 +141,14 @@ async function titledByTheOwner(
  * nothing else may assert it (migration 12), rather than this function being
  * the place that knows.
  *
- * `[]` RATHER THAN `['']` FOR AN EMPTY NOTE, and that is what makes removal the
- * same operation as editing. `assertClaims` makes what a source holds EQUAL to
- * what it now claims, so a source claiming nothing withdraws what it said --
- * tombstoned (ADR-0075) rather than deleted, so the removal is as findable as
- * the writing was.
- *
- * IT IS ALSO WHY AN EMPTY NOTE IS NOT REFUSED THE WAY AN EMPTY TITLE IS. An
- * empty title projects onto `items.title` as a heading that renders blank,
- * where an item with no title statement renders "Untitled item" -- two
- * different states, one of them useless. A note projects onto nothing, so an
- * empty one and an absent one are the same claim: the owner says nothing about
- * this item.
+ * `[]` RATHER THAN `['']` FOR AN EMPTY NOTE, which is the one line in this
+ * repository where the removal actually happens. `assertClaims` makes what a
+ * source holds EQUAL to what it now claims, so a source claiming nothing
+ * withdraws what it said -- tombstoned (ADR-0075) rather than deleted. ADR-0096
+ * carries the rest of the argument, including why an empty note is accepted
+ * where an empty title is refused; the callers above this point at it rather
+ * than restating it, because a reason written out at seven sites is a reason
+ * six of them will drift from.
  */
 async function notedByTheOwner(
   tx: Transaction,
@@ -169,22 +165,27 @@ async function notedByTheOwner(
 }
 
 /**
- * The item that id addresses, or `undefined` where it addresses none.
+ * Whether that id addresses an item anybody can still read.
  *
  * THE TOMBSTONE IS HONOURED (ADR-0075). An item the owner deleted is gone to
  * every reader, so writing a claim about one would write about a grave and
  * report success while the owner sees nothing change.
  *
- * SHARED BY EVERY EDIT BELOW rather than repeated in each, for the reason
+ * A BOOLEAN, WHICH REVIEW ASKED FOR AND WHICH IS HONEST. This answered the id
+ * it was handed -- always the same string, since it resolves no alias -- and a
+ * caller threading that back out again read as though the lookup had found
+ * something it had not.
+ *
+ * SHARED BY BOTH EDITS BELOW rather than repeated in each, for the reason
  * `titledByTheOwner` gives one function up: two copies of a tombstone check are
  * two chances for the next edit path to be added to one of them.
  */
-async function aLiveItem(tx: Transaction, itemId: string): Promise<string | undefined> {
+async function isALiveItem(tx: Transaction, itemId: string): Promise<boolean> {
   const [found] = await tx
     .select({ id: items.id })
     .from(items)
     .where(and(eq(items.id, itemId), isNull(items.deletedAt)));
-  return found?.id;
+  return found !== undefined;
 }
 
 /**
@@ -233,10 +234,9 @@ export async function retitleItemByHand(
 ): Promise<boolean> {
   return db.transaction(async (tx) => {
     const ownerId = await theOwnerId(tx);
-    const found = await aLiveItem(tx, itemId);
-    if (!found) return false;
+    if (!(await isALiveItem(tx, itemId))) return false;
 
-    await titledByTheOwner(tx, ownerId, found, title);
+    await titledByTheOwner(tx, ownerId, itemId, title);
     return true;
   });
 }
@@ -266,10 +266,9 @@ export async function annotateItemByHand(
 ): Promise<boolean> {
   return db.transaction(async (tx) => {
     const ownerId = await theOwnerId(tx);
-    const found = await aLiveItem(tx, itemId);
-    if (!found) return false;
+    if (!(await isALiveItem(tx, itemId))) return false;
 
-    await notedByTheOwner(tx, ownerId, found, note);
+    await notedByTheOwner(tx, ownerId, itemId, note);
     return true;
   });
 }

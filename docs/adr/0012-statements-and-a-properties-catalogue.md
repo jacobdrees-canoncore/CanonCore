@@ -117,8 +117,12 @@ a trigger cannot be forgotten, where an application-maintained rule is silently 
 writing directly. What lives in the data is the DECLARATION either way, which is the sentence this
 record is actually about.
 
-`properties_capabilities_are_an_object` (migration 12) is the second constraint of
-`properties_validation_declares_a_format`'s kind and exists for the same reason: `capabilities` is
+`properties_capabilities_are_an_object` is the second constraint of
+`properties_validation_declares_a_format`'s kind and exists for the same reason. It is DECLARED in
+`schema/tables.ts` beside its sibling and migration 12's `ALTER` is GENERATED from that declaration,
+which is ADR-0047's rule rather than a style: the schema and the head snapshot have to agree, so a
+CHECK on a declared table is declared, and only the data statement and the trigger are hand-written
+into the rung. Its content: `capabilities` is
 `jsonb`, ADR-0015 leaves it editable, and no foreign key can reach inside it. It refuses a non-object,
 an `assertableBy` that is not a non-empty array, and a `public` that is not a boolean -- the last
 because `jsonb` would take the string `"false"` as happily as the boolean, which reads as truthy

@@ -646,9 +646,7 @@ function EditTitle({ itemId, title }: { itemId: string; title: string | null }) 
  *
  * ONE FORM FOR WRITING, EDITING AND REMOVING. The field opens on the note the
  * item already has, so correcting a sentence does not mean retyping the
- * paragraph -- and clearing it and saving is the removal, because a note the
- * owner cleared and one they never wrote are the same claim (`annotateItem`
- * gives the whole argument).
+ * paragraph -- and clearing it and saving is the removal (ADR-0096).
  *
  * A `<textarea>` RATHER THAN AN `<input>`, because a note is prose and an owner
  * writing about an item writes sentences. `defaultValue` keeps it working with

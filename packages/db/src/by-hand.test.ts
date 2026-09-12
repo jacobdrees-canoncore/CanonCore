@@ -250,9 +250,44 @@ describe("annotating an Item by hand", () => {
 
     expect(await findNoteOfItem(db, itemId)).toEqual({
       value: "The one I always come back to",
-      sourceKind: "owner",
       sourceLabel: "Owner",
     });
+  });
+
+  /**
+   * A TITLE AND A NOTE ARE BOTH THE OWNER'S, AND THE OWNER IS ONE SOURCE. That
+   * is what makes this worth asserting rather than obvious: `assertClaims`
+   * withdraws what this source no longer claims, and it is called once per edit
+   * with ONE property in the set -- so what saves the note from a retitle is
+   * that the withdrawal is scoped to the properties being claimed. Widen that
+   * scope and every note in the catalogue disappears the next time its item is
+   * renamed, silently. Review found it asserted nowhere.
+   */
+  it("leaves the note standing when the owner edits the title", async () => {
+    const { itemId } = await createItemByHand(db, { kind: "work", title: "What I called it" });
+    await annotateItemByHand(db, { itemId, note: "Why I keep it" });
+
+    await retitleItemByHand(db, { itemId, title: "What I call it now" });
+
+    expect(await findNoteOfItem(db, itemId)).toMatchObject({ value: "Why I keep it" });
+    expect((await findItem(db, itemId))?.title).toBe("What I call it now");
+  });
+
+  /**
+   * A BOX HOLDING THREE SPACES IS A BOX THE OWNER CLEARED, which the trim on
+   * `noteByHand` makes true and which was undocumented and untested until
+   * review said so.
+   */
+  it("removes the note when the owner leaves only whitespace", async () => {
+    const { itemId } = await createItemByHand(db, { kind: "work", title: "The Tenth Planet" });
+    await annotateItemByHand(db, { itemId, note: "Something I later thought better of" });
+
+    // THE TRIM IS THE ROUTER'S, so this is the db function given what it would
+    // be handed -- which is the honest test of THIS seam. `item.annotate` is
+    // where the trim itself is asserted.
+    await annotateItemByHand(db, { itemId, note: "" });
+
+    expect(await findNoteOfItem(db, itemId)).toBeNull();
   });
 
   /**

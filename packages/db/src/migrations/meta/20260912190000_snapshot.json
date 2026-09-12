@@ -1,0 +1,2100 @@
+{
+  "id": "892c893a-4ed2-4faf-b938-07846b6d1580",
+  "prevId": "3b08b625-f825-46da-9ca6-6f3738ba24b2",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.item_kinds": {
+      "name": "item_kinds",
+      "schema": "",
+      "columns": {
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "label": {
+          "name": "label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.property_cardinalities": {
+      "name": "property_cardinalities",
+      "schema": "",
+      "columns": {
+        "cardinality": {
+          "name": "cardinality",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "label": {
+          "name": "label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.property_datatypes": {
+      "name": "property_datatypes",
+      "schema": "",
+      "columns": {
+        "datatype": {
+          "name": "datatype",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "label": {
+          "name": "label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.property_value_kinds": {
+      "name": "property_value_kinds",
+      "schema": "",
+      "columns": {
+        "value_kind": {
+          "name": "value_kind",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "label": {
+          "name": "label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.ranks": {
+      "name": "ranks",
+      "schema": "",
+      "columns": {
+        "rank": {
+          "name": "rank",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "label": {
+          "name": "label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "precedence": {
+          "name": "precedence",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "ranks_precedence_unique": {
+          "name": "ranks_precedence_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "precedence"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.source_kinds": {
+      "name": "source_kinds",
+      "schema": "",
+      "columns": {
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "label": {
+          "name": "label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.aliases": {
+      "name": "aliases",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "owner_id": {
+          "name": "owner_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "alias_item_id": {
+          "name": "alias_item_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "item_id": {
+          "name": "item_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "change_sequence": {
+          "name": "change_sequence",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "nextval('change_sequence')"
+        },
+        "merge_id": {
+          "name": "merge_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "aliases_owner_id_owners_id_fk": {
+          "name": "aliases_owner_id_owners_id_fk",
+          "tableFrom": "aliases",
+          "tableTo": "owners",
+          "columnsFrom": [
+            "owner_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "aliases_item_id_items_id_fk": {
+          "name": "aliases_item_id_items_id_fk",
+          "tableFrom": "aliases",
+          "tableTo": "items",
+          "columnsFrom": [
+            "item_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "aliases_merge_id_merges_id_fk": {
+          "name": "aliases_merge_id_merges_id_fk",
+          "tableFrom": "aliases",
+          "tableTo": "merges",
+          "columnsFrom": [
+            "merge_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "aliases_alias_item": {
+          "name": "aliases_alias_item",
+          "nullsNotDistinct": false,
+          "columns": [
+            "alias_item_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "aliases_do_not_point_at_themselves": {
+          "name": "aliases_do_not_point_at_themselves",
+          "value": "\"aliases\".\"alias_item_id\" <> \"aliases\".\"item_id\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.items": {
+      "name": "items",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "owner_id": {
+          "name": "owner_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "is_container": {
+          "name": "is_container",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "is_ordered": {
+          "name": "is_ordered",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "holds_work": {
+          "name": "holds_work",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sort_name": {
+          "name": "sort_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "release_date": {
+          "name": "release_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "change_sequence": {
+          "name": "change_sequence",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "nextval('change_sequence')"
+        },
+        "merge_id": {
+          "name": "merge_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "items_sort_name": {
+          "name": "items_sort_name",
+          "columns": [
+            {
+              "expression": "sort_name",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "items_title_trigram": {
+          "name": "items_title_trigram",
+          "columns": [
+            {
+              "expression": "title",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last",
+              "opclass": "gin_trgm_ops"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "gin",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "items_owner_id_owners_id_fk": {
+          "name": "items_owner_id_owners_id_fk",
+          "tableFrom": "items",
+          "tableTo": "owners",
+          "columnsFrom": [
+            "owner_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "items_kind_item_kinds_kind_fk": {
+          "name": "items_kind_item_kinds_kind_fk",
+          "tableFrom": "items",
+          "tableTo": "item_kinds",
+          "columnsFrom": [
+            "kind"
+          ],
+          "columnsTo": [
+            "kind"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "items_merge_id_merges_id_fk": {
+          "name": "items_merge_id_merges_id_fk",
+          "tableFrom": "items",
+          "tableTo": "merges",
+          "columnsFrom": [
+            "merge_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "items_ordered_implies_container": {
+          "name": "items_ordered_implies_container",
+          "value": "not \"items\".\"is_ordered\" or \"items\".\"is_container\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.merges": {
+      "name": "merges",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "owner_id": {
+          "name": "owner_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "performed_at": {
+          "name": "performed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "change_sequence": {
+          "name": "change_sequence",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "nextval('change_sequence')"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "merges_owner_id_owners_id_fk": {
+          "name": "merges_owner_id_owners_id_fk",
+          "tableFrom": "merges",
+          "tableTo": "owners",
+          "columnsFrom": [
+            "owner_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.owners": {
+      "name": "owners",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "display_name": {
+          "name": "display_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "change_sequence": {
+          "name": "change_sequence",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "nextval('change_sequence')"
+        }
+      },
+      "indexes": {
+        "owners_single_row": {
+          "name": "owners_single_row",
+          "columns": [
+            {
+              "expression": "(true)",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.placement_sources": {
+      "name": "placement_sources",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "owner_id": {
+          "name": "owner_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "placement_id": {
+          "name": "placement_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_id": {
+          "name": "source_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rank": {
+          "name": "rank",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'normal'"
+        },
+        "observed_at": {
+          "name": "observed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "change_sequence": {
+          "name": "change_sequence",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "nextval('change_sequence')"
+        },
+        "merge_id": {
+          "name": "merge_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "placement_sources_owner_id_owners_id_fk": {
+          "name": "placement_sources_owner_id_owners_id_fk",
+          "tableFrom": "placement_sources",
+          "tableTo": "owners",
+          "columnsFrom": [
+            "owner_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "placement_sources_placement_id_placements_id_fk": {
+          "name": "placement_sources_placement_id_placements_id_fk",
+          "tableFrom": "placement_sources",
+          "tableTo": "placements",
+          "columnsFrom": [
+            "placement_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "placement_sources_source_id_sources_id_fk": {
+          "name": "placement_sources_source_id_sources_id_fk",
+          "tableFrom": "placement_sources",
+          "tableTo": "sources",
+          "columnsFrom": [
+            "source_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "placement_sources_rank_ranks_rank_fk": {
+          "name": "placement_sources_rank_ranks_rank_fk",
+          "tableFrom": "placement_sources",
+          "tableTo": "ranks",
+          "columnsFrom": [
+            "rank"
+          ],
+          "columnsTo": [
+            "rank"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "placement_sources_merge_id_merges_id_fk": {
+          "name": "placement_sources_merge_id_merges_id_fk",
+          "tableFrom": "placement_sources",
+          "tableTo": "merges",
+          "columnsFrom": [
+            "merge_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "placement_sources_placement_source": {
+          "name": "placement_sources_placement_source",
+          "nullsNotDistinct": false,
+          "columns": [
+            "owner_id",
+            "placement_id",
+            "source_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.placements": {
+      "name": "placements",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "owner_id": {
+          "name": "owner_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "container_id": {
+          "name": "container_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "item_id": {
+          "name": "item_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "edition_id": {
+          "name": "edition_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "change_sequence": {
+          "name": "change_sequence",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "nextval('change_sequence')"
+        },
+        "merge_id": {
+          "name": "merge_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "placements_container_position": {
+          "name": "placements_container_position",
+          "columns": [
+            {
+              "expression": "container_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "position",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "placements_item": {
+          "name": "placements_item",
+          "columns": [
+            {
+              "expression": "item_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "placements_owner_id_owners_id_fk": {
+          "name": "placements_owner_id_owners_id_fk",
+          "tableFrom": "placements",
+          "tableTo": "owners",
+          "columnsFrom": [
+            "owner_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "placements_container_id_items_id_fk": {
+          "name": "placements_container_id_items_id_fk",
+          "tableFrom": "placements",
+          "tableTo": "items",
+          "columnsFrom": [
+            "container_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "placements_item_id_items_id_fk": {
+          "name": "placements_item_id_items_id_fk",
+          "tableFrom": "placements",
+          "tableTo": "items",
+          "columnsFrom": [
+            "item_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "placements_merge_id_merges_id_fk": {
+          "name": "placements_merge_id_merges_id_fk",
+          "tableFrom": "placements",
+          "tableTo": "merges",
+          "columnsFrom": [
+            "merge_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "placements_container_item_position": {
+          "name": "placements_container_item_position",
+          "nullsNotDistinct": true,
+          "columns": [
+            "owner_id",
+            "container_id",
+            "item_id",
+            "position"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.properties": {
+      "name": "properties",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "owner_id": {
+          "name": "owner_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "datatype": {
+          "name": "datatype",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "value_kind": {
+          "name": "value_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "cardinality": {
+          "name": "cardinality",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reference_target": {
+          "name": "reference_target",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "validation": {
+          "name": "validation",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "capabilities": {
+          "name": "capabilities",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "change_sequence": {
+          "name": "change_sequence",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "nextval('change_sequence')"
+        },
+        "merge_id": {
+          "name": "merge_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "properties_owner_id_owners_id_fk": {
+          "name": "properties_owner_id_owners_id_fk",
+          "tableFrom": "properties",
+          "tableTo": "owners",
+          "columnsFrom": [
+            "owner_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "properties_datatype_property_datatypes_datatype_fk": {
+          "name": "properties_datatype_property_datatypes_datatype_fk",
+          "tableFrom": "properties",
+          "tableTo": "property_datatypes",
+          "columnsFrom": [
+            "datatype"
+          ],
+          "columnsTo": [
+            "datatype"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "properties_value_kind_property_value_kinds_value_kind_fk": {
+          "name": "properties_value_kind_property_value_kinds_value_kind_fk",
+          "tableFrom": "properties",
+          "tableTo": "property_value_kinds",
+          "columnsFrom": [
+            "value_kind"
+          ],
+          "columnsTo": [
+            "value_kind"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "properties_cardinality_property_cardinalities_cardinality_fk": {
+          "name": "properties_cardinality_property_cardinalities_cardinality_fk",
+          "tableFrom": "properties",
+          "tableTo": "property_cardinalities",
+          "columnsFrom": [
+            "cardinality"
+          ],
+          "columnsTo": [
+            "cardinality"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "properties_merge_id_merges_id_fk": {
+          "name": "properties_merge_id_merges_id_fk",
+          "tableFrom": "properties",
+          "tableTo": "merges",
+          "columnsFrom": [
+            "merge_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "properties_name": {
+          "name": "properties_name",
+          "nullsNotDistinct": false,
+          "columns": [
+            "owner_id",
+            "name"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "properties_only_item_values_have_a_reference_target": {
+          "name": "properties_only_item_values_have_a_reference_target",
+          "value": "\"properties\".\"value_kind\" = 'item' or \"properties\".\"reference_target\" is null"
+        },
+        "properties_datatype_agrees_with_value_kind": {
+          "name": "properties_datatype_agrees_with_value_kind",
+          "value": "(\"properties\".\"datatype\" = 'item') = (\"properties\".\"value_kind\" = 'item')"
+        },
+        "properties_validation_declares_a_format": {
+          "name": "properties_validation_declares_a_format",
+          "value": "jsonb_typeof(\"properties\".\"validation\") = 'object' and (\"properties\".\"validation\" = '{}'::jsonb or coalesce(jsonb_typeof(\"properties\".\"validation\" -> 'format') = 'string', false))"
+        },
+        "properties_capabilities_are_an_object": {
+          "name": "properties_capabilities_are_an_object",
+          "value": "jsonb_typeof(\"properties\".\"capabilities\") = 'object' and coalesce(jsonb_typeof(\"properties\".\"capabilities\" -> 'assertableBy') = 'array' and jsonb_array_length(\"properties\".\"capabilities\" -> 'assertableBy') > 0, \"properties\".\"capabilities\" -> 'assertableBy' is null) and coalesce(jsonb_typeof(\"properties\".\"capabilities\" -> 'public') = 'boolean', \"properties\".\"capabilities\" -> 'public' is null)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.sessions": {
+      "name": "sessions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "owner_id": {
+          "name": "owner_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "token_hash": {
+          "name": "token_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "client_name": {
+          "name": "client_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "device_name": {
+          "name": "device_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "device_id": {
+          "name": "device_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "client_version": {
+          "name": "client_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "capabilities": {
+          "name": "capabilities",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_seen_at": {
+          "name": "last_seen_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "change_sequence": {
+          "name": "change_sequence",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "nextval('change_sequence')"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "sessions_owner_id_owners_id_fk": {
+          "name": "sessions_owner_id_owners_id_fk",
+          "tableFrom": "sessions",
+          "tableTo": "owners",
+          "columnsFrom": [
+            "owner_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "sessions_token_hash_unique": {
+          "name": "sessions_token_hash_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "token_hash"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.sources": {
+      "name": "sources",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "owner_id": {
+          "name": "owner_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "identity": {
+          "name": "identity",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "label": {
+          "name": "label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_order": {
+          "name": "source_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "attribution_notice": {
+          "name": "attribution_notice",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "attribution_logo": {
+          "name": "attribution_logo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "attribution_logo_alt": {
+          "name": "attribution_logo_alt",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "change_sequence": {
+          "name": "change_sequence",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "nextval('change_sequence')"
+        },
+        "merge_id": {
+          "name": "merge_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "sources_owner_id_owners_id_fk": {
+          "name": "sources_owner_id_owners_id_fk",
+          "tableFrom": "sources",
+          "tableTo": "owners",
+          "columnsFrom": [
+            "owner_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "sources_kind_source_kinds_kind_fk": {
+          "name": "sources_kind_source_kinds_kind_fk",
+          "tableFrom": "sources",
+          "tableTo": "source_kinds",
+          "columnsFrom": [
+            "kind"
+          ],
+          "columnsTo": [
+            "kind"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "sources_merge_id_merges_id_fk": {
+          "name": "sources_merge_id_merges_id_fk",
+          "tableFrom": "sources",
+          "tableTo": "merges",
+          "columnsFrom": [
+            "merge_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "sources_identity": {
+          "name": "sources_identity",
+          "nullsNotDistinct": false,
+          "columns": [
+            "owner_id",
+            "kind",
+            "identity"
+          ]
+        },
+        "sources_order": {
+          "name": "sources_order",
+          "nullsNotDistinct": false,
+          "columns": [
+            "owner_id",
+            "source_order"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "sources_derived_names_its_version": {
+          "name": "sources_derived_names_its_version",
+          "value": "\"sources\".\"kind\" <> 'derived' or \"sources\".\"identity\" ~ '^derived:.+$'"
+        },
+        "sources_logo_carries_its_alternative_text": {
+          "name": "sources_logo_carries_its_alternative_text",
+          "value": "num_nonnulls(\"sources\".\"attribution_logo\", \"sources\".\"attribution_logo_alt\") <> 1"
+        },
+        "sources_logo_comes_with_a_notice": {
+          "name": "sources_logo_comes_with_a_notice",
+          "value": "\"sources\".\"attribution_logo\" is null or \"sources\".\"attribution_notice\" is not null"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.statement_qualifiers": {
+      "name": "statement_qualifiers",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "owner_id": {
+          "name": "owner_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "statement_id": {
+          "name": "statement_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "property_id": {
+          "name": "property_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "value_literal": {
+          "name": "value_literal",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "value_item_id": {
+          "name": "value_item_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "change_sequence": {
+          "name": "change_sequence",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "nextval('change_sequence')"
+        },
+        "merge_id": {
+          "name": "merge_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "statement_qualifiers_statement": {
+          "name": "statement_qualifiers_statement",
+          "columns": [
+            {
+              "expression": "statement_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "statement_qualifiers_owner_id_owners_id_fk": {
+          "name": "statement_qualifiers_owner_id_owners_id_fk",
+          "tableFrom": "statement_qualifiers",
+          "tableTo": "owners",
+          "columnsFrom": [
+            "owner_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "statement_qualifiers_statement_id_statements_id_fk": {
+          "name": "statement_qualifiers_statement_id_statements_id_fk",
+          "tableFrom": "statement_qualifiers",
+          "tableTo": "statements",
+          "columnsFrom": [
+            "statement_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "statement_qualifiers_property_id_properties_id_fk": {
+          "name": "statement_qualifiers_property_id_properties_id_fk",
+          "tableFrom": "statement_qualifiers",
+          "tableTo": "properties",
+          "columnsFrom": [
+            "property_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "statement_qualifiers_value_item_id_items_id_fk": {
+          "name": "statement_qualifiers_value_item_id_items_id_fk",
+          "tableFrom": "statement_qualifiers",
+          "tableTo": "items",
+          "columnsFrom": [
+            "value_item_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "statement_qualifiers_merge_id_merges_id_fk": {
+          "name": "statement_qualifiers_merge_id_merges_id_fk",
+          "tableFrom": "statement_qualifiers",
+          "tableTo": "merges",
+          "columnsFrom": [
+            "merge_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "statement_qualifiers_one_value": {
+          "name": "statement_qualifiers_one_value",
+          "value": "num_nonnulls(\"statement_qualifiers\".\"value_literal\", \"statement_qualifiers\".\"value_item_id\") = 1"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.statements": {
+      "name": "statements",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "owner_id": {
+          "name": "owner_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "subject_item_id": {
+          "name": "subject_item_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "subject_placement_id": {
+          "name": "subject_placement_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "property_id": {
+          "name": "property_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "value_literal": {
+          "name": "value_literal",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "value_item_id": {
+          "name": "value_item_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_id": {
+          "name": "source_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "observed_at": {
+          "name": "observed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "rank": {
+          "name": "rank",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'normal'"
+        },
+        "confidence": {
+          "name": "confidence",
+          "type": "numeric(4, 3)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "valid_until": {
+          "name": "valid_until",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "language": {
+          "name": "language",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'none'"
+        },
+        "country": {
+          "name": "country",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "quarantined": {
+          "name": "quarantined",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "change_sequence": {
+          "name": "change_sequence",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "nextval('change_sequence')"
+        },
+        "merge_id": {
+          "name": "merge_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "statements_subject_item_property": {
+          "name": "statements_subject_item_property",
+          "columns": [
+            {
+              "expression": "subject_item_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "property_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "statements_value_item": {
+          "name": "statements_value_item",
+          "columns": [
+            {
+              "expression": "value_item_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "statements_property_literal_source": {
+          "name": "statements_property_literal_source",
+          "columns": [
+            {
+              "expression": "property_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "md5(\"value_literal\")",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "source_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "statements_owner_id_owners_id_fk": {
+          "name": "statements_owner_id_owners_id_fk",
+          "tableFrom": "statements",
+          "tableTo": "owners",
+          "columnsFrom": [
+            "owner_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "statements_subject_item_id_items_id_fk": {
+          "name": "statements_subject_item_id_items_id_fk",
+          "tableFrom": "statements",
+          "tableTo": "items",
+          "columnsFrom": [
+            "subject_item_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "statements_subject_placement_id_placements_id_fk": {
+          "name": "statements_subject_placement_id_placements_id_fk",
+          "tableFrom": "statements",
+          "tableTo": "placements",
+          "columnsFrom": [
+            "subject_placement_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "statements_property_id_properties_id_fk": {
+          "name": "statements_property_id_properties_id_fk",
+          "tableFrom": "statements",
+          "tableTo": "properties",
+          "columnsFrom": [
+            "property_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "statements_value_item_id_items_id_fk": {
+          "name": "statements_value_item_id_items_id_fk",
+          "tableFrom": "statements",
+          "tableTo": "items",
+          "columnsFrom": [
+            "value_item_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "statements_source_id_sources_id_fk": {
+          "name": "statements_source_id_sources_id_fk",
+          "tableFrom": "statements",
+          "tableTo": "sources",
+          "columnsFrom": [
+            "source_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "statements_rank_ranks_rank_fk": {
+          "name": "statements_rank_ranks_rank_fk",
+          "tableFrom": "statements",
+          "tableTo": "ranks",
+          "columnsFrom": [
+            "rank"
+          ],
+          "columnsTo": [
+            "rank"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "statements_merge_id_merges_id_fk": {
+          "name": "statements_merge_id_merges_id_fk",
+          "tableFrom": "statements",
+          "tableTo": "merges",
+          "columnsFrom": [
+            "merge_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "statements_one_subject": {
+          "name": "statements_one_subject",
+          "value": "num_nonnulls(\"statements\".\"subject_item_id\", \"statements\".\"subject_placement_id\") = 1"
+        },
+        "statements_one_value": {
+          "name": "statements_one_value",
+          "value": "num_nonnulls(\"statements\".\"value_literal\", \"statements\".\"value_item_id\") = 1"
+        },
+        "statements_confidence_is_a_probability": {
+          "name": "statements_confidence_is_a_probability",
+          "value": "\"statements\".\"confidence\" is null or (\"statements\".\"confidence\" >= 0 and \"statements\".\"confidence\" <= 1)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.vocabulary_values": {
+      "name": "vocabulary_values",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "owner_id": {
+          "name": "owner_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "property_id": {
+          "name": "property_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "value": {
+          "name": "value",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "retired": {
+          "name": "retired",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "quarantined": {
+          "name": "quarantined",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "change_sequence": {
+          "name": "change_sequence",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "nextval('change_sequence')"
+        },
+        "merge_id": {
+          "name": "merge_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "vocabulary_values_owner_id_owners_id_fk": {
+          "name": "vocabulary_values_owner_id_owners_id_fk",
+          "tableFrom": "vocabulary_values",
+          "tableTo": "owners",
+          "columnsFrom": [
+            "owner_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "vocabulary_values_property_id_properties_id_fk": {
+          "name": "vocabulary_values_property_id_properties_id_fk",
+          "tableFrom": "vocabulary_values",
+          "tableTo": "properties",
+          "columnsFrom": [
+            "property_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "vocabulary_values_merge_id_merges_id_fk": {
+          "name": "vocabulary_values_merge_id_merges_id_fk",
+          "tableFrom": "vocabulary_values",
+          "tableTo": "merges",
+          "columnsFrom": [
+            "merge_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "vocabulary_values_raw_value": {
+          "name": "vocabulary_values_raw_value",
+          "nullsNotDistinct": false,
+          "columns": [
+            "owner_id",
+            "property_id",
+            "value"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {
+    "public.change_sequence": {
+      "name": "change_sequence",
+      "schema": "public",
+      "increment": "1",
+      "startWith": "1",
+      "minValue": "1",
+      "maxValue": "9223372036854775807",
+      "cache": "1",
+      "cycle": false
+    }
+  },
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

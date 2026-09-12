@@ -352,26 +352,26 @@ export type CataloguePublic = z.infer<typeof cataloguePublic>;
  * they do from `statementPublic`. What is emitted is what the page renders --
  * what the owner wrote, and who is on record as having written it.
  *
- * THE PROPERTY IS NOT AMONG THEM, where `statementPublic` carries one. This
- * shape answers about `note` and nothing else, so a `property` field would be
- * the same constant on every row -- a field added against a reader that does not
- * exist, which ADR-0045 is the record for.
+ * TWO FIELDS, AND NEITHER `property` NOR `sourceKind` IS AMONG THEM, where
+ * `statementPublic` carries both. This shape answers about `note` and nothing
+ * else, and migration 12 declares that property assertable by the owner alone --
+ * so each would be the same constant on every row a reader ever sees, which is a
+ * field added against a reader that does not exist. REVIEW CAUGHT `sourceKind`
+ * HERE: it was emitted and read by nothing, under a docstring rejecting
+ * `property` on exactly that ground. The day a second kind may assert a note is
+ * the day the field earns its line, and ADR-0045 makes adding one the
+ * deliberate act.
+ *
+ * `sourceLabel` STAYS BECAUSE THE PAGE RENDERS IT. It is as constant as the kind
+ * -- `Owner`, seeded by migration 1 -- and the difference is that something reads
+ * it: the note has to say whose it is, and a surface printing that word for
+ * itself would be asserting what the row says instead of reading it, which is
+ * the rule ADR-0045 settles for every other label the read path carries.
  */
 export const ownerNote = z.object({
   /** What the owner wrote. Free text: `note` declares no validation (ADR-0012). */
   value: z.string(),
-  /**
-   * ADR-0071's kind, which is `owner` and can be nothing else -- migration 12
-   * declares the property assertable by that kind alone.
-   *
-   * EMITTED ANYWAY, because the page's job is to show that a note is the
-   * OWNER'S claim and not a provider's, and a surface that printed the word for
-   * itself would be asserting what this row says rather than reading it. It is
-   * also what makes the declaration observable from outside the database: the
-   * day the rule is loosened, this field says so without a surface changing.
-   */
-  sourceKind: z.string(),
-  /** What that source calls itself. Migration 1 seeds the owner's as `Owner`. */
+  /** What the source calls itself. Migration 1 seeds the owner's as `Owner`. */
   sourceLabel: z.string(),
 });
 

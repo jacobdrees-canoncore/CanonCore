@@ -359,6 +359,26 @@ export const properties = pgTable(
       "properties_validation_declares_a_format",
       sql`jsonb_typeof(${t.validation}) = 'object' and (${t.validation} = '{}'::jsonb or coalesce(jsonb_typeof(${t.validation} -> 'format') = 'string', false))`,
     ),
+    // THE SAME ARGUMENT ONE COLUMN OVER (migration 12, ADR-0096). `capabilities`
+    // is the second declaration on this table no foreign key can reach, and it
+    // holds something since `note`: `{"assertableBy": ["owner"], "public":
+    // false}`.
+    //
+    // `coalesce(..., <key> is null)` RATHER THAN `coalesce(..., false)`, which is
+    // the opposite direction from the check above and deliberately so. That one
+    // DEMANDS a key, so a missing one must read as false; both keys here are
+    // OPTIONAL -- twelve properties declare neither -- so a missing one must read
+    // as true. A CHECK refuses only on FALSE, and getting these coalesces the
+    // wrong way round would either refuse every existing row or enforce nothing.
+    //
+    // AN EMPTY `assertableBy` IS REFUSED: it declares a property no source may
+    // ever assert, which is a field with no way in rather than a decision. And
+    // `public` must be a real boolean, because `jsonb` takes the STRING
+    // `"false"` as happily and it reads as truthy wherever it is cast.
+    check(
+      "properties_capabilities_are_an_object",
+      sql`jsonb_typeof(${t.capabilities}) = 'object' and coalesce(jsonb_typeof(${t.capabilities} -> 'assertableBy') = 'array' and jsonb_array_length(${t.capabilities} -> 'assertableBy') > 0, ${t.capabilities} -> 'assertableBy' is null) and coalesce(jsonb_typeof(${t.capabilities} -> 'public') = 'boolean', ${t.capabilities} -> 'public' is null)`,
+    ),
   ],
 );
 

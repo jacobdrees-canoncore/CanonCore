@@ -275,11 +275,13 @@ export async function findStatementsOfItem(
  * claim, and a surface that printed the word "Owner" for itself would be
  * asserting what the row says instead of reading it -- which is the rule
  * ADR-0045 settles for every other label the read path carries.
+ *
+ * THE KIND IS NOT READ BESIDE IT. It can only ever be `owner` while the
+ * declaration stands, and nothing branches on it, so emitting it would be a
+ * field added against a reader that does not exist (ADR-0045).
  */
 export interface NoteOfItem {
   value: string;
-  /** ADR-0071's kind. `owner`, and the declaration is what keeps it so. */
-  sourceKind: string;
   /** What that source calls itself, seeded as `Owner` by migration 1. */
   sourceLabel: string;
 }
@@ -309,7 +311,6 @@ export async function findNoteOfItem(db: Database, itemId: string): Promise<Note
   const [note] = await db
     .select({
       value: sql<string>`${statements.valueLiteral}`,
-      sourceKind: sources.kind,
       sourceLabel: sources.label,
     })
     .from(statements)

@@ -52,6 +52,16 @@ The freeze itself is ENFORCED rather than intended, by a trigger on `properties`
 that refuses a change to `datatype`, `value_kind` or `reference_target` after
 creation. `cardinality` stays editable, and a test tightens it and puts it back.
 
+TIGHTENING MUST NOT TRAP THE ROWS IT MARKS, AND CNCORE-74 IS WHERE THAT WAS NEARLY LOST. This
+record's "tightening a rule never rejects existing rows" was written about `validation`, whose
+offenders are marked by `quarantined` at the next refresh. `capabilities` arrived with an enforcement
+in the DATABASE (ADR-0096), and its first trigger re-checked the declaration on every `UPDATE` of a
+statement -- so narrowing `assertableBy` made the rows already written by a no-longer-admitted source
+impossible to WITHDRAW, and their items impossible to DELETE. The sentence above holds for any
+editable declaration, and what it requires of an enforcement is that it be re-checked ONLY where the
+thing it declares about is changing: `BEFORE INSERT OR UPDATE OF "source_id", "property_id"`, never
+a bare `UPDATE`.
+
 THE CATALOGUE IS THIRTEEN PROPERTIES SINCE, and both additions are this record's own rule working
 rather than the count drifting: "everything else enters when a screen or an import actually needs
 it". Migration 3 added `external_id` for the importer (CNCORE-28) and migration 12 added `note` for

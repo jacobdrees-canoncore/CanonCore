@@ -4,8 +4,26 @@
 -- rank, language and provenance for free from ADR-0012 rather than needing a
 -- table of its own with three of those columns copied onto it. That record also
 -- says "never provider-assertable becomes a PROPERTY DECLARATION rather than a
--- code path", and the two statements below are those words as mechanism: the
+-- code path", and the statements below are those words as mechanism: the
 -- declaration, and the rule that reads it.
+--
+-- GENERATED, THEN HAND-WRITTEN INTO (ADR-0047). The constraint is a plain CHECK
+-- on a table this repo's `schema/tables.ts` declares, so it is DECLARED there
+-- and `drizzle-kit generate` emitted the `ALTER` below -- which is what keeps
+-- the schema and the head snapshot agreeing. Review caught this rung
+-- hand-writing the constraint with `tables.ts` untouched: nothing broke today,
+-- because `generate` diffs the schema against the snapshot and neither held it,
+-- but the first person to add the check beside its sibling would have had
+-- `generate` emit it a second time. The data statement and the trigger are
+-- hand-written after it, which is the half `generate` cannot produce.
+--
+-- IT WAS GENERATED AS `20260912174318` AND RENAMED. Drizzle stamps a rung from
+-- the real clock, and migration 11 was hand-stamped two hours ahead of it -- so
+-- as generated this rung sat BELOW its predecessor, which Drizzle applies by
+-- high-water mark and would silently SKIP on an existing database while a fresh
+-- one applied it. The file, the journal `tag` and the snapshot were all renamed
+-- to the head, which is ADR-0047's own instruction, and `db:check-ladder` is
+-- what says it worked.
 --
 -- STRATEGY (ADR-0047 asks every rung to state one): IT MIGRATES EVERYTHING, and
 -- there is nothing to transform. The constraint is vacuously true of all
@@ -14,43 +32,8 @@
 -- is the first row to declare anything. No row can fail, so nothing is
 -- quarantined and nothing is frozen.
 
---> statement-breakpoint
--- A CAPABILITY NAMES WHAT IT GRANTS, and `{}` grants nothing and withholds
--- nothing.
---
--- THE SHAPE IS CHECKED HERE BECAUSE NO FOREIGN KEY CAN REACH IT, which is
--- `properties_validation_declares_a_format`'s reason one column over (migration
--- 7): `jsonb` takes a scalar, an array and a null as happily as an object, and
--- ADR-0015 leaves everything but `datatype`, `value_kind` and
--- `reference_target` EDITABLE -- so the shape has to hold against every later
--- write rather than only against the seed below.
---
--- `coalesce(..., true)` ON A KEY THAT MAY BE ABSENT, and the direction is the
--- opposite of migration 7's for the opposite reason. There the constraint
--- demanded a key be present, so a missing one had to read as FALSE; here the
--- key is OPTIONAL -- twelve properties admit every source and say so by
--- declaring nothing -- so a missing one has to read as TRUE. A CHECK refuses
--- only on FALSE and `-> 'assertableBy'` on an object without it is SQL NULL, so
--- getting this coalesce backwards would either refuse every existing row or
--- enforce nothing at all.
---
--- AN EMPTY ARRAY IS REFUSED, because it declares a property no source may ever
--- assert -- a field nothing can write, which is a typo rather than a decision.
---
--- `public` IS CHECKED THE SAME WAY AND FOR THE SAME REASON. It is the second
--- capability this rung declares, and `jsonb` would take the STRING `"false"` as
--- happily as the boolean -- which would read as truthy wherever it is cast and
--- make a private property public by a pair of quotes.
---
--- WHAT IT STOPS SHORT OF is checking that each element NAMES ONE OF ADR-0071's
--- four source kinds, and the gap is named here rather than claimed away.
--- `source_kinds` is a table and a CHECK cannot reach one, so the alternatives
--- are a literal list of the four in SQL -- the closed set written a second time,
--- free to drift from the table that owns it -- or a trigger on `properties`
--- validating a declaration nothing but a migration may write (ADR-0029). The
--- gap is bounded by the ladder, which is where every property is written, and
--- its cost is a misspelled kind reading as "no source may assert this".
 ALTER TABLE "properties" ADD CONSTRAINT "properties_capabilities_are_an_object" CHECK (jsonb_typeof("properties"."capabilities") = 'object' and coalesce(jsonb_typeof("properties"."capabilities" -> 'assertableBy') = 'array' and jsonb_array_length("properties"."capabilities" -> 'assertableBy') > 0, "properties"."capabilities" -> 'assertableBy' is null) and coalesce(jsonb_typeof("properties"."capabilities" -> 'public') = 'boolean', "properties"."capabilities" -> 'public' is null));
+
 --> statement-breakpoint
 -- THE THIRTEENTH PROPERTY, and the first to declare a capability.
 --
@@ -83,8 +66,7 @@ ALTER TABLE "properties" ADD CONSTRAINT "properties_capabilities_are_an_object" 
 -- `name <> 'note'` in the query that emits statements, because that filter is
 -- the strip-list ADR-0045's first line refuses -- it "works until someone adds
 -- a field and forgets", and the field it would be forgotten for is the next
--- property that should not be public. Declared beside the property, the
--- exclusion is where every other fact about it already lives.
+-- property that should not be public.
 --
 -- ABSENT MEANS PUBLIC, which is true of the other twelve and is why this is
 -- stated on the exception rather than on all thirteen. It is the opposite
@@ -92,6 +74,15 @@ ALTER TABLE "properties" ADD CONSTRAINT "properties_capabilities_are_an_object" 
 -- different things: that sentence is about a FIELD of the payload, which is
 -- private until a line names it, and this is about a PROPERTY of the catalogue,
 -- which the `statements` line already names as a set.
+--
+-- WHAT IS NOT CHECKED, named rather than left to be discovered: that each
+-- element of `assertableBy` NAMES ONE OF ADR-0071's four source kinds.
+-- `source_kinds` is a table and a CHECK cannot reach one, so the alternatives
+-- are a literal list of the four in SQL -- the closed set written a second time,
+-- free to drift from the table that owns it -- or a trigger on `properties`
+-- validating a declaration nothing but a migration may write (ADR-0029). The
+-- gap is bounded by the ladder, which is where every property is written, and
+-- its cost is a misspelled kind reading as "no source may assert this".
 INSERT INTO "properties"
   ("owner_id", "name", "datatype", "value_kind", "cardinality", "reference_target", "capabilities")
 SELECT "id", 'note', 'text', 'literal', 'single', NULL::text[],
@@ -144,6 +135,28 @@ BEGIN
 END;
 $fn$ LANGUAGE plpgsql;
 --> statement-breakpoint
+-- `UPDATE OF "source_id", "property_id"` AND NOT BARE `UPDATE`, WHICH REVIEW
+-- FOUND AND WHICH WAS A REAL FAULT.
+--
+-- The rule is about WHO ASSERTED WHICH PROPERTY, so those two columns are
+-- exactly what it has to be re-checked against. A bare `UPDATE` re-checked it
+-- against every other write to the row as well -- and the two that matter are
+-- not assertions at all: `assertClaims` TOMBSTONES what a source no longer
+-- claims by setting `deleted_at`, and migration 1's cascade takes an item's
+-- statements down with the item the same way.
+--
+-- WHAT THAT COST, and it is ADR-0015's own rule broken. `capabilities` is
+-- EDITABLE where `datatype` and `reference_target` freeze, because "start loose,
+-- tighten later" is what every system that record studied supports -- and
+-- "tightening a rule never rejects existing rows either, it marks the property
+-- as having offenders and lets you list them". Under a bare `UPDATE`,
+-- narrowing `assertableBy` made every statement already written by a
+-- no-longer-admitted source impossible to WITHDRAW, and therefore its item
+-- impossible to delete. Tightening trapped the rows instead of marking them.
+--
+-- POSTGRES FIRES `UPDATE OF` WHEN A NAMED COLUMN IS IN THE `SET` LIST, changed
+-- or not, which is the right granularity here: a write that does not mention
+-- either column cannot be changing who asserted what.
 CREATE TRIGGER "statements_refuse_an_unadmitted_source"
-BEFORE INSERT OR UPDATE ON "statements"
+BEFORE INSERT OR UPDATE OF "source_id", "property_id" ON "statements"
 FOR EACH ROW EXECUTE FUNCTION refuse_an_unadmitted_source();

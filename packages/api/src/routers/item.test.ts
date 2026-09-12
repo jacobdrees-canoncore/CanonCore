@@ -532,8 +532,44 @@ describe("item.annotate and item.note", () => {
 
     expect(await call(appRouter.item.note, { id }, { context: asTheOwner })).toEqual({
       value: "The one I always come back to",
-      sourceKind: "owner",
       sourceLabel: "Owner",
+    });
+  });
+
+  /**
+   * `noteByHand` TRIMS, so a box holding nothing but whitespace removes the
+   * note rather than writing a blank one. Asserted here because the trim is
+   * this seam's: `annotateItemByHand` is handed what came out of it.
+   */
+  it("removes the note when nothing but whitespace is submitted", async () => {
+    const id = await anItemTitled(db, "An item annotated in error");
+    await call(
+      appRouter.item.annotate,
+      { id, note: "What I thought at the time" },
+      { context: asTheOwner },
+    );
+
+    await call(appRouter.item.annotate, { id, note: "   \n  " }, { context: asTheOwner });
+
+    expect(await call(appRouter.item.note, { id }, { context: asTheOwner })).toBeNull();
+  });
+
+  /**
+   * AND THE LINE BREAKS INSIDE ONE SURVIVE IT, which is the other half of the
+   * trim: it reaches the ends of the value and nothing else, because a
+   * paragraph break is something the owner typed on purpose.
+   */
+  it("keeps the owner's own line breaks inside a note", async () => {
+    const id = await anItemTitled(db, "An item I wrote paragraphs about");
+
+    await call(
+      appRouter.item.annotate,
+      { id, note: "  The first thing.\n\nThe second thing.  " },
+      { context: asTheOwner },
+    );
+
+    expect(await call(appRouter.item.note, { id }, { context: asTheOwner })).toMatchObject({
+      value: "The first thing.\n\nThe second thing.",
     });
   });
 
@@ -583,6 +619,40 @@ describe("item.annotate and item.note", () => {
     const id = await anItemTitled(db, "Nothing said about it");
 
     expect(await call(appRouter.item.note, { id }, { context: asTheOwner })).toBeNull();
+  });
+
+  /**
+   * AND `null` FOR A WELL-FORMED ID THAT ADDRESSES NOTHING, which is the half
+   * of that answer the docstring makes a claim about: an owner asking about a
+   * deleted item and one asking about an item they have said nothing about get
+   * the same page, and neither is an error (ADR-0066).
+   */
+  it("answers null for a well-formed id that addresses nothing", async () => {
+    expect(
+      await call(
+        appRouter.item.note,
+        { id: "00000000-0000-4000-8000-000000000000" },
+        { context: asTheOwner },
+      ),
+    ).toBeNull();
+  });
+
+  /**
+   * A MALFORMED ID IS A BAD_REQUEST HERE, WHERE `item.get` ANSWERS NOT_FOUND --
+   * and the difference is who does the asking rather than an inconsistency.
+   * CNCORE-14's argument is about an id A READER TYPED OR SHARED, reached at
+   * `/items/<id>`; nothing types an id at this procedure, because the page calls
+   * it with the canonical id `item.get` just answered with. So "that is not an
+   * id" is the honest answer to a client composing a request by hand, and this
+   * pins it rather than leaving the pair to read as a slip.
+   */
+  it("refuses a malformed id rather than answering null for one", async () => {
+    const { error, data } = await safe(
+      call(appRouter.item.note, { id: "not-a-uuid" }, { context: asTheOwner }),
+    );
+
+    expect(data).toBeUndefined();
+    expect((error as { code?: string })?.code).toBe("BAD_REQUEST");
   });
 
   it("answers NOT_FOUND when the id addresses nothing to annotate", async () => {

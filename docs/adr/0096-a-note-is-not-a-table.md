@@ -44,6 +44,13 @@ property wide. The note has a reader of its own, `findNoteOfItem`, behind `item.
 read on the router that is the owner's rather than open, because a field on `item.get` would be
 public by construction and one emitted only sometimes would make ADR-0045's enumeration conditional.
 
+**WHAT `ownerNote` CARRIES IS TWO FIELDS, and the kind is not one of them.** The note's value and
+its source's LABEL, because the page has to say whose words these are and reads that off the row
+rather than printing "Owner" for itself. The source KIND was emitted at first and read by nothing --
+it can only ever be `owner` while this declaration stands -- which is the "field added against a
+reader that does not exist" ADR-0045 is the record for, and the same ground on which the same
+docstring had already rejected a `property` field. It was dropped under review.
+
 **`single` CARDINALITY IS WHAT MAKES REMOVAL FREE.** A note is the owner's own free text about an
 item and there is one of them, so editing REPLACES -- and `assertClaims` making what a source holds
 equal to what it now claims means an empty note withdraws the last one, tombstoned rather than
@@ -53,6 +60,28 @@ deleted (ADR-0075). One procedure writes, edits and removes, and the page offers
 An empty title projects onto `items.title` as a heading that renders blank, where an item with no
 title statement renders "Untitled item" -- two states, one of them useless. A note projects onto
 nothing, so an empty one and an absent one are the same claim.
+
+**THE RULE IS RE-CHECKED ON `UPDATE OF "source_id", "property_id"` AND NOT ON A BARE `UPDATE`, AND
+THE FIRST VERSION GOT THAT WRONG.** Those two columns are what the rule is about; a bare `UPDATE`
+re-checked it against every other write to a statement as well, and the two that matter are not
+assertions at all -- `assertClaims` TOMBSTONING what a source no longer claims by setting
+`deleted_at`, and migration 1's cascade taking an item's statements down with the item the same way.
+The cost was ADR-0015's own rule broken: `capabilities` is editable so that a declaration can be
+tightened later, and that record says tightening "never rejects existing rows either -- it marks the
+property as having offenders and lets you list them". Under a bare `UPDATE`, narrowing `assertableBy`
+made every statement already written by a no-longer-admitted source impossible to WITHDRAW, and so
+its item impossible to DELETE. Tightening trapped the rows instead of marking them. **A DECLARATION
+THAT CAN BE TIGHTENED HAS TO BE RE-CHECKED ONLY WHERE THE THING IT DECLARES ABOUT IS CHANGING**,
+which is the transferable half and is why it is written here rather than in the migration alone.
+
+**AND THE CONSTRAINT IS DECLARED IN `schema/tables.ts`, NOT ONLY IN THE RUNG.** ADR-0047's rule is
+that the schema and the head snapshot must agree -- "declare what can be declared and generate it;
+hand-write what cannot". A CHECK on a declared table is the declarable case, so the rung is
+GENERATED and the data statement and the trigger are hand-written into it. The first version
+hand-wrote all three with `tables.ts` untouched, which broke nothing that day, because `generate`
+diffs the schema against the snapshot and neither held the constraint -- and would have emitted it a
+second time for whoever next added the check beside its sibling. `generate` answering "no schema
+changes" is that record's own test that it is right.
 
 **WHAT IS NOT BUILT, named rather than left to be found.** Nothing checks that the strings in
 `assertableBy` are among ADR-0071's four source kinds. `source_kinds` is a table and a CHECK
