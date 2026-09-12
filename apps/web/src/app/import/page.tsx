@@ -582,15 +582,15 @@ function Container({ baseUrl, containerId, itemId, said }: NamedContainer) {
       <h3 className="sr-only" id="container">
         The container you named
       </h3>
-      {said.answer === "container" ? (
-        <ItsOrdering
-          baseUrl={baseUrl}
-          containerId={containerId}
-          itemId={itemId}
-          said={said}
-        />
-      ) : (
-        <NoSuchContainer providerName={said.providerName} />
+      {said.answer === "container" && (
+        <ItsOrdering baseUrl={baseUrl} containerId={containerId} itemId={itemId} said={said} />
+      )}
+      {said.answer === "no-such-container" && <NoSuchContainer providerName={said.providerName} />}
+      {said.answer === "browse-not-offered" && (
+        <BrowseNotOffered providerName={said.providerName} />
+      )}
+      {said.answer === "unreachable" && (
+        <NotReached baseUrl={baseUrl} reason={said.reason} />
       )}
     </section>
   );
@@ -653,22 +653,77 @@ function ItsOrdering({
 }
 
 /**
+ * A PROVIDER THAT DID NOT ANSWER AT ALL.
+ *
+ * THE THIRD OF THE THREE, AND IT MUST NOT READ AS EITHER OF THE OTHER TWO. A
+ * provider that is down and a provider that holds nothing are different answers,
+ * and an owner who cannot tell them apart concludes their id was wrong when
+ * their source was merely offline -- which is the same reason `Unreachable`
+ * above exists for search, and the same distinction this codebase keeps
+ * everywhere else.
+ *
+ * NAMED BY THE URL THE OWNER TYPED, where the two answers above are named by the
+ * provider's own name for itself. That is not the inconsistency it looks like:
+ * reading the name off the manifest is one of the things that just failed, and
+ * the URL is the only part of this the owner can go and fix.
+ *
+ * AND THE PROVIDER'S OWN REASON IS PRINTED, because ADR-0034 refusing a host and
+ * a provider being switched off have different remedies, and the sentence is
+ * what separates them.
+ */
+function NotReached({ baseUrl, reason }: { baseUrl: string; reason: string }) {
+  return (
+    <p className="border-t py-3 text-muted-foreground text-sm">
+      <span className="font-medium">{baseUrl}</span> could not be reached, so nothing is known about
+      that id. {reason}
+    </p>
+  );
+}
+
+/**
+ * A PROVIDER THAT DOES NOT DO THIS AT ALL, which is not an error on its part.
+ *
+ * ADR-0033 makes `browse` OPTIONAL AND DECLARED: a provider offering only
+ * `search` and `lookup` satisfies CMPP, and the manifest is what says so. The
+ * owner asked for something this provider does not do, which is a sentence to
+ * put in front of them rather than an empty result to puzzle over.
+ *
+ * AND IT IS NOT THE SAME SENTENCE AS `NoSuchContainer` BELOW, which is the point
+ * of having two: one says to check the id, this one says that no id will work
+ * here. An owner handed the first for the second goes back to a box that can
+ * never answer.
+ *
+ * IT SAYS WHAT STILL WORKS, because "this provider does not do that" with
+ * nothing after it reads as a provider that is broken. Search and lookup are
+ * required of every provider, so this one remains perfectly useful one record at
+ * a time -- which is the import the page already offers above.
+ */
+function BrowseNotOffered({ providerName }: { providerName: string }) {
+  return (
+    <p className="border-t py-3 text-muted-foreground text-sm">
+      {providerName} does not offer browse, so it was not asked for one. It can still be searched,
+      and its records imported one at a time.
+    </p>
+  );
+}
+
+/**
  * AN ID THAT ADDRESSES NO CONTAINER AT THAT PROVIDER.
  *
  * THE SENTENCE `provider.browse` DECLARES, REACHING THE OWNER AT LAST. ADR-0066
  * makes this an answer rather than a fault -- an id that cannot BE an identity
  * addresses nothing, exactly as one nobody minted does -- and ADR-0033's
  * `NO_SUCH_CONTAINER` exists to say so. It used to arrive as a 500 with the
- * message redacted; here it is what the page says instead of offering a button.
+ * message redacted out of it; here it is what the page says instead of offering
+ * a button.
  *
  * NAMED BY THE PROVIDER'S OWN NAME FOR ITSELF, off its manifest, as every other
- * answering provider on this page is. A reader choosing between two providers
- * chooses on this rather than on a loopback address.
+ * answering provider on this page is.
  *
  * IT SAYS WHICH KIND OF ID IS WANTED, because that is the likeliest mistake: a
- * browse takes a CONTAINER'S own id, and a record id -- which the search results
- * above are full of -- reaches exactly this answer at a provider that holds the
- * record perfectly well.
+ * browse takes a CONTAINER'S own id, and a record id -- which the results above
+ * are full of -- reaches exactly this answer at a provider that holds the record
+ * perfectly well.
  */
 function NoSuchContainer({ providerName }: { providerName: string }) {
   return (

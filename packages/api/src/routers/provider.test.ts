@@ -120,6 +120,17 @@ async function stubProvider(
     operations = ["search", "lookup", "browse"],
     containers = { "388305": VASHTA_NERADA } as Record<string, unknown>,
     attribution = null as typeof ATTRIBUTION | null,
+    /**
+     * Every path this provider was asked for, in order, for a caller that needs
+     * to assert what was NOT asked.
+     *
+     * ADR-0033 makes `browse` the operation a provider may decline, and
+     * "declines it and is therefore not asked" is a claim about a request that
+     * never happened -- which an answer cannot witness. A provider that answered
+     * 404 on `/browse/...` and one that was never called produce the same value
+     * at every other seam.
+     */
+    asked = [] as string[],
   } = {},
 ) {
   const server = createServer((request, response) => {
@@ -128,6 +139,7 @@ async function stubProvider(
       response.end(JSON.stringify(body));
     };
     const path = request.url ?? "/";
+    asked.push(path);
     if (path === "/") return json({ ...MANIFEST, operations, attribution });
     // `search`, MATCHED ON THE TITLE, which is the least a stub can do and still
     // be a search: a stub answering every query with everything could not tell a
@@ -823,5 +835,52 @@ describe("provider.container", () => {
     );
 
     expect(answer).toEqual({ answer: "no-such-container", providerName: "provider-wiki" });
+  });
+
+  it("says a provider declares no browse, and does not ask it for one", async () => {
+    /*
+     * THE OPTIONALITY BEING HONOURED (ADR-0033) rather than an optimisation.
+     * `browse` is the operation a provider may decline, and a provider that
+     * offers only `search` and `lookup` is perfectly well-formed -- so the
+     * manifest decides whether to call at all, and the owner is told that this
+     * provider does not do it rather than that their id was wrong.
+     */
+    const asked: string[] = [];
+    const baseUrl = await stubProvider(
+      { "265": TENTH_PLANET },
+      { operations: ["search", "lookup"], asked },
+    );
+
+    const answer = await call(
+      appRouter.provider.container,
+      { baseUrl, containerId: "388305" },
+      { context },
+    );
+
+    expect(answer).toEqual({ answer: "browse-not-offered", providerName: "provider-wiki" });
+    // THE MANIFEST, AND NOTHING ELSE. A `/browse/388305` here would be the
+    // declaration read and then ignored.
+    expect(asked).toEqual(["/"]);
+  });
+
+  it("says a provider could not be reached, and not that it holds nothing", async () => {
+    /*
+     * A PROVIDER THAT IS DOWN AND A PROVIDER THAT HOLDS NOTHING ARE DIFFERENT
+     * ANSWERS, which is the distinction this codebase keeps everywhere else --
+     * `provider.search` answers two lists for the same reason. An owner who
+     * cannot tell them apart goes back to check an id that was right all along.
+     *
+     * THE REASON TRAVELS WITH IT because it is the only part they can act on:
+     * this URL is refused by ADR-0034's allowlist rather than being offline, and
+     * those are two different things to go and fix.
+     */
+    const answer = await call(
+      appRouter.provider.container,
+      { baseUrl: "http://169.254.169.254/", containerId: "388305" },
+      { context },
+    );
+
+    expect(answer.answer).toBe("unreachable");
+    expect(answer).toMatchObject({ reason: expect.stringContaining("allowlisted") });
   });
 });

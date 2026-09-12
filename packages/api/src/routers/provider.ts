@@ -575,6 +575,30 @@ export const provider = {
           answer: z.literal("no-such-container"),
           providerName: z.string().min(1),
         }),
+        /**
+         * THE PROVIDER DOES NOT DO THIS, which ADR-0033 makes well-formed
+         * rather than broken: `browse` is the operation a provider may decline,
+         * and one offering only `search` and `lookup` satisfies CMPP. The owner
+         * asked for something this provider does not do, which is a sentence to
+         * put in front of them rather than an empty result to puzzle over.
+         */
+        z.object({
+          answer: z.literal("browse-not-offered"),
+          providerName: z.string().min(1),
+        }),
+        /**
+         * NOBODY ANSWERED, so there is no name to attribute this to -- reading
+         * the provider's own name is one of the things that failed, exactly as
+         * in `search`'s `failed` list.
+         *
+         * THE REASON IS THE SENTENCE THE OWNER ACTS ON. A URL ADR-0034 refuses
+         * and a provider that is switched off are both in here, distinguishable
+         * by what they say, and the two have different remedies.
+         */
+        z.object({
+          answer: z.literal("unreachable"),
+          reason: z.string().min(1),
+        }),
       ]),
     )
     .handler(async ({ input, context }) => {
@@ -584,6 +608,12 @@ export const provider = {
       });
       try {
         const manifest = await client.manifest();
+        // THE DECLARATION DECIDES WHETHER TO CALL AT ALL, exactly as it does in
+        // `browseIntoCatalogue` above. Reading it is the only way an app can
+        // tell, and asking anyway would be the declaration read and ignored.
+        if (!manifest.operations.includes("browse")) {
+          return { answer: "browse-not-offered" as const, providerName: manifest.name };
+        }
         const browsed = await client.browse(input.containerId);
         if (!browsed) {
           return { answer: "no-such-container" as const, providerName: manifest.name };
@@ -592,6 +622,25 @@ export const provider = {
           answer: "container" as const,
           providerName: manifest.name,
           title: browsed.container.title,
+        };
+      } catch (error) {
+        /*
+         * EVERY FAILURE IS AN ANSWER HERE, which is the opposite of `browse`
+         * below and is the reason this procedure exists. The caller is a page
+         * being READ: it has already decided to show the owner something about
+         * this id, and a throw would take the whole page down over one provider
+         * having a bad day.
+         *
+         * WHATEVER WENT WRONG, RATHER THAN A LIST OF WHAT MIGHT. An
+         * `OutboundRefused` from ADR-0034's boundary, a socket that never
+         * opened, and a manifest that does not parse are all a provider this
+         * page could not get an answer out of -- and they stay apart by what
+         * they SAY, as they do in `search`'s `failed` list. Narrowing to the
+         * ones foreseen here would leave the rest as the 500 this removes.
+         */
+        return {
+          answer: "unreachable" as const,
+          reason: error instanceof Error ? error.message : String(error),
         };
       } finally {
         // Two undici agents and therefore two connection pools, as everywhere

@@ -468,6 +468,72 @@ describe("/import, when the provider refuses", () => {
     expect(postFormsIn(container)).toHaveLength(0);
   });
 
+  it("says a provider declares no browse, rather than reporting a missing container", async () => {
+    /*
+     * ADR-0033 MAKES `browse` THE OPERATION A PROVIDER MAY DECLINE, so a
+     * provider offering only `search` and `lookup` is perfectly well-formed and
+     * this is not an error on its part: the owner asked for something this
+     * provider does not do.
+     *
+     * WHICH IS A DIFFERENT ANSWER FROM AN ID THAT ADDRESSES NOTHING, and the
+     * difference is the whole of what an owner needs. One says to check the id;
+     * the other says to stop looking here whatever the id is. Collapsing them
+     * would send somebody back to a box that can never work.
+     */
+    const named = { provider: providerSearch.declinesBrowse, container: "any container at all" };
+    const at = browsing(named);
+
+    const { status, text } = await documentAt(at);
+
+    expect(status).toBe(200);
+    const said = await whatTheProviderSays(named);
+    if (said.answer !== "browse-not-offered") {
+      throw new Error(`the witness provider answered ${said.answer}`);
+    }
+    const container = section(text, "container");
+    // ATTRIBUTED BY THE PROVIDER'S OWN NAME FOR ITSELF, as every other answering
+    // provider on this page is.
+    expect(container).toContain(said.providerName);
+    expect(container.toLowerCase()).toContain("does not offer browse");
+    // AND NOT THE OTHER ANSWER, which is the distinction this test exists for.
+    expect(container.toLowerCase()).not.toContain("no container at that id");
+    expect(postFormsIn(container)).toHaveLength(0);
+  });
+
+  it("says a provider could not be reached, rather than that it holds nothing", async () => {
+    /*
+     * A PROVIDER THAT IS DOWN AND A PROVIDER THAT HOLDS NOTHING ARE DIFFERENT
+     * ANSWERS. The seeded instance is configured with a provider it can never
+     * reach -- ADR-0034's allowlist refuses the host -- so this is the same
+     * distinction the search results above keep, at the surface where it used to
+     * be a 500 instead.
+     *
+     * THE PROVIDER'S OWN REASON IS ON THE PAGE, named by the URL the owner typed
+     * rather than by a name: reading the name off the manifest is one of the
+     * things that failed, and the URL is the only part of this they can act on.
+     */
+    const named = {
+      provider: providerSearch.unreachable,
+      container: providerSearch.browsable.container,
+    };
+    const at = browsing(named);
+
+    const { status, text } = await documentAt(at);
+
+    expect(status).toBe(200);
+    const said = await whatTheProviderSays(named);
+    if (said.answer !== "unreachable") {
+      throw new Error(`the unreachable provider answered ${said.answer}`);
+    }
+    const container = section(text, "container");
+    expect(container.toLowerCase()).toContain("could not be reached");
+    expect(container).toContain(said.reason);
+    // AND NOT EITHER OF THE OTHER TWO, which is what distinguishing them means.
+    expect(container.toLowerCase()).not.toContain("no container at that id");
+    expect(container.toLowerCase()).not.toContain("does not offer browse");
+    expect(postFormsIn(container)).toHaveLength(0);
+  });
+
   it("treats a provider it does not search as no provider, rather than reaching it", async () => {
     /*
      * A QUERY PARAMETER IS NOT A CONFIG URL. `CONTEXT.md` defines one as "a URL
