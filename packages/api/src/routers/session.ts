@@ -1,5 +1,5 @@
 import { createHash, timingSafeEqual } from "node:crypto";
-import { endSession, startSession } from "@canoncore/db";
+import { endSession, listSessions, startSession } from "@canoncore/db";
 import { env } from "@canoncore/env/server";
 import { ORPCError } from "@orpc/server";
 import { z } from "zod";
@@ -29,6 +29,38 @@ function isTheOwner(offered: string): boolean {
 function digestOf(value: string): Buffer {
   return createHash("sha256").update(value).digest();
 }
+
+/**
+ * One device on the owner's list.
+ *
+ * IT NAMES ITS FIELDS rather than answering the session row, which is the rule
+ * ADR-0045 takes for the read path and the same reason `asSession` leaves
+ * `token_hash` behind: a shape that spread the row would publish whatever a
+ * later column happened to be called.
+ *
+ * THE DECLARATION FIELDS ARE OPTIONAL BECAUSE THE ONLY DEVICE THAT LOGS IN
+ * TODAY DECLARES NONE. A browser is not a Client (`CONTEXT.md`), so its row
+ * holds nulls in all of them and the page has to be able to say so rather than
+ * print a placeholder this app invented (ADR-0043).
+ *
+ * `deviceId` AND `capabilities` ARE NOT HERE. One is an identifier and the
+ * other is an opaque blob the clients have yet to settle; neither is something
+ * a reader deciding which device to log out can act on.
+ */
+const listedDevice = z.object({
+  id: z.uuid(),
+  /**
+   * WHETHER THIS IS THE DEVICE READING THE PAGE. The whole safety of the
+   * surface rests on it: every row belongs to the same owner and looks alike,
+   * so without this the one session the owner must not end is indistinguishable
+   * from the ones they came to end.
+   */
+  current: z.boolean(),
+  lastSeenAt: z.date(),
+  clientName: z.string().optional(),
+  deviceName: z.string().optional(),
+  clientVersion: z.string().optional(),
+});
 
 export const session = {
   /**
@@ -97,6 +129,66 @@ export const session = {
       if (!isTheOwner(input.password)) throw new ORPCError("UNAUTHORIZED");
       const { token } = await startSession(context.db, {});
       return { token };
+    }),
+
+  /**
+   * Every device the owner is logged in on (ADR-0043's per-device logout).
+   *
+   * BEHIND THE OWNER BUILDER, and that is not the reflex that everything except
+   * a catalogue read is. ADR-0044 leaves the READ PATH open because the demo
+   * shows a visitor everything in the catalogue; who is logged in to an instance
+   * is not in the catalogue, and a list of an owner's devices answered to
+   * anybody is a list of what to go looking for.
+   *
+   * IT TAKES NO INPUT, so there is no owner to name and none to get wrong --
+   * `listSessions` reads the single owner itself, exactly as `startSession`
+   * does.
+   */
+  list: ownerProcedure.output(z.array(listedDevice)).handler(async ({ context }) => {
+    const listed = await listSessions(context.db);
+    return listed.map((device) => ({
+      id: device.id,
+      // THE COMPARISON IS AGAINST THE SESSION THE REQUEST ARRIVED ON, which
+      // `ownerProcedure` has already resolved from the token. Nothing the caller
+      // sent says which device it is, so nothing the caller sends can move the
+      // flag onto a row they would rather the owner did not end.
+      current: device.id === context.session.id,
+      lastSeenAt: device.lastSeenAt,
+      ...(device.clientName === undefined ? {} : { clientName: device.clientName }),
+      ...(device.deviceName === undefined ? {} : { deviceName: device.deviceName }),
+      ...(device.clientVersion === undefined ? {} : { clientVersion: device.clientVersion }),
+    }));
+  }),
+
+  /**
+   * Logs one OTHER device out (ADR-0043's per-device logout).
+   *
+   * IT NAMES A SESSION, which is what `endSession` has taken since CNCORE-109
+   * and why that surface needed no change to reach this one: the owner reading
+   * their device list holds no token but their own, so the id is the only thing
+   * they CAN name.
+   *
+   * NOT THE CALLER'S OWN, WHICH IT REFUSES. `logOut` is that operation, and it
+   * is a different one: the row and the browser's cookie are two halves, and
+   * ending the row alone would leave a browser holding a token that opens
+   * nothing and a page that still says it is logged in. A refusal here sends the
+   * one caller who could get this wrong to the operation that does both.
+   *
+   * A SESSION THAT WAS ALREADY OVER IS ANSWERED, NOT REFUSED. The list a page
+   * renders is a moment old, so pressing End on a device that lapsed in between
+   * is an ordinary race rather than a fault -- and the answer the owner wants is
+   * the same either way, which is a list without it on.
+   */
+  end: ownerProcedure
+    .input(z.object({ id: z.uuid() }))
+    .output(z.object({ ended: z.boolean() }))
+    .handler(async ({ input, context }) => {
+      if (input.id === context.session.id) {
+        throw new ORPCError("BAD_REQUEST", {
+          message: "That is the session you are using. Log out to end it.",
+        });
+      }
+      return { ended: await endSession(context.db, input.id) };
     }),
 
   /**
