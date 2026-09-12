@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { testDatabaseNameFor } from "./testing/build-database";
+import { TEST_DATABASE_SUFFIXES, testDatabaseNameFor } from "./testing/build-database";
 import { worktreeDatabaseName } from "./worktree-database";
 
 describe("worktreeDatabaseName", () => {
@@ -54,21 +54,27 @@ describe("worktreeDatabaseName", () => {
     // constant this module also owns -- otherwise the two would agree by
     // construction and never catch a change to either.
     //
-    // EVERY SUFFIX, WHICH IS THE PART THAT DRIFTED. This listed three while the
-    // web suite passed five, and the two it was missing arrived with the
-    // instances that use them -- one of which did not fit, so a worktree whose
-    // branch stem ran to the limit could not run `pnpm test:e2e` at all. A
-    // suffix added to `apps/web/e2e/global-setup.ts` belongs here in the same
-    // change; this test is the only thing that says so.
+    // EVERY SUFFIX THE HARNESS WILL ACCEPT, which is the part that drifted and
+    // is now the part that cannot. This read a list of its own -- three, while
+    // the web suite passed five -- and one of the two it was missing did not
+    // fit, so a worktree whose branch stem ran to the limit could not run
+    // `pnpm test:e2e` at all. The list is gone: `buildTestDatabase` takes a
+    // DECLARED suffix, so the set below is the set the harness has, rather than
+    // one more copy of it that a sixth call site could leave behind.
+    //
+    // WHY THE UNION IS LOAD-BEARING AND NOT TIDINESS, which matters because the
+    // obvious simplification is to widen the parameter back to `string`. While
+    // it was `string` this assertion had no finite set to range over, so "every
+    // suffix the harness accepts fits the budget" could not be written down, let
+    // alone fail -- and that is exactly how this test stayed green through the
+    // whole period the bug shipped. The type is what makes the sentence below
+    // falsifiable; widening it does not weaken this test, it un-writes it.
     const name = worktreeDatabaseName(`feat/${"a".repeat(200)}`);
 
     // Built by the HARNESS's own function, not by pasting its format here, so
     // that changing how a test database is named fails this instead of quietly
     // eating the room reserved for it.
-    // TODO(CNCORE-112): this list is hand-written, and the suffixes it has to
-    // cover are string literals in another package. Filling it in restores the
-    // invariant and leaves the mechanism that broke it standing.
-    for (const suffix of ["", "web", "fresh", "paged", "purge", "still"]) {
+    for (const suffix of TEST_DATABASE_SUFFIXES) {
       const derived = testDatabaseNameFor(name, suffix);
       expect(derived.length).toBeLessThanOrEqual(63);
       expect(derived.slice(0, 63)).not.toBe(name);
