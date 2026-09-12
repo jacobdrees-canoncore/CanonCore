@@ -1,3 +1,4 @@
+import { eq, sql } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import {
@@ -7,11 +8,13 @@ import {
   findPlacementsOfItem,
   PlacementRefused,
   placeItemByHand,
+  placementSources,
+  placements,
   readWorks,
   removePlacementByHand,
   restorePlacementByHand,
 } from "./index";
-import { anItem, anItemTitled, aProvider, connect } from "./testing/catalogue";
+import { anItem, anItemTitled, aPlacement, aProvider, connect } from "./testing/catalogue";
 
 /**
  * THE OWNER'S OWN HAND ON A CONTAINER'S MEMBERSHIP (CNCORE-72), which is
@@ -335,5 +338,73 @@ describe("what placing and removing does to work browsing", () => {
 
     const afterwards = await readWorks(db, { limit: 100 });
     expect(afterwards.entries.map((entry) => entry.id)).not.toContain(boxSet);
+  });
+});
+
+describe("what a restore will NOT bring back", () => {
+  it("refuses a placement a PROVIDER withdrew, which is not the owner's removal to undo", async () => {
+    // FOUND BY REVIEW. `restorePlacementByHand` cleared `deleted_at` on any
+    // placement id at all, and `import.ts` tombstones a placement too -- when a
+    // provider stops asserting a member, its `placement_sources` go first and
+    // the placement follows once nothing stands behind it.
+    //
+    // So an undo pointed at one of those revived a member with NO live source:
+    // `assertedBy: []`, a claim nobody makes, contradicting the withdrawal the
+    // provider actually performed. That is the state "clear both" was written to
+    // prevent, arriving through the other door.
+    //
+    // THE RULE: a placement with sources, none of them live, is one a source
+    // withdrew -- and a source may take back only what it said itself (ADR-0017),
+    // which cuts both ways. The owner does not get to put the provider's words
+    // back either.
+    const releaseOrder = await anItem(db, { isContainer: true, isOrdered: true });
+    const story = await anItem(db);
+    const wiki = await aProvider(
+      db,
+      "https://withdrawn.example.com",
+      "A wiki that changed its mind",
+    );
+    const placementId = await assertPlacement(db, {
+      containerId: releaseOrder,
+      itemId: story,
+      position: 63,
+      sourceId: wiki,
+    });
+
+    // The withdrawal as `import.ts` performs it: the claim, then the placement.
+    await db
+      .update(placementSources)
+      .set({ deletedAt: sql`now()` })
+      .where(eq(placementSources.placementId, placementId));
+    await db
+      .update(placements)
+      .set({ deletedAt: sql`now()` })
+      .where(eq(placements.id, placementId));
+
+    expect(await restorePlacementByHand(db, placementId)).toBe(false);
+    expect(
+      (await findPlacementsInContainer(db, releaseOrder, { limit: 100 })).entries,
+    ).toStrictEqual([]);
+  });
+
+  it("still restores a placement NO source ever asserted, which is a real state", async () => {
+    // THE CASE THE RULE ABOVE MUST NOT CATCH. A placement with no source rows at
+    // all is one nobody ever claimed -- `findPlacementsInContainer` renders it
+    // with an empty `assertedBy` rather than dropping it, because "the read path
+    // does not get to decide a row does not exist because its provenance was
+    // never recorded". An owner removing one may undo that like any other.
+    const releaseOrder = await anItem(db, { isContainer: true, isOrdered: true });
+    const story = await anItem(db);
+    const placementId = await aPlacement(db, {
+      containerId: releaseOrder,
+      itemId: story,
+      position: 7,
+    });
+    await removePlacementByHand(db, placementId);
+
+    expect(await restorePlacementByHand(db, placementId)).toBe(true);
+    expect(
+      (await findPlacementsInContainer(db, releaseOrder, { limit: 100 })).entries,
+    ).toStrictEqual([{ id: placementId, itemId: story, title: null, position: 7, assertedBy: [] }]);
   });
 });

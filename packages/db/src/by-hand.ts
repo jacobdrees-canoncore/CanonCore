@@ -2,7 +2,7 @@ import { and, eq, isNull } from "drizzle-orm";
 
 import { assertClaims, type Transaction } from "./claims";
 import type { Database } from "./index";
-import { theOwnerId, theOwnerSource } from "./placements";
+import { isRefusalOn, theOwnerId, theOwnerSource } from "./placements";
 import { items } from "./schema";
 
 /**
@@ -33,20 +33,6 @@ export class ItemRefused extends Error {}
  * is NOT the owner's doing and goes on being a fault.
  */
 const REFUSALS = new Set(["23503", "23514"]);
-
-/**
- * Whether a thrown thing is Postgres refusing this write on a rule the owner
- * broke. Walks `cause`, because a driver error arrives wrapped.
- */
-function isRefusal(error: unknown): boolean {
-  let current: unknown = error;
-  while (current instanceof Error) {
-    const { code } = current as { code?: unknown };
-    if (typeof code === "string" && REFUSALS.has(code)) return true;
-    current = current.cause;
-  }
-  return false;
-}
 
 /**
  * What the owner chooses when they make an Item themselves.
@@ -101,7 +87,7 @@ export async function createItemByHand(
   } catch (cause) {
     // NARROWED, SO A FAULT STAYS A FAULT. Only the two rules the owner can
     // break become a refusal; everything else is rethrown untouched.
-    if (isRefusal(cause))
+    if (isRefusalOn(REFUSALS, cause))
       throw new ItemRefused(`the catalogue refused an item of kind ${kind}`, { cause });
     throw cause;
   }

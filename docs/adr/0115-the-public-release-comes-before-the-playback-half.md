@@ -90,9 +90,10 @@ orderings, **hand-placed**". [[0061-containers-own-their-membership]] recorded "
 naming a PLACEMENT. There are none." Shipping multi-placement that the owner cannot perform is
 shipping the demo of the feature rather than the feature.
 
-**That half landed under CNCORE-72**, which is why the quotation above is in the past tense: place,
-remove and restore name a Placement by id, and a container's own page is where an owner reaches
-them. What is still a provider's alone is the REORDER, under CNCORE-73.
+**Most of that half landed under CNCORE-72**, which is why the quotation above is in the past tense:
+place, remove and restore name a Placement by id, and a container's own page is where an owner
+reaches them. What is still a provider's alone is the REORDER and the move between containers, under
+CNCORE-73 — which is also why ADR-0061 is still `proposed`.
 
 ## Staged in two tags
 

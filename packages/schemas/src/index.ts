@@ -467,8 +467,6 @@ export const itemWritten = z.object({ id: z.uuid() });
  */
 export const placementWritten = z.object({ id: z.uuid() });
 
-export type PlacementWritten = z.infer<typeof placementWritten>;
-
 export type ItemWritten = z.infer<typeof itemWritten>;
 
 /**

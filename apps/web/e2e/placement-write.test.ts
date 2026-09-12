@@ -48,7 +48,7 @@ async function place(
   { itemId, position }: { itemId: string; position: string },
 ) {
   const { text } = await containerPage(container, owner);
-  const form = withFields(formIn(text, "place-a-member"), { itemId, position });
+  const form = withFields(formIn(text, "place-an-item"), { itemId, position });
   return submit(baseUrl, `/items/${container}`, form, owner);
 }
 
@@ -114,15 +114,59 @@ describe("placing an item in a container", () => {
     ).toStrictEqual([expect.stringContaining("#1")]);
   });
 
+  it("places the same item in ONE container twice, at distinct positions -- a Repeat", async () => {
+    // ADR-0009 licences it and CONTEXT.md names it: a recap at one position and
+    // the episode at another are one item, twice, on purpose. Asserted HERE and
+    // not only at the db seam because the corrections singled this criterion out
+    // -- the refusal below is the same gesture at ONE position, and a reader
+    // meets both on this page.
+    await place(curatable.releaseOrder, { itemId: curatable.story, position: "101" });
+    const after = await place(curatable.releaseOrder, {
+      itemId: curatable.story,
+      position: "102",
+    });
+
+    const repeated = membersIn(after.text).filter(
+      (row) => row.includes(curatable.storyTitle) && /#10[12]/.test(row),
+    );
+    expect(repeated).toHaveLength(2);
+  });
+
+  it("places two DIFFERENT items at ONE position, without inventing an order between them", async () => {
+    // ADR-0009, and the absence of a unique on (container, position) is the
+    // decision: a story-order container holding both a novel and the film
+    // adapting it must place them at one point. The page must not quietly fix
+    // that up either.
+    await place(curatable.storyOrder, { itemId: curatable.story, position: "200" });
+    const after = await place(curatable.storyOrder, {
+      itemId: curatable.otherStory,
+      position: "200",
+    });
+
+    const shared = membersIn(after.text).filter((row) => row.includes("#200"));
+    expect(shared).toHaveLength(2);
+    expect(shared.join(" ")).toContain(curatable.storyTitle);
+    expect(shared.join(" ")).toContain(curatable.otherTitle);
+  });
+
   it("places an item with NO position, and the row says so rather than guessing", async () => {
     // CONTEXT.md's Unplaced: a member with no position is still a member, and
     // the reader's words are "no position given". An empty field is how an owner
     // says it.
     const after = await place(curatable.storyOrder, { itemId: curatable.story, position: "" });
 
-    expect(membersIn(after.text).filter((row) => row.includes(curatable.storyTitle))).toStrictEqual(
-      [expect.stringContaining("No position given")],
-    );
+    /*
+     * THE UNPLACED ROW AMONG THAT ITEM'S ROWS, rather than "the only row it
+     * has". This file places the same item into this ordering more than once --
+     * a Repeat is the point of a test above -- so an assertion counting every
+     * row for a title was really asserting what the file had done SO FAR, and it
+     * went red when a test above it placed one more.
+     */
+    expect(
+      membersIn(after.text).filter(
+        (row) => row.includes(curatable.storyTitle) && row.includes("No position given"),
+      ),
+    ).toHaveLength(1);
   });
 });
 
@@ -138,7 +182,7 @@ describe("what the owner is refused", () => {
     const after = await place(curatable.releaseOrder, twice);
 
     expect(after.status).toBe(200);
-    expect(sectionIn(after.text, "place-a-member")).toContain("already");
+    expect(sectionIn(after.text, "place-an-item")).toContain("Nothing was placed");
   });
 });
 
@@ -172,7 +216,7 @@ describe("taking a member out again", () => {
       owner,
     );
 
-    const undo = formIn(removed.text, "place-a-member");
+    const undo = formIn(removed.text, "place-an-item");
     const after = await submit(baseUrl, `/items/${curatable.storyOrder}`, undo, owner);
 
     // WITH ITS ORIGIN, which is the half a bare "the row is back" would miss:
@@ -194,7 +238,7 @@ describe("what a visitor is shown", () => {
     const { text } = await documentAt(`/items/${curatable.releaseOrder}`);
 
     expect(text).toContain(curatable.storyTitle);
-    expect(() => sectionIn(text, "place-a-member")).toThrow();
+    expect(() => sectionIn(text, "place-an-item")).toThrow();
     expect(membersIn(text).join(" ")).not.toContain("Remove");
   });
 });

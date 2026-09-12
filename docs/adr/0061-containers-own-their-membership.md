@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: proposed
 ---
 
 # Every container owns its membership outright
@@ -18,7 +18,7 @@ from that container" is otherwise ambiguous.
 
 Verified against source on 2026-09-10; corrections applied. Working in `docs/research/verify-adr-standards.md`.
 
-## Built, under CNCORE-7 and CNCORE-72
+## Two thirds built, under CNCORE-7 and CNCORE-72 -- and this record stays PROPOSED
 
 **BUILT: membership owned outright, and now demonstrably.** `browse` writes a container's members
 into that container and nowhere else, and the owner then places the same imported story into a
@@ -40,11 +40,19 @@ confirmed at the seam rather than in the argument: the container page's Remove c
 ROW, and a row is a placement. Two rows there legitimately share an item id, so a control naming the
 item would be one button for two members.
 
-**A REORDER IS STILL NOT BUILT, and it is ADR-0116's, not this record's.** That record's write path
-names four mutations -- place, move, remove, restore -- and CNCORE-72 built three. `move` arrives
-with the drag, under CNCORE-73. This record is about a container OWNING its membership, which
-placing and removing is the whole of; where a member sits within the ordering is ADR-0018's subject
-and that ticket's work.
+**STILL NOT BUILT: reordering a member, and moving one between containers.** The section this one
+replaces named three things nothing could do -- remove a member, reorder one, move one between
+containers -- and CNCORE-72 did the first. `move` and the reorder arrive with the drag, under
+CNCORE-73, and ADR-0116 is where their shape is decided.
+
+**WHICH IS WHY THIS RECORD STAYS `proposed`, and the first draft of this section had it `accepted`.**
+The argument for flipping was that this record's RULE -- a mutation names a placement -- is now built
+and applied, and that the reorder belongs to ADR-0018 and ADR-0116 rather than here. That argument is
+not wrong, and it is still the wrong call: `CLAUDE.md` says a record whose mechanism you built only
+half of is not one you implemented, and this record's own inventory of what was missing listed three
+mutations. Reasoning about which of them REALLY belong to it is exactly the move that rule exists to
+stop, because half a mechanism looks finished from outside. It flips on the ticket that finishes the
+write path, which is CNCORE-73.
 
 **WHAT A REMOVAL DOES TO THE SOURCES, decided under CNCORE-72 and worth recording here because it is
 this record's rule meeting ADR-0017's.** A removal tombstones the PLACEMENT and leaves
@@ -56,6 +64,6 @@ therefore comes back from an undo with its origin intact, and the undo is a sing
 
 **The review queue this record hands staleness to still does not exist** ([[0027-two-thresholds-and-a-review-queue]]).
 A container whose source has since reordered itself simply stays as it was imported. That is a
-consequence this record HANDS OFF rather than a mechanism of its own, which is why it does not hold
-this record open: the queue is ADR-0027's to build, and what this record owes -- membership owned
-outright, and mutations naming a placement -- is built.
+consequence this record HANDS OFF rather than a mechanism of its own: the queue is ADR-0027's to
+build. It is named here so a later reader does not count it against this record when the write path
+is finished and the flip is considered again.

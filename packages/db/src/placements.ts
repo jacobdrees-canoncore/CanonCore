@@ -136,6 +136,30 @@ export async function theOwnerSource(writer: Writer, ownerId: string): Promise<s
 }
 
 /**
+ * Whether a thrown thing is Postgres refusing a write on one of `codes`.
+ *
+ * IT WALKS `cause`, because a driver error arrives wrapped: Drizzle's own
+ * `message` is only ever "Failed query: ...", and the SQLSTATE is on the error
+ * underneath it.
+ *
+ * SHARED RATHER THAN WRITTEN TWICE, which is the rule `by-hand.ts` already
+ * states about `titledByTheOwner`: "SHARED BECAUSE THEY MUST NOT DRIFT, not
+ * merely because it is four lines twice". CNCORE-72 wrote a second copy of this
+ * walk with a different SQLSTATE set, and review named it -- the SETS differ
+ * because they describe different rules, but how you find a SQLSTATE through a
+ * wrapped error is one fact about this driver.
+ */
+export function isRefusalOn(codes: ReadonlySet<string>, error: unknown): boolean {
+  let current: unknown = error;
+  while (current instanceof Error) {
+    const { code } = current as { code?: unknown };
+    if (typeof code === "string" && codes.has(code)) return true;
+    current = current.cause;
+  }
+  return false;
+}
+
+/**
  * The catalogue REFUSING a placement the owner asked for, as opposed to failing
  * to write one it accepted.
  *
@@ -161,17 +185,6 @@ export class PlacementRefused extends Error {}
  * records at greater length.
  */
 const PLACEMENT_REFUSALS = new Set(["23505", "23503"]);
-
-/** Whether a thrown thing is Postgres refusing on a rule the owner broke. */
-function isPlacementRefusal(error: unknown): boolean {
-  let current: unknown = error;
-  while (current instanceof Error) {
-    const { code } = current as { code?: unknown };
-    if (typeof code === "string" && PLACEMENT_REFUSALS.has(code)) return true;
-    current = current.cause;
-  }
-  return false;
-}
 
 /**
  * THE OWNER PUTTING AN ITEM IN A CONTAINER, naming the placement it creates.
@@ -212,7 +225,7 @@ export async function placeItemByHand(
   } catch (cause) {
     // NARROWED, SO A FAULT STAYS A FAULT. Only the rules the owner can break
     // become a refusal; everything else is rethrown untouched.
-    if (isPlacementRefusal(cause)) {
+    if (isRefusalOn(PLACEMENT_REFUSALS, cause)) {
       throw new PlacementRefused("the catalogue refused that placement", { cause });
     }
     throw cause;
@@ -228,7 +241,7 @@ export async function placeItemByHand(
  * insert of that tuple fails on a constraint naming a row the owner cannot see.
  * Measured against PostgreSQL 18.
  *
- * SO THE ROW IS RESURRECTED RATHER THAN DUPLICATED, and the id is the one the
+ * SO THE ROW IS RESURRECTED RATHER THAN WRITTEN A SECOND TIME, and the id is the one the
  * placement always had -- which is what an external reference, a `?via=` link or
  * a pending undo is already holding (ADR-0078 makes the id a stable surrogate).
  *
@@ -326,7 +339,46 @@ export async function restorePlacementByHand(
   const restored = await writer
     .update(placements)
     .set({ deletedAt: null })
-    .where(eq(placements.id, placementId))
+    .where(
+      and(
+        eq(placements.id, placementId),
+        /*
+         * NOT ONE A SOURCE WITHDREW, WHICH REVIEW FOUND THIS WOULD REVIVE. This
+         * cleared the tombstone on any placement at all -- and a removal is not
+         * the only thing that sets one. When a provider stops asserting a
+         * member, `import.ts` tombstones its `placement_sources` and then the
+         * placement itself, once nothing is left standing behind it. An undo
+         * pointed at one of those brought back a member with NO live source:
+         * `assertedBy: []`, a claim nobody makes, contradicting the withdrawal
+         * the provider actually performed.
+         *
+         * THE TEST IS "HAS SOURCES, NONE OF THEM LIVE", which is the shape only
+         * a withdrawal leaves. A removal leaves `placement_sources` alone, so a
+         * placement the OWNER removed still has its live claims and passes here.
+         *
+         * AND A PLACEMENT NOBODY EVER ASSERTED PASSES TOO, which is why the
+         * first half of the test is there rather than a bare "has a live
+         * source". A row with no `placement_sources` at all is a real state --
+         * `findPlacementsInContainer` renders it with an empty `assertedBy`
+         * rather than dropping it -- and an owner may undo removing one.
+         *
+         * It is ADR-0017's rule in the other direction: a source may take back
+         * only what it said itself, so the owner does not get to put a
+         * provider's words back either.
+         */
+        sql`(
+          not exists (
+            select 1 from ${placementSources}
+            where ${placementSources.placementId} = ${placements.id}
+          )
+          or exists (
+            select 1 from ${placementSources}
+            where ${placementSources.placementId} = ${placements.id}
+              and ${placementSources.deletedAt} is null
+          )
+        )`,
+      ),
+    )
     .returning({ id: placements.id });
 
   return restored.length > 0;

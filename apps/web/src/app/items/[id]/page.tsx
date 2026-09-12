@@ -14,7 +14,13 @@ import { Holding, type MembersPath, PastTheEnd, type TheRoute, Walk } from "@/co
 import { oneValue } from "@/components/query-params";
 import { callerContext } from "@/session";
 
-import { annotateItem, placeMember, removeMember, restoreMember, retitleItem } from "../actions";
+import {
+  annotateItem,
+  placeItemInContainer,
+  removePlacement,
+  restorePlacement,
+  retitleItem,
+} from "../actions";
 
 /**
  * ADR-0066: `/items/<id>` is canonical and addresses the item.
@@ -328,7 +334,7 @@ export default async function ItemPage({
         A visitor is shown neither control (ADR-0044, CNCORE-109).
       */}
       {owner && item.isContainer && (
-        <PlaceAMember
+        <PlaceAnItem
           containerId={item.id}
           undone={undone}
           refused={refusedItem}
@@ -579,7 +585,7 @@ function Members({
                 one item twice in one container, so "remove this item from that
                 container" cannot say which row the owner pressed.
               */}
-              {owner && <RemoveMember placementId={placement.id} containerId={itemId} />}
+              {owner && <RemovePlacement placementId={placement.id} containerId={itemId} />}
             </span>
           </li>
         ))}
@@ -937,7 +943,7 @@ function Note({ itemId, note }: { itemId: string; note: NoteOnThePage }) {
  * showed the first hundred of a thousand would be the listing lying about its
  * own extent.
  */
-async function PlaceAMember({
+async function PlaceAnItem({
   containerId,
   undone,
   refused,
@@ -959,8 +965,8 @@ async function PlaceAMember({
   const { entries, total } = await call(appRouter.catalogue.list, {}, { context });
 
   return (
-    <section className="mt-8" aria-labelledby="place-a-member">
-      <h2 id="place-a-member" className="font-medium text-sm">
+    <section className="mt-8" aria-labelledby="place-an-item">
+      <h2 id="place-an-item" className="font-medium text-sm">
         Place an item here
       </h2>
       {/*
@@ -971,30 +977,46 @@ async function PlaceAMember({
       {undone && <UndoRemoval placementId={undone} containerId={containerId} />}
       {/*
         WHAT THE CATALOGUE WOULD NOT DO, in the reader's words. ADR-0009 licences
-        a Repeat at DIFFERENT positions, so the refusal is about the POSITION
-        rather than about placing the item twice -- and saying so is the
+        a Repeat at DIFFERENT positions, so the refusal is usually about the
+        POSITION rather than about placing the item twice -- and saying so is the
         difference between a rule an owner can work with and a wall.
+
+        IT NAMES BOTH REASONS, BECAUSE `BAD_REQUEST` CARRIES BOTH. Review found
+        this asserting the first one alone while `PLACEMENT_REFUSALS` also holds
+        `23503` -- an item or container that is not there -- so an owner whose
+        item had since been deleted was told it was already placed, which is a
+        false reason rather than a vague one. The router's own message says both;
+        this is that message in the reader's words.
       */}
       {refused && (
         <p className="mt-2 text-sm text-destructive">
-          That item is already placed here at that position. A Repeat is allowed at a different
-          position.
+          Nothing was placed. That item is either already here at that position, in which case a
+          Repeat is allowed at a different one, or it is no longer in the catalogue.
         </p>
       )}
-      <form action={placeMember} className="mt-2 flex items-end gap-2">
+      <form action={placeItemInContainer} className="mt-2 flex items-end gap-2">
         <input type="hidden" name="containerId" value={containerId} />
         <div className="flex flex-1 flex-col gap-2">
           <Label htmlFor="itemId">Item</Label>
           {/*
             A `<select>` RATHER THAN AN ID TYPED IN, because an owner curating an
             ordering knows what they want to add by its NAME. It needs no script:
-            a select posts its chosen option as an ordinary field.
+            a select posts its chosen option as an ordinary field, which is the
+            same constraint `/new` meets the same way.
+
+            THE SAME METRICS AS `packages/ui`'s `Input`, which stands beside it
+            in this row: `h-8`, `px-2.5`, `text-xs`, `ring-1`. This wore stock
+            shadcn's `h-9 rounded-md text-sm` until review caught it, and that is
+            precisely the step-taller-and-larger mismatch `/new` records against
+            the Title field -- `.claude/rules/frontend.md`, "Ported code is where
+            this slips". There is still no select in `packages/ui` to import, so
+            the identity is carried by matching its sibling.
           */}
           <select
             id="itemId"
             name="itemId"
             required
-            className="h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+            className="h-8 w-full rounded-none border border-input bg-transparent px-2.5 py-1 text-xs transition-colors outline-none focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring/50 md:text-xs dark:bg-input/30"
           >
             {entries.map((entry) => (
               <option key={entry.id} value={entry.id}>
@@ -1043,9 +1065,15 @@ async function PlaceAMember({
  * the undo offer -- and a Server Action gets no request URL, so anything it
  * needs has to be in the form.
  */
-function RemoveMember({ placementId, containerId }: { placementId: string; containerId: string }) {
+function RemovePlacement({
+  placementId,
+  containerId,
+}: {
+  placementId: string;
+  containerId: string;
+}) {
   return (
-    <form action={removeMember}>
+    <form action={removePlacement}>
       <input type="hidden" name="id" value={placementId} />
       <input type="hidden" name="containerId" value={containerId} />
       <Button type="submit" variant="ghost" size="sm">
@@ -1065,7 +1093,7 @@ function RemoveMember({ placementId, containerId }: { placementId: string; conta
  */
 function UndoRemoval({ placementId, containerId }: { placementId: string; containerId: string }) {
   return (
-    <form action={restoreMember} className="mt-2 flex items-baseline gap-3">
+    <form action={restorePlacement} className="mt-2 flex items-baseline gap-3">
       <input type="hidden" name="id" value={placementId} />
       <input type="hidden" name="containerId" value={containerId} />
       <p className="text-muted-foreground text-sm">Removed from this container.</p>

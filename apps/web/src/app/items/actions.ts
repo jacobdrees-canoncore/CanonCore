@@ -181,7 +181,7 @@ const placedMember = z.object({
  * container's own address, so the response to the POST is that page rendered
  * again and the new member is in the HTML that comes back.
  */
-export async function placeMember(form: FormData): Promise<void> {
+export async function placeItemInContainer(form: FormData): Promise<void> {
   const input = placedMember.parse({
     containerId: form.get("containerId"),
     itemId: form.get("itemId"),
@@ -217,13 +217,23 @@ export async function placeMember(form: FormData): Promise<void> {
   refresh();
 }
 
-/** What the remove and undo forms carry: which placement, and where to go back to. */
-const namedPlacement = z.object({ id: z.string(), containerId: z.string() });
+/**
+ * What the remove and undo forms carry: which placement, and where to go back to.
+ *
+ * BOTH ARE `uuid()`, AND `containerId` IS THE ONE THAT NEEDS SAYING. `id` is
+ * checked again downstream -- `placement.remove` declares `z.uuid()` -- but
+ * `containerId` reaches NO procedure: it exists only to build the address these
+ * actions redirect to. So nothing else was ever going to check it, and a Server
+ * Action endpoint accepts whatever `FormData` it is sent. Unchecked, a `?` or a
+ * `#` in it lands unescaped beside `?undo=` and a `../` walks out of `/items/`.
+ * Found by review.
+ */
+const namedPlacement = z.object({ id: z.uuid(), containerId: z.uuid() });
 
 /**
  * The owner taking a member out of one container, and being offered it back.
  *
- * IT REDIRECTS WHERE `placeMember` ABOVE DOES NOT, and the difference is the
+ * IT REDIRECTS WHERE `placeItemInContainer` ABOVE DOES NOT, and the difference is the
  * undo. ADR-0046 gives a removal no confirmation at all and an undo instead --
  * "removing a placement is the most frequent editing act in a product built on
  * multi-placement", and a heavyweight dialog on the common action is what
@@ -239,9 +249,10 @@ const namedPlacement = z.object({ id: z.string(), containerId: z.string() });
  *
  * IT IDENTIFIES NOTHING, which is what keeps it ADR-0066-shaped: the path is the
  * container's identity and the query is how the reader got to this view of it. A
- * stale or foreign id offers an undo that restores nothing and answers NOT_FOUND.
+ * stale or foreign id offers an undo the catalogue then declines, which
+ * `restorePlacement` below turns back into the plain container page.
  */
-export async function removeMember(form: FormData): Promise<void> {
+export async function removePlacement(form: FormData): Promise<void> {
   const { id, containerId } = namedPlacement.parse({
     id: form.get("id"),
     containerId: form.get("containerId"),
@@ -259,12 +270,25 @@ export async function removeMember(form: FormData): Promise<void> {
  * and a reader refreshing would meet a button that reads as though nothing had
  * happened.
  */
-export async function restoreMember(form: FormData): Promise<void> {
+export async function restorePlacement(form: FormData): Promise<void> {
   const { id, containerId } = namedPlacement.parse({
     id: form.get("id"),
     containerId: form.get("containerId"),
   });
 
-  await call(appRouter.placement.restore, { id }, { context: await callerContext() });
+  /*
+   * A DECLINED UNDO IS THE PLAIN CONTAINER PAGE, not a 500. `?undo=` is a
+   * transient offer carried in a URL, so it can be stale, shared, or pointed at
+   * a placement this owner may not bring back -- one a PROVIDER withdrew, which
+   * `restorePlacementByHand` refuses (ADR-0017). All three answer NOT_FOUND, and
+   * none of them is a fault: the honest response is the container as it stands,
+   * with the spent offer dropped. Found by review, which caught this reaching
+   * the reader as an error page.
+   */
+  const { error } = await safe(
+    call(appRouter.placement.restore, { id }, { context: await callerContext() }),
+  );
+  if (error && !(isDefinedError(error) && error.code === "NOT_FOUND")) throw error;
+
   redirect(`/items/${containerId}`);
 }
