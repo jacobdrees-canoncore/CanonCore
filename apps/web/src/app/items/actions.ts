@@ -220,6 +220,18 @@ export async function placeItemInContainer(form: FormData): Promise<void> {
    * ordinary answer this surface already has -- nothing written, and the
    * container's page rendered again (CNCORE-127) -- and a real fault is still a
    * fault, thrown before `whatTheProcedureAnswered` hands anything back.
+   *
+   * AND THAT NARROWING IS ALSO WHAT MAKES THE ADDRESS BELOW SAFE TO BUILD.
+   * `placedMember` declares both ids `z.string()` where `namedPlacement` below
+   * declares them `z.uuid()`, and the difference is not an oversight: these two
+   * REACH `placement.place`, which declares `containerId: z.uuid()` and
+   * `itemId: z.uuid()` itself. A DEFINED `BAD_REQUEST` is raised inside that
+   * handler, so reaching this line at all means both values already satisfied
+   * `z.uuid()` one layer down and neither can carry the `?`, `#` or `../` that
+   * `namedPlacement`'s docstring is about. Restating `z.uuid()` here would be
+   * the second copy this ticket exists to refuse; `namedPlacement` has one
+   * because its `containerId` reaches NO procedure. Raised by review, which read
+   * the two schemas side by side and could not see which of them was checked.
    */
   if (refused) {
     if (isDefinedError(refused) && refused.code === "BAD_REQUEST") {

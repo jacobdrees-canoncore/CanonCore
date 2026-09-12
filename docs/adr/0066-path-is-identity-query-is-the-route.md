@@ -293,10 +293,27 @@ which is exactly how this survived CNCORE-123.
 
 **THE THREE ACTIONS THAT SAY MORE THAN "NOTHING WAS WRITTEN" STILL DO, and that is what the shared
 reader had to leave room for.** `/login` tells a mistyped password from a bound that is holding
-(ADR-0125), `placeItemInContainer` tells the owner a position is taken, and `logOut` is the ONE
-action that stops on a refusal rather than carrying on -- its next line clears the cookie, and a
-refusal means the row it names is still there, which would be exactly the half-logout ADR-0043
-refuses. Each reads the refusal the shared rule handed it; none of them classifies one for itself.
+(ADR-0125), `placeItemInContainer` tells the owner a position is taken, and `logOut` stops on a
+refusal rather than carrying on -- its next line clears the cookie, and a refusal would mean the row
+it names is still there, which is exactly the half-logout ADR-0043 refuses. Each reads the refusal
+the shared rule handed it; none of them classifies one for itself.
+
+**`logOut`'S BRANCH IS UNREACHABLE TODAY, said because the sentence above reads as a live
+distinction and is not one.** `session.logOut` declares no input to refuse, and the only sub-500
+error `ownerProcedure` raises is `UNAUTHORIZED` for a caller with no session -- which that action
+has already established there is. It is a guard on an ordering, kept because the day the procedure
+learns a refusal is the day the guard's absence becomes a silent half-logout, and written down here
+because an unfalsifiable claim in a record is worse than a stated one. Found by review, which
+reached the branch and could not enter it.
+
+**AND THE SAME RULE NOW ANSWERS THE REFUSAL THAT IS NOT ABOUT A FIELD AT ALL.** `ownerProcedure`
+throws `UNAUTHORIZED` for a caller with no session (CNCORE-109), which is 401 and therefore under
+500, so a visitor composing a write this app never offered them gets the page rather than the 500.
+That is wider than the ticket asked for and is the shared rule rather than a second decision: a
+reader that classified by CODE would need adding to for every refusal a procedure learns, and the
+one nobody remembered would be the 500. It is asserted at the page-over-HTTP seam alongside the two
+fields. `/tasks`, `/devices` and the owner's half of `/import` render `NotLoggedIn` for a visitor
+anyway, so what comes back says Log in rather than resembling a write that worked.
 
 **AND `restorePlacement` LOST A NARROWING RATHER THAN GAINING ONE.** It let `NOT_FOUND` past and
 threw everything else, which made a hand-composed id answer 500 on the one surface whose whole

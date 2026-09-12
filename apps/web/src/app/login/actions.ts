@@ -40,7 +40,7 @@ export async function logIn(form: FormData): Promise<void> {
 
   // A REFUSED PASSWORD IS AN ANSWER, NOT A CRASH -- the same rule
   // `provider.import` takes for a URL the allowlist declines, and since
-  // CNCORE-127 the rule every action on this app takes. Anything else that went
+  // CNCORE-127 the rule every action in this app takes. Anything else that went
   // wrong is a genuine fault and goes on being one, thrown before
   // `whatTheProcedureAnswered` hands anything back.
   //
@@ -78,6 +78,15 @@ export async function logIn(form: FormData): Promise<void> {
  * nothing. Here the next line clears the cookie, and a refusal means the row is
  * still there -- so taking it would be exactly the half-logout the paragraph
  * above refuses, arrived at by a shared rule instead of by a bug.
+ *
+ * NO REFUSAL CAN REACH IT TODAY, AND THAT IS SAID HERE RATHER THAN LEFT FOR A
+ * READER TO WORK OUT. `session.logOut` declares no input to refuse and the only
+ * sub-500 error `ownerProcedure` raises is `UNAUTHORIZED` for a caller with no
+ * session -- which the line above has just established there IS one. So this is
+ * a guard on an ordering ADR-0043 argues in security terms, not a branch with a
+ * case behind it, and the day that procedure learns a refusal is the day it
+ * would otherwise become a silent half-logout. Raised by review, which reached
+ * the branch and found nothing that could enter it.
  */
 export async function logOut(): Promise<void> {
   const context = await callerContext();

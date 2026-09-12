@@ -74,8 +74,26 @@ export async function whatTheProcedureAnswered<TOutput, TError>(
 ): Promise<Answered<TOutput, TError>> {
   const answer = await safe(work);
   if (answer.isSuccess) return { answered: answer.data, refused: undefined };
-  if (answer.error instanceof ORPCError && answer.error.status < 500) {
-    return { answered: undefined, refused: answer.error };
-  }
+  if (isARefusal(answer.error)) return { answered: undefined, refused: answer.error };
   throw answer.error;
+}
+
+/**
+ * A REFUSAL, TOLD FROM A FAULT, and the one line that decides it.
+ *
+ * SHARED WITH `/api/rpc`, WHICH MADE THE SAME TEST FIRST. That mount asks it to
+ * decide what NOT to log -- a stack trace for a mistyped password tells an owner
+ * reading their log that their server is broken (ADR-0125) -- and this file asks
+ * it to decide what to answer with. Two questions, one decision, and that file's
+ * own docstring is where the reason for sharing it is already written: "two
+ * copies would be one decision written twice and free to drift". Found by
+ * review, which caught this copied rather than imported.
+ *
+ * A TYPE PREDICATE RATHER THAN A BOOLEAN, because both callers need the
+ * narrowing and only one of them could do it for itself: the mount takes
+ * `unknown` off a `throw`, and this file has to hand the refusal back as an
+ * `ORPCError` for `/login` to read a code off.
+ */
+export function isARefusal<T>(error: T): error is T & ORPCError<ORPCErrorCode, unknown> {
+  return error instanceof ORPCError && error.status < 500;
 }

@@ -769,4 +769,37 @@ describe("a field the procedure refuses", () => {
     expect(() => itemAddressIn(refused.text)).toThrow();
     expect(() => sectionIn(refused.text, "new-item")).not.toThrow();
   });
+
+  /**
+   * AND THE REFUSAL THAT IS NOT ABOUT A FIELD AT ALL. `ownerProcedure` throws
+   * `UNAUTHORIZED` for a caller with no session (CNCORE-109), which is 401 and
+   * therefore the same answer under the same rule -- so a visitor who composes
+   * the POST the page declines to offer them gets the page rather than a 500.
+   *
+   * THE FORM IS THE OWNER'S OWN RENDER, SENT BACK WITHOUT THE COOKIE, because
+   * a visitor is never shown one: the test above asserts `/items/<id>` carries
+   * no `edit-title` section for them. That is what makes this a request
+   * composed by hand rather than a form replayed.
+   *
+   * IT IS WHAT `what a visitor is offered` ALREADY WORRIES ABOUT, from the
+   * other side. That block's reason for offering no button is that "a Server
+   * Action that throws renders a bare `Internal Server Error` ... an offer the
+   * page cannot honour costs the reader the page they were on". Not offering it
+   * is still right; this is the cost, gone for anyone who asks anyway.
+   */
+  it("writes nothing when a visitor composes the POST the page never offered", async () => {
+    const at = await anItemOfMyOwn("An item only its owner may rename");
+    const theOwnersForm = formIn((await documentAt(at, owner)).text, "edit-title");
+
+    const refused = await submit(
+      baseUrl,
+      at,
+      withFields(theOwnersForm, { title: "A title a visitor chose" }),
+    );
+
+    expect(refused.status).toBe(200);
+    expect(refused.text).not.toContain("Internal Server Error");
+    const after = await documentAt(at, owner);
+    expect(valueRows(after.text)).toEqual(["Title An item only its owner may rename Owner"]);
+  });
 });
