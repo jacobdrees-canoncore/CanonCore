@@ -213,22 +213,28 @@ function WhatToDoNext() {
           </EmptyTitle>
           <EmptyDescription>
             It starts that way on purpose: CanonCore ships no catalogue, so nothing here is anybody
-            else&rsquo;s library. Two routes fill it, and neither waits on the other: the first
-            needs nothing configured and reaches nothing.
+            else&rsquo;s library. Two routes fill it, and neither waits on the other.
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
           <ul className="space-y-3 text-left">
             <li>
+              {/*
+                NO RECORD CITED IN THE COPY ITSELF. ADR-0003 is what makes an
+                Item with no file a complete entry, and the reader of this page
+                is a stranger on their first run -- so the record belongs in
+                this comment and the sentence it justifies belongs on the page.
+                Nothing else this page renders cites one.
+              */}
               <span className="font-medium">
                 <Link className="underline" href="/new">
                   Add an item yourself
                 </Link>
                 .
               </span>{" "}
-              A story, a person, a place &mdash; whether or not you have the file and whether or not
-              a provider has ever heard of it (ADR-0003). Make a Container the same way, place items
-              in it, and the catalogue is yours. Nothing to configure and nothing to reach.
+              A story, a person, a place &mdash; whether or not you have the file, and whether or
+              not a provider has ever heard of it. Make a Container the same way, place items in it,
+              and the catalogue is yours. Nothing to configure and no provider to reach.
             </li>
             <li>
               {/*
