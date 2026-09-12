@@ -15,6 +15,7 @@ export {
   assertConfigUrl,
   assertContentAddress,
   assertContentUrl,
+  type Boundary,
   OutboundRefused,
   parseAllowlist,
   pinnedLookup,

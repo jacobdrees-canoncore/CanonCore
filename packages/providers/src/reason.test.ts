@@ -54,6 +54,34 @@ describe("reasonFor", () => {
   });
 
   /**
+   * AND IT SURVIVES A HOSTNAME LONG ENOUGH TO PUSH IT PAST THE CAP, which is
+   * the case the assertion above does NOT reach and the one that was broken.
+   *
+   * `assertConfigUrl` interpolates the host TWICE, so the refusal grows at twice
+   * the rate of the Owner's own base URL: measured, a 147-character hostname --
+   * an ordinary AWS load balancer name -- made a 413-character refusal, and the
+   * cap took away "is not an allowlisted host" AND the sentence naming the
+   * remedy. The Owner was left the name of their own host and no verdict on it.
+   *
+   * THE VALUE IS BOUNDED WHERE IT ENTERS, so the prose around it is fixed-length
+   * and cannot be cut. That is asserted here rather than in the ceiling's
+   * arithmetic, because arithmetic is what was wrong.
+   */
+  it("keeps the remedy when the Owner's own hostname is long enough to blow the cap", () => {
+    const host = `${"a".repeat(120)}.eu-west-2.elb.amazonaws.com`;
+
+    const { wrote, text } = reasonFor(
+      caught(() => assertConfigUrl(new URL(`https://${host}/`), parseAllowlist("other.test"))),
+    );
+
+    expect(wrote).toBe("canoncore");
+    expect(text.length).toBeLessThanOrEqual(REASON_MAX_LENGTH);
+    // THE VERDICT AND THE REMEDY, which are the two halves the cap removed.
+    expect(text).toContain("is not an allowlisted host");
+    expect(text).toContain("a parent domain does not cover it");
+  });
+
+  /**
    * A THIRD PARTY'S TEXT IS SAID TO BE THEIRS, which is the half a cap alone
    * does not buy. CNCORE-96 binds every new reason surface to both: capped, and
    * attributed, "so the Owner reads it as a Provider's claim rather than as
@@ -71,7 +99,10 @@ describe("reasonFor", () => {
    * -- a provider must not be able to crash the request that is reading it.
    */
   it("still says something when what was thrown says nothing", () => {
-    for (const silent of [new Error(""), "", undefined]) {
+    // WHITESPACE COUNTS AS NOTHING SAID. `"   "` passes `min(1)` and renders as
+    // a blank space, which is a reason the Owner cannot see rather than one
+    // they can act on -- the same mistake a blank search query is.
+    for (const silent of [new Error(""), new Error("   "), "", undefined]) {
       const { wrote, text } = reasonFor(silent);
 
       expect(text.length).toBeGreaterThan(0);

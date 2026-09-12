@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 ---
 
 # A failure reason is bounded, and it says who wrote it
@@ -26,10 +26,28 @@ mean the bound held only while every caller agreed about which branch it was on 
 shape of the defect this record closes, not a repair of it.
 
 300 sits above every sentence this app writes and far below anything a provider could flood a page
-with. The longest refusal in `boundary.ts` is 172 characters with an ordinary base URL in it, so the
-sentences the Owner has to act on arrive whole. **That headroom is asserted rather than trusted**:
-the test throws the refusal from the REAL boundary and asserts the reason equals it exactly, so a
-sentence edited past the cap fails a test instead of silently losing the half naming the setting.
+with.
+
+**AND "EVERY SENTENCE THIS APP WRITES" IS NOT A FIXED LENGTH, WHICH AN EARLIER VERSION OF THIS
+RECORD MISSED.** It claimed the longest refusal in `boundary.ts` was 172 characters and that the
+Owner's sentences therefore arrived whole. Both halves were wrong. `assertConfigAddress` with a full
+IPv6 address is 199, and — the one that matters — **`assertConfigUrl` interpolates the host TWICE**,
+once as the origin and once on its own, so the refusal grows at twice the rate of whatever the Owner
+typed. Measured: a 147-character hostname, an ordinary AWS load balancer name, produces a
+413-character refusal, and capping that at 300 took away `is not an allowlisted host` AND the
+sentence naming the remedy. The Owner was left the name of their own host and no verdict on it. The
+cap was eating the one thing this record promises to protect.
+
+**SO THE VALUE IS BOUNDED WHERE IT ENTERS THE SENTENCE, and the prose around it is then fixed-length
+and cannot be cut.** `shortly()` caps an interpolated host, origin or address at 80 characters, which
+leaves the longest of these refusals at 269 with both of its values at full stretch. An Owner who
+typed a long host still recognises its opening; what they cannot do without is the clause saying what
+to change.
+
+**THIS IS ASSERTED WITH A LONG HOSTNAME, not merely with the fixed prose.** The earlier test threw
+the refusal from the real boundary and compared it exactly, which looked like a guard and was not
+one: it used `wiki.example.com`, so it only ever exercised the half that never varies. The variable
+half is the half that consumed the headroom.
 
 ## The mechanism CNCORE-95 named is not the mechanism, and the defect is larger than it said
 
@@ -52,6 +70,13 @@ actually use, uncapped:
 A second lever is real and narrower: a provider's own strings DO reach the message through `path`,
 so a record key it chooses is quoted back — two 400-character keys measured at 981 characters.
 
+**AND THAT MESSAGE IS PRETTY-PRINTED JSON**, newlines and six-space indents, which is the third
+thing the ticket did not say. Uncollapsed, the cap spends most of its 300 characters on the
+provider's indentation and hands the Owner a fragment of a stack of braces. So a reason is collapsed
+to one line before it is cut, and the same 300 characters then carry the codes and paths that say
+what was wrong. It was found by a page assertion that could not match across the newlines, which is
+the sort of thing only building it tells you.
+
 Correcting this makes the case for the cap stronger, not weaker, which is why it is recorded here
 rather than left as a ticket that was roughly right.
 
@@ -72,10 +97,23 @@ a PROVIDER supplied, and that is already the question "whose text is this?" aske
 somebody decides otherwise. The cost of being wrong that way is a sentence the Owner reads as a
 provider's; the cost the other way is a provider choosing text the Owner reads as CanonCore's.
 
-Two refusals are left at the default deliberately. `pinnedLookup`'s "resolves to no address" is
-raised for both dispatchers and is a fact about the provider's host, so reading it as the provider's
-is not wrong. The refusals raised while PARSING settings at startup never reach a page at all — they
-stop the server — so they are not annotated for a reader that does not exist.
+**WHAT SITS AT THE DEFAULT IS MORE THAN AN EARLIER VERSION OF THIS RECORD COUNTED.** It said "two
+refusals", and the true list is longer, so it is enumerated rather than characterised:
+
+- `pinnedLookup`'s "resolves to no address" is raised for both dispatchers and is a fact about the
+  provider's host, so reading it as the provider's is not wrong.
+- `client.ts` raises three that are THIS APP'S OWN PROSE about a provider's behaviour: more than
+  `MAX_HOPS` redirects, a response that carried no body, and a body larger than `MAX_BODY_BYTES`.
+  They are not config-boundary refusals and they name no setting the Owner can change, so `canoncore`
+  would be wrong for them — but they are not the provider's words either.
+- The refusals raised while PARSING settings at startup never reach a page at all; they stop the
+  server, so they are not annotated for a reader that does not exist.
+
+**THAT THIRD BULLET IS WHY THE PAGE DOES NOT SAY THE PROVIDER "said" THIS, and an earlier build did.**
+`wrote: "provider"` means *this is not CanonCore's sentence about your settings*, which is a weaker
+claim than *this provider uttered these words* — and the weaker claim is the true one for all of
+them. The page therefore QUOTES rather than attributing an utterance: quotation marks beside a named
+provider say the catalogue is not the one making the claim, without asserting who wrote it.
 
 ## Attributed, not reworded
 
@@ -118,7 +156,15 @@ credential and a settings page saying why a provider cannot be reached are two m
 and CNCORE-96 binds them to this record — "a reason is capped, and the page says which Provider it
 came from". Four sites mapping their own catch is how this defect happened twice already.
 
-**The page prints CanonCore's sentence plainly and QUOTES the provider's, naming the provider.**
-Both `/import` sections take the same component. `NotReached` stopped naming the base URL in its own
-lead sentence, because the reason names the provider itself in both branches and saying it twice
-read as a stutter.
+**The page prints CanonCore's sentence plainly and QUOTES everything else, with the provider named
+beside it.** Both `/import` sections take the same component, and each keeps naming the provider in
+its own lead sentence. An earlier build moved that naming into the component instead, which rendered
+the URL twice in the search list and — worse — dropped it entirely when the reason came from
+`assertConfigAddress`, which names an ADDRESS rather than the provider. The lead sentence is the
+right place for it precisely because the reason cannot be relied on to contain it.
+
+**The `provider` branch is rendered by a test, which it was not at first.** The suite's one
+unreachable provider is refused at the config boundary, so every page assertion reached the
+`canoncore` branch and the quoting this record turns on was rendered by nothing. `aProviderThatAnswersBadly`
+is the witness, and it is configured in `PROVIDER_URLS` like `aProviderThatDeclinesBrowse` — the page
+refuses a base URL it does not know, so a stub standing up inside one test cannot reach the branch.

@@ -10,6 +10,12 @@ import ipaddr from "ipaddr.js";
  * its answer dropped, and the resulting hole looks exactly like working code;
  * a refusal that throws cannot be forgotten by a caller who meant to check.
  */
+/**
+ * Which of ADR-0034's two boundaries a refusal came from, and therefore whose
+ * sentence it is (ADR-0123).
+ */
+export type Boundary = "config" | "content";
+
 export class OutboundRefused extends Error {
   /**
    * WHICH OF THIS RECORD'S TWO BOUNDARIES REFUSED, which is what decides whose
@@ -30,9 +36,9 @@ export class OutboundRefused extends Error {
    * travelling to a page -- so they are left at the default rather than
    * annotated for a reader that does not exist.
    */
-  readonly boundary: "config" | "content";
+  readonly boundary: Boundary;
 
-  constructor(message: string, boundary: "config" | "content" = "content") {
+  constructor(message: string, boundary: Boundary = "content") {
     super(message);
     this.name = "OutboundRefused";
     this.boundary = boundary;
@@ -46,6 +52,33 @@ export class OutboundRefused extends Error {
  * being named is what gets it refused.
  */
 const UNICAST = "unicast";
+
+/**
+ * How much of an interpolated value a refusal quotes back.
+ *
+ * ADR-0123 caps a failure reason at 300 characters, and a refusal assembled
+ * from a value of any length is not bounded by that -- it is TRUNCATED by it,
+ * which costs the Owner the END of the sentence: the half naming the setting to
+ * fix. `assertConfigUrl` interpolates the host TWICE, so a 147-character
+ * hostname produced a 413-character refusal and the cap ate both "is not an
+ * allowlisted host" and the remedy after it. Measured, not imagined.
+ *
+ * SO THE VALUE IS BOUNDED WHERE IT ENTERS, and the prose around it is then
+ * fixed-length and always survives. 80 leaves the longest of these sentences at
+ * 269 characters with both of its values at full stretch.
+ */
+const VALUE_MAX = 80;
+
+/**
+ * A value as a refusal quotes it: whole, or its first `VALUE_MAX` characters.
+ *
+ * An Owner who typed a long host still recognises its opening, and what they
+ * cannot do without is the sentence SAYING WHAT TO DO, which is what keeping the
+ * value short is protecting.
+ */
+function shortly(value: string): string {
+  return value.length <= VALUE_MAX ? value : `${value.slice(0, VALUE_MAX - 1)}…`;
+}
 
 /**
  * ADR-0034's CONTENT boundary, with NO EXCEPTION EVER: an address is reachable
@@ -187,10 +220,10 @@ function bareHost(url: URL): string {
  * from whichever client happens to be underneath, and ADR-0034's boundary has
  * to hold on its own.
  */
-function assertHttpScheme(url: URL, boundary: "config" | "content"): void {
+function assertHttpScheme(url: URL, boundary: Boundary): void {
   if (url.protocol === "http:" || url.protocol === "https:") return;
   throw new OutboundRefused(
-    `refused ${url.href}: the scheme is \`${url.protocol}\` and a provider is reached over HTTP.`,
+    `refused ${shortly(url.href)}: the scheme is \`${url.protocol}\` and a provider is reached over HTTP.`,
     boundary,
   );
 }
@@ -233,14 +266,14 @@ export function assertConfigUrl(url: URL, allowlist: Allowlist): void {
     const address = ipaddr.parse(bare);
     if (allowlist.ranges.some((range) => matches(address, range))) return;
     throw new OutboundRefused(
-      `refused ${url.origin}: ${bare} is on no allowlisted CIDR. A provider on a private network goes on the allowlist by name (ADR-0034).`,
+      `refused ${shortly(url.origin)}: ${shortly(bare)} is on no allowlisted CIDR. A provider on a private network goes on the allowlist by name (ADR-0034).`,
       "config",
     );
   }
 
   if (allowlist.hosts.has(hostname.toLowerCase())) return;
   throw new OutboundRefused(
-    `refused ${url.origin}: ${hostname} is not an allowlisted host. The allowlist takes exact hosts, so a parent domain does not cover it.`,
+    `refused ${shortly(url.origin)}: ${shortly(hostname)} is not an allowlisted host. The allowlist takes exact hosts, so a parent domain does not cover it.`,
     "config",
   );
 }
@@ -364,13 +397,16 @@ export function pinnedLookup(
 export function assertConfigAddress(allowlist: Allowlist): AssertAddress {
   return (address) => {
     if (!ipaddr.isValid(address)) {
-      throw new OutboundRefused(`refused ${address}: it is not a readable address.`, "config");
+      throw new OutboundRefused(
+        `refused ${shortly(address)}: it is not a readable address.`,
+        "config",
+      );
     }
     const parsed = ipaddr.parse(address);
     if (parsed.range() === UNICAST) return;
     if (allowlist.ranges.some((range) => matches(parsed, range))) return;
     throw new OutboundRefused(
-      `refused ${address}: ipaddr.js classifies it as \`${parsed.range()}\` and no allowlisted CIDR covers it. A provider on a private network goes on the allowlist by name (ADR-0034).`,
+      `refused ${shortly(address)}: ipaddr.js classifies it as \`${parsed.range()}\` and no allowlisted CIDR covers it. A provider on a private network goes on the allowlist by name (ADR-0034).`,
       "config",
     );
   };

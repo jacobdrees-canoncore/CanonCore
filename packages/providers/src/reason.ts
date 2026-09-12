@@ -76,8 +76,8 @@ export type FailureReason = z.infer<typeof failureReason>;
  */
 export function reasonFor(thrown: unknown): FailureReason {
   const message = thrown instanceof Error ? thrown.message : String(thrown);
-  const wrote = thrown instanceof OutboundRefused && thrown.boundary === "config";
-  return { wrote: wrote ? "canoncore" : "provider", text: cap(message) || SILENT };
+  const ours = thrown instanceof OutboundRefused && thrown.boundary === "config";
+  return { wrote: ours ? "canoncore" : "provider", text: cap(oneLine(message)) || SILENT };
 }
 
 /**
@@ -94,8 +94,37 @@ export function reasonFor(thrown: unknown): FailureReason {
  */
 const SILENT = "the provider failed without saying why.";
 
-/** The text, cut to `REASON_MAX_LENGTH` INCLUDING the marker that says so. */
+/**
+ * The message as ONE LINE, with runs of whitespace collapsed.
+ *
+ * A REASON IS A SENTENCE ON A PAGE, not a document. A `ZodError`'s message is
+ * PRETTY-PRINTED JSON -- newlines and six-space indents -- so without this the
+ * cap spends most of its 300 characters on the provider's indentation and the
+ * Owner reads a fragment of a stack of braces. Collapsed, the same 300 carries
+ * the codes and paths that say what was actually wrong.
+ *
+ * IT ALSO MAKES `min(1)` MEAN SOMETHING. A message of nothing but whitespace
+ * trims to empty here and falls through to `SILENT` below, where before it
+ * satisfied the schema and rendered as a blank space -- a reason the Owner can
+ * see is missing, rather than one they cannot see at all.
+ */
+function oneLine(message: string): string {
+  return message.replace(/\s+/g, " ").trim();
+}
+
+/**
+ * The text, cut to `REASON_MAX_LENGTH` INCLUDING the marker that says so.
+ *
+ * CUT ON A WHOLE CHARACTER. `slice` counts UTF-16 units, so a cut landing
+ * between the two halves of an astral character leaves a lone surrogate that
+ * renders as a replacement glyph -- and a provider picks the byte offsets here
+ * by choosing what it sends. Dropping a trailing high surrogate costs one
+ * character of a reason that was being truncated anyway.
+ */
 function cap(text: string): string {
   if (text.length <= REASON_MAX_LENGTH) return text;
-  return `${text.slice(0, REASON_MAX_LENGTH - CUT.length)}${CUT}`;
+  const kept = text.slice(0, REASON_MAX_LENGTH - CUT.length);
+  const last = kept.charCodeAt(kept.length - 1);
+  const whole = last >= 0xd800 && last <= 0xdbff ? kept.slice(0, -1) : kept;
+  return `${whole}${CUT}`;
 }

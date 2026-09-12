@@ -1,6 +1,5 @@
 import { type Context, createContext } from "@canoncore/api/context";
 import { appRouter } from "@canoncore/api/routers";
-import type { FailureReason } from "@canoncore/providers";
 import { Button } from "@canoncore/ui/components/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@canoncore/ui/components/card";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@canoncore/ui/components/empty";
@@ -187,6 +186,17 @@ function purgeableProvider(configured: string[], named: string | undefined): str
 
 type ImportPage = Awaited<ReturnType<typeof readImportPage>>;
 type Found = NonNullable<ImportPage["found"]>;
+
+/**
+ * WHY A PROVIDER COULD NOT BE REACHED (ADR-0123): the text, and whose sentence
+ * it is.
+ *
+ * TAKEN OFF THE PAYLOAD RATHER THAN IMPORTED FROM `@canoncore/providers`, which
+ * publishes the same type. That package is a devDependency here -- the page
+ * calls the router, not the provider client -- and a production file importing
+ * through one compiles today only because the import is erased.
+ */
+type FailureReason = Found["failed"][number]["reason"];
 /** The container the owner named: what the catalogue holds, and what the provider says. */
 type NamedContainer = NonNullable<ImportPage["namedContainer"]>;
 
@@ -686,8 +696,7 @@ function Unreachable({ failed }: { failed: Found["failed"] }) {
       <ul className="mt-2 divide-y">
         {failed.map(({ baseUrl, reason }) => (
           <li key={baseUrl} className="py-2 text-sm">
-            <span className="font-medium">{baseUrl}</span>{" "}
-            <Reason baseUrl={baseUrl} reason={reason} />
+            <span className="font-medium">{baseUrl}</span> <Reason reason={reason} />
           </li>
         ))}
       </ul>
@@ -1034,14 +1043,8 @@ function StillHeld({ itemId }: { itemId: string }) {
 function NotReached({ baseUrl, reason }: { baseUrl: string; reason: FailureReason }) {
   return (
     <p className="text-muted-foreground text-sm">
-      {/*
-        THE URL IS NOT NAMED TWICE. `Reason` names the provider itself when the
-        sentence is the PROVIDER'S, and ADR-0034's own refusals open `refused
-        <origin>:` when it is CANONCORE'S -- so either branch already tells the
-        owner which provider this is about, and the lead sentence saying it too
-        read as a stutter.
-      */}
-      Nothing could be learned about that id. <Reason baseUrl={baseUrl} reason={reason} />
+      Nothing could be learned about that id from <span className="font-medium">{baseUrl}</span>.{" "}
+      <Reason reason={reason} />
     </p>
   );
 }
@@ -1054,26 +1057,33 @@ function NotReached({ baseUrl, reason }: { baseUrl: string; reason: FailureReaso
  * change -- ADR-0034's config boundary refused a URL they typed -- so it is
  * printed as this catalogue speaking, which is what it is.
  *
- * A PROVIDER'S TEXT IS QUOTED AND ATTRIBUTED TO IT. The provider chose those
- * words, and run on unmarked after the app's own sentence they read as the
- * app's: CNCORE-96 binds every reason surface to saying "which Provider it came
- * from so the Owner reads it as a Provider's claim rather than as CanonCore
- * speaking". The LENGTH is not the provider's to choose either, and that is
- * already settled before it arrives here -- `reasonFor` caps it at the seam
- * rather than the page truncating what it is handed.
+ * ANYTHING ELSE IS QUOTED. `<q>` is the whole of the difference and it is
+ * enough: CNCORE-96 binds every reason surface to saying "which Provider it
+ * came from so the Owner reads it as a Provider's claim rather than as
+ * CanonCore speaking", and quotation marks beside a named provider say exactly
+ * that. The LENGTH is not the provider's to choose either, and that is settled
+ * before it arrives -- `reasonFor` caps it at the seam rather than the page
+ * truncating what it was handed.
  *
- * NOT A REWORDING, THOUGH. CNCORE-92's rule is that a provider which cannot be
+ * IT DOES NOT SAY THE PROVIDER "said" THIS, and an earlier version did. Not
+ * every quoted reason is the provider's own words: `client.ts` writes sentences
+ * ABOUT a provider -- too many redirects, a body larger than this client reads
+ * -- that are CanonCore's prose and are not ADR-0034 config refusals. They
+ * belong on this side of the line, because they are not a setting the Owner can
+ * go and change, but claiming the provider uttered them would be a second false
+ * attribution in the fix for the first.
+ *
+ * NOT A REWORDING EITHER. CNCORE-92's rule is that a provider which cannot be
  * reached must never look like one that holds nothing, and a reason replaced by
  * a house sentence would do exactly that -- "a refusal reworded is not a
- * refusal reported". It is marked as theirs and left as theirs.
+ * refusal reported". It is marked and left as it is.
+ *
+ * THE CALLER NAMES THE PROVIDER, in the lead sentence it was already writing.
+ * Naming it here too rendered the URL twice in the list above.
  */
-function Reason({ baseUrl, reason }: { baseUrl: string; reason: FailureReason }) {
+function Reason({ reason }: { reason: FailureReason }) {
   if (reason.wrote === "canoncore") return <span>{reason.text}</span>;
-  return (
-    <span>
-      <span className="font-medium">{baseUrl}</span> said: <q>{reason.text}</q>
-    </span>
-  );
+  return <q>{reason.text}</q>;
 }
 
 /**
