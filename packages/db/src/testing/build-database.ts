@@ -4,6 +4,30 @@ import "../load-env";
 import { migrateToHead } from "../migrate";
 
 /**
+ * EVERY SUFFIX ANY SUITE MAY ASK FOR, and the only place one is written down.
+ *
+ * `buildTestDatabase` takes a member of this and nothing else, so a suite that
+ * wants a sixth database adds it HERE or does not compile. That is the whole of
+ * what CNCORE-112 fixed: the set used to be string literals at the call sites
+ * with a hand-written copy in `worktree-database.test.ts` -- three places and
+ * nothing holding them together, so the copy read three while the web suite
+ * passed five, and one of the missing two did not fit the budget below.
+ *
+ * `""` IS A MEMBER RATHER THAN AN ABSENCE. `packages/db`'s own suite takes the
+ * bare `<database>_test`, so "no suffix" is a declared value that gets held to
+ * the budget like any other, rather than a case the union quietly excludes.
+ *
+ * THE BUDGET IS ELEVEN CHARACTERS, set by `LONGEST_DERIVED_SUFFIX` in
+ * `worktree-database.ts` and deliberately NOT derived from this list -- that
+ * file says what derives it wrong. `worktree-database.test.ts` is what holds
+ * every member here to it.
+ */
+export const TEST_DATABASE_SUFFIXES = ["", "web", "fresh", "paged", "purge", "still"] as const;
+
+/** A suffix this repo has declared, which is the only kind there is. */
+export type TestDatabaseSuffix = (typeof TEST_DATABASE_SUFFIXES)[number];
+
+/**
  * Builds a database FROM EMPTY and runs the whole ladder against it.
  *
  * Deliberately the same path CI's empty-to-head gate takes (ADR-0047), so the
@@ -15,7 +39,7 @@ import { migrateToHead } from "../migrate";
  * silently skip. `scripts/check-ladder.ts` covers that; this covers whether the
  * SQL is valid at all.
  */
-export async function buildTestDatabase(suffix = ""): Promise<string> {
+export async function buildTestDatabase(suffix: TestDatabaseSuffix = ""): Promise<string> {
   const url = new URL(requireDatabaseUrl());
   const name = testDatabaseName(url, suffix);
 
@@ -38,28 +62,30 @@ export async function buildTestDatabase(suffix = ""): Promise<string> {
 }
 
 /**
- * `<database>_test`, or `<database>_test_<suffix>`.
+ * How a test database is named from the worktree's own database. THE one place
+ * that knows, so `worktreeDatabaseName`'s reservation and this cannot drift on
+ * FORMAT -- and `TEST_DATABASE_SUFFIXES` is what stops the SET drifting, which
+ * is the half that did. A suite can no longer reach this with a suffix nobody
+ * measured: there is no `buildTestDatabase("something-longer")` to write.
+ */
+export function testDatabaseNameFor(database: string, suffix: TestDatabaseSuffix = ""): string {
+  return `${database}_test${suffix ? `_${suffix}` : ""}`;
+}
+
+/**
+ * `<database>_test`, or `<database>_test_<suffix>`, for the database a URL names.
  *
  * REFUSES rather than truncates, and that is the whole point of it. PostgreSQL
  * silently cuts an identifier at 63 bytes, so a database named at 58 characters
- * or more would have its `_test` suffix cut back off -- and the next line of
- * this file is `drop database ... with (force)`. Truncation here destroys the
- * developer's real catalogue, silently, on a test run.
+ * or more would have its `_test` suffix cut back off -- and what
+ * `buildTestDatabase` does with the name this returns is
+ * `drop database ... with (force)`. Truncation here destroys the developer's
+ * real catalogue, silently, on a test run.
  *
  * The pathname is percent-DECODED first, because a URL carries it encoded and
  * `%20` is not the database's name.
  */
-/**
- * How a test database is named from the worktree's own database. THE one place
- * that knows, so `worktreeDatabaseName`'s reservation and this cannot drift --
- * a second app calling `buildTestDatabase("something-longer")` would otherwise
- * silently eat the room reserved for it.
- */
-export function testDatabaseNameFor(database: string, suffix = ""): string {
-  return `${database}_test${suffix ? `_${suffix}` : ""}`;
-}
-
-function testDatabaseName(url: URL, suffix: string): string {
+function testDatabaseName(url: URL, suffix: TestDatabaseSuffix): string {
   const database = decodeURIComponent(url.pathname.slice(1));
   const name = testDatabaseNameFor(database, suffix);
   if (Buffer.byteLength(name, "utf8") > 63) {

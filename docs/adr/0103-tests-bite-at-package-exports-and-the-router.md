@@ -697,3 +697,35 @@ be read back from `catalogue.list` because nothing in the test could know it. Th
 weaker assertion -- the page reads its total by calling that same procedure, so the two agreeing is
 one code path agreeing with itself -- and an instance of its own removes the reason for it: the
 fixture wrote three items, so the page owes the word "3".
+
+## Five instances, one helper, and an environment that cannot go ambient -- under CNCORE-111
+
+**THE FIFTH INSTANCE IS WHAT MADE THE SHAPE WORTH NAMING, NOT THE FIRST.** Four functions in
+`apps/web/e2e/global-setup.ts` spelled out the same run of lines: build a database with a suffix,
+take a free port, spawn `next start`, wait until it answers, hand back a close. One copy is a
+function; four is a shape nobody declared. `anInstanceServing` is that declaration, over
+`theBuildServing` for the port-spawn-wait half.
+
+**THE SPLIT IS TWO HELPERS RATHER THAN ONE, AND THE REASON IS `next build`.** The seeded instance
+runs the build BETWEEN its database and its server, because the build needs the environment that
+carries the database. A single helper covering both halves could only serve it by taking a flag that
+says whether to build, and a boolean deciding which half of a function runs is the shape that makes
+the other four harder to read. So the four with nothing in between take `anInstanceServing`, and all
+five take `theBuildServing` underneath it.
+
+**WHAT AN INSTANCE IS FOR STAYS IN ITS OWN DOCBLOCK.** The near-verbatim lines were worth folding;
+the paragraphs above them were not. Each of the five says which state it exists to serve and why no
+instance already running could take it, and that is the part a reader needs and the part an
+extraction is most likely to swallow.
+
+**AN OMITTED ENVIRONMENT KEY IS NOT AN UNSET ONE, WHICH IS WHY BOTH ARE REQUIRED PARAMETERS.** These
+servers inherit the harness process's environment, so a key left out of a `spawn` is not absent -- it
+is whatever the developer's `apps/web/.env` holds, reaching a fixture defined by not having it. The
+paged instance omitted `PROVIDER_URLS` for exactly that reason and nothing said so: CNCORE-93 named
+it and left it, because on CI, where there is no `.env`, the difference is invisible. `allowlist` and
+`providers` are now required fields, so an instance that leaves either ambient does not compile.
+
+**THAT IS THE SAME MECHANISM AS `TEST_DATABASE_SUFFIXES`, DELIBERATELY.** CNCORE-112 folded into this
+ticket because its subject is this helper's first parameter, and both halves land on the same rule:
+the harness's variable parts are DECLARED and checked by the compiler, rather than written at each
+call site and checked by whoever remembers. One mechanism to learn, in one file, rather than two.
