@@ -43,10 +43,32 @@ export function Attribution({ attribution }: { attribution: AttributionOnThePage
         Sources
       </h2>
       <ul className="mt-3 space-y-3">
-        {attribution.map((owed) => (
-          // TODO(CNCORE-130): a label is not an identity, so two sources sharing
-          // one and each owing a notice are two siblings with one key.
-          <li key={owed.sourceLabel} className="flex items-center gap-3">
+        {attribution.map((owed, place) => (
+          /*
+           * KEYED BY PLACE, BECAUSE A LABEL IS NOT AN IDENTITY -- the same
+           * reasoning `AssertedBy` gives, and it survives the extra thing a row
+           * here carries. Sources are unique on `(owner_id, kind, identity)` and
+           * nothing constrains the label, which for a provider is its own `name`
+           * off its manifest, so a second instance of one provider is a second
+           * source under one name -- and keyed by that name, two notices are two
+           * siblings with one key.
+           *
+           * THERE IS NOTHING ELSE TO KEY ON, and that is ADR-0045 holding rather
+           * than a gap: the read path names what it emits and keeps the source's
+           * id and identity out of it. Nor would the content serve. Two instances
+           * of one provider agree on all three fields a row has -- one label, one
+           * notice, one mark -- so a key derived from any of them collides for
+           * exactly the case this is about.
+           *
+           * THE LOGO DOES NOT CHANGE THE ANSWER, which is the half worth saying
+           * because an attribution row carries one where a source name does not.
+           * Place is unsafe where reordering moves state the DOM holds and React
+           * cannot see; these rows hold none. The mark is a `data:` URI, so
+           * reusing an element and swapping `src` fetches nothing and cannot
+           * flash a stale image, and this list is server-rendered with no client
+           * reordering to meet in the first place.
+           */
+          <li key={place} className="flex items-center gap-3">
             {owed.logo && (
               /*
                * An `img` rather than the SVG inlined into the document, and that

@@ -1615,6 +1615,61 @@ describe("which attribution one item's page owes", () => {
     expect(owed.map((o) => o.sourceLabel)).toEqual(["provider-tmdb"]);
   });
 
+  /**
+   * TWO SOURCES THAT CALL THEMSELVES THE SAME THING ARE TWO OBLIGATIONS
+   * (CNCORE-130). `sources` is unique on `(owner_id, kind, identity)` -- the
+   * `sources_identity` constraint -- and nothing constrains `label`, which for a
+   * provider is its own `name` off its manifest. So a second instance of one
+   * provider is a second source under one name, and each is owed its own notice.
+   *
+   * THE TWO ROWS ARE INDISTINGUISHABLE IN WHAT THE READ PATH EMITS: one label,
+   * one notice, one mark. That is ADR-0045 rather than an oversight -- the id
+   * and the identity stay out, because a URL an owner typed is a deployment
+   * detail and, for a provider on a private network, an address a reader has no
+   * business being handed. It is also the whole reason `Attribution` has nothing
+   * to key its notices on but their place.
+   *
+   * IT IS GREEN AGAINST THE QUERY AS WRITTEN, and it is here for what a later
+   * reading of that answer would do: two identical rows look like a redundancy,
+   * and a `distinct` or a group-by on the label would drop one. That is a notice
+   * a reader is owed going missing (ADR-0036) -- a licence surface, and the one
+   * failure here that no other assertion in this repository would report.
+   */
+  it("owes two notices to two sources that call themselves the same thing", async () => {
+    const instance = tmdbProvider("http://127.0.0.1:9306");
+    const { itemId } = await importProvidedRecord(db, { provider: instance, record: TENTH_PLANET });
+
+    // A SECOND INSTANCE OF THE SAME PROVIDER, on an address of its own, owed
+    // through the clause a container's title incurs: its manifest names it what
+    // the first one's does, because it IS the same provider.
+    const another = tmdbProvider("http://127.0.0.1:9307");
+    const { containerId } = await importBrowsedContainer(db, {
+      provider: another,
+      browsed: {
+        container: {
+          externalId: "collection:12",
+          title: "A collection the other instance titled",
+          released: [],
+        },
+        ordering: [],
+        unplaced: [],
+      },
+    });
+    await aPlacement(db, {
+      containerId,
+      itemId,
+      position: 1,
+      sourceId: await ownerSource(db),
+    });
+
+    // COUNTED, AND THEN READ. The count is what a dedupe on the label breaks;
+    // the labels are what say the two rows really do share one, which is the
+    // state the component had nothing to tell apart.
+    const owed = await findAttributionOwed(db, itemId);
+    expect(owed).toHaveLength(2);
+    expect(owed.map((o) => o.sourceLabel)).toEqual(["provider-tmdb", "provider-tmdb"]);
+  });
+
   /** And it stops being owed once the claims that incurred it are purged. */
   it("stops being owed when the claims that incurred it are gone", async () => {
     const provider = tmdbProvider("http://127.0.0.1:9304");
