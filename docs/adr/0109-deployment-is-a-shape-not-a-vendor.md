@@ -10,8 +10,10 @@ something starts again when the machine comes back**. A vendor compatibility lis
 contents are not ours to keep true.
 
 That last clause was implicit until CNCORE-18 measured a shared host and found it was the only one
-that failed; it is spelled out here rather than left to be rediscovered. "The shape measured against
-a shared host" below carries the measurement.
+that failed; it is spelled out here rather than left to be rediscovered. **That host stopped failing
+it on 2026-09-12, and the clause stays in the shape regardless** — it earns its place by being the
+half of "no root" that nobody says out loud, not by any vendor's score against it. "The shape
+measured against a shared host" below carries both measurements.
 
 **A rented box satisfies ADR-0050 rather than violating it.** That record's target is a cloud
 provider's file-scoped permission API; `/mnt/data` on a rented machine is an ordinary POSIX path,
@@ -150,8 +152,10 @@ would roughly halve the entry cost when it returns.
 
 CNCORE-18 bought the cheapest thing that could plausibly satisfy this shape — a Whatbox HDD slot at
 GBP 11/month, plan H3-4, Netherlands — and ran the shape against it on 2026-09-10, the day it was
-bought. **Four clauses hold outright. The fifth holds only while somebody is watching, and noticing
-why is worth more than the vendor verdict.**
+bought. **Four clauses held outright and the fifth failed; the vendor fixed the fifth on 2026-09-12
+and all five hold now.** Noticing why the fifth one failed is still worth more than the vendor
+verdict, because the clause it exposed outlives this vendor: it is the first thing to test on the
+next host, and it was invisible until a slot without root made it visible.
 
 **The database was never the risk, and the research that said it was had the right doubt about the
 wrong object.** `docs/research/the-cheap-end.md` §4 called Postgres "the one thing that could sink
@@ -240,23 +244,39 @@ change to the AUP.
 instance, which the AUP does not reach in the first place. The allowance would only matter for the
 demo, and the demo is the one thing the AUP names twice.
 
-### What fails is that nothing restarts it
+### What restarts it: nothing did on 2026-09-10, and cron does on 2026-09-12
 
 **A process that needs no root still needs something to start it, and that is the clause this shape
 did not say out loud.** With root, `systemd` supplies it for free and nobody writes it down. On this
-slot there is nothing:
+slot there was nothing on 2026-09-10. There is cron on 2026-09-12, and CNCORE-85 measured it after
+the vendor replied. Both measurements are kept, in the order they happened, because the second only
+means anything against the first:
 
-- **`crontab` is refused outright** — "You (<slot username, elided>) are not allowed to access to
-  (crontab) because of pam configuration" — for read and for write, with a TTY and without, while
-  the account *is* in the `cron` group. **Measured**: the refusal, the group membership, and that
-  `/etc/pam.d/crond` carries `account required pam_access.so` while `/etc/security/access.conf` does
-  not exist. **Inferred, and not confirmed against `pam_access` documentation, which does not state
-  its behaviour for a missing config file**: that the absent file is what makes the module deny.
-  Whatbox's own Cron wiki documents the mechanism that would have answered this — "`@reboot` command
-  will run the specified command if your server is restarted" — and it is exactly what does not work
-  here. The refusal is measured on this account only; the missing file is host-wide, so it probably
-  breaks cron for every account on the host, and that step too is inference.
-- **No `systemd` user session at all**: no `systemctl`, no `loginctl`, no `~/.config/systemd`.
+- **`crontab` was refused outright on 2026-09-10, and is not refused on 2026-09-12** — "You (<slot
+  username, elided>) are not allowed to access to (crontab) because of pam configuration" — for read
+  and for write, with a TTY and without, while the account *is* in the `cron` group. **Measured on
+  2026-09-10**: the refusal, the group membership, and that `/etc/pam.d/crond` carries
+  `account required pam_access.so` while `/etc/security/access.conf` does not exist. Whatbox's own
+  Cron wiki documents the mechanism that would have answered this — "`@reboot` command will run the
+  specified command if your server is restarted" — and on that day it was exactly what did not work.
+- **THE CAUSE THIS RECORD INFERRED FOR THAT REFUSAL IS FALSIFIED, AND THE MARKING IS WHAT MADE THAT
+  CHEAP.** The inference was that the absent `/etc/security/access.conf` is what makes `pam_access`
+  deny, written as inference because `pam_access` documentation does not state its behaviour for a
+  missing config file. **Measured on 2026-09-12: that file is STILL absent, `/etc/pam.d/crond` is
+  unchanged, and cron permits anyway.** So the missing file was never what made the module deny.
+  **What did, and what changed between the two dates, is unknown and was Whatbox's to change** — and
+  this record does not swap one guess for another, because the guess it already made is the reason
+  this paragraph exists. Marking the sentence as inference rather than finding is what turns being
+  wrong into a correction instead of a retraction, and it is what let CNCORE-81's ticket put the same
+  claim to the vendor as a guess rather than an accusation.
+- **Cron now runs an unattended job, which is the measurement the clause actually needs.** On
+  2026-09-12 a crontab installed from stdin and read back, and the daemon fired it: installed at
+  13:58:51 UTC, and `* * * * *` logged **13:59:01, 14:00:01 and 14:01:01 UTC**, three consecutive
+  minutes with nobody logged in. `cronie 1.7.0`. **Installing a crontab and having one run are
+  different things, and it is the second that was measured.**
+- **No `systemd` user session, then or now**: no `systemctl`, no `loginctl`, no `~/.config/systemd`,
+  re-checked 2026-09-12. **So the fifth clause is satisfied by cron and not by systemd**, and
+  everything below that depends on systemd is still as true as it was.
 - **So the compose file's own `restart: unless-stopped` and `healthcheck:` are both inert here.** The
   healthcheck is the measurable one: after four minutes at a ten-second interval the container's
   health log held **zero** entries and its status was still `starting`. Nine minutes in it held
@@ -269,12 +289,27 @@ slot there is nothing:
   measurement; the mechanism is theirs, and that article is old enough to re-check before it carries
   any weight on its own.
 
-**No reboot was performed, and the conclusion does not need one.** A shared host carrying other
-customers is not ours to reboot, so this was never observable. It is also not the load-bearing
-step: if no mechanism exists that could restart the process, the reboot's timing changes nothing,
-and the ABSENCE of every such mechanism is what was measured directly above. The reboot is merely
-certain to come — the host reported an uptime of 2 days 5 hours on 2026-09-10, so it had rebooted two
-days before. Whatbox supervises its own processes as the slot user — a
+**No reboot was performed on either date, and the clause is satisfied anyway — but for a different
+reason than in 2026-09-10's version of this paragraph.** A shared host carrying other customers is
+not ours to reboot, so a boot has never been observable here. In 2026-09-10's state that did not
+matter: if no mechanism exists that could restart the process, the reboot's timing changes nothing,
+and the ABSENCE of every such mechanism was what had been measured. **That argument is spent, because
+a mechanism now exists**, so what replaces it is this: **a `* * * * *` line that starts the process
+if it is not running needs no boot-time semantics at all.** The daemon comes back with the host, the
+minute ticks, and the process starts — which the three consecutive firings above show happening
+unattended. The clause asks that "something starts again when the machine comes back", and a minutely
+watchdog is that something, with a worst case of one minute down after a boot.
+
+**`@reboot` would close that minute, and whether it fires at boot is the one thing still unobserved.**
+It installs and reads back in the same crontab, and Whatbox's wiki documents it, but installing it is
+not seeing it run. **CNCORE-85 left the `@reboot` probe in place on the slot** — a single `date` into
+`~/cncore85-reboot-probe.log` — so the next host reboot answers it at no cost to anybody, rather than
+leaving a second sentence for somebody to remember. That the daemon itself survives a boot is the
+better-supported half: the host had been up **4 days with 0 users logged in** when cron ran these
+jobs, so nobody started it by hand.
+
+The reboot is merely certain to come — the host reported an uptime of 2 days 5 hours on 2026-09-10,
+so it had rebooted two days before. Whatbox supervises its own processes as the slot user — a
 `whatbox-apphost` master holding the slot's TLS certificate and key, and a `php-fpm` master — and
 nothing of yours. **Whether its own processes come back at boot was NOT observed**: both started at
 18:22 on 2026-09-10, which is when the slot was provisioned, and the host had last booted two days
@@ -285,7 +320,10 @@ exists is theirs to use and not yours.
 answered a fresh login 7m10s and at least six sessions later. Killed with `SIGKILL`, the way a
 reboot kills it, nothing brought it back; restarted by hand it logged "database system was not
 properly shut down; automatic recovery in progress", redid its WAL and returned both rows. **The
-data is durable. The daemon is not resident.**
+data is durable. The daemon is not resident** — and that is still true of the daemon itself, which is
+exactly why the fifth clause asks for something outside it. What changed on 2026-09-12 is that there
+is now something to be that: the `SIGKILL` above is what a minutely watchdog notices within a minute,
+and the recovery it logged is what makes restarting it safe rather than merely possible.
 
 **The question was put to the vendor on 2026-09-11: Whatbox support ticket 267784**, filed from the
 slot's own account under CNCORE-81, after `docs/research/the-cheap-end.md` §5 named it and nobody had
@@ -298,20 +336,30 @@ not a rare event. It asks two things: whether cron is meant to be available on t
 the missing file can be looked at, and failing that, whether there is any supported way to have a
 process start after a reboot.
 
+**It was answered on 2026-09-12, six days inside the window this record set.** Devon, signing
+"Whatbox Staff", replied: "Sorry for the hassle. Unfortunately at the moment I am not showing this
+error anymore, for @reboot crons or otherwise. Were you still seeing it?", and asked which commands
+and which cron tasks were involved. **That is neither a yes nor a no, and reading it as either would
+be the mistake**: it says the vendor cannot reproduce the refusal, not that cron was enabled for this
+account, and it puts the question back. **So the answer above is ours rather than theirs** — the
+refusal is gone and cron runs, measured on the slot the same day, and the vendor's reply is what
+prompted the re-measurement rather than what settles it. The reply names no change, no date and no
+cause, which is why the cause stays unknown two bullets above.
+
 **That ticket and that notice history are visible only from inside the account**, so the paragraph
 above is a report of them rather than something a reader can open — the same standing as the mail
 search earlier in this record, and worth saying because the rest of this section is measurement
 anybody with the slot could repeat.
 
-**Unanswered as of 2026-09-11, and this record names its own deadline because the vendor publishes
-none.** Whatbox's SLA at <https://whatbox.ca/policies/sla> covers downtime only — "If your system is
-offline for a period exceeding 6 hours" — and neither it nor the FAQ states a support response time,
-both checked the same day. So **if nothing has arrived by 2026-09-18, the silence is the answer**,
-the fifth clause stays failed
-for this vendor, and the split in `the-cheap-end.md` §5 stands on it. An answer of either kind is
-edited INTO this section rather than appended below it, so that a later reader meets one account of
-what restarts a process here and not two. **CNCORE-85 is what returns to it**, because a deadline
-living only in a sentence is one nobody keeps.
+**The deadline this record set never had to fire, and that is worth keeping rather than deleting.**
+It was unanswered as of 2026-09-11, and this record named 2026-09-18 as the date after which silence
+would itself be the answer, because the vendor publishes no response time: Whatbox's SLA at
+<https://whatbox.ca/policies/sla> covers downtime only — "If your system is offline for a period
+exceeding 6 hours" — and neither it nor the FAQ states one, both checked that day. **A reply arrived
+on 2026-09-12, six days inside the window**, so the fifth clause is settled by measurement rather
+than by silence, and `the-cheap-end.md` §5 moves off the split onto row 1. **The deadline is recorded
+as kept rather than removed** — CNCORE-85 is the ticket that returned to it, which is the half that
+was missing when a deadline lived only in a sentence.
 
 ### The limits, and which of them the vendor actually documents
 
@@ -348,11 +396,18 @@ to start that process when the machine comes back. That is free with root, invis
 free, and absent on every shared slot. It is a sharper test than "no root" ever was, and it belongs
 first on the next host's list rather than last.
 
-For the vendor actually measured: it satisfies the shape as long as a human logs in after each
-reboot. A support ticket about the missing `access.conf` was the cheap thing to try before concluding
-otherwise, because `@reboot` is documented and merely broken — and it HAS been tried, filed
-2026-09-11 and recorded above with the date on which its silence becomes an answer.
-`docs/research/the-cheap-end.md` §4 is answered there, and its §5 no longer waits on anybody.
+**For the vendor actually measured: it satisfied the shape only while a human logged in after each
+reboot, and since 2026-09-12 it satisfies the shape outright.** The support ticket about the missing
+`access.conf` was the cheap thing to try before concluding otherwise, because `@reboot` is documented
+and was merely broken — and trying it is what produced the answer: filed 2026-09-11, replied to
+2026-09-12, re-measured the same day, all recorded above.
+`docs/research/the-cheap-end.md` §4 is answered there, and its §5 now recommends row 1 on this
+measurement rather than the split.
+
+**The clause stays in the shape at the top of this record, and the fix does not soften it.** What
+made it worth writing was never this vendor's verdict but that "a process that needs no root" was
+silently two requirements; a host that happens to pass it today is not a reason to stop testing it,
+and the thing that changed here changed without notice, in the vendor's own account of it.
 
 ## Evidence
 
@@ -376,6 +431,16 @@ IPv4 addresses and on server hardware; its `Installing_Software`, `Cron`, `Redis
 and `manage_page` wiki pages. The podman healthcheck mechanism is Brent Baude's on Red Hat
 Developer, 2019-04-18, and is corroboration for a count we took ourselves rather than the basis of
 the finding.
+
+CNCORE-85 added the answer and the re-measurement, both dated 2026-09-12, and they are first-hand
+over SSH to the same slot: `crontab -l` returning clean, `crontab -` installing from stdin and
+reading back, `/etc/pam.d/crond` and `/etc/security/access.conf` re-checked unchanged, `cronnext`,
+`crond -V` for `cronie 1.7.0`, `which systemctl loginctl` and `~/.config/systemd` re-checked absent,
+and `uptime` for the 4 days and 0 users. The three firings are the contents of
+`~/cncore85-cron-probe.log`, written by the probe itself. The vendor's reply is Whatbox's mail on
+ticket 267784, received 2026-09-12 04:00:31 BST from `site@whatbox.ca`, quoted above in full where it
+is load-bearing; **like the ticket itself it is visible only to the account holder**, so it carries
+the same standing as the rest of this paragraph's account-only evidence.
 
 CNCORE-81 added the policy reading and the support question, both dated 2026-09-11: Whatbox's
 Acceptable Use Policy at <https://whatbox.ca/policies/acceptable_use> and its Terms of Service at

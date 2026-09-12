@@ -287,15 +287,15 @@ things stay true beside it:
 
 - **CNCORE-60 still needs no host**, which is the whole answer above. The intent changes the plan
   after this effort, not inside it.
-- **The repo's own priced comparison still recommends something else.** `the-cheap-end.md:230-235`,
-  written 2026-09-10: the recommendation "for when it does start" is the SPLIT, a ~GBP 4 VPS with root
-  plus a Storage Box at GBP 2.09/TB, "unless Whatbox fixes cron". Same money, and what it buys is root,
-  a systemd that restarts things, and storage that survives a later move.
-- **One measured fact decides between them**, and it is the open half of CNCORE-81: nothing on a shared
-  slot restarts a process after a reboot, because cron is refused by PAM and there is no systemd user
-  session. If support fixes it, the slot satisfies all five clauses of ADR-0109's shape and the split
-  is a pound wasted. If not, an always-on instance that needs a human after every host reboot is not
-  always-on.
+- **The repo's own priced comparison now recommends the slot, having recommended against it.**
+  `the-cheap-end.md` §5, written 2026-09-10, recommended the SPLIT — a ~GBP 4 VPS with root plus a
+  Storage Box at GBP 2.09/TB — "unless Whatbox fixes cron". **Whatbox fixed cron**, so that file flipped
+  to row 1 under CNCORE-85 and the intent above and the priced recommendation now agree.
+- **The one measured fact that decided between them has been measured twice**, and it was the open half
+  of CNCORE-81: on 2026-09-10 nothing on a shared slot restarted a process after a reboot, because cron
+  was refused by PAM and there is no systemd user session. **On 2026-09-12 cron ran an unattended job on
+  the slot**, so it satisfies all five clauses of ADR-0109's shape and the split is the pound this file
+  said it would be. There is still no systemd, so the restart is a cron watchdog rather than a unit.
 
 **And ADR-0109 makes this reversible by construction**, which is why recording an intent here costs
 nothing: it commits to a shape rather than a vendor, the domain rather than the address is the

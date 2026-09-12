@@ -80,7 +80,7 @@ Cost inc UK VAT where VAT applies. **Lead row first, because it is the honest an
 | # | Option | Cost/month | What it cannot do | Stops being enough at |
 |---|---|---|---|---|
 | 0 | **Local machine + GitHub Actions** | **GBP 0** | No public URL, no always-on instance, nothing anyone else can reach | **The first slice that must be reachable from another device** — the playback spec. Not version one. |
-| 1 | **Whatbox HDD 3.90 TB** | **GBP 11** vendor-verified | No root; non-redundant disk; **nothing restarts your processes after a reboot (§4)** | Only if unattended restart matters, or the library exceeds 3.9 TB |
+| 1 | **Whatbox HDD 3.90 TB** | **GBP 11** vendor-verified | No root; non-redundant disk; no systemd, so a restart is a cron watchdog rather than a unit (§4) | Only if the library exceeds 3.9 TB |
 | 2 | Contabo VPS S (4 vCPU, 8 GB, 100 GB NVMe) | ~EUR 4.50 ≈ **GBP 4** second-hand | 100 GB total — holds the catalogue, holds no library | The day media needs to live somewhere. Pairs with §3's split. |
 | 3 | netcup entry (2 vCPU, 2 GB, 64 GB SSD) | ~EUR 3.35 ≈ **GBP 3** second-hand | 2 GB RAM is thin for Postgres plus a Next build; 64 GB total | Same as above, sooner |
 | 4 | Hetzner CX23 (2 vCPU, 4 GB, 40 GB) | EUR 5.49 ≈ **GBP 5** second-hand | **Currently unbuyable** — see below | n/a today |
@@ -178,12 +178,17 @@ version `packages/db/docker-compose.yml` pins — and BOTH routes work as an unp
 cluster `initdb`'d into `$HOME` on a high port, and the repo's own compose file unmodified under
 rootless `podman-compose`. Nothing needed compiling.
 
-**What fails instead is that nothing restarts a process after a reboot.** `crontab` is refused by
-PAM on this host, so the `@reboot` line Whatbox's own Cron wiki documents cannot be installed; there
-is no systemd user session, so the compose file's `restart: unless-stopped` and its `healthcheck:`
-are both inert. The host had rebooted two days before the test. **ADR-0109 carries the full
-measurement and what it changes**; the rest of this section is the reasoning that led to the test,
-kept because it dates the doubt.
+**What failed instead was that nothing restarted a process after a reboot — and on 2026-09-12 that
+stopped being true.** On 2026-09-10 `crontab` was refused by PAM on this host, so the `@reboot` line
+Whatbox's own Cron wiki documents could not be installed; the host had rebooted two days before the
+test. **CNCORE-85 re-measured it after Whatbox replied to the support ticket, and cron now runs**: a
+crontab installs, and the daemon fired a `* * * * *` line at 13:59:01, 14:00:01 and 14:01:01 UTC with
+nobody logged in. There is still no systemd user session, so the compose file's
+`restart: unless-stopped` and its `healthcheck:` remain inert and the restart has to be a cron
+watchdog rather than a unit — but a minutely watchdog is enough for the clause, which asks only that
+something start the process when the machine comes back. **ADR-0109 carries both measurements, the
+vendor's reply, and the inferred cause that turned out to be wrong**; the rest of this section is the
+reasoning that led to the original test, kept because it dates the doubt.
 
 **Can a shared seedbox run Postgres?** ~~This is the piece most likely to fail, and it is genuinely
 unresolved rather than merely unchecked.~~ **It was neither: resolved 2026-09-10, and it was not the
@@ -227,36 +232,46 @@ your own hostname, which is what ADR-0109's shape requires first.
 URL, and CI runs the provider as a service container on GitHub's runners. **Buying anything now buys
 capacity for a spec that has not started.**
 
-**The recommendation for when it does start, now that §4 has been tested rather than argued: the
-SPLIT (row 2 plus a Storage Box), unless Whatbox fixes cron.** The slot passes every part of the
-shape that was in doubt and fails one that was not: nothing restarts a process after a reboot, and
-an always-on instance that needs a human to log in and start it after every host reboot is not
-always-on. That is worth about GBP 1/month to fix, which is the gap between GBP 11 and the split's
-~GBP 12 at 4 TB.
+**The recommendation for when it does start is ROW 1, the Whatbox slot at GBP 11 — and this section
+said so conditionally before it could say so outright.** It recommended the split "unless Whatbox
+fixes cron", on the one thing the slot failed: nothing restarted a process after a reboot, and an
+always-on instance that needs a human to log in after every host reboot is not always-on. **Cron
+works as of 2026-09-12**, measured on the slot under CNCORE-85 rather than taken from the vendor's
+reply, so the condition this file set has been met and row 1 is the recommendation on the file's own
+terms.
 
-**The question this section left open has been asked, and is now closed as an action.** Whatbox
-support ticket 267784, filed 2026-09-11 under CNCORE-81, puts both halves to the vendor: whether cron
-is meant to work on this plan and whether the missing file can be looked at, and failing that,
-whether anything supported starts a process after a reboot. It was unanswered when this was written.
-ADR-0109 carries the ticket, its two questions, and the date — **2026-09-18** — after which silence
-is itself the answer, and **CNCORE-85 is the ticket that goes back and reads it**.
+**The question this section left open was asked and has been answered.** Whatbox support ticket
+267784, filed 2026-09-11 under CNCORE-81, put both halves to the vendor. The reply came 2026-09-12,
+six days inside the deadline ADR-0109 set, and it is worth reading precisely: it says Whatbox can no
+longer reproduce the refusal and asks whether we still see it, which is neither a yes nor a no. **The
+measurement is what settles it, not the reply** — the refusal is gone and cron fires an unattended
+job. ADR-0109 carries the ticket, the reply, the re-measurement, and the one inference that turned out
+to be false.
 
-**Until then the split is the recommendation rather than a pending decision.** It costs about a pound
-a month, it is the option that is correct under either reply, and nothing downstream should wait on a
-vendor to answer. If the answer does come back working, row 1 wins on every axis, the split is a
-pound wasted, and ADR-0109 is where that lands first.
+**What the split still buys, so the flip is not read as wider than it is.** Row 1 wins on the clause
+that was blocking it and on price, and the split's other advantages are unchanged and unbought: root,
+a systemd that restarts things without a watchdog, redundancy the slot's non-redundant disk does not
+have, and storage that survives a later move to dedicated hardware. None of those was the thing
+holding row 1 back, and none of them is worth GBP 1/month here on its own — but the day one of them
+IS the binding constraint, the split is still what answers it, and §3 prices it.
 
 When the playback spec starts, the order of operations is cheap and reversible:
 
-1. ~~**Spend GBP 11 on one Whatbox HDD slot and answer §4 in an evening.**~~ **Done, 2026-09-10.**
-   Postgres runs by both routes and needed no compiling; what it does not do is come back by itself
-   after a reboot. The "if it survives a restart" test this step set is the one it fails. The support
-   ticket that was the next move has been filed — 2026-09-11, recorded in ADR-0109 — so step 2 is
-   what happens unless it comes back working.
-2. **Take the split** — a ~GBP 4 VPS with root for Postgres and the app, plus a Storage Box at
-   GBP 2.09/TB for bytes when there are bytes. Same money, root, storage that survives a later move,
-   and a systemd that restarts things, which is the thing step 1 turned out to be buying.
-3. **Re-check Hetzner when the Cost-Optimized line returns**, which ADR-0109 says "would roughly halve
+1. ~~**Spend GBP 11 on one Whatbox HDD slot and answer §4 in an evening.**~~ **Done, 2026-09-10, and
+   the one test it failed was re-run and passed on 2026-09-12.** Postgres runs by both routes and
+   needed no compiling. What it did not do was come back by itself after a reboot, which is the "if
+   it survives a restart" test this step set; the support ticket that was the next move was filed
+   2026-09-11, answered 2026-09-12, and the re-measurement is in ADR-0109. **The slot is already
+   bought, so row 1 costs nothing further to take.**
+2. ~~**Take the split**~~ — **not needed for the restart clause any more.** A ~GBP 4 VPS with root
+   plus a Storage Box at GBP 2.09/TB was what step 1 was going to buy a systemd from. It stays priced
+   in §3 and stays the answer if root, redundancy or storage that survives a move to dedicated
+   hardware becomes the binding constraint. Neither is today.
+3. **Write the restart as a cron watchdog rather than a systemd unit**, because that is the shape the
+   slot actually supports: a `* * * * *` line that starts the process if it is not running. `@reboot`
+   is documented by Whatbox and installs, but whether it fires at boot is unobserved — ADR-0109 says
+   why, and a probe is installed on the slot to answer it at the next host reboot.
+4. **Re-check Hetzner when the Cost-Optimized line returns**, which ADR-0109 says "would roughly halve
    the entry cost".
 
 **Do not buy for 32 TB until the library size is known.** It has been asked for three times. Every row
@@ -289,9 +304,13 @@ selected — every plan price, storage figure, upload allowance and all five fin
 above; and `whatbox.ca/wiki/` reachability for `PostgreSQL`, `postgres`, `Databases` and `Node.js`,
 checked by HTTP status.
 
-**Asked of the vendor, 2026-09-11 under CNCORE-81:** Whatbox support ticket 267784, on whether cron
-can be enabled on this slot and what else could start a process after a reboot. Unanswered when §5 was
-rewritten above; ADR-0109 carries the question, the ticket and the date after which silence answers it.
+**Asked of the vendor, 2026-09-11 under CNCORE-81, and answered 2026-09-12:** Whatbox support ticket
+267784, on whether cron can be enabled on this slot and what else could start a process after a
+reboot. The reply neither enabled nor refused it: Whatbox reported being unable to reproduce the
+refusal and asked whether it was still happening. **What §4 and §5 now rest on is the re-measurement
+CNCORE-85 took on the slot the same day** — a crontab installing and the daemon firing it three
+minutes running — rather than the reply. ADR-0109 carries the ticket, the reply quoted, the
+re-measurement, and the inference about `/etc/security/access.conf` that the re-measurement falsified.
 
 **Repo-internal, and dated by the record that carries it:** ADR-0109 for the Hetzner Storage Box at
 GBP 2.09/TB and the Cloud Volume at GBP 45.36/TB, both verified there against Hetzner's own pricing
