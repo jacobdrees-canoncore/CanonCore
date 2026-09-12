@@ -357,6 +357,9 @@ importers:
       '@canoncore/schemas':
         specifier: workspace:*
         version: link:../schemas
+      '@canoncore/tasks':
+        specifier: workspace:*
+        version: link:../tasks
       '@orpc/client':
         specifier: 'catalog:'
         version: 1.15.0

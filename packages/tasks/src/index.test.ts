@@ -190,7 +190,17 @@ describe("a task that is already running", () => {
     const first = registry.run(db, "overlapping");
     await started;
 
-    await expect(registry.run(db, "overlapping")).rejects.toBeInstanceOf(TaskRefused);
+    // THE REASON IS PART OF THE REFUSAL, because the two ways a run is turned
+    // away are different facts and a surface has to answer them differently: a
+    // key this build no longer ships is a stale page, and a task already
+    // running is the owner pressing Run twice. One answer for both tells the
+    // second owner their task does not exist.
+    await expect(registry.run(db, "overlapping")).rejects.toMatchObject({
+      reason: "already running",
+    });
+    await expect(registry.run(db, "a-task-nobody-ships")).rejects.toMatchObject({
+      reason: "no such task",
+    });
 
     // AND THE REFUSAL LEAVES NO ROW. A second run that wrote a history entry
     // before being turned away would put a run in the history that never ran.

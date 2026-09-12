@@ -6,6 +6,7 @@ import { catalogue } from "./catalogue";
 import { item } from "./item";
 import { provider } from "./provider";
 import { session } from "./session";
+import { task } from "./task";
 
 export const appRouter = {
   // .output() is what puts the response into the OpenAPI document the
@@ -16,6 +17,7 @@ export const appRouter = {
   item,
   provider,
   session,
+  task,
 };
 export type AppRouter = typeof appRouter;
 export type AppRouterClient = RouterClient<typeof appRouter>;

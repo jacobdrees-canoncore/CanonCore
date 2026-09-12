@@ -83,7 +83,21 @@ export interface Task {
  * there is nothing to record and the caller is told why instead. `ItemRefused`
  * in `packages/db` draws the same line for the same reason.
  */
-export class TaskRefused extends Error {}
+export class TaskRefused extends Error {
+  /**
+   * WHICH REFUSAL THIS IS, because the two are different facts and a surface
+   * has to answer them differently. A key this build no longer ships means the
+   * page the owner is looking at is stale; a task already running means they
+   * pressed Run twice, or the scheduler got there first. One answer for both
+   * tells the second owner their task does not exist.
+   */
+  readonly reason: "no such task" | "already running";
+
+  constructor(reason: "no such task" | "already running", message: string) {
+    super(message);
+    this.reason = reason;
+  }
+}
 
 /** ADR-0049's registry, as everything that holds one refers to it. */
 export type Registry = ReturnType<typeof createRegistry>;
@@ -136,10 +150,10 @@ export function createRegistry(tasks: Task[]) {
      */
     async run(db: Database, key: string): Promise<TaskRun> {
       const task = byKey.get(key);
-      if (!task) throw new TaskRefused(`No task is keyed ${key}.`);
+      if (!task) throw new TaskRefused("no such task", `No task is keyed ${key}.`);
       // BEFORE THE ROW IS OPENED, so a refused second run leaves no history
       // entry for a run that never ran.
-      if (running.has(key)) throw new TaskRefused(`${task.name} is already running.`);
+      if (running.has(key)) throw new TaskRefused("already running", `${task.name} is already running.`);
 
       const stop = new AbortController();
       running.set(task.key, stop);
