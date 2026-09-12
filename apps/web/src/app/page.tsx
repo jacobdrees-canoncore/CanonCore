@@ -197,6 +197,13 @@ function NoProviderAllowlisted() {
  * WITHIN one route, because an owner who does the first and stops has filled
  * nothing.
  *
+ * TODO(CNCORE-133): BOTH ROUTES ARE OFFERED TO A READER WHO CAN TAKE NEITHER.
+ * This page reads no session, so a visitor is offered `/new` and arrives at its
+ * `NotYours` -- and on an instance with no owner password there is no login to
+ * take, because that is ADR-0044's read-only demo. `/import` has the same shape
+ * and got there first, so this route joined a property rather than introducing
+ * one; what to do about it is undecided, and that ticket holds the options.
+ *
  * IT IS NOT CONDITIONAL ON REACHING ANYTHING, and that is the criterion rather
  * than an accident of where the condition sits. The hand-built route is what an
  * owner with no provider has, so an empty state that appeared only where
