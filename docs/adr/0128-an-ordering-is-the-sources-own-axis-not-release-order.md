@@ -9,9 +9,10 @@ Container `provider-wiki` served was a wiki **Category**, ordered by release dat
 for a category and it quietly became the contract in everyone's head: a provider's ordering was the
 order things came out.
 
-**IT IS NOT, AND THE WIKI IS THE COUNTEREXAMPLE THAT MATTERS.** tardis.wiki writes 464
-`Theory:Timeline` pages, each stating an IN-UNIVERSE chronology — and that is the axis this product
-exists to carry, because it is the one a folder tree cannot. CNCORE-102's own measurement, taken
+**IT IS NOT, AND THE WIKI IS THE COUNTEREXAMPLE THAT MATTERS.** tardis.wiki writes 465
+`Theory:Timeline` pages — counted 2026-09-13 over `ns 114, title starts Theory:Timeline,
+non-redirect` — each stating an IN-UNIVERSE chronology, and that is the axis this product exists to
+carry, because it is the one a folder tree cannot. CNCORE-102's own measurement, taken
 2026-09-12 over one timeline against one release list, TV stories only: **113 of 298 adjacent pairs
 are reversed in-universe**, 38%. That figure is CARRIED FROM THE TICKET rather than re-derived here,
 and the decision does not turn on its exact value — only on the two axes disagreeing in bulk, which
@@ -38,10 +39,15 @@ the ordering.
 
 CMPP's `unplaced` is "members this provider serves that THIS ordering cannot place". CNCORE-102 had
 to decide what that covers on a wiki that writes its own `== Unplaced ==`, `== Currently unplaced ==`
-and `== Awaiting placement ==` headings. CNCORE-118 measured those at **703 story bullets across
-125 pages** on 2026-09-12, under the rule CNCORE-97 stated rather than the one that shipped — so the
-figure is carried rather than re-derived, and it has moved once already (an earlier pass reported 729
-across 136). The decision turns on the count being large, not on its exact value.
+and `== Awaiting placement ==` headings. Counted 2026-09-13 over `ns 114, title starts
+Theory:Timeline, non-redirect`, the wiki's own unplaced sections hold **719 story bullets across 125
+pages**, which is `fixture/timeline/COVERAGE.md`'s row for them. That count has moved twice, and both
+of the figures it moved from are the ARCHIVE's, read over its own differently-stated filter
+`ns = 114 AND title LIKE 'Theory:Timeline%' AND is_redirect = false` against a corpus frozen
+2026-09-04 (ADR-0129): CNCORE-118 took **703 story bullets across 125 pages** from it on 2026-09-12
+under the rule CNCORE-97 stated rather than the one that shipped, and an earlier pass reported 729
+across 136 from a looser link regex. The decision turns on the count being large, not on its exact
+value.
 
 **Those are members with no Position.** The heading is the wiki asserting that a story belongs to
 this ordering and that it will not say where, which is `CONTEXT.md`'s **Unplaced** exactly: "a member
@@ -56,12 +62,30 @@ failure as the source's statement — and they arrive indistinguishable as a bar
 
 ## What makes a page a Container is what the source calls it, which is not always its namespace
 
-The obvious predicate for the wiki was the namespace, and it is wrong by 776 pages: namespace 114
-(`Theory:`) holds **1,240 non-redirect pages and only 464 are timelines**. The rest are
-discontinuity-and-plot-hole pages, which state no ordering at all, and accepting the namespace would
-serve all 776 as Containers ordered by whatever bullets sat under their first heading. The wiki names
-the thing in the TITLE, so the title is the predicate; a category is told apart by its namespace
-because there the namespace is what the wiki uses to mean it.
+The obvious predicate for the wiki was the namespace, and it is wrong by 776 pages: counted
+2026-09-13 over `ns 114, non-redirect`, namespace 114 (`Theory:`) holds **1,241 non-redirect pages,
+of which 465 are timelines and the other 776 are not**. Those 776 are discontinuity-and-plot-hole
+pages, which state no ordering at all, and accepting the namespace would serve every one of them as a
+Container ordered by whatever bullets sat under its first heading. The wiki names the thing in the
+TITLE, so the title is the predicate; a category is told apart by its namespace because there the
+namespace is what the wiki uses to mean it.
+
+**BOTH HALVES ARE COUNTED, OVER THAT ONE LISTING, AND SAYING SO IS THE POINT.** `the other 776` was
+`1,240 - 464`, and both of those are the ARCHIVE's: 464 over `ns = 114 AND title LIKE
+'Theory:Timeline%' AND is_redirect = false`, 1,240 over that same filter without its title clause,
+read 2026-09-12 from a corpus frozen 2026-09-04 (ADR-0129). CNCORE-156 counted the two halves
+separately against the live wiki instead, because a subtraction does not stop being one for being
+spelled in words. It is the dangerous kind of wrong method, too, because it went on producing the
+RIGHT answer: each live count differs from the frozen one by one, so the remainder was still 776 when
+both of its inputs had moved. Nothing checking the answer could have caught it.
+
+**AND NONE OF THESE FIGURES IS THIS REPOSITORY'S TO MEASURE.** CanonCore asks the wiki nothing and
+counts nothing; every corpus figure above belongs to `provider-wiki` and is stated in its
+`fixture/timeline/COVERAGE.md`, which `pnpm measure:timelines` regenerates. That report is COMMITTED
+and reading it needs no Credential, which is what makes it the right thing to point a reader at —
+the script behind it needs the Owner's (ADR-0122), so a reader sent to the script instead could check
+nothing. Those figures move as editors edit the wiki, so one here that disagrees with the report is
+this record being stale rather than the report being wrong.
 
 The general rule for a provider: **read the predicate the source actually uses to mean the thing.**
 
