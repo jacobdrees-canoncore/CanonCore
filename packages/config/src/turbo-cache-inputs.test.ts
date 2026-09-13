@@ -205,11 +205,15 @@ describe.each(READS_OUTSIDE_ITS_PACKAGE)(
  * arguing-with-the-check death ADR-0124 warns about, and it would fire again on
  * the next person who writes a path into a note.
  *
- * A `//` PRECEDED BY `:` SURVIVES, so a `https://` inside a string is not read as
- * the start of a comment and the rest of that line kept.
+ * A `//` IS ONLY A COMMENT AFTER WHITESPACE, which is the rung that keeps this
+ * from causing the silence it exists to prevent. Excluding a preceding `:` is not
+ * enough: a PROTOCOL-RELATIVE `"//fonts.googleapis.com"` has a quote before it,
+ * so that version read the rest of the line as a comment and ATE a real climb
+ * sitting after it -- a false negative, which is worse here than the false
+ * positive it was fixing. Measured both ways before choosing.
  */
 function withoutComments(source: string): string {
-  return source.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|[^:])\/\/.*$/gm, "$1");
+  return source.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|\s)\/\/.*$/gm, "$1");
 }
 
 /**
