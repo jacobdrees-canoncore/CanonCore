@@ -479,12 +479,39 @@ export function mainOf(text: string): string {
 /**
  * One `<section>` of a page, by the heading it is labelled with.
  *
+ * IT ENDS AT ITS OWN CLOSING TAG, COUNTED, which is the whole of CNCORE-147.
+ * Every other way of finding the end is a bet on what the page renders NEXT,
+ * and this suite has now lost that bet twice:
+ *
+ * - A NON-GREEDY MATCH stops at the FIRST `</section>`, so it truncates any
+ *   section with one nested inside it. Every listing past the end of its walk
+ *   renders `PastTheEnd`, whose own `<section>` is nested inside it -- and under
+ *   the Members list's first one hid a defect, a second "Back to the start"
+ *   below the notice's own, that no assertion could see (CNCORE-89 review).
+ * - THE DOCUMENT'S LAST `</section>` was "Also appears in"'s end, on the
+ *   reasoning that nothing renders after that list. `Attribution` does, and
+ *   carries `aria-labelledby` of its own -- so on an item owing a notice the
+ *   slice ran through the notices, and a count of `<li>` over it answered how
+ *   many licences the item owed rather than how many orderings it sits in
+ *   (CNCORE-135).
+ * - THE NEXT SIBLING'S HEADING, NAMED, is the same bet one section along: the
+ *   Members list ended where `also-appears-in` began, so anything rendered
+ *   between the two would have been swallowed exactly as the notices were.
+ *
+ * Counting needs to know nothing about what follows, which is why it is the
+ * reading that survives a page growing a section. THIS WAS SIX READINGS BEFORE
+ * CNCORE-147 -- this one, two hand-rolled slices, and three verbatim copies of
+ * the non-greedy match in `front-page`, `search` and `works-page` -- and they
+ * disagreed. `document.test.ts` pins it on the shapes no fixture page renders.
+ *
  * IT THROWS RATHER THAN ANSWERING NOTHING, which is what makes
- * `expect(() => section(...)).toThrow()` a usable assertion that a surface is
+ * `expect(() => sectionIn(...)).toThrow()` a usable assertion that a surface is
  * ABSENT. A helper answering `undefined` would let a test that forgot to check
  * pass against a page missing the whole section.
  *
- * IT ENDS AT ITS OWN CLOSING TAG, COUNTED -- nested sections included.
+ * THE TWO REFUSALS ARE DISTINCT, because a page that renders a section and
+ * leaves it unclosed is a different fault from one that never rendered it, and
+ * a reader told the wrong one goes looking in the wrong place.
  */
 export function sectionIn(text: string, label: string): string {
   const opened = text.indexOf(`aria-labelledby="${label}"`);
