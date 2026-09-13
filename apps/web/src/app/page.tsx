@@ -104,13 +104,13 @@ export default async function CataloguePage({
   // shapes -- `> 0`, `=== 0`, and a comparison inside `Holding` -- which is one
   // condition spelt three ways with two of them inverted.
   const empty = catalogue.total === 0;
-  const listing = catalogue.rows;
+  const rows = catalogue.rows;
 
   return (
     <main className="container mx-auto max-w-3xl px-4 py-8">
       <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
         <h1 className="text-3xl font-medium">Catalogue</h1>
-        {listing.length > 0 && <Holding showing={listing.length} total={catalogue.total} />}
+        {rows.length > 0 && <Holding showing={rows.length} total={catalogue.total} />}
       </div>
       {!providers.any && <NoProviderAllowlisted />}
       {empty && <WhatToDoNext aPasswordIsSet={aPasswordIsSet} owner={owner} />}
@@ -119,10 +119,10 @@ export default async function CataloguePage({
         cursor makes possible: the link was cut at an item, and nothing is after
         that item any more. It is rare and it is a DEAD END if nothing says so.
       */}
-      {!empty && listing.length === 0 && <PastTheEnd path="/" />}
-      {listing.length > 0 && (
+      {!empty && rows.length === 0 && <PastTheEnd path="/" />}
+      {rows.length > 0 && (
         <>
-          <Listing rows={listing} />
+          <Listing rows={rows} />
           <Walk path="/" from={from} continuesAfter={catalogue.continuesAfter} />
         </>
       )}

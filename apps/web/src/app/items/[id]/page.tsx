@@ -577,7 +577,7 @@ function Members({
     THE POSITION TRAVELS WITH IT, because the sortable list needs it to compute
     what a drop does (ADR-0116) and only this scope has read it.
   */
-  const rendered = rows.map((placement, index) => ({
+  const renderedRows = rows.map((placement, index) => ({
     id: placement.id,
     position: placement.position,
     content: (
@@ -732,10 +732,10 @@ function Members({
         the same markup for both, and only the ordering is a client concern.
       */}
       {owner ? (
-        <SortableMembers containerId={itemId} rows={rendered} />
+        <SortableMembers containerId={itemId} rows={renderedRows} />
       ) : (
         <ul className="mt-2 divide-y">
-          {rendered.map((row) => (
+          {renderedRows.map((row) => (
             <li key={row.id} className="flex items-baseline gap-4 py-2">
               {row.content}
             </li>
@@ -870,7 +870,7 @@ function AlsoAppearsIn({
   const { rows, total, continuesAfter, everyPlacedBy } = placements;
   /*
    * NOTHING AT ALL FOR AN ITEM IN NO ORDERING, which is `total` rather than
-   * `rows.length` for the reason `Members` above gives: an rows-length
+   * `rows.length` for the reason `Members` above gives: a rows-length
    * test would hide the END of the walk, where a cursor past the last ordering
    * answers a page with no rows over a list that has plenty.
    *

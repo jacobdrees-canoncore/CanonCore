@@ -63,7 +63,9 @@ carries on. Every list in CanonCore is one, over items or over placements alike.
 One line of a listing: an Item in the catalogue, a Placement in a container's ordering. It is a
 PROJECTION FOR A LIST rather than the whole thing listed, so a row carries what a reader needs to
 recognise it and follow it and nothing a page would have to fetch the rest to render. The stored
-row it is projected from never leaves the database, so this is the only row a reader ever sees.
+row it is projected from never leaves the database, so this is the only row a reader ever sees —
+and below that seam the word keeps its ordinary SQL sense, which is why the walk names its two
+sides `Stored` and `Row`.
 _Avoid_: entry
 
 **Alias**:
