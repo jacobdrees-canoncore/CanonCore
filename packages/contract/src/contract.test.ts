@@ -288,13 +288,11 @@ describe.each(underTest.map((p) => [p.name, p] as const))(
     describe("its search", () => {
       it("answers candidates in one shape", async () => {
         const declared = await declaredCredential(participant);
-        const response = await get(
-          participant,
-          `/search?q=${encodeURIComponent(participant.aQuery)}`,
-        );
+        const path = `/search?q=${encodeURIComponent(participant.aQuery)}`;
+        const response = await get(participant, path);
 
         if (cannotReachItsSource(declared)) {
-          expectSaysItCannotAnswer(response, "/search");
+          expectSaysItCannotAnswer(response, path);
           return;
         }
 
@@ -331,7 +329,8 @@ describe.each(underTest.map((p) => [p.name, p] as const))(
         // failure. Nothing here asserts on a VALUE, only that answering
         // "nothing" is an answer.
         const declared = await declaredCredential(participant);
-        const response = await get(participant, "/search?q=qzzx%20noitartsnomed%20yreuq");
+        const path = "/search?q=qzzx%20noitartsnomed%20yreuq";
+        const response = await get(participant, path);
 
         // THE ONE PLACE WHERE AN UNSATISFIED CREDENTIAL INVERTS THIS RULE RATHER
         // THAN QUALIFYING IT. "Nothing matched" is an ANSWER, and it is an answer
@@ -340,7 +339,7 @@ describe.each(underTest.map((p) => [p.name, p] as const))(
         // know. Reporting `[]` here would be the fallback ADR-0122 refuses by
         // name, in its cheapest form -- an empty corpus rather than a thin one.
         if (cannotReachItsSource(declared)) {
-          expectSaysItCannotAnswer(response, "/search");
+          expectSaysItCannotAnswer(response, path);
           return;
         }
 
@@ -380,13 +379,11 @@ describe.each(underTest.map((p) => [p.name, p] as const))(
     describe("its lookup", () => {
       it("answers one record, in one shape, at the id it was given", async () => {
         const declared = await declaredCredential(participant);
-        const response = await get(
-          participant,
-          `/lookup/${encodeURIComponent(participant.aRecord)}`,
-        );
+        const path = `/lookup/${encodeURIComponent(participant.aRecord)}`;
+        const response = await get(participant, path);
 
         if (cannotReachItsSource(declared)) {
-          expectSaysItCannotAnswer(response, "/lookup");
+          expectSaysItCannotAnswer(response, path);
           return;
         }
 
@@ -764,5 +761,32 @@ describe("ADR-0122's optionality", () => {
         "without moving its version (ADR-0032), and a required field would break every provider that " +
         "already exists on the day it landed.",
     ).toBeGreaterThan(0);
+  });
+
+  /**
+   * AND THE REFUSAL IS A PERMISSION, NEVER A BRANCH THE WHOLE SUITE MAY TAKE.
+   *
+   * CNCORE-141 let a provider whose declared credential is not `valid` answer
+   * `503` to `search` and `lookup` instead of a record. With every participant in
+   * that state, every one of those assertions would check a refusal and NOTHING
+   * would hold anybody to `200` and a record -- the contract's central claim,
+   * green because nobody was asked. This is the same device `browse` gets above,
+   * pointed at the branch this ticket added.
+   */
+  it("is exercised in the other direction: something under test is held to ANSWERING", async () => {
+    const declared = await Promise.all(
+      underTest.map(async (participant) => ({
+        name: participant.name,
+        credential: manifest.parse((await get(participant, "/")).body).credential,
+      })),
+    );
+
+    expect(
+      declared.filter((p) => !cannotReachItsSource(p.credential)).map((p) => p.name),
+      "Every provider under test is currently unable to reach its source, so every `search` and " +
+        "`lookup` assertion took CNCORE-141's refusal branch and nothing checked that a provider " +
+        "able to answer still owes `200` and a record. That branch is a permission for a provider " +
+        "that cannot answer, never one the whole suite may take.",
+    ).not.toHaveLength(0);
   });
 });

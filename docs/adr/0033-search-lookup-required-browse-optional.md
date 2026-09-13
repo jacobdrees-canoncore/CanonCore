@@ -527,6 +527,21 @@ that distinction — so a provider reporting "nothing matched" as a failure woul
 source that looks broken every time they search for something it does not hold. The suite now pins
 the first claim against both real providers and the conformance witness. Both already satisfied it.
 
+**AND UNDER CNCORE-141 THAT FIRST CLAIM GAINED ITS ONE EXCEPTION, WHICH IS WRITTEN HERE RATHER THAN
+ONLY WHERE IT WAS DECIDED.** "An empty result is an answer" holds for a provider that can REACH its
+source. A provider whose declared Credential is not `valid` cannot, so it has not established that
+nothing matched — it has established that it does not know, and it answers `503` rather than
+`200 {"results":[]}`. That is not the failure this paragraph refuses: the distinction the fan-out
+sorts on is exactly the one being honoured, because such a provider IS failing and says so, rather
+than reporting a match it never made. [[0122-a-provider-declares-the-credential-it-needs]] carries
+the decision and the reasoning.
+
+**THE SECOND CLAIM IS UNTOUCHED, and that is the half worth stating explicitly.** A missing, empty or
+blank `q` is still `400` from a locked provider, because a caller who never filled the parameter in
+made that mistake before any source was reached. So is the `404` for an id that cannot BE an identity
+([[0066-path-is-identity-query-is-the-route]]). Turning those into refusals would hide a caller's own
+mistake behind a credential problem — and `provider-wiki`, measured, answers exactly this way.
+
 The lesson in the SHAPE of that gap is a fact about the suite rather than about CMPP, so it is
 written up in [[0103-tests-bite-at-package-exports-and-the-router]] beside its two siblings, exactly
 as CNCORE-33's was.

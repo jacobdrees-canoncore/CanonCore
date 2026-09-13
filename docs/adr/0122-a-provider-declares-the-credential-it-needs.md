@@ -241,7 +241,9 @@ about it. `provider-wiki` is built exactly this way: `lookup` rejects anything b
 before the wiki is touched, which is [[0066-path-is-identity-query-is-the-route]]'s rule that an id
 which cannot BE an identity is an address with nothing at it. **The measurement settled it**: with
 `provider-wiki` locked, CI's contract job failed THREE assertions and the `404` one was not among
-them (run 34752451432, `contract.test.ts` lines 201, 235 and 275). A contract that refused here too
+them (run 34752451432: "answers candidates in one shape", "answers a query it matches nothing for as
+an empty result", and "answers one record, in one shape, at the id it was given" — while "reports an
+id it does not hold as an answer, not as a failure" passed). A contract that refused here too
 would have reddened a passing assertion, and would hide a caller who forgot the parameter behind a
 credential problem.
 
@@ -274,6 +276,18 @@ the contract, which is the mistake `cmpp.ts` records itself having made once ove
 `width`. What the contract requires is that SOMETHING came back as JSON, so a refusal carrying a
 reason can be told from a provider that fell over. The next provider to declare a credential is
 where the body's shape becomes a question worth answering.
+
+**WHAT THE CONFORMANCE SUITE STRUCTURALLY CANNOT WITNESS is a provider that DECLARES a credential,
+reports `valid`, and answers.** It holds only a dummy — a real one reaching CI would be distribution
+([[0089-provider-distribution-tiers]]) — so asking a real provider to answer after the round trip
+would send that dummy upstream, be refused, and lapse the session the round trip had just reported
+`valid`. That is why `search` and `lookup` run BEFORE the credential block, and it is a limit of the
+instrument rather than an omission. Two things stand in for it: `provider-tmdb` and the `browse`
+witness declare no credential and are held to `200` and a record throughout, and a guard added
+beside this record's optionality test fails if EVERY participant is unable to answer — the refusal
+is a permission for one provider, never a branch the whole suite may take. The remaining claim, that
+Unlocking changes what a provider answers, is asserted against the witness alone in
+`packages/contract/src/participants.test.ts`, where no real provider is involved.
 
 **AND THE CASE IS WITNESSED ON EVERY MACHINE, not only where the image can be pulled.**
 `provider-wiki` is the only real provider that declares a credential, its image is private on GHCR,

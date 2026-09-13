@@ -1,4 +1,4 @@
-import { createServer, type Server } from "node:http";
+import { createServer, type Server, type ServerResponse } from "node:http";
 
 /**
  * Who is under test, and what to ask each of them for.
@@ -88,6 +88,60 @@ const MINIMAL_RECORD = {
 };
 
 /**
+ * A JSON answer on a witness's response, which both witnesses need and neither
+ * owns. Written twice, the two could drift on the one thing every assertion in
+ * the suite reads first: the content type.
+ */
+function jsonAnswer(response: ServerResponse) {
+  return (body: unknown, status = 200) => {
+    response.writeHead(status, { "content-type": "application/json" });
+    response.end(JSON.stringify(body));
+  };
+}
+
+/**
+ * ONE READING OF "THAT IS NOT A QUERY", SHARED BY BOTH WITNESSES.
+ *
+ * ADR-0033 settled it under CNCORE-33: an absent `q`, a present-and-empty `q`
+ * and a blank one are the same caller mistake, and both real providers refuse
+ * all three. THE TWO WITNESSES DISAGREED UNTIL THIS EXISTED -- one tested
+ * `q === ""` and the other `q.trim() === ""`, so `?q=%20` was a 400 to one and a
+ * `200 {"results":[]}` to the other. Two witnesses for one rule quietly holding
+ * two readings of it is the drift this whole package exists to catch, arriving
+ * inside the instrument.
+ */
+function isNotAQuery(q: string | null): boolean {
+  return q === null || q.trim() === "";
+}
+
+/**
+ * A witness's server, listening on a free loopback port and described as a
+ * Participant.
+ *
+ * SHARED BECAUSE NEITHER WITNESS OWNS ANY OF IT. What the two stand for is what
+ * they DECLARE and what they ANSWER; an ephemeral port, a fixture id and a
+ * `close` that actually resolves are none of that, and two copies are two places
+ * for a witness to stop being torn down at the end of a run.
+ *
+ * `aContainer` IS NULL FOR BOTH. Neither declares `browse`, so neither owes the
+ * suite a container fixture -- and a witness that named one while declining the
+ * operation would be inviting the browse assertions it never promised.
+ */
+async function listeningAs(server: Server, name: string): Promise<Participant> {
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  if (address === null || typeof address === "string") throw new Error("no port");
+  return {
+    name,
+    baseUrl: `http://127.0.0.1:${address.port}`,
+    aRecord: MINIMAL_RECORD.id,
+    aQuery: MINIMAL_RECORD.title,
+    aContainer: null,
+    close: () => new Promise<void>((resolve) => server.close(() => resolve())),
+  };
+}
+
+/**
  * A CONFORMANCE WITNESS: the smallest thing that satisfies CMPP, over a real
  * socket, declining the operation a provider is allowed to decline.
  *
@@ -114,10 +168,7 @@ const MINIMAL_RECORD = {
 async function minimalProvider(): Promise<Participant> {
   const server: Server = createServer((request, response) => {
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
-    const answer = (body: unknown, status = 200) => {
-      response.writeHead(status, { "content-type": "application/json" });
-      response.end(JSON.stringify(body));
-    };
+    const answer = jsonAnswer(response);
     if (url.pathname === "/") return answer(MINIMAL_MANIFEST);
     if (url.pathname === "/search") {
       const q = url.searchParams.get("q");
@@ -129,42 +180,47 @@ async function minimalProvider(): Promise<Participant> {
       // free choice and is why it reads as one. ADR-0103 carries what abstaining
       // cost the last time: a neutral answer is counted as a dissenting one by
       // anything measuring this population for agreement.
-      if (q === null || q === "")
-        return answer({ error: "a `q` query parameter is required" }, 400);
+      if (isNotAQuery(q)) return answer({ error: "a `q` query parameter is required" }, 400);
       return answer({ results: q === MINIMAL_RECORD.title ? [MINIMAL_RECORD] : [] });
     }
     if (url.pathname === `/lookup/${MINIMAL_RECORD.id}`) return answer(MINIMAL_RECORD);
     if (url.pathname.startsWith("/lookup/")) return answer({ error: "no such record" }, 404);
     return answer({ error: "not found" }, 404);
   });
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  const address = server.address();
-  if (address === null || typeof address === "string") throw new Error("no port");
-  return {
-    name: MINIMAL_MANIFEST.name,
-    baseUrl: `http://127.0.0.1:${address.port}`,
-    aRecord: MINIMAL_RECORD.id,
-    aQuery: MINIMAL_RECORD.title,
-    aContainer: null,
-    close: () => new Promise<void>((resolve) => server.close(() => resolve())),
-  };
+  return listeningAs(server, MINIMAL_MANIFEST.name);
 }
 
+/** Where this witness says to supply it. A PATH, never a URL (ADR-0122). */
+export const LOCKED_UNLOCK_PATH = "/unlock";
+
 /**
- * What the locked witness asks for, and where it says to supply it.
+ * What the locked witness asks for.
  *
  * ONE FIELD RATHER THAN TWO, because the contract requires AT LEAST ONE and a
  * witness standing for "a provider that declares a credential" should not also
  * be standing for "a provider that declares several". `provider-wiki` asks for
  * more; that is its upstream's business and not the contract's.
  */
-const LOCKED_UNLOCK_PATH = "/unlock";
-const LOCKED_CREDENTIAL_FIELDS = [
+export const LOCKED_CREDENTIAL_FIELDS = [
   { name: "session", label: "The session its upstream asks a person to pass a challenge for" },
 ];
 
+/**
+ * BOUNDED BEFORE IT IS READ, not after (ADR-0122). Nothing authenticates the
+ * unlock route -- by design, since the file is the source of truth and anything
+ * able to write it can already Unlock -- so an unbounded body is an unbounded
+ * allocation on an open route. 16 KiB is the declared field at its ceiling many
+ * times over; `provider-wiki` caps at the same figure for the same reason.
+ */
+const MAX_UNLOCK_BODY = 16 * 1024;
+
 const LOCKED_MANIFEST = {
-  name: "a provider that has not been Unlocked",
+  // TRUE BEFORE AND AFTER, which the first spelling was not: this name prints in
+  // every test title, and `its credential` Unlocks this witness part-way through
+  // the run -- so a name asserting the CURRENT state ("has not been Unlocked")
+  // was false for the rest of the suite. It names the REQUIREMENT instead, which
+  // is the thing that does not change.
+  name: "a provider that must be Unlocked before it answers",
   versions: [1],
   operations: ["search", "lookup"],
 };
@@ -197,7 +253,7 @@ const LOCKED_MANIFEST = {
  * answers the SAME whether or not it holds a credential, which is the shape that
  * would let the branch below pass while proving nothing.
  */
-async function lockedProvider(): Promise<Participant> {
+export async function lockedProvider(): Promise<Participant> {
   /*
    * THE CREDENTIAL IS HELD IN MEMORY HERE, AND ADR-0122 REQUIRES A FILE OF A REAL
    * PROVIDER. That is not this witness cutting a corner: the record's reason for
@@ -227,10 +283,7 @@ async function lockedProvider(): Promise<Participant> {
 
   const server: Server = createServer((request, response) => {
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
-    const answer = (body: unknown, status = 200) => {
-      response.writeHead(status, { "content-type": "application/json" });
-      response.end(JSON.stringify(body));
-    };
+    const answer = jsonAnswer(response);
     /*
      * WHAT IT OWES WHILE IT HOLDS NOTHING: a refusal with a reason, naming who
      * wrote it (ADR-0123). The status is what a caller reads, and the body is
@@ -255,8 +308,17 @@ async function lockedProvider(): Promise<Participant> {
       // provider's business.
       if (request.method !== "POST") return answer({ unlock: LOCKED_CREDENTIAL_FIELDS });
       const chunks: Buffer[] = [];
-      request.on("data", (chunk: Buffer) => chunks.push(chunk));
+      let size = 0;
+      let overflowed = false;
+      request.on("data", (chunk: Buffer) => {
+        size += chunk.length;
+        // STOPS ACCUMULATING rather than destroying the socket, so `end` still
+        // fires and the caller gets an answer instead of a dropped connection.
+        if (size > MAX_UNLOCK_BODY) overflowed = true;
+        else chunks.push(chunk);
+      });
       request.on("end", () => {
+        if (overflowed) return answer({ error: "that submission is too large" }, 413);
         const submitted = ((): Record<string, unknown> => {
           try {
             const parsed: unknown = JSON.parse(Buffer.concat(chunks).toString());
@@ -294,8 +356,7 @@ async function lockedProvider(): Promise<Participant> {
        * answering 503 to it would hide a caller that forgot the parameter behind
        * a credential problem. `provider-wiki` validates in the same order.
        */
-      if (q === null || q.trim() === "")
-        return answer({ error: "a `q` query parameter is required" }, 400);
+      if (isNotAQuery(q)) return answer({ error: "a `q` query parameter is required" }, 400);
       if (held === null) return refuse();
       return answer({ results: q === MINIMAL_RECORD.title ? [MINIMAL_RECORD] : [] });
     }
@@ -318,15 +379,5 @@ async function lockedProvider(): Promise<Participant> {
 
     return answer({ error: "not found" }, 404);
   });
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  const address = server.address();
-  if (address === null || typeof address === "string") throw new Error("no port");
-  return {
-    name: LOCKED_MANIFEST.name,
-    baseUrl: `http://127.0.0.1:${address.port}`,
-    aRecord: MINIMAL_RECORD.id,
-    aQuery: MINIMAL_RECORD.title,
-    aContainer: null,
-    close: () => new Promise<void>((resolve) => server.close(() => resolve())),
-  };
+  return listeningAs(server, LOCKED_MANIFEST.name);
 }
