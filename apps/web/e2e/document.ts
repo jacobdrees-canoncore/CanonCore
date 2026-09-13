@@ -499,10 +499,19 @@ export function mainOf(text: string): string {
  *   between the two would have been swallowed exactly as the notices were.
  *
  * Counting needs to know nothing about what follows, which is why it is the
- * reading that survives a page growing a section. THIS WAS SIX READINGS BEFORE
- * CNCORE-147 -- this one, two hand-rolled slices, and three verbatim copies of
- * the non-greedy match in `front-page`, `search` and `works-page` -- and they
- * disagreed. `document.test.ts` pins it on the shapes no fixture page renders.
+ * reading that survives a page growing a section. THIS WAS SEVEN READINGS
+ * BEFORE CNCORE-147 -- this one, two hand-rolled slices (`members` and
+ * `alsoAppearsIn`), two verbatim copies of the non-greedy match in `front-page`
+ * and `search`, and two more written inline (`values` in `item-page`,
+ * `nothing-to-watch` in `works-page`) -- and they disagreed. `document.test.ts`
+ * pins it on the shapes no fixture page renders.
+ *
+ * IT READS THE DECODED DOCUMENT, so owner text carrying a literal `<section>`
+ * unbalances the count and this refuses the whole page: the standing limit
+ * `textareasIn` names for every regex in this file rather than a new one. What
+ * IS new is that it SAYS so. The non-greedy match answered such a page by luck,
+ * stopping at the real closing tag because the owner's text carried no
+ * `</section>` to stop at first. Nothing this suite seeds carries either.
  *
  * IT THROWS RATHER THAN ANSWERING NOTHING, which is what makes
  * `expect(() => sectionIn(...)).toThrow()` a usable assertion that a surface is
@@ -516,7 +525,18 @@ export function mainOf(text: string): string {
 export function sectionIn(text: string, label: string): string {
   const opened = text.indexOf(`aria-labelledby="${label}"`);
   if (opened === -1) throw new Error(`the page rendered no \`${label}\` section`);
+  /*
+   * THE LABEL HAS TO BE INSIDE THAT OPENING TAG, which the non-greedy match
+   * this replaced enforced by its shape (`<section[^>]*aria-labelledby=`) and
+   * counting from the nearest `<section` alone does not. Without this the
+   * nearest one is a previous SIBLING, and a label on anything else hands back
+   * a whole section that is not the one asked for -- silently, and passing
+   * every negative assertion made against it.
+   */
   const start = text.lastIndexOf("<section", opened);
+  if (start === -1 || text.slice(start, opened).includes(">")) {
+    throw new Error(`the page rendered no \`${label}\` section`);
+  }
 
   const tags = /<section\b|<\/section>/g;
   tags.lastIndex = start;

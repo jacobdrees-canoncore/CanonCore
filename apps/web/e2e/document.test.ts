@@ -81,4 +81,25 @@ describe("sectionIn", () => {
 
     expect(() => sectionIn(page, "also-appears-in")).toThrow(/rendered no/);
   });
+
+  /**
+   * AND A LABEL ON SOMETHING THAT IS NOT A SECTION IS NOT A SECTION. The
+   * non-greedy match this replaced required the label to sit inside a
+   * `<section>` opening tag, and counting from the nearest `<section` BEFORE the
+   * label drops that: the nearest one is then a previous sibling, and the reader
+   * hands back a whole section that is not the one asked for.
+   *
+   * Nothing renders this today -- every `aria-labelledby` in the app is on a
+   * `<section>` -- which is what makes it worth a test rather than worth
+   * ignoring. A silently wrong section passes every `not.toContain` assertion
+   * made against it.
+   */
+  it("refuses a label carried by something that is not a section", () => {
+    const page = [
+      '<section aria-labelledby="values">Owner</section>',
+      '<nav aria-labelledby="filter">Arrived through</nav>',
+    ].join("");
+
+    expect(() => sectionIn(page, "filter")).toThrow(/rendered no/);
+  });
 });
