@@ -92,12 +92,20 @@ export { worktreeDatabaseName } from "./worktree-database";
  *
  * `maxConnections` BOUNDS THE POOL, and it exists because one PostgreSQL serves
  * far more processes here than a deployment's does. node-postgres opens up to
- * TEN connections per pool and PostgreSQL's own default ceiling is a hundred,
- * so a page-seam run -- nine servers, each with a pool, plus the harness's own
- * handles against the same container -- can ask for more than the server will
- * give and fails with `sorry, too many clients already` (measured on this repo,
- * 2026-09-12, adding the ninth instance). The app leaves it at the default: it
- * is one process, and ten is the number that process was already using.
+ * TEN connections per pool, so a page-seam run -- ten servers, each with a
+ * pool, plus the harness's own handles against the same container -- can ask
+ * for more than the server will give and fails with `sorry, too many clients
+ * already` (measured on this repo, 2026-09-12, adding the ninth instance). The
+ * app leaves it at the default: it is one process, and ten is the number that
+ * process was already using.
+ *
+ * AND THE CEILING IT IS MEASURED AGAINST IS NO LONGER POSTGRES'S DEFAULT
+ * HUNDRED. The tenth instance (CNCORE-131) put one suite's peak AT that budget
+ * on its own, which left nothing for the second worktree ADR-0104 expects to be
+ * sharing the container -- so `docker-compose.yml` raises it to 300 and says
+ * why. This bound still matters and for the reason above: it is what keeps a
+ * harness handle from holding ten idle connections the servers under test
+ * cannot have.
  */
 export function createDb(connectionString: string, { maxConnections }: DbOptions = {}) {
   return drizzle({

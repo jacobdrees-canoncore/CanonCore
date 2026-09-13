@@ -1,8 +1,10 @@
+import { createServer, type Server } from "node:http";
+
 import { type Database, writeProviderSettings } from "@canoncore/db";
 import { connect } from "@canoncore/db/testing/catalogue";
 import { env } from "@canoncore/env/server";
 import { call, isDefinedError, safe } from "@orpc/server";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createContext } from "../context";
 import { appRouter } from "./index";
@@ -44,6 +46,35 @@ const theNextRequest = () => createContext({ sessionToken });
 
 /** A visitor: no session, so no business reading or changing what this instance reaches. */
 const aVisitor = () => createContext();
+
+/**
+ * A PROVIDER ON A REAL SOCKET, answering one manifest.
+ *
+ * Not a mocked fetch: what `settings.read` does with a named Provider is resolve
+ * its host, pin the connection and read a manifest over HTTP, and an interceptor
+ * would prove the URL was assembled and nothing else.
+ */
+const providers: Server[] = [];
+
+async function aProviderDeclaring(credential: unknown): Promise<string> {
+  const server = createServer((_request, response) => {
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end(JSON.stringify({ name: "a provider", credential }));
+  });
+  providers.push(server);
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  if (typeof address === "string" || address === null) throw new Error("no port");
+  return `http://127.0.0.1:${address.port}`;
+}
+
+afterEach(async () => {
+  await Promise.all(
+    providers
+      .splice(0)
+      .map((server) => new Promise<void>((resolve) => server.close(() => resolve()))),
+  );
+});
 
 let db: Database;
 
@@ -229,10 +260,97 @@ describe("what the settings surface reads", () => {
       {},
       { context: await theNextRequest() },
     );
-    expect(providers).toEqual([
-      { baseUrl: "http://wiki.test:8080", admitted: true },
-      { baseUrl: "http://tmdb.test:8080", admitted: false },
+    /*
+     * `not-admitted` IS THE ASSERTION, AND THE OTHER ROW IS WHAT MAKES IT ONE.
+     * A read that reported every provider as refused by the allowlist would
+     * satisfy half of this and tell the Owner their working Provider was
+     * unreachable. The admitted row's own outcome is `unreachable` here --
+     * `wiki.test` resolves to nothing -- which is the distinction this ticket
+     * exists to draw: the allowlist refusing a Provider and the Provider not
+     * answering are two different faults with two different fixes.
+     */
+    expect(providers.map(({ baseUrl, reach }) => [baseUrl, reach.kind])).toEqual([
+      ["http://wiki.test:8080", "unreachable"],
+      ["http://tmdb.test:8080", "not-admitted"],
     ]);
+  });
+
+  /**
+   * WHAT THE SETTINGS SURFACE NEEDS IN ORDER TO OFFER AN UNLOCK AT ALL
+   * (ADR-0122, CNCORE-101). The state comes off the manifest CanonCore was
+   * fetching anyway, so this read is what turns a Provider's own declaration
+   * into a row the Owner can act on.
+   */
+  it("carries a provider's declared credential through to the page", async () => {
+    const provider = await aProviderDeclaring({
+      label: "a browser session for the wiki",
+      fields: [{ name: "cf_clearance", label: "the clearance cookie" }],
+      unlock_path: "/unlock",
+      state: "expired",
+      state_changed_at: "2026-09-04T11:00:00.000Z",
+    });
+    await call(
+      appRouter.settings.editAllowlist,
+      { allowlist: "127.0.0.1/32" },
+      { context: await theNextRequest() },
+    );
+    await call(
+      appRouter.settings.nameProvider,
+      { baseUrl: provider },
+      { context: await theNextRequest() },
+    );
+
+    const { providers } = await call(
+      appRouter.settings.read,
+      {},
+      { context: await theNextRequest() },
+    );
+
+    expect(providers[0]?.reach).toEqual({
+      kind: "reached",
+      credential: {
+        label: "a browser session for the wiki",
+        unlockUrl: `${provider}/unlock`,
+        state: "expired",
+        changedAt: "2026-09-04T11:00:00.000Z",
+      },
+    });
+  });
+
+  /**
+   * THE PIN ON ADR-0122'S CENTRAL REFUSAL, taken at the seam a caller actually
+   * reads. The Credential must appear nowhere in CanonCore's storage, logs or
+   * request path -- and `fields` is the contract's list of what the Owner
+   * supplies, so a read that carried it would be this app holding the shape of
+   * somebody's secret and would be the place a value landed the day anybody
+   * rendered the form again.
+   *
+   * ASSERTED ON THE WHOLE ANSWER rather than on the credential alone, because
+   * the claim is about the ANSWER: there is nowhere in it for a value to be.
+   */
+  it("carries no part of the credential itself, anywhere in the answer", async () => {
+    const provider = await aProviderDeclaring({
+      label: "a browser session",
+      fields: [{ name: "cf_clearance", label: "the clearance cookie" }],
+      unlock_path: "/unlock",
+      state: "valid",
+      state_changed_at: "2026-09-12T09:00:00.000Z",
+    });
+    await call(
+      appRouter.settings.editAllowlist,
+      { allowlist: "127.0.0.1/32" },
+      { context: await theNextRequest() },
+    );
+    await call(
+      appRouter.settings.nameProvider,
+      { baseUrl: provider },
+      { context: await theNextRequest() },
+    );
+
+    const answer = await call(appRouter.settings.read, {}, { context: await theNextRequest() });
+
+    expect(JSON.stringify(answer)).not.toContain("cf_clearance");
+    expect(JSON.stringify(answer)).not.toContain("fields");
   });
 });
 

@@ -12,13 +12,15 @@ The decisions are in `docs/adr/`.
 Work lives in Linear **Projects**. A parent issue carries a state of its own that lies about its
 children — CNCORE-60 read `Done` over thirteen open ones — so parent links were dropped on
 2026-09-12. A spec is an issue labelled `to-spec`, held in `Backlog`, inside the project it
-describes.
+describes — **and a spec is the only thing `Backlog` holds.** The CLI writes as an integration, so
+Linear lands an agent-filed ticket there by default, where the frontier cannot see it: five did in
+one session on 2026-09-12. Move each to `Todo` as you triage it.
 
 Four projects, in order, each ending in something demoable:
 
 1. **Version one** — done. Multi-placement, rendered.
-2. **The public release** — done. Both tags shipped and CNCORE-60 closed, but the PROJECT outlives
-   its spec and still takes public-surface defects; 76 alone is fused to 2027-01-12.
+2. **The public release** — done. Both tags shipped, CNCORE-60 closed; the PROJECT outlives its spec
+   and still takes public-surface defects, and 76 alone is fused to 2027-01-12.
 3. **A real catalogue, live** — in progress. CNCORE-96, tickets 98 to 103; 97 is superseded by 118.
    The wiki provider serves tardis.wiki on a credential the owner supplies, a real Doctor Who
    catalogue is imported, and the archive is deleted once that is proven.
@@ -45,7 +47,7 @@ Playback, then the clients, then the demo come after ([[0055-web-now-phone-next-
 - When an audit says the remaining work is larger than expected, CUT SCOPE INSIDE THIS REPOSITORY. Never start another one. Every previous attempt at this product died that way.
 - A list of things two mature products have is not a backlog. Every item in `docs/research/competitor-sweep/` was decided on user benefit rather than on parity, and the next sweep is not automatically owed a response.
 - The first version ends in a rendered page, not a report. Reject on sight any proposal that grows the document phase without bringing the render forward.
-- A filed ticket carries a state, a label, an assignee and a parent — all four flags on one `orca linear create` — and whatever it asserts about a version, limit, price or practice is checked with `/verify` before dispatch. An unchecked figure travels: one reached an ADR before a later agent failed to reproduce it. Mechanics and sizing in `docs/agents/issue-tracker.md`.
+- A filed ticket carries a state, a label, an assignee and a project — all four flags on one `orca linear create`, and `--parent` is not among them since parent links were dropped. Whatever it asserts about a version, limit, price or practice is checked with `/verify` before dispatch: an unchecked figure travels, and one reached an ADR before a later agent failed to reproduce it. Mechanics and sizing in `docs/agents/issue-tracker.md`.
 - Keep this file under 200 lines. Past that, first delete anything derivable from the code, then move path-specific guidance to `.claude/rules/` with `paths:` frontmatter and reference material to skills. `@path` imports do not help: they load at launch like the rest of the file.
 
 ## Reading the decisions
@@ -72,10 +74,9 @@ building, `release_date`, or abridgement means you are re-deriving records that 
 
 ## Specs
 
-A spec covers one **effort**, not the project. Reach for one when a build is too big for a session
-and has to survive being split across several.
-
-Specs live on the tracker as snapshots, thrown away once the work ships; `docs/adr/` outlives them.
+A spec covers one **effort**, not the project: reach for one when a build is too big for a session
+and has to survive being split across several. Specs live on the tracker as snapshots, thrown away
+once the work ships; `docs/adr/` outlives them.
 
 ## Verify, don't recall
 
@@ -115,15 +116,14 @@ in for the library. It ruled 11 claims contradicted on 2026-09-12, most of them 
 - **Filing, reading or relating an issue** — Linear (workspace `jacobrees-canoncore`, team
   `CNCORE`) through the `orca linear` CLI; GitHub Issues is unused. It lies five ways, one being
   `ok: false` on writes that LANDED. `docs/agents/issue-tracker.md`.
-- **Labelling or triaging one** — `docs/agents/triage-labels.md`. Triage roles are workspace
-  labels, `wontfix` is the Canceled state, and `to-spec` / `provider-repo` are kinds rather than
-  roles.
+- **Labelling or triaging one** — `docs/agents/triage-labels.md`. Triage roles are workspace labels,
+  `wontfix` is the Canceled state, and `to-spec` / `provider-repo` are kinds rather than roles.
 - **Adding a term or a record** — one `CONTEXT.md` and one `docs/adr/`, both at the root.
   `docs/agents/domain.md`.
 
 ## Working substrate
 
-- Use `orca worktree create` for parallel work. Bind each worktree to its ticket with
+- Use `orca worktree create` for parallel work, binding each to its ticket with
   `--linear-issue CNCORE-<n>` so `--current` resolves in every later call.
 - Every worktree shares one Postgres container and gets its OWN database inside it, on **55432**
   rather than 5432, because a local Postgres shadows 5432 silently and you test the wrong engine
@@ -140,12 +140,12 @@ in for the library. It ruled 11 claims contradicted on 2026-09-12, most of them 
   every worktree reads one copy: `provider-tmdb.env` (that provider throws at startup without its
   token; CI uses the repo secret) and `whatbox.env` (the slot's login, for SSH or its web UI).
 
-Install whatever makes the work easier, without asking. What earns a question first is anything
-that spends money, holds a licence, or runs as a background service.
+Install whatever makes the work easier, without asking. Ask first only about what spends money,
+holds a licence, or runs as a background service.
 
-Machine state is not repo state. A tool the build or the tests reach for belongs in the manifests
-CI and a fresh clone read, never only on this Mac, because that gap is silent here and surfaces as
-a broken clone on a machine nobody is watching.
+Machine state is not repo state. A tool the build or the tests reach for belongs in the manifests CI
+and a fresh clone read, never only on this Mac: that gap is silent here and surfaces as a broken
+clone nobody is watching.
 
 **Every implementer runs in an Orca worktree**, never the Claude Code subagent tool's own isolation.
 

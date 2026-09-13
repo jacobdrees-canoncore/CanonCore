@@ -77,7 +77,26 @@ export type FailureReason = z.infer<typeof failureReason>;
 export function reasonFor(thrown: unknown): FailureReason {
   const message = thrown instanceof Error ? thrown.message : String(thrown);
   const ours = thrown instanceof OutboundRefused && thrown.boundary === "config";
-  return { wrote: ours ? "canoncore" : "provider", text: cap(oneLine(message)) || SILENT };
+  return { wrote: ours ? "canoncore" : "provider", text: bounded(message) || SILENT };
+}
+
+/**
+ * A provider's text, as one line and no longer than the Owner reads (ADR-0123).
+ *
+ * PUBLISHED BECAUSE A REASON IS NOT THE ONLY PROSE A PROVIDER PUTS ON A PAGE.
+ * CNCORE-101 renders a declared credential's `label`, which the contract bounds
+ * only by `min(1)` -- so it is a stranger choosing the length of text on a page
+ * it does not own, which is the sentence that record opens with. What made that
+ * defect worth a record is that it had two sites already; a second truncation
+ * written beside this one would be the third.
+ *
+ * IT IS THE CAP WITHOUT THE ATTRIBUTION, and that split is deliberate. `wrote`
+ * answers "whose sentence is this" by asking WHICH BOUNDARY REFUSED, and a label
+ * was refused by nothing -- it is a provider's text on the manifest it chose to
+ * send, known to be the provider's without anything having to decide.
+ */
+export function bounded(text: string): string {
+  return cap(oneLine(text));
 }
 
 /**
@@ -109,8 +128,29 @@ const SILENT = "the provider failed without saying why.";
  * see is missing, rather than one they cannot see at all.
  */
 function oneLine(message: string): string {
-  return message.replace(/\s+/g, " ").trim();
+  return message.replace(CONTROLS, "").replace(/\s+/g, " ").trim();
 }
+
+/**
+ * The characters that change how the text AROUND them reads, stripped.
+ *
+ * NOT A WHITESPACE PROBLEM, which is why `\s+` above does not catch them. The
+ * bidirectional overrides (U+202A-U+202E, U+2066-U+2069) re-order the glyphs on
+ * either side of themselves, so a provider can make its quoted text run backwards
+ * through the sentence CanonCore wrote around it -- and on this page that
+ * sentence sits beside a link the Owner is about to give a credential to.
+ * U+200B-U+200D and U+FEFF are the zero-width family, which splits a word a
+ * reader is scanning for without leaving a mark.
+ *
+ * THE SAME ARGUMENT AS THE CAP, AT A DIFFERENT LEVER. ADR-0123 bounds how MUCH a
+ * stranger may put on a page it does not own; this bounds what that text may do
+ * to the page's own words. A cap alone leaves the shorter attack untouched.
+ *
+ * STRIPPED RATHER THAN ESCAPED, because there is no legitimate use for one here:
+ * a reason and a credential's label are single sentences of prose, not documents
+ * with a mixed-direction layout to preserve.
+ */
+const CONTROLS = /[\u202a-\u202e\u2066-\u2069\u200b-\u200d\ufeff]/g;
 
 /**
  * The text, cut to `REASON_MAX_LENGTH` INCLUDING the marker that says so.

@@ -120,3 +120,25 @@ function caught(run: () => void): Error {
   }
   throw new Error("nothing was thrown, and the refusal under test is the subject.");
 }
+
+/**
+ * A PROVIDER CHOOSES WHAT ITS TEXT DOES TO THE PAGE, NOT ONLY HOW MUCH OF IT
+ * THERE IS (ADR-0123, found reviewing CNCORE-101).
+ *
+ * The cap answers the length lever. It does nothing about a bidirectional
+ * override, which re-orders the glyphs around itself -- so a provider's quoted
+ * reason can run backwards through the sentence this app wrote, on a page whose
+ * next control is a link the Owner is about to give a credential to.
+ */
+describe("text that rewrites the page around it", () => {
+  it.each([
+    ["‮", "a right-to-left override"],
+    ["⁦", "a directional isolate"],
+    ["​", "a zero-width space"],
+    ["﻿", "a zero-width no-break space"],
+  ])("strips %j, which is %s", (control) => {
+    const { text } = reasonFor(new Error(`before${control}after`));
+
+    expect(text).toBe("beforeafter");
+  });
+});

@@ -122,11 +122,17 @@ export default async function CataloguePage({
  * condition is read off `providers.any` alone and never off the catalogue's
  * size, which is what makes that true by construction rather than by care.
  *
- * ONLY ONE OF THE TWO COMBINATIONS IS EXERCISED, and saying so is cheaper than
- * letting a reader assume both are. The suite has an instance with an empty
- * catalogue AND an empty allowlist, and one with neither; items-present-with-no-
- * allowlist would need a third server, and the page's condition cannot see the
- * catalogue to get it wrong.
+ * ALL FOUR COMBINATIONS EXIST IN THE SUITE AND THIS PAGE'S ASSERTIONS READ
+ * THREE, which is worth saying exactly rather than leaving a reader to assume
+ * either number. Empty with an empty allowlist is `fresh`; neither is the
+ * seeded instance; empty WITH an allowlist that admits something is `ready`
+ * since CNCORE-131, and that is what holds the empty state to being offered
+ * whether or not a provider is reachable. ITEMS PRESENT WITH NO ALLOWLIST is
+ * the fourth and it is NOT missing -- `place` and `order` are both in it -- but
+ * their suites assert container pages rather than `/`, so this notice has never
+ * been read in that state. It has cost nothing because the condition here
+ * cannot see the catalogue to get it wrong, which is the same reason a server
+ * of its own was never worth standing up for it.
  *
  * WHERE THE SETTING IS, NAMED AND LINKED (CNCORE-99). "Allowlist a provider" is
  * the step, and until this ticket the thing an owner had to type was an
@@ -173,6 +179,38 @@ function NoProviderAllowlisted() {
  * NEXT is a separate failure this record does not licence". This is the other
  * half, and it is deliberately WORDS ON A PAGE rather than rows in a database --
  * nothing here softens the refusal to ship somebody else's library.
+ *
+ * TWO ROUTES, AND THE ONE THAT NEEDS NOTHING GOES FIRST (CNCORE-131). It said
+ * two STEPS until then and both of them were a provider's: allowlist one, then
+ * import from it. That was the whole answer for as long as a provider was the
+ * only way in, and v0.2.0 ended it -- `/new` makes an Item with no file and no
+ * provider record (ADR-0003), and a Container holding it is a catalogue with
+ * nothing allowlisted and nothing running anywhere. So the copy was not wrong
+ * and was not the whole answer: a reader whose instance reaches nothing was
+ * being sent to find something for it to reach, past the shorter path already
+ * on the page they were looking at. Found walking a real v0.2.0 install
+ * (CNCORE-75).
+ *
+ * ROUTES RATHER THAN STEPS, WHICH IS WHY THE PROVIDER'S TWO ARE ONE ITEM. A
+ * list of steps is a sequence to complete and a list of routes is a choice
+ * between alternatives; naming a provider and importing from it are steps
+ * WITHIN one route, because an owner who does the first and stops has filled
+ * nothing.
+ *
+ * TODO(CNCORE-133): BOTH ROUTES ARE OFFERED TO A READER WHO CAN TAKE NEITHER.
+ * This page reads no session, so a visitor is offered `/new` and arrives at its
+ * `NotYours` -- and on an instance with no owner password there is no login to
+ * take, because that is ADR-0044's read-only demo. `/import` has the same shape
+ * and got there first, so this route joined a property rather than introducing
+ * one; what to do about it is undecided, and that ticket holds the options.
+ *
+ * IT IS NOT CONDITIONAL ON REACHING ANYTHING, and that is the criterion rather
+ * than an accident of where the condition sits. The hand-built route is what an
+ * owner with no provider has, so an empty state that appeared only where
+ * nothing was allowlisted would withhold it from exactly the owner who
+ * configured one and still has an empty catalogue. Read off `empty` alone,
+ * never off `providers.any`, and the e2e harness stands up an instance in that
+ * combination (`anInstanceAllowlistedAndEmpty`) to hold it there.
  */
 function WhatToDoNext() {
   return (
@@ -185,24 +223,39 @@ function WhatToDoNext() {
           </EmptyTitle>
           <EmptyDescription>
             It starts that way on purpose: CanonCore ships no catalogue, so nothing here is anybody
-            else&rsquo;s library. Two steps fill it.
+            else&rsquo;s library. Two routes fill it, and neither waits on the other.
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
-          <ol className="space-y-3 text-left">
+          <ul className="space-y-3 text-left">
             <li>
-              <span className="font-medium">Name a provider, and allowlist it.</span> In{" "}
-              <Link className="underline" href="/settings">
-                Settings
-              </Link>
-              , give its base URL and the host or address range it answers on. Both: one says which
-              providers to search and the other says what may be reached, and neither needs a
-              restart. A provider is a URL rather than code you install, so nothing runs inside your
-              catalogue.
+              {/*
+                NO RECORD CITED IN THE COPY ITSELF. ADR-0003 is what makes an
+                Item with no file a complete entry, and the reader of this page
+                is a stranger on their first run -- so the record belongs in
+                this comment and the sentence it justifies belongs on the page.
+                Nothing else this page renders cites one.
+              */}
+              <span className="font-medium">
+                <Link className="underline" href="/new">
+                  Add an item yourself
+                </Link>
+                .
+              </span>{" "}
+              A story, a person, a place &mdash; whether or not you have the file, and whether or
+              not a provider has ever heard of it. Make a Container the same way, place items in it,
+              and the catalogue is yours. Nothing to configure and no provider to reach.
             </li>
             <li>
               {/*
-                THE STEP IS A LINK NOW (CNCORE-68). This used to say to give a
+                ONE ROUTE WITH TWO STEPS IN IT, rather than the two list items
+                this was (CNCORE-131). Configuring a provider and importing from
+                one were siblings while everything on this list was a step, and
+                the list is ROUTES now -- so leaving them apart would offer an
+                owner a way of filling a catalogue that fills nothing, which is
+                what "name a provider" on its own is.
+
+                THE STEP IS A LINK (CNCORE-68). It used to say to give a
                 provider's base URL and the id of one of its records, which is the
                 hand-POSTing the import surface exists to remove -- so the copy and
                 the product agreed only for as long as there was no surface. A
@@ -211,14 +264,34 @@ function WhatToDoNext() {
               */}
               <span className="font-medium">
                 <Link className="underline" href="/import">
-                  Import from it
+                  Import from a provider
                 </Link>
                 .
               </span>{" "}
-              Search it by name and take what you find: the record arrives here as an Item. A
-              provider that offers browse imports a whole ordering at once.
+              Two settings first, in{" "}
+              <Link className="underline" href="/settings">
+                Settings
+              </Link>
+              , and a provider needs both:{" "}
+              {/*
+                BOTH NAMED, AND NAMED AS THAT PAGE NAMES THEM. ADR-0121 makes
+                them two settings that are not derivable from each other -- one
+                holds URLs and says what IS reached, the other holds hosts and
+                ranges and says what MAY be -- so a step naming one leaves an
+                owner with a provider that is never reached and nothing on the
+                page to say why. They were `PROVIDER_URLS` and
+                `PROVIDER_ALLOWLIST` until CNCORE-99 and are rows now, so the
+                words here are the headings a reader meets on arrival rather
+                than variables they would go looking for in a file.
+              */}
+              <span className="font-medium">Providers</span> holds its base URL, and the{" "}
+              <span className="font-medium">Allowlist</span> holds the host or address range it
+              answers on. Neither needs a restart, and a provider is a URL rather than code you
+              install, so nothing runs inside your catalogue. Then search it by name and take what
+              you find: the record arrives here as an Item, and a provider that offers browse
+              imports a whole ordering at once.
             </li>
-          </ol>
+          </ul>
         </EmptyContent>
       </Empty>
     </section>

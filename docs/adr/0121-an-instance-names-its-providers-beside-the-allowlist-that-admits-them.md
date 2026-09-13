@@ -154,10 +154,19 @@ this instance reach" has to hold still inside one request.
 
 **THE SURFACE PAYS THE COST THIS RECORD ACCEPTED.** "Two settings for one concept is a
 misconfiguration waiting to happen" is above, and the likely one is naming a provider and forgetting
-to allowlist its host. `settings.read` answers `admitted` per provider — computed by
-`assertConfigUrl`, which is the boundary itself rather than a second implementation of it — and the
-row says which setting refuses it. The import page's two notices are unchanged in number for the
-same reason: which of the two is refusing is still the thing an owner cannot work out alone.
+to allowlist its host. `settings.read` answers, per provider, WHICH OF THREE STANDINGS it is in —
+refused by the allowlist, reached, or reached-and-unreadable — and the row says which setting to go
+and change. It is computed by `assertConfigUrl`, which is the boundary itself rather than a second
+implementation of it. The import page's two notices are unchanged in number for the same reason:
+which of the two is refusing is still the thing an owner cannot work out alone.
+
+**THAT FIELD WAS `admitted: boolean` UNTIL CNCORE-101, AND THE CORRECTION IS HERE RATHER THAN BESIDE
+IT.** A boolean answered one of those three and left the page to infer the other two, so a provider
+the allowlist admitted and that then failed to answer rendered as a working one. ADR-0122's settings
+surface needs all three told apart — needs-unlocking, unreachable and not-allowlisted have three
+different fixes — and two fields for one fact would have been two chances for them to disagree. The
+question this record cares about is unchanged: the surface still says which of the two settings
+refuses a provider.
 
 **WHAT IS NOT BUILT.** Nothing carries an owner's old `PROVIDER_URLS` across: the environment of the
 process running a migration is not the environment the server will run with, and a rung reading one

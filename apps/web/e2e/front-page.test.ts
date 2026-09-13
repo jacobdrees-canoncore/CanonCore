@@ -17,12 +17,60 @@ const itemTitle = inject("itemTitle");
  * down from the page that has to satisfy them.
  */
 const freshBaseUrl = inject("freshBaseUrl");
+/**
+ * THE THIRD SERVER: an empty catalogue on an instance that HAS an allowlist.
+ *
+ * EMPTY WITHOUT BEING UNCONFIGURED, which the one above cannot be. ADR-0094
+ * closes on these being two facts with different remedies, and every other
+ * instance in this suite holds them together -- so the criterion that the
+ * hand-built route is offered "whether or not one is allowlisted" had only its
+ * `or not` half anywhere it could be read.
+ */
+const allowlistedBaseUrl = inject("allowlistedBaseUrl");
 
 /** One `<section>` of a page, by the heading it is labelled with. */
 function section(text: string, label: string): string {
   const found = text.match(new RegExp(`<section[^>]*aria-labelledby="${label}".*?</section>`))?.[0];
   if (!found) throw new Error(`the page rendered no \`${label}\` section`);
   return found;
+}
+
+/**
+ * THE ROUTES OUT OF AN EMPTY CATALOGUE, one string each, in the order the page
+ * offers them.
+ *
+ * ONE LIST ITEM IS ONE ROUTE, and that is the whole reason this reads `<li>`
+ * rather than searching the section for a link. CNCORE-131's criterion is that
+ * building a catalogue by hand is "a route of its own, not a footnote to
+ * importing" -- and a section CONTAINING `/new` anywhere satisfies a test that
+ * only greps the section, including the version of this page where the words
+ * were a final sentence hanging off the import step. Splitting first is what
+ * lets an assertion say WHICH route a link is in.
+ */
+function routesOutOf(text: string): string[] {
+  return [...section(text, "what-to-do-next").matchAll(/<li[^>]*>(.*?)<\/li>/g)].map(
+    ([, inner]) => inner as string,
+  );
+}
+
+/**
+ * THE ONE ROUTE THAT LEADS TO AN ADDRESS, or a failure naming what was found.
+ *
+ * EXACTLY ONE IS THE CLAIM, which is why it is checked here rather than left to
+ * each caller: two routes offering `/new` would be the footnote this ticket
+ * removed, growing back as a second bullet.
+ *
+ * A NESTED LIST WOULD BE CAUGHT RATHER THAN MISREAD. `routesOutOf` splits on
+ * `<li>` without the `s` flag, so a route containing a list of its own would
+ * split into three where the caller counts two -- and `toHaveLength(2)` below
+ * fails on that rather than quietly comparing the wrong strings.
+ */
+function theRouteLinking(text: string, href: string): string {
+  const found = routesOutOf(text).filter((route) => route.includes(`href="${href}"`));
+  if (found.length !== 1) {
+    throw new Error(`the empty catalogue offered ${found.length} routes to ${href}, not one`);
+  }
+  return found[0] as string;
 }
 
 describe("/", () => {
@@ -80,24 +128,63 @@ describe("/", () => {
 });
 
 describe("/ on a fresh install", () => {
-  it("says the catalogue is empty, and names the two steps that fill it", async () => {
+  it("offers building a catalogue by hand as a route of its own", async () => {
     // ADR-0094 ships no catalogue to a stranger and is explicit that this is
     // only half the decision: "an install that starts empty WITHOUT SAYING WHAT
     // TO DO NEXT is a separate failure this record does not licence". Two
     // shards of the competitor sweep rated that first run HIGH. This is it
     // closed -- words on a page, not rows in a database.
+    //
+    // AND IT USED TO SAY TWO STEPS, BOTH OF THEM A PROVIDER'S (CNCORE-131).
+    // Allowlist one, then import from it -- which was the whole answer until
+    // v0.2.0 and is not one any more: `/new` fills a catalogue with no provider
+    // running, nothing allowlisted and nothing reached. A reader whose instance
+    // reaches nothing was being sent to find something for it to reach.
+    //
+    // A ROUTE OF ITS OWN, WHICH IS WHY THE ASSERTION SPLITS THE LIST FIRST. The
+    // hand route is its own list item and the provider's is another, so a
+    // sentence about `/new` tacked onto the end of the import step fails this
+    // rather than passing it on the strength of the link being somewhere in the
+    // section.
     const { status, text } = await documentFrom(freshBaseUrl, "/");
 
     expect(status).toBe(200);
-    const next = section(text, "what-to-do-next");
-    // WHERE THE SETTING IS, NOT MERELY THAT THERE IS ONE. "Allowlist a
-    // provider" is the step, and until CNCORE-99 the thing an owner had to type
-    // was an environment variable, so this asserted its name. The setting is a
-    // page of this app now, so what the notice owes them is the way to it -- a
-    // step that gestured at settings without saying where they are would leave
-    // them exactly where the README left them.
-    expect(next).toContain("/settings");
-    expect(next.toLowerCase()).toContain("import");
+    const byHand = theRouteLinking(text, "/new");
+    // AND IT ASKS FOR NO PROVIDER, which is the half that makes it a SECOND
+    // route rather than a restatement of the first: a route that sent the
+    // reader to Settings on the way would be the provider route again.
+    expect(byHand).not.toContain('href="/settings"');
+    expect(byHand).not.toContain('href="/import"');
+  });
+
+  it("keeps the provider route, and names the two settings it needs", async () => {
+    // THE ROUTE IS NOT REPLACED BY THE ONE ABOVE (CNCORE-131). Importing is
+    // still how a catalogue gets a provider's claims into it, and an empty
+    // state that dropped the step would trade one missing half for another.
+    //
+    // TWO ROUTES AND NOT THREE. Naming a provider and importing from it are two
+    // STEPS OF ONE ROUTE rather than two routes of their own: an owner who does
+    // the first and stops has filled nothing, which is exactly what "route"
+    // claims and "step" does not.
+    //
+    // BOTH SETTINGS BY NAME, which is the criterion and is why this asserts two
+    // words rather than one link. They are not derivable from each other
+    // (ADR-0121): Providers holds URLS and says what IS reached, the Allowlist
+    // holds HOSTS AND RANGES and says what MAY be, and a provider needs to be in
+    // both -- so a step naming only one leaves an owner with a provider that is
+    // never reached and no way to tell why. The names are the ones `/settings`
+    // gives its own sections, because a page sending a reader somewhere owes
+    // them the words they will find when they arrive. They were the environment
+    // variables `PROVIDER_URLS` and `PROVIDER_ALLOWLIST` until CNCORE-99 and are
+    // rows now, so naming the variables here would name two things that no
+    // longer exist.
+    const { text } = await documentFrom(freshBaseUrl, "/");
+
+    expect(routesOutOf(text)).toHaveLength(2);
+    const fromAProvider = theRouteLinking(text, "/import");
+    expect(fromAProvider).toContain('href="/settings"');
+    expect(fromAProvider).toContain("Providers");
+    expect(fromAProvider).toContain("Allowlist");
   });
 
   it("says no provider is allowlisted, where one is not", async () => {
@@ -120,6 +207,31 @@ describe("/ on a fresh install", () => {
     const seeded = await documentAt("/");
 
     expect(() => section(seeded.text, "no-provider")).toThrow();
+  });
+});
+
+describe("/ on an instance that reaches something and holds nothing", () => {
+  it("still offers the route that needs no provider", async () => {
+    // THE OTHER HALF OF "WHETHER OR NOT" (CNCORE-131), and the half the fresh
+    // install cannot show: it is empty AND unallowlisted, so every assertion
+    // made on it reads both facts at once. Here the allowlist admits something
+    // and the catalogue is still empty.
+    //
+    // WHAT IT WOULD CATCH is the empty state quietly acquiring a second
+    // condition -- rendered only where nothing is reachable, on the reasoning
+    // that an owner who configured a provider wants the import route. That
+    // page would pass every other test in this file. Checked by gating
+    // `WhatToDoNext` on `!providers.any` and re-running: this fails and
+    // nothing else in the suite does.
+    const { status, text } = await documentFrom(allowlistedBaseUrl, "/");
+
+    expect(status).toBe(200);
+    expect(theRouteLinking(text, "/new")).toContain("Add an item yourself");
+    // AND THE NOTICE ABOUT THE ALLOWLIST IS GONE, which is what makes this
+    // instance the state it claims: the two conditions are read off two facts,
+    // so an empty catalogue here says so without also saying nothing is
+    // reachable.
+    expect(() => section(text, "no-provider")).toThrow();
   });
 });
 
