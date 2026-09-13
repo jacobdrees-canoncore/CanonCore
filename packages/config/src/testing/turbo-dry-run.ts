@@ -68,6 +68,22 @@ export type PlannedTask = {
 };
 
 /**
+ * The shape a turbo task name may have, asserted at the spawn below.
+ *
+ * BECAUSE A CALLER'S NAME IS NOT ALWAYS A LITERAL. `ci-task-env.test.ts` scrapes
+ * candidates out of `ci.yml`, and a name that began with `-` would reach turbo's
+ * argument parser as a FLAG rather than a task -- `--filter=web` arriving where
+ * a task belongs makes `run --filter=web --dry=json`, which exits 0 and answers
+ * about a different question. That is not a refusal, so the tolerant reader
+ * below would hand it back as a plan.
+ *
+ * The scraper already matches this shape, and asserting it HERE is what stops
+ * the guarantee in this module's own header -- that these functions read and run
+ * nothing -- from resting on a regex in another file.
+ */
+const TASK_NAME = /^[a-z][a-z0-9:-]*$/;
+
+/**
  * The spawn both policies share, raising everything that is not turbo answering.
  *
  * `spawnSync` RATHER THAN `execFileSync` BECAUSE A REFUSAL MUST BE TELLABLE FROM
@@ -75,8 +91,17 @@ export type PlannedTask = {
  * caller and useless to the tolerant one. Here `error` is the process never
  * running and a `null` status is a signal, so both are raised and only the exit
  * code is left for a caller to read.
+ *
+ * The one thing lost with `execFileSync` is that it echoed the child's stderr to
+ * the parent even on success, and `spawnSync` captures it instead. Measured on
+ * 2026-09-13: a successful `--dry=json` writes 18 bytes there, `• turbo 2.10.12`
+ * and a newline, so what is no longer echoed is the version banner. A failure
+ * still carries stderr, inside the error `plannedTasks` throws.
  */
 function dryRun(task: string): SpawnSyncReturns<string> {
+  if (!TASK_NAME.test(task)) {
+    throw new Error(`\`${task}\` is not a turbo task name, and would reach turbo as an argument`);
+  }
   const run = spawnSync(turboBinary, ["run", task, "--dry=json"], {
     cwd: repoRoot,
     encoding: "utf8",
@@ -85,6 +110,24 @@ function dryRun(task: string): SpawnSyncReturns<string> {
   if (run.error) throw run.error;
   if (run.status === null) throw new Error(`turbo was killed by ${run.signal} asking for ${task}`);
   return run;
+}
+
+/**
+ * The `tasks` array out of a dry run, REFUSING anything that is not one.
+ *
+ * A turbo that exited 0 and reported no `tasks` key would otherwise yield
+ * `undefined` here, and the tolerant reader's caller spells its "not a task"
+ * answer `?? null` -- so an answerless success would arrive as "turbo does not
+ * know that name" and the findings list would empty in silence. That is the
+ * vacuous pass this module is written against, entering through the one door
+ * neither failure policy watches.
+ */
+function plan(stdout: string): PlannedTask[] {
+  const tasks = JSON.parse(stdout).tasks;
+  if (!Array.isArray(tasks)) {
+    throw new Error("turbo's dry run reported no `tasks` array, so there is no plan to read");
+  }
+  return tasks;
 }
 
 /**
@@ -108,7 +151,7 @@ export function plannedTasks(task: string): PlannedTask[] {
   if (run.status !== 0) {
     throw new Error(`turbo exited ${run.status} planning \`${task}\`: ${run.stderr.trim()}`);
   }
-  return JSON.parse(run.stdout).tasks;
+  return plan(run.stdout);
 }
 
 /**
@@ -128,5 +171,5 @@ export function plannedTasks(task: string): PlannedTask[] {
  */
 export function plannedTasksIfKnown(task: string): PlannedTask[] | null {
   const run = dryRun(task);
-  return run.status === 0 ? JSON.parse(run.stdout).tasks : null;
+  return run.status === 0 ? plan(run.stdout) : null;
 }

@@ -15,11 +15,25 @@ describe("turbo's plan for a task it knows", () => {
 });
 
 describe("the reader that tolerates a name turbo does not know", () => {
+  /**
+   * The tolerance is about the REFUSAL and nothing else: a known name must come
+   * back the same way it does through the strict reader, or the two callers
+   * would be reading two different answers from one interface.
+   *
+   * COMPARED ON `taskId` RATHER THAN WHOLE OBJECTS, and that is not fussiness.
+   * A planned task carries turbo's own `cache` state -- `{"status":"MISS"}` or
+   * `{"status":"HIT","timeSaved":391,...}` -- which is a fact about the cache at
+   * the moment of the spawn, not about the plan. These are two spawns, and this
+   * suite runs inside `turbo run test` while ten sibling test tasks finish and
+   * write their cache entries. Measured on 2026-09-13: a `turbo run test` for
+   * one package between two dry runs flipped `@canoncore/schemas#test` from
+   * `MISS` to `HIT`, so `toStrictEqual` over the raw objects reddens on a field
+   * neither reader exposes and nothing in the diff caused.
+   */
   it("still reports the plan for a name it does know", () => {
-    // The tolerance is about the REFUSAL and nothing else: a known name must
-    // come back the same way it does through the strict reader, or the two
-    // callers would be reading two different answers from one interface.
-    expect(plannedTasksIfKnown("test")).toStrictEqual(plannedTasks("test"));
+    expect(plannedTasksIfKnown("test")?.map(({ taskId }) => taskId)).toStrictEqual(
+      plannedTasks("test").map(({ taskId }) => taskId),
+    );
   });
 });
 
@@ -48,5 +62,22 @@ describe("a task name turbo does not know", () => {
    */
   it("throws from the strict reader, naming the task, so a caller cannot read a plan that is not there", () => {
     expect(() => plannedTasks(UNKNOWN_TASK)).toThrow(UNKNOWN_TASK);
+  });
+});
+
+/**
+ * A name that is not a task name at all, which reaches turbo as an ARGUMENT.
+ *
+ * `ci-task-env.test.ts` scrapes its candidates out of `ci.yml`, so what arrives
+ * here is not always a literal somebody chose. `run --filter=web --dry=json`
+ * exits 0 and answers about a narrower graph, which is neither a plan for the
+ * name asked about nor a refusal -- so without this it would come back through
+ * the tolerant reader looking like an ordinary answer.
+ */
+describe("a name that would reach turbo as a flag", () => {
+  it("is refused by both readers before anything is spawned", () => {
+    for (const reader of [plannedTasks, plannedTasksIfKnown]) {
+      expect(() => reader("--filter=web")).toThrow("is not a turbo task name");
+    }
   });
 });

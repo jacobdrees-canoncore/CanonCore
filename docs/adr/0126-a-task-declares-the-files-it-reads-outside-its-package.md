@@ -41,9 +41,17 @@ defend.
 
 ## The guard asks `turbo`, not `turbo.json`
 
-`packages/config/src/turbo-cache-inputs.test.ts` runs `turbo run test --dry=json` and asserts the
-file appears among the task's REAL inputs, carrying the hash git holds for it. Content, not merely a
-path: what makes a warm cache miss is the file's own bytes inside the key.
+`packages/config/src/turbo-cache-inputs.test.ts` runs `turbo run test --dry=json` — since CNCORE-145
+through `packages/config/src/testing/turbo-dry-run.ts`, which holds that spawn once for the two
+suites that read a turbo plan — and asserts the file appears among the task's REAL inputs, carrying
+the hash git holds for it. Content, not merely a path: what makes a warm cache miss is the file's own
+bytes inside the key.
+
+**IT ASKS THROUGH THE READER THAT THROWS.** That module offers two failure policies, and this guard
+takes the strict one: the task it names is a literal, so a turbo that refuses it is a broken
+repository rather than an answer, and every assertion here reads off the returned array. Its
+refusal-tolerant sibling returns `null` instead, which this suite would carry straight into the
+vacuous pass — no task found, nothing asserted, green.
 
 Reading the `inputs` entry back out of the config file would restate the fix in a second language —
 what [[0124-the-glossary-is-checked-where-the-read-path-names-its-fields]] already refuses for the

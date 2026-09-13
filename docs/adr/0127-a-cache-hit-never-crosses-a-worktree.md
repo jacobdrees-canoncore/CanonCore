@@ -218,8 +218,9 @@ cache status but not the directory; `turbo info` reports the CLI, the platform a
 `turbo query` exposes packages, files and tasks. All three checked on 2026-09-13.
 
 That is the difference from ADR-0126's guard, which asks turbo rather than `turbo.json` and is right
-to: `turbo-cache-inputs.test.ts` nests `turbo run test --dry=json`, which resolves the graph, runs no
-task and costs about 0.2s. Nothing equivalent exists here. Observing the cache DIRECTORY needs a real
+to: `turbo-cache-inputs.test.ts` nests `turbo run test --dry=json` — through
+`testing/turbo-dry-run.ts` since CNCORE-145 — which resolves the graph, runs no task and costs about
+0.2s. Nothing equivalent exists here. Observing the cache DIRECTORY needs a real
 task run watched against the filesystem, and a nested run that executes — inside a suite that is
 itself a turbo task, against packages that suite is already running — is a collision this guard is not
 worth. So the behaviour was measured once, in CNCORE-138, and the config is what the suite holds.
