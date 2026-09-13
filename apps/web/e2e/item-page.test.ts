@@ -58,6 +58,13 @@ function values(text: string): string {
  * own, which no assertion could see. This one ends at the LAST `</section>`,
  * since "Also appears in" is the last section on the page but for the
  * attribution notice, which carries no `aria-labelledby` to anchor on.
+ *
+ * TODO(CNCORE-135): that last clause is stale, and the slice is wrong with it.
+ * `Attribution` renders `aria-labelledby="attribution"` and renders LAST, so on
+ * an item that owes a notice the document's last `</section>` is the notice's --
+ * and this returns the orderings with the notices on the end of them. No test
+ * reads the ordering rows of such an item yet; `twoInstances` is the first
+ * fixture that is one.
  */
 function alsoAppearsIn(text: string): string {
   const opened = text.indexOf('aria-labelledby="also-appears-in"');
