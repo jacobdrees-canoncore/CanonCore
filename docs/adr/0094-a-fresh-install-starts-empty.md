@@ -183,8 +183,8 @@ says "ADDED". Both are right where they are — one is about an instance, the ot
 catalogue — but three places claimed a sentence matched another surface's while it did not, this
 record among them, and CNCORE-144's first draft of `/new` made the same claim a fourth time. The
 sentence above is corrected where it stands rather than only here, because a correction placed
-beside a claim leaves the claim standing. Seven copies of one sentence is what made the drift
-possible, so the clause every surface really does share lives in
+beside a claim leaves the claim standing. TWO copies were enough to drift, and this change would
+have made seven, so the clause every surface really does share lives in
 `apps/web/src/components/no-password.ts` and the verb is its argument.
 
 **IT SURVIVED TWO TICKETS BECAUSE BOTH CITED `/new` AS EVIDENCE FOR GATING SOMETHING ELSE.** The

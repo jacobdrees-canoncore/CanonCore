@@ -13,9 +13,13 @@
  * through it" and the empty state said "nothing can be ADDED through it" -- and
  * the empty state's own comment, ADR-0094, and CNCORE-144's first draft of
  * `/new` all described the second as "the words `/login` uses". Three claims
- * that a sentence matched another surface's, written while it did not. A copy
- * per surface is what made that possible; review caught it in the diff that
- * added the seventh.
+ * that a sentence matched another surface's, written while it did not.
+ *
+ * TWO COPIES WERE ENOUGH TO DRIFT, AND CNCORE-146 WOULD HAVE MADE SEVEN. That
+ * is the arithmetic that decided this: the five surfaces below each needed the
+ * sentence, and writing it out five more times would have taken a pair that had
+ * already disagreed and multiplied it. Review caught the third false claim in
+ * the diff that was about to add the rest.
  *
  * THE VERB IS THE ARGUMENT BECAUSE IT IS THE ONLY THING THAT REALLY VARIES.
  * `/new` and the empty catalogue are about FILLING a catalogue, where "added"
