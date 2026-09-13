@@ -62,6 +62,22 @@ replacing one, so an issue carries one of each.
   it, because splitting a spec is a human's call.
 - **`provider-repo`** — the work lands in `provider-wiki` or `provider-tmdb` rather than here.
 
+## `blocked-externally` is the only other thing `Backlog` may hold
+
+`CLAUDE.md` says a spec is the only thing in `Backlog`, and this is the exception that proves rather
+than breaks it: real work, correctly filed, whose blocker is **outside this repo and outside our
+control** — a date, a host reboot, a third party. It names CNCORE-76, fused to 2027-01-12 because
+awesome-selfhosted's clock runs four months from v0.1.0's Release, and CNCORE-107, which waits on a
+shared host rebooting so a `@reboot` probe can fire.
+
+**It is not "blocked by another ticket", which Linear relations already express** and the frontier
+already reads. A ticket blocked by CNCORE-100 sits in `Todo` with an edge; a ticket blocked by
+January sits here with this label.
+
+The dispatch monitor exempts it alongside `to-spec`, so a correctly parked ticket stops drawing a
+`DRIFT-FILING` line. Before that exemption it fired on four tickets every pass, which is how a check
+becomes something a dispatcher skims past.
+
 **The name says which skill made it, not what to do with it.** `to-spec` marks the output of
 `/to-spec`; the action a labelled issue is usually waiting for is `/to-tickets`. That is worth
 knowing before renaming it to something that reads like an instruction.
@@ -74,7 +90,15 @@ knowing before renaming it to something that reads like an instruction.
 (`/settings/issue-labels`), NOT the team page — the triage labels are workspace-scoped, and a label
 made on the team page is a different thing that happens to look the same in a list.
 
-Linear's inline label row does not commit on a typed key or a global Enter. What works, verified
-2026-09-12: set the textarea through React's native value setter, then dispatch `input`, `change`,
-the three `Enter` keyboard events, `blur()` and `focusout`. Anything less leaves the value on screen
-and unsaved, which reads exactly like success.
+**Orca's own browser tools are enough, and the elaborate recipe below is no longer the way.**
+Verified 2026-09-13 creating `blocked-externally`: `orca click --element <New label>`, then
+`orca fill --element <ref> --value <name>`, then `orca computer press-key --app Orca --key Return`.
+The label existed immediately, confirmed by reading it back through `orca linear team labels` rather
+than off the screen. `orca fill` dispatches the events React wants, which is what the hand-rolled
+sequence was compensating for.
+
+What that supersedes, kept because it explains why the recipe was elaborate: a typed key or a global
+Enter alone does not commit the row, and the 2026-09-12 workaround was to set the textarea through
+React's native value setter, then dispatch `input`, `change`, the three `Enter` keyboard events,
+`blur()` and `focusout`. **The failure mode is the reason to read the label back either way:** an
+uncommitted value stays on screen and reads exactly like success.

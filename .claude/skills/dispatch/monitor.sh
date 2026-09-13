@@ -64,7 +64,15 @@ for i in result.get("issues") or result.get("nodes") or []:
         continue
     num = i["identifier"].split("-")[1]
     print("TICKET", i["identifier"], state, i["title"][:42])
-    if state == "Backlog" or not i.get("assignee") or not i.get("labels"):
+    # BACKLOG IS A DEFECT UNLESS A LABEL SAYS OTHERWISE. `to-spec` is a container
+    # rather than a unit of work; `blocked-externally` is real work whose blocker
+    # is outside this repo -- a date, a host reboot, a third party. Without the
+    # second exemption this line fires on every pass for CNCORE-76 and CNCORE-107,
+    # which are correctly filed, and a check that cries wolf twice a pass is one a
+    # dispatcher learns to skim past.
+    labels = {l["name"] for l in (i.get("labels") or [])}
+    parked = labels & {"to-spec", "blocked-externally"}
+    if (state == "Backlog" and not parked) or not i.get("assignee") or not labels:
         print("DRIFT-FILING", i["identifier"], state,
               "assignee=" + str((i.get("assignee") or {}).get("displayName")),
               "labels=" + str([l["name"] for l in (i.get("labels") or [])]))
