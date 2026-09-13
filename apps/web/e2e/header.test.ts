@@ -82,9 +82,13 @@ describe("the header, on an instance nobody can log in to", () => {
   it("offers neither of the owner's routes, and no login either", async () => {
     // ADR-0044's read-only instance, which sets no `OWNER_PASSWORD`: every
     // password is refused, so nobody obtains a session INCLUDING the owner.
-    // `/new` would answer "Only the owner of this catalogue can add to it" and
-    // `/import` would render with every button disabled -- to every reader of
-    // every page, with no login anywhere that could change that.
+    // `/new` answers "This instance has no password set" here and `/import`
+    // renders with every button disabled -- so a nav listing either would put
+    // every reader of every page one click from a refusal, with no login
+    // anywhere that could change that. (`/new` said "Only the owner of this
+    // catalogue can add to it" and offered a login when this was written; it
+    // reads the instance since CNCORE-144, which is the same fix this header
+    // took.)
     const { status, text } = await documentFrom(freshBaseUrl, "/works");
 
     expect(status).toBe(200);

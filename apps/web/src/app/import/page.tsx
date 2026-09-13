@@ -684,6 +684,14 @@ function Candidate({
  * `Link` RATHER THAN `a` (ADR-0109): a path this app owns is one the framework
  * has to be allowed to rewrite.
  */
+/*
+ * TODO(CNCORE-146): AND IT OFFERS THAT LOGIN WITHOUT READING WHETHER THERE IS
+ * ONE. This renders off the SESSION alone, so on ADR-0044's read-only instance
+ * -- no `OWNER_PASSWORD`, every password refused -- it is a door with no key cut
+ * for it, and `/login` renders no form there. The empty state, the header and
+ * `/new` read `session.configured` beside the session for this (ADR-0094);
+ * these four surfaces are one pass of their own.
+ */
 function LogIn({ to }: { to: string }) {
   return (
     <span className="text-muted-foreground text-sm">

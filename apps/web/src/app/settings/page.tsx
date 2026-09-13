@@ -410,6 +410,14 @@ function UnlockAt({ reach }: { reach: Reach }) {
  * second is true here -- and the first would hand a stranger the shape of
  * somebody else's network.
  */
+/*
+ * TODO(CNCORE-146): AND IT OFFERS THAT LOGIN WITHOUT READING WHETHER THERE IS
+ * ONE. This renders off the SESSION alone, so on ADR-0044's read-only instance
+ * -- no `OWNER_PASSWORD`, every password refused -- it is a door with no key cut
+ * for it, and `/login` renders no form there. The empty state, the header and
+ * `/new` read `session.configured` beside the session for this (ADR-0094);
+ * these four surfaces are one pass of their own.
+ */
 function NotLoggedIn() {
   return (
     <main className="container mx-auto max-w-2xl px-4 py-8">

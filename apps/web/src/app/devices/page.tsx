@@ -134,6 +134,14 @@ function inDays(seconds: number): number {
  * are not the person who may ask" are different sentences, and only the second
  * is true here.
  */
+/*
+ * TODO(CNCORE-146): AND IT OFFERS THAT LOGIN WITHOUT READING WHETHER THERE IS
+ * ONE. This renders off the SESSION alone, so on ADR-0044's read-only instance
+ * -- no `OWNER_PASSWORD`, every password refused -- it is a door with no key cut
+ * for it, and `/login` renders no form there. The empty state, the header and
+ * `/new` read `session.configured` beside the session for this (ADR-0094);
+ * these four surfaces are one pass of their own.
+ */
 function NotLoggedIn() {
   return (
     <main className="container mx-auto max-w-2xl px-4 py-8">
