@@ -2,9 +2,8 @@ import { appRouter } from "@canoncore/api/routers";
 import { SESSION_IDLE_LIMIT_SECONDS, SESSION_LIFETIME_SECONDS } from "@canoncore/db";
 import { Button } from "@canoncore/ui/components/button";
 import { call } from "@orpc/server";
-import Link from "next/link";
 
-import { noPasswordSet } from "@/components/no-password";
+import { NotLoggedIn } from "@/components/not-logged-in";
 import { callerContext } from "@/session";
 
 import { endDevice } from "./actions";
@@ -35,17 +34,23 @@ export default async function DevicesPage() {
    * every read behind THIS one is the owner's.
    */
   const context = await callerContext();
+  /*
+   * ADR-0044's visitor, told where the door is -- or, on an instance that
+   * sets no password, that there is no door (CNCORE-146). The shape is three
+   * pages' and lives in `not-logged-in.tsx`, which reads the instance itself.
+   *
+   * NO LIST, NOT EVEN AN EMPTY ONE, which is why this returns rather than
+   * rendering the page with it withheld. "This instance has nobody logged in"
+   * and "you are not the person who may ask" are different sentences, and only
+   * the second is true here.
+   */
   if (context.session === null) {
-    /*
-     * AND WHETHER THERE IS A LOGIN TO OFFER AT ALL (CNCORE-146), which is a
-     * second fact and is about the INSTANCE rather than about the reader. Read
-     * INSIDE the branch because this page early-returns: the owner never
-     * reaches this line, so asking above it would be a call made to decide
-     * nothing. `session.configured` reads the setting and nothing else, so it
-     * costs no query when it IS asked.
-     */
-    const { password } = await call(appRouter.session.configured, undefined, { context });
-    return <NotLoggedIn aPasswordIsSet={password} />;
+    return (
+      <NotLoggedIn
+        title="Devices"
+        whoseBusiness="The devices an owner is logged in on are their own business."
+      />
+    );
   }
 
   const devices = await call(appRouter.session.list, {}, { context });
@@ -137,47 +142,4 @@ function on(seen: Date): string {
 /** A limit in the units the sentence above says it in. */
 function inDays(seconds: number): number {
   return Math.round(seconds / 60 / 60 / 24);
-}
-
-/**
- * ADR-0044's visitor, who is told where the door is -- or that there is no door
- * (CNCORE-146).
- *
- * "SO THIS PAGE ASKS YOU TO BE THEM FIRST" IS A STEP ON ONE INSTANCE AND AN
- * IMPOSSIBILITY ON ANOTHER. Where an `OWNER_PASSWORD` is set this reader may BE
- * the owner and simply not have used it, and the login is the step they can
- * take. Where none is set, `session.logIn` refuses every password and nobody
- * obtains a session INCLUDING the owner -- so asking them to be the owner first
- * asks for something no password on earth would buy, and the link went to a page
- * that renders no form. ADR-0094 settles the shape under "SO THE LIST IS
- * RENDERED FOR A SESSION".
- *
- * NO LIST, NOT EVEN AN EMPTY ONE. "This instance has nobody logged in" and "you
- * are not the person who may ask" are different sentences, and only the second
- * is true here.
- */
-function NotLoggedIn({ aPasswordIsSet }: { aPasswordIsSet: boolean }) {
-  if (!aPasswordIsSet) {
-    return (
-      <main className="container mx-auto max-w-2xl px-4 py-8">
-        <h1 className="text-3xl font-medium">Devices</h1>
-        <p className="mt-2 text-muted-foreground text-sm">
-          The devices an owner is logged in on are their own business. {noPasswordSet("changed")}
-        </p>
-      </main>
-    );
-  }
-
-  return (
-    <main className="container mx-auto max-w-2xl px-4 py-8">
-      <h1 className="text-3xl font-medium">Devices</h1>
-      <p className="mt-2 text-muted-foreground text-sm">
-        The devices an owner is logged in on are their own business, so this page asks you to be
-        them first.
-      </p>
-      <Link className="mt-6 inline-block text-sm hover:underline" href="/login">
-        Log in
-      </Link>
-    </main>
-  );
 }

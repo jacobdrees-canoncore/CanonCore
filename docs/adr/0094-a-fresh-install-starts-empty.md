@@ -209,10 +209,14 @@ check would pass against a page that had gone silent inside a shell that had not
 **ONE HALF OF `/import` HAS NO INSTANCE, AND IS NAMED RATHER THAN LEFT TO BE DISCOVERED.** That page
 does not hide its surface, only its buttons (ADR-0072), so a notice stands where each control would
 — and a notice only renders where there is a control, which needs a provider this instance is
-configured to reach. The only server in the suite with no owner password is the fresh install, whose
-whole fixture is that it reaches nothing, so the per-control sentence has nowhere to be read. An
-eleventh server would recover it and ADR-0104 refuses one, for the connection budget this record
-already cites above. What IS asserted there is the page-level notice, which that instance does
+configured to reach. THREE servers in the suite set no owner password, and all three also reach
+nothing: no instance here is in the combination that half needs, which is no password AND a provider
+configured. A fourth would recover it and ADR-0104 refuses an eleventh server, for the connection
+budget this record already cites above. (The first draft of this paragraph said the fresh install
+was the ONLY password-less server. It is not — `aCatalogueLargerThanOnePage` and
+`aCatalogueThatHoldsStill` set none either — and the sentence is corrected rather than merely
+softened, because a false reason for a true conclusion is the thing this record keeps being caught
+by.) What IS asserted there is the page-level notice, which that instance does
 render: `/import` says once, at the top, that nobody can log in — because a reader told only "only
 the owner can import" beside every button is still left looking for the way to become one.
 

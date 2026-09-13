@@ -1,9 +1,8 @@
 import { appRouter, type ReportedRun as Run } from "@canoncore/api/routers";
 import { Button } from "@canoncore/ui/components/button";
 import { call } from "@orpc/server";
-import Link from "next/link";
 
-import { noPasswordSet } from "@/components/no-password";
+import { NotLoggedIn } from "@/components/not-logged-in";
 import { callerContext } from "@/session";
 
 import { cancelTask, runTask } from "./actions";
@@ -27,17 +26,18 @@ import { cancelTask, runTask } from "./actions";
  */
 export default async function TasksPage() {
   const context = await callerContext();
+  /*
+   * ADR-0044's visitor, told where the door is -- or, on an instance that
+   * sets no password, that there is no door (CNCORE-146). The shape is three
+   * pages' and lives in `not-logged-in.tsx`, which reads the instance itself.
+   */
   if (context.session === null) {
-    /*
-     * AND WHETHER THERE IS A LOGIN TO OFFER AT ALL (CNCORE-146), which is a
-     * second fact and is about the INSTANCE rather than about the reader. Read
-     * INSIDE the branch because this page early-returns: the owner never
-     * reaches this line, so asking above it would be a call made to decide
-     * nothing. `session.configured` reads the setting and nothing else, so it
-     * costs no query when it IS asked.
-     */
-    const { password } = await call(appRouter.session.configured, undefined, { context });
-    return <NotLoggedIn aPasswordIsSet={password} />;
+    return (
+      <NotLoggedIn
+        title="Tasks"
+        whoseBusiness="What a catalogue does for itself, and when it last did it, is its owner's business."
+      />
+    );
   }
 
   const tasks = await call(appRouter.task.list, {}, { context });
@@ -199,44 +199,4 @@ function on(moment: Date): string {
     timeStyle: "short",
     timeZone: "UTC",
   }).format(moment)} UTC`;
-}
-
-/**
- * ADR-0044's visitor, told where the door is -- or that there is no door
- * (CNCORE-146).
- *
- * "SO THIS PAGE ASKS YOU TO BE THEM FIRST" IS A STEP ON ONE INSTANCE AND AN
- * IMPOSSIBILITY ON ANOTHER. Where an `OWNER_PASSWORD` is set this reader may BE
- * the owner and simply not have used it, and the login is the step they can
- * take. Where none is set, `session.logIn` refuses every password and nobody
- * obtains a session INCLUDING the owner -- so asking them to be the owner first
- * asks for something no password on earth would buy, and the link went to a page
- * that renders no form. ADR-0094 settles the shape under "SO THE LIST IS
- * RENDERED FOR A SESSION".
- */
-function NotLoggedIn({ aPasswordIsSet }: { aPasswordIsSet: boolean }) {
-  if (!aPasswordIsSet) {
-    return (
-      <main className="container mx-auto max-w-2xl px-4 py-8">
-        <h1 className="text-3xl font-medium">Tasks</h1>
-        <p className="mt-2 text-muted-foreground text-sm">
-          What a catalogue does for itself, and when it last did it, is its owner&apos;s business.{" "}
-          {noPasswordSet("changed")}
-        </p>
-      </main>
-    );
-  }
-
-  return (
-    <main className="container mx-auto max-w-2xl px-4 py-8">
-      <h1 className="text-3xl font-medium">Tasks</h1>
-      <p className="mt-2 text-muted-foreground text-sm">
-        What a catalogue does for itself, and when it last did it, is its owner&apos;s business. So
-        this page asks you to be them first.
-      </p>
-      <Link className="mt-6 inline-block text-sm hover:underline" href="/login">
-        Log in
-      </Link>
-    </main>
-  );
 }

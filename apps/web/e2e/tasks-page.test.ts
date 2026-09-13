@@ -168,7 +168,17 @@ describe("/tasks, on an instance nobody can log in to", () => {
     // instance: the header offers no login here either (CNCORE-139), so nothing
     // on this page may link one.
     expect(text).not.toContain('href="/login"');
-    expect(mainOf(text).toLowerCase()).toContain("no password set");
+    const main = mainOf(text);
+    expect(main.toLowerCase()).toContain("no password set");
+    /*
+     * AND THE SENTENCE BEFORE IT STILL READS AS A SENTENCE. That half is a
+     * PROP now (CNCORE-146): the three pages that are wholly the owner's render
+     * one component and pass their own words into it. A prop is a string rather
+     * than JSX text, so an `&apos;` carried across from the markup this
+     * replaced is the way it would break -- silently, and only in the one word
+     * a reader looks straight at.
+     */
+    expect(main).toContain("is its owner's business.");
   });
 });
 

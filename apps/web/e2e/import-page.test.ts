@@ -783,15 +783,23 @@ describe("/import, when the provider refuses", () => {
  * AND THE PER-CONTROL HALF OF THAT FIX HAS NO INSTANCE TO BE READ ON, WHICH IS
  * NAMED HERE RATHER THAN LEFT TO BE DISCOVERED. `LogIn` renders only where
  * there is a control to stand in for -- a candidate row, or a named container
- * -- and both need a provider this instance is configured to reach. The only
- * server in this suite with NO owner password is the fresh install, whose whole
- * fixture is that it reaches nothing and holds nothing, so it renders no
- * control and therefore no notice. An eleventh server would recover it and
- * ADR-0104 refuses one: a single run of this suite already peaks at about the
- * whole of a default PostgreSQL connection budget. So what is asserted below is
- * the PAGE-LEVEL notice, which does render there; what is not is the sentence
- * beside a control that no read-only instance here can have. ADR-0094 records
- * the same shape for the empty state's own missing half.
+ * -- and both need a provider this instance is configured to reach. THREE
+ * servers here set no owner password: the fresh install, `aCatalogueLargerThan
+ * OnePage` and `aCatalogueThatHoldsStill`. Every one of them also passes
+ * `providers: []`, so not one renders a control, and the notice that stands
+ * where a control would has nowhere to be read. An instance in the missing
+ * combination -- no password AND a provider configured -- would recover it, and
+ * ADR-0104 refuses an eleventh server: a single run of this suite already peaks
+ * at about the whole of a default PostgreSQL connection budget. So what is
+ * asserted below is the PAGE-LEVEL notice, which does render there; what is not
+ * is the sentence beside a control. ADR-0094 records the same shape for the
+ * empty state's own missing half.
+ *
+ * THE FIRST DRAFT OF THIS PARAGRAPH SAID "the only server in this suite with no
+ * owner password is the fresh install", WHICH WAS FALSE AND WOULD HAVE BEEN
+ * READ AS FACT. Three do. The conclusion survives for a different reason than
+ * the one given, which is exactly the failure CNCORE-144 was about: a claim
+ * about another file's current state, written without reading it.
  */
 describe("/import, on an instance nobody can log in to", () => {
   it("says which silence that is, rather than leaving a reader to look for a way in", async () => {
@@ -821,6 +829,18 @@ describe("/import, to a reader with no session on an instance that has a passwor
     // on every page of this instance, so the document carries one whatever the
     // row does.
     expect(rowTitled(text, providerSearch.held)).toContain('href="/login"');
+  });
+
+  it("offers it where the OTHER control would be too, which is the ordering", async () => {
+    // `LogIn` stands in for two controls on this page and they are reached by
+    // different routes: the Import button on a candidate row, and Import its
+    // ordering on a named container. Review found the second asserted in
+    // neither instance state -- a notice threaded through a second chain of
+    // components, with nothing reading it back.
+    const { status, text } = await documentFrom(baseUrl, browsing(providerSearch.browsable));
+
+    expect(status).toBe(200);
+    expect(sectionIn(text, "container")).toContain('href="/login"');
   });
 
   it("says nothing about a password that is set", async () => {

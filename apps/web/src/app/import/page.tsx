@@ -65,13 +65,21 @@ async function readImportPage({ query, provider, container, purge }: Asked) {
   // to it would be two answers to "what does this request carry".
   //
   // AND THE CONFIGURATION IS READ FIRST, because what may be asked of a provider
-  // depends on whether it is one this instance searches. Neither of these two
-  // makes a request of a provider -- both read this instance's own settings,
-  // which is one row (CNCORE-99) -- so the ordering costs nothing and buys the
-  // narrowing below.
-  const [allowlisted, configured] = await Promise.all([
+  // depends on whether it is one this instance searches. Not one of these three
+  // makes a request of a provider -- two read this instance's own settings,
+  // which is one row (CNCORE-99), and the third reads an environment variable --
+  // so the ordering costs nothing and buys the narrowing below.
+  //
+  // THE THIRD IS WHETHER ANYBODY CAN LOG IN HERE AT ALL (CNCORE-146), which is
+  // ADR-0094's second fact and is about the INSTANCE rather than the reader: on
+  // ADR-0044's read-only instance every password is refused, so nobody obtains
+  // a session including the owner, and the notice standing where each control
+  // would be must not offer a login there. Joined here rather than awaited on
+  // its own, which is the shape the front page reads the same three facts in.
+  const [allowlisted, configured, instance] = await Promise.all([
     call(appRouter.provider.allowlisted, undefined, { context }),
     call(appRouter.provider.configured, undefined, { context }),
+    call(appRouter.session.configured, undefined, { context }),
   ]);
   const searchable = searchableProvider(configured.providers, provider);
   /*
@@ -128,19 +136,12 @@ async function readImportPage({ query, provider, container, purge }: Asked) {
      */
     owner: context.session !== null,
     /**
-     * AND WHETHER THERE IS A LOGIN TO OFFER AT ALL (CNCORE-146), which is a
-     * SECOND fact and is about the INSTANCE rather than about the reader.
-     * ADR-0044's read-only instance sets no `OWNER_PASSWORD`, so every password
-     * is refused and nobody obtains a session INCLUDING the owner -- and the
-     * notice standing where each control would be linked `/login` regardless,
-     * once per control, to a page that renders no form there.
-     *
-     * READ HERE RATHER THAN WHERE IT IS USED, because those uses are four
-     * components deep and this is where this page assembles what it knows.
-     * `session.configured` reads the setting and nothing else, so it opens no
-     * connection and costs no query.
+     * AND WHETHER THERE IS A LOGIN TO OFFER AT ALL (CNCORE-146), read at the
+     * top of this function with the other two facts about this instance and
+     * handed on from here because the two places that need it are four
+     * components deep.
      */
-    aPasswordIsSet: (await call(appRouter.session.configured, undefined, { context })).password,
+    aPasswordIsSet: instance.password,
   };
 }
 
