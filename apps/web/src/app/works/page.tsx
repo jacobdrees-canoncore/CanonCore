@@ -60,7 +60,7 @@ export default async function WorksPage({
   const { after } = await searchParams;
   const from = oneValue(after);
   const works = await readWorkBrowsing(from);
-  const listing = works.entries;
+  const listing = works.rows;
   const nothingToWatch = works.total === 0;
 
   return (
@@ -78,7 +78,7 @@ export default async function WorksPage({
       {!nothingToWatch && listing.length === 0 && <PastTheEnd path="/works" />}
       {listing.length > 0 && (
         <>
-          <Listing entries={listing} />
+          <Listing rows={listing} />
           <Walk path="/works" from={from} continuesAfter={works.continuesAfter} />
         </>
       )}

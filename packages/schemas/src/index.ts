@@ -98,10 +98,10 @@ export type PlacementPublic = z.infer<typeof placementPublic>;
  * IT IS A SHAPE RATHER THAN THREE FIELDS ON `itemPublic`, for the reason its
  * mirror gives: a surface takes the page, the size and the cursor together or
  * not at all. Spread across the item they would be three fields a reader could
- * pick one of, and the one they would pick is `entries`.
+ * pick one of, and the one they would pick is `rows`.
  */
 export const placementsOfItemPublic = z.object({
-  entries: z.array(placementPublic),
+  rows: z.array(placementPublic),
   /**
    * How many orderings this item sits in ALTOGETHER, cap or no cap. A surface
    * that could only count what it was given would report the first hundred as
@@ -126,7 +126,7 @@ export const placementsOfItemPublic = z.object({
    *
    * THE ASYMMETRY IS THE NARROWING. `?placed=` narrows this listing and nothing
    * narrows a container's members, so this is the only one of the five that has
-   * to say what it can be narrowed to. It is NOT derivable from `entries`: a
+   * to say what it can be narrowed to. It is NOT derivable from `rows`: a
    * narrowed page holds the one origin it was cut to and a capped page holds
    * whatever fitted, so chips built from the rows would collapse to the reader's
    * own choice and leave no way back to the whole list.
@@ -305,19 +305,19 @@ export type PlacementInContainerPublic = z.infer<typeof placementInContainerPubl
  * THE SAME THREE FACTS `cataloguePublic` BELOW CARRIES, over a different kind
  * of row. The catalogue, work-browsing and Catalogue search list ITEMS and
  * share one shape for it; a container lists PLACEMENTS, because a Repeat is one
- * item twice in one ordering and an entry has to be able to say which of the
- * two it is. A single schema for both would have to make `entries` a union,
+ * item twice in one ordering and a row has to be able to say which of the
+ * two it is. A single schema for both would have to make `rows` a union,
  * which is a shape no caller wants: nothing asks a listing for "items or
  * placements, whichever this one holds".
  *
  * IT IS A SHAPE RATHER THAN THREE FIELDS ON `itemPublic`, so a surface takes
  * the page, the size and the cursor together or not at all. Spread across the
  * item they would be three fields a reader could pick one of -- and the one
- * they would pick is `entries`, which is the silent cap this record exists to
+ * they would pick is `rows`, which is the silent cap this record exists to
  * refuse.
  */
 export const placementsInContainerPublic = z.object({
-  entries: z.array(placementInContainerPublic),
+  rows: z.array(placementInContainerPublic),
   /**
    * How many placements this container holds ALTOGETHER, cap or no cap. A
    * surface that could only count what it was given would report the first
@@ -343,7 +343,7 @@ export const itemPublic = z.object({
   /**
    * ADR-0005's kind, IN THE READER'S WORDS: `Time span`, never `time_span`.
    *
-   * THE SAME THING `catalogueEntryPublic.kind` CARRIES, which is the point
+   * THE SAME THING `catalogueRowPublic.kind` CARRIES, which is the point
    * rather than a coincidence: `kind` means the reader's word for it wherever
    * the read path emits one, so no surface has to know which of two spellings
    * its own call answers with. `CONTEXT.md` is binding on UI copy and is where
@@ -417,14 +417,23 @@ export const itemPublic = z.object({
 export type ItemPublic = z.infer<typeof itemPublic>;
 
 /**
- * What the read path emits for one entry in the catalogue listing.
+ * What the read path emits for ONE ROW of a listing over items -- the
+ * catalogue, work-browsing and Catalogue search alike.
  *
  * ADR-0045 again, and DELIBERATELY NARROWER THAN `itemPublic`: a listing is not
  * an item page with the sections dropped. It carries what a reader needs to
  * recognise a row and follow it -- its address, its name, what sort of thing it
  * is -- and nothing a page would have to fetch the rest of the item to render.
+ *
+ * NAMED ROW RATHER THAN ENTRY, AND CNCORE-114 IS WHERE THAT WAS SETTLED. `entry`
+ * is on the **Item** entry's `_Avoid_` list and nothing licensed it here: the one
+ * licensed use of a word from that list is `record`, which `CONTEXT.md` grants to
+ * a provider's own external record, and a listing's row is not one. The glossary
+ * had no term for a listing at all, so it gained one rather than this taking a
+ * word nobody had decided on -- and the word it gained is the one this file's own
+ * prose was already using for the thing, above and in four other docstrings.
  */
-export const catalogueEntryPublic = z.object({
+export const catalogueRowPublic = z.object({
   /** The item's ADDRESS. `/items/<id>` is canonical (ADR-0066). */
   id: z.uuid(),
   /** ADR-0014: the projected title. An item with no title statement has none. */
@@ -450,18 +459,18 @@ export const catalogueEntryPublic = z.object({
   isContainer: z.boolean(),
 });
 
-export type CatalogueEntryPublic = z.infer<typeof catalogueEntryPublic>;
+export type CatalogueRowPublic = z.infer<typeof catalogueRowPublic>;
 
 /**
  * What the read path emits for a LISTING as a whole -- the catalogue, work
  * browsing, and Catalogue search alike.
  *
  * `total` IS PART OF THE CONTRACT rather than something a caller counts for
- * itself, because `entries` is capped: a surface that could only count what it
+ * itself, because `rows` is capped: a surface that could only count what it
  * was given would report the first page as the whole catalogue.
  *
  * CATALOGUE SEARCH HAD A SHAPE OF ITS OWN UNTIL CNCORE-88, and the reason it
- * no longer needs one is worth keeping. The entries were always identical -- a
+ * no longer needs one is worth keeping. The rows were always identical -- a
  * result and a catalogue row carry the same four facts -- and the difference
  * was this cursor: a search had none to offer, and ADR-0119 makes
  * `continuesAfter: null` mean "the listing ends here", so a search over a
@@ -471,7 +480,7 @@ export type CatalogueEntryPublic = z.infer<typeof catalogueEntryPublic>;
  * second schema was two places to add a field to.
  */
 export const cataloguePublic = z.object({
-  entries: z.array(catalogueEntryPublic),
+  rows: z.array(catalogueRowPublic),
   /**
    * How many items the question asked ANSWERS altogether, cap or no cap: what
    * the catalogue holds, what work-browsing shows, or how many a search

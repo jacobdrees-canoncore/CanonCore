@@ -55,6 +55,17 @@ The surface that searches the owner's own catalogue, across every item kind. Not
 of the same name.
 _Avoid_: search, unqualified
 
+**Listing**:
+What a capped list answers with: a page of rows, how many there are altogether, and where the list
+carries on. Every list in CanonCore is one, over items or over placements alike.
+
+**Row**:
+One line of a listing: an Item in the catalogue, a Placement in a container's ordering. It is a
+PROJECTION FOR A LIST rather than the whole thing listed, so a row carries what a reader needs to
+recognise it and follow it and nothing a page would have to fetch the rest to render. The stored
+row it is projected from never leaves the database, so this is the only row a reader ever sees.
+_Avoid_: entry
+
 **Alias**:
 The retained id of a merged-away item, resolving to the item that survived the merge. It is an
 identity, never an alternative name.

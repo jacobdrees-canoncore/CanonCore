@@ -34,7 +34,7 @@ import Link from "next/link";
  * READ OFF `list` AND TRUE OF `works` AND `search` TOO, which is not luck: all
  * three procedures declare `cataloguePublic` as their output, because they
  * answer three questions about one catalogue and differ in WHICH items and in
- * what order rather than in what an entry is. A test at the router seam holds
+ * what order rather than in what a row is. A test at the router seam holds
  * that agreement.
  *
  * SEARCH WAS THE EXCEPTION UNTIL CNCORE-88, answering a shape of its own
@@ -45,7 +45,7 @@ import Link from "next/link";
 type ListingAnswer = Awaited<ReturnType<AppRouterClient["catalogue"]["list"]>>;
 
 /** One row of a listing. */
-type Entry = ListingAnswer["entries"][number];
+type Row = ListingAnswer["rows"][number];
 
 /**
  * Which surface is rendering, and therefore what its own address is.
@@ -312,11 +312,11 @@ export function Holding({
  * Every item, in the order the catalogue keeps them: `sort_name` where a source
  * has claimed one, and the title otherwise (ADR-0014).
  */
-export function Listing({ entries }: { entries: Entry[] }) {
+export function Listing({ rows }: { rows: Row[] }) {
   return (
     <ul className="mt-6 divide-y">
-      {entries.map((entry) => (
-        <li key={entry.id} className="flex items-baseline justify-between gap-4 py-2">
+      {rows.map((row) => (
+        <li key={row.id} className="flex items-baseline justify-between gap-4 py-2">
           {/*
             A PLAIN LINK, carrying no `?via=`. ADR-0066 makes the query the
             ROUTE a reader arrived through, and neither of these surfaces is an
@@ -335,8 +335,8 @@ export function Listing({ entries }: { entries: Entry[] }) {
             through this file and the one below it, which is the whole point of
             that rule: routed through one place, a later `basePath` is one line.
           */}
-          <Link href={`/items/${entry.id}`} className="hover:underline">
-            {entry.title ?? "Untitled item"}
+          <Link href={`/items/${row.id}`} className="hover:underline">
+            {row.title ?? "Untitled item"}
           </Link>
           <span className="flex items-baseline gap-3 text-muted-foreground text-sm">
             {/*
@@ -344,8 +344,8 @@ export function Listing({ entries }: { entries: Entry[] }) {
               tell a story from an ordering that holds stories. A reader
               scanning this list is asking which of the two they are looking at.
             */}
-            {entry.isContainer && <span>Container</span>}
-            <span>{entry.kind}</span>
+            {row.isContainer && <span>Container</span>}
+            <span>{row.kind}</span>
           </span>
         </li>
       ))}

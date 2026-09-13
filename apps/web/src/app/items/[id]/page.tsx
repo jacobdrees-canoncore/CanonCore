@@ -551,16 +551,16 @@ function Members({
   /** Whether to offer the controls that CHANGE this ordering (CNCORE-109). */
   owner: boolean;
 }) {
-  const { entries, total, continuesAfter } = holds;
+  const { rows, total, continuesAfter } = holds;
   /*
    * NOTHING AT ALL FOR AN ITEM THAT HOLDS NOTHING, which is `total` rather than
-   * `entries.length`: an item that is not a container and an empty container
+   * `rows.length`: an item that is not a container and an empty container
    * both hold none, and both rendered nothing before this listing was capped.
    * The two are deliberately not told apart here -- ADR-0004's fold is what
    * `isContainer` above carries, and the `Holds` row in the header is where an
    * owner meets an empty container they have just made.
    *
-   * AN ENTRIES-LENGTH TEST WOULD HIDE THE END OF THE WALK, which is the state
+   * A ROWS-LENGTH TEST WOULD HIDE THE END OF THE WALK, which is the state
    * below: a cursor past the last member answers a page with no rows over an
    * ordering that has plenty.
    */
@@ -577,7 +577,7 @@ function Members({
     THE POSITION TRAVELS WITH IT, because the sortable list needs it to compute
     what a drop does (ADR-0116) and only this scope has read it.
   */
-  const rows = entries.map((placement, index) => ({
+  const rendered = rows.map((placement, index) => ({
     id: placement.id,
     position: placement.position,
     content: (
@@ -678,14 +678,14 @@ function Members({
           {owner && (
             <MoveTo
               containerId={itemId}
-              to={reorderedTo(entries, placement.id, index - 1)}
+              to={reorderedTo(rows, placement.id, index - 1)}
               label="Move up"
             />
           )}
           {owner && (
             <MoveTo
               containerId={itemId}
-              to={reorderedTo(entries, placement.id, index + 1)}
+              to={reorderedTo(rows, placement.id, index + 1)}
               label="Move down"
             />
           )}
@@ -713,7 +713,7 @@ function Members({
           It is not `item`, either: a Repeat is one item twice, so the count
           would disagree with itself.
         */}
-        {entries.length > 0 && <Holding showing={entries.length} total={total} noun="member" />}
+        {rows.length > 0 && <Holding showing={rows.length} total={total} noun="member" />}
       </div>
       {/*
         MEMBERS BEHIND IT AND NONE ON THIS PAGE, which is what a cursor makes
@@ -722,7 +722,7 @@ function Members({
         get the heading with an empty list under it, which reads as a section
         that failed to load rather than as an ending.
       */}
-      {entries.length === 0 && <PastTheEnd path={path} listing="members" asked={route} />}
+      {rows.length === 0 && <PastTheEnd path={path} listing="members" asked={route} />}
       {/*
         TWO WRAPPERS, ONE ROW. A visitor gets a plain `<ul>` and no drag code at
         all; an owner gets the sortable list, which is the accelerator on top of
@@ -732,10 +732,10 @@ function Members({
         the same markup for both, and only the ordering is a client concern.
       */}
       {owner ? (
-        <SortableMembers containerId={itemId} rows={rows} />
+        <SortableMembers containerId={itemId} rows={rendered} />
       ) : (
         <ul className="mt-2 divide-y">
-          {rows.map((row) => (
+          {rendered.map((row) => (
             <li key={row.id} className="flex items-baseline gap-4 py-2">
               {row.content}
             </li>
@@ -759,7 +759,7 @@ function Members({
         to the start": the reader met the same link twice, either side of an
         empty list. The notice owns that page, so the walk stands down on it.
       */}
-      {entries.length > 0 && (
+      {rows.length > 0 && (
         <Walk
           path={path}
           listing="members"
@@ -867,10 +867,10 @@ function AlsoAppearsIn({
   /** This listing's OWN cursor, if the page was asked with one. */
   appearingFrom?: string;
 }) {
-  const { entries, total, continuesAfter, everyPlacedBy } = placements;
+  const { rows, total, continuesAfter, everyPlacedBy } = placements;
   /*
    * NOTHING AT ALL FOR AN ITEM IN NO ORDERING, which is `total` rather than
-   * `entries.length` for the reason `Members` above gives: an entries-length
+   * `rows.length` for the reason `Members` above gives: an rows-length
    * test would hide the END of the walk, where a cursor past the last ordering
    * answers a page with no rows over a list that has plenty.
    *
@@ -931,7 +931,7 @@ function AlsoAppearsIn({
           unnarrowed list and a second notice below carried what the chips did to
           it; there is one number now, and it is the one the reader is looking at.
         */}
-        {entries.length > 0 && <Holding showing={entries.length} total={total} noun="ordering" />}
+        {rows.length > 0 && <Holding showing={rows.length} total={total} noun="ordering" />}
       </div>
       {/*
         A FILTER RATHER THAN A SPLIT LAYOUT. A container the owner filled by
@@ -972,11 +972,11 @@ function AlsoAppearsIn({
         the heading with an empty list under it, which reads as a section that
         failed to load rather than as an ending.
       */}
-      {entries.length === 0 && total > 0 && (
+      {rows.length === 0 && total > 0 && (
         <PastTheEnd path={path} listing="appearances" asked={route} />
       )}
       <ul className="mt-2 divide-y">
-        {entries.map((placement) => (
+        {rows.map((placement) => (
           <li
             key={placement.id}
             aria-current={placement.id === arrivedThrough ? "true" : undefined}
@@ -1068,7 +1068,7 @@ function AlsoAppearsIn({
         past the end of the walk the notice above owns the page, and a walk
         rendering beside it would offer "Back to the start" twice.
       */}
-      {entries.length > 0 && (
+      {rows.length > 0 && (
         <Walk
           path={path}
           listing="appearances"
@@ -1293,7 +1293,7 @@ async function PlaceAnItem({
    * what makes this section the owner's is that the page renders it only for
    * them, which is the same posture `Note` and `EditTitle` take.
    */
-  const { entries, total } = await call(appRouter.catalogue.list, {}, { context });
+  const { rows, total } = await call(appRouter.catalogue.list, {}, { context });
 
   return (
     <section className="mt-8" aria-labelledby="place-an-item">
@@ -1349,9 +1349,9 @@ async function PlaceAnItem({
             required
             className="h-8 w-full rounded-none border border-input bg-transparent px-2.5 py-1 text-xs transition-colors outline-none focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring/50 md:text-xs dark:bg-input/30"
           >
-            {entries.map((entry) => (
-              <option key={entry.id} value={entry.id}>
-                {entry.title ?? "Untitled item"}
+            {rows.map((row) => (
+              <option key={row.id} value={row.id}>
+                {row.title ?? "Untitled item"}
               </option>
             ))}
           </select>
@@ -1380,9 +1380,9 @@ async function PlaceAnItem({
         items of a larger catalogue has to say so, or an owner who cannot find
         what they are looking for reads it as the item not existing.
       */}
-      {entries.length < total && (
+      {rows.length < total && (
         <p className="mt-2 text-muted-foreground text-sm">
-          Showing {entries.length} of {total} items. Search for one to place it from its own page.
+          Showing {rows.length} of {total} items. Search for one to place it from its own page.
         </p>
       )}
     </section>

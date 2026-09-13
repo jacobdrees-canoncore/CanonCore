@@ -50,7 +50,7 @@ describe("placement.place", () => {
     );
 
     const container = await call(appRouter.item.get, { id: releaseOrder }, { context });
-    expect(container.holds.entries).toStrictEqual([
+    expect(container.holds.rows).toStrictEqual([
       expect.objectContaining({ id, itemId: story, title: "The Tenth Planet", position: 63 }),
     ]);
   });
@@ -79,7 +79,7 @@ describe("placement.remove", () => {
     await call(appRouter.placement.remove, { id: inRelease }, { context: asTheOwner });
 
     const item = await call(appRouter.item.get, { id: story }, { context });
-    expect(item.placements.entries).toStrictEqual([
+    expect(item.placements.rows).toStrictEqual([
       expect.objectContaining({ containerId: storyOrder, position: 1 }),
     ]);
   });
@@ -110,7 +110,7 @@ describe("placement.restore", () => {
     await call(appRouter.placement.restore, { id }, { context: asTheOwner });
 
     const container = await call(appRouter.item.get, { id: releaseOrder }, { context });
-    expect(container.holds.entries).toStrictEqual([
+    expect(container.holds.rows).toStrictEqual([
       expect.objectContaining({ id, position: 2, assertedBy: ["Owner"] }),
     ]);
   });
@@ -199,7 +199,7 @@ describe("placement.move", () => {
     );
 
     const container = await call(appRouter.item.get, { id: releaseOrder }, { context });
-    expect(container.holds.entries.map(({ id, position }) => ({ id, position }))).toStrictEqual([
+    expect(container.holds.rows.map(({ id, position }) => ({ id, position }))).toStrictEqual([
       { id: b.id, position: 1 },
       { id: a.id, position: 2 },
     ]);
@@ -241,7 +241,7 @@ describe("placement.move", () => {
     );
 
     const elsewhere = await call(appRouter.item.get, { id: storyOrder }, { context });
-    expect(elsewhere.holds.entries).toStrictEqual([
+    expect(elsewhere.holds.rows).toStrictEqual([
       expect.objectContaining({ itemId: story, position: 29 }),
     ]);
   });
@@ -268,11 +268,11 @@ describe("placement.move", () => {
     );
 
     const destination = await call(appRouter.item.get, { id: storyOrder }, { context });
-    expect(destination.holds.entries).toStrictEqual([
+    expect(destination.holds.rows).toStrictEqual([
       expect.objectContaining({ id, itemId: story, title: "The Moonbase", position: 1 }),
     ]);
     const origin = await call(appRouter.item.get, { id: releaseOrder }, { context });
-    expect(origin.holds.entries).toStrictEqual([]);
+    expect(origin.holds.rows).toStrictEqual([]);
   });
 
   it("refuses to resettle the container it LEFT, and writes nothing when asked to", async () => {
@@ -316,12 +316,12 @@ describe("placement.move", () => {
     expect(isDefinedError(error) && error.code).toBe("BAD_REQUEST");
     // AND NOTHING LANDED, which is the half a refusal alone would not prove.
     const origin = await call(appRouter.item.get, { id: releaseOrder }, { context });
-    expect(origin.holds.entries.map(({ id, position }) => ({ id, position }))).toStrictEqual([
+    expect(origin.holds.rows.map(({ id, position }) => ({ id, position }))).toStrictEqual([
       { id: moved.id, position: 1 },
       { id: behind.id, position: 2 },
     ]);
     const destination = await call(appRouter.item.get, { id: storyOrder }, { context });
-    expect(destination.holds.entries).toStrictEqual([]);
+    expect(destination.holds.rows).toStrictEqual([]);
   });
 
   it("says NOT_FOUND for a placement that is not there to move", async () => {

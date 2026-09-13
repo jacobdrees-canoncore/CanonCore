@@ -37,7 +37,7 @@ describe("findPlacementsInContainer", () => {
     await aPlacement(db, { containerId: season, itemId: first, position: 1, sourceId: owner });
     await aPlacement(db, { containerId: season, itemId: second, position: 2, sourceId: owner });
 
-    const { entries: held } = await findPlacementsInContainer(db, season, { limit: 10 });
+    const { rows: held } = await findPlacementsInContainer(db, season, { limit: 10 });
 
     expect(held.map((placement) => placement.itemId)).toEqual([first, second, third]);
     expect(held[0]).toMatchObject({ title: "The first story", position: 1 });
@@ -74,7 +74,7 @@ describe("findPlacementsInContainer", () => {
       sourceId: owner,
     });
 
-    const { entries: held } = await findPlacementsInContainer(db, container, { limit: 10 });
+    const { rows: held } = await findPlacementsInContainer(db, container, { limit: 10 });
 
     expect(held).toHaveLength(2);
     expect(held.map((placement) => placement.itemId)).toEqual([placed, unplaceable]);
@@ -100,7 +100,7 @@ describe("findPlacementsInContainer", () => {
     await aPlacement(db, { containerId: container, itemId: story, position: 1, sourceId: owner });
     await aPlacement(db, { containerId: container, itemId: story, position: 5, sourceId: owner });
 
-    const { entries: held } = await findPlacementsInContainer(db, container, { limit: 10 });
+    const { rows: held } = await findPlacementsInContainer(db, container, { limit: 10 });
 
     expect(held.map((placement) => placement.itemId)).toEqual([story, story]);
     expect(held.map((placement) => placement.position)).toEqual([1, 5]);
@@ -132,7 +132,7 @@ describe("findPlacementsInContainer", () => {
       sourceId: owner,
     });
 
-    const { entries: held } = await findPlacementsInContainer(db, container, { limit: 10 });
+    const { rows: held } = await findPlacementsInContainer(db, container, { limit: 10 });
 
     expect(held.map((placement) => placement.id)).toEqual([recap, episode]);
   });
@@ -160,10 +160,10 @@ describe("findPlacementsInContainer, walked", () => {
 
     const held = await findPlacementsInContainer(db, container, { limit: 2 });
 
-    expect(held.entries).toHaveLength(2);
+    expect(held.rows).toHaveLength(2);
     expect(held.total).toBe(3);
     // The id to walk on from, which is the LAST PLACEMENT THIS PAGE SHOWED.
-    expect(held.continuesAfter).toBe(held.entries.at(-1)?.id);
+    expect(held.continuesAfter).toBe(held.rows.at(-1)?.id);
   });
 
   it("reaches every member by walking, and lands on none of them twice", async () => {
@@ -241,8 +241,8 @@ describe("findPlacementsInContainer, walked", () => {
     // THE PAGE ENDS ON THE ANCHOR, so what follows is a cursor a reader was
     // actually handed rather than an id written here.
     expect(cut.continuesAfter).toBe(written[1]);
-    const anchor = cut.entries[1];
-    if (!anchor) throw new Error("the page carried no second entry to cut at");
+    const anchor = cut.rows[1];
+    if (!anchor) throw new Error("the page carried no second row to cut at");
     await db.update(items).set({ deletedAt: new Date() }).where(eq(items.id, anchor.itemId));
 
     const kept = await findPlacementsInContainer(db, container, {
@@ -251,7 +251,7 @@ describe("findPlacementsInContainer, walked", () => {
     });
 
     // THE TWO MEMBERS AFTER IT, and not the ordering over again.
-    expect(kept.entries.map((placement) => placement.id)).toStrictEqual(written.slice(2));
+    expect(kept.rows.map((placement) => placement.id)).toStrictEqual(written.slice(2));
     // AND THE DELETED MEMBER IS GONE TO THE READER (ADR-0075), which is what
     // separates "the anchor keeps its place" from "the anchor is still shown".
     expect(kept.total).toBe(3);
@@ -299,7 +299,7 @@ describe("findPlacementsInContainer, walked", () => {
       after: cut.continuesAfter ?? "",
     });
 
-    expect(kept.entries.map((placement) => placement.id)).toStrictEqual(written.slice(2));
+    expect(kept.rows.map((placement) => placement.id)).toStrictEqual(written.slice(2));
     expect(kept.total).toBe(3);
   });
 
@@ -352,8 +352,8 @@ describe("findPlacementsInContainer, walked", () => {
     for (const after of ["not-a-uuid", crypto.randomUUID(), stranger]) {
       const asked = await findPlacementsInContainer(db, container, { limit: 10, after });
 
-      expect(asked.entries.map((placement) => placement.id)).toStrictEqual(
-        whole.entries.map((placement) => placement.id),
+      expect(asked.rows.map((placement) => placement.id)).toStrictEqual(
+        whole.rows.map((placement) => placement.id),
       );
     }
   });
@@ -361,11 +361,11 @@ describe("findPlacementsInContainer, walked", () => {
 
 /**
  * Every placement one container holds, reached by FOLLOWING `continuesAfter`
- * rather than by reading the answer's last entry.
+ * rather than by reading the answer's last row.
  *
  * THE TWO ARE NOT THE SAME, and `catalogue.test.ts` says why in its own words:
  * a `continuesAfter` that was always null would leave a walk that followed the
- * last entry passing, having asserted nothing about the cursor at all.
+ * last row passing, having asserted nothing about the cursor at all.
  *
  * BOUNDED, so a cursor that does not advance fails rather than hangs.
  */
@@ -374,7 +374,7 @@ async function walkEveryMemberOf(containerId: string, limit: number): Promise<st
   let after: string | undefined;
   for (let pages = 0; pages < 100; pages += 1) {
     const page = await findPlacementsInContainer(db, containerId, { limit, after });
-    walked.push(...page.entries.map((placement) => placement.id));
+    walked.push(...page.rows.map((placement) => placement.id));
     if (page.continuesAfter === null) return walked;
     after = page.continuesAfter;
   }
@@ -438,8 +438,8 @@ describe("findPlacementsInContainer, on who asserted each placement", () => {
       sourceId: wiki,
     });
 
-    const disagreement = (await findPlacementsInContainer(db, disputed, { limit: 10 })).entries;
-    const repeat = (await findPlacementsInContainer(db, agreed, { limit: 10 })).entries;
+    const disagreement = (await findPlacementsInContainer(db, disputed, { limit: 10 })).rows;
+    const repeat = (await findPlacementsInContainer(db, agreed, { limit: 10 })).rows;
 
     expect(disagreement.map((placement) => placement.assertedBy)).toStrictEqual([
       ["A database that orders by broadcast"],
@@ -499,7 +499,7 @@ describe("findPlacementsInContainer, on who asserted each placement", () => {
         and(eq(placementSources.placementId, corroborated), eq(placementSources.sourceId, later)),
       );
 
-    const held = (await findPlacementsInContainer(db, container, { limit: 10 })).entries;
+    const held = (await findPlacementsInContainer(db, container, { limit: 10 })).rows;
 
     expect(held.map((placement) => placement.assertedBy)).toStrictEqual([
       ["A source that came later and is preferred", "A source that came first"],
@@ -532,7 +532,7 @@ describe("findPlacementsInContainer, on who asserted each placement", () => {
       .set({ deletedAt: new Date() })
       .where(eq(placementSources.sourceId, left));
 
-    const held = (await findPlacementsInContainer(db, container, { limit: 10 })).entries;
+    const held = (await findPlacementsInContainer(db, container, { limit: 10 })).rows;
 
     expect(held).toHaveLength(1);
     expect(held[0]).toMatchObject({ assertedBy: ["A source that stayed"] });
@@ -555,7 +555,7 @@ describe("findPlacementsInContainer, on who asserted each placement", () => {
     const story = await anItemTitled(db, "A story placed by nobody");
     await aPlacement(db, { containerId: container, itemId: story, position: 1 });
 
-    const held = (await findPlacementsInContainer(db, container, { limit: 10 })).entries;
+    const held = (await findPlacementsInContainer(db, container, { limit: 10 })).rows;
 
     expect(held).toHaveLength(1);
     expect(held[0]).toMatchObject({ title: "A story placed by nobody", assertedBy: [] });

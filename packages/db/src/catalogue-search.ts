@@ -70,12 +70,12 @@ export function titleMatches(query: string) {
  * EVERY KIND, which is ADR-0077's rule read the way that record phrases it --
  * around the QUESTION A SURFACE ASKS. Work-browsing answers "what can I watch"
  * and excludes the entity kinds; this answers "where is the thing I am thinking
- * of", and a Character's name has to find the Character. That is why each entry
+ * of", and a Character's name has to find the Character. That is why each row
  * carries its kind: a Person and a Work sharing a name are two rows here, and
  * the kind is what tells a reader which is which.
  *
- * IT ANSWERS `Catalogue`, AND IT USED TO ANSWER A SHAPE OF ITS OWN. The entries
- * were always the listing's entries exactly -- a result and a catalogue row
+ * IT ANSWERS `Catalogue`, AND IT USED TO ANSWER A SHAPE OF ITS OWN. The rows
+ * were always the listing's rows exactly -- a result and a catalogue row
  * carry the same four facts -- and the one difference was the cursor: a search
  * had none, and ADR-0119 makes `continuesAfter: null` mean "the listing ends
  * here", so a search over a thousand matches answering null would have told
@@ -130,7 +130,7 @@ export async function searchCatalogue(
    */
   const wanted = query.trim();
   // Nothing was asked, so nothing matched and there is nowhere to walk on to.
-  if (wanted === "") return { entries: [], total: 0, continuesAfter: null };
+  if (wanted === "") return { rows: [], total: 0, continuesAfter: null };
 
   const anchor = after === undefined ? undefined : await findInTheRanking(db, after);
 

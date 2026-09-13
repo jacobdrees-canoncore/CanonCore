@@ -277,7 +277,7 @@ describe("one item, two orderings, two positions", () => {
     // rather than a consequence of it: fifteen against thirteen is these two
     // stories, and without this line the offset above could be a renumbering.
     expect(
-      item.placements.entries.filter((placement) => placement.containerId === tmdbSeason2),
+      item.placements.rows.filter((placement) => placement.containerId === tmdbSeason2),
     ).toStrictEqual([]);
   });
 });
@@ -300,12 +300,12 @@ describe("not a tree", () => {
     // TWO ROWS, NOT ONE. `toHaveLength` rather than `toBeGreaterThan`, because
     // a collapse is the failure this exists to catch and "at least one" is what
     // a collapsed model answers.
-    expect(item.placements.entries).toHaveLength(2);
+    expect(item.placements.rows).toHaveLength(2);
     expect(
-      item.placements.entries.map((placement) => placement.containerId).toSorted(),
+      item.placements.rows.map((placement) => placement.containerId).toSorted(),
     ).toStrictEqual([wikiSeries2, tmdbSeason2].toSorted());
     // And the two rows are two rows rather than one read twice.
-    expect(new Set(item.placements.entries.map((placement) => placement.id)).size).toBe(2);
+    expect(new Set(item.placements.rows.map((placement) => placement.id)).size).toBe(2);
   });
 
   /*
@@ -371,7 +371,7 @@ function positionIn(
   item: Awaited<ReturnType<AppRouterClient["item"]["get"]>>,
   containerId: string,
 ): number | null {
-  const [only, ...rest] = item.placements.entries.filter(
+  const [only, ...rest] = item.placements.rows.filter(
     (placement) => placement.containerId === containerId,
   );
   if (only === undefined || rest.length > 0) {

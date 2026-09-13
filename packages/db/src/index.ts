@@ -35,7 +35,7 @@ export { type PurgedProvider, previewProviderPurge, purgeProvider } from "./purg
 export {
   type AttributionOwed,
   type Catalogue,
-  type CatalogueEntry,
+  type CatalogueRow,
   type FoundItem,
   findAttributionOwed,
   findItem,

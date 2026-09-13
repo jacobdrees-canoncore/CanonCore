@@ -55,8 +55,8 @@ async function anOrderingOf(positions: number[]) {
 
 /** The ordering as a reader reads it: each placement's position, in page order. */
 async function orderingIn(container: string) {
-  const { entries } = await findPlacementsInContainer(db, container, { limit: 100 });
-  return entries.map(({ id, position }) => ({ id, position }));
+  const { rows } = await findPlacementsInContainer(db, container, { limit: 100 });
+  return rows.map(({ id, position }) => ({ id, position }));
 }
 
 describe("movePlacementByHand", () => {

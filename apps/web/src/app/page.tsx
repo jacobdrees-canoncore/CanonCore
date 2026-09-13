@@ -104,7 +104,7 @@ export default async function CataloguePage({
   // shapes -- `> 0`, `=== 0`, and a comparison inside `Holding` -- which is one
   // condition spelt three ways with two of them inverted.
   const empty = catalogue.total === 0;
-  const listing = catalogue.entries;
+  const listing = catalogue.rows;
 
   return (
     <main className="container mx-auto max-w-3xl px-4 py-8">
@@ -122,7 +122,7 @@ export default async function CataloguePage({
       {!empty && listing.length === 0 && <PastTheEnd path="/" />}
       {listing.length > 0 && (
         <>
-          <Listing entries={listing} />
+          <Listing rows={listing} />
           <Walk path="/" from={from} continuesAfter={catalogue.continuesAfter} />
         </>
       )}
