@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 ---
 
 # An ordering is the source's own axis, not release order
@@ -73,6 +73,14 @@ category was the only one; a lie the moment a timeline was. `kind` is the source
 one thing a reader of that field most needs not to be misled about.
 
 ## As built (CNCORE-102)
+
+**ACCEPTED RATHER THAN PROPOSED, AND THE MERGED PR IS WHY.** This record's mechanism spans two
+repositories — the serving half is `provider-wiki` and the contract half is here — so nothing in
+this repository's diff can show that the first half exists. It is
+[provider-wiki#26](https://github.com/jacobdrees-canoncore/provider-wiki/pull/26), merged
+2026-09-13 as `15ac869`, and a reviewer can check every claim below against that diff rather than
+against this sentence. CLAUDE.md's rule for a cross-repo pair: the flip lands on the SECOND ticket
+and names the first's merged PR, or it is an assertion nobody can check.
 
 CanonCore needed **no change** to import any of this, and that is the finding worth recording.
 `importBrowsedContainer` already writes a member at several positions as several Placements
