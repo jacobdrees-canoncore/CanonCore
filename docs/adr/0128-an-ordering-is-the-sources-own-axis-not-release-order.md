@@ -11,10 +11,13 @@ order things came out.
 
 **IT IS NOT, AND THE WIKI IS THE COUNTEREXAMPLE THAT MATTERS.** tardis.wiki writes 464
 `Theory:Timeline` pages, each stating an IN-UNIVERSE chronology — and that is the axis this product
-exists to carry, because it is the one a folder tree cannot. Measured 2026-09-12 over one timeline
-against one release list, TV stories only: **113 of 298 adjacent pairs are reversed in-universe**,
-38%. Serving a timeline in release order would answer with the very ordering the page was written to
-contradict.
+exists to carry, because it is the one a folder tree cannot. CNCORE-102's own measurement, taken
+2026-09-12 over one timeline against one release list, TV stories only: **113 of 298 adjacent pairs
+are reversed in-universe**, 38%. That figure is CARRIED FROM THE TICKET rather than re-derived here,
+and the decision does not turn on its exact value — only on the two axes disagreeing in bulk, which
+the import below shows independently: `City of Death (TV story)` sits at position 11 of one timeline
+and 200 of another, and release order would put it at neither. Serving a timeline in release order
+would answer with the very ordering the page was written to contradict.
 
 So the rule is: **an ordering is a DATED CLAIM BY A NAMED SOURCE (ADR-0017), and its AXIS is the
 source's too.** Release order is one such claim, not the shape of the operation.
@@ -35,8 +38,10 @@ the ordering.
 
 CMPP's `unplaced` is "members this provider serves that THIS ordering cannot place". CNCORE-102 had
 to decide what that covers on a wiki that writes its own `== Unplaced ==`, `== Currently unplaced ==`
-and `== Awaiting placement ==` headings — **703 story bullets across 125 pages**, measured
-2026-09-12.
+and `== Awaiting placement ==` headings. CNCORE-118 measured those at **703 story bullets across
+125 pages** on 2026-09-12, under the rule CNCORE-97 stated rather than the one that shipped — so the
+figure is carried rather than re-derived, and it has moved once already (an earlier pass reported 729
+across 136). The decision turns on the count being large, not on its exact value.
 
 **Those are members with no Position.** The heading is the wiki asserting that a story belongs to
 this ordering and that it will not say where, which is `CONTEXT.md`'s **Unplaced** exactly: "a member
@@ -72,10 +77,25 @@ one thing a reader of that field most needs not to be misled about.
 CanonCore needed **no change** to import any of this, and that is the finding worth recording.
 `importBrowsedContainer` already writes a member at several positions as several Placements
 (ADR-0009's Repeat), already writes an `unplaced` member as a Placement with no position, and already
-finds every member by the id the provider knows it by, so a re-browse adds nothing (CNCORE-28). One
-timeline exercised all three at once: `Theory:Timeline - Doctor Who universe/TV` browses to **611
-placements over 426 distinct stories, 105 of which sit at more than one position**, highest position
-548 — measured live 2026-09-13.
+finds every member by the id the provider knows it by, so a re-browse adds nothing (CNCORE-28).
+
+Measured live on 2026-09-13, importing two real timelines through `browseIntoCatalogue` against
+tardis.wiki. These are figures about the LIVE wiki, so they move as editors edit it, and what
+produced them is the import path itself rather than a script:
+
+- **A Repeat inside ONE ordering**: `City of Death (novelisation)` sits at ten positions in
+  `Theory:Timeline - Scaroth` — 3, 4, 5, 6, 7, 8, 9, 10, 11 and 14 — as ten Placements of one Item.
+- **One Item across SEVERAL orderings**, which is the different claim and the one this product
+  exists for: after importing Scaroth and `Theory:Timeline - Doctor Who universe/TV`, `City of Death
+  (TV story)` holds five Placements across **two** containers, at positions 6, 11, 14, 40 and 200. A
+  `series_index` column holds one of those and locks the reader out of the rest (ADR-0018).
+- **Size and time**: the TV timeline is 611 placements over 426 distinct stories, highest position
+  548, imported in **8.4s**. The provider's own browse of it is 20 requests in 1.7–4.9s depending on
+  batch size. Nothing is near a timeout, and the cost is dominated by requests to the wiki rather
+  than by writing Placements.
+- **A repeat import is safe**: browsing Scaroth a second time left the catalogue at 629 Placements,
+  the number it already held.
+- **Every Placement carries the provider as its source** (ADR-0017): 629 of 629.
 
 **THE CONTRACT SUITE GAINED A BRANCH IT COULD NOT EXERCISE BEFORE.** ADR-0122 obliges a provider that
 cannot reach its source to say so rather than serve a frozen corpus, and CNCORE-141 wrote that into

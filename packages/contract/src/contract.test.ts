@@ -656,24 +656,24 @@ describe.each(underTest.map((p) => [p.name, p] as const))(
          * now, and a contract that still demanded `200` here would be holding the
          * one provider that obeys ADR-0122 to breaking it.
          *
-         * IT IS READ AFTER THE CREDENTIAL DESCRIBE RUNS, WHICH MATTERS. That block
-         * unlocks every provider declaring a credential, so by the time this runs
-         * the manifest may report `valid` about a value the upstream has never
-         * seen -- only the upstream can refuse it (ADR-0122), and it does so on the
-         * first request that reaches it. So the declaration is re-read AFTER the
-         * browse rather than before: what is being asked is whether this provider
-         * could reach its source FOR THIS CALL, and the answer to that is only
-         * settled once the call has been made.
+         * SO THE RULE IS "A CONTAINER, OR A CONFORMANT REFUSAL", AND NOTHING ELSE.
+         * What it deliberately does NOT do is check the manifest's `credential`
+         * first, the way `search` and `lookup` above do. Those read it BEFORE the
+         * call and branch on it; by the time this runs, `its credential` has
+         * unlocked every provider that declares one, so the manifest reports
+         * `valid` about a value the upstream has never seen -- and a provider can
+         * be unable to answer for reasons that are not its credential at all.
+         * `provider-wiki` answers 503 with a VALID credential when the wiki
+         * declines a query as too large, which is honest and which an assertion
+         * keyed on `credential.state` would call a contract breach.
+         *
+         * WHAT STOPS THIS BECOMING A PERMISSION TO REFUSE EVERYTHING is the same
+         * device the other operations lean on: `ADR-0122's optionality` below
+         * holds at least one participant to ANSWERING, and `provider-tmdb`
+         * declares no credential at all, so the 200 path here is exercised on
+         * every run rather than excused on every run.
          */
         if (response.status !== 200) {
-          const after = manifest.parse((await get(participant, "/")).body).credential;
-          expect(
-            cannotReachItsSource(after),
-            `\`${path}\` answered ${response.status} and this provider's credential reads ` +
-              `\`${after?.state ?? "none"}\`. A provider that CAN reach its source owes a ` +
-              "container and its ordering here; one that cannot owes a 503 saying so " +
-              "(ADR-0122). Neither permits any other answer.",
-          ).toBe(true);
           expectSaysItCannotAnswer(response, path);
           return;
         }
@@ -815,10 +815,10 @@ describe("ADR-0122's optionality", () => {
 
     expect(
       declared.filter((p) => !cannotReachItsSource(p.credential)).map((p) => p.name),
-      "Every provider under test is currently unable to reach its source, so every `search` and " +
-        "`lookup` assertion took CNCORE-141's refusal branch and nothing checked that a provider " +
-        "able to answer still owes `200` and a record. That branch is a permission for a provider " +
-        "that cannot answer, never one the whole suite may take.",
+      "Every provider under test is currently unable to reach its source, so every `search`, " +
+        "`lookup` and `browse` assertion took CNCORE-141's refusal branch and nothing checked " +
+        "that a provider able to answer still owes `200` and a record. That branch is a " +
+        "permission for a provider that cannot answer, never one the whole suite may take.",
     ).not.toHaveLength(0);
   });
 });
