@@ -28,6 +28,22 @@ const GATE = "@canoncore/config/testing/install-network-gate";
  */
 const GATE_IN_GLOBAL_SETUP = "@canoncore/config/testing/gate-global-setup";
 
+/**
+ * THE ONE SUITE THAT MUST NOT INSTALL THE GATE, NAMED RATHER THAN SKIPPED.
+ *
+ * `apps/web`'s live check stands the whole app up against the REAL `provider-wiki`
+ * talking to the REAL wiki, which is how CNCORE-151 was found and how ADR-0130's
+ * cap was measured. Reaching the internet is the entire point of that file rather
+ * than an accident to refuse, and it cannot run in CI at all: it needs the Owner's
+ * Credential, which no CI job holds (ADR-0122).
+ *
+ * IT IS ASSERTED RATHER THAN FILTERED OUT OF THE SWEEP, which is the difference
+ * between an exemption and a hole. A suite quietly excluded is a suite nobody
+ * notices losing its gate; this one is REQUIRED to be ungated, so the assertion
+ * below fails both if it ever gains a gate and if a SECOND suite joins it here.
+ */
+const UNGATED = "web: test:live";
+
 type Manifest = { name?: string; scripts?: Record<string, string> };
 
 // Only the `<name>/*` shape this repo uses. A pattern of any other shape is not
@@ -256,9 +272,10 @@ describe("the network gate's wiring", () => {
     const onDisk = configFilesOnDisk();
 
     // Vacuous otherwise, in the same way the counts below are: an empty disk
-    // read is claimed by the empty set. Eleven configs today: one in each of the
-    // nine packages, and two in `apps/web` -- its own and the end-to-end run's.
-    expect(onDisk.length).toBeGreaterThanOrEqual(11);
+    // read is claimed by the empty set. Twelve configs today: one in each of the
+    // nine packages, and three in `apps/web` -- its own, the end-to-end run's,
+    // and the live run's (CNCORE-151).
+    expect(onDisk.length).toBeGreaterThanOrEqual(12);
 
     const claimed = new Set(suites().map((suite) => suite.config));
     const unrun = onDisk.filter((file) => !claimed.has(file));
@@ -270,17 +287,21 @@ describe("the network gate's wiring", () => {
 
     // Without this the whole test is vacuous: a workspace file that failed to
     // parse into packages produces an empty list and passes having asked
-    // nothing. Eleven suites today: nine `test` scripts, `apps/web`'s end-to-end
-    // run and `packages/contract`'s contract run, the last of which joined the
-    // sweep under CNCORE-46.
-    expect(found.length).toBeGreaterThanOrEqual(11);
+    // nothing. Twelve suites today: nine `test` scripts, `apps/web`'s end-to-end
+    // run, `packages/contract`'s contract run -- which joined the sweep under
+    // CNCORE-46 -- and `apps/web`'s live run, which joined it under CNCORE-151
+    // as the one suite `UNGATED` exempts.
+    expect(found.length).toBeGreaterThanOrEqual(12);
 
     const open = [];
     for (const suite of found) {
       const declared = asList((await testConfig(suite)).setupFiles);
       if (!declared.includes(GATE)) open.push(`${suite.package}: ${suite.script}`);
     }
-    expect(open).toStrictEqual([]);
+    // EXACTLY THE ONE EXEMPTION, which is what makes this an allowlist rather
+    // than a subtraction: a twelfth suite dropping its gate lands in this list
+    // beside `UNGATED` and fails, and so does the live suite gaining one.
+    expect(open).toStrictEqual([UNGATED]);
   });
 
   /**

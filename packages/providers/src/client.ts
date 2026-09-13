@@ -95,9 +95,29 @@ const PATIENCE = {
    */
   brief: 10_000,
   /**
-   * A whole container. 2.3x the 25.7s measured above on the largest timeline the
-   * wiki holds, and a fifth of undici's own 300s default -- which the sentence
-   * this replaces rightly called long enough to look like a hang.
+   * A whole container. 2.3x the largest browse the wiki can be asked for, and a
+   * fifth of undici's own 300s default -- which the sentence this replaces
+   * rightly called long enough to look like a hang.
+   *
+   * THE SINGLE-BROWSE FIGURE IS STABLE AND THE HEADROOM IS NOT. Five clean runs
+   * of AHistory on 2026-09-13 gave 25.5, 25.6, 25.9, 26.1 and 26.4s -- under a
+   * second of spread. But TWO of them at once took 49.1s EACH, measured the same
+   * afternoon: this provider is one Node process and two large browses roughly
+   * double each other. So the margin over a single browse is 2.3x and the margin
+   * over two at once is 1.2x, and it is CONTENTION rather than page size that
+   * eats it. A third concurrent browse would not fit, and the answer to that is a
+   * faster provider or an ordering that arrives in pages rather than whole --
+   * which ADR-0130 records as the direction and ADR-0033 would have to be
+   * reopened to take. NOT a bigger number here, which buys a little headroom and
+   * spends it on the paragraph below.
+   *
+   * IT IS ALSO WHAT A READ SURFACE CAN HOLD FOR, WHICH IS WHY IT IS NOT LARGER.
+   * TODO(CNCORE-154): `provider.container` is an `openProcedure` -- anyone who
+   * can reach the instance can call it -- and it answers "how many placements
+   * would this import?" by doing the whole browse. So this number is also the
+   * longest that page can sit before it renders `unreachable`, and raising it to
+   * buy concurrency headroom would spend a stranger's page render to do it. The
+   * fix is that surface's, not this constant's.
    *
    * IT BOUNDS A PROVIDER'S THINKING RATHER THAN AN IMPORT'S RUNNING. What comes
    * back is one response, so this is not a budget for the whole import: a
