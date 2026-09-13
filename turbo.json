@@ -1,6 +1,14 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "ui": "tui",
+  // PER WORKTREE, AND THE VALUE IS A DECOY. Left unset, turbo shares its cache
+  // with the MAIN worktree, so a task run in one worktree is replayed into every
+  // other one -- and this repo dispatches a worktree per ticket (ADR-0051). The
+  // spelling below is turbo's own default, which is what makes the line read as
+  // a no-op worth tidying away: deleting it restores the sharing silently.
+  // ADR-0127 records the decision; `packages/config/src/turbo-cache-dir.test.ts`
+  // fails if it goes.
+  "cacheDir": ".turbo/cache",
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
