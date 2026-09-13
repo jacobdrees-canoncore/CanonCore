@@ -941,6 +941,15 @@ set -- and a "require the real provider" flag delivered through the environment 
 by the very mechanism it guards against. `CI=true` fails for a different reason: the `e2e` job also
 runs in CI and legitimately uses stubs, so the implication is false.
 
+**THAT SAYS "THE HARNESS", AND A FIRST DRAFT OF THIS SECTION OVERSTATED IT TO "NOTHING AT RUN
+TIME".** `pnpm test:e2e` is `turbo run test:e2e`, and THAT process sees the whole environment before
+turbo filters anything, so a preflight wrapper could compare what it was given against what the task
+will receive and refuse. It is rejected rather than impossible, and the reason is placement: it
+would put a script in front of every e2e run to catch a fault introduced by editing `ci.yml` or
+`turbo.json`, which the suite below catches on the pull request that edits them, in the `Test` job,
+naming the fix. A check that fires at the edit beats one that fires at the next run, and the
+wrapper is indirection in the path of a command everybody runs.
+
 **THE TWO FILES HAVE TO BE READ AGAINST EACH OTHER FROM OUTSIDE**, which is
 `packages/config/src/ci-task-env.test.ts`. It asserts two halves of one loop: a variable a job sets
 in its OWN `env:` reaches the turbo task that job runs, and a provider container a job STARTS is
