@@ -21,6 +21,8 @@
  */
 
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { createDb, writeProviderSettings } from "@canoncore/db";
 import { buildTestDatabase } from "@canoncore/db/testing/build-database";
 import { createORPCClient } from "@orpc/client";
@@ -40,13 +42,15 @@ import {
 /**
  * WHERE `provider-wiki` IS CHECKED OUT, which is the one thing this file cannot derive.
  *
- * It is a SEPARATE REPOSITORY (ADR-0031) and there is no import to follow. A default is
- * given so the check runs without ceremony on the machine it was written on, and the
- * variable is what makes it runnable anywhere else.
+ * It is a SEPARATE REPOSITORY (ADR-0031) and there is no import to follow.
+ *
+ * REQUIRED, WITH NO DEFAULT. An earlier version of this defaulted to the worktree it was
+ * written in -- which the dispatcher removes when this branch merges, so the default was
+ * dead the day it landed and would have failed as `spawn ENOENT` naming a path nobody
+ * recognises. Machine state is not repo state: a path that exists on one Mac is not a
+ * value this repository knows, and the honest form of not knowing it is to ask.
  */
-const PROVIDER_WIKI =
-  process.env.PROVIDER_WIKI_REPO ??
-  "/Users/jacobrees/orca/workspaces/provider-wiki/cncore-103-delete-archive";
+const PROVIDER_WIKI = process.env.PROVIDER_WIKI_REPO;
 
 /**
  * THE TWO TIMELINES, CHOSEN RATHER THAN PICKED, AND THE CHOICE IS BOUNDED BY A DEFECT.
@@ -75,6 +79,19 @@ let client: any;
 const imported: Array<{ id: string; name: string; placements: number; seconds: number }> = [];
 
 beforeAll(async () => {
+  if (!PROVIDER_WIKI) {
+    throw new Error(
+      "PROVIDER_WIKI_REPO is unset. It must name a `provider-wiki` checkout, which is a " +
+        "separate repository (ADR-0031):\n" +
+        "  PROVIDER_WIKI_REPO=/path/to/provider-wiki pnpm test:live",
+    );
+  }
+  if (!existsSync(join(PROVIDER_WIKI, "src/server.ts"))) {
+    throw new Error(
+      `PROVIDER_WIKI_REPO is ${PROVIDER_WIKI}, which holds no src/server.ts. It should be ` +
+        "the root of a `provider-wiki` checkout.",
+    );
+  }
   const providerPort = await freePort();
   const provider = spawn("node", ["src/server.ts"], {
     cwd: PROVIDER_WIKI,
@@ -121,7 +138,6 @@ afterAll(async () => {
 
 test("a real Theory:Timeline browses in from the live wiki and lands its Items", async () => {
   for (const run of imported) {
-    // eslint-disable-next-line no-console -- the figures are the evidence this file exists for.
     console.log(`  ${run.name} (${run.id}): ${run.placements} placements in ${run.seconds}s`);
     expect(run.placements).toBeGreaterThan(0);
   }

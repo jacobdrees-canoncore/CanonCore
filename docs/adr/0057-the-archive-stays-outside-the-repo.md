@@ -307,10 +307,17 @@ arrives in CI inside the provider's container image and this repository holds no
 ## Evidence for the image section, under CNCORE-22
 
 **The wiki's own policy pages are the specification, and they are ON THE WIKI.** Every quote in
-the image section was read on 2026-09-10 out of the archive at `ns = 4`
-rather than off the live site — Tardis:Copyrights (page 101), Tardis:Image use policy (page 101696)
-and Tardis:Plagiarism (page 17176) — so the citations are reproducible by anyone holding the archive
-and nothing had to route around the Cloudflare challenge on `tardis.wiki` to get them.
+the image section was read on 2026-09-10 out of the archive at `ns = 4` rather than off the live
+site — Tardis:Copyrights (page 101), Tardis:Image use policy (page 101696) and Tardis:Plagiarism
+(page 17176) — which at the time meant nothing had to route around the Cloudflare challenge on
+`tardis.wiki` to get them.
+
+**THAT ROUTE IS GONE AND THE PAGE IDS ARE WHAT SURVIVED IT (ADR-0129, 2026-09-13).** These
+citations are no longer reproducible by holding the archive, because nobody holds one. They are
+reproducible by READING THE THREE PAGES, which the ids above address directly and which the Owner's
+Credential reaches — and a page id survives a rename where a title does not, which is why they were
+recorded as ids in the first place. The quotes are dated, so a policy edited since would show as a
+disagreement rather than pass unnoticed.
 
 The MediaWiki claims are MediaWiki's, cited separately because they are a different mouth:
 `Manual:Page table` for a page id surviving a move but not necessarily a delete-and-restore, and
