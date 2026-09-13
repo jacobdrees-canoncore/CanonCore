@@ -60,8 +60,9 @@ the cache it is checking.
 A hand-kept list goes stale the day a new suite reads a root file, and that suite would be cached
 against everything except the file it checks with nothing to say so. So the guard walks the tracked
 sources, resolves each relative specifier the way the runtime would and asks whether it landed
-outside the package, and propagates reach to importers — `repo-root.ts` is the only file that climbs to the root, and every
-suite reaching a root file does it by importing that constant rather than by climbing itself, so a
+outside the package, and propagates reach to importers — `repo-root.ts` is the only file that climbs
+to the root, and every suite reaching a root file does it by importing that constant rather than by
+climbing itself, so a
 walk reading climbs alone would report one reaching file and no reaching suites. A package it finds
 that is on neither list fails the check.
 
