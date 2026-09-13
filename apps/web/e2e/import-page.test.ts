@@ -540,7 +540,15 @@ describe("reaching /import", () => {
     // page (CNCORE-65), and an owner who has to know the address is in the position
     // this page exists to get them out of -- knowing an id, or in this case a path,
     // from somewhere outside the product.
-    const { text } = await documentAt("/");
+    //
+    // ASKED AS THE OWNER (CNCORE-139), where it used to be asked as nobody in
+    // particular -- the same repair the empty state's read below took under
+    // CNCORE-133, arriving here for the same reason. The link is the header's
+    // and the header offers it to a session now, because every button behind it
+    // is one (ADR-0094). The criterion this asserts was always the owner's: it
+    // is the sentence above, and a visitor who reached `/import` would meet the
+    // surface with every button disabled.
+    const { text } = await documentAt("/", owner);
 
     const linked = [...text.matchAll(/href="(\/import)"/g)].map(([, href]) => href);
     expect(linked).not.toHaveLength(0);

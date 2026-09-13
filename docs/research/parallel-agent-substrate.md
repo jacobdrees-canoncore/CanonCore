@@ -487,12 +487,26 @@ The ticket asks for each to be called correct as-is, papering over a problem, or
 | 5 | `docker/setup-buildx-action` with no Docker Hub login | **Papering over a problem** | The 100-per-6-hours anonymous limit is counted per IP on runners whose IPs are shared, so the failure is not controlled by anything this repo does. It is cheap to live with (intermittent, clears on rerun, documented in CLAUDE.md) and cheap to fix (two secrets). |
 
 **A sixth, not in the brief, and it is the one to fix first:** the turbo cache shared across worktrees
-at `~/orca/projects/CanonCore/.turbo/cache`. **Actively wrong in combination with
-practice 2** — alone it is a sound optimisation, since identical inputs should produce identical
-results, and that is exactly what turbo promises. It becomes a defect only because the inputs are
-mis-declared, at which point one agent's stale green is served to every other agent on the machine.
-Fixing practice 2 fixes this; partitioning the cache per worktree would also work and would throw
-away the sharing that makes a cold worktree fast.
+at `~/orca/projects/CanonCore/.turbo/cache`. **Actively wrong, AND WRONG ON ITS OWN.**
+
+**THIS PARAGRAPH FIRST SAID THE OPPOSITE AND CNCORE-138 CORRECTED IT ON 2026-09-13.** It called the
+sharing "a sound optimisation" alone, defective only in combination with practice 2, on the ground
+that "identical inputs should produce identical results, and that is exactly what turbo promises".
+**Turbo's own configuration reference denies that premise**, in the same entry that documents the
+sharing (turborepo.dev/docs/reference/configuration, read 2026-09-13): "Cache artifacts are restored
+without rewriting their contents, so outputs containing absolute worktree paths can point to another
+checkout after a cache hit." Measured here the same day: **four files inside `.next/**`** — which
+`turbo.json` declares as a cached output of `build` — carry the producing worktree's absolute path,
+`standalone/apps/web/server.js` among them, in `outputFileTracingRoot`, `repoRoot` and
+`turbopack.root`. That file is the entrypoint the container image runs.
+
+So identical inputs do NOT make two worktrees' results interchangeable, and **fixing practice 2 makes
+the crossing likelier rather than rarer** — correct inputs are exactly what makes two worktrees agree
+on a hash, which is the condition for the shared store to answer. The two are orthogonal: practice 2
+decides whether a hit is legitimate by content, the cache location decides whether the content is
+addressed to this checkout. **ADR-0127 partitions the cache per worktree.** The sharing this gives up
+was worth **one cold pass of 33.1s against 1.1s warm**, measured over `build typecheck test`, 22
+tasks — which is the price this note said nobody had put a number on.
 
 **A seventh, observed while measuring and outside this ticket's scope:** the shared container holds
 **418 databases** totalling **3,739 MB** across **80 distinct worktree stems**, on a machine with 4
@@ -624,9 +638,14 @@ connection pooler (it breaks `pg_advisory_lock`, which ADR-0104 chose deliberate
 worktree its own Postgres container (discards ADR-0104's measured decision and multiplies
 `shared_buffers` in a 1.96 GiB VM); do not raise `max_connections` again (the wiki's own throughput
 argument, and the VM has ~650 MB left, not ~2 GB); do not delete e2e instances to fit the budget;
-do not set `reusePort` (it would make the port collision constant rather than occasional); do not
-partition the turbo cache per worktree before fixing the input declarations, since sharing is not the
-defect.
+do not set `reusePort` (it would make the port collision constant rather than occasional).
+
+**ONE ITEM OF THIS LIST HAS SINCE BEEN REVERSED.** It read "do not partition the turbo cache per
+worktree before fixing the input declarations, since sharing is not the defect". CNCORE-138 found on
+2026-09-13 that sharing IS a defect on its own: turbo restores artifacts without rewriting their
+contents, and four of this repository's cached `build` outputs carry the producing worktree's
+absolute path. The sixth practice in section 6 carries the evidence, and ADR-0127 partitions the
+cache.
 
 ---
 

@@ -1,6 +1,14 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "ui": "tui",
+  // PER WORKTREE, AND THE VALUE IS A DECOY. Left unset, turbo shares its cache
+  // with the MAIN worktree, so a task run in one worktree is replayed into every
+  // other one -- and this repo dispatches a worktree per ticket (ADR-0051). The
+  // spelling below is turbo's own default, which is what makes the line read as
+  // a no-op worth tidying away: deleting it restores the sharing silently.
+  // ADR-0127 records the decision; `packages/config/src/turbo-cache-dir.test.ts`
+  // fails if it goes.
+  "cacheDir": ".turbo/cache",
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
@@ -55,9 +63,18 @@
       "cache": false,
       "env": ["CANONCORE_DB_PORT"]
     },
+    // THE PROVIDER URLS ARE HERE FOR THE SAME REASON `test:contract` HAS THEM,
+    // and the asymmetry between the two lines is what hid CNCORE-143 for as long
+    // as it hid. `apps/web/e2e/global-setup.ts` reads both to decide whether to
+    // reach a real provider or stand up a stub on loopback, turbo's env mode is
+    // strict, and a variable not named here is filtered out of the task -- so
+    // CI's provider job set one, the harness saw `undefined`, and ran the stub
+    // the job existed to replace. `test:contract` named them and really did
+    // reach both images; `test:e2e` did not and never had.
+    // `ci-task-env.test.ts` fails if a job sets a variable this list drops.
     "test:e2e": {
       "cache": false,
-      "env": ["DATABASE_URL"]
+      "env": ["DATABASE_URL", "PROVIDER_WIKI_URL", "PROVIDER_TMDB_URL"]
     },
     "test:browser": {
       "cache": false,
