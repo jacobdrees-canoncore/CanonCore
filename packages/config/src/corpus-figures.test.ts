@@ -114,6 +114,57 @@ const CORPUS_SIZE_STATED: { file: string; pattern: RegExp }[] = [
 ];
 
 /**
+ * The wiki's own unplaced sections, counted over the corpus rather than the
+ * namespace -- a DIFFERENT population from the partition above, and the reason
+ * the population goes into the sentence rather than being assumed from the record.
+ */
+const UNPLACED_BULLETS = /unplaced sections hold \*\*([\d,]+) story bullets/g;
+
+/**
+ * The figures ADR-0128 keeps as the ARCHIVE's rather than refreshing, each of
+ * which has to say so where it is stated.
+ *
+ * A SUPERSEDED FIGURE IS KEPT ON PURPOSE HERE, and ADR-0129 is why: "the live
+ * figures are not corrections of the archive's and must not be read as such",
+ * because the two were counted over different populations on different days. So
+ * the old figure stays visible rather than being written over -- and a figure
+ * that stays visible without saying WHICH corpus it came from is the defect
+ * CNCORE-157 was raised for, not the fix for it.
+ *
+ * `~/tardis-pipeline` IS GONE (ADR-0129), so neither of these is re-derivable by
+ * anybody, ever again. That is precisely why the label has to be in the sentence:
+ * a reader who tries to reproduce one against the live wiki will not get it, and
+ * the only thing that can tell them they are not looking at a mistake is the word
+ * beside the number.
+ */
+const ARCHIVE_ERA_FIGURES: RegExp[] = [
+  /`1,240 - 464`/g,
+  /\*\*703 story bullets across 125 pages\*\*/g,
+];
+
+/**
+ * EVERY CORPUS FIGURE ADR-0128 STATES, which is what criterion one is held to.
+ *
+ * The two corpus sizes, the two halves of the namespace partition beside them,
+ * and the wiki's own unplaced bullets. Four of the five are counted over
+ * `ns 114, non-redirect` or the `Theory:Timeline` corpus inside it; the fifth is
+ * counted over the corpus alone. That they sit in one record and belong to two
+ * populations is exactly why each states which.
+ *
+ * A FIGURE MISSING FROM THIS LIST IS NOT CAUGHT, said here rather than left to be
+ * discovered -- a new sentence quoting the corpus is covered only by being added,
+ * exactly as a new place stating the Node major is covered only by being added to
+ * `node-major.test.ts`. What IS caught is one of these being reworded, because a
+ * pattern that stops matching throws rather than quietly covering nothing.
+ */
+const ADR_0128_CORPUS_FIGURES: RegExp[] = [
+  ...CORPUS_SIZE_STATED.filter(({ file }) => file === ORDERING_AXIS).map(({ pattern }) => pattern),
+  NAMESPACE_WHOLE,
+  NAMESPACE_NOT_TIMELINES,
+  UNPLACED_BULLETS,
+];
+
+/**
  * The one figure a pattern reads out of a record, or a throw naming the pattern.
  *
  * EXACTLY ONE MATCH, never the first of several: a sentence duplicated by a copy
@@ -229,10 +280,10 @@ describe("the Theory:Timeline corpus as docs/adr/ states it", () => {
    * asked for ADR-0128's copy.
    */
   it("carries the population and the measurement date in ADR-0128's own sentences", () => {
-    const stated = CORPUS_SIZE_STATED.filter(({ file }) => file === ORDERING_AXIS);
-    expect(stated.length).toBeGreaterThan(1);
+    expect(ADR_0128_CORPUS_FIGURES.length).toBeGreaterThan(3);
 
-    for (const entry of stated) {
+    for (const pattern of ADR_0128_CORPUS_FIGURES) {
+      const entry = { file: ORDERING_AXIS, pattern };
       const sentence = sentenceStating(entry);
 
       expect(
@@ -243,6 +294,58 @@ describe("the Theory:Timeline corpus as docs/adr/ states it", () => {
         sentence,
         `a corpus figure in docs/adr/${entry.file} names no population: ${sentence}`,
       ).toMatch(/`ns 114[^`]*non-redirect`/);
+    }
+  });
+
+  /**
+   * CRITERION FOUR: A FIGURE THE RECORD DID NOT MEASURE NAMES WHAT REGENERATES IT.
+   *
+   * Every corpus figure ADR-0128 quotes belongs to `provider-wiki` -- CanonCore
+   * asks the wiki nothing and counts nothing -- so a reader who wants to check one
+   * has to know where it comes from. `fixture/timeline/COVERAGE.md` is committed
+   * and needs no Credential to READ, which is what makes it the right pointer: the
+   * script behind it needs the Owner's (ADR-0122) and so is not something a reader
+   * can be sent to instead.
+   *
+   * ONCE PER RECORD RATHER THAN BESIDE EACH FIGURE, unlike the date and the
+   * population above. There is one report and four figures, and a pointer repeated
+   * four times is four things to edit when the path moves. The date cannot be
+   * shared that way because a record legitimately quotes several, measured on
+   * different days for different questions -- which is the trap this file's
+   * `sentences` comment records.
+   */
+  it("names the report that regenerates the figures it did not measure", () => {
+    const axis = record(ORDERING_AXIS);
+
+    expect(
+      axis,
+      `docs/adr/${ORDERING_AXIS} quotes provider-side corpus figures and never names the ` +
+        "committed report they come from.",
+    ).toContain("fixture/timeline/COVERAGE.md");
+    expect(
+      axis,
+      `docs/adr/${ORDERING_AXIS} names the report but not the command that regenerates it, so a ` +
+        "reader who finds it stale cannot refresh it.",
+    ).toContain("pnpm measure:timelines");
+  });
+
+  /**
+   * CRITERION TWO. ADR-0128 records a decision TAKEN against the archive, so
+   * relabelling a figure is a real answer here and sometimes the only honest one.
+   * What it may not do is keep the old number unlabelled beside refreshed ones,
+   * which is how one record comes to assert two populations on its own.
+   */
+  it("says so wherever it keeps a figure as the archive's", () => {
+    expect(ARCHIVE_ERA_FIGURES.length).toBeGreaterThan(1);
+
+    for (const pattern of ARCHIVE_ERA_FIGURES) {
+      const sentence = sentenceStating({ file: ORDERING_AXIS, pattern });
+
+      expect(
+        sentence,
+        `docs/adr/${ORDERING_AXIS} keeps an archive-era figure without saying it is one, so a ` +
+          `reader cannot tell it from a live count that has drifted: ${sentence}`,
+      ).toMatch(/archive/i);
     }
   });
 });

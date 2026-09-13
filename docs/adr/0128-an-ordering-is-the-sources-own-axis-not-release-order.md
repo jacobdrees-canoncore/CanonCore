@@ -39,10 +39,13 @@ the ordering.
 
 CMPP's `unplaced` is "members this provider serves that THIS ordering cannot place". CNCORE-102 had
 to decide what that covers on a wiki that writes its own `== Unplaced ==`, `== Currently unplaced ==`
-and `== Awaiting placement ==` headings. CNCORE-118 measured those at **703 story bullets across
-125 pages** on 2026-09-12, under the rule CNCORE-97 stated rather than the one that shipped — so the
-figure is carried rather than re-derived, and it has moved once already (an earlier pass reported 729
-across 136). The decision turns on the count being large, not on its exact value.
+and `== Awaiting placement ==` headings. Counted 2026-09-13 over `ns 114, title starts
+Theory:Timeline, non-redirect`, the wiki's own unplaced sections hold **719 story bullets across 125
+pages**, which is `fixture/timeline/COVERAGE.md`'s row for them. That count has moved twice, and both
+of the figures it moved from are the ARCHIVE's: CNCORE-118 measured **703 story bullets across 125
+pages** on 2026-09-12, under the rule CNCORE-97 stated rather than the one that shipped, and an
+earlier pass reported 729 across 136 from a looser link regex. The decision turns on the count being
+large, not on its exact value.
 
 **Those are members with no Position.** The heading is the wiki asserting that a story belongs to
 this ordering and that it will not say where, which is `CONTEXT.md`'s **Unplaced** exactly: "a member
@@ -66,11 +69,20 @@ TITLE, so the title is the predicate; a category is told apart by its namespace 
 namespace is what the wiki uses to mean it.
 
 **BOTH HALVES ARE COUNTED, OVER THAT ONE LISTING, AND SAYING SO IS THE POINT.** `the other 776` was
-`1,240 - 464` until CNCORE-156 counted it, and a subtraction does not stop being one for being
-spelled in words. It is the dangerous kind of wrong method, too: it went on producing the RIGHT
+`1,240 - 464`, both of them the ARCHIVE's counts of 2026-09-12, until CNCORE-156 counted the two
+halves separately against the live wiki; a subtraction does not stop being one for being spelled in
+words. It is the dangerous kind of wrong method, too: it went on producing the RIGHT
 answer, because the namespace and the corpus each gained the same one page between 2026-09-12 and
 2026-09-13, so the remainder was still 776 when both of its inputs had moved. Nothing checking the
 answer could have caught it.
+
+**AND NONE OF THESE FIGURES IS THIS REPOSITORY'S TO MEASURE.** CanonCore asks the wiki nothing and
+counts nothing; every corpus figure above belongs to `provider-wiki` and is stated in its
+`fixture/timeline/COVERAGE.md`, which `pnpm measure:timelines` regenerates. That report is COMMITTED
+and reading it needs no Credential, which is what makes it the right thing to point a reader at --
+the script behind it needs the Owner's (ADR-0122), so a reader sent to the script instead could not
+check anything. They move as editors edit the wiki, so a figure here that disagrees with the report
+is this record being stale rather than the report being wrong.
 
 The general rule for a provider: **read the predicate the source actually uses to mean the thing.**
 
