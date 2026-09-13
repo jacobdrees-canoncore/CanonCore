@@ -643,9 +643,41 @@ describe.each(underTest.map((p) => [p.name, p] as const))(
         const container = participant.aContainer;
         if (container === null)
           throw new Error(`${participant.name} declares browse with no fixture`);
-        const response = await get(participant, `/browse/${encodeURIComponent(container)}`);
+        const path = `/browse/${encodeURIComponent(container)}`;
+        const response = await get(participant, path);
 
-        expect(response.status).toBe(200);
+        /*
+         * `browse` OWES THE SAME REFUSAL `search` AND `lookup` DO, and this branch
+         * is CNCORE-102's half of CNCORE-141. ADR-0122's obligation is about a
+         * provider that cannot reach ITS SOURCE, and it never said "except for
+         * browse" -- but until `provider-wiki` moved `browse` to the live wiki, no
+         * participant could demonstrate it: that operation read a file on disk, so
+         * it answered a container whatever the credential said. It answers `503`
+         * now, and a contract that still demanded `200` here would be holding the
+         * one provider that obeys ADR-0122 to breaking it.
+         *
+         * SO THE RULE IS "A CONTAINER, OR A CONFORMANT REFUSAL", AND NOTHING ELSE.
+         * What it deliberately does NOT do is check the manifest's `credential`
+         * first, the way `search` and `lookup` above do. Those read it BEFORE the
+         * call and branch on it; by the time this runs, `its credential` has
+         * unlocked every provider that declares one, so the manifest reports
+         * `valid` about a value the upstream has never seen -- and a provider can
+         * be unable to answer for reasons that are not its credential at all.
+         * `provider-wiki` answers 503 with a VALID credential when the wiki
+         * declines a query as too large, which is honest and which an assertion
+         * keyed on `credential.state` would call a contract breach.
+         *
+         * WHAT STOPS THIS BECOMING A PERMISSION TO REFUSE EVERYTHING is the same
+         * device the other operations lean on: `ADR-0122's optionality` below
+         * holds at least one participant to ANSWERING, and `provider-tmdb`
+         * declares no credential at all, so the 200 path here is exercised on
+         * every run rather than excused on every run.
+         */
+        if (response.status !== 200) {
+          expectSaysItCannotAnswer(response, path);
+          return;
+        }
+
         const browsed = browseResponse.parse(response.body);
         expect(browsed.container.id).toBe(container);
         // A container with an EMPTY ordering and no unplaced members is a browse
@@ -783,10 +815,10 @@ describe("ADR-0122's optionality", () => {
 
     expect(
       declared.filter((p) => !cannotReachItsSource(p.credential)).map((p) => p.name),
-      "Every provider under test is currently unable to reach its source, so every `search` and " +
-        "`lookup` assertion took CNCORE-141's refusal branch and nothing checked that a provider " +
-        "able to answer still owes `200` and a record. That branch is a permission for a provider " +
-        "that cannot answer, never one the whole suite may take.",
+      "Every provider under test is currently unable to reach its source, so every `search`, " +
+        "`lookup` and `browse` assertion took CNCORE-141's refusal branch and nothing checked " +
+        "that a provider able to answer still owes `200` and a record. That branch is a " +
+        "permission for a provider that cannot answer, never one the whole suite may take.",
     ).not.toHaveLength(0);
   });
 });
