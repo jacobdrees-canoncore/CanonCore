@@ -5,7 +5,7 @@ import { Input } from "@canoncore/ui/components/input";
 import { Textarea } from "@canoncore/ui/components/textarea";
 import { call } from "@orpc/server";
 import Link from "next/link";
-
+import { noPasswordSet } from "@/components/no-password";
 import { oneValue } from "@/components/query-params";
 import { Reason } from "@/components/reason";
 import { callerContext } from "@/session";
@@ -62,7 +62,18 @@ export default async function SettingsPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const context = await callerContext();
-  if (context.session === null) return <NotLoggedIn />;
+  if (context.session === null) {
+    /*
+     * AND WHETHER THERE IS A LOGIN TO OFFER AT ALL (CNCORE-146), which is a
+     * second fact and is about the INSTANCE rather than about the reader. Read
+     * INSIDE the branch because this page early-returns: the owner never
+     * reaches this line, so asking above it would be a call made to decide
+     * nothing. `session.configured` reads the setting and nothing else, so it
+     * costs no query when it IS asked.
+     */
+    const { password } = await call(appRouter.session.configured, undefined, { context });
+    return <NotLoggedIn aPasswordIsSet={password} />;
+  }
 
   const { providers, allowlist } = await call(appRouter.settings.read, {}, { context });
   const refused = oneValue((await searchParams).refused);
@@ -403,22 +414,36 @@ function UnlockAt({ reach }: { reach: Reach }) {
 }
 
 /**
- * ADR-0044's visitor, who is told where the door is and nothing else.
+ * ADR-0044's visitor, who is told where the door is -- or that there is no door
+ * (CNCORE-146).
+ *
+ * "SO THIS PAGE ASKS YOU TO BE THEM FIRST" IS A STEP ON ONE INSTANCE AND AN
+ * IMPOSSIBILITY ON ANOTHER. Where an `OWNER_PASSWORD` is set this reader may BE
+ * the owner and simply not have used it, and the login is the step they can
+ * take. Where none is set, `session.logIn` refuses every password and nobody
+ * obtains a session INCLUDING the owner -- so asking them to be the owner first
+ * asks for something no password on earth would buy, and the link went to a page
+ * that renders no form. ADR-0094 settles the shape under "SO THE LIST IS
+ * RENDERED FOR A SESSION".
  *
  * NO LIST AND NO ALLOWLIST, NOT EVEN EMPTY ONES. "This instance reaches nothing"
  * and "you are not the person who may ask" are different sentences, and only the
  * second is true here -- and the first would hand a stranger the shape of
  * somebody else's network.
  */
-/*
- * TODO(CNCORE-146): AND IT OFFERS THAT LOGIN WITHOUT READING WHETHER THERE IS
- * ONE. This renders off the SESSION alone, so on ADR-0044's read-only instance
- * -- no `OWNER_PASSWORD`, every password refused -- it is a door with no key cut
- * for it, and `/login` renders no form there. The empty state, the header and
- * `/new` read `session.configured` beside the session for this (ADR-0094);
- * these four surfaces are one pass of their own.
- */
-function NotLoggedIn() {
+function NotLoggedIn({ aPasswordIsSet }: { aPasswordIsSet: boolean }) {
+  if (!aPasswordIsSet) {
+    return (
+      <main className="container mx-auto max-w-2xl px-4 py-8">
+        <h1 className="text-3xl font-medium">Settings</h1>
+        <p className="mt-2 text-muted-foreground text-sm">
+          What an instance is configured to reach is its owner's own business.{" "}
+          {noPasswordSet("changed")}
+        </p>
+      </main>
+    );
+  }
+
   return (
     <main className="container mx-auto max-w-2xl px-4 py-8">
       <h1 className="text-3xl font-medium">Settings</h1>

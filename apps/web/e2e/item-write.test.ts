@@ -333,16 +333,18 @@ describe("what a visitor is offered", () => {
     expect(status).toBe(200);
     expect(() => sectionIn(text, "new-item")).toThrow();
     /*
-     * THE PAGE'S OWN REFUSAL, NOT THE DOCUMENT (CNCORE-144). This read
-     * `text` for the words `Log in` until the header started offering exactly
-     * those to exactly this reader (CNCORE-139) -- so the assertion went on
-     * passing while asserting the shell, and would have passed against a `/new`
-     * that offered nothing at all. What is claimed here is that the page still
-     * names the step this reader can take, and `who-can-add` is where it names
-     * it. Whether a login is offered AT ALL turns on a second fact this
-     * instance cannot vary; `new-page.test.ts` asks both instances that.
+     * AND SOMETHING STANDS WHERE THE FORM WOULD, which is the other half of
+     * "refuses outright rather than rendering a form": a page that dropped both
+     * would refuse by saying nothing at all.
+     *
+     * IT READ `text` FOR THE WORDS `Log in` UNTIL CNCORE-144. The header began
+     * offering exactly those to exactly this reader in CNCORE-139, so the
+     * assertion went on passing while reading the shell, and would have passed
+     * against a `/new` that offered nothing. WHAT the refusal says is not
+     * asserted here either: it turns on a second fact this instance cannot
+     * vary, and `new-page.test.ts` puts that to both instances.
      */
-    expect(sectionIn(text, "who-can-add")).toContain('href="/login"');
+    expect(() => sectionIn(text, "who-can-add")).not.toThrow();
   });
 });
 

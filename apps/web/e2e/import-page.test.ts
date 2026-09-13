@@ -769,3 +769,66 @@ describe("/import, when the provider refuses", () => {
     }
   });
 });
+
+/**
+ * WHETHER THIS SURFACE OFFERS A LOGIN IT CANNOT HONOUR (CNCORE-146).
+ *
+ * `/import` DOES NOT HIDE ITSELF, ONLY ITS BUTTONS (ADR-0044, ADR-0072): a
+ * visitor still searches the providers and still reads what a container holds,
+ * and `LogIn` stands where each control would. That notice linked `/login`
+ * without reading whether this instance HAS one, so on ADR-0044's read-only
+ * demo it was a door with no key cut for it, repeated once per control down the
+ * whole page.
+ *
+ * AND THE PER-CONTROL HALF OF THAT FIX HAS NO INSTANCE TO BE READ ON, WHICH IS
+ * NAMED HERE RATHER THAN LEFT TO BE DISCOVERED. `LogIn` renders only where
+ * there is a control to stand in for -- a candidate row, or a named container
+ * -- and both need a provider this instance is configured to reach. The only
+ * server in this suite with NO owner password is the fresh install, whose whole
+ * fixture is that it reaches nothing and holds nothing, so it renders no
+ * control and therefore no notice. An eleventh server would recover it and
+ * ADR-0104 refuses one: a single run of this suite already peaks at about the
+ * whole of a default PostgreSQL connection budget. So what is asserted below is
+ * the PAGE-LEVEL notice, which does render there; what is not is the sentence
+ * beside a control that no read-only instance here can have. ADR-0094 records
+ * the same shape for the empty state's own missing half.
+ */
+describe("/import, on an instance nobody can log in to", () => {
+  it("says which silence that is, rather than leaving a reader to look for a way in", async () => {
+    const { status, text } = await documentFrom(freshBaseUrl, "/import");
+
+    expect(status).toBe(200);
+    // THE WHOLE DOCUMENT FOR THE NEGATIVE, which is a real assertion on this
+    // instance: the header offers no login here either (CNCORE-139).
+    expect(text).not.toContain('href="/login"');
+    // AND THE PAGE SAYS SO ONCE, AT THE TOP, rather than per control. A reader
+    // told only "only the owner can import", beside every button, still has to
+    // work out for themselves that becoming the owner is not on offer here.
+    expect(sectionIn(text, "no-login").toLowerCase()).toContain("no password set");
+  });
+});
+
+describe("/import, to a reader with no session on an instance that has a password", () => {
+  it("still offers the login where a control would be", async () => {
+    // The answer the fix must not cost, and the one that made this page's
+    // notice worth having: this reader may BE the owner and simply not have
+    // used the password yet.
+    const { status, text } = await documentFrom(baseUrl, searching(providerSearch.query));
+
+    expect(status).toBe(200);
+    // THE ROW, NOT THE DOCUMENT, for the reason the search assertions above
+    // give and one more since CNCORE-139: the header offers this reader a login
+    // on every page of this instance, so the document carries one whatever the
+    // row does.
+    expect(rowTitled(text, providerSearch.held)).toContain('href="/login"');
+  });
+
+  it("says nothing about a password that is set", async () => {
+    // The notice above is the read-only instance's alone. On an instance with a
+    // password, "nobody can log in" is false and the login beside each control
+    // is the true answer.
+    const { text } = await documentFrom(baseUrl, "/import");
+
+    expect(() => sectionIn(text, "no-login")).toThrow();
+  });
+});

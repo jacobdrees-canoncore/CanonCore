@@ -6,6 +6,7 @@ import {
   documentFrom,
   formIn,
   logInAt,
+  mainOf,
   postFormsIn,
   type RenderedForm,
   sectionIn,
@@ -32,6 +33,12 @@ import {
  */
 const baseUrl = inject("configurableBaseUrl");
 const ownerPassword = inject("ownerPassword");
+/**
+ * ADR-0044's read-only instance, which sets no `OWNER_PASSWORD`: every password
+ * is refused, so nobody obtains a session INCLUDING the owner. This page is the
+ * owner's whole, so on that instance it is a refusal nobody can ever lift.
+ */
+const freshBaseUrl = inject("freshBaseUrl");
 
 /** Every Provider the page names, read off the rows it renders. */
 function providersIn(text: string): string[] {
@@ -586,5 +593,37 @@ describe("/settings, unlocking a provider", () => {
     // The state it declared still renders: the Provider is up, and what it says
     // about itself is still worth reading.
     expect(row.toLowerCase()).toContain("not been unlocked");
+  });
+});
+
+describe("/settings, on an instance nobody can log in to", () => {
+  it("offers no login, and says which silence that is", async () => {
+    // ADR-0044's read-only instance, which sets no `OWNER_PASSWORD`: every
+    // password is refused, so nobody obtains a session INCLUDING the owner.
+    // "Be them first" is a step on an instance with a password and an
+    // impossibility on one without, and the link went to a page that renders no
+    // form for exactly that reason.
+    const { status, text } = await documentFrom(freshBaseUrl, "/settings");
+
+    expect(status).toBe(200);
+    // THE WHOLE DOCUMENT FOR THE NEGATIVE, which is a real assertion on this
+    // instance: the header offers no login here either (CNCORE-139), so nothing
+    // on this page may link one.
+    expect(text).not.toContain('href="/login"');
+    expect(mainOf(text).toLowerCase()).toContain("no password set");
+  });
+});
+
+describe("/settings, to a reader with no session on an instance that has a password", () => {
+  it("still names the step that would make them the owner", async () => {
+    // The answer the fix must not cost. This reader may BE the owner and simply
+    // not have used the password yet.
+    const { status, text } = await documentFrom(baseUrl, "/settings");
+
+    expect(status).toBe(200);
+    // READ OFF THE PAGE, NOT THE DOCUMENT: the header offers this reader a
+    // login on every page of this instance, so a document-wide check would pass
+    // against a page that had gone silent inside a shell that had not.
+    expect(mainOf(text)).toContain('href="/login"');
   });
 });

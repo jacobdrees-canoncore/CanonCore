@@ -102,8 +102,9 @@ instance at all**, which CNCORE-133 below both caused and accounts for.
 **AND THE ROUTES ARE THE OWNER'S, WHICH IS THE READER THIS RECORD NEVER NAMED (CNCORE-133).** Both
 routes end at a surface behind a session: `/new` answers a visitor "Only the owner of this catalogue
 can add to it" — on an instance that has a password, which is the qualifier CNCORE-144 below had to
-add to this sentence — and `/import` renders with every button disabled (ADR-0044). The front page read the
-catalogue and the allowlist and nothing about WHO WAS ASKING, so it told every reader to do two
+add to this sentence — and `/import` renders with every button disabled (ADR-0044). The front page
+read the catalogue and the allowlist and nothing about WHO WAS ASKING, so it told every reader to do
+two
 things and most of them were refused on arrival — and on an instance that sets no `OWNER_PASSWORD`
 there was not even a login to take, because that is ADR-0044's read-only instance where nobody can
 log in including the owner. Two reviewers of CNCORE-131's PR named it independently.
@@ -159,36 +160,58 @@ change removes: `New item` in the nav, followed to `/new`, which answers a calle
 "Only the owner of this catalogue can add to it" and — on an instance that has a password, which is
 the only instance this gap can exist on — offers the login itself. Thinning the nav takes
 that path away, and the empty state's own login goes with the first Item, so a header that offered
-nothing in their place would leave the owner of a filled catalogue reaching `/login` by typing it. A reader on an instance with NO password is offered neither, for the reason nothing
-else offers that reader a login either: nobody can log in there, the owner included.
+nothing in their place would leave the owner of a filled catalogue reaching `/login` by typing it.
+A reader on an instance with NO password is offered neither, for the reason nothing else offers
+that reader a login either: nobody can log in there, the owner included.
 
-**AND `/new` IS THE THIRD SURFACE THAT ANSWERS IT, WHICH IS THE ONE THIS RECORD HAD BEEN QUOTING
-RATHER THAN COUNTING (CNCORE-144).** It now reads `session.configured` and gives the same three
-answers off the same two facts as the empty state and the header: the owner gets the form, a reader
-with no session on an instance that HAS a password gets the refusal and `/login`, and a reader on an
-instance with NONE gets the refusal and no link — in the words `/login` uses, which is the sentence
-the empty state already borrowed. Until then it rendered off the SESSION alone, so ADR-0044's
-read-only instance offered every reader a door with no key cut for it, and following it landed on
-the one page that says so.
+**AND EVERY SURFACE THAT OFFERS A LOGIN NOW READS WHETHER THERE IS ONE, WHICH IS SEVEN RATHER THAN
+TWO (CNCORE-144, CNCORE-146).** `/new`, `/import`, `/tasks`, `/settings` and `/devices` each
+rendered their refusal off the SESSION alone, so on ADR-0044's read-only instance each offered a
+door with no key cut for it and following it landed on the one page that says nobody can. They read
+`session.configured` beside the session now, and answer as the empty state and the header do: the
+owner gets the surface, a reader with no session on an instance that HAS a password gets the refusal
+and `/login`, and a reader on an instance with NONE gets the refusal and no link. With `/login`
+itself, which refuses to render a form there, that is every surface in the app that has anything to
+say about logging in.
 
-**IT SURVIVED TWO TICKETS BECAUSE BOTH CITED IT AS EVIDENCE FOR GATING SOMETHING ELSE.** The
+**THE SENTENCE THEY SAY IT WITH IS ONE SENTENCE NOW, AND THE REASON IS A DRIFT THIS RECORD
+CONTAINED.** The paragraph above said the empty state speaks "in the words `/login` uses for the
+same fact". It does not: `/login` says "nothing can be CHANGED through it" and the empty state says
+"ADDED". Both are right where they are — one is about an instance, the other about filling a
+catalogue — but three places claimed a sentence matched another surface's while it did not, this
+record among them, and CNCORE-144's first draft of `/new` made the same claim a fourth time. Seven
+copies of a sentence is what made that possible, so the clause every surface really does share lives
+in `apps/web/src/components/no-password.ts` and the verb is its argument. What cannot drift now is
+the part that was being claimed.
+
+**IT SURVIVED TWO TICKETS BECAUSE BOTH CITED `/new` AS EVIDENCE FOR GATING SOMETHING ELSE.** The
 paragraphs above quote "`/new` answers a visitor ..." twice — CNCORE-133 to show that the empty
 state's routes end behind a session, CNCORE-139 to show that a path to `/login` already existed —
 and a surface quoted as the fixed point is not one anybody re-reads. Both quotations were true of
 the instance each argument was about and neither was true of all of them, which is why the fix is
 the qualifier now standing in both sentences rather than a correction to either argument. The
-lesson for this record is narrower than "check the citations": a claim about what another surface
-SAYS is a claim about that surface's current code, and it ages the moment that surface grows a
-second answer.
+lesson is narrower than "check the citations": a claim about what another surface SAYS is a claim
+about that surface's current code, and it ages the moment that surface grows a second answer.
 
-**ASSERTED ON BOTH INSTANCES, AT THE SEAM THE OTHER TWO USE.** `apps/web/e2e/new-page.test.ts` asks
-the fresh install for `/new` and refuses any `href="/login"` in the document — the header offers
-none there either, so nothing on that page may — and asks the seeded instance for the same page to
-hold the answer where a password IS set. That second reading is scoped to the refusal's own
-`who-can-add` section rather than to the document, because since CNCORE-139 the header carries that
-same link on every page of that instance: a document-wide check would pass against a `/new` that had
-gone silent inside a shell that had not. The owner's answer stays where it is used, in
-`item-write.test.ts`, which reads the form off this page and submits it.
+**ASSERTED ON BOTH INSTANCES, AT THE SEAM THE OTHER TWO USE.** `new-page.test.ts`,
+`import-page.test.ts`, `tasks-page.test.ts`, `settings-page.test.ts` and `devices-page.test.ts` each
+ask the fresh install for their page and refuse any `href="/login"` in the document — the header
+offers none there either, so nothing on those pages may — and ask an instance that HAS a password
+for the same page to hold the answer that must not be lost. That second reading is scoped to the
+page's own content rather than to the document, by `mainOf` or by the refusal's own section: since
+CNCORE-139 the header carries that same link on every page of such an instance, so a document-wide
+check would pass against a page that had gone silent inside a shell that had not. It is the mistake
+`item-write.test.ts` was already making, found while fixing this.
+
+**ONE HALF OF `/import` HAS NO INSTANCE, AND IS NAMED RATHER THAN LEFT TO BE DISCOVERED.** That page
+does not hide its surface, only its buttons (ADR-0072), so a notice stands where each control would
+— and a notice only renders where there is a control, which needs a provider this instance is
+configured to reach. The only server in the suite with no owner password is the fresh install, whose
+whole fixture is that it reaches nothing, so the per-control sentence has nowhere to be read. An
+eleventh server would recover it and ADR-0104 refuses one, for the connection budget this record
+already cites above. What IS asserted there is the page-level notice, which that instance does
+render: `/import` says once, at the top, that nobody can log in — because a reader told only "only
+the owner can import" beside every button is still left looking for the way to become one.
 
 **WHAT IT COSTS IS STATED IN ADR-0117 RATHER THAN HERE**, because it is that record's subject: the
 shell reads the caller on every page, so every route renders per request, and `/_not-found` is the

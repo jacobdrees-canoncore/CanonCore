@@ -6,6 +6,7 @@ import { call } from "@orpc/server";
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { noPasswordSet } from "@/components/no-password";
 import { callerContext } from "@/session";
 
 import { createItem } from "../items/actions";
@@ -67,7 +68,7 @@ export default async function NewItemPage() {
    * reader of this function can see both facts arrive together is worth more
    * than a call that was never the cost.
    */
-  const [{ kinds }, instance] = await Promise.all([
+  const [{ kinds }, { password: aPasswordIsSet }] = await Promise.all([
     call(appRouter.item.kinds, undefined, { context }),
     call(appRouter.session.configured, undefined, { context }),
   ]);
@@ -80,7 +81,7 @@ export default async function NewItemPage() {
         has ever heard of it.
       </p>
       {context.session === null ? (
-        <NotYours aPasswordIsSet={instance.password} />
+        <WhoCanAdd aPasswordIsSet={aPasswordIsSet} />
       ) : (
         <NewItemForm kinds={kinds} />
       )}
@@ -91,6 +92,12 @@ export default async function NewItemPage() {
 /**
  * WHAT A READER WITH NO SESSION IS TOLD, WHICH IS TWO ANSWERS RATHER THAN ONE
  * (CNCORE-144).
+ *
+ * NAMED FOR THE QUESTION IT ANSWERS rather than for the one case it used to
+ * have. It was `NotYours`, which describes the reader on an instance that has an
+ * owner to belong to and not the reader on one where nobody can become one --
+ * and `WhoFillsIt` on the front page is the same question asked of the same two
+ * facts, so the two now read as the pair they are.
  *
  * NO FORM AT ALL RATHER THAN A DISABLED ONE. With no script loaded a Server
  * Action that throws renders a bare `Internal Server Error`, so an offer this
@@ -117,7 +124,7 @@ export default async function NewItemPage() {
  * branched on. Named for what the INSTANCE HAS, it cannot be confused with what
  * the reader has done.
  */
-function NotYours({ aPasswordIsSet }: { aPasswordIsSet: boolean }) {
+function WhoCanAdd({ aPasswordIsSet }: { aPasswordIsSet: boolean }) {
   return (
     /*
       A LABELLED SECTION, WHICH IS WHAT THE FORM BESIDE IT ALREADY IS. It is
@@ -146,16 +153,21 @@ function NotYours({ aPasswordIsSet }: { aPasswordIsSet: boolean }) {
         </p>
       ) : (
         /*
-          THE WORDS `/login` USES FOR THE SAME FACT, deliberately rather than a
-          second phrasing of it. A reader who followed a link from here would
-          read that page's sentence; a reader who is offered no link should not
-          have to wonder whether this instance is broken or whether they are
-          missing a button. The empty state on `/` says it this way too.
+          ONE SENTENCE FOR ONE FACT, shared rather than copied -- see
+          `no-password.ts`, which carries why. A reader offered no link should
+          not have to wonder whether this instance is broken or whether they are
+          missing a button, and every surface that tells them so should be
+          telling them the same thing.
+
+          THIS PARAGRAPH FIRST SAID "the words `/login` uses", WHICH WAS FALSE.
+          That page says "nothing can be CHANGED through it"; the sentence
+          actually borrowed was the empty state's, which says "added" -- the
+          right word for a page about filling a catalogue, and the wrong claim
+          about where it came from. Review caught it in the diff that wrote it,
+          which is the same defect as the ticket's own: a claim about another
+          surface's copy, made without reading that surface.
         */
-        <p className="text-sm">
-          This instance has no password set, so nobody can log in and nothing can be added through
-          it.
-        </p>
+        <p className="text-sm">{noPasswordSet("added")}</p>
       )}
     </section>
   );

@@ -10,8 +10,10 @@ import { documentFrom, sectionIn } from "./document";
  * HEADER, which ADR-0094 settles under "SO THE LIST IS RENDERED FOR A SESSION":
  * the owner gets the form, a reader with no session on an instance that HAS a
  * password gets the refusal and the login, and a reader on an instance with
- * NONE gets the refusal and no login. This file is the third surface to be
- * asked, beside `header.test.ts` and `front-page.test.ts`.
+ * NONE gets the refusal and no login. Five surfaces answer it that way since
+ * CNCORE-146 — this one, `/import`, `/tasks`, `/settings` and `/devices` — and
+ * each is asked in its own file, beside `header.test.ts` and
+ * `front-page.test.ts` which ask the two that already did.
  *
  * TWO INSTANCES, BECAUSE THE SECOND FACT IS ABOUT THE INSTANCE. Nothing on one
  * server can distinguish "no password is set" from "this reader has not used
@@ -44,10 +46,13 @@ describe("/new, on an instance nobody can log in to", () => {
     // header offers no login here either (CNCORE-139), so nothing on this page
     // may link one and a narrower reading would assert less than the criterion.
     expect(text).not.toContain('href="/login"');
-    // AND IT SAYS WHICH OF THE TWO SILENCES THIS IS, in the words `/login` and
-    // the empty state both use for the same fact, rather than leaving a reader
-    // to wonder whether they are missing a button.
-    expect(text.toLowerCase()).toContain("no password");
+    // AND IT SAYS WHICH OF THE TWO SILENCES THIS IS, rather than leaving a
+    // reader to wonder whether they are missing a button. Read off the page's
+    // own refusal like the seeded case below, NOT off the document: `/new` is
+    // the only surface here that emits those words today, so a document-wide
+    // check would pass against a page that had dropped the section entirely or
+    // moved the sentence out of it, and pin the claim to nothing.
+    expect(sectionIn(text, "who-can-add").toLowerCase()).toContain("no password");
   });
 });
 

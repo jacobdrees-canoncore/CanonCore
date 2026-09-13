@@ -1,6 +1,6 @@
 import { describe, expect, inject, it } from "vitest";
 
-import { documentFrom, logInAt, postFormsIn, sectionIn, submit } from "./document";
+import { documentFrom, logInAt, mainOf, postFormsIn, sectionIn, submit } from "./document";
 
 /**
  * ADR-0049's VISIBLE registry, over real HTTP (CNCORE-119).
@@ -15,6 +15,12 @@ import { documentFrom, logInAt, postFormsIn, sectionIn, submit } from "./documen
  */
 const baseUrl = inject("baseUrl");
 const ownerPassword = inject("ownerPassword");
+/**
+ * ADR-0044's read-only instance, which sets no `OWNER_PASSWORD`: every password
+ * is refused, so nobody obtains a session INCLUDING the owner. This page is the
+ * owner's whole, so on that instance it is a refusal nobody can ever lift.
+ */
+const freshBaseUrl = inject("freshBaseUrl");
 
 describe("/tasks", () => {
   it("shows the owner what this instance runs, and when it is due", async () => {
@@ -145,5 +151,37 @@ describe("/tasks", () => {
     expect(status).toBe(200);
     expect(() => sectionIn(text, "tasks")).toThrow();
     expect(text).toContain("/login");
+  });
+});
+
+describe("/tasks, on an instance nobody can log in to", () => {
+  it("offers no login, and says which silence that is", async () => {
+    // "This page asks you to be them first" is a step on an instance with a
+    // password and an impossibility on one without: nobody can become the owner
+    // there, so a reader told to be them first is being asked for something no
+    // password on earth would buy. `/login` renders no form there, which is
+    // where following the link landed them.
+    const { status, text } = await documentFrom(freshBaseUrl, "/tasks");
+
+    expect(status).toBe(200);
+    // THE WHOLE DOCUMENT FOR THE NEGATIVE, which is a real assertion on this
+    // instance: the header offers no login here either (CNCORE-139), so nothing
+    // on this page may link one.
+    expect(text).not.toContain('href="/login"');
+    expect(mainOf(text).toLowerCase()).toContain("no password set");
+  });
+});
+
+describe("/tasks, to a reader with no session on an instance that has a password", () => {
+  it("still names the step that would make them the owner", async () => {
+    // The answer the fix must not cost. This reader may BE the owner and simply
+    // not have used the password yet, and the login is the step they can take.
+    const { status, text } = await documentFrom(baseUrl, "/tasks");
+
+    expect(status).toBe(200);
+    // READ OFF THE PAGE, NOT THE DOCUMENT: the header offers this reader a
+    // login on every page of this instance, so a document-wide check would pass
+    // against a page that had gone silent inside a shell that had not.
+    expect(mainOf(text)).toContain('href="/login"');
   });
 });

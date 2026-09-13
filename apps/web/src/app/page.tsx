@@ -11,6 +11,7 @@ import { call } from "@orpc/server";
 import Link from "next/link";
 import { connection } from "next/server";
 import { Holding, Listing, PastTheEnd, Walk } from "@/components/listing";
+import { noPasswordSet } from "@/components/no-password";
 import { oneValue } from "@/components/query-params";
 import { callerContext } from "@/session";
 
@@ -395,9 +396,5 @@ function WhoFillsIt({ aPasswordIsSet, owner }: { aPasswordIsSet: boolean; owner:
         if that is you.
       </>
     );
-  return (
-    <>
-      This instance has no password set, so nobody can log in and nothing can be added through it.
-    </>
-  );
+  return <>{noPasswordSet("added")}</>;
 }
