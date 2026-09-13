@@ -28,22 +28,6 @@ const GATE = "@canoncore/config/testing/install-network-gate";
  */
 const GATE_IN_GLOBAL_SETUP = "@canoncore/config/testing/gate-global-setup";
 
-/**
- * THE ONE SUITE THAT MAY REACH THE REAL INTERNET, NAMED RATHER THAN SKIPPED.
- *
- * `apps/web`'s live check stands the whole app up against the REAL `provider-wiki`
- * talking to the REAL wiki, which is how CNCORE-151 was found and how ADR-0130's
- * cap was measured. Reaching the internet is the entire point of that file rather
- * than an accident to refuse, and it cannot run in CI at all: it needs the Owner's
- * Credential, which no CI job holds (ADR-0122).
- *
- * IT IS ASSERTED RATHER THAN FILTERED OUT OF THE SWEEP, which is the difference
- * between an exemption and a hole. A suite quietly excluded is a suite nobody
- * notices losing its gate; this one is REQUIRED to be ungated, so the assertion
- * below fails both if it ever gains a gate and if a SECOND suite joins it here.
- */
-const MAY_REACH_THE_INTERNET = "web: test:live";
-
 type Manifest = { name?: string; scripts?: Record<string, string> };
 
 // Only the `<name>/*` shape this repo uses. A pattern of any other shape is not
@@ -254,6 +238,26 @@ function asList(declared: string | string[] | undefined): string[] {
   return typeof declared === "string" ? [declared] : declared;
 }
 
+/**
+ * THE ONE SUITE THAT MUST REACH THE REAL INTERNET, NAMED HERE SO IT IS AN EXCEPTION
+ * RATHER THAN A HOLE (CNCORE-103).
+ *
+ * `apps/web`'s `test:live` stands CanonCore up against the REAL `provider-wiki` talking to
+ * the REAL tardis.wiki, which is the only way the live import path gets proven at all: the
+ * e2e suite's provider is a stub, and CI's real-provider job never reached one
+ * (CNCORE-143). A gate over it would refuse the single request the suite exists to make.
+ *
+ * IT IS A LIST OF ONE AND IT IS CHECKED, which is the difference between an exception and a
+ * hole. The test below asserts that every excused suite still EXISTS, so deleting or
+ * renaming `test:live` fails here rather than leaving a permanent excuse for a suite nobody
+ * runs -- and any OTHER suite dropping the gate still fails, because it is not on this list.
+ *
+ * IT CANNOT RUN IN CI ANYWAY. `test:live` needs the Owner's Credential (ADR-0122), so it is
+ * not in `test:e2e` and no CI job invokes it; the gate is protecting CI from an accident
+ * this suite cannot have there.
+ */
+const MAY_REACH_THE_INTERNET = ["web: test:live"];
+
 describe("the network gate's wiring", () => {
   /**
    * WHAT MAKES THE TWO ASSERTIONS BELOW REACH THE REPOSITORY, and CNCORE-46's
@@ -289,21 +293,29 @@ describe("the network gate's wiring", () => {
     // parse into packages produces an empty list and passes having asked
     // nothing. Twelve suites today: nine `test` scripts, `apps/web`'s end-to-end
     // run, `packages/contract`'s contract run -- which joined the sweep under
-    // CNCORE-46 -- and `apps/web`'s live run, which joined it under CNCORE-151
-    // as the one suite `MAY_REACH_THE_INTERNET` exempts.
+    // CNCORE-46 -- and `apps/web`'s live run, which `MAY_REACH_THE_INTERNET`
+    // excuses and the test below holds to existing.
     expect(found.length).toBeGreaterThanOrEqual(12);
 
     const open = [];
     for (const suite of found) {
+      const name = `${suite.package}: ${suite.script}`;
+      if (MAY_REACH_THE_INTERNET.includes(name)) continue;
       const declared = asList((await testConfig(suite)).setupFiles);
-      if (!declared.includes(GATE)) open.push(`${suite.package}: ${suite.script}`);
+      if (!declared.includes(GATE)) open.push(name);
     }
-    // EXACTLY THE ONE EXEMPTION, which is what makes this an allowlist rather
-    // than a subtraction. A twelfth suite dropping its gate lands in this list
-    // beside the named one and fails; the live suite GAINING a gate empties the
-    // list and fails; and the live suite being deleted or renamed empties it too,
-    // so the excuse cannot outlive the suite it excuses.
-    expect(open).toStrictEqual([MAY_REACH_THE_INTERNET]);
+    expect(open).toStrictEqual([]);
+  });
+
+  /**
+   * THE EXCUSE LIST IS ITSELF SWEPT, which is what stops it rotting into a hole. An entry
+   * naming a suite that no longer exists is an excuse nothing is using and nobody would
+   * notice -- and the next suite to take that name would inherit it silently.
+   */
+  it("excuses only suites that exist", () => {
+    const names = suites().map((suite) => `${suite.package}: ${suite.script}`);
+    const stale = MAY_REACH_THE_INTERNET.filter((excused) => !names.includes(excused));
+    expect(stale).toStrictEqual([]);
   });
 
   /**

@@ -4,12 +4,19 @@ status: accepted
 
 # The archive stays outside every repo; a named fixture goes in the provider's
 
-The 1.8GB DuckDB archive is queried, never vendored. Tests in CI run against a small deterministic
-extract chosen for the invariants it proves, and the rows are NAMED rather than described — *The
-Daleks' Master Plan*, five of twelve parts with no animation ever made, is not "a serial with missing
-parts", it is the row that makes coverage-as-a-set unavoidable.
+> **THE ARCHIVE IS DELETED. ADR-0129 SUPERSEDES THIS RECORD'S FIRST HALF, 2026-09-13.** There is no
+> `~/tardis-pipeline` to query any more: `provider-wiki` asks the LIVE wiki, and every figure below
+> was re-derived from it on 2026-09-13 by `pnpm measure:live`. THE SECOND HALF STANDS UNCHANGED and
+> is still binding — the fixture is committed as readable SQL, the rows are NAMED, and CI needs
+> nothing bigger. Read "the archive" below as "the wiki", and the figures as measurements of a
+> source that moves.
 
-Anything needing the full archive is a local-only check, never a CI gate.
+The wiki is queried, never vendored. Tests in CI run against a small deterministic extract chosen
+for the invariants it proves, and the rows are NAMED rather than described — *The Daleks' Master
+Plan*, five of twelve parts with no animation ever made, is not "a serial with missing parts", it is
+the row that makes coverage-as-a-set unavoidable.
+
+Anything needing the whole corpus is a local-only check, never a CI gate.
 
 The archive is a stress test and never a source of requirements. Its text is under the Creative
 Commons Attribution-Share Alike License 3.0 (Unported), so anything derived from it that is ever
@@ -88,16 +95,33 @@ that can hand the id back changed. So ADR-0069's provider hands the id over besi
 it survives the common case and the name survives nothing — and the residue, the case neither
 survives, is a third reason the bytes get stored rather than referenced.
 
-## The archive, measured
+## The wiki, measured
 
-`data/db/tardis.duckdb`: pages 373,513 · stories 11,285 · redirects 36,620 · `page_properties`
-518,768 (Semantic MediaWiki triples) · `page_categories` 522,385 · `page_links` 4,500,016 ·
-`story_summary` 11,285 rows carrying medium, release date, series and writers.
+**RE-MEASURED LIVE ON 2026-09-13 (CNCORE-103).** The archive-era figures beside each one were taken
+2026-09-10 from a corpus frozen 2026-09-04, and they are kept because agreeing to within a rounding
+point across nine months of wiki edits is itself the evidence that the live path measures the same
+thing.
 
-What it is known to contain, as a sizing guide for what the model must survive: 93.4% of its stories
-sit in more than one container, median 4 and maximum 52; its category graph is a cyclic DAG 22
-levels deep with 28 categories genuinely ON a cycle; 715 distinct properties of which only 45 exceed
-a thousand rows; and no property is ever both a link and a literal across 518,768 rows
+**11,297 stories** — a page transcluding `Template:Infobox Story SMW`, in ns 0, not a redirect. The
+template has 11,410 transclusions of which 113 are redirects. (Archive: 11,285.)
+
+As a sizing guide for what the model must survive:
+
+- **96.8% of stories sit in more than one container** — 10,938 of 11,297, median 4, **maximum 52** —
+  counting only the categories the wiki shows a reader. Counting hidden maintenance categories too
+  it is 97.4% and the maximum is 53. (Archive: 93.4%, median 4, maximum 52.) **The filter is half
+  the claim here and the two answers are a point apart**, because a wiki category is two things
+  wearing one name: `Stories set in London` is a container and `Articles needing citation` is a
+  maintenance tag on the article, and both are rows in `categorylinks`.
+- **The category graph is cyclic and 22 levels deep** — BFS downward from its 29 roots, 0-based —
+  across 28,759 categories and 45,569 child-to-parent edges, of which 13,229 categories sit under
+  more than one parent. (Archive: cyclic, 22 levels, 28 categories on a cycle. The cycle COUNT is
+  not restated: this pass counted the nodes a back edge points at, which is a different question
+  from membership of a non-trivial strongly connected component, and two numbers from two
+  definitions do not belong in one sentence.)
+- **206,907 Semantic MediaWiki triples over 559 distinct properties, on the story pages alone.**
+  (Archive: 518,768 triples over 715 properties, CORPUS-WIDE. A third of the pages carry most of
+  the interest, and the two figures are different populations rather than a drift.)
 (ADR-0012).
 
 ## The named rows
@@ -151,8 +175,16 @@ fraction of it — coverage as a set.
 ratios, and their other jobs — the redirect trap and the character trap — re-home onto new Who and
 are done better there.
 
-Across the archive 27 stories carry missing episodes, 14 have an animated replacement, and 11
-serials are completely missing.
+**Re-measured live 2026-09-13: 27 stories carry missing episodes** (`Category:Stories with missing
+episodes`, its 28 ns-0 pages less the one sandbox page that is not a story) **and 15 have an
+animated replacement** (`Category:Animated missing episodes`, less `The Web of Fear Teaser`, which
+is not in the story population). The archive gave 27 and 14 on 2026-09-10.
+
+**"11 serials are completely missing" IS NOT RE-DERIVED AND IS LEFT AS AN ARCHIVE-ERA FIGURE.** The
+wiki has no category that states it — `Category:Missing episodes` holds five real-world pages and
+no stories — so re-deriving it needs per-episode survival, which no property or category carries and
+which this record already says is held as prose. It is flagged rather than quietly re-pointed,
+because a figure nobody can reproduce should say so.
 
 **NEW WHO HAS ANIMATION AND IT IS NOT THE SAME CLAIM.** *The Infinite Quest* and *Dreamland* are the
 two new Who members of `Doctor Who animated television stories`, and both were MADE as animation
@@ -231,6 +263,11 @@ file, and for the length of one ticket it is a specification for one instead.
 
 ## Evidence
 
+**EVERY FIGURE IN THIS RECORD WAS RE-DERIVED FROM THE LIVE WIKI ON 2026-09-13 (CNCORE-103) AND THE
+ARCHIVE IS DELETED (ADR-0129).** What follows is the archive-era working, kept as the history of how
+these figures were arrived at rather than as a source anyone can go back to. The paths in it point
+at nothing now.
+
 Archive figures re-measured against `~/tardis-pipeline` on 2026-09-10 and five were wrong: 7,236
 categories on a cycle was 28 (7,236 counts categories reachable DOWNWARD from a cycle node, 258x
 out); *The Daleks' Master Plan* was 3 of 12 and is 5, episodes 1 and 3 having been recovered in
@@ -269,11 +306,18 @@ arrives in CI inside the provider's container image and this repository holds no
 
 ## Evidence for the image section, under CNCORE-22
 
-**The wiki's own policy pages are the specification, and they are IN the archive.** Every quote in
-the image section was read on 2026-09-10 out of `~/tardis-pipeline/data/db/tardis.duckdb` at `ns = 4`
-rather than off the live site — Tardis:Copyrights (page 101), Tardis:Image use policy (page 101696)
-and Tardis:Plagiarism (page 17176) — so the citations are reproducible by anyone holding the archive
-and nothing had to route around the Cloudflare challenge on `tardis.wiki` to get them.
+**The wiki's own policy pages are the specification, and they are ON THE WIKI.** Every quote in
+the image section was read on 2026-09-10 out of the archive at `ns = 4` rather than off the live
+site — Tardis:Copyrights (page 101), Tardis:Image use policy (page 101696) and Tardis:Plagiarism
+(page 17176) — which at the time meant nothing had to route around the Cloudflare challenge on
+`tardis.wiki` to get them.
+
+**THAT ROUTE IS GONE AND THE PAGE IDS ARE WHAT SURVIVED IT (ADR-0129, 2026-09-13).** These
+citations are no longer reproducible by holding the archive, because nobody holds one. They are
+reproducible by READING THE THREE PAGES, which the ids above address directly and which the Owner's
+Credential reaches — and a page id survives a rename where a title does not, which is why they were
+recorded as ids in the first place. The quotes are dated, so a policy edited since would show as a
+disagreement rather than pass unnoticed.
 
 The MediaWiki claims are MediaWiki's, cited separately because they are a different mouth:
 `Manual:Page table` for a page id surviving a move but not necessarily a delete-and-restore, and
@@ -299,9 +343,19 @@ beside the corrected pair rather than only fixed. **And 38,868 minus 8,289 is no
 anything**: the populations differ, so the difference mixes redirects and non-article namespaces
 into a number that would read as "images on non-stories".
 
-108 of the 8,289 values name a file page the archive does not hold. A dangling image reference is
-ordinary rather than exceptional, which is why the provider serves the name it was given and reports
-no id rather than dropping the row.
+**Re-measured live 2026-09-13: the 11,297 stories carry 7,283 `Has image` values naming 7,234
+distinct files, and 85 of those files have no page on the wiki** — 14 because the VALUE itself is
+malformed, doubling the prefix into `File:File:...` where an editor typed `File:Foo.jpg` into a
+field the template already prefixes, and 71 with a well-formed value and no file. A dangling image
+reference is ordinary rather than exceptional, which is why the provider serves the name it was
+given and reports no id rather than dropping the row.
+
+**THE ARCHIVE'S 108 OF 8,289 IS NOT THE SAME MEASUREMENT AND MUST NOT BE READ AS ONE.** That pass
+took its population from the story DAB TERM — a title ending `(TV story)`, `(audio story)` and the
+rest — where this one takes it from the infobox transclusion. The two populations differ by more
+than the wiki moved in three days, so the drop from 8,289 to 7,283 is mostly the filter and not the
+wiki. Stated rather than reconciled, because the honest comparison is unavailable: the corpus the
+first figure was taken from is deleted.
 
 **THAT FIGURE WAS 259 UNTIL THE JOIN WAS FIXED, AND THE 151 IN BETWEEN WERE THIS RECORD CALLING
 FILES MISSING THAT THE ARCHIVE HOLDS.** A wiki filename is not merely unstable, which is the section

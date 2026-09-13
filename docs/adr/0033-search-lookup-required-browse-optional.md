@@ -219,8 +219,12 @@ handed over is the CATEGORY'S spelling rather than the calling page's — otherw
 
 Verified against source on 2026-09-10; corrections applied. Working in `docs/research/verify-adr-jellyfin.md`.
 
-The figures above were measured on 2026-09-10 against `~/tardis-pipeline/data/db/tardis.duckdb`
-opened read-only, by the query that produced them:
+**THE ARCHIVE THOSE FIGURES CAME FROM IS DELETED (ADR-0129, 2026-09-13)** and the SQL below is kept
+as the working that produced them rather than as something anyone can now run. Re-derive the live
+equivalents with `pnpm measure:live` in `provider-wiki`, which asks the wiki the same questions.
+
+The figures above were measured on 2026-09-10 against the archive opened read-only, by the query
+that produced them:
 
 ```sql
 WITH v(term) AS (SELECT unnest(['tv story', 'audio story', 'novel', 'novelisation', 'comic story',
@@ -311,11 +315,21 @@ nothing passes one, because there is one language of one archive here.
 
 ## Evidence for the image section, under CNCORE-22
 
-Measured 2026-09-10 against `~/tardis-pipeline/data/db/tardis.duckdb` opened read-only. Re-derive
-the whole set with `pnpm measure:images` in `provider-wiki`, which reads the same predicates the
-code does — `storyDabTermSql`, `fileTitleSql`, `COPYRIGHT_TAGS_SQL` — rather than a copy of them.
-That is CNCORE-23's device for the story split, applied here so these figures cannot drift from the
-rule they describe either.
+Measured 2026-09-10 against the archive opened read-only. **THE ARCHIVE AND `pnpm measure:images`
+ARE BOTH DELETED (ADR-0129, 2026-09-13): re-derive the whole set with `pnpm measure:live` in
+`provider-wiki`, which asks the LIVE wiki.** Re-measured there on 2026-09-13, the 11,297 stories
+carry 7,283 `Has image` values naming 7,234 distinct files, of which 85 have no file page — 14
+because the value doubles the `File:` prefix and 71 with a well-formed value.
+
+**THE LIVE POPULATION IS NOT THE ONE THESE FIGURES WERE TAKEN OVER.** `measure-images.ts` selected
+stories by the DAB TERM and `measure-live.ts` selects them by the infobox transclusion, so the
+counts are not a before-and-after of the same question and the older ones are not corrected by the
+newer. ADR-0057 carries that comparison in full.
+
+The intent behind the deleted script is kept: it read the same predicates the code does rather than
+a copy of them, which is CNCORE-23's device for the story split. `measure-live.ts` states the filter
+beside every count for the same reason — so a figure cannot drift from the rule it describes without
+the drift being visible.
 
 **IT DID NOT DO THAT AT FIRST, AND PUBLISHED A WRONG FIGURE BECAUSE OF IT.** The script imported the
 story predicate and then hand-wrote the file-title join and the licence vocabulary beside it, so it
@@ -654,13 +668,22 @@ the production build by posting the browse form with a container id the provider
 `Internal Server Error`: eighteen bytes of plain text, no HTML, and none of `NO_SUCH_CONTAINER`,
 `BROWSE_NOT_OFFERED` or `PROVIDER_REFUSED` anywhere in it. Declaring an error is not delivering one.
 
-**THE 500 ITSELF IS GONE SINCE CNCORE-127, AND THE PREFLIGHT IS STILL WHY.** That change made every
-Server Action read a sub-500 `ORPCError` as the answer it is, so `browseOrdering` no longer throws
-`NO_SUCH_CONTAINER` out of the POST -- the page it was posted to renders again instead. What it did
-NOT do is carry the REASON: the paragraph below is about delivering a sentence on the POST, and none
-of it changed. So the preflight remains the only thing that can say which of the three refusals was
-met, and the price argued further down is still the price of saying it rather than the price of
-avoiding a 500.
+**THE 500 IS GONE FOR `PROVIDER_REFUSED` SINCE CNCORE-149, AND FOR THE OTHER TWO IT IS STILL THERE --
+WHICH THIS PARAGRAPH GOT WRONG FOR THREE TICKETS.** It said the 500 itself was gone since CNCORE-127,
+reasoning that the change made every Server Action read a sub-500 `ORPCError` as the answer it is.
+The change is real and the conclusion does not follow: **none of these three codes IS sub-500.**
+Measured on @orpc/client 1.15.0, `fallbackORPCErrorStatus` is
+`status ?? COMMON_ORPC_ERROR_DEFS[code]?.status ?? 500`, and `NO_SUCH_CONTAINER`, `BROWSE_NOT_OFFERED` and `PROVIDER_REFUSED` are codes of this app's
+own rather than common defs -- so all three were 500s, `answer.ts` rethrew them, and `browseOrdering`
+went on answering the same eighteen bytes this section opens by measuring. Declaring an error is not
+delivering one, and neither is declaring it below where the delivery is decided. CNCORE-149 gave
+`PROVIDER_REFUSED` a `424` and ADR-0123 carries the reasoning; CNCORE-152 is the other two, with a
+TODO at the site.
+
+What CNCORE-127 did NOT do either way is carry the REASON: the paragraph below is about delivering a
+sentence on the POST, and none of it changed. So the preflight remains the only thing that can say
+which of the three refusals was met, and the price argued further down is still the price of saying
+it rather than the price of avoiding a 500.
 
 **AND TWO MECHANISMS FOR DELIVERING IT ON THE POST DO NOT EXIST.** An `error.tsx` was written and
 removed because it DOES NOT FIRE: a Server Action that throws during a form POST with no JavaScript

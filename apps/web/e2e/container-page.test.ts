@@ -1,6 +1,6 @@
 import { describe, expect, inject, it } from "vitest";
 
-import { documentAt, documentFrom, sourcesIn } from "./document";
+import { documentAt, documentFrom, sectionIn, sourcesIn } from "./document";
 
 /**
  * BROWSING INTO A CONTAINER, over real HTTP.
@@ -14,36 +14,9 @@ import { documentAt, documentFrom, sourcesIn } from "./document";
 const browsed = inject("browsed");
 const workBrowsing = inject("workBrowsing");
 
-/**
- * Just the "Members" section, so an assertion cannot match the rest of the page.
- *
- * IT TAKES THE WHOLE SECTION, NESTED ONES INCLUDED, which is a fix rather than a
- * tidy-up. It stopped at the FIRST `</section>`, and past the end of the walk
- * the listing renders `PastTheEnd` -- whose own `<section>` is nested inside
- * this one -- so everything below that notice fell outside what this returned.
- * What was hiding there was a defect: the walk rendered a second "Back to the
- * start" under the notice's own, and no assertion could see it (CNCORE-89
- * review). The end is now the LAST `</section>` before the next sibling
- * heading, which is `also-appears-in`.
- *
- * TODO(CNCORE-147): naming the neighbour is a bet on what renders next, and it is
- * the bet CNCORE-135 lost one section along -- put anything between this list and
- * "Also appears in" and this silently takes it in. `sectionOpeningAt` in
- * `item-page.test.ts` counts depth instead and needs no neighbour; that reading
- * belongs in `document.ts` serving both.
- */
-function members(text: string): string {
-  const opened = text.indexOf('aria-labelledby="members"');
-  if (opened === -1) throw new Error("the page rendered no `members` section");
-  const start = text.lastIndexOf("<section", opened);
-  const next = text.indexOf('aria-labelledby="also-appears-in"', opened);
-  const end = next === -1 ? text.length : text.lastIndexOf("<section", next);
-  return text.slice(start, end);
-}
-
 /** The rows of that list, one string each, so an assertion can ask WHICH row. */
 function memberRows(text: string): string[] {
-  return members(text).match(/<li[^>]*>.*?<\/li>/g) ?? [];
+  return sectionIn(text, "members").match(/<li[^>]*>.*?<\/li>/g) ?? [];
 }
 
 describe("/items/<a container>", () => {
@@ -84,7 +57,7 @@ describe("/items/<a container>", () => {
 
     expect(status).toBe(200);
     expect(memberRows(text).length).toBeGreaterThan(1);
-    expect(members(text)).toContain(browsed.title);
+    expect(sectionIn(text, "members")).toContain(browsed.title);
   });
 
   it("shows a member it cannot place as unplaced, rather than hiding or ordering it", async () => {
@@ -257,7 +230,7 @@ describe("/items/<a container holding more than one page>", () => {
 
   /** Where the page says the ordering carries on, if it says so at all. */
   function carriesOnAt(text: string): string | undefined {
-    return members(text)
+    return sectionIn(text, "members")
       .match(/href="(\/items\/[^"]*after=[^"]*)"/)?.[1]
       ?.replaceAll("&amp;", "&");
   }
@@ -271,7 +244,9 @@ describe("/items/<a container holding more than one page>", () => {
 
     expect(status).toBe(200);
     expect(membersLinkedFrom(text)).toHaveLength(100);
-    expect(members(text)).toContain(`Showing 100 of ${container.holds.length} members`);
+    expect(sectionIn(text, "members")).toContain(
+      `Showing 100 of ${container.holds.length} members`,
+    );
   });
 
   it("reaches every member by following links, and lands on none of them twice", async () => {
@@ -365,10 +340,10 @@ describe("/items/<a container holding more than one page>", () => {
 
     const second = await documentFrom(pagedBaseUrl, next);
 
-    expect(members(second.text)).toContain("Back to the start");
+    expect(sectionIn(second.text, "members")).toContain("Back to the start");
     // AND NOT ON THE FIRST PAGE, which is the half that makes the line above a
     // test: a page printing it unconditionally would satisfy that and fail this.
-    expect(members(first.text)).not.toContain("Back to the start");
+    expect(sectionIn(first.text, "members")).not.toContain("Back to the start");
   });
 
   it("says the ordering ends here, where a link outlived the members after it", async () => {
@@ -389,8 +364,8 @@ describe("/items/<a container holding more than one page>", () => {
     expect(beyond.status).toBe(200);
     // THE WAY OUT, not merely the notice. A section that said the ordering ended
     // and offered nothing to click is the same dead end with a caption on it.
-    expect(members(beyond.text)).toContain(`href="/items/${container.id}"`);
-    expect(members(beyond.text)).toContain("end here");
+    expect(sectionIn(beyond.text, "members")).toContain(`href="/items/${container.id}"`);
+    expect(sectionIn(beyond.text, "members")).toContain("end here");
     // AND EXACTLY ONE OF IT. The notice and the walk each offer a way back, and
     // both rendered here until CNCORE-89's review: the reader met the same link
     // twice, either side of an empty list. The notice owns this page.
@@ -400,7 +375,8 @@ describe("/items/<a container holding more than one page>", () => {
     // serialised tree, in a `<script>`, which is not something a reader can
     // click. A count of the words answers 2 for a correct page and would have
     // made this assertion fail against the fix it exists to hold.
-    const waysBack = members(beyond.text).match(/<a[^>]*>Back to the start<\/a>/g) ?? [];
+    const waysBack =
+      sectionIn(beyond.text, "members").match(/<a[^>]*>Back to the start<\/a>/g) ?? [];
     expect(waysBack).toHaveLength(1);
   });
 });

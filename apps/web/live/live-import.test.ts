@@ -49,32 +49,15 @@ import {
 /**
  * WHERE `provider-wiki` IS CHECKED OUT, which is the one thing this file cannot derive.
  *
- * It is a SEPARATE REPOSITORY (ADR-0031) and there is no import to follow, so the path has
- * to be given rather than found.
+ * It is a SEPARATE REPOSITORY (ADR-0031) and there is no import to follow.
  *
- * REQUIRED, AND IT USED TO CARRY A DEFAULT. The default named a WORKTREE -- which is a
- * directory that exists until its branch merges and then does not. A check whose default
- * evaporates does not fail honestly: it fails inside `spawn`, at whatever the provider's
- * absence looks like from here, rather than saying which variable to set. So the path is
- * named or this file says so in one sentence.
+ * REQUIRED, WITH NO DEFAULT. An earlier version of this defaulted to the worktree it was
+ * written in -- which the dispatcher removes when this branch merges, so the default was
+ * dead the day it landed and would have failed as `spawn ENOENT` naming a path nobody
+ * recognises. Machine state is not repo state: a path that exists on one Mac is not a
+ * value this repository knows, and the honest form of not knowing it is to ask.
  */
-const PROVIDER_WIKI = providerWikiRepo();
-
-function providerWikiRepo(): string {
-  const repo = process.env.PROVIDER_WIKI_REPO;
-  if (repo === undefined || repo === "") {
-    throw new Error(
-      "PROVIDER_WIKI_REPO is not set, and this check spawns the real provider-wiki: " +
-        "PROVIDER_WIKI_REPO=/path/to/provider-wiki pnpm test:live",
-    );
-  }
-  // The server this spawns, checked here so a wrong path is a sentence rather than a
-  // spawn failure forty lines later.
-  if (!existsSync(join(repo, "src/server.ts"))) {
-    throw new Error(`PROVIDER_WIKI_REPO is ${JSON.stringify(repo)}, which holds no src/server.ts.`);
-  }
-  return repo;
-}
+const PROVIDER_WIKI = process.env.PROVIDER_WIKI_REPO;
 
 /**
  * THREE TIMELINES, CHOSEN RATHER THAN PICKED, AND EACH ONE ANSWERS SOMETHING.
@@ -113,6 +96,19 @@ const imported: Array<{
 }> = [];
 
 beforeAll(async () => {
+  if (!PROVIDER_WIKI) {
+    throw new Error(
+      "PROVIDER_WIKI_REPO is unset. It must name a `provider-wiki` checkout, which is a " +
+        "separate repository (ADR-0031):\n" +
+        "  PROVIDER_WIKI_REPO=/path/to/provider-wiki pnpm test:live",
+    );
+  }
+  if (!existsSync(join(PROVIDER_WIKI, "src/server.ts"))) {
+    throw new Error(
+      `PROVIDER_WIKI_REPO is ${PROVIDER_WIKI}, which holds no src/server.ts. It should be ` +
+        "the root of a `provider-wiki` checkout.",
+    );
+  }
   const providerPort = await freePort();
   const provider = spawn("node", ["src/server.ts"], {
     cwd: PROVIDER_WIKI,

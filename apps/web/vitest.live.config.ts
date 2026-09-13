@@ -33,7 +33,8 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     include: ["live/**/*.test.ts"],
-    // A Next build, two server starts and two live imports before the last assertion.
+    // A Next build, two server starts and three live imports before the last
+    // assertion -- and the third is AHistory, which is most of the minute.
     testTimeout: 900_000,
     hookTimeout: 900_000,
     // One file, one instance, no sharing: it is a proof, not a suite.

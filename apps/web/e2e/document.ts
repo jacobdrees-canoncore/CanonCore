@@ -479,13 +479,71 @@ export function mainOf(text: string): string {
 /**
  * One `<section>` of a page, by the heading it is labelled with.
  *
+ * IT ENDS AT ITS OWN CLOSING TAG, COUNTED, which is the whole of CNCORE-147.
+ * Every other way of finding the end is a bet on what the page renders NEXT,
+ * and this suite has now lost that bet twice:
+ *
+ * - A NON-GREEDY MATCH stops at the FIRST `</section>`, so it truncates any
+ *   section with one nested inside it. Every listing past the end of its walk
+ *   renders `PastTheEnd`, whose own `<section>` is nested inside it -- and under
+ *   the Members list's first one hid a defect, a second "Back to the start"
+ *   below the notice's own, that no assertion could see (CNCORE-89 review).
+ * - THE DOCUMENT'S LAST `</section>` was "Also appears in"'s end, on the
+ *   reasoning that nothing renders after that list. `Attribution` does, and
+ *   carries `aria-labelledby` of its own -- so on an item owing a notice the
+ *   slice ran through the notices, and a count of `<li>` over it answered how
+ *   many licences the item owed rather than how many orderings it sits in
+ *   (CNCORE-135).
+ * - THE NEXT SIBLING'S HEADING, NAMED, is the same bet one section along: the
+ *   Members list ended where `also-appears-in` began, so anything rendered
+ *   between the two would have been swallowed exactly as the notices were.
+ *
+ * Counting needs to know nothing about what follows, which is why it is the
+ * reading that survives a page growing a section. THIS WAS SEVEN READINGS
+ * BEFORE CNCORE-147 -- this one, two hand-rolled slices (`members` and
+ * `alsoAppearsIn`), two verbatim copies of the non-greedy match in `front-page`
+ * and `search`, and two more written inline (`values` in `item-page`,
+ * `nothing-to-watch` in `works-page`) -- and they disagreed. `document.test.ts`
+ * pins it on the shapes no fixture page renders.
+ *
+ * IT READS THE DECODED DOCUMENT, so owner text carrying a literal `<section>`
+ * unbalances the count and this refuses the whole page: the standing limit
+ * `textareasIn` names for every regex in this file rather than a new one. What
+ * IS new is that it SAYS so. The non-greedy match answered such a page by luck,
+ * stopping at the real closing tag because the owner's text carried no
+ * `</section>` to stop at first. Nothing this suite seeds carries either.
+ *
  * IT THROWS RATHER THAN ANSWERING NOTHING, which is what makes
- * `expect(() => section(...)).toThrow()` a usable assertion that a surface is
+ * `expect(() => sectionIn(...)).toThrow()` a usable assertion that a surface is
  * ABSENT. A helper answering `undefined` would let a test that forgot to check
  * pass against a page missing the whole section.
+ *
+ * THE TWO REFUSALS ARE DISTINCT, because a page that renders a section and
+ * leaves it unclosed is a different fault from one that never rendered it, and
+ * a reader told the wrong one goes looking in the wrong place.
  */
 export function sectionIn(text: string, label: string): string {
-  const found = text.match(new RegExp(`<section[^>]*aria-labelledby="${label}".*?</section>`))?.[0];
-  if (!found) throw new Error(`the page rendered no \`${label}\` section`);
-  return found;
+  const opened = text.indexOf(`aria-labelledby="${label}"`);
+  if (opened === -1) throw new Error(`the page rendered no \`${label}\` section`);
+  /*
+   * THE LABEL HAS TO BE INSIDE THAT OPENING TAG, which the non-greedy match
+   * this replaced enforced by its shape (`<section[^>]*aria-labelledby=`) and
+   * counting from the nearest `<section` alone does not. Without this the
+   * nearest one is a previous SIBLING, and a label on anything else hands back
+   * a whole section that is not the one asked for -- silently, and passing
+   * every negative assertion made against it.
+   */
+  const start = text.lastIndexOf("<section", opened);
+  if (start === -1 || text.slice(start, opened).includes(">")) {
+    throw new Error(`the page rendered no \`${label}\` section`);
+  }
+
+  const tags = /<section\b|<\/section>/g;
+  tags.lastIndex = start;
+  let depth = 0;
+  for (let tag = tags.exec(text); tag !== null; tag = tags.exec(text)) {
+    depth += tag[0] === "</section>" ? -1 : 1;
+    if (depth === 0) return text.slice(start, tag.index + tag[0].length);
+  }
+  throw new Error(`the page left the \`${label}\` section unclosed`);
 }
