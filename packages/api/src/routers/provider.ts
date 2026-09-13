@@ -775,14 +775,20 @@ export const provider = {
    * every one of the three is a value a page can print.
    *
    * AND THE OWNER'S DESPITE BEING A READ, WHICH IS THE ONE OF THOSE ON THIS
-   * SURFACE (ADR-0131, CNCORE-154). Every other `openProcedure` in this router
-   * answers out of this catalogue's own rows, which ADR-0072 gives a visitor
-   * whole. This one answers by running `browse` -- the SAME work the
-   * `ownerProcedure` below does, at a third party -- and CNCORE-151 raised that
-   * operation's cap to 60s because the largest timeline on tardis.wiki needs
-   * 25.7s. Open, that let anyone who could reach the instance hold a
-   * server-side browse for a minute a call, with nothing rate-limiting it and
-   * two concurrent large browses roughly doubling each other.
+   * SURFACE (ADR-0131, CNCORE-154). It answers by running `browse` -- the SAME
+   * work the `ownerProcedure` below does, at a third party -- and CNCORE-151
+   * raised that operation's cap to 60s because the largest timeline on
+   * tardis.wiki needs 25.7s. Open, that let anyone who could reach the instance
+   * hold a server-side browse for a minute a call, with nothing rate-limiting it
+   * and two concurrent large browses roughly doubling each other.
+   *
+   * `provider.search` REACHES PROVIDERS TOO AND IS STILL OPEN, which is the
+   * boundary rather than an oversight. ADR-0130 caps a provider by the KIND of
+   * question, and `browse` is the only operation on the 60-second `patient`
+   * cap: `search` is `brief` -- ten seconds -- and measured at 0.25s against
+   * the live wiki. It is also ADR-0044's demo being something a visitor can
+   * look around at all. If it ever moves to `patient`, ADR-0131's rule catches
+   * it and it moves behind this door too.
    *
    * WHICH IS A DIFFERENT QUESTION FROM WHETHER IT WRITES, and that is why the
    * answer is not CNCORE-109's. That ticket put everything that CHANGES the
