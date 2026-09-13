@@ -130,9 +130,9 @@ function cannotReachItsSource(declared: CmppManifest["credential"]): boolean {
  * WHAT A PROVIDER OWES `search` AND `lookup` WHILE ITS DECLARED CREDENTIAL IS NOT
  * SATISFIED, which is the obligation CNCORE-141 added and ADR-0122 now records.
  *
- * `CONTEXT.md` states the claim in the product's own words: a Provider with no
- * Credential "stays reachable and answers nothing, saying so -- it is not broken
- * and it is not empty". Those are TWO wrong answers rather than one, and the
+ * `CONTEXT.md` states the claim in the product's own words, under **Unlock**: a
+ * Provider with no Credential "stays reachable and answers nothing, saying so --
+ * it is not broken and it is not empty". Those are TWO wrong answers rather than one, and the
  * contract has to refuse both:
  *
  * NOT BROKEN rules out a dropped connection, a bare 500 and a provider that

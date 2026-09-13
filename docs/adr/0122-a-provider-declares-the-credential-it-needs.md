@@ -222,8 +222,8 @@ submitted.
 and `lookup` a `503` with a JSON body — while one reporting `valid` is still held to `200` and a
 record.**
 
-`CONTEXT.md` already carried the claim in the product's own words, and the contract simply did not
-encode it: a Provider with no Credential "stays reachable and answers nothing, saying so — it is not
+`CONTEXT.md` already carried the claim in the product's own words, under **Unlock**, and the
+contract simply did not encode it: a Provider with no Credential "stays reachable and answers nothing, saying so — it is not
 broken and it is not empty". **Those are TWO wrong answers rather than one**, and naming both is what
 makes this an obligation instead of a permission:
 
