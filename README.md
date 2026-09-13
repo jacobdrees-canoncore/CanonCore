@@ -195,12 +195,14 @@ deliberate and is the subject of one of the CI jobs; see `docs/adr/`.
 Two CI jobs fail for anyone who is not this repository, and that is the licence rule operating
 rather than a broken pipeline.
 
-`One contract, both providers, no app` and `Import and browse over HTTP, against the real provider`
-run the two CMPP providers as service containers, pulled from `ghcr.io/jacobdrees-canoncore/*`.
-Both images are **private**: `provider-wiki` is pinned private permanently because the archive it
-reads was licensed to one person, and `provider-tmdb` is private by a recorded choice with its own
-trigger. The registry grant is made to a REPOSITORY, so a fork holds none and those jobs die at
-`Initialize containers` on the single word `denied`.
+`One contract, both providers, no app` and `Import and browse over HTTP, against the real
+provider-tmdb` run CMPP providers as service containers, pulled from
+`ghcr.io/jacobdrees-canoncore/*` — both images for the first, and `provider-tmdb` alone for the
+second, which drives the app against a provider and so needs one that can answer without a
+Credential. Both images are **private**: `provider-wiki` is pinned private permanently because the
+archive it reads was licensed to one person, and `provider-tmdb` is private by a recorded choice
+with its own trigger. The registry grant is made to a REPOSITORY, so a fork holds none and those
+jobs die at `Initialize containers` on the single word `denied`.
 
 Everything else runs anywhere: type-check, lint, the unit and database suites, the migration ladder,
 the page over HTTP, and the secret scan.

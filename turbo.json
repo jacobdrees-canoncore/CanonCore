@@ -63,9 +63,18 @@
       "cache": false,
       "env": ["CANONCORE_DB_PORT"]
     },
+    // THE PROVIDER URLS ARE HERE FOR THE SAME REASON `test:contract` HAS THEM,
+    // and the asymmetry between the two lines is what hid CNCORE-143 for as long
+    // as it hid. `apps/web/e2e/global-setup.ts` reads both to decide whether to
+    // reach a real provider or stand up a stub on loopback, turbo's env mode is
+    // strict, and a variable not named here is filtered out of the task -- so
+    // CI's provider job set one, the harness saw `undefined`, and ran the stub
+    // the job existed to replace. `test:contract` named them and really did
+    // reach both images; `test:e2e` did not and never had.
+    // `ci-task-env.test.ts` fails if a job sets a variable this list drops.
     "test:e2e": {
       "cache": false,
-      "env": ["DATABASE_URL"]
+      "env": ["DATABASE_URL", "PROVIDER_WIKI_URL", "PROVIDER_TMDB_URL"]
     },
     "test:browser": {
       "cache": false,

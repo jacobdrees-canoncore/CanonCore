@@ -40,7 +40,16 @@ export type Step = {
   "continue-on-error"?: unknown;
 };
 
-type Service = { image?: string; credentials?: Record<string, unknown> };
+/**
+ * `ports` IS READ, so it belongs here (CNCORE-143). `ci-task-env.test.ts` asks
+ * whether a provider container a job starts is one that job actually addresses,
+ * and the published host port is the half of that pairing the service owns.
+ *
+ * IT PARSES AS A STRING. `- 8081:8080` has no space after the colon, so YAML
+ * reads a plain scalar rather than a mapping; checked against this very file
+ * rather than assumed, for the reason the `on` key above carries.
+ */
+type Service = { image?: string; credentials?: Record<string, unknown>; ports?: string[] };
 
 type Job = {
   steps?: Step[];
