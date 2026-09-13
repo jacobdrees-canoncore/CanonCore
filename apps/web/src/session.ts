@@ -30,6 +30,13 @@ export const SESSION_COOKIE = "canoncore_session";
  * is asking. `cache` is what React documents for exactly this: memoised for the
  * life of the render and nothing wider, so no answer outlives the request it
  * was asked in.
+ *
+ * THE ONE SHAPE THAT COULD SERVE A STALE ANSWER IS AN ACTION THAT CHANGES THE
+ * SESSION AND THEN RENDERS, because a Server Action and the re-render after it
+ * are one request. Neither of ours does: `logIn` and `logOut` both end in
+ * `redirect`, so the page reporting the change is fetched afresh. A third that
+ * wrote a session and returned would render a header describing the one it had
+ * just replaced.
  */
 export const callerContext = cache(async () =>
   createContext({ sessionToken: (await cookies()).get(SESSION_COOKIE)?.value }),

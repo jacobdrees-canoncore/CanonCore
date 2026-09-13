@@ -21,9 +21,9 @@ export default async function Header() {
   /*
    * WHO IS ASKING, WHICH DECIDES WHAT THIS OFFERS THEM (CNCORE-139, ADR-0094).
    *
-   * `callerContext` RATHER THAN THE ROUTER, because the only fact wanted here
-   * is the one the context already holds: a session, or none. A procedure call
-   * would be a round trip to ask what the request arrived with.
+   * `callerContext` RATHER THAN A PROCEDURE, because who is asking is a fact
+   * the context already holds: a session, or none. A call would be a round trip
+   * to ask what the request arrived with.
    *
    * READ IN THE SHELL, so it is read on EVERY page rather than on the one that
    * happens to care. That is what makes the whole app render per request --
@@ -145,10 +145,10 @@ export default async function Header() {
             is retired by the first Item, and the README's first instruction is
             to go and log in.
 
-            AT THE END OF THE ROW RATHER THAN IN THE NAV, which is where every
-            comparable product puts it. The nav is destinations in the
-            catalogue; this is the account, beside the other controls that are
-            about the reader rather than about the collection.
+            AT THE END OF THE ROW RATHER THAN IN THE NAV, because the nav is
+            destinations in the catalogue and this is not one: it is the
+            account, and it belongs beside the other two controls that are about
+            the reader rather than about the collection.
 
             NOT SHOWN TO THE OWNER, who has already taken it. `/login` renders
             a Log out form for them instead, and a header link labelled `Log

@@ -124,9 +124,10 @@ people run. Rendering them
 for everyone and letting each surface refuse is what produced the defect. Making `/new` render a
 DISABLED form to match `/import` makes the refusal prettier without making the route takeable, and
 the criterion is that a reader is not SENT towards somewhere that will refuse them — advised by an
-empty state or listed in a nav alike, which is the width CNCORE-139 gave the word below. What does not change is the first sentence: "it starts that way on purpose,
-CanonCore ships no catalogue" is every reader's, because the "empty is not UNEXPLAINED" half above
-is owed to somebody who cannot fill it either.
+empty state or listed in a nav alike, which is the width CNCORE-139 gave the word below. What does
+not change is the first sentence: "it starts that way on purpose, CanonCore ships no catalogue" is
+every reader's, because the "empty is not UNEXPLAINED" half above is owed to somebody who cannot
+fill it either.
 
 **AND "ADVISED" WAS NOT THE EXACT WORD, WHICH IS WHY THE HEADER THINS ITSELF TOO (CNCORE-139).**
 This paragraph used to defend the header, where `New item` and `Import` sat on every page offered
@@ -153,8 +154,8 @@ directive came off and neither child changed.
 owner sees both routes, unchanged. A reader with no session on an instance that HAS a password is
 offered `/login` — which the header did not offer before at all, so the owner of a catalogue with
 anything in it had no rendered way to reach it, the empty state that names it being retired by the
-first Item. A reader on an instance with NO password is offered neither, for the reason that state
-is offered no login anywhere: nobody can log in, including the owner.
+first Item. A reader on an instance with NO password is offered neither, for the reason nothing
+else offers that reader a login either: nobody can log in there, the owner included.
 
 **WHAT IT COSTS IS STATED IN ADR-0117 RATHER THAN HERE**, because it is that record's subject: the
 shell reads the caller on every page, so every route renders per request, and `/_not-found` is the
