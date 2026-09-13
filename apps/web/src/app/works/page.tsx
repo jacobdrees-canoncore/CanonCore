@@ -60,14 +60,14 @@ export default async function WorksPage({
   const { after } = await searchParams;
   const from = oneValue(after);
   const works = await readWorkBrowsing(from);
-  const listing = works.entries;
+  const rows = works.rows;
   const nothingToWatch = works.total === 0;
 
   return (
     <main className="container mx-auto max-w-3xl px-4 py-8">
       <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
         <h1 className="text-3xl font-medium">Works</h1>
-        {listing.length > 0 && <Holding showing={listing.length} total={works.total} />}
+        {rows.length > 0 && <Holding showing={rows.length} total={works.total} />}
       </div>
       {nothingToWatch && <NothingToWatch />}
       {/*
@@ -75,10 +75,10 @@ export default async function WorksPage({
         possible: the link was cut at an item, and nothing is after that item
         any more. Rare, and a DEAD END if nothing says so.
       */}
-      {!nothingToWatch && listing.length === 0 && <PastTheEnd path="/works" />}
-      {listing.length > 0 && (
+      {!nothingToWatch && rows.length === 0 && <PastTheEnd path="/works" />}
+      {rows.length > 0 && (
         <>
-          <Listing entries={listing} />
+          <Listing rows={rows} />
           <Walk path="/works" from={from} continuesAfter={works.continuesAfter} />
         </>
       )}

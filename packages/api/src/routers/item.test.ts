@@ -109,15 +109,13 @@ describe("item.get", () => {
 
     const item = await call(appRouter.item.get, { id: story }, { context });
 
-    expect(item.placements.entries.map((placement) => Object.keys(placement).sort())).toStrictEqual(
-      [
-        // It went red here when CNCORE-121 added `assertedBy`, exactly as the
-        // members listing below went red when CNCORE-90 added it there. The
-        // enumeration working: who asserted a placement is emitted because a line
-        // was written for it, and the sources' own ids still are not.
-        ["assertedBy", "containerId", "containerTitle", "id", "placedBy", "position"],
-      ],
-    );
+    expect(item.placements.rows.map((placement) => Object.keys(placement).sort())).toStrictEqual([
+      // It went red here when CNCORE-121 added `assertedBy`, exactly as the
+      // members listing below went red when CNCORE-90 added it there. The
+      // enumeration working: who asserted a placement is emitted because a line
+      // was written for it, and the sources' own ids still are not.
+      ["assertedBy", "containerId", "containerTitle", "id", "placedBy", "position"],
+    ]);
   });
 
   it("names the sources behind each ordering, so a Repeat reads apart from a disagreement", async () => {
@@ -150,9 +148,7 @@ describe("item.get", () => {
     // RANK STILL LEADS (ADR-0017): the wiki holds the lower source order and so
     // speaks first, though the broadcaster put the story earlier. Naming the
     // sources does not reorder the list.
-    expect(
-      item.placements.entries.map((p) => [p.position, p.placedBy, p.assertedBy]),
-    ).toStrictEqual([
+    expect(item.placements.rows.map((p) => [p.position, p.placedBy, p.assertedBy])).toStrictEqual([
       [3, "provider", ["A wiki this payload asked"]],
       [1, "provider", ["A broadcaster this payload asked"]],
     ]);
@@ -186,7 +182,7 @@ describe("item.get", () => {
     const item = await call(appRouter.item.get, { id: story }, { context });
 
     expect(
-      item.placements.entries.map((p) => [p.containerTitle, p.position, p.placedBy]),
+      item.placements.rows.map((p) => [p.containerTitle, p.position, p.placedBy]),
     ).toStrictEqual([
       ["Release order", 63, "owner"],
       ["Story order", 1, "owner"],
@@ -217,7 +213,7 @@ describe("item.get", () => {
     // And the orderings come back with it. Reading them against the id that was
     // ASKED FOR would answer an empty list here, which reads as "this item is
     // in nothing" rather than as the bug it is.
-    expect(item.placements.entries.map((p) => p.containerTitle)).toStrictEqual([
+    expect(item.placements.rows.map((p) => p.containerTitle)).toStrictEqual([
       "An ordering the survivor is in",
     ]);
   });
@@ -416,11 +412,11 @@ describe("item.get on a container", () => {
 
     const container = await call(appRouter.item.get, { id: season }, { context });
 
-    expect(container.holds.entries.map((placement) => placement.itemId)).toStrictEqual([
+    expect(container.holds.rows.map((placement) => placement.itemId)).toStrictEqual([
       first,
       second,
     ]);
-    expect(container.holds.entries[0]).toMatchObject({ title: "Its first story", position: 1 });
+    expect(container.holds.rows[0]).toMatchObject({ title: "Its first story", position: 1 });
   });
 
   it("carries who asserted each member, so a repeat is not a disagreement", async () => {
@@ -454,7 +450,7 @@ describe("item.get on a container", () => {
 
     const container = await call(appRouter.item.get, { id: season }, { context });
 
-    expect(container.holds.entries.map((placement) => placement.assertedBy)).toStrictEqual([
+    expect(container.holds.rows.map((placement) => placement.assertedBy)).toStrictEqual([
       ["A broadcaster this router asked"],
       ["A wiki this router asked"],
     ]);
@@ -475,7 +471,7 @@ describe("item.get on a container", () => {
 
     const item = await call(appRouter.item.get, { id: container }, { context });
 
-    expect(item.holds.entries.map((placement) => Object.keys(placement).sort())).toStrictEqual([
+    expect(item.holds.rows.map((placement) => Object.keys(placement).sort())).toStrictEqual([
       // It went red here when CNCORE-90 added `assertedBy`, which is the
       // enumeration working: who asserted a placement is emitted because a line
       // was written for it, and the sources' own ids still are not.
@@ -489,12 +485,12 @@ describe("item.get on a container", () => {
     // an array can carry the page and cannot carry what the page is not showing.
     expect(Object.keys(placementsOfItemPublic.shape).sort()).toStrictEqual([
       "continuesAfter",
-      "entries",
       // IT WENT RED HERE WHEN CNCORE-129 ADDED `everyPlacedBy`, which is the
       // enumeration working: a listing a reader can narrow has to say what it
       // can be narrowed TO, and that is a field because it is a second question
       // rather than something derivable from the rows.
       "everyPlacedBy",
+      "rows",
       "total",
     ]);
   });
@@ -507,7 +503,7 @@ describe("item.get on a container", () => {
     // this, which is the enumeration working.
     expect(Object.keys(placementsInContainerPublic.shape).sort()).toStrictEqual([
       "continuesAfter",
-      "entries",
+      "rows",
       "total",
     ]);
   });
@@ -529,9 +525,9 @@ describe("item.get on a container larger than one page", () => {
 
     const container = await call(appRouter.item.get, { id }, { context });
 
-    expect(container.holds.entries).toHaveLength(100);
+    expect(container.holds.rows).toHaveLength(100);
     expect(container.holds.total).toBe(holds.length);
-    expect(container.holds.continuesAfter).toBe(container.holds.entries.at(-1)?.id);
+    expect(container.holds.continuesAfter).toBe(container.holds.rows.at(-1)?.id);
   });
 
   it("reaches every member by walking, and lands on none of them twice", async () => {
@@ -558,7 +554,7 @@ describe("item.get on a container larger than one page", () => {
     // BOUNDED, so a cursor that does not advance FAILS rather than hangs.
     for (let pages = 0; pages <= holds.length; pages += 1) {
       const page = await call(appRouter.item.get, { id, after }, { context });
-      walked.push(...page.holds.entries.map((placement) => placement.id));
+      walked.push(...page.holds.rows.map((placement) => placement.id));
       if (page.holds.continuesAfter === null) break;
       after = page.holds.continuesAfter;
     }
@@ -933,9 +929,9 @@ describe("item.get on an item in more orderings than one page", () => {
 
     const item = await call(appRouter.item.get, { id }, { context });
 
-    expect(item.placements.entries).toHaveLength(100);
+    expect(item.placements.rows).toHaveLength(100);
     expect(item.placements.total).toBe(sitsIn.length);
-    expect(item.placements.continuesAfter).toBe(item.placements.entries.at(-1)?.id);
+    expect(item.placements.continuesAfter).toBe(item.placements.rows.at(-1)?.id);
   });
 
   it("reaches every ordering by walking, and lands on none of them twice", async () => {
@@ -953,7 +949,7 @@ describe("item.get on an item in more orderings than one page", () => {
     // BOUNDED, so a cursor that does not advance FAILS rather than hangs.
     for (let pages = 0; pages <= sitsIn.length; pages += 1) {
       const page = await call(appRouter.item.get, { id, placedAfter }, { context });
-      walked.push(...page.placements.entries.map((placement) => placement.id));
+      walked.push(...page.placements.rows.map((placement) => placement.id));
       if (page.placements.continuesAfter === null) break;
       placedAfter = page.placements.continuesAfter;
     }
@@ -974,7 +970,7 @@ describe("item.get on an item in more orderings than one page", () => {
     // ONE ORDERING OUT OF A HUNDRED AND TWENTY-ONE, and the fixture puts it past
     // the first page on purpose: a filter over the rows the page carried would
     // answer nothing at all here.
-    expect(item.placements.entries.map((placement) => placement.containerId)).toStrictEqual([
+    expect(item.placements.rows.map((placement) => placement.containerId)).toStrictEqual([
       imported.containerId,
     ]);
     expect(item.placements.total).toBe(1);
@@ -990,9 +986,7 @@ describe("item.get on an item in more orderings than one page", () => {
     const whole = await call(appRouter.item.get, { id }, { context });
     const narrowed = await call(appRouter.item.get, { id, placed: "provider" }, { context });
 
-    expect(whole.placements.entries.map((placement) => placement.placedBy)).not.toContain(
-      "provider",
-    );
+    expect(whole.placements.rows.map((placement) => placement.placedBy)).not.toContain("provider");
     expect(whole.placements.everyPlacedBy).toStrictEqual(["owner", "provider"]);
     // AND NARROWED TO ONE OF THEM IT STILL OFFERS BOTH, which is the way back to
     // All: chips derived from a narrowed page would hold only the origin the
@@ -1018,7 +1012,7 @@ describe("item.get on an item in more orderings than one page", () => {
 
     const item = await call(appRouter.item.get, { id: story, placed: "derived" }, { context });
 
-    expect(item.placements.entries).toStrictEqual([]);
+    expect(item.placements.rows).toStrictEqual([]);
     expect(item.placements.total).toBe(0);
     expect(item.placements.everyPlacedBy).toStrictEqual(["owner"]);
   });

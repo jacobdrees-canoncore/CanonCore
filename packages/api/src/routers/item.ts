@@ -366,7 +366,7 @@ export const item = {
         // surface handed only the first would report the cap as every ordering
         // the item sits in -- and multi-placement is the product's claim.
         placements: {
-          entries: placements.entries.map((placement) => ({
+          rows: placements.rows.map((placement) => ({
             id: placement.id,
             containerId: placement.containerId,
             containerTitle: placement.containerTitle,
@@ -392,7 +392,7 @@ export const item = {
         // three travel together because a surface handed only the first would
         // report the cap as the whole ordering.
         holds: {
-          entries: holds.entries.map((placement) => ({
+          rows: holds.rows.map((placement) => ({
             id: placement.id,
             title: placement.title,
             itemId: placement.itemId,

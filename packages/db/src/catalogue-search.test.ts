@@ -124,9 +124,9 @@ describe("searchCatalogue", () => {
     // index rather than full-text search (measured under CNCORE-66).
     const id = await anItemTitled(db, "The Dalek Invasion of Earth");
 
-    const { entries } = await searchCatalogue(db, { query: "Invasion", limit: 100 });
+    const { rows } = await searchCatalogue(db, { query: "Invasion", limit: 100 });
 
-    expect(entries).toContainEqual(expect.objectContaining({ id }));
+    expect(rows).toContainEqual(expect.objectContaining({ id }));
   });
 
   it("finds an Entity as readily as a Work", async () => {
@@ -137,9 +137,9 @@ describe("searchCatalogue", () => {
     // person or a character.
     const character = await anItemTitled(db, "Sarah Jane Smith", { kind: "character" });
 
-    const { entries } = await searchCatalogue(db, { query: "Sarah Jane", limit: 100 });
+    const { rows } = await searchCatalogue(db, { query: "Sarah Jane", limit: 100 });
 
-    expect(entries).toContainEqual(expect.objectContaining({ id: character }));
+    expect(rows).toContainEqual(expect.objectContaining({ id: character }));
   });
 
   it("answers an empty query with nothing, rather than with the whole catalogue", async () => {
@@ -156,7 +156,7 @@ describe("searchCatalogue", () => {
     await anItemTitled(db, "An item that exists to be not found");
 
     expect(await searchCatalogue(db, { query: "", limit: 100 })).toEqual({
-      entries: [],
+      rows: [],
       total: 0,
       continuesAfter: null,
     });
@@ -171,7 +171,7 @@ describe("searchCatalogue", () => {
     // unfixed code, because no title in the fixtures happens to contain three
     // consecutive spaces -- a green that said nothing about the short circuit.
     expect(await searchCatalogue(db, { query: " ", limit: 100 })).toEqual({
-      entries: [],
+      rows: [],
       total: 0,
       continuesAfter: null,
     });
@@ -188,8 +188,8 @@ describe("searchCatalogue", () => {
     const literal = await anItemTitled(db, "100% Dalek");
     const wildcard = await anItemTitled(db, "1000 Daleks and counting");
 
-    const { entries } = await searchCatalogue(db, { query: "100%", limit: 100 });
-    const found = entries.map((entry) => entry.id);
+    const { rows } = await searchCatalogue(db, { query: "100%", limit: 100 });
+    const found = rows.map((row) => row.id);
 
     expect(found).toContain(literal);
     expect(found).not.toContain(wildcard);
@@ -213,11 +213,11 @@ describe("searchCatalogue", () => {
     const person = await anItemTitled(db, shared, { kind: "person" });
     const era = await anItemTitled(db, `${shared} era`, { kind: "time_span" });
 
-    const { entries } = await searchCatalogue(db, { query: shared, limit: 100 });
+    const { rows } = await searchCatalogue(db, { query: shared, limit: 100 });
 
-    expect(entries).toContainEqual(expect.objectContaining({ id: work, kindLabel: "Work" }));
-    expect(entries).toContainEqual(expect.objectContaining({ id: person, kindLabel: "Person" }));
-    expect(entries).toContainEqual(expect.objectContaining({ id: era, kindLabel: "Time span" }));
+    expect(rows).toContainEqual(expect.objectContaining({ id: work, kindLabel: "Work" }));
+    expect(rows).toContainEqual(expect.objectContaining({ id: person, kindLabel: "Person" }));
+    expect(rows).toContainEqual(expect.objectContaining({ id: era, kindLabel: "Time span" }));
   });
 
   it("says how many matched, not merely how many it returned", async () => {
@@ -226,16 +226,16 @@ describe("searchCatalogue", () => {
     // thousand tells a reader their catalogue is smaller than it is.
     //
     // ASKED FOR ONE OUT OF THREE, so the two numbers cannot be the same number
-    // and an implementation returning `entries.length` fails rather than
+    // and an implementation returning `rows.length` fails rather than
     // passing by coincidence.
     const shared = "A Fixed Point In Time";
     await anItemTitled(db, `${shared} one`);
     await anItemTitled(db, `${shared} two`);
     await anItemTitled(db, `${shared} three`);
 
-    const { entries, total } = await searchCatalogue(db, { query: shared, limit: 1 });
+    const { rows, total } = await searchCatalogue(db, { query: shared, limit: 1 });
 
-    expect(entries).toHaveLength(1);
+    expect(rows).toHaveLength(1);
     expect(total).toBe(3);
   });
 
@@ -249,11 +249,11 @@ describe("searchCatalogue", () => {
     await anItemTitled(db, `${shared} once`);
     await anItemTitled(db, `${shared} twice`);
 
-    const { entries, continuesAfter } = await searchCatalogue(db, { query: shared, limit: 1 });
+    const { rows, continuesAfter } = await searchCatalogue(db, { query: shared, limit: 1 });
 
     // THE LAST ROW THIS PAGE SHOWED, not merely a truthy string: a cursor cut
     // anywhere else skips or repeats whatever lies between the two.
-    expect(continuesAfter).toBe(entries.at(-1)?.id);
+    expect(continuesAfter).toBe(rows.at(-1)?.id);
   });
 
   it("carries on from that id, and the second page holds what the first did not", async () => {
@@ -277,7 +277,7 @@ describe("searchCatalogue", () => {
     // THE ORACLE IS THE IDS THIS TEST WROTE, never a second reading of the
     // search: asking the mechanism under test what it should have returned
     // would let a cursor that loses a row lose it from both sides.
-    const walked = [...first.entries, ...second.entries].map((entry) => entry.id);
+    const walked = [...first.rows, ...second.rows].map((row) => row.id);
     expect([...walked].sort()).toStrictEqual([...written].sort());
     // SORTED SETS COMPARE EQUAL WITH A REPEAT IN THEM, so the criterion the
     // line above cannot see gets its own.
@@ -324,7 +324,7 @@ describe("searchCatalogue", () => {
     // BOUNDED, so a cursor that does not advance fails rather than hangs.
     for (let pages = 0; pages <= written.length; pages += 1) {
       const page = await searchCatalogue(db, { query: shared, limit: 1, after });
-      walked.push(...page.entries.map((entry) => entry.id));
+      walked.push(...page.rows.map((row) => row.id));
       if (page.continuesAfter === null) break;
       after = page.continuesAfter;
     }
@@ -359,7 +359,7 @@ describe("searchCatalogue", () => {
       after: first.continuesAfter ?? undefined,
     });
 
-    const walked = [...first.entries, ...second.entries].map((entry) => entry.id);
+    const walked = [...first.rows, ...second.rows].map((row) => row.id);
     expect([...walked].sort()).toStrictEqual([...written].sort());
   });
 
@@ -373,7 +373,7 @@ describe("searchCatalogue", () => {
     // The catalogue met this under CNCORE-82 and moved to an uncorrelated
     // scalar subquery, which the cursor cannot reach.
     //
-    // ASKED FOR ONE AT A TIME OUT OF THREE, so `entries.length` and `total` are
+    // ASKED FOR ONE AT A TIME OUT OF THREE, so `rows.length` and `total` are
     // never the same number on either page.
     const shared = "The Mind Robber of Cornwall";
     for (const suffix of ["one", "two", "six"]) await anItemTitled(db, `${shared} ${suffix}`);
@@ -422,7 +422,7 @@ describe("searchCatalogue", () => {
     let after: string | undefined;
     for (let pages = 0; pages <= 4; pages += 1) {
       const page = await searchCatalogue(db, { query, limit: 1, after });
-      walked.push(...page.entries.map((entry) => entry.id));
+      walked.push(...page.rows.map((row) => row.id));
       if (page.continuesAfter === null) break;
       after = page.continuesAfter;
     }
@@ -464,7 +464,7 @@ describe("searchCatalogue", () => {
     // not the ranking one query happened to return.
     for (let pages = 0; pages <= 4; pages += 1) {
       const page = await searchCatalogue(db, { query, limit: 1, after });
-      walked.push(...page.entries.map((entry) => entry.id));
+      walked.push(...page.rows.map((row) => row.id));
       if (page.continuesAfter === null) break;
       after = page.continuesAfter;
     }
@@ -509,8 +509,8 @@ describe("searchCatalogue", () => {
       after: "page-two-please",
     });
 
-    expect(noSuchItem.entries).toStrictEqual(beginning.entries);
-    expect(notAnId.entries).toStrictEqual(beginning.entries);
+    expect(noSuchItem.rows).toStrictEqual(beginning.rows);
+    expect(notAnId.rows).toStrictEqual(beginning.rows);
   });
 
   it("starts over rather than ending, where the result it was cut at was deleted", async () => {
@@ -541,7 +541,7 @@ describe("searchCatalogue", () => {
     for (const suffix of ["one", "two", "six"]) await anItemTitled(db, `${shared} ${suffix}`);
 
     const cut = await searchCatalogue(db, { query: shared, limit: 2 });
-    const anchor = cut.entries.at(-1)?.id;
+    const anchor = cut.rows.at(-1)?.id;
     await db
       .update(items)
       .set({ deletedAt: new Date() })
@@ -551,11 +551,11 @@ describe("searchCatalogue", () => {
 
     // THE TWO THAT ARE LEFT, from the top: the search over again, rather than
     // an empty page claiming the results ran out.
-    expect(kept.entries.map((entry) => entry.id)).toStrictEqual(
-      (await searchCatalogue(db, { query: shared, limit: 100 })).entries.map((entry) => entry.id),
+    expect(kept.rows.map((row) => row.id)).toStrictEqual(
+      (await searchCatalogue(db, { query: shared, limit: 100 })).rows.map((row) => row.id),
     );
-    expect(kept.entries).toHaveLength(2);
-    expect(kept.entries.map((entry) => entry.id)).not.toContain(anchor);
+    expect(kept.rows).toHaveLength(2);
+    expect(kept.rows.map((row) => row.id)).not.toContain(anchor);
   });
 
   it("starts over rather than ending, where the anchor is deleted BETWEEN THE TWO STATEMENTS", async () => {
@@ -581,7 +581,7 @@ describe("searchCatalogue", () => {
     for (const suffix of ["one", "two", "six"]) await anItemTitled(db, `${shared} ${suffix}`);
 
     const cut = await searchCatalogue(db, { query: shared, limit: 2 });
-    const stoppedAt = cut.entries.at(-1);
+    const stoppedAt = cut.rows.at(-1);
     // Rather than `?? ""`, which reaches a `uuid` column as PostgreSQL 22P02
     // and reports an empty first page as a driver error.
     if (stoppedAt === undefined) throw new Error("page one of three matches returned nothing");
@@ -604,11 +604,11 @@ describe("searchCatalogue", () => {
 
     // THE TWO THAT ARE LEFT, from the top -- the same answer as a delete that
     // landed before the search began, which is the point.
-    expect(kept.entries.map((entry) => entry.id)).toStrictEqual(
-      (await searchCatalogue(db, { query: shared, limit: 100 })).entries.map((entry) => entry.id),
+    expect(kept.rows.map((row) => row.id)).toStrictEqual(
+      (await searchCatalogue(db, { query: shared, limit: 100 })).rows.map((row) => row.id),
     );
-    expect(kept.entries).toHaveLength(2);
-    expect(kept.entries.map((entry) => entry.id)).not.toContain(stoppedAt.id);
+    expect(kept.rows).toHaveLength(2);
+    expect(kept.rows.map((row) => row.id)).not.toContain(stoppedAt.id);
   });
 
   it("starts at the beginning where the cursor names an item with no title", async () => {
@@ -639,8 +639,8 @@ describe("searchCatalogue", () => {
     const beginning = await searchCatalogue(db, { query: shared, limit: 100 });
     const from = await searchCatalogue(db, { query: shared, limit: 100, after: sortedButUntitled });
 
-    expect(from.entries).toStrictEqual(beginning.entries);
-    expect(from.entries).not.toHaveLength(0);
+    expect(from.rows).toStrictEqual(beginning.rows);
+    expect(from.rows).not.toHaveLength(0);
   });
 
   it("leaves out an item that has been deleted", async () => {
@@ -649,9 +649,9 @@ describe("searchCatalogue", () => {
     const id = await anItemTitled(db, "A story that was withdrawn");
     await db.update(items).set({ deletedAt: new Date() }).where(eq(items.id, id));
 
-    const { entries } = await searchCatalogue(db, { query: "withdrawn", limit: 100 });
+    const { rows } = await searchCatalogue(db, { query: "withdrawn", limit: 100 });
 
-    expect(entries.map((entry) => entry.id)).not.toContain(id);
+    expect(rows.map((row) => row.id)).not.toContain(id);
   });
 });
 

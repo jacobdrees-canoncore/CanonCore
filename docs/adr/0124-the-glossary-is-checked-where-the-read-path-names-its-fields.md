@@ -45,6 +45,15 @@ that matters: the day the ticket renames one of them, the check fails until the 
 the allowance. An allowance written as "offences ⊆ allowed" goes on passing over names that no longer
 exist, and the next offence can be added to it without argument.
 
+**THE ALLOWANCE HAS SINCE RUN TO EMPTY, AND THE EXACT MATCH IS WHY IT DID.** It stood at six names
+over five listings — CNCORE-91 opened it with two, CNCORE-89 and CNCORE-125 each added one listing's
+worth as they capped theirs — and CNCORE-114 took all six out. It came out a name at a time rather
+than in one sweep, and the exact match is what made that a LOOP rather than a decision: removing a
+name reddened the check, and only the rename turned it green again, so each step was paid for before
+the next was written. A subset allowance would have let all six be deleted at once over a read path
+nobody had touched. The empty literal is kept rather than the assertion becoming a length check,
+because the next name added to it should have to be argued for in a diff.
+
 ## As built, under CNCORE-91 — and this record stays PROPOSED
 
 **BUILT: the payload is checked.** The check reads the live `CONTEXT.md` — on a COLD cache from
@@ -53,7 +62,9 @@ parser is tested against fixtures rather than only exercised against the real fi
 `docker-compose.test.ts` makes about the same kind of check), and it carries an assertion that the
 real glossary yields more than twenty words — so a renamed heading or a moved file fails loudly
 instead of passing while guarding nothing. It caught `catalogueEntryPublic` and
-`cataloguePublic.entries` on its first run; CNCORE-114 owns those.
+`cataloguePublic.entries` on its first run, and CNCORE-114 has since renamed both to
+`catalogueRowPublic` and `cataloguePublic.rows` — the glossary gaining **Listing** and **Row** on the
+way, because it had a word for neither and the read path cannot agree with a document that is silent.
 
 **NOT BUILT: everything that names the read path without emitting it.** Four things the check does
 not reach, and they are the half a reader would otherwise assume was covered. This paragraph said
@@ -66,7 +77,10 @@ its own line rather than to leave it uncounted.
   is emitted to nobody — but it means the convention that a type matches its schema is still a rule
   somebody remembers.
 - **The db layer's own names.** `PlacementInContainer` and `findPlacementsInContainer` were renamed by
-  hand under CNCORE-91 and nothing would catch them drifting back.
+  hand under CNCORE-91 and nothing would catch them drifting back. **CNCORE-114 renamed `CatalogueEntry`,
+  `asEntry` and three `entries` fields there by hand for the same reason, which makes this twice** —
+  so this is a standing cost of the check's scope rather than a one-off of CNCORE-91's, and the second
+  instance is the one that says so.
 - **Output schemas declared inline in a router.** The provider router builds its `.output(...)`
   shapes inside the procedure rather than in `packages/schemas`, so its fields — `placements` on the
   dry run and on what a browse wrote, both renamed by hand under CNCORE-91 — are outside the check.
