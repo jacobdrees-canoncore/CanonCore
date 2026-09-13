@@ -64,9 +64,10 @@ describe("the header, to a reader with no session", () => {
     // Nothing here can tell an owner who has not logged in from a stranger, and
     // nothing needs to: both want the same next step, and it is the one the
     // README names first -- "the first thing to do ... is log in with the one
-    // you just generated". Until this ticket the header offered no login at
-    // all, so an owner whose catalogue had anything in it (which retires the
-    // empty state that offers one) had no rendered way to reach `/login`.
+    // you just generated". The link prevents a gap rather than closing one:
+    // the path to `/login` ran through `New item` until this ticket -- the
+    // refusal at `/new` carries its own login -- and thinning the nav is what
+    // takes that path away.
     const { status, text } = await documentFrom(baseUrl, "/works");
 
     expect(status).toBe(200);

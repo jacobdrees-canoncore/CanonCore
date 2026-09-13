@@ -92,6 +92,14 @@ export default async function NewItemPage() {
  * WHAT A READER WITH NO SESSION IS TOLD, WHICH IS TWO ANSWERS RATHER THAN ONE
  * (CNCORE-144).
  *
+ * TODO(CNCORE-144): AND IT OFFERS A LOGIN ON EXACTLY THAT INSTANCE, which the
+ * line above names and the link below contradicts. This renders off the SESSION
+ * alone, so a reader of an instance that sets no `OWNER_PASSWORD` is offered a
+ * door with no key cut for it -- the thing ADR-0094 refuses under "SO THE LIST
+ * IS RENDERED FOR A SESSION", and that the empty state and (since CNCORE-139)
+ * the header both read `session.configured` to avoid. Untouched by that ticket
+ * on purpose: its subject was the nav, and this is another surface's copy.
+ *
  * NO FORM AT ALL RATHER THAN A DISABLED ONE. With no script loaded a Server
  * Action that throws renders a bare `Internal Server Error`, so an offer this
  * page cannot honour costs the reader the page they were on -- the same rule

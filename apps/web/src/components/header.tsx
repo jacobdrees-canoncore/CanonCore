@@ -145,12 +145,14 @@ export default async function Header() {
           <ModeToggle />
           {/*
             AND THE ONE STEP A READER WITHOUT A SESSION CAN TAKE (CNCORE-139).
-            It is the other half of thinning the nav above: a header that
-            stopped offering the owner's routes and offered nothing in their
-            place would leave the owner of an instance with items in it no
-            rendered way to `/login` at all -- the empty state that offers one
-            is retired by the first Item, and the README's first instruction is
-            to go and log in.
+            It is the other half of thinning the nav above, and it PREVENTS A
+            GAP RATHER THAN CLOSING ONE: the path to `/login` ran through `New
+            item` until this change, because the refusal at `/new` offers a
+            login of its own to anybody who arrives without a session. Dropping
+            that link from the nav drops the route to the page carrying it, and
+            the empty state's login goes with the first Item -- so a thinner
+            header offering nothing in their place would leave the owner of a
+            filled catalogue typing the address the README gives them.
 
             AT THE END OF THE ROW RATHER THAN IN THE NAV, because the nav is
             destinations in the catalogue and this is not one: it is the
