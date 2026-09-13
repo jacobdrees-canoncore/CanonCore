@@ -1,6 +1,6 @@
 import { describe, expect, inject, it } from "vitest";
 
-import { documentAt, documentFrom, logInAt } from "./document";
+import { documentAt, documentFrom, logInAt, sectionIn } from "./document";
 
 /**
  * THE FRONT PAGE, over real HTTP. ADR-0103's fourth seam, which is the one
@@ -34,13 +34,6 @@ const freshBaseUrl = inject("freshBaseUrl");
  */
 const allowlistedBaseUrl = inject("allowlistedBaseUrl");
 
-/** One `<section>` of a page, by the heading it is labelled with. */
-function section(text: string, label: string): string {
-  const found = text.match(new RegExp(`<section[^>]*aria-labelledby="${label}".*?</section>`))?.[0];
-  if (!found) throw new Error(`the page rendered no \`${label}\` section`);
-  return found;
-}
-
 /**
  * THE ROUTES OUT OF AN EMPTY CATALOGUE, one string each, in the order the page
  * offers them.
@@ -54,7 +47,7 @@ function section(text: string, label: string): string {
  * lets an assertion say WHICH route a link is in.
  */
 function routesOutOf(text: string): string[] {
-  return [...section(text, "what-to-do-next").matchAll(/<li[^>]*>(.*?)<\/li>/g)].map(
+  return [...sectionIn(text, "what-to-do-next").matchAll(/<li[^>]*>(.*?)<\/li>/g)].map(
     ([, inner]) => inner as string,
   );
 }
@@ -190,7 +183,7 @@ describe("/ on an empty catalogue, to its owner", () => {
     // assertion when both lived in a describe of their own and has to travel
     // with it here, or the instance's own claim about itself goes unchecked
     // everywhere.
-    expect(() => section(text, "no-provider")).toThrow();
+    expect(() => sectionIn(text, "no-provider")).toThrow();
   });
 
   it("keeps the provider route, and names the two settings it needs", async () => {
@@ -256,7 +249,7 @@ describe("/ on an empty catalogue, to a reader who is not its owner", () => {
 
     expect(status).toBe(200);
     expect(routesOutOf(text)).toHaveLength(0);
-    expect(section(text, "what-to-do-next")).toContain('href="/login"');
+    expect(sectionIn(text, "what-to-do-next")).toContain('href="/login"');
   });
 
   it("still says the emptiness is on purpose, which is the half that is theirs", async () => {
@@ -266,7 +259,7 @@ describe("/ on an empty catalogue, to a reader who is not its owner", () => {
     // that is broken, and this sentence is what tells them.
     const { text } = await documentFrom(allowlistedBaseUrl, "/");
 
-    expect(section(text, "what-to-do-next")).toContain("ships no catalogue");
+    expect(sectionIn(text, "what-to-do-next")).toContain("ships no catalogue");
   });
 
   it("offers no route at all where nobody can log in", async () => {
@@ -279,7 +272,7 @@ describe("/ on an empty catalogue, to a reader who is not its owner", () => {
 
     expect(status).toBe(200);
     expect(routesOutOf(text)).toHaveLength(0);
-    const empty = section(text, "what-to-do-next");
+    const empty = sectionIn(text, "what-to-do-next");
     expect(empty).not.toContain('href="/login"');
     // AND IT SAYS WHICH OF THE TWO SILENCES THIS IS, in the words `/login`
     // uses for the same fact, rather than leaving a reader to wonder whether
@@ -298,7 +291,7 @@ describe("/ on a fresh install", () => {
     // so, and an empty `<section aria-labelledby="no-provider">` satisfies a
     // test that only asks whether the element is there. What an owner needs is
     // the way to the setting they have to go and change.
-    const notice = section(fresh.text, "no-provider");
+    const notice = sectionIn(fresh.text, "no-provider");
     expect(notice).toContain("/settings");
     expect(notice.toLowerCase()).toContain("no provider is allowlisted");
   });
@@ -308,7 +301,7 @@ describe("/ on a fresh install", () => {
     // printed the notice unconditionally would pass that one and fail this.
     const seeded = await documentAt("/");
 
-    expect(() => section(seeded.text, "no-provider")).toThrow();
+    expect(() => sectionIn(seeded.text, "no-provider")).toThrow();
   });
 });
 
@@ -397,7 +390,7 @@ describe("/ on a catalogue larger than one page", () => {
     expect(beyond.status).toBe(200);
     // THE WAY OUT, not merely the notice. A page that said the catalogue ended
     // and offered nothing to click is the same dead end with a caption on it.
-    expect(section(beyond.text, "past-the-end")).toContain('href="/"');
+    expect(sectionIn(beyond.text, "past-the-end")).toContain('href="/"');
   });
 
   it("still shows one page at a time, and says how much it is not showing", async () => {

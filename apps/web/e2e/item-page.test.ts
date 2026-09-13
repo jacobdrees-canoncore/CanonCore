@@ -35,73 +35,7 @@ function orderingRows(text: string): string[] {
   // Scoped to the section rather than the document. Matching every `<li>` on
   // the page would make "narrows the list to one" depend on nothing else ever
   // rendering a list, which is a promise no page keeps for long.
-  return alsoAppearsIn(text).match(/<li[^>]*>.*?<\/li>/g) ?? [];
-}
-
-/** Just the "Values" section, so an assertion cannot match the rest of the page. */
-function values(text: string): string {
-  const section = text.match(/<section[^>]*aria-labelledby="values".*?<\/section>/)?.[0];
-  if (!section) throw new Error("the page rendered no `Values` section");
-  return section;
-}
-
-/**
- * Just the "Also appears in" section, so an assertion cannot match the header.
- *
- * IT TAKES THE WHOLE SECTION, NESTED ONES INCLUDED, which is the same fix
- * `container-page.test.ts` already carries for the Members list and is here for
- * the same reason arriving one listing later. A non-greedy match stops at the
- * FIRST `</section>` -- and past the end of the walk this listing renders
- * `PastTheEnd`, whose own `<section>` is nested inside it, so everything below
- * that notice fell outside what this returned. That is exactly where CNCORE-89's
- * review found a defect hiding: a second "Back to the start" under the notice's
- * own, which no assertion could see.
- *
- * IT ENDS AT ITS OWN CLOSING TAG, COUNTED. It used to end at the DOCUMENT'S last
- * `</section>`, on the reasoning that "Also appears in" is the last section on
- * the page but for the attribution notice, which carries no `aria-labelledby` to
- * anchor on -- AND THAT NOTICE CARRIES ONE. `Attribution` renders
- * `aria-labelledby="attribution"` and renders LAST, so on an item that owes a
- * notice the document's last `</section>` was the NOTICE'S: this handed back the
- * orderings with the notices on the end of them, and `orderingRows` matches
- * `<li>` over the slice, so each notice counted as an ordering -- an assertion
- * about how many orderings an item sits in answering with how many licences it
- * owes (CNCORE-135).
- *
- * COUNTING RATHER THAN NAMING THE NEIGHBOUR is what stops that recurring. Ending
- * before `attribution` by name would be the same bet one section along: anything
- * rendered between this list and the notice would be swallowed exactly as the
- * notice was, and the count would be wrong again for a reason no assertion says.
- */
-function alsoAppearsIn(text: string): string {
-  const opened = text.indexOf('aria-labelledby="also-appears-in"');
-  if (opened === -1) throw new Error("the page rendered no `Also appears in` section");
-  return sectionOpeningAt(text, text.lastIndexOf("<section", opened));
-}
-
-/**
- * The whole `<section>` that opens at `start`, NESTED ONES INCLUDED.
- *
- * DEPTH COUNTED RATHER THAN AN END GUESSED AT, which is what makes this immune
- * to what happens to sit after it. Every other reading of a section in this
- * suite anchors on something outside the section itself -- the first
- * `</section>` (`sectionIn`), the document's last one, or the next sibling's
- * heading (`members`) -- and each is a bet about the page's shape that the page
- * is free to break. CNCORE-89 and CNCORE-135 are both that bet losing.
- *
- * TODO(CNCORE-147): this belongs in `document.ts` beside `sectionIn`, which stops
- * at the first `</section>` and is why both this file and `container-page.test.ts`
- * hand-roll a slice instead of calling it.
- */
-function sectionOpeningAt(text: string, start: number): string {
-  const tags = /<section\b|<\/section>/g;
-  tags.lastIndex = start;
-  let depth = 0;
-  for (let tag = tags.exec(text); tag !== null; tag = tags.exec(text)) {
-    depth += tag[0] === "</section>" ? -1 : 1;
-    if (depth === 0) return text.slice(start, tag.index + tag[0].length);
-  }
-  throw new Error("the page left that section unclosed");
+  return sectionIn(text, "also-appears-in").match(/<li[^>]*>.*?<\/li>/g) ?? [];
 }
 
 describe("/items/<id>", () => {
@@ -286,7 +220,7 @@ describe("also appears in", () => {
     const { text } = await documentAt(`/items/${workBrowsing.arguedId}?placed=provider`);
 
     expect(orderingRows(text)).toHaveLength(2);
-    expect(alsoAppearsIn(text)).toContain("Imported");
+    expect(sectionIn(text, "also-appears-in")).toContain("Imported");
   });
 });
 
@@ -364,7 +298,7 @@ describe("one list, filtered", () => {
     // nothing else. Two sections would say they are two kinds of thing.
     const { text } = await documentAt(`/items/${twoOrigins.id}`);
 
-    const section = alsoAppearsIn(text);
+    const section = sectionIn(text, "also-appears-in");
     expect(section.match(/<ul/g) ?? []).toHaveLength(1);
     expect(section).toContain(twoOrigins.byHand);
     expect(section).toContain(twoOrigins.imported);
@@ -373,7 +307,7 @@ describe("one list, filtered", () => {
   it("offers a filter over the origins actually present, and no others", async () => {
     const { text } = await documentAt(`/items/${twoOrigins.id}`);
 
-    const filter = alsoAppearsIn(text);
+    const filter = sectionIn(text, "also-appears-in");
     expect(filter).toContain("Hand-placed");
     expect(filter).toContain("Imported");
     // The other two source kinds exist in the model (ADR-0071) and have placed
@@ -425,7 +359,7 @@ describe("an item imported from a provider", () => {
   it("shows the provider as the source of every value it claimed", async () => {
     const { text } = await documentAt(`/items/${imported.id}`);
 
-    const section = values(text);
+    const section = sectionIn(text, "values");
     // ADR-0073: the date keeps the precision the provider sent, so a page that
     // padded it to a full day would be inventing one.
     expect(section).toContain(imported.released);
@@ -441,8 +375,8 @@ describe("an item imported from a provider", () => {
     // URL with an ephemeral port is a deployment detail.
     const { text } = await documentAt(`/items/${imported.id}`);
 
-    expect(values(text)).toContain(imported.providerLabel);
-    expect(values(text)).not.toContain("127.0.0.1");
+    expect(sectionIn(text, "values")).toContain(imported.providerLabel);
+    expect(sectionIn(text, "values")).not.toContain("127.0.0.1");
   });
 
   it("says the owner said it when the owner did", async () => {
@@ -450,7 +384,7 @@ describe("an item imported from a provider", () => {
     // provenance rather than about imports, so it has to work for both.
     const { text } = await documentAt(`/items/${itemId}`);
 
-    expect(values(text)).toContain("Owner");
+    expect(sectionIn(text, "values")).toContain("Owner");
   });
 });
 
@@ -471,7 +405,7 @@ describe("a browsed item in more than one ordering", () => {
 
     expect(status).toBe(200);
     expect(text).toContain(`<h1 class="text-3xl font-medium">${browsed.title}</h1>`);
-    const section = alsoAppearsIn(text);
+    const section = sectionIn(text, "also-appears-in");
     expect(section).toContain(browsed.imported);
     expect(section).toContain(`#${browsed.importedPosition}`);
     expect(section).toContain(browsed.byHand);
@@ -500,7 +434,7 @@ describe("a browsed item in more than one ordering", () => {
     // appears on a REAL import rather than on a fixture standing in for one.
     const { text } = await documentAt(`/items/${browsed.inTwoOrderings}`);
 
-    const section = alsoAppearsIn(text);
+    const section = sectionIn(text, "also-appears-in");
     expect(section.match(/<ul/g) ?? []).toHaveLength(1);
     expect(section).toContain("Hand-placed");
     expect(section).toContain("Imported");
@@ -541,7 +475,7 @@ describe("one record imported twice, by two routes", () => {
     // the same list, with the same provenance attached.
     const { text } = await documentAt(`/items/${imported.id}`);
 
-    const section = values(text);
+    const section = sectionIn(text, "values");
     expect(section).toContain("External id");
     expect(section).toContain(browsed.externalId);
   });
@@ -765,7 +699,7 @@ describe("/items/<an item in more orderings than one page>", () => {
 
   /** Where the page says the list carries on, if it says so at all. */
   function carriesOnAt(text: string): string | undefined {
-    return alsoAppearsIn(text)
+    return sectionIn(text, "also-appears-in")
       .match(/href="(\/items\/[^"]*placedAfter=[^"]*)"/)?.[1]
       ?.replaceAll("&amp;", "&");
   }
@@ -778,7 +712,9 @@ describe("/items/<an item in more orderings than one page>", () => {
 
     expect(status).toBe(200);
     expect(orderingsLinkedFrom(text)).toHaveLength(100);
-    expect(alsoAppearsIn(text)).toContain(`Showing 100 of ${appearsIn.sitsIn.length} orderings`);
+    expect(sectionIn(text, "also-appears-in")).toContain(
+      `Showing 100 of ${appearsIn.sitsIn.length} orderings`,
+    );
   });
 
   it("reaches every ordering by following links, and lands on none of them twice", async () => {
@@ -848,7 +784,7 @@ describe("/items/<an item in more orderings than one page>", () => {
 
     // SCOPED TO THE FILTER'S OWN `nav`, so the walk's `Next` and the rows
     // themselves cannot be counted as chips.
-    const nav = alsoAppearsIn(text).match(
+    const nav = sectionIn(text, "also-appears-in").match(
       /<nav aria-label="Filter by how it was placed".*?<\/nav>/,
     )?.[0];
     if (nav === undefined) throw new Error("the list rendered no filter");
@@ -872,10 +808,10 @@ describe("/items/<an item in more orderings than one page>", () => {
 
     const second = await documentFrom(pagedBaseUrl, next);
 
-    expect(alsoAppearsIn(second.text)).toContain("Back to the start");
+    expect(sectionIn(second.text, "also-appears-in")).toContain("Back to the start");
     // AND NOT ON THE FIRST PAGE, which is the half that makes the line above a
     // test: a page printing it unconditionally would satisfy that and fail this.
-    expect(alsoAppearsIn(first.text)).not.toContain("Back to the start");
+    expect(sectionIn(first.text, "also-appears-in")).not.toContain("Back to the start");
   });
 
   /**
@@ -883,7 +819,7 @@ describe("/items/<an item in more orderings than one page>", () => {
    * and the rows themselves cannot be counted as chips.
    */
   function chipsOn(text: string): string[] {
-    const nav = alsoAppearsIn(text).match(
+    const nav = sectionIn(text, "also-appears-in").match(
       /<nav aria-label="Filter by how it was placed".*?<\/nav>/,
     )?.[0];
     if (nav === undefined) throw new Error("the list rendered no filter");
@@ -900,8 +836,10 @@ describe("/items/<an item in more orderings than one page>", () => {
     expect(orderingsLinkedFrom(text)).toStrictEqual([appearsIn.imported.containerId]);
     // THE SIZE OF THE NARROWING, not of the list it was cut out of, and not of
     // the page: "1 ordering" is `Holding` saying the cap did not bite.
-    expect(alsoAppearsIn(text)).toContain("1 ordering");
-    expect(alsoAppearsIn(text)).not.toContain(`of ${appearsIn.sitsIn.length} orderings`);
+    expect(sectionIn(text, "also-appears-in")).toContain("1 ordering");
+    expect(sectionIn(text, "also-appears-in")).not.toContain(
+      `of ${appearsIn.sitsIn.length} orderings`,
+    );
   });
 
   it("caps and walks the narrowing, so a reader can reach past row 100 of it", async () => {
@@ -914,7 +852,9 @@ describe("/items/<an item in more orderings than one page>", () => {
     const byHand = appearsIn.sitsIn.length - 2;
     const first = await documentFrom(pagedBaseUrl, `/items/${appearsIn.id}?placed=owner`);
 
-    expect(alsoAppearsIn(first.text)).toContain(`Showing 100 of ${byHand} orderings`);
+    expect(sectionIn(first.text, "also-appears-in")).toContain(
+      `Showing 100 of ${byHand} orderings`,
+    );
 
     const walked: string[] = [];
     let path: string | undefined = `/items/${appearsIn.id}?placed=owner`;
@@ -959,7 +899,7 @@ describe("/items/<an item in more orderings than one page>", () => {
     // is worse than none.
     const { text } = await documentFrom(pagedBaseUrl, `/items/${appearsIn.id}?placed=owner`);
 
-    expect(alsoAppearsIn(text)).not.toContain("on this page");
+    expect(sectionIn(text, "also-appears-in")).not.toContain("on this page");
   });
 
   it("says the list ends here, where a link outlived the orderings after it", async () => {
@@ -976,15 +916,16 @@ describe("/items/<an item in more orderings than one page>", () => {
     );
 
     expect(beyond.status).toBe(200);
-    expect(alsoAppearsIn(beyond.text)).toContain("end here");
+    expect(sectionIn(beyond.text, "also-appears-in")).toContain("end here");
     // THE WAY OUT, not merely the notice. A section that said the list ended and
     // offered nothing to click is the same dead end with a caption on it.
-    expect(alsoAppearsIn(beyond.text)).toContain(`href="/items/${appearsIn.id}"`);
+    expect(sectionIn(beyond.text, "also-appears-in")).toContain(`href="/items/${appearsIn.id}"`);
     // AND EXACTLY ONE OF IT, which is the defect CNCORE-89's review found on the
     // mirror: the notice and the walk each offer a way back, and both rendered
     // there until it was fixed. Counted as rendered anchors rather than as the
     // phrase, because the phrase appears again in the RSC flight payload.
-    const waysBack = alsoAppearsIn(beyond.text).match(/<a[^>]*>Back to the start<\/a>/g) ?? [];
+    const waysBack =
+      sectionIn(beyond.text, "also-appears-in").match(/<a[^>]*>Back to the start<\/a>/g) ?? [];
     expect(waysBack).toHaveLength(1);
   });
 });

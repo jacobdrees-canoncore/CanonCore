@@ -1,6 +1,6 @@
 import { describe, expect, inject, it } from "vitest";
 
-import { documentAt, documentFrom } from "./document";
+import { documentAt, documentFrom, sectionIn } from "./document";
 
 /**
  * CATALOGUE SEARCH over real HTTP. ADR-0103's fourth seam, which is the one
@@ -21,13 +21,6 @@ const timeSpan = inject("timeSpan");
 const itemId = inject("itemId");
 /** The same build, an empty database, and no allowlist (ADR-0094). */
 const freshBaseUrl = inject("freshBaseUrl");
-
-/** One `<section>` of a page, by the heading it is labelled with. */
-function section(text: string, label: string): string {
-  const found = text.match(new RegExp(`<section[^>]*aria-labelledby="${label}".*?</section>`))?.[0];
-  if (!found) throw new Error(`the page rendered no \`${label}\` section`);
-  return found;
-}
 
 describe("/search", () => {
   it("finds an item by a word inside its title, and links to its own address", async () => {
@@ -101,7 +94,7 @@ describe("/search", () => {
     // search box satisfies on every page in the app -- so it passed whether or
     // not the page said anything at all, and only the `not.toContain` half had
     // teeth. Caught in review.
-    const prompt = section(text, "nothing-asked");
+    const prompt = sectionIn(text, "nothing-asked");
     expect(prompt.toLowerCase()).toContain("type a name");
   });
 
@@ -110,7 +103,7 @@ describe("/search", () => {
 
     // ITS OWN SECTION, for the reason above: an assertion on the whole document
     // cannot tell the page's words from the shell's.
-    const nothing = section(text, "nothing-found");
+    const nothing = sectionIn(text, "nothing-found");
     expect(nothing).toContain("zzzznothinghere");
     // ADR-0014's limit, named where a reader hunting a title they have
     // definitely seen will otherwise spend a while disbelieving the search.
@@ -244,7 +237,7 @@ describe("/search on a result set larger than one page", () => {
     // THE WAY OUT, and it keeps the query for the reason the test above gives:
     // a reader stranded past the end of their results wants the results, not
     // the prompt.
-    expect(section(beyond.text, "past-the-end")).toContain(`href="/search?q=${QUERY}"`);
+    expect(sectionIn(beyond.text, "past-the-end")).toContain(`href="/search?q=${QUERY}"`);
   });
 });
 
