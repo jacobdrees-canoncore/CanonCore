@@ -293,9 +293,16 @@ one" shape this record already carries once.
 Reading four mebibytes to print three hundred characters would hold the socket open for the very
 reason the drain existed. Past the bound the body is cancelled in a `finally`, which is what reclaims
 it — **and that is guarded rather than assumed.** The witness is a provider that
-never stops writing: a client reading to the end waits out `bodyTimeout`, and one that walked away
-without cancelling leaves a socket the test's own teardown hangs on. Removing the cancel fails it in
-10 seconds, measured, which is how it is known to be a guard rather than decoration.
+never stops writing, and one that walked away without cancelling leaves a socket the test's own
+teardown hangs on. Removing the cancel fails it in 10 seconds, measured, which is how it is known to
+be a guard rather than decoration.
+
+**THE TEN SECONDS IS THE ABANDONED SOCKET'S AND NOT THE READ ONE'S**, which the sentence here used to
+blur by saying "a client reading to the end waits out `bodyTimeout`". It does not. `bodyTimeout` caps
+the GAP BETWEEN body chunks rather than a total (ADR-0130, and undici's own docs), and this witness
+writes every millisecond — so it never leaves a gap, and a client reading it to the end waits
+FOREVER rather than ten seconds. The cap fires on the socket the reader ABANDONED, where the gap does
+grow, and that is the socket the cancel reclaims.
 
 A provider that sends NO body still fails with the sentence it failed with before this ticket, full
 stop and all. A body is the provider's choice and an empty one is a choice it may make; what it must

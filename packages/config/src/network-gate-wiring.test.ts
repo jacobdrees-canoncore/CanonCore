@@ -276,9 +276,10 @@ describe("the network gate's wiring", () => {
     const onDisk = configFilesOnDisk();
 
     // Vacuous otherwise, in the same way the counts below are: an empty disk
-    // read is claimed by the empty set. Eleven configs today: one in each of the
-    // nine packages, and two in `apps/web` -- its own and the end-to-end run's.
-    expect(onDisk.length).toBeGreaterThanOrEqual(11);
+    // read is claimed by the empty set. Twelve configs today: one in each of the
+    // nine packages, and three in `apps/web` -- its own, the end-to-end run's,
+    // and the live run's (CNCORE-151).
+    expect(onDisk.length).toBeGreaterThanOrEqual(12);
 
     const claimed = new Set(suites().map((suite) => suite.config));
     const unrun = onDisk.filter((file) => !claimed.has(file));
@@ -290,10 +291,11 @@ describe("the network gate's wiring", () => {
 
     // Without this the whole test is vacuous: a workspace file that failed to
     // parse into packages produces an empty list and passes having asked
-    // nothing. Eleven suites today: nine `test` scripts, `apps/web`'s end-to-end
-    // run and `packages/contract`'s contract run, the last of which joined the
-    // sweep under CNCORE-46.
-    expect(found.length).toBeGreaterThanOrEqual(11);
+    // nothing. Twelve suites today: nine `test` scripts, `apps/web`'s end-to-end
+    // run, `packages/contract`'s contract run -- which joined the sweep under
+    // CNCORE-46 -- and `apps/web`'s live run, which `MAY_REACH_THE_INTERNET`
+    // excuses and the test below holds to existing.
+    expect(found.length).toBeGreaterThanOrEqual(12);
 
     const open = [];
     for (const suite of found) {

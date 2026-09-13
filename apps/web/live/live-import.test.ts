@@ -1,5 +1,11 @@
 /**
- * CNCORE-103's GATE: a real `Theory:Timeline` imported live, end to end.
+ * A real `Theory:Timeline` imported live, end to end.
+ *
+ * IT IS TWO TICKETS' EVIDENCE AND THE SECOND IS WHY THE BIGGEST PAGE IS HERE.
+ * CNCORE-103 needs it to delete the archive: the live path has to be shown to
+ * replace what is being deleted. CNCORE-151 needs it because the defect it fixes
+ * is only visible at size -- one cap for every operation, which the largest
+ * timeline on the wiki could not fit inside.
  *
  * NOTHING IN EITHER REPOSITORY HAD EVER DONE THIS, which is why deleting the archive could
  * not rest on a green suite. The e2e suite's provider is a stub (`e2e/wiki-fixture.ts`),
@@ -23,6 +29,7 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
+import type { AppRouterClient } from "@canoncore/api/routers";
 import { createDb, writeProviderSettings } from "@canoncore/db";
 import { buildTestDatabase } from "@canoncore/db/testing/build-database";
 import { createORPCClient } from "@orpc/client";
@@ -53,30 +60,40 @@ import {
 const PROVIDER_WIKI = process.env.PROVIDER_WIKI_REPO;
 
 /**
- * THE TWO TIMELINES, CHOSEN RATHER THAN PICKED, AND THE CHOICE IS BOUNDED BY A DEFECT.
+ * THREE TIMELINES, CHOSEN RATHER THAN PICKED, AND EACH ONE ANSWERS SOMETHING.
  *
- * They OVERLAP, which is the whole point: measured 2026-09-13 they share 57 stories, and
- * they disagree about where those stories go -- `The Quantum Archangel (novel)` is at
- * position 29 of one and 370 of the other. That disagreement is the product's entire
- * argument and the thing a three-item seed could only gesture at.
+ * The first two OVERLAP, which is the whole point: measured 2026-09-13 they share 57
+ * stories, and they disagree about where those stories go -- `The Quantum Archangel
+ * (novel)` is at position 29 of one and 370 of the other. That disagreement is the
+ * product's entire argument and the thing a three-item seed could only gesture at.
  *
- * THE BIGGEST TIMELINE IS NOT HERE AND CANNOT BE, WHICH IS CNCORE-151. AHistory is the
- * largest at 229,641 bytes and browses to 2,913 members at 2,669 distinct positions with
- * 454 repeats -- but it takes `provider-wiki` 24.6s, and `packages/providers/src/client.ts`
- * caps a provider call at 10s. So CNCORE-102's "a large timeline imports without timing
- * out" is FALSE against the real wiki, and was never tested against it: that suite's
- * provider is a stub. Measured here rather than assumed, which is why this file exists.
+ * THE THIRD IS THE BIGGEST THE WIKI HOLDS, AND IT IS HERE BECAUSE IT COULD NOT BE.
+ * AHistory is 229,641 bytes and browses to 2,913 members at 2,669 distinct positions with
+ * 454 repeats, and `provider-wiki` needs ~25.9s to answer it. Every provider call was
+ * capped at 10s, so CNCORE-102's "a large timeline imports without timing out" was FALSE
+ * against the real wiki and had never been tested against it -- that suite's provider is a
+ * stub. CNCORE-151 split the cap by the size of the question and this line is what proves
+ * it: measured here at 2,913 placements, where before it was `UND_ERR_HEADERS_TIMEOUT`.
+ *
+ * IT IS THE SLOW ONE ON PURPOSE. This file takes about a minute, and most of that minute
+ * is this page. A cheaper check would not be checking the thing that broke.
  */
 const TIMELINES = [
-  { id: "226288", name: "Theory:Timeline - Melanie Bush" },
-  { id: "105893", name: "Theory:Timeline - Sixth Doctor" },
+  { id: "226288", name: "Theory:Timeline - Melanie Bush", atLeast: 100 },
+  { id: "105893", name: "Theory:Timeline - Sixth Doctor", atLeast: 400 },
+  { id: "249643", name: "Theory:Timeline - Doctor Who universe/AHistory", atLeast: 2_500 },
 ];
 
 const stop: Array<() => void> = [];
 let db: ReturnType<typeof createDb>;
-// biome-ignore lint/suspicious/noExplicitAny: the oRPC client's type lives in the api package.
-let client: any;
-const imported: Array<{ id: string; name: string; placements: number; seconds: number }> = [];
+let client: AppRouterClient;
+const imported: Array<{
+  id: string;
+  name: string;
+  atLeast: number;
+  placements: number;
+  seconds: number;
+}> = [];
 
 beforeAll(async () => {
   if (!PROVIDER_WIKI) {
@@ -138,8 +155,21 @@ afterAll(async () => {
 
 test("a real Theory:Timeline browses in from the live wiki and lands its Items", async () => {
   for (const run of imported) {
+    // The figures are the evidence this file exists for.
     console.log(`  ${run.name} (${run.id}): ${run.placements} placements in ${run.seconds}s`);
-    expect(run.placements).toBeGreaterThan(0);
+    /*
+     * A FLOOR PER TIMELINE RATHER THAN "MORE THAN NONE", because more than none is
+     * what a TRUNCATED import also looks like. CNCORE-151's claim is that AHistory
+     * arrives WHOLE at 2,913 members, and an assertion of `> 0` would pass on a
+     * hundred of them -- catching only a hard timeout and not the half-answer that
+     * a cap, a body limit or a batching bug produces.
+     *
+     * A FLOOR AND NOT THE EXACT COUNT, because these are figures about the LIVE
+     * wiki and they move as editors edit it. Each is set a little under what was
+     * measured on 2026-09-13 -- 113, 421 and 2,913 -- so an edit does not redden
+     * the suite while a truncation still does.
+     */
+    expect(run.placements).toBeGreaterThanOrEqual(run.atLeast);
   }
   const [totals] = (
     await db.execute(sql`

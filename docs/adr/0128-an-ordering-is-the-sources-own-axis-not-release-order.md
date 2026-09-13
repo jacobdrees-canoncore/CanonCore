@@ -99,8 +99,13 @@ produced them is the import path itself rather than a script:
   `series_index` column holds one of those and locks the reader out of the rest (ADR-0018).
 - **Size and time**: the TV timeline is 611 placements over 426 distinct stories, highest position
   548, imported in **8.4s**. The provider's own browse of it is 20 requests in 1.7–4.9s depending on
-  batch size. Nothing is near a timeout, and the cost is dominated by requests to the wiki rather
-  than by writing Placements.
+  batch size. The cost is dominated by requests to the wiki rather than by writing Placements —
+  and the sentence that stood here, "nothing is near a timeout", was TRUE OF THESE TWO PAGES AND
+  FALSE OF THE WIKI. It was measured on a 611-placement timeline; the largest the wiki holds is
+  `Theory:Timeline - Doctor Who universe/AHistory` at 2,913, which needs ~25.9s and so could not be
+  imported at all under the single 10s cap every provider call carried. CNCORE-151 found it and
+  ADR-0130 splits that cap by the size of the question. Measuring the timeline a ticket happens to
+  be about says nothing about the largest one a source holds.
 - **A repeat import is safe**: browsing Scaroth a second time left the catalogue at 629 Placements,
   the number it already held.
 - **Every Placement carries the provider as its source** (ADR-0017): 629 of 629.

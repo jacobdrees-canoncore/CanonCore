@@ -9,8 +9,9 @@ import { defineConfig } from "vitest/config";
  * The first two build and start Next against a real PostgreSQL database and one
  * of them also launches a browser; putting a production build in front of every
  * local test run is the cost that separation avoids. `live/` goes further still
- * (CNCORE-103): it needs the Owner's wiki Credential and the real internet, so
- * on any machine without one it does not merely run slowly, it FAILS.
+ * (CNCORE-103): it needs the Owner's wiki Credential, which no CI job holds
+ * (ADR-0122), and the real internet -- so on any machine without one it does not
+ * merely run slowly, it FAILS.
  *
  * EXCLUDING A DIRECTORY IS NOT OPTIONAL TIDINESS. Vitest's default `include`
  * sweeps every `*.test.ts` under the package, so a new suite directory is IN

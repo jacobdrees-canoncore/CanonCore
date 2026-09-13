@@ -58,18 +58,101 @@ export interface ProviderClient {
 const MAX_HOPS = 5;
 
 /**
- * A provider that stops answering must not hold the import open forever.
- * undici's own defaults are 300s, which is long enough to look like a hang.
+ * HOW LONG A PROVIDER MAY TAKE TO START ANSWERING, BY THE SIZE OF THE QUESTION.
+ *
+ * ONE CAP FOR EVERY OPERATION IS WHAT CNCORE-151 WAS. `browse` answers a whole
+ * container AND its ordering in a single response (ADR-0033); the other three
+ * answer something a few hundred bytes long. Those are not the same question and
+ * they do not deserve the same cap. Measured against tardis.wiki on 2026-09-13,
+ * time to FIRST BYTE through `provider-wiki`: a manifest 0.02s, a search 0.25s, a
+ * browse of `Theory:Timeline - Melanie Bush` 1.9s, of the Eleventh Doctor's 8.9s,
+ * and of `Theory:Timeline - Doctor Who universe/AHistory` -- the largest that
+ * wiki holds, 2,913 members over 2,669 positions -- 25.7s. So the largest and
+ * most valuable ordering on the wiki could not be imported AT ALL, and the Owner
+ * saw `Internal server error`.
+ *
+ * THE ORIGINAL REASON IS UNCHANGED AND IS NOW ATTACHED TO THE RIGHT THING. "A
+ * provider that stops answering must not hold the import open forever" is a
+ * sentence about a provider that has STOPPED, and one still computing has not
+ * stopped. undici already splits those two questions and this file was answering
+ * both with one number: `headersTimeout` is the wait for a FIRST byte, and
+ * `bodyTimeout` is the gap BETWEEN body chunks -- an inactivity guard rather than
+ * a total. undici's own documented example sets the two apart
+ * (`headersTimeout: 5_000, bodyTimeout: 30_000`), so this is its grain rather
+ * than a departure from it.
  */
-const TIMEOUT_MS = 10_000;
+const PATIENCE = {
+  /**
+   * A manifest, a search, a lookup. UNCHANGED at ten seconds -- what changed is
+   * that it is no longer also the cap on a browse.
+   *
+   * IT IS NOT FREE TO GROW. `/settings` reads every configured provider's
+   * manifest to report its reach and its credential state, so a provider that
+   * accepts a connection and then never answers holds that page for exactly this
+   * long (ADR-0122) -- and `/settings` is the page where such a provider is
+   * removed. Raising the cap globally, which is the obvious fix for CNCORE-151
+   * and the wrong one, would have paid for a browse with that page.
+   */
+  brief: 10_000,
+  /**
+   * A whole container. 2.3x the largest browse the wiki can be asked for, and a
+   * fifth of undici's own 300s default -- which the sentence this replaces
+   * rightly called long enough to look like a hang.
+   *
+   * THE SINGLE-BROWSE FIGURE IS STABLE AND THE HEADROOM IS NOT. Five clean runs
+   * of AHistory on 2026-09-13 gave 25.5, 25.6, 25.9, 26.1 and 26.4s -- under a
+   * second of spread. But TWO of them at once took 49.1s EACH, measured the same
+   * afternoon: this provider is one Node process and two large browses roughly
+   * double each other. So the margin over a single browse is 2.3x and the margin
+   * over two at once is 1.2x, and it is CONTENTION rather than page size that
+   * eats it. A third concurrent browse would not fit, and the answer to that is a
+   * faster provider or an ordering that arrives in pages rather than whole --
+   * which ADR-0130 records as the direction and ADR-0033 would have to be
+   * reopened to take. NOT a bigger number here, which buys a little headroom and
+   * spends it on the paragraph below.
+   *
+   * IT IS ALSO WHAT A READ SURFACE CAN HOLD FOR, WHICH IS WHY IT IS NOT LARGER.
+   * TODO(CNCORE-154): `provider.container` is an `openProcedure` -- anyone who
+   * can reach the instance can call it -- and it answers "how many placements
+   * would this import?" by doing the whole browse. So this number is also the
+   * longest that page can sit before it renders `unreachable`, and raising it to
+   * buy concurrency headroom would spend a stranger's page render to do it. The
+   * fix is that surface's, not this constant's.
+   *
+   * IT BOUNDS A PROVIDER'S THINKING RATHER THAN AN IMPORT'S RUNNING. What comes
+   * back is one response, so this is not a budget for the whole import: a
+   * catalogue of fifty timelines spends this per browse, not across them.
+   */
+  patient: 60_000,
+} as const;
+
+/** Which of the two caps an operation asks for. */
+type Patience = keyof typeof PATIENCE;
+
+/**
+ * How long a provider may go SILENT in the middle of answering.
+ *
+ * TEN SECONDS WHATEVER THE QUESTION, because this one does not scale with the
+ * size of the answer the way `PATIENCE` does. It is the gap BETWEEN chunks, and a
+ * provider sending a megabyte sends it in chunks milliseconds apart: measured on
+ * the same live browses, all 1,340,208 bytes of AHistory arrived within 5.7ms of
+ * its first byte. A ten-second gap is a provider that has stopped, at any size.
+ */
+const SILENCE_MS = 10_000;
 
 /**
  * How much of a provider's answer will be read before giving up on it.
  *
- * `bodyTimeout` caps how LONG a provider may take and says nothing about how
- * MUCH it may send, and on loopback ten seconds is a great deal of it. A CMPP
- * manifest is a few hundred bytes and a record is a few hundred more, so 4 MiB
- * is far past anything honest and far short of anything that hurts.
+ * NEITHER CAP ABOVE BOUNDS THIS ONE. `SILENCE_MS` caps the GAP between chunks and
+ * `PATIENCE` the wait for the first, so a provider that keeps sending, promptly,
+ * satisfies both forever -- ten seconds of steady loopback is a great deal of
+ * bytes. A CMPP manifest is a few hundred bytes and a record is a few hundred
+ * more, so 4 MiB is far past anything honest and far short of anything that
+ * hurts.
+ *
+ * A BROWSE IS THE ONE ANSWER THAT APPROACHES IT. Measured live on 2026-09-13, the
+ * largest timeline the wiki holds browses to 1,340,208 bytes -- a third of this,
+ * and the only measured answer within an order of magnitude of it.
  */
 const MAX_BODY_BYTES = 4 * 1024 * 1024;
 
@@ -103,35 +186,67 @@ const MAX_REASON_BYTES = 12 * REASON_MAX_LENGTH;
 export function createProviderClient({
   baseUrl,
   allowlist,
+  patience = PATIENCE,
 }: {
   baseUrl: string;
   allowlist: Allowlist;
+  /**
+   * `PATIENCE`'S TWO CAPS, OVERRIDDEN BY THE SUITE THAT TESTS THEM AND BY NOTHING
+   * ELSE. No caller in the app passes this and none should: the numbers are this
+   * client's own contract with a provider, not a knob an instance tunes.
+   *
+   * IT IS HERE BECAUSE THE BEHAVIOUR IS OTHERWISE UNTESTABLE IN CI. What the suite
+   * has to pin is that a browse OUTLIVES what a search dies at, and at the real
+   * values the cheapest honest proof of that waits ten seconds -- thirty times
+   * this package's whole run, and half a second clear of a real boundary, which is
+   * where flakes come from. The relation holds at any scale, so the suite proves
+   * it small: ~2s rather than ~12s, which is as far down as undici's timer
+   * granularity allows and the test says why.
+   */
+  patience?: Record<Patience, number>;
 }): ProviderClient {
   const base = new URL(baseUrl);
 
   /**
-   * TWO DISPATCHERS, ONE PER BOUNDARY, because the two boundaries ask different
-   * questions and a single agent's lookup hook cannot tell which hop it is on.
+   * FOUR DISPATCHERS ON TWO AXES, and neither axis is optional.
    *
-   * The config dispatcher may reach an address the owner allowlisted -- that is
-   * what makes a loopback or tailnet provider legal by name. The content
-   * dispatcher may not, ever, whatever the allowlist says.
+   * THE BOUNDARY AXIS IS ADR-0034'S AND UNCHANGED. The config dispatcher may
+   * reach an address the owner allowlisted -- that is what makes a loopback or
+   * tailnet provider legal by name. The content dispatcher may not, ever,
+   * whatever the allowlist says. They cannot be one because a single agent's
+   * lookup hook cannot tell which hop it is on.
+   *
+   * THE PATIENCE AXIS IS CNCORE-151'S, AND IT IS ON THE DISPATCHER BECAUSE UNDICI
+   * PUTS IT THERE. `fetch`'s `RequestInit` has no `headersTimeout` -- measured
+   * against undici 8 on 2026-09-13, one passed per request is accepted in silence
+   * and IGNORED, and the dispatcher's value is what fires. So a cap that varies
+   * by operation means a dispatcher per class of operation; there is no per-call
+   * spelling of it to reach for instead.
+   *
+   * PATIENCE FOLLOWS THE OPERATION ACROSS EVERY HOP, which is why the content
+   * side carries both too. A browse that redirects is still a browse, and the hop
+   * that finally answers it is the one doing the thinking.
    *
    * Named `dispatcher` and not `agent` although the undici type is `Agent`:
    * CONTEXT.md is binding on names and lists `agent` under what a Provider must
    * not be called, and `dispatcher` is undici's own word for the thing anyway --
    * it is the option these are passed as.
    */
-  const configDispatcher = new Agent({
-    connect: { lookup: pinnedLookup(assertConfigAddress(allowlist)) },
-    headersTimeout: TIMEOUT_MS,
-    bodyTimeout: TIMEOUT_MS,
+  const dispatchersFor = (lookup: ReturnType<typeof pinnedLookup>) => ({
+    brief: new Agent({
+      connect: { lookup },
+      headersTimeout: patience.brief,
+      bodyTimeout: SILENCE_MS,
+    }),
+    patient: new Agent({
+      connect: { lookup },
+      headersTimeout: patience.patient,
+      bodyTimeout: SILENCE_MS,
+    }),
   });
-  const contentDispatcher = new Agent({
-    connect: { lookup: pinnedLookup(assertContentAddress) },
-    headersTimeout: TIMEOUT_MS,
-    bodyTimeout: TIMEOUT_MS,
-  });
+
+  const configDispatchers = dispatchersFor(pinnedLookup(assertConfigAddress(allowlist)));
+  const contentDispatchers = dispatchersFor(pinnedLookup(assertContentAddress));
 
   /**
    * One request, following redirects and re-validating EVERY hop.
@@ -143,13 +258,13 @@ export function createProviderClient({
    * that redirects is ordinary -- so this follows them and checks each one,
    * written down as a departure rather than left as an omission.
    */
-  async function get(path: string): Promise<Response> {
+  async function get(path: string, waiting: Patience): Promise<Response> {
     // The FIRST hop is the config URL the owner typed. Checked before the
     // socket opens: refusing after connecting has already told an
     // unallowlisted host that this instance exists.
     let url = new URL(path, base);
     assertConfigUrl(url, allowlist);
-    let dispatcher = configDispatcher;
+    let dispatcher = configDispatchers[waiting];
 
     for (let hop = 0; hop <= MAX_HOPS; hop++) {
       const response = await fetch(url, {
@@ -176,7 +291,7 @@ export function createProviderClient({
       // request that is reading it.
       url = hopTo(location, url);
       assertContentUrl(url);
-      dispatcher = contentDispatcher;
+      dispatcher = contentDispatchers[waiting];
     }
 
     throw new OutboundRefused(`refused ${base.origin}: more than ${MAX_HOPS} redirects.`);
@@ -192,8 +307,9 @@ export function createProviderClient({
   async function readOrNull<T extends z.ZodType>(
     path: string,
     schema: T,
+    waiting: Patience,
   ): Promise<z.infer<T> | null> {
-    const response = await get(path);
+    const response = await get(path, waiting);
     if (response.status === 404) {
       await response.body?.cancel();
       return null;
@@ -202,14 +318,18 @@ export function createProviderClient({
     return schema.parse(await readJson(response));
   }
 
-  async function read<T extends z.ZodType>(path: string, schema: T): Promise<z.infer<T>> {
-    const response = await get(path);
+  async function read<T extends z.ZodType>(
+    path: string,
+    schema: T,
+    waiting: Patience,
+  ): Promise<z.infer<T>> {
+    const response = await get(path, waiting);
     if (!response.ok) throw await failed(response, path);
     return schema.parse(await readJson(response));
   }
 
   return {
-    manifest: () => read("/", cmppManifest),
+    manifest: () => read("/", cmppManifest, "brief"),
     // `encodeURIComponent` RATHER THAN `URLSearchParams`, which is the obvious
     // choice and spells a space `+`. `%20` is the spelling the contract test
     // reaches both real providers with and is therefore the one proven against
@@ -221,17 +341,29 @@ export function createProviderClient({
     // it locally would make this client the one caller of `?q=` that never
     // asks -- and the day a provider changed its mind about it, nothing on this
     // side would notice.
-    search: (query) => read(`/search?q=${encodeURIComponent(query)}`, cmppSearch),
+    search: (query) => read(`/search?q=${encodeURIComponent(query)}`, cmppSearch, "brief"),
     // A record the provider does not hold is an ANSWER, not a failure: it is
     // what `search` returning an ambiguous candidate looks like once the
     // candidate turns out to be gone (ADR-0033).
-    lookup: (id) => readOrNull(`/lookup/${encodeURIComponent(id)}`, cmppRecord),
+    lookup: (id) => readOrNull(`/lookup/${encodeURIComponent(id)}`, cmppRecord, "brief"),
     // And neither is a page that addresses no container. ADR-0066: an id that
     // cannot BE an identity addresses nothing, exactly as one nobody minted
     // does, and a caller must not be able to tell the two apart.
-    browse: (id) => readOrNull(`/browse/${encodeURIComponent(id)}`, cmppBrowse),
+    //
+    // THE ONE PATIENT OPERATION, AND THE ONLY ONE THAT ANSWERS A WHOLE CONTAINER.
+    // `PATIENCE` carries the measurements; what belongs here is that the two go
+    // together -- an operation gets the longer cap BECAUSE it returns an ordering
+    // whose size is the source's business rather than this client's.
+    browse: (id) => readOrNull(`/browse/${encodeURIComponent(id)}`, cmppBrowse, "patient"),
     async close() {
-      await Promise.all([configDispatcher.close(), contentDispatcher.close()]);
+      // ALL FOUR, and a missed one leaks its sockets until the process ends. The
+      // grid is walked rather than listed for exactly that reason: a fifth
+      // dispatcher would otherwise have to remember to add itself here.
+      await Promise.all(
+        [configDispatchers, contentDispatchers].flatMap((boundary) =>
+          Object.values(boundary).map((dispatcher) => dispatcher.close()),
+        ),
+      );
     },
   };
 }
