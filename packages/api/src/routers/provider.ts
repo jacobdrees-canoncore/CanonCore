@@ -601,6 +601,10 @@ export const provider = {
         // UI has to be able to put the reason in front of them -- and an
         // undeclared throw is a 500 no caller can narrow on, which is the same
         // defect CNCORE-14 fixed for a malformed item id.
+        //
+        // TODO(CNCORE-149): a provider ANSWERING a non-2xx is not an
+        // `OutboundRefused` and falls past this, so it is still that 500. The
+        // read surfaces carry its reason since CNCORE-140; these two do not.
         if (error instanceof OutboundRefused) {
           throw errors.PROVIDER_REFUSED({ message: error.message });
         }
@@ -803,6 +807,8 @@ export const provider = {
         if (!browsed) throw errors.NO_SUCH_CONTAINER();
         return browsed;
       } catch (error) {
+        // TODO(CNCORE-149): as in `import` above, a provider that ANSWERS a
+        // non-2xx falls past both of these and is a 500.
         if (error instanceof OutboundRefused) {
           throw errors.PROVIDER_REFUSED({ message: error.message });
         }

@@ -76,7 +76,7 @@ const VALUE_MAX = 80;
  * cannot do without is the sentence SAYING WHAT TO DO, which is what keeping the
  * value short is protecting.
  */
-function shortly(value: string): string {
+export function shortly(value: string): string {
   return value.length <= VALUE_MAX ? value : `${value.slice(0, VALUE_MAX - 1)}…`;
 }
 

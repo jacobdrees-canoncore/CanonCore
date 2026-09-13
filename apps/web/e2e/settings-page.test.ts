@@ -148,6 +148,28 @@ async function aProviderDeclaring(
   };
 }
 
+/**
+ * A PROVIDER THAT IS UP, CANNOT ANSWER, AND SAYS WHY (CNCORE-140, ADR-0122).
+ *
+ * THE THIRD THING A PROVIDER CAN BE, beside one declaring a Credential and one
+ * on a port nothing listens on. This one answers -- so the socket opens, the
+ * status comes back, and the sentence the Owner has to act on is in the BODY,
+ * which is the half that used to die at the boundary.
+ *
+ * `503` AND A BODY, which is what `packages/contract` holds every Provider
+ * declaring a Credential to: up, answering nothing, and saying so. The body's
+ * SHAPE is that file's one deliberate omission, and `{error}` here is the
+ * spelling both real Providers happen to use rather than one CMPP requires.
+ */
+async function aProviderRefusingWith(said: string): Promise<{ url: string }> {
+  const { url, server } = await onLoopback((_request, response) => {
+    response.writeHead(503, { "content-type": "application/json" });
+    response.end(JSON.stringify({ error: said, provider: "a provider" }));
+  });
+  stubs.push(server);
+  return { url };
+}
+
 afterAll(async () => {
   await Promise.all(
     stubs.splice(0).map((server) => new Promise<void>((resolve) => server.close(() => resolve()))),
@@ -531,6 +553,46 @@ describe("/settings, unlocking a provider", () => {
     // an assertion every row would satisfy.
     expect(rowFor(text, locked.url).toLowerCase()).not.toContain("nothing could be read from");
     expect(rowFor(text, deadUrl).toLowerCase()).not.toContain("not been unlocked");
+  });
+
+  /**
+   * THE HALF OF THE FAILURE THE OWNER CAN ACT ON, ON THE PAGE (CNCORE-140).
+   *
+   * The row above tells this Provider from the other two, and that is a
+   * different claim from this one: "Nothing could be read from this Provider"
+   * names the fault and not the fix. A Provider whose session expired is asking
+   * for one specific thing at one specific address, it SAYS so in the body of
+   * its 503, and CanonCore drained that body unread until this ticket -- so the
+   * Owner read `answered 503` and had to go and ask the Provider themselves.
+   *
+   * ASSERTED WHERE IT IS RENDERED rather than at the client alone. The reason
+   * crosses a package boundary, an RPC procedure and a React component between
+   * being read off the socket and being printed, and the client's own test
+   * proves none of that.
+   *
+   * AND QUOTED, because it is the Provider's sentence and not this catalogue's
+   * (ADR-0123). The existing witness for that branch answers `200` with a
+   * malformed manifest, so the text it quotes is zod's; this is the first one
+   * whose quoted text is the Provider's own words.
+   */
+  it("prints the sentence a Provider failed with, not only the status it failed on", async () => {
+    const cookie = await logInAt(baseUrl, ownerPassword);
+    const refusing = await aProviderRefusingWith(
+      "this Provider holds no tardis.wiki session. Supply one at /unlock.",
+    );
+    await allow(cookie, "127.0.0.1/32");
+    await name(cookie, refusing.url);
+
+    const { text } = await documentFrom(baseUrl, "/settings", cookie);
+
+    // THE WHOLE SENTENCE THE OWNER READS, and it carries the remedy -- which is
+    // all this ticket is for. QUOTED, because the Provider wrote it and this
+    // catalogue is not the one making the claim (ADR-0123); the row names the
+    // Provider beside it. `/` is the manifest, which is the one path this
+    // surface ever asks for.
+    expect(rowFor(text, refusing.url)).toContain(
+      "<q>/ answered 503: this Provider holds no tardis.wiki session. Supply one at /unlock.</q>",
+    );
   });
   /**
    * THE ASSERTION THAT CANONCORE NEVER WALKS THROUGH THE DOOR IT RENDERS.

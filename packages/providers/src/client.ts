@@ -9,6 +9,7 @@ import {
   assertContentUrl,
   OutboundRefused,
   pinnedLookup,
+  shortly,
 } from "./boundary";
 import {
   type CmppBrowse,
@@ -20,6 +21,7 @@ import {
   cmppRecord,
   cmppSearch,
 } from "./cmpp";
+import { bounded, REASON_MAX_LENGTH } from "./reason";
 
 /**
  * A provider, as CanonCore knows it: a URL, and a validated response shape
@@ -70,6 +72,33 @@ const TIMEOUT_MS = 10_000;
  * is far past anything honest and far short of anything that hurts.
  */
 const MAX_BODY_BYTES = 4 * 1024 * 1024;
+
+/**
+ * How much of a FAILING answer is read before the socket is let go (CNCORE-140).
+ *
+ * NOT `MAX_BODY_BYTES`, WHICH IS FOUR MEBIBYTES. What is wanted out of a failure
+ * is ONE SENTENCE, and only `REASON_MAX_LENGTH` of it survives to a page.
+ *
+ * THE ARITHMETIC, SPELLED OUT BECAUSE AN EARLIER VERSION OF THIS COMMENT GOT IT
+ * WRONG: it claimed 1,200 bytes carried the longest reason and that the constant
+ * was "three times that" while the constant WAS 1,200. Twelve is three times
+ * four, and both halves are measured rather than assumed. `REASON_MAX_LENGTH`
+ * counts UTF-16 UNITS, and a unit costs AT MOST THREE UTF-8 BYTES -- that is a
+ * BMP character, and an astral one is four bytes spread across two units, so it
+ * is cheaper per unit rather than dearer. So 900 bytes carries the longest
+ * reason there can be, and the remaining three quarters is headroom for the
+ * envelope around it and for a provider that writes other keys ahead of its
+ * `error`.
+ *
+ * IT BOUNDS WHAT IS ASKED FOR RATHER THAN CUTTING AT AN EXACT BYTE. The read
+ * stops requesting chunks once it holds this much and keeps whole the chunk that
+ * took it there, so a small body arrives entire and a flood stops within one
+ * chunk of the bound. That is all this number is for: a provider flooding a
+ * failure body is not sending a sentence, and reading four mebibytes of one to
+ * print three hundred characters would hold the socket open for exactly the
+ * reason the drain existed.
+ */
+const MAX_REASON_BYTES = 12 * REASON_MAX_LENGTH;
 
 export function createProviderClient({
   baseUrl,
@@ -169,23 +198,13 @@ export function createProviderClient({
       await response.body?.cancel();
       return null;
     }
-    if (!response.ok) {
-      // Drained before throwing, or the socket is held until the dispatcher
-      // times it out.
-      await response.body?.cancel();
-      throw new Error(`${base.origin}${path} answered ${response.status}.`);
-    }
+    if (!response.ok) throw await failed(response, path);
     return schema.parse(await readJson(response));
   }
 
   async function read<T extends z.ZodType>(path: string, schema: T): Promise<z.infer<T>> {
     const response = await get(path);
-    if (!response.ok) {
-      // Drained before throwing, or the socket is held until the dispatcher
-      // times it out -- the same reason the redirect hop above drains.
-      await response.body?.cancel();
-      throw new Error(`${base.origin}${path} answered ${response.status}.`);
-    }
+    if (!response.ok) throw await failed(response, path);
     return schema.parse(await readJson(response));
   }
 
@@ -235,6 +254,108 @@ function hopTo(location: string, from: URL): URL {
 }
 
 /**
+ * WHAT A PROVIDER SAID WHEN IT COULD NOT ANSWER, as an error a caller may report.
+ *
+ * DRAINING AND READING ARE NOT THE SAME THING, WHICH IS THE WHOLE OF CNCORE-140.
+ * Both of these sites used to `cancel()` the body and throw the status alone,
+ * with the drain's reason written beside them -- and the reason for the drain is
+ * sound: an undrained body holds the socket until the dispatcher times it out.
+ * What was wrong was the conclusion. A bounded read releases the socket exactly
+ * as a cancel does, and ADR-0123's cap is what makes bounding it possible.
+ *
+ * ONE FUNCTION FOR BOTH SITES, which is ADR-0123's own lesson at the seam below
+ * the one it was learned at: `provider.search` and `provider.container` had one
+ * defect twice because each mapped its own catch, and `read` and `readOrNull`
+ * were two copies of this sentence for the same reason.
+ *
+ * THE PATH AND NOT THE ORIGIN, and the missing origin is deliberate. This
+ * sentence is capped at `REASON_MAX_LENGTH` by `reasonFor` on its way to a page,
+ * and ADR-0123 records what happens when a variable-length value is interpolated
+ * AHEAD of the half naming the remedy: the cap eats the remedy. The origin is
+ * the longest such value here and it is also the one every reason surface prints
+ * in its own lead sentence already -- `/import` rendered it twice. Without it the
+ * framing is at most 95 characters at full stretch, so a provider's remedy
+ * arrives whole and only a provider that floods is cut.
+ */
+async function failed(response: Response, path: string): Promise<Error> {
+  const said = await saidBy(response);
+  const answered = `${shortly(path)} answered ${response.status}`;
+  // A BODY IS THE PROVIDER'S CHOICE AND AN EMPTY ONE IS A CHOICE IT MAY MAKE.
+  // Said nothing, so there is nothing to introduce: the sentence stops where it
+  // stopped before CNCORE-140 rather than trailing a colon into blank space.
+  return new Error(said === "" ? `${answered}.` : `${answered}: ${said}`);
+}
+
+/**
+ * The provider's own sentence about its failure, bounded (ADR-0123).
+ *
+ * `error` IS UNWRAPPED WHERE IT IS THERE AND NOTHING IS REQUIRED OF A PROVIDER
+ * THAT SPELLS IT OTHERWISE. `packages/contract` refuses to make the failure
+ * body's shape part of CMPP on purpose -- requiring `{error, provider}` would be
+ * writing "be provider-wiki" into an intersection two providers have to satisfy
+ * -- so this READS that spelling opportunistically rather than depending on it,
+ * which is the same arrangement `cmpp.ts` is under as a CONSUMER'S schema.
+ *
+ * IT IS THE CAP'S ARGUMENT AND NOT A TIDINESS ONE. ADR-0123 found the 300
+ * characters being spent on a `ZodError`'s indentation and handing the Owner a
+ * fragment of a stack of braces; a JSON envelope spends them the same way, on
+ * punctuation and on a `provider` key the page names in its own lead sentence.
+ */
+async function saidBy(response: Response): Promise<string> {
+  const text = await firstBytesOf(response);
+  // BOUNDED HERE AND NOT ONLY ON THE WAY TO A PAGE, which is not the same cap
+  // twice. `reasonFor` bounds what a page RENDERS; this Error is also carried
+  // whole by `FailedProvider`, whose `reason.message` `search.ts` reads
+  // directly -- so a provider's text left unbounded here reaches that consumer
+  // at whatever length it chose. ADR-0123's rule is that the value is bounded
+  // WHERE IT ENTERS the sentence, and this is where it enters.
+  return bounded(errorIn(text) ?? text);
+}
+
+/**
+ * A JSON body's `error`, where the body is JSON and `error` is a sentence.
+ *
+ * TRUNCATED JSON DOES NOT PARSE AND THAT IS THE FALLBACK WORKING. A provider
+ * that sent more than `MAX_REASON_BYTES` leaves this with a fragment, which
+ * `JSON.parse` refuses -- and the fragment itself is then quoted, bounded, as
+ * whatever it is. Honest, and the alternative is inventing a sentence.
+ */
+function errorIn(text: string): string | null {
+  let body: unknown;
+  try {
+    body = JSON.parse(text);
+  } catch {
+    return null;
+  }
+  if (typeof body !== "object" || body === null) return null;
+  const said = (body as { error?: unknown }).error;
+  // AN EMPTY ONE IS STILL AN ANSWER, and returning `null` for it would send the
+  // envelope to be quoted with its braces showing. A provider that wrote the
+  // field and put nothing in it has said nothing, which `failed` already has a
+  // sentence for.
+  return typeof said === "string" ? said : null;
+}
+
+/**
+ * The first `MAX_REASON_BYTES` of a body, as text, or nothing.
+ *
+ * A READ THAT THROWS PART-WAY HAS NO SENTENCE TO QUOTE. A provider that died
+ * mid-body left a fragment of one, and `failed` already says the honest thing
+ * about a provider that said nothing. The socket is released either way, in
+ * `readAtMost`'s own `finally`.
+ */
+async function firstBytesOf(response: Response): Promise<string> {
+  const body = response.body;
+  if (!body) return "";
+  try {
+    const { bytes } = await readAtMost(body, MAX_REASON_BYTES);
+    return new TextDecoder().decode(bytes);
+  } catch {
+    return "";
+  }
+}
+
+/**
  * The response body as JSON, reading no more than `MAX_BODY_BYTES` of it.
  *
  * `response.json()` reads whatever arrives, and what arrives is the provider's
@@ -245,29 +366,58 @@ async function readJson(response: Response): Promise<unknown> {
   const body = response.body;
   if (!body) throw new OutboundRefused(`refused ${response.url}: the response carried no body.`);
 
+  const { bytes, cut } = await readAtMost(body, MAX_BODY_BYTES);
+  if (cut) {
+    throw new OutboundRefused(
+      `refused ${response.url}: the response body is larger than the ${MAX_BODY_BYTES}-byte size this client will read.`,
+    );
+  }
+  return JSON.parse(new TextDecoder().decode(bytes));
+}
+
+/**
+ * A body's bytes up to `limit`, AND WHETHER THERE WERE MORE OF THEM.
+ *
+ * ONE READ LOOP FOR THE TWO BOUNDS THIS FILE HOLDS A PROVIDER TO, because they
+ * are the same loop and differ only in what the caller does at the ceiling:
+ * `readJson` REFUSES a body past `MAX_BODY_BYTES`, and `firstBytesOf` keeps what
+ * it has and walks away. Written twice, the two would quietly stop agreeing
+ * about the part that is hard -- which is the release below rather than the
+ * counting.
+ *
+ * `cancel()` IN A `finally` IS WHAT RELEASES THE SOCKET. A body read to its end
+ * is already closed and cancelling it again is a no-op; a body abandoned at the
+ * ceiling has the rest of itself still arriving, and this is what reclaims that
+ * socket rather than leaving it to `bodyTimeout`. The lock is released first,
+ * which is what lets the cancel through.
+ *
+ * IT READS ONE CHUNK PAST `limit` ON PURPOSE. `cut` has to distinguish a body
+ * that ENDED at the ceiling from one that merely reached it, and nothing but
+ * asking for the next chunk can tell those apart -- so `readJson` refusing a
+ * body of exactly `MAX_BODY_BYTES` would be a refusal of a body that was fine.
+ */
+async function readAtMost(
+  body: ReadableStream<Uint8Array>,
+  limit: number,
+): Promise<{ bytes: Uint8Array; cut: boolean }> {
   const reader = body.getReader();
   const chunks: Uint8Array[] = [];
   let size = 0;
   try {
-    while (true) {
+    while (size <= limit) {
       const { done, value } = await reader.read();
       if (done) break;
-      size += value.byteLength;
-      if (size > MAX_BODY_BYTES) {
-        throw new OutboundRefused(
-          `refused ${response.url}: the response body is larger than the ${MAX_BODY_BYTES}-byte size this client will read.`,
-        );
-      }
       chunks.push(value);
+      size += value.byteLength;
     }
   } finally {
     // Releasing the lock lets `cancel()` reclaim the socket when the read was
     // abandoned part-way, which is exactly the oversized case.
     reader.releaseLock();
-    if (size > MAX_BODY_BYTES) await body.cancel().catch(() => {});
+    await body.cancel().catch(() => {});
   }
 
-  return JSON.parse(new TextDecoder().decode(concat(chunks, size)));
+  return { bytes: concat(chunks, size), cut: size > limit };
 }
 
 function concat(chunks: Uint8Array[], size: number): Uint8Array {
