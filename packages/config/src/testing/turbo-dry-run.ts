@@ -23,8 +23,10 @@ import { repoRoot } from "./repo-root";
  * this package, so an `exports` entry would be a public surface nothing imports.
  *
  * `--dry` RESOLVES THE GRAPH AND RUNS NO TASK, so every function here is a read
- * even though it is spawned through the runner. Measured on turbo 2.10.12,
- * 2026-09-13: a known task answers in about 0.3s warm, a refused name in 0.3s.
+ * even though it is spawned through the runner, and cheap enough to call per
+ * task rather than batched. Measured on turbo 2.10.12, 2026-09-13: about 85ms
+ * for a known task and 65ms for a refused name, over three warm runs each. The
+ * first call after an install is nearer 1.1s.
  */
 const turboBinary = join(repoRoot, "node_modules", ".bin", "turbo");
 
