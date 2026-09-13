@@ -749,7 +749,7 @@ export const provider = {
    * error's message before any boundary sees it. Asked on the GET instead,
    * every one of the three is a value a page can print.
    */
-  container: openProcedure
+  container: ownerProcedure
     .input(
       z.object({
         /** A CONFIG URL, travelling ADR-0034's allowlist, as `browse`'s does. */

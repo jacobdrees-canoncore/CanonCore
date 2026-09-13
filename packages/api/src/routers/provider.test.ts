@@ -58,6 +58,16 @@ await writeProviderSettings(await connect(), {
 const context = await createContext({ sessionToken: await aTokenForTheOwner() });
 
 /**
+ * NOBODY AT ALL, which is what `provider.container` is now asserted to refuse.
+ *
+ * NAMED RATHER THAN BUILT INLINE, because the refusal below is about WHO is
+ * asking and a `createContext()` sitting in the middle of a `call` reads as
+ * incidental setup. `context` above is the owner's, so there was no visitor in
+ * this file to be refused.
+ */
+const asAVisitor = await createContext();
+
+/**
  * AN INSTANCE CONFIGURED TO REACH EXACTLY THIS, for a test that needs other
  * settings than the ones this file wrote above.
  *
@@ -1261,5 +1271,31 @@ describe("provider.container", () => {
     }
     expect(answer.reason.text.length).toBeLessThanOrEqual(REASON_MAX_LENGTH);
     expect(answer.reason.wrote).toBe("provider");
+  });
+
+  it("refuses a visitor with no session, because answering costs a whole browse", async () => {
+    /*
+     * THE ONE READ ON THIS SURFACE THAT IS THE OWNER'S (ADR-0131, CNCORE-154).
+     * Every other `openProcedure` here answers out of this catalogue's own rows;
+     * this one answers by asking a third party, and it answers by running the
+     * WHOLE browse -- the same work `provider.browse` does, which is an
+     * `ownerProcedure`. CNCORE-151 raised that browse's cap to 60s, so an open
+     * procedure could hold a provider for a minute per call for anyone who could
+     * reach the instance.
+     *
+     * REFUSED BEFORE THE PROVIDER IS REACHED, which is the whole point and is
+     * what this asserts by giving a `baseUrl` no socket is listening on: a guard
+     * that ran after the fetch would answer `unreachable` here rather than
+     * `UNAUTHORIZED`, and would have spent the browse it exists to save.
+     */
+    const { error } = await safe(
+      call(
+        appRouter.provider.container,
+        { baseUrl: "http://127.0.0.1:1/", containerId: "388305" },
+        { context: asAVisitor },
+      ),
+    );
+
+    expect((error as { code?: string })?.code).toBe("UNAUTHORIZED");
   });
 });

@@ -174,7 +174,24 @@ async function readImportPage({ query, provider, container, purge }: Asked) {
 async function aboutTheContainer(context: Context, baseUrl: string, containerId: string) {
   const [held, said] = await Promise.all([
     call(appRouter.provider.held, { baseUrl, recordIds: [containerId] }, { context }),
-    call(appRouter.provider.container, { baseUrl, containerId }, { context }),
+    /*
+     * AND THE PROVIDER'S HALF IS THE OWNER'S, WHICH IS THE SECOND QUESTION
+     * COSTING A WHOLE BROWSE RATHER THAN THE PAGE BEING SHY (ADR-0131,
+     * CNCORE-154). `provider.container` answers by running the browse the button
+     * runs, and CNCORE-151 gave that sixty seconds -- so an open one let anyone
+     * who could reach the instance hold a provider for a minute a request. It is
+     * an `ownerProcedure` for that reason, and asking it on behalf of a visitor
+     * would be asking for a 401 in the middle of a page that otherwise renders:
+     * the same shape, and the same remedy, as `purging` above.
+     *
+     * THE CATALOGUE'S HALF IS STILL EVERYONE'S, and that is ADR-0072 kept rather
+     * than conceded. `held` reads this catalogue's own rows, which a visitor is
+     * entitled to whole; what they are not handed is this instance's outbound
+     * budget at a third party.
+     */
+    context.session === null
+      ? Promise.resolve(undefined)
+      : call(appRouter.provider.container, { baseUrl, containerId }, { context }),
   ]);
   return { baseUrl, containerId, itemId: held.items[0]?.itemId ?? null, said };
 }
@@ -1099,7 +1116,27 @@ function Container({
       <h3 className="sr-only" id="container">
         The container you named
       </h3>
-      {said.answer === "container" ? (
+      {said === undefined ? (
+        /*
+          THE PROVIDER WAS NOT ASKED, BECAUSE ASKING IS THE OWNER'S (ADR-0131).
+          A GAP HERE WOULD BE THE WORSE ANSWER: a reader who typed a container id
+          and got back an empty section learns nothing about why, and goes
+          looking for what they did wrong. So the operation is NAMED, by the same
+          `LogIn` every other control on this page is refused with -- which
+          renders the door where there is one and says only that the owner has it
+          where there is not (CNCORE-146).
+
+          AND THE CATALOGUE'S OWN ANSWER SURVIVES IT, exactly as it survives the
+          three provider refusals below. `held` is open to anyone (ADR-0072), so
+          a visitor who asks about a container this catalogue already holds is
+          still shown the Item -- which is the half of this section that was
+          never the provider's to answer.
+        */
+        <div className="border-t py-3">
+          <LogIn aPasswordIsSet={aPasswordIsSet} to="ask a provider about a container" />
+          {itemId !== null && <StillHeld itemId={itemId} />}
+        </div>
+      ) : said.answer === "container" ? (
         <ItsOrdering
           aPasswordIsSet={aPasswordIsSet}
           baseUrl={baseUrl}

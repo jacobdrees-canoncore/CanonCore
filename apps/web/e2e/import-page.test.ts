@@ -56,6 +56,21 @@ const client: AppRouterClient = createORPCClient(new RPCLink({ url: `${baseUrl}/
  */
 const owner = await logInAt(baseUrl, inject("ownerPassword"));
 
+/**
+ * THE SAME ROUTER, ASKED AS THE OWNER, for the one procedure on it that is the
+ * owner's despite being a read.
+ *
+ * `provider.container` MOVED BEHIND THE SESSION under CNCORE-154 (ADR-0131): it
+ * answers by running the whole browse at a third party, which CNCORE-151 gave
+ * sixty seconds, and the anonymous `client` above can no longer ask it. The
+ * assertions that read it are asking what the PROVIDER says so they can compare
+ * it against what the page rendered, so they need the answer rather than the
+ * refusal.
+ */
+const asOwner: AppRouterClient = createORPCClient(
+  new RPCLink({ url: `${baseUrl}/api/rpc`, headers: { cookie: owner } }),
+);
+
 /** The same owner on the empty instance, for the one read that needs one. */
 const ownerOfTheEmptyOne = await logInAt(allowlistedBaseUrl, inject("ownerPassword"));
 
@@ -469,10 +484,70 @@ function browsing({ provider, container }: { provider: string; container: string
 
 /** What one provider says about the container the URL names, asked of the router. */
 async function whatTheProviderSays(named: { provider: string; container: string }) {
-  return client.provider.container({ baseUrl: named.provider, containerId: named.container });
+  return asOwner.provider.container({ baseUrl: named.provider, containerId: named.container });
 }
 
 describe("/import, before a container's ordering is imported", () => {
+  it("does not browse on a visitor's behalf, and says whose the question is", async () => {
+    /*
+     * THE ONE READ ON THIS PAGE THAT IS THE OWNER'S (ADR-0131, CNCORE-154).
+     * Every other section here is rendered for anyone, because every other
+     * section answers out of this catalogue's own rows -- which is ADR-0072's
+     * demo, whole. This one answers by running a WHOLE BROWSE at a third party,
+     * the same work the button does, and CNCORE-151 gave that sixty seconds. So
+     * an open one let anybody who could reach the instance hold a provider for a
+     * minute a request, and nothing rate-limited it.
+     *
+     * THE PAGE STILL ANSWERS 200 AND STILL SAYS WHY. A gap where the preview
+     * stood would leave a reader looking for what they had done wrong, which is
+     * the failure `NoLogin` at the top of this page exists to prevent one notice
+     * over.
+     */
+    const at = browsing(providerSearch.browsable);
+
+    const { status, text } = await documentAt(at);
+
+    expect(status).toBe(200);
+    const section = sectionIn(text, "container");
+    const said = await whatTheProviderSays(providerSearch.browsable);
+    if (said.answer !== "container") {
+      throw new Error(`the provider handed over no container: ${said.answer}`);
+    }
+    // NOT THE PROVIDER'S HALF, asserted against what the provider actually says
+    // rather than against a literal, for the reason the tests below give.
+    expect(section).not.toContain(said.title);
+    expect(section).not.toContain(`${said.placements} members`);
+    // AND THE OPERATION IS NAMED, which is what makes this a sentence rather
+    // than a gap. `LogIn` renders the door where there is one.
+    expect(section).toContain("to ask a provider about a container");
+  });
+
+  it("still hands a visitor the catalogue's own half, which was never the provider's", async () => {
+    /*
+     * ADR-0072 KEPT RATHER THAN CONCEDED, and this is the assertion that says
+     * which half moved. CNCORE-154 made the PROVIDER'S half the owner's because
+     * answering it costs a whole browse at a third party; `provider.held` reads
+     * this catalogue's own rows and is nobody's to withhold. A visitor asking
+     * about a container this catalogue already holds is still pointed at it.
+     *
+     * THE SAME FIXTURE THE OWNER'S VERSION OF THIS USES, one describe below, so
+     * the two differ in WHO ASKS and in nothing else.
+     */
+    const imported = inject("imported");
+    const named = { provider: inject("providerWikiUrl"), container: imported.recordId };
+
+    const { status, text } = await documentAt(browsing(named));
+
+    expect(status).toBe(200);
+    const container = sectionIn(text, "container");
+    expect(container).toContain("Already imported");
+    expect(itemLinkedIn(container)).toBe(`/items/${imported.id}`);
+    // AND STILL NOT THE PROVIDER'S HALF, which is what keeps this test honest:
+    // a page that had simply stayed open would satisfy the three lines above.
+    expect(container).toContain("to ask a provider about a container");
+    expect(container.toLowerCase()).not.toContain("no container at that id");
+  });
+
   it("shows the container's own title, and not merely the id the owner typed", async () => {
     /*
      * A BROWSE CAN WRITE SIXTY PLACEMENTS, and until this the only thing naming
@@ -487,7 +562,7 @@ describe("/import, before a container's ordering is imported", () => {
      */
     const at = browsing(providerSearch.browsable);
 
-    const { status, text } = await documentAt(at);
+    const { status, text } = await documentAt(at, owner);
 
     expect(status).toBe(200);
     const said = await whatTheProviderSays(providerSearch.browsable);
@@ -506,7 +581,7 @@ describe("/import, before a container's ordering is imported", () => {
      * reason `browse` exists (ADR-0033) -- and the page used to describe what
      * was about to happen with nothing but the id that had been typed.
      */
-    const { text } = await documentAt(browsing(providerSearch.browsable));
+    const { text } = await documentAt(browsing(providerSearch.browsable), owner);
 
     const said = await whatTheProviderSays(providerSearch.browsable);
     if (said.answer !== "container") {
@@ -540,7 +615,7 @@ describe("/import, before a container's ordering is imported", () => {
     const asked = { baseUrl: provider, recordIds: [container] };
     expect((await client.provider.held(asked)).items).toHaveLength(0);
 
-    const { status, text } = await documentAt(browsing(providerSearch.browsable));
+    const { status, text } = await documentAt(browsing(providerSearch.browsable), owner);
 
     expect(status).toBe(200);
     expect((await client.provider.held(asked)).items).toHaveLength(0);
@@ -686,6 +761,13 @@ describe("reaching /import", () => {
   });
 });
 
+/**
+ * THESE READ AS THE OWNER, AND DID NOT UNTIL CNCORE-154. The provider's half of
+ * this section is an `ownerProcedure` since ADR-0131 -- it answers by running
+ * the whole browse, which CNCORE-151 gave sixty seconds -- so a visitor's page
+ * carries the notice above rather than the answer these assert on. What moved is
+ * WHO ASKS; every criterion below is unchanged.
+ */
 describe("/import, when the provider refuses", () => {
   it("says the provider holds no container at that id, rather than answering a 500", async () => {
     /*
@@ -710,7 +792,7 @@ describe("/import, when the provider refuses", () => {
       container: "a container this provider does not hold",
     });
 
-    const { status, text } = await documentAt(at);
+    const { status, text } = await documentAt(at, owner);
 
     expect(status).toBe(200);
     const said = await whatTheProviderSays({
@@ -740,7 +822,7 @@ describe("/import, when the provider refuses", () => {
     const named = { provider: providerSearch.declinesBrowse, container: "any container at all" };
     const at = browsing(named);
 
-    const { status, text } = await documentAt(at);
+    const { status, text } = await documentAt(at, owner);
 
     expect(status).toBe(200);
     const said = await whatTheProviderSays(named);
@@ -775,7 +857,7 @@ describe("/import, when the provider refuses", () => {
     };
     const at = browsing(named);
 
-    const { status, text } = await documentAt(at);
+    const { status, text } = await documentAt(at, owner);
 
     expect(status).toBe(200);
     const said = await whatTheProviderSays(named);
@@ -814,7 +896,7 @@ describe("/import, when the provider refuses", () => {
   it("quotes a provider's own text beside the provider, rather than printing it as CanonCore's", async () => {
     const named = { provider: providerSearch.answersBadly, container: "388305" };
 
-    const { status, text } = await documentAt(browsing(named));
+    const { status, text } = await documentAt(browsing(named), owner);
     const said = await whatTheProviderSays(named);
 
     expect(status).toBe(200);
@@ -848,7 +930,7 @@ describe("/import, when the provider refuses", () => {
     const imported = inject("imported");
     const named = { provider: inject("providerWikiUrl"), container: imported.recordId };
 
-    const { status, text } = await documentAt(browsing(named));
+    const { status, text } = await documentAt(browsing(named), owner);
 
     expect(status).toBe(200);
     const container = sectionIn(text, "container");
