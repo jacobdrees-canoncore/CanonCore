@@ -108,7 +108,13 @@ CNCORE-92 built it — a provider that cannot reach its source must say so, beca
 reworded is not a refusal reported.
 
 ADR-0033 keeps `search` and `lookup` mandatory, so a locked provider still declares all three
-operations. It is not half a provider; it is a whole one that currently cannot answer.
+operations. It is not half a provider; it is a whole one that currently cannot answer. **AND
+DECLARING AN OPERATION IS NOT ANSWERING IT, WHICH THIS PARAGRAPH LEFT UNSAID UNTIL CNCORE-141.** A
+locked provider declares all three and can satisfy neither of the two that read its source, so what
+it OWES those two is an obligation in its own right — written with the others the contract had to
+decide, below. Until it was, CMPP held every participant to `200` and a record, this record said the
+opposite in prose, and both were correct: the contradiction surfaced as CanonCore's contract job
+going red the moment `provider-wiki:latest` was republished from `main`.
 
 ## What this does not decide
 
@@ -197,7 +203,7 @@ keep.
 
 ### What the contract had to decide that this record does not
 
-Two obligations fall on every provider that declares a credential, and neither is written above.
+Three obligations fall on every provider that declares a credential, and none is written above.
 They were settled in `packages/contract/src/contract.test.ts` because a conformance suite cannot
 assert a round trip without them, and they are recorded here so the next provider meets a decision
 rather than a test:
@@ -211,6 +217,61 @@ person.
 a credential stored is a provider reporting `valid` about something its upstream is about to refuse,
 which points the Owner's diagnosis at their source for a fault that is in the form they just
 submitted.
+
+**And under CNCORE-141: a provider whose declared `credential.state` is not `valid` owes `search`
+and `lookup` a `503` with a JSON body — while one reporting `valid` is still held to `200` and a
+record.**
+
+`CONTEXT.md` already carried the claim in the product's own words, and the contract simply did not
+encode it: a Provider with no Credential "stays reachable and answers nothing, saying so — it is not
+broken and it is not empty". **Those are TWO wrong answers rather than one**, and naming both is what
+makes this an obligation instead of a permission:
+
+- **Not broken** rules out a dropped connection, a bare `500`, and refusing to start — which this
+  record already refuses above, because it shows a dead host to the one person who can fix it.
+- **Not empty** rules out `200 {"results":[]}` from `search` AND the `404` that `lookup` owes an id
+  its source genuinely does not hold. **The `lookup` half is the one that is easy to miss**: "I do
+  not hold that" is a claim ABOUT THE SOURCE, and a provider that cannot reach its source cannot
+  tell an id nobody minted from one it simply cannot look up. Both answers would be the fallback
+  this record refuses by name, in its cheapest form — an empty corpus rather than a thin one.
+
+**`!== "valid"` RATHER THAN `=== "absent"`.** `expired` is a session that lapsed, which is this
+record's whole reason for having the state at all, and a provider holding one can answer exactly as
+little as a provider holding nothing. A rule naming only `absent` would oblige a provider whose
+credential had just expired to invent an answer.
+
+**THE DECLARATION IS READ BEFORE THE CALL, NOT AFTER, and that ordering is the rule rather than an
+implementation detail.** The manifest is a PROMISE and the contract checks the answer against the
+promise that was standing when the call was made. Read afterwards, a provider that reported `valid`,
+was refused by its upstream mid-call and came back reporting `expired` would have its refusal
+excused by the very lapse the call caused — the suite going green on a provider that had just been
+refused, which is this record's own mis-diagnosis arriving through the test that checks it. It also
+keeps the suite's ordering honest: `its credential` unlocks every declarer and runs after these, so
+a reorder makes them RED rather than quietly re-filing the credential test's subject as a locked
+provider.
+
+**WHAT IS DELIBERATELY NOT REQUIRED IS THE BODY'S SHAPE.** `provider-wiki` answers
+`{error, provider}`, bounded and attributed per
+[[0123-a-failure-reason-is-bounded-and-says-who-wrote-it]], and that spelling is ITS OWN. CMPP is
+the intersection every provider must satisfy, and with exactly one provider declaring a credential
+there is no intersection to take — requiring its shape would be writing "be `provider-wiki`" into
+the contract, which is the mistake `cmpp.ts` records itself having made once over an image's
+`width`. What the contract requires is that SOMETHING came back as JSON, so a refusal carrying a
+reason can be told from a provider that fell over. The next provider to declare a credential is
+where the body's shape becomes a question worth answering.
+
+**AND THE CASE IS WITNESSED ON EVERY MACHINE, not only where the image can be pulled.**
+`provider-wiki` is the only real provider that declares a credential, its image is private on GHCR,
+and CI gives it nothing — so the branch was entered nowhere a developer could run it, and this
+record's own optionality guard failed outright there (measured: `Tests 2 failed | 48 passed`).
+`lockedProvider()` in `participants.ts` is a second conformance witness alongside the one ADR-0033
+has: well-formed, reachable, currently unable to answer, and Unlockable, on a real socket and
+indistinguishable to the suite from a real provider.
+
+**THE FIXED POINT THROUGHOUT WAS THAT NO CI JOB HOLDS THE OWNER'S SESSION**, and the contract moved
+around it rather than the other way about. [[0089-provider-distribution-tiers]] pins this provider
+to one person, so a credential reaching CI is distribution — the service container starts with an
+empty configuration directory and CNCORE-141 added nothing to it.
 
 ### What the CanonCore half taught, under CNCORE-101
 
