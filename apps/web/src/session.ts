@@ -2,6 +2,7 @@ import { createContext } from "@canoncore/api/context";
 import { SESSION_LIFETIME_SECONDS } from "@canoncore/db";
 import { env } from "@canoncore/env/server";
 import { cookies } from "next/headers";
+import { cache } from "react";
 
 /**
  * WHERE THE OWNER'S TOKEN LIVES between requests.
@@ -19,10 +20,20 @@ export const SESSION_COOKIE = "canoncore_session";
  * EVERY SERVER-SIDE CALLER BUILDS ITS CONTEXT THROUGH HERE, so there is one
  * place that knows a session arrives in a cookie. `packages/api` takes the token
  * itself and stays free of the framework.
+ *
+ * ONCE PER REQUEST, HOWEVER MANY COMPONENTS ASK (CNCORE-139). Since the header
+ * thins itself for a reader with no session, two components of one render want
+ * the same answer: the shell, on every page, and the page itself where it reads
+ * one too. `seeSession` is an UPDATE rather than a SELECT -- reading a session
+ * IS seeing the device (ADR-0043's `last_seen_at`) -- so a second caller is a
+ * second write, and two readings inside one request could disagree about who
+ * is asking. `cache` is what React documents for exactly this: memoised for the
+ * life of the render and nothing wider, so no answer outlives the request it
+ * was asked in.
  */
-export async function callerContext() {
-  return createContext({ sessionToken: (await cookies()).get(SESSION_COOKIE)?.value });
-}
+export const callerContext = cache(async () =>
+  createContext({ sessionToken: (await cookies()).get(SESSION_COOKIE)?.value }),
+);
 
 /**
  * Hands the token to the browser.

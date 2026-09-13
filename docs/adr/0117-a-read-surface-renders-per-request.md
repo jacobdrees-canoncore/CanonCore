@@ -163,3 +163,31 @@ anyway, exactly as `/items/<id>` is dynamic by reading `?via=`. The line is kept
 reason is this record's own: the declaration is the rule and being dynamic is the effect. The day
 paging changes shape, a page without the line goes back to being a photograph of itself with nothing
 in the diff to say so.
+
+## What the SHELL reading the caller changes, and what it does not — under CNCORE-139
+
+The header offers `/new` and `/import` to the owner alone since CNCORE-139
+([[0094-a-fresh-install-starts-empty]]), which means the ROOT LAYOUT reads the session cookie. A
+layout is part of every route's render, so no route under it can be prerendered. Measured on
+16.3.4, `next build` on this branch: `/_not-found` was the one route listed `○ (Static)` before the
+change and `ƒ (Dynamic)` after it, every other route having been dynamic already. That is the whole
+of the cost, and it is a 404 shell.
+
+**It is not the `force-dynamic` this record refuses**, and the difference is the one drawn
+everywhere else here: that is a DECLARATION — invisible in the file that suffers it, and switched on
+for routes that are genuinely static. This is a READ, in a component that genuinely needs the
+request, exactly as `/items/<id>` is dynamic by the `?via=` it reads. A shell that tells one reader
+something different from another is not static, whatever the page inside it does.
+
+**AND IT MAKES THIS RULE UNFALSIFIABLE WHILE IT LASTS, WHICH IS THE HALF TO HOLD ON TO.** The defect
+at the top of this record cannot happen while the shell reads a cookie, so a new read surface that
+forgets `connection()` now looks exactly like one that remembers, and nothing in the build output
+says which it is. The per-file declaration stays the rule BECAUSE of that rather than in spite of
+it: the day the header stops reading a session — a redesign, a nav that moves into the pages — every
+page missing the line goes back to being a photograph of itself, and the diff that did it would be
+in another file entirely. **The pair of instances is what still catches it**, which is why this
+record makes a new surface earn the pair rather than the line.
+
+`apps/web/e2e/header.test.ts` is that pair for the shell itself: it asks the seeded instance and the
+fresh one for the same `/works`, and expects different answers — a login link on the instance that
+has a password, and neither that nor the owner's routes on the one that has none.
