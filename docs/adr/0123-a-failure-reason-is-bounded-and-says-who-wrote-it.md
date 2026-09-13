@@ -430,7 +430,21 @@ expired `cf_clearance` exactly. A form field is input whoever rendered the form,
 built to: an action returns nothing and the page reports by re-reading, because `useActionState` is a
 client hook with nothing to give when no script has loaded. So the read that offered the button is
 the read that explains why it failed — the Owner lands back on the page and the Provider's sentence
-is quoted there, beside the URL they typed. Carrying the reason itself through a redirect was refused:
-a reason in a query parameter is a stranger choosing the text on a page it does not own, arriving by
-a route with no boundary to ask `wrote` about, which is this record's opening sentence with the
-attacker's half made easier.
+is quoted there, beside the URL they typed.
+
+**WHICH MEANS THE ERROR'S OWN `data` IS NOT WHAT THE PAGE PRINTS, and that is worth saying plainly
+rather than leaving a reader to infer it.** The sentence an Owner reads after a failed Take or browse
+comes from `provider.search`'s `failed` list or `provider.container`'s `unreachable` answer, mapped
+by `reasonFor` exactly as it was before this ticket — `actions.ts` discards what a refusal carries,
+which is the "it returns nothing and the page reports by re-reading" above read from the other end.
+What `data` buys is the RPC surface, where a caller now reads the reason instead of a 500 with
+nothing in it, and the SHAPE, so the two surfaces stop spelling one field two ways. **The page's half
+of the fix is that there is a page at all: the status, not the payload.** A witness asserting only
+the quoted sentence would therefore pass without any of this, which is why the status is the guard
+and is said to be — checked by reverting the wrapper, which fails it `expected 500 to be 200`.
+
+Carrying the reason itself through a redirect is what would have put the error's own text on the
+page, and it is refused. A reason in a query parameter is a stranger choosing the text on a page it
+does not own, arriving by a route with no boundary to ask `wrote` about — this record's opening
+sentence with the attacker's half made easier, since anyone could author that link where today only
+a Provider the Owner configured can author the sentence.

@@ -12,6 +12,7 @@ import {
   type RenderedForm,
   sectionIn,
   submit,
+  withFields,
 } from "./document";
 import { HARNESS_CONNECTIONS } from "./instance";
 
@@ -300,13 +301,14 @@ describe("/import, taking a record from a provider that has stopped answering", 
     // is offered "Import again", since a second import is a REFRESH rather than a
     // second item. The row is named rather than picked so this test does not
     // depend on which candidates an earlier test in this file has imported.
-    const rendered = formIn(rowTitled(before.text, providerSearch.held));
-    const form = {
-      ...rendered,
-      fields: rendered.fields.map(([key, value]): [string, string] =>
-        key === "baseUrl" ? [key, lapsed.url] : [key, value],
-      ),
-    };
+    //
+    // `withFields` RATHER THAN A MAP WRITTEN HERE, because it refuses a name the
+    // form does not carry -- so this test fails loudly on the day `baseUrl` is
+    // renamed, instead of quietly posting the provider that was already there
+    // and asserting a 200 about the wrong one.
+    const form = withFields(formIn(rowTitled(before.text, providerSearch.held)), {
+      baseUrl: lapsed.url,
+    });
 
     const taken = await submit(baseUrl, at, form, owner);
 
@@ -623,12 +625,9 @@ describe("/import, browsing a container at a provider that has stopped answering
     const alive = await documentAt(browsing(providerSearch.browsable), owner);
     const [rendered] = postFormsIn(sectionIn(alive.text, "container"));
     if (!rendered) throw new Error("the container section offered no button to press");
-    const form = {
-      ...rendered,
-      fields: rendered.fields.map(([key, value]): [string, string] =>
-        key === "baseUrl" ? [key, lapsed.url] : [key, value],
-      ),
-    };
+    // `withFields` for the reason the Take witness above gives: it refuses a name
+    // the form does not carry.
+    const form = withFields(rendered, { baseUrl: lapsed.url });
 
     const browsed = await submit(
       baseUrl,

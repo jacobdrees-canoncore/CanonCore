@@ -658,8 +658,8 @@ the production build by posting the browse form with a container id the provider
 WHICH THIS PARAGRAPH GOT WRONG FOR THREE TICKETS.** It said the 500 itself was gone since CNCORE-127,
 reasoning that the change made every Server Action read a sub-500 `ORPCError` as the answer it is.
 The change is real and the conclusion does not follow: **none of these three codes IS sub-500.**
-Measured on @orpc/client 1.15.0, `fallbackORPCErrorStatus` is `status ?? COMMON_ORPC_ERROR_DEFS[code]
-?? 500`, and `NO_SUCH_CONTAINER`, `BROWSE_NOT_OFFERED` and `PROVIDER_REFUSED` are codes of this app's
+Measured on @orpc/client 1.15.0, `fallbackORPCErrorStatus` is
+`status ?? COMMON_ORPC_ERROR_DEFS[code]?.status ?? 500`, and `NO_SUCH_CONTAINER`, `BROWSE_NOT_OFFERED` and `PROVIDER_REFUSED` are codes of this app's
 own rather than common defs -- so all three were 500s, `answer.ts` rethrew them, and `browseOrdering`
 went on answering the same eighteen bytes this section opens by measuring. Declaring an error is not
 delivering one, and neither is declaring it below where the delivery is decided. CNCORE-149 gave

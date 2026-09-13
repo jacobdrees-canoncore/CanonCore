@@ -12,6 +12,7 @@ import {
 import {
   type Allowlist,
   allowsAnything,
+  bounded,
   type CmppBrowse,
   type CmppManifest,
   type CmppRecord,
@@ -76,6 +77,63 @@ async function askingTheProvider<T>(work: () => Promise<T>): Promise<T> {
     throw new ProviderFailed(reasonFor(error));
   }
 }
+
+/**
+ * THE REFUSAL BOTH WRITE PROCEDURES DECLARE, WRITTEN ONCE (ADR-0123).
+ *
+ * That record exists because one defect had two sites that each solved it
+ * separately, and these two procedures are how it got them: the identical
+ * `catch`, narrowed the identical way, with the identical hole in it. A second
+ * copy of the declaration is the same shape one layer up -- two places for the
+ * status, the message and the reason's schema to stop agreeing.
+ */
+const providerRefused = {
+  /**
+   * THREE THINGS ARE IN HERE AND THE MESSAGE NAMES NONE OF THEM, which is the
+   * correction CNCORE-149 made to it. It said "That provider URL is not one this
+   * instance may reach", which is true of ADR-0034 refusing a URL and false of
+   * the other two: a socket that never opened, and a provider that ANSWERED
+   * badly -- that one was reached. `provider.container`'s `unreachable` branch
+   * keeps the same three apart the same way, by what they SAY rather than by the
+   * name over them.
+   */
+  message: "Nothing usable came back from that provider.",
+  /**
+   * BELOW 500, BECAUSE A PROVIDER FAILING IS NOT THIS SERVER BEING BROKEN -- AND
+   * WITHOUT THIS THE DECLARED ERROR NEVER REACHES A PAGE. oRPC gives a code of
+   * its own `status: 500` (`fallbackORPCErrorStatus` is
+   * `status ?? COMMON_ORPC_ERROR_DEFS[code]?.status ?? 500`, measured on
+   * @orpc/client 1.15.0), and `answer.ts` reads exactly that number to tell a
+   * refusal from a fault: at 500 it rethrows, and a Server Action that throws
+   * with no script loaded answers the bare `Internal Server Error` -- the same
+   * eighteen bytes the UNDECLARED throw answered. So declaring the error without
+   * declaring its status would narrow the RPC surface and leave the page exactly
+   * as it was.
+   *
+   * `424` RATHER THAN `502`, WHICH IS THE MORE OBVIOUS AND THE WRONG ONE. RFC
+   * 9110's gateway status is the better literal fit -- an inbound server
+   * answered badly -- but it is a 5xx, and a 5xx in this app means a genuine
+   * fault: `answer.ts` rethrows it and `/api/rpc` logs the stack (ADR-0125). An
+   * expired credential at a third party is neither. What this catalogue already
+   * decided about the same failure is on the READ side, where
+   * `provider.container` answers it at 200 as an ANSWER, and a 4xx is that
+   * position held on the write side. RFC 4918's `424` is the registered one that
+   * says it: "A method's execution has failed because it depends on the
+   * execution of another method, and that other method failed."
+   */
+  status: 424,
+  /**
+   * THE REASON, IN THE SHAPE THE READ SURFACES CARRY (ADR-0123). It was a bare
+   * `message` string until CNCORE-149, which is two shapes for one thing -- and
+   * the half a string cannot carry is `wrote`, so a caller holding one has no way
+   * to tell this catalogue's sentence about the Owner's own settings from a
+   * third party's text.
+   *
+   * DECLARED, so the ceiling is in the OpenAPI document a caller reads rather
+   * than an invariant two handlers each had to remember.
+   */
+  data: failureReason,
+};
 
 /** What an import needs: the URL the owner typed, and which record to take. */
 export interface ImportRequest {
@@ -215,8 +273,16 @@ export async function browseIntoCatalogue(
   try {
     const attempt = await askingTheProvider(() => browseIfOffered(client, containerId));
     if (!attempt.offered) {
+      // BOUNDED WHERE THE PROVIDER'S VALUE ENTERS THE SENTENCE, which is
+      // ADR-0123's own rule and was not applied here. `name` is
+      // `z.string().min(1)` on a body `MAX_BODY_BYTES` admits four mebibytes of,
+      // so a provider chose the length of this message -- the same defect as a
+      // credential's `label`, and `bounded` is published for exactly that: a
+      // provider's text on a manifest it chose to send, known to be the
+      // provider's without anything having to decide. The prose around it is
+      // fixed-length and cannot be cut.
       throw new BrowseNotOffered(
-        `${attempt.manifest.name} declares no browse; it was not asked for one.`,
+        `${bounded(attempt.manifest.name)} declares no browse; it was not asked for one.`,
       );
     }
     const browsed = attempt.browsed;
@@ -636,54 +702,11 @@ export const provider = {
       }),
     )
     .errors({
-      PROVIDER_REFUSED: {
-        /**
-         * THREE THINGS ARE IN HERE AND THE MESSAGE NAMES NONE OF THEM, which is
-         * the correction CNCORE-149 made to it. It said "That provider URL is
-         * not one this instance may reach", which is true of ADR-0034 refusing
-         * a URL and false of the other two this now carries: a socket that
-         * never opened, and a provider that ANSWERED badly -- that one was
-         * reached. `provider.container`'s `unreachable` branch keeps the same
-         * three apart the same way, by what they SAY rather than by the name
-         * over them.
-         */
-        message: "Nothing usable came back from that provider.",
-        /**
-         * BELOW 500, BECAUSE A PROVIDER FAILING IS NOT THIS SERVER BEING BROKEN
-         * -- AND WITHOUT THIS THE DECLARED ERROR NEVER REACHES A PAGE. oRPC
-         * gives a code of its own `status: 500` (`fallbackORPCErrorStatus`,
-         * measured on @orpc/client 1.15.0), and `answer.ts` reads exactly that
-         * number to tell a refusal from a fault: at 500 it rethrows, and a
-         * Server Action that throws with no script loaded answers the bare
-         * `Internal Server Error` -- the same eighteen bytes the UNDECLARED
-         * throw answered. So declaring the error without declaring its status
-         * would narrow the RPC surface and leave the page exactly as it was.
-         *
-         * `424` RATHER THAN `502`, WHICH IS THE MORE OBVIOUS AND THE WRONG ONE.
-         * RFC 9110's gateway status is the better literal fit -- an inbound
-         * server answered badly -- but it is a 5xx, and a 5xx in this app means
-         * a genuine fault: `answer.ts` rethrows it and `/api/rpc` logs the stack
-         * (ADR-0125). An expired credential at a third party is neither. What
-         * this catalogue already decided about the same failure is on the READ
-         * side, where `provider.container` answers it at 200 as an ANSWER, and a
-         * 4xx is that position held on the write side. RFC 4918's `424` is the
-         * registered one that says it: "A method's execution has failed because
-         * it depends on the execution of another method, and that other method
-         * failed."
-         */
-        status: 424,
-        /**
-         * THE REASON, IN THE SHAPE THE READ SURFACES CARRY (ADR-0123). It was a
-         * bare `message` string until CNCORE-149, which is two shapes for one
-         * thing -- and the half a string cannot carry is `wrote`, so a caller
-         * holding one has no way to tell this catalogue's sentence about the
-         * Owner's own settings from a third party's text.
-         *
-         * DECLARED, so the ceiling is in the OpenAPI document a caller reads
-         * rather than an invariant two handlers each had to remember.
-         */
-        data: failureReason,
-      },
+      PROVIDER_REFUSED: providerRefused,
+      // TODO(CNCORE-152): still oRPC's default 500 for a code of our own, so a
+      // record the provider drops between the search that drew the row and the
+      // POST that presses it reaches the owner as the bare `Internal Server
+      // Error` -- the same defect CNCORE-149 fixed one code over.
       NO_SUCH_RECORD: {
         message: "The provider holds no record at that id.",
       },
@@ -892,20 +915,11 @@ export const provider = {
       }),
     )
     .errors({
-      /**
-       * The same refusal `import` above declares, in the same shape and at the
-       * same status, for the reasons written there (ADR-0123).
-       */
-      PROVIDER_REFUSED: {
-        message: "Nothing usable came back from that provider.",
-        status: 424,
-        data: failureReason,
-      },
+      PROVIDER_REFUSED: providerRefused,
       // TODO(CNCORE-152): these two are still oRPC's default 500 for a code of
-      // our own, so a record or container that goes missing between the page's
-      // read and the owner's POST reaches them as the bare `Internal Server
-      // Error` above -- the same defect CNCORE-149 fixed one code over, and
-      // `NO_SUCH_RECORD` on `import` with it.
+      // our own, as `NO_SUCH_RECORD` on `import` above is, so a container that
+      // goes missing between the page's read and the owner's POST reaches them
+      // as the bare `Internal Server Error`.
       BROWSE_NOT_OFFERED: {
         message: "That provider does not offer browse, so it was not asked for one.",
       },

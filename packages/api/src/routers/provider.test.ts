@@ -247,6 +247,9 @@ async function stubProvider(
   return `http://127.0.0.1:${address.port}`;
 }
 
+/** The sentence the provider below fails with: the half an owner can act on. */
+const LAPSED = "this Provider holds no tardis.wiki session. Supply one at /unlock.";
+
 /**
  * A PROVIDER THAT IS UP, CANNOT ANSWER, AND SAYS WHY (CNCORE-140, ADR-0122).
  *
@@ -445,9 +448,7 @@ describe("provider.import", () => {
    * `/` is the manifest, which is the first thing an import asks for.
    */
   it("reports a provider that answered a non-2xx as a refusal, carrying what it said", async () => {
-    const baseUrl = await stubProviderRefusingWith(
-      "this Provider holds no tardis.wiki session. Supply one at /unlock.",
-    );
+    const baseUrl = await stubProviderRefusingWith(LAPSED);
 
     const { error } = await safe(
       call(appRouter.provider.import, { baseUrl, recordId: "265" }, { context }),
@@ -460,7 +461,7 @@ describe("provider.import", () => {
     // way to tell whose sentence it is holding without `wrote`.
     expect(error.data).toEqual({
       wrote: "provider",
-      text: "/ answered 503: this Provider holds no tardis.wiki session. Supply one at /unlock.",
+      text: `/ answered 503: ${LAPSED}`,
     });
   });
 
@@ -607,9 +608,7 @@ describe("provider.browse", () => {
    * fixed rather than assumed.
    */
   it("reports a provider that answered a non-2xx as a refusal, carrying what it said", async () => {
-    const baseUrl = await stubProviderRefusingWith(
-      "this Provider holds no tardis.wiki session. Supply one at /unlock.",
-    );
+    const baseUrl = await stubProviderRefusingWith(LAPSED);
 
     const { error } = await safe(
       call(appRouter.provider.browse, { baseUrl, containerId: "388305" }, { context }),
@@ -619,7 +618,7 @@ describe("provider.browse", () => {
     expect(error.code).toBe("PROVIDER_REFUSED");
     expect(error.data).toEqual({
       wrote: "provider",
-      text: "/ answered 503: this Provider holds no tardis.wiki session. Supply one at /unlock.",
+      text: `/ answered 503: ${LAPSED}`,
     });
   });
 
