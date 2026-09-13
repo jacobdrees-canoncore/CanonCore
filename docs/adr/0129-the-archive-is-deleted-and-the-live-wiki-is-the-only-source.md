@@ -37,8 +37,18 @@ of the wiki and refuses every automated client. **Re-collecting it would be a pr
 command.** That is the honest price of this record and it is written here rather than left to be
 discovered.
 
+**AND `~/tardis-pipeline` WAS NEVER UNDER VERSION CONTROL, SO ITS SOURCE IS GONE TOO.** Checked
+2026-09-13 before deleting: no `.git`, no remote, and `canoncore-history` — the private repository
+that keeps this project's pre-publication history — does not hold it either. The tag
+`archive/tardis-pipeline-2026-09-04` that ADR-0115 records was never pushed and names nothing that
+survives. So this is not a deletion anybody can undo from a remote, and a later reader must not go
+looking for one: nine scripts, four ADRs of their own, and a README went with the data.
+
+Three of those scripts are carried below as working code. The rest are not, deliberately — see
+"What is deliberately NOT carried".
+
 What makes the price worth paying is that nothing needed it. The fixture is committed, the figures
-are re-derivable, and the recipes that made collection possible are carried across (below).
+are re-derivable, and the recipes that made collection possible are carried across.
 
 ## The gate, and what it actually proved
 
