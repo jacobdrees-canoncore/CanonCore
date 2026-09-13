@@ -583,7 +583,13 @@ sequential test file. If each instance ran with a pool of 3, per-suite demand fa
 **32**, and 288 / 32 = **9 agents** on the same 300-connection ceiling, at which point the host's CPU
 (5.4) becomes the binding constraint instead and the answer is **5**.
 
-**That is the change worth making: 2 agents → 5, with no new ceiling and no new dependency.** It is
+**That is the change worth making: 2 agents → 4 — BUILT AS CNCORE-137, AND THE 5 THIS SENTENCE
+ORIGINALLY CLAIMED WAS WRONG** (corrected 2026-09-13, in the sentence rather than beside it). The
+pool of 3 guessed at above was never measured; the bound that shipped is **4**, the peak
+`state = 'active'` one server was observed to reach. Per-suite demand fell from **97 to 55** on
+matched runs — 91 to 103 and 55 to 60 across repeats — and not to the **32** estimated above, because
+that estimate counted the ten servers and forgot the harness handles and setup connections beside
+them. `288 / 60 = 4.80` flooring the worst run, so the ceiling is **4 agents**. It is
 not free and this note does not pretend otherwise. `getDb()` reads only `DATABASE_URL`, so bounding
 the servers means a new environment variable — and CLAUDE.md forbids introducing one unless something
 in the repo reads it in the same change, which is a ticket's worth of work rather than a line.
@@ -604,8 +610,9 @@ what is allowed rather than a statement about what performs.
 
 ## 8. What would change, ranked by harm prevented per line
 
-Nothing here was done. Each is a ticket's worth of work, and items 1 and 2 fall inside CNCORE-132's
-existing scope.
+Nothing here was done AT THE TIME OF WRITING. Each is a ticket's worth of work; item 1 falls inside
+CNCORE-132's existing scope, and **item 2 has since shipped as CNCORE-137** — see the correction in
+section 7, which records that it bought 4 agents rather than the 5 estimated here.
 
 1. **Declare the outside inputs, or stop caching — in BOTH packages.** `@canoncore/schemas`:
    `"inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/CONTEXT.md"]`. `@canoncore/env`: the same with
@@ -615,7 +622,9 @@ existing scope.
    CNCORE-132 must verify the fix on a WARM cache, as its own text insists — and **its scope needs
    widening first**, since it names only the glossary while `@canoncore/env` replays stale against
    the install path. A fix that lands on one package leaves the worse instance standing.
-2. **Bound the e2e servers' pools** (section 7). Turns 2 concurrent agents into 5. Needs an
+2. **Bound the e2e servers' pools** (section 7). **DONE as CNCORE-137; it turned 2 concurrent agents
+   into 4 rather than the 5 first written here, measured at 97 connections falling to 55 rather than
+   to the estimated 32.** Needed an
    environment variable and its reader in the same change.
 3. **Give each stub a distinct loopback host** rather than holding its port (section 3), so a
    provider's identity stops depending on the OS. Belongs to CNCORE-126.

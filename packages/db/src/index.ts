@@ -95,9 +95,11 @@ export { worktreeDatabaseName } from "./worktree-database";
  * TEN connections per pool, so a page-seam run -- ten servers, each with a
  * pool, plus the harness's own handles against the same container -- can ask
  * for more than the server will give and fails with `sorry, too many clients
- * already` (measured on this repo, 2026-09-12, adding the ninth instance). The
- * app leaves it at the default: it is one process, and ten is the number that
- * process was already using.
+ * already` (measured on this repo, 2026-09-12, adding the ninth instance).
+ * THE APP NO LONGER LEAVES IT AT THE DEFAULT EITHER, since CNCORE-137: it is
+ * one process, but the PostgreSQL it points at is not one process's to spend,
+ * so `getDb` reads the bound an operator set and falls back to the same ten it
+ * always held.
  *
  * AND THE CEILING IT IS MEASURED AGAINST IS NO LONGER POSTGRES'S DEFAULT
  * HUNDRED. The tenth instance (CNCORE-131) put one suite's peak AT that budget
@@ -126,9 +128,16 @@ let instance: Database | undefined;
 /**
  * The application's database, built once from the validated environment.
  * Memoised because a pool per caller is a pool per caller.
+ *
+ * AND THE BOUND COMES FROM THE ENVIRONMENT TOO (CNCORE-137). This is the only
+ * pool a running CanonCore holds, so it is the only place the size can be said
+ * -- and it had no way of being said at all, which is why `pnpm test:e2e`'s ten
+ * servers took ten connections each and left the container's budget spent on
+ * one worktree's suite. `DATABASE_MAX_CONNECTIONS` defaults to node-postgres's
+ * ten, so an instance nobody configured holds exactly what it held before.
  */
 export function getDb(): Database {
-  instance ??= createDb(env.DATABASE_URL);
+  instance ??= createDb(env.DATABASE_URL, { maxConnections: env.DATABASE_MAX_CONNECTIONS });
   return instance;
 }
 

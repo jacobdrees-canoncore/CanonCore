@@ -42,4 +42,42 @@ export const serverSchema = {
    * and hashing a value the same file holds in the clear protects nothing.
    */
   OWNER_PASSWORD: z.string().min(12).optional(),
+  /**
+   * HOW MANY CONNECTIONS THIS PROCESS MAY HOLD OPEN (ADR-0104, CNCORE-137).
+   *
+   * ONE POSTGRES SERVES EVERY WORKTREE, so a pool is spent from a budget the
+   * neighbours are drawing on rather than from one this process owns. That is
+   * what makes the size a DEPLOYMENT'S to state: a self-hoster pointing
+   * CanonCore at a database shared with something else has a ceiling nothing
+   * here can read.
+   *
+   * TEN IS node-postgres's OWN DEFAULT (node-postgres.com/apis/pool, read
+   * 2026-09-13), so an installation that sets nothing keeps precisely the pool
+   * it had before this variable existed. The variable buys the ability to say
+   * otherwise; it changes nothing by arriving.
+   *
+   * THE E2E SUITE IS THE DEPLOYMENT THAT SAYS OTHERWISE, and it is why this
+   * exists at all: it stands up TEN CanonCore servers against one container,
+   * where ten default pools spend the whole budget on their own and leave the
+   * next worktree's suite to fail with `sorry, too many clients already`.
+   * `apps/web/e2e/instance.ts` sets its measured peak instead. The number is
+   * not lowered HERE because that peak is taken from servers each running one
+   * test file SEQUENTIALLY, which is not what an instance serving concurrent
+   * readers does.
+   *
+   * COERCED, because an environment holds text and nothing else. A POSITIVE
+   * INTEGER, because a pool of none is not a small pool: it is a process that
+   * reaches its database never, and does it at the first query rather than at
+   * startup where somebody would see it.
+   *
+   * AND DELIBERATELY NO UPPER BOUND, which is the asymmetry worth explaining
+   * rather than leaving to be noticed. A ceiling here would be this repository
+   * guessing at a budget it cannot see: the operator's PostgreSQL may serve
+   * this instance alone or a dozen other things, and `max_connections` is
+   * theirs. A number too large fails loudly, at their own server, with the
+   * `sorry, too many clients already` that `.env.example` warns about -- where
+   * a cap too small would refuse a deployment larger than the one imagined
+   * here, and would have to be raised by editing this file.
+   */
+  DATABASE_MAX_CONNECTIONS: z.coerce.number().int().positive().default(10),
 };

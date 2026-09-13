@@ -64,6 +64,14 @@ services:
       # broken install -- so this interpolates to empty instead of refusing to
       # start the way POSTGRES_PASSWORD does.
       OWNER_PASSWORD: ${OWNER_PASSWORD:-}
+      # HOW MANY CONNECTIONS THIS INSTANCE MAY HOLD OPEN (CNCORE-137).
+      #
+      # INTERPOLATED EMPTY RATHER THAN TO A NUMBER, so the default lives in
+      # `packages/env` alone. Repeating `10` here would be a second default free
+      # to disagree with the schema's, and the one a container actually got
+      # would depend on which file the reader trusted. Empty is undefined to
+      # `createEnv`, which is what lets the schema decide.
+      DATABASE_MAX_CONNECTIONS: ${DATABASE_MAX_CONNECTIONS:-}
     ports:
       - "${CANONCORE_PORT:-3000}:3000"
 
