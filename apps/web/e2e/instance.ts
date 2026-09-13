@@ -27,6 +27,50 @@ export const webRoot = fileURLToPath(new URL("..", import.meta.url));
 export const HARNESS_CONNECTIONS = 2;
 
 /**
+ * HOW MANY CONNECTIONS ONE SERVER UNDER TEST MAY HOLD (CNCORE-137).
+ *
+ * FOUR RATHER THAN node-postgres's TEN, and the four is MEASURED: sampling
+ * `pg_stat_activity` through an unbounded run, no server ever had more than
+ * FOUR connections executing a statement at once. ADR-0104 carries the
+ * measurement, the before-and-after totals and the agent ceiling they imply,
+ * under "Raising the ceiling was the wrong lever, and bounding the demand was
+ * the right one" -- one place rather than five, so a correction lands once.
+ *
+ * THE HARNESS'S OWN HANDLES WERE ALREADY BOUNDED AND WERE NEVER THE PROBLEM.
+ * `HARNESS_CONNECTIONS` has held them at two since CNCORE-99. What nothing
+ * bounded was the SERVER PROCESSES this file starts, each a real CanonCore
+ * calling `getDb()` and so taking node-postgres's default ten.
+ *
+ * IT IS SET HERE AND NOT LOWERED IN `packages/env`, which is CNCORE-137's one
+ * real decision. The measurement is taken from servers running ONE test file
+ * each, SEQUENTIALLY -- so four is the peak of a sequential workload, and an
+ * instance serving several readers at once would be throttled by it. The
+ * default stays the ten every deployment already had.
+ */
+export const SERVER_CONNECTIONS = 4;
+
+/**
+ * THE ENVIRONMENT EVERY SERVER UNDER TEST RUNS WITH.
+ *
+ * ONE FUNCTION SO THE BOUND CANNOT BE FORGOTTEN AT A CALL SITE. Nine of this
+ * suite's servers are started by `anInstanceServing` below and the tenth -- the
+ * fresh install, which builds between its database and its server -- calls
+ * `theBuildServing` directly. Both reach the spawn through this function, so
+ * there is no way to start a server in this harness that is not bounded.
+ *
+ * IT OVERWRITES THE BOUND ON PURPOSE, and that is the one key it decides.
+ * `anInstanceServing` spreads `process.env` into what it passes, so a developer
+ * with `DATABASE_MAX_CONNECTIONS` set in their own environment would otherwise
+ * hand every server under test a number CI never had -- the same class of leak
+ * `freshInstall` records an afternoon lost to. What an instance REACHES and
+ * whether anybody can log in to it stay the fixtures' own to answer, and this
+ * is not a second place they get decided.
+ */
+export function theServerEnvironment(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  return { ...env, DATABASE_MAX_CONNECTIONS: String(SERVER_CONNECTIONS) };
+}
+
+/**
  * THE OWNER'S PASSWORD, for the instances this harness has to WRITE to.
  *
  * Everything that changes a catalogue is behind a session since CNCORE-109, and
@@ -60,7 +104,7 @@ export async function theBuildServing(env: NodeJS.ProcessEnv): Promise<{
   const port = await freePort();
   const server = spawn("next", ["start", "--port", String(port)], {
     cwd: webRoot,
-    env,
+    env: theServerEnvironment(env),
     stdio: "inherit",
   });
   const baseUrl = `http://127.0.0.1:${port}`;
