@@ -148,6 +148,15 @@ being hit, and re-running it passes whenever the neighbour has finished.
 needs no equivalent: each job gets a `postgres:18` service container of its own and runs one
 worktree against it, so the contention this fixes does not exist there.
 
+## The OTHER thing a worktree was sharing without saying so
+
+This record partitions the database and leaves the connection budget shared, which is the split the
+section above puts a number on. It is not the only one. **The turbo cache was shared across every
+worktree too**, by turbo's own default for a git worktree, so a task's result computed in one
+worktree was replayed into the others — [[0127-a-cache-hit-never-crosses-a-worktree]] partitions it
+and measures what that costs. A reader arriving here to ask what a worktree owns and what it shares
+should read that record beside this one.
+
 ## Evidence
 
 `docker image inspect postgres:18` (digest `sha256:4ef4dbc9…`), `lsof -nP -iTCP:5432`, and
