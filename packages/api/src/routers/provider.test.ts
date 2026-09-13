@@ -434,6 +434,13 @@ describe("provider.import", () => {
 
     if (!isDefinedError(error)) throw new Error(`expected a defined error, got ${String(error)}`);
     expect(error.code).toBe("NO_SUCH_RECORD");
+    // AND AT A STATUS A PAGE CAN READ (CNCORE-152). The code alone is what a
+    // caller narrows on, but it is the STATUS that decides whether the answer
+    // reaches the owner at all: `answer.ts` rethrows at 500 and above, and oRPC
+    // gives a code of our own 500 unless the declaration says otherwise. Without
+    // this line the code below can be declared and the owner still gets the bare
+    // `Internal Server Error`, which is exactly the state CNCORE-149 left here.
+    expect(error.status).toBe(404);
   });
 
   /**
@@ -578,6 +585,13 @@ describe("provider.browse", () => {
 
     if (!isDefinedError(error)) throw new Error(`expected a defined error, got ${String(error)}`);
     expect(error.code).toBe("BROWSE_NOT_OFFERED");
+    // AND NOT THE `404` ITS TWO NEIGHBOURS TAKE (CNCORE-152), which is the half
+    // of this worth asserting rather than the number itself. Both statuses would
+    // get the owner a page, so a test that only counted "below 500" would pass on
+    // a 404 here -- and a 404 tells them the container is missing when nothing
+    // ever asked about it. The status is the only place that distinction
+    // survives the trip to the page.
+    expect(error.status).toBe(422);
   });
 
   it("goes on importing one record from a provider that declares no browse", async () => {
@@ -607,6 +621,12 @@ describe("provider.browse", () => {
 
     if (!isDefinedError(error)) throw new Error(`expected a defined error, got ${String(error)}`);
     expect(error.code).toBe("NO_SUCH_CONTAINER");
+    // AT THE SAME STATUS AS `import`'s MISSING RECORD, AND ASSERTED HERE RATHER
+    // THAN LEFT TO IT (CNCORE-152). These two procedures have twice now had one
+    // defect with two sites -- the identical `catch` under CNCORE-149, the
+    // identical missing status under this ticket -- so a witness for one of them
+    // has repeatedly said nothing true about the other.
+    expect(error.status).toBe(404);
   });
 
   /**
