@@ -244,4 +244,10 @@ tree restored to its pre-ticket state, once with and once without `--cache-dir`;
 clean afterwards. The replayed log from `tar --zstd -xOf` on the entry itself. Absolute paths in the
 build output from a walk of `.next/**` for the worktree's own path, excluding `.next/cache/**`, which
 `turbo.json` excludes too. Cold and warm timings from `/usr/bin/time -p pnpm exec turbo run build
-typecheck test`. Turbo's wording from turborepo.dev/docs/reference/configuration.
+typecheck test`. The worktree/main-checkout split from `git rev-parse --show-toplevel`,
+`--git-common-dir` and `--git-dir`, plus `cat .git`, all run from inside this worktree.
+
+Turbo's wording from three of its own pages, all read 2026-09-13:
+turborepo.dev/docs/reference/configuration for `cacheDir` and its precondition,
+turborepo.dev/blog/2-8 for why the sharing was added, and turborepo.dev/docs/guides/ai for what it is
+meant to do for parallel agents. The version under test is 2.10.12 (`turbo --version`).
