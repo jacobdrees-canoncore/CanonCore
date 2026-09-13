@@ -1286,8 +1286,10 @@ async function PlaceAnItem({
 }) {
   /*
    * THE CALLER'S OWN CONTEXT, not a second one built here. The page's own
-   * comment says why: two calls to `callerContext` would be two answers to
-   * "what does this request carry". The listing itself is open (ADR-0044) --
+   * comment says why, and says since CNCORE-139 that the memo would now make
+   * two calls one answer regardless: what passing it buys is that this section
+   * is answered from the context the page was, visibly rather than by a memo in
+   * another file. The listing itself is open (ADR-0044) --
    * what makes this section the owner's is that the page renders it only for
    * them, which is the same posture `Note` and `EditTitle` take.
    */

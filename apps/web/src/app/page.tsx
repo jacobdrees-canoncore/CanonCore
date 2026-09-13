@@ -59,8 +59,16 @@ async function readFrontPage(after: string | undefined) {
   await connection();
   // ONE CONTEXT FOR ALL THREE, rather than one each. It opens no connection of
   // its own -- the pool is memoised and the allowlist parsed at module load --
-  // but three calls to it would be three answers to "what does this request
-  // carry", which is the thing a context exists to make one.
+  // and three calls to it were three answers to "what does this request carry",
+  // which is the thing a context exists to make one.
+  //
+  // THREE CALLS WOULD NOW BE ONE ANSWER ANYWAY (CNCORE-139): `callerContext` is
+  // memoised for the life of the render, because the header reads the session
+  // too and `seeSession` is an UPDATE. So the sentence above is why this line
+  // was written and no longer why it holds. It stays for the better reason: the
+  // object these three procedures are answered from is built once, where a
+  // reader of this function can see it, rather than relied on from a memo in
+  // another file.
   //
   // `callerContext` RATHER THAN `createContext` SINCE CNCORE-133, which is the
   // whole of how the session arrives: the plain constructor takes no token, so

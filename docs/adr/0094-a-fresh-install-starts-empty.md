@@ -123,21 +123,45 @@ routes wherever a login is possible — fixes only the read-only instance and go
 people run. Rendering them
 for everyone and letting each surface refuse is what produced the defect. Making `/new` render a
 DISABLED form to match `/import` makes the refusal prettier without making the route takeable, and
-the criterion is that a reader is not ADVISED towards somewhere that will refuse
-them. What does not change is the first sentence: "it starts that way on purpose,
-CanonCore ships no catalogue" is every reader's, because the "empty is not UNEXPLAINED" half above
-is owed to somebody who cannot fill it either.
+the criterion is that a reader is not SENT towards somewhere that will refuse them — advised by an
+empty state or listed in a nav alike, which is the width CNCORE-139 gave the word below. What does
+not change is the first sentence: "it starts that way on purpose, CanonCore ships no catalogue" is
+every reader's, because the "empty is not UNEXPLAINED" half above is owed to somebody who cannot
+fill it either.
 
-**AND "ADVISED" IS THE EXACT WORD, BECAUSE THE HEADER STILL LINKS BOTH SURFACES TO EVERYBODY.**
-`New item` and `Import` sit in the header on every page, and a visitor who follows either still
-meets the refusal described above. That is not this decision half-applied: the header is a client
-component and a session is a server-side cookie, so it cannot read one — and the two cases differ
-in kind. A nav link is a map of what the product HAS, and a reader who follows one asked a
-question. An empty state is ADVICE the product volunteers about what to do next, and advice that
-cannot be taken is the defect. Whether the header should thin itself for a visitor is a question
-about the header on every page rather than about an empty catalogue, which is where CNCORE-139
-holds it, with a TODO at the site. Named here rather than left: a record that reads as though every
-route to a refusal were closed is one whose next reader stops looking.
+**AND "ADVISED" WAS NOT THE EXACT WORD, WHICH IS WHY THE HEADER THINS ITSELF TOO (CNCORE-139).**
+This paragraph used to defend the header, where `New item` and `Import` sat on every page offered
+to every reader: the two cases differ IN KIND, it said — a nav link is a map of what the product
+HAS and a reader who follows one asked a question, while an empty state is ADVICE the product
+volunteers, and advice that cannot be taken is the defect. The header is gated on a session now and
+that argument is replaced rather than merely overruled, because it was reasonable and it was wrong
+in two places that are worth writing down.
+
+**THE HEADER WAS NEVER THAT MAP.** `/settings`, `/tasks` and `/devices` are the owner's surfaces
+too, and not one of them has ever been in the nav. So it was already a selection of what a reader
+can USE rather than an index of what exists, and a defence that would equally justify listing those
+three is not describing the thing it defends. What made the two links look different from the other
+three is only that they predate there being a session to gate them on.
+
+**AND THE OBSTACLE WAS NOT ONE.** "The header is a client component and a session is a server-side
+cookie, so it cannot read one" was a true sentence about the FILE and a false one about the header:
+nothing in it had state, an effect or a handler, and the two children that need script —
+`ModeToggle` and the search box — declare `"use client"` for themselves. A server component renders
+a client one, so the directive bought nothing and cost the header the only fact it lacked. The
+directive came off and neither child changed.
+
+**SO THE HEADER ANSWERS THE SAME THREE ANSWERS OFF THE SAME TWO FACTS AS THE EMPTY STATE.** An
+owner sees both routes, unchanged. A reader with no session on an instance that HAS a password is
+offered `/login` — which the header did not offer before at all, so the owner of a catalogue with
+anything in it had no rendered way to reach it, the empty state that names it being retired by the
+first Item. A reader on an instance with NO password is offered neither, for the reason nothing
+else offers that reader a login either: nobody can log in there, the owner included.
+
+**WHAT IT COSTS IS STATED IN ADR-0117 RATHER THAN HERE**, because it is that record's subject: the
+shell reads the caller on every page, so every route renders per request, and `/_not-found` is the
+one route the build table shows changing. What does not change is that a reader who TYPES an
+address still meets the page's own refusal. That is the division this record always described —
+the surface renders, its buttons do not — and it is now the only way to reach one.
 
 **AND IT COST THE CRITERION ABOVE ONE OF ITS TWO WITNESSES, WHICH IS NAMED RATHER THAN LEFT TO BE
 DISCOVERED.** "Offered whether or not a provider is allowlisted" needs the routes rendered in both
