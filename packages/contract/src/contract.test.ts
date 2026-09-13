@@ -643,9 +643,41 @@ describe.each(underTest.map((p) => [p.name, p] as const))(
         const container = participant.aContainer;
         if (container === null)
           throw new Error(`${participant.name} declares browse with no fixture`);
-        const response = await get(participant, `/browse/${encodeURIComponent(container)}`);
+        const path = `/browse/${encodeURIComponent(container)}`;
+        const response = await get(participant, path);
 
-        expect(response.status).toBe(200);
+        /*
+         * `browse` OWES THE SAME REFUSAL `search` AND `lookup` DO, and this branch
+         * is CNCORE-102's half of CNCORE-141. ADR-0122's obligation is about a
+         * provider that cannot reach ITS SOURCE, and it never said "except for
+         * browse" -- but until `provider-wiki` moved `browse` to the live wiki, no
+         * participant could demonstrate it: that operation read a file on disk, so
+         * it answered a container whatever the credential said. It answers `503`
+         * now, and a contract that still demanded `200` here would be holding the
+         * one provider that obeys ADR-0122 to breaking it.
+         *
+         * IT IS READ AFTER THE CREDENTIAL DESCRIBE RUNS, WHICH MATTERS. That block
+         * unlocks every provider declaring a credential, so by the time this runs
+         * the manifest may report `valid` about a value the upstream has never
+         * seen -- only the upstream can refuse it (ADR-0122), and it does so on the
+         * first request that reaches it. So the declaration is re-read AFTER the
+         * browse rather than before: what is being asked is whether this provider
+         * could reach its source FOR THIS CALL, and the answer to that is only
+         * settled once the call has been made.
+         */
+        if (response.status !== 200) {
+          const after = manifest.parse((await get(participant, "/")).body).credential;
+          expect(
+            cannotReachItsSource(after),
+            `\`${path}\` answered ${response.status} and this provider's credential reads ` +
+              `\`${after?.state ?? "none"}\`. A provider that CAN reach its source owes a ` +
+              "container and its ordering here; one that cannot owes a 503 saying so " +
+              "(ADR-0122). Neither permits any other answer.",
+          ).toBe(true);
+          expectSaysItCannotAnswer(response, path);
+          return;
+        }
+
         const browsed = browseResponse.parse(response.body);
         expect(browsed.container.id).toBe(container);
         // A container with an EMPTY ordering and no unplaced members is a browse
