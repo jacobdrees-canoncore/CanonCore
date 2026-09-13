@@ -235,7 +235,7 @@ export default async function setup(project: TestProject) {
     held: THE_MATRIX.title,
     unreachable: UNREACHABLE_PROVIDER,
     browsable: { provider: tmdb.url, container: MATRIX_COLLECTION },
-    declinesBrowse: lookupOnly.url,
+    declinesBrowse: { url: lookupOnly.url, name: DECLINES_BROWSE },
     answersBadly: answersBadly.url,
     refusesWithASentence: { url: refusesWithASentence.url, said: LAPSED },
     holdsNothing: { url: holdsNothing.url, name: HOLDS_NOTHING },
@@ -1076,6 +1076,9 @@ async function stubTmdbProvider(): Promise<{ url: string; close: () => Promise<v
   });
 }
 
+/** The name the Provider below gives itself, which is what the page prints. */
+const DECLINES_BROWSE = "provider-lookup-only";
+
 /**
  * A CONFORMANCE WITNESS: a provider that satisfies CMPP while DECLINING the one
  * operation ADR-0033 lets a provider decline.
@@ -1100,7 +1103,7 @@ async function stubTmdbProvider(): Promise<{ url: string; close: () => Promise<v
  */
 async function aProviderThatDeclinesBrowse(): Promise<{ url: string; close: () => Promise<void> }> {
   const manifest = {
-    name: "provider-lookup-only",
+    name: DECLINES_BROWSE,
     versions: [1],
     operations: ["search", "lookup"],
     max_cache_age: 86400,
@@ -2180,7 +2183,7 @@ declare module "vitest" {
        * ADR-0033 makes well-formed. No real provider lacks it, so this is the
        * conformance witness rather than one of the images.
        */
-      declinesBrowse: string;
+      declinesBrowse: { url: string; name: string };
       /**
        * A provider this instance searches that IS REACHED and answers a body
        * CMPP does not accept -- the third thing an `unreachable` answer carries,

@@ -654,8 +654,8 @@ the production build by posting the browse form with a container id the provider
 `Internal Server Error`: eighteen bytes of plain text, no HTML, and none of `NO_SUCH_CONTAINER`,
 `BROWSE_NOT_OFFERED` or `PROVIDER_REFUSED` anywhere in it. Declaring an error is not delivering one.
 
-**THE 500 IS GONE FOR ALL THREE: `PROVIDER_REFUSED` SINCE CNCORE-149 AND THE OTHER TWO SINCE
-CNCORE-152 -- AND THIS PARAGRAPH GOT IT WRONG FOR THREE TICKETS BEFORE THAT.** It said the 500 itself
+**THE 500 IS GONE FOR ALL THREE OF THIS SECTION'S CODES -- `PROVIDER_REFUSED` SINCE CNCORE-149,
+`NO_SUCH_CONTAINER` AND `BROWSE_NOT_OFFERED` SINCE CNCORE-152 -- AND THIS PARAGRAPH GOT IT WRONG FOR THREE TICKETS BEFORE THAT.** It said the 500 itself
 was gone since CNCORE-127,
 reasoning that the change made every Server Action read a sub-500 `ORPCError` as the answer it is.
 The change is real and the conclusion does not follow: **none of these three codes IS sub-500.**
