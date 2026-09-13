@@ -246,6 +246,22 @@ too small a cap would refuse a deployment bigger than the one imagined here.
 STORES, edited from a surface with no restart. A pool is built once at startup from the validated
 environment, which is where `DATABASE_URL` lives and why this sits beside it.
 
+## The OTHER thing a worktree was sharing without saying so
+
+Everything above is about ONE shared resource: the connection budget, which this record leaves shared
+on purpose and which CNCORE-137 then bounded the demand against. It is not the only one. **The turbo
+cache was shared across every worktree too**, by turbo's own default for a git worktree, so a task's
+result computed in one worktree was replayed into the others — and unlike the connections, nothing
+about it was ever chosen here. [[0127-a-cache-hit-never-crosses-a-worktree]] partitions it, prices
+what that costs, and records why turbo ships the sharing in the first place.
+
+**The two are the same shape twice**, which is the reading `docs/research/parallel-agent-substrate.md`
+opens with under "The three defects are one defect, and there is a fourth": a namespace that is
+machine-global, reached by code that believes it is worktree-local. The database is partitioned and
+the budget it spends is not; the cache looked worktree-local and lived in the main checkout. A reader
+arriving here to ask what a worktree owns and what it shares should read that record beside this
+one.
+
 ## Evidence
 
 `docker image inspect postgres:18` (digest `sha256:4ef4dbc9…`), `lsof -nP -iTCP:5432`, and
