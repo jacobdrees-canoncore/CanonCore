@@ -34,17 +34,21 @@ export default async function Header() {
   const context = await callerContext();
   const owner = context.session !== null;
   /*
-   * AND WHETHER THERE IS A LOGIN TO OFFER AT ALL, which is a fact about the
-   * INSTANCE rather than about the reader (ADR-0044, CNCORE-133). An instance
-   * that sets no `OWNER_PASSWORD` refuses every password, so nobody obtains a
-   * session including the owner -- and a login link there would be the door
-   * with no key cut for it that `/login` itself refuses to render.
+   * AND WHETHER THERE IS A LOGIN TO OFFER AT ALL, which is a second fact and is
+   * about the INSTANCE rather than about the reader (ADR-0044, CNCORE-133). An
+   * instance that sets no `OWNER_PASSWORD` refuses every password, so nobody
+   * obtains a session including the owner -- and a login link there would be
+   * the door with no key cut for it that `/login` itself refuses to render.
    *
-   * `session.configured` READS THE SETTING AND NOTHING ELSE, so the answer
-   * costs no query; it is the procedure the empty state already asks the same
-   * question with, one setting over from `provider.allowlisted`.
+   * ASKED ONLY WHERE THE ANSWER IS USED, which is what the `&&` is doing rather
+   * than terseness: the owner has already taken the login, so reading whether
+   * one is possible would be a call made on every page they open to decide
+   * nothing. `session.configured` reads the setting and nothing else, so it
+   * costs no query when it IS asked; it is the procedure the empty state asks
+   * the same question with, one setting over from `provider.allowlisted`.
    */
-  const instance = await call(appRouter.session.configured, undefined, { context });
+  const offerTheLogin =
+    !owner && (await call(appRouter.session.configured, undefined, { context })).password;
 
   return (
     <header>
@@ -53,8 +57,11 @@ export default async function Header() {
           LABELLED, BECAUSE A PAGE HERE CARRIES MORE THAN ONE NAV. An item page
           has "Filter by how it was placed" and any walked listing has "More of
           this listing", so the landmark every page carries was the one a reader
-          navigating by landmark could not name. The label is what an assertion
-          reads this by too, rather than a class or a position.
+          navigating by landmark could not name. `.claude/rules/frontend.md` is
+          where that is owed: accessibility ships with the feature, and the
+          feature this ticket changes is what is IN this nav. Nothing asserts
+          the label -- `header.test.ts` reads the `<header>` element, which is
+          the whole shell rather than this list.
         */}
         <nav aria-label="Main" className="flex items-baseline gap-4 text-lg">
           {/*
@@ -155,7 +162,7 @@ export default async function Header() {
             in` that logged you out would be the sort of lie this whole ticket
             is about.
           */}
-          {!owner && instance.password && (
+          {offerTheLogin && (
             <Link className="text-sm hover:underline" href="/login">
               Log in
             </Link>

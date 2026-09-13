@@ -23,15 +23,22 @@ const baseUrl = inject("baseUrl");
 /**
  * The shell of one served page: everything before the content.
  *
- * READ AS THE `banner` LANDMARK rather than by class or by position, because
- * that is what the header IS to anybody navigating by landmark, and a reader
+ * READ AS THE `header` ELEMENT rather than by class or by position, because
+ * that is the landmark the shell IS to anybody navigating by one, and a reader
  * that matched the first `<div>` of the body would be asserting against
  * Tailwind.
+ *
+ * IT REFUSES A SECOND ONE RATHER THAN TAKING THE FIRST, which is the difference
+ * between reading the banner and reading whatever `<header>` happens to come
+ * first. There is one in this app today and the banner is it; the day a card or
+ * a section grows its own, a helper that quietly picked the earlier tag would
+ * assert against the wrong element and pass.
  */
 function headerOf(text: string): string {
-  const found = text.match(/<header\b.*?<\/header>/s)?.[0];
-  if (!found) throw new Error("that page rendered no header");
-  return found;
+  const found = [...text.matchAll(/<header\b.*?<\/header>/gs)].map(([element]) => element);
+  if (found.length === 0) throw new Error("that page rendered no header");
+  if (found.length > 1) throw new Error(`that page rendered ${found.length} headers, not one`);
+  return found[0] as string;
 }
 
 describe("the header, to the owner", () => {

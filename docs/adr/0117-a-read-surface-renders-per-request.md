@@ -175,6 +175,17 @@ as many words — "Using it in a layout or page will opt a route into dynamic re
 `○ (Static)` before the change and `ƒ (Dynamic)` after it, every other route having been dynamic
 already. That is the whole of the cost, and it is a 404 shell.
 
+**WHAT IT PUTS IN FRONT OF EVERY ROUTE IS ONE INDEXED PROBE, AND ONLY FOR A REQUEST THAT CARRIES A
+COOKIE.** `createContext` asks the database nothing when no session token arrives, so a visitor
+still costs no query on the routes that read nothing else. A request that DOES carry one now reaches
+`seeSession` wherever it lands — `/works`, an item page, a 404 — and that is an UPDATE rather than a
+SELECT, because reading a session is seeing the device ([[0043-sessions-carry-capabilities]]). It is
+a write against a unique index that matches no row for a token nobody minted, and it tells a caller
+nothing: the header a forged cookie is served is the header no cookie is served, so this is not an
+oracle for which tokens exist and [[0125-guessing-is-bounded-by-a-rate-never-by-a-lockout]]'s bound
+stays where the secret is compared, on `session.logIn`. Named because "the shell reads the caller"
+sounds free and is not.
+
 **It is not the `force-dynamic` this record refuses**, and the difference is the one drawn
 everywhere else here: that is a DECLARATION — invisible in the file that suffers it, and switched on
 for routes that are genuinely static. This is a READ, in a component that genuinely needs the
