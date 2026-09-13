@@ -1,0 +1,24 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "test": {
+      // `glossary.test.ts` reads the ROOT `CONTEXT.md` -- it is the check that
+      // holds the read path to the glossary's `_Avoid_` lists (ADR-0124), and it
+      // reads those lists rather than restating them. Turbo hashes a task against
+      // its own package and nothing else, so without this line the one check that
+      // enforces the glossary is cached against everything except the glossary,
+      // and editing it replays a stale pass. CNCORE-101 hit that: a new `_Avoid_`
+      // entry collided with a name on the read path, ten tasks passed locally,
+      // and only CI -- cold -- caught it.
+      //
+      // `$TURBO_ROOT$` rather than `../../CONTEXT.md`, which is turbo's own
+      // instruction for an input outside the package: a relative climb resolves
+      // against the package and is not guaranteed to reach the root.
+      //
+      // `$TURBO_DEFAULT$` keeps the package's own files, which an `inputs` list
+      // otherwise REPLACES rather than adds to.
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/CONTEXT.md"]
+    }
+  }
+}
