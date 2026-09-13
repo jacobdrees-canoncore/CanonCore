@@ -475,6 +475,13 @@ describe("provider.import", () => {
 
     if (!isDefinedError(error)) throw new Error(`expected a defined error, got ${String(error)}`);
     expect(error.code).toBe("PROVIDER_REFUSED");
+    // AND IT IS CANONCORE'S OWN SENTENCE, which is the half a bare message could
+    // not carry and the half the wrapper could quietly lose. ADR-0123 decides
+    // `wrote` by WHICH BOUNDARY refused, and `askingTheProvider` maps the error
+    // it caught rather than one of its own -- so a refusal of a URL the owner
+    // typed stays this app telling them about their own settings, and does not
+    // become a third party's text on the way through.
+    expect(error.data.wrote).toBe("canoncore");
   });
 
   it("refuses a provider that redirects onto the metadata endpoint", async () => {
@@ -624,6 +631,8 @@ describe("provider.browse", () => {
 
     if (!isDefinedError(error)) throw new Error(`expected a defined error, got ${String(error)}`);
     expect(error.code).toBe("PROVIDER_REFUSED");
+    // CANONCORE'S OWN SENTENCE, as on `import` above and for the same reason.
+    expect(error.data.wrote).toBe("canoncore");
   });
 });
 
