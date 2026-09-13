@@ -32,16 +32,6 @@ import * as schemas from "./index";
  * rather than a shortfall to apologise for: ADR-0045 is about the fields the read
  * path EMITS, and a type alias is emitted to nobody.
  */
-/*
- * TODO(CNCORE-132): this file is read from OUTSIDE the package, and nothing
- * tells turbo so. `turbo.json` declares no `globalDependencies` and its `test`
- * task no `inputs`, so `@canoncore/schemas:test` is cached against this
- * package's own files alone -- and editing the glossary REPLAYS a stale pass
- * instead of re-running this check. Found under CNCORE-101, whose glossary edit
- * passed a full local `pnpm test` and failed CI's cold cache. The fix has
- * repo-wide cache consequences, which is why it is that ticket rather than a
- * line here.
- */
 const contextFile = fileURLToPath(new URL("../../../CONTEXT.md", import.meta.url));
 
 /**

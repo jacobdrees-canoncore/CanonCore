@@ -49,6 +49,73 @@ beforeAll(async () => {
   db = await connect();
 });
 
+/**
+ * THE SAME DATABASE, WITH ONE DELETE WEDGED INTO THE GAP between the first
+ * statement a paged search runs and the second.
+ *
+ * IT IS A PROXY RATHER THAN A SECOND CONNECTION because the window is an
+ * ORDERING, not a concurrency: two connections racing would land the delete on
+ * whichever side of the gap the scheduler chose, and a test that passes or
+ * fails on that is not a test. This hooks the first statement's own resolution,
+ * so the delete has committed before the second statement is even built.
+ *
+ * IT STOPS WRAPPING ONCE THE DELETE HAS LANDED, which is what keeps it to the
+ * one statement it is about: everything the walk builds afterwards -- its own
+ * select, its count, and the anchor subquery it embeds -- gets the real
+ * database, unproxied.
+ *
+ * AND IT HANDS BACK THE ROWS IT WEDGED BEHIND, because "the FIRST statement" is
+ * an assumption about `searchCatalogue` rather than a fact this helper can
+ * check. Let anything ever run a select before the anchor read -- or move that
+ * read to `db.query` or `db.execute` -- and the delete lands BEFORE the anchor
+ * is read instead of after it. The walk would then be resuming from an anchor
+ * that was already deleted when it was looked up, which is the test NEXT DOOR,
+ * and the assertions of the two are identical: this one would pass while
+ * exercising nothing. So the caller asserts what was actually wedged.
+ */
+function deletingAfterTheFirstStatement(db: Database, anchor: string) {
+  const wedgedBehind: unknown[] = [];
+  let landed = false;
+  const wedge = async () => {
+    if (landed) return;
+    landed = true;
+    await db.update(items).set({ deletedAt: new Date() }).where(eq(items.id, anchor));
+  };
+  // Drizzle's builders are thenable, so awaiting one calls `then`. That is the
+  // one method worth intercepting; the rest are chained and pass their result
+  // along.
+  const wedgingAfterIt = (builder: object): object =>
+    new Proxy(builder, {
+      get(target, property) {
+        const value: unknown = Reflect.get(target, property);
+        if (typeof value !== "function") return value;
+        const method = value.bind(target) as (...args: unknown[]) => unknown;
+        if (property !== "then") {
+          return (...args: unknown[]) => {
+            const next = method(...args);
+            return typeof next === "object" && next !== null ? wedgingAfterIt(next) : next;
+          };
+        }
+        return (resolve?: (rows: unknown) => unknown, reject?: unknown) =>
+          method(async (rows: unknown) => {
+            if (!landed && Array.isArray(rows)) wedgedBehind.push(...(rows as unknown[]));
+            await wedge();
+            return resolve ? resolve(rows) : rows;
+          }, reject);
+      },
+    });
+  const racing = new Proxy(db, {
+    get(target, property) {
+      const value: unknown = Reflect.get(target, property);
+      if (typeof value !== "function") return value;
+      const method = value.bind(target) as (...args: unknown[]) => unknown;
+      if (property !== "select" || landed) return method;
+      return (...args: unknown[]) => wedgingAfterIt(method(...args) as object);
+    },
+  }) as Database;
+  return { db: racing, wedgedBehind };
+}
+
 describe("searchCatalogue", () => {
   it("finds a Work by a word inside its title", async () => {
     // INSIDE, not at the front. Prefix matching is what a `LIKE 'x%'` index
@@ -489,6 +556,59 @@ describe("searchCatalogue", () => {
     );
     expect(kept.entries).toHaveLength(2);
     expect(kept.entries.map((entry) => entry.id)).not.toContain(anchor);
+  });
+
+  it("starts over rather than ending, where the anchor is deleted BETWEEN THE TWO STATEMENTS", async () => {
+    // THE WINDOW, REACHED RATHER THAN REASONED ABOUT. A paged search runs two
+    // statements: one reads the anchor and finds it titled, and the next
+    // computes `similarity(anchor.title, $query)` as a subquery. An item
+    // deleted in between is titled for the first and untitled for the second,
+    // because migration 5 tombstones its statements and the projection empties.
+    //
+    // WHAT THAT COSTS IS THE WHOLE PAGE, not the anchor. The subquery answers
+    // NULL, a NULL on one side makes the entire cursor predicate NULL, and NULL
+    // is not true for any row -- so the walk returns nothing and `/search`
+    // renders "These results end here" over results still unseen. It is the
+    // silent ending CNCORE-110 closed for the listing, two statements wide
+    // rather than at read time.
+    //
+    // THE ANSWER IS THE ONE THE READ-TIME CHECK ALREADY GIVES, which is what
+    // makes this a window worth leaving open rather than one to close: an
+    // anchor with no closeness names no position, so the search starts over.
+    // Both sides of the window now answer the same way, so nothing observable
+    // depends on which side of it the delete lands (ADR-0119, CNCORE-113).
+    const shared = "The Web of Fear in the Underground";
+    for (const suffix of ["one", "two", "six"]) await anItemTitled(db, `${shared} ${suffix}`);
+
+    const cut = await searchCatalogue(db, { query: shared, limit: 2 });
+    const stoppedAt = cut.entries.at(-1);
+    // Rather than `?? ""`, which reaches a `uuid` column as PostgreSQL 22P02
+    // and reports an empty first page as a driver error.
+    if (stoppedAt === undefined) throw new Error("page one of three matches returned nothing");
+    const racing = deletingAfterTheFirstStatement(db, stoppedAt.id);
+
+    const kept = await searchCatalogue(racing.db, {
+      query: shared,
+      limit: 100,
+      after: stoppedAt.id,
+    });
+
+    // THE WEDGE WENT WHERE IT WAS AIMED, asserted rather than assumed. The
+    // statement the delete landed behind read the anchor AND FOUND IT STILL
+    // TITLED, which is the window's whole precondition -- and the one thing
+    // that tells this test apart from the one above it, whose anchor was
+    // already deleted when it was looked up.
+    expect(racing.wedgedBehind).toStrictEqual([
+      expect.objectContaining({ id: stoppedAt.id, title: stoppedAt.title }),
+    ]);
+
+    // THE TWO THAT ARE LEFT, from the top -- the same answer as a delete that
+    // landed before the search began, which is the point.
+    expect(kept.entries.map((entry) => entry.id)).toStrictEqual(
+      (await searchCatalogue(db, { query: shared, limit: 100 })).entries.map((entry) => entry.id),
+    );
+    expect(kept.entries).toHaveLength(2);
+    expect(kept.entries.map((entry) => entry.id)).not.toContain(stoppedAt.id);
   });
 
   it("starts at the beginning where the cursor names an item with no title", async () => {

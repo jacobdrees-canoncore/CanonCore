@@ -1,0 +1,30 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "test": {
+      // `install-path.test.ts` holds the INSTALL PATH A STRANGER FOLLOWS to the
+      // variables `schema.ts` says an installation must set: the README's install
+      // section, the sample environment file, the compose file, the `Dockerfile`
+      // and the CI workflow. None of them live in this package, so without this
+      // line the suite is cached against everything except the documents it
+      // checks, and rewriting the README replays a stale pass over it.
+      //
+      // Measured on 2026-09-13: appending a line to `README.md` left this task on
+      // hash `8cb865d552b1aeb3`, unmoved -- the same defect CNCORE-132 filed
+      // against the glossary check, on a second set of files.
+      //
+      // `ci.yml` is reached through `@canoncore/config/testing/ci-workflow` rather
+      // than opened here, which is why this list is longer than this package's own
+      // imports suggest.
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/README.md",
+        "$TURBO_ROOT$/.env.example",
+        "$TURBO_ROOT$/compose.yaml",
+        "$TURBO_ROOT$/Dockerfile",
+        "$TURBO_ROOT$/.github/workflows/ci.yml"
+      ]
+    }
+  }
+}

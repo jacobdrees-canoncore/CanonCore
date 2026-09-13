@@ -79,7 +79,10 @@ banner with the catalogue: an empty one names the routes that fill it, and an in
 nothing allowlisted says so, so an empty result reads as configuration rather than breakage. It
 named two STEPS until CNCORE-131 and both were a provider's, which stopped being the whole answer at
 v0.2.0 — building a catalogue by hand is a route of its own now, and it is the one that needs
-nothing configured.
+nothing configured. It named them TO EVERYBODY until CNCORE-133, which is the half that was wrong
+rather than merely incomplete: both routes end behind a session, so most of the readers being given
+them were refused on arrival. The empty catalogue advises its owner now and tells everyone else the
+emptiness is deliberate ([[0094-a-fresh-install-starts-empty]] holds the decision).
 CNCORE-64 has since put the variable in the README and in `.env.example`, both held to the schema by
 a suite rather than to a reader's memory, so the page and the documents now say the same thing about
 what empty means. Nothing reaches `/items/<id>` by SEARCHING for it yet, which is CNCORE-66's. The

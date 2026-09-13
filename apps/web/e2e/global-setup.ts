@@ -280,10 +280,21 @@ export default async function setup(project: TestProject) {
  *
  * WHAT IT PROVES IS THE ROUTE THAT NEEDS NO PROVIDER. CNCORE-131's criterion is
  * that building a catalogue by hand is offered "whether or not one is
- * allowlisted", and the fresh install only ever shows the `or not` half. Here
- * `provider.allowlisted` answers yes and the catalogue is still empty, so a
- * page that quietly made the empty state conditional on reaching nothing fails
- * here and passes everywhere else.
+ * allowlisted". Here `provider.allowlisted` answers yes and the catalogue is
+ * still empty, so a page that quietly made the empty state conditional on
+ * reaching nothing fails here and passes everywhere else.
+ *
+ * IT USED TO PROVE ONLY THE `WHETHER` HALF, AND IT PROVES ONLY THAT HALF NOW
+ * FOR A DIFFERENT REASON (CNCORE-133). The fresh install carried the `or not`
+ * half until the routes became the owner's; it sets no password by design, so
+ * it can no longer show an owner anything at all, and the combination that
+ * would carry that half -- empty, nothing allowlisted, an owner -- has no
+ * instance here. An ELEVENTH server is what would recover it -- this file
+ * starts ten, nine through `anInstanceServing` and one through
+ * `theBuildServing` -- and ADR-0104 refuses it: a single run of this suite
+ * already peaks at about a hundred client connections, which is the whole of
+ * the default budget CI's own `postgres:18` service gets. So the gap is named
+ * rather than filled, here and in ADR-0094.
  *
  * AN ALLOWLIST AND NO PROVIDER NAMED, which is a real state rather than a
  * half-built one: they are two settings and neither is derivable from the other
@@ -292,12 +303,20 @@ export default async function setup(project: TestProject) {
  * would tie this instance to a fixture provider's lifetime to move a condition
  * it does not read.
  *
- * NO PASSWORD, so nothing can write to it and the emptiness stays the fixture.
+ * AND AN OWNER, WHICH IS WHAT THE ROUTES NOW NEED (CNCORE-133). They are
+ * offered to a session and to nothing else, so an empty catalogue with no
+ * password on it can only ever show the sentence a visitor gets. This is the
+ * one instance that can be both: empty, and logged in to.
+ *
+ * NOTHING WRITES THROUGH IT, so the emptiness is still the fixture rather than
+ * a state a test has to restore. The password buys a session to READ the page
+ * with -- `front-page.test.ts` and `import-page.test.ts` each hold one -- and
+ * neither presses anything, so this instance is as still as it was without one.
  */
 function anInstanceAllowlistedAndEmpty() {
   return anInstanceServing({
     suffix: "allow",
-    ownerPassword: "",
+    ownerPassword: OWNER_PASSWORD,
     // ADR-0034's own example range, as every configured instance here uses.
     allowlist: "127.0.0.0/8",
     providers: [],

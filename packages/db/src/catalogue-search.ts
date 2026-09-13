@@ -213,6 +213,28 @@ interface PlaceInTheRanking {
  *   same sort name is one item filmed twice, not a contrivance -- and ids are
  *   random, so which of a tied pair a page ends on is luck.
  *
+ * AND A FOURTH BRANCH THAT IS NOT A TERM OF THE ORDER: the anchor having NO
+ * CLOSENESS AT ALL. That is one statement's answer to a question the statement
+ * before it asked differently -- `findInTheRanking` found the anchor titled, and
+ * by the time this runs a delete has emptied its projection, so
+ * `similarity(anchor.title, $query)` is NULL. A NULL on one side makes the whole
+ * comparison NULL, NULL is not true for any row, and the page comes back EMPTY
+ * over results still unseen (CNCORE-113).
+ *
+ * SO A NULL CLOSENESS MEANS "NO POSITION", WHICH IS THE ANSWER THE READ-TIME
+ * CHECK ALREADY GIVES. `findInTheRanking` turns away an anchor with no title,
+ * and this turns away an anchor that lost one a statement later; both start the
+ * search over, so the window between the two statements no longer decides
+ * anything a reader could see. THE TWO ARE TWO MOMENTS AND NOT TWO MECHANISMS:
+ * the check above spares the walk a predicate it does not need, and neither is
+ * the other's dead code.
+ *
+ * IT IS SPELLED `is null` RATHER THAN WRAPPED IN A `coalesce(..., true)`, and
+ * the difference is which NULL it forgives. A coalesce over the whole
+ * comparison would answer "start over" for ANY null in it -- including a
+ * candidate row with no closeness of its own, which would then be RETURNED by a
+ * search it never matched. This names the anchor's null and no other.
+ *
  * A ROW COMPARISON FOR THE LAST TWO, WHICH `readListing`'S `past` CANNOT USE,
  * and the difference is worth the sentence. That one has to write two regimes
  * because an item nobody has titled has no sort key, and `(null, x) > (k, y)`
@@ -247,6 +269,7 @@ function pastInTheRanking(db: Database, { sortKey, id }: PlaceInTheRanking, quer
    * rather than something this file has to get right by hand.
    */
   return or(
+    sql`${anchor} is null`,
     sql`${closeness} < ${anchor}`,
     and(sql`${closeness} = ${anchor}`, sql`(${SORT_KEY}, ${items.id}) > (${sortKey}, ${id})`),
   ) as SQL;
@@ -277,12 +300,17 @@ function pastInTheRanking(db: Database, { sortKey, id }: PlaceInTheRanking, quer
  * THIS DEPENDS ON NEITHER. The value is never rendered as text and never
  * re-parsed, so there is no type to infer and no digits to round.
  *
- * IT IS READ TWICE PER PAGE, MEASURED, because the comparison names it twice -- once
- * for `<` and once for `=`. `explain (analyze)` shows two `InitPlan`s, each an
- * `Index Scan using items_pkey` at `loops=1`: uncorrelated, so twice per page
- * rather than per row. Folding them into one would mean joining the anchor in
- * as a relation and putting a parameter on `walkListing` that only this caller
- * would ever pass, which is a worse trade than a second lookup on a unique key.
+ * IT IS READ THREE TIMES PER PAGE, MEASURED, because the comparison names it three
+ * times -- once for `is null`, once for `<` and once for `=`. It was TWICE until
+ * CNCORE-113 added the first of those, and the number is corrected here rather
+ * than beside it because this is the sentence that carries it. `explain
+ * (analyze)` on the real paged statement shows three `InitPlan`s, each an
+ * `Index Scan using items_pkey` at `loops=1` on the same id: uncorrelated, so
+ * three times per page rather than per row, at two shared buffer hits each.
+ * Folding them into one would mean joining the anchor in as a relation and
+ * putting a parameter on `walkListing` that only this caller would ever pass,
+ * which is a worse trade than a third lookup on a unique key -- the same trade
+ * ADR-0119 priced at two, and it does not turn over on the third.
  *
  * ALIASED, so the inner `items` cannot be read as the outer one.
  */
@@ -326,23 +354,27 @@ async function findInTheRanking(db: Database, id: string): Promise<PlaceInTheRan
    * the same reason: a deleted anchor has no place in either order, so it names
    * no position (CNCORE-110, `findInTheOrder` in `queries.ts`).
    *
-   * AND THE SAME FACT LEAVES A RACE THIS DOES NOT CLOSE. The anchor is read
-   * here and its closeness is computed in the NEXT statement, so an item
-   * deleted between the two is titled for this check and untitled for that one:
-   * the subquery answers NULL, the predicate is NULL, and the page renders
-   * "These results end here" rather than starting over. The window is two
-   * statements wide, where ADR-0119 already prices a WIDER version of the same
-   * race -- an anchor retitled "inside the seconds between two clicks" -- as
-   * the cost of a cursor that is an id.
+   * AND THE SAME FACT LEFT A RACE THIS CHECK CANNOT SEE, WHICH IS NOW HARMLESS
+   * RATHER THAN CLOSED (CNCORE-113). The anchor is read here and its closeness
+   * is computed in the NEXT statement, so an item deleted between the two is
+   * titled for this check and untitled for that one. The window is still two
+   * statements wide -- closing it would mean joining the anchor in as a
+   * relation, which ADR-0119 prices as a worse trade than the extra lookup, and
+   * that record deliberately keeps the closeness on the server -- but
+   * `pastInTheRanking` now reads a NULL closeness as "no position" and starts
+   * the search over, which is exactly what this check does a statement earlier.
+   * BOTH SIDES OF THE WINDOW ANSWER THE SAME WAY, so which side a delete lands
+   * on is no longer something a reader can tell. Asserted rather than reasoned:
+   * `catalogue-search.test.ts` wedges the delete into the gap.
    *
-   * TODO(CNCORE-113): AND IT IS THAT TICKET'S, NOT CNCORE-110'S. This comment
-   * named CNCORE-110 as owning it, and that one has since closed by answering
-   * what a walk does with an anchor that has lost its place AT READ TIME --
-   * which is the check above, not the window below it. The catalogue's walk has
-   * no equivalent race: it embeds the anchor's sort key as a VALUE read in the
-   * first statement, so a delete between the two changes no predicate. Only a
-   * relevance order re-derives the place on the server, and closing the window
-   * means deciding against ADR-0119's reason for keeping that value there.
+   * ADR-0119 PRICES THE WIDER VERSION OF THE SAME RACE -- an anchor retitled
+   * "inside the seconds between two clicks" -- as the cost of a cursor that is
+   * an id, and that one is untouched: a retitle leaves a closeness to rank by,
+   * so the cursor moves rather than losing its place.
+   *
+   * THE CATALOGUE'S WALK HAS NO EQUIVALENT. It embeds the anchor's sort key as
+   * a VALUE read in the first statement, so a delete between the two changes no
+   * predicate. Only a relevance order re-derives the place on the server.
    */
   if (anchor.title === null || anchor.sortKey === null) return undefined;
   return { sortKey: anchor.sortKey, id: anchor.id };
