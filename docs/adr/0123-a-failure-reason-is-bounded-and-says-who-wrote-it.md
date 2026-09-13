@@ -147,10 +147,17 @@ would leave the oracle standing.
 The door that needs closing is the RPC surface, not this field. [[0043-sessions-carry-capabilities]]
 and [[0044-one-owner-row]] already decide what closes it, and CNCORE-109 built it: everything that
 writes is behind an owner session, and the reason above was not degraded to get there. **What that
-door does NOT close is this one.** `provider.search` and `provider.container` are reads, so they are
-open on the demo as everything else is, and an unauthenticated caller still reads a bounded,
-attributed reason -- which is what this section decided and why narrowing the field would have cost
-the Owner the distinction without shutting anything.
+door does NOT close is this one.** `provider.search` is a read, so it is open on the demo as
+everything else is, and an unauthenticated caller still reads a bounded, attributed reason -- which
+is what this section decided and why narrowing the field would have cost the Owner the distinction
+without shutting anything.
+
+**`provider.container` WAS THE SECOND NAME IN THAT SENTENCE AND IS NOT ANY MORE.** It is an
+`ownerProcedure` since CNCORE-154 ([[0131-an-outbound-read-that-costs-a-browse-is-the-owners]]),
+because answering it runs a whole browse at a third party rather than reading this catalogue's rows
+-- a different door from the one CNCORE-109 closed, which was about writing. This section's decision
+is untouched by that: the reason it carries is still bounded and still attributed, and the caller who
+reads it is now the Owner.
 
 ## As built, under CNCORE-95
 

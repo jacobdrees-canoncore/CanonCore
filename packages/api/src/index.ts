@@ -15,9 +15,18 @@ const o = os.$context<Context>();
  *
  * ADR-0044 makes the public demo read-only with no login, and ADR-0072 gives a
  * visitor everything on it -- there is no visibility system, because "inherit
- * from which parent?" has no answer once an item is multi-placed. So a read
- * asks for nothing, and the demo is an instance that simply never sets
- * `OWNER_PASSWORD`.
+ * from which parent?" has no answer once an item is multi-placed. So a read of
+ * THE CATALOGUE asks for nothing, and the demo is an instance that simply never
+ * sets `OWNER_PASSWORD`.
+ *
+ * "A READ ASKS FOR NOTHING" IS WHAT THIS SAID, AND IT WAS TOO WIDE BY ONE
+ * PROCEDURE (ADR-0131, CNCORE-154). `provider.container` is a read that writes
+ * nothing and is still `ownerProcedure`, because it answers by running a whole
+ * browse at a THIRD PARTY rather than by reading this catalogue's rows -- and
+ * what it spends is this instance's standing at a provider, which ADR-0072 never
+ * gave a visitor. The test that record states is what a read SPENDS, not whether
+ * it writes: reading the catalogue is open, reaching out of it on an anonymous
+ * caller's say-so is not, once what is reached costs real time.
  */
 export const openProcedure = o;
 

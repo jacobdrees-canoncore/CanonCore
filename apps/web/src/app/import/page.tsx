@@ -55,10 +55,16 @@ async function readImportPage({ query, provider, container, purge }: Asked) {
    */
   /*
    * THE CALLER'S OWN CONTEXT, which on this page decides what is OFFERED as much
-   * as what is answered. Every read below is open (ADR-0044's demo is read-only
-   * with no login), and the three things that WRITE are the owner's since
-   * CNCORE-109 -- so a visitor is shown the whole surface and none of its
+   * as what is answered. Nearly every read below is open (ADR-0044's demo is
+   * read-only with no login), and the three things that WRITE are the owner's
+   * since CNCORE-109 -- so a visitor is shown the whole surface and none of its
    * buttons, rather than buttons that answer 401.
+   *
+   * "EVERY READ" IS WHAT THIS SAID, AND ONE READ IS NOW THE OWNER'S TOO
+   * (ADR-0131, CNCORE-154). `provider.container` answers by running a whole
+   * browse at a third party, so it is gated in `aboutTheContainer` below beside
+   * `purging` -- the two reads on this page that cost more than a query. What a
+   * visitor is shown in its place is `LogIn`, exactly as beside a button.
    */
   const context = await callerContext();
   // ONE CONTEXT FOR ALL OF THEM, for the reason the front page gives: two calls
@@ -174,7 +180,24 @@ async function readImportPage({ query, provider, container, purge }: Asked) {
 async function aboutTheContainer(context: Context, baseUrl: string, containerId: string) {
   const [held, said] = await Promise.all([
     call(appRouter.provider.held, { baseUrl, recordIds: [containerId] }, { context }),
-    call(appRouter.provider.container, { baseUrl, containerId }, { context }),
+    /*
+     * AND THE PROVIDER'S HALF IS THE OWNER'S, WHICH IS THE SECOND QUESTION
+     * COSTING A WHOLE BROWSE RATHER THAN THE PAGE BEING SHY (ADR-0131,
+     * CNCORE-154). `provider.container` answers by running the browse the button
+     * runs, and CNCORE-151 gave that sixty seconds -- so an open one let anyone
+     * who could reach the instance hold a provider for a minute a request. It is
+     * an `ownerProcedure` for that reason, and asking it on behalf of a visitor
+     * would be asking for a 401 in the middle of a page that otherwise renders:
+     * the same shape, and the same remedy, as `purging` above.
+     *
+     * THE CATALOGUE'S HALF IS STILL EVERYONE'S, and that is ADR-0072 kept rather
+     * than conceded. `held` reads this catalogue's own rows, which a visitor is
+     * entitled to whole; what they are not handed is this instance's outbound
+     * budget at a third party.
+     */
+    context.session === null
+      ? Promise.resolve(undefined)
+      : call(appRouter.provider.container, { baseUrl, containerId }, { context }),
   ]);
   return { baseUrl, containerId, itemId: held.items[0]?.itemId ?? null, said };
 }
@@ -725,11 +748,19 @@ function Candidate({
 /**
  * WHAT STANDS WHERE A CONTROL WOULD, for a reader who is not the owner.
  *
- * THE SURFACE IS NOT HIDDEN, only its buttons. ADR-0044's demo is read-only with
- * no login and ADR-0072 gives a visitor everything on the instance, so a visitor
- * still searches the providers, still sees what a container holds and still reads
- * what a purge would take. What they are not offered is the operation, and this
- * says which operation it was rather than leaving a gap where a button was.
+ * THE SURFACE IS NOT HIDDEN, only its buttons -- AND, SINCE CNCORE-154, the two
+ * reads that cost more than a query. ADR-0044's demo is read-only with no login
+ * and ADR-0072 gives a visitor everything on the instance, so a visitor still
+ * searches the providers and still sees what this CATALOGUE holds. What they are
+ * not offered is the operation, and this says which operation it was rather than
+ * leaving a gap where a button was.
+ *
+ * WHICH IS WHY THIS NOW STANDS IN FOR READS AS WELL AS BUTTONS. It said "still
+ * sees what a container holds and still reads what a purge would take", and
+ * neither is a visitor's any more: `previewPurge` runs the purge and rolls it
+ * back (ADR-0046), and `provider.container` runs a whole browse at a third party
+ * (ADR-0131). A read that spends somebody else's time is refused the same way a
+ * write is, and named the same way.
  *
  * `Link` RATHER THAN `a` (ADR-0109): a path this app owns is one the framework
  * has to be allowed to rewrite.
@@ -1075,6 +1106,10 @@ function NotOneOfOurs() {
 /**
  * THE CONTAINER THE OWNER NAMED, AS THE PROVIDER ANSWERS FOR IT.
  *
+ * AND THE FIFTH BRANCH IS THE PROVIDER NEVER BEING ASKED (ADR-0131, CNCORE-154).
+ * That read is the Owner's, so for a visitor there is no answer to render and
+ * `said` is `undefined` -- which is a sentence too, and the one `LogIn` writes.
+ *
  * EVERY BRANCH HERE IS A SENTENCE RATHER THAN A FAILURE, which is what asking on
  * the GET buys: `provider.container` reaches the provider, and each of the things
  * it can say -- here it is, there is nothing at that id, this provider does not
@@ -1099,7 +1134,37 @@ function Container({
       <h3 className="sr-only" id="container">
         The container you named
       </h3>
-      {said.answer === "container" ? (
+      {said === undefined ? (
+        /*
+          THE PROVIDER WAS NOT ASKED, BECAUSE ASKING IS THE OWNER'S (ADR-0131).
+
+          KEYED ON `said` RATHER THAN ON `owner`, WHICH IS THE SAME FACT TWICE
+          AND IS DELIBERATE. `owner` is on this component already, and the two
+          cannot disagree -- `said` is `undefined` exactly when the session was
+          null. What `said === undefined` buys that `!owner` does not is the
+          NARROWING: every branch after this one reads `said.answer`, and a test
+          on `owner` leaves `said` possibly-undefined for all of them. So the
+          check that proves the value is there is the one made, rather than a
+          check on the reason it is missing.
+
+          A GAP HERE WOULD BE THE WORSE ANSWER: a reader who typed a container id
+          and got back an empty section learns nothing about why, and goes
+          looking for what they did wrong. So the operation is NAMED, by the same
+          `LogIn` every other control on this page is refused with -- which
+          renders the door where there is one and says only that the owner has it
+          where there is not (CNCORE-146).
+
+          AND THE CATALOGUE'S OWN ANSWER SURVIVES IT, exactly as it survives the
+          three provider refusals below. `held` is open to anyone (ADR-0072), so
+          a visitor who asks about a container this catalogue already holds is
+          still shown the Item -- which is the half of this section that was
+          never the provider's to answer.
+        */
+        <div className="border-t py-3">
+          <LogIn aPasswordIsSet={aPasswordIsSet} to="ask a provider about a container" />
+          {itemId !== null && <StillHeld itemId={itemId} />}
+        </div>
+      ) : said.answer === "container" ? (
         <ItsOrdering
           aPasswordIsSet={aPasswordIsSet}
           baseUrl={baseUrl}
