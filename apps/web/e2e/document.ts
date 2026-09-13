@@ -483,9 +483,20 @@ export function mainOf(text: string): string {
  * `expect(() => section(...)).toThrow()` a usable assertion that a surface is
  * ABSENT. A helper answering `undefined` would let a test that forgot to check
  * pass against a page missing the whole section.
+ *
+ * IT ENDS AT ITS OWN CLOSING TAG, COUNTED -- nested sections included.
  */
 export function sectionIn(text: string, label: string): string {
-  const found = text.match(new RegExp(`<section[^>]*aria-labelledby="${label}".*?</section>`))?.[0];
-  if (!found) throw new Error(`the page rendered no \`${label}\` section`);
-  return found;
+  const opened = text.indexOf(`aria-labelledby="${label}"`);
+  if (opened === -1) throw new Error(`the page rendered no \`${label}\` section`);
+  const start = text.lastIndexOf("<section", opened);
+
+  const tags = /<section\b|<\/section>/g;
+  tags.lastIndex = start;
+  let depth = 0;
+  for (let tag = tags.exec(text); tag !== null; tag = tags.exec(text)) {
+    depth += tag[0] === "</section>" ? -1 : 1;
+    if (depth === 0) return text.slice(start, tag.index + tag[0].length);
+  }
+  throw new Error(`the page left the \`${label}\` section unclosed`);
 }
