@@ -69,6 +69,15 @@ export const serverSchema = {
    * INTEGER, because a pool of none is not a small pool: it is a process that
    * reaches its database never, and does it at the first query rather than at
    * startup where somebody would see it.
+   *
+   * AND DELIBERATELY NO UPPER BOUND, which is the asymmetry worth explaining
+   * rather than leaving to be noticed. A ceiling here would be this repository
+   * guessing at a budget it cannot see: the operator's PostgreSQL may serve
+   * this instance alone or a dozen other things, and `max_connections` is
+   * theirs. A number too large fails loudly, at their own server, with the
+   * `sorry, too many clients already` that `.env.example` warns about -- where
+   * a cap too small would refuse a deployment larger than the one imagined
+   * here, and would have to be raised by editing this file.
    */
   DATABASE_MAX_CONNECTIONS: z.coerce.number().int().positive().default(10),
 };

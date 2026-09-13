@@ -29,38 +29,21 @@ export const HARNESS_CONNECTIONS = 2;
 /**
  * HOW MANY CONNECTIONS ONE SERVER UNDER TEST MAY HOLD (CNCORE-137).
  *
- * FOUR RATHER THAN node-postgres's TEN, and the four is MEASURED. Sampling
- * `pg_stat_activity` once through a full run on 2026-09-13 -- 1,406 samples --
- * no server ever had more than FOUR connections executing a statement at once:
- * a peak `state = 'active'` of 4 on the two busiest databases and 1 or 2 on the
- * rest. The remaining six of the default ten were never work; they were idle
- * slack, and the budget they sat in is the container's rather than this suite's.
+ * FOUR RATHER THAN node-postgres's TEN, and the four is MEASURED: sampling
+ * `pg_stat_activity` through an unbounded run, no server ever had more than
+ * FOUR connections executing a statement at once. ADR-0104 carries the
+ * measurement, the before-and-after totals and the agent ceiling they imply,
+ * under "Raising the ceiling was the wrong lever, and bounding the demand was
+ * the right one" -- one place rather than five, so a correction lands once.
  *
  * THE HARNESS'S OWN HANDLES WERE ALREADY BOUNDED AND WERE NEVER THE PROBLEM.
  * `HARNESS_CONNECTIONS` has held them at two since CNCORE-99. What nothing
- * bounded was the TEN CHILD PROCESSES this file starts, each a real CanonCore
- * calling `getDb()` -- so the arithmetic that spent the container was ten
- * servers times ten connections, and the fixtures beside them were a rounding
- * error on it.
- *
- * MEASURED BEFORE AND AFTER, because a bound nobody counted is a number in a
- * file. Sampling `pg_stat_activity` once a second across a full run on
- * 2026-09-13, same suite and same machine: **103** client connections from this
- * worktree before this constant existed, **59** after. The suite did not slow
- * down -- 15.62 s bounded against 16.40 s and 17.96 s unbounded -- which is the
- * evidence that four is not below what a server here actually uses.
- *
- * PER DATABASE, WHICH IS WHERE IT IS VISIBLE: the six busiest went from
- * 18/13/13/12/12/12 connections to 11/7/7/7/6/6, and the four idle instances
- * sat at 4 throughout both. Each of those databases holds ONE server's pool
- * plus the harness handle on it, and `pg_stat_activity` cannot say which
- * backend belongs to which -- so the fall is stated as the per-database totals
- * that were actually sampled rather than as a split between the two that was
- * not.
+ * bounded was the SERVER PROCESSES this file starts, each a real CanonCore
+ * calling `getDb()` and so taking node-postgres's default ten.
  *
  * IT IS SET HERE AND NOT LOWERED IN `packages/env`, which is CNCORE-137's one
- * real decision. This measurement is taken from servers running ONE test file
- * each, sequentially -- so four is the peak of a sequential workload, and an
+ * real decision. The measurement is taken from servers running ONE test file
+ * each, SEQUENTIALLY -- so four is the peak of a sequential workload, and an
  * instance serving several readers at once would be throttled by it. The
  * default stays the ten every deployment already had.
  */
@@ -69,14 +52,18 @@ export const SERVER_CONNECTIONS = 4;
 /**
  * THE ENVIRONMENT EVERY SERVER UNDER TEST RUNS WITH.
  *
- * ONE FUNCTION SO THE BOUND CANNOT BE FORGOTTEN AT A CALL SITE. Ten of this
- * suite's servers are started by `anInstanceServing` below and the eleventh --
- * the fresh install, which builds between its database and its server -- calls
- * `theBuildServing` directly. Both compose their environment through here, so
+ * ONE FUNCTION SO THE BOUND CANNOT BE FORGOTTEN AT A CALL SITE. Nine of this
+ * suite's servers are started by `anInstanceServing` below and the tenth -- the
+ * fresh install, which builds between its database and its server -- calls
+ * `theBuildServing` directly. Both reach the spawn through this function, so
  * there is no way to start a server in this harness that is not bounded.
  *
- * IT ADDS ONE KEY AND OVERWRITES NOTHING. What an instance reaches and whether
- * anybody can log in to it are the fixtures' own questions to answer, and this
+ * IT OVERWRITES THE BOUND ON PURPOSE, and that is the one key it decides.
+ * `anInstanceServing` spreads `process.env` into what it passes, so a developer
+ * with `DATABASE_MAX_CONNECTIONS` set in their own environment would otherwise
+ * hand every server under test a number CI never had -- the same class of leak
+ * `freshInstall` records an afternoon lost to. What an instance REACHES and
+ * whether anybody can log in to it stay the fixtures' own to answer, and this
  * is not a second place they get decided.
  */
 export function theServerEnvironment(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {

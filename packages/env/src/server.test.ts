@@ -62,6 +62,23 @@ describe("server env", () => {
    * its database -- and it fails at the first query rather than at startup,
    * which is the failure this refuses to let start.
    */
+  /**
+   * THE CONTAINER'S OWN PATH, and it is the one that would break silently.
+   * `compose.yaml` interpolates `${DATABASE_MAX_CONNECTIONS:-}`, so an
+   * installation that sets nothing hands the container an EMPTY STRING rather
+   * than an absent key. That reaches the default only because `createEnv` is
+   * given `emptyStringAsUndefined: true`; bare zod would coerce `""` to 0, fail
+   * `.positive()`, and refuse to start every container that never configured
+   * this. Nothing else in the repository pins that flag, so this does.
+   */
+  it("takes an empty value as unset, which is what compose hands a container", async () => {
+    process.env.DATABASE_URL = "postgresql://postgres:password@localhost:5432/canoncore";
+    process.env.DATABASE_MAX_CONNECTIONS = "";
+
+    const { env } = await import("./server");
+    expect(env.DATABASE_MAX_CONNECTIONS).toBe(10);
+  });
+
   it.each(["0", "-1", "not a number"])("refuses a pool bound of %s", async (value) => {
     process.env.DATABASE_URL = "postgresql://postgres:password@localhost:5432/canoncore";
     process.env.DATABASE_MAX_CONNECTIONS = value;
