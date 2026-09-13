@@ -39,9 +39,10 @@ async function readFrontPage(after: string | undefined) {
    * forever. IT READS BOTH OF THOSE NOW: `searchParams` for the cursor
    * (ADR-0119), and the caller's COOKIE since CNCORE-133, because who is asking
    * decides what the empty state says. So it is dynamic twice over without this
-   * line; the line stays anyway, for the reason at the foot of this comment. Next documents `connection()` for exactly this shape: "a
-   * component doesn't use Request-time APIs ... but still needs to produce
-   * different output per request".
+   * line; the line stays anyway, for the reason at the foot of this comment.
+   * Next documents `connection()` for exactly this shape: "a component doesn't
+   * use Request-time APIs ... but still needs to produce different output per
+   * request".
    *
    * FOUND BY THE SUITE RATHER THAN BY READING. The fresh-install server and the
    * seeded one served byte-identical pages, because both were serving the
@@ -66,12 +67,17 @@ async function readFrontPage(after: string | undefined) {
   // this page read every request as a visitor's and could not have told the
   // owner from one if it had tried.
   const context = await callerContext();
-  const [catalogue, providers, login] = await Promise.all([
+  const [catalogue, providers, instance] = await Promise.all([
     call(appRouter.catalogue.list, { after }, { context }),
     call(appRouter.provider.allowlisted, undefined, { context }),
     call(appRouter.session.configured, undefined, { context }),
   ]);
-  return { catalogue, providers, owner: context.session !== null, login: login.password };
+  return {
+    catalogue,
+    providers,
+    owner: context.session !== null,
+    aPasswordIsSet: instance.password,
+  };
 }
 
 export default async function CataloguePage({
@@ -84,7 +90,7 @@ export default async function CataloguePage({
   // parameter means, so both reading surfaces answer that the same way.
   const { after } = await searchParams;
   const from = oneValue(after);
-  const { catalogue, providers, owner, login } = await readFrontPage(from);
+  const { catalogue, providers, owner, aPasswordIsSet } = await readFrontPage(from);
   // ONE NAME FOR ONE FACT. It was three reads of `catalogue.total` in three
   // shapes -- `> 0`, `=== 0`, and a comparison inside `Holding` -- which is one
   // condition spelt three ways with two of them inverted.
@@ -98,7 +104,7 @@ export default async function CataloguePage({
         {listing.length > 0 && <Holding showing={listing.length} total={catalogue.total} />}
       </div>
       {!providers.any && <NoProviderAllowlisted />}
-      {empty && <WhatToDoNext login={login} owner={owner} />}
+      {empty && <WhatToDoNext aPasswordIsSet={aPasswordIsSet} owner={owner} />}
       {/*
         A CATALOGUE WITH ITEMS IN IT AND NOTHING ON THIS PAGE, which is what a
         cursor makes possible: the link was cut at an item, and nothing is after
@@ -222,7 +228,7 @@ function NoProviderAllowlisted() {
  * what no instance here can still hold is an owner with NOTHING allowlisted,
  * and its own docblock says why no server was added to recover that.
  */
-function WhatToDoNext({ login, owner }: { login: boolean; owner: boolean }) {
+function WhatToDoNext({ aPasswordIsSet, owner }: { aPasswordIsSet: boolean; owner: boolean }) {
   return (
     <section aria-labelledby="what-to-do-next" className="mt-6">
       <Empty className="border">
@@ -248,7 +254,7 @@ function WhatToDoNext({ login, owner }: { login: boolean; owner: boolean }) {
               that is broken.
             */}
             It starts that way on purpose: CanonCore ships no catalogue, so nothing here is anybody
-            else&rsquo;s library. <WhoFillsIt login={login} owner={owner} />
+            else&rsquo;s library. <WhoFillsIt aPasswordIsSet={aPasswordIsSet} owner={owner} />
           </EmptyDescription>
         </EmptyHeader>
         {owner && (
@@ -354,10 +360,16 @@ function WhatToDoNext({ login, owner }: { login: boolean; owner: boolean }) {
  * exact shape one setting over from `provider.allowlisted`: a fact about the
  * instance that a page has to act on, answered once and plainly rather than
  * inferred from a refusal.
+ *
+ * AND THE PROP IS `aPasswordIsSet` RATHER THAN `login`, because the two facts
+ * here are one word apart and the wrong word is the dangerous one: `login`
+ * reads as "is logged in", which is precisely what `owner` beside it already
+ * means. Named for what the INSTANCE HAS rather than for what the reader has
+ * done, so the two cannot be swapped by somebody skimming the signature.
  */
-function WhoFillsIt({ login, owner }: { login: boolean; owner: boolean }) {
+function WhoFillsIt({ aPasswordIsSet, owner }: { aPasswordIsSet: boolean; owner: boolean }) {
   if (owner) return <>Two routes fill it, and neither waits on the other.</>;
-  if (login)
+  if (aPasswordIsSet)
     return (
       <>
         Only the owner can fill it.{" "}

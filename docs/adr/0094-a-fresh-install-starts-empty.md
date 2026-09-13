@@ -118,13 +118,26 @@ refuses to render. `session.configured` is what answers the second fact, which i
 built for one setting over from `provider.allowlisted`.
 
 **THE ALTERNATIVES, AND WHY EACH IS WORSE.** Gating on `session.configured` ALONE — render the
-routes wherever a login is possible — fixes only the read-only instance and goes on offering `/new`
-to every visitor of an ordinary self-hosted one, which is the shape most people run. Rendering them
+routes wherever a login is possible — fixes only the read-only instance and goes on offering
+`/new` to every visitor of an ordinary self-hosted one, which is the shape most
+people run. Rendering them
 for everyone and letting each surface refuse is what produced the defect. Making `/new` render a
 DISABLED form to match `/import` makes the refusal prettier without making the route takeable, and
-the criterion was that a reader is not sent somewhere that will refuse them. What does not change is
-the first sentence: "it starts that way on purpose, CanonCore ships no catalogue" is every reader's,
-because the "empty is not UNEXPLAINED" half above is owed to somebody who cannot fill it either.
+the criterion is that a reader is not ADVISED towards somewhere that will refuse
+them. What does not change is the first sentence: "it starts that way on purpose,
+CanonCore ships no catalogue" is every reader's, because the "empty is not UNEXPLAINED" half above
+is owed to somebody who cannot fill it either.
+
+**AND "ADVISED" IS THE EXACT WORD, BECAUSE THE HEADER STILL LINKS BOTH SURFACES TO EVERYBODY.**
+`New item` and `Import` sit in the header on every page, and a visitor who follows either still
+meets the refusal described above. That is not this decision half-applied: the header is a client
+component and a session is a server-side cookie, so it cannot read one — and the two cases differ
+in kind. A nav link is a map of what the product HAS, and a reader who follows one asked a
+question. An empty state is ADVICE the product volunteers about what to do next, and advice that
+cannot be taken is the defect. Whether the header should thin itself for a visitor is a question
+about the header on every page rather than about an empty catalogue, which is where CNCORE-139
+holds it, with a TODO at the site. Named here rather than left: a record that reads as though every
+route to a refusal were closed is one whose next reader stops looking.
 
 **AND IT COST THE CRITERION ABOVE ONE OF ITS TWO WITNESSES, WHICH IS NAMED RATHER THAN LEFT TO BE
 DISCOVERED.** "Offered whether or not a provider is allowlisted" needs the routes rendered in both
@@ -132,10 +145,10 @@ allowlist states, and rendering them now needs an owner. `anInstanceAllowlistedA
 so the half CNCORE-131 built the fixture for still fails a page gated on `!providers.any`. The other
 half — an owner, an empty catalogue, NOTHING allowlisted — has no instance: the only empty
 unallowlisted instance here is the fresh install, whose whole fixture is that nobody can log in to
-it. A twelfth server would recover it and ADR-0104 refuses one: under "What sharing one container
-costs, and the ceiling nobody had counted" it measured on 2026-09-13 that a single run of this suite
-already peaks at about a hundred client connections, which is the whole of the default budget CI's
-own `postgres:18` service gets.
+it. An ELEVENTH server would recover it — the suite starts ten — and ADR-0104 refuses one: under
+"What sharing one container costs, and the ceiling nobody had counted" it measured on 2026-09-13
+that a single run of this suite already peaks at about a hundred client connections, which is the
+whole of the default budget CI's own `postgres:18` service gets.
 
 **WHAT `accepted` DOES NOT ASSERT, BECAUSE THE TITLE IS TWO REFUSALS AND ONLY ONE HAS MET AN
 INSTANCE.** "Never shipped" is the half above, walked. "Never demoed" is not: there IS no public
@@ -169,11 +182,11 @@ govern.
 **And the half this record explicitly does not licence is now closed.** The section above ends "an
 install that starts empty WITHOUT SAYING WHAT TO DO NEXT is a separate failure", and points at
 [[0115-the-public-release-comes-before-the-playback-half]]. CNCORE-65 is where that was done and
-CNCORE-131 is where it was finished and CNCORE-133 is where it found its reader: the empty catalogue
-names the ROUTES that fill it — by hand, and from a provider — to the owner who can take them, tells
-everyone else the emptiness is on purpose, and says of an instance with nothing allowlisted that
-nothing is allowlisted rather than leaving an empty result to read as breakage. Nothing in the refusal softened — the fix is words on a page, and no
-seed data travels anywhere.
+CNCORE-131 is where it was finished and CNCORE-133 is where it found its reader: the empty
+catalogue names the ROUTES that fill it — by hand, and from a provider — to the owner who can take
+them, tells everyone else the emptiness is on purpose, and says of an instance with nothing
+allowlisted that nothing is allowlisted rather than leaving an empty result to read as breakage.
+Nothing in the refusal softened — the fix is words on a page, and no seed data travels anywhere.
 
 **The third state the page reports was not in this record and is worth naming**: an allowlist that
 names nothing is not the same fact as a catalogue that holds nothing, and an owner can be in either

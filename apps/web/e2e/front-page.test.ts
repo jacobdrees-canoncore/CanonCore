@@ -25,6 +25,12 @@ const freshBaseUrl = inject("freshBaseUrl");
  * instance in this suite holds them together -- so the criterion that the
  * hand-built route is offered "whether or not one is allowlisted" had only its
  * `or not` half anywhere it could be read.
+ *
+ * AND IT CARRIES THE OWNER SINCE CNCORE-133, which is what makes it the only
+ * empty instance an empty state's ROUTES can be read on at all: they are a
+ * session's now, and the fresh install above has no password for anyone to hold
+ * one with. Both readers of this page are asked here -- the owner with the
+ * cookie below, and the visitor without it.
  */
 const allowlistedBaseUrl = inject("allowlistedBaseUrl");
 
@@ -136,7 +142,7 @@ describe("/", () => {
  * this ticket, and that instance's whole fixture is that nobody can log in to
  * it (ADR-0044) -- so it is the one empty instance here that can never show an
  * owner anything. `anInstanceAllowlistedAndEmpty` says what the move costs and
- * why no twelfth server was stood up to recover it.
+ * why no eleventh server was stood up to recover it.
  */
 const ownerOfTheEmptyOne = await logInAt(allowlistedBaseUrl, inject("ownerPassword"));
 
@@ -167,7 +173,7 @@ describe("/ on an empty catalogue, to its owner", () => {
     // -- fails here and passes everywhere else. The OTHER half, an owner with
     // nothing allowlisted, lost its witness when the routes became the owner's:
     // the only empty instance with no allowlist is the one with no password,
-    // and ADR-0104 refuses a twelfth server to recover it.
+    // and ADR-0104 refuses the eleventh server that would recover it.
     const { status, text } = await documentFrom(allowlistedBaseUrl, "/", ownerOfTheEmptyOne);
 
     expect(status).toBe(200);
@@ -177,6 +183,14 @@ describe("/ on an empty catalogue, to its owner", () => {
     // reader to Settings on the way would be the provider route again.
     expect(byHand).not.toContain('href="/settings"');
     expect(byHand).not.toContain('href="/import"');
+    // AND THE ALLOWLIST NOTICE IS GONE, which is what makes this instance the
+    // state it claims rather than a second fresh install. The two conditions
+    // are read off two facts, so an empty catalogue here says it is empty
+    // without also saying nothing is reachable. It travelled with the `/new`
+    // assertion when both lived in a describe of their own and has to travel
+    // with it here, or the instance's own claim about itself goes unchecked
+    // everywhere.
+    expect(() => section(text, "no-provider")).toThrow();
   });
 
   it("keeps the provider route, and names the two settings it needs", async () => {

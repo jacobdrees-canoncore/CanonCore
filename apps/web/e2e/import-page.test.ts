@@ -36,8 +36,12 @@ const freshBaseUrl = inject("freshBaseUrl");
  * instance here that can show the routes out of one (CNCORE-133). They are a
  * session's since that ticket, and the fresh install above deliberately has no
  * password for anyone to hold one with.
+ *
+ * IT KEEPS THE NAME IT IS PROVIDED UNDER, as every other server in this suite
+ * does. `front-page.test.ts` reads the same instance, and one server under two
+ * names in two files is a thing two readers cannot tell is one thing.
  */
-const emptyBaseUrl = inject("allowlistedBaseUrl");
+const allowlistedBaseUrl = inject("allowlistedBaseUrl");
 const client: AppRouterClient = createORPCClient(new RPCLink({ url: `${baseUrl}/api/rpc` }));
 
 /**
@@ -52,7 +56,7 @@ const client: AppRouterClient = createORPCClient(new RPCLink({ url: `${baseUrl}/
 const owner = await logInAt(baseUrl, inject("ownerPassword"));
 
 /** The same owner on the empty instance, for the one read that needs one. */
-const ownerOfTheEmptyOne = await logInAt(emptyBaseUrl, inject("ownerPassword"));
+const ownerOfTheEmptyOne = await logInAt(allowlistedBaseUrl, inject("ownerPassword"));
 
 /**
  * THE CATALOGUE'S OWN ROWS, which this file reaches for exactly once and for a
@@ -556,7 +560,7 @@ describe("reaching /import", () => {
     // install's until that ticket, which asked the page as nobody in
     // particular; every button the link leads to is a session's, so the route
     // is now offered to one and this is the instance that has one.
-    const { text } = await documentFrom(emptyBaseUrl, "/", ownerOfTheEmptyOne);
+    const { text } = await documentFrom(allowlistedBaseUrl, "/", ownerOfTheEmptyOne);
 
     expect(sectionIn(text, "what-to-do-next")).toContain('href="/import"');
   });

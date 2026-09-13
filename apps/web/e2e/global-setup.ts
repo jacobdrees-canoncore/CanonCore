@@ -286,10 +286,12 @@ export default async function setup(project: TestProject) {
  * half until the routes became the owner's; it sets no password by design, so
  * it can no longer show an owner anything at all, and the combination that
  * would carry that half -- empty, nothing allowlisted, an owner -- has no
- * instance here. A twelfth server is what would recover it and ADR-0104 refuses
- * one: a single run of this suite already peaks at about a hundred client
- * connections, which is the whole of the default budget CI's own `postgres:18`
- * service gets. So the gap is named rather than filled, here and in ADR-0094.
+ * instance here. An ELEVENTH server is what would recover it -- this file
+ * starts ten, nine through `anInstanceServing` and one through
+ * `theBuildServing` -- and ADR-0104 refuses it: a single run of this suite
+ * already peaks at about a hundred client connections, which is the whole of
+ * the default budget CI's own `postgres:18` service gets. So the gap is named
+ * rather than filled, here and in ADR-0094.
  *
  * AN ALLOWLIST AND NO PROVIDER NAMED, which is a real state rather than a
  * half-built one: they are two settings and neither is derivable from the other
@@ -305,7 +307,8 @@ export default async function setup(project: TestProject) {
  *
  * NOTHING WRITES THROUGH IT, so the emptiness is still the fixture rather than
  * a state a test has to restore. The password buys a session to READ the page
- * with, and `front-page.test.ts` is the only file that holds one here.
+ * with -- `front-page.test.ts` and `import-page.test.ts` each hold one -- and
+ * neither presses anything, so this instance is as still as it was without one.
  */
 function anInstanceAllowlistedAndEmpty() {
   return anInstanceServing({
