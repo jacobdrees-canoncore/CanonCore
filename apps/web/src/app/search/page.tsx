@@ -93,7 +93,7 @@ export default async function SearchPage({
         */}
         <h1 className="text-3xl font-medium">Catalogue search</h1>
         {results !== null && results.total > 0 && (
-          <Holding showing={results.entries.length} total={results.total} noun="result" />
+          <Holding showing={results.rows.length} total={results.total} noun="result" />
         )}
       </div>
       {results === null && <NothingAsked />}
@@ -104,12 +104,12 @@ export default async function SearchPage({
         result any more. It is rare and it is a DEAD END if nothing says so --
         an empty list under a heading reads as a page that failed to load.
       */}
-      {results !== null && results.total > 0 && results.entries.length === 0 && (
+      {results !== null && results.total > 0 && results.rows.length === 0 && (
         <PastTheEnd path="/search" asked={{ q: query }} />
       )}
-      {results !== null && results.entries.length > 0 && (
+      {results !== null && results.rows.length > 0 && (
         <>
-          <Listing entries={results.entries} />
+          <Listing rows={results.rows} />
           <Walk
             path="/search"
             asked={{ q: query }}

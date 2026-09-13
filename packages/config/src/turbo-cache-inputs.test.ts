@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join, resolve, sep } from "node:path";
 import { describe, expect, it } from "vitest";
 import { repoRoot } from "./testing/repo-root";
+import { plannedTasks } from "./testing/turbo-dry-run";
 
 /**
  * A SUITE THAT READS A FILE OUTSIDE ITS PACKAGE IS CACHED AGAINST THAT FILE.
@@ -34,30 +35,17 @@ import { repoRoot } from "./testing/repo-root";
  * exactly as badly as no entry at all. Only the dry run knows. `repo-root.test.ts`
  * checks its depth against git for the same reason.
  */
-const TURBO = join(repoRoot, "node_modules", ".bin", "turbo");
 
 /**
  * What `turbo` will hash for every `test` task, which IS the cache key: a task
  * whose inputs cover a file cannot replay over an edit to it.
  *
- * Run once for the file, at about 0.2s. `--dry` resolves the graph and runs no
- * task, so this is a read even though it is spawned through the runner.
+ * THE STRICT READER, because the task asked for is a LITERAL. Every assertion
+ * below reads off this array, so a turbo that answered nothing must stop the
+ * file rather than empty it -- which is what `plannedTasks` throwing gives, and
+ * what its refusal-tolerant sibling would take away.
  */
-function plannedTestTasks(): {
-  taskId: string;
-  directory: string;
-  inputs: Record<string, string>;
-  resolvedTaskDefinition: { cache: boolean };
-}[] {
-  const dryRun = execFileSync(TURBO, ["run", "test", "--dry=json"], {
-    cwd: repoRoot,
-    encoding: "utf8",
-    maxBuffer: 64 * 1024 * 1024,
-  });
-  return JSON.parse(dryRun).tasks;
-}
-
-const tasks = plannedTestTasks();
+const tasks = plannedTasks("test");
 
 function testTask(packageName: string) {
   const task = tasks.find(({ taskId }) => taskId === `${packageName}#test`);

@@ -12,12 +12,13 @@ import {
 import {
   type Allowlist,
   allowsAnything,
+  bounded,
   type CmppBrowse,
   type CmppManifest,
   type CmppRecord,
   createProviderClient,
+  type FailureReason,
   failureReason,
-  OutboundRefused,
   type ProviderClient,
   reasonFor,
   searchProviders,
@@ -25,6 +26,114 @@ import {
 import { z } from "zod";
 
 import { openProcedure, ownerProcedure } from "../index";
+
+/**
+ * Raised when REACHING a provider failed, carrying the reason a page may print.
+ *
+ * NAMED FOR WHERE IT HAPPENED RATHER THAN FOR WHAT WAS THROWN, which is
+ * ADR-0123's own rule one question over. That record decides WHOSE a sentence is
+ * by asking which boundary refused, because the error's CLASS does not answer
+ * it; the same holds for "is this the provider's failure at all". The three
+ * things that arrive here -- ADR-0034 refusing a URL, a socket that never
+ * opened, a provider that answered badly -- have no class in common and no
+ * class they do not share with a bug in this app, so what distinguishes them is
+ * that they were thrown while a provider was being asked something.
+ *
+ * WHICH IS WHY THE CATALOGUE'S OWN WRITE IS OUTSIDE IT. `importProvidedRecord`
+ * runs after the provider has answered, and a `catch` wide enough to hold every
+ * way a provider can fail is wide enough to report a failed INSERT as something
+ * the provider did -- a false attribution in a field ADR-0123 built to stop
+ * exactly those.
+ *
+ * IT CARRIES THE REASON RATHER THAN A MESSAGE, so the mapping happens once, at
+ * the seam where the thrown thing is still in hand. `reasonFor` is the single
+ * mapping that record names, and a procedure re-deriving it from a message would
+ * be the fifth site it exists to prevent.
+ */
+export class ProviderFailed extends Error {
+  constructor(readonly reason: FailureReason) {
+    super(reason.text);
+  }
+}
+
+/**
+ * Whatever was thrown ASKING a provider something, as the failure that says so.
+ *
+ * ONE WRAPPER FOR BOTH WRITE PATHS, for the reason `browseIfOffered` below is
+ * one preamble for two callers: `import` and `browse` had the identical `catch`
+ * and the identical hole in it (CNCORE-149), which is how one defect came to
+ * have two sites -- the shape ADR-0123 was written about.
+ *
+ * IT WRAPS THE ASKING AND NOTHING ELSE. What goes inside is every request a
+ * provider can fail; what stays outside is the catalogue's own write and the
+ * app's own answers -- `BrowseNotOffered` is raised on a manifest that came back
+ * fine, and reporting it as a provider failure would say the opposite of what
+ * ADR-0033 decided about a provider that declines `browse`.
+ */
+async function askingTheProvider<T>(work: () => Promise<T>): Promise<T> {
+  try {
+    return await work();
+  } catch (error) {
+    throw new ProviderFailed(reasonFor(error));
+  }
+}
+
+/**
+ * THE REFUSAL BOTH WRITE PROCEDURES DECLARE, WRITTEN ONCE (ADR-0123).
+ *
+ * That record exists because one defect had two sites that each solved it
+ * separately, and these two procedures are how it got them: the identical
+ * `catch`, narrowed the identical way, with the identical hole in it. A second
+ * copy of the declaration is the same shape one layer up -- two places for the
+ * status, the message and the reason's schema to stop agreeing.
+ */
+const providerRefused = {
+  /**
+   * THREE THINGS ARE IN HERE AND THE MESSAGE NAMES NONE OF THEM, which is the
+   * correction CNCORE-149 made to it. It said "That provider URL is not one this
+   * instance may reach", which is true of ADR-0034 refusing a URL and false of
+   * the other two: a socket that never opened, and a provider that ANSWERED
+   * badly -- that one was reached. `provider.container`'s `unreachable` branch
+   * keeps the same three apart the same way, by what they SAY rather than by the
+   * name over them.
+   */
+  message: "Nothing usable came back from that provider.",
+  /**
+   * BELOW 500, BECAUSE A PROVIDER FAILING IS NOT THIS SERVER BEING BROKEN -- AND
+   * WITHOUT THIS THE DECLARED ERROR NEVER REACHES A PAGE. oRPC gives a code of
+   * its own `status: 500` (`fallbackORPCErrorStatus` is
+   * `status ?? COMMON_ORPC_ERROR_DEFS[code]?.status ?? 500`, measured on
+   * @orpc/client 1.15.0), and `answer.ts` reads exactly that number to tell a
+   * refusal from a fault: at 500 it rethrows, and a Server Action that throws
+   * with no script loaded answers the bare `Internal Server Error` -- the same
+   * eighteen bytes the UNDECLARED throw answered. So declaring the error without
+   * declaring its status would narrow the RPC surface and leave the page exactly
+   * as it was.
+   *
+   * `424` RATHER THAN `502`, WHICH IS THE MORE OBVIOUS AND THE WRONG ONE. RFC
+   * 9110's gateway status is the better literal fit -- an inbound server
+   * answered badly -- but it is a 5xx, and a 5xx in this app means a genuine
+   * fault: `answer.ts` rethrows it and `/api/rpc` logs the stack (ADR-0125). An
+   * expired credential at a third party is neither. What this catalogue already
+   * decided about the same failure is on the READ side, where
+   * `provider.container` answers it at 200 as an ANSWER, and a 4xx is that
+   * position held on the write side. RFC 4918's `424` is the registered one that
+   * says it: "A method's execution has failed because it depends on the
+   * execution of another method, and that other method failed."
+   */
+  status: 424,
+  /**
+   * THE REASON, IN THE SHAPE THE READ SURFACES CARRY (ADR-0123). It was a bare
+   * `message` string until CNCORE-149, which is two shapes for one thing -- and
+   * the half a string cannot carry is `wrote`, so a caller holding one has no way
+   * to tell this catalogue's sentence about the Owner's own settings from a
+   * third party's text.
+   *
+   * DECLARED, so the ceiling is in the OpenAPI document a caller reads rather
+   * than an invariant two handlers each had to remember.
+   */
+  data: failureReason,
+};
 
 /** What an import needs: the URL the owner typed, and which record to take. */
 export interface ImportRequest {
@@ -52,11 +161,13 @@ export async function importRecordFromProvider(
 ): Promise<ImportedRecord | null> {
   const client = createProviderClient({ baseUrl, allowlist });
   try {
-    // The manifest first, for the provider's OWN name. A source answers "who
-    // said this", and `provider-wiki` answers it where `http://127.0.0.1:39481`
-    // shows a reader a deployment detail.
-    const manifest = await client.manifest();
-    const record = await client.lookup(recordId);
+    const { manifest, record } = await askingTheProvider(async () => {
+      // The manifest first, for the provider's OWN name. A source answers "who
+      // said this", and `provider-wiki` answers it where `http://127.0.0.1:39481`
+      // shows a reader a deployment detail.
+      const manifest = await client.manifest();
+      return { manifest, record: await client.lookup(recordId) };
+    });
     if (!record) return null;
 
     return await importProvidedRecord(db, {
@@ -160,10 +271,18 @@ export async function browseIntoCatalogue(
 ): Promise<ImportedContainer | null> {
   const client = createProviderClient({ baseUrl, allowlist });
   try {
-    const attempt = await browseIfOffered(client, containerId);
+    const attempt = await askingTheProvider(() => browseIfOffered(client, containerId));
     if (!attempt.offered) {
+      // BOUNDED WHERE THE PROVIDER'S VALUE ENTERS THE SENTENCE, which is
+      // ADR-0123's own rule and was not applied here. `name` is
+      // `z.string().min(1)` on a body `MAX_BODY_BYTES` admits four mebibytes of,
+      // so a provider chose the length of this message -- the same defect as a
+      // credential's `label`, and `bounded` is published for exactly that: a
+      // provider's text on a manifest it chose to send, known to be the
+      // provider's without anything having to decide. The prose around it is
+      // fixed-length and cannot be cut.
       throw new BrowseNotOffered(
-        `${attempt.manifest.name} declares no browse; it was not asked for one.`,
+        `${bounded(attempt.manifest.name)} declares no browse; it was not asked for one.`,
       );
     }
     const browsed = attempt.browsed;
@@ -583,9 +702,11 @@ export const provider = {
       }),
     )
     .errors({
-      PROVIDER_REFUSED: {
-        message: "That provider URL is not one this instance may reach.",
-      },
+      PROVIDER_REFUSED: providerRefused,
+      // TODO(CNCORE-152): still oRPC's default 500 for a code of our own, so a
+      // record the provider drops between the search that drew the row and the
+      // POST that presses it reaches the owner as the bare `Internal Server
+      // Error` -- the same defect CNCORE-149 fixed one code over.
       NO_SUCH_RECORD: {
         message: "The provider holds no record at that id.",
       },
@@ -597,12 +718,20 @@ export const provider = {
         if (!imported) throw errors.NO_SUCH_RECORD();
         return imported;
       } catch (error) {
-        // A REFUSAL IS AN ANSWER, NOT A CRASH. The owner typed this URL, so a
-        // UI has to be able to put the reason in front of them -- and an
+        // A FAILED PROVIDER IS AN ANSWER, NOT A CRASH. The owner typed this URL,
+        // so a UI has to be able to put the reason in front of them -- and an
         // undeclared throw is a 500 no caller can narrow on, which is the same
         // defect CNCORE-14 fixed for a malformed item id.
-        if (error instanceof OutboundRefused) {
-          throw errors.PROVIDER_REFUSED({ message: error.message });
+        //
+        // EVERYTHING THE PROVIDER FAILED AT, rather than the one class foreseen.
+        // This narrowed to `OutboundRefused` until CNCORE-149, so a provider
+        // ANSWERING a non-2xx -- an expired credential, which CNCORE-100 makes
+        // the ordinary failure of a live provider -- fell past it and was the
+        // 500 this catch exists to remove. What decides it now is WHERE the
+        // throw happened rather than what class it was, because the failures a
+        // provider can produce have no class in common.
+        if (error instanceof ProviderFailed) {
+          throw errors.PROVIDER_REFUSED({ data: error.reason });
         }
         throw error;
       }
@@ -786,9 +915,11 @@ export const provider = {
       }),
     )
     .errors({
-      PROVIDER_REFUSED: {
-        message: "That provider URL is not one this instance may reach.",
-      },
+      PROVIDER_REFUSED: providerRefused,
+      // TODO(CNCORE-152): these two are still oRPC's default 500 for a code of
+      // our own, as `NO_SUCH_RECORD` on `import` above is, so a container that
+      // goes missing between the page's read and the owner's POST reaches them
+      // as the bare `Internal Server Error`.
       BROWSE_NOT_OFFERED: {
         message: "That provider does not offer browse, so it was not asked for one.",
       },
@@ -803,8 +934,13 @@ export const provider = {
         if (!browsed) throw errors.NO_SUCH_CONTAINER();
         return browsed;
       } catch (error) {
-        if (error instanceof OutboundRefused) {
-          throw errors.PROVIDER_REFUSED({ message: error.message });
+        // EVERYTHING THE PROVIDER FAILED AT, as in `import` above and for the
+        // reason given there: this narrowed to `OutboundRefused` until
+        // CNCORE-149, so a provider that ANSWERED a non-2xx fell past it as a
+        // 500. The two write procedures had the identical catch and therefore
+        // the identical hole.
+        if (error instanceof ProviderFailed) {
+          throw errors.PROVIDER_REFUSED({ data: error.reason });
         }
         // A DECLARED ERROR RATHER THAN A 500, for the same reason a refusal is
         // one: the owner asked for this and a UI has to be able to tell them

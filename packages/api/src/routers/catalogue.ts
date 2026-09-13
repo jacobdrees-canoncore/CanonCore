@@ -1,9 +1,5 @@
 import { type Catalogue, readCatalogue, readWorks, searchCatalogue } from "@canoncore/db";
-import {
-  type CatalogueEntryPublic,
-  type CataloguePublic,
-  cataloguePublic,
-} from "@canoncore/schemas";
+import { type CataloguePublic, type CatalogueRowPublic, cataloguePublic } from "@canoncore/schemas";
 import { z } from "zod";
 
 import { openProcedure } from "../index";
@@ -20,7 +16,7 @@ import { A_PAGE, aCursor } from "./listing";
  */
 const listingInput = z.object({
   /**
-   * How many entries to answer with. The caller may ask for fewer than the
+   * How many rows to answer with. The caller may ask for fewer than the
    * default; it may not ask for more, because the ceiling is what keeps one
    * request's cost bounded by this app rather than by whoever sends the
    * request.
@@ -154,15 +150,15 @@ export const catalogue = {
  * them. Written ONCE for all THREE questions, so they cannot come to disagree
  * about what a listing is.
  */
-function asListing({ entries, total, continuesAfter }: Catalogue): CataloguePublic {
-  return { entries: entries.map(asEntry), total, continuesAfter };
+function asListing({ rows, total, continuesAfter }: Catalogue): CataloguePublic {
+  return { rows: rows.map(asRow), total, continuesAfter };
 }
 
 /**
- * One entry, for all three questions.
+ * One row, for all three questions.
  *
  * `asListing` already existed to write this once "so the two cannot come to
- * disagree about what a catalogue entry is" (CNCORE-67). Catalogue search is a
+ * disagree about what a catalogue row is" (CNCORE-67). Catalogue search is a
  * third reader of the same four facts, so it shares the enumeration rather than
  * adding a copy that would be correct until somebody changed one of them.
  *
@@ -171,14 +167,14 @@ function asListing({ entries, total, continuesAfter }: Catalogue): CataloguePubl
  * line was written for them rather than because somebody remembered to strip
  * them.
  */
-function asEntry(entry: Catalogue["entries"][number]): CatalogueEntryPublic {
+function asRow(row: Catalogue["rows"][number]): CatalogueRowPublic {
   return {
-    id: entry.id,
-    title: entry.title,
+    id: row.id,
+    title: row.title,
     // The LABEL under the name the read path gives it, exactly as `item.get`
     // does: `kind` is the reader's word for it wherever the read path emits
     // one, and the key stays below this seam (ADR-0045).
-    kind: entry.kindLabel,
-    isContainer: entry.isContainer,
+    kind: row.kindLabel,
+    isContainer: row.isContainer,
   };
 }

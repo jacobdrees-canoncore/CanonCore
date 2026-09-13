@@ -7,8 +7,8 @@ import { anItem, anItemTitled, aStatement, connect, ownerSource } from "./testin
 
 /** Whether the catalogue lists one particular item. */
 async function lists(db: Database, id: string): Promise<boolean> {
-  const { entries } = await readCatalogue(db, { limit: 1000 });
-  return entries.some((entry) => entry.id === id);
+  const { rows } = await readCatalogue(db, { limit: 1000 });
+  return rows.some((row) => row.id === id);
 }
 
 let db: Database;
@@ -21,9 +21,9 @@ describe("readCatalogue", () => {
   it("answers with an item that is in the catalogue", async () => {
     const id = await anItemTitled(db, "A story the catalogue holds");
 
-    const { entries } = await readCatalogue(db, { limit: 100 });
+    const { rows } = await readCatalogue(db, { limit: 100 });
 
-    expect(entries).toContainEqual(
+    expect(rows).toContainEqual(
       expect.objectContaining({ id, title: "A story the catalogue holds" }),
     );
   });
@@ -55,8 +55,8 @@ describe("readCatalogue", () => {
       sourceId: await ownerSource(db),
     });
 
-    const { entries } = await readCatalogue(db, { limit: 1000 });
-    const order = entries.map((entry) => entry.id);
+    const { rows } = await readCatalogue(db, { limit: 1000 });
+    const order = rows.map((row) => row.id);
 
     expect(order.indexOf(ark)).toBeLessThan(order.indexOf(genesis));
   });
@@ -74,11 +74,11 @@ describe("readCatalogue", () => {
 
     const after = await readCatalogue(db, { limit: 1 });
 
-    expect(after.entries).toHaveLength(1);
+    expect(after.rows).toHaveLength(1);
     expect(after.total).toBe(before.total + 1);
   });
 
-  it("says what kind each entry is, and whether it holds other items", async () => {
+  it("says what kind each row is, and whether it holds other items", async () => {
     // ADR-0005's kinds and ADR-0004's fold, together. A Person and a Work of the
     // same name are two rows a reader has to be able to tell apart (CNCORE-60's
     // story 12), and containers fold INTO `work` -- so the kind alone cannot
@@ -93,8 +93,8 @@ describe("readCatalogue", () => {
     const era = await anItemTitled(db, "The Hartnell era", { kind: "time_span" });
     const ordering = await anItemTitled(db, "An ordering of stories", { isContainer: true });
 
-    const { entries } = await readCatalogue(db, { limit: 1000 });
-    const byId = new Map(entries.map((entry) => [entry.id, entry]));
+    const { rows } = await readCatalogue(db, { limit: 1000 });
+    const byId = new Map(rows.map((row) => [row.id, row]));
 
     expect(byId.get(person)).toMatchObject({ kindLabel: "Person", isContainer: false });
     expect(byId.get(era)).toMatchObject({ kindLabel: "Time span" });
@@ -113,7 +113,7 @@ describe("readCatalogue, walked a page at a time", () => {
 
     const whole = await readCatalogue(db, { limit: 10_000 });
 
-    expect(await walk(db, 3)).toStrictEqual(whole.entries.map((entry) => entry.id));
+    expect(await walk(db, 3)).toStrictEqual(whole.rows.map((row) => row.id));
   });
 
   it("points at the next page only where there is one, and never at an empty one", async () => {
@@ -133,9 +133,9 @@ describe("readCatalogue, walked a page at a time", () => {
     // full -- which is the case a "the page came back full, so there is more"
     // rule gets wrong.
     expect(exactly.continuesAfter).toBeNull();
-    expect(oneShort.continuesAfter).toBe(oneShort.entries.at(-1)?.id);
+    expect(oneShort.continuesAfter).toBe(oneShort.rows.at(-1)?.id);
     const rest = await readCatalogue(db, { limit: total, after: oneShort.continuesAfter ?? "" });
-    expect(rest.entries).toHaveLength(1);
+    expect(rest.rows).toHaveLength(1);
   });
 
   it("reports the size of the catalogue on every page, not of what is left", async () => {
@@ -160,7 +160,7 @@ describe("readCatalogue, walked a page at a time", () => {
     //
     // SO THE PAGE IS CUT EXACTLY AT THE TIE rather than at a size that might
     // land there. The catalogue is read whole to find where the pair sits, and
-    // a page asked for that many entries ends on the first of the two.
+    // a page asked for that many rows ends on the first of the two.
     const sortsAs = "Dalek Invasion of Earth, The";
     const pair: string[] = [];
     for (const title of ["The Dalek Invasion of Earth", "Doctor Who and the Daleks"]) {
@@ -174,17 +174,17 @@ describe("readCatalogue, walked a page at a time", () => {
       pair.push(id);
     }
 
-    const order = (await readCatalogue(db, { limit: 10_000 })).entries.map((entry) => entry.id);
+    const order = (await readCatalogue(db, { limit: 10_000 })).rows.map((row) => row.id);
     const first = Math.min(...pair.map((id) => order.indexOf(id)));
     const cutAtTheTie = await readCatalogue(db, { limit: first + 1 });
 
-    expect(cutAtTheTie.entries.at(-1)?.id).toBe(order[first]);
+    expect(cutAtTheTie.rows.at(-1)?.id).toBe(order[first]);
     const next = await readCatalogue(db, {
       limit: 1,
       after: cutAtTheTie.continuesAfter ?? "",
     });
     // The OTHER half of the pair, which is the item a key-only cursor loses.
-    expect(next.entries[0]?.id).toBe(order[first + 1]);
+    expect(next.rows[0]?.id).toBe(order[first + 1]);
   });
 
   it("walks on into the items with no sort key at all, and through them", async () => {
@@ -212,7 +212,7 @@ describe("readCatalogue, walked a page at a time", () => {
           .where(and(isNull(items.sortName), isNull(items.title), isNull(items.deletedAt)))
       ).map((row) => row.id),
     );
-    const order = (await readCatalogue(db, { limit: 10_000 })).entries.map((entry) => entry.id);
+    const order = (await readCatalogue(db, { limit: 10_000 })).rows.map((row) => row.id);
     const tail = order.findIndex((id) => keyless.has(id));
     // THE TAIL IS ONE BLOCK AT THE END, which is what makes the two cuts below
     // land on the boundaries this test is named for rather than mid-order.
@@ -220,14 +220,14 @@ describe("readCatalogue, walked a page at a time", () => {
 
     const upToTheTail = await readCatalogue(db, { limit: tail });
     const into = await readCatalogue(db, { limit: 1, after: upToTheTail.continuesAfter ?? "" });
-    expect(into.entries[0]?.id).toBe(order[tail]);
+    expect(into.rows[0]?.id).toBe(order[tail]);
 
     const oneIntoTheTail = await readCatalogue(db, { limit: tail + 1 });
     const through = await readCatalogue(db, {
       limit: 1,
       after: oneIntoTheTail.continuesAfter ?? "",
     });
-    expect(through.entries[0]?.id).toBe(order[tail + 1]);
+    expect(through.rows[0]?.id).toBe(order[tail + 1]);
   });
 
   it("starts the catalogue over, where the item a page was cut at has since been deleted", async () => {
@@ -257,7 +257,7 @@ describe("readCatalogue, walked a page at a time", () => {
     await anItem(db, { id: LAST_ID });
     const anchorId = await anItemTitled(db, "A story a kept link was cut at");
 
-    const order = (await readCatalogue(db, { limit: 10_000 })).entries.map((entry) => entry.id);
+    const order = (await readCatalogue(db, { limit: 10_000 })).rows.map((row) => row.id);
     const cut = await readCatalogue(db, { limit: order.indexOf(anchorId) + 1 });
     // THE PAGE ENDS ON THE ANCHOR, so what follows is a cursor a reader was
     // actually handed rather than an id written here.
@@ -270,9 +270,7 @@ describe("readCatalogue, walked a page at a time", () => {
     // go -- a different code path from the walk, which is what makes this an
     // assertion rather than the walk marking its own work.
     const fromTheStart = await readCatalogue(db, { limit: 10_000 });
-    expect(kept.entries.map((entry) => entry.id)).toStrictEqual(
-      fromTheStart.entries.map((entry) => entry.id),
-    );
+    expect(kept.rows.map((row) => row.id)).toStrictEqual(fromTheStart.rows.map((row) => row.id));
   });
 
   it("says so on a catalogue with no untitled tail, which is the shape that reads as an ending", async () => {
@@ -310,7 +308,7 @@ describe("readCatalogue, walked a page at a time", () => {
       .where(and(isNull(items.title), isNull(items.sortName), isNull(items.deletedAt)));
     expect(untitled).toHaveLength(0);
 
-    const order = (await readCatalogue(own, { limit: 10_000 })).entries.map((entry) => entry.id);
+    const order = (await readCatalogue(own, { limit: 10_000 })).rows.map((row) => row.id);
     const cut = await readCatalogue(own, { limit: order.indexOf(anchorId) + 1 });
     expect(cut.continuesAfter).toBe(anchorId);
     await own.update(items).set({ deletedAt: new Date() }).where(eq(items.id, anchorId));
@@ -321,9 +319,9 @@ describe("readCatalogue, walked a page at a time", () => {
     // it: two of the four still there, with a cursor onto the rest. Measured
     // before the fix, this was `[]` with a null cursor and a `total` of 4 --
     // a page claiming the catalogue ended while reporting four items in it.
-    const theRest = (await readCatalogue(own, { limit: 10_000 })).entries.map((entry) => entry.id);
+    const theRest = (await readCatalogue(own, { limit: 10_000 })).rows.map((row) => row.id);
     expect(theRest).toHaveLength(4);
-    expect(kept.entries.map((entry) => entry.id)).toStrictEqual(theRest.slice(0, 2));
+    expect(kept.rows.map((row) => row.id)).toStrictEqual(theRest.slice(0, 2));
     expect(kept.continuesAfter).toBe(theRest[1]);
     expect(kept.total).toBe(4);
   });
@@ -348,9 +346,9 @@ const LAST_ID = "ffffffff-ffff-4fff-bfff-ffffffffffff";
  * against a shared test database holding a few dozen items. How big a page is
  * belongs to the caller, which is what lets this ask for a small one.
  *
- * IT FOLLOWS `continuesAfter` RATHER THAN THE LAST ENTRY IT SAW, which is the
+ * IT FOLLOWS `continuesAfter` RATHER THAN THE LAST ROW IT SAW, which is the
  * difference between modelling a caller and modelling the query. Measured: an
- * earlier version advanced on `entries.at(-1)` and stopped on an empty page, so
+ * earlier version advanced on `rows.at(-1)` and stopped on an empty page, so
  * a `continuesAfter` that was ALWAYS NULL left this test passing -- it was
  * walking a route no caller has, because a caller is only ever handed the one
  * this answers with.
@@ -365,7 +363,7 @@ async function walk(db: Database, pageSize: number): Promise<string[]> {
   const { total } = await readCatalogue(db, { limit: 1 });
   for (let pages = 0; pages <= total; pages += 1) {
     const page = await readCatalogue(db, { limit: pageSize, after });
-    walked.push(...page.entries.map((entry) => entry.id));
+    walked.push(...page.rows.map((row) => row.id));
     if (page.continuesAfter === null) return walked;
     after = page.continuesAfter;
   }

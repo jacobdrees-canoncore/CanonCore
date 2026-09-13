@@ -71,15 +71,56 @@ enough for the derived one to truncate back onto it would drop the worktree's ow
 run. `build-database.ts` already REFUSES rather than truncating, so the failure was a hard stop
 rather than data loss; reserving the room is what turns that stop into a working setup.
 
-**The FORMAT could not drift and the SET did**, which is the distinction this paragraph took two
-tickets to state. `testDatabaseNameFor` is the one place that knows how a test database is named and
-the reservation test builds its derived names by calling it, so `<name>_test_<suffix>` was never in
-question. WHICH SUFFIXES EXIST was: `buildTestDatabase` took a `string`, so the set lived as literals
-at the call sites with a hand-written copy in the reservation test, which read `["", "web", "fresh"]`
-while the web suite had grown to five. Two were missing and one of those, `_test_purgeable`, was four
-characters past the reservation — so any worktree whose branch stem ran to the limit met the hard
-stop above and could not run `pnpm test:e2e` at all. True of `cncore_47_properties_validation` on the
-day it was found, 2026-09-12, and found by adding a sixth rather than by anything failing.
+**The SET drifted, and the FORMAT drifted too — which took a third ticket to find.** The two
+paragraphs below said the format could not, on the grounds that `testDatabaseNameFor` is the one
+place that knows how a test database is named and the reservation test builds its derived names by
+calling it. Both halves were true and the conclusion did not follow: the test called it ONCE and the
+running harness called it TWICE. CNCORE-150 is that sentence being wrong, and what follows it here
+is still right about the set. WHICH SUFFIXES EXIST drifted first: `buildTestDatabase` took a
+`string`, so the set lived as literals at the call sites with a hand-written copy in the reservation
+test, which read `["", "web", "fresh"]` while the web suite had grown to five. Two were missing and
+one of those, `_test_purgeable`, was four characters past the reservation — so any worktree whose
+branch stem ran to the limit met the hard stop above and could not run `pnpm test:e2e` at all. True
+of `cncore_47_properties_validation` on the day it was found, 2026-09-12, and found by adding a
+sixth rather than by anything failing.
+
+**THE TAIL WENT ON TWICE, AND ONLY A LONG BRANCH COULD SHOW IT** (CNCORE-150). `global-setup.ts`
+builds `<worktree>_test` and `testing/setup.ts` then points DATABASE_URL AT IT, deliberately, so that
+a suite builds its context with the real `createContext` rather than a hand-copy (ADR-0103). A file
+asking for a second database after that is deriving from the RUN's database rather than from the
+worktree's, and gets `<worktree>_test_test_<suffix>` — one whole `_test` past the format this record
+describes, which is `<name>_test` plus a SIBLING per suffix. The reservation test modelled the one
+step and never the two, so it stayed green while the worst branch derived 68 bytes.
+
+**IT IS LOCAL-ONLY, WHICH IS WHY IT SURVIVED.** `ci.yml` sets DATABASE_URL to a database named
+`canoncore`, so the branch never enters the arithmetic and CI derives 25 bytes. The only person who
+meets it is the one running the full suite by hand on a long branch, and the obvious reading there is
+that they broke something. Measured against every pushed branch on 2026-09-13: **11 of 72** derived
+a name that broke, and every one of them sat at the 52-byte cap — `worktreeDatabaseName` slices the
+stem at 33, so 52 is the longest name it can make and 68 the longest doubled tail. The dispatcher
+names these branches from ticket titles, so it is an ordinary shape rather than a rare one.
+
+**A FIGURE FROM THE TICKET DID NOT SURVIVE BEING CHECKED, and it is recorded here because it is the
+kind that travels.** CNCORE-150 reported the worst branch as `cncore-141-locked-provider-contract`
+**at 54 bytes**. That is the name BEFORE the stem slice, and no database is ever called it: the real
+name is `canoncore_cncore_141_locked_provider_contra_f2eee590`, 52 bytes, like every other branch at
+the cap. The ticket's "10 of 66" was 11 of 72 by the day the work was done. Neither changes the
+remedy — the breakage is real and the arithmetic above is what it rests on.
+
+**THE FIX WAS THE DERIVATION, NOT THE BUDGET, and that distinction is the whole of it.** Widening
+`LONGEST_DERIVED_SUFFIX` from eleven to sixteen is the obvious reading and is the one move the
+paragraph below forbids: it shortens every stem and renames databases. Eleven was never too small. It
+was TRUE for the format above and a lie only because the tail went on twice, so `testDatabaseNameFor`
+now names from the worktree database — recovering it by stripping its own `_test` marker when handed
+one of its own derivatives. The worst branch lands on 63 exactly, and no existing worktree is renamed.
+`worktreeDatabaseName` ends every name in eight hex characters, so a worktree database can never end
+in `_test` and be mistaken for a derived one.
+
+**The recovery is idempotent, and the existing refusal is what makes that safe.** `buildTestDatabase()`
+with no suffix, called from a worker, now resolves to the database that worker is already running
+against rather than quietly building a `_test_test` below it — and since the next thing it does is
+`drop database ... with (force)`, the `name === database` guard is what turns that into a refusal.
+Both halves are pinned by `worktree-database.test.ts`.
 
 **`TEST_DATABASE_SUFFIXES` is the mechanism that ships** (CNCORE-112). One declaration;
 `buildTestDatabase` takes a member of it and nothing else; the reservation test ranges over it rather
@@ -96,8 +137,11 @@ this, and it is tempting exactly because the constant and the declaration now si
 it would make the budget FOLLOW whatever suffix was added last and widen it silently.
 `worktree-database.ts` names that move so the next reader declines it on purpose rather than by luck.
 
-**The budget is nearly full, which is what to know before adding a sixth.** Four of the six declared
-suffixes — `_test_fresh`, `_test_paged`, `_test_purge`, `_test_still` — spend all eleven characters.
+**The budget is full, which is what to know before adding another.** SEVEN of the THIRTEEN declared
+suffixes — `_test_fresh`, `_test_paged`, `_test_purge`, `_test_still`, `_test_place`, `_test_order`
+and `_test_allow` — spend all eleven characters, so the longest tail the harness can derive IS the
+reservation, exactly. (This read "four of the six" until 2026-09-13; the set had grown and the
+sentence had not.)
 A new one is likelier to need shortening than to fit, and the test now says so at the point of adding
 it rather than on the first branch long enough to break.
 

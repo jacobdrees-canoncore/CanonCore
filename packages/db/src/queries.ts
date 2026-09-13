@@ -167,10 +167,10 @@ function spokesmanFor(db: Database) {
 
 /** Every ordering one item sits in, and how much of it this answer carries. */
 export interface PlacementsOfItem {
-  entries: PlacementOfItem[];
+  rows: PlacementOfItem[];
   /**
    * How many orderings the item sits in ALTOGETHER, which is not
-   * `entries.length` whenever the cap bit. A surface that cannot tell the two
+   * `rows.length` whenever the cap bit. A surface that cannot tell the two
    * apart reports the first hundred as every ordering there is.
    */
   total: number;
@@ -199,7 +199,7 @@ export interface PlacementsOfItem {
    * IT IS THE ONE FACT HERE THE NARROWING DOES NOT TOUCH, which is what it is
    * for: these are what a reader narrows WITH, so they are the origins of the
    * WHOLE listing whichever page this is and whichever origin it was cut to.
-   * Derived from the entries they would collapse to the origin already chosen,
+   * Derived from the rows they would collapse to the origin already chosen,
    * and the way back to All would be to edit the address by hand.
    *
    * EMPTY FOR AN ITEM NOTHING HAS ASSERTED A PLACEMENT OF, which is not the same
@@ -323,7 +323,7 @@ export async function findPlacementsOfItem(
              */
             assertedBy: asserters.labels,
             /*
-             * THE SAME PREDICATE THE ENTRIES USE, in the same statement and
+             * THE SAME PREDICATE THE ROWS USE, in the same statement and
              * therefore the same snapshot, and UNCORRELATED so the cursor cannot
              * reach it -- all three for the reasons `walkListing` gives. The
              * subquery names `placements` and `items` in its own FROM, so those
@@ -377,7 +377,7 @@ export async function findPlacementsOfItem(
             sql`${placements.id}`,
           )
           .limit(howMany),
-      asEntry: ({ id, containerId, containerTitle, position, placedBy, assertedBy }) => ({
+      asRow: ({ id, containerId, containerTitle, position, placedBy, assertedBy }) => ({
         id,
         containerId,
         containerTitle,
@@ -434,7 +434,7 @@ async function readEveryPlacedBy(db: Database, sitsIn: SQL): Promise<string[]> {
 
 /**
  * HOW MANY ORDERINGS THE LISTING HOLDS, as one query its two readers share: the
- * scalar subquery that rides on the entries, and `sizeOnItsOwn` for the page
+ * scalar subquery that rides on the rows, and `sizeOnItsOwn` for the page
  * with no rows for one to ride on. Written once because the two must agree, and
  * since CNCORE-129 they have a narrowing to agree about as well as a predicate.
  *
@@ -458,7 +458,7 @@ async function readEveryPlacedBy(db: Database, sitsIn: SQL): Promise<string[]> {
  * is built from the walk's own spokesman and renders as `"spokesman"."kind"`;
  * spliced in here it binds to the lateral this query joins, because SQL resolves
  * a name in the innermost scope that has one. That is what lets one fragment be
- * the entries' narrowing and the count's at once -- which is the whole reason
+ * the rows' narrowing and the count's at once -- which is the whole reason
  * they cannot drift.
  */
 function countingOrderings(db: Database, sitsIn: SQL, narrowedTo: SQL | undefined) {
@@ -873,7 +873,7 @@ export async function findAttributionOwed(
 }
 
 /** One item as the catalogue lists it. */
-export interface CatalogueEntry {
+export interface CatalogueRow {
   id: string;
   /** ADR-0014's projected column. An item with no title statement has none. */
   title: string | null;
@@ -904,10 +904,10 @@ export interface CatalogueEntry {
 
 /** What the catalogue holds, and how much of it this answer carries. */
 export interface Catalogue {
-  entries: CatalogueEntry[];
+  rows: CatalogueRow[];
   /**
    * How many items the catalogue holds ALTOGETHER, which is not
-   * `entries.length` whenever the cap bit. A surface that cannot tell the two
+   * `rows.length` whenever the cap bit. A surface that cannot tell the two
    * apart reports the first hundred as the whole library.
    */
   total: number;
@@ -1060,7 +1060,7 @@ export async function walkListing(
            * without it `total` is a string wearing a number's type.
            */
           /*
-           * THE SAME PREDICATE THE ENTRIES USE, which is what makes `total` the
+           * THE SAME PREDICATE THE ROWS USE, which is what makes `total` the
            * size of the question that was ASKED rather than of the whole table.
            */
           total: sql<number>`(select count(*) from ${items} where ${within})`.mapWith(Number),
@@ -1073,7 +1073,7 @@ export async function walkListing(
         .where(and(within, past))
         .orderBy(...orderBy)
         .limit(howMany),
-    asEntry: ({ id, title, kindLabel, isContainer }) => ({ id, title, kindLabel, isContainer }),
+    asRow: ({ id, title, kindLabel, isContainer }) => ({ id, title, kindLabel, isContainer }),
     sizeOnItsOwn: () => countListing(db, within),
   });
 }
@@ -1094,7 +1094,7 @@ export async function walkListing(
  * - THE SIZE, IN THE SAME SNAPSHOT. It rides on the rows, so a page with NO
  *   rows carries none -- and a page can be empty with a listing behind it,
  *   when a cursor names the last row in it. `sizeOnItsOwn` is asked exactly
- *   there, where there are no entries for a second moment's answer to
+ *   there, where there are no rows for a second moment's answer to
  *   disagree with. Catalogue search kept its own copy of this and its own
  *   `count(*) over ()`, which was right only until it had a cursor
  *   (CNCORE-88).
@@ -1108,23 +1108,23 @@ export async function walkListing(
  * different relation, a different id and a different count, so they supply
  * their own select and share these three rules and nothing else.
  */
-async function onePage<Row extends { id: string; total: number }, Entry>({
+async function onePage<Stored extends { id: string; total: number }, Row>({
   limit,
   read,
-  asEntry,
+  asRow,
   sizeOnItsOwn,
 }: {
   limit: number;
-  read: (howMany: number) => Promise<Row[]>;
-  asEntry: (row: Row) => Entry;
+  read: (howMany: number) => Promise<Stored[]>;
+  asRow: (stored: Stored) => Row;
   sizeOnItsOwn: () => Promise<number>;
-}): Promise<{ entries: Entry[]; total: number; continuesAfter: string | null }> {
-  const rows = await read(limit + 1);
-  const page = rows.slice(0, limit);
+}): Promise<{ rows: Row[]; total: number; continuesAfter: string | null }> {
+  const stored = await read(limit + 1);
+  const page = stored.slice(0, limit);
   return {
-    entries: page.map(asEntry),
-    total: rows[0]?.total ?? (await sizeOnItsOwn()),
-    continuesAfter: rows.length > limit ? (page.at(-1)?.id ?? null) : null,
+    rows: page.map(asRow),
+    total: stored[0]?.total ?? (await sizeOnItsOwn()),
+    continuesAfter: stored.length > limit ? (page.at(-1)?.id ?? null) : null,
   };
 }
 
@@ -1398,7 +1398,7 @@ async function findInTheOrder(db: Database, id: string): Promise<PlaceInTheOrder
  * How many items ONE LISTING holds, asked on its own.
  *
  * IT TAKES THE PREDICATE rather than assuming the catalogue's, for the reason
- * `readListing` gives: the size has to answer the same question the entries do.
+ * `readListing` gives: the size has to answer the same question the rows do.
  */
 async function countListing(db: Database, within: SQL): Promise<number> {
   const [counted] = await db
@@ -1488,10 +1488,10 @@ function assertersOf(db: Database) {
 
 /** What one container holds, and how much of it this answer carries. */
 export interface PlacementsInContainer {
-  entries: PlacementInContainer[];
+  rows: PlacementInContainer[];
   /**
    * How many placements the container holds ALTOGETHER, which is not
-   * `entries.length` whenever the cap bit. A surface that cannot tell the two
+   * `rows.length` whenever the cap bit. A surface that cannot tell the two
    * apart reports the first hundred as the whole ordering.
    */
   total: number;
@@ -1586,7 +1586,7 @@ export async function findPlacementsInContainer(
            */
           assertedBy: asserters.labels,
           /*
-           * THE SAME PREDICATE THE ENTRIES USE, in the same statement and
+           * THE SAME PREDICATE THE ROWS USE, in the same statement and
            * therefore the same snapshot, and UNCORRELATED so the cursor cannot
            * reach it -- all three for the reasons `walkListing` gives above. The
            * subquery names `placements` and `items` in its own FROM, so those
@@ -1608,7 +1608,7 @@ export async function findPlacementsInContainer(
          */
         .orderBy(sql`${placements.position} nulls last`, sql`${placements.id}`)
         .limit(howMany),
-    asEntry: ({ id, title, itemId, position, assertedBy }) => ({
+    asRow: ({ id, title, itemId, position, assertedBy }) => ({
       id,
       title,
       itemId,

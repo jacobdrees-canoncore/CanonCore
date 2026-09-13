@@ -24,13 +24,13 @@ describe("catalogue.list", () => {
 
     const catalogue = await call(appRouter.catalogue.list, {}, { context });
 
-    expect(catalogue.entries).toContainEqual(
+    expect(catalogue.rows).toContainEqual(
       expect.objectContaining({ id, title: "A story on the front page" }),
     );
-    expect(catalogue.total).toBeGreaterThanOrEqual(catalogue.entries.length);
+    expect(catalogue.total).toBeGreaterThanOrEqual(catalogue.rows.length);
   });
 
-  it("names every field an entry emits, and no internal one", async () => {
+  it("names every field a row emits, and no internal one", async () => {
     // ADR-0045. The same enumeration oracle `item.get` carries, for the same
     // reason: never the query's row with fields removed, because a strip-list
     // works right up until somebody adds a column and forgets. `owner_id`, the
@@ -38,11 +38,11 @@ describe("catalogue.list", () => {
     // no line was written for them.
     await anItemTitled(db, "Named in a listing");
 
-    const { entries } = await call(appRouter.catalogue.list, { limit: 1 }, { context });
-    const [entry] = entries;
-    if (!entry) throw new Error("the catalogue answered with nothing to enumerate");
+    const { rows } = await call(appRouter.catalogue.list, { limit: 1 }, { context });
+    const [row] = rows;
+    if (!row) throw new Error("the catalogue answered with nothing to enumerate");
 
-    expect(Object.keys(entry).sort()).toStrictEqual(["id", "isContainer", "kind", "title"]);
+    expect(Object.keys(row).sort()).toStrictEqual(["id", "isContainer", "kind", "title"]);
   });
 
   it("carries a cursor onto the next page, and says where the catalogue ends", async () => {
@@ -59,7 +59,7 @@ describe("catalogue.list", () => {
       { context },
     );
 
-    expect(second.entries[0]?.id).not.toBe(first.entries[0]?.id);
+    expect(second.rows[0]?.id).not.toBe(first.rows[0]?.id);
     // THE SAME LIBRARY FROM BOTH PAGES. A count taken after the cursor bit
     // would shrink page by page and tell an owner their catalogue was emptying
     // as they read it.
@@ -90,8 +90,8 @@ describe("catalogue.list", () => {
       { context },
     );
 
-    expect(noSuchItem.entries).toStrictEqual(beginning.entries);
-    expect(notAnId.entries).toStrictEqual(beginning.entries);
+    expect(noSuchItem.rows).toStrictEqual(beginning.rows);
+    expect(notAnId.rows).toStrictEqual(beginning.rows);
   });
 
   it("refuses to answer with more than a page at a time", async () => {
@@ -113,7 +113,7 @@ describe("catalogue.works", () => {
     const person = await anItemTitled(db, "Somebody in its cast", { kind: "person" });
 
     const works = await call(appRouter.catalogue.works, {}, { context });
-    const listed = works.entries.map((entry) => entry.id);
+    const listed = works.rows.map((row) => row.id);
 
     expect(listed).toContain(story);
     expect(listed).not.toContain(person);
@@ -131,8 +131,8 @@ describe("catalogue.search", () => {
 
     const found = await call(appRouter.catalogue.search, { query: "Web Planet" }, { context });
 
-    expect(found.entries).toContainEqual(expect.objectContaining({ id: work, kind: "Work" }));
-    expect(found.entries).toContainEqual(
+    expect(found.rows).toContainEqual(expect.objectContaining({ id: work, kind: "Work" }));
+    expect(found.rows).toContainEqual(
       expect.objectContaining({ id: character, kind: "Character" }),
     );
   });
@@ -145,7 +145,7 @@ describe("catalogue.search", () => {
 
     const found = await call(appRouter.catalogue.search, { query: "" }, { context });
 
-    expect(found).toEqual({ entries: [], total: 0, continuesAfter: null });
+    expect(found).toEqual({ rows: [], total: 0, continuesAfter: null });
   });
 
   it("walks to the next page of results, and reports one match set from both", async () => {
@@ -170,12 +170,12 @@ describe("catalogue.search", () => {
       { context },
     );
 
-    expect(first.entries).toHaveLength(2);
-    expect(second.entries).toHaveLength(1);
+    expect(first.rows).toHaveLength(2);
+    expect(second.rows).toHaveLength(1);
     expect(second.total).toBe(first.total);
     expect(second.total).toBe(3);
     // NO RESULT TWICE, which the lengths above cannot see.
-    const walked = [...first.entries, ...second.entries].map((entry) => entry.id);
+    const walked = [...first.rows, ...second.rows].map((row) => row.id);
     expect(new Set(walked).size).toBe(3);
   });
 

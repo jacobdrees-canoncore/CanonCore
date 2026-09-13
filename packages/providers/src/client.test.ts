@@ -1,7 +1,14 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { createProviderClient, OutboundRefused, parseAllowlist, searchProviders } from "./index";
+import {
+  createProviderClient,
+  OutboundRefused,
+  parseAllowlist,
+  REASON_MAX_LENGTH,
+  reasonFor,
+  searchProviders,
+} from "./index";
 
 /**
  * A stand-in for a provider, on a REAL SOCKET on loopback.
@@ -465,6 +472,133 @@ describe("the CMPP client", () => {
     const client = createProviderClient({ baseUrl, allowlist: onLoopback() });
 
     await expect(client.lookup("265")).rejects.toThrow(/500/);
+  });
+
+  /*
+   * THE HALF THE STATUS ALONE CANNOT CARRY (CNCORE-140). A provider that cannot
+   * reach its own source answers `503` AND SAYS WHY, and until this the body was
+   * cancelled unread -- so the sentence naming the remedy died at the boundary
+   * and the Owner read `answered 503`.
+   */
+  it("carries a provider's own reason out of a failing answer, not only its status", async () => {
+    const said = "provider-wiki's session was refused by the wiki. Supply a fresh one at /unlock.";
+    const baseUrl = await stubProvider((_, response) =>
+      json(response, { error: said, provider: "provider-wiki" }, 503),
+    );
+    const client = createProviderClient({ baseUrl, allowlist: onLoopback() });
+
+    await expect(client.search("dalek")).rejects.toThrow(`/search?q=dalek answered 503: ${said}`);
+  });
+
+  /*
+   * AND A PROVIDER THAT SAYS NOTHING STILL FAILS WITH SOMETHING READABLE. The
+   * sentence the Owner gets is the one they got before CNCORE-140, rather than
+   * that sentence with a colon hanging off it -- a body is the provider's
+   * choice, and an empty one is a choice it is allowed to make.
+   */
+  it("still says what happened when a provider fails with no body at all", async () => {
+    const baseUrl = await stubProvider((_, response) => {
+      response.writeHead(502, { "content-type": "application/json" });
+      response.end();
+    });
+    const client = createProviderClient({ baseUrl, allowlist: onLoopback() });
+
+    await expect(client.search("dalek")).rejects.toThrow("/search?q=dalek answered 502.");
+  });
+
+  /*
+   * AND A PROVIDER THAT SENDS THE FIELD WITH NOTHING IN IT HAS ALSO SAID
+   * NOTHING. It is the same silence as an empty body wearing a different
+   * spelling, and the honest answer to it is the same sentence -- not the
+   * envelope quoted back with its braces showing, which is the stack of braces
+   * ADR-0123 caps against.
+   */
+  it("reads an empty reason as a provider saying nothing, not as a body to quote", async () => {
+    const baseUrl = await stubProvider((_, response) =>
+      json(response, { error: "", provider: "a provider" }, 503),
+    );
+    const client = createProviderClient({ baseUrl, allowlist: onLoopback() });
+
+    await expect(client.search("dalek")).rejects.toThrow("/search?q=dalek answered 503.");
+  });
+
+  /*
+   * THE REASON THE BODY WAS BEING CANCELLED IS PRESERVED RATHER THAN REVERTED,
+   * which is the half of CNCORE-140 that could have been lost fixing the other.
+   *
+   * THIS PROVIDER NEVER STOPS TALKING, so a client reading to the end waits out
+   * `bodyTimeout` -- ten seconds, which is past this suite's own patience -- and
+   * a client that read a prefix and walked away without cancelling would leave
+   * the socket for `afterEach` to hang on. Both failures are visible here and
+   * neither is visible from the message alone.
+   */
+  it("lets a socket go after reading enough, rather than waiting out a provider that never stops", async () => {
+    const opening = "the wiki refused this provider's session.";
+    const baseUrl = await stubProvider((_, response) => {
+      response.writeHead(503, { "content-type": "text/plain" });
+      response.write(opening);
+      const talking = setInterval(() => response.write("x".repeat(1024)), 1);
+      response.on("close", () => clearInterval(talking));
+    });
+    const client = createProviderClient({ baseUrl, allowlist: onLoopback() });
+
+    await expect(client.search("dalek")).rejects.toThrow(opening);
+  });
+
+  /*
+   * THE REMEDY SURVIVES THE CAP WITH THE VARIABLE HALF OF THE SENTENCE AT FULL
+   * STRETCH, which is ADR-0123's own lesson about its own test. That record
+   * found a cap eating the clause naming the setting to change, and found it
+   * only because a value ahead of that clause grew -- while the test guarding it
+   * used a short host and exercised the fixed prose alone.
+   *
+   * SO THE PATH IS A LONG ONE HERE. It is the one value this sentence
+   * interpolates, it is the caller's own text, and a client that pasted it in
+   * whole would push the provider's last words off the end of a 300-character
+   * reason. Asserted AS A PAGE RECEIVES IT, through `reasonFor`, because that is
+   * where the cap is actually applied.
+   */
+  it("keeps a provider's remedy whole when the path it failed on is a long one", async () => {
+    const said =
+      "provider-wiki could not reach tardis.wiki. Its session looks valid, so this is the " +
+      "wiki or the network rather than the credential.";
+    const baseUrl = await stubProvider((_, response) => json(response, { error: said }, 503));
+    const client = createProviderClient({ baseUrl, allowlist: onLoopback() });
+
+    const thrown = await client.search("dalek ".repeat(100)).catch((error: unknown) => error);
+
+    const reason = reasonFor(thrown);
+    expect(reason.text.length).toBeLessThanOrEqual(REASON_MAX_LENGTH);
+    expect(reason.text).toContain(said);
+  });
+
+  /*
+   * A FLOODING PROVIDER IS CUT WHERE ITS TEXT ENTERS THE SENTENCE, not only
+   * where the sentence is printed.
+   *
+   * `reasonFor` caps what a PAGE renders, and that cap was already here. This
+   * asserts the other consumer: `FailedProvider` in `search.ts` carries this
+   * Error itself and reads `reason.message`, so text that was only bounded on
+   * the way to a page would reach that one at whatever length the provider
+   * chose. ADR-0123's rule is that the value is bounded WHERE IT ENTERS.
+   *
+   * IT FAILS IF THE INNER BOUND IS REMOVED, which the page-level cap alone does
+   * not -- 300 characters get rendered either way, and the Error grows to
+   * whatever arrived.
+   */
+  it("cuts a flooding provider's reason where it enters, not only where it is printed", async () => {
+    const flood = `${"x".repeat(50_000)}TAIL`;
+    const baseUrl = await stubProvider((_, response) => json(response, { error: flood }, 503));
+    const client = createProviderClient({ baseUrl, allowlist: onLoopback() });
+
+    const thrown = await client.search("dalek").catch((error: unknown) => error);
+
+    const message = thrown instanceof Error ? thrown.message : String(thrown);
+    // The provider's half is cut at the bound; the framing ahead of it is at
+    // most 95 characters, and none of the flood's tail survives either cut.
+    expect(message.length).toBeLessThanOrEqual(REASON_MAX_LENGTH + 95);
+    expect(message).not.toContain("TAIL");
+    expect(reasonFor(thrown).text.length).toBeLessThanOrEqual(REASON_MAX_LENGTH);
   });
 });
 

@@ -35,7 +35,7 @@ describe("findPlacementsOfItem", () => {
     await aPlacement(db, { containerId: releaseOrder, itemId: story, position: 63 });
     await aPlacement(db, { containerId: storyOrder, itemId: story, position: 1 });
 
-    const { entries: found } = await findPlacementsOfItem(db, story, { limit: 10 });
+    const { rows: found } = await findPlacementsOfItem(db, story, { limit: 10 });
 
     expect(found.map((p) => [p.containerId, p.position])).toStrictEqual(
       expect.arrayContaining([
@@ -57,7 +57,7 @@ describe("findPlacementsOfItem", () => {
     const story = await anItem(db);
     await aPlacement(db, { containerId: releaseOrder, itemId: story, position: 63 });
 
-    const [found] = (await findPlacementsOfItem(db, story, { limit: 10 })).entries;
+    const [found] = (await findPlacementsOfItem(db, story, { limit: 10 })).rows;
 
     expect(found?.containerTitle).toBe("Release order");
   });
@@ -83,7 +83,7 @@ describe("findPlacementsOfItem", () => {
     await db.update(items).set({ deletedAt: new Date() }).where(eq(items.id, withdrawn));
     await db.update(placements).set({ deletedAt: new Date() }).where(eq(placements.id, lifted));
 
-    const { entries: found } = await findPlacementsOfItem(db, story, { limit: 10 });
+    const { rows: found } = await findPlacementsOfItem(db, story, { limit: 10 });
 
     expect(found.map((p) => p.containerTitle)).toStrictEqual(["Kept ordering"]);
   });
@@ -115,7 +115,7 @@ describe("findPlacementsOfItem", () => {
       sourceId: await aProvider(db, "https://provider.test/placed-by"),
     });
 
-    const { entries: found } = await findPlacementsOfItem(db, story, { limit: 10 });
+    const { rows: found } = await findPlacementsOfItem(db, story, { limit: 10 });
 
     expect(found.map((p) => [p.containerTitle, p.placedBy])).toStrictEqual(
       expect.arrayContaining([
@@ -138,7 +138,7 @@ describe("findPlacementsOfItem", () => {
     await aPlacement(db, { containerId: alpha, itemId: story, position: 5 });
     await aPlacement(db, { containerId: alpha, itemId: story, position: 2 });
 
-    const { entries: found } = await findPlacementsOfItem(db, story, { limit: 10 });
+    const { rows: found } = await findPlacementsOfItem(db, story, { limit: 10 });
 
     expect(found.map((p) => [p.containerTitle, p.position])).toStrictEqual([
       ["Alpha order", 2],
@@ -180,7 +180,7 @@ describe("a member with no position", () => {
       sourceId: wiki,
     });
 
-    const [found] = (await findPlacementsOfItem(db, story, { limit: 10 })).entries;
+    const [found] = (await findPlacementsOfItem(db, story, { limit: 10 })).rows;
 
     expect(found).toMatchObject({ position: null, placedBy: "provider" });
   });
@@ -210,7 +210,7 @@ describe("a member with no position", () => {
     });
 
     expect(second).toBe(first);
-    expect((await findPlacementsOfItem(db, story, { limit: 10 })).entries).toHaveLength(1);
+    expect((await findPlacementsOfItem(db, story, { limit: 10 })).rows).toHaveLength(1);
   });
 });
 
@@ -250,7 +250,7 @@ describe("two sources disagreeing about position", () => {
       sourceId: await ownerSource(db),
     });
 
-    const { entries: found } = await findPlacementsOfItem(db, story, { limit: 10 });
+    const { rows: found } = await findPlacementsOfItem(db, story, { limit: 10 });
 
     expect(found.map((p) => [p.position, p.placedBy])).toStrictEqual([
       [63, "owner"],
@@ -290,7 +290,7 @@ describe("two sources disagreeing about position", () => {
       sourceId: await ownerSource(db),
     });
 
-    const { entries: found } = await findPlacementsOfItem(db, story, { limit: 10 });
+    const { rows: found } = await findPlacementsOfItem(db, story, { limit: 10 });
 
     expect(found.map((p) => [p.position, p.placedBy])).toStrictEqual([
       [5, "provider"],
@@ -325,7 +325,7 @@ describe("two sources disagreeing about position", () => {
       sourceId: owner,
     });
 
-    const { entries: found } = await findPlacementsOfItem(db, story, { limit: 10 });
+    const { rows: found } = await findPlacementsOfItem(db, story, { limit: 10 });
 
     expect(found.map((p) => p.position)).toStrictEqual([1, 5]);
   });
@@ -450,9 +450,9 @@ describe("findPlacementsOfItem, capped and walked", () => {
       await aPlacement(db, { containerId: ordering, itemId: story, position });
     }
 
-    const { entries, total } = await findPlacementsOfItem(db, story, { limit: 2 });
+    const { rows, total } = await findPlacementsOfItem(db, story, { limit: 2 });
 
-    expect(entries).toHaveLength(2);
+    expect(rows).toHaveLength(2);
     expect(total).toBe(3);
   });
 
@@ -476,8 +476,8 @@ describe("findPlacementsOfItem, capped and walked", () => {
       after: first.continuesAfter ?? undefined,
     });
 
-    expect(first.continuesAfter).toBe(first.entries.at(-1)?.id);
-    expect(second.entries.map((placement) => placement.id)).toStrictEqual([written[2]]);
+    expect(first.continuesAfter).toBe(first.rows.at(-1)?.id);
+    expect(second.rows.map((placement) => placement.id)).toStrictEqual([written[2]]);
     // The list ends here, so there is nothing to hand on.
     expect(second.continuesAfter).toBeNull();
   });
@@ -505,8 +505,8 @@ async function walked(db: Database, itemId: string): Promise<string[]> {
   const reached: string[] = [];
   let after: string | undefined;
   for (let page = 0; page < 20; page++) {
-    const { entries, continuesAfter } = await findPlacementsOfItem(db, itemId, { limit: 1, after });
-    reached.push(...entries.map((placement) => placement.id));
+    const { rows, continuesAfter } = await findPlacementsOfItem(db, itemId, { limit: 1, after });
+    reached.push(...rows.map((placement) => placement.id));
     if (continuesAfter === null) return reached;
     after = continuesAfter;
   }
@@ -802,12 +802,12 @@ describe("findPlacementsOfItem, an anchor that has gone", () => {
     });
     await db.update(items).set({ deletedAt: new Date() }).where(eq(items.id, first));
 
-    const { entries } = await findPlacementsOfItem(db, story, { limit: 10, after: cutAt });
+    const { rows } = await findPlacementsOfItem(db, story, { limit: 10, after: cutAt });
 
     // THE LISTING FROM THE TOP, not an empty page and not the tail. Nothing is
     // skipped and nothing is lost, which is the criterion the cap exists to
     // keep; what it costs is that a reader deep in the list walks it again.
-    expect(entries.map((placement) => placement.id)).toStrictEqual([behindIt]);
+    expect(rows.map((placement) => placement.id)).toStrictEqual([behindIt]);
   });
 
   it("resumes past an anchor whose own placement was removed", async () => {
@@ -833,9 +833,9 @@ describe("findPlacementsOfItem, an anchor that has gone", () => {
     });
     await db.update(placements).set({ deletedAt: new Date() }).where(eq(placements.id, cutAt));
 
-    const { entries, total } = await findPlacementsOfItem(db, story, { limit: 10, after: cutAt });
+    const { rows, total } = await findPlacementsOfItem(db, story, { limit: 10, after: cutAt });
 
-    expect(entries.map((placement) => placement.id)).toStrictEqual([behindIt]);
+    expect(rows.map((placement) => placement.id)).toStrictEqual([behindIt]);
     // The removed one is gone from the count as well as from the page.
     expect(total).toBe(1);
   });
@@ -862,10 +862,10 @@ describe("findPlacementsOfItem, an anchor that has gone", () => {
       sourceId: owner,
     });
 
-    const { entries } = await findPlacementsOfItem(db, story, { limit: 10, after: cutAt });
+    const { rows } = await findPlacementsOfItem(db, story, { limit: 10, after: cutAt });
 
     // RESUMED, not started over: one row rather than both.
-    expect(entries.map((placement) => placement.id)).toStrictEqual([behindIt]);
+    expect(rows.map((placement) => placement.id)).toStrictEqual([behindIt]);
   });
 });
 
@@ -932,8 +932,8 @@ describe("findPlacementsOfItem, on who asserted each placement", () => {
       sourceId: wiki,
     });
 
-    const { entries: disagreement } = await findPlacementsOfItem(db, argued, { limit: 10 });
-    const { entries: repeat } = await findPlacementsOfItem(db, recapped, { limit: 10 });
+    const { rows: disagreement } = await findPlacementsOfItem(db, argued, { limit: 10 });
+    const { rows: repeat } = await findPlacementsOfItem(db, recapped, { limit: 10 });
 
     // THE WIKI LEADS BECAUSE IT SPEAKS, NOT BECAUSE IT SITS FIRST -- it holds
     // the lower `source_order` and the broadcaster put the story at position 1.
@@ -1000,7 +1000,7 @@ describe("findPlacementsOfItem, on who asserted each placement", () => {
         and(eq(placementSources.placementId, corroborated), eq(placementSources.sourceId, later)),
       );
 
-    const { entries: found } = await findPlacementsOfItem(db, story, { limit: 10 });
+    const { rows: found } = await findPlacementsOfItem(db, story, { limit: 10 });
 
     // ONE PLACEMENT, TWO NAMES -- the corroboration, visible at last.
     expect(found.map((placement) => placement.assertedBy)).toStrictEqual([
@@ -1019,7 +1019,7 @@ describe("findPlacementsOfItem, on who asserted each placement", () => {
     const story = await anItemTitled(db, "A story nobody claims from the item's end");
     await aPlacement(db, { containerId: container, itemId: story, position: 1 });
 
-    const { entries: found } = await findPlacementsOfItem(db, story, { limit: 10 });
+    const { rows: found } = await findPlacementsOfItem(db, story, { limit: 10 });
 
     expect(found.map((placement) => placement.assertedBy)).toStrictEqual([[]]);
   });
@@ -1050,12 +1050,12 @@ describe("findPlacementsOfItem, narrowed to one origin", () => {
       await aPlacement(db, { containerId: ordering, itemId: story, position, sourceId });
     }
 
-    const { entries, total } = await findPlacementsOfItem(db, story, {
+    const { rows, total } = await findPlacementsOfItem(db, story, {
       limit: 10,
       placedBy: "provider",
     });
 
-    expect(entries.map((placement) => placement.position)).toStrictEqual([3]);
+    expect(rows.map((placement) => placement.position)).toStrictEqual([3]);
     // NOT 3, WHICH IS THE WHOLE TICKET: the size a narrowed listing reports is
     // its own, or the page says "Showing 1 of 3" over a list holding one.
     expect(total).toBe(1);
@@ -1095,14 +1095,14 @@ describe("findPlacementsOfItem, narrowed to one origin", () => {
     // ONE ROW AT A TIME, so every page but the last is capped and the walk has
     // to resume INSIDE the narrowing rather than in the listing behind it.
     for (let page = 0; page < 10; page++) {
-      const { entries, total, continuesAfter } = await findPlacementsOfItem(db, story, {
+      const { rows, total, continuesAfter } = await findPlacementsOfItem(db, story, {
         limit: 1,
         after,
         placedBy: "provider",
       });
       // THE SIZE IS THE NARROWING'S ON EVERY PAGE OF IT.
       expect(total).toBe(3);
-      reached.push(...entries.map((placement) => placement.id));
+      reached.push(...rows.map((placement) => placement.id));
       if (continuesAfter === null) break;
       after = continuesAfter;
     }
@@ -1118,7 +1118,7 @@ describe("findPlacementsOfItem, narrowed to one origin", () => {
       placedBy: "provider",
     });
 
-    expect(beyond.entries).toStrictEqual([]);
+    expect(beyond.rows).toStrictEqual([]);
     expect(beyond.total).toBe(3);
   });
 

@@ -51,7 +51,7 @@ onto keys to build the link, which is the same rule in a second language and poi
 forwards.** It cannot be derived from the rows it sits beside: `?placed=` narrows the listing in the
 query now ([[0119-a-listing-is-walked-forward-from-the-last-item-it-showed]]), so a narrowed page
 holds the one origin it was cut to and a capped page holds whatever fitted. A surface deriving the
-chips from `entries` would offer the reader only the choice they had already made.
+chips from `rows` would offer the reader only the choice they had already made.
 
 ## "No notes" is a declaration, not a filter (CNCORE-74)
 

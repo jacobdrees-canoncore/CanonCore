@@ -1,6 +1,6 @@
 import { describe, expect, inject, it } from "vitest";
 
-import { documentAt, documentFrom } from "./document";
+import { documentAt, documentFrom, sectionIn } from "./document";
 
 /**
  * WORK-BROWSING, over real HTTP. ADR-0103's fourth seam, which is the one
@@ -92,8 +92,7 @@ describe("/works", () => {
     // reason rather than a fault. It names the rule instead of leaving a
     // reader to infer it from a blank page.
     const { text } = await documentFrom(freshBaseUrl, "/works");
-    const empty = text.match(/<section[^>]*aria-labelledby="nothing-to-watch".*?<\/section>/)?.[0];
-    if (!empty) throw new Error("the page rendered no `nothing-to-watch` section");
+    const empty = sectionIn(text, "nothing-to-watch");
 
     expect(empty).toContain("Works");
     expect(empty).toContain("People");

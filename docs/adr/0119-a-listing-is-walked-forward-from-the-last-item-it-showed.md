@@ -315,7 +315,7 @@ tell them apart. It costs the third primary-key lookup this section prices.
 **Asserted rather than reasoned.** The window is REACHED in `catalogue-search.test.ts`: the test
 hands `searchCatalogue` a database that wedges the delete into the gap by hooking the first
 statement's own resolution, so the ordering is fixed rather than raced. Measured before the fix, on
-three matching Items paged two at a time — the page came back with **no entries** and a `total` of
+three matching Items paged two at a time — the page came back with **no rows** and a `total` of
 2.
 
 **AND `total` MOVED, exactly as the code predicted it would have to.** Catalogue search counted with
@@ -343,7 +343,7 @@ window count is taken AFTER `where` — so with a cursor in the predicate it cou
 cursor, and page two would report a smaller library than page one. It is an uncorrelated scalar
 subquery now, which the cursor cannot reach, in the same statement and therefore the same snapshot.
 The one case it cannot cover is a page with no rows to carry it, where the size is asked for on its
-own: there are no entries there for a second moment's answer to disagree with.
+own: there are no rows there for a second moment's answer to disagree with.
 
 **It is asserted at three seams** ([[0103-tests-bite-at-package-exports-and-the-router]]), for the
 listing and for Catalogue search alike: the package export, the router in-process, and — the one
@@ -634,7 +634,7 @@ outliving its cause is worse than none: it teaches a reader to distrust a count 
 
 **THE COUNT'S LATERAL COMES AND GOES WITH THE NARROWING.** The origin a row carries is the kind of
 the source that SPEAKS for it, which is an output of the join that picks the spokesman -- so the
-count subquery beside the entries, which deliberately had none, grows one when and only when it is
+count subquery beside the rows, which deliberately had none, grows one when and only when it is
 counting a narrowing. MEASURED FOR THIS JOIN under CNCORE-129, on one Item in 1,000 orderings with
 two sources each over three runs on PostgreSQL 18.6: 2.7-3.4 ms narrowed against 0.24-0.28 ms
 unnarrowed, the planner using `Index Scan using placement_sources_placement_source`. Unnarrowed the

@@ -6,8 +6,8 @@ import { anItemTitled, aPlacement, connect, ownerSource } from "./testing/catalo
 
 /** Whether work-browsing lists one particular item. */
 async function lists(db: Database, id: string): Promise<boolean> {
-  const { entries } = await readWorks(db, { limit: 1000 });
-  return entries.some((entry) => entry.id === id);
+  const { rows } = await readWorks(db, { limit: 1000 });
+  return rows.some((row) => row.id === id);
 }
 
 let db: Database;
@@ -55,7 +55,7 @@ describe("readWorks", () => {
   });
 
   it("counts what it shows rather than what the catalogue holds", async () => {
-    // THE SIZE HAS TO ANSWER THE SAME QUESTION THE ENTRIES DO. `total` exists so
+    // THE SIZE HAS TO ANSWER THE SAME QUESTION THE ROWS DO. `total` exists so
     // a capped listing can say what it is not showing, and a work-browsing
     // surface reporting the CATALOGUE's size would tell an owner it was hiding
     // items it was never asked to show -- the same lie the cap exists to
@@ -85,10 +85,10 @@ describe("readWorks", () => {
 
     const second = await readWorks(db, { limit: 1, after: first.continuesAfter });
 
-    expect(second.entries).toHaveLength(1);
+    expect(second.rows).toHaveLength(1);
     // NOT THE SAME ITEM AGAIN, which is the failure a cursor off by one gives,
     // and the two pages agree about how big the listing is.
-    expect(second.entries[0]?.id).not.toBe(first.entries[0]?.id);
+    expect(second.rows[0]?.id).not.toBe(first.rows[0]?.id);
     expect(second.total).toBe(first.total);
   });
 
@@ -107,7 +107,7 @@ describe("readWorks", () => {
     // the two was fixed.
     const anchorId = await anItemTitled(db, "A work a kept link was cut at");
 
-    const order = (await readWorks(db, { limit: 10_000 })).entries.map((entry) => entry.id);
+    const order = (await readWorks(db, { limit: 10_000 })).rows.map((row) => row.id);
     const cut = await readWorks(db, { limit: order.indexOf(anchorId) + 1 });
     expect(cut.continuesAfter).toBe(anchorId);
     await db.update(items).set({ deletedAt: new Date() }).where(eq(items.id, anchorId));
@@ -119,8 +119,8 @@ describe("readWorks", () => {
     // walk marking its own work. NOT against the catalogue's own read: these
     // two listings hold different sets, and only this one answers the question
     // `readWorks` was asked.
-    expect(kept.entries.map((entry) => entry.id)).toStrictEqual(
-      (await readWorks(db, { limit: 10_000 })).entries.map((entry) => entry.id),
+    expect(kept.rows.map((row) => row.id)).toStrictEqual(
+      (await readWorks(db, { limit: 10_000 })).rows.map((row) => row.id),
     );
   });
 });

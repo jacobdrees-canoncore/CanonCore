@@ -247,6 +247,38 @@ async function stubProvider(
   return `http://127.0.0.1:${address.port}`;
 }
 
+/** The sentence the provider below fails with: the half an owner can act on. */
+const LAPSED = "this Provider holds no tardis.wiki session. Supply one at /unlock.";
+
+/**
+ * A PROVIDER THAT IS UP, CANNOT ANSWER, AND SAYS WHY (CNCORE-140, ADR-0122).
+ *
+ * THE THIRD THING A PROVIDER CAN BE, beside one that answers and one on a port
+ * nothing listens on. This one ANSWERS -- the socket opens and the status comes
+ * back -- and the sentence the Owner has to act on is in the BODY, which is the
+ * half `provider.import` and `provider.browse` threw away until CNCORE-149.
+ *
+ * `503` AND A BODY, which is what `packages/contract` holds every Provider
+ * declaring a Credential to: up, answering nothing, and saying so. The body's
+ * SHAPE is that file's one deliberate omission, and `{error}` here is the
+ * spelling both real Providers happen to use rather than one CMPP requires.
+ *
+ * IT REFUSES EVERY PATH, manifest included, because that is what an expired
+ * credential does: CNCORE-100's `cf_clearance` is a 503 on every operation, so
+ * an import fails at the first request rather than part way through.
+ */
+async function stubProviderRefusingWith(said: string): Promise<string> {
+  const server = createServer((_request, response) => {
+    response.writeHead(503, { "content-type": "application/json" });
+    response.end(JSON.stringify({ error: said, provider: "a provider" }));
+  });
+  servers.push(server);
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  if (typeof address === "string" || address === null) throw new Error("no port");
+  return `http://127.0.0.1:${address.port}`;
+}
+
 /**
  * WHAT EVERY ASSERTION BELOW RESTS ON, asserted before any of them.
  *
@@ -400,6 +432,39 @@ describe("provider.import", () => {
    * on, not as a 500. The owner typed the URL, so the answer has to be
    * something a UI can put in front of them.
    */
+  /**
+   * A PROVIDER THAT ANSWERED IS NOT A PROVIDER THAT WAS REFUSED, and until
+   * CNCORE-149 only the second reached a caller. `client.ts` raises a plain
+   * `Error` for a non-2xx, which is not an `OutboundRefused` and fell past the
+   * one `catch` this procedure had -- so it arrived as the 500 that catch
+   * exists to remove.
+   *
+   * THE READ SURFACES HAVE CARRIED THIS SENTENCE SINCE CNCORE-140 and these two
+   * did not, which is the whole of the defect: an Owner who FOUND a record and
+   * pressed Take on an expired Provider got a 500 where the read that found it
+   * would have told them what to do.
+   *
+   * THE WHOLE SENTENCE, because the remedy is in the half the Provider wrote.
+   * `/` is the manifest, which is the first thing an import asks for.
+   */
+  it("reports a provider that answered a non-2xx as a refusal, carrying what it said", async () => {
+    const baseUrl = await stubProviderRefusingWith(LAPSED);
+
+    const { error } = await safe(
+      call(appRouter.provider.import, { baseUrl, recordId: "265" }, { context }),
+    );
+
+    if (!isDefinedError(error)) throw new Error(`expected a defined error, got ${String(error)}`);
+    expect(error.code).toBe("PROVIDER_REFUSED");
+    // BOUNDED AND ATTRIBUTED, which is the shape the read surfaces carry
+    // (ADR-0123) and the shape a bare `message` string could not: a page has no
+    // way to tell whose sentence it is holding without `wrote`.
+    expect(error.data).toEqual({
+      wrote: "provider",
+      text: `/ answered 503: ${LAPSED}`,
+    });
+  });
+
   it("refuses a base URL that is not on the allowlist", async () => {
     const { error } = await safe(
       call(
@@ -410,7 +475,17 @@ describe("provider.import", () => {
     );
 
     if (!isDefinedError(error)) throw new Error(`expected a defined error, got ${String(error)}`);
-    expect(error.code).toBe("PROVIDER_REFUSED");
+    // NARROWED BY THE CODE RATHER THAN ASSERTED ON IT, because `data` is typed
+    // per code: a defined error here is a union of the two this procedure
+    // declares, and only one of them carries a reason.
+    if (error.code !== "PROVIDER_REFUSED") throw new Error(`it answered ${error.code}`);
+    // AND IT IS CANONCORE'S OWN SENTENCE, which is the half a bare message could
+    // not carry and the half the wrapper could quietly lose. ADR-0123 decides
+    // `wrote` by WHICH BOUNDARY refused, and `askingTheProvider` maps the error
+    // it caught rather than one of its own -- so a refusal of a URL the owner
+    // typed stays this app telling them about their own settings, and does not
+    // become a third party's text on the way through.
+    expect(error.data.wrote).toBe("canoncore");
   });
 
   it("refuses a provider that redirects onto the metadata endpoint", async () => {
@@ -469,7 +544,7 @@ describe("provider.browse", () => {
     expect(placements).toHaveLength(2);
     for (const placement of placements) {
       const item = await call(appRouter.item.get, { id: placement.itemId }, { context });
-      expect(item.placements.entries).toEqual([
+      expect(item.placements.rows).toEqual([
         expect.objectContaining({ position: 1, placedBy: "provider" }),
       ]);
     }
@@ -524,6 +599,29 @@ describe("provider.browse", () => {
     expect(error.code).toBe("NO_SUCH_CONTAINER");
   });
 
+  /**
+   * THE IDENTICAL CATCH AND THEREFORE THE IDENTICAL HOLE, which is why this is
+   * asserted here rather than left to `import`'s witness above. ADR-0123 exists
+   * because one defect already had two sites that each solved it separately;
+   * two write procedures that narrowed to `OutboundRefused` in the same words
+   * is that shape again, and only a test at each of them says the second was
+   * fixed rather than assumed.
+   */
+  it("reports a provider that answered a non-2xx as a refusal, carrying what it said", async () => {
+    const baseUrl = await stubProviderRefusingWith(LAPSED);
+
+    const { error } = await safe(
+      call(appRouter.provider.browse, { baseUrl, containerId: "388305" }, { context }),
+    );
+
+    if (!isDefinedError(error)) throw new Error(`expected a defined error, got ${String(error)}`);
+    expect(error.code).toBe("PROVIDER_REFUSED");
+    expect(error.data).toEqual({
+      wrote: "provider",
+      text: `/ answered 503: ${LAPSED}`,
+    });
+  });
+
   it("refuses a base URL that is not on the allowlist", async () => {
     const { error } = await safe(
       call(
@@ -534,7 +632,9 @@ describe("provider.browse", () => {
     );
 
     if (!isDefinedError(error)) throw new Error(`expected a defined error, got ${String(error)}`);
-    expect(error.code).toBe("PROVIDER_REFUSED");
+    if (error.code !== "PROVIDER_REFUSED") throw new Error(`it answered ${error.code}`);
+    // CANONCORE'S OWN SENTENCE, as on `import` above and for the same reason.
+    expect(error.data.wrote).toBe("canoncore");
   });
 });
 

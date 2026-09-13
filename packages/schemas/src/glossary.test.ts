@@ -314,7 +314,7 @@ describe("every name the read path emits", () => {
     // CNCORE-125, when "Also appears in" stopped being a bare array -- so the
     // walk now has to go one deeper here than it did to catch the same field.
     const names = namesEmittedBy({ itemPublic: schemas.itemPublic });
-    expect(names).toContain("itemPublic.placements.entries.containerTitle");
+    expect(names).toContain("itemPublic.placements.rows.containerTitle");
   });
 
   it("refuses to walk past a composite it does not understand", () => {
@@ -334,48 +334,27 @@ describe("every name the read path emits", () => {
     );
 
     /**
-     * THE NAMES THIS CHECK CAUGHT THAT CNCORE-91 DID NOT FIX, and they are here
-     * rather than in a comment because an allowance nothing reads is how a
-     * finding gets forgotten. `entry` is on the **Item** entry's `_Avoid_` list
-     * and nothing licenses it: the one licensed use of a word from that list is
-     * `record`, which `CONTEXT.md` grants to a provider's own external record.
-     * CNCORE-114 owns the rename -- it reaches the catalogue, work-browsing and
-     * Catalogue search, and the replacement name is an open question because the
-     * glossary has no term for a listing's row.
+     * NO ALLOWANCE, WHICH IS THE STATE THIS CHECK WAS BUILT TO REACH. It stood
+     * with six names on it from CNCORE-91 until CNCORE-114 renamed them: the
+     * read path's listing row was `entry`, which is on the **Item** entry's
+     * `_Avoid_` list, and nothing licensed it -- the one licensed use of a word
+     * from that list is `record`, which `CONTEXT.md` grants to A PROVIDER'S OWN
+     * EXTERNAL RECORD, and a listing's row is not one.
      *
-     * THE MEMBERS LISTING JOINED THEM UNDER CNCORE-89, and the argument for
-     * adding to an allowance rather than dodging it is that this is the SAME
-     * word under the SAME open ticket. A container's members are the fourth
-     * listing to adopt ADR-0119, and picking a different noun for their rows
-     * would leave the read path with two names for one thing -- so CNCORE-114
-     * renames four listings instead of three, which is the cost of the word
-     * being wrong once rather than of its being wrong here.
-     *
-     * AND "ALSO APPEARS IN" JOINED THEM UNDER CNCORE-125, on that same
-     * argument and now for the fifth and LAST time: that ticket capped the last
-     * uncapped listing in the app, so there is no sixth listing left to adopt
-     * ADR-0119 and this allowance cannot grow again by that route. Every name
-     * on it is one word under one ticket.
-     *
-     * AN EXACT MATCH RATHER THAN A SUBSET, which is the half that makes this
-     * self-expiring: the day CNCORE-114 renames one of these, this assertion
-     * fails until the name is DELETED from the list. An allowance written as
-     * "offences ⊆ allowed" would go on passing over a list of names that no
-     * longer exist, and the next offence could be added to it without argument.
+     * THE EMPTY LITERAL STAYS rather than the assertion becoming
+     * `toHaveLength(0)`, because the two fail identically today and say
+     * different things to whoever reads the failure. A name added here is a
+     * DECISION, visible in a diff beside the reason for it, which is what kept
+     * the last allowance honest: it was an exact match rather than a subset, so
+     * renaming a name failed this test until the name was deleted from the list.
+     * Six names went that way, one ticket at a time.
      */
-    const allowedUntil_CNCORE_114 = [
-      "catalogueEntryPublic",
-      "cataloguePublic.entries",
-      "itemPublic.holds.entries",
-      "itemPublic.placements.entries",
-      "placementsInContainerPublic.entries",
-      "placementsOfItemPublic.entries",
-    ];
+    const allowed: string[] = [];
 
     // SORTED BOTH SIDES, because an exact match on walk order would make
     // reordering the exports in `index.ts` fail this test for no domain reason --
     // which is the arguing-with-the-check death ADR-0124 warns about, arriving by
     // a different door.
-    expect([...offences].sort()).toStrictEqual([...allowedUntil_CNCORE_114].sort());
+    expect([...offences].sort()).toStrictEqual([...allowed].sort());
   });
 });
