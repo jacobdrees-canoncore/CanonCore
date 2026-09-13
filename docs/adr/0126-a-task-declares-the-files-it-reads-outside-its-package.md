@@ -59,11 +59,30 @@ the cache it is checking.
 
 A hand-kept list goes stale the day a new suite reads a root file, and that suite would be cached
 against everything except the file it checks with nothing to say so. So the guard walks the tracked
-sources, counts each relative climb against how deep the file sits inside its package, and
-propagates reach to importers — `repo-root.ts` is the only file that climbs to the root, and every
+sources, resolves each relative specifier the way the runtime would and asks whether it landed
+outside the package, and propagates reach to importers — `repo-root.ts` is the only file that climbs to the root, and every
 suite reaching a root file does it by importing that constant rather than by climbing itself, so a
 walk reading climbs alone would report one reaching file and no reaching suites. A package it finds
 that is on neither list fails the check.
+
+**ONLY A RELATIVE SPECIFIER COUNTS AS A PATH**, and that line was drawn twice, both times by the
+guard arguing with legitimate code rather than by foresight. First a comment EXPLAINING the rule,
+using `../../../` as its example, reported the file it was written in as reaching outside. Then a
+string merely containing `../` was read as a path: `credential.test.ts` asserts on the URL
+`"/..//evil.test"` to prove a traversal is refused, and because that string is absolute, resolving it
+discarded everything before it and landed outside the package — reporting `@canoncore/providers`,
+which reaches nothing.
+
+Both fixes NARROWED WHAT THE GUARD READS rather than widening the allowance, and the difference
+matters: an allowance entry would have parked a false positive where a later reader takes it for a
+real one. A path a file reaches through opens `./` or `../`; a URL, a regex and a traversal fixture
+do not. The cost is a genuine `new URL("foo/../../bar")` — no `./`, still a path — going unseen.
+That is the trade taken knowingly: a guard that fires on a security fixture is one somebody deletes.
+
+**AND ONLY CI COULD HAVE CAUGHT THE SECOND ONE.** A `pull_request` workflow builds
+`refs/pull/N/merge`, so it tested this branch against a main that had moved thirty commits and
+carried the fixture. Every local run passed. That is the same shape as the defect this record is
+about — a check that agrees with whatever it happens to read — arriving one level up.
 
 It answers "does this PACKAGE belong on a list", never "is that list complete": which files a suite
 goes on to open is not visible from outside it. That limit is why the lists name files by hand and
