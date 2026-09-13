@@ -65,6 +65,71 @@ here is written where another worktree could find it. The MISS in the table abov
 construction**, and the construction is the partition — what shows the private store still answering
 when it should is the warm run below, 21 of 22 tasks cached.
 
+## WHY TURBO DOES THIS, AND THE REASON NAMES US
+
+**This record switches off a feature built for exactly how this repository works**, and that is the
+single most important thing in it. A later reader will find the feature, see what it is for, and want
+it back. This section is so that reader decides on the evidence rather than on the headline.
+
+Cache sharing across worktrees arrived in **Turborepo 2.8**, deliberately. Its release note gives the
+motivation in the first line (turborepo.dev/blog/2-8, read 2026-09-13):
+
+> "Many developers want to run multiple coding agents in parallel, in the same repository."
+>
+> "Git worktrees are a common technique for this. They allow you to check out multiple branches
+> simultaneously, in separate directories, all sharing the same Git history."
+>
+> "However, each worktree would have a new local cache instance, so you would miss cache when
+> creating a new worktree."
+>
+> "Starting with this release, Turborepo now shares the local cache across Git worktrees."
+
+And turbo's AI guide (turborepo.dev/docs/guides/ai, read 2026-09-13) states the intended effect
+plainly, with a worked example in which a second agent picks up a first agent's build:
+
+> "Turborepo automatically shares the local cache across worktrees, so agents benefit from each
+> other's cached task results."
+
+That sentence describes what CNCORE-138 was filed to stop. A worktree per ticket, an agent in each,
+each benefiting from the others' task results — the feature was designed for this repository's
+working method, and the ticket's evidence is the feature operating exactly as documented.
+
+**How it reaches the other checkout**, measured here on 2026-09-13 rather than inferred. In a linked
+worktree `.git` is a FILE rather than a directory, holding one line — `gitdir:` and a path under the
+main checkout. So git answers two different questions two different ways:
+
+```
+git rev-parse --show-toplevel    → this worktree
+git rev-parse --git-common-dir   → the MAIN checkout's .git
+```
+
+A worktree's repository root, in the sense turbo means, is the main checkout. Nothing is misconfigured
+and nothing is misreading git.
+
+**The feature is coherent, and its premise is turbo's whole model.** A turbo cache is content
+addressed: the hash covers the inputs, so identical inputs must mean an interchangeable result, and
+an agent recomputing what another agent already computed is pure waste. On that model, sharing is not
+a risk to be managed but the obviously correct thing to do.
+
+**It carries a precondition, stated in the same documentation entry, and this repository fails it.**
+The `cacheDir` entry quoted above says artifacts are "restored without rewriting their contents, so
+outputs containing absolute worktree paths can point to another checkout after a cache hit". That is
+a condition on the OUTPUT, not on the inputs: the artifact has to be RELOCATABLE. This repository's
+`build` declares `.next/**` as its output, and Next writes the producing checkout's absolute path
+into the standalone server entrypoint — the four files tabled in the next section. So the premise
+holds for the hash and fails for the artifact.
+
+**So this is not a bug in turbo and not one to report.** It is a documented feature whose documented
+precondition this repository does not meet, switched off for that reason and no other.
+
+**WHAT WOULD MAKE IT RIGHT TO TURN BACK ON**, which is the part that keeps this from being a
+permanent article of faith: an output that carries no absolute path. Either `.next/**` stops
+embedding the producing checkout — a Next behaviour, not one this repo controls today — or `build`
+stops being a cached task. Until one of those is true, re-enabling the sharing trades the **32
+seconds per worktree** priced below for a server entrypoint naming a directory that is not this
+checkout. Whoever revisits it should check the four files first; if they no longer hold the path, the
+trade has changed and this record should be reopened.
+
 ## The sharing is a defect ON ITS OWN, which corrects the research
 
 `docs/research/parallel-agent-substrate.md` reached the opposite conclusion twice. Under "The five
