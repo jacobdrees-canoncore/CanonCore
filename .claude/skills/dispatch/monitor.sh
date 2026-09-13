@@ -25,11 +25,22 @@ while true; do
     done
 
     # Ticket numbers with real work: any open PR branch, plus any live worktree.
-    { for r in $REPOS; do
-        gh pr list --repo "jacobdrees-canoncore/$r" --json headRefName --jq '.[].headRefName' 2>/dev/null || true
-      done
+    #
+    # A FAILED QUERY IS NOT AN EMPTY BOARD. `|| true` used to swallow a `gh`
+    # error into zero branches, so during GitHub's outage on 2026-09-13 every
+    # ticket whose only evidence was its PR read DRIFT-STALE -- CNCORE-132 did,
+    # with #68 open the whole time. Drift is only honest when the listing
+    # succeeded, so a failure sets `blind` and the Python skips both drift lines
+    # rather than reporting the absence it cannot distinguish from silence.
+    blind=""
+    for r in $REPOS; do
+      gh pr list --repo "jacobdrees-canoncore/$r" --json headRefName --jq '.[].headRefName' 2>/dev/null \
+        || blind=1
+    done > "$SCRATCH/branches.txt"
+    { cat "$SCRATCH/branches.txt"
       ls -1d "$HOME"/orca/workspaces/*/* 2>/dev/null | grep -v trash || true
     } | grep -oE 'cncore-[0-9]+' | grep -oE '[0-9]+' | sort -u > "$SCRATCH/active.txt" || true
+    export BLIND="$blind"
 
     orca linear list-issues --team CNCORE --json 2>/dev/null | python3 -c '
 import json, sys, os, pathlib
@@ -44,7 +55,12 @@ except Exception:
     sys.exit()
 for i in result.get("issues") or result.get("nodes") or []:
     state = i["state"]["name"]
-    if state in ("Done", "Canceled"):
+    # TERMINAL BY TYPE, NOT BY NAME. Linear types a state `completed`, `canceled`
+    # or `duplicate`, and filtering on the NAMES of the first two left `Duplicate`
+    # looking open: CNCORE-94 drew a DRIFT-FILING line on every pass for a ticket
+    # correctly closed against CNCORE-93. Type also survives somebody renaming a
+    # state, which a name list does not.
+    if i["state"]["type"] in ("completed", "canceled", "duplicate"):
         continue
     num = i["identifier"].split("-")[1]
     print("TICKET", i["identifier"], state, i["title"][:42])
@@ -52,6 +68,8 @@ for i in result.get("issues") or result.get("nodes") or []:
         print("DRIFT-FILING", i["identifier"], state,
               "assignee=" + str((i.get("assignee") or {}).get("displayName")),
               "labels=" + str([l["name"] for l in (i.get("labels") or [])]))
+    if os.environ.get("BLIND"):
+        continue
     has = num in active or folded.get(num, "") in active
     if state == "Todo" and has:
         print("DRIFT-BEHIND", i["identifier"], "work exists via",

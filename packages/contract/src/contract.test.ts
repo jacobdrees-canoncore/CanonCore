@@ -2,6 +2,7 @@ import { afterAll, describe, expect, it } from "vitest";
 
 import {
   browseResponse,
+  type CmppManifest,
   manifest,
   OPTIONAL_OPERATION,
   REQUIRED_OPERATIONS,
@@ -83,6 +84,99 @@ async function post(participant: Participant, path: string, body: unknown) {
     body: JSON.stringify(body),
   });
   return { status: response.status, text: await response.text() };
+}
+
+/**
+ * WHAT A PROVIDER DECLARED ABOUT ITS OWN CREDENTIAL, READ BEFORE IT IS ASKED FOR
+ * ANYTHING ELSE -- and the ORDER is the load-bearing part rather than a detail.
+ *
+ * The declaration is a PROMISE, and what the contract checks is the answer against
+ * the promise that was standing when the call was made. Read afterwards instead,
+ * a provider that reported `valid`, was refused by its upstream mid-call and came
+ * back reporting `expired` would have its 503 excused by the very lapse the call
+ * caused -- so the suite would go green on a provider that had just been refused,
+ * which is the mis-diagnosis ADR-0122 exists to prevent arriving through the test
+ * that checks it.
+ *
+ * IT ALSO KEEPS THE ORDERING HONEST. `its credential` below UNLOCKS every provider
+ * that declares one, and it runs after these. Reordered so it ran first, a read
+ * taken before each call reports `valid`, the strict branch is taken, and the
+ * refusal that follows is RED -- which is what a reorder should be, rather than a
+ * suite that quietly re-files the credential test's subject as a locked provider.
+ */
+async function declaredCredential(participant: Participant): Promise<CmppManifest["credential"]> {
+  return manifest.parse((await get(participant, "/")).body).credential;
+}
+
+/**
+ * Whether this provider is, right now, unable to reach its own source.
+ *
+ * BRANCHING ON WHAT A PROVIDER DECLARES, WHICH IS THE ONLY BRANCH THIS FILE
+ * ALLOWS. Nothing here may ask which provider it is talking to; `credential.state`
+ * is a declaration in the manifest, so this is the same kind of branch ADR-0033's
+ * `browse` optionality gets and not an exception carved for one participant.
+ *
+ * `!== "valid"` RATHER THAN `=== "absent"`, and the two are not the same rule.
+ * `expired` is a session that lapsed -- ADR-0122's whole reason for the state --
+ * and a provider holding one can answer exactly as little as a provider holding
+ * nothing. A contract that named only `absent` would oblige a provider whose
+ * credential had just expired to invent an answer.
+ */
+function cannotReachItsSource(declared: CmppManifest["credential"]): boolean {
+  return declared !== undefined && declared.state !== "valid";
+}
+
+/**
+ * WHAT A PROVIDER OWES `search` AND `lookup` WHILE ITS DECLARED CREDENTIAL IS NOT
+ * SATISFIED, which is the obligation CNCORE-141 added and ADR-0122 now records.
+ *
+ * `CONTEXT.md` states the claim in the product's own words, under **Unlock**: a
+ * Provider with no Credential "stays reachable and answers nothing, saying so --
+ * it is not broken and it is not empty". Those are TWO wrong answers rather than one, and the
+ * contract has to refuse both:
+ *
+ * NOT BROKEN rules out a dropped connection, a bare 500 and a provider that
+ * declines to start. ADR-0122 refuses the last by name -- refusing to start makes
+ * a locked provider look like a dead host, which is the wrong diagnosis shown to
+ * the one person who can fix it.
+ *
+ * NOT EMPTY rules out `200 {"results":[]}`: "nothing matched" is a claim ABOUT THE
+ * SOURCE, and a provider that cannot reach its source has not established it, it
+ * has established that it does not know. ADR-0122 refuses that one by name -- it
+ * is the fallback corpus in its cheapest form, an empty one rather than a thin
+ * one, and it would make an expired session look like a thin wiki.
+ *
+ * WHAT THE REFUSAL DOES NOT DISPLACE IS THE CALLER'S OWN MISTAKE. A missing or
+ * blank `q` is still `400` and an id that addresses nothing in the provider's own
+ * id space is still `404`, because both are settled BEFORE the source is reached
+ * and neither is a claim about it. Turning those into refusals too would hide a
+ * caller who forgot the parameter behind a credential problem.
+ *
+ * `503` AND NOT MERELY "SOME REFUSAL". A contract that admitted any 5xx would
+ * leave the second provider declaring a credential to pick its own, which is how
+ * one contract quietly becomes two integrations -- this file's whole subject.
+ * 503 is the status for a server that is up and cannot serve the request, and it
+ * is what `provider-wiki` answers today.
+ *
+ * WHAT IS NOT ASSERTED: the body's SHAPE. `provider-wiki` sends `{error, provider}`
+ * and that spelling is its own, not the contract's -- requiring it would be
+ * writing "be provider-wiki" into the intersection, which is the mistake `cmpp.ts`
+ * records itself having made once over an image's `width`. What a caller needs is
+ * that SOMETHING came back, so a refusal carrying a reason can be told from a
+ * provider that fell over.
+ */
+function expectSaysItCannotAnswer(response: Awaited<ReturnType<typeof get>>, path: string) {
+  expect(
+    response.status,
+    `\`${path}\` answered ${response.status}. This provider declares a credential that is not ` +
+      "`valid`, so it owes a 503: it stays reachable and answers nothing, SAYING SO (ADR-0122). " +
+      "It is not broken, so a bare 500 is wrong; it is not empty, so a 200 with no results and a " +
+      "404 are wrong -- each is a claim about a source this provider cannot currently reach.",
+  ).toBe(503);
+  expect(response.contentType).toContain("application/json");
+  // A refusal with no body at all is indistinguishable from a provider that fell
+  // over, which is the half the status on its own cannot carry.
+  expect(response.body).not.toBeNull();
 }
 
 /**
@@ -193,10 +287,14 @@ describe.each(underTest.map((p) => [p.name, p] as const))(
 
     describe("its search", () => {
       it("answers candidates in one shape", async () => {
-        const response = await get(
-          participant,
-          `/search?q=${encodeURIComponent(participant.aQuery)}`,
-        );
+        const declared = await declaredCredential(participant);
+        const path = `/search?q=${encodeURIComponent(participant.aQuery)}`;
+        const response = await get(participant, path);
+
+        if (cannotReachItsSource(declared)) {
+          expectSaysItCannotAnswer(response, path);
+          return;
+        }
 
         expect(response.status).toBe(200);
         const { results } = searchResponse.parse(response.body);
@@ -230,7 +328,20 @@ describe.each(underTest.map((p) => [p.name, p] as const))(
         // it by accident and redden this for a reason that is not a contract
         // failure. Nothing here asserts on a VALUE, only that answering
         // "nothing" is an answer.
-        const response = await get(participant, "/search?q=qzzx%20noitartsnomed%20yreuq");
+        const declared = await declaredCredential(participant);
+        const path = "/search?q=qzzx%20noitartsnomed%20yreuq";
+        const response = await get(participant, path);
+
+        // THE ONE PLACE WHERE AN UNSATISFIED CREDENTIAL INVERTS THIS RULE RATHER
+        // THAN QUALIFYING IT. "Nothing matched" is an ANSWER, and it is an answer
+        // ABOUT THE SOURCE: a provider that cannot reach its own source has not
+        // established that nothing matched, it has established that it does not
+        // know. Reporting `[]` here would be the fallback ADR-0122 refuses by
+        // name, in its cheapest form -- an empty corpus rather than a thin one.
+        if (cannotReachItsSource(declared)) {
+          expectSaysItCannotAnswer(response, path);
+          return;
+        }
 
         expect(response.status).toBe(200);
         expect(searchResponse.parse(response.body).results).toEqual([]);
@@ -267,10 +378,14 @@ describe.each(underTest.map((p) => [p.name, p] as const))(
 
     describe("its lookup", () => {
       it("answers one record, in one shape, at the id it was given", async () => {
-        const response = await get(
-          participant,
-          `/lookup/${encodeURIComponent(participant.aRecord)}`,
-        );
+        const declared = await declaredCredential(participant);
+        const path = `/lookup/${encodeURIComponent(participant.aRecord)}`;
+        const response = await get(participant, path);
+
+        if (cannotReachItsSource(declared)) {
+          expectSaysItCannotAnswer(response, path);
+          return;
+        }
 
         expect(response.status).toBe(200);
         const found = record.parse(response.body);
@@ -282,6 +397,21 @@ describe.each(underTest.map((p) => [p.name, p] as const))(
 
       it("reports an id it does not hold as an answer, not as a failure", async () => {
         const response = await get(participant, "/lookup/an-id-no-provider-mints");
+
+        // NOT BRANCHED ON THE CREDENTIAL, AND THE MEASUREMENT IS WHY. This id
+        // cannot BE an identity in either provider's id space, so a provider
+        // settles it without its source and an unsatisfied credential changes
+        // nothing -- the same seam as the missing `q` above. `provider-wiki`
+        // rejects anything but `^\d{1,18}$` before the wiki is reached
+        // (ADR-0066), and CI's locked run proves the contract already had this
+        // right: three assertions went red against a locked `provider-wiki` and
+        // this one did not.
+        //
+        // WHAT IS THEREFORE NOT UNDER TEST is a WELL-FORMED id the provider
+        // would have to consult its source about, which a locked provider owes
+        // a refusal rather than this 404. No fixture here is one, and inventing
+        // an id that is well-formed for every provider at once is a claim about
+        // their id spaces that CMPP does not make.
 
         // ADR-0033: a record the provider does not hold is what an ambiguous
         // `search` candidate looks like once the candidate turns out to be gone.
@@ -369,7 +499,17 @@ describe.each(underTest.map((p) => [p.name, p] as const))(
         // pass a for-loop over nothing, which is the quiet version of this
         // check never having run. `url` is REQUIRED of a record and each of
         // these responses carries at least one.
-        expect(urls.length).toBeGreaterThan(0);
+        //
+        // THE FLOOR MOVES FOR A PROVIDER THAT CANNOT ANSWER; THE RULE BELOW DOES
+        // NOT. A refusal carries no record and so no URL, so holding a locked
+        // provider to "at least one" would demand a URL from a provider the
+        // contract has just excused from answering. What stops that becoming the
+        // silent no-op this floor exists to prevent is `ADR-0122's optionality`
+        // below: something under test always DECLINES a credential, is never
+        // locked, and meets the floor. Today `provider-wiki` clears it anyway
+        // through `browse`, which still reads its committed fixture; CNCORE-102
+        // moves that operation live too, and this line is already right for it.
+        if (!cannotReachItsSource(declared.credential)) expect(urls.length).toBeGreaterThan(0);
 
         for (const url of urls) {
           // `URL.parse` RATHER THAN `new URL`, because the constructor THROWS on
@@ -621,5 +761,32 @@ describe("ADR-0122's optionality", () => {
         "without moving its version (ADR-0032), and a required field would break every provider that " +
         "already exists on the day it landed.",
     ).toBeGreaterThan(0);
+  });
+
+  /**
+   * AND THE REFUSAL IS A PERMISSION, NEVER A BRANCH THE WHOLE SUITE MAY TAKE.
+   *
+   * CNCORE-141 let a provider whose declared credential is not `valid` answer
+   * `503` to `search` and `lookup` instead of a record. With every participant in
+   * that state, every one of those assertions would check a refusal and NOTHING
+   * would hold anybody to `200` and a record -- the contract's central claim,
+   * green because nobody was asked. This is the same device `browse` gets above,
+   * pointed at the branch this ticket added.
+   */
+  it("is exercised in the other direction: something under test is held to ANSWERING", async () => {
+    const declared = await Promise.all(
+      underTest.map(async (participant) => ({
+        name: participant.name,
+        credential: manifest.parse((await get(participant, "/")).body).credential,
+      })),
+    );
+
+    expect(
+      declared.filter((p) => !cannotReachItsSource(p.credential)).map((p) => p.name),
+      "Every provider under test is currently unable to reach its source, so every `search` and " +
+        "`lookup` assertion took CNCORE-141's refusal branch and nothing checked that a provider " +
+        "able to answer still owes `200` and a record. That branch is a permission for a provider " +
+        "that cannot answer, never one the whole suite may take.",
+    ).not.toHaveLength(0);
   });
 });

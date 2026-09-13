@@ -47,12 +47,13 @@ exist, and the next offence can be added to it without argument.
 
 ## As built, under CNCORE-91 — and this record stays PROPOSED
 
-**BUILT: the payload is checked.** The check reads the live `CONTEXT.md`, its parser is tested against
-fixtures rather than only exercised against the real file (the argument `docker-compose.test.ts`
-makes about the same kind of check), and it carries an assertion that the real glossary yields more
-than twenty words — so a renamed heading or a moved file fails loudly instead of passing while
-guarding nothing. It caught `catalogueEntryPublic` and `cataloguePublic.entries` on its first run;
-CNCORE-114 owns those.
+**BUILT: the payload is checked.** The check reads the live `CONTEXT.md` — on a COLD cache from
+CNCORE-91, and on a warm one only since CNCORE-132, for the reason the last section gives — its
+parser is tested against fixtures rather than only exercised against the real file (the argument
+`docker-compose.test.ts` makes about the same kind of check), and it carries an assertion that the
+real glossary yields more than twenty words — so a renamed heading or a moved file fails loudly
+instead of passing while guarding nothing. It caught `catalogueEntryPublic` and
+`cataloguePublic.entries` on its first run; CNCORE-114 owns those.
 
 **NOT BUILT: everything that names the read path without emitting it.** Four things the check does
 not reach, and they are the half a reader would otherwise assume was covered. This paragraph said
@@ -82,3 +83,21 @@ its own line rather than to leave it uncounted.
 review**, which is the same standing the rest of the glossary had before it. It is worth having
 because the payload is the surface a reader and every client sees, and because it found CNCORE-114 on
 its first run. It is not worth quoting as though the repository were now covered.
+
+## The check only ran on a COLD cache, until CNCORE-132
+
+`turbo` hashes a task against the files of its OWN package. This check lives in `packages/schemas`
+and the glossary lives at the ROOT, so for its first day it was cached against everything except the
+glossary: editing `CONTEXT.md` did not invalidate it, and the check replayed a stale pass. CNCORE-101
+met it — an `_Avoid_` entry banning `health` collided with `healthCheckResult` on the read path,
+`pnpm test` passed locally across ten tasks and CI failed — so the difference was the cache and not
+the code, and the person best placed to fix the name was the one who never saw it fail.
+
+`packages/schemas/turbo.json` now names `$TURBO_ROOT$/CONTEXT.md` among the task's `inputs`, which
+puts the glossary's own bytes inside the cache key: an edit MUST miss, and the check runs.
+
+**THE GENERAL RULE IS NOT THIS RECORD'S TO OWN.**
+[[0126-a-task-declares-the-files-it-reads-outside-its-package]] holds it — the mechanism, the two
+alternatives it refused, and the guard that enforces it — because the same defect was live in
+`packages/env` against a different set of files, and a repo-wide caching rule filed under the
+glossary is one nobody adding a root-reading suite would ever find.
