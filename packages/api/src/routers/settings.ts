@@ -136,8 +136,14 @@ export const settings = {
    * added. ADR-0122 puts the credential's state on the manifest because only the
    * provider can know it, so the state cannot be had without the read. The cost
    * is that a provider which accepts a connection and never answers holds this
-   * page for `TIMEOUT_MS` -- and this page is where that provider is removed.
-   * The reads are concurrent, so it is one timeout rather than one per provider.
+   * page for `PATIENCE.brief` -- ten seconds -- and this page is where that
+   * provider is removed. The reads are concurrent, so it is one timeout rather
+   * than one per provider.
+   *
+   * `brief` AND NOT THE OTHER ONE, WHICH IS WHY THAT CONSTANT IS TWO (ADR-0130).
+   * A `browse` may take sixty, because it answers a whole container; a manifest
+   * is a few hundred bytes and anything near ten seconds of it is a provider that
+   * has stopped. This page is the reason the caps did not simply rise together.
    */
   read: ownerProcedure
     .output(

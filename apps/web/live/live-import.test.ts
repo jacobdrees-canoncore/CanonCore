@@ -29,6 +29,7 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
+import type { AppRouterClient } from "@canoncore/api/routers";
 import { createDb, writeProviderSettings } from "@canoncore/db";
 import { buildTestDatabase } from "@canoncore/db/testing/build-database";
 import { createORPCClient } from "@orpc/client";
@@ -95,16 +96,21 @@ function providerWikiRepo(): string {
  * is this page. A cheaper check would not be checking the thing that broke.
  */
 const TIMELINES = [
-  { id: "226288", name: "Theory:Timeline - Melanie Bush" },
-  { id: "105893", name: "Theory:Timeline - Sixth Doctor" },
-  { id: "249643", name: "Theory:Timeline - Doctor Who universe/AHistory" },
+  { id: "226288", name: "Theory:Timeline - Melanie Bush", atLeast: 100 },
+  { id: "105893", name: "Theory:Timeline - Sixth Doctor", atLeast: 400 },
+  { id: "249643", name: "Theory:Timeline - Doctor Who universe/AHistory", atLeast: 2_500 },
 ];
 
 const stop: Array<() => void> = [];
 let db: ReturnType<typeof createDb>;
-// biome-ignore lint/suspicious/noExplicitAny: the oRPC client's type lives in the api package.
-let client: any;
-const imported: Array<{ id: string; name: string; placements: number; seconds: number }> = [];
+let client: AppRouterClient;
+const imported: Array<{
+  id: string;
+  name: string;
+  atLeast: number;
+  placements: number;
+  seconds: number;
+}> = [];
 
 beforeAll(async () => {
   const providerPort = await freePort();
@@ -155,7 +161,19 @@ test("a real Theory:Timeline browses in from the live wiki and lands its Items",
   for (const run of imported) {
     // The figures are the evidence this file exists for.
     console.log(`  ${run.name} (${run.id}): ${run.placements} placements in ${run.seconds}s`);
-    expect(run.placements).toBeGreaterThan(0);
+    /*
+     * A FLOOR PER TIMELINE RATHER THAN "MORE THAN NONE", because more than none is
+     * what a TRUNCATED import also looks like. CNCORE-151's claim is that AHistory
+     * arrives WHOLE at 2,913 members, and an assertion of `> 0` would pass on a
+     * hundred of them -- catching only a hard timeout and not the half-answer that
+     * a cap, a body limit or a batching bug produces.
+     *
+     * A FLOOR AND NOT THE EXACT COUNT, because these are figures about the LIVE
+     * wiki and they move as editors edit it. Each is set a little under what was
+     * measured on 2026-09-13 -- 113, 421 and 2,913 -- so an edit does not redden
+     * the suite while a truncation still does.
+     */
+    expect(run.placements).toBeGreaterThanOrEqual(run.atLeast);
   }
   const [totals] = (
     await db.execute(sql`

@@ -48,15 +48,31 @@ the wiki holds could not be imported at all, and the Owner saw `Internal server 
 of AHistory arrived within 5.7ms of its first byte. A provider sending a megabyte sends it in
 chunks milliseconds apart, so a ten-second GAP is a provider that has stopped at any size.
 
-**PAGE BYTES DO NOT PREDICT IT.** `Theory:Timeline - UNIT` is 99KB and answers in 0.4s because it
-yields no members; the cost is member resolution, not parsing. So the thing that is large about a
-large browse is its ANSWER, which is why the cap belongs to the operation rather than to a guess
-about the page.
+**PAGE BYTES DO NOT PREDICT IT; MEMBER COUNT DOES.** Timed on CNCORE-151 across 32 timelines
+spanning every size band, including **all 22 pages of 80KB or more**, so the risky tail is measured
+rather than estimated: elapsed time tracks members resolved at a median of roughly **82 per second**.
+Bytes mislead in both directions — `Theory:Timeline - Eighth Doctor` is 199,163 bytes and answers in
+5.7s with 493 members, while `Theory:Timeline - UNIT` is 99,049 bytes and answers in **0.4s** because
+it yields none at all. So the thing that is large about a large browse is its ANSWER, which is why
+the cap belongs to the operation rather than to a guess about the page.
+
+**THE OLD CAP BIT AT ROUGHLY 820 MEMBERS, AND CAUGHT TWO PAGES OF 465.** AHistory at 2,913 members
+and `Theory:Timeline - The Doctor's TARDIS` at 1,667; the slowest that fitted was the Eleventh
+Doctor's at 652 members and 8.5s. **463 of 465 imported.** That is worth knowing in both directions:
+the defect was narrow, and it fell on the single page the catalogue most wanted — so a sampled check
+would have missed it, which is how it survived CNCORE-102's "a large timeline imports without timing
+out".
 
 ## Sixty seconds, and what eats it
 
 2.3x the largest browse the source can be asked for, and a fifth of undici's own 300s default —
 which the comment this replaces rightly called long enough to look like a hang.
+
+**THE 2.3x IS AGAINST TIME TO FIRST BYTE, WHICH IS THE ONLY THING THIS CAP BOUNDS.** The same page
+takes 43.8s to arrive END TO END through `/api/rpc`, because the placements are then written to
+Postgres — and none of that is `headersTimeout`'s business, which is spent by the time the first
+byte lands. A reader comparing sixty seconds against the end-to-end figure is comparing it against
+something it does not measure.
 
 **THE SINGLE-BROWSE FIGURE IS STABLE AND THE HEADROOM IS NOT.** Five clean runs of AHistory gave
 25.5, 25.6, 25.9, 26.1 and 26.4s — under a second of spread. Two of them **at once took 49.1s

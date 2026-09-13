@@ -29,7 +29,7 @@ const GATE = "@canoncore/config/testing/install-network-gate";
 const GATE_IN_GLOBAL_SETUP = "@canoncore/config/testing/gate-global-setup";
 
 /**
- * THE ONE SUITE THAT MUST NOT INSTALL THE GATE, NAMED RATHER THAN SKIPPED.
+ * THE ONE SUITE THAT MAY REACH THE REAL INTERNET, NAMED RATHER THAN SKIPPED.
  *
  * `apps/web`'s live check stands the whole app up against the REAL `provider-wiki`
  * talking to the REAL wiki, which is how CNCORE-151 was found and how ADR-0130's
@@ -42,7 +42,7 @@ const GATE_IN_GLOBAL_SETUP = "@canoncore/config/testing/gate-global-setup";
  * notices losing its gate; this one is REQUIRED to be ungated, so the assertion
  * below fails both if it ever gains a gate and if a SECOND suite joins it here.
  */
-const UNGATED = "web: test:live";
+const MAY_REACH_THE_INTERNET = "web: test:live";
 
 type Manifest = { name?: string; scripts?: Record<string, string> };
 
@@ -290,7 +290,7 @@ describe("the network gate's wiring", () => {
     // nothing. Twelve suites today: nine `test` scripts, `apps/web`'s end-to-end
     // run, `packages/contract`'s contract run -- which joined the sweep under
     // CNCORE-46 -- and `apps/web`'s live run, which joined it under CNCORE-151
-    // as the one suite `UNGATED` exempts.
+    // as the one suite `MAY_REACH_THE_INTERNET` exempts.
     expect(found.length).toBeGreaterThanOrEqual(12);
 
     const open = [];
@@ -299,9 +299,11 @@ describe("the network gate's wiring", () => {
       if (!declared.includes(GATE)) open.push(`${suite.package}: ${suite.script}`);
     }
     // EXACTLY THE ONE EXEMPTION, which is what makes this an allowlist rather
-    // than a subtraction: a twelfth suite dropping its gate lands in this list
-    // beside `UNGATED` and fails, and so does the live suite gaining one.
-    expect(open).toStrictEqual([UNGATED]);
+    // than a subtraction. A twelfth suite dropping its gate lands in this list
+    // beside the named one and fails; the live suite GAINING a gate empties the
+    // list and fails; and the live suite being deleted or renamed empties it too,
+    // so the excuse cannot outlive the suite it excuses.
+    expect(open).toStrictEqual([MAY_REACH_THE_INTERNET]);
   });
 
   /**

@@ -12,7 +12,21 @@ import { defineConfig } from "vitest/config";
  * checks that can, is a red suite on every machine that lacks the credential -- and the
  * habit that follows is ignoring the red, which costs the checks that were working.
  *
- * NO NETWORK GATE HERE, which is the one thing this config really decides. Every other
+ * IT IS DELIBERATELY NOT A TURBO TASK, and that absence is a decision rather than an
+ * omission. `turbo.json` declares `test:e2e` and `test:contract`; there is no `test:live`
+ * and there must not be. Two reasons, and the second is the one with a history:
+ *
+ * A RUN OF THIS IS NEVER CACHEABLE. It asserts against a LIVE wiki that editors edit, so a
+ * replayed hit would report a catalogue that was true last week -- which is the opposite of
+ * what the file is for.
+ *
+ * AND A TURBO TASK FILTERS ITS ENVIRONMENT. `PROVIDER_WIKI_REPO` is how this file finds the
+ * provider to spawn, and a task that did not declare it would have that variable filtered
+ * out and answer a different question in silence. That is CNCORE-143's shape exactly: the
+ * "against the real provider" job ran against the stub for want of a declared variable, and
+ * nothing went red. Run with `pnpm test:live` from this package, never through turbo.
+ *
+ * NO NETWORK GATE HERE, which is the other thing this config really decides. Every other
  * suite installs `@canoncore/config/testing/install-network-gate`; this file is the single
  * place in the repository where reaching the real internet is the point.
  */
