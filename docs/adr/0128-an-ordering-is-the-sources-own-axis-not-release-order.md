@@ -9,9 +9,10 @@ Container `provider-wiki` served was a wiki **Category**, ordered by release dat
 for a category and it quietly became the contract in everyone's head: a provider's ordering was the
 order things came out.
 
-**IT IS NOT, AND THE WIKI IS THE COUNTEREXAMPLE THAT MATTERS.** tardis.wiki writes 464
-`Theory:Timeline` pages, each stating an IN-UNIVERSE chronology — and that is the axis this product
-exists to carry, because it is the one a folder tree cannot. CNCORE-102's own measurement, taken
+**IT IS NOT, AND THE WIKI IS THE COUNTEREXAMPLE THAT MATTERS.** tardis.wiki writes 465
+`Theory:Timeline` pages — counted 2026-09-13 over `ns 114, title starts Theory:Timeline,
+non-redirect` — each stating an IN-UNIVERSE chronology, and that is the axis this product exists to
+carry, because it is the one a folder tree cannot. CNCORE-102's own measurement, taken
 2026-09-12 over one timeline against one release list, TV stories only: **113 of 298 adjacent pairs
 are reversed in-universe**, 38%. That figure is CARRIED FROM THE TICKET rather than re-derived here,
 and the decision does not turn on its exact value — only on the two axes disagreeing in bulk, which
@@ -56,12 +57,20 @@ failure as the source's statement — and they arrive indistinguishable as a bar
 
 ## What makes a page a Container is what the source calls it, which is not always its namespace
 
-The obvious predicate for the wiki was the namespace, and it is wrong by 776 pages: namespace 114
-(`Theory:`) holds **1,240 non-redirect pages and only 464 are timelines**. The rest are
-discontinuity-and-plot-hole pages, which state no ordering at all, and accepting the namespace would
-serve all 776 as Containers ordered by whatever bullets sat under their first heading. The wiki names
-the thing in the TITLE, so the title is the predicate; a category is told apart by its namespace
-because there the namespace is what the wiki uses to mean it.
+The obvious predicate for the wiki was the namespace, and it is wrong by 776 pages: counted
+2026-09-13 over `ns 114, non-redirect`, namespace 114 (`Theory:`) holds **1,241 non-redirect pages,
+of which 465 are timelines and the other 776 are not**. Those 776 are discontinuity-and-plot-hole
+pages, which state no ordering at all, and accepting the namespace would serve every one of them as a
+Container ordered by whatever bullets sat under its first heading. The wiki names the thing in the
+TITLE, so the title is the predicate; a category is told apart by its namespace because there the
+namespace is what the wiki uses to mean it.
+
+**BOTH HALVES ARE COUNTED, OVER THAT ONE LISTING, AND SAYING SO IS THE POINT.** `the other 776` was
+`1,240 - 464` until CNCORE-156 counted it, and a subtraction does not stop being one for being
+spelled in words. It is the dangerous kind of wrong method, too: it went on producing the RIGHT
+answer, because the namespace and the corpus each gained the same one page between 2026-09-12 and
+2026-09-13, so the remainder was still 776 when both of its inputs had moved. Nothing checking the
+answer could have caught it.
 
 The general rule for a provider: **read the predicate the source actually uses to mean the thing.**
 
