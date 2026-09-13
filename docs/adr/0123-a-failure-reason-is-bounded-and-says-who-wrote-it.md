@@ -411,12 +411,39 @@ this catalogue already decided about the identical failure is on the READ side, 
 side. RFC 4918's `424` is the registered one that says it: "A method's execution has failed because
 it depends on the execution of another method, and that other method failed."
 
-**THE OTHER THREE DECLARED ERRORS ON THESE PROCEDURES ARE STILL AT 500**, and that is left rather
-than missed: `NO_SUCH_RECORD`, `NO_SUCH_CONTAINER` and `BROWSE_NOT_OFFERED` are ANSWERS reaching the
-Owner as bare 500s by the same mechanism, which is CNCORE-152 with a TODO at the site pointing there.
-They are a different question from a failure REASON — what status an answer deserves is one each has
-to be asked separately, and 404 for a missing id is not the same reading as a provider that does not
-do this at all.
+**THE OTHER THREE CARRY ONE SINCE CNCORE-152, AND THE READING SPLIT WHERE THIS PARAGRAPH SAID IT
+WOULD.** `NO_SUCH_RECORD`, `NO_SUCH_CONTAINER` and `BROWSE_NOT_OFFERED` were ANSWERS reaching the
+Owner as bare 500s by the mechanism above. Each was asked separately, as a failure REASON is a
+different question from what status an answer deserves; two of them gave the same answer and the
+third did not.
+
+**`404` FOR THE TWO MISSING-ID ANSWERS.** RFC 9110 15.5.5: 404 "indicates that the origin server did
+not find a current representation for the target resource or is not willing to disclose that one
+exists". The record or the container is the resource and the Provider is the origin server for it —
+which ADR-0066 already makes an ANSWER rather than a failure, and which `provider.container` already
+answers at 200 on the read side. `410` is the one that record prefers where the condition "is likely
+to be permanent", and nothing here knows that: a wiki page deleted today can be restored tomorrow.
+
+**`422` FOR A PROVIDER THAT DOES NOT OFFER BROWSE, BECAUSE IT IS NOT A MISSING THING.** A 404 here
+would tell the Owner the container is not there, and nothing ever asked: ADR-0033 makes declining
+`browse` well-formed, so what is absent is the OPERATION rather than the container, and the two have
+different remedies — import the records one at a time, against check the id. **`501` is the closer
+wording and wrong twice over.** It is a 5xx, so `answer.ts` rethrows it into the eighteen bytes this
+section is about and `/api/rpc` logs a stack for it as though CanonCore were broken (ADR-0125); and
+RFC 9110 15.6.2 scopes it to a server that "does not recognize the request method", where THIS server
+implements browse perfectly well and the Provider does not. `405` is out on that record's own terms,
+since the origin server "MUST generate an Allow header field in a 405 response" and the POST that
+carried this really is allowed. What 422 says at 15.5.21 is this exactly: the server understands the
+content type "and the syntax of the request content is correct, but it was unable to process the
+contained instructions". **Mapping an ABSENT UPSTREAM CAPABILITY onto that sentence is CanonCore's
+reading rather than RFC 9110's example**, which is semantically erroneous XML; the registry offers no
+closer 4xx, and oRPC carries the same status under its own `UNPROCESSABLE_CONTENT`.
+
+**THE RULE THE FOUR LEAVE BEHIND: A DECLARED ERROR DECLARES A STATUS, OR IT IS A 500 WEARING A NAME.**
+oRPC's default is 500 for every code of this app's own, and 500 is exactly where `answer.ts` stops
+handing answers back — so a procedure that adds a code and no status has narrowed its RPC surface and
+changed nothing an Owner can see, and **its router test will pass while it does so.** That held for
+all four codes on these two procedures, one ticket apart, and it will hold for the fifth.
 
 ### Asserted where an import failure is rendered
 

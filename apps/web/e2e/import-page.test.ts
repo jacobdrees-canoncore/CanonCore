@@ -1,7 +1,7 @@
 import type { AppRouterClient } from "@canoncore/api/routers";
 import { createDb } from "@canoncore/db";
 import { itemsCarrying } from "@canoncore/db/testing/catalogue";
-import { createORPCClient } from "@orpc/client";
+import { createORPCClient, isDefinedError, safe } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
 import { afterAll, describe, expect, inject, it } from "vitest";
 import {
@@ -64,6 +64,17 @@ const ownerOfTheEmptyOne = await logInAt(allowlistedBaseUrl, inject("ownerPasswo
  * fact no surface above them can state. `multi-placement.test.ts` opens the same
  * seam in this suite for the same shape of reason.
  */
+/**
+ * THE SAME RPC SURFACE, ASKED AS THE OWNER, which the client above deliberately
+ * is not: the reads in this file are a visitor's, and `provider.import` is an
+ * `ownerProcedure` since CNCORE-109 -- so asking it without a session answers
+ * `Unauthorized` rather than what the provider said. `purge-page.test.ts` builds
+ * one the same way for the same reason.
+ */
+const asTheOwner: AppRouterClient = createORPCClient(
+  new RPCLink({ url: `${baseUrl}/api/rpc`, headers: { cookie: owner } }),
+);
+
 const db = createDb(inject("databaseUrl"), { maxConnections: HARNESS_CONNECTIONS });
 
 afterAll(async () => {
@@ -325,6 +336,138 @@ describe("/import, taking a record from a provider that has stopped answering", 
   });
 });
 
+describe("/import, taking a record the provider no longer holds", () => {
+  /**
+   * THE OWNER LANDS BACK ON THE PAGE, WHERE THEY GOT EIGHTEEN BYTES (CNCORE-152).
+   *
+   * THE TAKE BUTTON IS RENDERED FOR EVERY CANDIDATE, held or not, so this is the
+   * ordinary life of the surface rather than an edge of it: a record the provider
+   * drops between the search that drew the row and the POST that presses it
+   * answers `NO_SUCH_RECORD`, which ADR-0066 makes an ANSWER rather than a fault.
+   * It reached the Owner as a bare `Internal Server Error` anyway, because
+   * DECLARING the code left it at oRPC's default `status: 500` and `answer.ts`
+   * rethrows there -- so the declaration bought nothing this page could render.
+   *
+   * ASSERTED WHERE IT IS RENDERED rather than at the router alone, which is this
+   * ticket's third criterion and is the assertion the router cannot make: the
+   * router's own witness passed throughout the defect, because a declared error
+   * has its code long before it has a status a Server Action will hand back.
+   *
+   * THE FORM IS THE PAGE'S OWN, WITH THE PROVIDER SWAPPED, which is the shape
+   * CNCORE-149's two witnesses take and for the reason given there: a provider
+   * that already holds nothing offers no row to press, so the only way to reach
+   * this state is to press a row that WAS drawn and post it at a provider that
+   * has since stopped holding it.
+   */
+  it("answers the page rather than a bare 500", async () => {
+    const at = searching(providerSearch.query);
+    const before = await documentAt(at, owner);
+    // `withFields` REFUSES A NAME THE FORM DOES NOT CARRY, so this fails loudly
+    // on the day `baseUrl` is renamed instead of quietly posting the provider
+    // that was already there and asserting a 200 about the wrong one.
+    const form = withFields(formIn(rowTitled(before.text, providerSearch.held)), {
+      baseUrl: providerSearch.holdsNothing.url,
+    });
+
+    // PINNED TO THE REFUSAL UNDER TEST, which review caught missing and which the
+    // three browse witnesses get from `whatTheProviderSays`. EVERY sub-500
+    // refusal lands the Owner on a page, so a witness asserting only "a page"
+    // stays green if this provider starts refusing for some OTHER reason -- and
+    // would then be re-proving CNCORE-149's `424` while claiming this ticket's
+    // `404`. There is no read procedure for a record to ask instead, so the ask
+    // is the write itself: it refuses, so it writes nothing.
+    const { error } = await safe(
+      asTheOwner.provider.import({
+        baseUrl: providerSearch.holdsNothing.url,
+        recordId: field(form, "recordId"),
+      }),
+    );
+    if (!isDefinedError(error) || error.code !== "NO_SUCH_RECORD") {
+      throw new Error(
+        `the witness provider answered ${isDefinedError(error) ? error.code : String(error)}`,
+      );
+    }
+
+    const taken = await submit(baseUrl, at, form, owner);
+
+    // A PAGE, NOT `Internal Server Error`. Measured under CNCORE-68 at eighteen
+    // bytes with no HTML at all, which is what a Server Action answers when what
+    // it throws is not a refusal the action can read.
+    expect(taken.status).toBe(200);
+    expect(taken.text).not.toContain("Internal Server Error");
+    // AND IT IS THE IMPORT SURFACE THEY LAND ON rather than any 200: the page
+    // reports by re-reading, so the row they pressed is still there to press
+    // again at a provider that does hold it.
+    expect(rowTitled(taken.text, providerSearch.held)).toContain(providerSearch.held);
+  });
+});
+
+describe("/import, browsing a container the provider does not hold", () => {
+  /**
+   * THE OTHER MISSING-ID ANSWER, AT THE PAGE (CNCORE-152).
+   *
+   * ASSERTED HERE AND NOT LEFT TO THE RECORD'S WITNESS, because these two
+   * procedures have now had ONE defect with TWO sites twice over: the identical
+   * `catch` under CNCORE-149, and the identical missing status under this
+   * ticket. A page witness for one of them has twice said nothing true about the
+   * other, which is the shape ADR-0123 was written about.
+   *
+   * THE PAGE OWES A SENTENCE HERE, WHICH THE RECORD'S WITNESS COULD NOT ASK FOR.
+   * A browse is posted to the address that NAMES the provider and the container,
+   * so the page that comes back re-asks `provider.container` about them -- and
+   * the read that offered the button is the read that explains why it failed.
+   */
+  it("says the provider holds no container at that id, rather than answering a bare 500", async () => {
+    const holdsNothing = providerSearch.holdsNothing;
+
+    const browsed = await browsingInsteadAt(holdsNothing.url);
+
+    expect(browsed.status).toBe(200);
+    const container = browsed.container();
+    // THE PROVIDER'S OWN NAME, off its manifest, because "who says they have not
+    // got it" is the half of this the Owner acts on.
+    expect(container).toContain(`${holdsNothing.name} holds no container at that id`);
+    // AND NOTHING TO PRESS AGAIN, which is the half that makes this more than a
+    // nicer error: the button that could not work is gone from the page the
+    // owner lands on.
+    expect(postFormsIn(container)).toHaveLength(0);
+  });
+});
+
+describe("/import, browsing at a provider that declines browse", () => {
+  /**
+   * THE THIRD DECLARED ERROR, AND THE ONE THAT IS NOT A MISSING THING
+   * (CNCORE-152).
+   *
+   * ADR-0033 MAKES DECLINING `browse` WELL-FORMED: a provider offering only
+   * `search` and `lookup` satisfies CMPP completely, so this is the one of the
+   * three where nothing has gone wrong anywhere -- and it was the one answering
+   * the Owner that the server was broken. No request even leaves the app for it.
+   *
+   * WHICH IS WHY ITS STATUS IS NOT THE `404` THE OTHER TWO TAKE, and why this
+   * witness is separate from the one above rather than a second case inside it.
+   * Both statuses get the Owner a page, so a suite that only asked for a page
+   * would pass with the two collapsed -- and the sentence it renders is the
+   * remedy, which differs: check the id, against import the records one at a
+   * time.
+   */
+  it("says the provider does not offer browse, rather than answering a bare 500", async () => {
+    const declining = providerSearch.declinesBrowse;
+
+    const browsed = await browsingInsteadAt(declining.url);
+
+    expect(browsed.status).toBe(200);
+    const container = browsed.container();
+    // THE PROVIDER'S OWN NAME AND NOT MERELY THE SENTENCE, which review caught:
+    // the page renders the name FIRST, so a suffix match passes while the page
+    // names the wrong provider -- and "which provider does not do this" is the
+    // half the Owner acts on. Its neighbour above asserted the name from the
+    // start and this did not.
+    expect(container).toContain(`${declining.name} does not offer browse`);
+    expect(postFormsIn(container)).toHaveLength(0);
+  });
+});
+
 describe("/import, taking a record it already holds", () => {
   it("changes nothing: the same Item, and no second one for that record", async () => {
     /*
@@ -465,6 +608,40 @@ describe("/import on a fresh install", () => {
 /** A container named in the URL, as the browse form's fields put it there. */
 function browsing({ provider, container }: { provider: string; container: string }): string {
   return `/import?provider=${encodeURIComponent(provider)}&container=${encodeURIComponent(container)}`;
+}
+
+/**
+ * PRESSING THE BROWSE BUTTON AT A PROVIDER THAT WILL NOT SERVE IT, and landing
+ * wherever that leaves the owner.
+ *
+ * THE FORM IS THE PAGE'S OWN, WITH THE PROVIDER SWAPPED, which is the only way
+ * these states are reachable and is also the real case: the page offers no
+ * button for a provider it cannot browse, so a browse can only fail this way if
+ * the provider stops serving one between the GET that drew the button and the
+ * POST that presses it. CNCORE-100 makes that the ordinary life of an expired
+ * `cf_clearance`.
+ *
+ * WRITTEN ONCE FOR THE THREE WITNESSES THAT NEEDED IT, which review caught at
+ * the third copy. They differ in the provider swapped in and in the sentence the
+ * page then owes; everything between was the same five lines three times, and a
+ * fourth refusal would have been a fourth.
+ *
+ * `withFields` RATHER THAN A MAP WRITTEN HERE, because it refuses a name the
+ * form does not carry -- so this fails loudly on the day `baseUrl` is renamed
+ * instead of quietly posting the provider that was already there.
+ */
+async function browsingInsteadAt(provider: string) {
+  const alive = await documentAt(browsing(providerSearch.browsable), owner);
+  const [rendered] = postFormsIn(sectionIn(alive.text, "container"));
+  if (!rendered) throw new Error("the container section offered no button to press");
+
+  const browsed = await submit(
+    baseUrl,
+    browsing({ provider, container: providerSearch.browsable.container }),
+    withFields(rendered, { baseUrl: provider }),
+    owner,
+  );
+  return { status: browsed.status, container: () => sectionIn(browsed.text, "container") };
 }
 
 /** What one provider says about the container the URL names, asked of the router. */
@@ -622,22 +799,11 @@ describe("/import, browsing a container at a provider that has stopped answering
    */
   it("answers the page carrying the provider's own sentence, rather than a bare 500", async () => {
     const lapsed = providerSearch.refusesWithASentence;
-    const alive = await documentAt(browsing(providerSearch.browsable), owner);
-    const [rendered] = postFormsIn(sectionIn(alive.text, "container"));
-    if (!rendered) throw new Error("the container section offered no button to press");
-    // `withFields` for the reason the Take witness above gives: it refuses a name
-    // the form does not carry.
-    const form = withFields(rendered, { baseUrl: lapsed.url });
 
-    const browsed = await submit(
-      baseUrl,
-      browsing({ provider: lapsed.url, container: providerSearch.browsable.container }),
-      form,
-      owner,
-    );
+    const browsed = await browsingInsteadAt(lapsed.url);
 
     expect(browsed.status).toBe(200);
-    const container = sectionIn(browsed.text, "container");
+    const container = browsed.container();
     expect(container).toContain(`<q>/ answered 503: ${lapsed.said}</q>`);
     // AND NOTHING TO PRESS AGAIN, which is the half that makes this more than a
     // nicer error: the button that could not work is gone from the page the
@@ -737,7 +903,10 @@ describe("/import, when the provider refuses", () => {
      * the other says to stop looking here whatever the id is. Collapsing them
      * would send somebody back to a box that can never work.
      */
-    const named = { provider: providerSearch.declinesBrowse, container: "any container at all" };
+    const named = {
+      provider: providerSearch.declinesBrowse.url,
+      container: "any container at all",
+    };
     const at = browsing(named);
 
     const { status, text } = await documentAt(at);
