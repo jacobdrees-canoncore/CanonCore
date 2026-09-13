@@ -42,10 +42,12 @@ to decide what that covers on a wiki that writes its own `== Unplaced ==`, `== C
 and `== Awaiting placement ==` headings. Counted 2026-09-13 over `ns 114, title starts
 Theory:Timeline, non-redirect`, the wiki's own unplaced sections hold **719 story bullets across 125
 pages**, which is `fixture/timeline/COVERAGE.md`'s row for them. That count has moved twice, and both
-of the figures it moved from are the ARCHIVE's: CNCORE-118 measured **703 story bullets across 125
-pages** on 2026-09-12, under the rule CNCORE-97 stated rather than the one that shipped, and an
-earlier pass reported 729 across 136 from a looser link regex. The decision turns on the count being
-large, not on its exact value.
+of the figures it moved from are the ARCHIVE's, read over its own differently-stated filter
+`ns = 114 AND title LIKE 'Theory:Timeline%' AND is_redirect = false` against a corpus frozen
+2026-09-04 (ADR-0129): CNCORE-118 took **703 story bullets across 125 pages** from it on 2026-09-12
+under the rule CNCORE-97 stated rather than the one that shipped, and an earlier pass reported 729
+across 136 from a looser link regex. The decision turns on the count being large, not on its exact
+value.
 
 **Those are members with no Position.** The heading is the wiki asserting that a story belongs to
 this ordering and that it will not say where, which is `CONTEXT.md`'s **Unplaced** exactly: "a member
@@ -69,12 +71,13 @@ TITLE, so the title is the predicate; a category is told apart by its namespace 
 namespace is what the wiki uses to mean it.
 
 **BOTH HALVES ARE COUNTED, OVER THAT ONE LISTING, AND SAYING SO IS THE POINT.** `the other 776` was
-`1,240 - 464`, both of them the ARCHIVE's counts of 2026-09-12, until CNCORE-156 counted the two
-halves separately against the live wiki; a subtraction does not stop being one for being spelled in
-words. It is the dangerous kind of wrong method, too, because it went on producing the RIGHT answer:
-the namespace and the corpus each gained the same one page between 2026-09-12 and 2026-09-13, so the
-remainder was still 776 when both of its inputs had moved. Nothing checking the answer could have
-caught it.
+`1,240 - 464`, and both of those are the ARCHIVE's: 464 over `ns = 114 AND title LIKE
+'Theory:Timeline%' AND is_redirect = false`, 1,240 over that same filter without its title clause,
+read 2026-09-12 from a corpus frozen 2026-09-04 (ADR-0129). CNCORE-156 counted the two halves
+separately against the live wiki instead, because a subtraction does not stop being one for being
+spelled in words. It is the dangerous kind of wrong method, too, because it went on producing the
+RIGHT answer: each live count differs from the frozen one by one, so the remainder was still 776 when
+both of its inputs had moved. Nothing checking the answer could have caught it.
 
 **AND NONE OF THESE FIGURES IS THIS REPOSITORY'S TO MEASURE.** CanonCore asks the wiki nothing and
 counts nothing; every corpus figure above belongs to `provider-wiki` and is stated in its

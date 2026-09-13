@@ -33,20 +33,50 @@ const ORDERING_AXIS = "0128-an-ordering-is-the-sources-own-axis-not-release-orde
 const ARCHIVE_DELETED = "0129-the-archive-is-deleted-and-the-live-wiki-is-the-only-source.md";
 const CAP_PER_QUESTION = "0130-a-providers-cap-is-per-kind-of-question.md";
 
+/** A record's raw text, read once. */
+function read(file: string): string {
+  return readFileSync(join(adrDirectory, file), "utf8");
+}
+
 /**
- * A RECORD AS ONE LINE, so a pattern survives being re-wrapped.
+ * TEXT AS ONE LINE, so a pattern survives being re-wrapped.
  *
  * Every figure below sits in prose hard-wrapped at 100 columns, and prose gets
  * re-wrapped whenever a word above it changes length. Matching raw bytes would
  * redden this suite on a reflow that changed no claim, and a check that cries
  * wolf on formatting is a check people learn to silence.
  */
+function flatten(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
+}
+
+/** A whole record as one line. */
 function record(file: string): string {
-  return readFileSync(join(adrDirectory, file), "utf8").replace(/\s+/g, " ").trim();
+  return flatten(read(file));
 }
 
 /**
- * A record as its SENTENCES, each flattened the same way.
+ * A BLANK LINE, A HEADING, A LIST ITEM AND A TABLE ROW EACH END A SENTENCE, and
+ * not one of them writes a full stop to say so.
+ *
+ * WITHOUT THIS THE SENTENCE UNIT IS NOT ONE, measured rather than feared: flattening
+ * the whole record first and splitting only on stops left 5 of ADR-0128's 53 units
+ * spanning a heading, and the namespace partition was in one of them -- a 585-character
+ * run that opened `Collapsing the two would report our parse failure` from the section
+ * ABOVE. All three partition patterns resolved to it, so the date and population
+ * assertions were reading a neighbouring section's prose. Splitting on structure first
+ * gives 73 units, none spanning a heading, and puts the partition in a sentence of its
+ * own.
+ *
+ * THAT IS THE DEFECT THIS FILE'S OWN COMMENT CLAIMED TO HAVE AVOIDED, which is the
+ * reason it is written down here rather than quietly fixed: it was GREEN, because no
+ * pre-heading sentence in these records happens to carry a date today. The first one
+ * that did would have satisfied the date assertion with a foreign measurement's date.
+ */
+const BLOCK_BOUNDARY = /\n\s*\n|\n(?=#{1,6} )|\n(?=[-*] )|\n(?=\| )/;
+
+/**
+ * A record as its SENTENCES.
  *
  * THE DATE AND THE POPULATION ARE ASSERTED AGAINST THE SENTENCE RATHER THAN THE
  * FILE OR THE PARAGRAPH, and both looser readings were tried here first.
@@ -55,24 +85,16 @@ function record(file: string): string {
  * corpus figure states the date somewhere in it" is satisfied by a date belonging
  * to an unrelated measurement further down.
  *
- * Per PARAGRAPH fails the same way in this very record, which is why it is not
- * what this uses. ADR-0128's opening paragraph carries the corpus figure AND
- * CNCORE-102's 113-of-298 pairs measurement, taken 2026-09-12 on a different
- * question -- so a paragraph-level date assertion was GREEN on the unfixed
- * record, reading the pairs measurement's date as the corpus figure's. Measured
- * while writing this file. A check that passes on the defect it names is the
- * false signal `CLAUDE.md` is about, so the unit is the sentence the figure is
- * stated in.
- *
- * SPLIT ON A FULL STOP THAT ENDS A SENTENCE, which is a stop followed by space
- * and then a capital, a backtick or a bold marker. A stop inside `2026-09-13`,
- * inside `tardis.wiki` or closing a bold lead-in like `MATTERS.**` is followed by
- * something else, so none of them splits.
+ * Per PARAGRAPH fails the same way in this very record. ADR-0128's opening paragraph
+ * carries the corpus figure AND CNCORE-102's 113-of-298 pairs measurement, taken
+ * 2026-09-12 on a different question -- so a paragraph-level date assertion was GREEN
+ * on the unfixed record, reading the pairs measurement's date as the corpus figure's.
+ * A check that passes on the defect it names is the false signal `CLAUDE.md` is about.
  */
 function sentences(file: string): string[] {
-  return readFileSync(join(adrDirectory, file), "utf8")
-    .replace(/\s+/g, " ")
-    .split(/(?<=\.)\s+(?=[A-Z`*])/)
+  return read(file)
+    .split(BLOCK_BOUNDARY)
+    .flatMap((block) => flatten(block).split(/(?<=\.)\s+(?=[A-Z`*])/))
     .map((sentence) => sentence.trim())
     .filter((sentence) => sentence.length > 0);
 }
@@ -85,6 +107,10 @@ function sentences(file: string): string[] {
  * THE THIRD ONE IS THE WHOLE REASON THIS EXISTS. It was the only figure in the
  * record that had never been counted, and it is now stated rather than left to be
  * derived from the two beside it.
+ *
+ * SHARED `/g` OBJECTS, READ ONLY THROUGH `matchAll`, which clones rather than
+ * advancing `lastIndex`. A later `.test()` or `.exec()` on one of these would
+ * mutate it and make alternate calls disagree, so reach for `matchAll` here.
  */
 const NAMESPACE_WHOLE = /holds \*\*([\d,]+) non-redirect pages/g;
 const NAMESPACE_TIMELINES = /of which ([\d,]+) are timelines/g;
@@ -206,7 +232,15 @@ describe("the Theory:Timeline corpus as docs/adr/ states it", () => {
     expect(CORPUS_SIZE_STATED.length).toBeGreaterThan(1);
     expect(new Set(CORPUS_SIZE_STATED.map(({ file }) => file)).size).toBeGreaterThan(1);
 
-    for (const stated of CORPUS_SIZE_STATED) {
+    // EVERY pattern in the file, not only the corpus sizes: a partition pattern that
+    // came back `NaN` would still satisfy `a + b === c` against two more `NaN`s, and
+    // three figures that agree with each other about nothing is the shape this whole
+    // file exists to refuse.
+    const everyFigure = [
+      ...CORPUS_SIZE_STATED,
+      ...ADR_0128_CORPUS_FIGURES.map((pattern) => ({ file: ORDERING_AXIS, pattern })),
+    ];
+    for (const stated of everyFigure) {
       const size = sizeStated(stated);
       expect(Number.isInteger(size), `${stated.file} states ${size}`).toBe(true);
       expect(size, `${stated.file} states ${size}`).toBeGreaterThan(0);
@@ -278,9 +312,20 @@ describe("the Theory:Timeline corpus as docs/adr/ states it", () => {
    * their measurement in the prose around it; holding them to the population
    * string as well is a rewrite of two records that are correct, and CNCORE-157
    * asked for ADR-0128's copy.
+   *
+   * TODO(CNCORE-158): widen this to every record that states the corpus size. The
+   * one-size assertion above catches those two records DISAGREEING; nothing here
+   * catches them agreeing on a stale number, which is the same defect one step
+   * earlier.
    */
   it("carries the population and the measurement date in ADR-0128's own sentences", () => {
-    expect(ADR_0128_CORPUS_FIGURES.length).toBeGreaterThan(3);
+    // DISTINCT SENTENCES RATHER THAN PATTERNS, because five patterns over one sentence
+    // would read as five things checked while being one. Three of these figures share
+    // the partition sentence, so the honest floor is the number of sentences inspected.
+    const inspected = new Set(
+      ADR_0128_CORPUS_FIGURES.map((pattern) => sentenceStating({ file: ORDERING_AXIS, pattern })),
+    );
+    expect(inspected.size, "fewer sentences than this check reads as covering").toBe(3);
 
     for (const pattern of ADR_0128_CORPUS_FIGURES) {
       const entry = { file: ORDERING_AXIS, pattern };
@@ -313,6 +358,12 @@ describe("the Theory:Timeline corpus as docs/adr/ states it", () => {
    * shared that way because a record legitimately quotes several, measured on
    * different days for different questions -- which is the trap this file's
    * `sentences` comment records.
+   *
+   * AND THIS POINTER IS NOT ENFORCED, which is worth knowing before it rots. Both
+   * strings name files in `provider-wiki`; rename either there and this stays GREEN
+   * while ADR-0128 points at nothing. That is `.claude/rules/docs.md`'s hazard --
+   * "the citation still reads as though it names something" -- in its cross-repo
+   * form, and no check on this side of the boundary can close it.
    */
   it("names the report that regenerates the figures it did not measure", () => {
     const axis = record(ORDERING_AXIS);
@@ -346,6 +397,17 @@ describe("the Theory:Timeline corpus as docs/adr/ states it", () => {
         `docs/adr/${ORDERING_AXIS} keeps an archive-era figure without saying it is one, so a ` +
           `reader cannot tell it from a live count that has drifted: ${sentence}`,
       ).toMatch(/archive/i);
+
+      // AND THE POPULATION, spelled the ARCHIVE's own way rather than the live one's.
+      // ADR-0129 warns that the two "were measured under filters stated differently", so
+      // a retained figure that borrowed the live population string would be asserting
+      // they were the same question. `ns = 114 AND title LIKE ...` is what was actually
+      // asked, and it is not re-askable: the corpus it ran against is deleted.
+      expect(
+        sentence,
+        `docs/adr/${ORDERING_AXIS} keeps an archive-era figure without the population it was ` +
+          `counted over: ${sentence}`,
+      ).toMatch(/`ns = 114 AND title LIKE/);
     }
   });
 });

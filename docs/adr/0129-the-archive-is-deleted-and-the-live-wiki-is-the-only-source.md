@@ -195,19 +195,18 @@ nothing runs would be the speculative half of this change.
 
 ## Evidence
 
-Every figure the seven records `pnpm measure:live` covers took from the archive was re-derived from
-the live wiki on 2026-09-13 by that script, which replaced the five scripts that opened the deleted
-DuckDB. ADR-0016, 0030, 0057, 0060, 0070, 0073 and 0077 each carry their own re-measured figures and
-the date.
+`pnpm measure:live` covers seven records, and every figure they took from the archive was re-derived
+from the live wiki on 2026-09-13 by that script, which replaced the five scripts that opened the
+deleted DuckDB. ADR-0016, 0030, 0057, 0060, 0070, 0073 and 0077 each carry their own re-measured
+figures and the date.
 
-**THE COUNT WAS EIGHT RECORDS, NOT SEVEN, AND THIS SENTENCE SAID SEVEN UNTIL CNCORE-157.** ADR-0128
-took 464 timelines, 1,240 namespace pages and 703 unplaced bullets from the archive too, and it was
-missed here because its figures belong to a DIFFERENT script: they are `pnpm measure:timelines`'s and
-are reported in `provider-wiki`'s `fixture/timeline/COVERAGE.md`, so a sweep that went record by
-record through `measure:live`'s outputs never reached them. They sat unrefreshed while the two
-records either side of this one stated the live counts, which is how `docs/adr/` came to assert two
-sizes for one population. CNCORE-156 re-derived them on the provider side and CNCORE-157 brought
-them across.
+**EIGHT RECORDS TOOK FIGURES FROM THE ARCHIVE, NOT SEVEN, AND THE EIGHTH IS NOT IN THE LIST ABOVE.**
+ADR-0128 took 464 timelines, 1,240 namespace pages and 703 unplaced bullets from it too. It was
+missed because its figures belong to a DIFFERENT script: they are `pnpm measure:timelines`'s and are
+reported in `provider-wiki`'s `fixture/timeline/COVERAGE.md`, so a sweep that went record by record
+through `measure:live`'s outputs never reached them. They sat unrefreshed while this record and
+ADR-0130 stated the live counts, which is how `docs/adr/` came to assert two sizes for one
+population. CNCORE-156 re-derived them on the provider side and CNCORE-157 brought them across.
 
 **The live figures are not corrections of the archive's and must not be read as such.** The
 archive froze on 2026-09-04 and was measured on 2026-09-10; the wiki has been edited since, and
