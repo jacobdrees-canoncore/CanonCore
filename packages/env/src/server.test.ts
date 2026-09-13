@@ -31,4 +31,41 @@ describe("server env", () => {
     const { env } = await import("./server");
     expect(env.DATABASE_URL).toBe("postgresql://postgres:password@localhost:5432/canoncore");
   });
+
+  /**
+   * THE POOL BOUND (CNCORE-137). One PostgreSQL serves every worktree
+   * (ADR-0104), so how many connections ONE process may hold is a deployment's
+   * to size rather than node-postgres's to assume.
+   *
+   * A NUMBER OUT OF A STRING, because an environment holds only text. The
+   * default is node-postgres's own ten, so an installation that sets nothing
+   * gets exactly the pool it had before this variable existed.
+   */
+  it("defaults the pool bound to node-postgres's ten when nothing sets it", async () => {
+    process.env.DATABASE_URL = "postgresql://postgres:password@localhost:5432/canoncore";
+    delete process.env.DATABASE_MAX_CONNECTIONS;
+
+    const { env } = await import("./server");
+    expect(env.DATABASE_MAX_CONNECTIONS).toBe(10);
+  });
+
+  it("reads the pool bound as a number rather than the text it arrives as", async () => {
+    process.env.DATABASE_URL = "postgresql://postgres:password@localhost:5432/canoncore";
+    process.env.DATABASE_MAX_CONNECTIONS = "4";
+
+    const { env } = await import("./server");
+    expect(env.DATABASE_MAX_CONNECTIONS).toBe(4);
+  });
+
+  /**
+   * A POOL OF NONE IS NOT A SMALL POOL, it is a process that can never reach
+   * its database -- and it fails at the first query rather than at startup,
+   * which is the failure this refuses to let start.
+   */
+  it.each(["0", "-1", "not a number"])("refuses a pool bound of %s", async (value) => {
+    process.env.DATABASE_URL = "postgresql://postgres:password@localhost:5432/canoncore";
+    process.env.DATABASE_MAX_CONNECTIONS = value;
+
+    await expect(import("./server")).rejects.toThrow();
+  });
 });
