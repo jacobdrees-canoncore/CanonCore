@@ -474,7 +474,10 @@ describe("provider.import", () => {
     );
 
     if (!isDefinedError(error)) throw new Error(`expected a defined error, got ${String(error)}`);
-    expect(error.code).toBe("PROVIDER_REFUSED");
+    // NARROWED BY THE CODE RATHER THAN ASSERTED ON IT, because `data` is typed
+    // per code: a defined error here is a union of the two this procedure
+    // declares, and only one of them carries a reason.
+    if (error.code !== "PROVIDER_REFUSED") throw new Error(`it answered ${error.code}`);
     // AND IT IS CANONCORE'S OWN SENTENCE, which is the half a bare message could
     // not carry and the half the wrapper could quietly lose. ADR-0123 decides
     // `wrote` by WHICH BOUNDARY refused, and `askingTheProvider` maps the error
@@ -630,7 +633,7 @@ describe("provider.browse", () => {
     );
 
     if (!isDefinedError(error)) throw new Error(`expected a defined error, got ${String(error)}`);
-    expect(error.code).toBe("PROVIDER_REFUSED");
+    if (error.code !== "PROVIDER_REFUSED") throw new Error(`it answered ${error.code}`);
     // CANONCORE'S OWN SENTENCE, as on `import` above and for the same reason.
     expect(error.data.wrote).toBe("canoncore");
   });
