@@ -44,7 +44,12 @@ except Exception:
     sys.exit()
 for i in result.get("issues") or result.get("nodes") or []:
     state = i["state"]["name"]
-    if state in ("Done", "Canceled"):
+    # TERMINAL BY TYPE, NOT BY NAME. Linear types a state `completed`, `canceled`
+    # or `duplicate`, and filtering on the NAMES of the first two left `Duplicate`
+    # looking open: CNCORE-94 drew a DRIFT-FILING line on every pass for a ticket
+    # correctly closed against CNCORE-93. Type also survives somebody renaming a
+    # state, which a name list does not.
+    if i["state"]["type"] in ("completed", "canceled", "duplicate"):
         continue
     num = i["identifier"].split("-")[1]
     print("TICKET", i["identifier"], state, i["title"][:42])
