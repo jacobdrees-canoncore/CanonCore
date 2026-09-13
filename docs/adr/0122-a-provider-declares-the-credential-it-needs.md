@@ -229,11 +229,26 @@ makes this an obligation instead of a permission:
 
 - **Not broken** rules out a dropped connection, a bare `500`, and refusing to start — which this
   record already refuses above, because it shows a dead host to the one person who can fix it.
-- **Not empty** rules out `200 {"results":[]}` from `search` AND the `404` that `lookup` owes an id
-  its source genuinely does not hold. **The `lookup` half is the one that is easy to miss**: "I do
-  not hold that" is a claim ABOUT THE SOURCE, and a provider that cannot reach its source cannot
-  tell an id nobody minted from one it simply cannot look up. Both answers would be the fallback
-  this record refuses by name, in its cheapest form — an empty corpus rather than a thin one.
+- **Not empty** rules out `200 {"results":[]}` from `search`, and the record `lookup` owes an id its
+  source holds. "Nothing matched" is a claim ABOUT THE SOURCE, and a provider that cannot reach its
+  source has not established it — it has established that it does not know. It is the fallback this
+  record refuses by name, in its cheapest form: an empty corpus rather than a thin one.
+
+**AND THE REFUSAL DOES NOT DISPLACE THE CALLER'S OWN MISTAKE, WHICH A FIRST BUILD OF THIS GOT
+WRONG.** A missing or blank `q` is still `400`, and an id that addresses nothing in the provider's
+own id space is still `404` — both are settled BEFORE the source is reached, so neither is a claim
+about it. `provider-wiki` is built exactly this way: `lookup` rejects anything but `^\d{1,18}$`
+before the wiki is touched, which is [[0066-path-is-identity-query-is-the-route]]'s rule that an id
+which cannot BE an identity is an address with nothing at it. **The measurement settled it**: with
+`provider-wiki` locked, CI's contract job failed THREE assertions and the `404` one was not among
+them (run 34752451432, `contract.test.ts` lines 201, 235 and 275). A contract that refused here too
+would have reddened a passing assertion, and would hide a caller who forgot the parameter behind a
+credential problem.
+
+**What this leaves NOT under test is a WELL-FORMED id a provider would have to consult its source
+about**, which a locked provider owes a refusal rather than a `404`. No fixture in the suite is one,
+and inventing an id that is well-formed for every provider at once would be a claim about their id
+spaces that CMPP does not make.
 
 **`!== "valid"` RATHER THAN `=== "absent"`.** `expired` is a session that lapsed, which is this
 record's whole reason for having the state at all, and a provider holding one can answer exactly as

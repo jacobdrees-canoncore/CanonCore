@@ -301,10 +301,19 @@ async function lockedProvider(): Promise<Participant> {
     }
 
     if (url.pathname.startsWith("/lookup/")) {
+      /*
+       * AN ID THIS PROVIDER COULD NEVER HAVE MINTED IS SETTLED FROM ITS OWN ID
+       * SPACE, LOCKED OR NOT -- the same seam as the missing `q` above rather
+       * than an exception to the refusal. ADR-0066 makes an id that cannot BE an
+       * identity a 404, an address with nothing at it, and deciding that needs
+       * no source. `provider-wiki` does exactly this, rejecting anything but
+       * `^\d{1,18}$` before the wiki is reached, which is why CI's locked run
+       * answers 404 here while `/lookup/265` is refused.
+       */
+      if (url.pathname !== `/lookup/${MINIMAL_RECORD.id}`)
+        return answer({ error: "no such record" }, 404);
       if (held === null) return refuse();
-      return url.pathname === `/lookup/${MINIMAL_RECORD.id}`
-        ? answer(MINIMAL_RECORD)
-        : answer({ error: "no such record" }, 404);
+      return answer(MINIMAL_RECORD);
     }
 
     return answer({ error: "not found" }, 404);

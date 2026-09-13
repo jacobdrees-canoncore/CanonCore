@@ -140,11 +140,17 @@ function cannotReachItsSource(declared: CmppManifest["credential"]): boolean {
  * a locked provider look like a dead host, which is the wrong diagnosis shown to
  * the one person who can fix it.
  *
- * NOT EMPTY rules out `200 {"results":[]}` from `search` and the `404` that
- * `lookup` owes an id its source genuinely does not hold. Both of those are CLAIMS
- * ABOUT THE SOURCE, and a provider that cannot reach its source is in no position
- * to make either; ADR-0122 refuses the `search` half by name too, because a
- * fallback corpus would make an expired session look like a thin wiki.
+ * NOT EMPTY rules out `200 {"results":[]}`: "nothing matched" is a claim ABOUT THE
+ * SOURCE, and a provider that cannot reach its source has not established it, it
+ * has established that it does not know. ADR-0122 refuses that one by name -- it
+ * is the fallback corpus in its cheapest form, an empty one rather than a thin
+ * one, and it would make an expired session look like a thin wiki.
+ *
+ * WHAT THE REFUSAL DOES NOT DISPLACE IS THE CALLER'S OWN MISTAKE. A missing or
+ * blank `q` is still `400` and an id that addresses nothing in the provider's own
+ * id space is still `404`, because both are settled BEFORE the source is reached
+ * and neither is a claim about it. Turning those into refusals too would hide a
+ * caller who forgot the parameter behind a credential problem.
  *
  * `503` AND NOT MERELY "SOME REFUSAL". A contract that admitted any 5xx would
  * leave the second provider declaring a credential to pick its own, which is how
@@ -393,18 +399,22 @@ describe.each(underTest.map((p) => [p.name, p] as const))(
       });
 
       it("reports an id it does not hold as an answer, not as a failure", async () => {
-        const declared = await declaredCredential(participant);
         const response = await get(participant, "/lookup/an-id-no-provider-mints");
 
-        // AND "DOES NOT HOLD IT" IS ITSELF A CLAIM ABOUT THE SOURCE. A 404 says
-        // the source has no such record, which a provider that cannot reach the
-        // source is in no position to say -- it cannot tell an id nobody minted
-        // from one it simply cannot look up. So the refusal displaces this answer
-        // exactly as it displaces a record, and for the same reason.
-        if (cannotReachItsSource(declared)) {
-          expectSaysItCannotAnswer(response, "/lookup");
-          return;
-        }
+        // NOT BRANCHED ON THE CREDENTIAL, AND THE MEASUREMENT IS WHY. This id
+        // cannot BE an identity in either provider's id space, so a provider
+        // settles it without its source and an unsatisfied credential changes
+        // nothing -- the same seam as the missing `q` above. `provider-wiki`
+        // rejects anything but `^\d{1,18}$` before the wiki is reached
+        // (ADR-0066), and CI's locked run proves the contract already had this
+        // right: three assertions went red against a locked `provider-wiki` and
+        // this one did not.
+        //
+        // WHAT IS THEREFORE NOT UNDER TEST is a WELL-FORMED id the provider
+        // would have to consult its source about, which a locked provider owes
+        // a refusal rather than this 404. No fixture here is one, and inventing
+        // an id that is well-formed for every provider at once is a claim about
+        // their id spaces that CMPP does not make.
 
         // ADR-0033: a record the provider does not hold is what an ambiguous
         // `search` candidate looks like once the candidate turns out to be gone.
