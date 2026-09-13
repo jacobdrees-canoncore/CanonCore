@@ -83,7 +83,7 @@ eats it is CONTENTION rather than page size. A third concurrent browse would not
 **THE ANSWER TO THAT IS NOT A BIGGER NUMBER.** It is a faster provider, or an ordering that arrives
 in pages rather than whole — and the second is a CMPP question, because ADR-0033 makes `browse`
 answer a container and its ordering together. Raising this constant buys a little headroom and
-spends it on the paragraph below.
+spends it on the 1.2x concurrency margin measured just above.
 
 ## The cap WAS also what an open read could hold for, until CNCORE-154 took it
 

@@ -49,10 +49,15 @@ const client: AppRouterClient = createORPCClient(new RPCLink({ url: `${baseUrl}/
  * THE OWNER, LOGGED IN, as a cookie this file sends back.
  *
  * EVERY BUTTON ON THIS PAGE IS THE OWNER'S since CNCORE-109, so a test that
- * presses one asks for the page as the owner AND posts as the owner. The reads
- * below deliberately do neither: what a visitor to ADR-0044's demo sees is a
- * page with every result on it and no button, and that is asserted in
- * `login-page.test.ts` rather than assumed here.
+ * presses one asks for the page as the owner AND posts as the owner.
+ *
+ * "THE READS BELOW DELIBERATELY DO NEITHER" IS WHAT THIS SAID, AND IT STOPPED
+ * BEING TRUE AT CNCORE-154. The reads that ask what a PROVIDER says about a
+ * container now ask as the owner, because that one read is an `ownerProcedure`
+ * (ADR-0131). The reads that ask what this CATALOGUE holds still ask as nobody,
+ * and two tests below assert precisely the seam between them. What a visitor to
+ * ADR-0044's demo sees is still a page with every result on it and no button,
+ * and that is asserted in `login-page.test.ts` rather than assumed here.
  */
 const owner = await logInAt(baseUrl, inject("ownerPassword"));
 

@@ -786,9 +786,11 @@ export const provider = {
    * boundary rather than an oversight. ADR-0130 caps a provider by the KIND of
    * question, and `browse` is the only operation on the 60-second `patient`
    * cap: `search` is `brief` -- ten seconds -- and measured at 0.25s against
-   * the live wiki. It is also ADR-0044's demo being something a visitor can
-   * look around at all. If it ever moves to `patient`, ADR-0131's rule catches
-   * it and it moves behind this door too.
+   * the live wiki. Both procedures ask the manifest first and serially, so the
+   * worst case is the SUM rather than the larger cap: up to 70s here (10 + 60)
+   * against up to 20s there (10 + 10). It is also ADR-0044's demo being
+   * something a visitor can look around at all. If `search` ever moves to
+   * `patient`, ADR-0131's rule catches it and it moves behind this door too.
    *
    * WHICH IS A DIFFERENT QUESTION FROM WHETHER IT WRITES, and that is why the
    * answer is not CNCORE-109's. That ticket put everything that CHANGES the

@@ -55,10 +55,16 @@ async function readImportPage({ query, provider, container, purge }: Asked) {
    */
   /*
    * THE CALLER'S OWN CONTEXT, which on this page decides what is OFFERED as much
-   * as what is answered. Every read below is open (ADR-0044's demo is read-only
-   * with no login), and the three things that WRITE are the owner's since
-   * CNCORE-109 -- so a visitor is shown the whole surface and none of its
+   * as what is answered. Nearly every read below is open (ADR-0044's demo is
+   * read-only with no login), and the three things that WRITE are the owner's
+   * since CNCORE-109 -- so a visitor is shown the whole surface and none of its
    * buttons, rather than buttons that answer 401.
+   *
+   * "EVERY READ" IS WHAT THIS SAID, AND ONE READ IS NOW THE OWNER'S TOO
+   * (ADR-0131, CNCORE-154). `provider.container` answers by running a whole
+   * browse at a third party, so it is gated in `aboutTheContainer` below beside
+   * `purging` -- the two reads on this page that cost more than a query. What a
+   * visitor is shown in its place is `LogIn`, exactly as beside a button.
    */
   const context = await callerContext();
   // ONE CONTEXT FOR ALL OF THEM, for the reason the front page gives: two calls
@@ -742,11 +748,19 @@ function Candidate({
 /**
  * WHAT STANDS WHERE A CONTROL WOULD, for a reader who is not the owner.
  *
- * THE SURFACE IS NOT HIDDEN, only its buttons. ADR-0044's demo is read-only with
- * no login and ADR-0072 gives a visitor everything on the instance, so a visitor
- * still searches the providers, still sees what a container holds and still reads
- * what a purge would take. What they are not offered is the operation, and this
- * says which operation it was rather than leaving a gap where a button was.
+ * THE SURFACE IS NOT HIDDEN, only its buttons -- AND, SINCE CNCORE-154, the two
+ * reads that cost more than a query. ADR-0044's demo is read-only with no login
+ * and ADR-0072 gives a visitor everything on the instance, so a visitor still
+ * searches the providers and still sees what this CATALOGUE holds. What they are
+ * not offered is the operation, and this says which operation it was rather than
+ * leaving a gap where a button was.
+ *
+ * WHICH IS WHY THIS NOW STANDS IN FOR READS AS WELL AS BUTTONS. It said "still
+ * sees what a container holds and still reads what a purge would take", and
+ * neither is a visitor's any more: `previewPurge` runs the purge and rolls it
+ * back (ADR-0046), and `provider.container` runs a whole browse at a third party
+ * (ADR-0131). A read that spends somebody else's time is refused the same way a
+ * write is, and named the same way.
  *
  * `Link` RATHER THAN `a` (ADR-0109): a path this app owns is one the framework
  * has to be allowed to rewrite.
@@ -1092,6 +1106,10 @@ function NotOneOfOurs() {
 /**
  * THE CONTAINER THE OWNER NAMED, AS THE PROVIDER ANSWERS FOR IT.
  *
+ * AND THE FIFTH BRANCH IS THE PROVIDER NEVER BEING ASKED (ADR-0131, CNCORE-154).
+ * That read is the Owner's, so for a visitor there is no answer to render and
+ * `said` is `undefined` -- which is a sentence too, and the one `LogIn` writes.
+ *
  * EVERY BRANCH HERE IS A SENTENCE RATHER THAN A FAILURE, which is what asking on
  * the GET buys: `provider.container` reaches the provider, and each of the things
  * it can say -- here it is, there is nothing at that id, this provider does not
@@ -1119,6 +1137,16 @@ function Container({
       {said === undefined ? (
         /*
           THE PROVIDER WAS NOT ASKED, BECAUSE ASKING IS THE OWNER'S (ADR-0131).
+
+          KEYED ON `said` RATHER THAN ON `owner`, WHICH IS THE SAME FACT TWICE
+          AND IS DELIBERATE. `owner` is on this component already, and the two
+          cannot disagree -- `said` is `undefined` exactly when the session was
+          null. What `said === undefined` buys that `!owner` does not is the
+          NARROWING: every branch after this one reads `said.answer`, and a test
+          on `owner` leaves `said` possibly-undefined for all of them. So the
+          check that proves the value is there is the one made, rather than a
+          check on the reason it is missing.
+
           A GAP HERE WOULD BE THE WORSE ANSWER: a reader who typed a container id
           and got back an empty section learns nothing about why, and goes
           looking for what they did wrong. So the operation is NAMED, by the same

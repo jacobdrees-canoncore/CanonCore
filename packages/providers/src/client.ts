@@ -109,7 +109,7 @@ const PATIENCE = {
    * faster provider or an ordering that arrives in pages rather than whole --
    * which ADR-0130 records as the direction and ADR-0033 would have to be
    * reopened to take. NOT a bigger number here, which buys a little headroom and
-   * spends it on the paragraph below.
+   * spends it on the concurrency margin two paragraphs down.
    *
    * NOBODY BUT THE OWNER CAN SPEND IT, WHICH IS WHAT CNCORE-154 SETTLED. This
    * paragraph carried a TODO saying `provider.container` was an `openProcedure`
@@ -120,9 +120,9 @@ const PATIENCE = {
    * said. What is left is a bound on what the Owner's own pages wait for.
    *
    * IT IS STILL NOT LARGER, AND THE REASON CHANGED RATHER THAN LAPSED. The
-   * margin above is 1.2x over two concurrent browses, and the Owner can open two
-   * tabs as easily as anyone. A bigger number here buys a little headroom and
-   * spends it on the paragraph above; the answer to a third concurrent browse is
+   * margin is 1.2x over two concurrent browses, and the Owner can open two tabs
+   * as easily as anyone -- so raising this still spends that margin, which is
+   * what the first paragraph refuses. The answer to a third concurrent browse is
    * still a faster provider or a paged ordering.
    *
    * IT BOUNDS A PROVIDER'S THINKING RATHER THAN AN IMPORT'S RUNNING. What comes

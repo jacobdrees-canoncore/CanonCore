@@ -15,6 +15,14 @@ It is now behind the Owner. **The catalogue's own half of that question — `pro
 reads this instance's rows — stays open to anyone**, so what a visitor loses is a preview of a
 button they were never offered, and not a single row of the catalogue.
 
+**ON ADR-0044's NO-PASSWORD DEMO THAT MEANS THE PREVIEW IS GONE FOR EVERYONE, WHICH IS STATED HERE
+RATHER THAN LEFT TO BE FOUND.** Nobody obtains a session on an instance that sets no
+`OWNER_PASSWORD`, so no caller is left who can ask. That is the right outcome rather than a
+regrettable side effect: a demo anyone on the internet can point at someone else's provider is the
+exact shape this record refuses, and `browse` is the one operation on that instance which spends a
+third party's time at a stranger's request. The demo keeps its whole catalogue, its provider search,
+and — by `LogIn`'s no-password arm — a sentence naming the operation it is not offering.
+
 ADR-0130 predicted this record and named the ticket that takes it: "It is the same case wearing the
 wrong procedure builder, and CNCORE-154 is where it gets taken." This is that.
 
@@ -30,13 +38,22 @@ feeling. `packages/providers/src/client.ts` holds providers to two caps by kind 
 `search` and `lookup` are all `brief` — ten seconds — and ADR-0130 measured `search` against
 tardis.wiki at **0.25s**.
 
+**BOTH PROCEDURES ASK THE MANIFEST FIRST, AND SERIALLY, SO THE PER-PROCEDURE WORST CASE IS THE SUM
+RATHER THAN THE LARGER CAP.** `browseIfOffered` (`packages/api/src/routers/provider.ts`) awaits
+`client.manifest()` and then `client.browse()`; `askOneProvider` (`packages/providers/src/search.ts`)
+awaits `client.manifest()` and then `client.search()`. So the honest figures are **up to 70s for
+`provider.container`** (10 + 60) and **up to 20s for `provider.search`** (10 + 10), not 60 and 10.
+The comparison the rule rests on is unchanged and the gap is wider than the operation caps alone
+suggest — but a record whose standard is measurement should not round one of its own numbers.
+
 ## Which is why `provider.search` is still open, named here rather than left to be noticed
 
 `provider.search` is an `openProcedure` that also reaches providers, and it fans out across every
 one this instance is configured with. It stays open, for three reasons that hold together and would
 stop holding if any one changed:
 
-1. **It is capped at ten seconds, not sixty**, because it asks `search` rather than `browse`.
+1. **Its worst case is twenty seconds, not seventy**, because it asks `search` rather than `browse`
+   after the same manifest — two `brief` operations rather than a `brief` and a `patient` one.
 2. **It fans out in parallel**, so the wall time of a fan-out is the slowest provider rather than
    the sum — the cost does not scale with how many providers an owner has configured.
 3. **It is the demo's discovery surface.** ADR-0044's public demo exists to be looked around, and a
