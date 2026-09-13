@@ -23,12 +23,19 @@ must have exactly ONE answer. In a single field the real and the stated author c
 fictional author can win, and the question stops being answerable. That is a product decision and it
 is stronger for being argued as one.
 
-An organisation is not a `created_by` either. The archive records 11,089 Writer credits, which are
-people, alongside 8,212 Publisher and 851 Network credits, which are companies — as DIFFERENT ROLES
-rather than one role pointing at two kinds of thing.
+An organisation is not a `created_by` either. **Re-measured against the LIVE wiki on 2026-09-13
+(CNCORE-103): the wiki states 11,095 `Writer` credits across 9,278 of its 11,297 stories**, which
+are people, alongside `Publisher` and `Network` credits, which are companies — as DIFFERENT ROLES
+rather than one role pointing at two kinds of thing. The archive's 11,089, taken 2026-09-10, is six
+credits away and the archive no longer exists.
+
+THE PUBLISHER AND NETWORK COUNTS ARE NOT RESTATED. They were measured corpus-wide and the live
+re-derivation covers the story population, so quoting the old pair beside a new `Writer` figure
+would put three numbers from two populations in one sentence. What this decision turns on is that
+the two KINDS of credit are distinct roles, and that is unchanged.
 
 Reference targets freeze at creation, so these are set on the first insert.
 
 ## Evidence
 
-Verified against source on 2026-09-10; corrections applied. Working in `docs/research/verify-adr-standards.md`. Archive figures measured against `~/tardis-pipeline` directly.
+Verified against source on 2026-09-10; corrections applied. Working in `docs/research/verify-adr-standards.md`. **The archive is deleted (ADR-0129) and every figure above was re-derived from the LIVE wiki on 2026-09-13 by `provider-wiki`'s `pnpm measure:live`.** The archive-era working is `docs/research/verify-new-adrs-archive.md`, which stays as the frozen record it is: it describes a corpus taken 2026-09-04, not the wiki.

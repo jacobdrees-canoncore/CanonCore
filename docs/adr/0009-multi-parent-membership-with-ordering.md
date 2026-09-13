@@ -35,11 +35,16 @@ at 0018 already; this is the other half of that repair.
 
 ## Scale
 
-The archive is 93.4% multi-placement: its stories sit in MORE THAN ONE container, median 4 and
-maximum 52. **That measurement is ADR-0057's**, which owns the archive's figures and re-measured
-them on 2026-09-10; it is quoted here rather than re-asserted, because a number stated twice is a
-number that can disagree with itself. It is what sizes this decision, and what makes multi-placement
-the common case rather than a feature.
+The wiki is 96.8% multi-placement: its stories sit in MORE THAN ONE container, median 4 and
+maximum 52. **That measurement is ADR-0057's**, which owns these figures and re-derived them from
+the LIVE wiki on 2026-09-13 after the archive was deleted (ADR-0129); it is quoted here rather than
+re-asserted, because a number stated twice is a number that can disagree with itself. It is what
+sizes this decision, and what makes multi-placement the common case rather than a feature.
+
+IT WAS 93.4% AGAINST THE ARCHIVE AND THE MOVE IS NOT AN ERROR BEING FIXED. The live figure counts
+the categories the wiki shows a reader; ADR-0057 carries what each population was and why the two
+are not the same question. The decision turns on multi-placement being the common case, which every
+filter agrees on.
 
 ## Evidence
 
