@@ -168,10 +168,12 @@ in the diff to say so.
 
 The header offers `/new` and `/import` to the owner alone since CNCORE-139
 ([[0094-a-fresh-install-starts-empty]]), which means the ROOT LAYOUT reads the session cookie. A
-layout is part of every route's render, so no route under it can be prerendered. Measured on
-16.3.4, `next build` on this branch: `/_not-found` was the one route listed `○ (Static)` before the
-change and `ƒ (Dynamic)` after it, every other route having been dynamic already. That is the whole
-of the cost, and it is a 404 shell.
+layout is part of every route's render, so no route under it can be prerendered. Next says so in
+as many words — "Using it in a layout or page will opt a route into dynamic rendering",
+`01-app/03-api-reference/04-functions/cookies.md`, read from `node_modules` at 16.3.4 on
+2026-09-13 — and `next build` on this branch agrees: `/_not-found` was the one route listed
+`○ (Static)` before the change and `ƒ (Dynamic)` after it, every other route having been dynamic
+already. That is the whole of the cost, and it is a 404 shell.
 
 **It is not the `force-dynamic` this record refuses**, and the difference is the one drawn
 everywhere else here: that is a DECLARATION — invisible in the file that suffers it, and switched on
