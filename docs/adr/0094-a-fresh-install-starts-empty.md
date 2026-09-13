@@ -114,10 +114,12 @@ MAKE THEM ONE.** Three answers off two facts. An owner sees the two routes, unch
 no session on an instance that HAS a password is told only the owner can fill it and offered
 `/login` — which is not a consolation but the correct next step, and the one the README already
 names first ("the first thing to do … is log in with the one you just generated"). A reader on an
-instance with NO password is told that plainly, in the words `/login` uses for the same fact, and
-offered nothing: a login link there would be the door with no key cut for it that that page already
-refuses to render. `session.configured` is what answers the second fact, which is the shape it was
-built for one setting over from `provider.allowlisted`.
+instance with NO password is told that plainly, in the sentence `/login` uses for the same fact with
+the verb a catalogue needs — "nothing can be ADDED through it" where that page says "CHANGED", which
+is the drift CNCORE-146 below found in this very clause and ended by making the shared half one
+string — and offered nothing: a login link there would be the door with no key cut for it that that
+page already refuses to render. `session.configured` is what answers the second fact, which is the
+shape it was built for one setting over from `provider.allowlisted`.
 
 **THE ALTERNATIVES, AND WHY EACH IS WORSE.** Gating on `session.configured` ALONE — render the
 routes wherever a login is possible — fixes only the read-only instance and goes on offering
@@ -175,14 +177,15 @@ itself, which refuses to render a form there, that is every surface in the app t
 say about logging in.
 
 **THE SENTENCE THEY SAY IT WITH IS ONE SENTENCE NOW, AND THE REASON IS A DRIFT THIS RECORD
-CONTAINED.** The paragraph above said the empty state speaks "in the words `/login` uses for the
-same fact". It does not: `/login` says "nothing can be CHANGED through it" and the empty state says
-"ADDED". Both are right where they are — one is about an instance, the other about filling a
+CONTAINED.** The paragraph above claimed the empty state speaks "in the words `/login` uses for the
+same fact", and it did not: `/login` says "nothing can be CHANGED through it" and the empty state
+says "ADDED". Both are right where they are — one is about an instance, the other about filling a
 catalogue — but three places claimed a sentence matched another surface's while it did not, this
-record among them, and CNCORE-144's first draft of `/new` made the same claim a fourth time. Seven
-copies of a sentence is what made that possible, so the clause every surface really does share lives
-in `apps/web/src/components/no-password.ts` and the verb is its argument. What cannot drift now is
-the part that was being claimed.
+record among them, and CNCORE-144's first draft of `/new` made the same claim a fourth time. The
+sentence above is corrected where it stands rather than only here, because a correction placed
+beside a claim leaves the claim standing. Seven copies of one sentence is what made the drift
+possible, so the clause every surface really does share lives in
+`apps/web/src/components/no-password.ts` and the verb is its argument.
 
 **IT SURVIVED TWO TICKETS BECAUSE BOTH CITED `/new` AS EVIDENCE FOR GATING SOMETHING ELSE.** The
 paragraphs above quote "`/new` answers a visitor ..." twice — CNCORE-133 to show that the empty

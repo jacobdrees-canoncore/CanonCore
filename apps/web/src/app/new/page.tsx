@@ -116,7 +116,8 @@ export default async function NewItemPage() {
  * a password IS set this reader may BE the owner and simply not have used it,
  * and the login is the correct next step rather than a consolation -- the one
  * the README names first. Where none is set there is no step, and the honest
- * thing is the thing `/login` and the empty state both say.
+ * thing is to say so in the sentence every surface shares -- `no-password.ts`,
+ * with the verb this page needs.
  *
  * THE PROP IS `aPasswordIsSet` RATHER THAN ANYTHING ABOUT LOGGING IN, for the
  * reason `WhoFillsIt` on the front page gives at length: the dangerous name
