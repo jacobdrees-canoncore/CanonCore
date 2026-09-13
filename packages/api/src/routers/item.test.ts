@@ -109,15 +109,13 @@ describe("item.get", () => {
 
     const item = await call(appRouter.item.get, { id: story }, { context });
 
-    expect(item.placements.rows.map((placement) => Object.keys(placement).sort())).toStrictEqual(
-      [
-        // It went red here when CNCORE-121 added `assertedBy`, exactly as the
-        // members listing below went red when CNCORE-90 added it there. The
-        // enumeration working: who asserted a placement is emitted because a line
-        // was written for it, and the sources' own ids still are not.
-        ["assertedBy", "containerId", "containerTitle", "id", "placedBy", "position"],
-      ],
-    );
+    expect(item.placements.rows.map((placement) => Object.keys(placement).sort())).toStrictEqual([
+      // It went red here when CNCORE-121 added `assertedBy`, exactly as the
+      // members listing below went red when CNCORE-90 added it there. The
+      // enumeration working: who asserted a placement is emitted because a line
+      // was written for it, and the sources' own ids still are not.
+      ["assertedBy", "containerId", "containerTitle", "id", "placedBy", "position"],
+    ]);
   });
 
   it("names the sources behind each ordering, so a Repeat reads apart from a disagreement", async () => {
@@ -150,9 +148,7 @@ describe("item.get", () => {
     // RANK STILL LEADS (ADR-0017): the wiki holds the lower source order and so
     // speaks first, though the broadcaster put the story earlier. Naming the
     // sources does not reorder the list.
-    expect(
-      item.placements.rows.map((p) => [p.position, p.placedBy, p.assertedBy]),
-    ).toStrictEqual([
+    expect(item.placements.rows.map((p) => [p.position, p.placedBy, p.assertedBy])).toStrictEqual([
       [3, "provider", ["A wiki this payload asked"]],
       [1, "provider", ["A broadcaster this payload asked"]],
     ]);
@@ -489,12 +485,12 @@ describe("item.get on a container", () => {
     // an array can carry the page and cannot carry what the page is not showing.
     expect(Object.keys(placementsOfItemPublic.shape).sort()).toStrictEqual([
       "continuesAfter",
-      "rows",
       // IT WENT RED HERE WHEN CNCORE-129 ADDED `everyPlacedBy`, which is the
       // enumeration working: a listing a reader can narrow has to say what it
       // can be narrowed TO, and that is a field because it is a second question
       // rather than something derivable from the rows.
       "everyPlacedBy",
+      "rows",
       "total",
     ]);
   });
@@ -990,9 +986,7 @@ describe("item.get on an item in more orderings than one page", () => {
     const whole = await call(appRouter.item.get, { id }, { context });
     const narrowed = await call(appRouter.item.get, { id, placed: "provider" }, { context });
 
-    expect(whole.placements.rows.map((placement) => placement.placedBy)).not.toContain(
-      "provider",
-    );
+    expect(whole.placements.rows.map((placement) => placement.placedBy)).not.toContain("provider");
     expect(whole.placements.everyPlacedBy).toStrictEqual(["owner", "provider"]);
     // AND NARROWED TO ONE OF THEM IT STILL OFFERS BOTH, which is the way back to
     // All: chips derived from a narrowed page would hold only the origin the

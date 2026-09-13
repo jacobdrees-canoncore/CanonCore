@@ -270,9 +270,7 @@ describe("readCatalogue, walked a page at a time", () => {
     // go -- a different code path from the walk, which is what makes this an
     // assertion rather than the walk marking its own work.
     const fromTheStart = await readCatalogue(db, { limit: 10_000 });
-    expect(kept.rows.map((row) => row.id)).toStrictEqual(
-      fromTheStart.rows.map((row) => row.id),
-    );
+    expect(kept.rows.map((row) => row.id)).toStrictEqual(fromTheStart.rows.map((row) => row.id));
   });
 
   it("says so on a catalogue with no untitled tail, which is the shape that reads as an ending", async () => {

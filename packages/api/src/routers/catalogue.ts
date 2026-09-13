@@ -1,9 +1,5 @@
 import { type Catalogue, readCatalogue, readWorks, searchCatalogue } from "@canoncore/db";
-import {
-  type CatalogueRowPublic,
-  type CataloguePublic,
-  cataloguePublic,
-} from "@canoncore/schemas";
+import { type CataloguePublic, type CatalogueRowPublic, cataloguePublic } from "@canoncore/schemas";
 import { z } from "zod";
 
 import { openProcedure } from "../index";

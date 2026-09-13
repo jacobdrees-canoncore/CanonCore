@@ -301,9 +301,9 @@ describe("not a tree", () => {
     // a collapse is the failure this exists to catch and "at least one" is what
     // a collapsed model answers.
     expect(item.placements.rows).toHaveLength(2);
-    expect(
-      item.placements.rows.map((placement) => placement.containerId).toSorted(),
-    ).toStrictEqual([wikiSeries2, tmdbSeason2].toSorted());
+    expect(item.placements.rows.map((placement) => placement.containerId).toSorted()).toStrictEqual(
+      [wikiSeries2, tmdbSeason2].toSorted(),
+    );
     // And the two rows are two rows rather than one read twice.
     expect(new Set(item.placements.rows.map((placement) => placement.id)).size).toBe(2);
   });

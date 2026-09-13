@@ -46,9 +46,7 @@ describe("placeItemByHand", () => {
     // `assertedBy` NAMES THE OWNER, which is what makes a hand-placed member
     // distinguishable from an imported one (ADR-0017, ADR-0071). A placement
     // written with no source would render with no origin at all.
-    expect(
-      (await findPlacementsInContainer(db, releaseOrder, { limit: 100 })).rows,
-    ).toStrictEqual([
+    expect((await findPlacementsInContainer(db, releaseOrder, { limit: 100 })).rows).toStrictEqual([
       { id: placementId, itemId: story, title: null, position: 63, assertedBy: ["Owner"] },
     ]);
   });
@@ -175,9 +173,9 @@ describe("removePlacementByHand", () => {
 
     expect(await removePlacementByHand(db, inRelease)).toBe(true);
 
-    expect(
-      (await findPlacementsInContainer(db, releaseOrder, { limit: 100 })).rows,
-    ).toStrictEqual([]);
+    expect((await findPlacementsInContainer(db, releaseOrder, { limit: 100 })).rows).toStrictEqual(
+      [],
+    );
     expect((await findPlacementsOfItem(db, story, { limit: 10 })).rows).toStrictEqual([
       expect.objectContaining({ containerId: storyOrder, position: 1 }),
     ]);
@@ -212,9 +210,7 @@ describe("restorePlacementByHand", () => {
 
     expect(await restorePlacementByHand(db, placementId)).toBe(true);
 
-    expect(
-      (await findPlacementsInContainer(db, releaseOrder, { limit: 100 })).rows,
-    ).toStrictEqual([
+    expect((await findPlacementsInContainer(db, releaseOrder, { limit: 100 })).rows).toStrictEqual([
       { id: placementId, itemId: story, title: null, position: 63, assertedBy: ["Owner"] },
     ]);
   });
@@ -238,9 +234,7 @@ describe("restorePlacementByHand", () => {
     await removePlacementByHand(db, placementId);
     await restorePlacementByHand(db, placementId);
 
-    expect(
-      (await findPlacementsInContainer(db, releaseOrder, { limit: 100 })).rows,
-    ).toStrictEqual([
+    expect((await findPlacementsInContainer(db, releaseOrder, { limit: 100 })).rows).toStrictEqual([
       { id: placementId, itemId: story, title: null, position: 63, assertedBy: ["The Wiki"] },
     ]);
   });
@@ -280,9 +274,7 @@ describe("a removal and a re-placement meeting over one tuple", () => {
     // THE SAME PLACEMENT RETURNING, not a second one: the tuple admits one row
     // and the id is a stable surrogate every external reference already holds.
     expect(replaced).toBe(placementId);
-    expect(
-      (await findPlacementsInContainer(db, releaseOrder, { limit: 100 })).rows,
-    ).toStrictEqual([
+    expect((await findPlacementsInContainer(db, releaseOrder, { limit: 100 })).rows).toStrictEqual([
       { id: placementId, itemId: story, title: null, position: 63, assertedBy: ["Owner"] },
     ]);
   });
@@ -304,9 +296,7 @@ describe("a removal and a re-placement meeting over one tuple", () => {
 
     await restorePlacementByHand(db, placementId);
 
-    expect(
-      (await findPlacementsInContainer(db, releaseOrder, { limit: 100 })).rows,
-    ).toStrictEqual([
+    expect((await findPlacementsInContainer(db, releaseOrder, { limit: 100 })).rows).toStrictEqual([
       { id: placementId, itemId: story, title: null, position: 63, assertedBy: ["Owner"] },
     ]);
   });
@@ -382,9 +372,9 @@ describe("what a restore will NOT bring back", () => {
       .where(eq(placements.id, placementId));
 
     expect(await restorePlacementByHand(db, placementId)).toBe(false);
-    expect(
-      (await findPlacementsInContainer(db, releaseOrder, { limit: 100 })).rows,
-    ).toStrictEqual([]);
+    expect((await findPlacementsInContainer(db, releaseOrder, { limit: 100 })).rows).toStrictEqual(
+      [],
+    );
   });
 
   it("still restores a placement NO source ever asserted, which is a real state", async () => {
@@ -403,8 +393,8 @@ describe("what a restore will NOT bring back", () => {
     await removePlacementByHand(db, placementId);
 
     expect(await restorePlacementByHand(db, placementId)).toBe(true);
-    expect(
-      (await findPlacementsInContainer(db, releaseOrder, { limit: 100 })).rows,
-    ).toStrictEqual([{ id: placementId, itemId: story, title: null, position: 7, assertedBy: [] }]);
+    expect((await findPlacementsInContainer(db, releaseOrder, { limit: 100 })).rows).toStrictEqual([
+      { id: placementId, itemId: story, title: null, position: 7, assertedBy: [] },
+    ]);
   });
 });
