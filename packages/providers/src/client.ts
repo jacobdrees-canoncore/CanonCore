@@ -77,15 +77,28 @@ const MAX_BODY_BYTES = 4 * 1024 * 1024;
  * How much of a FAILING answer is read before the socket is let go (CNCORE-140).
  *
  * NOT `MAX_BODY_BYTES`, WHICH IS FOUR MEBIBYTES. What is wanted out of a failure
- * is ONE SENTENCE, and only `REASON_MAX_LENGTH` characters of it survive to the
- * page. UTF-8 spends at most four bytes on a character, so 1,200 bytes carries
- * the longest reason there can be; this is three times that, which leaves room
- * for the envelope around it and for a provider that writes its `error` after
- * other keys. A provider flooding a failure body is not sending a sentence, and
- * reading four mebibytes of it to print three hundred characters would hold the
- * socket open for exactly the reason the drain below exists to avoid.
+ * is ONE SENTENCE, and only `REASON_MAX_LENGTH` of it survives to a page.
+ *
+ * THE ARITHMETIC, SPELLED OUT BECAUSE AN EARLIER VERSION OF THIS COMMENT GOT IT
+ * WRONG: it claimed 1,200 bytes carried the longest reason and that the constant
+ * was "three times that" while the constant WAS 1,200. Twelve is three times
+ * four, and both halves are measured rather than assumed. `REASON_MAX_LENGTH`
+ * counts UTF-16 UNITS, and a unit costs AT MOST THREE UTF-8 BYTES -- that is a
+ * BMP character, and an astral one is four bytes spread across two units, so it
+ * is cheaper per unit rather than dearer. So 900 bytes carries the longest
+ * reason there can be, and the remaining three quarters is headroom for the
+ * envelope around it and for a provider that writes other keys ahead of its
+ * `error`.
+ *
+ * IT BOUNDS WHAT IS ASKED FOR RATHER THAN CUTTING AT AN EXACT BYTE. The read
+ * stops requesting chunks once it holds this much and keeps whole the chunk that
+ * took it there, so a small body arrives entire and a flood stops within one
+ * chunk of the bound. That is all this number is for: a provider flooding a
+ * failure body is not sending a sentence, and reading four mebibytes of one to
+ * print three hundred characters would hold the socket open for exactly the
+ * reason the drain existed.
  */
-const MAX_REASON_BYTES = 4 * REASON_MAX_LENGTH;
+const MAX_REASON_BYTES = 12 * REASON_MAX_LENGTH;
 
 export function createProviderClient({
   baseUrl,
@@ -290,6 +303,12 @@ async function failed(response: Response, path: string): Promise<Error> {
  */
 async function saidBy(response: Response): Promise<string> {
   const text = await firstBytesOf(response);
+  // BOUNDED HERE AND NOT ONLY ON THE WAY TO A PAGE, which is not the same cap
+  // twice. `reasonFor` bounds what a page RENDERS; this Error is also carried
+  // whole by `FailedProvider`, whose `reason.message` `search.ts` reads
+  // directly -- so a provider's text left unbounded here reaches that consumer
+  // at whatever length it chose. ADR-0123's rule is that the value is bounded
+  // WHERE IT ENTERS the sentence, and this is where it enters.
   return bounded(errorIn(text) ?? text);
 }
 
@@ -310,45 +329,30 @@ function errorIn(text: string): string | null {
   }
   if (typeof body !== "object" || body === null) return null;
   const said = (body as { error?: unknown }).error;
-  return typeof said === "string" && said !== "" ? said : null;
+  // AN EMPTY ONE IS STILL AN ANSWER, and returning `null` for it would send the
+  // envelope to be quoted with its braces showing. A provider that wrote the
+  // field and put nothing in it has said nothing, which `failed` already has a
+  // sentence for.
+  return typeof said === "string" ? said : null;
 }
 
 /**
- * The first `MAX_REASON_BYTES` of a body, WITH THE SOCKET LET GO EITHER WAY.
+ * The first `MAX_REASON_BYTES` of a body, as text, or nothing.
  *
- * `cancel()` IN A `finally` IS WHAT PRESERVES THE REASON THE DRAIN EXISTED FOR.
- * A body read to its end is already closed and cancelling it again is a no-op; a
- * body cut off at the cap has the rest of itself still arriving, and this is
- * what reclaims that socket instead of leaving it to `bodyTimeout`. The lock is
- * released first, which is what lets the cancel through -- the same pairing
- * `readJson` uses for the oversized case.
- *
- * A READ THAT THROWS PART-WAY STILL ANSWERS. A provider that dies mid-sentence
- * has said whatever arrived before it did, and the failure worth reporting to
- * the Owner is the one that got this far rather than the socket's account of it.
+ * A READ THAT THROWS PART-WAY HAS NO SENTENCE TO QUOTE. A provider that died
+ * mid-body left a fragment of one, and `failed` already says the honest thing
+ * about a provider that said nothing. The socket is released either way, in
+ * `readAtMost`'s own `finally`.
  */
 async function firstBytesOf(response: Response): Promise<string> {
   const body = response.body;
   if (!body) return "";
-
-  const reader = body.getReader();
-  const chunks: Uint8Array[] = [];
-  let size = 0;
   try {
-    while (size < MAX_REASON_BYTES) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      chunks.push(value);
-      size += value.byteLength;
-    }
+    const { bytes } = await readAtMost(body, MAX_REASON_BYTES);
+    return new TextDecoder().decode(bytes);
   } catch {
-    // Whatever arrived is still the provider's answer.
-  } finally {
-    reader.releaseLock();
-    await body.cancel().catch(() => {});
+    return "";
   }
-
-  return new TextDecoder().decode(concat(chunks, size));
 }
 
 /**
@@ -362,29 +366,58 @@ async function readJson(response: Response): Promise<unknown> {
   const body = response.body;
   if (!body) throw new OutboundRefused(`refused ${response.url}: the response carried no body.`);
 
+  const { bytes, cut } = await readAtMost(body, MAX_BODY_BYTES);
+  if (cut) {
+    throw new OutboundRefused(
+      `refused ${response.url}: the response body is larger than the ${MAX_BODY_BYTES}-byte size this client will read.`,
+    );
+  }
+  return JSON.parse(new TextDecoder().decode(bytes));
+}
+
+/**
+ * A body's bytes up to `limit`, AND WHETHER THERE WERE MORE OF THEM.
+ *
+ * ONE READ LOOP FOR THE TWO BOUNDS THIS FILE HOLDS A PROVIDER TO, because they
+ * are the same loop and differ only in what the caller does at the ceiling:
+ * `readJson` REFUSES a body past `MAX_BODY_BYTES`, and `firstBytesOf` keeps what
+ * it has and walks away. Written twice, the two would quietly stop agreeing
+ * about the part that is hard -- which is the release below rather than the
+ * counting.
+ *
+ * `cancel()` IN A `finally` IS WHAT RELEASES THE SOCKET. A body read to its end
+ * is already closed and cancelling it again is a no-op; a body abandoned at the
+ * ceiling has the rest of itself still arriving, and this is what reclaims that
+ * socket rather than leaving it to `bodyTimeout`. The lock is released first,
+ * which is what lets the cancel through.
+ *
+ * IT READS ONE CHUNK PAST `limit` ON PURPOSE. `cut` has to distinguish a body
+ * that ENDED at the ceiling from one that merely reached it, and nothing but
+ * asking for the next chunk can tell those apart -- so `readJson` refusing a
+ * body of exactly `MAX_BODY_BYTES` would be a refusal of a body that was fine.
+ */
+async function readAtMost(
+  body: ReadableStream<Uint8Array>,
+  limit: number,
+): Promise<{ bytes: Uint8Array; cut: boolean }> {
   const reader = body.getReader();
   const chunks: Uint8Array[] = [];
   let size = 0;
   try {
-    while (true) {
+    while (size <= limit) {
       const { done, value } = await reader.read();
       if (done) break;
-      size += value.byteLength;
-      if (size > MAX_BODY_BYTES) {
-        throw new OutboundRefused(
-          `refused ${response.url}: the response body is larger than the ${MAX_BODY_BYTES}-byte size this client will read.`,
-        );
-      }
       chunks.push(value);
+      size += value.byteLength;
     }
   } finally {
     // Releasing the lock lets `cancel()` reclaim the socket when the read was
     // abandoned part-way, which is exactly the oversized case.
     reader.releaseLock();
-    if (size > MAX_BODY_BYTES) await body.cancel().catch(() => {});
+    await body.cancel().catch(() => {});
   }
 
-  return JSON.parse(new TextDecoder().decode(concat(chunks, size)));
+  return { bytes: concat(chunks, size), cut: size > limit };
 }
 
 function concat(chunks: Uint8Array[], size: number): Uint8Array {

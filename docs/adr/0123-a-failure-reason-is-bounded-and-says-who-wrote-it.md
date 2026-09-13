@@ -227,9 +227,9 @@ exactly as a cancel does, and what makes it possible to bound is this record's o
 
 It mattered from CNCORE-100 onward rather than in the abstract. `provider-wiki` answers `503` with
 the sentence naming which session lapsed and the path to renew it at, built to this record on the
-provider's own side and measured there as not surviving the crossing — "the missing half is on the
-other side of the boundary". An expired `cf_clearance` is the ORDINARY failure of a live provider,
-and the Owner read `answered 503`.
+provider's own side and measured there as not surviving the crossing. CNCORE-100's own words for it:
+"the missing half is on the other side of the boundary". An expired `cf_clearance` is the ORDINARY
+failure of a live provider, and the Owner read `answered 503`.
 
 **ONE FUNCTION FOR BOTH SITES**, which is this record's own lesson one seam below where it was
 learned: `read` and `readOrNull` carried two copies of that sentence exactly as `provider.search` and
@@ -270,11 +270,29 @@ names in its own lead sentence.
 
 ### What the bounded read costs, and what it does not
 
-`MAX_REASON_BYTES` is four times `REASON_MAX_LENGTH` and not `MAX_BODY_BYTES`. Only 300 characters
-survive to a page and UTF-8 spends at most four bytes on one, so 1,200 bytes carries the longest
-reason there can be; reading four mebibytes to print three hundred characters would hold the socket
-open for the very reason the drain existed. Past the cap the body is cancelled in a `finally`, which
-is what reclaims it — **and that is guarded rather than assumed.** The witness is a provider that
+`MAX_REASON_BYTES` is twelve times `REASON_MAX_LENGTH` and not `MAX_BODY_BYTES`.
+
+**THE ARITHMETIC IS RECORDED BECAUSE THE FIRST ATTEMPT AT IT WAS WRONG IN BOTH HALVES**, and the
+review that caught it proposed a third figure that is wrong too — so it is spelled out rather than
+asserted. `REASON_MAX_LENGTH` counts UTF-16 UNITS, not code points. A unit costs AT MOST THREE UTF-8
+bytes, which is a BMP character; an ASTRAL character is four bytes spread over TWO units, so it is
+cheaper per unit rather than dearer. **So the longest reason there can be is 900 bytes, not 1,200**,
+and a near-maximal reason inside a `{"error": …}` envelope does NOT overrun a 1,200-byte read the way
+the review reasoned it would. What was genuinely wrong was the constant's own comment, which named
+1,200 and called it "three times" the 1,200 it had just derived. Twelve times leaves 900 bytes of
+reason and three times that in headroom, for the envelope and for a provider that writes other keys
+ahead of its `error`.
+
+**IT BOUNDS WHAT IS ASKED FOR RATHER THAN CUTTING AT AN EXACT BYTE**, which is the third thing the
+first attempt did not say. The read stops requesting chunks once it holds the bound and keeps whole
+the chunk that took it there, so a small body arrives entire whatever the number is. A test asserting
+that a reason past the bound is dropped would therefore pass on CHUNK GRANULARITY rather than on the
+cap, and one was written and deleted for exactly that: it is the "looked like a guard and was not
+one" shape this record already carries once.
+
+Reading four mebibytes to print three hundred characters would hold the socket open for the very
+reason the drain existed. Past the bound the body is cancelled in a `finally`, which is what reclaims
+it — **and that is guarded rather than assumed.** The witness is a provider that
 never stops writing: a client reading to the end waits out `bodyTimeout`, and one that walked away
 without cancelling leaves a socket the test's own teardown hangs on. Removing the cancel fails it in
 10 seconds, measured, which is how it is known to be a guard rather than decoration.
@@ -288,3 +306,35 @@ crosses a package boundary, an RPC procedure and a React component between the s
 and the client's own test proves none of that. The existing page witness for the `provider` branch
 answers `200` with a malformed manifest, so the text it quotes is zod's; this is the first one whose
 quoted text is a provider's own words.
+
+### Where the bound is applied, and why twice is not twice
+
+The reason is bounded where it ENTERS the sentence and the whole sentence is bounded again by
+`reasonFor` on its way to a page. A review read the inner one as the outer one repeated, since the
+outer always dominates what a page RENDERS. It does not: `FailedProvider` in `search.ts` carries the
+thrown Error itself and reads `reason.message` directly, so text left unbounded at the seam reaches
+that consumer at whatever length the provider chose. Bounding where the value enters is this record's
+own rule, and this is where it enters.
+
+The same review proposed setting the inner bound to `REASON_MAX_LENGTH` minus the framing so the cut
+happens once. That is refused. It buys the Owner nothing — the rendered length is 300 either way — and
+it reintroduces precisely the arithmetic this record warns against, a bound that holds only while
+every caller agrees how long the prose around it is.
+
+### A field a provider sent empty is silence, not a body to quote
+
+`{"error": ""}` is the same silence as no body at all wearing a different spelling. An earlier build
+read a present-but-empty `error` as "no reason here" and fell through to quoting the raw envelope, so
+the Owner got `{"error":"","provider":"…"}` with its braces showing — the stack of braces this record
+caps against, arriving by the route built to prevent it. A string `error` is taken whatever is in it,
+and an empty one reaches the sentence that reports silence.
+
+### One read loop, not two
+
+`readAtMost` is shared by `readJson` and the reason read. They are the same loop and differ only in
+what the caller does at the ceiling: one REFUSES a body past `MAX_BODY_BYTES`, the other keeps what it
+has and walks away. Written twice they would quietly stop agreeing about the half that is hard, which
+is the release rather than the counting — and this record exists because a defect already had two
+sites. It reads ONE CHUNK PAST the limit on purpose: `cut` has to tell a body that ENDED at the
+ceiling from one that merely reached it, and nothing but asking for the next chunk distinguishes
+those, so refusing a body of exactly `MAX_BODY_BYTES` would be refusing a body that was fine.

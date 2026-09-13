@@ -507,6 +507,22 @@ describe("the CMPP client", () => {
   });
 
   /*
+   * AND A PROVIDER THAT SENDS THE FIELD WITH NOTHING IN IT HAS ALSO SAID
+   * NOTHING. It is the same silence as an empty body wearing a different
+   * spelling, and the honest answer to it is the same sentence -- not the
+   * envelope quoted back with its braces showing, which is the stack of braces
+   * ADR-0123 caps against.
+   */
+  it("reads an empty reason as a provider saying nothing, not as a body to quote", async () => {
+    const baseUrl = await stubProvider((_, response) =>
+      json(response, { error: "", provider: "a provider" }, 503),
+    );
+    const client = createProviderClient({ baseUrl, allowlist: onLoopback() });
+
+    await expect(client.search("dalek")).rejects.toThrow("/search?q=dalek answered 503.");
+  });
+
+  /*
    * THE REASON THE BODY WAS BEING CANCELLED IS PRESERVED RATHER THAN REVERTED,
    * which is the half of CNCORE-140 that could have been lost fixing the other.
    *
@@ -554,6 +570,35 @@ describe("the CMPP client", () => {
     const reason = reasonFor(thrown);
     expect(reason.text.length).toBeLessThanOrEqual(REASON_MAX_LENGTH);
     expect(reason.text).toContain(said);
+  });
+
+  /*
+   * A FLOODING PROVIDER IS CUT WHERE ITS TEXT ENTERS THE SENTENCE, not only
+   * where the sentence is printed.
+   *
+   * `reasonFor` caps what a PAGE renders, and that cap was already here. This
+   * asserts the other consumer: `FailedProvider` in `search.ts` carries this
+   * Error itself and reads `reason.message`, so text that was only bounded on
+   * the way to a page would reach that one at whatever length the provider
+   * chose. ADR-0123's rule is that the value is bounded WHERE IT ENTERS.
+   *
+   * IT FAILS IF THE INNER BOUND IS REMOVED, which the page-level cap alone does
+   * not -- 300 characters get rendered either way, and the Error grows to
+   * whatever arrived.
+   */
+  it("cuts a flooding provider's reason where it enters, not only where it is printed", async () => {
+    const flood = `${"x".repeat(50_000)}TAIL`;
+    const baseUrl = await stubProvider((_, response) => json(response, { error: flood }, 503));
+    const client = createProviderClient({ baseUrl, allowlist: onLoopback() });
+
+    const thrown = await client.search("dalek").catch((error: unknown) => error);
+
+    const message = thrown instanceof Error ? thrown.message : String(thrown);
+    // The provider's half is cut at the bound; the framing ahead of it is at
+    // most 95 characters, and none of the flood's tail survives either cut.
+    expect(message.length).toBeLessThanOrEqual(REASON_MAX_LENGTH + 95);
+    expect(message).not.toContain("TAIL");
+    expect(reasonFor(thrown).text.length).toBeLessThanOrEqual(REASON_MAX_LENGTH);
   });
 });
 
