@@ -25,6 +25,12 @@ const workBrowsing = inject("workBrowsing");
  * start" under the notice's own, and no assertion could see it (CNCORE-89
  * review). The end is now the LAST `</section>` before the next sibling
  * heading, which is `also-appears-in`.
+ *
+ * TODO(CNCORE-147): naming the neighbour is a bet on what renders next, and it is
+ * the bet CNCORE-135 lost one section along -- put anything between this list and
+ * "Also appears in" and this silently takes it in. `sectionOpeningAt` in
+ * `item-page.test.ts` counts depth instead and needs no neighbour; that reading
+ * belongs in `document.ts` serving both.
  */
 function members(text: string): string {
   const opened = text.indexOf('aria-labelledby="members"');

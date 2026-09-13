@@ -57,29 +57,51 @@ function values(text: string): string {
  * review found a defect hiding: a second "Back to the start" under the notice's
  * own, which no assertion could see.
  *
- * IT ENDS AT THE NEXT SIBLING SECTION, WHICH IS THE ATTRIBUTION NOTICE, and that
- * is the same end `members` takes rather than a second idea of one. It used to
- * end at the DOCUMENT'S last `</section>`, justified by "Also appears in" being
- * the last section on the page but for the notice, which was said to carry no
- * `aria-labelledby` to anchor on. IT CARRIES ONE: `Attribution` renders
+ * IT ENDS AT ITS OWN CLOSING TAG, COUNTED. It used to end at the DOCUMENT'S last
+ * `</section>`, on the reasoning that "Also appears in" is the last section on
+ * the page but for the attribution notice, which carries no `aria-labelledby` to
+ * anchor on -- AND THAT NOTICE CARRIES ONE. `Attribution` renders
  * `aria-labelledby="attribution"` and renders LAST, so on an item that owes a
- * notice the document's last `</section>` was the NOTICE'S, and this handed back
- * the orderings with the notices on the end of them. `orderingRows` matches
- * `<li>` over this slice, so each notice counted as an ordering -- an assertion
+ * notice the document's last `</section>` was the NOTICE'S: this handed back the
+ * orderings with the notices on the end of them, and `orderingRows` matches
+ * `<li>` over the slice, so each notice counted as an ordering -- an assertion
  * about how many orderings an item sits in answering with how many licences it
  * owes (CNCORE-135).
  *
- * THE DOCUMENT'S LAST `</section>` IS STILL THE END WHEN NOTHING IS OWED, which
- * is the ordinary page: the notice renders nothing for an item that obliges
- * nobody, and no section is rendered outside `main` for one to run into.
+ * COUNTING RATHER THAN NAMING THE NEIGHBOUR is what stops that recurring. Ending
+ * before `attribution` by name would be the same bet one section along: anything
+ * rendered between this list and the notice would be swallowed exactly as the
+ * notice was, and the count would be wrong again for a reason no assertion says.
  */
 function alsoAppearsIn(text: string): string {
   const opened = text.indexOf('aria-labelledby="also-appears-in"');
   if (opened === -1) throw new Error("the page rendered no `Also appears in` section");
-  const owed = text.indexOf('aria-labelledby="attribution"', opened);
-  const end =
-    owed === -1 ? text.lastIndexOf("</section>") + 10 : text.lastIndexOf("<section", owed);
-  return text.slice(text.lastIndexOf("<section", opened), end);
+  return sectionOpeningAt(text, text.lastIndexOf("<section", opened));
+}
+
+/**
+ * The whole `<section>` that opens at `start`, NESTED ONES INCLUDED.
+ *
+ * DEPTH COUNTED RATHER THAN AN END GUESSED AT, which is what makes this immune
+ * to what happens to sit after it. Every other reading of a section in this
+ * suite anchors on something outside the section itself -- the first
+ * `</section>` (`sectionIn`), the document's last one, or the next sibling's
+ * heading (`members`) -- and each is a bet about the page's shape that the page
+ * is free to break. CNCORE-89 and CNCORE-135 are both that bet losing.
+ *
+ * TODO(CNCORE-147): this belongs in `document.ts` beside `sectionIn`, which stops
+ * at the first `</section>` and is why both this file and `container-page.test.ts`
+ * hand-roll a slice instead of calling it.
+ */
+function sectionOpeningAt(text: string, start: number): string {
+  const tags = /<section\b|<\/section>/g;
+  tags.lastIndex = start;
+  let depth = 0;
+  for (let tag = tags.exec(text); tag !== null; tag = tags.exec(text)) {
+    depth += tag[0] === "</section>" ? -1 : 1;
+    if (depth === 0) return text.slice(start, tag.index + tag[0].length);
+  }
+  throw new Error("the page left that section unclosed");
 }
 
 describe("/items/<id>", () => {
@@ -673,17 +695,12 @@ describe("what the page owes for what it shows", () => {
   /**
    * AND THE ORDERINGS ABOVE THEM ARE STILL JUST THE ORDERINGS (CNCORE-135).
    *
-   * `Attribution` renders LAST on this page, so on an item that owes a notice
-   * the document's last `</section>` is the notice's -- and `alsoAppearsIn`,
-   * which used to end there, handed back the orderings with the notices on the
-   * end of them. `orderingRows` matches `<li>` over that slice, so every notice
-   * counted as an ordering: an assertion about how many orderings an item sits
-   * in would have been answering with how many licences it owes.
-   *
-   * THIS FIXTURE IS THE FIRST THAT IS BOTH, which is why the defect went
-   * unreached until now. `twoInstances` sits in two orderings -- one per
-   * instance's browse -- and owes two notices, so the count the old slice gave
-   * was four and the count a reader would agree with is two.
+   * THIS FIXTURE IS THE FIRST THAT IS BOTH, which is why the slice that ran
+   * through the notices went unmet until now: `twoInstances` sits in two
+   * orderings -- one per instance's browse -- and owes two notices, so it is the
+   * first item anything counts the ordering rows of while a notice is on the
+   * page. The count the old slice gave was four; the count a reader would agree
+   * with is two. `alsoAppearsIn` carries why.
    *
    * THE NOTICE IS ASSERTED PRESENT FIRST, because every assertion after it is a
    * negative one and a page rendering no attribution at all would satisfy them
