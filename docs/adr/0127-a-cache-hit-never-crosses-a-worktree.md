@@ -45,6 +45,26 @@ RUN v5.0.0 ~/orca/workspaces/CanonCore/cncore-99-provider-settings/packages/env
 
 A different worktree, on a ticket that had already merged.
 
+**The A/B above sets the store with `--cache-dir`, and it has to.** The key's own bytes are a global
+hash input, so writing it into `turbo.json` would have moved the hash and confounded the one
+comparison that had to hold it still. The flag and the key are one setting: turbo's options overview
+lists `cacheDir`, `--cache-dir` and `TURBO_CACHE_DIR` as the three ways to set the filesystem cache
+directory, and the flag carries the same description and the same default `.turbo/cache` as the key.
+**Every measurement below was taken with the shipped key and no flag.**
+
+**The outbound direction, which the inbound pair does not cover.** With the key in place,
+`turbo run test --filter=@canoncore/env --force` wrote hash `3f53e85b430ce07e`:
+
+```
+in THIS worktree's store:  .turbo/cache/3f53e85b430ce07e.tar.zst
+in the SHARED store:       absent
+```
+
+So the pair is closed in both directions: nothing arrives from the shared store, and nothing computed
+here is written where another worktree could find it. The MISS in the table above is a miss **by
+construction**, and the construction is the partition — what shows the private store still answering
+when it should is the warm run below, 21 of 22 tasks cached.
+
 ## The sharing is a defect ON ITS OWN, which corrects the research
 
 `docs/research/parallel-agent-substrate.md` reached the opposite conclusion twice. Under "The five
@@ -96,6 +116,13 @@ every branch since the repository opened.
 Thirty-two seconds is the whole of what the sharing was buying, and it was buying it by answering
 with another agent's work.
 
+**THE DISK COST IS SMALLER THAN THE MULTIPLICATION SUGGESTS, because a private store dies with its
+worktree.** The shared one never dies: nothing evicts it, so it holds every entry every merged ticket
+ever wrote, which is what 416 MB across 7,254 entries is. A worktree's own `.turbo/cache` goes when
+the dispatcher removes the worktree, which this repo already does as each PR merges. Turbo 2.10 offers
+`cacheMaxAge` and `cacheMaxSize`; neither is set here, because worktree removal already bounds the
+thing they would bound, and a setting nothing needs is one more line to explain.
+
 **Editing `turbo.json` at all moves every task hash once**, because the file is a global hash input.
 So merging this costs one cold pass in every live worktree regardless of the cache decision — paid
 once, on the merge, and not again.
@@ -123,16 +150,25 @@ absolute, or if it climbs out of the checkout on `..`.
 
 **The guard reads the config because turbo will not answer.** `--dry=json` reports a task's hash and
 cache status but not the directory; `turbo info` reports the CLI, the platform and the daemon;
-`turbo query` exposes packages, files and tasks. All three checked on 2026-09-13. Observing the cache
-directory needs a real task run watched against the filesystem, and a nested `turbo run` inside a
-turbo task is a collision the guard is not worth — so the behaviour was measured once, in CNCORE-138,
-and the config is what the suite holds.
+`turbo query` exposes packages, files and tasks. All three checked on 2026-09-13.
+
+That is the difference from ADR-0126's guard, which asks turbo rather than `turbo.json` and is right
+to: `turbo-cache-inputs.test.ts` nests `turbo run test --dry=json`, which resolves the graph, runs no
+task and costs about 0.2s. Nothing equivalent exists here. Observing the cache DIRECTORY needs a real
+task run watched against the filesystem, and a nested run that executes — inside a suite that is
+itself a turbo task, against packages that suite is already running — is a collision this guard is not
+worth. So the behaviour was measured once, in CNCORE-138, and the config is what the suite holds.
+
+What the suite does hold is every way the line can be present and still share: absent, commented out,
+made absolute, or climbing out on `..`.
 
 ## CI is untouched
 
 A CI job clones the repository; a clone is not a linked worktree, so the default already resolved to
-the job's own root and an explicit relative path resolves to the same place. No CI time is spent and
-none is saved.
+the job's own root and an explicit relative path resolves to the same place. Checked rather than
+assumed: no step in `.github/workflows/ci.yml` restores or saves a turbo cache — there is no
+`actions/cache` over `.turbo` at all — so every CI job was already cold and still is. No CI time is
+spent and none is saved.
 
 ## Evidence
 

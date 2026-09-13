@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { isAbsolute, join, relative, resolve } from "node:path";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { repoRoot } from "./testing/repo-root";
@@ -44,10 +44,17 @@ type TurboConfig = { cacheDir?: unknown };
 /**
  * `turbo.json` is JSONC -- `packages/config/turbo.json` carries the comment
  * explaining why its own test task is uncached -- so the key this file guards
- * can be explained where it is written. Nothing in the tree parses JSONC:
- * checked `pnpm-workspace.yaml`'s catalogue, which pins every third-party
- * version, and the lockfile for `jsonc-parser`, `strip-json-comments` and
- * `comment-json` on 2026-09-13. None present.
+ * can be explained where it is written.
+ *
+ * NO JSONC PARSER IS AVAILABLE TO DEPEND ON, which is narrower than "none is in
+ * the tree" and is the accurate claim. Checked 2026-09-13: `pnpm-workspace.yaml`'s
+ * catalogue, which pins every third-party version this repo declares, has none,
+ * and the lockfile has no `jsonc-parser`, `strip-json-comments` or `comment-json`.
+ * It DOES carry `json5`, which parses both comments and trailing commas -- but
+ * transitively, under `@babel/core` and `tsconfig-paths`. Importing it would be
+ * depending on a package nothing here declares, held only by whatever those two
+ * happen to need next, which the frozen lockfile (ADR-0106) exists to keep out of
+ * a diff nobody reviewed.
  */
 function parseTurboConfig(text: string): TurboConfig {
   return JSON.parse(withoutComments(text)) as TurboConfig;
@@ -90,8 +97,18 @@ function withoutComments(text: string): string {
       while (index < text.length && !(text.charAt(index) === "*" && text.charAt(index + 1) === "/"))
         index += 1;
       index += 1;
+      // A SPACE rather than nothing, so a comment between two tokens cannot weld
+      // them into a third: `[1/*x*/2]` is the one input that would otherwise
+      // parse, as `[12]`, instead of failing.
+      out += " ";
       continue;
     }
+
+    // JSONC permits a trailing comma and turbo accepts one; `JSON.parse` does
+    // not. Dropped here rather than left to throw, because a legal edit to
+    // `turbo.json` should not fail this guard with a position in a SyntaxError
+    // instead of an answer about `cacheDir`.
+    if (character === "}" || character === "]") out = out.replace(/,\s*$/, "");
 
     out += character;
   }
@@ -109,7 +126,9 @@ function staysInsideCheckout(cacheDir: unknown): boolean {
   if (typeof cacheDir !== "string" || cacheDir === "" || isAbsolute(cacheDir)) return false;
 
   const within = relative(repoRoot, resolve(repoRoot, cacheDir));
-  return within !== "" && !within.startsWith("..") && !isAbsolute(within);
+  // The first SEGMENT, not a prefix: `..cache` starts with `..` and is an
+  // ordinary directory of this checkout.
+  return within !== "" && within.split(sep)[0] !== ".." && !isAbsolute(within);
 }
 
 function readTurboConfig(): TurboConfig {
@@ -142,6 +161,19 @@ describe("the turbo cache directory", () => {
   "ui": "tui"
 }`),
     ).toStrictEqual({ ui: "tui" });
+
+    // A trailing comma is legal JSONC and turbo accepts one; a comma INSIDE a
+    // string is not one, and survives.
+    expect(
+      parseTurboConfig(`{
+  "tasks": { "build": {}, },
+  "ui": "tui,",
+}`),
+    ).toStrictEqual({ tasks: { build: {} }, ui: "tui," });
+
+    // The only input that would weld two tokens into a third if a block comment
+    // left nothing behind: this must fail rather than read back as 12.
+    expect(() => parseTurboConfig('{ "a": [1/* x */2] }')).toThrow();
   });
 
   it("is declared, because leaving it unset shares the cache with the main worktree", () => {
@@ -161,6 +193,8 @@ describe("the turbo cache directory", () => {
     expect(staysInsideCheckout("../cncore-99-provider-settings/.turbo/cache")).toBe(false);
     expect(staysInsideCheckout(".turbo/../../elsewhere")).toBe(false);
     expect(staysInsideCheckout(undefined)).toBe(false);
+    // Starts with `..` and climbs nowhere.
+    expect(staysInsideCheckout("..cache/turbo")).toBe(true);
 
     expect(staysInsideCheckout(readTurboConfig().cacheDir)).toBe(true);
   });
