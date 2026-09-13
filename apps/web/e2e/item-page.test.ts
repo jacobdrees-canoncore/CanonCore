@@ -1,6 +1,6 @@
 import { describe, expect, inject, it } from "vitest";
 
-import { documentAt, documentFrom, sourcesIn } from "./document";
+import { documentAt, documentFrom, sectionIn, sourcesIn } from "./document";
 
 /**
  * The app over real HTTP: a production build of Next, serving a real database.
@@ -17,6 +17,7 @@ const twoOrigins = inject("twoOrigins");
 const imported = inject("imported");
 const browsed = inject("browsed");
 const attributed = inject("attributed");
+const twoInstances = inject("twoInstances");
 const timeSpan = inject("timeSpan");
 /**
  * THE SAME FIXTURE `container-page.test.ts` READS THE OTHER END OF. Its
@@ -619,6 +620,34 @@ describe("what the page owes for what it shows", () => {
 
     expect(text).not.toContain(attributed.notice);
     expect(text).not.toMatch(/<img[^>]+src="data:image\//);
+  });
+
+  /**
+   * AND TWO SOURCES CALLING THEMSELVES THE SAME THING ARE TWO NOTICES
+   * (CNCORE-130). A label is not an identity: `sources` is unique on
+   * `(owner_id, kind, identity)` and nothing constrains the label, so two
+   * instances of one provider are two obligations under one name.
+   *
+   * THIS IS THE HALF OF THAT TICKET A SEAM CAN SEE. The defect was the React key,
+   * and a key is not serialised into HTML -- measured on 19.2.8, the server
+   * renders both siblings and warns about neither -- so no assertion anywhere can
+   * tell the old markup from the new. What IS observable is the obligation
+   * itself: both notices reaching the page a reader is served, which is what
+   * ADR-0036 requires and what a dedupe anywhere between the query and this list
+   * would break.
+   *
+   * COUNTED OFF THE ROWS RATHER THAN THE NOTICE TEXT. The two notices are the
+   * same sentence -- two instances of one provider declare one licence -- so
+   * `toContain` cannot tell one from two, which is exactly the confusion the
+   * defect lived in.
+   */
+  it("shows a notice for each of two sources that call themselves the same thing", async () => {
+    const { status, text } = await documentAt(`/items/${twoInstances.id}`);
+
+    expect(status).toBe(200);
+    const notices = sectionIn(text, "attribution").match(/<li[^>]*>.*?<\/li>/g) ?? [];
+    expect(notices).toHaveLength(2);
+    for (const notice of notices) expect(notice).toContain(twoInstances.notice);
   });
 });
 

@@ -144,36 +144,66 @@ rather than answers, and nothing in these two tickets touched either.
 its manifest. `findAttributionOwed` answers ONE ROW PER SOURCE, so a second instance of a
 notice-carrying provider is a second obligation under one name -- and keyed by that name, two
 notices were two siblings with one key. `Attribution` now keys by PLACE, which is how `AssertedBy`
-settled the same question a ticket earlier (ADR-0017).
+settled the same question under CNCORE-128. THAT DECISION IS NOT IN A RECORD: it lives only as the
+comment at its own site, `AssertedBy` in `apps/web/src/app/items/[id]/page.tsx`, which is where a
+reader has to go for it and is half the reason this one is written down here instead.
 
-**NOTHING ELSE IS AVAILABLE TO KEY ON, and that is ADR-0045 holding rather than a gap.** The read
-path names what it emits and keeps the source's id and identity out, because a URL an owner typed is
-a deployment detail and, for a provider on a private network, an address a reader has no business
-being handed. Nor would the content serve: two instances of one provider agree on all three fields a
-row has -- one label, one notice, one mark -- so a key derived from any of them collides for exactly
-the case this is about. Place is the only discriminator there is.
+**NOTHING ELSE IS AVAILABLE TO KEY ON.** ADR-0045 §"The public read path names every field it emits"
+is the rule -- the read path "carries no internal ids, no owner id and no notes" -- and the reason
+the source's IDENTITY goes with them is stated where that field is declared, in `attributionPublic`
+in `packages/schemas/src/index.ts`: a URL an owner typed is a deployment detail and, for a provider
+on a private network, an address a reader has no business being handed. Nor would the content serve:
+two instances of one provider agree on all three fields a row has -- one label, one notice, one mark
+-- so a key derived from any of them collides for exactly the case this is about. Place is the only
+discriminator there is.
+
+**AND PLACE IS DETERMINISTIC HERE RATHER THAN MERELY HARMLESS**, which is the half that makes it a
+key rather than a shrug. `sources_order` is unique on `(owner_id, source_order)` and
+`findAttributionOwed` orders by it (ADR-0025's one global source order), so the nth notice is the
+same source on every request. A place that named a different source between two renders would be
+the very thing a key exists to prevent.
 
 **THE LOGO DOES NOT CHANGE THAT ANSWER**, which is worth recording because an attribution row carries
 one where a source name does not, and that difference is why this was a ticket of its own rather than
 a line in the last one. Place is unsafe where reordering moves state the DOM holds and React cannot
-see; these rows hold none. The mark is a `data:` URI, so reusing an element and swapping `src`
+see; these rows hold none. The mark is a `data:` URI -- constrained to one by `attributionPublic` and
+enforced on the render path by `item.get`'s output schema -- so reusing an element and swapping `src`
 fetches nothing and cannot flash a stale image, and the list is server-rendered with no client
 reordering to meet.
 
-### Nothing asserts the key, and that is measured rather than assumed
+### What asserts this, and what does not
 
-**NO SEAM THIS REPOSITORY HAS CAN SEE IT.** A React key is not serialised into HTML, and MEASURED ON
-REACT 19.2.8 the server renderer renders both siblings and emits no warning for a duplicate one -- so
-the document a reader is served is byte-identical before and after this fix, and the fourth seam
-cannot tell them apart. The flight payload does carry the key, but asserting on it would be asserting
-React's serialisation rather than the page's content, which `apps/web/e2e/document.ts` refuses for
-its own reasons. ADR-0103 rules component rendering out and says a seventh seam is a new argument;
-this fix is not the argument for one.
+**THE KEY ITSELF IS ASSERTED BY NOTHING, AND THAT IS MEASURED RATHER THAN ASSUMED.** A React key is
+not serialised into HTML, and ON REACT 19.2.8 the server renderer renders both siblings and emits no
+warning for a duplicate one:
 
-**SO THE TEST THAT LANDED IS THE HALF A SEAM CAN SEE**, and it is the half that can actually breach
-the licence: `findAttributionOwed` answers TWO ROWS for two sources sharing a label. That is green
-against the query as written, and it is there for what a later reading of that answer would do --
-two identical rows look like a redundancy, and a `distinct` or a group-by on the label would drop
-one. VERIFIED BY BREAKING IT: deduping the answer on the label fails that test and ONLY that test,
-1 of 292 in `packages/db`. A notice a reader is owed going missing is this record's first obligation,
-and nothing else in the repository would have reported it.
+    renderToStaticMarkup(<ul>{rows.map((r) => <li key={r.label}>{r.notice}</li>)}</ul>)
+    // two rows, one label -> <ul><li>A</li><li>B</li></ul>, and console.error never called
+
+So the document a reader is served is byte-identical before and after this fix, and the page seam
+cannot tell them apart. The RSC flight payload DOES carry it -- measured the same way, the key is the
+third slot of each element, `["$","li","provider-tmdb",{"children":"A"},...]` -- but asserting on
+that would be asserting React's serialisation rather than the page's content, which
+`apps/web/e2e/document.ts` refuses for its own reasons. ADR-0103 §"The third seam, and why the first
+draft of this record refused it" rules component rendering out, and §"The sixth seam: THE PAGE IN A
+BROWSER, and the reservation is spent -- under CNCORE-73" says a seventh seam is a new argument
+rather than a draw on that record's credit. This fix is not the argument for one; VERIFICATION OF THE
+KEY IS CODE REVIEW, and a reader should know that rather than assume a test is holding it.
+
+**WHAT IS ASSERTED IS THE LICENCE SURFACE EITHER SIDE OF IT**, which is where a notice can actually go
+missing:
+
+- **The read path answers one row per SOURCE.** `findAttributionOwed` gives TWO rows for two sources
+  sharing a label. That is green against the query as written, and it is there for what a later
+  reading of that answer would do -- two identical rows look like a redundancy, and a `distinct` or a
+  group-by on the label would drop one. VERIFIED BY BREAKING IT: deduping the answer on the label
+  turns `Tests 292 passed (292)` into `Tests 1 failed | 291 passed (292)`, and the one is this test.
+- **The page renders one notice per row.** Two sources sharing a label, each owing a notice on one
+  item, put TWO notices under Sources in the served HTML. COUNTED OFF THE ROWS RATHER THAN THE
+  NOTICE TEXT, because two instances of one provider declare ONE licence -- the sentence is
+  identical, so a `toContain` cannot tell one notice from two, which is the confusion the defect
+  lived in. VERIFIED BY BREAKING IT TOO: deduping the list on the label inside `Attribution` fails
+  with `expected [ Array(1) ] to have a length of 2 but got 1`.
+
+A notice a reader is owed going missing is this record's first obligation, and neither half of it was
+reported by anything before.

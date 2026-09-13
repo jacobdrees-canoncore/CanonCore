@@ -210,6 +210,8 @@ export default async function setup(project: TestProject) {
 
   project.provide("imported", await importThroughTheApp(baseUrl, provider.url));
   project.provide("attributed", await importFromTmdb(baseUrl, tmdb.url));
+  const twoInstances = await twoInstancesOfOneProvider(baseUrl, databaseUrl);
+  project.provide("twoInstances", twoInstances.fixture);
   /*
    * WHAT THE IMPORT SURFACE SEARCHES FOR, and which of the answers this harness
    * has already imported. Both are facts about what was set up rather than
@@ -241,6 +243,7 @@ export default async function setup(project: TestProject) {
     // The seed ends its own client; this pool has to be ended too, or the run
     // holds an idle connection open against a database it is finished with.
     await twoOrigins.close();
+    await twoInstances.close();
     await timeSpan.close();
     await workBrowsing.close();
     await browsed.close();
@@ -1141,6 +1144,62 @@ async function importFromTmdb(baseUrl: string, providerUrl: string) {
 }
 
 /**
+ * TWO INSTANCES OF ONE PROVIDER, EACH OWED A NOTICE ON ONE ITEM (CNCORE-130).
+ *
+ * `sources` is unique on `(owner_id, kind, identity)` and nothing constrains the
+ * label, which for a provider is its own `name` off its manifest -- so two
+ * instances of one provider are two sources under ONE name, and each is owed its
+ * own notice. This is the state ADR-0036's keying section is about, and the only
+ * fixture here in which two notices fall due on one page.
+ *
+ * BOTH ARE STUBS, EVEN IN CI, WHERE `theTmdbProvider` ANSWERS A REAL IMAGE. That
+ * helper answers ONE url, and one url is one identity and therefore one source;
+ * what this needs is two ADDRESSES under one NAME. What is under test here is
+ * CanonCore's answer to that, not the image's.
+ *
+ * OWED THROUGH THE CONTAINER'S TITLE, which is the clause that needs no second
+ * copy of the item: each instance browses the same collection into a container of
+ * its own, and an item placed in both is a page showing both instances' words.
+ * A second import would give the second instance its own item instead (the
+ * mapping is per source), which is not one page owing two notices.
+ *
+ * ITS OWN ITEM, TOUCHING NO OTHER FIXTURE. `attributed` is read by four
+ * assertions about the notice, the mark and its size, and giving it a second
+ * ordering and a second notice would change the page underneath all of them.
+ */
+async function twoInstancesOfOneProvider(baseUrl: string, databaseUrl: string) {
+  const first = await stubTmdbProvider();
+  const second = await stubTmdbProvider();
+  const db = createDb(databaseUrl, { maxConnections: HARNESS_CONNECTIONS });
+  try {
+    const client = await asTheOwner(baseUrl);
+    const one = await client.provider.browse({
+      baseUrl: first.url,
+      containerId: MATRIX_COLLECTION,
+    });
+    const two = await client.provider.browse({
+      baseUrl: second.url,
+      containerId: MATRIX_COLLECTION,
+    });
+
+    const itemId = await anItemTitled(db, "A story two instances of one provider both hold");
+    const owner = await ownerSource(db);
+    // PAST THE COLLECTION'S OWN TWO, so this row is the owner's addition rather
+    // than a position either browse already claimed.
+    for (const containerId of [one.containerId, two.containerId]) {
+      await assertPlacement(db, { containerId, itemId, position: 9, sourceId: owner });
+    }
+
+    return { fixture: { id: itemId, notice: TMDB_NOTICE }, close: () => db.$client.end() };
+  } finally {
+    // The servers have done their work by here: the sources and the containers
+    // are in the database, and nothing reads a manifest again.
+    await first.close();
+    await second.close();
+  }
+}
+
+/**
  * Whatever `PROVIDER_WIKI_URL` names, and a stub on loopback when it names
  * nothing. In CI that variable points at the real `provider-wiki` image running
  * as a service container, so this same code and these same assertions hold the
@@ -1914,6 +1973,8 @@ declare module "vitest" {
      * show a notice and a mark (ADR-0036).
      */
     attributed: { id: string; title: string; notice: string };
+    /** One item two instances of one provider each owe a notice on (CNCORE-130). */
+    twoInstances: { id: string; notice: string };
     /**
      * A query the import surface can be driven with: one answer this catalogue
      * already holds, and at least one it does not.
