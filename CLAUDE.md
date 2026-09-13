@@ -125,9 +125,9 @@ in for the library. It ruled 11 claims contradicted on 2026-09-12, most of them 
 
 - Use `orca worktree create` for parallel work, binding each to its ticket with
   `--linear-issue CNCORE-<n>` so `--current` resolves in every later call.
-- Every worktree shares one Postgres container and gets its OWN database inside it, on **55432**
-  rather than 5432, because a local Postgres shadows 5432 silently and you test the wrong engine
-  (ADR-0104).
+- Every worktree shares one Postgres container with its OWN database inside, on **55432** not 5432,
+  since a local Postgres shadows 5432 silently and you test the wrong engine (ADR-0104). **Four
+  agents at once**: one `pnpm test:e2e` peaks at 59 of 288 usable connections (CNCORE-137).
 - Prefer Orca's tools: the browser (`orca tab`, `snapshot`, `click`, `fill`) over Playwright, and
   `orca terminal` over an ad hoc PTY, since a real PTY lets `terminal read`/`send` answer a prompt.
 - Run `actionlint` on a workflow before pushing it. A file that fails to parse creates NO run at

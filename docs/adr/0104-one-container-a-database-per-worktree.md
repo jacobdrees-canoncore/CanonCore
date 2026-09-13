@@ -148,9 +148,80 @@ being hit, and re-running it passes whenever the neighbour has finished.
 needs no equivalent: each job gets a `postgres:18` service container of its own and runs one
 worktree against it, so the contention this fixes does not exist there.
 
+## Raising the ceiling was the wrong lever, and bounding the demand was the right one
+
+**`max_connections=300` above is a CEILING ON WHAT IS ALLOWED, and it was being read as a budget
+that had to be spent.** CNCORE-131 raised it from Postgres's default hundred because one suite had
+grown to fill that hundred; the paragraph above records the raise as three suites' worth of room.
+What nobody had asked was why ONE suite wanted a hundred connections.
+
+**IT WANTED THEM BECAUSE NOTHING TOLD IT NOT TO.** `pnpm test:e2e` stands up ten CanonCore servers,
+each a real process calling `getDb()`, and `getDb()` called `createDb(env.DATABASE_URL)` with no
+bound at all -- so each took node-postgres's default `max` of ten. Ten servers times ten is the
+hundred, and it was an accident of a library default rather than a number anybody chose. The
+harness's own fixture handles had been bounded since CNCORE-99 and were never the cause: two apiece
+against the servers' ten.
+
+**FOUR IS WHAT A SERVER ACTUALLY USES, AND IT IS MEASURED (CNCORE-137).** Sampling
+`pg_stat_activity` through a full run on 2026-09-13 -- 1,406 samples -- no server ever had more than
+FOUR connections executing a statement at once: a peak `state = 'active'` of 4 on the two busiest
+databases and 1 or 2 on the rest. The other six slots of the default ten were idle, and idle is the
+expensive kind here, because the budget they sit in belongs to the container every worktree shares.
+
+| | Peak client connections, one run | Per-database peaks, six busiest |
+|---|---|---|
+| Before | **103** | 18, 13, 13, 12, 12, 12 |
+| After | **59** | 11, 7, 7, 7, 6, 6 |
+
+Same suite, same machine, 2026-09-13, sampling once a second. The suite did not slow down: 15.62 s
+bounded against 16.40 s and 17.96 s unbounded, which is the evidence that four is not below what a
+server here needs. **The agent ceiling moves from `288 / 103 = 2` to `288 / 59 = 4`.**
+
+**A SMALLER POOL QUEUES HERE, IT CANNOT DEADLOCK, AND THAT IS A PROPERTY OF THIS CODE RATHER THAN A
+GENERAL TRUTH.** A pool below a request's concurrent demand is only slower, PROVIDED nothing holds a
+connection while waiting for a second one. The shape that breaks it is a transaction body reaching
+for `db` instead of its `tx`: the transaction holds its connection for its whole body, so a nested
+acquisition against an exhausted pool waits for a connection only the waiter could release. All
+eight `db.transaction(...)` sites thread `tx` down and none closes over `db`, checked 2026-09-13.
+**Whatever first writes one that does not has taken the bound below out of the realm of throughput
+and into correctness**, and it will surface as a hung request rather than an error.
+
+## Why the bound is the harness's and not every deployment's
+
+`DATABASE_MAX_CONNECTIONS` is read by `getDb()` and defaults to **ten -- node-postgres's own
+default** -- so an instance that sets nothing holds exactly the pool it held before the variable
+existed. The e2e harness sets **four**, in one place: `theServerEnvironment` in
+`apps/web/e2e/instance.ts`, which every server in the suite is started through.
+
+**THE MEASUREMENT DOES NOT LICENSE LOWERING THE DEFAULT, and this is the decision rather than a
+caution about it.** Those four were measured on servers each running ONE test file, SEQUENTIALLY:
+one request in flight at a time, so four is the widest fan-out of a single request and not the
+demand of an instance serving several readers at once. Lowering the default everywhere would size a
+real deployment's pool on evidence taken from a workload no deployment runs. The suite is the
+unusual deployment -- ten instances against one server -- so the suite is what configures itself.
+
+**IT IS A VARIABLE RATHER THAN A CONSTANT BECAUSE THE CEILING IS NOT OURS TO KNOW.** A self-hoster
+pointing CanonCore at a PostgreSQL shared with something else has a budget nothing in this repository
+can read, and the symptom of exhausting it lands on whichever application asked last. `.env.example`
+explains it and `compose.yaml` interpolates it EMPTY rather than to a number, so the default lives in
+`packages/env` alone and a container cannot be given a second one to disagree with.
+
+**IT IS NOT A Setting.** `CONTEXT.md` reserves that word for what the Owner configures and CanonCore
+STORES, edited from a surface with no restart. A pool is built once at startup from the validated
+environment, which is where `DATABASE_URL` lives and why this sits beside it.
+
 ## Evidence
 
 `docker image inspect postgres:18` (digest `sha256:4ef4dbc9…`), `lsof -nP -iTCP:5432`, and
 `select version()` against both servers, all 2026-09-10. Compose interpolation and project-name
 precedence from docs.docker.com. Supabase's default from its own config reference. The shared-project
 behaviour was tested by running compose from a second worktree rather than inferred.
+
+**The pool bound (CNCORE-137), all 2026-09-13 on this machine.** Peaks from `pg_stat_activity`
+sampled once a second across whole `pnpm test:e2e` runs, counting `backend_type = 'client backend'`
+against this worktree's databases: 103 before, 59 after. The per-server figure that chose the four is
+peak `state = 'active'` per database over 1,406 samples of an unbounded run. node-postgres's default
+`max` of 10 from node-postgres.com/apis/pool. The eight `db.transaction(...)` sites were read rather
+than assumed. `288` is `max_connections` 300 less 3 superuser-reserved and ~9 background, which is
+`docs/research/parallel-agent-substrate.md` §7, "The concurrency ceiling on this machine, with its
+arithmetic" -- and not a new one.

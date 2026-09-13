@@ -570,6 +570,14 @@ sequential test file. If each instance ran with a pool of 3, per-suite demand fa
 (5.4) becomes the binding constraint instead and the answer is **5**.
 
 **That is the change worth making: 2 agents → 5, with no new ceiling and no new dependency.** It is
+
+> **BUILT, AND IT IS 4 RATHER THAN 5 (CNCORE-137, 2026-09-13).** The pool of 3 guessed at above was
+> not measured; the bound that shipped is **4**, which is the peak `state = 'active'` one server was
+> observed to reach over 1,406 samples of a run. Per-suite demand fell from **103 to 59**, not to the
+> 32 estimated here, because the estimate counted the ten servers and not the harness handles and
+> setup connections around them. `288 / 59 = 4.88`, so the ceiling is **4 agents** by this note's own
+> rule of flooring the worst case. The suite did not slow down. ADR-0104 carries the decision and its
+> evidence; this paragraph is left standing as it was written, with the outcome beside it.
 not free and this note does not pretend otherwise. `getDb()` reads only `DATABASE_URL`, so bounding
 the servers means a new environment variable — and CLAUDE.md forbids introducing one unless something
 in the repo reads it in the same change, which is a ticket's worth of work rather than a line.
@@ -601,7 +609,9 @@ existing scope.
    CNCORE-132 must verify the fix on a WARM cache, as its own text insists — and **its scope needs
    widening first**, since it names only the glossary while `@canoncore/env` replays stale against
    the install path. A fix that lands on one package leaves the worse instance standing.
-2. **Bound the e2e servers' pools** (section 7). Turns 2 concurrent agents into 5. Needs an
+2. **Bound the e2e servers' pools** (section 7). Turns 2 concurrent agents into 5. **DONE as
+   CNCORE-137 and it turned them into 4, measured: 103 connections to 59, not to the 32 estimated.**
+   Needs an
    environment variable and its reader in the same change.
 3. **Give each stub a distinct loopback host** rather than holding its port (section 3), so a
    provider's identity stops depending on the OS. Belongs to CNCORE-126.

@@ -50,9 +50,13 @@ export const HARNESS_CONNECTIONS = 2;
  * down -- 15.62 s bounded against 16.40 s and 17.96 s unbounded -- which is the
  * evidence that four is not below what a server here actually uses.
  *
- * FORTY OF THAT 59 IS THE SERVERS and the rest is the harness and the setup
- * connections around them, which is why the total did not fall by the full 60:
- * ten servers went from ten apiece to four, and nothing else in the run moved.
+ * PER DATABASE, WHICH IS WHERE IT IS VISIBLE: the six busiest went from
+ * 18/13/13/12/12/12 connections to 11/7/7/7/6/6, and the four idle instances
+ * sat at 4 throughout both. Each of those databases holds ONE server's pool
+ * plus the harness handle on it, and `pg_stat_activity` cannot say which
+ * backend belongs to which -- so the fall is stated as the per-database totals
+ * that were actually sampled rather than as a split between the two that was
+ * not.
  *
  * IT IS SET HERE AND NOT LOWERED IN `packages/env`, which is CNCORE-137's one
  * real decision. This measurement is taken from servers running ONE test file
