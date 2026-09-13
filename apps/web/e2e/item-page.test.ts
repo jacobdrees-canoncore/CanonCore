@@ -373,11 +373,14 @@ describe("one list, filtered", () => {
  * THE SLICE. One real story, imported from a provider over HTTP, rendered on
  * its page with the provider recorded as its source.
  *
- * The provider behind it is ADR-0057's fixture either way: a stub answering the
- * fixture's own row locally, and the real `provider-wiki` image as a service
- * container in CI, chosen by `PROVIDER_WIKI_URL`. The assertions do not know
- * which, which is the point -- they are the contract, and CI is where the real
- * image is held to it.
+ * The provider behind it is ADR-0057's fixture, answered by the stub in
+ * `wiki-fixture.ts`. This comment used to say the real `provider-wiki` image
+ * answered it in CI, chosen by `PROVIDER_WIKI_URL`; turbo filtered that
+ * variable out of `test:e2e` so it never did, and CNCORE-143 took the wiki
+ * image out of that job rather than leaving the claim standing -- it needs a
+ * Credential no CI job holds (ADR-0122). The real image CI now runs this suite
+ * against is `provider-tmdb`, which `attributed` and `providerSearch` reach.
+ * The assertions still do not know which process answered, which is the point.
  */
 describe("an item imported from a provider", () => {
   it("renders the title the provider gave it", async () => {

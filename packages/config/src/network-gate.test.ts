@@ -23,8 +23,9 @@ async function refusal(request: Promise<Response>): Promise<unknown> {
 /**
  * A REAL SOCKET on loopback, which is what the carve-out exists for: the
  * end-to-end run reaches the app it started this way, and in CI the provider is
- * a service container reached the same way (`PROVIDER_WIKI_URL` is
- * `http://127.0.0.1:8080`).
+ * a service container reached the same way (`PROVIDER_TMDB_URL` is
+ * `http://127.0.0.1:8081`; it named the wiki's until CNCORE-143 moved that
+ * image out of the job).
  */
 const servers: Server[] = [];
 
