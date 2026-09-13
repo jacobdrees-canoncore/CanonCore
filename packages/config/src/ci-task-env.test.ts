@@ -1,9 +1,9 @@
-import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { type Workflow, workflow } from "./testing/ci-workflow";
 import { repoRoot } from "./testing/repo-root";
+import { plannedTasksIfKnown } from "./testing/turbo-dry-run";
 
 /**
  * A VARIABLE A JOB SETS FOR ITSELF MUST REACH THE TURBO TASK THAT JOB RUNS.
@@ -46,56 +46,31 @@ import { repoRoot } from "./testing/repo-root";
  * `BASE_REF` -- so the fix for a false positive here is to move the variable to
  * the step that reads it, which is the more precise spelling anyway.
  */
-// TODO(CNCORE-145): this constant and the dry-run spawn below are also in
-// `turbo-cache-inputs.test.ts`, which makes two readers of one vendor interface.
-// Not folded here because the two calls want opposite failure policies -- that
-// one must throw on any failure, this one must tell an unknown task name from a
-// broken turbo -- and a helper that served both carelessly would put this
-// file's own vacuous-pass defect into the other suite.
-const TURBO = join(repoRoot, "node_modules", ".bin", "turbo");
 
 /**
  * What Turbo will pass to every planned copy of a task, or `null` when the name
  * is not a Turbo task at all.
  *
- * `--dry` resolves the graph and runs nothing, so this is a read even though it
- * is spawned through the runner. A name Turbo does not know exits non-zero,
- * which is what lets the candidates below be extracted loosely and confirmed
- * here rather than matched against a transcribed list of task names that could
- * go stale.
- *
- * A CRASH IS RAISED AND ONLY A REFUSAL IS `null`, WHICH A FIRST BUILD OF THIS
- * GOT WRONG. It caught every failure and returned `null`, and the caller skips
- * a `null` -- so a missing `turbo` binary, a `turbo.json` that would not parse,
- * or a runner out of memory made every candidate unresolvable, left the
- * findings list empty, and reported this suite GREEN having checked nothing.
- * That is the defect this file exists to catch, reproduced inside the guard
- * against it. `spawnSync` reports the two apart: `error` is the process never
- * running, and a `null` status is a signal. `turbo-cache-inputs.test.ts` gets
- * the same protection from letting `execFileSync` throw, which it can do
- * because the task it asks about is a literal.
+ * THE REFUSAL-TOLERANT READER, because the names asked for are EXTRACTED rather
+ * than literal. That is what lets the candidates below be gathered loosely and
+ * confirmed against turbo itself, instead of matched against a transcribed list
+ * of task names that could go stale. Why only a refusal is `null` -- and why a
+ * crash must not be -- is in `testing/turbo-dry-run.ts`, beside the policy.
  *
  * A REFUSAL IS STILL NOT PROOF THE NAME WAS WRONG -- a broken `turbo.json`
  * refuses every name alike -- so the callers below assert that each job
  * resolved at least one task rather than trusting this to have been asked.
+ *
+ * AN ABSENT LIST IS READ AS EMPTY HERE, which is this caller's decision and not
+ * the reader's: a task declaring no variable passes none, and every assertion
+ * below asks whether a name is among those passed.
  */
 function specifiedEnvPerTask(task: string): { taskId: string; env: string[] }[] | null {
-  const run = spawnSync(TURBO, ["run", task, "--dry=json"], {
-    cwd: repoRoot,
-    encoding: "utf8",
-    maxBuffer: 64 * 1024 * 1024,
-  });
-  if (run.error) throw run.error;
-  if (run.status === null) throw new Error(`turbo was killed by ${run.signal} asking for ${task}`);
-  if (run.status !== 0) return null;
-  return JSON.parse(run.stdout).tasks.map(
-    (planned: {
-      taskId: string;
-      environmentVariables: { specified: { env: string[] | null } };
-    }) => ({
-      taskId: planned.taskId,
-      env: planned.environmentVariables.specified.env ?? [],
-    }),
+  return (
+    plannedTasksIfKnown(task)?.map(({ taskId, environmentVariables }) => ({
+      taskId,
+      env: environmentVariables.specified.env ?? [],
+    })) ?? null
   );
 }
 
