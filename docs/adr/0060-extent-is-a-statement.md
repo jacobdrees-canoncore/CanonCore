@@ -7,10 +7,16 @@ status: proposed
 How many parts a work has needs provenance like any other claim, because two sources can
 legitimately disagree about it.
 
-And it is unknown far more often than known. Measured against the archive on 2026-09-10: NO
-property records a part or episode count for any of its 11,285 stories, and only 22 rows across the
-whole corpus carry a `Runtime` of any kind. So absence is the normal case rather than the exception,
-which is exactly what "unknown is the absence of a row" needs in order to be workable.
+And it is unknown far more often than known. **Re-measured against the LIVE wiki on 2026-09-13
+(CNCORE-103): of the 11,297 stories, 3,741 carry an `Epcount` and NONE carries a `Runtime` of any
+kind.** So a part count exists for a third of the corpus and a duration for none of it, and absence
+is the normal case rather than the exception — which is exactly what "unknown is the absence of a
+row" needs in order to be workable.
+
+THE `Runtime` FIGURE IS NARROWER THAN THE ONE IT REPLACES AND SAYS SO. The archive-era sentence
+counted 22 `Runtime` rows "across the whole corpus" and none on a story; the live re-measurement
+covers the story population only, so it establishes the none-on-a-story half and not the 22. The
+half that carries this decision is the half that was re-derived.
 
 DO NOT DERIVE EXTENT from the maximum part covered by any edition. That is wrong in precisely the
 case the rule exists for: where every surviving edition is partial, the derived extent is the
@@ -41,4 +47,4 @@ replaced. The decision is untouched — extent is still a statement, two sources
 and deriving it from the maximum part covered is still wrong — but it is unknown for two thirds
 rather than for everything, and a third of the corpus has a value to import.
 
-Verified against source on 2026-09-10; corrections applied. Working in `docs/research/verify-adr-plex.md`, `docs/research/verify-adr-jellyfin.md`. Archive figures measured against `~/tardis-pipeline` directly.
+Verified against source on 2026-09-10; corrections applied. Working in `docs/research/verify-adr-plex.md`, `docs/research/verify-adr-jellyfin.md`. **The archive is deleted (ADR-0129) and every figure above was re-derived from the LIVE wiki on 2026-09-13 by `provider-wiki`'s `pnpm measure:live`.** The archive-era working is `docs/research/verify-new-adrs-archive.md`, which stays as the frozen record it is: it describes a corpus taken 2026-09-04, not the wiki.

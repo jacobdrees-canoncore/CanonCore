@@ -238,6 +238,26 @@ function asList(declared: string | string[] | undefined): string[] {
   return typeof declared === "string" ? [declared] : declared;
 }
 
+/**
+ * THE ONE SUITE THAT MUST REACH THE REAL INTERNET, NAMED HERE SO IT IS AN EXCEPTION
+ * RATHER THAN A HOLE (CNCORE-103).
+ *
+ * `apps/web`'s `test:live` stands CanonCore up against the REAL `provider-wiki` talking to
+ * the REAL tardis.wiki, which is the only way the live import path gets proven at all: the
+ * e2e suite's provider is a stub, and CI's real-provider job never reached one
+ * (CNCORE-143). A gate over it would refuse the single request the suite exists to make.
+ *
+ * IT IS A LIST OF ONE AND IT IS CHECKED, which is the difference between an exception and a
+ * hole. The test below asserts that every excused suite still EXISTS, so deleting or
+ * renaming `test:live` fails here rather than leaving a permanent excuse for a suite nobody
+ * runs -- and any OTHER suite dropping the gate still fails, because it is not on this list.
+ *
+ * IT CANNOT RUN IN CI ANYWAY. `test:live` needs the Owner's Credential (ADR-0122), so it is
+ * not in `test:e2e` and no CI job invokes it; the gate is protecting CI from an accident
+ * this suite cannot have there.
+ */
+const MAY_REACH_THE_INTERNET = ["web: test:live"];
+
 describe("the network gate's wiring", () => {
   /**
    * WHAT MAKES THE TWO ASSERTIONS BELOW REACH THE REPOSITORY, and CNCORE-46's
@@ -277,10 +297,23 @@ describe("the network gate's wiring", () => {
 
     const open = [];
     for (const suite of found) {
+      const name = `${suite.package}: ${suite.script}`;
+      if (MAY_REACH_THE_INTERNET.includes(name)) continue;
       const declared = asList((await testConfig(suite)).setupFiles);
-      if (!declared.includes(GATE)) open.push(`${suite.package}: ${suite.script}`);
+      if (!declared.includes(GATE)) open.push(name);
     }
     expect(open).toStrictEqual([]);
+  });
+
+  /**
+   * THE EXCUSE LIST IS ITSELF SWEPT, which is what stops it rotting into a hole. An entry
+   * naming a suite that no longer exists is an excuse nothing is using and nobody would
+   * notice -- and the next suite to take that name would inherit it silently.
+   */
+  it("excuses only suites that exist", () => {
+    const names = suites().map((suite) => `${suite.package}: ${suite.script}`);
+    const stale = MAY_REACH_THE_INTERNET.filter((excused) => !names.includes(excused));
+    expect(stale).toStrictEqual([]);
   });
 
   /**

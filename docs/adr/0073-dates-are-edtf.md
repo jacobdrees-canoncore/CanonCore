@@ -18,8 +18,11 @@ for, so it would have been a second source of truth for a fact the string alread
 
 The alternative EDTF replaces is padding a partial date to the 1st of January, which sorts wrongly
 and displays wrongly forever and cannot be undone, because the padding is indistinguishable from a
-real value. Measured against the archive on 2026-09-10: 12.39% of release dates are partial (961
-year-month, 410 year-only, of 11,068).
+real value. **Re-measured against the LIVE wiki on 2026-09-13 (CNCORE-103): 12.41% of release
+dates are partial — 1,374 of 11,073 `Release date` values on the 11,297 stories.** The archive that
+the 12.39% (1,371 of 11,068) was taken from on 2026-09-10 no longer exists, and the two figures
+agree to within a fortieth of a point, which is the wiki moving rather than either being wrong.
+`Whispers of Terror (audio story)` at `1999-11` is what a partial one looks like.
 
 A DERIVED sort key is legitimate where one is needed, because Level 1 qualifiers such as `1984?` and
 `198X` break lexical ordering. Derived from the string, never written beside it.

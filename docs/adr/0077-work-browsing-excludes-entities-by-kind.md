@@ -35,11 +35,19 @@ decidable. A read-time membership walk would also make an empty container watcha
 the moment its first member arrived.
 
 A BOOLEAN RATHER THAN A KIND, because mixed containers are the normal case rather than the edge one.
-Measured against the archive on 2026-09-10: 1,842 of its categories hold both stories and
-non-stories — 40% of every category containing a story. "Stories set in London" is 1,049 stories and
-43 non-stories, and it is exactly the container someone browses for. A rule that demanded one kind
-per container would refuse members from 1,842 real containers on import; a rule that hid mixed ones
-would hide the most useful containers in the corpus.
+**Re-measured against the LIVE wiki on 2026-09-13 (CNCORE-103): 1,877 of the 4,675 categories that
+hold a story ALSO hold something that is not one — 40.1% of every category containing a story.**
+`Category:Stories set in London` is 1,049 stories among 1,069 pages and 23 subcategories, and it is
+exactly the container someone browses for. A rule that demanded one kind per container would refuse
+members from 1,877 real containers on import; a rule that hid mixed ones would hide the most useful
+containers in the corpus. The archive gave 1,842 and 40% on 2026-09-10, and its "Stories set in
+London" gave the same 1,049.
+
+A SUBCATEGORY COUNTS AS SOMETHING THE CONTAINER HOLDS, and that is the whole of the difference
+between 40% and a wrong answer. A first pass at this re-measurement compared only `categoryinfo`'s
+PAGE count and reported 1,018 — it read a category of stories-plus-subcategories as pure, because
+`categoryinfo` reports pages, subcats and files separately and only one of them was being looked
+at. The claim this record rests on is about what a container HOLDS.
 
 SEARCH ANSWERS THE SECOND QUESTION AND RETURNS ALL SEVEN KINDS, grouped by kind with works first.
 All three incumbents group search results by kind; the ordering within that is ours, since none of

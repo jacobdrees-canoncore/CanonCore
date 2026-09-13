@@ -59,6 +59,14 @@ went.
 
 ## What is NOT here
 
-`~/tardis-pipeline` (3.2G) — the local archive of the independent Tardis Wiki, collected with
-permission. It is the test fixture and the owner's own library seed. It stays outside this repo and
-is never vendored in. Query it; do not copy it.
+`~/tardis-pipeline` (3.2G) and `~/tardis-archive.sparsebundle` (66G) — the local archive of the
+independent Tardis Wiki, collected with permission. **BOTH WERE DELETED ON 2026-09-13 (ADR-0129)**
+once a real `Theory:Timeline` had been imported live end to end, so there is one way wiki data
+reaches CanonCore rather than two. Nothing here can be queried against them any more.
+
+`verify-new-adrs-archive.md` and the archive figures in `resolve-tierA.md` and
+`supersession-check.md` were taken against that corpus and are LEFT AS WRITTEN, like every other
+record in this directory: they say what was known when, and rewriting them to match a later
+deletion would falsify that. The live equivalents are re-derivable with `pnpm measure:live` in
+`provider-wiki`, and the seven ADRs that quoted archive figures now carry live ones with the date
+they were measured.

@@ -219,8 +219,12 @@ handed over is the CATEGORY'S spelling rather than the calling page's — otherw
 
 Verified against source on 2026-09-10; corrections applied. Working in `docs/research/verify-adr-jellyfin.md`.
 
-The figures above were measured on 2026-09-10 against `~/tardis-pipeline/data/db/tardis.duckdb`
-opened read-only, by the query that produced them:
+**THE ARCHIVE THOSE FIGURES CAME FROM IS DELETED (ADR-0129, 2026-09-13)** and the SQL below is kept
+as the working that produced them rather than as something anyone can now run. Re-derive the live
+equivalents with `pnpm measure:live` in `provider-wiki`, which asks the wiki the same questions.
+
+The figures above were measured on 2026-09-10 against the archive opened read-only, by the query
+that produced them:
 
 ```sql
 WITH v(term) AS (SELECT unnest(['tv story', 'audio story', 'novel', 'novelisation', 'comic story',
@@ -311,11 +315,21 @@ nothing passes one, because there is one language of one archive here.
 
 ## Evidence for the image section, under CNCORE-22
 
-Measured 2026-09-10 against `~/tardis-pipeline/data/db/tardis.duckdb` opened read-only. Re-derive
-the whole set with `pnpm measure:images` in `provider-wiki`, which reads the same predicates the
-code does — `storyDabTermSql`, `fileTitleSql`, `COPYRIGHT_TAGS_SQL` — rather than a copy of them.
-That is CNCORE-23's device for the story split, applied here so these figures cannot drift from the
-rule they describe either.
+Measured 2026-09-10 against the archive opened read-only. **THE ARCHIVE AND `pnpm measure:images`
+ARE BOTH DELETED (ADR-0129, 2026-09-13): re-derive the whole set with `pnpm measure:live` in
+`provider-wiki`, which asks the LIVE wiki.** Re-measured there on 2026-09-13, the 11,297 stories
+carry 7,283 `Has image` values naming 7,234 distinct files, of which 85 have no file page — 14
+because the value doubles the `File:` prefix and 71 with a well-formed value.
+
+**THE LIVE POPULATION IS NOT THE ONE THESE FIGURES WERE TAKEN OVER.** `measure-images.ts` selected
+stories by the DAB TERM and `measure-live.ts` selects them by the infobox transclusion, so the
+counts are not a before-and-after of the same question and the older ones are not corrected by the
+newer. ADR-0057 carries that comparison in full.
+
+The intent behind the deleted script is kept: it read the same predicates the code does rather than
+a copy of them, which is CNCORE-23's device for the story split. `measure-live.ts` states the filter
+beside every count for the same reason — so a figure cannot drift from the rule it describes without
+the drift being visible.
 
 **IT DID NOT DO THAT AT FIRST, AND PUBLISHED A WRONG FIGURE BECAUSE OF IT.** The script imported the
 story predicate and then hand-wrote the file-title join and the licence vocabulary beside it, so it
