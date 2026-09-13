@@ -1,8 +1,25 @@
 ---
-status: proposed
+status: accepted
 ---
 
 # The archive is deleted, and the live wiki is the only source
+
+> **ACCEPTED 2026-09-13, AND BOTH HALVES ARE CHECKABLE.** This is a cross-repo pair, so it flips on
+> the SECOND ticket with the first's merged PR named: the recipes, the SMW version pin and
+> `pnpm measure:live` landed in
+> [provider-wiki#27](https://github.com/jacobdrees-canoncore/provider-wiki/pull/27), squashed as
+> `9c29db7`. The gate, the re-pointed records and this file land here.
+>
+> **ONE CLAIM IS NOT CHECKABLE AGAINST ANY DIFF AND NEVER WILL BE: that the archive is gone.** It
+> is a fact about a filesystem, asserted here by the agent that ran the `rm` on 2026-09-13 after the
+> gate passed. What CAN be checked is that nothing in either repository needs it — `pnpm test` in
+> `provider-wiki` was run with `~/tardis-pipeline` renamed away AND `fixture/wiki.duckdb` deleted,
+> and `pnpm build:fixture` rebuilt from the committed SQL with all 165 tests passing.
+>
+> **WHAT IS NOT BUILT, NAMED RATHER THAN IMPLIED:** the two largest timelines still cannot be
+> imported (CNCORE-151, below), and ADR-0057's "11 serials are completely missing" is left as an
+> archive-era figure nobody can now reproduce. Neither is a half-built mechanism — they are a defect
+> and a gap, both with a ticket or a flag on them.
 
 `~/tardis-pipeline` (3.2GB) and `~/tardis-archive.sparsebundle` (66GB) are **gone**, deleted
 2026-09-13 under CNCORE-103. There is now ONE way wiki data reaches CanonCore — `provider-wiki`
