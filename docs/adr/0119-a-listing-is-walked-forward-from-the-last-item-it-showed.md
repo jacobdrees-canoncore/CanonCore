@@ -229,15 +229,19 @@ reader can read — and it gets no easier when the key is a number derived from 
 query. The second buys one shape at the price of the best match no longer coming first, which is
 most of what a search is for. So: **recompute**.
 
-**It costs TWO primary-key lookups per page, not one, and that is measured rather than reasoned.**
-The comparison names the anchor's closeness twice — once for `<` and once for `=` — and PostgreSQL
-hoists each into its own `InitPlan`: `explain (analyze)` on the paged query shows `InitPlan 1` and
-`InitPlan 2`, each an `Index Scan using items_pkey`, each at `loops=1`. Uncorrelated, so twice per
-PAGE rather than per row. Folding them into one would mean joining the anchor row in as a relation,
-which puts a parameter on the shared walk that only one of its three callers would ever pass — a
-worse trade than a second lookup on a unique key. The number is here because this record prices the
-id cursor at "one indexed primary-key lookup per page" two sections above, and a relevance-ordered
-walk pays that twice.
+**It costs THREE primary-key lookups per page, not one, and that is measured rather than reasoned.**
+The comparison names the anchor's closeness three times — once for `is null`, once for `<` and once
+for `=` — and PostgreSQL hoists each into its own `InitPlan`: `explain (analyze)` on the real paged
+statement shows three of them, each an `Index Scan using items_pkey` on the same id, each at
+`loops=1` and two shared buffer hits. Uncorrelated, so three times per PAGE rather than per row.
+Folding them into one would mean joining the anchor row in as a relation, which puts a parameter on
+the shared walk that only one of its three callers would ever pass — a worse trade than a third
+lookup on a unique key. The number is here because this record prices the id cursor at "one indexed
+primary-key lookup per page" two sections above, and a relevance-ordered walk pays that three times.
+
+**IT SAID TWO UNTIL CNCORE-113, AND THE THIRD IS THE `is null` THAT SECTION ADDED**, corrected in
+the sentence above rather than beside it, because a number left standing next to its correction is
+the one somebody quotes.
 
 **THE COMPARISON IS THE WHOLE TUPLE THE `ORDER BY` USES, and each of the three terms is a way to
 lose rows.** `(similarity DESC, coalesce(sort_name, title), id)`:
@@ -276,6 +280,42 @@ is true, with `$1` the value read out of that same row. Carrying it out and back
 node-postgres sends a JavaScript number untyped and PostgreSQL infers `real` from the comparison —
 so this is a choice against depending on an inference nothing at the call site states, not a repair
 of a bug. It is an uncorrelated scalar subquery, so there is no type to infer and no digits to round.
+
+**AND KEEPING IT THERE COSTS A TWO-STATEMENT WINDOW, WHICH CNCORE-113 ANSWERED BY ACCEPTING THE
+WINDOW RATHER THAN CLOSING IT.** Because the closeness stays on the server, a paged search reads the
+anchor in one statement and ranks it in the next: an Item deleted between the two is titled for the
+check and untitled for the subquery, that subquery answers NULL, a NULL on one side makes the whole
+cursor predicate NULL, and the page comes back EMPTY — rendered as "These results end here" over
+results still unseen. It is the silent ending CNCORE-110 closed for the listing, two statements wide
+rather than at read time.
+
+**Two shapes were weighed and the second was taken.** The first is to collapse the window by joining
+the anchor row in as a relation, so there is no second statement to race; it is refused here for the
+reason the section above already gives — it puts a parameter on the shared walk that only one of its
+three callers would ever pass — and refusing it twice for one reason is what makes that pricing a
+rule rather than a remark. The second is to leave the window open and read a NULL closeness as **"no
+position"**, which is what the walk now does.
+
+**What makes that safe is not that the window is narrow — it is that both sides of it answer the
+same way.** An anchor with no title names no position at read time and starts the search over
+(CNCORE-110, two paragraphs above); an anchor that loses its title one statement later now does
+exactly the same. So nothing a reader can see depends on which side of the gap a delete lands on,
+and the race is harmless rather than merely unlikely. The read-time check is kept beside it as two
+MOMENTS rather than two mechanisms: it spares the walk a predicate it does not need, and neither is
+the other's dead code.
+
+**It is spelled `(subquery) IS NULL` rather than a `coalesce(…, true)` over the whole comparison,
+and the difference is which NULL it forgives.** A coalesce would answer "start over" for ANY null in
+the predicate, including a candidate row with no closeness of its own — which a search would then
+RETURN without ever having matched it. That is the distinction the ticket named: a NULL meaning
+"tied at nothing" is not a NULL meaning "the anchor is gone", and only the explicit spelling can
+tell them apart. It costs the third primary-key lookup priced above.
+
+**Asserted rather than reasoned.** The window is REACHED in `catalogue-search.test.ts`: the test
+hands `searchCatalogue` a database that wedges the delete into the gap by hooking the first
+statement's own resolution, so the ordering is fixed rather than raced. Measured before the fix, on
+three matching Items paged two at a time — the page came back with **no entries** and a `total` of
+2.
 
 **AND `total` MOVED, exactly as the code predicted it would have to.** Catalogue search counted with
 `count(*) over ()`, correct only while it had no cursor, and `catalogue-search.ts` carried a comment
