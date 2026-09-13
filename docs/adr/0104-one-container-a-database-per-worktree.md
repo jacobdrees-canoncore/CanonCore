@@ -95,9 +95,17 @@ step and never the two, so it stayed green while the worst branch derived 68 byt
 **IT IS LOCAL-ONLY, WHICH IS WHY IT SURVIVED.** `ci.yml` sets DATABASE_URL to a database named
 `canoncore`, so the branch never enters the arithmetic and CI derives 25 bytes. The only person who
 meets it is the one running the full suite by hand on a long branch, and the obvious reading there is
-that they broke something. Measured 2026-09-13: 10 of the 66 branches this repo had pushed were
-already over, worst `cncore-141-locked-provider-contract` at 54, and the dispatcher names these
-branches from ticket titles — so it is an ordinary shape rather than a rare one.
+that they broke something. Measured against every pushed branch on 2026-09-13: **11 of 72** derived
+a name that broke, and every one of them sat at the 52-byte cap — `worktreeDatabaseName` slices the
+stem at 33, so 52 is the longest name it can make and 68 the longest doubled tail. The dispatcher
+names these branches from ticket titles, so it is an ordinary shape rather than a rare one.
+
+**A FIGURE FROM THE TICKET DID NOT SURVIVE BEING CHECKED, and it is recorded here because it is the
+kind that travels.** CNCORE-150 reported the worst branch as `cncore-141-locked-provider-contract`
+**at 54 bytes**. That is the name BEFORE the stem slice, and no database is ever called it: the real
+name is `canoncore_cncore_141_locked_provider_contra_f2eee590`, 52 bytes, like every other branch at
+the cap. The ticket's "10 of 66" was 11 of 72 by the day the work was done. Neither changes the
+remedy — the breakage is real and the arithmetic above is what it rests on.
 
 **THE FIX WAS THE DERIVATION, NOT THE BUDGET, and that distinction is the whole of it.** Widening
 `LONGEST_DERIVED_SUFFIX` from eleven to sixteen is the obvious reading and is the one move the

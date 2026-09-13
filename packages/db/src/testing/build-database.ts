@@ -7,7 +7,7 @@ import { migrateToHead } from "../migrate";
  * EVERY SUFFIX ANY SUITE MAY ASK FOR, and the only place one is written down.
  *
  * `buildTestDatabase` takes a member of this and nothing else, so a suite that
- * wants a sixth database adds it HERE or does not compile. That is the whole of
+ * wants one more database adds it HERE or does not compile. That is the whole of
  * what CNCORE-112 fixed: the set used to be string literals at the call sites
  * with a hand-written copy in `worktree-database.test.ts` -- three places and
  * nothing holding them together, so the copy read three while the web suite
@@ -133,10 +133,25 @@ const MARKER = "_test";
  * `<name>_test` plus a SIBLING per suffix.
  *
  * So the family root is recovered rather than assumed. `_test` is this
- * function's own marker and nothing else writes one, which is what makes the
- * strip sound: `worktreeDatabaseName` ends every name it makes in eight hex
- * characters, so a worktree database can never end in `_test` and be mistaken
- * for a derived one.
+ * function's own marker, and for every database this repo NAMES ITSELF the
+ * strip cannot misfire: `worktreeDatabaseName` ends each one in eight hex
+ * characters and CI names its database `canoncore`, so none of them ends in
+ * `_test` to begin with. THAT GUARANTEE STOPS AT A HAND-SET DATABASE_URL, which
+ * may name anything a developer likes. Point it at `myapp_test` and the family
+ * becomes `myapp_test`, `myapp_test_web` and so on, rather than a generation
+ * below it -- the harness still only ever drops names it derived, but WHICH
+ * names those are moved with this change.
+ *
+ * AND THE NAMING IS NOW TOTAL WHERE IT USED TO GROW. Before the strip, a
+ * derived name was always longer than its input, so it could never BE its
+ * input; it can now, and `testDatabaseNameFor(x_test)` is `x_test`. That is
+ * deliberate -- it is what makes the derivation agree from either end -- but it
+ * means this function alone is no longer proof that a caller is about to touch
+ * a database it owns. NEITHER GUARD LIVES HERE: the 63-byte refusal and the
+ * `name === database` refusal are both in `testDatabaseName` below, at the
+ * point of DESTRUCTION rather than the point of naming, which is where they
+ * belong and where `buildTestDatabase` passes through them. A caller reaching
+ * for this export to name something it then DROPS must take that route.
  *
  * THE BUDGET DID NOT MOVE, AND THAT IS THE POINT (CNCORE-150). Widening
  * `LONGEST_DERIVED_SUFFIX` to cover the doubled tail was the obvious reading

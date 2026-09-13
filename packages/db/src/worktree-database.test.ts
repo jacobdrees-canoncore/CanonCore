@@ -94,9 +94,9 @@ describe("worktreeDatabaseName", () => {
     // database rather than from the worktree's, and gets one more `_test` than
     // anybody budgeted for.
     //
-    // Measured on 2026-09-13 before the fix: the worst branch derived
-    // `<52 bytes>_test_test_fresh` at 68, and 10 of the 66 branches this repo
-    // has pushed were already over. It is LOCAL-ONLY -- CI names its database
+    // Measured across every pushed branch on 2026-09-13, before the fix: 11 of
+    // 72 derived a name that broke, each of them at the 52-byte cap and so at
+    // `<52>_test_test_fresh` = 68. It is LOCAL-ONLY -- CI names its database
     // `canoncore`, so the branch never enters the arithmetic and this never
     // went red there.
     const name = worktreeDatabaseName(`feat/${"a".repeat(200)}`);
@@ -109,9 +109,12 @@ describe("worktreeDatabaseName", () => {
     for (const suffix of TEST_DATABASE_SUFFIXES) {
       const derived = testDatabaseNameFor(run, suffix);
       expect(derived.length).toBeLessThanOrEqual(63);
-      // The thing at the other end of getting this wrong: a name that truncates
-      // back onto the worktree's own database, which the harness then DROPS.
-      expect(derived.slice(0, 63)).not.toBe(name);
+      // THE PROPERTY, rather than the byte count that follows from it: deriving
+      // from the RUN's database and deriving from the WORKTREE's land on one
+      // name. The test above already holds the one-step side to the budget, so
+      // this equality is what carries the two-step side there with it, and it
+      // is the assertion that goes red the moment a second `_test` comes back.
+      expect(derived).toBe(testDatabaseNameFor(name, suffix));
     }
   });
 
