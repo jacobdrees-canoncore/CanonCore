@@ -7,7 +7,7 @@ import { Input } from "@canoncore/ui/components/input";
 import { call } from "@orpc/server";
 import Form from "next/form";
 import Link from "next/link";
-
+import { noPasswordSet } from "@/components/no-password";
 import { oneValue } from "@/components/query-params";
 import { Reason } from "@/components/reason";
 import { callerContext } from "@/session";
@@ -65,13 +65,21 @@ async function readImportPage({ query, provider, container, purge }: Asked) {
   // to it would be two answers to "what does this request carry".
   //
   // AND THE CONFIGURATION IS READ FIRST, because what may be asked of a provider
-  // depends on whether it is one this instance searches. Neither of these two
-  // makes a request of a provider -- both read this instance's own settings,
-  // which is one row (CNCORE-99) -- so the ordering costs nothing and buys the
-  // narrowing below.
-  const [allowlisted, configured] = await Promise.all([
+  // depends on whether it is one this instance searches. Not one of these three
+  // makes a request of a provider -- two read this instance's own settings,
+  // which is one row (CNCORE-99), and the third reads an environment variable --
+  // so the ordering costs nothing and buys the narrowing below.
+  //
+  // THE THIRD IS WHETHER ANYBODY CAN LOG IN HERE AT ALL (CNCORE-146), which is
+  // ADR-0094's second fact and is about the INSTANCE rather than the reader: on
+  // ADR-0044's read-only instance every password is refused, so nobody obtains
+  // a session including the owner, and the notice standing where each control
+  // would be must not offer a login there. Joined here rather than awaited on
+  // its own, which is the shape the front page reads the same three facts in.
+  const [allowlisted, configured, instance] = await Promise.all([
     call(appRouter.provider.allowlisted, undefined, { context }),
     call(appRouter.provider.configured, undefined, { context }),
+    call(appRouter.session.configured, undefined, { context }),
   ]);
   const searchable = searchableProvider(configured.providers, provider);
   /*
@@ -127,6 +135,13 @@ async function readImportPage({ query, provider, container, purge }: Asked) {
      * costs the reader the page they were on.
      */
     owner: context.session !== null,
+    /**
+     * AND WHETHER THERE IS A LOGIN TO OFFER AT ALL (CNCORE-146), read at the
+     * top of this function with the other two facts about this instance and
+     * handed on from here because the two places that need it are four
+     * components deep.
+     */
+    aPasswordIsSet: instance.password,
   };
 }
 
@@ -246,13 +261,21 @@ export default async function ImportPage({
   const query = oneValue(asked.q);
   const provider = oneValue(asked.provider);
   const container = oneValue(asked.container);
-  const { allowlisted, configured, found, namedContainer, owner, preview, purging } =
-    await readImportPage({
-      query,
-      provider,
-      container,
-      purge: oneValue(asked.purge),
-    });
+  const {
+    allowlisted,
+    aPasswordIsSet,
+    configured,
+    found,
+    namedContainer,
+    owner,
+    preview,
+    purging,
+  } = await readImportPage({
+    query,
+    provider,
+    container,
+    purge: oneValue(asked.purge),
+  });
 
   return (
     <main className="container mx-auto max-w-3xl px-4 py-8">
@@ -263,16 +286,25 @@ export default async function ImportPage({
       </p>
       {!allowlisted.any && <NoProviderAllowlisted />}
       {configured.providers.length === 0 && <NoProviderConfigured />}
+      {/*
+        AND WHETHER ANYBODY CAN LOG IN TO THIS INSTANCE AT ALL (CNCORE-146),
+        said ONCE HERE rather than left to be inferred from the notices below.
+        Each of those names the operation a reader is not being offered; none of
+        them can say that becoming the owner is not on offer either, and a
+        reader who is told only "only the owner can import" beside every button
+        is left looking for the way to become one.
+      */}
+      {!owner && !aPasswordIsSet && <NoLogin />}
       <SearchBox query={query} />
       {found !== undefined && query !== undefined && (
-        <Results found={found} owner={owner} query={query} />
+        <Results aPasswordIsSet={aPasswordIsSet} found={found} owner={owner} query={query} />
       )}
       <BrowseBox configured={configured.providers} container={container} provider={provider} />
       {container !== undefined &&
         (namedContainer === undefined ? (
           <NotOneOfOurs />
         ) : (
-          <Container {...namedContainer} owner={owner} />
+          <Container {...namedContainer} aPasswordIsSet={aPasswordIsSet} owner={owner} />
         ))}
       {owner && <PurgeBox configured={configured.providers} />}
       {purging !== undefined && preview !== undefined && (
@@ -571,7 +603,17 @@ function SearchBox({ query }: { query?: string }) {
  * visible. A provider omitted for having no results is one an owner cannot tell
  * from a provider that was never asked.
  */
-function Results({ found, owner, query }: { found: Found; owner: boolean; query: string }) {
+function Results({
+  aPasswordIsSet,
+  found,
+  owner,
+  query,
+}: {
+  aPasswordIsSet: boolean;
+  found: Found;
+  owner: boolean;
+  query: string;
+}) {
   const matched = found.answered.reduce((total, { results }) => total + results.length, 0);
 
   return (
@@ -594,7 +636,12 @@ function Results({ found, owner, query }: { found: Found; owner: boolean; query:
             <ul className="mt-2 divide-y">
               {results.map((result) => (
                 <li key={result.recordId} className="py-3">
-                  <Candidate baseUrl={provider.baseUrl} owner={owner} result={result} />
+                  <Candidate
+                    aPasswordIsSet={aPasswordIsSet}
+                    baseUrl={provider.baseUrl}
+                    owner={owner}
+                    result={result}
+                  />
                 </li>
               ))}
             </ul>
@@ -608,10 +655,12 @@ function Results({ found, owner, query }: { found: Found; owner: boolean; query:
 
 /** One candidate: what the provider claims about it, and what to do with it. */
 function Candidate({
+  aPasswordIsSet,
   baseUrl,
   owner,
   result,
 }: {
+  aPasswordIsSet: boolean;
   baseUrl: string;
   owner: boolean;
   result: Found["answered"][number]["results"][number];
@@ -662,6 +711,7 @@ function Candidate({
       <span className="flex items-baseline gap-3">
         {result.itemId !== null && <Held itemId={result.itemId} />}
         <Take
+          aPasswordIsSet={aPasswordIsSet}
           baseUrl={baseUrl}
           held={result.itemId !== null}
           owner={owner}
@@ -684,7 +734,24 @@ function Candidate({
  * `Link` RATHER THAN `a` (ADR-0109): a path this app owns is one the framework
  * has to be allowed to rewrite.
  */
-function LogIn({ to }: { to: string }) {
+function LogIn({ aPasswordIsSet, to }: { aPasswordIsSet: boolean; to: string }) {
+  /*
+   * AND WHERE NOBODY CAN LOG IN, THE OPERATION IS STILL NAMED AND THE DOOR IS
+   * NOT (CNCORE-146). The paragraph above is why a gap is refused: the reader
+   * is entitled to know which operation stood here. What they are not offered
+   * on ADR-0044's read-only instance is a login, because `session.logIn`
+   * refuses every password there and `/login` renders no form -- so this said
+   * "Log in to import" once per control, down a whole page of controls, and
+   * every one of them led to a page saying nobody can.
+   *
+   * WHICH SILENCE IT IS, IS SAID ONCE BY THE PAGE rather than here. This notice
+   * stands beside a control and repeats per control; the instance is one fact
+   * about the whole page, and `NoLogin` at the top is where it belongs.
+   */
+  if (!aPasswordIsSet) {
+    return <span className="text-muted-foreground text-sm">{`Only the owner can ${to}.`}</span>;
+  }
+
   return (
     <span className="text-muted-foreground text-sm">
       <Link className="underline" href="/login">
@@ -692,6 +759,31 @@ function LogIn({ to }: { to: string }) {
       </Link>
       {` to ${to}.`}
     </span>
+  );
+}
+
+/**
+ * WHAT AN INSTANCE NOBODY CAN LOG IN TO SAYS ABOUT ITSELF, ONCE (CNCORE-146).
+ *
+ * A LABELLED SECTION BESIDE THE OTHER TWO NOTICES, because it is the same kind
+ * of thing as `NoProviderAllowlisted` and `NoProviderConfigured`: a fact about
+ * this instance that a reader cannot discover by trying, and that makes the
+ * rest of the page legible. Nothing allowlisted explains an empty result;
+ * nothing configured explains the same; no password explains why every control
+ * on this page is a notice and no login stands anywhere near them.
+ *
+ * SHOWN TO A READER WITH NO SESSION ONLY. An owner cannot be on an instance
+ * with no password -- that is the whole of ADR-0044's read-only mode -- so the
+ * condition is belt and braces rather than a case that arises.
+ */
+function NoLogin() {
+  return (
+    <section aria-labelledby="no-login" className="mt-4">
+      <h2 className="sr-only" id="no-login">
+        Logging in to this instance
+      </h2>
+      <p className="text-muted-foreground text-sm">{noPasswordSet("changed")}</p>
+    </section>
   );
 }
 
@@ -711,11 +803,13 @@ function LogIn({ to }: { to: string }) {
  * the RPC by hand, so the page is not a way round the allowlist.
  */
 function Take({
+  aPasswordIsSet,
   baseUrl,
   held,
   owner,
   recordId,
 }: {
+  aPasswordIsSet: boolean;
   baseUrl: string;
   held: boolean;
   owner: boolean;
@@ -725,7 +819,7 @@ function Take({
   // `provider.import` is the owner's since CNCORE-109, and with no script loaded
   // a Server Action that throws renders a bare `Internal Server Error` -- so an
   // offer this page cannot honour costs the reader the page they were reading.
-  if (!owner) return <LogIn to="import" />;
+  if (!owner) return <LogIn aPasswordIsSet={aPasswordIsSet} to="import" />;
 
   return (
     <form action={importRecord}>
@@ -993,12 +1087,13 @@ function NotOneOfOurs() {
  * the difference between a refusal reported and a refusal merely reworded.
  */
 function Container({
+  aPasswordIsSet,
   baseUrl,
   containerId,
   itemId,
   owner,
   said,
-}: NamedContainer & { owner: boolean }) {
+}: NamedContainer & { aPasswordIsSet: boolean; owner: boolean }) {
   return (
     <section aria-labelledby="container" className="mt-4">
       <h3 className="sr-only" id="container">
@@ -1006,6 +1101,7 @@ function Container({
       </h3>
       {said.answer === "container" ? (
         <ItsOrdering
+          aPasswordIsSet={aPasswordIsSet}
           baseUrl={baseUrl}
           containerId={containerId}
           itemId={itemId}
@@ -1043,12 +1139,14 @@ function Container({
  * ordering.
  */
 function ItsOrdering({
+  aPasswordIsSet,
   baseUrl,
   containerId,
   itemId,
   owner,
   said,
 }: {
+  aPasswordIsSet: boolean;
   baseUrl: string;
   containerId: string;
   itemId: string | null;
@@ -1109,7 +1207,7 @@ function ItsOrdering({
             </Button>
           </form>
         ) : (
-          <LogIn to="import an ordering" />
+          <LogIn aPasswordIsSet={aPasswordIsSet} to="import an ordering" />
         )}
       </span>
     </div>

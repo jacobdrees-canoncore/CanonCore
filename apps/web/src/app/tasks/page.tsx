@@ -1,8 +1,8 @@
 import { appRouter, type ReportedRun as Run } from "@canoncore/api/routers";
 import { Button } from "@canoncore/ui/components/button";
 import { call } from "@orpc/server";
-import Link from "next/link";
 
+import { NotLoggedIn } from "@/components/not-logged-in";
 import { callerContext } from "@/session";
 
 import { cancelTask, runTask } from "./actions";
@@ -26,7 +26,19 @@ import { cancelTask, runTask } from "./actions";
  */
 export default async function TasksPage() {
   const context = await callerContext();
-  if (context.session === null) return <NotLoggedIn />;
+  /*
+   * ADR-0044's visitor, told where the door is -- or, on an instance that
+   * sets no password, that there is no door (CNCORE-146). The shape is three
+   * pages' and lives in `not-logged-in.tsx`, which reads the instance itself.
+   */
+  if (context.session === null) {
+    return (
+      <NotLoggedIn
+        title="Tasks"
+        whoseBusiness="What a catalogue does for itself, and when it last did it, is its owner's business."
+      />
+    );
+  }
 
   const tasks = await call(appRouter.task.list, {}, { context });
   /*
@@ -187,20 +199,4 @@ function on(moment: Date): string {
     timeStyle: "short",
     timeZone: "UTC",
   }).format(moment)} UTC`;
-}
-
-/** ADR-0044's visitor, told where the door is and nothing else. */
-function NotLoggedIn() {
-  return (
-    <main className="container mx-auto max-w-2xl px-4 py-8">
-      <h1 className="text-3xl font-medium">Tasks</h1>
-      <p className="mt-2 text-muted-foreground text-sm">
-        What a catalogue does for itself, and when it last did it, is its owner&apos;s business. So
-        this page asks you to be them first.
-      </p>
-      <Link className="mt-6 inline-block text-sm hover:underline" href="/login">
-        Log in
-      </Link>
-    </main>
-  );
 }

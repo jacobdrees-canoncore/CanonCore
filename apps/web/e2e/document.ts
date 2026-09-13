@@ -452,6 +452,31 @@ export function sourcesIn(row: string): string[] {
 }
 
 /**
+ * One page's own content: everything the ROUTE rendered, without the shell
+ * around it.
+ *
+ * IT EXISTS BECAUSE THE SHELL NOW ANSWERS THE SAME QUESTION THE PAGE DOES
+ * (CNCORE-146). Since CNCORE-139 the header offers `/login` to every reader
+ * with no session on an instance that has a password -- so on exactly the
+ * instance where a refusal page MUST still name that step, a document-wide
+ * `toContain('href="/login"')` passes whether the page names it or not. Four
+ * surfaces assert that step; without this they would be asserting the shell and
+ * calling it the page.
+ *
+ * READ AS THE `main` ELEMENT, which is the landmark the page's content IS to
+ * anybody navigating by one. `headerOf` in `header.test.ts` reads the other
+ * half of the same document the same way and refuses a second one for the same
+ * reason: a helper that quietly took the first of two would assert against the
+ * wrong element and pass.
+ */
+export function mainOf(text: string): string {
+  const found = [...text.matchAll(/<main\b.*?<\/main>/gs)].map(([element]) => element);
+  if (found.length === 0) throw new Error("that page rendered no main");
+  if (found.length > 1) throw new Error(`that page rendered ${found.length} mains, not one`);
+  return found[0] as string;
+}
+
+/**
  * One `<section>` of a page, by the heading it is labelled with.
  *
  * IT THROWS RATHER THAN ANSWERING NOTHING, which is what makes

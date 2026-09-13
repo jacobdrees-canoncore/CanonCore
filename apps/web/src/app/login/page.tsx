@@ -5,6 +5,7 @@ import { Label } from "@canoncore/ui/components/label";
 import { call } from "@orpc/server";
 import Link from "next/link";
 
+import { noPasswordSet } from "@/components/no-password";
 import { oneValue } from "@/components/query-params";
 import { callerContext } from "@/session";
 import { logIn, logOut } from "./actions";
@@ -58,8 +59,15 @@ function NoPasswordSet() {
   return (
     <>
       <p className="mt-2 text-muted-foreground text-sm">
-        This instance has no password set, so nobody can log in and nothing can be changed through
-        it. Everything in the catalogue is still yours to read.
+        {/*
+          SHARED WITH THE SIX SURFACES THAT SAY IT TOO (CNCORE-146). This page is
+          where the sentence was written first and three of them claimed to be
+          quoting it while saying something else; `no-password.ts` carries what
+          that cost. The second sentence stays here, because "still yours to
+          read" is this page's own answer to a visitor who came looking for a
+          way in.
+        */}
+        {noPasswordSet("changed")} Everything in the catalogue is still yours to read.
       </p>
       <Link className="mt-6 inline-block text-sm hover:underline" href="/">
         The catalogue

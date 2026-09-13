@@ -11,6 +11,7 @@ import { call } from "@orpc/server";
 import Link from "next/link";
 import { connection } from "next/server";
 import { Holding, Listing, PastTheEnd, Walk } from "@/components/listing";
+import { noPasswordSet } from "@/components/no-password";
 import { oneValue } from "@/components/query-params";
 import { callerContext } from "@/session";
 
@@ -345,9 +346,17 @@ function WhatToDoNext({ aPasswordIsSet, owner }: { aPasswordIsSet: boolean; owne
  *
  * THE ROUTES BELOW ARE THE OWNER'S, AND THE PAGE SAID SO TO NOBODY. Every
  * surface they lead to is behind a session (ADR-0044): `/new` answers a visitor
- * "Only the owner of this catalogue can add to it", and `/import` renders with
- * its buttons disabled. So an empty catalogue was telling every reader to do
- * two things, and refusing most of them on arrival.
+ * "Only the owner of this catalogue can add to it" on an instance that has a
+ * password, and `/import` renders with its buttons disabled. So an empty
+ * catalogue was telling every reader to do two things, and refusing most of
+ * them on arrival.
+ *
+ * THE QUALIFIER IS CNCORE-144's, and it is here because this sentence is a
+ * claim about ANOTHER SURFACE'S current code rather than about this one. `/new`
+ * reads `session.configured` as well now, so where no password is set it says
+ * so instead -- the third answer below, in the same words. Two records quoted
+ * that surface as a fixed point while it had only one answer; ADR-0094 carries
+ * what that cost.
  *
  * A SESSION RATHER THAN A PASSWORD IS WHAT THE ROUTES TURN ON, and the
  * difference is the reader rather than the instance. An instance with a
@@ -387,9 +396,5 @@ function WhoFillsIt({ aPasswordIsSet, owner }: { aPasswordIsSet: boolean; owner:
         if that is you.
       </>
     );
-  return (
-    <>
-      This instance has no password set, so nobody can log in and nothing can be added through it.
-    </>
-  );
+  return <>{noPasswordSet("added")}</>;
 }

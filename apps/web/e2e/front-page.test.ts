@@ -228,10 +228,16 @@ describe("/ on an empty catalogue, to its owner", () => {
  * THE READER THE EMPTY STATE IS NOT ADDRESSED TO (CNCORE-133).
  *
  * BOTH ROUTES ARE THE OWNER'S AND NEITHER SAID SO: `/new` answers a visitor
- * "Only the owner of this catalogue can add to it", and `/import` renders its
- * surface with every button disabled. So the page was telling a reader to do
- * two things the next page would refuse them, which is what this describe holds
- * it out of.
+ * "Only the owner of this catalogue can add to it" where a password is set, and
+ * `/import` renders its surface with every button disabled. So the page was
+ * telling a reader to do two things the next page would refuse them, which is
+ * what this describe holds it out of.
+ *
+ * `/new` READS THE SECOND FACT TOO SINCE CNCORE-144, so on the instance with no
+ * password it answers in the same words this file asserts below rather than
+ * offering a login of its own. That changes nothing here -- this page's answer
+ * was never read off that one -- and it is named because the sentence above is
+ * quoted from a surface that now has two.
  *
  * TWO INSTANCES, BECAUSE THE ANSWER TURNS ON A SECOND FACT. Where an
  * `OWNER_PASSWORD` is set the reader may BE the owner and simply not be logged

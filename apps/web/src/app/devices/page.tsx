@@ -2,8 +2,8 @@ import { appRouter } from "@canoncore/api/routers";
 import { SESSION_IDLE_LIMIT_SECONDS, SESSION_LIFETIME_SECONDS } from "@canoncore/db";
 import { Button } from "@canoncore/ui/components/button";
 import { call } from "@orpc/server";
-import Link from "next/link";
 
+import { NotLoggedIn } from "@/components/not-logged-in";
 import { callerContext } from "@/session";
 
 import { endDevice } from "./actions";
@@ -34,7 +34,24 @@ export default async function DevicesPage() {
    * every read behind THIS one is the owner's.
    */
   const context = await callerContext();
-  if (context.session === null) return <NotLoggedIn />;
+  /*
+   * ADR-0044's visitor, told where the door is -- or, on an instance that
+   * sets no password, that there is no door (CNCORE-146). The shape is three
+   * pages' and lives in `not-logged-in.tsx`, which reads the instance itself.
+   *
+   * NO LIST, NOT EVEN AN EMPTY ONE, which is why this returns rather than
+   * rendering the page with it withheld. "This instance has nobody logged in"
+   * and "you are not the person who may ask" are different sentences, and only
+   * the second is true here.
+   */
+  if (context.session === null) {
+    return (
+      <NotLoggedIn
+        title="Devices"
+        whoseBusiness="The devices an owner is logged in on are their own business."
+      />
+    );
+  }
 
   const devices = await call(appRouter.session.list, {}, { context });
 
@@ -125,26 +142,4 @@ function on(seen: Date): string {
 /** A limit in the units the sentence above says it in. */
 function inDays(seconds: number): number {
   return Math.round(seconds / 60 / 60 / 24);
-}
-
-/**
- * ADR-0044's visitor, who is told where the door is and nothing else.
- *
- * NO LIST, NOT EVEN AN EMPTY ONE. "This instance has nobody logged in" and "you
- * are not the person who may ask" are different sentences, and only the second
- * is true here.
- */
-function NotLoggedIn() {
-  return (
-    <main className="container mx-auto max-w-2xl px-4 py-8">
-      <h1 className="text-3xl font-medium">Devices</h1>
-      <p className="mt-2 text-muted-foreground text-sm">
-        The devices an owner is logged in on are their own business, so this page asks you to be
-        them first.
-      </p>
-      <Link className="mt-6 inline-block text-sm hover:underline" href="/login">
-        Log in
-      </Link>
-    </main>
-  );
 }
