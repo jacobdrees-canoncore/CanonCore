@@ -31,6 +31,13 @@ const baseUrl = inject("baseUrl");
  * from the page that has to satisfy them.
  */
 const freshBaseUrl = inject("freshBaseUrl");
+/**
+ * THE THIRD SERVER: an empty catalogue with an OWNER on it, which is the only
+ * instance here that can show the routes out of one (CNCORE-133). They are a
+ * session's since that ticket, and the fresh install above deliberately has no
+ * password for anyone to hold one with.
+ */
+const emptyBaseUrl = inject("allowlistedBaseUrl");
 const client: AppRouterClient = createORPCClient(new RPCLink({ url: `${baseUrl}/api/rpc` }));
 
 /**
@@ -43,6 +50,9 @@ const client: AppRouterClient = createORPCClient(new RPCLink({ url: `${baseUrl}/
  * `login-page.test.ts` rather than assumed here.
  */
 const owner = await logInAt(baseUrl, inject("ownerPassword"));
+
+/** The same owner on the empty instance, for the one read that needs one. */
+const ownerOfTheEmptyOne = await logInAt(emptyBaseUrl, inject("ownerPassword"));
 
 /**
  * THE CATALOGUE'S OWN ROWS, which this file reaches for exactly once and for a
@@ -536,16 +546,19 @@ describe("reaching /import", () => {
     expect((await documentAt("/import")).status).toBe(200);
   });
 
-  it("is what a fresh install is told to do next, in the words that now work", async () => {
+  it("is what an empty catalogue tells its owner to do next, in the words that now work", async () => {
     // ADR-0094's other half: an install that starts empty WITHOUT SAYING WHAT TO DO
     // NEXT is a failure of its own. That copy used to say to give a provider's base
     // URL and the id of one of its records, which is exactly the hand-POSTing this
     // ticket removes -- so the step is now a link to the surface that searches.
-    const { text } = await documentFrom(freshBaseUrl, "/");
+    //
+    // AND IT IS TOLD TO THE OWNER (CNCORE-133). This read was the fresh
+    // install's until that ticket, which asked the page as nobody in
+    // particular; every button the link leads to is a session's, so the route
+    // is now offered to one and this is the instance that has one.
+    const { text } = await documentFrom(emptyBaseUrl, "/", ownerOfTheEmptyOne);
 
-    const next = text.match(/<section[^>]*aria-labelledby="what-to-do-next".*?<\/section>/)?.[0];
-    if (!next) throw new Error("the fresh install's front page says nothing about what to do next");
-    expect(next).toContain('href="/import"');
+    expect(sectionIn(text, "what-to-do-next")).toContain('href="/import"');
   });
 });
 

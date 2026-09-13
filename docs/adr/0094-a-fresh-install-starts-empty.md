@@ -84,7 +84,8 @@ reader whose instance reached nothing was sent to go and find something for it t
 shorter path already on the page they were looking at. **THE PAGE OFFERS TWO ROUTES NOW, AND THE ONE
 THAT NEEDS NO PROVIDER GOES FIRST** — `/new`, which makes an Item with no file and no provider
 record (ADR-0003) — beside the provider's route, which keeps both its steps and names the two
-Settings it needs (ADR-0121). It was FILED rather than fixed inside the release ticket, because it
+Settings it needs (ADR-0121). It offers them TO ITS OWNER, which CNCORE-131 did not decide and
+CNCORE-133 below did. It was FILED rather than fixed inside the release ticket, because it
 is product copy and the header's own `New item` link meant the capability was reachable rather than
 hidden. Reachable and unsaid is exactly what this record does not licence, which is why reachable
 was not an answer.
@@ -95,7 +96,46 @@ a fixture rather than words. Every empty instance in the suite was also an uncon
 could tell which of them the page was reading. The e2e harness stands up an instance in the
 missing combination — an allowlist that admits something, a catalogue that is still empty — so an
 empty state that acquired a second condition, shown only where nothing is reachable, fails there
-rather than passing everything.
+rather than passing everything. **That instance now holds ONE HALF of it and the other half has no
+instance at all**, which CNCORE-133 below both caused and accounts for.
+
+**AND THE ROUTES ARE THE OWNER'S, WHICH IS THE READER THIS RECORD NEVER NAMED (CNCORE-133).** Both
+routes end at a surface behind a session: `/new` answers a visitor "Only the owner of this catalogue
+can add to it", and `/import` renders with every button disabled (ADR-0044). The front page read the
+catalogue and the allowlist and nothing about WHO WAS ASKING, so it told every reader to do two
+things and most of them were refused on arrival — and on an instance that sets no `OWNER_PASSWORD`
+there was not even a login to take, because that is ADR-0044's read-only instance where nobody can
+log in including the owner. Two reviewers of CNCORE-131's PR named it independently.
+
+**SO THE LIST IS RENDERED FOR A SESSION, AND THE READER WITHOUT ONE IS OFFERED THE STEP THAT WOULD
+MAKE THEM ONE.** Three answers off two facts. An owner sees the two routes, unchanged. A reader with
+no session on an instance that HAS a password is told only the owner can fill it and offered
+`/login` — which is not a consolation but the correct next step, and the one the README already
+names first ("the first thing to do … is log in with the one you just generated"). A reader on an
+instance with NO password is told that plainly, in the words `/login` uses for the same fact, and
+offered nothing: a login link there would be the door with no key cut for it that that page already
+refuses to render. `session.configured` is what answers the second fact, which is the shape it was
+built for one setting over from `provider.allowlisted`.
+
+**THE ALTERNATIVES, AND WHY EACH IS WORSE.** Gating on `session.configured` ALONE — render the
+routes wherever a login is possible — fixes only the read-only instance and goes on offering `/new`
+to every visitor of an ordinary self-hosted one, which is the shape most people run. Rendering them
+for everyone and letting each surface refuse is what produced the defect. Making `/new` render a
+DISABLED form to match `/import` makes the refusal prettier without making the route takeable, and
+the criterion was that a reader is not sent somewhere that will refuse them. What does not change is
+the first sentence: "it starts that way on purpose, CanonCore ships no catalogue" is every reader's,
+because the "empty is not UNEXPLAINED" half above is owed to somebody who cannot fill it either.
+
+**AND IT COST THE CRITERION ABOVE ONE OF ITS TWO WITNESSES, WHICH IS NAMED RATHER THAN LEFT TO BE
+DISCOVERED.** "Offered whether or not a provider is allowlisted" needs the routes rendered in both
+allowlist states, and rendering them now needs an owner. `anInstanceAllowlistedAndEmpty` gained one,
+so the half CNCORE-131 built the fixture for still fails a page gated on `!providers.any`. The other
+half — an owner, an empty catalogue, NOTHING allowlisted — has no instance: the only empty
+unallowlisted instance here is the fresh install, whose whole fixture is that nobody can log in to
+it. A twelfth server would recover it and ADR-0104 refuses one: under "What sharing one container
+costs, and the ceiling nobody had counted" it measured on 2026-09-13 that a single run of this suite
+already peaks at about a hundred client connections, which is the whole of the default budget CI's
+own `postgres:18` service gets.
 
 **WHAT `accepted` DOES NOT ASSERT, BECAUSE THE TITLE IS TWO REFUSALS AND ONLY ONE HAS MET AN
 INSTANCE.** "Never shipped" is the half above, walked. "Never demoed" is not: there IS no public
@@ -129,9 +169,10 @@ govern.
 **And the half this record explicitly does not licence is now closed.** The section above ends "an
 install that starts empty WITHOUT SAYING WHAT TO DO NEXT is a separate failure", and points at
 [[0115-the-public-release-comes-before-the-playback-half]]. CNCORE-65 is where that was done and
-CNCORE-131 is where it was finished: the empty catalogue names the ROUTES that fill it — by hand,
-and from a provider — and an instance with nothing allowlisted says so rather than leaving an empty
-result to read as breakage. Nothing in the refusal softened — the fix is words on a page, and no
+CNCORE-131 is where it was finished and CNCORE-133 is where it found its reader: the empty catalogue
+names the ROUTES that fill it — by hand, and from a provider — to the owner who can take them, tells
+everyone else the emptiness is on purpose, and says of an instance with nothing allowlisted that
+nothing is allowlisted rather than leaving an empty result to read as breakage. Nothing in the refusal softened — the fix is words on a page, and no
 seed data travels anywhere.
 
 **The third state the page reports was not in this record and is worth naming**: an allowlist that
