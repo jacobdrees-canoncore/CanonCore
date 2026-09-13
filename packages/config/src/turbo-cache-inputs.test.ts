@@ -311,10 +311,19 @@ function packagesReachingOutsideThemselves(): string[] {
       // begin at the opening quote: `"./nested/../../../shared"` leaves the
       // package and matched NOTHING. Resolving the literal the way the runtime
       // would, then asking whether it landed outside, has no such shape to be
-      // written around -- and it drops the arithmetic that made the earlier
-      // version need a comment to be believed.
+      // written around -- and it drops the arithmetic that needed a comment to
+      // be believed.
+      //
+      // ONLY A RELATIVE SPECIFIER IS A PATH, which is the rung that keeps this
+      // from reading prose as a filesystem. A string merely CONTAINING `../` is
+      // usually not a path at all: `credential.test.ts` asserts on the URL
+      // `"/..//evil.test"` to prove a traversal is refused, and because that
+      // string is ABSOLUTE, `resolve` discards everything before it and lands on
+      // `/evil.test` -- outside the package, and a false positive that broke CI
+      // on an unrelated merge. A path a file actually reaches through opens `./`
+      // or `../`; a URL, a regex and a traversal fixture do not.
       const packageDirectory = join(repoRoot, ...path.split("/").slice(0, 2));
-      return [...(sources.get(path) ?? "").matchAll(/["'`]([^"'`\n]*\.\.\/[^"'`\n]*)["'`]/g)].some(
+      return [...(sources.get(path) ?? "").matchAll(/["'`](\.\.?\/[^"'`\n]*)["'`]/g)].some(
         (literal) =>
           !`${resolve(repoRoot, dirname(path), literal[1] as string)}${sep}`.startsWith(
             `${packageDirectory}${sep}`,
