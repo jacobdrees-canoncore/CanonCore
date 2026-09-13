@@ -239,9 +239,9 @@ the shared walk that only one of its three callers would ever pass — a worse t
 lookup on a unique key. The number is here because this record prices the id cursor at "one indexed
 primary-key lookup per page" two sections above, and a relevance-ordered walk pays that three times.
 
-**IT SAID TWO UNTIL CNCORE-113, AND THE THIRD IS THE `is null` THAT SECTION ADDED**, corrected in
-the sentence above rather than beside it, because a number left standing next to its correction is
-the one somebody quotes.
+**IT SAID TWO UNTIL CNCORE-113, AND THE THIRD IS THE `is null` BRANCH THAT TICKET ADDED**,
+corrected in the sentence that carries the number rather than beside it, because a number left
+standing next to its correction is the one somebody quotes.
 
 **THE COMPARISON IS THE WHOLE TUPLE THE `ORDER BY` USES, and each of the three terms is a way to
 lose rows.** `(similarity DESC, coalesce(sort_name, title), id)`:
@@ -290,15 +290,16 @@ results still unseen. It is the silent ending CNCORE-110 closed for the listing,
 rather than at read time.
 
 **Two shapes were weighed and the second was taken.** The first is to collapse the window by joining
-the anchor row in as a relation, so there is no second statement to race; it is refused here for the
-reason the section above already gives — it puts a parameter on the shared walk that only one of its
-three callers would ever pass — and refusing it twice for one reason is what makes that pricing a
-rule rather than a remark. The second is to leave the window open and read a NULL closeness as **"no
+the anchor row in as a relation, so there is no second statement to race; it is refused for the
+reason this section already prices the fold at — it puts a parameter on the shared walk that only
+one of its three callers would ever pass — and refusing it twice for one reason is what makes that
+pricing a rule rather than a remark. The second is to leave the window open and read a NULL closeness as **"no
 position"**, which is what the walk now does.
 
 **What makes that safe is not that the window is narrow — it is that both sides of it answer the
 same way.** An anchor with no title names no position at read time and starts the search over
-(CNCORE-110, two paragraphs above); an anchor that loses its title one statement later now does
+(CNCORE-110, under "The cursor is an Item's id, not an encoded sort key"); an anchor that loses its
+title one statement later now does
 exactly the same. So nothing a reader can see depends on which side of the gap a delete lands on,
 and the race is harmless rather than merely unlikely. The read-time check is kept beside it as two
 MOMENTS rather than two mechanisms: it spares the walk a predicate it does not need, and neither is
@@ -309,7 +310,7 @@ and the difference is which NULL it forgives.** A coalesce would answer "start o
 the predicate, including a candidate row with no closeness of its own — which a search would then
 RETURN without ever having matched it. That is the distinction the ticket named: a NULL meaning
 "tied at nothing" is not a NULL meaning "the anchor is gone", and only the explicit spelling can
-tell them apart. It costs the third primary-key lookup priced above.
+tell them apart. It costs the third primary-key lookup this section prices.
 
 **Asserted rather than reasoned.** The window is REACHED in `catalogue-search.test.ts`: the test
 hands `searchCatalogue` a database that wedges the delete into the gap by hooking the first

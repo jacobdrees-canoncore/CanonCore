@@ -63,8 +63,18 @@ beforeAll(async () => {
  * one statement it is about: everything the walk builds afterwards -- its own
  * select, its count, and the anchor subquery it embeds -- gets the real
  * database, unproxied.
+ *
+ * AND IT HANDS BACK THE ROWS IT WEDGED BEHIND, because "the FIRST statement" is
+ * an assumption about `searchCatalogue` rather than a fact this helper can
+ * check. Let anything ever run a select before the anchor read -- or move that
+ * read to `db.query` or `db.execute` -- and the delete lands BEFORE the anchor
+ * is read instead of after it. The walk would then be resuming from an anchor
+ * that was already deleted when it was looked up, which is the test NEXT DOOR,
+ * and the assertions of the two are identical: this one would pass while
+ * exercising nothing. So the caller asserts what was actually wedged.
  */
-function deletingAfterTheFirstStatement(db: Database, anchor: string): Database {
+function deletingAfterTheFirstStatement(db: Database, anchor: string) {
+  const wedgedBehind: unknown[] = [];
   let landed = false;
   const wedge = async () => {
     if (landed) return;
@@ -88,12 +98,13 @@ function deletingAfterTheFirstStatement(db: Database, anchor: string): Database 
         }
         return (resolve?: (rows: unknown) => unknown, reject?: unknown) =>
           method(async (rows: unknown) => {
+            if (!landed && Array.isArray(rows)) wedgedBehind.push(...(rows as unknown[]));
             await wedge();
             return resolve ? resolve(rows) : rows;
           }, reject);
       },
     });
-  return new Proxy(db, {
+  const racing = new Proxy(db, {
     get(target, property) {
       const value: unknown = Reflect.get(target, property);
       if (typeof value !== "function") return value;
@@ -102,6 +113,7 @@ function deletingAfterTheFirstStatement(db: Database, anchor: string): Database 
       return (...args: unknown[]) => wedgingAfterIt(method(...args) as object);
     },
   }) as Database;
+  return { db: racing, wedgedBehind };
 }
 
 describe("searchCatalogue", () => {
@@ -569,10 +581,26 @@ describe("searchCatalogue", () => {
     for (const suffix of ["one", "two", "six"]) await anItemTitled(db, `${shared} ${suffix}`);
 
     const cut = await searchCatalogue(db, { query: shared, limit: 2 });
-    const anchor = cut.entries.at(-1)?.id ?? "";
-    const racing = deletingAfterTheFirstStatement(db, anchor);
+    const stoppedAt = cut.entries.at(-1);
+    // Rather than `?? ""`, which reaches a `uuid` column as PostgreSQL 22P02
+    // and reports an empty first page as a driver error.
+    if (stoppedAt === undefined) throw new Error("page one of three matches returned nothing");
+    const racing = deletingAfterTheFirstStatement(db, stoppedAt.id);
 
-    const kept = await searchCatalogue(racing, { query: shared, limit: 100, after: anchor });
+    const kept = await searchCatalogue(racing.db, {
+      query: shared,
+      limit: 100,
+      after: stoppedAt.id,
+    });
+
+    // THE WEDGE WENT WHERE IT WAS AIMED, asserted rather than assumed. The
+    // statement the delete landed behind read the anchor AND FOUND IT STILL
+    // TITLED, which is the window's whole precondition -- and the one thing
+    // that tells this test apart from the one above it, whose anchor was
+    // already deleted when it was looked up.
+    expect(racing.wedgedBehind).toStrictEqual([
+      expect.objectContaining({ id: stoppedAt.id, title: stoppedAt.title }),
+    ]);
 
     // THE TWO THAT ARE LEFT, from the top -- the same answer as a delete that
     // landed before the search began, which is the point.
@@ -580,7 +608,7 @@ describe("searchCatalogue", () => {
       (await searchCatalogue(db, { query: shared, limit: 100 })).entries.map((entry) => entry.id),
     );
     expect(kept.entries).toHaveLength(2);
-    expect(kept.entries.map((entry) => entry.id)).not.toContain(anchor);
+    expect(kept.entries.map((entry) => entry.id)).not.toContain(stoppedAt.id);
   });
 
   it("starts at the beginning where the cursor names an item with no title", async () => {
