@@ -18,9 +18,11 @@ are one per question in the ticket. Section 6 labels each of the five current pr
 gives the concurrency ceiling and its arithmetic. Section 8 says what would change, ranked.
 
 Where a claim is a measurement, the command that produced it and the date it was taken are given.
-Where a lookup contradicted what the ticket or this repo already believed, the lookup wins and the
-paragraph says so in bold. **Four such contradictions are recorded**, and two of them change what
-should be done rather than merely why.
+**Where a lookup or a measurement contradicted what the ticket, this repo, or an earlier draft of
+this note believed, the lookup wins and the paragraph says so in capitals.** Two of those reversals
+change what should be done rather than merely why: the ticket's port measurement tests something
+that cannot fail (§3), and this note's own first recommendation was rejected in review for circular
+arithmetic (§7).
 
 **Machine under test**, read 2026-09-13 with `sysctl` and `docker info`: `Mac16,7`, Apple M4 Pro,
 **14 logical cores** (14 physical; Apple Silicon has no SMT), **24 GiB RAM**. Docker is colima,
@@ -141,10 +143,11 @@ memory requirements (2 kB per connection by default)" against the 1.67 MB measur
 transaction pooling is what would collapse 100 mostly-idle pool connections into a handful. But the
 same page says transaction pooling "breaks a few session-based features of PostgreSQL" — and
 `packages/db/src/setup-worktree.ts:109` runs `select pg_advisory_lock($1)`, a **session-level**
-advisory lock, which is precisely such a feature. ADR-0104 chose that lock deliberately, over a
-table, because no table exists when a worktree's database is being created. A pooler would either
-break worktree setup or need a carve-out around it, which is a new dependency plus a new exception on
-day one.
+advisory lock, which is precisely such a feature. ADR-0104 chose it deliberately, under "Two ways
+this could destroy work, and what stops each": concurrent setup "needed a lock rather than a caught
+error", and the lock is "taken on a connection to the SERVER, because the database it protects may
+not exist yet". A pooler would either break worktree setup or need a carve-out around it, which is a
+new dependency plus a new exception on day one.
 
 **A container per worktree** partitions the budget properly but discards ADR-0104's measured reason
 for one container, and multiplies a 1.96 GiB VM's fixed costs (128 MB `shared_buffers` each) by the
@@ -272,7 +275,7 @@ genuinely non-deterministic tasks `cache: false` in the root `turbo.json` — `t
 **The ticket's own measurement proved nothing, and the real mechanism is an operating-system
 difference that makes local green and CI green mean different things.**
 
-### The lookup
+### What Node and the OS actually document
 
 Node 24's `net` documentation (nodejs.org/docs/latest-v24.x/api/net.html, read 2026-09-13):
 
@@ -291,9 +294,15 @@ Node 24's `net` documentation (nodejs.org/docs/latest-v24.x/api/net.html, read 2
 **`TIME_WAIT` AND `SO_REUSEADDR` ARE A RED HERRING FOR THIS BUG, WHICH IS WHY THE QUESTION AS POSED
 CANNOT BE ANSWERED AS POSED.** `TIME_WAIT` is entered by the endpoint that closes an ESTABLISHED
 connection; a listening socket closed with no live connections does not enter it, so its port returns
-to the ephemeral pool at once. And `SO_REUSEADDR`, which Node sets unconditionally, exists precisely
-to let a bind succeed over a `TIME_WAIT` remnant. Neither delays reuse here. **The reuse the stub
-suffers is immediate and total.**
+to the ephemeral pool at once. And `SO_REUSEADDR` exists precisely to let a bind succeed over a
+`TIME_WAIT` remnant, so it removes a delay rather than adding one. Neither delays reuse here. **The
+reuse the stub suffers is immediate and total**, which is what the measurement below shows directly
+and is the reason this note does not rest the point on either flag.
+
+**An honest limit on that second sentence.** Node's quoted line says "All `net.Socket` are set to
+`SO_REUSEADDR`", and a listening server is a `net.Server`, not a `net.Socket` — so the documentation
+quoted does NOT own a claim about the listening socket's flags, and no page on nodejs.org was found
+that does. The `TIME_WAIT` half stands on its own without it.
 
 ### The measurement the ticket should have taken
 
@@ -353,19 +362,39 @@ the bug constant rather than occasional.
 GitHub's documentation (docs.github.com, service containers and hosted-runner references, read
 2026-09-13) says a service container is created fresh per job and destroyed when the job completes,
 and that each job runs on a fresh instance of the runner image, each a new VM. `.github/workflows/ci.yml`
-gives `postgres:18` to each of the jobs that needs one (lines 286, 323, 409, 447, 495, 696). So each
-job is one worktree against one cluster with the stock `max_connections=100` — and since one suite
-peaks at about 101 client connections, **CI is running closer to its own ceiling than it looks**. It
-has never hit it because no second suite shares that cluster, not because it has headroom. This is
-correct as-is and worth not disturbing: nothing should "helpfully" consolidate those services into
-one shared instance.
+gives `postgres:18` to each of the jobs that needs one (`image: postgres:18` at lines 287, 323, 409,
+448, 496, 696), and **none of them overrides `max_connections`**, so each job is one worktree against
+one cluster at the stock 100. This is correct as-is and worth not disturbing: nothing should
+"helpfully" consolidate those services into one shared instance.
 
-**A contradiction worth recording.** ADR-0104 says CI "needs no equivalent" to the raised ceiling.
-That is true today and true for the stated reason, but the margin is roughly one connection, not a
-comfortable multiple. If the per-suite demand in section 7 is ever *raised* rather than lowered, CI
-breaks before any local worktree does.
+**THIS NOTE'S FIRST DRAFT SAID CI RUNS WITH "ROUGHLY ONE CONNECTION" OF MARGIN, AND REVIEW KILLED IT
+WITH THE OBVIOUS TEST: if one suite peaked at 101 against a ceiling of 100, the `The page over HTTP`
+job would fail every time, and it passes every time — including on this branch.** The claim was
+false, and the reason is that **the peak is a property of the HOST, not of the suite**: node-postgres
+fills a pool lazily, so how many of each server's ten slots are ever opened depends on how much of
+the suite runs at once. Measured 2026-09-13 by re-running the same suite with vitest's worker count
+constrained, sampling `pg_stat_activity` once a second:
 
-### The runners
+| Worker cap | Peak connections | Duration | Result |
+|---|---|---|---|
+| unconstrained (14 cores) | **101** | 18.9 s | 198 passed |
+| `--maxWorkers=4` (a public-repo runner's core count) | **91** | 15.8 s | 198 passed |
+| `--maxWorkers=2` | **93** | 15.5 s | 198 passed |
+
+So the demand does not collapse when concurrency does — the floor is the ten servers themselves, not
+the test parallelism — and a 4-core runner lands at about **91 against a ceiling of 100**. That is
+why CI passes. **The margin is real but thin, and it is under ten connections rather than the
+comfortable multiple "a service container per job" suggests.** ADR-0104's sentence that CI "needs no
+equivalent" to the raised ceiling (under "What sharing one container costs, and the ceiling nobody
+had counted") therefore stands, with a caveat it does not carry: it holds because of the partitioning
+and *not* because of headroom, so raising per-suite demand breaks CI before it breaks any local
+worktree.
+
+**Stated as a gap rather than filled:** the CI peak itself was not measured. Doing so means adding a
+sampling step to `ci.yml`, and this ticket's own criteria forbid editing that file. The 91 above is
+this machine imitating a runner's core count, not a runner.
+
+### The runners are bigger than the machine that shares one database
 
 This repository is **public** (`gh repo view --json visibility` → `PUBLIC`, 2026-09-13), so
 `ubuntu-latest` is **4 vCPU / 16 GB RAM / 14 GB SSD**; the private-repo tier would be 2 vCPU / 8 GB
@@ -451,10 +480,10 @@ The ticket asks for each to be called correct as-is, papering over a problem, or
 
 | # | Practice | Verdict | Reason |
 |---|---|---|---|
-| 1 | `max_connections=300` in `packages/db/docker-compose.yml` | **Correct as-is** | Measured at 1.67 MB/connection, 300 costs ~500 MB of a 1,958 MB VM and leaves ~650 MB. The ceiling is affordable and the number matches the three-worktree intent ADR-0104 states. It is a ceiling, not a target, and it buys only 2.9 suites. |
+| 1 | `max_connections=300` in `packages/db/docker-compose.yml` | **Correct as-is** | Measured at 1.67 MB/connection, 300 costs ~500 MB of a 1,958 MB VM and leaves ~650 MB. The ceiling is affordable and the number matches the three-worktree intent ADR-0104 states under "What sharing one container costs, and the ceiling nobody had counted". It is a ceiling, not a target, and it buys only 2.85 suites, which is what caps agents at two. |
 | 2 | `turbo.json` declaring no `globalDependencies` and `test` no `inputs` | **Actively wrong** | Two cached tasks assert on files they do not hash, and one of them (`@canoncore/env`) asserts on the install path itself. Turbo's own docs say caching assumes determinism; these tasks are not. `@canoncore/config` shows the repo already knows this. |
 | 3 | Stub servers on `listen(0)`, closed per test, identity = base URL | **Papering over a problem** | The port is not the defect; deriving identity from it is. Holding sockets open (0 collisions in 300 binds over 200 held) works and leaves the real coupling in place, to come apart the next time anything reuses a port. |
-| 4 | A `postgres:18` service container per CI job | **Correct as-is** | GitHub documents fresh-per-job service containers on fresh VMs, which is real partitioning. Flagged, not downgraded: the margin is ~1 connection against the stock 100, so it is correct and tight rather than correct and safe. |
+| 4 | A `postgres:18` service container per CI job | **Correct as-is** | GitHub documents fresh-per-job service containers on fresh VMs, which is real partitioning, and no CI service overrides `max_connections`. Flagged, not downgraded: a 4-core runner's peak measures ~91 against the stock 100, so it is correct and THIN rather than correct and roomy. An earlier draft called the margin ~1 connection and predicted a CI failure that does not happen; see section 4. |
 | 5 | `docker/setup-buildx-action` with no Docker Hub login | **Papering over a problem** | The 100-per-6-hours anonymous limit is counted per IP on runners whose IPs are shared, so the failure is not controlled by anything this repo does. It is cheap to live with (intermittent, clears on rerun, documented in CLAUDE.md) and cheap to fix (two secrets). |
 
 **A sixth, not in the brief, and it is the one to fix first:** the turbo cache shared across worktrees
@@ -467,9 +496,10 @@ away the sharing that makes a cold worktree fast.
 
 **A seventh, observed while measuring and outside this ticket's scope:** the shared container holds
 **418 databases** totalling **3,739 MB** across **80 distinct worktree stems**, on a machine with 4
-worktrees. `setUpWorktreeDatabase` never drops anything, deliberately and rightly (ADR-0104: "being
-wrong in that direction costs a developer their work"). But nothing else drops them either, so the
-disk cost grows monotonically with every ticket ever worked. Worth a ticket of its own; not a
+worktrees. `setUpWorktreeDatabase` never drops anything, deliberately and rightly — ADR-0104, under
+"Two ways this could destroy work, and what stops each": "being wrong in that direction costs a
+developer their work". But nothing else drops them either, so the disk cost grows monotonically with
+every ticket ever worked. Worth a ticket of its own; not a
 correctness problem today.
 
 ---
@@ -489,7 +519,8 @@ host `ps` once a second through the run. The suite passed: **15 files, 198 tests
 | Host CPU over the run | 43.91 s user + 8.48 s sys in 20.19 s wall = **2.6 cores mean** |
 
 The 101 independently reproduces ADR-0104's "one suite peaks at about 100 client connections on its
-own", taken on a different day by a different method. The arithmetic behind it: **10 app servers ×
+own" (under "What sharing one container costs, and the ceiling nobody had counted"), taken on a
+different day by a different method. The arithmetic behind it: **10 app servers ×
 node-postgres's default `max` of 10 = 100**, plus harness handles at `HARNESS_CONNECTIONS = 2`.
 
 ### The four ceilings
@@ -500,21 +531,35 @@ exactly what produced CNCORE-131.
 | Constraint | Budget | Per suite | Agents |
 |---|---|---|---|
 | **Postgres connections** | 300 − 3 superuser-reserved − ~9 background = **288** | 101 | **2.85** |
-| colima VM memory | ~1,130 MB available at baseline | ~170 MB (101 × 1.67) | 6.6 |
+| colima VM memory | ~1,130 MB available at baseline | **308 MB** (1,148 peak − 840 baseline, measured) | 3.7 |
 | Host RAM | 24 GiB, call it 16 GiB usable beside an editor and browsers | ~2.1 GiB servers + ~0.9 GiB runner | 5.3 |
 | Host CPU | 14 cores | 2.6 cores mean | 5.4 |
 
+The VM-memory row uses the **measured** suite delta rather than 101 × 1.67 MB. The idle-connection
+slope in section 1 under-counts a running suite, which also holds buffers and sort memory: an earlier
+draft of this table said 170 MB and 6.6 agents, and its own evidence two sections up contradicted it.
+
 **The binding constraint is Postgres connections, and it binds at 2.85.**
 
-> ### The recommendation: **three concurrent agents today, and it should be raised by cutting demand rather than by raising the ceiling again.**
+> ### The recommendation: **two concurrent agents today, and the number to change is the demand, not the ceiling.**
 >
-> Three, not two, because 3 × 101 = 303 exceeds 288 only while all three are simultaneously at peak,
-> and the peak occupies about 4 seconds of a 19-second suite in a session lasting many minutes.
-> Three, not four, because 4 × 101 = 404 exceeds the **hard** limit of 300 even when one agent is
-> merely near peak, and the failure is silent, lands elsewhere, and costs a debugging cycle.
+> **Two, because 2.85 floors to two and the ticket asked for the substrate where a failure is ALWAYS
+> the code's fault.** Nothing weaker than the worst case answers that question: 3 × 101 = 303 exceeds
+> the 288 available, so three agents CAN exhaust the cluster, and the resulting `sorry, too many
+> clients already` lands in a file the diff never touched.
 >
-> This number is a property of the substrate as it stands, not a law. It moves the moment the
-> per-suite demand does.
+> **An earlier draft of this note recommended three, and the argument for it was circular.** It
+> rejected four because 4 × 101 overshoots the hard 300 — an argument that rejects three just as
+> squarely, since 303 > 300 — and then rescued three with an unquantified claim that peaks rarely
+> coincide. **That is precisely the reasoning that produced CNCORE-131:** the second worktree's suite
+> was also unlikely to overlap, right up until it did. Review caught it; the number is two.
+>
+> Three is what the duty cycle probably supports, and "probably" is the word that costs a debugging
+> cycle when it is wrong. Take three only with a dispatcher that checks the live count first, using
+> the query in section 5.
+
+**What buys more than an argument does:** section 1's unbounded server pools. This ceiling is a
+property of the substrate as it stands, not a law, and it moves the moment per-suite demand does.
 
 ### How to buy more, and it is a lot more
 
@@ -524,7 +569,7 @@ sequential test file. If each instance ran with a pool of 3, per-suite demand fa
 **32**, and 288 / 32 = **9 agents** on the same 300-connection ceiling, at which point the host's CPU
 (5.4) becomes the binding constraint instead and the answer is **5**.
 
-**That is the change worth making: 3 agents → 5, with no new ceiling and no new dependency.** It is
+**That is the change worth making: 2 agents → 5, with no new ceiling and no new dependency.** It is
 not free and this note does not pretend otherwise. `getDb()` reads only `DATABASE_URL`, so bounding
 the servers means a new environment variable — and CLAUDE.md forbids introducing one unless something
 in the repo reads it in the same change, which is a ticket's worth of work rather than a line.
@@ -548,21 +593,21 @@ what is allowed rather than a statement about what performs.
 Nothing here was done. Each is a ticket's worth of work, and items 1 and 2 fall inside CNCORE-132's
 existing scope.
 
-1. **Declare the outside inputs, or stop caching.** `@canoncore/schemas`:
+1. **Declare the outside inputs, or stop caching — in BOTH packages.** `@canoncore/schemas`:
    `"inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/CONTEXT.md"]`. `@canoncore/env`: the same with
-   `README.md`, `.env.example`, `compose.yaml`, `Dockerfile`. Prefer these to
-   `globalDependencies`, which the docs say busts every task in the repo. **This is the highest-value
-   item because it is the only defect here that produces a false GREEN**, and because it currently
-   crosses worktrees. CNCORE-132 must verify the fix on a WARM cache, as its own text insists.
-2. **Give CNCORE-132 the second instance.** `@canoncore/env` asserts on the install path and replays
-   stale; the ticket names only the glossary.
-3. **Bound the e2e servers' pools** (section 7). Turns 3 concurrent agents into 5. Needs an
+   `README.md`, `.env.example`, `compose.yaml`, `Dockerfile`. Prefer these to `globalDependencies`,
+   which the docs say busts every task in the repo. **This is the highest-value item because it is
+   the only defect here that produces a false GREEN**, and because it currently crosses worktrees.
+   CNCORE-132 must verify the fix on a WARM cache, as its own text insists — and **its scope needs
+   widening first**, since it names only the glossary while `@canoncore/env` replays stale against
+   the install path. A fix that lands on one package leaves the worse instance standing.
+2. **Bound the e2e servers' pools** (section 7). Turns 2 concurrent agents into 5. Needs an
    environment variable and its reader in the same change.
-4. **Give each stub a distinct loopback host** rather than holding its port (section 3), so a
+3. **Give each stub a distinct loopback host** rather than holding its port (section 3), so a
    provider's identity stops depending on the OS. Belongs to CNCORE-126.
-5. **Log in to Docker Hub before `setup-buildx-action`** (section 4). Two secrets; removes a failure
+4. **Log in to Docker Hub before `setup-buildx-action`** (section 4). Two secrets; removes a failure
    this repo cannot otherwise control.
-6. **File the database accumulation** (section 6, seventh practice): 418 databases and 3.7 GB for 4
+5. **File the database accumulation** (section 6, seventh practice): 418 databases and 3.7 GB for 4
    live worktrees.
 
 **What NOT to do, with reasons, so the next reader declines them on purpose:** do not add a
