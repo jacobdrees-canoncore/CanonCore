@@ -29,6 +29,15 @@ const MAX_IDENTIFIER_BYTES = 63;
  * shortened the suffix rather than the stem, and again by CNCORE-112, which had
  * both of them in one diff and is why this paragraph names the move.
  *
+ * THE TAIL GOES ON ONCE, AND THAT IS WHAT MAKES ELEVEN TRUE (CNCORE-150). It
+ * went on twice for as long as `testDatabaseNameFor` was handed whatever
+ * DATABASE_URL named, because `testing/setup.ts` repoints that at the
+ * `<worktree>_test` the harness just built -- so a suite asking for a second
+ * database derived `_test_test_<suffix>` and the worst branch reached 68. The
+ * number below did not move; the derivation did, and it now names from the
+ * worktree database. Widening this to sixteen instead was the tempting repair
+ * and it is the renaming move the paragraph above refuses.
+ *
  * The thing at the other end of getting this wrong is
  * `drop database ... with (force)` against the worktree's own catalogue, which
  * is why `build-database.ts` refuses rather than truncates and why the test

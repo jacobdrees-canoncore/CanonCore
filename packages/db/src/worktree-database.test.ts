@@ -81,6 +81,61 @@ describe("worktreeDatabaseName", () => {
     }
   });
 
+  it("leaves room for the name a SUITE derives, which is one `_test` further out", () => {
+    // THE DERIVATION HAPPENS TWICE AND THE TEST ABOVE MODELS IT ONCE, which is
+    // how a budget that is exactly right stayed exactly wrong for every long
+    // branch (CNCORE-150).
+    //
+    // `global-setup.ts` builds `<worktree>_test` and `testing/setup.ts` points
+    // DATABASE_URL AT IT, so that the suite's own `createContext` reads the test
+    // database out of the environment like the app does (ADR-0103). A file that
+    // then asks for a second database -- `catalogue.test.ts` does, for a
+    // catalogue with no untitled item in it -- is deriving from the run's
+    // database rather than from the worktree's, and gets one more `_test` than
+    // anybody budgeted for.
+    //
+    // Measured on 2026-09-13 before the fix: the worst branch derived
+    // `<52 bytes>_test_test_fresh` at 68, and 10 of the 66 branches this repo
+    // has pushed were already over. It is LOCAL-ONLY -- CI names its database
+    // `canoncore`, so the branch never enters the arithmetic and this never
+    // went red there.
+    const name = worktreeDatabaseName(`feat/${"a".repeat(200)}`);
+
+    // The two steps, each taken by the harness's own function rather than by
+    // pasting its format here: what `global-setup.ts` builds, and then what a
+    // worker derives once `setup.ts` has repointed the variable at it.
+    const run = testDatabaseNameFor(name);
+
+    for (const suffix of TEST_DATABASE_SUFFIXES) {
+      const derived = testDatabaseNameFor(run, suffix);
+      expect(derived.length).toBeLessThanOrEqual(63);
+      // The thing at the other end of getting this wrong: a name that truncates
+      // back onto the worktree's own database, which the harness then DROPS.
+      expect(derived.slice(0, 63)).not.toBe(name);
+    }
+  });
+
+  it("hands back the run's OWN database when a suite asks from inside it", () => {
+    // THE EDGE THE RECOVERY ABOVE CREATES, pinned rather than left to be
+    // discovered. Naming from the worktree database makes the derivation
+    // idempotent, so `buildTestDatabase()` -- no suffix -- called from a WORKER
+    // resolves to the very database that worker is running against, rather than
+    // to the `<worktree>_test_test` it used to build quietly.
+    //
+    // That is the safer of the two and still not safe on its own, because what
+    // `buildTestDatabase` does next is `drop database ... with (force)`. The
+    // name being EQUAL is what its own `name === database` guard refuses on, so
+    // this asserts the equality that guard depends on.
+    const name = worktreeDatabaseName("jacobdrees/cncore-150-db-name-length");
+    const run = testDatabaseNameFor(name);
+
+    expect(testDatabaseNameFor(run)).toBe(run);
+
+    // And a SUFFIX asked for from inside the run is still the worktree's
+    // sibling, never a second generation below it.
+    expect(testDatabaseNameFor(run, "gone")).toBe(`${name}_test_gone`);
+  });
+
   it("refuses a branch it cannot name a database after", () => {
     // Detached HEAD gives `HEAD`; a ref that normalises to nothing would
     // otherwise silently produce the bare prefix, and every such worktree would
