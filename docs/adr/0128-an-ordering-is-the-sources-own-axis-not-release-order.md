@@ -71,18 +71,18 @@ namespace is what the wiki uses to mean it.
 **BOTH HALVES ARE COUNTED, OVER THAT ONE LISTING, AND SAYING SO IS THE POINT.** `the other 776` was
 `1,240 - 464`, both of them the ARCHIVE's counts of 2026-09-12, until CNCORE-156 counted the two
 halves separately against the live wiki; a subtraction does not stop being one for being spelled in
-words. It is the dangerous kind of wrong method, too: it went on producing the RIGHT
-answer, because the namespace and the corpus each gained the same one page between 2026-09-12 and
-2026-09-13, so the remainder was still 776 when both of its inputs had moved. Nothing checking the
-answer could have caught it.
+words. It is the dangerous kind of wrong method, too, because it went on producing the RIGHT answer:
+the namespace and the corpus each gained the same one page between 2026-09-12 and 2026-09-13, so the
+remainder was still 776 when both of its inputs had moved. Nothing checking the answer could have
+caught it.
 
 **AND NONE OF THESE FIGURES IS THIS REPOSITORY'S TO MEASURE.** CanonCore asks the wiki nothing and
 counts nothing; every corpus figure above belongs to `provider-wiki` and is stated in its
 `fixture/timeline/COVERAGE.md`, which `pnpm measure:timelines` regenerates. That report is COMMITTED
-and reading it needs no Credential, which is what makes it the right thing to point a reader at --
-the script behind it needs the Owner's (ADR-0122), so a reader sent to the script instead could not
-check anything. They move as editors edit the wiki, so a figure here that disagrees with the report
-is this record being stale rather than the report being wrong.
+and reading it needs no Credential, which is what makes it the right thing to point a reader at —
+the script behind it needs the Owner's (ADR-0122), so a reader sent to the script instead could check
+nothing. Those figures move as editors edit the wiki, so one here that disagrees with the report is
+this record being stale rather than the report being wrong.
 
 The general rule for a provider: **read the predicate the source actually uses to mean the thing.**
 

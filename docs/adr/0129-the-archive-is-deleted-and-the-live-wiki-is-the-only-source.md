@@ -204,9 +204,9 @@ the date.
 took 464 timelines, 1,240 namespace pages and 703 unplaced bullets from the archive too, and it was
 missed here because its figures belong to a DIFFERENT script: they are `pnpm measure:timelines`'s and
 are reported in `provider-wiki`'s `fixture/timeline/COVERAGE.md`, so a sweep that went record by
-record through `measure:live`'s outputs never reached them. They sat unrefreshed for a day while the
-two records either side of this one stated the live counts, which is how `docs/adr/` came to assert
-two sizes for one population. CNCORE-156 re-derived them on the provider side and CNCORE-157 brought
+record through `measure:live`'s outputs never reached them. They sat unrefreshed while the two
+records either side of this one stated the live counts, which is how `docs/adr/` came to assert two
+sizes for one population. CNCORE-156 re-derived them on the provider side and CNCORE-157 brought
 them across.
 
 **The live figures are not corrections of the archive's and must not be read as such.** The
