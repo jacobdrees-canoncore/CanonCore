@@ -98,9 +98,7 @@ beforeAll(async () => {
   stop.push(server.close);
 
   const cookie = await logInAt(server.baseUrl, OWNER_PASSWORD);
-  client = createORPCClient(
-    new RPCLink({ url: `${server.baseUrl}/api/rpc`, headers: { cookie } }),
-  );
+  client = createORPCClient(new RPCLink({ url: `${server.baseUrl}/api/rpc`, headers: { cookie } }));
 
   for (const timeline of TIMELINES) {
     const began = Date.now();
@@ -151,7 +149,8 @@ test("one Item sits in SEVERAL Orderings at different Positions", async () => {
     HAVING count(DISTINCT p.container_id) > 1
     ORDER BY count(DISTINCT p.container_id) DESC, i.title
     LIMIT 5`);
-  for (const row of rows) console.log(`  ${row.title}: ${row.orderings} orderings at ${row.positions}`);
+  for (const row of rows)
+    console.log(`  ${row.title}: ${row.orderings} orderings at ${row.positions}`);
   expect(rows.length).toBeGreaterThan(0);
 });
 
