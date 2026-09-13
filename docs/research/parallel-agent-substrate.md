@@ -51,15 +51,15 @@ across every worktree on this machine. Measured 2026-09-13 from
 
 ```
 @canoncore/schemas:test: cache hit, replaying logs 68c4f053449da0a2
-@canoncore/schemas:test:  RUN  v5.0.0 /Users/jacobrees/orca/workspaces/CanonCore/cncore-99-provider-settings/packages/schemas
+@canoncore/schemas:test:  RUN  v5.0.0 ~/orca/workspaces/CanonCore/cncore-99-provider-settings/packages/schemas
 ```
 
 That green was computed in **a different worktree**, at a different commit, against a different
-`CONTEXT.md`. The cache lives at `/Users/jacobrees/orca/projects/CanonCore/.turbo/cache` — the main
-checkout, outside every worktree — and held **6,837 entries** on the day of writing. No worktree has
-a `.turbo` of its own (`ls -d .turbo` → no such file). `git rev-parse --git-common-dir` answers
-`/Users/jacobrees/orca/projects/CanonCore/.git`, which is how turbo gets there: a worktree's
-repository root is the main checkout. Writes land there too — `turbo run … --force` restamped
+`CONTEXT.md`. The cache lives at `~/orca/projects/CanonCore/.turbo/cache` — the main checkout,
+outside every worktree — and held **6,837 entries** on the day of writing. No worktree has a
+`.turbo` of its own (`ls -d .turbo` → no such file). `git rev-parse --git-common-dir` answers
+`~/orca/projects/CanonCore/.git`, which is how turbo gets there: a worktree's repository root is the
+main checkout. Writes land there too — `turbo run … --force` restamped
 `68c4f053449da0a2-{manifest.json,meta.json}` and `.tar.zst` at `00:50:12`, nine seconds before the
 `stat` that read them.
 
@@ -458,7 +458,7 @@ The ticket asks for each to be called correct as-is, papering over a problem, or
 | 5 | `docker/setup-buildx-action` with no Docker Hub login | **Papering over a problem** | The 100-per-6-hours anonymous limit is counted per IP on runners whose IPs are shared, so the failure is not controlled by anything this repo does. It is cheap to live with (intermittent, clears on rerun, documented in CLAUDE.md) and cheap to fix (two secrets). |
 
 **A sixth, not in the brief, and it is the one to fix first:** the turbo cache shared across worktrees
-at `/Users/jacobrees/orca/projects/CanonCore/.turbo/cache`. **Actively wrong in combination with
+at `~/orca/projects/CanonCore/.turbo/cache`. **Actively wrong in combination with
 practice 2** — alone it is a sound optimisation, since identical inputs should produce identical
 results, and that is exactly what turbo promises. It becomes a defect only because the inputs are
 mis-declared, at which point one agent's stale green is served to every other agent on the machine.
