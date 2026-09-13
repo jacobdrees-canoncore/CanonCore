@@ -261,6 +261,68 @@ describe("/import, across several providers", () => {
   });
 });
 
+describe("/import, taking a record from a provider that has stopped answering", () => {
+  /**
+   * THE OWNER LANDS BACK ON THE PAGE, AND THE READ THAT FOUND THE RECORD TELLS
+   * THEM WHAT TO DO (CNCORE-149).
+   *
+   * WHAT THEY USED TO GET WAS A BARE 500. `client.ts` reports a non-2xx with a
+   * plain `Error`, which is not an `OutboundRefused` -- so it fell past the one
+   * `catch` `provider.import` had and became the undeclared throw that catch
+   * exists to remove. The READ surfaces have carried the Provider's own sentence
+   * since CNCORE-140 and both WRITE surfaces threw it away.
+   *
+   * THE FORM IS THE PAGE'S OWN, WITH THE PROVIDER SWAPPED, and that is the real
+   * case rather than a contrivance: CNCORE-100 makes an expired `cf_clearance` a
+   * 503 on every operation, so a Provider whose session lapses between the
+   * search that rendered this row and the Take that posts it answers nothing --
+   * and a Provider already failing at render time offers no row to press. A form
+   * field is input whoever rendered the form, which is what `actions.ts` says of
+   * these two in those words.
+   *
+   * ASSERTED WHERE IT IS RENDERED rather than at the router alone. The reason
+   * crosses a package boundary, a declared error's `data` schema, a Server
+   * Action and `whatTheProcedureAnswered` between the socket and the page, and
+   * the router's own test proves none of that -- a declared error whose STATUS
+   * is a 500 is rethrown out of the action and answers the same bare eighteen
+   * bytes as the undeclared throw did.
+   *
+   * THE STATUS IS THE GUARD AND THE SENTENCE IS WHAT IT BUYS. This Provider is
+   * one this instance searches, so its row is on the page before the POST as
+   * well as after; what was not there before is a page at all.
+   */
+  it("answers the page carrying the provider's own sentence, rather than a bare 500", async () => {
+    const at = searching(providerSearch.query);
+    const lapsed = providerSearch.refusesWithASentence;
+
+    const before = await documentAt(at, owner);
+    // ANY CANDIDATE'S FORM, because every row carries one: a record already held
+    // is offered "Import again", since a second import is a REFRESH rather than a
+    // second item. The row is named rather than picked so this test does not
+    // depend on which candidates an earlier test in this file has imported.
+    const rendered = formIn(rowTitled(before.text, providerSearch.held));
+    const form = {
+      ...rendered,
+      fields: rendered.fields.map(([key, value]): [string, string] =>
+        key === "baseUrl" ? [key, lapsed.url] : [key, value],
+      ),
+    };
+
+    const taken = await submit(baseUrl, at, form, owner);
+
+    // A PAGE, NOT `Internal Server Error`. Measured under CNCORE-68 at eighteen
+    // bytes with no HTML at all, which is what a Server Action answers when what
+    // it throws is not a refusal the action can read.
+    expect(taken.status).toBe(200);
+    // AND THE HALF THE OWNER CAN ACT ON, quoted beside the URL they typed --
+    // which is the read surface doing what the write surface cannot, and the
+    // whole of why a 500 here cost them the remedy. `/` is the manifest, the
+    // first thing any operation asks for.
+    expect(taken.text).toContain(`<q>/ answered 503: ${lapsed.said}</q>`);
+    expect(taken.text).toContain(lapsed.url);
+  });
+});
+
 describe("/import, taking a record it already holds", () => {
   it("changes nothing: the same Item, and no second one for that record", async () => {
     /*
@@ -531,6 +593,57 @@ describe("/import, taking a Container and its ordering", () => {
     expect(placement).toBeDefined();
     expect(placement?.position).toBeGreaterThan(0);
     expect(placement?.placedBy).toBe("provider");
+  });
+});
+
+describe("/import, browsing a container at a provider that has stopped answering", () => {
+  /**
+   * THE OTHER WRITE SURFACE, AT THE PAGE (CNCORE-149).
+   *
+   * ASSERTED HERE AND NOT LEFT TO `import`'s WITNESS, because the two procedures
+   * had the IDENTICAL `catch` and therefore the identical hole -- which is the
+   * shape ADR-0123 was written about, one defect with two sites that each
+   * solved it separately. A page witness for one of them says nothing about the
+   * other.
+   *
+   * THE BUTTON WAS RENDERED WHILE THE PROVIDER WAS ALIVE, which is the only way
+   * this state is reachable and is also the real one: the page offers no button
+   * for a provider it cannot reach, so a browse can only fail this way if the
+   * provider stops answering between the GET that drew the button and the POST
+   * that presses it -- and CNCORE-100 makes that the ordinary life of an expired
+   * `cf_clearance`. The form is the page's own, with the provider swapped, and
+   * it is posted to the address that names the provider it now points at.
+   *
+   * WHICH IS WHY THE REASON IS ON THE PAGE THAT COMES BACK. The container
+   * section re-asks `provider.container` about the provider the URL names, so
+   * the read that offered the button is the read that explains why it failed.
+   */
+  it("answers the page carrying the provider's own sentence, rather than a bare 500", async () => {
+    const lapsed = providerSearch.refusesWithASentence;
+    const alive = await documentAt(browsing(providerSearch.browsable), owner);
+    const [rendered] = postFormsIn(sectionIn(alive.text, "container"));
+    if (!rendered) throw new Error("the container section offered no button to press");
+    const form = {
+      ...rendered,
+      fields: rendered.fields.map(([key, value]): [string, string] =>
+        key === "baseUrl" ? [key, lapsed.url] : [key, value],
+      ),
+    };
+
+    const browsed = await submit(
+      baseUrl,
+      browsing({ provider: lapsed.url, container: providerSearch.browsable.container }),
+      form,
+      owner,
+    );
+
+    expect(browsed.status).toBe(200);
+    const container = sectionIn(browsed.text, "container");
+    expect(container).toContain(`<q>/ answered 503: ${lapsed.said}</q>`);
+    // AND NOTHING TO PRESS AGAIN, which is the half that makes this more than a
+    // nicer error: the button that could not work is gone from the page the
+    // owner lands on.
+    expect(postFormsIn(container)).toHaveLength(0);
   });
 });
 

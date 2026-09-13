@@ -89,6 +89,7 @@ export default async function setup(project: TestProject) {
   const tmdb = await theTmdbProvider();
   const lookupOnly = await aProviderThatDeclinesBrowse();
   const answersBadly = await aProviderThatAnswersBadly();
+  const refusesWithASentence = await aProviderThatRefusesWithASentence();
 
   /*
    * WHAT THIS INSTANCE REACHES, WRITTEN INTO ITS DATABASE (CNCORE-99). Both
@@ -114,6 +115,7 @@ export default async function setup(project: TestProject) {
       tmdb.url,
       lookupOnly.url,
       answersBadly.url,
+      refusesWithASentence.url,
       UNREACHABLE_PROVIDER,
     ].join("\n"),
   });
@@ -233,6 +235,7 @@ export default async function setup(project: TestProject) {
     browsable: { provider: tmdb.url, container: MATRIX_COLLECTION },
     declinesBrowse: lookupOnly.url,
     answersBadly: answersBadly.url,
+    refusesWithASentence: { url: refusesWithASentence.url, said: LAPSED },
   });
   const browsed = await browseThroughTheApp(baseUrl, provider.url, databaseUrl);
   project.provide("browsed", browsed.fixture);
@@ -259,6 +262,7 @@ export default async function setup(project: TestProject) {
     await tmdb.close();
     await lookupOnly.close();
     await answersBadly.close();
+    await refusesWithASentence.close();
   };
 }
 
@@ -1139,6 +1143,36 @@ async function aProviderThatAnswersBadly(): Promise<{ url: string; close: () => 
   return onLoopback((_path, answer) =>
     answer({ name: 12345, versions: "one", operations: 7 }, 200),
   );
+}
+
+/** The sentence the Provider below fails with, which is the half an Owner can act on. */
+const LAPSED = "this Provider holds no tardis.wiki session. Supply one at /unlock.";
+
+/**
+ * A PROVIDER THAT IS UP, CANNOT ANSWER, AND SAYS WHY (CNCORE-140, CNCORE-149).
+ *
+ * DIFFERENT FROM THE ONE ABOVE IN THE HALF THAT MATTERS HERE. That one answers
+ * `200` with a body CMPP refuses, so its reason is ZOD'S text; this one answers
+ * a NON-2XX, which `client.ts` reports with a plain `Error` -- the class both
+ * WRITE procedures narrowed past until CNCORE-149, and therefore the one that
+ * reached an Owner as a 500 rather than as a reason.
+ *
+ * IT IS CNCORE-100'S ORDINARY FAILURE rather than an exotic one. An expired
+ * `cf_clearance` is a `503` on EVERY operation, manifest included, which is why
+ * this refuses every path: the Provider is reachable, answering, and holds
+ * nothing it will hand over until the Owner renews the session it names.
+ *
+ * IT IS NOT A STAND-IN FOR A REAL PROVIDER and must not grow into one. It stands
+ * for one claim, as the two stubs above it do.
+ */
+async function aProviderThatRefusesWithASentence(): Promise<{
+  url: string;
+  close: () => Promise<void>;
+}> {
+  // `{error}` is the spelling both real Providers happen to use rather than one
+  // CMPP requires -- `packages/contract` refuses to make a failure body's shape
+  // part of the protocol, and `client.ts` reads this opportunistically.
+  return onLoopback((_path, answer) => answer({ error: LAPSED, provider: "a provider" }, 503));
 }
 
 /** What a stub answers one request with: a JSON body and a status. */
@@ -2097,6 +2131,14 @@ declare module "vitest" {
        * produces and the one the page has to QUOTE rather than speak.
        */
       answersBadly: string;
+      /**
+       * A provider this instance searches that is UP, cannot answer, and SAYS
+       * WHY: a non-2xx carrying its own sentence, which is CNCORE-100's ordinary
+       * failure of a live provider. `said` is that sentence, handed over so a
+       * test asserts what the Provider was made to say rather than what the page
+       * happened to print.
+       */
+      refusesWithASentence: { url: string; said: string };
     };
     /** A real browsed story in two orderings, and the two shapes browse hands over. */
     browsed: {

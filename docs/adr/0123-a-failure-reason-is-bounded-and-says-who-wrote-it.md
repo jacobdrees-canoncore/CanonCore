@@ -338,3 +338,99 @@ is the release rather than the counting — and this record exists because a def
 sites. It reads ONE CHUNK PAST the limit on purpose: `cut` has to tell a body that ENDED at the
 ceiling from one that merely reached it, and nothing but asking for the next chunk distinguishes
 those, so refusing a body of exactly `MAX_BODY_BYTES` would be refusing a body that was fine.
+
+## The WRITE surfaces get the same reason, in the same shape (CNCORE-149)
+
+Everything above is about surfaces that READ. `provider.search`, `provider.container` and — since
+CNCORE-101 — the settings page all map through `reasonFor`, and this record's "one function for every
+reason surface" was true of every surface it had counted. **It had not counted the two that write.**
+
+`provider.import` and `provider.browse` caught `OutboundRefused` and nothing else. A provider
+ANSWERING a non-2xx throws a plain `Error` from `client.ts`'s `failed()` — the sentence the section
+above built — so it fell past both catches into the undeclared throw those catches exist to remove,
+and each carried the comment saying so: "an undeclared throw is a 500 no caller can narrow on". The
+Owner who FOUND a record and pressed Take on an expired Provider got that 500, where the read that
+found it would have told them what to do. CNCORE-100 makes it the ordinary case rather than a rare
+one: an expired `cf_clearance` is a 503 on every operation, import included.
+
+### `wrote` asks which boundary refused; this asks WHERE the throw happened
+
+The obvious repair is a wider `instanceof` list, and it is wrong for the reason this record already
+gives about `wrote`. **The failures a provider can produce have no class in common**: ADR-0034's
+refusal, undici's dead socket, zod's report on a body, and `client.ts`'s own sentence about a status
+share no type, and every type they do have is one a bug in this app can throw too. So what
+distinguishes them is not what was thrown but that it was thrown WHILE A PROVIDER WAS BEING ASKED
+SOMETHING — `askingTheProvider` wraps exactly that, and `ProviderFailed` carries the reason out.
+
+**WHICH PUTS THE CATALOGUE'S OWN WRITE OUTSIDE IT, and that is the point of a wrapper rather than a
+wider catch.** `importProvidedRecord` runs after the provider has answered. A `catch` wide enough to
+hold every way a provider can fail is wide enough to report a failed INSERT as something the provider
+did — a false attribution in the field this record exists to keep honest. `BrowseNotOffered` is
+outside it for the same reason: it is raised on a manifest that came back fine, and ADR-0033 makes
+declining `browse` well-formed rather than a failure.
+
+### One shape, because two shapes for one thing is what this record is about
+
+`PROVIDER_REFUSED` carried a bare `message` string. That is the same field the read surfaces carry as
+`{wrote, text}`, spelled twice — and the half a string cannot carry is `wrote`, so a caller holding
+one had no way to tell this catalogue's sentence about the Owner's own settings from a third party's
+text. It is `data: failureReason` now, declared, so the ceiling is in the OpenAPI document rather
+than an invariant each handler remembered.
+
+Its MESSAGE was wrong too, and in the way this record warns about. "That provider URL is not one this
+instance may reach" is true of ADR-0034 refusing a URL and false of the other two the branch carries
+— a dead socket, and a provider that ANSWERED badly, which was reached. `provider.container`'s
+`unreachable` branch already keeps the three apart by what they SAY rather than by the name over
+them, and the message says nothing about which now.
+
+### A DECLARED error at status 500 never reaches a page, which nothing here had noticed
+
+The router change alone fixed nothing an Owner could see, and the page test is what said so.
+
+**oRPC gives a code of its own `status: 500`.** Measured on @orpc/client 1.15.0:
+`fallbackORPCErrorStatus` is `status ?? COMMON_ORPC_ERROR_DEFS[code]?.status ?? 500`, and
+`PROVIDER_REFUSED` is not a common def. `apps/web/src/answer.ts` reads exactly that number to tell a
+refusal from a fault and rethrows at 500 and above, so the declared error left a Server Action as a
+throw and Next answered the bare `Internal Server Error` — the same eighteen bytes the undeclared
+throw answered. **Declaring an error is not delivering one**, which ADR-0033 already says in those
+words about these two procedures, and this is the second way it turns out to be true.
+
+**`424` RATHER THAN `502`, AND THE OBVIOUS ONE IS THE WRONG ONE.** RFC 9110's gateway status is the
+better literal fit — an inbound server answered badly — but it is a 5xx, and a 5xx in this app means
+a genuine fault: rethrown at the action and logged with its stack at `/api/rpc` (ADR-0125). An
+expired credential at a third party is neither a fault of this server nor something to page on. What
+this catalogue already decided about the identical failure is on the READ side, where
+`provider.container` answers it at 200 as an ANSWER, and a 4xx is that position held on the write
+side. RFC 4918's `424` is the registered one that says it: "A method's execution has failed because
+it depends on the execution of another method, and that other method failed."
+
+**THE OTHER THREE DECLARED ERRORS ON THESE PROCEDURES ARE STILL AT 500**, and that is left rather
+than missed: `NO_SUCH_RECORD`, `NO_SUCH_CONTAINER` and `BROWSE_NOT_OFFERED` are ANSWERS reaching the
+Owner as bare 500s by the same mechanism, which is CNCORE-152 with a TODO at the site pointing there.
+They are a different question from a failure REASON — what status an answer deserves is one each has
+to be asked separately, and 404 for a missing id is not the same reading as a provider that does not
+do this at all.
+
+### Asserted where an import failure is rendered
+
+The reason crosses a package boundary, the wrapper above, a declared error's `data` schema, oRPC's
+serialisation, a Server Action and `answer.ts` between the socket and the page, and the router's own
+test proves none of it — which is exactly the argument the CNCORE-140 section makes about the client's
+own test, one layer up. The status defect is the proof: every router assertion passed while the page
+went on answering eighteen bytes.
+
+**THE WITNESS PRESSES A BUTTON THE PAGE DREW WHILE THE PROVIDER WAS ALIVE**, because that is the only
+way the state is reachable and is also the real one. `/import` offers nothing to press for a Provider
+it cannot reach — the existing tests assert that — so a write can only fail this way if the Provider
+stops answering between the GET that drew the button and the POST that presses it, which is an
+expired `cf_clearance` exactly. A form field is input whoever rendered the form, which is what
+`actions.ts` already says of these two in those words.
+
+**AND THE PAGE THAT COMES BACK IS WHERE THE REASON IS**, which is the shape `/import` was already
+built to: an action returns nothing and the page reports by re-reading, because `useActionState` is a
+client hook with nothing to give when no script has loaded. So the read that offered the button is
+the read that explains why it failed — the Owner lands back on the page and the Provider's sentence
+is quoted there, beside the URL they typed. Carrying the reason itself through a redirect was refused:
+a reason in a query parameter is a stranger choosing the text on a page it does not own, arriving by
+a route with no boundary to ask `wrote` about, which is this record's opening sentence with the
+attacker's half made easier.
