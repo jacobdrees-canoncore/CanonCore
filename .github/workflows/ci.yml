@@ -483,11 +483,11 @@ jobs:
       - run: pnpm test:browser
 
   provider:
-    name: Import and browse over HTTP, against the real provider
+    name: Import and browse over HTTP, against the real provider-tmdb
     runs-on: ubuntu-latest
-    # The ONLY job that needs this, and it needs only read. The image is
-    # private and stays private: ADR-0089 pins the wiki provider to one person,
-    # so a publicly pullable image would be distribution.
+    # It needs only read. The image is private and stays private: ADR-0089 keeps
+    # both providers off a public registry, so a publicly pullable image would
+    # be distribution.
     permissions:
       contents: read
       packages: read
@@ -506,46 +506,48 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
-      # CNCORE-15's image, carrying ADR-0057's fixture, and CNCORE-17's `browse`
-      # on top of it. `:latest` rather than a digest ON PURPOSE: this provider
-      # and this app are one contract in two repositories, and pinning would let
-      # them drift silently until somebody bumped a hash. The contract is what
-      # must not break, and this job is what says so.
+      # CNCORE-16's image, and THE ONLY REAL PROVIDER THIS JOB CAN DRIVE THE APP
+      # AGAINST (CNCORE-143). `:latest` rather than a digest ON PURPOSE: this
+      # provider and this app are one contract in two repositories, and pinning
+      # would let them drift silently until somebody bumped a hash. The contract
+      # is what must not break, and this job is what says so.
       #
-      # THE TAG IS WHY THIS JOB NEEDED NO EDIT FOR `browse`. The app reads
-      # `operations` from the manifest and calls `browse` only if it is declared
-      # (ADR-0033), so an image without it would fail the browse tests with
-      # BROWSE_NOT_OFFERED -- which is the contract breaking, named, rather than
-      # a green run against a capability nobody shipped. The wait step below
-      # prints the manifest, so `operations` is in the log either way.
+      # THE WIKI IMAGE IS NOT HERE, AND ITS ABSENCE IS THE DECISION. It was,
+      # addressed by a PROVIDER_WIKI_URL that turbo filtered out of `test:e2e`,
+      # so from CNCORE-100 until CNCORE-143 this job started it, sent it not one
+      # request, and ran the same stub as the `e2e` job above while claiming
+      # otherwise. Passing the variable through is one line and turns the job
+      # red CORRECTLY: `provider-wiki` needs a Credential to answer anything
+      # (ADR-0122), a CI container holds none, and `search` and `lookup` owe a
+      # locked provider's `503` rather than a record -- so `global-setup`'s
+      # import through the app cannot succeed against it. ADR-0122's own fixed
+      # point is that NO CI JOB HOLDS THE OWNER'S SESSION, which rules out
+      # unlocking one here rather than leaving it open. The real wiki image is
+      # still under test in `contract` below, in the state CI can actually put
+      # it in. Nothing was lost by dropping it from this job, because nothing
+      # was being checked.
       #
-      # NO STORED CREDENTIAL. The provider-wiki package grants this repository
-      # read under Manage Actions access, so the workflow's own GITHUB_TOKEN is
-      # the whole authentication story. A fine-grained token was the original
-      # plan and does not exist for this registry -- GitHub Packages accepts
-      # only a classic personal access token -- and a classic one would be a
-      # broader credential than this job needs. ADR-0089 carries the reasoning.
-      provider:
-        image: ghcr.io/jacobdrees-canoncore/provider-wiki:latest
-        credentials:
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-        # Published to the host, because this job runs directly on the runner
-        # rather than in a container: GitHub reaches a service container at
-        # 127.0.0.1:<port> only when the port is mapped.
-        ports:
-          - 8080:8080
-
-      # CNCORE-16's image, and the SECOND provider. It is here because TMDB is
-      # the first source whose licence obliges the app to show anything: the
-      # wiki's archive imposes no notice and no mark, so with it alone the
-      # attribution path would be a branch nothing ever takes.
+      # IT NEEDS A CREDENTIAL AND THE WIKI'S IS THE ONE CI CANNOT SUPPLY, which
+      # is ADR-0035 in operation rather than in principle: this image ships no
+      # key and REFUSES TO START without one, so a container that runs at all is
+      # one somebody configured. A token in the environment here is the instance
+      # supplying its own, which is exactly what that record asks for -- and it
+      # is a token in a secret rather than a browser session past a Cloudflare
+      # challenge, which is the whole of why this provider can be driven here
+      # and the wiki cannot.
       #
-      # IT NEEDS A CREDENTIAL AND THE WIKI DOES NOT, which is ADR-0035 in
-      # operation rather than in principle: this image ships no key and REFUSES
-      # TO START without one, so a container that runs at all is one somebody
-      # configured. A token in the environment here is the instance supplying
-      # its own, which is exactly what that record asks for.
+      # TMDB IS ALSO WHAT MAKES THE ATTRIBUTION PATH REAL: it is the first
+      # source whose licence obliges the app to show anything, so ADR-0036's
+      # notice and mark are rendered from what a real provider declared rather
+      # than from a stub repeating the expected string back.
+      #
+      # NO STORED CREDENTIAL FOR THE REGISTRY. The provider-tmdb package grants
+      # this repository read under Manage Actions access, so the workflow's own
+      # GITHUB_TOKEN is the whole authentication story. A fine-grained token was
+      # the original plan and does not exist for this registry -- GitHub
+      # Packages accepts only a classic personal access token -- and a classic
+      # one would be a broader credential than this job needs. ADR-0089 carries
+      # the reasoning.
       provider-tmdb:
         image: ghcr.io/jacobdrees-canoncore/provider-tmdb:latest
         credentials:
@@ -553,13 +555,20 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
         env:
           TMDB_READ_ACCESS_TOKEN: ${{ secrets.TMDB_READ_ACCESS_TOKEN }}
+        # Published to the host, because this job runs directly on the runner
+        # rather than in a container: GitHub reaches a service container at
+        # 127.0.0.1:<port> only when the port is mapped.
         ports:
           - 8081:8080
     env:
       # A CONFIG URL, and loopback (ADR-0034). It is legal because the
       # allowlist names 127.0.0.0/8 BY NAME -- the content deny rule still
       # classifies loopback as `loopback` and still refuses it there.
-      PROVIDER_WIKI_URL: http://127.0.0.1:8080
+      #
+      # `turbo.json` DECLARES THIS FOR `test:e2e`, or setting it here does
+      # nothing at all. `packages/config/src/ci-task-env.test.ts` fails if that
+      # declaration goes, which is the guard CNCORE-143 left behind rather than
+      # the one-line fix it forced.
       PROVIDER_TMDB_URL: http://127.0.0.1:8081
     steps:
       - uses: actions/checkout@v7
@@ -571,30 +580,36 @@ jobs:
       # The image declares a HEALTHCHECK, and whether the runner waits on it is
       # not something to assume. Waiting here is three lines and turns "the
       # provider was not up yet" from a confusing e2e failure into a named one.
-      - name: Wait for both providers to answer
+      #
+      # The manifest is PRINTED rather than merely awaited, so `operations` is
+      # in the log: the app reads that list and calls `browse` only if it is
+      # declared (ADR-0033), so an image that stopped offering it would fail the
+      # browse tests with BROWSE_NOT_OFFERED -- the contract breaking, named,
+      # rather than a green run against a capability nobody shipped.
+      - name: Wait for the provider to answer
         run: |
           set -euo pipefail
-          for url in "$PROVIDER_WIKI_URL" "$PROVIDER_TMDB_URL"; do
-            answered=""
-            for _ in $(seq 1 30); do
-              if curl -sSf "$url/" >/dev/null 2>&1; then
-                echo "the provider at $url answers:"
-                curl -sS "$url/" | head -c 400; echo
-                answered=yes
-                break
-              fi
-              sleep 1
-            done
-            if [ -z "$answered" ]; then
-              echo "::error::the provider at $url never answered."
-              exit 1
+          answered=""
+          for _ in $(seq 1 30); do
+            if curl -sSf "$PROVIDER_TMDB_URL/" >/dev/null 2>&1; then
+              echo "the provider at $PROVIDER_TMDB_URL answers:"
+              curl -sS "$PROVIDER_TMDB_URL/" | head -c 400; echo
+              answered=yes
+              break
             fi
+            sleep 1
           done
+          if [ -z "$answered" ]; then
+            echo "::error::the provider at $PROVIDER_TMDB_URL never answered."
+            exit 1
+          fi
 
-      # The SAME suite the `e2e` job runs, with PROVIDER_WIKI_URL set: the
-      # difference between the two runs is which process answers CMPP and
-      # nothing else, so the assertions that hold the stub to the contract are
-      # the ones holding the real image to it.
+      # The SAME suite the `e2e` job runs, with PROVIDER_TMDB_URL set: the
+      # difference between the two runs is which process answers CMPP for the
+      # TMDB fixtures and nothing else, so the assertions that hold the stub to
+      # the contract are the ones holding the real image to it. `global-setup`
+      # imports a real film through the app, browses a real collection, searches
+      # for it, and renders ADR-0036's notice off what the image declared.
       - run: pnpm test:e2e
 
   contract:

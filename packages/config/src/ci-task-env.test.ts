@@ -61,7 +61,10 @@ function specifiedEnvPerTask(task: string): { taskId: string; env: string[] }[] 
     return null;
   }
   return JSON.parse(dryRun).tasks.map(
-    (planned: { taskId: string; environmentVariables: { specified: { env: string[] | null } } }) => ({
+    (planned: {
+      taskId: string;
+      environmentVariables: { specified: { env: string[] | null } };
+    }) => ({
       taskId: planned.taskId,
       env: planned.environmentVariables.specified.env ?? [],
     }),
@@ -79,7 +82,7 @@ function specifiedEnvPerTask(task: string): { taskId: string; env: string[] }[] 
 function turboTasksRunBy(job: { steps?: { run?: string }[] }): string[] {
   const candidates = (job.steps ?? [])
     .flatMap(({ run }) => [...(run ?? "").matchAll(/\bpnpm\s+(?:run\s+)?([a-z][a-z0-9:-]*)/g)])
-    .map(([, task]) => task);
+    .flatMap((match) => (match[1] === undefined ? [] : [match[1]]));
   return [...new Set(candidates)];
 }
 
@@ -93,6 +96,70 @@ function jobsSettingTheirOwnEnv(parsed: Workflow) {
     }))
     .filter(({ variables, tasks }) => variables.length > 0 && tasks.length > 0);
 }
+
+/**
+ * Every provider image a job starts, with the host port it publishes.
+ *
+ * MATCHED ON THE PACKAGE NAME rather than on the service's key, because the key
+ * is a label somebody chose: the wiki service was called `provider` in one job
+ * and `provider-wiki` in another, for the same image.
+ */
+function providerServices(job: {
+  services?: Record<string, { image?: string; ports?: string[] }>;
+}) {
+  return Object.entries(job.services ?? {})
+    .filter(([, service]) => /\/provider-[a-z]+:/.test(service.image ?? ""))
+    .map(([name, service]) => ({
+      name,
+      image: service.image ?? "",
+      hostPorts: (service.ports ?? []).map((mapping) => mapping.split(":")[0]),
+    }));
+}
+
+describe("a provider container a CI job starts", () => {
+  const jobs = Object.entries(workflow().jobs ?? {}).map(([job, definition]) => ({
+    job,
+    providers: providerServices(definition),
+    addresses: Object.values(definition.env ?? {}).map(String),
+  }));
+
+  /*
+   * The canary, for the reason the one below carries: a job that stopped
+   * starting a provider would take this file's subject away silently.
+   */
+  it("is started by at least one job, so the check below has a subject", () => {
+    expect(
+      jobs.filter(({ providers }) => providers.length > 0).map(({ job }) => job),
+    ).toStrictEqual(["provider", "contract"]);
+  });
+
+  /**
+   * THE OTHER HALF OF CNCORE-143, and it is the half visible in this file alone.
+   *
+   * A container that runs and is addressed by nothing answers no request and
+   * says so nowhere: `docker logs` on the wiki container after a full provider
+   * job held one line, `provider-wiki listening on http://0.0.0.0:8080`. From
+   * outside, a job that STARTS the real image reads as a job that TESTS it, and
+   * that reading is what kept this defect alive for as long as it lived. A
+   * provider nothing points at is either a variable that went missing or a
+   * service somebody forgot to delete, and both are worth a red check.
+   */
+  it("is addressed by that job, or it answers nothing and says so nowhere", () => {
+    const unaddressed = jobs.flatMap(({ job, providers, addresses }) =>
+      providers
+        .filter(
+          ({ hostPorts }) =>
+            !hostPorts.some((port) => addresses.some((url) => url.endsWith(`:${port}`))),
+        )
+        .map(
+          ({ name, image }) =>
+            `the \`${job}\` job starts ${name} (${image}) and no variable it sets addresses it, ` +
+            `so the container will run, receive nothing, and report that nowhere.`,
+        ),
+    );
+    expect(unaddressed).toStrictEqual([]);
+  });
+});
 
 describe("a variable a CI job sets for itself", () => {
   const jobs = jobsSettingTheirOwnEnv(workflow());
