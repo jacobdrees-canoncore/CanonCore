@@ -55,21 +55,31 @@ function values(text: string): string {
  * `PastTheEnd`, whose own `<section>` is nested inside it, so everything below
  * that notice fell outside what this returned. That is exactly where CNCORE-89's
  * review found a defect hiding: a second "Back to the start" under the notice's
- * own, which no assertion could see. This one ends at the LAST `</section>`,
- * since "Also appears in" is the last section on the page but for the
- * attribution notice, which carries no `aria-labelledby` to anchor on.
+ * own, which no assertion could see.
  *
- * TODO(CNCORE-135): that last clause is stale, and the slice is wrong with it.
- * `Attribution` renders `aria-labelledby="attribution"` and renders LAST, so on
- * an item that owes a notice the document's last `</section>` is the notice's --
- * and this returns the orderings with the notices on the end of them. No test
- * reads the ordering rows of such an item yet; `twoInstances` is the first
- * fixture that is one.
+ * IT ENDS AT THE NEXT SIBLING SECTION, WHICH IS THE ATTRIBUTION NOTICE, and that
+ * is the same end `members` takes rather than a second idea of one. It used to
+ * end at the DOCUMENT'S last `</section>`, justified by "Also appears in" being
+ * the last section on the page but for the notice, which was said to carry no
+ * `aria-labelledby` to anchor on. IT CARRIES ONE: `Attribution` renders
+ * `aria-labelledby="attribution"` and renders LAST, so on an item that owes a
+ * notice the document's last `</section>` was the NOTICE'S, and this handed back
+ * the orderings with the notices on the end of them. `orderingRows` matches
+ * `<li>` over this slice, so each notice counted as an ordering -- an assertion
+ * about how many orderings an item sits in answering with how many licences it
+ * owes (CNCORE-135).
+ *
+ * THE DOCUMENT'S LAST `</section>` IS STILL THE END WHEN NOTHING IS OWED, which
+ * is the ordinary page: the notice renders nothing for an item that obliges
+ * nobody, and no section is rendered outside `main` for one to run into.
  */
 function alsoAppearsIn(text: string): string {
   const opened = text.indexOf('aria-labelledby="also-appears-in"');
   if (opened === -1) throw new Error("the page rendered no `Also appears in` section");
-  return text.slice(text.lastIndexOf("<section", opened), text.lastIndexOf("</section>") + 10);
+  const owed = text.indexOf('aria-labelledby="attribution"', opened);
+  const end =
+    owed === -1 ? text.lastIndexOf("</section>") + 10 : text.lastIndexOf("<section", owed);
+  return text.slice(text.lastIndexOf("<section", opened), end);
 }
 
 describe("/items/<id>", () => {
@@ -658,6 +668,36 @@ describe("what the page owes for what it shows", () => {
     const notices = sectionIn(text, "attribution").match(/<li[^>]*>.*?<\/li>/g) ?? [];
     expect(notices).toHaveLength(2);
     for (const notice of notices) expect(notice).toContain(twoInstances.notice);
+  });
+
+  /**
+   * AND THE ORDERINGS ABOVE THEM ARE STILL JUST THE ORDERINGS (CNCORE-135).
+   *
+   * `Attribution` renders LAST on this page, so on an item that owes a notice
+   * the document's last `</section>` is the notice's -- and `alsoAppearsIn`,
+   * which used to end there, handed back the orderings with the notices on the
+   * end of them. `orderingRows` matches `<li>` over that slice, so every notice
+   * counted as an ordering: an assertion about how many orderings an item sits
+   * in would have been answering with how many licences it owes.
+   *
+   * THIS FIXTURE IS THE FIRST THAT IS BOTH, which is why the defect went
+   * unreached until now. `twoInstances` sits in two orderings -- one per
+   * instance's browse -- and owes two notices, so the count the old slice gave
+   * was four and the count a reader would agree with is two.
+   *
+   * THE NOTICE IS ASSERTED PRESENT FIRST, because every assertion after it is a
+   * negative one and a page rendering no attribution at all would satisfy them
+   * both.
+   */
+  it("counts the orderings of an item that owes a notice without counting the notices", async () => {
+    const { status, text } = await documentAt(`/items/${twoInstances.id}`);
+
+    expect(status).toBe(200);
+    expect(sectionIn(text, "attribution")).toContain(twoInstances.notice);
+
+    const rows = orderingRows(text);
+    expect(rows).toHaveLength(2);
+    for (const row of rows) expect(row).not.toContain(twoInstances.notice);
   });
 });
 
