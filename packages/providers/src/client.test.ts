@@ -465,6 +465,67 @@ describe("the CMPP client", () => {
     await expect(client.browse("388305")).rejects.toThrow();
   });
 
+  /**
+   * THE CAP IS PER KIND OF QUESTION, WHICH IS THE WHOLE OF CNCORE-151.
+   *
+   * Measured against the live wiki on 2026-09-13, time to FIRST BYTE: a manifest
+   * 0.02s, a search 0.25s, and a browse of
+   * `Theory:Timeline - Doctor Who universe/AHistory` -- the largest timeline that
+   * wiki holds, 2,913 members over 2,669 positions -- 25.7s. One cap for both
+   * made the largest and most valuable ordering on the wiki impossible to import.
+   *
+   * THE TWO OPERATIONS MEET ONE PROVIDER HERE, at a delay that sits between the
+   * two caps, because the claim is a CONTRAST and not a number: the same silence
+   * that is a hang for a search is a provider still working for a browse.
+   *
+   * THE NUMBERS CANNOT BE SCALED DOWN AS FAR AS THEY LOOK, AND THE REASON IS
+   * UNDICI'S. Its timeouts run on a coarse timer wheel, so a cap under a second
+   * does not fire under a second: measured against undici 8 on 2026-09-13,
+   * `headersTimeout` of 100, 150, 300, 500 and 900ms ALL fired at ~1.00s, and
+   * 1,000ms fired at 1.50s -- the wheel rounds up to a 500ms tick and may add one
+   * more. So a sub-second cap here would be a cap of one second wearing a smaller
+   * number, the stub would answer first, and the test would pass by racing rather
+   * than by timing out. `brief` is therefore set clear of that floor and the stub
+   * delayed clear of `brief`'s worst case, which costs this file ~2s of real
+   * waiting. Production's 10s and 60s are far above the granularity and unaffected.
+   *
+   * CONCURRENTLY, so the wall clock is the longer of the two waits rather than
+   * their sum. They are separate dispatchers on separate connections, which is
+   * the thing under test, so neither queues behind the other.
+   *
+   * THE FAILURE IS ASSERTED BY ITS CODE rather than by "it threw". A search that
+   * rejected because the stub answered something unparseable would satisfy a bare
+   * `rejects.toThrow()` while proving the opposite of this test's claim.
+   */
+  it("waits longer for a whole container than for a search, against one provider", async () => {
+    // Clear of `brief`'s worst-case fire at ~1.0s, and far inside `patient`.
+    const thinking = 2_000;
+    const baseUrl = await stubProvider((request, response) => {
+      const timer = setTimeout(() => {
+        if (request.url?.startsWith("/browse/")) return json(response, VASHTA_NERADA);
+        json(response, { results: [] });
+      }, thinking);
+      // The impatient half of this test abandons its socket on purpose, and a
+      // write to a response nobody is reading is an error with no test to catch it.
+      response.on("close", () => clearTimeout(timer));
+    });
+    const client = createProviderClient({
+      baseUrl,
+      allowlist: onLoopback(),
+      // Production's ten and sixty seconds, scaled to what undici's timer wheel
+      // can actually distinguish. Only the ORDER of the three numbers is tested.
+      patience: { brief: 500, patient: 20_000 },
+    });
+
+    const [browsed, refused] = await Promise.all([
+      client.browse("388305"),
+      client.search("dalek").catch((error: unknown) => error),
+    ]);
+
+    expect(browsed).toMatchObject({ container: { id: "388305" } });
+    expect((refused as { cause?: { code?: string } }).cause?.code).toBe("UND_ERR_HEADERS_TIMEOUT");
+  });
+
   it("reports a provider that fails rather than answering empty", async () => {
     // A 500 is the provider being broken, which is not the same answer as a 404
     // -- that one means "no such record" and resolves to null.
@@ -704,9 +765,9 @@ describe("what the client will take from a provider", () => {
   });
 
   /**
-   * A body with no end is a body that fills memory. `bodyTimeout` caps how LONG
-   * a provider may take and says nothing about how MUCH it may send, and on
-   * loopback ten seconds is a great deal of it.
+   * A body with no end is a body that fills memory, and no timeout catches it:
+   * `bodyTimeout` caps the GAP between chunks, so a provider sending steadily and
+   * forever never trips it, and on loopback that is a great deal of bytes.
    */
   it("refuses a response body past the size it will read", async () => {
     const baseUrl = await stubProvider((_, response) => {
