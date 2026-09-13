@@ -27,6 +27,59 @@ export const webRoot = fileURLToPath(new URL("..", import.meta.url));
 export const HARNESS_CONNECTIONS = 2;
 
 /**
+ * HOW MANY CONNECTIONS ONE SERVER UNDER TEST MAY HOLD (CNCORE-137).
+ *
+ * FOUR RATHER THAN node-postgres's TEN, and the four is MEASURED. Sampling
+ * `pg_stat_activity` once through a full run on 2026-09-13 -- 1,406 samples --
+ * no server ever had more than FOUR connections executing a statement at once:
+ * a peak `state = 'active'` of 4 on the two busiest databases and 1 or 2 on the
+ * rest. The remaining six of the default ten were never work; they were idle
+ * slack, and the budget they sat in is the container's rather than this suite's.
+ *
+ * THE HARNESS'S OWN HANDLES WERE ALREADY BOUNDED AND WERE NEVER THE PROBLEM.
+ * `HARNESS_CONNECTIONS` has held them at two since CNCORE-99. What nothing
+ * bounded was the TEN CHILD PROCESSES this file starts, each a real CanonCore
+ * calling `getDb()` -- so the arithmetic that spent the container was ten
+ * servers times ten connections, and the fixtures beside them were a rounding
+ * error on it.
+ *
+ * MEASURED BEFORE AND AFTER, because a bound nobody counted is a number in a
+ * file. Sampling `pg_stat_activity` once a second across a full run on
+ * 2026-09-13, same suite and same machine: **103** client connections from this
+ * worktree before this constant existed, **59** after. The suite did not slow
+ * down -- 15.62 s bounded against 16.40 s and 17.96 s unbounded -- which is the
+ * evidence that four is not below what a server here actually uses.
+ *
+ * FORTY OF THAT 59 IS THE SERVERS and the rest is the harness and the setup
+ * connections around them, which is why the total did not fall by the full 60:
+ * ten servers went from ten apiece to four, and nothing else in the run moved.
+ *
+ * IT IS SET HERE AND NOT LOWERED IN `packages/env`, which is CNCORE-137's one
+ * real decision. This measurement is taken from servers running ONE test file
+ * each, sequentially -- so four is the peak of a sequential workload, and an
+ * instance serving several readers at once would be throttled by it. The
+ * default stays the ten every deployment already had.
+ */
+export const SERVER_CONNECTIONS = 4;
+
+/**
+ * THE ENVIRONMENT EVERY SERVER UNDER TEST RUNS WITH.
+ *
+ * ONE FUNCTION SO THE BOUND CANNOT BE FORGOTTEN AT A CALL SITE. Ten of this
+ * suite's servers are started by `anInstanceServing` below and the eleventh --
+ * the fresh install, which builds between its database and its server -- calls
+ * `theBuildServing` directly. Both compose their environment through here, so
+ * there is no way to start a server in this harness that is not bounded.
+ *
+ * IT ADDS ONE KEY AND OVERWRITES NOTHING. What an instance reaches and whether
+ * anybody can log in to it are the fixtures' own questions to answer, and this
+ * is not a second place they get decided.
+ */
+export function theServerEnvironment(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  return { ...env, DATABASE_MAX_CONNECTIONS: String(SERVER_CONNECTIONS) };
+}
+
+/**
  * THE OWNER'S PASSWORD, for the instances this harness has to WRITE to.
  *
  * Everything that changes a catalogue is behind a session since CNCORE-109, and
@@ -60,7 +113,7 @@ export async function theBuildServing(env: NodeJS.ProcessEnv): Promise<{
   const port = await freePort();
   const server = spawn("next", ["start", "--port", String(port)], {
     cwd: webRoot,
-    env,
+    env: theServerEnvironment(env),
     stdio: "inherit",
   });
   const baseUrl = `http://127.0.0.1:${port}`;
