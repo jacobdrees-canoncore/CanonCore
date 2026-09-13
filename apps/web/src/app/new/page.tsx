@@ -48,8 +48,29 @@ export default async function NewItemPage() {
    * and the branch below is about the FORM rather than about the data. Asking
    * conditionally would save one query on a page nobody is waiting on and put a
    * second decision about who may see what next to the one that matters.
+   *
+   * AND WHETHER ANYBODY CAN LOG IN TO THIS INSTANCE AT ALL (CNCORE-144), which
+   * is the SECOND FACT this page answers off and is about the INSTANCE rather
+   * than about the reader. ADR-0044's read-only instance sets no
+   * `OWNER_PASSWORD`, so every password is refused and nobody obtains a session
+   * INCLUDING the owner -- and until this was read, the refusal below offered
+   * that reader a login on the one instance where following it lands on a page
+   * that says nobody can. `session.configured` is the procedure that answers
+   * it, one setting over from `provider.allowlisted`, and it is the same one
+   * the empty state and the header ask (ADR-0094, CNCORE-133, CNCORE-139).
+   *
+   * ASKED FOR THE OWNER TOO, WHERE THE HEADER SHORT-CIRCUITS IT. That procedure
+   * reads the setting and nothing else, so it opens no connection and costs no
+   * query -- and beside a read this page was making anyway it costs no round
+   * trip either. What the header buys with its `&&` is a call skipped on every
+   * page an owner opens; there is one page here, and one answer read where a
+   * reader of this function can see both facts arrive together is worth more
+   * than a call that was never the cost.
    */
-  const { kinds } = await call(appRouter.item.kinds, undefined, { context });
+  const [{ kinds }, instance] = await Promise.all([
+    call(appRouter.item.kinds, undefined, { context }),
+    call(appRouter.session.configured, undefined, { context }),
+  ]);
 
   return (
     <main className="container mx-auto max-w-lg px-4 py-8">
@@ -58,28 +79,85 @@ export default async function NewItemPage() {
         Anything you want catalogued, whether or not you have the file and whether or not a provider
         has ever heard of it.
       </p>
-      {context.session === null ? <NotYours /> : <NewItemForm kinds={kinds} />}
+      {context.session === null ? (
+        <NotYours aPasswordIsSet={instance.password} />
+      ) : (
+        <NewItemForm kinds={kinds} />
+      )}
     </main>
   );
 }
 
 /**
- * ADR-0044's demo: read-only, with no login, because no password was set.
+ * WHAT A READER WITH NO SESSION IS TOLD, WHICH IS TWO ANSWERS RATHER THAN ONE
+ * (CNCORE-144).
  *
  * NO FORM AT ALL RATHER THAN A DISABLED ONE. With no script loaded a Server
  * Action that throws renders a bare `Internal Server Error`, so an offer this
  * page cannot honour costs the reader the page they were on -- the same rule
  * `/import` follows for its own buttons.
+ *
+ * AND THE LOGIN IS AN OFFER THIS PAGE CANNOT ALWAYS HONOUR EITHER, which is the
+ * defect this component carried. Its own docblock used to name ADR-0044's demo
+ * -- read-only, with no login, because no password was set -- and then link one
+ * regardless: on that instance `session.logIn` refuses every password, so the
+ * door has no key cut for it and `/login` itself renders no form. A reader who
+ * took the offer arrived at a page telling them nobody can.
+ *
+ * SO THE INSTANCE IS THE SECOND FACT, and the two sentences here are ADR-0094's
+ * second and third answers under "SO THE LIST IS RENDERED FOR A SESSION". Where
+ * a password IS set this reader may BE the owner and simply not have used it,
+ * and the login is the correct next step rather than a consolation -- the one
+ * the README names first. Where none is set there is no step, and the honest
+ * thing is the thing `/login` and the empty state both say.
+ *
+ * THE PROP IS `aPasswordIsSet` RATHER THAN ANYTHING ABOUT LOGGING IN, for the
+ * reason `WhoFillsIt` on the front page gives at length: the dangerous name
+ * here reads as "is logged in", which is the fact the caller has ALREADY
+ * branched on. Named for what the INSTANCE HAS, it cannot be confused with what
+ * the reader has done.
  */
-function NotYours() {
+function NotYours({ aPasswordIsSet }: { aPasswordIsSet: boolean }) {
   return (
-    <p className="mt-6 text-sm">
-      Only the owner of this catalogue can add to it.{" "}
-      <Link className="hover:underline" href="/login">
-        Log in
-      </Link>{" "}
-      if that is you.
-    </p>
+    /*
+      A LABELLED SECTION, WHICH IS WHAT THE FORM BESIDE IT ALREADY IS. It is
+      what this page answers in place of the form, so it is the same kind of
+      thing and gets the same landmark -- and a heading names it for a reader
+      moving by one, who otherwise meets a bare sentence hanging under `<h1>`.
+
+      IT IS ALSO THE SEAM THE ANSWER IS ASSERTED AT, and that is worth saying
+      rather than leaving to be rediscovered. Since CNCORE-139 the header offers
+      this same login on every page of an instance that has a password, so a
+      test reading the whole document cannot tell a `/new` that offers one from
+      a `/new` that has gone silent inside the shell that does. `sectionIn`
+      reads this element; `new-page.test.ts` is where.
+    */
+    <section className="mt-6" aria-labelledby="who-can-add">
+      <h2 id="who-can-add" className="sr-only">
+        Who can add to this catalogue
+      </h2>
+      {aPasswordIsSet ? (
+        <p className="text-sm">
+          Only the owner of this catalogue can add to it.{" "}
+          <Link className="hover:underline" href="/login">
+            Log in
+          </Link>{" "}
+          if that is you.
+        </p>
+      ) : (
+        /*
+          THE WORDS `/login` USES FOR THE SAME FACT, deliberately rather than a
+          second phrasing of it. A reader who followed a link from here would
+          read that page's sentence; a reader who is offered no link should not
+          have to wonder whether this instance is broken or whether they are
+          missing a button. The empty state on `/` says it this way too.
+        */
+        <p className="text-sm">
+          This instance has no password set, so nobody can log in and nothing can be added through
+          it.
+        </p>
+      )}
+    </section>
   );
 }
 
