@@ -11,8 +11,12 @@ const MAX_IDENTIFIER_BYTES = 63;
  * number.
  *
  * ELEVEN IS A BUDGET THE SUITES ARE HELD TO, rather than a measurement of them.
- * FOUR OF THE SIX declared suffixes spend exactly it -- `_test_fresh`,
- * `_test_paged`, `_test_purge` and `_test_still` -- and that is the direction
+ * SEVEN OF THE THIRTEEN declared suffixes spend exactly it -- `_test_fresh`,
+ * `_test_paged`, `_test_purge`, `_test_still`, `_test_place`, `_test_order` and
+ * `_test_allow` -- so the longest tail the harness can derive IS this number,
+ * exactly. (This read "four of the six" until 2026-09-13, when CNCORE-150
+ * counted them; the set had grown and the sentence had not.) That is the
+ * direction
  * the constraint runs on purpose: WIDENING this number shortens every stem,
  * which renames the database of any worktree already past the new limit and
  * leaves its `.env` pointing at the one it had. A suffix that does not fit gets
@@ -28,6 +32,15 @@ const MAX_IDENTIFIER_BYTES = 63;
  * `worktree-database.test.ts`. Refused twice now -- by CNCORE-93, which
  * shortened the suffix rather than the stem, and again by CNCORE-112, which had
  * both of them in one diff and is why this paragraph names the move.
+ *
+ * THE TAIL GOES ON ONCE, AND THAT IS WHAT MAKES ELEVEN TRUE (CNCORE-150). It
+ * went on twice for as long as `testDatabaseNameFor` was handed whatever
+ * DATABASE_URL named, because `testing/setup.ts` repoints that at the
+ * `<worktree>_test` the harness just built -- so a suite asking for a second
+ * database derived `_test_test_<suffix>` and the worst branch reached 68. The
+ * number below did not move; the derivation did, and it now names from the
+ * worktree database. Widening this to sixteen instead was the tempting repair
+ * and it is the renaming move the paragraph above refuses.
  *
  * The thing at the other end of getting this wrong is
  * `drop database ... with (force)` against the worktree's own catalogue, which

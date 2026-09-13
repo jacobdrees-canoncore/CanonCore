@@ -7,7 +7,7 @@ import { migrateToHead } from "../migrate";
  * EVERY SUFFIX ANY SUITE MAY ASK FOR, and the only place one is written down.
  *
  * `buildTestDatabase` takes a member of this and nothing else, so a suite that
- * wants a sixth database adds it HERE or does not compile. That is the whole of
+ * wants one more database adds it HERE or does not compile. That is the whole of
  * what CNCORE-112 fixed: the set used to be string literals at the call sites
  * with a hand-written copy in `worktree-database.test.ts` -- three places and
  * nothing holding them together, so the copy read three while the web suite
@@ -112,15 +112,59 @@ export async function buildTestDatabase(suffix: TestDatabaseSuffix = ""): Promis
   return built.toString();
 }
 
+/** What `testDatabaseNameFor` appends, and so what it strips to find the root. */
+const MARKER = "_test";
+
 /**
- * How a test database is named from the worktree's own database. THE one place
+ * How a test database is named FROM THE WORKTREE'S OWN DATABASE. THE one place
  * that knows, so `worktreeDatabaseName`'s reservation and this cannot drift on
  * FORMAT -- and `TEST_DATABASE_SUFFIXES` is what stops the SET drifting, which
  * is the half that did. A suite can no longer reach this with a suffix nobody
  * measured: there is no `buildTestDatabase("something-longer")` to write.
+ *
+ * IT TAKES THE WORKTREE DATABASE, AND ONE CALLER HANDED IT SOMETHING ELSE.
+ * That first sentence is the contract and `buildTestDatabase` broke it, because
+ * what it reads is DATABASE_URL and `testing/setup.ts` repoints that at the
+ * `<worktree>_test` this function just built -- deliberately, so a suite builds
+ * its context with the real `createContext` (ADR-0103). A file asking for a
+ * second database was therefore deriving from the RUN's database rather than
+ * from the worktree's, and got `<worktree>_test_test_<suffix>`: one whole
+ * `_test` past anything ADR-0104 budgeted for, that record's own format being
+ * `<name>_test` plus a SIBLING per suffix.
+ *
+ * So the family root is recovered rather than assumed. `_test` is this
+ * function's own marker, and for every database this repo NAMES ITSELF the
+ * strip cannot misfire: `worktreeDatabaseName` ends each one in eight hex
+ * characters and CI names its database `canoncore`, so none of them ends in
+ * `_test` to begin with. THAT GUARANTEE STOPS AT A HAND-SET DATABASE_URL, which
+ * may name anything a developer likes. Point it at `myapp_test` and the family
+ * becomes `myapp_test`, `myapp_test_web` and so on, rather than a generation
+ * below it -- the harness still only ever drops names it derived, but WHICH
+ * names those are moved with this change.
+ *
+ * AND THE NAMING IS NOW TOTAL WHERE IT USED TO GROW. Before the strip, a
+ * derived name was always longer than its input, so it could never BE its
+ * input; it can now, and `testDatabaseNameFor(x_test)` is `x_test`. That is
+ * deliberate -- it is what makes the derivation agree from either end -- but it
+ * means this function alone is no longer proof that a caller is about to touch
+ * a database it owns. NEITHER GUARD LIVES HERE: the 63-byte refusal and the
+ * `name === database` refusal are both in `testDatabaseName` below, at the
+ * point of DESTRUCTION rather than the point of naming, which is where they
+ * belong and where `buildTestDatabase` passes through them. A caller reaching
+ * for this export to name something it then DROPS must take that route.
+ *
+ * THE BUDGET DID NOT MOVE, AND THAT IS THE POINT (CNCORE-150). Widening
+ * `LONGEST_DERIVED_SUFFIX` to cover the doubled tail was the obvious reading
+ * and is the one thing ADR-0104 forbids -- it shortens every stem and so
+ * RENAMES the database of any worktree already past the new limit, leaving its
+ * `.env` pointing at the one it had. Eleven was never too small; it was TRUE
+ * for the format the records describe and a lie only because the tail went on
+ * twice. The worst branch now lands on 63 exactly, and no existing worktree is
+ * renamed.
  */
 export function testDatabaseNameFor(database: string, suffix: TestDatabaseSuffix = ""): string {
-  return `${database}_test${suffix ? `_${suffix}` : ""}`;
+  const worktree = database.endsWith(MARKER) ? database.slice(0, -MARKER.length) : database;
+  return `${worktree}${MARKER}${suffix ? `_${suffix}` : ""}`;
 }
 
 /**
