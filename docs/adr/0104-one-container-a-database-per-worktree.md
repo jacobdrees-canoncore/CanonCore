@@ -75,13 +75,14 @@ rather than data loss; reserving the room is what turns that stop into a working
 paragraphs below said the format could not, on the grounds that `testDatabaseNameFor` is the one
 place that knows how a test database is named and the reservation test builds its derived names by
 calling it. Both halves were true and the conclusion did not follow: the test called it ONCE and the
-running harness called it TWICE. CNCORE-150 is that sentence being wrong, and what follows it here is
-still right about the set. WHICH SUFFIXES EXIST drifted first: `buildTestDatabase` took a `string`, so the set lived as literals
-at the call sites with a hand-written copy in the reservation test, which read `["", "web", "fresh"]`
-while the web suite had grown to five. Two were missing and one of those, `_test_purgeable`, was four
-characters past the reservation — so any worktree whose branch stem ran to the limit met the hard
-stop above and could not run `pnpm test:e2e` at all. True of `cncore_47_properties_validation` on the
-day it was found, 2026-09-12, and found by adding a sixth rather than by anything failing.
+running harness called it TWICE. CNCORE-150 is that sentence being wrong, and what follows it here
+is still right about the set. WHICH SUFFIXES EXIST drifted first: `buildTestDatabase` took a
+`string`, so the set lived as literals at the call sites with a hand-written copy in the reservation
+test, which read `["", "web", "fresh"]` while the web suite had grown to five. Two were missing and
+one of those, `_test_purgeable`, was four characters past the reservation — so any worktree whose
+branch stem ran to the limit met the hard stop above and could not run `pnpm test:e2e` at all. True
+of `cncore_47_properties_validation` on the day it was found, 2026-09-12, and found by adding a
+sixth rather than by anything failing.
 
 **THE TAIL WENT ON TWICE, AND ONLY A LONG BRANCH COULD SHOW IT** (CNCORE-150). `global-setup.ts`
 builds `<worktree>_test` and `testing/setup.ts` then points DATABASE_URL AT IT, deliberately, so that
