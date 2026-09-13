@@ -90,6 +90,7 @@ export default async function setup(project: TestProject) {
   const lookupOnly = await aProviderThatDeclinesBrowse();
   const answersBadly = await aProviderThatAnswersBadly();
   const refusesWithASentence = await aProviderThatRefusesWithASentence();
+  const holdsNothing = await aProviderThatHoldsNothingAtThatId();
 
   /*
    * WHAT THIS INSTANCE REACHES, WRITTEN INTO ITS DATABASE (CNCORE-99). Both
@@ -116,6 +117,7 @@ export default async function setup(project: TestProject) {
       lookupOnly.url,
       answersBadly.url,
       refusesWithASentence.url,
+      holdsNothing.url,
       UNREACHABLE_PROVIDER,
     ].join("\n"),
   });
@@ -236,6 +238,7 @@ export default async function setup(project: TestProject) {
     declinesBrowse: lookupOnly.url,
     answersBadly: answersBadly.url,
     refusesWithASentence: { url: refusesWithASentence.url, said: LAPSED },
+    holdsNothing: { url: holdsNothing.url, name: HOLDS_NOTHING },
   });
   const browsed = await browseThroughTheApp(baseUrl, provider.url, databaseUrl);
   project.provide("browsed", browsed.fixture);
@@ -263,6 +266,7 @@ export default async function setup(project: TestProject) {
     await lookupOnly.close();
     await answersBadly.close();
     await refusesWithASentence.close();
+    await holdsNothing.close();
   };
 }
 
@@ -1173,6 +1177,60 @@ async function aProviderThatRefusesWithASentence(): Promise<{
   // CMPP requires -- `packages/contract` refuses to make a failure body's shape
   // part of the protocol, and `client.ts` reads this opportunistically.
   return onLoopback((_path, answer) => answer({ error: LAPSED, provider: "a provider" }, 503));
+}
+
+/** The name the Provider below gives itself, which is what the page prints. */
+const HOLDS_NOTHING = "provider-holds-nothing";
+
+/**
+ * A PROVIDER THAT IS UP, ANSWERS EVERYTHING, AND HOLDS NOTHING AT THE ID IT IS
+ * GIVEN (CNCORE-152).
+ *
+ * IT STANDS FOR THE TWO MISSING-ID ANSWERS AT ONCE, and that is one claim rather
+ * than two: `NO_SUCH_RECORD` and `NO_SUCH_CONTAINER` are the same sentence one
+ * noun apart, and `client.ts` reads a provider's `404` as `null` for `lookup`
+ * and `browse` alike -- in its own words, "404 means the same thing to both".
+ * A second stub differing only in which path it refused would be that one claim
+ * written twice.
+ *
+ * IT DECLARES `browse` ON PURPOSE, which is the half that is easy to get wrong.
+ * A provider omitting it would be refused by `BROWSE_NOT_OFFERED` before a
+ * request ever left the app, so the container witness would pass while proving
+ * the OTHER code -- and `aProviderThatDeclinesBrowse` already stands for that
+ * one.
+ *
+ * IT IS IN `providerUrls` AND HAS TO BE, which the allowlist alone does not buy.
+ * The allowlist is `127.0.0.0/8` and admits it by CIDR, so the POST reaches it
+ * either way -- but `/import?provider=` renders `NotOneOfOurs` for a provider
+ * this instance does not SEARCH, so the page that comes back would carry that
+ * notice instead of the answer under test, at the same `200` and with the
+ * witness none the wiser. Being reachable and being rendered about are two
+ * settings here (CNCORE-68), and this stub needs both.
+ *
+ * IT ANSWERS EVERY SEARCH WITH NOTHING, which is what makes that safe: it is
+ * named to the instance without adding a row to any other test's results.
+ *
+ * IT IS NOT A STAND-IN FOR A REAL PROVIDER and must not grow into one, as the
+ * three stubs above it are not.
+ */
+async function aProviderThatHoldsNothingAtThatId(): Promise<{
+  url: string;
+  close: () => Promise<void>;
+}> {
+  const manifest = {
+    name: HOLDS_NOTHING,
+    versions: [1],
+    operations: ["search", "lookup", "browse"],
+    max_cache_age: 86400,
+    images: { stored_variant: null, per_role_limit: 0, quality_floor: 0 },
+  };
+  return onLoopback((path, answer) => {
+    if (path === "/") return answer(manifest, 200);
+    // It holds nothing, so it MATCHES nothing -- rather than answering a search
+    // badly, which is what the stub above it stands for.
+    if (path.startsWith("/search")) return answer(searchOver([], path), searchStatus(path));
+    return answer({ error: "no such id" }, 404);
+  });
 }
 
 /** What a stub answers one request with: a JSON body and a status. */
@@ -2139,6 +2197,14 @@ declare module "vitest" {
        * happened to print.
        */
       refusesWithASentence: { url: string; said: string };
+      /**
+       * A provider that is UP and holds NOTHING at whatever id it is given: the
+       * two missing-id answers, which reached the Owner as a bare 500 until
+       * CNCORE-152. `name` is the name it declares for itself, which is what the
+       * page prints -- so a test asserts the sentence the page owes rather than
+       * the URL the harness happened to bind.
+       */
+      holdsNothing: { url: string; name: string };
     };
     /** A real browsed story in two orderings, and the two shapes browse hands over. */
     browsed: {

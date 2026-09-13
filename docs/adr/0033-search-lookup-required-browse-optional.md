@@ -654,8 +654,9 @@ the production build by posting the browse form with a container id the provider
 `Internal Server Error`: eighteen bytes of plain text, no HTML, and none of `NO_SUCH_CONTAINER`,
 `BROWSE_NOT_OFFERED` or `PROVIDER_REFUSED` anywhere in it. Declaring an error is not delivering one.
 
-**THE 500 IS GONE FOR `PROVIDER_REFUSED` SINCE CNCORE-149, AND FOR THE OTHER TWO IT IS STILL THERE --
-WHICH THIS PARAGRAPH GOT WRONG FOR THREE TICKETS.** It said the 500 itself was gone since CNCORE-127,
+**THE 500 IS GONE FOR ALL THREE: `PROVIDER_REFUSED` SINCE CNCORE-149 AND THE OTHER TWO SINCE
+CNCORE-152 -- AND THIS PARAGRAPH GOT IT WRONG FOR THREE TICKETS BEFORE THAT.** It said the 500 itself
+was gone since CNCORE-127,
 reasoning that the change made every Server Action read a sub-500 `ORPCError` as the answer it is.
 The change is real and the conclusion does not follow: **none of these three codes IS sub-500.**
 Measured on @orpc/client 1.15.0, `fallbackORPCErrorStatus` is
@@ -663,13 +664,18 @@ Measured on @orpc/client 1.15.0, `fallbackORPCErrorStatus` is
 own rather than common defs -- so all three were 500s, `answer.ts` rethrew them, and `browseOrdering`
 went on answering the same eighteen bytes this section opens by measuring. Declaring an error is not
 delivering one, and neither is declaring it below where the delivery is decided. CNCORE-149 gave
-`PROVIDER_REFUSED` a `424` and ADR-0123 carries the reasoning; CNCORE-152 is the other two, with a
-TODO at the site.
+`PROVIDER_REFUSED` a `424`; CNCORE-152 gave `NO_SUCH_CONTAINER` a `404` and `BROWSE_NOT_OFFERED` a
+`422`, which is the split this record's own reading asks for -- a Provider that does not do this AT
+ALL is not a missing thing, and the two have different remedies. ADR-0123 carries the reasoning for
+all three, and the rule they leave behind: **a declared error declares a status, or it is a 500
+wearing a name.**
 
-What CNCORE-127 did NOT do either way is carry the REASON: the paragraph below is about delivering a
-sentence on the POST, and none of it changed. So the preflight remains the only thing that can say
-which of the three refusals was met, and the price argued further down is still the price of saying
-it rather than the price of avoiding a 500.
+What none of the three did is carry the REASON: the paragraph below is about delivering a
+sentence on the POST, and none of it changed. **A status buys a PAGE and not a SENTENCE** -- the
+Owner now lands on the import surface rather than on eighteen bytes, and what tells them which of the
+three refusals was met is the preflight re-reading `provider.container` on that page. So the preflight
+remains the only thing that can say which one it was, and the price argued further down is still the
+price of saying it rather than the price of avoiding a 500.
 
 **AND TWO MECHANISMS FOR DELIVERING IT ON THE POST DO NOT EXIST.** An `error.tsx` was written and
 removed because it DOES NOT FIRE: a Server Action that throws during a form POST with no JavaScript

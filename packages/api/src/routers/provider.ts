@@ -703,12 +703,37 @@ export const provider = {
     )
     .errors({
       PROVIDER_REFUSED: providerRefused,
-      // TODO(CNCORE-152): still oRPC's default 500 for a code of our own, so a
-      // record the provider drops between the search that drew the row and the
-      // POST that presses it reaches the owner as the bare `Internal Server
-      // Error` -- the same defect CNCORE-149 fixed one code over.
       NO_SUCH_RECORD: {
         message: "The provider holds no record at that id.",
+        /**
+         * `404`, AND THE STATUS IS WHAT MAKES THE DECLARATION REACH ANYONE
+         * (CNCORE-152). Declaring the code is half of it: oRPC gives a code of
+         * our own `status: 500` -- `fallbackORPCErrorStatus` is
+         * `status ?? COMMON_ORPC_ERROR_DEFS[code]?.status ?? 500`, and this code
+         * is not a common def -- so `answer.ts` rethrows it as a fault and the
+         * Server Action answers the bare `Internal Server Error`. The Take
+         * button is rendered for EVERY search candidate, so a record the
+         * provider drops between the search that drew the row and the POST that
+         * presses it hit exactly that until this line existed.
+         *
+         * BELOW 500 BECAUSE THIS IS AN ANSWER RATHER THAN A FAULT, which is
+         * ADR-0123's reasoning for `424` one code over and holds unchanged here:
+         * a 5xx in this app means a genuine fault, logged with its stack
+         * (ADR-0125), and a provider that simply holds nothing at an id is not
+         * one. ADR-0066 already makes an id that addresses nothing an ANSWER,
+         * and `provider.container` answers the same thing at 200 on the read
+         * side -- this is that position held on the write side, where a write
+         * that wrote nothing must not report success.
+         *
+         * RFC 9110's OWN WORDS FOR IT, read at 15.5.5: 404 "indicates that the
+         * origin server did not find a current representation for the target
+         * resource or is not willing to disclose that one exists". The record is
+         * the resource and the provider is the origin server for it. `410` is
+         * the one that record prefers where the condition "is likely to be
+         * permanent", and nothing here knows that: a wiki page deleted today can
+         * be restored tomorrow, so 404 is the honest one of the two.
+         */
+        status: 404,
       },
     })
     .handler(async ({ input, context, errors }) => {
@@ -916,15 +941,59 @@ export const provider = {
     )
     .errors({
       PROVIDER_REFUSED: providerRefused,
-      // TODO(CNCORE-152): these two are still oRPC's default 500 for a code of
-      // our own, as `NO_SUCH_RECORD` on `import` above is, so a container that
-      // goes missing between the page's read and the owner's POST reaches them
-      // as the bare `Internal Server Error`.
       BROWSE_NOT_OFFERED: {
         message: "That provider does not offer browse, so it was not asked for one.",
+        /**
+         * `422` RATHER THAN THE `404` ITS TWO NEIGHBOURS TAKE, because this is
+         * not a missing thing (CNCORE-152). A 404 here would tell the owner the
+         * container is not there, and this procedure has no idea whether it is:
+         * nothing was ever asked about it. ADR-0033 makes `browse` the operation
+         * a provider may DECLINE, so a provider offering only `search` and
+         * `lookup` is well-formed and complete -- what is absent is the
+         * operation, not the container, and those have different remedies. The
+         * owner's is to import the records one at a time; the other's is to
+         * check the id.
+         *
+         * AND NOT `501`, WHICH IS THE CLOSER WORDING AND STILL WRONG TWICE OVER.
+         * RFC 9110 15.6.2 reads "the server does not support the functionality
+         * required to fulfill the request", which is nearly this sentence -- but
+         * it is a 5xx, so `answer.ts` rethrows it and the owner gets the bare
+         * `Internal Server Error` this ticket exists to remove, and `/api/rpc`
+         * logs a stack for it (ADR-0125) as though CanonCore were broken. Its
+         * second sentence rules it out independently of that: 501 "is the
+         * appropriate response when the server does not recognize the request
+         * method", and THIS server implements browse perfectly well. The
+         * provider does not. `405` is out on the record's own terms too, since
+         * it "MUST generate an Allow header field", and the POST that carried
+         * this really is allowed.
+         *
+         * WHAT 422 SAYS, AT 15.5.21: the server "understands the content type of
+         * the request content ... and the syntax of the request content is
+         * correct, but it was unable to process the contained instructions".
+         * That is this exactly. The instruction is "browse this container at
+         * this provider", the request carrying it is entirely well-formed, and
+         * the reason it cannot be carried out is a property of the provider it
+         * names. Mapping an ABSENT UPSTREAM CAPABILITY onto that sentence is
+         * CanonCore's reading rather than RFC 9110's example, which is
+         * semantically erroneous XML; the registry offers no closer 4xx, and
+         * oRPC carries the same status under its own `UNPROCESSABLE_CONTENT`.
+         */
+        status: 422,
       },
       NO_SUCH_CONTAINER: {
         message: "The provider holds no container at that id.",
+        /**
+         * `404`, FOR THE REASON `import`'s `NO_SUCH_RECORD` GIVES IN FULL. The
+         * same sentence one noun over: the provider was asked and holds nothing
+         * at that id, which ADR-0066 makes an answer rather than a failure and
+         * `provider.container` answers at 200 on the read side.
+         *
+         * WRITTEN OUT RATHER THAN SHARED WITH IT, because the two differ in the
+         * only field a shared declaration would have to fix -- the message names
+         * the container where the other names the record -- and a helper taking
+         * one noun would be indirection standing in for one word.
+         */
+        status: 404,
       },
     })
     .handler(async ({ input, context, errors }) => {
