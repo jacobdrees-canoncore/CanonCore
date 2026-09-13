@@ -1272,10 +1272,22 @@ async function twoInstancesOfOneProvider(baseUrl: string, databaseUrl: string) {
 
 /**
  * Whatever `PROVIDER_WIKI_URL` names, and a stub on loopback when it names
- * nothing. In CI that variable points at the real `provider-wiki` image running
- * as a service container, so this same code and these same assertions hold the
- * real image to the contract -- the difference between the two runs is which
- * process answers CMPP, and nothing else.
+ * nothing.
+ *
+ * NOTHING IN CI SETS IT, AND THAT IS THE DECISION RATHER THAN THE OVERSIGHT IT
+ * REPLACED (CNCORE-143). This doc comment used to say the provider job pointed
+ * it at the real `provider-wiki` image; the job did set it, and turbo filtered
+ * it out of `test:e2e` before this line could read it, so from CNCORE-100 until
+ * CNCORE-143 the job ran this stub while reporting otherwise. Passing it
+ * through turns that job red correctly: `provider-wiki` needs a Credential to
+ * answer `search` or `lookup` at all (ADR-0122), no CI job holds the Owner's
+ * session, and that record refuses storing one. `theTmdbProvider` below is the
+ * helper CI now points at a real image, and the wiki image is held to the
+ * contract by the `contract` job in the state CI can actually put it in.
+ *
+ * IT STILL READS THE VARIABLE, because an owner running an unlocked
+ * `provider-wiki` locally can point this suite at it, and `turbo.json` declares
+ * it for `test:e2e` so that it arrives when they do.
  */
 async function theProvider(): Promise<{ url: string; close: () => Promise<void> }> {
   const configured = process.env.PROVIDER_WIKI_URL;

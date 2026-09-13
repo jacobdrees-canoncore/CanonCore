@@ -329,9 +329,16 @@ about and is not a foundation to put an invariant on.
 
 ## The stub and the image are one contract, and it broke silently -- under CNCORE-9
 
-`apps/web/e2e` runs twice in CI: once against a stub on loopback, and once with `PROVIDER_WIKI_URL`
-naming the real `provider-wiki` image as a service container. THE ASSERTIONS CANNOT TELL WHICH RAN,
-and that is the whole design -- so the stub's answers have to be the image's answers.
+`apps/web/e2e` runs twice in CI: once against stubs on loopback, and once with a provider variable
+naming a real image as a service container. THE ASSERTIONS CANNOT TELL WHICH RAN, and that is the
+whole design -- so the stub's answers have to be the image's answers.
+
+**THE SECOND RUN WAS NOT HAPPENING WHEN THIS WAS WRITTEN, AND THE VARIABLE NAMED HERE IS NO LONGER
+THE WIKI'S.** This paragraph said `PROVIDER_WIKI_URL` and the real `provider-wiki` image, and both
+halves are corrected under CNCORE-143 below: turbo filtered the variable out of `test:e2e`, so both
+runs were the stub, and the job now carries `PROVIDER_TMDB_URL` and `provider-tmdb` instead. What
+the paragraph claims about the stub owing the image's answers is unchanged and is why the section
+stands.
 
 **THEY STOPPED BEING.** ADR-0057 moved the fixture era to new Who and CNCORE-39 cut the
 missing-episode roster from five stories to two, in the OTHER REPOSITORY. *Marco Polo* left the
@@ -872,3 +879,87 @@ the default config until it is named out of it. `apps/web/vitest.config.ts` excl
 nothing else, so the browser suite ran under it and failed at its first `inject` -- naming a
 variable rather than the config that had swept it. Exclusion is part of adding a project here, not
 tidiness after the fact.
+
+## The job that held the real image to the contract ran the stub -- under CNCORE-143
+
+CI's `provider` job is the second of the two runs the CNCORE-9 section above describes: the same
+e2e suite, with a variable pointing it at a real provider image instead of a stub. **It had never
+reached one.** `pnpm test:e2e` is a TURBO task, `turbo.json` declared only `DATABASE_URL` for it,
+turbo 2's env mode is `strict` and there is no `globalPassThroughEnv` -- so `PROVIDER_WIKI_URL` was
+filtered out of the task environment, `theProvider()` saw `undefined`, and stood up the stub. The
+job ran what the `e2e` job runs. `test:contract` declared its variables and really did reach both
+images, and that asymmetry between two adjacent lines is the whole of why nobody saw this.
+
+**MEASURED RATHER THAN REASONED.** The published `:latest` image started on a published port, then
+`PROVIDER_WIKI_URL=... pnpm test:e2e`: 213 tests passed over 16 files, and `docker logs` on the
+container afterwards held one line, `provider-wiki listening on http://0.0.0.0:8080`. It received
+no request at all. The same image answers `GET /lookup/265` with `503` when it holds no session,
+which is the state a CI service container is in -- so had the variable arrived, the import through
+the app would have failed and the job could not have been green since CNCORE-100 merged.
+
+**A GREEN CHECK THAT ASSERTS NOTHING IT SAYS IT ASSERTS IS WORSE THAN AN ABSENT ONE**, which is
+CNCORE-39's "a test whose subject you deleted does not fail; it stops asking" reached through a
+build tool rather than a typo. Two files rested their design on the claim this job was carrying:
+the job's own comment, and `wiki-fixture.ts`'s "a divergence here would make one of those two runs
+a check of the harness against itself". Both runs were.
+
+### The fix is one line; the decision is which provider the job is for
+
+Passing the variable through turns the job RED, correctly, and that is the useful part. With
+`search` and `lookup` live since CNCORE-100 and `browse` going live under CNCORE-102, a
+`provider-wiki` container holding no Credential can answer NONE of the three:
+[[0122-a-provider-declares-the-credential-it-needs]] obliges a provider whose `credential.state` is
+not `valid` to answer `search` and `lookup` a `503`, so an import through the app cannot succeed
+against one. **Unlocking one in CI is refused rather than deferred**, because that record's fixed
+point is that NO CI JOB HOLDS THE OWNER'S SESSION, and the wiki's credential is a browser session
+past a Cloudflare challenge page that only a person can pass.
+
+**SO THE JOB RUNS AGAINST `provider-tmdb`, AND THE WIKI IMAGE LEAVES IT.** That provider declares no
+credential, needs only a token CI already holds as a secret, and answers `200` with real records --
+and the e2e suite already drives it through the app: `importFromTmdb` imports a real film,
+`providerSearch.browsable` browses a real collection, the import surface searches it, and
+[[0036-tmdb-licence-constraints]]'s notice and mark are rendered
+from what the image declared rather than from a stub repeating the expected string back. The job's
+subject survives; only which process carries it has changed.
+
+**THE THIRD OPTION, ASSERTING THE REFUSALS IN THIS SUITE, WAS REFUSED.** It would make the
+assertions able to tell which process ran -- the one thing the CNCORE-9 section says they must not
+-- because every wiki fixture would have to be dropped on the locked branch, and sixteen files read
+those fixtures. It is also already done: the `contract` job holds the real locked image to
+ADR-0122's obligations directly, which is the state CI can actually put it in.
+
+**WHAT THIS COSTS, NAMED RATHER THAN GLOSSED: no e2e check drives the app against the real
+`provider-wiki` image any more.** That is a reduction from zero to zero. The job was not checking it
+before, so what is removed is the CLAIM, not the coverage, and the contract job's assertions about
+the locked image are unaffected.
+
+### No guard inside the suite could have caught this, and that is the interesting half
+
+The obvious fix is a harness that fails when it falls back to a stub in CI. **It cannot work.** By
+the time the suite runs, a filtered variable is simply ABSENT, indistinguishable from one nobody
+set -- and a "require the real provider" flag delivered through the environment would be filtered
+by the very mechanism it guards against. `CI=true` fails for a different reason: the `e2e` job also
+runs in CI and legitimately uses stubs, so the implication is false.
+
+**THE TWO FILES HAVE TO BE READ AGAINST EACH OTHER FROM OUTSIDE**, which is
+`packages/config/src/ci-task-env.test.ts`. It asserts two halves of one loop: a variable a job sets
+in its OWN `env:` reaches the turbo task that job runs, and a provider container a job STARTS is
+addressed by a variable that job sets. The first catches the defect as it happened; the second
+catches its appearance in the workflow file, where a job that starts the real image reads as a job
+that tests it.
+
+**ASKED OF `turbo` RATHER THAN OF `turbo.json`**, for the reason `turbo-cache-inputs.test.ts` gives
+about `inputs`: reading the config back and asserting the entries are present restates the fix in a
+second language and passes by construction wherever it is wrong. Only `--dry=json` knows what a
+task will actually receive, since `globalPassThroughEnv`, a package's own `turbo.json` and the env
+mode all land in the same answer.
+
+**JOB-LEVEL `env:` IS THE SUBJECT AND WORKFLOW-LEVEL IS NOT.** The workflow block is the shared
+environment; a JOB setting a variable for itself is saying the work it runs needs it. A variable
+only a shell step needs belongs on that STEP, which is how `ci.yml` already spells `BASE_REF` -- so
+the fix for a false positive here is to move the variable to the step that reads it, which is the
+more precise spelling anyway.
+
+**BOTH GUARDS WERE CHECKED BY MUTATION RATHER THAN BY BEING GREEN.** Dropping `PROVIDER_TMDB_URL`
+from `test:e2e` reddens the first, naming every planned task that would not receive it; putting the
+wiki image back into the `provider` job unaddressed reddens the second, naming the container.

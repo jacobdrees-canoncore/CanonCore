@@ -6,10 +6,22 @@ import type { CmppBrowse } from "@canoncore/providers";
  *
  * THE STUB AND THE REAL IMAGE MUST ANSWER THE SAME THING, which is why the ids,
  * titles, positions and dates below are ADR-0057's committed extract as the
- * provider actually serves it rather than something plausible. In CI's provider
- * job `PROVIDER_WIKI_URL` points at the real image and none of this is used, so
- * the assertions cannot tell which process ran -- and a divergence here would
- * make one of those two runs a check of the harness against itself.
+ * provider actually serves it rather than something plausible.
+ *
+ * THIS FILE IS USED IN BOTH CI RUNS, WHICH IS A CORRECTION (CNCORE-143). It
+ * used to say `PROVIDER_WIKI_URL` points at the real image in CI's provider job
+ * and none of this is used there -- but turbo filtered that variable out of
+ * `test:e2e`, so both runs were this stub, and the divergence warned about
+ * below had already happened: BOTH runs were a check of the harness against
+ * itself. The wiki image is no longer in that job at all, because it needs a
+ * Credential no CI job can hold (ADR-0122); `provider-tmdb` is the real image
+ * the suite is now pointed at, and `provider-wiki` is held to the contract by
+ * the `contract` job instead.
+ *
+ * SO THE OBLIGATION ABOVE IS UNCHANGED AND IS NOW THE ONLY THING CARRYING IT.
+ * Nothing in this repository compares these records against the running
+ * provider any more, so they are owed to it by hand: generated FROM the image
+ * rather than typed, exactly as ADR-0103's CNCORE-9 section requires.
  *
  * IT IS ITS OWN MODULE because it is DATA. `global-setup.ts` is the arrangement
  * -- build a database, build Next, start it, import -- and twenty-eight records
