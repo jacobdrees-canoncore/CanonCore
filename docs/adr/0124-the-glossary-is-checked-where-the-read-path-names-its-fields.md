@@ -51,10 +51,9 @@ exist, and the next offence can be added to it without argument.
 CNCORE-91, and on a warm one only since CNCORE-132, for the reason the last section gives — its
 parser is tested against fixtures rather than only exercised against the real file (the argument
 `docker-compose.test.ts` makes about the same kind of check), and it carries an assertion that the
-real glossary yields more
-than twenty words — so a renamed heading or a moved file fails loudly instead of passing while
-guarding nothing. It caught `catalogueEntryPublic` and `cataloguePublic.entries` on its first run;
-CNCORE-114 owns those.
+real glossary yields more than twenty words — so a renamed heading or a moved file fails loudly
+instead of passing while guarding nothing. It caught `catalogueEntryPublic` and
+`cataloguePublic.entries` on its first run; CNCORE-114 owns those.
 
 **NOT BUILT: everything that names the read path without emitting it.** Four things the check does
 not reach, and they are the half a reader would otherwise assume was covered. This paragraph said
@@ -85,39 +84,20 @@ review**, which is the same standing the rest of the glossary had before it. It 
 because the payload is the surface a reader and every client sees, and because it found CNCORE-114 on
 its first run. It is not worth quoting as though the repository were now covered.
 
-## A check the build can skip is a check that runs less often than it reads
+## The check only ran on a COLD cache, until CNCORE-132
 
 `turbo` hashes a task against the files of its OWN package. This check lives in `packages/schemas`
-and reads a file at the ROOT, so for its first day it was **cached against everything except the
-glossary**: editing `CONTEXT.md` did not invalidate it, and the check replayed a stale pass. Only a
-cold cache ran it for real.
+and the glossary lives at the ROOT, so for its first day it was cached against everything except the
+glossary: editing `CONTEXT.md` did not invalidate it, and the check replayed a stale pass. CNCORE-101
+met it — an `_Avoid_` entry banning `health` collided with `healthCheckResult` on the read path,
+`pnpm test` passed locally across ten tasks and CI failed — so the difference was the cache and not
+the code, and the person best placed to fix the name was the one who never saw it fail.
 
-**THE FAILURE POINTED THE WRONG WAY**, which is what makes it worth a record rather than a commit
-message. CNCORE-101 added an `_Avoid_` entry banning `health`, colliding with `healthCheckResult` on
-the read path; `pnpm test` passed locally across ten tasks and CI failed. The difference was the
-cache, not the code — so the person best placed to fix the name was the one who never saw it fail,
-and everyone else saw a green suite certifying a rule it had not read.
+`packages/schemas/turbo.json` now names `$TURBO_ROOT$/CONTEXT.md` among the task's `inputs`, which
+puts the glossary's own bytes inside the cache key: an edit MUST miss, and the check runs.
 
-**THE FIX DECLARES THE FILE, IT DOES NOT DISABLE THE CACHE.** `packages/schemas/turbo.json` names
-`$TURBO_ROOT$/CONTEXT.md` among the task's `inputs`, which puts the glossary's own bytes inside the
-cache key: an edit MUST miss. `globalDependencies` was refused because it asserts every task in the
-repository depends on the glossary, which is false and would rebuild the world on each domain-model
-edit; `cache: false` was refused because this task's extra input is exactly one enumerable file, so
-the reason `packages/config` opts out — that its real inputs are the whole repository — does not
-transfer. Measured: a glossary edit now misses 3 of 10 test tasks, `@canoncore/schemas` plus the two
-that depend on it through `dependsOn: ["^test"]`.
-
-**IT IS GUARDED BY ASKING `turbo`, NOT BY READING `turbo.json`.**
-`packages/config/src/turbo-cache-inputs.test.ts` runs `turbo run test --dry=json` and asserts the
-file appears among the task's real inputs, carrying the hash git holds for it. Asserting the
-`inputs` entry back out of the config file would restate the fix in a second language — the thing
-this record already refuses for the `_Avoid_` lists — and it would pass by construction wherever it
-was wrong: an unmatched glob is dropped SILENTLY, so `$TURBO_ROOT$/CONTEXT.MD` reads fine, matches
-nothing, and caches exactly as badly as no entry at all. Measured on 2026-09-13: turbo emits no
-warning for it.
-
-**AND `@canoncore/env` HAD THE SAME DEFECT**, found by looking rather than by failing: its suite
-holds the install path a stranger follows — `README.md`, `.env.example`, `compose.yaml`, the
-`Dockerfile`, `ci.yml` — and was hashed against none of them. Fixed in the same pass, because it is
-one reason to change. The guard recomputes from the sources which packages reach outside themselves
-and fails on one that is unlisted, so the next such suite cannot arrive quietly.
+**THE GENERAL RULE IS NOT THIS RECORD'S TO OWN.**
+[[0126-a-task-declares-the-files-it-reads-outside-its-package]] holds it — the mechanism, the two
+alternatives it refused, and the guard that enforces it — because the same defect was live in
+`packages/env` against a different set of files, and a repo-wide caching rule filed under the
+glossary is one nobody adding a root-reading suite would ever find.
