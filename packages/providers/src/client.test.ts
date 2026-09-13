@@ -587,11 +587,13 @@ describe("the CMPP client", () => {
    * THE REASON THE BODY WAS BEING CANCELLED IS PRESERVED RATHER THAN REVERTED,
    * which is the half of CNCORE-140 that could have been lost fixing the other.
    *
-   * THIS PROVIDER NEVER STOPS TALKING, so a client reading to the end waits out
-   * `bodyTimeout` -- ten seconds, which is past this suite's own patience -- and
-   * a client that read a prefix and walked away without cancelling would leave
-   * the socket for `afterEach` to hang on. Both failures are visible here and
-   * neither is visible from the message alone.
+   * THIS PROVIDER NEVER STOPS TALKING, AND SO NEVER TRIPS A TIMEOUT AT ALL. It
+   * writes every millisecond, and `bodyTimeout` caps the GAP BETWEEN chunks
+   * rather than a total (ADR-0130) -- so a client reading this to the end waits
+   * FOREVER rather than ten seconds, which is what makes the bounded read the
+   * only thing that ends it. A client that instead read a prefix and walked away
+   * without cancelling would leave the socket for `afterEach` to hang on. Both
+   * failures are visible here and neither is visible from the message alone.
    */
   it("lets a socket go after reading enough, rather than waiting out a provider that never stops", async () => {
     const opening = "the wiki refused this provider's session.";
