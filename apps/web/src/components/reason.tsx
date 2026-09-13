@@ -23,6 +23,14 @@ import type { FailureReason } from "@canoncore/providers";
  * line, because they are not a setting the Owner can go and change, but claiming
  * the Provider uttered them would be a second false attribution.
  *
+ * SINCE CNCORE-140 SOME OF THEM ARE THE PROVIDER'S WORDS LITERALLY, and that
+ * does not change the sentence above. A failing answer's own reason is read off
+ * the body now instead of being drained unread, so what arrives here is
+ * sometimes a Provider quoting itself and sometimes this app describing one --
+ * and NOTHING HERE CAN TELL WHICH, because `wrote` answers which BOUNDARY
+ * refused and neither of these was refused by one. The weaker claim is the one
+ * true of both, which is why it is the claim being made.
+ *
  * NOT A REWORDING EITHER. CNCORE-92's rule is that a Provider which cannot be
  * reached must never look like one that holds nothing, and a reason replaced by
  * a house sentence would do exactly that -- "a refusal reworded is not a refusal
