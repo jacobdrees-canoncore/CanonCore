@@ -152,9 +152,12 @@ directive came off and neither child changed.
 
 **SO THE HEADER ANSWERS THE SAME THREE ANSWERS OFF THE SAME TWO FACTS AS THE EMPTY STATE.** An
 owner sees both routes, unchanged. A reader with no session on an instance that HAS a password is
-offered `/login` — which the header did not offer before at all, so the owner of a catalogue with
-anything in it had no rendered way to reach it, the empty state that names it being retired by the
-first Item. A reader on an instance with NO password is offered neither, for the reason nothing
+offered `/login`, and that link PREVENTS A GAP RATHER THAN CLOSING ONE, which is worth stating the
+right way round. A rendered path to `/login` already existed and ran through the very link this
+change removes: `New item` in the nav, followed to `/new`, which answers a caller with no session
+"Only the owner of this catalogue can add to it" and offers the login itself. Thinning the nav takes
+that path away, and the empty state's own login goes with the first Item, so a header that offered
+nothing in their place would leave the owner of a filled catalogue reaching `/login` by typing it. A reader on an instance with NO password is offered neither, for the reason nothing
 else offers that reader a login either: nobody can log in there, the owner included.
 
 **WHAT IT COSTS IS STATED IN ADR-0117 RATHER THAN HERE**, because it is that record's subject: the
