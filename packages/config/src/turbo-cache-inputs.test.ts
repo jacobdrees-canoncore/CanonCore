@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, resolve, sep } from "node:path";
 import { describe, expect, it } from "vitest";
 import { repoRoot } from "./testing/repo-root";
 
@@ -228,9 +228,11 @@ function publishedHelpers(): Map<string, string> {
   return new Map(
     Object.entries(manifest.exports)
       .filter(([, target]) => target.endsWith(".ts"))
+      // `join` normalises a leading `./` itself, so an export written without
+      // one still resolves rather than silently losing its first two characters.
       .map(([specifier, target]) => [
-        `@canoncore/config${specifier.slice(1)}`,
-        join("packages", "config", target.slice(2)),
+        `@canoncore/config${specifier.replace(/^\./, "")}`,
+        join("packages", "config", target),
       ]),
   );
 }
@@ -252,7 +254,10 @@ function importsOf(path: string, source: string, helpers: Map<string, string>): 
     .filter(([specifier]) => source.includes(specifier))
     .map(([, target]) => target);
 
-  for (const match of source.matchAll(/from\s+["'](\.[^"']*)["']/g)) {
+  // `from "..."`, `import("...")` and `require("...")` alike: reach travels by
+  // whichever the file happened to use, and a walk that knew only the static
+  // form would break the chain on a lazily imported helper.
+  for (const match of source.matchAll(/(?:from|import|require)\s*\(?\s*["'](\.[^"']*)["']/g)) {
     const base = join(dirname(path), match[1] as string);
     found.push(`${base}.ts`, `${base}.tsx`, join(base, "index.ts"));
   }
@@ -301,11 +306,19 @@ function packagesReachingOutsideThemselves(): string[] {
 
   const reachingFiles = new Set(
     tracked.filter((path) => {
-      // `packages/<name>/<...>/file.ts`: how many directories deep the file sits
-      // inside its own package, which is how far a climb may go before it leaves.
-      const insideItsPackage = path.split("/").length - 3;
-      return [...(sources.get(path) ?? "").matchAll(/["'`]((?:\.\.\/)+)/g)].some(
-        (climb) => (climb[1] as string).length / 3 > insideItsPackage,
+      // RESOLVED RATHER THAN COUNTED. An earlier version counted the leading
+      // `../` run against how deep the file sat, which required the climb to
+      // begin at the opening quote: `"./nested/../../../shared"` leaves the
+      // package and matched NOTHING. Resolving the literal the way the runtime
+      // would, then asking whether it landed outside, has no such shape to be
+      // written around -- and it drops the arithmetic that made the earlier
+      // version need a comment to be believed.
+      const packageDirectory = join(repoRoot, ...path.split("/").slice(0, 2));
+      return [...(sources.get(path) ?? "").matchAll(/["'`]([^"'`\n]*\.\.\/[^"'`\n]*)["'`]/g)].some(
+        (literal) =>
+          !`${resolve(repoRoot, dirname(path), literal[1] as string)}${sep}`.startsWith(
+            `${packageDirectory}${sep}`,
+          ),
       );
     }),
   );
