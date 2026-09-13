@@ -93,3 +93,7 @@ diverge — CNCORE-41, 45 and 57 are each that divergence found later.
   deleted. Say what merged and when.
 - **`save-issue` reports `linear_write_unconfirmed` on writes that landed.** Read back rather than
   retry.
+- **`orca worktree set --linear-issue` answers `ok: true` and binds nothing.** Measured twice on
+  2026-09-13, by path and by branch: `linkedIssue` stayed `null` both times. Bind at
+  `worktree create` or not at all — an unbound worktree is invisible to `--current` and to the
+  monitor, so a later `set` is not the repair it looks like.
