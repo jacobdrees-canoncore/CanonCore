@@ -62,6 +62,15 @@ day paging changes shape, the page goes back to being a photograph of itself wit
 that says so. A line removed because something else happened to make it redundant is a line nobody
 will think to put back.
 
+**AND IT IS NOW REDUNDANT TWICE OVER, WHICH CHANGES NOTHING AND IS WORTH SAYING ONCE.** Since
+CNCORE-133 `/` also reads the caller's COOKIE, because who is asking decides what an empty
+catalogue advises them to do ([[0094-a-fresh-install-starts-empty]]) -- so the page touches two
+request-time APIs it would have been dynamic by anyway. The argument above does not weaken with a
+second redundancy; it is the same argument twice. Both of those reads exist to do a job rather than
+to promise a rendering mode, and either could leave in a refactor that has nothing to say about
+prerendering. Counted here so a later reader adding a third does not conclude the line has become
+decoration.
+
 ## The check a new read surface earns, stated because it is invisible afterwards
 
 Naming the rule is not enough on its own, because the failure is silent in exactly the place a test

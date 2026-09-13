@@ -1,6 +1,6 @@
 import { describe, expect, inject, it } from "vitest";
 
-import { documentAt, documentFrom } from "./document";
+import { documentAt, documentFrom, logInAt } from "./document";
 
 /**
  * THE FRONT PAGE, over real HTTP. ADR-0103's fourth seam, which is the one
@@ -25,6 +25,12 @@ const freshBaseUrl = inject("freshBaseUrl");
  * instance in this suite holds them together -- so the criterion that the
  * hand-built route is offered "whether or not one is allowlisted" had only its
  * `or not` half anywhere it could be read.
+ *
+ * AND IT CARRIES THE OWNER SINCE CNCORE-133, which is what makes it the only
+ * empty instance an empty state's ROUTES can be read on at all: they are a
+ * session's now, and the fresh install above has no password for anyone to hold
+ * one with. Both readers of this page are asked here -- the owner with the
+ * cookie below, and the visitor without it.
  */
 const allowlistedBaseUrl = inject("allowlistedBaseUrl");
 
@@ -127,7 +133,20 @@ describe("/", () => {
   });
 });
 
-describe("/ on a fresh install", () => {
+/**
+ * THE OWNER OF AN EMPTY CATALOGUE, which since CNCORE-133 is the only reader
+ * the routes out of one are offered to.
+ *
+ * IT IS THE ALLOWLISTED INSTANCE THAT CARRIES THE OWNER, AND THE SWAP IS FORCED
+ * RATHER THAN CHOSEN. These criteria were asserted on the fresh install until
+ * this ticket, and that instance's whole fixture is that nobody can log in to
+ * it (ADR-0044) -- so it is the one empty instance here that can never show an
+ * owner anything. `anInstanceAllowlistedAndEmpty` says what the move costs and
+ * why no eleventh server was stood up to recover it.
+ */
+const ownerOfTheEmptyOne = await logInAt(allowlistedBaseUrl, inject("ownerPassword"));
+
+describe("/ on an empty catalogue, to its owner", () => {
   it("offers building a catalogue by hand as a route of its own", async () => {
     // ADR-0094 ships no catalogue to a stranger and is explicit that this is
     // only half the decision: "an install that starts empty WITHOUT SAYING WHAT
@@ -146,7 +165,16 @@ describe("/ on a fresh install", () => {
     // sentence about `/new` tacked onto the end of the import step fails this
     // rather than passing it on the strength of the link being somewhere in the
     // section.
-    const { status, text } = await documentFrom(freshBaseUrl, "/");
+    //
+    // AND IT IS OFFERED WHERE A PROVIDER *IS* ALLOWLISTED, which is the half
+    // CNCORE-131 stood this instance up for: an empty state quietly gated on
+    // `!providers.any` -- shown only where nothing is reachable, on the
+    // reasoning that an owner who configured a provider wants the import route
+    // -- fails here and passes everywhere else. The OTHER half, an owner with
+    // nothing allowlisted, lost its witness when the routes became the owner's:
+    // the only empty instance with no allowlist is the one with no password,
+    // and ADR-0104 refuses the eleventh server that would recover it.
+    const { status, text } = await documentFrom(allowlistedBaseUrl, "/", ownerOfTheEmptyOne);
 
     expect(status).toBe(200);
     const byHand = theRouteLinking(text, "/new");
@@ -155,6 +183,14 @@ describe("/ on a fresh install", () => {
     // reader to Settings on the way would be the provider route again.
     expect(byHand).not.toContain('href="/settings"');
     expect(byHand).not.toContain('href="/import"');
+    // AND THE ALLOWLIST NOTICE IS GONE, which is what makes this instance the
+    // state it claims rather than a second fresh install. The two conditions
+    // are read off two facts, so an empty catalogue here says it is empty
+    // without also saying nothing is reachable. It travelled with the `/new`
+    // assertion when both lived in a describe of their own and has to travel
+    // with it here, or the instance's own claim about itself goes unchecked
+    // everywhere.
+    expect(() => section(text, "no-provider")).toThrow();
   });
 
   it("keeps the provider route, and names the two settings it needs", async () => {
@@ -178,7 +214,7 @@ describe("/ on a fresh install", () => {
     // variables `PROVIDER_URLS` and `PROVIDER_ALLOWLIST` until CNCORE-99 and are
     // rows now, so naming the variables here would name two things that no
     // longer exist.
-    const { text } = await documentFrom(freshBaseUrl, "/");
+    const { text } = await documentFrom(allowlistedBaseUrl, "/", ownerOfTheEmptyOne);
 
     expect(routesOutOf(text)).toHaveLength(2);
     const fromAProvider = theRouteLinking(text, "/import");
@@ -186,7 +222,67 @@ describe("/ on a fresh install", () => {
     expect(fromAProvider).toContain("Providers");
     expect(fromAProvider).toContain("Allowlist");
   });
+});
 
+/**
+ * THE READER THE EMPTY STATE IS NOT ADDRESSED TO (CNCORE-133).
+ *
+ * BOTH ROUTES ARE THE OWNER'S AND NEITHER SAID SO: `/new` answers a visitor
+ * "Only the owner of this catalogue can add to it", and `/import` renders its
+ * surface with every button disabled. So the page was telling a reader to do
+ * two things the next page would refuse them, which is what this describe holds
+ * it out of.
+ *
+ * TWO INSTANCES, BECAUSE THE ANSWER TURNS ON A SECOND FACT. Where an
+ * `OWNER_PASSWORD` is set the reader may BE the owner and simply not be logged
+ * in, so the route they can take is the login; where none is set nobody can log
+ * in at all (ADR-0044), and offering one would be the door with no key cut for
+ * it that `/login` itself refuses to render.
+ */
+describe("/ on an empty catalogue, to a reader who is not its owner", () => {
+  it("offers the login rather than the routes waiting behind it", async () => {
+    // THE INSTANCE MOST PEOPLE RUN: a password is set, and this reader has not
+    // used it. Nothing here can tell them from a stranger, and nothing needs
+    // to -- both want the same next step, and it is the one the README names
+    // first: "the first thing to do ... is log in with the one you just
+    // generated".
+    const { status, text } = await documentFrom(allowlistedBaseUrl, "/");
+
+    expect(status).toBe(200);
+    expect(routesOutOf(text)).toHaveLength(0);
+    expect(section(text, "what-to-do-next")).toContain('href="/login"');
+  });
+
+  it("still says the emptiness is on purpose, which is the half that is theirs", async () => {
+    // ADR-0094's other half is not the owner's alone: "an install that starts
+    // empty WITHOUT SAYING WHAT TO DO NEXT is a separate failure". A reader who
+    // cannot fill a catalogue can still tell a product that ships none from one
+    // that is broken, and this sentence is what tells them.
+    const { text } = await documentFrom(allowlistedBaseUrl, "/");
+
+    expect(section(text, "what-to-do-next")).toContain("ships no catalogue");
+  });
+
+  it("offers no route at all where nobody can log in", async () => {
+    // ADR-0044's read-only instance, which sets no `OWNER_PASSWORD`: every
+    // password is refused, so nobody obtains a session INCLUDING the owner. A
+    // route offered here is one nobody on earth can follow, and a login offered
+    // here is worse than none -- `/login` renders no form on this instance for
+    // exactly that reason.
+    const { status, text } = await documentFrom(freshBaseUrl, "/");
+
+    expect(status).toBe(200);
+    expect(routesOutOf(text)).toHaveLength(0);
+    const empty = section(text, "what-to-do-next");
+    expect(empty).not.toContain('href="/login"');
+    // AND IT SAYS WHICH OF THE TWO SILENCES THIS IS, in the words `/login`
+    // uses for the same fact, rather than leaving a reader to wonder whether
+    // they are missing a button.
+    expect(empty.toLowerCase()).toContain("no password");
+  });
+});
+
+describe("/ on a fresh install", () => {
   it("says no provider is allowlisted, where one is not", async () => {
     // ADR-0034's allowlist is empty by default and refuses every provider, so
     // an unconfigured instance and a broken one look identical from a page.
@@ -207,31 +303,6 @@ describe("/ on a fresh install", () => {
     const seeded = await documentAt("/");
 
     expect(() => section(seeded.text, "no-provider")).toThrow();
-  });
-});
-
-describe("/ on an instance that reaches something and holds nothing", () => {
-  it("still offers the route that needs no provider", async () => {
-    // THE OTHER HALF OF "WHETHER OR NOT" (CNCORE-131), and the half the fresh
-    // install cannot show: it is empty AND unallowlisted, so every assertion
-    // made on it reads both facts at once. Here the allowlist admits something
-    // and the catalogue is still empty.
-    //
-    // WHAT IT WOULD CATCH is the empty state quietly acquiring a second
-    // condition -- rendered only where nothing is reachable, on the reasoning
-    // that an owner who configured a provider wants the import route. That
-    // page would pass every other test in this file. Checked by gating
-    // `WhatToDoNext` on `!providers.any` and re-running: this fails and
-    // nothing else in the suite does.
-    const { status, text } = await documentFrom(allowlistedBaseUrl, "/");
-
-    expect(status).toBe(200);
-    expect(theRouteLinking(text, "/new")).toContain("Add an item yourself");
-    // AND THE NOTICE ABOUT THE ALLOWLIST IS GONE, which is what makes this
-    // instance the state it claims: the two conditions are read off two facts,
-    // so an empty catalogue here says so without also saying nothing is
-    // reachable.
-    expect(() => section(text, "no-provider")).toThrow();
   });
 });
 
