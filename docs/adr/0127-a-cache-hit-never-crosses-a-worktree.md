@@ -40,7 +40,7 @@ that HIT was written at 2026-09-12 23:11, and the worktree reading it was create
 would have replayed:
 
 ```
-RUN v5.0.0 /Users/jacobrees/orca/workspaces/CanonCore/cncore-99-provider-settings/packages/env
+RUN v5.0.0 ~/orca/workspaces/CanonCore/cncore-99-provider-settings/packages/env
 ```
 
 A different worktree, on a ticket that had already merged.
