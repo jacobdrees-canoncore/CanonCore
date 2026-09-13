@@ -111,13 +111,19 @@ const PATIENCE = {
    * reopened to take. NOT a bigger number here, which buys a little headroom and
    * spends it on the paragraph below.
    *
-   * IT IS ALSO WHAT A READ SURFACE CAN HOLD FOR, WHICH IS WHY IT IS NOT LARGER.
-   * TODO(CNCORE-154): `provider.container` is an `openProcedure` -- anyone who
-   * can reach the instance can call it -- and it answers "how many placements
-   * would this import?" by doing the whole browse. So this number is also the
-   * longest that page can sit before it renders `unreachable`, and raising it to
-   * buy concurrency headroom would spend a stranger's page render to do it. The
-   * fix is that surface's, not this constant's.
+   * NOBODY BUT THE OWNER CAN SPEND IT, WHICH IS WHAT CNCORE-154 SETTLED. This
+   * paragraph carried a TODO saying `provider.container` was an `openProcedure`
+   * that answered "how many placements would this import?" by doing the whole
+   * browse -- so the number here was also the longest a STRANGER could hold this
+   * provider for, once a request. ADR-0131 moved that read behind the Owner, and
+   * the fix was that surface's rather than this constant's exactly as the TODO
+   * said. What is left is a bound on what the Owner's own pages wait for.
+   *
+   * IT IS STILL NOT LARGER, AND THE REASON CHANGED RATHER THAN LAPSED. The
+   * margin above is 1.2x over two concurrent browses, and the Owner can open two
+   * tabs as easily as anyone. A bigger number here buys a little headroom and
+   * spends it on the paragraph above; the answer to a third concurrent browse is
+   * still a faster provider or a paged ordering.
    *
    * IT BOUNDS A PROVIDER'S THINKING RATHER THAN AN IMPORT'S RUNNING. What comes
    * back is one response, so this is not a budget for the whole import: a

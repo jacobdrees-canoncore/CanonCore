@@ -748,6 +748,22 @@ export const provider = {
    * script answers a bare `Internal Server Error`, and Next redacts a server
    * error's message before any boundary sees it. Asked on the GET instead,
    * every one of the three is a value a page can print.
+   *
+   * AND THE OWNER'S DESPITE BEING A READ, WHICH IS THE ONE OF THOSE ON THIS
+   * SURFACE (ADR-0131, CNCORE-154). Every other `openProcedure` in this router
+   * answers out of this catalogue's own rows, which ADR-0072 gives a visitor
+   * whole. This one answers by running `browse` -- the SAME work the
+   * `ownerProcedure` below does, at a third party -- and CNCORE-151 raised that
+   * operation's cap to 60s because the largest timeline on tardis.wiki needs
+   * 25.7s. Open, that let anyone who could reach the instance hold a
+   * server-side browse for a minute a call, with nothing rate-limiting it and
+   * two concurrent large browses roughly doubling each other.
+   *
+   * WHICH IS A DIFFERENT QUESTION FROM WHETHER IT WRITES, and that is why the
+   * answer is not CNCORE-109's. That ticket put everything that CHANGES the
+   * catalogue behind the session; this changes nothing and is still the
+   * Owner's, because what it spends is this instance's standing at a provider
+   * rather than its own rows.
    */
   container: ownerProcedure
     .input(

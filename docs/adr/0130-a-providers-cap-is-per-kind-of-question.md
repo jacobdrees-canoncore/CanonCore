@@ -85,21 +85,28 @@ in pages rather than whole — and the second is a CMPP question, because ADR-00
 answer a container and its ordering together. Raising this constant buys a little headroom and
 spends it on the paragraph below.
 
-## The cap is also what an OPEN read can hold for
+## The cap WAS also what an open read could hold for, until CNCORE-154 took it
 
-`provider.container` is an `openProcedure` — anyone who can reach the instance may call it, with no
-login — and it answers "how many placements would this import?" by running the whole browse. So
-this constant is also the longest a stranger's page render can sit before it says `unreachable`,
-and raising it to buy concurrency headroom would spend that.
+`provider.container` **was** an `openProcedure` — anyone who could reach the instance could call it,
+with no login — and it answers "how many placements would this import?" by running the whole browse.
+So this constant was also the longest a stranger's page render could sit, and raising it to buy
+concurrency headroom would have spent that.
 
-**THIS REPOSITORY HAS ALREADY DECIDED THE SHAPE OF THAT, ONE PROCEDURE OVER.** `previewPurge` is an
-`ownerProcedure` because, in `apps/web/src/app/import/page.tsx`'s own words, "the preview IS the
-purge, run in a transaction it then rolls back, so it costs the work and the write locks of a real
-delete". `provider.container` is that argument exactly: the preview IS the browse, and it costs the
-provider work of a real import. It is the same case wearing the wrong procedure builder, and
-CNCORE-154 is where it gets taken — not here, because a shorter cap on that path would make the
-preview report `unreachable` for containers that import perfectly well, which is a worse lie than
-the cost it saves.
+**IT IS AN `ownerProcedure` SINCE CNCORE-154 (ADR-0131), so that is no longer one of the things this
+number decides.** What it still bounds is what the OWNER's own pages wait for, which is why it did
+not grow when the stranger left: the margin over two concurrent browses is 1.2x, and an owner can
+open two tabs as easily as anyone.
+
+**THIS REPOSITORY HAD ALREADY DECIDED THE SHAPE OF THAT, ONE PROCEDURE OVER**, and naming it here is
+what CNCORE-154 acted on. `previewPurge` is an `ownerProcedure` because, in
+`apps/web/src/app/import/page.tsx`'s own words, "the preview IS the purge, run in a transaction it
+then rolls back, so it costs the work and the write locks of a real delete". `provider.container` is
+that argument exactly: the preview IS the browse, and it costs the provider work of a real import.
+It was the same case wearing the wrong procedure builder.
+
+**WHAT WAS REFUSED HERE IS STILL REFUSED:** fixing it with a SHORTER CAP on that path. That would
+make the preview report `unreachable` for containers that import perfectly well, which is a worse
+lie than the cost it saves. The fix was the surface's, and it was taken there.
 
 ## The mechanism, and why it is four dispatchers
 

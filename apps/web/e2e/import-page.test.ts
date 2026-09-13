@@ -968,8 +968,11 @@ describe("/import, when the provider refuses", () => {
  * WHETHER THIS SURFACE OFFERS A LOGIN IT CANNOT HONOUR (CNCORE-146).
  *
  * `/import` DOES NOT HIDE ITSELF, ONLY ITS BUTTONS (ADR-0044, ADR-0072): a
- * visitor still searches the providers and still reads what a container holds,
- * and `LogIn` stands where each control would. That notice linked `/login`
+ * visitor still searches the providers, still reads what this CATALOGUE holds,
+ * and `LogIn` stands where each control would. It no longer reads what a
+ * PROVIDER says about a container: that one read is the Owner's since CNCORE-154
+ * (ADR-0131), because answering it runs a whole browse at a third party, and
+ * `LogIn` stands where it would have been like any other control. That notice linked `/login`
  * without reading whether this instance HAS one, so on ADR-0044's read-only
  * demo it was a door with no key cut for it, repeated once per control down the
  * whole page.
