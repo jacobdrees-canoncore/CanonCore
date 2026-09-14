@@ -200,6 +200,10 @@ jobs:
           runtime: node@24
           cache: true
 
+      # TODO(CNCORE-191): bare, and `turbo run typecheck` exits 0 having run
+      # zero tasks exactly as `test` does. CNCORE-160 scoped itself to the jobs
+      # that run a SUITE and left this one, the Build job and the two ladder
+      # invocations; the guard beside them already takes a task name.
       - run: pnpm typecheck
 
   lint:
@@ -302,15 +306,11 @@ jobs:
         with:
           runtime: node@24
           cache: true
-      # `turbo run test` exits 0 when it runs ZERO tasks, so a suite that
-      # vanished would report success. ADR-0103 refuses --passWithNoTests per
-      # package for the same reason; this closes the same hole one level up.
-      #
-      # THE CHECK THIS JOB CARRIED ALONE UNTIL CNCORE-160, now the script every
-      # suite job runs behind. `run-suite.test.ts` runs it against a workspace
-      # with a test script and then without one, so the red is demonstrated
-      # rather than asserted, and reads `ci.yml` back to say no job here invokes
-      # a suite bare.
+      # THE CHECK THIS JOB CARRIED ALONE UNTIL CNCORE-160, now the one script
+      # every suite job runs behind. Why the count is read rather than the exit
+      # code, and what that does and does not catch, is in `run-suite.sh`'s own
+      # header and in ADR-0103 -- stated once there rather than a third time
+      # here.
       - name: Test, and assert a suite actually ran
         run: .github/scripts/run-suite.sh test
 

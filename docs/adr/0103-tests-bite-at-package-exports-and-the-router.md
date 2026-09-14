@@ -76,8 +76,23 @@ The guard is now one script, `.github/scripts/run-suite.sh`, and every suite job
 which is what makes the claim testable rather than merely restated.
 `packages/config/src/run-suite.test.ts` runs that script against a turbo workspace with a test
 script and then with it deleted, so the red is DEMONSTRATED, and reads `ci.yml` back to refuse any
-job that invokes a suite bare. A sixth suite job wired up bare fails that check rather than joining
-the four.
+job that names a suite outside the guard. The NAME is what that check matches, not `pnpm <task>`:
+matching the command would read one spelling and let `turbo run test:e2e`,
+`npx turbo run test:e2e` and `pnpm --filter web test:e2e` past in silence. All four were measured
+against it.
+
+**What the count catches is the count reaching ZERO, and that is not the same as a deleted
+suite.** `test:e2e`, `test:browser` and `test:contract` are each declared by one package, so for
+those the two are one. `test` is declared by ten: delete one package's and nine still run, which
+the guard reads as a pass. What catches that is `network-gate-wiring.test.ts`, which holds every
+Vitest config on disk to being run by some suite — so the orphaned config fails it. Measured on
+2026-09-14: deleting `packages/tokens`' `test` script turns the Test job red there, not here.
+
+**And the case NEITHER catches is `packages/config`'s own `test` script**, because the sweep that
+would catch it is the suite that script runs. Measured the same day: with it deleted, `pnpm test`
+reports `Tasks: 9 successful, 9 total` and the job is GREEN. A check cannot police the thing that
+decides whether it runs, and closing it means an assertion somewhere no package's script can
+switch off. CNCORE-190 holds that; this record will not read whole until it lands.
 
 ## Where the design tokens are actually held honest
 

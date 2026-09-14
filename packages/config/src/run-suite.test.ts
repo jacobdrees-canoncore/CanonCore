@@ -1,9 +1,17 @@
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { SUITE_GUARD, turboTaskInvocations, workflow } from "./testing/ci-workflow";
+import { allSteps, SUITE_GUARD, turboTaskInvocations, workflow } from "./testing/ci-workflow";
 import { repoRoot } from "./testing/repo-root";
 
 /**
@@ -61,7 +69,14 @@ function scratchWorkspace(): string {
   // a global install, and the fixture's claim about which turbo is under test
   // stops being true.
   for (const path of [join("node_modules", "turbo"), join("node_modules", ".bin", "turbo")]) {
-    symlinkSync(join(repoRoot, path), join(root, path));
+    const target = join(repoRoot, path);
+    // Named here rather than left to dangle: a symlink to a missing target is
+    // created without complaint, and the fixture would then fail as a confusing
+    // pnpm error about a turbo that is not the one this claims to be testing.
+    if (!existsSync(target)) {
+      throw new Error(`${path} is not installed, so the scratch workspace cannot borrow turbo`);
+    }
+    symlinkSync(target, join(root, path));
   }
   writeFileSync(
     join(root, "package.json"),
@@ -93,8 +108,21 @@ function declares(root: string, suite: Suite): void {
   );
 }
 
-function runGuard(root: string): { status: number | null; output: string } {
-  const run = spawnSync("bash", [guard, "test"], { cwd: root, encoding: "utf8" });
+/**
+ * The guard, run the way a CI job runs it: the file EXECUTED, not handed to an
+ * interpreter. Its shebang and its executable bit are then part of what is
+ * under test, and a lost `+x` fails here rather than only on a runner.
+ */
+function runGuard(
+  root: string,
+  task = "test",
+  env: Record<string, string> = {},
+): { status: number | null; output: string } {
+  const run = spawnSync(guard, [task], {
+    cwd: root,
+    encoding: "utf8",
+    env: { ...process.env, ...env },
+  });
   if (run.error) throw run.error;
   return { status: run.status, output: `${run.stdout}${run.stderr}` };
 }
@@ -126,6 +154,38 @@ describe("the guard a CI suite job runs behind", () => {
     declares(root, "deleted");
     const { status, output } = runGuard(root);
     expect(status, output).not.toBe(0);
+    // THE GUARD'S OWN RED, not merely a non-zero status. Turbo refuses a task
+    // absent from `turbo.json` outright, so a status check alone would pass by
+    // construction the day turbo started refusing this case too, and would
+    // stop saying anything about the count at all.
+    expect(output).toContain("ran no tasks at all");
+  });
+
+  /**
+   * FORCED COLOUR, which the count check reads THROUGH. Turbo writes `Tasks:`
+   * plain when it is not on a terminal and wraps the count in SGR escapes when
+   * something forces colour, and neither the anchor nor `[1-9]` matches across
+   * one -- so a guard that did not strip them would report a suite that ran as
+   * a suite that did not. A false RED rather than a false green, which is why
+   * it is worth a row rather than a rewrite.
+   */
+  it("reads the count through forced colour", () => {
+    declares(root, "passes");
+    const { status, output } = runGuard(root, "test", { FORCE_COLOR: "1" });
+    expect(status, output).toBe(0);
+  });
+
+  /**
+   * A NAME THAT WOULD REACH PNPM AS AN ARGUMENT, refused before it is run.
+   * `--filter=web` arriving where a task belongs is a different command that
+   * succeeds and answers about something else -- the hazard
+   * `testing/turbo-dry-run.ts` asserts against for the same reason.
+   */
+  it("refuses a task name that is really a flag, rather than running it", () => {
+    declares(root, "passes");
+    const { status, output } = runGuard(root, "--filter=one");
+    expect(status, output).toBe(2);
+    expect(output).toContain("is not a turbo task name");
   });
 
   /**
@@ -174,6 +234,46 @@ function jobs(): { job: string; invocations: { task: string; guarded: boolean }[
   }));
 }
 
+/** Every `run:` script in the workflow, named by the job it sits in. */
+function runSteps(): { job: string; run: string }[] {
+  return allSteps(workflow()).flatMap(({ job, step }) =>
+    step.run === undefined ? [] : [{ job, run: step.run }],
+  );
+}
+
+/**
+ * Every place a run step NAMES a suite script, and whether the guard is what
+ * named it.
+ *
+ * THE SCRIPT'S NAME IS THE SUBJECT, NOT THE COMMAND THAT RUNS IT, and that is
+ * the whole strength of it. A rule matching `pnpm <task>` reads only the one
+ * spelling this file happens to use today, so `turbo run test:e2e`,
+ * `npx turbo run test:e2e` and `pnpm --filter web test:e2e` would all pass it
+ * silently -- the check would claim no job invokes a suite bare while a job did.
+ * A suite cannot be run without its name appearing, so every appearance is held
+ * to being the guard's argument instead.
+ *
+ * The word boundaries take `:` with them, or `test` would match inside
+ * `test:e2e` and report the guard's own argument as a bare invocation.
+ */
+function suiteMentions(): { job: string; script: string; guarded: boolean }[] {
+  return runSteps().flatMap(({ job, run }) =>
+    suiteScripts().flatMap((script) => {
+      const name = new RegExp(
+        `(?<![\\w:-])${script.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w:-])`,
+        "g",
+      );
+      return [...run.matchAll(name)].map((match) => ({
+        job,
+        script,
+        guarded: new RegExp(`${SUITE_GUARD.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s+$`).test(
+          run.slice(0, match.index),
+        ),
+      }));
+    }),
+  );
+}
+
 describe("a CI job that runs a suite", () => {
   /*
    * The canary, and it counts what EXISTS. Every suite the root manifest
@@ -197,17 +297,14 @@ describe("a CI job that runs a suite", () => {
    * `pnpm test:contract` with nothing reading what came back.
    */
   it("never invokes that suite bare, where a missing one would go green", () => {
-    const scripts = suiteScripts();
-    const bare = jobs().flatMap(({ job, invocations }) =>
-      invocations
-        .filter(({ task, guarded }) => !guarded && scripts.includes(task))
-        .map(
-          ({ task }) =>
-            `the \`${job}\` job runs \`pnpm ${task}\` directly. \`turbo run ${task}\` exits 0 ` +
-            `having run zero tasks, so deleting that suite turns this job green. Run it ` +
-            `through \`${SUITE_GUARD}\` instead.`,
-        ),
-    );
+    const bare = suiteMentions()
+      .filter(({ guarded }) => !guarded)
+      .map(
+        ({ job, script }) =>
+          `the \`${job}\` job names \`${script}\` somewhere other than as ` +
+          `\`${SUITE_GUARD}\`'s argument. \`turbo run ${script}\` exits 0 having run zero ` +
+          `tasks, so a job running it directly goes green with that suite deleted.`,
+      );
     expect(bare).toStrictEqual([]);
   });
 });

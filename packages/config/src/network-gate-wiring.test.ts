@@ -354,9 +354,14 @@ describe("the network gate's wiring", () => {
     // that quietly stopped finding manifests now fails here instead of passing
     // against a number nobody had re-counted.
     //
-    // BOTH SIDES GOING EMPTY TOGETHER is the one thing this shape cannot see,
-    // since both descend from `workspaceDirectories()`, and it is held there
-    // rather than here for exactly that reason.
+    // BOTH SIDES GOING EMPTY TOGETHER is what a floor of one sweep against
+    // another cannot see, and neither half is held here. The workspace list
+    // emptying is refused in `workspaceDirectories()`, since every sweep in
+    // this file descends from it. `configFilesOnDisk()` collapsing on its own
+    // -- its filename rule narrowed, or the configs renamed to `.mts` -- would
+    // leave this comparing fourteen suites to zero configs and passing, and it
+    // is the test ABOVE that fails then: with no config found, every package
+    // reads as owning none.
     expect(found.length).toBeGreaterThanOrEqual(configFilesOnDisk().length);
 
     const open = [];
