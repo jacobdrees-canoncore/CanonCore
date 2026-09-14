@@ -540,9 +540,23 @@ function providerNetwork(parsed: Compose = compose()): string {
  * Provider cannot be reached" with nothing saying why.
  */
 function containerAddresses(section: string = installSection()): string[] {
-  return [...section.matchAll(/http:\/\/([a-z][a-z0-9-]*):(\d+)/g)]
+  return [...section.matchAll(/http:\/\/([a-z][a-z0-9-]*):\d+/g)]
     .filter(([, host]) => host !== "localhost")
     .map(([url]) => url);
+}
+
+/**
+ * The name `compose.yaml` pins that network to, which is the string a Provider's
+ * own compose file joins from another repository.
+ *
+ * `providerNetwork` IS CALLED BEFORE THE CHAIN AND NOT INSIDE IT.
+ * `parsed.networks?.[providerNetwork(parsed)]` short-circuits the computed key
+ * too, so with no `networks:` at all the reader above never runs and its refusal
+ * never reaches the report.
+ */
+function pinnedProviderNetwork(parsed: Compose = compose()): string | undefined {
+  const beside = providerNetwork(parsed);
+  return parsed.networks?.[beside]?.name;
 }
 
 describe("the network a Provider beside the install joins", () => {
@@ -642,11 +656,28 @@ describe("the network a Provider beside the install joins", () => {
    * here, so a rename moves the document with it instead of leaving a third copy
    * to disagree.
    */
-  it("names that network in the README's install section, taken off the compose file", () => {
-    const parsed = compose();
-    const pinned = parsed.networks?.[providerNetwork(parsed)]?.name;
+  /**
+   * AND IT IS THE NAME THE OTHER REPOSITORY JOINS, pinned here as a literal in a
+   * file that derives everything else it checks.
+   *
+   * DERIVATION HAS NOTHING TO DERIVE FROM. `provider-wiki`'s own `compose.yaml`
+   * declares `canoncore_providers` EXTERNAL and joins it; no test in either
+   * repository can read the other's file, so inside this tree the string has no
+   * authority to be taken off. That is this file's own argument about restating
+   * a value, running backwards: every other assertion here derives from
+   * `compose.yaml`, so a rename would carry all of them along with it and leave
+   * the suite green while the Provider stopped resolving on the next install.
+   *
+   * SO IT IS A TRIPWIRE AND NOT A CHECK. It cannot prove the other end still says
+   * this. It refuses to let this end drift without somebody choosing to, and it
+   * names where to look when it fires.
+   */
+  it("pins the name `provider-wiki` joins from its own repository", () => {
+    expect(pinnedProviderNetwork()).toBe("canoncore_providers");
+  });
 
-    expect(installSection()).toContain(String(pinned));
+  it("names that network in the README's install section, taken off the compose file", () => {
+    expect(installSection()).toContain(String(pinnedProviderNetwork()));
   });
 
   it("tells a container address from the localhost one the Owner's browser uses", () => {
@@ -682,9 +713,6 @@ describe("the network a Provider beside the install joins", () => {
    * a rename cannot leave the reader inspecting something that is not there.
    */
   it("tells a stranger how to find the address range that network hands out", () => {
-    const parsed = compose();
-    const pinned = parsed.networks?.[providerNetwork(parsed)]?.name;
-
-    expect(installSection()).toContain(`docker network inspect ${String(pinned)}`);
+    expect(installSection()).toContain(`docker network inspect ${String(pinnedProviderNetwork())}`);
   });
 });

@@ -91,7 +91,10 @@ Then name it on the settings page **by its service name and the port it serves
 on, never by an address on this machine**: the service called `the-provider`
 above answers the app at `http://the-provider:8080`. Compose gives a service its
 own name as a hostname on every network it joins, and that holds across Compose
-projects, which is what an install and a Provider beside it are.
+projects, which is what an install and a Provider beside it are. **That port is
+the one the Provider listens on INSIDE its container** -- its own instructions
+say which, and it is not the `ports:` line, if it has one: a published port maps
+the Provider onto this machine, and the app is not coming from this machine.
 
 **The allowlist beside it needs two entries, not one**, and this is the step that
 catches people out. A Provider on that network answers on a container address,
@@ -101,11 +104,20 @@ refused at the socket. Add the name and the range the network hands out. Docker
 picks that range per machine, so read yours off it:
 
 ```bash
-docker network inspect canoncore_providers -f '{{range .IPAM.Config}}{{.Subnet}}{{end}}'
+docker network inspect canoncore_providers -f '{{range .IPAM.Config}}{{println .Subnet}}{{end}}'
 ```
 
 With `the-provider` and, say, `172.19.0.0/16` both in the allowlist, the settings
 page stops giving that Provider a reason and the import page can search it.
+(`println` because an IPv6-enabled network has two ranges, and both belong in the
+allowlist; without it they print glued together as one string that is neither.)
+
+**Read it again if that network is ever recreated.** Docker allocates the range
+when it makes the network, and a fresh one can be handed a different one, after
+which a stale allowlist entry refuses the Provider at the socket exactly as no
+entry did. In ordinary use it stays put: `docker compose down` cannot take the
+network with it while a Provider is still attached, so it survives the install
+stopping and starting.
 
 **Anything the Provider asks YOU to open is a different address.** A container
 hostname means nothing to a browser, so a Provider with a page of its own -- one

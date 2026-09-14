@@ -173,11 +173,15 @@ pair: `docs/adr/` is here and no PR in a provider repo reaches it, so the provid
 flip anything. CNCORE-164's merged PR is named above so a reader can check the assertion against a
 diff rather than take it on trust.
 
-**AND IT IS WALKED RATHER THAN ASSERTED**, under "AND THE HALF THIS ASSUMED AWAY WAS NOT TRUE
+**AND THE ROUTE IS WALKED RATHER THAN ASSERTED**, under "AND THE HALF THIS ASSUMED AWAY WAS NOT TRUE
 EITHER" above: an install, a Provider beside it, a search answering, and an item imported and
-standing in the catalogue. What is NOT walked end to end is `provider-wiki` itself, whose image does
-not run on an arm64 host (CNCORE-189); the route was walked with `provider-tmdb`, which is the same
-route with a different Provider on the far end of it. The Unlock link's own destination — the
+standing in the catalogue. **The route, and not this record's own subject.** The Provider walked was
+`provider-tmdb`, which declares no `credential`, so nothing in that walk exercised a declaration, a
+state or an Unlock link; `provider-wiki`, which does declare one, will not run on an arm64 host
+(CNCORE-189). The mechanism is whole and each half is checked — the credential half by the volume
+`provider-wiki` now mounts, the route half by the walk — but no single pass has yet run this
+record's whole sentence against an install, and [[0132-a-project-is-not-finished-until-it-has-been-used]]
+is the standard that says so out loud rather than letting the flip imply otherwise. The Unlock link's own destination — the
 Provider's published port in the OWNER'S browser, not the container hostname — is a deployment fact
 this record still does not hold, which the section above says out loud and `provider-wiki`'s README
 answers for itself.
@@ -448,6 +452,19 @@ the sentence its own README documents. `provider-wiki` was NOT the Provider walk
 `linux/amd64` alone and does not run on this arm64 host (CNCORE-189), while `provider-tmdb`'s does
 under emulation. The route is the same route — neither end of it knows which Provider is on the
 other.
+
+**AND THE PROVIDER'S COMPOSE FILE WAS WRITTEN FROM CANONCORE'S README, not taken from a repository**,
+because `provider-tmdb` ships none. That is a strength of the walk rather than a hole in it: what a
+stranger has is the README and their Provider's own instructions, so the file under test was the
+example in `## Installing it` and it worked unedited apart from the image and the env file. What it
+does NOT establish is that `provider-wiki`'s own committed `compose.yaml` joins correctly, which no
+walk on this host can establish while CNCORE-189 stands.
+
+**WHAT IS STILL UNWALKED IS THIS RECORD'S OWN SUBJECT.** `provider-tmdb` declares no `credential`,
+so a walk with it exercises the ROUTE and not the declaration, the label, the state, or the Unlock
+link that route exists to make reachable. Those are held by the contract job against the real locked
+`provider-wiki` image ([[0103-tests-bite-at-package-exports-and-the-router]]), which is a different
+kind of evidence from an install being used, and the gap closes when CNCORE-189 does.
 
 **AND THE ALLOWLIST NEEDS THE RANGE AS WELL AS THE NAME, which nothing had said and the walk found.**
 A Provider on that network answers on a container address, which `ipaddr.js` classifies as `private`
