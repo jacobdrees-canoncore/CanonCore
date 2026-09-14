@@ -35,7 +35,15 @@ entirely — everything here holds for 0.x.
 CI RUNS EMPTY-TO-HEAD EVERY RELEASE, as a gate — and know what it does NOT catch. Building from
 empty applies every migration regardless of the high-water mark, so it goes green on exactly the
 spliced-migration divergence described above. It proves the ladder composes from nothing; it says
-nothing about what an existing database will do. It is also a local choice rather than industry
+nothing about what an existing database will do.
+
+AND THE GATE RESTS ON SOMETHING OUTSIDE ITSELF, which CNCORE-191 found: it is run as a turbo task,
+and `turbo run <task>` exits 0 having run ZERO tasks. Invoked bare — as it was until then — this
+gate would report a database built from NOTHING as built correctly, which is the one result it
+exists to rule out. It runs behind `.github/scripts/run-suite.sh` now, which fails when the count
+turbo printed is none. ADR-0103 carries the guard and the measurement.
+
+It is also a local choice rather than industry
 practice: Rails prefers `db:schema:load` to replaying history — though its documented reason is that
 old migrations rot against evolving application code, not that empty-to-head misses divergence.
 

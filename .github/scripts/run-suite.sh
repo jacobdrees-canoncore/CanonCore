@@ -95,8 +95,17 @@ fi
 # colour is stripped first for the reason the count check gives, and the escape
 # sits BEFORE the `@` rather than inside the name, so the stripped line starts
 # with the prefix exactly.
+#
+# AND IT READS TO THE END RATHER THAN STOPPING AT THE MATCH, which looks like
+# waste and is the opposite. `exit` on the matching line closes the pipe under
+# `sed`, which dies of SIGPIPE; `pipefail` at the top of this file then hands
+# 141 to the `if`, and the guard reports the package it just FOUND as missing.
+# A false red, and one that needs a log longer than a pipe buffer to appear at
+# all -- it was live against this repository's real `pnpm test`, where the
+# package announces itself around line 8 of some two hundred, and invisible in
+# every short fixture. `run-suite.test.ts` holds a 20,000-line workspace over it.
 if ! sed $'s/\033\[[0-9;]*m//g' "$log" |
-  awk -v prefix="$required:$task: " 'index($0, prefix) == 1 { found = 1; exit } END { exit found ? 0 : 1 }'; then
+  awk -v prefix="$required:$task: " 'index($0, prefix) == 1 { found = 1 } END { exit found ? 0 : 1 }'; then
   echo "::error::\`$required\` never ran \`$task\`, though other packages did. Its script is gone, and the count above cannot see that."
   exit 1
 fi

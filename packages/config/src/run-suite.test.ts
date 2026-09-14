@@ -93,12 +93,16 @@ function scratchWorkspace(task = "test"): string {
 }
 
 /** What a package declares for the task: one that passes, one that fails, or none. */
-type Suite = "passes" | "fails" | "deleted";
+type Suite = "passes" | "fails" | "deleted" | "chatty";
 
 const COMMANDS: Record<Suite, string | undefined> = {
   passes: 'node --eval ""',
   fails: 'node --eval "process.exit(1)"',
   deleted: undefined,
+  // A SUITE THAT OUTRUNS A PIPE BUFFER, which is a real size rather than a
+  // large-sounding one: 20,000 lines is well past the 64 KiB a pipe holds, and
+  // the hazard the row using this is about only exists once the writer blocks.
+  chatty: 'node --eval "for(let i=0;i<20000;i++)console.log(i)"',
 };
 
 function declares(
@@ -190,6 +194,29 @@ describe("the guard a CI suite job runs behind", () => {
     // The count is what makes this a DIFFERENT red from the row above: the
     // suite that vanished is invisible to it, which is the whole defect.
     expect(output).toContain("1 successful, 1 total");
+  });
+
+  /**
+   * A LOG LONGER THAN THE SEARCH, which is where the roll call was WRONG.
+   *
+   * The guard strips colour into a reader, and a reader that stops at the first
+   * match leaves the stripper writing into a closed pipe: it dies of SIGPIPE,
+   * `pipefail` hands that status to the whole pipeline, and the guard reads its
+   * own success as a failure. A FALSE RED, and one that needs the match to come
+   * before the writer finishes -- so every row above passes while it is live,
+   * because their logs are a few lines long and the writer is done first.
+   *
+   * It was live: measured against this repository's real `pnpm test`, where the
+   * package announces itself around line 8 of some two hundred, the guard exited
+   * 141 and reported a suite that had just run as missing. The scratch workspace
+   * could not have found it, which is the reason this row spells the shape out
+   * rather than trusting a small fixture to stand for a real one.
+   */
+  it("finds the package in a log far longer than the match, without a false red", () => {
+    declares(root, "passes");
+    declares(root, "chatty", { name: "two" });
+    const { status, output } = runGuard(root, "test", { required: "one" });
+    expect(status, output.slice(-2000)).toBe(0);
   });
 
   /**
