@@ -75,9 +75,43 @@ export type FailureReason = z.infer<typeof failureReason>;
  * every caller agreed about which branch it was on.
  */
 export function reasonFor(thrown: unknown): FailureReason {
-  const message = thrown instanceof Error ? thrown.message : String(thrown);
-  const ours = thrown instanceof OutboundRefused && thrown.boundary === "config";
+  const spoke = unwrapped(thrown);
+  const message = spoke instanceof Error ? spoke.message : String(spoke);
+  const ours = spoke instanceof OutboundRefused && spoke.boundary === "config";
   return { wrote: ours ? "canoncore" : "provider", text: bounded(message) || SILENT };
+}
+
+/**
+ * What actually failed, out of a chain of things that wrapped it (ADR-0123).
+ *
+ * A WRAPPER IS NOT A REASON. `fetch failed` is undici saying that something
+ * underneath it failed; the fact is on `cause`, and until CNCORE-192 nothing
+ * here read `cause` at all -- so a refusal raised in the pinned lookup was
+ * QUOTED to the Owner as the Provider's words. ADR-0123 carries the measurements
+ * under "A wrapper is not a reason, so the `cause` chain is unwrapped"; what a
+ * reader of the loop below needs is why each line of it is shaped as it is.
+ *
+ * THE INNERMOST LINK THAT SAID SOMETHING, rather than simply the innermost,
+ * because undici builds an empty `Error` for a network error with no reason and
+ * the wrapper's own words are then all there is.
+ *
+ * WALKED RATHER THAN READ ONCE, because undici wraps two deep on an abort and
+ * on HTTP/2, so `cause` read once stops at the middle of the chain.
+ *
+ * `seen` RATHER THAN A DEPTH LIMIT, because ECMA-262 lets a `cause` be any
+ * value and hold a cycle, and the alternative is an infinite loop while the
+ * Owner's page renders. A depth limit would be a number nobody could defend.
+ */
+function unwrapped(thrown: unknown): unknown {
+  let spoke = thrown;
+  let link = thrown;
+  const seen = new Set<Error>();
+  while (link instanceof Error && !seen.has(link)) {
+    seen.add(link);
+    if (oneLine(link.message)) spoke = link;
+    link = link.cause;
+  }
+  return spoke;
 }
 
 /**

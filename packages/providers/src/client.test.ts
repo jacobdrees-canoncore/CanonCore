@@ -734,6 +734,56 @@ describe("the client's outbound boundaries", () => {
 
     await expect(client.manifest()).rejects.toThrow("fd00:ec2::254");
   });
+
+  /**
+   * THE REFUSAL THE OWNER READS IS THE ONE THE PINNED LOOKUP RAISED, AND IT
+   * SURVIVES BEING WRAPPED (CNCORE-192).
+   *
+   * THIS IS THE README'S OWN SCENARIO. `### A Provider beside it` tells a
+   * stranger to allowlist their Provider, and an allowlist holding its HOST and
+   * not the CIDR its address sits in admits the name and then refuses the
+   * socket -- which is the config boundary's two checks doing exactly what
+   * `assertConfigAddress` says they do. Found by walking that section by hand.
+   *
+   * THE REFUSAL DOES NOT REACH THE CALLER AS ITSELF, and that is the whole
+   * defect. It is raised inside the DNS `lookup` hook, so undici has it on a
+   * connector callback rather than on this stack: measured on undici 8.10.2,
+   * `lib/web/fetch/index.js` rejects with `new TypeError('fetch failed', {
+   * cause: response.error })`, and `makeNetworkError` passes an `Error` through
+   * BY IDENTITY -- so the sentence and its `boundary` are both intact, one
+   * `cause` down, and nothing was reading `cause`.
+   *
+   * ASSERTED THROUGH `reasonFor` BECAUSE THAT IS WHAT A PAGE HOLDS. The Error
+   * itself is not what the Owner reads; `wrote` is, and a wrapped refusal is
+   * neither an `OutboundRefused` nor a `config` one, so it fell through to the
+   * branch that QUOTES it as the Provider's words -- this app's own sentence
+   * about the Owner's settings, printed as a stranger's claim.
+   *
+   * A HOSTNAME AND NOT AN ADDRESS, which is what makes the host check pass and
+   * leaves the ADDRESS check to the hook. `127.0.0.1` in a base URL is matched
+   * against the RANGES by `parseAllowlist`'s bare-address rule, so it never
+   * reaches this shape.
+   */
+  it("hands the Owner a pinned lookup's refusal as its own sentence, not `fetch failed`", async () => {
+    const port = new URL(await stubProvider((_, response) => json(response, MANIFEST))).port;
+    // The host is allowlisted BY NAME and no CIDR covers what it resolves to.
+    const client = createProviderClient({
+      baseUrl: `http://localhost:${port}`,
+      allowlist: parseAllowlist("localhost"),
+    });
+
+    const thrown = await client.manifest().catch((error: unknown) => error);
+    const reason = reasonFor(thrown);
+
+    // CANONCORE'S OWN SENTENCE ABOUT THE OWNER'S OWN SETTINGS, said plainly.
+    expect(reason.wrote).toBe("canoncore");
+    // AND THE HALF THAT SAYS WHAT TO DO, which is the one thing a stranger
+    // following the README needs and the one thing `fetch failed` has none of.
+    expect(reason.text).toContain("no allowlisted CIDR covers it");
+    expect(reason.text).toContain("goes on the allowlist by name");
+    expect(reason.text).not.toContain("fetch failed");
+    await client.close();
+  });
 });
 
 /**

@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { assertConfigUrl, parseAllowlist, REASON_MAX_LENGTH, reasonFor } from "./index";
+import {
+  assertConfigUrl,
+  OutboundRefused,
+  parseAllowlist,
+  REASON_MAX_LENGTH,
+  reasonFor,
+} from "./index";
 
 /**
  * WHAT A FAILED REACH IS ALLOWED TO SAY TO THE OWNER (ADR-0123, CNCORE-95).
@@ -89,6 +95,146 @@ describe("reasonFor", () => {
    */
   it("says a provider's own text is the provider's", () => {
     expect(reasonFor(new Error("results[0].title: expected string")).wrote).toBe("provider");
+  });
+
+  /**
+   * AND IT SURVIVES BEING WRAPPED, which is the shape EVERY refusal raised
+   * below `fetch` arrives in (CNCORE-192).
+   *
+   * A refusal raised inside the pinned lookup never reaches this function on
+   * its own stack: undici has it on a connector callback and rejects with
+   * `TypeError: fetch failed`, carrying the refusal on `cause`. So a wrapped
+   * one is neither an `OutboundRefused` nor a `config` one, and this function
+   * QUOTED CanonCore's own sentence about the Owner's settings as a stranger's
+   * claim -- ADR-0123 answering wrongly rather than not at all.
+   *
+   * THE REFUSAL IS THE REAL BOUNDARY'S, and only the wrapper is written here.
+   * `client.test.ts` is where the wrapper itself is proven to be the shape
+   * undici really produces; this is where the RULE is, so the sentence under
+   * test has to be one the app would actually write.
+   */
+  it("unwraps a refusal undici wrapped, and still says it is CanonCore's", () => {
+    const refusal = caught(() =>
+      assertConfigUrl(new URL("https://wiki.example.com/"), parseAllowlist("tardis.example.com")),
+    );
+
+    const { wrote, text } = reasonFor(new TypeError("fetch failed", { cause: refusal }));
+
+    expect(wrote).toBe("canoncore");
+    expect(text).toBe(refusal.message);
+  });
+
+  /**
+   * AND THE SAME UNWRAPPING IS WHAT MAKES A THIRD PARTY'S FAILURE READABLE,
+   * which is the half of CNCORE-192 the ticket did not count.
+   *
+   * `fetch failed` is undici saying that something underneath it failed, and it
+   * is the same eight words whether the socket was refused, the host does not
+   * resolve, or the TLS handshake broke. The fact is one link down, and the
+   * Owner was reading the wrapper for all of them. It stays the PROVIDER'S,
+   * because nothing here was refused by ADR-0034's config boundary -- what
+   * changes is that there is something to read.
+   */
+  it("unwraps a third party's failure too, and leaves it the provider's", () => {
+    const dead = new Error("connect ECONNREFUSED 127.0.0.1:64665");
+
+    const { wrote, text } = reasonFor(new TypeError("fetch failed", { cause: dead }));
+
+    expect(wrote).toBe("provider");
+    expect(text).toBe("connect ECONNREFUSED 127.0.0.1:64665");
+  });
+
+  /**
+   * THE INNERMOST LINK THAT SAID SOMETHING, NOT SIMPLY THE INNERMOST.
+   *
+   * `makeNetworkError()` called with no argument builds `new Error(undefined)`,
+   * whose message is EMPTY, and three sites in undici's fetch reach it -- so a
+   * blind walk to the bottom of the chain would report the silence and throw
+   * away `fetch failed`, which in that case is genuinely all there is. Keeping
+   * the last link with words in it cannot lose information.
+   */
+  it("keeps the wrapper's words when what it wrapped said nothing", () => {
+    const { text } = reasonFor(new TypeError("fetch failed", { cause: new Error("") }));
+
+    expect(text).toBe("fetch failed");
+  });
+
+  /**
+   * A CHAIN THAT POINTS BACK AT ITSELF IS READ ONCE, not forever.
+   *
+   * ECMA-262 puts NO restriction on a `cause`: `InstallErrorCause` stores
+   * whatever was passed, as a writable property, so a cycle is constructible
+   * and nothing in the platform forbids one. Walking it without a visited set
+   * is an infinite loop inside a function that runs while rendering the Owner's
+   * page -- a hang rather than a reason, which is the failure `pinnedLookup`
+   * already carries a comment about at a different seam.
+   *
+   * IT IS A GUARD RATHER THAN DECORATION: removing `seen` hangs this test until
+   * the runner kills it, measured.
+   */
+  it("does not walk a cause chain that loops back on itself forever", () => {
+    const outer = new Error("fetch failed");
+    const inner = new Error("the socket went away");
+    outer.cause = inner;
+    inner.cause = outer;
+
+    const { text } = reasonFor(outer);
+
+    expect(text).toBe("the socket went away");
+  });
+
+  /**
+   * AND A `cause` THAT IS NOT AN ERROR AT ALL STOPS THE WALK RATHER THAN
+   * BECOMING THE REASON.
+   *
+   * ECMA-262 admits any value there -- a number, a string, `null` -- and undici
+   * is not the only thing that can put one on an error this function is handed.
+   * The link ABOVE it is the last one that spoke, so that is what the Owner
+   * reads; `String(42)` on their settings page would be a reason nobody wrote.
+   */
+  it("stops at a cause that is not an error", () => {
+    const { text } = reasonFor(new TypeError("the provider answered badly", { cause: 42 }));
+
+    expect(text).toBe("the provider answered badly");
+  });
+
+  /**
+   * `wrote` AND `text` COME FROM THE SAME LINK, ALWAYS. This is the invariant
+   * the walk exists to preserve, and it is asserted because the obvious
+   * "improvement" breaks it.
+   *
+   * Raised in review of CNCORE-192: `wrote` is asked of the link the walk
+   * LANDED on rather than of any `config` refusal in the chain, so a refusal
+   * that ever gained a cause would attribute itself to the provider. True, and
+   * the proposed repair -- look for a `config` refusal ANYWHERE and keep the
+   * deepest link only for `text` -- is worse than the thing it fixes. It would
+   * print the deeper link's text, which is a third party's, in CANONCORE'S
+   * VOICE. ADR-0123 ranks those two costs explicitly and that is the one it
+   * calls worse; under-attributing our own sentence is the conservative
+   * direction and is what this does.
+   *
+   * AND IT IS A SECOND WALK OF THE SAME CHAIN, so it is a second place to
+   * forget the visited set. Written out to check, it forgot, and the suite hung
+   * instead of failing -- the hang the test below exists to stop, arriving by
+   * the repair for this one.
+   *
+   * SO THE COUPLING IS THE POINT. `wrote` is a claim ABOUT `text`, and a build
+   * that sourced them from two different links would be making that claim about
+   * a sentence it did not read.
+   */
+  it("asks whose the sentence is of the link the sentence came from", () => {
+    const refusal = new OutboundRefused("refused https://wiki.test: not allowlisted.", "config");
+    // A config refusal cannot carry a cause today: the constructor takes a
+    // message and a boundary and has no `cause` parameter at all, so none of
+    // its fifteen sites could pass one. Assigned by hand BECAUSE of that --
+    // what is pinned is which way this falls the day somebody adds one.
+    (refusal as unknown as { cause: unknown }).cause = new Error("the provider's own words");
+
+    const { wrote, text } = reasonFor(refusal);
+
+    expect(text).toBe("the provider's own words");
+    // THE PROVIDER'S, because that is whose sentence `text` is holding.
+    expect(wrote).toBe("provider");
   });
   /**
    * A THROWN THING WITH NOTHING TO SAY STILL HAS TO SAY SOMETHING.

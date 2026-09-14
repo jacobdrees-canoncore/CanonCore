@@ -93,6 +93,11 @@ doing the work: the config boundary judges a URL the OWNER supplied, the content
 a PROVIDER supplied, and that is already the question "whose text is this?" asked and answered.
 `canoncore` means the config boundary refused, and nothing else does.
 
+**THAT QUESTION HAS TO BE ASKED OF THE RIGHT ERROR, AND FOR HALF THE REFUSALS IT WAS NOT (CNCORE-192).**
+The rule above is right and the thing it was reading was wrong: a refusal raised BELOW `fetch` never
+reaches `reasonFor` as itself, so `instanceof` was being asked of undici's wrapper. What is owed is
+below.
+
 **`content` IS THE DEFAULT**, so a refusal added later is capped and attributed to the provider until
 somebody decides otherwise. The cost of being wrong that way is a sentence the Owner reads as a
 provider's; the cost the other way is a provider choosing text the Owner reads as CanonCore's.
@@ -352,6 +357,134 @@ is the release rather than the counting — and this record exists because a def
 sites. It reads ONE CHUNK PAST the limit on purpose: `cut` has to tell a body that ENDED at the
 ceiling from one that merely reached it, and nothing but asking for the next chunk distinguishes
 those, so refusing a body of exactly `MAX_BODY_BYTES` would be refusing a body that was fine.
+
+## A wrapper is not a reason, so the `cause` chain is unwrapped (CNCORE-192)
+
+Everything above asks `wrote` of the thing that was thrown. **For every refusal raised below `fetch`,
+the thing that was thrown is not the refusal.**
+
+[[0034-two-outbound-boundaries]]'s connection pinning lives in the DNS `lookup` hook, which is
+undici's callback and not this app's stack. So `assertConfigAddress` throws, undici catches it at the
+connector, and what arrives at `reasonFor` is `TypeError: fetch failed` with the refusal on `cause`.
+Nothing here read `cause`. **Both of this record's fields then answered wrongly, and the second is the
+worse one:** the sentence naming the remedy was replaced by eight words that name nothing, and
+`wrote` fell through to `provider` — so the page QUOTED this catalogue's own sentence about the
+Owner's own settings as a stranger's claim. That is not this record failing to answer. It is this
+record answering, confidently, with the attribution inverted.
+
+Found by walking the README's `### A Provider beside it` by hand on 2026-09-14, on a real install
+with a real Provider beside it. An allowlist holding the Provider's HOST and not the CIDR its address
+sits in is what a stranger gets by following that section, the host check admits the name, and the
+pinned lookup refuses the socket. The one sentence that would tell them what to do was the one being
+discarded.
+
+### It costs every diagnosis, not only the refusal
+
+The ticket framed this as the refusal's loss. Measured, it is not: **every** network-layer failure
+undici reports arrives the same way, with the fact one link down.
+
+| what failed | what the Owner read | what was on `cause` |
+| --- | --- | --- |
+| the config boundary refused the address | `fetch failed` | `refused ::1: … no allowlisted CIDR covers it. …` |
+| nothing was listening | `fetch failed` | `connect ECONNREFUSED 127.0.0.1:64665` |
+| the host does not resolve | `fetch failed` | `getaddrinfo ENOTFOUND nothing.invalid` |
+
+So the repair is not a wider `instanceof` list looking for one class — that is the mistake this record
+already warns about under "`wrote` asks which boundary refused; this asks WHERE the throw happened",
+where the failures a provider can produce are shown to have no class in common. **The repair is that a
+wrapper is not a reason.** `fetch failed` is undici saying that something underneath it failed; the
+reason is whatever is underneath.
+
+### What unwrapping is owed
+
+`reasonFor` walks `cause` and takes **the innermost link that said something**, then asks `wrote` of
+THAT link — which is this record's existing question, put to the error it was always meant to be put
+to. Three parts of that sentence were each measured rather than assumed.
+
+**THE INNERMOST THAT SPOKE, RATHER THAN SIMPLY THE INNERMOST.** `makeNetworkError()` called with no
+argument builds `new Error(undefined)`, whose message is EMPTY, and three sites in undici's fetch
+reach it. A blind walk to the bottom would report silence there and throw away `fetch failed`, which
+in that one case is genuinely all there is. Keeping the last link with words in it cannot lose
+information: the deepest thing that spoke is the most specific thing that spoke.
+
+**WALKED, RATHER THAN READ ONCE.** A chain deeper than one is undici's own shape and not a
+hypothetical: `response.js` wraps an abort as `fetch failed` → `DOMException` → the original error,
+and `client-h2.js` wraps an HTTP/2 failure in an `InformationalError` before the fetch layer wraps it
+again. `cause` read once would reach the `DOMException` and stop.
+
+**A VISITED SET, RATHER THAN A DEPTH LIMIT.** ECMA-262's `InstallErrorCause` (20.5.9.1) stores
+whatever `Get(options, "cause")` returned, as a WRITABLE property, and places no restriction on the
+value — so a `cause` may be a number or a string, and a cycle is constructible with nothing in the
+platform forbidding one. Measured: `a.cause.cause === a` is `true`. A depth limit would be a number
+nobody could defend; a visited set needs none, and what it prevents is an infinite loop inside a
+function that runs while rendering the Owner's page. **It is a guard rather than decoration** —
+removing the set hangs its test until the runner kills it, measured at 45 seconds and no result.
+
+### The standard promises none of this, and the version that does is not the one you would guess
+
+**The Fetch Standard says only "If response is a network error, then reject p with a `TypeError` and
+abort these steps".** The word `cause` occurs twice in that document and neither is an error cause.
+So `cause` is undici's own addition at `lib/web/fetch/index.js` — `new TypeError('fetch failed', {
+cause: response.error })` — and this section reads a shape undici chooses rather than one anybody
+promised. The walk is written to survive that shape changing: a chain of one, or of none, answers
+exactly as it did before.
+
+**AND THE UNDICI THAT MATTERS IS THE ONE THIS PACKAGE IMPORTS, NOT THE ONE NODE BUNDLES.**
+`client.ts` does `import { Agent, fetch } from "undici"`, so the behaviour above is **undici 8.10.2**,
+what the catalog pins; Node 24.19.0's own global `fetch` is undici 7.29.0 and is not on this path at
+all. Measuring the bundled one and recording it as the rule would have been a fact about the wrong
+library, and the two are free to diverge.
+
+What makes the refusal survive the crossing at all is that `makeNetworkError` passes anything
+`instanceof Error` through **by identity** rather than re-wrapping it — so the sentence, and the
+custom `boundary` this record put on `OutboundRefused`, are both intact one link down. The mechanism
+was whole; only the reading was not.
+
+### `wrote` and `text` come from the SAME link, and the obvious improvement breaks that
+
+`wrote` is asked of the link the walk LANDED on, not of any `config` refusal found anywhere in the
+chain. **Review of CNCORE-192 read that as a fragility and proposed the second reading; it is worse
+than the thing it repairs, in two ways.** A refusal that ever gained a `cause` would, under the walk,
+hand its `text` to the deeper link — so preferring a `config` refusal from elsewhere in the chain
+would print a THIRD PARTY'S text in this catalogue's voice. That is the cost this record has already
+ranked: the one it calls worse. Under-attributing our own sentence is the conservative direction, and
+it is the one the walk takes.
+
+**AND THE SECOND WAY WAS FOUND BY BUILDING IT.** The proposal is a SECOND traversal of the same
+chain, and a second traversal is a second place to forget the visited set — the one written to try it
+did forget, and the suite hung rather than failed. So the cheaper repair is also the one that
+reintroduces the hang this section spends a `Set` to prevent, which is the argument for asking the
+question ONCE, of one link, at one place.
+
+**So the coupling is the mechanism rather than an accident of it.** `wrote` is a claim ABOUT `text`,
+and a build sourcing them from two different links would be making that claim about a sentence it did
+not read. A test pins it, and the shape it pins has to be built by hand because **`OutboundRefused`'s
+constructor takes a message and a boundary and nothing else** — there is no `cause` parameter to
+pass, so none of its fifteen construction sites could produce one even by accident. What is guarded
+is which way this falls the day somebody adds one. (Counted: nine in `boundary.ts`, four in
+`client.ts`, two in `configured.ts`. An earlier draft of this paragraph said twelve, which was a
+figure taken from a review rather than from the tree.)
+
+**AND `canoncore` RESTS ON A CHAIN UNDICI ASSEMBLED, which is the question this record exists to
+ask of itself.** Attribution is decided by the link the walk lands on rather than by the thing that
+was thrown, so it is worth saying why that is not a way for a stranger to speak in this catalogue's
+voice: the branch fires only on an `OutboundRefused` whose `boundary` is `config`, and the only
+things that construct one are `assertConfigUrl`, `assertConfigAddress` and `assertHttpScheme` — all
+three judging a base URL the OWNER typed. A provider supplies text, never an error object, so it
+cannot put one in a chain. The conservative direction this record already chose holds: everything
+undecided still lands on `provider`.
+
+### Asserted at three seams, because each proves what the others cannot
+
+The rule is at `reasonFor`, where a hand-written `TypeError` carries a refusal thrown by the real
+boundary. That the hand-written wrapper is the shape undici really produces is proved a layer down,
+in `client.test.ts`, through a real socket and a real `dns.lookup` on a Provider allowlisted by NAME
+whose address no CIDR covers. And the page is where `wrote` is finally spent: `reasonFor` decides
+whose the sentence is and `Reason` decides how the page says so, with a package boundary, an RPC
+procedure and a React component in between, so **the settings witness asserts the ABSENCE of `<q>`**
+— quoted, this sentence would be telling the Owner their Provider said something about their
+allowlist. Reverting the walk fails exactly one of those twenty page tests, which is how the witness
+is known to guard something.
 
 ## The WRITE surfaces get the same reason, in the same shape (CNCORE-149)
 

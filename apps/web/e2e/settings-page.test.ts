@@ -594,6 +594,57 @@ describe("/settings, unlocking a provider", () => {
       "<q>/ answered 503: this Provider holds no tardis.wiki session. Supply one at /unlock.</q>",
     );
   });
+
+  /**
+   * THE REFUSAL CANONCORE ITSELF RAISED, IN CANONCORE'S OWN VOICE (CNCORE-192).
+   *
+   * THIS IS THE README'S SCENARIO AND NOT A CONSTRUCTED ONE. `### A Provider
+   * beside it` tells a stranger to allowlist the Provider they stood up, and an
+   * allowlist holding its HOST and not the CIDR its address sits in is what
+   * they get by doing exactly that: the name is admitted, and the socket is
+   * refused by `assertConfigAddress` at connect time. Found by walking that
+   * section by hand on 2026-09-14, on a real install.
+   *
+   * TWO THINGS WERE WRONG AND THE SECOND IS THE WORSE ONE. The remedy was gone
+   * -- the Owner read `fetch failed`, and the sentence naming what to do was on
+   * the `cause` nothing unwrapped. And it was ATTRIBUTED TO THE PROVIDER: a
+   * wrapped refusal is neither an `OutboundRefused` nor a `config` one, so the
+   * page QUOTED this catalogue's own sentence about the Owner's own settings as
+   * a stranger's claim. ADR-0123 is "a failure reason says who wrote it", and
+   * that was it answering wrongly rather than not at all.
+   *
+   * SO THE ABSENCE OF `<q>` IS THE HALF THIS ASSERTS THAT THE CLIENT'S OWN TEST
+   * CANNOT. `reasonFor` decides WHOSE the sentence is and `Reason` decides how
+   * the page says so, and the reason crosses a package boundary, an RPC
+   * procedure and a React component in between. Quoted, this sentence would be
+   * telling the Owner that their Provider said something about their allowlist.
+   */
+  it("prints a refusal CanonCore raised in its own voice, with the remedy in it", async () => {
+    const cookie = await logInAt(baseUrl, ownerPassword);
+    // A PROVIDER THAT IS UP AND WOULD ANSWER, because the point is that nothing
+    // ever asks it. One on a dead port would produce a refusal too and prove
+    // nothing about WHICH boundary raised it.
+    const alive = await aProviderDeclaring(null);
+    // THE HOST, BY NAME, AND NO CIDR UNDER IT -- which is the whole scenario.
+    // Named by HOSTNAME rather than by the address the stub listens on: a bare
+    // address is filed under the RANGES by `parseAllowlist`, so the host check
+    // would refuse it before a socket opened and the pinned lookup would never
+    // run.
+    const named = `http://localhost:${new URL(alive.url).port}`;
+    await allow(cookie, "localhost");
+    await name(cookie, named);
+
+    const { text } = await documentFrom(baseUrl, "/settings", cookie);
+    const row = rowFor(text, named);
+
+    // THE HALF THE OWNER ACTS ON, which `fetch failed` has none of.
+    expect(row).toContain("no allowlisted CIDR covers it");
+    expect(row).toContain("goes on the allowlist by name");
+    expect(row).not.toContain("fetch failed");
+    // AND SAID PLAINLY, because it is this catalogue's sentence about the
+    // Owner's own settings rather than a Provider's claim.
+    expect(row).not.toContain("<q>");
+  });
   /**
    * THE ASSERTION THAT CANONCORE NEVER WALKS THROUGH THE DOOR IT RENDERS.
    *
