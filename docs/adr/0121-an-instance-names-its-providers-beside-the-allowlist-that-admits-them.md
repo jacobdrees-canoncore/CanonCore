@@ -85,6 +85,16 @@ naming a provider and forgetting to allowlist its host. That is accepted rather 
 around, because the alternative — inferring the allowlist from the URLs — would silently admit
 whatever an owner pasted and is the opposite of what ADR-0034 decided an allowlist is for.
 
+**AND FOR A PROVIDER BESIDE THE INSTALL IT IS TWO ENTRIES IN THE ALLOWLIST, NOT ONE**, which this
+record did not anticipate and CNCORE-163 found by walking it. Such a Provider answers on a container
+address, and [[0034-two-outbound-boundaries]] checks a config URL TWICE: the host against the
+allowlist's hosts, the resolved address against its ranges. A container address is `private` rather
+than `unicast`, so it passes the second check only where a CIDR covers it — and the Owner who
+allowlists the hostname alone gets the Provider ADMITTED by name and then REFUSED at the socket. The
+misconfiguration this section names is therefore not only "forgot the allowlist" but "allowlisted
+half of what one Provider needs", and the surface tells the two apart no better than it tells apart
+the pair above. What it renders in that case is worse still, and CNCORE-192 has it.
+
 So the cost is paid in the surface instead. The import page carries TWO notices, not one: one for no
 provider allowlisted and one for no provider configured. An instance that reaches nothing says which
 of the two settings to go and set, because one answer could not. **Each notice NAMED ITS VARIABLE

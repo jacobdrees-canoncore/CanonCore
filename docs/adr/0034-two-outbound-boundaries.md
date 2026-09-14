@@ -135,6 +135,17 @@ refused. The wiki provider does not redirect and nothing here is blocked by it, 
 reached over a private network will meet this, and it will look like a bug until it is read against
 this paragraph.
 
+THE "LATER PROVIDER REACHED OVER A PRIVATE NETWORK" ARRIVED, AND IT IS NOW THE ORDINARY CASE RATHER
+THAN A LATER ONE. Under CNCORE-163 the install path creates a Docker network for Providers the Owner
+runs beside their install ([[0122-a-provider-declares-the-credential-it-needs]]), so such a Provider
+answers on a container address, which `ipaddr.js` classifies `private`. **NOTHING IN THIS RECORD
+CHANGES**: the two-check design already covers it, and the address passes on the second check exactly
+as `127.0.0.0/8` does, because the Owner allowlisted the CIDR. What is new is the FREQUENCY. The host
+check and the address check take DIFFERENT ENTRIES for one Provider — the container hostname for the
+first, the network's range for the second — so an allowlist holding only the name admits the Provider
+and then refuses the socket, and that is now the commonest way to misconfigure one rather than a case
+a reader has to imagine. The README's install section is where an Owner meets it.
+
 
 ## A THIRD PLACE A URL IS JUDGED, and it is not a third boundary -- under CNCORE-79
 

@@ -59,6 +59,72 @@ fault. A Provider needs to be in both -- named so it is searched, allowlisted so
 the request is permitted -- and the settings page says which of the two is
 refusing one.
 
+### A Provider beside it
+
+Naming a Provider on that page only works if this install can reach it. One on
+the open internet it can: the app has ordinary egress. **A Provider you run on
+this same machine has to be on a Docker network the app is also on**, and
+`compose.yaml` creates one for exactly that, called `canoncore_providers`.
+
+Run the Provider with Compose too, in its own directory, and have its file join
+that network rather than make one:
+
+```yaml
+services:
+  the-provider:
+    image: ...
+    networks:
+      - canoncore
+
+networks:
+  canoncore:
+    name: canoncore_providers
+    external: true
+```
+
+`external: true` there means find it, do not make it. **Bring CanonCore up
+first**, because CanonCore's `compose.yaml` is the end that makes it: started
+the other way round, the Provider stops with `network canoncore_providers
+declared as external, but could not be found`.
+
+Then name it on the settings page **by its service name and the port it serves
+on, never by an address on this machine**: the service called `the-provider`
+above answers the app at `http://the-provider:8080`. Compose gives a service its
+own name as a hostname on every network it joins, and that holds across Compose
+projects, which is what an install and a Provider beside it are. **That port is
+the one the Provider listens on INSIDE its container** -- its own instructions
+say which, and it is not the `ports:` line, if it has one: a published port maps
+the Provider onto this machine, and the app is not coming from this machine.
+
+**The allowlist beside it needs two entries, not one**, and this is the step that
+catches people out. A Provider on that network answers on a container address,
+which is a PRIVATE address, and CanonCore admits a private one only where an
+allowlisted range covers it -- so the name alone gets the Provider named and then
+refused at the socket. Add the name and the range the network hands out. Docker
+picks that range per machine, so read yours off it:
+
+```bash
+docker network inspect canoncore_providers -f '{{range .IPAM.Config}}{{println .Subnet}}{{end}}'
+```
+
+With `the-provider` and, say, `172.19.0.0/16` both in the allowlist, the settings
+page stops giving that Provider a reason and the import page can search it.
+(`println` because an IPv6-enabled network has two ranges, and both belong in the
+allowlist; without it they print glued together as one string that is neither.)
+
+**Read it again if that network is ever recreated.** Docker allocates the range
+when it makes the network, and a fresh one can be handed a different one, after
+which a stale allowlist entry refuses the Provider at the socket exactly as no
+entry did. In ordinary use it stays put: `docker compose down` cannot take the
+network with it while a Provider is still attached, so it survives the install
+stopping and starting.
+
+**Anything the Provider asks YOU to open is a different address.** A container
+hostname means nothing to a browser, so a Provider with a page of its own -- one
+where you hand it a Credential, say -- publishes a port to this machine for it
+and its own instructions say which. `http://localhost:<that port>` is yours;
+`http://the-provider:8080` is the app's, and the two are not interchangeable.
+
 ### What it reads
 
 The app refuses to start unless `DATABASE_URL` is set, and `compose.yaml` builds
