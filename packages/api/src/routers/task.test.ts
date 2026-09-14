@@ -74,16 +74,23 @@ describe("the owner", () => {
     // added to that file and forgotten here fail rather than pass unseen -- and
     // the second of them is ADR-0049's own compaction, turned on the run history
     // this router publishes (CNCORE-124).
+    //
+    // THE HOUR IS NOT NAMED HERE, because what this surface owes is that the
+    // trigger REACHES the caller rather than what it says. WHICH hours the
+    // tasks keep is a rule about the maintenance window and the stagger, and
+    // `packages/tasks` asserts it over the whole list as a rule (CNCORE-162);
+    // restating it here would be the same decision pinned in a second place,
+    // and moving a task an hour would redden a suite that has no stake in it.
     expect(listed).toMatchObject([
       {
         key: "sweep-sessions",
         name: "Remove sessions that can no longer answer",
-        trigger: { kind: "daily", atHour: 3 },
+        trigger: { kind: "daily", atHour: expect.any(Number) },
       },
       {
         key: "compact-task-runs",
         name: "Remove runs the history no longer shows",
-        trigger: { kind: "daily", atHour: 4 },
+        trigger: { kind: "daily", atHour: expect.any(Number) },
       },
     ]);
   });

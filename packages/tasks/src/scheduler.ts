@@ -94,9 +94,18 @@ export async function startScheduler(registry: Registry, db: Database): Promise<
       // touches the database would run twice.
       arm(task, due);
       void registry.run(db, task.key).catch(() => {
-        // Every ending a run can have is already written to the history by
-        // `registry.run`; what reaches here is the refusal of a task already
-        // running, which is not one.
+        // Every ending a run can HAVE is already written to the history by
+        // `registry.run`, so what reaches here is one of the two things that
+        // never became a run: the refusal of a task already running, and a
+        // firing whose opening write itself failed.
+        //
+        // AND THE SECOND ONE HAS NOWHERE ELSE TO GO. The history is the only
+        // place this app records what a task did, and a run that could not be
+        // opened is one the database refused to hold a row for -- so the
+        // surface that would carry the report is the thing that just failed.
+        // What makes that survivable is that it no longer strands the key
+        // (CNCORE-162): the next firing tries again rather than being refused
+        // for the life of the process.
       });
     }, due.getTime() - Date.now());
     timers.add(timer);

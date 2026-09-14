@@ -124,7 +124,22 @@ export interface ListedTask {
  * not do on demand.
  */
 export function createRegistry(tasks: Task[]) {
-  const byKey = new Map(tasks.map((task) => [task.key, task]));
+  // BUILT A TASK AT A TIME SO A SHARED KEY IS REFUSED, THE WAY `dailyAt`
+  // REFUSES AN HOUR OF 24. The key is a task's identity rather than a label on
+  // it: the history is keyed by it, the page's Run and Cancel carry it, and the
+  // live runs are held under it. Handed the whole list at once, `new Map`
+  // resolves a collision by KEEPING THE LAST -- a silent answer to a question
+  // nobody asked it, and one that leaves both tasks listing, both reading the
+  // same last run, and only the one the map kept runnable or cancellable at
+  // all. The other is a row on the owner's page whose buttons reach the wrong
+  // task, which is not a thing to discover by pressing one.
+  const byKey = new Map<string, Task>();
+  for (const task of tasks) {
+    if (byKey.has(task.key)) {
+      throw new Error(`a key names one task, and more than one is keyed ${task.key}`);
+    }
+    byKey.set(task.key, task);
+  }
   /**
    * THE RUNS HAPPENING RIGHT NOW, IN THIS PROCESS'S MEMORY, which is the only
    * place they could be: the controller that can stop a promise is the object
@@ -157,10 +172,19 @@ export function createRegistry(tasks: Task[]) {
       if (running.has(key))
         throw new TaskRefused("already running", `${task.name} is already running.`);
 
+      // THE MARK GOES ON FIRST, AND INSIDE THE `try` THAT CLEARS IT. It has to
+      // be first because opening the row is an `await`, so a mark made after
+      // that write would let two runs past the check above before either was
+      // marked. That makes the opening write the first thing that can fail with
+      // the key already marked -- and a mark left outside this `try` stayed
+      // there for the life of the process, because the map is this process's
+      // own memory and nothing else clears it. Every later run of that task
+      // read as already running, and the owner's Run button reported a conflict
+      // over a task that was not running at all.
       const stop = new AbortController();
       running.set(task.key, stop);
-      const run = await startTaskRun(db, task.key);
       try {
+        const run = await startTaskRun(db, task.key);
         const ending = await endingOf(task, { db, signal: stop.signal });
         // THE ROW AS IT WAS STORED, not this copy of the opening plus the
         // ending. `run` is what `startTaskRun` answered, whose `endedAt` is
