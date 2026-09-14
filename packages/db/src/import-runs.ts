@@ -232,33 +232,52 @@ function asRunContainer(row: typeof importRunContainers.$inferSelect): RunContai
 }
 
 /**
- * The next Container of this run that has not been asked for, in the order the
- * Owner listed them, or `undefined` once none is left.
+ * What one step of the walk needs: the next Container of this run that has not
+ * been asked for, which Provider to ask, and how many are still to go.
  *
  * ONE AT A TIME IS WHAT THIS FUNCTION IS, and it is a measured constraint rather
  * than a simplification. `provider-wiki` is one Node process: two concurrent
  * browses of the largest Ordering were measured at 49.1s each against 25.5s
- * alone (2026-09-13), so a walk that asked for two Containers at once would take
- * longer overall AND make every other request on that Provider slower. Answering
- * ONE Container is what leaves a caller nothing to parallelise.
+ * alone (2026-09-13), so a walk asking for two Containers at once would take
+ * longer overall AND make every other request on that Provider slower.
+ * Answering ONE Container is what leaves a caller nothing to parallelise.
+ *
+ * THE PROVIDER COMES FROM THE RUN AND NOT FROM THE CALLER. A run is a walk at
+ * one Provider; a caller free to name a different one could browse a list of
+ * that Provider's ids at somebody else's, and every id in a list belongs to one
+ * Provider's namespace (ADR-0031, ADR-0078).
+ *
+ * `undefined` ONCE NONE IS LEFT, which is how the walk ends.
  */
 export async function nextPendingContainer(
   db: Database,
   runId: string,
-): Promise<{ externalId: string } | undefined> {
-  const [next] = await db
-    .select({ externalId: importRunContainers.externalId })
-    .from(importRunContainers)
-    .where(
-      and(
-        eq(importRunContainers.runId, runId),
-        eq(importRunContainers.outcome, "pending"),
-        isNull(importRunContainers.deletedAt),
-      ),
-    )
-    .orderBy(asc(importRunContainers.listPosition))
-    .limit(1);
-  return next;
+): Promise<{ externalId: string; providerIdentity: string; pending: number } | undefined> {
+  const { rows } = await db.execute<{
+    external_id: string;
+    provider_identity: string;
+    pending: string;
+  }>(sql`
+    select c."external_id", r."provider_identity",
+           -- COUNTED BEFORE THE LIMIT, which is what a window function does: it
+           -- answers how many Containers are still to be asked for, not how many
+           -- rows came back.
+           count(*) over () as pending
+      from ${importRunContainers} c
+      join ${importRuns} r on r."id" = c."run_id"
+     where c."run_id" = ${runId}
+       and c."outcome" = 'pending'
+       and c."deleted_at" is null
+     order by c."list_position"
+     limit 1`);
+  const next = rows[0];
+  if (next === undefined) return undefined;
+  return {
+    externalId: next.external_id,
+    providerIdentity: next.provider_identity,
+    // `count` comes back as a string from Postgres's bigint.
+    pending: Number(next.pending),
+  };
 }
 
 /**

@@ -62,7 +62,30 @@ describe("walking a run", () => {
       containerIds: THREE,
     });
 
-    expect(await nextPendingContainer(db, run.id)).toEqual({ externalId: "249643" });
+    expect(await nextPendingContainer(db, run.id)).toMatchObject({ externalId: "249643" });
+  });
+
+  /**
+   * A WALK OF 465 CONTAINERS TAKES ABOUT FIVE AND A HALF HOURS, so what it can
+   * say about where it has got to is not a nicety: it is the only thing standing
+   * between the Owner and a terminal that has printed nothing for an hour.
+   */
+  it("says how many Containers are still to be asked for, and which Provider to ask", async () => {
+    const provider = aProvider();
+    const run = await beginImportRun(db, { providerIdentity: provider, containerIds: THREE });
+
+    await recordContainerLanded(db, {
+      runId: run.id,
+      externalId: "249643",
+      placements: 2913,
+      quarantinedValues: 0,
+    });
+
+    expect(await nextPendingContainer(db, run.id)).toEqual({
+      externalId: "105893",
+      providerIdentity: provider,
+      pending: 2,
+    });
   });
 
   it("moves past a Container that has landed, to the next one the Owner listed", async () => {
@@ -78,7 +101,7 @@ describe("walking a run", () => {
       quarantinedValues: 0,
     });
 
-    expect(await nextPendingContainer(db, run.id)).toEqual({ externalId: "105893" });
+    expect(await nextPendingContainer(db, run.id)).toMatchObject({ externalId: "105893" });
   });
 
   /**
@@ -98,7 +121,7 @@ describe("walking a run", () => {
       reason: { wrote: "provider", text: "403 Forbidden" },
     });
 
-    expect(await nextPendingContainer(db, run.id)).toEqual({ externalId: "105893" });
+    expect(await nextPendingContainer(db, run.id)).toMatchObject({ externalId: "105893" });
   });
 
   it("reports what landed and what refused, with the reason the refusal carried", async () => {
@@ -171,7 +194,7 @@ describe("resuming a run", () => {
 
     const resumed = await beginImportRun(db, { providerIdentity: provider, containerIds: THREE });
 
-    expect(await nextPendingContainer(db, resumed.id)).toEqual({ externalId: "105893" });
+    expect(await nextPendingContainer(db, resumed.id)).toMatchObject({ externalId: "105893" });
   });
 
   /**
@@ -192,7 +215,7 @@ describe("resuming a run", () => {
 
     const resumed = await beginImportRun(db, { providerIdentity: provider, containerIds: THREE });
 
-    expect(await nextPendingContainer(db, resumed.id)).toEqual({ externalId: "249643" });
+    expect(await nextPendingContainer(db, resumed.id)).toMatchObject({ externalId: "249643" });
   });
 
   it("opens a new run once every Container has landed, so the same list imports again rather than doing nothing", async () => {
