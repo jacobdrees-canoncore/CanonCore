@@ -249,7 +249,8 @@ jobs:
   # stops that regressing: apps/web/.env is gitignored, so a CI checkout
   # genuinely has no value to find.
   #
-  # AND IT IS THE ONE TURBO INVOCATION LEFT BARE ON PURPOSE (CNCORE-191). The
+  # AND IT IS THE ONLY TURBO INVOCATION ANYWHERE IN THIS FILE LEFT BARE
+  # (CNCORE-191), `pnpm lint` not being turbo at all. The
   # guard everywhere else exists because `turbo run <task>` exits 0 having run
   # zero tasks; here that is the RIGHT behaviour, because this step requires the
   # build to fail, so a build that ran nothing exits 0 and reddens the job

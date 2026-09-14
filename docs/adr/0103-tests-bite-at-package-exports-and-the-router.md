@@ -116,6 +116,13 @@ The half a suite can still hold is the other one — that `ci.yml` names the pac
 `run-suite.test.ts` holds it, because deleting the argument leaves that suite running to notice.
 The two holes are disjoint, which is what makes the pair whole.
 
+**The roll call is asked in ONE place, and that is a half rather than a finish.** `test
+@canoncore/config` is the case CNCORE-190 measured and closed. `typecheck` and `build` are declared
+by eleven packages each and have only the count, so one package dropping either script leaves ten
+running and the job green — the identical hole, and nothing else catches it, because
+`network-gate-wiring.test.ts` covers `test` alone. CNCORE-197 holds that, and this paragraph is here
+so the mechanism does not read whole from outside while half of it is open.
+
 **And a scratch fixture does not stand in for a real run**, which this record owes to the roll call
 being WRONG when it was first written. The reader stopped at the match, which closed the pipe under
 the `sed` stripping colour ahead of it; that `sed` died of SIGPIPE, `pipefail` handed 141 to the

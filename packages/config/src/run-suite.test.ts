@@ -58,7 +58,7 @@ function packageManager(): string {
  * turbo binary it pins, symlinked in so the runner under test is the runner CI
  * runs, and the package manager its root manifest names.
  */
-function scratchWorkspace(task = "test"): string {
+function scratchWorkspace(task = "test", filter?: string): string {
   const root = mkdtempSync(join(tmpdir(), "run-suite-"));
   mkdirSync(join(root, "packages", "one"), { recursive: true });
   mkdirSync(join(root, "node_modules"), { recursive: true });
@@ -84,7 +84,9 @@ function scratchWorkspace(task = "test"): string {
       name: "scratch",
       private: true,
       packageManager: packageManager(),
-      scripts: { [task]: `turbo run ${task}` },
+      scripts: {
+        [task]: filter === undefined ? `turbo run ${task}` : `turbo run ${task} -F ${filter} --`,
+      },
     }),
   );
   writeFileSync(join(root, "pnpm-workspace.yaml"), 'packages:\n  - "packages/*"\n');
@@ -110,7 +112,11 @@ function declares(
   suite: Suite,
   { name = "one", task = "test" }: { name?: string; task?: string } = {},
 ): void {
-  const directory = join(root, "packages", name);
+  // The DIRECTORY is the name's last segment, because a scoped name has a slash
+  // in it and `packages/*` matches one level: `packages/@scratch/db` is not in
+  // the workspace at all, and turbo reports it as the package simply not
+  // existing rather than as a path mistake.
+  const directory = join(root, "packages", name.split("/").at(-1) ?? name);
   const command = COMMANDS[suite];
   mkdirSync(directory, { recursive: true });
   writeFileSync(
@@ -328,6 +334,69 @@ describe("the guard a CI suite job runs behind", () => {
 });
 
 /**
+ * THE LADDER'S SHAPE, which is a FILTERED root script rather than a plain one.
+ *
+ * `pnpm db:migrate` is `turbo run db:migrate -F @canoncore/db --`, and a filter
+ * matching nothing is the third way this guard's header says a run reaches zero
+ * tasks -- alongside a deleted script and a task no package declares. It is the
+ * one of the three nothing drove until now, and it is the one under ADR-0047's
+ * empty-to-head gate, where a green run having applied no rung at all would
+ * report a database built from nothing as built correctly.
+ *
+ * THE FILTER IS LEFT POINTING AT THE PACKAGE AND THE PACKAGE IS RENAMED, rather
+ * than the filter being changed to a name that was never there. That is the way
+ * it actually goes wrong: the workspace moves and the root script is not the
+ * file anybody thinks to update.
+ */
+describe("the guard behind a job whose root script filters to one package", () => {
+  let root: string;
+
+  beforeEach(() => {
+    root = scratchWorkspace("db:migrate", "@scratch/db");
+  });
+
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it("passes while the filtered package declares the task", () => {
+    declares(root, "passes", { name: "@scratch/db", task: "db:migrate" });
+    const { status, output } = runGuard(root, "db:migrate");
+    expect(status, output).toBe(0);
+  });
+
+  it("fails once the filtered package drops the script, where turbo exits 0", () => {
+    declares(root, "deleted", { name: "@scratch/db", task: "db:migrate" });
+    const { status, output } = runGuard(root, "db:migrate");
+    expect(status, output).not.toBe(0);
+    expect(output).toContain("ran no tasks at all");
+    // The silent green itself, named: turbo reports the run as having nothing
+    // to do rather than as broken, and hands back 0.
+    expect(output).toContain("0 successful, 0 total");
+  });
+
+  /**
+   * AND THE CASE THE GUARD DOES NOT NEED TO CATCH, pinned because the guard's
+   * header CLAIMED IT DID until this row was written.
+   *
+   * "A filter matching none" was listed beside a deleted script as a way a run
+   * reaches zero tasks silently. It is not: measured on turbo 2.10.12, a filter
+   * naming a package the workspace does not have is REFUSED -- `x No package
+   * found with name '<name>' in workspace`, exit 1 -- so the job reddens on
+   * turbo's own status with no guard involved. The two look alike from a
+   * distance and behave oppositely, which is why the claim is pinned to the
+   * vendor here rather than restated in a comment.
+   */
+  it("leaves a filter that names no package to turbo, which refuses it outright", () => {
+    declares(root, "passes", { name: "@scratch/renamed", task: "db:migrate" });
+    const { status, output } = runGuard(root, "db:migrate");
+    expect(status, output).not.toBe(0);
+    expect(output).toContain("No package found with name");
+    expect(output).not.toContain("ran no tasks at all");
+  });
+});
+
+/**
  * CNCORE-191's second acceptance criterion, and the same flip on a task that is
  * NOT a suite.
  *
@@ -377,12 +446,26 @@ describe("the guard behind a job that runs no suite", () => {
  * meant not to run once.
  */
 function suiteScripts(): string[] {
+  return Object.keys(rootScripts()).filter(
+    (name) => /^test(:|$)/.test(name) && !/:watch$/.test(name),
+  );
+}
+
+/** The root manifest's `scripts` block, which both readers here ask of it. */
+function rootScripts(): Record<string, string> {
   const root = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8")) as {
     scripts?: Record<string, string>;
   };
-  return Object.keys(root.scripts ?? {}).filter(
-    (name) => /^test(:|$)/.test(name) && !/:watch$/.test(name),
-  );
+  return root.scripts ?? {};
+}
+
+/**
+ * A string made safe to build a regex from, for the readers that match a script
+ * name or the guard's path inside a `run:` block. Both are read off disk, so
+ * neither is a literal this file controls.
+ */
+function literally(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 /**
@@ -405,7 +488,7 @@ function policingPackage(): string {
 
 /** Every invocation of the guard in the workflow, with the package it holds the run to. */
 function guardInvocations(): { job: string; task: string; required: string | undefined }[] {
-  const guard = SUITE_GUARD.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const guard = literally(SUITE_GUARD);
   const pattern = new RegExp(`(?:^|\\s)${guard}\\s+([a-z][a-z0-9:-]*)(?:[ \\t]+(\\S+))?`, "g");
   return runSteps().flatMap(({ job, run }) =>
     [...run.matchAll(pattern)].flatMap((match) =>
@@ -422,10 +505,10 @@ function jobs(): { job: string; invocations: { task: string; guarded: boolean }[
   }));
 }
 
-/** Every `run:` script in the workflow, named by the job it sits in. */
-function runSteps(): { job: string; run: string }[] {
+/** Every `run:` script in the workflow, named by the job and the step it sits in. */
+function runSteps(): { job: string; step: string; run: string }[] {
   return allSteps(workflow()).flatMap(({ job, step }) =>
-    step.run === undefined ? [] : [{ job, run: step.run }],
+    step.run === undefined ? [] : [{ job, step: step.name ?? "<unnamed>", run: step.run }],
   );
 }
 
@@ -447,10 +530,7 @@ function runSteps(): { job: string; run: string }[] {
  * in the manifest rather than transcribed into a rule.
  */
 function turboScripts(): string[] {
-  const root = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8")) as {
-    scripts?: Record<string, string>;
-  };
-  return Object.entries(root.scripts ?? {})
+  return Object.entries(rootScripts())
     .filter(([, command]) => /\bturbo\s+run\b/.test(command))
     .map(([name]) => name);
 }
@@ -468,10 +548,18 @@ function turboScripts(): string[] {
  * AND IT IS HELD TO MATCHING SOMETHING, by the canary below. An exemption whose
  * step has gone is an excuse still standing over nothing, which is how a list
  * like this rots into permission it was never asked for.
+ *
+ * KEYED TO THE STEP AND NOT THE JOB, so an excuse covers the step somebody wrote
+ * it about. Keyed to the job, a second and genuinely bare `pnpm build` added to
+ * `env-guard` would inherit a reason nobody wrote for it, and the canary cannot
+ * see that -- it catches an entry matching nothing, never one matching more than
+ * it was meant to. What remains uncovered is a second bare mention inside the
+ * SAME step, which is as far as reading a step's text can narrow it.
  */
-const UNGUARDED_ON_PURPOSE: { job: string; script: string; reason: string }[] = [
+const UNGUARDED_ON_PURPOSE: { job: string; step: string; script: string; reason: string }[] = [
   {
     job: "env-guard",
+    step: "Missing DATABASE_URL fails the build",
     script: "build",
     reason:
       "this job requires `pnpm build` to FAIL, and a run of zero tasks exits 0 -- so the hole " +
@@ -481,6 +569,7 @@ const UNGUARDED_ON_PURPOSE: { job: string; script: string; reason: string }[] = 
   },
   {
     job: "image",
+    step: "It carries no .env, no pnpm, no dev dependencies, and the licence",
     script: "dev",
     reason:
       "prose rather than a command: the job's comment and its error text both say `dev " +
@@ -516,19 +605,15 @@ const UNGUARDED_ON_PURPOSE: { job: string; script: string; reason: string }[] = 
  * argument -- `pnpm build`, `turbo run build`, `pnpm --filter web test:e2e` --
  * and none of them has it buried in a path.
  */
-function turboMentions(): { job: string; script: string; guarded: boolean }[] {
-  return runSteps().flatMap(({ job, run }) =>
+function turboMentions(): { job: string; step: string; script: string; guarded: boolean }[] {
+  return runSteps().flatMap(({ job, step, run }) =>
     turboScripts().flatMap((script) => {
-      const name = new RegExp(
-        `(?<![\\w:./-])${script.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w:./-])`,
-        "g",
-      );
+      const name = new RegExp(`(?<![\\w:./-])${literally(script)}(?![\\w:./-])`, "g");
       return [...run.matchAll(name)].map((match) => ({
         job,
+        step,
         script,
-        guarded: new RegExp(`${SUITE_GUARD.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s+$`).test(
-          run.slice(0, match.index),
-        ),
+        guarded: new RegExp(`${literally(SUITE_GUARD)}\\s+$`).test(run.slice(0, match.index)),
       }));
     }),
   );
@@ -587,8 +672,18 @@ describe("a CI job that runs a suite", () => {
    * in scope without anybody widening this again.
    */
   it("never invokes a turbo task bare, where a missing one would go green", () => {
-    const excused = ({ job, script }: { job: string; script: string }): boolean =>
-      UNGUARDED_ON_PURPOSE.some((entry) => entry.job === job && entry.script === script);
+    const excused = ({
+      job,
+      step,
+      script,
+    }: {
+      job: string;
+      step: string;
+      script: string;
+    }): boolean =>
+      UNGUARDED_ON_PURPOSE.some(
+        (entry) => entry.job === job && entry.step === step && entry.script === script,
+      );
     const bare = turboMentions()
       .filter(({ guarded }) => !guarded)
       .filter((mention) => !excused(mention))
@@ -608,12 +703,17 @@ describe("a CI job that runs a suite", () => {
    */
   it("excuses only mentions that are really there", () => {
     const stale = UNGUARDED_ON_PURPOSE.filter(
-      ({ job, script }) =>
+      ({ job, step, script }) =>
         !turboMentions().some(
-          (mention) => mention.job === job && mention.script === script && !mention.guarded,
+          (mention) =>
+            mention.job === job &&
+            mention.step === step &&
+            mention.script === script &&
+            !mention.guarded,
         ),
     ).map(
-      ({ job, script }) => `\`${job}\` is excused for \`${script}\`, which it no longer names bare`,
+      ({ job, step, script }) =>
+        `\`${job}\`'s \`${step}\` step is excused for \`${script}\`, which it no longer names bare`,
     );
     expect(stale).toStrictEqual([]);
   });

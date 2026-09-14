@@ -3,11 +3,20 @@
 # ONE TURBO TASK, AND A COUNT THAT SAYS IT RAN.
 #
 # `turbo run <task>` EXITS 0 HAVING RUN NOTHING. A root script that is gone, a
-# task no package declares, or a filter matching none gives `Tasks: 0
-# successful, 0 total` and a WARNING on stderr that no green check reports -- so
-# a suite that vanished turns its job green rather than red. ADR-0103 refuses
-# `--passWithNoTests` per package for the same reason; this closes the same hole
-# one level up.
+# task no package declares, or a task the FILTERED package no longer declares
+# gives `Tasks: 0 successful, 0 total` and a WARNING on stderr that no green
+# check reports -- so a suite that vanished turns its job green rather than red.
+# ADR-0103 refuses `--passWithNoTests` per package for the same reason; this
+# closes the same hole one level up.
+#
+# THAT THIRD ONE READ "a filter matching none" until CNCORE-191, and the two are
+# opposites rather than the same case. A filter naming a package the workspace
+# does NOT HAVE is refused: `x No package found with name '<name>' in
+# workspace`, exit 1, and the job reddens on turbo's own status with nothing
+# here involved. It is the package still being there and the SCRIPT being gone
+# that exits 0, which is the ladder's shape -- `pnpm db:migrate` is
+# `turbo run db:migrate -F @canoncore/db --`. Both measured on turbo 2.10.12,
+# and `run-suite.test.ts` now drives each rather than restating them.
 #
 # WHAT IT CATCHES IS THE COUNT REACHING ZERO, AND NOT ONE PACKAGE OF MANY
 # DROPPING ITS SCRIPT. `test:e2e`, `test:browser` and `test:contract` are
@@ -29,6 +38,19 @@
 # it. What a suite still owns is the other half -- that `ci.yml` names the
 # package at all -- and `run-suite.test.ts` holds that, which it can, because
 # deleting the argument leaves the suite running to notice.
+#
+# TODO(CNCORE-197): AND IT IS ASKED IN ONE PLACE ONLY, `test @canoncore/config`.
+# `typecheck` and `build` are declared by eleven packages each and get the count
+# alone, so one package dropping either script still leaves ten running and the
+# job green. That is the same hole in the same shape, left because CNCORE-190
+# scoped itself to the case it measured -- named here rather than left looking
+# finished, since half a mechanism reads whole from outside.
+#
+# AND IT ASSUMES TURBO PRINTS THE TASK AT ALL. A task set to `outputLogs: "none"`
+# in `turbo.json` is announced by neither shape, and the roll call would report a
+# task that ran as missing. Nothing here sets it and nothing should, but it is
+# the one config change that turns this check into a false red rather than a
+# missed one.
 #
 # ONE FILE RATHER THAN A COPY PER JOB, and that is what makes the claim testable
 # rather than merely stated: `packages/config/src/run-suite.test.ts` runs THIS
@@ -54,6 +76,11 @@ fi
 log=$(mktemp)
 trap 'rm -f "$log"' EXIT
 
+# THE LOG AS BOTH CHECKS BELOW READ IT: colour stripped, for the reason each
+# gives. Written once because the two were the same `sed` twice, and a strip
+# that got fixed in one of them is a check quietly reading something else.
+stripped() { sed $'s/\033\[[0-9;]*m//g' "$log"; }
+
 # `pipefail` is what keeps the suite's OWN failure fatal: `tee` succeeds
 # whatever it is fed, so without it the pipeline reports tee's status and a
 # failing suite reaches the count check as a pass.
@@ -71,7 +98,7 @@ pnpm "$task" 2>&1 | tee "$log"
 # anything forces colour -- and neither the anchor nor `[1-9]` can match across
 # one. Stripping costs nothing and takes the vendor's terminal detection out of
 # the decision.
-if ! sed $'s/\033\[[0-9;]*m//g' "$log" | grep -qE "^ *Tasks: +[1-9][0-9]* successful"; then
+if ! stripped | grep -qE "^ *Tasks: +[1-9][0-9]* successful"; then
   echo "::error::pnpm $task ran no tasks at all. A green result here would mean nothing."
   exit 1
 fi
@@ -115,7 +142,7 @@ fi
 # all -- it was live against this repository's real `pnpm test`, where the
 # package announces itself around line 8 of some two hundred, and invisible in
 # every short fixture. `run-suite.test.ts` holds a 20,000-line workspace over it.
-if ! sed $'s/\033\[[0-9;]*m//g' "$log" |
+if ! stripped |
   awk -v streamed="$required:$task: " -v grouped="::group::$required:$task" '
     { line = $0; sub(/[ \t\r]+$/, "", line) }
     index(line, streamed) == 1 || line == grouped { found = 1 }
