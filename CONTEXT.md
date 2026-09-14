@@ -241,6 +241,13 @@ A column holding a cached copy of whichever statement currently wins for that fi
 is the truth; the column is what reads and sorts are fast against.
 _Avoid_: denormalisation, cache, materialised view
 
+**Sort name**:
+What an Item files under, as distinct from what it is called: *The Daleks' Master Plan* is titled
+with its article and files without it. A STATEMENT like any other, so it carries a source and can be
+disagreed with — where nobody has said, CanonCore derives one and says that it did (ADR-0134). The
+reader's words are "Sorts as", which is the word every surface uses.
+_Avoid_: sort title, sortable title
+
 **Retired**:
 A vocabulary value deliberately deprecated, kept only for the rows already using it.
 
