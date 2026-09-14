@@ -13,7 +13,7 @@ import {
 import { z } from "zod";
 
 import type { Database } from "./index";
-import { type PlaceIn, pastTheRow, pastTheRowIn, type TheOrder, theOrderBy } from "./order";
+import { type PlaceIn, pastTheRowIn, type TheOrder, theOrderBy } from "./order";
 import {
   aliases,
   itemKinds,
@@ -279,6 +279,10 @@ export async function findPlacementsOfItem(
    * rather than erroring, and a listing of no rows is what "nothing" looks like.
    */
   const narrowedTo = placedBy === undefined ? undefined : eq(spokesman.kind, placedBy);
+  // BUILT FROM THE SPOKESMAN THIS STATEMENT JOINS, for the reason that lateral
+  // gives: it is a relation, so the columns sorted and compared have to be the
+  // ones the SELECT joined and not a second subquery's.
+  const order = thisItemsOrder(spokesman);
   const place = after === undefined ? undefined : await findInThisItemsOrder(db, itemId, after);
 
   /*
@@ -348,33 +352,15 @@ export async function findPlacementsOfItem(
            * rather than nothing. The same pairing `findPlacementsInContainer` uses.
            */
           .crossJoinLateral(asserters)
-          .where(and(sitsIn, narrowedTo, place && pastAmongItsOrderings(spokesman, place)))
-          .orderBy(
-            /*
-             * `nulls last` IS THE DEFAULT FOR `asc` AND IS WRITTEN OUT ANYWAY on
-             * all four keys, for the reason `readListing` gives: the cursor reads
-             * it, and a default a walk depends on is one worth saying out loud.
-             * Every one of these four columns can be null, so every one of them
-             * has a keyless block behind it that a walk must still reach.
-             */
-            // ADR-0014 gives `sort_name` its own index for exactly this: it is what
-            // the catalogue sorts on, and the title is the fallback when no sort-name
-            // statement has ever won.
-            sql`${THE_CONTAINERS_KEY} nulls last`,
-            // THEN THE DISAGREEMENT IS RESOLVED (ADR-0017). Two sources claiming
-            // different positions for one item in one container are two rows, both
-            // standing and both answered -- and these two terms are what decide which
-            // of them SPEAKS, so the winning claim is the one a reader meets first.
-            // A source that says nothing about a placement cannot outrank one that
-            // does, and NULLs sorting last is what says so.
-            sql`${spokesman.precedence} nulls last`,
-            sql`${spokesman.sourceOrder} nulls last`,
-            // A REPEAT ties on both of those, because one source asserted both rows.
-            // Position is what separates it, so a recap at 1 still reads before the
-            // episode at 5 -- and the id keeps even two identical rows in one order.
-            sql`${placements.position} nulls last`,
-            sql`${placements.id}`,
-          )
+          /*
+           * BOTH READ OFF ONE VALUE (ADR-0119). `thisItemsOrder` below names the
+           * four keys once; the sort and the comparison that walks it are read
+           * off that name, so neither can name a term the other does not. This
+           * is the order CNCORE-125 grew from one key to four, and doing that
+           * used to mean editing two statements in two places.
+           */
+          .where(and(sitsIn, narrowedTo, place && pastTheRowIn(order, place)))
+          .orderBy(...theOrderBy(order))
           .limit(howMany),
       asRow: ({ id, containerId, containerTitle, position, placedBy, assertedBy }) => ({
         id,
@@ -483,16 +469,62 @@ function countingOrderings(db: Database, sitsIn: SQL, narrowedTo: SQL | undefine
  */
 const THE_CONTAINERS_KEY = sql<string | null>`coalesce(${items.sortName}, ${items.title})`;
 
-/** Where one placement sits among all the orderings ONE item sits in. */
-interface PlaceAmongOrderings {
-  /** The container's projected key. Null for a container with neither column. */
-  containerKey: string | null;
-  /** ADR-0017's two terms, null where no source stands behind the placement. */
-  precedence: number | null;
-  sourceOrder: number | null;
-  position: number | null;
-  id: string;
+/**
+ * THE ORDER "ALSO APPEARS IN" IS READ IN: four keys and the placement's id
+ * behind them.
+ *
+ * ONE VALUE, AND ALL THREE STATEMENTS ARE READ OFF IT (ADR-0119). `theOrderBy`
+ * renders the `ORDER BY`, `pastTheRowIn` renders the cursor comparison that
+ * walks it, and `PlaceIn` is the shape the read below has to answer with. THIS
+ * IS THE ORDER CNCORE-125 GREW FROM ONE KEY TO FOUR, and the growing is what
+ * the defect was: the terms lived beside the `ORDER BY` and the comparison was
+ * built for one of them, so rows tied with the anchor were stepped over.
+ *
+ * BUILT FROM A SPOKESMAN RATHER THAN WRITTEN AS A CONSTANT, because two of its
+ * keys are columns of a LATERAL and a lateral is a relation: the columns a
+ * statement sorts and compares have to be the ones that statement joined, and a
+ * second `spokesmanFor(db)` would alias a second subquery it never did.
+ *
+ * `nulls last` COMES WITH THE ORDER and is load-bearing on every one of the
+ * four: each key is nullable, so each has a block of rows with none behind it
+ * that a walk must still reach.
+ *
+ * THE KEYS, IN THE ORDER THEY DECIDE:
+ *
+ * - THE CONTAINER'S PROJECTED KEY. ADR-0014 gives `sort_name` its own index for
+ *   exactly this: it is what the catalogue sorts on, and the title is the
+ *   fallback when no sort-name statement has ever won.
+ * - THEN THE DISAGREEMENT RESOLVED (ADR-0017). Two sources claiming different
+ *   positions for one item in one container are two rows, both standing and
+ *   both answered -- and these two terms are what decide which of them SPEAKS,
+ *   so the winning claim is the one a reader meets first. A source that says
+ *   nothing about a placement cannot outrank one that does, and NULLs sorting
+ *   last is what says so.
+ * - THEN THE POSITION. A Repeat ties on both of those, because one source
+ *   asserted both rows, and the position is what separates it: a recap at 1
+ *   still reads before the episode at 5.
+ * - AND THE ID BEHIND THEM, which keeps even two identical rows in one order.
+ */
+function thisItemsOrder(spokesman: ReturnType<typeof spokesmanFor>) {
+  return {
+    keys: {
+      containerKey: THE_CONTAINERS_KEY,
+      precedence: spokesman.precedence,
+      sourceOrder: spokesman.sourceOrder,
+      position: placements.position,
+    },
+    id: placements.id,
+  } satisfies TheOrder;
 }
+
+/**
+ * Where one placement sits among all the orderings ONE item sits in.
+ *
+ * DERIVED FROM THE ORDER rather than declared beside it, for the reason that
+ * order gives: a place written out by hand is a second list of its keys, and
+ * two lists come apart.
+ */
+type PlaceAmongOrderings = PlaceIn<ReturnType<typeof thisItemsOrder>>;
 
 /**
  * Where one placement sits in the order "Also appears in" keeps, by the id a
@@ -540,15 +572,13 @@ async function findInThisItemsOrder(
   // non-uuid against a `uuid` column is error 22P02 rather than an empty result.
   if (!canBeAnId(id)) return undefined;
   const spokesman = spokesmanFor(db);
+  const order = thisItemsOrder(spokesman);
   const [place] = await db
-    .select({
-      containerKey: THE_CONTAINERS_KEY,
-      containerDeletedAt: items.deletedAt,
-      precedence: spokesman.precedence,
-      sourceOrder: spokesman.sourceOrder,
-      position: placements.position,
-      id: placements.id,
-    })
+    // READ BY THE ORDER'S OWN KEYS, so a key it gains is one this read cannot be
+    // left without. The tombstone rides BESIDE them and is not one of them: it
+    // is read to decide whether there is a place at all, and a place carrying it
+    // would read as a term of the order.
+    .select({ ...order.keys, id: order.id, containerDeletedAt: items.deletedAt })
     .from(placements)
     .innerJoin(items, eq(items.id, placements.containerId))
     .leftJoinLateral(spokesman, sql`true`)
@@ -563,35 +593,6 @@ async function findInThisItemsOrder(
   // THE TOMBSTONE DOES NOT TRAVEL WITH THE PLACE. It is read to DECIDE whether
   // there is one, and a place carrying it would read as a term of the order.
   return place_;
-}
-
-/**
- * Everything "Also appears in" lists AFTER one of this item's placements
- * (ADR-0119).
- *
- * FIVE TERMS, WHICH IS WHY `pastTheRow` TAKES A LIST. The order is the
- * container's projected key, then ADR-0017's two deciding which source speaks,
- * then ADR-0018's position, then the placement's id -- and each of the four
- * keys is nullable, so each has the keyless block that comparison exists for.
- *
- * THE SPOKESMAN IS PASSED IN RATHER THAN REBUILT, because a lateral is a
- * relation: the columns compared here have to be the ones the SELECT joined, and
- * a second `spokesmanFor(db)` would alias a second subquery this statement never
- * joined.
- */
-function pastAmongItsOrderings(
-  spokesman: ReturnType<typeof spokesmanFor>,
-  place: PlaceAmongOrderings,
-): SQL | undefined {
-  return pastTheRow(
-    [
-      { key: THE_CONTAINERS_KEY, at: place.containerKey },
-      { key: spokesman.precedence, at: place.precedence },
-      { key: spokesman.sourceOrder, at: place.sourceOrder },
-      { key: placements.position, at: place.position },
-    ],
-    { id: placements.id, at: place.id },
-  );
 }
 
 /** One value claimed about an item, and who claimed it (ADR-0012, ADR-0071). */
