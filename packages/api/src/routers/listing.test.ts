@@ -109,12 +109,16 @@ const EVERY_LISTING: AListing[] = [
  * ROWS OF EVERY SHAPE THE CATALOGUE'S ORDER HAS, which a plain run is not.
  *
  * A WALK OVER DISTINCTLY-TITLED ROWS PASSES AGAINST A CURSOR THAT LOSES ROWS,
- * which is `aCatalogueLargerThanOnePage`'s own argument one package over,
- * applied to a Listing this suite did not seed. Measured here: with the
+ * which is `aCatalogueLargerThanOnePage`'s own argument one package over.
+ *
+ * AND WHAT IT COSTS IS DECIDED BY WHICH COMMAND SOMEBODY TYPES, WHICH IS WHY
+ * THE FIXTURE IS HERE RATHER THAN BORROWED. Measured 2026-09-14 with the
  * catalogue's sort key declared `everyRowHasIt` -- which deletes the branch that
- * reaches the Rows with no key -- a run of five titled stories walked GREEN,
- * because this suite's shared catalogue held no untitled Row at all. With the
- * pair below it walks to two Rows short of its own `total`.
+ * reaches the Rows with no key at all: over a run of five titled stories this
+ * FILE run on its own went green, and the whole PACKAGE went red, on 25 untitled
+ * Rows other files leave in the shared catalogue. The single file is what a
+ * person debugging one Listing runs. With the pair below it is red both ways,
+ * two Rows short of its own `total`.
  *
  * THE TIED PAIR IS SEEDED AND THE BOUNDARY IS NOT AIMED AT IT, said plainly
  * rather than left to be assumed. Two Rows sharing a sort name are separated by

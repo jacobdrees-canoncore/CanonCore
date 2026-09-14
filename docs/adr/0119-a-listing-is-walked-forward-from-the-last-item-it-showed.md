@@ -894,3 +894,96 @@ was, at the package export in `catalogue.test.ts`. Four items tie on a leading k
 their ids running OPPOSITE to the key behind it, exactly as the CNCORE-125 tests are built and for
 the same reason. Mutation-checked: dropping the last key from the derivation walks that fixture to
 ONE of the four, which is CNCORE-88's own measurement reproduced.
+
+## The guarantees are ONE BLOCK over every Listing procedure (CNCORE-171)
+
+**THIS RECORD'S GUARANTEES WERE ASSERTED PER LISTING, AND THE SECOND LISTING ADDED TO THE SHAPE
+INHERITED NONE OF THEM.** `catalogue.list` carried five cases at the router seam; Catalogue search
+carried two of the same ones in different wording; **work-browsing carried none** — one test, that a
+Person is excluded. Every one of the three is the same cap, the same cursor and the same
+`continuesAfter`, so what was being re-asserted was never the Listing's own question. It is one
+block now, in `packages/api/src/routers/listing.test.ts`, run over a LIST of Listings: it refuses a
+page above the cap, it walks without repeating or skipping a Row, it reports one size from both
+pages, a cursor naming nothing starts at the beginning, and ADR-0045's enumeration holds of what its
+Rows emit. Adding a Listing is adding a line to that list, and each procedure keeps the test of its
+own question and nothing more.
+
+**THE FIFTH IS ADR-0045'S AND CNCORE-171 NAMES FOUR.** It moved off `catalogue.list` because it is a
+fact about what a Listing's Row IS rather than about the question any one procedure asks, and
+leaving it on one procedure is the same shape as the walk, one assertion smaller. **What it guards
+at THIS seam is the declaration rather than the mapping, measured rather than assumed**: a field
+added to `asRow` alone is stripped by `.output(cataloguePublic)` and the block stays green, where a
+field added to `catalogueRowPublic` reaches the reader and fails all three.
+
+**THREE LISTINGS AND NOT FIVE, AND THE TWO THAT ARE OUT ARE OUT BECAUSE THE CAP IS NOT A PARAMETER
+THEY HAVE.** A Container's members and "Also appears in" ride on `item.get` for the reason the
+sections above give — a Container IS an Item and its page is the Item page — so the handler serves
+`A_PAGE` and a caller cannot ask for anything else. "Refuses a page above the cap" is a question
+they cannot be asked at all, and the other three would each cost a fixture of more than a hundred
+Placements to ask, because there is no smaller page to ask for. They are asked at the package
+export, where the cap IS a parameter — so what this costs is one seam rather than the coverage,
+**except in one place, which was checked rather than assumed and is not what the first draft of this
+paragraph said.** A Container's members is asked all four there. **"Also appears in" is asked
+three**: every `after` it is ever handed names a real Placement or one a delete has since taken, so
+neither a malformed id nor a well-formed one nobody minted has ever been put to it. The guard looks
+to be in place — `findInThisItemsOrder` reaches `canBeAnId` like every other anchor read — so it is
+a missing assertion rather than a known defect, which is the shape this whole section is about.
+CNCORE-198 carries it.
+
+**AND A CONTRACT TEST IS ONLY AS GOOD AS THE SHAPES ITS LISTING HOLDS — found by running the
+mutation two ways rather than one, and it is the thing this ticket had to learn.** The first version
+of the walk seeded a run of five distinctly-titled stories and asserted the walk arrived at exactly
+`total` distinct Rows. Declaring the catalogue's sort key `everyRowHasIt` deletes the `isNull(key)`
+arm that reaches the Rows with no sort key — the failure two sections above call permanent and
+silent — and **run on its own file that mutant went GREEN**, because nothing in that file had
+written an untitled Row. Run as the whole package it went RED, on the 25 untitled Rows other files
+in the suite happen to leave in the shared catalogue (measured 2026-09-14: 29 keyless of 481 live,
+four of them this block's own).
+
+**THAT IS THIS RECORD'S OWN "the FIGURE moves with the invocation while the SHAPE does not", ONE
+TURN WORSE: here the SHAPE moved with it.** Whether the contract asserted the walk's two regimes at
+all was decided by which command somebody typed — and the command a person debugging one failing
+Listing types is the single file. The fixture seeds the shapes itself now, and the mutant is red
+both ways: two Rows short of `total` on the catalogue and on work-browsing, correctly leaving the
+ranking alone. `aCatalogueLargerThanOnePage` already says the general form one package over ("a walk
+over a few hundred distinct titles passes against a cursor that ... cannot cross into the untitled
+tail"); what is new is that a shared database is not where a contract's fixture may come from,
+because what it holds is another file's business and changes without this one being edited.
+
+**THE ORACLE IS THE LISTING'S OWN `total`, which is not the walk marking its own work.** That count
+is a scalar subquery over the same predicate in a different clause of a different statement, so
+"arrives at exactly that many DISTINCT Rows" is the two halves agreeing — and it says repeats and
+skips in one assertion, since a walk that repeats overruns the count and one that skips falls short.
+The Rows the fixture seeded are asserted present beside it, which is what keeps a `total` of zero
+from satisfying everything.
+
+**THE PAGE SIZE IS DERIVED FROM THE LISTING'S SIZE rather than written down**, because these three
+differ in size by two orders of magnitude and one number serves neither end: a small one is a
+hundred requests over the shared catalogue, and a large one is a single page over Catalogue search's
+five Rows, where a walk that never crosses a boundary asserts nothing about walking. Cut into four,
+every Listing crosses several boundaries and none crosses many.
+
+**WHAT THE BLOCK DOES NOT ASSERT, said plainly rather than left to be discovered.**
+
+- **The boundary is not AIMED at a tie for the two Listings that run over the whole catalogue.** The
+  tied pair is seeded, but the page size is a function of a shared catalogue's size, so where the cut
+  falls is not the test's to choose — and this record's own rule is that such a test must cut the
+  page AT the tie. That is asserted at the package export, where the fixture and the page size are
+  both the test's own. Catalogue search's fixture ties on EVERY Row, so the id behind the keys is
+  mutation-checked through a boundary here as well: dropping it fails all three walks.
+- **A DELETED anchor is not among the four.** "A cursor naming nothing" here is an id that named no
+  row and a string that is not an id; the anchor whose place a delete destroyed (CNCORE-110) needs a
+  cursor cut at a row the test chose, and at this seam the only row a cursor can be cut at cheaply is
+  whichever sorts first in a catalogue every other file is reading. It is asserted at the package
+  export for all three Listings, each in its own order, which is where the two ways a key can be null
+  are separable anyway.
+
+**MUTATIONS RUN AND READ RATHER THAN PREDICTED.** The cap removed from `listingInput` fails all
+three; `continuesAfter` naming the page's FIRST Row rather than its last fails all three walks; the
+id dropped from `pastTheRowIn` fails all three; the catalogue's sort key declared `everyRowHasIt`
+fails the two catalogue-ordered walks and leaves the ranking alone; `total` as a `count(*) over ()`
+fails all three size assertions **and no walk**, because the walk reads the size off page one where
+a window count is still right; the anchor's shape guard removed fails all three cursor assertions.
+**One was run and does NOT bite**: dropping the sort key from the ranking, between the closeness and
+the id, loses no Row — `(closeness desc, id)` is still total, and CNCORE-88's failure was the
+ORDER BY and the comparison disagreeing rather than the term being absent from both.
