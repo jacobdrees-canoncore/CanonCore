@@ -1330,3 +1330,207 @@ describe("provider.container", () => {
     expect((error as { code?: string })?.code).toBe("UNAUTHORIZED");
   });
 });
+
+/**
+ * A SECOND CONTAINER, so that a walk has somewhere to walk TO. One container
+ * proves a browse; two prove an order.
+ */
+const SONTARAN_STORIES = {
+  container: {
+    id: "402219",
+    title: "Category:Sontaran television stories",
+    kind: "category",
+    released: [],
+    writers: [],
+    series: null,
+    url: "https://tardis.wiki/wiki/Category:Sontaran_television_stories",
+  },
+  ordering: [
+    {
+      position: 1,
+      record: {
+        id: "104112",
+        title: "The Time Warrior (TV story)",
+        kind: "TV story",
+        released: ["1973-12-15"],
+        writers: ["Robert Holmes"],
+        series: null,
+        url: "https://tardis.wiki/wiki/The_Time_Warrior_(TV_story)",
+      },
+    },
+  ],
+  unplaced: [],
+};
+
+/** A provider holding both containers, which is the least a list needs. */
+const aProviderOfTwoContainers = (asked: string[] = []) =>
+  stubProvider(
+    { "265": TENTH_PLANET },
+    { containers: { "388305": VASHTA_NERADA, "402219": SONTARAN_STORIES }, asked },
+  );
+
+/**
+ * THE LIST, IN AN ORDER THAT IS NOT THE ORDER ANYTHING ELSE WOULD PUT IT IN.
+ * Sorted, these read 388305 then 402219 -- so a walk that lost the Owner's own
+ * order and fell back on the ids would answer the other way round.
+ */
+const THE_LIST = ["402219", "388305"];
+
+describe("provider.beginImportRun", () => {
+  it("opens a run over the list the Owner handed over, with nothing asked for yet", async () => {
+    const baseUrl = await aProviderOfTwoContainers();
+
+    const run = await call(
+      appRouter.provider.beginImportRun,
+      { baseUrl, containerIds: THE_LIST },
+      { context },
+    );
+
+    expect(run.containers).toEqual([
+      { containerId: "402219", outcome: "pending" },
+      { containerId: "388305", outcome: "pending" },
+    ]);
+  });
+
+  /**
+   * NO REQUEST LEAVES THE APP HERE, which is what separates opening a run from
+   * walking one. Opening writes down a list; it is `importNextContainer` that
+   * spends a third party's time (ADR-0131), and an Owner who typed a list of 465
+   * would otherwise wait five and a half hours before the first row of it existed.
+   */
+  it("asks the Provider nothing, because opening a run is writing a list down", async () => {
+    const asked: string[] = [];
+    const baseUrl = await aProviderOfTwoContainers(asked);
+
+    await call(appRouter.provider.beginImportRun, { baseUrl, containerIds: THE_LIST }, { context });
+
+    expect(asked).toEqual([]);
+  });
+});
+
+describe("provider.importNextContainer", () => {
+  it("browses the Container the Owner listed FIRST, and lands it", async () => {
+    const baseUrl = await aProviderOfTwoContainers();
+    const { runId } = await call(
+      appRouter.provider.beginImportRun,
+      { baseUrl, containerIds: THE_LIST },
+      { context },
+    );
+
+    const stepped = await call(appRouter.provider.importNextContainer, { runId }, { context });
+
+    expect(stepped).toMatchObject({ answer: "landed", containerId: "402219", placements: 1 });
+  });
+
+  it("walks the whole list, in the Owner's order, and then says it is done", async () => {
+    const baseUrl = await aProviderOfTwoContainers();
+    const { runId } = await call(
+      appRouter.provider.beginImportRun,
+      { baseUrl, containerIds: THE_LIST },
+      { context },
+    );
+
+    const walked = [
+      await call(appRouter.provider.importNextContainer, { runId }, { context }),
+      await call(appRouter.provider.importNextContainer, { runId }, { context }),
+      await call(appRouter.provider.importNextContainer, { runId }, { context }),
+    ];
+
+    expect(walked.map((step) => ("containerId" in step ? step.containerId : step.answer))).toEqual([
+      "402219",
+      "388305",
+      "done",
+    ]);
+  });
+
+  /**
+   * A PROVIDER THAT CANNOT ANSWER IS ONE CONTAINER'S FAILURE, NOT THE RUN'S
+   * (ADR-0123). The sentence is the third party's and is carried as such, which
+   * is what lets the Owner tell a lapsed Credential from an id they typed wrong.
+   */
+  it("records a Provider's own reason against the Container that refused", async () => {
+    const baseUrl = await stubProviderRefusingWith(LAPSED);
+    const { runId } = await call(
+      appRouter.provider.beginImportRun,
+      { baseUrl, containerIds: ["402219"] },
+      { context },
+    );
+
+    const stepped = await call(appRouter.provider.importNextContainer, { runId }, { context });
+
+    expect(stepped).toMatchObject({
+      answer: "refused",
+      containerId: "402219",
+      reason: { wrote: "provider", text: expect.stringContaining(LAPSED) },
+    });
+  });
+
+  /**
+   * ADR-0066 makes an id that addresses nothing an ANSWER rather than a failure,
+   * and the sentence saying so is CanonCore's own: nothing went wrong at the
+   * Provider, so attributing it to one would tell the Owner to go and look at a
+   * machine that is working.
+   */
+  it("refuses a Container the Provider holds nothing at, in CanonCore's own voice", async () => {
+    const baseUrl = await aProviderOfTwoContainers();
+    const { runId } = await call(
+      appRouter.provider.beginImportRun,
+      { baseUrl, containerIds: ["999999"] },
+      { context },
+    );
+
+    const stepped = await call(appRouter.provider.importNextContainer, { runId }, { context });
+
+    expect(stepped).toMatchObject({ answer: "refused", reason: { wrote: "canoncore" } });
+  });
+
+  /**
+   * ADR-0033 makes `browse` the operation a Provider may DECLINE, so a Provider
+   * offering only `search` and `lookup` is well-formed. The run says so against
+   * every Container rather than reading as a Provider that is broken.
+   */
+  it("refuses against a Provider that declares no browse, without asking it for one", async () => {
+    const asked: string[] = [];
+    const baseUrl = await stubProvider(
+      { "265": TENTH_PLANET },
+      { operations: ["search", "lookup"], asked },
+    );
+    const { runId } = await call(
+      appRouter.provider.beginImportRun,
+      { baseUrl, containerIds: ["402219"] },
+      { context },
+    );
+
+    const stepped = await call(appRouter.provider.importNextContainer, { runId }, { context });
+
+    expect(stepped).toMatchObject({ answer: "refused", reason: { wrote: "canoncore" } });
+    expect(asked.filter((path) => path.startsWith("/browse/"))).toEqual([]);
+  });
+
+  /**
+   * THE RUN IS WHAT REPORTS, and it has to still be reporting after the walk has
+   * finished: the Owner reads "which of my 465 refused" once, at the end, rather
+   * than by scrolling back through five and a half hours of output.
+   */
+  it("leaves the run reporting what landed and what refused, with each reason", async () => {
+    const baseUrl = await aProviderOfTwoContainers();
+    const { runId } = await call(
+      appRouter.provider.beginImportRun,
+      { baseUrl, containerIds: ["402219", "999999"] },
+      { context },
+    );
+
+    await call(appRouter.provider.importNextContainer, { runId }, { context });
+    await call(appRouter.provider.importNextContainer, { runId }, { context });
+    const reported = await call(appRouter.provider.readImportRun, { runId }, { context });
+
+    expect(reported.containers).toEqual([
+      { containerId: "402219", outcome: "landed", placements: 1, quarantinedValues: 0 },
+      {
+        containerId: "999999",
+        outcome: "refused",
+        reason: { wrote: "canoncore", text: expect.stringContaining("999999") },
+      },
+    ]);
+  });
+});

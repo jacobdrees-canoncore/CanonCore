@@ -4,13 +4,16 @@
   "exports": {
     ".": "./src/index.ts",
     "./context": "./src/context.ts",
+    "./import-list": "./src/import-list.ts",
     "./routers": "./src/routers/index.ts",
-    "./routers/provider": "./src/routers/provider.ts"
+    "./routers/provider": "./src/routers/provider.ts",
+    "./session-cookie": "./src/session-cookie.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "import:list": "node scripts/import-list.ts"
   },
   "dependencies": {
     "@canoncore/db": "workspace:*",

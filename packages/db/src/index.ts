@@ -22,6 +22,17 @@ export {
   type ProvidedRecord,
 } from "./import";
 export {
+  beginImportRun,
+  type ContainerOutcome,
+  type ImportRun,
+  nextPendingContainer,
+  type RefusalReason,
+  type RunContainer,
+  readImportRun,
+  recordContainerLanded,
+  recordContainerRefused,
+} from "./import-runs";
+export {
   type AssertedPlacement,
   assertPlacement,
   movePlacementByHand,

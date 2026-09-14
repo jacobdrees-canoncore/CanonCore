@@ -309,6 +309,16 @@ The CMPP operation returning one record by its stable id. Required of every prov
 The optional CMPP operation returning a container together with its ordering, so it yields
 placements directly.
 
+**Import run**:
+One walk over a LIST of Container ids at one Provider, and where it got to. The list is the Owner's
+own -- nothing in CMPP answers "which Containers do you have" -- and the walk browses one Container
+at a time because a Provider is one process. A Container of a run is done when it has LANDED, so
+handing the same list over again asks again for whatever refused as well as for whatever was never
+reached: a lapsed Credential does not stop a run, it makes the rest of it refuse (ADR-0135).
+_Not_ the Run below, which is one execution of a Task. An import run is something the Owner starts,
+never recurring work the catalogue does for itself.
+_Avoid_: bulk import, batch, job, queue
+
 **Credential**:
 What a Provider needs to reach its own upstream — a token, a session, whatever that upstream asks
 of it. A Provider declares the one it needs and where to supply it; the Owner supplies it TO THE
@@ -440,6 +450,8 @@ _Avoid_: schedule (as a noun for this), cron
 One execution of one task, with when it started, when it stopped and how it ended. What makes last
 night's failure visible: a registry holding this in memory would answer only until the process
 restarted.
+_Not_ the Import run above, which is a walk the Owner starts over a list they supplied. Both are
+called a run and neither is the other: this one is keyed by a Task and fires on a Trigger.
 
 **Outcome**:
 How a run ended, and one of five. `running` while it has not; `completed`; `failed` when the task

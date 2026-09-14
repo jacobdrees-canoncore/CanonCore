@@ -2,15 +2,14 @@ import { inspect } from "node:util";
 
 import { createContext } from "@canoncore/api/context";
 import { appRouter } from "@canoncore/api/routers";
+import { SESSION_COOKIE } from "@canoncore/api/session-cookie";
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
 import { onError } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
 import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 import type { NextRequest } from "next/server";
-
 import { isARefusal } from "@/answer";
-import { SESSION_COOKIE } from "@/session";
 
 /**
  * THE ONE THING THIS MOUNT SAYS TO THE OWNER, and it says it about faults only

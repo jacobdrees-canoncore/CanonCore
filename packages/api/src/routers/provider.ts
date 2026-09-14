@@ -1,13 +1,19 @@
 import {
+  beginImportRun,
   type Database,
   findItemsProvided,
   type ImportedContainer,
   type ImportedRecord,
   importBrowsedContainer,
   importProvidedRecord,
+  nextPendingContainer,
   type PurgedProvider,
   previewProviderPurge,
   purgeProvider,
+  type RunContainer,
+  readImportRun,
+  recordContainerLanded,
+  recordContainerRefused,
 } from "@canoncore/db";
 import {
   type Allowlist,
@@ -433,6 +439,106 @@ const candidate = z.object({
   /** The Item this provider's record is already held as, or `null`. */
   itemId: z.uuid().nullable(),
 });
+
+/**
+ * ONE CONTAINER OF A RUN, as a caller reads it back.
+ *
+ * A UNION RATHER THAN NULLABLE FIELDS, because the three outcomes carry
+ * different things: what landed says what it wrote, what refused says why, and
+ * what has not been asked for yet says neither. It is migration 18's two
+ * equivalence checks in the shape a caller holds them.
+ */
+const runContainer = z.discriminatedUnion("outcome", [
+  z.object({
+    /** The Provider's own id, which is what the Owner put in their list (ADR-0033). */
+    containerId: z.string().min(1),
+    outcome: z.literal("pending"),
+  }),
+  z.object({
+    containerId: z.string().min(1),
+    outcome: z.literal("landed"),
+    /** How many Placements this Container's browse wrote, its unplaced members included. */
+    placements: z.number().int().nonnegative(),
+    /** How many values arrived broken and were held apart from the live set (CNCORE-29). */
+    quarantinedValues: z.number().int().nonnegative(),
+  }),
+  z.object({
+    containerId: z.string().min(1),
+    outcome: z.literal("refused"),
+    /** WHOSE SENTENCE, AND THE SENTENCE (ADR-0123). A surface attributes a Provider's and not ours. */
+    reason: failureReason,
+  }),
+]);
+
+/** A run and every Container of it, in the order the Owner listed them. */
+const importRunReport = z.object({
+  runId: z.uuid(),
+  containers: z.array(runContainer),
+});
+
+/** The run as the wire carries it: the store's union, renamed to the Owner's word. */
+function asReportedContainer(container: RunContainer): z.infer<typeof runContainer> {
+  if (container.outcome === "landed") {
+    return {
+      containerId: container.externalId,
+      outcome: "landed",
+      placements: container.placements,
+      quarantinedValues: container.quarantinedValues,
+    };
+  }
+  if (container.outcome === "refused") {
+    return {
+      containerId: container.externalId,
+      outcome: "refused",
+      reason: container.reason,
+    };
+  }
+  return { containerId: container.externalId, outcome: "pending" };
+}
+
+/**
+ * ONE CONTAINER BROWSED INTO THE CATALOGUE, or the reason it was not.
+ *
+ * EVERY FAILURE IS AN ANSWER HERE, which is `provider.container`'s posture on
+ * the write side and the reason this walk can finish at all. `provider.browse`
+ * declares three errors, and an error stops a caller: a list of 465 whose
+ * seventh id was deleted last week would end at the seventh. What the Owner
+ * needs instead is the other 458 imported and a sentence about the one that was
+ * not, which is this ticket's whole "visible rather than silent".
+ *
+ * A THROW STILL MEANS A FAULT, and that line is deliberately where
+ * `ProviderFailed` already draws it: what a Provider did is an answer, and what
+ * THIS catalogue failed at -- a write that would not commit -- is not the
+ * Provider's to be blamed for and must not be recorded as its refusal.
+ */
+async function oneContainerIntoTheCatalogue(
+  db: Database,
+  allowlist: Allowlist,
+  { baseUrl, containerId }: BrowseRequest,
+): Promise<{ landed: ImportedContainer } | { refused: FailureReason }> {
+  try {
+    const browsed = await browseIntoCatalogue(db, allowlist, { baseUrl, containerId });
+    if (browsed) return { landed: browsed };
+    // ADR-0066: an id that addresses nothing is an ANSWER. The sentence is
+    // CanonCore's own, because nothing went wrong at the Provider -- attributing
+    // it to one would send the Owner to look at a machine that is working.
+    return {
+      refused: {
+        wrote: "canoncore",
+        text: `That Provider holds no Container at ${bounded(containerId)}.`,
+      },
+    };
+  } catch (error) {
+    if (error instanceof ProviderFailed) return { refused: error.reason };
+    // ADR-0033 makes declining `browse` well-formed, so this is not the Provider
+    // being broken. The sentence is ours, and it already carries the Provider's
+    // own bounded name.
+    if (error instanceof BrowseNotOffered) {
+      return { refused: { wrote: "canoncore", text: bounded(error.message) } };
+    }
+    throw error;
+  }
+}
 
 export const provider = {
   /**
@@ -1108,5 +1214,162 @@ export const provider = {
     .output(purgeCounts)
     .handler(async ({ input, context }): Promise<PurgedProvider> => {
       return previewProviderPurge(context.db, { identity: input.baseUrl });
+    }),
+
+  /**
+   * Opens -- or carries on -- a walk over a list of Container ids at one
+   * Provider (CNCORE-166).
+   *
+   * IMPORTING A CORPUS IS 465 FORM SUBMISSIONS OTHERWISE. `browse` takes ONE
+   * container id (ADR-0033) and nothing in CMPP answers "which Containers do you
+   * have", so the ids are supplied rather than enumerated -- and supplying them
+   * one at a time, 465 times, is what this replaces.
+   *
+   * IT WRITES THE LIST DOWN AND ASKS THE PROVIDER NOTHING. The walk is
+   * `importNextContainer` below, one Container a call, and the split is what
+   * makes a five-and-a-half-hour import possible at all: no single request waits
+   * on more than one browse, and where the walk has got to is a row rather than
+   * something held in a caller's memory.
+   *
+   * HANDING OVER THE SAME LIST AGAIN CARRIES ON RATHER THAN STARTING OVER, which
+   * is what makes the Owner's own command the whole of the interface: they type
+   * it again and it resumes. A run is still walking while a Container of it has
+   * not LANDED, so what a lapsed Credential refused is asked for again (ADR-0122)
+   * -- and a list whose every Container landed opens a fresh run, which is how a
+   * re-import refreshes rather than doing nothing.
+   *
+   * THE OWNER'S, BECAUSE THE WALK IT OPENS SPENDS A THIRD PARTY'S TIME
+   * (ADR-0131) and because everything that changes the catalogue is
+   * (CNCORE-109).
+   */
+  beginImportRun: ownerProcedure
+    .input(
+      z.object({
+        /** A CONFIG URL, travelling ADR-0034's allowlist as `browse`'s does. */
+        baseUrl: z.url(),
+        /**
+         * The Provider's own ids for the Containers, in the order they are to be
+         * imported.
+         *
+         * AT LEAST ONE, because a run over nothing is a row nobody asked for.
+         */
+        containerIds: z.array(z.string().min(1)).min(1),
+      }),
+    )
+    .output(importRunReport)
+    .handler(async ({ input, context }) => {
+      const run = await beginImportRun(context.db, {
+        providerIdentity: input.baseUrl,
+        containerIds: input.containerIds,
+      });
+      return { runId: run.id, containers: run.containers.map(asReportedContainer) };
+    }),
+
+  /**
+   * Browses the next Container of a run into the catalogue, and answers what
+   * came of it.
+   *
+   * ONE CONTAINER A CALL, AND THAT IS THE TICKET'S "one at a time" HELD BY THE
+   * SHAPE RATHER THAN BY A CONVENTION. A caller has nothing to parallelise: this
+   * answers the Container it did, and which one is next is a question only the
+   * run can answer once this one is recorded. The reason is measured --
+   * `provider-wiki` is one Node process, and two concurrent browses of the
+   * largest Ordering took 49.1s each against 25.5s alone (2026-09-13) -- so
+   * parallelism here would be slower as well as ruder.
+   *
+   * IT TAKES NO PROVIDER, which is the other half of that. The run knows which
+   * Provider it is at; a caller free to name one could walk a list of one
+   * Provider's ids at another, and an external id means nothing outside the
+   * namespace that minted it (ADR-0078).
+   *
+   * A REFUSAL IS AN ANSWER AND THE WALK GOES ON. `provider.browse` declares three
+   * errors because a caller pressing a button needs to be told which of them it
+   * hit; a walk of 465 needs the other 464 imported, and the refusal written
+   * down where the run reports it.
+   */
+  importNextContainer: ownerProcedure
+    .input(z.object({ runId: z.uuid() }))
+    .output(
+      z.discriminatedUnion("answer", [
+        z.object({
+          answer: z.literal("landed"),
+          /** The Provider's own id, as the Owner listed it. */
+          containerId: z.string().min(1),
+          /** The Container as this catalogue now holds it. */
+          itemId: z.uuid(),
+          placements: z.number().int().nonnegative(),
+          quarantinedValues: z.number().int().nonnegative(),
+          /** How many Containers are still to be asked for after this one. */
+          remaining: z.number().int().nonnegative(),
+        }),
+        z.object({
+          answer: z.literal("refused"),
+          containerId: z.string().min(1),
+          reason: failureReason,
+          remaining: z.number().int().nonnegative(),
+        }),
+        /** Every Container has been asked for. The run is what reports. */
+        z.object({ answer: z.literal("done") }),
+      ]),
+    )
+    .handler(async ({ input, context }) => {
+      const next = await nextPendingContainer(context.db, input.runId);
+      if (!next) return { answer: "done" as const };
+
+      const { allowlist } = await context.providerSettings();
+      const outcome = await oneContainerIntoTheCatalogue(context.db, allowlist, {
+        baseUrl: next.providerIdentity,
+        containerId: next.externalId,
+      });
+      const remaining = next.pending - 1;
+
+      if ("refused" in outcome) {
+        await recordContainerRefused(context.db, {
+          runId: input.runId,
+          externalId: next.externalId,
+          reason: outcome.refused,
+        });
+        return {
+          answer: "refused" as const,
+          containerId: next.externalId,
+          reason: outcome.refused,
+          remaining,
+        };
+      }
+
+      await recordContainerLanded(context.db, {
+        runId: input.runId,
+        externalId: next.externalId,
+        placements: outcome.landed.placements.length,
+        quarantinedValues: outcome.landed.quarantinedValues,
+      });
+      return {
+        answer: "landed" as const,
+        containerId: next.externalId,
+        itemId: outcome.landed.containerId,
+        placements: outcome.landed.placements.length,
+        quarantinedValues: outcome.landed.quarantinedValues,
+        remaining,
+      };
+    }),
+
+  /**
+   * What a run did: every Container of it, in the Owner's order, with what
+   * landed and what refused.
+   *
+   * READ BACK RATHER THAN ONLY STREAMED, because a walk of five and a half hours
+   * is one nobody watches to the end. "Which of my 465 refused, and why" is a
+   * question asked once, afterwards -- and a caller that had to accumulate it
+   * from every step would lose the lot to a closed terminal.
+   *
+   * NO REQUEST LEAVES THE APP. It reads this instance's own rows, so it answers
+   * for a Provider that is switched off exactly as for one that is running.
+   */
+  readImportRun: ownerProcedure
+    .input(z.object({ runId: z.uuid() }))
+    .output(importRunReport)
+    .handler(async ({ input, context }) => {
+      const run = await readImportRun(context.db, input.runId);
+      return { runId: run.id, containers: run.containers.map(asReportedContainer) };
     }),
 };

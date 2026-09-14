@@ -827,3 +827,126 @@ export const settings = pgTable(
   },
   () => [uniqueIndex("settings_single_row").on(sql`(true)`)],
 );
+
+/**
+ * ONE WALK OVER A LIST OF CONTAINERS AT ONE PROVIDER, and where it got to
+ * (CNCORE-166, migration 18).
+ *
+ * WHY THE WALK'S POSITION IS A ROW RATHER THAN A VARIABLE. The wiki's corpus is
+ * 465 Containers and a Container costs 43.8s end to end (measured against the
+ * live wiki, 2026-09-13), so the whole list is about five and a half hours. A
+ * walk keeping its position in one process's memory starts again from the
+ * beginning whenever anything interrupts it -- and the thing that interrupts it
+ * is the ordinary one: ADR-0122's Credential lapses, and every Container after
+ * that point refuses.
+ *
+ * IT IS `task_runs`'s ARGUMENT AT A FINER GRAIN. ADR-0049 opens a run when it
+ * STARTS rather than writing one when it finishes, because a history written
+ * only on completion cannot describe the run that never finished. What a resume
+ * needs to read back here is not whether the run finished but WHICH OF ITS 465
+ * CONTAINERS DID, so the rows that carry an outcome are the Containers.
+ */
+export const importRuns = pgTable(
+  "import_runs",
+  {
+    id: idColumn(),
+    ...ownedColumns(),
+    /**
+     * Which Provider this walk is at, as the base URL that IS its identity
+     * (ADR-0031).
+     *
+     * NOT A FOREIGN KEY TO `sources`, though that table holds the same string
+     * for the same Provider. A run may be opened against a Provider this
+     * catalogue has never imported from -- the ordinary case on a fresh install
+     * -- and `sources` has no row for one until the first import writes it.
+     */
+    providerIdentity: text("provider_identity").notNull(),
+    ...lifecycleColumns(),
+  },
+  (t) => [
+    // How a resume finds its run: the runs at one Provider, newest first.
+    index("import_runs_by_provider").on(t.providerIdentity, t.createdAt.desc()),
+  ],
+);
+
+/**
+ * ONE CONTAINER'S PLACE IN ONE RUN, and how asking for it went.
+ *
+ * A RUN IS OPEN EXACTLY WHILE ONE OF THESE IS `pending`, which is why
+ * `import_runs` carries no column saying so. The same fact stored twice is two
+ * facts free to disagree, which is the argument migration 13 makes for
+ * `task_runs_running_has_no_end`.
+ */
+export const importRunContainers = pgTable(
+  "import_run_containers",
+  {
+    id: idColumn(),
+    ...ownedColumns(),
+    runId: uuid("run_id")
+      .notNull()
+      .references(() => importRuns.id),
+    /** The Provider's own id for the Container, the one `browse` takes (ADR-0033). */
+    externalId: text("external_id").notNull(),
+    /**
+     * WHERE THIS CONTAINER SAT IN THE LIST THE OWNER HANDED OVER, and NEVER a
+     * Placement's Position (ADR-0018, `CONTEXT.md`). A Placement's Position is a
+     * claim about an Ordering that a Source made; this is the order somebody
+     * typed 465 lines in. Zero-based, because it indexes what the caller passed
+     * rather than anything a reader is shown.
+     */
+    listPosition: integer("list_position").notNull(),
+    /**
+     * `pending` until this Container has been asked for, and then how it went.
+     *
+     * `refused` COVERS THE THREE WAYS ONE CONTAINER FAILS WITHOUT THE RUN
+     * FAILING: the Provider could not be reached or answered badly, the Provider
+     * declines `browse` (ADR-0033 makes that well-formed), and the Provider
+     * holds nothing at that id (ADR-0066 makes that an answer). The REASON tells
+     * them apart, because what the Owner does about each is read off the
+     * sentence and nothing in this catalogue branches on which of the three it
+     * was.
+     */
+    outcome: text("outcome").notNull().default("pending"),
+    /** What `browse` answered: how many Placements landed, and what was held apart (CNCORE-29). */
+    placements: integer("placements"),
+    quarantinedValues: integer("quarantined_values"),
+    /**
+     * Why it refused, in ADR-0123's two fields: whose sentence this is, and the
+     * sentence. Bounded by `reasonFor` in `@canoncore/providers` rather than by
+     * these columns, exactly as `task_runs.detail` is bounded by the registry.
+     */
+    reasonText: text("reason_text"),
+    reasonWrote: text("reason_wrote"),
+    ...lifecycleColumns(),
+  },
+  (t) => [
+    check(
+      "import_run_containers_outcome_is_known",
+      sql`${t.outcome} in ('pending', 'landed', 'refused')`,
+    ),
+    // WHAT LANDED SAYS WHAT IT WROTE, AND WHAT REFUSED SAYS WHY -- as an
+    // equivalence rather than as nullable columns nobody checks, so a `refused`
+    // with no sentence is a row this database will not hold.
+    check(
+      "import_run_containers_landed_counts_what_it_wrote",
+      sql`(${t.outcome} = 'landed') = (${t.placements} is not null and ${t.quarantinedValues} is not null)`,
+    ),
+    check(
+      "import_run_containers_refused_says_why",
+      sql`(${t.outcome} = 'refused') = (${t.reasonText} is not null and ${t.reasonWrote} is not null)`,
+    ),
+    check(
+      "import_run_containers_reason_wrote_is_known",
+      sql`${t.reasonWrote} is null or ${t.reasonWrote} in ('canoncore', 'provider')`,
+    ),
+    // The order every read of a run asks for, and unique because two Containers
+    // cannot share a place in one list -- which is what makes the order total
+    // rather than merely usual.
+    uniqueIndex("import_run_containers_in_list_order").on(t.runId, t.listPosition),
+    // ONE CONTAINER APPEARS ONCE IN A RUN. A list naming an id twice would spend
+    // 43.8s asking a Provider a question it has already answered, and would give
+    // the run two answers for one Container. ADR-0009's REPEAT is the opposite
+    // case and untouched: a story may sit twice in one ORDERING.
+    uniqueIndex("import_run_containers_named_once").on(t.runId, t.externalId),
+  ],
+);

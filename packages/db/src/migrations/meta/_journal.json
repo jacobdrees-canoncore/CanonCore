@@ -127,6 +127,13 @@
       "when": 1789381800000,
       "tag": "20260914103000_migration_17_a_sort_name_is_derived",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1789387200000,
+      "tag": "20260914120000_migration_18_a_run_over_a_list_of_containers",
+      "breakpoints": true
     }
   ]
 }

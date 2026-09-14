@@ -206,6 +206,32 @@ only way a database gets its shape here.
 
 The OpenAPI reference is served at `/api/rpc/api-reference`.
 
+### Importing a list of Containers
+
+A Provider's `browse` takes ONE container id and CMPP has no operation answering "which Containers
+do you have" (ADR-0033), so importing a corpus means handing over the ids yourself. `import:list`
+walks them, one at a time, into a RUNNING instance:
+
+```bash
+OWNER_PASSWORD=... pnpm --filter @canoncore/api import:list \
+  --at http://localhost:3000 \
+  --provider http://provider-wiki:8080 \
+  --list ./timelines.txt
+```
+
+One id a line; blank lines and `#` comments are ignored. `--provider` is the Provider AS THE
+INSTANCE REACHES IT, which is why a Compose service name belongs there rather than a URL that
+resolves on your own machine.
+
+**Stop it and run it again to carry on.** Where the walk got to is rows (ADR-0135), so the same
+command resumes the same run and asks again only for what has not landed -- which includes whatever
+refused, because a lapsed Credential does not stop a run, it makes the rest of it refuse. One
+Container a call, because a Provider is one process.
+
+**It needs this checkout.** An install from `compose.yaml` alone has the app and its database and no
+way to run this, so bulk import is the Owner's path rather than a stranger's today. Importing one
+Container at a time from `/import` is on every install.
+
 ### One container, a database per worktree
 
 **The container publishes 55432, not 5432, and that is not a preference.** A machine that already

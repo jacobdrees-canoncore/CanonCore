@@ -1,18 +1,9 @@
 import { createContext } from "@canoncore/api/context";
+import { SESSION_COOKIE } from "@canoncore/api/session-cookie";
 import { SESSION_LIFETIME_SECONDS } from "@canoncore/db";
 import { env } from "@canoncore/env/server";
 import { cookies } from "next/headers";
 import { cache } from "react";
-
-/**
- * WHERE THE OWNER'S TOKEN LIVES between requests.
- *
- * A COOKIE RATHER THAN A HEADER, because the surface that writes is a set of
- * `<form>`s that work with no JavaScript (ADR-0103's fourth seam replays them).
- * Nothing runs on the page to attach an `Authorization` header to a form post,
- * and a hidden field carrying the token would put it in the page's own HTML.
- */
-export const SESSION_COOKIE = "canoncore_session";
 
 /**
  * What the request carries, for a caller that may or may not be the owner.
