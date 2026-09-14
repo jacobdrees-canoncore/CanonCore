@@ -72,6 +72,15 @@ services:
       # would depend on which file the reader trusted. Empty is undefined to
       # `createEnv`, which is what lets the schema decide.
       DATABASE_MAX_CONNECTIONS: ${DATABASE_MAX_CONNECTIONS:-}
+    networks:
+      # BOTH, AND NAMING ONE WOULD HAVE COST THE OTHER. A service with no
+      # `networks:` key joins `default`; the key REPLACES that implicit list
+      # rather than adding to it, so `- providers` alone would take this app off
+      # the network `database` is on. It would then start, fail its migration on
+      # a hostname that no longer resolves, and crash-loop under `restart` --
+      # a first install broken by a line meant to reach a Provider.
+      - default
+      - providers
     ports:
       - "${CANONCORE_PORT:-3000}:3000"
 
@@ -94,6 +103,36 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+networks:
+  # THE NETWORK A PROVIDER RUNS ON BESIDE THIS INSTALL, and the whole route
+  # between the two. Compose gives a service its own name as an alias on every
+  # network it joins, and that holds ACROSS Compose projects -- which is what an
+  # install and a Provider beside it are -- so a Provider whose service is named
+  # `provider-wiki` answers this app at `http://provider-wiki:8080`. Without it
+  # an install reaches only PUBLIC Providers: the app sits on Compose's default
+  # bridge with ordinary egress, and nothing the Owner runs alongside is on it.
+  #
+  # CREATED HERE AND JOINED THERE, which is the direction that cannot deadlock. A
+  # Provider declares this network `external: true` and stops until it exists,
+  # which is right for something useless without an install. Declared external
+  # HERE as well and neither end would make it, so a first install would fail on
+  # a network that does not exist yet -- the trap `canoncore_data` below records,
+  # on a second object.
+  #
+  # THE NAME IS THE SAME STRING IN ANOTHER REPOSITORY AND NOTHING CHECKS THAT.
+  # `provider-wiki`'s own `compose.yaml` joins `canoncore_providers` by that
+  # name; no test here can read a file over there, and no test there can read
+  # this one. `packages/env/src/install-path.test.ts` holds the half that is
+  # checkable -- the network exists, the app is on it, the database is not, and
+  # the README tells a stranger what it is called.
+  #
+  # PINNED, for the reason `canoncore_data` is: without `name:` the network is
+  # prefixed with the Compose project, which is the DIRECTORY's name, so the
+  # string a Provider has to join would depend on what the installer called
+  # their folder.
+  providers:
+    name: canoncore_providers
 
 volumes:
   # NAMED EXPLICITLY, so the catalogue survives the directory being renamed.

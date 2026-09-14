@@ -137,7 +137,11 @@ const composeFile = join(repoRoot, "compose.yaml");
 const dockerfile = join(repoRoot, "Dockerfile");
 
 type Compose = {
-  services?: Record<string, { image?: string; environment?: Record<string, string> }>;
+  services?: Record<
+    string,
+    { image?: string; environment?: Record<string, string>; networks?: string[] }
+  >;
+  networks?: Record<string, { name?: string; external?: boolean }>;
 };
 
 const compose = (contents: string = readFileSync(composeFile, "utf8")) =>
@@ -484,5 +488,181 @@ describe("what the README's install section says about the allowlist", () => {
 
     expect(section).toContain("/settings");
     expect(section).toMatch(/empty allowlist refuses every provider/);
+  });
+});
+
+/**
+ * The networks a service joins, as the keys `compose.yaml` names them by.
+ *
+ * A SERVICE WITH NO `networks:` KEY JOINS `default`, and that implicit join is
+ * the whole reason this is a reader rather than a property lookup. The key does
+ * not ADD to the implicit list, it REPLACES it -- so a service that names one
+ * network to reach a Provider silently leaves the network the database is on.
+ */
+function networksJoinedBy(service: string, parsed: Compose = compose()): string[] {
+  return parsed.services?.[service]?.networks ?? ["default"];
+}
+
+/**
+ * The network the app joins so that a Provider running beside the install is
+ * reachable: the one it is on that is not the project's own default.
+ *
+ * FOUND RATHER THAN NAMED, so the string lives in `compose.yaml` alone. The name
+ * is a cross-repo contract -- `provider-wiki`'s own `compose.yaml` joins it as an
+ * EXTERNAL network -- and a copy of it here would be a second place to change
+ * and a second place to be wrong. What this repository can hold is that the
+ * network exists, that the app is on it, and that the README tells a stranger
+ * what it is called; the other repository's copy is beyond anything here, which
+ * that file says out loud in its own comment.
+ */
+function providerNetwork(parsed: Compose = compose()): string {
+  const beside = networksJoinedBy(APP_SERVICE, parsed).filter((name) => name !== "default");
+  if (beside.length !== 1) {
+    throw new Error(
+      `compose.yaml puts \`${APP_SERVICE}\` on ${JSON.stringify(beside)}, so it has no network of ` +
+        "its own for a Provider beside the install -- or more than one, and nothing here knows " +
+        "which of them a Provider is meant to join.",
+    );
+  }
+  return beside[0] as string;
+}
+
+/**
+ * The Provider addresses the install section holds up: a URL whose host is a
+ * bare name rather than `localhost`.
+ *
+ * THE TWO ADDRESSES ARE THE WHOLE DIFFICULTY OF RUNNING A PROVIDER BESIDE AN
+ * INSTALL, and this reader is the one that can tell them apart. The APP reaches
+ * a Provider on its container hostname, over the network below; the OWNER'S
+ * BROWSER reaches the same Provider on a port it publishes to the host. A
+ * section showing only `http://localhost:...` would be telling the Owner to name
+ * an address the app cannot resolve, which arrives on the settings page as "this
+ * Provider cannot be reached" with nothing saying why.
+ */
+function containerAddresses(section: string = installSection()): string[] {
+  return [...section.matchAll(/http:\/\/([a-z][a-z0-9-]*):(\d+)/g)]
+    .filter(([, host]) => host !== "localhost")
+    .map(([url]) => url);
+}
+
+describe("the network a Provider beside the install joins", () => {
+  it("reads the networks a service joins, with no key of its own meaning the default one", () => {
+    const parsed = compose(
+      [
+        "services:",
+        "  named:",
+        "    networks: [providers, default]",
+        "  silent:",
+        "    image: x",
+      ].join("\n"),
+    );
+
+    expect(networksJoinedBy("named", parsed)).toStrictEqual(["providers", "default"]);
+    expect(networksJoinedBy("silent", parsed)).toStrictEqual(["default"]);
+  });
+
+  it("picks the one network the app is on that is not the project's own default", () => {
+    expect(
+      providerNetwork(
+        compose(["services:", "  canoncore:", "    networks: [default, beside]"].join("\n")),
+      ),
+    ).toBe("beside");
+  });
+
+  it("refuses to guess when the app is on the default network alone", () => {
+    expect(() =>
+      providerNetwork(compose(["services:", "  canoncore:", "    image: x"].join("\n"))),
+    ).toThrow(/no network of its own/);
+  });
+
+  /**
+   * THE DIRECTION THAT CANNOT DEADLOCK. `provider-wiki` declares this network
+   * `external: true` and joins it; something has to CREATE it, and the install
+   * that the Provider exists to serve is the only end that can. Declared
+   * external here too and neither end makes it, so a first install fails on a
+   * network that does not exist yet -- the same trap this file already records
+   * against `canoncore_data`, on a second object.
+   *
+   * AND THE NAME IS PINNED, for the reason that volume's is. Without `name:` the
+   * network is prefixed with the Compose project, which is the DIRECTORY's name,
+   * so the string the other repository joins would depend on what a stranger
+   * called the folder they installed into.
+   */
+  it("creates that network here under a pinned name rather than expecting to find one", () => {
+    const parsed = compose();
+    // Read out of the chain rather than into it: `parsed.networks?.[...]`
+    // short-circuits the computed key too, so with no `networks:` at all the
+    // reader above never runs and its refusal never reaches the report.
+    const beside = providerNetwork(parsed);
+    const declared = parsed.networks?.[beside];
+
+    expect(declared).toBeDefined();
+    expect(declared?.external ?? false).toBe(false);
+    expect(declared?.name).toEqual(expect.any(String));
+  });
+
+  /**
+   * AND THE APP IS STILL ON THE NETWORK THE DATABASE IS ON. This is the cost of
+   * the `networks:` key rather than a second thought about it: the key replaces
+   * the implicit `default` join, so the line that reaches a Provider is one
+   * character away from taking the catalogue's own Postgres out of reach.
+   * `database` names no network, so `default` is where it is and where this has
+   * to stay.
+   */
+  it("leaves the app on the default network, which is where the database is", () => {
+    const parsed = compose();
+
+    expect(networksJoinedBy(APP_SERVICE, parsed)).toContain("default");
+    expect(networksJoinedBy("database", parsed)).toContain("default");
+  });
+
+  /**
+   * AND THE DATABASE IS NOT ON THE PROVIDER'S. A Provider is a stranger's
+   * program the Owner chose to run beside their catalogue, and the network that
+   * lets the app reach it would let it reach anything else on that network. The
+   * app is the one service that belongs on both; nothing else does, and a second
+   * service quietly added to the list is how a Provider ends up a hostname away
+   * from the Postgres.
+   */
+  it("puts nothing but the app on it, so a Provider cannot reach the catalogue's database", () => {
+    const parsed = compose();
+    const beside = providerNetwork(parsed);
+
+    const exposed = Object.keys(parsed.services ?? {}).filter(
+      (service) => service !== APP_SERVICE && networksJoinedBy(service, parsed).includes(beside),
+    );
+    expect(exposed).toStrictEqual([]);
+  });
+
+  /**
+   * AND THE README CALLS IT WHAT THIS FILE CALLS IT. A stranger cannot read
+   * `compose.yaml`'s `networks:` key out of the file they downloaded and know
+   * what to join -- the Provider's own instructions ask for a name, and the
+   * README is where they get it. Taken off the compose file rather than typed
+   * here, so a rename moves the document with it instead of leaving a third copy
+   * to disagree.
+   */
+  it("names that network in the README's install section, taken off the compose file", () => {
+    const parsed = compose();
+    const pinned = parsed.networks?.[providerNetwork(parsed)]?.name;
+
+    expect(installSection()).toContain(String(pinned));
+  });
+
+  it("tells a container address from the localhost one the Owner's browser uses", () => {
+    expect(
+      containerAddresses(
+        "The app reaches http://the-provider:8080; you reach <http://localhost:8081/unlock>.",
+      ),
+    ).toStrictEqual(["http://the-provider:8080"]);
+  });
+
+  /**
+   * AND THE SECTION SHOWS ONE. Everything else in this README is an address on
+   * the host, so the container form is the one a reader has met nowhere yet and
+   * the one they will otherwise guess wrong.
+   */
+  it("shows a stranger an address of the shape a Provider beside the install answers on", () => {
+    expect(containerAddresses()).not.toStrictEqual([]);
   });
 });

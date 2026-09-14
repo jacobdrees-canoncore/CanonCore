@@ -59,6 +59,47 @@ fault. A Provider needs to be in both -- named so it is searched, allowlisted so
 the request is permitted -- and the settings page says which of the two is
 refusing one.
 
+### A Provider beside it
+
+Naming a Provider on that page only works if this install can reach it. One on
+the open internet it can: the app has ordinary egress. **A Provider you run on
+this same machine has to be on a Docker network the app is also on**, and
+`compose.yaml` creates one for exactly that, called `canoncore_providers`.
+
+Run the Provider with Compose too, in its own directory, and have its file join
+that network rather than make one:
+
+```yaml
+services:
+  the-provider:
+    image: ...
+    networks:
+      - canoncore
+
+networks:
+  canoncore:
+    name: canoncore_providers
+    external: true
+```
+
+`external: true` there means find it, do not make it. **Bring CanonCore up
+first**, because CanonCore's `compose.yaml` is the end that makes it: started
+the other way round, the Provider stops with `network canoncore_providers
+declared as external, but could not be found`.
+
+Then name it on the settings page **by its service name and the port it serves
+on, never by an address on this machine**: the service called `the-provider`
+above answers the app at `http://the-provider:8080`. Compose gives a service its
+own name as a hostname on every network it joins, and that holds across Compose
+projects, which is what an install and a Provider beside it are. Put the same
+name in the allowlist, because a Provider has to be in both.
+
+**Anything the Provider asks YOU to open is a different address.** A container
+hostname means nothing to a browser, so a Provider with a page of its own -- one
+where you hand it a Credential, say -- publishes a port to this machine for it
+and its own instructions say which. `http://localhost:<that port>` is yours;
+`http://the-provider:8080` is the app's, and the two are not interchangeable.
+
 ### What it reads
 
 The app refuses to start unless `DATABASE_URL` is set, and `compose.yaml` builds
