@@ -131,6 +131,17 @@ networks:
   # prefixed with the Compose project, which is the DIRECTORY's name, so the
   # string a Provider has to join would depend on what the installer called
   # their folder.
+  #
+  # THE COST, SAID OUT LOUD: `docker compose down` with a Provider still attached
+  # cannot take this network with it. MEASURED 2026-09-14 -- Compose prints
+  #
+  #   Network canoncore_providers  Removing
+  #   Network canoncore_providers  Resource is still in use
+  #
+  # and finishes. That reads like a failure and is the right outcome: the
+  # Provider is a container this project does not own and must not be
+  # disconnected from under it, the network survives for the next `up`, and
+  # nothing is left half-removed. It goes when the last Provider on it does.
   providers:
     name: canoncore_providers
 
