@@ -764,11 +764,12 @@ the last ordering minted is one of the two nobody named, and its placement is th
 stands behind, so it is null on the leading key and on both rank terms and nothing is behind it on
 any term. Mutation-checked by aiming that test at a row that is NOT last, which fails it.
 
-## The rule became a VALUE rather than a sentence (CNCORE-169), and ONE Listing is on it
+## The rule became a VALUE rather than a sentence (CNCORE-169), and every Listing is on it (CNCORE-170)
 
-**THIS RECORD'S `accepted` IS ABOUT THE WALK, WHICH IS WHOLE, AND NOT ABOUT THIS SECTION.** Every
-one of the five Listings is capped, counted and walked forward, which is what this record decides.
-What this section adds is half built by construction, and says so below.
+**THIS SECTION IS WHOLE NOW, AND SO IS THE RECORD.** Its `accepted` was scoped to the walk while
+this section was half built; all five Listings derive their order and their cursor from one value
+since CNCORE-170, so the scoping is spent. What each of the two tickets built is below, in that
+order, because the second had to make the interface carry two shapes the first could not.
 
 **THIS RECORD STATED "the comparison must name EVERY term the `ORDER BY` does" AND NOTHING
 ENFORCED IT.** The order and the comparison were two independent statements that a paragraph
@@ -792,31 +793,70 @@ what this repository refuses for `duplicate` and `record`. "The order" is what t
 always called this in prose (`pastInTheOrder`, `findInTheOrder`, `PlaceInTheOrder`), and
 `CONTEXT.md` now carries the entry.
 
-**HALF THE MECHANISM, AND THIS RECORD SAYS WHICH HALF.** The Catalogue Listing is on it -- both of
-ADR-0077's questions, since they share one order and differ only in their `WHERE`. **The other
-three are NOT**, and they are not all in the same state either, which an earlier draft of this
-paragraph got wrong. A Container's members and "Also appears in" still write their terms out beside
-their `ORDER BY` and call `pastTheRow` -- the same comparison one layer down, which now lives in
-`order.ts` so there is one implementation of it rather than two. **CATALOGUE SEARCH CALLS NEITHER**:
-`pastInTheRanking` hand-builds its own predicate, ending in the tuple row comparison this record
-says cannot express both regimes -- which it gets away with only because no untitled row can match
-an `ilike`, and that is written down where it is done rather than here. So the comparison has TWO
-implementations today, not one. CNCORE-170 moves all three. Until it does, the rule at the top of
-this section is enforced for one Listing and is a sentence for three.
+**CNCORE-169 BUILT IT AND MOVED THE CATALOGUE LISTING ONTO IT** -- both of ADR-0077's questions,
+since they share one order and differ only in their `WHERE`. The other three still wrote their terms
+out beside their `ORDER BY`, and they were not all in the same state either: a Container's members
+and "Also appears in" called `pastTheRow`, the same comparison one layer down, while **CATALOGUE
+SEARCH CALLED NEITHER** -- `pastInTheRanking` hand-built its own predicate, ending in the tuple row
+comparison this record says cannot express both regimes, which it got away with only because no
+untitled row can match an `ilike`.
 
-**AND ONE THING COULD NOT MOVE YET, said here rather than discovered.** Every key an order renders
-is ASCENDING. Catalogue search leads on `similarity(...) desc`, so a direction is what that Listing
-needs before it can move, and it is deliberately not built ahead of the reader that needs it. The
-anchor READ is the other: `findTheAnchor` is shared with Catalogue search, so its select shape is
-untouched here and the catalogue's place is checked against its order by the type rather than read
-through it.
+**CNCORE-170 MOVED THE OTHER THREE, AND TWO OF THEM COST THE INTERFACE SOMETHING.** That was the
+point of doing them second rather than together: an abstraction that fits only the naive shape costs
+what it saves, so the two Listings that do not fit are what the interface had to be made to carry.
+A KEY NOW SAYS THREE THINGS instead of being an expression alone.
 
-**ASSERTED BY WALKING AN ORDER WITH A KEY ADDED**, in `packages/db/src/order.test.ts`, which
-IMPORTS THE MODULE DIRECTLY AND IS THEREFORE NOT ONE OF ADR-0103's THREE SEAMS -- said plainly
-rather than dressed up as one. The reason is that the Catalogue's order has the two terms it has
-always had, and adding one to it would change what the Catalogue answers, which this ticket's own
-criteria forbid; so an order with a key added is a thing no Listing has and no package export can
-be asked for. Precedent for reaching a module directly is `edtf.test.ts`, `validation.test.ts` and
+- **WHICH WAY THE LISTING READS IT.** Catalogue search leads on `similarity(...) desc` and every
+  other key in the app is ascending. `theOrderBy` renders `desc` and `pastTheRowIn` compares with
+  `<` off the same flag, so the two cannot disagree about which end of the ranking a page starts
+  from. This is the direction the paragraph above deliberately did not build ahead of its reader.
+- **WHETHER THE LISTING HOLDS ROWS WITH NO VALUE FOR IT.** Every row Catalogue search lists matched
+  `title ilike ...`, so it has a title, so it has a closeness and a sort key: that order has no
+  keyless block, where the catalogue's untitled tail is a real one. This was the COMMENT justifying
+  the tuple comparison and is a declaration the shared one reads. **IT IS NOT TIDINESS AND THE PRICE
+  WAS MEASURED**: a keyless branch is `key IS NULL`, which on a COMPUTED key is the whole expression
+  evaluated again per row, and PostgreSQL does not fold it away. On the 18.6 `compose.yaml` pins, an
+  11,000-row catalogue with a trigram index, a page of 101 over 10,500 matches, five interleaved
+  `explain (analyze)` runs per shape: 35.7-41.8 ms declared, against 34.7-48.3 ms for the
+  hand-written predicate it replaces and 50.1-64.1 ms undeclared. The branch that can never be true
+  was the most expensive thing in the statement.
+- **AND A PLACE MAY CARRY AN EXPRESSION RATHER THAN A VALUE.** Catalogue search's closeness is a
+  function of the QUERY the request resupplies rather than a column of the anchor row, so it is
+  computed in the walk's own statement and is deliberately not carried out through the driver and
+  back -- what a `real` compares equal to depends on its inferred type, and relevance ties are the
+  common case. A computed value that is NULL means what a read answering `undefined` means: the
+  anchor has no place, so the walk starts the listing over. **THE TOMBSTONE SPLIT IS ONE RULE AT TWO
+  MOMENTS**, which is what CNCORE-113 found the hard way, and the interface now says so in both.
+
+**SO THE COMPARISON HAS ONE IMPLEMENTATION, AND `pastTheRow` IS GONE.** It took a LIST of terms a
+caller wrote out, which is two lists read by one index and therefore two lists that can come apart.
+`pastTheRowIn` is the whole of it. `walkListing` went the same way in the same ticket: it took an
+`ORDER BY` and a cursor as separate parameters, so the pairing this mechanism abolishes was still
+expressible one function further out than the listings it had been removed from. It takes the order
+and the anchor's place in it, typed against each other.
+
+**WHAT DID NOT MOVE, said here rather than discovered.** The anchor READ: `findTheAnchor` is shared
+between the Catalogue Listing and Catalogue search, so its select shape is its own and each caller
+decides what the answer means. The catalogue's place is checked against its order by the TYPE rather
+than read through it; a Container's members and "Also appears in" do read theirs through the order
+(`select({ ...order.keys, id: order.id })`), so a key added to either reaches its read as well.
+
+**ASSERTED AT THE PACKAGE EXPORT WHEREVER A LISTING CAN BE ASKED, WHICH IS WHERE CNCORE-170 PUT ALL
+OF ITS OWN.** The direction is Catalogue search's "keeps the ranking ACROSS a page boundary, closest
+first"; the computed anchor's null is its "starts over rather than ending, where the anchor is
+deleted BETWEEN THE TWO STATEMENTS"; the four-key order and the tombstone split are
+`placements.test.ts`'s own blocks. **NO NEW SEAM AND NO NEW MODULE TEST**, which is what CNCORE-159
+asks for: each move was mutation-checked by dropping a key from the order and reading which export
+tests failed, rather than by watching a green suite.
+
+**AND ONE THING STILL BITES AT THE MODULE, FOR THE REASON IT ALWAYS DID.** Walking an order WITH A
+KEY ADDED, in `packages/db/src/order.test.ts`, which IMPORTS THE MODULE DIRECTLY AND IS THEREFORE
+NOT ONE OF ADR-0103's THREE SEAMS -- said plainly rather than dressed up as one. The reason is that
+the Catalogue's order has the two terms it has always had, and adding one to it would change what
+the Catalogue answers, which CNCORE-169's own criteria forbid; so an order with a key added is a
+thing no Listing has and no package export can be asked for. That is still true after CNCORE-170:
+the three orders it moved each answer exactly what they answered before, so none of them gained a
+key either. Precedent for reaching a module directly is `edtf.test.ts`, `validation.test.ts` and
 `titleMatches` in `catalogue-search.test.ts`. The Catalogue's own half is asserted where it always
 was, at the package export in `catalogue.test.ts`. Four items tie on a leading key with
 their ids running OPPOSITE to the key behind it, exactly as the CNCORE-125 tests are built and for
