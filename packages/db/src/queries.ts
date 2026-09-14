@@ -2,19 +2,18 @@ import {
   and,
   eq,
   getTableColumns,
-  gt,
   inArray,
   isNotNull,
   isNull,
   not,
   or,
   type SQL,
-  type SQLWrapper,
   sql,
 } from "drizzle-orm";
 import { z } from "zod";
 
 import type { Database } from "./index";
+import { pastTheRow } from "./order";
 import {
   aliases,
   itemKinds,
@@ -1184,77 +1183,6 @@ export const SORT_KEY = sql<string | null>`coalesce(${items.sortName}, ${items.t
 interface PlaceInTheOrder {
   sortKey: string | null;
   id: string;
-}
-
-/**
- * EVERYTHING A LISTING SHOWS AFTER ONE ROW, where the order is a key that may
- * be NULL and an id behind it (ADR-0119). Written ONCE for both such walks.
- *
- * TWO REGIMES, AND A ROW COMPARISON CANNOT EXPRESS BOTH. The order is the rows
- * with a key ascending and then the rows with none, so `(null, x) > (k, y)` --
- * which is NULL rather than true -- would drop that whole keyless block off the
- * walk permanently, from every page. The catalogue's keyless block is the items
- * nobody has titled and a container's is its Unplaced members; both are real
- * rows a reader must reach, and the criterion is that none is skipped.
- *
- * AND THE ID IS THE HALF THAT MAKES IT TOTAL. Two rows sharing a key are
- * separated by their ids, and a cursor comparing only the key steps over the
- * second of them -- a tie in the catalogue's order, and in a container's a pair
- * ADR-0009 licenses by keeping no unique constraint on (container_id, position).
- *
- * BUILT WITH THE QUERY BUILDER'S OWN `or` AND `and` rather than one raw `sql`
- * template, which ADR-0119 records as a precedence bug no walk test can see:
- * `A or (B and C)` written raw and composed with a listing's own `WHERE`
- * renders as `(within and A) or (B and C)`, and the tie branch escapes the
- * listing entirely.
- *
- * ONE FUNCTION AND NOT TWO, WHICH REVIEW OF CNCORE-89 ASKED FOR. The three
- * walks had a copy each, identical but for which columns they named -- and
- * every paragraph above is a rule that has to hold in all of them.
- * `walkListing`'s QUERY is what could not be shared (a different relation),
- * which is a narrower claim than the one the copy was making.
- *
- * IT TAKES A LIST OF TERMS BECAUSE "ALSO APPEARS IN" HAS FOUR, and that is the
- * question CNCORE-125 was told to ask rather than assume: the shared comparison
- * did NOT cover that order and had to grow. One key was never the rule -- it
- * was the number the first four listings happened to need -- and the rule
- * underneath is that the comparison must name EVERY term the `ORDER BY` does.
- * A key left out of it is rows silently stepped over, which is what the two
- * paragraphs above are each an instance of.
- *
- * A TERM IS A KEY AND ITS ANCHOR VALUE TOGETHER, rather than two lists read by
- * the same index. Review of CNCORE-125 made the point and it is this function's
- * own subject: two parallel arrays can come apart, and the shorter one would
- * silently drop a term -- which is precisely the "rows stepped over" failure the
- * paragraph above names. Paired, a mismatch cannot be written down.
- *
- * THE NESTING IS BUILT FROM THE INSIDE OUT, so each key's tie branch is the
- * whole of the comparison on the keys behind it and the id is the innermost. A
- * flat `or` of per-key clauses would be a different and wrong predicate: it
- * would answer true for a row that sorts BEFORE the anchor on an early key and
- * after it on a late one.
- */
-function pastTheRow(
-  terms: { key: SQLWrapper; at: string | number | null }[],
-  row: { id: SQLWrapper; at: string },
-): SQL | undefined {
-  // The id is the whole order left once every key has tied, and it is total.
-  let past: SQL | undefined = gt(row.id, row.at);
-  for (const { key, at } of [...terms].reverse()) {
-    past =
-      at === null
-        ? // Already among the rows with no key HERE, so everything still ahead
-          // has no key here either and the terms behind it decide.
-          and(isNull(key), past)
-        : or(
-            // Every row with no key sorts after every row with one.
-            isNull(key),
-            gt(key, at),
-            // THE TIE, and it is what carries the comparison to the next term.
-            and(eq(key, at), past),
-          );
-  }
-  return past;
 }
 
 /**
