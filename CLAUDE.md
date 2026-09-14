@@ -19,8 +19,8 @@ one session on 2026-09-12. Move each to `Todo` as you triage it.
 Four projects, in order, each ending in something demoable:
 
 1. **Version one** — done. Multi-placement, rendered.
-2. **The public release** — closed, sentence untrue: an install reaches no provider beside it, so no
-   source can curate it; by hand it can, since v0.2.0. Takes public defects; 76 fused to 2027-01-12.
+2. **The public release** — closed, and its sentence is TRUE since CNCORE-163 (2026-09-14): an
+   install creates the network a Provider beside it joins. Public defects; 76 fused to 2027-01-12.
 3. **A real catalogue, live** — 98 to 103 Done, and CNCORE-96's sentence untrue: the live import
    landed in a test database the next run drops. 97 is superseded by 118.
 4. **The foundation** — CNCORE-159. Finishes 2 and 3, supersedes CNCORE-104 (project cancelled). The
