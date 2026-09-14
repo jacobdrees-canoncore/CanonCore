@@ -390,9 +390,10 @@ undici reports arrives the same way, with the fact one link down.
 | the host does not resolve | `fetch failed` | `getaddrinfo ENOTFOUND nothing.invalid` |
 
 So the repair is not a wider `instanceof` list looking for one class — that is the mistake this record
-already warns about two sections down, where the failures a provider can produce are shown to have no
-class in common. **The repair is that a wrapper is not a reason.** `fetch failed` is undici saying
-that something underneath it failed; the reason is whatever is underneath.
+already warns about under "`wrote` asks which boundary refused; this asks WHERE the throw happened",
+where the failures a provider can produce are shown to have no class in common. **The repair is that a
+wrapper is not a reason.** `fetch failed` is undici saying that something underneath it failed; the
+reason is whatever is underneath.
 
 ### What unwrapping is owed
 
@@ -438,6 +439,15 @@ What makes the refusal survive the crossing at all is that `makeNetworkError` pa
 `instanceof Error` through **by identity** rather than re-wrapping it — so the sentence, and the
 custom `boundary` this record put on `OutboundRefused`, are both intact one link down. The mechanism
 was whole; only the reading was not.
+
+**AND `canoncore` NOW RESTS ON A CHAIN UNDICI ASSEMBLED, which is the question this record exists to
+ask of itself.** Attribution is decided by the link the walk lands on rather than by the thing that
+was thrown, so it is worth saying why that is not a way for a stranger to speak in this catalogue's
+voice: the branch fires only on an `OutboundRefused` whose `boundary` is `config`, and the only
+things that construct one are `assertConfigUrl`, `assertConfigAddress` and `assertHttpScheme` — all
+three judging a base URL the OWNER typed. A provider supplies text, never an error object, so it
+cannot put one in a chain. The conservative direction this record already chose holds: everything
+undecided still lands on `provider`.
 
 ### Asserted at three seams, because each proves what the others cannot
 
