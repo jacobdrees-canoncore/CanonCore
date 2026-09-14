@@ -1499,7 +1499,6 @@ export async function findPlacementsInContainer(
   ) as SQL;
   const place =
     after === undefined ? undefined : await findInTheContainersOrder(db, containerId, after);
-  const past = place && pastInThisContainer(place);
 
   return onePage({
     limit,
@@ -1539,13 +1538,17 @@ export async function findPlacementsInContainer(
         .from(placements)
         .innerJoin(items, eq(items.id, placements.itemId))
         .crossJoinLateral(asserters)
-        .where(and(held, past))
         /*
-         * `nulls last` IS THE DEFAULT FOR `asc` AND IS WRITTEN OUT ANYWAY, for
-         * the reason `readListing` gives: `pastInThisContainer` reads it, and a
-         * default the walk depends on is one worth saying out loud.
+         * BOTH READ OFF ONE VALUE (ADR-0119), which is the whole of what this
+         * listing's move to `THE_CONTAINERS_OWN_ORDER` buys: the sort and the
+         * comparison that walks it name the same keys because there is only one
+         * place they are named. `nulls last` comes with the order rather than
+         * being written here, and it is load-bearing -- the keyless block here
+         * is CONTEXT.md's Unplaced, a placement with no position rather than an
+         * absent one, and the comparison reads where that block sits.
          */
-        .orderBy(sql`${placements.position} nulls last`, sql`${placements.id}`)
+        .where(and(held, place && pastTheRowIn(THE_CONTAINERS_OWN_ORDER, place)))
+        .orderBy(...theOrderBy(THE_CONTAINERS_OWN_ORDER))
         .limit(howMany),
     asRow: ({ id, title, itemId, position, assertedBy }) => ({
       id,
@@ -1568,11 +1571,34 @@ async function countPlacements(db: Database, held: SQL): Promise<number> {
   return counted?.total ?? 0;
 }
 
-/** Where one placement sits in its own container's ordering. */
-interface PlaceInTheContainer {
-  position: number | null;
-  id: string;
-}
+/**
+ * THE ORDER A CONTAINER'S OWN ORDERING IS READ IN: ADR-0018's position, and the
+ * placement's id behind it so two placements sharing one list in the same order
+ * twice.
+ *
+ * ONE VALUE, AND BOTH STATEMENTS ARE READ OFF IT (ADR-0119). `theOrderBy`
+ * renders the `ORDER BY`, `pastTheRowIn` renders the cursor comparison that
+ * walks it, and `PlaceIn` is the shape the read below has to answer with -- so
+ * a key added here reaches all three in this edit rather than in three.
+ *
+ * `THE_CONTAINERS_KEY` FURTHER UP IS A DIFFERENT CONTAINER-NESS, and the names
+ * are close enough to be worth separating. That one is a key of the container a
+ * row is joined to, which is how "Also appears in" leads; this is the order
+ * INSIDE one container, which is what that container keeps of its own members.
+ */
+const THE_CONTAINERS_OWN_ORDER = {
+  keys: { position: placements.position },
+  id: placements.id,
+} satisfies TheOrder;
+
+/**
+ * Where one placement sits in its own container's ordering.
+ *
+ * DERIVED FROM THE ORDER rather than declared beside it, for the reason that
+ * order gives: a place written out by hand is a second list of its keys, and
+ * two lists come apart.
+ */
+type PlaceInTheContainer = PlaceIn<typeof THE_CONTAINERS_OWN_ORDER>;
 
 /**
  * Where one placement sits in THE CONTAINER'S OWN order, by the id a reader
@@ -1609,27 +1635,14 @@ async function findInTheContainersOrder(
   // The shape guard `findItem` uses, for the reason it gives: comparing a
   // non-uuid against a `uuid` column is error 22P02 rather than an empty result.
   if (!canBeAnId(id)) return undefined;
+  // READ BY THE ORDER'S OWN KEYS, so a key it gains is one this read cannot be
+  // left without: the order names them once and this select is one of the three
+  // things that name is read by.
   const [place] = await db
-    .select({ position: placements.position, id: placements.id })
+    .select({ ...THE_CONTAINERS_OWN_ORDER.keys, id: THE_CONTAINERS_OWN_ORDER.id })
     .from(placements)
     .where(and(eq(placements.id, id), eq(placements.containerId, containerId)));
   return place;
-}
-
-/**
- * Everything a container holds AFTER one of its own placements (ADR-0119).
- *
- * THE ORDER IS ADR-0018's POSITION and then the placement's id, and both halves
- * are load-bearing for the reasons `pastTheRow` gives: the keyless block
- * here is CONTEXT.md's Unplaced -- a placement with no position rather than an
- * absent one -- and the ties are the ones ADR-0009 licenses by keeping no
- * unique constraint on (container_id, position).
- */
-function pastInThisContainer({ position, id }: PlaceInTheContainer): SQL | undefined {
-  return pastTheRow([{ key: placements.position, at: position }], {
-    id: placements.id,
-    at: id,
-  });
 }
 
 /**
