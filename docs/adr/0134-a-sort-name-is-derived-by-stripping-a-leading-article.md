@@ -40,6 +40,16 @@ the computed one is a statement behind it; the Owner wins by ORDER, untouched, a
 Clearing the field withdraws the Owner's claim and the computation is what is left — which is why
 an empty sort name is accepted where an empty title is refused.
 
+**It may never answer the empty string.** An empty sort name is the one value worse than none: it
+sorts ahead of the entire catalogue, so a single malformed record would take the top of every
+Listing. `btrim` before the match is what keeps an ARTICLE-ONLY title whole — `The` has no whitespace
+after it for the pattern to bite on — and that argument does not reach a title that is nothing but
+SPACE, which trims to `''` and stays there. `cmppRecord` declares a provider's title
+`z.string().min(1)` with no trim, so `"   "` is a title this catalogue accepts over the wire; review
+found the hole and the computation now answers NULL, which reads as an Item with no sort name at all.
+Filing it under its raw title was the alternative and is worse: there is no word to file it under,
+and inventing one hides the malformed record instead of showing it.
+
 **It may not keep an Item alive.** A derived value exists only as a function of the claims it is
 computed from, so once those are gone it is a residue rather than evidence. Purging a provider took
 every Item nobody else claimed until this record's first implementation left a `sort_name` on each of
@@ -52,8 +62,14 @@ inherits it.
 ADR-0014 chose a trigger over application-maintained for the projection because "a trigger cannot be
 forgotten by a writer that never heard of it", and named the writers that would forget: the hand
 seed, the importer, the scanner, a merge. Every one of them writes a TITLE, so every one of them has
-to leave a sort name behind. `pnpm db:seed` is that argument run as a check — it writes a title
-through raw SQL, touches nothing else, and the item files under the right letter anyway.
+to leave a sort name behind.
+
+WHAT HOLDS THAT is `sort-name.test.ts`, whose fixtures write a `title` statement through a raw insert
+and never call anything that knows this rule exists — which is precisely the writer the argument is
+about. `pnpm db:seed` is the same argument as a DEMONSTRATION rather than as a check: run by hand on
+2026-09-14 it wrote three titles through raw SQL, touched nothing else, and all three items came back
+filed under the right letter. Review asked which of the two the sentence was claiming, because an
+`accepted` record asserting an unrun check is how a figure nobody verified starts travelling.
 
 The cost is stated rather than discovered: the computation lives in PL/pgSQL, and `sort-name-v2` is a
 rung of the ladder rather than a deploy. That is also the mechanism ADR-0071 asks for. A new version
@@ -65,6 +81,18 @@ allocated. The Owner is at 0 and cannot be displaced, which is all this record n
 PROVIDER's sort name should beat the computed one is deliberately NOT decided — no provider asserts
 `sort_name`, so pinning this source permanently last would be a second ordering rule written for a
 shape that does not exist.
+
+**AND `max + 1` MEANS TWO INSTALLS RANK IT DIFFERENTLY, which review surfaced and which is worth
+naming rather than discovering.** On a fresh install the rung runs before any provider registers, so
+the computation takes 1 and sits AHEAD of every provider registered afterwards. On an install that
+already had providers it takes the place BEHIND them. Same product, same claim, opposite rank,
+decided by upgrade history rather than by anybody.
+
+It is unobservable today and that is the whole reason it is documented rather than fixed: the only
+sources that assert `sort_name` are the Owner and this computation, and the Owner wins in both
+arrangements. **THE CONDITION THAT MAKES IT LIVE is the first provider to assert a `sort_name`**, and
+whoever meets it owns the decision this record declined — at which point the fix is to say where a
+derived source sits in the order ONCE, rather than to let an allocation rule answer it by accident.
 
 ## Consequences
 

@@ -49,7 +49,14 @@ go it is a residue rather than evidence. That was found by a provider purge quie
 Item it should have taken, and it is written against the SOURCE KIND so the next computation
 inherits it. [[0134-a-sort-name-is-derived-by-stripping-a-leading-article]] carries the whole of it.
 
-**WHAT IS STILL NOT BUILT: the invalidation this record names as the only operation ever performed on
-a derived claim.** There is one version, so nothing has yet had to answer "which rows does the new
-extractor invalidate?" — the query is `sources.identity = 'derived:sort-name-v1'` and it is obvious,
-but obvious is not the same as run. `sort-name-v2` is what will run it, and it is a migration.
+**THE MECHANISM IS WHOLE; WHAT HAS NOT HAPPENED IS AN OCCASION TO USE IT.** This record's decision is
+that the version rides in the identity, and it does — written by migration 17, enforced by the check,
+and read back by `derive_sort_name`. The INVALIDATION it names as the only operation ever performed on
+a derived claim needs a SECOND version to have something to invalidate, and there is one version. So
+this stays `accepted` rather than dropping to `proposed`: nothing here is half-built, and an
+unexercised consequence is not a missing half. Review raised the question, which is why the
+distinction is written down rather than left to be re-argued.
+
+**WHEN `sort-name-v2` ARRIVES the query is `sources.identity = 'derived:sort-name-v1'`, and that it is
+obvious is the point** — it is the query a bare `derived` flag could not express, which is the whole
+of what this record bought.

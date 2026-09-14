@@ -36,11 +36,23 @@
 -- all begin with an article's letters and none is followed by a space, so none
 -- is touched -- verified against this engine rather than reasoned about.
 --
--- AND `btrim` FIRST IS WHY THE RESULT IS NEVER EMPTY. A title that is nothing
--- but an article -- `The`, or `The ` from a sloppy import -- has no whitespace
--- left after the trim for `\s+` to match, so it comes back whole instead of
--- becoming the empty string. An item whose sort name were `''` would sort ahead
--- of the entire catalogue, which is a worse answer than its own title.
+-- `btrim` FIRST IS WHY AN ARTICLE-ONLY TITLE SURVIVES. `The`, or `The ` from a
+-- sloppy import, has no whitespace left after the trim for `\s+` to match, so it
+-- comes back whole instead of becoming the empty string.
+--
+-- AND `nullif` IS WHAT CATCHES THE CASE THAT ARGUMENT DOES NOT REACH: a title
+-- that is nothing but SPACE. It trims to `''` and stays `''`, and an EMPTY sort
+-- name is the one value worse than none -- it sorts ahead of the entire
+-- catalogue, so one malformed record would take the top of every Listing. It is
+-- reachable from outside rather than hypothetical: `cmppRecord` declares a
+-- provider's title `z.string().min(1)` with no trim, so `"   "` is a title this
+-- catalogue accepts over the wire.
+--
+-- NULL RATHER THAN THE RAW TITLE, because there is no word to file such an item
+-- under and inventing one would be worse than admitting it. The item then reads
+-- as one with no sort name at all, which `coalesce(sort_name, title)` and
+-- `derive_sort_name` below both already know how to handle -- the same path an
+-- item nobody has titled takes.
 --
 -- ENGLISH ONLY, AND NOT CONFIGURABLE. ADR-0091 puts a statement's language on
 -- the statement; nothing declares an instance's own language yet, and an option
@@ -51,7 +63,7 @@
 -- IMMUTABLE because it is a pure function of its argument, which is what lets
 -- the backfill below run it over every row in one statement.
 CREATE FUNCTION "sort_name_v1"("title" text) RETURNS text AS $fn$
-  SELECT regexp_replace(btrim("title"), '^(the|a|an)\s+', '', 'i');
+  SELECT nullif(regexp_replace(btrim("title"), '^(the|a|an)\s+', '', 'i'), '');
 $fn$ LANGUAGE sql IMMUTABLE;
 --> statement-breakpoint
 -- THE COMPUTATION AS A SOURCE, at the next place in the one global order

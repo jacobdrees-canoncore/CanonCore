@@ -149,6 +149,28 @@ describe("the derived sort name", () => {
     expect(await sortNamesOf(db, item)).toEqual([]);
     expect((await readItem(db, item))?.sortName).toBeNull();
   });
+
+  it("files nothing at all for a title that is only whitespace", async () => {
+    // FOUND BY REVIEW, AND IT BREAKS THIS RUNG'S OWN GUARANTEE. `btrim` first
+    // makes the result non-empty for a title that is nothing but an ARTICLE --
+    // `The` keeps its word, because nothing follows it for `\s+` to match --
+    // and that argument does not reach a title that is nothing but SPACE, which
+    // trims to `''` and stays `''`.
+    //
+    // AND IT IS REACHABLE FROM OUTSIDE. `cmppRecord` declares a provider's
+    // title `z.string().min(1)` with no trim, so `"   "` is a title this
+    // catalogue accepts over the wire. An empty sort name is the one value that
+    // is WORSE than none: it sorts ahead of the entire catalogue, so one
+    // malformed record from one provider would take the top of every Listing.
+    //
+    // NOTHING is the honest answer rather than the raw title, because there is
+    // no word to file such an item under. It then reads as an item with no sort
+    // name at all, which `coalesce(sort_name, title)` already knows how to walk.
+    const item = await anItemTitled(db, "   ");
+
+    expect(await sortNamesOf(db, item)).toEqual([]);
+    expect((await readItem(db, item))?.sortName).toBeNull();
+  });
 });
 
 /**

@@ -1226,11 +1226,24 @@ function EditSortName({ itemId, sortName }: { itemId: string; sortName: string |
             an item nobody has titled has nothing to file under (ADR-0003). The
             owner can still give it one here.
           */}
-          <Input id="sortName" name="sortName" defaultValue={sortName ?? ""} autoComplete="off" />
+          {/*
+            THE HINT BELOW IS TIED TO THE FIELD rather than left sitting near it
+            (`frontend.md`: accessibility ships with the feature). This is the
+            one control on the page whose EMPTY state does something, and a
+            reader who cannot see the layout has no other way to learn that
+            clearing the box is the undo. Raised by review.
+          */}
+          <Input
+            id="sortName"
+            name="sortName"
+            defaultValue={sortName ?? ""}
+            autoComplete="off"
+            aria-describedby="sorts-as-hint"
+          />
         </div>
         <Button type="submit">Save</Button>
       </form>
-      <p className="mt-2 text-muted-foreground text-sm">
+      <p id="sorts-as-hint" className="mt-2 text-muted-foreground text-sm">
         Clear this to file it as CanonCore works it out.
       </p>
     </section>
