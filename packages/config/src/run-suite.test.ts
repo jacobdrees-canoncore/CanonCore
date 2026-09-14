@@ -94,7 +94,10 @@ function scratchWorkspace(task = "test", filter?: string): string {
   return root;
 }
 
-/** What a package declares for the task: one that passes, one that fails, or none. */
+/**
+ * What a package declares for the task: one that passes, one that fails, one
+ * that passes while writing more than a pipe holds, or none at all.
+ */
 type Suite = "passes" | "fails" | "deleted" | "chatty";
 
 const COMMANDS: Record<Suite, string | undefined> = {
