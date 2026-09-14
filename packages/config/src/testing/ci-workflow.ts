@@ -127,3 +127,47 @@ export function allSteps(parsed: Workflow): { job: string; jobIf: unknown; step:
     (definition.steps ?? []).map((step) => ({ job, jobIf: definition.if, step })),
   );
 }
+
+/**
+ * The one script a CI job runs a suite through (CNCORE-160).
+ *
+ * `turbo run <task>` exits 0 having run ZERO tasks, so a job invoking the
+ * runner bare reports success for a suite that is no longer there. The script
+ * runs the task and fails when the count it printed is none.
+ */
+export const SUITE_GUARD = ".github/scripts/run-suite.sh";
+
+/**
+ * Every turbo task a job's `run:` steps invoke, in BOTH spellings the workflow
+ * uses, and which of the two each one is.
+ *
+ * TWO SPELLINGS IS WHY THIS IS HERE rather than in either suite that asks.
+ * `ci-task-env.test.ts` matched `pnpm <task>` alone, and the five suite jobs
+ * moving behind `SUITE_GUARD` took every one of its subjects away at once --
+ * its canary caught that, and the fix in one file would have left the other
+ * reader to be found by whoever broke it next. That is the Shotgun Surgery this
+ * module's header describes, arriving for the third time.
+ *
+ * DELIBERATELY LOOSE, because both callers confirm a candidate against
+ * something else: turbo itself in `ci-task-env.test.ts`, and the root
+ * manifest's own scripts in `run-suite.test.ts`. So `pnpm install` and
+ * `pnpm exec` matching here is ordinary rather than a fault. A flag cannot
+ * match at all, which is what keeps `pnpm --filter web exec ...` from arriving
+ * as the task `--filter`.
+ */
+export function turboTaskInvocations(job: {
+  steps?: { run?: string }[];
+}): { task: string; guarded: boolean }[] {
+  const guard = SUITE_GUARD.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const spellings = [
+    { guarded: true, pattern: new RegExp(`(?:^|\\s)${guard}\\s+([a-z][a-z0-9:-]*)`, "g") },
+    { guarded: false, pattern: /\bpnpm\s+(?:run\s+)?([a-z][a-z0-9:-]*)/g },
+  ];
+  return (job.steps ?? []).flatMap(({ run }) =>
+    spellings.flatMap(({ guarded, pattern }) =>
+      [...(run ?? "").matchAll(pattern)].flatMap((match) =>
+        match[1] === undefined ? [] : [{ task: match[1], guarded }],
+      ),
+    ),
+  );
+}

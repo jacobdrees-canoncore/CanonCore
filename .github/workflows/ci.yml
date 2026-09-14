@@ -200,6 +200,10 @@ jobs:
           runtime: node@24
           cache: true
 
+      # TODO(CNCORE-191): bare, and `turbo run typecheck` exits 0 having run
+      # zero tasks exactly as `test` does. CNCORE-160 scoped itself to the jobs
+      # that run a SUITE and left this one, the Build job and the two ladder
+      # invocations; the guard beside them already takes a task name.
       - run: pnpm typecheck
 
   lint:
@@ -302,17 +306,13 @@ jobs:
         with:
           runtime: node@24
           cache: true
-      # `turbo run test` exits 0 when it runs ZERO tasks, so a suite that
-      # vanished would report success. ADR-0103 refuses --passWithNoTests per
-      # package for the same reason; this closes the same hole one level up.
+      # THE CHECK THIS JOB CARRIED ALONE UNTIL CNCORE-160, now the one script
+      # every suite job runs behind. Why the count is read rather than the exit
+      # code, and what that does and does not catch, is in `run-suite.sh`'s own
+      # header and in ADR-0103 -- stated once there rather than a third time
+      # here.
       - name: Test, and assert a suite actually ran
-        run: |
-          set -o pipefail
-          pnpm test 2>&1 | tee test.log
-          if ! grep -qE "Tasks: +[1-9][0-9]* successful" test.log; then
-            echo "::error::pnpm test ran no test tasks. A green result here would mean nothing."
-            exit 1
-          fi
+        run: .github/scripts/run-suite.sh test
 
   migrations:
     name: Migration ladder
@@ -427,7 +427,8 @@ jobs:
       # Builds Next, starts it, and asks it for /items/<id> over real HTTP. The
       # only check in the repo that fails if the page is unreachable: every
       # other suite passes with the app never having been served.
-      - run: pnpm test:e2e
+      - name: The page over HTTP, and a count that says a suite ran
+        run: .github/scripts/run-suite.sh test:e2e
 
   browser:
     name: The page in a browser
@@ -480,7 +481,8 @@ jobs:
       # Builds Next, starts it, and drags a row in a real browser. The only
       # check in the repo that fails if the drag stops working, and the only one
       # permitted to assert anything a browser is needed for (ADR-0103).
-      - run: pnpm test:browser
+      - name: The drag in a browser, and a count that says a suite ran
+        run: .github/scripts/run-suite.sh test:browser
 
   provider:
     name: Import and browse over HTTP, against the real provider-tmdb
@@ -610,7 +612,13 @@ jobs:
       # the contract are the ones holding the real image to it. `global-setup`
       # imports a real film through the app, browses a real collection, searches
       # for it, and renders ADR-0036's notice off what the image declared.
-      - run: pnpm test:e2e
+      #
+      # AND THE COUNT MATTERS MOST HERE. This job's whole difference from the
+      # `e2e` job above is which process answers CMPP, so a suite that ran zero
+      # tasks would leave it green having started the real image, sent it
+      # nothing, and reported that nowhere -- which is CNCORE-143 exactly.
+      - name: The same suite against the real image, and a count that says it ran
+        run: .github/scripts/run-suite.sh test:e2e
 
   contract:
     name: One contract, both providers, no app
@@ -672,7 +680,8 @@ jobs:
             echo "$url declares: $(curl -sS "$url/" | head -c 200)"
           done
 
-      - run: pnpm test:contract
+      - name: Both providers against one contract, and a count that says a suite ran
+        run: .github/scripts/run-suite.sh test:contract
 
   # THE IMAGE, BUILT ON EVERY PULL REQUEST AND PUBLISHED FROM `main` ALONE.
   #
