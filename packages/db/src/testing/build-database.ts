@@ -73,6 +73,19 @@ export const TEST_DATABASE_SUFFIXES = [
    * `LONGEST_DERIVED_SUFFIX` is `_test_fresh`, and this one is the same length.
    */
   "allow",
+  /*
+   * THE ONE BUILT ON AN OLDER LADDER AND THEN UPGRADED (CNCORE-173). A rung that
+   * BACKFILLS existing rows cannot be asserted from empty -- from empty there is
+   * nothing to fill -- so `sort-name.test.ts` builds this one to the rung BEFORE
+   * the head, writes a catalogue into it, and then migrates. It is its own
+   * database for the reason every suffix here is: what it holds is a property of
+   * a WHOLE CATALOGUE at a particular ladder position, which no `WHERE` over the
+   * shared database can arrange.
+   *
+   * `_test_rung` IS TEN CHARACTERS, inside the eleven `worktree-database.ts`
+   * budgets for.
+   */
+  "rung",
 ] as const;
 
 /** A suffix this repo has declared, which is the only kind there is. */
@@ -89,8 +102,21 @@ export type TestDatabaseSuffix = (typeof TEST_DATABASE_SUFFIXES)[number];
  * one, so this path goes green on a spliced migration that a real upgrade would
  * silently skip. `scripts/check-ladder.ts` covers that; this covers whether the
  * SQL is valid at all.
+ *
+ * `folder` IS WHAT LETS A TEST BUILD AN OLDER INSTALL AND UPGRADE IT (CNCORE-173).
+ * It is `migrateToHead`'s own parameter, passed through rather than invented:
+ * that function already takes a folder "so CI can apply the BASE BRANCH's
+ * ladder to a database and then this branch's on top of it -- which is the
+ * upgrade path a real installation takes", and a suite asking the same question
+ * had no way to reach it. A rung that BACKFILLS is invisible from empty, because
+ * from empty there is nothing to fill: every row is written after the rung and
+ * gets its value from whatever the rung installed. The default is unchanged, so
+ * every existing caller still builds straight to head.
  */
-export async function buildTestDatabase(suffix: TestDatabaseSuffix = ""): Promise<string> {
+export async function buildTestDatabase(
+  suffix: TestDatabaseSuffix = "",
+  folder?: string,
+): Promise<string> {
   const url = new URL(requireDatabaseUrl());
   const name = testDatabaseName(url, suffix);
 
@@ -108,7 +134,7 @@ export async function buildTestDatabase(suffix: TestDatabaseSuffix = ""): Promis
 
   const built = new URL(url);
   built.pathname = `/${name}`;
-  await migrateToHead(built.toString());
+  await migrateToHead(built.toString(), folder);
   return built.toString();
 }
 

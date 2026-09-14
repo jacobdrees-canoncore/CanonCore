@@ -20,7 +20,19 @@ describe("the values claimed about one item", () => {
       sourceId: provider,
     });
 
+    // TWO ROWS, AND `sort_name` LEADS (CNCORE-173). A title leaves a derived
+    // sort name behind, and this list orders on the property name before
+    // anything else -- so the derived claim sorts ahead of the title it was
+    // computed from. Listed rather than filtered out, because what this
+    // assertion is worth is that it is EXHAUSTIVE: it is the one place that
+    // says what a reader is served for an item with a single claim on it.
     expect(await findStatementsOfItem(db, itemId)).toEqual([
+      {
+        property: "sort_name",
+        value: "Tenth Planet (TV story)",
+        sourceKind: "derived",
+        sourceLabel: "CanonCore (sort name v1)",
+      },
       {
         property: "title",
         value: "The Tenth Planet (TV story)",
@@ -75,7 +87,13 @@ describe("the values claimed about one item", () => {
       sourceId: await ownerSource(db),
     });
 
-    const [first] = await findStatementsOfItem(db, itemId);
+    // THE TITLES, because the claim under test is about competing values of
+    // ONE property and this list carries every property (CNCORE-173). Taking
+    // the first row of the whole list read the derived `sort_name` instead,
+    // which sorts ahead of `title` and says nothing about rank or source order.
+    const [first] = (await findStatementsOfItem(db, itemId)).filter(
+      (claim) => claim.property === "title",
+    );
 
     expect(first?.value).toBe("What the owner says");
     expect(first?.sourceKind).toBe("owner");
@@ -102,7 +120,10 @@ describe("the values claimed about one item", () => {
       sourceId: await ownerSource(db),
     });
 
-    const [first] = await findStatementsOfItem(db, itemId);
+    // The titles, for the reason the test above gives.
+    const [first] = (await findStatementsOfItem(db, itemId)).filter(
+      (claim) => claim.property === "title",
+    );
 
     expect(first?.value).toBe("The pinned one");
   });
@@ -201,7 +222,15 @@ describe("the values claimed about one item", () => {
       sourceId: owner,
     });
 
+    // The note is the absence this asserts; the derived sort name is present
+    // for the reason the first test in this file gives.
     expect(await findStatementsOfItem(db, itemId)).toEqual([
+      {
+        property: "sort_name",
+        value: "Tenth Planet",
+        sourceKind: "derived",
+        sourceLabel: "CanonCore (sort name v1)",
+      },
       { property: "title", value: "The Tenth Planet", sourceKind: "owner", sourceLabel: "Owner" },
     ]);
   });

@@ -331,12 +331,23 @@ describe("item.get, on what each source claimed", () => {
 
     const item = await call(appRouter.item.get, { id }, { context });
 
+    // THREE, AND THE THIRD IS THE CATALOGUE'S OWN (CNCORE-173): a title leaves
+    // a `sort_name` derived from it, filed to the computation that made it. The
+    // list orders on the property name, so it sits between the two claims the
+    // provider made. Listed rather than filtered, because this assertion's
+    // value is that it is exhaustive about what a reader is served.
     expect(item.statements).toEqual([
       {
         property: "released",
         value: "1966-10-08",
         sourceKind: "provider",
         sourceLabel: "http://127.0.0.1:8201",
+      },
+      {
+        property: "sort_name",
+        value: "Tenth Planet (TV story)",
+        sourceKind: "derived",
+        sourceLabel: "CanonCore (sort name v1)",
       },
       {
         property: "title",
@@ -390,7 +401,9 @@ describe("item.get, on what each source claimed", () => {
 
     const item = await call(appRouter.item.get, { id: merged }, { context });
 
-    expect(item.statements.map((claim) => claim.value)).toEqual(["The survivor"]);
+    // The survivor's sort name comes with its title, and leads it: `sort_name`
+    // sorts before `title` (CNCORE-173).
+    expect(item.statements.map((claim) => claim.value)).toEqual(["survivor", "The survivor"]);
   });
 });
 
@@ -605,7 +618,16 @@ describe("item.create", () => {
     // The reader's word for the kind, which is what the read path emits
     // everywhere (ADR-0045, CNCORE-83).
     expect(item.kind).toBe("Concept");
+    // AND THE SORT NAME THE TITLE LEAVES BEHIND (CNCORE-173). The owner typed
+    // a title; where the catalogue files it is the catalogue's own claim, and
+    // it says so rather than putting its computation in the owner's mouth.
     expect(item.statements).toEqual([
+      {
+        property: "sort_name",
+        value: "novel nobody has catalogued",
+        sourceKind: "derived",
+        sourceLabel: "CanonCore (sort name v1)",
+      },
       {
         property: "title",
         value: "A novel nobody has catalogued",
@@ -658,7 +680,10 @@ describe("item.retitle", () => {
 
     const item = await call(appRouter.item.get, { id }, { context });
     expect(item.title).toBe("Marco Polo");
+    // The sort name derived from the title that WON leads the list, and the
+    // provider's losing title leaves none behind (CNCORE-173).
     expect(item.statements.map(({ value, sourceLabel }) => [value, sourceLabel])).toEqual([
+      ["Marco Polo", "CanonCore (sort name v1)"],
       ["Marco Polo", "Owner"],
       ["Marco Polo (TV story)", "http://127.0.0.1:8402"],
     ]);
@@ -687,6 +712,73 @@ describe("item.retitle", () => {
 
     expect((error as { code?: string })?.code).toBe("UNAUTHORIZED");
     expect((await call(appRouter.item.get, { id }, { context })).title).toBe("Not yours to edit");
+  });
+});
+
+/**
+ * CNCORE-173. The Owner correcting a sort name, which is the same gesture as
+ * correcting a title applied to the column the alphabet is built on.
+ */
+describe("item.sortAs", () => {
+  it("beats the computation, which stays on the page beside it", async () => {
+    const id = await anItemTitled(db, "The Daleks' Master Plan");
+    expect((await call(appRouter.item.get, { id }, { context })).sortName).toBe(
+      "Daleks' Master Plan",
+    );
+
+    await call(
+      appRouter.item.sortAs,
+      { id, sortName: "Dalek Masterplan" },
+      { context: asTheOwner },
+    );
+
+    const item = await call(appRouter.item.get, { id }, { context });
+    expect(item.sortName).toBe("Dalek Masterplan");
+    // BOTH CLAIMS, WINNER FIRST, by the same three terms the projection uses --
+    // so the "Sorts as" line and this list cannot disagree on one page.
+    expect(
+      item.statements
+        .filter((claim) => claim.property === "sort_name")
+        .map(({ value, sourceKind }) => [value, sourceKind]),
+    ).toEqual([
+      ["Dalek Masterplan", "owner"],
+      ["Daleks' Master Plan", "derived"],
+    ]);
+  });
+
+  it("hands the item back to the computation when sent an empty sort name", async () => {
+    // The one place this router ACCEPTS an empty value where `retitle` refuses
+    // one, and `by-hand.ts` carries why: an empty title leaves a blank heading,
+    // an empty sort name leaves the computed one.
+    const id = await anItemTitled(db, "The Tenth Planet");
+    await call(appRouter.item.sortAs, { id, sortName: "Planet, The" }, { context: asTheOwner });
+
+    await call(appRouter.item.sortAs, { id, sortName: "" }, { context: asTheOwner });
+
+    expect((await call(appRouter.item.get, { id }, { context })).sortName).toBe("Tenth Planet");
+  });
+
+  it("answers NOT_FOUND for an id that addresses nothing", async () => {
+    const { error } = await safe(
+      call(
+        appRouter.item.sortAs,
+        { id: "00000000-0000-4000-8000-000000000000", sortName: "Nowhere" },
+        { context: asTheOwner },
+      ),
+    );
+
+    expect(isDefinedError(error) && error.code).toBe("NOT_FOUND");
+  });
+
+  it("refuses a caller with no session", async () => {
+    const id = await anItemTitled(db, "The Tenth Planet");
+
+    const { error } = await safe(
+      call(appRouter.item.sortAs, { id, sortName: "Mine now" }, { context }),
+    );
+
+    expect((error as { code?: string })?.code).toBe("UNAUTHORIZED");
+    expect((await call(appRouter.item.get, { id }, { context })).sortName).toBe("Tenth Planet");
   });
 });
 
@@ -771,7 +863,11 @@ describe("item.annotate and item.note", () => {
 
     const item = await call(appRouter.item.get, { id }, { context: asTheOwner });
 
-    expect(item.statements.map(({ property }) => property)).toEqual(["title"]);
+    // `note` IS THE ABSENCE THIS ASSERTS; `sort_name` is present because a title
+    // leaves one behind (CNCORE-173). Named exhaustively rather than filtered,
+    // so the next property that should not be public cannot slip in beside the
+    // one this test was written to keep out.
+    expect(item.statements.map(({ property }) => property)).toEqual(["sort_name", "title"]);
     expect(JSON.stringify(item)).not.toContain("Not for anybody else to read");
   });
 

@@ -225,7 +225,13 @@ describe("importing one record from a provider", () => {
       record: TENTH_PLANET,
     });
 
-    const claims = await claimsAbout(itemId);
+    // WHAT THE IMPORT WROTE, WHICH IS NARROWER THAN WHAT THE ITEM HOLDS
+    // (CNCORE-173). A title leaves a `sort_name` behind sourced to CanonCore's
+    // own computation, and that claim is not an imported value -- it is the
+    // catalogue's, computed from one. Excluded here rather than the helper
+    // narrowed, because eleven other assertions in this file read that helper
+    // for EVERY claim and a filter inside it would quietly weaken all of them.
+    const claims = (await claimsAbout(itemId)).filter((claim) => claim.sourceKind !== "derived");
 
     expect(claims.length).toBeGreaterThan(0);
     for (const claim of claims) {
@@ -291,7 +297,17 @@ describe("importing one record from a provider", () => {
     const claims = await claimsAbout(itemId);
     // The external id is written whatever else is, because it is what finds
     // this item again (migration 3). What must not appear is `released`.
-    expect(claims.map((claim) => claim.property).sort()).toEqual(["external_id", "title"]);
+    //
+    // `sort_name` IS HERE AND IS NOT THE IMPORT'S (CNCORE-173): a title leaves
+    // one behind, sourced to CanonCore's own computation. It is listed rather
+    // than filtered out, because this assertion's whole value is that it is
+    // EXHAUSTIVE -- a filter would let the next unwanted property in beside the
+    // one it was written to hide.
+    expect(claims.map((claim) => claim.property).sort()).toEqual([
+      "external_id",
+      "sort_name",
+      "title",
+    ]);
   });
 });
 
@@ -1522,6 +1538,37 @@ describe("previewing what a purge would take", () => {
     expect(await readItem(db, placedByTheOwner?.itemId ?? "")).toBeDefined();
     expect(await readItem(db, theValue)).toBeDefined();
     expect(await readItem(db, claimedByNobodyElse?.itemId ?? "")).toBeUndefined();
+  });
+
+  /**
+   * A DERIVED VALUE IS NOT A CLAIM THAT KEEPS AN ITEM ALIVE (CNCORE-173).
+   *
+   * This test exists because the first sort-name rung silently broke the purge.
+   * An item nobody but the provider claimed still carried CanonCore's own
+   * `sort_name` statement, so `deleteOrphansAmong`'s "nothing is left saying
+   * anything about it" found a row and the item survived a purge that should
+   * have taken it -- untitled, unplaced, and unreachable by any surface.
+   *
+   * THE RULE IS ABOUT PROVENANCE RATHER THAN ABOUT THIS ONE COMPUTATION. A
+   * derived value exists only as a function of the claims it is computed from
+   * (ADR-0071), so it cannot outlive them and can never be the reason something
+   * stays: when the last real claim goes, the derived value is not evidence,
+   * it is a residue. Any later `derived:` source inherits this for free.
+   */
+  it("lets a purge take an item whose only remaining claim is one CanonCore derived", async () => {
+    const provider = wikiProvider("http://127.0.0.1:8409");
+    const { itemId } = await importProvidedRecord(db, {
+      provider,
+      record: { ...TENTH_PLANET, externalId: "only-the-provider-knew-it" },
+    });
+    // The rung under test: a title leaves a derived sort name behind, and that
+    // statement is the one that used to keep this item standing.
+    expect((await readItem(db, itemId))?.sortName).toBe("Tenth Planet (TV story)");
+
+    const purged = await purgeProvider(db, { identity: provider.identity });
+
+    expect(purged).toMatchObject({ items: 1, keptItems: 0 });
+    expect(await readItem(db, itemId)).toBeUndefined();
   });
 });
 

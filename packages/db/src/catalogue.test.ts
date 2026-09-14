@@ -21,7 +21,17 @@ describe("readCatalogue", () => {
   it("answers with an item that is in the catalogue", async () => {
     const id = await anItemTitled(db, "A story the catalogue holds");
 
-    const { rows } = await readCatalogue(db, { limit: 100 });
+    // THE WHOLE CATALOGUE, NOT ITS FIRST PAGE, which is what this test is
+    // actually about: whether the item is LISTED, never where it sorts. The
+    // bound used to be 100, and the fixture's leading `A` was carrying it --
+    // the title sat near the front of the alphabet, so the first page happened
+    // to hold it. CNCORE-173 files it under `story the catalogue holds` and it
+    // moved to the S's, past a shared database that CI fills with more than a
+    // hundred items. It went red in CI having passed locally, which is the tell
+    // for an assertion resting on a position nobody chose: the shared database
+    // is written by every file in this suite at once, so how many items sit
+    // ahead of this one was never a property any test declared.
+    const { rows } = await readCatalogue(db, { limit: 1000 });
 
     expect(rows).toContainEqual(
       expect.objectContaining({ id, title: "A story the catalogue holds" }),
@@ -59,6 +69,48 @@ describe("readCatalogue", () => {
     const order = rows.map((row) => row.id);
 
     expect(order.indexOf(ark)).toBeLessThan(order.indexOf(genesis));
+  });
+
+  /**
+   * CNCORE-173's fourth criterion, asserted as a LISTING over real corpus Rows
+   * rather than as a string function over invented ones.
+   *
+   * THE TITLES ARE COPIED FROM `apps/web/e2e/wiki-fixture.ts`, WHICH IS WHAT
+   * `provider-wiki` ACTUALLY SERVES -- suffix included. `(TV story)` is part of
+   * the real title, not decoration, and an earlier version of this test dropped
+   * it and claimed the fixture's provenance anyway. Review caught that; it is
+   * the exact shape `CLAUDE.md` warns about, an unchecked claim travelling.
+   *
+   * THE `an` AND `a` ARMS OF THE RULE ARE NOT ASSERTED HERE, because this
+   * fixture has no title that opens with either -- all thirty are `The` or no
+   * article at all. They are covered in `sort-name.test.ts` and
+   * `by-hand.test.ts` over titles that are real stories but are NOT rows this
+   * repository holds a provider's own copy of, which is a weaker claim and is
+   * made there rather than borrowed here.
+   *
+   * FOUR OF THE SIX OPEN WITH AN ARTICLE AND THEY LAND IN FOUR DIFFERENT
+   * PLACES, which is what makes this a test of the rule rather than of one
+   * example. Ordered by raw title the answer is Aliens, Rose, The Daleks', The
+   * Empty Child, The Unquiet Dead, Tooth -- every article-led row bunched into
+   * one block under T. That is the defect this ticket exists to fix, and it
+   * differs from the sequence below at five of six positions.
+   */
+  it("files a leading article under the word after it, over real corpus Rows", async () => {
+    const unquiet = await anItemTitled(db, "The Unquiet Dead (TV story)");
+    const aliens = await anItemTitled(db, "Aliens of London (TV story)");
+    const daleks = await anItemTitled(db, "The Daleks' Master Plan (TV story)");
+    const rose = await anItemTitled(db, "Rose (TV story)");
+    const tooth = await anItemTitled(db, "Tooth and Claw (TV story)");
+    const empty = await anItemTitled(db, "The Empty Child (TV story)");
+
+    const { rows } = await readCatalogue(db, { limit: 1000 });
+    const these = new Set([unquiet, aliens, daleks, rose, tooth, empty]);
+    const order = rows.map((row) => row.id).filter((id) => these.has(id));
+
+    // WRITTEN OUT RATHER THAN SORTED, so the expectation cannot agree with the
+    // code by construction: A, D, E, R, T, U -- and `The Daleks' Master Plan`
+    // sits second, under D, where the ticket says it belongs.
+    expect(order).toEqual([aliens, daleks, empty, rose, tooth, unquiet]);
   });
 
   it("counts the whole catalogue even when it answers with only part of it", async () => {

@@ -29,14 +29,38 @@ beforeAll(async () => {
  * this list.
  */
 const FOUR = [
-  { id: "01690000-0000-4000-8000-000000000002", title: "Marco Polo" },
-  { id: "01690000-0000-4000-8000-000000000004", title: "An Unearthly Child" },
-  { id: "01690000-0000-4000-8000-000000000001", title: "The Keys of Marinus" },
-  { id: "01690000-0000-4000-8000-000000000003", title: "Inside the Spaceship" },
+  { id: "01690000-0000-4000-8000-000000000002", title: "Marco Polo", sortsAs: "Marco Polo" },
+  {
+    id: "01690000-0000-4000-8000-000000000004",
+    title: "An Unearthly Child",
+    sortsAs: "Unearthly Child",
+  },
+  {
+    id: "01690000-0000-4000-8000-000000000001",
+    title: "The Keys of Marinus",
+    sortsAs: "Keys of Marinus",
+  },
+  {
+    id: "01690000-0000-4000-8000-000000000003",
+    title: "Inside the Spaceship",
+    sortsAs: "Inside the Spaceship",
+  },
 ];
 
-/** The four in TITLE order, which is what a key on the sort key answers. */
-const BY_TITLE = [...FOUR].sort((a, b) => a.title.localeCompare(b.title)).map(({ id }) => id);
+/**
+ * The four in SORT-KEY order, which is what a key on `SORT_KEY` answers.
+ *
+ * `sortsAs` IS WORKED OUT BY HAND ABOVE RATHER THAN COMPUTED (CNCORE-173), and
+ * writing it down is what keeps this a test. Three of these titles open with an
+ * article, so the derived sort name files them under the word after it and the
+ * answer is NOT title order: sorting on `title` here would put `An Unearthly
+ * Child` first, and the walk puts it last. Re-deriving the key with the
+ * product's own rule would make the expectation agree with the code by
+ * construction whatever either said.
+ */
+const BY_SORT_KEY = [...FOUR]
+  .sort((a, b) => a.sortsAs.localeCompare(b.sortsAs))
+  .map(({ id }) => id);
 
 /** The four in ID order, which is what the id alone answers once keys tie. */
 const BY_ID = [...FOUR].sort((a, b) => a.id.localeCompare(b.id)).map(({ id }) => id);
@@ -133,6 +157,6 @@ describe("an order a listing is walked in", () => {
       id: items.id,
     } satisfies TheOrder;
 
-    expect(await walked(byKindThenTitle, THESE_FOUR)).toEqual(BY_TITLE);
+    expect(await walked(byKindThenTitle, THESE_FOUR)).toEqual(BY_SORT_KEY);
   });
 });

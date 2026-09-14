@@ -281,7 +281,13 @@ describe("one provider's id, held to one item", () => {
       .select({ deletedAt: statements.deletedAt })
       .from(statements)
       .where(eq(statements.subjectItemId, deleted));
+    // THREE RATHER THAN THE TWO WRITTEN ABOVE (CNCORE-173), and the third is the
+    // point rather than noise: the title left a derived `sort_name` behind, and
+    // it goes down with the item at the item's own timestamp exactly as the two
+    // claims a provider made do. A derived statement that outlived the tombstone
+    // would be a claim about a grave.
     expect(taken.map((claim) => claim.deletedAt?.toISOString())).toEqual([
+      at.toISOString(),
       at.toISOString(),
       at.toISOString(),
     ]);
@@ -303,7 +309,7 @@ describe("one provider's id, held to one item", () => {
           .from(statements)
           .where(eq(statements.subjectItemId, survivor))
       ).map((claim) => claim.deletedAt),
-    ).toEqual([null]);
+    ).toEqual([null, null]);
   });
 });
 

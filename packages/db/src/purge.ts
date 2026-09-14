@@ -271,6 +271,20 @@ async function itemsTouchedBy(tx: Transaction, sourceId: string): Promise<string
  * is no claim left on it and nowhere it sits. An item the owner still places
  * somewhere SURVIVES, untitled, because the owner's placement is the owner's
  * claim and a provider's licence ending has no bearing on it.
+ *
+ * AND A VALUE CANONCORE DERIVED IS NOT SUCH A CLAIM (CNCORE-173). A derived
+ * source is a computation over the claims already held (ADR-0071), so its
+ * output exists only as long as its inputs do -- and once the provider's rows
+ * are gone there are no inputs. Counting one would keep alive exactly the item
+ * this traversal exists to take: nobody's but the purged provider's, now
+ * untitled and unplaced, and reachable from no surface. It is the FIRST of the
+ * seven clauses to name a source at all, because it is the first kind of row
+ * that can be about an item without anybody having claimed anything.
+ *
+ * THE CLAUSE IS ABOUT THE SOURCE KIND RATHER THAN ABOUT `sort_name`, so the
+ * next derived computation inherits it rather than reopening this. A named
+ * property here would be the strip-list ADR-0045 argues against, one table
+ * along.
  */
 async function deleteOrphansAmong(
   tx: Transaction,
@@ -281,7 +295,11 @@ async function deleteOrphansAmong(
     .where(
       and(
         inArray(items.id, candidates),
-        sql`not exists (select 1 from ${statements} where ${statements.subjectItemId} = ${items.id})`,
+        sql`not exists (
+          select 1 from ${statements}
+            join ${sources} on ${sources.id} = ${statements.sourceId}
+           where ${statements.subjectItemId} = ${items.id} and ${sources.kind} <> 'derived'
+        )`,
         // Not the VALUE of somebody else's claim either. `value_item_id` carries
         // no cascade, so an item still standing as another item's `based_on` would
         // refuse the delete rather than be quietly skipped.

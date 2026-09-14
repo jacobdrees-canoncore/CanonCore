@@ -9,6 +9,7 @@ export {
   type ItemByHand,
   ItemRefused,
   retitleItemByHand,
+  sortItemAsByHand,
 } from "./by-hand";
 export { likePattern, searchCatalogue } from "./catalogue-search";
 export {

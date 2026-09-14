@@ -24,6 +24,7 @@ import {
   removePlacement,
   restorePlacement,
   retitleItem,
+  sortItemAs,
 } from "../actions";
 
 /**
@@ -402,6 +403,13 @@ export default async function ItemPage({
         they saw the disagreement.
       */}
       {owner && <EditTitle itemId={item.id} title={item.title} />}
+      {/*
+        AND WHERE IT FILES, beside the title it is computed from (CNCORE-173).
+        The two belong together: correcting a title is usually what makes a
+        reader notice the sort name, and an owner who has just retyped one
+        should not have to go looking for the other.
+      */}
+      {owner && <EditSortName itemId={item.id} sortName={item.sortName} />}
       {/*
         THE OWNER'S NOTE, AND ONLY THE OWNER'S PAGE HAS ONE (ADR-0045). A
         visitor is not shown an empty section either: there is nothing there to
@@ -1176,6 +1184,68 @@ function EditTitle({ itemId, title }: { itemId: string; title: string | null }) 
         </div>
         <Button type="submit">Save</Button>
       </form>
+    </section>
+  );
+}
+
+/**
+ * CORRECTING WHERE AN ITEM FILES (CNCORE-173), which is `EditTitle` above
+ * applied to the catalogue's other projected column.
+ *
+ * THE FIELD OPENS ON WHAT THE ITEM SORTS AS NOW, which for an item nobody has
+ * corrected is `derived:sort-name-v1`'s own answer. That is the point rather
+ * than a convenience: an owner correcting a sort name is DISAGREEING with a
+ * computation, and a blank box would make them guess what they are disagreeing
+ * with. It is the same argument `EditTitle` makes about opening on the title.
+ *
+ * NOT `required`, WHICH IS THE ONE ATTRIBUTE THAT DIFFERS FROM `EditTitle`, and
+ * the difference is the whole feature: clearing this box and saving withdraws
+ * the owner's claim and hands the item back to the computation (ADR-0096's
+ * shape, argued at `sortNameByHand` in the router). `required` would take that
+ * away, leaving retyping the computed value by hand as the only route back.
+ *
+ * `defaultValue` RATHER THAN `value`, and the item's id as a hidden field, for
+ * the two reasons `EditTitle` gives: a controlled input needs a client
+ * component, and a Server Action gets no request URL.
+ */
+function EditSortName({ itemId, sortName }: { itemId: string; sortName: string | null }) {
+  return (
+    <section className="mt-8" aria-labelledby="edit-sort-name">
+      <h2 id="edit-sort-name" className="font-medium text-sm">
+        Sorts as
+      </h2>
+      <form action={sortItemAs} className="mt-2 flex items-end gap-2">
+        <input type="hidden" name="id" value={itemId} />
+        <div className="flex flex-1 flex-col gap-2">
+          <Label htmlFor="sortName" className="sr-only">
+            Sorts as
+          </Label>
+          {/*
+            `sortName ?? ""` IS AN ITEM WITH NO TITLE, which is the only way an
+            item has no sort name: the computation reads the winning title, so
+            an item nobody has titled has nothing to file under (ADR-0003). The
+            owner can still give it one here.
+          */}
+          {/*
+            THE HINT BELOW IS TIED TO THE FIELD rather than left sitting near it
+            (`frontend.md`: accessibility ships with the feature). This is the
+            one control on the page whose EMPTY state does something, and a
+            reader who cannot see the layout has no other way to learn that
+            clearing the box is the undo. Raised by review.
+          */}
+          <Input
+            id="sortName"
+            name="sortName"
+            defaultValue={sortName ?? ""}
+            autoComplete="off"
+            aria-describedby="sorts-as-hint"
+          />
+        </div>
+        <Button type="submit">Save</Button>
+      </form>
+      <p id="sorts-as-hint" className="mt-2 text-muted-foreground text-sm">
+        Clear this to file it as CanonCore works it out.
+      </p>
     </section>
   );
 }

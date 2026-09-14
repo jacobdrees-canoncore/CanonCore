@@ -62,3 +62,24 @@ with its own slice. Projecting it from item statements now would fill the column
 with a different definition of the value, which is worse than leaving it empty.
 The column ships regardless, because ADR-0073's shape is the hard-to-reverse
 part.
+
+## The statement trigger grew a second job, under CNCORE-173
+
+**`sort_name` IS NOW WRITTEN AS WELL AS PROJECTED, and the same trigger does
+both.** This record's "As built" section above describes
+`reproject_item_from_statement` as reprojecting an item when a statement about
+it changes. Migration 17 replaces that function so a `title` statement ALSO
+derives a `sort_name` statement for its item first, and only then reprojects —
+so the column this record created for `sort_name` has something to cache.
+
+**IT IS THIS RECORD'S OWN ARGUMENT REACHING THE SECOND COLUMN.** "A trigger
+cannot be forgotten by a writer that never heard of it" was decided for the
+projection and names the writers that would forget: the hand seed, the importer,
+the scanner, a merge. Every one of them writes a TITLE, so every one of them has
+to leave a sort name behind, and the derivation belongs in the same place for
+the same reason.
+
+**THE GUARD IS THE PROPERTY NAME.** Only a `title` statement derives, so the
+`sort_name` statement the derivation writes re-enters the trigger once, matches
+nothing, and stops. [[0134-a-sort-name-is-derived-by-stripping-a-leading-article]]
+carries the computation and what it may never do.

@@ -14,6 +14,7 @@ import {
   items,
   properties,
   retitleItemByHand,
+  sortItemAsByHand,
   statements,
 } from "./index";
 import {
@@ -40,7 +41,17 @@ describe("creating an Item by hand", () => {
     const { itemId } = await createItemByHand(db, { kind: "work", title: "A novel I do not own" });
 
     expect((await findItem(db, itemId))?.title).toBe("A novel I do not own");
+    // AND THE SORT NAME THE TITLE LEAVES BEHIND (CNCORE-173), sourced to
+    // CanonCore's own computation rather than to the owner: they typed a title,
+    // and where the catalogue files it is the catalogue's claim. It sorts ahead
+    // of the title here because this list orders on the property name first.
     expect(await findStatementsOfItem(db, itemId)).toEqual([
+      {
+        property: "sort_name",
+        value: "novel I do not own",
+        sourceKind: "derived",
+        sourceLabel: "CanonCore (sort name v1)",
+      },
       {
         property: "title",
         value: "A novel I do not own",
@@ -75,6 +86,15 @@ describe("editing a title by hand", () => {
     // said itself, so the owner's edit outranks the provider rather than
     // erasing it -- which is what makes the disagreement visible on the page.
     expect(await findStatementsOfItem(db, itemId)).toEqual([
+      // ONE SORT NAME RATHER THAN TWO, computed from the title that WON. The
+      // provider's losing title leaves nothing behind: the computation reads
+      // `winning_literal` and there is only ever one winner (CNCORE-173).
+      {
+        property: "sort_name",
+        value: "Tenth Planet",
+        sourceKind: "derived",
+        sourceLabel: "CanonCore (sort name v1)",
+      },
       { property: "title", value: "The Tenth Planet", sourceKind: "owner", sourceLabel: "Owner" },
       {
         property: "title",
@@ -83,6 +103,66 @@ describe("editing a title by hand", () => {
         sourceLabel: "http://127.0.0.1:8201",
       },
     ]);
+  });
+});
+
+/**
+ * CORRECTING A SORT NAME, WHICH IS THE ONE THING THE COMPUTATION CANNOT DO FOR
+ * ITSELF (CNCORE-173).
+ *
+ * `sort_name_v1` strips a leading article and nothing else, so every sort name
+ * a corpus needs that is not that -- a person filed under their surname, a
+ * numeral spelled out, a title whose article is not English -- is the Owner's
+ * to say. That is the same shape as a title: the catalogue proposes, the Owner
+ * settles it, and both claims stand.
+ */
+describe("correcting a sort name by hand", () => {
+  it("beats the computation, which goes on standing beside it", async () => {
+    const itemId = await anItemTitled(db, "The Daleks' Master Plan");
+    expect((await findItem(db, itemId))?.sortName).toBe("Daleks' Master Plan");
+
+    await sortItemAsByHand(db, { itemId, sortName: "Dalek Masterplan" });
+
+    expect((await findItem(db, itemId))?.sortName).toBe("Dalek Masterplan");
+    expect(
+      (await findStatementsOfItem(db, itemId))
+        .filter((claim) => claim.property === "sort_name")
+        .map(({ value, sourceKind }) => [value, sourceKind]),
+    ).toEqual([
+      ["Dalek Masterplan", "owner"],
+      ["Daleks' Master Plan", "derived"],
+    ]);
+  });
+
+  it("hands the computed one back when the Owner clears the field", async () => {
+    // `''` IS THE WITHDRAWAL, which is `annotateItemByHand`'s shape rather than
+    // `retitleItemByHand`'s, and the difference is what the empty value LEAVES.
+    // An empty title leaves an item whose heading renders blank, so it is
+    // refused; an empty sort name leaves the computed one, which is a good
+    // state and the only route back from a correction the Owner regrets.
+    const itemId = await anItemTitled(db, "The Tenth Planet");
+    await sortItemAsByHand(db, { itemId, sortName: "Planet, The Tenth" });
+    expect((await findItem(db, itemId))?.sortName).toBe("Planet, The Tenth");
+
+    await sortItemAsByHand(db, { itemId, sortName: "" });
+
+    expect((await findItem(db, itemId))?.sortName).toBe("Tenth Planet");
+    expect(
+      (await findStatementsOfItem(db, itemId))
+        .filter((claim) => claim.property === "sort_name")
+        .map(({ value, sourceKind }) => [value, sourceKind]),
+    ).toEqual([["Tenth Planet", "derived"]]);
+  });
+
+  it("answers false for an id that addresses no live item", async () => {
+    // ADR-0066: an id that names nothing is an ANSWER rather than a failure --
+    // the posture `findItem`, `retitleItemByHand` and `annotateItemByHand` take.
+    expect(
+      await sortItemAsByHand(db, {
+        itemId: "00000000-0000-4000-8000-000000000000",
+        sortName: "Nowhere",
+      }),
+    ).toBe(false);
   });
 });
 

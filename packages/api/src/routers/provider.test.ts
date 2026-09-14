@@ -397,6 +397,17 @@ describe("provider.import", () => {
         sourceKind: "provider",
         sourceLabel: "provider-wiki",
       },
+      // THE ONE ROW HERE THE PROVIDER DID NOT CLAIM (CNCORE-173), and it says
+      // so: the sort name is CanonCore's, computed from the title beneath it.
+      // That is the point of this assertion rather than an exception to it --
+      // every value reaches a reader with its real source attached, and a
+      // computation the catalogue ran is not something to file under a provider.
+      {
+        property: "sort_name",
+        value: "Tenth Planet (TV story)",
+        sourceKind: "derived",
+        sourceLabel: "CanonCore (sort name v1)",
+      },
       {
         property: "title",
         value: "The Tenth Planet (TV story)",
