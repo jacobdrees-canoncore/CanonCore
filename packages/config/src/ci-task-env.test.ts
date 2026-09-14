@@ -83,6 +83,12 @@ function specifiedEnvPerTask(task: string): { taskId: string; env: string[] }[] 
  * only `pnpm <task>` lost every subject in this file at once. The canary below
  * is what caught it.
  *
+ * IT IS EIGHT JOBS NOW, not five (CNCORE-191): `Typecheck`, `Build` and the
+ * migration ladder went behind the same guard, for the same reason. The count
+ * is written here rather than left at "the suite jobs" because the number moving
+ * is exactly what this note is for -- the next widening takes every subject in
+ * this file with it again.
+ *
  * Deliberately LOOSE there, because `specifiedEnvPerTask` above confirms each
  * candidate against Turbo itself: `pnpm install` and `pnpm exec` match and are
  * dropped there.

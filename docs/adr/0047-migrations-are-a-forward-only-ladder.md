@@ -39,6 +39,12 @@ nothing about what an existing database will do. It is also a local choice rathe
 practice: Rails prefers `db:schema:load` to replaying history — though its documented reason is that
 old migrations rot against evolving application code, not that empty-to-head misses divergence.
 
+AND THE GATE RESTS ON SOMETHING OUTSIDE ITSELF, which CNCORE-191 found: it is run as a turbo task,
+and `turbo run <task>` exits 0 having run ZERO tasks. Invoked bare — as it was until then — this
+gate would report a database built from NOTHING as built correctly, which is the one result it
+exists to rule out. It runs behind `.github/scripts/run-suite.sh` now, which fails when the count
+turbo printed is none. ADR-0103 carries the guard and the measurement.
+
 The mechanism demonstrably retrofits — Jellyfin added all of it in 2025, to a codebase dating from
 2018, in a project large enough that a botched migration made its own release notes — but the
 HISTORY does not. (Jellyfin publishes no install count and ships no telemetry, so an earlier

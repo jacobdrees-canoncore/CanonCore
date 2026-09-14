@@ -129,11 +129,19 @@ export function allSteps(parsed: Workflow): { job: string; jobIf: unknown; step:
 }
 
 /**
- * The one script a CI job runs a suite through (CNCORE-160).
+ * The one script a CI job invokes turbo through (CNCORE-160, CNCORE-191).
  *
  * `turbo run <task>` exits 0 having run ZERO tasks, so a job invoking the
- * runner bare reports success for a suite that is no longer there. The script
+ * runner bare reports success for a task that is no longer there. The script
  * runs the task and fails when the count it printed is none.
+ *
+ * A SUITE IS NOT THE SUBJECT, THE RUNNER IS. CNCORE-160 put the five suite jobs
+ * behind this and left `typecheck`, `build` and the migration ladder bare;
+ * CNCORE-191 found they carry the identical hole, so the name reads `SUITE` for
+ * its history rather than its scope. It also takes a package as a second
+ * argument, which holds a run to that package's task having appeared among the
+ * ones turbo ran -- a count is not a roll call, and `test` is declared by ten
+ * packages (CNCORE-190). ADR-0103 carries all of it.
  */
 export const SUITE_GUARD = ".github/scripts/run-suite.sh";
 

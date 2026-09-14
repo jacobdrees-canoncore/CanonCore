@@ -60,10 +60,22 @@ report success for a package whose suite had been deleted, which is a false gree
 the only package in that position now: its export opens a Postgres connection, so it has nothing to
 test without one. It gets the script in the change that gives it a schema.
 
-The same false green exists one level up, and is closed the same way: `turbo run test` exits 0 when
-it runs ZERO tasks, so **every CI job that runs a suite** asserts the count turbo printed rather
-than trusting the exit code. Measured on turbo 2.10.12: a task no package declares reports
+The same false green exists one level up, and is closed the same way: `turbo run <task>` exits 0
+when it runs ZERO tasks, so **every CI job that invokes turbo** asserts the count turbo printed
+rather than trusting the exit code. Measured on turbo 2.10.12: a task no package declares reports
 `Tasks: 0 successful, 0 total`, warns on stderr, and exits 0.
+
+That sentence said **a suite** until CNCORE-191, and the narrower word was the whole of the gap:
+the hole belongs to the RUNNER, not to `test`. `Typecheck`, `Build` and the migration ladder's two
+`db:migrate` runs and its `db:check-ladder` were left invoking turbo bare, each going green having
+typechecked, built or migrated nothing — and the ladder's is the worst of them, because ADR-0047's
+empty-to-head gate would then report a database built from nothing as built correctly. All four are
+behind the guard now. `Lint` stays bare and is right to: `pnpm lint` is `biome ci`, which exits 1
+when it processes no files, the opposite behaviour. `Env guard` stays bare and is also right to,
+because it REQUIRES the build to fail, so a run of zero tasks reddens it correctly — guarding it
+would invert the check. Both reasons are written where a check can read them, in
+`run-suite.test.ts`'s exemption list, since the workflow is read back through a YAML parse that
+drops comments.
 
 That sentence read `CI asserts` for a long time while ONE job of five did it (CNCORE-160). The
 `Test` job carried the check; `The page over HTTP`, `The page in a browser`, the real-provider job
@@ -72,7 +84,8 @@ and the contract job invoked the runner bare, so deleting `test:e2e`, `test:brow
 is the shape of failure a half-built mechanism has: from outside, one job doing it and five doing it
 are the same sentence.
 
-The guard is now one script, `.github/scripts/run-suite.sh`, and every suite job runs behind it —
+The guard is now one script, `.github/scripts/run-suite.sh`, and every job invoking turbo runs
+behind it —
 which is what makes the claim testable rather than merely restated.
 `packages/config/src/run-suite.test.ts` runs that script against a turbo workspace with a test
 script and then with it deleted, so the red is DEMONSTRATED, and reads `ci.yml` back to refuse any
@@ -88,11 +101,60 @@ the guard reads as a pass. What catches that is `network-gate-wiring.test.ts`, w
 Vitest config on disk to being run by some suite — so the orphaned config fails it. Measured on
 2026-09-14: deleting `packages/tokens`' `test` script turns the Test job red there, not here.
 
-**And the case NEITHER catches is `packages/config`'s own `test` script**, because the sweep that
+**And the case NEITHER catches was `packages/config`'s own `test` script**, because the sweep that
 would catch it is the suite that script runs. Measured the same day: with it deleted, `pnpm test`
-reports `Tasks: 9 successful, 9 total` and the job is GREEN. A check cannot police the thing that
-decides whether it runs, and closing it means an assertion somewhere no package's script can
-switch off. CNCORE-190 holds that; this record will not read whole until it lands.
+reported `Tasks: 9 successful, 9 total` and the job was GREEN, having switched off every check this
+repository makes of `ci.yml`, `pnpm-workspace.yaml`, the network gate's wiring, the Biome config and
+the Node major. **CNCORE-190 closed it: a count is not a roll call, and the guard now takes one.**
+`run-suite.sh test @canoncore/config` holds the run to that package's task having actually appeared
+among the ones turbo ran. Turbo announces a task before it writes a word of its own, so a package
+declaring no such script contributes nothing to announce — and it does so **in two different
+shapes**. Everywhere but GitHub Actions it STREAMS, prefixing every line with `<package>:<task>: `;
+on GitHub
+Actions it detects the runner and GROUPS instead, emitting `::group::<package>:<task>` with the
+task's own lines unprefixed inside. Both are read, because a guard that knew only the streamed shape
+is green on a laptop and red on the runner, which is the one place it exists to work. Measured on
+turbo 2.10.12, cold and cached: `GITHUB_ACTIONS=true` is the switch and `CI=true` alone is not.
+
+A check cannot police the thing that decides whether it runs, which is why the roll call is in the
+script the workflow step EXECUTES, where no `scripts` block reaches it.
+
+The half a suite can still hold is the other one — that `ci.yml` names the package at all — and
+`run-suite.test.ts` holds it, because deleting the argument leaves that suite running to notice.
+The two holes are disjoint, which is what makes the pair whole.
+
+**The roll call is asked in ONE place, and that is a half rather than a finish.** `test
+@canoncore/config` is the case CNCORE-190 measured and closed. `typecheck` is declared by ELEVEN
+packages and has only the count, so one of them dropping its script leaves ten running and the job
+green — the identical hole, and nothing else catches it, because `network-gate-wiring.test.ts`
+covers `test` alone. CNCORE-197 holds that, and this paragraph is here so the mechanism does not
+read whole from outside while half of it is open.
+
+`build` is NOT a third case, for the reason `test:e2e` is not: it is declared by exactly ONE
+package, `web`, so the count reaching zero and the script being deleted are the same event. That
+sentence said "`typecheck` and `build` … eleven packages each" when it was first written, which was
+an unchecked figure for the second of them and would have sent somebody to close a hole that does
+not exist. Counted 2026-09-14: `test` 10, `typecheck` 11, `build` 1.
+
+**And a scratch fixture does not stand in for a real run**, which this record owes to the roll call
+being wrong TWICE before it was right — once on the size of a real log and once on the shape of a
+real runner's output, both times with every row of the fixture green.
+
+The second is the plainer of the two. The roll call read the streamed prefix, which is what a laptop
+produces and not what GitHub Actions does, so it passed here and failed there — on a check whose
+entire purpose is to bite in CI. The fixture now PINS both shapes rather than inheriting whichever
+the host happens to be, because a suite that inherits it agrees with itself in each place and
+disagrees between them, which is exactly how this got through.
+
+The first was subtler, and it is the one this paragraph is named for. The reader stopped at the
+match, which closed the pipe under the `sed` stripping colour ahead of it; that `sed` died of
+SIGPIPE, `pipefail` handed 141 to the check, and the guard reported the package it had just found
+as missing. Every row of the scratch
+workspace passed throughout, because the hazard needs a log longer than a pipe buffer and theirs
+were a few lines. It surfaced on the first run against this repository's own `pnpm test`, where the
+package announces itself around line 8 of some two hundred. The seam is right and the fixture is
+right; what neither gives for free is SIZE, so a guard that reads a log is run against a real one
+before it is believed. `run-suite.test.ts` now holds a 20,000-line workspace over it.
 
 ## Where the design tokens are actually held honest
 
