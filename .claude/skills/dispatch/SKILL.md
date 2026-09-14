@@ -107,6 +107,12 @@ diverge — CNCORE-41, 45 and 57 are each that divergence found later.
 
 ## Gotchas
 
+- **A CROSS-REPO FOLD MAKES BOTH ITS WORKTREES LOOK DEAD, and neither pane is lying.** The agent
+  lives in one worktree and reaches into the other with `cd`, so the repo holding the FILES has no
+  agent in it and the worktree holding the AGENT shows `+0,-0` until the second half starts. The
+  work is in a third place: the other repo's `git status`. Say this when you brief the fold — the
+  163/164 pair read as stalled on 2026-09-14 while it was writing a compose file and a 209-line
+  test, and the question came back as "the orca worktree isnt doing anyhting".
 - **`orca terminal send` truncates a long message, silently.** The agent acts on the fragment. Keep
   each send to a couple of hundred bytes and split; read the terminal back to confirm it landed.
   This cost CNCORE-40 a whole pass.
