@@ -40,7 +40,17 @@ describe("creating an Item by hand", () => {
     const { itemId } = await createItemByHand(db, { kind: "work", title: "A novel I do not own" });
 
     expect((await findItem(db, itemId))?.title).toBe("A novel I do not own");
+    // AND THE SORT NAME THE TITLE LEAVES BEHIND (CNCORE-173), sourced to
+    // CanonCore's own computation rather than to the owner: they typed a title,
+    // and where the catalogue files it is the catalogue's claim. It sorts ahead
+    // of the title here because this list orders on the property name first.
     expect(await findStatementsOfItem(db, itemId)).toEqual([
+      {
+        property: "sort_name",
+        value: "novel I do not own",
+        sourceKind: "derived",
+        sourceLabel: "CanonCore (sort name v1)",
+      },
       {
         property: "title",
         value: "A novel I do not own",
@@ -75,6 +85,15 @@ describe("editing a title by hand", () => {
     // said itself, so the owner's edit outranks the provider rather than
     // erasing it -- which is what makes the disagreement visible on the page.
     expect(await findStatementsOfItem(db, itemId)).toEqual([
+      // ONE SORT NAME RATHER THAN TWO, computed from the title that WON. The
+      // provider's losing title leaves nothing behind: the computation reads
+      // `winning_literal` and there is only ever one winner (CNCORE-173).
+      {
+        property: "sort_name",
+        value: "Tenth Planet",
+        sourceKind: "derived",
+        sourceLabel: "CanonCore (sort name v1)",
+      },
       { property: "title", value: "The Tenth Planet", sourceKind: "owner", sourceLabel: "Owner" },
       {
         property: "title",
