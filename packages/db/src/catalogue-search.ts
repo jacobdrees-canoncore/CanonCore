@@ -1,7 +1,8 @@
-import { and, eq, or, type SQL, type SQLWrapper, sql } from "drizzle-orm";
+import { and, eq, type SQL, type SQLWrapper, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 import type { Database } from "./index";
+import { type PlaceIn, pastTheRowIn, type TheOrder, theOrderBy } from "./order";
 import { type Catalogue, findTheAnchor, IN_THE_CATALOGUE, SORT_KEY, walkListing } from "./queries";
 import { items } from "./schema";
 
@@ -132,7 +133,8 @@ export async function searchCatalogue(
   // Nothing was asked, so nothing matched and there is nowhere to walk on to.
   if (wanted === "") return { rows: [], total: 0, continuesAfter: null };
 
-  const anchor = after === undefined ? undefined : await findInTheRanking(db, after);
+  const ranking = theRanking(wanted);
+  const place = after === undefined ? undefined : await findInTheRanking(db, wanted, after);
 
   return walkListing(db, {
     /*
@@ -146,32 +148,8 @@ export async function searchCatalogue(
      * decides: how many MATCHED, rather than how many the catalogue holds.
      */
     within: and(IN_THE_CATALOGUE, titleMatches(wanted)) as SQL,
-    orderBy: [
-      // CLOSEST FIRST, which is what the trigram index is for beyond speed:
-      // `similarity()` comes from the same `pg_trgm` extension the index needs,
-      // so ranking costs no second mechanism. Every row here CONTAINS the query
-      // already -- `ilike` decided that -- so what this separates is how much
-      // else the title says: a title that is nearly the query outranks one that
-      // merely mentions it.
-      sql`${closenessTo(items.title, wanted)} desc`,
-      /*
-       * AND THEN THE CATALOGUE'S OWN ORDER, so two equally close titles come
-       * back in the same order twice. `SORT_KEY` is the listings' own, not a
-       * second spelling: the catalogue has one order, and a search that broke
-       * ties by a different one would list two items in an order no other
-       * surface agrees with.
-       *
-       * `nulls last` IS SPELLED THE WAY THE LISTING SPELLS IT and CANNOT BITE
-       * HERE, which is worth the line because the listing's copy says it is
-       * load-bearing. There it is: an item with no title at all has no sort key
-       * and sorts last as a block. No such row can be in a result set -- the
-       * match is `title ilike ...`, which is NULL without a title -- so this is
-       * the two orders held identical rather than a case being handled.
-       */
-      sql`${SORT_KEY} nulls last`,
-      sql`${items.id}`,
-    ],
-    past: anchor && pastInTheRanking(db, anchor, wanted),
+    orderBy: theOrderBy(ranking),
+    past: place && pastTheRowIn(ranking, place),
     limit,
   });
 }
@@ -187,93 +165,77 @@ function closenessTo(title: SQLWrapper, query: string): SQL {
   return sql`similarity(${title}, ${query})`;
 }
 
-/** Where one result sits in the ranking one search produced. */
-interface PlaceInTheRanking {
-  /**
-   * NOT NULL, unlike the catalogue's. See `past` below: a result set cannot
-   * hold a row without a sort key, so neither can an anchor that has a place
-   * in one.
-   */
-  sortKey: string;
-  id: string;
+/**
+ * THE ORDER ONE SEARCH RANKS IN, and the app's only order with a DESCENDING
+ * key.
+ *
+ * ONE VALUE, AND BOTH STATEMENTS ARE READ OFF IT (ADR-0119). `theOrderBy`
+ * renders the `ORDER BY` and `pastTheRowIn` renders the cursor comparison that
+ * walks it. Each of the three terms is a separate way to lose results silently,
+ * which is why the comparison naming all three cannot be left to care:
+ *
+ * - CLOSEST FIRST, which is what the trigram index is for beyond speed:
+ *   `similarity()` comes from the same `pg_trgm` extension the index needs, so
+ *   ranking costs no second mechanism. Every row here CONTAINS the query
+ *   already -- `ilike` decided that -- so what this separates is how much else
+ *   the title says: a title that is nearly the query outranks one that merely
+ *   mentions it. `largestFirst` is what makes it the CLOSEST rather than the
+ *   furthest, in the sort and in the walk at once.
+ * - THEN THE CATALOGUE'S OWN ORDER, so two equally close titles come back in
+ *   the same order twice. `SORT_KEY` is the listings' own, not a second
+ *   spelling: the catalogue has one order, and a search that broke ties by a
+ *   different one would list two items in an order no other surface agrees
+ *   with. Relevance ties are the COMMON case here rather than a corner of one
+ *   -- titles of one shape rank identically -- and a cursor comparing closeness
+ *   alone steps over every result tied with its anchor (CNCORE-88, measured: a
+ *   four-row fixture sharing one title walked to ONE of them).
+ * - THEN THE ID, because two results can tie on both: the same title and the
+ *   same sort name is one item filmed twice, not a contrivance, and ids are
+ *   random, so which of a tied pair a page ends on is luck.
+ *
+ * BOTH KEYS SAY `everyRowHasIt`, AND IT IS ONE FACT RATHER THAN TWO. The match
+ * is `title ilike ...`, which is NULL for an item with no title, so EVERY ROW
+ * THIS LISTING HOLDS HAS A TITLE -- and therefore a closeness, because
+ * `similarity()` over a title is never null, and therefore a sort key, because
+ * `coalesce(sort_name, title)` falls back to that title. THIS ORDER HAS NO
+ * KEYLESS BLOCK AT ALL, which is the one thing it does not share with the
+ * catalogue's: there the untitled tail is a real block of rows a walk must
+ * reach. It was a COMMENT justifying a hand-written predicate until CNCORE-170
+ * and is a declaration the shared one reads now.
+ *
+ * AND THE TIES ARE STILL THE CATALOGUE'S OWN ORDER, which is what the `nulls
+ * last` this no longer renders used to say. The identity that matters is the
+ * SHARED `SORT_KEY` expression rather than the spelling around it, and the
+ * clause it drops was the spelling of a block this listing cannot hold.
+ *
+ * BUILT PER REQUEST RATHER THAN WRITTEN AS A CONSTANT, because the leading key
+ * is a function of what the reader typed rather than a column of the item
+ * (ADR-0120). That is the whole of what this Listing has that the catalogue's
+ * does not, and `PlaceIn` carries the other half of it -- see `findInTheRanking`
+ * below.
+ */
+function theRanking(query: string) {
+  return {
+    keys: {
+      closeness: {
+        key: closenessTo(items.title, query),
+        largestFirst: true,
+        everyRowHasIt: true,
+      },
+      sortKey: { key: SORT_KEY, everyRowHasIt: true },
+    },
+    id: items.id,
+  } satisfies TheOrder;
 }
 
 /**
- * Everything this search ranks AFTER one result (ADR-0119).
+ * Where one result sits in the ranking one search produced.
  *
- * THE ORDER HAS THREE TERMS AND SO DOES THIS, because each of the three is a
- * separate way to lose rows silently:
- *
- * - CLOSENESS FIRST, which is the term the catalogue's walk does not have.
- * - THEN THE SORT KEY, because relevance ties are the COMMON case here rather
- *   than a corner of one -- titles of one shape rank identically, and a cursor
- *   comparing closeness alone steps over every result tied with its anchor.
- *   Measured: a four-row fixture sharing one title walked to ONE of them.
- * - THEN THE ID, because two results can tie on both -- the same title and the
- *   same sort name is one item filmed twice, not a contrivance -- and ids are
- *   random, so which of a tied pair a page ends on is luck.
- *
- * AND A FOURTH BRANCH THAT IS NOT A TERM OF THE ORDER: the anchor having NO
- * CLOSENESS AT ALL. That is one statement's answer to a question the statement
- * before it asked differently -- `findInTheRanking` found the anchor titled, and
- * by the time this runs a delete has emptied its projection, so
- * `similarity(anchor.title, $query)` is NULL. A NULL on one side makes the whole
- * comparison NULL, NULL is not true for any row, and the page comes back EMPTY
- * over results still unseen (CNCORE-113).
- *
- * SO A NULL CLOSENESS MEANS "NO POSITION", WHICH IS THE ANSWER THE READ-TIME
- * CHECK ALREADY GIVES. `findInTheRanking` turns away an anchor with no title,
- * and this turns away an anchor that lost one a statement later; both start the
- * search over, so the window between the two statements no longer decides
- * anything a reader could see. THE TWO ARE TWO MOMENTS AND NOT TWO MECHANISMS:
- * the check above spares the walk a predicate it does not need, and neither is
- * the other's dead code.
- *
- * IT IS SPELLED `is null` RATHER THAN WRAPPED IN A `coalesce(..., true)`, and
- * the difference is which NULL it forgives. A coalesce over the whole
- * comparison would answer "start over" for ANY null in it -- including a
- * candidate row with no closeness of its own, which would then be RETURNED by a
- * search it never matched. This names the anchor's null and no other.
- *
- * A ROW COMPARISON FOR THE LAST TWO, WHICH `readListing`'S `past` CANNOT USE,
- * and the difference is worth the sentence. That one has to write two regimes
- * because an item nobody has titled has no sort key, and `(null, x) > (k, y)`
- * is NULL rather than true -- so a row comparison would drop the untitled tail
- * off the catalogue's walk permanently. NO SUCH ROW CAN BE IN A RESULT SET:
- * matching is `title ilike ...`, which is NULL for an untitled item, so every
- * row here has a title and therefore a sort key. The regime that needs two
- * halves cannot arise, so the comparison is written as the one it is.
+ * DERIVED FROM THE ORDER rather than declared beside it, for the reason that
+ * order gives: a place written out by hand is a second list of its keys, and
+ * two lists come apart. CNCORE-88 was this list being one term short.
  */
-function pastInTheRanking(db: Database, { sortKey, id }: PlaceInTheRanking, query: string): SQL {
-  const closeness = closenessTo(items.title, query);
-  const anchor = closenessOfTheAnchor(db, id, query);
-  /*
-   * BUILT WITH `or` AND `and` RATHER THAN WRITTEN AS ONE STRING, and that is a
-   * FIX rather than a preference. Written as one `sql` template with a
-   * top-level `or`, this returned rows the search had not matched.
-   *
-   * `and(within, past)` parenthesises the PAIR it is handed and not the
-   * operands inside it, so the predicate rendered as
-   * `(within and A or (B and C))` -- and `and` binds tighter than `or`, so it
-   * parsed as `((within and A) or (B and C))`. THE TIE BRANCH ESCAPED THE MATCH
-   * ENTIRELY: anything ranking level with the anchor and sorting after it came
-   * back on page two whether or not it contained the query.
-   *
-   * MEASURED, and reachable by construction rather than by luck: pg_trgm pads
-   * and splits per WORD, so `Zagreus Antimony` and `Antimony Zagreus` hold the
-   * identical trigram set and rank identically against any query (ADR-0120's
-   * "trigram matching has no notion of word order", read as a hazard rather
-   * than a limit). Only one of them contains the query. The walk returned both.
-   *
-   * `or()` wraps its own result, so the parenthesising is drizzle's job here
-   * rather than something this file has to get right by hand.
-   */
-  return or(
-    sql`${anchor} is null`,
-    sql`${closeness} < ${anchor}`,
-    and(sql`${closeness} = ${anchor}`, sql`(${SORT_KEY}, ${items.id}) > (${sortKey}, ${id})`),
-  ) as SQL;
-}
+type PlaceInTheRanking = PlaceIn<ReturnType<typeof theRanking>>;
 
 /**
  * THE ANCHOR'S OWN CLOSENESS, COMPUTED INSIDE THE QUERY rather than carried out
@@ -332,7 +294,11 @@ function closenessOfTheAnchor(db: Database, id: string, query: string): SQL {
  * review. What is left below is the part a RELEVANCE order genuinely decides
  * differently.
  */
-async function findInTheRanking(db: Database, id: string): Promise<PlaceInTheRanking | undefined> {
+async function findInTheRanking(
+  db: Database,
+  query: string,
+  id: string,
+): Promise<PlaceInTheRanking | undefined> {
   const anchor = await findTheAnchor(db, id);
   if (anchor === undefined) return undefined;
   /*
@@ -361,8 +327,9 @@ async function findInTheRanking(db: Database, id: string): Promise<PlaceInTheRan
    * statements wide -- closing it would mean joining the anchor in as a
    * relation, which ADR-0119 prices as a worse trade than the extra lookup, and
    * that record deliberately keeps the closeness on the server -- but
-   * `pastInTheRanking` now reads a NULL closeness as "no position" and starts
-   * the search over, which is exactly what this check does a statement earlier.
+   * the place below carries the closeness as an EXPRESSION, and `pastTheRowIn`
+   * reads a computed value that is NULL as "no position" and starts the search
+   * over -- which is exactly what this check does a statement earlier.
    * BOTH SIDES OF THE WINDOW ANSWER THE SAME WAY, so which side a delete lands
    * on is no longer something a reader can tell. Asserted rather than reasoned:
    * `catalogue-search.test.ts` wedges the delete into the gap.
@@ -377,5 +344,25 @@ async function findInTheRanking(db: Database, id: string): Promise<PlaceInTheRan
    * predicate. Only a relevance order re-derives the place on the server.
    */
   if (anchor.title === null || anchor.sortKey === null) return undefined;
-  return { sortKey: anchor.sortKey, id: anchor.id };
+  /*
+   * THE CLOSENESS IS AN EXPRESSION AND THE SORT KEY IS A VALUE, which is the
+   * one place in this app where a place carries both -- and it is the shape the
+   * ticket had to make the interface carry rather than work around.
+   *
+   * THE SORT KEY WAS READ, a statement ago, and a value read is a value the
+   * read has already ruled on: this function answers `undefined` where the
+   * anchor has no place, so what it does hand back has one.
+   *
+   * THE CLOSENESS CANNOT BE. It is a function of the QUERY the request
+   * resupplied rather than a column of the anchor row (ADR-0120), so it is
+   * computed in the walk's own statement -- and it is deliberately not carried
+   * out through the driver and back, for the reason `closenessOfTheAnchor`
+   * gives: what a `real` compares equal to depends on its inferred type, and
+   * relevance ties are the common case.
+   */
+  return {
+    closeness: closenessOfTheAnchor(db, anchor.id, query),
+    sortKey: anchor.sortKey,
+    id: anchor.id,
+  };
 }

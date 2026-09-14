@@ -1,18 +1,95 @@
-import { and, eq, gt, isNull, or, type SQL, type SQLWrapper, sql } from "drizzle-orm";
+import { and, eq, gt, is, isNull, lt, or, SQL, type SQLWrapper, sql } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 
 /**
- * ONE KEY OF AN ORDER: a column, or an expression over columns.
+ * WHAT A KEY IS MADE OF: a column, or an expression over columns.
  *
- * NARROWER THAN `SQLWrapper`, WHICH `pastTheRow` BELOW TAKES, and the
- * difference is what lets an order be SELECTED as well as sorted and compared.
- * A place is read by the order's own keys -- `select({ ...order.keys })` -- so
- * the values cannot come from a list written out beside them, and Drizzle's
- * `select` will not take the broad interface. The catalogue's key is an
- * expression (ADR-0014's projection) and its id is a column, so both arms are
- * in use here rather than one being kept for later.
+ * NARROWER THAN `SQLWrapper`, and the difference is what lets an order be
+ * SELECTED as well as sorted and compared. A place is read by the order's own
+ * keys -- `select({ ...order.keys, id: order.id })`, which is what the two
+ * reads in `queries.ts` do -- so the values cannot come from a list written out
+ * beside them, and Drizzle's `select` will not take the broad interface. The
+ * catalogue's key is an expression (ADR-0014's projection) and its id is a
+ * column, so both arms are in use here rather than one being kept for later.
  */
-type AKey = SQL | AnyPgColumn;
+type AnExpression = SQL | AnyPgColumn;
+
+/**
+ * ONE KEY OF AN ORDER: an expression, or an expression with the two things
+ * about a key an expression cannot say -- WHICH WAY THE LISTING READS IT, and
+ * WHETHER THE LISTING HOLDS ROWS WITH NO VALUE FOR IT.
+ *
+ * A BARE EXPRESSION SAYS BOTH THE ORDINARY WAY: read smallest first, with a
+ * block of rows that have none at the end of it. That is six of this app's
+ * seven keys, and the block is a real one in every case -- the items nobody has
+ * titled, a container's Unplaced members, a placement no source stands behind.
+ *
+ * BOTH PROPERTIES ARE ON THE KEY BECAUSE BOTH STATEMENTS READ THEM.
+ * `theOrderBy` renders `desc` and the nulls clause; `pastTheRowIn` compares
+ * with `<` instead of `>` and decides whether the keyless block is a branch of
+ * the comparison at all. Those are the same two statements every paragraph in
+ * this file is about keeping in step, and a property written beside the order
+ * rather than on the key would be a second list of its keys -- which is the
+ * failure this module exists to abolish.
+ *
+ * `everyRowHasIt` IS A FACT ABOUT THE LISTING RATHER THAN ABOUT THE EXPRESSION,
+ * and it is a claim its Listing has to be able to make. Catalogue search can:
+ * every row it lists matched `title ilike ...`, which is NULL without a title,
+ * so every row has a title and `similarity()` over one is never null. It was a
+ * COMMENT justifying a hand-written predicate until CNCORE-170 and is a
+ * declaration the general one reads now.
+ *
+ * IT IS NOT TIDINESS, AND THE PRICE OF LEAVING IT UNSAID WAS MEASURED. A
+ * keyless branch on a key is `key IS NULL`, which for a COMPUTED key is the
+ * whole expression evaluated a second time PER ROW -- and PostgreSQL does not
+ * fold that away even though `similarity()` is strict.
+ *
+ * MEASURED 2026-09-14 on the PostgreSQL 18.6 `compose.yaml` pins: an
+ * 11,000-row catalogue with a trigram index, a paged search of 101 rows over
+ * 10,500 matches, `explain (analyze)` five times per shape and INTERLEAVED,
+ * because the first pass at this ran the shapes in blocks on a box that was
+ * getting busier and read the drift as the difference. Declared, this walk
+ * costs 35.7-41.8 ms against 34.7-48.3 ms for the hand-written predicate it
+ * replaces -- parity. Undeclared it costs 50.1-64.1 ms, so the branch that can
+ * never be true is the most expensive thing in the statement. A query matching
+ * 500 rows, which is the ordinary case, moves 2.3-2.4 ms to 2.3-2.9 ms.
+ *
+ * A DESCRIBED KEY CANNOT BE SPREAD INTO A `select`, and that is a loud failure
+ * rather than a quiet one: the two reads that do spread an order's keys hold
+ * orders of bare expressions, and a described key reaching one is a type error
+ * at the select rather than a column that reads back wrong.
+ */
+type AKey =
+  | AnExpression
+  | {
+      readonly key: AnExpression;
+      /** The listing leads on the LARGEST value rather than the smallest. */
+      readonly largestFirst?: true;
+      /**
+       * NO ROW OF THIS LISTING HAS NO VALUE HERE, so the key has no keyless
+       * block and the comparison needs no branch for one.
+       */
+      readonly everyRowHasIt?: true;
+    };
+
+/**
+ * ONE KEY WITH BOTH PROPERTIES SAID OUT LOUD, which is what the two statements
+ * below read. The bare expression is the sugar; this is what it means.
+ *
+ * `"key" in` RATHER THAN AN `instanceof`, and it is safe by measurement rather
+ * than by assumption: neither a drizzle `SQL` nor a `Column` carries a `key`
+ * property, checked 2026-09-14 on drizzle-orm 0.45.2 for a column, a raw
+ * template and a `coalesce` expression.
+ */
+function described(key: AKey): {
+  key: AnExpression;
+  largestFirst: boolean;
+  everyRowHasIt: boolean;
+} {
+  return "key" in key
+    ? { largestFirst: false, everyRowHasIt: false, ...key }
+    : { key, largestFirst: false, everyRowHasIt: false };
+}
 
 /**
  * THE ORDER ONE LISTING IS READ IN: the keys it sorts on, most significant
@@ -62,8 +139,14 @@ export interface TheOrder {
    * THE ID BEHIND THEM, which is the whole of the order once every key has
    * tied and is what makes it TOTAL. Two rows sharing every key are separated
    * by it, and a walk without it steps over the second of them.
+   *
+   * AN EXPRESSION AND NOT A KEY, so it carries no direction. It is read
+   * smallest first in every order this app has, including the one that leads on
+   * a descending key: Catalogue search ranks closest-first and then breaks its
+   * ties the way every other Listing does, because a tie broken differently
+   * would list two items in an order no other surface agrees with.
    */
-  readonly id: AKey;
+  readonly id: AnExpression;
 }
 
 /**
@@ -76,71 +159,63 @@ export interface TheOrder {
  * the walk reads a term the anchor was never asked for.
  */
 export type PlaceIn<O extends TheOrder> = {
-  readonly [K in keyof O["keys"]]: string | number | null;
+  readonly [K in keyof O["keys"]]: string | number | null | SQL;
 } & { readonly id: string };
 
 /**
  * THE `ORDER BY` THIS ORDER READS IN.
  *
- * `nulls last` IS THE DEFAULT FOR `asc` AND IS WRITTEN OUT ANYWAY, because
- * `pastTheRow` below reads it: a row with no value for a key sits at the end of
- * that key's block, and where those sit decides which half of the comparison
- * finds them. A default the walk depends on is one worth saying out loud.
+ * `nulls last` ON EVERY KEY THAT HAS A KEYLESS BLOCK, whichever way it is read,
+ * which is one rule and not two: the rows with no value for a key sit at the
+ * END of that key's block and `pastTheRowIn` below is written to that. Where
+ * they sit decides which half of the comparison finds them, so it is not a
+ * detail either statement may hold an opinion of its own about.
  *
- * EVERY KEY ASCENDING, WHICH IS EVERY ORDER THIS APP HAS BUT ONE. Catalogue
- * search leads on `similarity(...) desc`, and it is not on this yet: CNCORE-170
- * moves it, and adds the direction with the reader that needs it rather than
- * ahead of one.
+ * ASCENDING IT IS ALSO POSTGRESQL'S DEFAULT and is written out anyway, because
+ * a default a walk depends on is one worth saying out loud. DESCENDING IT IS
+ * NOT -- `desc` defaults to NULLS FIRST -- so on a descending key the clause is
+ * a decision rather than an explicitness.
+ *
+ * AND A KEY EVERY ROW HAS GETS NO CLAUSE AT ALL, because a rule about rows that
+ * do not exist is a statement about nothing. Catalogue search's closeness is
+ * the one such key, and this is what keeps its `ORDER BY` rendering exactly
+ * what it rendered before CNCORE-170 moved it.
  */
 export function theOrderBy(order: TheOrder): SQL[] {
-  return [...Object.values(order.keys).map((key) => sql`${key} nulls last`), sql`${order.id}`];
+  return [
+    ...Object.values(order.keys).map((it) => {
+      const { key, largestFirst, everyRowHasIt } = described(it);
+      const read = largestFirst ? sql`${key} desc` : sql`${key}`;
+      return everyRowHasIt ? read : sql`${read} nulls last`;
+    }),
+    sql`${order.id}`,
+  ];
 }
 
 /**
  * EVERYTHING ONE ORDER LISTS AFTER ONE ROW -- the cursor comparison, derived
- * from the same keys the sort is (ADR-0119).
+ * from the same keys the sort is (ADR-0119). Written ONCE for every walk in
+ * this app.
  *
  * THE PAIRING IS THE POINT. A key and its anchor value are read out of one
- * object by one name, so the comparison cannot name a term the order does not,
- * and the order cannot name one the comparison misses.
- */
-export function pastTheRowIn<O extends TheOrder>(order: O, place: PlaceIn<O>): SQL | undefined {
-  const at = place as Readonly<Record<string, string | number | null>> & { readonly id: string };
-  return pastTheRow(
-    Object.entries(order.keys).map(([name, key]) => {
-      const value = at[name];
-      // NOT DEAD CODE, AND THE CAST ABOVE IS WHY. `PlaceIn` refuses a missing
-      // key at a call site that knows its order concretely -- but a place is
-      // READ, and Drizzle cannot infer field types through an order it knows
-      // only as `TheOrder`, so the read that produces one casts (measured: the
-      // select infers `{ id: unknown }` without it). This is the check that
-      // survives the cast. Loud, because the silent answer is the wrong one: a
-      // missing value read as `null` is the "already among the rows with no key
-      // here" regime, which walks a listing from the wrong place and says
-      // nothing.
-      if (value === undefined) throw new Error(`the order's key ${name} has no value in its place`);
-      return { key, at: value };
-    }),
-    { id: order.id, at: at.id },
-  );
-}
-
-/**
- * EVERYTHING A LISTING SHOWS AFTER ONE ROW, where the order is a list of keys
- * that may be NULL and an id behind them (ADR-0119). Written ONCE for every
- * such walk.
+ * object by ONE NAME, so the comparison cannot name a term the order does not,
+ * and the order cannot name one the comparison misses. It took a LIST of terms
+ * a caller wrote out until CNCORE-170, and two lists read by the same index are
+ * two lists that can come apart -- the shorter one silently dropping a term,
+ * which is precisely the "rows stepped over" failure the whole module is about.
  *
- * TWO REGIMES, AND A ROW COMPARISON CANNOT EXPRESS BOTH. The order is the rows
- * with a key ascending and then the rows with none, so `(null, x) > (k, y)` --
- * which is NULL rather than true -- would drop that whole keyless block off the
- * walk permanently, from every page. The catalogue's keyless block is the items
- * nobody has titled and a container's is its Unplaced members; both are real
- * rows a reader must reach, and the criterion is that none is skipped.
+ * TWO REGIMES, AND A ROW COMPARISON CANNOT EXPRESS BOTH. A key's rows run in
+ * its direction and then the rows with NO value for it, so `(null, x) > (k, y)`
+ * -- which is NULL rather than true -- would drop that whole keyless block off
+ * the walk permanently, from every page. The catalogue's keyless block is the
+ * items nobody has titled and a container's is its Unplaced members; both are
+ * real rows a reader must reach, and the criterion is that none is skipped.
  *
- * AND THE ID IS THE HALF THAT MAKES IT TOTAL. Two rows sharing a key are
- * separated by their ids, and a cursor comparing only the key steps over the
- * second of them -- a tie in the catalogue's order, and in a container's a pair
- * ADR-0009 licenses by keeping no unique constraint on (container_id, position).
+ * AND THE ID IS THE HALF THAT MAKES IT TOTAL. Two rows sharing every key are
+ * separated by their ids, and a cursor comparing only the keys steps over the
+ * second of them -- a tie in the catalogue's order, a relevance tie in
+ * Catalogue search's, and in a container's a pair ADR-0009 licenses by keeping
+ * no unique constraint on (container_id, position).
  *
  * BUILT WITH THE QUERY BUILDER'S OWN `or` AND `and` rather than one raw `sql`
  * template, which ADR-0119 records as a precedence bug no walk test can see:
@@ -148,55 +223,110 @@ export function pastTheRowIn<O extends TheOrder>(order: O, place: PlaceIn<O>): S
  * renders as `(within and A) or (B and C)`, and the tie branch escapes the
  * listing entirely.
  *
- * ONE FUNCTION AND NOT TWO, WHICH REVIEW OF CNCORE-89 ASKED FOR. The three
- * walks had a copy each, identical but for which columns they named -- and
- * every paragraph above is a rule that has to hold in all of them.
- * `walkListing`'s QUERY is what could not be shared (a different relation),
- * which is a narrower claim than the one the copy was making.
- *
- * IT TAKES A LIST OF TERMS BECAUSE "ALSO APPEARS IN" HAS FOUR, and that is the
- * question CNCORE-125 was told to ask rather than assume: the shared comparison
- * did NOT cover that order and had to grow. One key was never the rule -- it
- * was the number the first four listings happened to need -- and the rule
- * underneath is that the comparison must name EVERY term the `ORDER BY` does.
- * A key left out of it is rows silently stepped over, which is what the two
- * paragraphs above are each an instance of.
- *
- * A TERM IS A KEY AND ITS ANCHOR VALUE TOGETHER, rather than two lists read by
- * the same index. Review of CNCORE-125 made the point and it is this function's
- * own subject: two parallel arrays can come apart, and the shorter one would
- * silently drop a term -- which is precisely the "rows stepped over" failure the
- * paragraph above names. Paired, a mismatch cannot be written down.
+ * IT COVERS AN ORDER OF ANY WIDTH BECAUSE "ALSO APPEARS IN" HAS FOUR KEYS, and
+ * that is the question CNCORE-125 was told to ask rather than assume: the shared
+ * comparison did NOT cover that order and had to grow. One key was never the
+ * rule -- it was the number the first four listings happened to need -- and the
+ * rule underneath is that the comparison must name EVERY term the `ORDER BY`
+ * does.
  *
  * THE NESTING IS BUILT FROM THE INSIDE OUT, so each key's tie branch is the
  * whole of the comparison on the keys behind it and the id is the innermost. A
  * flat `or` of per-key clauses would be a different and wrong predicate: it
  * would answer true for a row that sorts BEFORE the anchor on an early key and
  * after it on a late one.
- *
- * IT IS `pastTheRowIn` ABOVE THAT LISTINGS REACH FOR, and this is what that is
- * built on. The terms here are a list a caller writes out, which is the half
- * CNCORE-169 took away: an order names its keys once and both statements are
- * read off it. The two listings still on this one move in CNCORE-170.
  */
-export function pastTheRow(
-  terms: { key: SQLWrapper; at: string | number | null }[],
-  row: { id: SQLWrapper; at: string },
-): SQL | undefined {
+export function pastTheRowIn<O extends TheOrder>(order: O, place: PlaceIn<O>): SQL | undefined {
+  const at = place as Readonly<Record<string, string | number | null | SQL>> & {
+    readonly id: string;
+  };
   // The id is the whole order left once every key has tied, and it is total.
-  let past: SQL | undefined = gt(row.id, row.at);
-  for (const { key, at } of [...terms].reverse()) {
-    past =
-      at === null
+  //
+  // WIDENED TO `SQLWrapper` HERE AND BELOW, which is what drizzle's comparisons
+  // take: `AnExpression` is narrower so that an order can be SELECTED, and the
+  // narrow union matches neither overload of `gt` on its own.
+  const id: SQLWrapper = order.id;
+  let past: SQL | undefined = gt(id, at.id);
+  for (const [name, it] of Object.entries(order.keys).reverse()) {
+    const { key: theKey, largestFirst, everyRowHasIt } = described(it);
+    const key: SQLWrapper = theKey;
+    const value = at[name];
+    // NOT DEAD CODE, AND THE CAST ABOVE IS WHY. `PlaceIn` refuses a missing key
+    // at a call site that knows its order concretely -- but a place is READ, and
+    // Drizzle cannot infer field types through an order it knows only as
+    // `TheOrder`, so the read that produces one casts (measured: the select
+    // infers `{ id: unknown }` without it). This is the check that survives the
+    // cast. Loud, because the silent answer is the wrong one: a missing value
+    // read as `null` is the "already among the rows with no key here" regime,
+    // which walks a listing from the wrong place and says nothing.
+    if (value === undefined) throw new Error(`the order's key ${name} has no value in its place`);
+    /*
+     * NO VALUE FOR A KEY EVERY LISTED ROW HAS, WHICH IS NO PLACE AT ALL -- the
+     * same answer the two branches below give a computed value that is NULL,
+     * and the same one the READ gives where it can see the key is gone. The
+     * anchor is not among the rows this listing holds, so there is nowhere in
+     * it to resume from and the walk starts the listing over.
+     *
+     * NO LISTING REACHES IT TODAY, said plainly rather than dressed up: a key
+     * every row has is Catalogue search's closeness, whose value is always an
+     * expression, and its sort key is turned away by the read a statement
+     * earlier. It is here because it is the same sentence as the branch beside
+     * it, and the alternative -- falling into the keyless regime below -- is a
+     * predicate no row can satisfy and therefore an EMPTY page over results
+     * still unseen, which is the failure CNCORE-113 measured.
+     */
+    if (value === null && everyRowHasIt) return undefined;
+    // WHICH WAY "AFTER" RUNS, and it is the only thing the direction changes
+    // here. `theOrderBy` renders `desc` off the same flag, so the two cannot
+    // disagree about which end of a key a listing starts from.
+    const after = largestFirst ? lt : gt;
+    /*
+     * THE ROWS WITH NO VALUE FOR THIS KEY, which sit at the end of its block
+     * and are therefore past any anchor that has one. Where the listing holds
+     * none, the branch is not written: for a computed key it is the whole
+     * expression evaluated a second time per row, measured on `AKey` above.
+     */
+    const theKeylessBlock = everyRowHasIt ? [] : [isNull(key)];
+    past = is(value, SQL)
+      ? /*
+         * A VALUE THE WALK COMPUTES FOR ITSELF, which one key in this app has:
+         * Catalogue search ranks on how close a title is to the query the
+         * request resupplied, so the anchor's own closeness is a scalar
+         * subquery in THIS statement rather than a number read a statement ago
+         * (ADR-0120).
+         *
+         * SO ITS NULL IS DECIDED HERE RATHER THAN AT THE READ, and it means the
+         * same thing either way: THE ANCHOR HAS NO PLACE IN THIS ORDER. A value
+         * READ has been ruled on already -- the read answers with no place at
+         * all where the key a delete destroys is gone -- and a value COMPUTED
+         * cannot be, so the same rule arrives one statement later. CNCORE-113
+         * is that statement's width: an anchor deleted between the two is
+         * titled for the read and untitled for this, and a NULL on one side of
+         * a comparison makes the whole predicate NULL, which answers an EMPTY
+         * PAGE over results still unseen. Answered as "no place", the walk
+         * starts the listing over instead, which is what the read would have
+         * done a moment earlier.
+         *
+         * IT IS SPELLED `is null` ON THE VALUE RATHER THAN WRAPPED AROUND THE
+         * COMPARISON, and the difference is which NULL it forgives. A
+         * `coalesce` over the whole thing would answer "start over" for ANY
+         * null in it -- including a candidate row with no key of its own, which
+         * would then be RETURNED by a listing it does not belong to. This names
+         * the anchor's null and no other.
+         */
+        or(sql`${value} is null`, ...theKeylessBlock, after(key, value), and(eq(key, value), past))
+      : value === null
         ? // Already among the rows with no key HERE, so everything still ahead
           // has no key here either and the terms behind it decide.
           and(isNull(key), past)
         : or(
-            // Every row with no key sorts after every row with one.
-            isNull(key),
-            gt(key, at),
+            // Every row with no key sorts after every row with one, whichever
+            // way the key itself runs -- which is what `nulls last` on such a
+            // key in the `ORDER BY` is for.
+            ...theKeylessBlock,
+            after(key, value),
             // THE TIE, and it is what carries the comparison to the next term.
-            and(eq(key, at), past),
+            and(eq(key, value), past),
           );
   }
   return past;
