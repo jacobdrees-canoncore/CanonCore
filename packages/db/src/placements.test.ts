@@ -441,9 +441,12 @@ describe("a placement several sources assert", () => {
  * fourth is not. Every `after` below names a real placement, or one a delete has
  * since taken; a cursor naming NOTHING -- a malformed id, or a well-formed one
  * nobody minted -- has never been put to this Listing, where a Container's
- * members carries three ways of it in one test. Found while writing the Listing
- * contract at the router seam (CNCORE-171), which cannot ask it: this Listing
- * rides on `item.get` and takes no page size to ask with.
+ * members carries three ways of it in one test.
+ *
+ * FOUND WHILE WRITING THE LISTING CONTRACT (CNCORE-171), in the sentence that
+ * claimed this Listing was asked all four here. It is not ON that contract --
+ * it rides on `item.get` and takes no page size, so the CAP is a question it
+ * cannot be asked at that seam -- and this one is owed here regardless.
  */
 describe("findPlacementsOfItem, capped and walked", () => {
   it("caps the page and says how many orderings there are altogether", async () => {

@@ -918,17 +918,24 @@ field added to `catalogueRowPublic` reaches the reader and fails all three.
 **THREE LISTINGS AND NOT FIVE, AND THE TWO THAT ARE OUT ARE OUT BECAUSE THE CAP IS NOT A PARAMETER
 THEY HAVE.** A Container's members and "Also appears in" ride on `item.get` for the reason the
 sections above give — a Container IS an Item and its page is the Item page — so the handler serves
-`A_PAGE` and a caller cannot ask for anything else. "Refuses a page above the cap" is a question
-they cannot be asked at all, and the other three would each cost a fixture of more than a hundred
-Placements to ask, because there is no smaller page to ask for. They are asked at the package
-export, where the cap IS a parameter — so what this costs is one seam rather than the coverage,
-**except in one place, which was checked rather than assumed and is not what the first draft of this
-paragraph said.** A Container's members is asked all four there. **"Also appears in" is asked
-three**: every `after` it is ever handed names a real Placement or one a delete has since taken, so
-neither a malformed id nor a well-formed one nobody minted has ever been put to it. The guard looks
-to be in place — `findInThisItemsOrder` reaches `canBeAnId` like every other anchor read — so it is
-a missing assertion rather than a known defect, which is the shape this whole section is about.
-CNCORE-198 carries it.
+`A_PAGE` and a caller cannot ask for anything else. The cap is a question they cannot be asked at
+all, and the walk and the size would each cost a fixture of more than a hundred Placements, because
+there is no smaller page to ask for.
+
+**THE CURSOR IS THE EXCEPTION AND AN EARLIER DRAFT OF THIS PARAGRAPH GLOSSED IT, claiming all three
+of the rest were equally unaskable.** They are not: `after` and `placedAfter` are plain optional
+strings on `item.get`, so "a cursor naming nothing starts at the beginning" could be put to those
+two here for nothing. They stay out anyway, because a member that can answer one question of five is
+not a member of ONE BLOCK — and the honest price of that is a gap rather than none.
+
+**AND THE GAP IS REAL AT BOTH SEAMS, checked rather than assumed.** At the package export a
+Container's members is asked all four. **"Also appears in" is asked three**: every `after` it is ever
+handed names a real Placement or one a delete has since taken, so neither a malformed id nor a
+well-formed one nobody minted has ever been put to it. Neither Listing is asked it at the router
+seam either — `item.test.ts` walks both with real cursors and hands neither a bad one. The guard
+looks to be in place — `findInThisItemsOrder` reaches `canBeAnId` like every other anchor read — so
+it is a missing assertion rather than a known defect, which is the shape this whole section is
+about. CNCORE-198 carries both halves.
 
 **AND A CONTRACT TEST IS ONLY AS GOOD AS THE SHAPES ITS LISTING HOLDS — found by running the
 mutation two ways rather than one, and it is the thing this ticket had to learn.** The first version

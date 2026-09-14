@@ -71,11 +71,18 @@ const A_RUN_OF_THEM = 5;
  * because a Container IS an Item (ADR-0004) and its page is the Item page, so a
  * `container.members` would be one thing at two addresses (ADR-0066). They
  * therefore take NO `limit`: the handler serves `A_PAGE` and a caller cannot ask
- * for anything else. The first question below is one they cannot be asked, and
- * the other three would each cost a fixture of more than a hundred Placements to
- * ask at all, because the cap is not a parameter they have. Where it IS one --
- * `findPlacementsInContainer` and `findPlacementsOfItem` at the package export,
- * ADR-0103's first seam -- all four are asserted of them already.
+ * for anything else. The cap is a question they cannot be asked at all, and the
+ * walk and the size would each cost a fixture of more than a hundred Placements,
+ * because there is no smaller page to ask for.
+ *
+ * THE CURSOR IS THE EXCEPTION, AND IT IS SAID RATHER THAN GLOSSED. `after` and
+ * `placedAfter` are plain optional strings on `item.get`, so asking those two
+ * what a cursor naming nothing does would cost nothing here. They stay out
+ * anyway, because a member that can answer one question of five is not a member
+ * of ONE BLOCK -- and what that costs is a real gap rather than none. At the
+ * package export a Container's members is asked all four; **"Also appears in"
+ * is asked THREE**, and the one it is missing is exactly this one. Neither is
+ * asked it at THIS seam either. CNCORE-198 carries both halves.
  */
 const EVERY_LISTING: AListing[] = [
   {
