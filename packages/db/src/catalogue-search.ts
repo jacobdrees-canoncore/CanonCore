@@ -2,7 +2,7 @@ import { and, eq, type SQL, type SQLWrapper, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 import type { Database } from "./index";
-import { type PlaceIn, pastTheRowIn, type TheOrder, theOrderBy } from "./order";
+import type { PlaceIn, TheOrder } from "./order";
 import { type Catalogue, findTheAnchor, IN_THE_CATALOGUE, SORT_KEY, walkListing } from "./queries";
 import { items } from "./schema";
 
@@ -148,8 +148,8 @@ export async function searchCatalogue(
      * decides: how many MATCHED, rather than how many the catalogue holds.
      */
     within: and(IN_THE_CATALOGUE, titleMatches(wanted)) as SQL,
-    orderBy: theOrderBy(ranking),
-    past: place && pastTheRowIn(ranking, place),
+    order: ranking,
+    place,
     limit,
   });
 }

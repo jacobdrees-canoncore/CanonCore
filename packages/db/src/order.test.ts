@@ -2,7 +2,7 @@ import { and, eq, inArray, type SQL } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { type Database, items } from "./index";
-import { type PlaceIn, pastTheRowIn, type TheOrder, theOrderBy } from "./order";
+import type { PlaceIn, TheOrder } from "./order";
 import { IN_THE_CATALOGUE, SORT_KEY, walkListing } from "./queries";
 import { anItemTitled, connect } from "./testing/catalogue";
 
@@ -88,12 +88,7 @@ async function walked<O extends TheOrder>(order: O, within: SQL): Promise<string
   let after: string | undefined;
   for (;;) {
     const place = after === undefined ? undefined : await placeIn(order, after);
-    const page = await walkListing(db, {
-      within,
-      orderBy: theOrderBy(order),
-      past: place && pastTheRowIn(order, place),
-      limit: 1,
-    });
+    const page = await walkListing(db, { within, order, place, limit: 1 });
     seen.push(...page.rows.map((row) => row.id));
     if (page.continuesAfter === null) return seen;
     after = page.continuesAfter;

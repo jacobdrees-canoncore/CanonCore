@@ -227,14 +227,15 @@ export interface PlacementsOfItem {
  *
  * IT DOES NOT GO THROUGH `walkListing` for the reason its mirror does not: that
  * function walks `items`, and this walks `placements`. What it shares is the
- * page -- `onePage` below -- and the cursor comparison, `pastTheRow`.
+ * page -- `onePage` below -- and the order, which since CNCORE-170 is ONE VALUE
+ * that `theOrderBy` and `pastTheRowIn` are both read off.
  *
- * THE ORDER IS FIVE TERMS AND THE OTHER TWO WALKS HAVE TWO, which is the thing
- * this ticket had to find out rather than assume. `pastTheRow` takes a LIST of
- * keys for that reason: the container's projected sort key, then ADR-0017's two
- * terms deciding which source speaks, then the position, then the placement's
- * id. Every one of the four keys is nullable and each therefore has the two
- * regimes that comparison is named for.
+ * THE ORDER IS FOUR KEYS AND THE OTHER TWO WALKS HAVE ONE, which is the thing
+ * CNCORE-125 had to find out rather than assume: the container's projected sort
+ * key, then ADR-0017's two terms deciding which source speaks, then the
+ * position, with the placement's id behind them. Every one of the four is
+ * nullable and each therefore has the two regimes that comparison is named for.
+ * `thisItemsOrder` below is where they are named, ONCE.
  *
  * AND THE CAP IS WHAT BOUNDS CNCORE-121's LATERAL, which is the figure that
  * ticket measured and handed to this one rather than a coincidence. Each row
@@ -991,29 +992,34 @@ async function readListing(
   { limit, after, within }: { limit: number; after?: string; within: SQL },
 ): Promise<Catalogue> {
   const place = after === undefined ? undefined : await findInTheOrder(db, after);
-  return walkListing(db, {
-    within,
-    // BOTH READ OFF ONE VALUE (CNCORE-169). The sort and the comparison that
-    // walks it are the same keys, so neither can name a term the other does
-    // not -- which is what `THE_CATALOGUES_ORDER` below is for.
-    orderBy: theOrderBy(THE_CATALOGUES_ORDER),
-    past: place && pastTheRowIn(THE_CATALOGUES_ORDER, place),
-    limit,
-  });
+  // ONE VALUE HANDED OVER, AND THE WALK READS BOTH STATEMENTS OFF IT
+  // (CNCORE-169, CNCORE-170). The sort and the comparison that walks it are the
+  // same keys because there is one place they are named.
+  return walkListing(db, { within, order: THE_CATALOGUES_ORDER, place, limit });
 }
 
 /**
  * ONE PAGE OF ONE LISTING, WALKED -- whatever question the listing asks, and
  * whatever order it asks it in.
  *
- * THE ORDER IS A PARAMETER AND THE CURSOR IS ANOTHER, because those are the
- * two things this repo's listings differ in and NOTHING ELSE IS. The catalogue
- * and work-browsing sort on `coalesce(sort_name, title)`; Catalogue search
- * sorts on how close a title is to what a reader typed, which is a function of
- * the QUERY rather than a column of the item (ADR-0119, ADR-0120). Everything
- * around that -- the fields, the join, the count, the cap, the extra row that
- * says whether to offer another page -- is one rule, and this is the one place
- * it is written.
+ * THE ORDER IS A PARAMETER AND THE ANCHOR'S PLACE IN IT IS ANOTHER, because
+ * those are the two things this repo's listings differ in and NOTHING ELSE IS.
+ * The catalogue and work-browsing sort on `coalesce(sort_name, title)`;
+ * Catalogue search sorts on how close a title is to what a reader typed, which
+ * is a function of the QUERY rather than a column of the item (ADR-0119,
+ * ADR-0120). Everything around that -- the fields, the join, the count, the
+ * cap, the extra row that says whether to offer another page -- is one rule,
+ * and this is the one place it is written.
+ *
+ * IT TAKES THE ORDER RATHER THAN THE TWO STATEMENTS READ OFF IT, which is the
+ * last of the old shape to go (CNCORE-170). A caller used to hand over an
+ * `ORDER BY` and a cursor comparison it had built separately, and NOTHING HERE
+ * COULD TELL whether they were the same order: that pairing is the one this
+ * whole mechanism exists to make impossible, and leaving it on the seam
+ * between two listings and their walk would have been the same defect one
+ * function further out. `place` is typed `PlaceIn<O>` against the order in the
+ * same call, so an anchor read in one order cannot be handed to a walk in
+ * another.
  *
  * IT IS WRITTEN ONCE BECAUSE THE COUNT KEPT GOING WRONG SEPARATELY. Catalogue
  * search had its own copy of this shape and its own `count(*) over ()`, which
@@ -1028,10 +1034,11 @@ async function readListing(
  * caller outside gets `readCatalogue`, `readWorks` or `searchCatalogue`, never
  * a walk it has to supply an order to.
  */
-export async function walkListing(
+export async function walkListing<O extends TheOrder>(
   db: Database,
-  { within, orderBy, past, limit }: { within: SQL; orderBy: SQL[]; past?: SQL; limit: number },
+  { within, order, place, limit }: { within: SQL; order: O; place?: PlaceIn<O>; limit: number },
 ): Promise<Catalogue> {
+  const past = place && pastTheRowIn(order, place);
   return onePage({
     limit,
     read: (howMany) =>
@@ -1070,7 +1077,7 @@ export async function walkListing(
         // preserve.
         .innerJoin(itemKinds, eq(itemKinds.kind, items.kind))
         .where(and(within, past))
-        .orderBy(...orderBy)
+        .orderBy(...theOrderBy(order))
         .limit(howMany),
     asRow: ({ id, title, kindLabel, isContainer }) => ({ id, title, kindLabel, isContainer }),
     sizeOnItsOwn: () => countListing(db, within),
@@ -1466,15 +1473,15 @@ export interface PlacementsInContainer {
  * and a count of memberships rather than of items. What the two DO share is the
  * page itself, and that is shared: the cap, the extra row, the cursor and the
  * count-in-one-snapshot are `onePage` above, and the two-regime cursor is
- * `pastTheRow`, which is `order.ts`'s since CNCORE-169 -- both written once for
- * every listing that has one, because those are the rules that have
+ * `pastTheRowIn`, which is `order.ts`'s since CNCORE-169 -- both written once
+ * for every listing that has one, because those are the rules that have
  * historically gone wrong separately.
  *
- * THE ORDER IS `position` AND THEN THE PLACEMENT'S ID, which is the order this
- * query already had. Both halves are load-bearing in the cursor for the reasons
- * `pastTheRow` gives, and they are the same two regimes the catalogue's
- * own walk has: a position nothing asserted is NULL and sorts last as one
- * block, and two placements may share a position (ADR-0009 keeps no unique
+ * THE ORDER IS `position` AND THEN THE PLACEMENT'S ID, named once in
+ * `THE_CONTAINERS_OWN_ORDER` below. Both halves are load-bearing in the cursor
+ * for the reasons `pastTheRowIn` gives, and they are the same two regimes the
+ * catalogue's own walk has: a position nothing asserted is NULL and sorts last
+ * as one block, and two placements may share a position (ADR-0009 keeps no unique
  * constraint on it, so a novel and the film adapting it can sit at one point
  * without an order being invented between them).
  *
