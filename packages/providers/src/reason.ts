@@ -75,9 +75,64 @@ export type FailureReason = z.infer<typeof failureReason>;
  * every caller agreed about which branch it was on.
  */
 export function reasonFor(thrown: unknown): FailureReason {
-  const message = thrown instanceof Error ? thrown.message : String(thrown);
-  const ours = thrown instanceof OutboundRefused && thrown.boundary === "config";
+  const said = unwrapped(thrown);
+  const message = said instanceof Error ? said.message : String(said);
+  const ours = said instanceof OutboundRefused && said.boundary === "config";
   return { wrote: ours ? "canoncore" : "provider", text: bounded(message) || SILENT };
+}
+
+/**
+ * What actually failed, out of a chain of things that wrapped it (ADR-0123).
+ *
+ * A WRAPPER IS NOT A REASON. `fetch failed` is undici saying that something
+ * underneath it failed; the fact is on `cause`, and until CNCORE-192 nothing
+ * here read `cause` at all. Measured on undici 8.10.2, which is what this
+ * package imports rather than the one Node bundles: `lib/web/fetch/index.js`
+ * rejects with `new TypeError('fetch failed', { cause: response.error })`, and
+ * `makeNetworkError` passes anything `instanceof Error` through BY IDENTITY --
+ * so an `OutboundRefused` raised in the pinned lookup arrives whole, custom
+ * `boundary` and all, one link down and unread.
+ *
+ * IT COSTS EVERY DIAGNOSIS AND NOT ONLY THE REFUSAL, which is what walking the
+ * chain rather than looking for one class buys. A dead socket is
+ * `connect ECONNREFUSED 127.0.0.1:64665` and an unresolvable host is
+ * `getaddrinfo ENOTFOUND nothing.invalid`, both one link down, and the Owner
+ * read `fetch failed` for those too.
+ *
+ * THE INNERMOST LINK THAT SAID SOMETHING, rather than simply the innermost.
+ * `makeNetworkError()` with no argument builds `new Error(undefined)`, whose
+ * message is EMPTY -- three sites in that file reach it -- so a blind walk to
+ * the bottom would report silence where `fetch failed` is genuinely all there
+ * is. Keeping the last link with words in it never loses information: the
+ * deepest thing that spoke is the most specific thing that spoke.
+ *
+ * WALKED RATHER THAN READ ONCE, because a chain deeper than one is undici's own
+ * shape and not a hypothetical: `response.js` wraps an abort as
+ * `fetch failed` -> `DOMException` -> the original error, and `client-h2.js`
+ * wraps an HTTP/2 failure in an `InformationalError` before the fetch layer
+ * wraps it again.
+ *
+ * AND NONE OF IT IS PROMISED BY THE STANDARD. The Fetch Standard says only
+ * "reject p with a TypeError"; the word `cause` appears nowhere in it. This
+ * reads a shape undici chooses, so the walk is written to survive that shape
+ * changing -- a chain of one, or of none, answers exactly as it did before.
+ *
+ * `seen` RATHER THAN A DEPTH LIMIT. ECMA-262 puts no restriction on a `cause`:
+ * `InstallErrorCause` stores whatever `Get(options, "cause")` returned, as a
+ * WRITABLE property, so a cycle is constructible and nothing forbids one. A
+ * depth limit would be a number nobody can defend; a visited set needs none,
+ * and the alternative is an infinite loop on the Owner's page.
+ */
+function unwrapped(thrown: unknown): unknown {
+  let said = thrown;
+  let at = thrown;
+  const seen = new Set<unknown>();
+  while (at instanceof Error && !seen.has(at)) {
+    seen.add(at);
+    if (oneLine(at.message)) said = at;
+    at = at.cause;
+  }
+  return said;
 }
 
 /**
