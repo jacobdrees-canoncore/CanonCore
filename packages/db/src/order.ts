@@ -8,18 +8,30 @@ import type { AnyPgColumn } from "drizzle-orm/pg-core";
  * IT IS ONE VALUE BECAUSE A LISTING'S ORDER IS TWO STATEMENTS -- the `ORDER BY`
  * and the cursor comparison that walks it -- and until CNCORE-169 they were two
  * INDEPENDENT statements that had to name the same terms. Nothing required them
- * to: `queries.ts` said so in prose, twice, and FOUR defects came from them
- * disagreeing anyway. A relevance order whose comparison named closeness and
- * the id but not the sort key between them, so results tied on closeness were
- * stepped over (CNCORE-88). A deleted anchor read as though it were an untitled
- * one (CNCORE-110). An anchor whose closeness went NULL between two statements,
- * which makes the whole comparison NULL and the page empty (CNCORE-113). And an
- * order of four keys handed to a comparison built for one (CNCORE-125).
+ * to: `queries.ts` and `catalogue-search.ts` each said so in prose, and FOUR
+ * defects came from them disagreeing anyway. ADR-0119 carries all four.
  *
- * SO THE KEYS ARE WRITTEN ONCE AND BOTH HALVES ARE DERIVED. `theOrderBy` reads
- * them and `pastTheRowIn` reads them, and there is no third place to write them
- * down differently. Adding a key to an order reaches the sort and the walk in
- * the same edit, which is what the four defects each needed and none had.
+ * TWO OF THEM ARE THE ORDER AND THE COMPARISON COMING APART, which is what
+ * `theOrderBy` and `pastTheRowIn` below now make impossible. A relevance order
+ * whose comparison named closeness and the id but not the sort key between
+ * them, so results tied on closeness were stepped over -- a four-row fixture
+ * sharing one title walked to ONE of them (CNCORE-88). And an order of four
+ * keys handed to a comparison built for one (CNCORE-125).
+ *
+ * THE OTHER TWO ARE THE ANCHOR AND THE ORDER COMING APART, which is a different
+ * seam with the same shape and is what `PlaceIn` below is for: not a term
+ * missing from the comparison but a VALUE missing for a term. A deleted anchor
+ * read as though it were an untitled one, so the walk resumed from the untitled
+ * tail with every titled item between it skipped (CNCORE-110). And an anchor
+ * whose closeness went NULL between two statements, which makes the whole
+ * comparison NULL and the page empty over results still unseen (CNCORE-113).
+ *
+ * SO THE KEYS ARE WRITTEN ONCE AND ALL THREE ARE DERIVED. `theOrderBy` reads
+ * them, `pastTheRowIn` reads them, and `PlaceIn` is the shape of what an anchor
+ * has to carry for them. There is no fourth place to write them down
+ * differently. Adding a key to an order reaches the sort, the walk and the
+ * anchor in the same edit, which is what the four defects each needed and none
+ * had.
  *
  * `Order` RATHER THAN `Ordering`, WHICH IS `CONTEXT.md`'S WORD FOR SOMETHING
  * ELSE. An Ordering there is the Placement construct -- a container's own

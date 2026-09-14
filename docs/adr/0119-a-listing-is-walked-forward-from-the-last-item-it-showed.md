@@ -512,7 +512,10 @@ which source SPEAKS -- the rank's precedence (ADR-0024) and the one global sourc
 
 **SO IT TAKES A LIST OF KEYS NOW, and is named `pastTheRow`.** One key was never the rule; it was
 the number the first four listings happened to need. The rule underneath is that **the comparison
-must name EVERY term the `ORDER BY` does**, and a key left out of it is rows silently stepped over
+must name EVERY term the `ORDER BY` does** -- A RULE THIS RECORD STATED AND NOTHING ENFORCED, until
+CNCORE-169 made it a value rather than a sentence, under "The rule became a VALUE rather than a
+sentence (CNCORE-169), and ONE Listing is on it" below. A key left out
+of it is rows silently stepped over
 -- which is what the two paragraphs above it in this record are each an instance of, at N=1. The
 nesting is built from the inside out, so each key's tie branch is the whole comparison on the keys
 behind it; a flat `or` of per-key clauses is a DIFFERENT AND WRONG predicate, answering true for a
@@ -760,3 +763,49 @@ read off the page that shows it, so the fixture says which placement sorts last 
 the last ordering minted is one of the two nobody named, and its placement is the one no source
 stands behind, so it is null on the leading key and on both rank terms and nothing is behind it on
 any term. Mutation-checked by aiming that test at a row that is NOT last, which fails it.
+
+## The rule became a VALUE rather than a sentence (CNCORE-169), and ONE Listing is on it
+
+**THIS RECORD STATED "the comparison must name EVERY term the `ORDER BY` does" AND NOTHING
+ENFORCED IT.** The order and the comparison were two independent statements that a paragraph
+required to agree, in two files, and the four defects above are what came of that: the relevance
+order whose comparison skipped the sort key between closeness and the id (CNCORE-88), and the
+four-key order handed to a comparison built for one (CNCORE-125). Two more are the same failure at
+the anchor rather than in the comparison -- a VALUE missing for a term rather than a term missing
+from the predicate: the deleted anchor read as an untitled one (CNCORE-110) and the closeness that
+went NULL between two statements (CNCORE-113).
+
+**SO AN ORDER IS ONE VALUE NOW, IN `packages/db/src/order.ts`, AND THREE THINGS ARE READ OFF IT.**
+It names its keys once, most significant first, with the id behind them. `theOrderBy` renders the
+`ORDER BY`; `pastTheRowIn` renders the comparison; `PlaceIn<typeof order>` is the shape an anchor
+has to carry for it. A key added to an order reaches all three in the same edit, and a place that
+does not carry one is a TYPE ERROR rather than rows silently stepped over.
+
+**`Order` RATHER THAN `Ordering`, AND THE GLOSSARY IS WHY.** `CONTEXT.md` gives Ordering to the
+Placement construct -- what a container keeps of its own members -- and
+`apps/web/src/components/ordering.ts` already uses the word that way. A second sense of it here is
+what this repository refuses for `duplicate` and `record`. "The order" is what these files had
+always called this in prose (`pastInTheOrder`, `findInTheOrder`, `PlaceInTheOrder`), and
+`CONTEXT.md` now carries the entry.
+
+**HALF THE MECHANISM, AND THIS RECORD SAYS WHICH HALF.** The Catalogue Listing is on it -- both of
+ADR-0077's questions, since they share one order and differ only in their `WHERE`. **The other
+three are NOT**: Catalogue search, a Container's members and "Also appears in" still write their
+terms out beside their `ORDER BY` and call `pastTheRow`, which is the same comparison one layer
+down and is now `order.ts`'s too, so there is one implementation rather than two. CNCORE-170 moves
+them. Until it does, the rule at the top of this section is enforced for one Listing and is a
+sentence for three.
+
+**AND ONE THING COULD NOT MOVE YET, said here rather than discovered.** Every key an order renders
+is ASCENDING. Catalogue search leads on `similarity(...) desc`, so a direction is what that Listing
+needs before it can move, and it is deliberately not built ahead of the reader that needs it. The
+anchor READ is the other: `findTheAnchor` is shared with Catalogue search, so its select shape is
+untouched here and the catalogue's place is checked against its order by the type rather than read
+through it.
+
+**ASSERTED BY WALKING AN ORDER WITH A KEY ADDED**, at the db package's own module seam
+(`packages/db/src/order.test.ts`), because the Catalogue's order has the two terms it has always had
+and adding one to it would change what the Catalogue answers. Four items tie on a leading key with
+their ids running OPPOSITE to the key behind it, exactly as the CNCORE-125 tests are built and for
+the same reason. Mutation-checked: dropping the last key from the derivation walks that fixture to
+ONE of the four, which is CNCORE-88's own measurement reproduced.

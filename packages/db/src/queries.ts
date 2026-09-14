@@ -13,7 +13,7 @@ import {
 import { z } from "zod";
 
 import type { Database } from "./index";
-import { pastTheRow } from "./order";
+import { type PlaceIn, pastTheRow, pastTheRowIn, type TheOrder, theOrderBy } from "./order";
 import {
   aliases,
   itemKinds,
@@ -974,14 +974,16 @@ export async function readWorks(
  * (ADR-0014), so what a reader sees listed is the title statement that
  * currently wins rather than an id.
  *
- * THE ORDER IS `coalesce(sort_name, title)`, which is the pair ADR-0014 gives
- * `sort_name` its own index for, with the id behind it so two items sharing a
- * sort key list in the same order twice.
+ * THE ORDER IS `THE_CATALOGUES_ORDER` BELOW, and it is one value rather than
+ * two statements (CNCORE-169): `coalesce(sort_name, title)`, which is the pair
+ * ADR-0014 gives `sort_name` its own index for, with the id behind it so two
+ * items sharing a sort key list in the same order twice.
  *
  * AND `after` WALKS IT (ADR-0119): the id of the last item the page before this
  * one carried. Both halves of the order are load-bearing in that comparison,
- * which is what `pastInTheOrder` below is about -- the cap says what is not being shown,
- * and this is what reaches it.
+ * and neither can go missing from it, because the sort and the comparison are
+ * READ OFF THE SAME KEYS -- the cap says what is not being shown, and this is
+ * what reaches it.
  */
 async function readListing(
   db: Database,
@@ -990,14 +992,11 @@ async function readListing(
   const place = after === undefined ? undefined : await findInTheOrder(db, after);
   return walkListing(db, {
     within,
-    /*
-     * `nulls last` IS THE DEFAULT FOR `asc` AND IS WRITTEN OUT ANYWAY, because
-     * `pastInTheOrder` below reads it: an item with no title at all has no sort key, and
-     * where those sit decides which half of the cursor's comparison finds them.
-     * A default the walk depends on is one worth saying out loud.
-     */
-    orderBy: [sql`${SORT_KEY} nulls last`, sql`${items.id}`],
-    past: place && pastInTheOrder(place),
+    // BOTH READ OFF ONE VALUE (CNCORE-169). The sort and the comparison that
+    // walks it are the same keys, so neither can name a term the other does
+    // not -- which is what `THE_CATALOGUES_ORDER` below is for.
+    orderBy: theOrderBy(THE_CATALOGUES_ORDER),
+    past: place && pastTheRowIn(THE_CATALOGUES_ORDER, place),
     limit,
   });
 }
@@ -1179,27 +1178,38 @@ const WORK_BROWSING = and(
  */
 export const SORT_KEY = sql<string | null>`coalesce(${items.sortName}, ${items.title})`;
 
-/** Where one item sits in the catalogue's order. */
-interface PlaceInTheOrder {
-  sortKey: string | null;
-  id: string;
-}
+/**
+ * THE ORDER THE CATALOGUE IS READ IN: ADR-0014's projected key, and the item's
+ * id behind it so two items sharing a key list in the same order twice.
+ *
+ * ONE VALUE, AND BOTH STATEMENTS ARE READ OFF IT (CNCORE-169). `theOrderBy`
+ * renders the `ORDER BY` and `pastTheRowIn` renders the cursor comparison that
+ * walks it, from these keys and no others. Until this ticket they were two
+ * independent statements a sentence required to agree, and four defects came
+ * from them disagreeing -- which is the whole of what `order.ts` is about.
+ *
+ * A KEY ADDED HERE REACHES BOTH, and reaches `findInTheOrder` below too: the
+ * place it answers with is `PlaceIn<typeof THE_CATALOGUES_ORDER>`, so a key
+ * this order gains and that read does not is a type error rather than rows
+ * silently stepped over.
+ *
+ * IT IS ONE ORDER FOR TWO QUESTIONS, which is `readListing`'s own subject: the
+ * catalogue and work-browsing differ in their WHERE and in nothing else, so a
+ * second order here would be the same rule twice.
+ */
+const THE_CATALOGUES_ORDER = {
+  keys: { sortKey: SORT_KEY },
+  id: items.id,
+} satisfies TheOrder;
 
 /**
- * Everything the catalogue lists AFTER one item (ADR-0119).
+ * Where one item sits in the catalogue's order.
  *
- * NAMED FOR THE ORDER IT WALKS, because `walkListing` above takes a `past` of
- * its own -- the SQL rather than the function that builds it -- and a parameter
- * sharing a name with a function in the same file reads as that function.
- * Catalogue search's `pastInTheRanking` is the same pairing one file over.
- *
- * THE ORDER IS ADR-0014's PROJECTED KEY and then the item's id. What that
- * costs to get wrong is on `pastTheRow` above, which is the whole of the
- * comparison.
+ * DERIVED FROM THE ORDER rather than declared beside it, for the reason that
+ * order gives: a place written out by hand is a second list of its keys, and
+ * two lists come apart.
  */
-function pastInTheOrder({ sortKey, id }: PlaceInTheOrder): SQL | undefined {
-  return pastTheRow([{ key: SORT_KEY, at: sortKey }], { id: items.id, at: id });
-}
+type PlaceInTheOrder = PlaceIn<typeof THE_CATALOGUES_ORDER>;
 
 /** One row a cursor might name, read the way every walk has to read it. */
 export interface TheAnchor {
