@@ -6,7 +6,7 @@ import { call, createRouterClient } from "@orpc/server";
 import { afterAll, describe, expect, it } from "vitest";
 
 import { createContext } from "./context";
-import { importContainerList } from "./import-list";
+import { importContainerList, theContainerIdsIn } from "./import-list";
 import { appRouter } from "./routers";
 
 /**
@@ -281,5 +281,41 @@ describe("importContainerList", () => {
     );
 
     expect(opened).toEqual({ runId, landed: 1, toAskFor: 1 });
+  });
+});
+
+/**
+ * WHERE A FIVE-AND-A-HALF-HOUR MISTAKE WOULD HIDE. A run is resumed by matching
+ * the list it is walking, so a reader that answered a different list for the
+ * same file -- one trailing blank line, one stray space -- would not resume: it
+ * would silently open a SECOND run over all 465 Containers and browse every one
+ * of them again. That is why this is a tested function rather than three lines
+ * inside a script.
+ */
+describe("theContainerIdsIn", () => {
+  it("takes one Container id a line", () => {
+    expect(theContainerIdsIn("249643\n105893\n226288")).toEqual(["249643", "105893", "226288"]);
+  });
+
+  it("reads a file the same way however it ends, so a resume still recognises its list", () => {
+    expect(theContainerIdsIn("249643\n105893\n")).toEqual(theContainerIdsIn("249643\n105893"));
+  });
+
+  it("ignores blank lines and surrounding space, which is what a hand-edited list has in it", () => {
+    expect(theContainerIdsIn("  249643  \n\n\t105893\n   \n")).toEqual(["249643", "105893"]);
+  });
+
+  /**
+   * A LIST OF 465 IDS IS UNREADABLE WITHOUT THEM. The ids are the Provider's
+   * own, so the only way to tell one line from another is a note beside it.
+   */
+  it("ignores a commented line, so a list can say what its ids are", () => {
+    expect(theContainerIdsIn("# the Doctor Who corpus\n249643 \n# and the rest")).toEqual([
+      "249643",
+    ]);
+  });
+
+  it("reads a file that carries Windows line endings", () => {
+    expect(theContainerIdsIn("249643\r\n105893\r\n")).toEqual(["249643", "105893"]);
   });
 });

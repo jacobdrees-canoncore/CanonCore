@@ -323,11 +323,7 @@ export async function recordContainerLanded(
  */
 export async function recordContainerRefused(
   db: Database,
-  {
-    runId,
-    externalId,
-    reason,
-  }: { runId: string; externalId: string; reason: RefusalReason },
+  { runId, externalId, reason }: { runId: string; externalId: string; reason: RefusalReason },
 ): Promise<void> {
   await recordOutcome(db, runId, externalId, {
     outcome: "refused",

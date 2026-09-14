@@ -1,4 +1,4 @@
 {
   "extends": "@canoncore/config/tsconfig.base.json",
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts", "scripts/**/*.ts"]
 }

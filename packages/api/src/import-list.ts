@@ -17,6 +17,28 @@ export interface ContainerList {
   containerIds: string[];
 }
 
+/**
+ * The Container ids in a file the Owner wrote, one a line.
+ *
+ * IT IS HERE AND TESTED RATHER THAN THREE LINES INSIDE A SCRIPT, because a run
+ * is resumed by matching the LIST it is walking. A reader that answered a
+ * different list for the same file -- one trailing newline, one stray space --
+ * would not resume: it would open a second run over all 465 Containers and
+ * browse every one of them again, silently, at five and a half hours. The
+ * failure is invisible at the moment it happens and expensive afterwards, which
+ * is the definition of something to put behind a test.
+ *
+ * BLANK LINES AND `#` COMMENTS GO, because a list of 465 Provider ids is
+ * unreadable without notes beside them: the ids are the Provider's own and
+ * nothing else on the line says what a timeline is.
+ */
+export function theContainerIdsIn(text: string): string[] {
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line !== "" && !line.startsWith("#"));
+}
+
 /** One Container's outcome, as the walk reports it the moment it happens. */
 export type SteppedContainer = Extract<
   Awaited<ReturnType<AppRouterClient["provider"]["importNextContainer"]>>,
@@ -24,9 +46,7 @@ export type SteppedContainer = Extract<
 >;
 
 /** A run and every Container of it, in the order the Owner listed them. */
-export type ImportRunReport = Awaited<
-  ReturnType<AppRouterClient["provider"]["readImportRun"]>
->;
+export type ImportRunReport = Awaited<ReturnType<AppRouterClient["provider"]["readImportRun"]>>;
 
 /**
  * What the walk found waiting for it: a fresh run, or one it is carrying on.
@@ -84,9 +104,7 @@ export async function importContainerList(
   { onOpened, onStepped }: WalkingTheList = {},
 ): Promise<ImportRunReport> {
   const opened = await client.provider.beginImportRun({ baseUrl, containerIds });
-  const landed = opened.containers.filter(
-    (container) => container.outcome === "landed",
-  ).length;
+  const landed = opened.containers.filter((container) => container.outcome === "landed").length;
   onOpened?.({
     runId: opened.runId,
     landed,

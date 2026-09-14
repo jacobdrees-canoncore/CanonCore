@@ -10,10 +10,10 @@ import {
   type PurgedProvider,
   previewProviderPurge,
   purgeProvider,
+  type RunContainer,
   readImportRun,
   recordContainerLanded,
   recordContainerRefused,
-  type RunContainer,
 } from "@canoncore/db";
 import {
   type Allowlist,
@@ -515,10 +515,7 @@ async function oneContainerIntoTheCatalogue(
   db: Database,
   allowlist: Allowlist,
   { baseUrl, containerId }: BrowseRequest,
-): Promise<
-  | { landed: ImportedContainer }
-  | { refused: FailureReason }
-> {
+): Promise<{ landed: ImportedContainer } | { refused: FailureReason }> {
   try {
     const browsed = await browseIntoCatalogue(db, allowlist, { baseUrl, containerId });
     if (browsed) return { landed: browsed };

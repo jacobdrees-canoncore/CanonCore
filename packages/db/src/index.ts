@@ -13,17 +13,6 @@ export {
 } from "./by-hand";
 export { likePattern, searchCatalogue } from "./catalogue-search";
 export {
-  beginImportRun,
-  type ContainerOutcome,
-  type ImportRun,
-  nextPendingContainer,
-  readImportRun,
-  recordContainerLanded,
-  recordContainerRefused,
-  type RefusalReason,
-  type RunContainer,
-} from "./import-runs";
-export {
   type ImportedContainer,
   type ImportedRecord,
   type ImportingProvider,
@@ -32,6 +21,17 @@ export {
   type ProvidedContainer,
   type ProvidedRecord,
 } from "./import";
+export {
+  beginImportRun,
+  type ContainerOutcome,
+  type ImportRun,
+  nextPendingContainer,
+  type RefusalReason,
+  type RunContainer,
+  readImportRun,
+  recordContainerLanded,
+  recordContainerRefused,
+} from "./import-runs";
 export {
   type AssertedPlacement,
   assertPlacement,
