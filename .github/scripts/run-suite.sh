@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# ONE TURBO TASK, AND A COUNT THAT SAYS IT RAN.
+# ONE TURBO TASK, A COUNT THAT SAYS IT RAN, AND OPTIONALLY A ROLL CALL.
 #
 # `turbo run <task>` EXITS 0 HAVING RUN NOTHING. A root script that is gone, a
 # task no package declares, or a task the FILTERED package no longer declares
@@ -19,11 +19,12 @@
 # and `run-suite.test.ts` now drives each rather than restating them.
 #
 # WHAT IT CATCHES IS THE COUNT REACHING ZERO, AND NOT ONE PACKAGE OF MANY
-# DROPPING ITS SCRIPT. `test:e2e`, `test:browser` and `test:contract` are
-# declared by exactly one package each, so for those the two are one.
-# `test` is declared by ten, so deleting one leaves nine and this passes --
-# `packages/config/src/network-gate-wiring.test.ts` is what catches that, by
-# holding every Vitest config on disk to being run by some suite.
+# DROPPING ITS SCRIPT. `test:e2e`, `test:browser`, `test:contract` and `build`
+# are declared by exactly ONE package each, so for those the two are one and the
+# count is the whole answer. `test` is declared by ten, so deleting one leaves
+# nine and this passes -- `packages/config/src/network-gate-wiring.test.ts` is
+# what catches that, by holding every Vitest config on disk to being run by some
+# suite. Counted 2026-09-14: test 10, typecheck 11, build 1.
 #
 # SO A COUNT IS NOT A ROLL CALL, and the second argument is the roll call
 # (CNCORE-190). Name a package and its task has to appear among the ones turbo
