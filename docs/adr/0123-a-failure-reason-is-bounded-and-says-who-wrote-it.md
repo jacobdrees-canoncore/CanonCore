@@ -440,7 +440,32 @@ What makes the refusal survive the crossing at all is that `makeNetworkError` pa
 custom `boundary` this record put on `OutboundRefused`, are both intact one link down. The mechanism
 was whole; only the reading was not.
 
-**AND `canoncore` NOW RESTS ON A CHAIN UNDICI ASSEMBLED, which is the question this record exists to
+### `wrote` and `text` come from the SAME link, and the obvious improvement breaks that
+
+`wrote` is asked of the link the walk LANDED on, not of any `config` refusal found anywhere in the
+chain. **Review of CNCORE-192 read that as a fragility and proposed the second reading; it is worse
+than the thing it repairs, in two ways.** A refusal that ever gained a `cause` would, under the walk,
+hand its `text` to the deeper link — so preferring a `config` refusal from elsewhere in the chain
+would print a THIRD PARTY'S text in this catalogue's voice. That is the cost this record has already
+ranked: the one it calls worse. Under-attributing our own sentence is the conservative direction, and
+it is the one the walk takes.
+
+**AND THE SECOND WAY WAS FOUND BY BUILDING IT.** The proposal is a SECOND traversal of the same
+chain, and a second traversal is a second place to forget the visited set — the one written to try it
+did forget, and the suite hung rather than failed. So the cheaper repair is also the one that
+reintroduces the hang this section spends a `Set` to prevent, which is the argument for asking the
+question ONCE, of one link, at one place.
+
+**So the coupling is the mechanism rather than an accident of it.** `wrote` is a claim ABOUT `text`,
+and a build sourcing them from two different links would be making that claim about a sentence it did
+not read. A test pins it, and the shape it pins has to be built by hand because **`OutboundRefused`'s
+constructor takes a message and a boundary and nothing else** — there is no `cause` parameter to
+pass, so none of its fifteen construction sites could produce one even by accident. What is guarded
+is which way this falls the day somebody adds one. (Counted: nine in `boundary.ts`, four in
+`client.ts`, two in `configured.ts`. An earlier draft of this paragraph said twelve, which was a
+figure taken from a review rather than from the tree.)
+
+**AND `canoncore` RESTS ON A CHAIN UNDICI ASSEMBLED, which is the question this record exists to
 ask of itself.** Attribution is decided by the link the walk lands on rather than by the thing that
 was thrown, so it is worth saying why that is not a way for a stranger to speak in this catalogue's
 voice: the branch fires only on an `OutboundRefused` whose `boundary` is `config`, and the only

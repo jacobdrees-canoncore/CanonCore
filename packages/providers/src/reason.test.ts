@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { assertConfigUrl, parseAllowlist, REASON_MAX_LENGTH, reasonFor } from "./index";
+import {
+  assertConfigUrl,
+  OutboundRefused,
+  parseAllowlist,
+  REASON_MAX_LENGTH,
+  reasonFor,
+} from "./index";
 
 /**
  * WHAT A FAILED REACH IS ALLOWED TO SAY TO THE OWNER (ADR-0123, CNCORE-95).
@@ -190,6 +196,45 @@ describe("reasonFor", () => {
     const { text } = reasonFor(new TypeError("the provider answered badly", { cause: 42 }));
 
     expect(text).toBe("the provider answered badly");
+  });
+
+  /**
+   * `wrote` AND `text` COME FROM THE SAME LINK, ALWAYS. This is the invariant
+   * the walk exists to preserve, and it is asserted because the obvious
+   * "improvement" breaks it.
+   *
+   * Raised in review of CNCORE-192: `wrote` is asked of the link the walk
+   * LANDED on rather than of any `config` refusal in the chain, so a refusal
+   * that ever gained a cause would attribute itself to the provider. True, and
+   * the proposed repair -- look for a `config` refusal ANYWHERE and keep the
+   * deepest link only for `text` -- is worse than the thing it fixes. It would
+   * print the deeper link's text, which is a third party's, in CANONCORE'S
+   * VOICE. ADR-0123 ranks those two costs explicitly and that is the one it
+   * calls worse; under-attributing our own sentence is the conservative
+   * direction and is what this does.
+   *
+   * AND IT IS A SECOND WALK OF THE SAME CHAIN, so it is a second place to
+   * forget the visited set. Written out to check, it forgot, and the suite hung
+   * instead of failing -- the hang the test below exists to stop, arriving by
+   * the repair for this one.
+   *
+   * SO THE COUPLING IS THE POINT. `wrote` is a claim ABOUT `text`, and a build
+   * that sourced them from two different links would be making that claim about
+   * a sentence it did not read.
+   */
+  it("asks whose the sentence is of the link the sentence came from", () => {
+    const refusal = new OutboundRefused("refused https://wiki.test: not allowlisted.", "config");
+    // A config refusal cannot carry a cause today: the constructor takes a
+    // message and a boundary and has no `cause` parameter at all, so none of
+    // its fifteen sites could pass one. Assigned by hand BECAUSE of that --
+    // what is pinned is which way this falls the day somebody adds one.
+    (refusal as unknown as { cause: unknown }).cause = new Error("the provider's own words");
+
+    const { wrote, text } = reasonFor(refusal);
+
+    expect(text).toBe("the provider's own words");
+    // THE PROVIDER'S, because that is whose sentence `text` is holding.
+    expect(wrote).toBe("provider");
   });
   /**
    * A THROWN THING WITH NOTHING TO SAY STILL HAS TO SAY SOMETHING.
