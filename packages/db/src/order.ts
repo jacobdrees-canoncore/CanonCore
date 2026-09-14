@@ -2,6 +2,19 @@ import { and, eq, gt, isNull, or, type SQL, type SQLWrapper, sql } from "drizzle
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 
 /**
+ * ONE KEY OF AN ORDER: a column, or an expression over columns.
+ *
+ * NARROWER THAN `SQLWrapper`, WHICH `pastTheRow` BELOW TAKES, and the
+ * difference is what lets an order be SELECTED as well as sorted and compared.
+ * A place is read by the order's own keys -- `select({ ...order.keys })` -- so
+ * the values cannot come from a list written out beside them, and Drizzle's
+ * `select` will not take the broad interface. The catalogue's key is an
+ * expression (ADR-0014's projection) and its id is a column, so both arms are
+ * in use here rather than one being kept for later.
+ */
+type AKey = SQL | AnyPgColumn;
+
+/**
  * THE ORDER ONE LISTING IS READ IN: the keys it sorts on, most significant
  * first, and the id behind them that makes it total.
  *
@@ -51,18 +64,6 @@ import type { AnyPgColumn } from "drizzle-orm/pg-core";
  * keys and is the same thing Drizzle's `select({...})` relies on to decide what
  * a query's columns are called.
  */
-/**
- * ONE KEY OF AN ORDER: a column, or an expression over columns.
- *
- * NARROWER THAN `SQLWrapper`, WHICH `pastTheRow` BELOW TAKES, and the
- * difference is what lets an order be SELECTED as well as sorted and compared.
- * A place is read by the order's own keys -- `select({ ...order.keys })` -- so
- * the values cannot come from a list written out beside them, and Drizzle's
- * `select` will not take the broad interface. The catalogue's key is an
- * expression (ADR-0014's projection) and its id is a column, so both arms are
- * in use here rather than one being kept for later.
- */
-type AKey = SQL | AnyPgColumn;
 
 export interface TheOrder {
   /** The keys, most significant first, by the name a place gives each. */
