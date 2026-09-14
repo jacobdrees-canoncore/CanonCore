@@ -40,11 +40,18 @@
 # deleting the argument leaves the suite running to notice.
 #
 # TODO(CNCORE-197): AND IT IS ASKED IN ONE PLACE ONLY, `test @canoncore/config`.
-# `typecheck` and `build` are declared by eleven packages each and get the count
-# alone, so one package dropping either script still leaves ten running and the
-# job green. That is the same hole in the same shape, left because CNCORE-190
-# scoped itself to the case it measured -- named here rather than left looking
-# finished, since half a mechanism reads whole from outside.
+# `typecheck` is declared by ELEVEN packages and gets the count alone, so one of
+# them dropping its script still leaves ten running and the job green. That is
+# the same hole in the same shape, left because CNCORE-190 scoped itself to the
+# case it measured -- named here rather than left looking finished, since half a
+# mechanism reads whole from outside.
+#
+# `build` IS NOT IN THAT LIST, and the reason is the one this file's header gives
+# for `test:e2e`: it is declared by exactly ONE package, `web`, so the count
+# reaching zero and the script being deleted are the same event. Counted
+# 2026-09-14 rather than assumed -- the first version of this comment said
+# eleven for both, which would have sent someone to close a hole that is not
+# there.
 #
 # AND IT ASSUMES TURBO PRINTS THE TASK AT ALL. A task set to `outputLogs: "none"`
 # in `turbo.json` is announced by neither shape, and the roll call would report a

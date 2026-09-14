@@ -124,11 +124,17 @@ The half a suite can still hold is the other one — that `ci.yml` names the pac
 The two holes are disjoint, which is what makes the pair whole.
 
 **The roll call is asked in ONE place, and that is a half rather than a finish.** `test
-@canoncore/config` is the case CNCORE-190 measured and closed. `typecheck` and `build` are declared
-by eleven packages each and have only the count, so one package dropping either script leaves ten
-running and the job green — the identical hole, and nothing else catches it, because
-`network-gate-wiring.test.ts` covers `test` alone. CNCORE-197 holds that, and this paragraph is here
-so the mechanism does not read whole from outside while half of it is open.
+@canoncore/config` is the case CNCORE-190 measured and closed. `typecheck` is declared by ELEVEN
+packages and has only the count, so one of them dropping its script leaves ten running and the job
+green — the identical hole, and nothing else catches it, because `network-gate-wiring.test.ts`
+covers `test` alone. CNCORE-197 holds that, and this paragraph is here so the mechanism does not
+read whole from outside while half of it is open.
+
+`build` is NOT a third case, for the reason `test:e2e` is not: it is declared by exactly ONE
+package, `web`, so the count reaching zero and the script being deleted are the same event. That
+sentence said "`typecheck` and `build` … eleven packages each" when it was first written, which was
+an unchecked figure for the second of them and would have sent somebody to close a hole that does
+not exist. Counted 2026-09-14: `test` 10, `typecheck` 11, `build` 1.
 
 **And a scratch fixture does not stand in for a real run**, which this record owes to the roll call
 being wrong TWICE before it was right — once on the size of a real log and once on the shape of a
