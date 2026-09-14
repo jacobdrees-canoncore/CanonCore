@@ -172,6 +172,37 @@ BY NOTHING, exactly as before this ticket.** They are ADR-0075's blanket rather 
 table uses, and the ticket that gives them a reader is not this one. Said plainly because a history
 table that now has a compaction task looks from outside like one whose soft-delete path is in use.
 
+## Two defects in the registry, and a rule the hours now answer to, under CNCORE-162
+
+**THE OVERLAP GUARD HAD A HOLE THE SHAPE OF THE WRITE THAT OPENS A RUN.** A key is marked running
+before its row is opened, and it has to be: the check that refuses a second run reads a map and
+opening the row is an `await`, so a mark made after that write would let two runs past the check
+before either of them was marked. But the `try` that clears the mark began after the write rather
+than before it — so a `startTaskRun` that rejected left the key marked for the life of the process.
+That map is one process's own memory and nothing else empties it, so every later run of that task
+was refused as already running, and the owner's Run button reported a conflict over a task that was
+not running at all. The fix is one line moved; the reason it is worth a record is that the ordering
+it violates is a real constraint rather than an accident, and the next reader is owed both halves of
+it.
+
+**A KEY NAMES ONE TASK, AND `new Map` WAS ANSWERING THAT QUESTION SILENTLY.** The key is a task's
+identity rather than a label on it: the history is keyed by it, the page's Run and Cancel carry it,
+and the live runs are held under it. Two tasks declaring one key built a registry that KEPT THE
+LAST — both listed, both read the same last run, and only the one the map kept could be run or
+cancelled at all, the other being a row on the owner's page whose buttons reach the wrong task. It
+is refused where the registry is built now, the way `dailyAt` refuses an hour of 24 where it is
+written: the same fault one level up, caught where the list is declared rather than at the press of
+a button that does nothing.
+
+**AND THE MAINTENANCE WINDOW IS A RULE OVER THE LIST RATHER THAN THE HOURS TWO TASKS HAPPEN TO
+CARRY.** That Plex's 3am-6am is the window and that two tasks do not share an instant were both
+true, both reasoned in the files that chose the hours, and held by nothing: the suite asserted that
+one task fires at 3 and the other at 4, which says nothing at all about the third. A task added at
+noon, or added at 4 again, passed. The suite asserts the rule now — every registered task fires
+inside the window, and no two of them at one hour — so a line added to `theTasks` meets it before
+anybody reads the page. Six is where the window CLOSES, and a daily trigger pins only the start, so
+the hour has to be before it.
+
 ## Evidence
 
 Verified against source on 2026-09-10; corrections applied. Working in `docs/research/verify-adr-plex.md`, `docs/research/verify-adr-jellyfin.md`.

@@ -3,7 +3,7 @@ import { connect } from "@canoncore/db/testing/catalogue";
 import { eq } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { createRegistry, dailyAt, type Task, taskRegistry } from "./index";
+import { createRegistry, dailyAt, type Task, taskRegistry, theTasks } from "./index";
 
 let db: Database;
 
@@ -225,6 +225,76 @@ describe("a task that is already running", () => {
   });
 });
 
+/**
+ * A database that refuses the write that opens a run, standing in for one that
+ * is gone.
+ *
+ * THE FAILURE HAS TO COME FROM OUTSIDE THE TASK, which is the whole of what
+ * this stand-in is for. Every other way a run can end is something the task
+ * did, and `endingOf` writes all of those into the history; this one happens
+ * BEFORE there is a history row to write into, so nothing records it and the
+ * only evidence is what the registry is left holding.
+ */
+const aDatabaseThatRefusesToOpenARun = {
+  insert() {
+    throw new Error("the database went away");
+  },
+} as unknown as Database;
+
+describe("a run that cannot be opened", () => {
+  it("leaves the key free rather than marked running for the rest of the process", async () => {
+    // THE KEY IS MARKED BEFORE THE ROW IS OPENED, WHICH IT HAS TO BE. The
+    // refusal of a second run reads a map and opening the row is an `await`, so
+    // a mark made after that write would let two runs past the check before
+    // either was marked. What that ordering costs is this case: the opening
+    // write is also the first thing here that can fail, and the mark sat
+    // outside the `finally` that clears it.
+    //
+    // AND WHAT IT LEAVES IS PERMANENT, which is what makes it worth a test
+    // rather than a comment. That map is this process's own memory, so nothing
+    // clears the key until the process restarts -- every later run of the task,
+    // tonight's and every night after, is refused as already running, and an
+    // owner pressing Run reads a conflict over a task that is not running at
+    // all. At three in the morning, which is when these run.
+    const registry = createRegistry([
+      aTask({ key: "unopenable", run: async () => "did something" }),
+    ]);
+
+    await expect(registry.run(aDatabaseThatRefusesToOpenARun, "unopenable")).rejects.toThrow(
+      "the database went away",
+    );
+
+    // A RUN RATHER THAN A REFUSAL, and the difference is the defect: this is
+    // the registry saying the task is free to run, where it used to say the
+    // task was already running.
+    expect(await registry.run(db, "unopenable")).toMatchObject({ outcome: "completed" });
+  });
+});
+
+describe("two tasks declaring one key", () => {
+  it("is refused when the registry is built, not resolved silently", async () => {
+    // THE KEY IS THE IDENTITY OF A TASK AND NOT A LABEL ON ONE. The history is
+    // keyed by it, the page's Run and Cancel buttons carry it, and the map that
+    // holds the live runs is keyed by it -- so two tasks under one key is two
+    // tasks the product cannot tell apart anywhere it matters. Both would
+    // render, both would show the same last run, and only whichever the map
+    // kept could be run or cancelled at all; the other is a row on the page
+    // that does nothing.
+    //
+    // AT CONSTRUCTION, THE WAY A BAD HOUR IS. `dailyAt` refuses hour 24 where
+    // it is written rather than at the firing that never comes, and this is the
+    // same fault one level up: a list that cannot be honoured, caught where the
+    // list is declared. Anything later is a defect nobody sees until an owner
+    // presses a button and nothing happens.
+    expect(() =>
+      createRegistry([
+        aTask({ key: "one-key", name: "The one that would be kept" }),
+        aTask({ key: "one-key", name: "The one that would be lost" }),
+      ]),
+    ).toThrow(/one-key/);
+  });
+});
+
 describe("a run whose process went away", () => {
   it("is closed as aborted when the registry next starts, not left reading as running", async () => {
     // THE ROW OUTLIVES THE PROCESS AND THE CONTROLLER DOES NOT. A run lives in
@@ -289,27 +359,17 @@ describe("the dead-session sweep", () => {
     expect(run).toMatchObject({ outcome: "completed", detail: "Removed 1 session." });
   });
 
-  it("is on the list an owner reads, named and triggered", async () => {
+  it("is on the list an owner reads, named and in the order this repository wrote it", async () => {
     // BOTH TASKS, IN THE ORDER THIS REPOSITORY WROTE THEM DOWN, which is the
     // order `/tasks` renders and the order `registry.list` keeps on purpose.
     // Asserting the whole list rather than one entry is what makes a task added
     // to `theTasks` and forgotten here fail rather than pass unnoticed.
     //
-    // AND EACH WITH ITS OWN TRIGGER. Two tasks at one instant would be two jobs
-    // competing for one small machine at no benefit, and a page that could not
-    // tell an owner which hour either runs at would leave them unable to tell a
-    // job that is not due from one that has stopped.
+    // WHEN EACH OF THEM FIRES IS ASSERTED BELOW, as a rule over the list rather
+    // than as the two hours these two happen to carry.
     expect(await taskRegistry().list(db)).toMatchObject([
-      {
-        key: "sweep-sessions",
-        name: "Remove sessions that can no longer answer",
-        trigger: { kind: "daily", atHour: 3 },
-      },
-      {
-        key: "compact-task-runs",
-        name: "Remove runs the history no longer shows",
-        trigger: { kind: "daily", atHour: 4 },
-      },
+      { key: "sweep-sessions", name: "Remove sessions that can no longer answer" },
+      { key: "compact-task-runs", name: "Remove runs the history no longer shows" },
     ]);
   });
 });
@@ -341,5 +401,40 @@ describe("the run-history compaction", () => {
     const run = await registry.run(db, "compact-task-runs");
 
     expect(run).toMatchObject({ outcome: "completed", detail: "Removed 1 run." });
+  });
+});
+
+describe("when the tasks this instance runs are due", () => {
+  it("is inside the maintenance window, and no two of them at one hour", () => {
+    // A RULE OVER THE LIST RATHER THAN THE HOURS THESE TWO HAPPEN TO CARRY.
+    // "One at 3 and one at 4" says nothing about the third: a task added at
+    // noon, or added at 4 again, passes a test that names only the tasks
+    // already there. The hours are an instance of a rule, so the rule is what
+    // is asserted, and a line added to `theTasks` is checked against it before
+    // anybody reads the page.
+    //
+    // THE WINDOW IS PLEX'S 3am-6am, which ADR-0049 takes and for the reason it
+    // gives: the small hours are when nobody is reading, and that is a fact
+    // about where the owner lives rather than about Greenwich. Six is where the
+    // window CLOSES -- Plex's setting is the hour maintenance "should start and
+    // end" -- so a daily trigger, which pins only the start, has to be before
+    // it. Both numbers are written out rather than read off an export, for the
+    // reason `sessions.test.ts` gives about thirty-one days: a constant
+    // asserting itself passes whatever it becomes.
+    const outsideTheWindow = theTasks.filter(
+      ({ trigger }) => trigger.atHour < 3 || trigger.atHour >= 6,
+    );
+    expect(outsideTheWindow.map((task) => task.key)).toStrictEqual([]);
+
+    // AND STAGGERED, WHICH IS THE OTHER HALF. Two tasks at one instant are two
+    // jobs competing for one small machine at no benefit, on a schedule this
+    // repository is free to choose -- `compact-task-runs.ts` says exactly that
+    // about the hour it picked, and nothing was holding it to it.
+    const hours = theTasks.map((task) => task.trigger.atHour);
+    expect(hours.filter((hour, at) => hours.indexOf(hour) !== at)).toStrictEqual([]);
+
+    // A STAGGER IS A CLAIM ABOUT MORE THAN ONE TASK, and an emptied list would
+    // satisfy both assertions above by having nothing in it to break.
+    expect(hours.length).toBeGreaterThan(1);
   });
 });
