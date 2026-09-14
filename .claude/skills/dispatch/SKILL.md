@@ -1,6 +1,6 @@
 ---
 name: dispatch
-description: "Merge ready PRs, remove their worktrees, recompute the frontier and put it to the user to spend, watching Linear for state the worktrees no longer match. Run it by typing /dispatch; it is never entered by inference."
+description: "Merge ready PRs, remove their worktrees, recompute the frontier, say what each candidate changes and put it to the user to spend, watching Linear for state the worktrees no longer match. Run it by typing /dispatch; it is never entered by inference."
 disable-model-invocation: true
 ---
 
@@ -47,15 +47,38 @@ graph. Add the `blocked-by` yourself before it can reach an ask, and move it to 
 writes as an OAuth integration, so a ticket an agent filed lands in Backlog and Backlog is where the
 frontier cannot see it.
 
-**4. ASK, with `AskUserQuestion`, and wait.** One question, one option per ticket whose files are
-free, each option carrying what that ticket unblocks. A candidate you leave out is named with what
-still blocks it, so the shape of the frontier is visible and not just your pick of it.
+**A wave's candidates collide with each other, not only with open branches.** This step frees each
+ticket against what is already RUNNING and says nothing about the four you are about to start
+together. Grep for the shared file before you claim there is none: CNCORE-160 and CNCORE-163 both
+edit `.github/workflows/ci.yml`, one file holding every job, and "zero overlap between any two" was
+claimed and then withdrawn in the same pass, 2026-09-14.
+
+**4. Say what each candidate CHANGES.** A manifest is not an explanation.
+`packages/tasks/src/registry.ts` and "unblocks 11" tell the user nothing about whether to spend an
+agent on it. "A run whose opening write rejects leaves its key marked running for the life of the
+process, so every later run is refused as already running — at three in the morning, which is when
+these run" tells them exactly. For each candidate write **what is false today and what is true
+after**, in the product's own terms. Paths come second, and only where two candidates share one.
+
+You are reading each ticket's "What to build" back in one place rather than inventing it, so a
+candidate you cannot put this way is one you have not read.
+
+**5. ASK, with `AskUserQuestion`, and wait.** One option per ticket whose files are free, each
+carrying what it CHANGES and what it unblocks, your recommendation first and labelled
+`(Recommended)`. A candidate you leave out is named with what still blocks it, so the shape of the
+frontier is visible and not just your pick of it.
 
 Recomputing the frontier is yours; SPENDING it is the user's, and they invoke. A prose summary is
 not the ask: it reads as a report and the next turn carries on building, which is how four agents
 went out on "recalculate", 2026-09-11.
 
-When the answer comes back: one ticket per worktree, `--prompt "/implement"` and nothing more. Fold
+**6. Put the whole wave up before a worktree exists, and wait for a yes.** The chosen set, each
+ticket's change in a line or two, the merge order any pair forces, and every file two of them share.
+A set picked from options is not yet a wave the user has SEEN: the fold's two repos, the PR that has
+to merge first, and the one workflow file two tickets both edit become visible only once the set is
+fixed. Create a worktree first and the explanation is a report about work already running.
+
+When the yes comes back: one ticket per worktree, `--prompt "/implement"` and nothing more. Fold
 only on one reason to change (`CLAUDE.md`).
 
 Done when every merged PR's worktree is gone and the frontier is in front of the user. New tickets
