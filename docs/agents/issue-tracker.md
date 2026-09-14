@@ -46,6 +46,15 @@ orca linear attach --current --url <pr-url> --title "PR link" --json
 
 Multi-line bodies go through `--body-file -` on stdin, never a giant `--body` string.
 
+**Filing a BATCH: pass `--project` its UUID, never its name.** A name is resolved by a fresh
+`searchProjects` per create, and a run of them trips a per-operation limit Linear does not publish —
+which arrives as `linear_network_error`, thrown before the create mutation, so it reads as the ticket
+failing rather than the lookup. Measured 2026-09-13: a batch of 28 died on the 26th with "you're
+trying to search projects too fast", and the same batch by UUID did not. A UUID goes straight to
+`getProject`; a slug still searches. Linear's published limits are 2,500 requests and 3,000,000
+complexity points an hour on an API key, so a batch this size cannot be hitting either — do not write
+a number into a backoff.
+
 **A ticket is not filed until it carries a state, a label, an assignee, and a PARENT if it belongs
 to a spec.** This is not tidiness. Triage is off on this team, so a label is the only place triage
 state lives (`docs/agents/triage-labels.md`) and an unlabelled ticket has no triage state at all
@@ -133,6 +142,13 @@ for exactly this reason; a command retyped from memory is where they get dropped
 nothing. Filter on `relationship`, or on `direction` (`inbound` means THIS issue is blocked).
 `relatedIssue` carries no state, so the blocker's status needs its own read — the frontier is two
 passes, not one.
+
+**AND THE FLAG IS SPELLED ONE WAY WHILE THE PAYLOAD IS SPELLED ANOTHER, which is how the row above
+gets read correctly and still answers nothing.** `relation add <id> --related <other> --type
+blocked-by` is right and writes the edge the right way round; the payload then says `blockedBy`.
+Filtering on the spelling you just typed matches no relation at all. Measured 2026-09-13 on the 28
+tickets of CNCORE-159: twenty-three edges between them read back as twenty-eight unblocked tickets,
+and the frontier was reported flat before a second pass caught it.
 
 **The parent one is the newest and it reads as a failed write rather than a failed read**, which is
 worse than the others. `orca linear create --parent CNCORE-60` binds; the issue payload simply
@@ -305,11 +321,18 @@ So, for any body edit:
   two creations, every one `ok: true` first try, against five consecutive false failures on one
   issue the day the discipline above was written.
 
-## A fifth way it lies: `--relations` fills the TEXT output and not the JSON
+## A fifth way it lied: `--relations` once filled the TEXT output and not the JSON
 
-**`orca linear issue <id> --relations --json` returns no `relations` key at all**, so every JSON
-read of a relation answers "none" whether or not one exists. Drop `--json` and the same call prints
-`Relations: <n>`.
+**THIS NO LONGER REPRODUCES, MEASURED 2026-09-14 ACROSS 30 ISSUES.**
+`orca linear issue <id> --relations --json` returns a populated `result.relations`, and its array
+length agreed with the text output's `Relations: <n>` on every one of the thirty. Read the JSON;
+it is the stronger of the two now, because the text output prints only a count while the JSON
+carries `relationship`, `direction` and the partner. The trap that IS live is the spelling above:
+the flag takes `blocked-by` and the payload says `blockedBy`.
+
+The section is kept rather than deleted because the failure it records was real and the remedy it
+prescribes -- verify a write by reading it back -- is the part that still holds. What follows
+describes what happened then, not what happens now.
 
 This is worse than an absent key, because the natural verification reads as a clean pass. Measured
 2026-09-12: a `relation remove` failed with a GraphQL 503 and reported `ok: false` HONESTLY, the JSON

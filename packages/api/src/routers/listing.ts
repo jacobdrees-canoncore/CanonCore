@@ -17,9 +17,10 @@ import { z } from "zod";
  * ceiling (ADR-0119). The cap is unchanged by it: one answer still costs one
  * page, and a reader walks as many as they care to.
  *
- * IT LIVES BESIDE THE ROUTERS RATHER THAN INSIDE ONE OF THEM, because FOUR
+ * IT LIVES BESIDE THE ROUTERS RATHER THAN INSIDE ONE OF THEM, because FIVE
  * listings read it now and only three of them are on the catalogue router. A
- * container's own members are the fourth and they hang off `item.get`, since a
+ * container's own members and "Also appears in" are the other two and both hang
+ * off `item.get`, since a
  * Container is an Item and its page is the Item page (ADR-0004, ADR-0066) --
  * so a copy of this number over there would be a second ceiling nobody chose,
  * which is the drift `listingInput` already carries a paragraph about.
@@ -39,7 +40,7 @@ export const A_PAGE = 100;
  *
  * WRITTEN ONCE FOR EVERY LISTING, rows of items and rows of placements
  * alike. What the cursor NAMES differs between them -- an item for the three
- * listings of the catalogue, a placement for a container's members, because a
+ * listings of the catalogue, a placement for both of the placement listings, because a
  * Repeat is one item twice and only the placement can say which row a page
  * ended on -- and the rule above holds for both regardless.
  */

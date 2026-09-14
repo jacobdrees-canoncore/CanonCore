@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: proposed
 ---
 
 # A provider declares the credential it needs, and CanonCore links to it rather than carrying it
@@ -64,6 +64,23 @@ Not memory. A container restart is ordinary — a deploy, a crash, a reboot — 
 forgot its credential on every one of them would be the treadmill this design exists to avoid. The
 file is `~/.config/canoncore/wiki-session.json` for `provider-wiki`.
 
+**THE AXIS IS THE CONTAINER, NOT THE RESTART, AND AS BUILT THE FILE DOES NOT SURVIVE A NEW ONE.**
+Checked 2026-09-13: `provider-wiki`'s Dockerfile creates `/home/node/.config/canoncore` and declares
+**no `VOLUME`**, so the credential lives on the container's writable layer. Docker documents one rule
+about that layer — it is deleted when the container is — and everything else follows from it rather
+than from a list of cases. Anything that is the SAME container starting again keeps the file: a
+restart, a crash under a restart policy, a host reboot. Anything that REPLACES it loses the file: a
+deploy, `compose down`, `--force-recreate`, `docker rm`, a prune, and any edit to the service's
+compose config that triggers recreation. A deploy is the one this record named first, and it is the
+one Compose does routinely.
+
+An earlier version of this paragraph enumerated four cases and attributed the split to Docker.
+Docker states only the deletion rule; the rest was inference, correct but wrongly sourced. The file
+is still the right shape and this is not a reason to reopen that — what is missing is the one
+declaration that makes it outlive the container it is written in. Note also that nothing in either
+repository decides how this Provider is run, so the crash and reboot cases depend on the Owner's own
+invocation: under `docker run --rm` a crash takes the container and the credential with it.
+
 **THIS IS A NEW SHAPE, AND AN EARLIER DRAFT OF THIS RECORD CLAIMED OTHERWISE.** It said the file was
 "the shape `provider-tmdb` already uses". That is false and it was checked: `provider-tmdb` reads
 `TMDB_READ_ACCESS_TOKEN` from the environment and **throws at startup** without it, with no config
@@ -126,7 +143,27 @@ file is the interface, and this record deliberately says nothing about who fills
 but nothing here obliges it and a working thing is not changed for symmetry. It would also have to
 stop throwing at startup, which is its own decision with its own reason behind it.
 
-## As built, under CNCORE-98 AND CNCORE-101 — BOTH HALVES, WHICH IS WHY THIS IS `accepted`
+## Half built, under CNCORE-98 AND CNCORE-101 — and this record is back to `proposed`
+
+**IT READ `accepted` FROM 2026-09-12 UNTIL 2026-09-13, AND THE REVERT IS THE CONVENTION RATHER THAN
+A REVERSAL.** Both halves of the cross-repo pair did land, which is what that flip claimed. What the
+corrections above then established is that the MECHANISM is not whole: the credential does not
+survive the container being replaced, and the Unlock link this record chose over a form reaches
+nothing from an installed instance, because nothing routes one to a Provider beside it. `CLAUDE.md`
+is explicit that a record whose mechanism is half built stays `proposed` and says which half —
+[[0033-search-lookup-required-browse-optional]], [[0077-work-browsing-excludes-entities-by-kind]],
+[[0025-the-source-order-is-global]], [[0066-path-is-identity-query-is-the-route]],
+[[0089-provider-distribution-tiers]] and [[0010-groups-scope-never-partition]] each carry exactly
+such a section. This one was corrected and its status was not revisited, which is the gap being
+closed.
+
+**BUILT:** the declaration, the three-way reach, the Unlock link, the file as the source of truth,
+and the state and its date read from the file rather than from a form.
+**NOT BUILT:** the credential outliving its container (CNCORE-164), and a route from an installed
+instance to a Provider beside it, without which the link this record chose resolves to nothing
+(CNCORE-163). It flips when both land and not before.
+
+## As built, under CNCORE-98 AND CNCORE-101 — both halves of the cross-repo pair
 
 **The provider half landed first and the CanonCore half followed.** The provider half is
 `jacobdrees-canoncore/provider-wiki#23`, squashed to `a550681` on that repo's `main` — named here
@@ -136,7 +173,7 @@ claims has nothing else to check it against. It gave CMPP's manifest the optiona
 `~/.config/canoncore/wiki-session.json`, and held any provider declaring one to the round trip over
 HTTP in the contract suite.
 
-**CNCORE-101 is the half in this record's own title, and it is what flipped it.** CanonCore's
+**CNCORE-101 is the half in this record's own title, and it is what flipped it at the time** -- a flip since reverted, for the reason the section above gives. CanonCore's
 consumer schema now reads the declaration, `settings.read` answers what each named Provider had to
 say for itself, and `/settings` renders the label, the state and a LINK to the Provider's own unlock
 path. `provider-tmdb` is untouched, as the record says it may be.
@@ -347,11 +384,28 @@ look like a reason for the consumer not to check.
 **THE OWNER'S BROWSER HAS TO REACH THE PROVIDER, AND THIS RECORD NEVER SAID SO.** Every other URL in
 CMPP is fetched by CanonCore, whose allowlist says what it may reach ([[0034-two-outbound-boundaries]]);
 this one is followed by the OWNER. A Provider at `http://provider-wiki:8080` — a container hostname,
-which is the spelling this repository's own examples use — is reachable by the app and not by the
-person reading the page, so the link resolves to nothing in their browser. That is a real cost of
+which is the spelling this repository's own examples use — would be reachable by the app and not by
+the person reading the page, so the link resolves to nothing in their browser. That is a real cost of
 choosing a link over a form and it is not a defect to fix here: the address the Owner needs is a
 deployment fact CanonCore does not hold, and inventing one would be guessing. It is written down so
 the next reader meets it as a known consequence rather than as a bug.
+
+**AND THE HALF THIS ASSUMED AWAY IS NOT TRUE EITHER, MEASURED 2026-09-13.** The sentence above takes
+for granted that a container hostname is "reachable by the app" and worries only about the browser.
+It is not. `compose.yaml` ships TWO services — the app and `postgres:18` — and there is no provider
+among them, no `networks:`, no `extra_hosts:` and no `host-gateway` anywhere in this repository.
+
+**THE PRECISE CLAIM, because a wider one was written here first and is wrong.** Outbound to a
+PUBLIC URL works: with no `networks:` key the app sits on Compose's default bridge with ordinary
+egress, so a Provider on the open internet is reachable and `/settings` plus the allowlist is exactly
+how to name one. What has no route is a Provider the Owner runs BESIDE the install — no container
+hostname resolves, because no such container is on its network, and no host address is mapped. That
+is the ordinary case for a self-hosted product, and it is the case both of this project's Providers
+are in, since [[0089-provider-distribution-tiers]] keeps both images private and there is no public
+one to point at. A defect against
+[[0115-the-public-release-comes-before-the-playback-half]]'s "install, navigate and curate", not a
+cost of this record's link-over-form choice — written here because this is the sentence that assumed
+otherwise.
 
 **`admitted: boolean` BECAME A THREE-WAY ANSWER.** The settings surface has to tell "this Provider
 needs Unlocking" from "this Provider cannot be reached" from "this Provider is not admitted by the

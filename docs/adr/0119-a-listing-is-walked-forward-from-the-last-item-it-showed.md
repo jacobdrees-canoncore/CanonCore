@@ -143,6 +143,9 @@ and each is a way to lose Items silently.**
 
 - **No "items 101–200 of 4,312".** A keyset walk has no offset, so a page cannot say WHICH hundred it
   is showing without counting. "Showing 100 of 4,312 items" is what it can honestly say.
+  **SUPERSEDED 2026-09-14 by [[0133-a-listing-says-where-the-reader-is]]**, which agrees to pay the
+  counting this sentence names and shows where the reader is. The bullet below — no jump to page
+  seven — is NOT superseded and is the half that genuinely needs an offset.
 - **No jump to page seven**, and no page numbers. An A–Z jump (`nameStartsWith`, which Plex has as
   `firstCharacterKey`) is the navigation that fits this shape, and the sweep already named it as
   cheap and adjacent. It is not built.
