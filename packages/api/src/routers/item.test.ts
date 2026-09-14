@@ -726,7 +726,11 @@ describe("item.sortAs", () => {
       "Daleks' Master Plan",
     );
 
-    await call(appRouter.item.sortAs, { id, sortName: "Dalek Masterplan" }, { context: asTheOwner });
+    await call(
+      appRouter.item.sortAs,
+      { id, sortName: "Dalek Masterplan" },
+      { context: asTheOwner },
+    );
 
     const item = await call(appRouter.item.get, { id }, { context });
     expect(item.sortName).toBe("Dalek Masterplan");

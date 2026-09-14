@@ -231,9 +231,7 @@ describe("importing one record from a provider", () => {
     // catalogue's, computed from one. Excluded here rather than the helper
     // narrowed, because eleven other assertions in this file read that helper
     // for EVERY claim and a filter inside it would quietly weaken all of them.
-    const claims = (await claimsAbout(itemId)).filter(
-      (claim) => claim.sourceKind !== "derived",
-    );
+    const claims = (await claimsAbout(itemId)).filter((claim) => claim.sourceKind !== "derived");
 
     expect(claims.length).toBeGreaterThan(0);
     for (const claim of claims) {

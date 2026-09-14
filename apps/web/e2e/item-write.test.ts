@@ -169,7 +169,13 @@ describe("/new", () => {
     // NO PROVIDER ANYWHERE ON IT. The one claim it carries is the owner's own
     // title, which is ADR-0003 and ADR-0071 on one page: an item nobody but the
     // owner has ever said anything about.
-    expect(valueRows(fresh.text)).toEqual(["Title A novel I do not own Owner"]);
+    // TWO ROWS, AND THE SECOND IS THE CATALOGUE'S OWN (CNCORE-173). The claim
+    // above still holds -- no PROVIDER anywhere on it -- and the sort name says
+    // whose it is rather than being filed under the owner who typed the title.
+    expect(valueRows(fresh.text)).toEqual([
+      "Sorts as novel I do not own CanonCore (sort name v1)",
+      "Title A novel I do not own Owner",
+    ]);
   });
 
   /**
@@ -263,7 +269,10 @@ describe("/items/<id>, editing a title", () => {
   it("shows the Owner as the source of the new value", async () => {
     const at = await anItemOfMyOwn("What I first called it");
     const before = await documentAt(at, owner);
-    expect(valueRows(before.text)).toEqual(["Title What I first called it Owner"]);
+    expect(valueRows(before.text)).toEqual([
+      "Sorts as What I first called it CanonCore (sort name v1)",
+      "Title What I first called it Owner",
+    ]);
 
     const edited = await submit(
       baseUrl,
@@ -273,7 +282,12 @@ describe("/items/<id>, editing a title", () => {
     );
 
     expect(edited.status).toBe(200);
-    expect(valueRows(edited.text)).toEqual(["Title A better title Owner"]);
+    // AND THE SORT NAME FOLLOWED THE TITLE (CNCORE-173), which is what keeps
+    // an edited item from staying filed under the name it no longer has.
+    expect(valueRows(edited.text)).toEqual([
+      "Sorts as better title CanonCore (sort name v1)",
+      "Title A better title Owner",
+    ]);
     // AND THE HEADING MOVED WITH IT, which is the projection (ADR-0014) rather
     // than the list: a page whose Values row changed while its `<h1>` did not
     // would be showing a reader two answers to one question.
@@ -312,6 +326,84 @@ describe("/items/<id>, editing a title", () => {
   });
 });
 
+/**
+ * CNCORE-173, at the surface the Owner actually touches. Every control here is
+ * a native `<form>`, so this is replayed script-less exactly as the title's and
+ * the note's are.
+ */
+describe("/items/<id>, correcting a sort name", () => {
+  it("opens on the computed sort name, and takes the Owner's instead", async () => {
+    const at = await anItemOfMyOwn("The Daleks' Master Plan");
+    const before = await documentAt(at, owner);
+    // THE FIELD OPENS ON WHAT THE ITEM SORTS AS NOW, which for an item nobody
+    // has corrected is the computation's answer. An owner correcting one word
+    // should not have to work out what the catalogue currently thinks.
+    expect(field(formIn(before.text, "edit-sort-name"), "sortName")).toBe("Daleks' Master Plan");
+
+    const edited = await submit(
+      baseUrl,
+      at,
+      withFields(formIn(before.text, "edit-sort-name"), { sortName: "Dalek Masterplan" }),
+      owner,
+    );
+
+    expect(edited.status).toBe(200);
+    expect(edited.text).toContain("Sorts as Dalek Masterplan");
+    // AND BOTH CLAIMS ARE ON THE PAGE, the Owner's ahead of the computation's.
+    // A correction outranks CanonCore rather than erasing it, which is the same
+    // thing the Title rows say about a Provider.
+    const rows = valueRows(edited.text);
+    expect(rows).toContain("Sorts as Dalek Masterplan Owner");
+    expect(rows).toContain("Sorts as Daleks' Master Plan CanonCore (sort name v1)");
+    expect(rows.indexOf("Sorts as Dalek Masterplan Owner")).toBeLessThan(
+      rows.indexOf("Sorts as Daleks' Master Plan CanonCore (sort name v1)"),
+    );
+  });
+
+  it("hands the item back to the computation when the Owner clears the field", async () => {
+    const at = await anItemOfMyOwn("An Unearthly Child");
+    const corrected = await submit(
+      baseUrl,
+      at,
+      withFields(formIn((await documentAt(at, owner)).text, "edit-sort-name"), {
+        sortName: "Child, An Unearthly",
+      }),
+      owner,
+    );
+    expect(corrected.text).toContain("Sorts as Child, An Unearthly");
+
+    const cleared = await submit(
+      baseUrl,
+      at,
+      withFields(formIn(corrected.text, "edit-sort-name"), { sortName: "" }),
+      owner,
+    );
+
+    // CLEARING THE BOX IS THE ROUTE BACK, and there is no second button for it
+    // -- the same shape the Owner's note takes (ADR-0096). What comes back is
+    // the computation's answer, not the value the Owner first replaced.
+    expect(cleared.text).toContain("Sorts as Unearthly Child");
+    expect(valueRows(cleared.text)).toContain("Sorts as Unearthly Child CanonCore (sort name v1)");
+  });
+
+  it("follows a retitle, so a corrected item is not left filed under its old name", async () => {
+    // THE COMPUTATION GOES ON RUNNING UNDERNEATH A CORRECTION. The Owner's claim
+    // keeps winning, and what is waiting behind it is computed from the title
+    // the item has NOW -- which is what makes clearing the field reliable.
+    const at = await anItemOfMyOwn("The Tenth Planet");
+    const retitled = await submit(
+      baseUrl,
+      at,
+      withFields(formIn((await documentAt(at, owner)).text, "edit-title"), {
+        title: "The Power of the Daleks",
+      }),
+      owner,
+    );
+
+    expect(retitled.text).toContain("Sorts as Power of the Daleks");
+  });
+});
+
 describe("what a visitor is offered", () => {
   /**
    * ADR-0044: the demo is read-only with no login. A button whose action
@@ -325,6 +417,13 @@ describe("what a visitor is offered", () => {
     expect(status).toBe(200);
     expect(text).toContain(editable.handTitle);
     expect(() => sectionIn(text, "edit-title")).toThrow();
+    // AND NOT THE SORT NAME EITHER (CNCORE-173). Every Owner control on this
+    // page is behind one gate, and a control added later is exactly the one
+    // that gets left outside it -- so each is named here rather than the set
+    // being taken on trust. A visitor still SEES where the item files, on the
+    // "Sorts as" line and in the claims list; what they are not offered is the
+    // form, whose action would answer UNAUTHORIZED (ADR-0044, CNCORE-109).
+    expect(() => sectionIn(text, "edit-sort-name")).toThrow();
   });
 
   it("refuses the create page outright rather than rendering a form that cannot work", async () => {
@@ -571,7 +670,10 @@ describe("/items/<id>, the Owner note", () => {
 
     const { text } = await documentAt(at, owner);
 
-    expect(valueRows(text)).toEqual(["Title An item whose claims stay the claims Owner"]);
+    expect(valueRows(text)).toEqual([
+      "Sorts as item whose claims stay the claims CanonCore (sort name v1)",
+      "Title An item whose claims stay the claims Owner",
+    ]);
   });
 });
 
@@ -722,7 +824,10 @@ describe("a field the procedure refuses", () => {
     // AND NOTHING WAS WRITTEN, asked for again rather than read out of the
     // response, so this is the catalogue's answer rather than one render's.
     const after = await documentAt(at, owner);
-    expect(valueRows(after.text)).toEqual(["Title An item whose id I mistyped Owner"]);
+    expect(valueRows(after.text)).toEqual([
+      "Sorts as item whose id I mistyped CanonCore (sort name v1)",
+      "Title An item whose id I mistyped Owner",
+    ]);
   });
 
   /**
@@ -747,7 +852,10 @@ describe("a field the procedure refuses", () => {
     expect(refused.status).toBe(200);
     expect(refused.text).not.toContain("Internal Server Error");
     const after = await documentAt(at, owner);
-    expect(valueRows(after.text)).toEqual(["Title An item I still have a name for Owner"]);
+    expect(valueRows(after.text)).toEqual([
+      "Sorts as item I still have a name for CanonCore (sort name v1)",
+      "Title An item I still have a name for Owner",
+    ]);
     // AND THE HEADING IS THE TITLE RATHER THAN BLANK, which is what ADR-0003
     // separates from "Untitled item" and is the whole of what the refusal
     // protects.
@@ -814,6 +922,9 @@ describe("a field the procedure refuses", () => {
     expect(refused.status).toBe(200);
     expect(refused.text).not.toContain("Internal Server Error");
     const after = await documentAt(at, owner);
-    expect(valueRows(after.text)).toEqual(["Title An item only its owner may rename Owner"]);
+    expect(valueRows(after.text)).toEqual([
+      "Sorts as item only its owner may rename CanonCore (sort name v1)",
+      "Title An item only its owner may rename Owner",
+    ]);
   });
 });

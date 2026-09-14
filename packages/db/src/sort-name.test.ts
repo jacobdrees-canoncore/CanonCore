@@ -4,7 +4,14 @@ import { join } from "node:path";
 import { and, eq, isNull } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { createDb, type Database, properties, retitleItemByHand, sources, statements } from "./index";
+import {
+  createDb,
+  type Database,
+  properties,
+  retitleItemByHand,
+  sources,
+  statements,
+} from "./index";
 import { readJournal } from "./ladder";
 import { migrateToHead, migrationsFolder } from "./migrate";
 import { buildTestDatabase } from "./testing/build-database";
@@ -75,7 +82,11 @@ describe("the derived sort name", () => {
     const item = await anItemTitled(db, "The Daleks' Master Plan");
 
     expect(await sortNamesOf(db, item)).toEqual([
-      { value: "Daleks' Master Plan", sourceKind: "derived", sourceIdentity: "derived:sort-name-v1" },
+      {
+        value: "Daleks' Master Plan",
+        sourceKind: "derived",
+        sourceIdentity: "derived:sort-name-v1",
+      },
     ]);
   });
 
@@ -97,7 +108,11 @@ describe("the derived sort name", () => {
     expect((await readItem(db, item))?.sortName).toBe("Dalek Masterplan");
     expect(await sortNamesOf(db, item)).toEqual([
       { value: "Dalek Masterplan", sourceKind: "owner", sourceIdentity: "owner" },
-      { value: "Daleks' Master Plan", sourceKind: "derived", sourceIdentity: "derived:sort-name-v1" },
+      {
+        value: "Daleks' Master Plan",
+        sourceKind: "derived",
+        sourceIdentity: "derived:sort-name-v1",
+      },
     ]);
   });
 

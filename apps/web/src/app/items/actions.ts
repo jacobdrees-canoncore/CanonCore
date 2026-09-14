@@ -128,6 +128,35 @@ export async function retitleItem(form: FormData): Promise<void> {
   refresh();
 }
 
+/** What the sort-name form carries: which item, and where the owner files it. */
+const editedSortName = z.object({ id: z.string(), sortName: z.string() });
+
+/**
+ * Correcting where an item sorts (CNCORE-173), and CLEARING THE BOX HANDS IT
+ * BACK to the computation.
+ *
+ * ONE FORM FOR CORRECTING AND FOR UNDOING, and there is no second button for
+ * the undo, because the model has no second operation for one to call -- which
+ * is `annotateItem` below's argument reaching a second field. A Reset control
+ * would either do exactly what saving an empty box does, or mean something
+ * nobody has defined.
+ *
+ * NO REDIRECT, and `refresh()` for the reason `retitleItem` above gives: this
+ * form posts to the item's own address, so the response to the POST is that
+ * page rendered again, and the call is what clears the CLIENT router cache the
+ * page-over-HTTP seam cannot see.
+ */
+export async function sortItemAs(form: FormData): Promise<void> {
+  const input = whatTheFormCarries(form, editedSortName);
+  if (input === undefined) return;
+
+  const { refused } = await whatTheProcedureAnswered(
+    call(appRouter.item.sortAs, input, { context: await callerContext() }),
+  );
+  if (refused) return;
+  refresh();
+}
+
 /** What the note form carries: which item, and what the owner now says about it. */
 const editedNote = z.object({ id: z.string(), note: z.string() });
 
