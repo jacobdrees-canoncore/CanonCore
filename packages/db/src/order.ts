@@ -54,6 +54,15 @@ type AnExpression = SQL | AnyPgColumn;
  * never be true is the most expensive thing in the statement. A query matching
  * 500 rows, which is the ordinary case, moves 2.3-2.4 ms to 2.3-2.9 ms.
  *
+ * AND NO TEST CAN CATCH `everyRowHasIt` DECLARED WRONGLY, which is the honest
+ * cost of it and is said here rather than left for a reviewer to find. Declared
+ * on a key a listing's rows CAN be null on, it deletes the branch that reaches
+ * them and those rows are silently skipped -- and no Listing in this app has
+ * such a key, so no test at any seam would go red. What holds it up is the
+ * Listing's own `WHERE`: Catalogue search's is `title ilike ...`, and that is
+ * the sentence `theRanking` has to keep true. Do not declare it to save the
+ * branch; declare it because the listing cannot hold such a row.
+ *
  * A DESCRIBED KEY CANNOT BE SPREAD INTO A `select`, and that is a loud failure
  * rather than a quiet one: the two reads that do spread an order's keys hold
  * orders of bare expressions, and a described key reaching one is a type error
@@ -86,9 +95,7 @@ function described(key: AKey): {
   largestFirst: boolean;
   everyRowHasIt: boolean;
 } {
-  return "key" in key
-    ? { largestFirst: false, everyRowHasIt: false, ...key }
-    : { key, largestFirst: false, everyRowHasIt: false };
+  return { largestFirst: false, everyRowHasIt: false, ...("key" in key ? key : { key }) };
 }
 
 /**
@@ -157,9 +164,28 @@ export interface TheOrder {
  * to an order makes every place that does not carry it a TYPE ERROR. That is
  * the compiler saying what the four defects each had to be measured to find:
  * the walk reads a term the anchor was never asked for.
+ *
+ * AND A KEY EVERY ROW HAS CANNOT BE NULL HERE, which the type refuses rather
+ * than the walk checking for. A null value for such a key would mean the anchor
+ * is not among the rows the listing holds -- no place at all -- and the walk's
+ * keyless regime would answer it with a predicate NO ROW SATISFIES, which is an
+ * empty page over rows still unseen (the failure CNCORE-113 measured). Nothing
+ * produces one, and now nothing can: it is a type error at whichever read tried
+ * to, which is louder and cheaper than a branch nothing reaches.
+ *
+ * A VALUE MAY BE AN EXPRESSION, which is what a key the walk computes for
+ * itself needs (see `pastTheRowIn`), AND IT IS SPLICED INTO THE PREDICATE. So
+ * an expression here is built from the order's own materials and from values
+ * the query builder binds -- `closenessOfTheAnchor` is the only one in this
+ * app, and it is a drizzle `select` over a column and a bound parameter. Never
+ * `sql.raw`, and never anything a reader typed: what a reader types reaches
+ * these statements as a BOUND PARAMETER, which is what `closenessTo` and
+ * `titleMatches` one file over are each careful to be.
  */
 export type PlaceIn<O extends TheOrder> = {
-  readonly [K in keyof O["keys"]]: string | number | null | SQL;
+  readonly [K in keyof O["keys"]]: O["keys"][K] extends { readonly everyRowHasIt: true }
+    ? string | number | SQL
+    : string | number | null | SQL;
 } & { readonly id: string };
 
 /**
@@ -177,14 +203,24 @@ export type PlaceIn<O extends TheOrder> = {
  * a decision rather than an explicitness.
  *
  * AND A KEY EVERY ROW HAS GETS NO CLAUSE AT ALL, because a rule about rows that
- * do not exist is a statement about nothing. Catalogue search's closeness is
- * the one such key, and this is what keeps its `ORDER BY` rendering exactly
- * what it rendered before CNCORE-170 moved it.
+ * do not exist is a statement about nothing. Catalogue search declares it on
+ * BOTH its keys -- one `ilike` settles both, see `theRanking` -- so its
+ * `ORDER BY` renders `similarity(...) desc`, which is exactly what it rendered
+ * before CNCORE-170 moved it, and `coalesce(sort_name, title)`, which is NOT:
+ * that term used to carry a `nulls last` written out by hand. THE SORT IS
+ * UNCHANGED, and that is PostgreSQL's own default rather than a hope --
+ * "NULLS FIRST is the default for DESC order, and NULLS LAST otherwise" -- so
+ * an ascending key with no clause is an ascending key with `nulls last`. An
+ * earlier draft of this paragraph claimed the whole `ORDER BY` was rendered
+ * byte for byte as before, which was measured BEFORE the second key declared
+ * anything and never measured again; it is the one thing in this change that
+ * was asserted rather than checked, and commit e552b55's message still carries
+ * it.
  */
 export function theOrderBy(order: TheOrder): SQL[] {
   return [
-    ...Object.values(order.keys).map((it) => {
-      const { key, largestFirst, everyRowHasIt } = described(it);
+    ...Object.values(order.keys).map((aKey) => {
+      const { key, largestFirst, everyRowHasIt } = described(aKey);
       const read = largestFirst ? sql`${key} desc` : sql`${key}`;
       return everyRowHasIt ? read : sql`${read} nulls last`;
     }),
@@ -247,8 +283,8 @@ export function pastTheRowIn<O extends TheOrder>(order: O, place: PlaceIn<O>): S
   // narrow union matches neither overload of `gt` on its own.
   const id: SQLWrapper = order.id;
   let past: SQL | undefined = gt(id, at.id);
-  for (const [name, it] of Object.entries(order.keys).reverse()) {
-    const { key: theKey, largestFirst, everyRowHasIt } = described(it);
+  for (const [name, aKey] of Object.entries(order.keys).reverse()) {
+    const { key: theKey, largestFirst, everyRowHasIt } = described(aKey);
     const key: SQLWrapper = theKey;
     const value = at[name];
     // NOT DEAD CODE, AND THE CAST ABOVE IS WHY. `PlaceIn` refuses a missing key
@@ -260,22 +296,6 @@ export function pastTheRowIn<O extends TheOrder>(order: O, place: PlaceIn<O>): S
     // read as `null` is the "already among the rows with no key here" regime,
     // which walks a listing from the wrong place and says nothing.
     if (value === undefined) throw new Error(`the order's key ${name} has no value in its place`);
-    /*
-     * NO VALUE FOR A KEY EVERY LISTED ROW HAS, WHICH IS NO PLACE AT ALL -- the
-     * same answer the two branches below give a computed value that is NULL,
-     * and the same one the READ gives where it can see the key is gone. The
-     * anchor is not among the rows this listing holds, so there is nowhere in
-     * it to resume from and the walk starts the listing over.
-     *
-     * NO LISTING REACHES IT TODAY, said plainly rather than dressed up: a key
-     * every row has is Catalogue search's closeness, whose value is always an
-     * expression, and its sort key is turned away by the read a statement
-     * earlier. It is here because it is the same sentence as the branch beside
-     * it, and the alternative -- falling into the keyless regime below -- is a
-     * predicate no row can satisfy and therefore an EMPTY page over results
-     * still unseen, which is the failure CNCORE-113 measured.
-     */
-    if (value === null && everyRowHasIt) return undefined;
     // WHICH WAY "AFTER" RUNS, and it is the only thing the direction changes
     // here. `theOrderBy` renders `desc` off the same flag, so the two cannot
     // disagree about which end of a key a listing starts from.
@@ -287,42 +307,33 @@ export function pastTheRowIn<O extends TheOrder>(order: O, place: PlaceIn<O>): S
      * expression evaluated a second time per row, measured on `AKey` above.
      */
     const theKeylessBlock = everyRowHasIt ? [] : [isNull(key)];
-    past = is(value, SQL)
-      ? /*
-         * A VALUE THE WALK COMPUTES FOR ITSELF, which one key in this app has:
-         * Catalogue search ranks on how close a title is to the query the
-         * request resupplied, so the anchor's own closeness is a scalar
-         * subquery in THIS statement rather than a number read a statement ago
-         * (ADR-0120).
-         *
-         * SO ITS NULL IS DECIDED HERE RATHER THAN AT THE READ, and it means the
-         * same thing either way: THE ANCHOR HAS NO PLACE IN THIS ORDER. A value
-         * READ has been ruled on already -- the read answers with no place at
-         * all where the key a delete destroys is gone -- and a value COMPUTED
-         * cannot be, so the same rule arrives one statement later. CNCORE-113
-         * is that statement's width: an anchor deleted between the two is
-         * titled for the read and untitled for this, and a NULL on one side of
-         * a comparison makes the whole predicate NULL, which answers an EMPTY
-         * PAGE over results still unseen. Answered as "no place", the walk
-         * starts the listing over instead, which is what the read would have
-         * done a moment earlier.
-         *
-         * IT IS SPELLED `is null` ON THE VALUE RATHER THAN WRAPPED AROUND THE
-         * COMPARISON, and the difference is which NULL it forgives. A
-         * `coalesce` over the whole thing would answer "start over" for ANY
-         * null in it -- including a candidate row with no key of its own, which
-         * would then be RETURNED by a listing it does not belong to. This names
-         * the anchor's null and no other.
-         */
-        or(sql`${value} is null`, ...theKeylessBlock, after(key, value), and(eq(key, value), past))
-      : value === null
+    /*
+     * AND THE ANCHOR ITSELF HAVING NO PLACE, where its value is one the walk
+     * COMPUTES rather than one a read handed over. Catalogue search has the
+     * app's only such key: closeness is a function of the QUERY the request
+     * resupplied rather than a column of the anchor row (ADR-0120), so it is a
+     * scalar subquery in THIS statement and cannot be ruled on a statement
+     * earlier. Its NULL means what the guard above means -- no place -- and
+     * CNCORE-113 is the width of the statement between the two moments: an
+     * anchor deleted in the gap is titled for the read and untitled for this,
+     * and a NULL on one side of a comparison makes the whole predicate NULL,
+     * which answers an EMPTY PAGE over results still unseen.
+     *
+     * IT IS SPELLED `is null` ON THE VALUE RATHER THAN WRAPPED AROUND THE
+     * COMPARISON, and the difference is which NULL it forgives. A `coalesce`
+     * over the whole thing would answer "start over" for ANY null in it --
+     * including a candidate row with no key of its own, which would then be
+     * RETURNED by a listing it does not belong to. This names the anchor's null
+     * and no other.
+     */
+    const theAnchorHavingNoPlace = is(value, SQL) ? [sql`${value} is null`] : [];
+    past =
+      value === null
         ? // Already among the rows with no key HERE, so everything still ahead
           // has no key here either and the terms behind it decide.
           and(isNull(key), past)
         : or(
-            // Every row with no key sorts after every row with one, whichever
-            // way the key itself runs -- which is what `nulls last` on such a
-            // key in the `ORDER BY` is for.
+            ...theAnchorHavingNoPlace,
             ...theKeylessBlock,
             after(key, value),
             // THE TIE, and it is what carries the comparison to the next term.

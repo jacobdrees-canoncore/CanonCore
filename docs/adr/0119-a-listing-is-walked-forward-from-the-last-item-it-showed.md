@@ -766,10 +766,12 @@ any term. Mutation-checked by aiming that test at a row that is NOT last, which 
 
 ## The rule became a VALUE rather than a sentence (CNCORE-169), and every Listing is on it (CNCORE-170)
 
-**THIS SECTION IS WHOLE NOW, AND SO IS THE RECORD.** Its `accepted` was scoped to the walk while
-this section was half built; all five Listings derive their order and their cursor from one value
-since CNCORE-170, so the scoping is spent. What each of the two tickets built is below, in that
-order, because the second had to make the interface carry two shapes the first could not.
+**ALL FIVE LISTINGS ARE ON IT SINCE CNCORE-170, AND ONE THING IS STILL NOT IN IT.** Every Listing
+derives its `ORDER BY` and its cursor comparison from one value, which is what the top of this
+section claims and what was a sentence for three Listings until then. What is NOT in the value is
+the TOMBSTONE SPLIT ON A PROJECTED KEY: the reads still apply that by hand, and the paragraph on it
+below says why and what it would cost to move. This record's `accepted` stays scoped to the walk,
+which is whole.
 
 **THIS RECORD STATED "the comparison must name EVERY term the `ORDER BY` does" AND NOTHING
 ENFORCED IT.** The order and the comparison were two independent statements that a paragraph
@@ -826,7 +828,8 @@ A KEY NOW SAYS THREE THINGS instead of being an expression alone.
   back -- what a `real` compares equal to depends on its inferred type, and relevance ties are the
   common case. A computed value that is NULL means what a read answering `undefined` means: the
   anchor has no place, so the walk starts the listing over. **THE TOMBSTONE SPLIT IS ONE RULE AT TWO
-  MOMENTS**, which is what CNCORE-113 found the hard way, and the interface now says so in both.
+  MOMENTS**, which is what CNCORE-113 found the hard way, and the interface carries the SECOND
+  moment -- the one no read can reach, because the value does not exist until the walk runs.
 
 **SO THE COMPARISON HAS ONE IMPLEMENTATION, AND `pastTheRow` IS GONE.** It took a LIST of terms a
 caller wrote out, which is two lists read by one index and therefore two lists that can come apart.
@@ -835,19 +838,48 @@ caller wrote out, which is two lists read by one index and therefore two lists t
 expressible one function further out than the listings it had been removed from. It takes the order
 and the anchor's place in it, typed against each other.
 
-**WHAT DID NOT MOVE, said here rather than discovered.** The anchor READ: `findTheAnchor` is shared
-between the Catalogue Listing and Catalogue search, so its select shape is its own and each caller
-decides what the answer means. The catalogue's place is checked against its order by the TYPE rather
-than read through it; a Container's members and "Also appears in" do read theirs through the order
-(`select({ ...order.keys, id: order.id })`), so a key added to either reaches its read as well.
+**WHAT DID NOT MOVE, AND CNCORE-170 ASKED FOR ONE OF IT.** That ticket's second criterion names two
+shapes the interface had to carry, and the closeness is carried; **THE TOMBSTONE SPLIT ON A PROJECTED
+KEY IS NOT.** A key a delete DESTROYS still cannot say so. `findInThisItemsOrder` hand-writes
+`if (containerKey === null && containerDeletedAt !== null) return undefined`, and `findInTheOrder`
+hand-writes the same shape for the catalogue's sort key; both read the tombstone BESIDE the order's
+keys rather than through them.
 
-**ASSERTED AT THE PACKAGE EXPORT WHEREVER A LISTING CAN BE ASKED, WHICH IS WHERE CNCORE-170 PUT ALL
-OF ITS OWN.** The direction is Catalogue search's "keeps the ranking ACROSS a page boundary, closest
-first"; the computed anchor's null is its "starts over rather than ending, where the anchor is
-deleted BETWEEN THE TWO STATEMENTS"; the four-key order and the tombstone split are
-`placements.test.ts`'s own blocks. **NO NEW SEAM AND NO NEW MODULE TEST**, which is what CNCORE-159
-asks for: each move was mutation-checked by dropping a key from the order and reading which export
-tests failed, rather than by watching a green suite.
+**IT IS NOT BUILT BECAUSE EVERY WAY OF BUILDING IT MEASURED WORSE THAN THE RULE IT REPLACES, and
+that is a finding rather than an excuse.** Declaring the tombstone as an EXPRESSION needs a second
+helper to put it in the select, and it then reaches only two of the four anchor reads: the Catalogue
+Listing's and Catalogue search's both go through `findTheAnchor`, whose select shape this record
+deliberately fixed and shares so that the shape guard and the tombstone exception are not spelled
+twice. Two of four deriving and two not is worse than four writing one clear line. Declaring it as
+the NAME of a field in the read reaches all four -- but couples an order to a string naming a select
+field, which is two places that can come apart silently, and that is the exact hazard this module
+exists to abolish. **SO THE HONEST STATE IS: the keys are read THROUGH the order and the split is
+applied BESIDE it**, and moving it needs `findTheAnchor` reopened, which is a decision of this
+record's own and is a ticket rather than a paragraph (CNCORE-195).
+
+**AND THE REST OF THE ANCHOR READ DID NOT MOVE EITHER.** The catalogue's place is checked against its
+order by the TYPE rather than read through it; a Container's members and "Also appears in" do read
+theirs through the order (`select({ ...order.keys, id: order.id })`), so a key added to either
+reaches its read as well.
+
+**ASSERTED AT THE PACKAGE EXPORT, BY TESTS THAT ALREADY EXISTED -- CNCORE-170 ADDED NONE, and that
+is a claim about coverage that has to be earned rather than asserted.** It moved three Listings onto
+a value while requiring each to answer exactly what it answered before, so there was no new
+behaviour to assert; what it owed instead was evidence that the standing tests reach the moved code.
+That evidence is MUTATION: dropping the position key from a Container's order fails five of its
+export tests, dropping the rank from "Also appears in" fails two and its leading container key fails
+three, dropping the direction from the ranking fails exactly one, and dropping the computed anchor's
+`is null` fails exactly one -- CNCORE-113's own test, reproduced. Each was run and read rather than
+predicted.
+
+**ONE DECLARATION HAS NO SUCH EVIDENCE AND CANNOT.** `everyRowHasIt` deletes a branch rather than
+changing an answer, so a wrong one skips rows silently and NO TEST AT ANY SEAM GOES RED. What holds
+it up is the Listing's own `WHERE` -- Catalogue search matches on `title ilike ...`, so no row it
+lists is without a title -- and that is a sentence to check by reading, not by running. Said here
+because it is the strongest argument against the declaration and the next reviewer should not have
+to find it.
+
+**NO NEW SEAM AND NO NEW MODULE TEST**, which is what CNCORE-159 asks for.
 
 **AND ONE THING STILL BITES AT THE MODULE, FOR THE REASON IT ALWAYS DID.** Walking an order WITH A
 KEY ADDED, in `packages/db/src/order.test.ts`, which IMPORTS THE MODULE DIRECTLY AND IS THEREFORE

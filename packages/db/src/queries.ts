@@ -589,6 +589,12 @@ async function findInThisItemsOrder(
   // either half -- `containerDeletedAt` alone would refuse an anchor in a
   // deleted container that still had a key, and a null key alone would refuse
   // the untitled container the paragraph above keeps this walk reaching.
+  //
+  // TODO(CNCORE-195): the order names its keys and this names what a delete
+  // does to one of them, which is the tombstone split written beside the order
+  // rather than in it. CNCORE-170 carried the other half -- a value the walk
+  // COMPUTES answers its own null -- and reached two shapes for this half that
+  // both measured worse than these two lines; ADR-0119 carries them.
   const { containerDeletedAt, ...place_ } = place;
   if (place_.containerKey === null && containerDeletedAt !== null) return undefined;
   // THE TOMBSTONE DOES NOT TRAVEL WITH THE PLACE. It is read to DECIDE whether
@@ -1336,6 +1342,10 @@ async function findInTheOrder(db: Database, id: string): Promise<PlaceInTheOrder
   // A KEY MISSING BECAUSE THE ROW IS DEAD, which is the pair and not either
   // half: `deletedAt` alone would refuse an anchor whose key a delete had left
   // alone, and that is the case the paragraph above keeps this exception for.
+  //
+  // TODO(CNCORE-195): the same split `findInThisItemsOrder` writes, written a
+  // second time. Moving it into the order needs `findTheAnchor` reopened, which
+  // ADR-0119 shares between this Listing and Catalogue search on purpose.
   if (anchor.sortKey === null && anchor.deletedAt !== null) return undefined;
   return { sortKey: anchor.sortKey, id: anchor.id };
 }
