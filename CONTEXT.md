@@ -59,6 +59,15 @@ _Avoid_: search, unqualified
 What a capped list answers with: a page of rows, how many there are altogether, and where the list
 carries on. Every list in CanonCore is one, over items or over placements alike.
 
+**Order**:
+The sequence a Listing is read in: the keys it sorts on, most significant first, and the id behind
+them that makes it total. ONE VALUE PER LISTING, from which both the sort and the cursor comparison
+that walks it are derived — they were two statements a sentence required to name the same terms,
+and four defects came from them disagreeing anyway. NEVER AN ORDERING, which is what a container
+keeps of its own members and is the Placement construct below; a second sense of that word here
+would be the hazard this glossary already refuses for `duplicate` and `record`.
+_Avoid_: ordering
+
 **Row**:
 One line of a listing: an Item in the catalogue, a Placement in a container's ordering. It is a
 PROJECTION FOR A LIST rather than the whole thing listed, so a row carries what a reader needs to

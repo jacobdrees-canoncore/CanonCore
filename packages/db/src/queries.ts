@@ -2,19 +2,18 @@ import {
   and,
   eq,
   getTableColumns,
-  gt,
   inArray,
   isNotNull,
   isNull,
   not,
   or,
   type SQL,
-  type SQLWrapper,
   sql,
 } from "drizzle-orm";
 import { z } from "zod";
 
 import type { Database } from "./index";
+import { type PlaceIn, pastTheRow, pastTheRowIn, type TheOrder, theOrderBy } from "./order";
 import {
   aliases,
   itemKinds,
@@ -975,14 +974,16 @@ export async function readWorks(
  * (ADR-0014), so what a reader sees listed is the title statement that
  * currently wins rather than an id.
  *
- * THE ORDER IS `coalesce(sort_name, title)`, which is the pair ADR-0014 gives
- * `sort_name` its own index for, with the id behind it so two items sharing a
- * sort key list in the same order twice.
+ * THE ORDER IS `THE_CATALOGUES_ORDER` BELOW, and it is one value rather than
+ * two statements (CNCORE-169): `coalesce(sort_name, title)`, which is the pair
+ * ADR-0014 gives `sort_name` its own index for, with the id behind it so two
+ * items sharing a sort key list in the same order twice.
  *
  * AND `after` WALKS IT (ADR-0119): the id of the last item the page before this
  * one carried. Both halves of the order are load-bearing in that comparison,
- * which is what `pastInTheOrder` below is about -- the cap says what is not being shown,
- * and this is what reaches it.
+ * and neither can go missing from it, because the sort and the comparison are
+ * READ OFF THE SAME KEYS -- the cap says what is not being shown, and this is
+ * what reaches it.
  */
 async function readListing(
   db: Database,
@@ -991,14 +992,11 @@ async function readListing(
   const place = after === undefined ? undefined : await findInTheOrder(db, after);
   return walkListing(db, {
     within,
-    /*
-     * `nulls last` IS THE DEFAULT FOR `asc` AND IS WRITTEN OUT ANYWAY, because
-     * `pastInTheOrder` below reads it: an item with no title at all has no sort key, and
-     * where those sit decides which half of the cursor's comparison finds them.
-     * A default the walk depends on is one worth saying out loud.
-     */
-    orderBy: [sql`${SORT_KEY} nulls last`, sql`${items.id}`],
-    past: place && pastInTheOrder(place),
+    // BOTH READ OFF ONE VALUE (CNCORE-169). The sort and the comparison that
+    // walks it are the same keys, so neither can name a term the other does
+    // not -- which is what `THE_CATALOGUES_ORDER` below is for.
+    orderBy: theOrderBy(THE_CATALOGUES_ORDER),
+    past: place && pastTheRowIn(THE_CATALOGUES_ORDER, place),
     limit,
   });
 }
@@ -1180,98 +1178,38 @@ const WORK_BROWSING = and(
  */
 export const SORT_KEY = sql<string | null>`coalesce(${items.sortName}, ${items.title})`;
 
-/** Where one item sits in the catalogue's order. */
-interface PlaceInTheOrder {
-  sortKey: string | null;
-  id: string;
-}
+/**
+ * THE ORDER THE CATALOGUE IS READ IN: ADR-0014's projected key, and the item's
+ * id behind it so two items sharing a key list in the same order twice.
+ *
+ * ONE VALUE, AND BOTH STATEMENTS ARE READ OFF IT (CNCORE-169). `theOrderBy`
+ * renders the `ORDER BY` and `pastTheRowIn` renders the cursor comparison that
+ * walks it, from these keys and no others. Until this ticket they were two
+ * independent statements a sentence required to agree, and four defects came
+ * from them disagreeing -- which is the whole of what `order.ts` is about.
+ *
+ * A KEY ADDED HERE REACHES BOTH, and reaches `findInTheOrder` below too: the
+ * place it answers with is `PlaceIn<typeof THE_CATALOGUES_ORDER>`, so a key
+ * this order gains and that read does not is a type error rather than rows
+ * silently stepped over.
+ *
+ * IT IS ONE ORDER FOR TWO QUESTIONS, which is `readListing`'s own subject: the
+ * catalogue and work-browsing differ in their WHERE and in nothing else, so a
+ * second order here would be the same rule twice.
+ */
+const THE_CATALOGUES_ORDER = {
+  keys: { sortKey: SORT_KEY },
+  id: items.id,
+} satisfies TheOrder;
 
 /**
- * EVERYTHING A LISTING SHOWS AFTER ONE ROW, where the order is a key that may
- * be NULL and an id behind it (ADR-0119). Written ONCE for both such walks.
+ * Where one item sits in the catalogue's order.
  *
- * TWO REGIMES, AND A ROW COMPARISON CANNOT EXPRESS BOTH. The order is the rows
- * with a key ascending and then the rows with none, so `(null, x) > (k, y)` --
- * which is NULL rather than true -- would drop that whole keyless block off the
- * walk permanently, from every page. The catalogue's keyless block is the items
- * nobody has titled and a container's is its Unplaced members; both are real
- * rows a reader must reach, and the criterion is that none is skipped.
- *
- * AND THE ID IS THE HALF THAT MAKES IT TOTAL. Two rows sharing a key are
- * separated by their ids, and a cursor comparing only the key steps over the
- * second of them -- a tie in the catalogue's order, and in a container's a pair
- * ADR-0009 licenses by keeping no unique constraint on (container_id, position).
- *
- * BUILT WITH THE QUERY BUILDER'S OWN `or` AND `and` rather than one raw `sql`
- * template, which ADR-0119 records as a precedence bug no walk test can see:
- * `A or (B and C)` written raw and composed with a listing's own `WHERE`
- * renders as `(within and A) or (B and C)`, and the tie branch escapes the
- * listing entirely.
- *
- * ONE FUNCTION AND NOT TWO, WHICH REVIEW OF CNCORE-89 ASKED FOR. The three
- * walks had a copy each, identical but for which columns they named -- and
- * every paragraph above is a rule that has to hold in all of them.
- * `walkListing`'s QUERY is what could not be shared (a different relation),
- * which is a narrower claim than the one the copy was making.
- *
- * IT TAKES A LIST OF TERMS BECAUSE "ALSO APPEARS IN" HAS FOUR, and that is the
- * question CNCORE-125 was told to ask rather than assume: the shared comparison
- * did NOT cover that order and had to grow. One key was never the rule -- it
- * was the number the first four listings happened to need -- and the rule
- * underneath is that the comparison must name EVERY term the `ORDER BY` does.
- * A key left out of it is rows silently stepped over, which is what the two
- * paragraphs above are each an instance of.
- *
- * A TERM IS A KEY AND ITS ANCHOR VALUE TOGETHER, rather than two lists read by
- * the same index. Review of CNCORE-125 made the point and it is this function's
- * own subject: two parallel arrays can come apart, and the shorter one would
- * silently drop a term -- which is precisely the "rows stepped over" failure the
- * paragraph above names. Paired, a mismatch cannot be written down.
- *
- * THE NESTING IS BUILT FROM THE INSIDE OUT, so each key's tie branch is the
- * whole of the comparison on the keys behind it and the id is the innermost. A
- * flat `or` of per-key clauses would be a different and wrong predicate: it
- * would answer true for a row that sorts BEFORE the anchor on an early key and
- * after it on a late one.
+ * DERIVED FROM THE ORDER rather than declared beside it, for the reason that
+ * order gives: a place written out by hand is a second list of its keys, and
+ * two lists come apart.
  */
-function pastTheRow(
-  terms: { key: SQLWrapper; at: string | number | null }[],
-  row: { id: SQLWrapper; at: string },
-): SQL | undefined {
-  // The id is the whole order left once every key has tied, and it is total.
-  let past: SQL | undefined = gt(row.id, row.at);
-  for (const { key, at } of [...terms].reverse()) {
-    past =
-      at === null
-        ? // Already among the rows with no key HERE, so everything still ahead
-          // has no key here either and the terms behind it decide.
-          and(isNull(key), past)
-        : or(
-            // Every row with no key sorts after every row with one.
-            isNull(key),
-            gt(key, at),
-            // THE TIE, and it is what carries the comparison to the next term.
-            and(eq(key, at), past),
-          );
-  }
-  return past;
-}
-
-/**
- * Everything the catalogue lists AFTER one item (ADR-0119).
- *
- * NAMED FOR THE ORDER IT WALKS, because `walkListing` above takes a `past` of
- * its own -- the SQL rather than the function that builds it -- and a parameter
- * sharing a name with a function in the same file reads as that function.
- * Catalogue search's `pastInTheRanking` is the same pairing one file over.
- *
- * THE ORDER IS ADR-0014's PROJECTED KEY and then the item's id. What that
- * costs to get wrong is on `pastTheRow` above, which is the whole of the
- * comparison.
- */
-function pastInTheOrder({ sortKey, id }: PlaceInTheOrder): SQL | undefined {
-  return pastTheRow([{ key: SORT_KEY, at: sortKey }], { id: items.id, at: id });
-}
+type PlaceInTheOrder = PlaceIn<typeof THE_CATALOGUES_ORDER>;
 
 /** One row a cursor might name, read the way every walk has to read it. */
 export interface TheAnchor {
@@ -1527,8 +1465,9 @@ export interface PlacementsInContainer {
  * and a count of memberships rather than of items. What the two DO share is the
  * page itself, and that is shared: the cap, the extra row, the cursor and the
  * count-in-one-snapshot are `onePage` above, and the two-regime cursor is
- * `pastTheRow` -- both written once for every listing here, because those
- * are the rules that have historically gone wrong separately.
+ * `pastTheRow`, which is `order.ts`'s since CNCORE-169 -- both written once for
+ * every listing that has one, because those are the rules that have
+ * historically gone wrong separately.
  *
  * THE ORDER IS `position` AND THEN THE PLACEMENT'S ID, which is the order this
  * query already had. Both halves are load-bearing in the cursor for the reasons
