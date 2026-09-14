@@ -766,6 +766,10 @@ any term. Mutation-checked by aiming that test at a row that is NOT last, which 
 
 ## The rule became a VALUE rather than a sentence (CNCORE-169), and ONE Listing is on it
 
+**THIS RECORD'S `accepted` IS ABOUT THE WALK, WHICH IS WHOLE, AND NOT ABOUT THIS SECTION.** Every
+one of the five Listings is capped, counted and walked forward, which is what this record decides.
+What this section adds is half built by construction, and says so below.
+
 **THIS RECORD STATED "the comparison must name EVERY term the `ORDER BY` does" AND NOTHING
 ENFORCED IT.** The order and the comparison were two independent statements that a paragraph
 required to agree, in two files, and the four defects above are what came of that: the relevance
@@ -790,11 +794,15 @@ always called this in prose (`pastInTheOrder`, `findInTheOrder`, `PlaceInTheOrde
 
 **HALF THE MECHANISM, AND THIS RECORD SAYS WHICH HALF.** The Catalogue Listing is on it -- both of
 ADR-0077's questions, since they share one order and differ only in their `WHERE`. **The other
-three are NOT**: Catalogue search, a Container's members and "Also appears in" still write their
-terms out beside their `ORDER BY` and call `pastTheRow`, which is the same comparison one layer
-down and is now `order.ts`'s too, so there is one implementation rather than two. CNCORE-170 moves
-them. Until it does, the rule at the top of this section is enforced for one Listing and is a
-sentence for three.
+three are NOT**, and they are not all in the same state either, which an earlier draft of this
+paragraph got wrong. A Container's members and "Also appears in" still write their terms out beside
+their `ORDER BY` and call `pastTheRow` -- the same comparison one layer down, which now lives in
+`order.ts` so there is one implementation of it rather than two. **CATALOGUE SEARCH CALLS NEITHER**:
+`pastInTheRanking` hand-builds its own predicate, ending in the tuple row comparison this record
+says cannot express both regimes -- which it gets away with only because no untitled row can match
+an `ilike`, and that is written down where it is done rather than here. So the comparison has TWO
+implementations today, not one. CNCORE-170 moves all three. Until it does, the rule at the top of
+this section is enforced for one Listing and is a sentence for three.
 
 **AND ONE THING COULD NOT MOVE YET, said here rather than discovered.** Every key an order renders
 is ASCENDING. Catalogue search leads on `similarity(...) desc`, so a direction is what that Listing
@@ -803,9 +811,14 @@ anchor READ is the other: `findTheAnchor` is shared with Catalogue search, so it
 untouched here and the catalogue's place is checked against its order by the type rather than read
 through it.
 
-**ASSERTED BY WALKING AN ORDER WITH A KEY ADDED**, at the db package's own module seam
-(`packages/db/src/order.test.ts`), because the Catalogue's order has the two terms it has always had
-and adding one to it would change what the Catalogue answers. Four items tie on a leading key with
+**ASSERTED BY WALKING AN ORDER WITH A KEY ADDED**, in `packages/db/src/order.test.ts`, which
+IMPORTS THE MODULE DIRECTLY AND IS THEREFORE NOT ONE OF ADR-0103's THREE SEAMS -- said plainly
+rather than dressed up as one. The reason is that the Catalogue's order has the two terms it has
+always had, and adding one to it would change what the Catalogue answers, which this ticket's own
+criteria forbid; so an order with a key added is a thing no Listing has and no package export can
+be asked for. Precedent for reaching a module directly is `edtf.test.ts`, `validation.test.ts` and
+`titleMatches` in `catalogue-search.test.ts`. The Catalogue's own half is asserted where it always
+was, at the package export in `catalogue.test.ts`. Four items tie on a leading key with
 their ids running OPPOSITE to the key behind it, exactly as the CNCORE-125 tests are built and for
 the same reason. Mutation-checked: dropping the last key from the derivation walks that fixture to
 ONE of the four, which is CNCORE-88's own measurement reproduced.

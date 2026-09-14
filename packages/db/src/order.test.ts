@@ -13,22 +13,33 @@ beforeAll(async () => {
 });
 
 /**
- * THE FOUR ITEMS THIS SUITE WALKS, with their ids named and their titles
- * running the OTHER WAY.
+ * THE FOUR ITEMS THIS SUITE WALKS, WRITTEN IN AN ORDER THAT IS NEITHER ANSWER.
  *
- * BOTH HALVES ARE THE TEST. Every order here ends on the id, so a comparison
- * that has lost a key in front of it falls through to one that still works --
- * and whether that loses a row is then decided by whichever uuids
- * `gen_random_uuid` handed out. Pinned and reversed, the id is guaranteed to
- * disagree with the key in front of it, so a walk that reads the id alone is
- * guaranteed to answer wrongly rather than likely to.
+ * THE IDS ARE PINNED AND RUN OPPOSITE TO THE TITLES, and that is half the test.
+ * Every order here ends on the id, so a comparison that has lost a key in front
+ * of it falls through to one that still works -- and whether that loses a row
+ * is then decided by whichever uuids `gen_random_uuid` handed out. Reversed,
+ * the id is guaranteed to disagree with the key in front of it, so a walk
+ * reading the id alone answers wrongly every time rather than half the time.
+ *
+ * AND THE INSERTION ORDER IS A THIRD ORDER AGAIN, which is the other half. A
+ * fixture written in the order it is read back passes with the ordering
+ * removed, because rows come off a fresh table roughly as they went in: the
+ * expected sequences below would then be asserting nothing. Neither of them is
+ * this list.
  */
 const FOUR = [
-  { id: "01690000-0000-4000-8000-000000000004", title: "An Unearthly Child" },
-  { id: "01690000-0000-4000-8000-000000000003", title: "Inside the Spaceship" },
   { id: "01690000-0000-4000-8000-000000000002", title: "Marco Polo" },
+  { id: "01690000-0000-4000-8000-000000000004", title: "An Unearthly Child" },
   { id: "01690000-0000-4000-8000-000000000001", title: "The Keys of Marinus" },
+  { id: "01690000-0000-4000-8000-000000000003", title: "Inside the Spaceship" },
 ];
+
+/** The four in TITLE order, which is what a key on the sort key answers. */
+const BY_TITLE = [...FOUR].sort((a, b) => a.title.localeCompare(b.title)).map(({ id }) => id);
+
+/** The four in ID order, which is what the id alone answers once keys tie. */
+const BY_ID = [...FOUR].sort((a, b) => a.id.localeCompare(b.id)).map(({ id }) => id);
 
 /** Just these four, so the walk is a fixture rather than the whole database. */
 const THESE_FOUR = and(
@@ -103,11 +114,7 @@ describe("an order a listing is walked in", () => {
     // one no other order here produces.
     const byKind = { keys: { kind: items.kind }, id: items.id } satisfies TheOrder;
 
-    expect(await walked(byKind, THESE_FOUR)).toEqual(
-      FOUR.map(({ id }) => id)
-        .slice()
-        .reverse(),
-    );
+    expect(await walked(byKind, THESE_FOUR)).toEqual(BY_ID);
   });
 
   it("honours a key added to an order, rather than ordering by it and walking without it", async () => {
@@ -126,6 +133,6 @@ describe("an order a listing is walked in", () => {
       id: items.id,
     } satisfies TheOrder;
 
-    expect(await walked(byKindThenTitle, THESE_FOUR)).toEqual(FOUR.map(({ id }) => id));
+    expect(await walked(byKindThenTitle, THESE_FOUR)).toEqual(BY_TITLE);
   });
 });

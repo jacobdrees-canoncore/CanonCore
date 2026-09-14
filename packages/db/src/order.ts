@@ -20,24 +20,16 @@ type AKey = SQL | AnyPgColumn;
  *
  * IT IS ONE VALUE BECAUSE A LISTING'S ORDER IS TWO STATEMENTS -- the `ORDER BY`
  * and the cursor comparison that walks it -- and until CNCORE-169 they were two
- * INDEPENDENT statements that had to name the same terms. Nothing required them
- * to: `queries.ts` and `catalogue-search.ts` each said so in prose, and FOUR
- * defects came from them disagreeing anyway. ADR-0119 carries all four.
+ * INDEPENDENT statements that had to name the same terms, required to by a
+ * sentence in prose and by nothing else. FOUR defects came of it, and ADR-0119
+ * carries all four with their measurements; they are not restated here.
  *
- * TWO OF THEM ARE THE ORDER AND THE COMPARISON COMING APART, which is what
- * `theOrderBy` and `pastTheRowIn` below now make impossible. A relevance order
- * whose comparison named closeness and the id but not the sort key between
- * them, so results tied on closeness were stepped over -- a four-row fixture
- * sharing one title walked to ONE of them (CNCORE-88). And an order of four
- * keys handed to a comparison built for one (CNCORE-125).
- *
- * THE OTHER TWO ARE THE ANCHOR AND THE ORDER COMING APART, which is a different
- * seam with the same shape and is what `PlaceIn` below is for: not a term
- * missing from the comparison but a VALUE missing for a term. A deleted anchor
- * read as though it were an untitled one, so the walk resumed from the untitled
- * tail with every titled item between it skipped (CNCORE-110). And an anchor
- * whose closeness went NULL between two statements, which makes the whole
- * comparison NULL and the page empty over results still unseen (CNCORE-113).
+ * THEY COME APART AT TWO SEAMS, WHICH IS WHY THIS MODULE HAS THE SHAPE IT HAS.
+ * A TERM can go missing from the comparison while the `ORDER BY` still names it
+ * (CNCORE-88, CNCORE-125), and that is what `theOrderBy` and `pastTheRowIn`
+ * below make impossible. A VALUE for a term can go missing from the ANCHOR
+ * (CNCORE-110, CNCORE-113), and that is what `PlaceIn` is for. Both are the
+ * same failure -- rows silently stepped over -- reached from different ends.
  *
  * SO THE KEYS ARE WRITTEN ONCE AND ALL THREE ARE DERIVED. `theOrderBy` reads
  * them, `pastTheRowIn` reads them, and `PlaceIn` is the shape of what an anchor
@@ -47,12 +39,10 @@ type AKey = SQL | AnyPgColumn;
  * had.
  *
  * `Order` RATHER THAN `Ordering`, WHICH IS `CONTEXT.md`'S WORD FOR SOMETHING
- * ELSE. An Ordering there is the Placement construct -- a container's own
- * sequence of what it holds -- and the glossary is binding on names in code, so
- * a second sense of it here would be the hazard this repo already refuses for
- * `duplicate`, `canon`, `record` and `edge`. "The order" is what these files
- * have always called this in prose: `pastInTheOrder`, `findInTheOrder`,
- * `PlaceInTheOrder`. The glossary now carries the entry.
+ * ELSE -- the Placement construct, what a container keeps of its own members.
+ * The glossary is binding on names in code and now carries **Order** too. "The
+ * order" is what these files had always called this in prose anyway:
+ * `pastInTheOrder`, `findInTheOrder`, `PlaceInTheOrder`.
  *
  * THE KEYS ARE NAMED RATHER THAN NUMBERED, and the names are how a place is
  * read back. Two parallel lists -- the keys here and their anchor values
@@ -119,9 +109,15 @@ export function pastTheRowIn<O extends TheOrder>(order: O, place: PlaceIn<O>): S
   return pastTheRow(
     Object.entries(order.keys).map(([name, key]) => {
       const value = at[name];
-      // THE TYPE ABOVE ALREADY REFUSES THIS, and it is still worth saying: a
-      // missing value read as `null` is the "already among the rows with no
-      // key" regime, which walks a listing from the wrong place in silence.
+      // NOT DEAD CODE, AND THE CAST ABOVE IS WHY. `PlaceIn` refuses a missing
+      // key at a call site that knows its order concretely -- but a place is
+      // READ, and Drizzle cannot infer field types through an order it knows
+      // only as `TheOrder`, so the read that produces one casts (measured: the
+      // select infers `{ id: unknown }` without it). This is the check that
+      // survives the cast. Loud, because the silent answer is the wrong one: a
+      // missing value read as `null` is the "already among the rows with no key
+      // here" regime, which walks a listing from the wrong place and says
+      // nothing.
       if (value === undefined) throw new Error(`the order's key ${name} has no value in its place`);
       return { key, at: value };
     }),

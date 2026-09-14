@@ -1465,8 +1465,9 @@ export interface PlacementsInContainer {
  * and a count of memberships rather than of items. What the two DO share is the
  * page itself, and that is shared: the cap, the extra row, the cursor and the
  * count-in-one-snapshot are `onePage` above, and the two-regime cursor is
- * `pastTheRow` -- both written once for every listing here, because those
- * are the rules that have historically gone wrong separately.
+ * `pastTheRow`, which is `order.ts`'s since CNCORE-169 -- both written once for
+ * every listing that has one, because those are the rules that have
+ * historically gone wrong separately.
  *
  * THE ORDER IS `position` AND THEN THE PLACEMENT'S ID, which is the order this
  * query already had. Both halves are load-bearing in the cursor for the reasons
