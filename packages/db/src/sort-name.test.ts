@@ -185,7 +185,7 @@ describe("the derived sort name", () => {
  */
 describe("an install that already had a catalogue", () => {
   it("gives an Item that already existed a sort name rather than leaving it behind", async () => {
-    const url = await buildTestDatabase("rung", await theLadderBeforeItsLastRung());
+    const url = await buildTestDatabase("rung", await theLadderBelowTheSortNameRung());
     const upgrading = createDb(url);
     const item = await anItemTitled(upgrading, "The Tenth Planet");
 
@@ -201,19 +201,34 @@ describe("an install that already had a catalogue", () => {
 });
 
 /**
- * This repository's ladder with its head rung removed, in a folder of its own.
+ * This repository's ladder stopping just below the rung that derives a sort
+ * name, in a folder of its own.
  *
  * TRUNCATING THE JOURNAL IS WHAT REMOVES A RUNG, because the journal is what
  * Drizzle reads -- `ladder.test.ts` removes one the same way, and leaving the
  * `.sql` beside it is harmless for the same reason.
+ *
+ * IT NAMES THE RUNG RATHER THAN COUNTING FROM THE END, and that correction is
+ * this helper's whole history. It read `entries.slice(0, -1)` -- the ladder
+ * before its LAST rung -- which was this rung only for as long as nothing landed
+ * on top of it. Migration 18 landed on top of it, and the test above went from
+ * asserting an upgrade to asserting nothing: the sort-name rung was still in the
+ * truncated ladder, so the Item arrived WITH a sort name and the line that
+ * exists to prove the defect was the line that broke. A fixture positioned
+ * relative to the head of a forward-only ladder (ADR-0047) is a fixture that
+ * moves every time the ladder grows.
  */
-async function theLadderBeforeItsLastRung(): Promise<string> {
+const SORT_NAME_RUNG = "20260914103000_migration_17_a_sort_name_is_derived";
+
+async function theLadderBelowTheSortNameRung(): Promise<string> {
   const folder = join(await mkdtemp(join(tmpdir(), "canoncore-sort-name-")), "migrations");
   await cp(migrationsFolder, folder, { recursive: true });
   const entries = await readJournal(folder);
+  const rung = entries.findIndex((entry) => entry.tag === SORT_NAME_RUNG);
+  if (rung === -1) throw new Error(`the ladder holds no rung tagged ${SORT_NAME_RUNG}`);
   await writeFile(
     join(folder, "meta", "_journal.json"),
-    JSON.stringify({ version: "7", dialect: "postgresql", entries: entries.slice(0, -1) }),
+    JSON.stringify({ version: "7", dialect: "postgresql", entries: entries.slice(0, rung) }),
   );
   return folder;
 }
