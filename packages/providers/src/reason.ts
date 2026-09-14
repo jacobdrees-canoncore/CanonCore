@@ -75,9 +75,9 @@ export type FailureReason = z.infer<typeof failureReason>;
  * every caller agreed about which branch it was on.
  */
 export function reasonFor(thrown: unknown): FailureReason {
-  const said = unwrapped(thrown);
-  const message = said instanceof Error ? said.message : String(said);
-  const ours = said instanceof OutboundRefused && said.boundary === "config";
+  const spoke = unwrapped(thrown);
+  const message = spoke instanceof Error ? spoke.message : String(spoke);
+  const ours = spoke instanceof OutboundRefused && spoke.boundary === "config";
   return { wrote: ours ? "canoncore" : "provider", text: bounded(message) || SILENT };
 }
 
@@ -89,7 +89,7 @@ export function reasonFor(thrown: unknown): FailureReason {
  * here read `cause` at all -- so a refusal raised in the pinned lookup was
  * QUOTED to the Owner as the Provider's words. ADR-0123 carries the measurements
  * under "A wrapper is not a reason, so the `cause` chain is unwrapped"; what a
- * reader of these six lines needs is why each of them is shaped as it is.
+ * reader of the loop below needs is why each line of it is shaped as it is.
  *
  * THE INNERMOST LINK THAT SAID SOMETHING, rather than simply the innermost,
  * because undici builds an empty `Error` for a network error with no reason and
