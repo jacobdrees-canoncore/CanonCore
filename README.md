@@ -91,8 +91,21 @@ Then name it on the settings page **by its service name and the port it serves
 on, never by an address on this machine**: the service called `the-provider`
 above answers the app at `http://the-provider:8080`. Compose gives a service its
 own name as a hostname on every network it joins, and that holds across Compose
-projects, which is what an install and a Provider beside it are. Put the same
-name in the allowlist, because a Provider has to be in both.
+projects, which is what an install and a Provider beside it are.
+
+**The allowlist beside it needs two entries, not one**, and this is the step that
+catches people out. A Provider on that network answers on a container address,
+which is a PRIVATE address, and CanonCore admits a private one only where an
+allowlisted range covers it -- so the name alone gets the Provider named and then
+refused at the socket. Add the name and the range the network hands out. Docker
+picks that range per machine, so read yours off it:
+
+```bash
+docker network inspect canoncore_providers -f '{{range .IPAM.Config}}{{.Subnet}}{{end}}'
+```
+
+With `the-provider` and, say, `172.19.0.0/16` both in the allowlist, the settings
+page stops giving that Provider a reason and the import page can search it.
 
 **Anything the Provider asks YOU to open is a different address.** A container
 hostname means nothing to a browser, so a Provider with a page of its own -- one

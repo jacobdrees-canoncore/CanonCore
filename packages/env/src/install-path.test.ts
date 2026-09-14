@@ -665,4 +665,26 @@ describe("the network a Provider beside the install joins", () => {
   it("shows a stranger an address of the shape a Provider beside the install answers on", () => {
     expect(containerAddresses()).not.toStrictEqual([]);
   });
+
+  /**
+   * AND THE NAME ALONE DOES NOT GET THE PROVIDER REACHED, which is the step a
+   * walk of this section found missing rather than a step reasoned into it.
+   * A Provider beside the install answers on a container address, which
+   * `ipaddr.js` classifies as `private`; ADR-0034's config boundary admits a
+   * private address only where an allowlisted CIDR covers it, so an allowlist
+   * holding the host and nothing else refuses the connection AFTER admitting the
+   * name -- `boundary.test.ts` holds that rule under "a config address".
+   *
+   * SO THE SECTION OWES A COMMAND RATHER THAN A NUMBER. Docker picks the range
+   * per machine, and this walk drew `172.19.0.0/16` on one of them; a literal
+   * here would be right on that Mac and wrong on the next. Asserted as the
+   * command with the network's own name in it, taken off the compose file, so
+   * a rename cannot leave the reader inspecting something that is not there.
+   */
+  it("tells a stranger how to find the address range that network hands out", () => {
+    const parsed = compose();
+    const pinned = parsed.networks?.[providerNetwork(parsed)]?.name;
+
+    expect(installSection()).toContain(`docker network inspect ${String(pinned)}`);
+  });
 });
