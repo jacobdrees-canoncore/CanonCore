@@ -260,8 +260,9 @@ export const item = {
          * because a Container IS an Item (ADR-0004) and its page is the Item
          * page: a `container.members` would be one thing at two addresses, which
          * is the case ADR-0066's canonical link relation exists to collapse.
-         * The other three listings ARE their surface, so their cursor is the
-         * whole query; this one rides beside the item it is a listing OF.
+         * The three listings that ARE their surface have the whole query for a
+         * cursor; this one and "Also appears in" both ride beside the item they
+         * are a listing OF.
          */
         /*
          * WHICH ORIGIN "ALSO APPEARS IN" IS NARROWED TO (ADR-0066, CNCORE-129),
@@ -335,7 +336,7 @@ export const item = {
          * CAPPED AND WALKED SINCE CNCORE-89. It answered every live placement,
          * which ADR-0119's first sentence forbids -- and `browse` imports a
          * whole category in one call, which ADR-0077 measures at 1,049 stories.
-         * The cap is `A_PAGE`, the same ceiling the other three listings serve,
+         * The cap is `A_PAGE`, the same ceiling the other four listings serve,
          * and the caller cannot raise it.
          */
         findPlacementsInContainer(context.db, found.id, { limit: A_PAGE, after: input.after }),

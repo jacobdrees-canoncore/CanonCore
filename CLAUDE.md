@@ -4,8 +4,8 @@
 
 A self-hosted catalogue for collections that do not fit one folder tree, built around
 multi-placement: one item sitting in many orderings at once, each with its own position. It is
-domain-general, and it is a media server in its own right rather than a client of Plex or Jellyfin.
-The decisions are in `docs/adr/`.
+domain-general, a media server in its own right rather than a client of Plex or Jellyfin, and its
+decisions are in `docs/adr/`.
 
 ## Projects and the roadmap
 
@@ -19,14 +19,16 @@ one session on 2026-09-12. Move each to `Todo` as you triage it.
 Four projects, in order, each ending in something demoable:
 
 1. **Version one** — done. Multi-placement, rendered.
-2. **The public release** — done. Both tags shipped, CNCORE-60 closed; the PROJECT outlives its spec
-   and still takes public-surface defects, and 76 alone is fused to 2027-01-12.
-3. **A real catalogue, live** — in progress. CNCORE-96, tickets 98 to 103; 97 is superseded by 118.
-   The wiki provider serves tardis.wiki on a credential the owner supplies, a real Doctor Who
-   catalogue is imported, and the archive is deleted once that is proven.
-4. **A catalogue you can navigate** — CNCORE-104. Groups scope the catalogue and every row says
-   where it sits. Split it into tickets only after 3 lands: it is designed against real data, and a
-   three-item seed is what made the front page unreadable in the first place.
+2. **The public release** — closed, sentence untrue: an install reaches no provider beside it, so no
+   source can curate it; by hand it can, since v0.2.0. Takes public defects; 76 fused to 2027-01-12.
+3. **A real catalogue, live** — 98 to 103 Done, and CNCORE-96's sentence untrue: the live import
+   landed in a test database the next run drops. 97 is superseded by 118.
+4. **The foundation** — CNCORE-159. Finishes 2 and 3, supersedes CNCORE-104 (project cancelled). The
+   corpus in an install you can open, the listing seam, navigation at size, Groups, CMPP discovery.
+
+**A project is not finished until it has been used on the Owner's own instance**
+([[0132-a-project-is-not-finished-until-it-has-been-used]]) — two projects and a headline ticket
+closed green while their own sentences were false, because nothing had used the product at size.
 
 Playback, then the clients, then the demo come after ([[0055-web-now-phone-next-tv-last]],
 [[0115-the-public-release-comes-before-the-playback-half]]). Design is its own effort, later still:
@@ -56,10 +58,9 @@ Playback, then the clients, then the demo come after ([[0055-web-now-phone-next-
 there is CLOSED. Anything the ADRs and `CONTEXT.md` do not mention is simply UNSPECIFIED, and yours
 to decide with ordinary judgement: do not stall asking permission for things nobody has ruled on.
 
-Every record is `status: proposed`, and that is not hedging: it means DECIDED BUT NOT YET
-IMPLEMENTED. A record becomes `accepted` when the slice that implements it lands. Treat a proposed
-record as binding on the work and reopen it only with a superseding record, never by disagreeing
-with it in code.
+`status: proposed` means DECIDED BUT NOT YET IMPLEMENTED; `accepted` means its MECHANISM is whole,
+never merely that its own gate was met. A proposed record binds, reopened only by a superseding
+record. COUNT the statuses rather than quote a figure — that line has been wrong twice.
 
 Do not look for, read, or reference any previous attempt at this product, in any repository or on
 the web, and do not go searching for one. The single exception is the forensic record, which
@@ -75,8 +76,8 @@ building, `release_date`, or abridgement means you are re-deriving records that 
 ## Specs
 
 A spec covers one **effort**, not the project: reach for one when a build is too big for a session
-and has to survive being split across several. Specs live on the tracker as snapshots, thrown away
-once the work ships; `docs/adr/` outlives them.
+and has to survive being split across several. Specs are tracker snapshots, thrown away once the
+work ships; `docs/adr/` outlives them.
 
 ## Verify, don't recall
 
@@ -116,10 +117,9 @@ in for the library. It ruled 11 claims contradicted on 2026-09-12, most of them 
 - **Filing, reading or relating an issue** — Linear (workspace `jacobrees-canoncore`, team
   `CNCORE`) through the `orca linear` CLI; GitHub Issues is unused. It lies five ways, one being
   `ok: false` on writes that LANDED. `docs/agents/issue-tracker.md`.
-- **Labelling or triaging one** — `docs/agents/triage-labels.md`. Triage roles are workspace labels,
-  `wontfix` is the Canceled state, and `to-spec` / `provider-repo` are kinds rather than roles.
-- **Adding a term or a record** — one `CONTEXT.md` and one `docs/adr/`, both at the root.
-  `docs/agents/domain.md`.
+- **Labelling or triaging one** — `docs/agents/triage-labels.md`. Roles are workspace labels, `wontfix`
+  is Canceled, `to-spec` / `provider-repo` are kinds not roles.
+- **Adding a term or a record** — one `CONTEXT.md`, one `docs/adr/`, both at root. `docs/agents/domain.md`.
 
 ## Working substrate
 

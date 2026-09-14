@@ -652,6 +652,20 @@ record already carries `series` and `series_id`, and `series_id` IS a browsable 
 providers -- so the candidate an owner is looking at could offer its own container without any new
 operation. Whatever builds that is where the choice gets made.
 
+**THAT REASON IS WRONG, AND THE OPERATION IS PROPOSED AFTER ALL (CNCORE-185).** Checked 2026-09-13:
+`provider-wiki` emits no `series_id` anywhere -- the string does not occur in one of its source files
+-- so "at both providers" was true of `provider-tmdb` alone. And it could not become true of the wiki
+by adding the field, because `series_id` is SINGULAR and answers "which container does this record
+belong to". A wiki story belongs to many `Theory:Timeline` pages at once, which is
+[[0009-multi-parent-membership-with-ordering]] and the whole product. The cheaper fix is shaped for a
+provider whose records have one parent, and the provider this catalogue is built on is not one.
+
+So both are owed, and they answer different questions. `series_id` should stop being stripped by the
+consumer schema, which is this record's own unbuilt half below wearing a different hat -- a declared
+field travelling the wire and read by nothing. And an operation that LISTS containers is what serves
+a provider whose containers no record can name. Neither is what keeps this record `proposed`: that is
+still `max_cache_age` and the image policy, and landing either of these does not flip it.
+
 **A NEW CALLER OF `search` THAT IS NOT A SEARCH.** `provider.held` asks which of a provider's records
 the catalogue already holds, by the external-id mapping migration 3 wrote, and it exists because of
 something a surface needs and a protocol cannot supply: a page must be able to report what an import

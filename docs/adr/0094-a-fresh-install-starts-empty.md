@@ -4,11 +4,11 @@ status: accepted
 
 # A fresh install starts empty, and the archive is never shipped or demoed
 
-The archive is NOT shipped seed data. A fresh install by anyone else starts EMPTY: no items, no
-placements, no editions, nothing in the catalogue. It is NOT on the public demo, which is
-deliberately other material (`docs/demo.md`).
+The archive is NOT shipped seed data. A fresh install starts EMPTY — anyone else's, and the Owner's
+own: no items, no placements, no editions, nothing in the catalogue. It is NOT on the public demo,
+which is deliberately other material (`docs/demo.md`).
 
-**"EMPTY" IS ABOUT WHAT IS SHIPPED TO SOMEBODY ELSE, NEVER ABOUT A REPOSITORY OR A DEVELOPER'S BOX.**
+**"EMPTY" IS ABOUT WHAT IS SHIPPED RATHER THAN WHO RUNS IT, AND NEVER ABOUT A REPOSITORY OR A DEVELOPER'S BOX.**
 An earlier version of this record said "no content of any kind", which the committed fixture
 contradicts on its face, and a first attempt at this correction then overcorrected into a second
 false claim — that no setup step loads archive-derived content. It does. Three things are being run
@@ -20,8 +20,21 @@ together and they need separating:
    archive row's name, hand-written in `packages/db/src/seed.ts` rather than extracted — because
    CNCORE-4 and CNCORE-5 need something on the page to look at. That is archive-derived content in a
    database, and pretending otherwise is how this record acquires a false claim for the second time.
-3. **AN INSTALL.** Somebody else's running instance. THAT is what starts empty, and it is the only
-   one of the three this record governs.
+3. **AN INSTALL.** A running instance, somebody else's or the Owner's own. THAT is what starts
+   empty, and it is the only one of the three this record governs.
+
+   **"SOMEBODY ELSE'S" IS WHAT THIS READ UNTIL 2026-09-13, AND IT EXCLUDED THE ONE INSTALL THE
+   AUTHOR WOULD RUN.** The category was right and its label was not: an install the Owner stands up
+   from `compose.yaml` is this category, not a fourth. It is the same artefact by construction —
+   [[0044-one-owner-row]] gives every install one owner row with an id generated per install, and the
+   demo is "not a mode, not a deployment flag, not a build" but an instance that never sets
+   `OWNER_PASSWORD`. **That is sameness of artefact, NOT indistinguishability from outside**, and an
+   earlier version of this correction claimed the latter: ADR-0044 says a visitor is TOLD, through
+   `session.configured`, and the only answer it makes deliberately ambiguous is `logIn`'s
+   `UNAUTHORIZED` for a wrong password and a no-password instance alike.
+
+   The exclusion was in three places and the opening sentence was one of them, so fixing this label
+   alone would have left the record saying it twice over.
 
 The line is not clone-versus-install; it is whether content travels TO A STRANGER. A seeded worktree
 is ours and a fixture is a test input. Neither is a catalogue handed to someone who did not ask for
@@ -72,8 +85,8 @@ empty` and `No provider is allowlisted` — so this record's own subject was obs
 than inferred from a 200. CNCORE-70 repeated the walk at `v0.1.0` from a clean volume, and CNCORE-75 at `v0.2.0`
 from a volume it had removed first: `items`, `placements` and `statements` all zero before a hand
 touched them, the schema's own furniture written by the ladder as before. A record
-about what somebody else's instance starts with can be accepted once somebody else can start one,
-and they can. The flip was owed by CNCORE-64 and is made by CNCORE-105.
+about what an install starts with can be accepted once somebody other than its author can start one,
+and they can -- which is the harder case and so the one the gate was set on. The flip was owed by CNCORE-64 and is made by CNCORE-105.
 
 **AND THE EMPTINESS HAS A SECOND WAY OUT, WHICH THE PAGE NAMES SINCE CNCORE-131.** This record's
 other half is that an install starting empty must say what to do next, and the front page said it in

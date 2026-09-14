@@ -37,10 +37,16 @@ assignee. They have one right answer and the user gains nothing from being consu
 **Do not clear `needs-triage`.** That label is a decision somebody made, not drift. Clear it only
 when you have settled the question it marks, and say what you settled.
 
-**Read the body for the blocking edges rather than trusting the relation list.** `orca linear issue
-<id> --relations --json` reports the partners of a relation without a reliable direction, so two
-tickets can each appear to block the other. The `## Blocked by` section in the body is what the
-implementers actually read, and it is the one to believe.
+**Read BOTH the relation list and the body, and check they agree.** `orca linear issue <id>
+--relations --json` does carry a reliable direction -- each edge appears as `relationship:
+"blockedBy"` with `direction: "inbound"` on the blocked ticket and `"blocks"`/`"outbound"` on the
+blocker, measured across 30 issues on 2026-09-14. **The trap is the SPELLING**: `relation add` takes
+`--type blocked-by` and the payload answers `blockedBy`, so filtering on the flag's own spelling
+matches nothing and reports every ticket as startable.
+
+The `## Blocked by` section in the body is what implementers actually read, so a body and a link that
+disagree is itself the defect to report -- version one had two tickets asserting a parent in prose
+while carrying no link.
 
 ## Two traps that return an empty answer rather than an error
 

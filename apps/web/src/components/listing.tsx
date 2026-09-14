@@ -9,7 +9,7 @@ import {
 import Link from "next/link";
 
 /**
- * ONE LISTING, RENDERED -- shared by THREE surfaces now.
+ * ONE LISTING, RENDERED -- shared by FOUR surfaces now.
  *
  * The front page asks "what is in this catalogue", `/works` asks "what can I
  * watch" (the two questions ADR-0077 names), and `/search` asks "where is the

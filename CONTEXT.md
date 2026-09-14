@@ -435,8 +435,10 @@ _Avoid_: status
 ### Named instances
 
 **The archive**:
-The local copy of the independent Tardis Wiki. A stress test and the owner's own library, never a
-source of requirements. Held outside every repo.
+The local copy of the independent Tardis Wiki that the model was stress-tested against, never a
+source of requirements. DELETED on 2026-09-13 and held nowhere; the live wiki is the only source
+(ADR-0129). The word is kept because the records that cite archive-era figures still use it, and a
+reader meeting it there needs to know what it was.
 
 **The forensic record**:
 The account of this product's previous attempts and how each one ended. Evidence, never
@@ -445,10 +447,12 @@ and cited by this name rather than by a path that a public tree will not resolve
 _Avoid_: archive
 
 **The fixture**:
-The small committed extract of the archive, each row chosen and named for the invariant it proves.
-What tests the model. It is committed in the wiki provider's repository, which is what reads the
-archive, and never in this one. It is an extract of THE ARCHIVE, so what another source says about
-the same work is not in it and cannot be: those are expectations hardcoded where they are asserted.
+The small committed extract the wiki provider's suite reads, each row chosen and named for the
+invariant it proves. What tests the model. It is committed in the wiki provider's repository, which
+reads the live wiki, and never in this one. Its SQL rows were extracted from THE ARCHIVE and are edited by
+hand since that was deleted (ADR-0129); its timeline pages and captured responses are regenerated
+from the live wiki instead. What another source says about the same work is not in it and cannot be:
+those are expectations hardcoded where they are asserted.
 _Avoid_: sample, seed data
 
 **Version one**:
