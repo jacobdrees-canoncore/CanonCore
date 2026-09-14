@@ -937,25 +937,35 @@ looks to be in place — `findInThisItemsOrder` reaches `canBeAnId` like every o
 it is a missing assertion rather than a known defect, which is the shape this whole section is
 about. CNCORE-198 carries both halves.
 
-**AND A CONTRACT TEST IS ONLY AS GOOD AS THE SHAPES ITS LISTING HOLDS — found by running the
-mutation two ways rather than one, and it is the thing this ticket had to learn.** The first version
-of the walk seeded a run of five distinctly-titled stories and asserted the walk arrived at exactly
-`total` distinct Rows. Declaring the catalogue's sort key `everyRowHasIt` deletes the `isNull(key)`
-arm that reaches the Rows with no sort key — the failure two sections above call permanent and
-silent — and **run on its own file that mutant went GREEN**, because nothing in that file had
-written an untitled Row. Run as the whole package it went RED, on the 25 untitled Rows other files
-in the suite happen to leave in the shared catalogue (measured 2026-09-14: 29 keyless of 481 live,
-four of them this block's own).
+**AND A CONTRACT TEST IS ONLY AS GOOD AS THE SHAPES ITS LISTING HOLDS — found by running one
+mutation twice and getting two answers.** The first version of the walk seeded a run of five
+distinctly-titled stories and asserted the walk arrived at exactly `total` distinct Rows. Declaring
+the catalogue's sort key `everyRowHasIt` deletes the `isNull(key)` arm that reaches the Rows with no
+sort key — the failure two sections above call permanent and silent — and **one command run twice
+answered RED and then GREEN.** The first run failed at 466 Rows of a `total` of 491; the second,
+identical, passed. The first reading of this attributed it to the invocation, one file against the
+package; that was wrong, and what actually decides it is worse.
 
-**THAT IS THIS RECORD'S OWN "the FIGURE moves with the invocation while the SHAPE does not", ONE
-TURN WORSE: here the SHAPE moved with it.** Whether the contract asserted the walk's two regimes at
-all was decided by which command somebody typed — and the command a person debugging one failing
-Listing types is the single file. The fixture seeds the shapes itself now, and the mutant is red
-both ways: two Rows short of `total` on the catalogue and on work-browsing, correctly leaving the
-ranking alone. `aCatalogueLargerThanOnePage` already says the general form one package over ("a walk
-over a few hundred distinct titles passes against a cursor that ... cannot cross into the untitled
-tail"); what is new is that a shared database is not where a contract's fixture may come from,
-because what it holds is another file's business and changes without this one being edited.
+**VITEST'S FILE ORDER DECIDES IT, AND THAT ORDER IS A CACHE.** Read in `BaseSequencer.sort`
+(vitest 5.0.0, 2026-09-14): a file that FAILED last run is promoted to FIRST, then files run
+longest-first, and file size decides only where there are no cached stats at all. This suite shares
+ONE catalogue, so a Listing whose fixture is whatever earlier files left behind holds different Rows
+depending on where that cache put it — **and a file that has just gone red is moved to the front,
+where nothing has run yet and the catalogue holds only its own Rows.** A test that loses its fixture
+by failing is the worst arrangement there is: the run that would show you the failure is the run
+that no longer can.
+
+**THE MUTANT DID NOT SURVIVE BY BEING SUBTLE. IT SURVIVED BY BREAKING THE TEST THAT CAUGHT IT** —
+the red run is what promoted the file, and the promotion is what took its fixture away.
+
+**SO THE FIXTURE BELONGS TO THE CONTRACT.** It seeds the keyless pair itself, and the mutant is then
+red in either position: 7 Rows of a `total` of 9 and 14 of 18 with the file first — work-browsing is
+four short because it lists the catalogue block's pair as well as its own — and 466 of 493 and 471
+of 494 with the file late, the ranking correctly untouched throughout. This is this record's own "the FIGURE moves with the invocation while the SHAPE does not"
+with the SHAPE moving too. `aCatalogueLargerThanOnePage` already says the general form one package
+over ("a walk over a few hundred distinct titles passes against a cursor that ... cannot cross into
+the untitled tail"); what is new is that a shared database is not a fixture at all, because what it
+holds is another file's business under an ordering rule nobody here wrote.
 
 **THE ORACLE IS THE LISTING'S OWN `total`, which is not the walk marking its own work.** That count
 is a scalar subquery over the same predicate in a different clause of a different statement, so

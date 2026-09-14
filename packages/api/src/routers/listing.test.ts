@@ -43,7 +43,7 @@ beforeAll(async () => {
 /** One Listing procedure, and what it takes to ask it for a page. */
 interface AListing {
   /** The procedure, spelled the way a caller reaches it. */
-  readonly listing: string;
+  readonly procedure: string;
   /**
    * Rows this Listing holds, seeded so the walk has some of its own to arrive
    * at -- which is what keeps `total` from being an oracle marking its own work.
@@ -86,17 +86,17 @@ const A_RUN_OF_THEM = 5;
  */
 const EVERY_LISTING: AListing[] = [
   {
-    listing: "catalogue.list",
+    procedure: "catalogue.list",
     holds: (db) => aRunAndTheShapesTheOrderHas(db, "Walked by the catalogue's own contract"),
     page: (input) => call(appRouter.catalogue.list, input, { context }),
   },
   {
-    listing: "catalogue.works",
+    procedure: "catalogue.works",
     holds: (db) => aRunAndTheShapesTheOrderHas(db, "Walked by work-browsing's contract"),
     page: (input) => call(appRouter.catalogue.works, input, { context }),
   },
   {
-    listing: "catalogue.search",
+    procedure: "catalogue.search",
     /*
      * ROWS SHARING ONE TITLE, WHICH IS THIS ORDER'S HARD SHAPE AND NOT THE
      * CATALOGUE'S. A ranking has no keyless block to reach -- every Row it lists
@@ -106,7 +106,7 @@ const EVERY_LISTING: AListing[] = [
      * exactly 1 and tie on the sort key behind it, so only the id separates
      * them and every page boundary below cuts a tie.
      */
-    holds: (db) => rowsSharingOneTitle(db, A_RUN_OF_THEM, WHAT_A_READER_TYPED),
+    holds: (db) => rowsSharingOneTitle(db, WHAT_A_READER_TYPED),
     page: (input) =>
       call(appRouter.catalogue.search, { ...input, query: WHAT_A_READER_TYPED }, { context }),
   },
@@ -118,14 +118,27 @@ const EVERY_LISTING: AListing[] = [
  * A WALK OVER DISTINCTLY-TITLED ROWS PASSES AGAINST A CURSOR THAT LOSES ROWS,
  * which is `aCatalogueLargerThanOnePage`'s own argument one package over.
  *
- * AND WHAT IT COSTS IS DECIDED BY WHICH COMMAND SOMEBODY TYPES, WHICH IS WHY
- * THE FIXTURE IS HERE RATHER THAN BORROWED. Measured 2026-09-14 with the
- * catalogue's sort key declared `everyRowHasIt` -- which deletes the branch that
- * reaches the Rows with no key at all: over a run of five titled stories this
- * FILE run on its own went green, and the whole PACKAGE went red, on 25 untitled
- * Rows other files leave in the shared catalogue. The single file is what a
- * person debugging one Listing runs. With the pair below it is red both ways,
- * two Rows short of its own `total`.
+ * AND THIS SUITE'S SHARED CATALOGUE CANNOT STAND IN FOR THE PAIR, because WHICH
+ * Rows it holds when this file runs is decided by vitest's file order and that
+ * order is a CACHE. Read in `BaseSequencer.sort` (vitest 5.0.0, 2026-09-14): a
+ * file that FAILED last run is promoted to FIRST, then files run longest-first,
+ * and file size decides only where there are no cached stats at all. So a
+ * Listing borrowing other files' Rows is moved to the front of the suite the
+ * moment it goes red -- where nothing has run yet and it holds only its own.
+ * A TEST THAT LOSES ITS FIXTURE BY FAILING IS THE WORST ARRANGEMENT THERE IS:
+ * the run that would show you the failure is the run that no longer can.
+ *
+ * MEASURED 2026-09-14 with the pair below REMOVED and the catalogue's sort key
+ * declared `everyRowHasIt`, which deletes the branch that reaches the Rows with
+ * no key at all. One command, run twice: the first went RED, 466 Rows of a
+ * `total` of 491 -- and failing moved the file to the front, so the SECOND run
+ * of the same command went green. The mutant did not survive by being subtle.
+ * It survived by breaking the test that caught it.
+ *
+ * WITH THE PAIR it is red in either position: 7 Rows of a `total` of 9 and 14 of
+ * 18 with the file first -- work-browsing is four short because it lists this
+ * block's pair as well as its own -- and 466 of 493 and 471 of 494 with the file
+ * late. The figure moves; the shape does not.
  *
  * THE TIED PAIR IS SEEDED AND THE BOUNDARY IS NOT AIMED AT IT, said plainly
  * rather than left to be assumed. Two Rows sharing a sort name are separated by
@@ -162,8 +175,8 @@ async function aRunAndTheShapesTheOrderHas(db: Database, titled: string): Promis
 }
 
 /** Rows that tie on every key an order has, leaving only the id behind them. */
-function rowsSharingOneTitle(db: Database, count: number, title: string): Promise<string[]> {
-  return Promise.all(Array.from({ length: count }, () => anItemTitled(db, title)));
+function rowsSharingOneTitle(db: Database, title: string): Promise<string[]> {
+  return Promise.all(Array.from({ length: A_RUN_OF_THEM }, () => anItemTitled(db, title)));
 }
 
 /**
@@ -193,10 +206,11 @@ function aPageThatCuts(total: number): number {
  * is a cursor that does not advance -- and an unbounded loop over one answers no
  * question, it hangs the suite until a timeout says something vague about it.
  */
-async function everyRowWalked(listing: AListing, limit: number, total: number): Promise<string[]> {
+async function everyRowWalked(page: AListing["page"], total: number): Promise<string[]> {
+  const limit = aPageThatCuts(total);
   const walked: string[] = [];
   for (let after: string | undefined; ; ) {
-    const answer = await listing.page({ limit, after });
+    const answer = await page({ limit, after });
     walked.push(...answer.rows.map((row) => row.id));
     if (answer.continuesAfter === null) return walked;
     if (walked.length > total) {
@@ -206,8 +220,7 @@ async function everyRowWalked(listing: AListing, limit: number, total: number): 
   }
 }
 
-describe.each(EVERY_LISTING)("$listing, on the Listing contract", (listing) => {
-  const { holds, page } = listing;
+describe.each(EVERY_LISTING)("$procedure, on the Listing contract", ({ holds, page }) => {
   let ofItsOwn: string[];
 
   beforeAll(async () => {
@@ -242,7 +255,7 @@ describe.each(EVERY_LISTING)("$listing, on the Listing contract", (listing) => {
     // the Rows this Listing was given are what say the count is not zero.
     const { total } = await page({ limit: 1 });
 
-    const walked = await everyRowWalked(listing, aPageThatCuts(total), total);
+    const walked = await everyRowWalked(page, total);
 
     expect(walked).toHaveLength(total);
     expect(new Set(walked).size).toBe(total);
