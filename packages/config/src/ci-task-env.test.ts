@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { type Workflow, workflow } from "./testing/ci-workflow";
+import { turboTaskInvocations, type Workflow, workflow } from "./testing/ci-workflow";
 import { repoRoot } from "./testing/repo-root";
 import { plannedTasksIfKnown } from "./testing/turbo-dry-run";
 
@@ -75,18 +75,20 @@ function specifiedEnvPerTask(task: string): { taskId: string; env: string[] }[] 
 }
 
 /**
- * Every `pnpm <task>` a job's `run:` steps invoke.
+ * Every turbo task a job's `run:` steps invoke, however it invokes them.
  *
- * Deliberately LOOSE, because `specifiedEnvPerTask` above confirms each
- * candidate against Turbo itself: `pnpm install` and `pnpm exec` match here and
- * are dropped there. A flag cannot match at all, which is what keeps
- * `pnpm --filter web exec ...` from arriving as the task `--filter`.
+ * READ THROUGH THE SHARED READER SINCE CNCORE-160, which is the ticket that
+ * made the spelling a question at all: the five suite jobs run turbo through
+ * `SUITE_GUARD` rather than naming `pnpm` themselves, and a scraper that knew
+ * only `pnpm <task>` lost every subject in this file at once. The canary below
+ * is what caught it.
+ *
+ * Deliberately LOOSE there, because `specifiedEnvPerTask` above confirms each
+ * candidate against Turbo itself: `pnpm install` and `pnpm exec` match and are
+ * dropped there.
  */
 function turboTasksRunBy(job: { steps?: { run?: string }[] }): string[] {
-  const candidates = (job.steps ?? [])
-    .flatMap(({ run }) => [...(run ?? "").matchAll(/\bpnpm\s+(?:run\s+)?([a-z][a-z0-9:-]*)/g)])
-    .flatMap((match) => (match[1] === undefined ? [] : [match[1]]));
-  return [...new Set(candidates)];
+  return [...new Set(turboTaskInvocations(job).map(({ task }) => task))];
 }
 
 /** Every job that sets a variable for itself, paired with the tasks it runs. */

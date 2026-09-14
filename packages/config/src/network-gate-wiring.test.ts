@@ -45,17 +45,46 @@ function isWorkspacePattern(pattern: string): boolean {
   return rest.length === 1 && rest[0] === "*" && /^(?!\.+$)[\w.-]+$/.test(parent as string);
 }
 
-/** Every directory `pnpm-workspace.yaml` calls a package, read from the file. */
+/**
+ * Every workspace directory that is really a package, which is the list the
+ * config read is held against (CNCORE-160).
+ *
+ * A directory with no manifest is NOT one, for the reason `suites()` gives
+ * below: pnpm reads it that way too, and a stray directory under `packages/`
+ * would otherwise be reported as a package that dropped its suite.
+ */
+function packageDirectories(): string[] {
+  return workspaceDirectories().filter((directory) =>
+    existsSync(join(repoRoot, directory, "package.json")),
+  );
+}
+
+/**
+ * Every directory `pnpm-workspace.yaml` calls a package, read from the file.
+ *
+ * NON-EMPTINESS IS ASSERTED HERE RATHER THAN COUNTED BY EACH CALLER (CNCORE-160).
+ * Every sweep in this file descends from this one function, so a workspace file
+ * that parsed to no packages empties all of them at once -- and a guard in one
+ * test derived from another of those sweeps would then be comparing nothing to
+ * nothing and passing. The floors below were `>= 12` and caught that only by
+ * being a number somebody had written down, which is the thing CNCORE-160 is
+ * taking out. So the root of the chain is where it is held: the file must
+ * declare at least one pattern, and each pattern must find at least one
+ * directory.
+ */
 function workspaceDirectories(): string[] {
   const { packages } = parse(readFileSync(join(repoRoot, "pnpm-workspace.yaml"), "utf8")) as {
     packages?: string[];
   };
+  expect(packages ?? [], "pnpm-workspace.yaml declares no packages").not.toStrictEqual([]);
   return (packages ?? []).flatMap((pattern) => {
     expect(isWorkspacePattern(pattern), `unsupported workspace pattern ${pattern}`).toBe(true);
     const [parent] = pattern.split("/");
-    return readdirSync(join(repoRoot, parent as string), { withFileTypes: true })
+    const found = readdirSync(join(repoRoot, parent as string), { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
       .map((entry) => join(parent as string, entry.name));
+    expect(found, `the workspace pattern ${pattern} matches no directory`).not.toStrictEqual([]);
+    return found;
   });
 }
 
@@ -212,6 +241,18 @@ function configFilesOnDisk(): string[] {
 }
 
 /**
+ * Every config whose TEXT names a global setup, which is the count the
+ * assertion about global setups is held to.
+ *
+ * A SECOND WAY OF ASKING, not a second copy of the answer. Everything else in
+ * this file learns what a config declares by importing it; this learns it by
+ * reading the bytes, so the two cannot fail together.
+ */
+function configsNamingAGlobalSetup(): string[] {
+  return configFilesOnDisk().filter((file) => readFileSync(file, "utf8").includes("globalSetup"));
+}
+
+/**
  * A config's `test` block as it actually resolves, read by IMPORTING the config
  * rather than by matching specifiers in its text. A commented-out line still
  * reads as present to a text search, and that is the exact state this test
@@ -275,11 +316,22 @@ describe("the network gate's wiring", () => {
   it("sweeps every Vitest config in the repository", () => {
     const onDisk = configFilesOnDisk();
 
-    // Vacuous otherwise, in the same way the counts below are: an empty disk
-    // read is claimed by the empty set. Twelve configs today: one in each of the
-    // nine packages, and three in `apps/web` -- its own, the end-to-end run's,
-    // and the live run's (CNCORE-151).
-    expect(onDisk.length).toBeGreaterThanOrEqual(12);
+    // Vacuous otherwise, in the same way the count below is: an empty disk read
+    // is claimed by the empty set.
+    //
+    // NAMED RATHER THAN COUNTED (CNCORE-160). The guard here was `>= 12`, a
+    // number true when it was written and quietly false afterwards -- the
+    // repository reached fourteen configs, so two could have left the read with
+    // it still green, and a count re-derived from the packages would have had
+    // the same slack in it. So the question is asked of each package instead:
+    // ADR-0103 gives every package a suite, a suite is run by a config, and a
+    // package here with no config at all is the defect rather than a case to
+    // allow for. There is no slack to lose two configs into, and an empty disk
+    // read fails it with every package named.
+    const ungatedPackages = packageDirectories().filter(
+      (directory) => !onDisk.some((file) => isInside(join(repoRoot, directory), file)),
+    );
+    expect(ungatedPackages).toStrictEqual([]);
 
     const claimed = new Set(suites().map((suite) => suite.config));
     const unrun = onDisk.filter((file) => !claimed.has(file));
@@ -291,11 +343,21 @@ describe("the network gate's wiring", () => {
 
     // Without this the whole test is vacuous: a workspace file that failed to
     // parse into packages produces an empty list and passes having asked
-    // nothing. Twelve suites today: nine `test` scripts, `apps/web`'s end-to-end
-    // run, `packages/contract`'s contract run -- which joined the sweep under
-    // CNCORE-46 -- and `apps/web`'s live run, which `MAY_REACH_THE_INTERNET`
-    // excuses and the test below holds to existing.
-    expect(found.length).toBeGreaterThanOrEqual(12);
+    // nothing.
+    //
+    // THE CONFIGS THAT EXIST ARE WHAT COUNTS THEM (CNCORE-160), and the two
+    // sides come from different places, which is the whole of why this is worth
+    // more than the `12` it replaces: `suites()` learns what exists from the
+    // manifests' `scripts`, and `configFilesOnDisk()` from the directory
+    // entries. The test above holds every config on disk to being run by a
+    // swept suite, so there can be no fewer suites than configs -- and a sweep
+    // that quietly stopped finding manifests now fails here instead of passing
+    // against a number nobody had re-counted.
+    //
+    // BOTH SIDES GOING EMPTY TOGETHER is the one thing this shape cannot see,
+    // since both descend from `workspaceDirectories()`, and it is held there
+    // rather than here for exactly that reason.
+    expect(found.length).toBeGreaterThanOrEqual(configFilesOnDisk().length);
 
     const open = [];
     for (const suite of found) {
@@ -333,10 +395,18 @@ describe("the network gate's wiring", () => {
       withGlobalSetup.push({ suite: `${suite.package}: ${suite.script}`, first: declared[0] });
     }
 
-    // Vacuous otherwise, exactly as above: three suites declare a global setup
-    // today -- `packages/db`, `packages/api` sharing that same file, and the
-    // end-to-end run.
-    expect(withGlobalSetup.length).toBeGreaterThanOrEqual(3);
+    // Vacuous otherwise, exactly as above, and counted for the same reason: the
+    // `3` here was written when three configs declared one and five do now
+    // (CNCORE-160).
+    //
+    // READ AS TEXT, WHICH IS THE INDEPENDENT SOURCE. `testConfig` IMPORTS a
+    // config, so a resolution that silently yielded `{}` for every one of them
+    // would empty this list and pass; a text search cannot fail that way. The
+    // one thing it cannot tell apart is a COMMENTED-OUT declaration, and this
+    // file already treats that as the state to catch rather than as a case to
+    // allow for: a config whose text names a global setup and whose import
+    // declares none fails here, correctly.
+    expect(withGlobalSetup.length).toBeGreaterThanOrEqual(configsNamingAGlobalSetup().length);
 
     // FIRST rather than merely present, and the order is the whole assertion: a
     // global setup listed ahead of the gate runs ahead of it, which is being

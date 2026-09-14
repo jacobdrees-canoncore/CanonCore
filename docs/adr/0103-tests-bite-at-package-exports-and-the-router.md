@@ -61,8 +61,23 @@ the only package in that position now: its export opens a Postgres connection, s
 test without one. It gets the script in the change that gives it a schema.
 
 The same false green exists one level up, and is closed the same way: `turbo run test` exits 0 when
-it runs ZERO tasks, so CI asserts that at least one test task ran rather than trusting the exit
-code.
+it runs ZERO tasks, so **every CI job that runs a suite** asserts the count turbo printed rather
+than trusting the exit code. Measured on turbo 2.10.12: a task no package declares reports
+`Tasks: 0 successful, 0 total`, warns on stderr, and exits 0.
+
+That sentence read `CI asserts` for a long time while ONE job of five did it (CNCORE-160). The
+`Test` job carried the check; `The page over HTTP`, `The page in a browser`, the real-provider job
+and the contract job invoked the runner bare, so deleting `test:e2e`, `test:browser` or
+`test:contract` would have turned its own check GREEN. This record read `accepted` throughout, which
+is the shape of failure a half-built mechanism has: from outside, one job doing it and five doing it
+are the same sentence.
+
+The guard is now one script, `.github/scripts/run-suite.sh`, and every suite job runs behind it —
+which is what makes the claim testable rather than merely restated.
+`packages/config/src/run-suite.test.ts` runs that script against a turbo workspace with a test
+script and then with it deleted, so the red is DEMONSTRATED, and reads `ci.yml` back to refuse any
+job that invokes a suite bare. A sixth suite job wired up bare fails that check rather than joining
+the four.
 
 ## Where the design tokens are actually held honest
 
