@@ -118,6 +118,32 @@ async function titledByTheOwner(
 }
 
 /**
+ * The owner saying where one item FILES, which is the one claim the computation
+ * cannot make for itself (CNCORE-173).
+ *
+ * `[]` FOR THE EMPTY STRING, which is `notedByTheOwner` below rather than
+ * `titledByTheOwner` above, and the choice turns on what the empty value
+ * LEAVES. An item with no title statement renders "Untitled item", so an empty
+ * title has to be refused. An item with no OWNER sort name still has the one
+ * `derived:sort-name-v1` computed for it, so clearing this field is not an
+ * absence at all -- it hands the item back to the computation, and it is the
+ * only route back from a correction the owner regrets.
+ */
+async function sortedByTheOwner(
+  tx: Transaction,
+  ownerId: string,
+  itemId: string,
+  sortName: string,
+): Promise<void> {
+  await assertClaims(tx, {
+    ownerId,
+    itemId,
+    sourceId: await theOwnerSource(tx, ownerId),
+    claims: [{ property: "sort_name", values: sortName === "" ? [] : [sortName] }],
+  });
+}
+
+/**
  * The owner's note about one item (ADR-0096), and `''` IS ITS REMOVAL.
  *
  * A NOTE IS A STATEMENT LIKE ANY OTHER, which is that record's whole decision:
@@ -203,6 +229,44 @@ export async function retitleItemByHand(
     if (!(await isALiveItem(tx, itemId))) return false;
 
     await titledByTheOwner(tx, ownerId, itemId, title);
+    return true;
+  });
+}
+
+/**
+ * The owner correcting where an item sorts, which is a title's edit applied to
+ * the catalogue's second projected column (CNCORE-173).
+ *
+ * IT IS `assertClaims` WITH THE OWNER'S SOURCE, exactly as `retitleItemByHand`
+ * is, and the two rules that matters for come with it. The owner sits at
+ * `source_order` 0 and `derived:sort-name-v1` was allocated behind them, so
+ * their sort name wins with no rank set; and a source may only withdraw what it
+ * said itself, so the computed claim goes on standing beside theirs rather than
+ * being erased by a correction. The item page shows both.
+ *
+ * IT DOES NOT STOP THE COMPUTATION RUNNING. A later retitle re-derives
+ * `derived:sort-name-v1` from the new title as it always would -- the owner's
+ * claim simply keeps outranking it. That is what makes clearing this field
+ * reliable: what comes back is the computation's answer for the title the item
+ * has NOW, not the one it had when the owner first corrected it.
+ *
+ * ONE SORT NAME AND NOT A SET, for the reason `retitleItemByHand` gives about a
+ * title: `assertClaims` makes what this source holds EQUAL to what it now
+ * claims, so passing one value withdraws the previous one. An item does not
+ * file in two places.
+ *
+ * Answers `false` when that id addresses no live item, which is an answer
+ * rather than a failure (ADR-0066).
+ */
+export async function sortItemAsByHand(
+  db: Database,
+  { itemId, sortName }: { itemId: string; sortName: string },
+): Promise<boolean> {
+  return db.transaction(async (tx) => {
+    const ownerId = await theOwnerId(tx);
+    if (!(await isALiveItem(tx, itemId))) return false;
+
+    await sortedByTheOwner(tx, ownerId, itemId, sortName);
     return true;
   });
 }

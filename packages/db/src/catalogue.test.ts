@@ -61,6 +61,42 @@ describe("readCatalogue", () => {
     expect(order.indexOf(ark)).toBeLessThan(order.indexOf(genesis));
   });
 
+  /**
+   * CNCORE-173's fourth criterion, asserted as a LISTING over real corpus Rows
+   * rather than as a string function over made-up ones.
+   *
+   * THE TITLES ARE THE WIKI'S OWN, as `provider-wiki` serves them and as
+   * `apps/web/e2e/wiki-fixture.ts` carries them -- `An Unearthly Child` is the
+   * first Doctor Who story there is. A string test over `"The Foo"` would pass
+   * against a rule that only ever worked on invented input; these are the rows
+   * the defect was reported on.
+   *
+   * FOUR OF THE SIX OPEN WITH AN ARTICLE AND THEY LAND IN FOUR DIFFERENT
+   * PLACES, which is what makes this a test of the rule rather than of one
+   * example. Ordered by raw title the answer would be Aliens, An Unearthly
+   * Child, Rose, The Daleks', The Empty Child, The Unquiet Dead -- every
+   * article-led row bunched into one block under A and T. That is the defect
+   * this ticket exists to fix, and it is a different sequence from the one
+   * below at four of six positions.
+   */
+  it("files a leading article under the word after it, over real corpus Rows", async () => {
+    const unquiet = await anItemTitled(db, "The Unquiet Dead");
+    const aliens = await anItemTitled(db, "Aliens of London");
+    const daleks = await anItemTitled(db, "The Daleks' Master Plan");
+    const rose = await anItemTitled(db, "Rose");
+    const unearthly = await anItemTitled(db, "An Unearthly Child");
+    const empty = await anItemTitled(db, "The Empty Child");
+
+    const { rows } = await readCatalogue(db, { limit: 1000 });
+    const these = new Set([unquiet, aliens, daleks, rose, unearthly, empty]);
+    const order = rows.map((row) => row.id).filter((id) => these.has(id));
+
+    // WRITTEN OUT RATHER THAN SORTED, so the expectation cannot agree with the
+    // code by construction: A, D, E, R, U, U -- and `The Daleks' Master Plan`
+    // sits second, under D, where the ticket says it belongs.
+    expect(order).toEqual([aliens, daleks, empty, rose, unearthly, unquiet]);
+  });
+
   it("counts the whole catalogue even when it answers with only part of it", async () => {
     // NO SILENT CAP. A page showing the first hundred of four thousand has to be
     // able to say so, and a count that only ever reported what it returned would

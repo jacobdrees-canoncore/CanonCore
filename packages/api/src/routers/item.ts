@@ -10,6 +10,7 @@ import {
   findStatementsOfItem,
   ItemRefused,
   retitleItemByHand,
+  sortItemAsByHand,
 } from "@canoncore/db";
 import { itemKindsPublic, itemPublic, itemWritten, ownerNote } from "@canoncore/schemas";
 import { z } from "zod";
@@ -52,6 +53,28 @@ const titleByHand = z.string().trim().min(1, "A title cannot be empty.");
  * a rule the owner meets by surprise on the one note that matters.
  */
 const noteByHand = z.string().trim();
+
+/**
+ * A sort name as the catalogue will accept one from the owner's own hand.
+ *
+ * TRIMMED, AND EMPTY IS ACCEPTED, which puts it with `noteByHand` above rather
+ * than with `titleByHand` at the top of this file. The test is what the empty
+ * value LEAVES, and it is different in all three cases: an empty title leaves a
+ * heading that renders blank where an absent one honestly reads "Untitled
+ * item", so it is refused; an empty note and an absent one are the same claim,
+ * so it is the removal; and an empty sort name leaves the one
+ * `derived:sort-name-v1` computed from the title (CNCORE-173), so it is the
+ * owner handing the item back to the computation.
+ *
+ * SO A FIELD OF NOTHING BUT WHITESPACE HANDS IT BACK TOO, which the trim is
+ * what makes true. A box holding three spaces is a box the owner cleared, and
+ * a sort name of `"   "` would file the item ahead of the entire catalogue.
+ *
+ * NO CONTENT RULE AND NO LENGTH CAP. `sort_name` declares no validation
+ * (ADR-0012) -- there is no such thing as a malformed one, and the owner's
+ * reason for filing something oddly is theirs.
+ */
+const sortNameByHand = z.string().trim();
 
 export const item = {
   /**
@@ -162,6 +185,31 @@ export const item = {
         title: input.title,
       });
       if (!retitled) throw errors.NOT_FOUND();
+      return { id: input.id };
+    }),
+
+  /**
+   * CORRECTING WHERE AN ITEM FILES (CNCORE-173), which is `retitle` above
+   * applied to the catalogue's other projected column.
+   *
+   * IT WRITES A STATEMENT, never the column, for `retitle`'s reason: a sort
+   * name is a claim with a source on it (ADR-0014, ADR-0071), and the
+   * computation's claim stays standing beside the Owner's rather than being
+   * overwritten by it.
+   *
+   * `sortNameByHand` ACCEPTS EMPTY WHERE `titleByHand` REFUSES IT, which is the
+   * one asymmetry on this router and is argued at that schema.
+   */
+  sortAs: ownerProcedure
+    .input(z.object({ id: z.uuid(), sortName: sortNameByHand }))
+    .output(itemWritten)
+    .errors({ NOT_FOUND: { message: "No item at that id to sort." } })
+    .handler(async ({ input, context, errors }) => {
+      const sorted = await sortItemAsByHand(context.db, {
+        itemId: input.id,
+        sortName: input.sortName,
+      });
+      if (!sorted) throw errors.NOT_FOUND();
       return { id: input.id };
     }),
 
