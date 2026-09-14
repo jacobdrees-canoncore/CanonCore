@@ -89,9 +89,17 @@ pnpm "$task" 2>&1 | tee "$log"
 # The count turbo prints, not the exit code it does not use.
 #
 # ANCHORED, because the log also holds every suite's own stdout and the decision
-# is made off it. Turbo prefixes a task's output with `<package>:<task>: `, so
-# the summary is the only line that can start with `Tasks:` -- without the
-# anchor a test printing that sentence satisfies the guard.
+# is made off it: without the anchor, a test printing that sentence anywhere in
+# a line satisfies the guard.
+#
+# THE ANCHOR IS NOT WHAT MAKES THE SUMMARY UNIQUE, THOUGH, and this said it was
+# until CNCORE-191. The reasoning was that turbo prefixes a task's output with
+# `<package>:<task>: ` so nothing else can start a line -- true when it STREAMS,
+# false on GitHub Actions, where it groups instead and a task's lines are
+# UNPREFIXED at column one. What actually closes it is the case this check is
+# about: a run of zero tasks produces no task output at all, so in the one
+# situation the guard has to be right about, there is nothing there to forge the
+# line. The roll call below carries the measurement for both shapes.
 #
 # AND THE COLOUR IS STRIPPED FIRST. Turbo writes `Tasks:` plain when it is not
 # on a terminal, which is every CI run, but wraps the count in SGR escapes when
