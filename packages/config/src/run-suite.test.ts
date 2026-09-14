@@ -138,6 +138,28 @@ function runGuard(
   return { status: run.status, output: `${run.stdout}${run.stderr}` };
 }
 
+/**
+ * THE TWO SHAPES TURBO WRITES A TASK'S OUTPUT IN, pinned rather than inherited,
+ * because the roll call below reads that output and the shape is not the same
+ * in both places.
+ *
+ * Turbo detects GitHub Actions and switches to GROUPED output there:
+ * `::group::<package>:<task>`, with the task's own lines UNPREFIXED inside it.
+ * Everywhere else it STREAMS, prefixing every line `<package>:<task>: `. The
+ * roll call was written against the streamed shape alone and passed every row
+ * of this file on a laptop while failing on the runner -- which is the one place
+ * it exists to work. Measured on turbo 2.10.12: `GITHUB_ACTIONS=true` is the
+ * switch, and `CI=true` alone is not.
+ *
+ * So the rows that read the output ask BOTH, rather than whichever the host
+ * happens to be. Inheriting it would make this suite agree with itself in each
+ * place and disagree between them, which is the failure that got here.
+ */
+const OUTPUT_MODES = {
+  "streamed, as a terminal gets it": { GITHUB_ACTIONS: "" },
+  "grouped, as GitHub Actions gets it": { GITHUB_ACTIONS: "true" },
+} as const;
+
 describe("the guard a CI suite job runs behind", () => {
   let root: string;
 
@@ -185,16 +207,19 @@ describe("the guard a CI suite job runs behind", () => {
    * Named as the guard's second argument, the run is held to a roll call that
    * nothing inside a `scripts` block can answer for.
    */
-  it("fails when the package it was told to watch dropped its suite, though another ran", () => {
-    declares(root, "deleted");
-    declares(root, "passes", { name: "two" });
-    const { status, output } = runGuard(root, "test", { required: "one" });
-    expect(status, output).not.toBe(0);
-    expect(output).toContain("never ran");
-    // The count is what makes this a DIFFERENT red from the row above: the
-    // suite that vanished is invisible to it, which is the whole defect.
-    expect(output).toContain("1 successful, 1 total");
-  });
+  it.each(Object.entries(OUTPUT_MODES))(
+    "fails when the package it was told to watch dropped its suite, though another ran (%s)",
+    (_mode, env) => {
+      declares(root, "deleted");
+      declares(root, "passes", { name: "two" });
+      const { status, output } = runGuard(root, "test", { env, required: "one" });
+      expect(status, output).not.toBe(0);
+      expect(output).toContain("never ran");
+      // The count is what makes this a DIFFERENT red from the row above: the
+      // suite that vanished is invisible to it, which is the whole defect.
+      expect(output).toContain("1 successful, 1 total");
+    },
+  );
 
   /**
    * A LOG LONGER THAN THE SEARCH, which is where the roll call was WRONG.
@@ -215,7 +240,12 @@ describe("the guard a CI suite job runs behind", () => {
   it("finds the package in a log far longer than the match, without a false red", () => {
     declares(root, "passes");
     declares(root, "chatty", { name: "two" });
-    const { status, output } = runGuard(root, "test", { required: "one" });
+    // Pinned to one shape because the hazard is the SIZE of the log rather than
+    // its shape: the reader must outlast the writer either way.
+    const { status, output } = runGuard(root, "test", {
+      env: { GITHUB_ACTIONS: "" },
+      required: "one",
+    });
     expect(status, output.slice(-2000)).toBe(0);
   });
 
@@ -223,12 +253,15 @@ describe("the guard a CI suite job runs behind", () => {
    * AND THE OTHER HALF OF THE ROLL CALL, without which the row above is
    * satisfied by a guard that simply always fails when handed a package.
    */
-  it("passes when the package it was told to watch is among the ones that ran", () => {
-    declares(root, "passes");
-    declares(root, "passes", { name: "two" });
-    const { status, output } = runGuard(root, "test", { required: "one" });
-    expect(status, output).toBe(0);
-  });
+  it.each(Object.entries(OUTPUT_MODES))(
+    "passes when the package it was told to watch is among the ones that ran (%s)",
+    (_mode, env) => {
+      declares(root, "passes");
+      declares(root, "passes", { name: "two" });
+      const { status, output } = runGuard(root, "test", { env, required: "one" });
+      expect(status, output).toBe(0);
+    },
+  );
 
   /**
    * THE ROLL CALL THROUGH FORCED COLOUR, which is a sharper question than the
@@ -242,7 +275,10 @@ describe("the guard a CI suite job runs behind", () => {
     declares(root, "passes");
     declares(root, "passes", { name: "two" });
     const { status, output } = runGuard(root, "test", {
-      env: { FORCE_COLOR: "1" },
+      // The STREAMED shape, pinned: it is the one that carries the prefix this
+      // row is about. Grouped output writes the package into a `::group::`
+      // marker instead, which the row above covers.
+      env: { FORCE_COLOR: "1", GITHUB_ACTIONS: "" },
       required: "one",
     });
     expect(status, output).toBe(0);

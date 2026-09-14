@@ -78,23 +78,34 @@ fi
 
 [[ -n $required ]] || exit 0
 
-# THE ROLL CALL. Turbo prefixes every line a task writes with
-# `<package>:<task>: `, and a package that declares no such script contributes
-# no line at all -- so the prefix appearing is the package having run, and the
-# count is free to stay non-zero on the strength of the others.
+# THE ROLL CALL, AND TURBO ANNOUNCES A TASK IN TWO DIFFERENT SHAPES.
 #
-# THERE IS ALWAYS A LINE TO FIND, which is what makes absence mean something: a
+# Everywhere but GitHub Actions it STREAMS, prefixing every line a task writes
+# with `<package>:<task>: `. On GitHub Actions it detects the runner and switches
+# to GROUPED output: a `::group::<package>:<task>` marker with the task's own
+# lines UNPREFIXED inside it. Both are read here, because a guard that knew only
+# the streamed shape passed every test on a laptop and failed on the runner --
+# which is the one place it exists to work. Measured on turbo 2.10.12:
+# `GITHUB_ACTIONS=true` is the switch and `CI=true` alone is not, and
+# `run-suite.test.ts` pins both rather than inheriting whichever the host is.
+#
+# EITHER WAY, A PACKAGE THAT DECLARES NO SUCH SCRIPT CONTRIBUTES NEITHER -- so
+# the announcement appearing is the package having run, and the count is free to
+# stay non-zero on the strength of the others.
+#
+# THERE IS ALWAYS ONE TO FIND, which is what makes absence mean something: a
 # task is announced with `cache miss, executing <hash>` or `cache hit, replaying
-# logs <hash>` under that same prefix before it writes a word of its own, so a
-# suite that runs and prints nothing is still present here. Measured on turbo
-# 2.10.12, cold and cached.
+# logs <hash>` before it writes a word of its own, so a suite that runs and
+# prints nothing is still present here. Measured cold and cached.
 #
 # MATCHED LITERALLY AND AT COLUMN ONE. Turbo prefixes NESTED output too, so a
 # suite of its own that echoed this string would arrive as
 # `<other>:<task>: <package>:<task>: ...` and satisfy an unanchored search. The
-# colour is stripped first for the reason the count check gives, and the escape
-# sits BEFORE the `@` rather than inside the name, so the stripped line starts
-# with the prefix exactly.
+# group marker is compared WHOLE rather than by prefix, or `::group::one:test`
+# would be answered for by a package called `one:testing`. The colour is
+# stripped first for the reason the count check gives, and the escape sits
+# BEFORE the `@` rather than inside the name, so the stripped line starts with
+# the prefix exactly.
 #
 # AND IT READS TO THE END RATHER THAN STOPPING AT THE MATCH, which looks like
 # waste and is the opposite. `exit` on the matching line closes the pipe under
@@ -105,7 +116,11 @@ fi
 # package announces itself around line 8 of some two hundred, and invisible in
 # every short fixture. `run-suite.test.ts` holds a 20,000-line workspace over it.
 if ! sed $'s/\033\[[0-9;]*m//g' "$log" |
-  awk -v prefix="$required:$task: " 'index($0, prefix) == 1 { found = 1 } END { exit found ? 0 : 1 }'; then
+  awk -v streamed="$required:$task: " -v grouped="::group::$required:$task" '
+    { line = $0; sub(/[ \t\r]+$/, "", line) }
+    index(line, streamed) == 1 || line == grouped { found = 1 }
+    END { exit found ? 0 : 1 }
+  '; then
   echo "::error::\`$required\` never ran \`$task\`, though other packages did. Its script is gone, and the count above cannot see that."
   exit 1
 fi
