@@ -373,6 +373,13 @@ export function pinnedLookup(
         // an unhandled rejection and the connector waits for an answer that
         // never comes, which is a hang rather than a refusal -- measured, and
         // it is what this function did before the pinning tests were written.
+        //
+        // AND IT REACHES A PAGE WRAPPED, WHICH IS THIS CALLBACK'S OWN COST
+        // (CNCORE-192). Handed to undici rather than thrown on the caller's
+        // stack, it comes back out of `fetch` as `TypeError: fetch failed` with
+        // this error on `cause` -- intact, `boundary` and all, and invisible to
+        // anything reading the thrown thing directly. `reasonFor` unwraps the
+        // chain; ADR-0123 records what that is owed.
         callback(error as NodeJS.ErrnoException, "");
       }
     })();
