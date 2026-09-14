@@ -124,23 +124,21 @@ export interface ListedTask {
  * not do on demand.
  */
 export function createRegistry(tasks: Task[]) {
-  const byKey = new Map(tasks.map((task) => [task.key, task]));
-  // TWO TASKS UNDER ONE KEY IS REFUSED HERE, THE WAY `dailyAt` REFUSES AN HOUR
-  // OF 24. The key is a task's identity rather than a label on it: the history
-  // is keyed by it, the page's Run and Cancel carry it, and the live runs are
-  // held under it. `new Map` resolves the collision by KEEPING THE LAST, which
-  // is a silent answer to a question nobody asked it -- both tasks list, both
-  // read the same last run, and only the one the map kept can be run or
-  // cancelled at all. The other is a row on the owner's page whose buttons
-  // reach the wrong task, which is not a thing to discover by pressing one.
-  //
-  // THE SIZES ARE COMPARED FIRST because that is the whole check; the scan
-  // below only names which key, for whoever has to fix the list.
-  if (byKey.size !== tasks.length) {
-    const shared = new Set(
-      tasks.map((task) => task.key).filter((key, at, keys) => keys.indexOf(key) !== at),
-    );
-    throw new Error(`a key names one task, and more than one is keyed ${[...shared].join(", ")}`);
+  // BUILT A TASK AT A TIME SO A SHARED KEY IS REFUSED, THE WAY `dailyAt`
+  // REFUSES AN HOUR OF 24. The key is a task's identity rather than a label on
+  // it: the history is keyed by it, the page's Run and Cancel carry it, and the
+  // live runs are held under it. Handed the whole list at once, `new Map`
+  // resolves a collision by KEEPING THE LAST -- a silent answer to a question
+  // nobody asked it, and one that leaves both tasks listing, both reading the
+  // same last run, and only the one the map kept runnable or cancellable at
+  // all. The other is a row on the owner's page whose buttons reach the wrong
+  // task, which is not a thing to discover by pressing one.
+  const byKey = new Map<string, Task>();
+  for (const task of tasks) {
+    if (byKey.has(task.key)) {
+      throw new Error(`a key names one task, and more than one is keyed ${task.key}`);
+    }
+    byKey.set(task.key, task);
   }
   /**
    * THE RUNS HAPPENING RIGHT NOW, IN THIS PROCESS'S MEMORY, which is the only

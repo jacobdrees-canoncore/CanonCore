@@ -272,7 +272,7 @@ describe("a run that cannot be opened", () => {
 });
 
 describe("two tasks declaring one key", () => {
-  it("is refused when the registry is built, not resolved silently", async () => {
+  it("is refused when the registry is built, not resolved silently", () => {
     // THE KEY IS THE IDENTITY OF A TASK AND NOT A LABEL ON ONE. The history is
     // keyed by it, the page's Run and Cancel buttons carry it, and the map that
     // holds the live runs is keyed by it -- so two tasks under one key is two
@@ -407,11 +407,13 @@ describe("the run-history compaction", () => {
 describe("when the tasks this instance runs are due", () => {
   it("is inside the maintenance window, and no two of them at one hour", () => {
     // A RULE OVER THE LIST RATHER THAN THE HOURS THESE TWO HAPPEN TO CARRY.
-    // "One at 3 and one at 4" says nothing about the third: a task added at
-    // noon, or added at 4 again, passes a test that names only the tasks
-    // already there. The hours are an instance of a rule, so the rule is what
-    // is asserted, and a line added to `theTasks` is checked against it before
-    // anybody reads the page.
+    // The list assertion above pins both hours, so a third task does not slip
+    // past it -- it breaks it, `toMatchObject` refusing a received list longer
+    // than the one it was given. But the ordinary answer to that failure is to
+    // update the literal, and nothing in that loop mentions a window or a
+    // stagger: `atHour: 12` goes green exactly as readily as `atHour: 5`. A
+    // rule guarded only by a literal the newcomer is expected to edit is not
+    // guarded, so the rule is what is asserted here.
     //
     // THE WINDOW IS PLEX'S 3am-6am, which ADR-0049 takes and for the reason it
     // gives: the small hours are when nobody is reading, and that is a fact

@@ -196,12 +196,22 @@ a button that does nothing.
 
 **AND THE MAINTENANCE WINDOW IS A RULE OVER THE LIST RATHER THAN THE HOURS TWO TASKS HAPPEN TO
 CARRY.** That Plex's 3am-6am is the window and that two tasks do not share an instant were both
-true, both reasoned in the files that chose the hours, and held by nothing: the suite asserted that
-one task fires at 3 and the other at 4, which says nothing at all about the third. A task added at
-noon, or added at 4 again, passed. The suite asserts the rule now — every registered task fires
-inside the window, and no two of them at one hour — so a line added to `theTasks` meets it before
-anybody reads the page. Six is where the window CLOSES, and a daily trigger pins only the start, so
-the hour has to be before it.
+true, both reasoned in the files that chose the hours, and asserted by nothing. What the suite
+pinned was the hours themselves — one task at 3 and the other at 4, inside a whole-list assertion
+that fails on ANY change, a correct one included. So a third task never slipped past it: it broke
+it, on the length of the list. But the ordinary answer to that failure is to
+update the literal, and nothing in that loop mentions a window or a stagger — `atHour: 12` goes
+green exactly as readily as `atHour: 5`. A rule guarded only by a literal the newcomer is expected
+to edit is not guarded. The suite asserts the rule itself now — every registered task fires inside
+the window, and no two of them at one hour — and both halves were checked by breaking them, each
+failing alone and naming what broke. Six is where the window CLOSES, and a daily trigger pins only
+the start, so the hour has to be before it.
+
+An earlier draft of this section said a task added at noon "passed". It did not, and the sentence
+was written from memory of how the test read rather than from what `toMatchObject` does with an
+array longer than the one it is given. The defect was real and the correction is smaller than the
+claim: a guard that fails on every change, correct changes included, teaches nobody the rule it is
+standing in for.
 
 ## Evidence
 
