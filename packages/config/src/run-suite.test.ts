@@ -58,7 +58,7 @@ function packageManager(): string {
  * turbo binary it pins, symlinked in so the runner under test is the runner CI
  * runs, and the package manager its root manifest names.
  */
-function scratchWorkspace(): string {
+function scratchWorkspace(task = "test"): string {
   const root = mkdtempSync(join(tmpdir(), "run-suite-"));
   mkdirSync(join(root, "packages", "one"), { recursive: true });
   mkdirSync(join(root, "node_modules"), { recursive: true });
@@ -84,27 +84,34 @@ function scratchWorkspace(): string {
       name: "scratch",
       private: true,
       packageManager: packageManager(),
-      scripts: { test: "turbo run test" },
+      scripts: { [task]: `turbo run ${task}` },
     }),
   );
   writeFileSync(join(root, "pnpm-workspace.yaml"), 'packages:\n  - "packages/*"\n');
-  writeFileSync(join(root, "turbo.json"), JSON.stringify({ tasks: { test: { cache: false } } }));
+  writeFileSync(join(root, "turbo.json"), JSON.stringify({ tasks: { [task]: { cache: false } } }));
   return root;
 }
 
-/** What the one package declares: a suite that passes, one that fails, or none. */
+/** What a package declares for the task: one that passes, one that fails, or none. */
 type Suite = "passes" | "fails" | "deleted";
 
-const SCRIPTS: Record<Suite, Record<string, string>> = {
-  passes: { test: 'node --eval ""' },
-  fails: { test: 'node --eval "process.exit(1)"' },
-  deleted: {},
+const COMMANDS: Record<Suite, string | undefined> = {
+  passes: 'node --eval ""',
+  fails: 'node --eval "process.exit(1)"',
+  deleted: undefined,
 };
 
-function declares(root: string, suite: Suite): void {
+function declares(
+  root: string,
+  suite: Suite,
+  { name = "one", task = "test" }: { name?: string; task?: string } = {},
+): void {
+  const directory = join(root, "packages", name);
+  const command = COMMANDS[suite];
+  mkdirSync(directory, { recursive: true });
   writeFileSync(
-    join(root, "packages", "one", "package.json"),
-    JSON.stringify({ name: "one", scripts: SCRIPTS[suite] }),
+    join(directory, "package.json"),
+    JSON.stringify({ name, scripts: command === undefined ? {} : { [task]: command } }),
   );
 }
 
@@ -116,9 +123,9 @@ function declares(root: string, suite: Suite): void {
 function runGuard(
   root: string,
   task = "test",
-  env: Record<string, string> = {},
+  { env = {}, required }: { env?: Record<string, string>; required?: string } = {},
 ): { status: number | null; output: string } {
-  const run = spawnSync(guard, [task], {
+  const run = spawnSync(guard, required === undefined ? [task] : [task, required], {
     cwd: root,
     encoding: "utf8",
     env: { ...process.env, ...env },
@@ -162,6 +169,59 @@ describe("the guard a CI suite job runs behind", () => {
   });
 
   /**
+   * CNCORE-190, DEMONSTRATED. A count is not a roll call: `test` is declared by
+   * ten packages here, so the one that drops its script leaves nine running and
+   * a count check reads that as a pass. This is that workspace in miniature --
+   * two packages, one suite deleted, `Tasks: 1 successful, 1 total` and green
+   * under the rows above.
+   *
+   * THE CASE IS NOT MERELY ONE OF TEN. The package that drops it is
+   * `packages/config`, whose suite is every check this repository makes of its
+   * own CI, so the green it buys switches off the rest of them at the same time.
+   * Named as the guard's second argument, the run is held to a roll call that
+   * nothing inside a `scripts` block can answer for.
+   */
+  it("fails when the package it was told to watch dropped its suite, though another ran", () => {
+    declares(root, "deleted");
+    declares(root, "passes", { name: "two" });
+    const { status, output } = runGuard(root, "test", { required: "one" });
+    expect(status, output).not.toBe(0);
+    expect(output).toContain("never ran");
+    // The count is what makes this a DIFFERENT red from the row above: the
+    // suite that vanished is invisible to it, which is the whole defect.
+    expect(output).toContain("1 successful, 1 total");
+  });
+
+  /**
+   * AND THE OTHER HALF OF THE ROLL CALL, without which the row above is
+   * satisfied by a guard that simply always fails when handed a package.
+   */
+  it("passes when the package it was told to watch is among the ones that ran", () => {
+    declares(root, "passes");
+    declares(root, "passes", { name: "two" });
+    const { status, output } = runGuard(root, "test", { required: "one" });
+    expect(status, output).toBe(0);
+  });
+
+  /**
+   * THE ROLL CALL THROUGH FORCED COLOUR, which is a sharper question than the
+   * count's version below it. Turbo writes the package prefix in colour, and
+   * the escape sits BEFORE the name rather than inside it -- so a stripped line
+   * begins with the prefix exactly, and an unstripped one begins with `\033[35m`
+   * and matches nothing at column one. That would be a FALSE RED on a run where
+   * the suite was there all along.
+   */
+  it("reads the roll call through forced colour", () => {
+    declares(root, "passes");
+    declares(root, "passes", { name: "two" });
+    const { status, output } = runGuard(root, "test", {
+      env: { FORCE_COLOR: "1" },
+      required: "one",
+    });
+    expect(status, output).toBe(0);
+  });
+
+  /**
    * FORCED COLOUR, which the count check reads THROUGH. Turbo writes `Tasks:`
    * plain when it is not on a terminal and wraps the count in SGR escapes when
    * something forces colour, and neither the anchor nor `[1-9]` matches across
@@ -171,7 +231,7 @@ describe("the guard a CI suite job runs behind", () => {
    */
   it("reads the count through forced colour", () => {
     declares(root, "passes");
-    const { status, output } = runGuard(root, "test", { FORCE_COLOR: "1" });
+    const { status, output } = runGuard(root, "test", { env: { FORCE_COLOR: "1" } });
     expect(status, output).toBe(0);
   });
 
@@ -205,6 +265,42 @@ describe("the guard a CI suite job runs behind", () => {
 });
 
 /**
+ * CNCORE-191's second acceptance criterion, and the same flip on a task that is
+ * NOT a suite.
+ *
+ * The hole belongs to the RUNNER rather than to `test`: `Typecheck`, `Build` and
+ * the migration ladder ran turbo bare and would each have gone green having done
+ * nothing. This drives the guard over a workspace whose task is `typecheck`, so
+ * a guard that had grown a special case for the word `test` fails here -- and
+ * `db:migrate` is the one whose false green costs most, because ADR-0047's
+ * empty-to-head gate would report a database built from nothing as correct.
+ */
+describe("the guard behind a job that runs no suite", () => {
+  let root: string;
+
+  beforeEach(() => {
+    root = scratchWorkspace("typecheck");
+  });
+
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it("passes a workspace whose package declares the task", () => {
+    declares(root, "passes", { task: "typecheck" });
+    const { status, output } = runGuard(root, "typecheck");
+    expect(status, output).toBe(0);
+  });
+
+  it("fails the same workspace once that script is deleted", () => {
+    declares(root, "deleted", { task: "typecheck" });
+    const { status, output } = runGuard(root, "typecheck");
+    expect(status, output).not.toBe(0);
+    expect(output).toContain("ran no tasks at all");
+  });
+});
+
+/**
  * Which scripts a CI job could be running a suite through, READ OFF THE ROOT
  * MANIFEST rather than listed here.
  *
@@ -226,6 +322,35 @@ function suiteScripts(): string[] {
   );
 }
 
+/**
+ * This package's own name, read off the manifest BESIDE this file rather than
+ * looked up by a path through the repository root.
+ *
+ * It is the subject of the roll call below, and the point of reading it here is
+ * that a rename cannot leave the two sides disagreeing: the package renamed and
+ * `ci.yml` not updated fails, rather than the check quietly asking about a name
+ * nothing has any more.
+ */
+function policingPackage(): string {
+  const own = JSON.parse(readFileSync(join(import.meta.dirname, "..", "package.json"), "utf8")) as {
+    name?: string;
+  };
+  if (own.name === undefined)
+    throw new Error("this package's manifest has no name to be run under");
+  return own.name;
+}
+
+/** Every invocation of the guard in the workflow, with the package it holds the run to. */
+function guardInvocations(): { job: string; task: string; required: string | undefined }[] {
+  const guard = SUITE_GUARD.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(`(?:^|\\s)${guard}\\s+([a-z][a-z0-9:-]*)(?:[ \\t]+(\\S+))?`, "g");
+  return runSteps().flatMap(({ job, run }) =>
+    [...run.matchAll(pattern)].flatMap((match) =>
+      match[1] === undefined ? [] : [{ job, task: match[1], required: match[2] }],
+    ),
+  );
+}
+
 /** Every job in the workflow, with the turbo tasks its `run:` steps invoke. */
 function jobs(): { job: string; invocations: { task: string; guarded: boolean }[] }[] {
   return Object.entries(workflow().jobs ?? {}).map(([job, definition]) => ({
@@ -242,7 +367,73 @@ function runSteps(): { job: string; run: string }[] {
 }
 
 /**
- * Every place a run step NAMES a suite script, and whether the guard is what
+ * Every root script that is a TURBO TASK, read off the root manifest the same
+ * way and for the same reason as `suiteScripts()` above.
+ *
+ * THE HOLE IS THE RUNNER'S, NOT THE SUITE'S (CNCORE-191). `turbo run <task>`
+ * exits 0 having run zero tasks whatever the task is, so `typecheck`, `build`
+ * and the ladder's `db:migrate` carry it exactly as `test` does -- and the
+ * ladder's is the worst of them, because ADR-0047's empty-to-head gate would
+ * report a database built from nothing as built correctly. CNCORE-160 scoped
+ * itself to the jobs that run a SUITE and left these four bare.
+ *
+ * READ FROM THE COMMAND rather than from a list here, so a script switched to
+ * turbo arrives in this set on its own. `lint` is `biome ci` and falls out
+ * without an exception being written for it, which is the right way round: the
+ * reason it needs no guard is that it is not turbo, and that reason is visible
+ * in the manifest rather than transcribed into a rule.
+ */
+function turboScripts(): string[] {
+  const root = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8")) as {
+    scripts?: Record<string, string>;
+  };
+  return Object.entries(root.scripts ?? {})
+    .filter(([, command]) => /\bturbo\s+run\b/.test(command))
+    .map(([name]) => name);
+}
+
+/**
+ * The unguarded mentions that are RIGHT, each carrying the reason it is, because
+ * CNCORE-191's first acceptance criterion allows a written reason in place of
+ * the guard.
+ *
+ * A LIST HERE RATHER THAN A COMMENT IN `ci.yml`, and that is forced rather than
+ * chosen: the workflow is read back through a YAML parse, which drops comments
+ * entirely, so a reason written beside the step is one no check can see. Written
+ * here, an exemption is a line somebody had to add on purpose.
+ *
+ * AND IT IS HELD TO MATCHING SOMETHING, by the canary below. An exemption whose
+ * step has gone is an excuse still standing over nothing, which is how a list
+ * like this rots into permission it was never asked for.
+ */
+const UNGUARDED_ON_PURPOSE: { job: string; script: string; reason: string }[] = [
+  {
+    job: "env-guard",
+    script: "build",
+    reason:
+      "this job requires `pnpm build` to FAIL, and a run of zero tasks exits 0 -- so the hole " +
+      "the guard closes elsewhere is what reddens this job correctly. Guarding it would invert " +
+      "the check. The job also names `build` in its error text and its log file, which the same " +
+      "exemption covers.",
+  },
+  {
+    job: "image",
+    script: "dev",
+    reason:
+      "prose rather than a command: the job's comment and its error text both say `dev " +
+      "dependency`, about the modules the runner stage must not carry. `dev` is a persistent " +
+      "task, so there is no false green to be had from it in the first place -- a CI step that " +
+      "ran it would hang until the job timed out, never pass. The name-matching rule cannot " +
+      "tell English from a shell word, and buying that strength back with an exemption is " +
+      "cheaper than the alternative: `persistent` lives in `turbo.json`, which is JSONC, and " +
+      "reading it here would be a THIRD copy of the 48-line comment walker in " +
+      "`turbo-cache-dir.test.ts` -- the two in the tree are not the same function, so there is " +
+      "no extraction to borrow.",
+  },
+];
+
+/**
+ * Every place a run step NAMES a turbo script, and whether the guard is what
  * named it.
  *
  * THE SCRIPT'S NAME IS THE SUBJECT, NOT THE COMMAND THAT RUNS IT, and that is
@@ -250,17 +441,23 @@ function runSteps(): { job: string; run: string }[] {
  * spelling this file happens to use today, so `turbo run test:e2e`,
  * `npx turbo run test:e2e` and `pnpm --filter web test:e2e` would all pass it
  * silently -- the check would claim no job invokes a suite bare while a job did.
- * A suite cannot be run without its name appearing, so every appearance is held
+ * A task cannot be run without its name appearing, so every appearance is held
  * to being the guard's argument instead.
  *
  * The word boundaries take `:` with them, or `test` would match inside
- * `test:e2e` and report the guard's own argument as a bare invocation.
+ * `test:e2e` and report the guard's own argument as a bare invocation. They
+ * take `/` and `.` too, so that a PATH SEGMENT and a FILENAME STEM are not read
+ * as an invocation: `>/dev/null` reported the `dev` task as run bare by five
+ * jobs, and `build.log` reported the `build` one. Neither weakens the rule,
+ * because every spelling of an invocation has the task standing as its own
+ * argument -- `pnpm build`, `turbo run build`, `pnpm --filter web test:e2e` --
+ * and none of them has it buried in a path.
  */
-function suiteMentions(): { job: string; script: string; guarded: boolean }[] {
+function turboMentions(): { job: string; script: string; guarded: boolean }[] {
   return runSteps().flatMap(({ job, run }) =>
-    suiteScripts().flatMap((script) => {
+    turboScripts().flatMap((script) => {
       const name = new RegExp(
-        `(?<![\\w:-])${script.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w:-])`,
+        `(?<![\\w:./-])${script.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w:./-])`,
         "g",
       );
       return [...run.matchAll(name)].map((match) => ({
@@ -290,21 +487,71 @@ describe("a CI job that runs a suite", () => {
   });
 
   /**
-   * CNCORE-160's first acceptance criterion. `turbo run <task>` exits 0 having
-   * run nothing, so a job invoking the runner BARE reports success for a suite
-   * that is no longer there. The `test` job carried the only count check in the
-   * file; the other four ran `pnpm test:e2e`, `pnpm test:browser` and
-   * `pnpm test:contract` with nothing reading what came back.
+   * CNCORE-190's other half, and the half a suite CAN hold.
+   *
+   * The guard's roll call lives in `run-suite.sh` because a check cannot police
+   * the thing that decides whether it runs: delete this package's `test` script
+   * and this file does not run to complain. That leaves exactly one way to
+   * switch the roll call off -- dropping the ARGUMENT from `ci.yml` -- and that
+   * one is safe to hold here, because the suite is still running to notice it.
+   * The two holes are disjoint, which is what makes the pair whole.
    */
-  it("never invokes that suite bare, where a missing one would go green", () => {
-    const bare = suiteMentions()
+  it("holds the run of this package's own suite to naming it, since nothing else can", () => {
+    const unheld = guardInvocations()
+      .filter(({ task, required }) => task === "test" && required !== policingPackage())
+      .map(
+        ({ job, required }) =>
+          `the \`${job}\` job runs \`test\` as \`${required ?? "<no package named>"}\` rather than ` +
+          `\`${policingPackage()}\`. That package's suite is every check this repository makes of ` +
+          `its own CI, and deleting its \`test\` script leaves the other nine running and the ` +
+          `count green.`,
+      );
+    expect(unheld).toStrictEqual([]);
+  });
+
+  /**
+   * CNCORE-160's first acceptance criterion, WIDENED PAST THE SUITES to every
+   * turbo task the workflow runs (CNCORE-191).
+   *
+   * `turbo run <task>` exits 0 having run nothing, so a job invoking the runner
+   * BARE reports success for a task that is no longer there. The `test` job
+   * carried the only count check in the file; the other four suite jobs ran
+   * `pnpm test:e2e`, `pnpm test:browser` and `pnpm test:contract` with nothing
+   * reading what came back, and CNCORE-160 closed those. It left `typecheck`,
+   * `build` and the ladder's `db:migrate` and `db:check-ladder`, which carry the
+   * identical hole for the identical reason -- so the subject here is the
+   * RUNNER rather than the suite, and a task added to `turbo.json` tomorrow is
+   * in scope without anybody widening this again.
+   */
+  it("never invokes a turbo task bare, where a missing one would go green", () => {
+    const excused = ({ job, script }: { job: string; script: string }): boolean =>
+      UNGUARDED_ON_PURPOSE.some((entry) => entry.job === job && entry.script === script);
+    const bare = turboMentions()
       .filter(({ guarded }) => !guarded)
+      .filter((mention) => !excused(mention))
       .map(
         ({ job, script }) =>
           `the \`${job}\` job names \`${script}\` somewhere other than as ` +
           `\`${SUITE_GUARD}\`'s argument. \`turbo run ${script}\` exits 0 having run zero ` +
-          `tasks, so a job running it directly goes green with that suite deleted.`,
+          `tasks, so a job running it directly goes green with that task deleted.`,
       );
     expect(bare).toStrictEqual([]);
+  });
+
+  /*
+   * The canary over the excuses. An exemption that matches nothing is an excuse
+   * standing over a step that has gone -- and the next bare invocation of that
+   * task in that job would inherit a reason nobody wrote for it.
+   */
+  it("excuses only mentions that are really there", () => {
+    const stale = UNGUARDED_ON_PURPOSE.filter(
+      ({ job, script }) =>
+        !turboMentions().some(
+          (mention) => mention.job === job && mention.script === script && !mention.guarded,
+        ),
+    ).map(
+      ({ job, script }) => `\`${job}\` is excused for \`${script}\`, which it no longer names bare`,
+    );
+    expect(stale).toStrictEqual([]);
   });
 });

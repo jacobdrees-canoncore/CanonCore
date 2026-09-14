@@ -17,7 +17,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { data, Evaluator, Lexer, Parser } from "@actions/expressions";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { pnpmSetupSteps, type Step, type Workflow, workflow } from "./testing/ci-workflow";
+import {
+  pnpmSetupSteps,
+  type Step,
+  SUITE_GUARD,
+  type Workflow,
+  workflow,
+} from "./testing/ci-workflow";
 import { repoRoot } from "./testing/repo-root";
 
 /**
@@ -192,12 +198,23 @@ const swallowsFailure = (step: Step) => /\|\|\s*(true\b|:)/.test(step.run ?? "")
  * that the four are four, and that none of the four has been defanged. Written
  * out twice, a check added or renamed in one would silently stop being asked
  * about in the other.
+ *
+ * TWO OF THE FOUR RUN BEHIND THE GUARD (CNCORE-191), and that is exactly the
+ * Shotgun Surgery `testing/ci-workflow.ts`'s header describes, arriving again:
+ * moving `typecheck` and `build` behind `run-suite.sh` emptied both finders at
+ * once, and this file went red rather than quietly passing over nothing --
+ * which is what finding them by what they RUN buys. `lint` is not among them
+ * because `pnpm lint` is `biome ci` rather than turbo, and biome exits 1 when
+ * it processes no files, so it needs no guard.
+ *
+ * THE GUARD'S PATH IS RESOLVED RATHER THAN SPELLED, so the script moving in
+ * `ci.yml` cannot leave these finders looking for a command nothing runs.
  */
 function staticCheckCarriers(parsed: Workflow): Record<string, string[]> {
   return {
-    typecheck: jobsWithStep(parsed, runsExactly("pnpm typecheck")),
+    typecheck: jobsWithStep(parsed, runsExactly(`${SUITE_GUARD} typecheck`)),
     lint: jobsWithStep(parsed, runsExactly("pnpm lint")),
-    build: jobsWithStep(parsed, runsExactly("pnpm build")),
+    build: jobsWithStep(parsed, runsExactly(`${SUITE_GUARD} build`)),
     "env guard": jobsWithStep(parsed, blanksDatabaseUrl),
   };
 }

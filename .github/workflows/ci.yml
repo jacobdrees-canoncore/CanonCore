@@ -200,11 +200,14 @@ jobs:
           runtime: node@24
           cache: true
 
-      # TODO(CNCORE-191): bare, and `turbo run typecheck` exits 0 having run
-      # zero tasks exactly as `test` does. CNCORE-160 scoped itself to the jobs
+      # BEHIND THE GUARD for the reason every suite job is (CNCORE-191).
+      # `turbo run typecheck` exits 0 having run zero tasks exactly as
+      # `turbo run test` does, so this job went green having typechecked no
+      # package at all if the scripts went. CNCORE-160 scoped itself to the jobs
       # that run a SUITE and left this one, the Build job and the two ladder
-      # invocations; the guard beside them already takes a task name.
-      - run: pnpm typecheck
+      # invocations bare; the guard already took a task name.
+      - name: Typecheck, and assert it actually ran
+        run: .github/scripts/run-suite.sh typecheck
 
   lint:
     name: Lint
@@ -237,13 +240,22 @@ jobs:
           runtime: node@24
           cache: true
 
-      - run: pnpm build
+      - name: Build, and assert it actually ran
+        run: .github/scripts/run-suite.sh build
 
   # THE SAME COMMAND AS THE BUILD JOB ABOVE, REQUIRED TO FAIL. The generator's
   # env validation once passed a build with no DATABASE_URL at all, failing
   # instead on the first request that touched the database. This job is what
   # stops that regressing: apps/web/.env is gitignored, so a CI checkout
   # genuinely has no value to find.
+  #
+  # AND IT IS THE ONE TURBO INVOCATION LEFT BARE ON PURPOSE (CNCORE-191). The
+  # guard everywhere else exists because `turbo run <task>` exits 0 having run
+  # zero tasks; here that is the RIGHT behaviour, because this step requires the
+  # build to fail, so a build that ran nothing exits 0 and reddens the job
+  # correctly. Guarding it would invert the check. The reason is restated in
+  # `run-suite.test.ts`'s exemption list, which is the copy a check can read: a
+  # comment here is dropped by the YAML parse that suite reads the file through.
   #
   # IT DOES NOT CONTRADICT THE BUILD JOB, and the mechanism is worth stating,
   # because it is the one thing that could make this job lie. `turbo.json`
@@ -311,8 +323,16 @@ jobs:
       # code, and what that does and does not catch, is in `run-suite.sh`'s own
       # header and in ADR-0103 -- stated once there rather than a third time
       # here.
-      - name: Test, and assert a suite actually ran
-        run: .github/scripts/run-suite.sh test
+      #
+      # THE PACKAGE IS NAMED BECAUSE A COUNT IS NOT A ROLL CALL (CNCORE-190).
+      # `test` is declared by ten packages, so the one that drops its script
+      # leaves nine running and the count green -- and the one whose loss costs
+      # most is `@canoncore/config`, whose suite is every check this repository
+      # makes of `ci.yml`, `pnpm-workspace.yaml`, the network gate's wiring, the
+      # Biome config and the Node major. Measured: with its `test` script gone
+      # the job read `Tasks: 9 successful, 9 total` and passed.
+      - name: Test, and assert both the suite and its policing package ran
+        run: .github/scripts/run-suite.sh test @canoncore/config
 
   migrations:
     name: Migration ladder
@@ -354,7 +374,16 @@ jobs:
       - name: Build the database from empty and apply every migration
         run: |
           psql "$ADMIN_URL" -c 'create database empty_to_head'
-          DATABASE_URL="${BASE_URL}/empty_to_head" pnpm db:migrate
+          # THE GUARD MATTERS MOST HERE OF ANYWHERE (CNCORE-191). Turbo exits
+          # 0 having run zero tasks, so without it this gate would report a
+          # database built from NOTHING as built correctly -- ADR-0047's whole
+          # claim, passing on a run that applied no rung at all.
+          #
+          # The task is not spelled out in this comment on purpose: the check
+          # that keeps these guarded matches the NAME wherever it appears in a
+          # `run:` block, shell comments included, and cannot tell prose from a
+          # command. Naming it here would report this very step as unguarded.
+          DATABASE_URL="${BASE_URL}/empty_to_head" .github/scripts/run-suite.sh db:migrate
 
       # AND WHAT THE GATE CANNOT SEE. Building from empty applies every rung
       # regardless of the high-water mark Drizzle uses against a POPULATED
@@ -389,9 +418,9 @@ jobs:
           # here was written from the base branch's files, so a rung this branch
           # edited or withdrew is visible. Run against a database this branch
           # built itself it would be comparing files to their own hashes.
-          DATABASE_URL="${BASE_URL}/upgrade_path" pnpm db:check-ladder
+          DATABASE_URL="${BASE_URL}/upgrade_path" .github/scripts/run-suite.sh db:check-ladder
 
-          DATABASE_URL="${BASE_URL}/upgrade_path" pnpm db:migrate
+          DATABASE_URL="${BASE_URL}/upgrade_path" .github/scripts/run-suite.sh db:migrate
 
       # A pg_dump comparison of the two databases was considered and left out.
       # It would catch a rung silently SKIPPED -- but the journal check above
