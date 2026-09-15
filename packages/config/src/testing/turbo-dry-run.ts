@@ -45,6 +45,12 @@ export type PlannedTask = {
   /** Where the owning package sits, repo-relative -- `packages/config` and such. */
   directory: string;
   /**
+   * What the package will actually run, and a sentinel where it declares no such
+   * script. Ask `willRun` rather than reading it: the sentinel is what that
+   * predicate is for, and the two belong together.
+   */
+  command: string;
+  /**
    * Every file hashed into the task's cache key, which IS the key.
    *
    * KEYED RELATIVE TO `directory`, so a root file arrives spelled as a climb out
@@ -172,4 +178,41 @@ export function plannedTasks(task: string): PlannedTask[] {
 export function plannedTasksIfKnown(task: string): PlannedTask[] | null {
   const run = dryRun(task);
   return run.status === 0 ? plan(run.stdout) : null;
+}
+
+/**
+ * What turbo writes as a planned task's command where the owning package
+ * declares no such script.
+ *
+ * THE SENTINEL IS TURBO'S AND IS NOT DOCUMENTED. Its docs describe `--dry=json`
+ * as output to build automation on without specifying the shape (read
+ * 2026-09-15), so this spelling is measured rather than quoted -- turbo 2.10.12.
+ * A turbo that changed it would leave every package reading as one that runs,
+ * which is the silent direction, so a caller relying on this carries something
+ * that goes red when it stops matching: `typecheck-wiring.test.ts` has a canary
+ * over a task this repository really does leave a package out of.
+ */
+const NOT_DECLARED = "<NONEXISTENT>";
+
+/**
+ * Whether turbo would really RUN this planned task, which is not the same
+ * question as whether the plan names it.
+ *
+ * A PLAN NAMES EVERY PACKAGE, WHICH IS THE THING TO KNOW ABOUT A DRY RUN. It is
+ * not the list of packages that will run the task -- it is one entry per
+ * workspace package whatever the task is, and `command` is the only thing
+ * separating the ones that will from the ones that will not. Measured on turbo
+ * 2.10.12, 2026-09-15: `turbo run db:studio --dry=json` plans ELEVEN tasks in an
+ * eleven-package workspace where exactly ONE package declares the script, and
+ * ten of them carry the sentinel.
+ *
+ * SO A READER ASKING "WOULD TURBO RUN THIS HERE?" MUST ASK IT THROUGH THIS
+ * FUNCTION. `typecheck-wiring.test.ts` asks exactly that, and read the plan as
+ * the list of runners before this existed -- which passes with the script
+ * deleted, the vacuous green its own subject is about (CNCORE-197). It is here
+ * beside the type rather than in that suite so the next reader of a plan gets
+ * the distinction rather than rediscovering it.
+ */
+export function willRun(planned: PlannedTask): boolean {
+  return planned.command !== NOT_DECLARED;
 }

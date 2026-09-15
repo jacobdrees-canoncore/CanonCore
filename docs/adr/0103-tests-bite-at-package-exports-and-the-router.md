@@ -56,9 +56,13 @@ Turborepo's Vitest guide prescribes the task shape and it is followed exactly: `
 never a bare `interactive` — which is the same rule the generator's db tasks broke.
 
 **A package with nothing to test has no `test` script.** `vitest run --passWithNoTests` would
-report success for a package whose suite had been deleted, which is a false green. `packages/db` is
-the only package in that position now: its export opens a Postgres connection, so it has nothing to
-test without one. It gets the script in the change that gives it a schema.
+report success for a package whose suite had been deleted, which is a false green. `packages/db` was
+the only package in that position — its export opens a Postgres connection, so it had nothing to
+test without one — and is not any more: it has a schema and twenty-six suite files now. NO package
+is in that position today. The one package with no `test` script is `packages/contract`, which is
+not an instance of this rule at all: it has plenty to test and runs it as `test:contract`. That is
+why `test` is declared by TEN of the eleven packages while `typecheck` is declared by all eleven,
+and the difference is what the canary in `typecheck-wiring.test.ts` is built on (CNCORE-197).
 
 The same false green exists one level up, and is closed the same way: `turbo run <task>` exits 0
 when it runs ZERO tasks, so **every CI job that invokes turbo** asserts the count turbo printed
@@ -123,12 +127,52 @@ The half a suite can still hold is the other one — that `ci.yml` names the pac
 `run-suite.test.ts` holds it, because deleting the argument leaves that suite running to notice.
 The two holes are disjoint, which is what makes the pair whole.
 
-**The roll call is asked in ONE place, and that is a half rather than a finish.** `test
-@canoncore/config` is the case CNCORE-190 measured and closed. `typecheck` is declared by ELEVEN
-packages and has only the count, so one of them dropping its script leaves ten running and the job
-green — the identical hole, and nothing else catches it, because `network-gate-wiring.test.ts`
-covers `test` alone. CNCORE-197 holds that, and this paragraph is here so the mechanism does not
-read whole from outside while half of it is open.
+**The roll call is asked in one place and every other task is held by a suite, which is the whole
+mechanism rather than half of one.** `test @canoncore/config` is the case CNCORE-190 measured and
+closed in the script. `typecheck` is declared by ELEVEN packages and had only the count, so one of
+them dropping its script left ten running and the job green — the identical hole, and nothing else
+caught it, because `network-gate-wiring.test.ts` covers `test` alone. **CNCORE-197 closed it in
+`packages/config/src/typecheck-wiring.test.ts`**, which holds every package `pnpm-workspace.yaml`
+declares to appearing in turbo's plan for `typecheck` with a command to run. Measured 2026-09-15
+with `packages/tokens`' script deleted: `run-suite.sh typecheck` read `Tasks: 10 successful, 10
+total` and exited 0, while `run-suite.sh test @canoncore/config` — the Test job's own command —
+exited 1 naming the package. So the red lands on the Test job rather than the Typecheck one,
+exactly as a deleted `test` script's does.
+
+**A SUITE CAN HOLD THIS ONE, AND THAT DOES NOT CONTRADICT THE PARAGRAPH ABOVE.** The roll call over
+`test` cannot live in a suite because the script it polices is the script that decides whether that
+suite runs. `typecheck` is a different task, so the suite policing it runs whatever `typecheck`
+does — and `run-suite.sh test @canoncore/config` is what keeps that suite running at all. The
+script holds the one task no suite can hold, each suite holds a task it is not run by, and the two
+stay disjoint. A roll call for a task that IS `test` would have to go back into the script.
+
+**BOTH SIDES ARE DERIVED, WHICH IS WHAT KEEPS IT FROM GOING STALE IN THE DIRECTION THAT MATTERS.** A
+second argument per package would be eleven names transcribed into `ci.yml`, and the twelfth package
+would simply not be one anybody had written down. Nothing was added to the workflow: the packages
+come from `pnpm-workspace.yaml` and the plan from turbo, so a package added without a `typecheck`
+script is named on its first CI run rather than waiting for somebody to notice.
+
+**AND A DRY RUN PLANS EVERY PACKAGE, WHICH IS THE TRAP THIS NEARLY FELL INTO.** `turbo run <task>
+--dry=json` reports one task PER WORKSPACE PACKAGE whatever the task is, marking the ones that will
+not run `"<NONEXISTENT>"` rather than leaving them out — `db:studio`, declared by exactly one
+package, plans eleven. So a check reading the plan as the list of packages that will run the task
+reads every package as running every task, and passes with the script deleted: the vacuous green
+this record is about, reproduced inside the guard against it. Measured on turbo 2.10.12,
+2026-09-15, and caught before it shipped by the canary the file carries — the same comparison over
+`test`, which really does leave `packages/contract` out, so an empty answer THERE is a comparison
+that has stopped asking. Turbo does not document the dry run's shape (read 2026-09-15), so that
+sentinel is measured rather than quoted, and the canary is what notices it changing. The
+predicate is `willRun` in `turbo-dry-run.ts`, beside the type it reads, so the next reader of a plan
+gets the distinction rather than rediscovering it.
+
+**WHAT THIS DOES NOT HOLD, since half a mechanism reads whole from outside.** The plan the suite
+reads is UNFILTERED, and what CI runs is the ROOT script. `pnpm typecheck` is `turbo run typecheck`
+today, so the two name the same eleven packages — but a root script narrowed to
+`turbo run typecheck -F web` would typecheck one package, keep the count non-zero, and leave this
+suite reading an unfiltered plan of eleven and passing. A filtered root script is a shape this repo
+uses on purpose (`db:migrate` is `turbo run db:migrate -F @canoncore/db --`), so refusing one
+outright would be a new rule rather than CNCORE-197's, and it is written here rather than left for
+somebody to find.
 
 `build` is NOT a third case, for the reason `test:e2e` is not: it is declared by exactly ONE
 package, `web`, so the count reaching zero and the script being deleted are the same event. That
