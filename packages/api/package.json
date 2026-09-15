@@ -12,6 +12,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:corpus": "vitest run --config vitest.corpus.config.ts",
     "test:watch": "vitest",
     "import:list": "node scripts/import-list.ts"
   },
