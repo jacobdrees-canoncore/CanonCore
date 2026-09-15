@@ -3,7 +3,7 @@ import { join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
 import { repoRoot } from "./testing/repo-root";
-import { isWorkspacePattern, packageDirectories, workspaceDirectories } from "./testing/workspace";
+import { packageDirectories, workspaceDirectories } from "./testing/workspace";
 
 /**
  * A test that reads every Vitest config in the repository, for the same reason
@@ -365,33 +365,16 @@ describe("the network gate's wiring", () => {
 
 /**
  * The rules the sweep is made of, asked DIRECTLY rather than through the
- * repository -- which is the only way to ask them about a pattern or a script
- * this workspace does not happen to have. Both rows marked below went wrong
- * exactly that way: the thing the rule let through was not in the repo, so
- * every assertion above went on passing while the rule said something else.
+ * repository -- which is the only way to ask them about a script this workspace
+ * does not happen to have. The rows marked below went wrong exactly that way:
+ * the thing the rule let through was not in the repo, so every assertion above
+ * went on passing while the rule said something else.
+ *
+ * `isWorkspacePattern`'s table went with the predicate to
+ * `testing/workspace.test.ts` under CNCORE-197, since two files now sweep
+ * through it and ADR-0103 keeps a predicate and its table together.
  */
 describe("the rules the sweep is made of", () => {
-  it.each<[string, boolean]>([
-    ["apps/*", true],
-    ["packages/*", true],
-    // A LEADING dot is an ordinary directory name. The narrowing below is aimed
-    // at relative-path segments, not at dots, so this stays supported.
-    [".github/*", true],
-    // THE TWO THAT LEAVE THE REPOSITORY, and CNCORE-46's second half: `..`
-    // sweeps the repository's PARENT and `.` sweeps the root itself, and both
-    // matched the first segment's `[\w.-]+` while the comment on the rule named
-    // `../*` as a case it caught.
-    ["../*", false],
-    ["./*", false],
-    // Refused already, and the reason the rule reads the WHOLE pattern.
-    ["apps/*/nested", false],
-    ["apps/**", false],
-    ["apps", false],
-    ["*", false],
-  ])("reads %s as a workspace pattern: %s", (pattern, supported) => {
-    expect(isWorkspacePattern(pattern)).toBe(supported);
-  });
-
   it.each<[string, boolean]>([
     ["vitest run", true],
     ["vitest run --config vitest.e2e.config.ts", true],

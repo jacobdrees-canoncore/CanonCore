@@ -15,7 +15,8 @@ import { repoRoot } from "./repo-root";
  *
  * PACKAGE-PRIVATE, like `turbo-dry-run.ts` and unlike `repo-root.ts`: both
  * readers are in this package, so an `exports` entry would be a public surface
- * nothing imports.
+ * nothing imports. `workspace.test.ts` beside it holds `isWorkspacePattern`'s
+ * table, which came here with the predicate: ADR-0103 keeps the two together.
  *
  * IT THROWS RATHER THAN EXPECTS, which is the one thing that changed on the way
  * out of the suite that held it. What these functions guard is that the
@@ -75,6 +76,12 @@ export function workspaceDirectories(): string[] {
   return (packages ?? []).flatMap((pattern) => {
     if (!isWorkspacePattern(pattern)) throw new Error(`unsupported workspace pattern ${pattern}`);
     const [parent] = pattern.split("/");
+    // TODO(CNCORE-200): `isDirectory()` is lstat, so it is FALSE for a symlink
+    // pointing at a directory -- a symlinked package would leave this list in
+    // silence while pnpm and turbo both still call it a package, and every sweep
+    // descending from here would simply stop asking about it. No package
+    // directory here is a symlink today. Carried over rather than introduced:
+    // this read moved verbatim out of `network-gate-wiring.test.ts`.
     const found = readdirSync(join(repoRoot, parent as string), { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
       .map((entry) => join(parent as string, entry.name));

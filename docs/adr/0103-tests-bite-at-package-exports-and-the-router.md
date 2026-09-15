@@ -161,7 +161,18 @@ this record is about, reproduced inside the guard against it. Measured on turbo 
 2026-09-15, and caught before it shipped by the canary the file carries — the same comparison over
 `test`, which really does leave `packages/contract` out, so an empty answer THERE is a comparison
 that has stopped asking. Turbo does not document the dry run's shape (read 2026-09-15), so that
-sentinel is measured rather than quoted, and the canary is what notices it changing.
+sentinel is measured rather than quoted, and the canary is what notices it changing. The
+predicate is `willRun` in `turbo-dry-run.ts`, beside the type it reads, so the next reader of a plan
+gets the distinction rather than rediscovering it.
+
+**WHAT THIS DOES NOT HOLD, since half a mechanism reads whole from outside.** The plan the suite
+reads is UNFILTERED, and what CI runs is the ROOT script. `pnpm typecheck` is `turbo run typecheck`
+today, so the two name the same eleven packages — but a root script narrowed to
+`turbo run typecheck -F web` would typecheck one package, keep the count non-zero, and leave this
+suite reading an unfiltered plan of eleven and passing. A filtered root script is a shape this repo
+uses on purpose (`db:migrate` is `turbo run db:migrate -F @canoncore/db --`), so refusing one
+outright would be a new rule rather than CNCORE-197's, and it is written here rather than left for
+somebody to find.
 
 `build` is NOT a third case, for the reason `test:e2e` is not: it is declared by exactly ONE
 package, `web`, so the count reaching zero and the script being deleted are the same event. That
