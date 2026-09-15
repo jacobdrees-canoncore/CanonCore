@@ -1,13 +1,13 @@
 import type { Context } from "@canoncore/api/context";
 import { appRouter } from "@canoncore/api/routers";
 import { Button } from "@canoncore/ui/components/button";
-import { Card, CardDescription, CardHeader, CardTitle } from "@canoncore/ui/components/card";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@canoncore/ui/components/empty";
 import { Input } from "@canoncore/ui/components/input";
 import { call } from "@orpc/server";
 import Form from "next/form";
 import Link from "next/link";
 import { noPasswordSet } from "@/components/no-password";
+import { NoProviderAllowlisted } from "@/components/no-provider-allowlisted";
 import { oneValue } from "@/components/query-params";
 import { Reason } from "@/components/reason";
 import { callerContext } from "@/session";
@@ -307,7 +307,25 @@ export default async function ImportPage({
         Search the providers this instance is configured to reach, and take what you find into your
         catalogue.
       </p>
-      {!allowlisted.any && <NoProviderAllowlisted />}
+      {/*
+        WHY NOTHING HERE CAN BE IMPORTED, when the reason is the allowlist.
+
+        The front page says this too and it says it for the whole instance;
+        here it is the reason this page in particular cannot work, which is
+        the clause this surface passes in. ADR-0034 makes the allowlist empty
+        by default and the empty value refuses every provider -- so without
+        the notice, an owner meets a search that returns a refusal per
+        provider and no way to tell a wrong URL from an instance nobody
+        configured.
+
+        ONE NOTICE SHARED WITH `/` SINCE CNCORE-177, because this page's copy
+        of it had drifted: it had lost the sentence saying an empty result is
+        the setting rather than a fault, which is the whole of what the two
+        paragraphs were for.
+      */}
+      {!allowlisted.any && (
+        <NoProviderAllowlisted whatIsStopped="nothing here can be searched or imported yet" />
+      )}
       {configured.providers.length === 0 && <NoProviderConfigured />}
       {/*
         AND WHETHER ANYBODY CAN LOG IN TO THIS INSTANCE AT ALL (CNCORE-146),
@@ -916,40 +934,6 @@ function Unreachable({ failed }: { failed: Found["failed"] }) {
         ))}
       </ul>
     </div>
-  );
-}
-
-/**
- * WHY NOTHING CAN BE IMPORTED, when the reason is the allowlist.
- *
- * The front page says this too, and it says it for the whole instance; here it is
- * the reason this page in particular cannot work. ADR-0034 makes the allowlist
- * empty by default and the empty value refuses every provider -- so without
- * this, an owner meets a search that returns a refusal per provider and no way
- * to tell a wrong URL from an instance nobody configured.
- */
-function NoProviderAllowlisted() {
-  return (
-    <section aria-labelledby="no-provider" className="mt-6">
-      <Card>
-        <CardHeader>
-          {/* A real heading inside the primitive: `CardTitle` renders a `div`, so
-              a section labelled by one is labelled by something that is not a
-              heading and a reader navigating by heading finds only the `h1`. */}
-          <CardTitle>
-            <h2 id="no-provider">No provider is allowlisted</h2>
-          </CardTitle>
-          <CardDescription>
-            CanonCore reaches a provider only when its host or address range is on the allowlist in{" "}
-            <Link className="underline" href="/settings">
-              Settings
-            </Link>
-            . That setting is empty until you write one, and empty refuses every provider, so
-            nothing here can be searched or imported yet.
-          </CardDescription>
-        </CardHeader>
-      </Card>
-    </section>
   );
 }
 

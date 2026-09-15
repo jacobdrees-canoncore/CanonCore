@@ -584,6 +584,25 @@ describe("/import on a fresh install", () => {
     expect(notice.toLowerCase()).toContain("no provider is allowlisted");
   });
 
+  it("says an empty result is that setting rather than a fault", async () => {
+    /*
+     * WHICH KIND OF NOTHING THIS IS, which the heading above does not answer.
+     * An instance nobody has configured and an instance that is broken reach
+     * the same number of providers, so an owner who has read the heading still
+     * cannot tell whether the emptiness below is theirs to go and fix.
+     *
+     * IT IS THE FRONT PAGE'S SENTENCE AND THIS COPY HAD LOST IT (CNCORE-177),
+     * which is the whole argument for the notice being one component: two
+     * copies of a paragraph are two places for a reader's answer to go
+     * missing from one of them, and nothing was watching either.
+     */
+    const { text } = await documentFrom(freshBaseUrl, "/import");
+
+    expect(sectionIn(text, "no-provider").toLowerCase()).toContain(
+      "an empty result here is this setting rather than a fault",
+    );
+  });
+
   it("says no provider is configured either, which is the other setting", async () => {
     // TWO SETTINGS, TWO REMEDIES. An instance reaches no provider either because
     // nothing is allowlisted or because nothing is NAMED, and neither is derivable

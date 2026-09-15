@@ -294,6 +294,19 @@ describe("/ on a fresh install", () => {
     const notice = sectionIn(fresh.text, "no-provider");
     expect(notice).toContain("/settings");
     expect(notice.toLowerCase()).toContain("no provider is allowlisted");
+    /*
+     * AND WHICH KIND OF NOTHING THIS IS, which the heading does not answer: an
+     * instance nobody has configured and an instance that is broken reach the
+     * same number of providers.
+     *
+     * ASSERTED ON BOTH SURFACES THAT SHOW THE NOTICE (CNCORE-177). This page
+     * had the sentence and `/import`'s hand-written copy had lost it, so the
+     * notice is one component now -- and this half is what stops the folding
+     * from having quietly taken the shorter copy.
+     */
+    expect(notice.toLowerCase()).toContain(
+      "an empty result here is this setting rather than a fault",
+    );
   });
 
   it("does not say it where a provider IS allowlisted", async () => {
