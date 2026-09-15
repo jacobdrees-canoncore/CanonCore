@@ -45,6 +45,32 @@ export type PlannedTask = {
   /** Where the owning package sits, repo-relative -- `packages/config` and such. */
   directory: string;
   /**
+   * What the package will actually run, and `"<NONEXISTENT>"` where it declares
+   * no such script.
+   *
+   * A PLAN NAMES EVERY PACKAGE, WHICH IS THE THING TO KNOW ABOUT IT. The dry run
+   * is not the list of packages that will run the task -- it is one entry per
+   * workspace package, with this field as the only thing separating the ones
+   * that will from the ones that will not. Measured on turbo 2.10.12,
+   * 2026-09-15: `turbo run db:studio --dry=json` plans ELEVEN tasks in an
+   * eleven-package workspace where exactly one declares the script, and ten of
+   * them carry this sentinel.
+   *
+   * SO A READER ASKING "WOULD TURBO RUN THIS HERE?" MUST READ THIS FIELD.
+   * `typecheck-wiring.test.ts` asks exactly that and would have passed over a
+   * deleted script without it, which is the vacuous green its own subject is
+   * about (CNCORE-197).
+   *
+   * THE SENTINEL IS TURBO'S AND IS NOT DOCUMENTED. Its docs describe `--dry=json`
+   * as output for automation without specifying the shape (read 2026-09-15), so
+   * the spelling here is measured rather than quoted, and a turbo that changed it
+   * would leave every package reading as one that runs. That is caught rather
+   * than trusted: `typecheck-wiring.test.ts` carries a canary over a task this
+   * repository really does leave a package out of, which goes red if this string
+   * ever stops matching.
+   */
+  command: string;
+  /**
    * Every file hashed into the task's cache key, which IS the key.
    *
    * KEYED RELATIVE TO `directory`, so a root file arrives spelled as a climb out

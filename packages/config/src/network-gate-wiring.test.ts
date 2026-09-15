@@ -2,8 +2,8 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
-import { parse } from "yaml";
 import { repoRoot } from "./testing/repo-root";
+import { isWorkspacePattern, packageDirectories, workspaceDirectories } from "./testing/workspace";
 
 /**
  * A test that reads every Vitest config in the repository, for the same reason
@@ -29,64 +29,6 @@ const GATE = "@canoncore/config/testing/install-network-gate";
 const GATE_IN_GLOBAL_SETUP = "@canoncore/config/testing/gate-global-setup";
 
 type Manifest = { name?: string; scripts?: Record<string, string> };
-
-// Only the `<name>/*` shape this repo uses. A pattern of any other shape is not
-// quietly ignored -- it would take packages out of the sweep below, which is the
-// one failure this test cannot afford. Checked as a WHOLE rather than by its
-// second segment: `apps/*/nested` has `*` there too and sweeps somewhere other
-// than where the pattern says.
-//
-// A first segment of ONLY dots is refused ahead of the rest, because `[\w.-]+`
-// matches `..` and `.` -- so `../*` swept the repository's parent and `./*` its
-// root, the two places a sweep most obviously should not go, while the sentence
-// above claimed the whole-shape check caught them (CNCORE-46).
-function isWorkspacePattern(pattern: string): boolean {
-  const [parent, ...rest] = pattern.split("/");
-  return rest.length === 1 && rest[0] === "*" && /^(?!\.+$)[\w.-]+$/.test(parent as string);
-}
-
-/**
- * Every workspace directory that is really a package, which is the list the
- * config read is held against (CNCORE-160).
- *
- * A directory with no manifest is NOT one, for the reason `suites()` gives
- * below: pnpm reads it that way too, and a stray directory under `packages/`
- * would otherwise be reported as a package that dropped its suite.
- */
-function packageDirectories(): string[] {
-  return workspaceDirectories().filter((directory) =>
-    existsSync(join(repoRoot, directory, "package.json")),
-  );
-}
-
-/**
- * Every directory `pnpm-workspace.yaml` calls a package, read from the file.
- *
- * NON-EMPTINESS IS ASSERTED HERE RATHER THAN COUNTED BY EACH CALLER (CNCORE-160).
- * Every sweep in this file descends from this one function, so a workspace file
- * that parsed to no packages empties all of them at once -- and a guard in one
- * test derived from another of those sweeps would then be comparing nothing to
- * nothing and passing. The floors below were `>= 12` and caught that only by
- * being a number somebody had written down, which is the thing CNCORE-160 is
- * taking out. So the root of the chain is where it is held: the file must
- * declare at least one pattern, and each pattern must find at least one
- * directory.
- */
-function workspaceDirectories(): string[] {
-  const { packages } = parse(readFileSync(join(repoRoot, "pnpm-workspace.yaml"), "utf8")) as {
-    packages?: string[];
-  };
-  expect(packages ?? [], "pnpm-workspace.yaml declares no packages").not.toStrictEqual([]);
-  return (packages ?? []).flatMap((pattern) => {
-    expect(isWorkspacePattern(pattern), `unsupported workspace pattern ${pattern}`).toBe(true);
-    const [parent] = pattern.split("/");
-    const found = readdirSync(join(repoRoot, parent as string), { withFileTypes: true })
-      .filter((entry) => entry.isDirectory())
-      .map((entry) => join(parent as string, entry.name));
-    expect(found, `the workspace pattern ${pattern} matches no directory`).not.toStrictEqual([]);
-    return found;
-  });
-}
 
 // A script that RUNS a suite rather than watching one, in either spelling Vitest
 // documents for it. The sweep is named after the COMMAND rather than after a
