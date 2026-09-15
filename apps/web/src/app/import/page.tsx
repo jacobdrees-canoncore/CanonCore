@@ -1028,15 +1028,17 @@ function BrowseBox({
         {/*
           THE TOKENS `Input` CARRIES, INHERITED RATHER THAN SPELT OUT
           (CNCORE-177). This control sits directly beside an `Input` in the same
-          row, and a control an eighth of an inch shorter than its neighbour, in
-          a different type size, is the "reads as part of this product" test
-          failing at the one place a keyboard user needs it most:
-          `.claude/rules/frontend.md` puts accessibility with the feature.
+          row, and a control that does not match its neighbour is the "reads as
+          part of this product" test failing: `.claude/rules/frontend.md`.
 
-          THIS IS THE COPY THAT PROVED IT. Spelt out here by hand, it had lost
+          THIS IS THE COPY THAT DRIFTED. Spelt out here by hand, it had lost
           `w-full` and `md:text-xs` against the two surfaces that wrote the same
           string -- which nothing could see, because each copy was correct on
-          its own page. `max-w-xs` is the only thing left to say, and it is the
+          its own page. WHAT THAT COST WAS ONLY THE WIDTH: it kept `h-8` and
+          `text-xs`, and `md:text-xs` is inert beside an unconditional
+          `text-xs`. An earlier version of this comment said the control was
+          shorter and in a different type size, which was written rather than
+          measured. `max-w-xs` is the only thing left to say here, and it is the
           same cap the `Input` beside it in this row already carries.
         */}
         <Select

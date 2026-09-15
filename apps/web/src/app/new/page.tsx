@@ -195,11 +195,12 @@ function NewItemForm({ kinds }: { kinds: { value: string; label: string }[] }) {
           <Label htmlFor="kind">Kind</Label>
           {/*
             A NATIVE `<select>` RATHER THAN A SCRIPTED ONE, and that is this
-            page's one real constraint. `packages/ui`'s `Checkbox` is a client
-            component that needs script to toggle, as a Base UI select would be
-            -- so either would make this surface depend on JavaScript, and the
-            ticket's seam is a page over HTTP with no browser. A native select
-            submits with no script at all.
+            page's one real constraint. `packages/ui`'s `Checkbox` needs script
+            to toggle, and a Base UI select needs it to OPEN AT ALL -- that one
+            posts through a hidden field driven by React state, so unhydrated it
+            can only ever submit its default. Either would make this surface
+            depend on JavaScript, and the ticket's seam is a page over HTTP with
+            no browser. A native select submits with no script at all.
 
             `Select` IS THAT ELEMENT WEARING `Input`'s METRICS (CNCORE-177).
             This page wrote them out by hand, as two other surfaces did, and the

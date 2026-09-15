@@ -21,25 +21,51 @@ already drifted, and the three drifts are the argument.
 
 `.claude/rules/frontend.md` already says to read `packages/ui` first and import what exists. The
 case it does not cover is the one that produced the drift: **the registry's version of a control
-needs script and this app has none.**
+cannot be used without script, and this app has none.**
 
 Every form here is server-rendered markup a browser posts with no JavaScript — `/new`, `/import`,
-the form that places an Item in a Container, Run and Cancel on `/tasks`, End on `/devices`. Base
-UI's Select is a client component that has to hydrate before it opens, and `packages/ui`'s own
-`Checkbox` is one for the same reason. So a select had to be the native element, and a native
+the form that places an Item in a Container, Run and Cancel on `/tasks`, End on `/devices`.
+
+**THE DISCRIMINATOR IS WHAT A COMPONENT RENDERS, NOT WHETHER IT IS A CLIENT COMPONENT**, and that is
+worth stating because the obvious version of this sentence proves too much. `packages/ui`'s `Input`
+wraps a Base UI client component and works unhydrated perfectly well, because what reaches the
+browser is a real `<input>` and a browser posts one by itself. Base UI's Select is not that: it
+renders a scripted trigger and popup and posts through a hidden `<input>` whose value comes from
+React state, so unhydrated it cannot be opened and can only ever submit its default (`SelectRoot`,
+`@base-ui/react` 1.8.0, read 2026-09-15). So a select had to be the native element, and a native
 element is a tag rather than a component: **there was nothing to import, and what each page needed
 was not behaviour but IDENTITY.**
 
 Three surfaces reached the same conclusion independently and each wrote the identity out by hand,
 each with a docblock explaining that there was no select in `packages/ui` to inherit from. By the
-time it was three, the third had lost `w-full` and `md:text-xs`: a control narrower than its
-neighbour in a different type size, which is `.claude/rules/frontend.md`'s "reads as part of this
-product" failing at the one place review had already caught it twice.
+time it was three, the third had lost `w-full` and `md:text-xs`.
+
+**WHAT THAT DRIFT COST IS SMALLER THAN THE FIRST DRAFT OF THIS RECORD CLAIMED, AND THE CORRECTION
+GOES HERE RATHER THAN IN A FOOTNOTE.** That draft called it "a control narrower than its neighbour in
+a different type size". Narrower is right; the rest was written rather than measured and is false.
+The drifted copy kept `h-8` and `text-xs`, so it was neither shorter nor differently sized, and
+`md:text-xs` is inert beside an unconditional `text-xs` — residue of stock shadcn's `text-base
+md:text-sm`, which this app does not ship. Only `w-full` had any visible effect.
+
+**SO THE ARGUMENT IS NOT THAT THIS PARTICULAR DRIFT LOOKED BAD.** It is that three copies drifted at
+all, in a direction nobody chose, where no assertion about any one page could see it — and that the
+NEXT drift is not owed the courtesy of being small. The mismatch that DID look bad is a different one
+and is on the record twice already: two of the three surfaces wore stock shadcn's `h-9 px-3
+text-base` until review caught each of them, a step taller and larger than the field beside it, which
+is `.claude/rules/frontend.md`'s "Ported code is where this slips".
 
 **THE DECISION IS THAT THE MISSING COMPONENT IS WRITTEN, NOT THAT THE TOKENS ARE COPIED CAREFULLY.**
 A native element wearing this app's metrics IS a primitive, even though it wraps nothing, and the
 next control in that position — a radio group, a date field, anything whose scripted version this
 app cannot use — goes the same way rather than being the fourth thing matched by hand.
+
+**AND IT CARRIES A SUBSET OF `Input`, NEVER SOMETHING DIFFERENT.** `Select` leaves out `Input`'s
+`file:` and `placeholder:` variants, which name states a `<select>` does not have, and its
+`disabled:` and `aria-invalid:` ones, which name states no surface here renders a select in. That
+licence to carry LESS is bounded by a test that it never carries something OTHER: `select.test.ts`
+asserts the select's classes are a subset of the `Input`'s on the same page, so `Input` moving and
+this standing still is red rather than silent. It is the shape `globals.css.test.ts` already uses to
+keep the stylesheet and the tokens from drifting.
 
 ## Why the words do NOT go there
 

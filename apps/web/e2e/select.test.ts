@@ -12,11 +12,17 @@ import { documentFrom, logInAt } from "./document";
  *
  * READ ACROSS THE THREE SURFACES THAT CARRY IT, like `header.test.ts` and for
  * the same reason. The control is a native `<select>` wearing `Input`'s metrics
- * -- a Base UI one is a client component needing script, and every form in this
- * app works without any. That identity was hand-copied onto three pages, and
- * the third had lost two of its classes: a control shorter than its neighbour
- * in a different type size, which `.claude/rules/frontend.md` files under
- * "reads as part of this product" and is the near miss that rule watches for.
+ * -- a Base UI one posts through a hidden field driven by React state, so
+ * unhydrated it can only submit its default, and every form in this app works
+ * with no script. That identity was hand-copied onto three pages and the third
+ * had lost `w-full` and `md:text-xs`.
+ *
+ * WHAT THAT COST WAS THE WIDTH AND NOTHING ELSE, which is worth saying here
+ * because a test written against a symptom nobody measured is a test aimed at
+ * the wrong thing. The drifted copy kept `h-8` and `text-xs`, and `md:text-xs`
+ * is inert beside an unconditional `text-xs`. So this file does not assert that
+ * the control LOOKS right; it asserts that the three cannot differ, which is
+ * the property that was actually broken.
  *
  * IT IS `packages/ui`'s `Select` NOW, which is where the drift stops being
  * possible -- and this file is what says the three surfaces actually use it.
@@ -54,13 +60,13 @@ function theSelectClassesOn(text: string): string[] {
   return (found[0] as string).split(/\s+/).filter((utility) => utility !== "");
 }
 
-/** The `class` of the named `<input>` on a page, for comparing a row's controls. */
-function theInputClassNamed(text: string, name: string): string {
+/** The classes of the named `<input>` on a page, for comparing a form's controls. */
+function theInputClassesNamed(text: string, name: string): string[] {
   const found = new RegExp(`<input\\b[^>]*\\bname="${name}"[^>]*>`).exec(text)?.[0];
   if (found === undefined) throw new Error(`that page rendered no input named ${name}`);
   const className = /\bclass="([^"]*)"/.exec(found)?.[1];
   if (className === undefined) throw new Error(`the input named ${name} carries no class`);
-  return className;
+  return className.split(/\s+/).filter((utility) => utility !== "");
 }
 
 describe("the select this app draws itself", () => {
@@ -103,30 +109,36 @@ describe("the select this app draws itself", () => {
     expect(theSelectClassesOn(importing.text)).toEqual(expect.arrayContaining(identity));
   });
 
-  it("wears the metrics of the Input it stands beside", async () => {
+  it("wears nothing the Input beside it does not", async () => {
     /*
      * WHICH IDENTITY IT IS, which the comparison above cannot say: three
      * surfaces agreeing on the wrong control agree just as well as three
      * agreeing on the right one.
      *
-     * THE LIST IS THE ONE THE SURFACES THEMSELVES NAME. Stock shadcn ships
-     * `h-9 px-3 text-base ring-[3px]` and a select wearing those sits a step
-     * taller and larger than the field beside it -- the mismatch review caught
-     * on `/items/<container>` and `/new` records against its Title field. The
-     * pair is read off ONE row of ONE page, which is the row those docblocks
-     * are written about: the Item select and the Position field beside it.
+     * A SUBSET OF `Input`, WHICH IS THE WHOLE CLAIM AND NOT A LIST OF METRICS.
+     * An earlier version of this named six utilities by hand, which is a fourth
+     * copy of the thing this ticket exists to stop there being three of -- and
+     * it would have passed while `Input` moved underneath it. `Select` takes
+     * `Input`'s metrics and leaves out the variants a `<select>` has no states
+     * for, so "carries less, never something other" is the exact relation, and
+     * `Input` changing without `Select` following is what reddens this.
+     *
+     * READ OFF `/new`, WHICH IS THE ONLY PAGE WHERE BOTH ARE UNCAPPED. The
+     * Title field there passes no `className`, so it renders `Input` whole --
+     * whereas the Position field on `/items/<container>` narrows to `w-28` and
+     * `tailwind-merge` drops the `w-full` this would then look for.
      */
-    const { text } = await documentFrom(
-      curatableBaseUrl,
-      `/items/${curatable.releaseOrder}`,
-      ownerOfTheCuratable,
-    );
+    const { text } = await documentFrom(baseUrl, "/new", ownerOfTheSeeded);
 
-    const select = theSelectClassesOn(text).join(" ");
-    const input = theInputClassNamed(text, "position");
-    for (const metric of ["h-8", "px-2.5", "py-1", "text-xs", "md:text-xs", "rounded-none"]) {
-      expect(input, `the Input beside it carries ${metric}`).toContain(metric);
-      expect(select, `the select carries ${metric}`).toContain(metric);
-    }
+    const select = theSelectClassesOn(text);
+    const input = theInputClassesNamed(text, "title");
+    expect(input).toEqual(expect.arrayContaining(select));
+    /*
+     * AND `Input` IS STILL THE RICHER OF THE TWO, so the assertion above is a
+     * subset rather than an equality that happens to hold: the day somebody
+     * makes them identical, the reason this is worded as a subset is gone and
+     * the comment should go with it.
+     */
+    expect(input.length).toBeGreaterThan(select.length);
   });
 });
