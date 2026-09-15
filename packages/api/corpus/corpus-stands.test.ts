@@ -71,16 +71,33 @@ const AT = process.env.CANONCORE_AT?.replace(/\/$/, "");
  * needs it to.
  */
 const MEASURED = {
-  /** 465 `Theory:Timeline` pages, counted by `provider-wiki`'s own parser (CNCORE-159). */
-  orderings: 460,
-  /** 29,844 slots across them (CNCORE-159). */
-  slots: 29_000,
+  /** 8,052 Items: the 465 Orderings and the 7,587 stories they hold between them. */
+  items: 7_800,
+  /** 465 `Theory:Timeline` pages, every one of which landed. */
+  orderings: 450,
+  /** 30,896 slots across them, against CNCORE-159's 29,844 counted two days earlier. */
+  slots: 30_000,
   /**
-   * AHistory, the largest the wiki holds: 2,913 members at 2,669 distinct
-   * Positions with 454 Repeats, measured 2026-09-13. It is here because it is
-   * the Ordering a single page cap could silently truncate.
+   * AHistory, the largest the wiki holds, landed at 2,907 against the 2,913
+   * members CNCORE-159 counted on 2026-09-13 -- six pages of editing in two
+   * days. It is here because it is the Ordering a single page cap could
+   * silently truncate.
    */
-  largestOrdering: 2_500,
+  largestOrdering: 2_750,
+  /**
+   * THE FIRST OF THE TWO FIGURES CNCORE-167 WAS WRITTEN TO TAKE: 7,587 distinct
+   * Items sit in an Ordering. CNCORE-159 guessed "about seven thousand" and
+   * said plainly that nothing computed it.
+   */
+  storiesPlaced: 7_400,
+  /**
+   * AND THE SECOND: the most Orderings any one Item sits in is 48 --
+   * `Endgame (POT comic story)`. An earlier draft of CNCORE-159 said
+   * thirty-six and nothing measured it; ADR-0119 says twice that nothing counts
+   * an Item's placements. CNCORE-184 cannot choose where a Row's membership
+   * list truncates without this number.
+   */
+  mostOrderings: 45,
 };
 
 let census: CorpusCensus;
@@ -108,6 +125,7 @@ describe.skipIf(!asked)("the Doctor Who corpus stands in the Owner's own install
   });
 
   it("holds the wiki's whole timeline corpus, not a sample of it", () => {
+    expect(census.items).toBeGreaterThanOrEqual(MEASURED.items);
     expect(census.orderings).toBeGreaterThanOrEqual(MEASURED.orderings);
     expect(census.slots).toBeGreaterThanOrEqual(MEASURED.slots);
   });
@@ -123,14 +141,22 @@ describe.skipIf(!asked)("the Doctor Who corpus stands in the Owner's own install
   });
 
   /**
-   * MULTI-PLACEMENT IS THE PRODUCT'S ENTIRE ARGUMENT, and this is the first
-   * time anything has been able to check it at the size it was designed for.
-   * Across the whole wiki 96.8% of stories sit in more than one category
-   * (CNCORE-159); an Ordering is a narrower thing than a category, so this
-   * asserts only that the shape is real and records the figure it found.
+   * THE TWO FIGURES THIS TICKET EXISTS TO TAKE, now that they have been taken.
+   *
+   * MULTI-PLACEMENT IS THE PRODUCT'S ENTIRE ARGUMENT and this is the first time
+   * anything has checked it at the size it was designed for: one Item sits in
+   * 48 of these 465 Orderings.
+   *
+   * AND THE ACCOUNTING IS EXACT, which is the assertion that makes
+   * `storiesPlaced` mean what its name says. 465 + 7,587 = 8,052, so every
+   * Item in the catalogue is either an Ordering or a story inside one: nothing
+   * is loose, and no Ordering sits inside another. Were a `Theory:Timeline`
+   * page ever to link another one, that Container would be counted on both
+   * sides and this sum would exceed the catalogue.
    */
-  it("holds Items sitting in several Orderings at once", () => {
-    expect(census.mostPlaced).not.toBeNull();
-    expect(census.mostPlaced?.orderings).toBeGreaterThan(1);
+  it("holds the two figures CNCORE-167 was written to take", () => {
+    expect(census.storiesPlaced).toBeGreaterThanOrEqual(MEASURED.storiesPlaced);
+    expect(census.mostPlaced?.orderings).toBeGreaterThanOrEqual(MEASURED.mostOrderings);
+    expect(census.orderings + census.storiesPlaced).toBe(census.items);
   });
 });
