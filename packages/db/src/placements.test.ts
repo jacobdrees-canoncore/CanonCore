@@ -436,6 +436,18 @@ describe("a placement several sources assert", () => {
   });
 });
 
+/*
+ * TODO(CNCORE-198): three of ADR-0119's four guarantees are asked here and the
+ * fourth is not. Every `after` below names a real placement, or one a delete has
+ * since taken; a cursor naming NOTHING -- a malformed id, or a well-formed one
+ * nobody minted -- has never been put to this Listing, where a Container's
+ * members carries three ways of it in one test.
+ *
+ * FOUND WHILE WRITING THE LISTING CONTRACT (CNCORE-171), in the sentence that
+ * claimed this Listing was asked all four here. It is not ON that contract --
+ * it rides on `item.get` and takes no page size, so the CAP is a question it
+ * cannot be asked at that seam -- and this one is owed here regardless.
+ */
 describe("findPlacementsOfItem, capped and walked", () => {
   it("caps the page and says how many orderings there are altogether", async () => {
     // ADR-0119's first sentence: every listing in CanonCore is capped. This was

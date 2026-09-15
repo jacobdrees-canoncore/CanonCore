@@ -9,6 +9,14 @@ import { appRouter } from "./index";
 /**
  * ADR-0103's second seam: the router called in the same process, with context
  * built by the real `createContext` rather than hand-copied from it.
+ *
+ * ONE TEST PER PROCEDURE, OF THE QUESTION THAT PROCEDURE ASKS. Everything these
+ * three share -- the cap, the walk, the size across two pages, a cursor naming
+ * nothing, and what a Row emits -- is asserted once over all of them in
+ * `listing.test.ts` (CNCORE-171). It was asserted five times here for
+ * `catalogue.list`, twice in different wording for Catalogue search, and not at
+ * all for work-browsing, which is how the second Listing on this shape came to
+ * inherit none of it.
  */
 const context = await createContext();
 
@@ -19,88 +27,23 @@ beforeAll(async () => {
 });
 
 describe("catalogue.list", () => {
-  it("answers with what the catalogue holds, and how much of it there is", async () => {
-    const id = await anItemTitled(db, "A story on the front page");
+  it("answers with a Person, which is the question work-browsing is not asking", async () => {
+    // ADR-0077's two questions, and this is the WIDE one: "what is in this
+    // catalogue" excludes nothing, where `works` below answers "what can I
+    // watch" and keeps the cast out of it. A front page that hid People would
+    // be answering the other question without saying so.
+    //
+    // THE PAIR IS WHAT MAKES EITHER OF THEM A TEST. One story listed says
+    // nothing about which question was asked, since both list it; the Person is
+    // the only row the two procedures disagree about.
+    const story = await anItemTitled(db, "A story on the front page");
+    const person = await anItemTitled(db, "A person on the front page", { kind: "person" });
 
     const catalogue = await call(appRouter.catalogue.list, {}, { context });
+    const listed = catalogue.rows.map((row) => row.id);
 
-    expect(catalogue.rows).toContainEqual(
-      expect.objectContaining({ id, title: "A story on the front page" }),
-    );
-    expect(catalogue.total).toBeGreaterThanOrEqual(catalogue.rows.length);
-  });
-
-  it("names every field a row emits, and no internal one", async () => {
-    // ADR-0045. The same enumeration oracle `item.get` carries, for the same
-    // reason: never the query's row with fields removed, because a strip-list
-    // works right up until somebody adds a column and forgets. `owner_id`, the
-    // change sequence, the merge stamp and `holds_work` are all absent because
-    // no line was written for them.
-    await anItemTitled(db, "Named in a listing");
-
-    const { rows } = await call(appRouter.catalogue.list, { limit: 1 }, { context });
-    const [row] = rows;
-    if (!row) throw new Error("the catalogue answered with nothing to enumerate");
-
-    expect(Object.keys(row).sort()).toStrictEqual(["id", "isContainer", "kind", "title"]);
-  });
-
-  it("carries a cursor onto the next page, and says where the catalogue ends", async () => {
-    // THE OTHER HALF OF THE CAP. `total` already said what was not being shown;
-    // this is what reaches it. The cursor is an ITEM ID rather than an encoded
-    // sort key (ADR-0119), so nothing about the projection crosses this seam.
-    await anItemTitled(db, "A story a reader has to page to");
-
-    const first = await call(appRouter.catalogue.list, { limit: 1 }, { context });
-    if (first.continuesAfter === null) throw new Error("a catalogue of one needs no paging");
-    const second = await call(
-      appRouter.catalogue.list,
-      { limit: 1, after: first.continuesAfter },
-      { context },
-    );
-
-    expect(second.rows[0]?.id).not.toBe(first.rows[0]?.id);
-    // THE SAME LIBRARY FROM BOTH PAGES. A count taken after the cursor bit
-    // would shrink page by page and tell an owner their catalogue was emptying
-    // as they read it.
-    expect(second.total).toBe(first.total);
-  });
-
-  it("starts at the beginning when the cursor names nothing", async () => {
-    // ADR-0066's rule for a parameter that is not an identity: one naming
-    // nothing matches nothing and changes nothing. A cursor is cut at an item,
-    // and an owner who deletes that item should not find a bookmarked page
-    // answering with an error -- they should find the catalogue.
-    //
-    // BOTH SHAPES, because they fail differently and only one of them looks
-    // like a cursor. A well-formed id for no row is an empty query; a MALFORMED
-    // one reaches a `uuid` column as PostgreSQL error 22P02, which is the
-    // measured 500 ADR-0066 records against `item.get` before CNCORE-14 -- a
-    // truncated id in a shared link reading as "this server is broken".
-    const beginning = await call(appRouter.catalogue.list, { limit: 3 }, { context });
-
-    const noSuchItem = await call(
-      appRouter.catalogue.list,
-      { limit: 3, after: crypto.randomUUID() },
-      { context },
-    );
-    const notAnId = await call(
-      appRouter.catalogue.list,
-      { limit: 3, after: "page-two-please" },
-      { context },
-    );
-
-    expect(noSuchItem.rows).toStrictEqual(beginning.rows);
-    expect(notAnId.rows).toStrictEqual(beginning.rows);
-  });
-
-  it("refuses to answer with more than a page at a time", async () => {
-    // THE CEILING IS THIS APP'S, not the caller's. A limit a request can raise
-    // is not a cap on anything -- the cost of one answer would be a function of
-    // what somebody asked for rather than of what this app chose to serve.
-    const asked = call(appRouter.catalogue.list, { limit: 5_000 }, { context });
-
-    await expect(asked).rejects.toThrow();
+    expect(listed).toContain(story);
+    expect(listed).toContain(person);
   });
 });
 
@@ -141,64 +84,15 @@ describe("catalogue.search", () => {
     // Deliberate rather than accidental: an escaped empty query is the pattern
     // `%%` and matches every titled row, so an empty search box would otherwise
     // answer with the whole catalogue (ADR-0120).
+    //
+    // THE SECOND TEST THIS PROCEDURE KEEPS, and it is about the question rather
+    // than the walk: what a reader typed is what separates Catalogue search
+    // from `list`, and the empty string is the one thing they can type that
+    // this must answer with a Listing of nothing rather than with everything.
     await anItemTitled(db, "An item the empty query must not reach");
 
     const found = await call(appRouter.catalogue.search, { query: "" }, { context });
 
     expect(found).toEqual({ rows: [], total: 0, continuesAfter: null });
-  });
-
-  it("walks to the next page of results, and reports one match set from both", async () => {
-    // THE SAME SHAPE AS `list`, WHICH IS THE POINT OF IT (ADR-0119). Search had
-    // no cursor at all until CNCORE-88 -- deliberately, since
-    // `continuesAfter: null` means "the listing ends here" and a search over a
-    // thousand matches saying so is the silent cap that record refuses. Now it
-    // has one, so the field means here what it means everywhere.
-    //
-    // AND THE COUNT IS THE HALF THAT USED TO BREAK. `total` was a window count,
-    // taken AFTER `where`, so with a cursor in the predicate page two counted
-    // what was left rather than what matched -- a search reporting a smaller
-    // match set the further a reader walked.
-    const shared = "The Sensorites hear everything";
-    for (const suffix of ["one", "two", "six"]) await anItemTitled(db, `${shared} ${suffix}`);
-
-    const first = await call(appRouter.catalogue.search, { query: shared, limit: 2 }, { context });
-    if (first.continuesAfter === null) throw new Error("three matches do not fit a page of two");
-    const second = await call(
-      appRouter.catalogue.search,
-      { query: shared, limit: 2, after: first.continuesAfter },
-      { context },
-    );
-
-    expect(first.rows).toHaveLength(2);
-    expect(second.rows).toHaveLength(1);
-    expect(second.total).toBe(first.total);
-    expect(second.total).toBe(3);
-    // NO RESULT TWICE, which the lengths above cannot see.
-    const walked = [...first.rows, ...second.rows].map((row) => row.id);
-    expect(new Set(walked).size).toBe(3);
-  });
-
-  it("refuses a limit above a page, and accepts one at it", async () => {
-    // The ceiling is what keeps one request's cost bounded by this app rather
-    // than by whoever sends the request, which is the same rule `list` carries.
-    //
-    // BOTH HALVES, because the refusal alone is satisfied by a procedure that
-    // refuses everything -- and while this was being written it was satisfied
-    // by a procedure that did not exist at all, since calling `undefined`
-    // throws as readily as a validator does. The pair is what makes it a test
-    // of the ceiling rather than of whether anything threw.
-    //
-    // THE MESSAGE IS oRPC'S OWN and does not name the field: the input schema
-    // rejects and the procedure answers "Input validation failed". Matched
-    // rather than left bare so that a `TypeError` -- which is what calling a
-    // procedure that is not there raises -- cannot satisfy it.
-    await expect(
-      call(appRouter.catalogue.search, { query: "anything", limit: 101 }, { context }),
-    ).rejects.toThrow("Input validation failed");
-
-    await expect(
-      call(appRouter.catalogue.search, { query: "anything", limit: 100 }, { context }),
-    ).resolves.toBeDefined();
   });
 });
