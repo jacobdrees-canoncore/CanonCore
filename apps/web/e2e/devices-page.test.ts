@@ -8,6 +8,7 @@ import {
   documentFrom,
   logInAt,
   mainOf,
+  momentsIn,
   postFormsIn,
   sectionIn,
   submit,
@@ -69,6 +70,27 @@ describe("/devices", () => {
 
     expect(status).toBe(200);
     expect(sectionIn(text, "devices")).toContain("This device");
+  });
+
+  it("marks the moment a device was last used as a time", async () => {
+    /*
+     * A MOMENT IS `<time>` OR IT IS NOT A MOMENT (CNCORE-177). This page set the
+     * convention -- UTC, and said so, because the server cannot know the
+     * reader's zone -- and two other surfaces copied the formatter out of it;
+     * `/tasks` copied the words and not the element. The three are one component
+     * now, and this is the half of that which says this page did not lose the
+     * element on the way.
+     */
+    const cookie = await logInAt(baseUrl, ownerPassword);
+
+    const { text } = await documentFrom(baseUrl, "/devices", cookie);
+
+    const moments = momentsIn(sectionIn(text, "devices"));
+    expect(moments.length).toBeGreaterThan(0);
+    for (const { machine, printed } of moments) {
+      expect(printed).toContain("UTC");
+      expect(Number.isNaN(Date.parse(machine)), `\`${machine}\` is not a moment`).toBe(false);
+    }
   });
 
   it("offers no way to end the session doing the reading", async () => {

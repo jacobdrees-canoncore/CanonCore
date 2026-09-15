@@ -3,6 +3,7 @@ import { SESSION_IDLE_LIMIT_SECONDS, SESSION_LIFETIME_SECONDS } from "@canoncore
 import { Button } from "@canoncore/ui/components/button";
 import { call } from "@orpc/server";
 
+import { Moment } from "@/components/moment";
 import { NotLoggedIn } from "@/components/not-logged-in";
 import { callerContext } from "@/session";
 
@@ -77,8 +78,7 @@ export default async function DevicesPage() {
               <div>
                 <p className="text-sm">{nameOf(device)}</p>
                 <p className="text-muted-foreground text-xs">
-                  Last used{" "}
-                  <time dateTime={device.lastSeenAt.toISOString()}>{on(device.lastSeenAt)}</time>
+                  Last used <Moment at={device.lastSeenAt} />
                 </p>
               </div>
               {device.current ? (
@@ -120,23 +120,6 @@ export default async function DevicesPage() {
 function nameOf(device: { clientName?: string; deviceName?: string }) {
   const declared = [device.deviceName, device.clientName].filter((field) => field !== undefined);
   return declared.length === 0 ? "A browser, which declared nothing" : declared.join(" · ");
-}
-
-/**
- * A sighting, in UTC and said so.
- *
- * THE SERVER CANNOT KNOW THE READER'S TIMEZONE, and this page is rendered on the
- * server with no script to correct it afterwards. A time printed in whatever
- * zone the server happens to run in, unlabelled, is one an owner cannot compare
- * against "I used my phone this morning" -- which is the entire question this
- * column is read to answer.
- */
-function on(seen: Date): string {
-  return `${new Intl.DateTimeFormat("en-GB", {
-    dateStyle: "long",
-    timeStyle: "short",
-    timeZone: "UTC",
-  }).format(seen)} UTC`;
 }
 
 /** A limit in the units the sentence above says it in. */

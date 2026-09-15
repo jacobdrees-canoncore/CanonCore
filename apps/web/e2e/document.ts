@@ -547,3 +547,25 @@ export function sectionIn(text: string, label: string): string {
   }
   throw new Error(`the page left the \`${label}\` section unclosed`);
 }
+
+/**
+ * Every moment a stretch of a page prints, as the markup marks them: the
+ * machine-readable value and the words a reader sees.
+ *
+ * A MOMENT IS `<time>` OR IT IS NOT A MOMENT (CNCORE-177). Three surfaces print
+ * one -- `/tasks`, `/devices` and `/settings` -- off three copies of the same
+ * `Intl.DateTimeFormat` call, and one of them had lost the element: the words
+ * were right and nothing that reads a page by its markup could tell that string
+ * from any other. So this returns the PAIR rather than the text, because a
+ * `<time>` whose `datetime` is unparseable is the same failure wearing the
+ * right tag.
+ *
+ * READ WITH A REGEX, under the standing limit every reader in this file carries:
+ * a page whose own content held a literal `<time>` would be miscounted. Nothing
+ * this suite seeds does.
+ */
+export function momentsIn(text: string): { machine: string; printed: string }[] {
+  return [...text.matchAll(/<time\b[^>]*\bdatetime="([^"]*)"[^>]*>(.*?)<\/time>/gi)].map(
+    ([, machine, printed]) => ({ machine: machine as string, printed: printed as string }),
+  );
+}

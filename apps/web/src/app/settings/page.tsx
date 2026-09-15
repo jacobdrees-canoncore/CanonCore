@@ -4,6 +4,7 @@ import { Button, buttonVariants } from "@canoncore/ui/components/button";
 import { Input } from "@canoncore/ui/components/input";
 import { Textarea } from "@canoncore/ui/components/textarea";
 import { call } from "@orpc/server";
+import { Moment } from "@/components/moment";
 import { NotLoggedIn } from "@/components/not-logged-in";
 import { oneValue } from "@/components/query-params";
 import { Reason } from "@/components/reason";
@@ -333,42 +334,21 @@ function State({ credential }: { credential: DeclaredCredential }) {
  * same optional clause, and written out twice they are two places for the
  * spacing to drift -- which on a rendered sentence shows up as a missing space
  * before a date rather than as anything a type would catch.
+ *
+ * IT DOES NOT RE-CHECK THAT THE PROVIDER SENT A DATE. `cmppManifest` holds
+ * `state_changed_at` to `z.iso.datetime()` on the way in and `settings.read`
+ * states the same type on the way out, so a value reaching `new Date` here is
+ * one both have already accepted. An earlier version parsed defensively and
+ * rendered the raw string on `NaN`; that branch could not be reached, and a
+ * guard nothing can trip reads as protection while protecting nothing.
  */
 function On({ at }: { at: string | null }) {
   if (at === null) return null;
   return (
     <>
       {" "}
-      on <When at={at} />
+      on <Moment at={new Date(at)} />
     </>
-  );
-}
-
-/**
- * A TIME, IN UTC AND SAID SO -- the convention `/devices` set and for its reason.
- *
- * THE SERVER CANNOT KNOW THE READER'S TIMEZONE, and this page is rendered on the
- * server with no script to correct it afterwards. A time printed in whatever
- * zone the server happens to run in, unlabelled, is one the Owner cannot compare
- * against "I unlocked that last week", which is the entire question this is read
- * to answer.
- *
- * IT DOES NOT RE-CHECK THAT THE PROVIDER SENT A DATE. `cmppManifest` holds
- * `state_changed_at` to `z.iso.datetime()` on the way in and `settings.read`
- * states the same type on the way out, so a value reaching here is one both have
- * already accepted. An earlier version of this parsed defensively and rendered
- * the raw string on `NaN`; that branch could not be reached, and a guard nothing
- * can trip reads as protection while protecting nothing.
- */
-function When({ at }: { at: string }) {
-  return (
-    <time dateTime={at}>
-      {`${new Intl.DateTimeFormat("en-GB", {
-        dateStyle: "long",
-        timeStyle: "short",
-        timeZone: "UTC",
-      }).format(new Date(at))} UTC`}
-    </time>
   );
 }
 
