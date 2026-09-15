@@ -1,7 +1,9 @@
 import { appRouter, type ReportedRun as Run } from "@canoncore/api/routers";
 import { Button } from "@canoncore/ui/components/button";
 import { call } from "@orpc/server";
+import type { ReactNode } from "react";
 
+import { Moment } from "@/components/moment";
 import { NotLoggedIn } from "@/components/not-logged-in";
 import { callerContext } from "@/session";
 
@@ -169,34 +171,39 @@ function whenItRuns(trigger: { kind: "daily"; atHour: number }): string {
  * is two lists to add a value to, and the forgotten one fails as a page
  * rendering an outcome it has no word for. Found in review.
  */
-function lastRunOf(run: Run | null): string {
+function lastRunOf(run: Run | null): ReactNode {
   if (run === null) return "Has not run yet.";
-  if (run.outcome === "running") return `Running, started ${on(run.startedAt)}.`;
+  if (run.outcome === "running") {
+    return (
+      <>
+        Running, started <Moment at={run.startedAt} />.
+      </>
+    );
+  }
 
-  const when = run.endedAt === null ? on(run.startedAt) : on(run.endedAt);
+  /*
+   * A SENTENCE RATHER THAN A STRING, WHICH IS WHAT `<time>` COSTS (CNCORE-177).
+   * The moment is marked up, so every sentence holding one is markup too -- and
+   * this page printed bare words until then, alone among the three surfaces
+   * that print a moment. The SCHEDULE above is deliberately not one of them.
+   */
+  const when = <Moment at={run.endedAt ?? run.startedAt} />;
   const said = run.detail ?? "It said nothing.";
-  if (run.outcome === "completed") return `${said} Ran ${when}.`;
-  if (run.outcome === "failed") return `Failed ${when}. ${said}`;
+  if (run.outcome === "completed")
+    return (
+      <>
+        {said} Ran {when}.
+      </>
+    );
+  if (run.outcome === "failed")
+    return (
+      <>
+        Failed {when}. {said}
+      </>
+    );
   // THE OWNER'S OWN DECISION READS BACK AS ONE. "Stopped" is what they did;
   // "the server stopped" is something that happened to the machine, and only
   // the second is worth going to look at.
-  if (run.outcome === "cancelled") return `You stopped it ${when}.`;
-  return `The server stopped ${when}, while this was running.`;
-}
-
-/**
- * A moment, in UTC and said so.
- *
- * THE SERVER CANNOT KNOW THE READER'S TIMEZONE, and this page is rendered on
- * the server with no script to correct it afterwards -- the reasoning
- * `/devices` records at greater length. A past moment is the same instant
- * everywhere, so UTC is a statement a reader can convert; the SCHEDULE above is
- * the one thing on this page that is not.
- */
-function on(moment: Date): string {
-  return `${new Intl.DateTimeFormat("en-GB", {
-    dateStyle: "long",
-    timeStyle: "short",
-    timeZone: "UTC",
-  }).format(moment)} UTC`;
+  if (run.outcome === "cancelled") return <>You stopped it {when}.</>;
+  return <>The server stopped {when}, while this was running.</>;
 }

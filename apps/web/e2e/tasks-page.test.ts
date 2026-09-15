@@ -1,6 +1,14 @@
 import { describe, expect, inject, it } from "vitest";
 
-import { documentFrom, logInAt, mainOf, postFormsIn, sectionIn, submit } from "./document";
+import {
+  documentFrom,
+  logInAt,
+  mainOf,
+  momentsIn,
+  postFormsIn,
+  sectionIn,
+  submit,
+} from "./document";
 
 /**
  * ADR-0049's VISIBLE registry, over real HTTP (CNCORE-119).
@@ -139,6 +147,40 @@ describe("/tasks", () => {
     // is the report that says the job ran and found nothing, rather than a
     // blank that reads the same as never having run.
     expect(sectionIn(after.text, "tasks")).toContain("Removed no runs.");
+  });
+
+  it("marks the moment a run happened as a time", async () => {
+    /*
+     * A MOMENT IS `<time>` OR IT IS NOT A MOMENT (CNCORE-177). This page prints
+     * one in the middle of a sentence -- "Ran 13 September 2026 at 10:00 UTC."
+     * -- and it printed it as bare words: right for a reader looking at it, and
+     * indistinguishable from any other string to anything reading the page by
+     * its markup. `/devices` and `/settings` print the same moment off copies
+     * of the same formatter and both mark it; this one had lost the element.
+     *
+     * THE RUN IS MADE HERE rather than relied on from the test above. This
+     * instance is shared with every other file in the suite, so what has
+     * already run is not this test's to assume -- and a task with no run prints
+     * no moment at all, which would pass an assertion that only counted zero.
+     */
+    const cookie = await logInAt(baseUrl, ownerPassword);
+    const { text } = await documentFrom(baseUrl, "/tasks", cookie);
+    const [form] = postFormsIn(sectionIn(text, "tasks"));
+    if (!form) throw new Error("/tasks offered no form to run a task with");
+
+    const after = await submit(baseUrl, "/tasks", form, cookie);
+
+    const moments = momentsIn(sectionIn(after.text, "tasks"));
+    expect(moments.length).toBeGreaterThan(0);
+    for (const { machine, printed } of moments) {
+      // THE WORDS THE PAGE ALREADY SAID, still said: UTC and said so, which is
+      // this page's own rule and the one thing a reader cannot convert without.
+      expect(printed).toContain("UTC");
+      // AND A VALUE A MACHINE CAN READ, which is the whole of what the element
+      // buys -- an element carrying an unparseable one is the same failure
+      // wearing the right tag.
+      expect(Number.isNaN(Date.parse(machine)), `\`${machine}\` is not a moment`).toBe(false);
+    }
   });
 
   it("tells a visitor where the door is, and nothing else", async () => {

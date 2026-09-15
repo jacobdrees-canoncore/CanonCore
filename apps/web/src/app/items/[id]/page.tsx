@@ -4,6 +4,7 @@ import { appRouter } from "@canoncore/api/routers";
 import { Button } from "@canoncore/ui/components/button";
 import { Input } from "@canoncore/ui/components/input";
 import { Label } from "@canoncore/ui/components/label";
+import { Select } from "@canoncore/ui/components/select";
 import { Textarea } from "@canoncore/ui/components/textarea";
 import { call, isDefinedError, safe } from "@orpc/server";
 import type { Metadata } from "next";
@@ -1405,26 +1406,20 @@ async function PlaceAnItem({
             a select posts its chosen option as an ordinary field, which is the
             same constraint `/new` meets the same way.
 
-            THE SAME METRICS AS `packages/ui`'s `Input`, which stands beside it
-            in this row: `h-8`, `px-2.5`, `text-xs`, `ring-1`. This wore stock
-            shadcn's `h-9 rounded-md text-sm` until review caught it, and that is
-            precisely the step-taller-and-larger mismatch `/new` records against
-            the Title field -- `.claude/rules/frontend.md`, "Ported code is where
-            this slips". There is still no select in `packages/ui` to import, so
-            the identity is carried by matching its sibling.
+            IT WEARS `packages/ui`'s `Select`, which is that `Input`'s metrics
+            on a native element (CNCORE-177). This wore stock shadcn's `h-9
+            rounded-md text-sm` until review caught it -- the step-taller-and-
+            larger mismatch `.claude/rules/frontend.md` files under "Ported code
+            is where this slips" -- and then wore a hand-copy of the right
+            metrics, which is what drifted on the third surface to copy them.
           */}
-          <select
-            id="itemId"
-            name="itemId"
-            required
-            className="h-8 w-full rounded-none border border-input bg-transparent px-2.5 py-1 text-xs transition-colors outline-none focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring/50 md:text-xs dark:bg-input/30"
-          >
+          <Select id="itemId" name="itemId" required>
             {rows.map((row) => (
               <option key={row.id} value={row.id}>
                 {row.title ?? "Untitled item"}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="position">Position</Label>

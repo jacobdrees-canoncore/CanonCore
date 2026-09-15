@@ -1,13 +1,14 @@
 import type { Context } from "@canoncore/api/context";
 import { appRouter } from "@canoncore/api/routers";
 import { Button } from "@canoncore/ui/components/button";
-import { Card, CardDescription, CardHeader, CardTitle } from "@canoncore/ui/components/card";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@canoncore/ui/components/empty";
 import { Input } from "@canoncore/ui/components/input";
+import { Select } from "@canoncore/ui/components/select";
 import { call } from "@orpc/server";
 import Form from "next/form";
 import Link from "next/link";
 import { noPasswordSet } from "@/components/no-password";
+import { NoProviderAllowlisted } from "@/components/no-provider-allowlisted";
 import { oneValue } from "@/components/query-params";
 import { Reason } from "@/components/reason";
 import { callerContext } from "@/session";
@@ -307,7 +308,25 @@ export default async function ImportPage({
         Search the providers this instance is configured to reach, and take what you find into your
         catalogue.
       </p>
-      {!allowlisted.any && <NoProviderAllowlisted />}
+      {/*
+        WHY NOTHING HERE CAN BE IMPORTED, when the reason is the allowlist.
+
+        The front page says this too and it says it for the whole instance;
+        here it is the reason this page in particular cannot work, which is
+        the clause this surface passes in. ADR-0034 makes the allowlist empty
+        by default and the empty value refuses every provider -- so without
+        the notice, an owner meets a search that returns a refusal per
+        provider and no way to tell a wrong URL from an instance nobody
+        configured.
+
+        ONE NOTICE SHARED WITH `/` SINCE CNCORE-177, because this page's copy
+        of it had drifted: it had lost the sentence saying an empty result is
+        the setting rather than a fault, which is the whole of what the two
+        paragraphs were for.
+      */}
+      {!allowlisted.any && (
+        <NoProviderAllowlisted whatIsStopped="nothing here can be searched or imported yet" />
+      )}
       {configured.providers.length === 0 && <NoProviderConfigured />}
       {/*
         AND WHETHER ANYBODY CAN LOG IN TO THIS INSTANCE AT ALL (CNCORE-146),
@@ -920,40 +939,6 @@ function Unreachable({ failed }: { failed: Found["failed"] }) {
 }
 
 /**
- * WHY NOTHING CAN BE IMPORTED, when the reason is the allowlist.
- *
- * The front page says this too, and it says it for the whole instance; here it is
- * the reason this page in particular cannot work. ADR-0034 makes the allowlist
- * empty by default and the empty value refuses every provider -- so without
- * this, an owner meets a search that returns a refusal per provider and no way
- * to tell a wrong URL from an instance nobody configured.
- */
-function NoProviderAllowlisted() {
-  return (
-    <section aria-labelledby="no-provider" className="mt-6">
-      <Card>
-        <CardHeader>
-          {/* A real heading inside the primitive: `CardTitle` renders a `div`, so
-              a section labelled by one is labelled by something that is not a
-              heading and a reader navigating by heading finds only the `h1`. */}
-          <CardTitle>
-            <h2 id="no-provider">No provider is allowlisted</h2>
-          </CardTitle>
-          <CardDescription>
-            CanonCore reaches a provider only when its host or address range is on the allowlist in{" "}
-            <Link className="underline" href="/settings">
-              Settings
-            </Link>
-            . That setting is empty until you write one, and empty refuses every provider, so
-            nothing here can be searched or imported yet.
-          </CardDescription>
-        </CardHeader>
-      </Card>
-    </section>
-  );
-}
-
-/**
  * AND WHY NOTHING CAN BE IMPORTED WHEN THE REASON IS THE OTHER SETTING.
  *
  * TWO NOTICES RATHER THAN ONE, because there are two settings with two remedies
@@ -1041,18 +1026,24 @@ function BrowseBox({
           server-rendered markup with no script behind it.
         */}
         {/*
-          THE SAME TOKENS `Input` CARRIES, spelt out rather than inherited,
-          because `packages/ui` vendors no select and this control sits directly
-          beside an `Input` in the same row. A control an eighth of an inch taller
-          than its neighbour, in a different type size and with no focus ring, is
-          the "reads as part of this product" test failing at the one place a
-          keyboard user needs it most: `.claude/rules/frontend.md` puts
-          accessibility with the feature, and a select nobody can see the focus on
-          is operable and invisible.
+          THE TOKENS `Input` CARRIES, INHERITED RATHER THAN SPELT OUT
+          (CNCORE-177). This control sits directly beside an `Input` in the same
+          row, and a control that does not match its neighbour is the "reads as
+          part of this product" test failing: `.claude/rules/frontend.md`.
+
+          THIS IS THE COPY THAT DRIFTED. Spelt out here by hand, it had lost
+          `w-full` and `md:text-xs` against the two surfaces that wrote the same
+          string -- which nothing could see, because each copy was correct on
+          its own page. WHAT THAT COST WAS ONLY THE WIDTH: it kept `h-8` and
+          `text-xs`, and `md:text-xs` is inert beside an unconditional
+          `text-xs`. An earlier version of this comment said the control was
+          shorter and in a different type size, which was written rather than
+          measured. `max-w-xs` is the only thing left to say here, and it is the
+          same cap the `Input` beside it in this row already carries.
         */}
-        <select
+        <Select
           aria-label="Which provider holds it"
-          className="h-8 rounded-none border border-input bg-transparent px-2.5 py-1 text-xs transition-colors outline-none focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring/50 dark:bg-input/30"
+          className="max-w-xs"
           defaultValue={provider ?? configured[0]}
           name="provider"
         >
@@ -1061,7 +1052,7 @@ function BrowseBox({
               {baseUrl}
             </option>
           ))}
-        </select>
+        </Select>
         <Input
           aria-label="The provider's own id for the container"
           className="max-w-xs"
