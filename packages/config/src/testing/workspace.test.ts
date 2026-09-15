@@ -1,5 +1,13 @@
-import { describe, expect, it } from "vitest";
-import { isWorkspacePattern, packageDirectories, workspaceDirectories } from "./workspace";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
+import {
+  directoriesUnder,
+  isWorkspacePattern,
+  packageDirectories,
+  workspaceDirectories,
+} from "./workspace";
 
 /**
  * The predicate's table, beside the predicate. It sat in
@@ -59,5 +67,56 @@ describe("the workspace sweeps", () => {
     expect(packages).not.toStrictEqual([]);
     expect(directories.length).toBeGreaterThanOrEqual(packages.length);
     expect(packages.every((directory) => directories.includes(directory))).toBe(true);
+  });
+});
+
+/**
+ * And the shape neither sweep can be right about, ASKED DIRECTLY for the reason
+ * the table at the top of this file is: no package directory in this repository
+ * is a symlink, so the repository is the one place the question cannot be put
+ * (CNCORE-200).
+ */
+const scratchRoots: string[] = [];
+
+afterEach(() => {
+  while (scratchRoots.length > 0) {
+    rmSync(scratchRoots.pop() as string, { recursive: true, force: true });
+  }
+});
+
+/** A workspace parent in a temp directory, for the rows to build a tree inside. */
+function scratchParent(): string {
+  const root = mkdtempSync(join(tmpdir(), "workspace-"));
+  scratchRoots.push(root);
+  const parent = join(root, "packages");
+  mkdirSync(parent);
+  return parent;
+}
+
+describe("a symlinked package directory", () => {
+  it("is refused by name rather than dropped, because pnpm and turbo disagree about it", () => {
+    const parent = scratchParent();
+    mkdirSync(join(parent, "real"));
+    mkdirSync(join(parent, "..", "elsewhere"));
+    symlinkSync(join(parent, "..", "elsewhere"), join(parent, "linked"));
+
+    expect(() => directoriesUnder(parent)).toThrow(/linked/);
+  });
+
+  it("is not a symlink to a FILE, which neither tool calls a package either way", () => {
+    const parent = scratchParent();
+    mkdirSync(join(parent, "real"));
+    writeFileSync(join(parent, "..", "notes.md"), "");
+    symlinkSync(join(parent, "..", "notes.md"), join(parent, "notes.md"));
+
+    expect(directoriesUnder(parent)).toStrictEqual(["real"]);
+  });
+
+  it("is not a BROKEN symlink, which stats as nothing rather than as a directory", () => {
+    const parent = scratchParent();
+    mkdirSync(join(parent, "real"));
+    symlinkSync(join(parent, "..", "gone"), join(parent, "dangling"));
+
+    expect(directoriesUnder(parent)).toStrictEqual(["real"]);
   });
 });
