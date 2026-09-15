@@ -10,6 +10,11 @@ paths:
 for ~2,900 composed blocks. `packages/ui` already vendors this project's primitives, so read there
 first and import what exists.
 
+Where the registry's version needs script and this app has none, write the primitive here rather
+than styling a native element on the page — ADR-0136, which is what three hand-copied selects cost.
+A notice or a formatted value is not a primitive: those go in `apps/web/src/components`, beside the
+pages that render them.
+
 The registries are declared in the ROOT `package.json`, not in either `components.json`. The MCP
 resolves config from its working directory and the repo root has no `components.json`, so a leaf
 declaration leaves the MCP blind to the registry. `SHADCNBLOCKS_API_KEY` lives in a gitignored
