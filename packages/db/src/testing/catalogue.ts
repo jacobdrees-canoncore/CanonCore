@@ -635,3 +635,26 @@ export async function anItemInMoreOrderingsThanOnePage(
     endsAt: endsAt.id,
   };
 }
+
+/**
+ * EVERY ITEM AND EVERY PLACEMENT GONE, so a test can own the whole catalogue.
+ *
+ * MOST TESTS DO NOT WANT THIS AND MUST NOT CALL IT. The suite shares one
+ * database (ADR-0104) and the files that seed into it assert on rows they
+ * created, so emptying is neither needed nor safe for them. It exists for the
+ * one question that is about the catalogue ENTIRE rather than about rows in it:
+ * `corpus-census.test.ts` counts how many distinct Items sit in an Ordering,
+ * and a figure like that cannot be asserted beside another file's fixtures.
+ *
+ * `CASCADE` RATHER THAN A DELETE IN DEPENDENCY ORDER, because the order is a
+ * second statement of the foreign keys -- free to fall out of step with them
+ * the next time the schema grows a table that points at `items`.
+ *
+ * SOURCES, PROPERTIES AND THE OWNER SURVIVE. They are migration 1's seed and a
+ * provider's identity (ADR-0025, ADR-0031) rather than catalogue content: the
+ * global source order is allocated `max + 1` per owner, so truncating them
+ * would restart an allocator that other files in this suite are still using.
+ */
+export async function emptyCatalogue(db: Database): Promise<void> {
+  await db.execute(sql`TRUNCATE TABLE ${items}, ${placements} CASCADE`);
+}
