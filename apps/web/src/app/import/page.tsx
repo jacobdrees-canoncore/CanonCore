@@ -3,6 +3,7 @@ import { appRouter } from "@canoncore/api/routers";
 import { Button } from "@canoncore/ui/components/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@canoncore/ui/components/empty";
 import { Input } from "@canoncore/ui/components/input";
+import { Select } from "@canoncore/ui/components/select";
 import { call } from "@orpc/server";
 import Form from "next/form";
 import Link from "next/link";
@@ -1025,18 +1026,22 @@ function BrowseBox({
           server-rendered markup with no script behind it.
         */}
         {/*
-          THE SAME TOKENS `Input` CARRIES, spelt out rather than inherited,
-          because `packages/ui` vendors no select and this control sits directly
-          beside an `Input` in the same row. A control an eighth of an inch taller
-          than its neighbour, in a different type size and with no focus ring, is
-          the "reads as part of this product" test failing at the one place a
-          keyboard user needs it most: `.claude/rules/frontend.md` puts
-          accessibility with the feature, and a select nobody can see the focus on
-          is operable and invisible.
+          THE TOKENS `Input` CARRIES, INHERITED RATHER THAN SPELT OUT
+          (CNCORE-177). This control sits directly beside an `Input` in the same
+          row, and a control an eighth of an inch shorter than its neighbour, in
+          a different type size, is the "reads as part of this product" test
+          failing at the one place a keyboard user needs it most:
+          `.claude/rules/frontend.md` puts accessibility with the feature.
+
+          THIS IS THE COPY THAT PROVED IT. Spelt out here by hand, it had lost
+          `w-full` and `md:text-xs` against the two surfaces that wrote the same
+          string -- which nothing could see, because each copy was correct on
+          its own page. `max-w-xs` is the only thing left to say, and it is the
+          same cap the `Input` beside it in this row already carries.
         */}
-        <select
+        <Select
           aria-label="Which provider holds it"
-          className="h-8 rounded-none border border-input bg-transparent px-2.5 py-1 text-xs transition-colors outline-none focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring/50 dark:bg-input/30"
+          className="max-w-xs"
           defaultValue={provider ?? configured[0]}
           name="provider"
         >
@@ -1045,7 +1050,7 @@ function BrowseBox({
               {baseUrl}
             </option>
           ))}
-        </select>
+        </Select>
         <Input
           aria-label="The provider's own id for the container"
           className="max-w-xs"

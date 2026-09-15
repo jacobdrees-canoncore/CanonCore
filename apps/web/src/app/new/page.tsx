@@ -2,6 +2,7 @@ import { appRouter } from "@canoncore/api/routers";
 import { Button } from "@canoncore/ui/components/button";
 import { Input } from "@canoncore/ui/components/input";
 import { Label } from "@canoncore/ui/components/label";
+import { Select } from "@canoncore/ui/components/select";
 import { call } from "@orpc/server";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -193,12 +194,18 @@ function NewItemForm({ kinds }: { kinds: { value: string; label: string }[] }) {
         <div className="flex flex-col gap-2">
           <Label htmlFor="kind">Kind</Label>
           {/*
-            A NATIVE `<select>` RATHER THAN A COMPONENT, and that is this page's
-            one real constraint. `packages/ui` has no select, and its `Checkbox`
-            is a client component that needs script to toggle -- so either
-            control from there would make this surface depend on JavaScript, and
-            the ticket's seam is a page over HTTP with no browser. A native
-            select submits with no script at all.
+            A NATIVE `<select>` RATHER THAN A SCRIPTED ONE, and that is this
+            page's one real constraint. `packages/ui`'s `Checkbox` is a client
+            component that needs script to toggle, as a Base UI select would be
+            -- so either would make this surface depend on JavaScript, and the
+            ticket's seam is a page over HTTP with no browser. A native select
+            submits with no script at all.
+
+            `Select` IS THAT ELEMENT WEARING `Input`'s METRICS (CNCORE-177).
+            This page wrote them out by hand, as two other surfaces did, and the
+            three had drifted; the styling is one primitive now and the
+            docblock that said there was no select to import was describing
+            what it caused.
 
             THE SEVEN ARE READ OFF `item_kinds` (ADR-0005, CNCORE-83), so this
             list cannot disagree with the migration that owns the words.
@@ -207,28 +214,13 @@ function NewItemForm({ kinds }: { kinds: { value: string; label: string }[] }) {
             stories wants nearly every time, and `findItemKinds` orders
             alphabetically -- so without this the form would open on Character.
           */}
-          <select
-            id="kind"
-            name="kind"
-            defaultValue="work"
-            /*
-              THE SAME METRICS AS `packages/ui`'s `Input`, which is directly
-              above it on this form: `h-8`, `px-2.5`, `text-xs`, `ring-1`.
-              Stock shadcn ships `h-9 px-3 text-base ring-[3px]`, and a select
-              wearing those sat a step taller and larger than the Title field
-              beside it -- `.claude/rules/frontend.md`, "Ported code is where
-              this slips". There is no select in `packages/ui` to import, so
-              the identity is carried by matching its sibling rather than by
-              inheriting a component.
-            */
-            className="h-8 w-full rounded-none border border-input bg-transparent px-2.5 py-1 text-xs transition-colors outline-none focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring/50 md:text-xs dark:bg-input/30"
-          >
+          <Select id="kind" name="kind" defaultValue="work">
             {kinds.map((kind) => (
               <option key={kind.value} value={kind.value}>
                 {kind.label}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
         {/*
           ADR-0004: a Container IS an Item, folded into `work` -- there is no
