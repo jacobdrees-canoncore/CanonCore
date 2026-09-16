@@ -1108,3 +1108,65 @@ more precise spelling anyway.
 **BOTH GUARDS WERE CHECKED BY MUTATION RATHER THAN BY BEING GREEN.** Dropping `PROVIDER_TMDB_URL`
 from `test:e2e` reddens the first, naming every planned task that would not receive it; putting the
 wiki image back into the `provider` job unaddressed reddens the second, naming the container.
+
+## pnpm and turbo disagree about a symlinked package directory -- under CNCORE-200
+
+**A ROLL CALL IS ONLY AS WIDE AS THE LIST IT DESCENDS FROM,** and both of the ones above descend
+from one directory read. `network-gate-wiring.test.ts` and `typecheck-wiring.test.ts` each ask
+about EVERY package, and each learns what every package is from `workspaceDirectories()` in
+`packages/config/src/testing/workspace.ts`. A package that leaves that list does not fail either
+one. It stops being asked about and both stay green -- the same vacuous pass CNCORE-160 removed
+from these files when it replaced a `>= 12` floor with a named comparison, arriving this time
+through the directory read rather than through a count.
+
+`Dirent.isDirectory()` is lstat, so it is FALSE for a symlink pointing at a directory and
+`isSymbolicLink()` is true instead. Filtering on the first alone is the whole of the narrowing.
+
+**THE TWO TOOLS THAT READ THIS WORKSPACE ANSWER DIFFERENTLY, WHICH IS THE FINDING.** Measured
+2026-09-15 on a scratch workspace declaring `packages/*`, with `packages/real` an ordinary
+directory and `packages/linked` a symlink to one:
+
+* **pnpm 12.3.4 does NOT count it.** `pnpm ls -r --depth -1` names `probe-real` and not
+  `probe-linked`, and `pnpm -r exec -- pwd` reports `Scope: all 2 workspace projects` and runs in
+  one package -- before and after `pnpm install`, with NOTHING on stderr. Replacing the symlink
+  with a real copy of the same directory makes it appear, which is the control that makes this a
+  measurement rather than an absence.
+* **turbo 2.10.12 DOES count it.** `turbo run typecheck --dry=json` reports
+  `"packages": ["probe-linked", "probe-real"]` and plans `probe-linked#typecheck` with
+  `"directory": "packages/linked"`.
+
+**SO THE SHAPE IS REFUSED RATHER THAN RESOLVED.** CNCORE-200 offered either, on the premise that
+both tools count one, and that premise is what the measurement overturned. Resolving takes turbo's
+side against pnpm's and makes the reader's own sentence -- every directory `pnpm-workspace.yaml`
+calls a package -- false in the other direction, demanding a Vitest config and a `typecheck` script
+from a directory pnpm never installed into. Dropping it silently takes pnpm's side and is the
+narrowing this record exists to refuse. Refusing names it, the way `isWorkspacePattern` refuses a
+pattern it does not understand rather than dropping the packages it would have matched.
+
+**ONLY A SYMLINK POINTING AT A DIRECTORY IS AMBIGUOUS**, so only that one is refused. A symlink to
+a file is not a package to either tool, and a DANGLING one stats as nothing -- `throwIfNoEntry:
+false` is what keeps that an entry dropped for the file's reason rather than an ENOENT naming a
+path and no reason. A symlink CYCLE is neither, and is deliberately left alone: `statSync` throws
+ELOOP straight through the reader, naming the path, and that is loud rather than silent. This
+paragraph said "a broken one" until review, which read as covering the cycle it does not cover.
+
+**AND THE PARENT ITSELF IS NOT AN INSTANCE OF THIS AT ALL**, which review proposed refusing as the
+same bug one level up. It is not the same bug, because the disagreement that makes the entry case
+ambiguous is absent: measured the same day, with `packages` itself a symlink to a sibling directory
+holding one package, `pnpm ls -r --depth -1` named it, `turbo run typecheck --dry=json` reported
+`"packages": ["parent-real"]`, and `readdirSync` read through and returned it as an ordinary
+directory. All THREE agree, so the sweep already answers what both tools answer. Refusing it would
+make this reader NARROWER than pnpm and turbo, which is the failure this record exists to prevent
+rather than an instance of it.
+
+**AND IT IS ASKED DIRECTLY RATHER THAN THROUGH THE REPOSITORY**, for the reason
+`isWorkspacePattern`'s table already gives: no package directory here is a symlink, so the
+repository is the one place this question cannot be put. The read is `directoriesUnder(parent)`
+now, taking an absolute path so a scratch tree in `workspace.test.ts` can drive all three cases.
+
+**WHAT THIS DOES NOT HOLD, said here rather than left to be found.** `packagesOutside` in
+`typecheck-wiring.test.ts` compares in ONE direction -- every package the workspace declares is one
+turbo would run the task for -- so a package turbo plans that the workspace reader does not name is
+still not a failure there. The refusal closes that divergence at its root, by making the reader
+raise rather than return a shorter list, and it does NOT add the converse assertion. A second way
+for the two lists to disagree would need one.

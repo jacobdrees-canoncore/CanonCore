@@ -1,5 +1,13 @@
-import { describe, expect, it } from "vitest";
-import { isWorkspacePattern, packageDirectories, workspaceDirectories } from "./workspace";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import {
+  directoriesUnder,
+  isWorkspacePattern,
+  packageDirectories,
+  workspaceDirectories,
+} from "./workspace";
 
 /**
  * The predicate's table, beside the predicate. It sat in
@@ -59,5 +67,65 @@ describe("the workspace sweeps", () => {
     expect(packages).not.toStrictEqual([]);
     expect(directories.length).toBeGreaterThanOrEqual(packages.length);
     expect(packages.every((directory) => directories.includes(directory))).toBe(true);
+  });
+});
+
+/**
+ * And the shape neither sweep can be right about, ASKED DIRECTLY for the reason
+ * the table at the top of this file is: no package directory in this repository
+ * is a symlink, so the repository is the one place the question cannot be put
+ * (CNCORE-200).
+ */
+describe("a symlinked package directory", () => {
+  let root: string;
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), "canoncore-workspace-"));
+    mkdirSync(join(root, "packages"));
+  });
+
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  /** The workspace parent under the fixture, for a row to build its tree inside. */
+  function parent(): string {
+    return join(root, "packages");
+  }
+
+  it("is refused by name rather than dropped, because pnpm and turbo disagree about it", () => {
+    mkdirSync(join(parent(), "real"));
+    mkdirSync(join(root, "elsewhere"));
+    symlinkSync(join(root, "elsewhere"), join(parent(), "linked"));
+
+    expect(() => directoriesUnder(parent())).toThrow(/linked/);
+  });
+
+  /**
+   * NAMED RATHER THAN COUNTED, which is the line this package already takes
+   * about `ungatedPackages`: two symlinked packages are two things to fix, and
+   * a message carrying the first sends the reader back for the second.
+   */
+  it("is named alongside every other one, rather than the first standing for them all", () => {
+    mkdirSync(join(root, "elsewhere"));
+    symlinkSync(join(root, "elsewhere"), join(parent(), "one"));
+    symlinkSync(join(root, "elsewhere"), join(parent(), "two"));
+
+    expect(() => directoriesUnder(parent())).toThrow(/one.*two/s);
+  });
+
+  it("is not a symlink to a FILE, which neither tool calls a package either way", () => {
+    mkdirSync(join(parent(), "real"));
+    writeFileSync(join(root, "notes.md"), "");
+    symlinkSync(join(root, "notes.md"), join(parent(), "notes.md"));
+
+    expect(directoriesUnder(parent())).toStrictEqual(["real"]);
+  });
+
+  it("is not a DANGLING symlink, which stats as nothing rather than as a directory", () => {
+    mkdirSync(join(parent(), "real"));
+    symlinkSync(join(root, "gone"), join(parent(), "dangling"));
+
+    expect(directoriesUnder(parent())).toStrictEqual(["real"]);
   });
 });

@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { parse } from "yaml";
 import { repoRoot } from "./repo-root";
@@ -67,6 +67,9 @@ export function packageDirectories(): string[] {
  * somebody had written down, which is the thing CNCORE-160 took out. So the
  * root of the chain is where it is held: the file must declare at least one
  * pattern, and each pattern must find at least one directory.
+ *
+ * WHAT A DIRECTORY IS is `directoriesUnder`'s, below, which refuses a symlinked
+ * one rather than letting it leave this list unremarked (CNCORE-200).
  */
 export function workspaceDirectories(): string[] {
   const { packages } = parse(readFileSync(join(repoRoot, "pnpm-workspace.yaml"), "utf8")) as {
@@ -76,18 +79,61 @@ export function workspaceDirectories(): string[] {
   return (packages ?? []).flatMap((pattern) => {
     if (!isWorkspacePattern(pattern)) throw new Error(`unsupported workspace pattern ${pattern}`);
     const [parent] = pattern.split("/");
-    // TODO(CNCORE-200): `isDirectory()` is lstat, so it is FALSE for a symlink
-    // pointing at a directory -- a symlinked package would leave this list in
-    // silence while pnpm and turbo both still call it a package, and every sweep
-    // descending from here would simply stop asking about it. No package
-    // directory here is a symlink today. Carried over rather than introduced:
-    // this read moved verbatim out of `network-gate-wiring.test.ts`.
-    const found = readdirSync(join(repoRoot, parent as string), { withFileTypes: true })
-      .filter((entry) => entry.isDirectory())
-      .map((entry) => join(parent as string, entry.name));
+    const found = directoriesUnder(join(repoRoot, parent as string)).map((name) =>
+      join(parent as string, name),
+    );
     if (found.length === 0) {
       throw new Error(`the workspace pattern ${pattern} matches no directory`);
     }
     return found;
   });
+}
+
+/**
+ * The directories directly under ONE workspace parent, with a symlinked one
+ * REFUSED rather than dropped (CNCORE-200).
+ *
+ * `Dirent.isDirectory()` is lstat, so it is FALSE for a symlink pointing at a
+ * directory -- `isSymbolicLink()` is true instead. Filtering on the first alone
+ * took a symlinked package out of every sweep descending from here in silence,
+ * which is the vacuous pass CNCORE-160 spent a ticket removing from these
+ * files, arriving through the directory read rather than through a count.
+ *
+ * REFUSED RATHER THAN RESOLVED, because pnpm and turbo DISAGREE about the
+ * shape and no sweep can be right about one they answer differently. The
+ * measurement that settled it -- both versions, and the control run -- is in
+ * ADR-0103 under "pnpm and turbo disagree about a symlinked package directory",
+ * and is NOT restated here: a figure kept in two places is a figure that drifts
+ * in one of them.
+ *
+ * A SYMLINK POINTING AT A DIRECTORY IS THE ONLY AMBIGUOUS ONE, so it is the
+ * only one refused. A symlink to a file is not a package to either tool, and a
+ * DANGLING one stats as nothing: `throwIfNoEntry: false` is what keeps that an
+ * entry dropped for the same reason as the file rather than an ENOENT naming a
+ * path and no reason. A symlink CYCLE is neither, and is left alone on purpose
+ * -- `statSync` throws ELOOP straight through here, naming the path, which is
+ * loud and so not the silence this refuses.
+ *
+ * THE PARENT ITSELF IS NOT THIS CASE. `readdirSync` reads through a symlinked
+ * `packages/`, and pnpm and turbo read through it too, so all three agree and
+ * there is no divergence to refuse -- measured under the same ADR heading.
+ *
+ * EVERY offender is named, not the first: two symlinked packages are two
+ * things to fix, and a message carrying one of them sends the reader back for
+ * the other.
+ */
+export function directoriesUnder(parent: string): string[] {
+  const entries = readdirSync(parent, { withFileTypes: true });
+  const symlinked = entries.filter(
+    (entry) =>
+      entry.isSymbolicLink() &&
+      statSync(join(parent, entry.name), { throwIfNoEntry: false })?.isDirectory() === true,
+  );
+  if (symlinked.length > 0) {
+    const paths = symlinked.map((entry) => join(parent, entry.name)).join(", ");
+    throw new Error(
+      `a symlinked directory is a package to turbo and not to pnpm, so it is refused: ${paths}`,
+    );
+  }
+  return entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name);
 }

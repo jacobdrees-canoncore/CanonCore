@@ -174,6 +174,12 @@ function suites(): Suite[] {
 // directly inside a package, which is every config this repo has. A `.mts` one,
 // a `test` block in a `vite.config.ts`, or one nested deeper is not seen, and
 // the assertion below is worth only what this sentence says.
+//
+// TODO(CNCORE-201): `isFile()` is lstat, exactly as `isDirectory()` was before
+// CNCORE-200, so a SYMLINKED `vitest.config.ts` is false here and never enters
+// this list. A package whose only config is a symlink still reddens, through
+// `ungatedPackages` below; the silent case is a real config plus a symlinked
+// SECOND one, which nothing then holds to installing the gate.
 function configFilesOnDisk(): string[] {
   return workspaceDirectories().flatMap((directory) =>
     readdirSync(join(repoRoot, directory), { withFileTypes: true })
