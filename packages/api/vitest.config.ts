@@ -7,6 +7,18 @@ import { defineConfig } from "vitest/config";
  */
 export default defineConfig({
   test: {
+    /**
+     * `src` AND NOT THE WHOLE PACKAGE, which is what keeps `corpus/` a project
+     * of its own rather than a project of its own that this one also runs.
+     *
+     * Vitest's default include is every `*.test.ts` under the package, so
+     * `corpus/corpus-stands.test.ts` was swept in here as well and reported as
+     * a skip. It skipped only because `CANONCORE_AT` was unset: a machine with
+     * that variable set -- the Owner's own, which is the whole point of it --
+     * would have run a census against a live install from inside the suite CI
+     * runs, asserting 465 Orderings in a job that has none.
+     */
+    include: ["src/**/*.test.ts"],
     // THE GATE FIRST HERE TOO, and for the same reason it is first below: a
     // global setup runs in the MAIN process, which `setupFiles` never reach.
     globalSetup: [

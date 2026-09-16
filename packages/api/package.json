@@ -4,6 +4,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./context": "./src/context.ts",
+    "./corpus-census": "./src/corpus-census.ts",
     "./import-list": "./src/import-list.ts",
     "./routers": "./src/routers/index.ts",
     "./routers/provider": "./src/routers/provider.ts",
@@ -12,6 +13,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:corpus": "vitest run --config vitest.corpus.config.ts",
     "test:watch": "vitest",
     "import:list": "node scripts/import-list.ts"
   },

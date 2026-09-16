@@ -164,5 +164,18 @@ volumes:
   # the suggestion is worse: `external: true` makes Compose refuse to CREATE the
   # volume, so a first install would fail on a volume that does not exist yet,
   # which is the one run that has to work without help.
+  #
+  # AND IT WARNS ABOUT THE NETWORK ABOVE ON THE SAME TERMS, which this comment
+  # used to leave a reader to discover. Re-measured 2026-09-15 by renaming an
+  # install holding the whole Doctor Who corpus and bringing it up again, both
+  # lines appear together:
+  #
+  #   a network with name canoncore_providers exists but was not created for
+  #     project "catalogue"
+  #   volume "canoncore_data" already exists but was created for project
+  #     "canoncore" (expected "catalogue")
+  #
+  # Neither is a fault, the catalogue read back identical across the rename, and
+  # `external: true` is refused for both for the reason given just above.
   canoncore_data:
     name: canoncore_data
