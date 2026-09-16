@@ -113,11 +113,13 @@ function theAddressAsks({ id, placed, after, placedAfter }: TheAddress) {
   };
 }
 
-interface TheAddress {
+/**
+ * The identity, and the three parameters that shape what is read about it. Taken
+ * FROM `TheQuery` rather than restated, so the two cannot come to disagree about
+ * what a parameter may arrive as.
+ */
+interface TheAddress extends Pick<TheQuery, "placed" | "after" | "placedAfter"> {
   id: string;
-  placed?: string | string[];
-  after?: string | string[];
-  placedAfter?: string | string[];
 }
 
 /**
@@ -300,9 +302,18 @@ export async function generateMetadata({
    * IT COSTS THIS ROUTE NOTHING IN RENDERING TERMS. The page already reads
    * `searchParams` for `?via=` and is dynamic by it (ADR-0117), so touching the
    * same request-time API here changes no route's mode.
+   *
+   * THE THREE ARE NAMED RATHER THAN SPREAD, AND THAT IS NOT STYLE. `{ id,
+   * ...query }` let a query parameter called `id` overwrite the one the PATH
+   * names, so `/items/A?id=B` titled A's page after B and pointed its canonical
+   * at B while the body described A -- two answers to "which item is this" in
+   * one document, off a string anybody can put in a link. ADR-0066 is what it
+   * broke: the path is identity, and nothing in the query may become it.
+   * `item-page.test.ts` holds this.
    */
   const { id } = await params;
-  const item = await theItem(theAddressAsks({ id, ...(await searchParams) }));
+  const { placed, after, placedAfter } = await searchParams;
+  const item = await theItem(theAddressAsks({ id, placed, after, placedAfter }));
   return {
     title: item.title ?? "Untitled item",
     /*

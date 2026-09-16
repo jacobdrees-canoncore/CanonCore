@@ -19,7 +19,16 @@ import { theBuildServing } from "./instance";
  * double, which is the shape of defect that comes back unless something counts.
  */
 const databaseUrl = inject("countedDatabaseUrl");
-const { item } = inject("counted");
+const { item, holdsAt, appearsAt } = inject("counted");
+
+/**
+ * A SERVER ON THE COUNTED CATALOGUE, which two things here need and neither owns:
+ * the measurements below, which must stop one inside the window, and the
+ * per-request check, which needs one that answers twice.
+ */
+function aServerOnTheCountedCatalogue() {
+  return theBuildServing({ ...process.env, DATABASE_URL: databaseUrl, OWNER_PASSWORD: "" });
+}
 
 /**
  * ONE SERVER PER MEASUREMENT, STARTED AND STOPPED INSIDE IT.
@@ -41,11 +50,7 @@ const { item } = inject("counted");
  */
 async function costOf(asking: (baseUrl: string) => Promise<unknown>): Promise<number> {
   return statementsWhile(databaseUrl, async () => {
-    const server = await theBuildServing({
-      ...process.env,
-      DATABASE_URL: databaseUrl,
-      OWNER_PASSWORD: "",
-    });
+    const server = await aServerOnTheCountedCatalogue();
     try {
       await asking(server.baseUrl);
     } finally {
@@ -75,8 +80,12 @@ const LONG_ENOUGH_TO_SERVE_AND_STOP_MS = 120_000;
  * trigger `dailyAt(3)` and `dailyAt(4)` and are armed for their NEXT firing, so
  * a few seconds of server lifetime catches neither.
  */
+let booting: Promise<number> | undefined;
 function bootingUp() {
-  return costOf(async () => {});
+  // MEASURED ONCE FOR THE FILE. It is the same build against the same database
+  // every time, and a server start is the dearest thing here.
+  booting ??= costOf(async () => {});
+  return booting;
 }
 
 describe("what /items/<id> costs", () => {
@@ -116,6 +125,42 @@ describe("what /items/<id> costs", () => {
   );
 
   it(
+    "reads it once at a NARROWED address too, which is the half a bare URL cannot show",
+    async () => {
+      /*
+       * THE BARE ADDRESS IS THE EASY HALF AND WOULD PASS ON ITS OWN. The read is
+       * keyed on the narrowing and both cursors as well as on the item, so a
+       * `generateMetadata` that stopped reading the query -- or read two of the
+       * three -- would go on costing ONE read at `/items/<id>` and TWO at every
+       * address carrying a parameter. The test above cannot tell those apart;
+       * this one is what makes `theAddressAsks` asserted rather than merely
+       * present.
+       *
+       * ALL THREE AT ONCE, because a key is only as shared as its least-shared
+       * term.
+       */
+      const asked = { id: item, placed: "owner", after: holdsAt, placedAfter: appearsAt };
+      const boot = await bootingUp();
+      const perRead =
+        (await costOf(async (baseUrl) => {
+          const rpc: AppRouterClient = createORPCClient(new RPCLink({ url: `${baseUrl}/api/rpc` }));
+          await rpc.item.get(asked);
+        })) - boot;
+      const perPage =
+        (await costOf(async (baseUrl) => {
+          const { status } = await documentFrom(
+            baseUrl,
+            `/items/${item}?placed=${asked.placed}&after=${asked.after}&placedAfter=${asked.placedAfter}`,
+          );
+          expect(status).toBe(200);
+        })) - boot;
+
+      expect(perPage).toBe(perRead);
+    },
+    LONG_ENOUGH_TO_SERVE_AND_STOP_MS,
+  );
+
+  it(
     "reads it again for the next reader, because the memo is one render wide",
     async () => {
       /*
@@ -136,21 +181,26 @@ describe("what /items/<id> costs", () => {
        * it in the heading. A memo that outlived the request would strand them
        * together, so asserting both is asserting the whole of what was shared.
        */
-      const server = await theBuildServing({
-        ...process.env,
-        DATABASE_URL: databaseUrl,
-        OWNER_PASSWORD: "",
-      });
+      const server = await aServerOnTheCountedCatalogue();
       const db = createDb(databaseUrl, { maxConnections: 1 });
       try {
+        /*
+         * THE NEW TITLE IS UNIQUE TO THIS RUN rather than a literal, so nothing
+         * here depends on what the fixture seeded or on this being the first
+         * time the file has run against this database. A retitle is not undone.
+         */
+        const renamed = `The item read a second time ${crypto.randomUUID()}`;
         const before = await documentFrom(server.baseUrl, `/items/${item}`);
-        expect(before.text).toContain("The item whose page is counted");
+        expect(before.text).not.toContain(renamed);
 
-        const renamed = "The item whose page was read a second time";
         await retitleItemByHand(db, { itemId: item, title: renamed });
 
         const after = await documentFrom(server.baseUrl, `/items/${item}`);
-        expect(after.text).toContain(`<h1 class="text-3xl font-medium">${renamed}</h1>`);
+        // BOTH HALVES OF THE SHARED READ. `generateMetadata` puts the title in
+        // `<title>` and the page puts it in the heading, so a memo that outlived
+        // the request would strand them together -- and asserting only one would
+        // miss a memo that had stranded the other.
+        expect(after.text).toContain(`>${renamed}</h1>`);
         expect(after.text).toContain(`<title>${renamed}</title>`);
       } finally {
         await db.$client.end();

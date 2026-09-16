@@ -137,11 +137,14 @@ this, and it is tempting exactly because the constant and the declaration now si
 it would make the budget FOLLOW whatever suffix was added last and widen it silently.
 `worktree-database.ts` names that move so the next reader declines it on purpose rather than by luck.
 
-**The budget is full, which is what to know before adding another.** SEVEN of the THIRTEEN declared
+**The budget is full, which is what to know before adding another.** SEVEN of the FIFTEEN declared
 suffixes — `_test_fresh`, `_test_paged`, `_test_purge`, `_test_still`, `_test_place`, `_test_order`
 and `_test_allow` — spend all eleven characters, so the longest tail the harness can derive IS the
-reservation, exactly. (This read "four of the six" until 2026-09-13; the set had grown and the
-sentence had not.)
+reservation, exactly. (This read "four of the six" until 2026-09-13 and "seven of the thirteen" until
+2026-09-16; the set has now grown out from under this sentence TWICE, which is what a figure quoted
+beside a list does. **COUNT `TEST_DATABASE_SUFFIXES` rather than trust the number here** — the SEVEN
+is the load-bearing half and has not moved, because what fills the budget is a five-character suffix
+and the two added since are four.)
 A new one is likelier to need shortening than to fit, and the test now says so at the point of adding
 it rather than on the first branch long enough to break.
 

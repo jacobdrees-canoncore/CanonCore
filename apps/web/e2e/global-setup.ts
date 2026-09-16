@@ -723,12 +723,22 @@ async function aCatalogueNobodyElseIsReading() {
     isOrdered: true,
   });
   const member = await anItemTitled(db, "What the counted item holds");
-  await aPlacement(db, { containerId: item, itemId: member, position: 1, sourceId: source });
+  const holdsAt = await aPlacement(db, {
+    containerId: item,
+    itemId: member,
+    position: 1,
+    sourceId: source,
+  });
   const ordering = await anItemTitled(db, "An ordering the counted item sits in", {
     isContainer: true,
     isOrdered: true,
   });
-  await aPlacement(db, { containerId: ordering, itemId: item, position: 1, sourceId: source });
+  const appearsAt = await aPlacement(db, {
+    containerId: ordering,
+    itemId: item,
+    position: 1,
+    sourceId: source,
+  });
 
   /*
    * THE HARNESS'S OWN HANDLE IS ENDED BEFORE ANY TEST RUNS, rather than at
@@ -738,7 +748,14 @@ async function aCatalogueNobodyElseIsReading() {
    * raises.
    */
   await db.$client.end();
-  return { databaseUrl, fixture: { item } };
+  /*
+   * THE TWO PLACEMENT IDS ARE THE CURSORS A NARROWED ADDRESS CARRIES, and they
+   * are handed over because the cost of the BARE address is the easy half. The
+   * read is keyed on `?placed=`, `?after=` and `?placedAfter=` as well as on the
+   * item, so a `generateMetadata` that stopped reading the query would go on
+   * costing one read at `/items/<id>` and two at every address carrying one.
+   */
+  return { databaseUrl, fixture: { item, holdsAt, appearsAt } };
 }
 
 /**
@@ -2179,8 +2196,12 @@ declare module "vitest" {
      * (CNCORE-176).
      */
     countedDatabaseUrl: string;
-    /** The item whose page is counted: a container that holds one and sits in one. */
-    counted: { item: string };
+    /**
+     * The item whose page is counted -- a container that holds one and sits in
+     * one -- and the two placements, which are the cursors a narrowed address
+     * carries.
+     */
+    counted: { item: string; holdsAt: string; appearsAt: string };
     /**
      * Every item it holds, as `pagedCatalogue` above does -- so how much it holds
      * comes from the fixture that wrote them rather than from the app.
