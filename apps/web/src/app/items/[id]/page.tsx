@@ -1,5 +1,4 @@
 import type { Context } from "@canoncore/api/context";
-import { createContext } from "@canoncore/api/context";
 import { appRouter } from "@canoncore/api/routers";
 import { Button } from "@canoncore/ui/components/button";
 import { Input } from "@canoncore/ui/components/input";
@@ -9,7 +8,7 @@ import { call, isDefinedError, safe } from "@orpc/server";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Fragment } from "react";
+import { cache, Fragment } from "react";
 import { Attribution } from "@/components/attribution";
 import { Holding, type MembersPath, PastTheEnd, type TheRoute, Walk } from "@/components/listing";
 import { type Reorder, reorderedTo } from "@/components/ordering";
@@ -33,35 +32,101 @@ import {
  * The router is called IN-PROCESS rather than over HTTP. A server component
  * fetching its own API is a round trip to itself, and oRPC documents `call` as
  * the way to avoid it.
+ *
+ * ONCE PER REQUEST, HOWEVER MANY TIMES THE ROUTE ASKS (CNCORE-176). Two things
+ * on this route want the same item -- `generateMetadata` for the document title
+ * and the page for everything else -- and until this ticket each of them called
+ * it, so every Item page cost TWO reads. MEASURED at the fourth seam on
+ * 2026-09-15: twelve SQL statements where six would do, and invisible to every
+ * test in the repository, because the second read answers exactly what the first
+ * one did and the served markup is identical either way.
+ *
+ * `cache` IS WHAT NEXT DOCUMENTS FOR THIS, and it is a MEMOISATION rather than a
+ * cache -- which is the distinction ADR-0117 turns on and the reason that record
+ * gained a section for this. Next's own glossary: "Caching the return value of a
+ * function so that calling the same function multiple times DURING A RENDER PASS
+ * (REQUEST) only executes it once", and `generateMetadata` is named among the
+ * places that share it. Nothing is held across requests, nothing is revalidated,
+ * and the next reader gets their own read. Read from
+ * `node_modules/next/dist/docs` at 16.3.4 as `apps/web/AGENTS.md` instructs:
+ * `01-app/04-glossary.md` and `02-guides/caching-without-cache-components.md`,
+ * whose "Deduplicating requests" section is this shape exactly -- "If you are not
+ * using `fetch` ... and instead using an ORM or database directly, you can wrap
+ * your data access with the React `cache` function".
+ *
+ * IT TAKES FOUR LOOSE ARGUMENTS RATHER THAN AN OPTIONS OBJECT, AND THAT IS
+ * LOAD-BEARING. `cache` keys on the arguments by identity, so an object literal
+ * would be a fresh key every call and this would memoise nothing while looking
+ * exactly as it does now. `theItem` below is the only caller for the same
+ * reason: the arity has to match too, and two call sites passing three arguments
+ * and four are two entries.
+ *
+ * THE CONTEXT IS READ RATHER THAN PASSED for the same reason, and it is one
+ * fewer wrong answer as well as one fewer argument. `generateMetadata` used to
+ * build a SECOND context with `createContext()`, so the metadata read the
+ * catalogue as a visitor while the page read it as whoever was asking -- two
+ * answers to "what does this request carry" on one render. `callerContext` is
+ * memoised per request itself (`@/session`), so this costs nothing.
  */
-async function readItem(
-  id: string,
-  {
-    placed,
-    after,
-    placedAfter,
-    context,
-  }: { placed?: string; after?: string; placedAfter?: string; context?: Context } = {},
-) {
-  const { error, data } = await safe(
-    call(
-      appRouter.item.get,
-      { id, placed, after, placedAfter },
-      { context: context ?? (await createContext()) },
-    ),
-  );
-  if (!error) return data;
-  // Only a missing item is a 404. Anything else -- a database that is down, a
-  // contract the handler stopped honouring -- must surface as a 500 rather than
-  // be quietly reported as "no such item".
-  //
-  // A MALFORMED id reaches this line as a NOT_FOUND like any other, and there is
-  // deliberately nothing here that special-cases one (CNCORE-14). Whether a
-  // string can be an identity is decided where the other rules about what an id
-  // means already live -- the tombstone and the alias, in `findItem` -- so every
-  // reader gets the same answer and not only this page (ADR-0066).
-  if (isDefinedError(error) && error.code === "NOT_FOUND") notFound();
-  throw error;
+const readItem = cache(
+  async (id: string, placed?: string, after?: string, placedAfter?: string) => {
+    const { error, data } = await safe(
+      call(
+        appRouter.item.get,
+        { id, placed, after, placedAfter },
+        { context: await callerContext() },
+      ),
+    );
+    if (!error) return data;
+    // Only a missing item is a 404. Anything else -- a database that is down, a
+    // contract the handler stopped honouring -- must surface as a 500 rather than
+    // be quietly reported as "no such item".
+    //
+    // A MALFORMED id reaches this line as a NOT_FOUND like any other, and there is
+    // deliberately nothing here that special-cases one (CNCORE-14). Whether a
+    // string can be an identity is decided where the other rules about what an id
+    // means already live -- the tombstone and the alias, in `findItem` -- so every
+    // reader gets the same answer and not only this page (ADR-0066).
+    if (isDefinedError(error) && error.code === "NOT_FOUND") notFound();
+    throw error;
+  },
+);
+
+/**
+ * WHAT THE ADDRESS IS ASKING FOR, in one place because two entry points ask it.
+ *
+ * `generateMetadata` and the page are one render of one route, and CNCORE-176 is
+ * what happens when they ask separately: the metadata read with no narrowing and
+ * no cursors while the page read with all three, so the two arguments differed,
+ * so nothing could have been shared even had it been memoised. Derived once
+ * here, they cannot.
+ *
+ * `oneValue` OWNS WHAT A REPEATED OR BLANK PARAMETER MEANS, which is why the
+ * page's own reading of `?via=` and the rest goes through it too.
+ */
+function theAddressAsks({ id, placed, after, placedAfter }: TheAddress) {
+  return {
+    id,
+    placed: oneValue(placed),
+    after: oneValue(after),
+    placedAfter: oneValue(placedAfter),
+  };
+}
+
+interface TheAddress {
+  id: string;
+  placed?: string | string[];
+  after?: string | string[];
+  placedAfter?: string | string[];
+}
+
+/**
+ * THE ONE PLACE `readItem` IS CALLED, so its arity and the order of its
+ * arguments cannot differ between the two callers -- which is what a memoisation
+ * keyed on arguments quietly requires and nothing else would enforce.
+ */
+function theItem({ id, placed, after, placedAfter }: ReturnType<typeof theAddressAsks>) {
+  return readItem(id, placed, after, placedAfter);
 }
 
 /**
@@ -219,11 +284,25 @@ function AssertedBy({ sources }: { sources: string[] }) {
 
 export async function generateMetadata({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<TheQuery>;
 }): Promise<Metadata> {
+  /*
+   * IT READS THE QUERY, WHICH A DOCUMENT TITLE HAS NO USE FOR (CNCORE-176).
+   * That is the point: what it reads it for is to ask the read path the SAME
+   * question the page asks, so the two share one answer. A `generateMetadata`
+   * that asked about the bare item while the page asked about the item narrowed
+   * to one origin would be two different questions, and two different questions
+   * are two reads however they are memoised.
+   *
+   * IT COSTS THIS ROUTE NOTHING IN RENDERING TERMS. The page already reads
+   * `searchParams` for `?via=` and is dynamic by it (ADR-0117), so touching the
+   * same request-time API here changes no route's mode.
+   */
   const { id } = await params;
-  const item = await readItem(id);
+  const item = await theItem(theAddressAsks({ id, ...(await searchParams) }));
   return {
     title: item.title ?? "Untitled item",
     /*
@@ -252,19 +331,26 @@ export async function generateMetadata({
   };
 }
 
+/**
+ * EVERY PARAMETER THIS ROUTE READS, named once because `generateMetadata` above
+ * takes the same object. Four of the six are the read's question (ADR-0066's
+ * `via`, `placed`, `after`, `placedAfter`) and two are what a write just did.
+ */
+interface TheQuery {
+  via?: string | string[];
+  placed?: string | string[];
+  after?: string | string[];
+  placedAfter?: string | string[];
+  undo?: string | string[];
+  refused?: string | string[];
+}
+
 export default async function ItemPage({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{
-    via?: string | string[];
-    placed?: string | string[];
-    after?: string | string[];
-    placedAfter?: string | string[];
-    undo?: string | string[];
-    refused?: string | string[];
-  }>;
+  searchParams: Promise<TheQuery>;
 }) {
   const { id } = await params;
   /*
@@ -302,18 +388,26 @@ export default async function ItemPage({
    * matches no placement either way, so nothing about `via` or `placed` moves.
    */
   const arrivedThrough = oneValue(via);
-  const showingOnly = oneValue(placed);
-  // ADR-0119's cursor for the Members listing below, read on the SERVER like
-  // the two above it, so the page a reader is served is the page they asked for.
-  const from = oneValue(after);
   /*
-   * AND "ALSO APPEARS IN"'S OWN (CNCORE-125). TWO CURSORS ON ONE ADDRESS,
-   * because a Container IS an Item (ADR-0004) and one page therefore carries
-   * two independent listings: what this item HOLDS, and every ordering it SITS
-   * IN. Neither may move the other, which is why the second has a name rather
-   * than being a second `after` -- `listing.tsx`'s `CURSOR` has the argument.
+   * THE READ'S OWN QUESTION, THROUGH THE SAME FUNCTION `generateMetadata` USES
+   * (CNCORE-176). The three below are read off it rather than beside it, so the
+   * arguments this page hands the read path are the arguments the metadata hands
+   * it -- which is what lets one memoised read serve both. Derived separately
+   * they would agree today and drift on the day one of them gained a parameter.
+   *
+   * `showingOnly` is the narrowing (`?placed=`). `from` is ADR-0119's cursor for
+   * the Members listing, read on the SERVER like `via` above it, so the page a
+   * reader is served is the page they asked for. `appearingFrom` is "Also
+   * appears in"'s own (CNCORE-125): TWO CURSORS ON ONE ADDRESS, because a
+   * Container IS an Item (ADR-0004) and one page therefore carries two
+   * independent listings -- what this item HOLDS, and every ordering it SITS IN.
+   * Neither may move the other, which is why the second has a name rather than
+   * being a second `after`; `listing.tsx`'s `CURSOR` has the argument.
    */
-  const appearingFrom = oneValue(placedAfter);
+  const asked = theAddressAsks({ id, placed, after, placedAfter });
+  const showingOnly = asked.placed;
+  const from = asked.after;
+  const appearingFrom = asked.placedAfter;
   /*
    * THE PLACEMENT A REMOVAL JUST TOOK OUT, so this page can offer it back
    * (ADR-0046). It identifies nothing -- the path is the container's identity
@@ -335,12 +429,7 @@ export default async function ItemPage({
    * ride back beside it, because they are the one thing narrowing must not
    * change.
    */
-  const item = await readItem(id, {
-    placed: showingOnly,
-    after: from,
-    placedAfter: appearingFrom,
-    context,
-  });
+  const item = await theItem(asked);
   const owner = context.session !== null;
 
   return (
