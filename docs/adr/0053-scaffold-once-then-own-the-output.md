@@ -102,7 +102,7 @@ this section said four and left all three pinned; a package deleted from a manif
 catalogue is still a version this repo maintains.
 
 **`sonner` WAS THE FOURTH AND IT STAYED -- AND THAT HALF OF THIS RECORD IS REVERSED, BY CNCORE-161
-AND [[0137-a-primitive-earns-its-place-by-having-a-caller]].** The correction is written into the
+AND [[0138-a-primitive-earns-its-place-by-having-a-caller]].** The correction is written into the
 sentence rather than appended after it, because appended it would leave the claim standing.
 
 What this record decided, and what no longer holds: the app's `<Toaster>` went with the query
@@ -114,7 +114,7 @@ be deleting the library a component at a time.
 
 **IT READ `packages/ui` AS A LIBRARY, AND IT IS NOT ONE** -- a private workspace package, published
 nowhere, with one consumer and a set of modules nobody chose. The nine became ten and the share was
-measured: 61% of the package, 891 of the 1,433 lines of TypeScript under its `src/`, reachable from
+measured: 59% of the package, 891 of the 1,506 lines of TypeScript under its `src/`, reachable from
 nothing. `sonner.tsx` is deleted along with the other nine, and a roll call names the eleventh the
 day it appears. **THE SCAFFOLD DECISION ABOVE IS UNTOUCHED**: owning the output is what both halves
 of this are, and only the judgement about which parts to keep has moved.

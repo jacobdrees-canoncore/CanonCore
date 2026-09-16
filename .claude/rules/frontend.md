@@ -17,7 +17,7 @@ pages that render them.
 
 **Add a primitive with the slice that calls it, never ahead of one.** `packages/config`'s
 `ui-callers.test.ts` names any module here that nothing imports, so a component added for a surface
-not yet written goes red rather than sitting unread — ADR-0137, which is what 61% of this package
+not yet written goes red rather than sitting unread — ADR-0138, which is what 59% of this package
 being unreachable cost. Pulling five things from the registry to pick one means deleting four.
 
 The registries are declared in the ROOT `package.json`, not in either `components.json`. The MCP

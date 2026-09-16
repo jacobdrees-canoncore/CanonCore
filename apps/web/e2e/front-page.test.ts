@@ -142,6 +142,12 @@ describe("/", () => {
     for (const href of linked) {
       const stylesheet = await fetch(`${inject("baseUrl")}${href}`);
 
+      // THE STATUS FIRST, because a 404 body carries no `@font-face` either. The
+      // href is scraped out of the page, so a sheet that moved -- or a reader of
+      // this test that changed how the URL is assembled -- would otherwise turn
+      // the assertion below into one that passes by fetching nothing. Every other
+      // assertion in this file checks a status; this one has more reason to.
+      expect(stylesheet.status, href).toBe(200);
       expect(await stylesheet.text(), href).not.toContain("@font-face");
     }
   });

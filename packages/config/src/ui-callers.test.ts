@@ -7,11 +7,11 @@ import { repoRoot } from "./testing/repo-root";
 /**
  * A ROLL CALL OVER `packages/ui`, HOLDING EVERY MODULE IN IT TO HAVING A CALLER.
  *
- * The package arrived as scaffold output and 61% of it was never reached: ten
- * modules, 891 of the 1,433 lines of TypeScript under its `src/`, including a
+ * The package arrived as scaffold output and 59% of it was never reached: ten
+ * modules, 891 of the 1,506 lines of TypeScript under its `src/`, including a
  * chat bubble, a message scroller and an attachment tile in a catalogue. That is
  * the state CNCORE-161 deleted, and this is what stops it growing back --
- * [[0137-a-primitive-earns-its-place-by-having-a-caller]] decides the rule, and a
+ * [[0138-a-primitive-earns-its-place-by-having-a-caller]] decides the rule, and a
  * rule nothing reads is a rule somebody remembers.
  *
  * IT LIVES IN `packages/config` BECAUSE ITS SUBJECT IS THE WHOLE REPOSITORY. The
@@ -22,17 +22,39 @@ import { repoRoot } from "./testing/repo-root";
  * Beside `packages/ui`'s own suite it would be the opposite: cached against the
  * one directory that cannot answer the question.
  *
- * WHAT IT DOES NOT ANSWER, said here rather than left to be found: whether the
- * CALLER is itself reachable. A module imported only by a component no route
- * renders counts as reached, because the walk starts at every tracked source
- * outside the package rather than at the router. So this catches a module
- * nothing imports; it does not catch a subtree that has quietly fallen off the
- * product. The narrower question is the one CNCORE-161 asked, and the wider one
- * needs a different instrument.
+ * WHAT IT DOES NOT ANSWER, said here rather than left to be found:
+ *
+ * - WHETHER THE CALLER IS ITSELF REACHABLE. A module imported only by a component
+ *   no route renders counts as reached, because the walk starts at every tracked
+ *   source outside the package rather than at the router. It catches a module
+ *   nothing imports; a subtree that has quietly fallen off the product needs a
+ *   different instrument, and none is built.
+ * - ANYTHING THAT IS NOT TYPESCRIPT. The sweep reads `.ts` and `.tsx`, so
+ *   `globals.css` is outside it in both directions: a dead stylesheet would never
+ *   be named, and a module reached only from CSS would be named wrongly. Neither
+ *   is the case today -- `apps/web/src/index.css` imports the one stylesheet
+ *   there is -- and CNCORE-161 counted lines of TypeScript, which is the question
+ *   this answers.
  */
 
 /** Where `packages/ui`'s modules sit, which is the only directory swept here. */
 const UI_SOURCE = "packages/ui/src/";
+
+/**
+ * A literal, as a regular expression that matches it and nothing else.
+ *
+ * ONE ESCAPER FOR BOTH PATTERNS BELOW, because there were two and they disagreed:
+ * one escaped `.` alone and the other escaped `/`, which is not a metacharacter at
+ * all. The one that mattered is the first. `exports` keys are data read off a
+ * manifest, and an unescaped metacharacter in one does not throw -- it COMPILES,
+ * to a pattern that matches the wrong thing. A subpath like `./blocks/(beta)/*`
+ * becomes `^/blocks/(beta)/(.+)$`, whose first capture is `beta`, so the resolver
+ * returns a confidently wrong file and the roll call goes green. A silent false
+ * pass is the one answer this file must never give.
+ */
+function escaped(literal: string): string {
+  return literal.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
+}
 
 /**
  * A resolver from a published specifier to the file it names, built from
@@ -43,18 +65,40 @@ const UI_SOURCE = "packages/ui/src/";
  * publishes `"./src/components/*.tsx"`. A walk that hardcoded `src/components`
  * would go on resolving after the map stopped saying that, and would resolve
  * names the map had stopped publishing at all.
+ *
+ * IT REFUSES A MAP IT CANNOT READ RATHER THAN SKIPPING THE ENTRY, which is the
+ * choice `workspace.ts` makes for the same reason: an entry quietly dropped here
+ * is a specifier that resolves to nothing, and a module reached only through it
+ * would be reported as dead. Conditional exports (`{"import": …}`) and a second
+ * `*` are both refused -- Node permits one wildcard per subpath pattern, and a
+ * `replace` that substitutes only the first would leave a literal `*` in the path
+ * it went on to compare.
  */
-function theResolver(): { name: string; resolve: (specifier: string) => string | undefined } {
+function theExportsResolver(): {
+  name: string;
+  resolve: (specifier: string) => string | undefined;
+} {
   const manifest = JSON.parse(
     readFileSync(join(repoRoot, "packages", "ui", "package.json"), "utf8"),
-  ) as { name: string; exports: Record<string, string> };
+  ) as { name: string; exports: Record<string, unknown> };
 
-  const published = Object.entries(manifest.exports).map(([subpath, target]) => ({
-    matcher: new RegExp(
-      `^${subpath.replace(/^\./, "").replace(/[.]/g, "\\.").replace("*", "(.+)")}$`,
-    ),
-    target,
-  }));
+  const published = Object.entries(manifest.exports).map(([subpath, target]) => {
+    if (typeof target !== "string") {
+      throw new Error(`\`${subpath}\` in packages/ui publishes ${typeof target}, not a path`);
+    }
+    for (const [side, value] of [
+      ["subpath", subpath],
+      ["target", target],
+    ] as const) {
+      if (value.split("*").length > 2) {
+        throw new Error(`\`${subpath}\` has more than one \`*\` in its ${side}`);
+      }
+    }
+    return {
+      matcher: new RegExp(`^${escaped(subpath.replace(/^\./, "")).replace("\\*", "(.+)")}$`),
+      target,
+    };
+  });
 
   return {
     name: manifest.name,
@@ -71,8 +115,16 @@ function theResolver(): { name: string; resolve: (specifier: string) => string |
 }
 
 /**
- * Every module of `packages/ui` a file names, in either spelling reach travels
+ * Every module of `packages/ui` a file IMPORTS, in either spelling reach travels
  * by.
+ *
+ * AN IMPORT, NOT A MENTION, and that is the difference between this and a grep
+ * over the specifier. Matching the string wherever it appeared made any quoted
+ * occurrence a caller, so one dead module named in an unrelated string literal --
+ * a constant, a fixture, a message -- answered the roll call on behalf of a file
+ * nothing renders. Demonstrated under review: a `export const DOCS_PATH =
+ * "@canoncore/ui/components/zzdead"` in an unrelated component was enough to keep
+ * a genuinely dead module green.
  *
  * THE PUBLISHED SPECIFIER IS HOW THE PACKAGE IMPORTS ITSELF TODAY -- `button.tsx`
  * reaches `lib/utils` as `@canoncore/ui/lib/utils`, not as `../lib/utils` -- so
@@ -84,12 +136,15 @@ function theResolver(): { name: string; resolve: (specifier: string) => string |
 function uiImportsIn(
   path: string,
   source: string,
-  { name, resolve }: ReturnType<typeof theResolver>,
+  { name, resolve }: ReturnType<typeof theExportsResolver>,
 ): string[] {
   const found: string[] = [];
 
   for (const [, specifier] of source.matchAll(
-    new RegExp(`["'\`](${name.replace("/", "\\/")}\\/[^"'\`\\n]+)["'\`]`, "g"),
+    new RegExp(
+      `(?:from|import|require)\\s*\\(?\\s*["'\`](${escaped(name)}\\/[^"'\`\\n]+)["'\`]`,
+      "g",
+    ),
   )) {
     const target = resolve(specifier as string);
     if (target !== undefined) found.push(target);
@@ -127,7 +182,7 @@ function uiImportsIn(
  * catch is one the repository is not in.
  */
 function unimportedModules(sources: Map<string, string>): string[] {
-  const resolver = theResolver();
+  const resolver = theExportsResolver();
   const reached = new Set<string>();
 
   for (let settled = false; !settled; ) {
@@ -163,6 +218,11 @@ function unimportedModules(sources: Map<string, string>): string[] {
  * -- `select.tsx`'s own docblock is three paragraphs about what it replaced --
  * and a walk reading those would count a record of a deletion as a caller.
  *
+ * `-z` RATHER THAN LINES, so a path is whatever git says it is. Without it git
+ * applies `core.quotePath` and hands back a non-ASCII filename double-quoted with
+ * its bytes octal-escaped, which then fails to open -- a read throwing ENOENT on
+ * a file that is sitting right there.
+ *
  * THE SECOND COPY OF THIS READ, and deliberately not folded with
  * `turbo-cache-inputs.test.ts`'s: [[0136-a-control-is-a-primitive-and-a-surfaces-words-sit-beside-its-pages]]
  * folds at three, on the argument that two copies are cheaper than an abstraction
@@ -172,10 +232,10 @@ function unimportedModules(sources: Map<string, string>): string[] {
 function theTrackedSources(): Map<string, string> {
   const tracked = execFileSync(
     "git",
-    ["ls-files", "packages/*.ts", "packages/*.tsx", "apps/*.ts", "apps/*.tsx"],
+    ["ls-files", "-z", "packages/*.ts", "packages/*.tsx", "apps/*.ts", "apps/*.tsx"],
     { cwd: repoRoot, encoding: "utf8" },
   )
-    .split("\n")
+    .split("\0")
     .filter((path) => path.length > 0 && !/\.(test|test-d)\.tsx?$/.test(path));
 
   // NON-EMPTINESS IS RAISED HERE, at the root of the chain, which is where
@@ -239,5 +299,31 @@ describe("the caller roll call over packages/ui", () => {
     );
 
     expect(unimportedModules(orphaned)).toStrictEqual(["packages/ui/src/components/card.tsx"]);
+  });
+
+  /**
+   * AND A MENTION IS NOT AN IMPORT, which is the false green this file shipped
+   * with and a reviewer found. Any quoted occurrence of a specifier counted as a
+   * caller, so a dead module named in an unrelated string literal answered the
+   * roll call on behalf of a file nothing renders.
+   *
+   * THE SUBJECT IS BUILT, not committed: the row above proves `Card` goes dark
+   * when its importers go, and this one puts the specifier back as a bare string
+   * and requires it to stay dark. A grep-shaped walk passes the first row and
+   * fails this one.
+   */
+  it("does not take a specifier in an ordinary string for a caller", () => {
+    const sources = theTrackedSources();
+    const mentioned = new Map(
+      [...sources].map(([path, source]) => [
+        path,
+        path.startsWith(UI_SOURCE)
+          ? source
+          : `${source.replaceAll("@canoncore/ui/components/card", "")}
+             export const NOT_AN_IMPORT = "@canoncore/ui/components/card";`,
+      ]),
+    );
+
+    expect(unimportedModules(mentioned)).toStrictEqual(["packages/ui/src/components/card.tsx"]);
   });
 });

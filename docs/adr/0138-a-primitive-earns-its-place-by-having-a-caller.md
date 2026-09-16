@@ -25,9 +25,16 @@ back from `@shadcn` or `@shadcnblocks` the same way it first arrived, onto this 
 which `.claude/rules/frontend.md` already instructs. Nothing is lost that a reader cannot get back
 in less time than it takes to establish that the copy in the tree was never used.
 
-**AND THE COST OF KEEPING THEM IS PAID BY EVERY READER.** 61% of the package was unreachable --
-891 of the 1,433 lines of TypeScript under `src/`, measured on 2026-09-13 -- so a reader asking
-what this product renders with had no way to tell the 39% that answers from the 61% that does not.
+**AND THE COST OF KEEPING THEM IS PAID BY EVERY READER.** 59% of the package was unreachable --
+891 of the 1,506 lines of TypeScript under `src/`, counted on the commit this landed against -- so a
+reader asking what this product renders with had no way to tell the 41% that answers from the 59%
+that does not.
+
+**CNCORE-161 SAYS 61% OF 1,433 AND THAT FIGURE IS STALE, WHICH IS WORTH A SENTENCE RATHER THAN A
+SILENT CORRECTION.** It was measured on 2026-09-13; CNCORE-177 then added `select.tsx`, whose 73
+lines are the whole of the difference. The 891 is exact either way -- the ten modules did not change
+-- so the ticket's share was right about a tree that had moved by the time it was worked. A share is
+a fraction of something that grows; the numerator is what survives.
 An agent told to "read `packages/ui` first and import what exists" was being pointed at a chat
 bubble, a message scroller and an attachment tile, in a catalogue.
 
@@ -96,7 +103,13 @@ still a version this repo maintains, which is the correction that record already
 `next-themes` is the third and it leaves this package's manifest ONLY: `apps/web` declares it for
 itself and renders the theme with it.
 
-**`src/hooks/` IS STILL THERE, EMPTY BUT FOR A `.gitkeep`**, with an `exports` entry publishing
-nothing. It is not a module and has no lines to count, so it sits outside this record's rule and
-outside CNCORE-161's criteria. Left rather than taken, and written down rather than left to be
-found.
+**`src/hooks/` IS STILL THERE, EMPTY BUT FOR A `.gitkeep`, AND IT STAYS FOR A REASON RATHER THAN
+BY OVERSIGHT.** `packages/ui/components.json` aliases `"hooks": "@canoncore/ui/hooks"`, which is
+where the `shadcn` CLI writes a hook that a primitive arrives with -- so the directory and its
+`exports` entry are the landing site for a component this package has not taken yet, and deleting
+them would break the next `shadcn add` that ships one. The rule above is about MODULES, and an empty
+directory is not one.
+
+**IT DOES LEAVE THE ROLL CALL WITH A MATCHER THAT CAN NEVER RESOLVE ANYTHING** -- `^/hooks/(.+)$`,
+built from a map entry publishing no file. That is dead configuration the rule does not police, and
+it is named here so the next reader meets it as a decision rather than as a loose end.
