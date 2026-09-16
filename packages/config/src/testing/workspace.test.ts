@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   directoriesUnder,
   isWorkspacePattern,
@@ -76,47 +76,56 @@ describe("the workspace sweeps", () => {
  * is a symlink, so the repository is the one place the question cannot be put
  * (CNCORE-200).
  */
-const scratchRoots: string[] = [];
-
-afterEach(() => {
-  while (scratchRoots.length > 0) {
-    rmSync(scratchRoots.pop() as string, { recursive: true, force: true });
-  }
-});
-
-/** A workspace parent in a temp directory, for the rows to build a tree inside. */
-function scratchParent(): string {
-  const root = mkdtempSync(join(tmpdir(), "workspace-"));
-  scratchRoots.push(root);
-  const parent = join(root, "packages");
-  mkdirSync(parent);
-  return parent;
-}
-
 describe("a symlinked package directory", () => {
-  it("is refused by name rather than dropped, because pnpm and turbo disagree about it", () => {
-    const parent = scratchParent();
-    mkdirSync(join(parent, "real"));
-    mkdirSync(join(parent, "..", "elsewhere"));
-    symlinkSync(join(parent, "..", "elsewhere"), join(parent, "linked"));
+  let root: string;
 
-    expect(() => directoriesUnder(parent)).toThrow(/linked/);
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), "canoncore-workspace-"));
+    mkdirSync(join(root, "packages"));
+  });
+
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  /** The workspace parent under the fixture, for a row to build its tree inside. */
+  function parent(): string {
+    return join(root, "packages");
+  }
+
+  it("is refused by name rather than dropped, because pnpm and turbo disagree about it", () => {
+    mkdirSync(join(parent(), "real"));
+    mkdirSync(join(root, "elsewhere"));
+    symlinkSync(join(root, "elsewhere"), join(parent(), "linked"));
+
+    expect(() => directoriesUnder(parent())).toThrow(/linked/);
+  });
+
+  /**
+   * NAMED RATHER THAN COUNTED, which is the line this package already takes
+   * about `ungatedPackages`: two symlinked packages are two things to fix, and
+   * a message carrying the first sends the reader back for the second.
+   */
+  it("is named alongside every other one, rather than the first standing for them all", () => {
+    mkdirSync(join(root, "elsewhere"));
+    symlinkSync(join(root, "elsewhere"), join(parent(), "one"));
+    symlinkSync(join(root, "elsewhere"), join(parent(), "two"));
+
+    expect(() => directoriesUnder(parent())).toThrow(/one.*two/s);
   });
 
   it("is not a symlink to a FILE, which neither tool calls a package either way", () => {
-    const parent = scratchParent();
-    mkdirSync(join(parent, "real"));
-    writeFileSync(join(parent, "..", "notes.md"), "");
-    symlinkSync(join(parent, "..", "notes.md"), join(parent, "notes.md"));
+    mkdirSync(join(parent(), "real"));
+    writeFileSync(join(root, "notes.md"), "");
+    symlinkSync(join(root, "notes.md"), join(parent(), "notes.md"));
 
-    expect(directoriesUnder(parent)).toStrictEqual(["real"]);
+    expect(directoriesUnder(parent())).toStrictEqual(["real"]);
   });
 
-  it("is not a BROKEN symlink, which stats as nothing rather than as a directory", () => {
-    const parent = scratchParent();
-    mkdirSync(join(parent, "real"));
-    symlinkSync(join(parent, "..", "gone"), join(parent, "dangling"));
+  it("is not a DANGLING symlink, which stats as nothing rather than as a directory", () => {
+    mkdirSync(join(parent(), "real"));
+    symlinkSync(join(root, "gone"), join(parent(), "dangling"));
 
-    expect(directoriesUnder(parent)).toStrictEqual(["real"]);
+    expect(directoriesUnder(parent())).toStrictEqual(["real"]);
   });
 });

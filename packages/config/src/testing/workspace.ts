@@ -99,36 +99,40 @@ export function workspaceDirectories(): string[] {
  * which is the vacuous pass CNCORE-160 spent a ticket removing from these
  * files, arriving through the directory read rather than through a count.
  *
- * REFUSED RATHER THAN RESOLVED, because the two tools that read this workspace
- * DISAGREE about the shape, and no sweep can be right about one they answer
- * differently. Measured 2026-09-15, on a scratch workspace whose
- * `packages/linked` was a symlink to a directory: pnpm 12.3.4 left it out of
- * `pnpm ls -r` and out of `Scope: all 2 workspace projects`, before and after
- * an install and with nothing on stderr, while turbo 2.10.12 listed it in
- * `--dry=json`'s `packages` and planned `linked#typecheck` for it. So resolving
- * it would take turbo's side and make `workspaceDirectories`' own sentence
- * false the other way -- demanding a Vitest config and a `typecheck` script
- * from a directory pnpm never installed into. The ticket proposed resolving it
- * on the premise that BOTH tools count one; that half is what the measurement
- * overturned.
+ * REFUSED RATHER THAN RESOLVED, because pnpm and turbo DISAGREE about the
+ * shape and no sweep can be right about one they answer differently. The
+ * measurement that settled it -- both versions, and the control run -- is in
+ * ADR-0103 under "pnpm and turbo disagree about a symlinked package directory",
+ * and is NOT restated here: a figure kept in two places is a figure that drifts
+ * in one of them.
  *
  * A SYMLINK POINTING AT A DIRECTORY IS THE ONLY AMBIGUOUS ONE, so it is the
  * only one refused. A symlink to a file is not a package to either tool, and a
- * BROKEN one stats as nothing: `throwIfNoEntry: false` is what keeps that an
+ * DANGLING one stats as nothing: `throwIfNoEntry: false` is what keeps that an
  * entry dropped for the same reason as the file rather than an ENOENT naming a
- * path and no reason.
+ * path and no reason. A symlink CYCLE is neither, and is left alone on purpose
+ * -- `statSync` throws ELOOP straight through here, naming the path, which is
+ * loud and so not the silence this refuses.
+ *
+ * THE PARENT ITSELF IS NOT THIS CASE. `readdirSync` reads through a symlinked
+ * `packages/`, and pnpm and turbo read through it too, so all three agree and
+ * there is no divergence to refuse -- measured under the same ADR heading.
+ *
+ * EVERY offender is named, not the first: two symlinked packages are two
+ * things to fix, and a message carrying one of them sends the reader back for
+ * the other.
  */
 export function directoriesUnder(parent: string): string[] {
   const entries = readdirSync(parent, { withFileTypes: true });
-  const symlinked = entries.find(
+  const symlinked = entries.filter(
     (entry) =>
       entry.isSymbolicLink() &&
       statSync(join(parent, entry.name), { throwIfNoEntry: false })?.isDirectory() === true,
   );
-  if (symlinked !== undefined) {
-    const path = join(parent, symlinked.name);
+  if (symlinked.length > 0) {
+    const paths = symlinked.map((entry) => join(parent, entry.name)).join(", ");
     throw new Error(
-      `${path} is a symlink to a directory, which pnpm does not count as a package and turbo does`,
+      `a symlinked directory is a package to turbo and not to pnpm, so it is refused: ${paths}`,
     );
   }
   return entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name);

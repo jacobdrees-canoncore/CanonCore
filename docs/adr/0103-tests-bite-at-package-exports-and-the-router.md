@@ -1144,9 +1144,20 @@ narrowing this record exists to refuse. Refusing names it, the way `isWorkspaceP
 pattern it does not understand rather than dropping the packages it would have matched.
 
 **ONLY A SYMLINK POINTING AT A DIRECTORY IS AMBIGUOUS**, so only that one is refused. A symlink to
-a file is not a package to either tool, and a broken one stats as nothing -- `throwIfNoEntry: false`
-is what keeps that an entry dropped for the file's reason rather than an ENOENT naming a path and
-no reason.
+a file is not a package to either tool, and a DANGLING one stats as nothing -- `throwIfNoEntry:
+false` is what keeps that an entry dropped for the file's reason rather than an ENOENT naming a
+path and no reason. A symlink CYCLE is neither, and is deliberately left alone: `statSync` throws
+ELOOP straight through the reader, naming the path, and that is loud rather than silent. This
+paragraph said "a broken one" until review, which read as covering the cycle it does not cover.
+
+**AND THE PARENT ITSELF IS NOT AN INSTANCE OF THIS AT ALL**, which review proposed refusing as the
+same bug one level up. It is not the same bug, because the disagreement that makes the entry case
+ambiguous is absent: measured the same day, with `packages` itself a symlink to a sibling directory
+holding one package, `pnpm ls -r --depth -1` named it, `turbo run typecheck --dry=json` reported
+`"packages": ["parent-real"]`, and `readdirSync` read through and returned it as an ordinary
+directory. All THREE agree, so the sweep already answers what both tools answer. Refusing it would
+make this reader NARROWER than pnpm and turbo, which is the failure this record exists to prevent
+rather than an instance of it.
 
 **AND IT IS ASKED DIRECTLY RATHER THAN THROUGH THE REPOSITORY**, for the reason
 `isWorkspacePattern`'s table already gives: no package directory here is a symlink, so the
