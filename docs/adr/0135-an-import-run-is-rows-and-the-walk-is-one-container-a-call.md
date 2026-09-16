@@ -18,6 +18,14 @@ holding where it got to in one process's memory starts again from the beginning 
 interrupts it, and at 43.8s a Container — the figure an import actually pays, measured against the
 live wiki 2026-09-13 — the whole list is about five and a half hours.
 
+**THAT ESTIMATE IS WRONG BY AN ORDER OF MAGNITUDE, AND THE CORRECTION BELONGS IN THIS SENTENCE**
+(ADR-0136, CNCORE-167). 43.8s is the cost of AHistory, the LARGEST page on the wiki, and multiplying
+it by 465 is not a bound on the list — it is a different quantity. The median Ordering holds **19**
+slots; 319 of the 439 that hold anything hold fewer than 50, and nine hold more than 500. **The
+whole corpus landed in roughly ELEVEN MINUTES**, measured 2026-09-15 into the Owner's own install.
+Everything this record decides about resuming still holds: what was wrong was the size of the job,
+not the need to survive losing it.
+
 ## The run is rows, at the grain of one Container
 
 Migration 18: `import_runs` carries which Provider the walk is at, and `import_run_containers`
@@ -87,9 +95,10 @@ what a Provider has is the requests: the suite's stub counts how many it is answ
 the walk is held to one. The assertion was checked by breaking it — a `Promise.all` over two steps
 turns it red.
 
-**The split between opening a run and walking it is what makes five and a half hours possible at
-all.** No single request waits on more than one browse, and opening a run asks the Provider nothing,
-so an Owner who typed 465 ids does not wait a browse before the list exists.
+**The split between opening a run and walking it is what makes a long walk possible at all** — about
+eleven minutes for the corpus rather than the five and a half hours estimated above. No single
+request waits on more than one browse, and opening a run asks the Provider nothing, so an Owner who
+typed 465 ids does not wait a browse before the list exists.
 
 ## The driver takes a CLIENT, because an install publishes no database port
 
@@ -103,10 +112,15 @@ host only the app can resolve (`http://provider-wiki:8080`, on the network CNCOR
 named exactly as the app sees it.
 
 **A page is refused here and CNCORE-159 already said so**, putting the import driver at ADR-0103's
-first seam rather than among its pages. A surface for a five-and-a-half-hour operation needs a
-background worker this repository does not have: ADR-0049's registry is RECURRING work on a daily
-trigger, and `CONTEXT.md`'s Task headword says so in those words, which a one-off corpus import is
-not.
+first seam rather than among its pages. A surface for an operation of this length needs a background
+worker this repository does not have: ADR-0049's registry is RECURRING work on a daily trigger, and
+`CONTEXT.md`'s Task headword says so in those words, which a one-off corpus import is not.
+
+**THE MEASURED ELEVEN MINUTES DOES NOT REOPEN THAT**, though it is the obvious thing to try next.
+Eleven minutes is still far past what a request may hold open, the run that actually filled the
+install was INTERRUPTED and resumed rather than run once, and the cold-Provider cost is unmeasured
+because the cold run is the one that was interrupted (ADR-0136). What has changed is that whoever
+builds the surface is sizing it against minutes rather than against an afternoon.
 
 ## What this does NOT give a stranger, said rather than left to be found
 
@@ -151,4 +165,6 @@ request because it sat beside `next/headers`.
   the Provider for that one alone.
 - **The concurrency figures are CNCORE-159's**, measured against the live wiki on 2026-09-13 and not
   re-measured here: 25.5–26.4s for one AHistory browse across five runs, 49.1s each for two at once,
-  43.8s end to end for the page an import pays for.
+  43.8s end to end for the page an import pays for. **That last figure is AHistory's and the
+  corpus's median Ordering is 19 slots**, which is why the five-and-a-half-hour estimate built on it
+  is corrected at the top of this record (ADR-0136).

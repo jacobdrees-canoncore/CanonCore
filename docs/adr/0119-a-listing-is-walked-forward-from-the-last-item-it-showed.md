@@ -40,6 +40,15 @@ problem at this size, the ticket is explicit that the walk needs no index beyond
 index added against a number nobody has taken is a migration written on a guess. The reason that
 settles the choice is the next one, and it does not depend on any of this.
 
+**THE NUMBER HAS SINCE BEEN TAKEN, AND IT LEAVES THE CHOICE ABOVE STANDING** (ADR-0136,
+CNCORE-167). Measured 2026-09-15 against the Owner's install holding 8,052 Items: the plan is still
+`Seq Scan on items` feeding a top-N heapsort, exactly as predicted, and the whole statement takes
+**3.1 ms** — 1.6 ms of it the scan. A page deep in the walk is not slower than the first (14.9 ms at
+page 61 against 17.1 ms at page 1), and the front page renders in 32.6 ms. So the index stays
+unadded and the reason has changed: not "nobody has measured it" but "measured, and there is nothing
+here to fix". Whoever reaches a catalogue an order of magnitude larger should re-run
+`explain analyze` rather than trusting this paragraph.
+
 The SECOND reason is correctness, and it holds at any size. **An offset addresses a POSITION IN A
 RESULT, and the result moves.** Import an item that sorts early while a reader is on page two and
 every later row shifts down one: the item at the boundary is served twice and one item is never
@@ -494,6 +503,13 @@ thousand members is: ADR-0077 measures a real imported category at 1,049 stories
 measures an Item's placement count. This is the rule applied for consistency rather than a page
 anybody has watched fall over -- which is also why no index was added for it, on the reasoning the
 top of this record already gives about indexes written against a number nobody has taken.
+
+**SOMETHING MEASURES IT NOW, AND THE ORDINARY CASE IS NOWHERE NEAR THE CAP** (ADR-0136,
+CNCORE-167). Across the whole Doctor Who corpus -- 465 Orderings holding 7,587 distinct stories --
+the MOST Orderings any one Item sits in is **48**, and that Item is `Endgame (POT comic story)`.
+So "Also appears in" fits inside its first page for every Item in the largest real catalogue this
+product has, the cap has never been reached by anything but a hypothesis, and CNCORE-184 has the
+figure it needs to choose where a Row's membership list truncates.
 
 **THE CURSOR IS A PLACEMENT'S ID**, the same departure from this record's letter that CNCORE-89
 made and for the mirror of its reason. A Repeat is one Item twice in ONE Container (ADR-0009), so
