@@ -65,8 +65,8 @@ describe("readCorpusCensus", () => {
 
     // FOUR SLOTS AND THREE ITEMS, which is the whole distinction this figure
     // carries: a count of Placements would answer four.
-    expect(census.slots).toBe(4);
-    expect(census.storiesPlaced).toBe(3);
+    expect(census.placements).toBe(4);
+    expect(census.itemsPlaced).toBe(3);
   });
 
   /**
@@ -101,7 +101,7 @@ describe("readCorpusCensus", () => {
 
     const census = await readCorpusCensus(await theClient());
 
-    expect(census.slots).toBe(5);
+    expect(census.placements).toBe(5);
     expect(census.mostPlaced).toEqual({
       itemId: fiveDoctors,
       // THE ITEM'S OWN TITLE, which is what makes the figure readable rather
@@ -139,8 +139,8 @@ describe("readCorpusCensus", () => {
 
     const census = await readCorpusCensus(await theClient());
 
-    expect(census.slots).toBe(101);
-    expect(census.storiesPlaced).toBe(101);
+    expect(census.placements).toBe(101);
+    expect(census.itemsPlaced).toBe(101);
   });
 
   /**
@@ -174,8 +174,8 @@ describe("readCorpusCensus", () => {
 
     const census = await readCorpusCensus(await theClient());
 
-    expect(census.slots).toBe(2);
-    expect(census.storiesPlaced).toBe(2);
+    expect(census.placements).toBe(2);
+    expect(census.itemsPlaced).toBe(2);
   });
 
   /**
@@ -209,14 +209,72 @@ describe("readCorpusCensus", () => {
 
     expect(census.items).toBe(6);
     expect(census.orderings).toBe(2);
-    expect(census.storiesPlaced).toBe(3);
+    expect(census.itemsPlaced).toBe(3);
     // LARGEST FIRST, because what the front page faces is the biggest Ordering
     // rather than the average one -- CNCORE-183 and CNCORE-184 are both sized
     // against it.
-    expect(census.largest.map((ordering) => [ordering.title, ordering.slots])).toEqual([
+    expect(census.largest.map((ordering) => [ordering.title, ordering.placements])).toEqual([
       ["Ordering A", 2],
       ["Ordering B", 1],
     ]);
+  });
+
+  /**
+   * AN EMPTY CATALOGUE, which the type allows for and nothing else exercises:
+   * `mostPlaced` is `MostPlaced | null` and the null arm is reachable from a
+   * fresh install (ADR-0094: a fresh install starts empty).
+   *
+   * IT IS THE STATE THE CENSUS IS FIRST RUN IN. CNCORE-167's own install
+   * answered exactly this before the corpus landed, and a census that threw
+   * here would have failed on the one run that was meant to show it failing
+   * honestly.
+   */
+  it("answers a whole census over an empty catalogue rather than throwing", async () => {
+    const census = await readCorpusCensus(await theClient());
+
+    expect(census).toEqual({
+      items: 0,
+      orderings: 0,
+      placements: 0,
+      itemsPlaced: 0,
+      orderingsPlaced: 0,
+      mostPlaced: null,
+      largest: [],
+    });
+  });
+
+  /**
+   * IS ANY ORDERING ITSELF PLACED IN ANOTHER? -- asked directly, because the
+   * figure above is called "Items placed" and CNCORE-167 wants DISTINCT STORIES.
+   * The two are the same number only when nothing placed is a Container.
+   *
+   * IT REPLACES AN ARITHMETIC CHECK THAT DID NOT HOLD. Review found that
+   * `orderings + itemsPlaced === items` proves nothing on its own: one nested
+   * Ordering and one Item in no Ordering cancel exactly, since `items` counts
+   * the unplaced one and `itemsPlaced` counts the nested one. This fixture is
+   * that exact cancellation -- one of each -- so a census answering by
+   * subtraction passes it and this test fails it.
+   *
+   *   Ordering A  ->  The Tenth Planet, Ordering B (a CONTAINER, nested)
+   *   Ordering B  ->  (nothing)
+   *   Shada       ->  in no Ordering at all
+   */
+  it("says how many placed Items are themselves Orderings, rather than leaving it to arithmetic", async () => {
+    const db = await connect();
+    const a = await anItemTitled(db, "Ordering A", { isContainer: true });
+    const b = await anItemTitled(db, "Ordering B", { isContainer: true });
+    const tenthPlanet = await anItemTitled(db, "The Tenth Planet");
+    await anItemTitled(db, "Shada");
+    await aPlacement(db, { containerId: a, itemId: tenthPlanet, position: 1 });
+    await aPlacement(db, { containerId: a, itemId: b, position: 2 });
+
+    const census = await readCorpusCensus(await theClient());
+
+    expect(census.orderingsPlaced).toBe(1);
+    // AND THE CANCELLATION IS REAL, which is what made the old check useless:
+    // 2 Orderings + 2 Items placed === 4 Items, and one of those placed Items
+    // is an Ordering.
+    expect(census.orderings + census.itemsPlaced).toBe(census.items);
   });
 
   /**
@@ -238,18 +296,19 @@ describe("readCorpusCensus", () => {
     await aPlacement(db, { containerId: b, itemId: tenthPlanet, position: 1 });
 
     const found: Array<{ orderings: number; items: number }> = [];
-    const walked: Array<{ title: string; slots: number; remaining: number }> = [];
+    const walked: Array<{ title: string; placements: number; remaining: number }> = [];
     await readCorpusCensus(await theClient(), {
       onOrderingsFound: (it) => found.push(it),
-      onOrderingWalked: ({ title, slots, remaining }) => walked.push({ title, slots, remaining }),
+      onOrderingWalked: ({ title, placements, remaining }) =>
+        walked.push({ title, placements, remaining }),
     });
 
     // FOUND BEFORE ANY IS WALKED, so an Owner knows the size of the job rather
     // than watching an unbounded count go up.
     expect(found).toEqual([{ orderings: 2, items: 3 }]);
     expect(walked).toEqual([
-      { title: "Ordering A", slots: 1, remaining: 1 },
-      { title: "Ordering B", slots: 1, remaining: 0 },
+      { title: "Ordering A", placements: 1, remaining: 1 },
+      { title: "Ordering B", placements: 1, remaining: 0 },
     ]);
   });
 });

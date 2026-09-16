@@ -24,7 +24,7 @@ Measured 2026-09-15 against the Owner's install, `docker compose up -d` from the
 | Orderings landed | **465**, none refused |
 | Items in the catalogue | **8,052** |
 | Distinct stories placed | **7,587** |
-| Slots | **30,896** |
+| Placements | **30,896** |
 | Most Orderings one Item sits in | **48** — `Endgame (POT comic story)` |
 | Largest Ordering | 2,907 — `Theory:Timeline - Doctor Who universe/AHistory` |
 
@@ -33,17 +33,40 @@ nothing computed either: it guessed "about seven thousand" for the first, an ear
 said thirty-six for the second, and ADR-0119 says twice that nothing counts an Item's placements.
 The guess was close and the draft was not.
 
-**THE ACCOUNTING IS EXACT, AND THAT IS WHAT MAKES THE FIRST FIGURE MEAN WHAT ITS NAME SAYS.**
-465 + 7,587 = 8,052. Every Item in this catalogue is either an Ordering or a story inside one:
-nothing is loose, and **no Ordering sits inside another** — checked directly, 0 slots hold a
-Container. Were a `Theory:Timeline` page ever to link another one, that Container would be counted
-on both sides and the sum would exceed the catalogue, so `corpus-stands.test.ts` asserts the sum
-rather than trusting it.
+**NOTHING PLACED IS ITSELF AN ORDERING, AND THAT IS WHAT MAKES THE FIRST FIGURE A COUNT OF
+STORIES.** The census answers it directly — `orderingsPlaced` is **0** — and `corpus-stands.test.ts`
+asserts that rather than the arithmetic.
 
-**30,896 SLOTS AGAINST CNCORE-159's 29,844, and AHistory at 2,907 against its 2,913.** Both moved
-because the wiki is live and the two measurements are two days apart. That is the reason every
-assertion in the corpus suite is a FLOOR: an exact count reddens on the next edit, where a floor
-still catches a truncation.
+**AN EARLIER DRAFT OF THIS RECORD PROVED IT BY SUBTRACTION AND THE PROOF DID NOT HOLD**, which is
+worth keeping because the sum is so nearly convincing. 465 + 7,587 = 8,052 exactly, and it is
+tempting to read that as "every Item is either an Ordering or a story inside one". It is not: write
+it out as `items = orderings + placed + unplacedItems` against `itemsPlaced = placed + nested`, and
+**one nested Ordering cancels against one Item in no Ordering**. The sum holds whenever those two
+counts happen to be equal, so it can be true of a catalogue that has both. It was also an EXACT
+equality in a suite whose own rule is floors, so the Owner creating a single Group or Person by hand
+would have reddened it.
+
+**AND EVERY ONE OF THE 7,587 IS OF KIND `work`**, read off the install directly. That is the other
+half of "story": `itemsPlaced` counts Items of whatever kind, and what makes it answer the ticket's
+question here is a measurement rather than a guarantee. A corpus that placed a Person would need the
+figure said differently.
+
+**AHISTORY LANDED AT 2,907 AGAINST ITS 2,913, two days apart on a wiki editors edit.** That is the
+reason every assertion in the corpus suite is a FLOOR: an exact count reddens on the next edit,
+where a floor still catches a truncation.
+
+**THE 30,896 AGAINST CNCORE-159's 29,844 IS NOT A LIKE-FOR-LIKE COMPARISON AND NOTHING SHOULD BE
+READ INTO THE DIFFERENCE.** That spec counted "slots ... as a partition of four disjoint outcomes",
+and whether its partition included members the page gives no position is not recorded. **701 of
+ours carry no Position** — CONTEXT.md's Unplaced, which is a Placement rather than an absent one —
+so a denominator that excluded them would account for most of the gap without a single edit. The
+figure here is stated for what it is: every Placement this install holds.
+
+**AND THE CODE SAYS `placements` WHERE THE TICKETS SAY "SLOTS"**, deliberately. ADR-0116 already
+spends that word on the other side of the relation — "positions are SLOTS", "two placements sharing
+a slot are ordered by ids" — so a slot is a POSITION that Placements can share. Counting Placements
+and calling them slots would put two senses of one word in one codebase, which is the hazard
+`CONTEXT.md` bans `duplicate` over.
 
 ## 26 Orderings hold nothing, and they are not a defect
 
@@ -71,7 +94,7 @@ Across the 439 Orderings that hold anything:
 |---|---|---|---|---|
 | 1 | **19** | 70.4 | 157 | 2,907 |
 
-319 of them hold fewer than 50 slots. **Nine hold more than 500.** So the corpus is a long tail of
+319 of them hold fewer than 50 Placements. **Nine hold more than 500.** So the corpus is a long tail of
 small Orderings with a handful of very large ones, and a surface tuned for the median would be
 wrong about the nine that matter most.
 
@@ -93,6 +116,18 @@ Median of five, against the running install:
 
 **A PAGE DEEP IN THE WALK IS NOT SLOWER THAN THE FIRST**, which is the measurement ADR-0119 asked
 for and could not take.
+
+**AND THE ALPHABET IS REAL, WHICH IS CNCORE-159's OWN HEADLINE COMPLAINT.** That spec says "nothing
+ever asserts a sort name, so every Listing is ordered by raw title and *The Daleks' Master Plan*
+files under T". Read back off the install: its `sortName` is `Daleks' Master Plan (TV story)`, so it
+files under D, and the front page's first screen runs `... Agent Provocateur`, `The Age of
+Ambition`, with the article stripped rather than sorted on (ADR-0134, CNCORE-173). That story sits
+in **47** Orderings, one short of the corpus maximum.
+
+**WHAT THE FRONT PAGE STILL DOES NOT OFFER IS THE REST OF THE WALK.** It says "Showing 100 of 8052
+items" and ends in a single `Next` link, so the eighty-first page is eighty presses away. That is
+CNCORE-159's navigation stage rather than a defect found here, and it is recorded because this is
+the first time anyone has seen it at the size the argument is about.
 
 ## ADR-0119's index stays unadded, and now for a measured reason rather than an absent one
 
@@ -122,7 +157,7 @@ lines above rather than trusting this one.
 
 **ADR-0135 estimated the corpus at "about five and a half hours", and that is 465 × 43.8s — the
 cost of ONE page multiplied by the count.** The page it used is AHistory, the largest on the wiki.
-The median Ordering is 19 slots.
+The median Ordering holds 19 Placements.
 
 Measured end to end on 2026-09-15, the whole corpus landed in roughly ELEVEN MINUTES of productive
 import. **The correction is in ADR-0135's own sentence**, and the lesson generalises past this
@@ -171,6 +206,23 @@ every figure:
 - **`docker compose restart`** — identical census.
 - **`mv ~/canoncore ~/catalogue && docker compose up -d`**, which is a DIFFERENT Compose project
   (`catalogue`) with NEW containers reading the pinned `canoncore_data` volume — identical census.
+
+**NOTHING ASSERTS THIS AND THE PROCEDURE IS WRITTEN OUT INSTEAD, which is a choice rather than an
+omission.** A suite that renamed the Owner's directory and drove Compose would be a test with the
+power to take their catalogue down, and the thing being checked is Docker's behaviour rather than
+this repository's. So it follows ADR-0135's evidence, which is hand-walked in the same way. It is
+repeatable in four commands, and the census is what makes it an assertion rather than a look:
+
+```bash
+CANONCORE_AT=http://localhost:3000 pnpm --filter @canoncore/api test:corpus   # before
+cd ~/canoncore && docker compose stop && mv ~/canoncore ~/catalogue
+cd ~/catalogue && docker compose up -d
+CANONCORE_AT=http://localhost:3000 pnpm --filter @canoncore/api test:corpus   # same figures
+```
+
+**NEVER `docker compose down --remove-orphans` HERE**, which is the one command that would do harm:
+ADR-0104 spends the project name `canoncore` on the development container, so `--remove-orphans`
+from an install directory would take the Postgres every worktree shares.
 
 **Compose warns about the NETWORK as well as the volume**, and `compose.yaml` documents only the
 volume. After a rename it prints both:

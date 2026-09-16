@@ -21,7 +21,7 @@ live wiki 2026-09-13 — the whole list is about five and a half hours.
 **THAT ESTIMATE IS WRONG BY AN ORDER OF MAGNITUDE, AND THE CORRECTION BELONGS IN THIS SENTENCE**
 (ADR-0136, CNCORE-167). 43.8s is the cost of AHistory, the LARGEST page on the wiki, and multiplying
 it by 465 is not a bound on the list — it is a different quantity. The median Ordering holds **19**
-slots; 319 of the 439 that hold anything hold fewer than 50, and nine hold more than 500. **The
+Placements; 319 of the 439 that hold anything hold fewer than 50, and nine hold more than 500. **The
 whole corpus landed in roughly ELEVEN MINUTES**, measured 2026-09-15 into the Owner's own install.
 Everything this record decides about resuming still holds: what was wrong was the size of the job,
 not the need to survive losing it.
@@ -166,5 +166,5 @@ request because it sat beside `next/headers`.
 - **The concurrency figures are CNCORE-159's**, measured against the live wiki on 2026-09-13 and not
   re-measured here: 25.5–26.4s for one AHistory browse across five runs, 49.1s each for two at once,
   43.8s end to end for the page an import pays for. **That last figure is AHistory's and the
-  corpus's median Ordering is 19 slots**, which is why the five-and-a-half-hour estimate built on it
+  corpus's median Ordering holds 19 Placements**, which is why the five-and-a-half-hour estimate built on it
   is corrected at the top of this record (ADR-0136).

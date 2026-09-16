@@ -29,8 +29,8 @@ export interface MostPlaced {
 export interface CountedOrdering {
   id: string;
   title: string;
-  /** How many slots it holds. A Repeat is two of them (ADR-0009). */
-  slots: number;
+  /** How many Placements it holds. A Repeat is two of them (ADR-0009). */
+  placements: number;
 }
 
 export interface CorpusCensus {
@@ -42,14 +42,42 @@ export interface CorpusCensus {
   items: number;
   /** The Containers among them: every Ordering the corpus landed as. */
   orderings: number;
-  /** Every slot across every Ordering. A Repeat is two slots (ADR-0009). */
-  slots: number;
+  /**
+   * EVERY PLACEMENT ACROSS EVERY ORDERING. A Repeat is two of them (ADR-0009),
+   * and one with no Position is still one (CONTEXT.md's Unplaced).
+   *
+   * `placements` AND NOT `slots`, THOUGH CNCORE-159 AND CNCORE-167 BOTH SAY
+   * "SLOTS". This repository has already spent that word on the other side of
+   * the relation: ADR-0116 is titled around "positions are SLOTS" and says "two
+   * placements sharing a slot are ordered by ids", so a slot is a POSITION that
+   * Placements can SHARE. Counting Placements and calling them slots would put
+   * two senses of one word in one codebase, which is the hazard CONTEXT.md bans
+   * `duplicate` over. The prose keeps the ticket's word; the code uses the
+   * model's.
+   */
+  placements: number;
   /**
    * HOW MANY DISTINCT ITEMS SIT IN AN ORDERING -- the first of the two figures
    * CNCORE-167 takes. CNCORE-159 asserted "about seven thousand" and nothing
    * computed it.
+   *
+   * `itemsPlaced` AND NOT `storiesPlaced`, because this counts what it can see:
+   * distinct Items, of whatever kind. It answers the ticket's "how many
+   * DISTINCT stories" exactly when nothing placed is a Container and every
+   * placed Item is a Work -- which `orderingsPlaced` below settles for the
+   * first half, and which was measured for the second.
    */
-  storiesPlaced: number;
+  itemsPlaced: number;
+  /**
+   * HOW MANY OF THOSE PLACED ITEMS ARE THEMSELVES ORDERINGS -- zero in the
+   * Doctor Who corpus, and the figure that makes `itemsPlaced` readable as a
+   * count of stories.
+   *
+   * IT IS ASKED RATHER THAN DERIVED, and that is a correction. It was once left
+   * to `orderings + itemsPlaced === items`, which proves nothing: one nested
+   * Ordering and one Item in no Ordering cancel exactly.
+   */
+  orderingsPlaced: number;
   /**
    * THE GREATEST NUMBER OF ORDERINGS ANY ONE ITEM SITS IN -- the second, and
    * the one CNCORE-184's truncation cannot be chosen without. `null` where
@@ -82,31 +110,33 @@ export async function readCorpusCensus(
   /*
    * WHICH ORDERINGS EACH ITEM SITS IN, accumulated as the walk goes. A `Set`
    * per Item rather than a count, because the same Item reached twice in ONE
-   * Ordering is a Repeat (ADR-0009) and two slots there are still one Ordering.
+   * Ordering is a Repeat (ADR-0009) and two Placements there are still one
+   * Ordering.
    */
   const orderingsOf = new Map<string, { title: string; sitsIn: Set<string> }>();
   const counted: CountedOrdering[] = [];
-  let slots = 0;
+  const isAnOrdering = new Set(orderings.map((ordering) => ordering.id));
+  let placements = 0;
 
   for (const [walked, ordering] of orderings.entries()) {
     let held = 0;
-    for await (const slot of theSlotsOf(client, ordering.id)) {
+    for await (const placement of thePlacementsOf(client, ordering.id)) {
       held += 1;
       /*
-       * THE TITLE COMES OFF THE SLOT ROW, which is what makes this one walk
+       * THE TITLE COMES OFF THE PLACEMENT ROW, which is what makes this one walk
        * rather than two: the container's own listing names what it holds, so
        * reading a title costs no second request per Item -- and at corpus size
        * that difference is thousands of round trips.
        */
-      const sits = orderingsOf.get(slot.itemId) ?? {
-        title: slot.title ?? "Untitled item",
+      const sits = orderingsOf.get(placement.itemId) ?? {
+        title: placement.title ?? "Untitled item",
         sitsIn: new Set<string>(),
       };
       sits.sitsIn.add(ordering.id);
-      orderingsOf.set(slot.itemId, sits);
+      orderingsOf.set(placement.itemId, sits);
     }
-    slots += held;
-    const done = { ...ordering, slots: held };
+    placements += held;
+    const done = { ...ordering, placements: held };
     counted.push(done);
     progress.onOrderingWalked?.({ ...done, remaining: orderings.length - walked - 1 });
   }
@@ -114,10 +144,11 @@ export async function readCorpusCensus(
   return {
     items,
     orderings: orderings.length,
-    slots,
-    storiesPlaced: orderingsOf.size,
+    placements,
+    itemsPlaced: orderingsOf.size,
+    orderingsPlaced: [...orderingsOf.keys()].filter((id) => isAnOrdering.has(id)).length,
     mostPlaced: theMostPlacedIn(orderingsOf),
-    largest: [...counted].sort((one, other) => other.slots - one.slots),
+    largest: [...counted].sort((one, other) => other.placements - one.placements),
   };
 }
 
@@ -154,9 +185,17 @@ async function theOrderingsIn(client: AppRouterClient) {
   let items = 0;
   do {
     const page = await client.catalogue.list({ after });
-    // THE LISTING'S OWN CLAIM ABOUT ITS SIZE, re-read on every page rather than
-    // kept from the first: `total` is what a reader is shown, and a walk that
-    // took it once could not notice the two disagreeing.
+    /*
+     * THE LISTING'S OWN CLAIM ABOUT ITS SIZE, and the LAST page's claim is the
+     * one kept. `total` is the figure a reader is shown, so it is the one worth
+     * reading back rather than a count of what this walk happened to see.
+     *
+     * A CATALOGUE EDITED MID-WALK WOULD MAKE THE PAGES DISAGREE, and nothing
+     * here detects that -- the last answer simply wins. That is honest for what
+     * this is: a census of an install nobody is curating while it runs, where
+     * every page answers the same number. Detecting it would mean deciding what
+     * a census of a moving catalogue even means, which nothing needs.
+     */
     items = page.total;
     for (const row of page.rows) {
       if (row.isContainer) orderings.push({ id: row.id, title: row.title ?? "Untitled item" });
@@ -167,7 +206,7 @@ async function theOrderingsIn(client: AppRouterClient) {
 }
 
 /**
- * Every slot of one Ordering, walked a page at a time.
+ * Every Placement of one Ordering, walked a page at a time.
  *
  * `item.get` RATHER THAN A LISTING PROCEDURE OF ITS OWN, because a Container is
  * an Item and its members hang off the Item page (ADR-0004, ADR-0066). `after`
@@ -175,7 +214,7 @@ async function theOrderingsIn(client: AppRouterClient) {
  * (ADR-0119) -- so walking the whole of the largest Ordering here is the same
  * walk a reader makes, at the size CNCORE-159 says nothing has ever tried.
  */
-async function* theSlotsOf(client: AppRouterClient, id: string) {
+async function* thePlacementsOf(client: AppRouterClient, id: string) {
   let after: string | undefined;
   do {
     const page = await client.item.get({ id, after });
