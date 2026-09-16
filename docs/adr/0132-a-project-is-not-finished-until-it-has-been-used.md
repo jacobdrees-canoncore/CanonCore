@@ -32,7 +32,7 @@ Measured 2026-09-13, against the tracker and the repository together.
   catalogue persists anywhere and the Owner has never had one. The two halves also ran in reverse:
   the archive was deleted on proof that an import CAN happen, which was the right gate for CNCORE-103
   and is honestly met by its own criteria, but the half that was supposed to come first never landed.
-  **THIS ONE IS CLOSED SINCE 2026-09-15** (CNCORE-167, ADR-0136): the Owner's install holds all 465
+  **THIS ONE IS CLOSED SINCE 2026-09-15** (CNCORE-167, ADR-0137): the Owner's install holds all 465
   Orderings and 8,052 Items in a named volume, proved to survive a restart and a rename of its
   directory. The sentence above stays as written because it is what was measured on 2026-09-13 and
   it is the evidence this record rests on; what has changed is that it is no longer true today.
@@ -63,7 +63,7 @@ reads a committed fixture. So the wiki path is still checked only against itself
 
 That file closed the gap for one operation, and `packages/api/corpus/corpus-stands.test.ts` has
 since closed it for the CATALOGUE -- it counts what an installed instance actually holds, through
-the same procedures a reader's browser calls (ADR-0136). Both are local-only for the same reason and
+the same procedures a reader's browser calls (ADR-0137). Both are local-only for the same reason and
 neither is reachable by CI. The gate closes the rest: a running instance the Owner actually opens is
 the only check in this repository that is not the repository checking itself.
 

@@ -40,7 +40,7 @@ problem at this size, the ticket is explicit that the walk needs no index beyond
 index added against a number nobody has taken is a migration written on a guess. The reason that
 settles the choice is the next one, and it does not depend on any of this.
 
-**THE NUMBER HAS SINCE BEEN TAKEN, AND IT LEAVES THE CHOICE ABOVE STANDING** (ADR-0136,
+**THE NUMBER HAS SINCE BEEN TAKEN, AND IT LEAVES THE CHOICE ABOVE STANDING** (ADR-0137,
 CNCORE-167). Measured 2026-09-15 against the Owner's install holding 8,052 Items: the plan is still
 `Seq Scan on items` feeding a top-N heapsort, exactly as predicted, and the whole statement takes
 **3.1 ms** — 1.6 ms of it the scan. A page deep in the walk is not slower than the first (14.9 ms at
@@ -504,7 +504,7 @@ measures an Item's placement count. This is the rule applied for consistency rat
 anybody has watched fall over -- which is also why no index was added for it, on the reasoning the
 top of this record already gives about indexes written against a number nobody has taken.
 
-**SOMETHING MEASURES IT NOW, AND THE ORDINARY CASE IS NOWHERE NEAR THE CAP** (ADR-0136,
+**SOMETHING MEASURES IT NOW, AND THE ORDINARY CASE IS NOWHERE NEAR THE CAP** (ADR-0137,
 CNCORE-167). Across the whole Doctor Who corpus -- 465 Orderings holding 7,587 distinct stories --
 the MOST Orderings any one Item sits in is **48**, and that Item is `Endgame (POT comic story)`.
 So "Also appears in" fits inside its first page for every Item in the largest real catalogue this

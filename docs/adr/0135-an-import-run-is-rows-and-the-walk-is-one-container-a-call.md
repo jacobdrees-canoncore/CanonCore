@@ -19,7 +19,7 @@ interrupts it, and at 43.8s a Container — the figure an import actually pays, 
 live wiki 2026-09-13 — the whole list is about five and a half hours.
 
 **THAT ESTIMATE IS WRONG BY AN ORDER OF MAGNITUDE, AND THE CORRECTION BELONGS IN THIS SENTENCE**
-(ADR-0136, CNCORE-167). 43.8s is the cost of AHistory, the LARGEST page on the wiki, and multiplying
+(ADR-0137, CNCORE-167). 43.8s is the cost of AHistory, the LARGEST page on the wiki, and multiplying
 it by 465 is not a bound on the list — it is a different quantity. The median Ordering holds **19**
 Placements; 319 of the 439 that hold anything hold fewer than 50, and nine hold more than 500. **The
 whole corpus landed in roughly ELEVEN MINUTES**, measured 2026-09-15 into the Owner's own install.
@@ -119,7 +119,7 @@ worker this repository does not have: ADR-0049's registry is RECURRING work on a
 **THE MEASURED ELEVEN MINUTES DOES NOT REOPEN THAT**, though it is the obvious thing to try next.
 Eleven minutes is still far past what a request may hold open, the run that actually filled the
 install was INTERRUPTED and resumed rather than run once, and the cold-Provider cost is unmeasured
-because the cold run is the one that was interrupted (ADR-0136). What has changed is that whoever
+because the cold run is the one that was interrupted (ADR-0137). What has changed is that whoever
 builds the surface is sizing it against minutes rather than against an afternoon.
 
 ## What this does NOT give a stranger, said rather than left to be found
@@ -167,4 +167,4 @@ request because it sat beside `next/headers`.
   re-measured here: 25.5–26.4s for one AHistory browse across five runs, 49.1s each for two at once,
   43.8s end to end for the page an import pays for. **That last figure is AHistory's and the
   corpus's median Ordering holds 19 Placements**, which is why the five-and-a-half-hour estimate built on it
-  is corrected at the top of this record (ADR-0136).
+  is corrected at the top of this record (ADR-0137).
