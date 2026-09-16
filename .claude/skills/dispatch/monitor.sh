@@ -52,6 +52,14 @@ folded = dict(
 try:
     result = json.load(sys.stdin)["result"]
 except Exception:
+    # THE BOARD WAS NOT READABLE THIS PASS, WHICH IS NOT AN EMPTY BOARD. Exiting
+    # quietly here writes a `cur.txt` holding no TICKET line at all, that becomes
+    # `prev.txt`, and the next good pass reports every open ticket as new -- a
+    # 25-line dump of the whole board, four times on 2026-09-15/16 while the Orca
+    # runtime was answering `runtime_unavailable`. The `gh` half already refuses
+    # to report an absence it cannot distinguish from silence; this is that rule,
+    # applied to the half that was missing it.
+    print("LINEAR-BLIND")
     sys.exit()
 for i in result.get("issues") or result.get("nodes") or []:
     state = i["state"]["name"]
@@ -86,6 +94,14 @@ for i in result.get("issues") or result.get("nodes") or []:
         print("DRIFT-STALE", i["identifier"], state, "no worktree or open PR")
 ' 2>/dev/null || true
   } | sort > "$SCRATCH/cur.txt"
+
+  # A PASS THAT COULD NOT READ THE BOARD REPORTS NOTHING AND REMEMBERS NOTHING.
+  # Keeping the old `prev.txt` is what makes the next good pass a real diff
+  # rather than a re-announcement of everything still open.
+  if grep -qx 'LINEAR-BLIND' "$SCRATCH/cur.txt"; then
+    sleep 60
+    continue
+  fi
 
   comm -13 "$SCRATCH/prev.txt" "$SCRATCH/cur.txt" 2>/dev/null || true
   cp "$SCRATCH/cur.txt" "$SCRATCH/prev.txt"
