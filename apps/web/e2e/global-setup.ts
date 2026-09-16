@@ -219,6 +219,10 @@ export default async function setup(project: TestProject) {
   const configurable = await anInstanceSafeToConfigure();
   project.provide("configurableBaseUrl", configurable.baseUrl);
 
+  const counted = await aCatalogueNobodyElseIsReading();
+  project.provide("countedDatabaseUrl", counted.databaseUrl);
+  project.provide("counted", counted.fixture);
+
   project.provide("imported", await importThroughTheApp(baseUrl, provider.url));
   project.provide("attributed", await importFromTmdb(baseUrl, tmdb.url));
   const twoInstances = await twoInstancesOfOneProvider(baseUrl, databaseUrl);
@@ -677,6 +681,64 @@ function aCatalogueThatHoldsStill() {
       return HOLDING_STILL;
     },
   });
+}
+
+/**
+ * A CATALOGUE NOTHING ELSE ASKS ANYTHING, so what one request costs can be
+ * counted (CNCORE-176).
+ *
+ * WHAT MAKES IT ITS OWN IS QUIET RATHER THAN ITS ROWS. Every other exclusive
+ * database here is one because of what it HOLDS -- a catalogue safe to purge, an
+ * empty one that is nonetheless configured. This one would be perfectly happy
+ * with the seeded instance's catalogue; what it cannot have is the seeded
+ * instance's READERS. `pg_stat_database` counts a whole database rather than one
+ * request, and Vitest runs these files in parallel, so a second suite fetching a
+ * page mid-measurement cannot be told from the page under test.
+ *
+ * AND IT IS A DATABASE WITHOUT A SERVER, which is the ONE fixture here that is.
+ * The instrument can only read a database whose statistics have been published,
+ * and a backend publishes them on exit -- so the server that serves the request
+ * being counted has to STOP inside the measurement. `item-page-cost.test.ts`
+ * starts and stops its own through `theBuildServing`, which is why standing a
+ * long-lived one up here would be a twelfth server nothing ever asked anything.
+ * `statements.ts` carries the measurement.
+ *
+ * NO PASSWORD AND NO PROVIDER, for the reason `aCatalogueThatHoldsStill` gives
+ * one channel over: an instance nobody can log in to is one nothing can write to
+ * (CNCORE-109), and both are explicit rather than omitted because this process
+ * inherits its own environment.
+ *
+ * A CONTAINER THAT HOLDS SOMETHING AND SITS IN SOMETHING, because `item.get`
+ * asks five questions and a bare item would leave four of them answering about
+ * nothing. What is counted should be the cost of a page a reader would meet.
+ */
+async function aCatalogueNobodyElseIsReading() {
+  const databaseUrl = await buildTestDatabase("cost");
+  const db = createDb(databaseUrl, { maxConnections: HARNESS_CONNECTIONS });
+  await writeProviderSettings(db, { providerAllowlist: "127.0.0.0/8", providerUrls: "" });
+
+  const source = await ownerSource(db);
+  const item = await anItemTitled(db, "The item whose page is counted", {
+    isContainer: true,
+    isOrdered: true,
+  });
+  const member = await anItemTitled(db, "What the counted item holds");
+  await aPlacement(db, { containerId: item, itemId: member, position: 1, sourceId: source });
+  const ordering = await anItemTitled(db, "An ordering the counted item sits in", {
+    isContainer: true,
+    isOrdered: true,
+  });
+  await aPlacement(db, { containerId: ordering, itemId: item, position: 1, sourceId: source });
+
+  /*
+   * THE HARNESS'S OWN HANDLE IS ENDED BEFORE ANY TEST RUNS, rather than at
+   * teardown like every other fixture's. A connection open on this database is
+   * a connection the instrument waits for and never sees close, so leaving it
+   * standing would turn every measurement into the refusal `statements.ts`
+   * raises.
+   */
+  await db.$client.end();
+  return { databaseUrl, fixture: { item } };
 }
 
 /**
@@ -2110,6 +2172,15 @@ declare module "vitest" {
      * the only one the settings surface may be used on (CNCORE-99).
      */
     configurableBaseUrl: string;
+    /**
+     * A catalogue NOTHING ELSE ASKS ANYTHING, and a database rather than a
+     * running instance: `item-page-cost.test.ts` starts and stops its own server
+     * on it, because a measurement only reads true once the server has exited
+     * (CNCORE-176).
+     */
+    countedDatabaseUrl: string;
+    /** The item whose page is counted: a container that holds one and sits in one. */
+    counted: { item: string };
     /**
      * Every item it holds, as `pagedCatalogue` above does -- so how much it holds
      * comes from the fixture that wrote them rather than from the app.
