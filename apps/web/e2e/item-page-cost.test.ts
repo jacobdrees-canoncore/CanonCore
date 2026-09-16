@@ -49,44 +49,46 @@ function aServerOnTheCountedCatalogue() {
  * a second question on a page this file is asking about the first.
  */
 async function costOf(asking: (baseUrl: string) => Promise<unknown>): Promise<number> {
-  return statementsWhile(databaseUrl, async () => {
-    const server = await aServerOnTheCountedCatalogue();
-    try {
+  /*
+   * THE SERVER IS STARTED BEFORE THE WINDOW AND STOPPED INSIDE IT, and both
+   * halves of that are load-bearing.
+   *
+   * STOPPED INSIDE, because a PostgreSQL backend accumulates what it did and
+   * publishes it on exit: a count taken while the server still holds its pool is
+   * a count of whatever happened to have been flushed. `statements.ts` carries
+   * the measurement of how wrong that is.
+   *
+   * STARTED BEFORE, because a server start is NOT a constant. It brings the
+   * scheduler's own write (`instrumentation.ts`, ADR-0049) and however many
+   * times `waitUntilAnswering` probed the front page before it answered -- and
+   * that second number varies with how fast the machine was. Measured inside the
+   * window it was a per-measurement offset masquerading as a constant, and it
+   * put a ONE-statement difference between two measurements of the same page.
+   * `statementsWhile` opens its window on an empty database, so starting the
+   * server first puts all of it on the far side of the first reading: what is
+   * counted is the request and nothing else.
+   */
+  const server = await aServerOnTheCountedCatalogue();
+  let stopped = false;
+  try {
+    return await statementsWhile(databaseUrl, async () => {
       await asking(server.baseUrl);
-    } finally {
       server.close();
-    }
-  });
+      stopped = true;
+    });
+  } finally {
+    if (!stopped) server.close();
+  }
 }
 
 /**
- * LONGER THAN VITEST'S FIVE SECONDS, BECAUSE A MEASUREMENT STARTS A SERVER.
- * Two of them, plus the wait for each one's backends to go, is well past the
- * default and nowhere near the hook timeout this config already sets for a
- * build.
+ * LONGER THAN VITEST'S FIVE SECONDS, BECAUSE A MEASUREMENT STARTS A SERVER AND
+ * THEN WAITS FOR ITS POOL TO LET GO. node-postgres holds an idle client for ten
+ * seconds, and that wait is what keeps the server's own startup out of the
+ * count. Two measurements is two of those, which is well past the default and
+ * nowhere near the hook timeout this config already sets for a build.
  */
 const LONG_ENOUGH_TO_SERVE_AND_STOP_MS = 120_000;
-
-/**
- * WHAT A SERVER COSTS BEFORE ANYBODY ASKS IT ANYTHING.
- *
- * `instrumentation.ts` starts the scheduler on boot (ADR-0049), and
- * `closeRunsLeftOpen` writes before the first request is served -- so every
- * measurement here carries it. It is a CONSTANT in both figures and cancels in
- * the comparison either way; it is subtracted so the numbers a failure prints
- * are the request's own rather than the request's plus a server starting.
- *
- * NOTHING ELSE FIRES INSIDE A WINDOW THIS SHORT. The two registered tasks
- * trigger `dailyAt(3)` and `dailyAt(4)` and are armed for their NEXT firing, so
- * a few seconds of server lifetime catches neither.
- */
-let booting: Promise<number> | undefined;
-function bootingUp() {
-  // MEASURED ONCE FOR THE FILE. It is the same build against the same database
-  // every time, and a server start is the dearest thing here.
-  booting ??= costOf(async () => {});
-  return booting;
-}
 
 describe("what /items/<id> costs", () => {
   it(
@@ -105,19 +107,16 @@ describe("what /items/<id> costs", () => {
        * handler carries no layout, and neither request sends a cookie, so
        * neither reads a session and the two are comparable.
        */
-      const boot = await bootingUp();
-      const perRead =
-        (await costOf(async (baseUrl) => {
-          const rpc: AppRouterClient = createORPCClient(new RPCLink({ url: `${baseUrl}/api/rpc` }));
-          await rpc.item.get({ id: item });
-        })) - boot;
-      const perPage =
-        (await costOf(async (baseUrl) => {
-          const { status } = await documentFrom(baseUrl, `/items/${item}`);
-          // ASSERTED INSIDE THE MEASUREMENT, because a 404 is cheap and would
-          // otherwise read as a page that had become wonderfully efficient.
-          expect(status).toBe(200);
-        })) - boot;
+      const perRead = await costOf(async (baseUrl) => {
+        const rpc: AppRouterClient = createORPCClient(new RPCLink({ url: `${baseUrl}/api/rpc` }));
+        await rpc.item.get({ id: item });
+      });
+      const perPage = await costOf(async (baseUrl) => {
+        const { status } = await documentFrom(baseUrl, `/items/${item}`);
+        // ASSERTED INSIDE THE MEASUREMENT, because a 404 is cheap and would
+        // otherwise read as a page that had become wonderfully efficient.
+        expect(status).toBe(200);
+      });
 
       expect(perPage).toBe(perRead);
     },
@@ -140,20 +139,17 @@ describe("what /items/<id> costs", () => {
        * term.
        */
       const asked = { id: item, placed: "owner", after: holdsAt, placedAfter: appearsAt };
-      const boot = await bootingUp();
-      const perRead =
-        (await costOf(async (baseUrl) => {
-          const rpc: AppRouterClient = createORPCClient(new RPCLink({ url: `${baseUrl}/api/rpc` }));
-          await rpc.item.get(asked);
-        })) - boot;
-      const perPage =
-        (await costOf(async (baseUrl) => {
-          const { status } = await documentFrom(
-            baseUrl,
-            `/items/${item}?placed=${asked.placed}&after=${asked.after}&placedAfter=${asked.placedAfter}`,
-          );
-          expect(status).toBe(200);
-        })) - boot;
+      const perRead = await costOf(async (baseUrl) => {
+        const rpc: AppRouterClient = createORPCClient(new RPCLink({ url: `${baseUrl}/api/rpc` }));
+        await rpc.item.get(asked);
+      });
+      const perPage = await costOf(async (baseUrl) => {
+        const { status } = await documentFrom(
+          baseUrl,
+          `/items/${item}?placed=${asked.placed}&after=${asked.after}&placedAfter=${asked.placedAfter}`,
+        );
+        expect(status).toBe(200);
+      });
 
       expect(perPage).toBe(perRead);
     },

@@ -96,12 +96,15 @@ async function aCounterOn(databaseUrl: string): Promise<{
 /**
  * How long a database is given to have nobody on it before that is a failure.
  *
- * TEN SECONDS IS A SHUTDOWN'S WORTH RATHER THAN A GUESS: what the callers wait
- * for is a `next start` exiting on SIGTERM, and what they meet if they wrote the
- * window wrong is this refusal. It is also how long that mistake COSTS, which is
- * why it is not a minute.
+ * THIRTY SECONDS IS A POOL'S IDLE TIMEOUT WITH ROOM, NOT A GUESS. Two different
+ * waits meet this bound. The one at the END of a window is a `next start`
+ * exiting on SIGTERM, which is immediate. The one at the START is the
+ * interesting one: a caller measuring a SERVER starts it before opening the
+ * window, so what this waits out is that server's pool going idle and closing
+ * of its own accord -- node-postgres holds an idle client for ten seconds by
+ * default. Anything under that turns a correct measurement into this refusal.
  */
-const EMPTIES_WITHIN_MS = 10_000;
+const EMPTIES_WITHIN_MS = 30_000;
 
 /**
  * Waits until nothing is connected to this database, because THAT is when its
@@ -115,6 +118,15 @@ const EMPTIES_WITHIN_MS = 10_000;
  * server still holds its pool is a reading of whatever happened to have been
  * flushed, off by an amount nothing bounds. The same six over a connection that
  * CLOSED counted exactly.
+ *
+ * AND THE WAIT AT THE START OF A WINDOW IS WHAT KEEPS A SERVER'S BOOT OUT OF
+ * THE COUNT, which is the other half of why this is not merely tidiness. A
+ * server that is STARTED inside the window brings its startup with it --
+ * `instrumentation.ts`'s scheduler, and however many times the harness probed
+ * the front page before it answered, which is a number that varies with how
+ * fast the machine was that second. Started BEFORE the window and waited out
+ * here, all of that is on the far side of the first reading and what is counted
+ * is the request.
  *
  * SO THE INSTRUMENT WAITS FOR AN EMPTY DATABASE RATHER THAN ENDING THE
  * CONNECTIONS ITSELF, and that is a decision rather than an oversight.
