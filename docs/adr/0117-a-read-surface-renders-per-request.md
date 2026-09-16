@@ -125,11 +125,16 @@ route segment config and `connection()` are both live and the `use cache` direct
   differing proves the HTML is not frozen at build time; one server changing its own answer proves
   it too, and proves the read reaches the database on every request as well.
 
-`/items/<id>` is the third dynamic read surface and has no pair, which is the honest state rather
-than an oversight: it was dynamic before this record existed, by `searchParams` it reads for `?via=`.
-`/devices` and `/tasks` are in the same position for the same kind of reason — both read the session
-cookie — and neither added an entry here when it landed. Named under CNCORE-99 so the list reads as
-a record of what has been checked rather than as a claim about every surface.
+`/items/<id>` is the third dynamic read surface. It had no pair for a long time, which was the honest
+state rather than an oversight -- it was dynamic before this record existed, by `searchParams` it
+reads for `?via=` -- and **IT HAS ONE SINCE CNCORE-176**, `apps/web/e2e/item-page-cost.test.ts`, in
+the one-server-changing-its-own-answer shape `/settings` uses two entries up. What earned it was not
+a gap in this list: it was the `cache` that landed on that page's read, and the section at the foot of
+this record says why a memo is the one thing that makes this surface worth re-checking.
+`/devices` and `/tasks` are in the same position the item page used to be in, for the same kind of
+reason — both read the session cookie — and neither added an entry here when it landed. Named under
+CNCORE-99 so the list reads as a record of what has been checked rather than as a claim about every
+surface.
 
 ## What a surface that WRITES adds to this record, which is nothing -- under CNCORE-68
 
@@ -204,3 +209,52 @@ record makes a new surface earn the pair rather than the line.
 `apps/web/e2e/header.test.ts` is that pair for the shell itself: it asks the seeded instance and the
 fresh one for the same `/works`, and expects different answers — a login link on the instance that
 has a password, and neither that nor the owner's routes on the one that has none.
+
+## What a MEMOISED read is, and why it is not the thing this record refuses — under CNCORE-176
+
+`/items/<id>` reads its Item ONCE per request since CNCORE-176, and the mechanism is React's
+`cache`. **The word is the hazard.** This record exists to stop a read surface answering from
+something it kept, and a line reading `cache(async (id) => …)` at the top of the read looks exactly
+like a surface that does.
+
+It is not. **A MEMOISATION IS SCOPED TO A RENDER, WHICH IS TO SAY TO A REQUEST**, and Next says so
+in those words — "Caching the return value of a function so that calling the same function multiple
+times **during a render pass (request)** only executes it once", `01-app/04-glossary.md`, read from
+`node_modules/next/dist/docs` at 16.3.4 on 2026-09-15 as `apps/web/AGENTS.md` instructs. The same
+docs name `generateMetadata` among the places that share it, and
+`02-guides/caching-without-cache-components.md` gives this exact shape under "Deduplicating
+requests": "If you are not using `fetch` … and instead using an ORM or database directly, you can
+wrap your data access with the React `cache` function". There is no interval, no tag, and nothing
+that outlives the request — which is the whole difference from the build artefact at the top of this
+record, and from a `revalidate` this app does not set anywhere.
+
+**WHAT IT REPLACED WAS A SECOND READ, NOT A SECOND REQUEST.** `generateMetadata` and the page are two
+functions in ONE render of ONE route, and each called `item.get` for the same item: the metadata for
+the title, the page for everything else. MEASURED at the fourth seam on 2026-09-15: **twelve SQL
+statements where six would do**, against a server started and stopped for the count. It also built a
+SECOND caller context, so the metadata read the catalogue as a visitor while the page read it as
+whoever was asking — two answers to "what does this request carry" inside one render.
+
+**THE TWO READS ASKED DIFFERENT QUESTIONS, WHICH IS THE PART THAT WOULD HAVE DEFEATED A MEMO ON ITS
+OWN.** The page read with the narrowing and both cursors (`?placed=`, `?after=`, `?placedAfter=`) and
+the metadata read with none of them, so `cache` keyed on those arguments would have missed on every
+address carrying one and hit only on the bare URL. `generateMetadata` reads `searchParams` now for
+no other reason than to ask the same question, and one function derives the arguments for both. A
+memo keyed on arguments also requires the ARITY to match, which is why one function makes the call.
+
+**THE CHECK IS THIS RECORD'S OWN PAIR, IN ITS STRONGER SHAPE.** One server, two requests, and a write
+between them: the page names one title, the catalogue is retitled underneath it, and the second
+request names the new one in both the heading and `<title>`. That is the arrangement `/settings`
+earned above — it proves the HTML is not frozen at build time AND that the read reaches the database
+on every request, which is exactly the claim a memo puts in doubt.
+
+**AND IT WAS VERIFIED BY MUTATION RATHER THAN ASSUMED**, as `/works` was. Replacing `cache` with a
+module-scoped map — a real cross-request cache, keyed identically — leaves the COST test passing,
+because one read is one read whichever scope it is held in, and fails the pair on the retitle. Two
+tests that fail on different mutations are two tests; the cost test alone would have called a
+cross-request cache a success.
+
+**WHAT THIS DOES NOT LICENSE.** `cache` is memoisation for a read a single render asks for twice. It
+is not a way to skip `connection()`, it is not a cache this record has softened towards, and a
+surface reaching for `unstable_cache`, `revalidate` or `use cache` is asking a different question
+that this record has not answered.
