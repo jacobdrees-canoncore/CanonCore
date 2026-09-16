@@ -172,14 +172,6 @@ export async function anInstanceServing<Fixture>({
   fill: (db: Database) => Promise<Fixture>;
 }): Promise<{
   baseUrl: string;
-  /**
-   * WHICH DATABASE THIS INSTANCE IS ON, for a suite that has to ask PostgreSQL
-   * about it rather than ask the app (CNCORE-176). What an Item page COSTS is
-   * read off `pg_stat_database`, which is keyed by the database's NAME -- and
-   * the name is built in here, so a caller that could not see it would have to
-   * rebuild it from `testDatabaseNameFor` and hope the two agreed.
-   */
-  databaseUrl: string;
   db: Database;
   fixture: Fixture;
   close: () => Promise<void>;
@@ -212,7 +204,6 @@ export async function anInstanceServing<Fixture>({
   });
   return {
     baseUrl: server.baseUrl,
-    databaseUrl,
     db,
     fixture,
     close: async () => {
