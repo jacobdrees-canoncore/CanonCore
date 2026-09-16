@@ -2,8 +2,8 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
-import { parse } from "yaml";
 import { repoRoot } from "./testing/repo-root";
+import { packageDirectories, workspaceDirectories } from "./testing/workspace";
 
 /**
  * A test that reads every Vitest config in the repository, for the same reason
@@ -29,64 +29,6 @@ const GATE = "@canoncore/config/testing/install-network-gate";
 const GATE_IN_GLOBAL_SETUP = "@canoncore/config/testing/gate-global-setup";
 
 type Manifest = { name?: string; scripts?: Record<string, string> };
-
-// Only the `<name>/*` shape this repo uses. A pattern of any other shape is not
-// quietly ignored -- it would take packages out of the sweep below, which is the
-// one failure this test cannot afford. Checked as a WHOLE rather than by its
-// second segment: `apps/*/nested` has `*` there too and sweeps somewhere other
-// than where the pattern says.
-//
-// A first segment of ONLY dots is refused ahead of the rest, because `[\w.-]+`
-// matches `..` and `.` -- so `../*` swept the repository's parent and `./*` its
-// root, the two places a sweep most obviously should not go, while the sentence
-// above claimed the whole-shape check caught them (CNCORE-46).
-function isWorkspacePattern(pattern: string): boolean {
-  const [parent, ...rest] = pattern.split("/");
-  return rest.length === 1 && rest[0] === "*" && /^(?!\.+$)[\w.-]+$/.test(parent as string);
-}
-
-/**
- * Every workspace directory that is really a package, which is the list the
- * config read is held against (CNCORE-160).
- *
- * A directory with no manifest is NOT one, for the reason `suites()` gives
- * below: pnpm reads it that way too, and a stray directory under `packages/`
- * would otherwise be reported as a package that dropped its suite.
- */
-function packageDirectories(): string[] {
-  return workspaceDirectories().filter((directory) =>
-    existsSync(join(repoRoot, directory, "package.json")),
-  );
-}
-
-/**
- * Every directory `pnpm-workspace.yaml` calls a package, read from the file.
- *
- * NON-EMPTINESS IS ASSERTED HERE RATHER THAN COUNTED BY EACH CALLER (CNCORE-160).
- * Every sweep in this file descends from this one function, so a workspace file
- * that parsed to no packages empties all of them at once -- and a guard in one
- * test derived from another of those sweeps would then be comparing nothing to
- * nothing and passing. The floors below were `>= 12` and caught that only by
- * being a number somebody had written down, which is the thing CNCORE-160 is
- * taking out. So the root of the chain is where it is held: the file must
- * declare at least one pattern, and each pattern must find at least one
- * directory.
- */
-function workspaceDirectories(): string[] {
-  const { packages } = parse(readFileSync(join(repoRoot, "pnpm-workspace.yaml"), "utf8")) as {
-    packages?: string[];
-  };
-  expect(packages ?? [], "pnpm-workspace.yaml declares no packages").not.toStrictEqual([]);
-  return (packages ?? []).flatMap((pattern) => {
-    expect(isWorkspacePattern(pattern), `unsupported workspace pattern ${pattern}`).toBe(true);
-    const [parent] = pattern.split("/");
-    const found = readdirSync(join(repoRoot, parent as string), { withFileTypes: true })
-      .filter((entry) => entry.isDirectory())
-      .map((entry) => join(parent as string, entry.name));
-    expect(found, `the workspace pattern ${pattern} matches no directory`).not.toStrictEqual([]);
-    return found;
-  });
-}
 
 // A script that RUNS a suite rather than watching one, in either spelling Vitest
 // documents for it. The sweep is named after the COMMAND rather than after a
@@ -232,6 +174,12 @@ function suites(): Suite[] {
 // directly inside a package, which is every config this repo has. A `.mts` one,
 // a `test` block in a `vite.config.ts`, or one nested deeper is not seen, and
 // the assertion below is worth only what this sentence says.
+//
+// TODO(CNCORE-201): `isFile()` is lstat, exactly as `isDirectory()` was before
+// CNCORE-200, so a SYMLINKED `vitest.config.ts` is false here and never enters
+// this list. A package whose only config is a symlink still reddens, through
+// `ungatedPackages` below; the silent case is a real config plus a symlinked
+// SECOND one, which nothing then holds to installing the gate.
 function configFilesOnDisk(): string[] {
   return workspaceDirectories().flatMap((directory) =>
     readdirSync(join(repoRoot, directory), { withFileTypes: true })
@@ -423,33 +371,16 @@ describe("the network gate's wiring", () => {
 
 /**
  * The rules the sweep is made of, asked DIRECTLY rather than through the
- * repository -- which is the only way to ask them about a pattern or a script
- * this workspace does not happen to have. Both rows marked below went wrong
- * exactly that way: the thing the rule let through was not in the repo, so
- * every assertion above went on passing while the rule said something else.
+ * repository -- which is the only way to ask them about a script this workspace
+ * does not happen to have. The rows marked below went wrong exactly that way:
+ * the thing the rule let through was not in the repo, so every assertion above
+ * went on passing while the rule said something else.
+ *
+ * `isWorkspacePattern`'s table went with the predicate to
+ * `testing/workspace.test.ts` under CNCORE-197, since two files now sweep
+ * through it and ADR-0103 keeps a predicate and its table together.
  */
 describe("the rules the sweep is made of", () => {
-  it.each<[string, boolean]>([
-    ["apps/*", true],
-    ["packages/*", true],
-    // A LEADING dot is an ordinary directory name. The narrowing below is aimed
-    // at relative-path segments, not at dots, so this stays supported.
-    [".github/*", true],
-    // THE TWO THAT LEAVE THE REPOSITORY, and CNCORE-46's second half: `..`
-    // sweeps the repository's PARENT and `.` sweeps the root itself, and both
-    // matched the first segment's `[\w.-]+` while the comment on the rule named
-    // `../*` as a case it caught.
-    ["../*", false],
-    ["./*", false],
-    // Refused already, and the reason the rule reads the WHOLE pattern.
-    ["apps/*/nested", false],
-    ["apps/**", false],
-    ["apps", false],
-    ["*", false],
-  ])("reads %s as a workspace pattern: %s", (pattern, supported) => {
-    expect(isWorkspacePattern(pattern)).toBe(supported);
-  });
-
   it.each<[string, boolean]>([
     ["vitest run", true],
     ["vitest run --config vitest.e2e.config.ts", true],

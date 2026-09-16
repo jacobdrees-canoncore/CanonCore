@@ -7,6 +7,7 @@ import {
   formIn,
   logInAt,
   mainOf,
+  momentsIn,
   postFormsIn,
   type RenderedForm,
   sectionIn,
@@ -518,6 +519,20 @@ describe("/settings, unlocking a provider", () => {
     expect(rows.expired).toContain("lapsed");
     // WHEN IT LAPSED, rendered rather than merely carried.
     expect(rows.expired).toContain("2026");
+    /*
+     * AND MARKED AS A TIME, on both rows that carry one (CNCORE-177). This page
+     * copied its formatter out of `/devices` and a third copy on `/tasks` had
+     * lost the element -- the words right, the markup saying nothing. The three
+     * are one component now, and this is what says this surface did not lose it
+     * on the way.
+     */
+    for (const provider of [valid, expired]) {
+      const moments = momentsIn(rowFor(text, provider.url));
+      expect(moments).toHaveLength(1);
+      expect(moments[0]?.printed).toContain("UTC");
+      const machine = moments[0]?.machine ?? "";
+      expect(Number.isNaN(Date.parse(machine)), `\`${machine}\` is not a moment`).toBe(false);
+    }
     // AND IT CAN STILL BE RE-UNLOCKED, with nothing removed and re-added.
     expect(unlockLinkIn(rowFor(text, expired.url))).toBe(`${expired.url}/unlock`);
   });

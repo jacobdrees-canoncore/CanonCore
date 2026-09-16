@@ -14,6 +14,7 @@ import {
   sources,
   statements,
 } from "../index";
+import { MARKER } from "./build-database";
 
 /**
  * Helpers for reaching the catalogue in tests. They go through the package's
@@ -634,4 +635,48 @@ export async function anItemInMoreOrderingsThanOnePage(
     imported,
     endsAt: endsAt.id,
   };
+}
+
+/**
+ * EVERY ITEM AND EVERY PLACEMENT GONE, so a test can own the whole catalogue.
+ *
+ * MOST TESTS DO NOT WANT THIS AND MUST NOT CALL IT. The suite shares one
+ * database (ADR-0104) and the files that seed into it assert on rows they
+ * created, so emptying is neither needed nor safe for them. It exists for the
+ * one question that is about the catalogue ENTIRE rather than about rows in it:
+ * `corpus-census.test.ts` counts how many distinct Items sit in an Ordering,
+ * and a figure like that cannot be asserted beside another file's fixtures.
+ *
+ * `CASCADE` RATHER THAN A DELETE IN DEPENDENCY ORDER, because the order is a
+ * second statement of the foreign keys -- free to fall out of step with them
+ * the next time the schema grows a table that points at `items`.
+ *
+ * SOURCES, PROPERTIES AND THE OWNER SURVIVE. They are migration 1's seed and a
+ * provider's identity (ADR-0025, ADR-0031) rather than catalogue content: the
+ * global source order is allocated `max + 1` per owner, so truncating them
+ * would restart an allocator that other files in this suite are still using.
+ */
+export async function emptyCatalogue(db: Database): Promise<void> {
+  /*
+   * IT REFUSES ANYTHING BUT A TEST DATABASE, and that guard is the price of
+   * publishing a TRUNCATE from a shared package. `build-database.ts` names
+   * every suite's database with a `_test` suffix and nothing else in this
+   * repository does, so the suffix is what tells one from the Owner's own
+   * catalogue -- or from the development database a worktree is pointed at.
+   *
+   * IT IS CHECKED AGAINST THE INJECTED URL RATHER THAN THE HANDLE, because a
+   * `Database` says nothing about what it is connected to: a caller passing the
+   * wrong one is exactly the accident worth refusing, and `connect()` above is
+   * the only thing in reach that knows.
+   */
+  const url = inject("databaseUrl");
+  const database = new URL(url).pathname.replace(/^\//, "");
+  if (!database.endsWith(MARKER) && !database.includes(`${MARKER}_`)) {
+    throw new Error(
+      `emptyCatalogue refuses to TRUNCATE ${database}: it is not a test database. ` +
+        "Suites get one built from the ladder by `build-database.ts`, named with a " +
+        "`_test` suffix; this looks like a real catalogue.",
+    );
+  }
+  await db.execute(sql`TRUNCATE TABLE ${items}, ${placements} CASCADE`);
 }

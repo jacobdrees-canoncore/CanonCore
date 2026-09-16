@@ -24,7 +24,10 @@
 # count is the whole answer. `test` is declared by ten, so deleting one leaves
 # nine and this passes -- `packages/config/src/network-gate-wiring.test.ts` is
 # what catches that, by holding every Vitest config on disk to being run by some
-# suite. Counted 2026-09-14: test 10, typecheck 11, build 1.
+# suite. `typecheck` is declared by eleven and has the same shape;
+# `packages/config/src/typecheck-wiring.test.ts` catches it there, by holding
+# every package to turbo's plan for the task (CNCORE-197). Counted 2026-09-14
+# and again 2026-09-15: test 10, typecheck 11, build 1.
 #
 # SO A COUNT IS NOT A ROLL CALL, and the second argument is the roll call
 # (CNCORE-190). Name a package and its task has to appear among the ones turbo
@@ -40,12 +43,20 @@
 # package at all -- and `run-suite.test.ts` holds that, which it can, because
 # deleting the argument leaves the suite running to notice.
 #
-# TODO(CNCORE-197): AND IT IS ASKED IN ONE PLACE ONLY, `test @canoncore/config`.
-# `typecheck` is declared by ELEVEN packages and gets the count alone, so one of
-# them dropping its script still leaves ten running and the job green. That is
-# the same hole in the same shape, left because CNCORE-190 scoped itself to the
-# case it measured -- named here rather than left looking finished, since half a
-# mechanism reads whole from outside.
+# AND IT IS ASKED IN ONE PLACE ONLY, `test @canoncore/config`, WHICH IS THE WHOLE
+# OF WHAT IT IS FOR RATHER THAN HALF OF IT. `typecheck` is declared by ELEVEN
+# packages and gets the count alone here, so one of them dropping its script
+# still leaves ten running and this script green -- the same hole in the same
+# shape, and CNCORE-197 closed it somewhere else rather than by adding arguments:
+# `packages/config/src/typecheck-wiring.test.ts` holds every package
+# `pnpm-workspace.yaml` declares to appearing in turbo's plan for `typecheck`
+# with a command to run.
+#
+# IT LIVES IN A SUITE BECAUSE IT CAN, which is what the paragraph above says the
+# `test` roll call cannot do: a suite cannot police the script that decides
+# whether it runs, and `typecheck` is not that script. So the red lands on the
+# Test job, the way a deleted `test` script's already does. A roll call for a
+# task that IS `test` would have to come back here.
 #
 # `build` IS NOT IN THAT LIST, and the reason is the one this file's header gives
 # for `test:e2e`: it is declared by exactly ONE package, `web`, so the count

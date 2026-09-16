@@ -1,5 +1,4 @@
 import { appRouter } from "@canoncore/api/routers";
-import { Card, CardDescription, CardHeader, CardTitle } from "@canoncore/ui/components/card";
 import {
   Empty,
   EmptyContent,
@@ -12,6 +11,7 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { Holding, Listing, PastTheEnd, Walk } from "@/components/listing";
 import { noPasswordSet } from "@/components/no-password";
+import { NoProviderAllowlisted } from "@/components/no-provider-allowlisted";
 import { oneValue } from "@/components/query-params";
 import { callerContext } from "@/session";
 
@@ -112,7 +112,32 @@ export default async function CataloguePage({
         <h1 className="text-3xl font-medium">Catalogue</h1>
         {rows.length > 0 && <Holding showing={rows.length} total={catalogue.total} />}
       </div>
-      {!providers.any && <NoProviderAllowlisted />}
+      {/*
+        WHY AN EMPTY CATALOGUE IS EMPTY, when the reason is configuration. The
+        notice itself is `no-provider-allowlisted.tsx`, shared with `/import`
+        since CNCORE-177; what belongs here is when this page shows it.
+
+        IT STANDS WHETHER OR NOT THE CATALOGUE IS EMPTY, because an owner with
+        items already and no allowlist is just as stuck: nothing more can be
+        imported. The condition is read off `providers.any` alone and never off
+        the catalogue's size, which is what makes that true by construction
+        rather than by care -- and it is why what this page passes in speaks for
+        the whole instance rather than for the rows below it.
+
+        ALL FOUR COMBINATIONS EXIST IN THE SUITE AND THIS PAGE'S ASSERTIONS READ
+        THREE, which is worth saying exactly rather than leaving a reader to
+        assume either number. Empty with an empty allowlist is `fresh`; neither
+        is the seeded instance; empty WITH an allowlist that admits something is
+        `allow` since CNCORE-131, and that is what holds the empty state to
+        being offered whether or not a provider is reachable. ITEMS PRESENT WITH
+        NO ALLOWLIST is the fourth and it is NOT missing -- `place` and `order`
+        are both in it -- but their suites assert container pages rather than
+        `/`, so this notice has never been read in that state. It has cost
+        nothing because the condition here cannot see the catalogue to get it
+        wrong, which is the same reason a server of its own was never worth
+        standing up for it.
+      */}
+      {!providers.any && <NoProviderAllowlisted whatIsStopped="nothing can be imported yet" />}
       {empty && <WhatToDoNext aPasswordIsSet={aPasswordIsSet} owner={owner} />}
       {/*
         A CATALOGUE WITH ITEMS IN IT AND NOTHING ON THIS PAGE, which is what a
@@ -127,69 +152,6 @@ export default async function CataloguePage({
         </>
       )}
     </main>
-  );
-}
-
-/**
- * WHY AN EMPTY CATALOGUE IS EMPTY, when the reason is configuration.
- *
- * ADR-0034 makes the allowlist empty by default and the empty value refuses
- * every provider. That is the safe end of the failure and it is also completely
- * silent: with nothing allowlisted, an instance nobody has configured and an
- * instance that is broken look identical from here. Two shards of the
- * competitor sweep rated exactly this first run HIGH.
- *
- * IT STANDS WHETHER OR NOT THE CATALOGUE IS EMPTY, because an owner with items
- * already and no allowlist is just as stuck: nothing more can be imported. The
- * condition is read off `providers.any` alone and never off the catalogue's
- * size, which is what makes that true by construction rather than by care.
- *
- * ALL FOUR COMBINATIONS EXIST IN THE SUITE AND THIS PAGE'S ASSERTIONS READ
- * THREE, which is worth saying exactly rather than leaving a reader to assume
- * either number. Empty with an empty allowlist is `fresh`; neither is the
- * seeded instance; empty WITH an allowlist that admits something is `allow`
- * since CNCORE-131, and that is what holds the empty state to being offered
- * whether or not a provider is reachable. ITEMS PRESENT WITH NO ALLOWLIST is
- * the fourth and it is NOT missing -- `place` and `order` are both in it -- but
- * their suites assert container pages rather than `/`, so this notice has never
- * been read in that state. It has cost nothing because the condition here
- * cannot see the catalogue to get it wrong, which is the same reason a server
- * of its own was never worth standing up for it.
- *
- * WHERE THE SETTING IS, NAMED AND LINKED (CNCORE-99). "Allowlist a provider" is
- * the step, and until this ticket the thing an owner had to type was an
- * environment variable -- so the page named `PROVIDER_ALLOWLIST`, because a page
- * that gestured at the step without naming it would leave them exactly where
- * the README left them. The setting is on a page of this app now, so what the
- * notice owes them is the way TO it: a link they can follow rather than a
- * variable they have to go and find a file for.
- */
-function NoProviderAllowlisted() {
-  return (
-    <section aria-labelledby="no-provider" className="mt-6">
-      <Card>
-        <CardHeader>
-          {/*
-            A REAL HEADING INSIDE THE PRIMITIVE. `CardTitle` and `EmptyTitle`
-            both render a `div`, so a section labelled by one is labelled by
-            something that is not a heading -- and a reader navigating this page
-            by heading finds only the `h1`. The id goes on the `h2` so
-            `aria-labelledby` points at the heading itself.
-          */}
-          <CardTitle>
-            <h2 id="no-provider">No provider is allowlisted</h2>
-          </CardTitle>
-          <CardDescription>
-            CanonCore reaches a provider only when its host or address range is on the allowlist in{" "}
-            <Link className="underline" href="/settings">
-              Settings
-            </Link>
-            . That setting is empty until you write one, and empty refuses every provider, so
-            nothing can be imported yet. An empty result here is this setting rather than a fault.
-          </CardDescription>
-        </CardHeader>
-      </Card>
-    </section>
   );
 }
 
