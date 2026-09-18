@@ -244,7 +244,9 @@ function secretsNamed(value: unknown): string[] {
  */
 function dependencies(job: Job): string[] {
   if (typeof job.needs === "string") return [job.needs];
-  return Array.isArray(job.needs) ? job.needs.filter((name) => typeof name === "string") : [];
+  return Array.isArray(job.needs)
+    ? job.needs.filter((name: unknown): name is string => typeof name === "string")
+    : [];
 }
 
 /**
@@ -288,6 +290,11 @@ function gatesOn(parsed: Workflow, job: string, secret: string): boolean {
     if (answerer === undefined || key === undefined || !needed.includes(answerer)) return false;
     const published = parsed.jobs?.[answerer]?.outputs?.[key];
     const computedBy = /steps\.([\w-]+)\.outputs\./.exec(published ?? "")?.[1];
+    // An output that is not a step's is not a verdict this can vouch for, and
+    // the `undefined` would otherwise MATCH the first step carrying no `id` --
+    // passing on that step's env, which is a false green in the one check whose
+    // whole purpose is refusing one.
+    if (computedBy === undefined) return false;
     const step = (parsed.jobs?.[answerer]?.steps ?? []).find(({ id }) => id === computedBy);
     return Object.values(step?.env ?? {})
       .flatMap(secretsNamed)
