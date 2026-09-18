@@ -802,6 +802,11 @@ jobs:
             echo "$url declares: $(curl -sS "$url/" | head -c 200)"
           done
 
+      - name: throwaway, to observe that a gated job still reddens
+        run: |
+          echo "::error::throwaway: a planted failure in the contract job."
+          exit 1
+
       - name: Both providers against one contract, and a count that says a suite ran
         run: .github/scripts/run-suite.sh test:contract
 
