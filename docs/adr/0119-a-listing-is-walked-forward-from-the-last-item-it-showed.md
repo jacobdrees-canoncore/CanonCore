@@ -1020,3 +1020,74 @@ a window count is still right; the anchor's shape guard removed fails all three 
 **One was run and does NOT bite**: dropping the sort key from the ranking, between the closeness and
 the id, loses no Row — `(closeness desc, id)` is still total, and CNCORE-88's failure was the
 ORDER BY and the comparison disagreeing rather than the term being absent from both.
+
+## The SIZE became a value too (CNCORE-172), which is the ORDER'S failure one column over
+
+**A SIZE IS TWO STATEMENTS, exactly as an order is.** The scalar subquery that rides on the Rows,
+and the count asked on its own for the page that has no Row to carry one — and until this ticket
+they were two INDEPENDENT statements a sentence required to answer the same question, which is word
+for word the arrangement the section above abolished for the `ORDER BY` and its comparison. The
+sentence was in this record and in `queries.ts`, and it held by care.
+
+**IT HAD ALREADY GONE WRONG TWICE, ONE FILE APART, AND BOTH ARE ABOVE.** CNCORE-82 found `count(*)
+over ()` counting the items PAST the cursor and fixed it in the catalogue's walk, leaving a comment
+in Catalogue search predicting the day it would have to be fixed there too; CNCORE-88 was that day.
+Those are the size's two defects and they are the same shape as the order's four: one rule, two
+places to write it, and nothing that could tell whether the two places agreed.
+
+**SO A SIZE IS ONE VALUE NOW, AND THREE THINGS ARE READ OFF IT.** `TheSize` in
+`packages/db/src/queries.ts` holds ONE counting query. `onTheRows` renders it as the uncorrelated
+scalar subquery the Rows carry, in their statement and therefore in their snapshot; `askedOnItsOwn`
+runs the same object for the empty page; and `within` is the predicate the Listing's own `WHERE` is
+read back off. A Listing is handed the value and cannot spell its size a second way.
+
+**AND THE ENFORCEMENT IS IN WHICH END SUPPLIES THE PREDICATE.** `theSize(within, counting)` HANDS
+the predicate to the counting query rather than letting it choose one: a caller supplies the FROM
+and the JOINs — the part that genuinely differs between a Listing of items and a Listing of
+placements — and has nowhere to put a second `WHERE`. That is what "enforced rather than
+remembered" means here, and it is the same strength the order has rather than more: one value, read
+twice, in one function.
+
+**WHAT WOULD BE STRONGER IS REFUSED, AND THE REASONS ARE MEASURED.** Counting a derived table of the
+Rows' own query is enforcement a compiler could check, and it is wrong twice over: that query
+carries the CURSOR, so it would count what is past the reader rather than what the Listing holds —
+this record's own CNCORE-82 defect arrived at from the other side — and it would ride every lateral
+a page pays for over every row instead of over a hundred, which ADR-0017 measures at 4.4 ms against
+0.8 ms over 1,049 members. The predicate is what the size and the Rows share. The statement is not.
+
+**TWO DIALECTS WENT WITH IT, AND ONE HAND-WRITTEN JOIN.** Two of the three walks spelled the size as
+raw SQL on the Rows and as the query builder beside it, and a Container's members wrote the join
+between `placements` and `items` out by hand in the first and by builder in the second. That join is
+the load-bearing half of that count: it is what reaches ADR-0075's tombstone on a member, and a
+count that lost it would report an ordering as holding items no reader can reach. **"Also appears
+in" already had the right shape** — one query object in both positions, since CNCORE-129 gave it a
+narrowing the two had to agree about — so this generalised a shape that was already here rather than
+inventing one.
+
+**THE SIZE'S SECOND POSITION WAS ASKED OF ONE LISTING IN FIVE, which the contract above did not
+catch and is the gap this ticket had to find.** "It reports one size from both pages" walks page one
+and page two, and BOTH of those carry Rows — so both read `onTheRows` and neither ever reaches
+`askedOnItsOwn`. Only "Also appears in" was ever walked past its end. The contract now asks every
+Listing for the size past its end, where no Row is left to carry it, and a Container's members is
+asked the same at the package export with a DELETED member in the fixture, because the join is
+exactly what a second spelling of that count can lose.
+
+**MUTATIONS RUN AND READ RATHER THAN PREDICTED.** The standalone count over `items` with its `where`
+taken off fails all three contract assertions and NOTHING else in the api suite — 3 failed, 199
+passed — so that assertion is the only reader of the position at that seam. The container count's
+join moved to `placements.containerId`, which is the mirror Listing's join and the copy that file is
+one edit away from, fails the package-export assertion and nothing else, `expected 4 to be 3`: the
+deleted member counted, visible only where no Row carries the size.
+
+**AND THE CEREMONY THAT EXISTED ONLY TO DISCARD A COLUMN IS GONE.** Every walk passed `onePage` a
+function that rebuilt its own row field by field, whose only effect was to leave `total` behind —
+three identity mappings, written out. `onePage` takes the size off the row itself now. WHAT THAT
+COSTS IS SAID PLAINLY: those mappings were an enumeration, so a field added to a walk's SELECT now
+reaches the Row where it used to be dropped. ADR-0045's guard is unmoved by this and was always the
+one that bit — it is `.output(...)` at the router, and the block above measures that a field added
+below that seam is stripped there — but a db-level enumeration is one fewer place the read path
+names its fields, and that is a real subtraction rather than none.
+
+**THE STATUS IS UNCHANGED AND THE SCOPE OF IT GROWS.** This record read `accepted` for the walk,
+which was whole; the size is now whole on the same construction. What is still NOT in a value is the
+tombstone split on a projected key, which the section above names and CNCORE-195 carries.

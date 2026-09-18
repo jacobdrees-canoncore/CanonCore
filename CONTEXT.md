@@ -68,6 +68,16 @@ keeps of its own members and is the Placement construct below; a second sense of
 would be the hazard this glossary already refuses for `duplicate` and `record`.
 _Avoid_: ordering
 
+**Size**:
+How many Rows a Listing holds altogether, which is not how many the page in front of you shows. ONE
+QUERY PER LISTING, from which both the positions it is read in are derived — riding on the Rows in
+their own statement, and asked on its own for the page that has no Row to carry one — and from which
+the Listing's own filter is read back, so a Listing cannot report a size its Rows were not drawn
+from. They were two statements a sentence required to answer the same question, and two defects came
+from them disagreeing anyway. The read path emits it as `total`, which is the field's name and stays
+one: renaming it is a change to the public read surface (ADR-0045) rather than to this word.
+_Avoid_: count, which is the query rather than the answer
+
 **Row**:
 One line of a listing: an Item in the catalogue, a Placement in a container's ordering. It is a
 PROJECTION FOR A LIST rather than the whole thing listed, so a row carries what a reader needs to
