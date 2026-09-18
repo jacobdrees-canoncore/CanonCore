@@ -278,6 +278,32 @@ describe.each(EVERY_LISTING)("$procedure, on the Listing contract", ({ holds, pa
     expect(second.total).toBe(first.total);
   });
 
+  it("reports that size past its end too, where no Row is left to carry it", async () => {
+    // THE SIZE'S OTHER POSITION, AND UNTIL THIS IT WAS ASKED OF ONE LISTING IN
+    // FIVE. `total` rides on the Rows, in the same statement and therefore in
+    // the same snapshot -- so a page with NO Rows has nothing to ride on, and
+    // the size is counted by a SECOND query instead. That second query is the
+    // half no contract has ever read: the test above walks two pages that both
+    // have Rows, so a count written twice could disagree in the position
+    // neither of them reaches.
+    //
+    // A PAGE CAN BE EMPTY WITH A LISTING STILL BEHIND IT, which is the state
+    // this reaches: the cursor names the LAST Row of the whole Listing, so
+    // there is nothing past it and the Listing is as big as it ever was. An
+    // owner arrives here by pressing Next on the last page, or by keeping the
+    // link it gave them.
+    const { total } = await page({ limit: 1 });
+
+    const walked = await everyRowWalked(page, total);
+    const theLastRow = walked.at(-1);
+    if (theLastRow === undefined) throw new Error("a Listing of no Rows has no end to walk past");
+    const beyond = await page({ limit: 1, after: theLastRow });
+
+    expect(beyond.rows).toStrictEqual([]);
+    expect(beyond.continuesAfter).toBeNull();
+    expect(beyond.total).toBe(total);
+  });
+
   it("starts at the beginning when the cursor names nothing", async () => {
     // ADR-0066's rule for a parameter that is not an identity: one naming
     // nothing matches nothing and changes nothing. A cursor is cut at a Row, and
