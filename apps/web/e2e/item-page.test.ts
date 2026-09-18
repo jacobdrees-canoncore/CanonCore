@@ -54,6 +54,29 @@ describe("/items/<id>", () => {
     expect(text).toContain(`<title>${itemTitle}</title>`);
   });
 
+  it("answers about the item the PATH names, whatever the query calls itself", async () => {
+    /*
+     * ADR-0066: the path is identity and the query is the route. `?id=` is not a
+     * parameter this route has, so it names nothing and the page is the page at
+     * this path -- heading and document title alike.
+     *
+     * IT IS ASSERTED BECAUSE CNCORE-176 MADE IT REACHABLE. `generateMetadata`
+     * reads `searchParams` now, to ask the read path the same question the page
+     * asks, and the first spelling of that spread the route param INTO the query
+     * -- so `/items/A?id=B` would have titled A's page after B and pointed its
+     * canonical at B, while the body went on describing A. Two answers to "which
+     * item is this" in one document.
+     */
+    const { status, text } = await documentAt(`/items/${itemId}?id=${twoOrigins.id}`);
+
+    expect(status).toBe(200);
+    expect(text).toContain(`<h1 class="text-3xl font-medium">${itemTitle}</h1>`);
+    expect(text).toContain(`<title>${itemTitle}</title>`);
+    // AND THE CANONICAL NAMES THE PATH'S ITEM TOO, which is the half a reader
+    // never sees and a crawler acts on.
+    expect(text).toContain(`href="/items/${itemId}"`);
+  });
+
   it("answers 404 for an id nothing resolves to", async () => {
     const { status } = await documentAt(`/items/${crypto.randomUUID()}`);
 

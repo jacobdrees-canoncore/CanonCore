@@ -101,6 +101,57 @@ describe("/", () => {
     expect(text).not.toContain("API Status");
   });
 
+  it("serves no font family nothing renders in", async () => {
+    /*
+     * MORE SCAFFOLD RESIDUE, AND THE ONLY KIND A READER PAYS FOR. The generator
+     * put `Geist` and `Geist_Mono` in the layout and hung their variables on
+     * `<body>`. Nothing ever read either: `globals.css` resolves `--font-sans`
+     * to `"Inter Variable"` and names neither `--font-geist-sans` nor
+     * `--font-geist-mono`, so two families were subsetted into the build,
+     * declared in the stylesheet every page links, and rendered in by nothing
+     * (CNCORE-161).
+     *
+     * THE STYLESHEET IS FETCHED RATHER THAN THE HEAD READ, and that is the whole
+     * reason this assertion is shaped the way it is. The obvious version looks
+     * for `<link rel="preload" as="font">` in the document -- which is what
+     * `next/font` emitted when this app was scaffolded, and what it no longer
+     * emits under Next 16's Turbopack build. MEASURED 2026-09-16 with both fonts
+     * still in the layout: the served head carries no `as="font"` at all, so that
+     * assertion passed against the very residue it was written to catch. What it
+     * carries instead is one `<link rel="stylesheet">`, and the `@font-face`
+     * rules are in there.
+     *
+     * IT IS BLUNT ON PURPOSE, in the shape the banner assertion above already
+     * uses. THIS APP SELF-HOSTS NO FONT: its `--font-sans` names a family it
+     * expects a reader to already have, and falls back to `sans-serif`. So any
+     * `@font-face` in the sheet it serves is a family nothing here renders in.
+     * The day CanonCore does ship a face of its own, this line is one somebody
+     * changes deliberately -- which is the only way a reader finds out that the
+     * decision was made rather than inherited.
+     */
+    const { text } = await documentAt("/");
+    const linked = [...text.matchAll(/<link rel="stylesheet" href="([^"]+)"/g)].map(
+      ([, href]) => href as string,
+    );
+
+    // A page that linked no stylesheet would pass every assertion below by
+    // having nothing to make them about, which is the one answer this cannot
+    // accept from a page that is visibly styled.
+    expect(linked.length).toBeGreaterThan(0);
+
+    for (const href of linked) {
+      const stylesheet = await fetch(`${inject("baseUrl")}${href}`);
+
+      // THE STATUS FIRST, because a 404 body carries no `@font-face` either. The
+      // href is scraped out of the page, so a sheet that moved -- or a reader of
+      // this test that changed how the URL is assembled -- would otherwise turn
+      // the assertion below into one that passes by fetching nothing. Every other
+      // assertion in this file checks a status; this one has more reason to.
+      expect(stylesheet.status, href).toBe(200);
+      expect(await stylesheet.text(), href).not.toContain("@font-face");
+    }
+  });
+
   it("reaches an item at the address every other surface reaches it at", async () => {
     // THE PATH IS IDENTITY (ADR-0066), so the front page's link has to BE the
     // item's canonical address rather than a second spelling of it -- no

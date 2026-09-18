@@ -1171,6 +1171,62 @@ still not a failure there. The refusal closes that divergence at its root, by ma
 raise rather than return a shorter list, and it does NOT add the converse assertion. A second way
 for the two lists to disagree would need one.
 
+## What a request COSTS is a fourth-seam question, and the instrument is the finding -- under CNCORE-176
+
+The seams above all ask what an answer IS. CNCORE-176 asked what it COST: `/items/<id>` read its Item
+twice per request, once in `generateMetadata` and once in the page, and **no seam here could see it.**
+The unit seams cannot -- the double read is in a Server Component, which Next documents Vitest as
+unable to render. The router seam cannot -- both reads are correct calls to one correct procedure.
+And the fourth seam could not either, because what it reads is served markup, and the markup is
+IDENTICAL: the second read answers exactly what the first one did. Twelve SQL statements where six
+would do, for a page that passed every assertion in the repository.
+
+**SO THE FOURTH SEAM GAINED AN INSTRUMENT RATHER THAN THE REPOSITORY GAINING A SEAM.**
+`@canoncore/db/testing/statements` counts what one piece of work costs a database, and
+`apps/web/e2e/item-page-cost.test.ts` uses it to compare a page against ONE call of the procedure it
+reads through. The comparison is against the read path itself rather than a number written in a test,
+so a read path that gets cheaper or dearer moves both sides and only the MULTIPLE is asserted.
+
+**THE INSTRUMENT IS POSTGRESQL'S OWN STATISTICS, AND THREE THINGS ABOUT THEM ARE NOT OBVIOUS.** All
+three were measured on PostgreSQL 18.6 on 2026-09-15, and all three had to be got right before any
+figure here meant anything.
+
+- **A BACKEND DOES NOT PUBLISH WHAT IT DID UNTIL IT EXITS.** Six statements issued over a connection
+  that STAYED OPEN moved `xact_commit` by three over the next eight and a half seconds and by two
+  more over the following twenty; the same six over a connection that CLOSED counted exactly. So the
+  count is taken when nothing is connected, which is why the measured server is STARTED AND STOPPED
+  INSIDE the window and why the instance is a database rather than one of `global-setup.ts`'s
+  long-lived servers. Waiting longer is not the fix and looks like one.
+- **`pg_terminate_backend` WOULD MAKE THE WAIT UNNECESSARY AND CANNOT BE USED.** node-postgres
+  re-emits an idle client's error on the pool, and a pool with no `error` listener throws it as an
+  uncaught exception (`pg-pool@3.14.0`, `index.js:62`). Measured against a real `next start`:
+  `⨯ uncaughtException: terminating connection due to administrator command`. **An instrument that
+  destabilises what it measures is reporting on something else** -- and the tempting repair, adding
+  an `error` listener to the app's pool, would be a production change made to suit a test.
+- **A TRANSACTION IS NOT A STATEMENT UNTIL THE SESSIONS ARE SUBTRACTED.** A connection is worth one
+  transaction of its own: a pool that connects and asks nothing moves the counter by one per
+  connection, six statements over one connection move it by seven, six at once over a pool of four
+  move it by ten. `pg_stat_database.sessions` is cumulative, so the difference of two readings is the
+  connections opened between them, and statements are the remainder.
+
+**SO THE INSTRUMENT HAS A CALIBRATION TEST, WHICH IS THE PART WORTH COPYING.**
+`packages/db/src/testing/statements.test.ts` issues a number of statements it chose and expects that
+number back, at one connection and at four -- the term the naive reading gets wrong. Nothing in it
+recomputes the arithmetic in `statements.ts`. **An instrument nobody calibrates is a figure that
+drifts silently, which is the exact failure it exists to catch, one level down.**
+
+**AND THE DATABASE IT COUNTS HAS TO BE ONE NOTHING ELSE IS TALKING TO.** `pg_stat_database` counts a
+whole database rather than one request, and this suite runs its files in parallel, so a second file
+fetching a page mid-measurement cannot be told from the page under test. That is what `cost` is doing
+in `TEST_DATABASE_SUFFIXES` -- a property of a WHOLE DATABASE, which is the standard that list already
+sets, met by quiet rather than by rows.
+
+**WHAT IT COSTS TO RUN is three server starts for two figures**, the third being a server that is
+asked NOTHING: `instrumentation.ts` starts the scheduler on boot (ADR-0049) and
+`closeRunsLeftOpen` writes before the first request, so that constant is measured and subtracted
+rather than assumed away. Nothing else fires inside a window this short -- both registered tasks
+trigger daily and are armed for their next firing.
+
 ## A symlinked Vitest config is refused for a reason of its own -- under CNCORE-201
 
 **THE SAME lstat ONE LEVEL DOWN, AND A NARROWER SILENCE.** `configFilesOnDisk()` in

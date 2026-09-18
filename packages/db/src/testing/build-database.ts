@@ -86,6 +86,20 @@ export const TEST_DATABASE_SUFFIXES = [
    * budgets for.
    */
   "rung",
+  /*
+   * THE ONE NOBODY ELSE MAY TALK TO WHILE A COUNT IS RUNNING (CNCORE-176). What
+   * an Item page COSTS is read off `pg_stat_database`, which counts a whole
+   * database rather than one request -- so a second suite fetching a page from
+   * the same instance lands in the middle of the measurement and is
+   * indistinguishable from the page under test. Vitest runs these files in
+   * parallel, so quiet is not something a `WHERE` can arrange: it is a property
+   * of the whole database, which is exactly what this list says a suffix is
+   * for.
+   *
+   * `_test_cost` IS TEN CHARACTERS, inside the eleven `worktree-database.ts`
+   * budgets for.
+   */
+  "cost",
 ] as const;
 
 /** A suffix this repo has declared, which is the only kind there is. */
@@ -138,8 +152,15 @@ export async function buildTestDatabase(
   return built.toString();
 }
 
-/** What `testDatabaseNameFor` appends, and so what it strips to find the root. */
-const MARKER = "_test";
+/**
+ * What `testDatabaseNameFor` appends, and so what it strips to find the root.
+ *
+ * EXPORTED so `emptyCatalogue` can tell a test database from a real one without
+ * spelling `_test` a second time. This module's own comments call it "THE one
+ * place that knows" the format; a guard carrying its own copy is the drift that
+ * sentence exists to refuse.
+ */
+export const MARKER = "_test";
 
 /**
  * How a test database is named FROM THE WORKTREE'S OWN DATABASE. THE one place

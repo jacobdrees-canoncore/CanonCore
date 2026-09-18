@@ -18,15 +18,12 @@
   "dependencies": {
     "@base-ui/react": "catalog:",
     "@canoncore/tokens": "workspace:*",
-    "@shadcn/react": "catalog:",
     "class-variance-authority": "catalog:",
     "cn": "catalog:",
     "lucide-react": "catalog:",
-    "next-themes": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
     "shadcn": "catalog:",
-    "sonner": "catalog:",
     "tw-animate-css": "catalog:"
   },
   "devDependencies": {
