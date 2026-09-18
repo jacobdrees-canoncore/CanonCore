@@ -8,6 +8,7 @@ import {
   not,
   or,
   type SQL,
+  type SQLWrapper,
   sql,
 } from "drizzle-orm";
 import { z } from "zod";
@@ -285,6 +286,41 @@ export async function findPlacementsOfItem(
   // ones the SELECT joined and not a second subquery's.
   const order = thisItemsOrder(spokesman);
   const place = after === undefined ? undefined : await findInThisItemsOrder(db, itemId, after);
+  /*
+   * ONE VALUE, AND THE SIZE AND THE ROWS ARE BOTH READ OFF IT (CNCORE-172).
+   * THE NARROWING IS INSIDE IT, which is what CNCORE-129 bought and what this
+   * keeps structural rather than remembered: `size.within` is the whole
+   * question this Listing asks, so the rows' `WHERE` and the count are the same
+   * predicate and a narrowed page cannot report the size of the list it was cut
+   * out of.
+   *
+   * THE LATERAL COMES AND GOES WITH THE NARROWING, and that is a measured cost
+   * rather than tidiness. Counting does not need to know WHO asserted a row --
+   * the spokesman decides an ORDER, and an order is not part of a count -- so
+   * unnarrowed there is none. Narrowed, the kind being compared IS the
+   * spokesman's, so the join that picks it has to be here. MEASURED under
+   * CNCORE-129 on one item in 1,000 orderings with two sources each, over three
+   * runs on PostgreSQL 18.6: 2.7-3.4 ms narrowed against 0.24-0.28 ms
+   * unnarrowed, the planner using
+   * `Index Scan using placement_sources_placement_source`. That is the price of
+   * a narrowed count rather than of every count.
+   *
+   * AND THE PREDICATE RESOLVES IN WHICHEVER SCOPE IT IS SPLICED INTO.
+   * `narrowedTo` is built from the walk's own spokesman and renders as
+   * `"spokesman"."kind"`; spliced in here it binds to the lateral THIS query
+   * joins, because SQL resolves a name in the innermost scope that has one.
+   * That is what lets one fragment be the rows' narrowing and the count's at
+   * once -- which is the whole reason they cannot drift.
+   */
+  const size = theSize(and(sitsIn, narrowedTo) as SQL, (within) => {
+    const counted = db
+      .select(HOW_MANY)
+      .from(placements)
+      .innerJoin(items, eq(items.id, placements.containerId));
+    return narrowedTo === undefined
+      ? counted.where(within)
+      : counted.leftJoinLateral(spokesmanFor(db), sql`true`).where(within);
+  });
 
   /*
    * TWO READS, AND THE SECOND IS THE HALF THAT IS EASY TO MISS (CNCORE-129).
@@ -304,6 +340,7 @@ export async function findPlacementsOfItem(
   const [page, everyPlacedBy] = await Promise.all([
     onePage({
       limit,
+      size,
       read: (howMany) =>
         db
           .select({
@@ -335,10 +372,9 @@ export async function findPlacementsOfItem(
              *
              * THE NARROWING IS IN IT TOO SINCE CNCORE-129, which is what makes a
              * narrowed list report its own size rather than the size of the list
-             * it was cut out of. `countingOrderings` is where the lateral that
-             * costs comes and goes with it.
+             * it was cut out of. `size` above is where that lives now.
              */
-            total: sql<number>`(${countingOrderings(db, sitsIn, narrowedTo)})`.mapWith(Number),
+            total: size.onTheRows,
           })
           .from(placements)
           .innerJoin(items, eq(items.id, placements.containerId))
@@ -360,18 +396,9 @@ export async function findPlacementsOfItem(
            * is the order CNCORE-125 grew from one key to four, and doing that
            * used to mean editing two statements in two places.
            */
-          .where(and(sitsIn, narrowedTo, place && pastTheRowIn(order, place)))
+          .where(and(size.within, place && pastTheRowIn(order, place)))
           .orderBy(...theOrderBy(order))
           .limit(howMany),
-      asRow: ({ id, containerId, containerTitle, position, placedBy, assertedBy }) => ({
-        id,
-        containerId,
-        containerTitle,
-        position,
-        placedBy,
-        assertedBy,
-      }),
-      sizeOnItsOwn: async () => (await countingOrderings(db, sitsIn, narrowedTo))[0]?.total ?? 0,
     }),
     readEveryPlacedBy(db, sitsIn),
   ]);
@@ -416,45 +443,6 @@ async function readEveryPlacedBy(db: Database, sitsIn: SQL): Promise<string[]> {
     .where(sitsIn)
     .orderBy(spokesman.kind);
   return found.map(({ kind }) => kind);
-}
-
-/**
- * HOW MANY ORDERINGS THE LISTING HOLDS, as one query its two readers share: the
- * scalar subquery that rides on the rows, and `sizeOnItsOwn` for the page
- * with no rows for one to ride on. Written once because the two must agree, and
- * since CNCORE-129 they have a narrowing to agree about as well as a predicate.
- *
- * IT TAKES THE NARROWING ITSELF RATHER THAN A PREDICATE AND A FLAG, so what it
- * counts and whether it joins the lateral that count needs are one argument and
- * cannot disagree -- a caller passing a narrowed predicate with `false` would
- * compare `"spokesman"."kind"` in a query that has no spokesman.
- *
- * THE LATERAL COMES AND GOES WITH THE NARROWING, and that is a measured cost
- * rather than tidiness. Counting does not need to know WHO asserted a row --
- * the spokesman decides an ORDER, and an order is not part of a count -- so
- * unnarrowed there is none, exactly as before. Narrowed, the kind being
- * compared IS the spokesman's, so the join that picks it has to be here.
- * MEASURED under CNCORE-129 on one item in 1,000 orderings with two sources
- * each, over three runs on PostgreSQL 18.6: 2.7-3.4 ms narrowed against
- * 0.24-0.28 ms unnarrowed, the planner using
- * `Index Scan using placement_sources_placement_source`. That is the price of a
- * narrowed count rather than of every count.
- *
- * AND THE PREDICATE RESOLVES IN WHICHEVER SCOPE IT IS SPLICED INTO. `narrowedTo`
- * is built from the walk's own spokesman and renders as `"spokesman"."kind"`;
- * spliced in here it binds to the lateral this query joins, because SQL resolves
- * a name in the innermost scope that has one. That is what lets one fragment be
- * the rows' narrowing and the count's at once -- which is the whole reason
- * they cannot drift.
- */
-function countingOrderings(db: Database, sitsIn: SQL, narrowedTo: SQL | undefined) {
-  const counted = db
-    .select({ total: sql<number>`count(*)`.mapWith(Number) })
-    .from(placements)
-    .innerJoin(items, eq(items.id, placements.containerId));
-  return narrowedTo === undefined
-    ? counted.where(sitsIn)
-    : counted.leftJoinLateral(spokesmanFor(db), sql`true`).where(and(sitsIn, narrowedTo));
 }
 
 /**
@@ -1045,8 +1033,25 @@ export async function walkListing<O extends TheOrder>(
   { within, order, place, limit }: { within: SQL; order: O; place?: PlaceIn<O>; limit: number },
 ): Promise<Catalogue> {
   const past = place && pastTheRowIn(order, place);
+  /*
+   * ONE VALUE HANDED OVER, AND THE SIZE AND THE ROWS ARE BOTH READ OFF IT
+   * (CNCORE-172). The count is spliced into the select below and asked on its
+   * own by `onePage`, and the `WHERE` beneath it is `size.within` rather than a
+   * second copy of the same predicate -- so this Listing cannot report a size
+   * its rows were not drawn from. That is `readListing`'s paragraph above made
+   * structural: `readWorks` handing back the whole catalogue's `total` would
+   * tell an owner their work-browsing surface was hiding items it was never
+   * asked to show.
+   *
+   * COUNTING `items` ALONE, where the rows join `item_kinds` for the reader's
+   * word. A row with no kind cannot exist -- it is a foreign key -- so the join
+   * can neither add a row nor drop one, and a count paying for it would be
+   * paying to reach a column it does not read.
+   */
+  const size = theSize(within, (within) => db.select(HOW_MANY).from(items).where(within));
   return onePage({
     limit,
+    size,
     read: (howMany) =>
       db
         .select({
@@ -1065,29 +1070,112 @@ export async function walkListing<O extends TheOrder>(
            * there it counts the items PAST THE CURSOR rather than the catalogue
            * -- and page two would report a smaller library than page one. This
            * subquery is uncorrelated, so the cursor cannot reach it.
-           *
-           * `count(*)` is a `bigint`, which node-postgres hands over as a
-           * STRING because the range does not fit a JavaScript number.
-           * `mapWith(Number)` is where that becomes the number the type claims;
-           * without it `total` is a string wearing a number's type.
            */
-          /*
-           * THE SAME PREDICATE THE ROWS USE, which is what makes `total` the
-           * size of the question that was ASKED rather than of the whole table.
-           */
-          total: sql<number>`(select count(*) from ${items} where ${within})`.mapWith(Number),
+          total: size.onTheRows,
         })
         .from(items)
         // INNER, because `items.kind` is a foreign key into this table: a row
         // with no kind cannot exist, so there is nothing for a left join to
         // preserve.
         .innerJoin(itemKinds, eq(itemKinds.kind, items.kind))
-        .where(and(within, past))
+        .where(and(size.within, past))
         .orderBy(...theOrderBy(order))
         .limit(howMany),
-    asRow: ({ id, title, kindLabel, isContainer }) => ({ id, title, kindLabel, isContainer }),
-    sizeOnItsOwn: () => countListing(db, within),
   });
+}
+
+/**
+ * `count(*)`, AND THE MAPPING THAT MAKES IT A NUMBER. It is a `bigint`, which
+ * node-postgres hands over as a STRING because the range does not fit a
+ * JavaScript number; without `mapWith` a size is a string wearing a number's
+ * type. Written once for every Listing, beside the value that reads it.
+ */
+const HOW_MANY = { total: sql<number>`count(*)`.mapWith(Number) };
+
+/**
+ * A QUERY THAT ANSWERS ONE NUMBER -- widened to what both positions below need
+ * of it and no more: it renders into another statement (`SQLWrapper`) and it
+ * runs on its own (`PromiseLike`). Drizzle's own select types differ between a
+ * count that joins a lateral and one that does not, so the two shapes
+ * `findPlacementsOfItem` chooses between meet here rather than in a cast.
+ */
+type Counting = SQLWrapper & PromiseLike<{ total: number }[]>;
+
+/**
+ * HOW BIG ONE LISTING IS: ONE QUERY, and both the positions a size is read in
+ * are derived from it.
+ *
+ * IT IS THE SAME CONSTRUCTION `TheOrder` IS, for the same reason and against
+ * the same failure (ADR-0119). An order was two statements -- the `ORDER BY`
+ * and the cursor comparison -- that a sentence required to name the same
+ * terms, and four defects came of them disagreeing. A SIZE IS TWO STATEMENTS
+ * TOO: the scalar subquery that rides on the Rows, and the count asked on its
+ * own for the page that has no Row to carry one. Two defects came of THOSE
+ * disagreeing, one file apart (CNCORE-82, then CNCORE-88 in the copy that had
+ * been left standing with a comment predicting the day).
+ *
+ * THE SIZE AND THE ROWS READ ONE PREDICATE, which is the half a count cannot
+ * get right by itself. `within` is handed to the counting query rather than
+ * chosen by it, and the Listing's own `WHERE` is read back off `size.within` --
+ * so the count cannot be asked a question the Rows were not drawn from. A
+ * narrowed page reporting the whole catalogue's size is the exact lie the cap
+ * exists to prevent (CNCORE-129, and `readListing`'s own paragraph).
+ *
+ * IT IS NOT THE ROWS' OWN QUERY COUNTED, and that is a decision rather than an
+ * omission. Counting a derived table of the Rows would be enforcement a
+ * compiler could check -- and it would carry the cursor, which counts what is
+ * PAST the reader rather than what the Listing holds, and it would ride every
+ * lateral the page pays for over every row instead of over a hundred (4.4 ms
+ * against 0.8 ms at 1,049 members, ADR-0017). The predicate is what the two
+ * share; the statement is not.
+ */
+interface TheSize {
+  /**
+   * THE PREDICATE THE ROWS ARE DRAWN FROM, and the Listing's `WHERE` is read
+   * off this rather than written beside it. The cursor is not in it: a keyset
+   * predicate would count the Rows past the reader, which is a library
+   * emptying as its owner walks it.
+   */
+  readonly within: SQL;
+  /**
+   * THE SIZE RIDING ON THE ROWS -- in their statement and therefore in their
+   * snapshot, so a page cannot list 42 Rows and report 41. UNCORRELATED, so
+   * the cursor beside it cannot reach in: the subquery names its own relations
+   * in its own FROM, and those names resolve to its own rows.
+   */
+  readonly onTheRows: SQL<number>;
+  /**
+   * THE SIZE ASKED ON ITS OWN, for the page with no Row to carry one -- which
+   * is a real page rather than an empty Listing: a cursor naming the last Row
+   * of a Listing answers nothing with the whole Listing still behind it.
+   * Asked exactly there, where there are no Rows for a second moment's answer
+   * to disagree with.
+   */
+  askedOnItsOwn(): Promise<number>;
+}
+
+/**
+ * ONE LISTING'S SIZE, from the predicate its Rows are drawn from and the
+ * relations it has to reach to count them.
+ *
+ * THE COUNTING QUERY IS HANDED THE PREDICATE RATHER THAN CHOOSING ONE, which
+ * is the whole of what "enforced rather than remembered" means here. A caller
+ * supplies the FROM and the JOINs -- the part that genuinely differs between a
+ * Listing of items and a Listing of placements -- and cannot supply a second
+ * `WHERE`, so the two cannot come to answer different questions.
+ */
+function theSize(within: SQL, counting: (within: SQL) => Counting): TheSize {
+  // ONE QUERY OBJECT, READ IN BOTH POSITIONS. Splicing it renders it; awaiting
+  // it runs it. That is what makes this one value rather than two spellings of
+  // one count -- and the two spellings were in two DIALECTS, raw SQL on the
+  // Rows against the query builder beside it, with one Listing writing the
+  // join between `placements` and `items` out by hand in the first.
+  const counted = counting(within);
+  return {
+    within,
+    onTheRows: sql<number>`(${counted})`.mapWith(Number),
+    askedOnItsOwn: async () => (await counted)[0]?.total ?? 0,
+  };
 }
 
 /**
@@ -1103,13 +1191,11 @@ export async function walkListing<O extends TheOrder>(
  *   the discarding cannot come apart: a caller that fetched `limit` rows and
  *   handed them over would answer `continuesAfter: null` at every page, which
  *   ADR-0119 makes mean "the listing ends here".
- * - THE SIZE, IN THE SAME SNAPSHOT. It rides on the rows, so a page with NO
- *   rows carries none -- and a page can be empty with a listing behind it,
- *   when a cursor names the last row in it. `sizeOnItsOwn` is asked exactly
- *   there, where there are no rows for a second moment's answer to
- *   disagree with. Catalogue search kept its own copy of this and its own
- *   `count(*) over ()`, which was right only until it had a cursor
- *   (CNCORE-88).
+ * - THE SIZE, AND IT IS THE LISTING'S OWN. `TheSize` above is one query read
+ *   in both positions: the caller splices `onTheRows` into its select and this
+ *   asks `askedOnItsOwn` where no row came back to carry one. Both are read
+ *   off the value the caller's `WHERE` is read off too, so the size cannot
+ *   answer a question the rows were not drawn from.
  * - THE CURSOR. The id of the LAST ROW THIS PAGE SHOWED, in whatever order the
  *   listing was read in.
  *
@@ -1119,26 +1205,38 @@ export async function walkListing<O extends TheOrder>(
  * `walkListing` above, and a Container's members read `placements` -- a
  * different relation, a different id and a different count, so they supply
  * their own select and share these three rules and nothing else.
+ *
+ * AND IT TAKES THE SIZE OFF THE ROW ITSELF, so a listing hands over what it
+ * selected and nothing more. Every caller used to pass a function that rebuilt
+ * its own row field by field, whose only effect was to leave `total` behind --
+ * three identity mappings written out to discard one column, which is a place
+ * a field can go missing by being forgotten rather than by being decided.
  */
-async function onePage<Stored extends { id: string; total: number }, Row>({
+async function onePage<Stored extends { id: string; total: number }>({
   limit,
+  size,
   read,
-  asRow,
-  sizeOnItsOwn,
 }: {
   limit: number;
+  size: TheSize;
   read: (howMany: number) => Promise<Stored[]>;
-  asRow: (stored: Stored) => Row;
-  sizeOnItsOwn: () => Promise<number>;
-}): Promise<{ rows: Row[]; total: number; continuesAfter: string | null }> {
+}): Promise<{ rows: Row<Stored>[]; total: number; continuesAfter: string | null }> {
   const stored = await read(limit + 1);
   const page = stored.slice(0, limit);
   return {
-    rows: page.map(asRow),
-    total: stored[0]?.total ?? (await sizeOnItsOwn()),
+    rows: page.map(({ total, ...row }) => row),
+    total: stored[0]?.total ?? (await size.askedOnItsOwn()),
     continuesAfter: stored.length > limit ? (page.at(-1)?.id ?? null) : null,
   };
 }
+
+/**
+ * THE ROW A READER SEES, which is the stored row without the size it carried
+ * in on. `CONTEXT.md`'s **Row** names both sides of this seam -- `Stored` for
+ * the row that never leaves the database and this for the projection a listing
+ * answers with -- and the difference between them is one column.
+ */
+type Row<Stored> = Omit<Stored, "total">;
 
 /**
  * WHAT IS IN THE CATALOGUE: everything the owner has not deleted (ADR-0075).
@@ -1351,20 +1449,6 @@ async function findInTheOrder(db: Database, id: string): Promise<PlaceInTheOrder
 }
 
 /**
- * How many items ONE LISTING holds, asked on its own.
- *
- * IT TAKES THE PREDICATE rather than assuming the catalogue's, for the reason
- * `readListing` gives: the size has to answer the same question the rows do.
- */
-async function countListing(db: Database, within: SQL): Promise<number> {
-  const [counted] = await db
-    .select({ total: sql<number>`count(*)`.mapWith(Number) })
-    .from(items)
-    .where(within);
-  return counted?.total ?? 0;
-}
-
-/**
  * One placement read from the container's end, and where that container puts it
  * (ADR-0009).
  *
@@ -1517,9 +1601,25 @@ export async function findPlacementsInContainer(
   ) as SQL;
   const place =
     after === undefined ? undefined : await findInTheContainersOrder(db, containerId, after);
+  /*
+   * ONE VALUE, AND THE SIZE AND THE ROWS ARE BOTH READ OFF IT (CNCORE-172).
+   * This Listing is where the two spellings were furthest apart: raw SQL on the
+   * rows with the join between `placements` and `items` written out by hand,
+   * and the query builder beside it. The join is the load-bearing half -- a
+   * count that did not make it would not see ADR-0075's tombstone on a member,
+   * and the ordering would report a size holding items no reader can reach.
+   */
+  const size = theSize(held, (held) =>
+    db
+      .select(HOW_MANY)
+      .from(placements)
+      .innerJoin(items, eq(items.id, placements.itemId))
+      .where(held),
+  );
 
   return onePage({
     limit,
+    size,
     read: (howMany) =>
       db
         .select({
@@ -1548,10 +1648,7 @@ export async function findPlacementsInContainer(
            * subquery names `placements` and `items` in its own FROM, so those
            * names resolve to its own rows rather than to the walk's.
            */
-          total:
-            sql<number>`(select count(*) from ${placements} inner join ${items} on ${eq(items.id, placements.itemId)} where ${held})`.mapWith(
-              Number,
-            ),
+          total: size.onTheRows,
         })
         .from(placements)
         .innerJoin(items, eq(items.id, placements.itemId))
@@ -1565,28 +1662,10 @@ export async function findPlacementsInContainer(
          * is CONTEXT.md's Unplaced, a placement with no position rather than an
          * absent one, and the comparison reads where that block sits.
          */
-        .where(and(held, place && pastTheRowIn(THE_CONTAINERS_OWN_ORDER, place)))
+        .where(and(size.within, place && pastTheRowIn(THE_CONTAINERS_OWN_ORDER, place)))
         .orderBy(...theOrderBy(THE_CONTAINERS_OWN_ORDER))
         .limit(howMany),
-    asRow: ({ id, title, itemId, position, assertedBy }) => ({
-      id,
-      title,
-      itemId,
-      position,
-      assertedBy,
-    }),
-    sizeOnItsOwn: () => countPlacements(db, held),
   });
-}
-
-/** How many placements one container holds, asked on its own. */
-async function countPlacements(db: Database, held: SQL): Promise<number> {
-  const [counted] = await db
-    .select({ total: sql<number>`count(*)`.mapWith(Number) })
-    .from(placements)
-    .innerJoin(items, eq(items.id, placements.itemId))
-    .where(held);
-  return counted?.total ?? 0;
 }
 
 /**
