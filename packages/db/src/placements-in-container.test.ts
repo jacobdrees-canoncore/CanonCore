@@ -205,6 +205,48 @@ describe("findPlacementsInContainer, walked", () => {
     expect(new Set(walked).size).toBe(walked.length);
   });
 
+  it("reports the ordering's size past its end too, where no Row carries it", async () => {
+    // THE SIZE'S OTHER POSITION. `total` rides on the Rows -- one statement,
+    // one snapshot, so a page cannot list 42 members and report 41 -- and a
+    // page with NO Rows has nothing for it to ride on. It is counted by a
+    // second query there, and that second query has to answer the SAME
+    // question: this Listing spelled it in raw SQL on the Rows, with the join
+    // between `placements` and `items` written out by hand, and in the query
+    // builder beside it.
+    //
+    // A CURSOR AT THE LAST MEMBER is where an ordering is empty with a
+    // container still behind it: the reader pressed Next on the last page, or
+    // kept the link it gave them. What the size must not do there is drop to
+    // zero, or answer for some other question this container was never asked.
+    const owner = await ownerSource(db);
+    const container = await anItemTitled(db, "An ordering asked its size past its end", {
+      isContainer: true,
+      isOrdered: true,
+    });
+    const deleted = await anItemTitled(db, "A story deleted out of the counted ordering");
+    // A MEMBER THE ORDERING NO LONGER HOLDS, because the two spellings differ
+    // in exactly the join that reaches it: the count has to walk to `items` to
+    // see this tombstone, and a count that did not would answer four.
+    await aPlacement(db, { containerId: container, itemId: deleted, position: 1, sourceId: owner });
+    await db.update(items).set({ deletedAt: new Date() }).where(eq(items.id, deleted));
+    for (const position of [2, 3, 4]) {
+      const story = await anItemTitled(db, `A story of the counted ordering at ${position}`);
+      await aPlacement(db, { containerId: container, itemId: story, position, sourceId: owner });
+    }
+
+    const whole = await findPlacementsInContainer(db, container, { limit: 10 });
+    const beyond = await findPlacementsInContainer(db, container, {
+      limit: 10,
+      after: whole.rows.at(-1)?.id,
+    });
+
+    expect(whole.rows).toHaveLength(3);
+    expect(whole.total).toBe(3);
+    expect(beyond.rows).toStrictEqual([]);
+    expect(beyond.continuesAfter).toBeNull();
+    expect(beyond.total).toBe(3);
+  });
+
   it("RESUMES past an anchor whose item was deleted, rather than starting over", async () => {
     // THE CASE ADR-0119 PREDICTED AND HAD NO INSTANCE OF, which is why it is
     // asserted here rather than reasoned about in the record.
