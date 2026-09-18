@@ -78,11 +78,16 @@ const A_RUN_OF_THEM = 5;
  * THE CURSOR IS THE EXCEPTION, AND IT IS SAID RATHER THAN GLOSSED. `after` and
  * `placedAfter` are plain optional strings on `item.get`, so asking those two
  * what a cursor naming nothing does would cost nothing here. They stay out
- * anyway, because a member that can answer one question of five is not a member
+ * anyway, because a member that can answer one question of SIX is not a member
  * of ONE BLOCK -- and what that costs is a real gap rather than none. At the
- * package export a Container's members is asked all four; **"Also appears in"
- * is asked THREE**, and the one it is missing is exactly this one. Neither is
+ * package export a Container's members is asked all FIVE; **"Also appears in"
+ * is asked FOUR**, and the one it is missing is exactly this one. Neither is
  * asked it at THIS seam either. CNCORE-198 carries both halves.
+ *
+ * THE COUNTS MOVED WITH CNCORE-172, which added the sixth question below and
+ * the package-export assertion a Container's members was missing. "Also appears
+ * in" needed neither: it is the Listing that already had the size's second
+ * position asserted, which is how that gap was found.
  */
 const EVERY_LISTING: AListing[] = [
   {

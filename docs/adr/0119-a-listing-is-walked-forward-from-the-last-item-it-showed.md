@@ -920,11 +920,13 @@ Person is excluded. Every one of the three is the same cap, the same cursor and 
 `continuesAfter`, so what was being re-asserted was never the Listing's own question. It is one
 block now, in `packages/api/src/routers/listing.test.ts`, run over a LIST of Listings: it refuses a
 page above the cap, it walks without repeating or skipping a Row, it reports one size from both
-pages, a cursor naming nothing starts at the beginning, and ADR-0045's enumeration holds of what its
-Rows emit. Adding a Listing is adding a line to that list, and each procedure keeps the test of its
-own question and nothing more.
+pages, **it reports that size past its end too where no Row is left to carry it** (CNCORE-172, which
+added that one), a cursor naming nothing starts at the beginning, and ADR-0045's enumeration holds
+of what its Rows emit. Adding a Listing is adding a line to that list, and each procedure keeps the
+test of its own question and nothing more.
 
-**THE FIFTH IS ADR-0045'S AND CNCORE-171 NAMES FOUR.** It moved off `catalogue.list` because it is a
+**THE ENUMERATION IS THE LAST OF THEM AND CNCORE-171 NAMES FOUR** — it was the fifth when this was
+written and is the sixth since CNCORE-172. It moved off `catalogue.list` because it is a
 fact about what a Listing's Row IS rather than about the question any one procedure asks, and
 leaving it on one procedure is the same shape as the walk, one assertion smaller. **What it guards
 at THIS seam is the declaration rather than the mapping, measured rather than assumed**: a field
@@ -945,7 +947,8 @@ two here for nothing. They stay out anyway, because a member that can answer one
 not a member of ONE BLOCK — and the honest price of that is a gap rather than none.
 
 **AND THE GAP IS REAL AT BOTH SEAMS, checked rather than assumed.** At the package export a
-Container's members is asked all four. **"Also appears in" is asked three**: every `after` it is ever
+Container's members is asked all five (four when this was written; CNCORE-172 added the size past
+its end). **"Also appears in" is asked four**: every `after` it is ever
 handed names a real Placement or one a delete has since taken, so neither a malformed id nor a
 well-formed one nobody minted has ever been put to it. Neither Listing is asked it at the router
 seam either — `item.test.ts` walks both with real cursors and hands neither a bad one. The guard
@@ -1072,12 +1075,26 @@ Listing for the size past its end, where no Row is left to carry it, and a Conta
 asked the same at the package export with a DELETED member in the fixture, because the join is
 exactly what a second spelling of that count can lose.
 
-**MUTATIONS RUN AND READ RATHER THAN PREDICTED.** The standalone count over `items` with its `where`
-taken off fails all three contract assertions and NOTHING else in the api suite — 3 failed, 199
-passed — so that assertion is the only reader of the position at that seam. The container count's
-join moved to `placements.containerId`, which is the mirror Listing's join and the copy that file is
-one edit away from, fails the package-export assertion and nothing else, `expected 4 to be 3`: the
-deleted member counted, visible only where no Row carries the size.
+**MUTATIONS RUN AND READ RATHER THAN PREDICTED, AND EACH SAYS WHICH SHAPE IT WAS RUN AGAINST** —
+which matters here more than usual, because the mutations that prove the OLD shape's defect cannot
+be written against the new one at all.
+
+**Against the two-query shape this replaces**, where the new assertions were written: the standalone
+count over `items` with its `where` taken off failed all three contract assertions and NOTHING else
+in the api suite — 3 failed, 199 passed — so those assertions are the only readers of that position
+at that seam. The container count's join moved to `placements.containerId`, the mirror Listing's
+join and the copy that file was one edit away from, failed the package-export assertion and nothing
+else, `expected 4 to be 3`: the deleted member counted, visible ONLY where no Row carries the size.
+
+**Against the shape as built, the first of those cannot be written** — there is no standalone count
+to take a `where` off — and the mutation that reaches the same position is `askedOnItsOwn` answering
+zero: 3 failed, 199 passed in the api suite, all three the new assertion, and 2 failed, 327 passed at
+the package export, which is a Container's members and "Also appears in". All five Listings have a
+live assertion on the size's second position. **AND THE SECOND MUTATION NOW FAILS TWICE AND EARLIER**:
+one join, so moving it breaks both positions together — `expected 4 to be 3` on the past-the-end
+assertion AND on the resumed-anchor test beside it, rather than only where no Row carries the size.
+That shrinking is the refactor's own argument, measured rather than claimed: what used to be visible
+in one position only is now visible from page one.
 
 **AND THE CEREMONY THAT EXISTED ONLY TO DISCARD A COLUMN IS GONE.** Every walk passed `onePage` a
 function that rebuilt its own row field by field, whose only effect was to leave `total` behind —
