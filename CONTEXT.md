@@ -316,7 +316,10 @@ declaring it must declare Browse too: a list of ids nothing can browse is a page
 Provider that declines it is not broken and is not empty, and the two must never read alike -- an
 absent capability is declared in the manifest, where an empty answer is a claim that this source
 holds no Containers.
-_Avoid_: list, discovery, index
+_Not_ the Container above, which is an Item this catalogue holds. This is the CMPP operation that
+answers which ones a Provider has, and it is named for what it answers because the operation's name
+is its path.
+_Avoid_: list (a Listing is a different thing), discovery, index
 
 **Import run**:
 One walk over a LIST of Container ids at one Provider, and where it got to. The list is the Owner's

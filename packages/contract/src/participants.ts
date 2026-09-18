@@ -67,7 +67,7 @@ export async function participants(): Promise<Participant[]> {
   }
   found.push(await minimalProvider());
   found.push(await lockedProvider());
-  found.push(await listingProvider());
+  found.push(await containersProvider());
   return found;
 }
 
@@ -210,25 +210,25 @@ async function minimalProvider(): Promise<Participant> {
  *
  * WHAT IT STANDS FOR IS THE JOURNEY, NOT A SOURCE. The operation exists so that
  * browsing does not require knowing an id first, so the claim under test is that
- * an id this provider LISTED is an id it will BROWSE. A witness that listed
+ * an id this provider LISTED is an id it will BROWSE. A witness that offered
  * containers it declined to serve would satisfy every shape assertion while
  * standing for nothing.
  *
  * SO IT DECLARES `browse` TOO, which the contract obliges rather than this
  * witness choosing: `manifest` refuses the pair the other way round.
  */
-async function listingProvider(): Promise<Participant> {
+async function containersProvider(): Promise<Participant> {
   const server: Server = createServer((request, response) => {
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
     const answer = jsonAnswer(response);
 
-    if (url.pathname === "/") return answer(LISTING_MANIFEST);
+    if (url.pathname === "/") return answer(CONTAINERS_MANIFEST);
 
-    if (url.pathname === "/containers") return answer({ containers: [LISTED_CONTAINER] });
+    if (url.pathname === "/containers") return answer({ containers: [OFFERED_CONTAINER] });
 
-    if (url.pathname === `/browse/${LISTED_CONTAINER.id}`) {
+    if (url.pathname === `/browse/${OFFERED_CONTAINER.id}`) {
       return answer({
-        container: LISTED_CONTAINER,
+        container: OFFERED_CONTAINER,
         // ONE MEMBER AT ONE POSITION. What browse owes is a container AND its
         // ordering together, and a container answering an empty ordering with
         // nothing unplaced is a browse that answered nothing.
@@ -244,19 +244,19 @@ async function listingProvider(): Promise<Participant> {
       return answer({ results: q === MINIMAL_RECORD.title ? [MINIMAL_RECORD] : [] });
     }
     if (url.pathname === `/lookup/${MINIMAL_RECORD.id}`) return answer(MINIMAL_RECORD);
-    if (url.pathname === `/lookup/${LISTED_CONTAINER.id}`) return answer(LISTED_CONTAINER);
+    if (url.pathname === `/lookup/${OFFERED_CONTAINER.id}`) return answer(OFFERED_CONTAINER);
     if (url.pathname.startsWith("/lookup/")) return answer({ error: "no such record" }, 404);
 
     return answer({ error: "not found" }, 404);
   });
-  return listeningAs(server, LISTING_MANIFEST.name, LISTED_CONTAINER.id);
+  return listeningAs(server, CONTAINERS_MANIFEST.name, OFFERED_CONTAINER.id);
 }
 
 /**
- * The container this witness lists, and the one it browses. THE SAME RECORD in
+ * The container this witness offers, and the one it browses. THE SAME RECORD in
  * both answers, because that identity is the operation's whole claim.
  */
-const LISTED_CONTAINER = {
+const OFFERED_CONTAINER = {
   id: "c1",
   title: "A container this provider holds",
   kind: "a container of its own",
@@ -266,8 +266,8 @@ const LISTED_CONTAINER = {
   url: "https://example.invalid/c1",
 };
 
-const LISTING_MANIFEST = {
-  name: "a provider that lists the containers it holds",
+const CONTAINERS_MANIFEST = {
+  name: "a provider that offers the containers it holds",
   versions: [1],
   operations: ["search", "lookup", "browse", "containers"],
 };

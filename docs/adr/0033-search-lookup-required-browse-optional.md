@@ -826,7 +826,7 @@ optionality is for.
 
 **DECLARING `containers` OBLIGES DECLARING `browse`, AND THAT IS THE ONE RULE THE OPERATIONS LIST
 CARRIES BEYOND THE REQUIRED TWO.** The operation exists so that browsing needs no id known in
-advance; a provider answering the list while declining `browse` hands the Owner a page of ids it will
+advance; a provider answering `containers` while declining `browse` hands the Owner a page of ids it will
 not serve. The two are separately optional and this one direction is not. `browse` alone stays
 well-formed, which is what both real providers declare today. The manifest REFUSES the incoherent
 pair rather than leaving it to be read around: a declaration is a promise, and a promise of ids this
@@ -840,15 +840,34 @@ field, and it is the confusion the Owner's own story names ("an absent capabilit
 answer"). A 5xx is the other: declining an optional operation is well-formed rather than broken.
 
 **404 RATHER THAN 501, AND THE REASON IS NOT TASTE.** RFC 9110 gives 404 as "the origin server did
-not find a current representation for the target resource", which is exactly true of a path a
-provider does not serve, and it is what every router answers for an unrouted path anyway -- MEASURED
-2026-09-18 against both real provider images, which answer `404 text/plain` at `/containers` today.
-So the contract can REQUIRE it of a decliner without obliging anybody to add a route on the day the
-operation lands, which is the argument every optional addition here is settled by. 501 would oblige
-exactly that, and its only MUST in RFC 9110 is about an unrecognised METHOD; the method here is GET.
-The status cannot be confused with the other 404 this contract names, because this path carries no
-id: `browse` answers 404 for a container nobody minted ([[0066-path-is-identity-query-is-the-route]]), and
-there is nothing at this address whose absence could be the reason.
+not find a current representation for the target resource or is not willing to disclose that one
+exists", which is exactly true of a path a provider does not serve, and it is what every router
+answers for an unrouted path anyway -- MEASURED 2026-09-18 by `curl` against both provider images,
+which answer `404 text/plain` at `/containers` today. So the contract can REQUIRE it of a decliner
+without obliging anybody to add a route on the day the operation lands, which is the argument every
+optional addition here is settled by. 501 would oblige exactly that, and RFC 9110 ties it to the
+METHOD: "this is the appropriate response when the server does not recognize the request method and
+is not capable of supporting it for any resource". The method here is GET, which every provider
+supports. **AN EARLIER DRAFT OF THIS PARAGRAPH SAID 501'S "ONLY MUST IN RFC 9110 IS ABOUT AN
+UNRECOGNISED METHOD", AND THERE IS NO SUCH MUST** -- section 15.6.2 states no requirement at all and
+section 9.1's method rule is a SHOULD. It came from a summary of the RFC rather than the RFC, which
+is the mistake `CLAUDE.md` has a skill for. The status cannot be confused with the other 404 this
+contract names, because this path carries no id: `browse` answers 404 for a container nobody minted
+([[0066-path-is-identity-query-is-the-route]]), and there is nothing at this address whose absence
+could be the reason.
+
+**AND THE CNCORE-92 SECTION ABOVE LOOKS LIKE IT DECIDED THE OPPOSITE, WHICH IS A LAYER CONFUSION
+WORTH WRITING DOWN.** That section gave `BROWSE_NOT_OFFERED` a `422` over a `404` on the reasoning
+that "a Provider that does not do this AT ALL is not a missing thing, and the two have different
+remedies", and left the rule that a declared error declares a status or it is a 500 wearing a name
+([[0123-a-failure-reason-is-bounded-and-says-who-wrote-it]]). Every one of those codes is
+CANONCORE'S, answered by a PROCEDURE to its own caller after reading the manifest -- that section
+says so itself, that they "are codes of this app's own rather than common defs". No provider has
+ever answered `BROWSE_NOT_OFFERED`, and none can. So the 422 rule governs the app's layer and this
+404 governs the provider's, and they are not in competition. **THE STATUS OF ITS OWN THAT AN OWNER
+READS IS STILL OWED, AND IT IS CNCORE-187'S**, where a surface asks and a Provider that declines has
+to say so to a person. What the contract fixes here is narrower and is the half that had to come
+first: the wire answer, which rules out the empty list and the fault.
 
 **WHAT IS NOT ASSERTED IS THE DECLINER'S BODY**, where a declared refusal's is. Both real providers
 answer their framework's plain-text 404 here, and requiring JSON would be the contract obliging a

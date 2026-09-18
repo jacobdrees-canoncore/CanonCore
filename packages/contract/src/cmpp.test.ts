@@ -191,7 +191,7 @@ describe("the contract's credential declaration", () => {
 });
 
 /**
- * WHAT THE LIST OPERATION ANSWERS, asserted against the specification itself.
+ * WHAT THE `containers` OPERATION ANSWERS, asserted against the specification itself.
  *
  * The shape a provider is held to here is the one the suite next door cannot
  * prove: no provider under test sends a bare id, so an assertion that only
@@ -230,7 +230,7 @@ describe("the contract's containers response", () => {
  * exercise it.
  */
 describe("the contract's operations", () => {
-  it("lets a provider decline the list operation, as it declines browse", async () => {
+  it("lets a provider decline `containers`, as it declines `browse`", async () => {
     // The whole basis on which an operation can be added to a shipped contract
     // (ADR-0032): a provider that wants nothing to do with it is untouched on
     // the day it lands. Both real providers are exactly this.
@@ -248,7 +248,7 @@ describe("the contract's operations", () => {
 
   it("refuses listing containers without browse, which offers ids nothing can use", async () => {
     // The operation exists so that browsing does not require knowing an id
-    // first, so a provider that answers the list while declining `browse` hands
+    // first, so a provider that answers `containers` while declining `browse` hands
     // the Owner a page of dead ends. The two are separately optional and this
     // one direction is not: a declaration is a promise, and this pair promises
     // ids it will not serve.

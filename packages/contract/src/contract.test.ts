@@ -734,7 +734,21 @@ describe.each(underTest.map((p) => [p.name, p] as const))(
         const first = containers[0];
         if (first === undefined) return;
 
-        const response = await get(participant, `/browse/${encodeURIComponent(first.id)}`);
+        /*
+         * AN ID IS A PATH SEGMENT HERE, AND IT CAME OUT OF A PROVIDER'S ANSWER.
+         * `encodeURIComponent` leaves `.` alone, so `..` would walk the request
+         * up to the manifest and fail below as a shape error -- a real defect
+         * reported as the wrong one. The contract does not bound an id beyond
+         * being a non-empty string, so this is the suite refusing to be misled
+         * rather than a rule about ids.
+         */
+        expect(
+          [".", ".."],
+          `\`/${CONTAINERS_OPERATION}\` offered ${JSON.stringify(first.id)} as a container id, which addresses this provider's own root rather than a container.`,
+        ).not.toContain(first.id);
+
+        const path = `/browse/${encodeURIComponent(first.id)}`;
+        const response = await get(participant, path);
 
         /*
          * THE OPERATION'S WHOLE CLAIM, AND THE ONLY ONE WORTH ASSERTING BEYOND
@@ -750,10 +764,26 @@ describe.each(underTest.map((p) => [p.name, p] as const))(
          * it. What is under test is that a listed id is an id of the same kind
          * `browse` takes, and one witness to that is the claim.
          */
-        if (response.status !== 200) {
-          expectSaysItCannotAnswer(response, `/browse/${first.id}`);
+        /*
+         * A 503 IS THE ONE REFUSAL THIS TOLERATES, and every other answer is the
+         * defect the test exists to catch. A 404 here is a container the provider
+         * LISTED and will not serve, so routing it through the credential
+         * refusal would report the operation's own failure as somebody else's:
+         * ADR-0122's message says the provider "cannot currently reach its
+         * source", which is exactly what a 404 does not say.
+         */
+        if (response.status === 503) {
+          expectSaysItCannotAnswer(response, path);
           return;
         }
+
+        expect(
+          response.status,
+          `\`${path}\` answered ${response.status} for an id this provider itself listed at ` +
+            `\`/${CONTAINERS_OPERATION}\`. The operation exists so that browsing needs no id known in advance ` +
+            "(ADR-0033), so an id it offers that `browse` will not serve is a page of dead ends that satisfies " +
+            "every shape rule in this file.",
+        ).toBe(200);
         expect(browseResponse.parse(response.body).container.id).toBe(first.id);
       });
 
@@ -860,7 +890,7 @@ describe("ADR-0033's optionality", () => {
     ).toBe(true);
   });
 
-  it("is exercised for the list operation too, in both directions", async () => {
+  it("is exercised for `containers` too, in both directions", async () => {
     const declared = await Promise.all(
       underTest.map(
         async (participant) => manifest.parse((await get(participant, "/")).body).operations,

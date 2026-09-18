@@ -186,7 +186,7 @@ export const browseResponse = z.looseObject({
 });
 
 /**
- * What the list operation answers: every container this provider holds.
+ * What the `containers` operation answers: every container this provider holds.
  *
  * RECORDS RATHER THAN IDS, because ADR-0004 makes a container a record like any
  * other and `browse` already answers one as a record. A list of bare ids would
@@ -230,8 +230,13 @@ const declaration = z.looseObject({
   /**
    * WHICH OPERATIONS THIS PROVIDER ANSWERS. `search` and `lookup` are required of
    * everyone (ADR-0033); `browse` and `containers` are the two a provider may
-   * decline -- so what is checked here is that the required two are declared,
-   * never that all four are. The one rule beyond that is below.
+   * decline, so a manifest naming two of the four is well-formed.
+   *
+   * THAT THE REQUIRED TWO ARE THERE IS NOT CHECKED HERE, and this comment said
+   * it was. It is checked by the conformance suite, against a provider answering
+   * over HTTP, because a provider that DECLARES `search` is not thereby a
+   * provider that answers one -- which is the claim worth holding and is not a
+   * claim a schema can make. The one rule this schema does enforce is below.
    */
   operations: z.array(z.string().min(1)),
   /** Seconds. A source's cache CEILING, where it imposes one (ADR-0037). */
@@ -366,7 +371,7 @@ const declaration = z.looseObject({
  * TWO: LISTING CONTAINERS OBLIGES BROWSING THEM.
  *
  * The operation exists so that browsing does not require knowing an id first
- * (ADR-0033), so a provider that answers the list while declining `browse`
+ * (ADR-0033), so a provider that answers `containers` while declining `browse`
  * offers the Owner a page of ids it will not serve. The two are separately
  * optional and this one direction is not: `browse` alone is what both real
  * providers declare and stays well-formed.
