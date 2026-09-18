@@ -146,7 +146,33 @@ valid job keys and the second defangs a whole job at once. Both were planted and
 ## Evidence
 
 GitHub's context availability table, its Dependabot Actions documentation and its secrets
-documentation were read on 2026-09-18, and the three failing runs were read from the forge the
-same day rather than recalled: run 35289963404 supplied the log lines quoted above.
+documentation were read on 2026-09-18. "Your secrets are available in Dependabot secrets rather
+than as GitHub Actions secrets" is that documentation's own sentence. The three failing runs were
+read from the forge the same day rather than recalled: run 35289963404 supplied every log line
+quoted above.
 
-Both halves were then observed on a real runner rather than reasoned about, under CNCORE-203.
+**BOTH HALVES WERE THEN OBSERVED ON A REAL RUNNER, AND THE SECOND ONE NEEDED A THROWAWAY PULL
+REQUEST** -- a Dependabot run cannot be summoned, so the credential-less case was reached by
+pointing the probe at a secret name this repository does not have. It was closed and its branch
+deleted once read.
+
+| Run | The probe says | `Import and browse` | `One contract` |
+|---|---|---|---|
+| [35351756526] — this record's own branch | `reachable=true`, 3s | **pass**, 2m14s | **pass**, 36s |
+| [35352104551] — probe pointed at a secret that does not exist | `reachable=false`, 3s | **skipping** | **skipping** |
+| [35352462800] — credential restored, a failure planted in the job | `reachable=true`, 3s | **fail**, 37s | — |
+
+[35351756526]: https://github.com/jacobdrees-canoncore/CanonCore/actions/runs/35351756526
+[35352104551]: https://github.com/jacobdrees-canoncore/CanonCore/actions/runs/35352104551
+[35352462800]: https://github.com/jacobdrees-canoncore/CanonCore/actions/runs/35352462800
+
+The middle row is the fix and the bottom row is what stops it being a mute button: **a gated job
+still runs and still reddens when the credential is there**, so the gate removed the report that
+could not pass and nothing else. The runner's own rendering of the middle row is `skipping`, the
+same word `One image, both architectures` has carried on every pull request for months, so it is
+a shape this repository's checks already read as "not asked" rather than "asked and fine".
+
+**The middle run also reddened `Test`, and that was the assertion above doing its job on a runner
+rather than on a laptop.** Pointing the probe at another secret is exactly the mis-wiring
+`ci-workflow.test.ts` walks the chain to catch, and it caught it: `1 failed | 175 passed`, naming
+both jobs and the secret each one cannot start without.
