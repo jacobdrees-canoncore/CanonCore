@@ -832,10 +832,11 @@ describe("/import, taking a Container and its ordering", () => {
      * the container and its ordering arrive together, so a bulk import yields
      * placements instead of asking the owner to place every member by hand.
      *
-     * THE OWNER NAMES THE CONTAINER, because nothing in CMPP hands one over --
-     * `search` returns stories and `browse` takes a container's own id, so no
-     * operation answers "which containers do you have". ADR-0033's as-built section
-     * records that decision, and this form is it.
+     * THE OWNER NAMES THE CONTAINER, because nothing in CMPP hands one over yet
+     * -- `search` returns stories and `browse` takes a container's own id, and the
+     * `containers` operation ADR-0033 declares under CNCORE-185 is answered by no
+     * provider. That record's as-built sections carry the decision, and this form
+     * is it.
      *
      * THE MEMBER THIS WATCHES IS ONE THE CATALOGUE ALREADY HOLDS, and that is the
      * point: its Item exists before the browse and has no placement in this
