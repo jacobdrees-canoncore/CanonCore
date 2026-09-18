@@ -553,7 +553,7 @@ jobs:
       - name: TMDB_READ_ACCESS_TOKEN
         id: tmdb
         env:
-          TMDB_READ_ACCESS_TOKEN: ${{ secrets.TMDB_READ_ACCESS_TOKEN }}
+          TMDB_READ_ACCESS_TOKEN: ${{ secrets.A_SECRET_THIS_REPOSITORY_DOES_NOT_HAVE }}
         run: |
           set -euo pipefail
           if [ -n "${TMDB_READ_ACCESS_TOKEN:-}" ]; then
