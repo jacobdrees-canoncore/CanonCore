@@ -1197,8 +1197,11 @@ this repo's vitest 5.0.0 on node v24.19.0, with `pkg/vitest.config.ts` a symlink
   `Test Files 1 passed (1)`. The link is followed rather than tolerated: pointing the target at an
   unresolvable import failed with `failed to load config from pkg/vitest.config.ts` and a trace
   naming `elsewhere/base.config.ts`, which is the control that makes this a measurement.
-* **The sweep's own reader agrees with it.** `testConfig` does `import(pathToFileURL(config))`, and
-  Node resolves the realpath, so it reads the same module Vitest does.
+* **The sweep's own reader agrees with it.** `testConfig` does `import(pathToFileURL(config))` from
+  inside a Vitest worker, so it is Vite's module runner rather than Node's ESM loader that resolves
+  it -- `resolve.preserveSymlinks` defaults to false either way, so it reads the same module Vitest
+  does. The attribution said "Node" until review; the conclusion is unchanged, and it is corrected
+  here rather than beside it because this bullet is the sentence that was wrong.
 * **Relative paths inside the config resolve against Vitest's `root`, not the config's real
   directory.** With `setupFiles: ["./setup.ts"]` declared in `elsewhere/`, the file that ran was
   `pkg/setup.ts`. Not load-bearing here, since the gate is a bare specifier, and recorded so the
@@ -1210,7 +1213,9 @@ not one level up.** It is still refused, for a different reason.
 **WHAT IS REFUSED IS A CONFIG THE SWEEP CANNOT PLACE.** `isInside` is the rule that keeps a package
 from being asserted against a config it does not own -- it is why `--config ../../elsewhere.ts`
 fails -- and it reads the PATH. A symlink's path is inside the package while the file it names may
-be anywhere, so it is the one spelling of that climb `isInside` cannot see. Resolving would make a
+be anywhere, so it is a spelling of that climb `isInside` cannot see. It said THE one spelling until
+review, which overclaimed: what is closed is bounded by the filename rule, and the paragraph below
+says what is left. Resolving would make a
 symlink the single way to hold a package's config outside the package and stay green, against a
 rule this file already enforces in the spelling it can read, and against this record's own refusal
 of a shared base config.
@@ -1228,9 +1233,19 @@ is a symlink, so nothing is refused today.**
 
 **A DANGLING ONE IS REFUSED HERE AND DROPPED THERE**, which is a measured difference rather than an
 inconsistency. `directoriesUnder` drops it because a thing that stats as nothing is not a package to
-pnpm or to turbo either, so all three readers agree. There is no second reader to agree with here: a
-file wearing a config's name and resolving to nothing is a config Vitest would fail to load, and
-naming it says so rather than leaving it out of the roll call. **The filename is read BEFORE the
+pnpm or to turbo either, so all three readers agree. There is no second reader to agree with here,
+and Vitest answers TWO ways about it -- measured 2026-09-18, with `pkg/vitest.config.ts` a symlink to
+a file that does not exist:
+
+* **Named by `--config`, it fails loudly**: `failed to load config from pkg/vitest.config.ts`, with
+  `[UNRESOLVED_ENTRY] Cannot resolve entry module`.
+* **Left to auto-discovery, it is SILENTLY IGNORED** and the suite runs anyway on Vitest's defaults:
+  `Test Files 1 passed (1)`. A package whose `vitest.config.ts` dangles therefore runs its suite
+  with no config, and so with no gate, while looking configured.
+
+The second is the reason to refuse rather than drop, and it is the silence this file exists to
+catch. This paragraph asserted "a config Vitest would fail to load" before review, which was half
+the answer and the less interesting half. **The filename is read BEFORE the
 link is**, so what is refused is a symlink WEARING A CONFIG'S NAME, not a symlink in a package.
 
 **ASKED DIRECTLY, AND CHECKED BY MUTATION RATHER THAN BY BEING GREEN.** No config here is a symlink,
@@ -1240,5 +1255,14 @@ now, taking an absolute path so a scratch tree drives every row. The predicate's
 this sweep reads configs and this record keeps a predicate and its table together;
 `isWorkspacePattern` moved only once a SECOND sweep descended from it. Adding
 `packages/db/vitest.shared.config.ts` as a symlink to that package's real config reddens three
-assertions naming the path, and the old `isFile()` filter read the same tree as holding one config
-rather than two.
+tests, each ERRORING with the path named rather than failing an assertion (`3 failed | 41 passed`),
+and the old `isFile()` filter read the same tree as holding one config rather than two. "Three
+assertions" here was wrong about which of the two it was.
+
+**WHAT THIS DOES NOT HOLD, said here rather than left to be found.** The refusal is bounded by the
+FILENAME rule, so it closes the climb only for names matching `^vitest\..*config\.ts$`. A script
+spelling `--config ./shared.ts`, with `shared.ts` a symlink out of the package, still satisfies
+`isInside` -- the path is local -- never reaches `configFilesIn`, and is IMPORTED by `testConfig`,
+which is execution rather than a read. That is the same trust this repo already extends to these
+manifests, since CI runs their scripts, and it is narrower than it sounds only because the sweep
+already says it sees one filename shape. CNCORE-202 carries it, with a TODO at `isInside`.

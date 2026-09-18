@@ -127,6 +127,12 @@ function isWatchScriptName(name: string): boolean {
 // assertion in this file on a config the package does not own, and ADR-0103
 // refuses a shared base config precisely so that no package here has one. The
 // same rule as `isWorkspacePattern`, at the other end of the same sweep.
+//
+// TODO(CNCORE-202): it reads the PATH, so a config a script NAMES that is a
+// symlink out of the package still satisfies this and is then imported.
+// `configFilesIn` below refuses the symlinks it can see, but only those wearing
+// a config-shaped FILENAME, so `--config ./shared.ts` is outside both. Nothing
+// in this repo spells a config that way today.
 function isInside(directory: string, file: string): boolean {
   const from = relative(directory, file);
   return from !== "" && !from.startsWith("..");
@@ -564,10 +570,9 @@ describe("a symlinked Vitest config", () => {
   });
 
   /**
-   * THE NAME IS READ BEFORE THE LINK IS, which is what keeps this refusal from
-   * being a refusal of symlinks in a package. A package may hold as many as it
-   * likes; what it may not hold is one wearing the name of a config this sweep
-   * would otherwise have to place.
+   * A package may hold as many symlinks as it likes; what it may not hold is one
+   * wearing the name of a config this sweep would otherwise have to place. The
+   * ordering that buys this is on `configFilesIn` itself.
    */
   it("is not an ordinary symlink that no config filename rule matches", () => {
     writeFileSync(join(directory, "vitest.config.ts"), "");
