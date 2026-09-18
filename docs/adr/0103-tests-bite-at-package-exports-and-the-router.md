@@ -1170,3 +1170,75 @@ turbo would run the task for -- so a package turbo plans that the workspace read
 still not a failure there. The refusal closes that divergence at its root, by making the reader
 raise rather than return a shorter list, and it does NOT add the converse assertion. A second way
 for the two lists to disagree would need one.
+
+## A symlinked Vitest config is refused for a reason of its own -- under CNCORE-201
+
+**THE SAME lstat ONE LEVEL DOWN, AND A NARROWER SILENCE.** `configFilesOnDisk()` in
+`network-gate-wiring.test.ts` found each config with `Dirent.isFile()`, which is lstat exactly as
+`isDirectory()` is, so a symlinked `vitest.config.ts` read back `isFile= false
+isSymbolicLink= true` and never entered the list. Measured 2026-09-18 on node v24.19.0.
+
+A package whose ONLY config was a symlink was never silent: it fell out of `onDisk`, so
+`ungatedPackages` named it and the suite went red. **The silent case was a real config PLUS a
+symlinked second one.** The extra never entered `onDisk`, so nothing asked whether it installed the
+gate, and neither guard beside it could notice: `unrun` is `onDisk.filter(...)` and iterates only
+what the read already found, and `found.length >= configFilesOnDisk().length` is LOOSENED by a miss
+rather than tightened by it. A suite could run behind a config nothing held to installing the gate,
+in a package that read as fully covered.
+
+**THE TOOL-DISAGREEMENT ARGUMENT DOES NOT TRANSFER, WHICH IS THE FINDING.** The section above
+refuses a symlinked package directory because pnpm and turbo answer differently about it and no
+sweep can be right about a shape they disagree on. A Vitest config is read by Vitest, not by pnpm
+and turbo, so that argument had to be measured rather than assumed. Measured 2026-09-18 against
+this repo's vitest 5.0.0 on node v24.19.0, with `pkg/vitest.config.ts` a symlink to
+`../elsewhere/base.config.ts`:
+
+* **Vitest LOADS it and the suite runs green.** `vitest run --root pkg` reported
+  `Test Files 1 passed (1)`. The link is followed rather than tolerated: pointing the target at an
+  unresolvable import failed with `failed to load config from pkg/vitest.config.ts` and a trace
+  naming `elsewhere/base.config.ts`, which is the control that makes this a measurement.
+* **The sweep's own reader agrees with it.** `testConfig` does `import(pathToFileURL(config))`, and
+  Node resolves the realpath, so it reads the same module Vitest does.
+* **Relative paths inside the config resolve against Vitest's `root`, not the config's real
+  directory.** With `setupFiles: ["./setup.ts"]` declared in `elsewhere/`, the file that ran was
+  `pkg/setup.ts`. Not load-bearing here, since the gate is a bare specifier, and recorded so the
+  next reader does not have to measure it again.
+
+So there is no divergence to refuse, and **resolving was genuinely available here in a way it was
+not one level up.** It is still refused, for a different reason.
+
+**WHAT IS REFUSED IS A CONFIG THE SWEEP CANNOT PLACE.** `isInside` is the rule that keeps a package
+from being asserted against a config it does not own -- it is why `--config ../../elsewhere.ts`
+fails -- and it reads the PATH. A symlink's path is inside the package while the file it names may
+be anywhere, so it is the one spelling of that climb `isInside` cannot see. Resolving would make a
+symlink the single way to hold a package's config outside the package and stay green, against a
+rule this file already enforces in the spelling it can read, and against this record's own refusal
+of a shared base config.
+
+**IT COSTS BEING NARROWER THAN VITEST FOR A WITHIN-PACKAGE SYMLINK, deliberately.** A link pointing
+at a file in its own package is no climb, and Vitest runs it; this refuses it anyway. Refusing to
+be narrower than the tool is what the paragraph above says about a symlinked `packages/` parent, so
+the difference is worth stating rather than leaving to be found. There, all three readers agreed and
+no rule here spoke against the shape, so narrowing would have invented a problem. Here a rule
+already speaks against it, and telling the two apart means resolving BOTH sides of the path --
+`packages/` itself may be a symlink, which this record allows, so comparing a resolved file against
+an unresolved directory would read every config in the repository as escaping. One rule that names
+the shape beats two realpath calls that mostly agree with it. **No Vitest config in this repository
+is a symlink, so nothing is refused today.**
+
+**A DANGLING ONE IS REFUSED HERE AND DROPPED THERE**, which is a measured difference rather than an
+inconsistency. `directoriesUnder` drops it because a thing that stats as nothing is not a package to
+pnpm or to turbo either, so all three readers agree. There is no second reader to agree with here: a
+file wearing a config's name and resolving to nothing is a config Vitest would fail to load, and
+naming it says so rather than leaving it out of the roll call. **The filename is read BEFORE the
+link is**, so what is refused is a symlink WEARING A CONFIG'S NAME, not a symlink in a package.
+
+**ASKED DIRECTLY, AND CHECKED BY MUTATION RATHER THAN BY BEING GREEN.** No config here is a symlink,
+so the repository is the one place the question cannot be put -- the read is `configFilesIn(directory)`
+now, taking an absolute path so a scratch tree drives every row. The predicate's rows sit in
+`network-gate-wiring.test.ts` beside it rather than moving to `testing/workspace.ts`, because only
+this sweep reads configs and this record keeps a predicate and its table together;
+`isWorkspacePattern` moved only once a SECOND sweep descended from it. Adding
+`packages/db/vitest.shared.config.ts` as a symlink to that package's real config reddens three
+assertions naming the path, and the old `isFile()` filter read the same tree as holding one config
+rather than two.

@@ -1,7 +1,16 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { repoRoot } from "./testing/repo-root";
 import { packageDirectories, workspaceDirectories } from "./testing/workspace";
 
@@ -164,6 +173,51 @@ function suites(): Suite[] {
 }
 
 /**
+ * The Vitest configs directly inside ONE directory, with a symlinked one
+ * REFUSED rather than dropped (CNCORE-201).
+ *
+ * `Dirent.isFile()` is lstat, exactly as `isDirectory()` is, so it is FALSE for
+ * a symlink pointing at a file and `isSymbolicLink()` is true instead. Filtering
+ * on the first alone took such a config out of this list in silence. A package
+ * whose ONLY config was a symlink still reddened, through `ungatedPackages`
+ * below -- the silent case was a real config plus a symlinked SECOND one, which
+ * nothing then held to installing the gate: `unrun` is `onDisk.filter(...)` and
+ * iterates only what this function found, and the count guard below is LOOSENED
+ * by a miss rather than tightened by it.
+ *
+ * REFUSED FOR A REASON OF ITS OWN RATHER THAN CNCORE-200'S, which was measured
+ * rather than inherited. That one refuses a symlinked package DIRECTORY because
+ * pnpm and turbo answer differently about it, and there is no such disagreement
+ * here: Vitest loads a symlinked config and runs the suite green, and
+ * `testConfig` below imports the same module Vitest does. What is refused
+ * instead is a config this sweep cannot PLACE. `isInside` is the rule that keeps
+ * a package from being asserted against a config it does not own, and it reads
+ * the PATH -- so a symlink, whose path is inside the package while its file may
+ * be anywhere, is the one spelling of that climb `isInside` cannot see. The
+ * measurement and what the refusal costs are in ADR-0103 under "a symlinked
+ * Vitest config is refused for a reason of its own", and are NOT restated here:
+ * a figure kept in two places is a figure that drifts in one of them.
+ *
+ * THE NAME IS READ BEFORE THE LINK IS, so what this refuses is a symlink
+ * WEARING A CONFIG'S NAME rather than a symlink in a package. EVERY offender is
+ * named and not the first, for the reason `ungatedPackages` is named rather than
+ * counted: two are two things to fix.
+ */
+function configFilesIn(directory: string): string[] {
+  const entries = readdirSync(directory, { withFileTypes: true }).filter((entry) =>
+    /^vitest\..*config\.ts$/.test(entry.name),
+  );
+  const symlinked = entries.filter((entry) => entry.isSymbolicLink());
+  if (symlinked.length > 0) {
+    const paths = symlinked.map((entry) => join(directory, entry.name)).join(", ");
+    throw new Error(
+      `a symlinked Vitest config names a file this sweep cannot place, so it is refused: ${paths}`,
+    );
+  }
+  return entries.filter((entry) => entry.isFile()).map((entry) => join(directory, entry.name));
+}
+
+/**
  * Every Vitest config FILE under the directories the workspace names, found by
  * reading the disk rather than by asking the manifests. That is the whole point
  * of it: the sweep above learns what exists from `scripts`, so it cannot be the
@@ -175,17 +229,11 @@ function suites(): Suite[] {
 // a `test` block in a `vite.config.ts`, or one nested deeper is not seen, and
 // the assertion below is worth only what this sentence says.
 //
-// TODO(CNCORE-201): `isFile()` is lstat, exactly as `isDirectory()` was before
-// CNCORE-200, so a SYMLINKED `vitest.config.ts` is false here and never enters
-// this list. A package whose only config is a symlink still reddens, through
-// `ungatedPackages` below; the silent case is a real config plus a symlinked
-// SECOND one, which nothing then holds to installing the gate.
+// AND IT TAKES AN ABSOLUTE PATH ONE DIRECTORY AT A TIME, which is what lets a
+// scratch tree ask the question this repository cannot: no config here is a
+// symlink, exactly as no package directory is (CNCORE-201).
 function configFilesOnDisk(): string[] {
-  return workspaceDirectories().flatMap((directory) =>
-    readdirSync(join(repoRoot, directory), { withFileTypes: true })
-      .filter((entry) => entry.isFile() && /^vitest\..*config\.ts$/.test(entry.name))
-      .map((entry) => join(repoRoot, directory, entry.name)),
-  );
+  return workspaceDirectories().flatMap((directory) => configFilesIn(join(repoRoot, directory)));
 }
 
 /**
@@ -474,5 +522,73 @@ describe("the rules the sweep is made of", () => {
     ["/repo/packages/db", "/repo/packages/db", false],
   ])("reads %s as holding %s: %s", (directory, file, inside) => {
     expect(isInside(directory, file)).toBe(inside);
+  });
+});
+
+/**
+ * And the shape the sweep above cannot be right about, ASKED DIRECTLY for the
+ * reason the table at the top of this block is: no Vitest config in this
+ * repository is a symlink, so the repository is the one place the question
+ * cannot be put (CNCORE-201).
+ */
+describe("a symlinked Vitest config", () => {
+  let directory: string;
+
+  beforeEach(() => {
+    directory = mkdtempSync(join(tmpdir(), "canoncore-configs-"));
+  });
+
+  afterEach(() => {
+    rmSync(directory, { recursive: true, force: true });
+  });
+
+  it("is refused by name rather than dropped out of the sweep", () => {
+    writeFileSync(join(directory, "vitest.config.ts"), "");
+    symlinkSync(join(directory, "vitest.config.ts"), join(directory, "vitest.e2e.config.ts"));
+
+    expect(() => configFilesIn(directory)).toThrow(/vitest\.e2e\.config\.ts/);
+  });
+
+  /**
+   * NAMED RATHER THAN COUNTED, which is the line this file already takes about
+   * `ungatedPackages` and `directoriesUnder`: two symlinked configs are two
+   * things to fix, and a message carrying the first sends the reader back for
+   * the second.
+   */
+  it("is named alongside every other one, rather than the first standing for them all", () => {
+    writeFileSync(join(directory, "vitest.config.ts"), "");
+    symlinkSync(join(directory, "vitest.config.ts"), join(directory, "vitest.one.config.ts"));
+    symlinkSync(join(directory, "vitest.config.ts"), join(directory, "vitest.two.config.ts"));
+
+    expect(() => configFilesIn(directory)).toThrow(/one.*two/s);
+  });
+
+  /**
+   * THE NAME IS READ BEFORE THE LINK IS, which is what keeps this refusal from
+   * being a refusal of symlinks in a package. A package may hold as many as it
+   * likes; what it may not hold is one wearing the name of a config this sweep
+   * would otherwise have to place.
+   */
+  it("is not an ordinary symlink that no config filename rule matches", () => {
+    writeFileSync(join(directory, "vitest.config.ts"), "");
+    writeFileSync(join(directory, "notes.md"), "");
+    symlinkSync(join(directory, "notes.md"), join(directory, "README.md"));
+
+    expect(configFilesIn(directory)).toStrictEqual([join(directory, "vitest.config.ts")]);
+  });
+
+  /**
+   * AND A DANGLING ONE IS REFUSED TOO, which is the measured difference from
+   * CNCORE-200 rather than an oversight. `directoriesUnder` drops a dangling
+   * link because a thing that stats as nothing is not a package to pnpm or to
+   * turbo either, so all three readers agree. Here there is no second reader to
+   * agree with: a file wearing a config's name and resolving to nothing is a
+   * config Vitest would fail to load, and naming it says so.
+   */
+  it("is refused when it dangles, rather than dropped for stats that find nothing", () => {
+    writeFileSync(join(directory, "vitest.config.ts"), "");
+    symlinkSync(join(directory, "gone.ts"), join(directory, "vitest.dangling.config.ts"));
+
+    expect(() => configFilesIn(directory)).toThrow(/vitest\.dangling\.config\.ts/);
   });
 });
