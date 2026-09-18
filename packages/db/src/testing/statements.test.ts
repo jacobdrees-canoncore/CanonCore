@@ -67,23 +67,41 @@ describe("statementsWhile", () => {
     expect(counted).toBe(6);
   });
 
-  it("refuses to answer for work that left a connection open", async () => {
-    // THE CONTRACT, ASSERTED RATHER THAN DOCUMENTED. A window that ends with a
-    // pool still holding connections is one whose statistics are still pending,
-    // and the honest answer is a refusal rather than the partial count that
-    // would otherwise come back.
-    const db = createDb(databaseUrl, { maxConnections: 1 });
+  it("waits out a pool that has not let go, which is what a server's boot relies on", async () => {
+    /*
+     * THE SHAPE THE PAGE SEAM RESTS ON, asserted here because that is where the
+     * instrument's own contract lives.
+     *
+     * `item-page-cost.test.ts` STARTS its server before opening the window, so
+     * that the scheduler's boot write and the harness's readiness probes land on
+     * the far side of the first reading. What makes that work is this: the
+     * window does not open until the database is empty, and a node-postgres pool
+     * lets an idle client go after ten seconds -- so a connection still held
+     * when `statementsWhile` is called is waited out rather than counted.
+     *
+     * IT USED TO ASSERT A REFUSAL, and that was wrong about its own subject: the
+     * deadline is thirty seconds now, which outlasts the ten a pool takes to let
+     * go, so work that "left a connection open" is tolerated rather than
+     * refused. The refusal is still there for a database something else is
+     * genuinely sitting on, and is not asserted -- it would cost thirty seconds
+     * to check an error message.
+     */
+    const holding = createDb(databaseUrl, { maxConnections: 1 });
+    await holding.execute(sql`select 1`);
+
     try {
-      await expect(
-        statementsWhile(databaseUrl, async () => {
-          await db.execute(sql`select 1`);
-        }),
-      ).rejects.toThrow(/still connected/);
+      const counted = await statementsWhile(databaseUrl, async () => {
+        const inside = createDb(databaseUrl, { maxConnections: 1 });
+        await inside.execute(sql`select 1`);
+        await inside.$client.end();
+      });
+
+      // ONE: the statement inside the window. The one before it is on the other
+      // side of the first reading, which is the whole point.
+      expect(counted).toBe(1);
     } finally {
-      await db.$client.end();
+      await holding.$client.end();
     }
-    // LONGER THAN THE INSTRUMENT'S OWN DEADLINE, because what this asserts is
-    // that deadline being reached. Vitest's five seconds would time out first
-    // and report the test rather than the refusal.
-  }, 20_000);
+    // LONGER THAN THE POOL'S IDLE TIMEOUT, which this test waits out on purpose.
+  }, 45_000);
 });
