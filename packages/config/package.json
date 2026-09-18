@@ -8,6 +8,8 @@
     "./testing/gate-global-setup": "./src/testing/gate-global-setup.ts",
     "./testing/install-network-gate": "./src/testing/install-network-gate.ts",
     "./testing/repo-root": "./src/testing/repo-root.ts",
+    "./testing/stable-sequencer": "./src/testing/stable-sequencer.ts",
+    "./testing/vitest-configs": "./src/testing/vitest-configs.ts",
     "./tsconfig.base.json": "./tsconfig.base.json"
   },
   "scripts": {

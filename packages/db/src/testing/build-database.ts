@@ -100,10 +100,60 @@ export const TEST_DATABASE_SUFFIXES = [
    * budgets for.
    */
   "cost",
+  /*
+   * THE TWO THAT ARE A SUITE'S OWN RATHER THAN A FIXTURE'S (CNCORE-199). Every
+   * suffix above is asked for BY a suite, for a catalogue-wide property no
+   * `WHERE` can arrange. These two are asked for by the suite ITSELF, because
+   * `global-setup.ts` used to build the bare `<worktree>_test` for whichever
+   * package ran it -- and `packages/db`, `packages/api` and `packages/tasks` all
+   * run it. Three suites, one name, each dropping it `with (force)` on the way
+   * in.
+   *
+   * NOTHING BUT `turbo.json`'s `dependsOn: ["^test"]` KEPT THEM APART, and that
+   * is TOPOLOGICAL rather than a lock: it happens to serialise them today only
+   * because `@canoncore/api` depends on both of the others. A package added
+   * later that took this global setup and was not upstream of them would drop a
+   * database another suite was reading, and the symptom would be exactly one
+   * unexplained failure in a suite that never mentioned it.
+   *
+   * `suite-database.ts` IS WHERE THE CLAIM IS NOW MADE, one package to one
+   * suffix, and `""` stays `packages/db`'s. A package that takes the shared
+   * global setup without claiming one is refused there by name rather than
+   * defaulted onto somebody else's database.
+   *
+   * `_test_tasks` IS ELEVEN CHARACTERS, WHICH IS THE BUDGET EXACTLY, and
+   * `_test_api` is nine. `worktree-database.ts` says why the constant leads and
+   * a suffix that does not fit gets shorter.
+   */
+  "api",
+  "tasks",
 ] as const;
 
 /** A suffix this repo has declared, which is the only kind there is. */
 export type TestDatabaseSuffix = (typeof TEST_DATABASE_SUFFIXES)[number];
+
+/**
+ * WHICH OF THOSE EACH SUITE RUNS AGAINST -- one package, one database, and the
+ * only place that pairing is written down (CNCORE-199).
+ *
+ * The suffixes above are asked for by a FILE, for a catalogue-wide property no
+ * `WHERE` can arrange. These are asked for by a SUITE, and are what
+ * `global-setup.ts` builds for whichever package invoked it. `suite-database.ts`
+ * is the lookup; it refuses a package absent from here rather than defaulting it
+ * onto `""`, which is how three suites came to share one name.
+ *
+ * `""` IS `packages/db`'s AND NOBODY ELSE'S NOW. It used to be every suite's,
+ * because it was the parameter's default -- so `packages/api` and
+ * `packages/tasks` each dropped and rebuilt the database `packages/db` was also
+ * using. `turbo.json`'s `dependsOn: ["^test"]` serialises those three today, but
+ * topologically rather than by any lock, and only because `@canoncore/api`
+ * happens to depend on both of the others.
+ */
+export const SUITE_DATABASE_SUFFIXES: Record<string, TestDatabaseSuffix> = {
+  "@canoncore/db": "",
+  "@canoncore/api": "api",
+  "@canoncore/tasks": "tasks",
+};
 
 /**
  * Builds a database FROM EMPTY and runs the whole ladder against it.
@@ -210,8 +260,34 @@ export const MARKER = "_test";
  * renamed.
  */
 export function testDatabaseNameFor(database: string, suffix: TestDatabaseSuffix = ""): string {
-  const worktree = database.endsWith(MARKER) ? database.slice(0, -MARKER.length) : database;
-  return `${worktree}${MARKER}${suffix ? `_${suffix}` : ""}`;
+  return `${worktreeRootOf(database)}${MARKER}${suffix ? `_${suffix}` : ""}`;
+}
+
+/**
+ * The worktree database a name came from, whichever SUITE's database it is.
+ *
+ * IT STRIPS A SUITE'S TAIL AND NEVER A FILE'S, and the asymmetry is the whole of
+ * it (CNCORE-199). `testing/setup.ts` repoints DATABASE_URL at what
+ * `global-setup.ts` built, so the only names this is ever handed as an input are
+ * the run databases in `SUITE_DATABASE_SUFFIXES` -- `<worktree>_test` and its two
+ * siblings. Stripping `_test_gone` as well would read a FIXTURE database as a
+ * worktree, and a fixture database is never a run database.
+ *
+ * LONGEST TAIL FIRST, so a suffix that is itself the tail of another cannot
+ * decide the match by declaration order. None is today; the sort is what keeps
+ * that from being a property of how the list happens to be written.
+ *
+ * Before CNCORE-199 this stripped the bare `_test` alone, which was total while
+ * `""` was the only run database there was. `_test_api` arriving with it would
+ * have derived `<worktree>_test_api_test_<suffix>` -- the same doubled tail
+ * CNCORE-150 took out, one generation along.
+ */
+function worktreeRootOf(database: string): string {
+  const runTails = Object.values(SUITE_DATABASE_SUFFIXES)
+    .map((claimed) => `${MARKER}${claimed ? `_${claimed}` : ""}`)
+    .sort((a, b) => b.length - a.length);
+  const tail = runTails.find((candidate) => database.endsWith(candidate));
+  return tail === undefined ? database : database.slice(0, -tail.length);
 }
 
 /**

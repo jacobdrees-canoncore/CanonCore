@@ -1,3 +1,4 @@
+import { StableSequencer } from "@canoncore/config/testing/stable-sequencer";
 import { defineConfig } from "vitest/config";
 
 /**
@@ -18,5 +19,14 @@ export default defineConfig({
     // One database, shared by every file here, for the reason `packages/db`
     // gives: two workers writing to it at once race rather than test.
     fileParallelism: false,
+    /**
+     * AND THE ORDER OF THOSE FILES DOES NOT MOVE (CNCORE-199). With one
+     * catalogue and no parallelism, a file's POSITION decides what the database
+     * holds when it runs -- and Vitest's own sequencer promotes a file that
+     * FAILED last run to first, so a red run is not the run you get by running
+     * the command again. `stable-sequencer.ts` says why that is the one
+     * arrangement a flake cannot be re-observed under.
+     */
+    sequence: { sequencer: StableSequencer },
   },
 });

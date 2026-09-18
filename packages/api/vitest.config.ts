@@ -1,3 +1,4 @@
+import { StableSequencer } from "@canoncore/config/testing/stable-sequencer";
 import { defineConfig } from "vitest/config";
 
 /**
@@ -29,6 +30,15 @@ export default defineConfig({
     // out itself would do it before a gate listed after it was installed.
     setupFiles: ["@canoncore/config/testing/install-network-gate", "@canoncore/db/testing/setup"],
     fileParallelism: false,
+    /**
+     * AND THE ORDER OF THOSE FILES DOES NOT MOVE (CNCORE-199). With one
+     * catalogue and no parallelism, a file's POSITION decides what the database
+     * holds when it runs -- and Vitest's own sequencer promotes a file that
+     * FAILED last run to first, so a red run is not the run you get by running
+     * the command again. `stable-sequencer.ts` says why that is the one
+     * arrangement a flake cannot be re-observed under.
+     */
+    sequence: { sequencer: StableSequencer },
     /**
      * WHAT IS LEFT HERE IS THE ONE SETTING THAT IS STILL CONFIGURATION.
      *

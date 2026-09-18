@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { TEST_DATABASE_SUFFIXES, testDatabaseNameFor } from "./testing/build-database";
+import {
+  SUITE_DATABASE_SUFFIXES,
+  TEST_DATABASE_SUFFIXES,
+  testDatabaseNameFor,
+} from "./testing/build-database";
 import { worktreeDatabaseName } from "./worktree-database";
 
 describe("worktreeDatabaseName", () => {
@@ -99,22 +103,31 @@ describe("worktreeDatabaseName", () => {
     // `<52>_test_test_fresh` = 68. It is LOCAL-ONLY -- CI names its database
     // `canoncore`, so the branch never enters the arithmetic and this never
     // went red there.
+    // AND THE RUN'S DATABASE IS NO LONGER ONE NAME (CNCORE-199). `global-setup.ts`
+    // builds the suffix the RUNNING PACKAGE claims, so `<worktree>_test` is now
+    // `packages/db`'s alone and the other suites run against siblings of it.
+    // Ranging over the claims rather than over the bare one is what keeps this
+    // modelling the two steps the harness actually takes -- a loop over a single
+    // `testDatabaseNameFor(name)` would have gone on asserting about a database
+    // two of the three suites no longer use.
     const name = worktreeDatabaseName(`feat/${"a".repeat(200)}`);
 
-    // The two steps, each taken by the harness's own function rather than by
-    // pasting its format here: what `global-setup.ts` builds, and then what a
-    // worker derives once `setup.ts` has repointed the variable at it.
-    const run = testDatabaseNameFor(name);
+    for (const claimed of Object.values(SUITE_DATABASE_SUFFIXES)) {
+      // The two steps, each taken by the harness's own function rather than by
+      // pasting its format here: what `global-setup.ts` builds, and then what a
+      // worker derives once `setup.ts` has repointed the variable at it.
+      const run = testDatabaseNameFor(name, claimed);
 
-    for (const suffix of TEST_DATABASE_SUFFIXES) {
-      const derived = testDatabaseNameFor(run, suffix);
-      expect(derived.length).toBeLessThanOrEqual(63);
-      // THE PROPERTY, rather than the byte count that follows from it: deriving
-      // from the RUN's database and deriving from the WORKTREE's land on one
-      // name. The test above already holds the one-step side to the budget, so
-      // this equality is what carries the two-step side there with it, and it
-      // is the assertion that goes red the moment a second `_test` comes back.
-      expect(derived).toBe(testDatabaseNameFor(name, suffix));
+      for (const suffix of TEST_DATABASE_SUFFIXES) {
+        const derived = testDatabaseNameFor(run, suffix);
+        expect(derived.length).toBeLessThanOrEqual(63);
+        // THE PROPERTY, rather than the byte count that follows from it: deriving
+        // from the RUN's database and deriving from the WORKTREE's land on one
+        // name. The test above already holds the one-step side to the budget, so
+        // this equality is what carries the two-step side there with it, and it
+        // is the assertion that goes red the moment a second `_test` comes back.
+        expect(derived, `from ${run}`).toBe(testDatabaseNameFor(name, suffix));
+      }
     }
   });
 
@@ -130,13 +143,16 @@ describe("worktreeDatabaseName", () => {
     // name being EQUAL is what its own `name === database` guard refuses on, so
     // this asserts the equality that guard depends on.
     const name = worktreeDatabaseName("jacobdrees/cncore-150-db-name-length");
-    const run = testDatabaseNameFor(name);
 
-    expect(testDatabaseNameFor(run)).toBe(run);
+    for (const claimed of Object.values(SUITE_DATABASE_SUFFIXES)) {
+      const run = testDatabaseNameFor(name, claimed);
 
-    // And a SUFFIX asked for from inside the run is still the worktree's
-    // sibling, never a second generation below it.
-    expect(testDatabaseNameFor(run, "gone")).toBe(`${name}_test_gone`);
+      expect(testDatabaseNameFor(run, claimed)).toBe(run);
+
+      // And a SUFFIX asked for from inside the run is still the worktree's
+      // sibling, never a second generation below it.
+      expect(testDatabaseNameFor(run, "gone"), `from ${run}`).toBe(`${name}_test_gone`);
+    }
   });
 
   it("refuses a branch it cannot name a database after", () => {
