@@ -32,6 +32,15 @@ type Env = Record<string, unknown>;
 
 export type Step = {
   uses?: string;
+  /**
+   * READ BY THE CREDENTIAL GATE (CNCORE-203). A job output is written
+   * `${{ steps.<id>.outputs.<key> }}`, so the id is the only thing tying the
+   * value a gate reads back to the step that computed it -- and therefore to
+   * the secret that step was handed. Without it the gate could only be checked
+   * for naming SOME output, which a job gated on the wrong provider's
+   * credential would satisfy.
+   */
+  id?: string;
   with?: Record<string, unknown>;
   env?: Env;
   run?: string;
@@ -49,9 +58,22 @@ export type Step = {
  * reads a plain scalar rather than a mapping; checked against this very file
  * rather than assumed, for the reason the `on` key above carries.
  */
-type Service = { image?: string; credentials?: Record<string, unknown>; ports?: string[] };
+type Service = {
+  image?: string;
+  credentials?: Record<string, unknown>;
+  ports?: string[];
+  /**
+   * `env` IS READ TOO (CNCORE-203), and it is where a service says what it
+   * cannot start without. `provider-tmdb` refuses to boot without
+   * `TMDB_READ_ACCESS_TOKEN` (ADR-0035), and a service container that will not
+   * start fails the job at `Initialize containers`, BEFORE the first step --
+   * which is why no step-level condition can reach this and the gate has to sit
+   * on the job.
+   */
+  env?: Env;
+};
 
-type Job = {
+export type Job = {
   steps?: Step[];
   env?: Env;
   services?: Record<string, Service>;
@@ -66,6 +88,19 @@ type Job = {
    */
   "runs-on"?: unknown;
   strategy?: { matrix?: { include?: Record<string, unknown>[] } };
+  /**
+   * The pair a job-level gate is built out of (CNCORE-203). `secrets` is NOT
+   * among the contexts available to `jobs.<job_id>.if` -- GitHub's context
+   * availability table gives it `github, needs, vars, inputs` and nothing else
+   * -- so a job cannot ask whether a secret is set. `needs` IS available, and
+   * `jobs.<job_id>.outputs` does have `secrets`, so one job answers the
+   * question and the others read its answer.
+   *
+   * `needs` PARSES AS EITHER SHAPE. A single dependency may be written as a
+   * plain string and a list as a sequence, so the readers of this treat both.
+   */
+  needs?: unknown;
+  outputs?: Record<string, string>;
 };
 
 /**

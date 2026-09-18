@@ -18,6 +18,7 @@ import { join } from "node:path";
 import { data, Evaluator, Lexer, Parser } from "@actions/expressions";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
+  type Job,
   pnpmSetupSteps,
   type Step,
   SUITE_GUARD,
@@ -217,6 +218,81 @@ function staticCheckCarriers(parsed: Workflow): Record<string, string[]> {
     build: jobsWithStep(parsed, runsExactly(`${SUITE_GUARD} build`)),
     "env guard": jobsWithStep(parsed, blanksDatabaseUrl),
   };
+}
+
+/**
+ * The one secret every run has whether a store holds it or not: GitHub mints
+ * `GITHUB_TOKEN` per run. It is why the private image PULLS fine on a Dependabot
+ * pull request while the container still refuses to start -- the credentials
+ * block is satisfied and the `env:` block is empty -- and therefore why a gate
+ * keyed on it would gate on nothing.
+ */
+const MINTED_PER_RUN = "GITHUB_TOKEN";
+
+/** Every `secrets.NAME` a value names, in the one spelling an expression has. */
+function secretsNamed(value: unknown): string[] {
+  return [...String(value).matchAll(/secrets\.([A-Za-z_][A-Za-z0-9_]*)/g)].flatMap((match) =>
+    match[1] === undefined ? [] : [match[1]],
+  );
+}
+
+/**
+ * `needs:` in BOTH shapes the schema allows -- one name as a plain string, or a
+ * sequence of them. Reading only the list form would report a singly-dependent
+ * job as depending on nothing, which here means reporting a gated job as
+ * ungated.
+ */
+function dependencies(job: Job): string[] {
+  if (typeof job.needs === "string") return [job.needs];
+  return Array.isArray(job.needs) ? job.needs.filter((name) => typeof name === "string") : [];
+}
+
+/**
+ * Every stored secret a job's SERVICE CONTAINERS need before that job can
+ * start, named by the service asking for it.
+ *
+ * SERVICES RATHER THAN STEPS, because that is where the timing bites: a service
+ * that cannot start takes the job down at `Initialize containers`, so this is
+ * the set of secrets whose absence is unrecoverable rather than merely awkward.
+ */
+function jobsNeedingACredential(
+  parsed: Workflow,
+): { job: string; service: string; secret: string }[] {
+  return Object.entries(parsed.jobs ?? {}).flatMap(([job, definition]) =>
+    Object.entries(definition.services ?? {}).flatMap(([service, { env }]) =>
+      Object.values(env ?? {})
+        .flatMap(secretsNamed)
+        .filter((secret) => secret !== MINTED_PER_RUN)
+        .map((secret) => ({ job, service, secret })),
+    ),
+  );
+}
+
+/**
+ * Whether this job runs only when THIS secret is reachable, walked end to end
+ * rather than pattern-matched on the `if:` text.
+ *
+ * The chain has four links and every one of them can be wired wrong while
+ * reading right: the gate names `needs.<job>.outputs.<key>`; that job is really
+ * in `needs:` (naming an output of a job you do not depend on is an expression
+ * that evaluates to nothing, silently, and skips the job forever); it really
+ * publishes that key; and the step whose id that key's value reads was handed
+ * THIS secret rather than another one.
+ */
+function gatesOn(parsed: Workflow, job: string, secret: string): boolean {
+  const definition = parsed.jobs?.[job];
+  if (definition === undefined) return false;
+  const gate = typeof definition.if === "string" ? definition.if : "";
+  const needed = dependencies(definition);
+  return [...gate.matchAll(/needs\.([\w-]+)\.outputs\.([\w-]+)/g)].some(([, answerer, key]) => {
+    if (answerer === undefined || key === undefined || !needed.includes(answerer)) return false;
+    const published = parsed.jobs?.[answerer]?.outputs?.[key];
+    const computedBy = /steps\.([\w-]+)\.outputs\./.exec(published ?? "")?.[1];
+    const step = (parsed.jobs?.[answerer]?.steps ?? []).find(({ id }) => id === computedBy);
+    return Object.values(step?.env ?? {})
+      .flatMap(secretsNamed)
+      .includes(secret);
+  });
 }
 
 describe("the CI workflow", () => {
@@ -443,6 +519,103 @@ describe("the CI workflow", () => {
         .map(([service]) => `${name}: ${service}`),
     );
     expect(anonymous).toStrictEqual([]);
+  });
+
+  /**
+   * CNCORE-203, and the defect is that a check CANNOT pass rather than that it
+   * fails. `provider-tmdb` refuses to start without `TMDB_READ_ACCESS_TOKEN`
+   * (ADR-0035), GitHub keeps a SEPARATE secret store for Dependabot, and this
+   * repository has nothing in it -- so on every Dependabot pull request the two
+   * jobs that start that image died at `Initialize containers` with
+   * `Failed to initialize container`, before their first step. Measured
+   * identically on #120, #122 and #123 on 2026-09-18: `fail 2, pass 12`. A bump
+   * whose checks cannot pass has no merge gate at all, so a dependency that
+   * really broke the contract suite would look exactly like the seventeen that
+   * did not.
+   *
+   * THE GATE HAS TO SIT ON THE JOB, and that is forced rather than chosen: a
+   * service container that will not start fails the job before any step runs,
+   * so a step-level `if:` never gets the chance. And `jobs.<job_id>.if` cannot
+   * see the `secrets` context -- GitHub's context availability table gives it
+   * `github, needs, vars, inputs` -- so the job cannot ask the question itself.
+   * `jobs.<job_id>.outputs` CAN see it. One job answers, the rest read the
+   * answer through `needs`, which is the only shape that works.
+   *
+   * IT IS CHECKED PAIRWISE, secret by secret, rather than as "has some gate".
+   * A second provider with a second credential is the ordinary next change here
+   * -- `provider-wiki` already runs beside `provider-tmdb` in `contract` -- and
+   * a job gated on the wrong one reads exactly like a job gated on the right
+   * one. So the chain is walked all the way: the gate names an output, a job in
+   * `needs` publishes it, and the step that computed it was handed THIS secret.
+   */
+  it("gates every job on the credential its service containers cannot start without", () => {
+    const parsed = workflow();
+    const needing = jobsNeedingACredential(parsed);
+
+    // Not vacuous: two jobs start a provider that will not boot without a
+    // stored token today. Dropping the service's `env:` block would otherwise
+    // empty this and pass, which is the same silent green this test is about.
+    expect(needing.length).toBeGreaterThan(0);
+
+    const ungated = needing.flatMap(({ job, service, secret }) =>
+      gatesOn(parsed, job, secret)
+        ? []
+        : [
+            `the \`${job}\` job starts ${service}, which cannot start without ` +
+              `\`${secret}\`, and nothing gates the job on that secret being reachable. ` +
+              `A run without it dies at \`Initialize containers\` before the first step, ` +
+              `so the check reports red about the credential rather than about the change.`,
+          ],
+    );
+    expect(ungated).toStrictEqual([]);
+  });
+
+  /**
+   * THE ANSWERER MUST NOT BE GATEABLE, which is the hole the gate above opens
+   * and cannot see. A condition on the job that publishes the verdict makes it
+   * SKIP, a skipped job's outputs are empty, every gate reading one evaluates
+   * false, and every job behind it skips too -- so the whole provider half of
+   * CI disappears and the run goes GREEN having checked none of it. That is
+   * worse than the defect CNCORE-203 fixed: red about the wrong thing is at
+   * least visible.
+   *
+   * `continue-on-error` IS CHECKED BESIDE `if`, for the reason ADR-0111 gives
+   * about the four static checks: both are valid job keys, and the second
+   * defangs a whole job at once. A verdict job allowed to fail soft would
+   * publish nothing and skip everything just the same.
+   */
+  it("lets nothing gate or defang the job those gates read their answer from", () => {
+    const parsed = workflow();
+
+    const answerers = [
+      ...new Set(
+        jobsNeedingACredential(parsed).flatMap(({ job }) =>
+          dependencies(parsed.jobs?.[job] ?? {}).filter(
+            (needed) => Object.keys(parsed.jobs?.[needed]?.outputs ?? {}).length > 0,
+          ),
+        ),
+      ),
+    ];
+
+    // Not vacuous: a gate rewired to read a job that publishes nothing would
+    // otherwise empty this list and pass having asked about no job at all.
+    expect(answerers.length).toBeGreaterThan(0);
+
+    const conditional = answerers.flatMap((job) => {
+      const definition = parsed.jobs?.[job] ?? {};
+      const keys = [
+        ...(definition.if === undefined ? [] : ["if"]),
+        ...(definition["continue-on-error"] === undefined ? [] : ["continue-on-error"]),
+      ];
+      return keys.length === 0
+        ? []
+        : [
+            `the \`${job}\` job publishes the verdict other jobs gate on, and carries ` +
+              `\`${keys.join("` and `")}\`. Its outputs are empty when it does not run, so ` +
+              `every job gated on one skips and the run goes green having checked none of them.`,
+          ];
+    });
+    expect(conditional).toStrictEqual([]);
   });
 
   /**
