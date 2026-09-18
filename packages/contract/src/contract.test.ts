@@ -1,10 +1,12 @@
 import { afterAll, describe, expect, it } from "vitest";
 
 import {
+  BROWSE_OPERATION,
   browseResponse,
   type CmppManifest,
+  CONTAINERS_OPERATION,
+  containersResponse,
   manifest,
-  OPTIONAL_OPERATION,
   REQUIRED_OPERATIONS,
   record,
   searchResponse,
@@ -486,7 +488,7 @@ describe.each(underTest.map((p) => [p.name, p] as const))(
         const seen = [
           (await get(participant, `/lookup/${encodeURIComponent(participant.aRecord)}`)).body,
           (await get(participant, `/search?q=${encodeURIComponent(participant.aQuery)}`)).body,
-          ...(declared.operations.includes(OPTIONAL_OPERATION) && participant.aContainer !== null
+          ...(declared.operations.includes(BROWSE_OPERATION) && participant.aContainer !== null
             ? [
                 (await get(participant, `/browse/${encodeURIComponent(participant.aContainer)}`))
                   .body,
@@ -631,7 +633,7 @@ describe.each(underTest.map((p) => [p.name, p] as const))(
     describe("its browse, which it may decline", () => {
       it("answers a container and its ordering together, if it declares browse", async () => {
         const declared = manifest.parse((await get(participant, "/")).body);
-        if (!declared.operations.includes(OPTIONAL_OPERATION)) {
+        if (!declared.operations.includes(BROWSE_OPERATION)) {
           // THE OPTIONALITY, HONOURED RATHER THAN SKIPPED. A provider that
           // declines `browse` is well-formed, so there is nothing to assert about
           // an operation it never promised -- and the suite-level assertion below
@@ -687,7 +689,7 @@ describe.each(underTest.map((p) => [p.name, p] as const))(
 
       it("reports an id that addresses no container as an answer, if it declares browse", async () => {
         const declared = manifest.parse((await get(participant, "/")).body);
-        if (!declared.operations.includes(OPTIONAL_OPERATION)) return;
+        if (!declared.operations.includes(BROWSE_OPERATION)) return;
 
         const response = await get(participant, "/browse/an-id-no-provider-mints");
 
@@ -695,6 +697,107 @@ describe.each(underTest.map((p) => [p.name, p] as const))(
         // one nobody minted does, and a caller must not be able to tell them apart.
         expect(response.status).toBe(404);
         expect(response.body).not.toBeNull();
+      });
+    });
+
+    describe("its containers, which it may decline", () => {
+      it("answers the containers it holds, if it declares the operation", async () => {
+        const declared = manifest.parse((await get(participant, "/")).body);
+        if (!declared.operations.includes(CONTAINERS_OPERATION)) return;
+
+        const path = `/${CONTAINERS_OPERATION}`;
+        const response = await get(participant, path);
+
+        // The same reading `browse` gets one block up, and for the same reason:
+        // a provider that cannot reach its source owes the refusal rather than an
+        // answer, and the manifest's `credential` is not what decides it here --
+        // `its credential` has already unlocked everything that declares one.
+        if (response.status !== 200) {
+          expectSaysItCannotAnswer(response, path);
+          return;
+        }
+
+        // Records rather than ids, which is the whole of the shape: a container
+        // arrives ready to show the Owner rather than as a handle to look up.
+        expect(() => containersResponse.parse(response.body)).not.toThrow();
+      });
+
+      it("offers ids that browse, if it declares the operation", async () => {
+        const declared = manifest.parse((await get(participant, "/")).body);
+        if (!declared.operations.includes(CONTAINERS_OPERATION)) return;
+
+        const listed = await get(participant, `/${CONTAINERS_OPERATION}`);
+        if (listed.status !== 200) return;
+        const { containers } = containersResponse.parse(listed.body);
+        // A provider that holds none is answering, not failing, exactly as an
+        // empty `results` is an answer -- so there is nothing to follow.
+        const first = containers[0];
+        if (first === undefined) return;
+
+        const response = await get(participant, `/browse/${encodeURIComponent(first.id)}`);
+
+        /*
+         * THE OPERATION'S WHOLE CLAIM, AND THE ONLY ONE WORTH ASSERTING BEYOND
+         * SHAPE. It exists so that browsing does not require knowing an id first
+         * (ADR-0033), so an id it hands over that `browse` will not serve is a
+         * page of dead ends that satisfies every shape rule. The manifest rule
+         * that a lister must declare `browse` is the same claim one layer up;
+         * this is it holding on the wire.
+         *
+         * ONE CONTAINER AND NOT ALL OF THEM. `provider-wiki` lists 465, and a
+         * suite that browsed each would be an import rather than a contract test
+         * -- the largest of them took 43.8s end to end when CNCORE-159 measured
+         * it. What is under test is that a listed id is an id of the same kind
+         * `browse` takes, and one witness to that is the claim.
+         */
+        if (response.status !== 200) {
+          expectSaysItCannotAnswer(response, `/browse/${first.id}`);
+          return;
+        }
+        expect(browseResponse.parse(response.body).container.id).toBe(first.id);
+      });
+
+      it("has nothing at that path if it declines the operation", async () => {
+        const declared = manifest.parse((await get(participant, "/")).body);
+        if (declared.operations.includes(CONTAINERS_OPERATION)) return;
+
+        const response = await get(participant, `/${CONTAINERS_OPERATION}`);
+
+        /*
+         * AN ABSENT CAPABILITY IS NOT AN EMPTY ANSWER, which is the one confusion
+         * this operation exists to prevent. `200 {"containers":[]}` is a claim
+         * ABOUT THE SOURCE -- it says this provider holds none -- and a provider
+         * that does not do this at all has established no such thing. A 5xx is
+         * the other wrong answer: declining an optional operation is well-formed,
+         * not broken.
+         *
+         * 404 AND NOT 501, and the choice is what lets the rule bind a provider
+         * that has never heard of the operation. RFC 9110 gives 404 as "the
+         * origin server did not find a current representation for the target
+         * resource", which is exactly true of a path a provider does not serve,
+         * and it is what every router answers for one anyway -- so the contract
+         * can require it of a decliner without obliging anybody to add a route on
+         * the day the operation lands, which is the argument ADR-0032 settles
+         * every optional addition by. 501's only MUST in RFC 9110 is about an
+         * unrecognised METHOD, and the method here is GET.
+         *
+         * IT CANNOT BE CONFUSED WITH THE OTHER 404 THIS CONTRACT NAMES, because
+         * this path carries no id. `browse` answers 404 for a container nobody
+         * minted (ADR-0066); there is nothing here whose absence could be the
+         * reason, so the status has one meaning at this address.
+         *
+         * THE BODY IS NOT ASSERTED, where a declared refusal's is. Both real
+         * providers answer their framework's plain-text 404 here, and requiring
+         * JSON would be the contract obliging a provider to write a route for an
+         * operation it never promised -- which is the cost this whole reading is
+         * chosen to avoid.
+         */
+        expect(
+          response.status,
+          `\`/${CONTAINERS_OPERATION}\` answered ${response.status} at a provider that does not declare the ` +
+            "operation. An absent capability is not an empty answer and it is not a fault: a 200 is a claim " +
+            "about a source this provider never consulted, and a 5xx says it is broken when it is well-formed.",
+        ).toBe(404);
       });
     });
   },
@@ -727,11 +830,11 @@ describe("ADR-0033's optionality", () => {
       })),
     );
 
-    const declining = declared.filter((p) => !p.operations.includes(OPTIONAL_OPERATION));
+    const declining = declared.filter((p) => !p.operations.includes(BROWSE_OPERATION));
 
     expect(
       declining.length,
-      `Every provider under test declares \`${OPTIONAL_OPERATION}\`, so nothing here is checking that a provider may decline it. ` +
+      `Every provider under test declares \`${BROWSE_OPERATION}\`, so nothing here is checking that a provider may decline it. ` +
         "ADR-0033 makes it optional and CNCORE-8 exists to keep that case exercised. " +
         "Restore a participant that declines it rather than deleting this test.",
     ).toBeGreaterThan(0);
@@ -752,9 +855,34 @@ describe("ADR-0033's optionality", () => {
     // Otherwise every `browse` assertion above is skipping, and a suite where
     // every branch is the empty one is green for the wrong reason.
     expect(
-      declared.some((operations) => operations.includes(OPTIONAL_OPERATION)),
+      declared.some((operations) => operations.includes(BROWSE_OPERATION)),
       "Nothing under test declares `browse`, so every browse assertion is a no-op.",
     ).toBe(true);
+  });
+
+  it("is exercised for the list operation too, in both directions", async () => {
+    const declared = await Promise.all(
+      underTest.map(
+        async (participant) => manifest.parse((await get(participant, "/")).body).operations,
+      ),
+    );
+
+    // THE SAME DEVICE THE TWO ABOVE ARE, pointed at the operation CNCORE-185
+    // added. Without the first half every assertion in `its containers` returns
+    // early and the suite is green because nobody was asked; without the second
+    // the contract has quietly made an optional operation required, and nothing
+    // would find out until a third provider appeared.
+    expect(
+      declared.some((operations) => operations.includes(CONTAINERS_OPERATION)),
+      `Nothing under test declares \`${CONTAINERS_OPERATION}\`, so every assertion in \`its containers\` is a no-op.`,
+    ).toBe(true);
+
+    expect(
+      declared.filter((operations) => !operations.includes(CONTAINERS_OPERATION)).length,
+      `Every provider under test declares \`${CONTAINERS_OPERATION}\`, so nothing here is checking that a provider may decline it. ` +
+        "ADR-0033 makes it optional for the reason it makes `browse` optional -- a source with no way to enumerate " +
+        "its own containers is still a source. Restore a participant that declines it rather than deleting this test.",
+    ).toBeGreaterThan(0);
   });
 });
 
