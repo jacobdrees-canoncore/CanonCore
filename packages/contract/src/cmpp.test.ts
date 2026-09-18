@@ -204,6 +204,15 @@ describe("the contract's containers response", () => {
     expect(answered.containers[0]?.id).toBe(A_RECORD.id);
   });
 
+  it("admits an empty list, because a source that holds no containers is answering", async () => {
+    // The same reading `search`'s empty `results` gets. It is NOT how a provider
+    // says it does not offer the operation -- that is declared in the manifest,
+    // and conflating the two is what this operation exists to stop.
+    const answered = containersResponse.parse({ containers: [] });
+
+    expect(answered.containers).toEqual([]);
+  });
+
   it("refuses a bare id, which is the shape that would cost a second call", async () => {
     // ADR-0004: a container is a record like any other, and `browse` already
     // answers one as a record. A provider sending ids alone would oblige the app
