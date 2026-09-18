@@ -82,6 +82,23 @@ are the ordinary case rather than a hypothetical. An author check would leave ev
 red for a reason the contributor cannot fix and cannot be told. Keying on the credential covers
 both without naming either, and keeps covering whatever the third cause turns out to be.
 
+**AND IT OPENS ONE HOLE, WHICH IS CLOSED IN THE SAME JOB.** An author check cannot misfire on
+`main`, because Dependabot does not push there; a credential check can. A repository secret
+DELETED OR RENAMED would make the probe report `false` on every push, skip both jobs, and leave
+the run green with the contract suite running nowhere at all -- trading a red that means nothing
+for a green that checks nothing, which is no fix.
+
+**A pull request has two innocent explanations and a push has none.** Dependabot reads its own
+store; a fork gets no repository secret; neither is anything the contributor can do about. A push
+to `main` or a version tag is neither of those, so an absent credential there means the secret has
+gone, and the honest report is red. The probe job therefore carries a second step that FAILS when
+the credential is absent on anything but a pull request.
+
+That step is a YAML `if:` rather than a branch in the shell above it, and the reason is
+assertability: a condition in the file is one the suite can EVALUATE against a synthetic context,
+the way it already evaluates the concurrency key, while a branch inside `run:` could only be
+matched as text.
+
 ## What is lost, stated rather than glossed
 
 **This is a real reduction in coverage on any run without the token, and it is not free.**
@@ -135,13 +152,42 @@ that the step whose id that key's value reads was handed THIS secret. All four w
 each one reddens; naming an output of a job you do not depend on is the one worth keeping in mind,
 because the expression evaluates to nothing silently and would skip the job forever.
 
+**AND THEN THE POLARITY, WHICH IS THE LINK THE OTHER FOUR CANNOT SEE**, because a gate can be
+perfectly wired and point the wrong way. `if: needs.credentials.outputs.tmdb == 'false'` satisfies
+every structural check above and inverts the whole fix, running both jobs exactly when the token
+is absent -- which is the one state they cannot start in. So the condition is EVALUATED, twice,
+against a verdict each way, using `@actions/expressions` and the synthetic-context machinery the
+concurrency tests already use for the reason ADR-0111 gives: a test that matches an `if:` as text
+restates the file and agrees with any condition spelled the same way.
+
+**This was the review's finding rather than the author's**, caught independently on both axes, and
+it is worth recording as a class: the first version walked the chain and never looked at the
+comparison, so it read as thorough while asking nothing about what the gate decided. Three forms
+were then planted and all three redden -- `== 'false'`, `== 'true' || true`, and the bare
+`needs.credentials.outputs.tmdb`. **The bare one is the trap worth naming**: it reads like a
+boolean and is a STRING, so under Actions' truthiness the value `false` is non-empty and therefore
+TRUE, and the job runs exactly when the credential is missing. Measured against that evaluator
+rather than assumed, it returns a string where the comparison forms return a boolean.
+
 **The second test refuses a condition on the ANSWERING job, which is the hole the first one opens
 and cannot see.** A skipped job's outputs are empty, so every gate reading one evaluates false,
 every job behind it skips, and the run goes GREEN having checked none of them -- worse than the
 defect this record fixes, because red about the wrong thing is at least visible.
 `continue-on-error` is refused beside `if` for the reason
 [[0111-ci-optimises-billed-minutes-over-named-checks]] gives about the four static checks: both are
-valid job keys and the second defangs a whole job at once. Both were planted and both redden.
+valid job keys and the second defangs a whole job at once.
+
+**`needs` is refused beside both, and it is the form nobody would look for.** A verdict job made to
+wait on another job inherits that job's skip: nothing about the verdict job itself reads
+conditional, and everything behind it disappears all the same. So the rule is that it waits on
+nothing at all, which is what the file claims about it on its face. All three were planted and all
+three redden.
+
+The fail-closed half above is asked the same way, as four cases rather than as text -- a condition
+merely MENTIONING the event name would satisfy any reading of the words and none of the cases. It
+must not redden a push that has the credential, must not redden a pull request either way, and
+must redden a push without one. Deleting the step, dropping its event half, and inverting its
+reachability half were each planted, and each is reported in the words of the case it broke.
 
 ## Evidence
 

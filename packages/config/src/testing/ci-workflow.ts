@@ -63,12 +63,9 @@ type Service = {
   credentials?: Record<string, unknown>;
   ports?: string[];
   /**
-   * `env` IS READ TOO (CNCORE-203), and it is where a service says what it
-   * cannot start without. `provider-tmdb` refuses to boot without
-   * `TMDB_READ_ACCESS_TOKEN` (ADR-0035), and a service container that will not
-   * start fails the job at `Initialize containers`, BEFORE the first step --
-   * which is why no step-level condition can reach this and the gate has to sit
-   * on the job.
+   * `env` IS READ TOO (CNCORE-203), because it is where a service says what it
+   * cannot start without, and a service that cannot start takes its whole job
+   * with it. ADR-0139 carries why that forces the gate onto the job.
    */
   env?: Env;
 };
@@ -89,15 +86,14 @@ export type Job = {
   "runs-on"?: unknown;
   strategy?: { matrix?: { include?: Record<string, unknown>[] } };
   /**
-   * The pair a job-level gate is built out of (CNCORE-203). `secrets` is NOT
-   * among the contexts available to `jobs.<job_id>.if` -- GitHub's context
-   * availability table gives it `github, needs, vars, inputs` and nothing else
-   * -- so a job cannot ask whether a secret is set. `needs` IS available, and
-   * `jobs.<job_id>.outputs` does have `secrets`, so one job answers the
-   * question and the others read its answer.
+   * The pair a job-level gate is built out of (CNCORE-203): one job answers a
+   * question about a secret that no job is allowed to ask itself, and the rest
+   * read its answer. ADR-0139 carries which contexts are available where, and
+   * why that is the only arrangement available.
    *
    * `needs` PARSES AS EITHER SHAPE. A single dependency may be written as a
-   * plain string and a list as a sequence, so the readers of this treat both.
+   * plain string and a list as a sequence, so the readers of this treat both,
+   * and it is typed `unknown` rather than narrowed here for that reason.
    */
   needs?: unknown;
   outputs?: Record<string, string>;

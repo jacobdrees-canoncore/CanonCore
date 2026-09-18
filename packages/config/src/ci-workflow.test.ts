@@ -226,8 +226,18 @@ function staticCheckCarriers(parsed: Workflow): Record<string, string[]> {
  * pull request while the container still refuses to start -- the credentials
  * block is satisfied and the `env:` block is empty -- and therefore why a gate
  * keyed on it would gate on nothing.
+ *
+ * `secret` RATHER THAN `Credential`, DELIBERATELY, and they are not one noun
+ * here. `CONTEXT.md` defines a Credential as what a Provider needs to reach its
+ * own upstream, and tells this repository to avoid `secret` for it. A GitHub
+ * Actions secret is the STORE SLOT this workflow reads: GitHub's own word for
+ * GitHub's own thing, which is the allowance `CLAUDE.md` already makes for a
+ * provider's own external record. So the functions name the Credential and
+ * their fields name the slot, and the split is the subject rather than drift --
+ * `TMDB_READ_ACCESS_TOKEN` is ONE Credential living in TWO stores, and only one
+ * of the two has it.
  */
-const MINTED_PER_RUN = "GITHUB_TOKEN";
+const SECRET_MINTED_PER_RUN = "GITHUB_TOKEN";
 
 /** Every `secrets.NAME` a value names, in the one spelling an expression has. */
 function secretsNamed(value: unknown): string[] {
@@ -264,15 +274,83 @@ function jobsNeedingACredential(
     Object.entries(definition.services ?? {}).flatMap(([service, { env }]) =>
       Object.values(env ?? {})
         .flatMap(secretsNamed)
-        .filter((secret) => secret !== MINTED_PER_RUN)
+        .filter((secret) => secret !== SECRET_MINTED_PER_RUN)
         .map((secret) => ({ job, service, secret })),
     ),
   );
 }
 
 /**
+ * The two words the probe job and the gates agree on, and the ONLY place either
+ * meaning is written down in this suite.
+ *
+ * Catching an INVERTED gate requires knowing which verdict means reachable, and
+ * that knowledge has to live somewhere. Here it is the contract between the two
+ * jobs rather than an implementation detail of either: change the probe to emit
+ * `yes`/`no` and this is the one line that moves with it.
+ */
+const REACHABLE = "true";
+const NOT_REACHABLE = "false";
+
+/** A nested plain object as the evaluator's data, so a fixture reads as the YAML does. */
+function asData(value: Contexts[string] | string): data.ExpressionData {
+  if (typeof value === "string") return new data.StringData(value);
+  const dictionary = new data.Dictionary();
+  for (const [key, inner] of Object.entries(value)) dictionary.add(key, asData(inner));
+  return dictionary;
+}
+
+type Contexts = Record<string, { [key: string]: Contexts[string] | string }>;
+
+/**
+ * Whether a condition RUNS the job or step it sits on, given the contexts it
+ * can see.
+ *
+ * **The evaluation is GitHub's own**, for the reason `render` above gives: a
+ * test that matched an `if:` as TEXT would restate the file and agree with any
+ * condition spelled the same way -- including the INVERTED one. Asking what a
+ * condition DOES is the only form that can tell `== 'true'` from `== 'false'`,
+ * and both reviewers of CNCORE-203 found that gap in the version of this that
+ * matched text.
+ */
+function conditionRuns(condition: string, contexts: Contexts): boolean {
+  const root = new data.Dictionary();
+  for (const [name, value] of Object.entries(contexts)) root.add(name, asData(value));
+
+  // `if:` is evaluated as an expression whether or not it is wrapped, and both
+  // spellings are legal, so the wrapper is stripped rather than required.
+  const inner = /^\s*\$\{\{(.*)\}\}\s*$/s.exec(condition)?.[1] ?? condition;
+  const { tokens } = new Lexer(inner).lex();
+  const result = new Evaluator(
+    new Parser(tokens, Object.keys(contexts), []).parse(),
+    root,
+  ).evaluate();
+
+  /*
+   * Actions' own truthiness, which is NOT JavaScript's, and the bare form is
+   * the whole trap. `if: needs.credentials.outputs.tmdb` reads like a boolean
+   * and is a STRING: the value `false` is a non-empty string, so the job would
+   * run exactly when the credential is missing. Measured against this
+   * evaluator rather than assumed -- that expression returns Kind.String
+   * `"false"`, where the comparison forms return Kind.Boolean.
+   */
+  switch (result.kind) {
+    case data.Kind.Null:
+      return false;
+    case data.Kind.Boolean:
+      return result.coerceString() === "true";
+    case data.Kind.Number:
+      return result.number() !== 0;
+    case data.Kind.String:
+      return result.coerceString() !== "";
+    default:
+      return true;
+  }
+}
+
+/**
  * Whether this job runs only when THIS secret is reachable, walked end to end
- * rather than pattern-matched on the `if:` text.
+ * and then EVALUATED, rather than pattern-matched on the `if:` text.
  *
  * The chain has four links and every one of them can be wired wrong while
  * reading right: the gate names `needs.<job>.outputs.<key>`; that job is really
@@ -280,6 +358,12 @@ function jobsNeedingACredential(
  * that evaluates to nothing, silently, and skips the job forever); it really
  * publishes that key; and the step whose id that key's value reads was handed
  * THIS secret rather than another one.
+ *
+ * AND THEN THE POLARITY, which is the link none of the other four can see.
+ * `== 'false'` satisfies every one of them and inverts the fix -- running both
+ * jobs exactly when the token is absent, which is the state they cannot start
+ * in. So the condition is run twice, against a verdict each way, and has to
+ * agree with both.
  */
 function gatesOn(parsed: Workflow, job: string, secret: string): boolean {
   const definition = parsed.jobs?.[job];
@@ -288,17 +372,26 @@ function gatesOn(parsed: Workflow, job: string, secret: string): boolean {
   const needed = dependencies(definition);
   return [...gate.matchAll(/needs\.([\w-]+)\.outputs\.([\w-]+)/g)].some(([, answerer, key]) => {
     if (answerer === undefined || key === undefined || !needed.includes(answerer)) return false;
-    const published = parsed.jobs?.[answerer]?.outputs?.[key];
+    const answering = parsed.jobs?.[answerer];
+    const published = answering?.outputs?.[key];
     const computedBy = /steps\.([\w-]+)\.outputs\./.exec(published ?? "")?.[1];
     // An output that is not a step's is not a verdict this can vouch for, and
     // the `undefined` would otherwise MATCH the first step carrying no `id` --
     // passing on that step's env, which is a false green in the one check whose
     // whole purpose is refusing one.
     if (computedBy === undefined) return false;
-    const step = (parsed.jobs?.[answerer]?.steps ?? []).find(({ id }) => id === computedBy);
-    return Object.values(step?.env ?? {})
+    const step = (answering?.steps ?? []).find(({ id }) => id === computedBy);
+    const handedThisSecret = Object.values(step?.env ?? {})
       .flatMap(secretsNamed)
       .includes(secret);
+    const given = (verdict: string): Contexts => ({
+      needs: { [answerer]: { outputs: { [key]: verdict } } },
+    });
+    return (
+      handedThisSecret &&
+      conditionRuns(gate, given(REACHABLE)) &&
+      !conditionRuns(gate, given(NOT_REACHABLE))
+    );
   });
 }
 
@@ -590,6 +683,13 @@ describe("the CI workflow", () => {
    * about the four static checks: both are valid job keys, and the second
    * defangs a whole job at once. A verdict job allowed to fail soft would
    * publish nothing and skip everything just the same.
+   *
+   * AND `needs` IS CHECKED BESIDE BOTH, because it is the INDIRECT form and the
+   * one nobody would think to look for. A verdict job made to wait on another
+   * job inherits that job's skip: nothing about the verdict job itself reads
+   * conditional, and everything behind it disappears all the same. So the rule
+   * is that this job waits on nothing at all, which is also what `ci.yml`
+   * claims about it on its face.
    */
   it("lets nothing gate or defang the job those gates read their answer from", () => {
     const parsed = workflow();
@@ -613,6 +713,7 @@ describe("the CI workflow", () => {
       const keys = [
         ...(definition.if === undefined ? [] : ["if"]),
         ...(definition["continue-on-error"] === undefined ? [] : ["continue-on-error"]),
+        ...(definition.needs === undefined ? [] : ["needs"]),
       ];
       return keys.length === 0
         ? []
@@ -623,6 +724,73 @@ describe("the CI workflow", () => {
           ];
     });
     expect(conditional).toStrictEqual([]);
+  });
+
+  /**
+   * THE OTHER WAY THIS GATE COULD GO QUIET, and it is the one keying on the
+   * credential rather than on the author buys: a repository secret DELETED or
+   * RENAMED would skip both jobs on `main` too, green, with `test:contract`
+   * then running nowhere at all. Trading a red that means nothing for a green
+   * that checks nothing would be no fix.
+   *
+   * A PULL REQUEST HAS TWO INNOCENT EXPLANATIONS AND A PUSH HAS NONE --
+   * Dependabot reads its own store, a fork gets no repository secret -- so the
+   * honest report off a pull request is red. The four cases are asked of the
+   * condition rather than of its text, the way the concurrency tests above ask
+   * what the key DOES: a condition that merely mentions `event_name` would
+   * satisfy any reading of the words and none of these.
+   */
+  it("refuses an absent credential on a ref where no pull request could explain it", () => {
+    const parsed = workflow();
+
+    const answerers = [
+      ...new Set(
+        jobsNeedingACredential(parsed).flatMap(({ job }) =>
+          dependencies(parsed.jobs?.[job] ?? {}).filter(
+            (needed) => Object.keys(parsed.jobs?.[needed]?.outputs ?? {}).length > 0,
+          ),
+        ),
+      ),
+    ];
+
+    const unguarded = answerers.flatMap((job) => {
+      const steps = parsed.jobs?.[job]?.steps ?? [];
+      const verdicts = Object.values(parsed.jobs?.[job]?.outputs ?? {}).flatMap(
+        (published) => /steps\.([\w-]+)\.outputs\.([\w-]+)/.exec(published) ?? [],
+      );
+      const [, computedBy, key] = verdicts;
+      if (computedBy === undefined || key === undefined) {
+        return [
+          `the \`${job}\` job publishes no verdict computed by a step, so nothing here applies`,
+        ];
+      }
+
+      const context = (reachable: string, event: string) => ({
+        steps: { [computedBy]: { outputs: { [key]: reachable } } },
+        github: { event_name: event },
+      });
+      // Every step that can redden the job, which is every one carrying a
+      // condition: the refusal is whichever of them runs in the bad case, and
+      // naming it here would pin the shape rather than the behaviour.
+      const refuses = (reachable: string, event: string) =>
+        steps.some(
+          (step) =>
+            typeof step.if === "string" && conditionRuns(step.if, context(reachable, event)),
+        );
+
+      const wrong = [
+        ...(refuses(REACHABLE, "push") ? ["reddens a push that HAS the credential"] : []),
+        ...(refuses(REACHABLE, "pull_request") ? ["reddens a pull request that HAS it"] : []),
+        ...(refuses(NOT_REACHABLE, "pull_request")
+          ? ["reddens a pull request without it, which Dependabot and every fork cannot help"]
+          : []),
+        ...(refuses(NOT_REACHABLE, "push")
+          ? []
+          : ["lets a push with NO credential pass, so a deleted secret skips both jobs green"]),
+      ];
+      return wrong.map((fault) => `the \`${job}\` job ${fault}.`);
+    });
+    expect(unguarded).toStrictEqual([]);
   });
 
   /**

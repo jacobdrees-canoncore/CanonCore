@@ -422,3 +422,9 @@ and something else has to answer for it. It checks out nothing, installs nothing
 3 seconds (run 35351756526). On a private repository that would be a billed minute bought for one
 `if`, and the merge arithmetic above would apply to it; here it is free, so it was decided on
 diagnosability like the fourteenth.
+
+**IT DOES NOT MOVE THE CRITICAL PATH, WHICH IS THE OBJECTION IT INVITES**: two jobs now wait on a
+third, and serialising a pipeline to save nothing would be a bad trade at any price. Measured on
+that run, the gated jobs started 10 seconds after the run did and the tail was still an image job,
+`13:44:41` against the provider job's `13:44:32` -- so the section above is unchanged by this. The
+image jobs pin the median, as they have since CNCORE-63.
