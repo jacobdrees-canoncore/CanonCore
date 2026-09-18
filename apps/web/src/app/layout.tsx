@@ -1,19 +1,8 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 
 import "../index.css";
 import Header from "@/components/header";
 import Providers from "@/components/providers";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   /*
@@ -34,7 +23,17 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      {/*
+       * NO FONT IS DECLARED HERE, which is a deletion rather than an omission
+       * (CNCORE-161). The generator hung `Geist` and `Geist_Mono` on this
+       * element as CSS variables and no stylesheet ever read either one --
+       * `globals.css` resolves `--font-sans` to `"Inter Variable"` -- so two
+       * families were subsetted into the build and declared in the sheet every
+       * page links, to be rendered in by nothing. The type comes from
+       * `packages/ui`'s stylesheet, and a face this app self-hosts would be
+       * declared there beside the tokens rather than here.
+       */}
+      <body className="antialiased">
         <Providers>
           <div className="grid grid-rows-[auto_1fr] h-svh">
             <Header />

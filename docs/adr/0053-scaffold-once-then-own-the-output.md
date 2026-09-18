@@ -101,11 +101,23 @@ AND from the catalogue in `pnpm-workspace.yaml`, which is where
 this section said four and left all three pinned; a package deleted from a manifest and left in the
 catalogue is still a version this repo maintains.
 
-**`sonner` is the fourth and it STAYS**, which is a different judgement rather than an omission. The
-app's `<Toaster>` went with the query client, but `packages/ui/src/components/sonner.tsx` is a
-VENDORED PRIMITIVE, and nine of that package's seventeen primitives have no importer today. An
-unimported primitive is what a primitive library normally holds; deleting one because this slice
-stopped using it would be deleting the library a component at a time.
+**`sonner` WAS THE FOURTH AND IT STAYED -- AND THAT HALF OF THIS RECORD IS REVERSED, BY CNCORE-161
+AND [[0138-a-primitive-earns-its-place-by-having-a-caller]].** The correction is written into the
+sentence rather than appended after it, because appended it would leave the claim standing.
+
+What this record decided, and what no longer holds: the app's `<Toaster>` went with the query
+client, and "a data layer with no callers is scaffold" was then declined one directory over.
+`packages/ui/src/components/sonner.tsx` was called a VENDORED PRIMITIVE; nine of that package's
+seventeen primitives had no importer that day; and the reasoning was that an unimported primitive is
+what a primitive library normally holds, so deleting one because this slice stopped using it would
+be deleting the library a component at a time.
+
+**IT READ `packages/ui` AS A LIBRARY, AND IT IS NOT ONE** -- a private workspace package, published
+nowhere, with one consumer and a set of modules nobody chose. The nine became ten and the share was
+measured: 59% of the package, 891 of the 1,506 lines of TypeScript under its `src/`, reachable from
+nothing. `sonner.tsx` is deleted along with the other nine, and a roll call names the eleventh the
+day it appears. **THE SCAFFOLD DECISION ABOVE IS UNTOUCHED**: owning the output is what both halves
+of this are, and only the judgement about which parts to keep has moved.
 
 The residue was not only code. `layout.tsx` carried `title: "canoncore"` and
 `description: "canoncore"` — a placeholder the generator writes from the directory name, and a tab
