@@ -261,11 +261,12 @@ async function browseIfOffered(
  * the optionality being honoured: `browse` is the operation a provider may
  * decline, and reading the declaration is the only way an app can tell.
  *
- * THE CONTAINER IS NAMED BY THE OWNER, and nothing in CMPP hands one over.
- * `search` returns stories and `browse` takes a container's own id, so there is
- * no operation that answers "which containers do you have". The owner supplies
- * it exactly as they supply a record id to `import` -- see ADR-0033's as-built
- * section, which records the decision rather than leaving it to be rediscovered.
+ * THE CONTAINER IS NAMED BY THE OWNER, and nothing in CMPP hands one over yet.
+ * `search` returns stories and `browse` takes a container's own id; ADR-0033
+ * declares `containers` as of CNCORE-185, and no provider answers it, so until
+ * one does the owner supplies it exactly as they supply a record id to `import`
+ * -- see that record's as-built sections, which carry the decision rather than
+ * leaving it to be rediscovered.
  *
  * Answers `null` when that id addresses no container, which is an answer rather
  * than a failure (ADR-0066).
@@ -1034,9 +1035,10 @@ export const provider = {
    * instead of asking the owner to place sixty episodes by hand.
    *
    * IT TAKES THE CONTAINER'S ID FROM THE OWNER, because nothing in CMPP hands
-   * one over -- `search` returns stories and `browse` takes a container's own
-   * id, so no operation answers "which containers do you have". The owner names
-   * it, exactly as they name a record for `import`.
+   * one over yet -- `search` returns stories and `browse` takes a container's own
+   * id, and the `containers` operation ADR-0033 declares under CNCORE-185 is
+   * answered by no provider. The owner names it, exactly as they name a record
+   * for `import`.
    */
   browse: ownerProcedure
     .input(

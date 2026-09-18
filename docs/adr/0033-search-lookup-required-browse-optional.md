@@ -402,7 +402,8 @@ accident: a provider that declares no `browse` goes on serving `lookup` exactly 
 
 **AND A DECISION THIS RECORD DID NOT MAKE, MADE HERE: WHERE A CONTAINER ID COMES FROM.** Nothing in
 CMPP hands one over. `search` returns stories and `browse` takes the container's own id, so there is
-no operation that answers "which containers do you have". THE OWNER NAMES IT, exactly as they name a
+no operation that answers "which containers do you have" -- TRUE UNTIL CNCORE-185, whose section below
+declares `containers` and is what this paragraph invited. THE OWNER NAMES IT, exactly as they name a
 record for `lookup`. That is written down here rather than left in the code, because the obvious
 alternative is wrong in a way that takes a while to notice: a record's `series` field is a NAME, and
 the archive links members by name while a page id does not move -- so deriving the container from
@@ -411,6 +412,7 @@ T:DAB policy is the reason a page id is the stable thing).
 
 A provider-side operation that LISTS containers is not refused here, it is simply not needed by
 anything yet. Whatever first wants to browse without knowing an id is what should propose it.
+**IT WAS TAKEN UP UNDER CNCORE-185**, and the section that does it is the last in this record.
 
 **AND THE RECORD STILL STAYS `proposed` ANYWAY.** Its operations half is now complete on both sides
 of the wire, and its DECLARED FIELDS half is not: the section above owns that paragraph and CNCORE-22
@@ -630,7 +632,8 @@ that answered is listed, saying it matched nothing where it did. "Both providers
 something an owner can read rather than something the code happens to do.
 
 **WHERE A CONTAINER ID COMES FROM, HELD TO FROM THE OTHER SIDE.** The CNCORE-17 section above decided
-that the owner names it, because no CMPP operation answers "which containers do you have" and a
+that the owner names it, because no CMPP operation answers "which containers do you have" -- one does
+since CNCORE-185, and no provider answers it yet -- and a
 record's `series` is a name that can be renamed out from under an import. The surface obeys it
 literally: the owner picks a provider and types the container's own id. That is the one field on this
 page somebody types, and it is the one that can be wrong -- which is why the same section's named
@@ -663,7 +666,8 @@ provider whose records have one parent, and the provider this catalogue is built
 So both are owed, and they answer different questions. `series_id` should stop being stripped by the
 consumer schema, which is this record's own unbuilt half below wearing a different hat -- a declared
 field travelling the wire and read by nothing. And an operation that LISTS containers is what serves
-a provider whose containers no record can name. Neither is what keeps this record `proposed`: that is
+a provider whose containers no record can name: it is `containers`, declared under CNCORE-185 in the
+last section of this record. Neither is what keeps this record `proposed`: that is
 still `max_cache_age` and the image policy, and landing either of these does not flip it.
 
 **A NEW CALLER OF `search` THAT IS NOT A SEARCH.** `provider.held` asks which of a provider's records
@@ -789,3 +793,104 @@ other two are real images.
 **STILL NOT BUILT, AND STILL THE ONLY REASON THIS RECORD IS `proposed`:** the declared fields.
 `max_cache_age` and the image policy travel the wire from two providers and are read by nothing.
 There is no image store to bound and no read-time expiry check. Five sections have now said so.
+
+
+## And under CNCORE-185: the invitation is taken up -- `containers` -- and this record STILL STAYS PROPOSED
+
+**THE OPERATION THIS RECORD KEPT DECLINING IS DECLARED.** The CNCORE-7 section left it open --
+"not refused here, it is simply not needed by anything yet" -- and the CNCORE-68 section found the
+first thing that wanted it and still declined, for a reason the section above records as false.
+`provider-wiki` emits no `series_id` at all, and the field is SINGULAR where a wiki story sits in
+many timelines, which is [[0009-multi-parent-membership-with-ordering]] and the whole product. So
+the cheap fix was shaped for a provider whose records have one parent, and the provider this
+catalogue is built on is not one. This section is the operation.
+
+**`GET /containers`, ANSWERING `{"containers": [record, ...]}`.** The name is the path, as it is for
+the other three, so the whole of the request is its own name. Named for WHAT IT ANSWERS rather than
+for the asking, which is how the two products that solve this solve it: Plex answers its libraries at
+`/library/sections` and Jellyfin at `/Library/MediaFolders`, both a plural noun at its own address
+rather than a verb.
+
+**RECORDS AND NOT IDS**, because [[0004-containers-are-items]] makes a container a record like any
+other and `browse` already answers one as a record. A list of bare ids would oblige the app to
+`lookup` every entry before it could show the Owner a NAME, which is the wall this operation exists
+to knock down arriving one level along.
+
+**WRAPPED IN AN OBJECT AND CARRYING NO CURSOR.** Wrapped as `search` is, because a bare array has
+nowhere to grow one. Carrying none because no provider needs one -- the wiki holds 465
+`Theory:Timeline` pages -- and because a cursor added later is an OPTIONAL FIELD, which
+[[0032-cmpp-versions-array]] makes an addition rather than a change. That is the same argument
+`credential` rests on, and it is why this whole operation could be added to a shipped contract at
+all. A provider that cannot answer its containers in one call declines the operation, which is what
+optionality is for.
+
+**DECLARING `containers` OBLIGES DECLARING `browse`, AND THAT IS THE ONE RULE THE OPERATIONS LIST
+CARRIES BEYOND THE REQUIRED TWO.** The operation exists so that browsing needs no id known in
+advance; a provider answering `containers` while declining `browse` hands the Owner a page of ids it will
+not serve. The two are separately optional and this one direction is not. `browse` alone stays
+well-formed, which is what both real providers declare today. The manifest REFUSES the incoherent
+pair rather than leaving it to be read around: a declaration is a promise, and a promise of ids this
+provider will not serve is not a capability the app could honour by being careful.
+
+**A PROVIDER THAT DECLINES ANSWERS `404` THERE, AND THE CHOICE OF STATUS IS WHAT LETS THE RULE BIND A
+PROVIDER THAT HAS NEVER HEARD OF THE OPERATION.** Two answers are refused by name. `200
+{"containers":[]}` is a claim ABOUT THE SOURCE -- it says this provider holds none -- and one that
+does not do this at all has established no such thing; that is ADR-0122's NOT EMPTY argument at a new
+field, and it is the confusion the Owner's own story names ("an absent capability is not an empty
+answer"). A 5xx is the other: declining an optional operation is well-formed rather than broken.
+
+**404 RATHER THAN 501, AND THE REASON IS NOT TASTE.** RFC 9110 gives 404 as "the origin server did
+not find a current representation for the target resource or is not willing to disclose that one
+exists", which is exactly true of a path a provider does not serve, and it is what every router
+answers for an unrouted path anyway -- MEASURED 2026-09-18 by `curl` against both provider images,
+which answer `404 text/plain` at `/containers` today. So the contract can REQUIRE it of a decliner
+without obliging anybody to add a route on the day the operation lands, which is the argument every
+optional addition here is settled by. 501 would oblige exactly that, and RFC 9110 ties it to the
+METHOD: "this is the appropriate response when the server does not recognize the request method and
+is not capable of supporting it for any resource". The method here is GET, which every provider
+supports. **AN EARLIER DRAFT OF THIS PARAGRAPH SAID 501'S "ONLY MUST IN RFC 9110 IS ABOUT AN
+UNRECOGNISED METHOD", AND THERE IS NO SUCH MUST** -- section 15.6.2 states no requirement at all and
+section 9.1's method rule is a SHOULD. It came from a summary of the RFC rather than the RFC, which
+is the mistake `CLAUDE.md` has a skill for. The status cannot be confused with the other 404 this
+contract names, because this path carries no id: `browse` answers 404 for a container nobody minted
+([[0066-path-is-identity-query-is-the-route]]), and there is nothing at this address whose absence
+could be the reason.
+
+**AND THE CNCORE-92 SECTION ABOVE LOOKS LIKE IT DECIDED THE OPPOSITE, WHICH IS A LAYER CONFUSION
+WORTH WRITING DOWN.** That section gave `BROWSE_NOT_OFFERED` a `422` over a `404` on the reasoning
+that "a Provider that does not do this AT ALL is not a missing thing, and the two have different
+remedies", and left the rule that a declared error declares a status or it is a 500 wearing a name
+([[0123-a-failure-reason-is-bounded-and-says-who-wrote-it]]). Every one of those codes is
+CANONCORE'S, answered by a PROCEDURE to its own caller after reading the manifest -- that section
+says so itself, that they "are codes of this app's own rather than common defs". No provider has
+ever answered `BROWSE_NOT_OFFERED`, and none can. So the 422 rule governs the app's layer and this
+404 governs the provider's, and they are not in competition. **THE STATUS OF ITS OWN THAT AN OWNER
+READS IS STILL OWED, AND IT IS CNCORE-187'S**, where a surface asks and a Provider that declines has
+to say so to a person. What the contract fixes here is narrower and is the half that had to come
+first: the wire answer, which rules out the empty list and the fault.
+
+**WHAT IS NOT ASSERTED IS THE DECLINER'S BODY**, where a declared refusal's is. Both real providers
+answer their framework's plain-text 404 here, and requiring JSON would be the contract obliging a
+provider to write a route for an operation it never promised -- the very cost this reading is chosen
+to avoid. `browse`'s own not-offered path is not held to this at all; extending it was not this
+ticket's, and saying so is cheaper than leaving a rule half-applied and unremarked.
+
+**THE HALF THAT LANDED IS THE CONTRACT, AND ONLY THE CONTRACT.** No provider answers the operation:
+CNCORE-186 is where both do, and CNCORE-187 is where a surface asks. Nothing in this repository calls
+it, and `packages/contract` depends on no `@canoncore/*` package, so nothing could. Half a mechanism
+looks finished from outside, so it is written here: what exists today is a shape, a declaration rule
+and a conformance suite that would hold a provider to both.
+
+**SO A THIRD CONFORMANCE WITNESS STANDS FOR THE OFFERED BRANCH**, exactly as the first stands for
+`browse`'s declined one and for the same reason. On the day the contract landed, NOTHING under test
+declared the operation, so every assertion about it would have returned early and the suite would
+have been green because nobody was asked -- this package's own founding failure, arriving inside the
+instrument. The witness declares `containers` and `browse`, lists one container and browses the id it
+listed, because the claim worth asserting beyond shape is that AN ID IT LISTED IS AN ID IT WILL
+BROWSE. One container and not all of them: 465 browsed would be an import rather than a contract
+test, and the largest took 43.8s end to end when CNCORE-159 measured it.
+
+**STILL NOT BUILT, AND STILL THE ONLY REASON THIS RECORD IS `proposed`:** the declared fields.
+`max_cache_age` and the image policy travel the wire from two providers and are read by nothing. The
+section above said landing this would not flip the record, and it does not. Six sections have now
+said so.

@@ -67,6 +67,7 @@ export async function participants(): Promise<Participant[]> {
   }
   found.push(await minimalProvider());
   found.push(await lockedProvider());
+  found.push(await containersProvider());
   return found;
 }
 
@@ -123,11 +124,17 @@ function isNotAQuery(q: string | null): boolean {
  * `close` that actually resolves are none of that, and two copies are two places
  * for a witness to stop being torn down at the end of a run.
  *
- * `aContainer` IS NULL FOR BOTH. Neither declares `browse`, so neither owes the
- * suite a container fixture -- and a witness that named one while declining the
- * operation would be inviting the browse assertions it never promised.
+ * THE CONTAINER FIXTURE IS THE ONE THING A WITNESS PASSES IN, because it is the
+ * one thing that follows from what the witness DECLARES. A witness that named a
+ * container while declining `browse` would be inviting the browse assertions it
+ * never promised, and one that declared the operation without naming a container
+ * would be refused by the suite for declaring it with no fixture.
  */
-async function listeningAs(server: Server, name: string): Promise<Participant> {
+async function listeningAs(
+  server: Server,
+  name: string,
+  aContainer: string | null = null,
+): Promise<Participant> {
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
   if (address === null || typeof address === "string") throw new Error("no port");
@@ -136,7 +143,7 @@ async function listeningAs(server: Server, name: string): Promise<Participant> {
     baseUrl: `http://127.0.0.1:${address.port}`,
     aRecord: MINIMAL_RECORD.id,
     aQuery: MINIMAL_RECORD.title,
-    aContainer: null,
+    aContainer,
     close: () => new Promise<void>((resolve) => server.close(() => resolve())),
   };
 }
@@ -189,6 +196,81 @@ async function minimalProvider(): Promise<Participant> {
   });
   return listeningAs(server, MINIMAL_MANIFEST.name);
 }
+
+/**
+ * A THIRD CONFORMANCE WITNESS: a provider that answers which containers it holds.
+ *
+ * IT IS HERE FOR THE REASON THE FIRST TWO ARE. CNCORE-185 declares the operation
+ * and CNCORE-186 is where the two real providers answer it, so on the day the
+ * contract landed NOTHING under test declared it -- every assertion in `its
+ * containers` would have returned early and the suite would have been green
+ * because nobody was asked. That is the failure this package exists to catch,
+ * arriving inside the instrument, and it is what the suite-level assertion in
+ * `ADR-0033's optionality` fails on.
+ *
+ * WHAT IT STANDS FOR IS THE JOURNEY, NOT A SOURCE. The operation exists so that
+ * browsing does not require knowing an id first, so the claim under test is that
+ * an id this provider LISTED is an id it will BROWSE. A witness that offered
+ * containers it declined to serve would satisfy every shape assertion while
+ * standing for nothing.
+ *
+ * SO IT DECLARES `browse` TOO, which the contract obliges rather than this
+ * witness choosing: `manifest` refuses the pair the other way round.
+ */
+async function containersProvider(): Promise<Participant> {
+  const server: Server = createServer((request, response) => {
+    const url = new URL(request.url ?? "/", "http://127.0.0.1");
+    const answer = jsonAnswer(response);
+
+    if (url.pathname === "/") return answer(CONTAINERS_MANIFEST);
+
+    if (url.pathname === "/containers") return answer({ containers: [OFFERED_CONTAINER] });
+
+    if (url.pathname === `/browse/${OFFERED_CONTAINER.id}`) {
+      return answer({
+        container: OFFERED_CONTAINER,
+        // ONE MEMBER AT ONE POSITION. What browse owes is a container AND its
+        // ordering together, and a container answering an empty ordering with
+        // nothing unplaced is a browse that answered nothing.
+        ordering: [{ position: 1, record: MINIMAL_RECORD }],
+        unplaced: [],
+      });
+    }
+    if (url.pathname.startsWith("/browse/")) return answer({ error: "no such container" }, 404);
+
+    if (url.pathname === "/search") {
+      const q = url.searchParams.get("q");
+      if (isNotAQuery(q)) return answer({ error: "a `q` query parameter is required" }, 400);
+      return answer({ results: q === MINIMAL_RECORD.title ? [MINIMAL_RECORD] : [] });
+    }
+    if (url.pathname === `/lookup/${MINIMAL_RECORD.id}`) return answer(MINIMAL_RECORD);
+    if (url.pathname === `/lookup/${OFFERED_CONTAINER.id}`) return answer(OFFERED_CONTAINER);
+    if (url.pathname.startsWith("/lookup/")) return answer({ error: "no such record" }, 404);
+
+    return answer({ error: "not found" }, 404);
+  });
+  return listeningAs(server, CONTAINERS_MANIFEST.name, OFFERED_CONTAINER.id);
+}
+
+/**
+ * The container this witness offers, and the one it browses. THE SAME RECORD in
+ * both answers, because that identity is the operation's whole claim.
+ */
+const OFFERED_CONTAINER = {
+  id: "c1",
+  title: "A container this provider holds",
+  kind: "a container of its own",
+  released: [],
+  writers: [],
+  series: null,
+  url: "https://example.invalid/c1",
+};
+
+const CONTAINERS_MANIFEST = {
+  name: "a provider that offers the containers it holds",
+  versions: [1],
+  operations: ["search", "lookup", "browse", "containers"],
+};
 
 /** Where this witness says to supply it. A PATH, never a URL (ADR-0122). */
 export const LOCKED_UNLOCK_PATH = "/unlock";

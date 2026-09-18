@@ -10,8 +10,9 @@ status: accepted
 > repository is touched, so there is no cross-repo pair here and nothing waiting on a second ticket.
 
 Importing the wiki's corpus is 465 Containers. `browse` takes ONE container id (ADR-0033) and CMPP
-has no operation answering "which Containers do you have", so before this the corpus was 465 form
-submissions with an id pasted into each.
+had no operation answering "which Containers do you have", so before this the corpus was 465 form
+submissions with an id pasted into each. CMPP declares one since CNCORE-185 and no Provider answers
+it yet, so the list is still the Owner's own and nothing here changes.
 
 **The loop is four lines. What was missing is somewhere for the loop's POSITION to live.** A walk
 holding where it got to in one process's memory starts again from the beginning whenever anything

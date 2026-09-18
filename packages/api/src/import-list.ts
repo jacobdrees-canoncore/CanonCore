@@ -5,10 +5,11 @@ import type { AppRouterClient } from "./routers";
  * it.
  *
  * THE IDS ARE SUPPLIED RATHER THAN ENUMERATED, and that is ADR-0033 rather than
- * a gap here. `browse` takes one Container id and CMPP has no operation
- * answering "which Containers do you have", so there is nothing to ask. The wiki
- * Provider already enumerates the corpus for its own measurement, so the list
- * exists -- it just does not travel over CMPP.
+ * a gap here. `browse` takes one Container id, and while CMPP declares an
+ * operation answering "which Containers do you have" since CNCORE-185, no
+ * Provider answers it yet -- so there is still nothing to ask. The wiki Provider
+ * already enumerates the corpus for its own measurement, so the list exists -- it
+ * just does not travel over CMPP.
  */
 export interface ContainerList {
   /** The Provider's base URL, which for a Provider IS its identity (ADR-0031). */
