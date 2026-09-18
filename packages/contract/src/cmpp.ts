@@ -186,22 +186,57 @@ export const browseResponse = z.looseObject({
 });
 
 /**
- * What a provider declares about itself.
+ * What the `containers` operation answers: every container this provider holds.
  *
- * `versions` IS OPTIONAL AND ABSENCE MEANS THE FIRST VERSION (ADR-0032), never
- * required -- the W3C Reconciliation Service API this is taken from contradicts
- * itself by listing the field under `required` while inferring 0.1 from absence
- * in its prose, and the prose is taken because a required field breaks every
- * provider that already exists on the day it lands.
+ * RECORDS RATHER THAN IDS, because ADR-0004 makes a container a record like any
+ * other and `browse` already answers one as a record. A list of bare ids would
+ * oblige the app to `lookup` each one before it could show the Owner a name,
+ * which is the wall this operation exists to knock down arriving one level along.
+ *
+ * WRAPPED IN AN OBJECT, as `search` is and for the same reason: a bare array has
+ * nowhere to grow a cursor, and a provider that one day holds more containers
+ * than it will answer at once needs one. Left out here because no provider does
+ * -- the wiki holds 465 `Theory:Timeline` pages -- and because an optional field
+ * added later is an addition rather than a change (ADR-0032), which is the
+ * argument `credential` already rests on.
+ *
+ * AN EMPTY LIST IS AN ANSWER, exactly as an empty `results` is: it says this
+ * source holds no containers. It is NOT how a provider says it does not offer
+ * the operation -- that is declared in the manifest, and conflating the two is
+ * what this operation exists to stop.
  */
-export const manifest = z.looseObject({
+export const containersResponse = z.looseObject({ containers: z.array(record) });
+
+/** The two operations every provider must answer (ADR-0033). */
+export const REQUIRED_OPERATIONS = ["search", "lookup"] as const;
+
+/** A container AND its ordering, together. Declared when offered, never assumed. */
+export const BROWSE_OPERATION = "browse";
+
+/**
+ * Which containers this provider holds. Declared when offered, never assumed.
+ *
+ * NAMED FOR WHAT IT ANSWERS rather than for the asking, which is how the two
+ * products that solve this solve it: Plex answers its libraries at
+ * `/library/sections` and Jellyfin its own at `/Library/MediaFolders`. The name
+ * is the path, as it is for the other three, so `GET /containers` is the whole
+ * of the request.
+ */
+export const CONTAINERS_OPERATION = "containers";
+
+const declaration = z.looseObject({
   name: z.string().min(1),
   versions: z.array(z.number().int().positive()).default([1]),
   /**
    * WHICH OPERATIONS THIS PROVIDER ANSWERS. `search` and `lookup` are required of
-   * everyone and `browse` is the one a provider may decline (ADR-0033) -- so what
-   * is checked here is that the required two are declared, never that all three
-   * are.
+   * everyone (ADR-0033); `browse` and `containers` are the two a provider may
+   * decline, so a manifest naming two of the four is well-formed.
+   *
+   * THAT THE REQUIRED TWO ARE THERE IS NOT CHECKED HERE, and this comment said
+   * it was. It is checked by the conformance suite, against a provider answering
+   * over HTTP, because a provider that DECLARES `search` is not thereby a
+   * provider that answers one -- which is the claim worth holding and is not a
+   * claim a schema can make. The one rule this schema does enforce is below.
    */
   operations: z.array(z.string().min(1)),
   /** Seconds. A source's cache CEILING, where it imposes one (ADR-0037). */
@@ -331,10 +366,31 @@ export const manifest = z.looseObject({
     .optional(),
 });
 
+/**
+ * THE MANIFEST, AND THE ONE RULE ITS OPERATIONS LIST CARRIES BEYOND THE REQUIRED
+ * TWO: LISTING CONTAINERS OBLIGES BROWSING THEM.
+ *
+ * The operation exists so that browsing does not require knowing an id first
+ * (ADR-0033), so a provider that answers `containers` while declining `browse`
+ * offers the Owner a page of ids it will not serve. The two are separately
+ * optional and this one direction is not: `browse` alone is what both real
+ * providers declare and stays well-formed.
+ *
+ * A MALFORMED MANIFEST RATHER THAN A DECLARATION TO BE READ AROUND. The
+ * declaration is a promise, and a promise of ids this provider will not serve is
+ * not a capability the app could honour by being careful.
+ *
+ * IT IS A SEPARATE BINDING so that the refinement reads on its own line rather
+ * than re-indenting every field above it, which is a diff nobody can review.
+ */
+export const manifest = declaration.refine(
+  (declared) =>
+    !declared.operations.includes(CONTAINERS_OPERATION) ||
+    declared.operations.includes(BROWSE_OPERATION),
+  {
+    error: `a provider declaring \`${CONTAINERS_OPERATION}\` must declare \`${BROWSE_OPERATION}\` too: listing containers nothing can browse offers ids that lead nowhere`,
+    path: ["operations"],
+  },
+);
+
 export type CmppManifest = z.infer<typeof manifest>;
-
-/** The two operations every provider must answer (ADR-0033). */
-export const REQUIRED_OPERATIONS = ["search", "lookup"] as const;
-
-/** The one it may decline. Declared when offered, and never assumed. */
-export const OPTIONAL_OPERATION = "browse";

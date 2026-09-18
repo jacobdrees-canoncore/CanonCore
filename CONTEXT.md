@@ -319,9 +319,22 @@ The CMPP operation returning one record by its stable id. Required of every prov
 The optional CMPP operation returning a container together with its ordering, so it yields
 placements directly.
 
+**Containers**:
+The optional CMPP operation returning the Containers a Provider holds, as records rather than ids, so
+that browsing one does not require knowing an id the Provider never showed anyone. A Provider
+declaring it must declare Browse too: a list of ids nothing can browse is a page of dead ends. A
+Provider that declines it is not broken and is not empty, and the two must never read alike -- an
+absent capability is declared in the manifest, where an empty answer is a claim that this source
+holds no Containers.
+_Not_ the Container above, which is an Item this catalogue holds. This is the CMPP operation that
+answers which ones a Provider has, and it is named for what it answers because the operation's name
+is its path.
+_Avoid_: list (a Listing is a different thing), discovery, index
+
 **Import run**:
 One walk over a LIST of Container ids at one Provider, and where it got to. The list is the Owner's
-own -- nothing in CMPP answers "which Containers do you have" -- and the walk browses one Container
+own -- CMPP has declared an operation answering "which Containers do you have" since CNCORE-185, and
+no Provider answers it yet -- and the walk browses one Container
 at a time because a Provider is one process. A Container of a run is done when it has LANDED, so
 handing the same list over again asks again for whatever refused as well as for whatever was never
 reached: a lapsed Credential does not stop a run, it makes the rest of it refuse (ADR-0135).

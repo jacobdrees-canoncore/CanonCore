@@ -92,6 +92,10 @@ const FORMS = [
   { by: "number", pattern: /(?<![\w:.-])(\d{4}):(\d+)(?:-\d+)?(?![\d.:])/g },
 ] as const;
 
+// TODO(CNCORE-204): `isFile()` is lstat here and in `rootProse` above, so a
+// SYMLINKED markdown document reads false and leaves this sweep unremarked --
+// the same defect CNCORE-200 and CNCORE-201 refused one level up, in a third
+// reader. Nothing under `docs/` or at the root is a symlink today.
 /** Every markdown file this rule governs, spelled as the tree spells it. */
 function prose(): string[] {
   const underDocs = readdirSync(join(repoRoot, "docs"), { recursive: true, withFileTypes: true })

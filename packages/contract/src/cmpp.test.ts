@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { manifest, record } from "./cmpp";
+import { containersResponse, manifest, record } from "./cmpp";
 
 /**
  * WHAT THE SPECIFICATION REFUSES, asserted against the specification itself.
@@ -187,5 +187,73 @@ describe("the contract's credential declaration", () => {
     });
 
     expect(declared.credential?.state_changed_at).toBeNull();
+  });
+});
+
+/**
+ * WHAT THE `containers` OPERATION ANSWERS, asserted against the specification itself.
+ *
+ * The shape a provider is held to here is the one the suite next door cannot
+ * prove: no provider under test sends a bare id, so an assertion that only
+ * watched their traffic would pass forever without the rule existing.
+ */
+describe("the contract's containers response", () => {
+  it("carries records, so a container arrives ready to render", async () => {
+    const answered = containersResponse.parse({ containers: [A_RECORD] });
+
+    expect(answered.containers[0]?.id).toBe(A_RECORD.id);
+  });
+
+  it("admits an empty list, because a source that holds no containers is answering", async () => {
+    // The same reading `search`'s empty `results` gets. It is NOT how a provider
+    // says it does not offer the operation -- that is declared in the manifest,
+    // and conflating the two is what this operation exists to stop.
+    const answered = containersResponse.parse({ containers: [] });
+
+    expect(answered.containers).toEqual([]);
+  });
+
+  it("refuses a bare id, which is the shape that would cost a second call", async () => {
+    // ADR-0004: a container is a record like any other, and `browse` already
+    // answers one as a record. A provider sending ids alone would oblige the app
+    // to `lookup` every one of them before it could show the Owner a name.
+    expect(containersResponse.safeParse({ containers: [A_RECORD.id] }).success).toBe(false);
+  });
+});
+
+/**
+ * WHICH OPERATIONS A MANIFEST MAY DECLARE TOGETHER.
+ *
+ * The one rule the operations list carries beyond "the required two are there",
+ * and it is here rather than in the suite next door because no provider under
+ * test declares the pair wrongly -- so watching their traffic would never
+ * exercise it.
+ */
+describe("the contract's operations", () => {
+  it("lets a provider decline `containers`, as it declines `browse`", async () => {
+    // The whole basis on which an operation can be added to a shipped contract
+    // (ADR-0032): a provider that wants nothing to do with it is untouched on
+    // the day it lands. Both real providers are exactly this.
+    expect(manifest.safeParse(A_MANIFEST).success).toBe(true);
+  });
+
+  it("admits a provider that lists its containers and browses them", async () => {
+    expect(
+      manifest.safeParse({
+        ...A_MANIFEST,
+        operations: ["search", "lookup", "browse", "containers"],
+      }).success,
+    ).toBe(true);
+  });
+
+  it("refuses listing containers without browse, which offers ids nothing can use", async () => {
+    // The operation exists so that browsing does not require knowing an id
+    // first, so a provider that answers `containers` while declining `browse` hands
+    // the Owner a page of dead ends. The two are separately optional and this
+    // one direction is not: a declaration is a promise, and this pair promises
+    // ids it will not serve.
+    expect(
+      manifest.safeParse({ ...A_MANIFEST, operations: ["search", "lookup", "containers"] }).success,
+    ).toBe(false);
   });
 });

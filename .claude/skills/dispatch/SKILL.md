@@ -38,6 +38,12 @@ a line on a ladder no ticket owns: the migration index, the shared fixture, a to
 and CNCORE-119 each built `migration_12`; the second was still in its worktree when the first
 merged, and one `terminal send` turned a silent overwrite into a renumber.
 
+**THE ADR NUMBER IS A RUNG AND IT DOES NOT LOOK LIKE ONE.** `docs/adr/` is a ladder no ticket owns,
+so two branches both take the next free number and the loser's CI dies on `adr-numbering.test.ts`.
+CNCORE-177 took 0136 while CNCORE-167 was already holding it, 2026-09-16 — the guard caught what
+the merge should have announced. Broadcast it with the migration index, and name what is CLAIMED
+rather than only what is taken: told "0137 is CNCORE-167's", CNCORE-161 took 0138 unprompted.
+
 **3. Recompute the frontier.** Nothing else is doing it. A ticket is dispatchable when every file
 it names is free of every open branch.
 
@@ -52,6 +58,13 @@ ticket against what is already RUNNING and says nothing about the four you are a
 together. Grep for the shared file before you claim there is none: CNCORE-160 and CNCORE-163 both
 edit `.github/workflows/ci.yml`, one file holding every job, and "zero overlap between any two" was
 claimed and then withdrawn in the same pass, 2026-09-14.
+
+**AND A TREE IS FILES, NOT A PACKAGE NAME.** Reading titles is not the check. CNCORE-177 was filed
+as `packages/ui` and edited `apps/web/src/app/items/[id]/page.tsx` — the file CNCORE-176 was
+rewriting, named in 177's own body under a title that says otherwise. 176 went DIRTY three times in
+one pass for it. `docs/adr/0103` was edited by five tickets in one day. Run
+`git diff --name-only origin/main...HEAD` over every live branch and compare it against what the
+candidate actually names.
 
 **4. Say what each candidate CHANGES.** A manifest is not an explanation.
 `packages/tasks/src/registry.ts` and "unblocks 11" tell the user nothing about whether to spend an
@@ -84,6 +97,18 @@ only on one reason to change (`CLAUDE.md`).
 Done when every merged PR's worktree is gone and the frontier is in front of the user. New tickets
 arriving is the review working; one arriving that nothing blocks belongs in the next ask rather than
 in a worktree.
+
+## How full
+
+**FOUR IS A CANONCORE COUNT, NOT A TOTAL.** It comes from one `pnpm test:e2e` peaking at 55-60 of
+288 usable connections on the shared Postgres (CNCORE-137), and only CanonCore worktrees reach it:
+`provider-wiki` runs DuckDB fixtures and `provider-tmdb` hits the live API. Six agents with four
+contending is the shape, not a breach — so count the CanonCore worktrees, never the list.
+
+**FILL IT FROM A FREE TREE RATHER THAN LEAVING IT EMPTY.** Throughput is the goal and the collision
+rule is how you reach it, not a reason to under-fill. On 2026-09-16 the corpus run owned
+`packages/db`, so the rest went to `ci.yml`, `packages/ui`, one `apps/web` file and a provider repo.
+Reach for a candidate that shares a file only when nothing in a free tree is left.
 
 ## Drift, and why it is yours
 
