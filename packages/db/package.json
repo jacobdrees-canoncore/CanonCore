@@ -10,6 +10,7 @@
     "./testing/setup": "./src/testing/setup.ts",
     "./testing/catalogue": "./src/testing/catalogue.ts",
     "./testing/build-database": "./src/testing/build-database.ts",
+    "./testing/statements": "./src/testing/statements.ts",
     "./seed": "./src/seed.ts"
   },
   "scripts": {
