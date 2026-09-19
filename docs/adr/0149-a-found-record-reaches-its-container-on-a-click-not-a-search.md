@@ -106,6 +106,26 @@ have different remedies and an Owner told the wrong one goes looking for the wro
 the arm `provider.container` needs has nothing to stand for here, and inventing one would describe a
 Provider the contract does not permit.
 
+## What review taught: `null` is not the only spelling of absent
+
+`cmppRecord` holds `series_id` and `series` to `z.string().nullable()` with **no `.min(1)`**, so
+`""` is a WELL-FORMED CMPP answer. It parses clean, passes a `=== null` guard, and lands on this
+procedure's output schema, which demands `.min(1)`.
+
+**AND THAT FAILS OUTSIDE THE `try`**, because oRPC validates what the handler RETURNED rather than
+what it did. So the one thing this union exists to prevent — a provider having a bad day taking
+`/import` down with a 500 — was reachable by an empty string, through the arm meant to be the happy
+one. Reproduced before it was fixed: `Output validation failed … expected string to have >=1
+characters`.
+
+An empty id **names no Container** ([[0066-an-id-that-cannot-be-an-identity-addresses-nothing]]: an
+id that cannot BE an identity addresses nothing), and an empty name is **no name**, so it joins
+`null` rather than meeting the same refusal one field over.
+
+**THE GENERAL RULE, BECAUSE THIS WILL RECUR:** where a consumer schema is laxer than an output
+schema, every field that crosses between them is a 500 waiting for a provider to send the empty
+string. The guard is `!value`, not `value !== null`.
+
 ## What implementation taught: a wrapper loses whose sentence it is
 
 `askingTheProvider` raises `ProviderFailed(reasonFor(error))`, which carries the reason as a VALUE and

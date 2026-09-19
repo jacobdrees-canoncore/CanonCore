@@ -1054,6 +1054,12 @@ function Candidate({
  * NO NOTICE STANDS WHERE THIS WOULD BE FOR A VISITOR, unlike `Take` beside it,
  * because nothing is withheld here: there is no operation this reader is not
  * being offered, so there is nothing for a `LogIn` to name.
+ *
+ * TODO(CNCORE-239): THE ADDRESS CARRIES NO `q`, SO SUBMITTING THIS LOSES THE
+ * SEARCH that found the record -- the browser's Back button is the only way to
+ * those results. Carrying the query would make the page re-run it, which is a
+ * Provider fan-out per click on a road built to cost one lookup (ADR-0149), so
+ * the way back is its own decision rather than a field to add here.
  */
 function ItsContainerAsked({ baseUrl, recordId }: { baseUrl: string; recordId: string }) {
   return (

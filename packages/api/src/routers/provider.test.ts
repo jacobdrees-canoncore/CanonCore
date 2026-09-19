@@ -1999,6 +1999,67 @@ describe("provider.containerOf", () => {
     });
   });
 
+  it("reads an empty container id as naming none, rather than answering a 500", async () => {
+    /*
+     * A WELL-FORMED CMPP ANSWER THIS UNION HAD NO ARM FOR. `cmppRecord` holds
+     * `series_id` to `z.string().nullable()` with NO `.min(1)`, so `""` parses
+     * clean and reaches the handler as a string -- past a `=== null` guard, into
+     * the `container` arm, and onto an output schema demanding `.min(1)`.
+     *
+     * WHICH FAILS OUTSIDE THE `try`, because oRPC validates what the handler
+     * RETURNED. So the one thing this procedure exists to prevent -- a provider
+     * having a bad day taking `/import` down with a 500 -- is exactly what an
+     * empty string did. Found by review; this is the assertion that was missing.
+     *
+     * AN EMPTY ID NAMES NO CONTAINER, which is ADR-0066's reading: an id that
+     * cannot BE an identity addresses nothing, exactly as one nobody minted
+     * does. So it is the answer beside it rather than a fourth arm.
+     */
+    const baseUrl = await stubProvider({
+      "movie:603": { ...THE_MATRIX, series: "", series_id: "" },
+    });
+
+    const answer = await call(
+      appRouter.provider.containerOf,
+      { baseUrl, recordId: "movie:603" },
+      { context },
+    );
+
+    expect(answer).toEqual({
+      answer: "no-container",
+      providerName: "provider-wiki",
+      recordTitle: "The Matrix",
+    });
+  });
+
+  it("carries no name for a container the provider named an id and no name for", async () => {
+    /*
+     * THE TWO FIELDS ARE INDEPENDENT, and a provider sending an id with no name
+     * is well-formed. The id is what a browse takes, so the way onward exists;
+     * what is absent is the words to render it under, and `null` is how the
+     * page is told to fall back rather than link an empty string.
+     *
+     * `""` AND `null` ARRIVE AS ONE ANSWER HERE, because a name nobody can read
+     * is not a name -- and the alternative is an output schema that refuses it
+     * and a 500 for the trouble.
+     */
+    const baseUrl = await stubProvider({
+      "movie:603": { ...THE_MATRIX, series: "" },
+    });
+
+    const answer = await call(
+      appRouter.provider.containerOf,
+      { baseUrl, recordId: "movie:603" },
+      { context },
+    );
+
+    expect(answer).toMatchObject({
+      answer: "container",
+      containerId: "collection:2344",
+      containerTitle: null,
+    });
+  });
+
   it("costs one lookup and no browse, which is what makes it the Owner's to ask for", async () => {
     /*
      * WHAT THE READ COSTS, ASSERTED RATHER THAN INTENDED. The design of this

@@ -1359,7 +1359,21 @@ export const provider = {
         const record = await client.lookup(input.recordId);
         const providerName = manifest.name;
         if (!record) return { answer: "no-such-record" as const, providerName };
-        if (record.series_id === null) {
+        /*
+         * AN EMPTY ID NAMES NO CONTAINER, AND `null` IS NOT THE ONLY SPELLING OF
+         * ABSENT. `cmppRecord` holds `series_id` to `z.string().nullable()` with
+         * NO `.min(1)`, so `""` is a well-formed CMPP answer -- it parses clean,
+         * passes a `=== null` guard, and lands on an output schema demanding
+         * `.min(1)`. THAT FAILS OUTSIDE THE `try`, because oRPC validates what
+         * the handler RETURNED: the one thing this union exists to prevent -- a
+         * provider taking `/import` down with a 500 -- done by an empty string.
+         *
+         * ADR-0066 IS WHY IT IS THIS ANSWER RATHER THAN A FOURTH ARM: an id that
+         * cannot BE an identity addresses nothing, exactly as one nobody minted
+         * does. There is no container to reach, which is what `no-container`
+         * says.
+         */
+        if (!record.series_id) {
           return { answer: "no-container" as const, providerName, recordTitle: record.title };
         }
         return {
@@ -1367,7 +1381,13 @@ export const provider = {
           providerName,
           recordTitle: record.title,
           containerId: record.series_id,
-          containerTitle: record.series,
+          /*
+           * AND A NAME NOBODY CAN READ IS NOT A NAME. The two fields are
+           * independent -- an id with no name is well-formed -- so `""` joins
+           * `null` here rather than reaching the same `.min(1)` refusal one
+           * field over. The page falls back to naming the thing instead.
+           */
+          containerTitle: record.series || null,
         };
       } catch (error) {
         // BOUNDED AND ATTRIBUTED, by the one rule `provider.search`'s `failed`
