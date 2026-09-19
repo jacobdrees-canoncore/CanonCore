@@ -167,8 +167,12 @@ reads it is now the Owner.
 ## As built, under CNCORE-95
 
 `reasonFor(thrown)` in `@canoncore/providers` is the single mapping, and `failureReason` is the zod
-schema both procedures state as their output — so the ceiling is in the OpenAPI document a caller
-reads rather than an invariant two handlers each had to remember.
+schema both procedures state as their output — so the ceiling is in the output schema a caller is
+held to rather than an invariant two handlers each had to remember. **It is NOT in the OpenAPI
+document, which this sentence claimed until CNCORE-165 read the document and found `{"type":
+"string"}`.** zod 4.6.5 keeps a length on its check's own `def` and leaves `_zod.bag` empty, and
+@orpc/zod 1.15.0 reads only the bag, so every length and format in this API is dropped from the
+document. 1.15.2 reads the checks and moves the whole @orpc family with it (CNCORE-212).
 
 **ONE FUNCTION RATHER THAN TWO LOCAL TRUNCATIONS, because the surface is still growing.** CNCORE-100
 and CNCORE-101 are both blocked by this ticket on purpose: a live provider failing on an expired
@@ -521,8 +525,9 @@ declining `browse` well-formed rather than a failure.
 `PROVIDER_REFUSED` carried a bare `message` string. That is the same field the read surfaces carry as
 `{wrote, text}`, spelled twice — and the half a string cannot carry is `wrote`, so a caller holding
 one had no way to tell this catalogue's sentence about the Owner's own settings from a third party's
-text. It is `data: failureReason` now, declared, so the ceiling is in the OpenAPI document rather
-than an invariant each handler remembered.
+text. It is `data: failureReason` now, declared, so the ceiling is in the output schema rather than
+an invariant each handler remembered — and not yet in the OpenAPI document, for the reason "As built,
+under CNCORE-95" gives (CNCORE-212).
 
 Its MESSAGE was wrong too, and in the way this record warns about. "That provider URL is not one this
 instance may reach" is true of ADR-0034 refusing a URL and false of the other two the branch carries
@@ -622,3 +627,110 @@ page, and it is refused. A reason in a query parameter is a stranger choosing th
 does not own, arriving by a route with no boundary to ask `wrote` about — this record's opening
 sentence with the attacker's half made easier, since anyone could author that link where today only
 a Provider the Owner configured can author the sentence.
+
+## A Provider's own name is bounded where the manifest is read (CNCORE-165)
+
+This record's opening sentence — a stranger choosing the length and content of text on a page it
+does not own — was true of one more field than it had counted, and it was the one that travels
+furthest. A Provider's manifest `name` becomes the heading over its answers on `/import`, the
+`label` on the Source row an import writes, and from there the name beside every value that source
+claims on every Item page. Its only bound was `MAX_BODY_BYTES`, four mebibytes. Three sites
+bounded Provider prose already — `reasonFor`, the credential's `label`, and `BrowseNotOffered`'s
+sentence, which bounded this very name — and the fourth looked exactly like them, because a bounded
+field and a raw one were both spelled `z.string().min(1)`.
+
+### At the field, which is where the defect's shape says to put it
+
+**Bounding at each surface is how this record's defect keeps recurring**, and it had just recurred:
+`BrowseNotOffered` bounded `name` correctly while `providerFrom` and `provider.search` read the same
+value raw. So `name` is bounded in `cmppManifest`, where a Provider's self-description ENTERS this
+app, and nothing downstream can read the raw value at all. `boundedProse(whenSilent)` is the schema
+form of `bounded`, published beside it, and the credential's `label` moved to it from `asDeclared`
+in the same change. One mechanism for one rule; a label bounded one way and a name another would
+have left the manifest unable to say which rule it followed.
+
+**A FLOOR IS REQUIRED, NOT OPTIONAL.** Measured on zod 4.6.5, `min(1)` runs before a transform, so
+`""` is refused outright and `" "` is what reaches the cap — which collapses it to nothing. An empty
+name then fails the `min(1)` every surface declares on its output: a Provider crashing the request
+that reads it, which is what `SILENT` prevents for a reason. `whenSilent` has no default because no
+house sentence fits both fields.
+
+### The rule a fifth field meets, and what enforces it
+
+**Every string in the manifest is DECIDED AT ITS FIELD: bounded there, or named with the reason it
+is not.** `cmppManifest` states it where a fifth field would be added, and `cmpp.test.ts` enforces
+it: the test walks the schema through zod's public API and fails on any bare `z.string()` nobody has
+named. Measured both ways: adding `description: z.string().min(1)` fails it, and so does `name`
+spelled as it was filed. That is what the ticket asked for by "stated rather than left to review" —
+the four surfaces before this one were each right because somebody remembered, and a comment is
+still somebody remembering.
+
+- **Prose CanonCore frames is `boundedProse`**: cut, and floored. `name`, `credential.label`.
+- **Prose an obligation requires verbatim cannot be cut**, because `Attribution` prints a licence
+  notice unaltered and cutting one is the breach it exists to prevent. `logo.data_uri` is refused
+  past `MAX_LOGO_CHARS`. **How `attribution.notice` and `logo.alt` are bounded is NOT this record's
+  decision**: a refusal inside `cmppManifest` refuses the whole manifest, and whether that or refusing
+  only the attribution is right is CNCORE-213's to decide. The test names both as exactly that.
+- **A field never printed as text** is named with that reason: `operations`, `stored_variant`, and
+  `unlock_path`, which `unlockUrlFor` judges before it reaches an href.
+- **A record's fields are out of it.** A manifest is a Provider describing itself; a record is a
+  source's claim, which the catalogue holds and the Owner curates, and cutting a title would corrupt
+  the catalogue rather than protect a page.
+
+**THIS RECORD STAYS `accepted`, AND THAT IS A CLAIM WORTH CHECKING.** What this section DECIDES is
+built: framed prose is bounded at its field, and every string in the manifest is classified under a
+test. What it leaves open — how a verbatim notice is bounded — is an undecided question on its own
+ticket rather than a mechanism built halfway, and the test holds the two fields at "undecided" so
+neither can be mistaken for done.
+
+### The output schema states it, and oRPC enforces it
+
+`provider.search` and `provider.container` answered the name at four fields, each
+`z.string().min(1)`. They share one `declaredName` schema now, carrying `max(REASON_MAX_LENGTH)`
+exactly as `failureReason.text` and the settings `label` do.
+
+**IT IS ENFORCED, WHICH IS MORE THAN THE WORD "STATES" SAYS.** oRPC validates every answer against
+it. With the parse-side cap removed and the floor kept, every `/import` search answered **500** —
+one Provider's name taking the page down for every other Provider on it — and eight tests in
+`import-page.test.ts` failed on it. That is the right failure for what it now means: `cmppManifest`
+bounds the name before any router code sees it, so a name past this ceiling can only be a bug in
+this app, and a bug belongs in the log with its stack (ADR-0125) rather than on a page as a flood.
+
+It is not yet in the OpenAPI document, for the reason "As built, under CNCORE-95" now gives
+(CNCORE-212). CNCORE-165 wrote that test first, found every length in the API missing from the
+document, and split the fix out because 1.15.2 peer-requires `@orpc/server` and `@orpc/contract` at
+exactly 1.15.2 — the RPC stack moving together is not a change about a Provider's name.
+
+### Asserted at three seams, each proving what the others cannot
+
+- **The parse** (`cmpp.test.ts`): a hundred-thousand-character name is cut, a whitespace name is
+  floored, and the label is bounded where the manifest is read rather than where a page prints it.
+- **The row** (`provider.test.ts`): an import from that Provider writes a bounded `sources.label`.
+  The row outlives the request and is printed on pages the Provider does not own, and the parse test
+  cannot prove nothing between the read and the write went back for the raw value. With the cap
+  reverted it failed `expected 100000 to be less than or equal to 300`: the flood reached the row.
+- **The page** (`import-page.test.ts`), beside `aProviderThatFloodsItsName`. **Run against the
+  defect AS FILED** — no parse-side cap, and an output ceiling loosened so the flood passes it —
+  exactly one of the file's thirty-two tests fails, and it is this one: the page printed the flood.
+  It asserts the name IS listed as well as that no run of it exceeds the cap, because a page that
+  dropped the Provider entirely would satisfy the second half alone.
+
+**THE ITEM PAGE IS NOT A FOURTH WITNESS, and that is a judgement rather than an omission.** It prints
+`sources.label` through the read path and can only print what the row holds, which the row test
+asserts directly. A witness there would need a sixth catalogue imported through a flooding Provider
+to assert the same string through a longer path.
+
+### A cap on length is not a cap on width, which only walking it showed
+
+Walked by hand on this branch under `next dev`, with a Provider whose name is `"flood"` twenty
+thousand times: the longest run of the name anywhere in the `/import` document was exactly 300
+characters, so the cap held. **And the heading still ran past the right edge of the viewport**,
+because three hundred characters with no break in them are one unbreakable line. The Provider no
+longer chooses how LONG the page is and still chooses how WIDE, by the kind of lever "THE CAP IS NOT
+THE ONLY LEVER A PROVIDER HAS OVER A PAGE" records for bidirectional overrides.
+
+Nothing in `apps/web` or `packages/ui` wraps an unbroken word, so it is not this field's defect but
+every 300-character surface's, reasons included, and where the wrap lives is a decision of its own
+(CNCORE-217). No test in this section would have found it: each asserts what the document CONTAINS,
+and this is how the document LAYS OUT.
+

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
-import { cmppManifest, cmppRecord } from "./index";
+import { cmppManifest, cmppRecord, REASON_MAX_LENGTH } from "./index";
 
 /** A record that parses, so a case below differs from it in exactly one field. */
 const A_RECORD = {
@@ -104,6 +105,21 @@ describe("a declared credential", () => {
     expect(manifest.credential).not.toHaveProperty("fields");
   });
 
+  /**
+   * THE SAME RULE AS THE NAME BELOW, AT THE SAME SEAM. This was bounded in
+   * `asDeclared` until CNCORE-165 -- correctly, and one surface at a time, which
+   * is what left the manifest unable to say which of its fields somebody had
+   * thought about. Both are `boundedProse` now.
+   */
+  it("bounds the label where the manifest is read, not where a page prints it", () => {
+    const { credential } = cmppManifest.parse({
+      ...DECLARING,
+      credential: { ...DECLARING.credential, label: "unbounded ".repeat(500) },
+    });
+
+    expect(credential?.label.length).toBeLessThanOrEqual(REASON_MAX_LENGTH);
+  });
+
   /** A provider that needs nothing declares nothing, and stays conformant. */
   it("is absent from a provider that declares none", () => {
     expect(
@@ -111,3 +127,110 @@ describe("a declared credential", () => {
     ).toBeUndefined();
   });
 });
+
+/**
+ * A PROVIDER DESCRIBING ITSELF IS A STRANGER'S PROSE ON A PAGE IT DOES NOT OWN
+ * (ADR-0123, CNCORE-165).
+ *
+ * `name` travels further than any other string in this manifest: to the import
+ * surface, onto the Source row an import writes, and from there beside every
+ * statement on every Item page that source ever claimed a value for. Its only
+ * bound was `MAX_BODY_BYTES`, which admits four mebibytes of it.
+ */
+describe("a provider's declared name", () => {
+  it("is cut to what the Owner reads, so a provider does not choose a page's length", () => {
+    const flooding = "a".repeat(100_000);
+
+    const { name } = cmppManifest.parse({ name: flooding });
+
+    expect(name.length).toBeLessThanOrEqual(REASON_MAX_LENGTH);
+  });
+
+  /**
+   * AND A FLOOR, FOR THE REASON `reasonFor` HAS ONE. `min(1)` admits a name of a
+   * single space, which the cap above collapses to nothing -- and an empty name
+   * fails the `min(1)` every surface declares on its OUTPUT, which is the 500 a
+   * provider must not be able to cause. Measured on zod 4.6.5: `min(1)` runs
+   * before the transform, so `""` is refused outright and `" "` is what actually
+   * reaches it.
+   */
+  it("says so when the provider named itself in nothing but whitespace", () => {
+    const { name } = cmppManifest.parse({ name: "   " });
+
+    expect(name).toContain("did not name itself");
+  });
+});
+
+/**
+ * THE RULE A FIFTH FIELD MEETS, ENFORCED RATHER THAN LEFT TO REVIEW (CNCORE-165).
+ *
+ * `name` was the fourth surface to carry a Provider's prose and the first nobody
+ * had bounded, and it was spelled exactly as the bounded ones were. A comment on
+ * `cmppManifest` states the rule; this is what fails the build when a field is
+ * added without anybody deciding which kind it is.
+ *
+ * EVERY BARE STRING IN THE MANIFEST IS NAMED HERE WITH ITS REASON. A field
+ * declared with `boundedProse` is a `ZodPipe` and has been decided by its
+ * spelling, so the walk stops there; a bare `z.string()` is either on this list
+ * or it is the defect this ticket closed, arriving again.
+ *
+ * WALKED THROUGH ZOD'S PUBLIC API ONLY -- `.shape`, `.unwrap()`, `.element`,
+ * `.options` -- and not `_zod`, which is the internal CNCORE-212 found zod 4.6
+ * had quietly stopped filling. And A TYPE THE WALK DOES NOT KNOW IS A FAILURE,
+ * not a skip: a wrapper it cannot see inside is a string it cannot see.
+ */
+describe("every string a provider declares about itself", () => {
+  const DECIDED: Record<string, string> = {
+    operations: "read for `browse`, never printed",
+    "images.stored_variant": "read by nothing in this app yet",
+    "images.stored_variant{key}": "read by nothing in this app yet",
+    "images.stored_variant{value}": "read by nothing in this app yet",
+    "attribution.notice": "verbatim by obligation, so a refusal and never a cut (CNCORE-213)",
+    "attribution.logo.alt": "verbatim by obligation, so a refusal and never a cut (CNCORE-213)",
+    "attribution.logo.data_uri": "verbatim bytes, refused past MAX_LOGO_CHARS",
+    "credential.unlock_path": "never printed; `unlockUrlFor` joins it and checks the origin",
+  };
+
+  it("is bounded at its field, or named here with the reason it is not", () => {
+    expect(bareStringsIn(cmppManifest).sort()).toEqual(Object.keys(DECIDED).sort());
+  });
+});
+
+/** Where a bare `z.string()` sits in a schema, by path. */
+function bareStringsIn(schema: z.ZodType, path = ""): string[] {
+  const at = (key: string) => (path ? `${path}.${key}` : key);
+  if (schema instanceof z.ZodString) return [path];
+  if (schema instanceof z.ZodPipe) return [];
+  if (
+    schema instanceof z.ZodNumber ||
+    schema instanceof z.ZodEnum ||
+    schema instanceof z.ZodISODateTime
+  ) {
+    return [];
+  }
+  if (
+    schema instanceof z.ZodOptional ||
+    schema instanceof z.ZodNullable ||
+    schema instanceof z.ZodDefault
+  ) {
+    return bareStringsIn(schema.unwrap() as z.ZodType, path);
+  }
+  if (schema instanceof z.ZodArray) return bareStringsIn(schema.element as z.ZodType, path);
+  if (schema instanceof z.ZodUnion) {
+    return (schema.options as z.ZodType[]).flatMap((option) => bareStringsIn(option, path));
+  }
+  if (schema instanceof z.ZodRecord) {
+    return [
+      ...bareStringsIn(schema.keyType as z.ZodType, `${path}{key}`),
+      ...bareStringsIn(schema.valueType as z.ZodType, `${path}{value}`),
+    ];
+  }
+  if (schema instanceof z.ZodObject) {
+    return Object.entries(schema.shape as Record<string, z.ZodType>).flatMap(([key, field]) =>
+      bareStringsIn(field, at(key)),
+    );
+  }
+  throw new Error(
+    `the walk does not know ${schema.constructor.name} at \`${path}\`; decide how it reads`,
+  );
+}

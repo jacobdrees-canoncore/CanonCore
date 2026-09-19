@@ -17,7 +17,7 @@
 import { type Allowlist, assertConfigUrl } from "./boundary";
 import { createProviderClient } from "./client";
 import type { CmppManifest } from "./cmpp";
-import { bounded, type FailureReason, reasonFor } from "./reason";
+import { type FailureReason, reasonFor } from "./reason";
 
 /**
  * The URL the Owner clicks to Unlock a provider, or `null` where the path the
@@ -168,33 +168,18 @@ async function reachOne(baseUrl: string, allowlist: Allowlist): Promise<Reach> {
   }
 }
 
-/**
- * What stands in for a label the provider left blank.
- *
- * The Owner still has to be told this Provider wants something, and the honest
- * thing to say about a Provider that described it in no words is that it
- * described it in no words.
- */
-const SAID_NOTHING = "this Provider needs something, and did not say what.";
-
 /** The provider's declaration, as this app renders it. */
 function asDeclared(
   baseUrl: string,
   credential: NonNullable<CmppManifest["credential"]>,
 ): DeclaredCredential {
   return {
-    // BOUNDED, BECAUSE IT IS A STRANGER'S PROSE ON THE OWNER'S PAGE (ADR-0123).
-    // The contract bounds this only by `min(1)`, and the same function every
-    // other provider text in this app goes through is what keeps the ceiling
-    // one ceiling rather than one per surface.
-    //
-    // AND A FLOOR, for the reason `reasonFor` has one. `min(1)` admits a label
-    // of a single space, which `bounded` collapses to nothing -- so without
-    // this the page renders an empty quotation where the instruction goes, and
-    // the procedure's own `min(1)` output check turns that into the 500 a
-    // provider must not be able to cause. It REPORTS the silence rather than
-    // dressing it up, which is CNCORE-92's rule.
-    label: bounded(credential.label) || SAID_NOTHING,
+    // BOUNDED AND FLOORED BY `cmppManifest` BEFORE IT GETS HERE (CNCORE-165).
+    // It was bounded on this line until then, which worked and left the ceiling
+    // one surface's to remember: `name` travelled the same manifest with no
+    // bound at all, and looked exactly like this one. Both are `boundedProse`
+    // at the field now, so this function maps a shape and decides nothing.
+    label: credential.label,
     unlockUrl: unlockUrlFor(baseUrl, credential.unlock_path),
     state: credential.state,
     changedAt: credential.state_changed_at,

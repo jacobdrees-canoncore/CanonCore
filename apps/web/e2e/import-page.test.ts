@@ -1,6 +1,7 @@
 import type { AppRouterClient } from "@canoncore/api/routers";
 import { createDb } from "@canoncore/db";
 import { itemsCarrying } from "@canoncore/db/testing/catalogue";
+import { REASON_MAX_LENGTH } from "@canoncore/providers";
 import { createORPCClient, isDefinedError, safe } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
 import { afterAll, describe, expect, inject, it } from "vitest";
@@ -290,6 +291,29 @@ describe("/import, across several providers", () => {
     expect(failed.map(({ baseUrl }) => baseUrl)).toContain(providerSearch.unreachable);
     expect(text).toContain(providerSearch.unreachable);
     expect(text).toContain("not an allowlisted host");
+  });
+});
+
+/**
+ * A PROVIDER'S NAME IS ITS OWN PROSE ON THE OWNER'S PAGE, AND IT IS BOUNDED
+ * (ADR-0123, CNCORE-165).
+ *
+ * ASSERTED WHERE IT IS RENDERED, because the name crosses a manifest parse, an
+ * RPC procedure's output schema and a React component between the socket and
+ * this heading, and the package's own test proves none of that. It is the
+ * argument ADR-0123 makes for a failure reason, about a field that record had
+ * not counted.
+ */
+describe("/import, beside a provider that names itself at length", () => {
+  it("prints the name the provider declared, at no length the provider chose", async () => {
+    const { text } = await documentAt(searching(providerSearch.query));
+    const { name } = providerSearch.floodsItsName;
+
+    // LISTED, which the next line cannot tell from being dropped: a page that
+    // left this Provider out would print none of its name, and pass.
+    expect(text).toContain(name.slice(0, 100));
+    // AND NO RUN OF IT LONGER THAN THE OWNER READS of any provider's prose.
+    expect(text).not.toContain(name.slice(0, REASON_MAX_LENGTH + 1));
   });
 });
 

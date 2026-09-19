@@ -670,6 +670,10 @@ function Results({
               THE PROVIDER'S OWN NAME FOR ITSELF, off its manifest. A source
               answers "who said this", and `http://127.0.0.1:39481` shows an
               owner a deployment detail where `provider-wiki` answers it.
+
+              TODO(CNCORE-217): bounded in length by `cmppManifest` and not in
+              width. Three hundred characters with no break in them run past
+              the viewport's edge, measured on this heading.
             */}
             {provider.name}
             {results.length === 0 && " matched nothing"}

@@ -200,6 +200,8 @@ async function stubProvider(
     operations = ["search", "lookup", "browse"],
     containers = { "388305": VASHTA_NERADA } as Record<string, unknown>,
     attribution = null as typeof ATTRIBUTION | null,
+    /** What the provider calls itself, for a test about what it may call itself. */
+    name = MANIFEST.name,
     /**
      * Every path this provider was asked for, in order, for a caller that needs
      * to assert what was NOT asked.
@@ -220,7 +222,7 @@ async function stubProvider(
     };
     const path = request.url ?? "/";
     asked.push(path);
-    if (path === "/") return json({ ...MANIFEST, operations, attribution });
+    if (path === "/") return json({ ...MANIFEST, name, operations, attribution });
     // `search`, MATCHED ON THE TITLE, which is the least a stub can do and still
     // be a search: a stub answering every query with everything could not tell a
     // query that found something from one that found nothing. A missing or empty
@@ -759,6 +761,28 @@ describe("the attribution an import carries with it", () => {
     const [source] = await db.select().from(sources).where(eq(sources.identity, baseUrl));
     expect(source?.attributionNotice).toBeNull();
     expect(source?.attributionLogo).toBeNull();
+  });
+});
+
+/**
+ * A PROVIDER'S DECLARED NAME IS THE SOURCE'S LABEL, AND THE LABEL IS ON EVERY
+ * ITEM PAGE (ADR-0123, CNCORE-165).
+ *
+ * ASSERTED ON THE ROW AND NOT ONLY ON THE PARSE, because the row is what
+ * outlives the request. `@canoncore/providers` proves the manifest is bounded
+ * where it is read; what it cannot prove is that nothing between that read and
+ * this write went back for the raw value -- and a label written once is printed
+ * beside every value that source ever claimed, on pages the provider does not
+ * own, for as long as the row exists.
+ */
+describe("a Provider's declared name", () => {
+  it("reaches the Source it names bounded, whatever length the provider chose", async () => {
+    const baseUrl = await stubProvider(undefined, { name: "n".repeat(100_000) });
+
+    await call(appRouter.provider.import, { baseUrl, recordId: "265" }, { context });
+
+    const [source] = await db.select().from(sources).where(eq(sources.identity, baseUrl));
+    expect(source?.label.length).toBeLessThanOrEqual(REASON_MAX_LENGTH);
   });
 });
 

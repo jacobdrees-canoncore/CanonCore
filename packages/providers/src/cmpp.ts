@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { boundedProse } from "./reason";
+
 /**
  * CanonCore's own reading of the CMPP responses.
  *
@@ -153,6 +155,18 @@ export type CmppSearch = z.infer<typeof cmppSearch>;
  */
 const MAX_LOGO_CHARS = 256 * 1024;
 
+/** What stands in for the name of a Provider that named itself in nothing. */
+const UNNAMED = "a Provider that did not name itself";
+
+/**
+ * What stands in for a credential a Provider described in no words.
+ *
+ * The Owner still has to be told this Provider wants something, and the honest
+ * thing to say about a Provider that described it in nothing is that it
+ * described it in nothing.
+ */
+const SAID_NOTHING = "this Provider needs something, and did not say what.";
+
 /**
  * What a provider declares about itself.
  *
@@ -172,9 +186,37 @@ const MAX_LOGO_CHARS = 256 * 1024;
  * say that absence was the only thing in version one exercising the optionality
  * at all. It no longer is, and the sentence is corrected here rather than
  * contradicted somewhere else.)
+ *
+ * EVERY STRING HERE IS DECIDED AT ITS FIELD: BOUNDED THERE, OR NAMED WITH THE
+ * REASON IT IS NOT (ADR-0123, CNCORE-165). This is the rule a field added to
+ * this object meets, written here because here is where it would be added, and
+ * `cmpp.test.ts` fails the build on a bare `z.string()` nobody has named:
+ *
+ * - PROSE CANONCORE FRAMES is `boundedProse`: cut to what the Owner reads, and
+ *   floored so a Provider that said nothing cannot crash the request reading
+ *   it. `name` and `credential.label`.
+ * - PROSE AN OBLIGATION REQUIRES VERBATIM cannot be cut, because cutting a
+ *   licence notice is the breach it exists to prevent. `logo.data_uri` is
+ *   refused past its ceiling; how `attribution.notice` and `logo.alt` are
+ *   bounded instead is an open decision (CNCORE-213).
+ * - A FIELD NEVER PRINTED AS TEXT is named with that reason: `operations`,
+ *   `stored_variant`, and `unlock_path`, which `unlockUrlFor` judges before it
+ *   reaches an href.
+ *
+ * A RECORD'S fields are out of it, which is a different thing from this object
+ * and not an omission. A
+ * manifest is a Provider describing itself; a record is a source's CLAIM, which
+ * the catalogue holds and the Owner curates, and bounding a title would corrupt
+ * the catalogue rather than protect a page.
+ *
+ * WHY AT THE FIELD, AND NOT WHERE A PAGE PRINTS IT: `name` was the fourth
+ * surface to carry a Provider's prose and the first nobody had bounded, and it
+ * read `z.string().min(1)` exactly as the bounded ones did. A bound at each
+ * surface leaves the next surface starting from raw; a bound here leaves nothing
+ * downstream able to read the raw value at all.
  */
 export const cmppManifest = z.object({
-  name: z.string().min(1),
+  name: boundedProse(UNNAMED),
   versions: z.array(z.number().int().positive()).default([1]),
   operations: z.array(z.string()).default([]),
   /**
@@ -234,6 +276,10 @@ export const cmppManifest = z.object({
        * TMDB's against their terms character for character; a provider that
        * paraphrases its own licence is a provider in breach, and not something
        * this schema can detect.
+       *
+       * TODO(CNCORE-213): no ceiling yet. It reaches every Item page the source
+       * claims a value on, and `boundedProse` would cut it, which is the breach
+       * above. How it is bounded instead is that ticket's decision.
        */
       notice: z.string().min(1),
       /**
@@ -285,6 +331,7 @@ export const cmppManifest = z.object({
            * endorsement, certification, or other approval". A reader who cannot see
            * the mark is exactly the reader who needs that sentence in text.
            */
+          // TODO(CNCORE-213): no ceiling yet, for the reason `notice` has none.
           alt: z.string().min(1),
         })
         .nullable()
@@ -315,7 +362,7 @@ export const cmppManifest = z.object({
   credential: z
     .object({
       /** One sentence for the OWNER: the only prose CanonCore renders about a credential. */
-      label: z.string().min(1),
+      label: boundedProse(SAID_NOTHING),
       /**
        * WHERE THE OWNER GOES, ON THE PROVIDER. A PATH and not a URL, which is
        * the one place in CMPP that distinction is load-bearing: the provider
