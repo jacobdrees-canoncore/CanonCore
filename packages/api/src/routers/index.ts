@@ -3,6 +3,7 @@ import type { RouterClient } from "@orpc/server";
 
 import { openProcedure } from "../index";
 import { catalogue } from "./catalogue";
+import { group } from "./group";
 import { item } from "./item";
 import { placement } from "./placement";
 import { provider } from "./provider";
@@ -18,6 +19,7 @@ export const appRouter = {
   // answering what the contract promises.
   healthCheck: openProcedure.output(healthCheckResult).handler(() => "OK" as const),
   catalogue,
+  group,
   item,
   placement,
   provider,

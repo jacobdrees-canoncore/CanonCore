@@ -213,6 +213,10 @@ export default async function setup(project: TestProject) {
   project.provide("editableBaseUrl", editable.baseUrl);
   project.provide("editable", editable.fixture);
 
+  const scopable = await aCatalogueSafeToScope();
+  project.provide("scopableBaseUrl", scopable.baseUrl);
+  project.provide("scopable", scopable.fixture);
+
   const curatable = await aCatalogueSafeToCurate();
   project.provide("curatableBaseUrl", curatable.baseUrl);
   project.provide("curatable", curatable.fixture);
@@ -266,6 +270,18 @@ export default async function setup(project: TestProject) {
     await purgeable.close();
     await still.close();
     await editable.close();
+    /*
+     * CNCORE-178 ADDED THIS INSTANCE AND NOT THIS LINE, and the cost was a CI
+     * job that never ended. Unclosed, its `next start` outlives the suite:
+     * vitest force-exits after its ten-second close timeout, so a terminal or a
+     * file shows a clean finish -- but the orphan inherited this process's
+     * stdout, and on a PIPE that holds the stream open. CI reads the step's
+     * output to EOF, so "The page over HTTP" sat 19 minutes twice where it
+     * takes 2.5, and `ci.yml` sets no `timeout-minutes` to end it (CNCORE-219).
+     * Reproduced locally by piping `pnpm test:e2e` through `cat`: every test
+     * passed and the pipeline was still open at 300s.
+     */
+    await scopable.close();
     await curatable.close();
     await reorderable.close();
     await configurable.close();
@@ -313,12 +329,25 @@ export default async function setup(project: TestProject) {
  * half until the routes became the owner's; it sets no password by design, so
  * it can no longer show an owner anything at all, and the combination that
  * would carry that half -- empty, nothing allowlisted, an owner -- has no
- * instance here. An ELEVENTH server is what would recover it -- this file
- * starts ten, nine through `anInstanceServing` and one through
- * `theBuildServing` -- and ADR-0104 refuses it: a single run of this suite
- * already peaks at about a hundred client connections, which is the whole of
- * the default budget CI's own `postgres:18` service gets. So the gap is named
- * rather than filled, here and in ADR-0094.
+ * instance here. A TWELFTH server is what would recover it -- this file starts
+ * ELEVEN, ten through `anInstanceServing` and one through `theBuildServing`.
+ *
+ * THIS PARAGRAPH REFUSED THE ELEVENTH ON A BUDGET THAT NO LONGER HOLDS, and
+ * CNCORE-178 took it. It read "a single run of this suite already peaks at
+ * about a hundred client connections, which is the whole of the default budget
+ * CI's own `postgres:18` service gets" -- and a hundred is ADR-0104's UNBOUNDED
+ * figure, which CNCORE-137 superseded in that same record by bounding each
+ * server's pool to four: 55 to 60 bounded, against 91 to 103 before. Measured
+ * again on 2026-09-19 with the eleventh server standing, sampling
+ * `pg_stat_activity` once a second through a full run: THE PEAK IS 67, with the
+ * new `_test_group` database carrying 6 of them at that tick. CI gives each job
+ * its own `postgres:18` and runs one worktree against it, so the ceiling this
+ * is measured against there is the default 100 and 67 sits inside it.
+ *
+ * SO THE GAP IS STILL NAMED RATHER THAN FILLED, here and in ADR-0094, but the
+ * reason is now scope rather than connections: the instance that would recover
+ * it is CNCORE-133's to add, and this ticket had no business adding a server
+ * for somebody else's assertion.
  *
  * AN ALLOWLIST AND NO PROVIDER NAMED, which is a real state rather than a
  * half-built one: they are two settings and neither is derivable from the other
@@ -1863,6 +1892,56 @@ async function aCatalogueSafeToEdit(wikiUrl: string) {
 }
 
 /**
+ * AN ELEVENTH INSTANCE -- the tenth through `anInstanceServing` -- and what is
+ * new about it is that IT CAN BE SCOPED (CNCORE-178).
+ *
+ * `aCatalogueSafeToEdit`'s reason, one construct along, and it bites HARDER
+ * here than for a title. A Group is a catalogue-wide fact: `group.list` answers
+ * every Group on the instance and `/groups` renders all of them, so a second
+ * file drawing one would change what THIS file's page shows -- where an edited
+ * title changes only the item that was edited. There is nowhere on a shared
+ * instance for a scope to be private.
+ *
+ * TWO ITEMS, BECAUSE THE TICKET'S CENTRAL CRITERION NEEDS ONE ITEM IN TWO
+ * SCOPES AND ITS SECOND NEEDS A SCOPE THAT LOSES ONE. Both are made BY HAND,
+ * through `@canoncore/db`'s own export rather than through the page, for the
+ * reason `aCatalogueSafeToEdit` gives about its hand-made item: what this file
+ * needs is an Item in that STATE, not a second test of the create path.
+ *
+ * AND NO GROUPS ARE SEEDED. Every Group this file reads is one it made through
+ * the page, because the page making them is the thing under test -- a seeded
+ * scope would let the list assertions pass over a create form that had stopped
+ * working.
+ */
+async function aCatalogueSafeToScope() {
+  const crossoverTitle = "Doctor Who and the Avengers";
+  const looseTitle = "An item in no scope at all";
+  let crossover = "";
+  let loose = "";
+  const instance = await anInstanceServing({
+    suffix: "group",
+    // Drawing a scope is the Owner's (ADR-0044, CNCORE-109), and what a visitor
+    // is offered instead is asserted at the bottom of the file.
+    ownerPassword: OWNER_PASSWORD,
+    // NOTHING REACHES OUT OF THIS INSTANCE. A Group scopes WHICH PROVIDERS ARE
+    // ASKED (ADR-0010), and that half is CNCORE-182's -- so this instance is
+    // given no provider rather than one it would be tempting to assert against.
+    allowlist: "",
+    providers: [],
+    fill: async (db) => {
+      crossover = await anItemTitled(db, crossoverTitle);
+      loose = await anItemTitled(db, looseTitle);
+    },
+  });
+
+  return {
+    baseUrl: instance.baseUrl,
+    close: instance.close,
+    fixture: { crossover, crossoverTitle, loose, looseTitle },
+  };
+}
+
+/**
  * A FIXTURE, not part of the demo: one item in two orderings that arrived by
  * two DIFFERENT routes, one from the owner's hand and one from a provider.
  *
@@ -2248,6 +2327,22 @@ declare module "vitest" {
       providerUrl: string;
       /** A container holding that record, so browsing it re-asserts the record. */
       container: string;
+    };
+    /**
+     * And again, serving a catalogue NOBODY ELSE READS -- so a test may draw a
+     * SCOPE on it (CNCORE-178). A Group is catalogue-wide: `/groups` renders
+     * every one on the instance, so there is nowhere on a shared instance for
+     * one to be private.
+     */
+    scopableBaseUrl: string;
+    /** Two items made by hand, and no Group: every scope here is drawn through the page. */
+    scopable: {
+      /** The one that goes in two scopes at once, which is ADR-0010's whole claim. */
+      crossover: string;
+      crossoverTitle: string;
+      /** The one a deleted scope has to leave standing (story 34). */
+      loose: string;
+      looseTitle: string;
     };
     /**
      * And again, serving a catalogue NOBODY ELSE READS -- so a test may change

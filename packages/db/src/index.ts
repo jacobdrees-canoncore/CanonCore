@@ -13,6 +13,17 @@ export {
 } from "./by-hand";
 export { likePattern, searchCatalogue } from "./catalogue-search";
 export {
+  createGroupByHand,
+  deleteGroupByHand,
+  findGroups,
+  findGroupsOfItem,
+  type Group,
+  GroupRefused,
+  putItemInGroupByHand,
+  renameGroupByHand,
+  takeItemOutOfGroupByHand,
+} from "./groups";
+export {
   type ImportedContainer,
   type ImportedRecord,
   type ImportingProvider,

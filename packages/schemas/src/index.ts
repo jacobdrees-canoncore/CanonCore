@@ -338,6 +338,67 @@ export const placementsInContainerPublic = z.object({
 
 export type PlacementsInContainerPublic = z.infer<typeof placementsInContainerPublic>;
 
+/**
+ * A GROUP, as the read path answers one: the scope's address and the Owner's
+ * own word for it (ADR-0010, ADR-0045).
+ *
+ * TWO FIELDS, AND THE ABSENCES ARE THE RECORD'S. ADR-0010 closes the list of
+ * what a Group scopes, and its load-bearing half is the negative one: a scope
+ * becomes a partition by accretion, one reasonable-looking field at a time. So
+ * there is no medium here, no field set, no source order and no root -- not
+ * because they are unbuilt, but because a Group is not the thing that would
+ * carry them.
+ *
+ * NO SIZE EITHER, WHICH IS A SEPARATE DECISION AND CNCORE-179'S. How many Items
+ * a scope holds is what a narrowed Listing answers (`CONTEXT.md`'s Size, read
+ * back from the Listing's own filter), and a count emitted here would be that
+ * question answered a second time by a query nothing holds to the first.
+ *
+ * PUBLIC, because reading the catalogue is (ADR-0044, ADR-0072). A visitor to
+ * the demo sees which scopes exist, and the buttons that change them are what
+ * refuse them.
+ */
+export const groupPublic = z.object({
+  /** The scope's ADDRESS. */
+  id: z.uuid(),
+  /** The Owner's own words for it (ADR-0010). Free text: nothing validates a name. */
+  name: z.string(),
+});
+
+export type GroupPublic = z.infer<typeof groupPublic>;
+
+/**
+ * Every Group the Owner can narrow to.
+ *
+ * AN ARRAY RATHER THAN A LISTING, which is a judgement CNCORE-178 owns and
+ * `findGroups` argues: every capped list in CanonCore is a Listing
+ * (`CONTEXT.md`) and this one is not capped, because a Group is a scope the
+ * Owner drew by hand rather than a function of the corpus behind it. The seam
+ * is there the day that stops being true.
+ */
+export const groupsPublic = z.object({ groups: z.array(groupPublic) });
+
+export type GroupsPublic = z.infer<typeof groupsPublic>;
+
+/**
+ * THE GROUP A MUTATION ADDRESSED, by the id that names it -- which is not the
+ * same claim as "a Group row was created", and review caught the difference.
+ *
+ * `create` DID write one. `rename` and `delete` changed one. `put` and `take`
+ * wrote or tombstoned a row in `group_items` and answer the GROUP's id anyway,
+ * because the Group is what the caller named and what it goes back to: there is
+ * no surface addressed by a membership's own id, where ADR-0061 makes a
+ * Placement's id the only thing that can name one of two Repeats. The id of the
+ * `group_items` row is deliberately not emitted -- nothing reads one, and
+ * ADR-0045 makes adding a field the deliberate act.
+ *
+ * ITS OWN SCHEMA RATHER THAN `itemWritten`, though the shape is identical, for
+ * the reason `placementWritten` gives: the two name different subjects, and a
+ * contract calling a Group id an Item id would be where that ambiguity got
+ * written back in.
+ */
+export const groupWritten = z.object({ id: z.uuid() });
+
 export const itemPublic = z.object({
   id: z.uuid(),
   /**
@@ -396,6 +457,21 @@ export const itemPublic = z.object({
    * showing.
    */
   holds: placementsInContainerPublic,
+  /**
+   * WHICH BROWSING SCOPES THIS ITEM IS IN (ADR-0010, CNCORE-178), so a reader
+   * can tell why it does or does not appear when they narrow (story 38).
+   *
+   * ON THE ITEM PAGE BESIDE THE ORDERINGS, and the two are NOT the same fact
+   * said twice. `placements` is every Ordering the Item sits in, at a Position,
+   * asserted by Sources that may disagree; this is every scope the OWNER drew
+   * around it, with no position and nobody else's claim in it. An Item can sit
+   * in a Container that is in no Group at all.
+   *
+   * AN ARRAY RATHER THAN A LISTING, for `groupsPublic`'s reason: the number of
+   * scopes an Owner has drawn by hand is not a function of the corpus, so there
+   * is nothing here for a cap to protect the page from.
+   */
+  groups: z.array(groupPublic),
   /**
    * Every value anybody has claimed about this item, with who claimed it. The
    * winner for a property comes first, by the same three terms the projection

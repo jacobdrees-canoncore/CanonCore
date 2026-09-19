@@ -65,6 +65,15 @@ export const FIXTURE_DATABASE_SUFFIXES = [
    */
   "conf",
   /*
+   * A SCOPE IS A CATALOGUE-WIDE FACT (CNCORE-178), so the suite that draws one
+   * cannot share an instance with anything. `group.list` answers every Group on
+   * the instance, and the Groups page lists them -- so a second file making one
+   * would change what this file's page renders, in whichever order Vitest
+   * happened to start them. Eleven characters with the tail, which is exactly
+   * the budget `worktree-database.ts` reserves.
+   */
+  "group",
+  /*
    * AN EMPTY CATALOGUE THAT IS NOT AN UNCONFIGURED ONE (CNCORE-131). Every
    * other instance a test may READ is empty AND unconfigured or neither, so the
    * two facts move together and no assertion made on one of them can tell them

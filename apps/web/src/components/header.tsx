@@ -101,6 +101,22 @@ export default async function Header() {
           <Link href="/works" className="text-base hover:underline">
             Works
           </Link>
+          {/*
+            AND WHICH SCOPES THIS CATALOGUE IS DIVIDED INTO (CNCORE-178,
+            ADR-0010). It sits with the two reading surfaces rather than with
+            the Owner's two below, because reading is open and which Groups
+            exist is part of the catalogue (ADR-0044, ADR-0072) -- the page
+            shows a visitor the list and none of its controls, exactly as the
+            Item page does.
+
+            IN THE HEADER for the reason `/works` is: a page reachable only by
+            typing its address is one a reader has to be told about, and a
+            reader who has narrowed to a scope needs the way back to the place
+            scopes are kept.
+          */}
+          <Link href="/groups" className="text-base hover:underline">
+            Groups
+          </Link>
           {owner && (
             <>
               {/*
