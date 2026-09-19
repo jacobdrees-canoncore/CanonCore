@@ -307,8 +307,8 @@ describe("findPlacementsInContainer, walked", () => {
     // and this deletes the membership itself while the Item goes on existing.
     //
     // BOTH MUST RESUME, and for the same reason: `placements.position` is a
-    // stored column, so neither delete destroys the anchor's place in this
-    // ordering the way a delete destroys `coalesce(sort_name, title)`.
+    // stored column, so neither delete destroys the anchor in this ordering
+    // the way a delete destroys `coalesce(sort_name, title)`.
     const owner = await ownerSource(db);
     const container = await anItemTitled(db, "An ordering a membership left", {
       isContainer: true,

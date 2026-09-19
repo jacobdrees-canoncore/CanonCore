@@ -59,7 +59,7 @@ const listingInput = z.object({
  *
  * AND THE QUERY COMES BACK WITH THE CURSOR, WHICH IS THE WHOLE MECHANISM. This
  * order leads on how close a title is to what the reader typed, so the anchor's
- * place in it cannot be read off the anchor row -- it is RECOMPUTED, against
+ * closeness cannot be read off the anchor row -- it is RECOMPUTED, against
  * the query this input carries on every page. There is no such thing as a
  * search request without one, so nothing had to be added for the walk: a paged
  * search is `?q=<query>&after=<id>` and the two parameters were already here

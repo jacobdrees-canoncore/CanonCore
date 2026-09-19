@@ -97,8 +97,9 @@ type AKey =
        */
       readonly everyRowHasIt?: true;
       /**
-       * THE TOMBSTONE THAT DESTROYS THIS KEY: once it is set, a null here is an
-       * anchor the delete took rather than a row in the keyless block.
+       * THE TOMBSTONE THAT DESTROYS THIS KEY: once it is set, a null here means
+       * the delete took the key, rather than that the row sits in the keyless
+       * block.
        */
       readonly destroyedBy?: AnyPgColumn;
     };
@@ -150,7 +151,8 @@ function described(key: AKey): {
  * ELSE -- the Placement construct, what a container keeps of its own members.
  * The glossary is binding on names in code and now carries **Order** too. "The
  * order" is what these files had always called this in prose anyway:
- * `pastInTheOrder`, `findInTheOrder`, `AnchorInTheOrder`.
+ * `pastInTheOrder`, `findInTheOrder`, `PlaceInTheOrder` (`AnchorInTheOrder` since
+ * CNCORE-224).
  *
  * THE KEYS ARE NAMED RATHER THAN NUMBERED, and the names are how an anchor is
  * read back. Two parallel lists -- the keys here and their anchor values

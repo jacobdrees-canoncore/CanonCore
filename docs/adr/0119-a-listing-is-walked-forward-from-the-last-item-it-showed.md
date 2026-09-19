@@ -226,7 +226,7 @@ anchor row the way this record's walk reads `coalesce(sort_name, title)` off it.
 argued the query was unavailable "because the cursor does not carry it" — true of the cursor and
 irrelevant, since there is no such thing as a search request without a query: a paged search is
 `?q=<query>&after=<id>`, and `searchCatalogue` takes the query as a required parameter already.
-Given it, the anchor is one primary-key lookup plus `similarity(anchor.title, $query)`, and
+Given it, reading the anchor is one primary-key lookup plus `similarity(anchor.title, $query)`, and
 the walk is an ordinary keyset one. **The door is open.** The overstatement is corrected here rather
 than below, because "cannot" is what stops somebody trying — and CNCORE-88 then walked through it,
 which is what the next section records.
@@ -579,7 +579,7 @@ does not touch keeps it, which is why a kept link into a Container RESUMES.
 
 **This order is BOTH.** It LEADS on the projection -- of the CONTAINER, which is another row
 entirely -- and continues on three stored columns that no tombstone touches. And **an anchor that has
-lost its FIRST term has lost the whole anchor**: the survivors behind it cannot rescue it, because
+lost its FIRST term is no anchor at all**: the survivors behind it cannot rescue it, because
 resuming from `(null, precedence, ...)` resumes from the unnamed-Container block with every named
 one between SKIPPED, which is exactly the dead end CNCORE-110 measured on `/`. So a kept link whose
 ordering has since been deleted starts this listing over, and one whose own PLACEMENT was removed
@@ -820,15 +820,18 @@ does not carry one is a TYPE ERROR rather than rows silently stepped over.
 Placement construct -- what a container keeps of its own members -- and
 `apps/web/src/components/ordering.ts` already uses the word that way. A second sense of it here is
 what this repository refuses for `duplicate` and `record`. "The order" is what these files had
-always called this in prose (`pastInTheOrder`, `findInTheOrder`, `AnchorInTheOrder`), and
+always called this in prose (`pastInTheOrder`, `findInTheOrder`, `PlaceInTheOrder`), and
 `CONTEXT.md` now carries the entry.
 
 **`Anchor` RATHER THAN `Place`, FOR THE SAME REASON (CNCORE-224).** The shape an anchor carries and
 the reads that find one were `PlaceIn`, `thePlaceIn` and `stillHasAPlaceIn` until CNCORE-224, and
 `CONTEXT.md` gives Place to a location. They took the word these files already used for the row a
 cursor names (`findTheAnchor`, `TheAnchor`, `closenessOfTheAnchor`), so the family is `AnchorIn`,
-`theAnchorIn` and `stillAnAnchorIn`, and `CONTEXT.md` carries **Anchor**. A commit or ticket from
-before CNCORE-224 that says an anchor's "place" means the anchor itself.
+`theAnchorIn` and `stillAnAnchorIn`, and `CONTEXT.md` carries **Anchor**. It is ONE THING SEEN
+TWICE, not two senses: `TheAnchor` is the row read once for the two Listings over `items`, title
+included because Catalogue search computes its closeness, and `AnchorIn<O>` is that same row as
+order `O` reads it, which is where it sits. A commit or ticket from before CNCORE-224 that speaks of
+an anchor's "place" means the second.
 
 **CNCORE-169 BUILT IT AND MOVED THE CATALOGUE LISTING ONTO IT** -- both of ADR-0077's questions,
 since they share one order and differ only in their `WHERE`. The other three still wrote their terms
