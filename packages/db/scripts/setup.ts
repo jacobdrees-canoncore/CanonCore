@@ -20,7 +20,10 @@ const result = await setUpWorktreeDatabase({ serverUrl, branch, envFile }).catch
     if (code === "ECONNREFUSED" || code === "ENOTFOUND") {
       throw new Error(
         `nothing is listening on port ${port}. Run \`pnpm db:start\` first. ` +
-          `(If something else already holds ${port}, set CANONCORE_DB_PORT in your shell.)`,
+          "The container keeps the port it was created with, so if it answers `Running`, " +
+          `it publishes another port than ${port} and CANONCORE_DB_PORT should name that one. ` +
+          `(If something else holds ${port}, the container has to be created on another: ` +
+          "see ADR-0104.)",
         { cause },
       );
     }
