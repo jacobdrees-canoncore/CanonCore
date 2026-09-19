@@ -99,6 +99,27 @@ export type MembersPath = `/items/${string}`;
 type Asked = { q: string };
 
 /**
+ * WHAT THE CATALOGUE WAS NARROWED TO (CNCORE-179): the Group a reader picked,
+ * which every link on a narrowed page has to keep.
+ *
+ * THE SAME ARRANGEMENT AS `Asked` ABOVE, for the same reason: the start of a
+ * narrowed catalogue is `/` with the Group on it, so a `Back to the start` that
+ * dropped it would hand a reader the whole catalogue from page three of a
+ * scope. And a `Next` that dropped it would walk on into Items the Group does
+ * not hold.
+ *
+ * WRITTEN BEFORE THE CURSOR, `group` then `after`, which is ADR-0066's fixed
+ * order and the same shape as `/search`'s `q` then `after`: what the Listing
+ * is, then where in it the reader is. No link carrying both had been emitted
+ * before this, so no spelling already out in the world is changed by it.
+ *
+ * THE KEY IS REQUIRED AND THE OBJECT IS OPTIONAL, so a page that is not
+ * narrowed passes nothing rather than `{ group: undefined }` -- which Next
+ * would write out as `?group=`, a second spelling of the unnarrowed address.
+ */
+type Narrowed = { group: string };
+
+/**
  * WHAT THE ITEM PAGE'S ADDRESS ALREADY CARRIES, which the listing being walked
  * joins rather than replaces.
  *
@@ -140,11 +161,14 @@ export type ItemPageListing = "members" | "appearances";
  * `<Walk path="/search" />` compile -- and that renders exactly the failure the
  * type above has a paragraph warning about: a `Back to the start` pointing at
  * `/search` with no `q`, which is the page that ASKS for a query rather than
- * the first page of anybody's results. The two surfaces that ARE their address
- * may not pass one, and the one that is not must.
+ * the first page of anybody's results. The one that is not its address must
+ * pass one, `/works` may not, and `/` MAY -- the Group it was narrowed to, which
+ * is optional because the catalogue unnarrowed is `/` with nothing on it
+ * (CNCORE-179).
  */
 type Walking =
-  | { path: "/" | "/works"; asked?: never; listing?: never }
+  | { path: "/"; asked?: Narrowed; listing?: never }
+  | { path: "/works"; asked?: never; listing?: never }
   | { path: "/search"; asked: Asked; listing?: never }
   | { path: MembersPath; asked: TheRoute; listing: ItemPageListing };
 
@@ -256,8 +280,9 @@ const IN_FIXED_ORDER = [
  * cursor, which a reader has not asked to move.
  *
  * THE THREE SURFACES THAT ARE THEIR LISTING TAKE THE OTHER BRANCH, because
- * nothing composes on them: `/search` carries its query and the cursor, and `/`
- * and `/works` carry the cursor alone.
+ * nothing composes on them: `/search` carries its query and the cursor, `/`
+ * carries the Group it was narrowed to and the cursor, and `/works` carries the
+ * cursor alone.
  */
 function queryFor(walking: Walking, at: string | undefined): Record<string, string> {
   if (walking.listing === undefined) {

@@ -5,7 +5,9 @@ import "./provided";
 
 import {
   createDb,
+  createGroupByHand,
   type Database,
+  groupItems,
   items,
   owners,
   placementSources,
@@ -484,6 +486,28 @@ export async function aContainerLargerThanOnePage(
     .returning({ id: placements.id });
 
   return { id, holds: written.map((row) => row.id) };
+}
+
+/**
+ * A GROUP HOLDING THESE ITEMS, answering with the Group's id (ADR-0010).
+ *
+ * THE GROUP IS DRAWN BY THE PACKAGE'S OWN WRITE and only the memberships are
+ * written in bulk, because the bulk is where the cost is: `putItemInGroupByHand`
+ * checks both ends live and reads the Owner back for every Item, which is four
+ * round trips each and a minute over a Group larger than one page. What a
+ * fixture needs is the Group in that STATE, not a second test of the write that
+ * `groups.test.ts` already holds.
+ */
+export async function aGroupHolding(
+  db: Database,
+  { name, holding }: { name: string; holding: string[] },
+): Promise<string> {
+  const ownerId = await theOwner(db);
+  const groupId = await createGroupByHand(db, { name });
+  if (holding.length > 0) {
+    await db.insert(groupItems).values(holding.map((itemId) => ({ ownerId, groupId, itemId })));
+  }
+  return groupId;
 }
 
 /**

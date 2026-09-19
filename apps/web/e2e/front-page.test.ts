@@ -475,6 +475,142 @@ describe("/ on a catalogue larger than one page", () => {
 });
 
 /**
+ * THE CATALOGUE NARROWED TO A GROUP (CNCORE-179): one universe at a time,
+ * picked from the page rather than typed into an address.
+ *
+ * ON THE PAGED INSTANCE, because a Group that fits on one page cannot say
+ * whether walking it keeps the scope from page to page -- and that instance's
+ * Group is a strict part of its catalogue, so a page that dropped the scope
+ * would read differently from one that kept it. Nobody writes to it.
+ */
+describe("/ narrowed to a Group", () => {
+  const pagedBaseUrl = inject("pagedBaseUrl");
+  const group = inject("pagedGroup");
+
+  /** Every item one rendered page links at, in the order it links them. */
+  function itemsLinkedFrom(text: string): string[] {
+    return [...text.matchAll(/href="\/items\/([^"?]+)"/g)].map(([, id]) => id as string);
+  }
+
+  /**
+   * THE PICKER, cut out of the page so a link found in it is one a reader
+   * picks a scope with rather than any link on the page that happens to match.
+   */
+  function scopesIn(text: string): string {
+    const found = text.match(/<nav aria-label="Narrow to a Group"[^>]*>(.*?)<\/nav>/);
+    if (!found) throw new Error("the page offered no way to narrow to a Group");
+    return found[1] as string;
+  }
+
+  /** The address the picker links a scope at, by the words a reader picks it by. */
+  function scopeLinked(text: string, name: string): string {
+    const found = [...scopesIn(text).matchAll(/<a [^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/g)].find(
+      ([, , words]) => words === name,
+    );
+    if (!found) throw new Error(`the picker offered nothing called ${name}`);
+    return found[1] as string;
+  }
+
+  /** Where a narrowed page says it carries on, if it says so at all. */
+  function carriesOnAt(text: string): string | undefined {
+    return text.match(/href="(\/\?[^"]*after=[^"]+)"/)?.[1];
+  }
+
+  it("narrows to a Group picked from the page, at the Group's own size", async () => {
+    // THE TWO CRITERIA THAT HAVE TO BE READ TOGETHER. The Rows are the Group's
+    // and the size is the Group's -- "Showing 100 of" the Group, not of the
+    // whole catalogue, which is the lie a narrowing added to the Rows and not
+    // the count would tell over this page.
+    const whole = await documentFrom(pagedBaseUrl, "/");
+    const picked = scopeLinked(whole.text, group.name);
+
+    const { status, text } = await documentFrom(pagedBaseUrl, picked);
+
+    expect(status).toBe(200);
+    expect(itemsLinkedFrom(text)).toHaveLength(100);
+    expect(itemsLinkedFrom(text).every((id) => group.holds.includes(id))).toBe(true);
+    expect(text).toContain(
+      `<p class="text-muted-foreground text-sm">Showing 100 of ${group.holds.length} items</p>`,
+    );
+  });
+
+  it("walks the whole Group by following links, and lands on none of it twice", async () => {
+    // THE CRITERION IS THAT WALKING WORKS WITHIN A GROUP AS IT DOES ACROSS THE
+    // CATALOGUE, so this is `/ on a catalogue larger than one page`'s own walk
+    // with the scope on. A `Next` that dropped the scope would carry on into
+    // the whole catalogue and arrive at Items the Group does not hold; one that
+    // kept it arrives at exactly the Group. The oracle is the fixture's list.
+    const first = scopeLinked((await documentFrom(pagedBaseUrl, "/")).text, group.name);
+    const walked: string[] = [];
+    let path: string | undefined = first;
+    for (let pages = 0; pages <= group.holds.length; pages += 1) {
+      const { status, text } = await documentFrom(pagedBaseUrl, path);
+      expect(status).toBe(200);
+      walked.push(...itemsLinkedFrom(text));
+      // EVERY PAGE PAST THE FIRST OFFERS THE START OF THE GROUP, not of the
+      // catalogue: a reader handed page three of a scope is sent back to page
+      // one of it.
+      if (pages > 0) {
+        expect(text).toContain(`href="${first}">Back to the start</a>`);
+      }
+      path = carriesOnAt(text);
+      if (path === undefined) {
+        expect([...walked].sort()).toStrictEqual([...group.holds].sort());
+        expect(new Set(walked).size).toBe(walked.length);
+        return;
+      }
+    }
+    throw new Error(`the walk never ended: ${walked.length} of ${group.holds.length} Items`);
+  });
+
+  it("offers everything back, and clearing the scope shows the whole catalogue again", async () => {
+    // NARROWING IS NOT A TRAP (story 44). The way out is on the narrowed page
+    // itself, and where it goes is the catalogue at its own size rather than
+    // the Group's.
+    const whole = await documentFrom(pagedBaseUrl, "/");
+    const narrowed = await documentFrom(pagedBaseUrl, scopeLinked(whole.text, group.name));
+
+    const cleared = await documentFrom(pagedBaseUrl, scopeLinked(narrowed.text, "Everything"));
+
+    expect(cleared.status).toBe(200);
+    expect(cleared.text).toContain(
+      `<p class="text-muted-foreground text-sm">Showing 100 of ${inject("pagedCatalogue").length} items</p>`,
+    );
+  });
+
+  it("says plainly that an empty Group holds nothing, rather than looking broken", async () => {
+    // A SCOPE WITH NOTHING IN IT LOOKS EXACTLY LIKE A BROKEN ONE until the page
+    // says which it is (story 48). And it is not the empty CATALOGUE: that
+    // state offers the routes that fill a catalogue, and this one has Items in
+    // it -- they are simply not in this Group.
+    const empty = inject("pagedEmptyGroup");
+    const whole = await documentFrom(pagedBaseUrl, "/");
+
+    const { status, text } = await documentFrom(pagedBaseUrl, scopeLinked(whole.text, empty.name));
+
+    expect(status).toBe(200);
+    const said = sectionIn(text, "empty-group");
+    expect(said).toContain(`${empty.name} holds nothing yet`);
+    expect(said).toContain('href="/"');
+    expect(text).not.toContain('aria-labelledby="what-to-do-next"');
+  });
+
+  it("says a Group that names nothing is not there, whatever shape the link is", async () => {
+    // A LINK KEPT TO A GROUP SINCE DELETED, or a typo in one. ADR-0066: a
+    // parameter that is not an identity answers by what it names, and this
+    // names nothing -- so the page says so and offers the way out, rather than
+    // a 500 for a malformed id or an empty list that looks like a fault.
+    for (const group of [crypto.randomUUID(), "doctor-who"]) {
+      const { status, text } = await documentFrom(pagedBaseUrl, `/?group=${group}`);
+
+      expect(status).toBe(200);
+      expect(itemsLinkedFrom(text)).toStrictEqual([]);
+      expect(sectionIn(text, "no-such-group")).toContain('href="/"');
+    }
+  });
+});
+
+/**
  * ONE ROW OF A LISTING, BY THE TITLE IT IS LINKED UNDER.
  *
  * `toContain` OVER THE WHOLE DOCUMENT WOULD PASS ON ANOTHER ROW'S WORDS, which
