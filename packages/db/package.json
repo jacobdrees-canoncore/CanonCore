@@ -18,6 +18,7 @@
     "db:studio": "drizzle-kit studio",
     "db:migrate": "drizzle-kit migrate",
     "db:setup": "node scripts/setup.ts",
+    "db:restore": "node scripts/restore.ts",
     "db:check-ladder": "node scripts/check-ladder.ts",
     "db:seed": "node scripts/seed.ts",
     "db:start": "docker compose up -d",

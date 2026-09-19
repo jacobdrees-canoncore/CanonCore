@@ -74,6 +74,19 @@ export async function setUpWorktreeDatabase({
     return { created, seeded: created ? await seedOneItemInTwoOrderings(url) : undefined };
   });
 
+  return { database, url, created, seeded, ...pointEnvFileAt(envFile, url, database) };
+}
+
+/**
+ * Names `url` in the app's `.env` if there is no `.env` yet, and says whether
+ * the one on disk now names `database`. Shared with `pnpm db:restore`, which
+ * replaces the same database and owes the same answer about it.
+ */
+export function pointEnvFileAt(
+  envFile: string,
+  url: string,
+  database: string,
+): Pick<WorktreeDatabase, "envWritten" | "envNamesThisDatabase"> {
   // Never overwritten. `.env` is the developer's own machine state and may
   // point somewhere they chose deliberately.
   let envWritten = false;
@@ -81,23 +94,16 @@ export async function setUpWorktreeDatabase({
     writeFileSync(envFile, `DATABASE_URL=${url}\n`);
     envWritten = true;
   }
-
-  return {
-    database,
-    url,
-    created,
-    seeded,
-    envWritten,
-    envNamesThisDatabase: envWritten || envFileNames(envFile, database),
-  };
+  return { envWritten, envNamesThisDatabase: envWritten || envFileNames(envFile, database) };
 }
 
 /**
  * Runs `work` while holding a PostgreSQL advisory lock keyed on the database
  * name, on a connection to the server rather than to the database being set up
- * -- which may not exist yet.
+ * -- which may not exist yet. `restore.ts` takes the same lock, so a setup and
+ * a restore of one database cannot interleave.
  */
-async function holdingSetupLock<T>(
+export async function holdingSetupLock<T>(
   serverUrl: string,
   database: string,
   work: () => Promise<T>,

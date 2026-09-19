@@ -7,39 +7,9 @@
  * and where the suite reaches it. This file resolves the two things only a
  * running process knows -- the branch and the server -- and prints the result.
  */
-import { execFileSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
-
 import "../src/load-env.ts";
 import { setUpWorktreeDatabase } from "../src/setup-worktree.ts";
-
-// CANONCORE_DB_PORT is a SHELL variable, not an apps/web/.env one: Compose
-// reads the shell (or packages/db/.env) and would not see a value set only in
-// the app's file, which is the same silent mismatch this whole change is about.
-const port = process.env.CANONCORE_DB_PORT ?? "55432";
-if (!/^\d+$/.test(port) || Number(port) < 1 || Number(port) > 65535) {
-  console.error(`CANONCORE_DB_PORT is ${JSON.stringify(port)}, which is not a port.`);
-  process.exit(1);
-}
-const serverUrl = `postgresql://postgres:password@localhost:${port}/postgres`;
-const envFile = fileURLToPath(new URL("../../../apps/web/.env", import.meta.url));
-
-let branch: string;
-try {
-  branch = execFileSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], {
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "pipe"],
-  }).trim();
-} catch (cause) {
-  throw new Error("could not read the current branch; is this a git worktree?", { cause });
-}
-
-// A detached HEAD answers `HEAD`, which names no worktree and would put every
-// detached checkout on one database.
-if (branch === "HEAD") {
-  console.error("detached HEAD: check out a branch before running db:setup.");
-  process.exit(1);
-}
+import { branch, envFile, port, serverUrl } from "./worktree.ts";
 
 // Only a refused CONNECTION gets the "run db:start" advice. Wrapping every
 // failure in it reported a broken migration, an unwritable .env and an

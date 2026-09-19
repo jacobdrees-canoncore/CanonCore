@@ -95,6 +95,10 @@
     "db:setup": {
       "cache": false,
       "env": ["CANONCORE_DB_PORT"]
+    },
+    "db:restore": {
+      "cache": false,
+      "env": ["CANONCORE_DB_PORT"]
     }
   }
 }

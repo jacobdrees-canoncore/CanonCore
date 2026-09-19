@@ -139,7 +139,12 @@ const dockerfile = join(repoRoot, "Dockerfile");
 type Compose = {
   services?: Record<
     string,
-    { image?: string; environment?: Record<string, string>; networks?: string[] }
+    {
+      image?: string;
+      environment?: Record<string, string>;
+      networks?: string[];
+      ports?: unknown[];
+    }
   >;
   networks?: Record<string, { name?: string; external?: boolean }>;
 };
@@ -714,5 +719,38 @@ describe("the network a Provider beside the install joins", () => {
    */
   it("tells a stranger how to find the address range that network hands out", () => {
     expect(installSection()).toContain(`docker network inspect ${String(pinnedProviderNetwork())}`);
+  });
+});
+
+/**
+ * What a service publishes on the host, refusing a service the file does not
+ * have -- a renamed `database` would otherwise publish nothing by being absent,
+ * and the assertion below would pass on a file that no longer says anything.
+ */
+function portsPublishedBy(service: string, parsed: Compose = compose()): unknown[] {
+  const found = parsed.services?.[service];
+  if (!found) throw new Error(`compose.yaml has no \`${service}\` service`);
+  return found.ports ?? [];
+}
+
+describe("the catalogue's own database", () => {
+  it("reads a published port where a service has one", () => {
+    const parsed = compose("services:\n  database:\n    ports: ['55432:5432']\n");
+
+    expect(portsPublishedBy("database", parsed)).toStrictEqual(["55432:5432"]);
+    expect(() => portsPublishedBy("postgres", parsed)).toThrow(/no `postgres` service/);
+  });
+
+  /**
+   * NOTHING ON THE HOST CAN REACH IT, AND THAT IS WHAT KEEPS DEVELOPMENT OFF THE
+   * OWNER'S CATALOGUE (CNCORE-168). A worktree reads real data by restoring a
+   * dump, and `pnpm db:restore` runs `pg_restore` inside whichever container
+   * PUBLISHES the port it was pointed at -- so a database that publishes none is
+   * one no restore, no `DATABASE_URL` and no test on this machine can name. The
+   * dump that feeds the restore is taken outside this repository, by `docker
+   * exec` into the install, and ADR-0048 records it.
+   */
+  it("publishes no port, so nothing on the host can name it", () => {
+    expect(portsPublishedBy("database")).toStrictEqual([]);
   });
 });

@@ -199,6 +199,12 @@ error, no version, no clue (measured 2026-09-11 on both images). Corepack handle
 anything, never overwrites `apps/web/.env`, and says so when an existing one names a different
 database. `pnpm db:seed` adds another item to whatever `.env` points at.
 
+**Real data comes from a dump, never from an install.** `pnpm db:restore <dump>` DROPS this
+worktree's database and creates it from a `pg_dump --format=custom` archive, then migrates it up to
+this branch's ladder. It refuses a dump whose ladder has run a rung this branch lacks, and leaves no
+database behind when it does. Give it the file's full path, because turbo runs it from `packages/db`.
+Where the Owner's dumps come from, and what they rehearse, is ADR-0048.
+
 **There is no `db:push`.** It was removed with migration 1. `drizzle-kit push` diffs the schema
 straight onto a database and writes no rung, so a database built that way has a shape no migration
 produced and neither the ladder nor its checks can reason about it (ADR-0047). The ladder is the
