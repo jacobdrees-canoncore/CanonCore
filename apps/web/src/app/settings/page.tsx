@@ -120,11 +120,12 @@ export default async function SettingsPage({
                     THE URL AS THE OWNER TYPED IT, which is the Provider's
                     IDENTITY (ADR-0031) and what the Source row on every
                     imported claim carries. Nothing here tidies it, because two
-                    spellings would be two Providers.
-
-                    TODO(CNCORE-226): and it is printed raw.
+                    spellings would be two Providers. And not this page's words,
+                    so it wraps where one of them would not (ADR-0142).
                   */}
-                  <p className="text-sm">{provider.baseUrl}</p>
+                  <p className="text-sm">
+                    <TheirWords>{provider.baseUrl}</TheirWords>
+                  </p>
                   <ReachNotice reach={provider.reach} />
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
@@ -163,13 +164,15 @@ export default async function SettingsPage({
             URL is the one thing on this page a person can get wrong, and a
             re-read cannot report it: "that was not a URL" and "nothing
             happened" are the same unchanged list. The entry is echoed so the
-            owner can see which one it was.
-
-            TODO(CNCORE-226): and it is printed raw.
+            owner can see which one it was, through `TheirWords`, since it is
+            the Owner's words and not this page's (ADR-0142).
           */
           <p className="mt-3 text-muted-foreground text-sm">
-            <span className="font-medium">{refused}</span> was not named, because it is not a URL. A
-            Provider is a URL and nothing more, so name it by its base URL, scheme included.
+            <span className="font-medium">
+              <TheirWords>{refused}</TheirWords>
+            </span>{" "}
+            was not named, because it is not a URL. A Provider is a URL and nothing more, so name it
+            by its base URL, scheme included.
           </p>
         )}
       </section>

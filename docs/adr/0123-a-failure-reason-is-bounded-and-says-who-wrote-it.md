@@ -232,7 +232,7 @@ sentence is printed in is exactly the shape that gave this defect two sites in t
 is `apps/web/src/components/reason.tsx` now. `reasonFor` decides WHOSE the text is and that
 component decides how the page says so — the half a shared mapping alone does not buy.
 
-**The page prints CanonCore's sentence plainly and QUOTES everything else, with the provider named
+**The page prints CanonCore's sentence unquoted and QUOTES everything else, with the provider named
 beside it.** All THREE reason surfaces take the same component — `/import`'s two sections and, since
 CNCORE-101, the settings surface — and each keeps naming the provider in its own lead sentence. It
 lived inside `/import/page.tsx` while that page was the only caller and moved to
@@ -780,12 +780,13 @@ WAS on the list and is not wrapped**: the ticket inferred it, and the schema rul
 declares `assertableBy` the owner alone, and the database refuses a note moved onto a Provider's
 source (`constraints.test.ts`), so that label is never a Provider's.
 
-CanonCore's own sentence in `Reason` is printed plainly and not wrapped, because it is this app's own
-words. This gave a second reason, that the config boundary judges a URL the Owner typed and so every
-value in the sentence is the Owner's own rather than a stranger's, and that reason does not hold:
-ADR-0142 measured the Owner's words setting the page's width exactly as a stranger's do. The address
-inside the sentence is text the page did not write. It is still printed raw, and putting it through
-the component is CNCORE-226's.
+CanonCore's own sentence in `Reason` is not quoted, because it is this app's own words, and since
+CNCORE-226 it is wrapped, whole. This once printed it raw as well, for a second reason: that the
+config boundary judges a URL the Owner typed, so every value in the sentence is the Owner's own
+rather than a stranger's. That reason does not hold, since ADR-0142 measured the Owner's words
+setting the page's width exactly as a stranger's do. The address inside the sentence is text the
+page did not write, and the sentence reaches the page as one string, so the whole of it goes through
+the component; ADR-0142 carries the measurement that says this breaks none of the page's words.
 
 ### `anywhere`, because `break-word` passes one witness and fails the other
 
@@ -815,8 +816,9 @@ pixels, and at 375 it wrecked the header.** It lets every flex item shrink below
 word, and the header's `CanonCore` link became a column seventeen pixels wide and 336 tall, one letter
 to a line, with `Works` and `Groups` beside it the same. A stranger's text breaking mid-word to fit
 this page is the right trade. This page's own words breaking that way is not. So `anywhere` goes on
-text whose shape the page did not choose and not on the page's own words, and the component is that
-for a Provider's text and, since CNCORE-223, for everybody else's. It lives where `.claude/rules/frontend.md` puts a formatted value: in
+text whose shape the page did not choose and not on the page's own words, but for those that reach
+the page in one expression with somebody else's, which ADR-0142 measures riding inside without
+breaking. The component is that for a Provider's text and, since CNCORE-223, for everybody else's. It lives where `.claude/rules/frontend.md` puts a formatted value: in
 `apps/web/src/components`, beside the pages that render it.
 
 **THE OWNER'S TEXT IS THE SAME QUESTION FROM THE OTHER SIDE, AND IT IS ALREADY ANSWERED ONCE.**

@@ -1,4 +1,4 @@
-import { createGroupByHand, placeItemByHand } from "@canoncore/db";
+import { createGroupByHand, placeItemByHand, startSession } from "@canoncore/db";
 import { anItemTitled, aProvider, aStatement } from "@canoncore/db/testing/catalogue";
 import { bounded } from "@canoncore/providers";
 import type { TestProject } from "vitest/node";
@@ -13,6 +13,9 @@ import {
 
 /** A Group's name, a word repeated for the reason `UNBROKEN`'s fields are. */
 const UNBROKEN_GROUP = "group".repeat(100);
+
+/** The name a device declares for itself, repeated for the same reason. */
+const UNBROKEN_DEVICE = "device".repeat(60);
 
 /**
  * ONE INSTANCE, FOR THE THINGS A BROWSER IS NEEDED FOR (CNCORE-73, CNCORE-217).
@@ -125,6 +128,14 @@ export default async function setup(project: TestProject) {
        */
       await createGroupByHand(db, { name: UNBROKEN_GROUP });
 
+      /*
+       * AND A DEVICE THAT DECLARED A NAME WITH NO BREAK IN IT (CNCORE-226),
+       * which is a client's words about itself: `session.list` bounds neither
+       * its length nor its width. Started here rather than through a client,
+       * because none exists yet and the row is what `/devices` reads.
+       */
+      await startSession(db, { deviceName: UNBROKEN_DEVICE });
+
       return {
         dragging: { releaseOrder, inOrder: held.map(({ title }) => title) },
         claimed,
@@ -141,6 +152,7 @@ export default async function setup(project: TestProject) {
   project.provide("unbroken", UNBROKEN);
   project.provide("titledUnbroken", instance.fixture.unbrokenTitle);
   project.provide("unbrokenGroup", UNBROKEN_GROUP);
+  project.provide("unbrokenDevice", UNBROKEN_DEVICE);
 
   return async () => {
     await instance.close();
@@ -167,5 +179,7 @@ declare module "vitest" {
     titledUnbroken: string;
     /** The name of a Group the Owner drew, with no break in it. */
     unbrokenGroup: string;
+    /** The name a device declared for itself, with no break in it. */
+    unbrokenDevice: string;
   }
 }

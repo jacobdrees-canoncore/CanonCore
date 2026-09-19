@@ -2,10 +2,11 @@ import { type Browser, type BrowserContext, chromium, type Locator, type Page } 
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 
 import { gatedTo } from "./gate";
+import { logIn } from "./log-in";
 
 /**
  * TEXT THE PAGE DID NOT WRITE, AT THE WIDTH OF THE OWNER'S PAGE (CNCORE-217,
- * ADR-0123; CNCORE-223, ADR-0142).
+ * ADR-0123; CNCORE-223 and CNCORE-226, ADR-0142).
  *
  * `cmppManifest` bounds a Provider's declared name at 300 characters, and the
  * page seam asserts the bound. Three hundred characters with no break in them
@@ -13,7 +14,8 @@ import { gatedTo } from "./gate";
  * the Owner's page is instead of how long -- found by walking CNCORE-165, where
  * the heading ran off the right edge with the length assertion green beside it.
  * A record's fields, an Item's values and a Group's name are bounded in length
- * by nothing at all, and fail the page the same way (CNCORE-223).
+ * by nothing at all, and fail the page the same way (CNCORE-223), and so does
+ * what a device declares for itself (CNCORE-226).
  *
  * A BROWSER BECAUSE NOTHING ELSE CAN SEE THIS. ADR-0103's test for a candidate
  * here is "could a `fetch` observe it?", and a `fetch` observes what the
@@ -80,7 +82,9 @@ describe("a Provider's name with no break in it", () => {
 
   /*
    * THE WITNESS THAT TELLS THE TWO RULES APART. The heading above is a block,
-   * and `overflow-wrap: break-word` passes it. A Values row is flex, and there
+   * and `overflow-wrap: break-word` passes its own box, though no longer its
+   * page, since CNCORE-182 put a flex row of Groups beside a query there
+   * (ADR-0142). A Values row is flex, and there
    * `break-word` leaves the label's min-content at the whole word, so the label
    * grows to it and the page scrolls -- the row asserted here, rather than the
    * label, because the grown label holds its text perfectly well.
@@ -104,9 +108,9 @@ describe("a record's fields with no break in them", () => {
    * would fail, as the Values row is above: the row asserted rather than the
    * field, because a field that grew to the word holds its text perfectly well.
    *
-   * EACH QUERY IS SHORT, so the heading echoing it does not decide the width:
-   * that heading prints the query raw, which is CNCORE-226's, and a query as
-   * wide as the field would be witnessing it instead of the row.
+   * EACH QUERY IS SHORT, so the heading echoing it has no part in the width
+   * and each witness is its row's alone. That heading wraps the query too since
+   * CNCORE-226, which a query as wide as the field would be witnessing instead.
    */
   it.each([
     { field: "title", query: unbroken.title.slice(0, 10), run: unbroken.title },
@@ -175,5 +179,33 @@ describe("a Group's name with no break in it", () => {
 
     await expect.poll(() => chips.textContent()).toContain(inject("unbrokenGroup"));
     expect(await overrun(chips)).toStrictEqual({ element: 0, document: 0 });
+  });
+});
+
+describe("a device's declared name with no break in it", () => {
+  /*
+   * THE OWNER'S PAGE ALONE, so this logs in, and logs out again after, since
+   * every witness above is what a visitor is shown.
+   */
+  beforeAll(async () => {
+    await logIn(page, baseUrl);
+  });
+
+  afterAll(async () => {
+    await context.clearCookies();
+  });
+
+  /*
+   * A DEVICE'S ROW IS FLEX: its names beside the button that logs it out, the
+   * shape `/settings` gives a Provider's base URL beside its own. The row is
+   * asserted rather than the name, for the reason a search result's is.
+   */
+  it("wraps inside its row on /devices", async () => {
+    const name = inject("unbrokenDevice");
+    await page.goto(`${baseUrl}/devices`);
+    const row = page.locator("main li").filter({ hasText: name.slice(0, 100) });
+
+    await expect.poll(() => row.count()).toBe(1);
+    expect(await overrun(row)).toStrictEqual({ element: 0, document: 0 });
   });
 });
