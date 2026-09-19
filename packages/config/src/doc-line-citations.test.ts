@@ -1,6 +1,16 @@
-import { readdirSync, readFileSync } from "node:fs";
+import type { Dirent } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { repoRoot } from "./testing/repo-root";
 
@@ -56,12 +66,73 @@ import { repoRoot } from "./testing/repo-root";
  * The prose this rule governs is everything under `docs/` plus every markdown
  * document at the root, READ FROM THE TREE rather than listed here: `CONTEXT.md`
  * and `CLAUDE.md` are cited by line more than any record is, and a fourth root
- * document added later would otherwise be silently uncovered.
+ * document added later would otherwise be silently uncovered. A symlinked one
+ * is the case that sentence promised to cover and did not, and `markdownIn`
+ * below refuses it rather than letting it leave this sweep unremarked.
  */
 function rootProse(): string[] {
-  return readdirSync(repoRoot, { withFileTypes: true })
-    .filter((entry) => entry.isFile() && entry.name.endsWith(".md"))
-    .map((entry) => entry.name);
+  return markdownIn(repoRoot);
+}
+
+/**
+ * The markdown documents under ONE directory, with a symlinked one REFUSED
+ * rather than dropped (CNCORE-204).
+ *
+ * `Dirent.isFile()` is lstat, so it is FALSE for a symlink pointing at a file
+ * and `isSymbolicLink()` is true instead. Filtering on the first alone took a
+ * symlinked document out of both reads above in silence -- and the silence was
+ * wider than a document going unread. `prose()` feeds the `held` set that
+ * decides which citations this sweep BANS, and a citation whose target is
+ * missing from it reads as HISTORY, the exemption `docs/research/README.md`
+ * earns for citations naming files this tree does not hold. So a line citation
+ * into a symlinked document was not merely unchecked: it was affirmatively
+ * excused, by a rule that meant to excuse something else.
+ *
+ * REFUSED FOR A REASON OF ITS OWN, and neither of the two above it. CNCORE-200
+ * refuses a symlinked package DIRECTORY because pnpm and turbo answer
+ * differently about it; there are no two such tools here, and `readFileSync`
+ * reads a symlinked document exactly as an editor does. CNCORE-201 refuses a
+ * symlinked Vitest config because `isInside` places a config by its PATH and a
+ * symlink hides a climb from it; `prose()` has no placement rule at all -- a
+ * document's path is simply its name.
+ *
+ * WHAT IS REFUSED IS A DOCUMENT WHOSE LINES THIS REPOSITORY HOLDS TWO ANSWERS
+ * FOR, which is the one thing this sweep is entirely about. Git stores a
+ * symlink as mode `120000`, a blob holding the target path, so the document a
+ * checkout reads through the link and the document git holds at that path are
+ * not the same document and do not have the same lines. The measurement is in
+ * ADR-0103 under "a symlinked markdown document has lines on disk and none in
+ * git", and is NOT restated here: a figure kept in two places is a figure that
+ * drifts in one of them.
+ *
+ * THE NAME IS READ BEFORE THE LINK IS, so what this refuses is a symlink
+ * WEARING A DOCUMENT'S NAME rather than a symlink in the corpus, and a DANGLING
+ * one is refused on the name alone -- a measured difference from
+ * `directoriesUnder`, which drops one. No stat is taken, which is what keeps
+ * this one rule rather than two.
+ *
+ * A SYMLINKED DIRECTORY IS NOT THIS SHAPE and is left to CNCORE-211: node
+ * DESCENDS one on a recursive read, so nothing drops out of this sweep and the
+ * silence above is absent. What it leaves instead is a path git does not hold,
+ * which is that ticket's subject.
+ *
+ * EVERY offender is named and not the first, for the reason `ungatedPackages`,
+ * `directoriesUnder` and `configFilesIn` are each named rather than counted:
+ * two are two things to fix.
+ */
+function markdownIn(directory: string, { recursive = false } = {}): string[] {
+  const entries = readdirSync(directory, { recursive, withFileTypes: true }).filter((entry) =>
+    entry.name.endsWith(".md"),
+  );
+  const at = (entry: Dirent): string => relative(directory, join(entry.parentPath, entry.name));
+  const symlinked = entries.filter((entry) => entry.isSymbolicLink());
+  if (symlinked.length > 0) {
+    const paths = symlinked.map((entry) => join(directory, at(entry))).join(", ");
+    throw new Error(
+      `a symlinked markdown document has lines on disk and none in git, so it is refused: ${paths}`,
+    );
+  }
+  return entries.filter((entry) => entry.isFile()).map(at);
 }
 
 type Citation = { readonly file: string; readonly line: number; readonly cite: string };
@@ -92,15 +163,15 @@ const FORMS = [
   { by: "number", pattern: /(?<![\w:.-])(\d{4}):(\d+)(?:-\d+)?(?![\d.:])/g },
 ] as const;
 
-// TODO(CNCORE-204): `isFile()` is lstat here and in `rootProse` above, so a
-// SYMLINKED markdown document reads false and leaves this sweep unremarked --
-// the same defect CNCORE-200 and CNCORE-201 refused one level up, in a third
-// reader. Nothing under `docs/` or at the root is a symlink today.
+// TODO(CNCORE-211): the recursive read below DESCENDS a symlinked directory
+// under `docs/` rather than dropping it, so its documents are swept at paths git
+// does not hold -- and one pointing back inside `docs/` reaches every document
+// under it twice, which `byBasename` then drops as a real ambiguity.
 /** Every markdown file this rule governs, spelled as the tree spells it. */
 function prose(): string[] {
-  const underDocs = readdirSync(join(repoRoot, "docs"), { recursive: true, withFileTypes: true })
-    .filter((entry) => entry.isFile() && entry.name.endsWith(".md"))
-    .map((entry) => relative(repoRoot, join(entry.parentPath, entry.name)));
+  const underDocs = markdownIn(join(repoRoot, "docs"), { recursive: true }).map((path) =>
+    join("docs", path),
+  );
   return [...underDocs, ...rootProse()].sort();
 }
 
@@ -185,5 +256,98 @@ describe("a document citing another document", () => {
       ({ file, line, cite }) => `${file}:${line} cites \`${cite}\``,
     );
     expect(byLine).toEqual([]);
+  });
+});
+
+/**
+ * And the shape this sweep cannot be right about, ASKED DIRECTLY for the reason
+ * `workspace.test.ts` and `network-gate-wiring.test.ts` ask theirs directly: no
+ * markdown document in this repository is a symlink, so the repository is the
+ * one place the question cannot be put (CNCORE-204).
+ */
+describe("a symlinked markdown document", () => {
+  let directory: string;
+
+  beforeEach(() => {
+    directory = mkdtempSync(join(tmpdir(), "canoncore-prose-"));
+  });
+
+  afterEach(() => {
+    rmSync(directory, { recursive: true, force: true });
+  });
+
+  it("is refused by name rather than dropped out of the sweep", () => {
+    writeFileSync(join(directory, "CLAUDE.md"), "");
+    symlinkSync(join(directory, "CLAUDE.md"), join(directory, "AGENTS.md"));
+
+    expect(() => markdownIn(directory)).toThrow(/AGENTS\.md/);
+  });
+
+  it("is refused under a nested directory too, which is where the corpus lives", () => {
+    mkdirSync(join(directory, "adr"));
+    writeFileSync(join(directory, "adr", "0001-a.md"), "");
+    symlinkSync(join(directory, "adr", "0001-a.md"), join(directory, "adr", "mirror.md"));
+
+    expect(() => markdownIn(directory, { recursive: true })).toThrow(/adr\/mirror\.md/);
+  });
+
+  /**
+   * NAMED RATHER THAN COUNTED, which is the line this package already takes
+   * about `ungatedPackages`, `directoriesUnder` and `configFilesIn`: two
+   * symlinked documents are two things to fix, and a message carrying the first
+   * sends the reader back for the second.
+   */
+  it("is named alongside every other one, rather than the first standing for them all", () => {
+    writeFileSync(join(directory, "CLAUDE.md"), "");
+    symlinkSync(join(directory, "CLAUDE.md"), join(directory, "one.md"));
+    symlinkSync(join(directory, "CLAUDE.md"), join(directory, "two.md"));
+
+    expect(() => markdownIn(directory)).toThrow(/one\.md.*two\.md/s);
+  });
+
+  /**
+   * A corpus may hold as many symlinks as it likes; what it may not hold is one
+   * wearing a DOCUMENT'S name. Nothing cites a line of a file this sweep never
+   * reads, so refusing one would invent a problem.
+   */
+  it("is not an ordinary symlink that no markdown filename matches", () => {
+    writeFileSync(join(directory, "CLAUDE.md"), "");
+    writeFileSync(join(directory, "notes.txt"), "");
+    symlinkSync(join(directory, "notes.txt"), join(directory, "link.txt"));
+
+    expect(markdownIn(directory)).toStrictEqual(["CLAUDE.md"]);
+  });
+
+  /**
+   * REFUSED WHEN IT DANGLES, where `directoriesUnder` drops one -- a measured
+   * difference rather than an inconsistency. There, a thing that stats as
+   * nothing is not a package to pnpm or to turbo either, so all three readers
+   * agree. Here the name is read BEFORE the link is, and a path at the root of
+   * the corpus wearing `.md` that nothing can open is exactly the unremarked
+   * document this refuses. Reading it would throw ENOENT out of the sweep at a
+   * line naming no reason; this names one.
+   */
+  it("is refused when it dangles, because the name is read before the link is", () => {
+    symlinkSync(join(directory, "gone.md"), join(directory, "AGENTS.md"));
+
+    expect(() => markdownIn(directory)).toThrow(/AGENTS\.md/);
+  });
+
+  /**
+   * AND A SYMLINKED DIRECTORY IS READ THROUGH RATHER THAN REFUSED, which is
+   * pinned here because it is the opposite of what the entry case would lead a
+   * reader to assume. `readdirSync` with `recursive: true` DESCENDS a symlinked
+   * directory and returns what is inside it as ordinary files -- measured on
+   * node v24.19.0 -- so nothing drops out and this ticket's silence is absent.
+   * It is not therefore harmless: git holds the directory as a link, so every
+   * path under it is one no reader of the published repository has. That is
+   * CNCORE-211, and it is a different shape from this one.
+   */
+  it("is descended rather than dropped, so its documents are swept under it", () => {
+    mkdirSync(join(directory, "elsewhere"));
+    writeFileSync(join(directory, "elsewhere", "outside.md"), "");
+    symlinkSync(join(directory, "elsewhere"), join(directory, "linked"));
+
+    expect(markdownIn(directory, { recursive: true })).toContain(join("linked", "outside.md"));
   });
 });

@@ -1465,3 +1465,99 @@ nothing here is.
 are built from the same `repoRoot` and `configFilesIn` has already refused any symlink among them,
 so they agree or fail together, and resolving there would buy nothing and cost a `realpath` per
 package.
+
+## A symlinked markdown document has lines on disk and none in git -- under CNCORE-204
+
+**THE SAME lstat IN A THIRD READER, AND THE WIDEST SILENCE OF THE THREE.**
+`doc-line-citations.test.ts` found its corpus with `Dirent.isFile()` twice -- once for the root
+documents and once for the recursive read under `docs/` -- so a symlinked document read back
+`isFile= false isSymbolicLink= true` and entered neither list. Measured on node v24.19.0.
+
+**AND IT WAS NOT MERELY UNREAD, WHICH IS WHAT MAKES THIS WORSE THAN THE TWO ABOVE.** `prose()` feeds
+the `held` set that decides which citations this sweep BANS, and a citation whose target is missing
+from `held` is read as HISTORY -- the exemption `docs/research/README.md` earns for citations naming
+files this tree does not hold, because an edit here cannot move a file that is not here. A symlinked
+document IS here and an edit here DOES move its lines. So a line citation into one was not left
+unchecked; it was affirmatively excused, by a rule written to excuse something else.
+
+**NEITHER ARGUMENT ABOVE TRANSFERS, AND THAT WAS MEASURED RATHER THAN ASSUMED.** CNCORE-200 refuses
+a symlinked package directory because pnpm and turbo answer differently about it. There is no such
+pair here: `readFileSync` follows the link, and so does every editor. CNCORE-201 refuses a symlinked
+Vitest config because `isInside` places a config by its PATH and a symlink is a spelling of a climb
+that path cannot show. `prose()` has no placement rule at all -- a document's path is simply its
+name. Both reasons were checked and both are absent.
+
+**WHAT IS REFUSED IS A DOCUMENT THIS REPOSITORY HOLDS TWO ANSWERS FOR ABOUT ITS LINES**, which is
+the one thing this sweep is entirely about. Measured 2026-09-19 on git 2.54.0 (Apple Git-157) and
+node v24.19.0, in a scratch repository with `AGENTS.md` a symlink to a three-line `CLAUDE.md`:
+
+* **Git stores the link, not the document.** `git ls-files -s` reports mode `120000` for `AGENTS.md`
+  against `100644` for `CLAUDE.md`, and the blob is 9 bytes whose whole content is the string
+  `CLAUDE.md` with no trailing newline -- `0` lines by `wc -l`, against the `3` lines and 56 bytes
+  `readFileSync` returns through the link on disk.
+* **So the prose is not at that path for anything reading through git.** `git grep` for a sentence
+  in the document reports it under `CLAUDE.md` and nowhere else; the path `AGENTS.md` holds none of
+  it.
+* **`CLAUDE.md` is the control**, which is what makes this a measurement rather than an absence: the
+  same bytes, one mode apart, found by `git grep` at the path git actually stores them at.
+
+So BOTH available answers are wrong, and that is the reason to refuse rather than pick one.
+Resolving bans a citation naming a path whose committed content has no such line, and sends whoever
+reads the failure to edit a line that is not there. Dropping is the silence above. Refusing names
+the shape, exactly as `isWorkspacePattern` names a pattern it does not understand rather than
+quietly dropping what it would have matched.
+
+**AND RESOLVING COSTS THE INDEX ITS ANSWER, which is a second measured reason and a silent one.**
+`byBasename()` keys a document by its bare filename, for the corpus's habit of citing one by bare
+name once an earlier mention has set the directory, and drops any name held by more than one
+document, because two files sharing a basename make the citation genuinely ambiguous. A symlink
+makes ONE document reachable twice, so that ambiguity is fake and the drop is unearned. Measured in
+a scratch tree with `docs/mirror/0001-a.md` a symlink to `docs/adr/0001-a.md`: resolving takes
+`0001-a.md` OUT of the index entirely, so every bare-filename citation of that record stops being
+reported and nothing says so. **The sweep would get narrower by gaining a file.**
+
+**IT IS NARROWER THAN THIS REPOSITORY'S OTHER TWO MARKDOWN READERS, deliberately.**
+`adr-numbering.test.ts` reads filenames without `Dirent` and `sweep-shard-citations.test.ts` does
+not filter on `isFile` at all, so both COUNT a symlinked document today. Neither asks about a LINE:
+one asks what number a filename opens with, the other whether the corpus holds a cited path, and a
+symlink confuses neither. Refusing here is loud, so the disagreement is REPORTED rather than settled
+in silence by the one reader that would get it wrong -- which is the whole of CNCORE-200's argument
+for refusing over dropping, arriving through readers inside this repository rather than outside it.
+
+**THE NAME IS READ BEFORE THE LINK IS, AND A DANGLING ONE IS REFUSED**, where `directoriesUnder`
+drops one. That is a measured difference rather than an inconsistency: there, a thing that stats as
+nothing is not a package to pnpm or to turbo either, so all three readers agree. Here no stat is
+taken at all, which is what keeps this ONE rule rather than two, and a path in the corpus wearing
+`.md` that nothing can open is exactly the unremarked document being refused -- reading it would
+throw ENOENT out of the sweep at a line naming a path and no reason.
+
+**ASKED DIRECTLY, AND CHECKED BY MUTATION RATHER THAN BY BEING GREEN.** No markdown document in this
+repository is a symlink, so the repository is the one place the question cannot be put: the read is
+`markdownIn(directory, { recursive })`, taking an absolute path so a scratch tree drives every row.
+The rows sit in `doc-line-citations.test.ts` beside the rule rather than moving to `testing/`,
+because only this sweep lists markdown this way; `isWorkspacePattern` moved
+only once a SECOND sweep descended from it. Six mutations against the finished branch, each
+reddening the rows that name it and no others:
+
+* **No refusal at all** -- the defect this ticket names -- reddens four: the root document, the
+  nested one, every-offender-named, and the dangling one.
+* **Naming only the first offender** reddens every-offender-named, alone.
+* **Taking a stat before refusing**, so a dangling one drops, reddens the dangling row, alone.
+* **Refusing every symlink** rather than one wearing a document's name reddens the two boundary
+  rows: the ordinary `.txt` link, and the descended directory.
+* **Dropping `parentPath` from every path the reader spells** reddens the nested row, the descended
+  row, AND the repository-wide citation test -- which is the control proving the extracted reader is
+  wired into `prose()` rather than sitting beside it.
+* **Never recursing** reddens the nested row and the descended row.
+
+**AND THE WIRING CHANGES NOTHING ABOUT WHAT IS SWEPT**, which was checked rather than assumed:
+`prose()` returns the same 188 documents, in the same spelling, before and after the extraction.
+
+**WHAT THIS DOES NOT HOLD, said here rather than left to be found.** A symlinked DIRECTORY under
+`docs/` is not this shape and is left to CNCORE-211. Measured on node v24.19.0, `readdirSync` with
+`recursive: true` DESCENDS one and returns what is inside it as ordinary files, `isFile= true`, with
+`parentPath` pointing through the link -- so nothing drops out and this ticket's silence is absent.
+What it leaves instead is every path under it being one git does not hold, and, where it points back
+inside `docs/`, the same fake ambiguity measured above. It is NOT the shape ruled out of scope as
+"the parent itself" under CNCORE-200, where `readdirSync`, pnpm and turbo all agreed; here node and
+git do not.
