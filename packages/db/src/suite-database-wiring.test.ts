@@ -6,7 +6,7 @@ import { configFilesOnDisk, testBlockOf } from "@canoncore/config/testing/vitest
 import { describe, expect, it } from "vitest";
 
 import { SUITE_DATABASE_SUFFIXES } from "./testing/build-database";
-import { suiteDatabaseSuffixAt } from "./testing/suite-database";
+import { packageNameAt, suiteDatabaseSuffixAt } from "./testing/suite-database";
 
 /**
  * A test that reads every Vitest config in the repository, for the same reason
@@ -55,14 +55,20 @@ describe("a suite that builds a catalogue", () => {
   it("claims a test database no other suite claims", async () => {
     const found = await suitesWithACatalogue();
 
+    // ASSERTED AS THE TWO LISTS RATHER THAN AS THEIR TWO LENGTHS, because a
+    // count names nobody: comparing them as numbers failed `expected 2 to be 3`
+    // and left the reader to find which config it meant. The convention is this
+    // file's own and `vitest-configs.ts` states it -- EVERY offender is named,
+    // not the first.
+    //
     // Vacuous otherwise, and in BOTH directions, which is why it is an equality
     // rather than a floor: a config that took this global setup without being
     // declared would leave the set short, and an entry naming a package that no
     // longer takes it would leave the declaration long. The first is the defect
     // this ticket is about; the second is the excuse-list rot that
     // `network-gate-wiring.test.ts` spends a test of its own refusing.
-    expect(found.map((config) => relative(repoRoot, config)).length).toBe(
-      Object.keys(SUITE_DATABASE_SUFFIXES).length,
+    expect(found.map((config) => packageNameAt(dirname(config))).sort()).toStrictEqual(
+      Object.keys(SUITE_DATABASE_SUFFIXES).sort(),
     );
 
     // Resolved through the harness's OWN lookup rather than by reading the

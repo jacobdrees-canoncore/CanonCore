@@ -85,7 +85,7 @@ function runsASuite(command: string): boolean {
 // `vitest.*.config.ts` files that sweep reads off the disk.
 //
 // WHAT IS TRUSTED HERE, since the value travels: this is a script string out of
-// a workspace `package.json`, and `testConfig` below IMPORTS what it resolves
+// a workspace `package.json`, and `testBlockOf` IMPORTS what it resolves
 // to, which is execution rather than a read. `isInside` is asserted on the way
 // and constrains the DIRECTORY, not the filename, so a script naming any file
 // inside its own package has that file imported. That is the same trust the
@@ -182,15 +182,6 @@ function configsNamingAGlobalSetup(): string[] {
   return configFilesOnDisk().filter((file) => readFileSync(file, "utf8").includes("globalSetup"));
 }
 
-/**
- * A config's `test` block, read by IMPORTING the config rather than by matching
- * specifiers in its text -- `testBlockOf`'s own docstring says why, and it is
- * shared with `packages/db`'s sweep since CNCORE-199.
- */
-async function testConfig(suite: Suite) {
-  return testBlockOf(suite.config);
-}
-
 function asList(declared: string | string[] | undefined): string[] {
   if (declared === undefined) return [];
   return typeof declared === "string" ? [declared] : declared;
@@ -285,7 +276,7 @@ describe("the network gate's wiring", () => {
     for (const suite of found) {
       const name = `${suite.package}: ${suite.script}`;
       if (MAY_REACH_THE_INTERNET.includes(name)) continue;
-      const declared = asList((await testConfig(suite)).setupFiles);
+      const declared = asList((await testBlockOf(suite.config)).setupFiles);
       if (!declared.includes(GATE)) open.push(name);
     }
     expect(open).toStrictEqual([]);
@@ -312,7 +303,7 @@ describe("the network gate's wiring", () => {
   it("is installed FIRST by every swept suite that has a global setup", async () => {
     const withGlobalSetup = [];
     for (const suite of suites()) {
-      const declared = asList((await testConfig(suite)).globalSetup);
+      const declared = asList((await testBlockOf(suite.config)).globalSetup);
       if (declared.length === 0) continue;
       withGlobalSetup.push({ suite: `${suite.package}: ${suite.script}`, first: declared[0] });
     }
@@ -321,7 +312,7 @@ describe("the network gate's wiring", () => {
     // `3` here was written when three configs declared one and five do now
     // (CNCORE-160).
     //
-    // READ AS TEXT, WHICH IS THE INDEPENDENT SOURCE. `testConfig` IMPORTS a
+    // READ AS TEXT, WHICH IS THE INDEPENDENT SOURCE. `testBlockOf` IMPORTS a
     // config, so a resolution that silently yielded `{}` for every one of them
     // would empty this list and pass; a text search cannot fail that way. The
     // one thing it cannot tell apart is a COMMENTED-OUT declaration, and this

@@ -2,7 +2,10 @@ import { type ChildProcess, spawn } from "node:child_process";
 import { createServer as createProbe } from "node:net";
 import { fileURLToPath } from "node:url";
 import { createDb, type Database, writeProviderSettings } from "@canoncore/db";
-import { buildTestDatabase, type TestDatabaseSuffix } from "@canoncore/db/testing/build-database";
+import {
+  buildTestDatabase,
+  type FixtureDatabaseSuffix,
+} from "@canoncore/db/testing/build-database";
 
 /**
  * ONE INSTANCE OF CANONCORE, STOOD UP FOR A SUITE TO LOOK AT.
@@ -154,7 +157,7 @@ export async function anInstanceServing<Fixture>({
   providers,
   fill,
 }: {
-  suffix: TestDatabaseSuffix;
+  suffix: FixtureDatabaseSuffix;
   /**
    * ADR-0044's one password, or the empty string for an instance nobody can log
    * in to -- which is that record's demo, and is what a read-only instance is.

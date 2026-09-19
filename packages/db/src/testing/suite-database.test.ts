@@ -1,3 +1,5 @@
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { repoRoot } from "@canoncore/config/testing/repo-root";
 import { describe, expect, it } from "vitest";
@@ -21,5 +23,19 @@ describe("the database a suite claims", () => {
     expect(() => suiteDatabaseSuffixAt(join(repoRoot, "packages/providers"))).toThrow(
       /@canoncore\/providers/,
     );
+  });
+
+  it("refuses a package named after something every object inherits", () => {
+    // The table is an object literal, so `SUITE_DATABASE_SUFFIXES["toString"]`
+    // is an inherited FUNCTION rather than `undefined`. A lookup checking only
+    // for `undefined` walks past the refusal above and carries that function
+    // into a name this harness DROPS. The manifest is a file on disk, so the
+    // name is an outside value however unlikely the spelling.
+    const inherited = mkdtempSync(join(tmpdir(), "cncore-199-"));
+    writeFileSync(join(inherited, "package.json"), JSON.stringify({ name: "toString" }));
+
+    expect(() => suiteDatabaseSuffixAt(inherited)).toThrow(/claims no test database/);
+
+    rmSync(inherited, { recursive: true, force: true });
   });
 });

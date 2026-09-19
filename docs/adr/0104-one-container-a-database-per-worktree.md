@@ -387,6 +387,35 @@ than over the bare one, which is what carries the idempotence and the 63-byte bu
 reservation is untouched, which is the direction the paragraphs above insist the constraint runs: the
 suffix gave way, not the stem.
 
+**A FIXTURE'S SUFFIX AND A SUITE'S ARE TWO LISTS, AND THE FIRST DRAFT MADE THEM ONE.** That draft put
+`api` and `tasks` into `TEST_DATABASE_SUFFIXES`, which is the union `buildTestDatabase` accepts — so
+`buildTestDatabase("api")` typechecked from any fixture, including `apps/web/e2e/instance.ts`, and
+what that function does with a name is `drop database ... with (force)` against a suite's LIVE run
+database. The `name === database` guard refuses a caller its OWN database and cannot see a sibling's.
+Review caught it before merge; nothing in the repository had asked yet, which is the only reason it
+was harmless.
+
+**IT IS FIXED IN THE TYPE RATHER THAN IN A GUARD, because the guard cannot know the intent.**
+`FIXTURE_DATABASE_SUFFIXES` is what a FILE may ask for and `SUITE_DATABASE_SUFFIXES` is what a SUITE
+runs in; the two do not overlap, `buildTestDatabase` takes the first and `buildSuiteDatabase` the
+second, and `buildTestDatabase("api")` is now TS2345. `TEST_DATABASE_SUFFIXES` remains as the
+CONCATENATION of both, because the 63-byte budget is a property of every name the harness derives and
+splitting the union without it would have silently halved what `worktree-database.test.ts` ranges
+over — which is the one test standing between a long branch and a dropped catalogue.
+
+**`""` MOVED RATHER THAN BEING DELETED, and that is the whole shape of the original defect.** It sat
+in the fixture list on the grounds that `packages/db`'s suite takes the bare `<database>_test`. It
+was never a fixture's to ask for; it was a SUITE's, reachable by every caller because it was also the
+PARAMETER'S DEFAULT. Neither `buildTestDatabase` nor `buildSuiteDatabase` has a default now, so no
+caller gets a database by not mentioning one.
+
+**AND THE LOOKUP USES `Object.hasOwn`, which is not defensiveness about a name nobody will write.**
+`SUITE_DATABASE_SUFFIXES` is an object literal and the name indexing it is read off a `package.json`
+on disk, so `SUITE_DATABASE_SUFFIXES["toString"]` is an inherited FUNCTION rather than `undefined` —
+walking past a refusal written as `=== undefined` and carrying a non-suffix into a name this harness
+drops. Demonstrated in `suite-database.test.ts` rather than reasoned about: with the old check the
+test fails `expected [Function] to throw an error`.
+
 **WHAT THIS COSTS IS TWO MORE DATABASES AND NO MORE CONNECTIONS.** Each of the three suites already
 built one from empty and migrated it; they now build three different ones rather than the same one
 three times. The ceiling arithmetic above is untouched, because those suites are still serialised by

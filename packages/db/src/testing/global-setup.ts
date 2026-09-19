@@ -2,19 +2,16 @@ import type { TestProject } from "vitest/node";
 
 import "../load-env";
 import "./provided";
-import { buildTestDatabase } from "./build-database";
+import { buildSuiteDatabase } from "./build-database";
 import { suiteDatabaseSuffixAt } from "./suite-database";
 
 /**
  * One database for the whole run, built from empty and migrated to head -- and
  * ONE PER SUITE rather than one for all of them (CNCORE-199).
  *
- * THREE SUITES SHARE THIS FILE and it used to build the same database for each:
- * `buildTestDatabase()` with no suffix is `<worktree>_test`, which that function
- * DROPS `with (force)` and recreates. `packages/db`, `packages/api` and
- * `packages/tasks` all list it, so each run took the previous one's database out
- * from under it -- harmless only because `turbo.json`'s `dependsOn: ["^test"]`
- * happens to serialise those three, which is topology rather than a lock.
+ * THREE SUITES SHARE THIS FILE and it used to build the same database for each,
+ * because the suffix had a DEFAULT and none of them passed one. ADR-0104 records
+ * what that cost and why turbo's topology was not protecting anybody.
  *
  * `project.config.root` IS THE PACKAGE DIRECTORY, which is what makes the claim
  * derivable rather than configured. `TestProject.name` would be the obvious
@@ -24,6 +21,6 @@ import { suiteDatabaseSuffixAt } from "./suite-database";
 export default async function setup(project: TestProject) {
   project.provide(
     "databaseUrl",
-    await buildTestDatabase(suiteDatabaseSuffixAt(project.config.root)),
+    await buildSuiteDatabase(suiteDatabaseSuffixAt(project.config.root)),
   );
 }

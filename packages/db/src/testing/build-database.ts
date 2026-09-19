@@ -4,20 +4,25 @@ import "../load-env";
 import { migrateToHead } from "../migrate";
 
 /**
- * EVERY SUFFIX ANY SUITE MAY ASK FOR, and the only place one is written down.
+ * EVERY SUFFIX A FIXTURE MAY ASK FOR, and the only place one is written down.
  *
- * `buildTestDatabase` takes a member of this and nothing else, so a suite that
+ * `buildTestDatabase` takes a member of this and nothing else, so a file that
  * wants one more database adds it HERE or does not compile. That is the whole of
  * what CNCORE-112 fixed: the set used to be string literals at the call sites
  * with a hand-written copy in `worktree-database.test.ts` -- three places and
  * nothing holding them together, so the copy read three while the web suite
  * passed five, and one of the missing two did not fit the budget below.
  *
- * `""` IS A MEMBER RATHER THAN AN ABSENCE. `packages/db`'s own suite takes the
- * bare `<database>_test`, so "no suffix" is a declared value that gets held to
- * the budget like any other, rather than a case the union quietly excludes.
+ * A FIXTURE'S AND A SUITE'S ARE TWO LISTS, WHICH IS CNCORE-199's SECOND HALF.
+ * `""` used to be a member here, on the grounds that `packages/db`'s own suite
+ * takes the bare `<database>_test`. That put a database a suite RUNS IN into the
+ * union a fixture may NAME -- and what `buildTestDatabase` does with a name is
+ * `drop database ... with (force)`. The `name === database` guard refuses a
+ * caller its OWN database and cannot see a sibling's, so the one thing keeping a
+ * fixture off a running suite's catalogue was that no fixture happened to ask.
+ * `SUITE_DATABASE_SUFFIXES` below is the other list; nothing may name both.
  *
- * `gone` IS THE ONE MEMBER `packages/db` ASKS FOR ON TOP OF THE BARE ONE, and
+ * `gone` IS THE ONE MEMBER `packages/db` ASKS FOR ON TOP OF ITS OWN, and
  * it is here because what it holds is a property of a WHOLE CATALOGUE rather
  * than of a query: "no untitled item anywhere" cannot be arranged by a WHERE
  * over the shared database, only by building one from empty (CNCORE-110). A
@@ -29,8 +34,7 @@ import { migrateToHead } from "../migrate";
  * file says what derives it wrong. `worktree-database.test.ts` is what holds
  * every member here to it.
  */
-export const TEST_DATABASE_SUFFIXES = [
-  "",
+export const FIXTURE_DATABASE_SUFFIXES = [
   "web",
   "fresh",
   "paged",
@@ -100,37 +104,10 @@ export const TEST_DATABASE_SUFFIXES = [
    * budgets for.
    */
   "cost",
-  /*
-   * THE TWO THAT ARE A SUITE'S OWN RATHER THAN A FIXTURE'S (CNCORE-199). Every
-   * suffix above is asked for BY a suite, for a catalogue-wide property no
-   * `WHERE` can arrange. These two are asked for by the suite ITSELF, because
-   * `global-setup.ts` used to build the bare `<worktree>_test` for whichever
-   * package ran it -- and `packages/db`, `packages/api` and `packages/tasks` all
-   * run it. Three suites, one name, each dropping it `with (force)` on the way
-   * in.
-   *
-   * NOTHING BUT `turbo.json`'s `dependsOn: ["^test"]` KEPT THEM APART, and that
-   * is TOPOLOGICAL rather than a lock: it happens to serialise them today only
-   * because `@canoncore/api` depends on both of the others. A package added
-   * later that took this global setup and was not upstream of them would drop a
-   * database another suite was reading, and the symptom would be exactly one
-   * unexplained failure in a suite that never mentioned it.
-   *
-   * `suite-database.ts` IS WHERE THE CLAIM IS NOW MADE, one package to one
-   * suffix, and `""` stays `packages/db`'s. A package that takes the shared
-   * global setup without claiming one is refused there by name rather than
-   * defaulted onto somebody else's database.
-   *
-   * `_test_tasks` IS ELEVEN CHARACTERS, WHICH IS THE BUDGET EXACTLY, and
-   * `_test_api` is nine. `worktree-database.ts` says why the constant leads and
-   * a suffix that does not fit gets shorter.
-   */
-  "api",
-  "tasks",
 ] as const;
 
-/** A suffix this repo has declared, which is the only kind there is. */
-export type TestDatabaseSuffix = (typeof TEST_DATABASE_SUFFIXES)[number];
+/** A suffix a FIXTURE has declared, which is the only kind it may ask for. */
+export type FixtureDatabaseSuffix = (typeof FIXTURE_DATABASE_SUFFIXES)[number];
 
 /**
  * WHICH OF THOSE EACH SUITE RUNS AGAINST -- one package, one database, and the
@@ -148,12 +125,38 @@ export type TestDatabaseSuffix = (typeof TEST_DATABASE_SUFFIXES)[number];
  * using. `turbo.json`'s `dependsOn: ["^test"]` serialises those three today, but
  * topologically rather than by any lock, and only because `@canoncore/api`
  * happens to depend on both of the others.
+ *
+ * `_test_tasks` IS ELEVEN CHARACTERS, WHICH IS THE BUDGET EXACTLY, and
+ * `_test_api` is nine. A claim added here is held to that budget by
+ * `worktree-database.test.ts` like any fixture's, because both lists feed
+ * `TEST_DATABASE_SUFFIXES` below -- and `worktree-database.ts` says why the
+ * constant leads and a suffix that does not fit gets shorter.
  */
-export const SUITE_DATABASE_SUFFIXES: Record<string, TestDatabaseSuffix> = {
+export const SUITE_DATABASE_SUFFIXES = {
   "@canoncore/db": "",
   "@canoncore/api": "api",
   "@canoncore/tasks": "tasks",
-};
+} as const;
+
+/** The database one SUITE runs in, which no fixture may name. */
+export type SuiteDatabaseSuffix =
+  (typeof SUITE_DATABASE_SUFFIXES)[keyof typeof SUITE_DATABASE_SUFFIXES];
+
+/** Either, which is what the NAMING takes: both derive a database to be dropped. */
+export type TestDatabaseSuffix = FixtureDatabaseSuffix | SuiteDatabaseSuffix;
+
+/**
+ * EVERY NAME THE HARNESS CAN DERIVE, which is the set the 63-byte budget is held
+ * over -- and so a concatenation rather than a third declaration. Splitting the
+ * union above into two lists would otherwise have halved what
+ * `worktree-database.test.ts` ranges over, which is the one test standing
+ * between a long branch and `drop database` against the worktree's own
+ * catalogue.
+ */
+export const TEST_DATABASE_SUFFIXES: readonly TestDatabaseSuffix[] = [
+  ...FIXTURE_DATABASE_SUFFIXES,
+  ...Object.values(SUITE_DATABASE_SUFFIXES),
+];
 
 /**
  * Builds a database FROM EMPTY and runs the whole ladder against it.
@@ -178,9 +181,32 @@ export const SUITE_DATABASE_SUFFIXES: Record<string, TestDatabaseSuffix> = {
  * every existing caller still builds straight to head.
  */
 export async function buildTestDatabase(
-  suffix: TestDatabaseSuffix = "",
+  suffix: FixtureDatabaseSuffix,
   folder?: string,
 ): Promise<string> {
+  return buildDatabaseNamed(suffix, folder);
+}
+
+/**
+ * The same thing for the database a SUITE RUNS IN, which is a different verb for
+ * a different caller rather than the same one with a wider type (CNCORE-199).
+ *
+ * `global-setup.ts` is the only caller and `suite-database.ts` is what resolves
+ * the claim. Keeping it off `buildTestDatabase` is what stops a FIXTURE naming a
+ * running suite's catalogue: the two suffix lists do not overlap, so
+ * `buildTestDatabase("api")` is TS2345 rather than a `drop database ...
+ * with (force)` against `packages/api`'s live run.
+ *
+ * THERE IS NO DEFAULT ON EITHER, and that is the defect itself rather than a
+ * tidy-up. `buildTestDatabase(suffix = "")` is what three suites called, and the
+ * default is what silently gave them one database. Nothing calls either of these
+ * without saying which database it means.
+ */
+export async function buildSuiteDatabase(suffix: SuiteDatabaseSuffix): Promise<string> {
+  return buildDatabaseNamed(suffix);
+}
+
+async function buildDatabaseNamed(suffix: TestDatabaseSuffix, folder?: string): Promise<string> {
   const url = new URL(requireDatabaseUrl());
   const name = testDatabaseName(url, suffix);
 
@@ -259,7 +285,7 @@ export const MARKER = "_test";
  * twice. The worst branch now lands on 63 exactly, and no existing worktree is
  * renamed.
  */
-export function testDatabaseNameFor(database: string, suffix: TestDatabaseSuffix = ""): string {
+export function testDatabaseNameFor(database: string, suffix: TestDatabaseSuffix): string {
   return `${worktreeRootOf(database)}${MARKER}${suffix ? `_${suffix}` : ""}`;
 }
 
