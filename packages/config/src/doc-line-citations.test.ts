@@ -1,5 +1,6 @@
 import {
   chmodSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -119,7 +120,11 @@ function rootProse(): string[] {
  * read, so a stat IS taken here: only of a link, and only by a read that
  * recurses, because the root read enters no directory and a link beside the
  * root documents is nothing it sweeps. `throwIfNoEntry: false` drops a dangling
- * one, as `directoriesUnder` does, since there is nothing under it to sweep.
+ * one, as `directoriesUnder` does, since there is nothing under it to sweep. The
+ * corpus's OWN directory is the first one a recursive read enters, and `docs`
+ * is an entry git holds exactly as it holds one beneath it, so it is asked the
+ * same question with one `lstat`. The root read's directory is the repository,
+ * which git holds no entry for, so it is not asked.
  * Why refusing beats resolving, what leaving it cost, and what refusing costs
  * are in ADR-0103 under "a symlinked directory under `docs/` is descended by
  * node and held as a link by git".
@@ -132,13 +137,13 @@ function markdownIn(directory: string, { recursive = false } = {}): string[] {
   const documents: string[] = [];
   const linkedDocuments: string[] = [];
   const linkedDirectories: string[] = [];
-  const read = (current: string): void => {
+  const walk = (current: string): void => {
     for (const entry of readdirSync(current, { withFileTypes: true })) {
       const path = join(current, entry.name);
       if (entry.name.endsWith(".md") && entry.isSymbolicLink()) linkedDocuments.push(path);
       else if (entry.name.endsWith(".md") && entry.isFile()) documents.push(path);
       else if (!recursive) continue;
-      else if (entry.isDirectory()) read(path);
+      else if (entry.isDirectory()) walk(path);
       else if (
         entry.isSymbolicLink() &&
         statSync(path, { throwIfNoEntry: false })?.isDirectory() === true
@@ -147,20 +152,18 @@ function markdownIn(directory: string, { recursive = false } = {}): string[] {
       }
     }
   };
-  read(directory);
-  const refusals = [
-    ...(linkedDocuments.length > 0
-      ? [
-          `a symlinked markdown document has lines on disk and none in git, so it is refused: ${linkedDocuments.join(", ")}`,
-        ]
-      : []),
-    ...(linkedDirectories.length > 0
-      ? [
-          `a symlinked directory has documents on disk and none in git, so it is refused: ${linkedDirectories.join(", ")}`,
-        ]
-      : []),
-  ];
-  if (refusals.length > 0) throw new Error(refusals.join("\n"));
+  if (recursive && lstatSync(directory).isSymbolicLink()) linkedDirectories.push(directory);
+  else walk(directory);
+  const refusal = (
+    [
+      [linkedDocuments, "a symlinked markdown document has lines on disk and none in git"],
+      [linkedDirectories, "a symlinked directory has documents on disk and none in git"],
+    ] as const
+  )
+    .filter(([paths]) => paths.length > 0)
+    .map(([paths, why]) => `${why}, so it is refused: ${paths.join(", ")}`)
+    .join("\n");
+  if (refusal !== "") throw new Error(refusal);
   return documents.map((path) => relative(directory, path));
 }
 
@@ -327,7 +330,9 @@ describe("a symlinked markdown document", () => {
     symlinkSync(join(directory, "CLAUDE.md"), join(directory, "one.md"));
     symlinkSync(join(directory, "CLAUDE.md"), join(directory, "two.md"));
 
-    expect(() => markdownIn(directory)).toThrow(/one\.md.*two\.md/s);
+    const sweep = (): unknown => markdownIn(directory);
+    expect(sweep).toThrow(/one\.md/);
+    expect(sweep).toThrow(/two\.md/);
   });
 
   /**
@@ -396,6 +401,21 @@ describe("a symlinked directory under the corpus", () => {
    * control: it fails loudly rather than passing vacuously wherever permission
    * bits are not enforced, as they are not for root.
    */
+  /**
+   * The corpus's own directory is walked into like every directory under it,
+   * and `docs` is an entry git holds exactly as it holds one beneath it -- so a
+   * link THERE splits node and git over every document in the corpus at once.
+   */
+  it("is refused when it is the corpus itself, which a recursive read enters first", () => {
+    mkdirSync(join(directory, "elsewhere"));
+    writeFileSync(join(directory, "elsewhere", "outside.md"), "");
+    symlinkSync(join(directory, "elsewhere"), join(directory, "corpus"));
+
+    expect(() => markdownIn(join(directory, "corpus"), { recursive: true })).toThrow(
+      /symlinked directory.*corpus$/,
+    );
+  });
+
   it("is refused before it is read through, so a target nothing can open is no obstacle", () => {
     mkdirSync(join(directory, "elsewhere"));
     writeFileSync(join(directory, "elsewhere", "outside.md"), "");
@@ -425,7 +445,7 @@ describe("a symlinked directory under the corpus", () => {
     symlinkSync("..", join(directory, "adr", "up"));
 
     expect(() => markdownIn(directory, { recursive: true })).toThrow(
-      new RegExp(`symlinked directory.*: ${join(directory, "adr", "up")}$`),
+      new RegExp(`symlinked directory.*: ${RegExp.escape(join(directory, "adr", "up"))}$`),
     );
   });
 
@@ -445,13 +465,14 @@ describe("a symlinked directory under the corpus", () => {
   it("is named alongside every other refusal, a symlinked document's included", () => {
     mkdirSync(join(directory, "elsewhere"));
     writeFileSync(join(directory, "CLAUDE.md"), "");
-    symlinkSync(join(directory, "elsewhere"), join(directory, "one"));
-    symlinkSync(join(directory, "elsewhere"), join(directory, "two"));
+    symlinkSync(join(directory, "elsewhere"), join(directory, "linked-one"));
+    symlinkSync(join(directory, "elsewhere"), join(directory, "linked-two"));
     symlinkSync(join(directory, "CLAUDE.md"), join(directory, "AGENTS.md"));
 
-    const refusal = (): unknown => markdownIn(directory, { recursive: true });
-    expect(refusal).toThrow(/AGENTS\.md/);
-    expect(refusal).toThrow(/one.*two/s);
+    const sweep = (): unknown => markdownIn(directory, { recursive: true });
+    expect(sweep).toThrow(/AGENTS\.md/);
+    expect(sweep).toThrow(/linked-one/);
+    expect(sweep).toThrow(/linked-two/);
   });
 
   /**

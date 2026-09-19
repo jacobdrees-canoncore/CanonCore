@@ -1552,8 +1552,8 @@ repository is a symlink, so the repository is the one place the question cannot 
 `markdownIn(directory, { recursive })`, taking an absolute path so a scratch tree drives every row.
 The rows sit in `doc-line-citations.test.ts` beside the rule rather than moving to `testing/`,
 because only this sweep lists markdown this way; `isWorkspacePattern` moved only once a SECOND sweep
-descended from it. Six mutations against the finished branch, each reddening the rows that name it
-and no others:
+descended from it. Six mutations against CNCORE-204's finished branch, each reddening the rows that
+name it and no others:
 
 * **No refusal at all** -- the defect this ticket names -- reddens four: the root document, the
   nested one, every-offender-named, and the dangling one.
@@ -1628,7 +1628,9 @@ read per directory, and never enters a link. The measurement that tells the two 
 same day: with the link's target made unreadable (mode `000`), node's recursive read throws EACCES
 while `statSync` of the link still answers `isDirectory() = true`. A row asks exactly that, with
 node's EACCES asserted first as its control. Under root, which does not enforce permission bits,
-that control fails loudly rather than letting the row pass vacuously.
+that control fails loudly rather than letting the row pass vacuously. It passed in CI's Test job,
+which runs on the `ubuntu-latest` host rather than in a container (`197 passed (197)` for this
+package on the branch's first push), so the runner enforces the bits and the row bites there.
 
 **A DIRECTORY WEARS NO NAME, SO A STAT IS TAKEN HERE, AND ONLY WHERE IT CAN MATTER.** The document
 rule refuses on the name before the link is read, and takes no stat. A directory has no document
@@ -1636,6 +1638,14 @@ name to read, so the one way to tell a link to one from a link to a file is `sta
 follows the link: one stat of it, never a read through it. The stat is taken only by a read that
 recurses. The root read enters no directory, so a link beside the root documents is nothing it
 sweeps, and refusing one would invent a problem.
+
+**THE CORPUS ITSELF IS ASKED TOO, which review found rather than the ticket.** A recursive read
+enters its own directory first, and `docs` is an entry git holds exactly as it holds one beneath
+it, so `docs` itself being a link splits node and git over every document in the corpus at once.
+`readdirSync` of a path that is a link follows it, so the first version of this walk swept such a
+corpus whole. It is now refused by one `lstat` before the walk begins. The root read's directory is
+the repository, which git holds no entry for, and it is not asked: a checkout reached through a
+linked path is no concern of this sweep.
 
 **A DANGLING ONE IS DROPPED HERE, WHERE A DANGLING DOCUMENT IS REFUSED, AND THE DIFFERENCE IS THE
 NAME.** A link that stats as nothing has nothing under it to sweep. Node's recursive read does not
@@ -1653,29 +1663,33 @@ whose files git holds at their own paths. No directory under `docs/` is a symlin
 **THE PINNED ROW IS GONE, AND THE ONES REPLACING IT ARE CHECKED BY MUTATION.** The row "is
 descended rather than dropped, so its documents are swept under it" pinned the descent as a
 boundary marker. It passed on exactly what this ticket calls wrong, and it is flipped into the
-first refusal row. Six rows now ask the shape directly, beside the section above's rows in
-`doc-line-citations.test.ts`. Measured against the finished branch, with 13 tests in the file:
+first refusal row. Seven rows now ask the shape directly, beside the section above's rows in
+`doc-line-citations.test.ts`. Measured against the finished branch, with 14 tests in the file:
 
 * **Following the link**, which is the defect, reddens four: the refusal, the unreadable target,
-  the cycle, and every-offender-named (`4 failed | 9 passed (13)`).
+  the cycle, and every-offender-named (`4 failed | 10 passed (14)`).
 * **Walking through and refusing after**, which is node's recursive read with the refusal filtered
   out of what it returns, reddens exactly the two rows written to catch it: the unreadable target
-  and the cycle (`2 failed | 11 passed (13)`). The first refusal row passes it, which is why those
+  and the cycle (`2 failed | 12 passed (14)`). The first refusal row passes it, which is why those
   two exist.
+* **Dropping the `lstat` of the corpus itself** reddens the corpus row, alone
+  (`1 failed | 13 passed (14)`).
 * **Dropping `throwIfNoEntry: false`** reddens the file-or-nothing row, alone. So does **refusing
   every link a recursive read meets**, without the stat.
 * **Dropping the guard that stops a read which does not recurse** reddens the root-read row AND
   both repository-wide tests, because the root read then descends the whole tree
-  (`3 failed | 10 passed (13)`). The guard is load-bearing twice.
-* **Throwing only the first refusal** reddens every-offender-named, alone. So does **naming only the
-  first directory**.
+  (`3 failed | 11 passed (14)`). The guard is load-bearing twice.
+* **Throwing only the first refusal** reddens this section's every-offender-named row, alone.
+  **Naming only the first offender of each kind** reddens both every-offender-named rows, this
+  section's and the one above (`2 failed | 12 passed (14)`).
 
 The section above's mutations whose rows this flipped, re-measured against this reader: **refusing
-every symlink** reddens the `.txt` row and five of the six directory rows, every-offender-named
-being the one that expects a refusal anyway (`6 failed | 7 passed (13)`). **Never recursing**
-reddens the nested document row, the cycle row and the file-or-nothing row (`3 failed`). **Dropping
-the directory being walked from each path**, which replaces dropping `parentPath`, reddens ten of
-the thirteen, both repository-wide tests among them (`10 failed | 3 passed (13)`).
+every symlink** reddens the `.txt` row and five of the seven directory rows, the corpus row and
+every-offender-named being the two that expect a refusal anyway (`6 failed | 8 passed (14)`).
+**Never recursing** reddens the nested document row, the cycle row and the file-or-nothing row
+(`3 failed | 11 passed (14)`). **Dropping the directory being walked from each path**, which
+replaces dropping `parentPath`, reddens ten of the fourteen, both repository-wide tests among them
+(`10 failed | 4 passed (14)`).
 
 **AND THE WALK CHANGES NOTHING ABOUT WHAT IS SWEPT.** Compared directly, `prose()` returns the
 same 188 documents, in the same spelling and order, as node's recursive read did before.
