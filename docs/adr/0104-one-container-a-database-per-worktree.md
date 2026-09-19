@@ -49,9 +49,12 @@ name rather than by directory — precedence is `-p`, then `COMPOSE_PROJECT_NAME
 `name:`, then the directory (docs.docker.com, read 2026-09-10). So every CanonCore worktree resolves
 the SAME project.
 
-Measured rather than reasoned: running compose from a second worktree answered
-`Container canoncore-postgres Running` and left the container id untouched, with one volume between
-them.
+Measured rather than reasoned, and TRUE ONLY WHILE THE TWO COPIES OF THE FILE AGREED: running
+compose from a second worktree answered `Container canoncore-postgres Running` and left the
+container id untouched, with one volume between them. Where the copies differ, a plain `up`
+recreates the container underneath every other worktree, which is why `db:start` passes
+`--no-recreate` (CNCORE-233, under "A worktree starts the container and never recreates it"
+below).
 
 One container for eight worktrees is fine and cheap. ONE DATABASE IS NOT. The test harness drops and
 recreates `<database>_test`, so two worktrees running `pnpm test` at once would take each other's
@@ -523,14 +526,15 @@ buys weeks. `src/docker-compose.test.ts` fails if the declaration goes, since ab
 MB and the failure would read as somebody's flaky test again. CI is untouched: each job's own
 `postgres:18` holds one worktree's databases.
 
-**A COMPOSE FILE THAT DIFFERS RECREATES THE SHARED CONTAINER, which is how the 64 MB came back.**
+**A COMPOSE FILE THAT DIFFERS RECREATED THE SHARED CONTAINER, which is how the 64 MB came back.**
 `docker compose up` recreates a service's container when its configuration has changed since the
 container was created, and `--no-recreate` is what stops it (Compose's `up` reference). At
 18:18:06 UTC a worktree on an older `main` ran `pnpm db:start`. Its file set no `shm_size`, the
 running container had the Owner's 1 GB, and Compose recreated it at 64 MB underneath every other
-worktree. The same holds after this lands: a worktree based before it that runs `db:start` puts the
-container back to 64 MB, and one based after puts it back to 256 MB, each time interrupting every
-run in every other worktree. CNCORE-233 is that.
+worktree. Once CNCORE-228 landed it would have gone on: a worktree based before it that ran
+`db:start` would have put the container back to 64 MB, and one based after it back to 256 MB, each
+time interrupting every run in every other worktree. CNCORE-233 took that out, and the subsection
+below records how.
 
 **Evidence**, all 2026-09-19: `ls -la /dev/shm` and `df -h /dev/shm` inside the shared container
 and the probes. `pg_stat_have_stats('relation', dboid, relid)` counted over `pg_class` in 25 random
@@ -541,3 +545,113 @@ name the worktree that ran it. The source is `src/backend/utils/mmgr/dsa.c`,
 `src/include/utils/dsa.h`, `src/backend/utils/activity/pgstat_shmem.c`, `pgstat.c`,
 `src/backend/storage/ipc/dsm.c`, `dsm_impl.c` and `src/backend/access/transam/xlog.c` at
 `REL_18_STABLE`. The image's advice is the "Caveats" section of docker-library's `postgres` docs.
+
+### A worktree starts the container and never recreates it
+
+**`db:start` IS `docker compose up -d --no-recreate`** (CNCORE-233). `name: canoncore` makes every
+worktree's `up` act on the ONE container, so a plain `up` let each worktree decide what that
+container is, and the last one to run it won. `max_connections=300` and `shm_size` each set off that
+race when they landed, and so would any later change to the service.
+
+**WHEN DOES A WORKTREE NEED `db:start` TO CHANGE THE RUNNING CONTAINER? NEVER.** `up` does one of
+three things to this container, measured below:
+
+- **None exists:** it creates one. That is legitimate: the first run on a machine, or the first
+  after `db:down`.
+- **One is stopped:** it starts it, with the same id. That is legitimate too: after `db:stop`.
+- **One differs from this checkout's declaration:** a plain `up` stops it and recreates it, and
+  every connection in every worktree dies with it. That is never one worktree's decision, because
+  the container belongs to all of them.
+
+**A CONTAINER DIFFERS FROM A CHECKOUT FOR THREE REASONS, AND ONLY ONE OF THEM IS THE FILE.**
+
+- **The file**, as above.
+- **The environment the file reads.** The port is `${CANONCORE_DB_PORT:-55432}`, taken from the
+  shell of whoever runs `up`. Under a plain `up`, one worktree's shell setting it moved the port
+  from under every worktree whose `apps/web/.env` named the old one. Under `--no-recreate` the
+  variable counts only when the container is created, whether the container is running or stopped
+  afterwards (measured below). So it is chosen once for the machine, not per shell. Moving it
+  later is a change like any other and takes the route below with the variable set. Every
+  worktree's `apps/web/.env` still names the old port afterwards, because `db:setup` never
+  overwrites one. If something else holds the port when the container is first created, `pnpm
+  db:down` and then `pnpm db:start` with the variable set creates the container on the new port.
+- **The image.** A plain `up` also recreates when the `postgres:18` tag has moved since the
+  container was created, even if the declaration has not changed. The Owner's install runs
+  `postgres:18` as well, and ADR-0132's route for taking a project onto it is `docker compose pull
+  && docker compose up -d`. So each time the install was updated, the next worktree to run
+  `db:start` could recreate this container.
+
+`--no-recreate` covers all three.
+
+**A CHANGED DECLARATION REACHES THE CONTAINER BY ONE ROUTE, AND IT IS THE OWNER'S.**
+
+1. A branch that changes `docker-compose.yml` tests the change on a throwaway container of its own,
+   never on the shared one. CNCORE-228 measured its `shm_size` with a probe exactly that way.
+2. The change lands on `main`.
+3. From the main checkout, while no suite is running, the Owner runs `docker compose up -d
+   --dry-run` in `packages/db`. `Recreate` means the running container differs, and the dry run
+   does not act on it. Then a plain `docker compose up -d` applies it. Both commands take
+   `COMPOSE_IGNORE_ORPHANS=true`, for the reason given below.
+
+A recreate keeps the named volume, and with it every worktree's database. The one on 2026-09-19
+kept 1,162 of them. What it cuts is the connections.
+
+The route is written down in `docker-compose.yml`, above `name: canoncore`, because that is what the
+next person to change the file reads. It is not a script. A script would be one more command every
+worktree could run, and running it from a branch based before the change is the defect this section
+removes.
+
+**`--no-recreate` IS SILENT ABOUT DRIFT, AND THAT IS ACCEPTED.** It answers `Container
+canoncore-postgres Running` whether or not the container differs, so a branch that edits the
+declaration and runs `db:start` gets no sign that its change did not apply. That is what step 1
+above is for. **Refusing on drift was the alternative, and it was rejected.** Every worktree's setup
+would fail between a declaration merging and the Owner applying it. The check would also have to
+reproduce Compose's own recreate decision, which covers the config hash, the image digest, the
+networks and the volumes, and the copy would drift from Compose's.
+
+**`db:watch` IS DELETED rather than guarded.** It was a second `up`, attached, which recreated the
+container just as `db:start` did. Compose's reference says that interrupting an attached `up` stops
+its containers, so its Ctrl-C also stopped the container for everyone. `docker logs -f
+canoncore-postgres` shows the same log and touches nothing.
+
+**`--remove-orphans` IS NEVER PASSED FROM `packages/db`, BECAUSE HERE THE ORPHANS ARE THE OWNER'S
+INSTALL.** The install runs as Compose project `canoncore` as well, so from this directory Compose
+calls its app and database orphans, and it suggests the flag on every `up`. `compose.yaml`'s header
+records the collision from both sides. From the install's side the flag would take this container.
+From this side it takes the Owner's running install: Compose stops each orphan and then removes it.
+**It does not delete the catalogue**, which was feared when this was found and does not survive
+reading the source. Compose 5.5.1 removes an orphan with `ContainerRemove` and `Force` alone, never
+`RemoveVolumes` (`pkg/compose/reconcile.go`, `reconcileOrphans`; `executor_ops.go`,
+`execRemoveContainer`). The install keeps its database on the named volume `canoncore_data`, and its
+app container mounts nothing. So `docker compose up -d` in the install's directory would bring it
+back with its 8,052 Items. What the flag costs is the Owner's instance going down unannounced.
+`db:start` sets `COMPOSE_IGNORE_ORPHANS=true`, which Compose documents as not detecting orphans at
+all, so the suggestion is never printed. `src/docker-compose.test.ts` refuses a script that runs an
+`up` without `--no-recreate`, or with `--force-recreate`. It also refuses one that passes
+`--remove-orphans` or sets `COMPOSE_REMOVE_ORPHANS`, which Compose reads in place of the flag.
+**What the test cannot see is a shell that exports that variable itself.**
+
+**Evidence**, 2026-09-19, Docker Compose 5.5.1 on Engine 29.5.2. The three cases above, the image
+case, the port case and the orphans warning were run against throwaway projects (`cncore233-probe`
+and `cncore233-probe2`, each with its own name and container, `alpine:3`) rather than the shared
+one. `--remove-orphans` was never run, even there; what it does is read from Compose's source at
+the `v5.5.1` tag:
+
+| Starting state | `up -d --no-recreate` | plain `up -d` |
+|---|---|---|
+| no container | `Created`, `Started` | (not run) |
+| `shm_size` changed from 64 to 128 MB | `Running`: same id, still 64 MB | `Recreate`: new id, 128 MB |
+| stopped | `Started`: same id | (not run) |
+| image tag moved under an unchanged file | `Running`: same id, same image | `Recreate`: new id, new image |
+| stopped, then the published port's variable changed | `Started`: same id, old port | (not run) |
+| running, then the published port's variable changed | `Running`: same id, old port | (not run) |
+
+`up -d --dry-run` against a container whose declaration had changed printed `Recreate` and
+`Recreated`, and afterwards the container still had the same id and the same `shm_size`. With a
+second service's container in the same project, `up -d --no-recreate` printed the `Found orphan
+containers ... --remove-orphans` warning. With `COMPOSE_IGNORE_ORPHANS=true` it printed nothing, and
+the other container was still running. `docker inspect` of the Owner's `canoncore-database-1` reads
+`postgres:18`, the same image ID as `canoncore-postgres`, with `canoncore_data` mounted at
+`/var/lib/postgresql` and `PGDATA` beneath it; `canoncore-canoncore-1` has no mounts. The flag
+descriptions and both `COMPOSE_*_ORPHANS` variables are from Compose's `up` and `create` references
+and its environment-variable page on docs.docker.com, read through context7 the same day.

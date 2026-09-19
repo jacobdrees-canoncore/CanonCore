@@ -1,9 +1,12 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 import {
+  createGroupByHand,
   type Database,
   findAttributionOwed,
+  findGroupsOfItem,
   findItemsProvided,
+  groups,
   importBrowsedContainer,
   importProvidedRecord,
   items,
@@ -13,8 +16,10 @@ import {
   previewProviderPurge,
   properties,
   purgeProvider,
+  putItemInGroupByHand,
   sources,
   statements,
+  takeItemOutOfGroupByHand,
 } from "./index";
 import {
   anItemTitled,
@@ -1332,6 +1337,98 @@ describe("purging everything one provider ever said", () => {
   });
 
   /**
+   * A GROUP MEMBERSHIP IS THE OWNER'S CLAIM TOO (CNCORE-232), so it keeps the
+   * Item the way the Owner's Placement above does. Nothing but the Owner ever
+   * puts an Item in a Group, and a Provider's licence ending has no bearing on
+   * what the Owner chose to browse together.
+   *
+   * THE PREVIEW IS ASKED FIRST AND HELD TO THE PURGE, because before this ticket
+   * both failed the same way: `group_items.item_id` carries no cascade, so the
+   * delete was refused with 23503 and took the whole transaction with it.
+   */
+  it("keeps an item the owner put in a group, and leaves it in the group", async () => {
+    const provider = tmdbProvider("http://127.0.0.1:9211");
+    const { itemId } = await importProvidedRecord(db, { provider, record: TENTH_PLANET });
+    const groupId = await createGroupByHand(db, { name: "Stories the owner browses together" });
+    await putItemInGroupByHand(db, { groupId, itemId });
+
+    const preview = await previewProviderPurge(db, { identity: provider.identity });
+    const purged = await purgeProvider(db, { identity: provider.identity });
+
+    // THREE STATEMENTS, the title, `released` and the external id, and the one
+    // Item they were about STAYS rather than goes.
+    expect(preview).toEqual({ statements: 3, placements: 0, items: 0, keptItems: 1 });
+    expect(purged).toEqual(preview);
+    expect((await readItem(db, itemId))?.title).toBeNull();
+    expect(await findGroupsOfItem(db, itemId)).toEqual([
+      { id: groupId, name: "Stories the owner browses together" },
+    ]);
+  });
+
+  /**
+   * AND A MEMBERSHIP THE OWNER TOOK BACK OUT IS NOBODY'S CLAIM, so it keeps
+   * nothing -- but its row still names the Item, because a tombstone is not a
+   * DELETE (ADR-0075). The purge has to take that row with the Item or the
+   * foreign key refuses the Item and the whole purge with it.
+   */
+  it("takes an item the owner put in a group and took back out", async () => {
+    const provider = tmdbProvider("http://127.0.0.1:9212");
+    const { itemId } = await importProvidedRecord(db, { provider, record: TENTH_PLANET });
+    const groupId = await createGroupByHand(db, { name: "A scope the owner thought better of" });
+    await putItemInGroupByHand(db, { groupId, itemId });
+    await takeItemOutOfGroupByHand(db, { groupId, itemId });
+
+    const preview = await previewProviderPurge(db, { identity: provider.identity });
+    const purged = await purgeProvider(db, { identity: provider.identity });
+
+    expect(preview).toEqual({ statements: 3, placements: 0, items: 1, keptItems: 0 });
+    expect(purged).toEqual(preview);
+    expect(await readItem(db, itemId)).toBeUndefined();
+  });
+
+  /**
+   * NOR DOES A MEMBERSHIP THAT OUTLIVED ITS GROUP, which narrows nothing
+   * (CNCORE-230) and so is nobody's claim either. It is what a deletion racing
+   * a put leaves: a live row under a tombstoned Group. Built here by tombstoning
+   * the Group alone, as `catalogue.test.ts` builds it, because the interleaving
+   * cannot be scheduled from a test.
+   */
+  it("takes an item whose only membership outlived its group", async () => {
+    const provider = tmdbProvider("http://127.0.0.1:9213");
+    const { itemId } = await importProvidedRecord(db, { provider, record: TENTH_PLANET });
+    const groupId = await createGroupByHand(db, { name: "A scope deleted mid-put" });
+    await putItemInGroupByHand(db, { groupId, itemId });
+    await db.update(groups).set({ deletedAt: new Date() }).where(eq(groups.id, groupId));
+
+    const preview = await previewProviderPurge(db, { identity: provider.identity });
+    const purged = await purgeProvider(db, { identity: provider.identity });
+
+    expect(preview).toEqual({ statements: 3, placements: 0, items: 1, keptItems: 0 });
+    expect(purged).toEqual(preview);
+    expect(await readItem(db, itemId)).toBeUndefined();
+  });
+
+  /**
+   * THE SCOPE OF THAT SWEEP. A membership the Owner took back out goes only
+   * with an Item the purge takes; an Item something else keeps keeps its
+   * tombstones too, so putting it back comes to the row it always had rather
+   * than to a second one (ADR-0078).
+   */
+  it("leaves a kept item's taken-out membership, so putting it back is the same row", async () => {
+    const provider = tmdbProvider("http://127.0.0.1:9214");
+    const { itemId } = await importProvidedRecord(db, { provider, record: TENTH_PLANET });
+    const keeping = await createGroupByHand(db, { name: "The scope that keeps it" });
+    const leftBehind = await createGroupByHand(db, { name: "The scope it was taken out of" });
+    await putItemInGroupByHand(db, { groupId: keeping, itemId });
+    const membership = await putItemInGroupByHand(db, { groupId: leftBehind, itemId });
+    await takeItemOutOfGroupByHand(db, { groupId: leftBehind, itemId });
+
+    await purgeProvider(db, { identity: provider.identity });
+
+    expect(await putItemInGroupByHand(db, { groupId: leftBehind, itemId })).toBe(membership);
+  });
+
+  /**
    * THE SCOPE OF THE SWEEP, and the bug it is here for.
    *
    * A placement goes when the purged provider was the LAST source asserting it,
@@ -1441,7 +1538,7 @@ describe("previewing what a purge would take", () => {
    * asserts it too (ADR-0017), an item survives because the owner places it, or
    * because it stands as the value of somebody else's claim, or because it is
    * the container end of a placement that survived. A preview built as its own
-   * traversal would restate seven rules -- six `not exists` clauses on an item,
+   * traversal would restate eight rules -- seven `not exists` clauses on an item,
    * plus the last-claimant test on a placement -- and each is its own chance to
    * answer a number the delete then contradicts, which is worse than answering
    * nothing, since an owner deciding under a termination notice acted on it.
