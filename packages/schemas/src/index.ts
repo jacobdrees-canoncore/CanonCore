@@ -556,7 +556,22 @@ export const catalogueRowPublic = z.object({
    * rather than the word the page prints.
    */
   holds: z.number().int().nonnegative(),
-  /** Which orderings this one sits in, and at what position in each (CNCORE-184). */
+  /**
+   * WHICH ORDERINGS THIS ONE SITS IN, AND AT WHAT POSITION IN EACH (ADR-0143):
+   * the first five placements, and how many there are altogether -- which is
+   * `itemPublic`'s "Also appears in" `total` for the same item, read off the
+   * same predicate.
+   *
+   * NAMED FOR `CONTEXT.md`'s **Placement**, which says the construct is "an
+   * ordering it sits in" from the item's end. `membership` is on that entry's
+   * _Avoid_ list as a name, and "Also appears in" is the reader's words.
+   *
+   * CUT RATHER THAN PAGED, and that is the Row's own rule: a Row carries what a
+   * reader needs to recognise it, and where a story sits is that; the whole
+   * list is the item page's, which is where `total` beyond `first` points.
+   * The three fields are `placementPublic`'s own, picked rather than
+   * redeclared, because a Row's placement is that placement said shorter.
+   */
   sitsIn: z.object({
     first: z.array(
       placementPublic.pick({ containerId: true, containerTitle: true, position: true }),

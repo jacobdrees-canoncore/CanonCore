@@ -339,10 +339,13 @@ function queryFor(walking: Walking | Searched, at: string | undefined): LinkQuer
  * of one build is the sort that shows up as a failing assertion nobody can
  * reproduce.
  *
- * EVERY NUMBER THIS FILE PRINTS GOES THROUGH IT. The size of the listing and
+ * EVERY COUNT THIS FILE PRINTS GOES THROUGH IT. The size of the listing and
  * the size of a Row's own ordering sit on one screen, and two spellings of a
  * count there would be the page disagreeing with itself about how it writes a
- * number -- "Showing 100 of 8052 items" beside "2,913 members".
+ * number -- "Showing 100 of 8052 items" beside "2,913 members". A POSITION IS
+ * NOT A COUNT, and since CNCORE-184 this file prints those too: `#1234` is an
+ * ordinal, written the way the item page writes it, and grouped it would run
+ * into the comma between two of them -- "#1,234, #1,240" (ADR-0143).
  */
 const grouped = new Intl.NumberFormat("en-GB");
 
@@ -407,6 +410,26 @@ function soMany(count: number, noun: string): string {
   return `${grouped.format(count)} ${count === 1 ? noun : `${noun}s`}`;
 }
 
+/**
+ * WHERE ONE ROW'S ITEM SITS, IN ONE LINE (ADR-0143): each Ordering by name,
+ * with every Position the Row carries in it, so *The Day of the Doctor* reads
+ * as one fact rather than three Rows a reader has to assemble.
+ *
+ * "In no ordering" RATHER THAN "Unplaced", though the ticket says Unplaced.
+ * `CONTEXT.md` spends that word on a PLACEMENT with no Position -- "never an
+ * absent placement" -- and a story in no Ordering has no Placement at all
+ * (ADR-0062). The noun is the glossary's own from the item's end, the one the
+ * item page counts "Also appears in" in.
+ *
+ * GROUPED BY ORDERING, so a Repeat reads "#1, #5" under one name rather than
+ * the name twice -- the order `sitsIn.first` arrives in keeps each Ordering's
+ * Positions together. A Position no source gave reads "no position given",
+ * the glossary's words for the reader, and never as a number.
+ *
+ * AND THE CUT SAYS SO, and points at the rest: "and 2,910 more" is a link to
+ * the story's own "Also appears in", where every one of the Owner's stories
+ * fits on the first page -- the most any one of them has is 61, and a page is 100.
+ */
 function WhereItSits({ id, sitsIn }: { id: string; sitsIn: Row["sitsIn"] }) {
   if (sitsIn.total === 0) return <p className="text-muted-foreground text-sm">In no ordering</p>;
   const more = sitsIn.total - sitsIn.first.length;
@@ -434,6 +457,7 @@ function WhereItSits({ id, sitsIn }: { id: string; sitsIn: Row["sitsIn"] }) {
   );
 }
 
+/** The Row's placements, one entry per Ordering in the order they arrived. */
 function byOrdering(first: Row["sitsIn"]["first"]) {
   const orderings: { containerId: string; containerTitle: string | null; positions: (number | null)[] }[] = [];
   for (const { containerId, containerTitle, position } of first) {
@@ -444,6 +468,12 @@ function byOrdering(first: Row["sitsIn"]["first"]) {
   return orderings;
 }
 
+/**
+ * " #1, #5" after an Ordering's name, ", no position given" where no source gave
+ * one, and both where a Repeat has one of each -- which puts the words last,
+ * because a missing Position sorts after every numbered one. ONE STRING rather
+ * than text beside an expression, which React would split with a comment.
+ */
 function atPositions(positions: (number | null)[]): string {
   const numbered = positions.filter((position) => position !== null).map((at) => `#${at}`);
   return [
@@ -483,6 +513,13 @@ export function Listing({ rows }: { rows: Row[] }) {
             <Link href={`/items/${row.id}`} className="hover:underline">
               <TheirWords>{row.title ?? "Untitled item"}</TheirWords>
             </Link>
+            {/*
+              A STORY ALWAYS SAYS WHERE IT SITS, "In no ordering" included; an
+              ORDERING says so only where it sits somewhere. Root is where
+              Orderings live, so the line on every one of the corpus's 465
+              would be noise the story's version of it drowned in -- and an
+              Ordering placed in another is rare enough to be worth saying.
+            */}
             {(!row.isContainer || row.sitsIn.total > 0) && (
               <WhereItSits id={row.id} sitsIn={row.sitsIn} />
             )}

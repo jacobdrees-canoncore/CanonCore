@@ -154,7 +154,9 @@ may have none.
 **Unplaced**:
 A member of a container no source has given a position in. It is a PLACEMENT WITH NO POSITION, never
 an absent placement: dropping it shrinks the container silently and numbering it last asserts an
-order the source never gave. The reader's words are "no position given".
+order the source never gave. The reader's words are "no position given". An item in NO container is
+not Unplaced, because it has no placement at all: it is at the root (ADR-0062), and a reader sees
+"In no ordering".
 _Avoid_: unordered, unsorted, orphan, missing
 
 **Repeat**:

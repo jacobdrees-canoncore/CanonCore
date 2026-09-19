@@ -898,7 +898,15 @@ export interface CatalogueRow {
    * reader is SHOWN a figure on is the surface's, off `isContainer`.
    */
   holds: number;
-  /** Which orderings this one sits in, and at what position in each (CNCORE-184). */
+  /**
+   * WHICH ORDERINGS THIS ONE SITS IN, AND AT WHAT POSITION IN EACH (ADR-0143)
+   * -- the product's central claim, on the page that shows everything. A
+   * story's `holds` above is zero; this is the figure that is not.
+   *
+   * ASKED OF EVERY ROW, containers included, for `holds`'s reason turned
+   * round: an Ordering can sit in another, and which Rows a reader is SHOWN
+   * this on is the surface's, off `isContainer`.
+   */
   sitsIn: SitsIn;
 }
 
@@ -913,7 +921,13 @@ export interface WhereItSits {
 
 /** Where one Row's item sits: the first of its placements, and how many it has. */
 export interface SitsIn {
+  /**
+   * THE FIRST FIVE, in the order the Row reads them: by the container's sort
+   * key, then by container, then by Position. Fewer than `total` is the cut,
+   * never a hidden placement: `total` is what says how many more there are.
+   */
   first: WhereItSits[];
+  /** How many placements it has altogether: "Also appears in"'s own `total`. */
   total: number;
 }
 
@@ -1783,6 +1797,19 @@ function howMuchItHolds(db: Database): SQL<number> {
     .where(whatItHolds(items.id, held.deletedAt))})`.mapWith(Number);
 }
 
+/**
+ * WHAT ONE ITEM SITS IN, as the predicate rather than as a query -- the mirror
+ * of `whatItHolds` above, from the item's end, and written once for the same
+ * reason: TWO SURFACES ANSWER THE SAME NUMBER FROM IT. "Also appears in"
+ * reports it as its own `total`, and the catalogue Row beside that story
+ * reports it as `sitsIn.total` (CNCORE-184) -- and a Row that said "and 12
+ * more" over a page listing 11 would leave the reader no way to say which lied.
+ *
+ * THE CONTAINER'S TOMBSTONE ARRIVES AS A PARAMETER for `whatItHolds`'s reason
+ * turned round: "Also appears in" joins `items` as the container, and the
+ * catalogue's Row is already selecting from `items` as the STORY, so that one
+ * reads the container through an alias.
+ */
 function whatItSitsIn(item: Column | string, containerTombstone: SQLWrapper): SQL {
   return and(
     eq(placements.itemId, item),
@@ -1793,8 +1820,43 @@ function whatItSitsIn(item: Column | string, containerTombstone: SQLWrapper): SQ
   ) as SQL;
 }
 
+/**
+ * HOW MANY PLACEMENTS A ROW NAMES before it says how many more there are
+ * (CNCORE-184), chosen against the Owner's corpus rather than a guess: four
+ * stories in five sit at five Positions or fewer, and the longest Row is 61.
+ * ADR-0143 carries the distribution and why the cut counts PLACEMENTS rather
+ * than Orderings -- one story sits at 43 Positions in ONE Ordering.
+ */
 const ON_A_ROW = 5;
 
+/**
+ * WHERE ONE ROW'S ITEM SITS: its first `ON_A_ROW` placements, and how many it
+ * has, as ONE scalar subquery riding on the Rows -- ADR-0140's mechanism for
+ * `holds`, reached for again (ADR-0143).
+ *
+ * BOTH FIGURES FROM ONE AGGREGATE, so they are one pass over one set of rows
+ * and cannot come apart: the placements named and the count they are cut from
+ * are the same rows, where two subqueries would be two readings of a predicate.
+ * The array is aggregated whole and then CUT, which reads every placement of
+ * the item to name five -- 61 at most in the corpus, off `placements_item`.
+ *
+ * ITS ORDER IS NOT "ALSO APPEARS IN"'S, and the difference is deliberate.
+ * That listing's middle two keys are ADR-0017's spokesman, a lateral per
+ * placement, and they decide which of two DISAGREEING sources speaks first. A
+ * Row groups a story's Positions under the Ordering they are in, so what it
+ * needs after the container's key is the CONTAINER'S ID -- two Orderings that
+ * share a title must not interleave -- and then the Position, so a recap at 1
+ * reads before the episode at 5. The two agree wherever one source speaks
+ * and no two Orderings share a key, which is the whole of the Owner's corpus:
+ * one source behind all 30,896 placements, measured 2026-09-19.
+ *
+ * CORRELATED ON THE OUTER `items`, which is the story, and THE CONTAINER IS
+ * ALIASED so the inner `items` cannot be read as the outer one -- the trap
+ * `howMuchItHolds` names, one relation over. An empty membership aggregates to
+ * NULL rather than to an empty array, which is what the `coalesce` is for: a
+ * story in no Ordering is a real answer (ADR-0062), and the Row carries it as
+ * one.
+ */
 function whereItSits(db: Database): SQL<SitsIn> {
   const container = alias(items, "container");
   const order = {
@@ -1805,10 +1867,11 @@ function whereItSits(db: Database): SQL<SitsIn> {
     },
     id: placements.id,
   } satisfies TheOrder;
-  const where = sql`json_build_object('containerId', ${container.id}, 'containerTitle', ${container.title}, 'position', ${placements.position})`;
+  const onePlacement = sql`json_build_object('containerId', ${container.id}, 'containerTitle', ${container.title}, 'position', ${placements.position})`;
+  const inOrder = sql`order by ${sql.join(theOrderBy(order), sql`, `)}`;
   return sql<SitsIn>`(${db
     .select({
-      sitsIn: sql`json_build_object('first', coalesce(array_to_json((array_agg(${where} order by ${sql.join(theOrderBy(order), sql`, `)}))[1:${ON_A_ROW}::int]), '[]'::json), 'total', count(*))`,
+      sitsIn: sql`json_build_object('first', coalesce(array_to_json((array_agg(${onePlacement} ${inOrder}))[1:${ON_A_ROW}::int]), '[]'::json), 'total', count(*))`,
     })
     .from(placements)
     .innerJoin(container, eq(container.id, placements.containerId))
