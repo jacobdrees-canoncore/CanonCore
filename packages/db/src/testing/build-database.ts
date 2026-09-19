@@ -125,6 +125,17 @@ export const FIXTURE_DATABASE_SUFFIXES = [
    */
   "dump",
   "copy",
+  /*
+   * WHERE THE SERVERS A LEAK TEST STARTS STAND (CNCORE-229). `instance.test.ts`
+   * starts real servers to show that none outlives the setup that started them,
+   * and a server start is not a read: the scheduler starts with it (ADR-0049)
+   * and closes whatever runs it finds open, so on any instance a test reads it
+   * could close a run that test is in the middle of.
+   *
+   * `_test_leak` IS TEN CHARACTERS, inside the eleven `worktree-database.ts`
+   * budgets for.
+   */
+  "leak",
 ] as const;
 
 /** A suffix a FIXTURE has declared, which is the only kind it may ask for. */
