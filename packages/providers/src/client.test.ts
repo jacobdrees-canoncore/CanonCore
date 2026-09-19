@@ -403,6 +403,34 @@ describe("the CMPP client", () => {
     });
   });
 
+  it("keeps the id of the container a record says it sits in", async () => {
+    /*
+     * `series_id` IS A BROWSABLE CONTAINER'S OWN ID, and this package stripped
+     * it, because a consumer's schema drops what it does not name (CNCORE-187).
+     * `provider-tmdb` sends it on a LOOKUP -- a film's collection, an episode's
+     * programme -- and never on a search, which is ADR-0033's to explain. The
+     * id here is the real one: `/3/collection/2344` is The Matrix Collection.
+     */
+    const baseUrl = await stubProvider((request, response) => {
+      if (request.url === "/lookup/movie%3A603") {
+        return json(response, {
+          ...THE_MATRIX,
+          series: "The Matrix Collection",
+          series_id: "collection:2344",
+        });
+      }
+      json(response, TENTH_PLANET);
+    });
+    const client = createProviderClient({ baseUrl, allowlist: onLoopback() });
+
+    await expect(client.lookup("movie:603")).resolves.toMatchObject({
+      series: "The Matrix Collection",
+      series_id: "collection:2344",
+    });
+    // AND A RECORD NAMING NONE SAYS NONE, which is the wiki's every record.
+    await expect(client.lookup("265")).resolves.toMatchObject({ series_id: null });
+  });
+
   it("answers with nothing for an id the provider does not hold", async () => {
     const baseUrl = await stubProvider((_, response) => json(response, { error: "no" }, 404));
     const client = createProviderClient({ baseUrl, allowlist: onLoopback() });
@@ -440,6 +468,34 @@ describe("the CMPP client", () => {
       [1, "222478"],
     ]);
     expect(browsed?.unplaced.map((record) => record.id)).toEqual(["355593"]);
+  });
+
+  it("reads the containers a provider holds, as records it can name", async () => {
+    // RECORDS AND NOT IDS (ADR-0033 under CNCORE-185), so the Owner is shown a
+    // title without a lookup per entry. The two are real: `provider-wiki`
+    // answered both on 2026-09-19, and 416127 browses to 18 Placements.
+    const scaroth = {
+      id: "416127",
+      title: "Theory:Timeline - Scaroth",
+      kind: "timeline",
+      released: [],
+      writers: [],
+      series: null,
+      url: "https://tardis.wiki/wiki/Theory:Timeline_-_Scaroth",
+      images: [],
+    };
+    const baseUrl = await stubProvider((request, response) => {
+      expect(request.url).toBe("/containers");
+      json(response, { containers: [VASHTA_NERADA.container, scaroth] });
+    });
+    const client = createProviderClient({ baseUrl, allowlist: onLoopback() });
+
+    const { containers } = await client.containers();
+
+    expect(containers.map(({ id, title }) => [id, title])).toEqual([
+      ["388305", "Category:Vashta Nerada audio stories"],
+      ["416127", "Theory:Timeline - Scaroth"],
+    ]);
   });
 
   it("answers with nothing for a page that addresses no container", async () => {

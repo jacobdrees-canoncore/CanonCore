@@ -43,6 +43,19 @@ export const cmppRecord = z.object({
   writers: z.array(z.string()).default([]),
   series: z.string().nullable().default(null),
   /**
+   * THE ID OF THE CONTAINER `series` NAMES, which `browse` takes -- and the
+   * name above is never it, because a name can be renamed out from under an
+   * import (ADR-0033).
+   *
+   * READ BY NOTHING YET, AND KEPT ANYWAY (CNCORE-187). It was stripped here, so
+   * a record could not reach its container even where its provider said which.
+   * `provider-tmdb` says so on a lookup and a browse and NEVER on a search, so
+   * no candidate on `/import` carries one: a search-found film reaching its
+   * collection needs a lookup per click, which is a mechanism of its own.
+   * `provider-wiki` sends none, since a story sits in many timelines at once.
+   */
+  series_id: z.string().nullable().default(null),
+  /**
    * Where the record came from. A CONTENT URL, AND HTTP IS PART OF READING IT
    * rather than something checked later by whoever fetches it.
    *
@@ -145,6 +158,18 @@ export type CmppBrowse = z.infer<typeof cmppBrowse>;
 export const cmppSearch = z.object({ results: z.array(cmppRecord) });
 
 export type CmppSearch = z.infer<typeof cmppSearch>;
+
+/**
+ * What `containers` answers: the containers a provider's SOURCE asserts as
+ * containers, as records (ADR-0033 under CNCORE-185 and CNCORE-186).
+ *
+ * AN EMPTY LIST IS A CLAIM ABOUT THE SOURCE, that it holds none. It is never
+ * how a provider declines the operation, which its manifest says -- so a
+ * caller reads `operations` before asking, exactly as it does for `browse`.
+ */
+export const cmppContainers = z.object({ containers: z.array(cmppRecord) });
+
+export type CmppContainers = z.infer<typeof cmppContainers>;
 
 /**
  * The longest `data:` URI a source's mark may be, in characters.
