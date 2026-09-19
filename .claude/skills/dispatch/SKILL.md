@@ -130,6 +130,32 @@ repos and opens a PR in each naming the other. After merging the pair, diff the 
 confirm the only difference is the one each repo owns. Two agents, or one repo alone, is how they
 diverge — CNCORE-41, 45 and 57 are each that divergence found later.
 
+## Merging a bump
+
+**A BUMP'S GREEN IS NOT THE SAME GREEN.** Dependabot reads a SEPARATE secret store, and a job whose
+service container needs a secret fails on every bump forever when that store is empty — so a bump's
+checks say nothing, and a dependency that really broke something looks identical to the noise.
+Seventeen arrived on 2026-09-18 each carrying two red checks that meant nothing (CNCORE-203). Check
+what a red check is ABOUT before treating it as a verdict on the dependency.
+
+**AND "DOES OUR CODE USE WHAT CHANGED" IS THE WRONG QUESTION.** The break can be in a THIRD
+dependency that reads the bumped package's internals. zod 4.6.5 stopped filling `_zod.bag`,
+`@orpc/zod` read only the bag, and every `maxLength`, `minLength` and `format` vanished from the
+published OpenAPI document — 16, 39 and 79 constraints down to 0, 0 and 7. The bump was read against
+this repo's own zod usage, found clean, and merged at 14:09 on 2026-09-19; CNCORE-212 found it after.
+Reading the bumped library's release notes could not have caught it, because the affected code was
+neither ours nor zod's. What catches it is a test asserting the OUTPUT a dependency produces, which
+is what CNCORE-212 left behind.
+
+**AN ACTION BUMP IN ONE PROVIDER REPO IS HALF A CHANGE.** Both pin the same digests at two sites
+each, so merging one side diverges the twins. Wait for the pair and merge them together — held from
+2026-09-18 until provider-tmdb's own PRs appeared, then all four went in as a set.
+
+**A PATCH PUBLISHED TODAY IS THE ONE THE COOLDOWN IS FOR.** pnpm's `minimumReleaseAge` is 24 hours,
+and taking a release inside it writes a `minimumReleaseAgeExclude` waiver — waiving the cooldown for
+exactly the case it exists to catch. ADR-0105 already refused that trade. Take the aged version and
+let the range pick the newer one up later.
+
 ## Gotchas
 
 - **A CROSS-REPO FOLD MAKES BOTH ITS WORKTREES LOOK DEAD, and neither pane is lying.** The agent
