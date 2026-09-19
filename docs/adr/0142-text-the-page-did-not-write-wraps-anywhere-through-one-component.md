@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 ---
 
 # Text the page did not write wraps anywhere, through one component
@@ -7,8 +7,9 @@ status: proposed
 Every string this app prints and did not write is printed through `TheirWords`, in
 `apps/web/src/components/their-words.tsx`, which sets `overflow-wrap: anywhere` and nothing else. A
 Provider's prose, a record's fields, an Item's values and a Group's name are all such text, whoever
-wrote them: a Provider, a sidecar or the Owner. The page's own words are printed plainly. A new
-surface printing text it did not write prints it through this component.
+wrote them: a Provider, a sidecar or the Owner. So are the reader's own query, a base URL or
+container id the Owner typed, and the names a device declares for itself. The page's own words are
+printed plainly. A new surface printing text it did not write prints it through this component.
 
 **THIS SUPERSEDES THE NAME AND THE REACH OF [[0123-a-failure-reason-is-bounded-and-says-who-wrote-it]]'s
 `ProviderProse`, AND NOTHING ELSE IN THAT RECORD.** Its "Where the wrap lives" section decided three
@@ -67,8 +68,9 @@ choosing the text's shape.
 OTHER WAY.** It printed CanonCore's own sentence in `Reason` plainly because "every value in the
 sentence is the Owner's own rather than a stranger's". The Group chips above are the Owner's words,
 and they ran the page 2,573 pixels wide. That sentence is corrected in ADR-0123 where it stands. The
-sentence itself is the page's own words and stays plain; the address inside it, which the Owner
-typed, goes through this component under CNCORE-226.
+address inside the sentence, which the Owner typed, goes through this component, and under CNCORE-226
+so does the sentence around it: the reason reaches the page as one string, so the address cannot be
+wrapped alone, and the next section is why the page's words may ride inside with it.
 
 **CNCORE-179'S RAW CLASS MOVES ONTO IT, AND SO DO CNCORE-180'S.** CNCORE-179 put `wrap-anywhere`
 straight on a Group's name in the picker, for this record's reason, and CNCORE-180 carried the
@@ -85,10 +87,30 @@ through whole. `anywhere` breaks only a word that does not fit its line, and no 
 is that wide, so splitting the expression to keep `Untitled item` outside would cost a branch at
 every title and change nothing a reader sees.
 
+**SO DOES CANONCORE'S OWN SENTENCE IN `Reason`, WHICH IS THE PAGE'S WORDS AROUND THE OWNER'S**
+(CNCORE-226). A config refusal interpolates the address the Owner typed, and `FailureReason` carries
+the whole sentence as one string, so wrapping the address alone would mean carrying it apart through
+the contract for this page's layout and nothing else. It was measured rather than assumed, on
+`/import`'s list of Providers that could not be read, with a base URL whose host is 120 characters
+of one letter, which `shortly` cuts to 80. At 1,280 pixels the row was `{0, 0}` with the sentence
+plain or wrapped, because that cut keeps the address narrower than the page. So the row was
+narrowed on the page's own CSS, and the sentence measured as how far it ran past it:
+
+| the row's width | plain | through `TheirWords` |
+| --- | --- | --- |
+| 600 | 29 | 0 |
+| 320 | 309 | 0 |
+| 200 | 429 | 0 |
+| 120 | 509 | 0 |
+
+Wrapped, the only words broken mid-word at any of those widths were the Owner's two values, the
+origin and the host, and never a word the page wrote, down to 120 pixels.
+
 ## What stays plain, and why
 
 - **The page's own words**, including the words it puts around somebody else's (`Sorts as`,
-  `holds nothing yet`, `matched nothing`), and the reader's word for an Item's kind, which
+  `holds nothing yet`, `matched nothing`) wherever the page holds the two apart, which is everywhere
+  but `Reason`'s own sentence (above), and the reader's word for an Item's kind, which
   `item_kinds` holds and `CONTEXT.md` settles (`Time span`). This is the header at 375 pixels:
   wrapping the page's own words mid-word is what ADR-0123 refused a global rule for.
 - **An `<option>`.** The `Select` primitive is `w-full min-w-0`, so an option cannot widen the page,
@@ -110,6 +132,8 @@ in it.
 - The Item page: the heading, which is a block, and the `Title` row under Values, which is flex. The
   sort name has no witness of its own; the document half of both is what caught it.
 - `/`: the Item's row in the catalogue's list, and the Group chips.
+- `/devices`: a device's row, which is flex, with a name of 360 characters it declared for itself
+  (CNCORE-226), found failing at `{1926, 1606}`.
 
 **EACH WAS SEEN FAILING BEFORE ITS WRAP**, at the figures in the table, and the Group chips failed
 with CNCORE-179's class removed and passed again with the name through the component. **AND THEY
@@ -120,9 +144,13 @@ The one that passed was `/import`'s heading over a Provider's answers, a block o
 flex row holding the word, which is ADR-0123's reason for having a second witness at all. **The sites
 without a witness** are the Item page's Members, `Also appears in`, `In Groups` and Note, the
 headings on `/groups`, the container title on `/import`'s browse, the empty Group's heading on `/`,
-`/works` and `/search`, and the query in `/search`'s. Each is a flex item or a block
-already witnessed elsewhere on the same mechanism, which is ADR-0123's position for the credential
-label and the attribution notice.
+`/works` and `/search`, and the query in `/search`'s. And CNCORE-226's sites but one: on `/import`
+the query in the results heading, the container id, and a base URL in the purge list, the purge
+heading, the list of Providers that could not be read and the sentence saying an id could not be
+looked up; on `/settings` a Provider's base URL, whose row is the `/devices` row's shape, and the
+entry it refused. Each is a flex item or a block already witnessed elsewhere on the same mechanism,
+which is ADR-0123's position for the credential label and the attribution notice. The one that is
+not, `Reason`'s own sentence, was measured on its own, above.
 
 **THE NOTE IS THE ONE THAT IS NOT QUITE THE SAME MECHANISM**, because the wrap sits inside
 `white-space: pre-wrap`, which keeps the Owner's own line breaks. So it was measured on its own, in
@@ -130,26 +158,26 @@ Chromium on a bare page with the Note's row and 480 characters of one word: raw 
 `anywhere` inside the pre-wrap `{0, 0}`, and `break-word` inside it `{2597, 2341}`. The two rules
 part there exactly as they do in a flex row without it.
 
-## As built, under CNCORE-223
+## As built
 
-**Built:** the component; `ProviderProse` folded into it at every site it had; and every site that
-prints a record's field, an Item's title, sort name, value or note, or a Group's name, in `/import`,
-the Item page, `Listing` and the Group picker beside it (so every surface that renders them), the
-empty Group's heading on `/`, `/works` and `/search`, and `/groups`. And the reader's query where
+**Under CNCORE-223:** the component; `ProviderProse` folded into it at every site it had; and every
+site that prints a record's field, an Item's title, sort name, value or note, or a Group's name, in
+`/import`, the Item page, `Listing` and the Group picker beside it (so every surface that renders
+them), the empty Group's heading on `/`, `/works` and `/search`, and `/groups`. And the reader's query where
 `/search` says nothing matched it, which the Group's name sits beside there.
 
-**Not built, and why this record is `proposed`:** the rest of the text the page did not write.
-CNCORE-223's sweep found it and it is CNCORE-226's, with a `TODO` naming that ticket at each site:
+**Under CNCORE-226, which made this record `accepted`:** the rest of the text the page did not
+write, which CNCORE-223's sweep found outside the class it was filed for. The reader's own query in
+`/import`'s results heading; the container id the Owner typed, beside that container's title on
+`/import`; a Provider's base URL wherever `/import` and `/settings` print it, and the entry
+`/settings` refused as not a URL; the names a device declares for itself, on `/devices`, with the
+page's own fallback riding inside as `Untitled item` does; and CanonCore's own sentence in `Reason`,
+whole. None turned out to be the page's own words.
 
-- the reader's own query, echoed in `/import`'s results heading;
-- the container id the Owner typed, beside that container's title on `/import`;
-- a Provider's base URL where `/import` and `/settings` print it, and the entry `/settings` refused;
-- the names a device declares for itself, on `/devices`;
-- the address inside CanonCore's own sentence in `Reason`.
-
-Each is text the page did not write, and none is a record's field or an Item's, which was the class
-CNCORE-223 was filed for. That ticket carries them and flips this record to `accepted`.
-
-**NO NUMBER HERE WAS MEASURED BELOW 1,280 PIXELS.** ADR-0123 measured the header at 375 and refused
-the global rule for it. This record puts the component on more sites and on no page-owned word, so it
-reaches nothing that measurement found.
+**NO PAGE WAS MEASURED BELOW 1,280 PIXELS, AND AT 375 NONE CAN BE.** ADR-0123 measured the header at
+375 and refused the global rule for it. The header now holds the document 309 pixels past a
+375-pixel viewport, where ADR-0123 found 231, so a page there lays its rows out hundreds of pixels
+wider than the phone, and a row measured there says nothing about the phone. That is why `Reason`'s
+sentence was measured in a row narrowed on the page's CSS rather than in a narrow viewport. This
+record puts the component on more sites, and on none of the page's own words but that sentence,
+which was measured for it, so it reaches nothing ADR-0123's measurement found.

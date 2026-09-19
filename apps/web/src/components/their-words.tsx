@@ -3,7 +3,8 @@
  *
  * A Provider's prose, a record's fields, an Item's values and a Group's name
  * are all somebody else's words -- a Provider's, a sidecar's or the Owner's, or
- * derived from theirs as a sort name is -- and any of them can
+ * derived from theirs as a sort name is -- and so is what the Owner or the
+ * reader typed, and what a device says about itself. Any of them can
  * be one word with no break in it, and one such word is an unbreakable line
  * that decides how WIDE the page is -- measured on `/import`, a Provider's
  * heading ran 1,092 pixels past its own box, and a search result 1,754.
@@ -27,7 +28,9 @@
  * not choose the text's shape, and a Provider's name and the Owner's title fail
  * the page the same way. A fallback in the page's own words may ride inside it
  * -- `item.title ?? "Untitled item"` -- since `anywhere` breaks only a word that
- * does not fit its line, and no word of the page's own is that wide.
+ * does not fit its line, and no word of the page's own is that wide. So may a
+ * sentence of the page's that arrives in one string with the Owner's words
+ * inside it, which is `Reason`'s own.
  *
  * WHAT IT DOES NOT DO is quote, bound or attribute. `Reason` quotes, the
  * contract bounds a Provider's prose, and each caller names the writer in its
