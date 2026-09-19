@@ -61,15 +61,16 @@ from the Item's own page, and puts ONE ITEM IN SEVERAL at once, which is the cas
 rests on. Deleting a group tombstones it and its memberships in one transaction and names no Item at
 all: the function does not mention `items`, which is the strongest form that promise can take.
 
-**NOT BUILT: ALL FIVE OF THE SCOPED THINGS ABOVE, and the five are not in one state.** This record's
-"What a group does NOT scope" section closes the list at browsing, search, which providers are asked,
-scanner roots and the review queue. A reader who finds the table and assumes the scoping came with it
-would be wrong about every one of them:
+**NOT BUILT HERE: ALL FIVE OF THE SCOPED THINGS ABOVE, and the five are not in one state.** This
+record's "What a group does NOT scope" section closes the list at browsing, search, which providers are
+asked, scanner roots and the review queue. A reader who finds the table and assumes the scoping came
+with it would be wrong about every one of them — and since CNCORE-179, about all but part of one:
 
-- **Browsing** and **search** are CNCORE-179. The predicate exists nowhere: no Listing joins
-  `group_items`, so narrowing to a group is not yet a thing any surface can do. This is the half that
-  makes a group useful, and it is deliberately the next ticket rather than this one — the scope has
-  to exist and hold Items before anything can be read through it.
+- **Browsing is HALF BUILT, one surface of the two, under CNCORE-179.** The Catalogue narrows to a
+  group; work-browsing does not yet, and neither does **search**, and both are CNCORE-180. That
+  ticket threads a group through a door that already exists rather than writing a second predicate,
+  because the predicate is applied where every Listing of Items meets. What CNCORE-179 built is
+  below, under its own heading.
 - **Which providers are asked** is CNCORE-182, and it is further off than the two above because it
   needs a second relation (a group to the providers it reaches) that no migration writes.
 - **Scanner roots** and **the review queue** DO NOT EXIST AS CONSTRUCTS IN THIS PRODUCT, so they are
@@ -78,8 +79,8 @@ would be wrong about every one of them:
   closure is the load-bearing half: a scope becomes a partition by accretion, one reasonable-looking
   addition at a time, and a list edited down to what exists would stop refusing the sixth thing.
 
-**So the negative half of this record is the half that is now testable, and the positive half is
-still a promise.** `group_items` carries no medium, no field set, no vocabulary and no source order,
+**So the negative half of this record is the half that is now testable, and the positive half was
+still a promise** when this was written; CNCORE-179 is one surface of it kept. `group_items` carries no medium, no field set, no vocabulary and no source order,
 and `groupPublic` emits an id and a name — which is the shape refusing to accumulate rather than a
 payload waiting to be filled in.
 
@@ -88,3 +89,45 @@ ticket. Both are "one item's membership of one thing", and they are two tables b
 carries a POSITION and every SOURCE that asserted it, where a group membership carries neither: a
 group is not a container, and nobody but the Owner ever says what a scope holds. Folding them would
 be this record's partition arriving through the schema.
+
+## As built, under CNCORE-179 — and this record stays PROPOSED
+
+**BUILT: THE CATALOGUE NARROWS TO A GROUP, and its size is the group's.** `/?group=<id>` answers the
+catalogue within one scope, and the Owner picks it from a row of links on that page rather than
+typing an address. A walk within it keeps the scope from page to page, `Everything` clears it, a
+group with nothing in it says so rather than offering the empty catalogue's routes, and a link naming
+a group that is not there says that instead.
+
+**ONE PREDICATE, APPLIED WHERE THE LISTINGS MEET, AND BEFORE THE SIZE IS TAKEN.** `inTheGroup` in
+`packages/db/src/queries.ts` is the set of a group's live memberships, `and`ed onto whatever question
+the Listing already asks, inside `walkListing`: the one function the catalogue, work-browsing and
+Catalogue search all walk through. It is joined to the Listing's own predicate before `theSize` reads
+it, and the Rows read their `WHERE` back off the same value — so a group narrowing the Rows and not
+the count, which is the whole catalogue's size reported over a narrowed page, has no second place to
+be missing from. The Listing contract (`listing.test.ts`) walks the narrowed catalogue as one more
+line in its list, and so inherits the cap, the walk and both positions of the size.
+
+**IT NARROWS THE LISTING'S QUESTION RATHER THAN REPLACING IT**, which is this record's own line
+between a scope and a partition read from the other side. An Item deleted from the catalogue stays
+gone from a group it still sits in — deleting an Item names no group, so its membership is live and
+only the catalogue's rule keeps it out. And it reads the MEMBERSHIP's tombstone without joining
+`groups`, which is safe because `deleteGroupByHand` tombstones both in one transaction and
+`putItemInGroupByHand` refuses a group that has gone; CNCORE-178's test of the deletion said this
+read was coming and asserts the half it depends on.
+
+**A GROUP THAT NAMES NOTHING NARROWS TO NOTHING**, which is [[0066-path-is-identity-query-is-the-route]]'s
+rule for a parameter that is not an identity: whether it names anything is what the answer says. A
+cursor naming nothing starts the walk over because it is a position; a group is a question, and the
+honest answer to "what is in a scope nobody drew" is nothing — with the page saying the scope is not
+there, since a deleted group and an empty one are two facts a reader cannot tell apart unaided. A
+malformed id is refused by the same shape guard `findItem` uses, so a typo in a shared link is not a
+500.
+
+**WHAT IT DOES NOT DO.** Work-browsing and Catalogue search do not narrow (CNCORE-180), and the
+procedures that answer them do not accept a group: an input that parsed one and answered the whole
+catalogue would be a promise the handler does not keep. The scope does not follow a reader from `/`
+to any other page, and a header link back to the catalogue drops it; carrying it further is
+CNCORE-181's. And a Row's own figure (`holds`, [[0140-a-row-carries-its-own-count-and-one-predicate-answers-it-twice]])
+is NOT narrowed: an Ordering's Row counts every member, in or out of the group, because the figure's
+contract is what the reader finds by following the Row, and the Ordering's own page is not narrowed
+either.
