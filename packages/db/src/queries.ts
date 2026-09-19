@@ -961,8 +961,9 @@ export interface Catalogue {
    * The id to walk on from, or `null` where the catalogue ends here.
    *
    * IT SAYS BOTH THINGS AT ONCE -- whether there is more, and where it starts
-   * -- because a surface that had to work the first out for itself could only
-   * do it by subtracting, and a keyset walk has no offset to subtract from.
+   * -- because a surface working the first out for itself would have to
+   * subtract, which a keyset walk could not do until `rowsBefore` counted where
+   * a page is (ADR-0133), and would still need this for where.
    */
   continuesAfter: string | null;
   /**
@@ -1276,6 +1277,11 @@ interface TheSize {
    * asked of a smaller question, which is the whole of ADR-0133's argument.
    */
   behind(ahead: SQL): SQL<number>;
+  /**
+   * THE ROWS THAT COUNT COUNTS, which a page stepped back to is read from too:
+   * one predicate for the Rows and their count, as `within` is for the size.
+   */
+  rowsBehind(ahead: SQL): SQL;
 }
 
 /**
@@ -1310,12 +1316,19 @@ function theSize(within: SQL, countedFrom: CountedFrom): TheSize {
     within,
     onTheRows: sql<number>`(${counting})`.mapWith(Number),
     askedOnItsOwn: async () => (await counting)[0]?.total ?? 0,
-    // THE SAME QUESTION, NARROWED TO THE COMPLEMENT OF THE ROWS AHEAD, which
-    // `TheCut` says is never NULL on a Row a Listing holds -- so the Rows behind
-    // and the Rows ahead are the size between them, exactly.
     behind: (ahead) =>
-      sql<number>`(${countedFrom(true).where(and(within, not(ahead)) as SQL)})`.mapWith(Number),
+      sql<number>`(${countedFrom(true).where(theRowsBehind(within, ahead))})`.mapWith(Number),
+    rowsBehind: (ahead) => theRowsBehind(within, ahead),
   };
+}
+
+/**
+ * THE SAME QUESTION, NARROWED TO THE COMPLEMENT OF THE ROWS AHEAD OF A CUT,
+ * which `TheCut` says is never NULL on a Row a Listing holds -- so the Rows
+ * behind and the Rows ahead are the size between them, exactly.
+ */
+function theRowsBehind(within: SQL, ahead: SQL): SQL {
+  return and(within, not(ahead)) as SQL;
 }
 
 /**
@@ -1325,9 +1338,10 @@ function theSize(within: SQL, countedFrom: CountedFrom): TheSize {
  * argument for their being written once rather than per listing:
  *
  * - THE EXTRA ROW. Whether a listing carries on past this page is not
- *   something `total` can answer -- a keyset walk knows no offset, so it
- *   cannot subtract -- and the cheapest thing that does know is a row that was
- *   there to be read. It is read here and never returned, so the reading and
+ *   something `total` alone can answer -- a keyset walk knows no offset, so it
+ *   cannot subtract, and the count that would let it (below) is not asked of
+ *   the first page -- and the cheapest thing that does know on a page read
+ *   forward is a row that was there to be read. It is read here and never returned, so the reading and
  *   the discarding cannot come apart: a caller that fetched `limit` rows and
  *   handed them over would answer `continuesAfter: null` at every page, which
  *   ADR-0119 makes mean "the listing ends here".
@@ -1391,7 +1405,7 @@ async function onePage<Stored extends TheStored>({
 }): Promise<APage<Stored>> {
   if (cut === undefined) {
     const stored = await read(limit + 1, size.within, theOrderBy(order), NOTHING_BEHIND);
-    return aPage(stored, limit, size, { rowsBefore: 0 });
+    return aPage(stored.slice(0, limit), size, { rowsBefore: 0, after: stored.length > limit });
   }
   if (!cut.readsBack) {
     const stored = await read(
@@ -1400,20 +1414,26 @@ async function onePage<Stored extends TheStored>({
       theOrderBy(order),
       size.behind(cut.ahead),
     );
-    return aPage(stored, limit, size, { rowsBefore: stored[0]?.behindTheCut ?? 0 });
+    return aPage(stored.slice(0, limit), size, {
+      rowsBefore: stored[0]?.behindTheCut ?? 0,
+      after: stored.length > limit,
+    });
   }
   const stored = await read(
     limit + 1,
-    and(size.within, not(cut.ahead)) as SQL,
+    size.rowsBehind(cut.ahead),
     theOrderBy(order, { backward: true }),
     size.behind(cut.ahead),
   );
   // A STEP BACK THAT REACHES THE START ANSWERS THE START, whole (CNCORE-174).
-  if (stored.length <= limit) return onePage({ limit, size, order, read });
-  const behind = stored[0]?.behindTheCut ?? 0;
-  return aPage(stored.slice(0, limit).reverse(), limit, size, {
-    rowsBefore: behind - limit,
-    readBack: { anythingAhead: (stored[0]?.total ?? 0) > behind },
+  const [nearest] = stored;
+  if (nearest === undefined || stored.length <= limit) return onePage({ limit, size, order, read });
+  // READ BACK, THE PAGE IS THE LAST `limit` ROWS BEHIND THE CUT, turned round,
+  // and something lies ahead of it exactly where the size is more than what is
+  // behind the Cut: the Rows behind and ahead are the Listing between them.
+  return aPage(stored.slice(0, limit).reverse(), size, {
+    rowsBefore: nearest.behindTheCut - limit,
+    after: nearest.total > nearest.behindTheCut,
   });
 }
 
@@ -1437,36 +1457,32 @@ type APage<Stored> = {
 const NOTHING_BEHIND = sql<number>`0`.mapWith(Number);
 
 /**
- * One page of Rows, where it sits, and the two cursors off either end of it.
+ * One page of Rows, in the order a reader reads them: where it sits, and the
+ * two cursors off either end of it. `after` says whether anything lies past
+ * its last Row, which the caller knows by however it read the page.
  *
- * READ FORWARD, the Rows come in with the extra one still on, and the page
- * carries on past itself exactly where it came back. READ BACK, they come in
- * already cut and turned round, and whether anything lies ahead is the counts'
- * to say (`readBack`). A page read back always has something behind it: a
- * step back that found no more than a page is answered as the start instead.
+ * SOMETHING LIES BEFORE IT EXACTLY WHERE `rowsBefore` IS ABOVE ZERO, so the
+ * step back is offered off the count rather than off a read of its own.
  *
  * AN EMPTY PAGE HAS EVERY ROW BEHIND IT, which is why its `rowsBefore` needs no
  * count: nothing is ahead of a Cut that answered nothing, so what is behind it
  * is the whole Listing, and the size asked on its own says how much that is.
  */
 async function aPage<Stored extends TheStored>(
-  stored: Stored[],
-  limit: number,
+  page: Stored[],
   size: TheSize,
-  { rowsBefore, readBack }: { rowsBefore: number; readBack?: { anythingAhead: boolean } },
+  { rowsBefore, after }: { rowsBefore: number; after: boolean },
 ): Promise<APage<Stored>> {
-  const page = stored.slice(0, limit);
   const [first] = page;
   if (first === undefined) {
     const total = await size.askedOnItsOwn();
     return { rows: [], total, rowsBefore: total, continuesAfter: null, continuesBefore: null };
   }
-  const carriesOn = readBack?.anythingAhead ?? stored.length > limit;
   return {
     rows: page.map(({ total, behindTheCut, ...row }) => row),
     total: first.total,
     rowsBefore,
-    continuesAfter: carriesOn ? (page.at(-1)?.id ?? null) : null,
+    continuesAfter: after ? (page.at(-1)?.id ?? null) : null,
     continuesBefore: rowsBefore > 0 ? first.id : null,
   };
 }

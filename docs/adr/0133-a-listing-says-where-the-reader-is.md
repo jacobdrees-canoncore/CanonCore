@@ -41,15 +41,16 @@ number anyway: a reader looking for something knows its first letter and does no
 
 **Two counts per page instead of one**, both growing with the catalogue. The rank is the more
 expensive of the two, because a `total` can be answered from a narrower predicate while a rank must
-respect the full sort order. Measured evidence that this class of work grows: Albe (Cybertec,
-January 2023) put offset pagination at 1.16 ms on page one and 15.36 ms on page one hundred, against
-1.40 ms and 1.39 ms for a keyset walk. A rank does the same linear work that offset's first number
-describes, so the cost of saying where you are follows the offset curve even though the walk does
-not. **MEASURED UNDER CNCORE-188, IT DOES NOT FOLLOW THAT CURVE AT THIS SIZE: it grows with the
-Listing, not with the page.** On 8,052 Items the count behind row 3,000 and behind row 8,000 is one
-sequential scan of the whole Listing either way, 0.8 and 1.0 ms, because no index covers the sort key
-the comparison reads. An offset's cost rises page by page; this one sits beside the size, which is
-the same scan (the section "As built, under CNCORE-188" has the figures).
+respect the full sort order, and CNCORE-188 measured by how much: barely on the catalogue (1.0 ms
+against 0.85), and five and a half times on Catalogue search, whose leading key is computed per match
+(20.5 ms against 3.7). Measured evidence that this class of work grows: Albe (Cybertec, January 2023)
+put offset pagination at 1.16 ms on page one and 15.36 ms on page one hundred, against 1.40 ms and
+1.39 ms for a keyset walk. This record predicted that a rank, doing the linear work that offset's
+first number describes, would follow the offset curve; **MEASURED UNDER CNCORE-188 IT DOES NOT AT THIS
+SIZE, because it grows with the Listing rather than with the page**: no index covers the key it
+compares, so the count behind row 3,000 and behind row 8,000 is one sequential scan of the Listing
+either way (0.8 and 1.0 ms on 8,052 Items). It sits beside the size, which is the same scan, and the
+section "As built, under CNCORE-188" has the figures.
 
 **That is the trade being made**: the walk stays flat, and one label on it does not. If the label
 ever costs more than the page it sits on, the honest move is to drop the label, not the walk.
@@ -148,14 +149,34 @@ agreed within 0.7 ms on every row. `main`'s figures reproduce the CNCORE-174 tab
 | A jump to A, M, T and Z | 4.6, 4.4, 4.0, 2.9 | 4.9, 4.6, 4.3, 2.6 |
 | 2,907 members, first page | 2.3 (2.2-2.4) | 2.3 (2.2-2.3) |
 | 2,907 members, page 30 | 3.1 (2.8-3.6) | 3.9 (3.8-4.2) |
+| Catalogue search for "story", first page | 21.6 (21.3-21.9) | 21.3 (21.1-21.9) |
+| "story", page 31, walked forward | 34.1 (32.5-35.3) | 52.7 (52.0-53.9) |
+| "story", page 30, stepped back | 32.5 (31.4-37.5) | 50.2 (49.0-56.1) |
+| "story", page 66, the last | 42.1 (40.0-43.9) | 57.2 (55.7-57.7) |
+| Catalogue search for "the", page 31 | 23.5 (22.7-25.0) | 36.7 (36.2-37.6) |
 
 **THE COUNT ALONE**, `EXPLAIN (ANALYZE)` five times each: the Rows behind row 3,000 in 0.81 ms
 (0.80-0.98), behind row 8,000 in 1.03 ms (1.01-1.18), and the size beside them in 0.85 ms
 (0.82-0.93). Each is a sequential scan of `items`, 171 buffers, with PostgreSQL pushing the `not`
-down into `<=` and `<>` on the sort key. **So the second count costs what the first does**, and both
-grow with the catalogue. The net on a page is 0.2 to 0.8 ms of a 4 to 6 ms page, because the two
-one-Row reads went. **THE ESCAPE CLAUSE IS NOT REACHED**: the label costs a fifth of the page at
-most, and nothing at all on the first page, which counts nothing.
+down into `<=` and `<>` on the sort key. **So on the catalogue the second count costs what the first
+does**, and both grow with it: the count alone is 0.8 to 1.0 ms of a 3.8 to 5.4 ms page, and the net
+is 0.2 to 0.8 ms because the two one-Row reads went.
+
+**CATALOGUE SEARCH IS WHERE IT COSTS, AND THE REASON IS THE KEY IT COUNTS BY.** Its leading key is
+`similarity()` against what a reader typed, computed for every match: one pass over the 6,536 titles
+matching "story" is 15.0 ms, the count behind row 3,000 of that ranking is 20.5 ms (19.4-23.5), and
+the size beside it, an `ilike` alone, is 3.7 ms. `main` paid that pass twice already, the page's sort
+and the look-behind, but ran the two statements side by side; the count rides in the page's own
+statement, so its pass is added to the page rather than overlapped with it. **So a search page past
+the first costs 13 to 19 ms more, about half again**, and the first page nothing.
+
+**THE ESCAPE CLAUSE IS NOT REACHED, AND SEARCH IS WHERE IT WOULD BE.** On the catalogue the count is a
+fifth of its page at most; on Catalogue search it is 20 ms against a page of 34 to 42, which is
+below the page and not far below it. The lever, if it is ever pulled, is to compute the closeness once
+for the page and the count together rather than to drop the snapshot the count shares with the Rows.
+Nothing is built for that now. **"Also appears in" pays nothing on the Owner's corpus**, because its
+longest is 61 Rows (ADR-0119, CNCORE-174) and a Listing that fits one page never has a Cut to count
+behind: its count, which joins the spokesman lateral, has never run against real data.
 
 **WHAT WOULD CHANGE THE CURVE** is an index on `coalesce(sort_name, title)`, which would let the count
 read only the Rows behind the Cut: cheaper near the front and dearer towards the back, the shape this

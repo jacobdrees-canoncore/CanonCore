@@ -408,11 +408,11 @@ const grouped = new Intl.NumberFormat("en-GB");
  * not be for every word. A caller needing a different plural is the point at
  * which this takes the pair rather than the stem.
  *
- * THE COUNT AND ITS NOUN ARE `soMany` BELOW, shared with the Row's own figure.
- * Both arms of this expression spelled the pluralisation out, and a third
- * spelling arrived with CNCORE-183 one function down -- which is three places
- * for one rule about English to be decided, in a file whose whole argument is
- * that a rule copied is a rule that drifts.
+ * THE NOUN'S PLURAL IS `ofWhat` BELOW, read by this sentence and by the Row's
+ * own figure alike. Both arms of this expression spelled the pluralisation
+ * out, and a third spelling arrived with CNCORE-183 one function down -- which
+ * is three places for one rule about English to be decided, in a file whose
+ * whole argument is that a rule copied is a rule that drifts.
  */
 export function Holding({
   showing,
@@ -428,7 +428,7 @@ export function Holding({
   return (
     <p className="text-muted-foreground text-sm">
       {showing < total
-        ? `Showing ${which(showing, rowsBefore, noun)} of ${grouped.format(total)}`
+        ? `Showing ${theRowsShown(showing, rowsBefore, noun)} of ${grouped.format(total)}`
         : soMany(total, noun)}
     </p>
   );
@@ -444,10 +444,10 @@ export function Holding({
  * where it is all the same. It is where the reader IS, and nothing on this page
  * offers it back as somewhere to go -- the letters are how a reader lands.
  */
-function which(showing: number, rowsBefore: number, noun: string): string {
+function theRowsShown(showing: number, rowsBefore: number, noun: string): string {
   const first = grouped.format(rowsBefore + 1);
-  if (showing === 1) return `${noun} ${first}`;
-  return `${noun}s ${first} to ${grouped.format(rowsBefore + showing)}`;
+  if (showing === 1) return `${ofWhat(1, noun)} ${first}`;
+  return `${ofWhat(showing, noun)} ${first} to ${grouped.format(rowsBefore + showing)}`;
 }
 
 /**
@@ -461,11 +461,19 @@ function which(showing: number, rowsBefore: number, noun: string): string {
  *
  * THE `showing < total` ARM ABOVE DOES NOT TAKE IT SINCE ADR-0133, because
  * the noun moved to the front of that sentence -- "items 101 to 200 of 465" --
- * and is pluralised there off how many the page shows. `which` spells that,
- * and it is the one other place this file writes a noun's plural.
+ * and is pluralised there off how many the page shows. Both read the plural
+ * off `ofWhat`.
  */
 function soMany(count: number, noun: string): string {
-  return `${grouped.format(count)} ${count === 1 ? noun : `${noun}s`}`;
+  return `${grouped.format(count)} ${ofWhat(count, noun)}`;
+}
+
+/**
+ * THE NOUN FOR SO MANY OF IT, with an `s` beyond one: the one place this file
+ * decides a plural, for the reason `Holding` gives.
+ */
+function ofWhat(count: number, noun: string): string {
+  return count === 1 ? noun : `${noun}s`;
 }
 
 /**

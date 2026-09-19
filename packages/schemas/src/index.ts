@@ -649,8 +649,9 @@ export const cataloguePublic = z.object({
    * a URL a reader can read.
    *
    * AND IT SAYS BOTH THINGS AT ONCE -- whether there is more, and where it
-   * starts -- because a caller could only work the first out by subtracting,
-   * and a keyset walk has no offset to subtract from.
+   * starts -- because a caller working the first out for itself would have to
+   * subtract, which a keyset walk could not do until `rowsBefore` counted where
+   * a page is (ADR-0133), and would still need this for where.
    */
   continuesAfter: z.uuid().nullable(),
   /**

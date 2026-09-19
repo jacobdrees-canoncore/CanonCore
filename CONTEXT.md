@@ -110,8 +110,9 @@ QUERY PER LISTING, from which both the positions it is read in are derived — r
 their own statement, and asked on its own for the page that has no Row to carry one — and from which
 the Listing's own filter is read back, so a Listing cannot report a size its Rows were not drawn
 from. They were two statements a sentence required to answer the same question, and two defects came
-from them disagreeing anyway. The same value counts the Rows behind a Cut, over the same filter,
-beside it on the Rows (ADR-0133). The read path emits it as `total`, which is the field's name and stays
+from them disagreeing anyway. Beside it, the same value builds a SECOND query over the same filter,
+counting the Rows behind a Cut (ADR-0133); that is a different question, not a second spelling of
+this one. The read path emits it as `total`, which is the field's name and stays
 one: renaming it is a change to the public read surface (ADR-0045) rather than to this word.
 _Avoid_: count, which is the query rather than the answer
 

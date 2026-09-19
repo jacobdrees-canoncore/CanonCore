@@ -276,6 +276,10 @@ describe("/search on a result set larger than one page", () => {
     // a reader stranded past the end of their results wants the results, not
     // the prompt.
     expect(sectionIn(beyond.text, "past-the-end")).toContain(`href="/search?q=${QUERY}"`);
+    // AND IT CLAIMS TO SHOW NOTHING (ADR-0133). A page with no Rows has no
+    // first or last to name, which is why every other surface says nothing
+    // above its ending: said here, it read "Showing results 255 to 254".
+    expect(beyond.text).not.toMatch(/>Showing results? /);
   });
 });
 

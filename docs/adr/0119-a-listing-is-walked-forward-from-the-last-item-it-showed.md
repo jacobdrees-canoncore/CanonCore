@@ -1169,10 +1169,11 @@ is (ADR-0133). That count needs a query of its own, so `theSize` takes a way to 
 it counts rather than one built, and spends each `where` itself; ADR-0133 says why a drizzle select
 cannot be asked twice, and which Listing's relation had to grow for it.
 
-**AND THE ENFORCEMENT IS IN WHICH END SUPPLIES THE PREDICATE.** `theSize(within, counting)` HANDS
+**AND THE ENFORCEMENT IS IN WHICH END SUPPLIES THE PREDICATE.** `theSize(within, countedFrom)` HANDS
 the predicate to the counting query rather than letting it choose one: a caller supplies the FROM
 and the JOINs — the part that genuinely differs between a Listing of items and a Listing of
-placements — and has nowhere to put a second `WHERE`. That is what "enforced rather than
+placements, and since CNCORE-188 a way to build them rather than them built, so the value can count
+twice — and has nowhere to put a second `WHERE`. That is what "enforced rather than
 remembered" means here, and it is the same strength the order has rather than more: one value, read
 twice, in one function.
 
@@ -1276,22 +1277,22 @@ thirty-three nobody walking forward was ever served, with the next page beginnin
 the answer this record already gives a cursor that names no position, and it is the same place:
 nothing is behind it. It costs a second statement, at the start only.
 
-**`continuesBefore` COSTS ONE MORE READ ON A PAGE READ FORWARD FROM A POINT**: one Row, from behind
-the point, beside the page. **NOT SINCE CNCORE-188, WHICH READS BOTH LINKS OFF A COUNT IN THE PAGE'S
-OWN STATEMENT**: the Rows behind the Cut, which ADR-0133 counts to say where the page is. Something
-lies behind a page read forward exactly where that count is above zero, and something lies ahead of
-a page read back exactly where the size is above it, so the look-behind and the look-ahead are gone
-and the race this paragraph ends on went with them. What follows is why the question is asked at all,
-and it stands. A page reached from a cursor ALMOST always has something behind it, and
-"almost" is the reason it is asked rather than assumed. A jump names a point, not a Row, and a jump
-to A on a Listing whose first Row files under A has nothing behind it; offering Previous there
-would point at the page the reader is on. Measured: the assumption survived every test until the
-jump's own ("offers no step back where nothing is filed before the letter"). **IT IS A SECOND
-STATEMENT, NOT THE SAME SNAPSHOT**, unlike the size: the look-behind is the Listing's own read,
-laterals and all, asked for one Row, and folding it into the page's statement would need a union of
-two differently ordered selects of every Listing's shape. A Row inserted or deleted between the two
-can offer a Previous that lands on the start, or withhold one for a click. A navigation link can
-carry that; a count, which the reader reads as a fact, could not.
+**`continuesBefore` IS ASKED OF THE LISTING RATHER THAN ASSUMED**, because a page reached from a
+cursor ALMOST always has something behind it, and "almost" is the reason. A jump names a point, not a
+Row, and a jump to A on a Listing whose first Row files under A has nothing behind it; offering
+Previous there would point at the page the reader is on. Measured: the assumption survived every
+test until the jump's own ("offers no step back where nothing is filed before the letter").
+
+**HOW IT IS ASKED CHANGED UNDER CNCORE-188.** It was one more read on a page read forward from a
+point, one Row from behind it, with a look-ahead of one Row on a page read back; those were SECOND
+STATEMENTS, not the page's snapshot, since folding a one-Row read into the page would have needed a
+union of two differently ordered selects of every Listing's shape, and a Row inserted or deleted
+between the two could offer a Previous that landed on the start or withhold one for a click. **SINCE
+CNCORE-188 BOTH LINKS ARE READ OFF A COUNT IN THE PAGE'S OWN STATEMENT**: the Rows behind the Cut,
+which ADR-0133 counts to say where the page is. Something lies behind a page read forward exactly
+where that count is above zero, and something lies ahead of a page read back exactly where the size
+is above it, so neither read remains and the race went with them. A navigation link could carry
+that race; a count, which the reader reads as a fact, could not, and it is a count that answers now.
 
 **THE JUMP IS `letter`, A SEEK ON THE LEADING KEY**: the first Row whose sort key sorts at or past
 the letter, and the untitled block after every letter. A seek and not a filter, so a letter
