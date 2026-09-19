@@ -650,7 +650,9 @@ describe("/settings, unlocking a provider", () => {
     const row = rowFor(text, owing.url);
 
     expect(row.toLowerCase()).toContain("nothing could be read from");
-    expect(row).toContain('<q>[ { "origin": "string", "code": "too_big"');
+    expect(quotesIn(row)).toContainEqual(
+      expect.stringMatching(/^\[ \{ "origin": "string", "code": "too_big"/),
+    );
     expect(row).toContain('"path": [ "attribution", "notice" ]');
     expect(text).not.toContain("licencelicence");
   });
