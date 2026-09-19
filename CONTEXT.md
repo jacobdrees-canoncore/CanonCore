@@ -71,8 +71,10 @@ of the same name.
 _Avoid_: search, unqualified
 
 **Listing**:
-What a capped list answers with: a page of rows, how many there are altogether, and where the list
-carries on. Every list in CanonCore is one, over items or over placements alike.
+What a capped list answers with: a page of rows, how many there are altogether, how many sort before
+the page, and where the list carries on. Every list in CanonCore is one, over items or over
+placements alike. How many sort before the page is where the reader IS (ADR-0133), emitted as
+`rowsBefore`, and never an address: nothing takes it back as a number of rows to skip.
 
 **Order**:
 The sequence a Listing is read in: the keys it sorts on, most significant first, and the id behind
@@ -99,7 +101,8 @@ A point in a Listing's Order that a page is read from, one side or the other: ju
 PREDICATE, the rows ahead of the point, and the rows behind it are its complement rather than a
 second comparison written the other way round — which is what keeps the two directions agreeing
 about a tie. Never a position in the counted sense: a Cut has no number, which is why a keyset walk
-offers no page seven.
+offers no page seven. The Rows behind one are COUNTED, which is how a page says where it is
+(ADR-0133), but a count is where the reader is and never somewhere a Cut can be made.
 
 **Size**:
 How many Rows a Listing holds altogether, which is not how many the page in front of you shows. ONE
@@ -107,7 +110,8 @@ QUERY PER LISTING, from which both the positions it is read in are derived — r
 their own statement, and asked on its own for the page that has no Row to carry one — and from which
 the Listing's own filter is read back, so a Listing cannot report a size its Rows were not drawn
 from. They were two statements a sentence required to answer the same question, and two defects came
-from them disagreeing anyway. The read path emits it as `total`, which is the field's name and stays
+from them disagreeing anyway. The same value counts the Rows behind a Cut, over the same filter,
+beside it on the Rows (ADR-0133). The read path emits it as `total`, which is the field's name and stays
 one: renaming it is a change to the public read surface (ADR-0045) rather than to this word.
 _Avoid_: count, which is the query rather than the answer
 

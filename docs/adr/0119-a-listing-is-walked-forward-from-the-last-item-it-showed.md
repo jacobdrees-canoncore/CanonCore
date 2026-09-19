@@ -158,8 +158,9 @@ and each is a way to lose Items silently.**
 - **No "items 101–200 of 4,312".** A keyset walk has no offset, so a page cannot say WHICH hundred it
   is showing without counting. "Showing 100 of 4,312 items" is what it can honestly say.
   **SUPERSEDED 2026-09-14 by [[0133-a-listing-says-where-the-reader-is]]**, which agrees to pay the
-  counting this sentence names and shows where the reader is. The bullet below — no jump to page
-  seven — is NOT superseded and is the half that genuinely needs an offset.
+  counting this sentence names and shows where the reader is, and every Listing has since
+  CNCORE-188 (`rowsBefore`). The bullet below — no jump to page seven — is NOT superseded and is the
+  half that genuinely needs an offset.
 - **No jump to page seven**, and no page numbers. An A–Z jump (`nameStartsWith`, which Plex has as
   `firstCharacterKey`) is the navigation that fits this shape, and the sweep already named it as
   cheap and adjacent. **It is built since CNCORE-174**, as a seek on the sort key and nowhere else:
@@ -1162,7 +1163,11 @@ places to write it, and nothing that could tell whether the two places agreed.
 `packages/db/src/queries.ts` holds ONE counting query. `onTheRows` renders it as the uncorrelated
 scalar subquery the Rows carry, in their statement and therefore in their snapshot; `askedOnItsOwn`
 runs the same object for the empty page; and `within` is the predicate the Listing's own `WHERE` is
-read back off. A Listing is handed the value and cannot spell its size a second way.
+read back off. A Listing is handed the value and cannot spell its size a second way. **A FOURTH SINCE
+CNCORE-188**: `behind`, the same question narrowed to the Rows behind a Cut, which is where a page
+is (ADR-0133). That count needs a query of its own, so `theSize` takes a way to BUILD the relation
+it counts rather than one built, and spends each `where` itself; ADR-0133 says why a drizzle select
+cannot be asked twice, and which Listing's relation had to grow for it.
 
 **AND THE ENFORCEMENT IS IN WHICH END SUPPLIES THE PREDICATE.** `theSize(within, counting)` HANDS
 the predicate to the counting query rather than letting it choose one: a caller supplies the FROM
@@ -1238,7 +1243,8 @@ stories, so the front page is a hundred Rows and one `Next`, the three-thousandt
 presses away, and there was no way back but to start again. That licensed two things and not a
 third: **a step back, and a jump to a letter.** A numbered page stays refused, for the reason the
 "No jump to page seven" bullet under "What this shape cannot do, said plainly rather than discovered
-later" gives, and saying WHICH Rows a page shows is ADR-0133's and not built here.
+later" gives, and saying WHICH Rows a page shows is ADR-0133's and was not built here (CNCORE-188
+built it, and it changed the look-behind below).
 
 **THE STEP BACK IS `before=<id>`, THE FIRST ROW OF THE PAGE A READER IS ON**, answered with the page
 that ends just short of it. A Row's id, like `after`, in whichever Listing it names a Row of, and
@@ -1271,7 +1277,12 @@ the answer this record already gives a cursor that names no position, and it is 
 nothing is behind it. It costs a second statement, at the start only.
 
 **`continuesBefore` COSTS ONE MORE READ ON A PAGE READ FORWARD FROM A POINT**: one Row, from behind
-the point, beside the page. A page reached from a cursor ALMOST always has something behind it, and
+the point, beside the page. **NOT SINCE CNCORE-188, WHICH READS BOTH LINKS OFF A COUNT IN THE PAGE'S
+OWN STATEMENT**: the Rows behind the Cut, which ADR-0133 counts to say where the page is. Something
+lies behind a page read forward exactly where that count is above zero, and something lies ahead of
+a page read back exactly where the size is above it, so the look-behind and the look-ahead are gone
+and the race this paragraph ends on went with them. What follows is why the question is asked at all,
+and it stands. A page reached from a cursor ALMOST always has something behind it, and
 "almost" is the reason it is asked rather than assumed. A jump names a point, not a Row, and a jump
 to A on a Listing whose first Row files under A has nothing behind it; offering Previous there
 would point at the page the reader is on. Measured: the assumption survived every test until the
