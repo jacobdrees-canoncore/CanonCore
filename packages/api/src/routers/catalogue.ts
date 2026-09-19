@@ -27,6 +27,30 @@ const listingInput = z.object({
 });
 
 /**
+ * What the Catalogue takes: the same ceiling, the same cursor, and the Group a
+ * reader has narrowed it to (CNCORE-179, ADR-0010).
+ *
+ * ON `list` ALONE FOR NOW, and that is the reason `after` gives below for
+ * having once been omitted from search: an input that accepted a Group and
+ * silently answered the whole catalogue would be a promise the handler does not
+ * keep. Catalogue search and work-browsing take it under CNCORE-180, and the
+ * day all three do it belongs in `listingInput` rather than here.
+ */
+const catalogueInput = listingInput.extend({
+  /**
+   * THE GROUP'S ID, AS A STRING RATHER THAN A `z.uuid()`, which is ADR-0066's
+   * rule for a parameter that is not an identity and the one `aCursor` follows
+   * for the same reason: whether a value names anything is what the ANSWER
+   * says. A Group that names nothing -- deleted since the link was kept, or a
+   * typo in one -- narrows to nothing, and the page says so rather than a
+   * validator answering a BAD_REQUEST no caller can narrow on.
+   *
+   * ABSENT IS THE WHOLE CATALOGUE, which is what clearing the scope is.
+   */
+  group: z.string().optional(),
+});
+
+/**
  * What Catalogue search takes: the same ceiling, the same cursor, and the query.
  *
  * EXTENDED FROM `listingInput` RATHER THAN RESTATED, for the reason that
@@ -70,12 +94,13 @@ export const catalogue = {
    * is `works` below rather than this one with a flag on it.
    */
   list: openProcedure
-    .input(listingInput)
+    .input(catalogueInput)
     .output(cataloguePublic)
     .handler(async ({ input, context }) => {
       const listing = await readCatalogue(context.db, {
         limit: input.limit,
         after: input.after,
+        group: input.group,
       });
       return asListing(listing);
     }),

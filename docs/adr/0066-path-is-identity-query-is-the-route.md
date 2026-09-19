@@ -117,7 +117,10 @@ is the half this record had to rule on before the cap could be built at all.
 `via`, `placed`, `after`. Alphabetical would have put it first, and the argument against is this
 record's own: a fixed spelling order exists so that one narrowed list at one page is ONE URL, and
 re-ordering the existing pair would give every link already emitted a second spelling of itself. A
-parameter arriving later goes behind the ones that are already out there.
+parameter arriving later goes behind the ones that are already out there **wherever writing it
+anywhere else would re-spell a link already emitted** -- which is the rule's reason, and where it
+does not bind is under CNCORE-179 below, the one parameter so far written ahead of one that came
+before it.
 
 **AND IT IS THE SAME WORD THE OTHER THREE LISTINGS WALK WITH**, rather than one named for this
 surface. `/` and `/works` and `/search` all take `?after=`, so a parameter called `member` or
@@ -207,6 +210,37 @@ recap and its episode would be one key twice.
 the next thing in it, and nothing does. This record stays PROPOSED for that reason and no other --
 CNCORE-89 capped and walked that ordering and CNCORE-125 capped and walked the other listing on the
 same page, and neither touched it, so the unbuilt half is the same half it has always been.
+
+## A Group narrows the catalogue -- under CNCORE-179
+
+**ANOTHER NON-IDENTIFYING PARAMETER, AND THE FIRST THAT NARROWS `/`: `?group=<id>`**, the browsing
+scope [[0010-groups-scope-never-partition]] decides. `/` already took `?after=`, which says where a
+reader is in the catalogue; this says which catalogue. It identifies nothing -- the
+catalogue narrowed to Doctor Who is still the catalogue -- and it is a parameter rather than a path
+segment for this record's own reason: an Item sits in many Groups, so a Group in any path would give
+one thing many addresses. The Rows on a narrowed page link the bare `/items/<id>`, exactly as the
+unnarrowed page's do, because nobody arrives at an Item THROUGH a scope in the sense `?via=` means.
+
+**A GROUP NAMING NOTHING NARROWS TO NOTHING, WHERE A CURSOR NAMING NOTHING STARTS OVER**, and both
+are this record's rule -- whether a value names anything is what the answer says -- applied to two
+different kinds of value. A cursor is a POSITION, and a position that has gone leaves the listing
+still standing to be walked from its start. A Group is a QUESTION, and the answer to "what is in a
+scope nobody drew" is nothing, with the page saying the scope is not there. A malformed one is a
+typo in a link rather than a 500, by the shape guard `findItem` introduced.
+
+**IT IS WRITTEN BEFORE THE CURSOR, `group` THEN `after`, which is why the fixed-order sentence above
+now says where it binds.** "A parameter arriving later goes behind the ones that are already out
+there" exists so that no link already emitted acquires a second spelling -- and none can here. `/?after=<id>` is
+the unnarrowed catalogue and `/?group=<g>&after=<id>` is a narrowed one: two states, not one state
+spelled twice, and no link carrying both parameters had been emitted before this. What decides the
+order instead is the shape the two other listings already have: what the listing IS, then where in
+it the reader stands -- `/search`'s `q` before `after`, and the item page's `placed` before `after`.
+It is held by the key order of the object `queryFor` in `apps/web/src/components/listing.tsx`
+spreads, which is how `/search`'s `q` then `after` was already held, and which carries the Group
+forward on `Next`, on `Back to the start` and on the notice past the end. The item page's four are
+held by `IN_FIXED_ORDER` in the same function -- so the order is still written in two shapes, and
+stating it once for every surface is CNCORE-181's, as the scope surviving a reload and travelling in
+a shared link is.
 
 ## What implementing it taught -- under CNCORE-14
 

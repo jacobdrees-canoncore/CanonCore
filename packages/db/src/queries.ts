@@ -19,6 +19,7 @@ import type { Database } from "./index";
 import { type PlaceIn, pastTheRowIn, type TheOrder, theOrderBy } from "./order";
 import {
   aliases,
+  groupItems,
   itemKinds,
   items,
   placementSources,
@@ -940,9 +941,19 @@ export interface Catalogue {
  */
 export async function readCatalogue(
   db: Database,
-  { limit, after }: { limit: number; after?: string },
+  { limit, after, group }: { limit: number; after?: string; group?: string },
 ): Promise<Catalogue> {
-  return readListing(db, { limit, after, within: IN_THE_CATALOGUE });
+  /*
+   * NARROWED TO A GROUP BY WIDENING THE QUESTION, never beside it (CNCORE-179).
+   * The Group joins the catalogue's own predicate here, and that one value is
+   * what `walkListing` hands to `theSize` and reads the Rows' `WHERE` back off
+   * -- so a Group narrowing the Rows and not the count, which is the whole
+   * catalogue's size reported over a narrowed page, has no second place to be
+   * missing from.
+   */
+  const within =
+    group === undefined ? IN_THE_CATALOGUE : (and(IN_THE_CATALOGUE, inTheGroup(db, group)) as SQL);
+  return readListing(db, { limit, after, within });
 }
 
 /**
@@ -1325,6 +1336,61 @@ const WORK_BROWSING = and(
   eq(items.kind, "work"),
   or(not(items.isContainer), items.holdsWork),
 ) as SQL;
+
+/**
+ * WHAT A GROUP NARROWS A LISTING TO (ADR-0010): the Items the Owner put in it
+ * and has not taken back out.
+ *
+ * ONE PREDICATE FOR EVERY LISTING, which is the spec's own requirement rather
+ * than tidiness: a Group that meant one thing on the catalogue and another on
+ * Catalogue search would be two scopes wearing one name. So each Listing `and`s
+ * THIS onto its own `within`, and none spells membership for itself -- the
+ * catalogue does today (`readCatalogue`), and CNCORE-180 is work-browsing and
+ * Catalogue search doing the same.
+ *
+ * COMPOSED INTO `within` RATHER THAN PASSED TO `walkListing`, which is where a
+ * Listing's question is already assembled: Catalogue search `and`s its match
+ * onto the catalogue's rule the same way, and `catalogue-search.ts` has already
+ * turned down a parameter on `walkListing` that only one caller would pass.
+ * What keeps the size honest is `theSize` reading the same `within` as the
+ * Rows, so the narrowing only has to arrive there once.
+ *
+ * IT NARROWS THE LISTING'S OWN QUESTION RATHER THAN REPLACING IT. `and`ed onto
+ * whatever `within` the Listing asked, so an Item deleted from the catalogue
+ * stays gone from a Group it still sits in -- deleting an Item names no Group,
+ * so its membership is live and only the catalogue's rule keeps it out.
+ *
+ * THE MEMBERSHIP'S TOMBSTONE AND NOT THE GROUP'S, which is `deleteGroupByHand`
+ * doing its half: it tombstones the Group and every row naming it in one
+ * transaction, precisely so that a narrowed Listing reading `group_items`
+ * alone meets no membership of a Group that has gone. And
+ * `putItemInGroupByHand` refuses a Group that is not live, so no later write
+ * brings one back.
+ *
+ * UNCORRELATED, which is the lesson `howMuchItHolds` carries a paragraph about.
+ * The subquery names `group_items` and nothing else, so no inner relation can
+ * resolve to the outer `items` and nothing needs an alias to be right. It is
+ * the set of the Group's Items, asked once, and the Listing keeps the Rows in
+ * it.
+ *
+ * A GROUP THAT NAMES NOTHING NARROWS TO NOTHING, which is ADR-0066's rule for a
+ * parameter that is not an identity: whether it names anything is what the
+ * ANSWER says. A cursor naming nothing starts the walk over because it is a
+ * position; this is a question, and the honest answer to "what is in a Group
+ * nobody drew" is nothing. The shape guard is `findItem`'s, for its reason: a
+ * string that is no uuid reaches a `uuid` column as error 22P02, and a typo in
+ * a shared link would read as a server fault.
+ */
+function inTheGroup(db: Database, group: string): SQL {
+  if (!canBeAnId(group)) return sql`false`;
+  return inArray(
+    items.id,
+    db
+      .select({ itemId: groupItems.itemId })
+      .from(groupItems)
+      .where(and(eq(groupItems.groupId, group), isNull(groupItems.deletedAt))),
+  );
+}
 
 /**
  * THE KEY THE CATALOGUE SORTS ON (ADR-0014), written once.
