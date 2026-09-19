@@ -9,6 +9,7 @@ import {
 import Link from "next/link";
 
 import { inTheFixedOrder, type LinkQuery } from "./query-params";
+import { TheirWords } from "./their-words";
 
 /**
  * ONE LISTING, RENDERED -- shared by FOUR surfaces now.
@@ -419,7 +420,7 @@ export function Listing({ rows }: { rows: Row[] }) {
             that rule: routed through one place, a later `basePath` is one line.
           */}
           <Link href={`/items/${row.id}`} className="hover:underline">
-            {row.title ?? "Untitled item"}
+            <TheirWords>{row.title ?? "Untitled item"}</TheirWords>
           </Link>
           <span className="flex items-baseline gap-3 text-muted-foreground text-sm">
             {/*
@@ -624,8 +625,8 @@ export function theScope(groups: Group[], narrowedTo: string | undefined) {
  * current on a page naming a Group that is not there, which is `NoSuchGroup`'s
  * to explain.
  *
- * `wrap-anywhere` BECAUSE THE NAME IS THE OWNER'S OWN WORDS WITH NO CAP on
- * them (`group.create`), so one unbroken word would otherwise push the page
+ * `TheirWords` BECAUSE THE NAME IS THE OWNER'S OWN WORDS WITH NO CAP on them
+ * (`group.create`), so one unbroken word would otherwise push the page
  * sideways -- the width CNCORE-217 found a Provider's name taking.
  */
 export function NarrowToAGroup({
@@ -653,9 +654,9 @@ export function NarrowToAGroup({
             query: queryFor({ ...surface, narrowed: { group: group.id } }, undefined),
           }}
           aria-current={group.id === narrowedTo ? "true" : undefined}
-          className="min-w-0 wrap-anywhere hover:underline aria-[current]:font-medium aria-[current]:text-foreground"
+          className="hover:underline aria-[current]:font-medium aria-[current]:text-foreground"
         >
-          {group.name}
+          <TheirWords>{group.name}</TheirWords>
         </Link>
       ))}
     </nav>

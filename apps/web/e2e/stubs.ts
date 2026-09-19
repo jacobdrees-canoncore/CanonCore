@@ -110,8 +110,22 @@ export async function aProviderThatFloodsItsName(): Promise<{
   url: string;
   close: () => Promise<void>;
 }> {
+  return aStubNamed(FLOOD, []);
+}
+
+/**
+ * A STUB THAT NAMES ITSELF AND SEARCHES WHAT IT HOLDS, and does nothing else.
+ *
+ * ONE FOR THE TWO STUBS HERE (CNCORE-223), which differ in what they flood and
+ * in nothing else, for the reason `searchOver` is shared: a second copy of a
+ * manifest and its routes is where two stubs quietly stop agreeing.
+ */
+function aStubNamed<Held extends { title: string }>(
+  name: string,
+  records: Held[],
+): Promise<{ url: string; close: () => Promise<void> }> {
   const manifest = {
-    name: FLOOD,
+    name,
     versions: [1],
     operations: ["search", "lookup"],
     max_cache_age: 86400,
@@ -119,7 +133,60 @@ export async function aProviderThatFloodsItsName(): Promise<{
   };
   return onLoopback((path, answer) => {
     if (path === "/") return answer(manifest, 200);
-    if (path.startsWith("/search")) return answer(searchOver([], path), searchStatus(path));
+    if (path.startsWith("/search")) return answer(searchOver(records, path), searchStatus(path));
     return answer({ error: "no such record" }, 404);
   });
+}
+
+/**
+ * A record's fields, each A WORD REPEATED with no break in it (CNCORE-223), for
+ * the reason `FLOOD` is one.
+ */
+export const UNBROKEN = {
+  title: "title".repeat(100),
+  kind: "kind".repeat(100),
+  released: "1963".repeat(100),
+};
+
+/**
+ * A PROVIDER WHOSE RECORD IS AS WIDE AS IT IS LONG (CNCORE-223).
+ *
+ * A record's fields are a source's claim and bounded by nothing, on purpose:
+ * cutting a title would corrupt the catalogue rather than protect a page
+ * (ADR-0123). So this is the stub `aProviderThatFloodsItsName` is not -- its
+ * NAME is ordinary, and what it answers a search with is a record for each
+ * field it floods, with no break in that field.
+ *
+ * FOUND ONLY BY ASKING FOR IT. `searchOver` matches on the title, so each
+ * record is on `/import` for a query only its own title holds, and the
+ * Provider-name witnesses beside it, which ask for `anything`, see this
+ * Provider match nothing.
+ */
+export async function aProviderThatFloodsItsRecord(): Promise<{
+  url: string;
+  close: () => Promise<void>;
+}> {
+  return aStubNamed("provider-unbroken", [
+    {
+      id: "unbroken-title",
+      title: UNBROKEN.title,
+      kind: "TV story",
+      released: ["1963-11-23"],
+      url: "http://127.0.0.1/unbroken-title",
+    },
+    {
+      id: "unbroken-kind",
+      title: "A record whose kind has no break in it",
+      kind: UNBROKEN.kind,
+      released: ["1963-11-23"],
+      url: "http://127.0.0.1/unbroken-kind",
+    },
+    {
+      id: "unbroken-released",
+      title: "A record whose release date has no break in it",
+      kind: "TV story",
+      released: [UNBROKEN.released],
+      url: "http://127.0.0.1/unbroken-released",
+    },
+  ]);
 }

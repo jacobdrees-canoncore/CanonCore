@@ -13,6 +13,7 @@ import {
   Walk,
 } from "@/components/listing";
 import { oneGroup, oneValue } from "@/components/query-params";
+import { TheirWords } from "@/components/their-words";
 
 /**
  * WORK-BROWSING: what can I watch, without the cast.
@@ -154,9 +155,15 @@ function NothingToWatch({ within }: { within?: string }) {
             the `h1`.
           */}
           <EmptyTitle>
-            {/* `wrap-anywhere` for the reason the Group picker gives. */}
-            <h2 className="wrap-anywhere" id="nothing-to-watch">
-              {within === undefined ? "Nothing to watch yet" : `Nothing to watch in ${within}`}
+            {/* The Group's name through `TheirWords`, for the reason the picker gives. */}
+            <h2 id="nothing-to-watch">
+              {within === undefined ? (
+                "Nothing to watch yet"
+              ) : (
+                <>
+                  Nothing to watch in <TheirWords>{within}</TheirWords>
+                </>
+              )}
             </h2>
           </EmptyTitle>
           <EmptyDescription>

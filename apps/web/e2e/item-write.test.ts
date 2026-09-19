@@ -3,11 +3,13 @@ import { describe, expect, inject, it } from "vitest";
 import {
   documentFrom,
   formIn,
+  headingOf,
   logInAt,
   type RenderedForm,
   sectionIn,
   submit,
   submitAsAFilePart,
+  textOf,
   withFields,
 } from "./document";
 
@@ -89,6 +91,15 @@ function valueRows(text: string): string[] {
       .replace(/\s+/g, " ")
       .trim(),
   );
+}
+
+/**
+ * What the line under the heading says an Item sorts as, READ AS TEXT because
+ * the sort name is printed through `TheirWords` (CNCORE-223).
+ */
+function sortsAs(text: string): string | undefined {
+  const found = /<p[^>]*>Sorts as (.*?)<\/p>/s.exec(text)?.[1];
+  return found === undefined ? undefined : textOf(found);
 }
 
 /** The `/items/<id>` the browser was sent to after a create. */
@@ -291,7 +302,7 @@ describe("/items/<id>, editing a title", () => {
     // AND THE HEADING MOVED WITH IT, which is the projection (ADR-0014) rather
     // than the list: a page whose Values row changed while its `<h1>` did not
     // would be showing a reader two answers to one question.
-    expect(edited.text).toContain('<h1 class="text-3xl font-medium">A better title</h1>');
+    expect(headingOf(edited.text)).toBe("A better title");
   });
 
   /**
@@ -303,9 +314,7 @@ describe("/items/<id>, editing a title", () => {
   it("beats the Provider's title, without erasing it", async () => {
     const at = `/items/${editable.imported}`;
     const before = await documentAt(at, owner);
-    expect(before.text).toContain(
-      `<h1 class="text-3xl font-medium">${editable.importedTitle}</h1>`,
-    );
+    expect(headingOf(before.text)).toBe(editable.importedTitle);
 
     const edited = await submit(
       baseUrl,
@@ -314,7 +323,7 @@ describe("/items/<id>, editing a title", () => {
       owner,
     );
 
-    expect(edited.text).toContain('<h1 class="text-3xl font-medium">The Tenth Planet</h1>');
+    expect(headingOf(edited.text)).toBe("The Tenth Planet");
     const rows = valueRows(edited.text);
     // THE OWNER'S FIRST AND THE PROVIDER'S BELOW IT, in the order the projection
     // picks them: winner first, by rank then the global source order.
@@ -348,7 +357,7 @@ describe("/items/<id>, correcting a sort name", () => {
     );
 
     expect(edited.status).toBe(200);
-    expect(edited.text).toContain("Sorts as Dalek Masterplan");
+    expect(sortsAs(edited.text)).toBe("Dalek Masterplan");
     // AND BOTH CLAIMS ARE ON THE PAGE, the Owner's ahead of the computation's.
     // A correction outranks CanonCore rather than erasing it, which is the same
     // thing the Title rows say about a Provider.
@@ -370,7 +379,7 @@ describe("/items/<id>, correcting a sort name", () => {
       }),
       owner,
     );
-    expect(corrected.text).toContain("Sorts as Child, An Unearthly");
+    expect(sortsAs(corrected.text)).toBe("Child, An Unearthly");
 
     const cleared = await submit(
       baseUrl,
@@ -382,7 +391,7 @@ describe("/items/<id>, correcting a sort name", () => {
     // CLEARING THE BOX IS THE ROUTE BACK, and there is no second button for it
     // -- the same shape the Owner's note takes (ADR-0096). What comes back is
     // the computation's answer, not the value the Owner first replaced.
-    expect(cleared.text).toContain("Sorts as Unearthly Child");
+    expect(sortsAs(cleared.text)).toBe("Unearthly Child");
     expect(valueRows(cleared.text)).toContain("Sorts as Unearthly Child CanonCore (sort name v1)");
   });
 
@@ -400,7 +409,7 @@ describe("/items/<id>, correcting a sort name", () => {
       owner,
     );
 
-    expect(retitled.text).toContain("Sorts as Power of the Daleks");
+    expect(sortsAs(retitled.text)).toBe("Power of the Daleks");
   });
 });
 
@@ -513,9 +522,7 @@ describe("/import, re-importing over an edited Item", () => {
     // THE OWNER'S TITLE STILL WINS, and the provider's is still there beside it
     // -- a source may only withdraw what IT said, so the refresh re-asserted the
     // provider's claim and touched nothing of the owner's.
-    expect(after.text).toContain(
-      '<h1 class="text-3xl font-medium">The title the owner insists on</h1>',
-    );
+    expect(headingOf(after.text)).toBe("The title the owner insists on");
     const rows = valueRows(after.text);
     expect(rows).toContain("Title The title the owner insists on Owner");
     expect(rows).toContain(`Title ${editable.importedTitle} ${editable.providerLabel}`);
@@ -859,9 +866,7 @@ describe("a field the procedure refuses", () => {
     // AND THE HEADING IS THE TITLE RATHER THAN BLANK, which is what ADR-0003
     // separates from "Untitled item" and is the whole of what the refusal
     // protects.
-    expect(after.text).toContain(
-      '<h1 class="text-3xl font-medium">An item I still have a name for</h1>',
-    );
+    expect(headingOf(after.text)).toBe("An item I still have a name for");
   });
 
   /**

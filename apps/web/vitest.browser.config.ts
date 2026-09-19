@@ -7,7 +7,8 @@ import { defineConfig } from "vitest/config";
  * want opposite things from a harness. `e2e` stands up seven instances and two
  * providers so that many files can each assert against the state they need;
  * this one wants ONE instance and a browser -- an ordering to drag, and since
- * CNCORE-217 one Provider whose name has no break in it -- and it wants to fail
+ * CNCORE-217 a Provider whose name has no break in it, joined under CNCORE-223
+ * by one whose records have none -- and it wants to fail
  * on its own so that the most brittle thing in the repository cannot redden the
  * check that says the app serves pages at all.
  *

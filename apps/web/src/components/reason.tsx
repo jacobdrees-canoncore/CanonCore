@@ -1,5 +1,5 @@
 import type { FailureReason } from "@canoncore/providers";
-import { ProviderProse } from "./provider-prose";
+import { TheirWords } from "./their-words";
 
 /**
  * A REASON, SAID BY WHOEVER SAID IT (ADR-0123, CNCORE-95).
@@ -44,9 +44,13 @@ import { ProviderProse } from "./provider-prose";
  * (CNCORE-217). Text not refused at the config boundary is not this app's, so
  * three hundred characters of it with no break in them are the Provider's to
  * send and not the Provider's to lay out. CanonCore's own sentence is printed
- * plainly, because `canoncore` means the config boundary refused and what that
- * boundary judges is a URL the OWNER typed: every value in the sentence is the
- * Owner's own, not a stranger's.
+ * plainly, because `canoncore` means the config boundary refused and the
+ * sentence is this app's own words.
+ *
+ * TODO(CNCORE-226): the URL inside that sentence is one the OWNER typed, and
+ * that is no longer a reason to leave it unwrapped. This said "every value in
+ * the sentence is the Owner's own, not a stranger's", and ADR-0142 measured
+ * the Owner's words setting the page's width exactly as a stranger's do.
  *
  * ITS OWN MODULE SINCE CNCORE-101, HAVING BEEN `/import`'s ALONE. The settings
  * surface is the THIRD reason surface, and ADR-0123 exists because this defect
@@ -58,7 +62,7 @@ export function Reason({ reason }: { reason: FailureReason }) {
   if (reason.wrote === "canoncore") return <span>{reason.text}</span>;
   return (
     <q>
-      <ProviderProse>{reason.text}</ProviderProse>
+      <TheirWords>{reason.text}</TheirWords>
     </q>
   );
 }

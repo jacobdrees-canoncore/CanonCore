@@ -13,9 +13,9 @@ import { cache, Fragment } from "react";
 import { Attribution } from "@/components/attribution";
 import { Holding, type MembersPath, PastTheEnd, type TheRoute, Walk } from "@/components/listing";
 import { type Reorder, reorderedTo } from "@/components/ordering";
-import { ProviderProse } from "@/components/provider-prose";
 import { inTheFixedOrder, oneValue } from "@/components/query-params";
 import { SortableMembers } from "@/components/sortable-members";
+import { TheirWords } from "@/components/their-words";
 import { callerContext } from "@/session";
 
 import {
@@ -281,7 +281,7 @@ function AssertedBy({ sources }: { sources: string[] }) {
          * after a refresh has nothing to carry across to the wrong one.
          */
         <span data-source key={place}>
-          <ProviderProse>{source}</ProviderProse>
+          <TheirWords>{source}</TheirWords>
         </span>
       ))}
     </span>
@@ -454,9 +454,13 @@ export default async function ItemPage({
         whichever title statement currently wins (ADR-0014). An item with no
         title statement has no title, and says so rather than showing its id.
       */}
-      <h1 className="text-3xl font-medium">{item.title ?? "Untitled item"}</h1>
+      <h1 className="text-3xl font-medium">
+        <TheirWords>{item.title ?? "Untitled item"}</TheirWords>
+      </h1>
       {item.sortName && (
-        <p className="mt-2 text-sm text-muted-foreground">Sorts as {item.sortName}</p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Sorts as <TheirWords>{item.sortName}</TheirWords>
+        </p>
       )}
       {/*
         No `releaseDate` here on purpose. ADR-0081 defines it as the earliest
@@ -633,7 +637,9 @@ async function Groups({
           {groups.map((group) => (
             <li className="flex items-center gap-3 text-sm" key={group.id}>
               {/* One marker, for the reason `/groups` gives beside its own. */}
-              <span data-group-id={group.id}>{group.name}</span>
+              <span data-group-id={group.id}>
+                <TheirWords>{group.name}</TheirWords>
+              </span>
               {owner && (
                 <section aria-labelledby={`take-out-of-group-${group.id}`}>
                   <h3 className="sr-only" id={`take-out-of-group-${group.id}`}>
@@ -744,16 +750,18 @@ function Values({ statements }: { statements: ItemOnThePage["statements"] }) {
               <span className="text-muted-foreground text-sm">
                 {propertyLabel(statement.property)}
               </span>
-              <span>{statement.value}</span>
+              <span>
+                <TheirWords>{statement.value}</TheirWords>
+              </span>
             </span>
             {/*
               The source's own LABEL rather than its kind. "Who asserted this"
               is answered by `provider-wiki`, where `provider` answers only what
               sort of thing said it -- and the reader is asking the first. A
-              Provider's label is its declared name, so it is its prose too.
+              Provider's label is its declared name, so it is its words too.
             */}
             <span className="text-muted-foreground text-sm">
-              <ProviderProse>{statement.sourceLabel}</ProviderProse>
+              <TheirWords>{statement.sourceLabel}</TheirWords>
             </span>
           </li>
         ))}
@@ -853,7 +861,7 @@ function Members({
           href={{ pathname: `/items/${placement.itemId}`, query: { via: placement.id } }}
           className="hover:underline"
         >
-          {placement.title ?? "Untitled item"}
+          <TheirWords>{placement.title ?? "Untitled item"}</TheirWords>
         </Link>
         {/*
               `ml-auto` RATHER THAN `justify-between` ON THE ROW, because the row
@@ -1235,7 +1243,7 @@ function AlsoAppearsIn({
               following this link is arriving at the container itself.
             */}
             <Link href={`/items/${placement.containerId}`} className="hover:underline">
-              {placement.containerTitle ?? "Untitled container"}
+              <TheirWords>{placement.containerTitle ?? "Untitled container"}</TheirWords>
             </Link>
             {/*
               One expression rather than `#{position}`. React server-renders a
@@ -1527,7 +1535,9 @@ function Note({ itemId, note }: { itemId: string; note: NoteOnThePage }) {
             note is written in a textarea, so a paragraph break is something the
             owner typed on purpose and HTML would otherwise collapse it.
           */}
-          <span className="whitespace-pre-wrap">{note.value}</span>
+          <span className="whitespace-pre-wrap">
+            <TheirWords>{note.value}</TheirWords>
+          </span>
           {/*
             The source's own LABEL rather than its kind, exactly as the Values
             list prints one: "who asserted this" is answered by `Owner`, where
