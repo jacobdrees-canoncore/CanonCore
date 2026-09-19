@@ -22,17 +22,19 @@ import {
  * ITS OWN VITEST PROJECT AND ITS OWN CI JOB, which is the ticket's first
  * acceptance criterion and was decided against the duplicated setup it costs.
  * What it duplicates is ONE instance rather than the page seam's seven: a
- * browser suite needs one ordering to drag and one Provider that floods its
- * name, not a wiki provider, a TMDB provider, a paged catalogue or a fresh
- * install. And what the
+ * browser suite needs one ordering to drag and two Providers that flood what
+ * they send, not a wiki provider, a TMDB provider, a paged catalogue or a
+ * fresh install. And what the
  * split buys is that a flake in the most brittle thing in this repository
  * reddens a check called "The page in a browser" instead of the one that says
  * the app serves pages at all.
  *
  * WHAT IT MAY ASSERT IS BOUNDED, and the bound is in ADR-0103 rather than in
  * this comment: that dragging reorders, that the new order survives a reload,
- * and since CNCORE-217 that a Provider's prose wraps inside the page -- which is
- * layout, and no `fetch` can observe layout. Everything else about reordering --
+ * and since CNCORE-217 that text the page did not write wraps inside it, which
+ * CNCORE-223 widened from a Provider's prose to a record's fields, an Item's
+ * values and a Group's name -- which is layout, and no `fetch` can observe
+ * layout. Everything else about reordering --
  * the arithmetic, the refusals, the write, what a visitor is shown -- is
  * asserted without a browser, because everything else can be.
  *

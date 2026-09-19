@@ -4,13 +4,16 @@ import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { gatedTo } from "./gate";
 
 /**
- * A PROVIDER'S PROSE, AT THE WIDTH OF THE OWNER'S PAGE (CNCORE-217, ADR-0123).
+ * TEXT THE PAGE DID NOT WRITE, AT THE WIDTH OF THE OWNER'S PAGE (CNCORE-217,
+ * ADR-0123; CNCORE-223, ADR-0142).
  *
  * `cmppManifest` bounds a Provider's declared name at 300 characters, and the
  * page seam asserts the bound. Three hundred characters with no break in them
  * are still one unbreakable line, and a Provider that sends one chooses how WIDE
  * the Owner's page is instead of how long -- found by walking CNCORE-165, where
  * the heading ran off the right edge with the length assertion green beside it.
+ * A record's fields, an Item's values and a Group's name are bounded in length
+ * by nothing at all, and fail the page the same way (CNCORE-223).
  *
  * A BROWSER BECAUSE NOTHING ELSE CAN SEE THIS. ADR-0103's test for a candidate
  * here is "could a `fetch` observe it?", and a `fetch` observes what the

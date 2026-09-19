@@ -942,8 +942,10 @@ CNCORE-217 added the third, by the test below:
 1. **That dragging reorders.** A pointer press, a move that crosses the sensor's activation, a
    release over another row, and the list in a new order.
 2. **That the new order survives a reload.** The catalogue moved, not merely the DOM.
-3. **That a Provider's prose wraps inside the page (CNCORE-217).** Three hundred characters with no
-   break in them stay inside their container, and the page does not scroll sideways.
+3. **That text the page did not write wraps inside the page (CNCORE-217).** Three hundred characters
+   with no break in them stay inside their container, and the page does not scroll sideways. It was
+   a Provider's prose until CNCORE-223 widened it to a record's fields, an Item's values and a
+   Group's name, which is the same claim about more text rather than a fourth.
 
 **EVERYTHING ELSE ABOUT REORDERING IS ASSERTED WITHOUT ONE, and it is a lot.** The arithmetic is a
 pure function with its own unit test. The write is asserted at the second seam, the refusals at the
@@ -1027,8 +1029,11 @@ defined, and still scrolls the Item page 933 pixels sideways, because a flex ite
 below a min-content that `break-word` leaves at the whole word. A test that proves a rule is PRESENT
 cannot tell a rule that works from one that does not, and this case is exactly that difference.
 
-**ONE INSTANCE STILL, AND IT NOW SEARCHES ONE PROVIDER.** `aProviderThatFloodsItsName` stands up
-beside it and is the only Provider it is configured to search. Its allowlist admits loopback, as the
+**ONE INSTANCE STILL, AND IT NOW SEARCHES TWO PROVIDERS.** `aProviderThatFloodsItsName` stands up
+beside it, and since CNCORE-223 so does `aProviderThatFloodsItsRecord`, whose name is ordinary and
+whose records are not; they are the only Providers it is configured to search. CNCORE-223's
+witnesses are this claim widened to every string the page did not write
+([[0142-text-the-page-did-not-write-wraps-anywhere-through-one-component]]) rather than a fourth. Its allowlist admits loopback, as the
 page seam's instances' does; it is the configured list that names one. The stub MOVED to `e2e/stubs.ts` rather than
 being copied, for the reason `anInstanceServing` moved to `e2e/instance.ts`: a second project needing
 the same stub is a second caller, and a second copy is where two stubs quietly stop agreeing about

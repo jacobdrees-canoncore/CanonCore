@@ -108,7 +108,12 @@ in it.
 - `/`: the Item's row in the catalogue's list, and the Group chips.
 
 **EACH WAS SEEN FAILING BEFORE ITS WRAP**, at the figures in the table, and the Group chips failed
-with CNCORE-179's class removed and passed again with the name through the component. **The sites
+with CNCORE-179's class removed and passed again with the name through the component. **AND THEY
+TELL THE TWO RULES APART:** with `wrap-break-word` in the component in place of `wrap-anywhere`,
+eight of the file's nine witnesses failed. Every flex row failed at its unwrapped figure, and the
+Item page's heading kept its own box at `0` while the rows below it held the page 1,614 pixels wide.
+The one that passed was `/import`'s heading over a Provider's answers, a block on a page with no
+flex row holding the word, which is ADR-0123's reason for having a second witness at all. **The sites
 without a witness** are the Item page's Members, `Also appears in`, `In Groups` and Note, the
 headings on `/groups`, and the container title on `/import`'s browse. Each is a flex item or a block
 already witnessed elsewhere on the same mechanism, which is ADR-0123's position for the credential
