@@ -276,7 +276,14 @@ export async function anInstanceServing<Fixture>(
   return { baseUrl: server.baseUrl, db, fixture };
 }
 
-/** Asks the operating system for a port nothing else is on. */
+/**
+ * Asks the operating system for a port nothing else is on.
+ *
+ * TODO(CNCORE-235): THE PORT IS FREE ONLY UNTIL THE PROBE CLOSES, and it is
+ * checked on `127.0.0.1` while `next start` binds every address. On a busy
+ * machine something else can take it first, and the server then dies on
+ * `EADDRINUSE` before it answers.
+ */
 export function freePort(): Promise<number> {
   return new Promise((resolve, reject) => {
     const probe = createProbe();

@@ -1812,3 +1812,81 @@ descend a link there. That is covered rather than fixed: the corpus lies under `
 in it fails this sweep by name in the same package's suite, and the refusal holds only as long as
 this file does. `recordsByNumber` and `adr-numbering.test.ts` read `docs/adr` without recursing, so
 neither descends anything.
+
+## A server is owned from the moment it spawns -- under CNCORE-229
+
+**A SETUP THAT THROWS PART-WAY HANDS BACK NO TEARDOWN, so nothing closed what it had started.**
+Vitest runs a global setup's teardown only if setup returned one. Twice on 2026-09-19,
+`apps/web/e2e/global-setup.ts` threw part-way through standing up its servers, once on the
+`/dev/shm` failure CNCORE-228 fixed. Each time, the `next start` servers already up (seven, then
+six) outlived the run with parent pid 1 and `apps/web` as their working directory. The Owner killed
+five more by hand the same day, two of them up for over 27 hours. A `next start` is a process of its
+own and does not end when its starter does. It keeps the stdout it inherited, so a run piped
+anywhere never reaches EOF. That is ADR-0141's hang by a second path: CNCORE-178 reached it through
+a teardown that forgot one server, and this through a setup that never returned a teardown at all.
+
+**ONE STACK IS BOTH HALVES, AND IT IS NODE'S OWN.** `settingUp` in `e2e/instance.ts` runs a global
+setup's body over an `AsyncDisposableStack` declared with `await using`. A throw closes everything on
+it, last started first, and the error goes on as thrown. On success, `move()` hands the whole stack
+to the teardown, so the teardown is no longer a list of closes written by hand, and the line
+CNCORE-178 forgot has nowhere left to be forgotten. This is TC39's explicit resource management,
+present without a flag on the Node this repository runs (measured on 24.19.0; CI runs `node@24`), so
+it costs no dependency and no mechanism of this repository's own.
+
+**`theBuildServing` PUTS EACH SERVER ON THE STACK AS IT SPAWNS, before it waits for one to answer,**
+so no server in this harness can be started without an owner. That is `theServerEnvironment`'s
+argument, made for ownership where that one is made for the connection bound. `anInstanceServing`
+takes the stack for the same reason and ends its pool through it. That also covers the fixtures that
+do work after their server answers: `aCatalogueSafeToPurge` browses two providers through its app,
+and a throw there used to strand an instance whose close only the returned value held. The two test
+files that start servers of their own, `item-page-cost.test.ts` and `live/live-import.test.ts`, hold
+a stack too, in place of the bookkeeping each kept by hand. `waitUntilAnswering` no longer kills a
+server that times out, since its owner does.
+
+**What goes on the stack by hand is only what dies with the process.** A loopback stub or a
+connection pool lives inside the Vitest process, so a throw cannot orphan one. Each goes on the
+stack on the line that made it, for the teardown's sake.
+
+**`close` WAITS FOR THE EXIT**, where it used to send SIGTERM and return. A teardown that finished
+while its servers were still shutting down reported a clean end over processes that were not, and
+the test below reads the difference.
+
+**THE SEAM IS THE HARNESS HELPER WITH REAL SERVERS, AND THE DISPATCHER CHOSE IT** on 2026-09-19.
+`e2e/instance.test.ts` runs `settingUp` with a body that starts two real `next start` servers
+through `theBuildServing` and then throws. It asserts that the error comes back as thrown and that
+nothing listens on either server's port. A second case asserts that on success both outlive setup
+until the teardown closes them. Two other seams were weighed and refused. Stand-ins recording
+`close()` concede that they do not test the claim, which is about a process. The whole global setup
+with a failure injected after its Nth server needs a failure-injection hook in harness code, and
+would rebuild the shared `web` database under a running suite.
+
+**A SURVIVOR IS MATCHED BY ITS PORT, NOT BY ITS PARENT.** A leaked server is re-parented to pid 1
+once its starter dies, so a check that listed the test process's children would miss exactly the
+processes this is about. Nor is there one port-to-pid tool on both machines: `lsof` is not in the
+`ubuntu-latest` image's list of installed apt packages (runner-images, Ubuntu 24.04, image
+20260907.300.1, read 2026-09-19), and macOS has no `ss`. So the check is a TCP connect: while
+anything accepts on a server's port, that server is not gone.
+
+**ITS SERVERS STAND ON A DATABASE OF THEIR OWN, `leak`.** A server start is not a read. The
+scheduler starts with every server (ADR-0049) and closes whatever runs it finds open, so on `web` it
+could close a run `tasks-page.test.ts` is in the middle of. They stand two at a time and each is
+bounded to `SERVER_CONNECTIONS` like every server here, so they add at most eight connections to
+ADR-0104's budget, for the second or two each case lasts.
+
+**RED BEFORE GREEN, measured.** With `settingUp` owning nothing, which is the old behaviour, both
+cases failed on `expected [ true, true ] to deeply equal [ false, false ]`. The run then reproduced
+the ticket whole: the four servers it left were found with parent pid 1 in this worktree's
+`apps/web`, and Vitest itself never exited, its worker's output held open by them, until they were
+killed by hand. With the stack, the file passes in about three seconds through `| cat` and leaves no
+`next-server` running.
+
+**AND ON THE REAL SETUP, BEFORE AND AFTER.** A throw added by hand after
+`global-setup.ts`'s third server, and never committed, run as `pnpm test:e2e 2>&1 | cat`. On
+`main`'s harness `pnpm` exited 1, and the pipeline did not end: the three servers were running with
+parent pid 1 in this worktree's `apps/web`, and it ended at 266 seconds only because they were
+killed by hand. On this one, the pipeline ended by itself in 9 seconds and no `next-server` was
+left.
+
+**WHAT THIS DOES NOT HOLD.** A harness killed outright, by SIGKILL or by a crash of the Vitest
+process itself, runs no disposer, so its servers outlive it as before. Nothing here reaches past the
+process that owns the stack.
