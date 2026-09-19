@@ -117,7 +117,10 @@ over four Items still in it.
 **The split is what keeps the tombstone exception worth having, and it is a reason this record did
 not have before.** An order this app does not yet hold — on `release_date`, or on when a row was
 made — reads a column a delete does NOT destroy, so its anchor still has a place and can still be
-resumed from. Only the two orders built on the projection lose one, and they are the two that say so.
+resumed from. Only the orders built on the projection lose one: the catalogue's and Catalogue
+search's when this was written, and "Also appears in"'s since CNCORE-125, which leads on a
+container's. Each says so, the catalogue's and "Also appears in"'s by `destroyedBy` on the key and
+Catalogue search's by `everyRowHasIt` (CNCORE-195).
 
 **Asserted on BOTH shapes of catalogue, because they fail differently and only one of them looks like
 an ending.** The suite's shared database has an untitled tail; "no untitled Item anywhere" is a
@@ -438,7 +441,7 @@ parameter there ALREADY and would have cost nothing.
 
 **THE TOMBSTONE SPLIT ABOVE NOW HAS ITS OTHER HALF, and it behaves exactly as that section said it
 would.** The rule there is that the anchor is read WITHOUT the tombstone filter and each order
-decides what it found — and that the two orders built on the projection lose their anchor's place,
+decides what it found, in its keys since CNCORE-195 — and that the two orders built on the projection lose their anchor's place,
 because a deleted Item has neither `sort_name` nor `title` left. Its own words for the other case:
 "An order this app does not yet hold — on `release_date`, or on when a row was made — reads a column
 a delete does NOT destroy, so its anchor still has a place and can still be resumed from."
@@ -568,7 +571,8 @@ TWO CONTAINERS SHARING A NAME, and that is what the test for the id term is buil
 ## The tombstone split meets the first order with BOTH KINDS OF TERM IN IT
 
 **THIS IS WHERE THAT SPLIT PAYS FOR ITSELF A SECOND TIME, and differently.** The rule above is that
-the anchor is read WITHOUT the tombstone filter and each order decides what it found: an order on
+the anchor is read WITHOUT the tombstone filter and each order decides what it found, in its keys
+since CNCORE-195: an order on
 ADR-0014's projection loses its anchor's place to a delete, because the projection over no live
 statements is NULL and the columns are GONE rather than hidden; an order on a stored column a delete
 does not touch keeps it, which is why a kept link into a Container RESUMES.
@@ -585,13 +589,13 @@ resumes past it. Both are asserted, and the guard is mutation-checked.
 `order.ts` gives, which is where both Listings' pair is written since CNCORE-195.** A Container
 nobody NAMED has no key either and sits at the end of the order as one block, resumed from by the
 three keys behind it. `deletedAt` alone would refuse an anchor whose key a delete had left alone; a
-null key alone would refuse the unnamed Container. **ONLY THE SECOND HALF HAS A TEST, and the first
-cannot have one at any seam**: this sentence said "there is a test for each" until CNCORE-195
-mutated the refusal to the tombstone alone and 91 of 91 tests across the four anchor reads' files
-still passed. Migration 5 nulls the projection whenever it sets the tombstone, so a deleted anchor
-whose key survived is a row nothing in this app can produce. The pair is kept because it names what
-was lost -- the KEY, not the row -- and it costs nothing; the null-alone mutation fails two tests
-here and one on the catalogue.
+null key alone would refuse the unnamed Container. **THERE IS A TEST FOR EACH HALF NOW, and this
+sentence said so before it was true.** Until CNCORE-195 only the second half had one: refusing on the
+tombstone alone passed 91 of 91 tests across the four anchor reads' files. A deleted anchor whose key
+survived is a row a test can produce -- migration 5 tombstones an item's statements only at the
+moment `deleted_at` is set, so a title asserted afterwards is live and projects the key back -- and
+the catalogue's walk is now asserted to resume past one. That is the only test the tombstone-alone
+mutation fails; the null-alone mutation fails two here and one on the catalogue.
 
 **So the split's own words -- "an order this app does not yet hold ... reads a column a delete does
 NOT destroy" -- were right and INCOMPLETE.** They imagined an order made entirely of one kind of
@@ -938,19 +942,25 @@ to a string. This one does not select it. The refusal is a PREDICATE, so it goes
 go: `findTheAnchor` is handed the order it is finding a place in and splices the predicate into its
 `where`, and its select stays exactly as this record fixed it. It is still one read shared by the
 Catalogue Listing and Catalogue search, and it still owns the shape guard. The declaration is a
-COLUMN rather than a name, so it is bound the way the key's own expression is: a read that never
-joined its relation fails as SQL rather than answering wrong, and a read that joined it as something
-else has the key wrong as well.
+COLUMN rather than a name, so in the two reads that select through the order it is bound the way
+the key's own expression is: a read that never joined its relation fails as SQL rather than
+answering wrong, and one that joined it as something else has the key wrong as well. **`findTheAnchor`
+IS THE EXCEPTION, SAID RATHER THAN LEFT TO BE FOUND.** Its select does not come from the order, so
+handed an order over another relation it would apply that order's refusal to an item and select
+nothing wrong. Both its callers hand it orders over `items`, and that constraint lives in its comment
+rather than its type. A type could not carry it: "Also appears in"'s tombstone is `items.deletedAt`
+too, joined in as the container.
 
 **AND A REFUSED ROW IS NOT READ AT ALL.** The read answers `undefined`, which is what it already
 answered for an id that names nothing. So "an anchor whose place is gone names no position" and
 ADR-0066's rule for a parameter that is not an identity now share one path, where before they were
 two answers that happened to agree.
 
-**WHICH KEYS SAY IT.** It is a fact about the EXPRESSION, since ADR-0014's projection over no live
-statements is NULL, so the projection says it: the catalogue's `SORT_KEY`, destroyed by the item's
-tombstone, and "Also appears in"'s container key, destroyed by the CONTAINER's, because `items` is
-joined in as the container there. Catalogue search holds the same `SORT_KEY` and does NOT say it,
+**WHICH KEYS SAY IT.** WHAT a delete does is a fact about the expression, since ADR-0014's
+projection over no live statements is NULL; but it is DECLARED per order, and only where it changes
+an answer. Two keys declare it: the catalogue's `SORT_KEY`, destroyed by the item's tombstone, and
+"Also appears in"'s container key, destroyed by the CONTAINER's, because `items` is joined in as the
+container there. Catalogue search holds the same `SORT_KEY` and does NOT say it,
 and that is a rule rather than an omission. Both its keys say `everyRowHasIt`, and on such a key a
 null is no place whatever took it, which `findInTheRanking` refuses on the title; declaring it there
 would add a predicate that cannot change an answer. A Container's own order is
@@ -972,23 +982,25 @@ moved is WHERE the remembering happens: at the key, beside the expression a dele
 than in a read a file away from it. The predicate's price is UNMEASURED; it is evaluated on the one
 row a primary-key lookup finds.
 
-**ASSERTED AT THE PACKAGE EXPORT, BY TESTS THAT ALREADY EXISTED, RED FIRST AND MUTATION-CHECKED.**
-Every Listing answers what it answered before, so what this owed was evidence that the standing tests
-reach the declaration. Each of these was run and read rather than predicted:
+**ASSERTED AT THE PACKAGE EXPORT, RED FIRST AND MUTATION-CHECKED, BY TESTS THAT ALREADY EXISTED AND
+ONE THAT DID NOT.** Every Listing answers what it answered before, so what this owed was evidence
+that the tests reach the declaration. Each of these was run and read rather than predicted:
 
 - **The read moved with the key UNDECLARED** fails the tests the split exists for: "Also appears
   in"'s deleted-container test (`expected [] to strictly equal [ Array(1) ]`), and both of the
-  catalogue's CNCORE-110 tests in the two shapes that ticket measured, the untitled tail (3 rows
-  answered where 69 were due) and the empty page.
+  catalogue's CNCORE-110 tests in the two shapes that ticket measured: the untitled tail, a few rows
+  answered where the whole catalogue was due, and the empty page. The tail's figure moves with the
+  invocation (1 to 3 rows of 69 across runs), as the CNCORE-110 section warns; the shape does not.
 - **Refusing on the NULL ALONE** fails the untitled-container walk and resume, two tests, and the
   catalogue's walk into its untitled tail, one.
-- **Refusing on the TOMBSTONE ALONE** fails nothing, 91 of 91, for the reason the section on "Also
-  appears in" now gives.
+- **Refusing on the TOMBSTONE ALONE** fails exactly one test, the one this ticket added, and passed
+  91 of 91 before it existed. The section on "Also appears in" now says why it could be written.
 - **Refusing EVERY anchor** fails 25 tests across all four reads' files: the catalogue 4, Catalogue
   search 6, a Container's members 4 and "Also appears in" 11. That is the evidence that every anchor
   read applies the predicate, rather than only the two whose orders declare something.
 
-**NO NEW SEAM AND NO NEW TEST**, which is what CNCORE-159 asks for.
+**NO NEW SEAM**, which is what CNCORE-159 asks for, and one new test at an existing one: in
+`catalogue.test.ts`, the catalogue's walk resuming past a deleted item that has its key again.
 
 ## The guarantees are ONE BLOCK over every Listing procedure (CNCORE-171)
 

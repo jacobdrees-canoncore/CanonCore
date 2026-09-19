@@ -26,7 +26,7 @@ type AnExpression = SQL | AnyPgColumn;
  * has titled, a container's Unplaced members, a placement no source stands
  * behind.
  *
- * BOTH PROPERTIES ARE ON THE KEY BECAUSE BOTH STATEMENTS READ THEM.
+ * THE FIRST TWO ARE ON THE KEY BECAUSE BOTH STATEMENTS READ THEM.
  * `theOrderBy` renders `desc` and the nulls clause; `pastTheRowIn` compares
  * with `<` instead of `>` and decides whether the keyless block is a branch of
  * the comparison at all. Those are the same two statements every paragraph in
@@ -73,10 +73,12 @@ type AnExpression = SQL | AnyPgColumn;
  * an untitled row's -- but the untitled row sits in the keyless block and the
  * deleted one has no place at all. That is ADR-0119's tombstone split, and the
  * key names the tombstone that tells the two apart; `stillHasAPlaceIn` reads
- * it. It is a fact about the EXPRESSION rather than the listing, so the
- * projection says it in every order that holds it, except on a key every row
- * has: there a null is no place whatever took it, and `PlaceIn` already
- * refuses one.
+ * it. WHAT a delete does is a fact about the expression, but it is DECLARED
+ * per order, and only where it changes an answer: on a key with a keyless
+ * block. On a key every row has, a null is no place whatever took it and
+ * `PlaceIn` already refuses one, so Catalogue search holds the catalogue's
+ * key and does not say it. It is on the key, like the other two, because a
+ * property written beside the order would be a second list of its keys.
  *
  * A DESCRIBED KEY IS SELECTED BY ITS EXPRESSION, through `thePlaceIn`. Spread
  * into a `select` it would be the description that was read, and that is a
@@ -203,6 +205,8 @@ export interface TheOrder {
  * these statements as a BOUND PARAMETER, which is what `closenessTo` and
  * `titleMatches` one file over are each careful to be.
  */
+// TODO(CNCORE-224): "place" is CONTEXT.md's word for a location, and this
+// family (with `thePlaceIn` and `stillHasAPlaceIn`) uses it for something else.
 export type PlaceIn<O extends TheOrder> = {
   readonly [K in keyof O["keys"]]: O["keys"][K] extends { readonly everyRowHasIt: true }
     ? string | number | SQL
@@ -211,6 +215,11 @@ export type PlaceIn<O extends TheOrder> = {
 
 /** What a key is selected by: its expression, without what it says about it. */
 type TheExpressionOf<K extends AKey> = K extends { readonly key: infer E } ? E : K;
+
+/** What `thePlaceIn` selects: each key's expression under its name, and the id. */
+type TheColumnsOfAPlaceIn<O extends TheOrder> = {
+  [N in keyof O["keys"]]: TheExpressionOf<O["keys"][N]>;
+} & { id: O["id"] };
 
 /**
  * THE COLUMNS ONE PLACE IS READ BY: each key's expression under the name the
@@ -223,15 +232,13 @@ type TheExpressionOf<K extends AKey> = K extends { readonly key: infer E } ? E :
  * is a description, and a description spread into a `select` is not its
  * column.
  */
-export function thePlaceIn<O extends TheOrder>(
-  order: O,
-): { [N in keyof O["keys"]]: TheExpressionOf<O["keys"][N]> } & { id: O["id"] } {
+export function thePlaceIn<O extends TheOrder>(order: O): TheColumnsOfAPlaceIn<O> {
   return {
     ...Object.fromEntries(
       Object.entries(order.keys).map(([name, aKey]) => [name, described(aKey).key]),
     ),
     id: order.id,
-  } as { [N in keyof O["keys"]]: TheExpressionOf<O["keys"][N]> } & { id: O["id"] };
+  } as TheColumnsOfAPlaceIn<O>;
 }
 
 /**
