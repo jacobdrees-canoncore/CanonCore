@@ -7,10 +7,13 @@ import {
   type Database,
   deleteGroupByHand,
   findPlacementsInContainer,
+  groups,
   items,
   placements,
   putItemInGroupByHand,
   readCatalogue,
+  readWorks,
+  searchCatalogue,
   takeItemOutOfGroupByHand,
 } from "./index";
 import { buildTestDatabase } from "./testing/build-database";
@@ -599,6 +602,38 @@ describe("readCatalogue, narrowed to a Group", () => {
     expect(narrowed.rows).toStrictEqual([]);
     expect(narrowed.total).toBe(0);
     expect(await lists(db, held)).toBe(true);
+  });
+
+  it("narrows every Listing to nothing where a membership outlived its Group, which is what a race leaves", async () => {
+    // THE STATE A DELETION RACING A PUT LEAVES BEHIND (CNCORE-230): the put
+    // read the Group live, the deletion tombstoned it and its memberships, and
+    // the put's insert landed after. A tombstone is not a DELETE, so no foreign
+    // key refuses that insert. Built here by tombstoning the Group alone, as
+    // `groups.test.ts` builds the same leftover for `group_providers`, because
+    // the interleaving itself cannot be scheduled from a test.
+    //
+    // ALL THREE LISTINGS, because the ticket's claim is about "any", and each
+    // is asked with the Item listed first: an answer of nothing is only worth
+    // something from a Listing that answered the Item a moment before.
+    const scope = await createGroupByHand(db, { name: "A scope deleted mid-put" });
+    const held = await anItemTitled(db, "Kinda, in a scope deleted mid-put");
+    await putItemInGroupByHand(db, { groupId: scope, itemId: held });
+    const narrowed = () =>
+      Promise.all([
+        readCatalogue(db, { limit: 1000, group: scope }),
+        readWorks(db, { limit: 1000, group: scope }),
+        searchCatalogue(db, { query: "deleted mid-put", limit: 1000, group: scope }),
+      ]);
+
+    for (const listing of await narrowed()) {
+      expect(listing.rows.map((row) => row.id)).toStrictEqual([held]);
+    }
+
+    await db.update(groups).set({ deletedAt: new Date() }).where(eq(groups.id, scope));
+
+    for (const listing of await narrowed()) {
+      expect(listing).toStrictEqual({ rows: [], total: 0, continuesAfter: null });
+    }
   });
 
   it("narrows to nothing where the Group names nothing, whatever shape the id is", async () => {

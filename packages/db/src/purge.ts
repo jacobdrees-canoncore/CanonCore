@@ -317,6 +317,10 @@ async function deleteOrphansAmong(
         // which is the only way this one could have been found.
         sql`not exists (select 1 from ${statementQualifiers} where ${statementQualifiers.valueItemId} = ${items.id})`,
         sql`not exists (select 1 from ${aliases} where ${aliases.itemId} = ${items.id})`,
+        // TODO(CNCORE-232): `group_items.item_id` is a foreign key into
+        // `items.id` with no clause here, so an Item in a Group -- or taken back
+        // out of one, since a tombstone still names it -- refuses this delete
+        // and takes the whole purge down.
       ),
     )
     .returning({ id: items.id });

@@ -12,6 +12,7 @@ import {
   findProvidersAGroupAsks,
   GroupRefused,
   groupItems,
+  groupProviders,
   groups,
   items,
   putItemInGroupByHand,
@@ -191,8 +192,8 @@ describe("deleteGroupByHand", () => {
     // TOMBSTONED RATHER THAN MERELY HIDDEN BY A JOIN, which is the half the
     // read path above cannot tell apart. A membership left live under a deleted
     // Group is a row that comes back the day anything reads `group_items`
-    // without joining `groups` -- and CNCORE-179's narrowed Listing is exactly
-    // such a read.
+    // without joining `groups` -- and CNCORE-179's narrowed Listing was such a
+    // read until CNCORE-230.
     const rows = await db
       .select({ deletedAt: groupItems.deletedAt })
       .from(groupItems)
@@ -213,7 +214,8 @@ describe("what the catalogue refuses", () => {
     // THE NARROWING `by-hand.ts` ARGUES AT LENGTH: only the rules the Owner can
     // break become a refusal, so a dead pool or a permissions change goes on
     // being a fault instead of reporting "no such Group" to somebody whose
-    // server is broken. Here the rule is `group_items`' foreign keys.
+    // server is broken. Here the rule is that the Group is there and live,
+    // which `putItemInGroupByHand` checks before it writes anything.
     await expect(
       putItemInGroupByHand(db, { groupId: crypto.randomUUID(), itemId: await anItem(db) }),
     ).rejects.toBeInstanceOf(GroupRefused);
@@ -319,16 +321,22 @@ describe("stopAskingProviderByHand", () => {
 
 describe("a Group the Owner deleted asks nobody", () => {
   it("stops asking every Provider with the Group, in the same deletion", async () => {
-    // BOTH TOMBSTONES IN ONE TRANSACTION, for `deleteGroupByHand`'s reason:
-    // `findProvidersAGroupAsks` reads these rows without joining `groups`, so a
-    // row left live under a deleted Group is a Provider still asked for a scope
-    // nobody can pick.
+    // BOTH TOMBSTONES IN ONE TRANSACTION, for `deleteGroupByHand`'s reason.
     const group = await createGroupByHand(db, { name: "A scope that asked the wiki" });
     await askProviderByHand(db, { groupId: group, providerIdentity: "http://wiki.test:8080" });
 
     await deleteGroupByHand(db, group);
 
     expect(await findProvidersAGroupAsks(db, group)).toStrictEqual([]);
+    // TOMBSTONED RATHER THAN MERELY HIDDEN BY A JOIN, read off the table for
+    // the reason the membership test above gives: `findProvidersAGroupAsks`
+    // reads through `groups`, so the answer above holds whether or not the
+    // deletion reached this row, and only the row can say which.
+    const rows = await db
+      .select({ deletedAt: groupProviders.deletedAt })
+      .from(groupProviders)
+      .where(eq(groupProviders.groupId, group));
+    expect(rows).toStrictEqual([{ deletedAt: expect.any(Date) }]);
   });
 
   it("asks nobody even where a Provider row outlived the Group, which is what a race leaves", async () => {
