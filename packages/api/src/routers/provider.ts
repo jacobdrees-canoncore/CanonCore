@@ -1237,6 +1237,150 @@ export const provider = {
     }),
 
   /**
+   * THE CONTAINER ONE RECORD NAMES, so a record found by SEARCHING reaches it
+   * without the Owner typing an id (CNCORE-238).
+   *
+   * ONE LOOKUP, AND ONLY WHEN THE OWNER ASKS. A search cannot carry this:
+   * `provider-tmdb` fills `series_id` on a lookup and a browse and never on a
+   * search -- `searchResultToRecord` hardcodes `null` at `46a1189` -- because
+   * TMDB's multi-search carries no collection and filling one would cost a
+   * REQUEST PER RESULT. So the read is one record's, taken on the Owner's own
+   * click, and a search still costs one request per Provider.
+   *
+   * IT ANSWERS AN ID, NOT A BROWSE. What comes back is the `series_id` a browse
+   * takes, and the page leads to the same `?provider=&container=` address a
+   * Container picked from `containers` reaches -- so the preview stays one
+   * procedure with one gate rather than being reimplemented behind this one.
+   *
+   * OPEN, WHICH IS ADR-0131's RULE APPLIED RATHER THAN SKIPPED. A read is the
+   * Owner's when it spends a third party's time, and the line that record draws
+   * is the `patient` cap: `browse` is the only operation on it. A `lookup` is
+   * `brief` (ADR-0130), so this is `provider.search`'s case and not
+   * `provider.container`'s -- the same ten-second ceiling, one record rather
+   * than a whole container's ordering. What stays behind the Owner is the
+   * PREVIEW this leads to, which is the browse, and that is ADR-0131 untouched.
+   *
+   * NO `lookup-not-offered` ARM, because there is no such answer to give.
+   * `CONTEXT.md` makes `lookup` required of every provider and ADR-0033 makes
+   * `browse` the one a provider may decline -- so the arm `container` needs has
+   * nothing to stand for here, and inventing one would describe a provider CMPP
+   * does not permit.
+   */
+  containerOf: openProcedure
+    .input(
+      z.object({
+        /** A CONFIG URL, travelling ADR-0034's allowlist, as `import`'s does. */
+        baseUrl: z.url(),
+        /** The provider's own id for the record, the one `lookup` takes. */
+        recordId: z.string().min(1),
+      }),
+    )
+    /*
+     * A UNION RATHER THAN DECLARED ERRORS, for `provider.container`'s reason:
+     * the caller is a page being READ, and every one of these is a sentence it
+     * prints rather than a fault it recovers from.
+     */
+    .output(
+      z.discriminatedUnion("answer", [
+        z.object({
+          answer: z.literal("container"),
+          /** The name the provider gives itself, off its manifest. */
+          providerName: declaredName,
+          /** The record the Owner asked about, so the page can name it back. */
+          recordTitle: z.string().min(1),
+          /**
+           * THE ID A BROWSE TAKES, which is the whole of what the Owner could
+           * not see. `series` is a NAME and a name can be renamed out from
+           * under an import, which is why ADR-0033 carries the id at all.
+           */
+          containerId: z.string().min(1),
+          /**
+           * THE CONTAINER'S NAME, AND NULLABLE BECAUSE THE TWO FIELDS ARE
+           * INDEPENDENT. A provider may send `series_id` with no `series` and
+           * still be well-formed, so the page needs a way to render a link it
+           * has no name for rather than a blank one.
+           */
+          containerTitle: z.string().min(1).nullable(),
+        }),
+        /**
+         * THE PROVIDER NAMES NO CONTAINER FOR THIS RECORD, which is an ANSWER
+         * about the source rather than a failure. `provider-wiki` sends no
+         * `series_id` at all -- a story sits in many timelines at once -- so
+         * this is the ordinary answer there rather than the exceptional one.
+         */
+        z.object({
+          answer: z.literal("no-container"),
+          providerName: declaredName,
+          recordTitle: z.string().min(1),
+        }),
+        /**
+         * THE PROVIDER HOLDS NOTHING AT THAT ID, which ADR-0066 makes an answer
+         * rather than a failure, exactly as `provider.container` does for a
+         * container id nobody minted.
+         */
+        z.object({
+          answer: z.literal("no-such-record"),
+          providerName: declaredName,
+        }),
+        /**
+         * NOTHING USABLE CAME BACK, so there is no name to attribute it to --
+         * reading the provider's own name is one of the things that failed.
+         * The three things in here are `provider.container`'s three, and they
+         * stay apart by what the reason SAYS (ADR-0123).
+         */
+        z.object({
+          answer: z.literal("unreachable"),
+          reason: failureReason,
+        }),
+      ]),
+    )
+    .handler(async ({ input, context }) => {
+      const { allowlist } = await context.providerSettings();
+      const client = createProviderClient({ baseUrl: input.baseUrl, allowlist });
+      try {
+        /*
+         * THE MANIFEST FIRST AND SERIALLY, which is the shape every procedure
+         * on this router takes and what makes ADR-0131's sum honest: two
+         * `brief` operations, so up to 20s, which is `provider.search`'s figure
+         * rather than `provider.container`'s 70.
+         *
+         * NOT THROUGH `askingTheProvider`, AND THAT IS ADR-0123 RATHER THAN A
+         * SHORTCUT. That helper raises `ProviderFailed(reasonFor(error))`,
+         * which carries the reason as a VALUE and leaves no `cause` -- so
+         * `reasonFor` called on the wrapper walks a chain that stops at the
+         * wrapper, finds no `OutboundRefused`, and attributes CanonCore's own
+         * refusal to the provider. Measured here: wrapped, ADR-0034's "is on no
+         * allowlisted CIDR" sentence came back `wrote: "provider"`. The helper
+         * is for the two procedures that THROW a declared error; this one
+         * answers, exactly as `provider.container` does, and catches the raw
+         * error for the same reason.
+         */
+        const manifest = await client.manifest();
+        const record = await client.lookup(input.recordId);
+        const providerName = manifest.name;
+        if (!record) return { answer: "no-such-record" as const, providerName };
+        if (record.series_id === null) {
+          return { answer: "no-container" as const, providerName, recordTitle: record.title };
+        }
+        return {
+          answer: "container" as const,
+          providerName,
+          recordTitle: record.title,
+          containerId: record.series_id,
+          containerTitle: record.series,
+        };
+      } catch (error) {
+        // BOUNDED AND ATTRIBUTED, by the one rule `provider.search`'s `failed`
+        // list and `provider.container` both take (ADR-0123).
+        return { answer: "unreachable" as const, reason: reasonFor(error) };
+      } finally {
+        // Two undici agents and therefore two connection pools, as everywhere
+        // else on this path.
+        await client.close();
+      }
+    }),
+
+  /**
    * Imports a container AND its ordering from a provider that declares
    * `browse`, and answers with the container and every member it wrote.
    *

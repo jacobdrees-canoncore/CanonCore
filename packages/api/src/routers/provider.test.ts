@@ -194,6 +194,27 @@ const ATTRIBUTION = {
   },
 };
 
+/**
+ * THE ID INSIDE A PATH SEGMENT, DECODED, or `null` where it is not a segment.
+ *
+ * THE CLIENT PERCENT-ENCODES THE ID and this stub keys its fixtures on the
+ * id itself, so the two only met while every id here was digits.
+ * `provider-tmdb`'s are not: `movie:603` reaches this as `movie%3A603`, and a
+ * stub comparing the raw segment answered 404 for a record it holds -- which
+ * reads exactly like a provider that does not hold it (CNCORE-238).
+ *
+ * `null` RATHER THAN A THROW ON A MALFORMED ESCAPE. `decodeURIComponent("%")`
+ * throws, and a stub that dies mid-request fails as a socket hangup rather than
+ * as the 404 a provider would answer for an id addressing nothing.
+ */
+function theIdIn(segment: string): string | null {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return null;
+  }
+}
+
 async function stubProvider(
   records: Record<string, unknown> = { "265": TENTH_PLANET },
   {
@@ -263,12 +284,12 @@ async function stubProvider(
     // the caller writes, and `/browse/constructor` otherwise finds `Object` on
     // the prototype and answers 200 with a body of `undefined`.
     if (path.startsWith("/browse/")) {
-      const id = path.slice("/browse/".length);
-      return Object.hasOwn(containers, id)
+      const id = theIdIn(path.slice("/browse/".length));
+      return id !== null && Object.hasOwn(containers, id)
         ? json(containers[id])
         : json({ error: "no such container" }, 404);
     }
-    const id = path.startsWith("/lookup/") ? path.slice("/lookup/".length) : null;
+    const id = path.startsWith("/lookup/") ? theIdIn(path.slice("/lookup/".length)) : null;
     return id !== null && Object.hasOwn(records, id)
       ? json(records[id])
       : json({ error: "no such record" }, 404);
@@ -1903,6 +1924,170 @@ const aProviderOfTwoContainers = (asked: string[] = []) =>
  * order and fell back on the ids would answer the other way round.
  */
 const THE_LIST = ["402219", "388305"];
+
+/**
+ * A RECORD THAT NAMES THE CONTAINER IT SITS IN, which is TMDB's shape rather
+ * than the wiki's (CNCORE-238).
+ *
+ * `provider-tmdb` fills `series_id` on a LOOKUP and never on a search --
+ * `searchResultToRecord` hardcodes `null` at `46a1189` -- because TMDB's
+ * multi-search carries no collection and filling one would cost a request per
+ * result. `TENTH_PLANET` above is the other shape and is the fixture for a
+ * record that names none: `provider-wiki` sends no `series_id` at all, since a
+ * story sits in many timelines at once.
+ */
+const THE_MATRIX = {
+  id: "movie:603",
+  title: "The Matrix",
+  kind: "movie",
+  released: ["1999-03-31"],
+  writers: ["Lana Wachowski", "Lilly Wachowski"],
+  series: "The Matrix Collection",
+  series_id: "collection:2344",
+  url: "https://www.themoviedb.org/movie/603",
+};
+
+describe("provider.containerOf", () => {
+  it("answers the container a record names, by the id a browse takes", async () => {
+    /*
+     * THE ID, WHICH IS THE WHOLE OF WHAT THE OWNER CANNOT SEE. A search
+     * candidate carries no `series_id` (ADR-0033 under CNCORE-187), so until
+     * this the only way from a found record to its container was typing an id
+     * the provider never showed anyone. The NAME travels beside it because a
+     * name can be renamed out from under an import and the id cannot.
+     */
+    const baseUrl = await stubProvider({ "movie:603": THE_MATRIX });
+
+    const answer = await call(
+      appRouter.provider.containerOf,
+      { baseUrl, recordId: "movie:603" },
+      { context },
+    );
+
+    expect(answer).toEqual({
+      answer: "container",
+      providerName: "provider-wiki",
+      recordTitle: "The Matrix",
+      containerId: "collection:2344",
+      containerTitle: "The Matrix Collection",
+    });
+  });
+
+  it("says a provider names no container for a record, rather than answering one", async () => {
+    /*
+     * THE ORDINARY ANSWER AT `provider-wiki`, not the exceptional one. A story
+     * sits in MANY timelines at once, so that provider sends no `series_id` for
+     * any record it holds -- `TENTH_PLANET` names a `series` and no id, which
+     * is the shape (ADR-0033).
+     *
+     * IT MUST NOT READ AS "the provider could not be reached" OR AS a container
+     * whose id is empty: the page's whole job here is to offer a way onward
+     * only where one exists, and a link to nothing is worse than a sentence.
+     */
+    const baseUrl = await stubProvider();
+
+    const answer = await call(
+      appRouter.provider.containerOf,
+      { baseUrl, recordId: "265" },
+      { context },
+    );
+
+    expect(answer).toEqual({
+      answer: "no-container",
+      providerName: "provider-wiki",
+      recordTitle: "The Tenth Planet (TV story)",
+    });
+  });
+
+  it("costs one lookup and no browse, which is what makes it the Owner's to ask for", async () => {
+    /*
+     * WHAT THE READ COSTS, ASSERTED RATHER THAN INTENDED. The design of this
+     * ticket is that reaching a container costs ONE lookup on a click instead
+     * of one per search result -- and the cheap half of that is only true while
+     * nothing here browses. A procedure that resolved the id and then previewed
+     * it would spend ADR-0130's `patient` cap on a read ADR-0131 leaves open,
+     * which is the exact trade that record refuses.
+     *
+     * THE PATHS ARE THE WITNESS. An answer cannot show what was NOT asked: a
+     * provider that was never browsed and one that answered a browse look the
+     * same from the union above.
+     */
+    const asked: string[] = [];
+    const baseUrl = await stubProvider({ "movie:603": THE_MATRIX }, { asked });
+
+    const answer = await call(
+      appRouter.provider.containerOf,
+      { baseUrl, recordId: "movie:603" },
+      { context },
+    );
+
+    expect(answer).toMatchObject({ answer: "container", containerId: "collection:2344" });
+    // THE MANIFEST AND THE ONE LOOKUP. The manifest is first and serial, which
+    // is what makes ADR-0131's sum for this procedure two `brief` operations.
+    expect(asked).toEqual(["/", "/lookup/movie%3A603"]);
+  });
+
+  it("is a visitor's to ask, which is the line ADR-0131 draws at the patient cap", async () => {
+    /*
+     * ADR-0131's RULE APPLIED, NOT ITS CONCLUSION COPIED. That record put
+     * `provider.container` behind the Owner because it runs a whole browse --
+     * the only operation on the 60-second `patient` cap -- and said in terms
+     * that the test to apply to the next read is what it SPENDS. A `lookup` is
+     * `brief` (ADR-0130), so this is `provider.search`'s case: open, and a
+     * visitor to ADR-0044's demo may follow a record to the container it names
+     * exactly as they may search for the record.
+     *
+     * WHAT STAYS SHUT IS THE PREVIEW THIS LEADS TO, which is still the browse
+     * and still `provider.container`'s. This widens nothing.
+     */
+    const baseUrl = await stubProvider({ "movie:603": THE_MATRIX });
+
+    const answer = await call(
+      appRouter.provider.containerOf,
+      { baseUrl, recordId: "movie:603" },
+      { context: asAVisitor },
+    );
+
+    expect(answer).toMatchObject({ answer: "container", containerId: "collection:2344" });
+  });
+
+  it("says the provider holds no record at that id, and not that it names no container", async () => {
+    /*
+     * TWO ANSWERS THAT MUST NOT READ ALIKE. "this record names no container"
+     * is a claim about a record the provider HAS; this is the provider saying
+     * it has none, which ADR-0066 makes an answer rather than a failure -- and
+     * an owner told the wrong one of the two goes looking for the wrong fix.
+     */
+    const baseUrl = await stubProvider();
+
+    const answer = await call(
+      appRouter.provider.containerOf,
+      { baseUrl, recordId: "nothing-is-here" },
+      { context },
+    );
+
+    expect(answer).toEqual({ answer: "no-such-record", providerName: "provider-wiki" });
+  });
+
+  it("says a provider could not be reached, in the words the owner can act on", async () => {
+    /*
+     * THE SAME RULE AS `provider.search`'s `failed` LIST AND `provider.container`'s
+     * fourth arm (ADR-0123): bounded, and attributed to whoever wrote it. This
+     * URL is refused by ADR-0034's allowlist before a socket opens, which is a
+     * different thing to fix from a provider that is down.
+     */
+    const answer = await call(
+      appRouter.provider.containerOf,
+      { baseUrl: "http://169.254.169.254/", recordId: "movie:603" },
+      { context },
+    );
+
+    expect(answer.answer).toBe("unreachable");
+    expect(answer).toMatchObject({
+      reason: { wrote: "canoncore", text: expect.stringContaining("allowlisted") },
+    });
+  });
+});
 
 describe("provider.beginImportRun", () => {
   it("opens a run over the list the Owner handed over, with nothing asked for yet", async () => {
