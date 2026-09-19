@@ -49,8 +49,16 @@ interface AListing {
    * at -- which is what keeps `total` from being an oracle marking its own work.
    */
   readonly holds: (db: Database) => Promise<string[]>;
-  /** One page of it, however that Listing spells the rest of its question. */
-  readonly page: (input: { limit?: number; after?: string }) => Promise<CataloguePublic>;
+  /**
+   * One page of it, however that Listing spells the rest of its question --
+   * including the Group it is narrowed to, which every one of these takes
+   * (CNCORE-180) and `narrowedToAGroup` below supplies.
+   */
+  readonly page: (input: {
+    limit?: number;
+    after?: string;
+    group?: string;
+  }) => Promise<CataloguePublic>;
 }
 
 /** What Catalogue search is asked for, and what its own Rows are titled. */
@@ -60,25 +68,14 @@ const WHAT_A_READER_TYPED = "Walked by the Listing contract";
 const A_RUN_OF_THEM = 5;
 
 /**
- * THE GROUP THE NARROWED CATALOGUE IS WALKED WITHIN, drawn when that entry's
- * Rows are seeded and read by every page it is asked for.
- *
- * A BINDING RATHER THAN AN ENTRY'S OWN FIELD, because an entry is a procedure
- * and a way to ask it for a page -- and "within which Group" is part of how
- * this one is asked, decided only once the database it lives in is reachable.
- * `describe.each` seeds each entry before it pages it, so no page is asked for
- * with this still empty.
- */
-let theGroupWalked = "";
-
-/**
  * EVERY LISTING PROCEDURE, AND ADDING A LISTING IS ADDING A LINE HERE. An entry
  * says which procedure it is, how to ask it for a page, and what to put in it;
  * everything else about a Listing is the block below and is not an entry's to
  * decide.
  *
- * THE THREE THAT ARE THEIR OWN SURFACE, and the two that are not are absent for
- * a reason rather than by oversight. A Container's members and "Also appears in"
+ * THE THREE THAT ARE THEIR OWN SURFACE, each walked twice -- as it is, and
+ * narrowed to a Group -- and the two that are not are absent for a reason
+ * rather than by oversight. A Container's members and "Also appears in"
  * are Listings by ADR-0119's first sentence, but they ride on `item.get` --
  * because a Container IS an Item (ADR-0004) and its page is the Item page, so a
  * `container.members` would be one thing at two addresses (ADR-0066). They
@@ -101,38 +98,11 @@ let theGroupWalked = "";
  * in" needed neither: it is the Listing that already had the size's second
  * position asserted, which is how that gap was found.
  */
-const EVERY_LISTING: AListing[] = [
+const EVERY_LISTING: AListing[] = eachAlsoNarrowed([
   {
     procedure: "catalogue.list",
     holds: (db) => aRunAndTheShapesTheOrderHas(db, "Walked by the catalogue's own contract"),
     page: (input) => call(appRouter.catalogue.list, input, { context }),
-  },
-  {
-    /*
-     * THE CATALOGUE NARROWED TO A GROUP (CNCORE-179), which is a Listing in its
-     * own right as far as a walk is concerned: a Group holding all of Doctor
-     * Who is seven thousand Rows, and a reader walks it exactly as they walk
-     * the catalogue it was narrowed out of. So it is a line here rather than a
-     * test of its own, and inherits every guarantee below by being one.
-     *
-     * THE SHAPES THE CATALOGUE'S ORDER HAS, INSIDE THE GROUP -- the tied pair
-     * and the keyless tail -- because a narrowing that walked plain Rows would
-     * pass against a cursor that lost them, for the reason
-     * `aRunAndTheShapesTheOrderHas` gives. And this Listing is the ONE here the
-     * shared catalogue cannot reach into: nothing else knows the Group's id, so
-     * its Rows are exactly the ones put in it.
-     */
-    procedure: "catalogue.list, narrowed to a Group",
-    holds: async (db) => {
-      theGroupWalked = await createGroupByHand(db, { name: "Walked by the narrowed contract" });
-      const rows = await aRunAndTheShapesTheOrderHas(db, "Walked inside a Group");
-      for (const itemId of rows) {
-        await putItemInGroupByHand(db, { groupId: theGroupWalked, itemId });
-      }
-      return rows;
-    },
-    page: (input) =>
-      call(appRouter.catalogue.list, { ...input, group: theGroupWalked }, { context }),
   },
   {
     procedure: "catalogue.works",
@@ -154,7 +124,52 @@ const EVERY_LISTING: AListing[] = [
     page: (input) =>
       call(appRouter.catalogue.search, { ...input, query: WHAT_A_READER_TYPED }, { context }),
   },
-];
+]);
+
+/** Every Listing above, followed by the same Listing narrowed to a Group. */
+function eachAlsoNarrowed(listings: AListing[]): AListing[] {
+  return listings.flatMap((listing) => [listing, narrowedToAGroup(listing)]);
+}
+
+/**
+ * THE SAME LISTING NARROWED TO A GROUP, which is a Listing in its own right as
+ * far as a walk is concerned: a Group holding all of Doctor Who is seven
+ * thousand Rows, and a reader walks it exactly as they walk the Listing it was
+ * narrowed out of. So each of the three is a line here rather than a test of
+ * its own, and inherits every guarantee below by being one -- the Catalogue
+ * since CNCORE-179, and work-browsing and Catalogue search since CNCORE-180.
+ *
+ * DERIVED FROM THE UNNARROWED ENTRY RATHER THAN WRITTEN BESIDE IT, so a fourth
+ * Listing added above is walked narrowed without anybody remembering to add
+ * it twice -- and so each narrowed walk meets THAT Listing's hard shapes inside
+ * the Group: the tied pair and the keyless tail for the catalogue's order, and
+ * the Rows tied on every key for Catalogue search's. A narrowing that walked
+ * plain Rows would pass against a cursor that lost them, for the reason
+ * `aRunAndTheShapesTheOrderHas` gives.
+ *
+ * THE GROUP IS HELD IN A BINDING OF ITS OWN, drawn when this entry's Rows are
+ * seeded and read by every page it is asked for, because "within which Group"
+ * is decided only once the database it lives in is reachable. `describe.each`
+ * seeds each entry before it pages it, so no page is asked for with it still
+ * empty. And nothing else knows the Group's id, so its Rows are exactly the
+ * ones put in it: the one kind of entry here the shared catalogue cannot reach
+ * into.
+ */
+function narrowedToAGroup({ procedure, holds, page }: AListing): AListing {
+  let group = "";
+  return {
+    procedure: `${procedure}, narrowed to a Group`,
+    holds: async (db) => {
+      group = await createGroupByHand(db, { name: `Walked by ${procedure}, narrowed` });
+      const rows = await holds(db);
+      for (const itemId of rows) {
+        await putItemInGroupByHand(db, { groupId: group, itemId });
+      }
+      return rows;
+    },
+    page: (input) => page({ ...input, group }),
+  };
+}
 
 /**
  * ROWS OF EVERY SHAPE THE CATALOGUE'S ORDER HAS, which a plain run is not.
