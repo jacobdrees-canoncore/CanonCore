@@ -7,6 +7,7 @@ import {
   EmptyTitle,
 } from "@canoncore/ui/components/empty";
 import Link from "next/link";
+import { Fragment } from "react";
 
 import { inTheFixedOrder, type LinkQuery } from "./query-params";
 import { TheirWords } from "./their-words";
@@ -406,6 +407,51 @@ function soMany(count: number, noun: string): string {
   return `${grouped.format(count)} ${count === 1 ? noun : `${noun}s`}`;
 }
 
+function WhereItSits({ id, sitsIn }: { id: string; sitsIn: Row["sitsIn"] }) {
+  if (sitsIn.total === 0) return <p className="text-muted-foreground text-sm">In no ordering</p>;
+  const more = sitsIn.total - sitsIn.first.length;
+  return (
+    <p className="text-muted-foreground text-sm">
+      Also appears in{" "}
+      {byOrdering(sitsIn.first).map(({ containerId, containerTitle, positions }, at) => (
+        <Fragment key={containerId}>
+          {at > 0 && " · "}
+          <Link href={`/items/${containerId}`} className="hover:underline">
+            <TheirWords>{containerTitle ?? "Untitled container"}</TheirWords>
+          </Link>
+          {atPositions(positions)}
+        </Fragment>
+      ))}
+      {more > 0 && (
+        <>
+          {" · and "}
+          <Link href={`/items/${id}#also-appears-in`} className="hover:underline">
+            {`${grouped.format(more)} more`}
+          </Link>
+        </>
+      )}
+    </p>
+  );
+}
+
+function byOrdering(first: Row["sitsIn"]["first"]) {
+  const orderings: { containerId: string; containerTitle: string | null; positions: (number | null)[] }[] = [];
+  for (const { containerId, containerTitle, position } of first) {
+    const last = orderings.at(-1);
+    if (last?.containerId === containerId) last.positions.push(position);
+    else orderings.push({ containerId, containerTitle, positions: [position] });
+  }
+  return orderings;
+}
+
+function atPositions(positions: (number | null)[]): string {
+  const numbered = positions.filter((position) => position !== null).map((at) => `#${at}`);
+  return [
+    numbered.length > 0 ? ` ${numbered.join(", ")}` : "",
+    positions.includes(null) ? ", no position given" : "",
+  ].join("");
+}
+
 /**
  * Every item, in the order the catalogue keeps them: `sort_name` where a source
  * has claimed one, and the title otherwise (ADR-0014).
@@ -433,9 +479,14 @@ export function Listing({ rows }: { rows: Row[] }) {
             through this file and the one below it, which is the whole point of
             that rule: routed through one place, a later `basePath` is one line.
           */}
-          <Link href={`/items/${row.id}`} className="hover:underline">
-            <TheirWords>{row.title ?? "Untitled item"}</TheirWords>
-          </Link>
+          <div className="min-w-0">
+            <Link href={`/items/${row.id}`} className="hover:underline">
+              <TheirWords>{row.title ?? "Untitled item"}</TheirWords>
+            </Link>
+            {(!row.isContainer || row.sitsIn.total > 0) && (
+              <WhereItSits id={row.id} sitsIn={row.sitsIn} />
+            )}
+          </div>
           <span className="flex items-baseline gap-3 text-muted-foreground text-sm">
             {/*
               ADR-0004 folds containers into `work`, so the kind alone cannot

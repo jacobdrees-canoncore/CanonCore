@@ -4,7 +4,7 @@ import {
   documentAt,
   documentFrom,
   headingOf,
-  itemsLinkedFrom,
+  itemsListedOn,
   logInAt,
   markedCurrentIn,
   scopeLinked,
@@ -403,7 +403,7 @@ describe("/ on a catalogue larger than one page", () => {
     for (let pages = 0; pages <= everyItem.length; pages += 1) {
       const { status, text } = await documentFrom(inject("pagedBaseUrl"), path);
       expect(status).toBe(200);
-      walked.push(...itemsLinkedFrom(text));
+      walked.push(...itemsListedOn(text));
       path = carriesOnAt(text);
       if (path === undefined) {
         expect([...walked].sort()).toStrictEqual([...everyItem].sort());
@@ -452,7 +452,7 @@ describe("/ on a catalogue larger than one page", () => {
       if (next === undefined) break;
       text = (await documentFrom(pagedBaseUrl, next)).text;
     }
-    const last = itemsLinkedFrom(text).at(-1);
+    const last = itemsListedOn(text).at(-1);
 
     const beyond = await documentFrom(pagedBaseUrl, `/?after=${last}`);
 
@@ -472,7 +472,7 @@ describe("/ on a catalogue larger than one page", () => {
 
     const { text } = await documentFrom(inject("pagedBaseUrl"), "/");
 
-    expect(itemsLinkedFrom(text)).toHaveLength(100);
+    expect(itemsListedOn(text)).toHaveLength(100);
     expect(text).toContain(
       `<p class="text-muted-foreground text-sm">Showing 100 of ${everyItem.length} items</p>`,
     );
@@ -508,8 +508,8 @@ describe("/ narrowed to a Group", () => {
     const { status, text } = await documentFrom(pagedBaseUrl, picked);
 
     expect(status).toBe(200);
-    expect(itemsLinkedFrom(text)).toHaveLength(100);
-    expect(itemsLinkedFrom(text).every((id) => group.holds.includes(id))).toBe(true);
+    expect(itemsListedOn(text)).toHaveLength(100);
+    expect(itemsListedOn(text).every((id) => group.holds.includes(id))).toBe(true);
     expect(text).toContain(
       `<p class="text-muted-foreground text-sm">Showing 100 of ${group.holds.length} items</p>`,
     );
@@ -532,7 +532,7 @@ describe("/ narrowed to a Group", () => {
     for (let pages = 0; pages <= group.holds.length; pages += 1) {
       const { status, text } = await documentFrom(pagedBaseUrl, path);
       expect(status).toBe(200);
-      walked.push(...itemsLinkedFrom(text));
+      walked.push(...itemsListedOn(text));
       // EVERY PAGE PAST THE FIRST OFFERS THE START OF THE GROUP, not of the
       // catalogue: a reader handed page three of a scope is sent back to page
       // one of it.
@@ -608,7 +608,7 @@ describe("/ narrowed to a Group", () => {
       const { status, text } = await documentFrom(pagedBaseUrl, `/?group=${group}`);
 
       expect(status).toBe(200);
-      expect(itemsLinkedFrom(text)).toStrictEqual([]);
+      expect(itemsListedOn(text)).toStrictEqual([]);
       expect(sectionIn(text, "no-such-group")).toContain('href="/"');
     }
   });
@@ -625,9 +625,10 @@ describe("/ narrowed to a Group", () => {
  */
 function theRowTitled(text: string, title: string): string {
   const rows = [...text.matchAll(/<li[^>]*>(.*?)<\/li>/g)].map(([, inner]) => inner as string);
-  const found = rows.filter((row) =>
-    [...row.matchAll(/<a [^>]*>(.*?)<\/a>/g)].some(([, words]) => textOf(words ?? "") === title),
-  );
+  // THE ROW'S OWN LINK, WHICH IS ITS FIRST. Since CNCORE-184 a story's Row
+  // links the Orderings it sits in too, so "any link carrying this title"
+  // would find an Ordering's Row AND every story Row that names it.
+  const found = rows.filter((row) => textOf(row.match(/<a [^>]*>(.*?)<\/a>/)?.[1] ?? "") === title);
   if (found.length !== 1) {
     throw new Error(`the listing held ${found.length} Rows titled ${title}, not one`);
   }
@@ -717,6 +718,7 @@ describe("/ on a catalogue nothing is writing to", () => {
       expect.stringContaining("Container, 3 members"),
       expect.stringContaining("Container, 1 member"),
       expect.stringContaining("Container, 0 members"),
+      expect.stringContaining("Container, 1 member"),
       expect.stringContaining("Container, 2,913 members"),
     ]);
   });
@@ -736,8 +738,8 @@ describe("/ on a catalogue nothing is writing to", () => {
      * place in the suite where removing `grouped` from that component changes a
      * byte, which is exactly why the assertion has to be here and not on `/`.
      */
-    const largest = inject("stillOrderings").find(({ id }) => id !== undefined);
-    if (!largest?.id) throw new Error("the still instance named no Ordering to open");
+    const largest = inject("stillOrderings").find(({ holds }) => holds >= 1000);
+    if (!largest) throw new Error("the still instance holds no four-figure Ordering to open");
 
     const { status, text } = await documentFrom(inject("stillBaseUrl"), `/items/${largest.id}`);
 
@@ -745,5 +747,66 @@ describe("/ on a catalogue nothing is writing to", () => {
     expect(text).toContain(
       `<p class="text-muted-foreground text-sm">Showing 100 of ${"2,913"} members</p>`,
     );
+  });
+
+  it("says where each story sits, at every Position, cut after five and linked", async () => {
+    /*
+     * CNCORE-184. Where a story sits is one fact, read off its Row rather than
+     * assembled from three. The story the whole instance repeats is the case
+     * that asks every criterion at once: it sits in three Orderings, 2,913
+     * times in one of them, so a Row that collapsed a Repeat, or cut at five
+     * ORDERINGS rather than five Placements, or printed every one, fails here.
+     *
+     * THE WORDS ARE WRITTEN OUT rather than built from the fixture, so the
+     * sentence cannot agree with the page by construction. The ids are the
+     * fixture's, because an id is not a thing a sentence can say.
+     */
+    const orderings = new Map(inject("stillOrderings").map(({ title, id }) => [title, id]));
+    const { text } = await documentFrom(inject("stillBaseUrl"), "/");
+    const repeated = theRowTitled(text, "A catalogue nobody is filling");
+    const [self] = [...repeated.matchAll(/href="([^"]+)"/g)].map(([, href]) => href);
+
+    expect(textOf(repeated)).toContain(
+      "Also appears in An ordering of one #1 · An ordering of three #1 · " +
+        "An ordering the size of the largest one measured #1, #2, #3 · and 2,910 more",
+    );
+    // AC4, the membership as links: each Ordering, then the rest of it on the
+    // story's own page, where "Also appears in" holds every one.
+    expect([...repeated.matchAll(/href="([^"]+)"/g)].map(([, href]) => href)).toStrictEqual([
+      self,
+      `/items/${orderings.get("An ordering of one")}`,
+      `/items/${orderings.get("An ordering of three")}`,
+      `/items/${orderings.get("An ordering the size of the largest one measured")}`,
+      `${self}#also-appears-in`,
+    ]);
+  });
+
+  it("says a story in no ordering sits in none, and a missing Position is not a number", async () => {
+    /*
+     * ADR-0062's root, SAID rather than left as an empty line: a Row that says
+     * nothing looks exactly like a Row that forgot to say. And `CONTEXT.md`'s
+     * **Unplaced**, in the glossary's own words for the reader -- which is why
+     * the first of these is not called Unplaced: that word is a Placement with
+     * no Position, and a story in no Ordering has no Placement at all.
+     */
+    const { text } = await documentFrom(inject("stillBaseUrl"), "/");
+
+    expect(textOf(theRowTitled(text, "A story placed in no ordering"))).toContain(
+      "In no ordering",
+    );
+    expect(textOf(theRowTitled(text, "A story placed without a position"))).toContain(
+      "Also appears in An ordering that gives no position, no position given",
+    );
+  });
+
+  it("says nothing of where an Ordering sits when it sits nowhere, which is where they sit", async () => {
+    // Root is an Ordering's ordinary state and a story's notable one, so
+    // "In no ordering" on every Ordering would be noise the story's version
+    // drowns in.
+    const { text } = await documentFrom(inject("stillBaseUrl"), "/");
+
+    const row = textOf(theRowTitled(text, "An ordering of three"));
+    expect(row).not.toContain("In no ordering");
+    expect(row).not.toContain("Also appears in");
   });
 });
