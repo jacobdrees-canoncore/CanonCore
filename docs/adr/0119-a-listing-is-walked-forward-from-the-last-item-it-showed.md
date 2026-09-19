@@ -1049,9 +1049,12 @@ there is no smaller page to ask for.
 **THE CURSOR IS THE EXCEPTION AND AN EARLIER DRAFT OF THIS PARAGRAPH GLOSSED IT, claiming all three
 of the rest were equally unaskable.** They are not: `after` and `placedAfter` are plain optional
 strings on `item.get`, so "a cursor naming nothing starts at the beginning" could be put to those
-two here for nothing. They stay out anyway, because a member that can answer one question of six is
-not a member of ONE BLOCK — so `item.test.ts` asks the two of them beside the block rather than in
-it, since CNCORE-198.
+two here for nothing. They stay out anyway, because a member that can answer one question of eight
+is not a member of ONE BLOCK — so `item.test.ts` asks the two of them beside the block rather than
+in it, since CNCORE-198. It was one of six until CNCORE-174 added the step back and the jump to the
+block: the step back walks a page smaller than the cap, which these two cannot be asked for, so
+`item.test.ts` steps each back over a fixture larger than a page, and neither is filed under a
+letter.
 
 **AND THE GAP WAS REAL AT BOTH SEAMS, checked rather than assumed, until CNCORE-198 closed both.**
 At the package export a Container's members is asked all five (four when this was written;

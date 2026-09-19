@@ -96,10 +96,13 @@ const A_RUN_OF_THEM = 5;
  * THE CURSOR IS THE EXCEPTION, AND IT IS SAID RATHER THAN GLOSSED. `after` and
  * `placedAfter` are plain optional strings on `item.get`, so asking those two
  * what a cursor naming nothing does would cost nothing here. They stay out
- * anyway, because a member that can answer one question of SIX is not a member
- * of ONE BLOCK -- so `item.test.ts` asks the two of them beside it, and at the
- * package export both are asked all FIVE (CNCORE-198, which added this one to
- * "Also appears in").
+ * anyway, because a member that can answer one question of EIGHT is not a
+ * member of ONE BLOCK -- so `item.test.ts` asks the two of them beside it, and at
+ * the package export both are asked all FIVE (CNCORE-198, which added this one to
+ * "Also appears in"). It was one of six until CNCORE-174 added the step back and
+ * the jump: the step back needs a page smaller than the cap to walk, which these
+ * two cannot be asked for, so `item.test.ts` steps each back over a fixture
+ * larger than one page instead, and neither is filed under a letter.
  *
  * THE COUNTS MOVED WITH CNCORE-172, which added the sixth question below and
  * the package-export assertion a Container's members was missing. "Also appears
