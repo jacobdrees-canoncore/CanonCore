@@ -8,6 +8,8 @@ import {
 } from "@canoncore/ui/components/empty";
 import Link from "next/link";
 
+import { TheirWords } from "./their-words";
+
 /**
  * ONE LISTING, RENDERED -- shared by FOUR surfaces now.
  *
@@ -409,7 +411,7 @@ export function Listing({ rows }: { rows: Row[] }) {
             that rule: routed through one place, a later `basePath` is one line.
           */}
           <Link href={`/items/${row.id}`} className="hover:underline">
-            {row.title ?? "Untitled item"}
+            <TheirWords>{row.title ?? "Untitled item"}</TheirWords>
           </Link>
           <span className="flex items-baseline gap-3 text-muted-foreground text-sm">
             {/*

@@ -159,4 +159,12 @@ describe("a record's fields with no break in them", () => {
     await expect.poll(() => row.count()).toBe(1);
     expect(await overrun(row)).toStrictEqual({ element: 0, document: 0 });
   });
+
+  it("wraps a title inside its row in the catalogue's own list", async () => {
+    await page.goto(`${baseUrl}/`);
+    const row = page.locator("main li").filter({ hasText: unbroken.title.slice(0, 100) });
+
+    await expect.poll(() => row.count()).toBe(1);
+    expect(await overrun(row)).toStrictEqual({ element: 0, document: 0 });
+  });
 });
