@@ -2,7 +2,7 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 
 import type { Database } from "./index";
 import { isRefusalOn, theOwnerId, type Writer } from "./placements";
-import { canBeAnId } from "./queries";
+import { canBeAnId, LIVE_GROUP_MEMBERSHIP } from "./queries";
 import { rolledBack } from "./rolled-back";
 import { groupItems, groupProviders, groups, items } from "./schema";
 
@@ -207,16 +207,16 @@ export async function putItemInGroupByHand(
  *
  * BOTH TOMBSTONES ARE HONOURED (ADR-0075): a membership the Owner removed, and
  * a Group they deleted. The second is what makes deleting a Group leave nothing
- * behind on the Item page that no longer has a scope to name.
+ * behind on the Item page that no longer has a scope to name. Both are read
+ * through `LIVE_GROUP_MEMBERSHIP`, the one spelling the Listings read too, so
+ * this page cannot name a Group that narrows nothing (CNCORE-230, CNCORE-234).
  */
 export async function findGroupsOfItem(db: Database, itemId: string): Promise<Group[]> {
   return db
     .select({ id: groups.id, name: groups.name })
     .from(groupItems)
-    .innerJoin(groups, eq(groups.id, groupItems.groupId))
-    .where(
-      and(eq(groupItems.itemId, itemId), isNull(groupItems.deletedAt), isNull(groups.deletedAt)),
-    )
+    .innerJoin(groups, LIVE_GROUP_MEMBERSHIP)
+    .where(eq(groupItems.itemId, itemId))
     .orderBy(groups.name, groups.id);
 }
 

@@ -316,3 +316,36 @@ than the join's own range reached. On work-browsing it was dearer: 4.6 (4.6–6.
 ceiling. The plan says why. The gate moved work-browsing's Rows off the hash semi-join and onto
 de-duplicating the memberships and looking each Item up, so it changed the plan it was meant to
 leave alone. The join does not.
+
+
+## As built, under CNCORE-234 — and this record stays PROPOSED
+
+**ONE SPELLING OF A LIVE MEMBERSHIP.** `LIVE_GROUP_MEMBERSHIP` in `queries.ts` is the condition
+joining `group_items` to `groups`, with both tombstones in it. The three readers that ask whether a
+membership is live all join through it: `inTheGroup`, and so every Listing; `findGroupsOfItem`, and so
+the Item page; and the purge's `deleteOrphansAmong` ([[0036-tmdb-licence-constraints]]). CNCORE-230
+is what the copies cost: one reader read the membership's tombstone alone.
+
+**A SHARED JOIN CONDITION, NOT A SHARED QUERY.** CNCORE-230's review rejected extracting the
+`innerJoin(groups, ...)` shape, because each reader selects different columns and a helper around three
+lines would be a middle-man. That rejection stands. Each reader still writes its own select and its own
+narrowing to one group or one Item, and borrows only what "live" means. Two things moved the answer:
+a third reader, CNCORE-232's purge, where drift would not hide a Row but keep or take an Item; and the
+drift having already happened once.
+
+**THE TOMBSTONES MOVED FROM `WHERE` TO `ON`, AND NOTHING ELSE DID.** Measured rather than assumed,
+2026-09-19, on the Owner's own install by the CNCORE-230 section's method: session-local `groups` and
+`group_items` of migration 19's shape inside a rolled-back transaction, the same three groups of 50,
+2,143 and 8,052 Items, `ANALYZE`d. The SQL each reader sends was captured from the code before and
+after, and every pair has the same `EXPLAIN` plan at the same estimated costs: every query the three
+Listings send at each of the three sizes, `findGroupsOfItem`, and a purge chunk of 1,000 candidates,
+14 pairs in all. So the costs the CNCORE-230 section measured are this code's costs.
+
+**AND IT IS HELD BY BREAKING IT.** Dropping the group's tombstone from the one spelling fails the
+outlived-its-group test in `catalogue.test.ts`, `groups.test.ts` and `import.test.ts`, one each.
+Dropping the membership's fails a taken-back-out test in each of the same three. The one in
+`groups.test.ts` is new under this ticket. Until it, nothing tested whether the Item page read the
+group's tombstone at all, because `deleteGroupByHand` tombstones the membership too.
+
+Nothing a group scopes changed, so the reason this record stays `proposed` is still the CNCORE-182
+section's.

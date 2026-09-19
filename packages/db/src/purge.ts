@@ -2,6 +2,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 
 import type { Database } from "./index";
 import { theOwnerId } from "./placements";
+import { LIVE_GROUP_MEMBERSHIP } from "./queries";
 import { rolledBack } from "./rolled-back";
 import {
   aliases,
@@ -271,8 +272,10 @@ async function itemsTouchedBy(tx: Transaction, sourceId: string): Promise<string
  * WHY A GROUP MEMBERSHIP COUNTS (CNCORE-232, ADR-0036): nobody but the Owner
  * puts an Item in a Group, and `CONTEXT.md`'s Purge says an Item the Owner also
  * claims is not removed. LIVE MEANS THE GROUP TOO: a membership that outlived
- * its Group narrows nothing (CNCORE-230), so it is read through `groups` with
- * the two tombstones `inTheGroup` reads.
+ * its Group narrows nothing (CNCORE-230), so it is read through
+ * `LIVE_GROUP_MEMBERSHIP`, the one spelling every Listing and the Item page
+ * read (CNCORE-234). A purge cannot keep an Item for a membership no surface
+ * shows, nor take one a Listing still narrows to.
  *
  * AND A DEAD ONE KEEPS NOTHING BUT STILL NAMES THE ITEM. A membership the Owner
  * took back out is a tombstone, not a DELETE (ADR-0075), so its foreign key
@@ -318,13 +321,9 @@ async function deleteOrphansAmong(
     // which is the only way this one could have been found.
     sql`not exists (select 1 from ${statementQualifiers} where ${statementQualifiers.valueItemId} = ${items.id})`,
     sql`not exists (select 1 from ${aliases} where ${aliases.itemId} = ${items.id})`,
-    // TODO(CNCORE-234): the third spelling of a live membership, beside
-    // `inTheGroup` and `findGroupsOfItem`, which agree by being copied.
     sql`not exists (
-          select 1 from ${groupItems}
-            join ${groups} on ${groups.id} = ${groupItems.groupId}
+          select 1 from ${groupItems} join ${groups} on ${LIVE_GROUP_MEMBERSHIP}
            where ${groupItems.itemId} = ${items.id}
-             and ${groupItems.deletedAt} is null and ${groups.deletedAt} is null
         )`,
   );
 
