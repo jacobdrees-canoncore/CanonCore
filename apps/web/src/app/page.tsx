@@ -146,7 +146,13 @@ export default async function CataloguePage({
     <main className="container mx-auto max-w-3xl px-4 py-8">
       <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
         <h1 className="text-3xl font-medium">Catalogue</h1>
-        {rows.length > 0 && <Holding showing={rows.length} total={catalogue.total} />}
+        {rows.length > 0 && (
+          <Holding
+            showing={rows.length}
+            rowsBefore={catalogue.rowsBefore}
+            total={catalogue.total}
+          />
+        )}
       </div>
       {groups.length > 0 && <NarrowToAGroup path="/" groups={groups} narrowedTo={narrowedTo} />}
       {!empty && <JumpToALetter path="/" narrowed={scope.narrowed} jumpedTo={at.letter} />}

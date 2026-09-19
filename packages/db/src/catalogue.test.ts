@@ -415,6 +415,35 @@ describe("readCatalogue, walked a page at a time", () => {
     expect(rest.rows).toHaveLength(1);
   });
 
+  it("says how many Rows come before every page, from the first to the last", async () => {
+    // WHERE THE READER IS (ADR-0133), which a size alone cannot say: "100 of
+    // 7,000" reads the same on page one and on page seventy. The oracle is the
+    // walk itself -- how many Rows the pages before this one actually handed
+    // out -- which is a different thing from the count the Listing answers
+    // with, so the two agreeing is an assertion rather than a restatement.
+    await someStories(db, 7, "A story a reader is told the place of");
+
+    const said: number[] = [];
+    const handedOut: number[] = [];
+    let walked = 0;
+    let after: string | undefined;
+    const { total } = await readCatalogue(db, { limit: 1 });
+    for (let pages = 0; pages <= total; pages += 1) {
+      const page = await readCatalogue(db, { limit: 3, after });
+      said.push(page.rowsBefore);
+      handedOut.push(walked);
+      walked += page.rows.length;
+      if (page.continuesAfter === null) break;
+      after = page.continuesAfter;
+    }
+
+    expect(said).toStrictEqual(handedOut);
+    // THE TWO ENDS, said as literals as well: nothing before the first page,
+    // and everything but the last page before the last.
+    expect(said[0]).toBe(0);
+    expect(said.at(-1)).toBe(total - (walked - (handedOut.at(-1) ?? 0)));
+  });
+
   it("reports the size of the catalogue on every page, not of what is left", async () => {
     // A WINDOW COUNT IS TAKEN AFTER `where`, so `count(*) over ()` beside a
     // keyset predicate counts the items PAST THE CURSOR -- and an owner paging
@@ -707,6 +736,46 @@ describe("readCatalogue, stepped back a page at a time", () => {
     expect(wrong).toStrictEqual([]);
   });
 
+  it("says how many Rows come before a page, from every Row either way, across a tie and the untitled tail", async () => {
+    // WHERE THE READER IS (ADR-0133), asked from every Row rather than from
+    // whichever few a page size cuts at: forward past each, and back from each.
+    // The count is the Rows BEHIND the Cut, the complement of the ones ahead,
+    // so the shapes that decide which side a Row falls on are the ones to cross
+    // -- a tied pair only the id separates, and the untitled tail, whose Rows a
+    // comparison that went NULL on them would count on neither side.
+    const owner = await ownerSource(db);
+    for (const title of ["The Keys of Marinus", "Keys of Marinus (novel)"]) {
+      const id = await anItemTitled(db, title);
+      await aStatement(db, {
+        subjectItemId: id,
+        property: "sort_name",
+        valueLiteral: "Keys of Marinus, counted past",
+        sourceId: owner,
+      });
+    }
+    await anItem(db);
+    await anItem(db);
+
+    const order = (await readCatalogue(db, { limit: 10_000 })).rows.map((row) => row.id);
+    const wrong: string[] = [];
+    for (const [at, id] of order.entries()) {
+      // PAST THE ROW, the page begins right after it, so the Row itself and
+      // every one before it sort before the page -- and past the LAST Row the
+      // page is empty, with the whole Listing behind it.
+      const past = await readCatalogue(db, { limit: 1, after: id });
+      if (past.rowsBefore !== at + 1) wrong.push(`past ${at}: ${past.rowsBefore}`);
+      if (at === 0) continue;
+      // BACK FROM THE ROW, the page is the one Row before it, and the Rows
+      // before that one sort before the page. From the second Row that is the
+      // start, whole, which has nothing before it either way.
+      const back = await readCatalogue(db, { limit: 1, before: id });
+      if (back.rowsBefore !== at - 1) wrong.push(`back from ${at}: ${back.rowsBefore}`);
+    }
+
+    // NAMED RATHER THAN COUNTED, so a failure says where the order broke.
+    expect(wrong).toStrictEqual([]);
+  });
+
   it("offers a step back from every page but the first, whichever way it was reached", async () => {
     // `continuesBefore` IS `continuesAfter` TURNED ROUND: the first Row of a
     // page where something comes before it, and `null` where nothing does. A
@@ -796,6 +865,10 @@ describe("readCatalogue, jumped to a letter", () => {
     expect(jumped.rows.map((row) => row.id)).toStrictEqual([m, quoted, mary, nyssa, peri]);
     // Something IS filed before M, so the page offers a step back to it.
     expect(jumped.continuesBefore).toBe(m);
+    // AND SAYS HOW MUCH: Aliens and Lz, which is where the reader has landed
+    // (ADR-0133) -- a jump is a seek, and the place is counted rather than
+    // walked to.
+    expect(jumped.rowsBefore).toBe(2);
   });
 
   it("lands at the next letter along where nothing is filed under the one asked for", async () => {
@@ -969,6 +1042,7 @@ describe("readCatalogue, narrowed to a Group", () => {
       expect(listing).toStrictEqual({
         rows: [],
         total: 0,
+        rowsBefore: 0,
         continuesAfter: null,
         continuesBefore: null,
       });
@@ -989,6 +1063,7 @@ describe("readCatalogue, narrowed to a Group", () => {
       expect(narrowed).toStrictEqual({
         rows: [],
         total: 0,
+        rowsBefore: 0,
         continuesAfter: null,
         continuesBefore: null,
       });

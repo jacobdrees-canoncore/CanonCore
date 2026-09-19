@@ -188,6 +188,8 @@ export interface PlacementsOfItem {
    * hundred as every appearance there is.
    */
   total: number;
+  /** How many Rows sort before this page's first: `Catalogue`'s `rowsBefore` (ADR-0133). */
+  rowsBefore: number;
   /**
    * The PLACEMENT to walk on from, or `null` where the list ends here.
    *
@@ -320,14 +322,18 @@ export async function findPlacementsOfItem(
    * That is what lets one fragment be the rows' narrowing and the count's at
    * once -- which is the whole reason they cannot drift.
    */
-  const counting = db
-    .select(HOW_MANY)
-    .from(placements)
-    .innerJoin(items, eq(items.id, placements.containerId));
-  const size = theSize(
-    and(sitsIn, narrowedTo) as SQL,
-    narrowedTo === undefined ? counting : counting.leftJoinLateral(spokesmanFor(db), sql`true`),
-  );
+  const size = theSize(and(sitsIn, narrowedTo) as SQL, (reachingItsOrder) => {
+    const counting = db
+      .select(HOW_MANY)
+      .from(placements)
+      .innerJoin(items, eq(items.id, placements.containerId));
+    // AND THE COUNT BEHIND A CUT NEEDS IT WHETHER OR NOT THIS IS NARROWED: it
+    // compares this order's keys, two of which are the spokesman's
+    // (`CountedFrom` says what leaving it out answers instead of an error).
+    return narrowedTo === undefined && !reachingItsOrder
+      ? counting
+      : counting.leftJoinLateral(spokesmanFor(db), sql`true`);
+  });
 
   /*
    * TWO READS, AND THE SECOND IS THE HALF THAT IS EASY TO MISS (CNCORE-129).
@@ -350,7 +356,7 @@ export async function findPlacementsOfItem(
       size,
       order,
       cut: cut && theCut(order, cut),
-      read: (howMany, where, orderBy) =>
+      read: (howMany, where, orderBy, behindTheCut) =>
         db
           .select({
             id: placements.id,
@@ -384,6 +390,7 @@ export async function findPlacementsOfItem(
              * it was cut out of. `size` above is where that lives now.
              */
             total: size.onTheRows,
+            behindTheCut,
           })
           .from(placements)
           .innerJoin(items, eq(items.id, placements.containerId))
@@ -940,11 +947,23 @@ export interface Catalogue {
    */
   total: number;
   /**
+   * HOW MANY ROWS SORT BEFORE THIS PAGE'S FIRST (ADR-0133), so a page says
+   * which of them it is showing: Rows `rowsBefore + 1` to
+   * `rowsBefore + rows.length` of `total`. Zero on the first page, and the
+   * whole Listing on a page past its end.
+   *
+   * COUNTED, NEVER TAKEN AS AN OFFSET: the Rows behind the page's Cut are
+   * counted in the page's own statement, and nothing reads this back as a
+   * place to go. ADR-0119's refusal of a numbered page stands.
+   */
+  rowsBefore: number;
+  /**
    * The id to walk on from, or `null` where the catalogue ends here.
    *
    * IT SAYS BOTH THINGS AT ONCE -- whether there is more, and where it starts
-   * -- because a surface that had to work the first out for itself could only
-   * do it by subtracting, and a keyset walk has no offset to subtract from.
+   * -- because a surface working the first out for itself would have to
+   * subtract, which a keyset walk could not do until `rowsBefore` counted where
+   * a page is (ADR-0133), and would still need this for where.
    */
   continuesAfter: string | null;
   /**
@@ -1090,13 +1109,13 @@ export async function walkListing<O extends TheOrder>(
    * can neither add a row nor drop one, and a count paying for it would be
    * paying to reach a column it does not read.
    */
-  const size = theSize(within, db.select(HOW_MANY).from(items));
+  const size = theSize(within, () => db.select(HOW_MANY).from(items));
   return onePage({
     limit,
     size,
     order,
     cut: cut && theCut(order, cut),
-    read: (howMany, where, orderBy) =>
+    read: (howMany, where, orderBy, behindTheCut) =>
       db
         .select({
           id: items.id,
@@ -1116,6 +1135,7 @@ export async function walkListing<O extends TheOrder>(
            * subquery is uncorrelated, so the cursor cannot reach it.
            */
           total: size.onTheRows,
+          behindTheCut,
           /*
            * HOW MUCH THIS ROW HOLDS (CNCORE-183), on the Row rather than from a
            * second read -- for the reason the `total` above gives and one more
@@ -1177,6 +1197,24 @@ type Counting = SQLWrapper & PromiseLike<{ total: number }[]>;
 type Countable = { where(within: SQL): Counting };
 
 /**
+ * WHERE A LISTING'S ROWS ARE COUNTED FROM, handed over as a way to build one
+ * rather than as one, because a Listing now counts TWICE: its size, and the
+ * Rows behind the page (ADR-0133). A drizzle select is SPENT by its `where` --
+ * the call sets the builder's own predicate and returns the same object -- so
+ * one builder asked two questions would answer the second twice.
+ *
+ * `reachingItsOrder` IS TRUE FOR THE COUNT THAT COMPARES THE ORDER'S KEYS, and
+ * a Listing whose keys are read off a relation its size does not need must
+ * join that relation there. "Also appears in" is the one: two of its keys are
+ * the spokesman's, a LATERAL its size joins only when narrowed (CNCORE-129).
+ * Left out, the comparison's `"spokesman"` would not fail -- it would resolve
+ * to the PAGE'S spokesman one scope out, and count every Row against whichever
+ * one the outer row had. The other four read their keys off the relation they
+ * count, and take no argument.
+ */
+type CountedFrom = (reachingItsOrder: boolean) => Countable;
+
+/**
  * HOW BIG ONE LISTING IS: ONE QUERY, and both the positions a size is read in
  * are derived from it.
  *
@@ -1227,6 +1265,23 @@ interface TheSize {
    * to disagree with.
    */
   askedOnItsOwn(): Promise<number>;
+  /**
+   * HOW MANY ROWS LIE BEHIND A CUT (ADR-0133), riding on the Rows beside the
+   * size and therefore in the same snapshot -- so "Rows 3,201 to 3,300 of
+   * 7,000" is two counts and a page that cannot disagree with each other.
+   *
+   * A COUNT AND NOT AN OFFSET. It is the Listing's own predicate and the
+   * complement of the Rows ahead of the Cut, which is the one statement the
+   * walk already reads them off (`TheCut`); no row is produced to be skipped,
+   * and nothing here can be asked for "page seven". It is ADR-0119's `total`
+   * asked of a smaller question, which is the whole of ADR-0133's argument.
+   */
+  behind(ahead: SQL): SQL<number>;
+  /**
+   * THE ROWS THAT COUNT COUNTS, which a page stepped back to is read from too:
+   * one predicate for the Rows and their count, as `within` is for the size.
+   */
+  rowsBehind(ahead: SQL): SQL;
 }
 
 /**
@@ -1241,24 +1296,39 @@ interface TheSize {
  * Listing reads the same value back off `within` for its Rows.
  *
  * AN EARLIER SHAPE PASSED THE PREDICATE TO A CALLBACK and was checked rather
- * than assumed: `theSize(within, () => db.select(HOW_MANY).from(items))` --
- * a count of the whole table, with the Listing's question dropped on the floor
- * -- COMPILED CLEAN. Handing a value to something that need not spend it is
- * convenience, not enforcement, and the difference does not show up until
- * somebody writes the careless one.
+ * than assumed: a callback handed `within` that answered
+ * `db.select(HOW_MANY).from(items)` -- a count of the whole table, with the
+ * Listing's question dropped on the floor -- COMPILED CLEAN. Handing a value to
+ * something that need not spend it is convenience, not enforcement. The
+ * callback this takes since ADR-0133 is handed NO predicate: it answers a
+ * `Countable`, whose `where` is still unspent, and this spends it. A builder
+ * that arrived with a `where` already on it is not one, because drizzle drops
+ * the method from the type once it is called.
  */
-function theSize(within: SQL, countable: Countable): TheSize {
+function theSize(within: SQL, countedFrom: CountedFrom): TheSize {
   // ONE QUERY OBJECT, READ IN BOTH POSITIONS. Splicing it renders it; awaiting
   // it runs it. That is what makes this one value rather than two spellings of
   // one count -- and the two spellings were in two DIALECTS, raw SQL on the
   // Rows against the query builder beside it, with one Listing writing the
   // join between `placements` and `items` out by hand in the first.
-  const counting = countable.where(within);
+  const counting = countedFrom(false).where(within);
   return {
     within,
     onTheRows: sql<number>`(${counting})`.mapWith(Number),
     askedOnItsOwn: async () => (await counting)[0]?.total ?? 0,
+    behind: (ahead) =>
+      sql<number>`(${countedFrom(true).where(theRowsBehind(within, ahead))})`.mapWith(Number),
+    rowsBehind: (ahead) => theRowsBehind(within, ahead),
   };
+}
+
+/**
+ * THE SAME QUESTION, NARROWED TO THE COMPLEMENT OF THE ROWS AHEAD OF A CUT,
+ * which `TheCut` says is never NULL on a Row a Listing holds -- so the Rows
+ * behind and the Rows ahead are the size between them, exactly.
+ */
+function theRowsBehind(within: SQL, ahead: SQL): SQL {
+  return and(within, not(ahead)) as SQL;
 }
 
 /**
@@ -1268,9 +1338,10 @@ function theSize(within: SQL, countable: Countable): TheSize {
  * argument for their being written once rather than per listing:
  *
  * - THE EXTRA ROW. Whether a listing carries on past this page is not
- *   something `total` can answer -- a keyset walk knows no offset, so it
- *   cannot subtract -- and the cheapest thing that does know is a row that was
- *   there to be read. It is read here and never returned, so the reading and
+ *   something `total` alone can answer -- a keyset walk knows no offset, so it
+ *   cannot subtract, and the count that would let it (below) is not asked of
+ *   the first page -- and the cheapest thing that does know on a page read
+ *   forward is a row that was there to be read. It is read here and never returned, so the reading and
  *   the discarding cannot come apart: a caller that fetched `limit` rows and
  *   handed them over would answer `continuesAfter: null` at every page, which
  *   ADR-0119 makes mean "the listing ends here".
@@ -1282,20 +1353,35 @@ function theSize(within: SQL, countable: Countable): TheSize {
  * - THE CURSOR. The id of the LAST ROW THIS PAGE SHOWED, in whatever order the
  *   listing was read in.
  *
+ * AND ONE FACT READ OFF TWO OF THEM: WHERE THE PAGE IS (ADR-0133). The Rows
+ * behind the page's Cut are counted beside the size, on the Rows, so
+ * `rowsBefore` is in the page's own snapshot -- and so are both step-back
+ * links, which are arithmetic on the two counts rather than reads of their
+ * own. Something lies behind a page read forward exactly where that count is
+ * above zero, and something lies ahead of a page read back exactly where the
+ * size is above it, because the Rows behind a Cut are the complement of the
+ * Rows ahead of it. CNCORE-174 asked each question with a one-Row read of its
+ * own, a second statement that a write between the two could make disagree
+ * with the page; the count answers both in the first. THE PRICE is that the
+ * links now ride on the count, so dropping the label -- which ADR-0133 says is
+ * the move if it ever costs more than the page -- means putting those reads
+ * back.
+ *
  * IT TAKES THE READ RATHER THAN THE ROWS, so `limit + 1` is spent here beside
  * the slice that undoes it. WHAT IT DOES NOT TAKE IS THE QUERY: the catalogue,
  * work-browsing and Catalogue search all read `items` and go through
  * `walkListing` above, and a Container's members read `placements` -- a
  * different relation, a different id and a different count, so they supply
- * their own select and share these three rules and nothing else.
+ * their own select and share these rules and nothing else.
  *
  * AND IT TAKES THE SIZE OFF THE ROW ITSELF, so a listing hands over what it
  * selected and nothing more. Every caller used to pass a function that rebuilt
  * its own row field by field, whose only effect was to leave `total` behind --
  * three identity mappings written out to discard one column, which is a place
- * a field can go missing by being forgotten rather than by being decided.
+ * a field can go missing by being forgotten rather than by being decided. The
+ * count behind the Cut is taken off the same way.
  */
-async function onePage<Stored extends { id: string; total: number }>({
+async function onePage<Stored extends TheStored>({
   limit,
   size,
   order,
@@ -1306,57 +1392,98 @@ async function onePage<Stored extends { id: string; total: number }>({
   size: TheSize;
   order: TheOrder;
   cut?: TheCut;
-  read: (howMany: number, where: SQL, orderBy: SQL[]) => Promise<Stored[]>;
-}): Promise<{
-  rows: Row<Stored>[];
-  total: number;
-  continuesAfter: string | null;
-  continuesBefore: string | null;
-}> {
-  const forward = theOrderBy(order);
-  const backward = theOrderBy(order, { backward: true });
+  /**
+   * One read of the Listing, with `behindTheCut` spliced into its select as
+   * `total` is: the count riding on the Rows it is handed.
+   */
+  read: (
+    howMany: number,
+    where: SQL,
+    orderBy: SQL[],
+    behindTheCut: SQL<number>,
+  ) => Promise<Stored[]>;
+}): Promise<APage<Stored>> {
   if (cut === undefined) {
-    const stored = await read(limit + 1, size.within, forward);
-    return aPage(stored.slice(0, limit), stored, size, {
-      after: stored.length > limit,
-      before: false,
-    });
+    const stored = await read(limit + 1, size.within, theOrderBy(order), NOTHING_BEHIND);
+    return aPage(stored.slice(0, limit), size, { rowsBefore: 0, after: stored.length > limit });
   }
-  const ahead = and(size.within, cut.ahead) as SQL;
-  const behind = and(size.within, not(cut.ahead)) as SQL;
   if (!cut.readsBack) {
-    const [stored, oneBehind] = await Promise.all([
-      read(limit + 1, ahead, forward),
-      read(1, behind, backward),
-    ]);
-    return aPage(stored.slice(0, limit), stored, size, {
+    const stored = await read(
+      limit + 1,
+      and(size.within, cut.ahead) as SQL,
+      theOrderBy(order),
+      size.behind(cut.ahead),
+    );
+    return aPage(stored.slice(0, limit), size, {
+      rowsBefore: stored[0]?.behindTheCut ?? 0,
       after: stored.length > limit,
-      before: oneBehind.length > 0,
     });
   }
-  const [stored, oneAhead] = await Promise.all([
-    read(limit + 1, behind, backward),
-    read(1, ahead, forward),
-  ]);
-  if (stored.length <= limit) return onePage({ limit, size, order, read });
-  return aPage(stored.slice(0, limit).reverse(), stored, size, {
-    after: oneAhead.length > 0,
-    before: true,
+  const stored = await read(
+    limit + 1,
+    size.rowsBehind(cut.ahead),
+    theOrderBy(order, { backward: true }),
+    size.behind(cut.ahead),
+  );
+  // A STEP BACK THAT REACHES THE START ANSWERS THE START, whole (CNCORE-174).
+  const [nearest] = stored;
+  if (nearest === undefined || stored.length <= limit) return onePage({ limit, size, order, read });
+  // READ BACK, THE PAGE IS THE LAST `limit` ROWS BEHIND THE CUT, turned round,
+  // and something lies ahead of it exactly where the size is more than what is
+  // behind the Cut: the Rows behind and ahead are the Listing between them.
+  return aPage(stored.slice(0, limit).reverse(), size, {
+    rowsBefore: nearest.behindTheCut - limit,
+    after: nearest.total > nearest.behindTheCut,
   });
 }
 
-/** One page of Rows, and the two cursors off either end of it. */
-async function aPage<Stored extends { id: string; total: number }>(
+/** What a read hands `onePage`: a Row, and the two counts it carried in on. */
+type TheStored = { id: string; total: number; behindTheCut: number };
+
+/** One page of one Listing, as every Listing answers it. */
+type APage<Stored> = {
+  rows: Row<Stored>[];
+  total: number;
+  rowsBefore: number;
+  continuesAfter: string | null;
+  continuesBefore: string | null;
+};
+
+/**
+ * THE COUNT BEHIND THE START, which is nothing, so it is not counted. The
+ * first page is the one every Listing is asked for most, and it pays nothing
+ * for saying it is first.
+ */
+const NOTHING_BEHIND = sql<number>`0`.mapWith(Number);
+
+/**
+ * One page of Rows, in the order a reader reads them: where it sits, and the
+ * two cursors off either end of it. `after` says whether anything lies past
+ * its last Row, which the caller knows by however it read the page.
+ *
+ * SOMETHING LIES BEFORE IT EXACTLY WHERE `rowsBefore` IS ABOVE ZERO, so the
+ * step back is offered off the count rather than off a read of its own.
+ *
+ * AN EMPTY PAGE HAS EVERY ROW BEHIND IT, which is why its `rowsBefore` needs no
+ * count: nothing is ahead of a Cut that answered nothing, so what is behind it
+ * is the whole Listing, and the size asked on its own says how much that is.
+ */
+async function aPage<Stored extends TheStored>(
   page: Stored[],
-  stored: Stored[],
   size: TheSize,
-  carriesOn: { after: boolean; before: boolean },
-) {
+  { rowsBefore, after }: { rowsBefore: number; after: boolean },
+): Promise<APage<Stored>> {
+  const [first] = page;
+  if (first === undefined) {
+    const total = await size.askedOnItsOwn();
+    return { rows: [], total, rowsBefore: total, continuesAfter: null, continuesBefore: null };
+  }
   return {
-    rows: page.map(({ total, ...row }) => row),
-    total: stored[0]?.total ?? (await size.askedOnItsOwn()),
-    continuesAfter: carriesOn.after ? (page.at(-1)?.id ?? null) : null,
-    continuesBefore: carriesOn.before ? (page[0]?.id ?? null) : null,
+    rows: page.map(({ total, behindTheCut, ...row }) => row),
+    total: first.total,
+    rowsBefore,
+    continuesAfter: after ? (page.at(-1)?.id ?? null) : null,
+    continuesBefore: rowsBefore > 0 ? first.id : null,
   };
 }
 
@@ -1408,7 +1535,7 @@ export async function theCutAt<O extends TheOrder>(
  * the row that never leaves the database and this for the projection a listing
  * answers with -- and the difference between them is one column.
  */
-type Row<Stored> = Omit<Stored, "total">;
+type Row<Stored> = Omit<Stored, "total" | "behindTheCut">;
 
 /**
  * WHAT IS IN THE CATALOGUE: everything the owner has not deleted (ADR-0075).
@@ -1806,6 +1933,8 @@ export interface PlacementsInContainer {
    * apart reports the first hundred as the whole ordering.
    */
   total: number;
+  /** How many Rows sort before this page's first: `Catalogue`'s `rowsBefore` (ADR-0133). */
+  rowsBefore: number;
   /**
    * The PLACEMENT to walk on from, or `null` where the ordering ends here.
    *
@@ -2032,8 +2161,7 @@ export async function findPlacementsInContainer(
    * ADR-0075's tombstone on a member, and the ordering would report a size
    * holding items no reader can reach.
    */
-  const size = theSize(
-    held,
+  const size = theSize(held, () =>
     db.select(HOW_MANY).from(placements).innerJoin(items, eq(items.id, placements.itemId)),
   );
 
@@ -2042,7 +2170,7 @@ export async function findPlacementsInContainer(
     size,
     order: THE_CONTAINERS_OWN_ORDER,
     cut: cut && theCut(THE_CONTAINERS_OWN_ORDER, cut),
-    read: (howMany, where, orderBy) =>
+    read: (howMany, where, orderBy, behindTheCut) =>
       db
         .select({
           id: placements.id,
@@ -2071,6 +2199,7 @@ export async function findPlacementsInContainer(
            * names resolve to its own rows rather than to the walk's.
            */
           total: size.onTheRows,
+          behindTheCut,
         })
         .from(placements)
         .innerJoin(items, eq(items.id, placements.itemId))

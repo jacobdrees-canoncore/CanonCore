@@ -111,6 +111,8 @@ export const placementsOfItemPublic = z.object({
    * this list must not get wrong.
    */
   total: z.number().int().nonnegative(),
+  /** How many Rows sort before this page's first: `cataloguePublic`'s `rowsBefore`. */
+  rowsBefore: z.number().int().nonnegative(),
   /**
    * The placement to ask for the next page with, or `null` where the list ends
    * here (ADR-0119).
@@ -332,6 +334,8 @@ export const placementsInContainerPublic = z.object({
    * hundred as the whole ordering.
    */
   total: z.number().int().nonnegative(),
+  /** How many Rows sort before this page's first: `cataloguePublic`'s `rowsBefore`. */
+  rowsBefore: z.number().int().nonnegative(),
   /**
    * The placement to ask for the next page with, or `null` where the ordering
    * ends here (ADR-0119).
@@ -624,6 +628,18 @@ export const cataloguePublic = z.object({
    */
   total: z.number().int().nonnegative(),
   /**
+   * HOW MANY ROWS SORT BEFORE THIS PAGE'S FIRST, so a page can say which of
+   * them it shows: Rows `rowsBefore + 1` to `rowsBefore + rows.length` of
+   * `total` (ADR-0133). Zero on the first page, and `total` on a page past the
+   * end.
+   *
+   * A COUNT, AND NOTHING TAKES IT BACK AS AN ADDRESS. It is where the reader
+   * IS, never where they can go: no procedure accepts a number of Rows to skip,
+   * so there is no page seven to jump to, and ADR-0119's refusal of one stands.
+   * The letters are how a reader lands somewhere.
+   */
+  rowsBefore: z.number().int().nonnegative(),
+  /**
    * The id to ask for the next page with, or `null` where the catalogue ends
    * here (ADR-0119).
    *
@@ -633,8 +649,9 @@ export const cataloguePublic = z.object({
    * a URL a reader can read.
    *
    * AND IT SAYS BOTH THINGS AT ONCE -- whether there is more, and where it
-   * starts -- because a caller could only work the first out by subtracting,
-   * and a keyset walk has no offset to subtract from.
+   * starts -- because a caller working the first out for itself would have to
+   * subtract, which a keyset walk could not do until `rowsBefore` counted where
+   * a page is (ADR-0133), and would still need this for where.
    */
   continuesAfter: z.uuid().nullable(),
   /**

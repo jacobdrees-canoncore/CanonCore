@@ -440,6 +440,36 @@ describe.each(EVERY_LISTING)(
       );
     });
 
+    it("says which Rows each page shows, walked to, stepped back to, and past the end", async () => {
+      // WHERE THE READER IS (ADR-0133): how many Rows sort before the page, so
+      // a surface can say "Rows 3,201 to 3,300 of 7,000". ORACLED AGAINST THE
+      // WALK -- how many Rows the pages before this one handed out -- which is
+      // not the count the Listing answers with, so the two agreeing is the
+      // assertion. Every way a page is reached: from the start, walking on,
+      // stepping back, and pressing Next on the last page.
+      const { total } = await page({ limit: 1 });
+      const forward = await everyPageWalked(page, total);
+      const limit = aPageThatCuts(total);
+      const handedOutBefore = forward.map((_, at) => forward.slice(0, at).flat().length);
+
+      const walkedTo: number[] = [];
+      const steppedBackTo: number[] = [];
+      for (const [at, rows] of forward.entries()) {
+        const after = forward[at - 1]?.at(-1);
+        walkedTo.push((await page({ limit, after })).rowsBefore);
+        if (at === 0) continue;
+        steppedBackTo.push((await page({ limit, before: rows[0] })).rowsBefore);
+      }
+      const beyond = await page({ limit, after: forward.at(-1)?.at(-1) });
+
+      expect(forward.length).toBeGreaterThan(1);
+      expect(walkedTo).toStrictEqual(handedOutBefore);
+      expect(steppedBackTo).toStrictEqual(handedOutBefore.slice(0, -1));
+      // AN EMPTY PAGE PAST THE END HAS THE WHOLE LISTING BEFORE IT.
+      expect(beyond.rows).toStrictEqual([]);
+      expect(beyond.rowsBefore).toBe(total);
+    });
+
     it.runIf(filedByName)("lands a jump to a letter at the first Row filed under it", async () => {
       // THE JUMP (CNCORE-174) IS A SEEK INTO THE SAME ORDER, not a filter over
       // it: the page it lands on is a run of the walk, from some Row onward.

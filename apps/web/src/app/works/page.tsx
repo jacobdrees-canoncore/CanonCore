@@ -99,7 +99,9 @@ export default async function WorksPage({
     <main className="container mx-auto max-w-3xl px-4 py-8">
       <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
         <h1 className="text-3xl font-medium">Works</h1>
-        {rows.length > 0 && <Holding showing={rows.length} total={works.total} />}
+        {rows.length > 0 && (
+          <Holding showing={rows.length} rowsBefore={works.rowsBefore} total={works.total} />
+        )}
       </div>
       {groups.length > 0 && (
         <NarrowToAGroup path="/works" groups={groups} narrowedTo={narrowedTo} />

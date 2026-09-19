@@ -1073,6 +1073,13 @@ is a Listing's cap, which a caller may not raise. The cost is the whole list rea
 page, 90,683 bytes at the wiki. A cursor added to CMPP later is an optional field (ADR-0032) and
 would remove it; nothing measured needs one.
 
+**AND IT SAYS WHICH OF THEM A PAGE SHOWS (CNCORE-188), WHICH COSTS NOTHING HERE.** Every Listing
+over the catalogue pays a second count for that ([[0133-a-listing-says-where-the-reader-is]]),
+because a keyset walk cannot know how many Rows it has passed; this walk holds the whole answer
+already, so the index it cuts at IS how many come before the page and `rowsBefore` is that index.
+It is still no address: this operation takes the two cursors and no number, so ADR-0119's refusal of
+a numbered page is untouched here as everywhere.
+
 **PICKED FROM THE LIST IS BROWSED BY ID, WHICH IS HOW IT LANDS THE SAME.** A picked row leads to
 `/import?provider=<url>&container=<id>`, the address the id box reaches, so the preview and the
 button are the ones CNCORE-92 built and the write is `browse`. Asserted at the page seam: the row's

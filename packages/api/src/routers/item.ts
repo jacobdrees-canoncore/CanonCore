@@ -450,6 +450,7 @@ export const item = {
             assertedBy: placement.assertedBy,
           })),
           total: placements.total,
+          rowsBefore: placements.rowsBefore,
           continuesAfter: placements.continuesAfter,
           continuesBefore: placements.continuesBefore,
           /*
@@ -473,6 +474,7 @@ export const item = {
             assertedBy: placement.assertedBy,
           })),
           total: holds.total,
+          rowsBefore: holds.rowsBefore,
           continuesAfter: holds.continuesAfter,
           continuesBefore: holds.continuesBefore,
         },

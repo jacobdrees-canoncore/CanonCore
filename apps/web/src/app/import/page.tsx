@@ -1543,7 +1543,12 @@ function ItsContainers({
   return (
     <>
       <div className="mt-1">
-        <Holding showing={offered.containers.length} total={offered.total} noun="container" />
+        <Holding
+          showing={offered.containers.length}
+          rowsBefore={offered.rowsBefore}
+          total={offered.total}
+          noun="container"
+        />
       </div>
       <ul className="mt-2 divide-y">
         {offered.containers.map(({ containerId, title, kind, itemId }) => (

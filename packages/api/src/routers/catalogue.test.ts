@@ -200,7 +200,13 @@ describe("catalogue.search", () => {
 
     const found = await call(appRouter.catalogue.search, { query: "" }, { context });
 
-    expect(found).toEqual({ rows: [], total: 0, continuesAfter: null, continuesBefore: null });
+    expect(found).toEqual({
+      rows: [],
+      total: 0,
+      rowsBefore: 0,
+      continuesAfter: null,
+      continuesBefore: null,
+    });
   });
 
   it("searches within a Group it is handed, at the size of what it searched", async () => {

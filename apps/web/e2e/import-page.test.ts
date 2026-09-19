@@ -978,6 +978,11 @@ function offeredIn(text: string): { title: string; href: string }[] {
   });
 }
 
+/** What a page of the list says it is showing, word for word (ADR-0133). */
+function theSentenceIn(words: string): string | undefined {
+  return /Showing containers? [\d,]+(?: to [\d,]+)? of [\d,]+/.exec(words)?.[0];
+}
+
 describe("/import, reaching the Container a found record names", () => {
   it("leads from a record found by searching to its Container's preview, with no id typed", async () => {
     /*
@@ -1110,8 +1115,9 @@ describe("/import, offering what a provider holds", () => {
     expect(offered.map(({ title }) => title)).toEqual(
       TIMELINES.slice(0, 100).map(({ title }) => title),
     );
-    // THE CAP IS NEVER SILENT: a page of 100 says it is one of 465.
-    expect(textOf(sectionIn(text, "containers"))).toContain("Showing 100 of 465 containers");
+    // THE CAP IS NEVER SILENT, AND SAYS WHICH 100 (ADR-0133): the first of
+    // them here, where the walk below reaches the rest.
+    expect(textOf(sectionIn(text, "containers"))).toContain("Showing containers 1 to 100 of 465");
     // AND A ROW LEADS WHERE THE ID WOULD HAVE, which is what makes an import
     // from the list the same operation as one by id.
     expect(offered[0]?.href).toBe(
@@ -1127,16 +1133,25 @@ describe("/import, offering what a provider holds", () => {
      * and in the provider's own order.
      */
     const seen: string[] = [];
+    const said: (string | undefined)[] = [];
+    const due: string[] = [];
     let at: string | undefined = picking(inject("providerWikiUrl"));
     while (at !== undefined) {
       const { text } = await documentAt(at);
       const page = offeredIn(text).map(({ title }) => title);
       expect(page.length).toBeLessThanOrEqual(100);
+      said.push(theSentenceIn(textOf(sectionIn(text, "containers"))));
+      due.push(
+        `Showing containers ${seen.length + 1} to ${seen.length + page.length} of ${TIMELINES.length}`,
+      );
       seen.push(...page);
       at = walkLinked(text, "Next");
     }
 
     expect(seen).toEqual(TIMELINES.map(({ title }) => title));
+    // AND EVERY PAGE SAYS WHICH OF THEM IT SHOWED (ADR-0133), oracled against
+    // the walk: how many the pages before it offered.
+    expect(said).toStrictEqual(due);
   });
 
   it("says a provider declining the operation does not list them, and keeps the id for it", async () => {

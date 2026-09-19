@@ -1713,16 +1713,25 @@ describe("provider.containers", () => {
       [first, second, third].map(({ containers }) => containers.map((c) => c.containerId)),
     ).toEqual([["416127", "258752"], ["286338", "300001"], ["112233"]]);
     expect([first, second, third].map(({ total }) => total)).toEqual([5, 5, 5]);
+    // AND EACH SAYS WHICH OF THEM IT IS SHOWING (ADR-0133). Here the count is
+    // free: the provider answered the whole list, so where a page starts in it
+    // is the index the page was cut at rather than a second query.
+    expect([first, second, third].map(({ rowsBefore }) => rowsBefore)).toEqual([0, 2, 4]);
     expect(first).toMatchObject({ continuesBefore: null, continuesAfter: "258752" });
     expect(third).toMatchObject({ continuesBefore: "112233", continuesAfter: null });
 
     // AND A STEP BACK IS THE PAGE IT CAME FROM (CNCORE-174), not the start.
     const back = await page({ before: third.continuesBefore ?? "" });
     expect(back.containers).toEqual(second.containers);
+    expect(back.rowsBefore).toBe(2);
     // BUT ONE THAT WOULD RUN PAST THE START ANSWERS THE FIRST PAGE WHOLE, the
     // cursor's own container included, rather than the one short of it.
     const toTheStart = await page({ before: "258752" });
-    expect(toTheStart).toMatchObject({ containers: first.containers, continuesBefore: null });
+    expect(toTheStart).toMatchObject({
+      containers: first.containers,
+      continuesBefore: null,
+      rowsBefore: 0,
+    });
   });
 
   it("starts at the beginning from a cursor naming nothing, and refuses a page past the cap", async () => {

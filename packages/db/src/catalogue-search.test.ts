@@ -165,6 +165,7 @@ describe("searchCatalogue", () => {
     expect(await searchCatalogue(db, { query: "", limit: 100 })).toEqual({
       rows: [],
       total: 0,
+      rowsBefore: 0,
       continuesAfter: null,
       continuesBefore: null,
     });
@@ -181,6 +182,7 @@ describe("searchCatalogue", () => {
     expect(await searchCatalogue(db, { query: " ", limit: 100 })).toEqual({
       rows: [],
       total: 0,
+      rowsBefore: 0,
       continuesAfter: null,
       continuesBefore: null,
     });

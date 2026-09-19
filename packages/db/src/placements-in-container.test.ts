@@ -458,6 +458,33 @@ describe("findPlacementsInContainer, stepped back", () => {
     expect(wrong).toStrictEqual([]);
   });
 
+  it("says how many Rows come before a page, from every member either way, across the tie, the Repeat and the Unplaced", async () => {
+    // WHERE THE READER IS (ADR-0133): the Rows behind a Cut are the complement
+    // of the Rows ahead of it, so the Unplaced block -- a key the comparison
+    // answers with its keyless branch rather than a value -- is the shape a
+    // count most easily loses from both sides at once.
+    const stories = await someStories(db, 8, "A story told where it sits in its ordering");
+    const { id } = await aContainerLargerThanOnePage(db, {
+      title: "An ordering counted through",
+      holding: stories,
+    });
+    const order = (await findPlacementsInContainer(db, id, { limit: 1000 })).rows.map(
+      (placement) => placement.id,
+    );
+
+    const wrong: string[] = [];
+    for (const [at, placement] of order.entries()) {
+      const past = await findPlacementsInContainer(db, id, { limit: 1, after: placement });
+      if (past.rowsBefore !== at + 1) wrong.push(`past ${at}: ${past.rowsBefore}`);
+      if (at === 0) continue;
+      const back = await findPlacementsInContainer(db, id, { limit: 1, before: placement });
+      if (back.rowsBefore !== at - 1) wrong.push(`back from ${at}: ${back.rowsBefore}`);
+    }
+
+    expect(order).toHaveLength(9);
+    expect(wrong).toStrictEqual([]);
+  });
+
   it("answers the page before, and says nothing comes before the first", async () => {
     const stories = await someStories(db, 8, "A story on a page stepped back to");
     const { id } = await aContainerLargerThanOnePage(db, {
