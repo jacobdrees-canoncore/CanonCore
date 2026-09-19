@@ -148,6 +148,13 @@
       "when": 1789838957137,
       "tag": "20260919172917_migration_20_a_group_asks_its_providers",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1789855880272,
+      "tag": "20260919221120_migration_21_the_recently_added_order",
+      "breakpoints": true
     }
   ]
 }

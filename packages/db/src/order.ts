@@ -224,9 +224,23 @@ export interface TheOrder {
  */
 export type AnchorIn<O extends TheOrder> = {
   readonly [K in keyof O["keys"]]: O["keys"][K] extends { readonly everyRowHasIt: true }
-    ? string | number | SQL
-    : string | number | null | SQL;
+    ? AValueFor
+    : AValueFor | null;
 } & { readonly id: string };
+
+/**
+ * WHAT ONE KEY'S VALUE MAY BE, which is whatever the key's own column holds --
+ * and a `Date` is here because a key may BE a timestamp column (CNCORE-175).
+ *
+ * IT IS THE COLUMN'S MAPPER THAT DECIDES, not this union's breadth. An anchor's
+ * value is spliced into the comparison as a BOUND PARAMETER against the key
+ * itself, so drizzle maps it with that column's own `mapToDriverValue` -- and a
+ * `timestamptz` column's refuses anything but a `Date`, which is
+ * `TypeError: value.toISOString is not a function` at the walk rather than a
+ * wrong row. Handing the ISO string over instead is the fix that looks right
+ * and is not: it re-spells in this module a conversion the column already owns.
+ */
+type AValueFor = string | number | Date | SQL;
 
 /** What a key is selected by: its expression, without what it says about it. */
 type TheExpressionOf<K extends AKey> = K extends { readonly key: infer E } ? E : K;
