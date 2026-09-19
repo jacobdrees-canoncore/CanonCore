@@ -64,12 +64,13 @@ all: the function does not mention `items`, which is the strongest form that pro
 **NOT BUILT HERE: ALL FIVE OF THE SCOPED THINGS ABOVE, and the five are not in one state.** This
 record's "What a group does NOT scope" section closes the list at browsing, search, which providers are
 asked, scanner roots and the review queue. A reader who finds the table and assumes the scoping came
-with it would be wrong about every one of them — and since CNCORE-179, about all but part of one:
+with it would be wrong about every one of them — and since CNCORE-180, about three of the five
+rather than all of them:
 
-- **Browsing is HALF BUILT, one surface of the two, under CNCORE-179.** The Catalogue narrows to a
-  group; work-browsing does not yet, and neither does **search**, and both are CNCORE-180. That
-  ticket `and`s the same predicate onto each of their questions rather than writing a second one.
-  What CNCORE-179 built is below, under its own heading.
+- **Browsing and search are BUILT, all three Listings, under CNCORE-179 and CNCORE-180.** The
+  Catalogue narrowed to a group first; work-browsing and **search** followed, and `and` the same
+  predicate onto each of their questions rather than writing a second one. What each ticket built is
+  below, under its own heading.
 - **Which providers are asked** is CNCORE-182, and it is further off than the two above because it
   needs a second relation (a group to the providers it reaches) that no migration writes.
 - **Scanner roots** and **the review queue** DO NOT EXIST AS CONSTRUCTS IN THIS PRODUCT, so they are
@@ -79,7 +80,7 @@ with it would be wrong about every one of them — and since CNCORE-179, about a
   addition at a time, and a list edited down to what exists would stop refusing the sixth thing.
 
 **So the negative half of this record is the half that is now testable, and the positive half was
-still a promise** when this was written; CNCORE-179 is one surface of it kept. `group_items` carries no medium, no field set, no vocabulary and no source order,
+still a promise** when this was written; CNCORE-179 and CNCORE-180 keep the first two of its five. `group_items` carries no medium, no field set, no vocabulary and no source order,
 and `groupPublic` emits an id and a name — which is the shape refusing to accumulate rather than a
 payload waiting to be filled in.
 
@@ -144,11 +145,69 @@ which LEADS with `owner_id`; the plan reached it anyway, with an `Index Cond` on
 two index searches, because there is one Owner. That was read off the plan on 18.6 rather than
 assumed, and it is the thing to re-check if the database line `compose.yaml` pins ever moves down.
 
-**WHAT IT DOES NOT DO.** Work-browsing and Catalogue search do not narrow (CNCORE-180), and the
-procedures that answer them do not accept a group: an input that parsed one and answered the whole
-catalogue would be a promise the handler does not keep. The scope does not follow a reader from `/`
-to any other page, and a header link back to the catalogue drops it; carrying it further is
-CNCORE-181's. And a Row's own figure (`holds`, [[0140-a-row-carries-its-own-count-and-one-predicate-answers-it-twice]])
+**WHAT IT DOES NOT DO.** Work-browsing and Catalogue search did not narrow, and the procedures that
+answer them did not accept a group, until CNCORE-180 below: an input that parsed one and answered the
+whole catalogue would have been a promise the handler does not keep. The scope does not follow a
+reader from `/` to any other page, and a header link back to the catalogue drops it; carrying it
+further is CNCORE-181's. And a Row's own figure (`holds`, [[0140-a-row-carries-its-own-count-and-one-predicate-answers-it-twice]])
 is NOT narrowed: an Ordering's Row counts every member, in or out of the group, because the figure's
 contract is what the reader finds by following the Row, and the Ordering's own page is not narrowed
 either.
+
+## As built, under CNCORE-180 — and this record stays PROPOSED
+
+**BUILT: WORK-BROWSING AND CATALOGUE SEARCH NARROW TO A GROUP, and each reports the size of what it
+searched.** `/works?group=<id>` answers "what can I watch" within one scope, and
+`/search?q=<query>&group=<id>` answers "where is the thing I am thinking of" within it. Each page
+offers the Catalogue's own picker -- one component now, beside the walk in
+`apps/web/src/components/listing.tsx` -- walks within the scope, says a group that is not there is
+not there rather than "nothing to watch" or "nothing matched", and names the group in its own empty
+state. Search offers the picker only once a query is asked, and clearing the scope keeps the query:
+`Everything` on a narrowed search is the same search across the catalogue.
+
+**EACH LISTING KEEPS ITS OWN QUESTION INSIDE THE SCOPE**, which is [[0077-work-browsing-excludes-entities-by-kind]]
+surviving the narrowing. One group holding a Person, a Character, an Ordering of entities, an Ordering
+of stories and a story lists all five on the Catalogue, two on work-browsing, and finds the Person
+through search -- asserted from all three surfaces against that one group. A narrowing that REPLACED
+work-browsing's predicate rather than joining it would list the cast; this record's line between a
+scope and a partition is the same line read from the other side.
+
+**ONE PLACE A LISTING TAKES A GROUP.** CNCORE-179's `readCatalogue` joined `inTheGroup` with a
+ternary of its own; three copies of that ternary would be three readings of what an absent group
+means, so it is `narrowedTo` in `packages/db/src/queries.ts`, and `readCatalogue`, `readWorks` and
+`searchCatalogue` each hand it their question. At the router `group` moved into the shared
+`listingInput`, where CNCORE-179 said it belonged once every handler kept the promise. The Listing
+contract walks each of the three narrowed as well as whole, derived from the unnarrowed entry, so a
+fourth Listing is walked within a group without anybody remembering to add it twice.
+
+**WHAT IT COSTS, MEASURED AGAINST THE CORPUS** the way CNCORE-179 was: 2026-09-19, the Owner's own
+install, 8,052 Items, PostgreSQL 18.6, `group_items` a session-local temporary table of the same name
+and indexes inside a transaction that was rolled back. The statement is each Listing's first page as
+the app renders it, captured from the running code rather than written by hand. `EXPLAIN (ANALYZE,
+BUFFERS)`, warm cache, median of five after one discarded run, in milliseconds with the range beside
+it:
+
+| First page of | Unnarrowed | 50 Items | Largest Ordering's 2,143 | Every Item |
+|---|---|---|---|---|
+| Work-browsing | 3.2 (3.2–3.3) | 1.5 (1.4–1.5) | 3.4 (3.4–3.7) | 6.9 (6.6–7.0) |
+| Search, `dalek` (177 matches) | 2.4 (2.2–3.6) | 0.3 (0.3–0.3) | 1.2 (1.1–1.5) | 4.1 (3.9–5.2) |
+| Search, `the` (4,115 matches) | 15.1 (14.8–16.8) | 1.5 (1.4–1.6) | 8.6 (7.9–8.8) | 17.2 (16.8–17.5) |
+
+**A SCOPE ANYBODY DRAWS COSTS WHAT THE LISTING UNNARROWED COSTS, OR LESS.** The one real scope above
+its unnarrowed figure is work-browsing within the largest Ordering, by 0.2 ms. The last column is the
+ceiling CNCORE-179 named, and not a scope anybody draws: a group holding the whole catalogue narrows
+nothing and pays for the set twice.
+
+**THE PLANNER PICKS WHICH SIDE TO START FROM, and both are served.** Every `dalek` plan, and `the`
+unnarrowed and within the two larger groups, reach the match through a Bitmap Index Scan on
+`items_title_trigram`, so the group joins the match rather than displacing it. `the` within 50 Items
+does not touch that index at all: the planner starts from the group's 50 memberships and filters
+them by the match, which is why it is the cheapest search in the table. Nothing was added to steer
+either choice.
+
+**WHAT IT DOES NOT DO.** The scope still does not travel between surfaces: a group picked on `/` is
+not carried to `/works`, and the search box in the header asks across everything wherever it is
+submitted from. A reader picks the group again on each surface, which is what CNCORE-181's reload and
+shared-link work is for. A Row's own figure is not narrowed on any of the three, for the reason
+CNCORE-179 gives above. And which providers a group asks is still CNCORE-182's, so this record stays
+`proposed`: two of its five scoped things are built, one is not, and two do not exist to be scoped.
