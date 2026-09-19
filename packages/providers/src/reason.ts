@@ -54,8 +54,8 @@ export const failureReason = z.object({
   /**
    * BOUNDED IN THE CONTRACT AND NOT ONLY IN THE HANDLER, so the ceiling is in
    * the output schema a caller is held to rather than an invariant they have to
-   * take on trust from two handlers that each remembered it. Not yet in the
-   * OpenAPI document (CNCORE-212).
+   * take on trust from two handlers that each remembered it -- and in the
+   * OpenAPI document a caller reads, which `route.test.ts` asserts (CNCORE-212).
    */
   text: z.string().min(1).max(REASON_MAX_LENGTH),
 });

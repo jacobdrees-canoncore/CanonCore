@@ -75,6 +75,42 @@ describe("the catch-all oRPC route", () => {
     const spec = (await response.json()) as { paths?: Record<string, unknown> };
     expect(Object.keys(spec.paths ?? {})).toContain("/healthCheck");
   });
+
+  /**
+   * THE DOCUMENT STATES THE BOUNDS THE OUTPUT SCHEMA IS HELD TO (CNCORE-212).
+   * `failureReason.text` and a Provider's declared name are both capped at 300
+   * in the contract (ADR-0123), and the document a caller reads said
+   * `{"type":"string"}` for each: the converter read a place zod 4.6 had stopped
+   * writing, so every length and format in the API was dropped from it.
+   *
+   * ASSERTED ON THE SERVED DOCUMENT rather than on the converter, because the
+   * converter is the part that was wrong while its own input was right.
+   */
+  it("states a Provider's prose is bounded, and a Provider's address is a URL", async () => {
+    const response = await callRoute(
+      new Request("http://localhost/api/rpc/api-reference/spec.json"),
+    );
+    const answer = [
+      "paths",
+      "/provider/search",
+      "post",
+      "responses",
+      "200",
+      "content",
+      "application/json",
+      "schema",
+      "properties",
+    ];
+    const spec: unknown = await response.json();
+
+    expect(spec).toHaveProperty(
+      [...answer, "failed", "items", "properties", "reason", "properties", "text", "maxLength"],
+      300,
+    );
+    const provider = [...answer, "answered", "items", "properties", "provider", "properties"];
+    expect(spec).toHaveProperty([...provider, "name", "maxLength"], 300);
+    expect(spec).toHaveProperty([...provider, "baseUrl", "format"], "uri");
+  });
 });
 
 describe("what the mount writes to the owner's log", () => {

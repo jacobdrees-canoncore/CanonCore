@@ -34,9 +34,14 @@ from a `Request` to a `Response`, and calling it needs no Next server at all.
 
 So the mount is covered, by the two things that can independently break in it: an oRPC client
 routed at the handler proves the RPCHandler prefix, and a request for the document proves the
-OpenAPIHandler and its Zod converter. Both were checked by breaking the route rather than by being
-watched to pass -- changing the RPC prefix fails the first and only the first, and removing the
-reference plugin fails the second and only the second.
+OpenAPIHandler. Both were checked by breaking the route rather than by being watched to pass --
+changing the RPC prefix fails the first and only the first, and removing the reference plugin fails
+the second and only the second.
+
+**THE ZOD CONVERTER WAS NOT PROVED, which this paragraph claimed until CNCORE-212.** Asserting a path
+is listed passes with `schemaConverters: []`, measured by removing it, and passed while a zod bump
+dropped every length and format from the document. So the test now also asserts a bounded field's
+`maxLength` and a URL's `format`, and that assertion is the one removing the converter fails.
 
 What remains for Playwright is what genuinely needs a browser: a rendered page, on the slice that
 first has one.

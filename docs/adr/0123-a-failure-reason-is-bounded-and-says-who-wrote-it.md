@@ -168,11 +168,23 @@ reads it is now the Owner.
 
 `reasonFor(thrown)` in `@canoncore/providers` is the single mapping, and `failureReason` is the zod
 schema both procedures state as their output — so the ceiling is in the output schema a caller is
-held to rather than an invariant two handlers each had to remember. **It is NOT in the OpenAPI
-document, which this sentence claimed until CNCORE-165 read the document and found `{"type":
-"string"}`.** zod 4.6.5 keeps a length on its check's own `def` and leaves `_zod.bag` empty, and
-@orpc/zod 1.15.0 reads only the bag, so every length and format in this API is dropped from the
-document. 1.15.2 reads the checks and moves the whole @orpc family with it (CNCORE-212).
+held to rather than an invariant two handlers each had to remember, and it is stated in the OpenAPI
+document a caller reads.
+
+**FOR MOST OF 2026-09-19 IT WAS NOT, and no test noticed.** zod 4.6.5, taken that morning, keeps a
+length on its check's own `def` and leaves `_zod.bag` empty, where 4.5.4 filled it, and @orpc/zod
+1.15.0 read only the bag. So every length and format in this API dropped out of the document, and
+CNCORE-165 read it and found `{"type": "string"}` where this sentence claimed a ceiling. @orpc/zod
+1.15.1 reads the checks ("Keep JSON Schema constraints on zod >= 4.6", in its release notes), and
+CNCORE-212 took it with the @orpc family it peer-requires at exactly its own version.
+`route.test.ts` asserts the ceiling on the served document now. The test there before asserted only
+that a path was listed, which a document stating no bound anywhere still passes.
+
+**1.15.1, NOT THE 1.15.2 CNCORE-212 WAS FILED AGAINST.** The converter is byte-identical in the
+two, and 1.15.2 was hours old: taking it made pnpm write a fifteen-entry `minimumReleaseAgeExclude`
+block, waiving the 24-hour cooldown for exactly the case it exists to catch. That is the trade
+[[0105-biome-lints-and-formats]] already refused for a patch release, and `^1.15.1` takes 1.15.2 on
+the first update after it ages out.
 
 **ONE FUNCTION RATHER THAN TWO LOCAL TRUNCATIONS, because the surface is still growing.** CNCORE-100
 and CNCORE-101 are both blocked by this ticket on purpose: a live provider failing on an expired
@@ -525,9 +537,9 @@ declining `browse` well-formed rather than a failure.
 `PROVIDER_REFUSED` carried a bare `message` string. That is the same field the read surfaces carry as
 `{wrote, text}`, spelled twice — and the half a string cannot carry is `wrote`, so a caller holding
 one had no way to tell this catalogue's sentence about the Owner's own settings from a third party's
-text. It is `data: failureReason` now, declared, so the ceiling is in the output schema rather than
-an invariant each handler remembered — and not yet in the OpenAPI document, for the reason "As built,
-under CNCORE-95" gives (CNCORE-212).
+text. It is `data: failureReason` now, declared, so the ceiling is in the output schema and in the
+OpenAPI document rather than an invariant each handler remembered. The document lost it for a day,
+for the reason "As built, under CNCORE-95" gives, and states it again since CNCORE-212.
 
 Its MESSAGE was wrong too, and in the way this record warns about. "That provider URL is not one this
 instance may reach" is true of ADR-0034 refusing a URL and false of the other two the branch carries
@@ -697,10 +709,11 @@ one Provider's name taking the page down for every other Provider on it — and 
 bounds the name before any router code sees it, so a name past this ceiling can only be a bug in
 this app, and a bug belongs in the log with its stack (ADR-0125) rather than on a page as a flood.
 
-It is not yet in the OpenAPI document, for the reason "As built, under CNCORE-95" now gives
-(CNCORE-212). CNCORE-165 wrote that test first, found every length in the API missing from the
-document, and split the fix out because 1.15.2 peer-requires `@orpc/server` and `@orpc/contract` at
-exactly 1.15.2 — the RPC stack moving together is not a change about a Provider's name.
+It is in the OpenAPI document too, and `route.test.ts` asserts it on the served document. CNCORE-165
+wrote that test first, found every length in the API missing from the document, for the reason "As
+built, under CNCORE-95" gives, and split the fix out because the fixed @orpc/zod peer-requires
+`@orpc/server` and `@orpc/contract` at exactly its own version — the RPC stack moving together is
+not a change about a Provider's name. CNCORE-212 moved it.
 
 ### Asserted at three seams, each proving what the others cannot
 
