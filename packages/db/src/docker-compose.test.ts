@@ -16,6 +16,7 @@ import { describe, expect, it } from "vitest";
  * way, and reported it as passing.
  */
 const composeFile = fileURLToPath(new URL("../docker-compose.yml", import.meta.url));
+const packageFile = fileURLToPath(new URL("../package.json", import.meta.url));
 
 /**
  * The host side of every port this compose file publishes to the container's
@@ -48,6 +49,44 @@ function declaredShmSize(compose: string): number | undefined {
   if (!parsed) throw new Error(`shm_size: cannot read ${JSON.stringify(value)}`);
   const unit = parsed[2]?.toLowerCase() as keyof typeof bytesPerUnit | undefined;
   return Number(parsed[1]) * (unit ? bytesPerUnit[unit] : 1);
+}
+
+/**
+ * The words of every `docker compose` command in a script, one array per
+ * command, so that a second command after `&&` is judged on its own flags.
+ */
+function composeCommands(script: string): string[][] {
+  return script.split(/&&|\|\||[;|]/).flatMap((command) => {
+    const words = command.trim().split(/\s+/);
+    const docker = words.findIndex((word, i) => word === "docker" && words[i + 1] === "compose");
+    return docker === -1 ? [] : [words.slice(docker + 2)];
+  });
+}
+
+/**
+ * The scripts that run a `docker compose up` able to RECREATE a container that
+ * already exists: one without `--no-recreate`, or with `--force-recreate`.
+ */
+function composeUpsThatCanRecreate(scripts: Record<string, string>): string[] {
+  return Object.entries(scripts)
+    .filter(([, script]) =>
+      composeCommands(script).some(
+        (words) =>
+          words.includes("up") &&
+          (!words.includes("--no-recreate") || words.includes("--force-recreate")),
+      ),
+    )
+    .map(([name]) => name);
+}
+
+/**
+ * The scripts that tell Compose to remove orphans, by the flag or by the
+ * variable Compose reads in its place.
+ */
+function scriptsThatRemoveOrphans(scripts: Record<string, string>): string[] {
+  return Object.entries(scripts)
+    .filter(([, script]) => /--remove-orphans\b|\bCOMPOSE_REMOVE_ORPHANS\b/.test(script))
+    .map(([name]) => name);
 }
 
 describe("the development database container", () => {
@@ -114,5 +153,69 @@ describe("the development database container", () => {
         couldBind5432: false,
       });
     }
+  });
+});
+
+describe("the scripts every worktree runs against it", () => {
+  it("recognises every `up` that can recreate a container", () => {
+    // Fixtures rather than the real file, so the check is tested and not just
+    // exercised. Global options may sit between `compose` and `up`, and a
+    // second command after `&&` is judged on its own flags, not the first's.
+    expect(
+      composeUpsThatCanRecreate({
+        plain: "docker compose up -d",
+        attached: "docker compose up",
+        forced: "docker compose up -d --force-recreate",
+        global: "docker compose -f other.yml up -d",
+        chained: "docker compose up -d --no-recreate && docker compose up -d",
+        guarded: "docker compose up -d --no-recreate",
+        prefixed: "COMPOSE_IGNORE_ORPHANS=true docker compose up -d --no-recreate",
+        stop: "docker compose stop",
+        test: "vitest run",
+      }),
+    ).toStrictEqual(["plain", "attached", "forced", "global", "chained"]);
+  });
+
+  it("starts the container without recreating the one every worktree is using", async () => {
+    // A plain `up` recreates the container whenever this checkout's copy of the
+    // file, or the image `postgres:18` names, differs from what created it
+    // (CNCORE-233). `name: canoncore` makes that ONE container for every
+    // worktree, so the last worktree to run `db:start` would win, and every
+    // other worktree's run would die with it.
+    const { scripts } = JSON.parse(await readFile(packageFile, "utf8")) as {
+      scripts: Record<string, string>;
+    };
+
+    const ups = Object.values(scripts)
+      .flatMap(composeCommands)
+      .filter((words) => words.includes("up"));
+
+    expect(ups.length).toBeGreaterThan(0);
+    expect(composeUpsThatCanRecreate(scripts)).toStrictEqual([]);
+  });
+
+  it("recognises both ways Compose is told to remove orphans", () => {
+    // The flag, and the variable Compose reads in its place. Silencing the
+    // warning is not removing anything, so COMPOSE_IGNORE_ORPHANS passes.
+    expect(
+      scriptsThatRemoveOrphans({
+        up: "docker compose up -d --no-recreate --remove-orphans",
+        down: "docker compose down --remove-orphans",
+        variable: "COMPOSE_REMOVE_ORPHANS=true docker compose up -d --no-recreate",
+        ignored: "COMPOSE_IGNORE_ORPHANS=true docker compose up -d --no-recreate",
+        stop: "docker compose stop",
+      }),
+    ).toStrictEqual(["up", "down", "variable"]);
+  });
+
+  it("never removes orphans, because here the orphans are the Owner's install", async () => {
+    // The Owner's install runs as Compose project `canoncore` too, so from this
+    // directory Compose calls its app and database orphans and recommends
+    // `--remove-orphans` for them. That would delete the real catalogue.
+    const { scripts } = JSON.parse(await readFile(packageFile, "utf8")) as {
+      scripts: Record<string, string>;
+    };
+
+    expect(scriptsThatRemoveOrphans(scripts)).toStrictEqual([]);
   });
 });
