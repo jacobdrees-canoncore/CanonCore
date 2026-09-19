@@ -382,7 +382,9 @@ which is the only test of one there is: a well-formed Credential and a usable on
 until then. A Provider may Spend what it is given before holding it. One its upstream refuses is
 refused at the unlock path with the reason, and changes nothing the Provider already held; one it
 could not Spend at all, because the upstream was unreachable, is held and _not Spent_, since an
-outage is no evidence about a Credential. `valid` means only that nothing has refused a Credential
+outage is no evidence about a Credential. One no request could carry is not that case: it is refused
+without being Spent, as a missing field is, because it is evidence about the Credential and nothing
+was sent. `valid` means only that nothing has refused a Credential
 yet, so it is true of one not Spent as well (ADR-0122).
 _Avoid_: verify, validate, unverified — each reads as a stronger claim than `valid` makes
 
