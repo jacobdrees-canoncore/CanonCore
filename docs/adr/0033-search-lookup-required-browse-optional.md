@@ -635,7 +635,7 @@ something an owner can read rather than something the code happens to do.
 **WHERE A CONTAINER ID COMES FROM, HELD TO FROM THE OTHER SIDE.** The CNCORE-17 section above decided
 that the owner names it, because no CMPP operation answers "which containers do you have" -- one does
 since CNCORE-185, no provider answered it with a container until CNCORE-208 on 2026-09-19 (the
-CNCORE-186 section below), and this app asks it since CNCORE-187 (the last section of this record)
+CNCORE-186 section below), and this app asks it since CNCORE-187 (the CNCORE-187 section below)
 -- and a record's `series` is a name that can be renamed out from under an import. The surface
 obeyed it literally until CNCORE-187: the owner picked a provider and typed the container's own id.
 They still do at a provider that declines `containers`, and anywhere for a container a list leaves
@@ -659,7 +659,7 @@ providers -- so the candidate an owner is looking at could offer its own contain
 operation. Whatever builds that is where the choice gets made. **THAT WAS FALSE OF BOTH PROVIDERS'
 SEARCHES**: the paragraph below finds the wiki sends no `series_id`, and CNCORE-187 found
 `provider-tmdb` sends it on a lookup and a browse and NEVER on a search, so no candidate can offer its
-container at either (the last section of this record).
+container at either (the CNCORE-187 section below).
 
 **THAT REASON IS WRONG, AND THE OPERATION IS PROPOSED AFTER ALL (CNCORE-185).** Checked 2026-09-13:
 `provider-wiki` emits no `series_id` anywhere -- the string does not occur in one of its source files
@@ -672,9 +672,9 @@ provider whose records have one parent, and the provider this catalogue is built
 So both are owed, and they answer different questions. `series_id` should stop being stripped by the
 consumer schema, which is this record's own unbuilt half below wearing a different hat -- a declared
 field travelling the wire and read by nothing. It stopped under CNCORE-187 and is still read by
-nothing, for the reason the last section of this record gives. And an operation that LISTS containers is what serves
-a provider whose containers no record can name: it is `containers`, declared under CNCORE-185 in the
-last section of this record. Neither is what keeps this record `proposed`: that is
+nothing, for the reason the CNCORE-187 section below gives. And an operation that LISTS containers is what serves
+a provider whose containers no record can name: it is `containers`, declared in the CNCORE-185 section
+below. Neither is what keeps this record `proposed`: that is
 still `max_cache_age` and the image policy, and landing either of these does not flip it.
 
 **A NEW CALLER OF `search` THAT IS NOT A SEARCH.** `provider.held` asks which of a provider's records
@@ -873,7 +873,7 @@ says so itself, that they "are codes of this app's own rather than common defs".
 ever answered `BROWSE_NOT_OFFERED`, and none can. So the 422 rule governs the app's layer and this
 404 governs the provider's, and they are not in competition. **THE STATUS OF ITS OWN THAT AN OWNER
 READS WAS OWED TO CNCORE-187**, where a surface asks and a Provider that declines has to say so to a
-person, and it turned out not to be a status: the last section of this record says why it is an
+person, and it turned out not to be a status: the CNCORE-187 section below says why it is an
 answer at 200. What the contract fixes here is narrower and is the half that had to come first: the
 wire answer, which rules out the empty list and the fault.
 
@@ -887,7 +887,7 @@ ticket's, and saying so is cheaper than leaving a rule half-applied and unremark
 CNCORE-186 is where ONE does -- this said "where both do" and was wrong when it was written, which
 the section below sets out: `provider-wiki` answers and `provider-tmdb` declines, because TMDB
 publishes no bounded enumeration of its containers and this operation carries no cursor. CNCORE-187
-is where a surface asks, and the last section of this record is that. When this landed nothing in
+is where a surface asks, and the CNCORE-187 section below is that. When this landed nothing in
 this repository called it, and `packages/contract` still does not: it depends on no `@canoncore/*`
 package, so nothing there could. Half a mechanism looks finished from outside, so it was written
 here: what existed then was a shape, a declaration rule and a conformance suite that would hold a
@@ -1047,7 +1047,7 @@ Containers it holds and offers them to pick from. `provider.containers` reads th
 asks only a Provider declaring the operation, as `browse` is read, and it answers one of three
 things, as `provider.container` does: the containers, `containers-not-offered`, or `unreachable` with
 the Provider's own bounded sentence ([[0123-a-failure-reason-is-bounded-and-says-who-wrote-it]]). A
-lapsed Credential's `503` naming `/unlock`, which the section above measured live at this path,
+lapsed Credential's `503` naming `/unlock`, which the CNCORE-186 section measured live at this path,
 reaches the Owner as that sentence and never as an empty list.
 
 **THE STATUS OF ITS OWN THAT AN OWNER READS, WHICH THE CNCORE-185 SECTION SAID WAS OWED, IS NOT A
@@ -1080,7 +1080,7 @@ link is that address, and following it imports `Theory:Timeline - "War Child" Ma
 members in the wiki's own order, which is not their release order.
 
 **THE ID BOX STAYS, UNDER EVERY ANSWER.** For a decliner it is the only way in. For `provider-wiki`
-it reaches what the list leaves out, because the section above narrowed `containers` to what the
+it reaches what the list leaves out, because the CNCORE-186 section narrowed `containers` to what the
 source asserts as one: its categories browse and are not listed.
 
 **`series_id` STOPPED BEING STRIPPED AND IS READ BY NOTHING, AND THE REASON FOR READING IT WAS FALSE

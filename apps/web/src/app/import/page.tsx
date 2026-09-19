@@ -1280,7 +1280,12 @@ function WhatItHolds({
 }) {
   return (
     <section aria-labelledby="containers" className="mt-6">
-      <h3 className="font-medium text-sm" id="containers">
+      {/*
+        AN `h2`, A SECTION OF THE PAGE IN ITS OWN RIGHT, which is also what lets
+        the walk's own notice -- `PastTheEnd`, headed `h2` on every Listing --
+        sit in it without a heading outranking the one above it.
+      */}
+      <h2 className="font-medium text-sm" id="containers">
         {/*
           BY ITS OWN NAME WHERE IT ANSWERED, and by the URL the Owner typed
           where it did not, since reading the name is one of the things that
@@ -1289,7 +1294,7 @@ function WhatItHolds({
         What{" "}
         <TheirWords>{offered.answer === "unreachable" ? baseUrl : offered.providerName}</TheirWords>{" "}
         holds
-      </h3>
+      </h2>
       {offered.answer === "containers" && (
         <ItsContainers
           baseUrl={baseUrl}

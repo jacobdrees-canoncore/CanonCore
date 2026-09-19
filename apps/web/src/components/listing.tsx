@@ -14,7 +14,8 @@ import { inTheFixedOrder, type LinkQuery } from "./query-params";
 import { TheirWords } from "./their-words";
 
 /**
- * ONE LISTING, RENDERED -- shared by FOUR surfaces now.
+ * ONE LISTING, RENDERED -- shared by FOUR surfaces now, and its walk and its
+ * count by a fifth: what one Provider holds, on `/import` (CNCORE-187).
  *
  * The front page asks "what is in this catalogue", `/works` asks "what can I
  * watch" (the two questions ADR-0077 names), and `/search` asks "where is the
@@ -60,8 +61,13 @@ type Row = ListingAnswer["rows"][number];
  * them and would have to be cast, which is the type system being told to stop
  * looking exactly where ADR-0109 wants it looking. A third reading surface adds
  * a member here and the compiler finds every link that needs it.
+ *
+ * `/import` IS THE FOURTH (CNCORE-187), and the one whose Listing is not the
+ * catalogue's: what one Provider holds, walked a page at a time. It is on that
+ * page beside things that are not Listings, so it takes the walk and the count
+ * here and not `Listing`'s Rows.
  */
-export type ListingPath = "/" | "/works" | "/search";
+export type ListingPath = "/" | "/works" | "/search" | "/import";
 
 /**
  * THE FOURTH LISTING'S ADDRESS, and the one that is not a literal.
@@ -180,8 +186,9 @@ export type ItemPageListing = "members" | "appearances";
  * `<Walk path="/search" />` compile -- and that renders exactly the failure the
  * type above has a paragraph warning about: a `Back to the start` pointing at
  * `/search` with no `q`, which is the page that ASKS for a query rather than
- * the first page of anybody's results. The one that is not its address must
- * pass one, and the two that are may not.
+ * the first page of anybody's results. The ones that are not their address must
+ * pass one -- `/search` its query, `/import` its Provider -- and the two that
+ * are may not.
  *
  * AND THE THREE THAT ARE THEIR OWN SURFACE MAY BE NARROWED, which is optional
  * because each unnarrowed is its address with no Group on it (CNCORE-179,
@@ -278,11 +285,11 @@ const ENDS_HERE = {
   // A PROVIDER'S LIST, and the noun is the glossary's: what it offers is
   // Containers, whichever word its source uses for them.
   "/import": "The containers this provider lists end here",
-} as const satisfies Record<ListingPath | "/import" | ItemPageListing, string>;
+} as const satisfies Record<ListingPath | ItemPageListing, string>;
 
 /**
- * WHAT EACH LISTING WALKS WITH, which is the same word for four of the five and
- * a second one for the fifth.
+ * WHAT EACH LISTING WALKS WITH, which is the same word for five of the six and
+ * a second one for the sixth.
  *
  * ADR-0066 argues `after` for the Members listing precisely because it is "the
  * same word the other three listings walk with", and a parameter named for one
@@ -325,20 +332,20 @@ type WhereTo = { after: string } | { before: string } | { letter: string };
  * A LOOKUP RATHER THAN A PARAMETER, which is the fix `PastTheEnd` already
  * carries a paragraph about: it took a `path` and a free-text `what`, nothing
  * held the two in step, and `what="The works"` rendered "The works ends here".
- * The three literal paths key themselves; the fourth cannot, so it is named.
+ * The four literal paths key themselves; the item page's cannot, so it is named.
  *
  * AND BOTH HALVES ARE CHECKED, WHICH REVIEW OF CNCORE-89 FOUND THEY WERE NOT.
  * This record carried `Record<ListingPath, string>` until a key arrived that is
  * not a path, and dropping the annotation dropped the check with it -- leaving
  * a comment here claiming an exhaustiveness nothing held. The `satisfies` above
  * is one half: every listing path still owes a sentence. The `satisfies` below
- * is the other: a fifth surface added to `Walking` fails to compile here,
+ * is the other: a surface added to `Walking` with no sentence fails to compile here,
  * where a bare fallthrough would silently have rendered a container's sentence
  * over somebody else's listing.
  */
 function endsHere(walking: Walking): string {
   // NARROWED ON `listing` RATHER THAN ON `path`, which is a fix rather than a
-  // preference: `MembersPath` is a TEMPLATE LITERAL type, so excluding the three
+  // preference: `MembersPath` is a TEMPLATE LITERAL type, so excluding the
   // literal paths does not narrow this union the way excluding literals would.
   // `listing` is present on exactly the member whose path is not a literal, so
   // it discriminates where the path cannot.

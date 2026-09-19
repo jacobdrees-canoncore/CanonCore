@@ -71,7 +71,10 @@ export class ProviderFailed extends Error {
  * ONE WRAPPER FOR BOTH WRITE PATHS, for the reason `browseIfOffered` below is
  * one preamble for two callers: `import` and `browse` had the identical `catch`
  * and the identical hole in it (CNCORE-149), which is how one defect came to
- * have two sites -- the shape ADR-0123 was written about.
+ * have two sites -- the shape ADR-0123 was written about. AND FOR ONE READ,
+ * `provider.containers` (CNCORE-187), for the reason it exists on the write
+ * paths: that read queries the catalogue after the provider answers, and the
+ * catalogue's failure must not be reported as the provider's.
  *
  * IT WRAPS THE ASKING AND NOTHING ELSE. What goes inside is every request a
  * provider can fail; what stays outside is the catalogue's own write and the
@@ -578,17 +581,26 @@ async function oneContainerIntoTheCatalogue(
  * no position, so the walk starts over, which is ADR-0119's answer for a row
  * that is gone. A step back that reaches the start answers the first page
  * whole rather than the few rows short of it, as the Listings do.
+ *
+ * EACH ID ONCE, THE FIRST COPY STANDING, because the cursor is an id and
+ * nothing in CMPP promises a provider names each container once. With a repeat,
+ * `Next` from a page ending on the second copy found the first and served that
+ * page again, forever (found by review of CNCORE-187). A container offered twice
+ * is no more pickable than one offered once.
  */
 function aPageOf<Listed extends { id: string }>(
-  listed: Listed[],
+  answered: Listed[],
   { limit, after, before }: { limit: number; after?: string; before?: string },
 ) {
-  const past = after === undefined ? -1 : listed.findIndex(({ id }) => id === after);
-  const short = before === undefined ? -1 : listed.findIndex(({ id }) => id === before);
-  const start = past >= 0 ? past + 1 : short >= 0 ? Math.max(0, short - limit) : 0;
+  const seen = new Set<string>();
+  const listed = answered.filter(({ id }) => !seen.has(id) && seen.add(id));
+  const afterAt = after === undefined ? -1 : listed.findIndex(({ id }) => id === after);
+  const beforeAt = before === undefined ? -1 : listed.findIndex(({ id }) => id === before);
+  const start = afterAt >= 0 ? afterAt + 1 : beforeAt >= 0 ? Math.max(0, beforeAt - limit) : 0;
   const page = listed.slice(start, start + limit);
   return {
     page,
+    total: listed.length,
     continuesAfter: start + limit < listed.length ? (page.at(-1)?.id ?? null) : null,
     continuesBefore: start > 0 ? (page[0]?.id ?? null) : null,
   };
@@ -1204,7 +1216,7 @@ export const provider = {
       if (said.containers === null) {
         return { answer: "containers-not-offered" as const, providerName };
       }
-      const { page, continuesAfter, continuesBefore } = aPageOf(said.containers, input);
+      const { page, total, continuesAfter, continuesBefore } = aPageOf(said.containers, input);
       const held = await findItemsProvided(context.db, {
         identity: input.baseUrl,
         externalIds: page.map(({ id }) => id),
@@ -1218,7 +1230,7 @@ export const provider = {
           kind,
           itemId: held.get(id) ?? null,
         })),
-        total: said.containers.length,
+        total,
         continuesAfter,
         continuesBefore,
       };

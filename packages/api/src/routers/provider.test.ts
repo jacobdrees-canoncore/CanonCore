@@ -206,6 +206,12 @@ async function stubProvider(
      * ascending, and every wiki id is one.
      */
     listed = [] as unknown[],
+    /**
+     * The sentence `/containers` refuses with, `503`, where the manifest before
+     * it answered: what `provider-wiki` with a lapsed Credential did at this
+     * path when ADR-0033's CNCORE-186 section measured it live.
+     */
+    refusesContainersWith = undefined as string | undefined,
     attribution = null as typeof ATTRIBUTION | null,
     /** What the provider calls itself, for a test about what it may call itself. */
     name = MANIFEST.name,
@@ -233,6 +239,9 @@ async function stubProvider(
     // A PROVIDER THAT DECLINES THE OPERATION HAS NOTHING AT THIS PATH, which is
     // the `404` both real providers answer and ADR-0033 requires of a decliner.
     if (path === "/containers" && operations.includes("containers")) {
+      if (refusesContainersWith !== undefined) {
+        return json({ error: refusesContainersWith, provider: "a provider" }, 503);
+      }
       return json({ containers: listed });
     }
     // `search`, MATCHED ON THE TITLE, which is the least a stub can do and still
@@ -1689,6 +1698,10 @@ describe("provider.containers", () => {
     // AND A STEP BACK IS THE PAGE IT CAME FROM (CNCORE-174), not the start.
     const back = await page({ before: third.continuesBefore ?? "" });
     expect(back.containers).toEqual(second.containers);
+    // BUT ONE THAT WOULD RUN PAST THE START ANSWERS THE FIRST PAGE WHOLE, the
+    // cursor's own container included, rather than the one short of it.
+    const toTheStart = await page({ before: "258752" });
+    expect(toTheStart).toMatchObject({ containers: first.containers, continuesBefore: null });
   });
 
   it("starts at the beginning from a cursor naming nothing, and refuses a page past the cap", async () => {
@@ -1715,6 +1728,33 @@ describe("provider.containers", () => {
     expect((error as { code?: string })?.code).toBe("BAD_REQUEST");
   });
 
+  it("offers a container the provider answered twice once, so the walk still ends", async () => {
+    /*
+     * THE CURSOR IS AN ID, SO THE WALK NEEDS EACH ID ONCE, and nothing in CMPP
+     * says a provider's answer has that. Found by review of CNCORE-187: with a
+     * repeat, `Next` from the page ending on the second copy found the FIRST
+     * copy and served the same page again, forever. A container offered twice
+     * is no more pickable than one offered once, so the first copy stands.
+     */
+    const [scaroth, bakerStreet, warChild] = FIVE_TIMELINES;
+    const baseUrl = await aProviderListing([scaroth, bakerStreet, warChild, bakerStreet]);
+    const seen: string[] = [];
+    let after: string | undefined;
+    for (let turns = 0; turns < 5; turns++) {
+      const answer = await call(
+        appRouter.provider.containers,
+        { baseUrl, limit: 2, after },
+        { context },
+      );
+      if (answer.answer !== "containers") throw new Error(`answered ${answer.answer}`);
+      seen.push(...answer.containers.map(({ containerId }) => containerId));
+      if (answer.continuesAfter === null) break;
+      after = answer.continuesAfter;
+    }
+
+    expect(seen).toEqual(["416127", "258752", "286338"]);
+  });
+
   it("says a provider does not offer them, and does not ask it for them", async () => {
     /*
      * AN ABSENT CAPABILITY IS NOT AN EMPTY ANSWER (ADR-0033 under CNCORE-185),
@@ -1739,11 +1779,30 @@ describe("provider.containers", () => {
   it("says a provider could not answer, in its own words, rather than that it holds none", async () => {
     /*
      * THE THIRD ANSWER, AND THE ONE ADR-0033 SAW LIVE: `provider-wiki` with a
-     * lapsed Credential answers `503` at `/containers` and names `/unlock`. An
-     * empty list here would tell the Owner their provider holds nothing, when
-     * what it needs is a session -- so the reason travels, attributed to the
-     * provider that wrote it (ADR-0123).
+     * lapsed Credential answered its manifest, declaring the operation, and
+     * then `503` at `/containers` naming `/unlock`. An empty list here would
+     * tell the Owner their provider holds nothing, when what it needs is a
+     * session -- so the reason travels, attributed to the provider that wrote
+     * it (ADR-0123). Review of CNCORE-187 found this test refusing at the
+     * MANIFEST while its comment claimed this path; the case below is that one.
      */
+    const baseUrl = await stubProvider(
+      {},
+      { operations: ["search", "lookup", "browse", "containers"], refusesContainersWith: LAPSED },
+    );
+
+    const answer = await call(appRouter.provider.containers, { baseUrl }, { context });
+
+    expect(answer).toMatchObject({
+      answer: "unreachable",
+      reason: { wrote: "provider", text: expect.stringContaining(LAPSED) },
+    });
+  });
+
+  it("says so too when the provider refuses before it has said what it offers", async () => {
+    // A `503` ON EVERY PATH, the manifest included, which is CNCORE-100's
+    // expired `cf_clearance`: nothing is known about the operation at all, and
+    // that is still not a provider holding none.
     const baseUrl = await stubProviderRefusingWith(LAPSED);
 
     const answer = await call(appRouter.provider.containers, { baseUrl }, { context });

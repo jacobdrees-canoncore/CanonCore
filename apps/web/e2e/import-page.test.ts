@@ -997,7 +997,7 @@ describe("/import, offering what a provider holds", () => {
     expect(seen).toEqual(TIMELINES.map(({ title }) => title));
   });
 
-  it("says a provider that lists nothing does not offer to, and keeps the id for it", async () => {
+  it("says a provider declining the operation does not list them, and keeps the id for it", async () => {
     /*
      * AN ABSENT CAPABILITY IS NOT AN EMPTY ANSWER (story 60). `provider-tmdb`
      * declines the operation -- TMDB publishes nothing that lists its
@@ -1021,8 +1021,11 @@ describe("/import, offering what a provider holds", () => {
   });
 
   it("says a provider could not answer, in its own words, rather than that it holds none", async () => {
-    // A LAPSED CREDENTIAL, WHICH ADR-0033 SAW LIVE AT `/containers`: a `503`
-    // naming `/unlock`. The Owner's remedy is in the provider's sentence.
+    // A LAPSED CREDENTIAL, which this stub answers with a `503` on every path,
+    // the manifest included. The live wiki answered its manifest and refused at
+    // `/containers` itself (ADR-0033); `provider.test.ts` asks that shape at the
+    // router, and here the page has one sentence to carry either way: the
+    // provider's own, with the Owner's remedy in it.
     const lapsed = providerSearch.refusesWithASentence;
 
     const { status, text } = await documentAt(picking(lapsed.url), owner);
