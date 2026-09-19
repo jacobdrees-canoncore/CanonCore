@@ -1,6 +1,13 @@
 import { describe, expect, inject, it } from "vitest";
 
-import { documentAt, documentFrom, markedCurrentIn, scopeLinked, sectionIn } from "./document";
+import {
+  documentAt,
+  documentFrom,
+  itemsLinkedFrom,
+  markedCurrentIn,
+  scopeLinked,
+  sectionIn,
+} from "./document";
 
 /**
  * CATALOGUE SEARCH over real HTTP. ADR-0103's fourth seam, which is the one
@@ -21,6 +28,20 @@ const timeSpan = inject("timeSpan");
 const itemId = inject("itemId");
 /** The same build, an empty database, and no allowlist (ADR-0094). */
 const freshBaseUrl = inject("freshBaseUrl");
+
+/**
+ * Where the page says the results carry on, if it says so at all -- on a plain
+ * search and on one narrowed to a Group alike, which is why it is out here
+ * rather than inside either block.
+ *
+ * UNESCAPED, because this href carries TWO parameters and React writes the
+ * separator as `&amp;`. A test fetching the raw attribute would ask for a
+ * query string with a parameter called `amp;after`, which names no cursor --
+ * so the walk would restart every page and the bug would look like the app's.
+ */
+function carriesOnAt(text: string): string | undefined {
+  return text.match(/href="(\/search\?[^"]*after=[^"]*)"/)?.[1]?.replaceAll("&amp;", "&");
+}
 
 describe("/search", () => {
   it("finds an item by a word inside its title, and links to its own address", async () => {
@@ -120,23 +141,6 @@ describe("/search on a result set larger than one page", () => {
    * at all, which is the state the walk is asserted against.
    */
   const QUERY = "story";
-
-  /** Every item one rendered page links at, in the order it links them. */
-  function itemsLinkedFrom(text: string): string[] {
-    return [...text.matchAll(/href="\/items\/([^"?]+)"/g)].map(([, id]) => id as string);
-  }
-
-  /**
-   * Where the page says the results carry on, if it says so at all.
-   *
-   * UNESCAPED, because this href carries TWO parameters and React writes the
-   * separator as `&amp;`. A test fetching the raw attribute would ask for a
-   * query string with a parameter called `amp;after`, which names no cursor --
-   * so the walk would restart every page and the bug would look like the app's.
-   */
-  function carriesOnAt(text: string): string | undefined {
-    return text.match(/href="(\/search\?[^"]*after=[^"]*)"/)?.[1]?.replaceAll("&amp;", "&");
-  }
 
   it("reaches every match by following links, and lands on none of them twice", async () => {
     // THE TICKET'S CRITERIA AT THE SEAM IT NAMES BY HAND: a search matching
@@ -262,16 +266,6 @@ describe("/search narrowed to a Group", () => {
    * `title ilike ...` and that is NULL without one.
    */
   const matchedInTheGroup = group.holds.filter((id) => !inject("pagedUntitled").includes(id));
-
-  /** Every item one rendered page links at, in the order it links them. */
-  function itemsLinkedFrom(text: string): string[] {
-    return [...text.matchAll(/href="\/items\/([^"?]+)"/g)].map(([, id]) => id as string);
-  }
-
-  /** Where the page says the results carry on, if it says so at all. */
-  function carriesOnAt(text: string): string | undefined {
-    return text.match(/href="(\/search\?[^"]*after=[^"]*)"/)?.[1];
-  }
 
   it("searches within a Group picked from the results, at the size of what it searched", async () => {
     // THE CRITERIA TOGETHER: the matches are the Group's, and "Showing 100 of"

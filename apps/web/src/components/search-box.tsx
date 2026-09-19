@@ -25,6 +25,14 @@ import Form from "next/form";
  * NO JAVASCRIPT IS REQUIRED OF THE READER. `Form` degrades to a plain GET form,
  * so search works with scripting off -- and the whole page-over-HTTP suite is a
  * reader with scripting off, which is why it can assert this at all.
+ *
+ * TODO(CNCORE-181): IT SEARCHES THE WHOLE CATALOGUE WHEREVER IT IS SUBMITTED
+ * FROM, a narrowed page included. `/search` answers within a Group since
+ * CNCORE-180, but the Group is picked on the results page: a reader on
+ * `/search?q=rose&group=<id>` who types a second query here loses the scope
+ * and picks it again. The box sits in the shell, which reads no page's query,
+ * so carrying the Group into it is the scope travelling between surfaces --
+ * CNCORE-181's, as ADR-0010 records under CNCORE-179.
  */
 export function SearchBox() {
   return (

@@ -71,8 +71,8 @@ rather than all of them:
   Catalogue narrowed to a group first; work-browsing and **search** followed, and `and` the same
   predicate onto each of their questions rather than writing a second one. What each ticket built is
   below, under its own heading.
-- **Which providers are asked** is CNCORE-182, and it is further off than the two above because it
-  needs a second relation (a group to the providers it reaches) that no migration writes.
+- **Which providers are asked** is CNCORE-182, and it is the one of the three still to build because
+  it needs a second relation (a group to the providers it reaches) that no migration writes.
 - **Scanner roots** and **the review queue** DO NOT EXIST AS CONSTRUCTS IN THIS PRODUCT, so they are
   not unbuilt scoping over a built thing — there is nothing to scope. Nothing in the repository scans
   a filesystem and nothing queues a review. They stay in the list because the list is CLOSED and its
@@ -101,12 +101,14 @@ a group that is not there says that instead.
 
 **ONE PREDICATE, AND IT ARRIVES BEFORE THE SIZE IS TAKEN.** `inTheGroup` in
 `packages/db/src/queries.ts` is the set of a group's live memberships, and `readCatalogue` `and`s it
-onto the catalogue's own predicate -- the same way Catalogue search `and`s its match on -- so every
+onto the catalogue's own predicate -- through `withinTheGroup` since CNCORE-180, and the same way
+Catalogue search `and`s its match on -- so every
 Listing that narrows reads membership from one place. That combined value is the `within`
 `walkListing` hands to `theSize`, and the Rows read their `WHERE` back off the same value — so a group narrowing the Rows and not
 the count, which is the whole catalogue's size reported over a narrowed page, has no second place to
 be missing from. The Listing contract (`listing.test.ts`) walks the narrowed catalogue as one more
-line in its list, and so inherits the cap, the walk and both positions of the size.
+entry in its list -- derived from the unnarrowed entry by `narrowedToAGroup` since CNCORE-180 -- and
+so inherits the cap, the walk and both positions of the size.
 
 **IT NARROWS THE LISTING'S QUESTION RATHER THAN REPLACING IT**, which is this record's own line
 between a scope and a partition read from the other side. An Item deleted from the catalogue stays
@@ -174,7 +176,7 @@ scope and a partition is the same line read from the other side.
 
 **ONE PLACE A LISTING TAKES A GROUP.** CNCORE-179's `readCatalogue` joined `inTheGroup` with a
 ternary of its own; three copies of that ternary would be three readings of what an absent group
-means, so it is `narrowedTo` in `packages/db/src/queries.ts`, and `readCatalogue`, `readWorks` and
+means, so it is `withinTheGroup` in `packages/db/src/queries.ts`, and `readCatalogue`, `readWorks` and
 `searchCatalogue` each hand it their question. At the router `group` moved into the shared
 `listingInput`, where CNCORE-179 said it belonged once every handler kept the promise. The Listing
 contract walks each of the three narrowed as well as whole, derived from the unnarrowed entry, so a
@@ -182,10 +184,12 @@ fourth Listing is walked within a group without anybody remembering to add it tw
 
 **WHAT IT COSTS, MEASURED AGAINST THE CORPUS** the way CNCORE-179 was: 2026-09-19, the Owner's own
 install, 8,052 Items, PostgreSQL 18.6, `group_items` a session-local temporary table of the same name
-and indexes inside a transaction that was rolled back. The statement is each Listing's first page as
-the app renders it, captured from the running code rather than written by hand. `EXPLAIN (ANALYZE,
-BUFFERS)`, warm cache, median of five after one discarded run, in milliseconds with the range beside
-it:
+and indexes inside a transaction that was rolled back, then `ANALYZE`d. The statement is each
+Listing's first page (`limit` 101: a page of 100 and the Row that says there is more) as the app
+renders it, captured from the running code by wrapping the pool's `query` rather than written by
+hand. The three groups are the first 50 live Items by id, the distinct live Items of the Ordering
+holding the most live Placements, and every live Item. `EXPLAIN (ANALYZE, BUFFERS)`, warm cache,
+median of five after one discarded run, in milliseconds with the range beside it:
 
 | First page of | Unnarrowed | 50 Items | Largest Ordering's 2,143 | Every Item |
 |---|---|---|---|---|

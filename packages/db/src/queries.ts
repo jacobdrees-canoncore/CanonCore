@@ -943,7 +943,7 @@ export async function readCatalogue(
   db: Database,
   { limit, after, group }: { limit: number; after?: string; group?: string },
 ): Promise<Catalogue> {
-  return readListing(db, { limit, after, within: narrowedTo(db, group, IN_THE_CATALOGUE) });
+  return readListing(db, { limit, after, within: withinTheGroup(db, group, IN_THE_CATALOGUE) });
 }
 
 /**
@@ -964,7 +964,7 @@ export async function readWorks(
   db: Database,
   { limit, after, group }: { limit: number; after?: string; group?: string },
 ): Promise<Catalogue> {
-  return readListing(db, { limit, after, within: narrowedTo(db, group, WORK_BROWSING) });
+  return readListing(db, { limit, after, within: withinTheGroup(db, group, WORK_BROWSING) });
 }
 
 /**
@@ -1334,7 +1334,7 @@ const WORK_BROWSING = and(
  * ONE PREDICATE FOR EVERY LISTING, which is the spec's own requirement rather
  * than tidiness: a Group that meant one thing on the catalogue and another on
  * Catalogue search would be two scopes wearing one name. So each Listing `and`s
- * THIS onto its own `within`, through `narrowedTo` below, and none spells
+ * THIS onto its own `within`, through `withinTheGroup` below, and none spells
  * membership for itself: the catalogue since CNCORE-179, and work-browsing and
  * Catalogue search since CNCORE-180.
  *
@@ -1402,7 +1402,7 @@ function inTheGroup(db: Database, group: string): SQL {
  * caller outside hands a Group to `readCatalogue`, `readWorks` or
  * `searchCatalogue`, never to a predicate.
  */
-export function narrowedTo(db: Database, group: string | undefined, within: SQL): SQL {
+export function withinTheGroup(db: Database, group: string | undefined, within: SQL): SQL {
   return group === undefined ? within : (and(within, inTheGroup(db, group)) as SQL);
 }
 

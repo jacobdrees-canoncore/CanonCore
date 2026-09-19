@@ -1,6 +1,13 @@
 import { describe, expect, inject, it } from "vitest";
 
-import { documentAt, documentFrom, markedCurrentIn, scopeLinked, sectionIn } from "./document";
+import {
+  documentAt,
+  documentFrom,
+  itemsLinkedFrom,
+  markedCurrentIn,
+  scopeLinked,
+  sectionIn,
+} from "./document";
 
 /**
  * WORK-BROWSING, over real HTTP. ADR-0103's fourth seam, which is the one
@@ -197,11 +204,6 @@ describe("/works narrowed to a Group", () => {
 describe("/works narrowed to a Group larger than one page", () => {
   const pagedBaseUrl = inject("pagedBaseUrl");
   const group = inject("pagedGroup");
-
-  /** Every item one rendered page links at, in the order it links them. */
-  function itemsLinkedFrom(text: string): string[] {
-    return [...text.matchAll(/href="\/items\/([^"?]+)"/g)].map(([, id]) => id as string);
-  }
 
   /** Where a narrowed page says it carries on, if it says so at all. */
   function carriesOnAt(text: string): string | undefined {

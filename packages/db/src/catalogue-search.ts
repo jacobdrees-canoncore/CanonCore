@@ -7,9 +7,9 @@ import {
   type Catalogue,
   findTheAnchor,
   IN_THE_CATALOGUE,
-  narrowedTo,
   SORT_KEY,
   walkListing,
+  withinTheGroup,
 } from "./queries";
 import { items } from "./schema";
 
@@ -155,12 +155,12 @@ export async function searchCatalogue(
      * decides: how many MATCHED, rather than how many the catalogue holds.
      *
      * AND WITHIN THE GROUP A READER PICKED, where they picked one (CNCORE-180):
-     * the same `narrowedTo` the catalogue and work-browsing take theirs
+     * the same `withinTheGroup` the catalogue and work-browsing take theirs
      * through, so a scope means one thing on all three. It joins the match
      * rather than replacing it, and it arrives before the size is taken -- so
      * `total` is how many matched IN THE GROUP.
      */
-    within: narrowedTo(db, group, and(IN_THE_CATALOGUE, titleMatches(wanted)) as SQL),
+    within: withinTheGroup(db, group, and(IN_THE_CATALOGUE, titleMatches(wanted)) as SQL),
     order: ranking,
     place,
     limit,

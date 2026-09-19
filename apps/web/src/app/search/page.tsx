@@ -16,6 +16,7 @@ import {
   NoSuchGroup,
   PastTheEnd,
   theScope,
+  theStartOf,
   Walk,
 } from "@/components/listing";
 import { oneGroup, oneValue } from "@/components/query-params";
@@ -110,9 +111,14 @@ export default async function SearchPage({
   const read = asked ? await readSearch(query, from, narrowedTo) : null;
   const results = read?.results ?? null;
   const groups = read?.groups ?? [];
-  const scope = theScope(groups, narrowedTo);
-  // WHAT EVERY LINK ON THIS PAGE KEEPS: the query, and the Group it was asked
-  // within where there is one. `queryFor` writes them in that order.
+  // NARROWED ONLY WHERE SOMETHING WAS SEARCHED. With no query there is no list
+  // of Groups to find this one in, and reading the parameter anyway would call
+  // every Group "gone" -- true of nothing, and one missed `results` check from
+  // rendering "No such Group" over a page that asked for no Group's answer.
+  const scope = theScope(groups, read === null ? undefined : narrowedTo);
+  // THIS LISTING AS THE WALK AND THE PICKER SEE IT: its address and the query.
+  // The Group rides separately, as `narrowed`, so `queryFor` writes the query,
+  // then the Group, then the cursor.
   const surface = { path: "/search", asked: { q: query } } as const;
 
   return (
@@ -144,7 +150,7 @@ export default async function SearchPage({
       {results === null && <NothingAsked />}
       {results !== null && scope.gone && <NoSuchGroup {...surface} />}
       {results !== null && results.total === 0 && !scope.gone && (
-        <NothingFound query={query} within={scope.group?.name} />
+        <NothingFound query={query} within={scope.group?.name} everywhere={theStartOf(surface)} />
       )}
       {/*
         MATCHES, AND NONE OF THEM ON THIS PAGE, which is what a cursor makes
@@ -214,9 +220,19 @@ function NothingAsked() {
  * AND IT NAMES THE GROUP IT SEARCHED, WHERE IT SEARCHED ONE (CNCORE-180). A
  * search that found nothing in a scope has not searched the catalogue, and a
  * bare "Nothing matched" would read as though it had -- so the sentence says
- * where it looked, and the same search across everything is one link away.
+ * where it looked, and the same search across the catalogue is one link away:
+ * `everywhere`, which is the picker's `Everything` rather than an address
+ * written here a second time.
  */
-function NothingFound({ query, within }: { query: string; within?: string }) {
+function NothingFound({
+  query,
+  within,
+  everywhere,
+}: {
+  query: string;
+  within?: string;
+  everywhere: ReturnType<typeof theStartOf>;
+}) {
   return (
     <section aria-labelledby="nothing-found">
       <Empty className="mt-6 border">
@@ -243,8 +259,13 @@ function NothingFound({ query, within }: { query: string; within?: string }) {
         </EmptyHeader>
         {within !== undefined && (
           <EmptyContent>
-            <Link href={{ pathname: "/search", query: { q: query } }} className="hover:underline">
-              Search everything
+            {/*
+              QUALIFIED, for the reason the `h1` above gives: `CONTEXT.md`
+              avoids "search" unqualified, and this link is Catalogue search
+              over the whole catalogue.
+            */}
+            <Link href={everywhere} className="hover:underline">
+              Search the whole catalogue
             </Link>
           </EmptyContent>
         )}

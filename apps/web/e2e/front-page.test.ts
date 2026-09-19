@@ -3,6 +3,7 @@ import { describe, expect, inject, it } from "vitest";
 import {
   documentAt,
   documentFrom,
+  itemsLinkedFrom,
   logInAt,
   markedCurrentIn,
   scopeLinked,
@@ -377,11 +378,6 @@ describe("/ on a fresh install", () => {
 });
 
 describe("/ on a catalogue larger than one page", () => {
-  /** Every item one rendered page links at, in the order it links them. */
-  function itemsLinkedFrom(text: string): string[] {
-    return [...text.matchAll(/href="\/items\/([^"?]+)"/g)].map(([, id]) => id as string);
-  }
-
   /** Where the page says the catalogue carries on, if it says so at all. */
   function carriesOnAt(text: string): string | undefined {
     return text.match(/href="(\/\?after=[^"]+)"/)?.[1];
@@ -493,11 +489,6 @@ describe("/ on a catalogue larger than one page", () => {
 describe("/ narrowed to a Group", () => {
   const pagedBaseUrl = inject("pagedBaseUrl");
   const group = inject("pagedGroup");
-
-  /** Every item one rendered page links at, in the order it links them. */
-  function itemsLinkedFrom(text: string): string[] {
-    return [...text.matchAll(/href="\/items\/([^"?]+)"/g)].map(([, id]) => id as string);
-  }
 
   /** Where a narrowed page says it carries on, if it says so at all. */
   function carriesOnAt(text: string): string | undefined {

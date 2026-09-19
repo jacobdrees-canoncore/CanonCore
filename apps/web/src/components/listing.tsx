@@ -173,7 +173,9 @@ export type ItemPageListing = "members" | "appearances";
  * AND THE THREE THAT ARE THEIR OWN SURFACE MAY BE NARROWED, which is optional
  * because each unnarrowed is its address with no Group on it (CNCORE-179,
  * CNCORE-180). The item page's two may not: an Ordering's Members are not
- * narrowed by a scope, and ADR-0010's section for CNCORE-179 says why.
+ * narrowed by a scope, which ADR-0010 records under CNCORE-179 -- and which
+ * ADR-0140's figure on a Row depends on, since that figure is what following
+ * the Row finds.
  */
 type Walking =
   | { path: "/" | "/works"; asked?: never; narrowed?: Narrowed; listing?: never }
@@ -186,6 +188,21 @@ type Walking =
  * because those are the two things the picker changes.
  */
 type Narrowable = Extract<Walking, { listing?: never }> & { narrowed?: never };
+
+/**
+ * WHERE ONE OF THOSE LISTINGS STARTS, UNNARROWED: its address with what it
+ * was asked and nothing else. The picker's `Everything` is this, and so is the
+ * way out of every notice that says a narrowed page has nothing on it.
+ *
+ * EXPORTED FOR THE ONE NOTICE THAT LIVES ON ITS PAGE (CNCORE-180): Catalogue
+ * search's "nothing matched" offers the same search across the catalogue, and
+ * writing that address there by hand would be a third spelling of it beside
+ * the picker's and `NoSuchGroup`'s -- which ADR-0066's fixed order exists to
+ * prevent.
+ */
+export function theStartOf(surface: Narrowable) {
+  return { pathname: surface.path, query: queryFor(surface, undefined) };
+}
 
 /**
  * What each listing calls itself when it has to end a sentence.
@@ -644,7 +661,7 @@ export function NarrowToAGroup({
       className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-muted-foreground text-sm"
     >
       <Link
-        href={{ pathname: surface.path, query: queryFor(surface, undefined) }}
+        href={theStartOf(surface)}
         aria-current={narrowedTo === undefined ? "true" : undefined}
         className="hover:underline aria-[current]:font-medium aria-[current]:text-foreground"
       >
@@ -702,10 +719,7 @@ export function NoSuchGroup(surface: Narrowable) {
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
-          <Link
-            href={{ pathname: surface.path, query: queryFor(surface, undefined) }}
-            className="hover:underline"
-          >
+          <Link href={theStartOf(surface)} className="hover:underline">
             Show everything
           </Link>
         </EmptyContent>

@@ -600,3 +600,15 @@ export function markedCurrentIn(text: string): string[] {
     ([, words]) => words as string,
   );
 }
+
+/**
+ * Every Item one rendered page links at, in the order it links them.
+ *
+ * SHARED SINCE CNCORE-180, which would otherwise have made five copies of it
+ * across three files: every walked Listing is oracled by the Items its pages
+ * link, and a copy that drifted -- a `?via=` it stopped trimming, say -- would
+ * be one walk counting differently from the rest.
+ */
+export function itemsLinkedFrom(text: string): string[] {
+  return [...text.matchAll(/href="\/items\/([^"?]+)"/g)].map(([, id]) => id as string);
+}
