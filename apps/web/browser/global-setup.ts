@@ -3,6 +3,7 @@ import { anItemTitled } from "@canoncore/db/testing/catalogue";
 import type { TestProject } from "vitest/node";
 
 import { anInstanceServing, OWNER_PASSWORD, theAppBuilt } from "../e2e/instance";
+import { aProviderThatFloodsItsName, FLOOD } from "../e2e/stubs";
 
 /**
  * ONE INSTANCE, FOR THE ONE THING A BROWSER IS NEEDED FOR (CNCORE-73).
@@ -51,12 +52,18 @@ export default async function setup(project: TestProject) {
     OWNER_PASSWORD,
   });
 
+  const floodsItsName = await aProviderThatFloodsItsName();
+
   const instance = await anInstanceServing({
     suffix: "drag",
     ownerPassword: OWNER_PASSWORD,
-    // ADR-0034's default: an instance nobody has configured reaches nothing.
-    allowlist: "",
-    providers: [],
+    /*
+     * ONE PROVIDER, AND ONLY THE ONE WHOSE PROSE IS AS WIDE AS IT IS LONG
+     * (CNCORE-217). Loopback is admitted BY NAME, which is the config
+     * boundary's whole job (ADR-0034); nothing else here reaches out.
+     */
+    allowlist: "127.0.0.0/8",
+    providers: [floodsItsName.url],
     fill: async (db) => {
       const releaseOrder = await anItemTitled(db, "Release order", {
         isContainer: true,
@@ -76,22 +83,26 @@ export default async function setup(project: TestProject) {
     },
   });
 
-  project.provide("dragBaseUrl", instance.baseUrl);
+  project.provide("browserBaseUrl", instance.baseUrl);
   project.provide("dragging", instance.fixture);
-  project.provide("dragOwnerPassword", OWNER_PASSWORD);
+  project.provide("browserOwnerPassword", OWNER_PASSWORD);
+  project.provide("floodedName", FLOOD);
 
   return async () => {
     await instance.close();
+    await floodsItsName.close();
   };
 }
 
 declare module "vitest" {
   interface ProvidedContext {
     /** The one instance this project serves, on its own database and its own port. */
-    dragBaseUrl: string;
+    browserBaseUrl: string;
     /** The ordering under the mouse: one container, and its members as rendered. */
     dragging: { releaseOrder: string; inOrder: string[] };
     /** ADR-0044's one password, which every control on that page is behind. */
-    dragOwnerPassword: string;
+    browserOwnerPassword: string;
+    /** The name the one Provider declares, before this app bounded it. */
+    floodedName: string;
   }
 }

@@ -9,6 +9,7 @@ import Form from "next/form";
 import Link from "next/link";
 import { noPasswordSet } from "@/components/no-password";
 import { NoProviderAllowlisted } from "@/components/no-provider-allowlisted";
+import { ProviderProse } from "@/components/provider-prose";
 import { oneValue } from "@/components/query-params";
 import { Reason } from "@/components/reason";
 import { callerContext } from "@/session";
@@ -670,12 +671,10 @@ function Results({
               THE PROVIDER'S OWN NAME FOR ITSELF, off its manifest. A source
               answers "who said this", and `http://127.0.0.1:39481` shows an
               owner a deployment detail where `provider-wiki` answers it.
-
-              TODO(CNCORE-217): bounded in length by `cmppManifest` and not in
-              width. Three hundred characters with no break in them run past
-              the viewport's edge, measured on this heading.
+              Bounded in length by `cmppManifest` and in width by
+              `ProviderProse`, since neither is the Provider's to choose.
             */}
-            {provider.name}
+            <ProviderProse>{provider.name}</ProviderProse>
             {results.length === 0 && " matched nothing"}
           </h3>
           {results.length > 0 && (
