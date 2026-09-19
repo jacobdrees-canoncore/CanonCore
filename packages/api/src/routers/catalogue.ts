@@ -202,5 +202,15 @@ function asRow(row: Catalogue["rows"][number]): CatalogueRowPublic {
     // the Row's own statement rather than asked for again -- so a Row cannot
     // report a figure the container's page would contradict.
     holds: row.holds,
+    // CNCORE-184. Named field by field, as `item.get` names the same three on
+    // "Also appears in", rather than the query's object handed through.
+    sitsIn: {
+      first: row.sitsIn.first.map((placement) => ({
+        containerId: placement.containerId,
+        containerTitle: placement.containerTitle,
+        position: placement.position,
+      })),
+      total: row.sitsIn.total,
+    },
   };
 }

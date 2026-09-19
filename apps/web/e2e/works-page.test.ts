@@ -3,7 +3,7 @@ import { describe, expect, inject, it } from "vitest";
 import {
   documentAt,
   documentFrom,
-  itemsLinkedFrom,
+  itemsListedOn,
   markedCurrentIn,
   scopeLinked,
   sectionIn,
@@ -225,7 +225,7 @@ describe("/works narrowed to a Group larger than one page", () => {
     for (let pages = 0; pages <= group.holds.length; pages += 1) {
       const { status, text } = await documentFrom(pagedBaseUrl, path);
       expect(status).toBe(200);
-      walked.push(...itemsLinkedFrom(text));
+      walked.push(...itemsListedOn(text));
       if (pages > 0) {
         expect(text).toContain(`href="${first}">Back to the start</a>`);
       }

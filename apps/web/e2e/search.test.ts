@@ -3,7 +3,7 @@ import { describe, expect, inject, it } from "vitest";
 import {
   documentAt,
   documentFrom,
-  itemsLinkedFrom,
+  itemsListedOn,
   markedCurrentIn,
   scopeLinked,
   sectionIn,
@@ -163,7 +163,7 @@ describe("/search on a result set larger than one page", () => {
     for (; pages <= searchable.length; pages += 1) {
       const { status, text } = await documentFrom(inject("pagedBaseUrl"), path);
       expect(status).toBe(200);
-      walked.push(...itemsLinkedFrom(text));
+      walked.push(...itemsListedOn(text));
       const next: string | undefined = carriesOnAt(text);
       if (next === undefined) break;
       path = next;
@@ -191,7 +191,7 @@ describe("/search on a result set larger than one page", () => {
     if (next === undefined) throw new Error("the fixture's matches fit on one page");
     const second = await documentFrom(pagedBaseUrl, next);
 
-    expect(itemsLinkedFrom(first.text)).toHaveLength(100);
+    expect(itemsListedOn(first.text)).toHaveLength(100);
     const holding = `<p class="text-muted-foreground text-sm">Showing 100 of ${searchable} results</p>`;
     expect(first.text).toContain(holding);
     // THE SAME SENTENCE ON PAGE TWO. A shrinking total renders here as a page
@@ -234,7 +234,7 @@ describe("/search on a result set larger than one page", () => {
       if (next === undefined) break;
       text = (await documentFrom(pagedBaseUrl, next)).text;
     }
-    const last = itemsLinkedFrom(text).at(-1);
+    const last = itemsListedOn(text).at(-1);
 
     const beyond = await documentFrom(pagedBaseUrl, `/search?q=${QUERY}&after=${last}`);
 
@@ -281,8 +281,8 @@ describe("/search narrowed to a Group", () => {
     expect(status).toBe(200);
     // THE QUERY, THEN THE GROUP (ADR-0066): what was asked, then within what.
     expect(picked).toBe(`/search?q=${QUERY}&group=${group.id}`);
-    expect(itemsLinkedFrom(text)).toHaveLength(100);
-    expect(itemsLinkedFrom(text).every((id) => group.holds.includes(id))).toBe(true);
+    expect(itemsListedOn(text)).toHaveLength(100);
+    expect(itemsListedOn(text).every((id) => group.holds.includes(id))).toBe(true);
     expect(text).toContain(
       `<p class="text-muted-foreground text-sm">Showing 100 of ${matchedInTheGroup.length} results</p>`,
     );
@@ -300,7 +300,7 @@ describe("/search narrowed to a Group", () => {
     for (let pages = 0; pages <= matchedInTheGroup.length; pages += 1) {
       const { status, text } = await documentFrom(pagedBaseUrl, path);
       expect(status).toBe(200);
-      walked.push(...itemsLinkedFrom(text));
+      walked.push(...itemsListedOn(text));
       if (pages > 0) {
         expect(text).toContain(`href="${first}">Back to the start</a>`);
       }

@@ -684,13 +684,21 @@ export function markedCurrentIn(text: string): string[] {
 }
 
 /**
- * Every Item one rendered page links at, in the order it links them.
+ * Every Item one rendered page LISTS, in the order it lists them: each Row's
+ * own link, which is the first link in its `<li>`.
  *
  * SHARED SINCE CNCORE-180, which would otherwise have made five copies of it
  * across three files: every walked Listing is oracled by the Items its pages
- * link, and a copy that drifted -- a `?via=` it stopped trimming, say -- would
+ * list, and a copy that drifted -- a `?via=` it stopped trimming, say -- would
  * be one walk counting differently from the rest.
+ *
+ * IT READ EVERY `/items/` LINK UNTIL CNCORE-184, when those stopped being the
+ * same thing: a story's Row links each Ordering it sits in, so a page of a
+ * hundred Rows links far more than a hundred Items.
  */
-export function itemsLinkedFrom(text: string): string[] {
-  return [...text.matchAll(/href="\/items\/([^"?]+)"/g)].map(([, id]) => id as string);
+export function itemsListedOn(text: string): string[] {
+  // `<li` AND THEN A SPACE OR THE `>`, so a `<link>` in the head is no Row.
+  return [...text.matchAll(/<li(?:\s[^>]*)?>(?:(?!<\/li>).)*?href="\/items\/([^"?#]+)"/g)].map(
+    ([, id]) => id as string,
+  );
 }

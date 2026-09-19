@@ -92,6 +92,27 @@ describe("catalogue.list", () => {
     expect(await rowFor(held)).toMatchObject({ holds: 0 });
   });
 
+  it("says where a story sits, and that a story in no Ordering sits in none", async () => {
+    // CNCORE-184, THE VALUE, for the reason the case above gives about
+    // `holds`: `listing.test.ts` enumerates the keys, and a mapping carrying a
+    // constant would pass there. The db seam owns the order, the tombstones and
+    // the cut; this is that the answer survives `.output(cataloguePublic)`.
+    const placed = await anItemTitled(db, "A story the front page says is placed");
+    const loose = await anItemTitled(db, "A story the front page says is placed nowhere");
+    const ordering = await anItemTitled(db, "An ordering it sits in at 12", {
+      isContainer: true,
+    });
+    await aPlacement(db, { containerId: ordering, itemId: placed, position: 12 });
+
+    expect((await rowFor(placed))?.sitsIn).toStrictEqual({
+      first: [
+        { containerId: ordering, containerTitle: "An ordering it sits in at 12", position: 12 },
+      ],
+      total: 1,
+    });
+    expect((await rowFor(loose))?.sitsIn).toStrictEqual({ first: [], total: 0 });
+  });
+
   it("answers within a Group it is handed, at the Group's own size", async () => {
     // CNCORE-179. The narrowing itself is the db seam's to hold, past both
     // tombstones and a Group that names nothing; what this adds is that the

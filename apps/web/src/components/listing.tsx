@@ -7,7 +7,9 @@ import {
   EmptyTitle,
 } from "@canoncore/ui/components/empty";
 import Link from "next/link";
+import { Fragment } from "react";
 
+import { positionLabel } from "./position";
 import { inTheFixedOrder, type LinkQuery } from "./query-params";
 import { TheirWords } from "./their-words";
 
@@ -338,10 +340,13 @@ function queryFor(walking: Walking | Searched, at: string | undefined): LinkQuer
  * of one build is the sort that shows up as a failing assertion nobody can
  * reproduce.
  *
- * EVERY NUMBER THIS FILE PRINTS GOES THROUGH IT. The size of the listing and
+ * EVERY COUNT THIS FILE PRINTS GOES THROUGH IT. The size of the listing and
  * the size of a Row's own ordering sit on one screen, and two spellings of a
  * count there would be the page disagreeing with itself about how it writes a
- * number -- "Showing 100 of 8052 items" beside "2,913 members".
+ * number -- "Showing 100 of 8052 items" beside "2,913 members". A POSITION IS
+ * NOT A COUNT, and since CNCORE-184 this file prints those too: `#1234` is an
+ * ordinal, written the way the item page writes it, and grouped it would run
+ * into the comma between two of them -- "#1,234, #1,240" (ADR-0143).
  */
 const grouped = new Intl.NumberFormat("en-GB");
 
@@ -407,6 +412,88 @@ function soMany(count: number, noun: string): string {
 }
 
 /**
+ * WHERE ONE ROW'S ITEM SITS, IN ONE LINE (ADR-0143): each Ordering by name,
+ * with every Position the Row carries in it, so *The Day of the Doctor* reads
+ * as one fact rather than three Rows a reader has to assemble.
+ *
+ * "In no ordering" RATHER THAN "Unplaced", though the ticket says Unplaced.
+ * `CONTEXT.md` spends that word on a PLACEMENT with no Position -- "never an
+ * absent placement" -- and a story in no Ordering has no Placement at all
+ * (ADR-0062). The noun is the glossary's own from the item's end, the one the
+ * item page counts "Also appears in" in.
+ *
+ * GROUPED BY ORDERING, so a Repeat reads "#1, #5" under one name rather than
+ * the name twice -- the order `sitsIn.first` arrives in keeps each Ordering's
+ * Positions together. A Position no source gave reads "no position given",
+ * the glossary's words for the reader, and never as a number.
+ *
+ * AND THE CUT SAYS SO, and points at the rest: "and 56 more appearances" is a
+ * link to the story's own "Also appears in", where every one of the Owner's
+ * stories fits on the first page -- the most any one of them has is 61, and a
+ * page is 100. "APPEARANCES" BECAUSE THE CUT COUNTS PLACEMENTS: after every
+ * Ordering a Row has already named, a bare "and 56 more" reads as 56 more
+ * Orderings, and a Repeat is one Ordering twice (`CONTEXT.md`, **Placement**).
+ */
+function WhereItSits({ id, sitsIn }: { id: string; sitsIn: Row["sitsIn"] }) {
+  if (sitsIn.total === 0) return <p className="text-muted-foreground text-sm">In no ordering</p>;
+  const more = sitsIn.total - sitsIn.first.length;
+  return (
+    <p className="text-muted-foreground text-sm">
+      Also appears in{" "}
+      {byOrdering(sitsIn.first).map(({ containerId, containerTitle, positions }, index) => (
+        <Fragment key={containerId}>
+          {index > 0 && " · "}
+          <Link href={`/items/${containerId}`} className="hover:underline">
+            <TheirWords>{containerTitle ?? "Untitled container"}</TheirWords>
+          </Link>
+          {atPositions(positions)}
+        </Fragment>
+      ))}
+      {more > 0 && (
+        <>
+          {" · and "}
+          <Link href={`/items/${id}#also-appears-in`} className="hover:underline">
+            {soMany(more, "more appearance")}
+          </Link>
+        </>
+      )}
+    </p>
+  );
+}
+
+/** The Row's placements, one entry per Ordering in the order they arrived. */
+function byOrdering(first: Row["sitsIn"]["first"]) {
+  const orderings: {
+    containerId: string;
+    containerTitle: string | null;
+    positions: (number | null)[];
+  }[] = [];
+  for (const { containerId, containerTitle, position } of first) {
+    const last = orderings.at(-1);
+    if (last?.containerId === containerId) last.positions.push(position);
+    else orderings.push({ containerId, containerTitle, positions: [position] });
+  }
+  return orderings;
+}
+
+/**
+ * " #1, #5" after an Ordering's name, ", no position given" where no source gave
+ * one, and both where a Repeat has one of each -- the words come last because a
+ * missing Position sorts after every numbered one, and after a comma because
+ * they would otherwise run into the name. `positionLabel`'s words, in lower
+ * case because they sit mid-sentence here. ONE STRING rather than text beside
+ * an expression, which React would split with a comment.
+ */
+function atPositions(positions: (number | null)[]): string {
+  return positions
+    .map((position, index) => {
+      const said = positionLabel(position).toLowerCase();
+      return index === 0 && position !== null ? ` ${said}` : `, ${said}`;
+    })
+    .join("");
+}
+
+/**
  * Every item, in the order the catalogue keeps them: `sort_name` where a source
  * has claimed one, and the title otherwise (ADR-0014).
  */
@@ -433,9 +520,20 @@ export function Listing({ rows }: { rows: Row[] }) {
             through this file and the one below it, which is the whole point of
             that rule: routed through one place, a later `basePath` is one line.
           */}
-          <Link href={`/items/${row.id}`} className="hover:underline">
-            <TheirWords>{row.title ?? "Untitled item"}</TheirWords>
-          </Link>
+          <div className="min-w-0">
+            <Link href={`/items/${row.id}`} className="hover:underline">
+              <TheirWords>{row.title ?? "Untitled item"}</TheirWords>
+            </Link>
+            {/*
+              A STORY SAYS WHERE IT SITS, "In no ordering" included, and an
+              ORDERING does not: root is where Orderings live, so the line on
+              every one of the corpus's 465 would be noise the story's version
+              drowned in. None of them sits in another (ADR-0137), and the
+              ticket asks for a story's Row, so that case is left to the day
+              an Ordering is placed in one.
+            */}
+            {!row.isContainer && <WhereItSits id={row.id} sitsIn={row.sitsIn} />}
+          </div>
           <span className="flex items-baseline gap-3 text-muted-foreground text-sm">
             {/*
               ADR-0004 folds containers into `work`, so the kind alone cannot
