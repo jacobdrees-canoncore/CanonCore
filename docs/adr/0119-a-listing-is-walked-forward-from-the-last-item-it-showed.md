@@ -754,9 +754,10 @@ described the whole listing, and the page had to ask whether the cap had bitten 
 
 [[0103-tests-bite-at-package-exports-and-the-router]]: the package export, the router in process,
 and -- the one the ticket names by hand -- the page over real HTTP, against an Item sitting in 211
-placements across 210 CONTAINERS on the same instance the other four walks use -- 211 orderings by
+placements across 210 CONTAINERS on the same instance the other four walks use -- 211 appearances by
 `CONTEXT.md`'s word, which counts the placement rather than the container, because the fixture's
-Repeat puts the Item in one of them twice. The page's count says 211 for that reason.
+Repeat puts the Item in one of them twice. The page's count says 211 for that reason, and said "211
+orderings" until CNCORE-236 gave it the glossary's noun for that count.
 
 **THAT FIXTURE COSTS ITS OWN ITEMS WHERE CNCORE-89'S COST ONE, and the asymmetry is forced rather
 than careless.** A Container's members are ORDINARY ITEMS, so that fixture could hold the catalogue

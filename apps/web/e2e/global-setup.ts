@@ -34,6 +34,7 @@ import {
   anInstanceServing,
   HARNESS_CONNECTIONS,
   OWNER_PASSWORD,
+  settingUp,
   theAppBuilt,
   theBuildServing,
 } from "./instance";
@@ -75,7 +76,17 @@ async function asTheOwner(baseUrl: string): Promise<AppRouterClient> {
   return createORPCClient(new RPCLink({ url: `${baseUrl}/api/rpc`, headers: { cookie } }));
 }
 
-export default async function setup(project: TestProject) {
+/*
+ * EVERYTHING THIS STARTS IS OWNED FROM THE MOMENT IT STARTS (CNCORE-229), and
+ * the teardown is that ownership handed on. `settingUp` says why a setup that
+ * throws part-way has to close what it already started, and why the teardown is
+ * no longer a list written by hand.
+ */
+export default function setup(project: TestProject) {
+  return settingUp((owned) => standUp(project, owned));
+}
+
+async function standUp(project: TestProject, owned: AsyncDisposableStack) {
   const databaseUrl = await buildTestDatabase("web");
   // The SAME seed `pnpm db:seed` runs: raw SQL that writes `title` statements
   // and never touches the projected columns (ADR-0014). If the trigger stops
@@ -84,22 +95,40 @@ export default async function setup(project: TestProject) {
   project.provide("itemId", seeded.id);
   project.provide("itemTitle", seeded.title);
   project.provide("placements", seeded.placements);
+  /*
+   * THE SERVERS BELOW GO ON `owned` THEMSELVES, AS THEY SPAWN; what comes back
+   * with a `close` of its own -- a pool, a stub -- goes on it on the line that
+   * made it. Those live inside this process and die with it, so a throw cannot
+   * strand one: they are owned for the teardown's sake. The seed ends its own
+   * client, and each pool here has to be ended too, or the run holds an idle
+   * connection open against a database it is finished with.
+   */
   const twoOrigins = await anItemPlacedTwoWays(databaseUrl);
+  owned.defer(twoOrigins.close);
   project.provide("twoOrigins", twoOrigins.fixture);
   const timeSpan = await anItemOfAKindWhoseLabelDiffers(databaseUrl);
+  owned.defer(timeSpan.close);
   project.provide("timeSpan", timeSpan.fixture);
   const workBrowsing = await theThingsWorkBrowsingHasToTellApart(databaseUrl);
+  owned.defer(workBrowsing.close);
   project.provide("workBrowsing", workBrowsing.fixture);
 
   // The providers have to exist before the server starts, because the server is
   // given the allowlist that makes them reachable.
   const provider = await theProvider();
+  owned.defer(provider.close);
   const tmdb = await theTmdbProvider();
+  owned.defer(tmdb.close);
   const lookupOnly = await aProviderThatDeclinesBrowse();
+  owned.defer(lookupOnly.close);
   const answersBadly = await aProviderThatAnswersBadly();
+  owned.defer(answersBadly.close);
   const refusesWithASentence = await aProviderThatRefusesWithASentence();
+  owned.defer(refusesWithASentence.close);
   const holdsNothing = await aProviderThatHoldsNothingAtThatId();
+  owned.defer(holdsNothing.close);
   const floodsItsName = await aProviderThatFloodsItsName();
+  owned.defer(floodsItsName.close);
 
   /*
    * WHAT THIS INSTANCE REACHES, WRITTEN INTO ITS DATABASE (CNCORE-99). Both
@@ -149,7 +178,7 @@ export default async function setup(project: TestProject) {
    * database -- so the helper that does both halves cannot serve it without a
    * flag. The four below have nothing between the two halves and use it.
    */
-  const server = await theBuildServing(env);
+  const server = await theBuildServing(owned, env);
   const { baseUrl } = server;
   project.provide("baseUrl", baseUrl);
 
@@ -178,21 +207,21 @@ export default async function setup(project: TestProject) {
    * built once above and started twice, so what this proves is the SHIPPED page
    * meeting a fresh install rather than a second build of it.
    */
-  const fresh = await freshInstall();
+  const fresh = await freshInstall(owned);
   project.provide("freshBaseUrl", fresh.baseUrl);
 
   /*
    * AND THE SAME EMPTINESS WITH THE ALLOWLIST FILLED IN, which is the
    * combination nothing here had (CNCORE-131). See `anInstanceAllowlistedAndEmpty`.
    */
-  const allowlisted = await anInstanceAllowlistedAndEmpty();
+  const allowlisted = await anInstanceAllowlistedAndEmpty(owned);
   project.provide("allowlistedBaseUrl", allowlisted.baseUrl);
 
   // WHAT A TEST LOGS IN WITH. Everything that writes is the owner's, so a file
   // that presses a button needs this; `document.ts`'s `logInAt` takes it.
   project.provide("ownerPassword", OWNER_PASSWORD);
 
-  const paged = await aCatalogueTooBigForOnePage();
+  const paged = await aCatalogueTooBigForOnePage(owned);
   project.provide("pagedBaseUrl", paged.baseUrl);
   project.provide("pagedCatalogue", paged.fixture.every);
   /*
@@ -208,32 +237,32 @@ export default async function setup(project: TestProject) {
   project.provide("pagedGroup", paged.fixture.group);
   project.provide("pagedEmptyGroup", paged.fixture.emptyGroup);
 
-  const purgeable = await aCatalogueSafeToPurge(provider.url, tmdb.url);
+  const purgeable = await aCatalogueSafeToPurge(owned, provider.url, tmdb.url);
   project.provide("purgeableBaseUrl", purgeable.baseUrl);
   project.provide("purgeable", purgeable.fixture);
 
-  const editable = await aCatalogueSafeToEdit(provider.url);
+  const editable = await aCatalogueSafeToEdit(owned, provider.url);
   project.provide("editableBaseUrl", editable.baseUrl);
   project.provide("editable", editable.fixture);
 
-  const scopable = await aCatalogueSafeToScope();
+  const scopable = await aCatalogueSafeToScope(owned);
   project.provide("scopableBaseUrl", scopable.baseUrl);
   project.provide("scopable", scopable.fixture);
 
-  const curatable = await aCatalogueSafeToCurate();
+  const curatable = await aCatalogueSafeToCurate(owned);
   project.provide("curatableBaseUrl", curatable.baseUrl);
   project.provide("curatable", curatable.fixture);
 
-  const reorderable = await aCatalogueSafeToReorder();
+  const reorderable = await aCatalogueSafeToReorder(owned);
   project.provide("reorderableBaseUrl", reorderable.baseUrl);
   project.provide("reorderable", reorderable.fixture);
 
-  const still = await aCatalogueThatHoldsStill();
+  const still = await aCatalogueThatHoldsStill(owned);
   project.provide("stillBaseUrl", still.baseUrl);
   project.provide("stillCatalogue", still.fixture.every);
   project.provide("stillOrderings", still.fixture.orderings);
 
-  const configurable = await anInstanceSafeToConfigure();
+  const configurable = await anInstanceSafeToConfigure(owned);
   project.provide("configurableBaseUrl", configurable.baseUrl);
 
   const counted = await aCatalogueNobodyElseIsReading();
@@ -243,6 +272,7 @@ export default async function setup(project: TestProject) {
   project.provide("imported", await importThroughTheApp(baseUrl, provider.url));
   project.provide("attributed", await importFromTmdb(baseUrl, tmdb.url));
   const twoInstances = await twoInstancesOfOneProvider(baseUrl, databaseUrl);
+  owned.defer(twoInstances.close);
   project.provide("twoInstances", twoInstances.fixture);
   /*
    * WHAT THE IMPORT SURFACE SEARCHES FOR, and which of the answers this harness
@@ -263,48 +293,8 @@ export default async function setup(project: TestProject) {
     floodsItsName: { url: floodsItsName.url, name: FLOOD },
   });
   const browsed = await browseThroughTheApp(baseUrl, provider.url, databaseUrl);
+  owned.defer(browsed.close);
   project.provide("browsed", browsed.fixture);
-
-  return async () => {
-    server.close();
-    await fresh.close();
-    await allowlisted.close();
-    await paged.close();
-    await purgeable.close();
-    await still.close();
-    await editable.close();
-    /*
-     * CNCORE-178 ADDED THIS INSTANCE AND NOT THIS LINE, and the cost was a CI
-     * job that never ended. Unclosed, its `next start` outlives the suite:
-     * vitest force-exits after its ten-second close timeout, so a terminal or a
-     * file shows a clean finish -- but the orphan inherited this process's
-     * stdout, and on a PIPE that holds the stream open. CI reads the step's
-     * output to EOF, so "The page over HTTP" hung for 11, 23 and 30 minutes on
-     * three runs where it takes 2.5, until a person cancelled each. It stops at
-     * eight minutes now (CNCORE-219, ADR-0141), which is still eight minutes of
-     * a job that looks slow rather than broken.
-     * Reproduced locally by piping `pnpm test:e2e` through `cat`: every test
-     * passed and the pipeline was still open at 300s.
-     */
-    await scopable.close();
-    await curatable.close();
-    await reorderable.close();
-    await configurable.close();
-    // The seed ends its own client; this pool has to be ended too, or the run
-    // holds an idle connection open against a database it is finished with.
-    await twoOrigins.close();
-    await twoInstances.close();
-    await timeSpan.close();
-    await workBrowsing.close();
-    await browsed.close();
-    await provider.close();
-    await tmdb.close();
-    await lookupOnly.close();
-    await answersBadly.close();
-    await refusesWithASentence.close();
-    await holdsNothing.close();
-    await floodsItsName.close();
-  };
 }
 
 /**
@@ -371,8 +361,8 @@ export default async function setup(project: TestProject) {
  * with -- `front-page.test.ts` and `import-page.test.ts` each hold one -- and
  * neither presses anything, so this instance is as still as it was without one.
  */
-function anInstanceAllowlistedAndEmpty() {
-  return anInstanceServing({
+function anInstanceAllowlistedAndEmpty(owned: AsyncDisposableStack) {
+  return anInstanceServing(owned, {
     suffix: "allow",
     ownerPassword: OWNER_PASSWORD,
     // ADR-0034's own example range, as every configured instance here uses.
@@ -396,8 +386,8 @@ function anInstanceAllowlistedAndEmpty() {
  * The database is built from empty by the same ladder every other suite runs,
  * and nothing seeds it. That is the whole fixture: the emptiness IS the state.
  */
-function freshInstall() {
-  return anInstanceServing({
+function freshInstall(owned: AsyncDisposableStack) {
+  return anInstanceServing(owned, {
     suffix: "fresh",
     /*
      * AND NO OWNER PASSWORD, which makes this instance ADR-0044's DEMO as well as
@@ -447,8 +437,8 @@ function freshInstall() {
  * the second one: what a second environment proves is the SHIPPED page meeting
  * a state, rather than a second build of it.
  */
-function aCatalogueTooBigForOnePage() {
-  return anInstanceServing({
+function aCatalogueTooBigForOnePage(owned: AsyncDisposableStack) {
+  return anInstanceServing(owned, {
     suffix: "paged",
     // NOBODY WRITES TO IT, so nobody logs in to it: this instance exists to be
     // walked, and a password it never uses would be a value nothing reads.
@@ -577,8 +567,12 @@ function aCatalogueTooBigForOnePage() {
  * surface where an unreachable provider is fully operable, and that is ADR-0046's
  * own motivating case rather than an edge of it.
  */
-async function aCatalogueSafeToPurge(wikiUrl: string, tmdbUrl: string) {
-  const instance = await anInstanceServing({
+async function aCatalogueSafeToPurge(
+  owned: AsyncDisposableStack,
+  wikiUrl: string,
+  tmdbUrl: string,
+) {
+  const instance = await anInstanceServing(owned, {
     // `purge` RATHER THAN `purgeable`, WHICH IS A LENGTH AND NOT A PREFERENCE:
     // `_test_purgeable` is four characters past the budget `worktree-database.ts`
     // reserves, so on a branch whose stem ran to the limit the whole e2e suite
@@ -682,7 +676,6 @@ async function aCatalogueSafeToPurge(wikiUrl: string, tmdbUrl: string) {
         "An ordering the owner keeps, of films",
       ),
     },
-    close: instance.close,
   };
 }
 
@@ -780,8 +773,8 @@ const AN_ORDERING_THAT_GIVES_NO_POSITION = "An ordering that gives no position";
  * total THROUGH that procedure, so the two agreeing is one code path agreeing
  * with itself.
  */
-function aCatalogueThatHoldsStill() {
-  return anInstanceServing({
+function aCatalogueThatHoldsStill(owned: AsyncDisposableStack) {
+  return anInstanceServing(owned, {
     suffix: "still",
     // NO PASSWORD, WHICH IS PART OF THIS FIXTURE'S CONTRACT rather than a
     // setting it happens not to need: "nothing writes to it" is what it is for,
@@ -981,8 +974,8 @@ async function aCatalogueNobodyElseIsReading() {
  * NOTHING SEEDS IT. What this instance is for is its settings, and a catalogue
  * in it would be a fixture nobody reads.
  */
-function anInstanceSafeToConfigure() {
-  return anInstanceServing({
+function anInstanceSafeToConfigure(owned: AsyncDisposableStack) {
+  return anInstanceServing(owned, {
     suffix: "conf",
     ownerPassword: OWNER_PASSWORD,
     allowlist: "",
@@ -1670,8 +1663,8 @@ async function stubWikiProvider(): Promise<{ url: string; close: () => Promise<v
  * NO PROVIDER, so this instance reaches nothing: every claim on it is the
  * owner's, which is exactly the state `assertedBy` is read in.
  */
-async function aCatalogueSafeToCurate() {
-  const instance = await anInstanceServing({
+async function aCatalogueSafeToCurate(owned: AsyncDisposableStack) {
+  const instance = await anInstanceServing(owned, {
     suffix: "place",
     ownerPassword: OWNER_PASSWORD,
     // ADR-0034's default: an instance nobody has configured reaches nothing.
@@ -1690,7 +1683,6 @@ async function aCatalogueSafeToCurate() {
 
   return {
     baseUrl: instance.baseUrl,
-    close: instance.close,
     fixture: {
       ...instance.fixture,
       storyTitle: "The Tenth Planet",
@@ -1723,8 +1715,8 @@ async function aCatalogueSafeToCurate() {
  * Going through the owner's own mutation also gives every row the Owner as its
  * source, which is the state the page renders.
  */
-async function aCatalogueSafeToReorder() {
-  const instance = await anInstanceServing({
+async function aCatalogueSafeToReorder(owned: AsyncDisposableStack) {
+  const instance = await anInstanceServing(owned, {
     suffix: "order",
     ownerPassword: OWNER_PASSWORD,
     // ADR-0034's default: an instance nobody has configured reaches nothing.
@@ -1775,7 +1767,7 @@ async function aCatalogueSafeToReorder() {
     },
   });
 
-  return { baseUrl: instance.baseUrl, close: instance.close, fixture: instance.fixture };
+  return { baseUrl: instance.baseUrl, fixture: instance.fixture };
 }
 
 /**
@@ -1804,10 +1796,10 @@ async function aCatalogueSafeToReorder() {
  * create path -- `item-write.test.ts` creates items through the page itself,
  * which is where creating is actually asserted.
  */
-async function aCatalogueSafeToEdit(wikiUrl: string) {
+async function aCatalogueSafeToEdit(owned: AsyncDisposableStack, wikiUrl: string) {
   const handTitle = "A title only the owner has ever given anything";
   let hand = "";
-  const instance = await anInstanceServing({
+  const instance = await anInstanceServing(owned, {
     suffix: "edit",
     // FILLED AND THEN EDITED THROUGH THE PAGE, both of which are the owner's.
     ownerPassword: OWNER_PASSWORD,
@@ -1826,7 +1818,6 @@ async function aCatalogueSafeToEdit(wikiUrl: string) {
 
   return {
     baseUrl: instance.baseUrl,
-    close: instance.close,
     fixture: {
       hand,
       handTitle,
@@ -1869,7 +1860,7 @@ async function aCatalogueSafeToEdit(wikiUrl: string) {
  * scope would let the list assertions pass over a create form that had stopped
  * working.
  */
-async function aCatalogueSafeToScope() {
+async function aCatalogueSafeToScope(owned: AsyncDisposableStack) {
   const crossoverTitle = "Doctor Who and the Avengers";
   const looseTitle = "An item in no scope at all";
   let crossover = "";
@@ -1883,8 +1874,10 @@ async function aCatalogueSafeToScope() {
    * the configured Providers rather than adding to them.
    */
   const wiki = await aProviderAnswering(SCOPED.wiki);
+  owned.defer(wiki.close);
   const database = await aProviderAnswering(SCOPED.database);
-  const instance = await anInstanceServing({
+  owned.defer(database.close);
+  const instance = await anInstanceServing(owned, {
     suffix: "group",
     // Drawing a scope is the Owner's (ADR-0044, CNCORE-109), and what a visitor
     // is offered instead is asserted at the bottom of the file.
@@ -1901,13 +1894,6 @@ async function aCatalogueSafeToScope() {
 
   return {
     baseUrl: instance.baseUrl,
-    // THE STUBS WITH THE INSTANCE, which is the lesson this suite's teardown
-    // carries a paragraph about: anything left listening outlives the run.
-    close: async () => {
-      await instance.close();
-      await wiki.close();
-      await database.close();
-    },
     fixture: {
       crossover,
       crossoverTitle,

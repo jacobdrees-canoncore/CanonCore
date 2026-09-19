@@ -84,7 +84,7 @@ const TIMELINES = [
   { id: "249643", name: "Theory:Timeline - Doctor Who universe/AHistory", atLeast: 2_500 },
 ];
 
-const stop: Array<() => void> = [];
+const owned = new AsyncDisposableStack();
 let db: ReturnType<typeof createDb>;
 let client: AppRouterClient;
 const imported: Array<{
@@ -115,12 +115,15 @@ beforeAll(async () => {
     env: { ...process.env, PORT: String(providerPort), HOSTNAME_BIND: "127.0.0.1" },
     stdio: "inherit",
   });
-  stop.push(() => provider.kill("SIGTERM"));
+  owned.defer(() => {
+    provider.kill("SIGTERM");
+  });
   const providerUrl = `http://127.0.0.1:${providerPort}`;
   await waitUntilAnswering(providerUrl, provider);
 
   const databaseUrl = await buildTestDatabase("web");
   db = createDb(databaseUrl, { maxConnections: 2 });
+  owned.defer(() => db.$client.end());
   await writeProviderSettings(db, {
     providerAllowlist: "127.0.0.0/8",
     providerUrls: providerUrl,
@@ -128,8 +131,7 @@ beforeAll(async () => {
 
   const env = { ...process.env, DATABASE_URL: databaseUrl, OWNER_PASSWORD };
   await theAppBuilt(env);
-  const server = await theBuildServing(env);
-  stop.push(server.close);
+  const server = await theBuildServing(owned, env);
 
   const cookie = await logInAt(server.baseUrl, OWNER_PASSWORD);
   client = createORPCClient(new RPCLink({ url: `${server.baseUrl}/api/rpc`, headers: { cookie } }));
@@ -149,8 +151,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await db?.$client.end();
-  for (const halt of stop.reverse()) halt();
+  await owned.disposeAsync();
 });
 
 test("a real Theory:Timeline browses in from the live wiki and lands its Items", async () => {

@@ -15,6 +15,7 @@ import {
   groupProviders,
   groups,
   items,
+  previewGroupDeletion,
   putItemInGroupByHand,
   renameGroupByHand,
   stopAskingProviderByHand,
@@ -206,6 +207,43 @@ describe("deleteGroupByHand", () => {
     await deleteGroupByHand(db, group);
 
     expect(await deleteGroupByHand(db, group)).toBe(false);
+  });
+});
+
+describe("previewGroupDeletion", () => {
+  it("counts what deleting the Group would take, and takes none of it", async () => {
+    // ADR-0046's COUNTS SHOWN FIRST, for a Group (CNCORE-210). The numbers
+    // are known-good literals from the arrangement rather than read back off
+    // the delete, so a preview that counted the wrong rows cannot agree with
+    // itself. The Item taken back out is the membership the delete would NOT
+    // take, because it is already gone.
+    const group = await createGroupByHand(db, { name: "A scope to preview" });
+    const stays = await anItemTitled(db, "Genesis of the Daleks");
+    const also = await anItemTitled(db, "Revenge of the Cybermen");
+    const takenOut = await anItemTitled(db, "Terror of the Zygons");
+    for (const itemId of [stays, also, takenOut]) {
+      await putItemInGroupByHand(db, { groupId: group, itemId });
+    }
+    await takeItemOutOfGroupByHand(db, { groupId: group, itemId: takenOut });
+    await askProviderByHand(db, { groupId: group, providerIdentity: "http://wiki.test:8080" });
+
+    expect(await previewGroupDeletion(db, group)).toStrictEqual({ memberships: 2, providers: 1 });
+
+    // AND NOTHING WENT, read back through what a reader of the Group sees.
+    expect(await findGroups(db)).toStrictEqual(
+      expect.arrayContaining([{ id: group, name: "A scope to preview" }]),
+    );
+    expect(await findGroupsOfItem(db, stays)).toStrictEqual([
+      { id: group, name: "A scope to preview" },
+    ]);
+    expect(await findProvidersAGroupAsks(db, group)).toStrictEqual(["http://wiki.test:8080"]);
+  });
+
+  it("answers nothing for a Group that is already gone", async () => {
+    const group = await createGroupByHand(db, { name: "Previewed after it went" });
+    await deleteGroupByHand(db, group);
+
+    expect(await previewGroupDeletion(db, group)).toBeUndefined();
   });
 });
 

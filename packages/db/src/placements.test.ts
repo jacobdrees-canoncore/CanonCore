@@ -450,7 +450,7 @@ describe("a placement several sources assert", () => {
  * cannot be asked at that seam -- and this one is owed here regardless.
  */
 describe("findPlacementsOfItem, capped and walked", () => {
-  it("caps the page and says how many orderings there are altogether", async () => {
+  it("caps the page and says how many appearances there are altogether", async () => {
     // ADR-0119's first sentence: every listing in CanonCore is capped. This was
     // the last one in the app that was not, and a cap with no count beside it is
     // the listing lying about its own extent.

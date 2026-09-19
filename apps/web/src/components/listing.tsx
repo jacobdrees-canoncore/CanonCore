@@ -419,8 +419,8 @@ function soMany(count: number, noun: string): string {
  * "In no ordering" RATHER THAN "Unplaced", though the ticket says Unplaced.
  * `CONTEXT.md` spends that word on a PLACEMENT with no Position -- "never an
  * absent placement" -- and a story in no Ordering has no Placement at all
- * (ADR-0062). The noun is the glossary's own from the item's end, the one the
- * item page counts "Also appears in" in.
+ * (ADR-0062). The noun is the glossary's own for what an item sits in, which
+ * is `CONTEXT.md`'s Placement from the item's end.
  *
  * GROUPED BY ORDERING, so a Repeat reads "#1, #5" under one name rather than
  * the name twice -- the order `sitsIn.first` arrives in keeps each Ordering's

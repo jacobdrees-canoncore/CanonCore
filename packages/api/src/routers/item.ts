@@ -433,7 +433,7 @@ export const item = {
         isContainer: found.isContainer,
         isOrdered: found.isOrdered,
         // THE LISTING AND NOT ONLY ITS ROWS (ADR-0045, ADR-0119), exactly as
-        // `holds` below: what this page carries, how many orderings there are,
+        // `holds` below: what this page carries, how many appearances there are,
         // and where to carry on from. The three travel together because a
         // surface handed only the first would report the cap as every ordering
         // the item sits in -- and multi-placement is the product's claim.

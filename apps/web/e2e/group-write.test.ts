@@ -3,8 +3,10 @@ import { describe, expect, inject, it } from "vitest";
 import {
   documentFrom,
   formIn,
+  linkedIn,
   logInAt,
   navigatingFormsIn,
+  postFormsIn,
   scopeLinked,
   sectionIn,
   submit,
@@ -218,28 +220,88 @@ describe("an Item's scopes, from its own page", () => {
   });
 });
 
+/**
+ * WHERE THE LIST'S DELETE BUTTON GOES, read off the page as a browser would
+ * follow it: a navigating form's action, with its fields as the query.
+ *
+ * AND IT IS ONLY EVER A NAVIGATION. A `POST` form in that section would be a
+ * delete one press away, which is the thing ADR-0046 refuses (CNCORE-210).
+ */
+function askedFrom(text: string, id: string): string {
+  const section = sectionIn(text, `delete-${id}`);
+  expect(postFormsIn(section)).toStrictEqual([]);
+  const [asks] = navigatingFormsIn(section);
+  if (!asks) throw new Error(`the \`delete-${id}\` section carries no form to follow`);
+  return `${asks.action}?${new URLSearchParams(asks.fields)}`;
+}
+
+/**
+ * How many of something the confirmation says the deletion takes, by the noun
+ * it counts -- `removing` in `purge-page.test.ts`, for a Group.
+ */
+function taking(confirmation: string, noun: string): number {
+  const found = new RegExp(`(\\d+)\\s+${noun}s?\\b`).exec(textOf(confirmation));
+  if (!found) throw new Error(`the confirmation counted no ${noun}s:\n${confirmation}`);
+  return Number(found[1]);
+}
+
 describe("deleting a scope", () => {
-  it("deletes it and LEAVES ITS ITEM ALONE", async () => {
-    // ADR-0010'S PROMISE (story 34), asserted where the Owner would find out it
-    // had been broken: the Item's own page, still rendering its title.
-    //
-    // THE ITEM IS THE ONE NOTHING ELSE SCOPES, so "it is in no Group now" is a
-    // claim about this deletion rather than about whatever else had put it
-    // somewhere.
+  /**
+   * ONE TEST FOR THE WHOLE PATH, for the reason `purge-page.test.ts` gives its
+   * confirm path one: a deletion is observed once. And the Items it counts are
+   * this instance's only two, so a scope a first test had asked about and left
+   * standing would still hold them when a second test said they were in none.
+   */
+  it("asks first, says what goes and that no Item does, and LEAVES ITS ITEMS ALONE", async () => {
+    // THE COUNTS ARE THIS TEST'S OWN ARRANGEMENT rather than read off the
+    // procedure: a scope nothing else touches, holding both Items and asking
+    // one Provider.
     const id = await aScopeCalled("ccc A scope to delete");
     await putInScope(scopable.loose, id);
+    await putInScope(scopable.crossover, id);
+    await setAsking(id, providers.wiki.url, true);
+    const at = askedFrom(await pageText("/groups"), id);
 
-    const deleted = await submit(
-      baseUrl,
-      "/groups",
-      formIn(await pageText("/groups"), `delete-${id}`),
-      owner,
+    const asked = await pageText(at);
+
+    // ADR-0046: DELETE PERMANENTLY ASKS FIRST, and says what it costs.
+    const confirmation = sectionIn(asked, "delete-group");
+    expect(textOf(confirmation)).toContain("ccc A scope to delete");
+    expect(taking(confirmation, "Group membership")).toBe(2);
+    expect(taking(confirmation, "Provider")).toBe(1);
+    expect(textOf(confirmation)).toContain("No Item is deleted");
+    // CANCEL IS A PLAIN LINK BACK, so leaving costs nothing and is a choice
+    // rather than a gesture -- and the one form is the deletion.
+    expect(linkedIn(confirmation, "Cancel")).toBe("/groups");
+    expect(postFormsIn(confirmation)).toHaveLength(1);
+    // AND ASKING WAS NOT DELETING.
+    expect(scopesIn(sectionIn(await pageText("/groups"), "groups"))).toContain(
+      "ccc A scope to delete",
     );
 
+    const deleted = await submit(baseUrl, at, formIn(asked, "delete-group"), owner);
+
+    // ADR-0010'S PROMISE (story 34), asserted where the Owner would find out it
+    // had been broken: the Item's own page, still rendering its title. THE
+    // ITEM IS THE ONE NOTHING ELSE SCOPES, so "it is in no Group now" is a
+    // claim about this deletion rather than about whatever else had put it
+    // somewhere.
+    // THE CONFIRMATION'S OWN ADDRESS IS THE REPORT: the scope is gone, so the
+    // page it posted from renders the list without it.
+    expect(() => sectionIn(deleted.text, "delete-group")).toThrow();
     expect(scopesIn(sectionIn(deleted.text, "groups"))).not.toContain("ccc A scope to delete");
     const item = await documentAt(`/items/${scopable.loose}`);
     expect(item.text).toContain(scopable.looseTitle);
     expect(sectionIn(item.text, "groups")).toContain("in no Group");
+  });
+
+  it("asks about a scope whose id is written in capitals, which is the same scope", async () => {
+    // ONE GROUP, ONE ADDRESS (ADR-0066): `oneGroup`'s reason, on this page.
+    const id = await aScopeCalled("ccc Asked about in capitals");
+
+    const asked = await pageText(`/groups?delete=${id.toUpperCase()}`);
+
+    expect(textOf(sectionIn(asked, "delete-group"))).toContain("ccc Asked about in capitals");
   });
 });
 
@@ -357,6 +419,18 @@ describe("what a visitor is served", () => {
 
     expect(scopesIn(sectionIn(page.text, "groups"))).toContain("ddd Visible to a visitor");
     expect(() => formIn(page.text, "draw-a-group")).toThrow();
+  });
+
+  it("offers a visitor no deletion to confirm, even at the address that asks", async () => {
+    // THE PREVIEW IS THE DELETE ROLLED BACK (ADR-0046), so it is the Owner's
+    // like the delete, and a visitor who has the address is served the list.
+    const id = await aScopeCalled("ddd Not a visitor's to delete");
+
+    const page = await documentAt(`/groups?delete=${id}`);
+
+    expect(page.status).toBe(200);
+    expect(() => sectionIn(page.text, "delete-group")).toThrow();
+    expect(scopesIn(sectionIn(page.text, "groups"))).toContain("ddd Not a visitor's to delete");
   });
 
   it("shows a visitor which Providers a scope asks, and offers no button to change it", async () => {

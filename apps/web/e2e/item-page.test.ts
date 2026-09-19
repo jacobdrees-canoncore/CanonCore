@@ -727,7 +727,7 @@ describe("/items/<an item in more orderings than one page>", () => {
       ?.replaceAll("&amp;", "&");
   }
 
-  it("shows one page at a time, and says how many orderings it is not showing", async () => {
+  it("shows one page at a time, and says how many appearances it is not showing", async () => {
     // THE CAP, WHICH WAS MISSING HERE LAST OF ANYWHERE. ADR-0119's first
     // sentence is that every listing in CanonCore is capped; after CNCORE-89
     // this was the only one in the app that took no limit at all.
@@ -735,8 +735,13 @@ describe("/items/<an item in more orderings than one page>", () => {
 
     expect(status).toBe(200);
     expect(orderingsLinkedFrom(text)).toHaveLength(100);
+    // APPEARANCES, AND A COUNT OF PLACEMENTS (CNCORE-236). The fixture's Repeat
+    // is what lets this tell the two apart: one ordering twice makes one more
+    // placement than there are orderings, so a count of containers would be
+    // one short of the figure below -- and the noun would be wrong for it.
+    expect(appearsIn.sitsIn.length).toBe(appearsIn.containers.length + 1);
     expect(sectionIn(text, "also-appears-in")).toContain(
-      `Showing 100 of ${appearsIn.sitsIn.length} orderings`,
+      `Showing 100 of ${appearsIn.sitsIn.length} appearances`,
     );
   });
 
@@ -858,10 +863,12 @@ describe("/items/<an item in more orderings than one page>", () => {
 
     expect(orderingsLinkedFrom(text)).toStrictEqual([appearsIn.imported.containerId]);
     // THE SIZE OF THE NARROWING, not of the list it was cut out of, and not of
-    // the page: "1 ordering" is `Holding` saying the cap did not bite.
-    expect(sectionIn(text, "also-appears-in")).toContain("1 ordering");
+    // the page: "1 appearance" is `Holding` saying the cap did not bite. The
+    // whole text node, so neither "211 appearances" nor a plural gone wrong
+    // could pass for it.
+    expect(sectionIn(text, "also-appears-in")).toContain(">1 appearance<");
     expect(sectionIn(text, "also-appears-in")).not.toContain(
-      `of ${appearsIn.sitsIn.length} orderings`,
+      `of ${appearsIn.sitsIn.length} appearances`,
     );
   });
 
@@ -876,7 +883,7 @@ describe("/items/<an item in more orderings than one page>", () => {
     const first = await documentFrom(pagedBaseUrl, `/items/${appearsIn.id}?placed=owner`);
 
     expect(sectionIn(first.text, "also-appears-in")).toContain(
-      `Showing 100 of ${byHand} orderings`,
+      `Showing 100 of ${byHand} appearances`,
     );
 
     const walked: string[] = [];
