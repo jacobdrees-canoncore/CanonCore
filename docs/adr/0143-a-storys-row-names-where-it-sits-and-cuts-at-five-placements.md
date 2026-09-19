@@ -85,8 +85,7 @@ spends **Unplaced** on a Placement with no Position, "never an absent placement"
 Ordering has no Placement at all: it is at the root
 ([[0062-root-is-the-absence-of-a-placement]]). The glossary is binding on UI copy and ticket titles
 alike, so it wins. Its **Unplaced** entry now says so, because the confusion had been written down
-twice. "Ordering" is the glossary's noun from the item's end, the one the item page counts "Also
-appears in" in.
+twice. "Ordering" is the glossary's noun for what an Item sits in, from the item's end.
 
 **A PLACEMENT WITH NO POSITION READS "no position given"**, the glossary's words for the reader, and
 never as a number. The corpus holds 701 of them.
@@ -101,8 +100,8 @@ has named every Ordering it sits in, a bare number reads as that many more Order
 story is named in all three of its Orderings and then has 2,910 Placements left. "Appearances" is the
 noun of the reader's own phrase, and a Repeat is one Ordering appearing twice. "Positions" would
 miscount, because a Placement may have none. `CONTEXT.md`'s **Placement** now names it as the count
-from the item's end. The item page still counts the same figure as "orderings", which is its own
-ticket rather than this one's.
+from the item's end. The item page counted the same figure as "orderings" until CNCORE-236, and now
+counts it as appearances too, so the cut and the section it links to name one figure with one noun.
 
 **"Also appears in" ON A CATALOGUE ROW, where "also" has no page to be beside.** It reads as "also,
 besides being in the catalogue", and it is the heading of the section the cut links to, so the Row

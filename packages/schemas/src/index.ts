@@ -103,10 +103,12 @@ export type PlacementPublic = z.infer<typeof placementPublic>;
 export const placementsOfItemPublic = z.object({
   rows: z.array(placementPublic),
   /**
-   * How many orderings this item sits in ALTOGETHER, cap or no cap. A surface
-   * that could only count what it was given would report the first hundred as
-   * every ordering there is -- and multi-placement is the product's central
-   * claim, so that is the one number this list must not get wrong.
+   * How many appearances this item has ALTOGETHER, cap or no cap: its
+   * placements, so a Repeat counts twice where a count of orderings would not
+   * (CNCORE-236). A surface that could only count what it was given would
+   * report the first hundred as every appearance there is -- and
+   * multi-placement is the product's central claim, so that is the one number
+   * this list must not get wrong.
    */
   total: z.number().int().nonnegative(),
   /**
