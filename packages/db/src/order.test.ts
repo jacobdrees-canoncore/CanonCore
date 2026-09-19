@@ -2,7 +2,7 @@ import { and, eq, inArray, type SQL } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { type Database, items } from "./index";
-import type { PlaceIn, TheOrder } from "./order";
+import { type PlaceIn, type TheOrder, thePlaceIn } from "./order";
 import { IN_THE_CATALOGUE, SORT_KEY, walkListing } from "./queries";
 import { anItemTitled, connect } from "./testing/catalogue";
 
@@ -104,10 +104,7 @@ async function walked<O extends TheOrder>(order: O, within: SQL): Promise<string
  * this read too, which is the third place the old shape could leave one behind.
  */
 async function placeIn<O extends TheOrder>(order: O, id: string): Promise<PlaceIn<O>> {
-  const [place] = await db
-    .select({ ...order.keys, id: order.id })
-    .from(items)
-    .where(eq(items.id, id));
+  const [place] = await db.select(thePlaceIn(order)).from(items).where(eq(items.id, id));
   if (place === undefined) throw new Error(`no row at ${id}`);
   // CAST BECAUSE THIS HELPER IS GENERIC, not because the shape is in doubt: the
   // fields ARE the order's keys, and Drizzle cannot infer their types through an

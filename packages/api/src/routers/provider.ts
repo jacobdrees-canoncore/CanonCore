@@ -137,8 +137,8 @@ const providerRefused = {
    * third party's text.
    *
    * DECLARED, so the ceiling is in the output schema a caller is held to rather
-   * than an invariant two handlers each had to remember. Not yet in the OpenAPI
-   * document (CNCORE-212).
+   * than an invariant two handlers each had to remember, and stated in the
+   * OpenAPI document a caller reads.
    */
   data: failureReason,
 };
@@ -164,7 +164,7 @@ const providerRefused = {
  * `cmppManifest` bounds the name before any code here sees it, so a name past
  * this ceiling can only be a bug in THIS APP, and a bug should surface as a 500
  * with its stack in the log (ADR-0125) rather than as a page quietly flooded.
- * Not yet in the OpenAPI document (CNCORE-212).
+ * And it is in the OpenAPI document, which `route.test.ts` asserts (CNCORE-212).
  */
 const declaredName = z.string().min(1).max(REASON_MAX_LENGTH);
 
