@@ -143,7 +143,12 @@ export default async function SearchPage({
         */}
         <h1 className="text-3xl font-medium">Catalogue search</h1>
         {results !== null && results.total > 0 && (
-          <Holding showing={results.rows.length} total={results.total} noun="result" />
+          <Holding
+            showing={results.rows.length}
+            rowsBefore={results.rowsBefore}
+            total={results.total}
+            noun="result"
+          />
         )}
       </div>
       {/*

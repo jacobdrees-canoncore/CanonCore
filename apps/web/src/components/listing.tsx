@@ -383,7 +383,10 @@ function queryFor(walking: Walking | Searched, to: WhereTo | undefined): LinkQue
  * number -- "Showing 100 of 8052 items" beside "2,913 members". A POSITION IS
  * NOT A COUNT, and since CNCORE-184 this file prints those too: `#1234` is an
  * ordinal, written the way the item page writes it, and grouped it would run
- * into the comma between two of them -- "#1,234, #1,240" (ADR-0143).
+ * into the comma between two of them -- "#1,234, #1,240" (ADR-0143). WHICH
+ * ROWS A PAGE SHOWS IS GROUPED, ordinals though they are (ADR-0133): they sit
+ * in one sentence with the size they are out of, and no list runs them
+ * together -- "items 3,201 to 3,300 of 7,000".
  */
 const grouped = new Intl.NumberFormat("en-GB");
 
@@ -413,20 +416,38 @@ const grouped = new Intl.NumberFormat("en-GB");
  */
 export function Holding({
   showing,
+  rowsBefore,
   total,
   noun = "item",
 }: {
   showing: number;
+  rowsBefore: number;
   total: number;
   noun?: string;
 }) {
   return (
     <p className="text-muted-foreground text-sm">
       {showing < total
-        ? `Showing ${grouped.format(showing)} of ${soMany(total, noun)}`
+        ? `Showing ${which(showing, rowsBefore, noun)} of ${grouped.format(total)}`
         : soMany(total, noun)}
     </p>
   );
+}
+
+/**
+ * WHICH OF THEM THIS PAGE SHOWS (ADR-0133): "items 3,201 to 3,300", by where
+ * its first and last sit in the Listing, and "item 465" where a page holds one.
+ * "Showing 100 of 7,000" read the same on page one and page seventy.
+ *
+ * `rowsBefore` IS THE LISTING'S OWN COUNT, never the reader's walk added up:
+ * a page opened from a link somebody was sent has no walk behind it, and says
+ * where it is all the same. It is where the reader IS, and nothing on this page
+ * offers it back as somewhere to go -- the letters are how a reader lands.
+ */
+function which(showing: number, rowsBefore: number, noun: string): string {
+  const first = grouped.format(rowsBefore + 1);
+  if (showing === 1) return `${noun} ${first}`;
+  return `${noun}s ${first} to ${grouped.format(rowsBefore + showing)}`;
 }
 
 /**
@@ -438,11 +459,10 @@ export function Holding({
  * spellings there would be the page disagreeing with itself about how it
  * writes a number.
  *
- * THE `showing < total` ARM ABOVE CANNOT REACH THE SINGULAR, and takes this
- * anyway rather than spelling the plural itself: that arm renders only where
- * `total` exceeds a page that already has a Row in it, so it is plural by
- * arithmetic. One rule read in both positions is the point (`TheSize`, one
- * package over, for the same argument about a number said twice).
+ * THE `showing < total` ARM ABOVE DOES NOT TAKE IT SINCE ADR-0133, because
+ * the noun moved to the front of that sentence -- "items 101 to 200 of 465" --
+ * and is pluralised there off how many the page shows. `which` spells that,
+ * and it is the one other place this file writes a noun's plural.
  */
 function soMany(count: number, noun: string): string {
   return `${grouped.format(count)} ${count === 1 ? noun : `${noun}s`}`;

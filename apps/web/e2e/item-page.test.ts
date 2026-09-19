@@ -749,7 +749,7 @@ describe("/items/<an item in more orderings than one page>", () => {
     // one short of the figure below -- and the noun would be wrong for it.
     expect(appearsIn.sitsIn.length).toBe(appearsIn.containers.length + 1);
     expect(sectionIn(text, "also-appears-in")).toContain(
-      `Showing 100 of ${appearsIn.sitsIn.length} appearances`,
+      `Showing appearances 1 to 100 of ${appearsIn.sitsIn.length}`,
     );
   });
 
@@ -769,6 +769,10 @@ describe("/items/<an item in more orderings than one page>", () => {
 
     expect(previous).toContain("placedBefore=");
     expect(orderingsLinkedFrom(back.text)).toStrictEqual(orderingsLinkedFrom(second.text));
+    // AND SAYS IT IS THE SECOND HUNDRED (ADR-0133).
+    expect(sectionIn(back.text, "also-appears-in")).toContain(
+      `Showing appearances 101 to 200 of ${appearsIn.sitsIn.length}`,
+    );
   });
 
   it("reaches every ordering by following links, and lands on none of them twice", async () => {
@@ -909,7 +913,7 @@ describe("/items/<an item in more orderings than one page>", () => {
     const first = await documentFrom(pagedBaseUrl, `/items/${appearsIn.id}?placed=owner`);
 
     expect(sectionIn(first.text, "also-appears-in")).toContain(
-      `Showing 100 of ${byHand} appearances`,
+      `Showing appearances 1 to 100 of ${byHand}`,
     );
 
     const walked: string[] = [];

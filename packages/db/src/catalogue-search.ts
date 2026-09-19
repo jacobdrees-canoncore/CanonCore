@@ -140,7 +140,9 @@ export async function searchCatalogue(
    */
   const wanted = query.trim();
   // Nothing was asked, so nothing matched and there is nowhere to walk on to.
-  if (wanted === "") return { rows: [], total: 0, continuesAfter: null, continuesBefore: null };
+  if (wanted === "") {
+    return { rows: [], total: 0, rowsBefore: 0, continuesAfter: null, continuesBefore: null };
+  }
 
   const ranking = theRanking(wanted);
   const cut = await theCutAt(at, (id) => findInTheRanking(db, ranking, wanted, id));

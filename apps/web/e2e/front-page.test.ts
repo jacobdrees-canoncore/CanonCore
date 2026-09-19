@@ -383,6 +383,14 @@ describe("/ on a fresh install", () => {
   });
 });
 
+/**
+ * WHAT A PAGE SAYS IT IS SHOWING, word for word, where it is showing part of a
+ * Listing. `Holding` renders it as ONE string, so it is one text node here.
+ */
+function holdingOn(text: string): string | undefined {
+  return text.match(/<p class="text-muted-foreground text-sm">(Showing [^<]*)<\/p>/)?.[1];
+}
+
 describe("/ on a catalogue larger than one page", () => {
   /** Where the page says the catalogue carries on, if it says so at all. */
   function carriesOnAt(text: string): string | undefined {
@@ -509,6 +517,44 @@ describe("/ on a catalogue larger than one page", () => {
     expect(sectionIn(beyond.text, "past-the-end")).toContain('href="/"');
   });
 
+  it("says which items each page shows: the first, every one opened from a shared link, and the last", async () => {
+    // WHERE THE READER IS (ADR-0133). "Showing 100 of 254" read the same on
+    // every page, so a reader pressing Next could not tell the front of the
+    // catalogue from the back. Every page's address is opened COLD, the way a
+    // link somebody was sent is opened: nothing about the walk that minted it
+    // reaches the page, so the place it states is the Listing's own to say.
+    //
+    // THE ORACLE IS THE WALK -- how many items the pages before each one
+    // actually listed -- rather than a count read a second way.
+    const pagedBaseUrl = inject("pagedBaseUrl");
+    const size = inject("pagedCatalogue").length;
+    const pages: { at: string; listed: string[] }[] = [];
+    for (let at: string | undefined = "/"; at !== undefined; ) {
+      const { text } = await documentFrom(pagedBaseUrl, at);
+      pages.push({ at, listed: itemsListedOn(text) });
+      at = carriesOnAt(text);
+      if (pages.length > size) throw new Error("the walk never ended");
+    }
+
+    const said: (string | undefined)[] = [];
+    const due: string[] = [];
+    let before = 0;
+    for (const { at, listed } of pages) {
+      said.push(holdingOn((await documentFrom(pagedBaseUrl, at)).text));
+      due.push(`Showing items ${before + 1} to ${before + listed.length} of ${size}`);
+      before += listed.length;
+    }
+    // AND A STEP BACK LANDS ON THE SAME PLACE FROM THE OTHER SIDE: back from
+    // the last page is the page before it, and says so.
+    const backFromTheLast = await documentFrom(pagedBaseUrl, `/?before=${pages.at(-1)?.listed[0]}`);
+
+    expect(pages.length).toBeGreaterThan(2);
+    expect(said).toStrictEqual(due);
+    expect(said[0]).toBe(`Showing items 1 to 100 of ${size}`);
+    expect(said.at(-1)).toMatch(new RegExp(` to ${size} of ${size}$`));
+    expect(holdingOn(backFromTheLast.text)).toBe(due.at(-2));
+  });
+
   it("still shows one page at a time, and says how much it is not showing", async () => {
     // THE CAP, WHICH PAGING DOES NOT LIFT. The other half was already built --
     // a listing that says what it is not showing -- and this is the state it
@@ -521,7 +567,7 @@ describe("/ on a catalogue larger than one page", () => {
 
     expect(itemsListedOn(text)).toHaveLength(100);
     expect(text).toContain(
-      `<p class="text-muted-foreground text-sm">Showing 100 of ${everyItem.length} items</p>`,
+      `<p class="text-muted-foreground text-sm">Showing items 1 to 100 of ${everyItem.length}</p>`,
     );
   });
 });
@@ -558,7 +604,7 @@ describe("/ narrowed to a Group", () => {
     expect(itemsListedOn(text)).toHaveLength(100);
     expect(itemsListedOn(text).every((id) => group.holds.includes(id))).toBe(true);
     expect(text).toContain(
-      `<p class="text-muted-foreground text-sm">Showing 100 of ${group.holds.length} items</p>`,
+      `<p class="text-muted-foreground text-sm">Showing items 1 to 100 of ${group.holds.length}</p>`,
     );
     // AND THE PAGE SAYS WHICH GROUP IT IS NARROWED TO, rather than leaving a
     // smaller count to be read as one. On the whole catalogue it is
@@ -630,7 +676,7 @@ describe("/ narrowed to a Group", () => {
 
     expect(cleared.status).toBe(200);
     expect(cleared.text).toContain(
-      `<p class="text-muted-foreground text-sm">Showing 100 of ${inject("pagedCatalogue").length} items</p>`,
+      `<p class="text-muted-foreground text-sm">Showing items 1 to 100 of ${inject("pagedCatalogue").length}</p>`,
     );
   });
 
@@ -719,8 +765,8 @@ describe("/ on a catalogue nothing is writing to", () => {
      * items than a page, so "how many there are" and "how many are listed" are
      * the same number here and no assertion made against it can tell them apart.
      * THE CAP IS PROVED ABOVE, on the paged instance, where the two numbers
-     * differ: "Showing 100 of 254 items" is the same sentence with the total
-     * disagreeing with the count. What only THIS instance can prove is
+     * differ: "Showing items 1 to 100 of 254" is the same sentence with the
+     * total disagreeing with the count. What only THIS instance can prove is
      * `Holding`'s OTHER arm, the one a catalogue smaller than a page renders.
      *
      * ON AN INSTANCE OF ITS OWN, WHICH IS THE WHOLE POINT OF IT (CNCORE-93).
@@ -800,9 +846,9 @@ describe("/ on a catalogue nothing is writing to", () => {
     /*
      * ONE SPELLING FOR ONE KIND OF FACT. `Holding` and the Row's own figure sit
      * on one screen at the size this catalogue is designed against (ADR-0137:
-     * 8,052 Items), so a grouped Row beside an ungrouped "Showing 100 of 8052
-     * items" would be the page disagreeing with itself about how to write a
-     * number. `soMany` is the one place either is spelled.
+     * 8,052 Items), so a grouped Row beside an ungrouped "Showing items 1 to
+     * 100 of 8052" would be the page disagreeing with itself about how to write
+     * a number. `grouped` is the one place either is spelled.
      *
      * ASSERTED ON THE MEMBERS LISTING BECAUSE NOTHING ELSE HERE REACHES FOUR
      * FIGURES, said plainly rather than left as a curiosity. Every catalogue in
@@ -818,7 +864,7 @@ describe("/ on a catalogue nothing is writing to", () => {
 
     expect(status).toBe(200);
     expect(text).toContain(
-      `<p class="text-muted-foreground text-sm">Showing 100 of ${"2,913"} members</p>`,
+      `<p class="text-muted-foreground text-sm">Showing members 1 to 100 of ${"2,913"}</p>`,
     );
   });
 

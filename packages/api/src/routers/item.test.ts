@@ -552,6 +552,8 @@ describe("item.get on a container", () => {
       // rather than something derivable from the rows.
       "everyPlacedBy",
       "rows",
+      // WHERE THE PAGE IS (ADR-0133): how many Rows sort before it.
+      "rowsBefore",
       "total",
     ]);
   });
@@ -567,6 +569,8 @@ describe("item.get on a container", () => {
       // THE STEP BACK (CNCORE-174), the cursor read from the other end.
       "continuesBefore",
       "rows",
+      // WHERE THE PAGE IS (ADR-0133): how many Rows sort before it.
+      "rowsBefore",
       "total",
     ]);
   });
@@ -654,6 +658,9 @@ describe("item.get on a container larger than one page", () => {
 
     expect(back.holds.rows.map((member) => member.id)).toStrictEqual(walked.slice(10, 110));
     expect(back.holds.continuesBefore).toBe(walked[10]);
+    // AND EACH PAGE SAYS WHERE IT IS (ADR-0133), which is how many members
+    // sort before it: none, a page of them, and the ten the step back left.
+    expect([first, second, back].map((page) => page.holds.rowsBefore)).toStrictEqual([0, 100, 10]);
   });
 });
 
@@ -1150,6 +1157,10 @@ describe("item.get on an item in more orderings than one page", () => {
 
     expect(back.placements.rows.map((row) => row.id)).toStrictEqual(walked.slice(10, 110));
     expect(back.placements.continuesBefore).toBe(walked[10]);
+    // AND EACH PAGE SAYS WHERE IT IS (ADR-0133), as a Container's members do.
+    expect([first, second, back].map((page) => page.placements.rowsBefore)).toStrictEqual([
+      0, 100, 10,
+    ]);
   });
 
   it("narrows to one origin at the query, and counts what the narrowing holds", async () => {

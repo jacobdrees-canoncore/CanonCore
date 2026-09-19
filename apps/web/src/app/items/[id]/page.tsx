@@ -816,7 +816,7 @@ function Members({
   /** Whether to offer the controls that CHANGE this ordering (CNCORE-109). */
   owner: boolean;
 }) {
-  const { rows, total, continuesAfter, continuesBefore } = holds;
+  const { rows, total, rowsBefore, continuesAfter, continuesBefore } = holds;
   /*
    * NOTHING AT ALL FOR AN ITEM THAT HOLDS NOTHING, which is `total` rather than
    * `rows.length`: an item that is not a container and an empty container
@@ -978,7 +978,9 @@ function Members({
           It is not `item`, either: a Repeat is one item twice, so the count
           would disagree with itself.
         */}
-        {rows.length > 0 && <Holding showing={rows.length} total={total} noun="member" />}
+        {rows.length > 0 && (
+          <Holding showing={rows.length} rowsBefore={rowsBefore} total={total} noun="member" />
+        )}
       </div>
       {/*
         MEMBERS BEHIND IT AND NONE ON THIS PAGE, which is what a cursor makes
@@ -1131,7 +1133,7 @@ function AlsoAppearsIn({
   /** Where THIS listing stands, if the page was asked with a position in it. */
   appearancesAt: Pick<TheRoute, "placedAfter" | "placedBefore">;
 }) {
-  const { rows, total, continuesAfter, continuesBefore, everyPlacedBy } = placements;
+  const { rows, total, rowsBefore, continuesAfter, continuesBefore, everyPlacedBy } = placements;
   /*
    * NOTHING AT ALL FOR AN ITEM IN NO ORDERING, which is `total` rather than
    * `rows.length` for the reason `Members` above gives: a rows-length
@@ -1200,7 +1202,9 @@ function AlsoAppearsIn({
           unnarrowed list and a second notice below carried what the chips did to
           it; there is one number now, and it is the one the reader is looking at.
         */}
-        {rows.length > 0 && <Holding showing={rows.length} total={total} noun="appearance" />}
+        {rows.length > 0 && (
+          <Holding showing={rows.length} rowsBefore={rowsBefore} total={total} noun="appearance" />
+        )}
       </div>
       {/*
         A FILTER RATHER THAN A SPLIT LAYOUT. A container the owner filled by
