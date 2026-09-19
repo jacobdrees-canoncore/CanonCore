@@ -193,7 +193,25 @@ export type ItemPageListing = "members" | "appearances";
 type Walking =
   | { path: "/" | "/works"; asked?: never; narrowed?: Narrowed; listing?: never }
   | { path: "/search"; asked: Asked; narrowed?: Narrowed; listing?: never }
-  | { path: MembersPath; asked: TheRoute; narrowed?: never; listing: ItemPageListing };
+  | { path: MembersPath; asked: TheRoute; narrowed?: never; listing: ItemPageListing }
+  | { path: "/import"; asked: Picked; narrowed?: never; listing?: never };
+
+/**
+ * THE CONTAINERS ONE PROVIDER HOLDS, ON `/import` (CNCORE-187): a Listing by
+ * `CONTEXT.md`'s own word -- a page of them, how many there are, and where the
+ * list carries on -- and walked like every other, by the id of the last one a
+ * page showed (ADR-0119).
+ *
+ * WHICH PROVIDER IS WHAT THE PAGE WAS ASKED, and every link on the walk keeps
+ * it, as `/search`'s keep the query. NOT the container the Owner picked, which
+ * a walk drops: the page it leads to would otherwise run that container's
+ * browse again on every step.
+ *
+ * NOT NARROWED BY A GROUP, which narrows who a SEARCH asks (ADR-0025): this is
+ * one Provider the Owner named, and what it holds is not a question a scope
+ * changes.
+ */
+type Picked = { provider: string };
 
 /**
  * PROVIDER SEARCH ON `/import`, WHICH A GROUP NARROWS AND NOTHING WALKS
@@ -214,7 +232,9 @@ type Searched = { path: "/import"; asked: Asked; narrowed?: Narrowed; listing?: 
  * the two things the picker changes. The three Listings that are their own
  * surface, and Provider search.
  */
-type Narrowable = Extract<Walking | Searched, { listing?: never }> & { narrowed?: never };
+type Narrowable = Exclude<Extract<Walking | Searched, { listing?: never }>, { asked: Picked }> & {
+  narrowed?: never;
+};
 
 /**
  * WHERE ONE OF THOSE LISTINGS STARTS, UNNARROWED: its address with what it
@@ -254,7 +274,10 @@ const ENDS_HERE = {
    */
   members: "This container's Members end here",
   appearances: "The orderings this item appears in end here",
-} as const satisfies Record<ListingPath | ItemPageListing, string>;
+  // A PROVIDER'S LIST, and the noun is the glossary's: what it offers is
+  // Containers, whichever word its source uses for them.
+  "/import": "The containers this provider lists end here",
+} as const satisfies Record<ListingPath | "/import" | ItemPageListing, string>;
 
 /**
  * WHAT EACH LISTING WALKS WITH, which is the same word for four of the five and

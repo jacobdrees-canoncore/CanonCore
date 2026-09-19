@@ -39,7 +39,7 @@ import {
   theBuildServing,
 } from "./instance";
 import { aProviderThatFloodsItsName, FLOOD, onLoopback, searchOver, searchStatus } from "./stubs";
-import { CONTAINERS, TENTH_PLANET, WIKI_MANIFEST } from "./wiki-fixture";
+import { CONTAINERS, TENTH_PLANET, TIMELINES, WIKI_MANIFEST } from "./wiki-fixture";
 
 /**
  * Builds a database, seeds ONE item into TWO orderings, then builds and starts
@@ -1621,12 +1621,13 @@ async function stubWikiProvider(): Promise<{ url: string; close: () => Promise<v
     ...Object.values(CONTAINERS).flatMap((browsed) => [
       browsed.container,
       ...browsed.ordering.map(({ record }) => record),
-      ...browsed.unplaced,
+      ...(browsed.unplaced ?? []),
     ]),
   ];
   return onLoopback((path, answer) => {
     if (path === "/") return answer(WIKI_MANIFEST, 200);
     if (path.startsWith("/search")) return answer(searchOver(searchable, path), searchStatus(path));
+    if (path === "/containers") return answer({ containers: TIMELINES }, 200);
     if (path.startsWith("/browse/")) {
       // `Object.hasOwn` rather than a bare index: the id is a path segment, and
       // `/browse/constructor` otherwise finds `Object` on the prototype and

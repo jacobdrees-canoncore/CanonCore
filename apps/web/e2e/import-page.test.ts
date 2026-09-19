@@ -12,12 +12,17 @@ import {
   postFormsIn,
   quotesIn,
   type RenderedForm,
+  followed,
+  linkedIn,
+  navigatingFormsIn,
   sectionIn,
   submit,
   textOf,
+  walkLinked,
   withFields,
 } from "./document";
 import { HARNESS_CONNECTIONS } from "./instance";
+import { TIMELINES, WAR_CHILD_MASTER } from "./wiki-fixture";
 
 /**
  * THE IMPORT SURFACE, over real HTTP. ADR-0103's fourth seam, which is the one
@@ -926,6 +931,142 @@ describe("/import, taking a Container and its ordering", () => {
     expect(placement).toBeDefined();
     expect(placement?.position).toBeGreaterThan(0);
     expect(placement?.placedBy).toBe("provider");
+  });
+});
+
+/** A Provider picked in the browse box, as the box's form puts it in the URL. */
+function picking(provider: string): string {
+  return `/import?provider=${encodeURIComponent(provider)}`;
+}
+
+/** Every container a page of the list offers: its title, and where it leads. */
+function offeredIn(text: string): { title: string; href: string }[] {
+  return rows(sectionIn(text, "containers")).map((row) => {
+    const [, href, words] = /<a [^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/.exec(row) ?? [];
+    if (href === undefined) throw new Error(`that row links nothing:\n${row}`);
+    return { title: textOf(words ?? ""), href };
+  });
+}
+
+describe("/import, offering what a provider holds", () => {
+  it("offers its containers to pick from, rather than asking for an id", async () => {
+    /*
+     * THE WHOLE TICKET IN ONE PAGE (CNCORE-187): the Owner picks a Provider and
+     * is shown what it holds, rather than being asked for an id it never showed
+     * them. Asked with no session, because the read is open (ADR-0131): it
+     * costs a search's time, not a browse's.
+     *
+     * THE ORACLE IS WHAT THE STUB SERVES, which is the published image's own
+     * answer (`wiki-timelines.ts`) -- not whatever the page happens to print.
+     */
+    const wiki = inject("providerWikiUrl");
+
+    const { status, text } = await documentAt(picking(wiki));
+
+    expect(status).toBe(200);
+    const offered = offeredIn(text);
+    expect(offered.map(({ title }) => title)).toEqual(
+      TIMELINES.slice(0, 100).map(({ title }) => title),
+    );
+    // THE CAP IS NEVER SILENT: a page of 100 says it is one of 465.
+    expect(textOf(sectionIn(text, "containers"))).toContain("Showing 100 of 465 containers");
+    // AND A ROW LEADS WHERE THE ID WOULD HAVE, which is what makes an import
+    // from the list the same operation as one by id.
+    expect(offered[0]?.href).toBe(
+      browsing({ provider: wiki, container: WAR_CHILD_MASTER.container.id }),
+    );
+  });
+
+  it("walks the list rather than rendering it whole, reaching every one once", async () => {
+    /*
+     * A PROVIDER MAY HOLD HUNDREDS, and the wiki holds 465: the page carries a
+     * page of them and ADR-0119's walk reaches the rest, as on every list in
+     * this product. Walked to the end, it must have offered each exactly once
+     * and in the provider's own order.
+     */
+    const seen: string[] = [];
+    let at: string | undefined = picking(inject("providerWikiUrl"));
+    while (at !== undefined) {
+      const { text } = await documentAt(at);
+      const page = offeredIn(text).map(({ title }) => title);
+      expect(page.length).toBeLessThanOrEqual(100);
+      seen.push(...page);
+      at = walkLinked(text, "Next");
+    }
+
+    expect(seen).toEqual(TIMELINES.map(({ title }) => title));
+  });
+
+  it("says a provider that lists nothing does not offer to, and keeps the id for it", async () => {
+    /*
+     * AN ABSENT CAPABILITY IS NOT AN EMPTY ANSWER (story 60). `provider-tmdb`
+     * declines the operation -- TMDB publishes nothing that lists its
+     * collections -- and that is the real image in CI, so this reads what a
+     * real decliner makes of the page. Saying it "holds none" would be false.
+     *
+     * AND THE ID FIELD REMAINS, which is the whole of the Owner's way in there.
+     */
+    const tmdb = inject("providerTmdbUrl");
+
+    const { status, text } = await documentAt(picking(tmdb), owner);
+
+    expect(status).toBe(200);
+    const section = sectionIn(text, "containers");
+    expect(textOf(section)).toContain("provider-tmdb does not list the containers it holds");
+    expect(textOf(section)).not.toContain("holds no containers");
+    const byId = navigatingFormsIn(section).find(({ fields }) =>
+      fields.some(([name]) => name === "container"),
+    );
+    expect(byId?.fields).toContainEqual(["provider", tmdb]);
+  });
+
+  it("says a provider could not answer, in its own words, rather than that it holds none", async () => {
+    // A LAPSED CREDENTIAL, WHICH ADR-0033 SAW LIVE AT `/containers`: a `503`
+    // naming `/unlock`. The Owner's remedy is in the provider's sentence.
+    const lapsed = providerSearch.refusesWithASentence;
+
+    const { status, text } = await documentAt(picking(lapsed.url), owner);
+
+    expect(status).toBe(200);
+    const section = sectionIn(text, "containers");
+    expect(quotesIn(section)).toContainEqual(expect.stringContaining(lapsed.said));
+    expect(textOf(section)).not.toContain("holds no containers");
+  });
+
+  it("imports one picked from the list, landing what a browse by its id lands", async () => {
+    /*
+     * PICKED, NOT TYPED, AND THEN THE SAME OPERATION. The row leads to the
+     * address the id box reaches, the preview there is the one CNCORE-92 built,
+     * and its button is `browse` -- so what lands is what a browse by id lands:
+     * the container, and its five members in the wiki's own order, which is not
+     * their release order.
+     *
+     * THIS TIMELINE IS IMPORTED BY NOTHING ELSE, so the list saying "In your
+     * catalogue" afterwards is a transition this test caused.
+     */
+    const wiki = inject("providerWikiUrl");
+    const title = WAR_CHILD_MASTER.container.title;
+    const before = await documentAt(picking(wiki), owner);
+    expect(rowTitled(sectionIn(before.text, "containers"), title)).not.toContain("In your catalogue");
+    const at = followed(linkedIn(sectionIn(before.text, "containers"), title), title);
+
+    const offered = await documentAt(at, owner);
+    const container = sectionIn(offered.text, "container");
+    expect(textOf(container)).toContain("5 members");
+    const taken = await submit(baseUrl, at, formIn(container), owner);
+
+    expect(taken.status).toBe(200);
+    const itemAt = itemLinkedIn(sectionIn(taken.text, "container"));
+    expect(itemAt).toBeDefined();
+    const imported = await client.item.get({ id: (itemAt as string).slice("/items/".length) });
+    expect(imported.holds.rows.map(({ position, title: named }) => [position, named])).toEqual(
+      WAR_CHILD_MASTER.ordering.map(({ position, record }) => [position, record.title]),
+    );
+    // AND THE LIST NOW SAYS SO, naming the same Item.
+    const after = await documentAt(picking(wiki), owner);
+    const row = rowTitled(sectionIn(after.text, "containers"), title);
+    expect(row).toContain("In your catalogue");
+    expect(itemLinkedIn(row)).toBe(itemAt);
   });
 });
 

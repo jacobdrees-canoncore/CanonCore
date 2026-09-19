@@ -14,10 +14,24 @@ import { call } from "@orpc/server";
 import Form from "next/form";
 import Link from "next/link";
 import { counted } from "@/components/counted";
-import { NarrowToAGroup, NoSuchGroup, theScope, theStartOf } from "@/components/listing";
+import {
+  Holding,
+  NarrowToAGroup,
+  NoSuchGroup,
+  PastTheEnd,
+  theScope,
+  theStartOf,
+  Walk,
+} from "@/components/listing";
 import { noPasswordSet } from "@/components/no-password";
 import { NoProviderAllowlisted } from "@/components/no-provider-allowlisted";
-import { oneGroup, oneValue } from "@/components/query-params";
+import {
+  inTheFixedOrder,
+  oneGroup,
+  oneValue,
+  type WhereThePageStarts,
+  whereThePageStarts,
+} from "@/components/query-params";
 import { Reason } from "@/components/reason";
 import { TheirWords } from "@/components/their-words";
 import { callerContext } from "@/session";
@@ -32,6 +46,8 @@ interface Asked {
   provider?: string;
   container?: string;
   purge?: string;
+  /** Where in the provider's list of containers the page starts (CNCORE-187). */
+  startsAt: WhereThePageStarts;
 }
 
 /**
@@ -48,7 +64,7 @@ interface Asked {
  * of the same name. That one is CNCORE-66 and lives at its own address. This page
  * searches PROVIDERS, so the word on it is Import rather than Search.
  */
-async function readImportPage({ query, group, provider, container, purge }: Asked) {
+async function readImportPage({ query, group, provider, container, purge, startsAt }: Asked) {
   /*
    * NO `connection()` HERE, AND THAT IS ADR-0117 OBEYED RATHER THAN SKIPPED.
    * That record's rule is that a read surface declares it needs a request, and
@@ -118,7 +134,7 @@ async function readImportPage({ query, group, provider, container, purge }: Aske
   const purging =
     context.session === null ? undefined : purgeableProvider(configured.providers, purge);
 
-  const [found, namedContainer, preview] = await Promise.all([
+  const [found, namedContainer, preview, offered] = await Promise.all([
     query === undefined
       ? Promise.resolve(undefined)
       : call(appRouter.provider.search, { query, group }, { context }),
@@ -145,6 +161,22 @@ async function readImportPage({ query, group, provider, container, purge }: Aske
     purging === undefined
       ? Promise.resolve(undefined)
       : call(appRouter.provider.previewPurge, { baseUrl: purging }, { context }),
+    /*
+     * WHAT THE PICKED PROVIDER HOLDS (CNCORE-187), so the Owner picks a
+     * container rather than typing an id it never showed them. Asked for
+     * ANYONE, since answering it costs a search's time rather than a browse's
+     * (ADR-0131) -- the preview a picked row leads to is still the Owner's.
+     *
+     * ASKED BESIDE THE PREVIEW RATHER THAN INSTEAD OF IT, so a container picked
+     * from page two shows its preview above the page it was picked from.
+     */
+    searchable === undefined
+      ? Promise.resolve(undefined)
+      : call(
+          appRouter.provider.containers,
+          { baseUrl: searchable, after: startsAt.after, before: startsAt.before },
+          { context },
+        ),
   ]);
   return {
     allowlisted,
@@ -152,8 +184,10 @@ async function readImportPage({ query, group, provider, container, purge }: Aske
     found,
     groups,
     namedContainer,
+    offered,
     preview,
     purging,
+    searchable,
     /**
      * WHETHER THIS READER MAY CHANGE ANYTHING, which is what decides whether a
      * control is rendered at all. A button whose action answers UNAUTHORIZED is
@@ -290,6 +324,8 @@ type Found = NonNullable<ImportPage["found"]>;
 type FailureReason = Found["failed"][number]["reason"];
 /** The container the owner named: what the catalogue holds, and what the provider says. */
 type NamedContainer = NonNullable<ImportPage["namedContainer"]>;
+/** What the picked provider answered when asked which containers it holds. */
+type Offered = NonNullable<ImportPage["offered"]>;
 
 export default async function ImportPage({
   searchParams,
@@ -300,6 +336,8 @@ export default async function ImportPage({
     provider?: string | string[];
     container?: string | string[];
     purge?: string | string[];
+    after?: string | string[];
+    before?: string | string[];
   }>;
 }) {
   const asked = await searchParams;
@@ -309,6 +347,10 @@ export default async function ImportPage({
   const narrowedTo = oneGroup(asked.group);
   const provider = oneValue(asked.provider);
   const container = oneValue(asked.container);
+  // WHERE IN THE PROVIDER'S LIST THE PAGE STARTS, read as every Listing page
+  // reads it. This list is filed by nothing but the provider's own order, so it
+  // takes no letter.
+  const startsAt = whereThePageStarts({ after: asked.after, before: asked.before });
   const {
     allowlisted,
     aPasswordIsSet,
@@ -316,15 +358,18 @@ export default async function ImportPage({
     found,
     groups,
     namedContainer,
+    offered,
     owner,
     preview,
     purging,
+    searchable,
   } = await readImportPage({
     query,
     group: narrowedTo,
     provider,
     container,
     purge: oneValue(asked.purge),
+    startsAt,
   });
   // NARROWED ONLY WHERE SOMETHING WAS SEARCHED, for `/search`'s reason: with no
   // query there is no list of Groups to find this one in, and every Group would
@@ -403,13 +448,25 @@ export default async function ImportPage({
       {found !== undefined && query !== undefined && !scope.gone && !asksNobody && (
         <Results aPasswordIsSet={aPasswordIsSet} found={found} owner={owner} query={query} />
       )}
-      <BrowseBox configured={configured.providers} container={container} provider={provider} />
-      {container !== undefined &&
-        (namedContainer === undefined ? (
-          <NotOneOfOurs />
-        ) : (
-          <Container {...namedContainer} aPasswordIsSet={aPasswordIsSet} owner={owner} />
-        ))}
+      <BrowseBox configured={configured.providers} provider={provider} />
+      {/*
+        A PROVIDER THE ADDRESS NAMED AND THIS INSTANCE DOES NOT SEARCH, whether
+        it came with a container or alone: either way nothing is asked of it.
+      */}
+      {searchable === undefined && (provider !== undefined || container !== undefined) && (
+        <NotOneOfOurs />
+      )}
+      {namedContainer !== undefined && (
+        <Container {...namedContainer} aPasswordIsSet={aPasswordIsSet} owner={owner} />
+      )}
+      {searchable !== undefined && offered !== undefined && (
+        <WhatItHolds
+          baseUrl={searchable}
+          container={container}
+          offered={offered}
+          startsAt={startsAt}
+        />
+      )}
       {owner && <PurgeBox configured={configured.providers} />}
       {purging !== undefined && preview !== undefined && (
         <Purge baseUrl={purging} preview={preview} />
@@ -1128,21 +1185,15 @@ function NoProviderConfigured() {
 }
 
 /**
- * NAMING A CONTAINER TO BROWSE, which the owner has to do because this page does
- * not ask "which containers do you have" yet: ADR-0033 declares `containers`
- * under CNCORE-185 and `provider-wiki` answers it, but offering them here is
- * CNCORE-187.
+ * PICKING A PROVIDER TO BROWSE, which is the whole of what the Owner has to say:
+ * the page then shows what it holds (CNCORE-187). Until then the Owner typed a
+ * container's own id here, one the provider never showed them -- so a reader
+ * who found a record by searching could not reach the Ordering it sits in.
  *
- * ADR-0033's as-built section records that decision and its reason: a record's
- * `series` field is a NAME, and the archive links members by name while a page id
- * does not move -- so deriving the container from `series` would bind an import to
- * a string that can be renamed out from under it.
- *
- * A GET RATHER THAN THE BROWSE ITSELF, which is what puts the container in the
- * URL -- and that is load-bearing rather than tidy. The POST that performs the
- * browse comes back to this same address, so the page can read the catalogue and
- * say whether the container arrived. A form that browsed directly would lose the
- * id it was given the moment it answered.
+ * A GET RATHER THAN THE BROWSE ITSELF, which is what puts the provider -- and,
+ * once one is picked, the container -- in the URL. That is load-bearing rather
+ * than tidy: the POST that performs the browse comes back to this same address,
+ * so the page can read the catalogue and say whether the container arrived.
  *
  * THE PROVIDERS ARE OFFERED BY URL, which is a deployment detail shown to the one
  * person entitled to it: the owner typed these into their own settings and is
@@ -1150,15 +1201,7 @@ function NoProviderConfigured() {
  * own names for themselves at the cost of a request per provider on every render
  * of this page, for a control the owner recognises by the URL they wrote.
  */
-function BrowseBox({
-  configured,
-  container,
-  provider,
-}: {
-  configured: string[];
-  container?: string;
-  provider?: string;
-}) {
+function BrowseBox({ configured, provider }: { configured: string[]; provider?: string }) {
   if (configured.length === 0) return null;
 
   return (
@@ -1172,28 +1215,15 @@ function BrowseBox({
       </p>
       <Form action="/import" className="mt-3 flex flex-wrap items-center gap-2">
         {/*
-          A `select` RATHER THAN A SECOND URL FIELD. The providers are the
-          configured set, so a free-text box would invite a URL this instance is
-          not configured to search and would answer it with a refusal.
+          A `select` RATHER THAN A URL FIELD. The providers are the configured
+          set, so a free-text box would invite a URL this instance is not
+          configured to search and would answer it with a refusal.
 
           `defaultValue` for the reason the search box gives: this is
           server-rendered markup with no script behind it.
-        */}
-        {/*
-          THE TOKENS `Input` CARRIES, INHERITED RATHER THAN SPELT OUT
-          (CNCORE-177). This control sits directly beside an `Input` in the same
-          row, and a control that does not match its neighbour is the "reads as
-          part of this product" test failing: `.claude/rules/frontend.md`.
 
-          THIS IS THE COPY THAT DRIFTED. Spelt out here by hand, it had lost
-          `w-full` and `md:text-xs` against the two surfaces that wrote the same
-          string -- which nothing could see, because each copy was correct on
-          its own page. WHAT THAT COST WAS ONLY THE WIDTH: it kept `h-8` and
-          `text-xs`, and `md:text-xs` is inert beside an unconditional
-          `text-xs`. An earlier version of this comment said the control was
-          shorter and in a different type size, which was written rather than
-          measured. `max-w-xs` is the only thing left to say here, and it is the
-          same cap the `Input` beside it in this row already carries.
+          THE TOKENS `Input` CARRIES, INHERITED RATHER THAN SPELT OUT
+          (CNCORE-177), and `max-w-xs` is the cap the id box below carries.
         */}
         <Select
           aria-label="Which provider holds it"
@@ -1207,18 +1237,185 @@ function BrowseBox({
             </option>
           ))}
         </Select>
-        <Input
-          aria-label="The provider's own id for the container"
-          className="max-w-xs"
-          defaultValue={container}
-          name="container"
-          placeholder="The provider's id for it"
-        />
         <Button type="submit" variant="outline">
-          Find it
+          Show what it holds
         </Button>
       </Form>
     </section>
+  );
+}
+
+/**
+ * WHAT THE PICKED PROVIDER HOLDS, to pick from (CNCORE-187): its containers, a
+ * page at a time, or the sentence that says why there is no list.
+ *
+ * THREE ANSWERS AND NONE OF THEM IS AN EMPTY BOX, which is the Owner's story 60.
+ * A provider that declines the operation says so (ADR-0033); one that could not
+ * answer says why, in its own words; and only one that answered with nothing is
+ * a provider saying it holds none.
+ *
+ * A PICKED ROW LEADS TO THE ADDRESS THE ID BOX REACHES, and that is the whole
+ * of how importing from the list lands what browsing by id lands: it IS a
+ * browse by id, previewed on the GET by `Container` above and performed by its
+ * button. It keeps this page's own position in the list, so the Owner comes
+ * back to the page they picked from.
+ *
+ * AND THE ID BOX STAYS, UNDER EVERY ANSWER. For a decliner it is the only way
+ * in. For a provider that lists, it is the way to what the list leaves out --
+ * `provider-wiki` browses its categories and lists only its timelines, because a
+ * category is not an ordering its source asserts (ADR-0033 under CNCORE-186).
+ */
+function WhatItHolds({
+  baseUrl,
+  container,
+  offered,
+  startsAt,
+}: {
+  baseUrl: string;
+  container?: string;
+  offered: Offered;
+  startsAt: WhereThePageStarts;
+}) {
+  return (
+    <section aria-labelledby="containers" className="mt-6">
+      <h3 className="font-medium text-sm" id="containers">
+        {/*
+          BY ITS OWN NAME WHERE IT ANSWERED, and by the URL the Owner typed
+          where it did not, since reading the name is one of the things that
+          failed -- the rule `NotReached` below gives.
+        */}
+        What{" "}
+        <TheirWords>{offered.answer === "unreachable" ? baseUrl : offered.providerName}</TheirWords>{" "}
+        holds
+      </h3>
+      {offered.answer === "containers" && (
+        <ItsContainers
+          baseUrl={baseUrl}
+          container={container}
+          offered={offered}
+          startsAt={startsAt}
+        />
+      )}
+      {offered.answer === "containers-not-offered" && (
+        <p className="mt-1 text-muted-foreground text-sm">
+          <TheirWords>{offered.providerName}</TheirWords> does not list the containers it holds, so
+          name the one you want by its own id.
+        </p>
+      )}
+      {offered.answer === "unreachable" && (
+        <p className="mt-1 text-muted-foreground text-sm">
+          Nothing could be learned about what it holds. <Reason reason={offered.reason} />
+        </p>
+      )}
+      <ById baseUrl={baseUrl} container={container} />
+    </section>
+  );
+}
+
+/**
+ * ONE PAGE OF A PROVIDER'S CONTAINERS, and the walk to the rest (ADR-0119):
+ * the wiki holds 465, so the page carries a Listing's page of them and says how
+ * many there are.
+ */
+function ItsContainers({
+  baseUrl,
+  container,
+  offered,
+  startsAt,
+}: {
+  baseUrl: string;
+  container?: string;
+  offered: Extract<Offered, { answer: "containers" }>;
+  startsAt: WhereThePageStarts;
+}) {
+  const walking = { path: "/import", asked: { provider: baseUrl } } as const;
+  /*
+   * A PROVIDER THAT ANSWERED WITH NOTHING, which is a claim about its source
+   * and the one answer here that may say "none" (ADR-0033 under CNCORE-185).
+   */
+  if (offered.total === 0) {
+    return (
+      <p className="mt-1 text-muted-foreground text-sm">
+        <TheirWords>{offered.providerName}</TheirWords> says it holds no containers.
+      </p>
+    );
+  }
+  // A LINK THAT OUTLIVED THE CONTAINERS AFTER IT, which the walk's own notice
+  // answers as it does on every Listing.
+  if (offered.containers.length === 0) return <PastTheEnd {...walking} />;
+
+  return (
+    <>
+      <div className="mt-1">
+        <Holding showing={offered.containers.length} total={offered.total} noun="container" />
+      </div>
+      <ul className="mt-2 divide-y">
+        {offered.containers.map(({ containerId, title, kind, itemId }) => (
+          <li
+            className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 py-2"
+            key={containerId}
+          >
+            <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              {/*
+                THE PROVIDER'S OWN TITLE, AND IT IS THE LINK: picking it is the
+                whole of what the Owner does here. Its id stays out of the row --
+                it is what the Owner was spared -- and travels in the address.
+              */}
+              <Link
+                aria-current={containerId === container ? "true" : undefined}
+                className="hover:underline aria-[current]:font-medium"
+                href={{
+                  pathname: "/import",
+                  query: inTheFixedOrder({
+                    provider: baseUrl,
+                    container: containerId,
+                    after: startsAt.after,
+                    before: startsAt.before,
+                  }),
+                }}
+              >
+                <TheirWords>{title}</TheirWords>
+              </Link>
+              {/* The PROVIDER'S word for what it is, as on a search candidate. */}
+              <span className="text-muted-foreground text-sm">
+                <TheirWords>{kind}</TheirWords>
+              </span>
+            </span>
+            {itemId !== null && <Held itemId={itemId} />}
+          </li>
+        ))}
+      </ul>
+      <Walk
+        {...walking}
+        continuesAfter={offered.continuesAfter}
+        continuesBefore={offered.continuesBefore}
+      />
+    </>
+  );
+}
+
+/**
+ * A CONTAINER NAMED BY THE PROVIDER'S OWN ID, for whatever the list does not
+ * offer -- which is everything, at a provider that declines the operation.
+ *
+ * `defaultValue` for the reason the search box gives, and it is the id the
+ * address already names, so a mistyped one is there to correct.
+ */
+function ById({ baseUrl, container }: { baseUrl: string; container?: string }) {
+  return (
+    <Form action="/import" className="mt-4 flex flex-wrap items-center gap-2">
+      <input name="provider" type="hidden" value={baseUrl} />
+      <Input
+        aria-label="The provider's own id for the container"
+        className="max-w-xs"
+        defaultValue={container}
+        name="container"
+        placeholder="The provider's id for it"
+      />
+      <Button type="submit" variant="outline">
+        Find it
+      </Button>
+    </Form>
   );
 }
 

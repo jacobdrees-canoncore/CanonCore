@@ -1,4 +1,7 @@
-import type { CmppBrowse } from "@canoncore/providers";
+import type { cmppBrowse } from "@canoncore/providers";
+import type { z } from "zod";
+
+import { LISTED_TIMELINES } from "./wiki-timelines";
 
 /**
  * What `provider-wiki` answers, written out so a machine that cannot pull a
@@ -27,6 +30,15 @@ import type { CmppBrowse } from "@canoncore/providers";
  * -- build a database, build Next, start it, import -- and twenty-eight records
  * of Doctor Who in the middle of that buries the arrangement in the fixture.
  */
+
+/**
+ * A browse AS A PROVIDER SENDS IT, before the app's reading fills in a default
+ * -- the input to `cmppBrowse` and not its output. `provider-wiki` sends no
+ * `series_id` key at all, and the output type requires one since CNCORE-187
+ * stopped stripping it, so a stub typed by the output would have to send a key
+ * the image does not.
+ */
+type Browsed = z.input<typeof cmppBrowse>;
 
 /** ADR-0057's page 265, exactly as `provider-wiki` answers it. */
 export const TENTH_PLANET = {
@@ -77,6 +89,94 @@ const category = (id: string, title: string) => ({
 });
 
 /**
+ * A timeline, as `/containers` and `browse` both answer it: the one kind of
+ * container `provider-wiki` LISTS (ADR-0033 under CNCORE-186). Every field but
+ * the two it takes is the same for all 465, measured rather than assumed --
+ * `wiki-timelines.ts` says how.
+ */
+const timeline = (id: string, title: string) => ({
+  id,
+  title,
+  kind: "timeline",
+  released: [],
+  writers: [],
+  series: null,
+  url: wikiUrl(title),
+  images: [],
+});
+
+/**
+ * WHAT `GET /containers` ANSWERS: all 465 timelines, in the provider's order.
+ *
+ * ALL OF THEM AND NOT A SAMPLE, because a sample is the one thing that cannot
+ * show the list being WALKED: a page is 100, and a list shorter than one page
+ * never offers a `Next`.
+ *
+ * ONLY THE FIRST IS SERVED WHOLE BY `browse`, which is where this stub parts
+ * from the image and is said so rather than hidden. The image browses every id
+ * it lists; this stub browses `WAR_CHILD_MASTER` and answers `404` for the other
+ * 464, because nothing captured what they hold. A test following any other row
+ * is asking the stub a question it was never given the answer to.
+ */
+export const TIMELINES = LISTED_TIMELINES.map(([id, title]) => timeline(id, title));
+
+/**
+ * A comic story, as `provider-wiki` answers one inside a browse -- minus its
+ * `images`, which the app's own reading of CMPP strips.
+ */
+const comic = (id: string, title: string, released: string, writers: string[]) => ({
+  id,
+  title,
+  kind: "comic story",
+  released: [released],
+  writers,
+  series: "Doctor Who: The Eleventh Doctor",
+  url: wikiUrl(title),
+});
+
+/**
+ * `Theory:Timeline - "War Child" Master` (286338), the first container the wiki
+ * lists and the one this suite imports FROM THE LIST (CNCORE-187). Browsed from
+ * the published image on 2026-09-19.
+ *
+ * FIVE MEMBERS, SO IMPORTING IT FROM THE LIST ADDS LITTLE to the instance every
+ * other file reads, and nothing else imports it, so the transition is real.
+ *
+ * AND ITS ORDER IS NOT RELEASE ORDER, which is what a timeline is for: *Outrun*
+ * is first and came out after *The Then and the Now*, second. A category's
+ * positions are computed from release dates; these are the wiki's own claim.
+ */
+export const WAR_CHILD_MASTER: Browsed = {
+  container: timeline("286338", 'Theory:Timeline - "War Child" Master'),
+  ordering: [
+    {
+      position: 1,
+      record: comic("187555", "Outrun (comic story)", "2015-12-23", ["Rob Williams"]),
+    },
+    {
+      position: 2,
+      record: comic("181342", "The Then and the Now (comic story)", "2015-10-07", [
+        "Rob Williams",
+        "Si Spurrier",
+      ]),
+    },
+    {
+      position: 3,
+      record: comic("196544", "The Organ Grinder (comic story)", "2016-07-27", ["Si Spurrier"]),
+    },
+    {
+      position: 4,
+      record: comic("197687", "Kill God (comic story)", "2016-08-31", ["Rob Williams"]),
+    },
+    {
+      position: 5,
+      record: comic("198649", "Fast Asleep (comic story)", "2016-09-28", ["Rob Williams"]),
+    },
+  ],
+  unplaced: [],
+};
+
+/**
  * The fixture containers this suite browses.
  *
  * 91997 carries the missing-episode roster, which ADR-0057 reduced to two rows
@@ -91,7 +191,7 @@ const category = (id: string, title: string) => ({
  * offset against TMDB is the whole of what the multi-placement test reads this
  * for. Fifteen members, or the disagreement disappears.
  */
-export const CONTAINERS: Record<string, CmppBrowse> = {
+export const CONTAINERS: Record<string, Browsed> = {
   "91997": {
     container: category("91997", "Category:Stories with missing episodes"),
     ordering: [
@@ -167,6 +267,7 @@ export const CONTAINERS: Record<string, CmppBrowse> = {
     ],
     unplaced: [],
   },
+  "286338": WAR_CHILD_MASTER,
 };
 
 export const WIKI_MANIFEST = {
@@ -177,7 +278,10 @@ export const WIKI_MANIFEST = {
   // at all, so a stub that stayed silent about it would refuse a browse here
   // while CI's real image allowed one -- the two runs disagreeing about the
   // contract they exist to hold each other to.
-  operations: ["search", "lookup", "browse"],
+  //
+  // AND `containers` SINCE CNCORE-186, which the published image declares: read
+  // off its manifest on 2026-09-19 as `["search","lookup","browse","containers"]`.
+  operations: ["search", "lookup", "browse", "containers"],
   max_cache_age: 2592000,
   images: { stored_variant: null, per_role_limit: 0, quality_floor: 0 },
 };
