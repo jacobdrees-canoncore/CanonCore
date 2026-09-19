@@ -556,6 +556,13 @@ export const catalogueRowPublic = z.object({
    * rather than the word the page prints.
    */
   holds: z.number().int().nonnegative(),
+  /** Which orderings this one sits in, and at what position in each (CNCORE-184). */
+  sitsIn: z.object({
+    first: z.array(
+      placementPublic.pick({ containerId: true, containerTitle: true, position: true }),
+    ),
+    total: z.number().int().nonnegative(),
+  }),
 });
 
 export type CatalogueRowPublic = z.infer<typeof catalogueRowPublic>;

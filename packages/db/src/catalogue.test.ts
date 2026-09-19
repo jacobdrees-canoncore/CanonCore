@@ -354,6 +354,27 @@ describe("readCatalogue", () => {
       total: 2,
     });
   });
+
+  it("carries the first five Positions of a long membership, and counts every one", async () => {
+    // CNCORE-184's truncation, chosen against the Owner's corpus: the widest
+    // story sits in 48 Orderings, the longest Row is 61 Placements, and ONE
+    // story sits at 43 Positions in ONE Ordering (UNIT HQ, in Petronella
+    // Osgood's timeline). That last is this fixture's shape, and it is why the
+    // cut counts Placements: cut at five ORDERINGS, this Row would carry seven.
+    const story = await anItemTitled(db, "A story placed seven times in one ordering");
+    const ordering = await anItemTitled(db, "An ordering it recurs through", {
+      isContainer: true,
+    });
+    for (const position of [7, 6, 5, 4, 3, 2, 1]) {
+      await aPlacement(db, { containerId: ordering, itemId: story, position });
+    }
+
+    const { rows } = await readCatalogue(db, { limit: 1000 });
+    const row = rows.find((each) => each.id === story);
+
+    expect(row?.sitsIn.first.map(({ position }) => position)).toStrictEqual([1, 2, 3, 4, 5]);
+    expect(row?.sitsIn.total).toBe(7);
+  });
 });
 
 describe("readCatalogue, walked a page at a time", () => {

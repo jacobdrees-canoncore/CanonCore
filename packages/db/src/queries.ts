@@ -1793,6 +1793,8 @@ function whatItSitsIn(item: Column | string, containerTombstone: SQLWrapper): SQ
   ) as SQL;
 }
 
+const ON_A_ROW = 5;
+
 function whereItSits(db: Database): SQL<SitsIn> {
   const container = alias(items, "container");
   const order = {
@@ -1806,7 +1808,7 @@ function whereItSits(db: Database): SQL<SitsIn> {
   const where = sql`json_build_object('containerId', ${container.id}, 'containerTitle', ${container.title}, 'position', ${placements.position})`;
   return sql<SitsIn>`(${db
     .select({
-      sitsIn: sql`json_build_object('first', coalesce(json_agg(${where} order by ${sql.join(theOrderBy(order), sql`, `)}), '[]'::json), 'total', count(*))`,
+      sitsIn: sql`json_build_object('first', coalesce(array_to_json((array_agg(${where} order by ${sql.join(theOrderBy(order), sql`, `)}))[1:${ON_A_ROW}::int]), '[]'::json), 'total', count(*))`,
     })
     .from(placements)
     .innerJoin(container, eq(container.id, placements.containerId))
