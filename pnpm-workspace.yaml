@@ -18,7 +18,7 @@ catalog:
   turbo: ^2.10.12
   "@biomejs/biome": ^2.5.12
   vitest: ^5.0.0
-  yaml: ^2.9.0
+  yaml: ^2.9.1
   # GitHub's own expression parser, from actions/languageservices -- the same
   # engine the Actions runner and the workflow language server use. It is here so
   # the concurrency-key test evaluates the key rather than string-matching it.
