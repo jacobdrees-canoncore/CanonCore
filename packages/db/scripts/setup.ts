@@ -53,8 +53,10 @@ if (result.envWritten) {
   console.log(`          the app will NOT serve ${result.database} until you change it`);
 }
 
-// AFTER this worktree's own database, so a sweep that fails cannot cost the
-// setup it rides on (CNCORE-231). `sweep.ts` says what it may drop and why.
+// AFTER this worktree's own database, so a sweep that fails cannot undo the
+// setup it rides on (CNCORE-231). It still fails the command, on purpose: one
+// failing quietly would let the cluster grow back to the 1,250 databases
+// CNCORE-231 found. `sweep.ts` says what it may drop and why.
 const swept = await sweepDeadDatabases({ serverUrl, repository });
 console.log(`swept     ${swept.dropped.length} databases no live worktree owns`);
 for (const database of swept.inUse) {

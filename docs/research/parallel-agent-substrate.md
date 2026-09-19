@@ -512,9 +512,9 @@ tasks — which is the price this note said nobody had put a number on.
 **418 databases** totalling **3,739 MB** across **80 distinct worktree stems**, on a machine with 4
 worktrees. `setUpWorktreeDatabase` never drops anything, deliberately and rightly — ADR-0104, under
 "Two ways this could destroy work, and what stops each": "being wrong in that direction costs a
-developer their work". But nothing else drops them either, so the disk cost grows monotonically with
-every ticket ever worked. Worth a ticket of its own; not a
-correctness problem today.
+developer their work". Nothing else dropped them either, so the disk cost grew monotonically with
+every ticket ever worked, until CNCORE-231: `db:setup` now sweeps what no live worktree owns
+(ADR-0104, "A removed worktree's databases go at the next `db:setup`").
 
 ---
 

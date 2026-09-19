@@ -7,7 +7,7 @@ import { afterEach, describe, expect, inject, it } from "vitest";
 
 import { worktreeDatabaseName } from "./index";
 import { holdingSetupLock } from "./setup-worktree";
-import { deadDatabases, dropDatabases, ownedDatabases } from "./sweep";
+import { deadDatabases, dropDatabases, type ListedDatabase, ownedDatabases } from "./sweep";
 
 /**
  * What a sweep of the shared container drops, and what it may never touch
@@ -16,21 +16,16 @@ import { deadDatabases, dropDatabases, ownedDatabases } from "./sweep";
 describe("deadDatabases", () => {
   it("is a removed worktree's database with every test database derived from it", () => {
     const removed = "canoncore_cncore_181_scope_in_a_link_a604650f";
+    const family = [removed, `${removed}_test`, `${removed}_test_api`, `${removed}_test_web`];
 
-    expect(
-      deadDatabases(
-        [removed, `${removed}_test`, `${removed}_test_api`, `${removed}_test_web`],
-        ["canoncore_main_0d6e4079"],
-      ),
-    ).toEqual([removed, `${removed}_test`, `${removed}_test_api`, `${removed}_test_web`]);
+    expect(deadDatabases(family.map(aDayOld), ["canoncore_main_0d6e4079"])).toEqual(family);
   });
 
   it("is never a live worktree's database or anything derived from it", () => {
     const live = "canoncore_main_0d6e4079";
+    const family = [live, `${live}_test`, `${live}_test_gone`, `${live}_test_tasks`];
 
-    expect(
-      deadDatabases([live, `${live}_test`, `${live}_test_gone`, `${live}_test_tasks`], [live]),
-    ).toEqual([]);
+    expect(deadDatabases(family.map(aDayOld), [live])).toEqual([]);
   });
 
   it("includes tails no suffix declares any more, which only a removed branch still has", () => {
@@ -38,11 +33,9 @@ describe("deadDatabases", () => {
     // `_test_purgeable` the suffix CNCORE-93 shortened. Nothing derives either
     // now, so the suffix lists cannot be what decides what a sweep may drop.
     const removed = "canoncore_cncore_47_properties_validation_3c1f0a9e";
+    const tails = [`${removed}_test_test_gone`, `${removed}_test_purgeable`];
 
-    expect(deadDatabases([`${removed}_test_test_gone`, `${removed}_test_purgeable`], [])).toEqual([
-      `${removed}_test_test_gone`,
-      `${removed}_test_purgeable`,
-    ]);
+    expect(deadDatabases(tails.map(aDayOld), [])).toEqual(tails);
   });
 
   it("is never a database this repository did not name after a branch", () => {
@@ -62,9 +55,39 @@ describe("deadDatabases", () => {
       "cncore202_test_rung",
     ];
 
-    expect(deadDatabases(notNamedAfterABranch, [])).toEqual([]);
+    expect(deadDatabases(notNamedAfterABranch.map(aDayOld), [])).toEqual([]);
+  });
+
+  it("is never a database younger than an hour, which may be a setup still in flight", () => {
+    // `setup-worktree.test.ts` builds `canoncore_db_setup_under_test_…` and
+    // reads it back across tests with no worktree owning it, and a worktree
+    // being made has a database before `git worktree list` can be relied on to
+    // show it. `git gc` prunes only objects older than `gc.pruneExpire` for the
+    // same reason: a sweep must not race what is still being made.
+    const inFlight = worktreeDatabaseName("reviewer/db-setup-under-test");
+
+    expect(
+      deadDatabases(
+        [
+          { name: inFlight, ageInSeconds: 59 * 60 },
+          { name: `${inFlight}_test`, ageInSeconds: 61 * 60 },
+        ],
+        [],
+      ),
+    ).toEqual([`${inFlight}_test`]);
+  });
+
+  it("is never a database whose age could not be read", () => {
+    const removed = "canoncore_cncore_181_scope_in_a_link_a604650f";
+
+    expect(deadDatabases([{ name: removed, ageInSeconds: null }], [])).toEqual([]);
   });
 });
+
+/** A database listed a day after it was made, which no grace period covers. */
+function aDayOld(name: string): ListedDatabase {
+  return { name, ageInSeconds: 24 * 60 * 60 };
+}
 
 /**
  * Who owns what, read from a throwaway repository with a real linked worktree
@@ -96,6 +119,27 @@ describe("ownedDatabases", () => {
     expect(ownedDatabases(linked)).toContain(named);
   });
 
+  it("reads a .env the way the app does, quoted, exported or commented", () => {
+    // The app and the suites read `.env` through dotenv. A reading of it that
+    // disagrees loses an owner the worktree still has, and what the sweep does
+    // with a lost owner is drop its database.
+    const written = [
+      'DATABASE_URL="postgresql://postgres@localhost:55432/canoncore_quoted_0123abcd"',
+      "export DATABASE_URL=postgresql://postgres@localhost:55432/canoncore_exported_0123abcd",
+      "DATABASE_URL=postgresql://postgres@localhost:55432/canoncore_commented_0123abcd # mine",
+    ];
+    const owned = written.map((line, n) => {
+      const { linked } = repositoryWithAWorktree(`reviewer/sweep-env-${n}`);
+      mkdirSync(join(linked, "apps", "web"), { recursive: true });
+      writeFileSync(join(linked, "apps", "web", ".env"), `${line}\n`);
+      return ownedDatabases(linked);
+    });
+
+    expect(owned[0]).toContain("canoncore_quoted_0123abcd");
+    expect(owned[1]).toContain("canoncore_exported_0123abcd");
+    expect(owned[2]).toContain("canoncore_commented_0123abcd");
+  });
+
   it("is nothing of a worktree once it is removed, though its branch may live on", () => {
     // `orca worktree rm` keeps a branch it cannot prove merged, so a surviving
     // BRANCH says nothing; only a checkout reaches a database.
@@ -116,11 +160,14 @@ describe("dropDatabases", () => {
   const run = new URL(inject("databaseUrl"));
   const serverUrl = Object.assign(new URL(run), { pathname: "/postgres" }).toString();
   const probe = (n: number) => `${decodeURIComponent(run.pathname.slice(1))}_swp${n}`;
+  const quoted = `${decodeURIComponent(run.pathname.slice(1))}_sw"q`;
 
   afterEach(async () => {
     await admin((client) =>
       Promise.all(
-        [1, 2, 3].map((n) => client.query(`drop database if exists "${probe(n)}" with (force)`)),
+        [probe(1), probe(2), probe(3), quoted].map((database) =>
+          client.query(`drop database if exists "${database.replaceAll('"', '""')}" with (force)`),
+        ),
       ),
     );
   });
@@ -132,6 +179,29 @@ describe("dropDatabases", () => {
 
     expect(swept).toEqual({ dropped: [probe(1), probe(2)], inUse: [] });
     expect(await existing(probe(1), probe(2))).toEqual([]);
+  });
+
+  it("reports only what it dropped, not a database another sweep took first", async () => {
+    // Two worktrees running `db:setup` at once meet on the same names, one at a
+    // time under the lock, and the second finds each already gone.
+    await create(probe(1));
+
+    const swept = await dropDatabases(serverUrl, [probe(1), probe(2)], () => true);
+
+    expect(swept).toEqual({ dropped: [probe(1)], inUse: [] });
+  });
+
+  it("drops a name carrying a double quote as that name, rather than as SQL", async () => {
+    // The names come from `pg_database`, which holds whatever anybody created.
+    // Only the caller's filter keeps them to [a-z0-9_] today, and the guard
+    // belongs at the point of destruction, where `build-database.ts` keeps its
+    // own, rather than one call away from it.
+    await admin((client) => client.query(`create database "${quoted.replaceAll('"', '""')}"`));
+
+    const swept = await dropDatabases(serverUrl, [quoted], () => true);
+
+    expect(swept).toEqual({ dropped: [quoted], inUse: [] });
+    expect(await existing(quoted)).toEqual([]);
   });
 
   it("leaves a database somebody is connected to, and says so", async () => {
