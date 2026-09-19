@@ -208,8 +208,10 @@ sentences of prose, not documents with a mixed-direction layout to preserve. Fou
 CNCORE-101, on the page whose next control is a link the Owner is about to give a credential to.
 
 **WIDTH IS A THIRD LEVER**, and a 300-character ceiling is no answer to it either: 300 characters
-with no break in them are one line as wide as the Provider likes. CNCORE-217 closes it with
-`ProviderProse`, recorded under "Where the wrap lives" below.
+with no break in them are one line as wide as the Provider likes. CNCORE-217 closes it with a
+component, recorded under "Where the wrap lives" below: `ProviderProse` as built, and `TheirWords`
+since CNCORE-223 put every string the page did not write through it
+([[0142-text-the-page-did-not-write-wraps-anywhere-through-one-component]]).
 
 **THE `Reason` COMPONENT MOVED OUT OF `/import` FOR THE SAME REASON THE MAPPING DID.** This record
 says both `/import` sections take the same component, which held while `/import` was the only
@@ -739,10 +741,12 @@ every 300-character surface's, reasons included, and where the wrap lives was a 
 taken under CNCORE-217 and recorded in the next section. No test in this section would have found it:
 each asserts what the document CONTAINS, and this is how the document LAYS OUT.
 
-## Where the wrap lives: `ProviderProse`, and not `body` (CNCORE-217)
+## Where the wrap lives: a component, and not `body` (CNCORE-217)
 
-**A PROVIDER'S PROSE IS PRINTED THROUGH `ProviderProse`**, in `apps/web/src/components/provider-prose.tsx`,
-which sets `overflow-wrap: anywhere` and nothing else. The contract bounds the length and this bounds
+**A PROVIDER'S PROSE IS PRINTED THROUGH `TheirWords`**, in `apps/web/src/components/their-words.tsx`,
+which sets `overflow-wrap: anywhere` and nothing else. CNCORE-217 built it as `ProviderProse`, for a
+Provider's text alone; CNCORE-223 renamed it and put a record's fields, an Item's values and a
+Group's name through it as well, and ADR-0142 records why one component serves every writer. The contract bounds the length and this bounds
 the width, and neither is the Provider's to choose. A new surface printing a Provider's text prints it
 through this component. `Reason` wraps what it quotes, so a new reason surface gets the wrap without
 having to know about it; `AssertedBy` wraps every name it lists, which covers the Item page's two
@@ -762,9 +766,11 @@ WAS on the list and is not wrapped**: the ticket inferred it, and the schema rul
 declares `assertableBy` the owner alone, and the database refuses a note moved onto a Provider's
 source (`constraints.test.ts`), so that label is never a Provider's.
 
-CanonCore's own sentence in `Reason` is printed plainly and not wrapped. `canoncore` means the config
-boundary refused, and that boundary judges a URL the Owner typed, so every value in the sentence is
-the Owner's own rather than a stranger's.
+CanonCore's own sentence in `Reason` is printed plainly and not wrapped, because it is this app's own
+words. This gave a second reason, that the config boundary judges a URL the Owner typed and so every
+value in the sentence is the Owner's own rather than a stranger's, and that reason does not hold:
+ADR-0142 measured the Owner's words setting the page's width exactly as a stranger's do. The address
+inside the sentence is text the page did not write, and CNCORE-226 puts it through the component.
 
 ### `anywhere`, because `break-word` passes one witness and fails the other
 
@@ -794,31 +800,34 @@ pixels, and at 375 it wrecked the header.** It lets every flex item shrink below
 word, and the header's `CanonCore` link became a column seventeen pixels wide and 336 tall, one letter
 to a line, with `Works` and `Groups` beside it the same. A stranger's text breaking mid-word to fit
 this page is the right trade. This page's own words breaking that way is not. So `anywhere` goes on
-text whose shape the page did not choose and not on the page's own words, and `ProviderProse` is that
-for a Provider's text. It lives where `.claude/rules/frontend.md` puts a formatted value: in
+text whose shape the page did not choose and not on the page's own words, and the component is that
+for a Provider's text and, since CNCORE-223, for everybody else's. It lives where `.claude/rules/frontend.md` puts a formatted value: in
 `apps/web/src/components`, beside the pages that render it.
 
 **THE OWNER'S TEXT IS THE SAME QUESTION FROM THE OTHER SIDE, AND IT IS ALREADY ANSWERED ONCE.**
 CNCORE-179 put a raw `wrap-anywhere` on a Group's name on the Catalogue page, for the reason given
-here: the Owner's words, with no cap. That site is not a Provider's prose and does not take this
+here: the Owner's words, with no cap. That site was not a Provider's prose and did not take this
 component. Whether a Group's name, an Item's title and a record's fields share one component of
-their own is CNCORE-223's question.
+their own was CNCORE-223's question, and they share this one: the Group's name takes it in place of
+the raw class (ADR-0142).
 
 **THE HEADER ALREADY OVERRAN A 375-PIXEL VIEWPORT BY 231 PIXELS BEFORE ANY OF THIS**, measured
 with no wrap rule at all. That is not this record's defect: it is the page before the phone client
 ([[0055-web-now-phone-next-tv-last]]), and the global rule would have traded it for something worse
 rather than fixed it.
 
-### What it does not cover: a record's fields
+### What it did not cover: a record's fields, until CNCORE-223
 
 This record's CNCORE-165 section keeps a record's fields out of the manifest's bound, because cutting
 a title would corrupt the catalogue. The same is true of wrapping in the other direction: a record's
-fields are not a Provider's prose in this record's sense, and `ProviderProse` is not applied to them.
-**A field with no break in it is therefore still a width lever, and an unbounded one.** `/import`
-prints a search result's `title`, `kind` and `released` as flex items, each a `z.string().min(1)` in
-`cmpp.ts` with no ceiling. That is inferred from the mechanism the table measures and was not
-walked. It is a question about every Item's fields, whoever wrote them, rather than about a
-Provider's prose, so it has its own ticket (CNCORE-223).
+fields are not a Provider's prose in this record's sense, and CNCORE-217 did not put them through
+`ProviderProse`. **A field with no break in it was therefore still a width lever, and an unbounded
+one.** `/import` prints a search result's `title`, `kind` and `released` as flex items, each a
+`z.string().min(1)` in `cmpp.ts` with no ceiling. That was inferred from the mechanism the table
+measures and not walked here. It is a question about every Item's fields, whoever wrote them, rather
+than about a Provider's prose, so it had its own ticket. CNCORE-223 walked it, a search result's
+title running its row 1,754 pixels past its box, and put a record's fields through the same
+component, renamed `TheirWords` (ADR-0142).
 
 ### Asserted in a browser, because only a browser can see it
 

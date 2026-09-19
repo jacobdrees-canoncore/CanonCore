@@ -1,6 +1,6 @@
 import { describe, expect, inject, it } from "vitest";
 
-import { documentAt, documentFrom, logInAt, sectionIn } from "./document";
+import { documentAt, documentFrom, headingOf, logInAt, sectionIn, textOf } from "./document";
 
 /**
  * THE FRONT PAGE, over real HTTP. ADR-0103's fourth seam, which is the one
@@ -173,7 +173,7 @@ describe("/", () => {
 
     expect(arrived.status).toBe(200);
     expect(arrived.text).toContain(`<link rel="canonical" href="${linked}"/>`);
-    expect(arrived.text).toContain(`<h1 class="text-3xl font-medium">${itemTitle}</h1>`);
+    expect(headingOf(arrived.text)).toBe(itemTitle);
   });
 });
 
@@ -504,8 +504,8 @@ describe("/ narrowed to a Group", () => {
 
   /** The address the picker links a scope at, by the words a reader picks it by. */
   function scopeLinked(text: string, name: string): string {
-    const found = [...scopesIn(text).matchAll(/<a [^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/g)].find(
-      ([, , words]) => words === name,
+    const found = [...scopesIn(text).matchAll(/<a [^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/g)].find(
+      ([, , words]) => textOf(words ?? "") === name,
     );
     if (!found) throw new Error(`the picker offered nothing called ${name}`);
     return found[1] as string;
@@ -513,8 +513,8 @@ describe("/ narrowed to a Group", () => {
 
   /** The words of the one scope the picker marks as the page's own. */
   function markedCurrentIn(text: string): string[] {
-    return [...scopesIn(text).matchAll(/<a aria-current="true"[^>]*>([^<]*)<\/a>/g)].map(
-      ([, words]) => words as string,
+    return [...scopesIn(text).matchAll(/<a aria-current="true"[^>]*>(.*?)<\/a>/g)].map(
+      ([, words]) => textOf(words ?? ""),
     );
   }
 
@@ -602,7 +602,7 @@ describe("/ narrowed to a Group", () => {
 
     expect(status).toBe(200);
     const said = sectionIn(text, "empty-group");
-    expect(said).toContain(`${empty.name} holds nothing yet`);
+    expect(textOf(said)).toContain(`${empty.name} holds nothing yet`);
     expect(said).toContain('href="/"');
     expect(text).not.toContain('aria-labelledby="what-to-do-next"');
   });
@@ -651,7 +651,9 @@ describe("/ narrowed to a Group", () => {
  */
 function theRowTitled(text: string, title: string): string {
   const rows = [...text.matchAll(/<li[^>]*>(.*?)<\/li>/g)].map(([, inner]) => inner as string);
-  const found = rows.filter((row) => row.includes(`>${title}</a>`));
+  const found = rows.filter((row) =>
+    [...row.matchAll(/<a [^>]*>(.*?)<\/a>/g)].some(([, words]) => textOf(words ?? "") === title),
+  );
   if (found.length !== 1) {
     throw new Error(`the listing held ${found.length} Rows titled ${title}, not one`);
   }

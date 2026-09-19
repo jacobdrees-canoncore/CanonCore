@@ -492,6 +492,20 @@ export function textOf(html: string): string {
 }
 
 /**
+ * What the page's one `<h1>` SAYS, which on an Item's page is its title.
+ *
+ * READ AS TEXT, since CNCORE-223 prints a title through `TheirWords` and so
+ * inside a span of its own: an assertion about which title a page carries is
+ * about the heading's words and not about how wide they may run. And EXACTLY
+ * ONE heading, because a page with a second would make "the title" a guess.
+ */
+export function headingOf(text: string): string {
+  const headings = [...text.matchAll(/<h1[^>]*>(.*?)<\/h1>/gs)];
+  if (headings.length !== 1) throw new Error(`the page has ${headings.length} <h1>s, not one`);
+  return textOf(headings[0]?.[1] ?? "");
+}
+
+/**
  * Everything a page QUOTES, one string per `<q>`.
  *
  * `<q>` IS THE WHOLE OF WHAT SAYS THE CATALOGUE IS NOT THE ONE MAKING A CLAIM
