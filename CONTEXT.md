@@ -41,6 +41,14 @@ An ordered container whose sequence expresses a timeline rather than a release h
 A browsing scope: what a view is narrowed to. Never a partition.
 _Avoid_: library, partition, workspace, section
 
+**Group membership**:
+One item's presence in one group. It is its OWN RELATION rather than a column on the item, because
+a column would give an item exactly one group and multi-placement is the entire product — a
+crossover belongs to both. NEVER A PLACEMENT: it carries no position and no source, where a
+Placement is one item's membership of a CONTAINER at a position, asserted by sources that may
+disagree. The two are adjacent on an item's page and answer different questions.
+_Avoid_: tag, category, assignment
+
 **Continuity**:
 The reserved word for a distinct internal timeline, should two ever need telling apart. Not yet a
 construct in the model.

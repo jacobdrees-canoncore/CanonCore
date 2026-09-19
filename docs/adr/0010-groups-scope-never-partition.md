@@ -48,3 +48,39 @@ if the list were not closed.
 ## Evidence
 
 Verified against source on 2026-09-10; corrections applied. Working in `docs/research/verify-adr-plex.md`.
+## As built, under CNCORE-178 — and this record stays PROPOSED
+
+**BUILT: the group, and nothing it scopes.** Migration 19 adds `groups` — an id, the Owner's name
+and nothing else — and `group_items`, which is the many-to-many table this record's first sentence
+asks for. The Owner creates, names, renames and deletes a scope from `/groups`, puts an Item in one
+from the Item's own page, and puts ONE ITEM IN SEVERAL at once, which is the case the whole decision
+rests on. Deleting a group tombstones it and its memberships in one transaction and names no Item at
+all: the function does not mention `items`, which is the strongest form that promise can take.
+
+**NOT BUILT: ALL FIVE OF THE SCOPED THINGS ABOVE, and the five are not in one state.** This record's
+"What a group does NOT scope" section closes the list at browsing, search, which providers are asked,
+scanner roots and the review queue. A reader who finds the table and assumes the scoping came with it
+would be wrong about every one of them:
+
+- **Browsing** and **search** are CNCORE-179. The predicate exists nowhere: no Listing joins
+  `group_items`, so narrowing to a group is not yet a thing any surface can do. This is the half that
+  makes a group useful, and it is deliberately the next ticket rather than this one — the scope has
+  to exist and hold Items before anything can be read through it.
+- **Which providers are asked** is CNCORE-182, and it is further off than the two above because it
+  needs a second relation (a group to the providers it reaches) that no migration writes.
+- **Scanner roots** and **the review queue** DO NOT EXIST AS CONSTRUCTS IN THIS PRODUCT, so they are
+  not unbuilt scoping over a built thing — there is nothing to scope. Nothing in the repository scans
+  a filesystem and nothing queues a review. They stay in the list because the list is CLOSED and its
+  closure is the load-bearing half: a scope becomes a partition by accretion, one reasonable-looking
+  addition at a time, and a list edited down to what exists would stop refusing the sixth thing.
+
+**So the negative half of this record is the half that is now testable, and the positive half is
+still a promise.** `group_items` carries no medium, no field set, no vocabulary and no source order,
+and `groupPublic` emits an id and a name — which is the shape refusing to accumulate rather than a
+payload waiting to be filled in.
+
+**AND THE MEMBERSHIP IS NOT A PLACEMENT**, which `CONTEXT.md` gained a headword for under this
+ticket. Both are "one item's membership of one thing", and they are two tables because a Placement
+carries a POSITION and every SOURCE that asserted it, where a group membership carries neither: a
+group is not a container, and nobody but the Owner ever says what a scope holds. Folding them would
+be this record's partition arriving through the schema.

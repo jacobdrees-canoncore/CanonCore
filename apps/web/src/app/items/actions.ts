@@ -461,3 +461,48 @@ export async function movePlacement(form: FormData): Promise<void> {
    */
   refresh();
 }
+
+/** What the put form carries: which scope, and which Item. */
+const scopedItem = z.object({ groupId: z.string(), itemId: z.string() });
+
+/**
+ * PUTTING AN ITEM IN A BROWSING SCOPE, and TAKING IT BACK OUT (CNCORE-178,
+ * ADR-0010).
+ *
+ * TWO ACTIONS OVER ONE SHAPE, where the note and the sort name each got ONE
+ * action for writing and clearing. The difference is what the empty value
+ * means: clearing a note is a claim the Owner is making ("I say nothing"), so
+ * one control can carry both. A scope has no empty value to submit -- the Owner
+ * names the Group they mean, both ways -- so a single action would need a
+ * second field saying which direction it was, which is a control that says what
+ * it does written as a field that does not.
+ *
+ * THEY LIVE HERE RATHER THAN IN `groups/actions.ts`, beside the page that
+ * renders them, which is where every other action in this app sits. `/groups`
+ * keeps the scopes; the Item page is where an Item joins one.
+ *
+ * NO REDIRECT, and `refresh()` for the reason `retitleItem` above gives: both
+ * forms post to the Item's own address, so the response IS that page rendered
+ * again with its scopes as they now stand.
+ */
+export async function putItemInGroup(form: FormData): Promise<void> {
+  const input = whatTheFormCarries(form, scopedItem);
+  if (input === undefined) return;
+
+  const { refused } = await whatTheProcedureAnswered(
+    call(appRouter.group.put, input, { context: await callerContext() }),
+  );
+  if (refused) return;
+  refresh();
+}
+
+export async function takeItemOutOfGroup(form: FormData): Promise<void> {
+  const input = whatTheFormCarries(form, scopedItem);
+  if (input === undefined) return;
+
+  const { refused } = await whatTheProcedureAnswered(
+    call(appRouter.group.take, input, { context: await callerContext() }),
+  );
+  if (refused) return;
+  refresh();
+}
