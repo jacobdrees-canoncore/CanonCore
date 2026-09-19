@@ -79,6 +79,12 @@ describe("item.get", () => {
       // every other field, which is the point of this test: it went red when
       // `attribution` was added, which is the enumeration working.
       "attribution",
+      // WHICH BROWSING SCOPES THIS ITEM IS IN (CNCORE-178, ADR-0010). It went
+      // red here when it was added, which is this enumeration doing its job for
+      // the fourth time -- and the field is emitted because a reader has to be
+      // able to tell why an Item does or does not appear once they have
+      // narrowed to a Group.
+      "groups",
       // What this container HOLDS (CNCORE-67). It went red here when it was
       // added, for the same reason `attribution` did: the enumeration working --
       // and again when CNCORE-91 renamed it from `members`, which `CONTEXT.md`

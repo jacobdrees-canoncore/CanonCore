@@ -21,10 +21,12 @@ import {
   annotateItem,
   movePlacement,
   placeItemInContainer,
+  putItemInGroup,
   removePlacement,
   restorePlacement,
   retitleItem,
   sortItemAs,
+  takeItemOutOfGroup,
 } from "../actions";
 
 /**
@@ -557,6 +559,20 @@ export default async function ItemPage({
         appearingFrom={appearingFrom}
       />
       {/*
+        WHICH SCOPES THIS ITEM IS IN (ADR-0010, story 38), AFTER THE ORDERINGS
+        AND BEFORE THE NOTICE. The orderings are what a reader browsing came
+        for; a scope is the frame they were browsing INSIDE, which is the
+        question they ask second -- "why did this appear when I narrowed", or
+        why it did not.
+
+        NOT A PLACEMENT, AND THE PAGE SAYS SO BY KEEPING THEM APART. The two
+        lists are adjacent and answer different questions: "Also appears in" is
+        every Ordering this Item sits in, at a Position, asserted by Sources
+        that may disagree, and this is every scope the Owner drew around it.
+        Folding them would be the partition ADR-0010 refuses, rendered.
+      */}
+      <Groups groups={item.groups} itemId={item.id} owner={owner} context={context} />
+      {/*
         LAST ON THE PAGE, AND THAT IS NOT A DEMOTION. TMDB's terms ask for the
         notice "prominently in or on Your Application", which is a requirement
         that it be there and legible rather than that it lead -- and it sits
@@ -566,6 +582,126 @@ export default async function ItemPage({
       */}
       <Attribution attribution={item.attribution} />
     </main>
+  );
+}
+
+/**
+ * WHICH BROWSING SCOPES THIS ITEM IS IN, and the Owner's hand on that list
+ * (ADR-0010, CNCORE-178).
+ *
+ * THE LIST IS OPEN AND THE CONTROLS ARE THE OWNER'S, which is the posture every
+ * section on this page takes (ADR-0044, ADR-0072, CNCORE-109). A visitor is
+ * shown the scopes and no way to change them.
+ *
+ * AN EMPTY LIST SAYS SO IN WORDS rather than rendering nothing. An absent
+ * section and an Item in no scope are different facts, and only one of them is
+ * true -- the same rule `CONTEXT.md` settles for Unplaced, where a member with
+ * no Position reads "no position given" rather than disappearing.
+ */
+async function Groups({
+  groups,
+  itemId,
+  owner,
+  context,
+}: {
+  groups: ItemOnThePage["groups"];
+  itemId: string;
+  owner: boolean;
+  context: Context;
+}) {
+  /*
+   * EVERY SCOPE, so the form can offer the ones this Item is NOT in -- asked
+   * only for the Owner, because a visitor is offered no form and this would be
+   * a query made to render nothing. `PlaceAnItem` above asks its own listing
+   * the same way and for the same reason.
+   */
+  const all = owner ? (await call(appRouter.group.list, {}, { context })).groups : [];
+  const joinable = all.filter((group) => !groups.some((held) => held.id === group.id));
+
+  return (
+    <section className="mt-8" aria-labelledby="groups">
+      <h2 id="groups" className="font-medium text-sm">
+        In Groups
+      </h2>
+      {groups.length === 0 ? (
+        <p className="mt-2 text-muted-foreground text-sm">
+          This item is in no Group, so it appears however the catalogue is narrowed.
+        </p>
+      ) : (
+        <ul className="mt-2 flex flex-col gap-2">
+          {groups.map((group) => (
+            <li className="flex items-center gap-3 text-sm" key={group.id}>
+              {/* One marker, for the reason `/groups` gives beside its own. */}
+              <span data-group-id={group.id}>{group.name}</span>
+              {owner && (
+                <section aria-labelledby={`take-out-of-group-${group.id}`}>
+                  <h3 className="sr-only" id={`take-out-of-group-${group.id}`}>
+                    Take this item out of {group.name}
+                  </h3>
+                  {/*
+                    NO CONFIRMATION (ADR-0046): taking an Item out of one scope
+                    leaves every other scope and every Ordering it sits in
+                    standing, and putting it back is the form below.
+                  */}
+                  <form action={takeItemOutOfGroup}>
+                    <input type="hidden" name="itemId" value={itemId} />
+                    <input type="hidden" name="groupId" value={group.id} />
+                    <Button size="sm" type="submit" variant="outline">
+                      Take out
+                    </Button>
+                  </form>
+                </section>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {owner && joinable.length > 0 && (
+        <section aria-labelledby="put-in-a-group" className="mt-3">
+          <h3 id="put-in-a-group" className="sr-only">
+            Put this item in a Group
+          </h3>
+          <form action={putItemInGroup} className="flex items-end gap-2">
+            <input type="hidden" name="itemId" value={itemId} />
+            <div className="flex flex-1 flex-col gap-2">
+              <Label htmlFor="groupId">Group</Label>
+              {/*
+                A `<select>` OF THE SCOPES IT IS NOT IN, which is the same
+                choice `PlaceAnItem` makes and for the same two reasons: an
+                Owner knows the scope they mean by its NAME, and a native select
+                posts with no script.
+
+                THE ONES IT IS ALREADY IN ARE LEFT OUT, because putting an Item
+                where it already is writes nothing (`putItemInGroupByHand` meets
+                the constraint rather than raising) -- so offering them would be
+                a control that reports success and changes nothing.
+              */}
+              <Select id="groupId" name="groupId" required>
+                {joinable.map((group) => (
+                  <option key={group.id} value={group.id}>
+                    {group.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <Button type="submit">Put it in</Button>
+          </form>
+        </section>
+      )}
+      {owner && all.length === 0 && (
+        <p className="mt-2 text-muted-foreground text-sm">
+          {/*
+            THE WAY OUT OF THE EMPTY STATE, rather than a section that offers
+            nothing and explains nothing. An Owner who has drawn no scope yet
+            cannot put anything in one, and the page says where scopes are made.
+          */}
+          <Link className="underline" href="/groups">
+            Draw a Group
+          </Link>{" "}
+          to start narrowing this catalogue.
+        </p>
+      )}
+    </section>
   );
 }
 

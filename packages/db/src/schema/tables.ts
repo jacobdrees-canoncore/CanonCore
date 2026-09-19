@@ -950,3 +950,71 @@ export const importRunContainers = pgTable(
     uniqueIndex("import_run_containers_named_once").on(t.runId, t.externalId),
   ],
 );
+
+/**
+ * ADR-0010. A GROUP IS A BROWSING SCOPE: what a view is narrowed to, never a
+ * partition, and never typed by medium.
+ *
+ * ONE COLUMN THE OWNER FILLS, which is the whole table. A Group is a name and
+ * an identity; everything a Group DOES is the predicate other surfaces read it
+ * through, and a column here for any of it would be a scope stored twice.
+ *
+ * NO UNIQUE INDEX ON `name`, deliberately. Two scopes an Owner has called the
+ * same thing is their business -- ADR-0010 makes the name their own words --
+ * and a unique constraint here would carry the trap `placements` documents at
+ * greater length: a tombstoned row goes on occupying its tuple, so a Group the
+ * Owner deleted would refuse the next one they named after it, citing a row
+ * they cannot see.
+ *
+ * `lifecycleColumns` RATHER THAN `stampColumns`, which is the same reading
+ * `owners` and `merges` get: a merge merges ITEMS (ADR-0040), and this row
+ * names none. `group_items` below does name one and is stamped accordingly.
+ */
+export const groups = pgTable("groups", {
+  id: idColumn(),
+  ...ownedColumns(),
+  /** The Owner's own words for this scope (ADR-0010). */
+  name: text("name").notNull(),
+  ...lifecycleColumns(),
+});
+
+/**
+ * ADR-0010. ONE ITEM'S PRESENCE IN ONE GROUP, AS ITS OWN RELATION -- which is
+ * that record's entire decision and the reason it is not a column on `items`.
+ *
+ * A COLUMN WOULD MAKE A GROUP A PARTITION, an item belonging to exactly one,
+ * and multi-placement is the entire product. The measured case is the crossover:
+ * 96.8% of the wiki's stories sit in more than one category, median 4.
+ *
+ * AND IT IS NOT A PLACEMENT (`CONTEXT.md`). A Placement is one item's membership
+ * of one CONTAINER at one POSITION, carrying every source that asserted it; this
+ * row is a scope the Owner drew, has no position, and no source asserts it but
+ * them. The two would be one table only if a Group were a Container, which is
+ * the partition ADR-0010 refuses.
+ *
+ * ONE ITEM SITS IN A GROUP ONCE. There is no position here, so the Repeat
+ * ADR-0009 licences has nothing to be a repeat OF -- an item named twice in one
+ * scope is the same claim twice. The unique index is what makes that a fact, and
+ * `putItemInGroupByHand` meets its tombstone the way `placeItemByHand` does.
+ */
+export const groupItems = pgTable(
+  "group_items",
+  {
+    id: idColumn(),
+    ...ownedColumns(),
+    groupId: uuid("group_id")
+      .notNull()
+      .references(() => groups.id),
+    itemId: uuid("item_id")
+      .notNull()
+      .references(() => items.id),
+    ...stampColumns(),
+  },
+  (t) => [
+    unique("group_items_group_item").on(t.ownerId, t.groupId, t.itemId),
+    // WHICH GROUPS THIS ITEM IS IN, which is the read the Item page makes
+    // (story 38) and the one the unique index above cannot serve: its leading
+    // column is the group, so an item-first lookup would scan.
+    index("group_items_item").on(t.itemId),
+  ],
+);

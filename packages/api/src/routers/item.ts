@@ -2,6 +2,7 @@ import {
   annotateItemByHand,
   createItemByHand,
   findAttributionOwed,
+  findGroupsOfItem,
   findItem,
   findItemKinds,
   findNoteOfItem,
@@ -359,7 +360,7 @@ export const item = {
       // Read against the CANONICAL id rather than the one asked for, so an
       // alias reaching a merged-away item still answers with the survivor's
       // orderings and values rather than with none (ADR-0040).
-      const [placements, holds, statements, attribution] = await Promise.all([
+      const [placements, holds, groups, statements, attribution] = await Promise.all([
         /*
          * CAPPED AND WALKED SINCE CNCORE-125, and it was the LAST listing in
          * the app that was neither. It answered every live placement, which
@@ -388,6 +389,12 @@ export const item = {
          * and the caller cannot raise it.
          */
         findPlacementsInContainer(context.db, found.id, { limit: A_PAGE, after: input.after }),
+        // WHICH SCOPES THIS ITEM IS IN (ADR-0010, story 38). Uncapped, and
+        // deliberately: a Group is a scope the Owner drew by hand, so this list
+        // is the number of universes they curate rather than a function of the
+        // corpus -- which is the same argument `findGroups` makes for not being
+        // a Listing.
+        findGroupsOfItem(context.db, found.id),
         findStatementsOfItem(context.db, found.id),
         findAttributionOwed(context.db, found.id),
       ]);
@@ -451,6 +458,11 @@ export const item = {
           total: holds.total,
           continuesAfter: holds.continuesAfter,
         },
+        // ADR-0045 names every field, so the scopes are mapped rather than
+        // spread: `findGroupsOfItem` answers exactly `{ id, name }` today and a
+        // column added to `groups` later is private until a line is written for
+        // it here and in the schema.
+        groups: groups.map((group) => ({ id: group.id, name: group.name })),
         statements: statements.map((statement) => ({
           property: statement.property,
           value: statement.value,
