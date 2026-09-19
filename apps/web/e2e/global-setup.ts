@@ -2232,6 +2232,13 @@ async function theThingsWorkBrowsingHasToTellApart(databaseUrl: string) {
     name: everythingItTellsApart,
     holding: [person, character, entityContainer, workContainer, story],
   });
+  /*
+   * AND A SECOND GROUP THE STORY CROSSES INTO (CNCORE-181), which is the case a
+   * scope exists for: one Item in two universes. Reached through either, it is
+   * one Item at one address, and only a story in two Groups can say so.
+   */
+  const crossesInto = "A universe the story crosses into";
+  const crossover = await aGroupHolding(db, { name: crossesInto, holding: [story] });
 
   return {
     fixture: {
@@ -2273,6 +2280,8 @@ async function theThingsWorkBrowsingHasToTellApart(databaseUrl: string) {
       /** The ONE source behind it, whose own name carries the comma that joined two. */
       singlySourcedBy: callsItselfAcme,
       group: { id: group, name: everythingItTellsApart },
+      storyId: story,
+      crossover: { id: crossover, name: crossesInto },
     },
     // The seed ends its own client; this pool has to be ended too, or the run
     // holds an idle connection open against a database it has finished with.
@@ -2535,6 +2544,10 @@ declare module "vitest" {
        * story -- five Items, two of them Works (CNCORE-180).
        */
       group: { id: string; name: string };
+      /** The story's own id: it sits in `group` and in `crossover` both. */
+      storyId: string;
+      /** A second Group, holding the story and nothing else (CNCORE-181). */
+      crossover: { id: string; name: string };
     };
     /** The story imported from a CMPP provider over HTTP, and what it claimed. */
     imported: {

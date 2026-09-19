@@ -52,3 +52,61 @@ export function oneValue(parameter: string | string[] | undefined): string | und
 export function oneGroup(parameter: string | string[] | undefined): string | undefined {
   return oneValue(parameter)?.toLowerCase();
 }
+
+/**
+ * EVERY NON-IDENTIFYING PARAMETER THAT CAN SHARE A LINK WITH ANOTHER, IN THE
+ * ONE ORDER THIS APP WRITES THEM (ADR-0066): what the page is asked, then the
+ * scope it is asked within, then where in it the reader stands.
+ *
+ * NOT EVERY PARAMETER THE APP WRITES. A Member row links `?via=` alone, and a
+ * Server Action redirects to one `?refused=` or `?undo=`: an address carrying
+ * one parameter has no order to keep, so those are written where they are
+ * rather than routed through here. A second parameter on any of them belongs
+ * on this list first.
+ *
+ * STATED ONCE FOR EVERY SURFACE SINCE CNCORE-181. It was two shapes until
+ * then: the Item page's four read off an array in `listing.tsx`, and the
+ * Listings' `q`, `group`, `after` held by the order `queryFor` spread its slots
+ * in -- with the Item page's chips holding a third copy by the order `theRoute`
+ * set its keys. Two statements of one order are two that can drift, and a
+ * drifted one is a second spelling of one page.
+ *
+ * WHY THE TWO HALVES INTERLEAVE AS THEY DO. `via` and `placed` are only ever
+ * written on an Item's page and `q` and `group` only on a Listing's or on
+ * Provider search's (CNCORE-182), so no link
+ * carries one of each and their places relative to each other re-spell
+ * nothing. Within each half the order is the one already out there: `via`,
+ * `placed`, `after`, `placedAfter` on the Item page, and `q`, `group`, `after`
+ * on the Listings.
+ *
+ * `after` IS ONE WORD IN TWO PLACES and sits where both halves need it: behind
+ * what the page was asked, and ahead of `placedAfter`, which arrived later.
+ *
+ * THE ONE SPELLING THIS CANNOT WRITE IS A FORM's, which a browser submits in
+ * the order its fields stand in the document: the header's search box puts the
+ * reader's `q` first and the `group` it carries behind it, which is this order,
+ * and `scope.test.ts` reads that box beside every link.
+ */
+const IN_THE_FIXED_ORDER = ["via", "placed", "q", "group", "after", "placedAfter"] as const;
+
+/**
+ * THE QUERY OF ONE LINK: any of those parameters, each at most once. Not
+ * plain "query", which in this app already means what a reader typed into
+ * `/search`.
+ */
+export type LinkQuery = { [name in (typeof IN_THE_FIXED_ORDER)[number]]?: string };
+
+/**
+ * A query IN THE FIXED ORDER, each parameter ABSENT rather than empty where it
+ * has no value. Next writes an `undefined` or empty value out as `?name=`, a
+ * second spelling of the address without it -- so dropping them here is what
+ * lets a caller pass every parameter it might carry and set only some.
+ */
+export function inTheFixedOrder(query: LinkQuery): LinkQuery {
+  const written: LinkQuery = {};
+  for (const name of IN_THE_FIXED_ORDER) {
+    const value = query[name];
+    if (value) written[name] = value;
+  }
+  return written;
+}

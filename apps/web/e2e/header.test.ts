@@ -1,6 +1,13 @@
 import { describe, expect, inject, it } from "vitest";
 
-import { documentFrom, logInAt } from "./document";
+import {
+  documentFrom,
+  linkedIn,
+  logInAt,
+  markedCurrentIn,
+  navigatingFormsIn,
+  withFields,
+} from "./document";
 
 /**
  * THE SHELL EVERY PAGE CARRIES, over real HTTP (CNCORE-139).
@@ -75,6 +82,75 @@ describe("the header, to a reader with no session", () => {
     expect(header).toContain('href="/login"');
     expect(header).not.toContain('href="/new"');
     expect(header).not.toContain('href="/import"');
+  });
+});
+
+/** Where the header links the words a reader follows. */
+function headerLinked(header: string, words: string): string {
+  const found = linkedIn(header, words);
+  if (found === undefined) throw new Error(`the header linked nothing called ${words}`);
+  return found;
+}
+
+/**
+ * THE HEADER ON A PAGE NARROWED TO A GROUP (CNCORE-181): the scope travels
+ * with the reader rather than being picked again on every surface.
+ *
+ * ON THE SEEDED INSTANCE, WITHIN `workBrowsing`'s Group, which nobody writes to.
+ */
+describe("the header, on a page narrowed to a Group", () => {
+  const group = inject("workBrowsing").group;
+
+  it("carries the Group to both reading surfaces, and nothing else the page was asked", async () => {
+    // THE SCOPE IS THE READER'S, NOT THE PAGE'S. A reader narrowed to one
+    // universe on `/works` who follows the wordmark to the Catalogue is still
+    // in it -- and the cursor stays behind, because a position in one Listing
+    // is no position in another, as does `/search`'s query, which is a
+    // question only that surface asks.
+    const narrowed = [
+      `/?group=${group.id}&after=${crypto.randomUUID()}`,
+      `/works?group=${group.id}`,
+      `/search?q=story&group=${group.id}`,
+    ];
+
+    for (const path of narrowed) {
+      const { status, text } = await documentFrom(baseUrl, path);
+
+      expect(status).toBe(200);
+      const header = headerOf(text);
+      expect(headerLinked(header, "CanonCore")).toBe(`/?group=${group.id}`);
+      expect(headerLinked(header, "Works")).toBe(`/works?group=${group.id}`);
+    }
+  });
+
+  it("searches within the Group from the header's box, asked anywhere narrowed", async () => {
+    // THE CASE REVIEW OF CNCORE-180 FOUND: a reader on a narrowed search who
+    // typed a second query into the header searched the whole catalogue and
+    // had to pick the Group again. The box asks within the scope the page is
+    // narrowed to, whichever surface it is asked from -- the query first and
+    // the Group behind it, which is the order `/search`'s own links write.
+    const narrowed = [
+      `/?group=${group.id}`,
+      `/works?group=${group.id}`,
+      `/search?q=story&group=${group.id}`,
+    ];
+    for (const path of narrowed) {
+      const [box] = navigatingFormsIn(headerOf((await documentFrom(baseUrl, path)).text));
+      if (box === undefined) throw new Error("the header carried no search box");
+      expect(box.fields).toStrictEqual([
+        ["q", ""],
+        ["group", group.id],
+      ]);
+
+      const asked = withFields(box, { q: "a" });
+      const { status, text } = await documentFrom(
+        baseUrl,
+        `${asked.action}?${new URLSearchParams(asked.fields)}`,
+      );
+
+      expect(status).toBe(200);
+      expect(markedCurrentIn(text)).toStrictEqual([group.name]);
+    }
   });
 });
 

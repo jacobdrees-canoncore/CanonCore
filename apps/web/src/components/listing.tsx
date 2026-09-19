@@ -8,6 +8,7 @@ import {
 } from "@canoncore/ui/components/empty";
 import Link from "next/link";
 
+import { inTheFixedOrder, type LinkQuery } from "./query-params";
 import { TheirWords } from "./their-words";
 
 /**
@@ -111,15 +112,15 @@ type Asked = { q: string };
  * a scope. And a `Next` that dropped it would walk on into Items the Group does
  * not hold.
  *
- * A SLOT OF ITS OWN RATHER THAN A KEY IN `Asked`, because the order is the
- * point: what the Listing asks, then the Group it asks it within, then where
- * in it the reader stands -- `?q=<query>&group=<id>&after=<id>` on `/search`,
- * and `?group=<id>&after=<id>` on the two that ask nothing else. `queryFor`
- * spreads the three slots in that order, so the order holds by construction
- * rather than by the order some page happened to write its object's keys in.
- * `q` goes first because it was out there first (ADR-0066's rule); no link
- * carrying a query and a Group had been emitted before this, so none acquires
- * a second spelling.
+ * A SLOT OF ITS OWN RATHER THAN A KEY IN `Asked`, because which surfaces may
+ * carry it is not which may ask: `/` and `/works` ask nothing and may be
+ * narrowed, and the Item page's two listings may not be narrowed at all. The
+ * order it is WRITTEN in is not the slot's any more. It was, until CNCORE-181:
+ * `queryFor` spread `asked` then `narrowed` then the cursor, and that spread
+ * was one of two places the order lived. It is `inTheFixedOrder`'s now, for
+ * every surface -- `?q=<query>&group=<id>&after=<id>` on `/search` and
+ * `?group=<id>&after=<id>` on the two that ask nothing else. `q` goes first
+ * because it was out there first (ADR-0066's rule).
  *
  * THE KEY IS REQUIRED AND THE OBJECT IS OPTIONAL, so a page that is not
  * narrowed passes nothing rather than `{ group: undefined }` -- which Next
@@ -139,13 +140,14 @@ type Narrowed = { group: string };
  * fixed order exists to prevent.
  *
  * SO THE ORDER IS `via`, `placed`, `after`, `placedAfter`, each behind the ones
- * that were there before it -- and BOTH cursors are keys here, because each of
- * the two listings has to carry the OTHER's through. Walking either one must
- * leave the other where the reader left it.
+ * that were there before it, and `inTheFixedOrder` writes it -- and BOTH
+ * cursors are keys here, because each of the two listings has to carry the
+ * OTHER's through. Walking either one must leave the other where the reader
+ * left it.
  *
- * EVERY KEY OPTIONAL, and a missing one is ABSENT rather than empty: the item
- * page builds this object with only the keys it has, so `?via=&placed=&after=`
- * is not a URL this app can emit.
+ * EVERY KEY OPTIONAL, and a missing one is ABSENT rather than empty, which
+ * `inTheFixedOrder` enforces: `?via=&placed=&after=` is not a URL this app can
+ * emit.
  */
 export type TheRoute = { via?: string; placed?: string; after?: string; placedAfter?: string };
 
@@ -302,24 +304,6 @@ function endsHere(walking: Walking): string {
 }
 
 /**
- * THE ITEM PAGE'S PARAMETERS IN THEIR ONE FIXED SPELLING ORDER (ADR-0066), read
- * off this array rather than off the order anybody happens to write keys in.
- *
- * A LIST RATHER THAN A SPREAD, WHICH IS A FIX. `Walk` built its query as
- * `{ ...asked, [cursor]: at }` -- and a spread APPENDS a key that was not
- * already there. That is correct while every parameter behind the cursor is
- * absent and wrong the moment one is not: walking `Members` on a page that
- * already carried `?placedAfter=` appended `after` BEHIND it, which is a second
- * spelling of one address and the exact thing a fixed order exists to prevent.
- */
-const IN_FIXED_ORDER = [
-  "via",
-  "placed",
-  "after",
-  "placedAfter",
-] as const satisfies readonly (keyof TheRoute)[];
-
-/**
  * The query one link on this listing carries: everything the address already
  * held, with THIS listing's own cursor set to where the link goes.
  *
@@ -327,22 +311,15 @@ const IN_FIXED_ORDER = [
  * cursor and keeps every other parameter -- including the OTHER listing's
  * cursor, which a reader has not asked to move.
  *
- * THE THREE SURFACES THAT ARE THEIR LISTING TAKE THE OTHER BRANCH, because
- * nothing composes on them: what the Listing asks (`/search`'s query), then
- * the Group it was narrowed to, then the cursor -- each absent where it is.
+ * WRITTEN IN THE ONE FIXED ORDER `inTheFixedOrder` HOLDS FOR EVERY SURFACE
+ * (ADR-0066, CNCORE-181), never in the order this object's keys fall. A spread
+ * APPENDS a key that was not already there, and that is a fix this function
+ * has already needed once: walking `Members` on a page that already carried
+ * `?placedAfter=` appended `after` BEHIND it, a second spelling of one address.
  */
-function queryFor(walking: Walking | Searched, at: string | undefined): Record<string, string> {
-  if (walking.listing === undefined) {
-    const kept = { ...walking.asked, ...walking.narrowed };
-    return at === undefined ? kept : { ...kept, after: at };
-  }
-  const own = CURSOR[walking.listing];
-  const query: Record<string, string> = {};
-  for (const key of IN_FIXED_ORDER) {
-    const value = key === own ? at : walking.asked[key];
-    if (value) query[key] = value;
-  }
-  return query;
+function queryFor(walking: Walking | Searched, at: string | undefined): LinkQuery {
+  const own = walking.listing === undefined ? "after" : CURSOR[walking.listing];
+  return inTheFixedOrder({ ...walking.asked, ...walking.narrowed, [own]: at });
 }
 
 /**
