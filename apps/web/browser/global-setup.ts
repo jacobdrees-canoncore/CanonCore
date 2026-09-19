@@ -3,7 +3,7 @@ import { anItemTitled, aProvider, aStatement } from "@canoncore/db/testing/catal
 import { bounded } from "@canoncore/providers";
 import type { TestProject } from "vitest/node";
 
-import { anInstanceServing, OWNER_PASSWORD, theAppBuilt } from "../e2e/instance";
+import { anInstanceServing, OWNER_PASSWORD, settingUp, theAppBuilt } from "../e2e/instance";
 import {
   aProviderThatFloodsItsName,
   aProviderThatFloodsItsRecord,
@@ -48,8 +48,16 @@ const UNBROKEN_DEVICE = "device".repeat(60);
  * `aCatalogueSafeToReorder`'s fixture and for its reason: the GAPS are what
  * tell a permutation of asserted positions from a renumbering that happens to
  * agree with it (ADR-0116).
+ *
+ * WHAT IT STARTS IS OWNED FROM THE MOMENT IT STARTS (CNCORE-229), through
+ * `settingUp`, as the page seam's is: a throw closes it and the teardown is the
+ * same ownership handed on.
  */
-export default async function setup(project: TestProject) {
+export default function setup(project: TestProject) {
+  return settingUp((owned) => standUp(project, owned));
+}
+
+async function standUp(project: TestProject, owned: AsyncDisposableStack) {
   /*
    * THIS PROJECT BUILDS ITS OWN APP, which is the duplicated setup the ticket
    * asked to be weighed and is the larger half of what a separate job costs.
@@ -69,9 +77,11 @@ export default async function setup(project: TestProject) {
   });
 
   const floodsItsName = await aProviderThatFloodsItsName();
+  owned.defer(floodsItsName.close);
   const floodsItsRecord = await aProviderThatFloodsItsRecord();
+  owned.defer(floodsItsRecord.close);
 
-  const instance = await anInstanceServing({
+  const instance = await anInstanceServing(owned, {
     suffix: "drag",
     ownerPassword: OWNER_PASSWORD,
     /*
@@ -153,12 +163,6 @@ export default async function setup(project: TestProject) {
   project.provide("titledUnbroken", instance.fixture.unbrokenTitle);
   project.provide("unbrokenGroup", UNBROKEN_GROUP);
   project.provide("unbrokenDevice", UNBROKEN_DEVICE);
-
-  return async () => {
-    await instance.close();
-    await floodsItsName.close();
-    await floodsItsRecord.close();
-  };
 }
 
 declare module "vitest" {

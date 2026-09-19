@@ -91,6 +91,48 @@ export function theServerEnvironment(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv 
 export const OWNER_PASSWORD = "the owner's own password for the e2e suite";
 
 /**
+ * A GLOBAL SETUP THAT OWNS WHAT IT STARTS, AND ITS TEARDOWN (CNCORE-229).
+ *
+ * `body` is handed `owned`, and everything it starts goes on it as it starts. If
+ * `body` throws, everything on it is closed, the last started first, and the
+ * error goes on as it was thrown -- inside a `SuppressedError`, which is the
+ * platform's shape for it, if a close threw as well. If it completes, the same
+ * stack is the teardown this hands back.
+ *
+ * WHY A THROW HAS TO CLOSE ANYTHING. A server here is a `next start` PROCESS,
+ * and it does not end when the process that started it does: it is re-parented
+ * to pid 1 and goes on holding the stdout it inherited. On a pipe that is a
+ * stream nothing ever closes, so CI, which reads a step's output to the end,
+ * waits on it until the job's ceiling (ADR-0141). Vitest calls a teardown only
+ * if setup returned one, so a setup that threw part-way used to leave every
+ * server it had already started running: seven after one run on 2026-09-19 and
+ * six after the next, found with parent pid 1 in `apps/web`. Reproduced by
+ * piping `pnpm test:e2e 2>&1` through `cat`.
+ *
+ * AND WHY THE TEARDOWN IS THE STACK RATHER THAN A LIST. The teardown used to be
+ * a list of closes written by hand, and CNCORE-178 added an instance and not its
+ * line: that server outlived the suite and hung CI the same way. A stack that
+ * every server goes on as it starts has no line to forget.
+ *
+ * NODE'S OWN `AsyncDisposableStack`, which is the platform's answer to exactly
+ * this: `await using` closes it on the way out of a throw, and `move()` hands it
+ * on intact when there was none.
+ *
+ * IT CLOSES ONE THING AT A TIME, which is why closing a server only signals it
+ * (`theBuildServing` says so). Vitest ends a teardown that runs past its
+ * `teardownTimeout` with `process.exit()`, and a server not yet signalled then
+ * is orphaned exactly as before.
+ */
+export async function settingUp(
+  body: (owned: AsyncDisposableStack) => Promise<void>,
+): Promise<() => Promise<void>> {
+  await using owned = new AsyncDisposableStack();
+  await body(owned);
+  const teardown = owned.move();
+  return () => teardown.disposeAsync();
+}
+
+/**
  * THE SERVER HALF, and every instance in this repository is made of it.
  *
  * Take a port nothing is on, start the ONE build against the environment given,
@@ -99,9 +141,28 @@ export const OWNER_PASSWORD = "the owner's own password for the e2e suite";
  * and its server, and a helper that did both halves would have to take a flag
  * saying whether to build. `anInstanceServing` below is that helper for the four
  * with nothing in between.
+ *
+ * THE SERVER GOES ON `owned` AS IT IS SPAWNED, before the wait, so there is no
+ * way to start one in this harness that nothing will close (CNCORE-229) -- one
+ * that never answers included. `close` is still handed back for a caller that
+ * has to stop a server early, as `item-page-cost.test.ts` does inside a window;
+ * closing one twice is a no-op.
+ *
+ * CLOSING SENDS SIGTERM AND DOES NOT WAIT FOR THE EXIT, and that was measured
+ * rather than assumed. Waiting made the stack close its servers one exit at a
+ * time: eleven took 3107ms, 87ms and 3090ms on three runs on 2026-09-19, where
+ * signalling takes milliseconds, and each slow exit held back the signal for
+ * every server behind it against Vitest's ten-second `teardownTimeout`. A server
+ * signalled is one that stops -- Next exits on SIGTERM -- so the pipe is let go
+ * a moment after the teardown ends, rather than never.
  */
-export async function theBuildServing(env: NodeJS.ProcessEnv): Promise<{
+export async function theBuildServing(
+  owned: AsyncDisposableStack,
+  env: NodeJS.ProcessEnv,
+): Promise<{
   baseUrl: string;
+  /** The process's own identity, which a check for a survivor needs: see `instance.test.ts`. */
+  pid: number | undefined;
   close: () => void;
 }> {
   const port = await freePort();
@@ -110,9 +171,13 @@ export async function theBuildServing(env: NodeJS.ProcessEnv): Promise<{
     env: theServerEnvironment(env),
     stdio: "inherit",
   });
+  const close = () => {
+    server.kill("SIGTERM");
+  };
+  owned.defer(close);
   const baseUrl = `http://127.0.0.1:${port}`;
   await waitUntilAnswering(baseUrl, server);
-  return { baseUrl, close: () => server.kill("SIGTERM") };
+  return { baseUrl, pid: server.pid, close };
 }
 
 /**
@@ -147,37 +212,44 @@ export async function theBuildServing(env: NodeJS.ProcessEnv): Promise<{
  * that does.
  *
  * The pool is lazy, so an instance that fills nothing opens no connection to the
- * database it is handed -- and `close` still ends it, so no caller has to know
+ * database it is handed -- and `owned` still ends it, so no caller has to know
  * which kind it is.
+ *
+ * AND BOTH GO ON `owned` AS THEY ARE MADE, not when the instance is handed back
+ * (CNCORE-229). A fixture can do work after its server answers --
+ * `aCatalogueSafeToPurge` browses two providers through its app -- and a throw
+ * there used to leave a server running that no teardown held.
  */
-export async function anInstanceServing<Fixture>({
-  suffix,
-  ownerPassword,
-  allowlist,
-  providers,
-  fill,
-}: {
-  suffix: FixtureDatabaseSuffix;
-  /**
-   * ADR-0044's one password, or the empty string for an instance nobody can log
-   * in to -- which is that record's demo, and is what a read-only instance is.
-   * Required for the reason the two below are: a key left out is not a key
-   * unset, it is this process's own environment reaching a fixture that was
-   * meant to be without it, and an instance that became writable by inheritance
-   * would take the whole point off the tests that assert a visitor sees no
-   * button.
-   */
-  ownerPassword: string;
-  /** ADR-0034's allowlist, written into this instance's settings. */
-  allowlist: string;
-  /** Which providers this instance searches (CNCORE-68, ADR-0121). */
-  providers: readonly string[];
-  fill: (db: Database) => Promise<Fixture>;
-}): Promise<{
+export async function anInstanceServing<Fixture>(
+  owned: AsyncDisposableStack,
+  {
+    suffix,
+    ownerPassword,
+    allowlist,
+    providers,
+    fill,
+  }: {
+    suffix: FixtureDatabaseSuffix;
+    /**
+     * ADR-0044's one password, or the empty string for an instance nobody can log
+     * in to -- which is that record's demo, and is what a read-only instance is.
+     * Required for the reason the two below are: a key left out is not a key
+     * unset, it is this process's own environment reaching a fixture that was
+     * meant to be without it, and an instance that became writable by inheritance
+     * would take the whole point off the tests that assert a visitor sees no
+     * button.
+     */
+    ownerPassword: string;
+    /** ADR-0034's allowlist, written into this instance's settings. */
+    allowlist: string;
+    /** Which providers this instance searches (CNCORE-68, ADR-0121). */
+    providers: readonly string[];
+    fill: (db: Database) => Promise<Fixture>;
+  },
+): Promise<{
   baseUrl: string;
   db: Database;
   fixture: Fixture;
-  close: () => Promise<void>;
 }> {
   const databaseUrl = await buildTestDatabase(suffix);
   /*
@@ -189,6 +261,7 @@ export async function anInstanceServing<Fixture>({
    * and the failures landed in whichever file happened to be reading.
    */
   const db = createDb(databaseUrl, { maxConnections: HARNESS_CONNECTIONS });
+  owned.defer(() => db.$client.end());
   /*
    * BEFORE THE SERVER ANSWERS, like the fixture below it, so no suite ever sees
    * an instance half-configured. It is written first because `fill` may IMPORT
@@ -200,23 +273,22 @@ export async function anInstanceServing<Fixture>({
     providerUrls: providers.join("\n"),
   });
   const fixture = await fill(db);
-  const server = await theBuildServing({
+  const server = await theBuildServing(owned, {
     ...process.env,
     DATABASE_URL: databaseUrl,
     OWNER_PASSWORD: ownerPassword,
   });
-  return {
-    baseUrl: server.baseUrl,
-    db,
-    fixture,
-    close: async () => {
-      server.close();
-      await db.$client.end();
-    },
-  };
+  return { baseUrl: server.baseUrl, db, fixture };
 }
 
-/** Asks the operating system for a port nothing else is on. */
+/**
+ * Asks the operating system for a port nothing else is on.
+ *
+ * TODO(CNCORE-235): THE PORT IS FREE ONLY UNTIL THE PROBE CLOSES, and it is
+ * checked on `127.0.0.1` while `next start` binds every address. On a busy
+ * machine something else can take it first, and the server then dies on
+ * `EADDRINUSE` before it answers.
+ */
 export function freePort(): Promise<number> {
   return new Promise((resolve, reject) => {
     const probe = createProbe();
@@ -246,7 +318,6 @@ export async function waitUntilAnswering(baseUrl: string, server: ChildProcess):
     }
     await new Promise((resolve) => setTimeout(resolve, 200));
   }
-  server.kill("SIGTERM");
   throw new Error(`next start did not answer on ${baseUrl} within 60s`);
 }
 

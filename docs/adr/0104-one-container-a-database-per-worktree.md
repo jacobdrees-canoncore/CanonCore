@@ -140,14 +140,17 @@ this, and it is tempting exactly because the constant and the declaration now si
 it would make the budget FOLLOW whatever suffix was added last and widen it silently.
 `worktree-database.ts` names that move so the next reader declines it on purpose rather than by luck.
 
-**The budget is full, which is what to know before adding another.** NINE of the NINETEEN declared
+**The budget is full, which is what to know before adding another.** NINE of the TWENTY declared
 suffixes — `_test_fresh`, `_test_paged`, `_test_purge`, `_test_still`, `_test_place`, `_test_order`,
 `_test_group`, `_test_allow` and `_test_tasks` — spend all eleven characters, so the longest tail the
 harness can derive IS the reservation, exactly. (This read "four of the six" until 2026-09-13, "seven
 of the thirteen" until 2026-09-16, "seven of the fifteen" until 2026-09-18 and "eight of the
-seventeen" until 2026-09-19, which had already missed `_test_group`; the set has now grown out from
-under this sentence FOUR TIMES, which is what a figure quoted beside a list does. **COUNT
-`TEST_DATABASE_SUFFIXES` rather than trust the number here.** The load-bearing half is that the
+seventeen" until 2026-09-19, which had already missed `_test_group`, and "nine of the nineteen"
+until CNCORE-229 added `leak` the same day; the set has now grown out from under this sentence FOUR
+TIMES, which is what a figure quoted beside a list does. **COUNT
+`TEST_DATABASE_SUFFIXES` rather than trust the number here**, and count its NAMED members: the bare
+`""` of `packages/db`'s own suite is no suffix and has never been counted. Counting it is how
+CNCORE-229 first wrote "twenty-one" here, and a dispatcher's count caught it. The load-bearing half is that the
 budget is SPENT, not by how many: `_test_tasks` is the first addition since CNCORE-112 to land on
 eleven rather than under it, so the count moved for the first time as well as the total.)
 A new one is likelier to need shortening than to fit, and the test now says so at the point of adding

@@ -26,8 +26,12 @@ const { item, holdsAt, appearsAt } = inject("counted");
  * the measurements below, which must stop one inside the window, and the
  * per-request check, which needs one that answers twice.
  */
-function aServerOnTheCountedCatalogue() {
-  return theBuildServing({ ...process.env, DATABASE_URL: databaseUrl, OWNER_PASSWORD: "" });
+function aServerOnTheCountedCatalogue(owned: AsyncDisposableStack) {
+  return theBuildServing(owned, {
+    ...process.env,
+    DATABASE_URL: databaseUrl,
+    OWNER_PASSWORD: "",
+  });
 }
 
 /**
@@ -72,26 +76,18 @@ async function costOf(asking: (baseUrl: string) => Promise<unknown>): Promise<nu
    *
    * SO THE SERVER IS STARTED THROUGH `preparing`, which `statementsWhile` runs
    * before each window's wait for an empty database and never counts. Whichever
-   * one is still running when this returns or throws is stopped here, since a
-   * leaked `next start` is a CI job that never ends.
+   * one is still running when this returns or throws is stopped by `owned`,
+   * since a leaked `next start` is a CI job that never ends (CNCORE-229).
    */
-  let running: Awaited<ReturnType<typeof aServerOnTheCountedCatalogue>> | undefined;
-  try {
-    return await statementsWhile(
-      databaseUrl,
-      async (server) => {
-        await asking(server.baseUrl);
-        server.close();
-        running = undefined;
-      },
-      async () => {
-        running = await aServerOnTheCountedCatalogue();
-        return running;
-      },
-    );
-  } finally {
-    running?.close();
-  }
+  await using owned = new AsyncDisposableStack();
+  return await statementsWhile(
+    databaseUrl,
+    async (server) => {
+      await asking(server.baseUrl);
+      server.close();
+    },
+    () => aServerOnTheCountedCatalogue(owned),
+  );
 }
 
 /**
@@ -191,7 +187,8 @@ describe("what /items/<id> costs", () => {
        * it in the heading. A memo that outlived the request would strand them
        * together, so asserting both is asserting the whole of what was shared.
        */
-      const server = await aServerOnTheCountedCatalogue();
+      await using owned = new AsyncDisposableStack();
+      const server = await aServerOnTheCountedCatalogue(owned);
       const db = createDb(databaseUrl, { maxConnections: 1 });
       try {
         /*
@@ -214,7 +211,6 @@ describe("what /items/<id> costs", () => {
         expect(after.text).toContain(`<title>${renamed}</title>`);
       } finally {
         await db.$client.end();
-        server.close();
       }
     },
     LONG_ENOUGH_TO_SERVE_AND_STOP_MS,

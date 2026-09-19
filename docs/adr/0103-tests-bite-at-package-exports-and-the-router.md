@@ -1812,3 +1812,100 @@ descend a link there. That is covered rather than fixed: the corpus lies under `
 in it fails this sweep by name in the same package's suite, and the refusal holds only as long as
 this file does. `recordsByNumber` and `adr-numbering.test.ts` read `docs/adr` without recursing, so
 neither descends anything.
+
+## A server is owned from the moment it spawns -- under CNCORE-229
+
+**A SETUP THAT THROWS PART-WAY HANDS BACK NO TEARDOWN, so nothing closed what it had started.**
+Vitest runs a global setup's teardown only if setup returned one. Twice on 2026-09-19,
+`apps/web/e2e/global-setup.ts` threw part-way through standing up its servers, once on the
+`/dev/shm` failure CNCORE-228 fixed. Each time, the `next start` servers already up (seven, then
+six) outlived the run with parent pid 1 and `apps/web` as their working directory. The Owner killed
+five more by hand the same day, two of them up for over 27 hours. A `next start` is a process of its
+own and does not end when its starter does. It keeps the stdout it inherited, so a run piped
+anywhere never reaches EOF. That is ADR-0141's hang by a second path: CNCORE-178 reached it through
+a teardown that forgot one server, and this through a setup that never returned a teardown at all.
+
+**ONE STACK IS BOTH HALVES, AND IT IS NODE'S OWN.** `settingUp` in `e2e/instance.ts` runs a global
+setup's body over an `AsyncDisposableStack` declared with `await using`. A throw closes everything on
+it, last started first, and the error goes on as thrown. On success, `move()` hands the whole stack
+to the teardown, so the teardown is no longer a list of closes written by hand, and the line
+CNCORE-178 forgot has nowhere left to be forgotten. This is TC39's explicit resource management,
+present without a flag on the Node this repository runs (measured on 24.19.0; CI runs `node@24`), so
+it costs no dependency and no mechanism of this repository's own.
+
+**`theBuildServing` PUTS EACH SERVER ON THE STACK AS IT SPAWNS, before it waits for one to answer,**
+so no server in this harness can be started without an owner. That is `theServerEnvironment`'s
+argument, made for ownership where that one is made for the connection bound. `anInstanceServing`
+takes the stack for the same reason and ends its pool through it. That also covers the fixtures that
+do work after their server answers: `aCatalogueSafeToPurge` browses two providers through its app,
+and a throw there used to strand an instance whose close only the returned value held. The two test
+files that start servers of their own, `item-page-cost.test.ts` and `live/live-import.test.ts`, hold
+a stack too, in place of the bookkeeping each kept by hand. `waitUntilAnswering` no longer kills a
+server that times out, since its owner does.
+
+**What goes on the stack by hand is only what dies with the process.** A loopback stub or a
+connection pool lives inside the Vitest process, so a throw cannot orphan one. Each goes on the
+stack on the line that made it, for the teardown's sake.
+
+**CLOSING A SERVER SIGNALS IT AND DOES NOT WAIT, and waiting was tried and measured first.** A
+stack closes one thing at a time, so a `close` that waited for its process to exit made the teardown
+wait out each server's shutdown before signalling the next. Eleven took 3107ms, 87ms and 3090ms on
+three runs on 2026-09-19, where signalling them takes milliseconds. That is not idle cost:
+Vitest 5.0.0's `exit()` ends a teardown that runs past `teardownTimeout` (ten seconds, which this
+suite leaves at its default) with `process.exit()`, so every server still waiting its turn then
+would have been orphaned, which is this record's hang by a third path. Review found it, in both
+halves of `code-review`. Signalling is enough because a signalled server stops: Next exits on
+SIGTERM, so the pipe is let go a moment after the teardown ends rather than never.
+
+**THE SEAM IS THE HARNESS HELPER WITH REAL SERVERS, AND THE DISPATCHER CHOSE IT** on 2026-09-19.
+`e2e/instance.test.ts` runs `settingUp` with a body that starts a real `next start` server through
+`theBuildServing` and then throws. It asserts that the error comes back as thrown and that the
+server's process is no longer running. A second case asserts that on success the server outlives
+setup until the teardown closes it. Two other seams were weighed and refused. Stand-ins recording
+`close()` concede that they do not test the claim, which is about a process. The whole global setup
+with a failure injected after its Nth server needs a failure-injection hook in harness code, and
+would rebuild the shared `web` database under a running suite.
+
+**A SURVIVOR IS MATCHED BY ITS OWN PID, NOT BY ITS PARENT AND NOT BY ITS PORT.** A leaked server is
+re-parented to pid 1 once its starter dies, so a check that listed the test process's children would
+miss exactly the processes this is about. The first draft matched it by its port, the other identity
+a server carries whatever its parent, and review showed that to be the weaker claim: Next's SIGTERM
+handler stops listening first and exits only after its cleanup, so a free port can come before the
+process has gone. `theBuildServing` hands back the pid, and `process.kill(pid, 0)` answering `ESRCH`
+is the process gone. Since a close only signals, the test POLLS for that, for fifteen seconds; a
+server nobody signalled is still running at the end of them.
+
+**ITS SERVERS STAND ON A DATABASE OF THEIR OWN, `leak`.** A server start is not a read. The
+scheduler starts with every server (ADR-0049) and closes whatever runs it finds open, so on `web` it
+could close a run `tasks-page.test.ts` is in the middle of.
+
+**ONE SERVER A CASE, BECAUSE TWO COST AN AGENT.** Each case started two until review asked what they
+added to ADR-0104's budget, and a server holds all four of its `SERVER_CONNECTIONS` while it answers.
+Measured with that record's own sampler through a full run on 2026-09-19, the pair put the suite's
+peak at 75, with `_test_leak` holding 8 at that tick and the rest summing to that record's 67. The
+agent ceiling is 288 over the worst peak, floored, so two would have taken it from four to three. The
+dispatcher chose one server a case the same day. Under the same sampler that run peaked at 64, with
+`_test_leak` holding 1 at that tick and never more than 4. Laid on the 67 ADR-0104 records, the
+worst case is 71, and 288 over 71 still floors to four. What "every" adds over one is the stack's
+own contract, since each server goes on it the same way and it closes all it holds, and the real
+setup closing three is measured below.
+
+**RED BEFORE GREEN, measured.** With `settingUp` owning nothing, which is the old behaviour, both
+cases failed. On the two-server form they failed after their fifteen-second poll on `expected
+[ true, true ] to deeply equal [ false, false ]`, and the run then reproduced the ticket whole: the
+four servers it left were found with parent pid 1 in this worktree's `apps/web`, and Vitest itself
+never exited, its worker's output held open by them, until they were killed by hand. On the
+one-server form each failed on `expected true to be false` and left its server with parent pid 1.
+
+**AND ON THE REAL SETUP, BEFORE AND AFTER.** A throw added by hand after
+`global-setup.ts`'s third server, and never committed, run as `pnpm test:e2e 2>&1 | cat`. On
+`main`'s harness `pnpm` exited 1, and the pipeline did not end: the three servers were running with
+parent pid 1 in this worktree's `apps/web`, and it ended at 266 seconds only because they were
+killed by hand. On this one, the pipeline ended by itself in 10 seconds and no `next-server` was
+left.
+
+**WHAT THIS DOES NOT HOLD.** A harness killed outright, by SIGKILL or by a crash of the Vitest
+process itself, runs no disposer, so its servers outlive it as before. Nothing here reaches past the
+process that owns the stack. And a server that ignored SIGTERM would outlive it too: nothing
+escalates to SIGKILL, because escalating means waiting, and no server here has been seen to ignore
+the signal.
