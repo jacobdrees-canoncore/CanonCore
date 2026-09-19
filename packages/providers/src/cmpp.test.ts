@@ -162,6 +162,66 @@ describe("a provider's declared name", () => {
 });
 
 /**
+ * A LICENCE'S OWN WORDS ARE REFUSED PAST A CEILING, NEVER CUT (ADR-0123, CNCORE-213).
+ *
+ * The notice and the mark's alternative text reach every Item page that shows
+ * the source's claims, and `Attribution` prints them verbatim because a
+ * paraphrased notice breaches the licence as surely as a missing one. So the
+ * bound is a refusal, as `data_uri`'s is, and the refusal is the WHOLE
+ * manifest: a Provider whose notice this app cannot print is a Provider whose
+ * content it cannot show.
+ *
+ * THE LENGTHS ARE LITERALS, because the ceiling is a decision rather than a
+ * value to read back: 1,000 is the number ADR-0123 defends, and TMDB's notice
+ * and alt are 107 and 86 characters, measured on 2026-09-19.
+ */
+describe("a licence notice a provider declares", () => {
+  /** TMDB's, as `provider-tmdb` declares them: the one real obligation there is. */
+  const TMDB = {
+    notice:
+      "This application uses TMDB and the TMDB APIs but is not endorsed, certified, or otherwise approved by TMDB.",
+    logo: {
+      data_uri: "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==",
+      alt: "The Movie Database (TMDB). TMDB does not endorse, certify or approve this application.",
+    },
+  };
+
+  const declaring = (attribution: unknown) => ({ name: "a provider owing a notice", attribution });
+
+  /**
+   * THE HALF THAT STOPS THE RULE BEING "REFUSE EVERYTHING", and the half that
+   * costs most if it breaks: a ceiling below TMDB's notice would refuse the one
+   * Provider that owes one, whole, on every search and every import.
+   */
+  it("admits TMDB's notice and alt whole, and one of exactly 1,000", () => {
+    expect(cmppManifest.parse(declaring(TMDB)).attribution).toEqual(TMDB);
+
+    const atTheCeiling = {
+      notice: "n".repeat(1_000),
+      logo: { ...TMDB.logo, alt: "a".repeat(1_000) },
+    };
+    expect(cmppManifest.parse(declaring(atTheCeiling)).attribution).toEqual(atTheCeiling);
+  });
+
+  it.each([
+    ["the notice", "notice", { ...TMDB, notice: "n".repeat(1_001) }],
+    ["the mark's alt", "logo.alt", { ...TMDB, logo: { ...TMDB.logo, alt: "a".repeat(1_001) } }],
+  ])(
+    "refuses the whole manifest when %s runs one character past 1,000, and says which",
+    (_, field, attribution) => {
+      const parsed = cmppManifest.safeParse(declaring(attribution));
+
+      expect(parsed.success).toBe(false);
+      // WHICH FIELD, because this is what the Owner reads on the settings page:
+      // the issue list is the reason, and its path is the half that says why.
+      expect(parsed.error?.issues.map(({ path }) => path.join("."))).toEqual([
+        `attribution.${field}`,
+      ]);
+    },
+  );
+});
+
+/**
  * THE RULE A FIFTH FIELD MEETS, ENFORCED RATHER THAN LEFT TO REVIEW (CNCORE-165).
  *
  * `name` was the fourth surface to carry a Provider's prose and the first nobody
@@ -185,8 +245,8 @@ describe("every string a provider declares about itself", () => {
     "images.stored_variant": "read by nothing in this app yet",
     "images.stored_variant{key}": "read by nothing in this app yet",
     "images.stored_variant{value}": "read by nothing in this app yet",
-    "attribution.notice": "verbatim by obligation, so a refusal and never a cut (CNCORE-213)",
-    "attribution.logo.alt": "verbatim by obligation, so a refusal and never a cut (CNCORE-213)",
+    "attribution.notice": "verbatim by obligation, refused past MAX_NOTICE_CHARS",
+    "attribution.logo.alt": "verbatim by obligation, refused past MAX_NOTICE_CHARS",
     "attribution.logo.data_uri": "verbatim bytes, refused past MAX_LOGO_CHARS",
     "credential.unlock_path": "never printed; `unlockUrlFor` joins it and checks the origin",
   };

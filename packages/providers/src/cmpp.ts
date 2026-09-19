@@ -155,6 +155,18 @@ export type CmppSearch = z.infer<typeof cmppSearch>;
  */
 const MAX_LOGO_CHARS = 256 * 1024;
 
+/**
+ * The longest a licence's own words may be, in characters: `notice`, and the
+ * mark's `alt`, which is a notice too (ADR-0123, CNCORE-213).
+ *
+ * ABOUT TEN TIMES TMDB'S, WHICH IS THE ONE REAL OBLIGATION THERE IS. Its
+ * notice is 107 characters and its alt 86, measured on 2026-09-19. A Provider
+ * past this is refused whole, so the ceiling sits well above any sentence a
+ * licence plausibly asks for. It is still a paragraph and not four mebibytes,
+ * and it is printed on every Item page that shows the source's claims.
+ */
+const MAX_NOTICE_CHARS = 1_000;
+
 /** What stands in for the name of a Provider that named itself in nothing. */
 const UNNAMED = "a Provider that did not name itself";
 
@@ -196,9 +208,9 @@ const SAID_NOTHING = "this Provider needs something, and did not say what.";
  *   floored so a Provider that said nothing cannot crash the request reading
  *   it. `name` and `credential.label`.
  * - PROSE AN OBLIGATION REQUIRES VERBATIM cannot be cut, because cutting a
- *   licence notice is the breach it exists to prevent. `logo.data_uri` is
- *   refused past its ceiling; how `attribution.notice` and `logo.alt` are
- *   bounded instead is an open decision (CNCORE-213).
+ *   licence notice is the breach it exists to prevent. So it is REFUSED past a
+ *   ceiling, and the refusal is the whole manifest: `attribution.notice` and
+ *   `logo.alt` past `MAX_NOTICE_CHARS`, `logo.data_uri` past `MAX_LOGO_CHARS`.
  * - A FIELD NEVER PRINTED AS TEXT is named with that reason: `operations`,
  *   `stored_variant`, and `unlock_path`, which `unlockUrlFor` judges before it
  *   reaches an href.
@@ -277,11 +289,13 @@ export const cmppManifest = z.object({
        * paraphrases its own licence is a provider in breach, and not something
        * this schema can detect.
        *
-       * TODO(CNCORE-213): no ceiling yet. It reaches every Item page the source
-       * claims a value on, and `boundedProse` would cut it, which is the breach
-       * above. How it is bounded instead is that ticket's decision.
+       * REFUSED PAST ITS CEILING, AND THE REFUSAL IS THE WHOLE MANIFEST
+       * (CNCORE-213). It reaches every Item page the source claims a value on,
+       * and `boundedProse` would cut it, which is the breach above. Refusing
+       * only the attribution would leave the Provider importing content whose
+       * notice nothing can print. ADR-0123 records the choice.
        */
-      notice: z.string().min(1),
+      notice: z.string().min(1).max(MAX_NOTICE_CHARS),
       /**
        * The source's mark, where the source requires one to be shown.
        *
@@ -330,9 +344,10 @@ export const cmppManifest = z.object({
            * "must make it clear that use of any TMDB logos does not imply any
            * endorsement, certification, or other approval". A reader who cannot see
            * the mark is exactly the reader who needs that sentence in text.
+           *
+           * So it is a notice, and is refused past the same ceiling.
            */
-          // TODO(CNCORE-213): no ceiling yet, for the reason `notice` has none.
-          alt: z.string().min(1),
+          alt: z.string().min(1).max(MAX_NOTICE_CHARS),
         })
         .nullable()
         .default(null),
