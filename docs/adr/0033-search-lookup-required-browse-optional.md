@@ -1090,16 +1090,29 @@ members in the wiki's own order, which is not their release order.
 it reaches what the list leaves out, because the CNCORE-186 section narrowed `containers` to what the
 source asserts as one: its categories browse and are not listed.
 
-**`series_id` STOPPED BEING STRIPPED AND IS READ BY NOTHING, AND THE REASON FOR READING IT WAS FALSE
-AT THE SECOND PROVIDER TOO.** The CNCORE-68 section expected a search candidate to offer its own
-container through it. `provider-tmdb` sends `series_id` on a lookup and a browse and NEVER on a
-search: read at `46a1189`, `searchResultToRecord` hardcodes `series_id: null`, because TMDB's
-multi-search carries no collection and filling one would cost a request per result. So no candidate
-can offer its container at either provider. This suite's TMDB stub answered a search with a
-lookup's record, `series_id` included, and was corrected to answer as the image does. The consumer
-schema keeps the field, asserted on a lookup at the package export; what reads it is CNCORE-238,
-one lookup when the Owner asks rather than one per result. The dispatcher chose that over building
-the reader here, 2026-09-19.
+**`series_id` STOPPED BEING STRIPPED AND IS NOW READ, ONE LOOKUP AT A TIME — AND THE REASON THE
+CNCORE-68 SECTION GAVE FOR READING IT WAS FALSE AT THE SECOND PROVIDER TOO.** That section expected a
+SEARCH CANDIDATE to offer its own container through it, and no candidate can: `provider-tmdb` sends
+`series_id` on a lookup and a browse and NEVER on a search — read at `46a1189`,
+`searchResultToRecord` hardcodes `series_id: null`, because TMDB's multi-search carries no collection
+and filling one would cost a request per result. So the field was kept and read by nothing under
+CNCORE-187 (the consumer schema asserting it on a lookup at the package export), and the reader
+arrived one ticket later as a mechanism of its own: **CNCORE-238, 2026-09-19.**
+`provider.containerOf` answers the Container ONE record names, on the Owner's own click, and
+`/import` leads from a search candidate to the `?provider=&container=` preview a Container picked
+from the list already reaches — so spec CNCORE-159's story 61 is met at TMDB, which declines the
+`containers` list. This suite's TMDB stub answered a search with a lookup's record, `series_id`
+included, and was corrected to answer as the image does. The premise was RE-MEASURED against the
+running image rather than carried from this paragraph: `/search?q=The Matrix` answers
+`"series_id":null` and `/lookup/movie%3A603` answers `"series_id":"collection:2344"`. The design and
+the rule it rests on are [[0149-a-found-record-reaches-its-container-on-a-click-not-a-search]]; a
+Provider that names none — `provider-wiki`, where a story sits in many timelines — says so rather
+than offering a link to nothing.
+
+**AND `series_id` IS NULLABLE WITHOUT BEING `.min(1)`, SO `""` IS A WELL-FORMED ANSWER TO THIS
+CONTRACT.** Found building that reader: an empty id passes a `=== null` guard and reaches whatever
+the consumer does next. CanonCore reads it as naming no container, which is ADR-0066's rule — an id
+that cannot BE an identity addresses nothing — rather than as a container whose id is blank.
 
 **NOT BUILT: an import run over what a Provider lists.** `provider.beginImportRun` still takes the
 Owner's own list ([[0135-an-import-run-is-rows-and-the-walk-is-one-container-a-call]]).

@@ -108,3 +108,23 @@ what they did wrong.
   an ordering is a CMPP contract change: a new operation, ADR-0033 reopened, and a provider-repo PR.
   ADR-0130 already records paged orderings as the direction. This record does not close that off; it
   removes the reason it was urgent.
+
+## The rule was applied to a second read, and it answered the other way — under CNCORE-238
+
+This record's own test — **what does answering it SPEND** — was put to a new outbound read on the
+same page on 2026-09-19, and it came back OPEN. That is the rule working rather than the rule being
+bent, and it is recorded here because a reader who remembered only this record's CONCLUSION would
+have gated it.
+
+`provider.containerOf` answers the Container one record names, by asking a provider for that one
+record. A `lookup` is `brief` (ADR-0130) — the same ten-second ceiling as `search`, and asking the
+manifest first and serially gives it `provider.search`'s worst case of 20s rather than this
+procedure's 70. So it is an `openProcedure`, and a visitor to ADR-0044's demo may follow a record to
+the Container it names exactly as they may search for the record.
+
+**WHAT IT LEADS TO IS THIS PROCEDURE, UNWIDENED.** The way onward is a link to
+`?provider=&container=`, so the browse stays behind this door and a visitor who follows it meets the
+notice, as they always did. The design is
+[[0149-a-found-record-reaches-its-container-on-a-click-not-a-search]], which carries the second rule
+that read needed: a cost scaling with the RESULTS is taken on a click, where one scaling with the
+PROVIDERS may be taken on the search.

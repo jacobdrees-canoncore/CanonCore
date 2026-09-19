@@ -45,6 +45,11 @@ interface Asked {
   group?: string;
   provider?: string;
   container?: string;
+  /**
+   * WHICH RECORD THE OWNER ASKED THE CONTAINER OF (CNCORE-238), which is the
+   * Provider's own id for it and the one `lookup` takes.
+   */
+  record?: string;
   purge?: string;
   /** Where in the provider's list of containers the page starts (CNCORE-187). */
   startsAt: WhereThePageStarts;
@@ -64,7 +69,15 @@ interface Asked {
  * of the same name. That one is CNCORE-66 and lives at its own address. This page
  * searches PROVIDERS, so the word on it is Import rather than Search.
  */
-async function readImportPage({ query, group, provider, container, purge, startsAt }: Asked) {
+async function readImportPage({
+  query,
+  group,
+  provider,
+  container,
+  record,
+  purge,
+  startsAt,
+}: Asked) {
   /*
    * NO `connection()` HERE, AND THAT IS ADR-0117 OBEYED RATHER THAN SKIPPED.
    * That record's rule is that a read surface declares it needs a request, and
@@ -91,8 +104,16 @@ async function readImportPage({ query, group, provider, container, purge, starts
    * "EVERY READ" IS WHAT THIS SAID, AND ONE READ IS NOW THE OWNER'S TOO
    * (ADR-0131, CNCORE-154). `provider.container` answers by running a whole
    * browse at a third party, so it is gated in `aboutTheContainer` below beside
-   * `purging` -- the two reads on this page that cost more than a query. What a
+   * `purging` -- the two reads on this page that are the OWNER'S. What a
    * visitor is shown in its place is `LogIn`, exactly as beside a button.
+   *
+   * "THE TWO THAT COST MORE THAN A QUERY" IS WHAT THAT SAID, AND IT STOPPED
+   * BEING THE TEST AT CNCORE-238. `provider.containerOf` costs a lookup at a
+   * third party and is OPEN, which is ADR-0131's rule applied rather than
+   * broken: that record draws its line at ADR-0130's `patient` cap, and a
+   * lookup is `brief`. So what these two have in common is not their price but
+   * their door, and naming the price would send the next reader to the wrong
+   * question (ADR-0149).
    */
   const context = await callerContext();
   // ONE CONTEXT FOR ALL OF THEM, for the reason the front page gives: two calls
@@ -134,7 +155,7 @@ async function readImportPage({ query, group, provider, container, purge, starts
   const purging =
     context.session === null ? undefined : purgeableProvider(configured.providers, purge);
 
-  const [found, namedContainer, preview, offered] = await Promise.all([
+  const [found, namedContainer, preview, offered, itsContainer] = await Promise.all([
     query === undefined
       ? Promise.resolve(undefined)
       : call(appRouter.provider.search, { query, group }, { context }),
@@ -177,12 +198,31 @@ async function readImportPage({ query, group, provider, container, purge, starts
           { baseUrl: searchable, after: startsAt.after, before: startsAt.before },
           { context },
         ),
+    /*
+     * THE CONTAINER ONE FOUND RECORD NAMES (CNCORE-238), and ONLY where the
+     * Owner asked about a record. That `record === undefined` guard is the
+     * whole of "nothing is looked up until the Owner asks": a search renders
+     * this page with no `record` in the address, so it costs one request per
+     * Provider exactly as it did before, however many candidates come back.
+     *
+     * ASKED FOR ANYONE, since answering it costs a `lookup` -- `brief`, like a
+     * search -- rather than a browse (ADR-0131, ADR-0130). The PREVIEW it leads
+     * to is still the Owner's, and this widens nothing.
+     */
+    searchable === undefined || record === undefined
+      ? Promise.resolve(undefined)
+      : call(
+          appRouter.provider.containerOf,
+          { baseUrl: searchable, recordId: record },
+          { context },
+        ),
   ]);
   return {
     allowlisted,
     configured,
     found,
     groups,
+    itsContainer,
     namedContainer,
     offered,
     preview,
@@ -337,6 +377,7 @@ export default async function ImportPage({
     group?: string | string[];
     provider?: string | string[];
     container?: string | string[];
+    record?: string | string[];
     purge?: string | string[];
     after?: string | string[];
     before?: string | string[];
@@ -349,6 +390,9 @@ export default async function ImportPage({
   const narrowedTo = oneGroup(asked.group);
   const provider = oneValue(asked.provider);
   const container = oneValue(asked.container);
+  // THE RECORD WHOSE CONTAINER THE OWNER ASKED FOR (CNCORE-238), read as every
+  // other id in this address is.
+  const record = oneValue(asked.record);
   // WHERE IN THE PROVIDER'S LIST THE PAGE STARTS, read as every Listing page
   // reads it. This list is filed by nothing but the provider's own order, so it
   // takes no letter.
@@ -359,6 +403,7 @@ export default async function ImportPage({
     configured,
     found,
     groups,
+    itsContainer,
     namedContainer,
     offered,
     owner,
@@ -370,6 +415,7 @@ export default async function ImportPage({
     group: narrowedTo,
     provider,
     container,
+    record,
     purge: oneValue(asked.purge),
     startsAt,
   });
@@ -450,14 +496,24 @@ export default async function ImportPage({
       {found !== undefined && query !== undefined && !scope.gone && !asksNobody && (
         <Results aPasswordIsSet={aPasswordIsSet} found={found} owner={owner} query={query} />
       )}
+      {/*
+        THE CONTAINER A FOUND RECORD NAMES (CNCORE-238), rendered above the
+        browse box because it is the answer to the question the Owner just
+        asked, and the way onward from it is a link into that box's own address.
+      */}
+      {searchable !== undefined && itsContainer !== undefined && (
+        <ItsContainer baseUrl={searchable} said={itsContainer} />
+      )}
       <BrowseBox configured={configured.providers} provider={provider} />
       {/*
         A PROVIDER THE ADDRESS NAMED AND THIS INSTANCE DOES NOT SEARCH, whether
-        it came with a container or alone: either way nothing is asked of it.
+        it came with a container, a record, or alone: either way nothing is
+        asked of it.
       */}
-      {searchable === undefined && (provider !== undefined || container !== undefined) && (
-        <NotOneOfOurs />
-      )}
+      {searchable === undefined &&
+        (provider !== undefined || container !== undefined || record !== undefined) && (
+          <NotOneOfOurs />
+        )}
       {namedContainer !== undefined && (
         <Container {...namedContainer} aPasswordIsSet={aPasswordIsSet} owner={owner} />
       )}
@@ -955,6 +1011,7 @@ function Candidate({
       </span>
       <span className="flex items-baseline gap-3">
         {result.itemId !== null && <Held itemId={result.itemId} />}
+        <ItsContainerAsked baseUrl={baseUrl} recordId={result.recordId} />
         <Take
           aPasswordIsSet={aPasswordIsSet}
           baseUrl={baseUrl}
@@ -964,6 +1021,138 @@ function Candidate({
         />
       </span>
     </div>
+  );
+}
+
+/**
+ * THE WAY FROM A FOUND RECORD TO THE CONTAINER ITS PROVIDER NAMES (CNCORE-238).
+ *
+ * A SEARCH CANDIDATE CANNOT CARRY THE ANSWER, which is what this exists for.
+ * `provider-tmdb` fills `series_id` on a lookup and a browse and NEVER on a
+ * search -- `searchResultToRecord` hardcodes `null` -- because TMDB's
+ * multi-search carries no collection and filling one would cost a REQUEST PER
+ * RESULT. So the id is fetched for the one record the Owner points at, on their
+ * own click, and a search still costs one request per Provider.
+ *
+ * A FORM RATHER THAN A `Link`, AND THAT IS THE MECHANISM RATHER THAN A STYLE
+ * CHOICE -- the same measure `PurgeBox` takes, for the same reason. Next
+ * prefetches a `<Link>`'s own address when it enters the viewport, and the
+ * address this reaches SPENDS A LOOKUP AT A THIRD PARTY. A link here would
+ * spend one per candidate because a reader scrolled past, which is precisely
+ * the per-result cost this design exists to avoid -- turning a cheap search
+ * into an expensive one, invisibly, for numbers nobody asked to see. A
+ * string-action `<Form>` prefetches its ACTION PATH instead, its fields not
+ * being known until submission (Next's `<Form>` reference), which here is
+ * `/import` naming no record and looking nothing up.
+ *
+ * OFFERED TO ANYONE, because the read behind it is open (ADR-0131): a `lookup`
+ * is `brief`, so this is `provider.search`'s case and a visitor to ADR-0044's
+ * demo follows a record to the Container it names exactly as they search for
+ * the record. What they meet at the other end is the preview, which is still
+ * the Owner's and says so there.
+ *
+ * NO NOTICE STANDS WHERE THIS WOULD BE FOR A VISITOR, unlike `Take` beside it,
+ * because nothing is withheld here: there is no operation this reader is not
+ * being offered, so there is nothing for a `LogIn` to name.
+ *
+ * TODO(CNCORE-239): THE ADDRESS CARRIES NO `q`, SO SUBMITTING THIS LOSES THE
+ * SEARCH that found the record -- the browser's Back button is the only way to
+ * those results. Carrying the query would make the page re-run it, which is a
+ * Provider fan-out per click on a road built to cost one lookup (ADR-0149), so
+ * the way back is its own decision rather than a field to add here.
+ */
+function ItsContainerAsked({ baseUrl, recordId }: { baseUrl: string; recordId: string }) {
+  return (
+    <Form action="/import">
+      <input name="provider" type="hidden" value={baseUrl} />
+      <input name="record" type="hidden" value={recordId} />
+      <Button className="h-8 px-2.5 text-xs" type="submit" variant="ghost">
+        Its container
+      </Button>
+    </Form>
+  );
+}
+
+/**
+ * WHAT ONE PROVIDER SAYS THE CONTAINER OF ONE RECORD IS, and the way to it.
+ *
+ * THE WAY ONWARD IS A LINK TO `?provider=&container=`, WHICH IS THE SAME
+ * ADDRESS A CONTAINER PICKED FROM THE LIST REACHES. That is the whole shape of
+ * this feature: the lookup answers an ID, and the preview of what a browse
+ * would write stays ONE procedure behind ADR-0131's door rather than being
+ * reimplemented on this road to it. A reader arriving here has spent a `brief`
+ * lookup; the `patient` browse is still theirs to ask for, or not.
+ *
+ * AND A LINK IS RIGHT HERE WHERE A FORM WAS RIGHT ON THE ROW, which is not a
+ * contradiction. What Next prefetches at this address is `provider.container`
+ * -- the browse -- and that read is the OWNER'S: for a visitor it renders the
+ * notice rather than reaching a provider, and for the Owner it is the page they
+ * asked for by following the link. The row's control could not be a link
+ * because it would have been prefetched for EVERY candidate; there is exactly
+ * one of these.
+ */
+function ItsContainer({
+  baseUrl,
+  said,
+}: {
+  baseUrl: string;
+  said: NonNullable<ImportPage["itsContainer"]>;
+}) {
+  return (
+    <section aria-labelledby="its-container" className="mt-8">
+      <h2 id="its-container" className="font-medium text-sm">
+        Its container
+      </h2>
+      {said.answer === "unreachable" && <NotReached baseUrl={baseUrl} reason={said.reason} />}
+      {said.answer === "no-such-record" && (
+        <p className="mt-1 text-muted-foreground text-sm">
+          {/*
+            THE PROVIDER HAS NOTHING AT THAT ID, which ADR-0066 makes an answer
+            rather than a fault -- and it is a different sentence from the one
+            below, because they have different remedies.
+          */}
+          <TheirWords>{said.providerName}</TheirWords> holds no record at that id.
+        </p>
+      )}
+      {said.answer === "no-container" && (
+        <p className="mt-1 text-muted-foreground text-sm">
+          {/*
+            THE ORDINARY ANSWER AT A PROVIDER LIKE `provider-wiki`, where a
+            story sits in many timelines at once and no one of them is THE
+            container. Said rather than left as a gap, and with NO LINK: a way
+            onward that leads to a preview of nothing is worse than a sentence.
+          */}
+          <TheirWords>{said.providerName}</TheirWords> names no Container for{" "}
+          <TheirWords>{said.recordTitle}</TheirWords>.
+        </p>
+      )}
+      {said.answer === "container" && (
+        <p className="mt-1 text-sm">
+          <TheirWords>{said.recordTitle}</TheirWords> sits in{" "}
+          {/*
+            THE PROVIDER'S OWN NAME FOR THE CONTAINER, AND IT IS THE LINK, as
+            it is in the list one row over. Where the Provider named an id and
+            no name -- which CMPP permits, the two fields being independent --
+            the link still has to be followable, so the words fall back to
+            naming the thing rather than to rendering an empty anchor.
+          */}
+          <Link
+            className="hover:underline"
+            href={{
+              pathname: "/import",
+              query: inTheFixedOrder({ provider: baseUrl, container: said.containerId }),
+            }}
+          >
+            {said.containerTitle === null ? (
+              "the Container it names"
+            ) : (
+              <TheirWords>{said.containerTitle}</TheirWords>
+            )}
+          </Link>
+          .
+        </p>
+      )}
+    </section>
   );
 }
 
