@@ -1,6 +1,15 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
-import { join, relative } from "node:path";
+import { basename, dirname, join, relative } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { repoRoot } from "./testing/repo-root";
 import { configFilesIn, configFilesOnDisk, testBlockOf } from "./testing/vitest-configs";
@@ -120,14 +129,68 @@ function isWatchScriptName(name: string): boolean {
 // refuses a shared base config precisely so that no package here has one. The
 // same rule as `isWorkspacePattern`, at the other end of the same sweep.
 //
-// TODO(CNCORE-202): it reads the PATH, so a config a script NAMES that is a
-// symlink out of the package still satisfies this and is then imported.
-// `configFilesIn` below refuses the symlinks it can see, but only those wearing
-// a config-shaped FILENAME, so `--config ./shared.ts` is outside both. Nothing
-// in this repo spells a config that way today.
+// IT READS THE PATH AND NOTHING ELSE, which is what keeps it a rule a table of
+// imaginary paths can hold. `resolvesInside` below is the one the sweep asks,
+// and it is this rule put to the file the path actually NAMES.
 function isInside(directory: string, file: string): boolean {
   const from = relative(directory, file);
   return from !== "" && !from.startsWith("..");
+}
+
+// A path with every symlink on it followed, AS FAR AS THE PATH EXISTS, and
+// whatever does not exist appended as written -- a segment that is not there
+// cannot be a symlink, so there is nothing about it left to resolve.
+//
+// THE TAIL IS WHY THIS IS NOT `realpathSync`, which throws ENOENT. A package
+// with a test script and no config of its own is the ORDINARY way to be
+// ungated: `testBlockOf` resolves an absent config to no `test` block and the
+// caller reports that suite as standing open, by name. A throw here would turn
+// a suite this sweep NAMES into a stack trace that names the sweep instead.
+//
+// A DANGLING SYMLINK ARRIVES THE SAME WAY, since `existsSync` follows links,
+// and is placed rather than refused -- which is a measured difference from
+// `configFilesIn` rather than an oversight. That one refuses a dangling
+// CONFIG-SHAPED name because Vitest's auto-discovery ignores it in SILENCE and
+// runs the suite ungated while looking configured. A `--config` that names one
+// fails loudly in Vitest instead, and lands here as a suite standing open, so
+// there is no silence left to refuse (both measured under ADR-0103).
+function resolvedPath(path: string): string {
+  const missing: string[] = [];
+  let found = path;
+  while (!existsSync(found)) {
+    const parent = dirname(found);
+    if (parent === found) return path;
+    missing.unshift(basename(found));
+    found = parent;
+  }
+  return join(realpathSync(found), ...missing);
+}
+
+// And the rule the sweep actually asks: `isInside`, put to the file the path
+// NAMES rather than to the path (CNCORE-202).
+//
+// A SYMLINK IS A SPELLING OF THAT CLIMB, and the path cannot see it -- it is
+// local to read and foreign to load. Measured 2026-09-19 against this repo's
+// vitest 5.0.0 on node v24.19.0, with `pkg/shared.ts` a symlink to
+// `../elsewhere/shared.ts` and a script spelling `--config ./shared.ts`: Vitest
+// LOADS it, warns naming `../elsewhere/shared.ts`, and runs the suite under the
+// foreign config's `setupFiles`. So the shape runs, and `testBlockOf` IMPORTS
+// it -- which is execution rather than a read.
+//
+// BOTH SIDES ARE RESOLVED, OR NEITHER, and that is the trap which made
+// CNCORE-201 refuse by name instead of resolving. `packages/` may itself be a
+// symlink -- ADR-0103 allows it, because pnpm, turbo and `readdirSync` all read
+// through one -- so a resolved FILE compared against an unresolved DIRECTORY
+// reads every config in the repository as escaping. Measured both ways, and the
+// row below pins it.
+//
+// THE WHOLE PATH IS RESOLVED RATHER THAN THE NAME lstat-ED, because the link
+// need not be the last segment: `--config ./vendored/shared.ts` climbs out
+// through a symlinked DIRECTORY, and an lstat on the file it names reads an
+// ordinary file and lets it past. A rule that reads one spelling of a thing is
+// what CNCORE-51 already cost this sweep once.
+function resolvesInside(directory: string, file: string): boolean {
+  return isInside(resolvedPath(directory), resolvedPath(file));
 }
 
 /** One suite: a package, one of its test scripts, and the config that runs it. */
@@ -162,7 +225,7 @@ function suites(): Suite[] {
       const namedPath = namedConfig(command);
       const config = join(repoRoot, directory, namedPath ?? "vitest.config.ts");
       expect(
-        isInside(join(repoRoot, directory), config),
+        resolvesInside(join(repoRoot, directory), config),
         `${directory} runs ${name} against a config outside the package: ${namedPath}`,
       ).toBe(true);
       return [{ package: parsed.name ?? directory, script: name, config }];
@@ -236,6 +299,13 @@ describe("the network gate's wiring", () => {
     // package here with no config at all is the defect rather than a case to
     // allow for. There is no slack to lose two configs into, and an empty disk
     // read fails it with every package named.
+    //
+    // ASKED OF THE PATHS UNRESOLVED, deliberately, where the sweep over scripts
+    // resolves both sides (CNCORE-202). Both of these sides are built from the
+    // same `repoRoot`, and `configFilesIn` has already refused any symlink among
+    // them, so the two agree or fail together -- a `realpath` per package would
+    // buy nothing. What the other site resolves is a path out of a MANIFEST,
+    // which is the only one this file does not write itself.
     const ungatedPackages = packageDirectories().filter(
       (directory) => !onDisk.some((file) => isInside(join(repoRoot, directory), file)),
     );
@@ -501,5 +571,123 @@ describe("a symlinked Vitest config", () => {
     symlinkSync(join(directory, "gone.ts"), join(directory, "vitest.dangling.config.ts"));
 
     expect(() => configFilesIn(directory)).toThrow(/vitest\.dangling\.config\.ts/);
+  });
+});
+
+/**
+ * And the shape the block above cannot be right about either, ASKED DIRECTLY
+ * for the same reason: no script in this repository names a config that is a
+ * symlink, and `apps/web`'s `test:e2e` is the only one that names a config at
+ * all (CNCORE-202).
+ *
+ * A SCRATCH TREE RATHER THAN A TABLE OF PATHS, unlike the block above, and the
+ * filesystem is the whole reason: what is under test is the difference between
+ * the path a script writes and the file that path reaches, and only real
+ * inodes have one.
+ *
+ * THE SYMLINKED PARENT IS PINNED RATHER THAN INHERITED, which is the line
+ * ADR-0103 already takes about the roll call's fixture. `os.tmpdir()` is behind
+ * `/var` -> `/private/var` on macOS and is an ordinary directory on the Linux
+ * runner, so a row that leaned on the host's own shape would exercise
+ * resolution here and assert nothing at all in CI -- which is the one place
+ * these checks exist to work.
+ */
+describe("the file a script's --config actually names", () => {
+  let directory: string;
+
+  beforeEach(() => {
+    directory = mkdtempSync(join(tmpdir(), "canoncore-named-"));
+  });
+
+  afterEach(() => {
+    rmSync(directory, { recursive: true, force: true });
+  });
+
+  /**
+   * THE SHAPE THE TICKET IS NAMED FOR. The path is local, so `isInside` reads it
+   * as owned; the file is not, and `testBlockOf` would import it.
+   */
+  it("is refused when the name is a symlink pointing out of the package", () => {
+    mkdirSync(join(directory, "pkg"));
+    mkdirSync(join(directory, "elsewhere"));
+    writeFileSync(join(directory, "elsewhere", "shared.ts"), "");
+    symlinkSync(join(directory, "elsewhere", "shared.ts"), join(directory, "pkg", "shared.ts"));
+
+    expect(resolvesInside(join(directory, "pkg"), join(directory, "pkg", "shared.ts"))).toBe(false);
+  });
+
+  /**
+   * THE TRAP, AND THE REASON BOTH SIDES ARE RESOLVED. A resolved FILE compared
+   * against an unresolved DIRECTORY reads this -- an ordinary config a package
+   * really owns -- as escaping, and would redden every package in a checkout
+   * held behind a symlinked parent. ADR-0103 allows that parent, so this is a
+   * shape the sweep has to stay right about rather than one it may refuse.
+   */
+  it("is still held by a package whose workspace parent is itself a symlink", () => {
+    mkdirSync(join(directory, "elsewhere", "db"), { recursive: true });
+    mkdirSync(join(directory, "repo"));
+    symlinkSync(join(directory, "elsewhere"), join(directory, "repo", "packages"));
+    writeFileSync(join(directory, "elsewhere", "db", "vitest.config.ts"), "");
+
+    const pkg = join(directory, "repo", "packages", "db");
+    expect(resolvesInside(pkg, join(pkg, "vitest.config.ts"))).toBe(true);
+  });
+
+  /**
+   * ABSENCE IS NOT A CLIMB. A package with a test script and no config of its
+   * own is the ordinary way to be ungated, and the caller says so by NAMING the
+   * suite; a rule that threw ENOENT here would replace that with a stack trace.
+   */
+  it("places a config that is not there rather than crashing on it", () => {
+    mkdirSync(join(directory, "pkg"));
+
+    expect(resolvesInside(join(directory, "pkg"), join(directory, "pkg", "vitest.config.ts"))).toBe(
+      true,
+    );
+  });
+
+  /**
+   * THE SPELLING AN lstat ON THE NAME WOULD MISS, which is why the whole path is
+   * resolved rather than the last segment examined: the file this names is an
+   * ordinary file, and the link is the directory above it.
+   */
+  it("is refused when a DIRECTORY on the way out is the symlink", () => {
+    mkdirSync(join(directory, "pkg"));
+    mkdirSync(join(directory, "elsewhere"));
+    writeFileSync(join(directory, "elsewhere", "shared.ts"), "");
+    symlinkSync(join(directory, "elsewhere"), join(directory, "pkg", "vendored"));
+
+    expect(
+      resolvesInside(join(directory, "pkg"), join(directory, "pkg", "vendored", "shared.ts")),
+    ).toBe(false);
+  });
+
+  /**
+   * AND A LINK THAT IS NO CLIMB IS NOT REFUSED, which is a DELIBERATE difference
+   * from `configFilesIn` rather than an inconsistency with it. That one reads a
+   * FILENAME and so cannot tell which way a link points, and ADR-0103 records
+   * the cost of refusing it anyway. Here the direction is known, and the rule
+   * this serves refuses a climb -- so refusing a link that stays inside the
+   * package would be narrower than Vitest with nothing asking for it.
+   */
+  it("is held when the symlink points at a file in the package's own tree", () => {
+    mkdirSync(join(directory, "pkg"));
+    writeFileSync(join(directory, "pkg", "vitest.config.ts"), "");
+    symlinkSync(join(directory, "pkg", "vitest.config.ts"), join(directory, "pkg", "shared.ts"));
+
+    expect(resolvesInside(join(directory, "pkg"), join(directory, "pkg", "shared.ts"))).toBe(true);
+  });
+
+  /**
+   * AND A DANGLING ONE IS PLACED HERE AND REFUSED THERE, the measured difference
+   * `resolvedPath` carries: auto-discovery ignores a dangling config in silence
+   * and runs the suite ungated, while a `--config` naming one fails loudly in
+   * Vitest and lands here as a suite standing open.
+   */
+  it("places a dangling one rather than refusing it", () => {
+    mkdirSync(join(directory, "pkg"));
+    symlinkSync(join(directory, "pkg", "gone.ts"), join(directory, "pkg", "shared.ts"));
+
+    expect(resolvesInside(join(directory, "pkg"), join(directory, "pkg", "shared.ts"))).toBe(true);
   });
 });

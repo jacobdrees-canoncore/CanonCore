@@ -37,14 +37,22 @@ import { workspaceDirectories } from "./workspace";
  * rather than inherited. That one refuses a symlinked package DIRECTORY because
  * pnpm and turbo answer differently about it, and there is no such disagreement
  * here: Vitest loads a symlinked config and runs the suite green, and
- * `testConfig` below imports the same module Vitest does. What is refused
+ * `testBlockOf` below imports the same module Vitest does. What is refused
  * instead is a config this sweep cannot PLACE. `isInside` is the rule that keeps
  * a package from being asserted against a config it does not own, and it reads
  * the PATH -- so a symlink, whose path is inside the package while its file may
- * be anywhere, is the one spelling of that climb `isInside` cannot see. The
+ * be anywhere, is a spelling of that climb the path cannot show. The
  * measurement and what the refusal costs are in ADR-0103 under "a symlinked
  * Vitest config is refused for a reason of its own", and are NOT restated here:
  * a figure kept in two places is a figure that drifts in one of them.
+ *
+ * THE SWEEP OVER SCRIPTS RESOLVES RATHER THAN REFUSING, and the two rules are
+ * not in disagreement (CNCORE-202). A config a SCRIPT names is placed against
+ * the package whose manifest names it, so both ends of the path are in hand
+ * there and `resolvesInside` in `network-gate-wiring.test.ts` asks the rule of
+ * the file the path NAMES -- which it had to, because that read was already
+ * answering and answering wrongly. This one has no script to place an entry
+ * against and gives no wrong answer about one, so it keeps the naming rule.
  *
  * THE NAME IS READ BEFORE THE LINK IS, so what this refuses is a symlink
  * WEARING A CONFIG'S NAME rather than a symlink in a package. EVERY offender is

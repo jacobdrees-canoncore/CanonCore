@@ -1253,7 +1253,7 @@ this repo's vitest 5.0.0 on node v24.19.0, with `pkg/vitest.config.ts` a symlink
   `Test Files 1 passed (1)`. The link is followed rather than tolerated: pointing the target at an
   unresolvable import failed with `failed to load config from pkg/vitest.config.ts` and a trace
   naming `elsewhere/base.config.ts`, which is the control that makes this a measurement.
-* **The sweep's own reader agrees with it.** `testConfig` does `import(pathToFileURL(config))` from
+* **The sweep's own reader agrees with it.** `testBlockOf` does `import(pathToFileURL(config))` from
   inside a Vitest worker, so it is Vite's module runner rather than Node's ESM loader that resolves
   it -- `resolve.preserveSymlinks` defaults to false either way, so it reads the same module Vitest
   does. The attribution said "Node" until review; the conclusion is unchanged, and it is corrected
@@ -1315,13 +1315,15 @@ tests, each ERRORING with the path named rather than failing an assertion (`3 fa
 and the old `isFile()` filter read the same tree as holding one config rather than two. "Three
 assertions" here was wrong about which of the two it was.
 
-**WHAT THIS DOES NOT HOLD, said here rather than left to be found.** The refusal is bounded by the
-FILENAME rule, so it closes the climb only for names matching `^vitest\..*config\.ts$`. A script
-spelling `--config ./shared.ts`, with `shared.ts` a symlink out of the package, still satisfies
-`isInside` -- the path is local -- never reaches `configFilesIn`, and is IMPORTED by `testConfig`,
-which is execution rather than a read. That is the same trust this repo already extends to these
-manifests, since CI runs their scripts, and it is narrower than it sounds only because the sweep
-already says it sees one filename shape. CNCORE-202 carries it, with a TODO at `isInside`.
+**WHAT THIS DOES NOT HOLD, said here rather than left to be found -- AND CNCORE-202 CLOSED IT, in
+the section at the foot of this record.** The refusal here is bounded by the FILENAME rule, so it
+closes the climb only for names matching `^vitest\..*config\.ts$`, and that bound is unchanged. A
+script spelling `--config ./shared.ts`, with `shared.ts` a symlink out of the package, therefore
+never reaches `configFilesIn` at all -- it satisfied `isInside` as well, because the path is local,
+and was then IMPORTED by `testBlockOf`, which is execution rather than a read. That second half is
+what closed: the sweep no longer asks `isInside` of the path a script WRITES, but of the file that
+path NAMES. Importing a path out of a workspace manifest remains the trust this repo already
+extends to these manifests, since CI runs their scripts.
 
 ## `fileParallelism: false` says what does not run BESIDE what, and nothing about what runs BEFORE what
 
@@ -1378,3 +1380,75 @@ that names the shared global setup to declaring this sequencer, for the same rea
 the one place it lives, and the sweep is what makes it a claim about the repository. The reader those
 two share was extracted to `@canoncore/config/testing/vitest-configs` in the same change, since a
 second sweep over the same files is the Shotgun Surgery `workspace.ts` was already extracted for.
+
+## The climb spelled as a symlink a script NAMES -- under CNCORE-202
+
+**THE RESIDUAL THE SECTION ABOVE NAMED WAS REACHABLE, AND IT IS MEASURED HERE RATHER THAN ARGUED
+FROM.** Measured 2026-09-19 against this repo's vitest 5.0.0 on node v24.19.0, with
+`pkg/shared.ts` a symlink to `../elsewhere/shared.ts` and a script spelling `--config ./shared.ts`:
+Vitest LOADS it, warns naming `../elsewhere/shared.ts`, and runs the suite under the foreign
+config's `setupFiles`. The control that makes it a measurement is those `setupFiles` -- they name a
+file that is not there, so the run fails ON them, which is a config that was read rather than one
+that merely failed to stop anything. So the shape runs, `testBlockOf` imports it, and the package is
+asserted against a config it does not own.
+
+**`isInside` IS NOW ASKED OF THE FILE THE PATH NAMES, WHICH IS THE OPPOSITE ANSWER TO THE ONE
+DIRECTLY ABOVE, and the difference is what each rule was already doing.** The section above weighed
+resolving both sides and chose not to -- "one rule that names the shape beats two realpath calls
+that mostly agree with it" -- and that judgement stands where it was made: `configFilesIn` PLACES
+files it finds by name, it gives no wrong answer about them, and refusing the shape outright costs
+only a narrowness this record has written down. The sweep over SCRIPTS was not in that position. It
+was already placing a path against a package and already ANSWERING -- and answering wrongly, since
+a climb spelled as a symlink came back owned. Two realpath calls there do not add a rule to a read
+that had none; they correct one that was giving the wrong answer.
+
+**BOTH SIDES ARE RESOLVED, OR NEITHER, AND THE TRAP WAS DEMONSTRATED RATHER THAN AVOIDED.** With
+`packages/` itself a symlink -- the shape this record allows, because pnpm, turbo and `readdirSync`
+all read through one -- an ordinary config a package really owns reads as escaping the moment the
+FILE is resolved and the DIRECTORY is not. Measured 2026-09-19: neither resolved, inside; file
+alone resolved, OUTSIDE; both resolved, inside. It was also built that way on purpose. The file-only
+version was written first and passed the ticket's own shape, and the row holding a symlinked
+workspace parent is what reddened it -- so the trap is a failure this suite has actually seen rather
+than one a comment warns about.
+
+**THE WHOLE PATH IS RESOLVED RATHER THAN THE NAME lstat-ED, and that is not a detail of
+implementation.** The link need not be the last segment: with `pkg/vendored` a symlink out of the
+package, `--config ./vendored/shared.ts` climbs, and an lstat on the file it names reports an
+ordinary file and lets it past (measured the same day). An lstat-shaped refusal would read ONE
+SPELLING of the climb, which is the failure CNCORE-51 already cost this sweep once and the reason
+`namedConfig` reads four.
+
+**A LINK THAT IS NO CLIMB IS NOT REFUSED, so the two rules answer differently about one shape.** A
+symlink WEARING a config's name is refused wherever it points; a symlink a script NAMES is refused
+only where it leaves the package. That asymmetry is deliberate and is written here so it is not read
+later as an inconsistency to tidy away. Being narrower than Vitest is the price the first rule pays
+for staying one naming rule, which is a price this record decided was worth paying THERE. It buys
+nothing here, where the resolution is being done anyway to answer a question the sweep was already
+getting wrong -- so refusing a link that stays inside the package would be a second narrowing with
+no defect behind it.
+
+**A CONFIG THAT IS NOT THERE IS PLACED, NOT THROWN ON.** `realpathSync` raises ENOENT, and a package
+with a test script and no config of its own is the ORDINARY way to be ungated -- `testBlockOf`
+resolves an absent config to no `test` block and the suite is then reported by NAME as standing
+open. So the resolver follows links only as far as the path exists and appends the rest as written,
+a segment that is not there having nothing left to resolve. **A dangling symlink arrives the same
+way and is placed rather than refused**, which is the measured difference from the section above:
+auto-discovery ignores a dangling config in SILENCE and runs the suite ungated while looking
+configured, whereas a `--config` naming one fails loudly in Vitest and lands here as a suite
+standing open. There is no silence left to refuse.
+
+**CHECKED BY MUTATION, WITH THE CONTROL RUN, because green is not evidence.** Measured 2026-09-19 on
+this repository: `packages/tokens/shared.ts` added as a symlink to a repo-root `escaped.config.ts`,
+with `"test:escape": "vitest run --config ./shared.ts"`. Four tests go red, each naming the path --
+`packages/tokens runs test:escape against a config outside the package: ./shared.ts`. **The same
+mutation against the old rule was GREEN, 183 passed**, which is the sentence this whole section
+rests on. And the escaping config DECLARED the gate and is refused anyway, which is the point worth
+keeping: what is refused is a package being asserted against a config it does not own, not a suite
+being ungated.
+
+**WHAT THIS DOES NOT HOLD.** The DISK side of the sweep still reads one filename shape, so a config
+named outside `vitest.*.config.ts` is held by the SCRIPT side alone: it is imported and held to
+installing the gate, while `configFilesOnDisk` does not list it, which loosens the count guard by
+one rather than leaving a suite ungated. `ungatedPackages` is left asking its question of unresolved
+paths on purpose -- both of its sides are built from the same `repoRoot`, so they agree or fail
+together, and resolving there would buy nothing and cost a `realpath` per package.
