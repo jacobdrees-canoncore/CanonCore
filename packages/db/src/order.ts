@@ -1,4 +1,18 @@
-import { and, eq, gt, is, isNotNull, isNull, lt, or, SQL, type SQLWrapper, sql } from "drizzle-orm";
+import {
+  and,
+  eq,
+  gt,
+  gte,
+  is,
+  isNotNull,
+  isNull,
+  lt,
+  lte,
+  or,
+  SQL,
+  type SQLWrapper,
+  sql,
+} from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 
 /**
@@ -305,15 +319,98 @@ export function stillAnAnchorIn(order: TheOrder): SQL | undefined {
  * was asserted rather than checked, and commit e552b55's message still carries
  * it.
  */
-export function theOrderBy(order: TheOrder): SQL[] {
+export function theOrderBy(order: TheOrder, { backward = false } = {}): SQL[] {
   return [
     ...Object.values(order.keys).map((aKey) => {
       const { key, largestFirst, everyRowHasIt } = described(aKey);
-      const read = largestFirst ? sql`${key} desc` : sql`${key}`;
-      return everyRowHasIt ? read : sql`${read} nulls last`;
+      // BACKWARD IS EVERY TERM TURNED ROUND, the keyless block included: it sat
+      // at the end of each key's block, so read from the other end it comes
+      // first (CNCORE-174).
+      const read = largestFirst !== backward ? sql`${key} desc` : sql`${key}`;
+      if (everyRowHasIt) return read;
+      return backward ? sql`${read} nulls first` : sql`${read} nulls last`;
     }),
-    sql`${order.id}`,
+    backward ? sql`${order.id} desc` : sql`${order.id}`,
   ];
+}
+
+/**
+ * ONE POINT IN AN ORDER THAT A PAGE IS READ FROM (CNCORE-174), and three ways
+ * to name it: just past a Row, just short of one, or where a value of the
+ * leading key begins.
+ *
+ * `after` IS ADR-0119's CURSOR, the walk forward. `before` IS THE STEP BACK:
+ * the first Row of the page a reader is on, and the page answered is the one
+ * that ends just short of it. `atOrPast` IS THE JUMP: the first Row whose
+ * leading key sorts at or past a value, which is a letter for the catalogue --
+ * a SEEK on the key the walk already sorts by, and no offset anywhere.
+ *
+ * TYPED AGAINST THE ORDER, as `AnchorIn` is and for its reason: an anchor read
+ * in one order cannot be handed to a walk in another.
+ */
+export type ACutIn<O extends TheOrder> =
+  | { readonly after: AnchorIn<O> }
+  | { readonly before: AnchorIn<O> }
+  | { readonly atOrPast: string };
+
+/**
+ * A LISTING SPLIT IN TWO AT ONE POINT: the rows AHEAD of the point, and which
+ * side of it a page is read from. Everything else is BEHIND it.
+ *
+ * ONE PREDICATE AND NOT TWO, which is this module's whole argument applied to a
+ * second direction. What lies behind a point is exactly what does not lie ahead
+ * of it, so it is `not(ahead)` rather than a second comparison written the
+ * other way round -- and the step back cannot disagree with the walk forward
+ * about where a tie or the keyless block falls, because there is one statement
+ * of it. `pastTheRowIn` says why its predicate is never NULL on a row a Listing
+ * holds, which is the property a complement needs.
+ */
+export interface TheCut {
+  /** Every row the order lists ahead of the point. */
+  readonly ahead: SQL;
+  /** The page is the one BEHIND the point, read back towards the start. */
+  readonly readsBack: boolean;
+}
+
+/** The cut one point names, as the two sides a page can be read from. */
+export function theCut<O extends TheOrder>(order: O, cut: ACutIn<O>): TheCut {
+  if ("after" in cut) return { ahead: pastTheRowOrThrow(order, cut.after), readsBack: false };
+  if ("before" in cut) {
+    // THE ROW NAMED IS AHEAD OF THE POINT, because it is the first Row of the
+    // page the reader is stepping back FROM: the page answered ends short of it.
+    const id: SQLWrapper = order.id;
+    const ahead = or(pastTheRowOrThrow(order, cut.before), eq(id, cut.before.id)) as SQL;
+    return { ahead, readsBack: true };
+  }
+  return { ahead: atOrPastTheValueIn(order, cut.atOrPast), readsBack: false };
+}
+
+/** `pastTheRowIn`, which always renders a predicate: the id is always a term. */
+function pastTheRowOrThrow<O extends TheOrder>(order: O, anchor: AnchorIn<O>): SQL {
+  const past = pastTheRowIn(order, anchor);
+  if (past === undefined) throw new Error("an order's comparison rendered nothing");
+  return past;
+}
+
+/**
+ * EVERY ROW WHOSE LEADING KEY SORTS AT OR PAST ONE VALUE, and the rows with no
+ * value for it, which sort after every value there is. The jump (CNCORE-174).
+ *
+ * THE LEADING KEY ONLY, because a value of it is all a reader names: "M" is a
+ * place in the alphabet and says nothing about the keys behind it. So the page
+ * starts at the first Row of that key's block, ties and all, which is where a
+ * seek on the key lands.
+ *
+ * NEVER NULL ON A ROW, which the cut's complement needs: `>=` is NULL only on a
+ * row with no key, and that row is answered by the branch before it.
+ */
+function atOrPastTheValueIn(order: TheOrder, value: string): SQL {
+  const [leading] = Object.values(order.keys);
+  if (leading === undefined) throw new Error("an order with no keys has no value to seek");
+  const { key: theKey, largestFirst, everyRowHasIt } = described(leading);
+  const key: SQLWrapper = theKey;
+  const atOrPast = largestFirst ? lte(key, value) : gte(key, value);
+  return everyRowHasIt ? atOrPast : (or(isNull(key), atOrPast) as SQL);
 }
 
 /**

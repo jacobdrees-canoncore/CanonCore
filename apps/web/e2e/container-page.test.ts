@@ -1,6 +1,6 @@
 import { describe, expect, inject, it } from "vitest";
 
-import { documentAt, documentFrom, sectionIn, sourcesIn } from "./document";
+import { documentAt, documentFrom, followed, sectionIn, sourcesIn, walkLinked } from "./document";
 
 /**
  * BROWSING INTO A CONTAINER, over real HTTP.
@@ -249,6 +249,22 @@ describe("/items/<a container holding more than one page>", () => {
     );
   });
 
+  it("steps back from the third page of members to the second", async () => {
+    // THE STEP BACK ON THIS LISTING (CNCORE-174), from the THIRD page, where
+    // two hundred members lie behind: from the second the answer is the start,
+    // which a dropped `before` would answer too.
+    const first = await documentFrom(pagedBaseUrl, `/items/${container.id}`);
+    const second = await documentFrom(pagedBaseUrl, followed(carriesOnAt(first.text), "Next"));
+    const third = await documentFrom(pagedBaseUrl, followed(carriesOnAt(second.text), "Next"));
+
+    const back = await documentFrom(
+      pagedBaseUrl,
+      followed(walkLinked(sectionIn(third.text, "members"), "Previous"), "Previous"),
+    );
+
+    expect(membersLinkedFrom(back.text)).toStrictEqual(membersLinkedFrom(second.text));
+  });
+
   it("reaches every member by following links, and lands on none of them twice", async () => {
     // THE OTHER HALF OF THE CAP, at the seam CNCORE-89 names by hand: a surface
     // that says "Showing 100 of 254" and offers no way to reach member 101 has
@@ -332,8 +348,9 @@ describe("/items/<a container holding more than one page>", () => {
 
   it("offers a way back to the start from every page but the first", async () => {
     // A FORWARD WALK STRANDS A DEEP LINK (ADR-0119): somebody handed page two in
-    // a message has no history to go back through, and `Previous` is a second
-    // query shape rather than half of this one.
+    // a message has no history to go back through. The start is offered beside
+    // `Previous` since CNCORE-174, which steps back one page where this goes to
+    // the top.
     const first = await documentFrom(pagedBaseUrl, `/items/${container.id}`);
     const next = carriesOnAt(first.text);
     if (next === undefined) throw new Error("the fixture's members fit on one page");

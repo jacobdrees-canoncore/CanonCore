@@ -3,13 +3,17 @@ import { describe, expect, inject, it } from "vitest";
 import {
   documentAt,
   documentFrom,
+  followed,
   headingOf,
   itemsListedOn,
+  letterLinked,
+  lettersMarkedCurrentIn,
   logInAt,
   markedCurrentIn,
   scopeLinked,
   sectionIn,
   textOf,
+  walkLinked,
 } from "./document";
 
 /**
@@ -419,9 +423,9 @@ describe("/ on a catalogue larger than one page", () => {
   it("offers a way back to the start from every page but the first", async () => {
     // A FORWARD WALK STRANDS A DEEP LINK. Browser history is the reverse of a
     // walk somebody took; it is no use to a reader handed page two in a
-    // message, and `Previous` is a second query shape rather than half of this
-    // one (ADR-0119). So every page past the first carries the one address that
-    // is always somewhere.
+    // message. So every page past the first carries the one address that is
+    // always somewhere -- beside `Previous` since CNCORE-174, which steps back
+    // one page where this goes to the top (ADR-0119).
     const pagedBaseUrl = inject("pagedBaseUrl");
     const first = await documentFrom(pagedBaseUrl, "/");
     const next = carriesOnAt(first.text);
@@ -438,6 +442,49 @@ describe("/ on a catalogue larger than one page", () => {
     // offer to send a reader back to where they already are.
     const empty = await documentFrom(pagedBaseUrl, "/?after=");
     expect(empty.text).not.toContain("Back to the start");
+  });
+
+  it("steps back to each page the reader came from, by following Previous", async () => {
+    // THE STEP BACK (CNCORE-174), by the link a reader follows rather than by
+    // an address written here, and oracled against the pages the walk forward
+    // served: page three back to two, and two back to one.
+    const pagedBaseUrl = inject("pagedBaseUrl");
+    const first = await documentFrom(pagedBaseUrl, "/");
+    const second = await documentFrom(pagedBaseUrl, followed(carriesOnAt(first.text), "Next"));
+    const third = await documentFrom(pagedBaseUrl, followed(carriesOnAt(second.text), "Next"));
+
+    const backToSecond = await documentFrom(
+      pagedBaseUrl,
+      followed(walkLinked(third.text, "Previous"), "Previous"),
+    );
+    const backToFirst = await documentFrom(
+      pagedBaseUrl,
+      followed(walkLinked(backToSecond.text, "Previous"), "Previous"),
+    );
+
+    expect(itemsListedOn(backToSecond.text)).toStrictEqual(itemsListedOn(second.text));
+    expect(itemsListedOn(backToFirst.text)).toStrictEqual(itemsListedOn(first.text));
+    // AND NOTHING TO STEP BACK TO FROM THE FIRST PAGE, however it was reached:
+    // a Previous there would point at the page the reader is already on.
+    expect(walkLinked(backToFirst.text, "Previous")).toBeUndefined();
+    expect(walkLinked(first.text, "Previous")).toBeUndefined();
+  });
+
+  it("jumps to a letter picked from the page, landing at the first item filed under it", async () => {
+    // THE JUMP (CNCORE-174), from the letters on the page rather than an
+    // address typed here. `Story 0001` is the first item this instance files
+    // under S: the others under S open "story told" and "story in", which
+    // file after it, and everything else files under an earlier letter.
+    const pagedBaseUrl = inject("pagedBaseUrl");
+    const front = await documentFrom(pagedBaseUrl, "/");
+
+    const jumped = await documentFrom(pagedBaseUrl, followed(letterLinked(front.text, "S"), "S"));
+
+    expect(jumped.status).toBe(200);
+    expect(itemsListedOn(jumped.text)[0]).toBe(inject("pagedCatalogue")[0]);
+    expect(lettersMarkedCurrentIn(jumped.text)).toStrictEqual(["S"]);
+    // ITEMS ARE FILED BEFORE S, so the page it lands on offers a step back.
+    expect(walkLinked(jumped.text, "Previous")).toBeDefined();
   });
 
   it("says the catalogue ends here, where a link outlived the items after it", async () => {
@@ -547,6 +594,29 @@ describe("/ narrowed to a Group", () => {
       }
     }
     throw new Error(`the walk never ended: ${walked.length} of ${group.holds.length} Items`);
+  });
+
+  it("jumps to a letter within the Group, and offers no step back where nothing in it comes first", async () => {
+    // THE LETTERS KEEP THE SCOPE (CNCORE-174), as every other link on a
+    // narrowed page does: a jump that dropped it would land in the whole
+    // catalogue. This Group holds the paged stories, the tied pair filed as
+    // "Story told twice" and the two with no key, so NOTHING in it is filed
+    // before S -- and the page the jump lands on is the Group's start, which
+    // must not offer a step back to itself. The whole catalogue, jumped to the
+    // same letter above, does offer one.
+    const narrowed = await documentFrom(
+      pagedBaseUrl,
+      scopeLinked((await documentFrom(pagedBaseUrl, "/")).text, group.name),
+    );
+
+    const jumped = await documentFrom(
+      pagedBaseUrl,
+      followed(letterLinked(narrowed.text, "S"), "S"),
+    );
+
+    expect(markedCurrentIn(jumped.text)).toStrictEqual([group.name]);
+    expect(itemsListedOn(jumped.text)[0]).toBe(inject("pagedCatalogue")[0]);
+    expect(walkLinked(jumped.text, "Previous")).toBeUndefined();
   });
 
   it("offers everything back, and clearing the scope shows the whole catalogue again", async () => {

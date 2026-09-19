@@ -86,10 +86,22 @@ describe("an Item reached through a Group", () => {
  * EVERY NON-IDENTIFYING PARAMETER, IN THE ONE ORDER ADR-0066 WRITES THEM:
  * `via` and `placed` on an Item's page and `q` and `group` on a Listing's --
  * what the page is asked -- then the Members cursor and the "Also appears in"
- * one. Written out here rather than imported, because a test that read the
- * order off the code would agree with whatever the code said.
+ * one, and behind them the three CNCORE-174 appended: the letter a Listing was
+ * jumped to, and each Listing's step back. Written out here rather than
+ * imported, because a test that read the order off the code would agree with
+ * whatever the code said.
  */
-const IN_THE_ONE_ORDER = ["via", "placed", "q", "group", "after", "placedAfter"];
+const IN_THE_ONE_ORDER = [
+  "via",
+  "placed",
+  "q",
+  "group",
+  "after",
+  "placedAfter",
+  "letter",
+  "before",
+  "placedBefore",
+];
 
 /** Every address one page sends a reader to with a query: its links and its forms. */
 function queriedFrom(text: string): string[] {
@@ -114,6 +126,7 @@ describe("a link carrying several parameters", () => {
     const pagedBaseUrl = inject("pagedBaseUrl");
     const group = inject("pagedGroup").id;
     const container = inject("pagedContainer").id;
+    const member = inject("pagedContainer").holds[99];
     const appearsIn = inject("pagedAppearsIn").id;
     const surfaces = [
       `/?group=${group}`,
@@ -124,6 +137,12 @@ describe("a link carrying several parameters", () => {
       `/import?q=story&group=${group}`,
       `/items/${container}?via=nothing-at-all&placed=owner&placedAfter=nothing-either`,
       `/items/${appearsIn}?via=nothing-at-all&placed=owner&after=nothing-either`,
+      // THE STEP BACKS AND THE LETTER (CNCORE-174), where each is written
+      // BESIDE something: a jump to T lands past every story in this Group, so
+      // its page offers Previous with the Group on it, and a second page of
+      // Members offers Previous beside "Also appears in"'s own cursor.
+      `/?group=${group}&letter=T`,
+      `/items/${container}?via=nothing-at-all&placed=owner&after=${member}&placedAfter=nothing-either`,
     ];
 
     for (const surface of surfaces) {

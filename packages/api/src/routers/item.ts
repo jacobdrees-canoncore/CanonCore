@@ -334,6 +334,11 @@ export const item = {
         placed: z.string().optional(),
         after: aCursor,
         /*
+         * THE MEMBERS LISTING'S STEP BACK (CNCORE-174): the first member of the
+         * page a reader is on, and the answer is the page before it.
+         */
+        before: aCursor,
+        /*
          * "ALSO APPEARS IN"'S OWN CURSOR (ADR-0119, CNCORE-125), and the second
          * one on this procedure because there are two independent listings on
          * one item page: `after` walks what a container HOLDS, and this walks
@@ -349,6 +354,12 @@ export const item = {
          * one thing ADR-0066's fixed order exists to prevent.
          */
         placedAfter: aCursor,
+        /*
+         * "ALSO APPEARS IN"'S STEP BACK (CNCORE-174), named for the same pair
+         * as its cursor forward and for the same reason: one page spells both
+         * Listings' positions at once.
+         */
+        placedBefore: aCursor,
       }),
     )
     .output(itemPublic)
@@ -370,6 +381,7 @@ export const item = {
         findPlacementsOfItem(context.db, found.id, {
           limit: A_PAGE,
           after: input.placedAfter,
+          before: input.placedBefore,
           // NARROWED IN THE QUERY SINCE CNCORE-129, so the cap above is the cap
           // ON THE NARROWING: a reader who has chosen one origin walks that
           // listing rather than the hundred rows the whole one starts with.
@@ -388,7 +400,11 @@ export const item = {
          * The cap is `A_PAGE`, the same ceiling the other four listings serve,
          * and the caller cannot raise it.
          */
-        findPlacementsInContainer(context.db, found.id, { limit: A_PAGE, after: input.after }),
+        findPlacementsInContainer(context.db, found.id, {
+          limit: A_PAGE,
+          after: input.after,
+          before: input.before,
+        }),
         // WHICH SCOPES THIS ITEM IS IN (ADR-0010, story 38). Uncapped, and
         // deliberately: a Group is a scope the Owner drew by hand, so this list
         // is the number of universes they curate rather than a function of the
@@ -435,6 +451,7 @@ export const item = {
           })),
           total: placements.total,
           continuesAfter: placements.continuesAfter,
+          continuesBefore: placements.continuesBefore,
           /*
            * WHAT THIS LISTING CAN BE NARROWED TO (CNCORE-129), which the three
            * above cannot answer: they describe the listing as ASKED, and after a
@@ -457,6 +474,7 @@ export const item = {
           })),
           total: holds.total,
           continuesAfter: holds.continuesAfter,
+          continuesBefore: holds.continuesBefore,
         },
         // ADR-0045 names every field, so the scopes are mapped rather than
         // spread: `findGroupsOfItem` answers exactly `{ id, name }` today and a

@@ -5,6 +5,7 @@ import { call } from "@orpc/server";
 import { connection } from "next/server";
 import {
   Holding,
+  JumpToALetter,
   Listing,
   NarrowToAGroup,
   NoSuchGroup,
@@ -12,7 +13,7 @@ import {
   theScope,
   Walk,
 } from "@/components/listing";
-import { oneGroup, oneValue } from "@/components/query-params";
+import { oneGroup, type WhereThePageStarts, whereThePageStarts } from "@/components/query-params";
 import { TheirWords } from "@/components/their-words";
 
 /**
@@ -33,7 +34,7 @@ import { TheirWords } from "@/components/their-words";
  * A server component fetching its own API is a round trip to itself, and oRPC
  * documents `call` as the way to avoid it.
  */
-async function readWorkBrowsing(after: string | undefined, group: string | undefined) {
+async function readWorkBrowsing(at: WhereThePageStarts, group: string | undefined) {
   /*
    * PRERENDERING STOPS HERE (ADR-0117), and the line is the rule rather than
    * the effect.
@@ -60,7 +61,7 @@ async function readWorkBrowsing(after: string | undefined, group: string | undef
   // was narrowed to is found among -- the front page's pair, for its reason
   // (CNCORE-180).
   const [works, { groups }] = await Promise.all([
-    call(appRouter.catalogue.works, { after, group }, { context }),
+    call(appRouter.catalogue.works, { ...at, group }, { context }),
     call(appRouter.group.list, undefined, { context }),
   ]);
   return { works, groups };
@@ -69,18 +70,24 @@ async function readWorkBrowsing(after: string | undefined, group: string | undef
 export default async function WorksPage({
   searchParams,
 }: {
-  searchParams: Promise<{ after?: string | string[]; group?: string | string[] }>;
+  searchParams: Promise<{
+    after?: string | string[];
+    before?: string | string[];
+    letter?: string | string[];
+    group?: string | string[];
+  }>;
 }) {
-  // ADR-0119's cursor, read on the SERVER so the page a reader is served
-  // is already the page they asked for. `oneValue` owns what a repeated
-  // parameter means, so both reading surfaces answer that the same way.
+  // WHERE THE PAGE STARTS, read on the SERVER so the page a reader is served
+  // is already the page they asked for: ADR-0119's cursor, the step back and
+  // the letter (CNCORE-174). `oneValue` owns what a repeated parameter means,
+  // so every reading surface answers that the same way.
   //
   // AND THE GROUP BESIDE IT (CNCORE-180), which `oneGroup` reads for every
   // surface that narrows.
-  const { after, group } = await searchParams;
-  const from = oneValue(after);
+  const { after, before, letter, group } = await searchParams;
+  const at = whereThePageStarts({ after, before, letter });
   const narrowedTo = oneGroup(group);
-  const { works, groups } = await readWorkBrowsing(from, narrowedTo);
+  const { works, groups } = await readWorkBrowsing(at, narrowedTo);
   const rows = works.rows;
   const scope = theScope(groups, narrowedTo);
   // NOTHING TO WATCH IN WHAT WAS ASKED, which is the Group's Works when there
@@ -97,6 +104,9 @@ export default async function WorksPage({
       {groups.length > 0 && (
         <NarrowToAGroup path="/works" groups={groups} narrowedTo={narrowedTo} />
       )}
+      {works.total > 0 && (
+        <JumpToALetter path="/works" narrowed={scope.narrowed} jumpedTo={at.letter} />
+      )}
       {scope.gone && <NoSuchGroup path="/works" />}
       {nothingToWatch && <NothingToWatch within={scope.group?.name} />}
       {/*
@@ -105,7 +115,7 @@ export default async function WorksPage({
         any more. Rare, and a DEAD END if nothing says so.
       */}
       {works.total > 0 && rows.length === 0 && (
-        <PastTheEnd path="/works" narrowed={scope.narrowed} />
+        <PastTheEnd path="/works" narrowed={scope.narrowed} jumpedTo={at.letter} />
       )}
       {rows.length > 0 && (
         <>
@@ -113,8 +123,8 @@ export default async function WorksPage({
           <Walk
             path="/works"
             narrowed={scope.narrowed}
-            from={from}
             continuesAfter={works.continuesAfter}
+            continuesBefore={works.continuesBefore}
           />
         </>
       )}

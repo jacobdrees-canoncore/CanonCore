@@ -17,11 +17,13 @@ import { z } from "zod";
 
 import type { Database } from "./index";
 import {
+  type ACutIn,
   type AnchorIn,
-  pastTheRowIn,
   stillAnAnchorIn,
+  type TheCut,
   type TheOrder,
   theAnchorIn,
+  theCut,
   theOrderBy,
 } from "./order";
 import {
@@ -197,6 +199,8 @@ export interface PlacementsOfItem {
    * placements it is the row the page ended on instead.
    */
   continuesAfter: string | null;
+  /** The placement to step back from, or `null` where nothing comes before this page (CNCORE-174). */
+  continuesBefore: string | null;
   /**
    * EVERY ORIGIN THE ITEM HAS A PLACEMENT FROM -- the source kinds of ADR-0071,
    * as `placedBy` on a row carries one.
@@ -264,7 +268,7 @@ export interface PlacementsOfItem {
 export async function findPlacementsOfItem(
   db: Database,
   itemId: string,
-  { limit, after, placedBy }: { limit: number; after?: string; placedBy?: string },
+  { limit, placedBy, ...at }: { limit: number; placedBy?: string } & WhereAPageIs,
 ): Promise<PlacementsOfItem> {
   const spokesman = spokesmanFor(db);
   const asserters = assertersOf(db);
@@ -291,7 +295,7 @@ export async function findPlacementsOfItem(
   // gives: it is a relation, so the columns sorted and compared have to be the
   // ones the SELECT joined and not a second subquery's.
   const order = thisItemsOrder(spokesman);
-  const anchor = after === undefined ? undefined : await findInThisItemsOrder(db, itemId, after);
+  const cut = await theCutAt(at, (id) => findInThisItemsOrder(db, itemId, id));
   /*
    * THE SIZE (CNCORE-172), AND THE NARROWING IS INSIDE IT -- which is what
    * CNCORE-129 bought and what this keeps structural rather than remembered:
@@ -344,7 +348,9 @@ export async function findPlacementsOfItem(
     onePage({
       limit,
       size,
-      read: (howMany) =>
+      order,
+      cut: cut && theCut(order, cut),
+      read: (howMany, where, orderBy) =>
         db
           .select({
             id: placements.id,
@@ -399,8 +405,8 @@ export async function findPlacementsOfItem(
            * is the order CNCORE-125 grew from one key to four, and doing that
            * used to mean editing two statements in two places.
            */
-          .where(and(size.within, anchor && pastTheRowIn(order, anchor)))
-          .orderBy(...theOrderBy(order))
+          .where(where)
+          .orderBy(...orderBy)
           .limit(howMany),
     }),
     readEveryPlacedBy(db, sitsIn),
@@ -941,6 +947,12 @@ export interface Catalogue {
    * do it by subtracting, and a keyset walk has no offset to subtract from.
    */
   continuesAfter: string | null;
+  /**
+   * The id to step back from, or `null` where nothing comes before this page
+   * (CNCORE-174): the page's own first Row, which `before` hands back to ask
+   * for the page that ends short of it. `continuesAfter` turned round.
+   */
+  continuesBefore: string | null;
 }
 
 /**
@@ -954,9 +966,9 @@ export interface Catalogue {
  */
 export async function readCatalogue(
   db: Database,
-  { limit, after, group }: { limit: number; after?: string; group?: string },
+  { group, ...at }: { limit: number; group?: string; letter?: string } & WhereAPageIs,
 ): Promise<Catalogue> {
-  return readListing(db, { limit, after, within: withinTheGroup(db, group, IN_THE_CATALOGUE) });
+  return readListing(db, { ...at, within: withinTheGroup(db, group, IN_THE_CATALOGUE) });
 }
 
 /**
@@ -975,9 +987,9 @@ export async function readCatalogue(
  */
 export async function readWorks(
   db: Database,
-  { limit, after, group }: { limit: number; after?: string; group?: string },
+  { group, ...at }: { limit: number; group?: string; letter?: string } & WhereAPageIs,
 ): Promise<Catalogue> {
-  return readListing(db, { limit, after, within: withinTheGroup(db, group, WORK_BROWSING) });
+  return readListing(db, { ...at, within: withinTheGroup(db, group, WORK_BROWSING) });
 }
 
 /**
@@ -1010,13 +1022,21 @@ export async function readWorks(
  */
 async function readListing(
   db: Database,
-  { limit, after, within }: { limit: number; after?: string; within: SQL },
+  { limit, within, letter, ...at }: { limit: number; within: SQL; letter?: string } & WhereAPageIs,
 ): Promise<Catalogue> {
-  const anchor = after === undefined ? undefined : await findInTheOrder(db, after);
   // ONE VALUE HANDED OVER, AND THE WALK READS BOTH STATEMENTS OFF IT
   // (CNCORE-169, CNCORE-170). The sort and the comparison that walks it are the
   // same keys because there is one place they are named.
-  return walkListing(db, { within, order: THE_CATALOGUES_ORDER, anchor, limit });
+  // A LETTER COUNTS ONLY WHERE NO CURSOR WAS GIVEN, so a cursor naming
+  // nothing starts the Listing over as `WhereAPageIs` says, rather than
+  // falling through to a letter the same address happens to carry.
+  const cut =
+    at.after !== undefined || at.before !== undefined
+      ? await theCutAt(at, (id) => findInTheOrder(db, id))
+      : letter === undefined
+        ? undefined
+        : { atOrPast: letter.toLowerCase() };
+  return walkListing(db, { within, order: THE_CATALOGUES_ORDER, cut, limit });
 }
 
 /**
@@ -1057,9 +1077,8 @@ async function readListing(
  */
 export async function walkListing<O extends TheOrder>(
   db: Database,
-  { within, order, anchor, limit }: { within: SQL; order: O; anchor?: AnchorIn<O>; limit: number },
+  { within, order, cut, limit }: { within: SQL; order: O; cut?: ACutIn<O>; limit: number },
 ): Promise<Catalogue> {
-  const past = anchor && pastTheRowIn(order, anchor);
   /*
    * THE SIZE (CNCORE-172), AND THE ROWS READ THEIR OWN `WHERE` BACK OFF IT.
    * That is `readListing`'s paragraph above made structural: `readWorks`
@@ -1075,7 +1094,9 @@ export async function walkListing<O extends TheOrder>(
   return onePage({
     limit,
     size,
-    read: (howMany) =>
+    order,
+    cut: cut && theCut(order, cut),
+    read: (howMany, where, orderBy) =>
       db
         .select({
           id: items.id,
@@ -1116,8 +1137,8 @@ export async function walkListing<O extends TheOrder>(
         // with no kind cannot exist, so there is nothing for a left join to
         // preserve.
         .innerJoin(itemKinds, eq(itemKinds.kind, items.kind))
-        .where(and(size.within, past))
-        .orderBy(...theOrderBy(order))
+        .where(where)
+        .orderBy(...orderBy)
         .limit(howMany),
   });
 }
@@ -1277,19 +1298,108 @@ function theSize(within: SQL, countable: Countable): TheSize {
 async function onePage<Stored extends { id: string; total: number }>({
   limit,
   size,
+  order,
+  cut,
   read,
 }: {
   limit: number;
   size: TheSize;
-  read: (howMany: number) => Promise<Stored[]>;
-}): Promise<{ rows: Row<Stored>[]; total: number; continuesAfter: string | null }> {
-  const stored = await read(limit + 1);
-  const page = stored.slice(0, limit);
+  order: TheOrder;
+  cut?: TheCut;
+  read: (howMany: number, where: SQL, orderBy: SQL[]) => Promise<Stored[]>;
+}): Promise<{
+  rows: Row<Stored>[];
+  total: number;
+  continuesAfter: string | null;
+  continuesBefore: string | null;
+}> {
+  const forward = theOrderBy(order);
+  const backward = theOrderBy(order, { backward: true });
+  if (cut === undefined) {
+    const stored = await read(limit + 1, size.within, forward);
+    return aPage(stored.slice(0, limit), stored, size, {
+      after: stored.length > limit,
+      before: false,
+    });
+  }
+  const ahead = and(size.within, cut.ahead) as SQL;
+  const behind = and(size.within, not(cut.ahead)) as SQL;
+  if (!cut.readsBack) {
+    const [stored, oneBehind] = await Promise.all([
+      read(limit + 1, ahead, forward),
+      read(1, behind, backward),
+    ]);
+    return aPage(stored.slice(0, limit), stored, size, {
+      after: stored.length > limit,
+      before: oneBehind.length > 0,
+    });
+  }
+  const [stored, oneAhead] = await Promise.all([
+    read(limit + 1, behind, backward),
+    read(1, ahead, forward),
+  ]);
+  if (stored.length <= limit) return onePage({ limit, size, order, read });
+  return aPage(stored.slice(0, limit).reverse(), stored, size, {
+    after: oneAhead.length > 0,
+    before: true,
+  });
+}
+
+/** One page of Rows, and the two cursors off either end of it. */
+async function aPage<Stored extends { id: string; total: number }>(
+  page: Stored[],
+  stored: Stored[],
+  size: TheSize,
+  carriesOn: { after: boolean; before: boolean },
+) {
   return {
     rows: page.map(({ total, ...row }) => row),
     total: stored[0]?.total ?? (await size.askedOnItsOwn()),
-    continuesAfter: stored.length > limit ? (page.at(-1)?.id ?? null) : null,
+    continuesAfter: carriesOn.after ? (page.at(-1)?.id ?? null) : null,
+    continuesBefore: carriesOn.before ? (page[0]?.id ?? null) : null,
   };
+}
+
+/**
+ * WHERE IN A LISTING A PAGE IS READ FROM, as a request names it -- and the
+ * start, where it names neither.
+ *
+ * `after` IS ADR-0119's CURSOR, the last Row of the page before; `before` IS
+ * THE STEP BACK, the first Row of the page a reader is leaving (CNCORE-174).
+ * One Row's id either way, in whichever Listing it names a Row of, and an id
+ * that names no position starts the Listing over (ADR-0066).
+ *
+ * `after` WINS WHERE A REQUEST CARRIES BOTH, which no link this app writes
+ * does: one reason is as good as another for a question nobody asks, and
+ * `after` was here first.
+ */
+export interface WhereAPageIs {
+  after?: string;
+  before?: string;
+}
+
+/**
+ * THE CUT A REQUEST NAMES, found in the Listing's own order by that Listing's
+ * own anchor read -- or none, which is the start.
+ *
+ * WRITTEN ONCE FOR THE FIVE LISTINGS, which each find an anchor their own way
+ * (a Container's is scoped to it, "Also appears in"'s to its Item, Catalogue
+ * search's computes its closeness) and agree on everything else: which of the
+ * two cursors counts, and that one naming nothing is the start.
+ */
+export async function theCutAt<O extends TheOrder>(
+  { after, before }: WhereAPageIs,
+  find: (id: string) => Promise<AnchorIn<O> | undefined>,
+): Promise<ACutIn<O> | undefined> {
+  if (after !== undefined) {
+    const anchor = await find(after);
+    return anchor && { after: anchor };
+  }
+  if (before !== undefined) {
+    const anchor = await find(before);
+    return anchor && { before: anchor };
+  }
+  return undefined;
 }
 
 /**
@@ -1676,6 +1786,8 @@ export interface PlacementsInContainer {
    * id rather than a container's (ADR-0066).
    */
   continuesAfter: string | null;
+  /** The placement to step back from, or `null` where nothing comes before this page (CNCORE-174). */
+  continuesBefore: string | null;
 }
 
 /**
@@ -1874,12 +1986,11 @@ function whereItSits(db: Database): SQL<SitsIn> {
 export async function findPlacementsInContainer(
   db: Database,
   containerId: string,
-  { limit, after }: { limit: number; after?: string },
+  { limit, ...at }: { limit: number } & WhereAPageIs,
 ): Promise<PlacementsInContainer> {
   const asserters = assertersOf(db);
   const held = whatItHolds(containerId, items.deletedAt);
-  const anchor =
-    after === undefined ? undefined : await findInTheContainersOrder(db, containerId, after);
+  const cut = await theCutAt(at, (id) => findInTheContainersOrder(db, containerId, id));
   /*
    * THE SIZE (CNCORE-172), AND THIS LISTING IS WHERE THE TWO SPELLINGS WERE
    * FURTHEST APART: raw SQL on the rows with the join between `placements` and
@@ -1896,7 +2007,9 @@ export async function findPlacementsInContainer(
   return onePage({
     limit,
     size,
-    read: (howMany) =>
+    order: THE_CONTAINERS_OWN_ORDER,
+    cut: cut && theCut(THE_CONTAINERS_OWN_ORDER, cut),
+    read: (howMany, where, orderBy) =>
       db
         .select({
           id: placements.id,
@@ -1938,8 +2051,8 @@ export async function findPlacementsInContainer(
          * is CONTEXT.md's Unplaced, a placement with no position rather than an
          * absent one, and the comparison reads where that block sits.
          */
-        .where(and(size.within, anchor && pastTheRowIn(THE_CONTAINERS_OWN_ORDER, anchor)))
-        .orderBy(...theOrderBy(THE_CONTAINERS_OWN_ORDER))
+        .where(where)
+        .orderBy(...orderBy)
         .limit(howMany),
   });
 }

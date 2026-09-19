@@ -33,6 +33,32 @@ export function oneValue(parameter: string | string[] | undefined): string | und
 }
 
 /**
+ * WHERE A PAGE OF A LISTING STARTS, as its address says (CNCORE-174): past a
+ * Row, short of one, or at a letter -- or at the start, where it says none.
+ * The read path decides which counts where an address says several, and no
+ * link this app writes does.
+ */
+export type WhereThePageStarts = { after?: string; before?: string; letter?: string };
+
+/**
+ * WHERE THE PAGE STARTS, read off its address the way `oneValue` reads any
+ * parameter. One function because every Listing page reads the same three,
+ * and two copies of the object were one rule written twice. A surface whose
+ * Listing takes no letter hands none in, and none comes back.
+ */
+export function whereThePageStarts(parameters: {
+  after?: string | string[];
+  before?: string | string[];
+  letter?: string | string[];
+}): WhereThePageStarts {
+  return {
+    after: oneValue(parameters.after),
+    before: oneValue(parameters.before),
+    letter: oneValue(parameters.letter),
+  };
+}
+
+/**
  * THE GROUP A PAGE WAS NARROWED TO, read the way `oneValue` reads any parameter
  * -- a repeated or blank `group` names no Group, so the page is its Listing
  * unnarrowed -- and then IN LOWER CASE.
@@ -86,8 +112,25 @@ export function oneGroup(parameter: string | string[] | undefined): string | und
  * the order its fields stand in the document: the header's search box puts the
  * reader's `q` first and the `group` it carries behind it, which is this order,
  * and `scope.test.ts` reads that box beside every link.
+ *
+ * `letter`, `before` AND `placedBefore` ARRIVED WITH CNCORE-174 AND ARE
+ * APPENDED, each behind every parameter already out there, which is the rule
+ * this list keeps. A Listing's own `after`, `before` and `letter` never share a
+ * link -- each names where the page starts, and a link names one -- so what
+ * appending decides is only how one Listing's step back sits beside the OTHER
+ * Listing's cursor on the Item page: `?placedAfter=<id>&before=<id>`.
  */
-const IN_THE_FIXED_ORDER = ["via", "placed", "q", "group", "after", "placedAfter"] as const;
+const IN_THE_FIXED_ORDER = [
+  "via",
+  "placed",
+  "q",
+  "group",
+  "after",
+  "placedAfter",
+  "letter",
+  "before",
+  "placedBefore",
+] as const;
 
 /**
  * THE QUERY OF ONE LINK: any of those parameters, each at most once. Not
