@@ -49,6 +49,13 @@ Placement is one item's membership of a CONTAINER at a position, asserted by sou
 disagree. The two are adjacent on an item's page and answer different questions.
 _Avoid_: tag, category, assignment
 
+**A Group's Providers**:
+The Providers a Group asks: the ones a Provider search narrowed to that Group reaches, chosen by the
+Owner from the Providers this instance names. A choice of WHO IS ASKED and never a ranking, because
+the source order is one for the whole instance (ADR-0025). A Group asks none until the Owner says, and
+what it asks changes nothing about claims already in the catalogue.
+_Avoid_: connect (Unlock's word), subscribe, enable
+
 **Continuity**:
 The reserved word for a distinct internal timeline, should two ever need telling apart. Not yet a
 construct in the model.

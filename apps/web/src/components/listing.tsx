@@ -626,7 +626,9 @@ export function theScope(groups: Group[], narrowedTo: string | undefined) {
 /**
  * WHERE A READER PICKS A GROUP (ADR-0010): one universe at a time, on every
  * surface that is its own Listing -- the Catalogue since CNCORE-179, and
- * work-browsing and Catalogue search since CNCORE-180.
+ * work-browsing and Catalogue search since CNCORE-180 -- and on Provider search
+ * since CNCORE-182, where the Group decides who is asked rather than which
+ * Items are listed.
  *
  * ONE PICKER, BESIDE THE WALK, because it is the walk's own rule applied to a
  * different parameter: every link it writes is this Listing's start, through
@@ -714,8 +716,9 @@ export function NarrowToAGroup({
  * a Group takes no Item with it.
  *
  * THE WAY OUT IS THIS LISTING UNNARROWED, the same address the picker's
- * `Everything` is -- `/works` from work-browsing and the same query from
- * Catalogue search -- rather than the Catalogue, which is a different question.
+ * `Everything` is -- `/works` from work-browsing, the same query from
+ * Catalogue search, and the same query asked of every Provider from `/import`
+ * -- rather than the Catalogue, which is a different question.
  */
 export function NoSuchGroup(surface: Narrowable) {
   return (

@@ -65,14 +65,16 @@ all: the function does not mention `items`, which is the strongest form that pro
 record's "What a group does NOT scope" section closes the list at browsing, search, which providers are
 asked, scanner roots and the review queue. A reader who finds the table and assumes the scoping came
 with it would be wrong about every one of them — and since CNCORE-180, about three of the five
-rather than all of them:
+rather than all of them, and since CNCORE-182 about two:
 
 - **Browsing and search are BUILT, all three Listings, under CNCORE-179 and CNCORE-180.** The
   Catalogue narrowed to a group first; work-browsing and **search** followed, and `and` the same
   predicate onto each of their questions rather than writing a second one. What each ticket built is
   below, under its own heading.
-- **Which providers are asked** is CNCORE-182, and it is the one of the three still to build because
-  it needs a second relation (a group to the providers it reaches) that no migration writes.
+- **Which providers are asked is BUILT, under CNCORE-182** — it was the one of the three still to
+  build when this was written, because it needed a second relation (a group to the providers it
+  reaches) that no migration wrote. Migration 20 writes it; the section under CNCORE-182 below says
+  what it does.
 - **Scanner roots** and **the review queue** DO NOT EXIST AS CONSTRUCTS IN THIS PRODUCT, so they are
   not unbuilt scoping over a built thing — there is nothing to scope. Nothing in the repository scans
   a filesystem and nothing queues a review. They stay in the list because the list is CLOSED and its
@@ -214,4 +216,30 @@ not carried to `/works`, and the search box in the header asks across everything
 submitted from. A reader picks the group again on each surface, which is what CNCORE-181's reload and
 shared-link work is for. A Row's own figure is not narrowed on any of the three, for the reason
 CNCORE-179 gives above. And which providers a group asks is still CNCORE-182's, so this record stays
-`proposed`: two of its five scoped things are built, one is not, and two do not exist to be scoped.
+`proposed`: two of its five scoped things are built, one is not (until CNCORE-182, below), and two
+do not exist to be scoped.
+
+## As built, under CNCORE-182 — and this record stays PROPOSED
+
+**BUILT: WHICH PROVIDERS ARE ASKED, the third of the five.** Migration 20 adds `group_providers`, the
+second relation the list above said this needed: one row per provider a group asks, keyed by the
+provider's base URL. The Owner chooses on `/groups`, and Provider search on `/import`, narrowed to a
+group through the same picker the three Listings carry, asks those providers and no others. What it
+decides, and the cost it pays, is written into [[0025-the-source-order-is-global]], which this half
+completes and which is `accepted` now: a group chooses who is asked, and never how they rank.
+
+**IT SCOPES THE ASKING AND NOT THE CATALOGUE**, which is this record's line between a scope and a
+partition read from a third side. A group narrows which providers a search reaches; it does not hide
+a claim that reached the catalogue through another group. An Item in two groups reads one value per
+field in both, whichever providers each asks.
+
+**A GROUP ASKS NONE UNTIL TOLD**, so every group drawn before this ticket asks nobody after it, and
+`/import` says "asks no Provider" rather than "Nothing matched". Deleting a group tombstones its
+provider rows with the group and its memberships, in the one transaction `deleteGroupByHand` already
+ran.
+
+**WHY THIS RECORD STAYS `proposed`.** Three of its five scoped things are built: browsing, search
+and which providers are asked. The other two, scanner roots and the review queue, do not exist as
+constructs, for the reason the list near the top gives, so there is nothing to scope and the record
+cannot say its mechanism is whole.
+

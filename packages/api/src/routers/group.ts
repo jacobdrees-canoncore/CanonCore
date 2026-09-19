@@ -64,7 +64,9 @@ export async function theProvidersAsked(context: Context, group: string): Promis
  *
  * READING IS OPEN AND WRITING IS THE OWNER'S (ADR-0044, ADR-0072, CNCORE-109).
  * Which scopes exist is part of the catalogue, so a visitor to the demo sees
- * them and the buttons are what refuse them.
+ * them and the buttons are what refuse them. The one read that is the Owner's
+ * is `asks`, since which Providers a scope asks is this instance's
+ * configuration rather than the catalogue (CNCORE-182).
  */
 export const group = {
   /**

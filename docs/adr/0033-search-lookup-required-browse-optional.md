@@ -615,8 +615,9 @@ still the only reason this record is `proposed`.
 
 **THE HALF THE SECTION ABOVE DEFERRED IS BUILT.** CNCORE-77 left it in as many words: "NOT BUILT,
 AND DELIBERATELY SO: the surface. Nothing renders a result, nothing imports one, and no procedure
-exposes `search` — CNCORE-68 is the page." It exists. `/import` searches every configured provider,
-renders what each of them offered, and takes a candidate into the catalogue without an id being known
+exposes `search` — CNCORE-68 is the page." It exists. `/import` searches every configured provider
+(or, since CNCORE-182, every one a picked group asks: [[0025-the-source-order-is-global]]), renders
+what each of them offered, and takes a candidate into the catalogue without an id being known
 in advance. The fan-out's only caller is no longer a test.
 
 **WHICH HALF THIS LEAVES STANDING.** Still the DECLARED FIELDS half, and still exactly where CNCORE-8
