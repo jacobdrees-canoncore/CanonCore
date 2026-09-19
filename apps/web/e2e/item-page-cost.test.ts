@@ -31,7 +31,9 @@ function aServerOnTheCountedCatalogue() {
 }
 
 /**
- * ONE SERVER PER MEASUREMENT, STARTED AND STOPPED INSIDE IT.
+ * ONE SERVER PER WINDOW, STARTED BEFORE IT AND STOPPED INSIDE IT -- and a
+ * figure is at least two windows, because `statementsWhile` answers only with a
+ * figure it counted twice (CNCORE-218), so it is at least two servers.
  *
  * THE STOP IS NOT TIDINESS, IT IS THE READING. A PostgreSQL backend accumulates
  * what it did and publishes it on exit, so a count taken while the server still
@@ -68,31 +70,27 @@ async function costOf(asking: (baseUrl: string) => Promise<unknown>): Promise<nu
    * server first puts all of it on the far side of the first reading: what is
    * counted is the request and nothing else.
    *
-   * AND THERE IS ONE SERVER PER WINDOW, NOT PER FIGURE (CNCORE-218). The
-   * instrument counts at least two windows and answers with a figure it saw
-   * twice, because an autovacuum visit can land in one of them, and a window
-   * ends with its server stopped -- so each one gets a server of its own.
-   * `statementsWhile` starts it through `preparing`, where its boot is not
-   * counted. Whatever is still running when this returns or throws is stopped
-   * here, since a leaked `next start` is a CI job that never ends.
+   * SO THE SERVER IS STARTED THROUGH `preparing`, which `statementsWhile` runs
+   * before each window's wait for an empty database and never counts. Whichever
+   * one is still running when this returns or throws is stopped here, since a
+   * leaked `next start` is a CI job that never ends.
    */
-  const running = new Set<Awaited<ReturnType<typeof aServerOnTheCountedCatalogue>>>();
+  let running: Awaited<ReturnType<typeof aServerOnTheCountedCatalogue>> | undefined;
   try {
     return await statementsWhile(
       databaseUrl,
       async (server) => {
         await asking(server.baseUrl);
         server.close();
-        running.delete(server);
+        running = undefined;
       },
       async () => {
-        const server = await aServerOnTheCountedCatalogue();
-        running.add(server);
-        return server;
+        running = await aServerOnTheCountedCatalogue();
+        return running;
       },
     );
   } finally {
-    for (const server of running) server.close();
+    running?.close();
   }
 }
 

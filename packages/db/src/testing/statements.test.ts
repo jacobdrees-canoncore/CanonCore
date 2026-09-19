@@ -67,7 +67,7 @@ describe("statementsWhile", () => {
     expect(counted).toBe(6);
   });
 
-  it("reports what the work costs, not what a visitor added to one window", async () => {
+  it("reports what the work costs, not what a bystander added to one window", async () => {
     /*
      * CNCORE-218. An autovacuum worker visits every database once a naptime and
      * commits transactions on it without ever counting as a session, so a visit
@@ -83,11 +83,37 @@ describe("statementsWhile", () => {
       await db.$client.end();
 
       if (windows++ > 0) return;
-      const visitor = createDb(databaseUrl, { maxConnections: 1 });
-      await visitor.execute(sql`select 1`);
-      await visitor.execute(sql`select 1`);
-      await visitor.$client.end();
+      const bystander = createDb(databaseUrl, { maxConnections: 1 });
+      await bystander.execute(sql`select 1`);
+      await bystander.execute(sql`select 1`);
+      await bystander.$client.end();
     });
+
+    expect(counted).toBe(6);
+  });
+
+  it("counts nothing a window's preparation asked, and hands the work what it prepared", async () => {
+    /*
+     * THE SHAPE A SERVER UNDER TEST HAS, without the ten seconds its pool takes
+     * to let go: something stood up before each window that talks to the
+     * database on the way -- a boot -- and that the work then relies on. Its
+     * three statements land before the first reading; the six it hands over are
+     * what the window counts.
+     */
+    const counted = await statementsWhile(
+      databaseUrl,
+      async (statements: number) => {
+        const db = createDb(databaseUrl, { maxConnections: 1 });
+        for (let i = 0; i < statements; i++) await db.execute(sql`select 1`);
+        await db.$client.end();
+      },
+      async () => {
+        const boot = createDb(databaseUrl, { maxConnections: 1 });
+        for (let i = 0; i < 3; i++) await boot.execute(sql`select 1`);
+        await boot.$client.end();
+        return 6;
+      },
+    );
 
     expect(counted).toBe(6);
   });

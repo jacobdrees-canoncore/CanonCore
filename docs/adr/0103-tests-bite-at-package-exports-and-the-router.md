@@ -1194,9 +1194,9 @@ figure here meant anything.
 - **A BACKEND DOES NOT PUBLISH WHAT IT DID UNTIL IT EXITS.** Six statements issued over a connection
   that STAYED OPEN moved `xact_commit` by three over the next eight and a half seconds and by two
   more over the following twenty; the same six over a connection that CLOSED counted exactly. So the
-  count is taken when nothing is connected, which is why the measured server is STARTED AND STOPPED
-  INSIDE the window and why the instance is a database rather than one of `global-setup.ts`'s
-  long-lived servers. Waiting longer is not the fix and looks like one.
+  count is taken when nothing is connected, which is why the measured server is STOPPED INSIDE the
+  window (it is started before it, for the reason "WHAT IT COSTS TO RUN" below gives) and why the
+  instance is a database rather than one of `global-setup.ts`'s long-lived servers. Waiting longer is not the fix and looks like one.
 - **`pg_terminate_backend` WOULD MAKE THE WAIT UNNECESSARY AND CANNOT BE USED.** node-postgres
   re-emits an idle client's error on the pool, and a pool with no `error` listener throws it as an
   uncaught exception (`pg-pool@3.14.0`, `index.js:62`). Measured against a real `next start`:
@@ -1236,7 +1236,8 @@ a rounding error on it.
 
 `item-page-cost.test.ts` failed twice in CI on one PR, each time one figure over by **exactly 17**, a
 different test each time: `expected 23 to be 6` and `expected 10 to be 27`. **The page was not
-reading more.** An autovacuum worker commits transactions in the database it visits and never counts
+reading more**: a page that read twice would double a figure, and these added a fixed 17 to one
+window whichever side of the comparison it fell on. An autovacuum worker commits transactions in the database it visits and never counts
 as a session, so `sessions` cannot subtract it, and `pg_stat_database` says nothing about which
 backend committed what.
 
@@ -1247,7 +1248,9 @@ filled and then polling `pg_stat_database` every 20ms with nothing connected:
   `postgres:18` alike. It auto-analyzed seven SYSTEM catalogs -- `pg_attribute`, `pg_class`,
   `pg_attrdef`, `pg_constraint`, `pg_index`, `pg_trigger`, `pg_depend` -- and vacuumed `pg_depend`.
   The migrations are what put them past their thresholds: `buildTestDatabase` builds from empty and
-  runs the whole ladder. No user table was touched; the fill is a handful of rows.
+  runs the whole ladder. No user table was touched; the fill is a handful of rows. So the ticket's
+  guess, a transaction per USER table analyzed, was wrong twice over: eight operations came to 17.
+  How the 17 divides among them was not measured; only the visit's total was.
 - **Every visit after it added 2**, exactly sixty seconds apart, having nothing to do. None was ever
   seen connected at a 20ms poll.
 - **`VACUUM ANALYZE` ahead of the windows cut the first visit to 4 and left every other at 2.** So
@@ -1260,13 +1263,20 @@ filled and then polling `pg_stat_database` every 20ms with nothing connected:
 A visit only ever ADDS, and it reaches one database at most once a naptime -- PostgreSQL documents
 `autovacuum_naptime` as "the minimum delay between autovacuum runs on any given database", one minute
 by default -- so of two windows inside that minute at most one carries it, and the figure seen twice
-is the work's own. Three windows of a
-server under test fit inside the sixty seconds with room, and three figures with no repeat among
-them are a cost that genuinely varies, or a database something else is talking to -- which is the
-refusal `statements.ts` raises, and more windows would only hide it. `statements.test.ts` pins both
-halves: a visitor asking twice in the first window only is not reported, and work that asks one more
-statement every window is refused. A caller whose work needs something standing first -- a server --
-gets it from `preparing`, run before each window's wait for an empty database and never counted.
+is the work's own. **That holds only inside the minute, so it is ENFORCED rather than assumed:** the
+instrument reads `autovacuum_naptime` off the server, times each window from before its first reading
+to after its last, and refuses a figure whose two agreeing windows spanned a naptime less a second
+(the second is for a visit that began before the window it published into; the longest measured
+lasted 0.14s). Three windows of a server under test take about thirty seconds in CI, so the refusal
+is for a runner twice as slow as today's, and it is not asserted: reaching it costs a minute. Three
+figures with no repeat among them are a cost that genuinely varies, or a database something else is
+talking to, which is the other refusal, and more windows would only hide it.
+
+`statements.test.ts` pins the rest: a bystander asking twice in the first window only is not
+reported; work that asks one more statement every window is refused; and what a window's
+preparation asks is not counted while what it prepares reaches the work. That last is `preparing`,
+the step a caller whose work needs something standing first -- a server -- gets it from, run before
+each window's wait for an empty database.
 
 **WHAT THE SECOND WINDOW COSTS, MEASURED IN CI:** `item-page-cost.test.ts` went from 69.2 seconds
 (run `35454105742`, on `main` before this) to 136.5 (run `35455445649`, this change), and it is the
