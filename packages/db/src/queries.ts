@@ -1453,9 +1453,12 @@ const WORK_BROWSING = and(
 
 /**
  * A LIVE GROUP MEMBERSHIP (ADR-0010, ADR-0075): one the Owner has not taken
- * back out, of a Group they have not deleted. Written as the condition that
- * joins `group_items` to `groups`, so a reader cannot reach the Group without
- * reading both tombstones.
+ * back out, of a Group they have not deleted. Written as the condition of an
+ * INNER join from `group_items` to `groups`, so a reader cannot reach the Group
+ * without reading both tombstones.
+ *
+ * AN INNER JOIN'S AND ONLY THAT. As the `ON` of a left join it would keep
+ * every membership, dead or live, and only blank the Group beside a dead one.
  *
  * ONE SPELLING FOR EVERY READER (CNCORE-234): `inTheGroup` below, which
  * narrows every Listing, `findGroupsOfItem`, which the Item page reads, and the

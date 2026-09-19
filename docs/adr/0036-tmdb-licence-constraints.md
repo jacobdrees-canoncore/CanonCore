@@ -225,7 +225,7 @@ membership that `inTheGroup` and `findGroupsOfItem` read as well (CNCORE-234). U
 was a THIRD COPY of the rule, and the three agreed only because each was copied, which is how
 CNCORE-230 came about. The purge is now held to the rule by construction. The test for a membership
 that outlived its Group shows it: dropping the Group's tombstone from that one spelling fails one test
-in each of the three readers.
+for each of the three readers, in `catalogue.test.ts`, `groups.test.ts` and `import.test.ts`.
 
 **A DEAD MEMBERSHIP KEEPS NOTHING, BUT IT STILL NAMES THE ITEM, AND THE PURGE TAKES IT WITH THE ITEM.**
 A membership the Owner took back out is a tombstone, not a DELETE (ADR-0075), and `group_items.item_id`
