@@ -312,16 +312,16 @@ describe("item.get", () => {
   });
 
   it("starts both of its Listings at the beginning where a cursor names nothing", async () => {
-    // THE OTHER SIDE OF THE MALFORMED ID ABOVE, and why the answers differ.
-    // `id` IS an identity, so one naming nothing is NOT_FOUND; `after` and
-    // `placedAfter` are not, so one naming nothing names no position and the
-    // Listing starts over (ADR-0066, ADR-0119). A reader whose kept link was
-    // truncated gets the page rather than an error.
+    // THE OTHER SIDE OF "refuses a MALFORMED id the same way", and why the
+    // answers differ. `id` IS an identity, so one naming nothing is NOT_FOUND;
+    // `after` and `placedAfter` are not, so one naming nothing names no position
+    // and the Listing starts over (ADR-0066, ADR-0119). A reader whose kept link
+    // was truncated gets the page rather than an error.
     //
     // WHAT THIS SEAM ADDS TO THE PACKAGE EXPORT'S is the input schema in front
     // of it: a cursor declared a uuid there would turn the malformed one into a
-    // BAD_REQUEST this procedure does not declare, which is the 500 the test
-    // above is about, reached by a different parameter.
+    // BAD_REQUEST this procedure does not declare, which is the 500 that test is
+    // about, reached by a different parameter.
     const season = await anItemTitled(db, "An ordering that sits in another", {
       isContainer: true,
       isOrdered: true,
@@ -337,15 +337,17 @@ describe("item.get", () => {
     });
 
     for (const cursor of ["not-a-uuid", crypto.randomUUID()]) {
-      const members = await call(appRouter.item.get, { id: season, after: cursor }, { context });
-      const alsoIn = await call(
+      const cutByAfter = await call(appRouter.item.get, { id: season, after: cursor }, { context });
+      const cutByPlacedAfter = await call(
         appRouter.item.get,
         { id: season, placedAfter: cursor },
         { context },
       );
 
-      expect(members.holds.rows.map((placement) => placement.id)).toStrictEqual(holds);
-      expect(alsoIn.placements.rows.map((placement) => placement.id)).toStrictEqual([sitsIn]);
+      expect(cutByAfter.holds.rows.map((placement) => placement.id)).toStrictEqual(holds);
+      expect(cutByPlacedAfter.placements.rows.map((placement) => placement.id)).toStrictEqual([
+        sitsIn,
+      ]);
     }
   });
 });

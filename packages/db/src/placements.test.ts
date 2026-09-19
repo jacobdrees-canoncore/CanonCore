@@ -483,9 +483,9 @@ describe("findPlacementsOfItem, capped and walked", () => {
   });
 
   it("starts at the beginning where the cursor names nothing", async () => {
-    // ADR-0066's rule for a parameter that is not an identity, and the fourth
-    // of ADR-0119's guarantees: a cursor that names nothing names no position
-    // either, so the walk starts over rather than erroring. A reader whose kept
+    // ADR-0066's rule for a parameter that is not an identity, and one of the
+    // guarantees ADR-0119 says every Listing owes: a cursor that names nothing
+    // names no position either, so the walk starts over rather than erroring. A reader whose kept
     // link was mangled gets the orderings rather than an error page.
     //
     // THREE WAYS TO NAME NOTHING, the three a Container's members is asked. A
