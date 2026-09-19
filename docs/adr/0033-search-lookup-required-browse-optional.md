@@ -876,7 +876,10 @@ to avoid. `browse`'s own not-offered path is not held to this at all; extending 
 ticket's, and saying so is cheaper than leaving a rule half-applied and unremarked.
 
 **THE HALF THAT LANDED IS THE CONTRACT, AND ONLY THE CONTRACT.** No provider answers the operation:
-CNCORE-186 is where both do, and CNCORE-187 is where a surface asks. Nothing in this repository calls
+CNCORE-186 is where ONE does -- this said "where both do" and was wrong when it was written, which
+the section below sets out: `provider-wiki` answers and `provider-tmdb` declines, because TMDB
+publishes no bounded enumeration of its containers and this operation carries no cursor. CNCORE-187
+is where a surface asks. Nothing in this repository calls
 it, and `packages/contract` depends on no `@canoncore/*` package, so nothing could. Half a mechanism
 looks finished from outside, so it is written here: what exists today is a shape, a declaration rule
 and a conformance suite that would hold a provider to both.
@@ -898,12 +901,13 @@ said so.
 
 ## And under CNCORE-186: ONE PROVIDER ANSWERS AND ONE DECLINES, which is the operation working
 
-**THE PROVIDER HALF LANDED, AND IT LANDED ASYMMETRICALLY.** The section above says "no provider
-answers the operation: CNCORE-186 is where both do". BOTH IS WRONG, and it was wrong when it was
-written rather than overtaken: `provider-wiki` answers and `provider-tmdb` declines, and the decline
-is the decision rather than work left undone. Corrected here rather than beside, because a note
-underneath would leave "both" standing as the thing a later reader plans against. CNCORE-159 already
-said so in its own testing decisions -- "answered by a Provider that has it and refused in the
+**THE PROVIDER HALF LANDED, AND IT LANDED ASYMMETRICALLY.** The section above said "CNCORE-186 is
+where both do", and BOTH WAS WRONG when it was written rather than overtaken: `provider-wiki` answers
+and `provider-tmdb` declines, and the decline is the decision rather than work left undone. **That
+sentence is corrected where it stands, and this paragraph is not the correction** -- a section
+underneath leaves the old claim intact for anyone who reads only that far, which is the failure this
+repository has a rule about. What this section adds is the REASON, which does not fit there.
+CNCORE-159 already said so in its own testing decisions -- "answered by a Provider that has it and refused in the
 declared way by one that does not" -- and in user story 60, "a Provider that cannot list its
 Containers to say so". The ticket's acceptance criterion read `both`; the spec it belongs to did not.
 
@@ -930,10 +934,14 @@ same kind of thing: a timeline is a container THE WIKI WROTE AS ONE, existing to
 over the bounded population `ns 114, title starts Theory:Timeline, non-redirect`; a category is one
 THAT PROVIDER COMPUTES, ordered by release date because a category states membership and no sequence
 whatever (the CNCORE-102 reasoning, in that repo's own `categoryContainer`). Every page in namespace
-14 is a category, most of them maintenance pages holding no story at all, so listing them would hand
-the Owner thousands of entries the wiki never asserted were orderings. **HOW MANY CATEGORIES THAT IS
-IS NOT MEASURED** -- the Owner's Credential answers 403 from Cloudflare, so nothing counted them, and
-the decision turns on the population being large and unasserted rather than on its size.
+14 is a category, maintenance pages included, so listing them would hand the Owner the wiki's whole
+category namespace rather than a set anyone curated. **HOW MANY CATEGORIES THAT IS IS NOT MEASURED**
+-- the Owner's Credential answers 403 from Cloudflare, so nothing counted them. NO FIGURE IS CLAIMED
+ANYWHERE FOR IT, and an earlier draft of this record and of both provider-side comments said
+"thousands" and "tens of thousands": three unhedged quantities against this record's own "not
+measured", which is the shape this repository keeps catching itself in. The decision turns on the
+population being UNASSERTED -- a category states membership and no sequence -- rather than on its
+size, so the size is not needed and is therefore not guessed.
 
 **SO `containers` ANSWERS WHAT THE SOURCE ASSERTS AS A CONTAINER, NOT EVERY ID `browse` WILL TAKE,
 AND THE CONTRACT'S OWN WORDING SAID OTHERWISE.** `cmpp.ts` opened its schema "every container this

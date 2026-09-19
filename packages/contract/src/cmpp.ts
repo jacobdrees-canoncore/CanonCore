@@ -195,9 +195,11 @@ export const browseResponse = z.looseObject({
  * provider is held to. `provider-wiki` browses both a `Theory:Timeline` page and any
  * `Category:`, and lists only the first: a timeline is a container the wiki WROTE as one,
  * over a bounded population, where a category is one that provider COMPUTES by release date
- * because a category states membership and no sequence. Namespace 14 is tens of thousands
- * of pages, mostly maintenance categories holding no story, and a listing padded with those
- * is worth nothing to the Owner it exists to save from knowing an id in advance.
+ * because a category states membership and no sequence. Every page in namespace 14 is one,
+ * maintenance categories included, and a listing padded with those is worth nothing to the
+ * Owner it exists to save from knowing an id in advance. NO COUNT IS CLAIMED FOR THAT
+ * NAMESPACE -- nothing has measured it, and the argument turns on a category being
+ * UNASSERTED as an ordering rather than on how many there are.
  *
  * THE NARROWING DOES NOT LET AN UNBOUNDED SOURCE IN, which is the test of it. TMDB asserts
  * its collections and its series as containers, so a provider answering only what its
