@@ -12,6 +12,7 @@ import {
   findProvidersAGroupAsks,
   GroupRefused,
   groupItems,
+  groupProviders,
   groups,
   items,
   putItemInGroupByHand,
@@ -320,16 +321,22 @@ describe("stopAskingProviderByHand", () => {
 
 describe("a Group the Owner deleted asks nobody", () => {
   it("stops asking every Provider with the Group, in the same deletion", async () => {
-    // BOTH TOMBSTONES IN ONE TRANSACTION, for `deleteGroupByHand`'s reason. A
-    // row left live under a deleted Group would be a Provider still asked for a
-    // scope nobody can pick, were it not that `findProvidersAGroupAsks` reads
-    // through `groups` too -- which the next test asks on its own.
+    // BOTH TOMBSTONES IN ONE TRANSACTION, for `deleteGroupByHand`'s reason.
     const group = await createGroupByHand(db, { name: "A scope that asked the wiki" });
     await askProviderByHand(db, { groupId: group, providerIdentity: "http://wiki.test:8080" });
 
     await deleteGroupByHand(db, group);
 
     expect(await findProvidersAGroupAsks(db, group)).toStrictEqual([]);
+    // TOMBSTONED RATHER THAN MERELY HIDDEN BY A JOIN, read off the table for
+    // the reason the membership test above gives: `findProvidersAGroupAsks`
+    // reads through `groups`, so the answer above holds whether or not the
+    // deletion reached this row, and only the row can say which.
+    const rows = await db
+      .select({ deletedAt: groupProviders.deletedAt })
+      .from(groupProviders)
+      .where(eq(groupProviders.groupId, group));
+    expect(rows).toStrictEqual([{ deletedAt: expect.any(Date) }]);
   });
 
   it("asks nobody even where a Provider row outlived the Group, which is what a race leaves", async () => {

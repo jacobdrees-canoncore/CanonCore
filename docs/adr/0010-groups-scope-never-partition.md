@@ -103,15 +103,15 @@ group with nothing in it says so rather than offering the empty catalogue's rout
 a group that is not there says that instead.
 
 **ONE PREDICATE, AND IT ARRIVES BEFORE THE SIZE IS TAKEN.** `inTheGroup` in
-`packages/db/src/queries.ts` is the set of a live group's live memberships, and `readCatalogue` `and`s it
-onto the catalogue's own predicate -- through `withinTheGroup` since CNCORE-180, and the same way
-Catalogue search `and`s its match on -- so every
-Listing that narrows reads membership from one place. That combined value is the `within`
-`walkListing` hands to `theSize`, and the Rows read their `WHERE` back off the same value — so a group narrowing the Rows and not
-the count, which is the whole catalogue's size reported over a narrowed page, has no second place to
-be missing from. The Listing contract (`listing.test.ts`) walks the narrowed catalogue as one more
-entry in its list -- derived from the unnarrowed entry by `narrowedToAGroup` since CNCORE-180 -- and
-so inherits the cap, the walk and both positions of the size.
+`packages/db/src/queries.ts` is the set of a live group's live memberships, and `readCatalogue`
+`and`s it onto the catalogue's own predicate -- through `withinTheGroup` since CNCORE-180, and the
+same way Catalogue search `and`s its match on -- so every Listing that narrows reads membership from
+one place. That combined value is the `within` `walkListing` hands to `theSize`, and the Rows read
+their `WHERE` back off the same value — so a group narrowing the Rows and not the count, which is
+the whole catalogue's size reported over a narrowed page, has no second place to be missing from.
+The Listing contract (`listing.test.ts`) walks the narrowed catalogue as one more entry in its list
+-- derived from the unnarrowed entry by `narrowedToAGroup` since CNCORE-180 -- and so inherits the
+cap, the walk and both positions of the size.
 
 **IT NARROWS THE LISTING'S QUESTION RATHER THAN REPLACING IT**, which is this record's own line
 between a scope and a partition read from the other side. An Item deleted from the catalogue stays
@@ -137,11 +137,11 @@ malformed id is refused by the same shape guard `findItem` uses, so a typo in a 
 
 **WHAT IT COSTS, MEASURED AGAINST THE CORPUS RATHER THAN A SEED**, for the predicate as it was built
 here, before CNCORE-230 joined `groups` -- re-measured with the join under that ticket, below.
-2026-09-19, against the Owner's own install: 8,052 Items, PostgreSQL 18.6. That install predates migration 19, so `group_items` was a
-SESSION-LOCAL TEMPORARY TABLE of the same name and the same two indexes, filled from the catalogue
-and gone when the session ended -- nothing of the Owner's was written. The statement is the first
-page as `walkListing` renders it, Row figure and size included. `EXPLAIN (ANALYZE, BUFFERS)`, warm
-cache, median of five:
+2026-09-19, against the Owner's own install: 8,052 Items, PostgreSQL 18.6. That install predates
+migration 19, so `group_items` was a SESSION-LOCAL TEMPORARY TABLE of the same name and the same two
+indexes, filled from the catalogue and gone when the session ended -- nothing of the Owner's was
+written. The statement is the first page as `walkListing` renders it, Row figure and size included.
+`EXPLAIN (ANALYZE, BUFFERS)`, warm cache, median of five:
 
 | First page of the catalogue | Median | Range |
 |---|---|---|
@@ -193,11 +193,11 @@ contract walks each of the three narrowed as well as whole, derived from the unn
 fourth Listing is walked within a group without anybody remembering to add it twice.
 
 **WHAT IT COSTS, MEASURED AGAINST THE CORPUS** the way CNCORE-179 was, and like CNCORE-179's
-figures, before CNCORE-230 joined `groups` (re-measured under that ticket, below): 2026-09-19, the Owner's own
-install, 8,052 Items, PostgreSQL 18.6, `group_items` a session-local temporary table of the same name
-and indexes inside a transaction that was rolled back, then `ANALYZE`d. The statement is each
-Listing's first page (`limit` 101: a page of 100 and the Row that says there is more) as the app
-renders it, captured from the running code by wrapping the pool's `query` rather than written by
+figures, before CNCORE-230 joined `groups` (re-measured under that ticket, below): 2026-09-19, the
+Owner's own install, 8,052 Items, PostgreSQL 18.6, `group_items` a session-local temporary table of
+the same name and indexes inside a transaction that was rolled back, then `ANALYZE`d. The statement
+is each Listing's first page (`limit` 101: a page of 100 and the Row that says there is more) as the
+app renders it, captured from the running code by wrapping the pool's `query` rather than written by
 hand. The three groups are the first 50 live Items by id, the distinct live Items of the Ordering
 holding the most live Placements, and every live Item. `EXPLAIN (ANALYZE, BUFFERS)`, warm cache,
 median of five after one discarded run, in milliseconds with the range beside it:
@@ -281,35 +281,38 @@ scope and the record cannot say its mechanism is whole.
 
 **BUILT: A MEMBERSHIP THAT OUTLIVED ITS GROUP NARROWS NOTHING.** `inTheGroup` joins `groups` and
 reads its tombstone beside the membership's, which the CNCORE-179 section above now says in its own
-sentence. Nothing else a group scopes changed, so the reason this record stays `proposed` is still the
-CNCORE-182 section's.
+sentence. Nothing else a group scopes changed, so the reason this record stays `proposed` is still
+the CNCORE-182 section's.
 
 **WHAT THE JOIN COSTS, RE-MEASURED RATHER THAN ASSUMED.** 2026-09-19, the Owner's own install,
 8,052 Items, PostgreSQL 18.6, by CNCORE-180's method: each Listing's first page captured from the
 running code, `groups` and `group_items` both session-local temporary tables of the same shape and
 indexes inside a transaction that was rolled back, the same three groups, `ANALYZE`d. The predicate
 without the join and with it were asked in the same session, round by round, so the pair shares one
-cache and one machine load; one round discarded, then the median of five, in milliseconds:
+cache and one machine load; one round discarded, then the median of five, in milliseconds with the
+range beside it, each cell reading without the join → with it:
 
 | First page of | Unnarrowed | 50 Items | Largest Ordering's 2,143 | Every Item |
 |---|---|---|---|---|
-| The Catalogue | 3.5 | 1.8 → 1.5 | 3.8 → 4.2 | 7.0 → 8.5 |
-| Work-browsing | 3.2 | 1.5 → 1.5 | 4.1 → 4.2 | 6.7 → 7.6 |
-| Search, `dalek` | 2.2 | 0.3 → 0.3 | 1.4 → 1.6 | 4.1 → 4.8 |
-| Search, `the` | 14.6 | 1.5 → 1.6 | 8.6 → 8.7 | 17.5 → 18.3 |
+| The Catalogue | 3.5 (3.1–4.2) | 1.8 (1.4–2.3) → 1.5 (1.4–1.6) | 3.8 (3.7–5.2) → 4.2 (4.0–4.7) | 7.0 (6.7–7.5) → 8.5 (7.8–9.6) |
+| Work-browsing | 3.2 (3.2–3.2) | 1.5 (1.3–1.7) → 1.5 (1.4–1.8) | 4.1 (3.8–6.3) → 4.2 (4.0–4.6) | 6.7 (6.7–10.2) → 7.6 (7.4–9.8) |
+| Search, `dalek` | 2.2 (2.2–2.4) | 0.3 (0.3–0.3) → 0.3 (0.3–0.4) | 1.4 (1.3–1.6) → 1.6 (1.6–1.7) | 4.1 (3.9–4.7) → 4.8 (4.6–5.3) |
+| Search, `the` | 14.6 (13.5–16.8) | 1.5 (1.4–1.5) → 1.6 (1.5–1.9) | 8.6 (8.4–12.9) → 8.7 (8.4–11.8) | 17.5 (16.7–17.8) → 18.3 (17.7–19.2) |
 
 **THE PLAN IS THE ONE MEASURED ABOVE, WITH ONE NODE ADDED, AND THE CLOCK IS NOT QUITE FREE.** Every
 plan keeps its scans and its semi-join, and the 50-Item group still reaches `group_items_group_item`
 by an `Index Cond` on `group_id` alone. What the join adds is a Nested Loop over a one-row lookup of
 the group, which every membership passes through twice, once for the size and once for the Rows. At
-50 Items that is nothing measurable. Within the largest Ordering it is 0.1 to 0.4 ms, inside the
-spread of the figures it is compared with; at the ceiling nobody draws, 0.7 to 1.5 ms.
+50 Items that is nothing measurable. Within the largest Ordering it is 0.1 to 0.4 ms, and on all four
+Listings the median with the join falls inside the range without it; at the ceiling nobody draws, it
+is 0.7 to 1.5 ms, and the Catalogue's two ranges there do not overlap.
 
 **AN `EXISTS` ASKED ONCE WAS TRIED AND NOT TAKEN**, because it is the obvious next idea. A group is
 one row the parameter names, so its tombstone can be asked as an uncorrelated `EXISTS`, which
 PostgreSQL evaluates once as a One-Time Filter rather than per membership. Measured beside the two
-above, it was cheaper than the join or within its spread on three Listings and dearer on
-work-browsing: 4.6 against the join's
-4.2 within the largest Ordering and 12.2 against 7.6 at the ceiling. The plan says why. The gate moved
-work-browsing's Rows off the hash semi-join and onto de-duplicating the memberships and looking each
-Item up, so it changed the plan it was meant to leave alone. The join does not.
+above, it was cheaper than the join at the ceiling on three Listings and, below it, never dearer
+than the join's own range reached. On work-browsing it was dearer: 4.6 (4.6–6.3) against the join's
+4.2 (4.0–4.6) within the largest Ordering, and 12.2 (11.8–15.1) against 7.6 (7.4–9.8) at the
+ceiling. The plan says why. The gate moved work-browsing's Rows off the hash semi-join and onto
+de-duplicating the memberships and looking each Item up, so it changed the plan it was meant to
+leave alone. The join does not.

@@ -184,11 +184,9 @@ export async function putItemInGroupByHand(
     // the check and the insert (`REFUSALS` above), which is the same refusal
     // as an Item already gone.
     //
-    // A GROUP DELETED IN THAT GAP IS NOT CAUGHT HERE AND CANNOT BE. Deletion
-    // tombstones it (ADR-0075), so the foreign key accepts the insert and the
-    // race leaves a live membership under a dead Group -- which is why
-    // `inTheGroup` reads through `groups` rather than trusting this table, as
-    // `findProvidersAGroupAsks` does for its own (CNCORE-230).
+    // A GROUP DELETED IN THAT GAP IS NOT CAUGHT HERE AND CANNOT BE: a tombstone
+    // is no DELETE for the foreign key to see (ADR-0075). `inTheGroup` says
+    // what that race leaves and why it narrows nothing.
     if (cause instanceof GroupRefused) throw cause;
     if (isRefusalOn(REFUSALS, cause)) {
       throw new GroupRefused("the catalogue refused that Item in that Group", { cause });
@@ -273,13 +271,10 @@ export async function takeItemOutOfGroupByHand(
  * EVERY TOMBSTONE, IN ONE TRANSACTION (ADR-0075). The Group and the rows naming
  * it go together -- its memberships and, since CNCORE-182, the Providers it asks
  * -- and leaving either live would be a row that comes back the day something
- * reads it without joining `groups`. No reader does: a narrowed Listing and
- * `findProvidersAGroupAsks` both read through `groups`, because a put or an ask
- * racing this deletion can land a live row after it (CNCORE-230), and only the
- * join is right however that race falls. These tombstones are what keep the
- * tables saying what the join says. A transaction rather than two
- * statements, because a Group deleted with its memberships still standing is the
- * state no reader can see and every later query would trip over.
+ * reads it without joining `groups`. No reader does, for the race `inTheGroup`
+ * describes, so these tombstones are what keep the tables saying what the join
+ * says. A transaction rather than two statements, so that they never say
+ * otherwise, even for a moment.
  *
  * AND `items` IS NOT IN THIS FUNCTION AT ALL, which is the strongest form the
  * promise can take: there is nothing here to get wrong later.
