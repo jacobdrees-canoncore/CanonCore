@@ -137,9 +137,8 @@ const providerRefused = {
    * third party's text.
    *
    * DECLARED, so the ceiling is in the output schema a caller is held to rather
-   * than an invariant two handlers each had to remember. NOT YET IN THE OPENAPI
-   * DOCUMENT, which drops every length and format in this API: @orpc/zod 1.15.0
-   * reads a bag zod 4.6.5 leaves empty (CNCORE-212).
+   * than an invariant two handlers each had to remember. Not yet in the OpenAPI
+   * document (CNCORE-212).
    */
   data: failureReason,
 };
@@ -165,9 +164,7 @@ const providerRefused = {
  * `cmppManifest` bounds the name before any code here sees it, so a name past
  * this ceiling can only be a bug in THIS APP, and a bug should surface as a 500
  * with its stack in the log (ADR-0125) rather than as a page quietly flooded.
- *
- * NOT YET IN THE OPENAPI DOCUMENT, which drops every length and format in this
- * API: @orpc/zod 1.15.0 reads a bag zod 4.6.5 leaves empty (CNCORE-212).
+ * Not yet in the OpenAPI document (CNCORE-212).
  */
 const declaredName = z.string().min(1).max(REASON_MAX_LENGTH);
 

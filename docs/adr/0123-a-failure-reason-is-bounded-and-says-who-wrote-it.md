@@ -655,21 +655,33 @@ name then fails the `min(1)` every surface declares on its output: a Provider cr
 that reads it, which is what `SILENT` prevents for a reason. `whenSilent` has no default because no
 house sentence fits both fields.
 
-### The rule a fifth field meets
+### The rule a fifth field meets, and what enforces it
 
-Stated on `cmppManifest` itself, because that is where a fifth field would be added: **every string
-in the manifest that reaches a page is bounded at its field, and HOW it is bounded says which kind
-of prose it is.**
+**Every string in the manifest is DECIDED AT ITS FIELD: bounded there, or named with the reason it
+is not.** `cmppManifest` states it where a fifth field would be added, and `cmpp.test.ts` enforces
+it: the test walks the schema through zod's public API and fails on any bare `z.string()` nobody has
+named. Measured both ways: adding `description: z.string().min(1)` fails it, and so does `name`
+spelled as it was filed. That is what the ticket asked for by "stated rather than left to review" —
+the four surfaces before this one were each right because somebody remembered, and a comment is
+still somebody remembering.
 
-- **Prose CanonCore frames** is `boundedProse`: cut, and floored. `name`, `credential.label`.
-- **Prose an obligation requires verbatim** cannot be cut, because `Attribution` prints a licence
-  notice unaltered and cutting one is the breach it exists to prevent. Its bound is a REFUSAL, which
-  `logo.data_uri`'s ceiling already is. **`attribution.notice` and `logo.alt` have none**, and a
-  refusal inside `cmppManifest` refuses the whole manifest — so what refusing costs a Provider is a
-  decision of its own (CNCORE-213). Each carries a TODO naming it.
-- **A record's fields are out of it**, as is anything never printed. A manifest is a Provider
-  describing itself; a record is a source's claim, which the catalogue holds and the Owner curates,
-  and cutting a title would corrupt the catalogue rather than protect a page.
+- **Prose CanonCore frames is `boundedProse`**: cut, and floored. `name`, `credential.label`.
+- **Prose an obligation requires verbatim cannot be cut**, because `Attribution` prints a licence
+  notice unaltered and cutting one is the breach it exists to prevent. `logo.data_uri` is refused
+  past `MAX_LOGO_CHARS`. **How `attribution.notice` and `logo.alt` are bounded is NOT this record's
+  decision**: a refusal inside `cmppManifest` refuses the whole manifest, and whether that or refusing
+  only the attribution is right is CNCORE-213's to decide. The test names both as exactly that.
+- **A field never printed as text** is named with that reason: `operations`, `stored_variant`, and
+  `unlock_path`, which `unlockUrlFor` judges before it reaches an href.
+- **A record's fields are out of it.** A manifest is a Provider describing itself; a record is a
+  source's claim, which the catalogue holds and the Owner curates, and cutting a title would corrupt
+  the catalogue rather than protect a page.
+
+**THIS RECORD STAYS `accepted`, AND THAT IS A CLAIM WORTH CHECKING.** What this section DECIDES is
+built: framed prose is bounded at its field, and every string in the manifest is classified under a
+test. What it leaves open — how a verbatim notice is bounded — is an undecided question on its own
+ticket rather than a mechanism built halfway, and the test holds the two fields at "undecided" so
+neither can be mistaken for done.
 
 ### The output schema states it, and oRPC enforces it
 
@@ -707,3 +719,18 @@ exactly 1.15.2 — the RPC stack moving together is not a change about a Provide
 `sources.label` through the read path and can only print what the row holds, which the row test
 asserts directly. A witness there would need a sixth catalogue imported through a flooding Provider
 to assert the same string through a longer path.
+
+### A cap on length is not a cap on width, which only walking it showed
+
+Walked by hand on this branch under `next dev`, with a Provider whose name is `"flood"` twenty
+thousand times: the longest run of the name anywhere in the `/import` document was exactly 300
+characters, so the cap held. **And the heading still ran past the right edge of the viewport**,
+because three hundred characters with no break in them are one unbreakable line. The Provider no
+longer chooses how LONG the page is and still chooses how WIDE, by the kind of lever "THE CAP IS NOT
+THE ONLY LEVER A PROVIDER HAS OVER A PAGE" records for bidirectional overrides.
+
+Nothing in `apps/web` or `packages/ui` wraps an unbroken word, so it is not this field's defect but
+every 300-character surface's, reasons included, and where the wrap lives is a decision of its own
+(CNCORE-217). No test in this section would have found it: each asserts what the document CONTAINS,
+and this is how the document LAYS OUT.
+

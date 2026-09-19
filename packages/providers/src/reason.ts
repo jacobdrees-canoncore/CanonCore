@@ -54,9 +54,8 @@ export const failureReason = z.object({
   /**
    * BOUNDED IN THE CONTRACT AND NOT ONLY IN THE HANDLER, so the ceiling is in
    * the output schema a caller is held to rather than an invariant they have to
-   * take on trust from two handlers that each remembered it. It is NOT YET in
-   * the OpenAPI document, which drops every length and format in this API:
-   * @orpc/zod 1.15.0 reads a bag zod 4.6.5 leaves empty (CNCORE-212).
+   * take on trust from two handlers that each remembered it. Not yet in the
+   * OpenAPI document (CNCORE-212).
    */
   text: z.string().min(1).max(REASON_MAX_LENGTH),
 });
@@ -124,7 +123,9 @@ function unwrapped(thrown: unknown): unknown {
  * only by `min(1)` -- so it is a stranger choosing the length of text on a page
  * it does not own, which is the sentence that record opens with. What made that
  * defect worth a record is that it had two sites already; a second truncation
- * written beside this one would be the third.
+ * written beside this one would be the third. The label reaches it through
+ * `boundedProse` below since CNCORE-165, at the manifest field rather than in
+ * `asDeclared`.
  *
  * IT IS THE CAP WITHOUT THE ATTRIBUTION, and that split is deliberate. `wrote`
  * answers "whose sentence is this" by asking WHICH BOUNDARY REFUSED, and a label

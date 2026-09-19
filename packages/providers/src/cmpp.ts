@@ -187,22 +187,24 @@ const SAID_NOTHING = "this Provider needs something, and did not say what.";
  * at all. It no longer is, and the sentence is corrected here rather than
  * contradicted somewhere else.)
  *
- * EVERY STRING HERE THAT REACHES A PAGE IS BOUNDED AT ITS FIELD, AND HOW IT IS
- * BOUNDED SAYS WHICH KIND OF PROSE IT IS (ADR-0123, CNCORE-165). This is the
- * rule a field added to this object meets, and it is written here because here
- * is where that field would be added:
+ * EVERY STRING HERE IS DECIDED AT ITS FIELD: BOUNDED THERE, OR NAMED WITH THE
+ * REASON IT IS NOT (ADR-0123, CNCORE-165). This is the rule a field added to
+ * this object meets, written here because here is where it would be added, and
+ * `cmpp.test.ts` fails the build on a bare `z.string()` nobody has named:
  *
  * - PROSE CANONCORE FRAMES is `boundedProse`: cut to what the Owner reads, and
  *   floored so a Provider that said nothing cannot crash the request reading
  *   it. `name` and `credential.label`.
  * - PROSE AN OBLIGATION REQUIRES VERBATIM cannot be cut, because cutting a
- *   licence notice is the breach it exists to prevent. Its bound is a REFUSAL,
- *   which `logo.data_uri`'s ceiling already is. `attribution.notice` and
- *   `logo.alt` have none yet (CNCORE-213).
+ *   licence notice is the breach it exists to prevent. `logo.data_uri` is
+ *   refused past its ceiling; how `attribution.notice` and `logo.alt` are
+ *   bounded instead is an open decision (CNCORE-213).
+ * - A FIELD NEVER PRINTED AS TEXT is named with that reason: `operations`,
+ *   `stored_variant`, and `unlock_path`, which `unlockUrlFor` judges before it
+ *   reaches an href.
  *
- * A FIELD THAT NEVER REACHES A PAGE IS OUT OF IT, which is why `operations` and
- * `stored_variant` stay bare: they are read, not printed. So are a RECORD'S
- * fields, which is a different thing from this object and not an omission. A
+ * A RECORD'S fields are out of it, which is a different thing from this object
+ * and not an omission. A
  * manifest is a Provider describing itself; a record is a source's CLAIM, which
  * the catalogue holds and the Owner curates, and bounding a title would corrupt
  * the catalogue rather than protect a page.
@@ -277,8 +279,7 @@ export const cmppManifest = z.object({
        *
        * TODO(CNCORE-213): no ceiling yet. It reaches every Item page the source
        * claims a value on, and `boundedProse` would cut it, which is the breach
-       * above. Its bound has to be a refusal, and what a refusal costs the
-       * Provider is that ticket's decision.
+       * above. How it is bounded instead is that ticket's decision.
        */
       notice: z.string().min(1),
       /**

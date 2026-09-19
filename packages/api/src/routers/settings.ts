@@ -71,9 +71,8 @@ const providerReach = z.discriminatedUnion("kind", [
          * BOUNDED IN THE CONTRACT AND NOT ONLY IN THE HANDLER, which is the rule
          * `failureReason` states for the same kind of string: the ceiling belongs
          * in the output schema a caller is held to rather than being an invariant
-         * they take on trust from a handler that remembered it. It is NOT YET in
-         * the OpenAPI document, which drops every length in this API (CNCORE-212).
-         * `min(1)` is the floor `cmppManifest` guarantees where the manifest is
+         * they take on trust from a handler that remembered it. Not yet in the
+         * OpenAPI document (CNCORE-212). `min(1)` is the floor `cmppManifest` guarantees where the manifest is
          * read (CNCORE-165), so a blank label is a bug here rather than an empty
          * quotation on the page.
          */
