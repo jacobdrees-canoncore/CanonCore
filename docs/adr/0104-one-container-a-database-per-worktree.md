@@ -433,3 +433,77 @@ test fails `expected [Function] to throw an error`.
 built one from empty and migrated it; they now build three different ones rather than the same one
 three times. The ceiling arithmetic above is untouched, because those suites are still serialised by
 the same topology — what changed is that the serialisation is no longer load-bearing.
+
+## One container means one /dev/shm too, and what fills it is statistics for the dead
+
+**DOCKER GIVES A CONTAINER 64 MB OF /dev/shm, AND THE SHARED ONE RAN OUT OF IT** (CNCORE-228,
+2026-09-19). Suites died in global setup with `could not resize shared memory segment
+"/PostgreSQL.…" to 33554432 bytes: No space left on device`, SQLSTATE 53100, seventeen times in two
+hours. Each one landed in whichever test asked next, which is CNCORE-131's shape again: a ceiling
+the whole container shares, surfacing as one unrelated red test.
+
+**WHAT FILLS IT IS THE CUMULATIVE STATISTICS SYSTEM**, read from PostgreSQL 18's source
+(`REL_18_STABLE`) rather than inferred from the sizes:
+
+- `pgstat_shmem.c` creates the shared statistics hash table in a DSA placed in MAIN shared memory
+  with 256 kB. Every segment the area adds after that is a dynamic shared memory segment, and under
+  `dynamic_shared_memory_type = posix`, the Linux default and what this container runs, a DSM
+  segment is a file in /dev/shm.
+- `dsa.c` sizes the nth added segment `1 MB << (n / 2)`, two at each size. So the series is 1, 2,
+  2, 4, 4, 8, 8, 16, 16 MB, which is exactly the nine segments the ticket listed beside the small
+  DSM control segment, and the 32 MB request that failed is the tenth.
+- `dsm_impl.c` backs each segment with `posix_fallocate` on Linux, so a segment costs its whole
+  size in RAM from the moment it exists. `dsa_free` hands one back only when every allocation in it
+  is gone.
+- There is an entry for every table and index a database has touched, and dropping the DATABASE is
+  what drops them (`pgstat_drop_entry_ext` calls `pgstat_drop_database_and_contents`). A clean
+  shutdown writes the entries to `pg_stat/pgstat.stat` and startup reads them back. That is why the
+  restart the Owner measured re-created the same 62 MB, and why restarting is not a remedy.
+
+**MEASURED: ABOUT 57 KiB PER DATABASE OF THIS SCHEMA, AND 64 MB RAN OUT AT 1,090 OF THEM.** A
+throwaway `postgres:18` at Docker's default, filled one database at a time the way the harness
+builds one (create it empty, apply the schema), died at database 1,090 with the shared container's
+error to the byte. Each such database carries 170 statistics entries; 25 sampled from the shared
+container carried 137 to 178. Capacity divided by databases at each new segment converges: 62.5
+KiB at 85, 57.2 at 236, 56.0 at 534, 55.8 at 829, 57.5 at the failure.
+
+| Databases | What they are | Statistics |
+|---|---|---|
+| about 105 | the four-agent ceiling: five worktrees of 21 each (its own, 17 fixture, 3 suite) | about 6 MiB |
+| 1,090 | what Docker's 64 MB held in the probe | 61 MiB of segments |
+| 1,149 | what the shared container held on 2026-09-19 | the 32 MB tenth, 93 MiB |
+| about 4,500 | what 256 MB holds, extrapolated at 57 KiB | 253 MiB |
+
+**THE FOUR-AGENT CEILING DID NOT FILL IT, AND THAT IS THE FINDING.** Four agents' databases need a
+tenth of Docker's default. Counted in one query, the 1,149 were 963 test databases, 148 worktree
+databases (so about 147 worktrees, five of which still existed) and 38 others: the templates,
+`postgres`, and databases agents had built by hand. Nothing drops a removed worktree's databases,
+and CNCORE-231 is that half. The jump from 62 to 94 MB seen while four agents ran was one step of the
+series above rather than a rate: the 32 MB segment's file dates from 35 seconds after the container
+started.
+
+**`docker-compose.yml` SETS `shm_size: 256mb`, and the reasons it is not more are measured too.**
+
+- It holds today's population and about 3,350 databases more. The cluster went from its first
+  database, 2026-09-10 13:58, to 1,149 in nine days, about 120 a day, so that is roughly four
+  weeks without CNCORE-231.
+- It is the figure the `postgres` image's own documentation gives for exactly this error.
+- /dev/shm is RAM. The colima VM this container runs in has 1,958 MiB and no swap, and had 574 MiB
+  available when measured with a probe running. The 1 GB the container was given by hand on
+  2026-09-19 is more than the VM has free, so it is not a ceiling at all: the kernel's OOM killer
+  would take something first, and not necessarily this container. At 256 MB, PostgreSQL's own named
+  error comes first.
+
+**THE CEILING IS NOT THE LEVER, which the connections section above already found once.** Raised
+without the demand being bounded, it buys days. `src/docker-compose.test.ts` fails if the
+declaration goes, since absent is Docker's 64 MB and the failure would read as somebody's flaky
+test again. CI is untouched: each job's own `postgres:18` holds one worktree's databases.
+
+**Evidence**, all 2026-09-19: `ls -la /dev/shm` and `df -h /dev/shm` inside the shared container
+and the probes. `pg_stat_have_stats('relation', dboid, relid)` counted over `pg_class` in 25 random
+databases. `pg_stat_file('base/<oid>/PG_VERSION')` for when each database was created. The schema
+came from `pg_dump -s` of a live test database. `colima ssh -- free -m` for the VM. The source is
+`src/backend/utils/mmgr/dsa.c`, `src/include/utils/dsa.h`,
+`src/backend/utils/activity/pgstat_shmem.c`, `pgstat.c` and `src/backend/storage/ipc/dsm_impl.c`
+at `REL_18_STABLE`. The image's advice is the "Caveats" section of docker-library's `postgres`
+docs.
