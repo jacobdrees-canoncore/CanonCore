@@ -122,6 +122,12 @@ export const placementsOfItemPublic = z.object({
    */
   continuesAfter: z.uuid().nullable(),
   /**
+   * The placement to step back from, or `null` where nothing comes before this
+   * page (CNCORE-174): the page's own first row, a placement for this reason
+   * turned round.
+   */
+  continuesBefore: z.uuid().nullable(),
+  /**
    * EVERY ORIGIN THE ITEM HAS A PLACEMENT FROM -- the source kinds ADR-0071
    * settles, as `placedBy` on a row carries one, and the FOURTH fact this shape
    * holds where its mirror holds three (CNCORE-129).
@@ -336,6 +342,12 @@ export const placementsInContainerPublic = z.object({
    * names two rows here and cannot say which of them a page ended on.
    */
   continuesAfter: z.uuid().nullable(),
+  /**
+   * The placement to step back from, or `null` where nothing comes before this
+   * page (CNCORE-174): the page's own first row, a placement for this reason
+   * turned round.
+   */
+  continuesBefore: z.uuid().nullable(),
 });
 
 export type PlacementsInContainerPublic = z.infer<typeof placementsInContainerPublic>;
@@ -625,6 +637,13 @@ export const cataloguePublic = z.object({
    * and a keyset walk has no offset to subtract from.
    */
   continuesAfter: z.uuid().nullable(),
+  /**
+   * The id to step back from, or `null` where nothing comes before this page
+   * (CNCORE-174): the page's own first Row, handed back as `before` to ask for
+   * the page that ends short of it. `continuesAfter` turned round, for the
+   * same two reasons.
+   */
+  continuesBefore: z.uuid().nullable(),
 });
 
 export type CataloguePublic = z.infer<typeof cataloguePublic>;

@@ -151,7 +151,14 @@ type Narrowed = { group: string };
  * `inTheFixedOrder` enforces: `?via=&placed=&after=` is not a URL this app can
  * emit.
  */
-export type TheRoute = { via?: string; placed?: string; after?: string; placedAfter?: string };
+export type TheRoute = {
+  via?: string;
+  placed?: string;
+  after?: string;
+  placedAfter?: string;
+  before?: string;
+  placedBefore?: string;
+};
 
 /**
  * WHICH OF THE ITEM PAGE'S TWO LISTINGS IS BEING WALKED, which the path cannot
@@ -271,9 +278,22 @@ const ENDS_HERE = {
  * same thing without saying it belonged with the parameter beside it.
  */
 const CURSOR = {
-  members: "after",
-  appearances: "placedAfter",
-} as const satisfies Record<ItemPageListing, string>;
+  members: { after: "after", before: "before" },
+  appearances: { after: "placedAfter", before: "placedBefore" },
+} as const satisfies Record<ItemPageListing, { after: string; before: string }>;
+
+/**
+ * WHAT THE THREE LISTINGS THAT ARE THEIR OWN SURFACE WALK WITH, which is the
+ * bare pair: they each have a page to themselves, so there is no other
+ * Listing's cursor to tell theirs from.
+ */
+const THE_BARE_PAIR = { after: "after", before: "before" } as const;
+
+/**
+ * WHERE A LINK TAKES A LISTING (CNCORE-174): on past a Row, back from one, or
+ * to a letter. One of the three, because a page starts in one place.
+ */
+type WhereTo = { after: string } | { before: string } | { letter: string };
 
 /**
  * Which listing is ending, from the address it is walked on.
@@ -309,7 +329,7 @@ function endsHere(walking: Walking): string {
  * The query one link on this listing carries: everything the address already
  * held, with THIS listing's own cursor set to where the link goes.
  *
- * `at` IS `undefined` FOR A LINK BACK TO THE START, which DROPS this listing's
+ * `to` IS `undefined` FOR A LINK BACK TO THE START, which DROPS this listing's
  * cursor and keeps every other parameter -- including the OTHER listing's
  * cursor, which a reader has not asked to move.
  *
@@ -319,9 +339,26 @@ function endsHere(walking: Walking): string {
  * has already needed once: walking `Members` on a page that already carried
  * `?placedAfter=` appended `after` BEHIND it, a second spelling of one address.
  */
-function queryFor(walking: Walking | Searched, at: string | undefined): LinkQuery {
-  const own = walking.listing === undefined ? "after" : CURSOR[walking.listing];
-  return inTheFixedOrder({ ...walking.asked, ...walking.narrowed, [own]: at });
+function queryFor(walking: Walking | Searched, to: WhereTo | undefined): LinkQuery {
+  const own = walking.listing === undefined ? THE_BARE_PAIR : CURSOR[walking.listing];
+  // THIS LISTING'S OWN POSITION IS DROPPED BEFORE THE NEW ONE IS SET, both
+  // cursors of it (CNCORE-174): a link names where a page starts, and a Next
+  // that kept the `before` it arrived with would name two places at once.
+  const startsAt =
+    to === undefined
+      ? {}
+      : "after" in to
+        ? { [own.after]: to.after }
+        : "before" in to
+          ? { [own.before]: to.before }
+          : { letter: to.letter };
+  return inTheFixedOrder({
+    ...walking.asked,
+    ...walking.narrowed,
+    [own.after]: undefined,
+    [own.before]: undefined,
+    ...startsAt,
+  });
 }
 
 /**
@@ -564,14 +601,22 @@ export function Listing({ rows }: { rows: Row[] }) {
 }
 
 /**
- * HOW A READER REACHES THE REST OF IT (ADR-0119).
+ * HOW A READER REACHES THE REST OF IT (ADR-0119): on, back, and to the start.
  *
- * FORWARD, AND BACK TO THE START. The walk is a keyset one, so `Next` is the
- * direction it has -- reversing it is a second query shape and a capability of
- * its own rather than half of this one. What a reader must never be is
- * STRANDED, and a deep link is exactly where that happens: somebody arriving on
- * page five from a shared URL has no history to go back through. So every page
- * past the first carries the one address that is always somewhere.
+ * BACK IS A STEP AND NOT ONLY A RETURN, SINCE CNCORE-174. This said the walk
+ * went forward and back to the start and no further, because reversing a keyset
+ * walk was "a capability of its own rather than half of this one" -- and
+ * ADR-0119 deferred it "until something needs it". Seven thousand Items needed
+ * it: page thirty back to page twenty-nine was thirty presses. `Previous` is the
+ * page that ends just short of this one's first Row, and the start stays beside
+ * it for the reader who wants the top rather than the page before.
+ *
+ * BOTH ARE READ OFF `continuesBefore`, which is what makes them honest. Offered
+ * off the address -- "the page was asked with a cursor" -- they appeared on a
+ * page a jump or a step back had landed at the very start of, pointing at the
+ * page the reader was already on. The Listing says whether anything comes
+ * before this page, the same way `continuesAfter` says whether anything comes
+ * after it.
  *
  * IT WALKS ITS OWN SURFACE. `path` is why this takes a parameter at all: a
  * `Next` on `/works` that went to `/?after=` would hand a reader the catalogue
@@ -591,32 +636,41 @@ export function Listing({ rows }: { rows: Row[] }) {
  * encoding rather than a template literal doing it by hand.
  */
 export function Walk({
-  from,
   continuesAfter,
+  continuesBefore,
   ...walking
 }: Walking & {
-  from?: string;
   continuesAfter: string | null;
+  continuesBefore: string | null;
 }) {
-  if (from === undefined && continuesAfter === null) return null;
+  if (continuesBefore === null && continuesAfter === null) return null;
   const { path } = walking;
   return (
     <nav aria-label="More of this listing" className="mt-6 flex items-baseline gap-4">
-      {from !== undefined && (
-        /*
-         * WITHOUT THIS LISTING'S OWN CURSOR, which is what makes it the start --
-         * and WITH the other listing's, which the reader has not asked to move.
-         */
-        <Link
-          href={{ pathname: path, query: queryFor(walking, undefined) }}
-          className="text-sm hover:underline"
-        >
-          Back to the start
-        </Link>
+      {continuesBefore !== null && (
+        <>
+          {/*
+           * WITHOUT THIS LISTING'S OWN POSITION, which is what makes it the
+           * start -- and WITH the other listing's, which the reader has not
+           * asked to move.
+           */}
+          <Link
+            href={{ pathname: path, query: queryFor(walking, undefined) }}
+            className="text-sm hover:underline"
+          >
+            Back to the start
+          </Link>
+          <Link
+            href={{ pathname: path, query: queryFor(walking, { before: continuesBefore }) }}
+            className="text-sm hover:underline"
+          >
+            Previous
+          </Link>
+        </>
       )}
       {continuesAfter !== null && (
         <Link
-          href={{ pathname: path, query: queryFor(walking, continuesAfter) }}
+          href={{ pathname: path, query: queryFor(walking, { after: continuesAfter }) }}
           className="ml-auto text-sm hover:underline"
         >
           Next
@@ -625,6 +679,59 @@ export function Walk({
     </nav>
   );
 }
+
+/**
+ * THE LETTERS A READER JUMPS TO (CNCORE-174), on the two Listings filed by
+ * name. Each is the first Row filed under it, or the first after it where
+ * nothing is: a SEEK on the sort key the walk already reads, which ADR-0119
+ * names as the navigation that fits a keyset walk. There is no numbered page to
+ * jump to beside it, and that half of ADR-0119 stands.
+ *
+ * NOT ON CATALOGUE SEARCH, whose order is how close a title is to what a reader
+ * typed: nothing in a ranking is filed under a letter. Nor on a Container's
+ * Members, which are in its own order. "ALSO APPEARS IN" IS AN ALPHABET, by the
+ * Container's sort name, and goes without one because it never runs past a
+ * page: 61 Rows at the longest on the Owner's catalogue, against a cap of 100.
+ * ADR-0119 records that as a deviation from CNCORE-174, which asked for the
+ * jump on every Listing.
+ *
+ * LINKS RATHER THAN A CONTROL, for `NarrowToAGroup`'s reason: it works with no
+ * script, and a jump is an address somebody can send. Each keeps the Group the
+ * page is narrowed to, and drops the page's position, since a letter IS one.
+ *
+ * `aria-current` MARKS THE LETTER THIS PAGE WAS JUMPED TO, for as long as the
+ * address says so: a `Next` from it names a Row rather than a letter, so the
+ * mark does not follow the reader on.
+ */
+export function JumpToALetter({
+  jumpedTo,
+  ...walking
+}: Extract<Walking, { path: "/" | "/works" }> & { jumpedTo?: string }) {
+  return (
+    <nav
+      aria-label="Jump to a letter"
+      className="mt-2 flex flex-wrap gap-x-2 gap-y-1 text-muted-foreground text-sm"
+    >
+      {THE_ALPHABET.map((letter) => (
+        <Link
+          key={letter}
+          href={{ pathname: walking.path, query: queryFor(walking, { letter }) }}
+          aria-current={jumpedTo?.toUpperCase() === letter ? "true" : undefined}
+          className="hover:underline aria-[current]:font-medium aria-[current]:text-foreground"
+        >
+          {letter}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
+/**
+ * The letters a Listing filed by name offers, A to Z. The sort key files a
+ * title opening in a digit or a mark ahead of A, which is where the start of
+ * the Listing already is.
+ */
+const THE_ALPHABET = [..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"];
 
 /**
  * A LINK THAT OUTLIVED THE ITEMS AFTER IT.
@@ -641,7 +748,7 @@ export function Walk({
  * CNCORE-110). The sentence read "or it may have been removed since", which
  * named a state this page can no longer be in.
  */
-export function PastTheEnd(walking: Walking) {
+export function PastTheEnd({ jumpedTo, ...walking }: Walking & { jumpedTo?: string }) {
   const { path } = walking;
   return (
     <section aria-labelledby="past-the-end" className="mt-6">
@@ -656,8 +763,18 @@ export function PastTheEnd(walking: Walking) {
             <h2 id="past-the-end">{endsHere(walking)}</h2>
           </EmptyTitle>
           <EmptyDescription>
-            Nothing sorts after the one this link was cut at. It is the last one in this listing
-            now, whether or not it was when the link was made.
+            {/*
+              A JUMP PAST THE LAST LETTER ANYTHING IS FILED UNDER lands here too
+              (CNCORE-174), and it was cut at no Row, so it says what it did
+              find rather than borrowing the cursor's sentence. IT NAMES THE
+              LETTER ONLY WHERE IT IS ONE: anything else a link carries is words
+              this page did not write, and they do not go in its sentence.
+            */}
+            {jumpedTo === undefined
+              ? "Nothing sorts after the one this link was cut at. It is the last one in this listing now, whether or not it was when the link was made."
+              : THE_ALPHABET.includes(jumpedTo.toUpperCase())
+                ? `Nothing here is filed under ${jumpedTo.toUpperCase()} or any letter after it.`
+                : "Nothing here is filed where this link jumped to, or after it."}
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent>

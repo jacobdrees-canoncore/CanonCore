@@ -19,7 +19,12 @@ import {
   theStartOf,
   Walk,
 } from "@/components/listing";
-import { oneGroup, oneValue } from "@/components/query-params";
+import {
+  oneGroup,
+  oneValue,
+  type WhereThePageStarts,
+  whereThePageStarts,
+} from "@/components/query-params";
 import { TheirWords } from "@/components/their-words";
 
 /**
@@ -51,7 +56,7 @@ import { TheirWords } from "@/components/their-words";
  * page looks correct on the server it was built against, which is every server
  * anybody would think to look at.
  */
-async function readSearch(query: string, after: string | undefined, group: string | undefined) {
+async function readSearch(query: string, at: WhereThePageStarts, group: string | undefined) {
   // The router is called IN-PROCESS, as the front page and the item page call
   // it. A server component fetching its own API is a round trip to itself, and
   // oRPC documents `call` as the way to avoid it.
@@ -66,7 +71,7 @@ async function readSearch(query: string, after: string | undefined, group: strin
   // picker to offer -- the front page's pair, for its reason (CNCORE-180).
   const context = await createContext();
   const [results, { groups }] = await Promise.all([
-    call(appRouter.catalogue.search, { query, after, group }, { context }),
+    call(appRouter.catalogue.search, { query, ...at, group }, { context }),
     call(appRouter.group.list, undefined, { context }),
   ]);
   return { results, groups };
@@ -79,9 +84,10 @@ export default async function SearchPage({
     q?: string | string[];
     group?: string | string[];
     after?: string | string[];
+    before?: string | string[];
   }>;
 }) {
-  const { q, group, after } = await searchParams;
+  const { q, group, after, before } = await searchParams;
   /*
    * A REPEATED PARAMETER NAMES NO QUERY rather than the first of several. That
    * is the rule `/items/<id>` applies to `via` and `placed` (ADR-0066) and the
@@ -102,14 +108,15 @@ export default async function SearchPage({
    * caller rather than for this page.
    */
   const asked = query.trim() !== "";
-  // ADR-0119's cursor, read on the SERVER so the page a reader is served is
-  // already the page they asked for. `oneValue` owns what a repeated parameter
-  // means, so all three reading surfaces answer that the same way.
-  const from = oneValue(after);
+  // ADR-0119's cursor and the step back (CNCORE-174), read on the SERVER so
+  // the page a reader is served is already the page they asked for. `oneValue`
+  // owns what a repeated parameter means, so all three reading surfaces answer
+  // that the same way. No letter: a ranking is not filed under one.
+  const at = whereThePageStarts({ after, before });
   // AND THE GROUP IT IS ASKED WITHIN (CNCORE-180), which `oneGroup` reads for
   // every surface that narrows.
   const narrowedTo = oneGroup(group);
-  const read = asked ? await readSearch(query, from, narrowedTo) : null;
+  const read = asked ? await readSearch(query, at, narrowedTo) : null;
   const results = read?.results ?? null;
   const groups = read?.groups ?? [];
   // NARROWED ONLY WHERE SOMETHING WAS SEARCHED. With no query there is no list
@@ -170,8 +177,8 @@ export default async function SearchPage({
           <Walk
             {...surface}
             narrowed={scope.narrowed}
-            from={from}
             continuesAfter={results.continuesAfter}
+            continuesBefore={results.continuesBefore}
           />
         </>
       )}

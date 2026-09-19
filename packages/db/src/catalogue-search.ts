@@ -8,6 +8,8 @@ import {
   findTheAnchor,
   IN_THE_CATALOGUE,
   SORT_KEY,
+  theCutAt,
+  type WhereAPageIs,
   walkListing,
   withinTheGroup,
 } from "./queries";
@@ -110,7 +112,7 @@ export function titleMatches(query: string) {
  */
 export async function searchCatalogue(
   db: Database,
-  { query, limit, after, group }: { query: string; limit: number; after?: string; group?: string },
+  { query, limit, group, ...at }: { query: string; limit: number; group?: string } & WhereAPageIs,
 ): Promise<Catalogue> {
   /*
    * AN EMPTY QUERY IS ANSWERED BEFORE THE QUERY RUNS, and this line is a fix
@@ -138,11 +140,10 @@ export async function searchCatalogue(
    */
   const wanted = query.trim();
   // Nothing was asked, so nothing matched and there is nowhere to walk on to.
-  if (wanted === "") return { rows: [], total: 0, continuesAfter: null };
+  if (wanted === "") return { rows: [], total: 0, continuesAfter: null, continuesBefore: null };
 
   const ranking = theRanking(wanted);
-  const anchor =
-    after === undefined ? undefined : await findInTheRanking(db, ranking, wanted, after);
+  const cut = await theCutAt(at, (id) => findInTheRanking(db, ranking, wanted, id));
 
   return walkListing(db, {
     /*
@@ -163,7 +164,7 @@ export async function searchCatalogue(
      */
     within: withinTheGroup(db, group, and(IN_THE_CATALOGUE, titleMatches(wanted)) as SQL),
     order: ranking,
-    anchor,
+    cut,
     limit,
   });
 }

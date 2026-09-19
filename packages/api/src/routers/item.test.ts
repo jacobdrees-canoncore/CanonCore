@@ -544,6 +544,8 @@ describe("item.get on a container", () => {
     // an array can carry the page and cannot carry what the page is not showing.
     expect(Object.keys(placementsOfItemPublic.shape).sort()).toStrictEqual([
       "continuesAfter",
+      // THE STEP BACK (CNCORE-174), the cursor read from the other end.
+      "continuesBefore",
       // IT WENT RED HERE WHEN CNCORE-129 ADDED `everyPlacedBy`, which is the
       // enumeration working: a listing a reader can narrow has to say what it
       // can be narrowed TO, and that is a field because it is a second question
@@ -562,6 +564,8 @@ describe("item.get on a container", () => {
     // this, which is the enumeration working.
     expect(Object.keys(placementsInContainerPublic.shape).sort()).toStrictEqual([
       "continuesAfter",
+      // THE STEP BACK (CNCORE-174), the cursor read from the other end.
+      "continuesBefore",
       "rows",
       "total",
     ]);
@@ -622,6 +626,34 @@ describe("item.get on a container larger than one page", () => {
     // SORTED SETS COMPARE EQUAL EVEN WITH A REPEAT IN THEM, so the one criterion
     // the comparison above cannot see gets its own line.
     expect(new Set(walked).size).toBe(walked.length);
+  });
+
+  it("steps back from a Row of page two to the hundred members before it", async () => {
+    // THE STEP BACK (CNCORE-174), on the Listing a thousand-member ordering is
+    // walked in, and `before` walks it back as `after` walks it on.
+    //
+    // CUT MID-PAGE, WHICH IS WHAT MAKES THIS A TEST OF THE WIRING. Stepped back
+    // from page two's FIRST member only page one lies behind, and a step back
+    // that reaches the start answers the start -- which is also what a `before`
+    // the handler dropped answers, so that version passed with the parameter
+    // unwired. From the eleventh, a hundred and ten lie behind and the answer is
+    // a hundred of them that nothing else returns.
+    const { id } = await aContainerLargerThanOnePage(db, {
+      title: "An ordering the router steps back through",
+      holding: await someStories(db, 120, "A story the router steps back past"),
+    });
+    const first = await call(appRouter.item.get, { id }, { context });
+    const second = await call(
+      appRouter.item.get,
+      { id, after: first.holds.continuesAfter ?? "" },
+      { context },
+    );
+    const walked = [...first.holds.rows, ...second.holds.rows].map((member) => member.id);
+
+    const back = await call(appRouter.item.get, { id, before: walked[110] }, { context });
+
+    expect(back.holds.rows.map((member) => member.id)).toStrictEqual(walked.slice(10, 110));
+    expect(back.holds.continuesBefore).toBe(walked[10]);
   });
 });
 
@@ -1098,6 +1130,26 @@ describe("item.get on an item in more orderings than one page", () => {
 
     expect([...walked].sort()).toStrictEqual(sitsIn.map((p) => p.id).sort());
     expect(new Set(walked).size).toBe(walked.length);
+  });
+
+  it("steps back from a Row of page two to the hundred orderings before it", async () => {
+    // THE STEP BACK (CNCORE-174) on "Also appears in", which walks with its own
+    // pair: `placedAfter` on, and `placedBefore` back. Cut mid-page for the
+    // reason the Members test gives: from page two's first Row the answer is
+    // the start, which a dropped `placedBefore` answers as well.
+    const { id } = paged;
+    const first = await call(appRouter.item.get, { id }, { context });
+    const second = await call(
+      appRouter.item.get,
+      { id, placedAfter: first.placements.continuesAfter ?? "" },
+      { context },
+    );
+    const walked = [...first.placements.rows, ...second.placements.rows].map((row) => row.id);
+
+    const back = await call(appRouter.item.get, { id, placedBefore: walked[110] }, { context });
+
+    expect(back.placements.rows.map((row) => row.id)).toStrictEqual(walked.slice(10, 110));
+    expect(back.placements.continuesBefore).toBe(walked[10]);
   });
 
   it("narrows to one origin at the query, and counts what the narrowing holds", async () => {

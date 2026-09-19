@@ -3,11 +3,13 @@ import { describe, expect, inject, it } from "vitest";
 import {
   documentAt,
   documentFrom,
+  followed,
   itemsListedOn,
   markedCurrentIn,
   scopeLinked,
   sectionIn,
   textOf,
+  walkLinked,
 } from "./document";
 
 /**
@@ -142,6 +144,30 @@ describe("/search on a result set larger than one page", () => {
    * at all, which is the state the walk is asserted against.
    */
   const QUERY = "story";
+
+  it("steps back from the third page of results to the second, keeping the query", async () => {
+    // THE STEP BACK ON THIS SURFACE (CNCORE-174), from the THIRD page, where
+    // two hundred results lie behind: from the second the answer is the start,
+    // which a dropped `before` would answer too. Previous keeps `q`, because
+    // this order is a function of the query and the walk resupplies it on
+    // every page (ADR-0119).
+    const pagedBaseUrl = inject("pagedBaseUrl");
+    const first = await documentFrom(pagedBaseUrl, `/search?q=${QUERY}`);
+    const second = await documentFrom(
+      pagedBaseUrl,
+      followed(walkLinked(first.text, "Next"), "Next"),
+    );
+    const third = await documentFrom(
+      pagedBaseUrl,
+      followed(walkLinked(second.text, "Next"), "Next"),
+    );
+
+    const previous = followed(walkLinked(third.text, "Previous"), "Previous");
+    const back = await documentFrom(pagedBaseUrl, previous);
+
+    expect(previous).toMatch(new RegExp(`^/search\\?q=${QUERY}&before=`));
+    expect(itemsListedOn(back.text)).toStrictEqual(itemsListedOn(second.text));
+  });
 
   it("reaches every match by following links, and lands on none of them twice", async () => {
     // THE TICKET'S CRITERIA AT THE SEAM IT NAMES BY HAND: a search matching

@@ -1,6 +1,14 @@
 import { describe, expect, inject, it } from "vitest";
 
-import { documentAt, documentFrom, headingOf, sectionIn, sourcesIn } from "./document";
+import {
+  documentAt,
+  documentFrom,
+  followed,
+  headingOf,
+  sectionIn,
+  sourcesIn,
+  walkLinked,
+} from "./document";
 
 /**
  * The app over real HTTP: a production build of Next, serving a real database.
@@ -743,6 +751,24 @@ describe("/items/<an item in more orderings than one page>", () => {
     expect(sectionIn(text, "also-appears-in")).toContain(
       `Showing 100 of ${appearsIn.sitsIn.length} appearances`,
     );
+  });
+
+  it("steps back from the third page of appearances to the second", async () => {
+    // THE STEP BACK ON THIS LISTING (CNCORE-174), `placedBefore`, from the
+    // THIRD page for the reason the Members test gives: from the second the
+    // answer is the start, which a dropped cursor would answer too.
+    const first = await documentFrom(pagedBaseUrl, `/items/${appearsIn.id}`);
+    const second = await documentFrom(pagedBaseUrl, followed(carriesOnAt(first.text), "Next"));
+    const third = await documentFrom(pagedBaseUrl, followed(carriesOnAt(second.text), "Next"));
+
+    const previous = followed(
+      walkLinked(sectionIn(third.text, "also-appears-in"), "Previous"),
+      "Previous",
+    );
+    const back = await documentFrom(pagedBaseUrl, previous);
+
+    expect(previous).toContain("placedBefore=");
+    expect(orderingsLinkedFrom(back.text)).toStrictEqual(orderingsLinkedFrom(second.text));
   });
 
   it("reaches every ordering by following links, and lands on none of them twice", async () => {

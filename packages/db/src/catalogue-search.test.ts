@@ -166,6 +166,7 @@ describe("searchCatalogue", () => {
       rows: [],
       total: 0,
       continuesAfter: null,
+      continuesBefore: null,
     });
   });
 
@@ -181,6 +182,7 @@ describe("searchCatalogue", () => {
       rows: [],
       total: 0,
       continuesAfter: null,
+      continuesBefore: null,
     });
   });
 

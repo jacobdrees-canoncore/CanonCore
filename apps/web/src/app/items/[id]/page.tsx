@@ -74,11 +74,18 @@ import {
  * memoised per request itself (`@/session`), so this costs nothing.
  */
 const readItem = cache(
-  async (id: string, placed?: string, after?: string, placedAfter?: string) => {
+  async (
+    id: string,
+    placed?: string,
+    after?: string,
+    placedAfter?: string,
+    before?: string,
+    placedBefore?: string,
+  ) => {
     const { error, data } = await safe(
       call(
         appRouter.item.get,
-        { id, placed, after, placedAfter },
+        { id, placed, after, placedAfter, before, placedBefore },
         { context: await callerContext() },
       ),
     );
@@ -109,12 +116,14 @@ const readItem = cache(
  * `oneValue` OWNS WHAT A REPEATED OR BLANK PARAMETER MEANS, which is why the
  * page's own reading of `?via=` and the rest goes through it too.
  */
-function theAddressAsks({ id, placed, after, placedAfter }: TheAddress) {
+function theAddressAsks({ id, placed, after, placedAfter, before, placedBefore }: TheAddress) {
   return {
     id,
     placed: oneValue(placed),
     after: oneValue(after),
     placedAfter: oneValue(placedAfter),
+    before: oneValue(before),
+    placedBefore: oneValue(placedBefore),
   };
 }
 
@@ -123,7 +132,8 @@ function theAddressAsks({ id, placed, after, placedAfter }: TheAddress) {
  * FROM `TheQuery` rather than restated, so the two cannot come to disagree about
  * what a parameter may arrive as.
  */
-interface TheAddress extends Pick<TheQuery, "placed" | "after" | "placedAfter"> {
+interface TheAddress
+  extends Pick<TheQuery, "placed" | "after" | "placedAfter" | "before" | "placedBefore"> {
   id: string;
 }
 
@@ -132,8 +142,15 @@ interface TheAddress extends Pick<TheQuery, "placed" | "after" | "placedAfter"> 
  * arguments cannot differ between the two callers -- which is what a memoisation
  * keyed on arguments quietly requires and nothing else would enforce.
  */
-function theItem({ id, placed, after, placedAfter }: ReturnType<typeof theAddressAsks>) {
-  return readItem(id, placed, after, placedAfter);
+function theItem({
+  id,
+  placed,
+  after,
+  placedAfter,
+  before,
+  placedBefore,
+}: ReturnType<typeof theAddressAsks>) {
+  return readItem(id, placed, after, placedAfter, before, placedBefore);
 }
 
 /**
@@ -301,8 +318,10 @@ export async function generateMetadata({
    * `item-page.test.ts` holds this.
    */
   const { id } = await params;
-  const { placed, after, placedAfter } = await searchParams;
-  const item = await theItem(theAddressAsks({ id, placed, after, placedAfter }));
+  const { placed, after, placedAfter, before, placedBefore } = await searchParams;
+  const item = await theItem(
+    theAddressAsks({ id, placed, after, placedAfter, before, placedBefore }),
+  );
   return {
     title: item.title ?? "Untitled item",
     /*
@@ -333,14 +352,17 @@ export async function generateMetadata({
 
 /**
  * EVERY PARAMETER THIS ROUTE READS, named once because `generateMetadata` above
- * takes the same object. Four of the six are the read's question (ADR-0066's
- * `via`, `placed`, `after`, `placedAfter`) and two are what a write just did.
+ * takes the same object. Six of the eight are the read's question (ADR-0066's
+ * `via`, `placed`, `after`, `placedAfter`, and the two step backs CNCORE-174
+ * added, `before` and `placedBefore`) and two are what a write just did.
  */
 interface TheQuery {
   via?: string | string[];
   placed?: string | string[];
   after?: string | string[];
   placedAfter?: string | string[];
+  before?: string | string[];
+  placedBefore?: string | string[];
   undo?: string | string[];
   refused?: string | string[];
 }
@@ -377,7 +399,8 @@ export default async function ItemPage({
    * An array means the parameter was repeated; a route is one route, so a
    * repeated one names no ordering rather than the first of several.
    */
-  const { via, placed, after, placedAfter, undo, refused } = await searchParams;
+  const { via, placed, after, placedAfter, before, placedBefore, undo, refused } =
+    await searchParams;
   /*
    * `oneValue` OWNS WHAT A REPEATED OR BLANK PARAMETER MEANS, and this page is
    * the surface its own module was extracted for. It read `typeof via ===
@@ -395,19 +418,23 @@ export default async function ItemPage({
    * it -- which is what lets one memoised read serve both. Derived separately
    * they would agree today and drift on the day one of them gained a parameter.
    *
-   * `showingOnly` is the narrowing (`?placed=`). `from` is ADR-0119's cursor for
-   * the Members listing, read on the SERVER like `via` above it, so the page a
-   * reader is served is the page they asked for. `appearingFrom` is "Also
-   * appears in"'s own (CNCORE-125): TWO CURSORS ON ONE ADDRESS, because a
+   * `showingOnly` is the narrowing (`?placed=`). `membersAt` is where the
+   * Members listing stands -- ADR-0119's cursor or, since CNCORE-174, a step
+   * back -- read on the SERVER like `via` above it, so the page a reader is
+   * served is the page they asked for. `appearancesAt` is "Also appears in"'s
+   * own (CNCORE-125): TWO POSITIONS ON ONE ADDRESS, because a
    * Container IS an Item (ADR-0004) and one page therefore carries two
    * independent listings -- what this item HOLDS, and every ordering it SITS IN.
    * Neither may move the other, which is why the second has a name rather than
    * being a second `after`; `listing.tsx`'s `CURSOR` has the argument.
    */
-  const asked = theAddressAsks({ id, placed, after, placedAfter });
+  const asked = theAddressAsks({ id, placed, after, placedAfter, before, placedBefore });
   const showingOnly = asked.placed;
-  const from = asked.after;
-  const appearingFrom = asked.placedAfter;
+  // WHERE EACH OF THE TWO LISTINGS STARTS: a cursor on or a step back, never
+  // both on one link (CNCORE-174). Carried as a pair per Listing, because a
+  // walk of either one carries the OTHER's position through untouched.
+  const membersAt = { after: asked.after, before: asked.before };
+  const appearancesAt = { placedAfter: asked.placedAfter, placedBefore: asked.placedBefore };
   /*
    * THE PLACEMENT A REMOVAL JUST TOOK OUT, so this page can offer it back
    * (ADR-0046). It identifies nothing -- the path is the container's identity
@@ -536,17 +563,16 @@ export default async function ItemPage({
       <Members
         itemId={item.id}
         holds={item.holds}
-        route={theRoute({ arrivedThrough, showingOnly, appearingFrom })}
+        route={theRoute({ arrivedThrough, showingOnly, appearancesAt })}
         owner={owner}
-        from={from}
       />
       <AlsoAppearsIn
         itemId={item.id}
         placements={item.placements}
         arrivedThrough={arrivedThrough}
         showingOnly={showingOnly}
-        from={from}
-        appearingFrom={appearingFrom}
+        membersAt={membersAt}
+        appearancesAt={appearancesAt}
       />
       {/*
         WHICH SCOPES THIS ITEM IS IN (ADR-0010, story 38), AFTER THE ORDERINGS
@@ -781,19 +807,16 @@ function Members({
   itemId,
   holds,
   route,
-  from,
   owner,
 }: {
   itemId: string;
   holds: ItemOnThePage["holds"];
   /** ADR-0066's other two parameters, which every link here has to keep. */
   route: TheRoute;
-  /** The cursor this page was asked with, if it was asked with one. */
-  from?: string;
   /** Whether to offer the controls that CHANGE this ordering (CNCORE-109). */
   owner: boolean;
 }) {
-  const { rows, total, continuesAfter } = holds;
+  const { rows, total, continuesAfter, continuesBefore } = holds;
   /*
    * NOTHING AT ALL FOR AN ITEM THAT HOLDS NOTHING, which is `total` rather than
    * `rows.length`: an item that is not a container and an empty container
@@ -1006,8 +1029,8 @@ function Members({
           path={path}
           listing="members"
           asked={route}
-          from={from}
           continuesAfter={continuesAfter}
+          continuesBefore={continuesBefore}
         />
       )}
     </section>
@@ -1036,13 +1059,15 @@ function Members({
 function theRoute({
   arrivedThrough,
   showingOnly,
-  from,
-  appearingFrom,
+  membersAt,
+  appearancesAt,
 }: {
   arrivedThrough?: string;
   showingOnly?: string;
   /**
-   * THE TWO CURSORS, and a caller passes the ones its own links must CARRY.
+   * WHERE THE TWO LISTINGS STAND, and a caller passes the ones its own links
+   * must CARRY. Each is a cursor on or a step back since CNCORE-174, so each is
+   * a pair rather than the one cursor it was.
    *
    * The two listings on this page are independent, so a link that walks or
    * narrows one must not send a reader deep in the other back to its first page.
@@ -1050,18 +1075,18 @@ function theRoute({
    * where the link goes and dropping it for a `Back to the start`, so neither
    * caller has to remember which cursor it is holding.
    *
-   * A CHIP PASSES ONLY `from`, which is the one asymmetry here and is argued at
-   * `FilterLink`: narrowing changes what "Also appears in" is ASKING, so its
-   * cursor names an anchor in the listing being left.
+   * A CHIP PASSES ONLY `membersAt`, which is the one asymmetry here and is
+   * argued at `FilterLink`: narrowing changes what "Also appears in" is ASKING,
+   * so its position names an anchor in the listing being left.
    */
-  from?: string;
-  appearingFrom?: string;
+  membersAt?: Pick<TheRoute, "after" | "before">;
+  appearancesAt?: Pick<TheRoute, "placedAfter" | "placedBefore">;
 }): TheRoute {
   return inTheFixedOrder({
     via: arrivedThrough,
     placed: showingOnly,
-    after: from,
-    placedAfter: appearingFrom,
+    ...membersAt,
+    ...appearancesAt,
   });
 }
 
@@ -1081,8 +1106,8 @@ function AlsoAppearsIn({
   placements,
   arrivedThrough,
   showingOnly,
-  from,
-  appearingFrom,
+  membersAt,
+  appearancesAt,
 }: {
   itemId: string;
   placements: ItemOnThePage["placements"];
@@ -1095,18 +1120,18 @@ function AlsoAppearsIn({
   /** The origin the reader has narrowed to, if any. */
   showingOnly?: string;
   /**
-   * The Members cursor, which this section's links carry FORWARD rather than
-   * drop.
+   * Where the Members listing stands, which this section's links carry
+   * FORWARD rather than drop: its cursor or its step back (CNCORE-174).
    *
    * The two listings on this page are independent, so a reader deep in a
    * container's ordering who narrows or walks this one would otherwise be sent
    * back to that ordering's first page by a link that has nothing to do with it.
    */
-  from?: string;
-  /** This listing's OWN cursor, if the page was asked with one. */
-  appearingFrom?: string;
+  membersAt: Pick<TheRoute, "after" | "before">;
+  /** Where THIS listing stands, if the page was asked with a position in it. */
+  appearancesAt: Pick<TheRoute, "placedAfter" | "placedBefore">;
 }) {
-  const { rows, total, continuesAfter, everyPlacedBy } = placements;
+  const { rows, total, continuesAfter, continuesBefore, everyPlacedBy } = placements;
   /*
    * NOTHING AT ALL FOR AN ITEM IN NO ORDERING, which is `total` rather than
    * `rows.length` for the reason `Members` above gives: a rows-length
@@ -1142,7 +1167,7 @@ function AlsoAppearsIn({
   // `/items/<id>` is where this listing is walked, for the same reason the
   // Members list is: a Container IS an Item and this is the item's own page.
   const path: MembersPath = `/items/${itemId}`;
-  const route = theRoute({ arrivedThrough, showingOnly, from, appearingFrom });
+  const route = theRoute({ arrivedThrough, showingOnly, membersAt, appearancesAt });
 
   return (
     <section className="mt-8" aria-labelledby="also-appears-in">
@@ -1192,7 +1217,7 @@ function AlsoAppearsIn({
           itemId={itemId}
           arrivedThrough={arrivedThrough}
           showingOnly={showingOnly}
-          from={from}
+          membersAt={membersAt}
         >
           All
         </FilterLink>
@@ -1203,7 +1228,7 @@ function AlsoAppearsIn({
             arrivedThrough={arrivedThrough}
             showingOnly={showingOnly}
             origin={origin}
-            from={from}
+            membersAt={membersAt}
           >
             {placedByLabel(origin)}
           </FilterLink>
@@ -1317,8 +1342,8 @@ function AlsoAppearsIn({
           path={path}
           listing="appearances"
           asked={route}
-          from={appearingFrom}
           continuesAfter={continuesAfter}
+          continuesBefore={continuesBefore}
         />
       )}
     </section>
@@ -1343,14 +1368,15 @@ function FilterLink({
   arrivedThrough,
   showingOnly,
   origin,
-  from,
+  membersAt,
   children,
 }: {
   itemId: string;
   arrivedThrough?: string;
   showingOnly?: string;
   origin?: string;
-  from?: string;
+  /** Where the Members listing stands, which a chip carries rather than moves. */
+  membersAt: Pick<TheRoute, "after" | "before">;
   children: React.ReactNode;
 }) {
   // An object rather than a string: Next's typed routes match a string href
@@ -1361,7 +1387,7 @@ function FilterLink({
   // `origin` RATHER THAN `showingOnly` IS WHAT THIS CHIP NARROWS TO: the chip
   // for an origin points AT it, and the `All` chip has none and therefore drops
   // `placed` -- which is what makes it All.
-  const query = theRoute({ arrivedThrough, showingOnly: origin, from });
+  const query = theRoute({ arrivedThrough, showingOnly: origin, membersAt });
 
   return (
     <Link

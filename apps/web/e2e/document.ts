@@ -702,3 +702,35 @@ export function itemsListedOn(text: string): string[] {
     ([, id]) => id as string,
   );
 }
+
+/**
+ * Where the walk under a listing links the words a reader follows, if it does:
+ * `Next`, `Previous`, `Back to the start` (CNCORE-174). The FIRST walk in what
+ * it is handed, so an Item page's two Listings are read through `sectionIn`.
+ *
+ * SHARED SINCE CNCORE-174, when four files came to follow a step back.
+ */
+export function walkLinked(text: string, words: string): string | undefined {
+  const walk = text.match(/<nav aria-label="More of this listing"[^>]*>(.*?)<\/nav>/)?.[1];
+  return walk === undefined ? undefined : linkedIn(walk, words);
+}
+
+/** Where the letters above a listing link one of them, if they do (CNCORE-174). */
+export function letterLinked(text: string, letter: string): string | undefined {
+  const letters = text.match(/<nav aria-label="Jump to a letter"[^>]*>(.*?)<\/nav>/)?.[1];
+  return letters === undefined ? undefined : linkedIn(letters, letter);
+}
+
+/** The letters the page marks as the one it was jumped to. */
+export function lettersMarkedCurrentIn(text: string): string[] {
+  const letters = text.match(/<nav aria-label="Jump to a letter"[^>]*>(.*?)<\/nav>/)?.[1] ?? "";
+  return [...letters.matchAll(/<a [^>]*aria-current="true"[^>]*>(.*?)<\/a>/g)].map(([, words]) =>
+    textOf(words ?? ""),
+  );
+}
+
+/** A link the page was expected to offer, or a failure naming the one it did not. */
+export function followed(href: string | undefined, words: string): string {
+  if (href === undefined) throw new Error(`the page offered no ${words}`);
+  return href;
+}

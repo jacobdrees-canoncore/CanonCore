@@ -25,6 +25,7 @@ import {
   aStatement,
   connect,
   ownerSource,
+  someStories,
 } from "./testing/catalogue";
 
 /** Whether the catalogue lists one particular item. */
@@ -645,6 +646,201 @@ describe("readCatalogue, walked a page at a time", () => {
 });
 
 /**
+ * THE CATALOGUE STEPPED BACK A PAGE AT A TIME (CNCORE-174): `before` is the
+ * first Row of the page a reader is on, and the answer is the page before it.
+ *
+ * ORACLED AGAINST THE WALK FORWARD, which is a different statement read the
+ * other way round. A step back that agrees with it page for page is the reverse
+ * comparison and the reverse order agreeing with the forward ones, which is the
+ * only thing a second direction can get wrong.
+ */
+describe("readCatalogue, stepped back a page at a time", () => {
+  it("answers the page the reader came from, all the way back to the first", async () => {
+    // SEVEN OF ITS OWN, so the walk is at least three pages of three whatever
+    // else the shared catalogue holds when this runs. Two pages cannot tell a
+    // step back from a start over, since the page before the second IS the
+    // first -- which is how this test first passed with `before` ignored.
+    await someStories(db, 7, "A story a step back has to pass through");
+
+    const forward = await pagesOf(db, 3);
+    expect(forward.length).toBeGreaterThanOrEqual(3);
+    const back: string[][] = [];
+    for (const page of forward.slice(1)) {
+      const answer = await readCatalogue(db, { limit: 3, before: page[0] });
+      back.push(answer.rows.map((row) => row.id));
+    }
+
+    // EVERY PAGE BUT THE LAST, in the order the walk met them: each is the one
+    // a reader stepping back from the page after it is shown.
+    expect(back).toStrictEqual(forward.slice(0, -1));
+  });
+
+  it("steps back from every Row to the one before it, across a tie and the untitled tail", async () => {
+    // A PAGE OF ONE FROM EVERY ROW, so every boundary the order has is one a
+    // step back crosses -- rather than whichever few a page size happens to
+    // cut at, which is ADR-0119's rule for testing a walk. The two that a
+    // backward order gets wrong are both here by construction: a tied pair,
+    // which only the id behind the key separates, and the untitled tail, whose
+    // Rows sort LAST forward and so come FIRST read backward.
+    const owner = await ownerSource(db);
+    for (const title of ["The Web Planet", "Web Planet (novel)"]) {
+      const id = await anItemTitled(db, title);
+      await aStatement(db, {
+        subjectItemId: id,
+        property: "sort_name",
+        valueLiteral: "Web Planet, stepped back through",
+        sourceId: owner,
+      });
+    }
+    await anItem(db);
+    await anItem(db);
+
+    const order = (await readCatalogue(db, { limit: 10_000 })).rows.map((row) => row.id);
+    const wrong: string[] = [];
+    for (const [at, id] of order.entries()) {
+      if (at === 0) continue;
+      const { rows } = await readCatalogue(db, { limit: 1, before: id });
+      if (rows[0]?.id !== order[at - 1]) wrong.push(`${at}: ${rows[0]?.id} for ${order[at - 1]}`);
+    }
+
+    // NAMED RATHER THAN COUNTED, so a failure says where the order broke.
+    expect(wrong).toStrictEqual([]);
+  });
+
+  it("offers a step back from every page but the first, whichever way it was reached", async () => {
+    // `continuesBefore` IS `continuesAfter` TURNED ROUND: the first Row of a
+    // page where something comes before it, and `null` where nothing does. A
+    // page is reached three ways and each has to say it: from the start, by
+    // walking forward, and by stepping back.
+    await someStories(db, 7, "A story a step back is offered around");
+    const [first, second, third] = await pagesOf(db, 3);
+    if (!first || !second || !third) throw new Error("the walk is not three pages long");
+
+    const fromTheStart = await readCatalogue(db, { limit: 3 });
+    const walkedTo = await readCatalogue(db, { limit: 3, after: first.at(-1) });
+    const steppedBackTo = await readCatalogue(db, { limit: 3, before: third[0] });
+
+    expect(fromTheStart.continuesBefore).toBeNull();
+    expect(walkedTo.continuesBefore).toBe(second[0]);
+    expect(steppedBackTo.rows.map((row) => row.id)).toStrictEqual(second);
+    expect(steppedBackTo.continuesBefore).toBe(second[0]);
+    // AND FORWARD FROM A PAGE STEPPED BACK TO, which is the direction that
+    // page did not read: the Row it ends on, since the page it left is ahead.
+    expect(steppedBackTo.continuesAfter).toBe(second.at(-1));
+  });
+
+  it("answers the first page whole where a step back reaches the start", async () => {
+    // A STEP BACK THAT RUNS OUT OF ROWS IS THE START, and the start is a full
+    // page rather than whatever was left. Stepping back from the third Row
+    // finds two before it; answering those two alone would be a page nobody
+    // walking forward was ever shown, and the one after it would begin
+    // mid-page. So a step back that reaches the start answers the start --
+    // ADR-0119's answer for a cursor that names no position, which is the same
+    // place: nothing is behind it.
+    await someStories(db, 4, "A story a step back runs out at");
+    const [first] = await pagesOf(db, 3);
+    if (!first || first.length < 3) throw new Error("the first page is not full");
+
+    const short = await readCatalogue(db, { limit: 3, before: first[2] });
+
+    expect(short.rows.map((row) => row.id)).toStrictEqual(first);
+    expect(short.continuesBefore).toBeNull();
+  });
+});
+
+/**
+ * THE CATALOGUE JUMPED TO A LETTER (CNCORE-174): the first Row filed under it,
+ * reached by a SEEK on the sort key rather than by counting pages.
+ *
+ * IN A GROUP OF ITS OWN, which is what lets the answer be EXACT: the shared
+ * catalogue holds whatever every other file filed under M, and a Group nobody
+ * else knows the id of holds these Rows and no others. The seek is the same
+ * one either way; a Group only narrows what it seeks among.
+ */
+describe("readCatalogue, jumped to a letter", () => {
+  /** Rows filed under several letters, in a Group of their own, by title. */
+  async function aGroupFiledUnder(titles: string[]): Promise<{ group: string; ids: string[] }> {
+    const group = await createGroupByHand(db, { name: "Filed under several letters" });
+    const ids: string[] = [];
+    for (const title of titles) {
+      const id = await anItemTitled(db, title);
+      await putItemInGroupByHand(db, { groupId: group, itemId: id });
+      ids.push(id);
+    }
+    return { group, ids };
+  }
+
+  it("lands at the first Row filed under the letter, whatever case or mark it opens with", async () => {
+    // FILED UNDER, WHICH IS THE COLLATION'S WORD AND NOT THE FIRST CHARACTER'S.
+    // A quoted title files under the letter inside the quote and a lower-case
+    // one under its capital, so a jump that compared first characters would
+    // put `"Ma"` under a quotation mark and `m` after every capital. The
+    // Owner's own catalogue has both shapes: `"Death to the Daleks!"` files
+    // under D, and three titles open lower case (measured 2026-09-19).
+    //
+    // WRITTEN IN AN ORDER THAT IS NOT THE ANSWER'S, so insertion order cannot
+    // stand in for the seek.
+    const { group, ids } = await aGroupFiledUnder([
+      "Peri and the Piscon Paradox",
+      "mary had a Dalek",
+      "Aliens of London",
+      '"Ma" and the Daleks',
+      "Nyssa's story",
+      "m",
+      "Lz, filed last under L",
+    ]);
+    const [peri, mary, , quoted, nyssa, m] = ids;
+
+    const jumped = await readCatalogue(db, { limit: 10, group, letter: "M" });
+
+    expect(jumped.rows.map((row) => row.id)).toStrictEqual([m, quoted, mary, nyssa, peri]);
+    // Something IS filed before M, so the page offers a step back to it.
+    expect(jumped.continuesBefore).toBe(m);
+  });
+
+  it("lands at the next letter along where nothing is filed under the one asked for", async () => {
+    // A SEEK, NOT A FILTER: "at or past O" where nothing opens with O is the
+    // first Row after it, which is where a reader looking for O would look.
+    // An empty page here would be a filter's answer, and a dead end.
+    const { group, ids } = await aGroupFiledUnder(["Nyssa's story", "Peri and the Piscon Paradox"]);
+
+    const jumped = await readCatalogue(db, { limit: 10, group, letter: "O" });
+
+    expect(jumped.rows.map((row) => row.id)).toStrictEqual([ids[1]]);
+  });
+
+  it("offers no step back where nothing is filed before the letter", async () => {
+    // THE PAGE A JUMP LANDS ON IS THE START where nothing sorts ahead of the
+    // letter, and it must say so rather than offer a step back to itself. A
+    // cursor alone cannot tell: the jump names a point, and whether anything
+    // sits behind that point is a question the Listing has to be asked.
+    const { group, ids } = await aGroupFiledUnder(["Nyssa's story", "Peri and the Piscon Paradox"]);
+
+    const jumped = await readCatalogue(db, { limit: 10, group, letter: "A" });
+
+    expect(jumped.rows.map((row) => row.id)).toStrictEqual(ids);
+    expect(jumped.continuesBefore).toBeNull();
+  });
+
+  it("starts over where a cursor names nothing, whatever letter the address also carries", async () => {
+    // A CURSOR IS THE MORE EXACT OF THE TWO, AND ONE NAMING NOTHING STARTS THE
+    // LISTING OVER (ADR-0066). No link this app writes carries both, so this is
+    // an address typed or kept by hand -- and it read as a jump until review
+    // caught the cursor falling through to the letter.
+    const { group, ids } = await aGroupFiledUnder(["Nyssa's story", "Peri and the Piscon Paradox"]);
+
+    const asked = await readCatalogue(db, {
+      limit: 10,
+      group,
+      after: crypto.randomUUID(),
+      letter: "P",
+    });
+
+    expect(asked.rows.map((row) => row.id)).toStrictEqual(ids);
+  });
+});
+
+/**
  * THE CATALOGUE NARROWED TO ONE GROUP (CNCORE-179, ADR-0010): one universe at
  * a time, rather than every one on a single front page.
  *
@@ -770,7 +966,12 @@ describe("readCatalogue, narrowed to a Group", () => {
     await db.update(groups).set({ deletedAt: new Date() }).where(eq(groups.id, scope));
 
     for (const listing of await narrowed()) {
-      expect(listing).toStrictEqual({ rows: [], total: 0, continuesAfter: null });
+      expect(listing).toStrictEqual({
+        rows: [],
+        total: 0,
+        continuesAfter: null,
+        continuesBefore: null,
+      });
     }
   });
 
@@ -785,7 +986,12 @@ describe("readCatalogue, narrowed to a Group", () => {
     // reading as "this server is broken" (ADR-0066 under CNCORE-14).
     for (const group of [crypto.randomUUID(), "doctor-who"]) {
       const narrowed = await readCatalogue(db, { limit: 1000, group });
-      expect(narrowed).toStrictEqual({ rows: [], total: 0, continuesAfter: null });
+      expect(narrowed).toStrictEqual({
+        rows: [],
+        total: 0,
+        continuesAfter: null,
+        continuesBefore: null,
+      });
     }
   });
 });
@@ -828,6 +1034,23 @@ async function walk(db: Database, pageSize: number): Promise<string[]> {
     const page = await readCatalogue(db, { limit: pageSize, after });
     walked.push(...page.rows.map((row) => row.id));
     if (page.continuesAfter === null) return walked;
+    after = page.continuesAfter;
+  }
+  throw new Error(`the walk did not end after ${total} pages of ${pageSize}`);
+}
+
+/**
+ * Every page the catalogue is walked in, forward from the start: `walk` above,
+ * keeping where each page began and ended.
+ */
+async function pagesOf(db: Database, pageSize: number): Promise<string[][]> {
+  const pages: string[][] = [];
+  let after: string | undefined;
+  const { total } = await readCatalogue(db, { limit: 1 });
+  for (let walked = 0; walked <= total; walked += 1) {
+    const page = await readCatalogue(db, { limit: pageSize, after });
+    pages.push(page.rows.map((row) => row.id));
+    if (page.continuesAfter === null) return pages;
     after = page.continuesAfter;
   }
   throw new Error(`the walk did not end after ${total} pages of ${pageSize}`);
