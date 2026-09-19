@@ -25,6 +25,7 @@ import {
   aStatement,
   connect,
   ownerSource,
+  someStories,
 } from "./testing/catalogue";
 
 /** Whether the catalogue lists one particular item. */
@@ -645,6 +646,69 @@ describe("readCatalogue, walked a page at a time", () => {
 });
 
 /**
+ * THE CATALOGUE STEPPED BACK A PAGE AT A TIME (CNCORE-174): `before` is the
+ * first Row of the page a reader is on, and the answer is the page before it.
+ *
+ * ORACLED AGAINST THE WALK FORWARD, which is a different statement read the
+ * other way round. A step back that agrees with it page for page is the reverse
+ * comparison and the reverse order agreeing with the forward ones, which is the
+ * only thing a second direction can get wrong.
+ */
+describe("readCatalogue, stepped back a page at a time", () => {
+  it("answers the page the reader came from, all the way back to the first", async () => {
+    // SEVEN OF ITS OWN, so the walk is at least three pages of three whatever
+    // else the shared catalogue holds when this runs. Two pages cannot tell a
+    // step back from a start over, since the page before the second IS the
+    // first -- which is how this test first passed with `before` ignored.
+    await someStories(db, 7, "A story a step back has to pass through");
+
+    const forward = await pagesOf(db, 3);
+    expect(forward.length).toBeGreaterThanOrEqual(3);
+    const back: string[][] = [];
+    for (const page of forward.slice(1)) {
+      const answer = await readCatalogue(db, { limit: 3, before: page[0] });
+      back.push(answer.rows.map((row) => row.id));
+    }
+
+    // EVERY PAGE BUT THE LAST, in the order the walk met them: each is the one
+    // a reader stepping back from the page after it is shown.
+    expect(back).toStrictEqual(forward.slice(0, -1));
+  });
+
+  it("steps back from every Row to the one before it, across a tie and the untitled tail", async () => {
+    // A PAGE OF ONE FROM EVERY ROW, so every boundary the order has is one a
+    // step back crosses -- rather than whichever few a page size happens to
+    // cut at, which is ADR-0119's rule for testing a walk. The two that a
+    // backward order gets wrong are both here by construction: a tied pair,
+    // which only the id behind the key separates, and the untitled tail, whose
+    // Rows sort LAST forward and so come FIRST read backward.
+    const owner = await ownerSource(db);
+    for (const title of ["The Web Planet", "Web Planet (novel)"]) {
+      const id = await anItemTitled(db, title);
+      await aStatement(db, {
+        subjectItemId: id,
+        property: "sort_name",
+        valueLiteral: "Web Planet, stepped back through",
+        sourceId: owner,
+      });
+    }
+    await anItem(db);
+    await anItem(db);
+
+    const order = (await readCatalogue(db, { limit: 10_000 })).rows.map((row) => row.id);
+    const wrong: string[] = [];
+    for (const [at, id] of order.entries()) {
+      if (at === 0) continue;
+      const { rows } = await readCatalogue(db, { limit: 1, before: id });
+      if (rows[0]?.id !== order[at - 1]) wrong.push(`${at}: ${rows[0]?.id} for ${order[at - 1]}`);
+    }
+
+    // NAMED RATHER THAN COUNTED, so a failure says where the order broke.
+    expect(wrong).toStrictEqual([]);
+  });
+});
+
+/**
  * THE CATALOGUE NARROWED TO ONE GROUP (CNCORE-179, ADR-0010): one universe at
  * a time, rather than every one on a single front page.
  *
@@ -828,6 +892,23 @@ async function walk(db: Database, pageSize: number): Promise<string[]> {
     const page = await readCatalogue(db, { limit: pageSize, after });
     walked.push(...page.rows.map((row) => row.id));
     if (page.continuesAfter === null) return walked;
+    after = page.continuesAfter;
+  }
+  throw new Error(`the walk did not end after ${total} pages of ${pageSize}`);
+}
+
+/**
+ * Every page the catalogue is walked in, forward from the start: `walk` above,
+ * keeping where each page began and ended.
+ */
+async function pagesOf(db: Database, pageSize: number): Promise<string[][]> {
+  const pages: string[][] = [];
+  let after: string | undefined;
+  const { total } = await readCatalogue(db, { limit: 1 });
+  for (let walked = 0; walked <= total; walked += 1) {
+    const page = await readCatalogue(db, { limit: pageSize, after });
+    pages.push(page.rows.map((row) => row.id));
+    if (page.continuesAfter === null) return pages;
     after = page.continuesAfter;
   }
   throw new Error(`the walk did not end after ${total} pages of ${pageSize}`);
