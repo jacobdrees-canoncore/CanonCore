@@ -269,11 +269,10 @@ export const group = {
    * DELETING A SCOPE THE OWNER NO LONGER USES (story 33), WHICH TOUCHES NO ITEM
    * (story 34).
    *
-   * THE ONE MUTATION HERE THAT WOULD DESERVE A CONFIRMATION, and ADR-0046 is
-   * where that is decided rather than here: a Group is where the Owner's
-   * curation of a scope lives, and deleting one is not the frequent act
-   * `take` is. What makes it safe rather than merely warned about is that it
-   * takes nothing with it -- every Item is exactly where it was, in every
+   * THE ONE MUTATION HERE WITH A CONFIRMATION IN FRONT OF IT (ADR-0046,
+   * CNCORE-210), which `previewDelete` below answers: nothing restores a
+   * deleted Group, and deleting one is not the frequent act `take` is. What it
+   * never takes is an Item -- every Item is exactly where it was, in every
    * Ordering and every other Group.
    */
   delete: ownerProcedure
