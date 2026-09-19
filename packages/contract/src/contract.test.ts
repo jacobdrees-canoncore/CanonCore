@@ -48,12 +48,31 @@ import { type Participant, participants } from "./participants";
  */
 const underTest: Participant[] = await participants();
 
+/**
+ * WHAT EACH PARTICIPANT DID WITH THE CREDENTIAL IT WAS GIVEN: written by the round
+ * trip in `its credential`, read by `ADR-0122's optionality` at the end of the file.
+ *
+ * A RECORD OF WHAT RAN rather than an inference from each manifest afterwards,
+ * because what the guard claims is that the ASSERTION ran. Read out of order, or
+ * with the round trip deleted, it is empty and the guard fails -- which is the
+ * direction a guard has to fail in.
+ */
+const unlockAnswers: { name: string; outcome: "held" | "refused" }[] = [];
+
 afterAll(async () => {
   await Promise.all(underTest.map((participant) => participant.close()));
 });
 
 async function get(participant: Participant, path: string) {
-  const response = await fetch(`${participant.baseUrl}${path}`);
+  return read(await fetch(`${participant.baseUrl}${path}`));
+}
+
+/**
+ * An answer as every assertion here reads it. SHARED BY THE GET AND THE POST,
+ * because a refused Unlock owes the same "a reason came back" a refused `search`
+ * does, and two readers are two places for that check to mean different things.
+ */
+async function read(response: Response) {
   const text = await response.text();
   return {
     status: response.status,
@@ -85,7 +104,7 @@ async function post(participant: Participant, path: string, body: unknown) {
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
   });
-  return { status: response.status, text: await response.text() };
+  return read(response);
 }
 
 /**
@@ -101,10 +120,12 @@ async function post(participant: Participant, path: string, body: unknown) {
  * that checks it.
  *
  * IT ALSO KEEPS THE ORDERING HONEST. `its credential` below UNLOCKS every provider
- * that declares one, and it runs after these. Reordered so it ran first, a read
- * taken before each call reports `valid`, the strict branch is taken, and the
- * refusal that follows is RED -- which is what a reorder should be, rather than a
- * suite that quietly re-files the credential test's subject as a locked provider.
+ * that holds what it is given, and it runs after these. Reordered so it ran first, a
+ * read taken before each call to such a provider reports `valid`, the strict branch
+ * is taken, and the refusal that follows is RED -- which is what a reorder should
+ * be, rather than a suite that quietly re-files the credential test's subject as a
+ * locked provider. A provider that Spends refuses the suite's value and is still
+ * `absent` afterwards (CNCORE-207), so it takes the refusal branch in either order.
  */
 async function declaredCredential(participant: Participant): Promise<CmppManifest["credential"]> {
   return manifest.parse((await get(participant, "/")).body).credential;
@@ -540,11 +561,14 @@ describe.each(underTest.map((p) => [p.name, p] as const))(
      * the field existing, which is the whole basis on which it could be added to
      * a shipped contract at all.
      *
-     * **THIS SUITE UNLOCKS EVERY PROVIDER THAT DECLARES A CREDENTIAL.** That is
+     * **THIS SUITE UNLOCKS EVERY PROVIDER THAT HOLDS WHAT IT IS GIVEN.** That is
      * not a side effect to be tidied away: ADR-0122 makes the round trip the claim
-     * -- POST the declared fields at the declared path, and the provider reports
-     * `valid` -- and there is no way to assert it without performing it. CI is
-     * where this runs, against ephemeral service containers.
+     * -- POST the declared fields at the declared path, and the provider either
+     * holds them and reports `valid`, or Spends them, is refused, and says why --
+     * and there is no way to assert it without performing it. CI is where this
+     * runs, against ephemeral service containers. It read "every provider that
+     * declares a credential" until CNCORE-207, when `provider-wiki` began Spending
+     * what it is given and refusing the suite's value.
      *
      * IT WILL NOT OVERWRITE A CREDENTIAL IT DID NOT PUT THERE, and that guard is
      * in code rather than in a README because the thing it protects is the Owner's
@@ -578,7 +602,7 @@ describe.each(underTest.map((p) => [p.name, p] as const))(
         ).toBeLessThan(400);
       });
 
-      it("takes the fields it declared, at the path it declared, and then reports valid", async () => {
+      it("takes the fields it declared, at the path it declared, and holds them or says why not", async () => {
         const before = manifest.parse((await get(participant, "/")).body).credential;
         if (before === undefined) return;
 
@@ -600,13 +624,52 @@ describe.each(underTest.map((p) => [p.name, p] as const))(
             ]),
           ),
         );
-
-        expect(supplied.status).toBeLessThan(400);
         const after = manifest.parse((await get(participant, "/")).body).credential;
-        // VALID MEANS "I HOLD ONE AND NOTHING HAS REFUSED IT YET", which is all
-        // it has ever meant -- the provider cannot check a credential without
-        // doing its own job, and a dummy value is indistinguishable from a real
-        // one until an upstream says otherwise.
+
+        /*
+         * REFUSED, WHICH A PROVIDER MAY ANSWER SINCE CNCORE-207 -- IN ONE WAY ONLY.
+         *
+         * A provider that SPENDS what it is given learns what one that only stores it
+         * cannot: whether its upstream accepts it (ADR-0122). This value is one no
+         * upstream would, so a provider that Spends it meets a refusal, and holding it
+         * anyway would report `valid` about something refused a second earlier.
+         *
+         * `400` AND NOT MERELY "SOME REFUSAL", for the reason the 503 above is pinned:
+         * a contract that let each provider pick its own status would quietly become
+         * two integrations. It is right on the merits as well. What failed is the
+         * SUBMISSION, which is a fault in the request just made; 401 and 403 describe
+         * the caller's standing with the provider, and that is not what happened.
+         *
+         * AND IT CHANGES NOTHING: the state and the moment it last changed are both
+         * what they were. From `absent` that catches a refused value stored anyway,
+         * and one recorded as a lapse. The same rule protects a credential the
+         * provider already HOLDS -- nothing authenticates this route, so a refusal
+         * that wrote anything would let anyone who can reach the port mark the Owner's
+         * working session `expired` with a value they made up -- but this suite will
+         * not touch a held one, so `participants.test.ts` asserts that half against
+         * the witness.
+         */
+        if (supplied.status === 400) {
+          expect(supplied.contentType).toContain("application/json");
+          // A refusal with no body is indistinguishable from a provider that fell
+          // over, which is what the status on its own cannot carry.
+          expect(supplied.body).not.toBeNull();
+          expect(after?.state).toBe(before.state);
+          expect(after?.state_changed_at).toBe(before.state_changed_at);
+          unlockAnswers.push({ name: participant.name, outcome: "refused" });
+          return;
+        }
+
+        expect(
+          supplied.status,
+          `\`${before.unlock_path}\` answered ${supplied.status} to a complete submission. It owes one ` +
+            "of two answers (ADR-0122): below 400, holding what it was given and reporting `valid`; or " +
+            "400 with a reason, having Spent it and been refused, and holding nothing new.",
+        ).toBeLessThan(400);
+        // VALID MEANS "I HOLD ONE AND NOTHING HAS REFUSED IT YET", which is all it
+        // has ever meant. A provider that does not Spend cannot tell this value from
+        // a real one until an upstream says otherwise, and neither can one that
+        // Spends but could not reach its upstream to do it.
         expect(after?.state).toBe("valid");
         // AND THE MOMENT MOVED. Without this the assertion above passes against a
         // provider that reported `valid` before the POST and ignored it: the
@@ -614,6 +677,7 @@ describe.each(underTest.map((p) => [p.name, p] as const))(
         // like that".
         expect(after?.state_changed_at).not.toBeNull();
         expect(after?.state_changed_at).not.toBe(before.state_changed_at);
+        unlockAnswers.push({ name: participant.name, outcome: "held" });
       });
 
       it("refuses a submission missing a field it declared, if it declares a credential", async () => {
@@ -662,9 +726,11 @@ describe.each(underTest.map((p) => [p.name, p] as const))(
          * What it deliberately does NOT do is check the manifest's `credential`
          * first, the way `search` and `lookup` above do. Those read it BEFORE the
          * call and branch on it; by the time this runs, `its credential` has
-         * unlocked every provider that declares one, so the manifest reports
-         * `valid` about a value the upstream has never seen -- and a provider can
-         * be unable to answer for reasons that are not its credential at all.
+         * unlocked every provider that holds what it is given, so such a manifest
+         * reports `valid` about a value the upstream has never seen, while one
+         * that Spends has refused that value and still reports `absent` -- and a
+         * provider can be unable to answer for reasons that are not its
+         * credential at all.
          * `provider-wiki` answers 503 with a VALID credential when the wiki
          * declines a query as too large, which is honest and which an assertion
          * keyed on `credential.state` would call a contract breach.
@@ -711,7 +777,8 @@ describe.each(underTest.map((p) => [p.name, p] as const))(
         // The same reading `browse` gets one block up, and for the same reason:
         // a provider that cannot reach its source owes the refusal rather than an
         // answer, and the manifest's `credential` is not what decides it here --
-        // `its credential` has already unlocked everything that declares one.
+        // after `its credential` it no longer says whether this call can be
+        // answered, for the reasons `browse` gives.
         if (response.status !== 200) {
           expectSaysItCannotAnswer(response, path);
           return;
@@ -963,6 +1030,37 @@ describe("ADR-0122's optionality", () => {
    * green because nobody was asked. This is the same device `browse` gets above,
    * pointed at the branch this ticket added.
    */
+  /**
+   * AND AN UNLOCK IS EXERCISED IN BOTH ITS ANSWERS, which is the same device again,
+   * pointed at the branch CNCORE-207 added.
+   *
+   * WITH NOBODY HOLDING WHAT IT WAS GIVEN, "refuses everything" would pass for
+   * "Spent it and was refused". The suite holds no value any upstream accepts, so it
+   * cannot tell those two apart by asking: what keeps the refusal a permission is
+   * that something under test is still held to HOLDING. `provider-tmdb` declares no
+   * credential, so today that is the locked witness and nothing else.
+   *
+   * WITH NOBODY REFUSING, the rule that a refusal changes nothing is a branch
+   * nothing enters -- as it would be on any machine that cannot pull
+   * `provider-wiki`, but for the witness that Spends.
+   */
+  it("is exercised in both answers to an Unlock: something held what it was given, and something refused it", () => {
+    expect(
+      unlockAnswers.filter((answer) => answer.outcome === "held").map((answer) => answer.name),
+      "Nothing under test held the credential it was given, so every round trip took CNCORE-207's " +
+        "refusal branch and nothing checked that a provider can be Unlocked at all. The suite holds " +
+        "no value any upstream accepts, so a provider refusing everything would pass for one that " +
+        "Spends. Restore a participant that holds what it is given rather than deleting this test.",
+    ).not.toHaveLength(0);
+
+    expect(
+      unlockAnswers.filter((answer) => answer.outcome === "refused").map((answer) => answer.name),
+      "Nothing under test refused the credential it was given, so the rule that a refusal changes " +
+        "nothing is a branch no participant entered. Restore the witness that Spends rather than " +
+        "deleting this test.",
+    ).not.toHaveLength(0);
+  });
+
   it("is exercised in the other direction: something under test is held to ANSWERING", async () => {
     const declared = await Promise.all(
       underTest.map(async (participant) => ({

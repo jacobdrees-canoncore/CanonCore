@@ -370,6 +370,10 @@ const declaration = z.looseObject({
        *
        * THREE AND NOT FOUR. A provider that held something malformed reports
        * `absent`, because from the Owner's side there is nothing to answer with.
+       * And one holding a credential it could not Spend, its upstream being
+       * unreachable, reports `valid` rather than a fourth word: the contract reads
+       * anything but `valid` as a provider owed a 503, so a fourth state would
+       * oblige one holding a credential that works to refuse with it (CNCORE-207).
        */
       state: z.enum(["absent", "valid", "expired"]),
       /**

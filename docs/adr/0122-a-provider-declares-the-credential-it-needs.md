@@ -263,7 +263,7 @@ keep.
 
 ### What the contract had to decide that this record does not
 
-Three obligations fall on every provider that declares a credential, and none is written above.
+Four obligations fall on every provider that declares a credential, and none is written above.
 They were settled in `packages/contract/src/contract.test.ts` because a conformance suite cannot
 assert a round trip without them, and they are recorded here so the next provider meets a decision
 rather than a test:
@@ -277,6 +277,11 @@ person.
 a credential stored is a provider reporting `valid` about something its upstream is about to refuse,
 which points the Owner's diagnosis at their source for a fault that is in the form they just
 submitted.
+
+**And under CNCORE-207: a complete submission is either HELD — below 400, the state `valid`, the
+moment it changed moved — or, by a provider that Spent it and was refused, REFUSED with `400` and a
+JSON body, leaving the state and the moment exactly as they were.** No third answer is conformant.
+The section at the end of this record carries why.
 
 **And under CNCORE-141: a provider whose declared `credential.state` is not `valid` owes `search`
 and `lookup` a `503` with a JSON body — while one reporting `valid` is still held to `200` and a
@@ -323,7 +328,8 @@ promise that was standing when the call was made. Read afterwards, a provider th
 was refused by its upstream mid-call and came back reporting `expired` would have its refusal
 excused by the very lapse the call caused — the suite going green on a provider that had just been
 refused, which is this record's own mis-diagnosis arriving through the test that checks it. It also
-keeps the suite's ordering honest: `its credential` unlocks every declarer and runs after these, so
+keeps the suite's ordering honest: `its credential` unlocks every declarer that holds what it is
+given — every declarer, until a provider began Spending under CNCORE-207 — and runs after these, so
 a reorder makes them RED rather than quietly re-filing the credential test's subject as a locked
 provider.
 
@@ -339,9 +345,10 @@ where the body's shape becomes a question worth answering.
 
 **WHAT THE CONFORMANCE SUITE STRUCTURALLY CANNOT WITNESS is a provider that DECLARES a credential,
 reports `valid`, and answers.** It holds only a dummy — a real one reaching CI would be distribution
-([[0089-provider-distribution-tiers]]) — so asking a real provider to answer after the round trip
-would send that dummy upstream, be refused, and lapse the session the round trip had just reported
-`valid`. That is why `search` and `lookup` run BEFORE the credential block, and it is a limit of the
+([[0089-provider-distribution-tiers]]) — so asking a real provider that HOLDS what it is given to answer after the round
+trip would send that dummy upstream, be refused, and lapse the session the round trip had just
+reported `valid`. A provider that Spends never holds the dummy at all (CNCORE-207), which changes
+nothing here: it is still `absent` after the round trip and has nothing to answer with. That is why `search` and `lookup` run BEFORE the credential block, and it is a limit of the
 instrument rather than an omission. Two things stand in for it: `provider-tmdb` and the `browse`
 witness declare no credential and are held to `200` and a record throughout, and a guard added
 beside this record's optionality test fails if EVERY participant is unable to answer — the refusal
@@ -514,3 +521,79 @@ even in transit" is asserted where the value would enter; the other half is that
 somewhere this app LINKS to and must never REQUEST, since a request is how a value would come to
 pass through its client at all. The e2e stub records every path it was asked for, and the assertion
 is made from what the PROVIDER saw rather than from CanonCore's account of itself.
+
+## A provider may Spend what it is given, under CNCORE-207
+
+**`provider-wiki` stopped reporting `valid` about a credential it had never used.** Under CNCORE-206
+(`jacobdrees-canoncore/provider-wiki#45`, merged 2026-09-19) its unlock path Spends what it is given
+on one request to the wiki before holding it: a `cf_clearance` obtained over IPv6 cannot be Spent by
+a container with no IPv6 path, and the Owner had been told to supply a fresh one that failed
+identically, for ever. This record's own sentence is what that provider now acts on rather than
+contradicts: the provider is "the one being refused by the upstream", and it has started asking
+before it answers.
+
+**THE CONTRACT SUITE ASSERTED THE BEHAVIOUR THAT REMOVED**, and went red on every pull request from
+the run after `provider-wiki:latest` republished: it POSTed a dummy value and required `status < 400`
+and then `valid`, reasoning that a provider "cannot check a credential without doing its own job".
+One that Spends CAN, and answered `400` with the manifest still `absent`. The obligation was correct
+on each side of a repository boundary and contradictory across it, which is the shape CNCORE-33,
+CNCORE-141 and CNCORE-156 each met.
+
+**SO A COMPLETE SUBMISSION IS OWED ONE OF TWO ANSWERS, AND BOTH ARE PINNED.**
+
+- **Held**: below 400, `valid`, `state_changed_at` moved. A provider that does not Spend, one whose
+  upstream accepted the value, and one that could not reach its upstream to Spend it at all all
+  answer this way. The last is still honest: `valid` has only ever meant "nothing has refused this
+  one yet", and an outage is no evidence about a credential — refusing then would lock the Owner out
+  of the one act that fixes an outage-shaped fault.
+- **Refused**: exactly `400`, a JSON body carrying the reason, and NOTHING CHANGED. `400` for the
+  reason CNCORE-141 pinned `503` rather than admitting "some refusal": a contract that let each
+  provider choose would quietly become two integrations. It is also right on the merits — what
+  failed is the SUBMISSION, a fault in the request just made, while `401` and `403` would describe
+  the caller's standing with the provider, which is not what happened.
+
+**"NOTHING CHANGED" IS THE HALF WITH A PROPERTY ON IT.** From `absent` it catches a refused value
+stored anyway and one recorded as a lapse. Against a credential the provider already holds, it is a
+security rule: nothing authenticates an unlock path, by this record's design, so a refusal that
+wrote anything would let anyone able to reach the port mark the Owner's working session `expired`
+with a value they made up. `provider-wiki` found exactly this and guards it: the value being tried
+is never read from or written to its file. The suite will not touch a held credential, so that half
+is asserted against the witness in `packages/contract/src/participants.test.ts`.
+
+**AND THE SUITE STILL HOLDS SOMETHING TO HOLDING, OR THE REFUSAL MEANS NOTHING.** It has no value any
+upstream would accept — a real one reaching CI is distribution
+([[0089-provider-distribution-tiers]]) — so to the suite a provider that Spends and is refused and a
+provider that refuses everything are the same answer. What keeps the refusal a permission is a
+suite-level guard beside this record's optionality test that fails unless some participant HELD what
+it was given, and some participant refused it. The ticket said nothing else exercised the held
+answer, `provider-tmdb` declaring no credential; `lockedProvider()` did, but nothing kept it doing
+so, which is the gap the guard closes. A witness that Spends stands beside it — `lockedProvider({
+spends: true })`, whose upstream accepts the one session it issued and refuses the rest — so the
+refused answer is entered on every machine, not only where the private image can be pulled.
+
+**WHAT THIS STILL CANNOT WITNESS is that a real provider's refusal is its upstream speaking**, rather
+than a provider that refuses every complete submission and could never be Unlocked. That is the
+provider's own repository's to prove, and `provider-wiki`'s record says it measured both directions
+live on 2026-09-19: a credential the container could not Spend refused naming IPv4, and one it
+could, held, reporting `valid` and answering `search`, `lookup` and `browse` from the wiki.
+
+**A FOURTH STATE WAS DECIDED AGAINST, and the reason is the contract rather than taste.** A
+credential held because the upstream could not be reached is not one that has been refused, and a
+state for it beside `absent` and `expired` would fall on the wrong side of CNCORE-141's rule: the
+contract reads anything but `valid` as a provider unable to reach its source and owed a `503`, so a
+provider holding a credential that works would be obliged to refuse with it.
+
+**A FIELD BESIDE THE STATE, SAYING A CREDENTIAL HAS NOT BEEN SPENT, IS NOT ADDED.** The Owner is told
+so where they are standing when it happens — `provider-wiki` answers the POST with the reason, on
+its own page — and the next request that reaches the upstream settles it either way, to `valid`
+still or to `expired`. Nothing in CanonCore would read the field but a new line on the settings
+page. It is an optional addition to the manifest the day an Owner is misled by its absence, and an
+optional field does not move the version ([[0032-cmpp-versions-array]]), so declining it now forecloses
+nothing.
+
+**SPEND IS NOW A WORD IN `CONTEXT.md`**, because it is a real act in this ecosystem — it is what tells
+a usable credential from a well-formed one — and the glossary is binding on the provider
+repositories. `verify`, `validate` and `unverified` are what it avoids, since each reads as a
+stronger claim than `valid` makes; `provider-wiki`'s POST answer names its outage case `unverified`
+and CNCORE-214 carries the rename to that repository.
+

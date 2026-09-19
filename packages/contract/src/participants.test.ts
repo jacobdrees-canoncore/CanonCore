@@ -1,7 +1,23 @@
 import { describe, expect, it } from "vitest";
 
 import { manifest, record } from "./cmpp";
-import { LOCKED_CREDENTIAL_FIELDS, LOCKED_UNLOCK_PATH, lockedProvider } from "./participants";
+import {
+  ISSUED_BY_ITS_UPSTREAM,
+  LOCKED_CREDENTIAL_FIELDS,
+  LOCKED_UNLOCK_PATH,
+  lockedProvider,
+} from "./participants";
+
+/** A complete submission to a witness's unlock path, every declared field set to `value`. */
+function unlockWith(baseUrl: string, value: string) {
+  return fetch(`${baseUrl}${LOCKED_UNLOCK_PATH}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(
+      Object.fromEntries(LOCKED_CREDENTIAL_FIELDS.map((field) => [field.name, value])),
+    ),
+  });
+}
 
 /**
  * THE LOCKED WITNESS'S OWN HONESTY, checked here because `contract.test.ts`
@@ -82,6 +98,59 @@ describe("the locked witness", () => {
       // into the credential it was too large to be.
       const still = manifest.parse(await (await fetch(`${witness.baseUrl}/`)).json()).credential;
       expect(still?.state).toBe("absent");
+    } finally {
+      await witness.close();
+    }
+  });
+});
+
+/**
+ * THE SPENDING WITNESS'S OWN HONESTY, and the two claims `contract.test.ts` cannot
+ * make about it for the same structural reason it cannot make the one above.
+ *
+ * THAT IT SPENDS RATHER THAN REFUSING EVERYTHING. The contract suite holds no value
+ * any upstream accepts, so to it the two are identical -- and a witness refusing
+ * everything would keep the refusal branch green while standing for a provider
+ * nobody could ever Unlock.
+ *
+ * THAT A REFUSAL LEAVES A HELD CREDENTIAL WHERE IT WAS. The suite runs its round
+ * trip from `absent` and will not touch a held one, so this is the only place the
+ * half with a security property on it is asserted: nothing authenticates an unlock
+ * path, and a refusal that wrote anything would let anyone who can reach it lapse
+ * the Owner's working session with a value they made up.
+ */
+describe("the witness that Spends", () => {
+  it("holds the session its upstream issued, and then answers", async () => {
+    const witness = await lockedProvider({ spends: true });
+    try {
+      const supplied = await unlockWith(witness.baseUrl, ISSUED_BY_ITS_UPSTREAM);
+      expect(supplied.status).toBeLessThan(400);
+
+      const after = manifest.parse(await (await fetch(`${witness.baseUrl}/`)).json()).credential;
+      expect(after?.state).toBe("valid");
+
+      const answered = await fetch(`${witness.baseUrl}/lookup/${witness.aRecord}`);
+      expect(answered.status).toBe(200);
+    } finally {
+      await witness.close();
+    }
+  });
+
+  it("refuses what its upstream did not issue, and leaves the one it holds exactly where it was", async () => {
+    const witness = await lockedProvider({ spends: true });
+    try {
+      await unlockWith(witness.baseUrl, ISSUED_BY_ITS_UPSTREAM);
+      const held = manifest.parse(await (await fetch(`${witness.baseUrl}/`)).json()).credential;
+
+      const refused = await unlockWith(witness.baseUrl, "a value its upstream never issued");
+      expect(refused.status).toBe(400);
+
+      const after = manifest.parse(await (await fetch(`${witness.baseUrl}/`)).json()).credential;
+      expect(after?.state).toBe("valid");
+      expect(after?.state_changed_at).toBe(held?.state_changed_at);
+      // AND IT STILL ANSWERS, which is what "exactly where it was" means to the
+      // Owner: the session they had is the session they have.
+      expect((await fetch(`${witness.baseUrl}/lookup/${witness.aRecord}`)).status).toBe(200);
     } finally {
       await witness.close();
     }

@@ -368,6 +368,16 @@ form: the Provider's own configuration file is the source of truth, so a script 
 Unlocks one exactly as a person does (ADR-0122).
 _Avoid_: authenticate, connect, log in, authorise
 
+**Spend**:
+Putting a Credential to the Provider's own upstream to learn whether that upstream accepts it,
+which is the only test of one there is: a well-formed Credential and a usable one look the same
+until then. A Provider may Spend what it is given before holding it. One its upstream refuses is
+refused at the unlock path with the reason, and changes nothing the Provider already held; one it
+could not Spend at all, because the upstream was unreachable, is held and _not Spent_, since an
+outage is no evidence about a Credential. `valid` means only that nothing has refused a Credential
+yet, so it is true of one not Spent as well (ADR-0122).
+_Avoid_: verify, validate, unverified — each reads as a stronger claim than `valid` makes
+
 **Purge**:
 Removing everything one source ever contributed, in one operation. The word is the OWNER'S as well
 as the code's: it is on the button, because ADR-0036's obligation when a licence ends is to purge
