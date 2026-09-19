@@ -12,8 +12,9 @@ status: accepted
 Importing the wiki's corpus is 465 Containers. `browse` takes ONE container id (ADR-0033) and CMPP
 had no operation answering "which Containers do you have", so before this the corpus was 465 form
 submissions with an id pasted into each. CMPP declares one since CNCORE-185. No Provider answered it
-with a Container until CNCORE-208 on 2026-09-19 (ADR-0033), and nothing in this app asks it until
-CNCORE-187, so the list is still the Owner's own and nothing here changes.
+with a Container until CNCORE-208 on 2026-09-19 (ADR-0033). `/import` asks it since CNCORE-187, so the
+Owner can pick ONE Container rather than typing its id; a run does not ask it, so the list a run
+walks is still the Owner's own and nothing here changes.
 
 **The loop is four lines. What was missing is somewhere for the loop's POSITION to live.** A walk
 holding where it got to in one process's memory starts again from the beginning whenever anything

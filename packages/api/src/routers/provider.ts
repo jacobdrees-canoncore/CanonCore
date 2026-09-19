@@ -34,6 +34,7 @@ import { z } from "zod";
 
 import { openProcedure, ownerProcedure } from "../index";
 import { theProvidersAsked } from "./group";
+import { A_PAGE, aCursor } from "./listing";
 
 /**
  * Raised when REACHING a provider failed, carrying the reason a page may print.
@@ -70,7 +71,10 @@ export class ProviderFailed extends Error {
  * ONE WRAPPER FOR BOTH WRITE PATHS, for the reason `browseIfOffered` below is
  * one preamble for two callers: `import` and `browse` had the identical `catch`
  * and the identical hole in it (CNCORE-149), which is how one defect came to
- * have two sites -- the shape ADR-0123 was written about.
+ * have two sites -- the shape ADR-0123 was written about. AND FOR ONE READ,
+ * `provider.containers` (CNCORE-187), for the reason it exists on the write
+ * paths: that read queries the catalogue after the provider answers, and the
+ * catalogue's failure must not be reported as the provider's.
  *
  * IT WRAPS THE ASKING AND NOTHING ELSE. What goes inside is every request a
  * provider can fail; what stays outside is the catalogue's own write and the
@@ -289,13 +293,12 @@ async function browseIfOffered(
  * the optionality being honoured: `browse` is the operation a provider may
  * decline, and reading the declaration is the only way an app can tell.
  *
- * THE CONTAINER IS NAMED BY THE OWNER, and nothing here asks CMPP for one yet.
- * `search` returns stories and `browse` takes a container's own id; ADR-0033
- * declares `containers` as of CNCORE-185 and `provider-wiki` answers it since
- * CNCORE-208, but nothing in this app asks it until CNCORE-187, so until then
- * the owner supplies it exactly as they supply a record id to `import` -- see
- * that record's as-built sections, which carry the decision rather than leaving
- * it to be rediscovered.
+ * THE CONTAINER IS NAMED BY THE OWNER, by the provider's own id: picked from
+ * what `provider.containers` offers since CNCORE-187, or typed where a provider
+ * declines that operation. Either way it arrives here as an id, exactly as a
+ * record id reaches `import`, so a container picked from the list lands what
+ * one named by hand lands -- see ADR-0033's as-built sections, which carry the
+ * decision rather than leaving it to be rediscovered.
  *
  * Answers `null` when that id addresses no container, which is an answer rather
  * than a failure (ADR-0066).
@@ -567,6 +570,42 @@ async function oneContainerIntoTheCatalogue(
   }
 }
 
+/**
+ * ONE PAGE OF WHAT A PROVIDER LISTED, walked by the provider's own id for the
+ * container a page ended on (ADR-0119) -- or, stepping back, began on
+ * (CNCORE-174).
+ *
+ * THE WALK IS THIS APP'S BECAUSE THE PROVIDER'S ANSWER IS WHOLE. `containers`
+ * carries no cursor (ADR-0033 under CNCORE-185), so every page is cut from one
+ * answer, in the provider's own order. A cursor naming nothing it listed names
+ * no position, so the walk starts over, which is ADR-0119's answer for a row
+ * that is gone. A step back that reaches the start answers the first page
+ * whole rather than the few rows short of it, as the Listings do.
+ *
+ * EACH ID ONCE, THE FIRST COPY STANDING, because the cursor is an id and
+ * nothing in CMPP promises a provider names each container once. With a repeat,
+ * `Next` from a page ending on the second copy found the first and served that
+ * page again, forever (found by review of CNCORE-187). A container offered twice
+ * is no more pickable than one offered once.
+ */
+function aPageOf<Listed extends { id: string }>(
+  answered: Listed[],
+  { limit, after, before }: { limit: number; after?: string; before?: string },
+) {
+  const seen = new Set<string>();
+  const listed = answered.filter(({ id }) => !seen.has(id) && seen.add(id));
+  const afterAt = after === undefined ? -1 : listed.findIndex(({ id }) => id === after);
+  const beforeAt = before === undefined ? -1 : listed.findIndex(({ id }) => id === before);
+  const start = afterAt >= 0 ? afterAt + 1 : beforeAt >= 0 ? Math.max(0, beforeAt - limit) : 0;
+  const page = listed.slice(start, start + limit);
+  return {
+    page,
+    total: listed.length,
+    continuesAfter: start + limit < listed.length ? (page.at(-1)?.id ?? null) : null,
+    continuesBefore: start > 0 ? (page[0]?.id ?? null) : null,
+  };
+}
+
 export const provider = {
   /**
    * Whether this instance may reach ANY provider at all.
@@ -629,10 +668,10 @@ export const provider = {
    * owner names rather than for candidates a search found.
    *
    * `search` ANSWERS THIS ALREADY FOR WHAT IT FOUND, and this exists for the case
-   * it cannot reach: a CONTAINER id. Nothing in this app asks CMPP for one until
-   * CNCORE-187 -- `search` returns stories and `browse` takes a container's own id
-   * (ADR-0033) -- so the owner types it, and a surface showing what they typed
-   * has no search answer to read the Item out of.
+   * it cannot reach: a CONTAINER id, which the owner names -- picked from
+   * `provider.containers` since CNCORE-187, or typed where a provider declines
+   * that operation (ADR-0033). A surface showing the one they named has no
+   * search answer to read the Item out of.
    *
    * NO REQUEST LEAVES THE APP. `baseUrl` is an IDENTITY here rather than an
    * address, exactly as it is for `purge`: the rows are this catalogue's, and the
@@ -1070,6 +1109,134 @@ export const provider = {
     }),
 
   /**
+   * THE CONTAINERS ONE PROVIDER HOLDS, so the Owner picks one rather than
+   * typing an id the provider never showed them (CNCORE-187).
+   *
+   * THE READ THE `containers` OPERATION WAS DECLARED FOR (ADR-0033 under
+   * CNCORE-185): `browse` takes a container's own id and `search` answers
+   * stories, so until this nothing in the product could say which containers
+   * there are.
+   *
+   * A UNION RATHER THAN DECLARED ERRORS, for `provider.container`'s reason: the
+   * page is being READ, and each outcome is a sentence it prints.
+   *
+   * OPEN, WHICH IS ADR-0131's RULE APPLIED RATHER THAN SKIPPED. A read is the
+   * Owner's when it spends a third party's time, and the line is the `patient`
+   * cap. This one is `brief`: `provider-wiki` answered all 465 of its timelines
+   * in 0.26s to first byte on 2026-09-19, beside a search's 0.25s. So it is
+   * `provider.search`'s case, and a visitor to ADR-0044's demo is shown what a
+   * provider holds exactly as they are shown what it matched.
+   */
+  containers: openProcedure
+    .input(
+      z.object({
+        /** A CONFIG URL, travelling ADR-0034's allowlist, as `browse`'s does. */
+        baseUrl: z.url(),
+        /** How many to answer with: fewer than a Listing's page, never more. */
+        limit: z.number().int().positive().max(A_PAGE).default(A_PAGE),
+        /** The provider's id for the last container the page before showed. */
+        after: aCursor,
+        /** The provider's id for the first container the page after showed. */
+        before: aCursor,
+      }),
+    )
+    .output(
+      z.discriminatedUnion("answer", [
+        z.object({
+          answer: z.literal("containers"),
+          /** The name the provider gives itself, off its manifest. */
+          providerName: declaredName,
+          containers: z.array(
+            z.object({
+              /** The provider's own id for it, the one `browse` takes. */
+              containerId: z.string().min(1),
+              title: z.string().min(1),
+              /** The PROVIDER'S word for what it is -- `timeline`, `collection`. */
+              kind: z.string().min(1),
+              /** The Item this container is already held as, or `null` (ADR-0026). */
+              itemId: z.uuid().nullable(),
+            }),
+          ),
+          /** How many the provider holds altogether, which a page may not show. */
+          total: z.number().int().nonnegative(),
+          /** The last container this page shows where more follow it, or `null` (ADR-0119). */
+          continuesAfter: z.string().nullable(),
+          /** The first container this page shows where more come before it, or `null`. */
+          continuesBefore: z.string().nullable(),
+        }),
+        /**
+         * THE PROVIDER DOES NOT DO THIS, which ADR-0033 makes well-formed: the
+         * operation is optional and declared, as `browse` is. It is NOT a
+         * provider holding none, which would be `containers` with nothing in
+         * it -- the two must never read alike, and it is the Owner's story 60.
+         */
+        z.object({
+          answer: z.literal("containers-not-offered"),
+          providerName: declaredName,
+        }),
+        /**
+         * NOTHING USABLE CAME BACK, which is `provider.container`'s third answer
+         * for the same three things -- a URL ADR-0034 refused, a provider that
+         * never answered, one that answered badly -- and ADR-0033 saw it live: a
+         * lapsed Credential is a `503` naming `/unlock`. Reading it as an empty
+         * list would tell the Owner their provider holds nothing.
+         */
+        z.object({
+          answer: z.literal("unreachable"),
+          reason: failureReason,
+        }),
+      ]),
+    )
+    .handler(async ({ input, context }) => {
+      const { allowlist } = await context.providerSettings();
+      const client = createProviderClient({ baseUrl: input.baseUrl, allowlist });
+      let said: { manifest: CmppManifest; containers: CmppRecord[] | null };
+      try {
+        said = await askingTheProvider(async () => {
+          // THE MANIFEST FIRST, and it decides whether to ask at all: a
+          // provider that declines is never asked, which is the optionality
+          // honoured rather than an optimisation (ADR-0033).
+          const manifest = await client.manifest();
+          if (!manifest.operations.includes("containers")) return { manifest, containers: null };
+          return { manifest, containers: (await client.containers()).containers };
+        });
+      } catch (error) {
+        // EVERY FAILURE ASKING IS AN ANSWER, bounded and attributed (ADR-0123).
+        // The catalogue's own read below is outside this, so a failed query is
+        // never reported as something the provider did.
+        if (error instanceof ProviderFailed) {
+          return { answer: "unreachable" as const, reason: error.reason };
+        }
+        throw error;
+      } finally {
+        await client.close();
+      }
+
+      const providerName = said.manifest.name;
+      if (said.containers === null) {
+        return { answer: "containers-not-offered" as const, providerName };
+      }
+      const { page, total, continuesAfter, continuesBefore } = aPageOf(said.containers, input);
+      const held = await findItemsProvided(context.db, {
+        identity: input.baseUrl,
+        externalIds: page.map(({ id }) => id),
+      });
+      return {
+        answer: "containers" as const,
+        providerName,
+        containers: page.map(({ id, title, kind }) => ({
+          containerId: id,
+          title,
+          kind,
+          itemId: held.get(id) ?? null,
+        })),
+        total,
+        continuesAfter,
+        continuesBefore,
+      };
+    }),
+
+  /**
    * Imports a container AND its ordering from a provider that declares
    * `browse`, and answers with the container and every member it wrote.
    *
@@ -1078,11 +1245,9 @@ export const provider = {
    * its ordering arrive together, so a bulk import yields placements for free
    * instead of asking the owner to place sixty episodes by hand.
    *
-   * IT TAKES THE CONTAINER'S ID FROM THE OWNER, because nothing here asks CMPP
-   * for one yet -- `search` returns stories and `browse` takes a container's own
-   * id, and the `containers` operation ADR-0033 declares under CNCORE-185 is
-   * asked by nothing in this app until CNCORE-187, though `provider-wiki`
-   * answers it. The owner names it, exactly as they name a record for `import`.
+   * IT TAKES THE CONTAINER'S ID FROM THE OWNER, who names it exactly as they
+   * name a record for `import`: picked from what `provider.containers` offers
+   * since CNCORE-187, or typed where a provider declines that operation.
    */
   browse: ownerProcedure
     .input(
@@ -1267,9 +1432,10 @@ export const provider = {
    * Provider (CNCORE-166).
    *
    * IMPORTING A CORPUS IS 465 FORM SUBMISSIONS OTHERWISE. `browse` takes ONE
-   * container id (ADR-0033) and nothing in this app asks "which Containers do you
-   * have" until CNCORE-187, so the ids are supplied rather than enumerated -- and supplying them
-   * one at a time, 465 times, is what this replaces.
+   * container id (ADR-0033), so the ids are supplied -- and supplying them one at
+   * a time, 465 times, is what this replaces. `provider.containers` answers
+   * "which Containers do you have" since CNCORE-187, for the Owner to pick ONE
+   * on `/import`; a run does not ask it, and its list is still the Owner's own.
    *
    * IT WRITES THE LIST DOWN AND ASKS THE PROVIDER NOTHING. The walk is
    * `importNextContainer` below, one Container a call, and the split is what

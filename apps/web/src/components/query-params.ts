@@ -119,12 +119,24 @@ export function oneGroup(parameter: string | string[] | undefined): string | und
  * link -- each names where the page starts, and a link names one -- so what
  * appending decides is only how one Listing's step back sits beside the OTHER
  * Listing's cursor on the Item page: `?placedAfter=<id>&before=<id>`.
+ *
+ * `provider` AND `container` ARRIVED WITH CNCORE-187 AND ARE NOT APPENDED,
+ * which that rule allows rather than breaks: it exists so that no link already
+ * out there is spelt a second way, and no link carried either of them until
+ * `/import` walked a Provider's containers -- the only address naming them was
+ * the browse box's form, which a browser writes in the order its fields stand.
+ * So they sit where this list says what a page is asked sits: behind `q` and
+ * `group`, which never share a link with them, and ahead of the cursor.
+ * `?provider=<url>&container=<id>&after=<id>` is a container picked from page
+ * two, and the form's own `?provider=<url>&container=<id>` is this order too.
  */
 const IN_THE_FIXED_ORDER = [
   "via",
   "placed",
   "q",
   "group",
+  "provider",
+  "container",
   "after",
   "placedAfter",
   "letter",

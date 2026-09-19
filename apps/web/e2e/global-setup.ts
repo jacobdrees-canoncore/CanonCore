@@ -39,7 +39,7 @@ import {
   theBuildServing,
 } from "./instance";
 import { aProviderThatFloodsItsName, FLOOD, onLoopback, searchOver, searchStatus } from "./stubs";
-import { CONTAINERS, TENTH_PLANET, WIKI_MANIFEST } from "./wiki-fixture";
+import { CONTAINERS, TENTH_PLANET, TIMELINES, WIKI_MANIFEST } from "./wiki-fixture";
 
 /**
  * Builds a database, seeds ONE item into TWO orderings, then builds and starts
@@ -1245,11 +1245,13 @@ const THE_MATRIX_RELOADED = { id: "movie:604", title: "The Matrix Reloaded" };
  * `provider-tmdb`, and the contract suite holds the real image to it -- so this is
  * that fact reused rather than an assumption about what TMDB can be browsed by.
  *
- * WHY NOT A WIKI CATEGORY. Every container in `wiki-fixture.ts` is browsed before
+ * WHY NOT A WIKI CATEGORY. Every category in `wiki-fixture.ts` is browsed before
  * the first assertion runs: 91997 and 388305 by this file, 47650 and 47651 by
  * `multi-placement.test.ts`. A browse of one of those could not show an ORDERING
  * ARRIVING, because it had already arrived -- and a button wired to nothing would
  * pass. This collection is browsed by nothing else, so the transition is real.
+ * (The fixture's one timeline, 286338, is imported from the LIST by
+ * `import-page.test.ts` since CNCORE-187, which is a different road.)
  *
  * MEASURED AGAINST TMDB'S OWN API on 2026-09-11: `/3/collection/2344` is `The
  * Matrix Collection` and its parts are 603, 604, 605 and 624860. The stub answers
@@ -1313,6 +1315,20 @@ async function stubTmdbProvider(): Promise<{ url: string; close: () => Promise<v
   };
   const records = [record, reloaded];
   /**
+   * THE SAME TWO AS A SEARCH ANSWERS THEM, which is thinner than a lookup, and
+   * the stub answered a lookup's record here until CNCORE-187 found it. The
+   * image's `searchResultToRecord` (read at `46a1189`) sends no writers, no
+   * series and `series_id: null`: TMDB's multi-search carries no collection, and
+   * filling one would cost a request per result. A stub whose search named The
+   * Matrix Collection would let a test pass here that the real image fails.
+   */
+  const searched = records.map((found) => ({
+    ...found,
+    writers: [],
+    series: null,
+    series_id: null,
+  }));
+  /**
    * The collection as a browse answers it: the container, and its parts in
    * release order.
    *
@@ -1339,7 +1355,7 @@ async function stubTmdbProvider(): Promise<{ url: string; close: () => Promise<v
   };
   return onLoopback((path, answer) => {
     if (path === "/") return answer(manifest, 200);
-    if (path.startsWith("/search")) return answer(searchOver(records, path), searchStatus(path));
+    if (path.startsWith("/search")) return answer(searchOver(searched, path), searchStatus(path));
     if (path === `/browse/${encodeURIComponent(MATRIX_COLLECTION)}`) {
       return answer(collection, 200);
     }
@@ -1621,12 +1637,13 @@ async function stubWikiProvider(): Promise<{ url: string; close: () => Promise<v
     ...Object.values(CONTAINERS).flatMap((browsed) => [
       browsed.container,
       ...browsed.ordering.map(({ record }) => record),
-      ...browsed.unplaced,
+      ...(browsed.unplaced ?? []),
     ]),
   ];
   return onLoopback((path, answer) => {
     if (path === "/") return answer(WIKI_MANIFEST, 200);
     if (path.startsWith("/search")) return answer(searchOver(searchable, path), searchStatus(path));
+    if (path === "/containers") return answer({ containers: TIMELINES }, 200);
     if (path.startsWith("/browse/")) {
       // `Object.hasOwn` rather than a bare index: the id is a path segment, and
       // `/browse/constructor` otherwise finds `Object` on the prototype and

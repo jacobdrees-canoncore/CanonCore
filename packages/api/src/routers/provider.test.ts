@@ -199,6 +199,19 @@ async function stubProvider(
   {
     operations = ["search", "lookup", "browse"],
     containers = { "388305": VASHTA_NERADA } as Record<string, unknown>,
+    /**
+     * What `/containers` answers, IN THE ORDER GIVEN, for a provider declaring
+     * the operation (CNCORE-187). A list rather than `containers`' keys, whose
+     * order is not the insertion order: an object puts integer-like keys first,
+     * ascending, and every wiki id is one.
+     */
+    listed = [] as unknown[],
+    /**
+     * The sentence `/containers` refuses with, `503`, where the manifest before
+     * it answered: what `provider-wiki` with a lapsed Credential did at this
+     * path when ADR-0033's CNCORE-186 section measured it live.
+     */
+    refusesContainersWith = undefined as string | undefined,
     attribution = null as typeof ATTRIBUTION | null,
     /** What the provider calls itself, for a test about what it may call itself. */
     name = MANIFEST.name,
@@ -223,6 +236,14 @@ async function stubProvider(
     const path = request.url ?? "/";
     asked.push(path);
     if (path === "/") return json({ ...MANIFEST, name, operations, attribution });
+    // A PROVIDER THAT DECLINES THE OPERATION HAS NOTHING AT THIS PATH, which is
+    // the `404` both real providers answer and ADR-0033 requires of a decliner.
+    if (path === "/containers" && operations.includes("containers")) {
+      if (refusesContainersWith !== undefined) {
+        return json({ error: refusesContainersWith, provider: "a provider" }, 503);
+      }
+      return json({ containers: listed });
+    }
     // `search`, MATCHED ON THE TITLE, which is the least a stub can do and still
     // be a search: a stub answering every query with everything could not tell a
     // query that found something from one that found nothing. A missing or empty
@@ -1357,9 +1378,9 @@ describe("provider.configured", () => {
  * owner names rather than about a query.
  *
  * `search` answers the same question for the candidates IT found. This is for the
- * record the owner names themselves -- a container id, which nothing in this app
- * asks CMPP for until CNCORE-187 (ADR-0033) -- so there is no search to carry the
- * answer.
+ * record the owner names themselves -- a container id, picked from what a
+ * provider lists or typed where it lists nothing (ADR-0033) -- so there is no
+ * search to carry the answer.
  */
 describe("provider.held", () => {
   it("answers the item one of a provider's records is held as, and omits the rest", async () => {
@@ -1589,6 +1610,252 @@ describe("provider.container", () => {
     );
 
     expect((error as { code?: string })?.code).toBe("UNAUTHORIZED");
+  });
+});
+
+/**
+ * A container as `/containers` answers it: a record like any other (ADR-0004),
+ * and on the wiki a timeline -- the one kind that provider lists (ADR-0033
+ * under CNCORE-186).
+ */
+const aTimeline = (id: string, subject: string) => ({
+  id,
+  title: `Theory:Timeline - ${subject}`,
+  kind: "timeline",
+  released: [],
+  writers: [],
+  series: null,
+  url: `https://tardis.wiki/wiki/Theory:Timeline_-_${subject.replaceAll(" ", "_")}`,
+});
+
+/** Five timelines, IN THE PROVIDER'S ORDER, which is not the order of their ids. */
+const FIVE_TIMELINES = [
+  aTimeline("416127", "Scaroth"),
+  aTimeline("258752", "107 Baker Street"),
+  aTimeline("286338", "War Child Master"),
+  aTimeline("300001", "Sarah Jane Smith"),
+  aTimeline("112233", "Brigadier"),
+];
+
+/** A provider declaring the operation, holding these. */
+const aProviderListing = (listed: unknown[], asked: string[] = []) =>
+  stubProvider(
+    { "265": TENTH_PLANET },
+    { operations: ["search", "lookup", "browse", "containers"], listed, asked },
+  );
+
+describe("provider.containers", () => {
+  it("offers the containers a provider holds, in its own order and by their titles", async () => {
+    /*
+     * WHAT THE OWNER PICKS FROM, rather than an id they have to have found
+     * somewhere outside the product (CNCORE-187). The provider's order is kept:
+     * the wiki answers its timelines by title, and a list re-sorted here by id
+     * would put `112233` first.
+     */
+    const baseUrl = await aProviderListing(FIVE_TIMELINES);
+
+    const answer = await call(appRouter.provider.containers, { baseUrl }, { context });
+
+    if (answer.answer !== "containers") throw new Error(`answered ${answer.answer}`);
+    expect(answer.providerName).toBe("provider-wiki");
+    expect(answer.containers.map(({ containerId, title }) => [containerId, title])).toEqual(
+      FIVE_TIMELINES.map(({ id, title }) => [id, title]),
+    );
+    expect(answer.containers[0]).toMatchObject({ kind: "timeline", itemId: null });
+    expect(answer).toMatchObject({ total: 5, continuesAfter: null, continuesBefore: null });
+  });
+
+  it("walks the list a page at a time, repeating none and skipping none", async () => {
+    /*
+     * WALKED RATHER THAN RENDERED WHOLE, because a provider may hold hundreds
+     * -- the wiki holds 465 -- and ADR-0119's cursor is the walk every list in
+     * this product takes: the provider's own id for the last container a page
+     * showed. The provider answers all of them at once, since the operation
+     * carries no cursor (ADR-0033), so the walk is this app's over that answer.
+     */
+    const baseUrl = await aProviderListing(FIVE_TIMELINES);
+    const page = async (at: { after?: string; before?: string }) => {
+      const answer = await call(
+        appRouter.provider.containers,
+        { baseUrl, limit: 2, ...at },
+        { context },
+      );
+      if (answer.answer !== "containers") throw new Error(`answered ${answer.answer}`);
+      return answer;
+    };
+
+    const first = await page({});
+    const second = await page({ after: first.continuesAfter ?? "" });
+    const third = await page({ after: second.continuesAfter ?? "" });
+
+    expect(
+      [first, second, third].map(({ containers }) => containers.map((c) => c.containerId)),
+    ).toEqual([["416127", "258752"], ["286338", "300001"], ["112233"]]);
+    expect([first, second, third].map(({ total }) => total)).toEqual([5, 5, 5]);
+    expect(first).toMatchObject({ continuesBefore: null, continuesAfter: "258752" });
+    expect(third).toMatchObject({ continuesBefore: "112233", continuesAfter: null });
+
+    // AND A STEP BACK IS THE PAGE IT CAME FROM (CNCORE-174), not the start.
+    const back = await page({ before: third.continuesBefore ?? "" });
+    expect(back.containers).toEqual(second.containers);
+    // BUT ONE THAT WOULD RUN PAST THE START ANSWERS THE FIRST PAGE WHOLE, the
+    // cursor's own container included, rather than the one short of it.
+    const toTheStart = await page({ before: "258752" });
+    expect(toTheStart).toMatchObject({ containers: first.containers, continuesBefore: null });
+  });
+
+  it("starts at the beginning from a cursor naming nothing, and refuses a page past the cap", async () => {
+    // THE LISTING CONTRACT'S TWO REMAINING QUESTIONS, asked here because this
+    // walk is not a catalogue Listing and `listing.test.ts` cannot reach it: a
+    // bookmark outliving the container it was cut at gets the list rather than
+    // an error (ADR-0119), and the ceiling is this app's rather than a caller's.
+    const baseUrl = await aProviderListing(FIVE_TIMELINES);
+
+    const gone = await call(
+      appRouter.provider.containers,
+      { baseUrl, limit: 2, after: "a container it no longer lists" },
+      { context },
+    );
+    const { error } = await safe(
+      call(appRouter.provider.containers, { baseUrl, limit: 101 }, { context }),
+    );
+
+    expect(gone).toMatchObject({
+      answer: "containers",
+      containers: [{ containerId: "416127" }, { containerId: "258752" }],
+      continuesBefore: null,
+    });
+    expect((error as { code?: string })?.code).toBe("BAD_REQUEST");
+  });
+
+  it("offers a container the provider answered twice once, so the walk still ends", async () => {
+    /*
+     * THE CURSOR IS AN ID, SO THE WALK NEEDS EACH ID ONCE, and nothing in CMPP
+     * says a provider's answer has that. Found by review of CNCORE-187: with a
+     * repeat, `Next` from the page ending on the second copy found the FIRST
+     * copy and served the same page again, forever. A container offered twice
+     * is no more pickable than one offered once, so the first copy stands.
+     */
+    const [scaroth, bakerStreet, warChild] = FIVE_TIMELINES;
+    const baseUrl = await aProviderListing([scaroth, bakerStreet, warChild, bakerStreet]);
+    const seen: string[] = [];
+    let after: string | undefined;
+    for (let turns = 0; turns < 5; turns++) {
+      const answer = await call(
+        appRouter.provider.containers,
+        { baseUrl, limit: 2, after },
+        { context },
+      );
+      if (answer.answer !== "containers") throw new Error(`answered ${answer.answer}`);
+      seen.push(...answer.containers.map(({ containerId }) => containerId));
+      if (answer.continuesAfter === null) break;
+      after = answer.continuesAfter;
+    }
+
+    expect(seen).toEqual(["416127", "258752", "286338"]);
+  });
+
+  it("says a provider does not offer them, and does not ask it for them", async () => {
+    /*
+     * AN ABSENT CAPABILITY IS NOT AN EMPTY ANSWER (ADR-0033 under CNCORE-185),
+     * which is the Owner's own story 60. `provider-tmdb` declines, because TMDB
+     * publishes nothing that lists its collections and series -- and a page
+     * reading "holds no containers" about it would be false.
+     *
+     * THE MANIFEST DECIDES, as it does for `browse`: a decliner is never asked.
+     */
+    const asked: string[] = [];
+    const baseUrl = await stubProvider(
+      { "265": TENTH_PLANET },
+      { operations: ["search", "lookup", "browse"], asked },
+    );
+
+    const answer = await call(appRouter.provider.containers, { baseUrl }, { context });
+
+    expect(answer).toEqual({ answer: "containers-not-offered", providerName: "provider-wiki" });
+    expect(asked).toEqual(["/"]);
+  });
+
+  it("says a provider could not answer, in its own words, rather than that it holds none", async () => {
+    /*
+     * THE THIRD ANSWER, AND THE ONE ADR-0033 SAW LIVE: `provider-wiki` with a
+     * lapsed Credential answered its manifest, declaring the operation, and
+     * then `503` at `/containers` naming `/unlock`. An empty list here would
+     * tell the Owner their provider holds nothing, when what it needs is a
+     * session -- so the reason travels, attributed to the provider that wrote
+     * it (ADR-0123). Review of CNCORE-187 found this test refusing at the
+     * MANIFEST while its comment claimed this path; the case below is that one.
+     */
+    const baseUrl = await stubProvider(
+      {},
+      { operations: ["search", "lookup", "browse", "containers"], refusesContainersWith: LAPSED },
+    );
+
+    const answer = await call(appRouter.provider.containers, { baseUrl }, { context });
+
+    expect(answer).toMatchObject({
+      answer: "unreachable",
+      reason: { wrote: "provider", text: expect.stringContaining(LAPSED) },
+    });
+  });
+
+  it("says so too when the provider refuses before it has said what it offers", async () => {
+    // A `503` ON EVERY PATH, the manifest included, which is CNCORE-100's
+    // expired `cf_clearance`: nothing is known about the operation at all, and
+    // that is still not a provider holding none.
+    const baseUrl = await stubProviderRefusingWith(LAPSED);
+
+    const answer = await call(appRouter.provider.containers, { baseUrl }, { context });
+
+    expect(answer).toMatchObject({
+      answer: "unreachable",
+      reason: { wrote: "provider", text: expect.stringContaining(LAPSED) },
+    });
+  });
+
+  it("offers ids a browse takes, and names the Item one landed as", async () => {
+    /*
+     * PICKED FROM THE LIST, IMPORTED BY ID: the id this answers is the one
+     * `browse` takes, so an import from the list is a browse by id and lands
+     * what one lands (CNCORE-187). ADR-0033's conformance witness asserts the
+     * provider's half -- an id it listed is an id it will browse -- and this is
+     * the app's.
+     */
+    const baseUrl = await stubProvider(
+      {},
+      {
+        operations: ["search", "lookup", "browse", "containers"],
+        containers: { "388305": VASHTA_NERADA },
+        listed: [VASHTA_NERADA.container],
+      },
+    );
+    const before = await call(appRouter.provider.containers, { baseUrl }, { context });
+    if (before.answer !== "containers") throw new Error(`answered ${before.answer}`);
+    const [offered] = before.containers;
+    if (!offered) throw new Error("the provider listed nothing");
+
+    const landed = await call(
+      appRouter.provider.browse,
+      { baseUrl, containerId: offered.containerId },
+      { context },
+    );
+    const after = await call(appRouter.provider.containers, { baseUrl }, { context });
+
+    expect(offered.itemId).toBeNull();
+    expect(landed.placements).toHaveLength(2);
+    expect(after).toMatchObject({
+      containers: [{ containerId: "388305", itemId: landed.containerId }],
+    });
+  });
+
+  it("answers a visitor too, because it costs a search's time and not a browse's", async () => {
+    // ADR-0131's LINE IS THE `patient` CAP, and this operation is `brief`: the
+    // demo is shown what a provider holds as it is shown what a search matched.
+    const baseUrl = await aProviderListing(FIVE_TIMELINES);
+
+    const answer = await call(appRouter.provider.containers, { baseUrl }, { context: asAVisitor });
+
+    expect(answer).toMatchObject({ answer: "containers", total: 5 });
   });
 });
 
