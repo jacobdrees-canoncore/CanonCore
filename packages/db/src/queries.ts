@@ -267,13 +267,7 @@ export async function findPlacementsOfItem(
 ): Promise<PlacementsOfItem> {
   const spokesman = spokesmanFor(db);
   const asserters = assertersOf(db);
-  const sitsIn = and(
-    eq(placements.itemId, itemId),
-    isNull(placements.deletedAt),
-    // ADR-0075. A deleted container is gone to every reader, so an item
-    // cannot go on claiming membership of it.
-    isNull(items.deletedAt),
-  ) as SQL;
+  const sitsIn = whatItSitsIn(itemId, items.deletedAt);
   /*
    * THE NARROWING, AND IT IS PART OF THE QUESTION RATHER THAN OF THE ANSWER
    * (CNCORE-129). `?placed=` ran over the rows the page had been handed, which
@@ -904,6 +898,23 @@ export interface CatalogueRow {
    * reader is SHOWN a figure on is the surface's, off `isContainer`.
    */
   holds: number;
+  /** Which orderings this one sits in, and at what position in each (CNCORE-184). */
+  sitsIn: SitsIn;
+}
+
+/** One ordering a Row's item sits in, and where in it. */
+export interface WhereItSits {
+  containerId: string;
+  /** The container's projected title (ADR-0014); an untitled one has none. */
+  containerTitle: string | null;
+  /** `null` where no source gave one: `CONTEXT.md`'s **Unplaced**. */
+  position: number | null;
+}
+
+/** Where one Row's item sits: the first of its placements, and how many it has. */
+export interface SitsIn {
+  first: WhereItSits[];
+  total: number;
 }
 
 /** What the catalogue holds, and how much of it this answer carries. */
@@ -1091,6 +1102,7 @@ export async function walkListing<O extends TheOrder>(
            * disagree with the column the surface branches on.
            */
           holds: howMuchItHolds(db),
+          sitsIn: whereItSits(db),
         })
         .from(items)
         // INNER, because `items.kind` is a foreign key into this table: a row
@@ -1769,6 +1781,36 @@ function howMuchItHolds(db: Database): SQL<number> {
     .from(placements)
     .innerJoin(held, eq(held.id, placements.itemId))
     .where(whatItHolds(items.id, held.deletedAt))})`.mapWith(Number);
+}
+
+function whatItSitsIn(item: Column | string, containerTombstone: SQLWrapper): SQL {
+  return and(
+    eq(placements.itemId, item),
+    isNull(placements.deletedAt),
+    // ADR-0075. A deleted container is gone to every reader, so an item
+    // cannot go on claiming membership of it.
+    isNull(containerTombstone),
+  ) as SQL;
+}
+
+function whereItSits(db: Database): SQL<SitsIn> {
+  const container = alias(items, "container");
+  const order = {
+    keys: {
+      containerKey: sql`coalesce(${container.sortName}, ${container.title})`,
+      containerId: { key: container.id, everyRowHasIt: true },
+      position: placements.position,
+    },
+    id: placements.id,
+  } satisfies TheOrder;
+  const where = sql`json_build_object('containerId', ${container.id}, 'containerTitle', ${container.title}, 'position', ${placements.position})`;
+  return sql<SitsIn>`(${db
+    .select({
+      sitsIn: sql`json_build_object('first', coalesce(json_agg(${where} order by ${sql.join(theOrderBy(order), sql`, `)}), '[]'::json), 'total', count(*))`,
+    })
+    .from(placements)
+    .innerJoin(container, eq(container.id, placements.containerId))
+    .where(whatItSitsIn(items.id, container.deletedAt))})`;
 }
 
 export async function findPlacementsInContainer(

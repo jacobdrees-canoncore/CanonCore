@@ -7,6 +7,7 @@ import {
   type Database,
   deleteGroupByHand,
   findPlacementsInContainer,
+  findPlacementsOfItem,
   groups,
   items,
   placements,
@@ -30,6 +31,15 @@ import {
 async function lists(db: Database, id: string): Promise<boolean> {
   const { rows } = await readCatalogue(db, { limit: 1000 });
   return rows.some((row) => row.id === id);
+}
+
+/**
+ * Two fresh ids, the first sorting before the second: for a test whose answer
+ * must NOT fall out of id order. Random rather than counted, because every file
+ * in this suite writes to one database and a counter restarts in each.
+ */
+function twoIdsInOrder(): { low: string; high: string } {
+  return { low: `0${crypto.randomUUID().slice(1)}`, high: `f${crypto.randomUUID().slice(1)}` };
 }
 
 let db: Database;
@@ -237,6 +247,112 @@ describe("readCatalogue", () => {
     expect(row?.holds).toBe(2);
     expect(row?.holds).toBe(page.total);
     expect(page.rows).toHaveLength(2);
+  });
+
+  it("says which Orderings a story sits in, and at what Position in each", async () => {
+    // CNCORE-184. The Day of the Doctor is the case the ticket designs against:
+    // fiftieth-anniversary special on screen, the Time War in the Doctor's own
+    // chronology. Where it sits is one fact, and the Row says it.
+    //
+    // PLACED, AND IDENTIFIED, IN THE REVERSE OF THE ORDER EXPECTED, so a Row
+    // that came back in insertion order or in id order fails this rather than
+    // passing by luck.
+    const { low, high } = twoIdsInOrder();
+    const story = await anItemTitled(db, "The Day of the Doctor");
+    const chronology = await anItemTitled(db, "The Doctor's own chronology", {
+      id: low,
+      isContainer: true,
+    });
+    const broadcast = await anItemTitled(db, "Broadcast order", { id: high, isContainer: true });
+    await aPlacement(db, { containerId: chronology, itemId: story, position: 1 });
+    await aPlacement(db, { containerId: broadcast, itemId: story, position: 240 });
+
+    const { rows } = await readCatalogue(db, { limit: 1000 });
+    const row = rows.find((each) => each.id === story);
+
+    expect(row?.sitsIn).toStrictEqual({
+      first: [
+        { containerId: broadcast, containerTitle: "Broadcast order", position: 240 },
+        { containerId: chronology, containerTitle: "The Doctor's own chronology", position: 1 },
+      ],
+      total: 2,
+    });
+  });
+
+  it("says a story in no Ordering sits in none, rather than saying nothing", async () => {
+    // ADR-0062: root is the ABSENCE of a placement, so this is a real answer
+    // with nothing in it -- and the Row carries it as one, not as a gap.
+    const story = await anItemTitled(db, "A story nobody has placed");
+
+    const { rows } = await readCatalogue(db, { limit: 1000 });
+    const row = rows.find((each) => each.id === story);
+
+    expect(row?.sitsIn).toStrictEqual({ first: [], total: 0 });
+  });
+
+  it("says where a story sits as its own page would, past both tombstones", async () => {
+    // ADR-0075 TWICE OVER, the mirror of the container's figure above: a
+    // placement withdrawn is gone, and so is one in a container that was
+    // deleted, because a deleted container is gone to every reader and an item
+    // cannot go on claiming membership of it.
+    //
+    // THE ORACLE IS THE STORY'S OWN "ALSO APPEARS IN", for ADR-0140's reason:
+    // the defect is two surfaces disagreeing about one story. The literal is
+    // what stops the pair agreeing while both are wrong.
+    const story = await anItemTitled(db, "A story read past two tombstones");
+    const kept = await anItemTitled(db, "An ordering that keeps it", { isContainer: true });
+    const withdrawnFrom = await anItemTitled(db, "An ordering it was withdrawn from", {
+      isContainer: true,
+    });
+    const deleted = await anItemTitled(db, "An ordering deleted around it", {
+      isContainer: true,
+    });
+    await aPlacement(db, { containerId: kept, itemId: story, position: 3 });
+    const withdrawn = await aPlacement(db, {
+      containerId: withdrawnFrom,
+      itemId: story,
+      position: 1,
+    });
+    await aPlacement(db, { containerId: deleted, itemId: story, position: 2 });
+    await db.update(placements).set({ deletedAt: new Date() }).where(eq(placements.id, withdrawn));
+    await db.update(items).set({ deletedAt: new Date() }).where(eq(items.id, deleted));
+
+    const { rows } = await readCatalogue(db, { limit: 1000 });
+    const row = rows.find((each) => each.id === story);
+    const page = await findPlacementsOfItem(db, story, { limit: 100 });
+
+    expect(row?.sitsIn).toStrictEqual({
+      first: [{ containerId: kept, containerTitle: "An ordering that keeps it", position: 3 }],
+      total: 1,
+    });
+    expect(row?.sitsIn.total).toBe(page.total);
+  });
+
+  it("shows both Positions of a Repeat rather than collapsing it into one", async () => {
+    // ADR-0009 allows one item twice in one container -- a recap at 1 and the
+    // episode at 5 -- and a Row that said it once would be a lie about both.
+    //
+    // THE IDS SORT THE OTHER WAY ROUND FROM THE POSITIONS, so an order that
+    // fell through to the placement's id reads 5 before 1 rather than passing
+    // by luck. Unpinned, a Row with no Position key passed this.
+    const story = await anItemTitled(db, "A story recapped at the start");
+    const ordering = await anItemTitled(db, "An ordering with a Repeat in it", {
+      isContainer: true,
+    });
+    const { low, high } = twoIdsInOrder();
+    await aPlacement(db, { id: low, containerId: ordering, itemId: story, position: 5 });
+    await aPlacement(db, { id: high, containerId: ordering, itemId: story, position: 1 });
+
+    const { rows } = await readCatalogue(db, { limit: 1000 });
+    const row = rows.find((each) => each.id === story);
+
+    expect(row?.sitsIn).toStrictEqual({
+      first: [
+        { containerId: ordering, containerTitle: "An ordering with a Repeat in it", position: 1 },
+        { containerId: ordering, containerTitle: "An ordering with a Repeat in it", position: 5 },
+      ],
+      total: 2,
+    });
   });
 });
 
