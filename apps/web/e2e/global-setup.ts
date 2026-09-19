@@ -1964,7 +1964,7 @@ async function theThingsWorkBrowsingHasToTellApart(databaseUrl: string) {
 
   // Placed in nothing, which is the point: a person floods the grid by being
   // in the catalogue at all, not by being in a container.
-  await anItemTitled(db, "A person in the cast", { kind: "person" });
+  const person = await anItemTitled(db, "A person in the cast", { kind: "person" });
   const character = await anItemTitled(db, "A character somebody plays", { kind: "character" });
 
   const entityContainer = await anItemTitled(db, "The Doctors, in order", {
@@ -2146,6 +2146,25 @@ async function theThingsWorkBrowsingHasToTellApart(databaseUrl: string) {
     sourceId: acme,
   });
 
+  /*
+   * AND A GROUP HOLDING ONE OF EACH THING ADR-0077 TELLS APART (CNCORE-180):
+   * the Person, the Character, the Ordering of entities, the Ordering of
+   * stories and one story in it. Narrowed to it, the Catalogue lists all five
+   * and work-browsing lists two -- which is the record's rule surviving the
+   * narrowing, asserted against the same scope from both surfaces.
+   *
+   * A SCOPE NOBODY ELSE KNOWS THE ID OF, so what is counted under it is exactly
+   * these five whatever the rest of the suite writes to this instance. The
+   * story's two siblings in that season are left out on purpose: the Ordering
+   * holding them is in the Group and they are not, which is the difference
+   * between a scope and a container (ADR-0010).
+   */
+  const everythingItTellsApart = "Everything work-browsing tells apart";
+  const group = await aGroupHolding(db, {
+    name: everythingItTellsApart,
+    holding: [person, character, entityContainer, workContainer, story],
+  });
+
   return {
     fixture: {
       person: "A person in the cast",
@@ -2185,6 +2204,7 @@ async function theThingsWorkBrowsingHasToTellApart(databaseUrl: string) {
       singlySourcedId: placedByOne,
       /** The ONE source behind it, whose own name carries the comma that joined two. */
       singlySourcedBy: callsItselfAcme,
+      group: { id: group, name: everythingItTellsApart },
     },
     // The seed ends its own client; this pool has to be ended too, or the run
     // holds an idle connection open against a database it has finished with.
@@ -2432,6 +2452,11 @@ declare module "vitest" {
       singlySourced: string;
       singlySourcedId: string;
       singlySourcedBy: string;
+      /**
+       * A Group holding the Person, the Character, both Orderings and the
+       * story -- five Items, two of them Works (CNCORE-180).
+       */
+      group: { id: string; name: string };
     };
     /** The story imported from a CMPP provider over HTTP, and what it claimed. */
     imported: {

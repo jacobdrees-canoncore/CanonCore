@@ -125,6 +125,28 @@ describe("catalogue.works", () => {
     expect(listed).toContain(story);
     expect(listed).not.toContain(person);
   });
+
+  it("answers within a Group it is handed, at the Group's own size", async () => {
+    // CNCORE-180, and the reason `catalogue.list` gives for its own: the
+    // narrowing is the db seam's to hold, and what this adds is that the
+    // procedure is WIRED to it. An input that parsed a `group` and dropped it
+    // would answer the whole of work-browsing and pass the Listing contract.
+    //
+    // THE PERSON IS IN THE GROUP, so the answer being one Row says both that
+    // the scope narrowed and that this procedure's own question survived it.
+    const scope = await createGroupByHand(db, { name: "A scope work-browsing narrows to" });
+    const inside = await anItemTitled(db, "A story on a narrowed work-browsing page");
+    const cast = await anItemTitled(db, "Its cast, in the same scope", { kind: "person" });
+    await anItemTitled(db, "A story left off a narrowed work-browsing page");
+    for (const itemId of [inside, cast]) {
+      await putItemInGroupByHand(db, { groupId: scope, itemId });
+    }
+
+    const narrowed = await call(appRouter.catalogue.works, { group: scope }, { context });
+
+    expect(narrowed.rows.map((row) => row.id)).toStrictEqual([inside]);
+    expect(narrowed.total).toBe(1);
+  });
 });
 
 describe("catalogue.search", () => {
@@ -158,5 +180,24 @@ describe("catalogue.search", () => {
     const found = await call(appRouter.catalogue.search, { query: "" }, { context });
 
     expect(found).toEqual({ rows: [], total: 0, continuesAfter: null });
+  });
+
+  it("searches within a Group it is handed, at the size of what it searched", async () => {
+    // CNCORE-180: searching Doctor Who does not return Iron Man. The match and
+    // the scope are the db seam's; what this adds is that the procedure is
+    // WIRED to the Group rather than parsing one and searching everything.
+    const scope = await createGroupByHand(db, { name: "A scope Catalogue search narrows to" });
+    const inside = await anItemTitled(db, "The Keys of Marinus, searched within a scope");
+    await anItemTitled(db, "The Keys of Marinus, left outside the scope");
+    await putItemInGroupByHand(db, { groupId: scope, itemId: inside });
+
+    const found = await call(
+      appRouter.catalogue.search,
+      { query: "Keys of Marinus", group: scope },
+      { context },
+    );
+
+    expect(found.rows.map((row) => row.id)).toStrictEqual([inside]);
+    expect(found.total).toBe(1);
   });
 });

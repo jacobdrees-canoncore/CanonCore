@@ -1,6 +1,13 @@
 import { describe, expect, inject, it } from "vitest";
 
-import { documentAt, documentFrom, sectionIn } from "./document";
+import {
+  documentAt,
+  documentFrom,
+  itemsLinkedFrom,
+  markedCurrentIn,
+  scopeLinked,
+  sectionIn,
+} from "./document";
 
 /**
  * WORK-BROWSING, over real HTTP. ADR-0103's fourth seam, which is the one
@@ -115,5 +122,148 @@ describe("reaching /works", () => {
 
     expect(arrived.status).toBe(200);
     expect(arrived.text).toContain(workBrowsing.story);
+  });
+});
+
+/**
+ * WORK-BROWSING NARROWED TO A GROUP (CNCORE-180): "what can I watch" answered
+ * about one universe, picked from this page as it is from the Catalogue's.
+ *
+ * ON THE SEEDED INSTANCE, WITHIN A GROUP ONLY THIS FILE KNOWS: one of each thing
+ * ADR-0077 tells apart, so the same scope read from both surfaces says whether
+ * the record's rule survives the narrowing. Its sizes are exact because nothing
+ * else in the suite can put an Item in it.
+ */
+describe("/works narrowed to a Group", () => {
+  const scope = workBrowsing.group;
+
+  it("narrows to a Group picked from the page, and still leaves its entities out", async () => {
+    // BOTH HALVES AT ONCE. Two Works of the five Items the Group holds -- so a
+    // page that ignored the Group lists the rest of the catalogue's Works, and
+    // one that replaced work-browsing's question with the Group's lists the
+    // Person, the Character and the Ordering of entities. And the size is the
+    // two, not the five and not the whole of work-browsing.
+    const whole = await documentAt("/works");
+    const picked = scopeLinked(whole.text, scope.name);
+
+    const { status, text } = await documentAt(picked);
+
+    expect(status).toBe(200);
+    expect(text).toContain(workBrowsing.story);
+    expect(text).toContain(workBrowsing.workContainer);
+    expect(text).not.toContain(workBrowsing.person);
+    expect(text).not.toContain(workBrowsing.character);
+    expect(text).not.toContain(workBrowsing.entityContainer);
+    expect(text).toContain('<p class="text-muted-foreground text-sm">2 items</p>');
+    expect(markedCurrentIn(text)).toStrictEqual([scope.name]);
+    expect(markedCurrentIn(whole.text)).toStrictEqual(["Everything"]);
+  });
+
+  it("leaves the Catalogue narrowed to the same Group listing every kind in it", async () => {
+    // THE CRITERION'S OTHER HALF: the Catalogue keeps showing every kind of
+    // Item where work-browsing hides the entities, and a Group changes neither.
+    // Picked from the Catalogue's own picker, so this is the page a reader
+    // reaches rather than an address built here.
+    const whole = await documentAt("/");
+
+    const { text } = await documentAt(scopeLinked(whole.text, scope.name));
+
+    for (const title of [
+      workBrowsing.person,
+      workBrowsing.character,
+      workBrowsing.entityContainer,
+      workBrowsing.workContainer,
+      workBrowsing.story,
+    ]) {
+      expect(text).toContain(title);
+    }
+    expect(text).toContain('<p class="text-muted-foreground text-sm">5 items</p>');
+  });
+
+  it("says a Group that names nothing is not there, and offers work-browsing back", async () => {
+    // ADR-0066: a parameter that is not an identity answers by what it names.
+    // A deleted Group and a typo are the same fact here, and the way out is
+    // THIS surface unnarrowed rather than the Catalogue's.
+    for (const group of [crypto.randomUUID(), "doctor-who"]) {
+      const { status, text } = await documentAt(`/works?group=${group}`);
+
+      expect(status).toBe(200);
+      expect(sectionIn(text, "no-such-group")).toContain('href="/works"');
+      expect(() => sectionIn(text, "nothing-to-watch")).toThrow();
+    }
+  });
+});
+
+/**
+ * AND WALKED, ON THE INSTANCE WHOSE GROUP IS LARGER THAN ONE PAGE (CNCORE-179's
+ * fixture). Every Item that Group holds is a story, so work-browsing narrowed
+ * to it is the Group entire -- and the Group is a strict part of that
+ * instance's Works, so a walk that dropped the scope would arrive at Items it
+ * does not hold. Nobody writes to it.
+ */
+describe("/works narrowed to a Group larger than one page", () => {
+  const pagedBaseUrl = inject("pagedBaseUrl");
+  const group = inject("pagedGroup");
+
+  /** Where a narrowed page says it carries on, if it says so at all. */
+  function carriesOnAt(text: string): string | undefined {
+    return text.match(/href="(\/works\?[^"]*after=[^"]+)"/)?.[1];
+  }
+
+  it("walks the whole Group by following links, and keeps the scope on every one", async () => {
+    // THE CATALOGUE'S OWN WALK WITHIN A GROUP, ON THIS SURFACE. The oracle is
+    // the fixture's list of what it put in the Group, and every page past the
+    // first sends a reader back to the start of the GROUP's Works rather than
+    // of everybody's.
+    const first = scopeLinked((await documentFrom(pagedBaseUrl, "/works")).text, group.name);
+    const firstPage = await documentFrom(pagedBaseUrl, first);
+    expect(firstPage.text).toContain(
+      `<p class="text-muted-foreground text-sm">Showing 100 of ${group.holds.length} items</p>`,
+    );
+    const walked: string[] = [];
+    let path: string | undefined = first;
+    for (let pages = 0; pages <= group.holds.length; pages += 1) {
+      const { status, text } = await documentFrom(pagedBaseUrl, path);
+      expect(status).toBe(200);
+      walked.push(...itemsLinkedFrom(text));
+      if (pages > 0) {
+        expect(text).toContain(`href="${first}">Back to the start</a>`);
+      }
+      path = carriesOnAt(text);
+      if (path === undefined) {
+        expect([...walked].sort()).toStrictEqual([...group.holds].sort());
+        expect(new Set(walked).size).toBe(walked.length);
+        return;
+      }
+      // THE GROUP, THEN WHERE IN IT (ADR-0066), as on the Catalogue.
+      expect(path).toMatch(new RegExp(`^/works\\?group=${group.id}&after=`));
+    }
+    throw new Error(`the walk never ended: ${walked.length} of ${group.holds.length} Items`);
+  });
+
+  it("offers work-browsing back unnarrowed, from the narrowed page itself", async () => {
+    // NARROWING IS NOT A TRAP (story 44), on this surface as on the Catalogue:
+    // `Everything` is the plain address, and following it marks no Group.
+    const narrowed = await documentFrom(pagedBaseUrl, `/works?group=${group.id}`);
+    const everything = scopeLinked(narrowed.text, "Everything");
+
+    const cleared = await documentFrom(pagedBaseUrl, everything);
+
+    expect(everything).toBe("/works");
+    expect(markedCurrentIn(cleared.text)).toStrictEqual(["Everything"]);
+  });
+
+  it("says a Group with nothing to watch in it says so, by the Group's name", async () => {
+    // AN EMPTY SCOPE LOOKS EXACTLY LIKE A BROKEN ONE until the page says which
+    // it is (story 48) -- and on this surface "nothing to watch" is the
+    // sentence, since a Group holding only People is empty here and full on the
+    // Catalogue.
+    const empty = inject("pagedEmptyGroup");
+
+    const { status, text } = await documentFrom(pagedBaseUrl, `/works?group=${empty.id}`);
+
+    expect(status).toBe(200);
+    expect(sectionIn(text, "nothing-to-watch")).toContain(empty.name);
+    expect(() => sectionIn(text, "no-such-group")).toThrow();
   });
 });

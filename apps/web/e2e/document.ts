@@ -622,3 +622,46 @@ export function momentsIn(text: string): { machine: string; printed: string }[] 
     ([, machine, printed]) => ({ machine: machine as string, printed: printed as string }),
   );
 }
+
+/**
+ * THE GROUP PICKER ON A LISTING PAGE, cut out of it so a link found in it is one
+ * a reader picks a scope with rather than any link on the page that happens to
+ * match (CNCORE-179).
+ *
+ * SHARED SINCE CNCORE-180, when the picker arrived on `/works` and `/search`
+ * beside `/`: three copies of how a test finds it would be three readings of
+ * one control, free to disagree about what counts as picking.
+ */
+export function scopesIn(text: string): string {
+  const found = text.match(/<nav aria-label="Narrow to a Group"[^>]*>(.*?)<\/nav>/);
+  if (!found) throw new Error("the page offered no way to narrow to a Group");
+  return found[1] as string;
+}
+
+/** The address the picker links a scope at, by the words a reader picks it by. */
+export function scopeLinked(text: string, name: string): string {
+  const found = [...scopesIn(text).matchAll(/<a [^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/g)].find(
+    ([, , words]) => words === name,
+  );
+  if (!found) throw new Error(`the picker offered nothing called ${name}`);
+  return found[1] as string;
+}
+
+/** The words of the one scope the picker marks as the page's own. */
+export function markedCurrentIn(text: string): string[] {
+  return [...scopesIn(text).matchAll(/<a aria-current="true"[^>]*>([^<]*)<\/a>/g)].map(
+    ([, words]) => words as string,
+  );
+}
+
+/**
+ * Every Item one rendered page links at, in the order it links them.
+ *
+ * SHARED SINCE CNCORE-180, which would otherwise have made five copies of it
+ * across three files: every walked Listing is oracled by the Items its pages
+ * link, and a copy that drifted -- a `?via=` it stopped trimming, say -- would
+ * be one walk counting differently from the rest.
+ */
+export function itemsLinkedFrom(text: string): string[] {
+  return [...text.matchAll(/href="\/items\/([^"?]+)"/g)].map(([, id]) => id as string);
+}

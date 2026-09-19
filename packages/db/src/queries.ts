@@ -943,17 +943,7 @@ export async function readCatalogue(
   db: Database,
   { limit, after, group }: { limit: number; after?: string; group?: string },
 ): Promise<Catalogue> {
-  /*
-   * NARROWED TO A GROUP BY WIDENING THE QUESTION, never beside it (CNCORE-179).
-   * The Group joins the catalogue's own predicate here, and that one value is
-   * what `walkListing` hands to `theSize` and reads the Rows' `WHERE` back off
-   * -- so a Group narrowing the Rows and not the count, which is the whole
-   * catalogue's size reported over a narrowed page, has no second place to be
-   * missing from.
-   */
-  const within =
-    group === undefined ? IN_THE_CATALOGUE : (and(IN_THE_CATALOGUE, inTheGroup(db, group)) as SQL);
-  return readListing(db, { limit, after, within });
+  return readListing(db, { limit, after, within: withinTheGroup(db, group, IN_THE_CATALOGUE) });
 }
 
 /**
@@ -972,9 +962,9 @@ export async function readCatalogue(
  */
 export async function readWorks(
   db: Database,
-  { limit, after }: { limit: number; after?: string },
+  { limit, after, group }: { limit: number; after?: string; group?: string },
 ): Promise<Catalogue> {
-  return readListing(db, { limit, after, within: WORK_BROWSING });
+  return readListing(db, { limit, after, within: withinTheGroup(db, group, WORK_BROWSING) });
 }
 
 /**
@@ -1344,9 +1334,9 @@ const WORK_BROWSING = and(
  * ONE PREDICATE FOR EVERY LISTING, which is the spec's own requirement rather
  * than tidiness: a Group that meant one thing on the catalogue and another on
  * Catalogue search would be two scopes wearing one name. So each Listing `and`s
- * THIS onto its own `within`, and none spells membership for itself -- the
- * catalogue does today (`readCatalogue`), and CNCORE-180 is work-browsing and
- * Catalogue search doing the same.
+ * THIS onto its own `within`, through `withinTheGroup` below, and none spells
+ * membership for itself: the catalogue since CNCORE-179, and work-browsing and
+ * Catalogue search since CNCORE-180.
  *
  * COMPOSED INTO `within` RATHER THAN PASSED TO `walkListing`, which is where a
  * Listing's question is already assembled: Catalogue search `and`s its match
@@ -1390,6 +1380,30 @@ function inTheGroup(db: Database, group: string): SQL {
       .from(groupItems)
       .where(and(eq(groupItems.groupId, group), isNull(groupItems.deletedAt))),
   );
+}
+
+/**
+ * ONE LISTING'S QUESTION, NARROWED TO THE GROUP A READER PICKED -- or left as
+ * it was, where they picked none (CNCORE-180).
+ *
+ * THE ONE PLACE A LISTING TAKES A GROUP, so the three that do cannot come to
+ * disagree about what an absent one means. It was a ternary in `readCatalogue`
+ * while the catalogue was the only Listing that narrowed; three copies of it
+ * would be the same rule spelled three times, free to drift into one surface
+ * reading `?group=` blank as "every Item" and another as "none".
+ *
+ * ABSENT IS THE LISTING UNNARROWED, which is what clearing the scope is. A
+ * Group that names nothing is not absent: it is `inTheGroup`'s to answer, and
+ * it narrows to nothing.
+ *
+ * EXPORTED WITHIN THE PACKAGE, like `IN_THE_CATALOGUE` above, because
+ * Catalogue search assembles its question in `catalogue-search.ts` and has to
+ * narrow it the same way. It stays out of the package's public export: a
+ * caller outside hands a Group to `readCatalogue`, `readWorks` or
+ * `searchCatalogue`, never to a predicate.
+ */
+export function withinTheGroup(db: Database, group: string | undefined, within: SQL): SQL {
+  return group === undefined ? within : (and(within, inTheGroup(db, group)) as SQL);
 }
 
 /**

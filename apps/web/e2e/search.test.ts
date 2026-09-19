@@ -1,6 +1,13 @@
 import { describe, expect, inject, it } from "vitest";
 
-import { documentAt, documentFrom, sectionIn } from "./document";
+import {
+  documentAt,
+  documentFrom,
+  itemsLinkedFrom,
+  markedCurrentIn,
+  scopeLinked,
+  sectionIn,
+} from "./document";
 
 /**
  * CATALOGUE SEARCH over real HTTP. ADR-0103's fourth seam, which is the one
@@ -21,6 +28,20 @@ const timeSpan = inject("timeSpan");
 const itemId = inject("itemId");
 /** The same build, an empty database, and no allowlist (ADR-0094). */
 const freshBaseUrl = inject("freshBaseUrl");
+
+/**
+ * Where the page says the results carry on, if it says so at all -- on a plain
+ * search and on one narrowed to a Group alike, which is why it is out here
+ * rather than inside either block.
+ *
+ * UNESCAPED, because this href carries TWO parameters and React writes the
+ * separator as `&amp;`. A test fetching the raw attribute would ask for a
+ * query string with a parameter called `amp;after`, which names no cursor --
+ * so the walk would restart every page and the bug would look like the app's.
+ */
+function carriesOnAt(text: string): string | undefined {
+  return text.match(/href="(\/search\?[^"]*after=[^"]*)"/)?.[1]?.replaceAll("&amp;", "&");
+}
 
 describe("/search", () => {
   it("finds an item by a word inside its title, and links to its own address", async () => {
@@ -120,23 +141,6 @@ describe("/search on a result set larger than one page", () => {
    * at all, which is the state the walk is asserted against.
    */
   const QUERY = "story";
-
-  /** Every item one rendered page links at, in the order it links them. */
-  function itemsLinkedFrom(text: string): string[] {
-    return [...text.matchAll(/href="\/items\/([^"?]+)"/g)].map(([, id]) => id as string);
-  }
-
-  /**
-   * Where the page says the results carry on, if it says so at all.
-   *
-   * UNESCAPED, because this href carries TWO parameters and React writes the
-   * separator as `&amp;`. A test fetching the raw attribute would ask for a
-   * query string with a parameter called `amp;after`, which names no cursor --
-   * so the walk would restart every page and the bug would look like the app's.
-   */
-  function carriesOnAt(text: string): string | undefined {
-    return text.match(/href="(\/search\?[^"]*after=[^"]*)"/)?.[1]?.replaceAll("&amp;", "&");
-  }
 
   it("reaches every match by following links, and lands on none of them twice", async () => {
     // THE TICKET'S CRITERIA AT THE SEAM IT NAMES BY HAND: a search matching
@@ -238,6 +242,135 @@ describe("/search on a result set larger than one page", () => {
     // a reader stranded past the end of their results wants the results, not
     // the prompt.
     expect(sectionIn(beyond.text, "past-the-end")).toContain(`href="/search?q=${QUERY}"`);
+  });
+});
+
+/**
+ * CATALOGUE SEARCH WITHIN A GROUP (CNCORE-180): searching Doctor Who does not
+ * return Iron Man.
+ *
+ * ON THE PAGED INSTANCE, whose Group holds the catalogue's own stories and
+ * nothing that holds them: `story` matches every titled Item there, so the
+ * Group's matches are a strict part of the catalogue's -- the container and the
+ * two hundred orderings match too and sit outside it -- and more than one page
+ * of them. A search that dropped the scope would read differently from one that
+ * kept it, on every page. Nobody writes to it.
+ */
+describe("/search narrowed to a Group", () => {
+  const QUERY = "story";
+  const pagedBaseUrl = inject("pagedBaseUrl");
+  const group = inject("pagedGroup");
+  /**
+   * WHAT THE GROUP'S MATCHES ARE: everything put in it, less the two it holds
+   * with no title -- which no search reaches, because the match is
+   * `title ilike ...` and that is NULL without one.
+   */
+  const matchedInTheGroup = group.holds.filter((id) => !inject("pagedUntitled").includes(id));
+
+  it("searches within a Group picked from the results, at the size of what it searched", async () => {
+    // THE CRITERIA TOGETHER: the matches are the Group's, and "Showing 100 of"
+    // counts the Group's matches rather than the catalogue's -- which is the
+    // lie a narrowing added to the Rows and not the count would tell here. And
+    // the query survives the picking: narrowing a search is not starting over.
+    const whole = await documentFrom(pagedBaseUrl, `/search?q=${QUERY}`);
+    const picked = scopeLinked(whole.text, group.name);
+
+    const { status, text } = await documentFrom(pagedBaseUrl, picked);
+
+    expect(status).toBe(200);
+    // THE QUERY, THEN THE GROUP (ADR-0066): what was asked, then within what.
+    expect(picked).toBe(`/search?q=${QUERY}&group=${group.id}`);
+    expect(itemsLinkedFrom(text)).toHaveLength(100);
+    expect(itemsLinkedFrom(text).every((id) => group.holds.includes(id))).toBe(true);
+    expect(text).toContain(
+      `<p class="text-muted-foreground text-sm">Showing 100 of ${matchedInTheGroup.length} results</p>`,
+    );
+    expect(markedCurrentIn(text)).toStrictEqual([group.name]);
+    expect(markedCurrentIn(whole.text)).toStrictEqual(["Everything"]);
+  });
+
+  it("walks every match in the Group by following links, keeping the query and the scope", async () => {
+    // A `Next` THAT DROPPED EITHER walks into the wrong Listing: without the
+    // query it is no search at all, and without the Group it carries on into
+    // matches the Group does not hold. The oracle is the fixture's list.
+    const first = `/search?q=${QUERY}&group=${group.id}`;
+    const walked: string[] = [];
+    let path: string | undefined = first;
+    for (let pages = 0; pages <= matchedInTheGroup.length; pages += 1) {
+      const { status, text } = await documentFrom(pagedBaseUrl, path);
+      expect(status).toBe(200);
+      walked.push(...itemsLinkedFrom(text));
+      if (pages > 0) {
+        expect(text).toContain(`href="${first}">Back to the start</a>`);
+      }
+      path = carriesOnAt(text);
+      if (path === undefined) {
+        expect([...walked].sort()).toStrictEqual([...matchedInTheGroup].sort());
+        expect(new Set(walked).size).toBe(walked.length);
+        return;
+      }
+      expect(path).toMatch(new RegExp(`^/search\\?q=${QUERY}&group=${group.id}&after=`));
+    }
+    throw new Error(`the walk never ended: ${walked.length} of ${matchedInTheGroup.length}`);
+  });
+
+  it("offers the whole catalogue's matches back, keeping the query", async () => {
+    // CLEARING THE SCOPE IS NOT CLEARING THE QUESTION. `Everything` on a
+    // narrowed search is the same search across the catalogue, not the prompt
+    // `/search` alone answers with.
+    const narrowed = await documentFrom(pagedBaseUrl, `/search?q=${QUERY}&group=${group.id}`);
+
+    expect(scopeLinked(narrowed.text, "Everything")).toBe(`/search?q=${QUERY}`);
+  });
+
+  it("says a Group that names nothing is not there, rather than that nothing matched", async () => {
+    // "NOTHING MATCHED" WOULD BE A CLAIM ABOUT A SCOPE THAT DOES NOT EXIST, and
+    // a reader who believed it would stop looking for something that is in the
+    // catalogue. So the page says the Group is not there, and the way out is
+    // the same search unnarrowed.
+    for (const missing of [crypto.randomUUID(), "doctor-who"]) {
+      const { status, text } = await documentFrom(
+        pagedBaseUrl,
+        `/search?q=${QUERY}&group=${missing}`,
+      );
+
+      expect(status).toBe(200);
+      expect(sectionIn(text, "no-such-group")).toContain(`href="/search?q=${QUERY}"`);
+      expect(() => sectionIn(text, "nothing-found")).toThrow();
+    }
+  });
+
+  it("says nothing matched within a Group, by name, and offers the search across everything", async () => {
+    // A SEARCH THAT FOUND NOTHING IN A SCOPE HAS NOT SEARCHED THE CATALOGUE,
+    // and saying only "Nothing matched" would read as though it had. So the
+    // sentence names the Group, and the page offers the wider search.
+    const empty = inject("pagedEmptyGroup");
+
+    const { status, text } = await documentFrom(
+      pagedBaseUrl,
+      `/search?q=${QUERY}&group=${empty.id}`,
+    );
+
+    expect(status).toBe(200);
+    const said = sectionIn(text, "nothing-found");
+    expect(said).toContain(`Nothing matched ${QUERY} in ${empty.name}`);
+    expect(said).toContain(`href="/search?q=${QUERY}"`);
+  });
+
+  it("finds every kind within a Group, where work-browsing narrowed to it hides the entities", async () => {
+    // ADR-0077's WIDE QUESTION SURVIVES THE NARROWING. The seeded instance's
+    // Group holds a Person, a Character and an Ordering of entities beside two
+    // Works; `in` matches the Person, the Ordering of entities and the story,
+    // and a Group-narrowed search that consulted `holds_work` would find the
+    // story alone. `works-page.test.ts` reads the same Group from `/works`.
+    const workBrowsing = inject("workBrowsing");
+
+    const { text } = await documentAt(`/search?q=in&group=${workBrowsing.group.id}`);
+
+    expect(text).toContain(workBrowsing.person);
+    expect(text).toContain(workBrowsing.entityContainer);
+    expect(text).toContain(workBrowsing.story);
+    expect(text).toContain('<p class="text-muted-foreground text-sm">3 results</p>');
   });
 });
 
