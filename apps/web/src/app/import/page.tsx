@@ -715,10 +715,10 @@ function Candidate({
     <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
       <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         {/*
-          TODO(CNCORE-223): a record's fields are not a Provider's prose, so
-          `ProviderProse` does not wrap them (ADR-0123), and this title, the kind
-          and the release dates beside it are flex items here that grow to a
-          word with no break in it.
+          A RECORD'S FIELDS ARE THE PROVIDER'S WORDS AND BOUNDED BY NOTHING, so
+          this title, the kind and the release dates beside it each go through
+          `TheirWords`: they are flex items here, and a word with no break in it
+          would grow one to the word and the page with it (ADR-0142).
         */}
         <span>
           <TheirWords>{result.title}</TheirWords>
@@ -1241,7 +1241,9 @@ function ItsOrdering({
           it: it is what they can correct, and it is the only thing tying this
           row to the box above.
         */}
-        <span>{said.title}</span>
+        <span>
+          <TheirWords>{said.title}</TheirWords>
+        </span>
         <span className="text-muted-foreground text-sm">{containerId}</span>
         {/*
           AND WHAT PRESSING THE BUTTON COSTS. One press writes this many

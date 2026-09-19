@@ -6,6 +6,7 @@ import { Input } from "@canoncore/ui/components/input";
 import { Label } from "@canoncore/ui/components/label";
 import { call } from "@orpc/server";
 
+import { TheirWords } from "@/components/their-words";
 import { callerContext } from "@/session";
 
 import { deleteGroup, drawGroup, renameGroup } from "./actions";
@@ -154,7 +155,7 @@ function Group({ group, owner }: { group: GroupOnThePage; owner: boolean }) {
         name -- which is what a reader sees.
       */}
       <h3 className="font-medium" data-group-id={group.id} id={`group-${group.id}`}>
-        {group.name}
+        <TheirWords>{group.name}</TheirWords>
       </h3>
       {owner && (
         <div className="mt-2 flex flex-wrap items-end gap-3">

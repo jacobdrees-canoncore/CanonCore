@@ -638,7 +638,9 @@ async function Groups({
           {groups.map((group) => (
             <li className="flex items-center gap-3 text-sm" key={group.id}>
               {/* One marker, for the reason `/groups` gives beside its own. */}
-              <span data-group-id={group.id}>{group.name}</span>
+              <span data-group-id={group.id}>
+                <TheirWords>{group.name}</TheirWords>
+              </span>
               {owner && (
                 <section aria-labelledby={`take-out-of-group-${group.id}`}>
                   <h3 className="sr-only" id={`take-out-of-group-${group.id}`}>
@@ -860,7 +862,7 @@ function Members({
           href={{ pathname: `/items/${placement.itemId}`, query: { via: placement.id } }}
           className="hover:underline"
         >
-          {placement.title ?? "Untitled item"}
+          <TheirWords>{placement.title ?? "Untitled item"}</TheirWords>
         </Link>
         {/*
               `ml-auto` RATHER THAN `justify-between` ON THE ROW, because the row
@@ -1245,7 +1247,7 @@ function AlsoAppearsIn({
               following this link is arriving at the container itself.
             */}
             <Link href={`/items/${placement.containerId}`} className="hover:underline">
-              {placement.containerTitle ?? "Untitled container"}
+              <TheirWords>{placement.containerTitle ?? "Untitled container"}</TheirWords>
             </Link>
             {/*
               One expression rather than `#{position}`. React server-renders a
@@ -1537,7 +1539,9 @@ function Note({ itemId, note }: { itemId: string; note: NoteOnThePage }) {
             note is written in a textarea, so a paragraph break is something the
             owner typed on purpose and HTML would otherwise collapse it.
           */}
-          <span className="whitespace-pre-wrap">{note.value}</span>
+          <span className="whitespace-pre-wrap">
+            <TheirWords>{note.value}</TheirWords>
+          </span>
           {/*
             The source's own LABEL rather than its kind, exactly as the Values
             list prints one: "who asserted this" is answered by `Owner`, where
