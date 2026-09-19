@@ -747,6 +747,36 @@ async function whatTheProviderSays(named: { provider: string; container: string 
   return asOwner.provider.container({ baseUrl: named.provider, containerId: named.container });
 }
 
+/** A record's own container, asked of the URL the page builds for it (CNCORE-238). */
+function askingAbout({ provider, record }: { provider: string; record: string }): string {
+  return `/import?provider=${encodeURIComponent(provider)}&record=${encodeURIComponent(record)}`;
+}
+
+/**
+ * THE CONTROL ON A CANDIDATE ROW THAT ASKS FOR ITS CONTAINER, and the address
+ * submitting it reaches.
+ *
+ * A NAVIGATING FORM RATHER THAN A LINK, WHICH IS THE CRITERION RATHER THAN A
+ * STYLE. Next prefetches a `<Link>`'s own address when it enters the viewport,
+ * and this address COSTS A LOOKUP AT A THIRD PARTY -- so a link here would spend
+ * one per candidate on a reader who merely scrolled past, which is the "one
+ * request per Provider" a search is supposed to cost turned into one per result.
+ * A string-action form prefetches its ACTION PATH instead, whose fields are not
+ * known until submission (`PurgeBox` takes the same measure for the same
+ * reason). Read as a form here so that a regression to a link fails rather than
+ * quietly costing what this ticket exists to avoid.
+ */
+function itsContainerAsked(row: string): { provider: string; record: string } {
+  const asks = navigatingFormsIn(row).find(({ action }) => action.endsWith("/import"));
+  if (!asks) throw new Error(`that candidate offers no way to its container:\n${row}`);
+  const carried = (name: string) => {
+    const found = asks.fields.find(([key]) => key === name);
+    if (!found) throw new Error(`that control carries no \`${name}\`: ${JSON.stringify(asks)}`);
+    return found[1];
+  };
+  return { provider: carried("provider"), record: carried("record") };
+}
+
 describe("/import, before a container's ordering is imported", () => {
   it("does not browse on a visitor's behalf, and says whose the question is", async () => {
     /*
@@ -952,6 +982,118 @@ function offeredIn(text: string): { title: string; href: string }[] {
 function theSentenceIn(words: string): string | undefined {
   return /Showing containers? [\d,]+(?: to [\d,]+)? of [\d,]+/.exec(words)?.[0];
 }
+
+describe("/import, reaching the Container a found record names", () => {
+  it("leads from a record found by searching to its Container's preview, with no id typed", async () => {
+    /*
+     * SPEC CNCORE-159's STORY 61, END TO END: "reach a Container from a record I
+     * found by searching". A search candidate carries no `series_id` at all --
+     * `provider-tmdb` hardcodes `null` on that path, because TMDB's multi-search
+     * carries no collection and filling one would cost a request per result --
+     * so until this the only road from a found film to its collection was
+     * typing an id the provider never showed anyone.
+     *
+     * THE ID IS NEVER TYPED AND NEVER WRITTEN DOWN HERE. It is read off the
+     * control the page rendered, and what the page should say about it is asked
+     * of the router rather than asserted from a literal: this suite runs against
+     * a stub on one machine and the REAL `provider-tmdb` image in CI, and a
+     * literal would be asserting which of those two was running.
+     */
+    const found = await documentAt(searching(providerSearch.query), owner);
+    const asked = itsContainerAsked(rowTitled(found.text, providerSearch.held));
+    expect(asked.provider).toBe(providerSearch.browsable.provider);
+
+    const named = await documentFrom(baseUrl, askingAbout(asked));
+
+    expect(named.status).toBe(200);
+    const said = await client.provider.containerOf({
+      baseUrl: asked.provider,
+      recordId: asked.record,
+    });
+    if (said.answer !== "container") {
+      throw new Error(`the provider named no container for ${asked.record}: ${said.answer}`);
+    }
+    // THE CONTAINER'S OWN NAME, WHICH IS NOT THE RECORD'S AND NOT THE ID. A
+    // page echoing either would satisfy a bare `toContain` on the section.
+    const section = sectionIn(named.text, "its-container");
+    expect(said.containerTitle).not.toBe(said.containerId);
+    expect(section).toContain(said.containerTitle as string);
+
+    // AND IT LEADS TO THE SAME PREVIEW A CONTAINER PICKED FROM THE LIST
+    // REACHES, rather than to a second rendering of one: the address is
+    // `?provider=&container=`, and what answers there is `provider.container`
+    // behind ADR-0131's door, unwidened by this road to it.
+    const to = linkedIn(section, said.containerTitle as string);
+    expect(to).toBe(browsing({ provider: asked.provider, container: said.containerId }));
+
+    const preview = await documentFrom(baseUrl, to as string, owner);
+    expect(preview.status).toBe(200);
+    const whole = await whatTheProviderSays({
+      provider: asked.provider,
+      container: said.containerId,
+    });
+    if (whole.answer !== "container") {
+      throw new Error(`the provider handed over no container: ${whole.answer}`);
+    }
+    expect(sectionIn(preview.text, "container")).toContain(whole.title);
+  });
+
+  it("looks nothing up until it is asked, so a search still costs one request per Provider", async () => {
+    /*
+     * THE COST CRITERION, AT THE ONE SEAM THAT CAN SEE IT. What a lookup COSTS
+     * is asserted a layer down, where a stub records the paths it was asked for
+     * (`provider.test.ts`); in CI this suite runs against the REAL
+     * `provider-tmdb` image, which records nothing and cannot be made to. What
+     * this seam can see is the thing that would spend it: an ADDRESS Next is
+     * allowed to prefetch.
+     *
+     * A `<Link>` IS PREFETCHED WHEN IT ENTERS THE VIEWPORT, so a way onward
+     * spelled as one would run a lookup per candidate for a reader who merely
+     * scrolled -- one request per RESULT, which is exactly the design this
+     * ticket rejected as too expensive to do eagerly. A string-action form's
+     * fields are not known until submission, so its action path is all that is
+     * prefetched. That is why the control is a form, and this is the assertion
+     * that fails on the day somebody simplifies it into a link.
+     */
+    const found = await documentAt(searching(providerSearch.query), owner);
+
+    // NOT ONE ROW, BUT THE WHOLE PAGE: a link anywhere on it is prefetchable.
+    expect(found.text).not.toContain("record=");
+    // AND NOTHING WAS ASKED, which is the other half: the section that reports
+    // a lookup is absent from a page that was only searched.
+    expect(() => sectionIn(found.text, "its-container")).toThrow();
+    // THE CONTROL IS THERE ALL THE SAME, so this passes for the right reason
+    // rather than because the feature is missing.
+    expect(
+      itsContainerAsked(rowTitled(found.text, providerSearch.held)).record.length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("says a Provider names no Container for a record, rather than offering a link to nothing", async () => {
+    /*
+     * THE ORDINARY ANSWER AT A PROVIDER LIKE `provider-wiki`, where a story
+     * sits in many timelines at once and no single one of them is THE
+     * container. A row that offered the way onward anyway would lead to a
+     * preview of nothing, which is the one outcome worse than saying so.
+     *
+     * THE CONFORMANCE WITNESS IS THE FIXTURE: it holds one record naming no
+     * container, and it is a Provider this instance searches, so the candidate
+     * arrives on this page by the ordinary road.
+     */
+    const found = await documentAt(searching("A work this provider holds"), owner);
+    const asked = itsContainerAsked(rowTitled(found.text, "A work this provider holds"));
+    expect(asked.provider).toBe(providerSearch.declinesBrowse.url);
+
+    const named = await documentFrom(baseUrl, askingAbout(asked));
+
+    expect(named.status).toBe(200);
+    const section = sectionIn(named.text, "its-container");
+    expect(textOf(section)).toContain("names no Container");
+    // NO WAY ONWARD, which is the half that makes the sentence worth printing.
+    expect(linkedIn(section, "A work this provider holds")).toBeUndefined();
+    expect(section).not.toContain("container=");
+  });
+});
 
 describe("/import, offering what a provider holds", () => {
   it("offers its containers to pick from, rather than asking for an id", async () => {

@@ -47,14 +47,17 @@ export const cmppRecord = z.object({
    * name above is never it, because a name can be renamed out from under an
    * import (ADR-0033).
    *
-   * READ BY NOTHING YET, AND KEPT ANYWAY (CNCORE-187). It was stripped here, so
-   * a record could not reach its container even where its provider said which.
-   * `provider-tmdb` says so on a lookup and a browse and NEVER on a search, so
-   * no candidate on `/import` carries one: a search-found film reaching its
-   * collection needs a lookup per click, which is a mechanism of its own.
-   * `provider-wiki` sends none, since a story sits in many timelines at once.
+   * READ BY `provider.containerOf`, ONE LOOKUP AT A TIME (CNCORE-238, ADR-0149).
+   * It was kept here and read by nothing under CNCORE-187, which is the half
+   * that made this possible: it had been STRIPPED, so a record could not reach
+   * its container even where its provider said which.
    *
-   * TODO(CNCORE-238): read it, one lookup at a time.
+   * WHICH IS WHY THE READER IS A CLICK RATHER THAN THE SEARCH. `provider-tmdb`
+   * fills this on a lookup and a browse and NEVER on a search, so no candidate
+   * on `/import` carries one and no amount of reading the search results would
+   * find it -- the Owner points at one record, and that record alone is looked
+   * up. `provider-wiki` sends none at all, since a story sits in many timelines
+   * at once, and the page says so rather than offering a way to nothing.
    */
   series_id: z.string().nullable().default(null),
   /**
