@@ -1,4 +1,4 @@
-import { and, eq, gt, is, isNull, lt, or, SQL, type SQLWrapper, sql } from "drizzle-orm";
+import { and, eq, gt, is, isNotNull, isNull, lt, or, SQL, type SQLWrapper, sql } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 
 /**
@@ -6,8 +6,8 @@ import type { AnyPgColumn } from "drizzle-orm/pg-core";
  *
  * NARROWER THAN `SQLWrapper`, and the difference is what lets an order be
  * SELECTED as well as sorted and compared. A place is read by the order's own
- * keys -- `select({ ...order.keys, id: order.id })`, which is what the two
- * reads in `queries.ts` do -- so the values cannot come from a list written out
+ * keys -- `select(thePlaceIn(order))`, which is what the two reads in
+ * `queries.ts` do -- so the values cannot come from a list written out
  * beside them, and Drizzle's `select` will not take the broad interface. The
  * catalogue's key is an expression (ADR-0014's projection) and its id is a
  * column, so both arms are in use here rather than one being kept for later.
@@ -15,14 +15,16 @@ import type { AnyPgColumn } from "drizzle-orm/pg-core";
 type AnExpression = SQL | AnyPgColumn;
 
 /**
- * ONE KEY OF AN ORDER: an expression, or an expression with the two things
- * about a key an expression cannot say -- WHICH WAY THE LISTING READS IT, and
- * WHETHER THE LISTING HOLDS ROWS WITH NO VALUE FOR IT.
+ * ONE KEY OF AN ORDER: an expression, or an expression with the three things
+ * about a key an expression cannot say -- WHICH WAY THE LISTING READS IT,
+ * WHETHER THE LISTING HOLDS ROWS WITH NO VALUE FOR IT, and WHAT A DELETE DOES
+ * TO IT.
  *
- * A BARE EXPRESSION SAYS BOTH THE ORDINARY WAY: read smallest first, with a
- * block of rows that have none at the end of it. That is six of this app's
- * seven keys, and the block is a real one in every case -- the items nobody has
- * titled, a container's Unplaced members, a placement no source stands behind.
+ * A BARE EXPRESSION SAYS ALL THREE THE ORDINARY WAY: read smallest first, with
+ * a block of rows that have none at the end of it, and nothing a delete can
+ * take away. The block is a real one wherever a key has it -- the items nobody
+ * has titled, a container's Unplaced members, a placement no source stands
+ * behind.
  *
  * BOTH PROPERTIES ARE ON THE KEY BECAUSE BOTH STATEMENTS READ THEM.
  * `theOrderBy` renders `desc` and the nulls clause; `pastTheRowIn` compares
@@ -63,10 +65,22 @@ type AnExpression = SQL | AnyPgColumn;
  * the sentence `theRanking` has to keep true. Do not declare it to save the
  * branch; declare it because the listing cannot hold such a row.
  *
- * A DESCRIBED KEY CANNOT BE SPREAD INTO A `select`, and that is a loud failure
- * rather than a quiet one: the two reads that do spread an order's keys hold
- * orders of bare expressions, and a described key reaching one is a type error
- * at the select rather than a column that reads back wrong.
+ * `destroyedBy` IS THE THIRD, AND ONLY THE READ THAT FINDS AN ANCHOR ASKS IT.
+ * A key on ADR-0014's projection reads NULL once its row is deleted: migration
+ * 5 tombstones every statement of a deleted item, that re-fires the
+ * projection, and the projection over no live statements is NULL. So the value
+ * is GONE rather than hidden, and the null a delete leaves looks exactly like
+ * an untitled row's -- but the untitled row sits in the keyless block and the
+ * deleted one has no place at all. That is ADR-0119's tombstone split, and the
+ * key names the tombstone that tells the two apart; `stillHasAPlaceIn` reads
+ * it. It is a fact about the EXPRESSION rather than the listing, so the
+ * projection says it in every order that holds it, except on a key every row
+ * has: there a null is no place whatever took it, and `PlaceIn` already
+ * refuses one.
+ *
+ * A DESCRIBED KEY IS SELECTED BY ITS EXPRESSION, through `thePlaceIn`. Spread
+ * into a `select` it would be the description that was read, and that is a
+ * type error at the read rather than a column that comes back wrong.
  */
 type AKey =
   | AnExpression
@@ -79,10 +93,15 @@ type AKey =
        * block and the comparison needs no branch for one.
        */
       readonly everyRowHasIt?: true;
+      /**
+       * THE TOMBSTONE THAT DESTROYS THIS KEY: once it is set, a null here is a
+       * place the delete took rather than one in the keyless block.
+       */
+      readonly destroyedBy?: AnyPgColumn;
     };
 
 /**
- * ONE KEY WITH BOTH PROPERTIES SAID OUT LOUD, which is what the two statements
+ * ONE KEY WITH EVERY PROPERTY SAID OUT LOUD, which is what the statements
  * below read. The bare expression is the sugar; this is what it means.
  *
  * `"key" in` RATHER THAN AN `instanceof`, and it is safe by measurement rather
@@ -94,6 +113,7 @@ function described(key: AKey): {
   key: AnExpression;
   largestFirst: boolean;
   everyRowHasIt: boolean;
+  destroyedBy?: AnyPgColumn;
 } {
   return { largestFirst: false, everyRowHasIt: false, ...("key" in key ? key : { key }) };
 }
@@ -112,15 +132,16 @@ function described(key: AKey): {
  * A TERM can go missing from the comparison while the `ORDER BY` still names it
  * (CNCORE-88, CNCORE-125), and that is what `theOrderBy` and `pastTheRowIn`
  * below make impossible. A VALUE for a term can go missing from the ANCHOR
- * (CNCORE-110, CNCORE-113), and that is what `PlaceIn` is for. Both are the
- * same failure -- rows silently stepped over -- reached from different ends.
+ * (CNCORE-110, CNCORE-113), and that is what `PlaceIn` and `stillHasAPlaceIn`
+ * are for. Both are the same failure -- rows silently stepped over -- reached
+ * from different ends.
  *
- * SO THE KEYS ARE WRITTEN ONCE AND ALL THREE ARE DERIVED. `theOrderBy` reads
- * them, `pastTheRowIn` reads them, and `PlaceIn` is the shape of what an anchor
- * has to carry for them. There is no fourth place to write them down
- * differently. Adding a key to an order reaches the sort, the walk and the
- * anchor in the same edit, which is what the four defects each needed and none
- * had.
+ * SO THE KEYS ARE WRITTEN ONCE AND EVERYTHING ELSE IS DERIVED. `theOrderBy`
+ * reads them, `pastTheRowIn` reads them, `PlaceIn` is the shape of what an
+ * anchor has to carry for them, and `thePlaceIn` and `stillHasAPlaceIn` are the
+ * read that finds one. There is no other place to write them down differently.
+ * Adding a key to an order reaches the sort, the walk and the anchor in the
+ * same edit, which is what the four defects each needed and none had.
  *
  * `Order` RATHER THAN `Ordering`, WHICH IS `CONTEXT.md`'S WORD FOR SOMETHING
  * ELSE -- the Placement construct, what a container keeps of its own members.
@@ -187,6 +208,65 @@ export type PlaceIn<O extends TheOrder> = {
     ? string | number | SQL
     : string | number | null | SQL;
 } & { readonly id: string };
+
+/** What a key is selected by: its expression, without what it says about it. */
+type TheExpressionOf<K extends AKey> = K extends { readonly key: infer E } ? E : K;
+
+/**
+ * THE COLUMNS ONE PLACE IS READ BY: each key's expression under the name the
+ * order gives it, and the id. So `select(thePlaceIn(order))` answers a
+ * `PlaceIn<typeof order>`, and a key the order gains is one the read cannot be
+ * left without.
+ *
+ * THE READS SPREAD `order.keys` UNTIL CNCORE-195, which held only while every
+ * key they read was a bare expression. A key that says what a delete does to it
+ * is a description, and a description spread into a `select` is not its
+ * column.
+ */
+export function thePlaceIn<O extends TheOrder>(
+  order: O,
+): { [N in keyof O["keys"]]: TheExpressionOf<O["keys"][N]> } & { id: O["id"] } {
+  return {
+    ...Object.fromEntries(
+      Object.entries(order.keys).map(([name, aKey]) => [name, described(aKey).key]),
+    ),
+    id: order.id,
+  } as { [N in keyof O["keys"]]: TheExpressionOf<O["keys"][N]> } & { id: O["id"] };
+}
+
+/**
+ * THE ROWS THAT STILL HAVE A PLACE IN THIS ORDER, for the read that finds an
+ * anchor: ADR-0119's tombstone split, read off the keys rather than written
+ * beside them.
+ *
+ * AN ANCHOR IS READ PAST ITS TOMBSTONE, because it is a position rather than
+ * something a reader is shown -- ADR-0075's rule is about what is shown -- and
+ * a delete takes a position away only where it DESTROYS a key. A key that says
+ * so is refused on THE PAIR, its value null and its tombstone set, and neither
+ * half alone is the rule: the tombstone alone would refuse an anchor whose key
+ * a delete had left standing, and the null alone would refuse an untitled row,
+ * which sits in the keyless block and is resumed from. Answering a deleted
+ * anchor as an untitled one resumed a kept link from the untitled tail with
+ * every titled row between skipped (CNCORE-110).
+ *
+ * A ROW THIS REFUSES IS NOT READ AT ALL, so the read answers `undefined`, which
+ * is what it already answers for an id that names nothing: the walk starts over
+ * (ADR-0066). The two facts had one answer already and now share one path to
+ * it.
+ *
+ * `undefined` WHERE NO KEY IS DESTROYED BY A DELETE, which drizzle's `and`
+ * leaves out of a `where`. A Container's own order is on a stored column no
+ * tombstone touches, so an anchor there keeps its place and a kept link into it
+ * resumes.
+ */
+export function stillHasAPlaceIn(order: TheOrder): SQL | undefined {
+  return and(
+    ...Object.values(order.keys).map((aKey) => {
+      const { key, destroyedBy } = described(aKey);
+      return destroyedBy === undefined ? undefined : or(isNotNull(key), isNull(destroyedBy));
+    }),
+  );
+}
 
 /**
  * THE `ORDER BY` THIS ORDER READS IN.

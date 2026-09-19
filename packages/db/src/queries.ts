@@ -16,7 +16,14 @@ import { alias } from "drizzle-orm/pg-core";
 import { z } from "zod";
 
 import type { Database } from "./index";
-import { type PlaceIn, pastTheRowIn, type TheOrder, theOrderBy } from "./order";
+import {
+  type PlaceIn,
+  pastTheRowIn,
+  stillHasAPlaceIn,
+  type TheOrder,
+  theOrderBy,
+  thePlaceIn,
+} from "./order";
 import {
   aliases,
   groupItems,
@@ -482,7 +489,9 @@ const THE_CONTAINERS_KEY = sql<string | null>`coalesce(${items.sortName}, ${item
  *
  * - THE CONTAINER'S PROJECTED KEY. ADR-0014 gives `sort_name` its own index for
  *   exactly this: it is what the catalogue sorts on, and the title is the
- *   fallback when no sort-name statement has ever won.
+ *   fallback when no sort-name statement has ever won. DESTROYED BY THE
+ *   CONTAINER'S DELETE, which is `items` here because `items` is joined in as
+ *   the container: see `findInThisItemsOrder` for what that does to a place.
  * - THEN THE DISAGREEMENT RESOLVED (ADR-0017). Two sources claiming different
  *   positions for one item in one container are two rows, both standing and
  *   both answered -- and these two terms are what decide which of them SPEAKS,
@@ -497,7 +506,7 @@ const THE_CONTAINERS_KEY = sql<string | null>`coalesce(${items.sortName}, ${item
 function thisItemsOrder(spokesman: ReturnType<typeof spokesmanFor>) {
   return {
     keys: {
-      containerKey: THE_CONTAINERS_KEY,
+      containerKey: { key: THE_CONTAINERS_KEY, destroyedBy: items.deletedAt },
       precedence: spokesman.precedence,
       sourceOrder: spokesman.sourceOrder,
       position: placements.position,
@@ -564,30 +573,14 @@ async function findInThisItemsOrder(
   const order = thisItemsOrder(spokesman);
   const [place] = await db
     // READ BY THE ORDER'S OWN KEYS, so a key it gains is one this read cannot be
-    // left without. The tombstone rides BESIDE them and is not one of them: it
-    // is read to decide whether there is a place at all, and a place carrying it
-    // would read as a term of the order.
-    .select({ ...order.keys, id: order.id, containerDeletedAt: items.deletedAt })
+    // left without -- and REFUSED BY THEM, so a key a delete destroys is refused
+    // on what the key says rather than on a line written here.
+    .select(thePlaceIn(order))
     .from(placements)
     .innerJoin(items, eq(items.id, placements.containerId))
     .leftJoinLateral(spokesman, sql`true`)
-    .where(and(eq(placements.id, id), eq(placements.itemId, itemId)));
-  if (place === undefined) return undefined;
-  // A KEY MISSING BECAUSE THE CONTAINER IS DEAD, which is the pair and not
-  // either half -- `containerDeletedAt` alone would refuse an anchor in a
-  // deleted container that still had a key, and a null key alone would refuse
-  // the untitled container the paragraph above keeps this walk reaching.
-  //
-  // TODO(CNCORE-195): the order names its keys and this names what a delete
-  // does to one of them, which is the tombstone split written beside the order
-  // rather than in it. CNCORE-170 carried the other half -- a value the walk
-  // COMPUTES answers its own null -- and reached two shapes for this half that
-  // both measured worse than these two lines; ADR-0119 carries them.
-  const { containerDeletedAt, ...place_ } = place;
-  if (place_.containerKey === null && containerDeletedAt !== null) return undefined;
-  // THE TOMBSTONE DOES NOT TRAVEL WITH THE PLACE. It is read to DECIDE whether
-  // there is one, and a place carrying it would read as a term of the order.
-  return place_;
+    .where(and(eq(placements.id, id), eq(placements.itemId, itemId), stillHasAPlaceIn(order)));
+  return place;
 }
 
 /** One value claimed about an item, and who claimed it (ADR-0012, ADR-0071). */
