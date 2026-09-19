@@ -1,6 +1,6 @@
 import { describe, expect, inject, it } from "vitest";
 
-import { documentAt, documentFrom, sectionIn, sourcesIn } from "./document";
+import { documentAt, documentFrom, headingOf, sectionIn, sourcesIn } from "./document";
 
 /**
  * The app over real HTTP: a production build of Next, serving a real database.
@@ -45,7 +45,7 @@ describe("/items/<id>", () => {
     expect(status).toBe(200);
     // The title was written as a STATEMENT and never into the column, so seeing
     // it here means the projection ran (ADR-0014).
-    expect(text).toContain(`<h1 class="text-3xl font-medium">${itemTitle}</h1>`);
+    expect(headingOf(text)).toBe(itemTitle);
   });
 
   it("puts the title in the document title too", async () => {
@@ -70,7 +70,7 @@ describe("/items/<id>", () => {
     const { status, text } = await documentAt(`/items/${itemId}?id=${twoOrigins.id}`);
 
     expect(status).toBe(200);
-    expect(text).toContain(`<h1 class="text-3xl font-medium">${itemTitle}</h1>`);
+    expect(headingOf(text)).toBe(itemTitle);
     expect(text).toContain(`<title>${itemTitle}</title>`);
     // AND THE CANONICAL NAMES THE PATH'S ITEM TOO, which is the half a reader
     // never sees and a crawler acts on.
@@ -275,7 +275,7 @@ describe("the path is identity, the query is the route", () => {
 
     expect(viaAnOrdering.status).toBe(bare.status);
     for (const { text } of [bare, viaAnOrdering]) {
-      expect(text).toContain(`<h1 class="text-3xl font-medium">${itemTitle}</h1>`);
+      expect(headingOf(text)).toBe(itemTitle);
       for (const placement of placements) {
         expect(text).toContain(placement.containerTitle);
         expect(text).toContain(`#${placement.position}`);
@@ -290,7 +290,7 @@ describe("the path is identity, the query is the route", () => {
     const { status, text } = await documentAt(`/items/${itemId}?via=${crypto.randomUUID()}`);
 
     expect(status).toBe(200);
-    expect(text).toContain(`<h1 class="text-3xl font-medium">${itemTitle}</h1>`);
+    expect(headingOf(text)).toBe(itemTitle);
   });
 
   it("marks the ordering the reader arrived through, and only that one", async () => {
@@ -376,7 +376,7 @@ describe("an item imported from a provider", () => {
     const { status, text } = await documentAt(`/items/${imported.id}`);
 
     expect(status).toBe(200);
-    expect(text).toContain(`<h1 class="text-3xl font-medium">${imported.title}</h1>`);
+    expect(headingOf(text)).toBe(imported.title);
   });
 
   it("shows the provider as the source of every value it claimed", async () => {
@@ -427,7 +427,7 @@ describe("a browsed item in more than one ordering", () => {
     const { status, text } = await documentAt(`/items/${browsed.inTwoOrderings}`);
 
     expect(status).toBe(200);
-    expect(text).toContain(`<h1 class="text-3xl font-medium">${browsed.title}</h1>`);
+    expect(headingOf(text)).toBe(browsed.title);
     const section = sectionIn(text, "also-appears-in");
     expect(section).toContain(browsed.imported);
     expect(section).toContain(`#${browsed.importedPosition}`);

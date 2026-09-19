@@ -463,7 +463,7 @@ export function sourcesIn(row: string): string[] {
  * Where the `</span>` closing a span begins, given where its content starts.
  *
  * COUNTED RATHER THAN MATCHED LAZILY, because a source's name is printed
- * through `ProviderProse` and so holds a span of its own (CNCORE-217). A lazy
+ * through `TheirWords` and so holds a span of its own (CNCORE-217). A lazy
  * match stops at THAT one's close, and reads the name as its inner tag's
  * opening with the outer close left over as something between two sources.
  */
@@ -484,11 +484,25 @@ function closingSpan(html: string, from: number): number {
  * what a reader sees and what an assertion about the sentence is about.
  *
  * FOR A SENTENCE THAT NAMES A PROVIDER, which since CNCORE-217 prints the name
- * through `ProviderProse` and so carries a span in the middle of what the Owner
+ * through `TheirWords` and so carries a span in the middle of what the Owner
  * reads as one line.
  */
 export function textOf(html: string): string {
   return html.replaceAll(/<[^>]*>/g, "");
+}
+
+/**
+ * What the page's one `<h1>` SAYS, which on an Item's page is its title.
+ *
+ * READ AS TEXT, since CNCORE-223 prints a title through `TheirWords` and so
+ * inside a span of its own: an assertion about which title a page carries is
+ * about the heading's words and not about how wide they may run. And EXACTLY
+ * ONE heading, because a page with a second would make "the title" a guess.
+ */
+export function headingOf(text: string): string {
+  const headings = [...text.matchAll(/<h1[^>]*>(.*?)<\/h1>/gs)];
+  if (headings.length !== 1) throw new Error(`the page has ${headings.length} <h1>s, not one`);
+  return textOf(headings[0]?.[1] ?? "");
 }
 
 /**
@@ -640,8 +654,8 @@ export function scopesIn(text: string): string {
 
 /** The address the picker links a scope at, by the words a reader picks it by. */
 export function scopeLinked(text: string, name: string): string {
-  const found = [...scopesIn(text).matchAll(/<a [^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/g)].find(
-    ([, , words]) => words === name,
+  const found = [...scopesIn(text).matchAll(/<a [^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/g)].find(
+    ([, , words]) => textOf(words ?? "") === name,
   );
   if (!found) throw new Error(`the picker offered nothing called ${name}`);
   return found[1] as string;
@@ -649,8 +663,8 @@ export function scopeLinked(text: string, name: string): string {
 
 /** The words of the one scope the picker marks as the page's own. */
 export function markedCurrentIn(text: string): string[] {
-  return [...scopesIn(text).matchAll(/<a aria-current="true"[^>]*>([^<]*)<\/a>/g)].map(
-    ([, words]) => words as string,
+  return [...scopesIn(text).matchAll(/<a aria-current="true"[^>]*>(.*?)<\/a>/g)].map(([, words]) =>
+    textOf(words ?? ""),
   );
 }
 

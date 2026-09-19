@@ -7,6 +7,7 @@ import {
   markedCurrentIn,
   scopeLinked,
   sectionIn,
+  textOf,
 } from "./document";
 
 /**
@@ -353,7 +354,7 @@ describe("/search narrowed to a Group", () => {
 
     expect(status).toBe(200);
     const said = sectionIn(text, "nothing-found");
-    expect(said).toContain(`Nothing matched ${QUERY} in ${empty.name}`);
+    expect(textOf(said)).toContain(`Nothing matched ${QUERY} in ${empty.name}`);
     expect(said).toContain(`href="/search?q=${QUERY}"`);
   });
 
