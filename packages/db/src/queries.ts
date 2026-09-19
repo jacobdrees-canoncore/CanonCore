@@ -894,7 +894,7 @@ export interface CatalogueRow {
    */
   isContainer: boolean;
   /**
-   * HOW MUCH THIS ONE HOLDS (CNCORE-183) -- the size of its own Members
+   * HOW MUCH THIS ONE HOLDS (ADR-0140) -- the size of its own Members
    * listing, which is the number `findPlacementsInContainer` answers as
    * `total` and is read off the same predicate so the two cannot disagree.
    *
@@ -1639,7 +1639,7 @@ export interface PlacementsInContainer {
 /**
  * WHAT ONE CONTAINER HOLDS, as the predicate rather than as a query -- written
  * once because TWO SURFACES ANSWER THE SAME NUMBER FROM IT and a reader sees
- * both: the Members listing reports it as its own `total`, and the catalogue
+ * both (ADR-0140): the Members listing reports it as its own `total`, and the catalogue
  * Row beside that container reports it as `holds` (CNCORE-183).
  *
  * THE TWO TOMBSTONES ARE THE HALF THAT WOULD HAVE DRIFTED. A count that read
@@ -1668,7 +1668,8 @@ function whatItHolds(container: SQLWrapper | string, memberTombstone: SQLWrapper
 
 /**
  * HOW MUCH ONE ROW HOLDS, as a scalar subquery riding on the Rows themselves
- * (CNCORE-183).
+ * (ADR-0140), which is that record's whole mechanism: the figure in the Row's
+ * own statement, and its predicate read off the Listing it counts.
  *
  * IN THE SAME STATEMENT, WHICH IS THE TICKET'S OWN CRITERION and the same
  * argument `theSize` makes for the Listing's `total`: a figure asked for

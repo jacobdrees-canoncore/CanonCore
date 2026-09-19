@@ -458,7 +458,7 @@ export const catalogueRowPublic = z.object({
    */
   isContainer: z.boolean(),
   /**
-   * HOW MUCH THIS ONE HOLDS (CNCORE-183): the size of its own Members listing,
+   * HOW MUCH THIS ONE HOLDS (ADR-0140): the size of its own Members listing,
    * which is the number `itemPublic.holds.total` carries for the same
    * container. `isContainer` above says a Row IS an ordering and can say
    * nothing about how big one is, so a reader scanning a Listing could not tell

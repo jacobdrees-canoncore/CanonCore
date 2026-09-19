@@ -176,7 +176,7 @@ function asRow(row: Catalogue["rows"][number]): CatalogueRowPublic {
     // one, and the key stays below this seam (ADR-0045).
     kind: row.kindLabel,
     isContainer: row.isContainer,
-    // CNCORE-183. The size of this container's own Members listing, read off
+    // ADR-0140. The size of this container's own Members listing, read off
     // the Row's own statement rather than asked for again -- so a Row cannot
     // report a figure the container's page would contradict.
     holds: row.holds,

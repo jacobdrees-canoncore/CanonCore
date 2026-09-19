@@ -332,7 +332,7 @@ export function Holding({
 }
 
 /**
- * WHAT A CONTAINER'S ROW SAYS IT IS, AND HOW MUCH OF IT THERE IS (CNCORE-183).
+ * WHAT A CONTAINER'S ROW SAYS IT IS, AND HOW MUCH OF IT THERE IS (ADR-0140).
  *
  * ONE PHRASE RATHER THAN A SECOND CHIP BESIDE THE FIRST. The words around a Row
  * are already two -- "Container" and the kind -- and a third would read as
