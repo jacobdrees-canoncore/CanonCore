@@ -370,8 +370,8 @@ describe("readCatalogue, walked a page at a time", () => {
     // not obvious. Migration 5 tombstones every statement of a deleted item,
     // that re-fires the projection, and the projection over no live statements
     // is NULL (ADR-0014) -- so `title` and `sort_name` are GONE rather than
-    // merely hidden, and the anchor a kept link names has no place left in the
-    // order at all.
+    // merely hidden, and the item a kept link names is no anchor in the order
+    // at all.
     //
     // SO IT NAMES NO POSITION, AND THE WALK STARTS AT THE BEGINNING: the answer
     // ADR-0066 already gives an id that names nothing, and the one Catalogue
@@ -464,7 +464,7 @@ describe("readCatalogue, walked a page at a time", () => {
   it("resumes past a deleted item that has its key again, because the key is what a delete takes", async () => {
     // THE OTHER HALF OF THE PAIR the two tests above rest on. A deleted anchor
     // is refused because its KEY is gone, not because its row is: an anchor
-    // whose key a delete left standing still has a place, and a refusal on the
+    // whose key a delete left standing is still one, and a refusal on the
     // tombstone alone would send this reader back to the top for nothing.
     //
     // A STATEMENT WRITTEN AFTER THE DELETE IS HOW THAT ROW EXISTS. Migration 5

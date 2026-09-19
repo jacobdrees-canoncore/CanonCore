@@ -76,6 +76,16 @@ keeps of its own members and is the Placement construct below; a second sense of
 would be the hazard this glossary already refuses for `duplicate` and `record`.
 _Avoid_: ordering
 
+**Anchor**:
+The row a Listing's cursor names, as the Listing's Order reads it: a value for each of the Order's
+keys, under the name the Order gives it, and the row's id, which together are where the row sits in
+that Order. The cursor carries only the id, so the walk reads the rest back and resumes past it —
+and a row whose key a delete destroyed is NO ANCHOR, so its cursor names no position and the walk
+starts over. NEVER A PLACE, which is a location, nor a Position, which is a Placement's and is at
+most one of the keys an anchor carries; where prose calls a cursor or an anchor "a position", the
+word is in its ordinary sense. It has no `_Avoid_` list because both words are headwords of their
+own, and `glossary.test.ts` reads every `_Avoid_` word as barred from any name the read path emits.
+
 **Size**:
 How many Rows a Listing holds altogether, which is not how many the page in front of you shows. ONE
 QUERY PER LISTING, from which both the positions it is read in are derived — riding on the Rows in

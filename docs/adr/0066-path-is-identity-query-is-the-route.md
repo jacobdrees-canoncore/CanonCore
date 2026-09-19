@@ -169,7 +169,7 @@ carries the other listing's cursor through and sets only its own -- asserted in 
 which review of CNCORE-125 is why: this sentence claimed both while the Members walk still dropped
 `placedAfter`, resetting the other list to its first page. A chip carries `after`
 forward, because it has nothing to do with the Members listing; a chip DROPS `placedAfter`, because
-it changes what "Also appears in" is ASKING and the old cursor names a place in the listing being
+it changes what "Also appears in" is ASKING and the old cursor names an anchor in the listing being
 left. The fixed order of all four was held in one function for the walks and which cursor a walk
 appends in one more -- but the chips held it by the order `theRoute` set its keys in, a third
 statement of it that CNCORE-181 found and folded into one (below).
