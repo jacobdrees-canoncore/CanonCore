@@ -548,6 +548,7 @@ type PlaceAmongOrderings = PlaceIn<ReturnType<typeof thisItemsOrder>>;
  * leads on is not: the container's key is ADR-0014's projection, migration 5
  * tombstones every statement of a deleted item, and the projection over no live
  * statements is NULL -- so a deleted container's key is GONE rather than hidden.
+ * The order's key says so, and `stillHasAPlaceIn` reads it in this `where`.
  *
  * A LEADING KEY THAT IS GONE LOSES THE WHOLE PLACE, which is why the survivors
  * behind it cannot rescue it. Resuming from `(null, precedence, ...)` would
@@ -558,8 +559,8 @@ type PlaceAmongOrderings = PlaceIn<ReturnType<typeof thisItemsOrder>>;
  *
  * AND THE UNTITLED CONTAINER IS WHAT THIS SEPARATES THAT FROM. A container
  * nobody has titled has no key either, sits at the end of the order as one
- * block, and is resumed from by the three keys behind it -- so the pair is
- * tested, not `deletedAt` alone.
+ * block, and is resumed from by the three keys behind it -- so the refusal
+ * tests the pair, not the tombstone alone.
  */
 async function findInThisItemsOrder(
   db: Database,
