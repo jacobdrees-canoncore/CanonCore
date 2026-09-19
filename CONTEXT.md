@@ -93,6 +93,14 @@ most one of the keys an anchor carries; where prose calls a cursor or an anchor 
 word is in its ordinary sense. It has no `_Avoid_` list because both words are headwords of their
 own, and `glossary.test.ts` reads every `_Avoid_` word as barred from any name the read path emits.
 
+**Cut**:
+A point in a Listing's Order that a page is read from, one side or the other: just past an Anchor
+(the walk forward), just short of one (the step back), or where a letter begins (the jump). ONE
+PREDICATE, the rows ahead of the point, and the rows behind it are its complement rather than a
+second comparison written the other way round -- which is what keeps the two directions agreeing
+about a tie. Never a position in the counted sense: a Cut has no number, which is why a keyset walk
+offers no page seven.
+
 **Size**:
 How many Rows a Listing holds altogether, which is not how many the page in front of you shows. ONE
 QUERY PER LISTING, from which both the positions it is read in are derived — riding on the Rows in

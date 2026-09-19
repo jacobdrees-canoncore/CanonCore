@@ -162,7 +162,8 @@ and each is a way to lose Items silently.**
   seven — is NOT superseded and is the half that genuinely needs an offset.
 - **No jump to page seven**, and no page numbers. An A–Z jump (`nameStartsWith`, which Plex has as
   `firstCharacterKey`) is the navigation that fits this shape, and the sweep already named it as
-  cheap and adjacent. It is not built.
+  cheap and adjacent. **It is built since CNCORE-174**, as a seek on the sort key and nowhere else:
+  the section at the foot of this record. No numbered page is, and none can be.
 - **A cursor moves if the Item it names is RETITLED under the reader.** The anchor's key is re-read
   on each request, so if an import changes the title or `sort_name` of the Item page one ended on
   while the reader is still on page one, page two resumes from wherever that Item sorts NOW and
@@ -177,11 +178,14 @@ and each is a way to lose Items silently.**
   from the top. Nothing is skipped and nothing is lost, which is the criterion; what it costs is
   that a reader five pages in walks those five again. The section above has the mechanism, the
   measurement and why the alternative was refused.
-- **No Previous, yet.** Reversing a keyset walk means the comparison and the ordering both flip and
-  the rows come back reversed — a symmetric `before`, but a second query shape, so it is a layer on
-  top of this rather than the missing half of it. Until something needs it, every page past the first
-  carries a link to the START of the listing: a reader who arrived on page five from a shared URL has
-  no history to go back through, and being stranded is the failure worth closing now.
+- **A Previous, since CNCORE-174, when something needed it.** Reversing a keyset walk means the
+  comparison and the ordering both flip and the rows come back reversed — a symmetric `before`, but
+  a second query shape, so it is a layer on top of this rather than the missing half of it. This
+  bullet deferred it "until something needs it", and seven thousand Items did. As built only the
+  ORDERING is a second statement: the comparison is not flipped but complemented, which the section
+  at the foot of this record argues. Every page past the first still carries a link to the START as
+  well, for the reader who arrived on page five from a shared URL and wants the top rather than
+  page four.
 
 ## Evidence
 
@@ -1211,3 +1215,120 @@ names its fields, and that is a real subtraction rather than none.
 which was whole; the size is now whole on the same construction. The tombstone split on a projected
 key, which this sentence said was still NOT in a value, is in one since CNCORE-195: the section
 after CNCORE-170's carries it.
+
+## The trigger fired: a step back and a jump to a letter (CNCORE-174)
+
+**THE BULLET ABOVE DEFERRED THE STEP BACK "UNTIL SOMETHING NEEDS IT", AND THE OWNER'S CATALOGUE IS
+THE SOMETHING.** Measured 2026-09-19 on the Owner's own install: 8,052 Items and 7,587 placed
+stories, so the front page is a hundred Rows and one `Next`, the three-thousandth Row is thirty
+presses away, and there was no way back but to start again. That licensed two things and not a
+third: **a step back, and a jump to a letter.** A numbered page stays refused, for the reason the
+bullet above gives, and saying WHICH Rows a page shows is ADR-0133's and not built here.
+
+**THE STEP BACK IS `before=<id>`, THE FIRST ROW OF THE PAGE A READER IS ON**, answered with the page
+that ends just short of it. A Row's id, like `after`, in whichever Listing it names a Row of, and
+naming no position starts the Listing over by ADR-0066's rule. All five Listings take it, because
+all five cut their pages in `onePage`: `before` on `catalogue.list`, `catalogue.works` and
+Catalogue search, and on `item.get` `before` for a Container's members and `placedBefore` for "Also
+appears in", named as their cursors forward are. Each answer carries `continuesBefore`, the first
+Row where something comes before the page and `null` where nothing does: `continuesAfter` turned
+round.
+
+**THE COMPARISON IS NOT FLIPPED, IT IS COMPLEMENTED, and that is what keeps the two directions from
+coming apart.** A point in an order splits a Listing in two, and what lies behind the point is
+exactly what does not lie ahead of it. So `TheCut` in `order.ts` is ONE predicate, the rows ahead,
+and the rows behind are `not(ahead)`. A second comparison written the other way round would be the
+two independent statements the section on CNCORE-169 abolished, now between directions rather than
+between the sort and the walk. The complement is exact because `pastTheRowIn` is never NULL on a
+row a Listing holds: every term either compares two values that exist or tests `is null`, and a
+row with no value for a key is answered by the keyless branch before any comparison sees it. **The
+one new statement is the ORDER, reversed**, and it is read off the same keys (`theOrderBy(order,
+{ backward: true })`): every key turned round, the keyless block FIRST where it was last, the id
+descending. Mutation-checked, each run and read: the keyless block left last, the id left ascending,
+and the page left unreversed each fail the test written for it, at the package export for all three
+Listings whose orders differ.
+
+**A STEP BACK THAT REACHES THE START ANSWERS THE START, WHOLE.** Where no more than a page lies
+behind the point, the answer is the Listing's first page rather than the few Rows before the point:
+a reader who jumped to M and stepped back to the top should see the page `/` shows, not a page of
+thirty-three nobody walking forward was ever served, with the next page beginning mid-page. It is
+the answer this record already gives a cursor that names no position, and it is the same place:
+nothing is behind it. It costs a second statement, at the start only.
+
+**`continuesBefore` COSTS ONE MORE READ ON A PAGE READ FORWARD FROM A POINT**: one Row, from behind
+the point, beside the page. A page reached from a cursor ALMOST always has something behind it, and
+"almost" is the reason it is asked rather than assumed. A jump names a point, not a Row, and a jump
+to A on a Listing whose first Row files under A has nothing behind it; offering Previous there
+would point at the page the reader is on. Measured: the assumption survived every test until the
+jump's own ("offers no step back where nothing is filed before the letter"). **IT IS A SECOND
+STATEMENT, NOT THE SAME SNAPSHOT**, unlike the size: the look-behind is the Listing's own read,
+laterals and all, asked for one Row, and folding it into the page's statement would need a union of
+two differently ordered selects of every Listing's shape. A Row inserted or deleted between the two
+can offer a Previous that lands on the start, or withhold one for a click. A navigation link can
+carry that; a count, which the reader reads as a fact, could not.
+
+**THE JUMP IS `letter`, A SEEK ON THE LEADING KEY**: the first Row whose sort key sorts at or past
+the letter, and the untitled block after every letter. A seek and not a filter, so a letter
+nothing is filed under lands at the next one along, where a reader looking for it would look. It is
+Jellyfin's `nameStartsWithOrGreater`; the per-letter COUNTS Plex's and Komga's bars carry are the
+expensive half and are not built.
+
+**"FILED UNDER" IS THE COLLATION'S WORD, NOT THE FIRST CHARACTER'S.** Both the Owner's install and
+the test container run `en_US.utf8` from glibc (provider `libc`, checked 2026-09-19), which ignores
+case, accents and marks at its first level: `"Death to the Daleks!"` files under D and
+`Übermensch` under U, where a first-character test would put one under a quotation mark and the
+other past Z. The seek therefore compares with the collation the `ORDER BY` uses, and cannot
+disagree with it about where a letter begins. **THE LETTER IS LOWERED FIRST**, because the lower
+case sorts first at the level that breaks ties (`'m' < 'M'`), so a key of the bare letter in lower
+case would otherwise sort below its own seek. **ONE SHAPE STILL FILES WRONGLY, AND IT IS SAID RATHER
+THAN FIXED**: a key whose whole content is one letter behind a mark (`"M"`, `...m`) sorts below the
+bare letter at glibc's last level, so a jump to M shows it on the page before. A key with anything
+after its first letter compares at the first level and files correctly. The Owner's catalogue holds
+no key of one letter or fewer (checked 2026-09-19).
+
+**TWO LISTINGS TAKE A LETTER AND THREE DO NOT, AND THAT IS WHAT "EVERY LISTING" CAN MEAN FOR A
+JUMP.** The catalogue and work-browsing lead on the sort key, and the letter is on
+`filedByNameInput`, an extension of the shared input. Catalogue search leads on closeness to what a
+reader typed, and nothing in a ranking is filed under a letter. A Container's members are in its
+own order and "Also appears in" is by the Orderings an item sits in, and neither is an alphabet. The
+step back comes from the shared page and reaches all five. The jump comes from the shared order
+module and reaches every Listing whose order is an alphabet.
+
+**MEASURED ON THE OWNER'S CATALOGUE**, restored into a worktree from the dump of 2026-09-19T18:51Z
+(8,052 Items), through `readCatalogue`, five runs each after one to warm, median and range:
+
+| Page | Median | Range |
+| --- | --- | --- |
+| The front page | 4.0 ms | 3.9-4.0 |
+| Page 31, walked forward, with its look-behind | 5.1 ms | 4.9-5.2 |
+| Page 30, stepped back to from page 31 | 4.7 ms | 4.7-4.8 |
+| Page 2 stepped back to the start, which reads the start again | 8.2 ms | 7.9-8.8 |
+| A jump to A, M, T and Z | 4.7, 4.4, 4.0 and 3.0 ms | |
+
+Page 30 stepped back to held exactly the Rows page 30 walked forward to held. A jump to M lands at
+*Ma and Par*, and the two Rows before it are *Lux* and *The Lying Old Witch in the Wardrobe*, filed
+under L without its article (ADR-0134).
+
+**ASSERTED AT THE THREE SEAMS** ([[0103-tests-bite-at-package-exports-and-the-router]]). At the
+package export, each order's step back from EVERY Row to the one before it, so every boundary is
+crossed rather than whichever a page size falls on: the catalogue's across a tie and the untitled
+tail, a Container's across a tie, a Repeat and the Unplaced, and "Also appears in"'s across all four
+keys. The jump's exact landing is asserted in a Group of its own, over Rows opening in a mark and in
+lower case. At the router, the contract block steps every entry back from every page of its walk,
+and jumps the four entries filed by name, bracketed by Rows its fixture files either side of the
+letter; `item.test.ts` steps both of `item.get`'s Listings back. Over HTTP, `/` steps back by
+following Previous and jumps from its own letters, whole and narrowed to a Group, and
+`scope.test.ts` reads every link a letter or a step back is written beside against the fixed order.
+**MOST OF THEM WERE WRITTEN AFTER THE CODE THEY COVER, which is the loop run backwards**, so they
+were mutation-checked rather than trusted. Red first: the catalogue's first step back, the router
+block's two new cases and `item.test.ts`'s. Written after: the rest at the package export and all
+of those over HTTP. Twelve mutations, each run and read, each killed by the test written for it and
+one only after the jump's test existed (the look-behind assumed, above): at the package export the
+keyless block left last and the id left ascending (against all three orders), the page left
+unreversed, the look-behind never or always answering, the look-ahead never answering, a short step
+back answering what it found, the letter left unlowered and the letter ignored; over HTTP the
+letters dropping the Group, Previous offered from the first page, and `before` written ahead of
+`placedAfter`.
+
+**THE STATUS STAYS `accepted`.** The walk was whole; the step back and the jump are whole on it, in
+every Listing each applies to.

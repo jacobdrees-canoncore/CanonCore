@@ -34,7 +34,7 @@ skipped by an `OFFSET` clause still have to be computed inside the server."* No 
 
 **So the answer differs by half, and the record has to say which.** A reader is told where they are;
 a reader is not given a numbered page to land on. **The A–Z jump is the landing mechanism**
-(ADR-0119 names it as "the navigation that fits this shape"), and a letter is a better target than a
+(ADR-0119 names it as "the navigation that fits this shape", and it is built since CNCORE-174), and a letter is a better target than a
 number anyway: a reader looking for something knows its first letter and does not know its page.
 
 ## What it costs, stated rather than waved through
