@@ -408,7 +408,8 @@ _Avoid_: verify, validate, unverified — each reads as a stronger claim than `v
 Removing everything one source ever contributed, in one operation. The word is the OWNER'S as well
 as the code's: it is on the button, because ADR-0036's obligation when a licence ends is to purge
 cached content rather than to hide it, and "remove" would understate what the owner is authorising.
-An item the owner also claims is not removed by one — it stays, stripped of what that source said.
+An item the owner also claims — by their own words, their own Placement, or a Group they put it in —
+is not removed by one: it stays, stripped of what that source said.
 _Avoid_: delete, uninstall, disconnect, unimport
 
 **Enrichment**:

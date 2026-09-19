@@ -13,7 +13,8 @@ the frontier, and hand it back.
 ## The loop
 
 Run `monitor.sh` (beside this file) under the Monitor tool, `persistent: true`, with `SCRATCH` set.
-It wakes you on change and never on a heartbeat. One pass per event.
+It wakes you on change and never on a heartbeat. One pass per event. Its header names every line it
+emits; `ROOM` and `IDLE` are read under **How full**, the `DRIFT-` lines under **Drift**.
 
 **1. Read the diff, then re-check its central claim.** A green check is not a review, and the PR's
 own reasoning is not evidence either. Take the one load-bearing claim the work rests on and put it
@@ -100,16 +101,25 @@ in a worktree.
 
 ## How full
 
-**FOUR IS A CANONCORE COUNT, NOT A TOTAL.** It comes from one `pnpm test:e2e` peaking at 55-60 of
-288 usable connections on the shared Postgres (CNCORE-137), and only CanonCore worktrees reach it:
-`provider-wiki` runs DuckDB fixtures and `provider-tmdb` hits the live API. Six agents with four
-contending is the shape, not a breach — so count the CanonCore worktrees, never the list.
+**`ROOM n` MEANS n SLOTS ARE FREE, AND THE MONITOR COUNTS THEM.** Do not count worktrees yourself; a
+freed slot used to wait on you remembering to. Four is a CANONCORE count, from one `pnpm test:e2e`
+peaking at 55-60 of 288 usable connections on the shared Postgres (CNCORE-137). `provider-wiki` runs
+DuckDB fixtures and `provider-tmdb` hits the live API, so neither is in the four. Six agents with
+four contending is the shape, not a breach.
 
-**A FULL COUNT IS NOT A BUSY ONE.** An agent waiting on its own `AskUserQuestion` holds a slot and
-spends nothing. Three of four did on 2026-09-19, each on a scope choice its own recommendation
-answered correctly, while the worktree count read full. So read every live terminal each pass rather
-than counting worktrees: answer what is technical and yours, and carry up only what `CLAUDE.md`
-reserves for the user -- money, a licence, or a background service.
+**`IDLE <worktree>` MEANS AN AGENT HAS GONE QUIET: PARKED, FINISHED OR DEAD.** A spinner keeps its
+output fresh, so silence is the tell, and one `terminal read` says which. A full slot count cannot
+tell any of the three from working — three of four agents sat on their own `AskUserQuestion` prompts
+while the count read full. Parked: answer what is technical and yours, and carry up only what
+`CLAUDE.md` reserves for the user (money, a licence, a background service). Finished: merge and
+remove. Dead: read the terminal before assuming the work is lost.
+
+**AND SAY WHO IS ANSWERING, because the agent cannot tell.** An `AskUserQuestion` that returns the
+option its own asker marked `(Recommended)` looks identical whether the user chose it, the dispatcher
+chose it, or nothing did. Two PRs on 2026-09-19 wrote "the Owner chose" over a choice the Owner never
+saw; one agent caught it itself and said why, which is that a default answer and a real one arrive the
+same way. Name yourself and the date in the answer, so the PR body and any record attribute it to the
+mouth it came from.
 
 **FILL IT FROM A FREE TREE RATHER THAN LEAVING IT EMPTY.** Throughput is the goal and the collision
 rule is how you reach it, not a reason to under-fill. On 2026-09-16 the corpus run owned

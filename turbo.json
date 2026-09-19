@@ -54,11 +54,6 @@
       "cache": false,
       "env": ["CANONCORE_DB_PORT"]
     },
-    "db:watch": {
-      "cache": false,
-      "persistent": true,
-      "env": ["CANONCORE_DB_PORT"]
-    },
     "db:down": {
       "cache": false,
       "env": ["CANONCORE_DB_PORT"]
