@@ -1322,3 +1322,59 @@ spelling `--config ./shared.ts`, with `shared.ts` a symlink out of the package, 
 which is execution rather than a read. That is the same trust this repo already extends to these
 manifests, since CI runs their scripts, and it is narrower than it sounds only because the sweep
 already says it sees one filename shape. CNCORE-202 carries it, with a TODO at `isInside`.
+
+## `fileParallelism: false` says what does not run BESIDE what, and nothing about what runs BEFORE what
+
+**THE THREE SUITES THAT SHARE ONE CATALOGUE NOW ORDER THEIR FILES THE SAME WAY ON EVERY RUN**
+(CNCORE-199). `packages/db`, `packages/api` and `packages/tasks` each build one database for the
+whole run and set `fileParallelism: false`, so their files run in sequence against a catalogue every
+one of them can write. That makes a file's POSITION part of its fixture — and until this change
+nothing fixed the position.
+
+**VITEST'S OWN SEQUENCER MOVES A FILE THAT FAILED, WHICH IS THE ONE ARRANGEMENT A FLAKE CANNOT BE
+RE-OBSERVED UNDER.** `BaseSequencer.sort` (vitest 5.0.0, read 2026-09-14) orders a run: a file that
+FAILED last run is promoted to FIRST, then files run longest-first, and file size decides only where
+there are no cached stats. So a failure CHANGES THE CONDITIONS OF THE NEXT RUN, and the next run is
+the one you reach for to find out what the failure was. One `pnpm test` reported
+`@canoncore/api: 1 failed | 190 passed (191)` on 2026-09-14, the failing test's name was not
+captured, and every run since has been green.
+
+**MEASURED ON THIS REPOSITORY, 2026-09-18, with one `packages/api` test deliberately broken and the
+same command run twice.** Without the sequencer the two runs disagreed from position six on:
+
+```
+run 1: … provider  listing  placement settings  catalogue session  index
+run 2: … provider  settings placement listing   session  catalogue index
+```
+
+With it, the two runs were identical, alphabetical, and the broken file stayed ELEVENTH rather than
+being promoted to first. The promotion itself is pinned in `stable-sequencer.test.ts`, which runs
+`BaseSequencer` and `StableSequencer` over the same specifications and asserts that the first
+promotes and the second does not — so if Vitest ever stops doing it, this repository is told rather
+than left carrying a setting for a reason that has expired.
+
+**SORTING BY PATH MAKES THE ORDER A PROPERTY OF THE REPOSITORY rather than of the last run's cache.**
+It is then the same on a laptop, on a runner and after a red one, so the NEXT one-off failure is
+reproducible by running the command again — and "which file ran in which position" is answerable for
+a run already over, by listing the suite's test files. That is why no reporter was added to record
+it: a recording says what happened once, and a fixed order says what happens every time.
+
+**IT DELIBERATELY READS NO CACHE AT ALL.** Vitest's remaining two keys — longest first, then largest
+— are throughput heuristics for a PARALLEL run, and these three suites have none, so there is no
+second worker for them to feed. The project grouping IS kept, because it is not a heuristic:
+`BaseSequencer` refuses to interleave two projects' files and a sort on the path alone would do it
+silently for any config that grows a second project.
+
+**THE FAILURE ITSELF WAS NOT REPRODUCED, and that is recorded rather than glossed.** Before the
+change, the `packages/api` suite was run under 40 different shuffled file orders
+(`--sequence.shuffle.files` with seeds 1 to 40, 2026-09-18) and every one was green: 199 passed.
+So the ordering hypothesis is UNCONFIRMED as the cause of that single red. What is confirmed is the
+half this section fixes — that a failure reshuffles the next run — which is why the remedy is
+addressed at the reproducibility rather than at a named test.
+
+**IT IS SWEPT, not left to each config.** `suite-database-wiring.test.ts` holds every Vitest config
+that names the shared global setup to declaring this sequencer, for the same reason
+`network-gate-wiring.test.ts` sweeps the network gate: the unit test proves the mechanism works in
+the one place it lives, and the sweep is what makes it a claim about the repository. The reader those
+two share was extracted to `@canoncore/config/testing/vitest-configs` in the same change, since a
+second sweep over the same files is the Shotgun Surgery `workspace.ts` was already extracted for.

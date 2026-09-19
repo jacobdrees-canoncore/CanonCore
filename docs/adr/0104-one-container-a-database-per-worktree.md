@@ -137,14 +137,15 @@ this, and it is tempting exactly because the constant and the declaration now si
 it would make the budget FOLLOW whatever suffix was added last and widen it silently.
 `worktree-database.ts` names that move so the next reader declines it on purpose rather than by luck.
 
-**The budget is full, which is what to know before adding another.** SEVEN of the FIFTEEN declared
-suffixes — `_test_fresh`, `_test_paged`, `_test_purge`, `_test_still`, `_test_place`, `_test_order`
-and `_test_allow` — spend all eleven characters, so the longest tail the harness can derive IS the
-reservation, exactly. (This read "four of the six" until 2026-09-13 and "seven of the thirteen" until
-2026-09-16; the set has now grown out from under this sentence TWICE, which is what a figure quoted
-beside a list does. **COUNT `TEST_DATABASE_SUFFIXES` rather than trust the number here** — the SEVEN
-is the load-bearing half and has not moved, because what fills the budget is a five-character suffix
-and the two added since are four.)
+**The budget is full, which is what to know before adding another.** EIGHT of the SEVENTEEN declared
+suffixes — `_test_fresh`, `_test_paged`, `_test_purge`, `_test_still`, `_test_place`, `_test_order`,
+`_test_allow` and `_test_tasks` — spend all eleven characters, so the longest tail the harness can
+derive IS the reservation, exactly. (This read "four of the six" until 2026-09-13, "seven of the
+thirteen" until 2026-09-16 and "seven of the fifteen" until 2026-09-18; the set has now grown out
+from under this sentence THREE TIMES, which is what a figure quoted beside a list does. **COUNT
+`TEST_DATABASE_SUFFIXES` rather than trust the number here.** The load-bearing half is that the
+budget is SPENT, not by how many: `_test_tasks` is the first addition since CNCORE-112 to land on
+eleven rather than under it, so the count moved for the first time as well as the total.)
 A new one is likelier to need shortening than to fit, and the test now says so at the point of adding
 it rather than on the first branch long enough to break.
 
@@ -337,3 +338,85 @@ node-postgres.com/apis/pool. The eight `db.transaction(...)` sites were read rat
 `288` is `docs/research/parallel-agent-substrate.md` §7, "The concurrency ceiling on this machine,
 with its arithmetic", and its background-backend subtraction is flagged above as unverified rather
 than adopted.
+
+## The run database was one name for three suites, and turbo's topology was all that hid it
+
+**`global-setup.ts` IS SHARED BY THREE SUITES AND BUILT THE SAME DATABASE FOR ALL OF THEM.**
+`buildTestDatabase()` with no suffix is the bare `<worktree>_test`, which that function DROPS
+`with (force)` and recreates — and `packages/db`, `packages/api` and `packages/tasks` each list
+`@canoncore/db/testing/global-setup`. Everything above is about two WORKTREES colliding on one
+database; this is three SUITES inside one worktree colliding on it, and the same record covers both
+because it is the same sentence one level down.
+
+**NOTHING BUT `turbo.json`'s `dependsOn: ["^test"]` KEPT THEM APART, and that is TOPOLOGICAL rather
+than a lock.** It serialises those three today only because `@canoncore/api` depends on both
+`@canoncore/db` and `@canoncore/tasks`. A package added later that took this global setup and was not
+upstream of the others would drop a database another suite was reading, and — this is the part worth
+recording — **the symptom would be exactly one unexplained failure in a suite that never mentions the
+database**, which is the shape of the CNCORE-131 failure described above and of CNCORE-199's own.
+
+**THE CLAIM IS NOW DECLARED, ONE PACKAGE TO ONE SUFFIX.** `SUITE_DATABASE_SUFFIXES` pairs
+`@canoncore/db` with `""`, `@canoncore/api` with `api` and `@canoncore/tasks` with `tasks`, and
+`suite-database.ts` resolves it from the package's own manifest. `""` is `packages/db`'s and nobody
+else's now; it used to be every suite's because it was the PARAMETER'S DEFAULT, which is how three
+suites came to share a name without anybody choosing it.
+
+**A PACKAGE ABSENT FROM THE DECLARATION IS REFUSED BY NAME rather than defaulted onto `""`.** That is
+the half that makes this hold for the package nobody has written yet, and it is what the old default
+could not do: defaulting is silent, and what it defaulted onto was another suite's database.
+`suite-database-wiring.test.ts` reads every Vitest config on disk and holds the two sets equal in
+BOTH directions, so a config that takes this global setup without declaring fails there, and an entry
+naming a package that no longer takes it fails there too.
+
+**VITEST DOES NOT CARRY THE IDENTITY AND THE MANIFEST DOES.** `TestProject.name` is the obvious
+reading and is empty — vitest 5.0.0 documents it as "the name of the project or an empty string if
+not set", and none of these configs sets one. Measured here on 2026-09-18: `name=""`,
+`root=<repo>/packages/api`. `config.root` is the package directory, so the package's own `name` is
+one read away and is the identity the workspace uses everywhere else.
+
+**THE STRIP GENERALISED AND THE BUDGET DID NOT MOVE.** `testDatabaseNameFor` recovers the worktree
+database by stripping its own `_test` marker, which was TOTAL while `""` was the only run database
+there was. With `_test_api` arriving as one, the bare strip would have derived
+`<worktree>_test_api_test_<suffix>` — the same doubled tail CNCORE-150 took out, one generation
+along. It strips a SUITE'S tail and never a FILE'S: the only names it is ever handed are the run
+databases, because `testing/setup.ts` repoints DATABASE_URL at what `global-setup.ts` built, and a
+fixture database is never a run database. `worktree-database.test.ts` ranges over the claims rather
+than over the bare one, which is what carries the idempotence and the 63-byte budget onto all three.
+
+**`_test_tasks` IS ELEVEN CHARACTERS, WHICH IS THE BUDGET EXACTLY**, and `_test_api` is nine. The
+reservation is untouched, which is the direction the paragraphs above insist the constraint runs: the
+suffix gave way, not the stem.
+
+**A FIXTURE'S SUFFIX AND A SUITE'S ARE TWO LISTS, AND THE FIRST DRAFT MADE THEM ONE.** That draft put
+`api` and `tasks` into `TEST_DATABASE_SUFFIXES`, which is the union `buildTestDatabase` accepts — so
+`buildTestDatabase("api")` typechecked from any fixture, including `apps/web/e2e/instance.ts`, and
+what that function does with a name is `drop database ... with (force)` against a suite's LIVE run
+database. The `name === database` guard refuses a caller its OWN database and cannot see a sibling's.
+Review caught it before merge; nothing in the repository had asked yet, which is the only reason it
+was harmless.
+
+**IT IS FIXED IN THE TYPE RATHER THAN IN A GUARD, because the guard cannot know the intent.**
+`FIXTURE_DATABASE_SUFFIXES` is what a FILE may ask for and `SUITE_DATABASE_SUFFIXES` is what a SUITE
+runs in; the two do not overlap, `buildTestDatabase` takes the first and `buildSuiteDatabase` the
+second, and `buildTestDatabase("api")` is now TS2345. `TEST_DATABASE_SUFFIXES` remains as the
+CONCATENATION of both, because the 63-byte budget is a property of every name the harness derives and
+splitting the union without it would have silently halved what `worktree-database.test.ts` ranges
+over — which is the one test standing between a long branch and a dropped catalogue.
+
+**`""` MOVED RATHER THAN BEING DELETED, and that is the whole shape of the original defect.** It sat
+in the fixture list on the grounds that `packages/db`'s suite takes the bare `<database>_test`. It
+was never a fixture's to ask for; it was a SUITE's, reachable by every caller because it was also the
+PARAMETER'S DEFAULT. Neither `buildTestDatabase` nor `buildSuiteDatabase` has a default now, so no
+caller gets a database by not mentioning one.
+
+**AND THE LOOKUP USES `Object.hasOwn`, which is not defensiveness about a name nobody will write.**
+`SUITE_DATABASE_SUFFIXES` is an object literal and the name indexing it is read off a `package.json`
+on disk, so `SUITE_DATABASE_SUFFIXES["toString"]` is an inherited FUNCTION rather than `undefined` —
+walking past a refusal written as `=== undefined` and carrying a non-suffix into a name this harness
+drops. Demonstrated in `suite-database.test.ts` rather than reasoned about: with the old check the
+test fails `expected [Function] to throw an error`.
+
+**WHAT THIS COSTS IS TWO MORE DATABASES AND NO MORE CONNECTIONS.** Each of the three suites already
+built one from empty and migrated it; they now build three different ones rather than the same one
+three times. The ceiling arithmetic above is untouched, because those suites are still serialised by
+the same topology — what changed is that the serialisation is no longer load-bearing.

@@ -1,3 +1,4 @@
+import { StableSequencer } from "@canoncore/config/testing/stable-sequencer";
 import { defineConfig } from "vitest/config";
 
 /**
@@ -29,6 +30,10 @@ export default defineConfig({
     // out itself would do it before a gate listed after it was installed.
     setupFiles: ["@canoncore/config/testing/install-network-gate", "@canoncore/db/testing/setup"],
     fileParallelism: false,
+    // AND THE ORDER OF THOSE FILES DOES NOT MOVE (CNCORE-199): with one
+    // catalogue and no parallelism, a file's POSITION is part of its fixture.
+    // `stable-sequencer.ts` says what Vitest's own sequencer does instead.
+    sequence: { sequencer: StableSequencer },
     /**
      * WHAT IS LEFT HERE IS THE ONE SETTING THAT IS STILL CONFIGURATION.
      *

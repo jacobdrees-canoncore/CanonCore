@@ -244,9 +244,10 @@ reason. Set `CANONCORE_DB_PORT` if 55432 is taken too.
 
 **Every CanonCore worktree shares ONE container**, because `name: canoncore` pins the Compose
 project and Compose resolves it from any directory. That is fine and cheap. Sharing one *database*
-is not: the suites drop and recreate `<database>_test`, so two worktrees testing at once would take
-each other's out mid-run. `pnpm db:setup` gives each worktree a database named after its branch —
-`canoncore_cncore_4_item_on_a_page` — so `_test` and `_test_web` never collide either. See ADR-0104.
+is not: the suites drop and recreate a `<database>_test…` of their own, so two worktrees testing at
+once would take each other's out mid-run. `pnpm db:setup` gives each worktree a database named after
+its branch — `canoncore_cncore_4_item_on_a_page` — so `_test`, `_test_api` and `_test_web` never
+collide either. See ADR-0104.
 
 ## Checks
 

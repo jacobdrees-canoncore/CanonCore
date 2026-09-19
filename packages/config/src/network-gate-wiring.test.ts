@@ -1,17 +1,9 @@
-import {
-  existsSync,
-  mkdtempSync,
-  readdirSync,
-  readFileSync,
-  rmSync,
-  symlinkSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
-import { pathToFileURL } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { repoRoot } from "./testing/repo-root";
+import { configFilesIn, configFilesOnDisk, testBlockOf } from "./testing/vitest-configs";
 import { packageDirectories, workspaceDirectories } from "./testing/workspace";
 
 /**
@@ -93,7 +85,7 @@ function runsASuite(command: string): boolean {
 // `vitest.*.config.ts` files that sweep reads off the disk.
 //
 // WHAT IS TRUSTED HERE, since the value travels: this is a script string out of
-// a workspace `package.json`, and `testConfig` below IMPORTS what it resolves
+// a workspace `package.json`, and `testBlockOf` IMPORTS what it resolves
 // to, which is execution rather than a read. `isInside` is asserted on the way
 // and constrains the DIRECTORY, not the filename, so a script naming any file
 // inside its own package has that file imported. That is the same trust the
@@ -179,70 +171,6 @@ function suites(): Suite[] {
 }
 
 /**
- * The Vitest configs directly inside ONE directory, with a symlinked one
- * REFUSED rather than dropped (CNCORE-201).
- *
- * `Dirent.isFile()` is lstat, exactly as `isDirectory()` is, so it is FALSE for
- * a symlink pointing at a file and `isSymbolicLink()` is true instead. Filtering
- * on the first alone took such a config out of this list in silence. A package
- * whose ONLY config was a symlink still reddened, through `ungatedPackages`
- * below -- the silent case was a real config plus a symlinked SECOND one, which
- * nothing then held to installing the gate: `unrun` is `onDisk.filter(...)` and
- * iterates only what this function found, and the count guard below is LOOSENED
- * by a miss rather than tightened by it.
- *
- * REFUSED FOR A REASON OF ITS OWN RATHER THAN CNCORE-200'S, which was measured
- * rather than inherited. That one refuses a symlinked package DIRECTORY because
- * pnpm and turbo answer differently about it, and there is no such disagreement
- * here: Vitest loads a symlinked config and runs the suite green, and
- * `testConfig` below imports the same module Vitest does. What is refused
- * instead is a config this sweep cannot PLACE. `isInside` is the rule that keeps
- * a package from being asserted against a config it does not own, and it reads
- * the PATH -- so a symlink, whose path is inside the package while its file may
- * be anywhere, is the one spelling of that climb `isInside` cannot see. The
- * measurement and what the refusal costs are in ADR-0103 under "a symlinked
- * Vitest config is refused for a reason of its own", and are NOT restated here:
- * a figure kept in two places is a figure that drifts in one of them.
- *
- * THE NAME IS READ BEFORE THE LINK IS, so what this refuses is a symlink
- * WEARING A CONFIG'S NAME rather than a symlink in a package. EVERY offender is
- * named and not the first, for the reason `ungatedPackages` is named rather than
- * counted: two are two things to fix.
- */
-function configFilesIn(directory: string): string[] {
-  const entries = readdirSync(directory, { withFileTypes: true }).filter((entry) =>
-    /^vitest\..*config\.ts$/.test(entry.name),
-  );
-  const symlinked = entries.filter((entry) => entry.isSymbolicLink());
-  if (symlinked.length > 0) {
-    const paths = symlinked.map((entry) => join(directory, entry.name)).join(", ");
-    throw new Error(
-      `a symlinked Vitest config names a file this sweep cannot place, so it is refused: ${paths}`,
-    );
-  }
-  return entries.filter((entry) => entry.isFile()).map((entry) => join(directory, entry.name));
-}
-
-/**
- * Every Vitest config FILE under the directories the workspace names, found by
- * reading the disk rather than by asking the manifests. That is the whole point
- * of it: the sweep above learns what exists from `scripts`, so it cannot be the
- * thing that notices a config no script it recognises runs.
- */
-//
-// WHAT IT LOOKS AT IS ONE LEVEL AND ONE FILENAME SHAPE: `vitest.*.config.ts`
-// directly inside a package, which is every config this repo has. A `.mts` one,
-// a `test` block in a `vite.config.ts`, or one nested deeper is not seen, and
-// the assertion below is worth only what this sentence says.
-//
-// AND IT TAKES AN ABSOLUTE PATH ONE DIRECTORY AT A TIME, which is what lets a
-// scratch tree ask the question this repository cannot: no config here is a
-// symlink, exactly as no package directory is (CNCORE-201).
-function configFilesOnDisk(): string[] {
-  return workspaceDirectories().flatMap((directory) => configFilesIn(join(repoRoot, directory)));
-}
-
-/**
  * Every config whose TEXT names a global setup, which is the count the
  * assertion about global setups is held to.
  *
@@ -252,28 +180,6 @@ function configFilesOnDisk(): string[] {
  */
 function configsNamingAGlobalSetup(): string[] {
   return configFilesOnDisk().filter((file) => readFileSync(file, "utf8").includes("globalSetup"));
-}
-
-/**
- * A config's `test` block as it actually resolves, read by IMPORTING the config
- * rather than by matching specifiers in its text. A commented-out line still
- * reads as present to a text search, and that is the exact state this test
- * exists to catch. Both things asked below -- `setupFiles` and `globalSetup` --
- * come off this one object.
- *
- * A config that is not there resolves to none, which is what a package with no
- * Vitest config of its own has. Absence is reported by the caller as a suite
- * standing open, never as a crash -- it is the ordinary way to be ungated.
- */
-async function testConfig(suite: Suite): Promise<{
-  setupFiles?: string | string[];
-  globalSetup?: string | string[];
-}> {
-  if (!existsSync(suite.config)) return {};
-  const loaded = (await import(pathToFileURL(suite.config).href)) as {
-    default?: { test?: { setupFiles?: string | string[]; globalSetup?: string | string[] } };
-  };
-  return loaded.default?.test ?? {};
 }
 
 function asList(declared: string | string[] | undefined): string[] {
@@ -370,7 +276,7 @@ describe("the network gate's wiring", () => {
     for (const suite of found) {
       const name = `${suite.package}: ${suite.script}`;
       if (MAY_REACH_THE_INTERNET.includes(name)) continue;
-      const declared = asList((await testConfig(suite)).setupFiles);
+      const declared = asList((await testBlockOf(suite.config)).setupFiles);
       if (!declared.includes(GATE)) open.push(name);
     }
     expect(open).toStrictEqual([]);
@@ -397,7 +303,7 @@ describe("the network gate's wiring", () => {
   it("is installed FIRST by every swept suite that has a global setup", async () => {
     const withGlobalSetup = [];
     for (const suite of suites()) {
-      const declared = asList((await testConfig(suite)).globalSetup);
+      const declared = asList((await testBlockOf(suite.config)).globalSetup);
       if (declared.length === 0) continue;
       withGlobalSetup.push({ suite: `${suite.package}: ${suite.script}`, first: declared[0] });
     }
@@ -406,7 +312,7 @@ describe("the network gate's wiring", () => {
     // `3` here was written when three configs declared one and five do now
     // (CNCORE-160).
     //
-    // READ AS TEXT, WHICH IS THE INDEPENDENT SOURCE. `testConfig` IMPORTS a
+    // READ AS TEXT, WHICH IS THE INDEPENDENT SOURCE. `testBlockOf` IMPORTS a
     // config, so a resolution that silently yielded `{}` for every one of them
     // would empty this list and pass; a text search cannot fail that way. The
     // one thing it cannot tell apart is a COMMENTED-OUT declaration, and this

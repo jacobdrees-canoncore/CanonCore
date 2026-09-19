@@ -1,3 +1,4 @@
+import { StableSequencer } from "@canoncore/config/testing/stable-sequencer";
 import { defineConfig } from "vitest/config";
 
 /**
@@ -18,5 +19,9 @@ export default defineConfig({
     // One database, shared by every file here, for the reason `packages/db`
     // gives: two workers writing to it at once race rather than test.
     fileParallelism: false,
+    // AND THE ORDER OF THOSE FILES DOES NOT MOVE (CNCORE-199): with one
+    // catalogue and no parallelism, a file's POSITION is part of its fixture.
+    // `stable-sequencer.ts` says what Vitest's own sequencer does instead.
+    sequence: { sequencer: StableSequencer },
   },
 });
