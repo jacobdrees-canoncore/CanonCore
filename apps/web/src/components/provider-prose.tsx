@@ -1,11 +1,12 @@
 /**
  * A PROVIDER'S PROSE, AT NO WIDTH THE PROVIDER CHOSE (ADR-0123, CNCORE-217).
  *
- * `cmppManifest` and `reasonFor` bound a Provider's text at 300 characters,
- * which settles how LONG it is on the Owner's page. Three hundred characters
- * with no break in them are still one unbreakable line, so a Provider that sends
- * one would choose how WIDE the page is instead: measured on `/import`, a
- * heading run 1,092 pixels past its own box and the page scrolling sideways.
+ * `cmppManifest` and `reasonFor` bound a Provider's text -- a name, a reason or
+ * a label at 300 characters, a licence notice at 1,000 -- which settles how LONG
+ * it is on the Owner's page. Three hundred characters with no break in them are
+ * still one unbreakable line, so a Provider that sends one would choose how WIDE
+ * the page is instead: measured on `/import`, a heading run 1,092 pixels past
+ * its own box and the page scrolling sideways.
  *
  * `anywhere` RATHER THAN `break-word`, AND ONLY ONE OF THEM WORKS. Both wrap a
  * word that will not fit its line. `break-word` leaves the element's min-content
