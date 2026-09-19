@@ -3,11 +3,15 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import {
   createDb,
+  createGroupByHand,
   type Database,
+  deleteGroupByHand,
   findPlacementsInContainer,
   items,
   placements,
+  putItemInGroupByHand,
   readCatalogue,
+  takeItemOutOfGroupByHand,
 } from "./index";
 import { buildTestDatabase } from "./testing/build-database";
 import {
@@ -455,6 +459,120 @@ describe("readCatalogue, walked a page at a time", () => {
     expect(kept.rows.map((row) => row.id)).toStrictEqual(theRest.slice(0, 2));
     expect(kept.continuesAfter).toBe(theRest[1]);
     expect(kept.total).toBe(4);
+  });
+});
+
+/**
+ * THE CATALOGUE NARROWED TO ONE GROUP (CNCORE-179, ADR-0010): one universe at
+ * a time, rather than every one on a single front page.
+ *
+ * EVERY GROUP HERE IS DRAWN BY THE TEST THAT READS IT, which is what lets these
+ * assertions be EXACT where the rest of this file has to say "contains". The
+ * catalogue is shared by every file in the suite and its size is whatever they
+ * left behind; a Group nobody else knows the id of holds what this test put in
+ * it and nothing more.
+ */
+describe("readCatalogue, narrowed to a Group", () => {
+  it("answers the Items in that Group and no others, at the Group's own size", async () => {
+    // THE SIZE IS THE HALF THAT HAS GONE WRONG BEFORE, twice (CNCORE-129,
+    // CNCORE-172): a narrowing added to the Rows and not to the count reports
+    // the whole catalogue over a narrowed page. So the Rows and the size are
+    // asserted together, against a literal rather than against each other --
+    // a pair that agreed while both counted the catalogue would pass that.
+    const scope = await createGroupByHand(db, { name: "A scope with two stories in it" });
+    const inside = [
+      await anItemTitled(db, "A story inside the scope"),
+      await anItemTitled(db, "Another story inside the scope"),
+    ];
+    await anItemTitled(db, "A story outside the scope");
+    for (const itemId of inside) await putItemInGroupByHand(db, { groupId: scope, itemId });
+
+    const narrowed = await readCatalogue(db, { limit: 1000, group: scope });
+
+    expect(narrowed.rows.map((row) => row.id).sort()).toStrictEqual([...inside].sort());
+    expect(narrowed.total).toBe(2);
+  });
+
+  it("lists an Item in two Groups under each of them, because a crossover belongs to both", async () => {
+    // ADR-0010's WHOLE CASE, read back through a Listing. A column on `items`
+    // would put this Item under one scope and hide it from the other, which is
+    // the partition that record refuses.
+    const who = await createGroupByHand(db, { name: "A universe with a crossover in it" });
+    const avengers = await createGroupByHand(db, { name: "The other universe it crosses" });
+    const crossover = await anItemTitled(db, "A story two universes share");
+    await putItemInGroupByHand(db, { groupId: who, itemId: crossover });
+    await putItemInGroupByHand(db, { groupId: avengers, itemId: crossover });
+
+    for (const group of [who, avengers]) {
+      const narrowed = await readCatalogue(db, { limit: 1000, group });
+      expect(narrowed.rows.map((row) => row.id)).toStrictEqual([crossover]);
+    }
+  });
+
+  it("leaves out an Item the Owner took back out, and counts it out too", async () => {
+    // A MEMBERSHIP IS A TOMBSTONE WHEN IT GOES (ADR-0075), so the row is still
+    // in `group_items` -- and a narrowing that forgot to read `deleted_at`
+    // would go on listing an Item the Owner removed from the scope.
+    const scope = await createGroupByHand(db, { name: "A scope an Item left" });
+    const stays = await anItemTitled(db, "A story that stays in its scope");
+    const leaves = await anItemTitled(db, "A story taken out of its scope");
+    await putItemInGroupByHand(db, { groupId: scope, itemId: stays });
+    await putItemInGroupByHand(db, { groupId: scope, itemId: leaves });
+    await takeItemOutOfGroupByHand(db, { groupId: scope, itemId: leaves });
+
+    const narrowed = await readCatalogue(db, { limit: 1000, group: scope });
+
+    expect(narrowed.rows.map((row) => row.id)).toStrictEqual([stays]);
+    expect(narrowed.total).toBe(1);
+  });
+
+  it("leaves out an Item deleted from the catalogue while it sat in the Group", async () => {
+    // THE OTHER TOMBSTONE, which a narrowing must not REPLACE. The membership
+    // is still live -- deleting an Item names no Group -- so a scope that
+    // stood in for the catalogue's own rule rather than narrowing it would
+    // list an Item every other surface has stopped showing.
+    const scope = await createGroupByHand(db, { name: "A scope one of whose Items was deleted" });
+    const live = await anItemTitled(db, "A story still in the catalogue");
+    const deleted = await anItemTitled(db, "A story deleted from the catalogue");
+    await putItemInGroupByHand(db, { groupId: scope, itemId: live });
+    await putItemInGroupByHand(db, { groupId: scope, itemId: deleted });
+    await db.update(items).set({ deletedAt: new Date() }).where(eq(items.id, deleted));
+
+    const narrowed = await readCatalogue(db, { limit: 1000, group: scope });
+
+    expect(narrowed.rows.map((row) => row.id)).toStrictEqual([live]);
+    expect(narrowed.total).toBe(1);
+  });
+
+  it("narrows to nothing once the Group is deleted, and takes none of its Items with it", async () => {
+    // STORY 34 FROM THE LISTING'S END. Deleting a scope empties the scope --
+    // a link kept to it now narrows to nothing -- and every Item it held is
+    // exactly where it was in the catalogue. A scope is not a container.
+    const scope = await createGroupByHand(db, { name: "A scope the Owner deleted" });
+    const held = await anItemTitled(db, "A story in a scope that was deleted");
+    await putItemInGroupByHand(db, { groupId: scope, itemId: held });
+    await deleteGroupByHand(db, scope);
+
+    const narrowed = await readCatalogue(db, { limit: 1000, group: scope });
+
+    expect(narrowed.rows).toStrictEqual([]);
+    expect(narrowed.total).toBe(0);
+    expect(await lists(db, held)).toBe(true);
+  });
+
+  it("narrows to nothing where the Group names nothing, whatever shape the id is", async () => {
+    // ADR-0066's RULE FOR A PARAMETER THAT IS NOT AN IDENTITY: whether it
+    // names anything is what the ANSWER says. A Group narrows, so one naming
+    // nothing narrows to nothing -- where a cursor naming nothing starts over,
+    // because a cursor is a position and this is a question.
+    //
+    // BOTH SHAPES, because they fail differently. A malformed id reaches a
+    // `uuid` column as PostgreSQL error 22P02, which is a typo in a shared link
+    // reading as "this server is broken" (ADR-0066 under CNCORE-14).
+    for (const group of [crypto.randomUUID(), "doctor-who"]) {
+      const narrowed = await readCatalogue(db, { limit: 1000, group });
+      expect(narrowed).toStrictEqual({ rows: [], total: 0, continuesAfter: null });
+    }
   });
 });
 
