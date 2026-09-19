@@ -930,6 +930,7 @@ function Held({ itemId }: { itemId: string }) {
 function Unreachable({ failed }: { failed: Found["failed"] }) {
   return (
     <div className="mt-6">
+      {/* TODO(CNCORE-221): false of a Provider that answered badly, as `NotReached` below says. */}
       <h3 className="text-muted-foreground text-sm">Could not be reached</h3>
       <ul className="mt-2 divide-y">
         {failed.map(({ baseUrl, reason }) => (
