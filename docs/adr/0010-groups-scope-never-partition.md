@@ -103,7 +103,7 @@ group with nothing in it says so rather than offering the empty catalogue's rout
 a group that is not there says that instead.
 
 **ONE PREDICATE, AND IT ARRIVES BEFORE THE SIZE IS TAKEN.** `inTheGroup` in
-`packages/db/src/queries.ts` is the set of a group's live memberships, and `readCatalogue` `and`s it
+`packages/db/src/queries.ts` is the set of a live group's live memberships, and `readCatalogue` `and`s it
 onto the catalogue's own predicate -- through `withinTheGroup` since CNCORE-180, and the same way
 Catalogue search `and`s its match on -- so every
 Listing that narrows reads membership from one place. That combined value is the `within`
@@ -116,14 +116,16 @@ so inherits the cap, the walk and both positions of the size.
 **IT NARROWS THE LISTING'S QUESTION RATHER THAN REPLACING IT**, which is this record's own line
 between a scope and a partition read from the other side. An Item deleted from the catalogue stays
 gone from a group it still sits in — deleting an Item names no group, so its membership is live and
-only the catalogue's rule keeps it out. And it reads the MEMBERSHIP's tombstone without joining
-`groups`, which is safe against every write but one: `deleteGroupByHand` tombstones both in one
-transaction and `putItemInGroupByHand` refuses a group that has gone, but a put that checked the
-group live before a deletion landed inserts after it, and no foreign key refuses a row whose group
-is only tombstoned. Review of CNCORE-182 found that race, which leaves a live membership under a
-dead group; CNCORE-230 is the fix, and CNCORE-182's own table reads through `groups` for that
-reason. CNCORE-178's test of the deletion said this read was coming and asserts the half it depends
-on.
+only the catalogue's rule keeps it out. And it reads the GROUP's tombstone as well as the
+membership's, joining `groups` since CNCORE-230, because trusting `group_items` alone is safe
+against every write but one: `deleteGroupByHand` tombstones both in one transaction and
+`putItemInGroupByHand` refuses a group that has gone, but a put that checked the group live before a
+deletion landed inserts after it, and no foreign key refuses a row whose group is only tombstoned.
+Review of CNCORE-182 found that race, which leaves a live membership under a dead group, and until
+CNCORE-230 that membership narrowed every Listing to its Item; CNCORE-182's own table reads through
+`groups` for the same reason. `catalogue.test.ts` builds the race's leftover by tombstoning the group
+alone and asks all three Listings, and CNCORE-178's test of the deletion still asserts the tombstones
+on the rows, which keep the tables saying what the join says.
 
 **A GROUP THAT NAMES NOTHING NARROWS TO NOTHING**, which is [[0066-path-is-identity-query-is-the-route]]'s
 rule for a parameter that is not an identity: whether it names anything is what the answer says. A

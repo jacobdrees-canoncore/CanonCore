@@ -27,6 +27,7 @@ import {
 import {
   aliases,
   groupItems,
+  groups,
   itemKinds,
   items,
   placementSources,
@@ -1344,18 +1345,20 @@ const WORK_BROWSING = and(
  * stays gone from a Group it still sits in -- deleting an Item names no Group,
  * so its membership is live and only the catalogue's rule keeps it out.
  *
- * THE MEMBERSHIP'S TOMBSTONE AND NOT THE GROUP'S, which is `deleteGroupByHand`
- * doing its half: it tombstones the Group and every row naming it in one
- * transaction, precisely so that a narrowed Listing reading `group_items`
- * alone meets no membership of a Group that has gone. And
- * `putItemInGroupByHand` refuses a Group that is not live, so no later write
- * brings one back.
+ * THE GROUP'S TOMBSTONE AS WELL AS THE MEMBERSHIP'S, read through `groups`
+ * rather than trusted to `group_items` (CNCORE-230). `deleteGroupByHand`
+ * tombstones both in one transaction and `putItemInGroupByHand` refuses a
+ * Group that is not live, but a put that read the Group live before a deletion
+ * landed inserts after it, and no foreign key refuses a row whose Group is
+ * only tombstoned (ADR-0075). That leaves a live membership under a dead Group,
+ * and this join is what makes it narrow to nothing however the race falls --
+ * the reading `findProvidersAGroupAsks` makes of `group_providers`.
  *
  * UNCORRELATED, which is the lesson `howMuchItHolds` carries a paragraph about.
- * The subquery names `group_items` and nothing else, so no inner relation can
- * resolve to the outer `items` and nothing needs an alias to be right. It is
- * the set of the Group's Items, asked once, and the Listing keeps the Rows in
- * it.
+ * The subquery names `group_items` and `groups` and nothing else, so no inner
+ * relation can resolve to the outer `items` and nothing needs an alias to be
+ * right. It is the set of the Group's Items, asked once, and the Listing keeps
+ * the Rows in it.
  *
  * A GROUP THAT NAMES NOTHING NARROWS TO NOTHING, which is ADR-0066's rule for a
  * parameter that is not an identity: whether it names anything is what the
@@ -1372,7 +1375,10 @@ function inTheGroup(db: Database, group: string): SQL {
     db
       .select({ itemId: groupItems.itemId })
       .from(groupItems)
-      .where(and(eq(groupItems.groupId, group), isNull(groupItems.deletedAt))),
+      .innerJoin(groups, eq(groups.id, groupItems.groupId))
+      .where(
+        and(eq(groupItems.groupId, group), isNull(groupItems.deletedAt), isNull(groups.deletedAt)),
+      ),
   );
 }
 

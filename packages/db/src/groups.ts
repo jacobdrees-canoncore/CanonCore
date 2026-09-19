@@ -20,9 +20,12 @@ export class GroupRefused extends Error {}
 /**
  * The one refusal the Owner can provoke, by its SQLSTATE.
  *
- * `23503` is `group_items`' foreign keys: a Group or an Item that is not there
- * -- a stale form, a shared link, a scope another tab deleted. Anything else is
- * NOT the Owner's doing and goes on being a fault.
+ * `23503` is `group_items`' foreign key to `items`: an Item a purge hard-deleted
+ * between `putItemInGroupByHand`'s liveness check and its insert. A stale form,
+ * a shared link or a scope another tab deleted never reaches it -- the check
+ * refuses those first, and a tombstone is no DELETE for a foreign key to see --
+ * and nothing hard-deletes a Group. Anything else is NOT the Owner's doing and
+ * goes on being a fault.
  *
  * AND `23505` IS DELIBERATELY NOT HERE. The unique constraint is MET rather
  * than raised (`putItemInGroupByHand` below), because asking twice is the claim
@@ -176,14 +179,16 @@ export async function putItemInGroupByHand(
     return written.id;
   } catch (cause) {
     // NARROWED, SO A FAULT STAYS A FAULT. The liveness refusal above is already
-    // a `GroupRefused` and passes through untouched; this is the RACE the check
-    // cannot close -- a Group deleted between the check and the insert -- which
-    // the foreign key does catch, and which is the same refusal either way.
+    // a `GroupRefused` and passes through untouched. What reaches this is the
+    // one race the foreign key DOES see: a purge hard-deleting the Item between
+    // the check and the insert (`REFUSALS` above), which is the same refusal
+    // as an Item already gone.
     //
-    // TODO(CNCORE-230): IT DOES NOT CATCH IT. Deleting a Group tombstones it, so
-    // the foreign key accepts the insert and the race leaves a live membership
-    // under a dead Group, which `inTheGroup` reads without joining `groups`.
-    // `findProvidersAGroupAsks` closes the same race for its own table.
+    // A GROUP DELETED IN THAT GAP IS NOT CAUGHT HERE AND CANNOT BE. Deletion
+    // tombstones it (ADR-0075), so the foreign key accepts the insert and the
+    // race leaves a live membership under a dead Group -- which is why
+    // `inTheGroup` reads through `groups` rather than trusting this table, as
+    // `findProvidersAGroupAsks` does for its own (CNCORE-230).
     if (cause instanceof GroupRefused) throw cause;
     if (isRefusalOn(REFUSALS, cause)) {
       throw new GroupRefused("the catalogue refused that Item in that Group", { cause });
@@ -268,9 +273,11 @@ export async function takeItemOutOfGroupByHand(
  * EVERY TOMBSTONE, IN ONE TRANSACTION (ADR-0075). The Group and the rows naming
  * it go together -- its memberships and, since CNCORE-182, the Providers it asks
  * -- and leaving either live would be a row that comes back the day something
- * reads it without joining `groups`, which is precisely what a narrowed Listing
- * does to `group_items` and what `findProvidersAGroupAsks` does to
- * `group_providers`. A transaction rather than two
+ * reads it without joining `groups`. No reader does: a narrowed Listing and
+ * `findProvidersAGroupAsks` both read through `groups`, because a put or an ask
+ * racing this deletion can land a live row after it (CNCORE-230), and only the
+ * join is right however that race falls. These tombstones are what keep the
+ * tables saying what the join says. A transaction rather than two
  * statements, because a Group deleted with its memberships still standing is the
  * state no reader can see and every later query would trip over.
  *
