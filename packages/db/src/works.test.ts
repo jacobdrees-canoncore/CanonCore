@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { type Database, items, readCatalogue, readWorks } from "./index";
-import { anItemTitled, aPlacement, connect, ownerSource } from "./testing/catalogue";
+import { anItem, anItemTitled, aPlacement, connect, ownerSource } from "./testing/catalogue";
 
 /** Whether work-browsing lists one particular item. */
 async function lists(db: Database, id: string): Promise<boolean> {
@@ -106,6 +106,13 @@ describe("readWorks", () => {
     // reported for the catalogue alone would leave a reader wondering which of
     // the two was fixed.
     const anchorId = await anItemTitled(db, "A work a kept link was cut at");
+    // AND A WORK AFTER IT, WHICH THE SHARED CATALOGUE WAS QUIETLY SUPPLYING.
+    // The derived sort name drops the article, so the anchor files under W --
+    // LAST of the Works in this file, and with this file run alone the page
+    // cut at it had nothing after it: `continuesAfter` was null and the walk
+    // below was never reached. An untitled Work has no sort key and sorts
+    // after every one that has, so the anchor is never the end.
+    await anItem(db);
 
     const order = (await readWorks(db, { limit: 10_000 })).rows.map((row) => row.id);
     const cut = await readWorks(db, { limit: order.indexOf(anchorId) + 1 });
