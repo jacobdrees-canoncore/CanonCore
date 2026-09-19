@@ -1,5 +1,6 @@
 import {
   and,
+  type Column,
   eq,
   getTableColumns,
   inArray,
@@ -896,19 +897,15 @@ export interface CatalogueRow {
   /**
    * HOW MUCH THIS ONE HOLDS (ADR-0140) -- the size of its own Members
    * listing, which is the number `findPlacementsInContainer` answers as
-   * `total` and is read off the same predicate so the two cannot disagree.
+   * `total` and is read off the same predicate, so the two cannot disagree.
+   * That record owns the decision, what it costs and why the name is `holds`.
    *
    * ZERO FOR A STORY, AND ASKED OF IT ANYWAY. `item.get` already settles that
    * argument in the same words: nothing can be placed in an item that is not
    * a container, so a non-container's answer is empty either way -- and a
    * branch on `is_container` here would be a second place for "what is a
-   * container" to be decided, free to disagree with the column. A Row a reader
-   * is shown this number on is chosen by the surface, off `isContainer`.
-   *
-   * NOT NAMED FOR THE READER'S WORD. `CONTEXT.md` settles "Members" as what a
-   * reader is shown from the container's end and rejects `member` as a name in
-   * code; `holds` is the glossary's own verb for a Container, and it is the
-   * name `itemPublic` already carries for the listing this counts.
+   * container" to be decided, free to disagree with the column. Which Rows a
+   * reader is SHOWN a figure on is the surface's, off `isContainer`.
    */
   holds: number;
 }
@@ -1650,19 +1647,25 @@ export interface PlacementsInContainer {
  * was lying. It is the exact shape `IN_THE_CATALOGUE` and `theSize` already
  * exist for one seam out: one rule, one place, both readers pointed at it.
  *
- * THE MEMBER'S TOMBSTONE ARRIVES AS A PARAMETER because the two readers reach
- * it through different names. The Members listing joins `items` itself, and
- * the catalogue's Row is ALREADY selecting from `items` -- so that one reads
- * the member through an alias, and an inner relation spelled here would
- * resolve to the outer Row and count the container against itself.
+ * THE HELD ITEM'S TOMBSTONE ARRIVES AS A PARAMETER because the two readers
+ * reach it through different names. The Members listing joins `items` itself,
+ * and the catalogue's Row is ALREADY selecting from `items` -- so that one
+ * reads the held item through an alias, and an inner relation spelled here
+ * would resolve to the outer Row and count the container against itself.
+ *
+ * `held` RATHER THAN `member` WHEREVER A NAME IS BEING GIVEN, alias included.
+ * `CONTEXT.md`'s **Placement** rejects `member` as a name for this, and its
+ * Language section names a SQL alias among the forms an `_Avoid_` list covers.
+ * "Members" is the reader's heading from the container's end and is not a
+ * second name for the thing in code.
  */
-function whatItHolds(container: SQLWrapper | string, memberTombstone: SQLWrapper): SQL {
+function whatItHolds(container: Column | string, heldTombstone: SQLWrapper): SQL {
   return and(
     eq(placements.containerId, container),
     isNull(placements.deletedAt),
     // ADR-0075. A deleted item is gone to every reader, so a container
     // cannot go on listing a placement that reaches one.
-    isNull(memberTombstone),
+    isNull(heldTombstone),
   ) as SQL;
 }
 
@@ -1686,19 +1689,24 @@ function whatItHolds(container: SQLWrapper | string, memberTombstone: SQLWrapper
  * the id it is correlated on -- and names `placements` and its own alias for
  * everything else.
  *
- * THE MEMBER IS ALIASED so the inner `items` cannot be read as the outer one.
- * Unaliased, `placements.item_id = items.id` and `placements.container_id =
- * items.id` would both resolve inward and every Row would answer the count of
+ * THE HELD ITEM IS ALIASED so the inner `items` cannot be read as the outer
+ * one. Unaliased, `placements.item_id = items.id` and `placements.container_id
+ * = items.id` would both resolve inward and every Row would answer the count of
  * items placed in themselves, which is 0 for the whole catalogue -- green
  * against a story and wrong against every ordering.
+ *
+ * AND THE CORRELATION RIDES ON THE OUTER `items` BEING UNALIASED, which is
+ * true because `walkListing` is the one statement this is ever spliced into
+ * and it selects `.from(items)`. Aliasing it there would not fail quietly: the
+ * `items.id` here would name a relation the statement no longer has.
  */
 function howMuchItHolds(db: Database): SQL<number> {
-  const member = alias(items, "member");
+  const held = alias(items, "held");
   return sql<number>`(${db
     .select(HOW_MANY)
     .from(placements)
-    .innerJoin(member, eq(member.id, placements.itemId))
-    .where(whatItHolds(items.id, member.deletedAt))})`.mapWith(Number);
+    .innerJoin(held, eq(held.id, placements.itemId))
+    .where(whatItHolds(items.id, held.deletedAt))})`.mapWith(Number);
 }
 
 export async function findPlacementsInContainer(

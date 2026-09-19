@@ -37,8 +37,9 @@ Reaching for that clause needs a measurement, so one was taken rather than reaso
 
 Measured **2026-09-19** against the Owner's own install — the corpus ADR-0137 records, re-counted
 the same day at 8,052 Items, 30,896 Placements, 465 Orderings and 2,907 in the largest. PostgreSQL
-18.6, the version `compose.yaml` pins. `EXPLAIN (ANALYZE, BUFFERS)` on one connection against a warm
-cache, median of five, with the spread given because it is wide.
+**18.6**, which is what `compose.yaml`'s `postgres:18` had resolved to there; the file pins the LINE
+rather than the patch, so a later install measures a later one. `EXPLAIN (ANALYZE, BUFFERS)` on one
+connection against a warm cache, median of five, with the spread given because it is wide.
 
 | One page of the catalogue | Median | Range |
 |---|---|---|
@@ -89,10 +90,47 @@ makes a Row a projection for a list, and `CONTEXT.md` says what belongs in one: 
 to recognise a Row and follow it. The figure earned its place by answering a question a reader has
 while scanning — is this the container or the thing inside it — not by being cheap.
 
-**And the name is not the reader's word.** `CONTEXT.md` rejects `member` as a name in code and
-settles "Members" as what a reader is shown from the container's end. The field is `holds`, the
-glossary's own verb for a Container and the name the read path already gives the Listing this
-counts; the page says "members" and the two are allowed to differ (ADR-0045).
+**And the name is not the reader's word.** `CONTEXT.md` under **Placement** rejects `member` as a
+name and settles "Members" as what a reader is shown from the container's end; its Language section
+names a type, a field, a function **and a SQL alias** as the forms that list covers. The field is
+`holds` — the glossary's own verb for a **Container**, and the name the read path already gives the
+Listing this counts — and the alias inside the subquery is `held`. The page says "members" and the
+two are allowed to differ (ADR-0045).
+
+**THE ALIAS IS WHERE THIS WENT WRONG FIRST**, which is worth keeping rather than quietly fixing.
+The subquery was written with `alias(items, "member")` in the same change whose docstrings state
+the rule three times, and it passed every check in the repository: the glossary check
+(`glossary.test.ts`) reads the schemas this package EXPORTS and their field keys, and a SQL alias
+is neither. That is the honest limit of that check rather than a gap to apologise for — but it
+means a `_SQL alias_` is held by review alone, and review is what caught this one.
+
+## The figure is grouped, and so is every other number beside it
+
+`2,913` rather than `2913`. That is a decision about the WHOLE Listing rather than about the Row:
+the size of the Listing and the size of a Row's own Ordering sit on one screen, so a grouped Row
+beside "Showing 100 of 8052 items" would be the page disagreeing with itself about how it writes a
+number. One `Intl.NumberFormat("en-GB")`, built once for the reason `Moment` gives about a formatter
+one file over, and read by both.
+
+**THE LOCALE IS FIXED RATHER THAN THE READER'S**, for that component's own reason: these pages
+render on the server with no script to correct them afterwards, so the default would be whichever
+locale the machine happens to run under — and a grouping that differs between two instances of one
+build is the sort of thing that surfaces as an assertion nobody can reproduce.
+
+**IT WIDENS THE TICKET AND IS SAID SO HERE** rather than left in a diff. CNCORE-183 asked for the
+Row. Spelling only the Row's number and leaving the line above it raw would have shipped the
+inconsistency this record exists to refuse, and it reaches four surfaces because `Holding` is one
+component. Nothing in the suite was pinning it — every catalogue in it is smaller than a thousand
+Items, so the grouping is invisible on all of them — which is why the assertion is on the 2,913
+Ordering's own Members listing, the one place in the suite where the spelling changes a byte.
+
+## A figure does not narrow with the Listing it sits in
+
+Work-browsing lists what a reader can watch (ADR-0077) and an Ordering's figure there still counts
+every Placement, entity kinds included. **That is the right answer rather than a leak**, because the
+figure's whole contract is that it says what the reader will find when they follow the Row: the
+container's own Members listing is not narrowed either. A figure narrowed to the question the Row
+was found by would be a promise the page it links to does not keep.
 
 ## What holds it
 
@@ -100,5 +138,13 @@ counts; the page says "members" and the two are allowed to differ (ADR-0045).
 own `total` past both tombstones and the literal beside it stops the pair agreeing while both are
 wrong. `listing.test.ts` at the router, where every Listing's Row enumerates the field, and
 `catalogue.test.ts` beside it for the value, because an enumeration passes on a mapping that carries
-a constant. `front-page.test.ts` over real HTTP on the instance nothing writes to, at the ticket's
-own three and 2,913.
+a constant. `front-page.test.ts` over real HTTP on the instance nothing writes to, at nothing, one,
+three and 2,913 — all four, because three and 2,913 are both plural and a Row reading "1 members"
+would satisfy the ticket's own pair.
+
+**AND THE "SAME READ" HALF IS HELD BY A COST RATHER THAN BY A NUMBER**, in `item-page-cost.test.ts`,
+because it is the half no assertion on the figure can see: a read per Row answers exactly what the
+subquery answers. One Listing is asked for one Row and then for every Row, and the two must cost the
+same statements — flat in the number of Rows is what a subquery in the Listing's own statement can
+promise and a read per Row cannot. Driven red: a `findPlacementsInContainer` per Container Row put
+it at 3 statements against 2.

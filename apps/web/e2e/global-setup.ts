@@ -659,6 +659,26 @@ const THE_LARGEST_ORDERING = "An ordering the size of the largest one measured";
 const AS_LARGE_AS_THE_LARGEST = 2913;
 
 /**
+ * THE TWO SIZES THE PHRASE ITSELF BENDS AT, which the ticket's own pair does
+ * not reach.
+ *
+ * "Container, 1 member" IS A DIFFERENT SENTENCE, written by the other arm of
+ * one expression -- and three and 2,913 are both plural, so the ticket's pair
+ * asserts that arm twice and the other one never. It is the shape
+ * `HOLDING_STILL` above already carries a paragraph about: a fixture of one
+ * asserting the singular while claiming to be about the count.
+ *
+ * AND AN EMPTY ONE IS THE STATE A READER MOST NEEDS THE FIGURE FOR. An import
+ * that landed nothing leaves an Ordering that looks exactly like a full one
+ * until something says otherwise, and `0` is also the answer a Row gives when
+ * the count has silently stopped counting -- so it is asserted where a
+ * container really is empty, rather than left as the value a broken figure
+ * would share with it.
+ */
+const AN_ORDERING_OF_ONE = "An ordering of one";
+const AN_EMPTY_ORDERING = "An ordering nothing was placed in";
+
+/**
  * A FIFTH INSTANCE, and what is new about it is that NOTHING WRITES TO IT.
  *
  * CNCORE-93. "How much does this catalogue hold" is a fact about a WHOLE
@@ -722,6 +742,16 @@ function aCatalogueThatHoldsStill() {
         await aPlacement(db, { containerId: three, itemId, position: at + 1 });
       }
 
+      const one = await anItemTitled(db, AN_ORDERING_OF_ONE, {
+        isContainer: true,
+        isOrdered: true,
+      });
+      await aPlacement(db, { containerId: one, itemId: stories[0] as string, position: 1 });
+
+      // PLACED IN BY NOTHING, which is the fixture: a Container is a Container
+      // whether or not anything reached it (ADR-0004).
+      await anItemTitled(db, AN_EMPTY_ORDERING, { isContainer: true, isOrdered: true });
+
       const largest = await anItemTitled(db, THE_LARGEST_ORDERING, {
         isContainer: true,
         isOrdered: true,
@@ -741,10 +771,18 @@ function aCatalogueThatHoldsStill() {
       );
 
       return {
-        every: [...HOLDING_STILL, AN_ORDERING_OF_THREE, THE_LARGEST_ORDERING],
+        every: [
+          ...HOLDING_STILL,
+          AN_ORDERING_OF_THREE,
+          AN_ORDERING_OF_ONE,
+          AN_EMPTY_ORDERING,
+          THE_LARGEST_ORDERING,
+        ],
         orderings: [
           { title: AN_ORDERING_OF_THREE, holds: stories.length },
-          { title: THE_LARGEST_ORDERING, holds: AS_LARGE_AS_THE_LARGEST },
+          { title: AN_ORDERING_OF_ONE, holds: 1 },
+          { title: AN_EMPTY_ORDERING, holds: 0 },
+          { title: THE_LARGEST_ORDERING, holds: AS_LARGE_AS_THE_LARGEST, id: largest },
         ],
       };
     },
@@ -2280,7 +2318,7 @@ declare module "vitest" {
      * the ticket's own three and 2,913, from the fixture that placed them
      * rather than from the app that has to report them.
      */
-    stillOrderings: { title: string; holds: number }[];
+    stillOrderings: { title: string; holds: number; id?: string }[];
     /** The wiki provider this run stood up: the real image in CI, a stub here. */
     providerWikiUrl: string;
     /** The TMDB provider, whose source row is what a TMDB claim is recorded against. */

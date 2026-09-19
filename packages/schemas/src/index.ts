@@ -475,10 +475,9 @@ export const catalogueRowPublic = z.object({
    * and it is the SURFACE that decides which Rows a reader is shown a figure
    * on, off `isContainer` beside it.
    *
-   * NOT NAMED FOR THE READER'S WORD. "Members" is what a reader is shown from
-   * the container's end and `member` is a name `CONTEXT.md` rejects in code;
-   * `holds` is the glossary's own verb for a Container and the name this read
-   * path already gives the listing it counts.
+   * ADR-0140 OWNS THE REST: what the figure costs, why it is read off the same
+   * predicate as the Listing it counts, and why the name is the glossary's verb
+   * rather than the word the page prints.
    */
   holds: z.number().int().nonnegative(),
 });

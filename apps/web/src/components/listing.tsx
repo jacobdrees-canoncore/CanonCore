@@ -312,6 +312,12 @@ const grouped = new Intl.NumberFormat("en-GB");
  * PLURALISED WITH AN `s`, which is honest for both words this takes and would
  * not be for every word. A caller needing a different plural is the point at
  * which this takes the pair rather than the stem.
+ *
+ * THE COUNT AND ITS NOUN ARE `soMany` BELOW, shared with the Row's own figure.
+ * Both arms of this expression spelled the pluralisation out, and a third
+ * spelling arrived with CNCORE-183 one function down -- which is three places
+ * for one rule about English to be decided, in a file whose whole argument is
+ * that a rule copied is a rule that drifts.
  */
 export function Holding({
   showing,
@@ -325,31 +331,29 @@ export function Holding({
   return (
     <p className="text-muted-foreground text-sm">
       {showing < total
-        ? `Showing ${grouped.format(showing)} of ${grouped.format(total)} ${noun}s`
-        : `${grouped.format(total)} ${total === 1 ? noun : `${noun}s`}`}
+        ? `Showing ${grouped.format(showing)} of ${soMany(total, noun)}`
+        : soMany(total, noun)}
     </p>
   );
 }
 
 /**
- * WHAT A CONTAINER'S ROW SAYS IT IS, AND HOW MUCH OF IT THERE IS (ADR-0140).
+ * A COUNT AND WHAT IT COUNTS, in the one spelling this file prints both in.
  *
- * ONE PHRASE RATHER THAN A SECOND CHIP BESIDE THE FIRST. The words around a Row
- * are already two -- "Container" and the kind -- and a third would read as
- * "Container 2,913 members Work", three greys with nothing saying which two
- * belong together. The size is a fact ABOUT the container rather than a fact
- * beside it, so it is in the same sentence.
+ * GROUPED, so a four-figure one is read at a glance rather than counted digit
+ * by digit -- and PLURALISED off the count, so "1 member" is not "1 members".
+ * The listing's own size and a Row's ordering sit on one screen, and two
+ * spellings there would be the page disagreeing with itself about how it
+ * writes a number.
  *
- * THE WORD IS THE READER'S ONE. `CONTEXT.md` settles "Members" as what a reader
- * is shown from the container's end, where `member` is a name it rejects in
- * code -- which is why the field this reads is `holds` and the word here is not.
- *
- * AND AN EMPTY ORDERING SAYS SO. "Container, 0 members" is a real state and a
- * useful one: an ordering an import left empty looks exactly like a full one
- * otherwise, which is the thing a reader opens it to find out.
+ * THE `showing < total` ARM ABOVE CANNOT REACH THE SINGULAR, and takes this
+ * anyway rather than spelling the plural itself: that arm renders only where
+ * `total` exceeds a page that already has a Row in it, so it is plural by
+ * arithmetic. One rule read in both positions is the point (`TheSize`, one
+ * package over, for the same argument about a number said twice).
  */
-function holding(holds: number): string {
-  return `Container, ${grouped.format(holds)} ${holds === 1 ? "member" : "members"}`;
+function soMany(count: number, noun: string): string {
+  return `${grouped.format(count)} ${count === 1 ? noun : `${noun}s`}`;
 }
 
 /**
@@ -387,9 +391,22 @@ export function Listing({ rows }: { rows: Row[] }) {
               ADR-0004 folds containers into `work`, so the kind alone cannot
               tell a story from an ordering that holds stories. A reader
               scanning this list is asking which of the two they are looking at,
-              and since CNCORE-183 the same words answer how much of it there is.
+              and since ADR-0140 the same phrase answers how much of it there is.
+
+              ONE PHRASE RATHER THAN A SECOND CHIP BESIDE THIS ONE. The words
+              around a Row are already two, and a third would read as
+              "Container 2,913 members Work" -- three greys with nothing saying
+              which two belong together. The size is a fact ABOUT the container
+              rather than one beside it.
+
+              THE WORD IS THE READER'S. `CONTEXT.md` settles "Members" as what
+              a reader is shown from the container's end, and rejects `member`
+              as a NAME -- which is why the field behind this is `holds`.
+
+              AND AN EMPTY ORDERING SAYS SO: "Container, 0 members" is a real
+              state, and one an import that landed nothing leaves behind.
             */}
-            {row.isContainer && <span>{holding(row.holds)}</span>}
+            {row.isContainer && <span>Container, {soMany(row.holds, "member")}</span>}
             <span>{row.kind}</span>
           </span>
         </li>
