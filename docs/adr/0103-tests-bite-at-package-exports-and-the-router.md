@@ -1268,6 +1268,12 @@ halves: a visitor asking twice in the first window only is not reported, and wor
 statement every window is refused. A caller whose work needs something standing first -- a server --
 gets it from `preparing`, run before each window's wait for an empty database and never counted.
 
+**WHAT THE SECOND WINDOW COSTS, MEASURED IN CI:** `item-page-cost.test.ts` went from 69.2 seconds
+(run `35454105742`, on `main` before this) to 136.5 (run `35455445649`, this change), and it is the
+last file the e2e suite finishes, so `The page over HTTP` went from 151 seconds to 222. ADR-0141's
+eight minutes is still more than twice that, and growth is what that record leaves its tripling room
+for, so no ceiling moved here. The next measurement of it will see this.
+
 **Four things that would have been cheaper, and why none was taken:**
 
 - **Excluding the worker's transactions by arithmetic.** `pg_stat_database` counts per database and
