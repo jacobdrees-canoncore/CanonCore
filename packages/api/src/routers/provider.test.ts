@@ -762,6 +762,35 @@ describe("the attribution an import carries with it", () => {
     expect(source?.attributionNotice).toBeNull();
     expect(source?.attributionLogo).toBeNull();
   });
+
+  /**
+   * A NOTICE THIS APP CANNOT PRINT REFUSES THE PROVIDER WHOLE, AND THE ROW IS
+   * WHERE THAT IS PROVED (ADR-0123, CNCORE-213).
+   *
+   * The parse test shows the manifest is refused. What it cannot show is that
+   * nothing was written anyway: content arriving with no notice this app will
+   * print is the breach the refusal exists to prevent. Every row an import
+   * writes names its Source, so no Source row means nothing arrived from it.
+   */
+  it("writes nothing from a Provider whose notice runs past the ceiling, and says which field", async () => {
+    const baseUrl = await stubProvider(undefined, {
+      attribution: { ...ATTRIBUTION, notice: "n".repeat(1_001) },
+    });
+
+    const { error } = await safe(
+      call(appRouter.provider.import, { baseUrl, recordId: "265" }, { context }),
+    );
+
+    if (!isDefinedError(error)) throw new Error(`expected a defined error, got ${String(error)}`);
+    expect(error.code).toBe("PROVIDER_REFUSED");
+    // THE PROVIDER'S FAULT, IN WORDS THAT NAME THE FIELD, which is what the
+    // Owner reads. It is zod's issue list, so the path is what says why.
+    expect(error.data).toMatchObject({
+      wrote: "provider",
+      text: expect.stringContaining('"attribution", "notice"'),
+    });
+    expect(await db.select().from(sources).where(eq(sources.identity, baseUrl))).toEqual([]);
+  });
 });
 
 /**

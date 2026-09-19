@@ -171,6 +171,22 @@ async function aProviderRefusingWith(said: string): Promise<{ url: string }> {
   return { url };
 }
 
+/**
+ * A PROVIDER THAT IS UP, ANSWERS A MANIFEST, AND OWES A NOTICE OF A LENGTH OF
+ * ITS OWN CHOOSING (CNCORE-213).
+ *
+ * IT IS NOT A STAND-IN FOR A REAL PROVIDER and must not grow into one. It
+ * serves a manifest, which is the whole of what this page reads.
+ */
+async function aProviderWhoseNoticeIs(notice: string): Promise<{ url: string }> {
+  const { url, server } = await onLoopback((_request, response) => {
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end(JSON.stringify({ name: "a provider owing a notice", attribution: { notice } }));
+  });
+  stubs.push(server);
+  return { url };
+}
+
 afterAll(async () => {
   await Promise.all(
     stubs.splice(0).map((server) => new Promise<void>((resolve) => server.close(() => resolve()))),
@@ -608,6 +624,34 @@ describe("/settings, unlocking a provider", () => {
     expect(rowFor(text, refusing.url)).toContain(
       "<q>/ answered 503: this Provider holds no tardis.wiki session. Supply one at /unlock.</q>",
     );
+  });
+
+  /**
+   * A NOTICE THIS APP CANNOT PRINT REFUSES THE PROVIDER WHOLE, AND THIS IS WHERE
+   * THE OWNER IS TOLD (ADR-0123, CNCORE-213).
+   *
+   * The notice is printed verbatim or not at all, so past its ceiling nothing is
+   * read from this Provider: no search, no import. What the Owner needs from
+   * this page is which fault it is. The reason is zod's issue list for the
+   * Provider's manifest, quoted, and its path names the field.
+   *
+   * AND THE NOTICE ITSELF IS NOWHERE ON THE PAGE, which is the other half.
+   * A refusal that quoted the value would put the flood on the page.
+   */
+  it("says nothing could be read from a Provider whose notice runs past the ceiling, and why", async () => {
+    const cookie = await logInAt(baseUrl, ownerPassword);
+    const flood = "licence".repeat(200);
+    const owing = await aProviderWhoseNoticeIs(flood);
+    await allow(cookie, "127.0.0.1/32");
+    await name(cookie, owing.url);
+
+    const { text } = await documentFrom(baseUrl, "/settings", cookie);
+    const row = rowFor(text, owing.url);
+
+    expect(row.toLowerCase()).toContain("nothing could be read from");
+    expect(row).toContain('<q>[ { "origin": "string", "code": "too_big"');
+    expect(row).toContain('"path": [ "attribution", "notice" ]');
+    expect(text).not.toContain("licencelicence");
   });
 
   /**
