@@ -101,8 +101,9 @@ export const OWNER_PASSWORD = "the owner's own password for the e2e suite";
  *
  * WHY A THROW HAS TO CLOSE ANYTHING. A server here is a `next start` PROCESS,
  * and it does not end when the process that started it does: it is re-parented
- * to pid 1 and goes on holding the stdout it inherited. On a pipe that is a
- * stream nothing ever closes, so CI, which reads a step's output to the end,
+ * to pid 1 and goes on holding the stderr it inherited (its stdout has been a
+ * pipe into the harness since CNCORE-235). On a pipe that is a stream nothing
+ * ever closes, so CI, which reads a step's output to the end,
  * waits on it until the job's ceiling (ADR-0141). Vitest calls a teardown only
  * if setup returned one, so a setup that threw part-way used to leave every
  * server it had already started running: seven after one run on 2026-09-19 and
@@ -216,7 +217,8 @@ const SERVER_HOST = "127.0.0.1";
  * to start saying it named no port, rather than start somewhere unknown.
  *
  * STDOUT IS PIPED TO READ IT AND PASSED ON, so a server's output still reaches
- * the run's own; stderr is inherited as before.
+ * the run's own. Stderr is inherited as before, so an orphaned server still
+ * holds the run's output open through it, which is why `settingUp` matters.
  */
 function thePortItBound(server: ChildProcess, deadline: number): Promise<number> {
   const { stdout } = server;
@@ -229,11 +231,18 @@ function thePortItBound(server: ChildProcess, deadline: number): Promise<number>
       const url = /- Local:\s+(\S+)\r?\n/.exec(stripVTControlCharacters(heard))?.[1];
       if (url === undefined) return;
       done();
-      resolve(Number(new URL(url).port));
+      // A URL with no port of its own reads as port 0, which is not one it bound.
+      const port = URL.canParse(url) ? Number(new URL(url).port) : 0;
+      if (port > 0) resolve(port);
+      else reject(new Error(`next start announced ${url}, which names no port`));
     };
     const exited = (code: number | null) => {
       done();
       reject(new Error(`next start exited with ${code} before it named its port`));
+    };
+    const failed = (error: Error) => {
+      done();
+      reject(error);
     };
     const giveUp = setTimeout(() => {
       done();
@@ -243,9 +252,11 @@ function thePortItBound(server: ChildProcess, deadline: number): Promise<number>
       clearTimeout(giveUp);
       stdout.off("data", hearing);
       server.off("exit", exited);
+      server.off("error", failed);
     };
     stdout.on("data", hearing);
     server.on("exit", exited);
+    server.on("error", failed);
   });
 }
 
@@ -370,7 +381,7 @@ export async function waitUntilAnswering(
     }
     await new Promise((resolve) => setTimeout(resolve, 200));
   }
-  throw new Error(`next start did not answer on ${baseUrl} within 60s`);
+  throw new Error(`next start did not answer on ${baseUrl} within ${STARTING_MS / 1000}s`);
 }
 
 /**

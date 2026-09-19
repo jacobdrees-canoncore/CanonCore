@@ -2,7 +2,7 @@
 status: accepted
 ---
 
-# A server under test chooses its own port, on the address it is reached at
+# A Next server under test chooses its own port, on the address it is reached at
 
 Every `next start` the test harness spawns goes through `theBuildServing` in
 `apps/web/e2e/instance.ts`, and it is given `--hostname 127.0.0.1 --port 0`. The OS picks the port
@@ -34,20 +34,22 @@ so the probe had checked one address and the server needed another.
 
 ## What was measured, and what it changed
 
-Node 24.19.0 on macOS (Darwin 25.6.0), 2026-09-19, with plain `net` listeners:
+2026-09-19, with plain `net` listeners: Node 24.19.0 on macOS (Darwin 25.6.0), and Node 24.21.0 on
+Linux 6.8.0 (`node:24-alpine` in colima's VM).
 
-| Listener held first | Then listened on                     | Result       |
-| ------------------- | ------------------------------------ | ------------ |
-| `127.0.0.1:P`       | `::`                                 | bound        |
-| `127.0.0.1:P`       | no host (Node's default, and Next's) | bound        |
-| `::1:P`             | `::`                                 | bound        |
-| `:::P`              | `127.0.0.1`                          | bound        |
-| `0.0.0.0:P`         | `127.0.0.1`                          | bound        |
-| `127.0.0.1:P`       | `127.0.0.1`                          | `EADDRINUSE` |
+| Listener held first | Then listened on                     | macOS        | Linux        |
+| ------------------- | ------------------------------------ | ------------ | ------------ |
+| `127.0.0.1:P`       | `::`                                 | bound        | `EADDRINUSE` |
+| `127.0.0.1:P`       | no host (Node's default, and Next's) | bound        | `EADDRINUSE` |
+| `::1:P`             | `::`                                 | bound        | `EADDRINUSE` |
+| `:::P`              | `127.0.0.1`                          | bound        | `EADDRINUSE` |
+| `0.0.0.0:P`         | `127.0.0.1`                          | bound        | `EADDRINUSE` |
+| `:::P`              | `::1`                                | bound        | `EADDRINUSE` |
+| `127.0.0.1:P`       | `127.0.0.1`                          | `EADDRINUSE` | `EADDRINUSE` |
 
-libuv sets `SO_REUSEADDR` on every TCP bind (1.52.1, the version this Node ships, in
-`src/unix/tcp.c`), and on macOS that lets overlapping addresses share a port: only an identical
-address conflicts. Two more facts followed from it:
+libuv sets `SO_REUSEADDR` on every TCP bind (1.52.1, the version Node 24.19.0 ships, in
+`src/unix/tcp.c`). On macOS that lets overlapping addresses share a port, and only an identical
+address conflicts; Linux refuses every overlap. Two more facts followed on macOS:
 
 - **A connection goes to the most specific address bound.** With one listener on `127.0.0.1:P` and
   another on `:::P`, a request to `127.0.0.1:P` reached the `127.0.0.1` one, whichever bound first.
@@ -56,19 +58,19 @@ address conflicts. Two more facts followed from it:
   swapped, none; with both on `127.0.0.1`, none. CNCORE-126 measured the same for one address
   (ADR-0103: two hundred simultaneous `listen(0)` calls, two hundred distinct ports).
 
-**THE ADDRESS WAS NOT HOW THE PORT WAS LOST, BUT IT WAS A HAZARD OF ITS OWN.** The ticket, and the
-dispatcher's comment on it, named the probe's address a second cause: a check that proved the port
-free on loopback when the server needed it free everywhere. The allocator answers for every
+**THE ADDRESS WAS NOT HOW THE PORT WAS LOST, BUT ON macOS IT WAS A HAZARD OF ITS OWN.** The ticket,
+and the dispatcher's comment on it, named the probe's address a second cause: a check that proved
+the port free on loopback when the server needed it free everywhere. The allocator answers for every
 address, so a probe on `127.0.0.1` was never handed a port a listener held on `::`. The window is
-the only path the measurements leave: port 56214 was free everywhere when the probe got it, and
-held on `::` by the time Next asked. What took it was not recorded.
+the only path the measurements leave: port 56214 was free everywhere when the probe got it, and held
+on `::` by the time Next asked. What took it was not recorded.
 
-The mismatch was still wrong, the other way round. A server on every address leaves `127.0.0.1`
-itself free to bind. Anything that took it inside the window would not have made Next fail: Next's
-bind would succeed beside it, and every request the harness sent would reach the other process,
-since it is the more specific address. A harness answered by the wrong process is worse than a
-server that fails to start, because nothing about it is red. So both are fixed, as the dispatcher
-asked, and the second one's case is below.
+The mismatch was still wrong, the other way round, on the Mac four agents share. A server on every
+address leaves `127.0.0.1` itself free to bind there. Anything that took it inside the window would
+not have made Next fail: Next's bind would succeed beside it, and every request the harness sent
+would reach the other process, since it is the more specific address. A harness answered by the
+wrong process is worse than a server that fails to start, because nothing about it is red. So both
+are fixed, as the dispatcher asked, and the second one's case is below.
 
 ## The decision
 
@@ -88,13 +90,16 @@ asked, and the second one's case is below.
   builds the URL from its own constant, so a Next that printed `localhost` there could not send the
   harness to `::1`.
 - **Stdout is piped to read it and passed on to the run's own; stderr stays inherited.** A server's
-  output still reaches the run.
+  output still reaches the run. An orphaned server now holds the run's output open through its
+  stderr rather than its stdout, which is still ADR-0141's hang, and still `settingUp`'s to prevent
+  (ADR-0103, "A server is owned from the moment it spawns", corrected to say so).
 - **One minute for the whole start.** `STARTING_MS` covers binding, announcing and answering, and
   `waitUntilAnswering` takes the same deadline, so the tests' `ONE_SERVER_MS` still describes
   one server's worst case.
 
-A Next that worded the line differently would fail every start with `next start named no port
-within 60s`. It would not start somewhere unknown.
+A Next that worded the line differently would fail every start: with `next start named no port
+within 60s` if the line went missing, or `next start announced <url>, which names no port` if its
+URL carried none. It would not start somewhere unknown.
 
 ## Alternatives weighed
 
@@ -117,16 +122,19 @@ the address alone, which leaves the race held only by hand-measured red, and a u
 line parser, which a design naming a port in advance would pass.
 
 - **A thief at the spawn.** `node:child_process` is mocked with a wrapper around the REAL `spawn`.
-  Armed, it binds whatever port the command names (`--port`, `-p`, or `PORT` in its environment),
-  on the host the command names or Node's default, before the real `spawn` runs. The server
-  process is loading Node when the port goes, so the window's worst case is forced every time
-  rather than waited for on a busy machine. A port of 0 names nothing, so it takes nothing. Red on
-  `main`'s `instance.ts` in 203ms: `⨯ Failed to start server`, `listen EADDRINUSE: address already
-  in use :::52839`, `next start exited with 1 before answering`, the ticket's failure verbatim.
+  Armed, it binds whatever port the command names (`--port` or `-p` in each spelling Next's parser
+  accepts, or `PORT` in its environment), on the host the command names or Node's default, before
+  the real `spawn` runs. The server process is loading Node when the port goes, so the window's
+  worst case is forced every time rather than waited for on a busy machine. Red on `main`'s
+  `instance.ts` in 203ms: `⨯ Failed to start server`, `listen EADDRINUSE: address already in use
+  :::52839`, `next start exited with 1 before answering`, the ticket's failure verbatim. **On this
+  branch it takes nothing**, because a port of 0 names nothing: there the case is a guard that
+  fails any design naming a port in advance. That the window is closed rests on the mechanism, the
+  OS choosing in the bind that holds the port, and on that red.
 - **Nothing else can listen where the harness reaches it.** Once the server answers, a listener on
   the host and port in its `baseUrl` is refused `EADDRINUSE`. Red on `main` on this Mac: `promise
-  resolved "undefined" instead of rejecting`. Whether Linux lets that bind through against a
-  wildcard listener was not measured, so whether this case can go red on CI's runners is unknown. It
+  resolved "undefined" instead of rejecting`. On Linux it cannot go red, because Linux refuses that
+  bind against a wildcard listener too (the table above), so CI's runners hold nothing here. It
   holds the property on the machine where four agents share the ports, which is where the hazard
   was.
 

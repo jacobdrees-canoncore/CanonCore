@@ -220,11 +220,11 @@ describe("a server whose port another process wants", () => {
 
 /**
  * ARMS THE NEXT `spawn` WITH ANOTHER PROCESS'S BIND. Whatever port the command
- * names -- `--port` or `-p`, or `PORT` in its environment, the three places
- * `next start` reads one -- this process binds before the real `spawn` runs, on
- * the host the command names or on Node's default without one, which is exactly
- * where the server would bind it. A port of 0 names nothing, so it takes nothing.
- * What it holds goes on `owned`.
+ * names -- as `--port` or `-p` in any spelling, or as `PORT` in its environment,
+ * the places `next start` reads one -- this process binds before the real
+ * `spawn` runs, on the host the command names or on Node's default without one,
+ * which is exactly where the server would bind it. A port of 0 names nothing,
+ * so it takes nothing. What it holds goes on `owned`.
  *
  * BOUND BEFORE THE SERVER HAS LOADED NODE, let alone Next: with no host the bind
  * is synchronous, and with one it waits only on the lookup's next tick.
@@ -233,8 +233,8 @@ function aPortThief(owned: AsyncDisposableStack): void {
   const real = vi.mocked(spawn).getMockImplementation();
   if (real === undefined) throw new Error("`spawn` is not the wrapper `vi.mock` installs above");
   vi.mocked(spawn).mockImplementationOnce((command, args, options) => {
-    const port = Number(named(args, "--port", "-p") ?? options.env?.PORT ?? 0);
-    if (port !== 0) void anotherListener(owned, port, named(args, "--hostname", "-H"));
+    const port = Number(optionValue(args, "--port", "-p") ?? options?.env?.PORT ?? 0);
+    if (port !== 0) void anotherListener(owned, port, optionValue(args, "--hostname", "-H"));
     return real(command, args, options);
   });
 }
@@ -254,10 +254,17 @@ function anotherListener(owned: AsyncDisposableStack, port: number, host?: strin
   });
 }
 
-/** The value a command line gives an option, under either of its spellings. */
-function named(args: readonly string[], long: string, short: string): string | undefined {
-  const at = args.findIndex((arg) => arg === long || arg === short);
-  return at === -1 ? undefined : args[at + 1];
+/**
+ * The value a command line gives an option, in each spelling Next's parser
+ * accepts: `--port 0`, `--port=0`, `-p 0` and `-p0`.
+ */
+function optionValue(args: readonly string[], long: string, short: string): string | undefined {
+  for (const [at, arg] of args.entries()) {
+    if (arg === long || arg === short) return args[at + 1];
+    if (arg.startsWith(`${long}=`)) return arg.slice(long.length + 1);
+    if (arg.startsWith(short) && !arg.startsWith("--")) return arg.slice(short.length);
+  }
+  return undefined;
 }
 
 /**
@@ -269,9 +276,9 @@ function named(args: readonly string[], long: string, short: string): string | u
 const STOPPING_MS = 15_000;
 
 /**
- * ONE SERVER, allowed the minute `waitUntilAnswering` gives it, and the stopping
- * on top. A server answers in a second or two here; the ceiling is for a slow
- * runner, not the expected case.
+ * ONE SERVER, allowed the minute `theBuildServing` gives it to bind, say where
+ * and answer, and the stopping on top. A server answers in a second or two
+ * here; the ceiling is for a slow runner, not the expected case.
  */
 const ONE_SERVER_MS = 60_000 + STOPPING_MS;
 
