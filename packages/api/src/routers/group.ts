@@ -5,6 +5,7 @@ import {
   findGroups,
   findProvidersAGroupAsks,
   GroupRefused,
+  previewGroupDeletion,
   putItemInGroupByHand,
   renameGroupByHand,
   stopAskingProviderByHand,
@@ -33,6 +34,16 @@ import { openProcedure, ownerProcedure } from "../index";
  * matters.
  */
 const nameByHand = z.string().trim().min(1, "A Group needs a name.");
+
+/**
+ * What deleting a scope would take beside the scope itself (ADR-0046): its
+ * list of which Items are in it, and its choice of Providers to ask. NO ITEM
+ * COUNT, because deleting a Group takes no Item (ADR-0010, story 34).
+ */
+const groupDeletion = z.object({
+  memberships: z.number().int().nonnegative(),
+  asks: z.number().int().nonnegative(),
+});
 
 /**
  * WHICH OF THE CONFIGURED PROVIDERS A GROUP ASKS (ADR-0025, CNCORE-182): the
@@ -272,5 +283,23 @@ export const group = {
     .handler(async ({ input, context, errors }) => {
       if (!(await deleteGroupByHand(context.db, input.id))) throw errors.NOT_FOUND();
       return { id: input.id };
+    }),
+
+  /**
+   * What `delete` would take, answered before it takes it (ADR-0046,
+   * CNCORE-210): the delete itself, rolled back, as `provider.previewPurge` is.
+   *
+   * THE OWNER'S, LIKE THE DELETE, because it is one. It takes the write locks
+   * of a real deletion for the length of it, so the door in front of it is the
+   * delete's door.
+   */
+  previewDelete: ownerProcedure
+    .input(z.object({ id: z.uuid() }))
+    .output(groupDeletion)
+    .errors({ NOT_FOUND: { message: "No Group at that id to delete." } })
+    .handler(async ({ input, context, errors }) => {
+      const counts = await previewGroupDeletion(context.db, input.id);
+      if (counts === undefined) throw errors.NOT_FOUND();
+      return counts;
     }),
 };

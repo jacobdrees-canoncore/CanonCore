@@ -3,6 +3,7 @@
 import { appRouter } from "@canoncore/api/routers";
 import { call } from "@orpc/server";
 import { refresh } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { whatTheProcedureAnswered } from "@/answer";
@@ -26,12 +27,13 @@ import { callerContext } from "@/session";
  * through `whatTheFormCarries` rather than trusted -- and a procedure's refusal
  * is an answer rather than a crash, which is `whatTheProcedureAnswered`.
  *
- * NO REDIRECT ON ANY OF THE THREE, which is the difference from `createItem`
- * one folder over and follows from where the forms POST. Each of these posts to
+ * NO REDIRECT ON DRAWING OR RENAMING, which is the difference from `createItem`
+ * one folder over and follows from where the forms POST. Each posts to
  * `/groups`, so the response IS that page rendered again with the scopes as
  * they now stand. `createItem` redirects because an Owner who has just made an
  * Item wants the Item, and a Group has no page of its own to be sent to -- it
- * is a scope other surfaces are read THROUGH (ADR-0010).
+ * is a scope other surfaces are read THROUGH (ADR-0010). Deleting is the
+ * exception, and `deleteGroup` gives the reason.
  *
  * `refresh()` IS FOR THE HALF THIS APP'S TEST SEAM CANNOT SEE, exactly as
  * `retitleItem` records: with no script the sentence above is the whole story,
@@ -71,34 +73,27 @@ export async function renameGroup(form: FormData): Promise<void> {
 const deletedGroup = z.object({ id: z.string() });
 
 /**
- * Deleting a scope, WHICH TAKES NO ITEM WITH IT (ADR-0010, story 34).
+ * Deleting a scope, WHICH TAKES NO ITEM WITH IT (ADR-0010, story 34), once the
+ * Owner has been shown what it does take (ADR-0046, CNCORE-210).
  *
- * TODO(CNCORE-210): THIS DELETE IS PERMANENT AND CARRIES NO CONFIRMATION, and
- * ADR-0046 asks for one. An earlier draft of this docstring claimed the record
- * endorsed the omission -- "ADR-0046's test applied: what makes an action safe
- * is what it costs to undo" -- and THAT TEST IS NOT IN THE RECORD. What it
- * actually says is "DELETE PERMANENTLY keeps a confirmation that is never
- * dismissible by accident", against "REMOVE FROM THIS CONTAINER gets no dialog
- * at all and offers undo instead". Taking an Item out of a Group is the second
- * kind and rightly has no dialog; deleting the Group is the first kind, and
- * there is no restore procedure for one.
+ * THE ONE OF THE THREE THAT REDIRECTS, because it is the one that does not post
+ * from `/groups`: its button is on the confirmation at `/groups?delete=<id>`,
+ * and the page to come back to is the list. A redirect whether or not the
+ * procedure refused, because a scope another tab deleted first is the same
+ * answer: the list, without it.
  *
- * WHAT IS TRUE IS THE MITIGATION, NOT THE EXEMPTION: deleting a scope takes no
- * Item with it, so what it costs is the scope's own membership list, and the
- * page says so above the button. That is why this ships without the dialog
- * rather than why it does not need one -- ADR-0046 rules on deleting an ITEM
- * and has never been applied to a Group, so the confirmation is owed and is a
- * surface of its own (CNCORE-69 built the purge's, which is the pattern).
+ * COUNTS-FIRST IS THE PAGE'S SHAPE RATHER THAN THIS ACTION'S GUARANTEE, for
+ * `purgeProvider`'s reason: `/api/rpc` carries `group.delete` too, so a check
+ * here would bound the form and not the operation.
  */
 export async function deleteGroup(form: FormData): Promise<void> {
   const input = whatTheFormCarries(form, deletedGroup);
   if (input === undefined) return;
 
-  const { refused } = await whatTheProcedureAnswered(
+  await whatTheProcedureAnswered(
     call(appRouter.group.delete, input, { context: await callerContext() }),
   );
-  if (refused) return;
-  refresh();
+  redirect("/groups");
 }
 
 /** What an ask or a stop carries: which scope, and which Provider by the URL that is its identity. */
