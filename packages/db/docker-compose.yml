@@ -1,3 +1,22 @@
+# ONE PROJECT NAME FOR EVERY WORKTREE, SO ONE CONTAINER FOR ALL OF THEM
+# (ADR-0104). It is also the project the Owner's install runs as, so from this
+# directory Compose calls that install's app and database ORPHANS and suggests
+# `--remove-orphans` for them. NEVER TAKE IT. From the install's side the same
+# flag would remove this container, which costs a restart. From this side it
+# deletes the install and the real catalogue in it. `db:start` sets
+# COMPOSE_IGNORE_ORPHANS so that it never prints the suggestion.
+#
+# A CHANGE TO THIS FILE DOES NOT REACH THE RUNNING CONTAINER BY ITSELF, ON
+# PURPOSE. `db:start` passes `--no-recreate`: it creates the container when there
+# is none and starts it when it is stopped, and it never recreates one. A
+# recreate cuts every connection in every worktree, and without the flag the
+# last worktree to run `db:start` would decide what the container is
+# (CNCORE-233). A branch that changes this file tests the change on a throwaway
+# container of its own. Once the change is on `main`, the Owner applies it from
+# the main checkout while no suite is running:
+#
+#   COMPOSE_IGNORE_ORPHANS=true docker compose up -d --dry-run   # `Recreate` = it differs
+#   COMPOSE_IGNORE_ORPHANS=true docker compose up -d
 name: canoncore
 
 services:
@@ -65,9 +84,6 @@ services:
     # RAM, and past that the OOM killer picks a process anywhere in the VM
     # instead of PostgreSQL failing in its own container. ADR-0104 has the
     # arithmetic, and `src/docker-compose.test.ts` fails if this goes.
-    #
-    # TODO(CNCORE-233): a worktree whose copy of this file differs recreates
-    # the container on `db:start`, cutting every other worktree's run.
     shm_size: 256mb
     volumes:
       - canoncore_postgres_data:/var/lib/postgresql

@@ -255,6 +255,13 @@ once would take each other's out mid-run. `pnpm db:setup` gives each worktree a 
 its branch — `canoncore_cncore_4_item_on_a_page` — so `_test`, `_test_api` and `_test_web` never
 collide either. See ADR-0104.
 
+**`pnpm db:start` never recreates that container**, so it is safe to run from any worktree at any
+time. It creates the container when there is none and starts it when it is stopped. The container
+is every worktree's, so a change to `packages/db/docker-compose.yml` does not reach it just because
+your branch has it. The change lands on `main`, and the Owner applies it by the route written above
+`name: canoncore` in that file. Never pass `--remove-orphans` there, whatever Compose suggests: on a
+machine that also runs the install, the "orphans" are the install.
+
 ## Checks
 
 ```bash

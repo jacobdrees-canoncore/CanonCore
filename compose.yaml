@@ -29,8 +29,12 @@
 #   command with the --remove-orphans flag to clean it up.
 #
 # So it WARNS and leaves the other project's container running; only
-# `--remove-orphans` would take it. That is the whole cost of the collision, and
-# it falls on a machine that has both, which a stranger's never does.
+# `--remove-orphans` would take it. From this side that costs the development
+# container, which is a restart. THE OTHER SIDE IS THE DANGEROUS ONE: from
+# `packages/db`, Compose calls THIS install's containers the orphans, and the
+# same flag deletes the install and its database. That is why `db:start` never
+# prints the suggestion (ADR-0104). The collision falls only on a machine that
+# has both, which a stranger's never does.
 
 services:
   canoncore:
