@@ -257,7 +257,7 @@ describe("findPlacementsInContainer, walked", () => {
     // (ADR-0014) -- so its anchor names no position and the walk has to start
     // the listing over. Its own words for the other half are that "an order this
     // app does not yet hold ... reads a column a delete does NOT destroy, so its
-    // anchor still has a place and can still be resumed from".
+    // anchor outlives the delete and can still be resumed from".
     //
     // `placements.position` IS THAT COLUMN. No tombstone touches it, so a reader
     // five pages into a container is not sent back to its first page because one
@@ -295,7 +295,7 @@ describe("findPlacementsInContainer, walked", () => {
     // THE TWO MEMBERS AFTER IT, and not the ordering over again.
     expect(kept.rows.map((placement) => placement.id)).toStrictEqual(written.slice(2));
     // AND THE DELETED MEMBER IS GONE TO THE READER (ADR-0075), which is what
-    // separates "the anchor keeps its place" from "the anchor is still shown".
+    // separates "the anchor outlives the delete" from "the anchor is still shown".
     expect(kept.total).toBe(3);
   });
 

@@ -799,7 +799,7 @@ describe("/items/<an item in more orderings than one page>", () => {
     //
     // AND IT DROPS THIS LIST'S OWN, which is the half that is not symmetry. A
     // chip changes what "Also appears in" is ASKING, so the answer is a
-    // different listing and the old cursor names a place in the one being left.
+    // different listing and the old cursor names an anchor in the one being left.
     const { text } = await documentFrom(
       pagedBaseUrl,
       `/items/${appearsIn.id}?after=nothing-either&placedAfter=${appearsIn.sitsIn[0]?.id}`,

@@ -76,6 +76,15 @@ keeps of its own members and is the Placement construct below; a second sense of
 would be the hazard this glossary already refuses for `duplicate` and `record`.
 _Avoid_: ordering
 
+**Anchor**:
+Where the row a Listing's cursor names sits in the Listing's Order: a value for each of the Order's
+keys, under the name the Order gives it, and the row's id. The cursor carries only the id, so the
+walk reads the rest back and resumes past it — and a row whose key a delete destroyed is NO ANCHOR,
+so its cursor names no position and the walk starts over. NEVER A PLACE, which is a location, nor a
+Position, which is a Placement's and is at most one of the keys an anchor carries; where a record
+says a cursor "names no position", the word is in its ordinary sense. No `_Avoid_` list, because
+both words are headwords of their own and a list here would reject them in every name.
+
 **Size**:
 How many Rows a Listing holds altogether, which is not how many the page in front of you shows. ONE
 QUERY PER LISTING, from which both the positions it is read in are derived — riding on the Rows in

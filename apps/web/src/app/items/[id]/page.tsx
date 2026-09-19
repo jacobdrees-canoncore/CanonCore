@@ -1062,7 +1062,7 @@ function theRoute({
    *
    * A CHIP PASSES ONLY `from`, which is the one asymmetry here and is argued at
    * `FilterLink`: narrowing changes what "Also appears in" is ASKING, so its
-   * cursor names a place in the listing being left.
+   * cursor names an anchor in the listing being left.
    */
   from?: string;
   appearingFrom?: string;
@@ -1337,7 +1337,7 @@ function AlsoAppearsIn({
  *
  * AND IT DROPS THIS LISTING'S OWN CURSOR, which is the one parameter here that
  * is NOT carried forward. A chip changes what "Also appears in" is ASKING, so
- * the answer is a different listing and `?placedAfter=` names a place in the one
+ * the answer is a different listing and `?placedAfter=` names an anchor in the one
  * the reader is leaving. Keeping it would open the narrowed list halfway down
  * for no reason a reader could see. The Members cursor is carried for the exact
  * mirror of that reason: a chip has nothing to do with that listing, so it must

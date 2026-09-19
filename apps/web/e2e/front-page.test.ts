@@ -431,7 +431,7 @@ describe("/ on a catalogue larger than one page", () => {
     // AND NOT ON THE FIRST PAGE, which is the half that makes the line above a
     // test: a page printing it unconditionally would satisfy that and fail this.
     expect(first.text).not.toContain("Back to the start");
-    // AN EMPTY `after` NAMES NO PLACE, exactly as a repeated one does not
+    // AN EMPTY `after` NAMES NO ANCHOR, exactly as a repeated one does not
     // (ADR-0066). `/?after=` is the start of the catalogue, so it must not
     // offer to send a reader back to where they already are.
     const empty = await documentFrom(pagedBaseUrl, "/?after=");

@@ -825,7 +825,7 @@ describe("findPlacementsOfItem, an anchor that has gone", () => {
   it("resumes past an anchor whose own placement was removed", async () => {
     // The PLACEMENT's tombstone takes the row out of the listing and leaves
     // every column the order reads standing -- the container's key included,
-    // since the container is untouched. So this anchor keeps its place, which
+    // since the container is untouched. So this anchor outlives it, which
     // is the half of ADR-0119's split that RESUMES.
     const owner = await ownerSource(db);
     const story = await anItem(db);
@@ -855,7 +855,7 @@ describe("findPlacementsOfItem, an anchor that has gone", () => {
   it("still resumes from an ordering nobody has named, which is not the same absence", async () => {
     // A container with no key because nobody NAMED it sits at the end of the
     // order as one block and is resumed from by the three keys behind it. A
-    // container with no key because it is DELETED has lost its place. The two
+    // container with no key because it is DELETED is no anchor at all. The two
     // are one predicate apart, so the guard tests the PAIR rather than the
     // tombstone alone.
     const owner = await ownerSource(db);

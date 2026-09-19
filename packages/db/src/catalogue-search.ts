@@ -2,7 +2,7 @@ import { and, eq, type SQL, type SQLWrapper, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 import type { Database } from "./index";
-import type { PlaceIn, TheOrder } from "./order";
+import type { AnchorIn, TheOrder } from "./order";
 import {
   type Catalogue,
   findTheAnchor,
@@ -95,10 +95,10 @@ export function titleMatches(query: string) {
  * reaches what it is not showing. Two identical interfaces one file apart is
  * the hazard `queries.ts` carries a paragraph about, so there is one.
  *
- * IT IS ORDERED BY RELEVANCE AND IT STILL WALKS (ADR-0119). The anchor's place
- * in that order is RECOMPUTED from the query the request resupplies, rather
- * than read off the anchor row the way a listing reads its sort key -- which is
- * what `past` below is about, and the whole of what this surface costs that the
+ * IT IS ORDERED BY RELEVANCE AND IT STILL WALKS (ADR-0119). The anchor's
+ * closeness is RECOMPUTED from the query the request resupplies, rather than
+ * read off the anchor row the way a listing reads its sort key -- which is what
+ * `past` below is about, and the whole of what this surface costs that the
  * catalogue's walk does not.
  *
  * THE WINNING TITLE ONLY. `items.title` is a projection (ADR-0014), so what is
@@ -141,7 +141,7 @@ export async function searchCatalogue(
   if (wanted === "") return { rows: [], total: 0, continuesAfter: null };
 
   const ranking = theRanking(wanted);
-  const place =
+  const anchor =
     after === undefined ? undefined : await findInTheRanking(db, ranking, wanted, after);
 
   return walkListing(db, {
@@ -163,7 +163,7 @@ export async function searchCatalogue(
      */
     within: withinTheGroup(db, group, and(IN_THE_CATALOGUE, titleMatches(wanted)) as SQL),
     order: ranking,
-    place,
+    anchor,
     limit,
   });
 }
@@ -226,7 +226,7 @@ function closenessTo(title: SQLWrapper, query: string): SQL {
  * BUILT PER REQUEST RATHER THAN WRITTEN AS A CONSTANT, because the leading key
  * is a function of what the reader typed rather than a column of the item
  * (ADR-0120). That is the whole of what this Listing has that the catalogue's
- * does not, and `PlaceIn` carries the other half of it -- see `findInTheRanking`
+ * does not, and `AnchorIn` carries the other half of it -- see `findInTheRanking`
  * below.
  */
 function theRanking(query: string) {
@@ -247,10 +247,10 @@ function theRanking(query: string) {
  * Where one result sits in the ranking one search produced.
  *
  * DERIVED FROM THE ORDER rather than declared beside it, for the reason that
- * order gives: a place written out by hand is a second list of its keys, and
+ * order gives: an anchor written out by hand is a second list of its keys, and
  * two lists come apart. CNCORE-88 was this list being one term short.
  */
-type PlaceInTheRanking = PlaceIn<ReturnType<typeof theRanking>>;
+type AnchorInTheRanking = AnchorIn<ReturnType<typeof theRanking>>;
 
 /**
  * THE ANCHOR'S OWN CLOSENESS, COMPUTED INSIDE THE QUERY rather than carried out
@@ -312,7 +312,7 @@ function closenessOfTheAnchor(db: Database, id: string, query: string): SQL {
  *
  * HANDED THIS RANKING, THAT LAST REFUSAL REFUSES NOTHING, and deliberately.
  * Neither key says `destroyedBy`, because both say `everyRowHasIt`: on such a
- * key a null is no place whatever took it, a delete or a title nobody wrote,
+ * key a null is no anchor whatever took it, a delete or a title nobody wrote,
  * and the check below turns both away on the title alone.
  */
 async function findInTheRanking(
@@ -320,11 +320,11 @@ async function findInTheRanking(
   ranking: ReturnType<typeof theRanking>,
   query: string,
   id: string,
-): Promise<PlaceInTheRanking | undefined> {
+): Promise<AnchorInTheRanking | undefined> {
   const anchor = await findTheAnchor(db, ranking, id);
   if (anchor === undefined) return undefined;
   /*
-   * AN ITEM WITH NO TITLE HAS NO PLACE IN THIS ORDER, which is a state the
+   * AN ITEM WITH NO TITLE IS NO ANCHOR IN THIS ORDER, which is a state the
    * catalogue's walk has no analogue for. Closeness is
    * `similarity(title, ...)` and is NULL without a title, so such an anchor can
    * be ranked against nothing -- and a NULL on one side of the comparison makes
@@ -339,7 +339,7 @@ async function findInTheRanking(
    * are GONE rather than hidden. A link kept past a delete therefore starts the
    * search over rather than resuming, and every result is still reachable. The
    * catalogue's walk meets the same fact and now answers it the same way, for
-   * the same reason: a deleted anchor has no place in either order, so it names
+   * the same reason: a deleted item is no anchor in either order, so it names
    * no position (CNCORE-110, `findInTheOrder` in `queries.ts`).
    *
    * AND THE SAME FACT LEFT A RACE THIS CHECK CANNOT SEE, WHICH IS NOW HARMLESS
@@ -349,7 +349,7 @@ async function findInTheRanking(
    * statements wide -- closing it would mean joining the anchor in as a
    * relation, which ADR-0119 prices as a worse trade than the extra lookup, and
    * that record deliberately keeps the closeness on the server -- but
-   * the place below carries the closeness as an EXPRESSION, and `pastTheRowIn`
+   * the anchor below carries the closeness as an EXPRESSION, and `pastTheRowIn`
    * reads a computed value that is NULL as "no position" and starts the search
    * over -- which is exactly what this check does a statement earlier.
    * BOTH SIDES OF THE WINDOW ANSWER THE SAME WAY, so which side a delete lands
@@ -363,17 +363,17 @@ async function findInTheRanking(
    *
    * THE CATALOGUE'S WALK HAS NO EQUIVALENT. It embeds the anchor's sort key as
    * a VALUE read in the first statement, so a delete between the two changes no
-   * predicate. Only a relevance order re-derives the place on the server.
+   * predicate. Only a relevance order re-derives the anchor on the server.
    */
   if (anchor.title === null || anchor.sortKey === null) return undefined;
   /*
    * THE CLOSENESS IS AN EXPRESSION AND THE SORT KEY IS A VALUE, which is the
-   * one place in this app where a place carries both -- and it is the shape the
-   * ticket had to make the interface carry rather than work around.
+   * one place in this app where an anchor carries both -- and it is the shape
+   * the ticket had to make the interface carry rather than work around.
    *
    * THE SORT KEY WAS READ, a statement ago, and a value read is a value the
    * read has already ruled on: this function answers `undefined` where the
-   * anchor has no place, so what it does hand back has one.
+   * item is no anchor, so what it does hand back is one.
    *
    * THE CLOSENESS CANNOT BE. It is a function of the QUERY the request
    * resupplied rather than a column of the anchor row (ADR-0120), so it is

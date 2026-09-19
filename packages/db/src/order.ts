@@ -5,8 +5,8 @@ import type { AnyPgColumn } from "drizzle-orm/pg-core";
  * WHAT A KEY IS MADE OF: a column, or an expression over columns.
  *
  * NARROWER THAN `SQLWrapper`, and the difference is what lets an order be
- * SELECTED as well as sorted and compared. A place is read by the order's own
- * keys -- `select(thePlaceIn(order))`, which is what the two reads in
+ * SELECTED as well as sorted and compared. An anchor is read by the order's own
+ * keys -- `select(theAnchorIn(order))`, which is what the two reads in
  * `queries.ts` do -- so the values cannot come from a list written out
  * beside them, and Drizzle's `select` will not take the broad interface. The
  * catalogue's key is an expression (ADR-0014's projection) and its id is a
@@ -65,22 +65,23 @@ type AnExpression = SQL | AnyPgColumn;
  * the sentence `theRanking` has to keep true. Do not declare it to save the
  * branch; declare it because the listing cannot hold such a row.
  *
- * `destroyedBy` IS THE THIRD, AND ONLY THE READ THAT FINDS AN ANCHOR ASKS IT.
- * A key on ADR-0014's projection reads NULL once its row is deleted: migration
- * 5 tombstones every statement of a deleted item, that re-fires the
- * projection, and the projection over no live statements is NULL. So the value
- * is GONE rather than hidden, and the null a delete leaves looks exactly like
- * an untitled row's -- but the untitled row sits in the keyless block and the
- * deleted one has no place at all. That is ADR-0119's tombstone split, and the
- * key names the tombstone that tells the two apart; `stillHasAPlaceIn` reads
- * it. WHAT a delete does is a fact about the expression, but it is DECLARED
- * per order, and only where it changes an answer: on a key with a keyless
- * block. On a key every row has, a null is no place whatever took it and
- * `PlaceIn` already refuses one, so Catalogue search holds the catalogue's
- * key and does not say it. It is on the key, like the other two, because a
- * property written beside the order would be a second list of its keys.
+ * `destroyedBy` IS THE THIRD, AND ONLY THE READ THAT FINDS AN ANCHOR ASKS IT. A
+ * key on ADR-0014's projection reads NULL once its row is deleted: migration 5
+ * tombstones every statement of a deleted item, that re-fires the projection,
+ * and the projection over no live statements is NULL. So the value is GONE
+ * rather than hidden, and the null a delete leaves looks exactly like an
+ * untitled row's -- but the untitled row sits in the keyless block and the
+ * deleted one sits nowhere, so it is no anchor at all. That is ADR-0119's
+ * tombstone split, and the key names the tombstone that tells the two apart;
+ * `stillAnAnchorIn` reads it. WHAT a delete does is a fact about the
+ * expression, but it is DECLARED per order, and only where it changes an
+ * answer: on a key with a keyless block. On a key every row has, a null is no
+ * anchor whatever took it and `AnchorIn` already refuses one, so Catalogue
+ * search holds the catalogue's key and does not say it. It is on the key, like
+ * the other two, because a property written beside the order would be a second
+ * list of its keys.
  *
- * A DESCRIBED KEY IS SELECTED BY ITS EXPRESSION, through `thePlaceIn`. Spread
+ * A DESCRIBED KEY IS SELECTED BY ITS EXPRESSION, through `theAnchorIn`. Spread
  * into a `select` it would be the description that was read, and that is a
  * type error at the read rather than a column that comes back wrong.
  */
@@ -96,8 +97,8 @@ type AKey =
        */
       readonly everyRowHasIt?: true;
       /**
-       * THE TOMBSTONE THAT DESTROYS THIS KEY: once it is set, a null here is a
-       * place the delete took rather than one in the keyless block.
+       * THE TOMBSTONE THAT DESTROYS THIS KEY: once it is set, a null here is an
+       * anchor the delete took rather than a row in the keyless block.
        */
       readonly destroyedBy?: AnyPgColumn;
     };
@@ -134,13 +135,13 @@ function described(key: AKey): {
  * A TERM can go missing from the comparison while the `ORDER BY` still names it
  * (CNCORE-88, CNCORE-125), and that is what `theOrderBy` and `pastTheRowIn`
  * below make impossible. A VALUE for a term can go missing from the ANCHOR
- * (CNCORE-110, CNCORE-113), and that is what `PlaceIn` and `stillHasAPlaceIn`
+ * (CNCORE-110, CNCORE-113), and that is what `AnchorIn` and `stillAnAnchorIn`
  * are for. Both are the same failure -- rows silently stepped over -- reached
  * from different ends.
  *
  * SO THE KEYS ARE WRITTEN ONCE AND EVERYTHING ELSE IS DERIVED. `theOrderBy`
- * reads them, `pastTheRowIn` reads them, `PlaceIn` is the shape of what an
- * anchor has to carry for them, and `thePlaceIn` and `stillHasAPlaceIn` are the
+ * reads them, `pastTheRowIn` reads them, `AnchorIn` is the shape of what an
+ * anchor has to carry for them, and `theAnchorIn` and `stillAnAnchorIn` are the
  * read that finds one. There is no other place to write them down differently.
  * Adding a key to an order reaches the sort, the walk and the anchor in the
  * same edit, which is what the four defects each needed and none had.
@@ -149,13 +150,13 @@ function described(key: AKey): {
  * ELSE -- the Placement construct, what a container keeps of its own members.
  * The glossary is binding on names in code and now carries **Order** too. "The
  * order" is what these files had always called this in prose anyway:
- * `pastInTheOrder`, `findInTheOrder`, `PlaceInTheOrder`.
+ * `pastInTheOrder`, `findInTheOrder`, `AnchorInTheOrder`.
  *
- * THE KEYS ARE NAMED RATHER THAN NUMBERED, and the names are how a place is
+ * THE KEYS ARE NAMED RATHER THAN NUMBERED, and the names are how an anchor is
  * read back. Two parallel lists -- the keys here and their anchor values
  * somewhere else -- can come apart, and the shorter one would silently drop a
- * term, which is the very failure this exists to stop. Named, a place is
- * checked against the order that produced it (see `PlaceIn`).
+ * term, which is the very failure this exists to stop. Named, an anchor is
+ * checked against the order that produced it (see `AnchorIn`).
  *
  * THE ORDER OF THE KEYS IS THE OBJECT'S OWN, which is well defined for string
  * keys and is the same thing Drizzle's `select({...})` relies on to decide what
@@ -163,7 +164,7 @@ function described(key: AKey): {
  */
 
 export interface TheOrder {
-  /** The keys, most significant first, by the name a place gives each. */
+  /** The keys, most significant first, by the name an anchor gives each. */
   readonly keys: Readonly<Record<string, AKey>>;
   /**
    * THE ID BEHIND THEM, which is the whole of the order once every key has
@@ -184,13 +185,13 @@ export interface TheOrder {
  * the name the order gives it, and the row's id.
  *
  * IT IS DERIVED FROM THE ORDER rather than declared beside it, so a key added
- * to an order makes every place that does not carry it a TYPE ERROR. That is
+ * to an order makes every anchor that does not carry it a TYPE ERROR. That is
  * the compiler saying what the four defects each had to be measured to find:
  * the walk reads a term the anchor was never asked for.
  *
  * AND A KEY EVERY ROW HAS CANNOT BE NULL HERE, which the type refuses rather
  * than the walk checking for. A null value for such a key would mean the anchor
- * is not among the rows the listing holds -- no place at all -- and the walk's
+ * is not among the rows the listing holds -- no anchor at all -- and the walk's
  * keyless regime would answer it with a predicate NO ROW SATISFIES, which is an
  * empty page over rows still unseen (the failure CNCORE-113 measured). Nothing
  * produces one, and now nothing can: it is a type error at whichever read tried
@@ -205,9 +206,7 @@ export interface TheOrder {
  * these statements as a BOUND PARAMETER, which is what `closenessTo` and
  * `titleMatches` one file over are each careful to be.
  */
-// TODO(CNCORE-224): "place" is CONTEXT.md's word for a location, and this
-// family (with `thePlaceIn` and `stillHasAPlaceIn`) uses it for something else.
-export type PlaceIn<O extends TheOrder> = {
+export type AnchorIn<O extends TheOrder> = {
   readonly [K in keyof O["keys"]]: O["keys"][K] extends { readonly everyRowHasIt: true }
     ? string | number | SQL
     : string | number | null | SQL;
@@ -216,15 +215,15 @@ export type PlaceIn<O extends TheOrder> = {
 /** What a key is selected by: its expression, without what it says about it. */
 type TheExpressionOf<K extends AKey> = K extends { readonly key: infer E } ? E : K;
 
-/** What `thePlaceIn` selects: each key's expression under its name, and the id. */
-type TheColumnsOfAPlaceIn<O extends TheOrder> = {
+/** What `theAnchorIn` selects: each key's expression under its name, and the id. */
+type TheColumnsOfAnAnchorIn<O extends TheOrder> = {
   [N in keyof O["keys"]]: TheExpressionOf<O["keys"][N]>;
 } & { id: O["id"] };
 
 /**
- * THE COLUMNS ONE PLACE IS READ BY: each key's expression under the name the
- * order gives it, and the id. So `select(thePlaceIn(order))` answers a
- * `PlaceIn<typeof order>`, and a key the order gains is one the read cannot be
+ * THE COLUMNS AN ANCHOR IS READ BY: each key's expression under the name the
+ * order gives it, and the id. So `select(theAnchorIn(order))` answers an
+ * `AnchorIn<typeof order>`, and a key the order gains is one the read cannot be
  * left without.
  *
  * THE READS SPREAD `order.keys` UNTIL CNCORE-195, which held only while every
@@ -232,18 +231,18 @@ type TheColumnsOfAPlaceIn<O extends TheOrder> = {
  * is a description, and a description spread into a `select` is not its
  * column.
  */
-export function thePlaceIn<O extends TheOrder>(order: O): TheColumnsOfAPlaceIn<O> {
+export function theAnchorIn<O extends TheOrder>(order: O): TheColumnsOfAnAnchorIn<O> {
   return {
     ...Object.fromEntries(
       Object.entries(order.keys).map(([name, aKey]) => [name, described(aKey).key]),
     ),
     id: order.id,
-  } as TheColumnsOfAPlaceIn<O>;
+  } as TheColumnsOfAnAnchorIn<O>;
 }
 
 /**
- * THE ROWS THAT STILL HAVE A PLACE IN THIS ORDER, for the read that finds an
- * anchor: ADR-0119's tombstone split, read off the keys rather than written
+ * THE ROWS THAT ARE STILL AN ANCHOR IN THIS ORDER, for the read that finds
+ * one: ADR-0119's tombstone split, read off the keys rather than written
  * beside them.
  *
  * AN ANCHOR IS READ PAST ITS TOMBSTONE, because it is a position rather than
@@ -263,10 +262,10 @@ export function thePlaceIn<O extends TheOrder>(order: O): TheColumnsOfAPlaceIn<O
  *
  * `undefined` WHERE NO KEY IS DESTROYED BY A DELETE, which drizzle's `and`
  * leaves out of a `where`. A Container's own order is on a stored column no
- * tombstone touches, so an anchor there keeps its place and a kept link into it
- * resumes.
+ * tombstone touches, so an anchor there outlives the delete and a kept link
+ * into it resumes.
  */
-export function stillHasAPlaceIn(order: TheOrder): SQL | undefined {
+export function stillAnAnchorIn(order: TheOrder): SQL | undefined {
   return and(
     ...Object.values(order.keys).map((aKey) => {
       const { key, destroyedBy } = described(aKey);
@@ -359,8 +358,8 @@ export function theOrderBy(order: TheOrder): SQL[] {
  * would answer true for a row that sorts BEFORE the anchor on an early key and
  * after it on a late one.
  */
-export function pastTheRowIn<O extends TheOrder>(order: O, place: PlaceIn<O>): SQL | undefined {
-  const at = place as Readonly<Record<string, string | number | null | SQL>> & {
+export function pastTheRowIn<O extends TheOrder>(order: O, anchor: AnchorIn<O>): SQL | undefined {
+  const at = anchor as Readonly<Record<string, string | number | null | SQL>> & {
     readonly id: string;
   };
   // The id is the whole order left once every key has tied, and it is total.
@@ -374,15 +373,15 @@ export function pastTheRowIn<O extends TheOrder>(order: O, place: PlaceIn<O>): S
     const { key: theKey, largestFirst, everyRowHasIt } = described(aKey);
     const key: SQLWrapper = theKey;
     const value = at[name];
-    // NOT DEAD CODE, AND THE CAST ABOVE IS WHY. `PlaceIn` refuses a missing key
-    // at a call site that knows its order concretely -- but a place is READ, and
-    // Drizzle cannot infer field types through an order it knows only as
-    // `TheOrder`, so the read that produces one casts (measured: the select
+    // NOT DEAD CODE, AND THE CAST ABOVE IS WHY. `AnchorIn` refuses a missing
+    // key at a call site that knows its order concretely -- but an anchor is
+    // READ, and Drizzle cannot infer field types through an order it knows only
+    // as `TheOrder`, so the read that produces one casts (measured: the select
     // infers `{ id: unknown }` without it). This is the check that survives the
     // cast. Loud, because the silent answer is the wrong one: a missing value
     // read as `null` is the "already among the rows with no key here" regime,
     // which walks a listing from the wrong place and says nothing.
-    if (value === undefined) throw new Error(`the order's key ${name} has no value in its place`);
+    if (value === undefined) throw new Error(`the order's key ${name} has no value in its anchor`);
     // WHICH WAY "AFTER" RUNS, and it is the only thing the direction changes
     // here. `theOrderBy` renders `desc` off the same flag, so the two cannot
     // disagree about which end of a key a listing starts from.
@@ -395,12 +394,12 @@ export function pastTheRowIn<O extends TheOrder>(order: O, place: PlaceIn<O>): S
      */
     const theKeylessBlock = everyRowHasIt ? [] : [isNull(key)];
     /*
-     * AND THE ANCHOR ITSELF HAVING NO PLACE, where its value is one the walk
+     * AND THE ANCHOR ITSELF BEING GONE, where its value is one the walk
      * COMPUTES rather than one a read handed over. Catalogue search has the
      * app's only such key: closeness is a function of the QUERY the request
      * resupplied rather than a column of the anchor row (ADR-0120), so it is a
      * scalar subquery in THIS statement and cannot be ruled on a statement
-     * earlier. Its NULL means what the guard above means -- no place -- and
+     * earlier. Its NULL means what the guard above means -- no anchor -- and
      * CNCORE-113 is the width of the statement between the two moments: an
      * anchor deleted in the gap is titled for the read and untitled for this,
      * and a NULL on one side of a comparison makes the whole predicate NULL,
@@ -413,14 +412,14 @@ export function pastTheRowIn<O extends TheOrder>(order: O, place: PlaceIn<O>): S
      * RETURNED by a listing it does not belong to. This names the anchor's null
      * and no other.
      */
-    const theAnchorHavingNoPlace = is(value, SQL) ? [sql`${value} is null`] : [];
+    const theAnchorBeingGone = is(value, SQL) ? [sql`${value} is null`] : [];
     past =
       value === null
         ? // Already among the rows with no key HERE, so everything still ahead
           // has no key here either and the terms behind it decide.
           and(isNull(key), past)
         : or(
-            ...theAnchorHavingNoPlace,
+            ...theAnchorBeingGone,
             ...theKeylessBlock,
             after(key, value),
             // THE TIE, and it is what carries the comparison to the next term.
