@@ -1,4 +1,4 @@
-import { placeItemByHand } from "@canoncore/db";
+import { createGroupByHand, placeItemByHand } from "@canoncore/db";
 import { anItemTitled, aProvider, aStatement } from "@canoncore/db/testing/catalogue";
 import { bounded } from "@canoncore/providers";
 import type { TestProject } from "vitest/node";
@@ -41,6 +41,9 @@ import {
  * tell a permutation of asserted positions from a renumbering that happens to
  * agree with it (ADR-0116).
  */
+/** A Group's name, a word repeated for the reason `UNBROKEN`'s fields are. */
+const UNBROKEN_GROUP = "group".repeat(100);
+
 export default async function setup(project: TestProject) {
   /*
    * THIS PROJECT BUILDS ITS OWN APP, which is the duplicated setup the ticket
@@ -114,6 +117,12 @@ export default async function setup(project: TestProject) {
        */
       const unbrokenTitle = await anItemTitled(db, UNBROKEN.title);
 
+      /*
+       * AND A GROUP NAMED WITH NO BREAK IN IT, which is the Owner's words where
+       * those are the Provider's: `group.create` bounds neither.
+       */
+      await createGroupByHand(db, { name: UNBROKEN_GROUP });
+
       return {
         dragging: { releaseOrder, inOrder: held.map(({ title }) => title) },
         claimed,
@@ -129,6 +138,7 @@ export default async function setup(project: TestProject) {
   project.provide("floodedName", FLOOD);
   project.provide("unbroken", UNBROKEN);
   project.provide("titledUnbroken", instance.fixture.unbrokenTitle);
+  project.provide("unbrokenGroup", UNBROKEN_GROUP);
 
   return async () => {
     await instance.close();
@@ -153,5 +163,7 @@ declare module "vitest" {
     unbroken: typeof UNBROKEN;
     /** An Item whose title is that record's, with no break in it. */
     titledUnbroken: string;
+    /** The name of a Group the Owner drew, with no break in it. */
+    unbrokenGroup: string;
   }
 }

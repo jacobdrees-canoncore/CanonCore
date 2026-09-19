@@ -168,3 +168,17 @@ describe("a record's fields with no break in them", () => {
     expect(await overrun(row)).toStrictEqual({ element: 0, document: 0 });
   });
 });
+
+describe("a Group's name with no break in it", () => {
+  /*
+   * WHERE CNCORE-179 WRAPPED IT FIRST, as a raw class on the chip. The chips
+   * are a flex row, so this is the witness `break-word` fails.
+   */
+  it("wraps inside the row of Groups the catalogue narrows to", async () => {
+    await page.goto(`${baseUrl}/`);
+    const chips = page.getByRole("navigation", { name: "Narrow to a Group" });
+
+    await expect.poll(() => chips.textContent()).toContain(inject("unbrokenGroup"));
+    expect(await overrun(chips)).toStrictEqual({ element: 0, document: 0 });
+  });
+});

@@ -13,6 +13,7 @@ import { Holding, Listing, PastTheEnd, Walk } from "@/components/listing";
 import { noPasswordSet } from "@/components/no-password";
 import { NoProviderAllowlisted } from "@/components/no-provider-allowlisted";
 import { oneValue } from "@/components/query-params";
+import { TheirWords } from "@/components/their-words";
 import { callerContext } from "@/session";
 
 /**
@@ -232,8 +233,8 @@ export default async function CataloguePage({
  * current on a page naming a Group that is not there, which is `NoSuchGroup`'s
  * to explain.
  *
- * `wrap-anywhere` BECAUSE THE NAME IS THE OWNER'S OWN WORDS WITH NO CAP on
- * them (`group.create`), so one unbroken word would otherwise push the page
+ * `TheirWords` BECAUSE THE NAME IS THE OWNER'S OWN WORDS WITH NO CAP on them
+ * (`group.create`), so one unbroken word would otherwise push the page
  * sideways -- the width CNCORE-217 found a Provider's name taking.
  */
 function NarrowToAGroup({ groups, narrowedTo }: { groups: GroupOnThePage[]; narrowedTo?: string }) {
@@ -254,9 +255,9 @@ function NarrowToAGroup({ groups, narrowedTo }: { groups: GroupOnThePage[]; narr
           key={group.id}
           href={{ pathname: "/", query: { group: group.id } }}
           aria-current={group.id === narrowedTo ? "true" : undefined}
-          className="min-w-0 wrap-anywhere hover:underline aria-[current]:font-medium aria-[current]:text-foreground"
+          className="hover:underline aria-[current]:font-medium aria-[current]:text-foreground"
         >
-          {group.name}
+          <TheirWords>{group.name}</TheirWords>
         </Link>
       ))}
     </nav>
@@ -283,8 +284,8 @@ function EmptyGroup({ name }: { name: string }) {
         <EmptyHeader>
           {/* A real heading, for the reason `NoProviderAllowlisted` gives. */}
           <EmptyTitle>
-            <h2 className="wrap-anywhere" id="empty-group">
-              {name} holds nothing yet
+            <h2 id="empty-group">
+              <TheirWords>{name}</TheirWords> holds nothing yet
             </h2>
           </EmptyTitle>
           <EmptyDescription>
