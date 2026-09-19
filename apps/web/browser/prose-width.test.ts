@@ -92,3 +92,23 @@ describe("a Provider's name with no break in it", () => {
     expect(await overrun(row)).toStrictEqual({ element: 0, document: 0 });
   });
 });
+
+describe("a record's fields with no break in them", () => {
+  const unbroken = inject("unbroken");
+
+  /*
+   * A SEARCH RESULT IS A FLEX ROW, so this is the witness `break-word` would
+   * fail, as the Values row is above: the row asserted rather than the title,
+   * because a title that grew to the word holds its text perfectly well.
+   */
+  it("wraps a title inside its row among /import's search results", async () => {
+    const aRunOfTheTitle = unbroken.title.slice(0, 100);
+    await page.goto(`${baseUrl}/import?q=${aRunOfTheTitle}`);
+    const row = page.locator("section[aria-labelledby='results'] li").filter({
+      hasText: aRunOfTheTitle,
+    });
+
+    await expect.poll(() => row.count()).toBe(1);
+    expect(await overrun(row)).toStrictEqual({ element: 0, document: 0 });
+  });
+});

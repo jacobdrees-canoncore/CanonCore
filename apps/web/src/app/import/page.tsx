@@ -10,6 +10,7 @@ import Link from "next/link";
 import { noPasswordSet } from "@/components/no-password";
 import { NoProviderAllowlisted } from "@/components/no-provider-allowlisted";
 import { ProviderProse } from "@/components/provider-prose";
+import { TheirWords } from "@/components/their-words";
 import { oneValue } from "@/components/query-params";
 import { Reason } from "@/components/reason";
 import { callerContext } from "@/session";
@@ -719,7 +720,9 @@ function Candidate({
           and the release dates beside it are flex items here that grow to a
           word with no break in it.
         */}
-        <span>{result.title}</span>
+        <span>
+          <TheirWords>{result.title}</TheirWords>
+        </span>
         {/*
           THE PROVIDER'S OWN WORD for what this is -- `TV story`, `audio story`,
           `movie` -- and not one of the catalogue's seven item kinds. An owner

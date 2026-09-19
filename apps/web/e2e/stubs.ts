@@ -123,3 +123,52 @@ export async function aProviderThatFloodsItsName(): Promise<{
     return answer({ error: "no such record" }, 404);
   });
 }
+
+/**
+ * A record's fields, each A WORD REPEATED with no break in it (CNCORE-223), for
+ * the reason `FLOOD` is one.
+ */
+export const UNBROKEN = {
+  title: "title".repeat(100),
+};
+
+/**
+ * A PROVIDER WHOSE RECORD IS AS WIDE AS IT IS LONG (CNCORE-223).
+ *
+ * A record's fields are a source's claim and bounded by nothing, on purpose:
+ * cutting a title would corrupt the catalogue rather than protect a page
+ * (ADR-0123). So this is the stub `aProviderThatFloodsItsName` is not -- its
+ * NAME is ordinary, and what it answers a search with is one record whose title
+ * has no break in it.
+ *
+ * FOUND ONLY BY ASKING FOR IT. `searchOver` matches on the title, so this
+ * record is on `/import` for a query that is a run of it and for no other, and
+ * the Provider-name witnesses beside it, which ask for `anything`, see this
+ * Provider match nothing.
+ */
+export async function aProviderThatFloodsItsRecord(): Promise<{
+  url: string;
+  close: () => Promise<void>;
+}> {
+  const manifest = {
+    name: "provider-unbroken",
+    versions: [1],
+    operations: ["search", "lookup"],
+    max_cache_age: 86400,
+    images: { stored_variant: null, per_role_limit: 0, quality_floor: 0 },
+  };
+  const records = [
+    {
+      id: "unbroken-title",
+      title: UNBROKEN.title,
+      kind: "TV story",
+      released: ["1963-11-23"],
+      url: "http://127.0.0.1/unbroken-title",
+    },
+  ];
+  return onLoopback((path, answer) => {
+    if (path === "/") return answer(manifest, 200);
+    if (path.startsWith("/search")) return answer(searchOver(records, path), searchStatus(path));
+    return answer({ error: "no such record" }, 404);
+  });
+}

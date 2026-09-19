@@ -4,7 +4,12 @@ import { bounded } from "@canoncore/providers";
 import type { TestProject } from "vitest/node";
 
 import { anInstanceServing, OWNER_PASSWORD, theAppBuilt } from "../e2e/instance";
-import { aProviderThatFloodsItsName, FLOOD } from "../e2e/stubs";
+import {
+  aProviderThatFloodsItsName,
+  aProviderThatFloodsItsRecord,
+  FLOOD,
+  UNBROKEN,
+} from "../e2e/stubs";
 
 /**
  * ONE INSTANCE, FOR THE THINGS A BROWSER IS NEEDED FOR (CNCORE-73, CNCORE-217).
@@ -56,17 +61,19 @@ export default async function setup(project: TestProject) {
   });
 
   const floodsItsName = await aProviderThatFloodsItsName();
+  const floodsItsRecord = await aProviderThatFloodsItsRecord();
 
   const instance = await anInstanceServing({
     suffix: "drag",
     ownerPassword: OWNER_PASSWORD,
     /*
-     * ONE PROVIDER, AND ONLY THE ONE WHOSE PROSE IS AS WIDE AS IT IS LONG
-     * (CNCORE-217). Loopback is admitted BY NAME, which is the config
-     * boundary's whole job (ADR-0034); nothing else here reaches out.
+     * TWO PROVIDERS, EACH SENDING TEXT AS WIDE AS IT IS LONG: one its prose
+     * (CNCORE-217) and one its record (CNCORE-223). Loopback is admitted BY
+     * NAME, which is the config boundary's whole job (ADR-0034); nothing else
+     * here reaches out.
      */
     allowlist: "127.0.0.0/8",
-    providers: [floodsItsName.url],
+    providers: [floodsItsName.url, floodsItsRecord.url],
     fill: async (db) => {
       const releaseOrder = await anItemTitled(db, "Release order", {
         isContainer: true,
@@ -111,10 +118,12 @@ export default async function setup(project: TestProject) {
   project.provide("claimedByTheFlood", instance.fixture.claimed);
   project.provide("browserOwnerPassword", OWNER_PASSWORD);
   project.provide("floodedName", FLOOD);
+  project.provide("unbroken", UNBROKEN);
 
   return async () => {
     await instance.close();
     await floodsItsName.close();
+    await floodsItsRecord.close();
   };
 }
 
@@ -130,5 +139,7 @@ declare module "vitest" {
     floodedName: string;
     /** An Item carrying a value that Provider claims, so its name is on the page. */
     claimedByTheFlood: string;
+    /** A record's fields as the second Provider sends them, before this app read them. */
+    unbroken: typeof UNBROKEN;
   }
 }
