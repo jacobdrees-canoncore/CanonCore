@@ -1,13 +1,12 @@
-import { spawn } from "node:child_process";
-import { createServer } from "node:net";
 import { buildTestDatabase } from "@canoncore/db/testing/build-database";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { SERVER_CONNECTIONS, settingUp, theBuildServing, theServerEnvironment } from "./instance";
+import { anotherListener, aPortThief } from "./port-thief";
 
 /**
  * THE REAL `spawn`, WRAPPED SO ONE CASE CAN PUT ANOTHER PROCESS IN ITS WAY
  * (CNCORE-235). Every call goes through to Node's own until a case arms it, and
- * then only the next one is intercepted: see `aPortThief` below.
+ * then only the next one is intercepted: see `aPortThief` in `port-thief.ts`.
  */
 vi.mock("node:child_process", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:child_process")>();
@@ -217,55 +216,6 @@ describe("a server whose port another process wants", () => {
     ONE_SERVER_MS,
   );
 });
-
-/**
- * ARMS THE NEXT `spawn` WITH ANOTHER PROCESS'S BIND. Whatever port the command
- * names -- as `--port` or `-p` in any spelling, or as `PORT` in its environment,
- * the places `next start` reads one -- this process binds before the real
- * `spawn` runs, on the host the command names or on Node's default without one,
- * which is exactly where the server would bind it. A port of 0 names nothing,
- * so it takes nothing. What it holds goes on `owned`.
- *
- * BOUND BEFORE THE SERVER HAS LOADED NODE, let alone Next: with no host the bind
- * is synchronous, and with one it waits only on the lookup's next tick.
- */
-function aPortThief(owned: AsyncDisposableStack): void {
-  const real = vi.mocked(spawn).getMockImplementation();
-  if (real === undefined) throw new Error("`spawn` is not the wrapper `vi.mock` installs above");
-  vi.mocked(spawn).mockImplementationOnce((command, args, options) => {
-    const port = Number(optionValue(args, "--port", "-p") ?? options?.env?.PORT ?? 0);
-    if (port !== 0) void anotherListener(owned, port, optionValue(args, "--hostname", "-H"));
-    return real(command, args, options);
-  });
-}
-
-/**
- * A LISTENER THAT IS NOT THE SERVER, on this port and host, or on Node's default
- * address without one. It hangs up on whatever connects, so nothing mistakes it
- * for an app that answered. Settles once it is listening, or on why it could not;
- * either way it is closed with `owned`.
- */
-function anotherListener(owned: AsyncDisposableStack, port: number, host?: string): Promise<void> {
-  const other = createServer((socket) => socket.destroy());
-  owned.defer(() => new Promise<void>((resolve) => other.close(() => resolve())));
-  return new Promise((resolve, reject) => {
-    other.once("error", reject);
-    other.listen(port, host, resolve);
-  });
-}
-
-/**
- * The value a command line gives an option, in each spelling Next's parser
- * accepts: `--port 0`, `--port=0`, `-p 0` and `-p0`.
- */
-function optionValue(args: readonly string[], long: string, short: string): string | undefined {
-  for (const [at, arg] of args.entries()) {
-    if (arg === long || arg === short) return args[at + 1];
-    if (arg.startsWith(`${long}=`)) return arg.slice(long.length + 1);
-    if (arg.startsWith(short) && !arg.startsWith("--")) return arg.slice(short.length);
-  }
-  return undefined;
-}
 
 /**
  * HOW LONG A SIGNALLED SERVER MAY TAKE TO BE GONE. Eleven stopped one after
