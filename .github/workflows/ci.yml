@@ -73,10 +73,19 @@ env:
   # nothing published.
   IMAGE: ghcr.io/jacobdrees-canoncore/canoncore
 
+# EVERY JOB STOPS ITSELF (CNCORE-219). Without `timeout-minutes` GitHub gives a
+# job six hours, and a hung suite spends them looking exactly like a slow one:
+# on #138 two suites hung without a line of output until a person cancelled
+# them. Each job's value is three times its slowest measured run, never under
+# five minutes. `ci-timeouts.test.ts` holds the measurements and fails when a
+# number here is not what they derive, so a ceiling moves by measuring again
+# rather than by editing it. ADR-0141 carries the figures, and the run that
+# showed a hang ending at one.
 jobs:
   secrets:
     name: Secret scan
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
         with:
@@ -103,6 +112,7 @@ jobs:
   docs:
     name: Agent docs
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
       - name: CLAUDE.md stays under 200 lines
@@ -188,6 +198,7 @@ jobs:
   typecheck:
     name: Typecheck
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
       # pnpm/setup installs pnpm and Node in one step and is what pnpm itself
@@ -212,6 +223,7 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/setup@v2
@@ -233,6 +245,7 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/setup@v2
@@ -269,6 +282,7 @@ jobs:
   env-guard:
     name: Env guard
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/setup@v2
@@ -296,6 +310,7 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
+    timeout-minutes: 11
     services:
       # Migration 1 lands real tables, so the suites that read them need a real
       # server. postgres:18 matches packages/db/docker-compose.yml, so CI and a
@@ -338,6 +353,7 @@ jobs:
   migrations:
     name: Migration ladder
     runs-on: ubuntu-latest
+    timeout-minutes: 6
     services:
       # As above: a real server, matching packages/db/docker-compose.yml.
       postgres:
@@ -433,6 +449,7 @@ jobs:
   e2e:
     name: The page over HTTP
     runs-on: ubuntu-latest
+    timeout-minutes: 8
     services:
       # As above: a real server, matching packages/db/docker-compose.yml.
       postgres:
@@ -463,6 +480,7 @@ jobs:
   browser:
     name: The page in a browser
     runs-on: ubuntu-latest
+    timeout-minutes: 6
     # ITS OWN JOB, WHICH IS CNCORE-73's FIRST ACCEPTANCE CRITERION, and it was
     # decided against the duplicated setup rather than against money: CNCORE-80
     # established that standard runners are free in a public repository, so a
@@ -544,6 +562,7 @@ jobs:
   credentials:
     name: Which provider credentials this run can reach
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       tmdb: ${{ steps.tmdb.outputs.reachable }}
     steps:
@@ -593,6 +612,7 @@ jobs:
   provider:
     name: Import and browse over HTTP, against the real provider-tmdb
     runs-on: ubuntu-latest
+    timeout-minutes: 9
     needs: credentials
     # THE GATE. Its shape, and why it is not a step, is in the `credentials`
     # job above. What it costs is stated here: with the token absent this job
@@ -737,6 +757,7 @@ jobs:
   contract:
     name: One contract, both providers, no app
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     needs: credentials
     # THE SAME GATE, AND IT COSTS MORE HERE. `test:contract` runs nowhere else,
     # so a run without the token checks the contract not at all. Running it
@@ -820,6 +841,7 @@ jobs:
   image:
     name: The image, built and run
     runs-on: ${{ matrix.runner }}
+    timeout-minutes: 21
     permissions:
       contents: read
       packages: write
@@ -1084,6 +1106,7 @@ jobs:
     needs: image
     if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
       contents: read
       packages: write
