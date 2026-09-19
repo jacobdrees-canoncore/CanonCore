@@ -70,8 +70,8 @@ termination is now exercised: `provider.purge` removes every statement and every
 carrying that provider, the placements it was the last claimant of, the items nothing is left
 asserting anything about, and the source row itself. No ownership column, no tombstone reconciliation
 and no per-table policy, because every row that can carry a claim already names who made it. An item
-the owner also placed somewhere survives, untitled — the owner's placement is the owner's claim, and
-a provider's licence ending has no bearing on it.
+the owner also placed somewhere, or put in a Group, survives, untitled — either is the owner's claim,
+and a provider's licence ending has no bearing on it. (The Group half is CNCORE-232's, below.)
 
 **NOT BUILT: the six-month ceiling.** `max_cache_age` is declared by `provider-tmdb` at 180 days and
 is READ BY NOTHING. There is no image store and no cached value with an age, so there is nothing yet
@@ -207,3 +207,67 @@ missing:
 
 A notice a reader is owed going missing is this record's first obligation, and neither half of it was
 reported by anything before.
+
+## An Item in a Group survives a purge -- under CNCORE-232
+
+**A LIVE GROUP MEMBERSHIP IS THE OWNER'S CLAIM, SO IT KEEPS THE ITEM**, the way the Owner's own
+Placement does. That is decided by two sentences that already stood rather than invented here:
+`CONTEXT.md`'s Purge says "an item the owner also claims is not removed by one", and migration 19
+calls a `group_items` row "nobody's claim but the Owner's". Nobody but the Owner ever puts an Item in
+a Group, so nothing about a provider's licence ending bears on it. The Item stays, stripped of that
+provider's words and still in the Group, and the preview counts it among `keptItems` rather than
+among what goes.
+
+**LIVE MEANS THE GROUP AS WELL AS THE MEMBERSHIP.** A membership that outlived its Group narrows
+nothing ([[0010-groups-scope-never-partition]], under CNCORE-230), so it is nobody's scope and keeps
+nothing. `deleteOrphansAmong` reads it through `groups` with the same two tombstones `inTheGroup`
+reads. That is a THIRD SPELLING of one rule, beside `inTheGroup` and `findGroupsOfItem`, and the three
+agree only because each was copied, which is how CNCORE-230 came about. Giving the rule one spelling
+is CNCORE-234. Until then, the purge's copy is held to the rule by the test for a membership that
+outlived its Group, not by construction.
+
+**A DEAD MEMBERSHIP KEEPS NOTHING, BUT IT STILL NAMES THE ITEM, AND THE PURGE TAKES IT WITH THE ITEM.**
+A membership the Owner took back out is a tombstone, not a DELETE (ADR-0075), and `group_items.item_id`
+carries no cascade, so before this ticket such a row refused the Item's delete with `23503`. Nothing
+was purged at all, and the preview failed the same way because it is the same traversal. So an
+Item's dead memberships are hard-deleted just ahead of the Item. This is the one row the purge takes
+on the ITEM'S account rather than the provider's, and it is not the "tombstone reconciliation" that
+"BUILT: the purge" rules out above: it follows from the foreign key, not from anything the provider
+said.
+
+**ONLY THE DOOMED ITEMS' DEAD MEMBERSHIPS.** The simpler "every dead membership among the Items this
+provider touched" would also remove the tombstones of Items that survive, and putting such an Item
+back in a Group would then mint a second row instead of returning the one it always had (ADR-0078).
+The dead memberships go UNCOUNTED: an Owner cannot see a membership they took out, so a count of
+them would tell them nothing they could act on.
+
+**AND IN ONE STATEMENT, WHICH REVIEW FORCED.** The first version was two: delete the doomed Items'
+memberships, then delete the doomed Items, each asking the predicate afresh. Under READ COMMITTED each
+statement takes its own snapshot, so an Owner taking a KEPT Item out of its Group between the two
+made the second statement find it orphaned while the first had left its new tombstone standing. The
+delete then failed with `23503`, which is the failure this ticket exists to remove. Now the doomed
+Items are chosen once, in a `WITH`, and both deletes read that one set. PostgreSQL runs every
+sub-statement of a `WITH` "with the same snapshot" (its manual, "Data-Modifying Statements in WITH",
+read 2026-09-19 for version 18), so the two cannot see different catalogues. The foreign key is
+checked at the end of that statement and accepts it, which the taken-out test shows by passing.
+
+**A RACE THAT IS NOT CLOSED, AND IS NOT THIS TICKET'S.** An Owner putting a doomed Item in a Group
+while that one statement runs can still commit a membership it did not see, and the foreign key then
+refuses the whole purge. The same is true of a Placement or a `based_on` written by hand in that
+moment, since six of the seven foreign keys into `items` lack a cascade and theirs are among the six
+(`placements.item_id` and `container_id`, `statements.value_item_id`). It fails safe: nothing is
+half-purged, and running the purge again succeeds. The seventh, `statements.subject_item_id`, is
+`ON DELETE CASCADE`, so a statement ABOUT a doomed Item cannot refuse the purge this way. Migration
+1 gives no reason for that cascade, and this traversal relies on it: a derived statement left about
+a doomed Item goes with the Item by it (CNCORE-173). Counted from `pg_constraint` on 2026-09-19.
+
+**WHAT ASSERTS IT**, at the package seam in `packages/db/src/import.test.ts`, each asking the
+preview first and holding the purge to it: an Item in a Group is kept and still in the Group; one
+taken back out goes; one whose only membership outlived its Group goes; and a kept Item's
+taken-out membership comes back under its old id. The last two were CHECKED BY BREAKING THE CODE,
+since the Group's tombstone arrived in the same change as the first: without that tombstone in the
+clause, the Item that outlived its Group is kept (`keptItems` 1 where 0 is right), and widening
+the sweep to every dead membership among the candidates makes the put answer a fresh id.
+
+**THIS RECORD STAYS PROPOSED.** CNCORE-232 completes the purge half. The six-month ceiling above is
+still read by nothing, and that is what closes this record.
