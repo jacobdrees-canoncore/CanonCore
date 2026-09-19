@@ -267,6 +267,18 @@ export default async function setup(project: TestProject) {
     await purgeable.close();
     await still.close();
     await editable.close();
+    /*
+     * CNCORE-178 ADDED THIS INSTANCE AND NOT THIS LINE, and the cost was a CI
+     * job that never ended. Unclosed, its `next start` outlives the suite:
+     * vitest force-exits after its ten-second close timeout, so a terminal or a
+     * file shows a clean finish -- but the orphan inherited this process's
+     * stdout, and on a PIPE that holds the stream open. CI reads the step's
+     * output to EOF, so "The page over HTTP" sat 19 minutes twice where it
+     * takes 2.5, and `ci.yml` sets no `timeout-minutes` to end it (CNCORE-219).
+     * Reproduced locally by piping `pnpm test:e2e` through `cat`: every test
+     * passed and the pipeline was still open at 300s.
+     */
+    await scopable.close();
     await curatable.close();
     await reorderable.close();
     await configurable.close();
