@@ -1,9 +1,23 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { createDb, type Database, items, readCatalogue } from "./index";
+import {
+  createDb,
+  type Database,
+  findPlacementsInContainer,
+  items,
+  placements,
+  readCatalogue,
+} from "./index";
 import { buildTestDatabase } from "./testing/build-database";
-import { anItem, anItemTitled, aStatement, connect, ownerSource } from "./testing/catalogue";
+import {
+  anItem,
+  anItemTitled,
+  aPlacement,
+  aStatement,
+  connect,
+  ownerSource,
+} from "./testing/catalogue";
 
 /** Whether the catalogue lists one particular item. */
 async function lists(db: Database, id: string): Promise<boolean> {
@@ -151,6 +165,71 @@ describe("readCatalogue", () => {
     expect(byId.get(person)).toMatchObject({ kindLabel: "Person", isContainer: false });
     expect(byId.get(era)).toMatchObject({ kindLabel: "Time span" });
     expect(byId.get(ordering)).toMatchObject({ kindLabel: "Work", isContainer: true });
+  });
+
+  it("says how much each Ordering holds, and that a story holds nothing", async () => {
+    // CNCORE-183. `isContainer` says a Row IS an ordering and cannot say how
+    // big one is, so a reader scanning the catalogue cannot tell a container
+    // from its contents at a glance.
+    //
+    // THE STORY IS ASSERTED TOO, and it is the half that says this is a count
+    // rather than a flag: a subquery correlated on the wrong id answers the
+    // whole placements table on every Row, which is right for nobody and
+    // looks right on the container.
+    const stories = [
+      await anItemTitled(db, "An Unearthly Child"),
+      await anItemTitled(db, "The Cave of Skulls"),
+      await anItemTitled(db, "The Forest of Fear"),
+    ];
+    const ordering = await anItemTitled(db, "An ordering holding three", { isContainer: true });
+    for (const [at, itemId] of stories.entries()) {
+      await aPlacement(db, { containerId: ordering, itemId, position: at + 1 });
+    }
+
+    const { rows } = await readCatalogue(db, { limit: 1000 });
+    const byId = new Map(rows.map((row) => [row.id, row]));
+
+    expect(byId.get(ordering)).toMatchObject({ holds: 3 });
+    expect(byId.get(stories[0] as string)).toMatchObject({ holds: 0 });
+  });
+
+  it("counts what the container's own page would list, past both tombstones", async () => {
+    // ADR-0075 TWICE OVER, which is the half a count gets wrong on its own: a
+    // container stops listing a placement whose ITEM was deleted as surely as
+    // one deleted itself, so a figure reading only `placements.deleted_at`
+    // promises members no reader can reach.
+    //
+    // THE ORACLE IS THE CONTAINER'S OWN PAGE rather than arithmetic done here,
+    // because the defect this guards is the two surfaces DISAGREEING -- the
+    // catalogue saying 2,913 where the page lists 2,900, with nothing to say
+    // which lied. The literal beside it is what stops the pair agreeing while
+    // both are wrong.
+    const held = await anItemTitled(db, "A story that stays held");
+    const gone = await anItemTitled(db, "A story deleted out from under it");
+    const withdrawn = await anItemTitled(db, "A story whose placement was withdrawn");
+    const stillThere = await anItemTitled(db, "A second story that stays held");
+    const ordering = await anItemTitled(db, "An ordering read past two tombstones", {
+      isContainer: true,
+    });
+
+    for (const [at, itemId] of [held, gone, withdrawn, stillThere].entries()) {
+      const placement = await aPlacement(db, { containerId: ordering, itemId, position: at + 1 });
+      if (itemId === withdrawn) {
+        await db
+          .update(placements)
+          .set({ deletedAt: new Date() })
+          .where(eq(placements.id, placement));
+      }
+    }
+    await db.update(items).set({ deletedAt: new Date() }).where(eq(items.id, gone));
+
+    const { rows } = await readCatalogue(db, { limit: 1000 });
+    const row = rows.find((each) => each.id === ordering);
+    const page = await findPlacementsInContainer(db, ordering, { limit: 100 });
+
+    expect(row?.holds).toBe(2);
+    expect(row?.holds).toBe(page.total);
+    expect(page.rows).toHaveLength(2);
   });
 });
 

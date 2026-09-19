@@ -1,5 +1,6 @@
 import {
   and,
+  type Column,
   eq,
   getTableColumns,
   inArray,
@@ -11,6 +12,7 @@ import {
   type SQLWrapper,
   sql,
 } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { z } from "zod";
 
 import type { Database } from "./index";
@@ -892,6 +894,20 @@ export interface CatalogueRow {
    * story from an ordering that holds stories. This is what does.
    */
   isContainer: boolean;
+  /**
+   * HOW MUCH THIS ONE HOLDS (ADR-0140) -- the size of its own Members
+   * listing, which is the number `findPlacementsInContainer` answers as
+   * `total` and is read off the same predicate, so the two cannot disagree.
+   * That record owns the decision, what it costs and why the name is `holds`.
+   *
+   * ZERO FOR A STORY, AND ASKED OF IT ANYWAY. `item.get` already settles that
+   * argument in the same words: nothing can be placed in an item that is not
+   * a container, so a non-container's answer is empty either way -- and a
+   * branch on `is_container` here would be a second place for "what is a
+   * container" to be decided, free to disagree with the column. Which Rows a
+   * reader is SHOWN a figure on is the surface's, off `isContainer`.
+   */
+  holds: number;
 }
 
 /** What the catalogue holds, and how much of it this answer carries. */
@@ -1065,6 +1081,20 @@ export async function walkListing<O extends TheOrder>(
            * subquery is uncorrelated, so the cursor cannot reach it.
            */
           total: size.onTheRows,
+          /*
+           * HOW MUCH THIS ROW HOLDS (CNCORE-183), on the Row rather than from a
+           * second read -- for the reason the `total` above gives and one more
+           * of its own: this one is a question PER ROW, so a second read would
+           * be a round trip for every container on the page.
+           *
+           * ASKED OF EVERY ROW rather than only of the containers. `item.get`
+           * settles that in the same words for the same relation: nothing can
+           * be placed in an item that is not a container, so a story's answer
+           * is empty either way -- and a `case` on `is_container` here would be
+           * a second place for "what is a container" to be decided, free to
+           * disagree with the column the surface branches on.
+           */
+          holds: howMuchItHolds(db),
         })
         .from(items)
         // INNER, because `items.kind` is a foreign key into this table: a row
@@ -1603,19 +1633,89 @@ export interface PlacementsInContainer {
  * (ADR-0017 carries the measurement and what it rests on). That was the cost of
  * the uncapped page this replaces; a capped one pays it over 100 rows.
  */
+/**
+ * WHAT ONE CONTAINER HOLDS, as the predicate rather than as a query -- written
+ * once because TWO SURFACES ANSWER THE SAME NUMBER FROM IT and a reader sees
+ * both (ADR-0140): the Members listing reports it as its own `total`, and the catalogue
+ * Row beside that container reports it as `holds` (CNCORE-183).
+ *
+ * THE TWO TOMBSTONES ARE THE HALF THAT WOULD HAVE DRIFTED. A count that read
+ * only `placements.deleted_at` would answer a Row with members no reader can
+ * reach, because ADR-0075 takes a deleted ITEM away from every listing while
+ * its placement sits there live -- so the catalogue would promise 2,913 and
+ * the container page would show 2,900 and neither would be able to say which
+ * was lying. It is the exact shape `IN_THE_CATALOGUE` and `theSize` already
+ * exist for one seam out: one rule, one place, both readers pointed at it.
+ *
+ * THE HELD ITEM'S TOMBSTONE ARRIVES AS A PARAMETER because the two readers
+ * reach it through different names. The Members listing joins `items` itself,
+ * and the catalogue's Row is ALREADY selecting from `items` -- so that one
+ * reads the held item through an alias, and an inner relation spelled here
+ * would resolve to the outer Row and count the container against itself.
+ *
+ * `held` RATHER THAN `member` WHEREVER A NAME IS BEING GIVEN, alias included.
+ * `CONTEXT.md`'s **Placement** rejects `member` as a name for this, and its
+ * Language section names a SQL alias among the forms an `_Avoid_` list covers.
+ * "Members" is the reader's heading from the container's end and is not a
+ * second name for the thing in code.
+ */
+function whatItHolds(container: Column | string, heldTombstone: SQLWrapper): SQL {
+  return and(
+    eq(placements.containerId, container),
+    isNull(placements.deletedAt),
+    // ADR-0075. A deleted item is gone to every reader, so a container
+    // cannot go on listing a placement that reaches one.
+    isNull(heldTombstone),
+  ) as SQL;
+}
+
+/**
+ * HOW MUCH ONE ROW HOLDS, as a scalar subquery riding on the Rows themselves
+ * (ADR-0140), which is that record's whole mechanism: the figure in the Row's
+ * own statement, and its predicate read off the Listing it counts.
+ *
+ * IN THE SAME STATEMENT, WHICH IS THE TICKET'S OWN CRITERION and the same
+ * argument `theSize` makes for the Listing's `total`: a figure asked for
+ * separately is asked at a different moment, so a page could list an ordering
+ * and report a size it no longer has. It is also the only shape that answers
+ * per Row at all -- a second read would be one round trip per container on the
+ * page.
+ *
+ * CORRELATED, WHERE THE SIZE BESIDE IT IS NOT, and the difference is the
+ * point rather than an inconsistency. `theSize` must not see the cursor,
+ * because a keyset predicate would count the Rows past the reader; this must
+ * see the Row, because the question is about that container and no other. What
+ * keeps the cursor out of it is that it reaches `items` for one column only --
+ * the id it is correlated on -- and names `placements` and its own alias for
+ * everything else.
+ *
+ * THE HELD ITEM IS ALIASED so the inner `items` cannot be read as the outer
+ * one. Unaliased, `placements.item_id = items.id` and `placements.container_id
+ * = items.id` would both resolve inward and every Row would answer the count of
+ * items placed in themselves, which is 0 for the whole catalogue -- green
+ * against a story and wrong against every ordering.
+ *
+ * AND THE CORRELATION RIDES ON THE OUTER `items` BEING UNALIASED, which is
+ * true because `walkListing` is the one statement this is ever spliced into
+ * and it selects `.from(items)`. Aliasing it there would not fail quietly: the
+ * `items.id` here would name a relation the statement no longer has.
+ */
+function howMuchItHolds(db: Database): SQL<number> {
+  const held = alias(items, "held");
+  return sql<number>`(${db
+    .select(HOW_MANY)
+    .from(placements)
+    .innerJoin(held, eq(held.id, placements.itemId))
+    .where(whatItHolds(items.id, held.deletedAt))})`.mapWith(Number);
+}
+
 export async function findPlacementsInContainer(
   db: Database,
   containerId: string,
   { limit, after }: { limit: number; after?: string },
 ): Promise<PlacementsInContainer> {
   const asserters = assertersOf(db);
-  const held = and(
-    eq(placements.containerId, containerId),
-    isNull(placements.deletedAt),
-    // ADR-0075. A deleted item is gone to every reader, so a container
-    // cannot go on listing a placement that reaches one.
-    isNull(items.deletedAt),
-  ) as SQL;
+  const held = whatItHolds(containerId, items.deletedAt);
   const place =
     after === undefined ? undefined : await findInTheContainersOrder(db, containerId, after);
   /*

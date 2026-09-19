@@ -273,6 +273,29 @@ function queryFor(walking: Walking, at: string | undefined): Record<string, stri
 }
 
 /**
+ * THE ONE SPELLING A COUNT IS PRINTED IN: grouped, so a four-figure one can be
+ * read at a glance rather than counted digit by digit.
+ *
+ * BUILT ONCE RATHER THAN PER RENDER, which is `Moment`'s own reason one file
+ * over: a formatter is expensive to construct and carries no state between
+ * calls, so Intl's guidance is to keep one -- and this page prints one per Row.
+ *
+ * `en-GB` RATHER THAN THE READER'S LOCALE, for the reason that component gives
+ * about the server not being able to know it: these pages are rendered on the
+ * server with no script to correct them afterwards, so the default locale would
+ * be whichever one the machine happens to run under. A grouping the reader did
+ * not choose is a cosmetic difference; one that changes between two instances
+ * of one build is the sort that shows up as a failing assertion nobody can
+ * reproduce.
+ *
+ * EVERY NUMBER THIS FILE PRINTS GOES THROUGH IT. The size of the listing and
+ * the size of a Row's own ordering sit on one screen, and two spellings of a
+ * count there would be the page disagreeing with itself about how it writes a
+ * number -- "Showing 100 of 8052 items" beside "2,913 members".
+ */
+const grouped = new Intl.NumberFormat("en-GB");
+
+/**
  * How much of a listing this page is showing, and how much there is.
  *
  * THE CAP IS NEVER SILENT. A listing capped at a page and reported as the whole
@@ -289,6 +312,12 @@ function queryFor(walking: Walking, at: string | undefined): Record<string, stri
  * PLURALISED WITH AN `s`, which is honest for both words this takes and would
  * not be for every word. A caller needing a different plural is the point at
  * which this takes the pair rather than the stem.
+ *
+ * THE COUNT AND ITS NOUN ARE `soMany` BELOW, shared with the Row's own figure.
+ * Both arms of this expression spelled the pluralisation out, and a third
+ * spelling arrived with CNCORE-183 one function down -- which is three places
+ * for one rule about English to be decided, in a file whose whole argument is
+ * that a rule copied is a rule that drifts.
  */
 export function Holding({
   showing,
@@ -302,10 +331,29 @@ export function Holding({
   return (
     <p className="text-muted-foreground text-sm">
       {showing < total
-        ? `Showing ${showing} of ${total} ${noun}s`
-        : `${total} ${total === 1 ? noun : `${noun}s`}`}
+        ? `Showing ${grouped.format(showing)} of ${soMany(total, noun)}`
+        : soMany(total, noun)}
     </p>
   );
+}
+
+/**
+ * A COUNT AND WHAT IT COUNTS, in the one spelling this file prints both in.
+ *
+ * GROUPED, so a four-figure one is read at a glance rather than counted digit
+ * by digit -- and PLURALISED off the count, so "1 member" is not "1 members".
+ * The listing's own size and a Row's ordering sit on one screen, and two
+ * spellings there would be the page disagreeing with itself about how it
+ * writes a number.
+ *
+ * THE `showing < total` ARM ABOVE CANNOT REACH THE SINGULAR, and takes this
+ * anyway rather than spelling the plural itself: that arm renders only where
+ * `total` exceeds a page that already has a Row in it, so it is plural by
+ * arithmetic. One rule read in both positions is the point (`TheSize`, one
+ * package over, for the same argument about a number said twice).
+ */
+function soMany(count: number, noun: string): string {
+  return `${grouped.format(count)} ${count === 1 ? noun : `${noun}s`}`;
 }
 
 /**
@@ -342,9 +390,23 @@ export function Listing({ rows }: { rows: Row[] }) {
             {/*
               ADR-0004 folds containers into `work`, so the kind alone cannot
               tell a story from an ordering that holds stories. A reader
-              scanning this list is asking which of the two they are looking at.
+              scanning this list is asking which of the two they are looking at,
+              and since ADR-0140 the same phrase answers how much of it there is.
+
+              ONE PHRASE RATHER THAN A SECOND CHIP BESIDE THIS ONE. The words
+              around a Row are already two, and a third would read as
+              "Container 2,913 members Work" -- three greys with nothing saying
+              which two belong together. The size is a fact ABOUT the container
+              rather than one beside it.
+
+              THE WORD IS THE READER'S. `CONTEXT.md` settles "Members" as what
+              a reader is shown from the container's end, and rejects `member`
+              as a NAME -- which is why the field behind this is `holds`.
+
+              AND AN EMPTY ORDERING SAYS SO: "Container, 0 members" is a real
+              state, and one an import that landed nothing leaves behind.
             */}
-            {row.isContainer && <span>Container</span>}
+            {row.isContainer && <span>Container, {soMany(row.holds, "member")}</span>}
             <span>{row.kind}</span>
           </span>
         </li>
