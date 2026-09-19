@@ -406,7 +406,8 @@ browser rather than the check that says the app serves pages at all.
 
 **WHAT IT COSTS IS SETUP RATHER THAN MONEY, AND THAT IS WHAT WAS WEIGHED.** The job pays for its own
 Postgres, its own `next build` and a `playwright install`. It duplicates ONE instance, not the seven
-`The page over HTTP` stands up, because a suite asserting one claim needs one ordering to drag.
+`The page over HTTP` stands up, because the suite needs one ordering to drag and, since CNCORE-217,
+one stub Provider whose name has no break in it.
 
 **THE COUNT IS FIFTEEN**, from thirteen at CNCORE-73 and fourteen until CNCORE-203: secrets, docs,
 typecheck, lint, build, env-guard, test, migrations, e2e, browser, credentials, provider, contract,

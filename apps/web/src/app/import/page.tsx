@@ -713,6 +713,11 @@ function Candidate({
   return (
     <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
       <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        {/*
+          TODO(CNCORE-223): a record's title is not a Provider's prose, so
+          `ProviderProse` does not wrap it (ADR-0123), and a title with no break
+          in it is a flex item here that grows to the word.
+        */}
         <span>{result.title}</span>
         {/*
           THE PROVIDER'S OWN WORD for what this is -- `TV story`, `audio story`,

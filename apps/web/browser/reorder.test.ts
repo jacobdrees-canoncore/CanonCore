@@ -13,8 +13,9 @@ import { gatedTo } from "./gate";
  * asserted at the router, the refusals at the database, and the whole
  * capability is asserted WITHOUT a browser at the page seam, because every row
  * carries Move up and Move down as native forms. A browser test is the most
- * expensive and most brittle thing in this repository and this is the entire
- * budget for one.
+ * expensive and most brittle thing in this repository, and ADR-0103 bounds what
+ * this suite may spend one on: this file's two claims, and since CNCORE-217 a
+ * third in `prose-width.test.ts`.
  *
  * THE DRAG IS A MOUSE, NOT `dragTo`. Playwright's `locator.dragTo` moves the
  * pointer in ONE jump, and a single jump routinely fails a pointer sensor's
