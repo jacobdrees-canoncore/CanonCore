@@ -220,8 +220,11 @@ among what goes.
 
 **LIVE MEANS THE GROUP AS WELL AS THE MEMBERSHIP.** A membership that outlived its Group narrows
 nothing ([[0010-groups-scope-never-partition]], under CNCORE-230), so it is nobody's scope and keeps
-nothing. `deleteOrphansAmong` reads it through `groups` exactly as `inTheGroup` does, so the Listing
-and the purge cannot come to disagree about which memberships count.
+nothing. `deleteOrphansAmong` reads it through `groups` with the same two tombstones `inTheGroup`
+reads. That is a THIRD SPELLING of one rule, beside `inTheGroup` and `findGroupsOfItem`, and the three
+agree only because each was copied, which is how CNCORE-230 came about. Giving the rule one spelling
+is CNCORE-234. Until then, the purge's copy is held to the rule by the test for a membership that
+outlived its Group, not by construction.
 
 **A DEAD MEMBERSHIP KEEPS NOTHING, BUT IT STILL NAMES THE ITEM, AND THE PURGE TAKES IT WITH THE ITEM.**
 A membership the Owner took back out is a tombstone, not a DELETE (ADR-0075), and `group_items.item_id`
@@ -232,13 +235,27 @@ on the ITEM'S account rather than the provider's, and it is not the "tombstone r
 "BUILT: the purge" rules out above: it follows from the foreign key, not from anything the provider
 said.
 
-**ONLY THE DOOMED ITEMS' DEAD MEMBERSHIPS, AND THAT IS WHY THE PREDICATE IS WRITTEN ONCE.** The rules
-for which Items go are one expression, asked first to choose whose memberships to remove and then
-again for the delete. The simpler "every dead membership among the Items this provider touched"
-would also remove the tombstones of Items that survive, and putting such an Item back in a Group
-would then mint a second row instead of returning the one it always had (ADR-0078). The dead
-memberships go UNCOUNTED: an Owner cannot see a membership they took out, so a count of them would
-tell them nothing they could act on.
+**ONLY THE DOOMED ITEMS' DEAD MEMBERSHIPS.** The simpler "every dead membership among the Items this
+provider touched" would also remove the tombstones of Items that survive, and putting such an Item
+back in a Group would then mint a second row instead of returning the one it always had (ADR-0078).
+The dead memberships go UNCOUNTED: an Owner cannot see a membership they took out, so a count of
+them would tell them nothing they could act on.
+
+**AND IN ONE STATEMENT, WHICH REVIEW FORCED.** The first version was two: delete the doomed Items'
+memberships, then delete the doomed Items, each asking the predicate afresh. Under READ COMMITTED each
+statement takes its own snapshot, so an Owner taking a KEPT Item out of its Group between the two
+made the second statement find it orphaned while the first had left its new tombstone standing. The
+delete then failed with `23503`, which is the failure this ticket exists to remove. Now the doomed
+Items are chosen once, in a `WITH`, and both deletes read that one set. PostgreSQL runs every
+sub-statement of a `WITH` "with the same snapshot" (its manual, "Data-Modifying Statements in WITH",
+read 2026-09-19 for version 18), so the two cannot see different catalogues. The foreign key is
+checked at the end of that statement and accepts it, which the taken-out test shows by passing.
+
+**A RACE THAT IS NOT CLOSED, AND IS NOT THIS TICKET'S.** An Owner putting a doomed Item in a Group
+while that one statement runs can still commit a membership it did not see, and the foreign key then
+refuses the whole purge. The same is true of a Placement or a `based_on` written by hand in that
+moment, since every foreign key into `items` lacks a cascade. It fails safe: nothing is
+half-purged, and running the purge again succeeds.
 
 **WHAT ASSERTS IT**, at the package seam in `packages/db/src/import.test.ts`, each asking the
 preview first and holding the purge to it: an Item in a Group is kept and still in the Group; one

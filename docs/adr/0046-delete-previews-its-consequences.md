@@ -64,10 +64,10 @@ set of predicates that could drift out of step. That costs the work and the
 write locks of a real purge, held for the length of the traversal, and it buys
 the only guarantee worth having: a preview cannot contradict the delete an owner
 already acted on it to authorise. A preview written as its own traversal was
-considered and refused on that ground, because SEVEN separate rules decide
-whether a row survives -- six `not exists` clauses on an item, plus the
-last-claimant test on a placement -- and each is its own chance to answer a
-number the delete then contradicts.
+considered and refused on that ground, because EIGHT separate rules decide
+whether a row survives -- seven `not exists` clauses on an item, the seventh a
+Group membership since CNCORE-232, plus the last-claimant test on a placement --
+and each is its own chance to answer a number the delete then contradicts.
 
 WHAT THE ROLLBACK DOES NOT PUT BACK, since "changes nothing" would otherwise be
 read wider than it is true: `change_sequence` values. Deleting a statement

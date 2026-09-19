@@ -140,7 +140,8 @@ export async function previewProviderPurge(
  * placement's two ends all point at items, so an item is only deletable once
  * everything naming it has gone. A Group membership names one too, and is the
  * one row this traversal takes ON THE ITEM'S ACCOUNT rather than the source's:
- * the dead ones go just ahead of the item they name (`deleteOrphansAmong`).
+ * the dead ones go in the same statement as the item they name
+ * (`deleteOrphansAmong`).
  */
 async function purgeWithin(tx: Transaction, identity: string): Promise<PurgedProvider> {
   const ownerId = await theOwnerId(tx);
@@ -267,14 +268,14 @@ async function itemsTouchedBy(tx: Transaction, sourceId: string): Promise<string
 
 /**
  * Of the items this provider touched, the ones nothing is left saying anything
- * about and nothing places anywhere.
+ * about, nothing places anywhere, and no live Group holds.
  *
  * AN ITEM IS NOT "CONTENT FROM A PROVIDER" THE WAY A STATEMENT IS. Nothing on the
  * row names who made it, so it is not something the purge can attribute and
  * delete -- what makes it go is that after the provider's own rows are gone there
  * is no claim left on it and nowhere it sits. An item the owner still places
- * somewhere SURVIVES, untitled, because the owner's placement is the owner's
- * claim and a provider's licence ending has no bearing on it.
+ * somewhere, or still has in a Group, SURVIVES, untitled, because either is the
+ * owner's claim and a provider's licence ending has no bearing on it.
  *
  * AND A VALUE CANONCORE DERIVED IS NOT SUCH A CLAIM (CNCORE-173). A derived
  * source is a computation over the claims already held (ADR-0071), so its
@@ -290,20 +291,27 @@ async function itemsTouchedBy(tx: Transaction, sourceId: string): Promise<string
  * property here would be the strip-list ADR-0045 argues against, one table
  * along.
  *
- * A GROUP MEMBERSHIP IS THE OWNER'S CLAIM, SO A LIVE ONE KEEPS THE ITEM
- * (CNCORE-232, ADR-0036). Nobody but the Owner puts an Item in a Group, and
- * `CONTEXT.md`'s Purge says an Item the Owner also claims is not removed. LIVE
- * MEANS THE GROUP TOO: a membership that outlived its Group narrows nothing
- * (CNCORE-230), so it is read through `groups` exactly as `inTheGroup` reads it.
+ * WHY A GROUP MEMBERSHIP COUNTS (CNCORE-232, ADR-0036): nobody but the Owner
+ * puts an Item in a Group, and `CONTEXT.md`'s Purge says an Item the Owner also
+ * claims is not removed. LIVE MEANS THE GROUP TOO: a membership that outlived
+ * its Group narrows nothing (CNCORE-230), so it is read through `groups` with
+ * the two tombstones `inTheGroup` reads.
  *
  * AND A DEAD ONE KEEPS NOTHING BUT STILL NAMES THE ITEM. A membership the Owner
  * took back out is a tombstone, not a DELETE (ADR-0075), so its foreign key
  * refuses the item -- and with no cascade, refuses it by taking the whole purge
- * down rather than by skipping a row. So the item's dead memberships go first,
- * and ONLY the doomed items': the predicate is written once and asked twice,
- * which keeps a kept item's tombstones where `putItemInGroupByHand` comes back
- * to them. They are not counted, because a membership the Owner took out is
- * nothing a preview could show them.
+ * down rather than by skipping a row. So the doomed items' dead memberships go
+ * WITH them, and ONLY theirs, which keeps a kept item's tombstones where
+ * `putItemInGroupByHand` comes back to them. They are not counted, because a
+ * membership the Owner took out is nothing a preview could show them.
+ *
+ * ONE STATEMENT, CHOOSING THE DOOMED ITEMS ONCE, and review found why it has to
+ * be. As two statements, each asked the predicate on its own snapshot, so an
+ * Owner taking a kept item out of its Group between them made the second find
+ * it orphaned while the first had left its fresh tombstone standing: 23503, the
+ * very failure this exists to remove. Every sub-statement of a `WITH` runs on
+ * one snapshot (PostgreSQL's "Data-Modifying Statements in WITH"), so the set
+ * whose memberships go and the set of items that go are one set.
  */
 async function deleteOrphansAmong(
   tx: Transaction,
@@ -333,6 +341,8 @@ async function deleteOrphansAmong(
     // which is the only way this one could have been found.
     sql`not exists (select 1 from ${statementQualifiers} where ${statementQualifiers.valueItemId} = ${items.id})`,
     sql`not exists (select 1 from ${aliases} where ${aliases.itemId} = ${items.id})`,
+    // TODO(CNCORE-234): the third spelling of a live membership, beside
+    // `inTheGroup` and `findGroupsOfItem`, which agree by being copied.
     sql`not exists (
           select 1 from ${groupItems}
             join ${groups} on ${groups.id} = ${groupItems.groupId}
@@ -341,9 +351,16 @@ async function deleteOrphansAmong(
         )`,
   );
 
-  await tx
-    .delete(groupItems)
-    .where(inArray(groupItems.itemId, tx.select({ id: items.id }).from(items).where(orphaned)));
-
-  return tx.delete(items).where(orphaned).returning({ id: items.id });
+  const doomed = tx.$with("doomed").as(tx.select({ id: items.id }).from(items).where(orphaned));
+  const theirMemberships = tx.$with("their_memberships").as(
+    tx
+      .delete(groupItems)
+      .where(inArray(groupItems.itemId, tx.select({ id: doomed.id }).from(doomed)))
+      .returning({ id: groupItems.id }),
+  );
+  return tx
+    .with(doomed, theirMemberships)
+    .delete(items)
+    .where(inArray(items.id, tx.select({ id: doomed.id }).from(doomed)))
+    .returning({ id: items.id });
 }
