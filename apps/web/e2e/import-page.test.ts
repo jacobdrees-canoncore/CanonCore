@@ -244,10 +244,11 @@ describe("/import, across several providers", () => {
      * having no results is one an owner cannot tell from one that was never asked
      * -- so the page lists it saying it matched nothing rather than leaving it out.
      *
-     * AND THE THIRD ONE FAILING DOES NOT EMPTY THE PAGE. The seeded instance is
-     * configured with a provider whose host is not allowlisted, so every search it
-     * serves has one failure in it; the criterion is that the other providers'
-     * answers survive that, and that the owner is told which URL failed and why.
+     * AND THE ONES FAILING DO NOT EMPTY THE PAGE. The seeded instance is
+     * configured with a provider whose host is not allowlisted, and with others
+     * that answer badly, so every search it serves has failures in it; the
+     * criterion is that the other providers' answers survive them, and that the
+     * owner is told which URL failed and why.
      */
     // AS THE OWNER, for the reason above: what each row posts BACK is on a form
     // only the owner is offered.
@@ -309,8 +310,8 @@ describe("/import, across several providers", () => {
 
     // REACHED, which is what the reason's author says: zod's report on its
     // manifest rather than this app's refusal of its host.
-    const answered = failed.find(({ baseUrl }) => baseUrl === providerSearch.answersBadly);
-    expect(answered?.reason.wrote).toBe("provider");
+    const answeredBadly = failed.find(({ baseUrl }) => baseUrl === providerSearch.answersBadly);
+    expect(answeredBadly?.reason.wrote).toBe("provider");
 
     // SCOPED TO THE LIST, because the browse box names every provider this
     // instance searches and the URL alone is on the page regardless.

@@ -259,8 +259,8 @@ type ImportPage = Awaited<ReturnType<typeof readImportPage>>;
 type Found = NonNullable<ImportPage["found"]>;
 
 /**
- * WHY A PROVIDER COULD NOT BE REACHED (ADR-0123): the text, and whose sentence
- * it is.
+ * WHY NOTHING COULD BE READ FROM A PROVIDER (ADR-0123): the text, and whose
+ * sentence it is.
  *
  * TAKEN OFF THE PAYLOAD RATHER THAN IMPORTED FROM `@canoncore/providers`, which
  * publishes the same type. That package is a devDependency here -- the page
@@ -928,9 +928,7 @@ function Held({ itemId }: { itemId: string }) {
  * own name for itself is one of the things that failed.
  *
  * THE HEADING IS NOT "COULD NOT BE REACHED", for the reason `NotReached` below
- * gives: this list also holds a provider that answered, with a `500` or a
- * manifest `packages/providers` would not parse, and the reason printed beside
- * it says so. It is `/settings`' sentence, which is true of all three.
+ * gives. It is `/settings`' sentence made plural.
  */
 function Unreachable({ failed }: { failed: Found["failed"] }) {
   return (
@@ -1117,10 +1115,10 @@ function NotOneOfOurs() {
  * EVERY BRANCH HERE IS A SENTENCE RATHER THAN A FAILURE, which is what asking on
  * the GET buys: `provider.container` reaches the provider, and each of the things
  * it can say -- here it is, there is nothing at that id, this provider does not
- * do browse, this provider could not be reached -- is page copy an owner can act
- * on. Until CNCORE-92 all three refusals were found out by PRESSING the button,
- * where they arrived as a bare `Internal Server Error` with the provider's own
- * reason redacted out of it.
+ * do browse, nothing could be learned from this provider -- is page copy an
+ * owner can act on. Until CNCORE-92 all three refusals were found out by
+ * PRESSING the button, where they arrived as a bare `Internal Server Error` with
+ * the provider's own reason redacted out of it.
  *
  * SO THE BUTTON IS OFFERED ONLY WHERE A BROWSE WOULD WORK. Nothing to press is
  * the difference between a refusal reported and a refusal merely reworded.

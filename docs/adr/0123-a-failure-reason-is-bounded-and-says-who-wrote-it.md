@@ -787,8 +787,7 @@ SAYS THE SAME SINCE CNCORE-221.** Until then it listed a search this Provider fa
 not be reached", which `NotReached` on the same page calls false of any Provider that answered. That
 heading was already wrong for a `500` or a malformed manifest, so it was not this refusal's defect;
 it now reads "Nothing could be read from these providers". Measured on zod 4.6.5 against a
-four-mebibyte notice, the reason is zod's issue list,
-183 characters once collapsed to one line:
+four-mebibyte notice, the reason is zod's issue list, 183 characters once collapsed to one line:
 
     [ { "origin": "string", "code": "too_big", "maximum": 1000, "inclusive": true, "path": [ "attribution", "notice" ], "message": "Too big: expected string to have <=1000 characters" } ]
 
