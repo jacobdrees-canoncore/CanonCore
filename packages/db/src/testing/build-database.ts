@@ -113,6 +113,18 @@ export const FIXTURE_DATABASE_SUFFIXES = [
    * budgets for.
    */
   "cost",
+  /*
+   * A CATALOGUE THAT IS DUMPED, AND THE ONE IT IS RESTORED INTO (CNCORE-168).
+   * What `restore.test.ts` asserts is that the copy holds the WHOLE catalogue
+   * the dump held under the dump's own Owner -- a property of two entire
+   * databases, and the copy is dropped and created from the dump on every
+   * restore, which no other suite's instance could survive.
+   *
+   * `_test_dump` and `_test_copy` ARE TEN CHARACTERS EACH, inside the eleven
+   * `worktree-database.ts` budgets for.
+   */
+  "dump",
+  "copy",
 ] as const;
 
 /** A suffix a FIXTURE has declared, which is the only kind it may ask for. */
