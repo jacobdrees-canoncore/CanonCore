@@ -671,10 +671,11 @@ still somebody remembering.
 
 - **Prose CanonCore frames is `boundedProse`**: cut, and floored. `name`, `credential.label`.
 - **Prose an obligation requires verbatim cannot be cut**, because `Attribution` prints a licence
-  notice unaltered and cutting one is the breach it exists to prevent. `logo.data_uri` is refused
-  past `MAX_LOGO_CHARS`. **How `attribution.notice` and `logo.alt` are bounded is NOT this record's
-  decision**: a refusal inside `cmppManifest` refuses the whole manifest, and whether that or refusing
-  only the attribution is right is CNCORE-213's to decide. The test names both as exactly that.
+  notice unaltered and cutting one is the breach it exists to prevent. So it is **refused past a
+  ceiling, and the refusal is the whole manifest**: `attribution.notice` and `logo.alt` past
+  `MAX_NOTICE_CHARS`, `logo.data_uri` past `MAX_LOGO_CHARS`. This said the first two were "NOT this
+  record's decision" and left them to CNCORE-213, which decided them under "A licence's own words
+  are refused, never cut" below.
 - **A field never printed as text** is named with that reason: `operations`, `stored_variant`, and
   `unlock_path`, which `unlockUrlFor` judges before it reaches an href.
 - **A record's fields are out of it.** A manifest is a Provider describing itself; a record is a
@@ -683,9 +684,9 @@ still somebody remembering.
 
 **THIS RECORD STAYS `accepted`, AND THAT IS A CLAIM WORTH CHECKING.** What this section DECIDES is
 built: framed prose is bounded at its field, and every string in the manifest is classified under a
-test. What it leaves open — how a verbatim notice is bounded — is an undecided question on its own
-ticket rather than a mechanism built halfway, and the test holds the two fields at "undecided" so
-neither can be mistaken for done.
+test. It left one question open, how a verbatim notice is bounded, and the test named the two
+fields against CNCORE-213 so neither could be mistaken for done. That ticket decided it and built
+what it decided, and the test's reason for each field now names its ceiling.
 
 ### The output schema states it, and oRPC enforces it
 
@@ -819,3 +820,106 @@ table's first row. With `wrap-anywhere` swapped for `wrap-break-word`, the headi
 Values row failed at `{1205, 933}`: the witness the second rule needs, failing on exactly the rule
 it exists to refuse.
 
+## A licence's own words are refused, never cut (CNCORE-213)
+
+A Provider's `attribution.notice` and its mark's `alt` reach every Item page that shows the source's
+claims. Until CNCORE-213 their only bound was `MAX_BODY_BYTES`, four mebibytes, and they were
+spelled `z.string().min(1)` exactly as `name` had been. `boundedProse` is the wrong tool for them.
+`Attribution` prints a notice verbatim because a paraphrased licence notice breaches the licence as
+surely as a missing one ([[0036-tmdb-licence-constraints]] checked TMDB's character for character),
+and a cut is a paraphrase. So the bound is a refusal, as `logo.data_uri`'s
+already was.
+
+### The ceiling is 1,000 characters, for both
+
+TMDB's notice, as `provider-tmdb` declares it and every fixture holds it, is 107 characters, and its
+alt is 86, measured 2026-09-19. `MAX_NOTICE_CHARS` is 1,000, about ten times either. The alt takes
+the same ceiling because it is a notice too: it carries TMDB's no-endorsement sentence for the
+reader who cannot see the mark.
+
+A notice past the ceiling costs the whole Provider (below), so the ceiling sits well above any
+sentence a licence plausibly asks for. It is still a paragraph, rather than four mebibytes on every
+Item page. A character here is what zod's `max` counts, a UTF-16 code unit, as for `MAX_LOGO_CHARS`.
+
+### The refusal is the whole manifest, and that is the choice
+
+A refusal on a field inside `cmppManifest` refuses the manifest, so a Provider with an over-long
+notice answers no search and no import. Two answers were open, and this record takes the first:
+
+1. **Refuse the manifest**, as `data_uri` does.
+2. Refuse only the attribution, so the Provider stays usable and owes a notice it cannot print,
+   with the Item page saying so.
+
+**THE NOTICE IS THE CONDITION FOR SHOWING THE CONTENT, so a Provider whose notice cannot be printed
+has no content that can be shown.** Refusing the manifest stops that content at the door. Every
+search, import and browse reads the manifest before it asks for anything else, so nothing arrives.
+Refusing only the attribution would import the content anyway and then print, on a public Item
+page, that the page owes a notice it is not printing. That is the breach, published with an
+admission beside it. It would also need a state the Source row cannot hold: a null
+`attribution_notice` means the source owes nothing, so "owes one it cannot print" would be a new
+column, a new read-path field and a new branch on the page, all built to render a breach.
+
+**`unlockUrlFor` argues the other way, and its argument does not transfer.** It withholds a bad
+unlock link rather than refusing the manifest, because "refusing the whole manifest would report a
+reachable provider as unreachable". There the link is one affordance on a Provider whose content is
+fine to show, and the Provider's state is worth reading without it. A notice is not an affordance.
+Without it, none of the Provider's content can be shown.
+
+**AND THE SETTINGS PAGE DOES NOT SAY "UNREACHABLE".** A manifest this app will not parse already
+lands in `Reach`'s `unreachable` kind, which the page renders as "Nothing could be read from this
+Provider." with the reason quoted as the Provider's. That sentence is true of this case. **`/import`
+IS THE EXCEPTION**: a search this Provider failed is listed under "Could not be reached", which
+`NotReached` on the same page calls false of any Provider that answered. That heading was already
+wrong for a `500` or a malformed manifest, so it is not this refusal's defect, and it is filed as
+CNCORE-221. Measured on zod 4.6.5 against a four-mebibyte notice, the reason is zod's issue list,
+183 characters once collapsed to one line:
+
+    [ { "origin": "string", "code": "too_big", "maximum": 1000, "inclusive": true, "path": [ "attribution", "notice" ], "message": "Too big: expected string to have <=1000 characters" } ]
+
+It is inside `REASON_MAX_LENGTH`, it names the field and the ceiling, and it carries none of the
+value, because zod's `reportInput` defaults to `false` and nothing here sets it.
+
+**A THIRD SHAPE WAS AVAILABLE, AND IT IS NOT TAKEN.** The settings page could report "reached, but
+owes a notice past the ceiling" while search and import went on refusing. That buys a sentence the
+reason above already says, at the cost of a manifest read two ways: refused for use and admitted for
+display. What the Owner loses without it is the refused Provider's credential state and Unlock link
+on that page, since both are read off the manifest that was refused. Nothing from that Provider
+can be used either way, so there is nothing for an Unlock to unblock.
+
+### What it leaves as it was
+
+- **Content already imported keeps the notice its Source row last held.** Only an import rewrites
+  the row, and an import from a refused Provider fails before it reaches it. So if a Provider
+  revised its notice past the ceiling, its existing content would go on printing the previous one,
+  which `providerFrom` calls "the same breach as showing none". That is the residual, and the
+  ceiling's generosity is what keeps it hypothetical. It is not a new hole: a Provider whose
+  manifest fails to parse for any other reason leaves its row the same way, and in both cases the
+  Owner is told on the settings page.
+- **Purge still works.** `provider.purge` goes straight to `purgeProvider` with the Source's
+  identity and never reads a manifest, so a Provider refused here can still be purged under a
+  termination notice.
+- **The read path does not restate the ceiling.** `attributionPublic.notice` stays `z.string()`, as
+  `sourceLabel` stayed unbounded there after CNCORE-165. Everything that writes the column parses
+  the manifest first, and restating the ceiling on `item.get`'s output would turn a row written by
+  hand into a 500 on a public page. **That is not the argument `attributionPublic.logo.dataUri`
+  rejects**, where the read path restates the wire's regex so it is "a shape" rather than "a rule
+  somebody remembers". The regex guards a SINK: a string that fails it is not a mark, and is not
+  put in an `img`'s `src` at any cost. The length guards a COST: an over-long notice is still the
+  notice, and a 500 would print no notice at all along with no page.
+- **A ceiling on length is not one on width.** A thousand characters with no break in them run off
+  the page as three hundred do, and that is CNCORE-217's, for every surface.
+
+### Asserted at three seams, as the name is
+
+- **The parse** (`cmpp.test.ts`): TMDB's notice and alt parse whole and unaltered, and so does one
+  of exactly 1,000. One character past, on either field, refuses the manifest with one issue whose
+  path names that field. VERIFIED BY BREAKING IT: with the ceiling at 100, the admitting test
+  fails, because TMDB's own notice is refused.
+- **The row** (`provider.test.ts`): an import from such a Provider answers `PROVIDER_REFUSED`,
+  attributed to the Provider, with a reason naming `"attribution", "notice"`, and writes no Source
+  row. Every row an import writes names its Source, so no Source row means nothing arrived.
+  VERIFIED BY BREAKING IT: without the ceiling it fails `expected a defined error, got null`,
+  because the import succeeded.
+- **The page** (`settings-page.test.ts`): the Provider's row says nothing could be read from it and
+  quotes zod's `too_big` at `attribution.notice`, and the notice is nowhere on the page. VERIFIED BY
+  BREAKING IT: without the ceiling the row said nothing at all, and the test failed on it.

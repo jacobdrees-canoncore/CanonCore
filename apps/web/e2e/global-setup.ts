@@ -11,6 +11,7 @@ import { buildTestDatabase } from "@canoncore/db/testing/build-database";
 import {
   aCatalogueLargerThanOnePage,
   aContainerLargerThanOnePage,
+  aGroupHolding,
   anItemInMoreOrderingsThanOnePage,
   anItemTitled,
   aPlacement,
@@ -204,6 +205,8 @@ export default async function setup(project: TestProject) {
   project.provide("pagedUntitled", [...paged.fixture.untitled, ...paged.fixture.appearsIn.unnamed]);
   project.provide("pagedContainer", paged.fixture.container);
   project.provide("pagedAppearsIn", paged.fixture.appearsIn);
+  project.provide("pagedGroup", paged.fixture.group);
+  project.provide("pagedEmptyGroup", paged.fixture.emptyGroup);
 
   const purgeable = await aCatalogueSafeToPurge(provider.url, tmdb.url);
   project.provide("purgeableBaseUrl", purgeable.baseUrl);
@@ -511,11 +514,35 @@ function aCatalogueTooBigForOnePage() {
         title: "A story in more orderings than one page",
         orderings: 210,
       });
+      /*
+       * AND A GROUP LARGER THAN ONE PAGE (CNCORE-179), which is the same family
+       * of state again: a scope that fits on one page cannot say whether walking
+       * it carries the scope from page to page, and that is the criterion.
+       *
+       * IT HOLDS THE CATALOGUE'S OWN STORIES AND NOTHING THAT HOLDS THEM, so it
+       * is a strict part of this instance rather than all of it: the container
+       * and the two hundred orderings above are outside it. Narrowed to the
+       * whole catalogue, a page that dropped the scope and one that kept it
+       * would read identically. And the stories carry the tied
+       * pair and the keyless tail, so the walk within the Group meets every
+       * shape the catalogue's order has.
+       *
+       * AND A GROUP NOTHING WAS PUT IN, which is the state a reader can only be
+       * told about: a scope with no Items looks exactly like a broken one until
+       * the page says which it is. Nobody writes to this instance, so neither
+       * Group moves while it is read.
+       */
+      const groupName = "The stories, and nothing that holds them";
+      const emptyGroupName = "A Group nothing was put in";
+      const group = await aGroupHolding(db, { name: groupName, holding: catalogue.every });
+      const emptyGroup = await aGroupHolding(db, { name: emptyGroupName, holding: [] });
       return {
         ...catalogue,
         every: [...catalogue.every, container.id, appearsIn.id, ...appearsIn.containers],
         container,
         appearsIn,
+        group: { id: group, name: groupName, holds: catalogue.every },
+        emptyGroup: { id: emptyGroup, name: emptyGroupName },
       };
     },
   });
@@ -2320,6 +2347,18 @@ declare module "vitest" {
       /** The placement that sorts last, which is where the end of the walk is. */
       endsAt: string;
     };
+    /**
+     * A Group on that instance holding the catalogue's own stories and nothing
+     * that holds them -- more than one page of Items and less than the whole
+     * catalogue, so narrowing to it is both visible and walkable (CNCORE-179).
+     *
+     * `holds` IS EVERY ITEM PUT IN IT, as a SET: the walk within the Group is
+     * oracled against exactly these, for the reason `pagedCatalogue` is the
+     * whole catalogue's oracle rather than a second reading of it.
+     */
+    pagedGroup: { id: string; name: string; holds: string[] };
+    /** A Group on that instance that nothing was put in (CNCORE-179). */
+    pagedEmptyGroup: { id: string; name: string };
     /**
      * And again, serving a catalogue NOTHING WRITES TO -- the one state in which
      * "how much this catalogue holds" can be asserted at all (CNCORE-93).
