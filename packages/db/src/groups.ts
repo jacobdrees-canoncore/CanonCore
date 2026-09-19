@@ -2,6 +2,7 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 
 import type { Database } from "./index";
 import { isRefusalOn, theOwnerId, type Writer } from "./placements";
+import { canBeAnId } from "./queries";
 import { groupItems, groupProviders, groups, items } from "./schema";
 
 /**
@@ -383,13 +384,17 @@ export async function stopAskingProviderByHand(
  *
  * AND NONE FOR A GROUP THAT IS NOT THERE, without joining `groups`, because
  * `deleteGroupByHand` tombstones these rows with the Group in one transaction --
- * the reading `inTheGroup` already makes of `group_items`.
+ * the reading `inTheGroup` already makes of `group_items`. That includes a
+ * string that is no id at all, behind `inTheGroup`'s own shape guard: a typo in
+ * a shared link reaching a `uuid` column is error 22P02, which would read as
+ * this server breaking rather than as a scope nobody drew (ADR-0066).
  *
  * BY URL, WHICH IS A TOTAL ORDER AND NOT A RANKING. Nothing here ranks a
  * Provider (ADR-0025); a caller that fans out keeps its own order, which is the
  * configured one, so this order is only what makes the answer the same twice.
  */
 export async function findProvidersAGroupAsks(db: Database, groupId: string): Promise<string[]> {
+  if (!canBeAnId(groupId)) return [];
   const asked = await db
     .select({ providerIdentity: groupProviders.providerIdentity })
     .from(groupProviders)

@@ -33,6 +33,7 @@ import {
 import { z } from "zod";
 
 import { openProcedure, ownerProcedure } from "../index";
+import { theProvidersAsked } from "./group";
 
 /**
  * Raised when REACHING a provider failed, carrying the reason a page may print.
@@ -711,6 +712,17 @@ export const provider = {
          * INPUT, which is what it is.
          */
         query: z.string().trim().min(1),
+        /**
+         * THE GROUP THE OWNER IS SEARCHING WITHIN (ADR-0025, CNCORE-182),
+         * which decides who is asked: the Providers it asks, and no others.
+         * Absent is every configured Provider, which is searching across
+         * everything.
+         *
+         * A STRING RATHER THAN A `z.uuid()`, for the reason `listingInput`
+         * gives for the same parameter: a Group that names nothing asks
+         * nobody, and that is the answer rather than a BAD_REQUEST.
+         */
+        group: z.string().optional(),
       }),
     )
     .output(
@@ -750,7 +762,11 @@ export const provider = {
       // one URL was not allowlisted.
       const { allowlist, urls } = await context.providerSettings();
       const { answered, failed } = await searchProviders(
-        { baseUrls: urls, allowlist },
+        {
+          baseUrls:
+            input.group === undefined ? urls : await theProvidersAsked(context, input.group),
+          allowlist,
+        },
         input.query,
       );
 

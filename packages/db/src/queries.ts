@@ -1989,8 +1989,12 @@ const idShape = z.uuid();
  * `defaultRandom()` is `gen_random_uuid()`, and an alias id is a merged-away id
  * of ours rather than one from outside (ADR-0040). Postgres would accept
  * shapes RFC 9562 does not, but nothing puts one in these columns.
+ *
+ * EXPORTED WITHIN THE PACKAGE, not from it, since CNCORE-182:
+ * `findProvidersAGroupAsks` takes the same Group parameter `inTheGroup` does,
+ * and a second guard would be a second reading of what an id looks like.
  */
-function canBeAnId(id: string): boolean {
+export function canBeAnId(id: string): boolean {
   return idShape.safeParse(id).success;
 }
 

@@ -1,6 +1,7 @@
 import type { Database } from "@canoncore/db";
 import { anItem, anItemTitled, connect } from "@canoncore/db/testing/catalogue";
 import { env } from "@canoncore/env/server";
+import { parseAllowlist } from "@canoncore/providers";
 import { call, isDefinedError, safe } from "@orpc/server";
 import { beforeAll, describe, expect, it } from "vitest";
 
@@ -239,8 +240,84 @@ describe("group.delete", () => {
   });
 });
 
+/**
+ * An Owner's context on an instance that names exactly these Providers.
+ *
+ * NO SOCKET BEHIND ANY OF THEM, because nothing in this file asks a Provider
+ * anything: which Providers a Group asks is this instance's configuration and
+ * the Owner's choice among it. `provider.test.ts` is where the asking is
+ * asserted, against stubs that answer.
+ */
+const naming = (...providers: string[]) => ({
+  ...asTheOwner,
+  providerSettings: async () => ({ allowlist: parseAllowlist(""), urls: providers }),
+});
+
+describe("group.ask", () => {
+  it("refuses a Provider this instance does not search, rather than keeping a hidden list", async () => {
+    // A GROUP PICKS AMONG THE CONFIGURED PROVIDERS AND DOES NOT ADD TO THEM
+    // (ADR-0121). A URL asked for here that settings does not name would be a
+    // second list of Providers nobody can see, reached the day somebody named
+    // it for some other reason.
+    const { id } = await call(
+      appRouter.group.create,
+      { name: "Asks the wrong thing" },
+      { context: asTheOwner },
+    );
+
+    const { error } = await safe(
+      call(
+        appRouter.group.ask,
+        { id, baseUrl: "http://tmdb.test" },
+        { context: naming("http://wiki.test:8080") },
+      ),
+    );
+
+    expect(isDefinedError(error) && error.code).toBe("BAD_REQUEST");
+  });
+
+  it("refuses a Group that is not there", async () => {
+    const { error } = await safe(
+      call(
+        appRouter.group.ask,
+        { id: crypto.randomUUID(), baseUrl: "http://wiki.test:8080" },
+        { context: naming("http://wiki.test:8080") },
+      ),
+    );
+
+    expect(isDefinedError(error) && error.code).toBe("BAD_REQUEST");
+  });
+});
+
+describe("group.asks", () => {
+  it("answers the Providers the Group asks, among those this instance names, in its order", async () => {
+    // WHAT `/groups` RENDERS, and the same answer `provider.search` acts on:
+    // one reading of "which Providers does this Group ask", so the page cannot
+    // show a Provider as asked that the search would not reach.
+    const wiki = "http://wiki.test:8080";
+    const archive = "http://archive.test";
+    const removed = "http://removed.test";
+    const { id } = await call(
+      appRouter.group.create,
+      { name: "Asks two of three" },
+      { context: asTheOwner },
+    );
+    for (const baseUrl of [archive, wiki, removed]) {
+      await call(appRouter.group.ask, { id, baseUrl }, { context: naming(wiki, archive, removed) });
+    }
+
+    expect(
+      await call(
+        appRouter.group.asks,
+        { id },
+        { context: naming(wiki, "http://tmdb.test", archive) },
+      ),
+    ).toStrictEqual({ providers: [wiki, archive] });
+  });
+});
+
 describe("who may ask", () => {
-  it("refuses a visitor with no session on all five mutations, and answers their read", async () => {
+  it("refuses a visitor with no session on every mutation, and answers their read", async () => {
     // ADR-0044 makes the demo READ-ONLY: everything that changes a catalogue is
     // behind a session (CNCORE-109). Asserted on EVERY procedure rather than on
     // one, because the guard is declared per procedure and a new one added
@@ -264,9 +341,23 @@ describe("who may ask", () => {
       safe(call(appRouter.group.delete, { id: group.id }, { context })),
       safe(call(appRouter.group.put, { groupId: group.id, itemId: story }, { context })),
       safe(call(appRouter.group.take, { groupId: group.id, itemId: story }, { context })),
+      safe(call(appRouter.group.ask, { id: group.id, baseUrl: "http://wiki.test" }, { context })),
+      safe(
+        call(
+          appRouter.group.stopAsking,
+          { id: group.id, baseUrl: "http://wiki.test" },
+          { context },
+        ),
+      ),
+      // AND THE ONE READ THAT IS THE OWNER'S: which Providers a scope asks is
+      // this instance's configuration rather than the catalogue (CNCORE-182).
+      safe(call(appRouter.group.asks, { id: group.id }, { context })),
     ]);
 
     expect(refusals.map(({ error }) => (error as { code?: string })?.code)).toStrictEqual([
+      "UNAUTHORIZED",
+      "UNAUTHORIZED",
+      "UNAUTHORIZED",
       "UNAUTHORIZED",
       "UNAUTHORIZED",
       "UNAUTHORIZED",
