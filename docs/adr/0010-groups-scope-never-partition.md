@@ -123,6 +123,27 @@ there, since a deleted group and an empty one are two facts a reader cannot tell
 malformed id is refused by the same shape guard `findItem` uses, so a typo in a shared link is not a
 500.
 
+**WHAT IT COSTS, MEASURED AGAINST THE CORPUS RATHER THAN A SEED.** 2026-09-19, against the Owner's
+own install: 8,052 Items, PostgreSQL 18.6. That install predates migration 19, so `group_items` was a
+SESSION-LOCAL TEMPORARY TABLE of the same name and the same two indexes, filled from the catalogue
+and gone when the session ended -- nothing of the Owner's was written. The statement is the first
+page as `walkListing` renders it, Row figure and size included. `EXPLAIN (ANALYZE, BUFFERS)`, warm
+cache, median of five:
+
+| First page of the catalogue | Median | Range |
+|---|---|---|
+| Unnarrowed | 3.6 ms | 3.6–4.0 |
+| Narrowed to 50 Items | 1.7 ms | 1.6–4.1 |
+| Narrowed to the largest Ordering's 2,143 distinct Items | 4.2 ms | 3.8–4.6 |
+| Narrowed to every Item in the catalogue | 8.7 ms | 7.7–28.2 |
+
+**THE LAST ROW IS THE CEILING AND NOT A SCOPE ANYBODY DRAWS** -- a group holding the whole catalogue
+narrows nothing -- and it costs what it does because the Rows and the size each take the whole set.
+**AND NO INDEX WAS ADDED FOR IT.** `group_items`' only index on `group_id` is the unique constraint,
+which LEADS with `owner_id`; the plan reached it anyway, with an `Index Cond` on `group_id` alone and
+two index searches, because there is one Owner. That was read off the plan on 18.6 rather than
+assumed, and it is the thing to re-check if the database line `compose.yaml` pins ever moves down.
+
 **WHAT IT DOES NOT DO.** Work-browsing and Catalogue search do not narrow (CNCORE-180), and the
 procedures that answer them do not accept a group: an input that parsed one and answered the whole
 catalogue would be a promise the handler does not keep. The scope does not follow a reader from `/`
