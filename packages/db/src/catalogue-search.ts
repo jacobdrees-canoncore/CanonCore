@@ -3,7 +3,14 @@ import { alias } from "drizzle-orm/pg-core";
 
 import type { Database } from "./index";
 import type { PlaceIn, TheOrder } from "./order";
-import { type Catalogue, findTheAnchor, IN_THE_CATALOGUE, SORT_KEY, walkListing } from "./queries";
+import {
+  type Catalogue,
+  findTheAnchor,
+  IN_THE_CATALOGUE,
+  narrowedTo,
+  SORT_KEY,
+  walkListing,
+} from "./queries";
 import { items } from "./schema";
 
 /**
@@ -103,7 +110,7 @@ export function titleMatches(query: string) {
  */
 export async function searchCatalogue(
   db: Database,
-  { query, limit, after }: { query: string; limit: number; after?: string },
+  { query, limit, after, group }: { query: string; limit: number; after?: string; group?: string },
 ): Promise<Catalogue> {
   /*
    * AN EMPTY QUERY IS ANSWERED BEFORE THE QUERY RUNS, and this line is a fix
@@ -146,8 +153,14 @@ export async function searchCatalogue(
      *
      * AND IT IS WHAT `total` COUNTS, which is the second thing this parameter
      * decides: how many MATCHED, rather than how many the catalogue holds.
+     *
+     * AND WITHIN THE GROUP A READER PICKED, where they picked one (CNCORE-180):
+     * the same `narrowedTo` the catalogue and work-browsing take theirs
+     * through, so a scope means one thing on all three. It joins the match
+     * rather than replacing it, and it arrives before the size is taken -- so
+     * `total` is how many matched IN THE GROUP.
      */
-    within: and(IN_THE_CATALOGUE, titleMatches(wanted)) as SQL,
+    within: narrowedTo(db, group, and(IN_THE_CATALOGUE, titleMatches(wanted)) as SQL),
     order: ranking,
     place,
     limit,

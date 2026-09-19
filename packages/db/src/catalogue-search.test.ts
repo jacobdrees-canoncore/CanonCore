@@ -1,7 +1,14 @@
 import { eq, sql } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 import { titleMatches } from "./catalogue-search";
-import { type Database, items, likePattern, searchCatalogue } from "./index";
+import {
+  createGroupByHand,
+  type Database,
+  items,
+  likePattern,
+  putItemInGroupByHand,
+  searchCatalogue,
+} from "./index";
 import { anItem, anItemTitled, aStatement, connect, ownerSource } from "./testing/catalogue";
 
 /**
@@ -652,6 +659,44 @@ describe("searchCatalogue", () => {
     const { rows } = await searchCatalogue(db, { query: "withdrawn", limit: 100 });
 
     expect(rows.map((row) => row.id)).not.toContain(id);
+  });
+});
+
+/**
+ * CATALOGUE SEARCH WITHIN ONE GROUP (CNCORE-180, ADR-0010): searching Doctor
+ * Who does not return Iron Man.
+ *
+ * EXACT, WHERE THE REST OF THIS FILE SAYS "CONTAINS", because the Group is
+ * drawn by the test that reads it: nothing else in the suite knows its id, so
+ * what it holds is what this test put in it. The tombstones and a Group naming
+ * nothing are the shared predicate's, asked in `catalogue.test.ts`.
+ */
+describe("searchCatalogue, narrowed to a Group", () => {
+  it("answers the matches inside that Group, of every kind, at the Group's own size", async () => {
+    // BOTH HALVES OF THE QUESTION HAVE TO HOLD AT ONCE, so each is given a Row
+    // that satisfies only the other: a match OUTSIDE the scope, which a search
+    // that ignored the Group would list, and a Row INSIDE the scope that does
+    // not match, which a narrowing that replaced the match would list.
+    //
+    // AND A CHARACTER AMONG THE MATCHES, because this is the wide question
+    // (ADR-0077): narrowed or not, a Character's name finds the Character.
+    // Work-browsing hides it; this must not.
+    const scope = await createGroupByHand(db, { name: "A scope searched within" });
+    const story = await anItemTitled(db, "Zygon Gambit, inside the scope");
+    const character = await anItemTitled(db, "A Zygon Gambit commander", { kind: "character" });
+    const unmatched = await anItemTitled(db, "A story in the scope that matches nothing");
+    await anItemTitled(db, "Zygon Gambit, outside the scope");
+    for (const itemId of [story, character, unmatched]) {
+      await putItemInGroupByHand(db, { groupId: scope, itemId });
+    }
+
+    const found = await searchCatalogue(db, { query: "Zygon Gambit", limit: 100, group: scope });
+
+    expect(found.rows.map((row) => row.id).sort()).toStrictEqual([story, character].sort());
+    // THE SIZE OF WHAT IT SEARCHED, against a literal: a Group narrowing the
+    // Rows and not the count reports every match in the catalogue over a page
+    // of two.
+    expect(found.total).toBe(2);
   });
 });
 
