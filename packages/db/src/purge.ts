@@ -4,6 +4,8 @@ import type { Database } from "./index";
 import { theOwnerId } from "./placements";
 import {
   aliases,
+  groupItems,
+  groups,
   items,
   placementSources,
   placements,
@@ -24,8 +26,8 @@ export interface PurgedProvider {
   items: number;
   /**
    * The items this provider touched that STAY, because something else still
-   * claims them -- the owner's own placement, the owner's own words, or another
-   * provider saying the same thing.
+   * claims them -- the owner's own placement, the owner's own words, a Group the
+   * owner put it in, or another provider saying the same thing.
    *
    * A COUNT OF WHAT GOES DESCRIBES HALF OF WHAT A PURGE DOES (CNCORE-69). The
    * three above are removals; this is the outcome ADR-0046 says the delete
@@ -38,7 +40,7 @@ export interface PurgedProvider {
    * guarantee the rest of this file is built on: the survivors are the ones the
    * delete DECLINED to take, so the number is read off the delete rather than
    * predicted beside it. A separate "which items would survive" query would be
-   * the seven rules restated, which is exactly what `previewProviderPurge`
+   * the eight rules restated, which is exactly what `previewProviderPurge`
    * exists to avoid.
    */
   keptItems: number;
@@ -136,7 +138,9 @@ export async function previewProviderPurge(
  * cannot be deleted. Placements go next, but only the ones nothing is left
  * asserting. Items go last, because a statement's `value_item_id` and a
  * placement's two ends all point at items, so an item is only deletable once
- * everything naming it has gone.
+ * everything naming it has gone. A Group membership names one too, and is the
+ * one row this traversal takes ON THE ITEM'S ACCOUNT rather than the source's:
+ * the dead ones go just ahead of the item they name (`deleteOrphansAmong`).
  */
 async function purgeWithin(tx: Transaction, identity: string): Promise<PurgedProvider> {
   const ownerId = await theOwnerId(tx);
@@ -227,7 +231,7 @@ async function purgeWithin(tx: Transaction, identity: string): Promise<PurgedPro
     items: removedItems.length,
     // WHAT THE DELETE DECLINED TO TAKE, read off the delete rather than asked
     // for separately. `touched` is every item this provider asserted anything
-    // about or placed anywhere, and `removedItems` is the subset the seven rules
+    // about or placed anywhere, and `removedItems` is the subset the eight rules
     // above let go -- so the difference is the survivors, and it cannot disagree
     // with the delete because it is computed FROM it.
     keptItems: touched.length - removedItems.length,
@@ -278,50 +282,68 @@ async function itemsTouchedBy(tx: Transaction, sourceId: string): Promise<string
  * are gone there are no inputs. Counting one would keep alive exactly the item
  * this traversal exists to take: nobody's but the purged provider's, now
  * untitled and unplaced, and reachable from no surface. It is the FIRST of the
- * seven clauses to name a source at all, because it is the first kind of row
- * that can be about an item without anybody having claimed anything.
+ * clauses to name a source at all, because it is the first kind of row that can
+ * be about an item without anybody having claimed anything.
  *
  * THE CLAUSE IS ABOUT THE SOURCE KIND RATHER THAN ABOUT `sort_name`, so the
  * next derived computation inherits it rather than reopening this. A named
  * property here would be the strip-list ADR-0045 argues against, one table
  * along.
+ *
+ * A GROUP MEMBERSHIP IS THE OWNER'S CLAIM, SO A LIVE ONE KEEPS THE ITEM
+ * (CNCORE-232, ADR-0036). Nobody but the Owner puts an Item in a Group, and
+ * `CONTEXT.md`'s Purge says an Item the Owner also claims is not removed. LIVE
+ * MEANS THE GROUP TOO: a membership that outlived its Group narrows nothing
+ * (CNCORE-230), so it is read through `groups` exactly as `inTheGroup` reads it.
+ *
+ * AND A DEAD ONE KEEPS NOTHING BUT STILL NAMES THE ITEM. A membership the Owner
+ * took back out is a tombstone, not a DELETE (ADR-0075), so its foreign key
+ * refuses the item -- and with no cascade, refuses it by taking the whole purge
+ * down rather than by skipping a row. So the item's dead memberships go first,
+ * and ONLY the doomed items': the predicate is written once and asked twice,
+ * which keeps a kept item's tombstones where `putItemInGroupByHand` comes back
+ * to them. They are not counted, because a membership the Owner took out is
+ * nothing a preview could show them.
  */
 async function deleteOrphansAmong(
   tx: Transaction,
   candidates: string[],
 ): Promise<{ id: string }[]> {
-  return tx
-    .delete(items)
-    .where(
-      and(
-        inArray(items.id, candidates),
-        sql`not exists (
+  const orphaned = and(
+    inArray(items.id, candidates),
+    sql`not exists (
           select 1 from ${statements}
             join ${sources} on ${sources.id} = ${statements.sourceId}
            where ${statements.subjectItemId} = ${items.id} and ${sources.kind} <> 'derived'
         )`,
-        // Not the VALUE of somebody else's claim either. `value_item_id` carries
-        // no cascade, so an item still standing as another item's `based_on` would
-        // refuse the delete rather than be quietly skipped.
-        sql`not exists (select 1 from ${statements} where ${statements.valueItemId} = ${items.id})`,
-        sql`not exists (select 1 from ${placements} where ${placements.itemId} = ${items.id})`,
-        sql`not exists (select 1 from ${placements} where ${placements.containerId} = ${items.id})`,
-        // THE TWO THAT ARE UNREACHABLE TODAY AND ARE HERE ANYWAY. Nothing in
-        // version one writes a qualifier or a merge alias, so neither of these can
-        // hold a row yet -- but both are foreign keys to `items.id` with no cascade
-        // (migration 1), so the day one is written the omission stops being
-        // theoretical and takes the WHOLE TRANSACTION down rather than skipping a
-        // row. The docblock above claims "an item is only deletable once everything
-        // naming it has gone"; four clauses did not make that claim true. Found in
-        // review by enumerating the foreign keys rather than by a failing test,
-        // which is the only way this one could have been found.
-        sql`not exists (select 1 from ${statementQualifiers} where ${statementQualifiers.valueItemId} = ${items.id})`,
-        sql`not exists (select 1 from ${aliases} where ${aliases.itemId} = ${items.id})`,
-        // TODO(CNCORE-232): `group_items.item_id` is a foreign key into
-        // `items.id` with no clause here, so an Item in a Group -- or taken back
-        // out of one, since a tombstone still names it -- refuses this delete
-        // and takes the whole purge down.
-      ),
-    )
-    .returning({ id: items.id });
+    // Not the VALUE of somebody else's claim either. `value_item_id` carries
+    // no cascade, so an item still standing as another item's `based_on` would
+    // refuse the delete rather than be quietly skipped.
+    sql`not exists (select 1 from ${statements} where ${statements.valueItemId} = ${items.id})`,
+    sql`not exists (select 1 from ${placements} where ${placements.itemId} = ${items.id})`,
+    sql`not exists (select 1 from ${placements} where ${placements.containerId} = ${items.id})`,
+    // THE TWO THAT ARE UNREACHABLE TODAY AND ARE HERE ANYWAY. Nothing in
+    // version one writes a qualifier or a merge alias, so neither of these can
+    // hold a row yet -- but both are foreign keys to `items.id` with no cascade
+    // (migration 1), so the day one is written the omission stops being
+    // theoretical and takes the WHOLE TRANSACTION down rather than skipping a
+    // row. The docblock above claims "an item is only deletable once everything
+    // naming it has gone"; four clauses did not make that claim true. Found in
+    // review by enumerating the foreign keys rather than by a failing test,
+    // which is the only way this one could have been found.
+    sql`not exists (select 1 from ${statementQualifiers} where ${statementQualifiers.valueItemId} = ${items.id})`,
+    sql`not exists (select 1 from ${aliases} where ${aliases.itemId} = ${items.id})`,
+    sql`not exists (
+          select 1 from ${groupItems}
+            join ${groups} on ${groups.id} = ${groupItems.groupId}
+           where ${groupItems.itemId} = ${items.id}
+             and ${groupItems.deletedAt} is null and ${groups.deletedAt} is null
+        )`,
+  );
+
+  await tx
+    .delete(groupItems)
+    .where(inArray(groupItems.itemId, tx.select({ id: items.id }).from(items).where(orphaned)));
+
+  return tx.delete(items).where(orphaned).returning({ id: items.id });
 }

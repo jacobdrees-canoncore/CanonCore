@@ -70,8 +70,8 @@ termination is now exercised: `provider.purge` removes every statement and every
 carrying that provider, the placements it was the last claimant of, the items nothing is left
 asserting anything about, and the source row itself. No ownership column, no tombstone reconciliation
 and no per-table policy, because every row that can carry a claim already names who made it. An item
-the owner also placed somewhere survives, untitled — the owner's placement is the owner's claim, and
-a provider's licence ending has no bearing on it.
+the owner also placed somewhere, or put in a Group, survives, untitled — either is the owner's claim,
+and a provider's licence ending has no bearing on it. (The Group half is CNCORE-232's, below.)
 
 **NOT BUILT: the six-month ceiling.** `max_cache_age` is declared by `provider-tmdb` at 180 days and
 is READ BY NOTHING. There is no image store and no cached value with an age, so there is nothing yet
@@ -207,3 +207,46 @@ missing:
 
 A notice a reader is owed going missing is this record's first obligation, and neither half of it was
 reported by anything before.
+
+## An Item in a Group survives a purge -- under CNCORE-232
+
+**A LIVE GROUP MEMBERSHIP IS THE OWNER'S CLAIM, SO IT KEEPS THE ITEM**, the way the Owner's own
+Placement does. That is decided by two sentences that already stood rather than invented here:
+`CONTEXT.md`'s Purge says "an item the owner also claims is not removed by one", and migration 19
+calls a `group_items` row "nobody's claim but the Owner's". Nobody but the Owner ever puts an Item in
+a Group, so nothing about a provider's licence ending bears on it. The Item stays, stripped of that
+provider's words and still in the Group, and the preview counts it among `keptItems` rather than
+among what goes.
+
+**LIVE MEANS THE GROUP AS WELL AS THE MEMBERSHIP.** A membership that outlived its Group narrows
+nothing ([[0010-groups-scope-never-partition]], under CNCORE-230), so it is nobody's scope and keeps
+nothing. `deleteOrphansAmong` reads it through `groups` exactly as `inTheGroup` does, so the Listing
+and the purge cannot come to disagree about which memberships count.
+
+**A DEAD MEMBERSHIP KEEPS NOTHING, BUT IT STILL NAMES THE ITEM, AND THE PURGE TAKES IT WITH THE ITEM.**
+A membership the Owner took back out is a tombstone, not a DELETE (ADR-0075), and `group_items.item_id`
+carries no cascade, so before this ticket such a row refused the Item's delete with `23503`. Nothing
+was purged at all, and the preview failed the same way because it is the same traversal. So an
+Item's dead memberships are hard-deleted just ahead of the Item. This is the one row the purge takes
+on the ITEM'S account rather than the provider's, and it is not the "tombstone reconciliation" that
+"BUILT: the purge" rules out above: it follows from the foreign key, not from anything the provider
+said.
+
+**ONLY THE DOOMED ITEMS' DEAD MEMBERSHIPS, AND THAT IS WHY THE PREDICATE IS WRITTEN ONCE.** The rules
+for which Items go are one expression, asked first to choose whose memberships to remove and then
+again for the delete. The simpler "every dead membership among the Items this provider touched"
+would also remove the tombstones of Items that survive, and putting such an Item back in a Group
+would then mint a second row instead of returning the one it always had (ADR-0078). The dead
+memberships go UNCOUNTED: an Owner cannot see a membership they took out, so a count of them would
+tell them nothing they could act on.
+
+**WHAT ASSERTS IT**, at the package seam in `packages/db/src/import.test.ts`, each asking the
+preview first and holding the purge to it: an Item in a Group is kept and still in the Group; one
+taken back out goes; one whose only membership outlived its Group goes; and a kept Item's
+taken-out membership comes back under its old id. The last two were CHECKED BY BREAKING THE CODE,
+since the Group's tombstone arrived in the same change as the first: without that tombstone in the
+clause, the Item that outlived its Group is kept (`keptItems` 1 where 0 is right), and widening
+the sweep to every dead membership among the candidates makes the put answer a fresh id.
+
+**THIS RECORD STAYS PROPOSED.** CNCORE-232 completes the purge half. The six-month ceiling above is
+still read by nothing, and that is what closes this record.

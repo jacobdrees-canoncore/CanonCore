@@ -392,9 +392,9 @@ const purgeCounts = z.object({
   placements: z.number().int().nonnegative(),
   /**
    * Items left with no claim on them and nowhere they sit. NOT every item the
-   * provider ever wrote: one the owner also placed somewhere survives, untitled,
-   * because the owner's placement is the owner's claim and a provider's licence
-   * ending has no bearing on it.
+   * provider ever wrote: one the owner also placed somewhere, or put in a Group,
+   * survives, untitled, because either is the owner's claim and a provider's
+   * licence ending has no bearing on it.
    */
   items: z.number().int().nonnegative(),
   /**

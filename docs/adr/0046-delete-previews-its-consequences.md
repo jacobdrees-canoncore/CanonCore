@@ -122,8 +122,8 @@ IT IS READ OFF THE DELETE RATHER THAN PREDICTED BESIDE IT, which is this record'
 existing guarantee applied to the new number rather than an exception to it: the
 survivors are the items the traversal DECLINED to take, so the count is
 `touched - items` and there is no second predicate to drift. A "which items would
-survive" query would have been the seven rules restated, which is the thing
-`previewProviderPurge` exists to avoid.
+survive" query would have been the rules restated -- eight of them since CNCORE-232 made a Group
+membership one -- which is the thing `previewProviderPurge` exists to avoid.
 
 ONE PROVIDER IS PREVIEWED PER RENDER, NEVER THE WHOLE LIST. A preview costs the
 work and the write locks of a real purge, held for the length of the traversal --
