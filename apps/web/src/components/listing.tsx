@@ -9,6 +9,7 @@ import {
 import Link from "next/link";
 import { Fragment } from "react";
 
+import { positionLabel } from "./position";
 import { inTheFixedOrder, type LinkQuery } from "./query-params";
 import { TheirWords } from "./their-words";
 
@@ -426,9 +427,12 @@ function soMany(count: number, noun: string): string {
  * Positions together. A Position no source gave reads "no position given",
  * the glossary's words for the reader, and never as a number.
  *
- * AND THE CUT SAYS SO, and points at the rest: "and 2,910 more" is a link to
- * the story's own "Also appears in", where every one of the Owner's stories
- * fits on the first page -- the most any one of them has is 61, and a page is 100.
+ * AND THE CUT SAYS SO, and points at the rest: "and 56 more appearances" is a
+ * link to the story's own "Also appears in", where every one of the Owner's
+ * stories fits on the first page -- the most any one of them has is 61, and a
+ * page is 100. "APPEARANCES" BECAUSE THE CUT COUNTS PLACEMENTS: after every
+ * Ordering a Row has already named, a bare "and 56 more" reads as 56 more
+ * Orderings, and a Repeat is one Ordering twice (`CONTEXT.md`, **Placement**).
  */
 function WhereItSits({ id, sitsIn }: { id: string; sitsIn: Row["sitsIn"] }) {
   if (sitsIn.total === 0) return <p className="text-muted-foreground text-sm">In no ordering</p>;
@@ -436,9 +440,9 @@ function WhereItSits({ id, sitsIn }: { id: string; sitsIn: Row["sitsIn"] }) {
   return (
     <p className="text-muted-foreground text-sm">
       Also appears in{" "}
-      {byOrdering(sitsIn.first).map(({ containerId, containerTitle, positions }, at) => (
+      {byOrdering(sitsIn.first).map(({ containerId, containerTitle, positions }, index) => (
         <Fragment key={containerId}>
-          {at > 0 && " · "}
+          {index > 0 && " · "}
           <Link href={`/items/${containerId}`} className="hover:underline">
             <TheirWords>{containerTitle ?? "Untitled container"}</TheirWords>
           </Link>
@@ -449,7 +453,7 @@ function WhereItSits({ id, sitsIn }: { id: string; sitsIn: Row["sitsIn"] }) {
         <>
           {" · and "}
           <Link href={`/items/${id}#also-appears-in`} className="hover:underline">
-            {`${grouped.format(more)} more`}
+            {soMany(more, "more appearance")}
           </Link>
         </>
       )}
@@ -474,16 +478,19 @@ function byOrdering(first: Row["sitsIn"]["first"]) {
 
 /**
  * " #1, #5" after an Ordering's name, ", no position given" where no source gave
- * one, and both where a Repeat has one of each -- which puts the words last,
- * because a missing Position sorts after every numbered one. ONE STRING rather
- * than text beside an expression, which React would split with a comment.
+ * one, and both where a Repeat has one of each -- the words come last because a
+ * missing Position sorts after every numbered one, and after a comma because
+ * they would otherwise run into the name. `positionLabel`'s words, in lower
+ * case because they sit mid-sentence here. ONE STRING rather than text beside
+ * an expression, which React would split with a comment.
  */
 function atPositions(positions: (number | null)[]): string {
-  const numbered = positions.filter((position) => position !== null).map((at) => `#${at}`);
-  return [
-    numbered.length > 0 ? ` ${numbered.join(", ")}` : "",
-    positions.includes(null) ? ", no position given" : "",
-  ].join("");
+  return positions
+    .map((position, index) => {
+      const said = positionLabel(position).toLowerCase();
+      return index === 0 && position !== null ? ` ${said}` : `, ${said}`;
+    })
+    .join("");
 }
 
 /**
@@ -518,15 +525,14 @@ export function Listing({ rows }: { rows: Row[] }) {
               <TheirWords>{row.title ?? "Untitled item"}</TheirWords>
             </Link>
             {/*
-              A STORY ALWAYS SAYS WHERE IT SITS, "In no ordering" included; an
-              ORDERING says so only where it sits somewhere. Root is where
-              Orderings live, so the line on every one of the corpus's 465
-              would be noise the story's version of it drowned in -- and an
-              Ordering placed in another is rare enough to be worth saying.
+              A STORY SAYS WHERE IT SITS, "In no ordering" included, and an
+              ORDERING does not: root is where Orderings live, so the line on
+              every one of the corpus's 465 would be noise the story's version
+              drowned in. None of them sits in another (ADR-0137), and the
+              ticket asks for a story's Row, so that case is left to the day
+              an Ordering is placed in one.
             */}
-            {(!row.isContainer || row.sitsIn.total > 0) && (
-              <WhereItSits id={row.id} sitsIn={row.sitsIn} />
-            )}
+            {!row.isContainer && <WhereItSits id={row.id} sitsIn={row.sitsIn} />}
           </div>
           <span className="flex items-baseline gap-3 text-muted-foreground text-sm">
             {/*

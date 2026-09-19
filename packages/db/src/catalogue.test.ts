@@ -33,6 +33,12 @@ async function lists(db: Database, id: string): Promise<boolean> {
   return rows.some((row) => row.id === id);
 }
 
+/** The one Row of the whole catalogue that lists an item, wherever it sorts. */
+async function theRowOf(db: Database, id: string) {
+  const { rows } = await readCatalogue(db, { limit: 1000 });
+  return rows.find((row) => row.id === id);
+}
+
 /**
  * Two fresh ids, the first sorting before the second: for a test whose answer
  * must NOT fall out of id order. Random rather than counted, because every file
@@ -267,8 +273,7 @@ describe("readCatalogue", () => {
     await aPlacement(db, { containerId: chronology, itemId: story, position: 1 });
     await aPlacement(db, { containerId: broadcast, itemId: story, position: 240 });
 
-    const { rows } = await readCatalogue(db, { limit: 1000 });
-    const row = rows.find((each) => each.id === story);
+    const row = await theRowOf(db, story);
 
     expect(row?.sitsIn).toStrictEqual({
       first: [
@@ -284,8 +289,7 @@ describe("readCatalogue", () => {
     // with nothing in it -- and the Row carries it as one, not as a gap.
     const story = await anItemTitled(db, "A story nobody has placed");
 
-    const { rows } = await readCatalogue(db, { limit: 1000 });
-    const row = rows.find((each) => each.id === story);
+    const row = await theRowOf(db, story);
 
     expect(row?.sitsIn).toStrictEqual({ first: [], total: 0 });
   });
@@ -317,8 +321,7 @@ describe("readCatalogue", () => {
     await db.update(placements).set({ deletedAt: new Date() }).where(eq(placements.id, withdrawn));
     await db.update(items).set({ deletedAt: new Date() }).where(eq(items.id, deleted));
 
-    const { rows } = await readCatalogue(db, { limit: 1000 });
-    const row = rows.find((each) => each.id === story);
+    const row = await theRowOf(db, story);
     const page = await findPlacementsOfItem(db, story, { limit: 100 });
 
     expect(row?.sitsIn).toStrictEqual({
@@ -343,8 +346,7 @@ describe("readCatalogue", () => {
     await aPlacement(db, { id: low, containerId: ordering, itemId: story, position: 5 });
     await aPlacement(db, { id: high, containerId: ordering, itemId: story, position: 1 });
 
-    const { rows } = await readCatalogue(db, { limit: 1000 });
-    const row = rows.find((each) => each.id === story);
+    const row = await theRowOf(db, story);
 
     expect(row?.sitsIn).toStrictEqual({
       first: [
@@ -369,8 +371,7 @@ describe("readCatalogue", () => {
       await aPlacement(db, { containerId: ordering, itemId: story, position });
     }
 
-    const { rows } = await readCatalogue(db, { limit: 1000 });
-    const row = rows.find((each) => each.id === story);
+    const row = await theRowOf(db, story);
 
     expect(row?.sitsIn.first.map(({ position }) => position)).toStrictEqual([1, 2, 3, 4, 5]);
     expect(row?.sitsIn.total).toBe(7);

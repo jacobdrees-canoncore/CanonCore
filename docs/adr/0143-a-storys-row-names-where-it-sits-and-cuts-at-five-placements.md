@@ -49,7 +49,7 @@ everything they sit in. The other 1,611 show five and say how many more. A media
 30 characters (the longest is 59), so five Placements in five Orderings is about 175 characters under
 a title. Eight would buy another tenth of the catalogue a whole Row, at about 280 on every long one.
 
-**THE CUT LOSES NOTHING, AND THAT IS WHAT ADR-0137's FIGURE BUYS.** "and 56 more" links to the story's
+**THE CUT LOSES NOTHING, AND THAT IS WHAT ADR-0137's FIGURE BUYS.** "and 56 more appearances" links to the story's
 own "Also appears in", which is capped at a page of 100 ([[0119-a-listing-is-walked-forward-from-the-last-item-it-showed]]).
 The most any story has is 61. So every story in the corpus shows its whole membership one click from
 its Row, on one page, with no walking.
@@ -96,18 +96,27 @@ the Row's figure. What it meant, and what its reason covers, is every COUNT. A P
 ordinal, `#1234` as the item page writes it, and grouped it collides with the comma between two of
 them: "#1,234, #1,240". The correction is in 0140's own sentence.
 
+**THE CUT SAYS "and 56 more appearances", NOT "and 56 more".** It counts Placements, and after a Row
+has named every Ordering it sits in, a bare number reads as that many more Orderings. The fixture's
+story is named in all three of its Orderings and then has 2,910 Placements left. "Appearances" is the
+noun of the reader's own phrase, and a Repeat is one Ordering appearing twice. "Positions" would
+miscount, because a Placement may have none. `CONTEXT.md`'s **Placement** now names it as the count
+from the item's end. The item page still counts the same figure as "orderings", which is its own
+ticket rather than this one's.
+
 **"Also appears in" ON A CATALOGUE ROW, where "also" has no page to be beside.** It reads as "also,
 besides being in the catalogue", and it is the heading of the section the cut links to, so the Row
 and the page it leads to use one phrase.
 
-## An Ordering at the root says nothing
+## An Ordering's Row says nothing about where it sits
 
-**A STORY ALWAYS SAYS WHERE IT SITS; AN ORDERING ONLY WHEN IT SITS SOMEWHERE.** Root is where
-Orderings live, so all 465 of the corpus's would carry "In no ordering", and the line that matters on
-a story would drown among them. An Ordering placed in another is rare enough to be worth saying, so
-that case is shown. The figure is still asked of every Row, for `holds`'s reason: which Rows SHOW it
-is the surface's decision, off `isContainer`, and not a second place for "what is a container" to be
-decided.
+**A STORY SAYS WHERE IT SITS; AN ORDERING DOES NOT.** Root is where Orderings live, so all 465 of the
+corpus's would carry "In no ordering", and the line that matters on a story would drown among them.
+None of the 465 sits in another (ADR-0137's `orderingsPlaced` is 0), and the ticket asks for a
+story's Row. So an Ordering placed in another is left to the day one is. An earlier draft showed that
+case and nothing tested it. The figure is still asked of every Row, for `holds`'s reason: which Rows
+SHOW it is the surface's decision, off `isContainer`, and not a second place for "what is a container"
+to be decided.
 
 ## What it costs
 
@@ -138,9 +147,30 @@ now reads **each Row's own link, which is the first link in its `<li>`** (`items
 `theRowTitled` matches on that link alone, since a story's Row now carries an Ordering's title too.
 **THAT IS A CONTRACT THE LISTING NOW KEEPS**: whatever else a Row links, its own Item comes first.
 
+## What The Day of the Doctor's Row actually reads
+
+Read off the branch under `next dev`, against a restored dump of the Owner's catalogue:
+
+> Also appears in Theory:Timeline - 2010s #114 · Theory:Timeline - 76 Totter's Lane #22 ·
+> Theory:Timeline - Adam Mitchell #4 · Theory:Timeline - Clara Oswald #48 · Theory:Timeline -
+> Daleks #308 · and 56 more appearances
+
+**THE FIVE ARE WHICHEVER ORDERINGS SORT FIRST, NOT THE ONES THE TICKET'S EXAMPLE NAMES.** The ticket
+designs against the fiftieth-anniversary special set beside the Doctor's own chronology. The corpus's
+Orderings are the wiki's timelines ([[0128-an-ordering-is-the-sources-own-axis-not-release-order]]),
+and this Row opens with `2010s` and `76 Totter's Lane`. Surfacing the Orderings a reader cares about
+first needs a rule for which Orderings matter. That is a question about the scope a reader picked,
+Groups, and not about how a Row cuts. The Row keeps the item page's order so that "and 56 more
+appearances" continues the same list the link lands on.
+
+**AND UNIT HQ'S ROW NAMES ONE OF ITS FIVE ORDERINGS**: "Theory:Timeline - Fugitive Doctor #25, #29,
+#31, #34, #35 · and 54 more appearances". Its first five Placements all fall in the Ordering that sorts
+first. That is the Placement cut doing what it was chosen for. Naming every Ordering before any
+second Position would be a second rule on top of this one, and nobody has asked for it.
+
 ## What this does not do
 
-**THE LINK LANDS ON THE ORDERING, NOT AT THE STORY'S POSITION IN IT.** "AHistory #1,234" opens
+**THE LINK LANDS ON THE ORDERING, NOT AT THE STORY'S POSITION IN IT.** "AHistory #1234" opens
 AHistory at its first page. Landing a reader at the story inside a 2,907-member Ordering is a
 question about the Members listing's cursor and about `?via=`
 ([[0066-path-is-identity-query-is-the-route]]). The ticket asked for the membership as links, so it
@@ -150,6 +180,29 @@ is not answered here.
 is five whatever the size, so the Row stays bounded. What would change is the link target: a story
 past a hundred Placements has an "Also appears in" that walks. The fixture's own story does, at
 2,915, and still reads correctly, but that is a fixture and not a corpus.
+
+## Re-taking the figures
+
+**THE DISTRIBUTION ABOVE IS NOT ASSERTED ANYWHERE**, and on purpose, for ADR-0137's reason about its
+timings: it is a measurement of one catalogue on one day. The widest figure, 48, is the one the corpus
+suite asserts as a floor. Re-take the rest read-only against an install with:
+
+```sql
+with live as (
+  select p.item_id, p.container_id from placements p
+  join items c on c.id = p.container_id
+  where p.deleted_at is null and c.deleted_at is null
+), per as (
+  select item_id, count(distinct container_id) orderings, count(*) placements
+  from live group by item_id
+)
+select max(orderings), max(placements),
+       round(100.0 * count(*) filter (where placements <= 5) / count(*), 1) whole_at_five
+from per;
+```
+
+The one to watch is `max(placements)` against a page of 100. Past it, the cut still holds, but "one
+click, one page" does not.
 
 ## What holds it
 
@@ -161,8 +214,8 @@ past a hundred Placements has an "Also appears in" that walks. The fixture's own
 - `packages/api/src/routers/listing.test.ts` enumerates the field on all six catalogue Listings, and
   `catalogue.test.ts` beside it asserts the value survives `.output(cataloguePublic)`.
 - `apps/web/e2e/front-page.test.ts`, over HTTP on the instance nothing writes to. The story in three
-  Orderings with 2,913 Repeats in one reads five Positions, then "and 2,910 more", and links each
+  Orderings with 2,913 Repeats in one reads five Positions, then "and 2,910 more appearances", and links each
   Ordering and then its own "Also appears in". A story in no Ordering says so. A Placement with no
-  Position reads "no position given". An Ordering at the root says nothing.
+  Position reads "no position given". An Ordering's Row says nothing about where it sits.
 - `apps/web/e2e/item-page-cost.test.ts` holds the "same read" half, unchanged. A
   `findPlacementsOfItem` per Row drove it red, at 8 statements against 3.

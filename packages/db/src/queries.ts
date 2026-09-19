@@ -910,23 +910,15 @@ export interface CatalogueRow {
   sitsIn: SitsIn;
 }
 
-/** One ordering a Row's item sits in, and where in it. */
-export interface WhereItSits {
-  containerId: string;
-  /** The container's projected title (ADR-0014); an untitled one has none. */
-  containerTitle: string | null;
-  /** `null` where no source gave one: `CONTEXT.md`'s **Unplaced**. */
-  position: number | null;
-}
-
 /** Where one Row's item sits: the first of its placements, and how many it has. */
 export interface SitsIn {
   /**
    * THE FIRST FIVE, in the order the Row reads them: by the container's sort
    * key, then by container, then by Position. Fewer than `total` is the cut,
    * never a hidden placement: `total` is what says how many more there are.
+   * `PlacementOfItem` said shorter, as the read path picks the same three.
    */
-  first: WhereItSits[];
+  first: Pick<PlacementOfItem, "containerId" | "containerTitle" | "position">[];
   /** How many placements it has altogether: "Also appears in"'s own `total`. */
   total: number;
 }

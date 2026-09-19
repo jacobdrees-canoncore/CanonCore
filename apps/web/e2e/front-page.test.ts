@@ -624,7 +624,10 @@ describe("/ narrowed to a Group", () => {
  * asserted inside it.
  */
 function theRowTitled(text: string, title: string): string {
-  const rows = [...text.matchAll(/<li[^>]*>(.*?)<\/li>/g)].map(([, inner]) => inner as string);
+  // `<li` AND THEN A SPACE OR THE `>`, so a `<link>` in the head is no Row.
+  const rows = [...text.matchAll(/<li(?:\s[^>]*)?>(.*?)<\/li>/g)].map(
+    ([, inner]) => inner as string,
+  );
   // THE ROW'S OWN LINK, WHICH IS ITS FIRST. Since CNCORE-184 a story's Row
   // links the Orderings it sits in too, so "any link carrying this title"
   // would find an Ordering's Row AND every story Row that names it.
@@ -764,15 +767,16 @@ describe("/ on a catalogue nothing is writing to", () => {
     const orderings = new Map(inject("stillOrderings").map(({ title, id }) => [title, id]));
     const { text } = await documentFrom(inject("stillBaseUrl"), "/");
     const repeated = theRowTitled(text, "A catalogue nobody is filling");
-    const [self] = [...repeated.matchAll(/href="([^"]+)"/g)].map(([, href]) => href);
+    const links = [...repeated.matchAll(/href="([^"]+)"/g)].map(([, href]) => href);
+    const [self] = links;
 
     expect(textOf(repeated)).toContain(
       "Also appears in An ordering of one #1 · An ordering of three #1 · " +
-        "An ordering the size of the largest one measured #1, #2, #3 · and 2,910 more",
+        "An ordering the size of the largest one measured #1, #2, #3 · and 2,910 more appearances",
     );
     // AC4, the membership as links: each Ordering, then the rest of it on the
     // story's own page, where "Also appears in" holds every one.
-    expect([...repeated.matchAll(/href="([^"]+)"/g)].map(([, href]) => href)).toStrictEqual([
+    expect(links).toStrictEqual([
       self,
       `/items/${orderings.get("An ordering of one")}`,
       `/items/${orderings.get("An ordering of three")}`,
@@ -797,7 +801,7 @@ describe("/ on a catalogue nothing is writing to", () => {
     );
   });
 
-  it("says nothing of where an Ordering sits when it sits nowhere, which is where they sit", async () => {
+  it("says nothing of where an Ordering sits, since the root is where Orderings sit", async () => {
     // Root is an Ordering's ordinary state and a story's notable one, so
     // "In no ordering" on every Ordering would be noise the story's version
     // drowns in.

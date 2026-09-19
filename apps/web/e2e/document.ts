@@ -697,7 +697,8 @@ export function markedCurrentIn(text: string): string[] {
  * hundred Rows links far more than a hundred Items.
  */
 export function itemsListedOn(text: string): string[] {
-  return [...text.matchAll(/<li[^>]*>(?:(?!<\/li>).)*?href="\/items\/([^"?#]+)"/g)].map(
+  // `<li` AND THEN A SPACE OR THE `>`, so a `<link>` in the head is no Row.
+  return [...text.matchAll(/<li(?:\s[^>]*)?>(?:(?!<\/li>).)*?href="\/items\/([^"?#]+)"/g)].map(
     ([, id]) => id as string,
   );
 }

@@ -143,8 +143,8 @@ One item's membership of one container, at one position, carrying every source t
 asserted it. THE SAME CONSTRUCT FROM EITHER END: from the item's, an ordering it sits in; from the
 container's, something that container holds. Both ends are named Placement in code, because a Repeat
 puts one item in one container twice and the placement is the only thing that can tell those two
-rows apart. The reader's words are "Also appears in" from the item's end and "Members" from the
-container's.
+rows apart. The reader's words are "Also appears in" from the item's end, counted as appearances,
+and "Members" from the container's.
 _Avoid_: record, edge, member, membership, link
 
 **Position**:
