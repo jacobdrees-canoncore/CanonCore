@@ -729,7 +729,9 @@ function Candidate({
           choosing between two answers for one title is choosing on exactly this,
           which is why ADR-0033 carries the field at all.
         */}
-        <span className="text-muted-foreground text-sm">{result.kind}</span>
+        <span className="text-muted-foreground text-sm">
+          <TheirWords>{result.kind}</TheirWords>
+        </span>
         {result.released.length > 0 && (
           <span className="text-muted-foreground text-sm">{result.released.join(", ")}</span>
         )}

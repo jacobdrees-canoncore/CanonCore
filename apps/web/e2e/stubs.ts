@@ -130,6 +130,7 @@ export async function aProviderThatFloodsItsName(): Promise<{
  */
 export const UNBROKEN = {
   title: "title".repeat(100),
+  kind: "kind".repeat(100),
 };
 
 /**
@@ -138,12 +139,12 @@ export const UNBROKEN = {
  * A record's fields are a source's claim and bounded by nothing, on purpose:
  * cutting a title would corrupt the catalogue rather than protect a page
  * (ADR-0123). So this is the stub `aProviderThatFloodsItsName` is not -- its
- * NAME is ordinary, and what it answers a search with is one record whose title
- * has no break in it.
+ * NAME is ordinary, and what it answers a search with is a record for each
+ * field it floods, with no break in that field.
  *
- * FOUND ONLY BY ASKING FOR IT. `searchOver` matches on the title, so this
- * record is on `/import` for a query that is a run of it and for no other, and
- * the Provider-name witnesses beside it, which ask for `anything`, see this
+ * FOUND ONLY BY ASKING FOR IT. `searchOver` matches on the title, so each
+ * record is on `/import` for a query only its own title holds, and the
+ * Provider-name witnesses beside it, which ask for `anything`, see this
  * Provider match nothing.
  */
 export async function aProviderThatFloodsItsRecord(): Promise<{
@@ -164,6 +165,13 @@ export async function aProviderThatFloodsItsRecord(): Promise<{
       kind: "TV story",
       released: ["1963-11-23"],
       url: "http://127.0.0.1/unbroken-title",
+    },
+    {
+      id: "unbroken-kind",
+      title: "A record whose kind has no break in it",
+      kind: UNBROKEN.kind,
+      released: ["1963-11-23"],
+      url: "http://127.0.0.1/unbroken-kind",
     },
   ];
   return onLoopback((path, answer) => {
