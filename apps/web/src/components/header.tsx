@@ -5,6 +5,7 @@ import Link from "next/link";
 import { callerContext } from "@/session";
 import { OUR_MARK_PX } from "./marks";
 import { ModeToggle } from "./mode-toggle";
+import { ScopedLink } from "./scope";
 import { SearchBox } from "./search-box";
 
 /**
@@ -75,9 +76,9 @@ export default async function Header() {
             class, so the relationship it is half of is in the served HTML where a
             test can read it back. See that file for the other half.
           */}
-          <Link href="/" className="font-semibold" style={{ fontSize: `${OUR_MARK_PX}px` }}>
+          <ScopedLink path="/" className="font-semibold" style={{ fontSize: `${OUR_MARK_PX}px` }}>
             CanonCore
-          </Link>
+          </ScopedLink>
           {/*
             THE TWO QUESTIONS ADR-0077 NAMES, side by side, which is what makes
             them two surfaces a reader chooses between rather than one page with
@@ -98,9 +99,9 @@ export default async function Header() {
             below it are not, which is the distinction this nav draws since
             CNCORE-139 and did not draw before.
           */}
-          <Link href="/works" className="text-base hover:underline">
+          <ScopedLink path="/works" className="text-base hover:underline">
             Works
-          </Link>
+          </ScopedLink>
           {/*
             AND WHICH SCOPES THIS CATALOGUE IS DIVIDED INTO (CNCORE-178,
             ADR-0010). It sits with the two reading surfaces rather than with
