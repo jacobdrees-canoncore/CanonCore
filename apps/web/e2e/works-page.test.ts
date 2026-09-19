@@ -1,12 +1,6 @@
 import { describe, expect, inject, it } from "vitest";
 
-import {
-  documentAt,
-  documentFrom,
-  markedCurrentIn,
-  scopeLinked,
-  sectionIn,
-} from "./document";
+import { documentAt, documentFrom, markedCurrentIn, scopeLinked, sectionIn } from "./document";
 
 /**
  * WORK-BROWSING, over real HTTP. ADR-0103's fourth seam, which is the one
