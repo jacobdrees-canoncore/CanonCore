@@ -408,7 +408,23 @@ browser rather than the check that says the app serves pages at all.
 Postgres, its own `next build` and a `playwright install`. It duplicates ONE instance, not the seven
 `The page over HTTP` stands up, because a suite asserting one claim needs one ordering to drag.
 
-**THE COUNT IS FOURTEEN**, from thirteen: secrets, docs, typecheck, lint, build, env-guard, test,
-migrations, e2e, browser, provider, contract, image, image-manifest. Stated because a reader of this
-record should be able to check the claim above against the file rather than take it, and because the
-four static checks being four named jobs is only visible as a count if somebody keeps one.
+**THE COUNT IS FIFTEEN**, from thirteen at CNCORE-73 and fourteen until CNCORE-203: secrets, docs,
+typecheck, lint, build, env-guard, test, migrations, e2e, browser, credentials, provider, contract,
+image, image-manifest. Stated because a reader of this record should be able to check the claim
+above against the file rather than take it, and because the four static checks being four named
+jobs is only visible as a count if somebody keeps one.
+
+**The fifteenth is `credentials`, and it is this record's argument applied rather than an exception
+to it.** [[0139-a-job-skips-when-the-credential-it-needs-is-out-of-reach]] adds a job whose whole
+content is one expression, because `jobs.<job_id>.if` cannot see the `secrets` context and
+`jobs.<job_id>.outputs` can -- so a job that must not run without a credential has no way to ask,
+and something else has to answer for it. It checks out nothing, installs nothing and finishes in
+3 seconds (run 35351756526). On a private repository that would be a billed minute bought for one
+`if`, and the merge arithmetic above would apply to it; here it is free, so it was decided on
+diagnosability like the fourteenth.
+
+**IT DOES NOT MOVE THE CRITICAL PATH, WHICH IS THE OBJECTION IT INVITES**: two jobs now wait on a
+third, and serialising a pipeline to save nothing would be a bad trade at any price. Measured on
+that run, the gated jobs started 10 seconds after the run did and the tail was still an image job,
+`13:44:41` against the provider job's `13:44:32` -- so the section above is unchanged by this. The
+image jobs pin the median, as they have since CNCORE-63.

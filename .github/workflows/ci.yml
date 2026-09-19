@@ -514,9 +514,93 @@ jobs:
       - name: The drag in a browser, and a count that says a suite ran
         run: .github/scripts/run-suite.sh test:browser
 
+  # THE ONE QUESTION A JOB IS NOT ALLOWED TO ASK ITSELF (CNCORE-203).
+  #
+  # `provider-tmdb` refuses to start without `TMDB_READ_ACCESS_TOKEN` (ADR-0035,
+  # and see the long note in the `provider` job below), GitHub keeps a SEPARATE
+  # secret store for Dependabot, and this repository deliberately has nothing in
+  # it (ADR-0139). So on every Dependabot pull request the two jobs underneath
+  # died at `Initialize containers` with `Failed to initialize container`, before
+  # their first step, and reported red about a credential rather than about the
+  # bump. Seventeen bumps arrived on 2026-09-18 carrying two meaningless red
+  # checks each, which is a merge gate spent on nothing.
+  #
+  # A STEP-LEVEL CONDITION CANNOT REACH THIS. A service container that will not
+  # start takes the job down before any step runs, so the gate has to be the
+  # job's own `if:`. And `jobs.<job_id>.if` CANNOT SEE `secrets`: GitHub's
+  # context availability table gives it `github, needs, vars, inputs` and
+  # nothing else. `jobs.<job_id>.outputs` can see it. That pair is the whole
+  # reason this job exists -- it holds the one expression permitted to look, and
+  # the jobs that need the answer read it back through `needs`.
+  #
+  # IT PUBLISHES A VERDICT AND NEVER THE VALUE. An output whose text matches a
+  # secret is redacted on the runner and arrives empty, so a job that passed the
+  # token itself along would gate on the empty string forever -- failing closed,
+  # permanently, and looking exactly like a run with no credential. `true` or
+  # `false` is also the entirety of what a gate needs.
+  #
+  # IT IS NOT GATED ON ANYTHING ITSELF, which is what keeps it honest: it runs
+  # on every pull request and says, in the log, which way it went and why.
+  credentials:
+    name: Which provider credentials this run can reach
+    runs-on: ubuntu-latest
+    outputs:
+      tmdb: ${{ steps.tmdb.outputs.reachable }}
+    steps:
+      # No checkout and no install. The answer is already in the environment,
+      # and a job that cloned the repository to read it would be paying setup
+      # for nothing.
+      - name: TMDB_READ_ACCESS_TOKEN
+        id: tmdb
+        env:
+          TMDB_READ_ACCESS_TOKEN: ${{ secrets.TMDB_READ_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -n "${TMDB_READ_ACCESS_TOKEN:-}" ]; then
+            echo "reachable=true" >> "$GITHUB_OUTPUT"
+            echo "TMDB_READ_ACCESS_TOKEN is reachable, so the jobs that start provider-tmdb will run."
+          else
+            echo "reachable=false" >> "$GITHUB_OUTPUT"
+            echo "TMDB_READ_ACCESS_TOKEN is empty on this run, so the two jobs that start provider-tmdb are skipped rather than failed."
+            echo "::notice::On a Dependabot pull request this is expected and is not a defect: Dependabot reads a secret store of its own, and ADR-0139 keeps this token out of it on purpose. Everything else on this run still checks the bump."
+          fi
+
+      # THE GATE'S ONE WAY OF GOING QUIET FOREVER, closed here.
+      #
+      # Keying on the credential rather than on the author is what makes this
+      # fix cover a fork as well as Dependabot -- and it is also what would let
+      # a DELETED OR RENAMED repository secret skip both jobs on `main`,
+      # green, with the contract suite then running nowhere at all. A check that
+      # passes without running is the defect this repository already has a
+      # record about; trading one for another would be no fix.
+      #
+      # A PULL REQUEST HAS TWO INNOCENT EXPLANATIONS and a push has none.
+      # Dependabot reads its own store, a fork gets no repository secret, and
+      # neither is anything the contributor can do about. A push to `main` or a
+      # version tag is neither, so an absent credential there is the secret
+      # having gone, and the honest report is red.
+      #
+      # `if:` RATHER THAN A BRANCH IN THE SCRIPT ABOVE, deliberately: a
+      # condition in YAML is one `ci-workflow.test.ts` can EVALUATE against a
+      # synthetic context, the way it already evaluates the concurrency key,
+      # while a branch in shell could only be matched as text.
+      - name: Off a pull request, an absent credential is a deleted secret
+        if: steps.tmdb.outputs.reachable != 'true' && github.event_name != 'pull_request'
+        run: |
+          echo "::error::TMDB_READ_ACCESS_TOKEN is empty on a ${GITHUB_EVENT_NAME} run of ${GITHUB_REF}. Only a pull request can legitimately lack it (ADR-0139) -- Dependabot reads its own secret store and a fork gets none -- so on this ref it means the repository secret has been deleted or renamed. Skipping here would leave the contract suite running nowhere at all, green."
+          exit 1
+
   provider:
     name: Import and browse over HTTP, against the real provider-tmdb
     runs-on: ubuntu-latest
+    needs: credentials
+    # THE GATE. Its shape, and why it is not a step, is in the `credentials`
+    # job above. What it costs is stated here: with the token absent this job
+    # is SKIPPED rather than run, so `test:e2e` against the real image is not
+    # checked on that run. The `e2e` job runs the same suite against the stub
+    # and is not gated, so what is lost is the real provider specifically --
+    # which is the half no run without a credential could ever have had.
+    if: needs.credentials.outputs.tmdb == 'true'
     # It needs only read. The image is private and stays private: ADR-0089 keeps
     # both providers off a public registry, so a publicly pullable image would
     # be distribution.
@@ -653,6 +737,14 @@ jobs:
   contract:
     name: One contract, both providers, no app
     runs-on: ubuntu-latest
+    needs: credentials
+    # THE SAME GATE, AND IT COSTS MORE HERE. `test:contract` runs nowhere else,
+    # so a run without the token checks the contract not at all. Running it
+    # against `provider-wiki` alone was the alternative and is refused by the
+    # job's own rule two comments down: a contract checked against one
+    # participant is a schema test wearing a contract's name, which is a worse
+    # answer than no answer because it is green.
+    if: needs.credentials.outputs.tmdb == 'true'
     # THE SECOND SEAM, and the whole reason this job is separate from `provider`
     # above. That one drives the APP against a provider; this one calls both
     # providers DIRECTLY and asserts they answer the same shapes, the same claim
