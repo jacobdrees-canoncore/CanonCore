@@ -84,7 +84,7 @@ async function costOf(asking: (baseUrl: string) => Promise<unknown>): Promise<nu
     databaseUrl,
     async (server) => {
       await asking(server.baseUrl);
-      await server.close();
+      server.close();
     },
     () => aServerOnTheCountedCatalogue(owned),
   );

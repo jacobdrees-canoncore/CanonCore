@@ -11,13 +11,14 @@ const MAX_IDENTIFIER_BYTES = 63;
  * number.
  *
  * ELEVEN IS A BUDGET THE SUITES ARE HELD TO, rather than a measurement of them.
- * NINE OF THE NINETEEN declared suffixes spend exactly it -- `_test_fresh`,
+ * NINE OF THE TWENTY-ONE declared suffixes spend exactly it -- `_test_fresh`,
  * `_test_paged`, `_test_purge`, `_test_still`, `_test_place`, `_test_order`,
  * `_test_group`, `_test_allow` and `_test_tasks` -- so the longest tail the
  * harness can derive IS this number, exactly. (This read "four of the six"
  * until 2026-09-13, "seven of the thirteen" until 2026-09-18 and "eight of the
- * seventeen" until 2026-09-19, which had already missed `_test_group`; the set
- * has grown out from under this sentence four times now, so COUNT
+ * seventeen" until 2026-09-19, which had already missed `_test_group`, and
+ * "nine of the nineteen" later that day, which missed `dump` and `copy`; the set
+ * has grown out from under this sentence five times now, so COUNT
  * `TEST_DATABASE_SUFFIXES` rather than trust the figure. `_test_tasks` is the first addition since CNCORE-112 to land
  * ON eleven rather than under it.) That is the
  * direction

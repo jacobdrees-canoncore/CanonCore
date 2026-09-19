@@ -95,8 +95,9 @@ export const OWNER_PASSWORD = "the owner's own password for the e2e suite";
  *
  * `body` is handed `owned`, and everything it starts goes on it as it starts. If
  * `body` throws, everything on it is closed, the last started first, and the
- * error goes on as it was thrown. If it completes, the same stack is the
- * teardown this hands back.
+ * error goes on as it was thrown -- inside a `SuppressedError`, which is the
+ * platform's shape for it, if a close threw as well. If it completes, the same
+ * stack is the teardown this hands back.
  *
  * WHY A THROW HAS TO CLOSE ANYTHING. A server here is a `next start` PROCESS,
  * and it does not end when the process that started it does: it is re-parented
@@ -116,6 +117,11 @@ export const OWNER_PASSWORD = "the owner's own password for the e2e suite";
  * NODE'S OWN `AsyncDisposableStack`, which is the platform's answer to exactly
  * this: `await using` closes it on the way out of a throw, and `move()` hands it
  * on intact when there was none.
+ *
+ * IT CLOSES ONE THING AT A TIME, which is why closing a server only signals it
+ * (`theBuildServing` says so). Vitest ends a teardown that runs past its
+ * `teardownTimeout` with `process.exit()`, and a server not yet signalled then
+ * is orphaned exactly as before.
  */
 export async function settingUp(
   body: (owned: AsyncDisposableStack) => Promise<void>,
@@ -141,13 +147,23 @@ export async function settingUp(
  * that never answers included. `close` is still handed back for a caller that
  * has to stop a server early, as `item-page-cost.test.ts` does inside a window;
  * closing one twice is a no-op.
+ *
+ * CLOSING SENDS SIGTERM AND DOES NOT WAIT FOR THE EXIT, and that was measured
+ * rather than assumed. Waiting made the stack close its servers one exit at a
+ * time: eleven took 3107ms, 87ms and 3090ms on three runs on 2026-09-19, where
+ * signalling takes milliseconds, and each slow exit held back the signal for
+ * every server behind it against Vitest's ten-second `teardownTimeout`. A server
+ * signalled is one that stops -- Next exits on SIGTERM -- so the pipe is let go
+ * a moment after the teardown ends, rather than never.
  */
 export async function theBuildServing(
   owned: AsyncDisposableStack,
   env: NodeJS.ProcessEnv,
 ): Promise<{
   baseUrl: string;
-  close: () => Promise<void>;
+  /** The process's own identity, which a check for a survivor needs: see `instance.test.ts`. */
+  pid: number | undefined;
+  close: () => void;
 }> {
   const port = await freePort();
   const server = spawn("next", ["start", "--port", String(port)], {
@@ -155,24 +171,13 @@ export async function theBuildServing(
     env: theServerEnvironment(env),
     stdio: "inherit",
   });
-  const close = () => ended(server);
+  const close = () => {
+    server.kill("SIGTERM");
+  };
   owned.defer(close);
   const baseUrl = `http://127.0.0.1:${port}`;
   await waitUntilAnswering(baseUrl, server);
-  return { baseUrl, close };
-}
-
-/**
- * SIGTERM, AND THEN THE EXIT, so a server that has been closed is gone rather
- * than on its way. A teardown that returned while its servers were still
- * shutting down would report a clean finish over processes that were not.
- */
-function ended(server: ChildProcess): Promise<void> {
-  if (server.exitCode !== null || server.signalCode !== null) return Promise.resolve();
-  return new Promise((resolve) => {
-    server.once("exit", () => resolve());
-    server.kill("SIGTERM");
-  });
+  return { baseUrl, pid: server.pid, close };
 }
 
 /**

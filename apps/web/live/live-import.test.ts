@@ -123,6 +123,7 @@ beforeAll(async () => {
 
   const databaseUrl = await buildTestDatabase("web");
   db = createDb(databaseUrl, { maxConnections: 2 });
+  owned.defer(() => db.$client.end());
   await writeProviderSettings(db, {
     providerAllowlist: "127.0.0.0/8",
     providerUrls: providerUrl,
@@ -150,7 +151,6 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await db?.$client.end();
   await owned.disposeAsync();
 });
 

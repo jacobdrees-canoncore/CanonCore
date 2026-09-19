@@ -140,13 +140,15 @@ this, and it is tempting exactly because the constant and the declaration now si
 it would make the budget FOLLOW whatever suffix was added last and widen it silently.
 `worktree-database.ts` names that move so the next reader declines it on purpose rather than by luck.
 
-**The budget is full, which is what to know before adding another.** NINE of the NINETEEN declared
+**The budget is full, which is what to know before adding another.** NINE of the TWENTY-ONE declared
 suffixes — `_test_fresh`, `_test_paged`, `_test_purge`, `_test_still`, `_test_place`, `_test_order`,
 `_test_group`, `_test_allow` and `_test_tasks` — spend all eleven characters, so the longest tail the
 harness can derive IS the reservation, exactly. (This read "four of the six" until 2026-09-13, "seven
 of the thirteen" until 2026-09-16, "seven of the fifteen" until 2026-09-18 and "eight of the
-seventeen" until 2026-09-19, which had already missed `_test_group`; the set has now grown out from
-under this sentence FOUR TIMES, which is what a figure quoted beside a list does. **COUNT
+seventeen" until 2026-09-19, which had already missed `_test_group`, and "nine of the nineteen"
+later that day, which missed CNCORE-168's `dump` and `copy` and was corrected under CNCORE-229; the
+set has now grown out from under this sentence FIVE TIMES, which is what a figure quoted beside a list
+does. **COUNT
 `TEST_DATABASE_SUFFIXES` rather than trust the number here.** The load-bearing half is that the
 budget is SPENT, not by how many: `_test_tasks` is the first addition since CNCORE-112 to land on
 eleven rather than under it, so the count moved for the first time as well as the total.)

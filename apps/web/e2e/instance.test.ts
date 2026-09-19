@@ -1,4 +1,3 @@
-import { connect } from "node:net";
 import { buildTestDatabase } from "@canoncore/db/testing/build-database";
 import { beforeAll, describe, expect, it } from "vitest";
 import { SERVER_CONNECTIONS, settingUp, theBuildServing, theServerEnvironment } from "./instance";
@@ -78,18 +77,31 @@ describe("the environment a server under test runs with", () => {
  * that started it does, and one left running holds the output pipe it
  * inherited open, so a CI step reading that pipe never ends: ADR-0141's hang,
  * reached through `settingUp` rather than around it. A stand-in whose `close`
- * recorded a call would pass while the real server went on listening.
+ * recorded a call would pass while the real server went on running.
  *
- * A SURVIVOR IS FOUND BY ITS PORT, not by being a child of this process. The
+ * A SURVIVOR IS FOUND BY ITS OWN PID, not by being a child of this process. The
  * orphans this ticket was filed over had parent pid 1, since a server's parent
  * changes the moment its starter dies, and a check that listed this process's
- * children would miss exactly them. A port is the server's own: while
- * anything still listens on one, the server is not gone.
+ * children would miss exactly them. Nor by its port: Next stops listening when
+ * it is signalled and exits only after its cleanup, so a free port can come
+ * before the process has gone.
+ *
+ * POLLED RATHER THAN READ ONCE, because closing a server signals it and does
+ * not wait (`theBuildServing` says why). A server that was signalled is gone
+ * within seconds; one that was not is still running when the poll gives up.
  *
  * ON A DATABASE OF ITS OWN, `leak`, because a server start is not a read. The
  * scheduler starts with every server (ADR-0049) and closes whatever runs it
  * finds open, so pointed at `web` it could close the run `tasks-page.test.ts`
  * is in the middle of.
+ *
+ * ONE SERVER A CASE, AND THAT IS A BUDGET RATHER THAN A PREFERENCE. Each case
+ * started two until it was measured: a server holds all four of its
+ * connections while it answers, so the pair put the whole suite's peak at 75,
+ * and ADR-0104's ceiling of four agents is 288 over that peak, floored. The
+ * dispatcher chose one on 2026-09-19. What "every" adds is the stack's own
+ * contract -- each server goes on it the same way, and it closes all it holds
+ * -- and ADR-0103 records the real setup closing three.
  */
 describe("a setup that starts servers", () => {
   let env: NodeJS.ProcessEnv;
@@ -99,65 +111,66 @@ describe("a setup that starts servers", () => {
   });
 
   it(
-    "closes every server it had started when it throws part-way, then throws what it threw",
+    "closes the server it had started when it throws part-way, then throws what it threw",
     async () => {
-      const failure = new Error("the setup failed after its second server");
-      const started: string[] = [];
+      const failure = new Error("the setup failed after its server started");
+      let pid: number | undefined;
 
       await expect(
         settingUp(async (owned) => {
-          started.push((await theBuildServing(owned, env)).baseUrl);
-          started.push((await theBuildServing(owned, env)).baseUrl);
-          // THE CHECK BELOW CAN FAIL: both are listening at the moment of the throw.
-          expect(await listeningOn(started)).toEqual([true, true]);
+          ({ pid } = await theBuildServing(owned, env));
+          // THE CHECK BELOW CAN FAIL: the server is running at the moment of the throw.
+          expect(running(pid)).toBe(true);
           throw failure;
         }),
       ).rejects.toBe(failure);
 
-      expect(await listeningOn(started)).toEqual([false, false]);
+      await expect.poll(() => running(pid), { timeout: STOPPING_MS }).toBe(false);
     },
-    TWO_SERVERS_MS,
+    ONE_SERVER_MS,
   );
 
   it(
-    "leaves its servers running past its own return, until the teardown it hands back",
+    "leaves its server running past its own return, until the teardown it hands back",
     async () => {
-      const started: string[] = [];
+      let pid: number | undefined;
 
       const teardown = await settingUp(async (owned) => {
-        started.push((await theBuildServing(owned, env)).baseUrl);
-        started.push((await theBuildServing(owned, env)).baseUrl);
+        ({ pid } = await theBuildServing(owned, env));
       });
-      expect(await listeningOn(started)).toEqual([true, true]);
+      expect(running(pid)).toBe(true);
 
       await teardown();
 
-      expect(await listeningOn(started)).toEqual([false, false]);
+      await expect.poll(() => running(pid), { timeout: STOPPING_MS }).toBe(false);
     },
-    TWO_SERVERS_MS,
+    ONE_SERVER_MS,
   );
 });
 
 /**
- * TWO SERVERS, each allowed the minute `waitUntilAnswering` gives one, and the
- * closing on top. A server answers in a second or two here; the ceiling is for
- * a slow runner, not the expected case.
+ * HOW LONG A SIGNALLED SERVER MAY TAKE TO BE GONE. Eleven stopped one after
+ * another took at most 3107ms on 2026-09-19, so one takes less; five times that
+ * is room for a slow runner, and a server nobody signalled is still running at
+ * the end of it.
  */
-const TWO_SERVERS_MS = 2 * 60_000 + 10_000;
+const STOPPING_MS = 15_000;
 
-/** Whether anything accepts a connection on each server's port. */
-function listeningOn(baseUrls: string[]): Promise<boolean[]> {
-  return Promise.all(
-    baseUrls.map((baseUrl) => {
-      const { hostname, port } = new URL(baseUrl);
-      return new Promise<boolean>((resolve) => {
-        const socket = connect(Number(port), hostname);
-        socket.once("connect", () => {
-          socket.destroy();
-          resolve(true);
-        });
-        socket.once("error", () => resolve(false));
-      });
-    }),
-  );
+/**
+ * ONE SERVER, allowed the minute `waitUntilAnswering` gives it, and the stopping
+ * on top. A server answers in a second or two here; the ceiling is for a slow
+ * runner, not the expected case.
+ */
+const ONE_SERVER_MS = 60_000 + STOPPING_MS;
+
+/** Whether the process with this pid is still running, whoever its parent is now. */
+function running(pid: number | undefined): boolean {
+  if (pid === undefined) throw new Error("that server was never given a pid");
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (cause) {
+    if ((cause as { code?: unknown }).code === "ESRCH") return false;
+    throw cause;
+  }
 }
