@@ -201,7 +201,9 @@ async function minimalProvider(): Promise<Participant> {
  * A THIRD CONFORMANCE WITNESS: a provider that answers which containers it holds.
  *
  * IT IS HERE FOR THE REASON THE FIRST TWO ARE. CNCORE-185 declares the operation
- * and CNCORE-186 is where the two real providers answer it, so on the day the
+ * and CNCORE-186 is where ONE real provider answers it -- this said "the two real
+ * providers" and was wrong: `provider-tmdb` declines, because TMDB publishes no
+ * bounded enumeration of its containers (ADR-0033). So on the day the
  * contract landed NOTHING under test declared it -- every assertion in `its
  * containers` would have returned early and the suite would have been green
  * because nobody was asked. That is the failure this package exists to catch,

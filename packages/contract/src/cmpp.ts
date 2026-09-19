@@ -186,7 +186,25 @@ export const browseResponse = z.looseObject({
 });
 
 /**
- * What the `containers` operation answers: every container this provider holds.
+ * What the `containers` operation answers: the containers this provider's SOURCE ASSERTS
+ * as containers.
+ *
+ * THIS SAID "EVERY CONTAINER THIS PROVIDER HOLDS", AND THE FIRST PROVIDER TO ANSWER IT
+ * SHOWED THAT IS NARROWER THAN EVERY ID `browse` TAKES. Corrected in the sentence rather
+ * than under it, because a note below would leave the strict reading standing as the one a
+ * provider is held to. `provider-wiki` browses both a `Theory:Timeline` page and any
+ * `Category:`, and lists only the first: a timeline is a container the wiki WROTE as one,
+ * over a bounded population, where a category is one that provider COMPUTES by release date
+ * because a category states membership and no sequence. Every page in namespace 14 is one,
+ * maintenance categories included, and a listing padded with those is worth nothing to the
+ * Owner it exists to save from knowing an id in advance. NO COUNT IS CLAIMED FOR THAT
+ * NAMESPACE -- nothing has measured it, and the argument turns on a category being
+ * UNASSERTED as an ordering rather than on how many there are.
+ *
+ * THE NARROWING DOES NOT LET AN UNBOUNDED SOURCE IN, which is the test of it. TMDB asserts
+ * its collections and its series as containers, so a provider answering only what its
+ * source asserts still cannot answer there -- `provider-tmdb` declines, and ADR-0033
+ * carries why.
  *
  * RECORDS RATHER THAN IDS, because ADR-0004 makes a container a record like any
  * other and `browse` already answers one as a record. A list of bare ids would
