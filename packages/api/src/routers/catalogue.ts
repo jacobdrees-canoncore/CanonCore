@@ -49,11 +49,42 @@ const listingInput = z.object({
    * ABSENT IS THE LISTING UNNARROWED, which is what clearing the scope is.
    */
   group: z.string().optional(),
+  /**
+   * THE KIND A READER HAS NARROWED THE LISTING TO (CNCORE-175, story 25), on
+   * all three questions -- so a narrowing means one thing wherever it is
+   * offered, which is the argument `group` above makes about a scope.
+   *
+   * THE READER'S NARROWING, NEVER THE SURFACE'S QUESTION. ADR-0077 decides
+   * which kinds a question INCLUDES -- work-browsing excludes the entity kinds,
+   * the catalogue and search exclude none -- and that is not a reader's to
+   * change. This narrows whichever question was asked, so a narrowed `/works`
+   * is still work-browsing and no value here turns `list` into it: what a
+   * narrowed catalogue shows is a subset of what it already showed.
+   *
+   * AS A STRING RATHER THAN AN ENUM OF THE SEVEN, which is ADR-0066's rule for
+   * a parameter that is not an identity, and `group` above takes it for the
+   * same reason: whether a value names anything is what the ANSWER says. A kind
+   * nobody defined narrows to nothing rather than raising a BAD_REQUEST at a
+   * reader whose link outlived a migration -- and the seven are the DATABASE's
+   * (`item_kinds`, migration 1), so an enum written here would be that closed
+   * set spelled a second time in a second language, going stale the day a
+   * migration adds an eighth. `item.kinds` is what a surface offers them from.
+   *
+   * ABSENT IS THE LISTING UNNARROWED, which is what clearing the narrowing is.
+   */
+  kind: z.string().optional(),
 });
 
 /**
- * What the two Listings FILED BY NAME take: everything above, and a letter to
- * jump to (CNCORE-174).
+ * What the two BROWSED Listings take: everything above, a letter to jump to
+ * (CNCORE-174), and the order the reader chose (CNCORE-175).
+ *
+ * NAMED FOR BROWSING RATHER THAN FOR BEING FILED BY NAME, which it was until
+ * CNCORE-175. Being filed by name is what makes a LETTER meaningful, and it
+ * stopped describing the input the moment the input could ask for an order
+ * these Rows are not filed by -- a name held in step with one of its two
+ * members and not the other, which is the arrangement `ENDS_HERE` one package
+ * over carries a paragraph about.
  *
  * THE FIRST ROW FILED UNDER IT, or the first after it where nothing is -- a
  * SEEK on the sort key the walk already reads, and no offset: ADR-0119 names
@@ -67,7 +98,32 @@ const listingInput = z.object({
  * reader typed, so nothing in it is FILED under a letter, and a jump there
  * would be a seek on the wrong key.
  */
-const filedByNameInput = listingInput.extend({ letter: z.string().optional() });
+const browsedInput = listingInput.extend({
+  letter: z.string().optional(),
+  /**
+   * WHICH ORDER THE READER ASKED FOR (CNCORE-175, story 24), so one catalogue
+   * has more than one view of itself.
+   *
+   * ON THE TWO BROWSED LISTINGS AND NOT ON SEARCH, which is why it sits here
+   * beside `letter` rather than in `listingInput`. Catalogue search leads on
+   * how close a title is to what the reader typed (ADR-0120): an order chosen
+   * over that would discard the ranking that IS the answer, which is a
+   * different surface rather than this parameter.
+   *
+   * AN ENUM WHERE `kind` AND `group` ARE STRINGS, and the difference is who
+   * owns the set. Those two name rows in tables the Owner and the migrations
+   * fill, so any string is a question with an answer; these two are the orders
+   * THIS REPOSITORY has written a walk for, the whole set is in `order.ts`, and
+   * a third is a change here. A word naming no order is a BAD_REQUEST rather
+   * than a silent fall back to the default, because falling back would answer a
+   * reader's shared link with a page that is not the one they sent.
+   *
+   * `name` IS THE DEFAULT AND THE ABSENCE BOTH, so the bare address is the
+   * catalogue in its own order and the picker's "By name" link carries no
+   * `order` at all -- one address for one page (ADR-0066).
+   */
+  order: z.enum(["name", "added"]).default("name"),
+});
 
 /**
  * What Catalogue search takes: the same ceiling, the same cursor, the same
@@ -114,7 +170,7 @@ export const catalogue = {
    * is `works` below rather than this one with a flag on it.
    */
   list: openProcedure
-    .input(filedByNameInput)
+    .input(browsedInput)
     .output(cataloguePublic)
     .handler(async ({ input, context }) => {
       const listing = await readCatalogue(context.db, {
@@ -122,7 +178,9 @@ export const catalogue = {
         after: input.after,
         before: input.before,
         group: input.group,
+        kind: input.kind,
         letter: input.letter,
+        order: input.order,
       });
       return asListing(listing);
     }),
@@ -144,7 +202,7 @@ export const catalogue = {
    * the cap, the cursor and `continuesAfter` included (ADR-0119).
    */
   works: openProcedure
-    .input(filedByNameInput)
+    .input(browsedInput)
     .output(cataloguePublic)
     .handler(async ({ input, context }) => {
       const listing = await readWorks(context.db, {
@@ -152,7 +210,9 @@ export const catalogue = {
         after: input.after,
         before: input.before,
         group: input.group,
+        kind: input.kind,
         letter: input.letter,
+        order: input.order,
       });
       return asListing(listing);
     }),
@@ -188,6 +248,7 @@ export const catalogue = {
         after: input.after,
         before: input.before,
         group: input.group,
+        kind: input.kind,
       });
       return asListing(found);
     }),

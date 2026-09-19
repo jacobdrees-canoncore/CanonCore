@@ -1887,13 +1887,16 @@ export type ChosenOrder = "name" | "added";
  * Where one item sits in the recently-added order, by the id a reader arrived
  * with -- `findInTheOrder`'s pair, reading the key that order names.
  *
- * THE TIMESTAMP IS HANDED OVER AS THE `Date` IT WAS READ AS, never as an ISO
- * string. An anchor's value is spliced into the comparison as a bound parameter
- * against the key itself, so drizzle maps it with that column's own
- * `mapToDriverValue` -- and a `timestamptz` column's takes a `Date` and nothing
- * else. Converting here raised `TypeError: value.toISOString is not a function`
- * inside the walk, which is this module re-spelling a conversion the column
- * already owns.
+ * THE TIMESTAMP IS HANDED OVER AS AN EXPRESSION, never as the `Date` a column
+ * read answers with, and `AValueFor` in `order.ts` carries the measurement: a
+ * `Date` is millisecond-precision and this column is microsecond-precision, so
+ * binding one back skips every Row tied with the anchor. The value is read as
+ * TEXT at the column's own precision and cast back here, so the comparison sees
+ * exactly the instant the anchor row holds.
+ *
+ * A BOUND PARAMETER INSIDE THE CAST, never `sql.raw`: the text came from this
+ * database a statement ago, and it is bound rather than spliced all the same,
+ * which is the rule `AnchorIn` states for every expression an anchor carries.
  */
 async function findInTheAddedOrder(
   db: Database,
@@ -1901,7 +1904,7 @@ async function findInTheAddedOrder(
 ): Promise<AnchorIn<typeof RECENTLY_ADDED> | undefined> {
   const anchor = await findTheAnchor(db, RECENTLY_ADDED, id);
   if (anchor === undefined) return undefined;
-  return { addedAt: anchor.addedAt, id: anchor.id };
+  return { addedAt: sql`${anchor.addedAt}::timestamptz`, id: anchor.id };
 }
 
 /** One row a cursor might name, read the way every walk has to read it. */
@@ -1933,8 +1936,14 @@ export interface TheAnchor {
    * NO TOMBSTONE DESTROYS IT, which is why this key names no `destroyedBy` and
    * an anchor in that order outlives the delete: a kept link into it resumes
    * where a link into the catalogue's own order would start over.
+   *
+   * READ AS TEXT AT THE COLUMN'S OWN PRECISION, never as a `Date`. A
+   * `timestamptz` keeps microseconds and a `Date` keeps milliseconds, so the
+   * round trip through one drops the last three digits and the walk skips every
+   * Row tied with its anchor -- measured, and written up on `AValueFor` in
+   * `order.ts`, which refuses the lossy type outright.
    */
-  addedAt: Date;
+  addedAt: string;
   id: string;
 }
 
@@ -1985,7 +1994,12 @@ export async function findTheAnchor(
 ): Promise<TheAnchor | undefined> {
   if (!canBeAnId(id)) return undefined;
   const [anchor] = await db
-    .select({ sortKey: SORT_KEY, title: items.title, addedAt: items.createdAt, id: items.id })
+    .select({
+      sortKey: SORT_KEY,
+      title: items.title,
+      addedAt: sql<string>`${items.createdAt}::text`,
+      id: items.id,
+    })
     .from(items)
     .where(and(eq(items.id, id), stillAnAnchorIn(order)));
   return anchor;
