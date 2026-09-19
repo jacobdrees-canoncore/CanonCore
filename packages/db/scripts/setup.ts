@@ -3,13 +3,15 @@
  *
  *   pnpm db:setup
  *
- * A thin CLI over `setUpWorktreeDatabase`, which is where the behaviour lives
- * and where the suite reaches it. This file resolves the two things only a
- * running process knows -- the branch and the server -- and prints the result.
+ * A thin CLI over `setUpWorktreeDatabase` and then `sweepDeadDatabases`, which
+ * is where the behaviour lives and where the suite reaches it. This file
+ * resolves what only a running process knows -- the branch, the server and the
+ * repository -- and prints the result.
  */
 import "../src/load-env.ts";
 import { setUpWorktreeDatabase } from "../src/setup-worktree.ts";
-import { branch, envFile, port, serverUrl } from "./worktree.ts";
+import { sweepDeadDatabases } from "../src/sweep.ts";
+import { branch, envFile, port, repository, serverUrl } from "./worktree.ts";
 
 // Only a refused CONNECTION gets the "run db:start" advice. Wrapping every
 // failure in it reported a broken migration, an unwritable .env and an
@@ -49,4 +51,14 @@ if (result.envWritten) {
   // the page is broken rather than that .env points somewhere else.
   console.log(`env       apps/web/.env points at another database, left alone`);
   console.log(`          the app will NOT serve ${result.database} until you change it`);
+}
+
+// AFTER this worktree's own database, so a sweep that fails cannot undo the
+// setup it rides on (CNCORE-231). It still fails the command, on purpose: one
+// failing quietly would let the cluster grow back to the 1,250 databases
+// CNCORE-231 found. `sweep.ts` says what it may drop and why.
+const swept = await sweepDeadDatabases({ serverUrl, repository });
+console.log(`swept     ${swept.dropped.length} databases no live worktree owns`);
+for (const database of swept.inUse) {
+  console.log(`          left ${database}: no worktree owns it, but something is connected to it`);
 }

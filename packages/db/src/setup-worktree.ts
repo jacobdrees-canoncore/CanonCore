@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import dotenv from "dotenv";
 import { Client } from "pg";
 
 /**
@@ -163,13 +164,26 @@ async function createDatabaseIfAbsent(serverUrl: string, database: string): Prom
 
 /** Whether the DATABASE_URL in a .env file names this database. */
 function envFileNames(envFile: string, database: string): boolean {
-  if (!existsSync(envFile)) return false;
-  const line = readFileSync(envFile, "utf8").match(/^\s*DATABASE_URL\s*=\s*(.+?)\s*$/m)?.[1];
-  if (line === undefined) return false;
+  return databaseNamedIn(envFile) === database;
+}
+
+/**
+ * The database a .env file's DATABASE_URL names, if it names one. Shared with
+ * the sweep, which owes every live worktree the database its `.env` names.
+ *
+ * PARSED BY DOTENV, WHICH IS WHAT THE APP AND THE SUITES READ IT WITH
+ * (`load-env.ts`). A hand-written reading disagreed with it on a quoted value,
+ * an `export` and a trailing comment (CNCORE-231), and the sweep drops the
+ * database of an owner this function misses.
+ */
+export function databaseNamedIn(envFile: string): string | undefined {
+  if (!existsSync(envFile)) return undefined;
+  const url = dotenv.parse(readFileSync(envFile, "utf8")).DATABASE_URL;
+  if (url === undefined) return undefined;
   try {
-    return decodeURIComponent(new URL(line).pathname.slice(1)) === database;
+    return decodeURIComponent(new URL(url).pathname.slice(1));
   } catch {
-    return false;
+    return undefined;
   }
 }
 

@@ -16,7 +16,7 @@ import {
   sources,
   statements,
 } from "../index";
-import { MARKER } from "./build-database";
+import { MARKER } from "../worktree-database";
 
 /**
  * Helpers for reaching the catalogue in tests. They go through the package's

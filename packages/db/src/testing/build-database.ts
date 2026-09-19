@@ -2,6 +2,7 @@ import { Client } from "pg";
 
 import "../load-env";
 import { migrateToHead } from "../migrate";
+import { MARKER } from "../worktree-database";
 
 /**
  * EVERY SUFFIX A FIXTURE MAY ASK FOR, and the only place one is written down.
@@ -248,16 +249,6 @@ async function buildDatabaseNamed(suffix: TestDatabaseSuffix, folder?: string): 
   await migrateToHead(built.toString(), folder);
   return built.toString();
 }
-
-/**
- * What `testDatabaseNameFor` appends, and so what it strips to find the root.
- *
- * EXPORTED so `emptyCatalogue` can tell a test database from a real one without
- * spelling `_test` a second time. This module's own comments call it "THE one
- * place that knows" the format; a guard carrying its own copy is the drift that
- * sentence exists to refuse.
- */
-export const MARKER = "_test";
 
 /**
  * How a test database is named FROM THE WORKTREE'S OWN DATABASE. THE one place

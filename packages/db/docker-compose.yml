@@ -79,7 +79,9 @@ services:
     # `could not resize shared memory segment ... to 33554432 bytes` the shared
     # container was failing with. Four agents and the main checkout own about
     # 95 databases, 5 MB. What filled it was 1,149, most of them left by removed
-    # worktrees, and nothing drops those until CNCORE-231.
+    # worktrees. `pnpm db:setup` drops those since CNCORE-231: every worktree
+    # runs it to join this container, and it sweeps whatever no live worktree
+    # owns. That bounds the demand, which is what this ceiling alone could not.
     #
     # 256 MB IS THE FIRST SIZE THAT HOLDS THE 253 MB STEP of that series, about
     # 4,500 databases, and the example the postgres image's docs give for this
