@@ -4,13 +4,16 @@ import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { gatedTo } from "./gate";
 
 /**
- * A PROVIDER'S PROSE, AT THE WIDTH OF THE OWNER'S PAGE (CNCORE-217, ADR-0123).
+ * TEXT THE PAGE DID NOT WRITE, AT THE WIDTH OF THE OWNER'S PAGE (CNCORE-217,
+ * ADR-0123; CNCORE-223, ADR-0142).
  *
  * `cmppManifest` bounds a Provider's declared name at 300 characters, and the
  * page seam asserts the bound. Three hundred characters with no break in them
  * are still one unbreakable line, and a Provider that sends one chooses how WIDE
  * the Owner's page is instead of how long -- found by walking CNCORE-165, where
  * the heading ran off the right edge with the length assertion green beside it.
+ * A record's fields, an Item's values and a Group's name are bounded in length
+ * by nothing at all, and fail the page the same way (CNCORE-223).
  *
  * A BROWSER BECAUSE NOTHING ELSE CAN SEE THIS. ADR-0103's test for a candidate
  * here is "could a `fetch` observe it?", and a `fetch` observes what the
@@ -90,5 +93,87 @@ describe("a Provider's name with no break in it", () => {
 
     await expect.poll(() => row.count()).toBe(1);
     expect(await overrun(row)).toStrictEqual({ element: 0, document: 0 });
+  });
+});
+
+describe("a record's fields with no break in them", () => {
+  const unbroken = inject("unbroken");
+
+  /*
+   * A SEARCH RESULT IS A FLEX ROW, so each of these is the witness `break-word`
+   * would fail, as the Values row is above: the row asserted rather than the
+   * field, because a field that grew to the word holds its text perfectly well.
+   *
+   * EACH QUERY IS SHORT, so the heading echoing it does not decide the width:
+   * that heading prints the query raw, which is CNCORE-226's, and a query as
+   * wide as the field would be witnessing it instead of the row.
+   */
+  it.each([
+    { field: "title", query: unbroken.title.slice(0, 10), run: unbroken.title },
+    { field: "kind", query: "whose kind", run: unbroken.kind },
+    { field: "release date", query: "whose release date", run: unbroken.released },
+  ])("wraps a $field inside its row among /import's search results", async ({ query, run }) => {
+    await page.goto(`${baseUrl}/import?q=${encodeURIComponent(query)}`);
+    const row = page.locator("section[aria-labelledby='results'] li").filter({
+      hasText: run.slice(0, 100),
+    });
+
+    await expect.poll(() => row.count()).toBe(1);
+    expect(await overrun(row)).toStrictEqual({ element: 0, document: 0 });
+  });
+});
+
+describe("an Item's title with no break in it", () => {
+  const title = inject("unbroken").title;
+
+  it("wraps inside the heading on its own Item page", async () => {
+    await page.goto(`${baseUrl}/items/${inject("titledUnbroken")}`);
+    const heading = page.getByRole("heading", { level: 1 });
+
+    await expect.poll(() => heading.textContent()).toBe(title);
+    expect(await overrun(heading)).toStrictEqual({ element: 0, document: 0 });
+  });
+
+  /*
+   * AND IN THE VALUES ROW BELOW IT, which prints the same title as the claim it
+   * projects from (ADR-0014). The heading is a block and the row is flex, so
+   * the heading wrapping says nothing about the row: with only the heading
+   * wrapped, the page still ran 1,554 pixels past the viewport.
+   *
+   * THE `Title` ROW, found by its label, because the sort name derived from
+   * this title is a row of its own holding the same word. The document half
+   * is what answers for that one.
+   */
+  it("wraps inside the row where its Item page lists it as a value", async () => {
+    await page.goto(`${baseUrl}/items/${inject("titledUnbroken")}`);
+    const row = page
+      .locator("section[aria-labelledby='values'] li")
+      .filter({ has: page.getByText("Title", { exact: true }) })
+      .filter({ hasText: title.slice(0, 100) });
+
+    await expect.poll(() => row.count()).toBe(1);
+    expect(await overrun(row)).toStrictEqual({ element: 0, document: 0 });
+  });
+
+  it("wraps inside its row in the catalogue's own list", async () => {
+    await page.goto(`${baseUrl}/`);
+    const row = page.locator("main li").filter({ hasText: title.slice(0, 100) });
+
+    await expect.poll(() => row.count()).toBe(1);
+    expect(await overrun(row)).toStrictEqual({ element: 0, document: 0 });
+  });
+});
+
+describe("a Group's name with no break in it", () => {
+  /*
+   * WHERE CNCORE-179 WRAPPED IT FIRST, as a raw class on the chip. The chips
+   * are a flex row, so this is the witness `break-word` fails.
+   */
+  it("wraps inside the row of Groups the catalogue narrows to", async () => {
+    await page.goto(`${baseUrl}/`);
+    const chips = page.getByRole("navigation", { name: "Narrow to a Group" });
+
+    await expect.poll(() => chips.textContent()).toContain(inject("unbrokenGroup"));
+    expect(await overrun(chips)).toStrictEqual({ element: 0, document: 0 });
   });
 });

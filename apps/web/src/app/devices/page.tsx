@@ -76,6 +76,7 @@ export default async function DevicesPage() {
           {devices.map((device) => (
             <li className="flex items-center justify-between gap-4 py-3" key={device.id}>
               <div>
+                {/* TODO(CNCORE-226): the names a device declared, printed raw. */}
                 <p className="text-sm">{nameOf(device)}</p>
                 <p className="text-muted-foreground text-xs">
                   Last used <Moment at={device.lastSeenAt} />

@@ -20,6 +20,7 @@ import {
   Walk,
 } from "@/components/listing";
 import { oneGroup, oneValue } from "@/components/query-params";
+import { TheirWords } from "@/components/their-words";
 
 /**
  * CATALOGUE SEARCH, which is what finding something without knowing its id
@@ -238,10 +239,20 @@ function NothingFound({
       <Empty className="mt-6 border">
         <EmptyHeader>
           <EmptyTitle>
-            {/* `wrap-anywhere` for the reason the Group picker gives. */}
-            <h2 className="wrap-anywhere" id="nothing-found">
-              Nothing matched {query}
-              {within !== undefined && ` in ${within}`}
+            {/*
+              THE QUERY AND THE GROUP'S NAME ARE NOT THIS PAGE'S WORDS, so each
+              goes through `TheirWords` and the sentence around them does not
+              (ADR-0142): one unbroken word from either would otherwise set the
+              page's width.
+            */}
+            <h2 id="nothing-found">
+              Nothing matched <TheirWords>{query}</TheirWords>
+              {within !== undefined && (
+                <>
+                  {" "}
+                  in <TheirWords>{within}</TheirWords>
+                </>
+              )}
             </h2>
           </EmptyTitle>
           <EmptyDescription>

@@ -1,10 +1,18 @@
-import { placeItemByHand } from "@canoncore/db";
+import { createGroupByHand, placeItemByHand } from "@canoncore/db";
 import { anItemTitled, aProvider, aStatement } from "@canoncore/db/testing/catalogue";
 import { bounded } from "@canoncore/providers";
 import type { TestProject } from "vitest/node";
 
 import { anInstanceServing, OWNER_PASSWORD, theAppBuilt } from "../e2e/instance";
-import { aProviderThatFloodsItsName, FLOOD } from "../e2e/stubs";
+import {
+  aProviderThatFloodsItsName,
+  aProviderThatFloodsItsRecord,
+  FLOOD,
+  UNBROKEN,
+} from "../e2e/stubs";
+
+/** A Group's name, a word repeated for the reason `UNBROKEN`'s fields are. */
+const UNBROKEN_GROUP = "group".repeat(100);
 
 /**
  * ONE INSTANCE, FOR THE THINGS A BROWSER IS NEEDED FOR (CNCORE-73, CNCORE-217).
@@ -17,17 +25,19 @@ import { aProviderThatFloodsItsName, FLOOD } from "../e2e/stubs";
  * ITS OWN VITEST PROJECT AND ITS OWN CI JOB, which is the ticket's first
  * acceptance criterion and was decided against the duplicated setup it costs.
  * What it duplicates is ONE instance rather than the page seam's seven: a
- * browser suite needs one ordering to drag and one Provider that floods its
- * name, not a wiki provider, a TMDB provider, a paged catalogue or a fresh
- * install. And what the
+ * browser suite needs one ordering to drag and two Providers that flood what
+ * they send, not a wiki provider, a TMDB provider, a paged catalogue or a
+ * fresh install. And what the
  * split buys is that a flake in the most brittle thing in this repository
  * reddens a check called "The page in a browser" instead of the one that says
  * the app serves pages at all.
  *
  * WHAT IT MAY ASSERT IS BOUNDED, and the bound is in ADR-0103 rather than in
  * this comment: that dragging reorders, that the new order survives a reload,
- * and since CNCORE-217 that a Provider's prose wraps inside the page -- which is
- * layout, and no `fetch` can observe layout. Everything else about reordering --
+ * and since CNCORE-217 that text the page did not write wraps inside it, which
+ * CNCORE-223 widened from a Provider's prose to a record's fields, an Item's
+ * values and a Group's name -- which is layout, and no `fetch` can observe
+ * layout. Everything else about reordering --
  * the arithmetic, the refusals, the write, what a visitor is shown -- is
  * asserted without a browser, because everything else can be.
  *
@@ -56,17 +66,19 @@ export default async function setup(project: TestProject) {
   });
 
   const floodsItsName = await aProviderThatFloodsItsName();
+  const floodsItsRecord = await aProviderThatFloodsItsRecord();
 
   const instance = await anInstanceServing({
     suffix: "drag",
     ownerPassword: OWNER_PASSWORD,
     /*
-     * ONE PROVIDER, AND ONLY THE ONE WHOSE PROSE IS AS WIDE AS IT IS LONG
-     * (CNCORE-217). Loopback is admitted BY NAME, which is the config
-     * boundary's whole job (ADR-0034); nothing else here reaches out.
+     * TWO PROVIDERS, EACH SENDING TEXT AS WIDE AS IT IS LONG: one its prose
+     * (CNCORE-217) and one its record (CNCORE-223). Loopback is admitted BY
+     * NAME, which is the config boundary's whole job (ADR-0034); nothing else
+     * here reaches out.
      */
     allowlist: "127.0.0.0/8",
-    providers: [floodsItsName.url],
+    providers: [floodsItsName.url, floodsItsRecord.url],
     fill: async (db) => {
       const releaseOrder = await anItemTitled(db, "Release order", {
         isContainer: true,
@@ -99,9 +111,24 @@ export default async function setup(project: TestProject) {
         sourceId: flooding,
       });
 
+      /*
+       * AN ITEM TITLED AS THAT RECORD IS (CNCORE-223), which is the title an
+       * import of it would write. Written by hand for the reason the one above
+       * is: what this suite asserts is how the page lays the title out, not how
+       * it arrived.
+       */
+      const unbrokenTitle = await anItemTitled(db, UNBROKEN.title);
+
+      /*
+       * AND A GROUP NAMED WITH NO BREAK IN IT, which is the Owner's words where
+       * those are the Provider's: `group.create` bounds neither.
+       */
+      await createGroupByHand(db, { name: UNBROKEN_GROUP });
+
       return {
         dragging: { releaseOrder, inOrder: held.map(({ title }) => title) },
         claimed,
+        unbrokenTitle,
       };
     },
   });
@@ -111,10 +138,14 @@ export default async function setup(project: TestProject) {
   project.provide("claimedByTheFlood", instance.fixture.claimed);
   project.provide("browserOwnerPassword", OWNER_PASSWORD);
   project.provide("floodedName", FLOOD);
+  project.provide("unbroken", UNBROKEN);
+  project.provide("titledUnbroken", instance.fixture.unbrokenTitle);
+  project.provide("unbrokenGroup", UNBROKEN_GROUP);
 
   return async () => {
     await instance.close();
     await floodsItsName.close();
+    await floodsItsRecord.close();
   };
 }
 
@@ -126,9 +157,15 @@ declare module "vitest" {
     dragging: { releaseOrder: string; inOrder: string[] };
     /** ADR-0044's one password, which every control on that page is behind. */
     browserOwnerPassword: string;
-    /** The name the one Provider declares, before this app bounded it. */
+    /** The name the first Provider declares, before this app bounded it. */
     floodedName: string;
     /** An Item carrying a value that Provider claims, so its name is on the page. */
     claimedByTheFlood: string;
+    /** A record's fields as the second Provider sends them, before this app read them. */
+    unbroken: typeof UNBROKEN;
+    /** An Item whose title is that record's, with no break in it. */
+    titledUnbroken: string;
+    /** The name of a Group the Owner drew, with no break in it. */
+    unbrokenGroup: string;
   }
 }
