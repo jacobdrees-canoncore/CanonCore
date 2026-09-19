@@ -1194,9 +1194,9 @@ figure here meant anything.
 - **A BACKEND DOES NOT PUBLISH WHAT IT DID UNTIL IT EXITS.** Six statements issued over a connection
   that STAYED OPEN moved `xact_commit` by three over the next eight and a half seconds and by two
   more over the following twenty; the same six over a connection that CLOSED counted exactly. So the
-  count is taken when nothing is connected, which is why the measured server is STARTED AND STOPPED
-  INSIDE the window and why the instance is a database rather than one of `global-setup.ts`'s
-  long-lived servers. Waiting longer is not the fix and looks like one.
+  count is taken when nothing is connected, which is why the measured server is STOPPED INSIDE the
+  window (it is started before it, for the reason "WHAT IT COSTS TO RUN" below gives) and why the
+  instance is a database rather than one of `global-setup.ts`'s long-lived servers. Waiting longer is not the fix and looks like one.
 - **`pg_terminate_backend` WOULD MAKE THE WAIT UNNECESSARY AND CANNOT BE USED.** node-postgres
   re-emits an idle client's error on the pool, and a pool with no `error` listener throws it as an
   uncaught exception (`pg-pool@3.14.0`, `index.js:62`). Measured against a real `next start`:
@@ -1221,11 +1221,82 @@ fetching a page mid-measurement cannot be told from the page under test. That is
 in `TEST_DATABASE_SUFFIXES` -- a property of a WHOLE DATABASE, which is the standard that list already
 sets, met by quiet rather than by rows.
 
-**WHAT IT COSTS TO RUN is three server starts for two figures**, the third being a server that is
-asked NOTHING: `instrumentation.ts` starts the scheduler on boot (ADR-0049) and
-`closeRunsLeftOpen` writes before the first request, so that constant is measured and subtracted
-rather than assumed away. Nothing else fires inside a window this short -- both registered tasks
-trigger daily and are armed for their next firing.
+**WHAT IT COSTS TO RUN is one server start per WINDOW, and at least two windows per figure.** Each
+server is started BEFORE its window opens and stopped inside it, so the scheduler's boot write
+(`instrumentation.ts`, ADR-0049; `closeRunsLeftOpen` writes before the first request) and however many
+readiness probes the harness made land before the first reading rather than being measured and
+subtracted -- a boot is not a constant, and the third, idle server this paragraph once described went
+when that was found. Neither registered task fires inside a window, since both trigger daily and are
+armed for their next firing. **But "nothing else fires inside a window this short" was false: autovacuum
+does, and the subsection below is what it cost.** Most of a window is node-postgres letting a booted
+pool go, ten seconds, and that is why the second window is the price of this instrument rather than
+a rounding error on it.
+
+### Autovacuum talks to the quietest database, so one window is never the answer -- under CNCORE-218
+
+`item-page-cost.test.ts` failed twice in CI on one PR, each time one figure over by **exactly 17**, a
+different test each time: `expected 23 to be 6` and `expected 10 to be 27`. **The page was not
+reading more**: a page that read twice would double a figure, and these added a fixed 17 to one
+window whichever side of the comparison it fell on. An autovacuum worker commits transactions in the database it visits and never counts
+as a session, so `sessions` cannot subtract it, and `pg_stat_database` says nothing about which
+backend committed what.
+
+**MEASURED on PostgreSQL 18.6, 2026-09-19**, filling a database exactly as the counted catalogue is
+filled and then polling `pg_stat_database` every 20ms with nothing connected:
+
+- **The first visit added 17**, `sessions` flat, on this Mac's shared container and on a fresh
+  `postgres:18` alike. It auto-analyzed seven SYSTEM catalogs -- `pg_attribute`, `pg_class`,
+  `pg_attrdef`, `pg_constraint`, `pg_index`, `pg_trigger`, `pg_depend` -- and vacuumed `pg_depend`.
+  The migrations are what put them past their thresholds: `buildTestDatabase` builds from empty and
+  runs the whole ladder. No user table was touched; the fill is a handful of rows. So the ticket's
+  guess, a transaction per USER table analyzed, was wrong twice over: eight operations came to 17.
+  How the 17 divides among them was not measured; only the visit's total was.
+- **Every visit after it added 2**, exactly sixty seconds apart, having nothing to do. None was ever
+  seen connected at a 20ms poll.
+- **`VACUUM ANALYZE` ahead of the windows cut the first visit to 4 and left every other at 2.** So
+  analyzing the catalogue first, the obvious repair, turns a +17 into a +2 and looks like a fix.
+- **This Mac hides it.** Its container holds 956 databases, and the launcher reached this one
+  106 seconds after the fill and not again in the next 95. A fresh cluster holding a few databases,
+  which is what CI's service container is, reached this one every sixty seconds.
+
+**SO THE INSTRUMENT COUNTS WINDOWS UNTIL ONE FIGURE HAS COME ROUND TWICE, and refuses after three.**
+A visit only ever ADDS, and it reaches one database at most once a naptime -- PostgreSQL documents
+`autovacuum_naptime` as "the minimum delay between autovacuum runs on any given database", one minute
+by default -- so of two windows inside that minute at most one carries it, and the figure seen twice
+is the work's own. **That holds only inside the minute, so it is ENFORCED rather than assumed:** the
+instrument reads `autovacuum_naptime` off the server, times each window from before its first reading
+to after its last, and refuses a figure whose two agreeing windows spanned a naptime less a second
+(the second is for a visit that began before the window it published into; the longest measured
+lasted 0.14s). Three windows of a server under test take about thirty seconds in CI, so the refusal
+is for a runner twice as slow as today's, and it is not asserted: reaching it costs a minute. Three
+figures with no repeat among them are a cost that genuinely varies, or a database something else is
+talking to, which is the other refusal, and more windows would only hide it.
+
+`statements.test.ts` pins the rest: a bystander asking twice in the first window only is not
+reported; work that asks one more statement every window is refused; and what a window's
+preparation asks is not counted while what it prepares reaches the work. That last is `preparing`,
+the step a caller whose work needs something standing first -- a server -- gets it from, run before
+each window's wait for an empty database.
+
+**WHAT THE SECOND WINDOW COSTS, MEASURED IN CI:** `item-page-cost.test.ts` went from 69.2 seconds
+(run `35454105742`, on `main` before this) to 136.5 (run `35455445649`, this change), and it is the
+last file the e2e suite finishes, so `The page over HTTP` went from 151 seconds to 222. ADR-0141's
+eight minutes is still more than twice that, and growth is what that record leaves its tripling room
+for, so no ceiling moved here. The next measurement of it will see this.
+
+**Four things that would have been cheaper, and why none was taken:**
+
+- **Excluding the worker's transactions by arithmetic.** `pg_stat_database` counts per database and
+  attributes nothing to a backend: a worker's transactions land in the same `xact_commit` a
+  request's do, with `sessions` flat.
+- **Watching for the worker.** A visit with nothing to do was over before a 20ms poll could see it,
+  every time.
+- **Giving autovacuum nothing to do.** Per-table `autovacuum_enabled = false` cannot reach the
+  catalogs it analyzes -- `permission denied: "pg_class" is a system catalog`, as a superuser -- and
+  the measurement above settles it anyway: a visit that found nothing to do still cost 2.
+- **Turning autovacuum off.** It is a cluster setting, and on this Mac the cluster is the one
+  container every worktree shares (ADR-0104). A test that switched it off would change other
+  worktrees' databases to make its own figure come out.
 
 ## A symlinked Vitest config is refused for a reason of its own -- under CNCORE-201
 
