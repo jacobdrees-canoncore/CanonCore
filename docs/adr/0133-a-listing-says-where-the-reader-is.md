@@ -84,11 +84,21 @@ published pagination contract for the counterexample.
 
 **EVERY LISTING ANSWERS `rowsBefore`: HOW MANY ROWS SORT BEFORE THE PAGE'S FIRST.** The catalogue,
 work-browsing, Catalogue search, a Container's members and "Also appears in", each narrowed to a Group
-where it can be. A surface reads it as Rows `rowsBefore + 1` to `rowsBefore + rows.length` of
+where it can be — and the Containers one Provider holds, on `/import`, which CNCORE-187 added while
+this was being built. A surface reads it as Rows `rowsBefore + 1` to `rowsBefore + rows.length` of
 `total`, and all five say it in one sentence, `Holding` in `apps/web/src/components/listing.tsx`:
 "Showing items 3,201 to 3,300 of 7,000", with each surface's own noun (items, results, members,
 appearances) and "Showing item 465 of 465" for a page of one. **A page opened cold from a shared
 link says it too**, because the number is the Listing's rather than the reader's walk added up.
+
+**THE SIXTH IS THE ONE THAT PAYS NOTHING, AND IT IS WORTH SAYING WHY.** A Provider answers
+`containers` WHOLE, with no cursor of its own (ADR-0033), so `/import` cuts its pages from a list it
+is already holding: the index it cuts at IS how many come before the page, and there is nothing to
+count. It carries the field for the reason a reader needs it, and the same refusal stands — that
+procedure takes the two cursors and no number. **A LISTING NOT CUT IN `onePage` DOES NOT INHERIT
+THIS**, which is the honest limit of "from the shared contract": what that page shares with the other
+five is the surface (`Holding`) and the shape of an answer, so this one was WIRED rather than
+inherited — and the compiler is what found it, because its page would not build without the field.
 
 **IT IS A COUNT OF THE ROWS BEHIND THE PAGE'S CUT, and nothing else.** ADR-0119's `TheCut` is one
 predicate, the Rows ahead of a point, and the Rows behind are its complement. `TheSize` in
@@ -197,6 +207,9 @@ not the count: how many Rows the walk actually handed out before each page.
   two Listings where their first, second and stepped-back pages are.
 - **Over HTTP**, `/` walked to its end with every page's address opened cold, and each of `/works`,
   `/search`, a Container's members and "Also appears in" saying where its step back or jump landed.
+  `/import` is walked to its end over the 465 Containers `provider-wiki` holds, every page saying
+  which of them it shows, and at the router `provider.containers` says where it is walked forward,
+  stepped back, and stepped back past the start.
 
 **MOST OF THE PACKAGE-EXPORT TESTS WERE WRITTEN AFTER THE CODE**, because the step back's arithmetic
 went in with the first forward test's green. So they were mutation-checked, each run and read: the
@@ -204,7 +217,8 @@ page read back left as the count behind its Cut (killed by the new every-Row tes
 dropping the Listing's own predicate (two tests), the step back offered off nothing but the page's
 first Row (four of CNCORE-174's own tests), "Also appears in"'s spokesman left out of its count (the
 new test, silently, above), and `rowsBefore` handed to the surface as zero on `/search` and on a
-Container's members (both surfaces' step-back tests, and `/search`'s page-two sentence).
+Container's members (both surfaces' step-back tests, and `/search`'s page-two sentence), and zero on
+`/import`, which its own walk catches on the second page.
 
 **THE STATUS IS `accepted`.** Both halves of this record are whole: every Listing says where the
 reader is, from the shared page every Listing is cut in, and nothing lets a reader jump by number.
