@@ -111,6 +111,13 @@ answered correctly, while the worktree count read full. So read every live termi
 than counting worktrees: answer what is technical and yours, and carry up only what `CLAUDE.md`
 reserves for the user -- money, a licence, or a background service.
 
+**AND SAY WHO IS ANSWERING, because the agent cannot tell.** An `AskUserQuestion` that returns the
+option its own asker marked `(Recommended)` looks identical whether the user chose it, the dispatcher
+chose it, or nothing did. Two PRs on 2026-09-19 wrote "the Owner chose" over a choice the Owner never
+saw; one agent caught it itself and said why, which is that a default answer and a real one arrive the
+same way. Name yourself and the date in the answer, so the PR body and any record attribute it to the
+mouth it came from.
+
 **FILL IT FROM A FREE TREE RATHER THAN LEAVING IT EMPTY.** Throughput is the goal and the collision
 rule is how you reach it, not a reason to under-fill. On 2026-09-16 the corpus run owned
 `packages/db`, so the rest went to `ci.yml`, `packages/ui`, one `apps/web` file and a provider repo.
