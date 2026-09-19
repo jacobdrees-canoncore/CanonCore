@@ -834,6 +834,10 @@ function aCatalogueThatHoldsStill() {
  * request, and Vitest runs these files in parallel, so a second suite fetching a
  * page mid-measurement cannot be told from the page under test.
  *
+ * NOTHING HERE, THAT IS: autovacuum still visits it once a naptime, and no
+ * database can refuse that. `statements.ts` says what a visit adds to a window
+ * and why the instrument counts past it rather than this file preventing it.
+ *
  * AND IT IS A DATABASE WITHOUT A SERVER, which is the ONE fixture here that is.
  * The instrument can only read a database whose statistics have been published,
  * and a backend publishes them on exit -- so the server that serves the request

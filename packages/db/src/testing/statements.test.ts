@@ -67,6 +67,46 @@ describe("statementsWhile", () => {
     expect(counted).toBe(6);
   });
 
+  it("reports what the work costs, not what a visitor added to one window", async () => {
+    /*
+     * CNCORE-218. An autovacuum worker visits every database once a naptime and
+     * commits transactions on it without ever counting as a session, so a visit
+     * that lands inside a window reads as the work having asked more. It is
+     * stood in for here by a second pool that asks twice in the FIRST window
+     * only: to the counter the two are the same thing, transactions nothing in
+     * the work caused.
+     */
+    let windows = 0;
+    const counted = await statementsWhile(databaseUrl, async () => {
+      const db = createDb(databaseUrl, { maxConnections: 1 });
+      for (let i = 0; i < 6; i++) await db.execute(sql`select 1`);
+      await db.$client.end();
+
+      if (windows++ > 0) return;
+      const visitor = createDb(databaseUrl, { maxConnections: 1 });
+      await visitor.execute(sql`select 1`);
+      await visitor.execute(sql`select 1`);
+      await visitor.$client.end();
+    });
+
+    expect(counted).toBe(6);
+  });
+
+  it("refuses to answer for work whose cost does not hold still", async () => {
+    // ONE STATEMENT MORE EVERY WINDOW, so no figure ever comes round twice.
+    // That is a page whose cost varies, or a database something other than
+    // autovacuum is talking to, and neither has a cost to report.
+    let windows = 0;
+    const counting = statementsWhile(databaseUrl, async () => {
+      const db = createDb(databaseUrl, { maxConnections: 1 });
+      for (let i = 0; i <= windows; i++) await db.execute(sql`select 1`);
+      windows++;
+      await db.$client.end();
+    });
+
+    await expect(counting).rejects.toThrow("1, 2, 3");
+  });
+
   it("waits out a pool that has not let go, which is what a server's boot relies on", async () => {
     /*
      * THE SHAPE THE PAGE SEAM RESTS ON, asserted here because that is where the

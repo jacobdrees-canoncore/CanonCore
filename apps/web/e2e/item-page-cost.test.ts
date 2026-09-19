@@ -67,26 +67,42 @@ async function costOf(asking: (baseUrl: string) => Promise<unknown>): Promise<nu
    * `statementsWhile` opens its window on an empty database, so starting the
    * server first puts all of it on the far side of the first reading: what is
    * counted is the request and nothing else.
+   *
+   * AND THERE IS ONE SERVER PER WINDOW, NOT PER FIGURE (CNCORE-218). The
+   * instrument counts at least two windows and answers with a figure it saw
+   * twice, because an autovacuum visit can land in one of them, and a window
+   * ends with its server stopped -- so each one gets a server of its own.
+   * `statementsWhile` starts it through `preparing`, where its boot is not
+   * counted. Whatever is still running when this returns or throws is stopped
+   * here, since a leaked `next start` is a CI job that never ends.
    */
-  const server = await aServerOnTheCountedCatalogue();
-  let stopped = false;
+  const running = new Set<Awaited<ReturnType<typeof aServerOnTheCountedCatalogue>>>();
   try {
-    return await statementsWhile(databaseUrl, async () => {
-      await asking(server.baseUrl);
-      server.close();
-      stopped = true;
-    });
+    return await statementsWhile(
+      databaseUrl,
+      async (server) => {
+        await asking(server.baseUrl);
+        server.close();
+        running.delete(server);
+      },
+      async () => {
+        const server = await aServerOnTheCountedCatalogue();
+        running.add(server);
+        return server;
+      },
+    );
   } finally {
-    if (!stopped) server.close();
+    for (const server of running) server.close();
   }
 }
 
 /**
- * LONGER THAN VITEST'S FIVE SECONDS, BECAUSE A MEASUREMENT STARTS A SERVER AND
- * THEN WAITS FOR ITS POOL TO LET GO. node-postgres holds an idle client for ten
+ * LONGER THAN VITEST'S FIVE SECONDS, BECAUSE A WINDOW STARTS A SERVER AND THEN
+ * WAITS FOR ITS POOL TO LET GO. node-postgres holds an idle client for ten
  * seconds, and that wait is what keeps the server's own startup out of the
- * count. Two measurements is two of those, which is well past the default and
- * nowhere near the hook timeout this config already sets for a build.
+ * count. A figure is two windows, or three when autovacuum lands in one, so a
+ * test's two figures are four to six of those: well past the default, and
+ * inside this with room.
  */
 const LONG_ENOUGH_TO_SERVE_AND_STOP_MS = 120_000;
 
