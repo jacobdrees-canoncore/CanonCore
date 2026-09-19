@@ -24,6 +24,11 @@ async function callRoute(
   return handler(new NextRequest(request));
 }
 
+/** The OpenAPI document, as the route serves it to a caller. */
+function servedDocument(): Promise<Response> {
+  return callRoute(new Request("http://localhost/api/rpc/api-reference/spec.json"));
+}
+
 const client: AppRouterClient = createORPCClient(
   new RPCLink({
     url: "http://localhost/api/rpc",
@@ -68,9 +73,7 @@ describe("the catch-all oRPC route", () => {
   });
 
   it("serves an OpenAPI document naming healthCheck", async () => {
-    const response = await callRoute(
-      new Request("http://localhost/api/rpc/api-reference/spec.json"),
-    );
+    const response = await servedDocument();
     expect(response.status).toBe(200);
     const spec = (await response.json()) as { paths?: Record<string, unknown> };
     expect(Object.keys(spec.paths ?? {})).toContain("/healthCheck");
@@ -86,11 +89,9 @@ describe("the catch-all oRPC route", () => {
    * ASSERTED ON THE SERVED DOCUMENT rather than on the converter, because the
    * converter is the part that was wrong while its own input was right.
    */
-  it("states a Provider's prose is bounded, and a Provider's address is a URL", async () => {
-    const response = await callRoute(
-      new Request("http://localhost/api/rpc/api-reference/spec.json"),
-    );
-    const answer = [
+  it("states the ceiling on a failure reason and a Provider's name, and that its address is a URL", async () => {
+    const spec: unknown = await (await servedDocument()).json();
+    const searchAnswerPath = [
       "paths",
       "/provider/search",
       "post",
@@ -101,15 +102,26 @@ describe("the catch-all oRPC route", () => {
       "schema",
       "properties",
     ];
-    const spec: unknown = await response.json();
+    const reasonPath = [
+      ...searchAnswerPath,
+      "failed",
+      "items",
+      "properties",
+      "reason",
+      "properties",
+    ];
+    const providerPath = [
+      ...searchAnswerPath,
+      "answered",
+      "items",
+      "properties",
+      "provider",
+      "properties",
+    ];
 
-    expect(spec).toHaveProperty(
-      [...answer, "failed", "items", "properties", "reason", "properties", "text", "maxLength"],
-      300,
-    );
-    const provider = [...answer, "answered", "items", "properties", "provider", "properties"];
-    expect(spec).toHaveProperty([...provider, "name", "maxLength"], 300);
-    expect(spec).toHaveProperty([...provider, "baseUrl", "format"], "uri");
+    expect(spec).toHaveProperty([...reasonPath, "text", "maxLength"], 300);
+    expect(spec).toHaveProperty([...providerPath, "name", "maxLength"], 300);
+    expect(spec).toHaveProperty([...providerPath, "baseUrl", "format"], "uri");
   });
 });
 

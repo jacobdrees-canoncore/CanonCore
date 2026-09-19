@@ -36,7 +36,7 @@ So the mount is covered, by the two things that can independently break in it: a
 routed at the handler proves the RPCHandler prefix, and a request for the document proves the
 OpenAPIHandler. Both were checked by breaking the route rather than by being watched to pass --
 changing the RPC prefix fails the first and only the first, and removing the reference plugin fails
-the second and only the second.
+the tests that request the document and only those.
 
 **THE ZOD CONVERTER WAS NOT PROVED, which this paragraph claimed until CNCORE-212.** Asserting a path
 is listed passes with `schemaConverters: []`, measured by removing it, and passed while a zod bump

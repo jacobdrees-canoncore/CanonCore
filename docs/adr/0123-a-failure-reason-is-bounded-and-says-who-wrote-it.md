@@ -171,9 +171,9 @@ schema both procedures state as their output — so the ceiling is in the output
 held to rather than an invariant two handlers each had to remember, and it is stated in the OpenAPI
 document a caller reads.
 
-**FOR MOST OF 2026-09-19 IT WAS NOT, and no test noticed.** zod 4.6.5, taken that morning, keeps a
-length on its check's own `def` and leaves `_zod.bag` empty, where 4.5.4 filled it, and @orpc/zod
-1.15.0 read only the bag. So every length and format in this API dropped out of the document, and
+**FROM THE AFTERNOON OF 2026-09-19 UNTIL CNCORE-212 IT WAS NOT, and no test noticed.** zod 4.6.5,
+taken that afternoon, keeps a length on its check's own `def` and leaves `_zod.bag` empty, where
+4.5.4 filled it, and @orpc/zod 1.15.0 read only the bag. So every length and format in this API dropped out of the document, and
 CNCORE-165 read it and found `{"type": "string"}` where this sentence claimed a ceiling. @orpc/zod
 1.15.1 reads the checks ("Keep JSON Schema constraints on zod >= 4.6", in its release notes), and
 CNCORE-212 took it with the @orpc family it peer-requires at exactly its own version.
@@ -538,8 +538,9 @@ declining `browse` well-formed rather than a failure.
 `{wrote, text}`, spelled twice — and the half a string cannot carry is `wrote`, so a caller holding
 one had no way to tell this catalogue's sentence about the Owner's own settings from a third party's
 text. It is `data: failureReason` now, declared, so the ceiling is in the output schema and in the
-OpenAPI document rather than an invariant each handler remembered. The document lost it for a day,
-for the reason "As built, under CNCORE-95" gives, and states it again since CNCORE-212.
+OpenAPI document rather than an invariant each handler remembered. The document lost it when zod
+4.6.5 was taken, for the reason "As built, under CNCORE-95" gives, and states it again since
+CNCORE-212.
 
 Its MESSAGE was wrong too, and in the way this record warns about. "That provider URL is not one this
 instance may reach" is true of ADR-0034 refusing a URL and false of the other two the branch carries
