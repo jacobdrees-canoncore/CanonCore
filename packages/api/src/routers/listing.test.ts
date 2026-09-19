@@ -1,4 +1,4 @@
-import type { Database } from "@canoncore/db";
+import { createGroupByHand, type Database, putItemInGroupByHand } from "@canoncore/db";
 import {
   anItem,
   anItemTitled,
@@ -60,6 +60,18 @@ const WHAT_A_READER_TYPED = "Walked by the Listing contract";
 const A_RUN_OF_THEM = 5;
 
 /**
+ * THE GROUP THE NARROWED CATALOGUE IS WALKED WITHIN, drawn when that entry's
+ * Rows are seeded and read by every page it is asked for.
+ *
+ * A BINDING RATHER THAN AN ENTRY'S OWN FIELD, because an entry is a procedure
+ * and a way to ask it for a page -- and "within which Group" is part of how
+ * this one is asked, decided only once the database it lives in is reachable.
+ * `describe.each` seeds each entry before it pages it, so no page is asked for
+ * with this still empty.
+ */
+let theGroupWalked = "";
+
+/**
  * EVERY LISTING PROCEDURE, AND ADDING A LISTING IS ADDING A LINE HERE. An entry
  * says which procedure it is, how to ask it for a page, and what to put in it;
  * everything else about a Listing is the block below and is not an entry's to
@@ -94,6 +106,33 @@ const EVERY_LISTING: AListing[] = [
     procedure: "catalogue.list",
     holds: (db) => aRunAndTheShapesTheOrderHas(db, "Walked by the catalogue's own contract"),
     page: (input) => call(appRouter.catalogue.list, input, { context }),
+  },
+  {
+    /*
+     * THE CATALOGUE NARROWED TO A GROUP (CNCORE-179), which is a Listing in its
+     * own right as far as a walk is concerned: a Group holding all of Doctor
+     * Who is seven thousand Rows, and a reader walks it exactly as they walk
+     * the catalogue it was narrowed out of. So it is a line here rather than a
+     * test of its own, and inherits every guarantee below by being one.
+     *
+     * THE SHAPES THE CATALOGUE'S ORDER HAS, INSIDE THE GROUP -- the tied pair
+     * and the keyless tail -- because a narrowing that walked plain Rows would
+     * pass against a cursor that lost them, for the reason
+     * `aRunAndTheShapesTheOrderHas` gives. And this Listing is the ONE here the
+     * shared catalogue cannot reach into: nothing else knows the Group's id, so
+     * its Rows are exactly the ones put in it.
+     */
+    procedure: "catalogue.list, narrowed to a Group",
+    holds: async (db) => {
+      theGroupWalked = await createGroupByHand(db, { name: "Walked by the narrowed contract" });
+      const rows = await aRunAndTheShapesTheOrderHas(db, "Walked inside a Group");
+      for (const itemId of rows) {
+        await putItemInGroupByHand(db, { groupId: theGroupWalked, itemId });
+      }
+      return rows;
+    },
+    page: (input) =>
+      call(appRouter.catalogue.list, { ...input, group: theGroupWalked }, { context }),
   },
   {
     procedure: "catalogue.works",

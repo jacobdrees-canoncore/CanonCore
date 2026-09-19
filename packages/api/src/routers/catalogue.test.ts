@@ -1,4 +1,4 @@
-import type { Database } from "@canoncore/db";
+import { createGroupByHand, type Database, putItemInGroupByHand } from "@canoncore/db";
 import { anItemTitled, aPlacement, connect } from "@canoncore/db/testing/catalogue";
 import type { CatalogueRowPublic } from "@canoncore/schemas";
 import { call } from "@orpc/server";
@@ -90,6 +90,24 @@ describe("catalogue.list", () => {
 
     expect(await rowFor(ordering)).toMatchObject({ holds: 1 });
     expect(await rowFor(held)).toMatchObject({ holds: 0 });
+  });
+
+  it("answers within a Group it is handed, at the Group's own size", async () => {
+    // CNCORE-179. The narrowing itself is the db seam's to hold, past both
+    // tombstones and a Group that names nothing; what this adds is that the
+    // procedure is WIRED to it. An input that parsed a `group` and dropped it
+    // would answer the whole catalogue -- and would pass the Listing contract,
+    // which walks whatever it is handed and cannot tell a narrowed Listing
+    // from the catalogue it was narrowed out of.
+    const scope = await createGroupByHand(db, { name: "A scope the front page narrows to" });
+    const inside = await anItemTitled(db, "A story on a narrowed front page");
+    await anItemTitled(db, "A story left off a narrowed front page");
+    await putItemInGroupByHand(db, { groupId: scope, itemId: inside });
+
+    const narrowed = await call(appRouter.catalogue.list, { group: scope }, { context });
+
+    expect(narrowed.rows.map((row) => row.id)).toStrictEqual([inside]);
+    expect(narrowed.total).toBe(1);
   });
 });
 

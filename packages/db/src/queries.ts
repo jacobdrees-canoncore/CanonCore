@@ -19,6 +19,7 @@ import type { Database } from "./index";
 import { type PlaceIn, pastTheRowIn, type TheOrder, theOrderBy } from "./order";
 import {
   aliases,
+  groupItems,
   itemKinds,
   items,
   placementSources,
@@ -940,9 +941,9 @@ export interface Catalogue {
  */
 export async function readCatalogue(
   db: Database,
-  { limit, after }: { limit: number; after?: string },
+  { limit, after, group }: { limit: number; after?: string; group?: string },
 ): Promise<Catalogue> {
-  return readListing(db, { limit, after, within: IN_THE_CATALOGUE });
+  return readListing(db, { limit, after, group, within: IN_THE_CATALOGUE });
 }
 
 /**
@@ -996,13 +997,13 @@ export async function readWorks(
  */
 async function readListing(
   db: Database,
-  { limit, after, within }: { limit: number; after?: string; within: SQL },
+  { limit, after, group, within }: { limit: number; after?: string; group?: string; within: SQL },
 ): Promise<Catalogue> {
   const place = after === undefined ? undefined : await findInTheOrder(db, after);
   // ONE VALUE HANDED OVER, AND THE WALK READS BOTH STATEMENTS OFF IT
   // (CNCORE-169, CNCORE-170). The sort and the comparison that walks it are the
   // same keys because there is one place they are named.
-  return walkListing(db, { within, order: THE_CATALOGUES_ORDER, place, limit });
+  return walkListing(db, { within, group, order: THE_CATALOGUES_ORDER, place, limit });
 }
 
 /**
@@ -1043,7 +1044,13 @@ async function readListing(
  */
 export async function walkListing<O extends TheOrder>(
   db: Database,
-  { within, order, place, limit }: { within: SQL; order: O; place?: PlaceIn<O>; limit: number },
+  {
+    within,
+    group,
+    order,
+    place,
+    limit,
+  }: { within: SQL; group?: string; order: O; place?: PlaceIn<O>; limit: number },
 ): Promise<Catalogue> {
   const past = place && pastTheRowIn(order, place);
   /*
@@ -1056,8 +1063,18 @@ export async function walkListing<O extends TheOrder>(
    * word. A row with no kind cannot exist -- it is a foreign key -- so the join
    * can neither add a row nor drop one, and a count paying for it would be
    * paying to reach a column it does not read.
+   *
+   * AND THE GROUP JOINS THE PREDICATE BEFORE THE SIZE IS TAKEN, which is the
+   * whole of CNCORE-179's second criterion. A Group added to the Rows and not
+   * to the count reports the whole catalogue over a narrowed page, which is
+   * the lie `TheSize` below exists to refuse -- and handed to `theSize` it
+   * cannot be told: the Rows read their `WHERE` back off the same value, so
+   * there is no second place for the narrowing to be missing from.
    */
-  const size = theSize(within, db.select(HOW_MANY).from(items));
+  const size = theSize(
+    group === undefined ? within : (and(within, inTheGroup(db, group)) as SQL),
+    db.select(HOW_MANY).from(items),
+  );
   return onePage({
     limit,
     size,
@@ -1325,6 +1342,54 @@ const WORK_BROWSING = and(
   eq(items.kind, "work"),
   or(not(items.isContainer), items.holdsWork),
 ) as SQL;
+
+/**
+ * WHAT A GROUP NARROWS A LISTING TO (ADR-0010): the Items the Owner put in it
+ * and has not taken back out.
+ *
+ * ONE PREDICATE FOR EVERY LISTING, which is the spec's own requirement rather
+ * than tidiness: a Group that meant one thing on the catalogue and another on
+ * Catalogue search would be two scopes wearing one name. So it is applied in
+ * `walkListing`, where all three Listings of Items meet, and never by a
+ * surface -- the catalogue passes a Group today, and CNCORE-180 is the other
+ * two passing theirs through the same door.
+ *
+ * IT NARROWS THE LISTING'S OWN QUESTION RATHER THAN REPLACING IT. `and`ed onto
+ * whatever `within` the Listing asked, so an Item deleted from the catalogue
+ * stays gone from a Group it still sits in -- deleting an Item names no Group,
+ * so its membership is live and only the catalogue's rule keeps it out.
+ *
+ * THE MEMBERSHIP'S TOMBSTONE AND NOT THE GROUP'S, which is `deleteGroupByHand`
+ * doing its half: it tombstones the Group and every row naming it in one
+ * transaction, precisely so that a narrowed Listing reading `group_items`
+ * alone meets no membership of a Group that has gone. And
+ * `putItemInGroupByHand` refuses a Group that is not live, so no later write
+ * brings one back.
+ *
+ * UNCORRELATED, which is the lesson `howMuchItHolds` carries a paragraph about.
+ * The subquery names `group_items` and nothing else, so no inner relation can
+ * resolve to the outer `items` and nothing needs an alias to be right. It is
+ * the set of the Group's Items, asked once, and the Listing keeps the Rows in
+ * it.
+ *
+ * A GROUP THAT NAMES NOTHING NARROWS TO NOTHING, which is ADR-0066's rule for a
+ * parameter that is not an identity: whether it names anything is what the
+ * ANSWER says. A cursor naming nothing starts the walk over because it is a
+ * position; this is a question, and the honest answer to "what is in a Group
+ * nobody drew" is nothing. The shape guard is `findItem`'s, for its reason: a
+ * string that is no uuid reaches a `uuid` column as error 22P02, and a typo in
+ * a shared link would read as a server fault.
+ */
+function inTheGroup(db: Database, group: string): SQL {
+  if (!canBeAnId(group)) return sql`false`;
+  return inArray(
+    items.id,
+    db
+      .select({ itemId: groupItems.itemId })
+      .from(groupItems)
+      .where(and(eq(groupItems.groupId, group), isNull(groupItems.deletedAt))),
+  );
+}
 
 /**
  * THE KEY THE CATALOGUE SORTS ON (ADR-0014), written once.
