@@ -163,13 +163,21 @@ async function createDatabaseIfAbsent(serverUrl: string, database: string): Prom
 
 /** Whether the DATABASE_URL in a .env file names this database. */
 function envFileNames(envFile: string, database: string): boolean {
-  if (!existsSync(envFile)) return false;
+  return databaseNamedIn(envFile) === database;
+}
+
+/**
+ * The database a .env file's DATABASE_URL names, if it names one. Shared with
+ * the sweep, which owes every live worktree the database its `.env` names.
+ */
+export function databaseNamedIn(envFile: string): string | undefined {
+  if (!existsSync(envFile)) return undefined;
   const line = readFileSync(envFile, "utf8").match(/^\s*DATABASE_URL\s*=\s*(.+?)\s*$/m)?.[1];
-  if (line === undefined) return false;
+  if (line === undefined) return undefined;
   try {
-    return decodeURIComponent(new URL(line).pathname.slice(1)) === database;
+    return decodeURIComponent(new URL(line).pathname.slice(1));
   } catch {
-    return false;
+    return undefined;
   }
 }
 

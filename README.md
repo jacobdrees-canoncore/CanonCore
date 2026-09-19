@@ -196,8 +196,14 @@ you already have. Point it at an older pin and `pnpm` exits 1 having printed not
 error, no version, no clue (measured 2026-09-11 on both images). Corepack handles both directions.
 
 `db:setup` prints the URL of the item it seeded. Open it. It is safe to re-run: it never drops
-anything, never overwrites `apps/web/.env`, and says so when an existing one names a different
-database. `pnpm db:seed` adds another item to whatever `.env` points at.
+anything a live worktree owns, never overwrites `apps/web/.env`, and says so when an existing one
+names a different database. `pnpm db:seed` adds another item to whatever `.env` points at.
+
+**It also sweeps the container**, since every worktree runs it and nothing else would. A removed
+worktree's database and every `_test…` database derived from it are dropped, and the line
+`swept N databases no live worktree owns` says how many. It drops only names `db:setup` itself could
+have produced, never one somebody is connected to, and never anything built by hand. ADR-0104 has
+the rest.
 
 **Real data comes from a dump, never from an install.** `pnpm db:restore <dump>` DROPS this
 worktree's database and creates it from a `pg_dump --format=custom` archive, then migrates it up to

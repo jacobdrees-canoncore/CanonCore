@@ -60,6 +60,33 @@ const MAX_STEM =
   MAX_IDENTIFIER_BYTES - LONGEST_DERIVED_SUFFIX - PREFIX.length - FINGERPRINT_LENGTH - 1;
 
 /**
+ * What `testDatabaseNameFor` appends, and so what it strips to find the root.
+ *
+ * EXPORTED so `emptyCatalogue` can tell a test database from a real one without
+ * spelling `_test` a second time, and HERE rather than in `build-database.ts`
+ * so that `db:setup`'s sweep can read it too: that runs under bare node, which
+ * cannot load a module importing without extensions (CNCORE-231). This file
+ * holds the rest of the format; a guard carrying its own copy is the drift
+ * keeping it in one place exists to refuse.
+ */
+export const MARKER = "_test";
+
+/**
+ * Whether `worktreeDatabaseName` named this database, or the harness derived it
+ * from one that was: the whole of what a sweep may ever drop (CNCORE-231).
+ *
+ * ANY TAIL AFTER THE MARKER, not only the suffixes declared today. A removed
+ * branch keeps the tails of its own day -- `_test_test_gone` from before
+ * CNCORE-150, `_test_purgeable` from before CNCORE-93 -- and nothing else will
+ * ever drop them.
+ */
+export function isNamedAfterABranch(database: string): boolean {
+  return new RegExp(
+    `^${PREFIX}[a-z0-9_]+_[0-9a-f]{${FINGERPRINT_LENGTH}}(${MARKER}(_[a-z0-9_]+)?)?$`,
+  ).test(database);
+}
+
+/**
  * One database per worktree, inside the one container every worktree shares.
  *
  * Every CanonCore worktree resolves the SAME Compose project, because

@@ -17,6 +17,7 @@ if (!/^\d+$/.test(port) || Number(port) < 1 || Number(port) > 65535) {
 }
 export const serverUrl = `postgresql://postgres:password@localhost:${port}/postgres`;
 export const envFile = fileURLToPath(new URL("../../../apps/web/.env", import.meta.url));
+export const repository = fileURLToPath(new URL("../../..", import.meta.url));
 
 let current: string;
 try {

@@ -162,7 +162,9 @@ reproduced before the fix.
 
 `setUpWorktreeDatabase` never drops anything and never overwrites an existing `.env`, because being
 wrong in that direction costs a developer their work and being wrong the other way costs them
-running the command again.
+running the command again. `db:setup` DOES drop, since CNCORE-231, but only databases no live
+worktree owns and never its own: the sweep runs after the setup and is recorded under "A removed
+worktree's databases go at the next `db:setup`" below.
 
 **Concurrent setup is safe**, and needed a lock rather than a caught error. Two runs racing collide
 twice: on `create database`, which answers 42P04 or 23505 on `pg_database_datname_index` depending
@@ -492,8 +494,9 @@ Sizes here are binary throughout, as Compose's own are: its `256mb` is 268,435,4
 **THE FOUR-AGENT CEILING DID NOT FILL IT, AND THAT IS THE FINDING.** The databases of four agents
 and the main checkout need a twelfth of Docker's default. Counted in one query, the 1,149 were 963
 test databases, 148 worktree databases (so about 147 worktrees, five of which still existed) and
-38 others: the templates, `postgres`, and databases agents had built by hand. Nothing drops a
-removed worktree's databases, and CNCORE-231 is that half. The jump from 62 to 94 MB seen while
+38 others: the templates, `postgres`, and databases agents had built by hand. Nothing dropped a
+removed worktree's databases; since CNCORE-231 `db:setup` does, and the subsection at the end of
+this one records how. The jump from 62 to 94 MB seen while
 four agents ran was one step of the series above rather than a rate: the 32 MB segment's file dates
 from 35 seconds after the container started.
 
@@ -504,9 +507,10 @@ by them:
 - 128 MB holds the 125 step, about 2,200 databases. The cluster went from its first database,
   2026-09-10 13:58, to 1,149 in nine days, about 120 a day, so that is nine days' room over what it
   held.
-- 256 MB holds the 253 step, about 4,500: roughly four weeks at the same rate, which is the time
-  CNCORE-231 has before this fills again. It is also the example the `postgres` image's own
-  documentation gives for exactly this error.
+- 256 MB holds the 253 step, about 4,500: roughly four weeks at the same rate, which was the time
+  CNCORE-231 had before this filled again. That rate was the dead accumulating, and CNCORE-231
+  bounded it, so the four weeks no longer run down (see below). It is also the example the
+  `postgres` image's own documentation gives for exactly this error.
 - 512 MB holds the 509 step, and /dev/shm is RAM. The colima VM this container runs in has 1,958
   MB and no swap, and had between 574 and 647 MB available when measured. So 512 MB is most of
   it, and the 1 GB the container was given by hand on 2026-09-19 is more than all of it. Past what
@@ -655,3 +659,111 @@ the other container was still running. `docker inspect` of the Owner's `canoncor
 `/var/lib/postgresql` and `PGDATA` beneath it; `canoncore-canoncore-1` has no mounts. The flag
 descriptions and both `COMPOSE_*_ORPHANS` variables are from Compose's `up` and `create` references
 and its environment-variable page on docs.docker.com, read through context7 the same day.
+### A removed worktree's databases go at the next `db:setup`
+
+**`orca worktree rm` TAKES THE FILES AND NOTHING ELSE, SO THE CLUSTER ONLY GREW** (CNCORE-231). Each
+worktree builds its own database and, through its suites, 21 or so more; nothing dropped any of
+them when the worktree went. Counted on the shared container on 2026-09-19: 1,135 databases at
+17:5x UTC and 1,196 at 19:0x, about 60 an hour with four agents running, and **1,250 at 19:26,
+11 GB by `pg_database_size` and 12 GB on disk**. Of those, 1,151 were in the families of worktrees
+that no longer existed. At 57 KiB each of /dev/shm that is the demand the section above measured,
+and it was the whole of it.
+
+**`pnpm db:setup` SWEEPS THEM, AFTER IT HAS SET UP ITS OWN WORKTREE.** Every worktree runs it to
+join the container, so it runs at the rate worktrees are made, which is the rate they are removed,
+and nobody has to remember it. At any moment the dead are only the families of worktrees removed
+since the last `db:setup` anywhere. `src/sweep.ts` is the mechanism; `scripts/setup.ts` prints
+`swept N databases no live worktree owns`. The other places it could have gone:
+
+- **Orca's `orca.yaml` archive hook**, which is a worktree's own teardown, is skipped by `orca
+  worktree rm` unless `--run-hooks` is passed, and misses a worktree removed any other way.
+  Remembering a flag is remembering.
+- **A schedule** would be a background service on the Owner's machine, which is machine state
+  rather than repo state and is asked about first.
+- **The suites' global setup** would put a destructive step in front of every test run, in CI too,
+  for a cluster that changes when worktrees do rather than when tests do.
+
+**WHAT A SWEEP MAY DROP IS A NAME `worktreeDatabaseName` COULD HAVE PRODUCED, with any tail after
+`_test`.** Any tail, rather than the suffixes declared today, because a removed branch keeps the
+tails of its own day: 35 `_test_test_gone` from before CNCORE-150 and 4 `_test_purgeable` from
+before CNCORE-93 were in the 1,151. Nothing else is a candidate: `postgres`, the templates, the
+container's own `canoncore`, the `canoncore_test…` family a CI-style DATABASE_URL derives, and
+anything somebody built by hand. `isNamedAfterABranch` in `worktree-database.ts` is the test, beside
+the naming it inverts, and `MARKER` moved there from `testing/build-database.ts` so the sweep can
+read it under bare node.
+
+**A WORKTREE OWNS TWO ROOTS, AND EITHER ALONE WOULD DROP A LIVE ONE.** The database its branch
+derives is what `db:setup` makes, and is all there is before `.env` is written. The database its
+`apps/web/.env` names is what it actually uses and what its suites derive theirs from, and after a
+`git branch -m` it is no longer the branch's, because `db:setup` never overwrites `.env`. A name is
+owned when it IS a root or starts with a root and `_test`. The worktrees are `git worktree list`
+from the checkout running the sweep, so the main checkout is one of them and a BRANCH that
+outlived its worktree is not.
+
+**NEVER `with (force)`, AND ASKED FIRST.** A connection to a database no worktree owns is a leaked
+server or a person, and the sweep names it (`left <database>: ... something is connected to it`)
+rather than cutting it off. It asks `pg_stat_activity` before each DROP, because a plain DROP
+against a database with a connection does not fail at once: PostgreSQL waited five seconds before
+answering 55006 when this was measured. One leaked e2e server holds eleven databases, which would
+have added close to a minute to somebody's setup. 55006 is caught too, for a connection that
+arrives between the question and the DROP.
+
+**EACH DROP IS UNDER `db:setup`'s OWN LOCK, AND THE OWNERS ARE READ AGAIN INSIDE IT.** A
+re-dispatched ticket reuses its branch, so a new worktree's setup can find the old database still
+there and adopt it, between a sweep reading the worktrees and reaching that name. Setup holds its
+advisory lock across everything it does to a database, so whichever order the two meet in, the
+sweep's second question is answered after the adoption or before the creation. `sweep.test.ts`
+holds the lock, waits until `pg_locks` shows the sweep queued behind it, claims the database and
+releases: without the lock the sweep had already dropped it.
+
+**THE LISTING IS READ BEFORE THE WORKTREES**, so a database it lists was made by a worktree that
+`git worktree list` already shows, if that worktree is live.
+
+**WHAT IT COSTS, SAID OUT LOUD.** The owners are ONE repository's worktrees. A second clone on the
+same machine shares the container but not the worktree list, so each clone's `db:setup` drops the
+other's idle databases; running `db:setup` there again rebuilds its own, and its suites rebuild
+theirs on every run anyway. And the first sweep after a backlog is slow: 35.7 s for the 1,151
+below, a lock and a `git worktree list` for each name. Every sweep after it finds a wave's worth.
+
+**MEASURED, 2026-09-19**, `pnpm db:setup` in this ticket's worktree with four worktrees live
+(the main checkout, CNCORE-184, CNCORE-229 and this one):
+
+| | Before, 19:26:03 UTC | After, 19:26:49 UTC |
+|---|---|---|
+| Databases | 1,250 | 99 |
+| `sum(pg_database_size)` | 11 GB | 947 MB |
+| `du -sh /var/lib/postgresql` | 12 GB | 1.2 GB |
+| /dev/shm in use | 30 MB | 30 MB |
+| `db:setup` wall time | 35.7 s, 1,151 dropped | 0.53 s on the next run, 0 dropped |
+
+The four live families came through whole, CNCORE-229's hand-named `_test_leak` among them, and
+nothing was in use. **/dev/shm did not move, and it was not expected to**: a segment goes back
+only when every entry in it is gone (above), so the sweep frees room inside the segments for the
+next entries rather than shrinking them. What it stops is the growth.
+
+**THE 48 OUTSIDE THE FAMILY WERE DROPPED ONCE, BY HAND, and the sweep will never drop their like.**
+35 were built by agents with a DATABASE_URL of their own: `cc124_…`, `cc129_…`, `cnc145…`,
+`cncore176_probe`, `cncore192_…`, `cncore202_…`, `cncore63_probe`, `cncore8_empty` and
+`cncore8_upgrade`. The other 13 were `canoncore_test…`, derived from a DATABASE_URL naming the
+container's own `canoncore`. The ticket's question was whether any of them was load-bearing, and
+none was: `git grep` finds none of those names anywhere in the repository; every ticket they are
+named for was Done; each was 7.6 to 11 MB, the size of an empty migrated schema; and none had a
+connection. A suite that wanted one builds it from empty on every run. The cluster afterwards was
+51 databases, 509 MB, 762 MB on disk: the four live families, `canoncore`, `postgres` and the two
+templates. A future hand-built database is its author's to drop.
+
+**THE THREE LIMITS THIS CONTAINER HAS, IN ONE PLACE:**
+
+| Limit | Set in `docker-compose.yml` | What it holds | What bounds the demand |
+|---|---|---|---|
+| `max_connections` | 300, 288 usable | four agents' `pnpm test:e2e` at 55 to 67 each | `DATABASE_MAX_CONNECTIONS=4` in the e2e harness (CNCORE-137) |
+| `shm_size` | 256mb | about 4,500 databases at 57 KiB | this sweep (CNCORE-231) |
+| Databases on disk | nothing | the volume | this sweep: about 22 per live worktree |
+
+**Evidence**, all 2026-09-19. The counts and sizes are `select count(*),
+pg_size_pretty(sum(pg_database_size(datname))) from pg_database`, `df -h /dev/shm` and `du -sh
+/var/lib/postgresql` inside `canoncore-postgres`, read immediately before and after. The dry run
+put the real listing and the real owners through `deadDatabases` without dropping, and named the
+same 1,151. The hourly counts are the dispatcher's, on CNCORE-231. The five-second wait is a plain
+`drop database` against a probe with one `pg_sleep` session open: `real 5.28`, then `55006 ...
+is being accessed by other users` from `dropdb, dbcommands.c:1791`. That Orca skips archive hooks without `--run-hooks` is `orca worktree rm --help`.
