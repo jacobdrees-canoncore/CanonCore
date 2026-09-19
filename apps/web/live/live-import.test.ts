@@ -28,6 +28,7 @@
 
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
+import { createServer } from "node:net";
 import { join } from "node:path";
 import type { AppRouterClient } from "@canoncore/api/routers";
 import { createDb, writeProviderSettings } from "@canoncore/db";
@@ -38,13 +39,7 @@ import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, expect, test } from "vitest";
 
 import { logInAt } from "../e2e/document";
-import {
-  freePort,
-  OWNER_PASSWORD,
-  theAppBuilt,
-  theBuildServing,
-  waitUntilAnswering,
-} from "../e2e/instance";
+import { OWNER_PASSWORD, theAppBuilt, theBuildServing, waitUntilAnswering } from "../e2e/instance";
 
 /**
  * WHERE `provider-wiki` IS CHECKED OUT, which is the one thing this file cannot derive.
@@ -216,3 +211,26 @@ test("a story listed at several points of one timeline arrives as several Placem
   for (const row of rows) console.log(`  ${row.title}: ${row.times}x at ${row.positions}`);
   expect(rows.length).toBeGreaterThan(0);
 });
+
+/**
+ * Asks the operating system for a port nothing else is on, for the provider.
+ *
+ * TODO(CNCORE-237): THE PORT IS FREE ONLY UNTIL THE PROBE CLOSES, and anything on
+ * the machine can take it before the provider binds it. The e2e harness closed
+ * the same window for `next start` under CNCORE-235 by letting the server choose
+ * its own port and reading it back; this is the one caller of the old shape left.
+ */
+function freePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const probe = createServer();
+    probe.on("error", reject);
+    probe.listen(0, "127.0.0.1", () => {
+      const address = probe.address();
+      if (address === null || typeof address === "string") {
+        reject(new Error("could not read a port from the probe socket"));
+        return;
+      }
+      probe.close(() => resolve(address.port));
+    });
+  });
+}
