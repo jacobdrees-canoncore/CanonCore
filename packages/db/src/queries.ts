@@ -943,7 +943,17 @@ export async function readCatalogue(
   db: Database,
   { limit, after, group }: { limit: number; after?: string; group?: string },
 ): Promise<Catalogue> {
-  return readListing(db, { limit, after, group, within: IN_THE_CATALOGUE });
+  /*
+   * NARROWED TO A GROUP BY WIDENING THE QUESTION, never beside it (CNCORE-179).
+   * The Group joins the catalogue's own predicate here, and that one value is
+   * what `walkListing` hands to `theSize` and reads the Rows' `WHERE` back off
+   * -- so a Group narrowing the Rows and not the count, which is the whole
+   * catalogue's size reported over a narrowed page, has no second place to be
+   * missing from.
+   */
+  const within =
+    group === undefined ? IN_THE_CATALOGUE : (and(IN_THE_CATALOGUE, inTheGroup(db, group)) as SQL);
+  return readListing(db, { limit, after, within });
 }
 
 /**
@@ -997,13 +1007,13 @@ export async function readWorks(
  */
 async function readListing(
   db: Database,
-  { limit, after, group, within }: { limit: number; after?: string; group?: string; within: SQL },
+  { limit, after, within }: { limit: number; after?: string; within: SQL },
 ): Promise<Catalogue> {
   const place = after === undefined ? undefined : await findInTheOrder(db, after);
   // ONE VALUE HANDED OVER, AND THE WALK READS BOTH STATEMENTS OFF IT
   // (CNCORE-169, CNCORE-170). The sort and the comparison that walks it are the
   // same keys because there is one place they are named.
-  return walkListing(db, { within, group, order: THE_CATALOGUES_ORDER, place, limit });
+  return walkListing(db, { within, order: THE_CATALOGUES_ORDER, place, limit });
 }
 
 /**
@@ -1044,13 +1054,7 @@ async function readListing(
  */
 export async function walkListing<O extends TheOrder>(
   db: Database,
-  {
-    within,
-    group,
-    order,
-    place,
-    limit,
-  }: { within: SQL; group?: string; order: O; place?: PlaceIn<O>; limit: number },
+  { within, order, place, limit }: { within: SQL; order: O; place?: PlaceIn<O>; limit: number },
 ): Promise<Catalogue> {
   const past = place && pastTheRowIn(order, place);
   /*
@@ -1063,18 +1067,8 @@ export async function walkListing<O extends TheOrder>(
    * word. A row with no kind cannot exist -- it is a foreign key -- so the join
    * can neither add a row nor drop one, and a count paying for it would be
    * paying to reach a column it does not read.
-   *
-   * AND THE GROUP JOINS THE PREDICATE BEFORE THE SIZE IS TAKEN, which is the
-   * whole of CNCORE-179's second criterion. A Group added to the Rows and not
-   * to the count reports the whole catalogue over a narrowed page, which is
-   * the lie `TheSize` below exists to refuse -- and handed to `theSize` it
-   * cannot be told: the Rows read their `WHERE` back off the same value, so
-   * there is no second place for the narrowing to be missing from.
    */
-  const size = theSize(
-    group === undefined ? within : (and(within, inTheGroup(db, group)) as SQL),
-    db.select(HOW_MANY).from(items),
-  );
+  const size = theSize(within, db.select(HOW_MANY).from(items));
   return onePage({
     limit,
     size,
@@ -1349,10 +1343,17 @@ const WORK_BROWSING = and(
  *
  * ONE PREDICATE FOR EVERY LISTING, which is the spec's own requirement rather
  * than tidiness: a Group that meant one thing on the catalogue and another on
- * Catalogue search would be two scopes wearing one name. So it is applied in
- * `walkListing`, where all three Listings of Items meet, and never by a
- * surface -- the catalogue passes a Group today, and CNCORE-180 is the other
- * two passing theirs through the same door.
+ * Catalogue search would be two scopes wearing one name. So each Listing `and`s
+ * THIS onto its own `within`, and none spells membership for itself -- the
+ * catalogue does today (`readCatalogue`), and CNCORE-180 is work-browsing and
+ * Catalogue search doing the same.
+ *
+ * COMPOSED INTO `within` RATHER THAN PASSED TO `walkListing`, which is where a
+ * Listing's question is already assembled: Catalogue search `and`s its match
+ * onto the catalogue's rule the same way, and `catalogue-search.ts` has already
+ * turned down a parameter on `walkListing` that only one caller would pass.
+ * What keeps the size honest is `theSize` reading the same `within` as the
+ * Rows, so the narrowing only has to arrive there once.
  *
  * IT NARROWS THE LISTING'S OWN QUESTION RATHER THAN REPLACING IT. `and`ed onto
  * whatever `within` the Listing asked, so an Item deleted from the catalogue

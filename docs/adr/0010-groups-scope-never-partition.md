@@ -68,9 +68,8 @@ with it would be wrong about every one of them — and since CNCORE-179, about a
 
 - **Browsing is HALF BUILT, one surface of the two, under CNCORE-179.** The Catalogue narrows to a
   group; work-browsing does not yet, and neither does **search**, and both are CNCORE-180. That
-  ticket threads a group through a door that already exists rather than writing a second predicate,
-  because the predicate is applied where every Listing of Items meets. What CNCORE-179 built is
-  below, under its own heading.
+  ticket `and`s the same predicate onto each of their questions rather than writing a second one.
+  What CNCORE-179 built is below, under its own heading.
 - **Which providers are asked** is CNCORE-182, and it is further off than the two above because it
   needs a second relation (a group to the providers it reaches) that no migration writes.
 - **Scanner roots** and **the review queue** DO NOT EXIST AS CONSTRUCTS IN THIS PRODUCT, so they are
@@ -93,16 +92,17 @@ be this record's partition arriving through the schema.
 ## As built, under CNCORE-179 — and this record stays PROPOSED
 
 **BUILT: THE CATALOGUE NARROWS TO A GROUP, and its size is the group's.** `/?group=<id>` answers the
-catalogue within one scope, and the Owner picks it from a row of links on that page rather than
-typing an address. A walk within it keeps the scope from page to page, `Everything` clears it, a
+catalogue within one scope, picked from a row of links on that page rather than typed as an address
+-- by any reader, since reading the catalogue is open ([[0072-no-visibility-system]]) and which
+scopes exist is part of it. A walk within it keeps the scope from page to page, `Everything` clears it, a
 group with nothing in it says so rather than offering the empty catalogue's routes, and a link naming
 a group that is not there says that instead.
 
-**ONE PREDICATE, APPLIED WHERE THE LISTINGS MEET, AND BEFORE THE SIZE IS TAKEN.** `inTheGroup` in
-`packages/db/src/queries.ts` is the set of a group's live memberships, `and`ed onto whatever question
-the Listing already asks, inside `walkListing`: the one function the catalogue, work-browsing and
-Catalogue search all walk through. It is joined to the Listing's own predicate before `theSize` reads
-it, and the Rows read their `WHERE` back off the same value — so a group narrowing the Rows and not
+**ONE PREDICATE, AND IT ARRIVES BEFORE THE SIZE IS TAKEN.** `inTheGroup` in
+`packages/db/src/queries.ts` is the set of a group's live memberships, and `readCatalogue` `and`s it
+onto the catalogue's own predicate -- the same way Catalogue search `and`s its match on -- so every
+Listing that narrows reads membership from one place. That combined value is the `within`
+`walkListing` hands to `theSize`, and the Rows read their `WHERE` back off the same value — so a group narrowing the Rows and not
 the count, which is the whole catalogue's size reported over a narrowed page, has no second place to
 be missing from. The Listing contract (`listing.test.ts`) walks the narrowed catalogue as one more
 line in its list, and so inherits the cap, the walk and both positions of the size.

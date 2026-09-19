@@ -76,7 +76,7 @@ async function readFrontPage(after: string | undefined, group: string | undefine
   // this page read every request as a visitor's and could not have told the
   // owner from one if it had tried.
   const context = await callerContext();
-  const [catalogue, scopes, providers, instance] = await Promise.all([
+  const [catalogue, { groups }, providers, instance] = await Promise.all([
     call(appRouter.catalogue.list, { after, group }, { context }),
     // EVERY GROUP THERE IS, whether or not the page is narrowed: they are what
     // the picker offers, and the one this page was narrowed to is found among
@@ -88,7 +88,7 @@ async function readFrontPage(after: string | undefined, group: string | undefine
   ]);
   return {
     catalogue,
-    groups: scopes.groups,
+    groups,
     providers,
     owner: context.session !== null,
     aPasswordIsSet: instance.password,
@@ -108,11 +108,18 @@ export default async function CataloguePage({
   // parameter means, so both reading surfaces answer that the same way.
   //
   // AND THE GROUP BESIDE IT (CNCORE-179), read the same way for the same
-  // reason: a repeated `group` narrows to no answer rather than to whichever
-  // came first, and a blank one is the catalogue unnarrowed.
+  // reason: a repeated `group` names no Group rather than whichever came first,
+  // so the page is the catalogue unnarrowed -- as a blank one is.
+  //
+  // IN LOWER CASE, WHICH IS A FIX FOUND BY REVIEW. A uuid spelled in capitals
+  // is the same id to `z.uuid()` and to PostgreSQL, so the Listing narrowed
+  // while the Group below -- matched as a string -- was not found, and the page
+  // said "No such Group" over that Group's own Rows. Lowered once here, every
+  // reader of it agrees, and every link written from it spells the id the way
+  // the picker does: one Group, one address (ADR-0066).
   const { after, group } = await searchParams;
   const from = oneValue(after);
-  const narrowedTo = oneValue(group);
+  const narrowedTo = oneValue(group)?.toLowerCase();
   const { catalogue, groups, providers, owner, aPasswordIsSet } = await readFrontPage(
     from,
     narrowedTo,
@@ -128,10 +135,11 @@ export default async function CataloguePage({
   const rows = catalogue.rows;
   // THE GROUP THE PAGE IS NARROWED TO, or none. A `group` naming no Group --
   // deleted since the link was kept, or never one -- finds nothing here, and
-  // that is how the page tells a scope that has gone from one that is empty.
-  const scope = narrowedTo === undefined ? undefined : groups.find(({ id }) => id === narrowedTo);
+  // that is how the page tells a Group that has gone from one that is empty.
+  const narrowedGroup =
+    narrowedTo === undefined ? undefined : groups.find(({ id }) => id === narrowedTo);
   // WHAT EVERY LINK ON THIS PAGE CARRIES FORWARD, which is the Group and only
-  // the Group: a walk within a scope stays within it (CNCORE-179).
+  // the Group: a walk within a Group stays within it (CNCORE-179).
   const asked = narrowedTo === undefined ? undefined : { group: narrowedTo };
 
   return (
@@ -140,7 +148,7 @@ export default async function CataloguePage({
         <h1 className="text-3xl font-medium">Catalogue</h1>
         {rows.length > 0 && <Holding showing={rows.length} total={catalogue.total} />}
       </div>
-      {groups.length > 0 && <Scopes groups={groups} narrowedTo={narrowedTo} />}
+      {groups.length > 0 && <NarrowToAGroup groups={groups} narrowedTo={narrowedTo} />}
       {/*
         WHY AN EMPTY CATALOGUE IS EMPTY, when the reason is configuration. The
         notice itself is `no-provider-allowlisted.tsx`, shared with `/import`
@@ -178,8 +186,8 @@ export default async function CataloguePage({
       {narrowedTo === undefined && empty && (
         <WhatToDoNext aPasswordIsSet={aPasswordIsSet} owner={owner} />
       )}
-      {narrowedTo !== undefined && scope === undefined && <NoSuchGroup />}
-      {scope !== undefined && empty && <EmptyGroup name={scope.name} />}
+      {narrowedTo !== undefined && narrowedGroup === undefined && <NoSuchGroup />}
+      {narrowedGroup !== undefined && empty && <EmptyGroup name={narrowedGroup.name} />}
       {/*
         A CATALOGUE WITH ITEMS IN IT AND NOTHING ON THIS PAGE, which is what a
         cursor makes possible: the link was cut at an item, and nothing is after
@@ -228,7 +236,7 @@ export default async function CataloguePage({
  * them (`group.create`), so one unbroken word would otherwise push the page
  * sideways -- the width CNCORE-217 found a Provider's name taking.
  */
-function Scopes({ groups, narrowedTo }: { groups: GroupOnThePage[]; narrowedTo?: string }) {
+function NarrowToAGroup({ groups, narrowedTo }: { groups: GroupOnThePage[]; narrowedTo?: string }) {
   return (
     <nav
       aria-label="Narrow to a Group"

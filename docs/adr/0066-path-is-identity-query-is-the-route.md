@@ -117,7 +117,10 @@ is the half this record had to rule on before the cap could be built at all.
 `via`, `placed`, `after`. Alphabetical would have put it first, and the argument against is this
 record's own: a fixed spelling order exists so that one narrowed list at one page is ONE URL, and
 re-ordering the existing pair would give every link already emitted a second spelling of itself. A
-parameter arriving later goes behind the ones that are already out there.
+parameter arriving later goes behind the ones that are already out there **wherever writing it
+anywhere else would re-spell a link already emitted** -- which is the rule's reason, and where it
+does not bind is under CNCORE-179 below, the one parameter so far written ahead of one that came
+before it.
 
 **AND IT IS THE SAME WORD THE OTHER THREE LISTINGS WALK WITH**, rather than one named for this
 surface. `/` and `/works` and `/search` all take `?after=`, so a parameter called `member` or
@@ -210,8 +213,9 @@ same page, and neither touched it, so the unbuilt half is the same half it has a
 
 ## A Group narrows the catalogue -- under CNCORE-179
 
-**A FIFTH NON-IDENTIFYING PARAMETER, AND THE FIRST ON A PAGE THAT IS NOT AN ITEM'S: `/?group=<id>`**,
-the browsing scope [[0010-groups-scope-never-partition]] decides. It identifies nothing -- the
+**ANOTHER NON-IDENTIFYING PARAMETER, AND THE FIRST THAT NARROWS `/`: `?group=<id>`**, the browsing
+scope [[0010-groups-scope-never-partition]] decides. `/` already took `?after=`, which says where a
+reader is in the catalogue; this says which catalogue. It identifies nothing -- the
 catalogue narrowed to Doctor Who is still the catalogue -- and it is a parameter rather than a path
 segment for this record's own reason: an Item sits in many Groups, so a Group in any path would give
 one thing many addresses. The Rows on a narrowed page link the bare `/items/<id>`, exactly as the
@@ -224,22 +228,19 @@ still standing to be walked from its start. A Group is a QUESTION, and the answe
 scope nobody drew" is nothing, with the page saying the scope is not there. A malformed one is a
 typo in a link rather than a 500, by the shape guard `findItem` introduced.
 
-**IT IS WRITTEN BEFORE THE CURSOR, `group` THEN `after`, WHICH IS NOT THE LETTER OF THE RULE ABOVE AND
-IS ITS REASON.** "A parameter arriving later goes behind the ones that are already out there" exists
-so that no link already emitted acquires a second spelling -- and none can here. `/?after=<id>` is
+**IT IS WRITTEN BEFORE THE CURSOR, `group` THEN `after`, which is why the fixed-order sentence above
+now says where it binds.** "A parameter arriving later goes behind the ones that are already out
+there" exists so that no link already emitted acquires a second spelling -- and none can here. `/?after=<id>` is
 the unnarrowed catalogue and `/?group=<g>&after=<id>` is a narrowed one: two states, not one state
 spelled twice, and no link carrying both parameters had been emitted before this. What decides the
 order instead is the shape the two other listings already have: what the listing IS, then where in
 it the reader stands -- `/search`'s `q` before `after`, and the item page's `placed` before `after`.
-The order is held where every listing's links are written, `queryFor` in
-`apps/web/src/components/listing.tsx`, which carries the Group forward on `Next`, on `Back to the
-start` and on the notice past the end.
-
-**A RELOAD AND A SHARED LINK OF A NARROWED `/` ALREADY CARRY THE SCOPE**, because it is in the
-address and nowhere else -- which is the property this record exists for, arriving for free. What
-CNCORE-181 still owns is the rest of its own criteria: the one fixed order for every non-identifying
-parameter stated once rather than per surface, and whatever it decides about a scope outliving the
-page it was picked on.
+It is held by the key order of the object `queryFor` in `apps/web/src/components/listing.tsx`
+spreads, which is how `/search`'s `q` then `after` was already held, and which carries the Group
+forward on `Next`, on `Back to the start` and on the notice past the end. The item page's four are
+held by `IN_FIXED_ORDER` in the same function -- so the order is still written in two shapes, and
+stating it once for every surface is CNCORE-181's, as the scope surviving a reload and travelling in
+a shared link is.
 
 ## What implementing it taught -- under CNCORE-14
 

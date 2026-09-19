@@ -511,6 +511,13 @@ describe("/ narrowed to a Group", () => {
     return found[1] as string;
   }
 
+  /** The words of the one scope the picker marks as the page's own. */
+  function markedCurrentIn(text: string): string[] {
+    return [...scopesIn(text).matchAll(/<a aria-current="true"[^>]*>([^<]*)<\/a>/g)].map(
+      ([, words]) => words as string,
+    );
+  }
+
   /** Where a narrowed page says it carries on, if it says so at all. */
   function carriesOnAt(text: string): string | undefined {
     return text.match(/href="(\/\?[^"]*after=[^"]+)"/)?.[1];
@@ -532,6 +539,11 @@ describe("/ narrowed to a Group", () => {
     expect(text).toContain(
       `<p class="text-muted-foreground text-sm">Showing 100 of ${group.holds.length} items</p>`,
     );
+    // AND THE PAGE SAYS WHICH GROUP IT IS NARROWED TO, rather than leaving a
+    // smaller count to be read as one. On the whole catalogue it is
+    // `Everything` that is marked, which is what makes this line bite.
+    expect(markedCurrentIn(text)).toStrictEqual([group.name]);
+    expect(markedCurrentIn(whole.text)).toStrictEqual(["Everything"]);
   });
 
   it("walks the whole Group by following links, and lands on none of it twice", async () => {
@@ -593,6 +605,24 @@ describe("/ narrowed to a Group", () => {
     expect(said).toContain(`${empty.name} holds nothing yet`);
     expect(said).toContain('href="/"');
     expect(text).not.toContain('aria-labelledby="what-to-do-next"');
+  });
+
+  it("reads a Group's id typed in capitals as the same Group, and writes it back one way", async () => {
+    // FOUND BY REVIEW. `z.uuid()` accepts either case and PostgreSQL's `uuid`
+    // compares without it, so the Listing narrowed perfectly well -- while the
+    // page matched the id as a STRING, found no such Group, and printed "No
+    // such Group" over a page of that Group's Rows. One Group is one address:
+    // the page reads the capitals as the id they spell, and every link it
+    // writes carries the id in the one spelling the picker uses.
+    const { status, text } = await documentFrom(pagedBaseUrl, `/?group=${group.id.toUpperCase()}`);
+
+    expect(status).toBe(200);
+    expect(text).not.toContain('aria-labelledby="no-such-group"');
+    expect(markedCurrentIn(text)).toStrictEqual([group.name]);
+    // THE ONE SPELLING, AND THE ONE ORDER: the Group, then where in it
+    // (ADR-0066). A cursor written first would be a second spelling of the
+    // same page as surely as capitals are.
+    expect(carriesOnAt(text)).toMatch(new RegExp(`^/\\?group=${group.id}&after=`));
   });
 
   it("says a Group that names nothing is not there, whatever shape the link is", async () => {
