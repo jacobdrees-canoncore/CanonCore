@@ -3,6 +3,7 @@
 #
 #   ROOM <n>                             n CanonCore slots free of the four
 #   IDLE <worktree>                      an agent has gone quiet: parked, done or dead
+#   GONE <worktree>                      a worktree with no agent at all
 #   READY <repo> #<n> <state> <branch>   a PR left draft and wants reading
 #   TICKET <id> <state> <title>          a ticket changed state
 #   DRIFT-BEHIND <id>                    Todo, but a worktree or PR exists for it
@@ -48,6 +49,26 @@ for t in (d.get("result") or {}).get("terminals") or d.get("terminals") or []:
         continue
     if time.time() - last / 1000 > 90:
         print("IDLE", path.rstrip("/").split("/")[-1])
+' 2>/dev/null || true
+
+    # A WORKTREE WITH NO AGENT IS INVISIBLE TO IDLE, which only reads terminals
+    # that exist. A session restart on 2026-09-19 killed two agents at once and
+    # left their worktrees standing with commits on local disk and nothing
+    # pushed; their PRs read +0, which is what an abandoned worktree looks like.
+    # Removing one then would have destroyed the work.
+    orca terminal list --json 2>/dev/null | python3 -c '
+import json, sys, os, glob
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    sys.exit()
+held = {(t.get("worktreePath") or "").rstrip("/")
+        for t in (d.get("result") or {}).get("terminals") or d.get("terminals") or []
+        if t.get("agentIdentity") == "claude"}
+for w in sorted(glob.glob(os.path.expanduser("~/orca/workspaces/CanonCore/*/"))):
+    w = w.rstrip("/")
+    if "trash" not in w and w not in held:
+        print("GONE", w.split("/")[-1])
 ' 2>/dev/null || true
 
     for r in $REPOS; do
