@@ -131,6 +131,7 @@ export async function aProviderThatFloodsItsName(): Promise<{
 export const UNBROKEN = {
   title: "title".repeat(100),
   kind: "kind".repeat(100),
+  released: "1963".repeat(100),
 };
 
 /**
@@ -172,6 +173,13 @@ export async function aProviderThatFloodsItsRecord(): Promise<{
       kind: UNBROKEN.kind,
       released: ["1963-11-23"],
       url: "http://127.0.0.1/unbroken-kind",
+    },
+    {
+      id: "unbroken-released",
+      title: "A record whose release date has no break in it",
+      kind: "TV story",
+      released: [UNBROKEN.released],
+      url: "http://127.0.0.1/unbroken-released",
     },
   ];
   return onLoopback((path, answer) => {

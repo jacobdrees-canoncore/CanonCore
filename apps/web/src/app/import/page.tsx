@@ -733,7 +733,9 @@ function Candidate({
           <TheirWords>{result.kind}</TheirWords>
         </span>
         {result.released.length > 0 && (
-          <span className="text-muted-foreground text-sm">{result.released.join(", ")}</span>
+          <span className="text-muted-foreground text-sm">
+            <TheirWords>{result.released.join(", ")}</TheirWords>
+          </span>
         )}
         {/*
           THE RECORD'S OWN PAGE AT THE PROVIDER, so an ambiguous candidate can be

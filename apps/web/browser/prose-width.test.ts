@@ -121,4 +121,14 @@ describe("a record's fields with no break in them", () => {
     await expect.poll(() => row.count()).toBe(1);
     expect(await overrun(row)).toStrictEqual({ element: 0, document: 0 });
   });
+
+  it("wraps a release date inside its row among /import's search results", async () => {
+    await page.goto(`${baseUrl}/import?q=whose release date`);
+    const row = page.locator("section[aria-labelledby='results'] li").filter({
+      hasText: unbroken.released.slice(0, 100),
+    });
+
+    await expect.poll(() => row.count()).toBe(1);
+    expect(await overrun(row)).toStrictEqual({ element: 0, document: 0 });
+  });
 });
