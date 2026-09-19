@@ -119,6 +119,9 @@ describe("a link carrying several parameters", () => {
       `/?group=${group}`,
       `/works?group=${group}`,
       `/search?q=story&group=${group}`,
+      // NOT A LISTING, AND IT WRITES THE SAME TWO (CNCORE-182): a Group
+      // decides which Providers `/import` asks, through the same picker.
+      `/import?q=story&group=${group}`,
       `/items/${container}?via=nothing-at-all&placed=owner&placedAfter=nothing-either`,
       `/items/${appearsIn}?via=nothing-at-all&placed=owner&after=nothing-either`,
     ];

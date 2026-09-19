@@ -278,12 +278,14 @@ carries one parameter and never more**: a Member row's bare `?via=`, and a Serve
 to `?refused=` or `?undo=`, have no order to keep.
 
 **THE TWO HALVES INTERLEAVE WITHOUT RE-SPELLING ANYTHING.** `via` and `placed` are written only on an
-Item's page and `q` and `group` only on a Listing's, so no link carries one of each, and where the
+Item's page and `q` and `group` only on a Listing's or, since CNCORE-182, on Provider search's, so
+no link carries one of each, and where the
 halves sit relative to each other decides no link's spelling. Within each half the order is the one
 already out there -- `via`, `placed`, `after`, `placedAfter`, and `q`, `group`, `after` -- so no link
 this app has emitted acquires a second spelling. `after` is one word in both and sits where both need
-it. `scope.test.ts` reads every link five surfaces emit against the list, written out in the test
-rather than imported, so the code cannot agree with itself.
+it. `scope.test.ts` reads every link six surfaces emit against the list, `/import` among them since
+CNCORE-182. The list is written out in the test rather than imported, so the code cannot agree with
+itself.
 
 **THE ONE ADDRESS THE LIST CANNOT WRITE IS A FORM'S.** A browser submits a GET form's fields in
 document order, so the header's search box puts the reader's `q` first and the `group` it carries
@@ -300,7 +302,12 @@ reader goes back to the scope with Back rather than with the header -- the cost 
 one address, accepted rather than overlooked, and what a remembered scope held outside the address
 would be for if it is ever wanted. **The header carries whatever Group the address names, on any
 page**, rather than checking the page is a Listing first: every link this app writes names one only
-on a Listing, and an address typed with one elsewhere is carried on to the next Listing as it asked.
+on a surface a group narrows -- the three Listings, and Provider search since CNCORE-182, which is
+one scope and so carried from too -- and an address typed with one elsewhere is carried on to the
+next Listing as it asked. **A group that is not there is carried as well**, where `/import`'s own
+box carries only one that is: that page has read every group, and the shell has read none. Asking
+would be a round trip on every page to decide a hidden field, and the next Listing says "No such
+Group", which is what the page it came from said.
 A check on the path would be a second list of which surfaces narrow, beside the pages that decide
 it.
 
@@ -315,6 +322,25 @@ without its scope, so the day a route stops being dynamic says so loudly.
 
 **AND THIS RECORD STAYS PROPOSED, for the reason it always has.** CNCORE-181 stated the order once and
 carried the scope; neither is `next`, which is still derived by nothing because there is no playback.
+
+## And on Provider search -- under CNCORE-182
+
+**THE SAME PARAMETER ON A SURFACE THAT IS NOT A LISTING**: `/import?q=<query>&group=<id>`, where the
+group decides which Providers are asked rather than which Items are listed
+([[0025-the-source-order-is-global]]). It is spelled as Catalogue search spells it, `q` then
+`group`, and written by the same picker through the same function, so the two searches cannot
+come to disagree about the order. There is no `after`: nothing pages a Provider's answer.
+
+**A GROUP NAMING NOTHING ASKS NOBODY**, the rule above read for this surface, and the page says the
+group is not there rather than that nothing matched. A group that is there and asks no Provider says
+that instead, in its own words, because "nothing matched" would be a claim about Providers nobody
+asked.
+
+**THE PAGE'S OWN SEARCH BOX CARRIES THE GROUP**, as a hidden field after the query, which Catalogue
+search's did not when this was written: that box lives in the shell and asked across everything
+wherever it was submitted from, where `/import`'s sits under the picker that still marks the group.
+It carries the group the address names since CNCORE-181 (above), a dead one included. It carries only a group
+that is there, so a dead one is not written onto every search typed after it.
 
 ## What implementing it taught -- under CNCORE-14
 

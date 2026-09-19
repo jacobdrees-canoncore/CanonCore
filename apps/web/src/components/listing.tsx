@@ -187,11 +187,25 @@ type Walking =
   | { path: MembersPath; asked: TheRoute; narrowed?: never; listing: ItemPageListing };
 
 /**
- * ONE OF THE THREE SURFACES THAT ARE THEIR LISTING, as the Group picker sees
- * it: where it is, and what it was asked -- with no Group and no cursor,
- * because those are the two things the picker changes.
+ * PROVIDER SEARCH ON `/import`, WHICH A GROUP NARROWS AND NOTHING WALKS
+ * (CNCORE-182).
+ *
+ * A Group decides which Providers are asked (ADR-0025), so the picker belongs
+ * on the one surface that asks them -- with the same address shape as Catalogue
+ * search, `?q=<query>&group=<id>`. It is NOT one of `Walking`'s members,
+ * because a search a Provider answers is not a Listing: nothing pages it, so
+ * it owes the walk no sentence and takes no cursor, and adding it there would
+ * make every exhaustive table about Listings name it.
  */
-type Narrowable = Extract<Walking, { listing?: never }> & { narrowed?: never };
+type Searched = { path: "/import"; asked: Asked; narrowed?: Narrowed; listing?: never };
+
+/**
+ * ONE OF THE SURFACES A GROUP NARROWS, as the Group picker sees it: where it
+ * is, and what it was asked -- with no Group and no cursor, because those are
+ * the two things the picker changes. The three Listings that are their own
+ * surface, and Provider search.
+ */
+type Narrowable = Extract<Walking | Searched, { listing?: never }> & { narrowed?: never };
 
 /**
  * WHERE ONE OF THOSE LISTINGS STARTS, UNNARROWED: its address with what it
@@ -303,7 +317,7 @@ function endsHere(walking: Walking): string {
  * has already needed once: walking `Members` on a page that already carried
  * `?placedAfter=` appended `after` BEHIND it, a second spelling of one address.
  */
-function queryFor(walking: Walking, at: string | undefined): LinkQuery {
+function queryFor(walking: Walking | Searched, at: string | undefined): LinkQuery {
   const own = walking.listing === undefined ? "after" : CURSOR[walking.listing];
   return inTheFixedOrder({ ...walking.asked, ...walking.narrowed, [own]: at });
 }
@@ -591,7 +605,9 @@ export function theScope(groups: Group[], narrowedTo: string | undefined) {
 /**
  * WHERE A READER PICKS A GROUP (ADR-0010): one universe at a time, on every
  * surface that is its own Listing -- the Catalogue since CNCORE-179, and
- * work-browsing and Catalogue search since CNCORE-180.
+ * work-browsing and Catalogue search since CNCORE-180 -- and on Provider search
+ * since CNCORE-182, where the Group decides who is asked rather than which
+ * Items are listed.
  *
  * ONE PICKER, BESIDE THE WALK, because it is the walk's own rule applied to a
  * different parameter: every link it writes is this Listing's start, through
@@ -679,8 +695,9 @@ export function NarrowToAGroup({
  * a Group takes no Item with it.
  *
  * THE WAY OUT IS THIS LISTING UNNARROWED, the same address the picker's
- * `Everything` is -- `/works` from work-browsing and the same query from
- * Catalogue search -- rather than the Catalogue, which is a different question.
+ * `Everything` is -- `/works` from work-browsing, the same query from
+ * Catalogue search, and the same query asked of every Provider from `/import`
+ * -- rather than the Catalogue, which is a different question.
  */
 export function NoSuchGroup(surface: Narrowable) {
   return (

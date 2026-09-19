@@ -72,7 +72,8 @@ export function oneGroup(parameter: string | string[] | undefined): string | und
  * drifted one is a second spelling of one page.
  *
  * WHY THE TWO HALVES INTERLEAVE AS THEY DO. `via` and `placed` are only ever
- * written on an Item's page and `q` and `group` only on a Listing's, so no link
+ * written on an Item's page and `q` and `group` only on a Listing's or on
+ * Provider search's (CNCORE-182), so no link
  * carries one of each and their places relative to each other re-spell
  * nothing. Within each half the order is the one already out there: `via`,
  * `placed`, `after`, `placedAfter` on the Item page, and `q`, `group`, `after`

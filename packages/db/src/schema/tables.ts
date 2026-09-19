@@ -1018,3 +1018,35 @@ export const groupItems = pgTable(
     index("group_items_item").on(t.itemId),
   ],
 );
+
+/**
+ * ADR-0025. WHICH PROVIDERS ONE GROUP ASKS, one row per Provider -- the half of
+ * that record which needed Groups to exist (CNCORE-182).
+ *
+ * THE PROVIDER BY ITS BASE URL, WHICH IS ITS IDENTITY (ADR-0031), and not a
+ * foreign key to `sources` for the reason `import_runs` gives: a Group may ask a
+ * Provider this catalogue has never imported from, which is the ordinary case on
+ * a fresh install, and `sources` holds no row for one until the first import
+ * writes it.
+ *
+ * A CHOICE OF WHO IS ASKED AND NEVER A RANKING. There is no order column, and
+ * that absence is the decision: the source order is one for the instance
+ * (`sources.source_order`), because an Item in two Groups ranked differently
+ * would have two answers for one field at one address.
+ *
+ * `lifecycleColumns` AND NOT `stampColumns`, the reading `groups` gets above: a
+ * merge merges Items (ADR-0040), and this row names none.
+ */
+export const groupProviders = pgTable(
+  "group_providers",
+  {
+    id: idColumn(),
+    ...ownedColumns(),
+    groupId: uuid("group_id")
+      .notNull()
+      .references(() => groups.id),
+    providerIdentity: text("provider_identity").notNull(),
+    ...lifecycleColumns(),
+  },
+  (t) => [unique("group_providers_group_provider").on(t.ownerId, t.groupId, t.providerIdentity)],
+);

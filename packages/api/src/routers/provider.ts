@@ -33,6 +33,7 @@ import {
 import { z } from "zod";
 
 import { openProcedure, ownerProcedure } from "../index";
+import { theProvidersAsked } from "./group";
 
 /**
  * Raised when REACHING a provider failed, carrying the reason a page may print.
@@ -675,7 +676,8 @@ export const provider = {
     }),
 
   /**
-   * Searches EVERY configured provider at once and answers what each of them
+   * Searches EVERY configured provider at once -- or, within a Group, every one
+   * that Group asks (ADR-0025, CNCORE-182) -- and answers what each of them
    * offered, with the ones this catalogue already holds named.
    *
    * SEVERAL PROVIDERS, WHICH IS WHAT MAKES SEARCH A DIFFERENT SHAPE FROM THE
@@ -692,9 +694,11 @@ export const provider = {
    *
    * THE CONFIGURED SET RATHER THAN A URL ON THE INPUT. A provider is a URL
    * (ADR-0031) and there is no registry, so the set comes from the settings,
-   * parsed at module load. Taking it as input would make every caller name the
+   * read per request. Taking it as input would make every caller name the
    * providers, and a caller that named one would get one answer and no way to
-   * know it had missed the other.
+   * know it had missed the other. A GROUP NARROWS THE SET RATHER THAN NAMING
+   * ONE, for the same reason: it is the Owner's standing choice, read from the
+   * catalogue, and never a list the caller supplies.
    */
   search: openProcedure
     .input(
@@ -711,6 +715,17 @@ export const provider = {
          * INPUT, which is what it is.
          */
         query: z.string().trim().min(1),
+        /**
+         * THE GROUP THE OWNER IS SEARCHING WITHIN (ADR-0025, CNCORE-182),
+         * which decides who is asked: the Providers it asks, and no others.
+         * Absent is every configured Provider, which is searching across
+         * everything.
+         *
+         * A STRING RATHER THAN A `z.uuid()`, for the reason `listingInput`
+         * gives for the same parameter: a Group that names nothing asks
+         * nobody, and that is the answer rather than a BAD_REQUEST.
+         */
+        group: z.string().optional(),
       }),
     )
     .output(
@@ -750,7 +765,11 @@ export const provider = {
       // one URL was not allowlisted.
       const { allowlist, urls } = await context.providerSettings();
       const { answered, failed } = await searchProviders(
-        { baseUrls: urls, allowlist },
+        {
+          baseUrls:
+            input.group === undefined ? urls : await theProvidersAsked(context, input.group),
+          allowlist,
+        },
         input.query,
       );
 

@@ -65,14 +65,16 @@ all: the function does not mention `items`, which is the strongest form that pro
 record's "What a group does NOT scope" section closes the list at browsing, search, which providers are
 asked, scanner roots and the review queue. A reader who finds the table and assumes the scoping came
 with it would be wrong about every one of them — and since CNCORE-180, about three of the five
-rather than all of them:
+rather than all of them, and since CNCORE-182 about two:
 
 - **Browsing and search are BUILT, all three Listings, under CNCORE-179 and CNCORE-180.** The
   Catalogue narrowed to a group first; work-browsing and **search** followed, and `and` the same
   predicate onto each of their questions rather than writing a second one. What each ticket built is
   below, under its own heading.
-- **Which providers are asked** is CNCORE-182, and it is the one of the three still to build because
-  it needs a second relation (a group to the providers it reaches) that no migration writes.
+- **Which providers are asked is BUILT, under CNCORE-182** — it was the one of the three still to
+  build when this was written, because it needed a second relation (a group to the providers it
+  reaches) that no migration wrote. Migration 20 writes it; the section under CNCORE-182 below says
+  what it does.
 - **Scanner roots** and **the review queue** DO NOT EXIST AS CONSTRUCTS IN THIS PRODUCT, so they are
   not unbuilt scoping over a built thing — there is nothing to scope. Nothing in the repository scans
   a filesystem and nothing queues a review. They stay in the list because the list is CLOSED and its
@@ -80,7 +82,8 @@ rather than all of them:
   addition at a time, and a list edited down to what exists would stop refusing the sixth thing.
 
 **So the negative half of this record is the half that is now testable, and the positive half was
-still a promise** when this was written; CNCORE-179 and CNCORE-180 keep the first two of its five. `group_items` carries no medium, no field set, no vocabulary and no source order,
+still a promise** when this was written; CNCORE-179 and CNCORE-180 keep the first two of its five,
+and CNCORE-182 the third. `group_items` carries no medium, no field set, no vocabulary and no source order,
 and `groupPublic` emits an id and a name — which is the shape refusing to accumulate rather than a
 payload waiting to be filled in.
 
@@ -114,9 +117,13 @@ so inherits the cap, the walk and both positions of the size.
 between a scope and a partition read from the other side. An Item deleted from the catalogue stays
 gone from a group it still sits in — deleting an Item names no group, so its membership is live and
 only the catalogue's rule keeps it out. And it reads the MEMBERSHIP's tombstone without joining
-`groups`, which is safe because `deleteGroupByHand` tombstones both in one transaction and
-`putItemInGroupByHand` refuses a group that has gone; CNCORE-178's test of the deletion said this
-read was coming and asserts the half it depends on.
+`groups`, which is safe against every write but one: `deleteGroupByHand` tombstones both in one
+transaction and `putItemInGroupByHand` refuses a group that has gone, but a put that checked the
+group live before a deletion landed inserts after it, and no foreign key refuses a row whose group
+is only tombstoned. Review of CNCORE-182 found that race, which leaves a live membership under a
+dead group; CNCORE-230 is the fix, and CNCORE-182's own table reads through `groups` for that
+reason. CNCORE-178's test of the deletion said this read was coming and asserts the half it depends
+on.
 
 **A GROUP THAT NAMES NOTHING NARROWS TO NOTHING**, which is [[0066-path-is-identity-query-is-the-route]]'s
 rule for a parameter that is not an identity: whether it names anything is what the answer says. A
@@ -214,7 +221,7 @@ carried to `/works`, and the search box in the header asked across everything wh
 submitted from, so a reader picked the group again on each surface -- until CNCORE-181 below. A
 Row's own figure is not narrowed on any of the three, for the reason CNCORE-179 gives above. And
 which providers a group asks is still CNCORE-182's, so this record stays `proposed`: two of its five
-scoped things are built, one is not, and two do not exist to be scoped.
+scoped things are built, one is not (until CNCORE-182, below), and two do not exist to be scoped.
 
 ## As built, under CNCORE-181 — and this record stays PROPOSED
 
@@ -224,18 +231,44 @@ page: `scope.test.ts` has the Owner pick a group on each surface and asks the pi
 as the Owner and as a reader with no session, and all three are served the same page. Nothing holds
 the scope outside the address -- no session, no cookie, no script's memory.
 
-**THE HEADER CARRIES IT.** Its wordmark and `Works` link to the scope the page is narrowed to, and its
+**THE HEADER CARRIES IT.** Its wordmark and `Works` link to the group the address names, and its
 search box carries it as a hidden field behind the reader's query, which closes what review of
-CNCORE-180 found: a second query typed on a narrowed search asked across everything. How the header
-reads an address a layout is never handed is
-[[0066-path-is-identity-query-is-the-route]]'s, under CNCORE-181.
+CNCORE-180 found: a second query typed on a narrowed search asked across everything. It is one scope
+wherever it was picked, so a group picked on `/import` since CNCORE-182, where it decides which
+providers are asked, is carried to the Listings the same way. How the header reads an address a
+layout is never handed is [[0066-path-is-identity-query-is-the-route]]'s, under CNCORE-181.
 
 **AN ITEM IS ONE ITEM WHICHEVER GROUP LED TO IT.** The seeded instance's story sits in two groups,
 and every narrowed Listing -- three surfaces, two groups -- links it at the one bare `/items/<id>`,
 whose canonical is itself. So an Item's page is not narrowed, and reached by any link this app
-writes its header has no scope to carry: a reader returns to the scope with Back. That is the cost of one address per Item, stated in
-[[0066-path-is-identity-query-is-the-route]] beside it.
+writes its header has no scope to carry: a reader returns to the scope with Back. That is the cost
+of one address per Item, stated in [[0066-path-is-identity-query-is-the-route]] beside it.
 
 **WHAT IT DOES NOT DO.** It remembers no scope outside the address, so opening `/` fresh is the whole
-catalogue and following the header from an Item's page is too. Which providers a group asks is still
-CNCORE-182's, so this record stays `proposed` for the reason CNCORE-180 gives above.
+catalogue and following the header from an Item's page is too. Which providers a group asks was
+CNCORE-182's, below, and the reason this record stays `proposed` is that section's.
+
+## As built, under CNCORE-182 — and this record stays PROPOSED
+
+**BUILT: WHICH PROVIDERS ARE ASKED, the third of the five.** Migration 20 adds `group_providers`, the
+second relation the list above said this needed: one row per provider a group asks, keyed by the
+provider's base URL. The Owner chooses on `/groups`, and Provider search on `/import`, narrowed to a
+group through the same picker the three Listings carry, asks those providers and no others. What it
+decides, and the cost it pays, is written into [[0025-the-source-order-is-global]], which this half
+completes and which is `accepted` now: a group chooses who is asked, and never how they rank.
+
+**IT SCOPES THE ASKING AND NOT THE CATALOGUE**, which is this record's line between a scope and a
+partition read from a third side. A group narrows which providers a search reaches; it does not hide
+a claim that reached the catalogue through another group. An Item in two groups reads one value per
+field in both, whichever providers each asks.
+
+**A GROUP ASKS NONE UNTIL TOLD**, so every group drawn before this ticket asks nobody after it, and
+`/import` says "asks no Provider" rather than "Nothing matched". Deleting a group tombstones its
+provider rows with the group and its memberships, in the one transaction `deleteGroupByHand` already
+ran.
+
+**WHY THIS RECORD STAYS `proposed`.** Three of its five scoped things are built: browsing, search
+and which providers are asked. The other two, scanner roots and the review queue, do not exist as
+constructs, for the reason the CNCORE-178 section's bullet on them gives, so there is nothing to
+scope and the record cannot say its mechanism is whole.
+

@@ -144,7 +144,7 @@ export default async function SearchPage({
         with no query answers nothing, so a Group picked there would narrow a
         prompt. The box that asks the question is in the shell, and carries
         whatever Group the address names (CNCORE-181) -- which, for every link
-        this app writes, is a Listing already narrowed to it. A scope is first
+        this app writes, is a page already narrowed to it. A scope is first
         picked where there is something to narrow.
       */}
       {results !== null && groups.length > 0 && (
