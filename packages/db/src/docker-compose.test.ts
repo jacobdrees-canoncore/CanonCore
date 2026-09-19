@@ -32,6 +32,8 @@ function couldBind5432(hostPort: string): boolean {
   return /(^|\D)5432(\D|$)/.test(hostPort);
 }
 
+const bytesPerUnit = { k: 2 ** 10, m: 2 ** 20, g: 2 ** 30 };
+
 /**
  * The `shm_size` this compose file declares, in bytes, or `undefined` when it
  * declares none and Docker's own 64 MB applies. Binary units, because Compose
@@ -42,10 +44,10 @@ function declaredShmSize(compose: string): number | undefined {
   const value = /^[ \t]*shm_size:[ \t]*["']?([^"'\s#]+)/m.exec(compose)?.[1];
   if (value === undefined) return undefined;
 
-  const parsed = /^(\d+)(b|kb?|mb?|gb?)?$/i.exec(value);
+  const parsed = /^(\d+)(?:([kmg])b?|b)?$/i.exec(value);
   if (!parsed) throw new Error(`shm_size: cannot read ${JSON.stringify(value)}`);
-  const unit = (parsed[2] ?? "b").toLowerCase()[0] as "b" | "k" | "m" | "g";
-  return Number(parsed[1]) * { b: 1, k: 2 ** 10, m: 2 ** 20, g: 2 ** 30 }[unit];
+  const unit = parsed[2]?.toLowerCase() as keyof typeof bytesPerUnit | undefined;
+  return Number(parsed[1]) * (unit ? bytesPerUnit[unit] : 1);
 }
 
 describe("the development database container", () => {
@@ -73,7 +75,7 @@ describe("the development database container", () => {
     ]);
   });
 
-  it("reads shm_size the way Compose does", () => {
+  it("reads shm_size in the units the Compose spec names", () => {
     // The spec's own examples, in binary units: Compose parses a byte value
     // with go-units' RAMInBytes, so `1gb` is 2^30. Docker answered exactly that
     // for `1gb` on the running container, 2026-09-19.
@@ -85,6 +87,8 @@ describe("the development database container", () => {
     expect(declaredShmSize("    shm_size: 268435456")).toBe(268435456);
 
     // Absent is Docker's own 64 MB, which is the value this guards against.
+    // Compose accepts more than the spec names, `1tb` among them; this refuses
+    // what it was not written to read rather than guessing at it.
     expect(declaredShmSize("    image: postgres:18")).toBeUndefined();
     expect(() => declaredShmSize("    shm_size: 1tb")).toThrow();
   });
@@ -94,8 +98,10 @@ describe("the development database container", () => {
     // schema exhaust (CNCORE-228). The failure lands in whichever suite asks
     // next, as `could not resize shared memory segment`.
     const dockerDefault = 64 * 2 ** 20;
+    const declared = declaredShmSize(await readFile(composeFile, "utf8"));
 
-    expect(declaredShmSize(await readFile(composeFile, "utf8"))).toBeGreaterThan(dockerDefault);
+    expect(declared, "docker-compose.yml declares no shm_size").toBeDefined();
+    expect(declared).toBeGreaterThan(dockerDefault);
   });
 
   it("does not publish on 5432, where a local PostgreSQL would shadow it", async () => {
