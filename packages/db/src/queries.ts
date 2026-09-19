@@ -180,9 +180,10 @@ function spokesmanFor(db: Database) {
 export interface PlacementsOfItem {
   rows: PlacementOfItem[];
   /**
-   * How many orderings the item sits in ALTOGETHER, which is not
-   * `rows.length` whenever the cap bit. A surface that cannot tell the two
-   * apart reports the first hundred as every ordering there is.
+   * How many appearances the item has ALTOGETHER -- its placements, so a
+   * Repeat counts twice (CNCORE-236) -- which is not `rows.length` whenever
+   * the cap bit. A surface that cannot tell the two apart reports the first
+   * hundred as every appearance there is.
    */
   total: number;
   /**
