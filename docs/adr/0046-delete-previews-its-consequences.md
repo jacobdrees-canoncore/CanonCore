@@ -98,11 +98,11 @@ and the page renders the offer. The placement returns with its position AND its
 origin, because the removal tombstones only the placement and leaves every
 source that stood behind it standing (ADR-0017, ADR-0061).
 
-Counts-first is built for one operation, and CNCORE-69 put a UI in
-front of THAT one -- so "there is still no UI in front of any of it", true when
-this section was written, is now true only of the item half. The purge's own
-confirmation and its weighting are built; the section below records what
-building them settled.
+Counts-first is built for two operations, and each has a UI in front of it:
+the purge, whose confirmation CNCORE-69 built, and deleting a Group, whose
+confirmation CNCORE-210 built. So "there is still no UI in front of any of it",
+true when this section was written, is now true only of the item half. The
+sections below record what building the two confirmations settled.
 
 ## WHAT THE PURGE'S CONFIRMATION SETTLED, decided under CNCORE-69
 
@@ -197,6 +197,70 @@ now: `purge` is an `ownerProcedure`, so the caller is the owner or the call is
 refused (ADR-0043, ADR-0044). The preview is still the OWNER'S discipline rather
 than the product's guarantee -- which is the honest version of counts-first, and
 is why it is stated here rather than claimed as a boundary.
+
+## WHAT DELETING A GROUP DOES ABOUT IT, decided under CNCORE-210
+
+This record was written about deleting an ITEM and had never been applied to a
+Group. CNCORE-178 shipped the Group's delete with no confirmation, and its
+docstring cited this record for the omission by a test -- "what it costs to
+undo" -- that is not in it. Applied now, both halves of the weighting hold.
+
+DELETING A GROUP IS DELETE PERMANENTLY. It tombstones the Group, its Group
+memberships and the Providers it asks (ADR-0075), and nothing clears those
+tombstones: there is no restoring one. So it asks first, at
+`/groups?delete=<id>`, in the purge's arrangement read the same way: a page at
+its own address that nothing dismisses, Cancel a plain link, and the one
+destructive button after the counts.
+
+TAKING AN ITEM OUT OF A GROUP IS THE OTHER KIND, and still gets no dialog. It
+is REMOVE FROM THIS CONTAINER's weighting rather than that outcome -- ADR-0010
+makes a Group a scope and never a container -- and for the same reason: it is
+the frequent editing act. Its undo is the Item page it happened on, whose "Put
+it in" offers the Group again, one click back to the same row under the same id
+(ADR-0078). There is no undo OFFER of the kind CNCORE-72 renders for a
+Placement, and none is owed: that offer exists because a removed Placement has
+no control left on the page to bring it back, and a Group membership does.
+
+TWO COUNTS AND A SENTENCE. The Group memberships the deletion takes, the
+Providers the Group asks (said only when there are any), and "No Item is
+deleted". No Item count, because ADR-0010 makes deleting a scope take none; the
+sentence is what tells the Owner that the cost is a list they would put
+together again by hand rather than anything in the catalogue. The Groups page's
+standing sentence that deleting a Group leaves its Items alone is the
+mitigation, and was never the exemption.
+
+THE COUNTS COME FROM THE DELETE ITSELF, ROLLED BACK. `previewGroupDeletion`
+runs the three updates `deleteGroupByHand` runs, in a transaction it then rolls
+back, through the one `rolledBack` helper the purge's preview now runs through
+too. The purge needed that because eight rules decide what it takes; a Group
+deletion has one predicate per table, and the same guarantee was chosen anyway,
+because it costs one Group's row locks for three updates -- and, as with the
+purge, the `change_sequence` values those updates take through `touch_row`,
+which the rollback leaves spent -- and leaves no second statement of the
+deletion to fall out of step. It follows that
+`group.previewDelete` is an `ownerProcedure` like the delete, and that the
+list's button is a string-action `<Form>` rather than a `<Link>`, for the
+prefetch trap recorded above.
+
+TWO THINGS DIFFER FROM THE PURGE, each for a reason:
+
+- AN EMPTY GROUP IS STILL ASKED. A purge with nothing to take gets no
+  confirmation because it would take nothing. A Group deletion always takes the
+  Group itself, so there is never nothing to take.
+- THE CONFIRMATION TAKES THE PAGE rather than rendering below the list. The
+  purge's preview sits at the end of a long `/import`; a Group's replaces the
+  list, so an Owner who pressed Delete... on the twentieth Group meets the
+  counts at the top of the page with no other control beside them.
+
+AND THE DELETE REPORTS ITSELF THE PURGE'S WAY, by re-rendering the address it
+posted from: the page confirms only a Group it lists, so once the Group is gone
+`/groups?delete=<id>` is the list without it. A redirect to `/groups` was built
+first and taken out in review, because it is the hand-built address ADR-0109
+measured `basePath` never reaches.
+
+COUNTS-FIRST IS THE PAGE'S SHAPE HERE TOO, not the product's guarantee:
+`/api/rpc` carries `group.delete`, and the Owner calling it directly meets no
+preview.
 
 ## Evidence
 

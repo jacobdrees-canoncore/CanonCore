@@ -5,8 +5,12 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@canoncore/ui/
 import { Input } from "@canoncore/ui/components/input";
 import { Label } from "@canoncore/ui/components/label";
 import { call } from "@orpc/server";
+import Form from "next/form";
 import Link from "next/link";
 
+import { whatTheProcedureAnswered } from "@/answer";
+import { counted } from "@/components/counted";
+import { oneGroup } from "@/components/query-params";
 import { TheirWords } from "@/components/their-words";
 import { callerContext } from "@/session";
 
@@ -26,6 +30,20 @@ async function readGroups(context: Context) {
 }
 
 type GroupOnThePage = Awaited<ReturnType<typeof readGroups>>[number];
+
+/**
+ * What deleting one scope would take, as `group.previewDelete` answers it.
+ *
+ * NOTHING FOR A SCOPE ANOTHER TAB DELETED since the list was read: the
+ * procedure refuses it, and the answer to that is the list without it rather
+ * than a 500 (ADR-0066).
+ */
+async function readDeletion(context: Context, id: string) {
+  return (await whatTheProcedureAnswered(call(appRouter.group.previewDelete, { id }, { context })))
+    .answered;
+}
+
+type GroupDeletion = NonNullable<Awaited<ReturnType<typeof readDeletion>>>;
 
 /**
  * WHO EACH SCOPE ASKS (CNCORE-182): the Providers this instance searches, and
@@ -69,11 +87,38 @@ type Asking = Awaited<ReturnType<typeof readAsking>>;
  *
  * IT NEEDS NO JAVASCRIPT, like every other form in this app: each control is an
  * ordinary form post and the answer is the re-rendered list.
+ *
+ * AND `?delete=<id>` IS WHERE DELETING ONE ASKS FIRST (ADR-0046, CNCORE-210),
+ * which is the purge's arrangement on `/import`: a page at its own address,
+ * which nothing dismisses by accident.
  */
-export default async function GroupsPage() {
+export default async function GroupsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ delete?: string | string[] }>;
+}) {
   const context = await callerContext();
   const owner = context.session !== null;
   const groups = await readGroups(context);
+  /*
+   * ONLY A SCOPE THIS PAGE LISTS, AND ONLY FOR THE OWNER. The list is where the
+   * name comes from, and anything else in the address -- a scope already gone,
+   * a typo -- is the list rather than a 500. Read by `oneGroup`, so an id typed
+   * in capitals still names its Group (ADR-0066). A visitor is never previewed for:
+   * the preview IS the delete, rolled back, so it is the Owner's like the
+   * delete, and asking it for a visitor would be asking for a 401.
+   */
+  const named = oneGroup((await searchParams).delete);
+  const deleting = owner ? groups.find((group) => group.id === named) : undefined;
+  const deletion = deleting && (await readDeletion(context, deleting.id));
+  if (deleting !== undefined && deletion !== undefined) {
+    return (
+      <main className="container mx-auto max-w-2xl px-4 py-8">
+        <h1 className="text-3xl font-medium">Groups</h1>
+        <ConfirmDeletion deletion={deletion} group={deleting} />
+      </main>
+    );
+  }
   const asking = await readAsking(context, groups);
 
   return (
@@ -222,25 +267,28 @@ function Group({
           </section>
           {/*
             A SECOND FORM RATHER THAN A SECOND BUTTON IN THE FIRST, because the
-            two post different fields: a rename carries the box beside it and a
-            deletion must not. A delete button inside the rename form would
-            submit whatever the Owner had half-typed.
+            two send different fields: a rename carries the box beside it and a
+            deletion must not.
 
-            NO CONFIRMATION IN FRONT OF IT (ADR-0046), and the sentence at the
-            top of this page is why rather than an excuse: deleting a scope
-            takes no Item with it, so what it costs is the scope's own
-            membership list.
+            AND IT DELETES NOTHING: it asks (ADR-0046, CNCORE-210). A GET to
+            this page naming the scope, which renders what the deletion would
+            take and the one button that takes it -- the ellipsis is the
+            convention for a command that asks before it acts. `Form` RATHER
+            THAN `Link`, for the purge's reason on `/import`: Next prefetches a
+            link's own address, and this address runs the delete and rolls it
+            back, so a list of links would do that for every scope a reader
+            scrolled past.
           */}
           <section aria-labelledby={`delete-${group.id}`}>
             <h4 className="sr-only" id={`delete-${group.id}`}>
               Delete {group.name}
             </h4>
-            <form action={deleteGroup}>
-              <input name="id" type="hidden" value={group.id} />
+            <Form action="/groups">
+              <input name="delete" type="hidden" value={group.id} />
               <Button size="sm" type="submit" variant="outline">
-                Delete
+                Delete…
               </Button>
-            </form>
+            </Form>
           </section>
         </div>
       )}
@@ -251,6 +299,57 @@ function Group({
         owner={owner}
       />
     </li>
+  );
+}
+
+/**
+ * WHAT DELETING A SCOPE TAKES, IN FRONT OF THE DELETION (ADR-0046, CNCORE-210).
+ *
+ * WHAT GOES AND WHAT DOES NOT, both said. The scope goes with its Group
+ * memberships and the Providers it asks, and there is no restoring one. No Item
+ * goes (ADR-0010, story 34), which is the sentence that tells an Owner the
+ * cost is a list they would have to put together again rather than any of the
+ * catalogue.
+ *
+ * ASKED EVEN OF AN EMPTY SCOPE, where the purge asks nothing of a provider with
+ * nothing to take: a deletion always takes the scope itself, so there is never
+ * nothing here.
+ */
+function ConfirmDeletion({ deletion, group }: { deletion: GroupDeletion; group: GroupOnThePage }) {
+  return (
+    <section aria-labelledby="delete-group" className="mt-6">
+      <h2 className="text-xl font-medium" id="delete-group">
+        Delete <TheirWords>{group.name}</TheirWords>
+      </h2>
+      <p className="mt-2 text-muted-foreground text-sm">
+        This cannot be undone. Along with the Group itself, deleting it takes
+      </p>
+      <ul className="mt-3 list-disc space-y-1 pl-5 text-sm">
+        <li>{`${counted(deletion.memberships, "Group membership")}, the list of which Items are in it`}</li>
+        {deletion.providers > 0 && (
+          <li>{`its choice of ${counted(deletion.providers, "Provider")} to ask when you search within it`}</li>
+        )}
+      </ul>
+      <p className="mt-3 text-muted-foreground text-sm">
+        No Item is deleted. Every Item in it stays in your catalogue, wherever it is placed and in
+        every other Group it is in.
+      </p>
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        {/*
+          CANCEL FIRST AND AS A PLAIN LINK, the purge's weighting: leaving is a
+          choice that costs nothing, and the only way on is the one button.
+        */}
+        <Link className="text-sm hover:underline" href="/groups">
+          Cancel
+        </Link>
+        <form action={deleteGroup}>
+          <input name="id" type="hidden" value={group.id} />
+          <Button type="submit" variant="destructive">
+            Delete permanently
+          </Button>
+        </form>
+      </div>
+    </section>
   );
 }
 

@@ -310,6 +310,46 @@ describe("item.get", () => {
     if (!isDefinedError(error)) throw new Error(`expected a defined error, got ${String(error)}`);
     expect(error.code).toBe("NOT_FOUND");
   });
+
+  it("starts both of its Listings at the beginning where a cursor names nothing", async () => {
+    // THE OTHER SIDE OF "refuses a MALFORMED id the same way", and why the
+    // answers differ. `id` IS an identity, so one naming nothing is NOT_FOUND;
+    // `after` and `placedAfter` are not, so one naming nothing names no position
+    // and the Listing starts over (ADR-0066, ADR-0119). A reader whose kept link
+    // was truncated gets the page rather than an error.
+    //
+    // WHAT THIS SEAM ADDS TO THE PACKAGE EXPORT'S is the input schema in front
+    // of it: a cursor declared a uuid there would turn the malformed one into a
+    // BAD_REQUEST this procedure does not declare, which is the 500 that test is
+    // about, reached by a different parameter.
+    const season = await anItemTitled(db, "An ordering that sits in another", {
+      isContainer: true,
+      isOrdered: true,
+    });
+    const holds = [
+      await aPlacement(db, { containerId: season, itemId: await anItem(db), position: 1 }),
+      await aPlacement(db, { containerId: season, itemId: await anItem(db), position: 2 }),
+    ];
+    const sitsIn = await aPlacement(db, {
+      containerId: await anItemTitled(db, "The box set it sits in", { isContainer: true }),
+      itemId: season,
+      position: 1,
+    });
+
+    for (const cursor of ["not-a-uuid", crypto.randomUUID()]) {
+      const cutByAfter = await call(appRouter.item.get, { id: season, after: cursor }, { context });
+      const cutByPlacedAfter = await call(
+        appRouter.item.get,
+        { id: season, placedAfter: cursor },
+        { context },
+      );
+
+      expect(cutByAfter.holds.rows.map((placement) => placement.id)).toStrictEqual(holds);
+      expect(cutByPlacedAfter.placements.rows.map((placement) => placement.id)).toStrictEqual([
+        sitsIn,
+      ]);
+    }
+  });
 });
 
 /**

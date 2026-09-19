@@ -114,6 +114,19 @@ while the count read full. Parked: answer what is technical and yours, and carry
 `CLAUDE.md` reserves for the user (money, a licence, a background service). Finished: merge and
 remove. Dead: read the terminal before assuming the work is lost.
 
+**`GONE <worktree>` MEANS NO AGENT AT ALL, AND THE WORK IS PROBABLY STILL THERE.** A session restart
+killed two agents at once on 2026-09-19. Their worktrees held seven commits between them, five never
+pushed, and their PRs read `+0` — which is exactly what an abandoned worktree looks like. Check
+`git log @{u}..HEAD` before anything else, then resume the agent in its own session so it keeps its
+context rather than re-reading the ticket over work it already committed:
+
+```sh
+orca terminal create --worktree path:<worktree> --title "Claude Code" \
+  --command "claude --continue --dangerously-skip-permissions"
+```
+
+Then tell it to push first. Never remove a `GONE` worktree on the strength of its PR.
+
 **AND SAY WHO IS ANSWERING, because the agent cannot tell.** An `AskUserQuestion` that returns the
 option its own asker marked `(Recommended)` looks identical whether the user chose it, the dispatcher
 chose it, or nothing did. Two PRs on 2026-09-19 wrote "the Owner chose" over a choice the Owner never
