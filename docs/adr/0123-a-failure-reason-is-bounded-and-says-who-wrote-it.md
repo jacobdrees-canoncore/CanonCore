@@ -783,10 +783,11 @@ Without it, none of the Provider's content can be shown.
 **AND THE SETTINGS PAGE DOES NOT SAY "UNREACHABLE".** A manifest this app will not parse already
 lands in `Reach`'s `unreachable` kind, which the page renders as "Nothing could be read from this
 Provider." with the reason quoted as the Provider's. That sentence is true of this case. **`/import`
-IS THE EXCEPTION**: a search this Provider failed is listed under "Could not be reached", which
-`NotReached` on the same page calls false of any Provider that answered. That heading was already
-wrong for a `500` or a malformed manifest, so it is not this refusal's defect, and it is filed as
-CNCORE-221. Measured on zod 4.6.5 against a four-mebibyte notice, the reason is zod's issue list,
+SAYS THE SAME SINCE CNCORE-221.** Until then it listed a search this Provider failed under "Could
+not be reached", which `NotReached` on the same page calls false of any Provider that answered. That
+heading was already wrong for a `500` or a malformed manifest, so it was not this refusal's defect;
+it now reads "Nothing could be read from these providers". Measured on zod 4.6.5 against a
+four-mebibyte notice, the reason is zod's issue list,
 183 characters once collapsed to one line:
 
     [ { "origin": "string", "code": "too_big", "maximum": 1000, "inclusive": true, "path": [ "attribution", "notice" ], "message": "Too big: expected string to have <=1000 characters" } ]

@@ -919,19 +919,25 @@ function Held({ itemId }: { itemId: string }) {
 }
 
 /**
- * WHO WAS ASKED AND DID NOT ANSWER, and why.
+ * WHO WAS ASKED AND GAVE NOTHING THIS SEARCH COULD USE, and why.
  *
  * A provider that is down and a provider that matched nothing are different
  * answers, and an owner who cannot tell them apart concludes their query was
  * wrong when their source was merely offline. Named by URL because that is what
  * the owner typed and the only thing they can act on -- reading the provider's
  * own name for itself is one of the things that failed.
+ *
+ * THE HEADING IS NOT "COULD NOT BE REACHED", for the reason `NotReached` below
+ * gives: this list also holds a provider that answered, with a `500` or a
+ * manifest `packages/providers` would not parse, and the reason printed beside
+ * it says so. It is `/settings`' sentence, which is true of all three.
  */
 function Unreachable({ failed }: { failed: Found["failed"] }) {
   return (
-    <div className="mt-6">
-      {/* TODO(CNCORE-221): false of a Provider that answered badly, as `NotReached` below says. */}
-      <h3 className="text-muted-foreground text-sm">Could not be reached</h3>
+    <section aria-labelledby="failed" className="mt-6">
+      <h3 id="failed" className="text-muted-foreground text-sm">
+        Nothing could be read from these providers
+      </h3>
       <ul className="mt-2 divide-y">
         {failed.map(({ baseUrl, reason }) => (
           <li key={baseUrl} className="py-2 text-sm">
@@ -939,7 +945,7 @@ function Unreachable({ failed }: { failed: Found["failed"] }) {
           </li>
         ))}
       </ul>
-    </div>
+    </section>
   );
 }
 

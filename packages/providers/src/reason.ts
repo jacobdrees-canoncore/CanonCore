@@ -23,7 +23,7 @@ export const REASON_MAX_LENGTH = 300;
 const CUT = "…";
 
 /**
- * Why a provider could not be reached, in a form a page may print (ADR-0123).
+ * Why nothing could be read from a provider, in a form a page may print (ADR-0123).
  *
  * TWO FIELDS BECAUSE THERE ARE TWO KINDS OF STRING HERE, and until CNCORE-95
  * they travelled as one. A page handed only the text has no way to tell the
