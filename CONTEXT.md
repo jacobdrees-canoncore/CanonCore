@@ -341,9 +341,9 @@ _Avoid_: list (a Listing is a different thing), discovery, index
 
 **Import run**:
 One walk over a LIST of Container ids at one Provider, and where it got to. The list is the Owner's
-own -- CMPP has declared an operation answering "which Containers do you have" since CNCORE-185, and
-no Provider answers it yet -- and the walk browses one Container
-at a time because a Provider is one process. A Container of a run is done when it has LANDED, so
+own -- CMPP has declared an operation answering "which Containers do you have" since CNCORE-185,
+`provider-wiki` answers it since CNCORE-208, and nothing in this app asks it until CNCORE-187 -- and
+the walk browses one Container at a time because a Provider is one process. A Container of a run is done when it has LANDED, so
 handing the same list over again asks again for whatever refused as well as for whatever was never
 reached: a lapsed Credential does not stop a run, it makes the rest of it refuse (ADR-0135).
 _Not_ the Run below, which is one execution of a Task. An import run is something the Owner starts,

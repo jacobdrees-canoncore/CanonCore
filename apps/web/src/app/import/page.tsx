@@ -980,9 +980,10 @@ function NoProviderConfigured() {
 }
 
 /**
- * NAMING A CONTAINER TO BROWSE, which the owner has to do because nothing in CMPP
- * answers "which containers do you have" yet: ADR-0033 declares `containers`
- * under CNCORE-185, and no provider answers it.
+ * NAMING A CONTAINER TO BROWSE, which the owner has to do because this page does
+ * not ask "which containers do you have" yet: ADR-0033 declares `containers`
+ * under CNCORE-185 and `provider-wiki` answers it, but offering them here is
+ * CNCORE-187.
  *
  * ADR-0033's as-built section records that decision and its reason: a record's
  * `series` field is a NAME, and the archive links members by name while a page id
