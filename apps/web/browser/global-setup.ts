@@ -106,9 +106,18 @@ export default async function setup(project: TestProject) {
         sourceId: flooding,
       });
 
+      /*
+       * AN ITEM TITLED AS THAT RECORD IS (CNCORE-223), which is the title an
+       * import of it would write. Written by hand for the reason the one above
+       * is: what this suite asserts is how the page lays the title out, not how
+       * it arrived.
+       */
+      const unbrokenTitle = await anItemTitled(db, UNBROKEN.title);
+
       return {
         dragging: { releaseOrder, inOrder: held.map(({ title }) => title) },
         claimed,
+        unbrokenTitle,
       };
     },
   });
@@ -119,6 +128,7 @@ export default async function setup(project: TestProject) {
   project.provide("browserOwnerPassword", OWNER_PASSWORD);
   project.provide("floodedName", FLOOD);
   project.provide("unbroken", UNBROKEN);
+  project.provide("titledUnbroken", instance.fixture.unbrokenTitle);
 
   return async () => {
     await instance.close();
@@ -141,5 +151,7 @@ declare module "vitest" {
     claimedByTheFlood: string;
     /** A record's fields as the second Provider sends them, before this app read them. */
     unbroken: typeof UNBROKEN;
+    /** An Item whose title is that record's, with no break in it. */
+    titledUnbroken: string;
   }
 }

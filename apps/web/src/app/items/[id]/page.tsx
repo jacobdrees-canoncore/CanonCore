@@ -14,6 +14,7 @@ import { Attribution } from "@/components/attribution";
 import { Holding, type MembersPath, PastTheEnd, type TheRoute, Walk } from "@/components/listing";
 import { type Reorder, reorderedTo } from "@/components/ordering";
 import { ProviderProse } from "@/components/provider-prose";
+import { TheirWords } from "@/components/their-words";
 import { oneValue } from "@/components/query-params";
 import { SortableMembers } from "@/components/sortable-members";
 import { callerContext } from "@/session";
@@ -454,9 +455,13 @@ export default async function ItemPage({
         whichever title statement currently wins (ADR-0014). An item with no
         title statement has no title, and says so rather than showing its id.
       */}
-      <h1 className="text-3xl font-medium">{item.title ?? "Untitled item"}</h1>
+      <h1 className="text-3xl font-medium">
+        <TheirWords>{item.title ?? "Untitled item"}</TheirWords>
+      </h1>
       {item.sortName && (
-        <p className="mt-2 text-sm text-muted-foreground">Sorts as {item.sortName}</p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Sorts as <TheirWords>{item.sortName}</TheirWords>
+        </p>
       )}
       {/*
         No `releaseDate` here on purpose. ADR-0081 defines it as the earliest
@@ -744,7 +749,9 @@ function Values({ statements }: { statements: ItemOnThePage["statements"] }) {
               <span className="text-muted-foreground text-sm">
                 {propertyLabel(statement.property)}
               </span>
-              <span>{statement.value}</span>
+              <span>
+                <TheirWords>{statement.value}</TheirWords>
+              </span>
             </span>
             {/*
               The source's own LABEL rather than its kind. "Who asserted this"

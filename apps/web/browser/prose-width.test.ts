@@ -131,4 +131,32 @@ describe("a record's fields with no break in them", () => {
     await expect.poll(() => row.count()).toBe(1);
     expect(await overrun(row)).toStrictEqual({ element: 0, document: 0 });
   });
+
+  it("wraps a title inside the heading on its own Item page", async () => {
+    await page.goto(`${baseUrl}/items/${inject("titledUnbroken")}`);
+    const heading = page.getByRole("heading", { level: 1 });
+
+    await expect.poll(() => heading.textContent()).toBe(unbroken.title);
+    expect(await overrun(heading)).toStrictEqual({ element: 0, document: 0 });
+  });
+
+  /*
+   * AND IN THE VALUES ROW BELOW IT, which prints the same title as the claim it
+   * projects from (ADR-0014). The heading is a block and the row is flex, so
+   * the heading wrapping says nothing about the row: with only the heading
+   * wrapped, the page still ran 1,554 pixels past the viewport.
+   *
+   * THE `Title` ROW, found by its label, because the sort name derived from
+   * this title is a row of its own holding the same word. The document half
+   * is what answers for that one.
+   */
+  it("wraps a title inside the row where its Item page lists it as a value", async () => {
+    await page.goto(`${baseUrl}/items/${inject("titledUnbroken")}`);
+    const row = page.locator("section[aria-labelledby='values'] li").filter({
+      hasText: new RegExp(`^Title${unbroken.title.slice(0, 100)}`),
+    });
+
+    await expect.poll(() => row.count()).toBe(1);
+    expect(await overrun(row)).toStrictEqual({ element: 0, document: 0 });
+  });
 });
