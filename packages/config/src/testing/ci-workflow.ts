@@ -97,6 +97,12 @@ export type Job = {
    */
   needs?: unknown;
   outputs?: Record<string, string>;
+  /**
+   * READ BY `ci-timeouts.test.ts` (CNCORE-219). Absent, GitHub gives a job 360
+   * minutes, so a hung suite holds a pull request for six hours looking exactly
+   * like a slow one. Typed `unknown` because the key also takes an expression.
+   */
+  "timeout-minutes"?: unknown;
 };
 
 /**
