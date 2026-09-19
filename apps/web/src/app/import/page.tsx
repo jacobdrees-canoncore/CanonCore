@@ -259,8 +259,8 @@ type ImportPage = Awaited<ReturnType<typeof readImportPage>>;
 type Found = NonNullable<ImportPage["found"]>;
 
 /**
- * WHY A PROVIDER COULD NOT BE REACHED (ADR-0123): the text, and whose sentence
- * it is.
+ * WHY NOTHING COULD BE READ FROM A PROVIDER (ADR-0123): the text, and whose
+ * sentence it is.
  *
  * TAKEN OFF THE PAYLOAD RATHER THAN IMPORTED FROM `@canoncore/providers`, which
  * publishes the same type. That package is a devDependency here -- the page
@@ -919,19 +919,23 @@ function Held({ itemId }: { itemId: string }) {
 }
 
 /**
- * WHO WAS ASKED AND DID NOT ANSWER, and why.
+ * WHO WAS ASKED AND GAVE NOTHING THIS SEARCH COULD USE, and why.
  *
  * A provider that is down and a provider that matched nothing are different
  * answers, and an owner who cannot tell them apart concludes their query was
  * wrong when their source was merely offline. Named by URL because that is what
  * the owner typed and the only thing they can act on -- reading the provider's
  * own name for itself is one of the things that failed.
+ *
+ * THE HEADING IS NOT "COULD NOT BE REACHED", for the reason `NotReached` below
+ * gives. It is `/settings`' sentence made plural.
  */
 function Unreachable({ failed }: { failed: Found["failed"] }) {
   return (
-    <div className="mt-6">
-      {/* TODO(CNCORE-221): false of a Provider that answered badly, as `NotReached` below says. */}
-      <h3 className="text-muted-foreground text-sm">Could not be reached</h3>
+    <section aria-labelledby="failed" className="mt-6">
+      <h3 id="failed" className="text-muted-foreground text-sm">
+        Nothing could be read from these providers
+      </h3>
       <ul className="mt-2 divide-y">
         {failed.map(({ baseUrl, reason }) => (
           <li key={baseUrl} className="py-2 text-sm">
@@ -939,7 +943,7 @@ function Unreachable({ failed }: { failed: Found["failed"] }) {
           </li>
         ))}
       </ul>
-    </div>
+    </section>
   );
 }
 
@@ -1111,10 +1115,10 @@ function NotOneOfOurs() {
  * EVERY BRANCH HERE IS A SENTENCE RATHER THAN A FAILURE, which is what asking on
  * the GET buys: `provider.container` reaches the provider, and each of the things
  * it can say -- here it is, there is nothing at that id, this provider does not
- * do browse, this provider could not be reached -- is page copy an owner can act
- * on. Until CNCORE-92 all three refusals were found out by PRESSING the button,
- * where they arrived as a bare `Internal Server Error` with the provider's own
- * reason redacted out of it.
+ * do browse, nothing could be learned from this provider -- is page copy an
+ * owner can act on. Until CNCORE-92 all three refusals were found out by
+ * PRESSING the button, where they arrived as a bare `Internal Server Error` with
+ * the provider's own reason redacted out of it.
  *
  * SO THE BUTTON IS OFFERED ONLY WHERE A BROWSE WOULD WORK. Nothing to press is
  * the difference between a refusal reported and a refusal merely reworded.
