@@ -97,6 +97,11 @@ export type Job = {
    */
   needs?: unknown;
   outputs?: Record<string, string>;
+  /**
+   * READ BY `ci-timeouts.test.ts` (CNCORE-219), which says why every job needs
+   * one. Typed `unknown` because the key also takes an expression.
+   */
+  "timeout-minutes"?: unknown;
 };
 
 /**
