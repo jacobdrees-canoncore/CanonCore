@@ -1,6 +1,6 @@
 import { type ChildProcess, spawn } from "node:child_process";
-import { createServer as createProbe } from "node:net";
 import { fileURLToPath } from "node:url";
+import { stripVTControlCharacters } from "node:util";
 import { createDb, type Database, writeProviderSettings } from "@canoncore/db";
 import {
   buildTestDatabase,
@@ -101,8 +101,9 @@ export const OWNER_PASSWORD = "the owner's own password for the e2e suite";
  *
  * WHY A THROW HAS TO CLOSE ANYTHING. A server here is a `next start` PROCESS,
  * and it does not end when the process that started it does: it is re-parented
- * to pid 1 and goes on holding the stdout it inherited. On a pipe that is a
- * stream nothing ever closes, so CI, which reads a step's output to the end,
+ * to pid 1 and goes on holding the stderr it inherited (its stdout has been a
+ * pipe into the harness since CNCORE-235). On a pipe that is a stream nothing
+ * ever closes, so CI, which reads a step's output to the end,
  * waits on it until the job's ceiling (ADR-0141). Vitest calls a teardown only
  * if setup returned one, so a setup that threw part-way used to leave every
  * server it had already started running: seven after one run on 2026-09-19 and
@@ -135,12 +136,12 @@ export async function settingUp(
 /**
  * THE SERVER HALF, and every instance in this repository is made of it.
  *
- * Take a port nothing is on, start the ONE build against the environment given,
- * wait until it answers. Nothing here knows about databases, which is what lets
- * `setup` use it directly: that instance runs `next build` BETWEEN its database
- * and its server, and a helper that did both halves would have to take a flag
- * saying whether to build. `anInstanceServing` below is that helper for the four
- * with nothing in between.
+ * Start the ONE build against the environment given, on a port the server
+ * chooses itself, and wait until it answers. Nothing here knows about
+ * databases, which is what lets `setup` use it directly: that instance runs
+ * `next build` BETWEEN its database and its server, and a helper that did both
+ * halves would have to take a flag saying whether to build. `anInstanceServing`
+ * below is that helper for the four with nothing in between.
  *
  * THE SERVER GOES ON `owned` AS IT IS SPAWNED, before the wait, so there is no
  * way to start one in this harness that nothing will close (CNCORE-229) -- one
@@ -155,6 +156,10 @@ export async function settingUp(
  * every server behind it against Vitest's ten-second `teardownTimeout`. A server
  * signalled is one that stops -- Next exits on SIGTERM -- so the pipe is let go
  * a moment after the teardown ends, rather than never.
+ *
+ * NO PORT IS NAMED TO THE SERVER IN ADVANCE, AND IT LISTENS ONLY WHERE IT IS
+ * REACHED (CNCORE-235). `SERVER_HOST` and `thePortItBound` below say why; ADR-0144
+ * carries the measurements.
  */
 export async function theBuildServing(
   owned: AsyncDisposableStack,
@@ -165,19 +170,94 @@ export async function theBuildServing(
   pid: number | undefined;
   close: () => void;
 }> {
-  const port = await freePort();
-  const server = spawn("next", ["start", "--port", String(port)], {
+  const server = spawn("next", ["start", "--hostname", SERVER_HOST, "--port", "0"], {
     cwd: webRoot,
     env: theServerEnvironment(env),
-    stdio: "inherit",
+    stdio: ["inherit", "pipe", "inherit"],
   });
   const close = () => {
     server.kill("SIGTERM");
   };
   owned.defer(close);
-  const baseUrl = `http://127.0.0.1:${port}`;
-  await waitUntilAnswering(baseUrl, server);
+  const deadline = Date.now() + STARTING_MS;
+  const baseUrl = `http://${SERVER_HOST}:${await thePortItBound(server, deadline)}`;
+  await waitUntilAnswering(baseUrl, server, deadline);
   return { baseUrl, pid: server.pid, close };
+}
+
+/**
+ * WHERE EVERY SERVER UNDER TEST LISTENS AND WHERE THE HARNESS REACHES IT: ONE
+ * ADDRESS, NOT TWO (CNCORE-235).
+ *
+ * `next start` binds every address unless it is told one, and the harness
+ * reaches it at `127.0.0.1`. That left the exact address open: Node sets
+ * `SO_REUSEADDR`, so on macOS another process may still bind `127.0.0.1` on a
+ * port a wildcard server holds, and a connection goes to the most specific
+ * address bound, so that process answers the harness in the server's place.
+ * Bound where it is reached, the server makes that bind `EADDRINUSE` instead --
+ * and stops listening on the network, which a server under test never needed.
+ */
+const SERVER_HOST = "127.0.0.1";
+
+/**
+ * THE PORT `next start` BOUND, read off the line it announces it on (CNCORE-235).
+ *
+ * THE HARNESS USED TO CHOOSE THE PORT AND HAND IT OVER, and the handing over was
+ * the defect. A probe bound port 0, read the number, closed, and passed it to
+ * `--port`; from that close until Next's own bind the port was anybody's, and on
+ * 2026-09-19, beside another worktree's suite, somebody took one and the server
+ * died on `EADDRINUSE`. The OS does not hand out a port a live listener holds, so
+ * a port chosen BY the bind that holds it has no window: Next is given `--port 0`
+ * and says which port the OS chose.
+ *
+ * NEXT'S OWN HARNESS DOES EXACTLY THIS: its `next start` test mode spawns with
+ * `PORT` 0 unless a test forces one, and reads the URL off the `- Local:` line.
+ * Next prints that line once it is listening, from the address its listener
+ * reports. Were a later Next to word it differently, every server here would fail
+ * to start saying it named no port, rather than start somewhere unknown.
+ *
+ * STDOUT IS PIPED TO READ IT AND PASSED ON, so a server's output still reaches
+ * the run's own. Stderr is inherited as before, so an orphaned server still
+ * holds the run's output open through it, which is why `settingUp` matters.
+ */
+function thePortItBound(server: ChildProcess, deadline: number): Promise<number> {
+  const { stdout } = server;
+  if (stdout === null) throw new Error("next start was spawned without a pipe on its stdout");
+  stdout.pipe(process.stdout, { end: false });
+  return new Promise((resolve, reject) => {
+    let heard = "";
+    const hearing = (chunk: Buffer) => {
+      heard += chunk.toString();
+      const url = /- Local:\s+(\S+)\r?\n/.exec(stripVTControlCharacters(heard))?.[1];
+      if (url === undefined) return;
+      done();
+      // A URL with no port of its own reads as port 0, which is not one it bound.
+      const port = URL.canParse(url) ? Number(new URL(url).port) : 0;
+      if (port > 0) resolve(port);
+      else reject(new Error(`next start announced ${url}, which names no port`));
+    };
+    const exited = (code: number | null) => {
+      done();
+      reject(new Error(`next start exited with ${code} before it named its port`));
+    };
+    const failed = (error: Error) => {
+      done();
+      reject(error);
+    };
+    const giveUp = setTimeout(() => {
+      done();
+      reject(new Error(`next start named no port within ${STARTING_MS / 1000}s`));
+    }, deadline - Date.now());
+    const done = () => {
+      clearTimeout(giveUp);
+      stdout.off("data", hearing);
+      server.off("exit", exited);
+      server.off("error", failed);
+    };
+    stdout.on("data", hearing);
+    server.on("exit", exited);
+    server.on("error", failed);
+  });
 }
 
 /**
@@ -281,31 +361,14 @@ export async function anInstanceServing<Fixture>(
   return { baseUrl: server.baseUrl, db, fixture };
 }
 
-/**
- * Asks the operating system for a port nothing else is on.
- *
- * TODO(CNCORE-235): THE PORT IS FREE ONLY UNTIL THE PROBE CLOSES, and it is
- * checked on `127.0.0.1` while `next start` binds every address. On a busy
- * machine something else can take it first, and the server then dies on
- * `EADDRINUSE` before it answers.
- */
-export function freePort(): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const probe = createProbe();
-    probe.on("error", reject);
-    probe.listen(0, "127.0.0.1", () => {
-      const address = probe.address();
-      if (address === null || typeof address === "string") {
-        reject(new Error("could not read a port from the probe socket"));
-        return;
-      }
-      probe.close(() => resolve(address.port));
-    });
-  });
-}
+/** A server's minute to start: to bind, to say where, and to answer there. */
+const STARTING_MS = 60_000;
 
-export async function waitUntilAnswering(baseUrl: string, server: ChildProcess): Promise<void> {
-  const deadline = Date.now() + 60_000;
+export async function waitUntilAnswering(
+  baseUrl: string,
+  server: ChildProcess,
+  deadline = Date.now() + STARTING_MS,
+): Promise<void> {
   while (Date.now() < deadline) {
     if (server.exitCode !== null) {
       throw new Error(`next start exited with ${server.exitCode} before answering`);
@@ -318,7 +381,7 @@ export async function waitUntilAnswering(baseUrl: string, server: ChildProcess):
     }
     await new Promise((resolve) => setTimeout(resolve, 200));
   }
-  throw new Error(`next start did not answer on ${baseUrl} within 60s`);
+  throw new Error(`next start did not answer on ${baseUrl} within ${STARTING_MS / 1000}s`);
 }
 
 /**

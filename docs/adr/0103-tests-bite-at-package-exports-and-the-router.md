@@ -909,8 +909,8 @@ which is why the file passed 36 on six consecutive local runs and failed on a ru
 stubs now close in `afterAll` rather than in `afterEach`. That is not thrift about teardown, it is
 what makes two stubs two providers, and the premise is measured rather than reasoned from: on node
 v24.19.0, two hundred simultaneous `listen(0)` calls returned two hundred DISTINCT ports, because a
-port a live listener holds is not one the allocator may hand out -- binding it explicitly is refused
-`EADDRINUSE`. It protects more than the assertion that failed: `previewPurge` asserts its provider
+port a live listener holds is not one the allocator may hand out -- binding it explicitly, on the
+same address, is refused `EADDRINUSE` (on an overlapping one macOS may allow it: ADR-0144). It protects more than the assertion that failed: `previewPurge` asserts its provider
 provided exactly two placements, which a shared identity would have made wrong the same way.
 
 **THE EXPOSURE WAS ONLY EVER WITHIN ONE RUN**, which is worth saying because it bounds what had to
@@ -1821,8 +1821,9 @@ Vitest runs a global setup's teardown only if setup returned one. Twice on 2026-
 `/dev/shm` failure CNCORE-228 fixed. Each time, the `next start` servers already up (seven, then
 six) outlived the run with parent pid 1 and `apps/web` as their working directory. The Owner killed
 five more by hand the same day, two of them up for over 27 hours. A `next start` is a process of its
-own and does not end when its starter does. It keeps the stdout it inherited, so a run piped
-anywhere never reaches EOF. That is ADR-0141's hang by a second path: CNCORE-178 reached it through
+own and does not end when its starter does. It keeps the output it inherited, which is its stderr
+since CNCORE-235 piped its stdout into the harness (ADR-0144), so a run piped anywhere never reaches
+EOF. That is ADR-0141's hang by a second path: CNCORE-178 reached it through
 a teardown that forgot one server, and this through a setup that never returned a teardown at all.
 
 **ONE STACK IS BOTH HALVES, AND IT IS NODE'S OWN.** `settingUp` in `e2e/instance.ts` runs a global
