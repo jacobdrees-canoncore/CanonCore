@@ -97,7 +97,7 @@ own, and `glossary.test.ts` reads every `_Avoid_` word as barred from any name t
 A point in a Listing's Order that a page is read from, one side or the other: just past an Anchor
 (the walk forward), just short of one (the step back), or where a letter begins (the jump). ONE
 PREDICATE, the rows ahead of the point, and the rows behind it are its complement rather than a
-second comparison written the other way round -- which is what keeps the two directions agreeing
+second comparison written the other way round — which is what keeps the two directions agreeing
 about a tie. Never a position in the counted sense: a Cut has no number, which is why a keyset walk
 offers no page seven.
 

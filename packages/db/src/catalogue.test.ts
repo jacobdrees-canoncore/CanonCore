@@ -821,6 +821,23 @@ describe("readCatalogue, jumped to a letter", () => {
     expect(jumped.rows.map((row) => row.id)).toStrictEqual(ids);
     expect(jumped.continuesBefore).toBeNull();
   });
+
+  it("starts over where a cursor names nothing, whatever letter the address also carries", async () => {
+    // A CURSOR IS THE MORE EXACT OF THE TWO, AND ONE NAMING NOTHING STARTS THE
+    // LISTING OVER (ADR-0066). No link this app writes carries both, so this is
+    // an address typed or kept by hand -- and it read as a jump until review
+    // caught the cursor falling through to the letter.
+    const { group, ids } = await aGroupFiledUnder(["Nyssa's story", "Peri and the Piscon Paradox"]);
+
+    const asked = await readCatalogue(db, {
+      limit: 10,
+      group,
+      after: crypto.randomUUID(),
+      letter: "P",
+    });
+
+    expect(asked.rows.map((row) => row.id)).toStrictEqual(ids);
+  });
 });
 
 /**

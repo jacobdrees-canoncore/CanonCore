@@ -290,14 +290,6 @@ const CURSOR = {
 const THE_BARE_PAIR = { after: "after", before: "before" } as const;
 
 /**
- * WHERE A PAGE OF A LISTING STARTS, as its address says (CNCORE-174): past a
- * Row, short of one, or at a letter -- or at the start, where it says none.
- * The read path decides which counts where an address says several, and no
- * link this file writes does.
- */
-export type WhereThePageIs = { after?: string; before?: string; letter?: string };
-
-/**
  * WHERE A LINK TAKES A LISTING (CNCORE-174): on past a Row, back from one, or
  * to a letter. One of the three, because a page starts in one place.
  */
@@ -337,7 +329,7 @@ function endsHere(walking: Walking): string {
  * The query one link on this listing carries: everything the address already
  * held, with THIS listing's own cursor set to where the link goes.
  *
- * `at` IS `undefined` FOR A LINK BACK TO THE START, which DROPS this listing's
+ * `to` IS `undefined` FOR A LINK BACK TO THE START, which DROPS this listing's
  * cursor and keeps every other parameter -- including the OTHER listing's
  * cursor, which a reader has not asked to move.
  *
@@ -352,7 +344,7 @@ function queryFor(walking: Walking | Searched, to: WhereTo | undefined): LinkQue
   // THIS LISTING'S OWN POSITION IS DROPPED BEFORE THE NEW ONE IS SET, both
   // cursors of it (CNCORE-174): a link names where a page starts, and a Next
   // that kept the `before` it arrived with would name two places at once.
-  const position =
+  const startsAt =
     to === undefined
       ? {}
       : "after" in to
@@ -365,7 +357,7 @@ function queryFor(walking: Walking | Searched, to: WhereTo | undefined): LinkQue
     ...walking.narrowed,
     [own.after]: undefined,
     [own.before]: undefined,
-    ...position,
+    ...startsAt,
   });
 }
 
@@ -696,9 +688,12 @@ export function Walk({
  * jump to beside it, and that half of ADR-0119 stands.
  *
  * NOT ON CATALOGUE SEARCH, whose order is how close a title is to what a reader
- * typed: nothing in a ranking is filed under a letter. Nor on an Item page,
- * whose two Listings are in a Container's own order and by the Orderings an
- * item sits in, and neither is an alphabet.
+ * typed: nothing in a ranking is filed under a letter. Nor on a Container's
+ * Members, which are in its own order. "ALSO APPEARS IN" IS AN ALPHABET, by the
+ * Container's sort name, and goes without one because it never runs past a
+ * page: 61 Rows at the longest on the Owner's catalogue, against a cap of 100.
+ * ADR-0119 records that as a deviation from CNCORE-174, which asked for the
+ * jump on every Listing.
  *
  * LINKS RATHER THAN A CONTROL, for `NarrowToAGroup`'s reason: it works with no
  * script, and a jump is an address somebody can send. Each keeps the Group the
@@ -771,11 +766,15 @@ export function PastTheEnd({ jumpedTo, ...walking }: Walking & { jumpedTo?: stri
             {/*
               A JUMP PAST THE LAST LETTER ANYTHING IS FILED UNDER lands here too
               (CNCORE-174), and it was cut at no Row, so it says what it did
-              find rather than borrowing the cursor's sentence.
+              find rather than borrowing the cursor's sentence. IT NAMES THE
+              LETTER ONLY WHERE IT IS ONE: anything else a link carries is words
+              this page did not write, and they do not go in its sentence.
             */}
             {jumpedTo === undefined
               ? "Nothing sorts after the one this link was cut at. It is the last one in this listing now, whether or not it was when the link was made."
-              : `Nothing here is filed under ${jumpedTo.toUpperCase()} or any letter after it.`}
+              : THE_ALPHABET.includes(jumpedTo.toUpperCase())
+                ? `Nothing here is filed under ${jumpedTo.toUpperCase()} or any letter after it.`
+                : "Nothing here is filed where this link jumped to, or after it."}
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent>

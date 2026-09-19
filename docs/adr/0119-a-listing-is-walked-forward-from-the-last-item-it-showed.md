@@ -163,7 +163,7 @@ and each is a way to lose Items silently.**
 - **No jump to page seven**, and no page numbers. An A–Z jump (`nameStartsWith`, which Plex has as
   `firstCharacterKey`) is the navigation that fits this shape, and the sweep already named it as
   cheap and adjacent. **It is built since CNCORE-174**, as a seek on the sort key and nowhere else:
-  the section at the foot of this record. No numbered page is, and none can be.
+  the section "The trigger fired: a step back and a jump to a letter (CNCORE-174)". No numbered page is, and none can be.
 - **A cursor moves if the Item it names is RETITLED under the reader.** The anchor's key is re-read
   on each request, so if an import changes the title or `sort_name` of the Item page one ended on
   while the reader is still on page one, page two resumes from wherever that Item sorts NOW and
@@ -179,13 +179,13 @@ and each is a way to lose Items silently.**
   that a reader five pages in walks those five again. The section above has the mechanism, the
   measurement and why the alternative was refused.
 - **A Previous, since CNCORE-174, when something needed it.** Reversing a keyset walk means the
-  comparison and the ordering both flip and the rows come back reversed — a symmetric `before`, but
-  a second query shape, so it is a layer on top of this rather than the missing half of it. This
-  bullet deferred it "until something needs it", and seven thousand Items did. As built only the
-  ORDERING is a second statement: the comparison is not flipped but complemented, which the section
-  at the foot of this record argues. Every page past the first still carries a link to the START as
-  well, for the reader who arrived on page five from a shared URL and wants the top rather than
-  page four.
+  ordering flips, the rows BEHIND the anchor are read rather than the rows past it, and they come
+  back reversed — a symmetric `before`, and a layer on top of this rather than the missing half of
+  it. The rows behind are the COMPLEMENT of the rows past, not a second comparison, so only the
+  ordering is a second statement: the section "The trigger fired: a step back and a jump to a letter (CNCORE-174)" argues it. This bullet
+  deferred it "until something needs it", and seven thousand Items did. Every page past the first
+  still carries a link to the START as well, for the reader who arrived on page five from a shared
+  URL and wants the top rather than page four.
 
 ## Evidence
 
@@ -1237,7 +1237,8 @@ THE SOMETHING.** Measured 2026-09-19 on the Owner's own install: 8,052 Items and
 stories, so the front page is a hundred Rows and one `Next`, the three-thousandth Row is thirty
 presses away, and there was no way back but to start again. That licensed two things and not a
 third: **a step back, and a jump to a letter.** A numbered page stays refused, for the reason the
-bullet above gives, and saying WHICH Rows a page shows is ADR-0133's and not built here.
+"No jump to page seven" bullet under "What this shape cannot do, said plainly rather than discovered
+later" gives, and saying WHICH Rows a page shows is ADR-0133's and not built here.
 
 **THE STEP BACK IS `before=<id>`, THE FIRST ROW OF THE PAGE A READER IS ON**, answered with the page
 that ends just short of it. A Row's id, like `after`, in whichever Listing it names a Row of, and
@@ -1300,13 +1301,20 @@ bare letter at glibc's last level, so a jump to M shows it on the page before. A
 after its first letter compares at the first level and files correctly. The Owner's catalogue holds
 no key of one letter or fewer (checked 2026-09-19).
 
-**TWO LISTINGS TAKE A LETTER AND THREE DO NOT, AND THAT IS WHAT "EVERY LISTING" CAN MEAN FOR A
-JUMP.** The catalogue and work-browsing lead on the sort key, and the letter is on
-`filedByNameInput`, an extension of the shared input. Catalogue search leads on closeness to what a
-reader typed, and nothing in a ranking is filed under a letter. A Container's members are in its
-own order and "Also appears in" is by the Orderings an item sits in, and neither is an alphabet. The
-step back comes from the shared page and reaches all five. The jump comes from the shared order
-module and reaches every Listing whose order is an alphabet.
+**THE JUMP REACHES TWO LISTINGS OF FIVE, AND THAT IS A DEVIATION FROM CNCORE-174, NOT A READING OF
+IT.** Its criterion says both "work on every Listing, because both come from the shared contract".
+The step back does: it comes from the shared page and reaches all five. The jump reaches the
+catalogue and work-browsing, which lead on the sort key, and its letter is on `filedByNameInput`, an
+extension of the shared input rather than part of it. Two of the other three have no alphabet to
+jump in: Catalogue search leads on closeness to what a reader typed, and a Container's members are
+in its own order. **"Also appears in" HAS ONE**, since it leads on the Container's sort name, and an
+earlier draft of this paragraph said it did not, which review caught. It is left without a jump
+because it never runs past a page: the longest in the Owner's catalogue is 61 Rows, the 99th
+percentile 21, against a cap of 100 (measured 2026-09-19, twice, independently), so a jump there
+would land on the page already shown. The dispatcher chose this over building it, 2026-09-19. The
+seek is written over an order's leading key rather than over the catalogue's, so the day an item
+sits in more than a page of Orderings, giving that Listing a letter is wiring rather than a
+mechanism.
 
 **MEASURED ON THE OWNER'S CATALOGUE**, restored into a worktree from the dump of 2026-09-19T18:51Z
 (8,052 Items), through `readCatalogue`, five runs each after one to warm, median and range:
@@ -1330,19 +1338,35 @@ tail, a Container's across a tie, a Repeat and the Unplaced, and "Also appears i
 keys. The jump's exact landing is asserted in a Group of its own, over Rows opening in a mark and in
 lower case. At the router, the contract block steps every entry back from every page of its walk,
 and jumps the four entries filed by name, bracketed by Rows its fixture files either side of the
-letter; `item.test.ts` steps both of `item.get`'s Listings back. Over HTTP, `/` steps back by
-following Previous and jumps from its own letters, whole and narrowed to a Group, and
+letter; `item.test.ts` steps both of `item.get`'s Listings back from the middle of their second
+page. Over HTTP, `/` steps back by following Previous and jumps from its own letters, whole and
+narrowed to a Group; `/works` jumps past every letter and steps back and on again; `/search`, a
+Container's members and "Also appears in" each step back from their third page to their second; and
 `scope.test.ts` reads every link a letter or a step back is written beside against the fixed order.
+
+**A STEP BACK FROM THE SECOND PAGE TESTS NOTHING ABOUT `before`, and two tests here did exactly that
+until review caught it.** From page two only page one lies behind, and a step back that reaches the
+start answers the start — which is also what a request whose `before` the handler DROPPED answers.
+`item.test.ts` stepped both of its Listings back from page two and passed with `before` and
+`placedBefore` both removed from `item.get`, measured. They cut from the middle of page two now,
+where a hundred and ten Rows lie behind and the only right answer is a hundred of them nothing else
+returns; the HTTP tests step back from page three for the same reason. A walk test that ends on the
+start is the shape to distrust.
+
 **MOST OF THEM WERE WRITTEN AFTER THE CODE THEY COVER, which is the loop run backwards**, so they
 were mutation-checked rather than trusted. Red first: the catalogue's first step back, the router
-block's two new cases and `item.test.ts`'s. Written after: the rest at the package export and all
-of those over HTTP. Twelve mutations, each run and read, each killed by the test written for it and
-one only after the jump's test existed (the look-behind assumed, above): at the package export the
-keyless block left last and the id left ascending (against all three orders), the page left
-unreversed, the look-behind never or always answering, the look-ahead never answering, a short step
-back answering what it found, the letter left unlowered and the letter ignored; over HTTP the
-letters dropping the Group, Previous offered from the first page, and `before` written ahead of
-`placedAfter`.
+block's two new cases and `item.test.ts`'s first versions — red only because the field was missing,
+which is how a vacuous test gets through a red-first loop. Written after: the rest at the package
+export, the rewritten `item.test.ts` cases, and all of those over HTTP. Eighteen mutations, each run
+and read, each killed by the test written for it and one only after the jump's test existed (the
+look-behind assumed, in `continuesBefore`'s paragraph). At the package export: the keyless block
+left last and the id left ascending (against all three orders), the page left unreversed, the
+look-behind never or always answering, the look-ahead never answering, a short step back answering
+what it found, the letter left unlowered, the letter ignored, and a cursor naming nothing falling
+through to a letter the address also carries. At the router: `before` and
+`placedBefore` each dropped from `item.get`. Over HTTP: the letters dropping the Group, Previous
+offered from the first page, `before` written ahead of `placedAfter`, and `before` dropped by
+`/works`, by `/search` and by the Item page.
 
 **THE STATUS STAYS `accepted`.** The walk was whole; the step back and the jump are whole on it, in
 every Listing each applies to.

@@ -1027,9 +1027,15 @@ async function readListing(
   // ONE VALUE HANDED OVER, AND THE WALK READS BOTH STATEMENTS OFF IT
   // (CNCORE-169, CNCORE-170). The sort and the comparison that walks it are the
   // same keys because there is one place they are named.
+  // A LETTER COUNTS ONLY WHERE NO CURSOR WAS GIVEN, so a cursor naming
+  // nothing starts the Listing over as `WhereAPageIs` says, rather than
+  // falling through to a letter the same address happens to carry.
   const cut =
-    (await theCutAt(at, (id) => findInTheOrder(db, id))) ??
-    (letter === undefined ? undefined : { atOrPast: letter.toLowerCase() });
+    at.after !== undefined || at.before !== undefined
+      ? await theCutAt(at, (id) => findInTheOrder(db, id))
+      : letter === undefined
+        ? undefined
+        : { atOrPast: letter.toLowerCase() };
   return walkListing(db, { within, order: THE_CATALOGUES_ORDER, cut, limit });
 }
 
@@ -1312,8 +1318,8 @@ async function onePage<Stored extends { id: string; total: number }>({
   if (cut === undefined) {
     const stored = await read(limit + 1, size.within, forward);
     return aPage(stored.slice(0, limit), stored, size, {
-      continuesAfter: stored.length > limit,
-      continuesBefore: false,
+      after: stored.length > limit,
+      before: false,
     });
   }
   const ahead = and(size.within, cut.ahead) as SQL;
@@ -1324,8 +1330,8 @@ async function onePage<Stored extends { id: string; total: number }>({
       read(1, behind, backward),
     ]);
     return aPage(stored.slice(0, limit), stored, size, {
-      continuesAfter: stored.length > limit,
-      continuesBefore: oneBehind.length > 0,
+      after: stored.length > limit,
+      before: oneBehind.length > 0,
     });
   }
   const [stored, oneAhead] = await Promise.all([
@@ -1334,8 +1340,8 @@ async function onePage<Stored extends { id: string; total: number }>({
   ]);
   if (stored.length <= limit) return onePage({ limit, size, order, read });
   return aPage(stored.slice(0, limit).reverse(), stored, size, {
-    continuesAfter: oneAhead.length > 0,
-    continuesBefore: true,
+    after: oneAhead.length > 0,
+    before: true,
   });
 }
 
@@ -1344,13 +1350,13 @@ async function aPage<Stored extends { id: string; total: number }>(
   page: Stored[],
   stored: Stored[],
   size: TheSize,
-  carriesOn: { continuesAfter: boolean; continuesBefore: boolean },
+  carriesOn: { after: boolean; before: boolean },
 ) {
   return {
     rows: page.map(({ total, ...row }) => row),
     total: stored[0]?.total ?? (await size.askedOnItsOwn()),
-    continuesAfter: carriesOn.continuesAfter ? (page.at(-1)?.id ?? null) : null,
-    continuesBefore: carriesOn.continuesBefore ? (page[0]?.id ?? null) : null,
+    continuesAfter: carriesOn.after ? (page.at(-1)?.id ?? null) : null,
+    continuesBefore: carriesOn.before ? (page[0]?.id ?? null) : null,
   };
 }
 

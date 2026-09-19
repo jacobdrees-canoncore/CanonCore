@@ -33,6 +33,32 @@ export function oneValue(parameter: string | string[] | undefined): string | und
 }
 
 /**
+ * WHERE A PAGE OF A LISTING STARTS, as its address says (CNCORE-174): past a
+ * Row, short of one, or at a letter -- or at the start, where it says none.
+ * The read path decides which counts where an address says several, and no
+ * link this app writes does.
+ */
+export type WhereThePageStarts = { after?: string; before?: string; letter?: string };
+
+/**
+ * WHERE THE PAGE STARTS, read off its address the way `oneValue` reads any
+ * parameter. One function because every Listing page reads the same three,
+ * and two copies of the object were one rule written twice. A surface whose
+ * Listing takes no letter hands none in, and none comes back.
+ */
+export function whereThePageStarts(parameters: {
+  after?: string | string[];
+  before?: string | string[];
+  letter?: string | string[];
+}): WhereThePageStarts {
+  return {
+    after: oneValue(parameters.after),
+    before: oneValue(parameters.before),
+    letter: oneValue(parameters.letter),
+  };
+}
+
+/**
  * THE GROUP A PAGE WAS NARROWED TO, read the way `oneValue` reads any parameter
  * -- a repeated or blank `group` names no Group, so the page is its Listing
  * unnarrowed -- and then IN LOWER CASE.

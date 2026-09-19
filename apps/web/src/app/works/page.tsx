@@ -12,9 +12,8 @@ import {
   PastTheEnd,
   theScope,
   Walk,
-  type WhereThePageIs,
 } from "@/components/listing";
-import { oneGroup, oneValue } from "@/components/query-params";
+import { oneGroup, type WhereThePageStarts, whereThePageStarts } from "@/components/query-params";
 import { TheirWords } from "@/components/their-words";
 
 /**
@@ -35,7 +34,7 @@ import { TheirWords } from "@/components/their-words";
  * A server component fetching its own API is a round trip to itself, and oRPC
  * documents `call` as the way to avoid it.
  */
-async function readWorkBrowsing(at: WhereThePageIs, group: string | undefined) {
+async function readWorkBrowsing(at: WhereThePageStarts, group: string | undefined) {
   /*
    * PRERENDERING STOPS HERE (ADR-0117), and the line is the rule rather than
    * the effect.
@@ -86,7 +85,7 @@ export default async function WorksPage({
   // AND THE GROUP BESIDE IT (CNCORE-180), which `oneGroup` reads for every
   // surface that narrows.
   const { after, before, letter, group } = await searchParams;
-  const at = { after: oneValue(after), before: oneValue(before), letter: oneValue(letter) };
+  const at = whereThePageStarts({ after, before, letter });
   const narrowedTo = oneGroup(group);
   const { works, groups } = await readWorkBrowsing(at, narrowedTo);
   const rows = works.rows;

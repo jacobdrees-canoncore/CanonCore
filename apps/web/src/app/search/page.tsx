@@ -18,9 +18,13 @@ import {
   theScope,
   theStartOf,
   Walk,
-  type WhereThePageIs,
 } from "@/components/listing";
-import { oneGroup, oneValue } from "@/components/query-params";
+import {
+  oneGroup,
+  oneValue,
+  type WhereThePageStarts,
+  whereThePageStarts,
+} from "@/components/query-params";
 import { TheirWords } from "@/components/their-words";
 
 /**
@@ -52,7 +56,7 @@ import { TheirWords } from "@/components/their-words";
  * page looks correct on the server it was built against, which is every server
  * anybody would think to look at.
  */
-async function readSearch(query: string, at: WhereThePageIs, group: string | undefined) {
+async function readSearch(query: string, at: WhereThePageStarts, group: string | undefined) {
   // The router is called IN-PROCESS, as the front page and the item page call
   // it. A server component fetching its own API is a round trip to itself, and
   // oRPC documents `call` as the way to avoid it.
@@ -108,7 +112,7 @@ export default async function SearchPage({
   // the page a reader is served is already the page they asked for. `oneValue`
   // owns what a repeated parameter means, so all three reading surfaces answer
   // that the same way. No letter: a ranking is not filed under one.
-  const at = { after: oneValue(after), before: oneValue(before) };
+  const at = whereThePageStarts({ after, before });
   // AND THE GROUP IT IS ASKED WITHIN (CNCORE-180), which `oneGroup` reads for
   // every surface that narrows.
   const narrowedTo = oneGroup(group);

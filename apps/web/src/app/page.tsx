@@ -18,11 +18,10 @@ import {
   PastTheEnd,
   theScope,
   Walk,
-  type WhereThePageIs,
 } from "@/components/listing";
 import { noPasswordSet } from "@/components/no-password";
 import { NoProviderAllowlisted } from "@/components/no-provider-allowlisted";
-import { oneGroup, oneValue } from "@/components/query-params";
+import { oneGroup, type WhereThePageStarts, whereThePageStarts } from "@/components/query-params";
 import { TheirWords } from "@/components/their-words";
 import { callerContext } from "@/session";
 
@@ -40,7 +39,7 @@ import { callerContext } from "@/session";
  * component fetching its own API is a round trip to itself, and oRPC documents
  * `call` as the way to avoid it.
  */
-async function readFrontPage(at: WhereThePageIs, group: string | undefined) {
+async function readFrontPage(at: WhereThePageStarts, group: string | undefined) {
   /*
    * PRERENDERING STOPS HERE, and this line is the whole difference between a
    * front page and a photograph of one.
@@ -123,7 +122,7 @@ export default async function CataloguePage({
   // AND THE GROUP BESIDE IT (CNCORE-179), which `oneGroup` reads for every
   // surface that narrows -- in lower case, for the reason it gives.
   const { after, before, letter, group } = await searchParams;
-  const at = { after: oneValue(after), before: oneValue(before), letter: oneValue(letter) };
+  const at = whereThePageStarts({ after, before, letter });
   const narrowedTo = oneGroup(group);
   const { catalogue, groups, providers, owner, aPasswordIsSet } = await readFrontPage(
     at,

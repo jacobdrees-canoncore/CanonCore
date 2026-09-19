@@ -3,10 +3,13 @@ import { describe, expect, inject, it } from "vitest";
 import {
   documentAt,
   documentFrom,
+  followed,
   itemsListedOn,
+  letterLinked,
   markedCurrentIn,
   scopeLinked,
   sectionIn,
+  walkLinked,
 } from "./document";
 
 /**
@@ -201,6 +204,39 @@ describe("/works narrowed to a Group", () => {
  * instance's Works, so a walk that dropped the scope would arrive at Items it
  * does not hold. Nobody writes to it.
  */
+describe("/works on a list larger than one page", () => {
+  it("jumps past every letter to the Works with no key, and steps back and on to them again", async () => {
+    // THE JUMP AND THE STEP BACK ON THIS SURFACE (CNCORE-174), by the links a
+    // reader follows. Z is past every letter this instance files anything
+    // under, so the jump lands on the Works with no sort key at all -- the two
+    // untitled stories and the two unnamed Orderings, which sort after every
+    // letter. That is an exact oracle, where any lettered landing here would
+    // share its page with Rows another file's reading could not name.
+    //
+    // AND A HUNDRED ROWS LIE BEHIND THAT PAGE, so Previous is a real step back
+    // rather than the start answered again, and Next from it has to come back
+    // to exactly the page the jump landed on.
+    const pagedBaseUrl = inject("pagedBaseUrl");
+    const works = await documentFrom(pagedBaseUrl, "/works");
+
+    const jumped = await documentFrom(pagedBaseUrl, followed(letterLinked(works.text, "Z"), "Z"));
+    const back = await documentFrom(
+      pagedBaseUrl,
+      followed(walkLinked(jumped.text, "Previous"), "Previous"),
+    );
+    const onAgain = await documentFrom(
+      pagedBaseUrl,
+      followed(walkLinked(back.text, "Next"), "Next"),
+    );
+
+    expect([...itemsListedOn(jumped.text)].sort()).toStrictEqual(
+      [...inject("pagedUntitled")].sort(),
+    );
+    expect(itemsListedOn(back.text)).toHaveLength(100);
+    expect(itemsListedOn(onAgain.text)).toStrictEqual(itemsListedOn(jumped.text));
+  });
+});
+
 describe("/works narrowed to a Group larger than one page", () => {
   const pagedBaseUrl = inject("pagedBaseUrl");
   const group = inject("pagedGroup");

@@ -628,11 +628,16 @@ describe("item.get on a container larger than one page", () => {
     expect(new Set(walked).size).toBe(walked.length);
   });
 
-  it("steps back to the page of members the reader came from", async () => {
+  it("steps back from a Row of page two to the hundred members before it", async () => {
     // THE STEP BACK (CNCORE-174), on the Listing a thousand-member ordering is
-    // walked in -- where "no way back but to start again" is thirty presses.
-    // `before` walks it back as `after` walks it on, and leaves `placedBefore`
-    // to "Also appears in", as the two cursors forward leave each other.
+    // walked in, and `before` walks it back as `after` walks it on.
+    //
+    // CUT MID-PAGE, WHICH IS WHAT MAKES THIS A TEST OF THE WIRING. Stepped back
+    // from page two's FIRST member only page one lies behind, and a step back
+    // that reaches the start answers the start -- which is also what a `before`
+    // the handler dropped answers, so that version passed with the parameter
+    // unwired. From the eleventh, a hundred and ten lie behind and the answer is
+    // a hundred of them that nothing else returns.
     const { id } = await aContainerLargerThanOnePage(db, {
       title: "An ordering the router steps back through",
       holding: await someStories(db, 120, "A story the router steps back past"),
@@ -643,16 +648,12 @@ describe("item.get on a container larger than one page", () => {
       { id, after: first.holds.continuesAfter ?? "" },
       { context },
     );
+    const walked = [...first.holds.rows, ...second.holds.rows].map((member) => member.id);
 
-    const back = await call(
-      appRouter.item.get,
-      { id, before: second.holds.continuesBefore ?? "" },
-      { context },
-    );
+    const back = await call(appRouter.item.get, { id, before: walked[110] }, { context });
 
-    expect(second.holds.continuesBefore).toBe(second.holds.rows[0]?.id);
-    expect(back.holds.rows).toStrictEqual(first.holds.rows);
-    expect(back.holds.continuesBefore).toBeNull();
+    expect(back.holds.rows.map((member) => member.id)).toStrictEqual(walked.slice(10, 110));
+    expect(back.holds.continuesBefore).toBe(walked[10]);
   });
 });
 
@@ -1131,9 +1132,11 @@ describe("item.get on an item in more orderings than one page", () => {
     expect(new Set(walked).size).toBe(walked.length);
   });
 
-  it("steps back to the page of orderings the reader came from", async () => {
+  it("steps back from a Row of page two to the hundred orderings before it", async () => {
     // THE STEP BACK (CNCORE-174) on "Also appears in", which walks with its own
-    // pair: `placedAfter` on, and `placedBefore` back.
+    // pair: `placedAfter` on, and `placedBefore` back. Cut mid-page for the
+    // reason the Members test gives: from page two's first Row the answer is
+    // the start, which a dropped `placedBefore` answers as well.
     const { id } = paged;
     const first = await call(appRouter.item.get, { id }, { context });
     const second = await call(
@@ -1141,16 +1144,12 @@ describe("item.get on an item in more orderings than one page", () => {
       { id, placedAfter: first.placements.continuesAfter ?? "" },
       { context },
     );
+    const walked = [...first.placements.rows, ...second.placements.rows].map((row) => row.id);
 
-    const back = await call(
-      appRouter.item.get,
-      { id, placedBefore: second.placements.continuesBefore ?? "" },
-      { context },
-    );
+    const back = await call(appRouter.item.get, { id, placedBefore: walked[110] }, { context });
 
-    expect(second.placements.continuesBefore).toBe(second.placements.rows[0]?.id);
-    expect(back.placements.rows).toStrictEqual(first.placements.rows);
-    expect(back.placements.continuesBefore).toBeNull();
+    expect(back.placements.rows.map((row) => row.id)).toStrictEqual(walked.slice(10, 110));
+    expect(back.placements.continuesBefore).toBe(walked[10]);
   });
 
   it("narrows to one origin at the query, and counts what the narrowing holds", async () => {

@@ -351,7 +351,7 @@ export function theOrderBy(order: TheOrder, { backward = false } = {}): SQL[] {
 export type ACutIn<O extends TheOrder> =
   | { readonly after: AnchorIn<O> }
   | { readonly before: AnchorIn<O> }
-  | { readonly atOrPast: string | number };
+  | { readonly atOrPast: string };
 
 /**
  * A LISTING SPLIT IN TWO AT ONE POINT: the rows AHEAD of the point, and which
@@ -404,9 +404,9 @@ function pastTheRowOrThrow<O extends TheOrder>(order: O, anchor: AnchorIn<O>): S
  * NEVER NULL ON A ROW, which the cut's complement needs: `>=` is NULL only on a
  * row with no key, and that row is answered by the branch before it.
  */
-function atOrPastTheValueIn(order: TheOrder, value: string | number): SQL {
+function atOrPastTheValueIn(order: TheOrder, value: string): SQL {
   const [leading] = Object.values(order.keys);
-  if (leading === undefined) return sql`true`;
+  if (leading === undefined) throw new Error("an order with no keys has no value to seek");
   const { key: theKey, largestFirst, everyRowHasIt } = described(leading);
   const key: SQLWrapper = theKey;
   const atOrPast = largestFirst ? lte(key, value) : gte(key, value);

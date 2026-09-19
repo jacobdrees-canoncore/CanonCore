@@ -3,14 +3,17 @@ import { describe, expect, inject, it } from "vitest";
 import {
   documentAt,
   documentFrom,
+  followed,
   headingOf,
   itemsListedOn,
-  linkedIn,
+  letterLinked,
+  lettersMarkedCurrentIn,
   logInAt,
   markedCurrentIn,
   scopeLinked,
   sectionIn,
   textOf,
+  walkLinked,
 } from "./document";
 
 /**
@@ -75,32 +78,6 @@ function routesOutOf(text: string): string[] {
  * split into three where the caller counts two -- and `toHaveLength(2)` below
  * fails on that rather than quietly comparing the wrong strings.
  */
-/** Where the walk under a listing links the words a reader follows, if it does. */
-function walkLinked(text: string, words: string): string | undefined {
-  const walk = text.match(/<nav aria-label="More of this listing"[^>]*>(.*?)<\/nav>/)?.[1];
-  return walk === undefined ? undefined : linkedIn(walk, words);
-}
-
-/** Where the letters above a listing link one of them, if they do (CNCORE-174). */
-function letterLinked(text: string, letter: string): string | undefined {
-  const letters = text.match(/<nav aria-label="Jump to a letter"[^>]*>(.*?)<\/nav>/)?.[1];
-  return letters === undefined ? undefined : linkedIn(letters, letter);
-}
-
-/** The letters the page marks as the one it was jumped to. */
-function lettersMarkedCurrentIn(text: string): string[] {
-  const letters = text.match(/<nav aria-label="Jump to a letter"[^>]*>(.*?)<\/nav>/)?.[1] ?? "";
-  return [...letters.matchAll(/<a [^>]*aria-current="true"[^>]*>(.*?)<\/a>/g)].map(([, words]) =>
-    textOf(words ?? ""),
-  );
-}
-
-/** A link the page was expected to offer, or a failure naming the one it did not. */
-function followed(href: string | undefined, words: string): string {
-  if (href === undefined) throw new Error(`the page offered no ${words}`);
-  return href;
-}
-
 function theRouteLinking(text: string, href: string): string {
   const found = routesOutOf(text).filter((route) => route.includes(`href="${href}"`));
   if (found.length !== 1) {
@@ -446,9 +423,9 @@ describe("/ on a catalogue larger than one page", () => {
   it("offers a way back to the start from every page but the first", async () => {
     // A FORWARD WALK STRANDS A DEEP LINK. Browser history is the reverse of a
     // walk somebody took; it is no use to a reader handed page two in a
-    // message, and `Previous` is a second query shape rather than half of this
-    // one (ADR-0119). So every page past the first carries the one address that
-    // is always somewhere.
+    // message. So every page past the first carries the one address that is
+    // always somewhere -- beside `Previous` since CNCORE-174, which steps back
+    // one page where this goes to the top (ADR-0119).
     const pagedBaseUrl = inject("pagedBaseUrl");
     const first = await documentFrom(pagedBaseUrl, "/");
     const next = carriesOnAt(first.text);
