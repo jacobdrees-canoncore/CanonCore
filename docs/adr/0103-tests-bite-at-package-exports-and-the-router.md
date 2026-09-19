@@ -1884,21 +1884,24 @@ added to ADR-0104's budget, and a server holds all four of its `SERVER_CONNECTIO
 Measured with that record's own sampler through a full run on 2026-09-19, the pair put the suite's
 peak at 75, with `_test_leak` holding 8 at that tick and the rest summing to that record's 67. The
 agent ceiling is 288 over the worst peak, floored, so two would have taken it from four to three. The
-dispatcher chose one server a case the same day. What "every" adds over one is the stack's own
-contract, since each server goes on it the same way and it closes all it holds, and the real setup
-closing three is measured below.
+dispatcher chose one server a case the same day. Under the same sampler that run peaked at 64, with
+`_test_leak` holding 1 at that tick and never more than 4. Laid on the 67 ADR-0104 records, the
+worst case is 71, and 288 over 71 still floors to four. What "every" adds over one is the stack's
+own contract, since each server goes on it the same way and it closes all it holds, and the real
+setup closing three is measured below.
 
 **RED BEFORE GREEN, measured.** With `settingUp` owning nothing, which is the old behaviour, both
 cases failed. On the two-server form they failed after their fifteen-second poll on `expected
 [ true, true ] to deeply equal [ false, false ]`, and the run then reproduced the ticket whole: the
 four servers it left were found with parent pid 1 in this worktree's `apps/web`, and Vitest itself
-never exited, its worker's output held open by them, until they were killed by hand.
+never exited, its worker's output held open by them, until they were killed by hand. On the
+one-server form each failed on `expected true to be false` and left its server with parent pid 1.
 
 **AND ON THE REAL SETUP, BEFORE AND AFTER.** A throw added by hand after
 `global-setup.ts`'s third server, and never committed, run as `pnpm test:e2e 2>&1 | cat`. On
 `main`'s harness `pnpm` exited 1, and the pipeline did not end: the three servers were running with
 parent pid 1 in this worktree's `apps/web`, and it ended at 266 seconds only because they were
-killed by hand. On this one, the pipeline ended by itself in 9 seconds and no `next-server` was
+killed by hand. On this one, the pipeline ended by itself in 10 seconds and no `next-server` was
 left.
 
 **WHAT THIS DOES NOT HOLD.** A harness killed outright, by SIGKILL or by a crash of the Vitest
