@@ -1,15 +1,19 @@
 import {
+  askProviderByHand,
   createGroupByHand,
   deleteGroupByHand,
   findGroups,
+  findProvidersAGroupAsks,
   GroupRefused,
   putItemInGroupByHand,
   renameGroupByHand,
+  stopAskingProviderByHand,
   takeItemOutOfGroupByHand,
 } from "@canoncore/db";
 import { groupsPublic, groupWritten } from "@canoncore/schemas";
 import { z } from "zod";
 
+import type { Context } from "../context";
 import { openProcedure, ownerProcedure } from "../index";
 
 /**
@@ -31,6 +35,24 @@ import { openProcedure, ownerProcedure } from "../index";
 const nameByHand = z.string().trim().min(1, "A Group needs a name.");
 
 /**
+ * WHICH OF THE CONFIGURED PROVIDERS A GROUP ASKS (ADR-0025, CNCORE-182): the
+ * one reading of it, which `provider.search` acts on and `group.asks` shows.
+ *
+ * THE CONFIGURED ONES, IN THE CONFIGURED ORDER, KEPT WHERE THE GROUP ASKS THEM.
+ * A Group picks among the Providers this instance names rather than adding to
+ * them, so one it asks that the Owner has since removed from settings is asked
+ * by nothing -- and is asked again, by this Group, if it is named again. The
+ * order is the instance's, which is the same in every Group.
+ */
+export async function theProvidersAsked(context: Context, group: string): Promise<string[]> {
+  const [{ urls }, asked] = await Promise.all([
+    context.providerSettings(),
+    findProvidersAGroupAsks(context.db, group),
+  ]);
+  return urls.filter((baseUrl) => asked.includes(baseUrl));
+}
+
+/**
  * THE OWNER'S OWN HAND ON THEIR BROWSING SCOPES (CNCORE-178), which is what
  * ADR-0010 decided and nothing had built.
  *
@@ -42,7 +64,8 @@ const nameByHand = z.string().trim().min(1, "A Group needs a name.");
  *
  * READING IS OPEN AND WRITING IS THE OWNER'S (ADR-0044, ADR-0072, CNCORE-109).
  * Which scopes exist is part of the catalogue, so a visitor to the demo sees
- * them and the buttons are what refuse them.
+ * them and the buttons are what refuse them -- and which Providers each scope
+ * asks is read the same way (CNCORE-182).
  */
 export const group = {
   /**
@@ -154,6 +177,81 @@ export const group = {
     .handler(async ({ input, context, errors }) => {
       if (!(await takeItemOutOfGroupByHand(context.db, input))) throw errors.NOT_FOUND();
       return { id: input.groupId };
+    }),
+
+  /**
+   * WHICH PROVIDERS THIS SCOPE ASKS, as `/groups` shows them beside the ones
+   * it does not (CNCORE-182).
+   *
+   * OPEN, LIKE `list`, and the reason is what a guard would buy: nothing.
+   * `provider.search` within a scope is open and names every Provider it asked,
+   * and `provider.configured` names them all. A draft made this the Owner's as
+   * "configuration", which review found hid nothing a visitor could not read
+   * off a search.
+   */
+  asks: openProcedure
+    .input(z.object({ id: z.uuid() }))
+    .output(z.object({ providers: z.array(z.string().min(1)) }))
+    .handler(async ({ input, context }) => ({
+      providers: await theProvidersAsked(context, input.id),
+    })),
+
+  /**
+   * TELLING A SCOPE TO ASK ONE PROVIDER (ADR-0025, CNCORE-182), so searching
+   * the Providers within it reaches that one.
+   *
+   * ONLY A PROVIDER THIS INSTANCE NAMES. The configured Providers are the ones
+   * it may search at all (ADR-0121), and a Group picks among them rather than
+   * adding to them: a Group asking a URL nobody configured would be a second,
+   * hidden list of Providers, found by nobody until the day it was configured.
+   * Compared as written, because a Provider's URL is its identity (ADR-0031)
+   * and `settings` stores the Owner's spelling unnormalised.
+   *
+   * A CHOICE OF WHO IS ASKED, NEVER A RANK. Nothing here takes a position,
+   * because the source order is one for the instance (ADR-0025).
+   */
+  ask: ownerProcedure
+    .input(z.object({ id: z.uuid(), baseUrl: z.string().min(1) }))
+    .output(groupWritten)
+    .errors({
+      BAD_REQUEST: { message: "No such Group, or no such Provider configured." },
+    })
+    .handler(async ({ input, context, errors }) => {
+      const { urls } = await context.providerSettings();
+      if (!urls.includes(input.baseUrl)) {
+        throw errors.BAD_REQUEST({ message: "That is not a Provider this instance searches." });
+      }
+      try {
+        await askProviderByHand(context.db, {
+          groupId: input.id,
+          providerIdentity: input.baseUrl,
+        });
+        return { id: input.id };
+      } catch (cause) {
+        if (cause instanceof GroupRefused) throw errors.BAD_REQUEST({ cause });
+        throw cause;
+      }
+    }),
+
+  /**
+   * TELLING A SCOPE TO STOP ASKING ONE PROVIDER, leaving the others it asks.
+   *
+   * NOT A PURGE (`CONTEXT.md`): every claim that Provider made stays in the
+   * catalogue. And NOT CHECKED AGAINST SETTINGS, which is the difference from
+   * `ask`: the check there stops a hidden list being written, and stopping
+   * writes a tombstone, which can hide nothing.
+   */
+  stopAsking: ownerProcedure
+    .input(z.object({ id: z.uuid(), baseUrl: z.string().min(1) }))
+    .output(groupWritten)
+    .errors({ NOT_FOUND: { message: "That Group does not ask that Provider." } })
+    .handler(async ({ input, context, errors }) => {
+      const stopped = await stopAskingProviderByHand(context.db, {
+        groupId: input.id,
+        providerIdentity: input.baseUrl,
+      });
+      if (!stopped) throw errors.NOT_FOUND();
+      return { id: input.id };
     }),
 
   /**

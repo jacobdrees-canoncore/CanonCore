@@ -13,14 +13,17 @@ export {
 } from "./by-hand";
 export { likePattern, searchCatalogue } from "./catalogue-search";
 export {
+  askProviderByHand,
   createGroupByHand,
   deleteGroupByHand,
   findGroups,
   findGroupsOfItem,
+  findProvidersAGroupAsks,
   type Group,
   GroupRefused,
   putItemInGroupByHand,
   renameGroupByHand,
+  stopAskingProviderByHand,
   takeItemOutOfGroupByHand,
 } from "./groups";
 export {

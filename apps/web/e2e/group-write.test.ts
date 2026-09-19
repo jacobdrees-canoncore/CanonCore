@@ -1,6 +1,16 @@
 import { describe, expect, inject, it } from "vitest";
 
-import { documentFrom, formIn, logInAt, sectionIn, submit, withFields } from "./document";
+import {
+  documentFrom,
+  formIn,
+  logInAt,
+  navigatingFormsIn,
+  scopeLinked,
+  sectionIn,
+  submit,
+  textOf,
+  withFields,
+} from "./document";
 
 /**
  * DRAWING, NAMING AND FILLING A BROWSING SCOPE (CNCORE-178), at ADR-0103's
@@ -233,6 +243,108 @@ describe("deleting a scope", () => {
   });
 });
 
+/**
+ * WHICH PROVIDERS A SCOPE ASKS (CNCORE-182, ADR-0025), chosen on `/groups` and
+ * acted on by searching the Providers from `/import` within it.
+ *
+ * THIS INSTANCE SEARCHES TWO PROVIDERS, each answering the query with a record
+ * under a name of its own, so which were ASKED is read off the page by those
+ * names: `/import` lists every Provider that answered, even one that matched
+ * nothing, so a name missing from a narrowed page is a Provider nobody asked.
+ */
+const { providers } = scopable;
+
+/** The section `/groups` renders for one scope asking one Provider. */
+function asking(groupId: string, providerUrl: string): string {
+  return `ask-${groupId}-${providerUrl}`;
+}
+
+/**
+ * Makes a scope ask a Provider, or not, through the button `/groups` renders
+ * for the pair -- and answers the page as it then stands.
+ *
+ * TO A STATE RATHER THAN A TOGGLE, and it presses the button only when the
+ * page shows the other state. A toggle made each test depend on what its
+ * neighbours had pressed on a shared scope, which review caught: one test
+ * silently turned off the wiki the next one relied on. This keeps the promise
+ * `aScopeCalled` makes, that each test sets up what it needs.
+ */
+async function setAsking(groupId: string, providerUrl: string, asked: boolean): Promise<string> {
+  const page = await pageText("/groups");
+  const asksNow = textOf(sectionIn(page, asking(groupId, providerUrl))).includes("Stop asking");
+  if (asksNow === asked) return page;
+  return (await submit(baseUrl, "/groups", formIn(page, asking(groupId, providerUrl)), owner)).text;
+}
+
+/** Provider search from `/import`, across everything, as the Owner is served it. */
+async function searchedFromImport(): Promise<string> {
+  return pageText(`/import?q=${encodeURIComponent(providers.query)}`);
+}
+
+describe("which Providers a scope asks", () => {
+  it("asks a Provider for a scope from `/groups`, and stops when told", async () => {
+    const id = await aScopeCalled("eee Asks, then stops");
+
+    const asked = await setAsking(id, providers.wiki.url, true);
+    expect(textOf(sectionIn(asked, asking(id, providers.wiki.url)))).toContain("Stop asking");
+    expect(textOf(sectionIn(asked, asking(id, providers.database.url)))).not.toContain(
+      "Stop asking",
+    );
+
+    const stopped = await setAsking(id, providers.wiki.url, false);
+    expect(textOf(sectionIn(stopped, asking(id, providers.wiki.url)))).not.toContain("Stop asking");
+  });
+
+  it("searches only the Providers a scope asks, picked from `/import`", async () => {
+    // THE TICKET'S FIRST CRITERION WHERE THE OWNER MEETS IT. Across everything
+    // both Providers answer; within the scope, only the one it asks does -- and
+    // the scope is PICKED on `/import`, off the same picker the Listings carry.
+    const id = await aScopeCalled("fff Asks the wiki alone");
+    await setAsking(id, providers.wiki.url, true);
+    const everything = await searchedFromImport();
+    expect(everything).toContain(providers.wiki.name);
+    expect(everything).toContain(providers.database.name);
+
+    const within = await pageText(scopeLinked(everything, "fff Asks the wiki alone"));
+
+    expect(within).toContain(providers.wiki.name);
+    expect(within).not.toContain(providers.database.name);
+  });
+
+  it("searches again within the same scope from the narrowed page's own box", async () => {
+    // THE BOX SITS UNDER A PICKER THAT STILL MARKS THE SCOPE, so a second
+    // search from it that asked every Provider would contradict the page it
+    // was typed on. What it submits is read off the form the page renders --
+    // query first, then the scope, which is the picker's own spelling.
+    const id = await aScopeCalled("fff Searched twice within");
+    await setAsking(id, providers.wiki.url, true);
+    const within = await pageText(
+      scopeLinked(await searchedFromImport(), "fff Searched twice within"),
+    );
+
+    // BY ITS ACTION, because the shell's header carries Catalogue search's box
+    // on every page and that one takes a `q` too.
+    const box = navigatingFormsIn(within).find(({ action }) => action.endsWith("/import"));
+
+    expect(box?.fields.map(([name]) => name)).toStrictEqual(["q", "group"]);
+    expect(box?.fields.find(([name]) => name === "group")?.[1]).toBe(id);
+  });
+
+  it("says a scope asks no Provider, rather than that nothing matched", async () => {
+    // A SCOPE NOBODY TOLD ANYTHING ASKS NOBODY (ADR-0025), and "Nothing
+    // matched" would be a claim about Providers that were never asked -- the
+    // exact confusion `/import` already keeps apart for one that is down.
+    await aScopeCalled("ggg Asks nobody");
+    const everything = await searchedFromImport();
+
+    const within = await pageText(scopeLinked(everything, "ggg Asks nobody"));
+
+    expect(textOf(sectionIn(within, "asks-no-provider"))).toContain("asks no Provider");
+    expect(within).not.toContain(providers.wiki.name);
+    expect(within).not.toContain("Nothing matched");
+  });
+});
+
 describe("what a visitor is served", () => {
   it("shows a visitor the scopes and offers them no control", async () => {
     // ADR-0044 and ADR-0072: reading the catalogue is open, and which scopes
@@ -245,6 +357,19 @@ describe("what a visitor is served", () => {
 
     expect(scopesIn(sectionIn(page.text, "groups"))).toContain("ddd Visible to a visitor");
     expect(() => formIn(page.text, "draw-a-group")).toThrow();
+  });
+
+  it("shows a visitor which Providers a scope asks, and offers no button to change it", async () => {
+    // READ LIKE THE LIST IT SITS IN (CNCORE-182): searching within a scope is
+    // open and names the Providers it asked, so the page hides nothing by
+    // leaving them off -- it would only make a visitor search to find out.
+    const id = await aScopeCalled("ddd Asks for a visitor to see");
+    await setAsking(id, providers.wiki.url, true);
+
+    const page = await documentAt("/groups");
+
+    expect(textOf(sectionIn(page.text, asking(id, providers.wiki.url)))).toContain("Asked");
+    expect(() => formIn(page.text, asking(id, providers.wiki.url))).toThrow();
   });
 
   it("offers a visitor no way to change what scopes an Item is in", async () => {

@@ -1117,6 +1117,213 @@ describe("provider.search", () => {
 });
 
 /**
+ * WHICH PROVIDERS ARE ASKED FOLLOWS THE GROUP (ADR-0025, ADR-0010, CNCORE-182).
+ *
+ * A Group picks which Providers are asked on its behalf, which is what delivers
+ * "this Group prefers the wiki": a Group that never asks TMDB is never answered
+ * by it. Asserted by what each stub was ASKED rather than only by what came
+ * back, because "not asked" is a claim about a request that never happened, and
+ * a Provider that was asked and failed would otherwise look the same.
+ */
+describe("provider.search within a Group", () => {
+  it("asks only the Providers the Group asks, and none of the others this instance searches", async () => {
+    const wikiAsked: string[] = [];
+    const tmdbAsked: string[] = [];
+    const wiki = await stubProvider(undefined, { asked: wikiAsked });
+    const tmdb = await stubProvider(undefined, { name: "provider-tmdb", asked: tmdbAsked });
+    const searching = { ...context, providerSettings: reaching({ providers: [wiki, tmdb] }) };
+    const { id: group } = await call(
+      appRouter.group.create,
+      { name: "Doctor Who, asking the wiki" },
+      { context },
+    );
+    await call(appRouter.group.ask, { id: group, baseUrl: wiki }, { context: searching });
+
+    const { answered, failed } = await call(
+      appRouter.provider.search,
+      { query: "tenth planet", group },
+      { context: searching },
+    );
+
+    expect(answered.map(({ provider: p }) => p.baseUrl)).toStrictEqual([wiki]);
+    expect(failed).toStrictEqual([]);
+    expect(tmdbAsked).toStrictEqual([]);
+    expect(wikiAsked).not.toStrictEqual([]);
+  });
+
+  it("asks the Group's Providers among those this instance still names, in its order", async () => {
+    // A GROUP PICKS AMONG THE CONFIGURED PROVIDERS RATHER THAN ADDING TO THEM.
+    // One the Owner has since removed from settings is asked by nothing, Group
+    // or not. And the answer comes back in the INSTANCE's order rather than the
+    // Group's, which is ADR-0025 at the size of a results page: nothing about
+    // a Provider's standing changes with the scope it is asked from.
+    const wikiAsked: string[] = [];
+    const wiki = await stubProvider(undefined, { asked: wikiAsked });
+    // AND ONE THE GROUP NEVER ASKS, still configured, so the narrowing itself is
+    // under test here and not only the filter: a search that forgot the Group
+    // would ask it, where this one must not. Review found the test passing
+    // with the narrowing deleted, because settings alone left the wiki out.
+    const unaskedAsked: string[] = [];
+    const unasked = await stubProvider(undefined, { asked: unaskedAsked });
+    const [first, second] = [await stubProvider(), await stubProvider()].sort().reverse();
+    if (first === undefined || second === undefined) throw new Error("two stubs, two URLs");
+    const everything = {
+      ...context,
+      providerSettings: reaching({ providers: [wiki, first, second] }),
+    };
+    const { id: group } = await call(
+      appRouter.group.create,
+      { name: "Asks three, one since removed" },
+      { context },
+    );
+    // ASKED IN THE REVERSE OF THE INSTANCE'S ORDER, so the answer's order is
+    // the instance's and not the order these writes happened to land in.
+    for (const baseUrl of [second, first, wiki]) {
+      await call(appRouter.group.ask, { id: group, baseUrl }, { context: everything });
+    }
+
+    const { answered } = await call(
+      appRouter.provider.search,
+      { query: "tenth planet", group },
+      {
+        context: {
+          ...context,
+          providerSettings: reaching({ providers: [first, unasked, second] }),
+        },
+      },
+    );
+
+    expect(answered.map(({ provider: p }) => p.baseUrl)).toStrictEqual([first, second]);
+    expect(wikiAsked).toStrictEqual([]);
+    expect(unaskedAsked).toStrictEqual([]);
+  });
+
+  it("stops asking a Provider the Owner told the Group to stop asking", async () => {
+    const asked: string[] = [];
+    const wiki = await stubProvider(undefined, { asked });
+    const searching = { ...context, providerSettings: reaching({ providers: [wiki] }) };
+    const { id: group } = await call(
+      appRouter.group.create,
+      { name: "Asked the wiki, then stopped" },
+      { context },
+    );
+    await call(appRouter.group.ask, { id: group, baseUrl: wiki }, { context: searching });
+
+    await call(appRouter.group.stopAsking, { id: group, baseUrl: wiki }, { context: searching });
+
+    expect(
+      await call(
+        appRouter.provider.search,
+        { query: "tenth planet", group },
+        { context: searching },
+      ),
+    ).toStrictEqual({ answered: [], failed: [] });
+    expect(asked).toStrictEqual([]);
+  });
+
+  it("asks nobody within a Group that asks no Provider, or that is not there", async () => {
+    // ADR-0025's sentence read literally: a Group the Owner never told to ask
+    // anything is answered by nothing. Every configured Provider would be the
+    // other reading, and it would make every new scope ask TMDB until the Owner
+    // thought to say otherwise. A Group that names nothing -- deleted since the
+    // link was kept, or no id at all -- is the same answer, for ADR-0066's
+    // reason: whether it names anything is what the answer says, so a typo in a
+    // shared link is not a 500.
+    const asked: string[] = [];
+    const wiki = await stubProvider(undefined, { asked });
+    const searching = { ...context, providerSettings: reaching({ providers: [wiki] }) };
+    const { id: toldNothing } = await call(
+      appRouter.group.create,
+      { name: "A scope that asks nobody" },
+      { context },
+    );
+
+    for (const group of [toldNothing, crypto.randomUUID(), "not-a-group"]) {
+      expect(
+        await call(
+          appRouter.provider.search,
+          { query: "tenth planet", group },
+          { context: searching },
+        ),
+      ).toStrictEqual({ answered: [], failed: [] });
+    }
+    expect(asked).toStrictEqual([]);
+  });
+});
+
+/**
+ * AND THE SOURCE ORDER IS THE SAME IN EVERY GROUP (ADR-0025).
+ *
+ * A Group chooses who is ASKED on its behalf. It does not choose whose claims
+ * are READ, and it never re-ranks them: an Item in two Groups is one Item with
+ * one title, at one address. Per-Group ranking is refused because the Item in
+ * both would otherwise have two answers for one field -- so these are the cases
+ * a per-Group reading would get wrong, asserted where the Owner meets them: the
+ * Catalogue, narrowed to each Group in turn.
+ */
+describe("the source order within a Group", () => {
+  /** The one Item, narrowed to each Group in turn, as the Catalogue titles it. */
+  async function titledWithin(groups: string[], item: string) {
+    return Promise.all(
+      groups.map(async (group) => {
+        const { rows } = await call(appRouter.catalogue.list, { group }, { context });
+        return rows.find(({ id }) => id === item)?.title;
+      }),
+    );
+  }
+
+  /** An Item imported from `wiki`, in a Group that asks the wiki and one that asks nobody. */
+  async function inTwoScopes() {
+    const wiki = await stubProvider();
+    const asking = { ...context, providerSettings: reaching({ providers: [wiki] }) };
+    const { itemId } = await call(
+      appRouter.provider.import,
+      { baseUrl: wiki, recordId: "265" },
+      { context },
+    );
+    const scopes = [];
+    for (const name of ["Asks the wiki", "Asks nobody"]) {
+      const { id } = await call(appRouter.group.create, { name }, { context });
+      await call(appRouter.group.put, { groupId: id, itemId }, { context });
+      scopes.push(id);
+    }
+    const [asksTheWiki] = scopes;
+    if (asksTheWiki === undefined) throw new Error("two scopes were drawn");
+    await call(appRouter.group.ask, { id: asksTheWiki, baseUrl: wiki }, { context: asking });
+    return { itemId, scopes };
+  }
+
+  it("reads a Provider's claim in a Group that never asks that Provider", async () => {
+    // THE ACCEPTED COST, AT ITS SHARPEST. The wiki's claim came in by import,
+    // which names one Provider and no Group, and it is the catalogue's now: the
+    // scope that asks nobody reads the same title as the scope that asks the
+    // wiki, because a Group filters who is asked and not what the catalogue
+    // holds. Nothing this ticket built makes this pass; it guards against a
+    // per-Group reading of claims arriving later.
+    const { itemId, scopes } = await inTwoScopes();
+
+    expect(await titledWithin(scopes, itemId)).toStrictEqual([
+      "The Tenth Planet (TV story)",
+      "The Tenth Planet (TV story)",
+    ]);
+  });
+
+  it("ranks the Owner's title above the Provider's in every Group, whoever each asks", async () => {
+    // TWO SOURCES FOR ONE FIELD, and the order between them is the instance's:
+    // the Owner at 0, the Provider after. Neither scope moves it, including the
+    // one that asks the Provider and so might be read as preferring it.
+    const { itemId, scopes } = await inTwoScopes();
+
+    await call(appRouter.item.retitle, { id: itemId, title: "The Tenth Planet" }, { context });
+
+    expect(await titledWithin(scopes, itemId)).toStrictEqual([
+      "The Tenth Planet",
+      "The Tenth Planet",
+    ]);
+  });
+});
+
+/**
  * ADR-0094's first run, from the other end. The allowlist being empty is one way
  * an instance reaches no provider; having no provider NAMED is the other, and
  * the two are separate settings with separate remedies.

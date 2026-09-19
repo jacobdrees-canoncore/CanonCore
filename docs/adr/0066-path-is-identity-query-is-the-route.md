@@ -263,6 +263,24 @@ order the page wrote its keys. So `Walking` carries them in separate slots -- `a
 type's rather than each caller's. The group picker writes its links through the same function, so a
 link that narrows and a link that walks cannot disagree about the spelling of one page.
 
+## And on Provider search -- under CNCORE-182
+
+**THE SAME PARAMETER ON A SURFACE THAT IS NOT A LISTING**: `/import?q=<query>&group=<id>`, where the
+group decides which Providers are asked rather than which Items are listed
+([[0025-the-source-order-is-global]]). It is spelled as Catalogue search spells it, `q` then
+`group`, and written by the same picker through the same function, so the two searches cannot
+come to disagree about the order. There is no `after`: nothing pages a Provider's answer.
+
+**A GROUP NAMING NOTHING ASKS NOBODY**, the rule above read for this surface, and the page says the
+group is not there rather than that nothing matched. A group that is there and asks no Provider says
+that instead, in its own words, because "nothing matched" would be a claim about Providers nobody
+asked.
+
+**THE PAGE'S OWN SEARCH BOX CARRIES THE GROUP**, as a hidden field after the query, which Catalogue
+search's does not: that box lives in the shell and asks across everything wherever it is submitted
+from, where `/import`'s sits under the picker that still marks the group. It carries only a group
+that is there, so a dead one is not written onto every search typed after it.
+
 ## What implementing it taught -- under CNCORE-14
 
 The decision above is not restated here. What follows is only what building it turned up.
