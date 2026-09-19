@@ -182,7 +182,8 @@ export function containerServing(serverUrl: string): string {
   if (names.length !== 1 || name === undefined) {
     throw new Error(
       `expected one running container publishing port ${published}, found ${names.length}. ` +
-        "Check `docker ps` for the development database before starting anything (CNCORE-233).",
+        "Check `docker ps` for the development database; `pnpm db:start` starts it if it is " +
+        "stopped and never recreates one (ADR-0104).",
     );
   }
   return name;

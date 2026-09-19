@@ -246,7 +246,8 @@ server binds the more specific `127.0.0.1`, and the specific bind wins for `loca
 errors. `docker compose up` reports success, the container sits there healthy, and every connection
 goes to the other server. This repo shipped a whole ticket's tests against Homebrew's 17.11 that way
 while believing they ran on the container's 18.6. Supabase's CLI defaults to 54322 for the same
-reason. Set `CANONCORE_DB_PORT` if 55432 is taken too.
+reason. Set `CANONCORE_DB_PORT` if 55432 is taken too, before the container is first created:
+see `pnpm db:start` below.
 
 **Every CanonCore worktree shares ONE container**, because `name: canoncore` pins the Compose
 project and Compose resolves it from any directory. That is fine and cheap. Sharing one *database*
@@ -256,11 +257,12 @@ its branch — `canoncore_cncore_4_item_on_a_page` — so `_test`, `_test_api` a
 collide either. See ADR-0104.
 
 **`pnpm db:start` never recreates that container**, so it is safe to run from any worktree at any
-time. It creates the container when there is none and starts it when it is stopped. The container
-is every worktree's, so a change to `packages/db/docker-compose.yml` does not reach it just because
-your branch has it. The change lands on `main`, and the Owner applies it by the route written above
-`name: canoncore` in that file. Never pass `--remove-orphans` there, whatever Compose suggests: on a
-machine that also runs the install, the "orphans" are the install.
+time. It creates the container when there is none and starts it when it is stopped, and the
+container keeps what it was created with, the port `CANONCORE_DB_PORT` gave it included. The
+container is every worktree's, so a change to `packages/db/docker-compose.yml` does not reach it
+just because your branch has it. The change lands on `main`, and the Owner applies it by the route
+written above `name: canoncore` in that file. Never pass `--remove-orphans` there, whatever Compose
+suggests: on a machine that also runs the install, the "orphans" are the install.
 
 ## Checks
 

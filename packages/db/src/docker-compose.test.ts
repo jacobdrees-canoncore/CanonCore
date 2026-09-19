@@ -52,15 +52,28 @@ function declaredShmSize(compose: string): number | undefined {
 }
 
 /**
- * The words of every `docker compose` command in a script, one array per
- * command, so that a second command after `&&` is judged on its own flags.
+ * The words after `docker compose` (or `docker-compose`) in every command of a
+ * script that runs it, one array per command, so that a second command after
+ * `&&` or `&` is judged on its own flags. Plain word splitting: a command
+ * quoted inside `sh -c "..."` is not read.
  */
 function composeCommands(script: string): string[][] {
-  return script.split(/&&|\|\||[;|]/).flatMap((command) => {
+  return script.split(/&&|\|\||[;&|\n]/).flatMap((command) => {
     const words = command.trim().split(/\s+/);
-    const docker = words.findIndex((word, i) => word === "docker" && words[i + 1] === "compose");
-    return docker === -1 ? [] : [words.slice(docker + 2)];
+    const composeAt = words.findIndex(
+      (word, i) => word === "docker-compose" || (word === "docker" && words[i + 1] === "compose"),
+    );
+    if (composeAt === -1) return [];
+    return [words.slice(composeAt + (words[composeAt] === "docker" ? 2 : 1))];
   });
+}
+
+/** The `scripts` of `packages/db/package.json`, where `db:start` lives. */
+async function packageScripts(): Promise<Record<string, string>> {
+  const { scripts } = JSON.parse(await readFile(packageFile, "utf8")) as {
+    scripts: Record<string, string>;
+  };
+  return scripts;
 }
 
 /**
@@ -168,12 +181,22 @@ describe("the scripts every worktree runs against it", () => {
         forced: "docker compose up -d --force-recreate",
         global: "docker compose -f other.yml up -d",
         chained: "docker compose up -d --no-recreate && docker compose up -d",
+        backgrounded: "docker compose up -d --no-recreate & docker compose up -d",
+        hyphenated: "docker-compose up -d",
         guarded: "docker compose up -d --no-recreate",
         prefixed: "COMPOSE_IGNORE_ORPHANS=true docker compose up -d --no-recreate",
         stop: "docker compose stop",
         test: "vitest run",
       }),
-    ).toStrictEqual(["plain", "attached", "forced", "global", "chained"]);
+    ).toStrictEqual([
+      "plain",
+      "attached",
+      "forced",
+      "global",
+      "chained",
+      "backgrounded",
+      "hyphenated",
+    ]);
   });
 
   it("starts the container without recreating the one every worktree is using", async () => {
@@ -182,9 +205,7 @@ describe("the scripts every worktree runs against it", () => {
     // (CNCORE-233). `name: canoncore` makes that ONE container for every
     // worktree, so the last worktree to run `db:start` would win, and every
     // other worktree's run would die with it.
-    const { scripts } = JSON.parse(await readFile(packageFile, "utf8")) as {
-      scripts: Record<string, string>;
-    };
+    const scripts = await packageScripts();
 
     const ups = Object.values(scripts)
       .flatMap(composeCommands)
@@ -211,10 +232,10 @@ describe("the scripts every worktree runs against it", () => {
   it("never removes orphans, because here the orphans are the Owner's install", async () => {
     // The Owner's install runs as Compose project `canoncore` too, so from this
     // directory Compose calls its app and database orphans and recommends
-    // `--remove-orphans` for them. That would delete the real catalogue.
-    const { scripts } = JSON.parse(await readFile(packageFile, "utf8")) as {
-      scripts: Record<string, string>;
-    };
+    // `--remove-orphans` for them. That would stop and remove the install's
+    // containers under the Owner (its catalogue is on a named volume the flag
+    // leaves alone, so it comes back with `docker compose up -d` there).
+    const scripts = await packageScripts();
 
     expect(scriptsThatRemoveOrphans(scripts)).toStrictEqual([]);
   });
