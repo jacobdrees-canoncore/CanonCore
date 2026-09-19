@@ -476,6 +476,10 @@ jobs:
       # other suite passes with the app never having been served.
       - name: The page over HTTP, and a count that says a suite ran
         run: .github/scripts/run-suite.sh test:e2e
+      # DEMONSTRATION FOR CNCORE-219, REVERTED BY THE NEXT COMMIT. #138's hang
+      # restaged: the suite has passed and the job never ends.
+      - name: Hang after the suite has passed, as #138 did
+        run: sleep 86400
 
   browser:
     name: The page in a browser
