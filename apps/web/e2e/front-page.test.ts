@@ -1,6 +1,16 @@
 import { describe, expect, inject, it } from "vitest";
 
-import { documentAt, documentFrom, headingOf, logInAt, sectionIn, textOf } from "./document";
+import {
+  documentAt,
+  documentFrom,
+  headingOf,
+  itemsLinkedFrom,
+  logInAt,
+  markedCurrentIn,
+  scopeLinked,
+  sectionIn,
+  textOf,
+} from "./document";
 
 /**
  * THE FRONT PAGE, over real HTTP. ADR-0103's fourth seam, which is the one
@@ -370,11 +380,6 @@ describe("/ on a fresh install", () => {
 });
 
 describe("/ on a catalogue larger than one page", () => {
-  /** Every item one rendered page links at, in the order it links them. */
-  function itemsLinkedFrom(text: string): string[] {
-    return [...text.matchAll(/href="\/items\/([^"?]+)"/g)].map(([, id]) => id as string);
-  }
-
   /** Where the page says the catalogue carries on, if it says so at all. */
   function carriesOnAt(text: string): string | undefined {
     return text.match(/href="(\/\?after=[^"]+)"/)?.[1];
@@ -486,37 +491,6 @@ describe("/ on a catalogue larger than one page", () => {
 describe("/ narrowed to a Group", () => {
   const pagedBaseUrl = inject("pagedBaseUrl");
   const group = inject("pagedGroup");
-
-  /** Every item one rendered page links at, in the order it links them. */
-  function itemsLinkedFrom(text: string): string[] {
-    return [...text.matchAll(/href="\/items\/([^"?]+)"/g)].map(([, id]) => id as string);
-  }
-
-  /**
-   * THE PICKER, cut out of the page so a link found in it is one a reader
-   * picks a scope with rather than any link on the page that happens to match.
-   */
-  function scopesIn(text: string): string {
-    const found = text.match(/<nav aria-label="Narrow to a Group"[^>]*>(.*?)<\/nav>/);
-    if (!found) throw new Error("the page offered no way to narrow to a Group");
-    return found[1] as string;
-  }
-
-  /** The address the picker links a scope at, by the words a reader picks it by. */
-  function scopeLinked(text: string, name: string): string {
-    const found = [...scopesIn(text).matchAll(/<a [^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/g)].find(
-      ([, , words]) => textOf(words ?? "") === name,
-    );
-    if (!found) throw new Error(`the picker offered nothing called ${name}`);
-    return found[1] as string;
-  }
-
-  /** The words of the one scope the picker marks as the page's own. */
-  function markedCurrentIn(text: string): string[] {
-    return [...scopesIn(text).matchAll(/<a aria-current="true"[^>]*>(.*?)<\/a>/g)].map(
-      ([, words]) => textOf(words ?? ""),
-    );
-  }
 
   /** Where a narrowed page says it carries on, if it says so at all. */
   function carriesOnAt(text: string): string | undefined {

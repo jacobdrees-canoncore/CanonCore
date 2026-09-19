@@ -21,10 +21,10 @@ import { callerContext } from "@/session";
  *
  * NOT `createFormAction`, WHICH THE TICKET NAMED AND WHICH DOES NOT EXIST. The
  * real API is `createServerFormFunction`, it lives in `@orpc/next`, and it is a
- * **v2** API -- this repo pins `@orpc/server@1.15.0`. Adopting it would mean a
- * new dependency AND a major-version move, for a job the pattern below already
- * does: `import/actions.ts` and `login/actions.ts` are both this shape, and a
- * second way to write an action is a second thing to keep true.
+ * **v2** API -- this repo is on `@orpc/server`'s 1.x line. Adopting it would
+ * mean a new dependency AND a major-version move, for a job the pattern below
+ * already does: `import/actions.ts` and `login/actions.ts` are both this
+ * shape, and a second way to write an action is a second thing to keep true.
  *
  * THEY NEED NO JAVASCRIPT. React posts a form bound to a server action as an
  * ordinary `multipart/form-data` request when no script has loaded, which is

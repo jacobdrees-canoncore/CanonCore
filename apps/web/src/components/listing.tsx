@@ -101,19 +101,25 @@ export type MembersPath = `/items/${string}`;
 type Asked = { q: string };
 
 /**
- * WHAT THE CATALOGUE WAS NARROWED TO (CNCORE-179): the Group a reader picked,
- * which every link on a narrowed page has to keep.
+ * WHAT THE LISTING WAS NARROWED TO: the Group a reader picked, which every link
+ * on a narrowed page has to keep -- on the Catalogue since CNCORE-179, and on
+ * work-browsing and Catalogue search since CNCORE-180.
  *
  * THE SAME ARRANGEMENT AS `Asked` ABOVE, for the same reason: the start of a
- * narrowed catalogue is `/` with the Group on it, so a `Back to the start` that
- * dropped it would hand a reader the whole catalogue from page three of a
- * scope. And a `Next` that dropped it would walk on into Items the Group does
+ * narrowed Listing is its address with the Group on it, so a `Back to the
+ * start` that dropped it would hand a reader the whole of it from page three of
+ * a scope. And a `Next` that dropped it would walk on into Items the Group does
  * not hold.
  *
- * WRITTEN BEFORE THE CURSOR, `group` then `after`, which is ADR-0066's fixed
- * order and the same shape as `/search`'s `q` then `after`: what the Listing
- * is, then where in it the reader is. No link carrying both had been emitted
- * before this, so no spelling already out in the world is changed by it.
+ * A SLOT OF ITS OWN RATHER THAN A KEY IN `Asked`, because the order is the
+ * point: what the Listing asks, then the Group it asks it within, then where
+ * in it the reader stands -- `?q=<query>&group=<id>&after=<id>` on `/search`,
+ * and `?group=<id>&after=<id>` on the two that ask nothing else. `queryFor`
+ * spreads the three slots in that order, so the order holds by construction
+ * rather than by the order some page happened to write its object's keys in.
+ * `q` goes first because it was out there first (ADR-0066's rule); no link
+ * carrying a query and a Group had been emitted before this, so none acquires
+ * a second spelling.
  *
  * THE KEY IS REQUIRED AND THE OBJECT IS OPTIONAL, so a page that is not
  * narrowed passes nothing rather than `{ group: undefined }` -- which Next
@@ -164,15 +170,41 @@ export type ItemPageListing = "members" | "appearances";
  * type above has a paragraph warning about: a `Back to the start` pointing at
  * `/search` with no `q`, which is the page that ASKS for a query rather than
  * the first page of anybody's results. The one that is not its address must
- * pass one, `/works` may not, and `/` MAY -- the Group it was narrowed to, which
- * is optional because the catalogue unnarrowed is `/` with nothing on it
- * (CNCORE-179).
+ * pass one, and the two that are may not.
+ *
+ * AND THE THREE THAT ARE THEIR OWN SURFACE MAY BE NARROWED, which is optional
+ * because each unnarrowed is its address with no Group on it (CNCORE-179,
+ * CNCORE-180). The item page's two may not: an Ordering's Members are not
+ * narrowed by a scope, which ADR-0010 records under CNCORE-179 -- and which
+ * ADR-0140's figure on a Row depends on, since that figure is what following
+ * the Row finds.
  */
 type Walking =
-  | { path: "/"; asked?: Narrowed; listing?: never }
-  | { path: "/works"; asked?: never; listing?: never }
-  | { path: "/search"; asked: Asked; listing?: never }
-  | { path: MembersPath; asked: TheRoute; listing: ItemPageListing };
+  | { path: "/" | "/works"; asked?: never; narrowed?: Narrowed; listing?: never }
+  | { path: "/search"; asked: Asked; narrowed?: Narrowed; listing?: never }
+  | { path: MembersPath; asked: TheRoute; narrowed?: never; listing: ItemPageListing };
+
+/**
+ * ONE OF THE THREE SURFACES THAT ARE THEIR LISTING, as the Group picker sees
+ * it: where it is, and what it was asked -- with no Group and no cursor,
+ * because those are the two things the picker changes.
+ */
+type Narrowable = Extract<Walking, { listing?: never }> & { narrowed?: never };
+
+/**
+ * WHERE ONE OF THOSE LISTINGS STARTS, UNNARROWED: its address with what it
+ * was asked and nothing else. The picker's `Everything` is this, and so is the
+ * way out of every notice that says a narrowed page has nothing on it.
+ *
+ * EXPORTED FOR THE ONE NOTICE THAT LIVES ON ITS PAGE (CNCORE-180): Catalogue
+ * search's "nothing matched" offers the same search across the catalogue, and
+ * writing that address there by hand would be a third spelling of it beside
+ * the picker's and `NoSuchGroup`'s -- which ADR-0066's fixed order exists to
+ * prevent.
+ */
+export function theStartOf(surface: Narrowable) {
+  return { pathname: surface.path, query: queryFor(surface, undefined) };
+}
 
 /**
  * What each listing calls itself when it has to end a sentence.
@@ -282,13 +314,13 @@ const IN_FIXED_ORDER = [
  * cursor, which a reader has not asked to move.
  *
  * THE THREE SURFACES THAT ARE THEIR LISTING TAKE THE OTHER BRANCH, because
- * nothing composes on them: `/search` carries its query and the cursor, `/`
- * carries the Group it was narrowed to and the cursor, and `/works` carries the
- * cursor alone.
+ * nothing composes on them: what the Listing asks (`/search`'s query), then
+ * the Group it was narrowed to, then the cursor -- each absent where it is.
  */
 function queryFor(walking: Walking, at: string | undefined): Record<string, string> {
   if (walking.listing === undefined) {
-    return at === undefined ? { ...walking.asked } : { ...walking.asked, after: at };
+    const kept = { ...walking.asked, ...walking.narrowed };
+    return at === undefined ? kept : { ...kept, after: at };
   }
   const own = CURSOR[walking.listing];
   const query: Record<string, string> = {};
@@ -546,6 +578,151 @@ export function PastTheEnd(walking: Walking) {
             className="hover:underline"
           >
             Back to the start
+          </Link>
+        </EmptyContent>
+      </Empty>
+    </section>
+  );
+}
+
+/** One Group as the picker offers it, read off the procedure that answers it. */
+type Group = Awaited<ReturnType<AppRouterClient["group"]["list"]>>["groups"][number];
+
+/**
+ * THE GROUP A PAGE WAS NARROWED TO, AS THE PAGE NEEDS IT: what every link on it
+ * carries forward, the Group itself where it is there, and whether it is gone.
+ *
+ * WRITTEN ONCE FOR THE THREE SURFACES THAT NARROW (CNCORE-180). Each has to
+ * tell the same three states apart -- not narrowed, narrowed to a Group, and
+ * narrowed to one that is not there -- and they were written inline on the
+ * front page while it was the only one. Three copies would be three readings
+ * of when a Group is "not there".
+ *
+ * FOUND BY ITS ID AMONG EVERY GROUP THERE IS, which is also how a link naming
+ * no Group is told apart from a Group that holds nothing (CNCORE-179): the
+ * Listing narrows to nothing either way, and only this says which.
+ *
+ * `narrowedTo` IS ALREADY LOWER CASE, which `oneGroup` owns: a uuid spelled in
+ * capitals is the same id to PostgreSQL, and this match is a string's.
+ */
+export function theScope(groups: Group[], narrowedTo: string | undefined) {
+  if (narrowedTo === undefined) return { narrowed: undefined, group: undefined, gone: false };
+  const group = groups.find(({ id }) => id === narrowedTo);
+  return { narrowed: { group: narrowedTo }, group, gone: group === undefined };
+}
+
+/**
+ * WHERE A READER PICKS A GROUP (ADR-0010): one universe at a time, on every
+ * surface that is its own Listing -- the Catalogue since CNCORE-179, and
+ * work-browsing and Catalogue search since CNCORE-180.
+ *
+ * ONE PICKER, BESIDE THE WALK, because it is the walk's own rule applied to a
+ * different parameter: every link it writes is this Listing's start, through
+ * `queryFor`, with the Group set or cleared and the query kept. A copy per page
+ * would be three spellings of one address, which ADR-0066's fixed order exists
+ * to prevent.
+ *
+ * LINKS RATHER THAN A CONTROL, which is the item page's own argument for its
+ * `?placed=` chips: the whole thing works with no script, and a narrowed
+ * Listing is an address somebody can send. It is a GET for a page that
+ * already exists, so there is nothing for a form to post.
+ *
+ * `Everything` FIRST, AND IT IS THIS LISTING UNNARROWED. Clearing the scope is
+ * one click from any narrowed page (story 44), and it drops the cursor as well
+ * as the Group -- a position in one scope is no position in another. On
+ * `/search` it keeps the query, because clearing the scope is not clearing the
+ * question.
+ *
+ * `Everything` RATHER THAN `All`, which is the word the item page's chips use
+ * and would read wrongly here. Beside a row of Group names, "All" reads as
+ * every GROUP -- and an Item in no Group at all is in the catalogue and in no
+ * scope, so the union of the Groups is not what clearing shows.
+ *
+ * EVERY GROUP THERE IS, IN THE OWNER'S OWN ALPHABET, which is `group.list`'s
+ * order and story 47: which scopes exist is what a reader needs before they
+ * narrow. Uncapped, for the reason `findGroups` gives -- a Group is drawn by
+ * hand, so there are as many as universes the Owner curates.
+ *
+ * `aria-current` MARKS THE ONE THE PAGE IS NARROWED TO, and it is what makes
+ * the narrowing visible rather than inferred from a smaller count. No chip is
+ * current on a page naming a Group that is not there, which is `NoSuchGroup`'s
+ * to explain.
+ *
+ * `TheirWords` BECAUSE THE NAME IS THE OWNER'S OWN WORDS WITH NO CAP on them
+ * (`group.create`), so one unbroken word would otherwise push the page
+ * sideways -- the width CNCORE-217 found a Provider's name taking.
+ */
+export function NarrowToAGroup({
+  groups,
+  narrowedTo,
+  ...surface
+}: Narrowable & { groups: Group[]; narrowedTo?: string }) {
+  return (
+    <nav
+      aria-label="Narrow to a Group"
+      className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-muted-foreground text-sm"
+    >
+      <Link
+        href={theStartOf(surface)}
+        aria-current={narrowedTo === undefined ? "true" : undefined}
+        className="hover:underline aria-[current]:font-medium aria-[current]:text-foreground"
+      >
+        Everything
+      </Link>
+      {groups.map((group) => (
+        <Link
+          key={group.id}
+          href={{
+            pathname: surface.path,
+            query: queryFor({ ...surface, narrowed: { group: group.id } }, undefined),
+          }}
+          aria-current={group.id === narrowedTo ? "true" : undefined}
+          className="hover:underline aria-[current]:font-medium aria-[current]:text-foreground"
+        >
+          <TheirWords>{group.name}</TheirWords>
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
+/**
+ * A LINK NAMING A GROUP THAT IS NOT HERE: deleted since the link was kept, or
+ * never one at all.
+ *
+ * ADR-0066's RULE FOR A PARAMETER THAT IS NOT AN IDENTITY, said on the page.
+ * The Listing narrows to nothing because a Group nobody drew holds nothing;
+ * what a reader is owed beside that is WHY, since "this Group is empty" -- or
+ * "nothing to watch", or "nothing matched" -- would be a claim about a scope
+ * that does not exist. So on every surface this replaces that surface's own
+ * empty state rather than sitting beside it.
+ *
+ * AND IT SAYS THE ITEMS ARE SAFE, which is ADR-0010's promise and the thing a
+ * reader following a dead link to their own scope most needs to hear: deleting
+ * a Group takes no Item with it.
+ *
+ * THE WAY OUT IS THIS LISTING UNNARROWED, the same address the picker's
+ * `Everything` is -- `/works` from work-browsing and the same query from
+ * Catalogue search -- rather than the Catalogue, which is a different question.
+ */
+export function NoSuchGroup(surface: Narrowable) {
+  return (
+    <section aria-labelledby="no-such-group" className="mt-6">
+      <Empty className="border">
+        <EmptyHeader>
+          {/* A real heading, for the reason `PastTheEnd` gives. */}
+          <EmptyTitle>
+            <h2 id="no-such-group">No such Group</h2>
+          </EmptyTitle>
+          <EmptyDescription>
+            This link narrows to a Group that is not here: it may have been deleted since the link
+            was made. Deleting a Group leaves its Items alone, so everything it held is still in the
+            catalogue.
+          </EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          <Link href={theStartOf(surface)} className="hover:underline">
+            Show everything
           </Link>
         </EmptyContent>
       </Empty>

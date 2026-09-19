@@ -460,6 +460,47 @@ describe("readCatalogue, walked a page at a time", () => {
     expect(kept.continuesAfter).toBe(theRest[1]);
     expect(kept.total).toBe(4);
   });
+
+  it("resumes past a deleted item that has its key again, because the key is what a delete takes", async () => {
+    // THE OTHER HALF OF THE PAIR the two tests above rest on. A deleted anchor
+    // is refused because its KEY is gone, not because its row is: an anchor
+    // whose key a delete left standing still has a place, and a refusal on the
+    // tombstone alone would send this reader back to the top for nothing.
+    //
+    // A STATEMENT WRITTEN AFTER THE DELETE IS HOW THAT ROW EXISTS. Migration 5
+    // tombstones an item's statements only as `deleted_at` is SET, so a title
+    // asserted afterwards is live and the projection writes the key back.
+    // Until CNCORE-195 this half went untested while ADR-0119 said both were.
+    const anchorId = await anItemTitled(db, "A story deleted and then titled again");
+    const order = (await readCatalogue(db, { limit: 10_000 })).rows.map((row) => row.id);
+    const cut = await readCatalogue(db, { limit: order.indexOf(anchorId) + 1 });
+    expect(cut.continuesAfter).toBe(anchorId);
+    await db.update(items).set({ deletedAt: new Date() }).where(eq(items.id, anchorId));
+    await aStatement(db, {
+      subjectItemId: anchorId,
+      property: "title",
+      valueLiteral: "A story deleted and then titled again",
+      sourceId: await ownerSource(db),
+    });
+
+    // THE FIXTURE'S OWN PRECONDITION, asserted rather than assumed: the row is
+    // deleted AND keyed. Were the projection ever to consult the tombstone,
+    // this would be the deleted anchor of the tests above and prove nothing.
+    const [anchor] = await db
+      .select({ deletedAt: items.deletedAt, title: items.title })
+      .from(items)
+      .where(eq(items.id, anchorId));
+    expect(anchor?.deletedAt).not.toBeNull();
+    expect(anchor?.title).toBe("A story deleted and then titled again");
+
+    const kept = await readCatalogue(db, { limit: 1, after: cut.continuesAfter ?? "" });
+
+    // RESUMED, not started over: the item after the anchor, as the order stood
+    // when the reader was handed the cursor.
+    const next = order[order.indexOf(anchorId) + 1];
+    expect(next).toBeDefined();
+    expect(kept.rows.map((row) => row.id)).toStrictEqual([next]);
+  });
 });
 
 /**

@@ -70,11 +70,15 @@ and they ran the page 2,573 pixels wide. That sentence is corrected in ADR-0123 
 sentence itself is the page's own words and stays plain; the address inside it, which the Owner
 typed, goes through this component under CNCORE-226.
 
-**CNCORE-179'S RAW CLASS MOVES ONTO IT.** That ticket put `wrap-anywhere` straight on a Group's name
-on the Catalogue page, for this record's reason. It works, and it is a second spelling of one rule
-that a search for the component does not find. The name now goes through `TheirWords` there, on
-`/groups` and on the Item page, and the heading of an empty Group wraps the name and not the words
-around it.
+**CNCORE-179'S RAW CLASS MOVES ONTO IT, AND SO DO CNCORE-180'S.** CNCORE-179 put `wrap-anywhere`
+straight on a Group's name in the picker, for this record's reason, and CNCORE-180 carried the
+picker into `Listing`'s module for `/works` and `/search` and put the same class on the heading each
+of those prints over an empty Group. They work, and they are a second spelling of one rule that a
+search for the component does not find. The name now goes through `TheirWords` in the picker, in
+those headings, on `/groups` and on the Item page, and each heading wraps the name and not the words
+around it. `/search`'s heading echoes the reader's query as well, which CNCORE-180 had wrapped with
+the rest of the heading, so the query goes through `TheirWords` there too rather than losing the
+wrap.
 
 **A FALLBACK IN THE PAGE'S OWN WORDS MAY RIDE INSIDE IT.** `item.title ?? "Untitled item"` goes
 through whole. `anywhere` breaks only a word that does not fit its line, and no word the page wrote
@@ -129,13 +133,14 @@ part there exactly as they do in a flex row without it.
 
 **Built:** the component; `ProviderProse` folded into it at every site it had; and every site that
 prints a record's field, an Item's title, sort name, value or note, or a Group's name, in `/import`,
-the Item page, `Listing` (so every surface that renders one), the Catalogue page's Group chips and
-empty Group, and `/groups`.
+the Item page, `Listing` and the Group picker beside it (so every surface that renders them), the
+empty Group's heading on `/`, `/works` and `/search`, and `/groups`. And the reader's query where
+`/search` says nothing matched it, which the Group's name sits beside there.
 
 **Not built, and why this record is `proposed`:** the rest of the text the page did not write.
 CNCORE-223's sweep found it and it is CNCORE-226's, with a `TODO` naming that ticket at each site:
 
-- the reader's own query, echoed in `/import`'s results heading and `/search`'s `NothingFound`;
+- the reader's own query, echoed in `/import`'s results heading;
 - the container id the Owner typed, beside that container's title on `/import`;
 - a Provider's base URL where `/import` and `/settings` print it, and the entry `/settings` refused;
 - the names a device declares for itself, on `/devices`;

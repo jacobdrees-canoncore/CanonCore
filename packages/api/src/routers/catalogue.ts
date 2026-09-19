@@ -24,34 +24,29 @@ const listingInput = z.object({
   limit: z.number().int().positive().max(A_PAGE).default(A_PAGE),
   /** ADR-0119's cursor, written once for every listing in `./listing`. */
   after: aCursor,
-});
-
-/**
- * What the Catalogue takes: the same ceiling, the same cursor, and the Group a
- * reader has narrowed it to (CNCORE-179, ADR-0010).
- *
- * ON `list` ALONE FOR NOW, and that is the reason `after` gives below for
- * having once been omitted from search: an input that accepted a Group and
- * silently answered the whole catalogue would be a promise the handler does not
- * keep. Catalogue search and work-browsing take it under CNCORE-180, and the
- * day all three do it belongs in `listingInput` rather than here.
- */
-const catalogueInput = listingInput.extend({
   /**
-   * THE GROUP'S ID, AS A STRING RATHER THAN A `z.uuid()`, which is ADR-0066's
-   * rule for a parameter that is not an identity and the one `aCursor` follows
-   * for the same reason: whether a value names anything is what the ANSWER
-   * says. A Group that names nothing -- deleted since the link was kept, or a
-   * typo in one -- narrows to nothing, and the page says so rather than a
-   * validator answering a BAD_REQUEST no caller can narrow on.
+   * THE GROUP A READER HAS NARROWED THE LISTING TO (ADR-0010), on all three
+   * questions: the Catalogue since CNCORE-179, and work-browsing and Catalogue
+   * search since CNCORE-180. It was on `list` alone while it was the only
+   * handler that kept the promise, for the reason `after` gives below about
+   * search; now every handler here does, so it is one declaration rather than
+   * three that could come to disagree about what a Group id is.
    *
-   * ABSENT IS THE WHOLE CATALOGUE, which is what clearing the scope is.
+   * AS A STRING RATHER THAN A `z.uuid()`, which is ADR-0066's rule for a
+   * parameter that is not an identity and the one `aCursor` follows for the
+   * same reason: whether a value names anything is what the ANSWER says. A
+   * Group that names nothing -- deleted since the link was kept, or a typo in
+   * one -- narrows to nothing, and the page says so rather than a validator
+   * answering a BAD_REQUEST no caller can narrow on.
+   *
+   * ABSENT IS THE LISTING UNNARROWED, which is what clearing the scope is.
    */
   group: z.string().optional(),
 });
 
 /**
- * What Catalogue search takes: the same ceiling, the same cursor, and the query.
+ * What Catalogue search takes: the same ceiling, the same cursor, the same
+ * Group, and the query.
  *
  * EXTENDED FROM `listingInput` RATHER THAN RESTATED, for the reason that
  * declaration gives about itself -- the cap is a fact about what this app will
@@ -94,7 +89,7 @@ export const catalogue = {
    * is `works` below rather than this one with a flag on it.
    */
   list: openProcedure
-    .input(catalogueInput)
+    .input(listingInput)
     .output(cataloguePublic)
     .handler(async ({ input, context }) => {
       const listing = await readCatalogue(context.db, {
@@ -128,6 +123,7 @@ export const catalogue = {
       const listing = await readWorks(context.db, {
         limit: input.limit,
         after: input.after,
+        group: input.group,
       });
       return asListing(listing);
     }),
@@ -161,6 +157,7 @@ export const catalogue = {
         query: input.query,
         limit: input.limit,
         after: input.after,
+        group: input.group,
       });
       return asListing(found);
     }),

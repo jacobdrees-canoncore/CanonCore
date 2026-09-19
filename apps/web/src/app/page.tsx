@@ -9,10 +9,18 @@ import {
 import { call } from "@orpc/server";
 import Link from "next/link";
 import { connection } from "next/server";
-import { Holding, Listing, PastTheEnd, Walk } from "@/components/listing";
+import {
+  Holding,
+  Listing,
+  NarrowToAGroup,
+  NoSuchGroup,
+  PastTheEnd,
+  theScope,
+  Walk,
+} from "@/components/listing";
 import { noPasswordSet } from "@/components/no-password";
 import { NoProviderAllowlisted } from "@/components/no-provider-allowlisted";
-import { oneValue } from "@/components/query-params";
+import { oneGroup, oneValue } from "@/components/query-params";
 import { TheirWords } from "@/components/their-words";
 import { callerContext } from "@/session";
 
@@ -81,8 +89,7 @@ async function readFrontPage(after: string | undefined, group: string | undefine
     call(appRouter.catalogue.list, { after, group }, { context }),
     // EVERY GROUP THERE IS, whether or not the page is narrowed: they are what
     // the picker offers, and the one this page was narrowed to is found among
-    // them by its id -- which is also how a link naming no Group is told apart
-    // from a Group that holds nothing (CNCORE-179).
+    // them by `theScope` (CNCORE-179).
     call(appRouter.group.list, undefined, { context }),
     call(appRouter.provider.allowlisted, undefined, { context }),
     call(appRouter.session.configured, undefined, { context }),
@@ -96,9 +103,6 @@ async function readFrontPage(after: string | undefined, group: string | undefine
   };
 }
 
-/** One Group as the picker offers it, read back off the procedure that answers it. */
-type GroupOnThePage = Awaited<ReturnType<typeof readFrontPage>>["groups"][number];
-
 export default async function CataloguePage({
   searchParams,
 }: {
@@ -108,19 +112,11 @@ export default async function CataloguePage({
   // is already the page they asked for. `oneValue` owns what a repeated
   // parameter means, so both reading surfaces answer that the same way.
   //
-  // AND THE GROUP BESIDE IT (CNCORE-179), read the same way for the same
-  // reason: a repeated `group` names no Group rather than whichever came first,
-  // so the page is the catalogue unnarrowed -- as a blank one is.
-  //
-  // IN LOWER CASE, WHICH IS A FIX FOUND BY REVIEW. A uuid spelled in capitals
-  // is the same id to `z.uuid()` and to PostgreSQL, so the Listing narrowed
-  // while the Group below -- matched as a string -- was not found, and the page
-  // said "No such Group" over that Group's own Rows. Lowered once here, every
-  // reader of it agrees, and every link written from it spells the id the way
-  // the picker does: one Group, one address (ADR-0066).
+  // AND THE GROUP BESIDE IT (CNCORE-179), which `oneGroup` reads for every
+  // surface that narrows -- in lower case, for the reason it gives.
   const { after, group } = await searchParams;
   const from = oneValue(after);
-  const narrowedTo = oneValue(group)?.toLowerCase();
+  const narrowedTo = oneGroup(group);
   const { catalogue, groups, providers, owner, aPasswordIsSet } = await readFrontPage(
     from,
     narrowedTo,
@@ -134,14 +130,10 @@ export default async function CataloguePage({
   // the two a reader is told is decided below, off whether the page is narrowed.
   const empty = catalogue.total === 0;
   const rows = catalogue.rows;
-  // THE GROUP THE PAGE IS NARROWED TO, or none. A `group` naming no Group --
-  // deleted since the link was kept, or never one -- finds nothing here, and
-  // that is how the page tells a Group that has gone from one that is empty.
-  const narrowedGroup =
-    narrowedTo === undefined ? undefined : groups.find(({ id }) => id === narrowedTo);
-  // WHAT EVERY LINK ON THIS PAGE CARRIES FORWARD, which is the Group and only
-  // the Group: a walk within a Group stays within it (CNCORE-179).
-  const asked = narrowedTo === undefined ? undefined : { group: narrowedTo };
+  // THE GROUP THE PAGE IS NARROWED TO, what every link on it carries forward,
+  // and whether a `group` naming no Group -- deleted since the link was kept,
+  // or never one -- was handed in. A walk within a Group stays within it.
+  const scope = theScope(groups, narrowedTo);
 
   return (
     <main className="container mx-auto max-w-3xl px-4 py-8">
@@ -149,7 +141,7 @@ export default async function CataloguePage({
         <h1 className="text-3xl font-medium">Catalogue</h1>
         {rows.length > 0 && <Holding showing={rows.length} total={catalogue.total} />}
       </div>
-      {groups.length > 0 && <NarrowToAGroup groups={groups} narrowedTo={narrowedTo} />}
+      {groups.length > 0 && <NarrowToAGroup path="/" groups={groups} narrowedTo={narrowedTo} />}
       {/*
         WHY AN EMPTY CATALOGUE IS EMPTY, when the reason is configuration. The
         notice itself is `no-provider-allowlisted.tsx`, shared with `/import`
@@ -187,80 +179,26 @@ export default async function CataloguePage({
       {narrowedTo === undefined && empty && (
         <WhatToDoNext aPasswordIsSet={aPasswordIsSet} owner={owner} />
       )}
-      {narrowedTo !== undefined && narrowedGroup === undefined && <NoSuchGroup />}
-      {narrowedGroup !== undefined && empty && <EmptyGroup name={narrowedGroup.name} />}
+      {scope.gone && <NoSuchGroup path="/" />}
+      {scope.group !== undefined && empty && <EmptyGroup name={scope.group.name} />}
       {/*
         A CATALOGUE WITH ITEMS IN IT AND NOTHING ON THIS PAGE, which is what a
         cursor makes possible: the link was cut at an item, and nothing is after
         that item any more. It is rare and it is a DEAD END if nothing says so.
       */}
-      {!empty && rows.length === 0 && <PastTheEnd path="/" asked={asked} />}
+      {!empty && rows.length === 0 && <PastTheEnd path="/" narrowed={scope.narrowed} />}
       {rows.length > 0 && (
         <>
           <Listing rows={rows} />
-          <Walk path="/" asked={asked} from={from} continuesAfter={catalogue.continuesAfter} />
+          <Walk
+            path="/"
+            narrowed={scope.narrowed}
+            from={from}
+            continuesAfter={catalogue.continuesAfter}
+          />
         </>
       )}
     </main>
-  );
-}
-
-/**
- * WHERE A READER PICKS A GROUP (CNCORE-179, ADR-0010): one universe at a
- * time, rather than every one on a single front page.
- *
- * LINKS RATHER THAN A CONTROL, which is the item page's own argument for its
- * `?placed=` chips: the whole thing works with no script, and a narrowed
- * catalogue is an address somebody can send. It is a GET for a page that
- * already exists, so there is nothing for a form to post.
- *
- * `Everything` FIRST, AND IT IS THE PLAIN `/`. Clearing the scope is one click
- * from any narrowed page (story 44), and it drops the cursor as well as the
- * Group -- a position in one scope is no position in another.
- *
- * `Everything` RATHER THAN `All`, which is the word the item page's chips use
- * and would read wrongly here. Beside a row of Group names, "All" reads as
- * every GROUP -- and an Item in no Group at all is in the catalogue and in no
- * scope, so the union of the Groups is not what clearing shows.
- *
- * EVERY GROUP THERE IS, IN THE OWNER'S OWN ALPHABET, which is `group.list`'s
- * order and story 47: which scopes exist is what a reader needs before they
- * narrow. Uncapped, for the reason `findGroups` gives -- a Group is drawn by
- * hand, so there are as many as universes the Owner curates.
- *
- * `aria-current` MARKS THE ONE THE PAGE IS NARROWED TO, and it is what makes
- * the narrowing visible rather than inferred from a smaller count. No chip is
- * current on a page naming a Group that is not there, which is `NoSuchGroup`'s
- * to explain.
- *
- * `TheirWords` BECAUSE THE NAME IS THE OWNER'S OWN WORDS WITH NO CAP on them
- * (`group.create`), so one unbroken word would otherwise push the page
- * sideways -- the width CNCORE-217 found a Provider's name taking.
- */
-function NarrowToAGroup({ groups, narrowedTo }: { groups: GroupOnThePage[]; narrowedTo?: string }) {
-  return (
-    <nav
-      aria-label="Narrow to a Group"
-      className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-muted-foreground text-sm"
-    >
-      <Link
-        href="/"
-        aria-current={narrowedTo === undefined ? "true" : undefined}
-        className="hover:underline aria-[current]:font-medium aria-[current]:text-foreground"
-      >
-        Everything
-      </Link>
-      {groups.map((group) => (
-        <Link
-          key={group.id}
-          href={{ pathname: "/", query: { group: group.id } }}
-          aria-current={group.id === narrowedTo ? "true" : undefined}
-          className="hover:underline aria-[current]:font-medium aria-[current]:text-foreground"
-        >
-          <TheirWords>{group.name}</TheirWords>
-        </Link>
-      ))}
-    </nav>
   );
 }
 
@@ -290,43 +228,6 @@ function EmptyGroup({ name }: { name: string }) {
           </EmptyTitle>
           <EmptyDescription>
             An Item is put in a Group from its own page, and appears here once it is.
-          </EmptyDescription>
-        </EmptyHeader>
-        <EmptyContent>
-          <Link className="hover:underline" href="/">
-            Show everything
-          </Link>
-        </EmptyContent>
-      </Empty>
-    </section>
-  );
-}
-
-/**
- * A LINK NAMING A GROUP THAT IS NOT HERE: deleted since the link was kept, or
- * never one at all.
- *
- * ADR-0066's RULE FOR A PARAMETER THAT IS NOT AN IDENTITY, said on the page.
- * The Listing narrows to nothing because a Group nobody drew holds nothing;
- * what a reader is owed beside that is WHY, since "this Group is empty" would
- * be a claim about a scope that does not exist.
- *
- * AND IT SAYS THE ITEMS ARE SAFE, which is ADR-0010's promise and the thing a
- * reader following a dead link to their own scope most needs to hear: deleting
- * a Group takes no Item with it.
- */
-function NoSuchGroup() {
-  return (
-    <section aria-labelledby="no-such-group" className="mt-6">
-      <Empty className="border">
-        <EmptyHeader>
-          <EmptyTitle>
-            <h2 id="no-such-group">No such Group</h2>
-          </EmptyTitle>
-          <EmptyDescription>
-            This link narrows the catalogue to a Group that is not here: it may have been deleted
-            since the link was made. Deleting a Group leaves its Items alone, so everything it held
-            is still in the catalogue.
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent>

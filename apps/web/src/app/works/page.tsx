@@ -3,8 +3,17 @@ import { appRouter } from "@canoncore/api/routers";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@canoncore/ui/components/empty";
 import { call } from "@orpc/server";
 import { connection } from "next/server";
-import { Holding, Listing, PastTheEnd, Walk } from "@/components/listing";
-import { oneValue } from "@/components/query-params";
+import {
+  Holding,
+  Listing,
+  NarrowToAGroup,
+  NoSuchGroup,
+  PastTheEnd,
+  theScope,
+  Walk,
+} from "@/components/listing";
+import { oneGroup, oneValue } from "@/components/query-params";
+import { TheirWords } from "@/components/their-words";
 
 /**
  * WORK-BROWSING: what can I watch, without the cast.
@@ -24,7 +33,7 @@ import { oneValue } from "@/components/query-params";
  * A server component fetching its own API is a round trip to itself, and oRPC
  * documents `call` as the way to avoid it.
  */
-async function readWorkBrowsing(after: string | undefined) {
+async function readWorkBrowsing(after: string | undefined, group: string | undefined) {
   /*
    * PRERENDERING STOPS HERE (ADR-0117), and the line is the rule rather than
    * the effect.
@@ -46,22 +55,38 @@ async function readWorkBrowsing(after: string | undefined) {
    * `apps/web/e2e/works-page.test.ts`.
    */
   await connection();
-  return call(appRouter.catalogue.works, { after }, { context: await createContext() });
+  const context = await createContext();
+  // AND EVERY GROUP THERE IS, which the picker offers and the Group this page
+  // was narrowed to is found among -- the front page's pair, for its reason
+  // (CNCORE-180).
+  const [works, { groups }] = await Promise.all([
+    call(appRouter.catalogue.works, { after, group }, { context }),
+    call(appRouter.group.list, undefined, { context }),
+  ]);
+  return { works, groups };
 }
 
 export default async function WorksPage({
   searchParams,
 }: {
-  searchParams: Promise<{ after?: string | string[] }>;
+  searchParams: Promise<{ after?: string | string[]; group?: string | string[] }>;
 }) {
   // ADR-0119's cursor, read on the SERVER so the page a reader is served
   // is already the page they asked for. `oneValue` owns what a repeated
   // parameter means, so both reading surfaces answer that the same way.
-  const { after } = await searchParams;
+  //
+  // AND THE GROUP BESIDE IT (CNCORE-180), which `oneGroup` reads for every
+  // surface that narrows.
+  const { after, group } = await searchParams;
   const from = oneValue(after);
-  const works = await readWorkBrowsing(from);
+  const narrowedTo = oneGroup(group);
+  const { works, groups } = await readWorkBrowsing(from, narrowedTo);
   const rows = works.rows;
-  const nothingToWatch = works.total === 0;
+  const scope = theScope(groups, narrowedTo);
+  // NOTHING TO WATCH IN WHAT WAS ASKED, which is the Group's Works when there
+  // is one. A Group that is not there is a different fact, and `NoSuchGroup`
+  // says it instead.
+  const nothingToWatch = works.total === 0 && !scope.gone;
 
   return (
     <main className="container mx-auto max-w-3xl px-4 py-8">
@@ -69,17 +94,28 @@ export default async function WorksPage({
         <h1 className="text-3xl font-medium">Works</h1>
         {rows.length > 0 && <Holding showing={rows.length} total={works.total} />}
       </div>
-      {nothingToWatch && <NothingToWatch />}
+      {groups.length > 0 && (
+        <NarrowToAGroup path="/works" groups={groups} narrowedTo={narrowedTo} />
+      )}
+      {scope.gone && <NoSuchGroup path="/works" />}
+      {nothingToWatch && <NothingToWatch within={scope.group?.name} />}
       {/*
         ITEMS BEHIND IT AND NOTHING ON THIS PAGE, which is what a cursor makes
         possible: the link was cut at an item, and nothing is after that item
         any more. Rare, and a DEAD END if nothing says so.
       */}
-      {!nothingToWatch && rows.length === 0 && <PastTheEnd path="/works" />}
+      {works.total > 0 && rows.length === 0 && (
+        <PastTheEnd path="/works" narrowed={scope.narrowed} />
+      )}
       {rows.length > 0 && (
         <>
           <Listing rows={rows} />
-          <Walk path="/works" from={from} continuesAfter={works.continuesAfter} />
+          <Walk
+            path="/works"
+            narrowed={scope.narrowed}
+            from={from}
+            continuesAfter={works.continuesAfter}
+          />
         </>
       )}
     </main>
@@ -100,8 +136,14 @@ export default async function WorksPage({
  * (ADR-0094), and that page owns those words; a catalogue with entities in it
  * has already been filled by one of them. What this page points at is the
  * surface that can show them.
+ *
+ * AND IT NAMES THE GROUP, WHERE THE PAGE IS NARROWED TO ONE (CNCORE-180). A
+ * scope holding only People is a real state too, and the same rule produces
+ * it: the Group is not empty, and the Catalogue narrowed to it lists every one
+ * of them. The sentence says which of the two it is about rather than calling
+ * a full catalogue empty of Works.
  */
-function NothingToWatch() {
+function NothingToWatch({ within }: { within?: string }) {
   return (
     <section aria-labelledby="nothing-to-watch" className="mt-6">
       <Empty className="border">
@@ -113,12 +155,22 @@ function NothingToWatch() {
             the `h1`.
           */}
           <EmptyTitle>
-            <h2 id="nothing-to-watch">Nothing to watch yet</h2>
+            {/* The Group's name through `TheirWords`, for the reason the picker gives. */}
+            <h2 id="nothing-to-watch">
+              {within === undefined ? (
+                "Nothing to watch yet"
+              ) : (
+                <>
+                  Nothing to watch in <TheirWords>{within}</TheirWords>
+                </>
+              )}
+            </h2>
           </EmptyTitle>
           <EmptyDescription>
             This page shows Works: stories, and the orderings that hold them. People, Characters and
-            the other Entity kinds are deliberately left out of it, so a catalogue of only those
-            shows nothing here and everything on the catalogue page.
+            the other Entity kinds are deliberately left out of it, so{" "}
+            {within === undefined ? "a catalogue" : "a Group"} of only those shows nothing here and
+            everything on the catalogue page.
           </EmptyDescription>
         </EmptyHeader>
       </Empty>

@@ -31,3 +31,24 @@
 export function oneValue(parameter: string | string[] | undefined): string | undefined {
   return typeof parameter === "string" && parameter.trim() !== "" ? parameter : undefined;
 }
+
+/**
+ * THE GROUP A PAGE WAS NARROWED TO, read the way `oneValue` reads any parameter
+ * -- a repeated or blank `group` names no Group, so the page is its Listing
+ * unnarrowed -- and then IN LOWER CASE.
+ *
+ * THE LOWER CASE IS A FIX FOUND BY REVIEW OF CNCORE-179. A uuid spelled in
+ * capitals is the same id to `z.uuid()` and to PostgreSQL, so the Listing
+ * narrowed while the Group -- matched as a string among `group.list`'s -- was
+ * not found, and the page said "No such Group" over that Group's own Rows.
+ * Lowered once here, every reader of it agrees, and every link written from it
+ * spells the id the way the picker does: one Group, one address (ADR-0066).
+ *
+ * ITS OWN FUNCTION SINCE CNCORE-180, when a second and a third surface came to
+ * read the parameter. It was one line on the front page with that paragraph
+ * above it, and a surface copying the line without the paragraph is the one
+ * that would drop the `toLowerCase`.
+ */
+export function oneGroup(parameter: string | string[] | undefined): string | undefined {
+  return oneValue(parameter)?.toLowerCase();
+}
