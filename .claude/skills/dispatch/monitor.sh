@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # The dispatcher's wake-up. Emits one line per CHANGE, never a heartbeat.
 #
+#   ROOM <n>                             n CanonCore slots free of the four
+#   IDLE <worktree>                      an agent has gone quiet: parked, done or dead
 #   READY <repo> #<n> <state> <branch>   a PR left draft and wants reading
 #   TICKET <id> <state> <title>          a ticket changed state
 #   DRIFT-BEHIND <id>                    Todo, but a worktree or PR exists for it
@@ -19,6 +21,35 @@ REPOS=${REPOS:-"CanonCore provider-wiki provider-tmdb"}
 
 while true; do
   {
+    # ROOM IS THE CEILING, COUNTED RATHER THAN REMEMBERED. Four is a CANONCORE
+    # count (CNCORE-137), so provider worktrees are not in it. The dispatcher was
+    # hand-counting worktrees every pass and a freed slot waited on it noticing.
+    canoncore=$(ls -1d "$HOME"/orca/workspaces/CanonCore/*/ 2>/dev/null | grep -vc trash || true)
+    room=$(( 4 - ${canoncore:-0} ))
+    [ "$room" -gt 0 ] && echo "ROOM $room"
+
+    # AN AGENT THAT HAS GONE QUIET IS PARKED, FINISHED OR DEAD, and a full slot
+    # count cannot tell any of the three from working. A spinner keeps
+    # `lastOutputAt` fresh, so silence is the signal; which of the three it is
+    # costs one `terminal read`. Three of four agents sat on their own
+    # AskUserQuestion prompts while the count read full.
+    orca terminal list --json 2>/dev/null | python3 -c '
+import json, sys, time
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    sys.exit()
+for t in (d.get("result") or {}).get("terminals") or d.get("terminals") or []:
+    path = t.get("worktreePath") or ""
+    if "/workspaces/CanonCore/" not in path or t.get("agentIdentity") != "claude":
+        continue
+    last = t.get("lastOutputAt")
+    if not last:
+        continue
+    if time.time() - last / 1000 > 90:
+        print("IDLE", path.rstrip("/").split("/")[-1])
+' 2>/dev/null || true
+
     for r in $REPOS; do
       gh pr list --repo "jacobdrees-canoncore/$r" --json number,isDraft,mergeStateStatus,headRefName \
         --jq ".[] | select(.isDraft==false) | \"READY $r #\(.number) \(.mergeStateStatus) \(.headRefName|split(\"/\")|last)\"" 2>/dev/null || true
