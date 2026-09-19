@@ -949,7 +949,12 @@ describe("readCatalogue, narrowed to a Group", () => {
     await db.update(groups).set({ deletedAt: new Date() }).where(eq(groups.id, scope));
 
     for (const listing of await narrowed()) {
-      expect(listing).toStrictEqual({ rows: [], total: 0, continuesAfter: null, continuesBefore: null });
+      expect(listing).toStrictEqual({
+        rows: [],
+        total: 0,
+        continuesAfter: null,
+        continuesBefore: null,
+      });
     }
   });
 
@@ -964,7 +969,12 @@ describe("readCatalogue, narrowed to a Group", () => {
     // reading as "this server is broken" (ADR-0066 under CNCORE-14).
     for (const group of [crypto.randomUUID(), "doctor-who"]) {
       const narrowed = await readCatalogue(db, { limit: 1000, group });
-      expect(narrowed).toStrictEqual({ rows: [], total: 0, continuesAfter: null, continuesBefore: null });
+      expect(narrowed).toStrictEqual({
+        rows: [],
+        total: 0,
+        continuesAfter: null,
+        continuesBefore: null,
+      });
     }
   });
 });

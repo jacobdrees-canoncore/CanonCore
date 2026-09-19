@@ -86,8 +86,25 @@ export function oneGroup(parameter: string | string[] | undefined): string | und
  * the order its fields stand in the document: the header's search box puts the
  * reader's `q` first and the `group` it carries behind it, which is this order,
  * and `scope.test.ts` reads that box beside every link.
+ *
+ * `letter`, `before` AND `placedBefore` ARRIVED WITH CNCORE-174 AND ARE
+ * APPENDED, each behind every parameter already out there, which is the rule
+ * this list keeps. A Listing's own `after`, `before` and `letter` never share a
+ * link -- each names where the page starts, and a link names one -- so what
+ * appending decides is only how one Listing's step back sits beside the OTHER
+ * Listing's cursor on the Item page: `?placedAfter=<id>&before=<id>`.
  */
-const IN_THE_FIXED_ORDER = ["via", "placed", "q", "group", "after", "placedAfter"] as const;
+const IN_THE_FIXED_ORDER = [
+  "via",
+  "placed",
+  "q",
+  "group",
+  "after",
+  "placedAfter",
+  "letter",
+  "before",
+  "placedBefore",
+] as const;
 
 /**
  * THE QUERY OF ONE LINK: any of those parameters, each at most once. Not

@@ -323,193 +323,194 @@ async function everyPageWalked(page: AListing["page"], total: number): Promise<s
   }
 }
 
-describe.each(EVERY_LISTING)("$procedure, on the Listing contract", ({
-  holds,
-  page,
-  filedByName,
-}) => {
-  let ofItsOwn: string[];
+describe.each(EVERY_LISTING)(
+  "$procedure, on the Listing contract",
+  ({ holds, page, filedByName }) => {
+    let ofItsOwn: string[];
 
-  beforeAll(async () => {
-    ofItsOwn = await holds(db);
-  });
+    beforeAll(async () => {
+      ofItsOwn = await holds(db);
+    });
 
-  it("refuses a page above the cap, and accepts one at it", async () => {
-    // THE CEILING IS THIS APP'S, not the caller's. A limit a request can raise
-    // is not a cap on anything -- the cost of one answer would be a function of
-    // what somebody asked for rather than of what this app chose to serve.
-    //
-    // BOTH HALVES, because the refusal alone is satisfied by a procedure that
-    // refuses everything -- and while the first of these was being written it
-    // was satisfied by a procedure that did not exist at all, since calling
-    // `undefined` throws as readily as a validator does.
-    //
-    // THE MESSAGE IS oRPC'S OWN and does not name the field: the input schema
-    // rejects and the procedure answers "Input validation failed". Matched
-    // rather than left bare so that a `TypeError` -- which is what calling a
-    // procedure that is not there raises -- cannot satisfy it.
-    await expect(page({ limit: A_PAGE + 1 })).rejects.toThrow("Input validation failed");
+    it("refuses a page above the cap, and accepts one at it", async () => {
+      // THE CEILING IS THIS APP'S, not the caller's. A limit a request can raise
+      // is not a cap on anything -- the cost of one answer would be a function of
+      // what somebody asked for rather than of what this app chose to serve.
+      //
+      // BOTH HALVES, because the refusal alone is satisfied by a procedure that
+      // refuses everything -- and while the first of these was being written it
+      // was satisfied by a procedure that did not exist at all, since calling
+      // `undefined` throws as readily as a validator does.
+      //
+      // THE MESSAGE IS oRPC'S OWN and does not name the field: the input schema
+      // rejects and the procedure answers "Input validation failed". Matched
+      // rather than left bare so that a `TypeError` -- which is what calling a
+      // procedure that is not there raises -- cannot satisfy it.
+      await expect(page({ limit: A_PAGE + 1 })).rejects.toThrow("Input validation failed");
 
-    await expect(page({ limit: A_PAGE })).resolves.toBeDefined();
-  });
+      await expect(page({ limit: A_PAGE })).resolves.toBeDefined();
+    });
 
-  it("walks without repeating or skipping a Row", async () => {
-    // THE ORACLE IS THE LISTING'S OWN SIZE, which is not the walk marking its
-    // own work: `total` is a count over the same predicate in a different
-    // statement (ADR-0119), so arriving at exactly that many DISTINCT Rows is
-    // the two halves agreeing. Repeats and skips are one assertion apart -- a
-    // walk that repeats overruns the count, one that skips falls short -- and
-    // the Rows this Listing was given are what say the count is not zero.
-    const { total } = await page({ limit: 1 });
+    it("walks without repeating or skipping a Row", async () => {
+      // THE ORACLE IS THE LISTING'S OWN SIZE, which is not the walk marking its
+      // own work: `total` is a count over the same predicate in a different
+      // statement (ADR-0119), so arriving at exactly that many DISTINCT Rows is
+      // the two halves agreeing. Repeats and skips are one assertion apart -- a
+      // walk that repeats overruns the count, one that skips falls short -- and
+      // the Rows this Listing was given are what say the count is not zero.
+      const { total } = await page({ limit: 1 });
 
-    const walked = await everyRowWalked(page, total);
+      const walked = await everyRowWalked(page, total);
 
-    expect(walked).toHaveLength(total);
-    expect(new Set(walked).size).toBe(total);
-    expect(walked).toEqual(expect.arrayContaining(ofItsOwn));
-  });
+      expect(walked).toHaveLength(total);
+      expect(new Set(walked).size).toBe(total);
+      expect(walked).toEqual(expect.arrayContaining(ofItsOwn));
+    });
 
-  it("reports one size from both pages", async () => {
-    // A COUNT TAKEN AFTER THE CURSOR BIT would shrink page by page and tell an
-    // owner their catalogue was emptying as they read it. It is the half that
-    // has already gone wrong twice, one file apart: a window count is taken
-    // AFTER `where`, correct exactly until the Listing gained a cursor
-    // (CNCORE-82, then CNCORE-88 in the copy that had been left standing).
-    const first = await page({ limit: 1 });
-    if (first.continuesAfter === null) throw new Error("a Listing of one has no second page");
+    it("reports one size from both pages", async () => {
+      // A COUNT TAKEN AFTER THE CURSOR BIT would shrink page by page and tell an
+      // owner their catalogue was emptying as they read it. It is the half that
+      // has already gone wrong twice, one file apart: a window count is taken
+      // AFTER `where`, correct exactly until the Listing gained a cursor
+      // (CNCORE-82, then CNCORE-88 in the copy that had been left standing).
+      const first = await page({ limit: 1 });
+      if (first.continuesAfter === null) throw new Error("a Listing of one has no second page");
 
-    const second = await page({ limit: 1, after: first.continuesAfter });
+      const second = await page({ limit: 1, after: first.continuesAfter });
 
-    expect(second.rows).toHaveLength(1);
-    expect(second.rows[0]?.id).not.toBe(first.rows[0]?.id);
-    expect(second.total).toBe(first.total);
-  });
+      expect(second.rows).toHaveLength(1);
+      expect(second.rows[0]?.id).not.toBe(first.rows[0]?.id);
+      expect(second.total).toBe(first.total);
+    });
 
-  it("reports that size past its end too, where no Row is left to carry it", async () => {
-    // THE SIZE'S OTHER POSITION, AND UNTIL THIS IT WAS ASKED OF ONE LISTING IN
-    // FIVE. `total` rides on the Rows, in the same statement and therefore in
-    // the same snapshot -- so a page with NO Rows has nothing to ride on, and
-    // the size is counted by a SECOND query instead. That second query is the
-    // half no contract has ever read: the test above walks two pages that both
-    // have Rows, so a count written twice could disagree in the position
-    // neither of them reaches.
-    //
-    // A PAGE CAN BE EMPTY WITH A LISTING STILL BEHIND IT, which is the state
-    // this reaches: the cursor names the LAST Row of the whole Listing, so
-    // there is nothing past it and the Listing is as big as it ever was. An
-    // owner arrives here by pressing Next on the last page, or by keeping the
-    // link it gave them.
-    const { total } = await page({ limit: 1 });
+    it("reports that size past its end too, where no Row is left to carry it", async () => {
+      // THE SIZE'S OTHER POSITION, AND UNTIL THIS IT WAS ASKED OF ONE LISTING IN
+      // FIVE. `total` rides on the Rows, in the same statement and therefore in
+      // the same snapshot -- so a page with NO Rows has nothing to ride on, and
+      // the size is counted by a SECOND query instead. That second query is the
+      // half no contract has ever read: the test above walks two pages that both
+      // have Rows, so a count written twice could disagree in the position
+      // neither of them reaches.
+      //
+      // A PAGE CAN BE EMPTY WITH A LISTING STILL BEHIND IT, which is the state
+      // this reaches: the cursor names the LAST Row of the whole Listing, so
+      // there is nothing past it and the Listing is as big as it ever was. An
+      // owner arrives here by pressing Next on the last page, or by keeping the
+      // link it gave them.
+      const { total } = await page({ limit: 1 });
 
-    const walked = await everyRowWalked(page, total);
-    const theLastRow = walked.at(-1);
-    if (theLastRow === undefined) throw new Error("a Listing of no Rows has no end to walk past");
-    const beyond = await page({ limit: 1, after: theLastRow });
+      const walked = await everyRowWalked(page, total);
+      const theLastRow = walked.at(-1);
+      if (theLastRow === undefined) throw new Error("a Listing of no Rows has no end to walk past");
+      const beyond = await page({ limit: 1, after: theLastRow });
 
-    expect(beyond.rows).toStrictEqual([]);
-    expect(beyond.continuesAfter).toBeNull();
-    expect(beyond.total).toBe(total);
-  });
+      expect(beyond.rows).toStrictEqual([]);
+      expect(beyond.continuesAfter).toBeNull();
+      expect(beyond.total).toBe(total);
+    });
 
-  it("steps back to the page the reader came from, from every page of the walk", async () => {
-    // THE STEP BACK (CNCORE-174), ORACLED AGAINST THE WALK FORWARD rather than
-    // against a second reading of the same thing: a different statement, read
-    // the other way round, has to hand back each page the forward walk handed
-    // out. Every page past the first is stepped back from, so a Listing's hard
-    // shapes -- the tie, the keyless tail, the Rows tied on every key -- are
-    // crossed backward wherever the walk crossed them forward.
-    const { total } = await page({ limit: 1 });
-    const forward = await everyPageWalked(page, total);
-    const limit = aPageThatCuts(total);
+    it("steps back to the page the reader came from, from every page of the walk", async () => {
+      // THE STEP BACK (CNCORE-174), ORACLED AGAINST THE WALK FORWARD rather than
+      // against a second reading of the same thing: a different statement, read
+      // the other way round, has to hand back each page the forward walk handed
+      // out. Every page past the first is stepped back from, so a Listing's hard
+      // shapes -- the tie, the keyless tail, the Rows tied on every key -- are
+      // crossed backward wherever the walk crossed them forward.
+      const { total } = await page({ limit: 1 });
+      const forward = await everyPageWalked(page, total);
+      const limit = aPageThatCuts(total);
 
-    const back: string[][] = [];
-    const offered: (string | null)[] = [];
-    for (const [at, leaving] of forward.entries()) {
-      if (at === 0) continue;
-      const answer = await page({ limit, before: leaving[0] });
-      back.push(answer.rows.map((row) => row.id));
-      offered.push(answer.continuesBefore);
-    }
+      const back: string[][] = [];
+      const offered: (string | null)[] = [];
+      for (const [at, leaving] of forward.entries()) {
+        if (at === 0) continue;
+        const answer = await page({ limit, before: leaving[0] });
+        back.push(answer.rows.map((row) => row.id));
+        offered.push(answer.continuesBefore);
+      }
 
-    expect(forward.length).toBeGreaterThan(1);
-    expect(back).toStrictEqual(forward.slice(0, -1));
-    // AND EACH SAYS WHETHER THERE IS A STEP BACK FROM IT IN TURN: from every
-    // page but the first, and from its own first Row.
-    expect(offered).toStrictEqual(forward.slice(0, -1).map((rows, at) => (at === 0 ? null : rows[0])));
-  });
+      expect(forward.length).toBeGreaterThan(1);
+      expect(back).toStrictEqual(forward.slice(0, -1));
+      // AND EACH SAYS WHETHER THERE IS A STEP BACK FROM IT IN TURN: from every
+      // page but the first, and from its own first Row.
+      expect(offered).toStrictEqual(
+        forward.slice(0, -1).map((rows, at) => (at === 0 ? null : rows[0])),
+      );
+    });
 
-  it.runIf(filedByName)("lands a jump to a letter at the first Row filed under it", async () => {
-    // THE JUMP (CNCORE-174) IS A SEEK INTO THE SAME ORDER, not a filter over
-    // it: the page it lands on is a run of the walk, from some Row onward.
-    // Where that Row falls is bracketed by the Rows this Listing was given --
-    // the one filed under an earlier letter behind it, the run filed under
-    // this one at or past it.
-    //
-    // BRACKETED RATHER THAN PINNED, where the Listing is the whole catalogue:
-    // what else is filed under W there is whatever other files left, so the
-    // exact Row a jump lands on is not this test's to know. A Group holds only
-    // what was put in it, so narrowed the bracket closes to one Row. The exact
-    // landing over Rows opening in a mark or in lower case is asserted at the
-    // package export, where the fixture is the test's own.
-    const { total } = await page({ limit: 1 });
-    const walked = (await everyPageWalked(page, total)).flat();
-    const limit = aPageThatCuts(total);
+    it.runIf(filedByName)("lands a jump to a letter at the first Row filed under it", async () => {
+      // THE JUMP (CNCORE-174) IS A SEEK INTO THE SAME ORDER, not a filter over
+      // it: the page it lands on is a run of the walk, from some Row onward.
+      // Where that Row falls is bracketed by the Rows this Listing was given --
+      // the one filed under an earlier letter behind it, the run filed under
+      // this one at or past it.
+      //
+      // BRACKETED RATHER THAN PINNED, where the Listing is the whole catalogue:
+      // what else is filed under W there is whatever other files left, so the
+      // exact Row a jump lands on is not this test's to know. A Group holds only
+      // what was put in it, so narrowed the bracket closes to one Row. The exact
+      // landing over Rows opening in a mark or in lower case is asserted at the
+      // package export, where the fixture is the test's own.
+      const { total } = await page({ limit: 1 });
+      const walked = (await everyPageWalked(page, total)).flat();
+      const limit = aPageThatCuts(total);
 
-    const jumped = await page({ limit, letter: THE_RUNS_LETTER });
-    const landed = walked.indexOf(jumped.rows[0]?.id ?? "");
+      const jumped = await page({ limit, letter: THE_RUNS_LETTER });
+      const landed = walked.indexOf(jumped.rows[0]?.id ?? "");
 
-    expect(landed).toBeGreaterThan(-1);
-    expect(jumped.rows.map((row) => row.id)).toStrictEqual(walked.slice(landed, landed + limit));
-    const [elsewhere, ...filedUnderIt] = [ofItsOwn.at(-1), ...ofItsOwn.slice(0, -1)];
-    expect(walked.indexOf(elsewhere ?? "")).toBeLessThan(landed);
-    for (const id of filedUnderIt) expect(walked.indexOf(id)).toBeGreaterThanOrEqual(landed);
-    expect(jumped.continuesBefore).toBe(jumped.rows[0]?.id);
-  });
+      expect(landed).toBeGreaterThan(-1);
+      expect(jumped.rows.map((row) => row.id)).toStrictEqual(walked.slice(landed, landed + limit));
+      const [elsewhere, ...filedUnderIt] = [ofItsOwn.at(-1), ...ofItsOwn.slice(0, -1)];
+      expect(walked.indexOf(elsewhere ?? "")).toBeLessThan(landed);
+      for (const id of filedUnderIt) expect(walked.indexOf(id)).toBeGreaterThanOrEqual(landed);
+      expect(jumped.continuesBefore).toBe(jumped.rows[0]?.id);
+    });
 
-  it("starts at the beginning when the cursor names nothing", async () => {
-    // ADR-0066's rule for a parameter that is not an identity: one naming
-    // nothing matches nothing and changes nothing. A cursor is cut at a Row, and
-    // an owner who deletes that Row should not find a bookmarked page answering
-    // with an error -- they should find the Listing.
-    //
-    // BOTH SHAPES, because they fail differently and only one of them looks like
-    // a cursor. A well-formed id for no Row is an empty query; a MALFORMED one
-    // reaches a `uuid` column as PostgreSQL error 22P02, which is the measured
-    // 500 ADR-0066 records against `item.get` before CNCORE-14 -- a truncated id
-    // in a shared link reading as "this server is broken".
-    const beginning = await page({ limit: 3 });
+    it("starts at the beginning when the cursor names nothing", async () => {
+      // ADR-0066's rule for a parameter that is not an identity: one naming
+      // nothing matches nothing and changes nothing. A cursor is cut at a Row, and
+      // an owner who deletes that Row should not find a bookmarked page answering
+      // with an error -- they should find the Listing.
+      //
+      // BOTH SHAPES, because they fail differently and only one of them looks like
+      // a cursor. A well-formed id for no Row is an empty query; a MALFORMED one
+      // reaches a `uuid` column as PostgreSQL error 22P02, which is the measured
+      // 500 ADR-0066 records against `item.get` before CNCORE-14 -- a truncated id
+      // in a shared link reading as "this server is broken".
+      const beginning = await page({ limit: 3 });
 
-    const noSuchRow = await page({ limit: 3, after: crypto.randomUUID() });
-    const notAnId = await page({ limit: 3, after: "page-two-please" });
+      const noSuchRow = await page({ limit: 3, after: crypto.randomUUID() });
+      const notAnId = await page({ limit: 3, after: "page-two-please" });
 
-    expect(noSuchRow.rows).toStrictEqual(beginning.rows);
-    expect(notAnId.rows).toStrictEqual(beginning.rows);
-  });
+      expect(noSuchRow.rows).toStrictEqual(beginning.rows);
+      expect(notAnId.rows).toStrictEqual(beginning.rows);
+    });
 
-  it("names every field its Rows emit, and no internal one", async () => {
-    // ADR-0045, AND IT IS A FIFTH WHERE THE TICKET NAMES FOUR. It is here rather
-    // than on `catalogue.list` because it is a fact about what a Listing's Row
-    // IS rather than about the question any one of them asks, and leaving it on
-    // one procedure is what left the other two unasked -- the same shape as the
-    // walk above, one assertion smaller.
-    //
-    // WHAT IT GUARDS AT THIS SEAM IS THE SCHEMA, measured rather than assumed:
-    // a field added to `asRow` alone is STRIPPED by `.output(cataloguePublic)`
-    // and this stays green, where a field added to `catalogueRowPublic` reaches
-    // the reader and fails all three. Both halves were run. The enumeration
-    // oracle is still the point -- never the query's row with fields removed --
-    // and the seam that enforces it here is the declaration, not the mapping.
-    const { rows } = await page({ limit: 1 });
-    const [row] = rows;
-    if (!row) throw new Error("the Listing answered with nothing to enumerate");
+    it("names every field its Rows emit, and no internal one", async () => {
+      // ADR-0045, AND IT IS A FIFTH WHERE THE TICKET NAMES FOUR. It is here rather
+      // than on `catalogue.list` because it is a fact about what a Listing's Row
+      // IS rather than about the question any one of them asks, and leaving it on
+      // one procedure is what left the other two unasked -- the same shape as the
+      // walk above, one assertion smaller.
+      //
+      // WHAT IT GUARDS AT THIS SEAM IS THE SCHEMA, measured rather than assumed:
+      // a field added to `asRow` alone is STRIPPED by `.output(cataloguePublic)`
+      // and this stays green, where a field added to `catalogueRowPublic` reaches
+      // the reader and fails all three. Both halves were run. The enumeration
+      // oracle is still the point -- never the query's row with fields removed --
+      // and the seam that enforces it here is the declaration, not the mapping.
+      const { rows } = await page({ limit: 1 });
+      const [row] = rows;
+      if (!row) throw new Error("the Listing answered with nothing to enumerate");
 
-    expect(Object.keys(row).sort()).toStrictEqual([
-      "holds",
-      "id",
-      "isContainer",
-      "kind",
-      "sitsIn",
-      "title",
-    ]);
-  });
-});
+      expect(Object.keys(row).sort()).toStrictEqual([
+        "holds",
+        "id",
+        "isContainer",
+        "kind",
+        "sitsIn",
+        "title",
+      ]);
+    });
+  },
+);

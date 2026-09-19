@@ -88,7 +88,12 @@ async function walked<O extends TheOrder>(order: O, within: SQL): Promise<string
   let after: string | undefined;
   for (;;) {
     const anchor = after === undefined ? undefined : await anchorIn(order, after);
-    const page = await walkListing(db, { within, order, cut: anchor && { after: anchor }, limit: 1 });
+    const page = await walkListing(db, {
+      within,
+      order,
+      cut: anchor && { after: anchor },
+      limit: 1,
+    });
     seen.push(...page.rows.map((row) => row.id));
     if (page.continuesAfter === null) return seen;
     after = page.continuesAfter;

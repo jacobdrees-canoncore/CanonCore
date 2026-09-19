@@ -5,6 +5,7 @@ import {
   documentFrom,
   headingOf,
   itemsListedOn,
+  linkedIn,
   logInAt,
   markedCurrentIn,
   scopeLinked,
@@ -74,6 +75,32 @@ function routesOutOf(text: string): string[] {
  * split into three where the caller counts two -- and `toHaveLength(2)` below
  * fails on that rather than quietly comparing the wrong strings.
  */
+/** Where the walk under a listing links the words a reader follows, if it does. */
+function walkLinked(text: string, words: string): string | undefined {
+  const walk = text.match(/<nav aria-label="More of this listing"[^>]*>(.*?)<\/nav>/)?.[1];
+  return walk === undefined ? undefined : linkedIn(walk, words);
+}
+
+/** Where the letters above a listing link one of them, if they do (CNCORE-174). */
+function letterLinked(text: string, letter: string): string | undefined {
+  const letters = text.match(/<nav aria-label="Jump to a letter"[^>]*>(.*?)<\/nav>/)?.[1];
+  return letters === undefined ? undefined : linkedIn(letters, letter);
+}
+
+/** The letters the page marks as the one it was jumped to. */
+function lettersMarkedCurrentIn(text: string): string[] {
+  const letters = text.match(/<nav aria-label="Jump to a letter"[^>]*>(.*?)<\/nav>/)?.[1] ?? "";
+  return [...letters.matchAll(/<a [^>]*aria-current="true"[^>]*>(.*?)<\/a>/g)].map(([, words]) =>
+    textOf(words ?? ""),
+  );
+}
+
+/** A link the page was expected to offer, or a failure naming the one it did not. */
+function followed(href: string | undefined, words: string): string {
+  if (href === undefined) throw new Error(`the page offered no ${words}`);
+  return href;
+}
+
 function theRouteLinking(text: string, href: string): string {
   const found = routesOutOf(text).filter((route) => route.includes(`href="${href}"`));
   if (found.length !== 1) {
@@ -440,6 +467,49 @@ describe("/ on a catalogue larger than one page", () => {
     expect(empty.text).not.toContain("Back to the start");
   });
 
+  it("steps back to each page the reader came from, by following Previous", async () => {
+    // THE STEP BACK (CNCORE-174), by the link a reader follows rather than by
+    // an address written here, and oracled against the pages the walk forward
+    // served: page three back to two, and two back to one.
+    const pagedBaseUrl = inject("pagedBaseUrl");
+    const first = await documentFrom(pagedBaseUrl, "/");
+    const second = await documentFrom(pagedBaseUrl, followed(carriesOnAt(first.text), "Next"));
+    const third = await documentFrom(pagedBaseUrl, followed(carriesOnAt(second.text), "Next"));
+
+    const backToSecond = await documentFrom(
+      pagedBaseUrl,
+      followed(walkLinked(third.text, "Previous"), "Previous"),
+    );
+    const backToFirst = await documentFrom(
+      pagedBaseUrl,
+      followed(walkLinked(backToSecond.text, "Previous"), "Previous"),
+    );
+
+    expect(itemsListedOn(backToSecond.text)).toStrictEqual(itemsListedOn(second.text));
+    expect(itemsListedOn(backToFirst.text)).toStrictEqual(itemsListedOn(first.text));
+    // AND NOTHING TO STEP BACK TO FROM THE FIRST PAGE, however it was reached:
+    // a Previous there would point at the page the reader is already on.
+    expect(walkLinked(backToFirst.text, "Previous")).toBeUndefined();
+    expect(walkLinked(first.text, "Previous")).toBeUndefined();
+  });
+
+  it("jumps to a letter picked from the page, landing at the first item filed under it", async () => {
+    // THE JUMP (CNCORE-174), from the letters on the page rather than an
+    // address typed here. `Story 0001` is the first item this instance files
+    // under S: the others under S open "story told" and "story in", which
+    // file after it, and everything else files under an earlier letter.
+    const pagedBaseUrl = inject("pagedBaseUrl");
+    const front = await documentFrom(pagedBaseUrl, "/");
+
+    const jumped = await documentFrom(pagedBaseUrl, followed(letterLinked(front.text, "S"), "S"));
+
+    expect(jumped.status).toBe(200);
+    expect(itemsListedOn(jumped.text)[0]).toBe(inject("pagedCatalogue")[0]);
+    expect(lettersMarkedCurrentIn(jumped.text)).toStrictEqual(["S"]);
+    // ITEMS ARE FILED BEFORE S, so the page it lands on offers a step back.
+    expect(walkLinked(jumped.text, "Previous")).toBeDefined();
+  });
+
   it("says the catalogue ends here, where a link outlived the items after it", async () => {
     // THE ONE DEAD END A CURSOR CREATES. `continuesAfter` is only handed over
     // when there is a row past the page, so a link FOLLOWED never lands here --
@@ -547,6 +617,29 @@ describe("/ narrowed to a Group", () => {
       }
     }
     throw new Error(`the walk never ended: ${walked.length} of ${group.holds.length} Items`);
+  });
+
+  it("jumps to a letter within the Group, and offers no step back where nothing in it comes first", async () => {
+    // THE LETTERS KEEP THE SCOPE (CNCORE-174), as every other link on a
+    // narrowed page does: a jump that dropped it would land in the whole
+    // catalogue. This Group holds the paged stories, the tied pair filed as
+    // "Story told twice" and the two with no key, so NOTHING in it is filed
+    // before S -- and the page the jump lands on is the Group's start, which
+    // must not offer a step back to itself. The whole catalogue, jumped to the
+    // same letter above, does offer one.
+    const narrowed = await documentFrom(
+      pagedBaseUrl,
+      scopeLinked((await documentFrom(pagedBaseUrl, "/")).text, group.name),
+    );
+
+    const jumped = await documentFrom(
+      pagedBaseUrl,
+      followed(letterLinked(narrowed.text, "S"), "S"),
+    );
+
+    expect(markedCurrentIn(jumped.text)).toStrictEqual([group.name]);
+    expect(itemsListedOn(jumped.text)[0]).toBe(inject("pagedCatalogue")[0]);
+    expect(walkLinked(jumped.text, "Previous")).toBeUndefined();
   });
 
   it("offers everything back, and clearing the scope shows the whole catalogue again", async () => {

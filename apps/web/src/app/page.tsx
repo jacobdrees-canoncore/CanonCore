@@ -11,12 +11,14 @@ import Link from "next/link";
 import { connection } from "next/server";
 import {
   Holding,
+  JumpToALetter,
   Listing,
   NarrowToAGroup,
   NoSuchGroup,
   PastTheEnd,
   theScope,
   Walk,
+  type WhereThePageIs,
 } from "@/components/listing";
 import { noPasswordSet } from "@/components/no-password";
 import { NoProviderAllowlisted } from "@/components/no-provider-allowlisted";
@@ -38,7 +40,7 @@ import { callerContext } from "@/session";
  * component fetching its own API is a round trip to itself, and oRPC documents
  * `call` as the way to avoid it.
  */
-async function readFrontPage(after: string | undefined, group: string | undefined) {
+async function readFrontPage(at: WhereThePageIs, group: string | undefined) {
   /*
    * PRERENDERING STOPS HERE, and this line is the whole difference between a
    * front page and a photograph of one.
@@ -86,7 +88,7 @@ async function readFrontPage(after: string | undefined, group: string | undefine
   // owner from one if it had tried.
   const context = await callerContext();
   const [catalogue, { groups }, providers, instance] = await Promise.all([
-    call(appRouter.catalogue.list, { after, group }, { context }),
+    call(appRouter.catalogue.list, { ...at, group }, { context }),
     // EVERY GROUP THERE IS, whether or not the page is narrowed: they are what
     // the picker offers, and the one this page was narrowed to is found among
     // them by `theScope` (CNCORE-179).
@@ -106,19 +108,25 @@ async function readFrontPage(after: string | undefined, group: string | undefine
 export default async function CataloguePage({
   searchParams,
 }: {
-  searchParams: Promise<{ after?: string | string[]; group?: string | string[] }>;
+  searchParams: Promise<{
+    after?: string | string[];
+    before?: string | string[];
+    letter?: string | string[];
+    group?: string | string[];
+  }>;
 }) {
-  // ADR-0119's cursor, read on the SERVER so the page a reader is served
-  // is already the page they asked for. `oneValue` owns what a repeated
-  // parameter means, so both reading surfaces answer that the same way.
+  // WHERE THE PAGE STARTS, read on the SERVER so the page a reader is served
+  // is already the page they asked for: ADR-0119's cursor, the step back and
+  // the letter (CNCORE-174). `oneValue` owns what a repeated parameter means,
+  // so every reading surface answers that the same way.
   //
   // AND THE GROUP BESIDE IT (CNCORE-179), which `oneGroup` reads for every
   // surface that narrows -- in lower case, for the reason it gives.
-  const { after, group } = await searchParams;
-  const from = oneValue(after);
+  const { after, before, letter, group } = await searchParams;
+  const at = { after: oneValue(after), before: oneValue(before), letter: oneValue(letter) };
   const narrowedTo = oneGroup(group);
   const { catalogue, groups, providers, owner, aPasswordIsSet } = await readFrontPage(
-    from,
+    at,
     narrowedTo,
   );
   // ONE NAME FOR ONE FACT. It was three reads of `catalogue.total` in three
@@ -142,6 +150,7 @@ export default async function CataloguePage({
         {rows.length > 0 && <Holding showing={rows.length} total={catalogue.total} />}
       </div>
       {groups.length > 0 && <NarrowToAGroup path="/" groups={groups} narrowedTo={narrowedTo} />}
+      {!empty && <JumpToALetter path="/" narrowed={scope.narrowed} jumpedTo={at.letter} />}
       {/*
         WHY AN EMPTY CATALOGUE IS EMPTY, when the reason is configuration. The
         notice itself is `no-provider-allowlisted.tsx`, shared with `/import`
@@ -186,15 +195,17 @@ export default async function CataloguePage({
         cursor makes possible: the link was cut at an item, and nothing is after
         that item any more. It is rare and it is a DEAD END if nothing says so.
       */}
-      {!empty && rows.length === 0 && <PastTheEnd path="/" narrowed={scope.narrowed} />}
+      {!empty && rows.length === 0 && (
+        <PastTheEnd path="/" narrowed={scope.narrowed} jumpedTo={at.letter} />
+      )}
       {rows.length > 0 && (
         <>
           <Listing rows={rows} />
           <Walk
             path="/"
             narrowed={scope.narrowed}
-            from={from}
             continuesAfter={catalogue.continuesAfter}
+            continuesBefore={catalogue.continuesBefore}
           />
         </>
       )}
