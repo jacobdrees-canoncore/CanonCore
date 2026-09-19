@@ -220,11 +220,12 @@ among what goes.
 
 **LIVE MEANS THE GROUP AS WELL AS THE MEMBERSHIP.** A membership that outlived its Group narrows
 nothing ([[0010-groups-scope-never-partition]], under CNCORE-230), so it is nobody's scope and keeps
-nothing. `deleteOrphansAmong` reads it through `groups` with the same two tombstones `inTheGroup`
-reads. That is a THIRD SPELLING of one rule, beside `inTheGroup` and `findGroupsOfItem`, and the three
-agree only because each was copied, which is how CNCORE-230 came about. Giving the rule one spelling
-is CNCORE-234. Until then, the purge's copy is held to the rule by the test for a membership that
-outlived its Group, not by construction.
+nothing. `deleteOrphansAmong` reads it through `LIVE_GROUP_MEMBERSHIP`, the one spelling of a live
+membership that `inTheGroup` and `findGroupsOfItem` read as well (CNCORE-234). Until that ticket it
+was a THIRD COPY of the rule, and the three agreed only because each was copied, which is how
+CNCORE-230 came about. The purge is now held to the rule by construction. The test for a membership
+that outlived its Group shows it: dropping the Group's tombstone from that one spelling fails one test
+in each of the three readers.
 
 **A DEAD MEMBERSHIP KEEPS NOTHING, BUT IT STILL NAMES THE ITEM, AND THE PURGE TAKES IT WITH THE ITEM.**
 A membership the Owner took back out is a tombstone, not a DELETE (ADR-0075), and `group_items.item_id`
