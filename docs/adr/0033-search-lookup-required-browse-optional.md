@@ -1094,6 +1094,17 @@ schema keeps the field, asserted on a lookup at the package export; what reads i
 one lookup when the Owner asks rather than one per result. The dispatcher chose that over building
 the reader here, 2026-09-19.
 
+**AND IT IS READ NOW (CNCORE-238, 2026-09-19), WHICH IS THE SENTENCE ABOVE OVERTAKEN RATHER THAN
+CONTRADICTED.** `provider.containerOf` answers the Container one record names, and `/import` leads
+from a search candidate to the `?provider=&container=` preview a Container picked from the list
+already reaches — so story 61 of spec CNCORE-159 is met at TMDB, which declines the `containers`
+list. The premise was re-measured against the RUNNING image rather than taken from the paragraph
+above: `/search?q=The Matrix` answers `"series_id":null` and `/lookup/movie%3A603` answers
+`"series_id":"collection:2344"`. The design and the rule it rests on are
+[[0149-a-found-record-reaches-its-container-on-a-click-not-a-search]]; a Provider that names none —
+`provider-wiki`, where a story sits in many timelines — says so rather than offering a link to
+nothing.
+
 **NOT BUILT: an import run over what a Provider lists.** `provider.beginImportRun` still takes the
 Owner's own list ([[0135-an-import-run-is-rows-and-the-walk-is-one-container-a-call]]).
 

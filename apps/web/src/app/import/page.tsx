@@ -104,8 +104,16 @@ async function readImportPage({
    * "EVERY READ" IS WHAT THIS SAID, AND ONE READ IS NOW THE OWNER'S TOO
    * (ADR-0131, CNCORE-154). `provider.container` answers by running a whole
    * browse at a third party, so it is gated in `aboutTheContainer` below beside
-   * `purging` -- the two reads on this page that cost more than a query. What a
+   * `purging` -- the two reads on this page that are the OWNER'S. What a
    * visitor is shown in its place is `LogIn`, exactly as beside a button.
+   *
+   * "THE TWO THAT COST MORE THAN A QUERY" IS WHAT THAT SAID, AND IT STOPPED
+   * BEING THE TEST AT CNCORE-238. `provider.containerOf` costs a lookup at a
+   * third party and is OPEN, which is ADR-0131's rule applied rather than
+   * broken: that record draws its line at ADR-0130's `patient` cap, and a
+   * lookup is `brief`. So what these two have in common is not their price but
+   * their door, and naming the price would send the next reader to the wrong
+   * question (ADR-0149).
    */
   const context = await callerContext();
   // ONE CONTEXT FOR ALL OF THEM, for the reason the front page gives: two calls
@@ -203,7 +211,11 @@ async function readImportPage({
      */
     searchable === undefined || record === undefined
       ? Promise.resolve(undefined)
-      : call(appRouter.provider.containerOf, { baseUrl: searchable, recordId: record }, { context }),
+      : call(
+          appRouter.provider.containerOf,
+          { baseUrl: searchable, recordId: record },
+          { context },
+        ),
   ]);
   return {
     allowlisted,

@@ -1059,7 +1059,9 @@ describe("/import, reaching the Container a found record names", () => {
     expect(() => sectionIn(found.text, "its-container")).toThrow();
     // THE CONTROL IS THERE ALL THE SAME, so this passes for the right reason
     // rather than because the feature is missing.
-    expect(itsContainerAsked(rowTitled(found.text, providerSearch.held)).record.length).toBeGreaterThan(0);
+    expect(
+      itsContainerAsked(rowTitled(found.text, providerSearch.held)).record.length,
+    ).toBeGreaterThan(0);
   });
 
   it("says a Provider names no Container for a record, rather than offering a link to nothing", async () => {
