@@ -141,7 +141,11 @@ TELL THE TWO RULES APART:** with `wrap-break-word` in the component in place of 
 eight of the file's nine witnesses failed. Every flex row failed at its unwrapped figure, and the
 Item page's heading kept its own box at `0` while the rows below it held the page 1,614 pixels wide.
 The one that passed was `/import`'s heading over a Provider's answers, a block on a page with no
-flex row holding the word, which is ADR-0123's reason for having a second witness at all. **The sites
+flex row holding the word, which is ADR-0123's reason for having a second witness at all. **RE-RUN
+UNDER CNCORE-226, ALL TEN FAILED.** The `/devices` row failed at its unwrapped figure, and the
+heading failed by its document half alone, at 2,573: CNCORE-182 has since put the Group picker on
+`/import` beside a query, and the fixture's Group name in that flex row held the page wide. The
+heading's own box stayed at `0`, so it still passes `break-word` itself. **The sites
 without a witness** are the Item page's Members, `Also appears in`, `In Groups` and Note, the
 headings on `/groups`, the container title on `/import`'s browse, the empty Group's heading on `/`,
 `/works` and `/search`, and the query in `/search`'s. And CNCORE-226's sites but one: on `/import`
@@ -175,9 +179,10 @@ page's own fallback riding inside as `Untitled item` does; and CanonCore's own s
 whole. None turned out to be the page's own words.
 
 **NO PAGE WAS MEASURED BELOW 1,280 PIXELS, AND AT 375 NONE CAN BE.** ADR-0123 measured the header at
-375 and refused the global rule for it. The header now holds the document 309 pixels past a
-375-pixel viewport, where ADR-0123 found 231, so a page there lays its rows out hundreds of pixels
-wider than the phone, and a row measured there says nothing about the phone. That is why `Reason`'s
+375 and refused the global rule for it. The header still holds the document 231 pixels past a
+375-pixel viewport for a visitor, as that record found, and 309 for the Owner, whose header carries
+more; with the header hidden, each is `0`. So `main` is laid out 606 and 684 pixels wide in a
+375-pixel viewport, and a row measured there says nothing about the phone. That is why `Reason`'s
 sentence was measured in a row narrowed on the page's CSS rather than in a narrow viewport. This
 record puts the component on more sites, and on none of the page's own words but that sentence,
 which was measured for it, so it reaches nothing ADR-0123's measurement found.
