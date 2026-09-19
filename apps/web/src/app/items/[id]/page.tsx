@@ -1156,13 +1156,18 @@ function AlsoAppearsIn({
           page happened to carry -- and multi-placement is the product's central
           claim, so that is the one count it could least afford to get wrong.
 
-          THE NOUN IS `ordering` BECAUSE THAT IS THE GLOSSARY'S OWN WORD FROM
-          THIS END. `CONTEXT.md` defines Multi-placement as "one item sitting in
-          several orderings at once", and its Placement entry says the same
-          construct is "an ordering it sits in" from the item's end and something
-          the container "holds" from the other. It is not `container`, either: a
-          Repeat is one item twice in ONE ordering, so counting containers would
-          make the count disagree with the rows under it.
+          IT COUNTS PLACEMENTS, ONE PER ROW UNDER IT. Not containers: a Repeat is
+          one item twice in ONE ordering, so counting containers would make the
+          count disagree with the rows under it.
+
+          SO THE NOUN IS `appearance`, AND IT WAS `ordering` UNTIL CNCORE-236.
+          That was the glossary's word for what an item sits in, but this counts
+          the rows rather than the orderings, and a Repeat is one ordering twice:
+          *The Day of the Doctor* read "61 orderings" for 61 placements in 35 of
+          them, and *UNIT HQ* "59 orderings" for 59 in 5. `CONTEXT.md`'s
+          Placement entry counts it as appearances from the item's end, and a
+          catalogue Row's "and 56 more appearances" links here (ADR-0143), so the
+          Row and the section it lands on name one figure with one noun.
 
           AND SINCE CNCORE-129 THE NARROWING IS PART OF THE LISTING, so this one
           count serves both: narrowed, it is the size of the narrowing, its cap
@@ -1170,8 +1175,7 @@ function AlsoAppearsIn({
           unnarrowed list and a second notice below carried what the chips did to
           it; there is one number now, and it is the one the reader is looking at.
         */}
-        {/* TODO(CNCORE-236): these are appearances; a Repeat is one ordering twice. */}
-        {rows.length > 0 && <Holding showing={rows.length} total={total} noun="ordering" />}
+        {rows.length > 0 && <Holding showing={rows.length} total={total} noun="appearance" />}
       </div>
       {/*
         A FILTER RATHER THAN A SPLIT LAYOUT. A container the owner filled by
