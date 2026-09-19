@@ -276,8 +276,10 @@ export default async function setup(project: TestProject) {
      * vitest force-exits after its ten-second close timeout, so a terminal or a
      * file shows a clean finish -- but the orphan inherited this process's
      * stdout, and on a PIPE that holds the stream open. CI reads the step's
-     * output to EOF, so "The page over HTTP" sat 19 minutes twice where it
-     * takes 2.5, and `ci.yml` sets no `timeout-minutes` to end it (CNCORE-219).
+     * output to EOF, so "The page over HTTP" hung for 11, 23 and 30 minutes on
+     * three runs where it takes 2.5, until a person cancelled each. It stops at
+     * eight minutes now (CNCORE-219, ADR-0141), which is still eight minutes of
+     * a job that looks slow rather than broken.
      * Reproduced locally by piping `pnpm test:e2e` through `cat`: every test
      * passed and the pipeline was still open at 300s.
      */

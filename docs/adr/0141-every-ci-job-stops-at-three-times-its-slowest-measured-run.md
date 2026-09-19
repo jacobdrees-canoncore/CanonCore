@@ -106,20 +106,29 @@ that only a hung arm64 build would spend.
 
 `ceiling = max(5, ceil(3 × slowest / 60))`, in minutes.
 
-**Three times the slowest, not the median.** For every job that runs over a minute, the slowest run
-is already 1.4 to 2.7 times its median, and 3.6 for the image's cold build. So the spread a healthy
-runner shows is inside the figure before any headroom is added. Tripling it leaves room for the
-suite to grow before its ceiling has to be measured again, and the cost of being wrong is lopsided
-in a known direction: a ceiling set too tight costs one rerun, and one set too loose costs its own
-length on every hang.
+**Three times the slowest, not the median.** For every job whose median is over a minute, the
+slowest run is already 1.4 to 2.7 times it, and 3.6 for the image's cold build. So the spread a
+healthy runner shows is inside the figure before any headroom is added. Tripling it leaves room for
+the suite to grow before its ceiling has to be measured again, and the cost of being wrong is
+lopsided in a known direction: a ceiling set too tight costs one rerun, and one set too loose costs
+its own length on every hang.
 
-**Five minutes at least, for the jobs whose own work is seconds.** The setup every job shares
-spikes, and it spikes on ONE job of a run at random rather than on the whole run. `pnpm/setup` takes
-a median of ten seconds across 5,566 successful steps, and eleven of them took between 26 and 78.
-Each time, the next slowest `pnpm/setup` in the same run took 11 to 14 seconds, so this is not a
-cold cache, which would slow the whole run. A short job's own sample may simply not contain the
-spike that would kill it: tripled, `credentials`'s four seconds would be one minute. The floor only
-ever raises a ceiling, and five minutes is still minutes.
+**Five minutes at least, for the jobs whose own work is seconds.** Two costs land on a job whatever
+its work is, and each lands on ONE job of a run at random rather than on the whole run. The first is
+the wait between a job starting and its first step: a second at the median, and up to 113. Of 7,972
+successful jobs, 23 waited over half a minute, each the only one in its run to do so while the next
+longest waited one or two seconds. The second is a setup spike: `pnpm/setup` takes a median of ten
+seconds across 5,566 successful steps, and eleven of them took between 26 and 78. Each time, the
+next slowest `pnpm/setup` in the same run took 11 to 14 seconds, so this is not a cold cache, which
+would slow the whole run. A short job's own sample may contain neither: tripled, `credentials`'s
+four seconds would be one minute.
+
+Together the two come to about three minutes, and the largest median among the jobs the floor
+raises is `contract`'s 42 seconds, so five minutes covers the worst of both on top of any of them
+with over a minute to spare. That is the measurement five stands on; the number itself is chosen
+above it, and it is still minutes. The floor raises seven ceilings: `secrets`, `docs`, `typecheck`,
+`build`, `credentials`, `contract` and `image-manifest`. `lint` and `env-guard` reach five by the
+rule itself, which is why nine jobs read five.
 
 ## Moving a ceiling
 
@@ -145,7 +154,9 @@ against the real provider` is the `provider` job's name before CNCORE-143 gave i
 query reads names rather than job ids, so a renamed job's history stays behind under its old name.
 
 **A new job fails the test on its first push, and that is the order it happens in.** It has no
-figure until it has run. CI runs it anyway, and that run is its first measurement.
+figure until it has run. CI runs it anyway, and that run is its first measurement. It still needs a
+provisional ceiling generous enough to finish, or that first run is the one in the file with six
+hours to hang in.
 
 **A healthy run reaching its ceiling is a finding, not a flake.** It means the suite has tripled
 since it was last measured. The job's recent runs will all have been cut at the ceiling, so none of
@@ -167,9 +178,9 @@ restages #138's shape: the suite passes, and the job never ends. Commit `f13845d
 The job ran from 16:11:59 to 16:20:15, **8m16s against a ceiling of eight**, where #138's ran for
 half an hour and would have run for six hours. Every other job in that run passed. It was the second
 run of the fifteen ceilings on a real runner, and neither cut anything healthy. On the first, for
-`e178b40`, `Typecheck` took 88 seconds against a slowest of 58, and 68 of them were spent before its
-first step: a wait that belongs to the runner rather than the job, landing on one job at random as
-the setup spikes do.
+`e178b40`, `Typecheck` took 88 seconds against the window's slowest of 58, and 68 of them were
+spent before its first step: the first of the two costs the floor is for, landing on one job at
+random.
 
 **GitHub records a timeout as `cancelled`, not `failure`, and that is the finding worth keeping.**
 The job, its check run and the whole workflow run all read `cancelled`: the same conclusion a person

@@ -9,8 +9,8 @@ import { workflow } from "./testing/ci-workflow";
  * suites on #138 hung with no output for 11, 23 and 30 minutes across three
  * runs, and nothing in the repository would have ended them before six hours:
  * each was cancelled by a person who happened to notice. A job that never exits
- * reports neither a pass nor a failure, which is the hole CNCORE-160 closed from
- * the other side.
+ * reports neither a pass nor a failure, which is the hole CNCORE-160, CNCORE-190
+ * and CNCORE-197 closed from the other side.
  *
  * THERE IS NO WORKFLOW-WIDE DEFAULT TO SET INSTEAD. The top-level `defaults` key
  * takes `run.shell` and `run.working-directory` and nothing else (GitHub's
@@ -27,7 +27,9 @@ import { workflow } from "./testing/ci-workflow";
  * `completed_at`. That span includes the wait between a job starting and its
  * first step, which reached two minutes once, so it is the larger of the two
  * readings. The query, and each job's median beside its slowest, are in
- * ADR-0141.
+ * ADR-0141. A run after the window can be slower -- `typecheck` took 88 seconds
+ * on this ticket's own pull request, 68 of them before its first step -- and
+ * that is what the multiple below is for.
  *
  * RESTATED HERE RATHER THAN FETCHED, as `ci-workflow.test.ts` restates a
  * vendor's input list: the suite needs no network, and changing a ceiling
@@ -35,7 +37,8 @@ import { workflow } from "./testing/ci-workflow";
  *
  * A NEW JOB HAS NO FIGURE UNTIL IT HAS RUN, and that is the order it happens
  * in: the job's first push fails here, CI runs the job anyway, and that run is
- * the first measurement.
+ * the first measurement. It still needs a provisional ceiling for that run, or
+ * it is the one run in the file with six hours to hang in.
  */
 const SLOWEST_SECONDS: Record<string, number> = {
   secrets: 52,
@@ -58,26 +61,28 @@ const SLOWEST_SECONDS: Record<string, number> = {
 };
 
 /**
- * THREE TIMES THE SLOWEST, because for every job that runs over a minute the
- * slowest is already 1.4 to 2.7 times the median: the spread a healthy runner
+ * THREE TIMES THE SLOWEST, because for every job whose median is over a minute
+ * the slowest is already 1.4 to 2.7 times it: the spread a healthy runner
  * shows is inside the figure, and the rest is room for a suite to grow before
  * its ceiling needs measuring again. The image's is 3.6, and that one is a cold
  * build, which is the run a shorter window would have missed.
  */
-const HEADROOM = 3;
+const TIMES_THE_SLOWEST = 3;
 
 /**
- * AND NEVER UNDER FIVE MINUTES, for the jobs whose own work is seconds. The
- * setup every job shares normally takes ten seconds and was measured spiking to
- * as much as 78, eleven times, each on ONE job of its run while the next slowest
- * took under fifteen. So a short job's own sample may not contain the spike that
- * would kill it: tripled, `credentials`'s four seconds would be one minute. The
- * floor only ever raises a ceiling, and five minutes is still minutes.
+ * AND NEVER UNDER FIVE MINUTES, for the jobs whose own work is seconds. Two
+ * costs land on a job whatever its work is: the wait before its first step,
+ * measured at up to 113 seconds, and a setup spike, `pnpm/setup` taking up to 78
+ * against its usual ten. Each lands on ONE job of a run at random, so a short
+ * job's own sample may contain neither: tripled, `credentials`'s four seconds
+ * would be one minute. Both together are about three minutes, and five covers
+ * them on top of any floored job's median with a minute to spare. The floor
+ * only ever raises a ceiling, and five minutes is still minutes.
  */
 const FLOOR_MINUTES = 5;
 
 function ceiling(slowestSeconds: number): number {
-  return Math.max(FLOOR_MINUTES, Math.ceil((HEADROOM * slowestSeconds) / 60));
+  return Math.max(FLOOR_MINUTES, Math.ceil((TIMES_THE_SLOWEST * slowestSeconds) / 60));
 }
 
 function jobs() {
@@ -96,12 +101,13 @@ describe("a CI job that hangs", () => {
   });
 
   it("is stopped at three times its slowest measured run, not at a guess", () => {
-    const unmeasured = jobs().flatMap(([id, job]) => {
+    const underived = jobs().flatMap(([id, job]) => {
       const slowest = SLOWEST_SECONDS[id];
       if (slowest === undefined) {
         return [
-          `the \`${id}\` job has no measured slowest run here. Push it, read its duration off ` +
-            "that run, and record it; its ceiling is derived from that figure.",
+          `the \`${id}\` job has no measured slowest run here. Give it a provisional ` +
+            "ceiling generous enough to finish, push it, read its duration off that run, and " +
+            "record it here; its ceiling is then derived from that figure.",
         ];
       }
       const minutes = job["timeout-minutes"];
@@ -113,7 +119,7 @@ describe("a CI job that hangs", () => {
               "than move the number on its own.",
           ];
     });
-    expect(unmeasured).toStrictEqual([]);
+    expect(underived).toStrictEqual([]);
   });
 
   /*
