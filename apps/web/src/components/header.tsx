@@ -13,10 +13,11 @@ import { SearchBox } from "./search-box";
  *
  * A SERVER COMPONENT SINCE CNCORE-139, and the `"use client"` it carried until
  * then bought nothing. Nothing in this file has state, an effect or a handler:
- * `ModeToggle` declares the directive for itself and the search box is a
- * `next/form`, which a server component renders perfectly well. What the
- * directive did cost was a header that could not read a session, and that was
- * the whole of the defect this file used to carry a TODO about.
+ * `ModeToggle` declares the directive for itself, and so since CNCORE-181 do
+ * the search box and `ScopedLink`, which read the address a layout is never
+ * handed. What the directive did cost was a header that could not read a
+ * session, and that was the whole of the defect this file used to carry a TODO
+ * about.
  */
 export default async function Header() {
   /*

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
-import { oneGroup } from "./query-params";
+import { inTheFixedOrder, oneGroup } from "./query-params";
 
 /**
  * THE GROUP THE ADDRESS IS NARROWED TO, read where the shell needs it
@@ -37,6 +37,10 @@ export function useNarrowedTo(): string | undefined {
  * Listing is no position in another, and `/search`'s query because it is a
  * question only that surface asks.
  *
+ * WRITTEN THROUGH `inTheFixedOrder` though it carries one parameter, because
+ * that is the one place an address in this app is spelled: absent rather than
+ * `?group=` where the page is not narrowed.
+ *
  * `/search` IS NOT AMONG THE PATHS, because that surface is reached through the
  * search box with a query in it: `/search` alone is the page that asks for one.
  */
@@ -44,6 +48,7 @@ export function ScopedLink({
   path,
   ...link
 }: Omit<React.ComponentProps<typeof Link>, "href"> & { path: "/" | "/works" }) {
-  const group = useNarrowedTo();
-  return <Link href={{ pathname: path, query: group === undefined ? {} : { group } }} {...link} />;
+  return (
+    <Link href={{ pathname: path, query: inTheFixedOrder({ group: useNarrowedTo() }) }} {...link} />
+  );
 }

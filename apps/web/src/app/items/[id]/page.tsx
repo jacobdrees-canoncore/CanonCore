@@ -14,7 +14,7 @@ import { Attribution } from "@/components/attribution";
 import { Holding, type MembersPath, PastTheEnd, type TheRoute, Walk } from "@/components/listing";
 import { type Reorder, reorderedTo } from "@/components/ordering";
 import { ProviderProse } from "@/components/provider-prose";
-import { oneValue } from "@/components/query-params";
+import { inTheFixedOrder, oneValue } from "@/components/query-params";
 import { SortableMembers } from "@/components/sortable-members";
 import { callerContext } from "@/session";
 
@@ -1030,18 +1030,15 @@ function Members({
  * re-ordering the pair already out there would give every link already emitted a
  * second spelling, which is the one thing a fixed order exists to prevent.
  *
- * SO THE ORDER IS `via`, `placed`, `after`, `placedAfter`, and this function
- * holds the first three. The fourth is appended by `Walk`, which is where the
- * listing being walked is known.
+ * SO THE ORDER IS `via`, `placed`, `after`, `placedAfter` -- and this
+ * function does not hold it. `inTheFixedOrder` does, for every surface in the
+ * app since CNCORE-181; this set the keys in that order by hand, which made
+ * the chips below a third statement of it beside two in `listing.tsx`.
  *
  * WRITTEN ONCE BECAUSE THREE SURFACES ON THIS PAGE EMIT IT -- the walk below
  * the Members list, the walk below "Also appears in", and every chip of that
- * list's filter. The order held by three copies is the order that drifts.
- *
- * A KEY IS ABSENT RATHER THAN EMPTY where there is no value. Next turns an
- * `undefined` query value into an empty parameter, so an object carrying every
- * key unconditionally would emit `?via=&placed=&after=` on the plainest address
- * this page has.
+ * list's filter -- so what this page's links carry is decided in one place,
+ * and the order they carry it in is decided in the one place every page's is.
  */
 function theRoute({
   arrivedThrough,
@@ -1067,12 +1064,12 @@ function theRoute({
   from?: string;
   appearingFrom?: string;
 }): TheRoute {
-  const route: TheRoute = {};
-  if (arrivedThrough) route.via = arrivedThrough;
-  if (showingOnly) route.placed = showingOnly;
-  if (from) route.after = from;
-  if (appearingFrom) route.placedAfter = appearingFrom;
-  return route;
+  return inTheFixedOrder({
+    via: arrivedThrough,
+    placed: showingOnly,
+    after: from,
+    placedAfter: appearingFrom,
+  });
 }
 
 /**
@@ -1360,8 +1357,8 @@ function FilterLink({
 }) {
   // An object rather than a string: Next's typed routes match a string href
   // against the route patterns, and `/items/<id>?<query>` matches none of them.
-  // The query keeps insertion order through to the URL, which is what holds the
-  // parameters in one fixed order.
+  // The query keeps insertion order through to the URL, and `theRoute` inserts
+  // in the one fixed order `inTheFixedOrder` holds for every surface.
   //
   // `origin` RATHER THAN `showingOnly` IS WHAT THIS CHIP NARROWS TO: the chip
   // for an origin points AT it, and the `All` chip has none and therefore drops

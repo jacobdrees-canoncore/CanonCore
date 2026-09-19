@@ -1,6 +1,14 @@
 import { describe, expect, inject, it } from "vitest";
 
-import { documentAt, logInAt, mainOf, markedCurrentIn, scopeLinked } from "./document";
+import {
+  documentAt,
+  documentFrom,
+  logInAt,
+  mainOf,
+  markedCurrentIn,
+  navigatingFormsIn,
+  scopeLinked,
+} from "./document";
 
 /**
  * THE SCOPE IN THE ADDRESS (CNCORE-181), over real HTTP: what a reader picked
@@ -71,5 +79,68 @@ describe("an Item reached through a Group", () => {
     const followed = await documentAt(`/items/${story}`);
     expect(followed.status).toBe(200);
     expect(followed.text).toContain(`<link rel="canonical" href="/items/${story}"/>`);
+  });
+});
+
+/**
+ * EVERY NON-IDENTIFYING PARAMETER, IN THE ONE ORDER ADR-0066 WRITES THEM:
+ * `via` and `placed` on an Item's page and `q` and `group` on a Listing's --
+ * what the page is asked -- then the Members cursor and the "Also appears in"
+ * one. Written out here rather than imported, because a test that read the
+ * order off the code would agree with whatever the code said.
+ */
+const IN_THE_ONE_ORDER = ["via", "placed", "q", "group", "after", "placedAfter"];
+
+/** Every address one page sends a reader to with a query: its links and its forms. */
+function queriedFrom(text: string): string[] {
+  // ANCHORS ONLY: the favicon's `<link>` carries a query of Next's own, which
+  // is a cache key rather than anything a reader is sent to.
+  const links = [...text.matchAll(/<a\b[^>]*\bhref="(\/[^"]*\?[^"]*)"/g)].map(
+    ([, href]) => href as string,
+  );
+  const forms = navigatingFormsIn(text)
+    .filter(({ fields }) => fields.length > 1)
+    .map(({ action, fields }) => `${action}?${new URLSearchParams(fields)}`);
+  return [...links, ...forms];
+}
+
+describe("a link carrying several parameters", () => {
+  it("writes them in the one fixed order, on every surface that writes more than one", async () => {
+    // ONE PAGE, ONE ADDRESS (ADR-0066). The order was held in two shapes until
+    // CNCORE-181 -- the Listings by the slots their walk spread, the Item page
+    // by an array of its own four -- so one of them could have moved without
+    // the other. This reads every link the surfaces emit where more than one
+    // parameter meets, against the one order.
+    const pagedBaseUrl = inject("pagedBaseUrl");
+    const group = inject("pagedGroup").id;
+    const container = inject("pagedContainer").id;
+    const appearsIn = inject("pagedAppearsIn").id;
+    const surfaces = [
+      `/?group=${group}`,
+      `/works?group=${group}`,
+      `/search?q=story&group=${group}`,
+      `/items/${container}?via=nothing-at-all&placed=owner&placedAfter=nothing-either`,
+      `/items/${appearsIn}?via=nothing-at-all&placed=owner&after=nothing-either`,
+    ];
+
+    for (const surface of surfaces) {
+      const { status, text } = await documentFrom(pagedBaseUrl, surface);
+      expect(status).toBe(200);
+
+      const written = queriedFrom(text).map((address) => [
+        ...new URLSearchParams(address.slice(address.indexOf("?") + 1)).keys(),
+      ]);
+      // NOT VACUOUS: every surface here writes at least one address carrying
+      // two parameters or more, which is where an order can be wrong at all.
+      expect(
+        written.some((names) => names.length > 1),
+        surface,
+      ).toBe(true);
+      for (const names of written) {
+        expect(names, surface).toStrictEqual(
+          IN_THE_ONE_ORDER.filter((name) => names.includes(name)),
+        );
+      }
+    }
   });
 });
