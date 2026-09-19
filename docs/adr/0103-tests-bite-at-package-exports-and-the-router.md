@@ -935,18 +935,21 @@ unchanged under CNCORE-9. Dragging a Placement to reorder a Container is that sl
 reservation left after this one, and a seventh seam is a new argument rather than a draw on this
 record's credit.
 
-**WHAT THE SEAM MAY ASSERT IS BOUNDED, AND THE BOUND IS THE POINT OF WRITING THIS SECTION.** Two
-claims, both of which need a browser and neither of which anything else can make:
+**WHAT THE SEAM MAY ASSERT IS BOUNDED, AND THE BOUND IS THE POINT OF WRITING THIS SECTION.** Three
+claims, each of which needs a browser and none of which anything else can make. There were two until
+CNCORE-217 added the third, by the test below:
 
 1. **That dragging reorders.** A pointer press, a move that crosses the sensor's activation, a
    release over another row, and the list in a new order.
 2. **That the new order survives a reload.** The catalogue moved, not merely the DOM.
+3. **That a Provider's prose wraps inside the page (CNCORE-217).** Three hundred characters with no
+   break in them stay inside their container, and the page does not scroll sideways.
 
 **EVERYTHING ELSE ABOUT REORDERING IS ASSERTED WITHOUT ONE, and it is a lot.** The arithmetic is a
 pure function with its own unit test. The write is asserted at the second seam, the refusals at the
 package export, the whole capability at the fourth seam -- because every row carries Move up and
 Move down as native forms and `CLAUDE.md` requires that visible path to exist anyway. The browser is
-spent on the gesture and nothing else.
+spent on the gesture and, since CNCORE-217, on layout, and on nothing else.
 
 **THE TEST TO APPLY TO THE NEXT CANDIDATE IS THIS ONE:** could a `fetch` observe it? If the answer
 is yes, it belongs at the fourth seam, and the fact that a browser COULD also observe it is not an
@@ -975,10 +978,12 @@ seven instances off ONE build, so a helper that built per instance would build s
 
 `install-network-gate` patches undici inside the Vitest process. **A BROWSER IS A SUBPROCESS MAKING
 ITS OWN REQUESTS**, so this is the one suite in the repository where a page reaching a public host
-would go unseen. `browser/reorder.test.ts` routes every request through `context.route()`, continues
-the ones whose origin is the instance under test, and RECORDS the rest before aborting them -- an
-abort alone makes the page fail in whatever way a blocked request makes it fail, which is a puzzle
-rather than a message. The recorded list is asserted empty when the suite ends.
+would go unseen. Every file here routes every request through `context.route()`, continues the ones
+whose origin is the instance under test, and RECORDS the rest before aborting them -- an abort alone
+makes the page fail in whatever way a blocked request makes it fail, which is a puzzle rather than a
+message. The recorded list is asserted empty when each file ends. It lived in
+`browser/reorder.test.ts` while that was the only file, and is `browser/gate.ts` since CNCORE-217
+gave the suite a second.
 
 ### Three false greens, met in one afternoon
 
@@ -1007,6 +1012,30 @@ there turns it red on the reload assertion. The first attempt at that mutation P
 `theAppBuilt` came to be called here at all: `anInstanceServing` only starts a build, so the project
 had been serving whatever `.next` happened to be on disk -- green against code that was not the code
 under test, and unable to start at all on a fresh runner.
+
+### The third claim, and the test it passed -- under CNCORE-217
+
+**LAYOUT IS WHAT A `fetch` CANNOT OBSERVE, SO THIS SECTION'S OWN TEST SENDS IT HERE.** A Provider's
+name is bounded at 300 characters, and the page seam asserts that. Three hundred characters with no
+break in them are still one line, and whether that line fits the page is how the document LAYS OUT
+rather than what it CONTAINS. [[0123-a-failure-reason-is-bounded-and-says-who-wrote-it]] records
+how it was found: walking a branch whose page assertions were all green.
+
+**A fetch-seam proxy was considered and refused.** It would assert the markup carries the wrap and
+the stylesheet defines it. That test passes with `overflow-wrap: break-word`, which is present, is
+defined, and still scrolls the Item page 933 pixels sideways, because a flex item may not shrink
+below a min-content that `break-word` leaves at the whole word. A test that proves a rule is PRESENT
+cannot tell a rule that works from one that does not, and this case is exactly that difference.
+
+**ONE INSTANCE STILL, AND IT NOW REACHES ONE PROVIDER.** `aProviderThatFloodsItsName` stands up
+beside it and is the only thing its allowlist admits. The stub MOVED to `e2e/stubs.ts` rather than
+being copied, for the reason `anInstanceServing` moved to `e2e/instance.ts`: a second project needing
+the same stub is a second caller, and a second copy is where two stubs quietly stop agreeing about
+what a CMPP search does.
+
+**TWO WITNESSES, BECAUSE ONE CANNOT TELL THE TWO RULES APART.** `/import`'s heading is a block, which
+`break-word` wraps; the Item page's Values row is flex, which it does not. Swapping the wrap for
+`break-word` fails the second and passes the first, measured, and ADR-0123 carries the figures.
 
 ### `browser/` had to be excluded from the unit config by name
 

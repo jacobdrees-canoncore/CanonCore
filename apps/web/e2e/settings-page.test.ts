@@ -9,6 +9,7 @@ import {
   mainOf,
   momentsIn,
   postFormsIn,
+  quotesIn,
   type RenderedForm,
   sectionIn,
   submit,
@@ -621,8 +622,8 @@ describe("/settings, unlocking a provider", () => {
     // catalogue is not the one making the claim (ADR-0123); the row names the
     // Provider beside it. `/` is the manifest, which is the one path this
     // surface ever asks for.
-    expect(rowFor(text, refusing.url)).toContain(
-      "<q>/ answered 503: this Provider holds no tardis.wiki session. Supply one at /unlock.</q>",
+    expect(quotesIn(rowFor(text, refusing.url))).toContain(
+      "/ answered 503: this Provider holds no tardis.wiki session. Supply one at /unlock.",
     );
   });
 

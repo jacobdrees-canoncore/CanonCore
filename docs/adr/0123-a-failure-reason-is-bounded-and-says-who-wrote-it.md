@@ -207,6 +207,10 @@ either. They are stripped rather than escaped: a reason and a credential's label
 sentences of prose, not documents with a mixed-direction layout to preserve. Found reviewing
 CNCORE-101, on the page whose next control is a link the Owner is about to give a credential to.
 
+**WIDTH IS A THIRD LEVER**, and a 300-character ceiling is no answer to it either: 300 characters
+with no break in them are one line as wide as the Provider likes. CNCORE-217 closes it with
+`ProviderProse`, recorded under "Where the wrap lives" below.
+
 **THE `Reason` COMPONENT MOVED OUT OF `/import` FOR THE SAME REASON THE MAPPING DID.** This record
 says both `/import` sections take the same component, which held while `/import` was the only
 surface; the settings page is the third, and a second two-line component deciding whose voice a
@@ -730,10 +734,91 @@ because three hundred characters with no break in them are one unbreakable line.
 longer chooses how LONG the page is and still chooses how WIDE, by the kind of lever "THE CAP IS NOT
 THE ONLY LEVER A PROVIDER HAS OVER A PAGE" records for bidirectional overrides.
 
-Nothing in `apps/web` or `packages/ui` wraps an unbroken word, so it is not this field's defect but
-every 300-character surface's, reasons included, and where the wrap lives is a decision of its own
-(CNCORE-217). No test in this section would have found it: each asserts what the document CONTAINS,
-and this is how the document LAYS OUT.
+Nothing in `apps/web` or `packages/ui` wrapped an unbroken word, so it was not this field's defect but
+every 300-character surface's, reasons included, and where the wrap lives was a decision of its own,
+taken under CNCORE-217 and recorded in the next section. No test in this section would have found it:
+each asserts what the document CONTAINS, and this is how the document LAYS OUT.
+
+## Where the wrap lives: `ProviderProse`, and not `body` (CNCORE-217)
+
+**A PROVIDER'S PROSE IS PRINTED THROUGH `ProviderProse`**, in `apps/web/src/components/provider-prose.tsx`,
+which sets `overflow-wrap: anywhere` and nothing else. The contract bounds the length and this bounds
+the width, and neither is the Provider's to choose. A new surface printing a Provider's text prints it
+through this component, and the two components most likely to gain a surface already do: `Reason`
+wraps what it quotes, and `AssertedBy` wraps every name it lists, so a new reason surface or a new
+list of sources gets the wrap without having to know about it.
+
+Every surface that printed a Provider's prose takes it: on `/import`, the heading over a Provider's
+answers and the two container sentences naming it; `Reason`'s `provider` branch, wherever it is
+rendered; the credential's `label` on settings; and on Item pages, a statement's source label, a
+note's, `AssertedBy`, and the attribution notice. **The notice was not on CNCORE-217's list** and was
+found by sweeping for every place a Provider's text is printed. Wrapping it is not one of the
+transformations the notice's verbatim rule forbids, because it changes where a line breaks and not a
+character of what is on it.
+
+CanonCore's own sentence in `Reason` is printed plainly and not wrapped. Every value it interpolates
+is cut at 80 characters by `shortly`, and the value is the Owner's own host.
+
+### `anywhere`, because `break-word` passes one witness and fails the other
+
+Both values wrap a word that will not fit its line. They differ in whether the break counts when the
+browser sizes the element, and that is the half a flex row turns on. Measured at 1,280 pixels, with a
+Provider whose name is 300 characters of `flood`, as `{element, document}`: how far the element's
+content runs past its own box, and how far the page runs past the viewport.
+
+| rule | `/import`'s heading (a block) | a Values row on the Item page (flex) |
+| --- | --- | --- |
+| none | `{1092, 820}` | `{1205, 933}` |
+| `break-word` | `{0, 0}` | `{1205, 933}` |
+| `anywhere` | `{0, 0}` | `{0, 0}` |
+
+**`break-word` leaves an element's min-content width at the whole word, and a flex item may not
+shrink below its min-content.** So on the Item page the label's box grew to the word, the text sat
+neatly inside the grown box, and the page scrolled. `/import`'s heading is a block, so `break-word`
+wraps it, and a suite witnessing only the heading could not tell the two rules apart. That is why
+there are two witnesses.
+
+### A component, because one rule on `body` breaks this app's own words
+
+The ticket named two places the wrap could live: a component, or one rule in `globals.css`. The rule
+is the stronger guarantee, since no surface could forget it, and it was measured before it was
+refused. **`overflow-wrap: anywhere` on `body` changed no element's box on any of ten pages at 1,280
+pixels, and at 375 it wrecked the header.** It lets every flex item shrink below its own longest
+word, and the header's `CanonCore` link became a column seventeen pixels wide and 336 tall, one letter
+to a line, with `Works` and `Groups` beside it the same. A stranger's text breaking mid-word to fit
+this page is the right trade. This page's own words breaking that way is not. So the rule goes on
+the stranger's text and nowhere else, which is also where `.claude/rules/frontend.md` puts a
+formatted value: in `apps/web/src/components`, beside the pages that render it.
+
+**THE HEADER ALREADY OVERRAN A 375-PIXEL VIEWPORT BY 231 PIXELS BEFORE ANY OF THIS**, measured
+with no wrap rule at all. That is not this record's defect: it is the page before the phone client
+([[0055-web-now-phone-next-tv-last]]), and the global rule would have traded it for something worse
+rather than fixed it.
+
+### What it does not cover: a record's fields
+
+This record's CNCORE-165 section keeps a record's fields out of the manifest's bound, because cutting
+a title would corrupt the catalogue. The same is true of wrapping in the other direction: a record's
+title is not a Provider's prose in this record's sense, and `ProviderProse` is not applied to one.
+**A title with no break in it is therefore still a width lever, and an unbounded one**, and `/import`
+prints a search result's title as a flex item. That is inferred from the mechanism the table
+measures and was not walked. It is a question about every Item's title, whoever wrote it, rather
+than about a Provider's, so it has its own ticket (CNCORE-223).
+
+### Asserted in a browser, because only a browser can see it
+
+The two witnesses are in `apps/web/browser/prose-width.test.ts`, which is [[0103-tests-bite-at-package-exports-and-the-router]]'s
+sixth seam spending its third claim. That record's own test for a candidate is "could a `fetch`
+observe it?", and a `fetch` observes what the document contains, not how it lays out. **Each witness
+asserts both halves of `{element, document}`, because either half alone has a false green:** a block
+keeps its box at its container's width while its text runs out of it, so the document half alone
+could pass a page that clipped; and a flex item that grew to the word holds its text inside a box
+that is itself off the page, so the element half alone passes the defect as it was filed.
+
+**It is known to guard something.** Before the component, both witnesses failed at the figures in the
+table's first row. With `wrap-anywhere` swapped for `wrap-break-word`, the heading passed and the
+Values row failed at `{1205, 933}`: the witness the second rule needs, failing on exactly the rule
+it exists to refuse.
 
 ## A licence's own words are refused, never cut (CNCORE-213)
 

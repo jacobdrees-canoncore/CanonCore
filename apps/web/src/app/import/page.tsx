@@ -9,6 +9,7 @@ import Form from "next/form";
 import Link from "next/link";
 import { noPasswordSet } from "@/components/no-password";
 import { NoProviderAllowlisted } from "@/components/no-provider-allowlisted";
+import { ProviderProse } from "@/components/provider-prose";
 import { oneValue } from "@/components/query-params";
 import { Reason } from "@/components/reason";
 import { callerContext } from "@/session";
@@ -670,12 +671,10 @@ function Results({
               THE PROVIDER'S OWN NAME FOR ITSELF, off its manifest. A source
               answers "who said this", and `http://127.0.0.1:39481` shows an
               owner a deployment detail where `provider-wiki` answers it.
-
-              TODO(CNCORE-217): bounded in length by `cmppManifest` and not in
-              width. Three hundred characters with no break in them run past
-              the viewport's edge, measured on this heading.
+              Bounded in length by `cmppManifest` and in width by
+              `ProviderProse`, since neither is the Provider's to choose.
             */}
-            {provider.name}
+            <ProviderProse>{provider.name}</ProviderProse>
             {results.length === 0 && " matched nothing"}
           </h3>
           {results.length > 0 && (
@@ -714,6 +713,11 @@ function Candidate({
   return (
     <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
       <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        {/*
+          TODO(CNCORE-223): a record's title is not a Provider's prose, so
+          `ProviderProse` does not wrap it (ADR-0123), and a title with no break
+          in it is a flex item here that grows to the word.
+        */}
         <span>{result.title}</span>
         {/*
           THE PROVIDER'S OWN WORD for what this is -- `TV story`, `audio story`,
@@ -1355,8 +1359,8 @@ function NotReached({ baseUrl, reason }: { baseUrl: string; reason: FailureReaso
 function DeclinesBrowse({ providerName }: { providerName: string }) {
   return (
     <p className="text-muted-foreground text-sm">
-      {providerName} does not offer browse, so it was not asked for one. It can still be searched,
-      and its records imported one at a time.
+      <ProviderProse>{providerName}</ProviderProse> does not offer browse, so it was not asked for
+      one. It can still be searched, and its records imported one at a time.
     </p>
   );
 }
@@ -1382,8 +1386,8 @@ function DeclinesBrowse({ providerName }: { providerName: string }) {
 function NoSuchContainer({ providerName }: { providerName: string }) {
   return (
     <p className="text-muted-foreground text-sm">
-      {providerName} holds no container at that id. A browse takes a container's own id rather than
-      a record's, so check it at the provider before trying again.
+      <ProviderProse>{providerName}</ProviderProse> holds no container at that id. A browse takes a
+      container's own id rather than a record's, so check it at the provider before trying again.
     </p>
   );
 }

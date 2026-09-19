@@ -6,9 +6,10 @@ import { defineConfig } from "vitest/config";
  * A PROJECT OF ITS OWN RATHER THAN MORE OF `e2e/` (CNCORE-73). The two suites
  * want opposite things from a harness. `e2e` stands up seven instances and two
  * providers so that many files can each assert against the state they need;
- * this one wants ONE ordering and a browser, and it wants to fail on its own
- * so that the most brittle thing in the repository cannot redden the check that
- * says the app serves pages at all.
+ * this one wants ONE instance and a browser -- an ordering to drag, and since
+ * CNCORE-217 one Provider whose name has no break in it -- and it wants to fail
+ * on its own so that the most brittle thing in the repository cannot redden the
+ * check that says the app serves pages at all.
  *
  * NOT VITEST'S BROWSER MODE, and that is a decision rather than an omission.
  * Its `dragAndDrop` takes no `steps` and exposes no mouse API, so the drag it
