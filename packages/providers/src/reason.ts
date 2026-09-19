@@ -53,8 +53,10 @@ export const failureReason = z.object({
   wrote: z.enum(["canoncore", "provider"]),
   /**
    * BOUNDED IN THE CONTRACT AND NOT ONLY IN THE HANDLER, so the ceiling is in
-   * the OpenAPI document a caller reads rather than an invariant they have to
-   * take on trust from two handlers that each remembered it.
+   * the output schema a caller is held to rather than an invariant they have to
+   * take on trust from two handlers that each remembered it. It is NOT YET in
+   * the OpenAPI document, which drops every length and format in this API:
+   * @orpc/zod 1.15.0 reads a bag zod 4.6.5 leaves empty (CNCORE-212).
    */
   text: z.string().min(1).max(REASON_MAX_LENGTH),
 });
@@ -131,6 +133,42 @@ function unwrapped(thrown: unknown): unknown {
  */
 export function bounded(text: string): string {
   return cap(oneLine(text));
+}
+
+/**
+ * A PROSE FIELD A PROVIDER DECLARES ABOUT ITSELF, BOUNDED AT THE FIELD RATHER
+ * THAN AT EACH SURFACE THAT PRINTS IT (ADR-0123, CNCORE-165).
+ *
+ * `bounded` above is the function and this is the SCHEMA that makes a caller use
+ * it. The difference is who has to remember: a surface calling `bounded` bounds
+ * the copy it holds, and the next surface to read the same field starts again
+ * from raw. `cmppManifest` is where a provider's self-description ENTERS this
+ * app, so a field declared with this cannot be read unbounded by anything --
+ * which is the half that stops a fifth surface repeating the fourth.
+ *
+ * IT ALSO MAKES THE BOUND VISIBLE IN THE SCHEMA, which CNCORE-165 is about as
+ * much as it is about the name. A bounded field and a raw one both read
+ * `z.string().min(1)`, so nothing distinguished prose somebody had thought about
+ * from prose nobody had; the two spellings differ now.
+ *
+ * `whenSilent` IS REQUIRED RATHER THAN DEFAULTED, because there is no house
+ * sentence that fits every field: a nameless Provider and a Provider that
+ * described its credential in no words need different words. What a caller must
+ * not be allowed to do is skip it -- `min(1)` admits a value of a single space,
+ * `bounded` collapses that to nothing, and an empty string then fails the
+ * `min(1)` the surfaces declare on their own OUTPUT. That is a provider crashing
+ * the request that reads it, which is exactly what `SILENT` exists to prevent one
+ * seam over.
+ *
+ * IT REPORTS THE SILENCE RATHER THAN DRESSING IT UP, as everything else here
+ * does: CNCORE-92's rule is that a refusal reworded is not a refusal reported,
+ * and a provider that said nothing said nothing.
+ */
+export function boundedProse(whenSilent: string): z.ZodType<string, unknown> {
+  return z
+    .string()
+    .min(1)
+    .transform((text) => bounded(text) || whenSilent);
 }
 
 /**

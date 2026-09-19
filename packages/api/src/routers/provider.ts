@@ -26,6 +26,7 @@ import {
   type FailureReason,
   failureReason,
   type ProviderClient,
+  REASON_MAX_LENGTH,
   reasonFor,
   searchProviders,
 } from "@canoncore/providers";
@@ -135,11 +136,40 @@ const providerRefused = {
    * to tell this catalogue's sentence about the Owner's own settings from a
    * third party's text.
    *
-   * DECLARED, so the ceiling is in the OpenAPI document a caller reads rather
-   * than an invariant two handlers each had to remember.
+   * DECLARED, so the ceiling is in the output schema a caller is held to rather
+   * than an invariant two handlers each had to remember. NOT YET IN THE OPENAPI
+   * DOCUMENT, which drops every length and format in this API: @orpc/zod 1.15.0
+   * reads a bag zod 4.6.5 leaves empty (CNCORE-212).
    */
   data: failureReason,
 };
+
+/**
+ * A Provider's declared name, as a caller of this API receives it (ADR-0123,
+ * CNCORE-165).
+ *
+ * `cmppManifest` is what BOUNDS the name, where the manifest is read, and it is
+ * nothing a caller of this API can see. This is where the ceiling is STATED, in
+ * the output schema every procedure answering a name is held to -- the rule
+ * `failureReason.text` has kept since CNCORE-95 and the name did not.
+ *
+ * ONE SCHEMA FOR EVERY FIELD CARRYING IT, which is ADR-0123's lesson one layer
+ * up: `provider.search` and `provider.container` answered this name at four
+ * fields, each `z.string().min(1)`, so a ceiling written on one of them would
+ * have been a ceiling on one of four.
+ *
+ * AND IT IS ENFORCED, NOT ONLY STATED: oRPC validates every answer against it.
+ * With the parse-side bound removed, every `/import` search answered 500
+ * (measured under CNCORE-165) -- one Provider's name taking the page down for
+ * every other Provider on it. That is the right failure for what it now means.
+ * `cmppManifest` bounds the name before any code here sees it, so a name past
+ * this ceiling can only be a bug in THIS APP, and a bug should surface as a 500
+ * with its stack in the log (ADR-0125) rather than as a page quietly flooded.
+ *
+ * NOT YET IN THE OPENAPI DOCUMENT, which drops every length and format in this
+ * API: @orpc/zod 1.15.0 reads a bag zod 4.6.5 leaves empty (CNCORE-212).
+ */
+const declaredName = z.string().min(1).max(REASON_MAX_LENGTH);
 
 /** What an import needs: the URL the owner typed, and which record to take. */
 export interface ImportRequest {
@@ -280,16 +310,13 @@ export async function browseIntoCatalogue(
   try {
     const attempt = await askingTheProvider(() => browseIfOffered(client, containerId));
     if (!attempt.offered) {
-      // BOUNDED WHERE THE PROVIDER'S VALUE ENTERS THE SENTENCE, which is
-      // ADR-0123's own rule and was not applied here. `name` is
-      // `z.string().min(1)` on a body `MAX_BODY_BYTES` admits four mebibytes of,
-      // so a provider chose the length of this message -- the same defect as a
-      // credential's `label`, and `bounded` is published for exactly that: a
-      // provider's text on a manifest it chose to send, known to be the
-      // provider's without anything having to decide. The prose around it is
-      // fixed-length and cannot be cut.
+      // THE NAME ARRIVES BOUNDED, by `cmppManifest` where the manifest is read
+      // (CNCORE-165). This line bounded it itself until then, which was right
+      // and was one of four sites: the same name reached `providerFrom` and
+      // `provider.search` raw. The prose around it is fixed-length and cannot
+      // be cut.
       throw new BrowseNotOffered(
-        `${bounded(attempt.manifest.name)} declares no browse; it was not asked for one.`,
+        `${attempt.manifest.name} declares no browse; it was not asked for one.`,
       );
     }
     const browsed = attempt.browsed;
@@ -700,7 +727,7 @@ export const provider = {
                */
               baseUrl: z.url(),
               /** The name the provider gives itself, off its manifest. */
-              name: z.string().min(1),
+              name: declaredName,
             }),
             results: z.array(candidate),
           }),
@@ -926,7 +953,7 @@ export const provider = {
         z.object({
           answer: z.literal("container"),
           /** The name the provider gives itself, off its manifest. */
-          providerName: z.string().min(1),
+          providerName: declaredName,
           /** The container's own title, which is what the owner cannot see today. */
           title: z.string().min(1),
           /**
@@ -949,7 +976,7 @@ export const provider = {
          */
         z.object({
           answer: z.literal("no-such-container"),
-          providerName: z.string().min(1),
+          providerName: declaredName,
         }),
         /**
          * THE PROVIDER DOES NOT DO THIS, which ADR-0033 makes well-formed
@@ -960,7 +987,7 @@ export const provider = {
          */
         z.object({
           answer: z.literal("browse-not-offered"),
-          providerName: z.string().min(1),
+          providerName: declaredName,
         }),
         /**
          * NOTHING USABLE CAME BACK, so there is no name to attribute this to --

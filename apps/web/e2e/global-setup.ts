@@ -98,6 +98,7 @@ export default async function setup(project: TestProject) {
   const answersBadly = await aProviderThatAnswersBadly();
   const refusesWithASentence = await aProviderThatRefusesWithASentence();
   const holdsNothing = await aProviderThatHoldsNothingAtThatId();
+  const floodsItsName = await aProviderThatFloodsItsName();
 
   /*
    * WHAT THIS INSTANCE REACHES, WRITTEN INTO ITS DATABASE (CNCORE-99). Both
@@ -125,6 +126,7 @@ export default async function setup(project: TestProject) {
       answersBadly.url,
       refusesWithASentence.url,
       holdsNothing.url,
+      floodsItsName.url,
       UNREACHABLE_PROVIDER,
     ].join("\n"),
   });
@@ -251,6 +253,7 @@ export default async function setup(project: TestProject) {
     answersBadly: answersBadly.url,
     refusesWithASentence: { url: refusesWithASentence.url, said: LAPSED },
     holdsNothing: { url: holdsNothing.url, name: HOLDS_NOTHING },
+    floodsItsName: { url: floodsItsName.url, name: FLOOD },
   });
   const browsed = await browseThroughTheApp(baseUrl, provider.url, databaseUrl);
   project.provide("browsed", browsed.fixture);
@@ -279,6 +282,7 @@ export default async function setup(project: TestProject) {
     await answersBadly.close();
     await refusesWithASentence.close();
     await holdsNothing.close();
+    await floodsItsName.close();
   };
 }
 
@@ -1367,6 +1371,48 @@ async function aProviderThatRefusesWithASentence(): Promise<{
   return onLoopback((_path, answer) => answer({ error: LAPSED, provider: "a provider" }, 503));
 }
 
+/**
+ * The name the Provider below DECLARES, which is the one thing it stands for.
+ *
+ * A WORD REPEATED rather than one letter, so a run of it cannot turn up in the
+ * page by coincidence, and with nothing HTML escapes, so what the page prints
+ * is comparable to what was sent without decoding either.
+ */
+const FLOOD = "flood".repeat(20_000);
+
+/**
+ * A PROVIDER THAT NAMES ITSELF AT A LENGTH OF ITS OWN CHOOSING (CNCORE-165).
+ *
+ * A Provider's `name` is prose it wrote about itself, and it reaches the page
+ * as the heading over whatever that Provider answered. Until CNCORE-165 its only
+ * bound was `MAX_BODY_BYTES`, so a Provider chose how long a heading on the
+ * Owner's page was -- ADR-0123's opening sentence, true of a field nothing had
+ * covered.
+ *
+ * IT ANSWERS EVERY SEARCH WITH NOTHING, which is what lets it sit in
+ * `providerUrls` without adding a row to any other test's results. `/import`
+ * lists a Provider that matched nothing rather than leaving it out, so its name
+ * is printed for every query there is -- which is also why the fan-out test
+ * above now reaches it without being told to.
+ *
+ * IT IS NOT A STAND-IN FOR A REAL PROVIDER and must not grow into one, as the
+ * stubs above it are not. It stands for one claim.
+ */
+async function aProviderThatFloodsItsName(): Promise<{ url: string; close: () => Promise<void> }> {
+  const manifest = {
+    name: FLOOD,
+    versions: [1],
+    operations: ["search", "lookup"],
+    max_cache_age: 86400,
+    images: { stored_variant: null, per_role_limit: 0, quality_floor: 0 },
+  };
+  return onLoopback((path, answer) => {
+    if (path === "/") return answer(manifest, 200);
+    if (path.startsWith("/search")) return answer(searchOver([], path), searchStatus(path));
+    return answer({ error: "no such record" }, 404);
+  });
+}
+
 /** The name the Provider below gives itself, which is what the page prints. */
 const HOLDS_NOTHING = "provider-holds-nothing";
 
@@ -2412,6 +2458,14 @@ declare module "vitest" {
        * the URL the harness happened to bind.
        */
       holdsNothing: { url: string; name: string };
+      /**
+       * A provider this instance searches that names itself at a length of its
+       * own choosing: a hundred thousand characters, where `MAX_BODY_BYTES`
+       * would have admitted four mebibytes (CNCORE-165). `name` is what it
+       * DECLARED, so a test asserts the page against what the Provider sent
+       * rather than against what the page happened to print.
+       */
+      floodsItsName: { url: string; name: string };
     };
     /** A real browsed story in two orderings, and the two shapes browse hands over. */
     browsed: {

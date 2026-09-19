@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { cmppManifest, cmppRecord } from "./index";
+import { cmppManifest, cmppRecord, REASON_MAX_LENGTH } from "./index";
 
 /** A record that parses, so a case below differs from it in exactly one field. */
 const A_RECORD = {
@@ -104,10 +104,58 @@ describe("a declared credential", () => {
     expect(manifest.credential).not.toHaveProperty("fields");
   });
 
+  /**
+   * THE SAME RULE AS THE NAME BELOW, AT THE SAME SEAM. This was bounded in
+   * `asDeclared` until CNCORE-165 -- correctly, and one surface at a time, which
+   * is what left the manifest unable to say which of its fields somebody had
+   * thought about. Both are `boundedProse` now.
+   */
+  it("bounds the label where the manifest is read, not where a page prints it", () => {
+    const { credential } = cmppManifest.parse({
+      ...DECLARING,
+      credential: { ...DECLARING.credential, label: "unbounded ".repeat(500) },
+    });
+
+    expect(credential?.label.length).toBeLessThanOrEqual(REASON_MAX_LENGTH);
+  });
+
   /** A provider that needs nothing declares nothing, and stays conformant. */
   it("is absent from a provider that declares none", () => {
     expect(
       cmppManifest.parse({ name: "a provider that needs nothing" }).credential,
     ).toBeUndefined();
+  });
+});
+
+/**
+ * A PROVIDER DESCRIBING ITSELF IS A STRANGER'S PROSE ON A PAGE IT DOES NOT OWN
+ * (ADR-0123, CNCORE-165).
+ *
+ * `name` travels further than any other string in this manifest: to the import
+ * surface, onto the Source row an import writes, and from there beside every
+ * statement on every Item page that source ever claimed a value for. Its only
+ * bound was `MAX_BODY_BYTES`, which admits four mebibytes of it.
+ */
+describe("a provider's declared name", () => {
+  it("is cut to what the Owner reads, so a provider does not choose a page's length", () => {
+    const flooding = "a".repeat(100_000);
+
+    const { name } = cmppManifest.parse({ name: flooding });
+
+    expect(name.length).toBeLessThanOrEqual(REASON_MAX_LENGTH);
+  });
+
+  /**
+   * AND A FLOOR, FOR THE REASON `reasonFor` HAS ONE. `min(1)` admits a name of a
+   * single space, which the cap above collapses to nothing -- and an empty name
+   * fails the `min(1)` every surface declares on its OUTPUT, which is the 500 a
+   * provider must not be able to cause. Measured on zod 4.6.5: `min(1)` runs
+   * before the transform, so `""` is refused outright and `" "` is what actually
+   * reaches it.
+   */
+  it("says so when the provider named itself in nothing but whitespace", () => {
+    const { name } = cmppManifest.parse({ name: "   " });
+
+    expect(name).not.toBe("");
   });
 });
