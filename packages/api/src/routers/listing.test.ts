@@ -78,11 +78,16 @@ const A_RUN_OF_THEM = 5;
  * THE CURSOR IS THE EXCEPTION, AND IT IS SAID RATHER THAN GLOSSED. `after` and
  * `placedAfter` are plain optional strings on `item.get`, so asking those two
  * what a cursor naming nothing does would cost nothing here. They stay out
- * anyway, because a member that can answer one question of five is not a member
+ * anyway, because a member that can answer one question of SIX is not a member
  * of ONE BLOCK -- and what that costs is a real gap rather than none. At the
- * package export a Container's members is asked all four; **"Also appears in"
- * is asked THREE**, and the one it is missing is exactly this one. Neither is
+ * package export a Container's members is asked all FIVE; **"Also appears in"
+ * is asked FOUR**, and the one it is missing is exactly this one. Neither is
  * asked it at THIS seam either. CNCORE-198 carries both halves.
+ *
+ * THE COUNTS MOVED WITH CNCORE-172, which added the sixth question below and
+ * the package-export assertion a Container's members was missing. "Also appears
+ * in" needed neither: it is the Listing that already had the size's second
+ * position asserted, which is how that gap was found.
  */
 const EVERY_LISTING: AListing[] = [
   {
@@ -276,6 +281,32 @@ describe.each(EVERY_LISTING)("$procedure, on the Listing contract", ({ holds, pa
     expect(second.rows).toHaveLength(1);
     expect(second.rows[0]?.id).not.toBe(first.rows[0]?.id);
     expect(second.total).toBe(first.total);
+  });
+
+  it("reports that size past its end too, where no Row is left to carry it", async () => {
+    // THE SIZE'S OTHER POSITION, AND UNTIL THIS IT WAS ASKED OF ONE LISTING IN
+    // FIVE. `total` rides on the Rows, in the same statement and therefore in
+    // the same snapshot -- so a page with NO Rows has nothing to ride on, and
+    // the size is counted by a SECOND query instead. That second query is the
+    // half no contract has ever read: the test above walks two pages that both
+    // have Rows, so a count written twice could disagree in the position
+    // neither of them reaches.
+    //
+    // A PAGE CAN BE EMPTY WITH A LISTING STILL BEHIND IT, which is the state
+    // this reaches: the cursor names the LAST Row of the whole Listing, so
+    // there is nothing past it and the Listing is as big as it ever was. An
+    // owner arrives here by pressing Next on the last page, or by keeping the
+    // link it gave them.
+    const { total } = await page({ limit: 1 });
+
+    const walked = await everyRowWalked(page, total);
+    const theLastRow = walked.at(-1);
+    if (theLastRow === undefined) throw new Error("a Listing of no Rows has no end to walk past");
+    const beyond = await page({ limit: 1, after: theLastRow });
+
+    expect(beyond.rows).toStrictEqual([]);
+    expect(beyond.continuesAfter).toBeNull();
+    expect(beyond.total).toBe(total);
   });
 
   it("starts at the beginning when the cursor names nothing", async () => {
