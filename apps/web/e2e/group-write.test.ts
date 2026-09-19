@@ -286,10 +286,22 @@ describe("deleting a scope", () => {
     // ITEM IS THE ONE NOTHING ELSE SCOPES, so "it is in no Group now" is a
     // claim about this deletion rather than about whatever else had put it
     // somewhere.
+    // THE CONFIRMATION'S OWN ADDRESS IS THE REPORT: the scope is gone, so the
+    // page it posted from renders the list without it.
+    expect(() => sectionIn(deleted.text, "delete-group")).toThrow();
     expect(scopesIn(sectionIn(deleted.text, "groups"))).not.toContain("ccc A scope to delete");
     const item = await documentAt(`/items/${scopable.loose}`);
     expect(item.text).toContain(scopable.looseTitle);
     expect(sectionIn(item.text, "groups")).toContain("in no Group");
+  });
+
+  it("asks about a scope whose id is written in capitals, which is the same scope", async () => {
+    // ONE GROUP, ONE ADDRESS (ADR-0066): `oneGroup`'s reason, on this page.
+    const id = await aScopeCalled("ccc Asked about in capitals");
+
+    const asked = await pageText(`/groups?delete=${id.toUpperCase()}`);
+
+    expect(textOf(sectionIn(asked, "delete-group"))).toContain("ccc Asked about in capitals");
   });
 });
 

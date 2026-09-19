@@ -10,7 +10,7 @@ import Link from "next/link";
 
 import { whatTheProcedureAnswered } from "@/answer";
 import { counted } from "@/components/counted";
-import { oneValue } from "@/components/query-params";
+import { oneGroup } from "@/components/query-params";
 import { TheirWords } from "@/components/their-words";
 import { callerContext } from "@/session";
 
@@ -103,11 +103,12 @@ export default async function GroupsPage({
   /*
    * ONLY A SCOPE THIS PAGE LISTS, AND ONLY FOR THE OWNER. The list is where the
    * name comes from, and anything else in the address -- a scope already gone,
-   * a typo -- is the list rather than a 500. A visitor is never previewed for:
+   * a typo -- is the list rather than a 500. Read by `oneGroup`, so an id typed
+   * in capitals still names its Group (ADR-0066). A visitor is never previewed for:
    * the preview IS the delete, rolled back, so it is the Owner's like the
    * delete, and asking it for a visitor would be asking for a 401.
    */
-  const named = oneValue((await searchParams).delete);
+  const named = oneGroup((await searchParams).delete);
   const deleting = owner ? groups.find((group) => group.id === named) : undefined;
   const deletion = deleting && (await readDeletion(context, deleting.id));
   if (deleting !== undefined && deletion !== undefined) {
@@ -325,8 +326,8 @@ function ConfirmDeletion({ deletion, group }: { deletion: GroupDeletion; group: 
       </p>
       <ul className="mt-3 list-disc space-y-1 pl-5 text-sm">
         <li>{`${counted(deletion.memberships, "Group membership")}, the list of which Items are in it`}</li>
-        {deletion.asks > 0 && (
-          <li>{`its choice of ${counted(deletion.asks, "Provider")} to ask when you search within it`}</li>
+        {deletion.providers > 0 && (
+          <li>{`its choice of ${counted(deletion.providers, "Provider")} to ask when you search within it`}</li>
         )}
       </ul>
       <p className="mt-3 text-muted-foreground text-sm">

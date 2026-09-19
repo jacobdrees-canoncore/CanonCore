@@ -3,7 +3,6 @@
 import { appRouter } from "@canoncore/api/routers";
 import { call } from "@orpc/server";
 import { refresh } from "next/cache";
-import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { whatTheProcedureAnswered } from "@/answer";
@@ -27,13 +26,13 @@ import { callerContext } from "@/session";
  * through `whatTheFormCarries` rather than trusted -- and a procedure's refusal
  * is an answer rather than a crash, which is `whatTheProcedureAnswered`.
  *
- * NO REDIRECT ON DRAWING OR RENAMING, which is the difference from `createItem`
- * one folder over and follows from where the forms POST. Each posts to
- * `/groups`, so the response IS that page rendered again with the scopes as
- * they now stand. `createItem` redirects because an Owner who has just made an
- * Item wants the Item, and a Group has no page of its own to be sent to -- it
- * is a scope other surfaces are read THROUGH (ADR-0010). Deleting is the
- * exception, and `deleteGroup` gives the reason.
+ * NO REDIRECT ON ANY OF THE THREE, which is the difference from `createItem`
+ * one folder over and follows from where the forms POST. Each posts to the
+ * page it sits on, so the response IS that page rendered again with the scopes
+ * as they now stand. `createItem` redirects because an Owner who has just made
+ * an Item wants the Item, and a Group has no page of its own to be sent to --
+ * it is a scope other surfaces are read THROUGH (ADR-0010). And a redirect is
+ * the hand-built address ADR-0109 measured `basePath` never reaches.
  *
  * `refresh()` IS FOR THE HALF THIS APP'S TEST SEAM CANNOT SEE, exactly as
  * `retitleItem` records: with no script the sentence above is the whole story,
@@ -76,11 +75,11 @@ const deletedGroup = z.object({ id: z.string() });
  * Deleting a scope, WHICH TAKES NO ITEM WITH IT (ADR-0010, story 34), once the
  * Owner has been shown what it does take (ADR-0046, CNCORE-210).
  *
- * THE ONE OF THE THREE THAT REDIRECTS, because it is the one that does not post
- * from `/groups`: its button is on the confirmation at `/groups?delete=<id>`,
- * and the page to come back to is the list. A redirect whether or not the
- * procedure refused, because a scope another tab deleted first is the same
- * answer: the list, without it.
+ * IT POSTS FROM THE CONFIRMATION, `/groups?delete=<id>`, AND THAT ADDRESS IS
+ * THE REPORT. The page confirms only a scope it lists, so once the scope is gone
+ * the same address renders the list without it -- the purge's way of reporting
+ * a completed purge on `/import`. A scope another tab deleted first is refused
+ * here and reads the same way, which is the right answer to it.
  *
  * COUNTS-FIRST IS THE PAGE'S SHAPE RATHER THAN THIS ACTION'S GUARANTEE, for
  * `purgeProvider`'s reason: `/api/rpc` carries `group.delete` too, so a check
@@ -93,7 +92,7 @@ export async function deleteGroup(form: FormData): Promise<void> {
   await whatTheProcedureAnswered(
     call(appRouter.group.delete, input, { context: await callerContext() }),
   );
-  redirect("/groups");
+  refresh();
 }
 
 /** What an ask or a stop carries: which scope, and which Provider by the URL that is its identity. */

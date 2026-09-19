@@ -212,9 +212,14 @@ tombstones: there is no restoring one. So it asks first, at
 its own address that nothing dismisses, Cancel a plain link, and the one
 destructive button after the counts.
 
-TAKING AN ITEM OUT OF A GROUP IS REMOVE FROM THIS CONTAINER, and still gets no
-dialog. Its undo is putting the Item back, which comes back to the same row
-under the same id (ADR-0078).
+TAKING AN ITEM OUT OF A GROUP IS THE OTHER KIND, and still gets no dialog. It
+is REMOVE FROM THIS CONTAINER's weighting rather than that outcome -- ADR-0010
+makes a Group a scope and never a container -- and for the same reason: it is
+the frequent editing act. Its undo is the Item page it happened on, whose "Put
+it in" offers the Group again, one click back to the same row under the same id
+(ADR-0078). There is no undo OFFER of the kind CNCORE-72 renders for a
+Placement, and none is owed: that offer exists because a removed Placement has
+no control left on the page to bring it back, and a Group membership does.
 
 TWO COUNTS AND A SENTENCE. The Group memberships the deletion takes, the
 Providers the Group asks (said only when there are any), and "No Item is
@@ -226,15 +231,18 @@ mitigation, and was never the exemption.
 
 THE COUNTS COME FROM THE DELETE ITSELF, ROLLED BACK. `previewGroupDeletion`
 runs the three updates `deleteGroupByHand` runs, in a transaction it then rolls
-back. The purge needed that because eight rules decide what it takes; a Group
+back, through the one `rolledBack` helper the purge's preview now runs through
+too. The purge needed that because eight rules decide what it takes; a Group
 deletion has one predicate per table, and the same guarantee was chosen anyway,
-because it costs one Group's row locks for three updates and leaves no second
-statement of the deletion to fall out of step. It follows that
+because it costs one Group's row locks for three updates -- and, as with the
+purge, the `change_sequence` values those updates take through `touch_row`,
+which the rollback leaves spent -- and leaves no second statement of the
+deletion to fall out of step. It follows that
 `group.previewDelete` is an `ownerProcedure` like the delete, and that the
 list's button is a string-action `<Form>` rather than a `<Link>`, for the
 prefetch trap recorded above.
 
-THREE THINGS DIFFER FROM THE PURGE, each for a reason:
+TWO THINGS DIFFER FROM THE PURGE, each for a reason:
 
 - AN EMPTY GROUP IS STILL ASKED. A purge with nothing to take gets no
   confirmation because it would take nothing. A Group deletion always takes the
@@ -243,10 +251,12 @@ THREE THINGS DIFFER FROM THE PURGE, each for a reason:
   purge's preview sits at the end of a long `/import`; a Group's replaces the
   list, so an Owner who pressed Delete... on the twentieth Group meets the
   counts at the top of the page with no other control beside them.
-- THE DELETE REDIRECTS TO `/groups`. It posts from the confirmation's address,
-  and the page to land on is the list without the Group. The purge re-renders
-  its own address instead, because a provider with nothing left to take is how
-  that surface reports a completed purge.
+
+AND THE DELETE REPORTS ITSELF THE PURGE'S WAY, by re-rendering the address it
+posted from: the page confirms only a Group it lists, so once the Group is gone
+`/groups?delete=<id>` is the list without it. A redirect to `/groups` was built
+first and taken out in review, because it is the hand-built address ADR-0109
+measured `basePath` never reaches.
 
 COUNTS-FIRST IS THE PAGE'S SHAPE HERE TOO, not the product's guarantee:
 `/api/rpc` carries `group.delete`, and the Owner calling it directly meets no

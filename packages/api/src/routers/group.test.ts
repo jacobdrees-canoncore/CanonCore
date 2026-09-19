@@ -253,7 +253,7 @@ describe("group.previewDelete", () => {
 
     expect(
       await call(appRouter.group.previewDelete, { id: group.id }, { context: asTheOwner }),
-    ).toStrictEqual({ memberships: 2, asks: 0 });
+    ).toStrictEqual({ memberships: 2, providers: 0 });
 
     const { groups } = await call(appRouter.group.list, {}, { context });
     expect(groups).toStrictEqual(expect.arrayContaining([expect.objectContaining(group)]));

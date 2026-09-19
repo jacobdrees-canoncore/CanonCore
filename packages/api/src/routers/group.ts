@@ -37,12 +37,12 @@ const nameByHand = z.string().trim().min(1, "A Group needs a name.");
 
 /**
  * What deleting a scope would take beside the scope itself (ADR-0046): its
- * list of which Items are in it, and its choice of Providers to ask. NO ITEM
- * COUNT, because deleting a Group takes no Item (ADR-0010, story 34).
+ * Group memberships, and the Providers it asks. NO ITEM COUNT, because deleting
+ * a Group takes no Item (ADR-0010, story 34).
  */
 const groupDeletion = z.object({
   memberships: z.number().int().nonnegative(),
-  asks: z.number().int().nonnegative(),
+  providers: z.number().int().nonnegative(),
 });
 
 /**

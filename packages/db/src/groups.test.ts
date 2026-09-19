@@ -227,7 +227,7 @@ describe("previewGroupDeletion", () => {
     await takeItemOutOfGroupByHand(db, { groupId: group, itemId: takenOut });
     await askProviderByHand(db, { groupId: group, providerIdentity: "http://wiki.test:8080" });
 
-    expect(await previewGroupDeletion(db, group)).toStrictEqual({ memberships: 2, asks: 1 });
+    expect(await previewGroupDeletion(db, group)).toStrictEqual({ memberships: 2, providers: 1 });
 
     // AND NOTHING WENT, read back through what a reader of the Group sees.
     expect(await findGroups(db)).toStrictEqual(
