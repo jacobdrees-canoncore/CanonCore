@@ -105,6 +105,12 @@ in a worktree.
 `provider-wiki` runs DuckDB fixtures and `provider-tmdb` hits the live API. Six agents with four
 contending is the shape, not a breach — so count the CanonCore worktrees, never the list.
 
+**A FULL COUNT IS NOT A BUSY ONE.** An agent waiting on its own `AskUserQuestion` holds a slot and
+spends nothing. Three of four did on 2026-09-19, each on a scope choice its own recommendation
+answered correctly, while the worktree count read full. So read every live terminal each pass rather
+than counting worktrees: answer what is technical and yours, and carry up only what `CLAUDE.md`
+reserves for the user -- money, a licence, or a background service.
+
 **FILL IT FROM A FREE TREE RATHER THAN LEAVING IT EMPTY.** Throughput is the goal and the collision
 rule is how you reach it, not a reason to under-fill. On 2026-09-16 the corpus run owned
 `packages/db`, so the rest went to `ci.yml`, `packages/ui`, one `apps/web` file and a provider repo.
