@@ -876,7 +876,10 @@ to avoid. `browse`'s own not-offered path is not held to this at all; extending 
 ticket's, and saying so is cheaper than leaving a rule half-applied and unremarked.
 
 **THE HALF THAT LANDED IS THE CONTRACT, AND ONLY THE CONTRACT.** No provider answers the operation:
-CNCORE-186 is where both do, and CNCORE-187 is where a surface asks. Nothing in this repository calls
+CNCORE-186 is where ONE does -- this said "where both do" and was wrong when it was written, which
+the section below sets out: `provider-wiki` answers and `provider-tmdb` declines, because TMDB
+publishes no bounded enumeration of its containers and this operation carries no cursor. CNCORE-187
+is where a surface asks. Nothing in this repository calls
 it, and `packages/contract` depends on no `@canoncore/*` package, so nothing could. Half a mechanism
 looks finished from outside, so it is written here: what exists today is a shape, a declaration rule
 and a conformance suite that would hold a provider to both.
@@ -894,3 +897,96 @@ test, and the largest took 43.8s end to end when CNCORE-159 measured it.
 `max_cache_age` and the image policy travel the wire from two providers and are read by nothing. The
 section above said landing this would not flip the record, and it does not. Six sections have now
 said so.
+
+
+## And under CNCORE-186: ONE PROVIDER ANSWERS AND ONE DECLINES, which is the operation working
+
+**THE PROVIDER HALF LANDED, AND IT LANDED ASYMMETRICALLY.** The section above said "CNCORE-186 is
+where both do", and BOTH WAS WRONG when it was written rather than overtaken: `provider-wiki` answers
+and `provider-tmdb` declines, and the decline is the decision rather than work left undone. **That
+sentence is corrected where it stands, and this paragraph is not the correction** -- a section
+underneath leaves the old claim intact for anyone who reads only that far, which is the failure this
+repository has a rule about. What this section adds is the REASON, which does not fit there.
+CNCORE-159 already said so in its own testing decisions -- "answered by a Provider that has it and refused in the
+declared way by one that does not" -- and in user story 60, "a Provider that cannot list its
+Containers to say so". The ticket's acceptance criterion read `both`; the spec it belongs to did not.
+
+**WHAT DECIDES WHICH SIDE A PROVIDER IS ON IS WHETHER ITS CONTAINERS ARE A BOUNDED SET, and the
+no-cursor decision is what makes that the question.** The section above left the cursor out because
+no provider needed one. That is the same sentence read from the provider's side: a provider whose
+containers cannot be answered in one call has no way to answer at all, so it declines. This is the
+cost of that decision, paid where it was predicted, and it is the right one -- an optional field
+added later is still an addition (ADR-0032), and the alternative was a cursor every provider had to
+implement so that one of them could.
+
+**`provider-tmdb` CANNOT, MEASURED RATHER THAN ASSUMED (2026-09-18).** Its containers are TMDB's
+collections, its series and their seasons. TMDB v3 publishes `/collection/{id}` and
+`/search/collection` and NOTHING THAT LISTS. The only enumeration TMDB offers at all is a daily
+gzipped ID export on a different host, `files.tmdb.org`: the 2026-09-17 `collection_ids` is 164 KB
+gzipped, 497 KB raw, 9,846 rows, and `tv_series_ids` beside it is 5.05 MB gzipped. So even the
+export is a PARTIAL claim -- it lists collections while that provider browses series and seasons too
+-- and a `containers` built from it would say "these are the containers I hold" while holding far
+more. That is the empty-list confusion this operation exists to stop, wearing a full list's clothes.
+
+**`provider-wiki` CAN, AND WHAT IT ANSWERS IS NARROWER THAN EVERY ID `browse` ACCEPTS.** It answers
+its 465 `Theory:Timeline` pages and NOT its categories, and both are browsable. The two are not the
+same kind of thing: a timeline is a container THE WIKI WROTE AS ONE, existing to state a chronology,
+over the bounded population `ns 114, title starts Theory:Timeline, non-redirect`; a category is one
+THAT PROVIDER COMPUTES, ordered by release date because a category states membership and no sequence
+whatever (the CNCORE-102 reasoning, in that repo's own `categoryContainer`). Every page in namespace
+14 is a category, maintenance pages included, so listing them would hand the Owner the wiki's whole
+category namespace rather than a set anyone curated. **HOW MANY CATEGORIES THAT IS IS NOT MEASURED**
+-- the Owner's Credential answers 403 from Cloudflare, so nothing counted them. NO FIGURE IS CLAIMED
+ANYWHERE FOR IT, and an earlier draft of this record and of both provider-side comments said
+"thousands" and "tens of thousands": three unhedged quantities against this record's own "not
+measured", which is the shape this repository keeps catching itself in. The decision turns on the
+population being UNASSERTED -- a category states membership and no sequence -- rather than on its
+size, so the size is not needed and is therefore not guessed.
+
+**SO `containers` ANSWERS WHAT THE SOURCE ASSERTS AS A CONTAINER, NOT EVERY ID `browse` WILL TAKE,
+AND THE CONTRACT'S OWN WORDING SAID OTHERWISE.** `cmpp.ts` opened its schema "every container this
+provider holds", which was written with one shape in view and is corrected in that sentence rather
+than under it. The two are different for the first provider that answered, and reading it the strict
+way costs the operation its point: a listing whose job is to save the Owner from knowing an id in
+advance is worth nothing if it is padded with ids no source ever called orderings. The narrowing does
+not reopen `provider-tmdb`, and that is the test of it -- TMDB ASSERTS its collections and its series
+as containers, so a provider answering only what its source asserts still cannot answer there.
+
+**THE DECLINER NEEDED NO CODE, WHICH IS THE 404 DECISION EARNING ITS KEEP.** The section above chose
+404 over 501 so that the contract could bind a provider that never heard of the operation without
+obliging it to write a route. That is exactly what happened: `provider-tmdb`'s manifest is unchanged
+and its framework's own 404 already satisfies the rule, so its PR adds two assertions and a README
+section and no serving code at all. A rule whose compliance costs a decliner nothing is a rule that
+stays complied with.
+
+**WHAT IS PINNED IN EACH PROVIDER REPO, because the contract suite lives here and cannot redden
+there.** `provider-wiki` asserts that its manifest declares `containers` AND `browse`, so a manifest
+that lost the second reddens in its own repository rather than one merge later in this one. That rule
+is CMPP's `manifest` refinement and is NOT restated in either provider's local schema, because
+restating a refinement in each provider is how one reading becomes three. `provider-tmdb` asserts the
+mirror: that it does not declare the operation, and that `/containers` answers 404.
+
+**WHAT WAS OBSERVED ON THE WIRE AND WHAT WAS NOT, stated separately because only one half of it is
+evidence for the thing this section claims.** Measured 2026-09-19, both providers run from source on
+the Owner's machine:
+
+- `provider-tmdb` answers `404 text/plain` at `/containers` and declares three operations, and THIS
+  REPOSITORY'S CONTRACT SUITE PASSES ITS DECLINING BRANCH AGAINST IT -- 123 assertions against the
+  witnesses plus that provider, including `provider-tmdb > its containers > has nothing at that path
+  if it declines the operation`. The decliner half is demonstrated, app absent, against a real
+  provider rather than a witness.
+- `provider-wiki` declares all four operations over a real socket, and `GET /containers` REACHED THE
+  LIVE tardis.wiki, was refused, and answered `503` with an attributed reason naming `/unlock`. So
+  the route, the walk and the refusal path are demonstrated end to end against the real upstream.
+
+**WHAT IS NOT DEMONSTRATED IS THE ANSWER ITSELF: A `200` CARRYING REAL TIMELINES.** The Owner's
+Credential is refused by Cloudflare (403, confirmed directly before any of the above), so no
+`allpages` capture was taken and `provider-wiki`'s own tests shape the documented response through
+its stub. Nothing anywhere has seen this operation return a container. The first thing that can is
+this repository's contract job against the published images, once a live Credential exists -- and
+until it has, the answering half is built rather than demonstrated. THAT IS THE HALF THIS SECTION'S
+FIRST SENTENCE IS ABOUT, so it is the half the claim rests on.
+
+**STILL NOT BUILT, AND STILL THE ONLY REASON THIS RECORD IS `proposed`:** the declared fields.
+`max_cache_age` and the image policy travel the wire from two providers and are read by nothing.
+Seven sections have now said so.

@@ -14,11 +14,11 @@ allowBuilds:
 catalog:
   # Toolchain
   typescript: ^7.0.2
-  "@types/node": ^26.2.0
-  turbo: ^2.10.12
-  "@biomejs/biome": ^2.5.12
+  "@types/node": ^26.6.1
+  turbo: ^2.10.13
+  "@biomejs/biome": ^2.5.14
   vitest: ^5.0.0
-  yaml: ^2.9.0
+  yaml: ^2.9.1
   # GitHub's own expression parser, from actions/languageservices -- the same
   # engine the Actions runner and the workflow language server use. It is here so
   # the concurrency-key test evaluates the key rather than string-matching it.
@@ -30,12 +30,12 @@ catalog:
   playwright: ^1.63.0
 
   # Framework
-  next: ^16.3.4
+  next: ^16.3.5
   next-themes: ^0.4.6
-  react: ^19.2.8
-  react-dom: ^19.2.8
-  "@types/react": ^19.2.17
-  "@types/react-dom": ^19.2.3
+  react: ^19.3.0
+  react-dom: ^19.3.0
+  "@types/react": ^19.3.0
+  "@types/react-dom": ^19.3.0
   babel-plugin-react-compiler: ^1.0.0
   "@swc/helpers": ^0.5.23
 
@@ -63,7 +63,7 @@ catalog:
   # ADR-0073's dates. `parse` rather than the default `edtf()` export, which
   # short-circuits any string of 5+ digits to a Unix millisecond timestamp.
   edtf: ^4.11.1
-  zod: ^4.4.3
+  zod: ^4.6.5
   dotenv: ^17.4.2
   "@t3-oss/env-core": ^0.13.11
 
@@ -73,8 +73,8 @@ catalog:
   "@base-ui/react": ^1.6.0
   shadcn: ^4.16.0
   class-variance-authority: ^0.7.1
-  cn: ^0.2.4
-  lucide-react: ^1.27.0
+  cn: ^0.3.0
+  lucide-react: ^1.46.0
   # THE DRAG (CNCORE-73), AND EXACT VERSIONS RATHER THAN CARETS. dnd-kit's 0.x
   # packages release in lockstep and ship breaking changes in MINOR bumps, filed
   # under "Minor Changes": 0.4.0 split `DragDropEvents` and moved `feedback` into

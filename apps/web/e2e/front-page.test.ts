@@ -474,6 +474,24 @@ describe("/ on a catalogue larger than one page", () => {
   });
 });
 
+/**
+ * ONE ROW OF A LISTING, BY THE TITLE IT IS LINKED UNDER.
+ *
+ * `toContain` OVER THE WHOLE DOCUMENT WOULD PASS ON ANOTHER ROW'S WORDS, which
+ * is the failure that matters here rather than a tidiness: two Orderings on one
+ * page, and an assertion that only greps the document cannot tell which of them
+ * carried the figure it found. So the row is cut out first and the words are
+ * asserted inside it.
+ */
+function theRowTitled(text: string, title: string): string {
+  const rows = [...text.matchAll(/<li[^>]*>(.*?)<\/li>/g)].map(([, inner]) => inner as string);
+  const found = rows.filter((row) => row.includes(`>${title}</a>`));
+  if (found.length !== 1) {
+    throw new Error(`the listing held ${found.length} Rows titled ${title}, not one`);
+  }
+  return found[0] as string;
+}
+
 describe("/ on a catalogue nothing is writing to", () => {
   it("says how much the catalogue holds", async () => {
     /*
@@ -514,6 +532,76 @@ describe("/ on a catalogue nothing is writing to", () => {
     // arms apart even in a catalogue large enough to have both.
     expect(text).toContain(
       `<p class="text-muted-foreground text-sm">${everyItem.length} items</p>`,
+    );
+  });
+
+  it("says how much each Ordering on it holds, at nothing, one, three and 2,913", async () => {
+    /*
+     * CNCORE-183. `isContainer` puts the word "Container" on a Row and can say
+     * nothing about how big one is, so an Ordering and a story sat as peers and
+     * a reader could not tell a container from its contents at a glance.
+     *
+     * BOTH SIZES, BECAUSE ONLY THE LARGE ONE CAN FAIL INTERESTINGLY. A page
+     * printing what it had LISTED would be right about the ordering of three
+     * and would say 100 about the other -- the Members listing is capped at a
+     * page (ADR-0119) -- so three alone asserts nothing the cap has not already
+     * broken once. 2,913 is ADR-0137's own figure for the largest Ordering the
+     * wiki holds, which is the size these surfaces are designed against.
+     *
+     * AND THE GROUPED SPELLING IS PART OF THE CLAIM. "2913 members" is correct
+     * and is not what the ticket asked to read; the separator is what makes a
+     * four-figure count scannable, and it is one formatter for every number
+     * this listing prints.
+     *
+     * AND BOTH ARMS OF THE PHRASE, WHICH THE TICKET'S OWN PAIR IS NOT. Three
+     * and 2,913 are both plural, so a Row reading "1 members" satisfies every
+     * criterion it names; the Ordering of one is what asks the other arm. The
+     * empty one is asserted where a container really holds nothing, because 0
+     * is also what a figure that had stopped counting would answer.
+     *
+     * ON THE INSTANCE NOTHING WRITES TO, for the reason the test above gives:
+     * an Ordering's size is a fact about placements, and every other catalogue
+     * in this suite is being written to by another worker while it is read.
+     */
+    const orderings = inject("stillOrderings");
+    if (orderings.length === 0) throw new Error("the still instance provided no Orderings");
+
+    const { text } = await documentFrom(inject("stillBaseUrl"), "/");
+
+    // EVERY ONE THE FIXTURE PLACED, read off the fixture rather than listed
+    // again here: an Ordering added to that instance and forgotten here would
+    // otherwise be one this criterion silently stopped covering.
+    expect(orderings.map(({ title }) => theRowTitled(text, title))).toStrictEqual([
+      expect.stringContaining("Container, 3 members"),
+      expect.stringContaining("Container, 1 member"),
+      expect.stringContaining("Container, 0 members"),
+      expect.stringContaining("Container, 2,913 members"),
+    ]);
+  });
+
+  it("groups a four-figure size wherever it prints one, not only on the Row", async () => {
+    /*
+     * ONE SPELLING FOR ONE KIND OF FACT. `Holding` and the Row's own figure sit
+     * on one screen at the size this catalogue is designed against (ADR-0137:
+     * 8,052 Items), so a grouped Row beside an ungrouped "Showing 100 of 8052
+     * items" would be the page disagreeing with itself about how to write a
+     * number. `soMany` is the one place either is spelled.
+     *
+     * ASSERTED ON THE MEMBERS LISTING BECAUSE NOTHING ELSE HERE REACHES FOUR
+     * FIGURES, said plainly rather than left as a curiosity. Every catalogue in
+     * this suite is smaller than a thousand Items, so `Holding`'s grouping is
+     * invisible on all of them -- the 2,913 Ordering's own page is the only
+     * place in the suite where removing `grouped` from that component changes a
+     * byte, which is exactly why the assertion has to be here and not on `/`.
+     */
+    const largest = inject("stillOrderings").find(({ id }) => id !== undefined);
+    if (!largest?.id) throw new Error("the still instance named no Ordering to open");
+
+    const { status, text } = await documentFrom(inject("stillBaseUrl"), `/items/${largest.id}`);
+
+    expect(status).toBe(200);
+    expect(text).toContain(
+      `<p class="text-muted-foreground text-sm">Showing 100 of ${"2,913"} members</p>`,
     );
   });
 });

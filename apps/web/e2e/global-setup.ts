@@ -1,6 +1,12 @@
 import { createServer, type Server } from "node:http";
 import type { AppRouterClient } from "@canoncore/api/routers";
-import { assertPlacement, createDb, placeItemByHand, writeProviderSettings } from "@canoncore/db";
+import {
+  assertPlacement,
+  createDb,
+  placeItemByHand,
+  placements,
+  writeProviderSettings,
+} from "@canoncore/db";
 import { type SeededPlacement, seedOneItemInTwoOrderings } from "@canoncore/db/seed";
 import { buildTestDatabase } from "@canoncore/db/testing/build-database";
 import {
@@ -12,6 +18,7 @@ import {
   aProvider,
   aStatement,
   ownerSource,
+  theOwner,
 } from "@canoncore/db/testing/catalogue";
 import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
@@ -218,7 +225,8 @@ export default async function setup(project: TestProject) {
 
   const still = await aCatalogueThatHoldsStill();
   project.provide("stillBaseUrl", still.baseUrl);
-  project.provide("stillCatalogue", still.fixture);
+  project.provide("stillCatalogue", still.fixture.every);
+  project.provide("stillOrderings", still.fixture.orderings);
 
   const configurable = await anInstanceSafeToConfigure();
   project.provide("configurableBaseUrl", configurable.baseUrl);
@@ -647,6 +655,47 @@ const HOLDING_STILL = [
 ];
 
 /**
+ * THE TWO ORDERINGS THIS INSTANCE HOLDS, AND THE TWO SIZES CNCORE-183 NAMES.
+ *
+ * THREE AND 2,913, which are the ticket's own two and are the two ends of the
+ * range this product actually has: ADR-0137 measured the Owner's install at
+ * 8,052 Items with `AHistory` the largest Ordering in it, and the wiki said
+ * 2,913 where the install landed 2,907 two days later. A figure that reads
+ * correctly at three says nothing about either -- a page could be printing
+ * `rows.length` and be right, because three fit on it.
+ *
+ * THE LARGE ONE IS A REPEAT RATHER THAN 2,913 ITEMS, which is a fixture
+ * decision worth stating rather than hiding. ADR-0009 allows one item in one
+ * container twice, and a Members listing counts PLACEMENTS -- so 2,913
+ * placements of one story is the same number for the same reason, and it is
+ * the only spelling that leaves this instance's own contract intact: a
+ * catalogue SMALLER THAN ONE PAGE, which 2,913 fresh items would end.
+ */
+const AN_ORDERING_OF_THREE = "An ordering of three";
+const THE_LARGEST_ORDERING = "An ordering the size of the largest one measured";
+const AS_LARGE_AS_THE_LARGEST = 2913;
+
+/**
+ * THE TWO SIZES THE PHRASE ITSELF BENDS AT, which the ticket's own pair does
+ * not reach.
+ *
+ * "Container, 1 member" IS A DIFFERENT SENTENCE, written by the other arm of
+ * one expression -- and three and 2,913 are both plural, so the ticket's pair
+ * asserts that arm twice and the other one never. It is the shape
+ * `HOLDING_STILL` above already carries a paragraph about: a fixture of one
+ * asserting the singular while claiming to be about the count.
+ *
+ * AND AN EMPTY ONE IS THE STATE A READER MOST NEEDS THE FIGURE FOR. An import
+ * that landed nothing leaves an Ordering that looks exactly like a full one
+ * until something says otherwise, and `0` is also the answer a Row gives when
+ * the count has silently stopped counting -- so it is asserted where a
+ * container really is empty, rather than left as the value a broken figure
+ * would share with it.
+ */
+const AN_ORDERING_OF_ONE = "An ordering of one";
+const AN_EMPTY_ORDERING = "An ordering nothing was placed in";
+
+/**
  * A FIFTH INSTANCE, and what is new about it is that NOTHING WRITES TO IT.
  *
  * CNCORE-93. "How much does this catalogue hold" is a fact about a WHOLE
@@ -694,8 +743,65 @@ function aCatalogueThatHoldsStill() {
       // In series, because `anItemTitled` writes a statement and reads the owner
       // back for it -- and what this fixture is for is the COUNT, so two of them
       // racing to the same number is the one thing it must not do.
-      for (const title of HOLDING_STILL) await anItemTitled(db, title);
-      return HOLDING_STILL;
+      const stories: string[] = [];
+      for (const title of HOLDING_STILL) stories.push(await anItemTitled(db, title));
+
+      /*
+       * THE MEMBERS ARE THE ITEMS ALREADY HERE, which keeps this instance the
+       * size its own contract says it is: an ordering of three needs three
+       * members and this catalogue already holds exactly three.
+       */
+      const three = await anItemTitled(db, AN_ORDERING_OF_THREE, {
+        isContainer: true,
+        isOrdered: true,
+      });
+      for (const [at, itemId] of stories.entries()) {
+        await aPlacement(db, { containerId: three, itemId, position: at + 1 });
+      }
+
+      const one = await anItemTitled(db, AN_ORDERING_OF_ONE, {
+        isContainer: true,
+        isOrdered: true,
+      });
+      await aPlacement(db, { containerId: one, itemId: stories[0] as string, position: 1 });
+
+      // PLACED IN BY NOTHING, which is the fixture: a Container is a Container
+      // whether or not anything reached it (ADR-0004).
+      await anItemTitled(db, AN_EMPTY_ORDERING, { isContainer: true, isOrdered: true });
+
+      const largest = await anItemTitled(db, THE_LARGEST_ORDERING, {
+        isContainer: true,
+        isOrdered: true,
+      });
+      const [repeated] = stories;
+      if (repeated === undefined) throw new Error("the still catalogue seeded no story to repeat");
+      const ownerId = await theOwner(db);
+      // IN ONE STATEMENT. 2,913 round trips is the difference between a fixture
+      // costing a moment and one costing a minute (`someStories`, same reason).
+      await db.insert(placements).values(
+        Array.from({ length: AS_LARGE_AS_THE_LARGEST }, (_, at) => ({
+          ownerId,
+          containerId: largest,
+          itemId: repeated,
+          position: at + 1,
+        })),
+      );
+
+      return {
+        every: [
+          ...HOLDING_STILL,
+          AN_ORDERING_OF_THREE,
+          AN_ORDERING_OF_ONE,
+          AN_EMPTY_ORDERING,
+          THE_LARGEST_ORDERING,
+        ],
+        orderings: [
+          { title: AN_ORDERING_OF_THREE, holds: stories.length },
+          { title: AN_ORDERING_OF_ONE, holds: 1 },
+          { title: AN_EMPTY_ORDERING, holds: 0 },
+          { title: THE_LARGEST_ORDERING, holds: AS_LARGE_AS_THE_LARGEST, id: largest },
+        ],
+      };
     },
   });
 }
@@ -2290,6 +2396,12 @@ declare module "vitest" {
      * comes from the fixture that wrote them rather than from the app.
      */
     stillCatalogue: string[];
+    /**
+     * The two Orderings it holds and how much each one holds (CNCORE-183) --
+     * the ticket's own three and 2,913, from the fixture that placed them
+     * rather than from the app that has to report them.
+     */
+    stillOrderings: { title: string; holds: number; id?: string }[];
     /** The wiki provider this run stood up: the real image in CI, a stub here. */
     providerWikiUrl: string;
     /** The TMDB provider, whose source row is what a TMDB claim is recorded against. */

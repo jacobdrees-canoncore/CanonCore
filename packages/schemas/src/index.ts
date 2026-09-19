@@ -533,6 +533,29 @@ export const catalogueRowPublic = z.object({
    * from an ordering that holds stories. This is what tells them apart.
    */
   isContainer: z.boolean(),
+  /**
+   * HOW MUCH THIS ONE HOLDS (ADR-0140): the size of its own Members listing,
+   * which is the number `itemPublic.holds.total` carries for the same
+   * container. `isContainer` above says a Row IS an ordering and can say
+   * nothing about how big one is, so a reader scanning a Listing could not tell
+   * an ordering of three from one of 2,913 without opening both.
+   *
+   * IT IS A NUMBER WHERE `itemPublic.holds` IS A LISTING, and that is the Row's
+   * own rule rather than an inconsistency: `CONTEXT.md` makes a Row a
+   * PROJECTION FOR A LIST, carrying what a reader needs to recognise it and
+   * nothing a page would have to fetch the rest of the item to render. The page
+   * of members is exactly that; its size is not.
+   *
+   * ZERO FOR A STORY, and every Row is asked. Nothing can be placed in an item
+   * that is not a container, so a non-container's answer is empty either way --
+   * and it is the SURFACE that decides which Rows a reader is shown a figure
+   * on, off `isContainer` beside it.
+   *
+   * ADR-0140 OWNS THE REST: what the figure costs, why it is read off the same
+   * predicate as the Listing it counts, and why the name is the glossary's verb
+   * rather than the word the page prints.
+   */
+  holds: z.number().int().nonnegative(),
 });
 
 export type CatalogueRowPublic = z.infer<typeof catalogueRowPublic>;
@@ -547,7 +570,7 @@ export type CatalogueRowPublic = z.infer<typeof catalogueRowPublic>;
  *
  * CATALOGUE SEARCH HAD A SHAPE OF ITS OWN UNTIL CNCORE-88, and the reason it
  * no longer needs one is worth keeping. The rows were always identical -- a
- * result and a catalogue row carry the same four facts -- and the difference
+ * result and a catalogue row carry the same facts -- and the difference
  * was this cursor: a search had none to offer, and ADR-0119 makes
  * `continuesAfter: null` mean "the listing ends here", so a search over a
  * thousand matches answering null would have reported the hundred it returned

@@ -206,3 +206,62 @@ describe("what /items/<id> costs", () => {
     LONG_ENOUGH_TO_SERVE_AND_STOP_MS,
   );
 });
+
+/**
+ * WHAT A LISTING COSTS, WHICH IS THE OTHER HALF OF ADR-0140 (CNCORE-183).
+ *
+ * IN THIS FILE RATHER THAN A NEW ONE, because the whole instrument is here: the
+ * counted database, the server started before the window and stopped inside it,
+ * and the timeout that lets a pool go. A second file would have copied all
+ * three to ask one question, and the thing being measured is the same thing --
+ * how many times a page goes to the database.
+ *
+ * AND THE COUNTED CATALOGUE ALREADY HAS THE SHAPE IT NEEDS: three Items, TWO of
+ * them Containers, which is what makes the two pages below differ in how many
+ * Rows carry a figure at all.
+ */
+describe("what a Listing costs", () => {
+  it(
+    "costs the same over one Row as over every Row, so the figure is not a read per Row",
+    async () => {
+      /*
+       * THE ACCEPTANCE CRITERION THAT NOTHING ELSE CAN SEE: "the figure comes
+       * from the same read as the Row rather than a second one". Every other
+       * test of it reads the NUMBER, and the number is identical either way --
+       * a `findPlacementsInContainer` per Row answers exactly what the subquery
+       * answers. What separates them is only ever the cost.
+       *
+       * THE ORACLE IS ONE PAGE AGAINST ANOTHER rather than a statement count
+       * written down here, which is the shape the measurements above already
+       * use: what a Listing costs moves as its read path changes, and no figure
+       * in this file should have to be re-measured when it does. WHAT CANNOT
+       * MOVE is that the cost is flat in the number of Rows -- a read per Row
+       * makes the wide page dearer than the narrow one by however many
+       * Containers it listed, and a subquery in the Listing's own statement
+       * cannot.
+       *
+       * THE WIDE PAGE IS ASSERTED TO HOLD MORE CONTAINERS THAN THE NARROW ONE,
+       * INSIDE THE WINDOW. Without it this passes on a catalogue whose Rows are
+       * all stories -- there would be no second read to make even if the code
+       * took one -- which is a green that means nothing.
+       */
+      const listing = (baseUrl: string, limit: number) => {
+        const rpc: AppRouterClient = createORPCClient(new RPCLink({ url: `${baseUrl}/api/rpc` }));
+        return rpc.catalogue.list({ limit });
+      };
+
+      let narrow = 0;
+      let wide = 0;
+      const overOneRow = await costOf(async (baseUrl) => {
+        narrow = (await listing(baseUrl, 1)).rows.filter((row) => row.isContainer).length;
+      });
+      const overEveryRow = await costOf(async (baseUrl) => {
+        wide = (await listing(baseUrl, 100)).rows.filter((row) => row.isContainer).length;
+      });
+
+      expect(wide).toBeGreaterThan(narrow);
+      expect(overEveryRow).toBe(overOneRow);
+    },
+    LONG_ENOUGH_TO_SERVE_AND_STOP_MS,
+  );
+});

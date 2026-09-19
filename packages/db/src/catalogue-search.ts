@@ -77,7 +77,7 @@ export function titleMatches(query: string) {
  *
  * IT ANSWERS `Catalogue`, AND IT USED TO ANSWER A SHAPE OF ITS OWN. The rows
  * were always the listing's rows exactly -- a result and a catalogue row
- * carry the same four facts -- and the one difference was the cursor: a search
+ * carry the same facts -- and the one difference was the cursor: a search
  * had none, and ADR-0119 makes `continuesAfter: null` mean "the listing ends
  * here", so a search over a thousand matches answering null would have told
  * every caller the hundred it returned were all of them. A shape that could not

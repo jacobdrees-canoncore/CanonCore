@@ -67,6 +67,7 @@ export async function participants(): Promise<Participant[]> {
   }
   found.push(await minimalProvider());
   found.push(await lockedProvider());
+  found.push(await lockedProvider({ spends: true }));
   found.push(await containersProvider());
   return found;
 }
@@ -201,7 +202,9 @@ async function minimalProvider(): Promise<Participant> {
  * A THIRD CONFORMANCE WITNESS: a provider that answers which containers it holds.
  *
  * IT IS HERE FOR THE REASON THE FIRST TWO ARE. CNCORE-185 declares the operation
- * and CNCORE-186 is where the two real providers answer it, so on the day the
+ * and CNCORE-186 is where ONE real provider answers it -- this said "the two real
+ * providers" and was wrong: `provider-tmdb` declines, because TMDB publishes no
+ * bounded enumeration of its containers (ADR-0033). So on the day the
  * contract landed NOTHING under test declared it -- every assertion in `its
  * containers` would have returned early and the suite would have been green
  * because nobody was asked. That is the failure this package exists to catch,
@@ -308,6 +311,38 @@ const LOCKED_MANIFEST = {
 };
 
 /**
+ * THE ONE SESSION THE SPENDING WITNESS'S UPSTREAM ISSUED, and so the only value it
+ * accepts. Exported for `participants.test.ts` and NEVER read by `contract.test.ts`:
+ * the contract suite holds no value any upstream would accept, which is the whole
+ * reason a Spend meets a refusal there.
+ */
+export const ISSUED_BY_ITS_UPSTREAM = "the one session this witness's upstream issued";
+
+const SPENDING_NAME = "a provider that Spends a credential before it holds it";
+
+interface LockedOptions {
+  /**
+   * SPEND WHAT IT IS GIVEN BEFORE HOLDING IT, which is what `provider-wiki` does
+   * since CNCORE-206 and what CNCORE-207 made the contract allow (ADR-0122).
+   *
+   * THE SAME WITNESS WITH ONE STEP ADDED, rather than a fourth one beside it,
+   * because everything else a locked provider owes -- the bounded body, half a
+   * credential refused, the 503 while it holds nothing -- is owed identically by a
+   * provider that Spends. Two copies would be two places for those rules to drift.
+   *
+   * IT IS HERE FOR THE REASON THIS WITNESS IS. `provider-wiki` is the only real
+   * provider that Spends, its image is private, and on any machine that cannot pull
+   * it the refusal branch of the round trip is a branch nothing enters.
+   *
+   * ITS UPSTREAM ACCEPTS WHAT IT ISSUED AND REFUSES EVERYTHING ELSE, so it is a
+   * provider that Spends rather than one that refuses everything -- two things the
+   * contract suite cannot tell apart, since it holds no value any upstream would
+   * accept. `participants.test.ts` is where that difference is proven.
+   */
+  spends?: boolean;
+}
+
+/**
  * A SECOND CONFORMANCE WITNESS: a provider that is well-formed, reachable, and
  * currently unable to answer -- ADR-0122's "not half a provider; a whole one that
  * currently cannot answer", over a real socket.
@@ -335,7 +370,8 @@ const LOCKED_MANIFEST = {
  * answers the SAME whether or not it holds a credential, which is the shape that
  * would let the branch below pass while proving nothing.
  */
-export async function lockedProvider(): Promise<Participant> {
+export async function lockedProvider({ spends = false }: LockedOptions = {}): Promise<Participant> {
+  const name = spends ? SPENDING_NAME : LOCKED_MANIFEST.name;
   /*
    * THE CREDENTIAL IS HELD IN MEMORY HERE, AND ADR-0122 REQUIRES A FILE OF A REAL
    * PROVIDER. That is not this witness cutting a corner: the record's reason for
@@ -348,6 +384,7 @@ export async function lockedProvider(): Promise<Participant> {
 
   const declaration = () => ({
     ...LOCKED_MANIFEST,
+    name,
     credential: {
       label: "This provider needs a session before it can reach its source",
       fields: LOCKED_CREDENTIAL_FIELDS,
@@ -376,7 +413,7 @@ export async function lockedProvider(): Promise<Participant> {
       answer(
         {
           error: "this provider has not been Unlocked, so it cannot reach its source",
-          provider: LOCKED_MANIFEST.name,
+          provider: name,
         },
         503,
       );
@@ -419,6 +456,15 @@ export async function lockedProvider(): Promise<Participant> {
           (field) => typeof submitted[field.name] === "string" && submitted[field.name] !== "",
         );
         if (!complete) return answer({ error: "every declared field is required" }, 400);
+        const accepted = LOCKED_CREDENTIAL_FIELDS.every(
+          (field) => submitted[field.name] === ISSUED_BY_ITS_UPSTREAM,
+        );
+        if (spends && !accepted) {
+          return answer(
+            { error: "its upstream refused that session, so nothing was stored", provider: name },
+            400,
+          );
+        }
         held = Object.fromEntries(
           LOCKED_CREDENTIAL_FIELDS.map((field) => [field.name, String(submitted[field.name])]),
         );
@@ -461,5 +507,5 @@ export async function lockedProvider(): Promise<Participant> {
 
     return answer({ error: "not found" }, 404);
   });
-  return listeningAs(server, LOCKED_MANIFEST.name);
+  return listeningAs(server, name);
 }
