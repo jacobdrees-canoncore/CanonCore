@@ -125,7 +125,8 @@ the Docker daemon or the database down it does nothing and says so, because no c
 written since the last dump. ADR-0049's visible registry is the in-product form of the first half.
 
 **SYNC IS NOT HISTORY.** This Mac has no Time Machine destination; `~/Documents` syncs to iCloud
-Drive, so that is where the dumps go. Sync replaces a good file with a bad one everywhere, so the job
+Drive, so that is where the dumps go (the dispatcher chose it, on the Owner's standing instruction to
+maximise throughput, and the Owner has not reviewed it). Sync replaces a good file with a bad one everywhere, so the job
 keeps the newest fourteen and the rotation is the only way back. The in-product backup owes a
 retention of its own for the same reason.
 
@@ -148,7 +149,10 @@ holds on the Owner's machine only while their copy keeps the service as shipped.
 anything else, and runs only inside a container that publishes a port on this machine. The job that
 does reach it, by `docker compose exec`, lives beside the install rather than in this repository.
 The two things here that DO reach the install, `import:list` and `test:corpus`, come in through the
-product's own API as the Owner's browser does. That is the front door, not the database.
+product's own API as the Owner's browser does. That is the front door, not the database. WHERE THIS
+LINE FALLS IS NOT THE OWNER'S DECISION YET: CNCORE-168 says "nothing in this repository can reach the
+Owner's own catalogue", which does not settle the API, and the dispatcher chose the database, on the
+Owner's standing instruction to maximise throughput. The Owner has not reviewed it.
 
 ## Supersedes
 
