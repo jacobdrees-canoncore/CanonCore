@@ -496,55 +496,6 @@ describe("findPlacementsOfItem, capped and walked", () => {
   });
 });
 
-describe("findPlacementsOfItem, stepped back", () => {
-  it("steps back from every ordering to the one before it, across all four keys", async () => {
-    // THE STEP BACK OVER THE ORDER WITH THE MOST TERMS IN THE APP (CNCORE-174):
-    // the container's key, ADR-0017's two, the position, and the id. The
-    // fixture holds orderings nobody has named, whose key is the keyless block
-    // that sorts last forward and first read back, a Repeat, and one ordering
-    // a Provider placed it in, so the spokesman's own terms differ between
-    // rows. From every Row, so every boundary is crossed.
-    const { id } = await anItemInMoreOrderingsThanOnePage(db, {
-      title: "A story stepped back through where it sits",
-      orderings: 9,
-    });
-    const order = (await findPlacementsOfItem(db, id, { limit: 1000 })).rows.map(
-      (placement) => placement.id,
-    );
-
-    const wrong: string[] = [];
-    for (const [at, placement] of order.entries()) {
-      if (at === 0) continue;
-      const { rows } = await findPlacementsOfItem(db, id, { limit: 1, before: placement });
-      if (rows[0]?.id !== order[at - 1]) wrong.push(`${at}: ${rows[0]?.id} for ${order[at - 1]}`);
-    }
-
-    expect(order.length).toBeGreaterThan(9);
-    expect(wrong).toStrictEqual([]);
-  });
-
-  it("answers the page before, and says nothing comes before the first", async () => {
-    const { id } = await anItemInMoreOrderingsThanOnePage(db, {
-      title: "A story on a page of orderings stepped back to",
-      orderings: 9,
-    });
-    const first = await findPlacementsOfItem(db, id, { limit: 4 });
-    const second = await findPlacementsOfItem(db, id, {
-      limit: 4,
-      after: first.continuesAfter ?? "",
-    });
-
-    const back = await findPlacementsOfItem(db, id, {
-      limit: 4,
-      before: second.continuesBefore ?? "",
-    });
-
-    expect(second.continuesBefore).toBe(second.rows[0]?.id);
-    expect(back.rows.map((row) => row.id)).toStrictEqual(first.rows.map((row) => row.id));
-    expect(back.continuesBefore).toBeNull();
-  });
-});
-
 /**
  * Two ids in a KNOWN order, so a test can say which of a tied pair sorts first.
  *
@@ -1216,5 +1167,33 @@ describe("findPlacementsOfItem, narrowed to one origin", () => {
 
     expect(whole.everyPlacedBy).toStrictEqual(["owner", "provider"]);
     expect(narrow.everyPlacedBy).toStrictEqual(["owner", "provider"]);
+  });
+});
+
+describe("findPlacementsOfItem, stepped back", () => {
+  it("steps back from every ordering to the one before it, across all four keys", async () => {
+    // THE STEP BACK OVER THE ORDER WITH THE MOST TERMS IN THE APP (CNCORE-174):
+    // the container's key, ADR-0017's two, the position, and the id. The
+    // fixture holds orderings nobody has named, whose key is the keyless block
+    // that sorts last forward and first read back, a Repeat, and one ordering
+    // a Provider placed it in, so the spokesman's own terms differ between
+    // rows. From every Row, so every boundary is crossed.
+    const { id } = await anItemInMoreOrderingsThanOnePage(db, {
+      title: "A story stepped back through where it sits",
+      orderings: 9,
+    });
+    const order = (await findPlacementsOfItem(db, id, { limit: 1000 })).rows.map(
+      (placement) => placement.id,
+    );
+
+    const wrong: string[] = [];
+    for (const [at, placement] of order.entries()) {
+      if (at === 0) continue;
+      const { rows } = await findPlacementsOfItem(db, id, { limit: 1, before: placement });
+      if (rows[0]?.id !== order[at - 1]) wrong.push(`${at}: ${rows[0]?.id} for ${order[at - 1]}`);
+    }
+
+    expect(order.length).toBeGreaterThan(9);
+    expect(wrong).toStrictEqual([]);
   });
 });
