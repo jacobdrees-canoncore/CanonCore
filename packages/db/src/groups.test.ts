@@ -1,0 +1,224 @@
+import { eq } from "drizzle-orm";
+import { beforeAll, describe, expect, it } from "vitest";
+
+import {
+  createGroupByHand,
+  type Database,
+  deleteGroupByHand,
+  findGroups,
+  findGroupsOfItem,
+  findItem,
+  GroupRefused,
+  groupItems,
+  putItemInGroupByHand,
+  renameGroupByHand,
+  takeItemOutOfGroupByHand,
+} from "./index";
+import { anItem, anItemTitled, connect } from "./testing/catalogue";
+
+/**
+ * A GROUP IS A BROWSING SCOPE (ADR-0010, `CONTEXT.md`): what a view is narrowed
+ * to, never a partition. This file is the scope's own end -- it exists, it is
+ * named, it holds Items -- and every test here reads back through the package's
+ * public export rather than through the tables underneath it (ADR-0103).
+ */
+let db: Database;
+
+beforeAll(async () => {
+  db = await connect();
+});
+
+describe("createGroupByHand", () => {
+  it("makes a Group the Owner has named, which the catalogue then lists", async () => {
+    // THE OWNER'S OWN WORDS (ADR-0010, story 31). A Group is never typed by
+    // medium and never named for one: what a scope is called is the Owner's
+    // judgement about their own collection, so the name is stored as given.
+    const id = await createGroupByHand(db, { name: "Doctor Who" });
+
+    expect(await findGroups(db)).toStrictEqual(
+      expect.arrayContaining([expect.objectContaining({ id, name: "Doctor Who" })]),
+    );
+  });
+});
+
+describe("findGroups", () => {
+  it("answers the Owner's scopes in their own alphabet", async () => {
+    // A LIST A READER CHOOSES FROM IS A LIST THEY HAVE TO BE ABLE TO SCAN, and
+    // creation order is not an order anybody remembers. Asserted as a
+    // SUBSEQUENCE of the whole list rather than as the whole of it, because this
+    // suite shares one catalogue and other files' Groups are in it too -- the
+    // claim is the relative order, which is what an alphabet is.
+    const zygon = await createGroupByHand(db, { name: "zzz Zygon" });
+    const auton = await createGroupByHand(db, { name: "zzz Auton" });
+
+    const mine = (await findGroups(db))
+      .filter((group) => group.id === zygon || group.id === auton)
+      .map((group) => group.name);
+
+    expect(mine).toStrictEqual(["zzz Auton", "zzz Zygon"]);
+  });
+});
+
+describe("renameGroupByHand", () => {
+  it("gives the Group the Owner's new name, and the old one is gone", async () => {
+    // Story 32: a name chosen badly is not permanent. ONE NAME AND NOT A SET,
+    // which is the difference from a title (ADR-0012): a title is a claim
+    // Sources make and disagree about, and a scope's name is the Owner's word
+    // for their own view. Nothing else ever says what a Group is called.
+    const id = await createGroupByHand(db, { name: "Who" });
+
+    expect(await renameGroupByHand(db, { id, name: "Doctor Who universe" })).toBe(true);
+
+    const found = await findGroups(db);
+    expect(found).toStrictEqual(expect.arrayContaining([{ id, name: "Doctor Who universe" }]));
+    expect(found).not.toStrictEqual(expect.arrayContaining([{ id, name: "Who" }]));
+  });
+
+  it("answers false for an id that names no Group, which is an answer rather than a fault", async () => {
+    // ADR-0066's posture, the same one `retitleItemByHand` takes: a stale form
+    // is the Owner meeting a row that has gone, not the server breaking.
+    expect(await renameGroupByHand(db, { id: crypto.randomUUID(), name: "Nowhere" })).toBe(false);
+  });
+});
+
+describe("putItemInGroupByHand", () => {
+  it("puts one Item in SEVERAL Groups at once, because a crossover belongs to both", async () => {
+    // ADR-0010'S ENTIRE DECISION, performed. A column on `items` would make a
+    // Group a partition -- this Item in exactly one -- and multi-placement is
+    // the product. Measured on the wiki, 2026-09-12: 96.8% of stories sit in
+    // more than one category, median 4, maximum 52.
+    const doctorWho = await createGroupByHand(db, { name: "Doctor Who" });
+    const marvel = await createGroupByHand(db, { name: "Marvel" });
+    const crossover = await anItemTitled(db, "Doctor Who and the Avengers");
+
+    await putItemInGroupByHand(db, { groupId: doctorWho, itemId: crossover });
+    await putItemInGroupByHand(db, { groupId: marvel, itemId: crossover });
+
+    expect(await findGroupsOfItem(db, crossover)).toStrictEqual([
+      { id: doctorWho, name: "Doctor Who" },
+      { id: marvel, name: "Marvel" },
+    ]);
+  });
+
+  it("puts the same Item in one Group once, however many times the Owner asks", async () => {
+    // There is no Position here, so ADR-0009's Repeat has nothing to be a
+    // repeat OF: an Item named twice in one scope is the same claim twice. A
+    // second ask is the claim already standing rather than a refusal, because
+    // the Owner asking for what is already true has not made a mistake.
+    const group = await createGroupByHand(db, { name: "Sarah Jane" });
+    const story = await anItem(db);
+
+    const first = await putItemInGroupByHand(db, { groupId: group, itemId: story });
+    const again = await putItemInGroupByHand(db, { groupId: group, itemId: story });
+
+    expect(again).toBe(first);
+    expect(await findGroupsOfItem(db, story)).toHaveLength(1);
+  });
+});
+
+describe("takeItemOutOfGroupByHand", () => {
+  it("takes the Item out of one scope and leaves the others it is in", async () => {
+    // Story 37: a mistake is correctable, and correcting it in one scope is not
+    // correcting it in every scope. The same claim ADR-0061 makes for a
+    // Container's membership, one construct over.
+    const doctorWho = await createGroupByHand(db, { name: "Doctor Who" });
+    const marvel = await createGroupByHand(db, { name: "Marvel" });
+    const crossover = await anItem(db);
+    await putItemInGroupByHand(db, { groupId: doctorWho, itemId: crossover });
+    await putItemInGroupByHand(db, { groupId: marvel, itemId: crossover });
+
+    expect(await takeItemOutOfGroupByHand(db, { groupId: marvel, itemId: crossover })).toBe(true);
+
+    expect(await findGroupsOfItem(db, crossover)).toStrictEqual([
+      { id: doctorWho, name: "Doctor Who" },
+    ]);
+  });
+
+  it("puts an Item back in a scope it was taken out of, under the id it always had", async () => {
+    // THE TOMBSTONE GOES ON OCCUPYING ITS TUPLE, so putting the Item back is a
+    // resurrection rather than a second row (ADR-0078). Measured against
+    // PostgreSQL 18 one file over: `group_items_group_item` carries no
+    // `deleted_at` predicate, so an insert of that tuple would fail on a
+    // constraint naming a row the Owner cannot see.
+    const group = await createGroupByHand(db, { name: "Torchwood" });
+    const story = await anItem(db);
+    const id = await putItemInGroupByHand(db, { groupId: group, itemId: story });
+    await takeItemOutOfGroupByHand(db, { groupId: group, itemId: story });
+
+    expect(await putItemInGroupByHand(db, { groupId: group, itemId: story })).toBe(id);
+    expect(await findGroupsOfItem(db, story)).toStrictEqual([{ id: group, name: "Torchwood" }]);
+  });
+
+  it("answers false when the Item is not in that Group", async () => {
+    // ADR-0066 again: a button on a page that has moved on is an answer.
+    const group = await createGroupByHand(db, { name: "Class" });
+
+    expect(await takeItemOutOfGroupByHand(db, { groupId: group, itemId: await anItem(db) })).toBe(
+      false,
+    );
+  });
+});
+
+describe("deleteGroupByHand", () => {
+  it("tombstones the Group and its memberships, and TOUCHES NO ITEM", async () => {
+    // ADR-0010'S PROMISE, and the one a reader has to be able to trust before
+    // they will use a scope at all: a Group is not a container that can be
+    // emptied by accident (story 34). The Items are asserted BACK THROUGH
+    // `findItem` rather than by counting rows, because what the Owner would
+    // lose is the catalogue entry rather than a row.
+    const group = await createGroupByHand(db, { name: "A scope to delete" });
+    const other = await createGroupByHand(db, { name: "A scope that stays" });
+    const story = await anItemTitled(db, "The Ark in Space");
+    await putItemInGroupByHand(db, { groupId: group, itemId: story });
+    await putItemInGroupByHand(db, { groupId: other, itemId: story });
+
+    expect(await deleteGroupByHand(db, group)).toBe(true);
+
+    expect(await findItem(db, story)).toStrictEqual(
+      expect.objectContaining({ id: story, title: "The Ark in Space" }),
+    );
+    expect(await findGroups(db)).not.toStrictEqual(
+      expect.arrayContaining([expect.objectContaining({ id: group })]),
+    );
+    expect(await findGroupsOfItem(db, story)).toStrictEqual([
+      { id: other, name: "A scope that stays" },
+    ]);
+    // TOMBSTONED RATHER THAN MERELY HIDDEN BY A JOIN, which is the half the
+    // read path above cannot tell apart. A membership left live under a deleted
+    // Group is a row that comes back the day anything reads `group_items`
+    // without joining `groups` -- and CNCORE-179's narrowed Listing is exactly
+    // such a read.
+    const rows = await db
+      .select({ deletedAt: groupItems.deletedAt })
+      .from(groupItems)
+      .where(eq(groupItems.groupId, group));
+    expect(rows).toStrictEqual([{ deletedAt: expect.any(Date) }]);
+  });
+
+  it("answers false for a Group that is already gone", async () => {
+    const group = await createGroupByHand(db, { name: "Deleted twice" });
+    await deleteGroupByHand(db, group);
+
+    expect(await deleteGroupByHand(db, group)).toBe(false);
+  });
+});
+
+describe("what the catalogue refuses", () => {
+  it("refuses an Item for a Group that is not there, as a refusal rather than a fault", async () => {
+    // THE NARROWING `by-hand.ts` ARGUES AT LENGTH: only the rules the Owner can
+    // break become a refusal, so a dead pool or a permissions change goes on
+    // being a fault instead of reporting "no such Group" to somebody whose
+    // server is broken. Here the rule is `group_items`' foreign keys.
+    await expect(
+      putItemInGroupByHand(db, { groupId: crypto.randomUUID(), itemId: await anItem(db) }),
+    ).rejects.toBeInstanceOf(GroupRefused);
+  });
+
+  it("refuses a Group an Item is not in the catalogue for", async () => {
+    const group = await createGroupByHand(db, { name: "A scope with nothing in it" });
+
+    await expect(
+      putItemInGroupByHand(db, { groupId: group, itemId: crypto.randomUUID() }),
+    ).rejects.toBeInstanceOf(GroupRefused);
+  });
+});
