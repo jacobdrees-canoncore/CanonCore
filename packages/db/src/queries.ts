@@ -1563,6 +1563,40 @@ const WORK_BROWSING = and(
 ) as SQL;
 
 /**
+ * A LIVE GROUP MEMBERSHIP (ADR-0010, ADR-0075): one the Owner has not taken
+ * back out, of a Group they have not deleted. Written as the condition of an
+ * INNER join from `group_items` to `groups`, so a reader cannot reach the Group
+ * without reading both tombstones.
+ *
+ * AN INNER JOIN'S AND ONLY THAT. As the `ON` of a left join it would keep
+ * every membership, dead or live, and only blank the Group beside a dead one.
+ *
+ * ONE SPELLING FOR EVERY READER (CNCORE-234): `inTheGroup` below, which
+ * narrows every Listing, `findGroupsOfItem`, which the Item page reads, and the
+ * purge's `deleteOrphansAmong`, which keeps an Item the Owner put in a Group.
+ * Each had its own copy, and they agreed only because each was copied.
+ * CNCORE-230 is the day they did not: this file read the membership's
+ * tombstone and not the Group's while the Item page read both, so a membership
+ * that outlived its Group narrowed a Listing and was hidden on the Item page.
+ *
+ * THE JOIN CONDITION AND NOTHING MORE, which is the line CNCORE-230's review
+ * drew when it rejected a helper around the whole `innerJoin(groups, ...)`
+ * shape: the readers select different columns, so a shared query would be a
+ * middle-man. Each still writes its own select and its own narrowing to one
+ * Group or one Item, and borrows only what "live" means. An inner join reads
+ * its `ON` and its `WHERE` as one condition, so the tombstones moving into the
+ * `ON` changed no answer and no plan (measured under CNCORE-234, ADR-0010).
+ *
+ * EXPORTED WITHIN THE PACKAGE, like `IN_THE_CATALOGUE` above, and out of its
+ * public export for that constant's reason.
+ */
+export const LIVE_GROUP_MEMBERSHIP = and(
+  eq(groups.id, groupItems.groupId),
+  isNull(groupItems.deletedAt),
+  isNull(groups.deletedAt),
+) as SQL;
+
+/**
  * WHAT A GROUP NARROWS A LISTING TO (ADR-0010): the Items the Owner put in it
  * and has not taken back out.
  *
@@ -1591,8 +1625,9 @@ const WORK_BROWSING = and(
  * Group that is not live, but a put that read the Group live before a deletion
  * landed inserts after it, and no foreign key refuses a row whose Group is
  * only tombstoned (ADR-0075). That leaves a live membership under a dead Group,
- * and this join is what makes it narrow to nothing however the race falls --
- * the reading `findProvidersAGroupAsks` makes of `group_providers`.
+ * and joining through `LIVE_GROUP_MEMBERSHIP` is what makes it narrow to
+ * nothing however the race falls -- the reading `findProvidersAGroupAsks` makes
+ * of `group_providers`.
  *
  * UNCORRELATED, which is the lesson `howMuchItHolds` carries a paragraph about.
  * The subquery names `group_items` and `groups` and nothing else, so no inner
@@ -1615,10 +1650,8 @@ function inTheGroup(db: Database, group: string): SQL {
     db
       .select({ itemId: groupItems.itemId })
       .from(groupItems)
-      .innerJoin(groups, eq(groups.id, groupItems.groupId))
-      .where(
-        and(eq(groupItems.groupId, group), isNull(groupItems.deletedAt), isNull(groups.deletedAt)),
-      ),
+      .innerJoin(groups, LIVE_GROUP_MEMBERSHIP)
+      .where(eq(groupItems.groupId, group)),
   );
 }
 

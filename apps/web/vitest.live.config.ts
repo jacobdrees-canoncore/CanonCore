@@ -5,8 +5,11 @@ import { defineConfig } from "vitest/config";
  *
  * `vitest.e2e.config.ts` stands the app up against a STUB provider, and it is the right
  * shape for CI: it needs no credential and no network. This one stands the app up against
- * the REAL `provider-wiki` talking to the REAL wiki, so it needs the Owner's Credential --
- * which no CI job holds (ADR-0122) and which expires within a day.
+ * the REAL `provider-wiki` talking to the REAL wiki, so its import needs the Owner's
+ * Credential -- which no CI job holds (ADR-0122) and which expires within a day -- and
+ * `live/provider.test.ts` needs only the checkout: it starts the real provider with another
+ * process in its way and never reaches the wiki (CNCORE-237), so it runs on its own on a
+ * day the credential has lapsed.
  *
  * IT IS NOT IN `test:e2e` AND MUST NOT BE. A check that cannot run in CI, listed beside
  * checks that can, is a red suite on every machine that lacks the credential -- and the
@@ -37,7 +40,7 @@ export default defineConfig({
     // assertion -- and the third is AHistory, which is most of the minute.
     testTimeout: 900_000,
     hookTimeout: 900_000,
-    // One file, one instance, no sharing: it is a proof, not a suite.
+    // One file at a time, one instance each, no sharing: it is a proof, not a suite.
     fileParallelism: false,
   },
 });
