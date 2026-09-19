@@ -2,10 +2,11 @@ import { type Browser, type BrowserContext, chromium, type Locator, type Page } 
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 
 import { gatedTo } from "./gate";
+import { logIn } from "./log-in";
 
 /**
  * TEXT THE PAGE DID NOT WRITE, AT THE WIDTH OF THE OWNER'S PAGE (CNCORE-217,
- * ADR-0123; CNCORE-223, ADR-0142).
+ * ADR-0123; CNCORE-223 and CNCORE-226, ADR-0142).
  *
  * `cmppManifest` bounds a Provider's declared name at 300 characters, and the
  * page seam asserts the bound. Three hundred characters with no break in them
@@ -13,7 +14,8 @@ import { gatedTo } from "./gate";
  * the Owner's page is instead of how long -- found by walking CNCORE-165, where
  * the heading ran off the right edge with the length assertion green beside it.
  * A record's fields, an Item's values and a Group's name are bounded in length
- * by nothing at all, and fail the page the same way (CNCORE-223).
+ * by nothing at all, and fail the page the same way (CNCORE-223), and so does
+ * what a device declares for itself (CNCORE-226).
  *
  * A BROWSER BECAUSE NOTHING ELSE CAN SEE THIS. ADR-0103's test for a candidate
  * here is "could a `fetch` observe it?", and a `fetch` observes what the
@@ -80,7 +82,9 @@ describe("a Provider's name with no break in it", () => {
 
   /*
    * THE WITNESS THAT TELLS THE TWO RULES APART. The heading above is a block,
-   * and `overflow-wrap: break-word` passes it. A Values row is flex, and there
+   * and `overflow-wrap: break-word` passes its own box, though no longer its
+   * page, since CNCORE-182 put a flex row of Groups beside a query there
+   * (ADR-0142). A Values row is flex, and there
    * `break-word` leaves the label's min-content at the whole word, so the label
    * grows to it and the page scrolls -- the row asserted here, rather than the
    * label, because the grown label holds its text perfectly well.
@@ -184,10 +188,7 @@ describe("a device's declared name with no break in it", () => {
    * every witness above is what a visitor is shown.
    */
   beforeAll(async () => {
-    await page.goto(`${baseUrl}/login`);
-    await page.getByLabel("Password").fill(inject("browserOwnerPassword"));
-    await page.getByRole("button", { name: "Log in" }).click();
-    await page.waitForURL((url) => !url.pathname.startsWith("/login"));
+    await logIn(page, baseUrl);
   });
 
   afterAll(async () => {

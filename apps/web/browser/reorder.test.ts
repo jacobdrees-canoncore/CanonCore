@@ -2,6 +2,7 @@ import { type Browser, type BrowserContext, chromium, type Locator, type Page } 
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 
 import { gatedTo } from "./gate";
+import { logIn } from "./log-in";
 
 /**
  * DRAGGING A PLACEMENT TO REORDER A CONTAINER (CNCORE-73), in a real browser,
@@ -50,7 +51,7 @@ beforeAll(async () => {
   reachedOut = await gatedTo(context, baseUrl);
 
   page = await context.newPage();
-  await logIn();
+  await logIn(page, baseUrl);
 });
 
 afterAll(async () => {
@@ -58,14 +59,6 @@ afterAll(async () => {
   await browser?.close();
   expect(reachedOut, "the page reached outside the instance under test").toStrictEqual([]);
 });
-
-/** ADR-0044's one password, exchanged for a session the way an owner does it. */
-async function logIn() {
-  await page.goto(`${baseUrl}/login`);
-  await page.getByLabel("Password").fill(inject("browserOwnerPassword"));
-  await page.getByRole("button", { name: "Log in" }).click();
-  await page.waitForURL((url) => !url.pathname.startsWith("/login"));
-}
 
 async function openTheContainer() {
   await page.goto(`${baseUrl}/items/${dragging.releaseOrder}`);

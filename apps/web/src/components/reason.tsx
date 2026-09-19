@@ -40,15 +40,13 @@ import { TheirWords } from "./their-words";
  * THE CALLER NAMES THE PROVIDER, in the lead sentence it was already writing.
  * Naming it here too rendered the URL twice in `/import`'s search list.
  *
- * AND WHAT IS QUOTED IS WRAPPED, BECAUSE `wrote` ANSWERED WHOSE SHAPE IT IS TOO
- * (CNCORE-217). Text not refused at the config boundary is not this app's, so
- * three hundred characters of it with no break in them are the Provider's to
- * send and not the Provider's to lay out.
- *
- * CANONCORE'S OWN SENTENCE IS WRAPPED TOO, WHOLE, THOUGH IT IS THIS APP'S WORDS
- * (CNCORE-226). The config boundary interpolates the address the Owner typed,
- * and ADR-0142 measured the Owner's words setting the page's width exactly as a
- * stranger's do. The sentence arrives as one string, so the address cannot be
+ * AND EITHER KIND IS WRAPPED, SO `wrote` DECIDES THE QUOTING AND NOTHING ELSE.
+ * Text not refused at the config boundary is not this app's, so three hundred
+ * characters of it with no break in them are the Provider's to send and not
+ * the Provider's to lay out (CNCORE-217). CanonCore's own sentence is this
+ * app's words around the address the Owner typed, and ADR-0142 measured the
+ * Owner's words setting the page's width exactly as a stranger's do
+ * (CNCORE-226). The sentence arrives as one string, so the address cannot be
  * wrapped alone, and it does not need to be: `anywhere` breaks only a word that
  * does not fit its line, and no word this app wrote is that wide, which is why
  * a fallback rides inside a title.

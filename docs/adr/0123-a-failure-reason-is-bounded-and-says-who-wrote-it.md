@@ -816,8 +816,9 @@ pixels, and at 375 it wrecked the header.** It lets every flex item shrink below
 word, and the header's `CanonCore` link became a column seventeen pixels wide and 336 tall, one letter
 to a line, with `Works` and `Groups` beside it the same. A stranger's text breaking mid-word to fit
 this page is the right trade. This page's own words breaking that way is not. So `anywhere` goes on
-text whose shape the page did not choose and not on the page's own words, and the component is that
-for a Provider's text and, since CNCORE-223, for everybody else's. It lives where `.claude/rules/frontend.md` puts a formatted value: in
+text whose shape the page did not choose and not on the page's own words, but for those that reach
+the page in one expression with somebody else's, which ADR-0142 measures riding inside without
+breaking. The component is that for a Provider's text and, since CNCORE-223, for everybody else's. It lives where `.claude/rules/frontend.md` puts a formatted value: in
 `apps/web/src/components`, beside the pages that render it.
 
 **THE OWNER'S TEXT IS THE SAME QUESTION FROM THE OTHER SIDE, AND IT IS ALREADY ANSWERED ONCE.**

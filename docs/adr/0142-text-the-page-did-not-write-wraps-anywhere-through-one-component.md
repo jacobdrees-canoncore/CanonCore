@@ -9,13 +9,15 @@ Every string this app prints and did not write is printed through `TheirWords`, 
 Provider's prose, a record's fields, an Item's values and a Group's name are all such text, whoever
 wrote them: a Provider, a sidecar or the Owner. So are the reader's own query, a base URL or
 container id the Owner typed, and the names a device declares for itself. The page's own words are
-printed plainly. A new surface printing text it did not write prints it through this component.
+printed plainly, but for those that reach it in one expression with somebody else's, which ride
+inside (below). A new surface printing text it did not write prints it through this component.
 
 **THIS SUPERSEDES THE NAME AND THE REACH OF [[0123-a-failure-reason-is-bounded-and-says-who-wrote-it]]'s
 `ProviderProse`, AND NOTHING ELSE IN THAT RECORD.** Its "Where the wrap lives" section decided three
 things: a component rather than one rule on `body`, `anywhere` rather than `break-word`, and the wrap
 on text whose shape the page did not choose rather than on the page's own words. All three stand,
-and the figures behind them are that record's. What it did not decide was the Owner's text or a
+and the figures behind them are that record's; the third has the exceptions this record measures,
+the page's own words that reach it in one expression with somebody else's. What it did not decide was the Owner's text or a
 record's fields: it named the component for one writer and handed the others to CNCORE-223. This is
 the answer. `ProviderProse` is gone and `TheirWords` is the same component under a name that fits
 everything that goes through it.
@@ -83,7 +85,7 @@ the rest of the heading, so the query goes through `TheirWords` there too rather
 wrap.
 
 **A FALLBACK IN THE PAGE'S OWN WORDS MAY RIDE INSIDE IT.** `item.title ?? "Untitled item"` goes
-through whole. `anywhere` breaks only a word that does not fit its line, and no word the page wrote
+through whole, and so do the separator and the fallback `/devices` joins a device's names with. `anywhere` breaks only a word that does not fit its line, and no word the page wrote
 is that wide, so splitting the expression to keep `Untitled item` outside would cost a branch at
 every title and change nothing a reader sees.
 
@@ -110,7 +112,8 @@ origin and the host, and never a word the page wrote, down to 120 pixels.
 
 - **The page's own words**, including the words it puts around somebody else's (`Sorts as`,
   `holds nothing yet`, `matched nothing`) wherever the page holds the two apart, which is everywhere
-  but `Reason`'s own sentence (above), and the reader's word for an Item's kind, which
+  but a fallback, `/devices`' separator and `Reason`'s own sentence (above), and the reader's word
+  for an Item's kind, which
   `item_kinds` holds and `CONTEXT.md` settles (`Time span`). This is the header at 375 pixels:
   wrapping the page's own words mid-word is what ADR-0123 refused a global rule for.
 - **An `<option>`.** The `Select` primitive is `w-full min-w-0`, so an option cannot widen the page,
@@ -135,10 +138,11 @@ in it.
 - `/devices`: a device's row, which is flex, with a name of 360 characters it declared for itself
   (CNCORE-226), found failing at `{1926, 1606}`.
 
-**EACH WAS SEEN FAILING BEFORE ITS WRAP**, at the figures in the table, and the Group chips failed
+**EACH WAS SEEN FAILING BEFORE ITS WRAP**, at the figures in the table and, for `/devices`, the
+list, and the Group chips failed
 with CNCORE-179's class removed and passed again with the name through the component. **AND THEY
 TELL THE TWO RULES APART:** with `wrap-break-word` in the component in place of `wrap-anywhere`,
-eight of the file's nine witnesses failed. Every flex row failed at its unwrapped figure, and the
+eight of the nine witnesses the file had under CNCORE-223 failed. Every flex row failed at its unwrapped figure, and the
 Item page's heading kept its own box at `0` while the rows below it held the page 1,614 pixels wide.
 The one that passed was `/import`'s heading over a Provider's answers, a block on a page with no
 flex row holding the word, which is ADR-0123's reason for having a second witness at all. **RE-RUN
@@ -176,7 +180,9 @@ write, which CNCORE-223's sweep found outside the class it was filed for. The re
 `/import`; a Provider's base URL wherever `/import` and `/settings` print it, and the entry
 `/settings` refused as not a URL; the names a device declares for itself, on `/devices`, with the
 page's own fallback riding inside as `Untitled item` does; and CanonCore's own sentence in `Reason`,
-whole. None turned out to be the page's own words.
+whole. None of the Owner's, the reader's or a device's text turned out to be the page's own words.
+`Reason`'s sentence is the page's own words around the Owner's, wrapped whole for the reason given
+under "One component, whoever wrote the text".
 
 **NO PAGE WAS MEASURED BELOW 1,280 PIXELS, AND AT 375 NONE CAN BE.** ADR-0123 measured the header at
 375 and refused the global rule for it. The header still holds the document 231 pixels past a
