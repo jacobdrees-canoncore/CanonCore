@@ -134,7 +134,8 @@ export async function searchCatalogue(
   if (wanted === "") return { rows: [], total: 0, continuesAfter: null };
 
   const ranking = theRanking(wanted);
-  const place = after === undefined ? undefined : await findInTheRanking(db, wanted, after);
+  const place =
+    after === undefined ? undefined : await findInTheRanking(db, ranking, wanted, after);
 
   return walkListing(db, {
     /*
@@ -201,7 +202,8 @@ function closenessTo(title: SQLWrapper, query: string): SQL {
  * KEYLESS BLOCK AT ALL, which is the one thing it does not share with the
  * catalogue's: there the untitled tail is a real block of rows a walk must
  * reach. It was a COMMENT justifying a hand-written predicate until CNCORE-170
- * and is a declaration the shared one reads now.
+ * and is a declaration the shared one reads now. AND SO NEITHER SAYS
+ * `destroyedBy`, though a delete destroys both: see `findInTheRanking`.
  *
  * AND THE TIES ARE STILL THE CATALOGUE'S OWN ORDER, which is what the `nulls
  * last` this no longer renders used to say. The identity that matters is the
@@ -288,18 +290,25 @@ function closenessOfTheAnchor(db: Database, id: string, query: string): SQL {
  * Where one id sits in THIS search's ranking, by the id a reader arrived with.
  *
  * THE READ IS `findTheAnchor`'S, AND ONLY THE RULES ARE THIS FILE'S. That
- * function owns the two decisions every cursor in this app shares -- the shape
- * guard, and reading past the tombstone because an anchor is a position rather
- * than something a reader is shown -- and they were spelled twice here until
- * review. What is left below is the part a RELEVANCE order genuinely decides
+ * function owns the decisions every cursor in this app shares -- the shape
+ * guard, reading past the tombstone because an anchor is a position rather
+ * than something a reader is shown, and refusing an anchor whose key the order
+ * says a delete destroyed -- and they were spelled twice here until review.
+ * What is left below is the part a RELEVANCE order genuinely decides
  * differently.
+ *
+ * HANDED THIS RANKING, THAT LAST REFUSAL REFUSES NOTHING, and deliberately.
+ * Neither key says `destroyedBy`, because both say `everyRowHasIt`: on such a
+ * key a null is no place whatever took it, a delete or a title nobody wrote,
+ * and the check below turns both away on the title alone.
  */
 async function findInTheRanking(
   db: Database,
+  ranking: ReturnType<typeof theRanking>,
   query: string,
   id: string,
 ): Promise<PlaceInTheRanking | undefined> {
-  const anchor = await findTheAnchor(db, id);
+  const anchor = await findTheAnchor(db, ranking, id);
   if (anchor === undefined) return undefined;
   /*
    * AN ITEM WITH NO TITLE HAS NO PLACE IN THIS ORDER, which is a state the

@@ -1411,12 +1411,16 @@ export const SORT_KEY = sql<string | null>`coalesce(${items.sortName}, ${items.t
  * this order gains and that read does not is a type error rather than rows
  * silently stepped over.
  *
+ * THE KEY SAYS A DELETE DESTROYS IT, because the projection over no live
+ * statements is NULL: a deleted item's key is gone, and an anchor that has lost
+ * it has no place to be resumed from. `findTheAnchor` reads that off the key.
+ *
  * IT IS ONE ORDER FOR TWO QUESTIONS, which is `readListing`'s own subject: the
  * catalogue and work-browsing differ in their WHERE and in nothing else, so a
  * second order here would be the same rule twice.
  */
 const THE_CATALOGUES_ORDER = {
-  keys: { sortKey: SORT_KEY },
+  keys: { sortKey: { key: SORT_KEY, destroyedBy: items.deletedAt } },
   id: items.id,
 } satisfies TheOrder;
 
@@ -1431,29 +1435,17 @@ type PlaceInTheOrder = PlaceIn<typeof THE_CATALOGUES_ORDER>;
 
 /** One row a cursor might name, read the way every walk has to read it. */
 export interface TheAnchor {
-  /** ADR-0014's projected key. Null for an item with neither column. */
-  sortKey: string | null;
   /**
-   * WHETHER THE ROW IS A TOMBSTONE, WHICH IS WHAT SEPARATES THE TWO WAYS THE
-   * KEY ABOVE CAN BE NULL. An item nobody has titled has no key and is still
-   * IN the order -- it sorts last, as one block, and a walk has to reach it. A
-   * DELETED item has no key because its key is GONE: migration 5 tombstones
-   * every statement of a deleted item, that re-fires the projection, and the
-   * projection over no live statements is NULL (ADR-0014). So the columns are
-   * absent rather than hidden.
-   *
-   * THE TWO ROWS ARE IDENTICAL TO ANYTHING READING ONLY THE KEY, and answering
-   * the second as though it were the first is what dead-ended a kept link
-   * (CNCORE-110): the walk resumed from the untitled tail with every titled
-   * item between skipped. Read it and decide, rather than inferring it.
-   *
-   * A RELEVANCE ORDER NEEDS NO SUCH DISTINCTION, which is why only one caller
-   * reads this. Closeness is `similarity(title, ...)`, so Catalogue search has
-   * no place for EITHER kind of untitled row and turns both away on the title
-   * alone -- the same answer for two facts, arrived at honestly rather than by
-   * failing to tell them apart.
+   * ADR-0014's projected key, and NULL FOR TWO REASONS THE KEY ALONE CANNOT
+   * TELL APART. An item nobody has titled has no key and is still IN the order:
+   * it sorts last, as one block, and a walk has to reach it. A DELETED item has
+   * no key because its key is GONE: migration 5 tombstones every statement of a
+   * deleted item, that re-fires the projection, and the projection over no live
+   * statements is NULL. So the columns are absent rather than hidden, and the
+   * row has no place at all -- which is why `findTheAnchor` is handed the order,
+   * whose key says what a delete does to it.
    */
-  deletedAt: Date | null;
+  sortKey: string | null;
   /**
    * READ BESIDE THE KEY BECAUSE A RELEVANCE-ORDERED WALK NEEDS IT. The
    * catalogue's order is the key alone; Catalogue search ranks on
@@ -1466,7 +1458,7 @@ export interface TheAnchor {
 
 /**
  * WHERE ONE ID SITS, by the id a reader arrived with -- the read every walk
- * starts from, written once.
+ * over the catalogue's items starts from, written once.
  *
  * WRITTEN ONCE BECAUSE THE RULES BELOW ARE THE HAZARD, not the query. The
  * tombstone exception and the shape guard are two decisions that must hold for
@@ -1475,56 +1467,53 @@ export interface TheAnchor {
  * paragraph about. What each caller keeps for itself is what to DO with the
  * answer, because that is the part their orders genuinely differ on.
  *
- * IT DOES NOT HONOUR THE TOMBSTONE, and that is the one place in this file
- * where not honouring it is right. ADR-0075's rule is about what a reader is
- * SHOWN, and this row is never shown: it is a position.
+ * IT READS PAST THE TOMBSTONE, and that is the one place in this file where
+ * not honouring it is right. ADR-0075's rule is about what a reader is SHOWN,
+ * and this row is never shown: it is a position.
  *
- * IT ALSO DOES NOT DECIDE WHAT A DELETED ROW MEANS, and an earlier version of
- * this paragraph claimed it did -- that reading a deleted item's key "keeps a
- * link to page two working after the item the link was cut at is gone". It
- * does not: a deleted item has NO key to read (see `TheAnchor`), so what comes
- * back is a row with no place in the catalogue's order at all, and the walk
- * answered it as though it were an untitled one. MEASURED 2026-09-12, five
- * items walked two at a time: page two answered the untitled tail rather than
- * the items after the anchor, and nothing at all where there was no tail --
- * which `/` renders as "The catalogue ends here" (ADR-0119, CNCORE-110).
+ * EXCEPT WHERE THE DELETE TOOK THE POSITION, AND THE ORDER IS WHAT SAYS SO. A
+ * deleted item has no key left (see `TheAnchor`), so in an order on the
+ * projection it has no place; read anyway and answered as an untitled row, it
+ * resumed a kept link from the untitled tail with every titled item between
+ * skipped, and answered NOTHING where there was no tail -- which `/` renders
+ * as "The catalogue ends here" (MEASURED 2026-09-12, ADR-0119, CNCORE-110). An
+ * order on a column a delete does NOT destroy keeps its place. So this read is
+ * handed the order it is finding a place in, and `stillHasAPlaceIn` refuses
+ * the anchor whose key that order says a delete destroyed. Until CNCORE-195 the
+ * row came back with its tombstone and each caller wrote the pair out by hand.
  *
- * SO THE ROW COMES BACK WITH ITS TOMBSTONE AND EACH ORDER DECIDES, which is
- * the split that keeps the exception above worth having. An order this app
- * does not yet have -- on `release_date`, or on when a row was made -- reads a
- * column a delete does NOT destroy, so its anchor still has a place and can
- * still be resumed from. Only the orders built on the projection lose one, and
- * they are the ones that say so: `findInTheOrder` below and `findInTheRanking`
- * one file over.
+ * THE SELECT DOES NOT MOVE WITH THE ORDER, which is what keeps this one read
+ * for the two Listings that share it. The catalogue's place is checked against
+ * its order by the TYPE, and Catalogue search reads a title here its order does
+ * not select, because its leading key is computed in the walk's own statement
+ * (`closenessOfTheAnchor`). Only the refusal is the order's, spliced into this
+ * read's `where` -- so the order is one over `items`, which both callers' are.
  *
  * AN ID THAT NAMES NOTHING NAMES NO POSITION, so the walk starts at the
  * beginning rather than erroring. That is ADR-0066's rule for a query
  * parameter, and the shape guard is the one `findItem` uses for the reason it
  * gives: comparing a non-uuid against a `uuid` column is error 22P02 rather
  * than an empty result.
- *
  */
-export async function findTheAnchor(db: Database, id: string): Promise<TheAnchor | undefined> {
+export async function findTheAnchor(
+  db: Database,
+  order: TheOrder,
+  id: string,
+): Promise<TheAnchor | undefined> {
   if (!canBeAnId(id)) return undefined;
   const [place] = await db
-    .select({
-      sortKey: SORT_KEY,
-      title: items.title,
-      id: items.id,
-      deletedAt: items.deletedAt,
-    })
+    .select({ sortKey: SORT_KEY, title: items.title, id: items.id })
     .from(items)
-    .where(eq(items.id, id));
+    .where(and(eq(items.id, id), stillHasAPlaceIn(order)));
   return place;
 }
 
 /**
  * Where one id sits in THE CATALOGUE'S order, by the id a reader arrived with.
  *
- * THE READ IS `findTheAnchor`'S, AND ONLY THE RULES ARE THIS FUNCTION'S -- the
- * same pairing Catalogue search has one file over, for the same reason: the
- * shape guard and the tombstone exception hold for every cursor in this app,
- * and what to DO with the answer is the part the orders genuinely differ on.
+ * THE READ IS `findTheAnchor`'S, AND SO IS THE REFUSAL: handed this order, it
+ * turns a deleted anchor away on what the order's key says a delete does to
+ * it. What is left here is taking the place off the row.
  *
  * A DELETED ANCHOR HAS LOST ITS PLACE RATHER THAN SITTING AT THE END OF THE
  * ORDER, and the two are one predicate apart. This order is
@@ -1541,16 +1530,8 @@ export async function findTheAnchor(db: Database, id: string): Promise<TheAnchor
  * end of the order as one block, and is resumed from by the id alone.
  */
 async function findInTheOrder(db: Database, id: string): Promise<PlaceInTheOrder | undefined> {
-  const anchor = await findTheAnchor(db, id);
+  const anchor = await findTheAnchor(db, THE_CATALOGUES_ORDER, id);
   if (anchor === undefined) return undefined;
-  // A KEY MISSING BECAUSE THE ROW IS DEAD, which is the pair and not either
-  // half: `deletedAt` alone would refuse an anchor whose key a delete had left
-  // alone, and that is the case the paragraph above keeps this exception for.
-  //
-  // TODO(CNCORE-195): the same split `findInThisItemsOrder` writes, written a
-  // second time. Moving it into the order needs `findTheAnchor` reopened, which
-  // ADR-0119 shares between this Listing and Catalogue search on purpose.
-  if (anchor.sortKey === null && anchor.deletedAt !== null) return undefined;
   return { sortKey: anchor.sortKey, id: anchor.id };
 }
 
@@ -1906,12 +1887,18 @@ async function findInTheContainersOrder(
   // non-uuid against a `uuid` column is error 22P02 rather than an empty result.
   if (!canBeAnId(id)) return undefined;
   // READ BY THE ORDER'S OWN KEYS, so a key it gains is one this read cannot be
-  // left without: the order names them once and this select is one of the three
-  // things that name is read by.
+  // left without -- and refused by them, which here refuses nothing: no key of
+  // this order is one a delete destroys, and that is the paragraph above.
   const [place] = await db
-    .select({ ...THE_CONTAINERS_OWN_ORDER.keys, id: THE_CONTAINERS_OWN_ORDER.id })
+    .select(thePlaceIn(THE_CONTAINERS_OWN_ORDER))
     .from(placements)
-    .where(and(eq(placements.id, id), eq(placements.containerId, containerId)));
+    .where(
+      and(
+        eq(placements.id, id),
+        eq(placements.containerId, containerId),
+        stillHasAPlaceIn(THE_CONTAINERS_OWN_ORDER),
+      ),
+    );
   return place;
 }
 
