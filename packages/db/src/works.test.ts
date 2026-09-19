@@ -1,7 +1,14 @@
 import { eq } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { type Database, items, readCatalogue, readWorks } from "./index";
+import {
+  createGroupByHand,
+  type Database,
+  items,
+  putItemInGroupByHand,
+  readCatalogue,
+  readWorks,
+} from "./index";
 import { anItem, anItemTitled, aPlacement, connect, ownerSource } from "./testing/catalogue";
 
 /** Whether work-browsing lists one particular item. */
@@ -129,5 +136,50 @@ describe("readWorks", () => {
     expect(kept.rows.map((row) => row.id)).toStrictEqual(
       (await readWorks(db, { limit: 10_000 })).rows.map((row) => row.id),
     );
+  });
+});
+
+/**
+ * WORK-BROWSING NARROWED TO ONE GROUP (CNCORE-180, ADR-0010): what can I watch,
+ * asked about one universe rather than about every one at once.
+ *
+ * EVERY GROUP HERE IS DRAWN BY THE TEST THAT READS IT, which is what lets these
+ * assertions be EXACT where the rest of this file has to say "less than". The
+ * catalogue is shared by every file in the suite; a Group nobody else knows the
+ * id of holds what this test put in it and nothing more.
+ *
+ * THE TOMBSTONES AND THE GROUP THAT NAMES NOTHING ARE NOT ASKED AGAIN HERE.
+ * They are the predicate's, and `catalogue.test.ts` asks them of the one
+ * predicate every Listing `and`s on. What is this file's is that work-browsing
+ * `and`s it on too, and keeps its own question while it does.
+ */
+describe("readWorks, narrowed to a Group", () => {
+  it("answers the Works in that Group and hides its entities, at the Group's own size", async () => {
+    // THE SAME GROUP, TWO QUESTIONS, which is ADR-0077 surviving the narrowing.
+    // A Person the Owner put in a scope is in the scope: the Catalogue narrowed
+    // to it lists them, and work-browsing narrowed to it leaves them out
+    // exactly as it does unnarrowed. A narrowing that REPLACED work-browsing's
+    // predicate rather than joining it would list the Person on both.
+    //
+    // AND THE SIZE BESIDE THE ROWS, against a literal: a Group narrowing the
+    // Rows and not the count reports the whole of work-browsing over a page of
+    // one Work.
+    const scope = await createGroupByHand(db, { name: "A scope with a story and its cast" });
+    const story = await anItemTitled(db, "A story inside a narrowed work-browsing");
+    const person = await anItemTitled(db, "A person inside a narrowed work-browsing", {
+      kind: "person",
+    });
+    await anItemTitled(db, "A story outside a narrowed work-browsing");
+    for (const itemId of [story, person]) {
+      await putItemInGroupByHand(db, { groupId: scope, itemId });
+    }
+
+    const works = await readWorks(db, { limit: 1000, group: scope });
+    const catalogue = await readCatalogue(db, { limit: 1000, group: scope });
+
+    expect(works.rows.map((row) => row.id)).toStrictEqual([story]);
+    expect(works.total).toBe(1);
+    expect(catalogue.rows.map((row) => row.id).sort()).toStrictEqual([story, person].sort());
+    expect(catalogue.total).toBe(2);
   });
 });
