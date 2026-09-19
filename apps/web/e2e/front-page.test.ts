@@ -474,6 +474,24 @@ describe("/ on a catalogue larger than one page", () => {
   });
 });
 
+/**
+ * ONE ROW OF A LISTING, BY THE TITLE IT IS LINKED UNDER.
+ *
+ * `toContain` OVER THE WHOLE DOCUMENT WOULD PASS ON ANOTHER ROW'S WORDS, which
+ * is the failure that matters here rather than a tidiness: two Orderings on one
+ * page, and an assertion that only greps the document cannot tell which of them
+ * carried the figure it found. So the row is cut out first and the words are
+ * asserted inside it.
+ */
+function rowFor(text: string, title: string): string {
+  const rows = [...text.matchAll(/<li[^>]*>(.*?)<\/li>/g)].map(([, inner]) => inner as string);
+  const found = rows.filter((row) => row.includes(`>${title}</a>`));
+  if (found.length !== 1) {
+    throw new Error(`the listing held ${found.length} Rows titled ${title}, not one`);
+  }
+  return found[0] as string;
+}
+
 describe("/ on a catalogue nothing is writing to", () => {
   it("says how much the catalogue holds", async () => {
     /*
@@ -515,5 +533,36 @@ describe("/ on a catalogue nothing is writing to", () => {
     expect(text).toContain(
       `<p class="text-muted-foreground text-sm">${everyItem.length} items</p>`,
     );
+  });
+
+  it("says how much each Ordering on it holds, at three and at 2,913", async () => {
+    /*
+     * CNCORE-183. `isContainer` puts the word "Container" on a Row and can say
+     * nothing about how big one is, so an Ordering and a story sat as peers and
+     * a reader could not tell a container from its contents at a glance.
+     *
+     * BOTH SIZES, BECAUSE ONLY THE LARGE ONE CAN FAIL INTERESTINGLY. A page
+     * printing what it had LISTED would be right about the ordering of three
+     * and would say 100 about the other -- the Members listing is capped at a
+     * page (ADR-0119) -- so three alone asserts nothing the cap has not already
+     * broken once. 2,913 is ADR-0137's own figure for the largest Ordering the
+     * wiki holds, which is the size these surfaces are designed against.
+     *
+     * AND THE GROUPED SPELLING IS PART OF THE CLAIM. "2913 members" is correct
+     * and is not what the ticket asked to read; the separator is what makes a
+     * four-figure count scannable, and it is one formatter for every number
+     * this listing prints.
+     *
+     * ON THE INSTANCE NOTHING WRITES TO, for the reason the test above gives:
+     * an Ordering's size is a fact about placements, and every other catalogue
+     * in this suite is being written to by another worker while it is read.
+     */
+    const [three, largest] = inject("stillOrderings");
+    if (!three || !largest) throw new Error("the still instance provided no Orderings");
+
+    const { text } = await documentFrom(inject("stillBaseUrl"), "/");
+
+    expect(rowFor(text, three.title)).toContain("Container, 3 members");
+    expect(rowFor(text, largest.title)).toContain("Container, 2,913 members");
   });
 });

@@ -159,7 +159,7 @@ function asListing({ rows, total, continuesAfter }: Catalogue): CataloguePublic 
  *
  * `asListing` already existed to write this once "so the two cannot come to
  * disagree about what a catalogue row is" (CNCORE-67). Catalogue search is a
- * third reader of the same four facts, so it shares the enumeration rather than
+ * third reader of the same facts, so it shares the enumeration rather than
  * adding a copy that would be correct until somebody changed one of them.
  *
  * ADR-0045: every field is NAMED, never the query's row with fields removed --
@@ -176,5 +176,9 @@ function asRow(row: Catalogue["rows"][number]): CatalogueRowPublic {
     // one, and the key stays below this seam (ADR-0045).
     kind: row.kindLabel,
     isContainer: row.isContainer,
+    // CNCORE-183. The size of this container's own Members listing, read off
+    // the Row's own statement rather than asked for again -- so a Row cannot
+    // report a figure the container's page would contradict.
+    holds: row.holds,
   };
 }

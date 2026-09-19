@@ -1,5 +1,6 @@
 import type { Database } from "@canoncore/db";
-import { anItemTitled, connect } from "@canoncore/db/testing/catalogue";
+import { anItemTitled, aPlacement, connect } from "@canoncore/db/testing/catalogue";
+import type { CatalogueRowPublic } from "@canoncore/schemas";
 import { call } from "@orpc/server";
 import { beforeAll, describe, expect, it } from "vitest";
 
@@ -26,6 +27,29 @@ beforeAll(async () => {
   db = await connect();
 });
 
+/**
+ * ONE ROW OF THE CATALOGUE, WALKED TO RATHER THAN EXPECTED ON THE FIRST PAGE.
+ *
+ * THE POSITION IS NOT THIS TEST'S TO CHOOSE. One suite database is written by
+ * every file in this package at once, so how many Rows sort ahead of a fixture
+ * is a property no test here declares -- and an assertion resting on one goes
+ * red in CI having passed locally, which is CNCORE-173 exactly, one package
+ * over. The cap is 100 and a caller may not raise it (`listingInput`), so the
+ * honest way to reach a Row is the one a reader has: walk (ADR-0119).
+ *
+ * IT STOPS AT THE END OF THE LISTING rather than looping until a timeout says
+ * something vague about it -- `continuesAfter: null` is where the catalogue
+ * ends, and a Row not found by then is not in it.
+ */
+async function rowFor(id: string): Promise<CatalogueRowPublic | undefined> {
+  for (let after: string | undefined; ; ) {
+    const page = await call(appRouter.catalogue.list, { after }, { context });
+    const found = page.rows.find((row) => row.id === id);
+    if (found !== undefined || page.continuesAfter === null) return found;
+    after = page.continuesAfter;
+  }
+}
+
 describe("catalogue.list", () => {
   it("answers with a Person, which is the question work-browsing is not asking", async () => {
     // ADR-0077's two questions, and this is the WIDE one: "what is in this
@@ -44,6 +68,28 @@ describe("catalogue.list", () => {
 
     expect(listed).toContain(story);
     expect(listed).toContain(person);
+  });
+
+  it("says how much an Ordering holds, and a story that it holds nothing", async () => {
+    // CNCORE-183. WHAT A ROW EMITS is asserted over all three Listings in
+    // `listing.test.ts`, and that assertion is an ENUMERATION of keys: a
+    // mapping that named the field and carried a constant into it would pass
+    // there. This is the value, and one procedure is enough for it because
+    // `asRow` is written once for all three -- the same argument that file
+    // makes for keeping the shared facts out of this one.
+    //
+    // THE FIGURE IS THE DB SEAM'S, AND WHAT THIS ADDS IS THAT IT SURVIVES THE
+    // SEAM: `.output(cataloguePublic)` strips a field the schema does not
+    // declare, so a `holds` that reached `asRow` and no further would be
+    // invisible to every reader and to the db suite alike.
+    const held = await anItemTitled(db, "A story an ordering on the front page holds");
+    const ordering = await anItemTitled(db, "An ordering on the front page", {
+      isContainer: true,
+    });
+    await aPlacement(db, { containerId: ordering, itemId: held, position: 1 });
+
+    expect(await rowFor(ordering)).toMatchObject({ holds: 1 });
+    expect(await rowFor(held)).toMatchObject({ holds: 0 });
   });
 });
 

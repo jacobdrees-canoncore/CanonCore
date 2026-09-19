@@ -273,6 +273,29 @@ function queryFor(walking: Walking, at: string | undefined): Record<string, stri
 }
 
 /**
+ * THE ONE SPELLING A COUNT IS PRINTED IN: grouped, so a four-figure one can be
+ * read at a glance rather than counted digit by digit.
+ *
+ * BUILT ONCE RATHER THAN PER RENDER, which is `Moment`'s own reason one file
+ * over: a formatter is expensive to construct and carries no state between
+ * calls, so Intl's guidance is to keep one -- and this page prints one per Row.
+ *
+ * `en-GB` RATHER THAN THE READER'S LOCALE, for the reason that component gives
+ * about the server not being able to know it: these pages are rendered on the
+ * server with no script to correct them afterwards, so the default locale would
+ * be whichever one the machine happens to run under. A grouping the reader did
+ * not choose is a cosmetic difference; one that changes between two instances
+ * of one build is the sort that shows up as a failing assertion nobody can
+ * reproduce.
+ *
+ * EVERY NUMBER THIS FILE PRINTS GOES THROUGH IT. The size of the listing and
+ * the size of a Row's own ordering sit on one screen, and two spellings of a
+ * count there would be the page disagreeing with itself about how it writes a
+ * number -- "Showing 100 of 8052 items" beside "2,913 members".
+ */
+const grouped = new Intl.NumberFormat("en-GB");
+
+/**
  * How much of a listing this page is showing, and how much there is.
  *
  * THE CAP IS NEVER SILENT. A listing capped at a page and reported as the whole
@@ -302,10 +325,31 @@ export function Holding({
   return (
     <p className="text-muted-foreground text-sm">
       {showing < total
-        ? `Showing ${showing} of ${total} ${noun}s`
-        : `${total} ${total === 1 ? noun : `${noun}s`}`}
+        ? `Showing ${grouped.format(showing)} of ${grouped.format(total)} ${noun}s`
+        : `${grouped.format(total)} ${total === 1 ? noun : `${noun}s`}`}
     </p>
   );
+}
+
+/**
+ * WHAT A CONTAINER'S ROW SAYS IT IS, AND HOW MUCH OF IT THERE IS (CNCORE-183).
+ *
+ * ONE PHRASE RATHER THAN A SECOND CHIP BESIDE THE FIRST. The words around a Row
+ * are already two -- "Container" and the kind -- and a third would read as
+ * "Container 2,913 members Work", three greys with nothing saying which two
+ * belong together. The size is a fact ABOUT the container rather than a fact
+ * beside it, so it is in the same sentence.
+ *
+ * THE WORD IS THE READER'S ONE. `CONTEXT.md` settles "Members" as what a reader
+ * is shown from the container's end, where `member` is a name it rejects in
+ * code -- which is why the field this reads is `holds` and the word here is not.
+ *
+ * AND AN EMPTY ORDERING SAYS SO. "Container, 0 members" is a real state and a
+ * useful one: an ordering an import left empty looks exactly like a full one
+ * otherwise, which is the thing a reader opens it to find out.
+ */
+function holding(holds: number): string {
+  return `Container, ${grouped.format(holds)} ${holds === 1 ? "member" : "members"}`;
 }
 
 /**
@@ -342,9 +386,10 @@ export function Listing({ rows }: { rows: Row[] }) {
             {/*
               ADR-0004 folds containers into `work`, so the kind alone cannot
               tell a story from an ordering that holds stories. A reader
-              scanning this list is asking which of the two they are looking at.
+              scanning this list is asking which of the two they are looking at,
+              and since CNCORE-183 the same words answer how much of it there is.
             */}
-            {row.isContainer && <span>Container</span>}
+            {row.isContainer && <span>{holding(row.holds)}</span>}
             <span>{row.kind}</span>
           </span>
         </li>
