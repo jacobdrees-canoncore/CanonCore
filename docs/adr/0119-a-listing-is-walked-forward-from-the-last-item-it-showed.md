@@ -1049,18 +1049,29 @@ there is no smaller page to ask for.
 **THE CURSOR IS THE EXCEPTION AND AN EARLIER DRAFT OF THIS PARAGRAPH GLOSSED IT, claiming all three
 of the rest were equally unaskable.** They are not: `after` and `placedAfter` are plain optional
 strings on `item.get`, so "a cursor naming nothing starts at the beginning" could be put to those
-two here for nothing. They stay out anyway, because a member that can answer one question of five is
-not a member of ONE BLOCK — and the honest price of that is a gap rather than none.
+two here for nothing. They stay out anyway, because a member that can answer one question of six is
+not a member of ONE BLOCK — so `item.test.ts` asks the two of them beside the block rather than in
+it, since CNCORE-198.
 
-**AND THE GAP IS REAL AT BOTH SEAMS, checked rather than assumed.** At the package export a
-Container's members is asked all five (four when this was written; CNCORE-172 added the size past
-its end). **"Also appears in" is asked four**: every `after` it is ever
-handed names a real Placement or one a delete has since taken, so neither a malformed id nor a
-well-formed one nobody minted has ever been put to it. Neither Listing is asked it at the router
-seam either — `item.test.ts` walks both with real cursors and hands neither a bad one. The guard
-looks to be in place — `findInThisItemsOrder` reaches `canBeAnId` like every other anchor read — so
-it is a missing assertion rather than a known defect, which is the shape this whole section is
-about. CNCORE-198 carries both halves.
+**AND THE GAP WAS REAL AT BOTH SEAMS, checked rather than assumed, until CNCORE-198 closed both.**
+At the package export a Container's members is asked all five (four when this was written;
+CNCORE-172 added the size past its end). **"Also appears in" was asked four**: every `after` it had
+ever been handed named a real Placement or one a delete had since taken, so neither a malformed id
+nor a well-formed one nobody minted had been put to it. Neither Listing was asked it at the router
+seam either — `item.test.ts` walked both with real cursors and handed neither a bad one. The guard
+was in place — `findInThisItemsOrder` reaches `canBeAnId` like every other anchor read — so it was
+a missing assertion rather than a defect, which is the shape this whole section is about.
+
+**AND BEHIND IT WAS A THIRD WAY TO NAME NOTHING THAT NOTHING ASKED.** A Container's members is asked
+three: a malformed id, a well-formed one nobody minted, and a Placement that exists but belongs to
+another Container. "Also appears in" has the same third — another Item's Placement — and with
+`findInThisItemsOrder`'s item scope deleted, all 410 tests in `packages/db` passed. Unscoped, the
+anchor is read from someone else's listing and resuming past it cuts this one at a point its reader
+never saw. **"Also appears in" is asked all five now, and the three ways of naming nothing with
+them**, each mutation-checked and each failing the new test alone: the shape guard removed fails it
+with 22P02, and the anchor read unscoped fails it with an empty page. At the router seam, either
+cursor declared `z.uuid()` fails it with an input validation error `item.get` does not declare,
+which is the 500 [[0066-path-is-identity-query-is-the-route]] records, reached by a cursor.
 
 **AND A CONTRACT TEST IS ONLY AS GOOD AS THE SHAPES ITS LISTING HOLDS — found by running one
 mutation twice and getting two answers.** The first version of the walk seeded a run of five
