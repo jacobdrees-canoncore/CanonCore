@@ -179,6 +179,11 @@ export async function putItemInGroupByHand(
     // a `GroupRefused` and passes through untouched; this is the RACE the check
     // cannot close -- a Group deleted between the check and the insert -- which
     // the foreign key does catch, and which is the same refusal either way.
+    //
+    // TODO(CNCORE-230): IT DOES NOT CATCH IT. Deleting a Group tombstones it, so
+    // the foreign key accepts the insert and the race leaves a live membership
+    // under a dead Group, which `inTheGroup` reads without joining `groups`.
+    // `findProvidersAGroupAsks` closes the same race for its own table.
     if (cause instanceof GroupRefused) throw cause;
     if (isRefusalOn(REFUSALS, cause)) {
       throw new GroupRefused("the catalogue refused that Item in that Group", { cause });
@@ -312,35 +317,34 @@ export async function deleteGroupByHand(db: Database, id: string): Promise<boole
  *
  * AND ONLY A LIVE GROUP, which the foreign key cannot say for the reason that
  * function gives: a tombstone is not a DELETE, so the row would be written and
- * then hidden, and the Owner told it worked while nothing changed.
+ * then hidden, and the Owner told it worked while nothing changed. A Group that
+ * was never drawn fails the same check, so the foreign key's `23503` is not
+ * caught here: nothing hard-deletes a Group, and a refusal only a hard delete
+ * could raise would be a branch nothing reaches.
+ *
+ * THE CHECK DOES NOT CLOSE THE RACE, and nothing here pretends it does. A
+ * deletion landing between the check and the insert leaves a live row under a
+ * tombstoned Group; `findProvidersAGroupAsks` reads through `groups` for exactly
+ * that reason, so the row asks nobody.
  */
 export async function askProviderByHand(
   writer: Writer,
   { groupId, providerIdentity }: { groupId: string; providerIdentity: string },
 ): Promise<string> {
-  try {
-    if (!(await isLive(writer, groups, groupId))) {
-      throw new GroupRefused("the catalogue holds no such live Group");
-    }
-
-    const [written] = await writer
-      .insert(groupProviders)
-      .values({ ownerId: await theOwnerId(writer), groupId, providerIdentity })
-      .onConflictDoUpdate({
-        target: [groupProviders.ownerId, groupProviders.groupId, groupProviders.providerIdentity],
-        set: { deletedAt: null },
-      })
-      .returning({ id: groupProviders.id });
-    if (!written) throw new Error("insert returned no row in group_providers");
-    return written.id;
-  } catch (cause) {
-    // The race the liveness check cannot close, narrowed as `putItemInGroupByHand` narrows it.
-    if (cause instanceof GroupRefused) throw cause;
-    if (isRefusalOn(REFUSALS, cause)) {
-      throw new GroupRefused("the catalogue refused that Provider for that Group", { cause });
-    }
-    throw cause;
+  if (!(await isLive(writer, groups, groupId))) {
+    throw new GroupRefused("the catalogue holds no such live Group");
   }
+
+  const [written] = await writer
+    .insert(groupProviders)
+    .values({ ownerId: await theOwnerId(writer), groupId, providerIdentity })
+    .onConflictDoUpdate({
+      target: [groupProviders.ownerId, groupProviders.groupId, groupProviders.providerIdentity],
+      set: { deletedAt: null },
+    })
+    .returning({ id: groupProviders.id });
+  if (!written) throw new Error("insert returned no row in group_providers");
+  return written.id;
 }
 
 /**
@@ -382,12 +386,15 @@ export async function stopAskingProviderByHand(
  * by it. Every configured Provider would be the other reading, and it would
  * make a new Group a scope that asks TMDB until the Owner thought to say not to.
  *
- * AND NONE FOR A GROUP THAT IS NOT THERE, without joining `groups`, because
- * `deleteGroupByHand` tombstones these rows with the Group in one transaction --
- * the reading `inTheGroup` already makes of `group_items`. That includes a
- * string that is no id at all, behind `inTheGroup`'s own shape guard: a typo in
- * a shared link reaching a `uuid` column is error 22P02, which would read as
- * this server breaking rather than as a scope nobody drew (ADR-0066).
+ * AND NONE FOR A GROUP THAT IS NOT THERE, READ THROUGH `groups` RATHER THAN
+ * TRUSTED TO THIS TABLE. `deleteGroupByHand` tombstones these rows with the
+ * Group, but an ask racing that deletion can land a live row after it (review
+ * found it: a tombstone is not a DELETE, so no foreign key refuses the insert).
+ * Joining the Group's own tombstone makes that row ask nobody however the race
+ * falls. That includes a string that is no id at all, behind `inTheGroup`'s own
+ * shape guard: a typo in a shared link reaching a `uuid` column is error 22P02,
+ * which would read as this server breaking rather than as a scope nobody drew
+ * (ADR-0066).
  *
  * BY URL, WHICH IS A TOTAL ORDER AND NOT A RANKING. Nothing here ranks a
  * Provider (ADR-0025); a caller that fans out keeps its own order, which is the
@@ -398,7 +405,14 @@ export async function findProvidersAGroupAsks(db: Database, groupId: string): Pr
   const asked = await db
     .select({ providerIdentity: groupProviders.providerIdentity })
     .from(groupProviders)
-    .where(and(eq(groupProviders.groupId, groupId), isNull(groupProviders.deletedAt)))
+    .innerJoin(groups, eq(groups.id, groupProviders.groupId))
+    .where(
+      and(
+        eq(groupProviders.groupId, groupId),
+        isNull(groupProviders.deletedAt),
+        isNull(groups.deletedAt),
+      ),
+    )
     .orderBy(groupProviders.providerIdentity);
   return asked.map(({ providerIdentity }) => providerIdentity);
 }

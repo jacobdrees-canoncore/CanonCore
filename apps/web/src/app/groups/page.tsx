@@ -27,12 +27,12 @@ async function readGroups(context: Context) {
 type GroupOnThePage = Awaited<ReturnType<typeof readGroups>>[number];
 
 /**
- * WHAT THE OWNER IS SHOWN ABOUT WHO EACH SCOPE ASKS (CNCORE-182): the Providers
- * this instance searches, and which of them each Group asks.
+ * WHO EACH SCOPE ASKS (CNCORE-182): the Providers this instance searches, and
+ * which of them each Group asks.
  *
- * THE OWNER'S ALONE, because `group.asks` is: which Providers a scope asks is
- * this instance's configuration, handed over as URLs the Owner typed. A visitor
- * is served the scopes and nothing about where they are searched.
+ * READ FOR ANY READER, as `group.asks` is: searching within a scope is open and
+ * names the Providers it asked, so leaving them off this page would hide
+ * nothing. What a visitor is not served is the buttons.
  *
  * ONE READ PER GROUP, which is a count of scopes drawn by hand rather than of
  * anything the corpus grows (`findGroups` gives the reason it is uncapped).
@@ -73,7 +73,7 @@ export default async function GroupsPage() {
   const context = await callerContext();
   const owner = context.session !== null;
   const groups = await readGroups(context);
-  const asking = owner ? await readAsking(context, groups) : undefined;
+  const asking = await readAsking(context, groups);
 
   return (
     <main className="container mx-auto max-w-2xl px-4 py-8">
@@ -118,7 +118,7 @@ export default async function GroupsPage() {
         ) : (
           <ul className="mt-4 flex flex-col divide-y">
             {groups.map((group) => (
-              <Group asking={asking} group={group} key={group.id} />
+              <Group asking={asking} group={group} key={group.id} owner={owner} />
             ))}
           </ul>
         )}
@@ -173,8 +173,15 @@ function DrawAGroup() {
  * lets a reader -- and a test -- address one scope's controls rather than the
  * first ones on the page.
  */
-function Group({ asking, group }: { asking?: Asking; group: GroupOnThePage }) {
-  const owner = asking !== undefined;
+function Group({
+  asking,
+  group,
+  owner,
+}: {
+  asking: Asking;
+  group: GroupOnThePage;
+  owner: boolean;
+}) {
   return (
     <li className="py-3">
       {/*
@@ -236,13 +243,12 @@ function Group({ asking, group }: { asking?: Asking; group: GroupOnThePage }) {
           </section>
         </div>
       )}
-      {asking !== undefined && (
-        <Asks
-          asked={asking.asked.get(group.id) ?? []}
-          configured={asking.configured}
-          group={group}
-        />
-      )}
+      <Asks
+        asked={asking.asked.get(group.id) ?? []}
+        configured={asking.configured}
+        group={group}
+        owner={owner}
+      />
     </li>
   );
 }
@@ -264,8 +270,9 @@ function Group({ asking, group }: { asking?: Asking; group: GroupOnThePage }) {
  * source order is one for the whole instance (ADR-0025), so a Group chooses
  * who is asked and never how they rank.
  *
- * NAMED BY URL, which is a deployment detail shown to the one person entitled
- * to it -- `BrowseBox` on `/import` gives the reason. Each Provider is a section
+ * NAMED BY URL, which `BrowseBox` on `/import` already does for any reader, and
+ * with the buttons for the Owner alone -- that page's arrangement: a visitor is
+ * shown the whole surface and none of its controls. Each Provider is a section
  * labelled by the scope and the URL together, because a page holds one per pair
  * and the label is what lets a reader, and a test, address one pair's control.
  */
@@ -273,10 +280,12 @@ function Asks({
   asked,
   configured,
   group,
+  owner,
 }: {
   asked: readonly string[];
   configured: readonly string[];
   group: GroupOnThePage;
+  owner: boolean;
 }) {
   return (
     <section aria-labelledby={`asks-${group.id}`} className="mt-3">
@@ -285,11 +294,17 @@ function Asks({
       </h4>
       {configured.length === 0 ? (
         <p className="mt-1 text-muted-foreground text-sm">
-          This instance searches no Provider yet. Name one in{" "}
-          <Link className="underline" href="/settings">
-            Settings
-          </Link>
-          , then choose here which Groups ask it.
+          This instance searches no Provider yet.
+          {owner && (
+            <>
+              {" "}
+              Name one in{" "}
+              <Link className="underline" href="/settings">
+                Settings
+              </Link>
+              , then choose here which Groups ask it.
+            </>
+          )}
         </p>
       ) : (
         <ul className="mt-1 flex flex-col gap-1">
@@ -303,13 +318,15 @@ function Asks({
                     {baseUrl}
                   </h5>
                   <span className="text-muted-foreground">{asks ? "Asked" : "Not asked"}</span>
-                  <form action={asks ? stopAskingProvider : askProvider}>
-                    <input name="id" type="hidden" value={group.id} />
-                    <input name="baseUrl" type="hidden" value={baseUrl} />
-                    <Button size="sm" type="submit" variant="outline">
-                      {asks ? "Stop asking" : "Ask"}
-                    </Button>
-                  </form>
+                  {owner && (
+                    <form action={asks ? stopAskingProvider : askProvider}>
+                      <input name="id" type="hidden" value={group.id} />
+                      <input name="baseUrl" type="hidden" value={baseUrl} />
+                      <Button size="sm" type="submit" variant="outline">
+                        {asks ? "Stop asking" : "Ask"}
+                      </Button>
+                    </form>
+                  )}
                 </section>
               </li>
             );

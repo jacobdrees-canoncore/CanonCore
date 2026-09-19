@@ -1159,6 +1159,12 @@ describe("provider.search within a Group", () => {
     // a Provider's standing changes with the scope it is asked from.
     const wikiAsked: string[] = [];
     const wiki = await stubProvider(undefined, { asked: wikiAsked });
+    // AND ONE THE GROUP NEVER ASKS, still configured, so the narrowing itself is
+    // under test here and not only the filter: a search that forgot the Group
+    // would ask it, where this one must not. Review found the test passing
+    // with the narrowing deleted, because settings alone left the wiki out.
+    const unaskedAsked: string[] = [];
+    const unasked = await stubProvider(undefined, { asked: unaskedAsked });
     const [first, second] = [await stubProvider(), await stubProvider()].sort().reverse();
     if (first === undefined || second === undefined) throw new Error("two stubs, two URLs");
     const everything = {
@@ -1179,11 +1185,17 @@ describe("provider.search within a Group", () => {
     const { answered } = await call(
       appRouter.provider.search,
       { query: "tenth planet", group },
-      { context: { ...context, providerSettings: reaching({ providers: [first, second] }) } },
+      {
+        context: {
+          ...context,
+          providerSettings: reaching({ providers: [first, unasked, second] }),
+        },
+      },
     );
 
     expect(answered.map(({ provider: p }) => p.baseUrl)).toStrictEqual([first, second]);
     expect(wikiAsked).toStrictEqual([]);
+    expect(unaskedAsked).toStrictEqual([]);
   });
 
   it("stops asking a Provider the Owner told the Group to stop asking", async () => {
@@ -1282,10 +1294,12 @@ describe("the source order within a Group", () => {
   }
 
   it("reads a Provider's claim in a Group that never asks that Provider", async () => {
-    // THE ACCEPTED COST, AT ITS SHARPEST. The wiki was asked on behalf of one
-    // scope, and what it said is the catalogue's now: the scope that asks
-    // nobody reads the same title, because a Group filters who is asked and
-    // not what the catalogue holds.
+    // THE ACCEPTED COST, AT ITS SHARPEST. The wiki's claim came in by import,
+    // which names one Provider and no Group, and it is the catalogue's now: the
+    // scope that asks nobody reads the same title as the scope that asks the
+    // wiki, because a Group filters who is asked and not what the catalogue
+    // holds. Nothing this ticket built makes this pass; it guards against a
+    // per-Group reading of claims arriving later.
     const { itemId, scopes } = await inTwoScopes();
 
     expect(await titledWithin(scopes, itemId)).toStrictEqual([

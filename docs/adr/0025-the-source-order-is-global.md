@@ -17,23 +17,23 @@ disagree has two answers for one field, on one page, reached by one URL.
 Accepted cost, stated plainly: two providers cannot be ranked differently in two groups that both
 ask both.
 
-## As built, under CNCORE-4 — and this record stays PROPOSED
+## As built, under CNCORE-4 — and this record stayed PROPOSED until CNCORE-182
 
 **BUILT: the global order.** `sources.source_order` is unique per owner, so
 there is exactly one ranking for the instance and it cannot be expressed twice.
 The owner is seeded into it at 0.
 
-**NOT BUILT: the group half** (until CNCORE-182, at the end of this record). "A
-group picks providers but never re-ranks them" needs groups, and groups are not a
-table yet. The accepted cost this record
-states -- two providers cannot be ranked differently in two groups that both ask
-both -- is not yet payable, because groups do not exist.
+**NOT BUILT UNDER CNCORE-4: the group half**, which landed under CNCORE-182 (the
+last section of this record). "A group picks providers but never re-ranks them"
+needed groups, and groups were not a table until CNCORE-178. Until then the
+accepted cost this record states -- two providers cannot be ranked differently in
+two groups that both ask both -- was not payable, because groups did not exist.
 
 (An earlier version of that sentence said "neither groups nor providers exist".
 Providers do: a provider takes a `sources` row on its first import, and takes
 the next place in this order rather than competing for one -- CNCORE-6 for
-`lookup`, CNCORE-7 for `browse`. Groups are the half that is still missing, and
-one of the two is enough to make the cost unpayable.)
+`lookup`, CNCORE-7 for `browse`. Groups were the half still missing then, and
+one of the two was enough to make the cost unpayable.)
 
 ## A second site applies this order, under CNCORE-5
 
@@ -64,9 +64,9 @@ item outranks the provider with no rank set and no favourite chosen, because 0
 comes first -- and the provider's claim STILL STANDS beside it, since a source may
 only withdraw what it said itself. That pair is asserted at all three seams.
 
-**THIS RECORD STAYS `proposed` FOR THE REASON IT ALREADY GAVE.** The group half is
-still missing, groups are still not a table, and CNCORE-71 adds neither. (Groups
-became a table under CNCORE-178 and the half landed under CNCORE-182, below.)
+**THIS RECORD STAYED `proposed` FOR THE REASON IT ALREADY GAVE.** The group half
+was still missing when CNCORE-71 landed, and CNCORE-71 added no groups. They
+became a table under CNCORE-178 and the half landed under CNCORE-182, below.
 
 ## The group half, under CNCORE-182 -- and this record is ACCEPTED
 
@@ -102,13 +102,20 @@ providers it asks is a question this record leaves to whatever builds it.
 
 ### The accepted cost, stated plainly rather than left implicit
 
-This record's third paragraph states the cost, and building the half showed it is two costs, not one.
-Both are asserted in `packages/api/src/routers/provider.test.ts`, under "the source order within a
-Group", where the Catalogue is narrowed to each group in turn:
+The opening decision states the cost as "two providers cannot be ranked differently in two groups
+that both ask both", and building the half showed it is two costs, not one. The tests that hold them
+are in `packages/api/src/routers/provider.test.ts`, under "the source order within a Group", where
+the Catalogue is narrowed to each group in turn:
 
 1. **Two providers cannot be ranked differently in two groups that both ask both.** There is no field
    in which to say so. An Owner who wants the wiki first for Doctor Who and TMDB first for Marvel,
-   with both groups asking both, cannot have it.
+   with both groups asking both, cannot have it. **This one holds by construction and no test
+   asserts it**, because nothing in the product can yet put two providers' claims on one field of one
+   Item: an import finds or creates the Item by that provider's own id, and matching one provider's
+   record to another's Item is ADR-0026's operation, which is not built. What IS asserted is the
+   nearest two-source case the catalogue can make, the Owner at 0 above a provider, reading the same
+   in a group that asks the provider and one that asks nobody. When matching lands, the two-provider
+   case is the test to add.
 2. **A group filters who is ASKED, not what is READ.** A provider's claim about an Item, once in the
    catalogue, speaks for that Item in every group it sits in, ranked by this one order, including a
    group that never asks that provider. The crossover is exactly where this bites: an Item in a group

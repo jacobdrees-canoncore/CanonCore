@@ -349,13 +349,9 @@ describe("who may ask", () => {
           { context },
         ),
       ),
-      // AND THE ONE READ THAT IS THE OWNER'S: which Providers a scope asks is
-      // this instance's configuration rather than the catalogue (CNCORE-182).
-      safe(call(appRouter.group.asks, { id: group.id }, { context })),
     ]);
 
     expect(refusals.map(({ error }) => (error as { code?: string })?.code)).toStrictEqual([
-      "UNAUTHORIZED",
       "UNAUTHORIZED",
       "UNAUTHORIZED",
       "UNAUTHORIZED",
@@ -367,6 +363,14 @@ describe("who may ask", () => {
     const { groups } = await call(appRouter.group.list, {}, { context });
     expect(groups).toStrictEqual(
       expect.arrayContaining([{ id: group.id, name: "ddd Visible to a visitor" }]),
+    );
+    // AND WHICH PROVIDERS A SCOPE ASKS IS OPEN TOO (CNCORE-182). Searching
+    // within the scope is open and names every Provider it asked, so a guard
+    // here would hide nothing a visitor cannot already read -- review found the
+    // two disagreeing.
+    const visiting = { ...context, providerSettings: naming("http://wiki.test").providerSettings };
+    expect(await call(appRouter.group.asks, { id: group.id }, { context: visiting })).toStrictEqual(
+      { providers: [] },
     );
   });
 });

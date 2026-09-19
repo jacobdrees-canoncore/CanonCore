@@ -248,9 +248,20 @@ function asking(groupId: string, providerUrl: string): string {
   return `ask-${groupId}-${providerUrl}`;
 }
 
-/** Tells a scope to ask a Provider, or to stop, through the button `/groups` renders for the pair. */
-async function toggleAsking(groupId: string, providerUrl: string): Promise<string> {
+/**
+ * Makes a scope ask a Provider, or not, through the button `/groups` renders
+ * for the pair -- and answers the page as it then stands.
+ *
+ * TO A STATE RATHER THAN A TOGGLE, and it presses the button only when the
+ * page shows the other state. A toggle made each test depend on what its
+ * neighbours had pressed on a shared scope, which review caught: one test
+ * silently turned off the wiki the next one relied on. This keeps the promise
+ * `aScopeCalled` makes, that each test sets up what it needs.
+ */
+async function setAsking(groupId: string, providerUrl: string, asked: boolean): Promise<string> {
   const page = await pageText("/groups");
+  const asksNow = textOf(sectionIn(page, asking(groupId, providerUrl))).includes("Stop asking");
+  if (asksNow === asked) return page;
   return (await submit(baseUrl, "/groups", formIn(page, asking(groupId, providerUrl)), owner)).text;
 }
 
@@ -263,13 +274,13 @@ describe("which Providers a scope asks", () => {
   it("asks a Provider for a scope from `/groups`, and stops when told", async () => {
     const id = await aScopeCalled("eee Asks, then stops");
 
-    const asked = await toggleAsking(id, providers.wiki.url);
+    const asked = await setAsking(id, providers.wiki.url, true);
     expect(textOf(sectionIn(asked, asking(id, providers.wiki.url)))).toContain("Stop asking");
     expect(textOf(sectionIn(asked, asking(id, providers.database.url)))).not.toContain(
       "Stop asking",
     );
 
-    const stopped = await toggleAsking(id, providers.wiki.url);
+    const stopped = await setAsking(id, providers.wiki.url, false);
     expect(textOf(sectionIn(stopped, asking(id, providers.wiki.url)))).not.toContain("Stop asking");
   });
 
@@ -278,7 +289,7 @@ describe("which Providers a scope asks", () => {
     // both Providers answer; within the scope, only the one it asks does -- and
     // the scope is PICKED on `/import`, off the same picker the Listings carry.
     const id = await aScopeCalled("fff Asks the wiki alone");
-    await toggleAsking(id, providers.wiki.url);
+    await setAsking(id, providers.wiki.url, true);
     const everything = await searchedFromImport();
     expect(everything).toContain(providers.wiki.name);
     expect(everything).toContain(providers.database.name);
@@ -294,10 +305,10 @@ describe("which Providers a scope asks", () => {
     // search from it that asked every Provider would contradict the page it
     // was typed on. What it submits is read off the form the page renders --
     // query first, then the scope, which is the picker's own spelling.
-    const id = await aScopeCalled("fff Asks the wiki alone");
-    await toggleAsking(id, providers.wiki.url);
+    const id = await aScopeCalled("fff Searched twice within");
+    await setAsking(id, providers.wiki.url, true);
     const within = await pageText(
-      scopeLinked(await searchedFromImport(), "fff Asks the wiki alone"),
+      scopeLinked(await searchedFromImport(), "fff Searched twice within"),
     );
 
     // BY ITS ACTION, because the shell's header carries Catalogue search's box
@@ -335,6 +346,19 @@ describe("what a visitor is served", () => {
 
     expect(scopesIn(sectionIn(page.text, "groups"))).toContain("ddd Visible to a visitor");
     expect(() => formIn(page.text, "draw-a-group")).toThrow();
+  });
+
+  it("shows a visitor which Providers a scope asks, and offers no button to change it", async () => {
+    // READ LIKE THE LIST IT SITS IN (CNCORE-182): searching within a scope is
+    // open and names the Providers it asked, so the page hides nothing by
+    // leaving them off -- it would only make a visitor search to find out.
+    const id = await aScopeCalled("ddd Asks for a visitor to see");
+    await setAsking(id, providers.wiki.url, true);
+
+    const page = await documentAt("/groups");
+
+    expect(textOf(sectionIn(page.text, asking(id, providers.wiki.url)))).toContain("Asked");
+    expect(() => formIn(page.text, asking(id, providers.wiki.url))).toThrow();
   });
 
   it("offers a visitor no way to change what scopes an Item is in", async () => {

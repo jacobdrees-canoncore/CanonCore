@@ -64,9 +64,8 @@ export async function theProvidersAsked(context: Context, group: string): Promis
  *
  * READING IS OPEN AND WRITING IS THE OWNER'S (ADR-0044, ADR-0072, CNCORE-109).
  * Which scopes exist is part of the catalogue, so a visitor to the demo sees
- * them and the buttons are what refuse them. The one read that is the Owner's
- * is `asks`, since which Providers a scope asks is this instance's
- * configuration rather than the catalogue (CNCORE-182).
+ * them and the buttons are what refuse them -- and which Providers each scope
+ * asks is read the same way (CNCORE-182).
  */
 export const group = {
   /**
@@ -184,12 +183,13 @@ export const group = {
    * WHICH PROVIDERS THIS SCOPE ASKS, as `/groups` shows them beside the ones
    * it does not (CNCORE-182).
    *
-   * THE OWNER'S, AND THAT IS THE DIFFERENCE FROM `list`. Which scopes exist is
-   * part of the catalogue; which Providers each asks is this instance's
-   * configuration, handed over as the URLs the Owner typed -- the reading
-   * `settings.read` takes of the same URLs.
+   * OPEN, LIKE `list`, and the reason is what a guard would buy: nothing.
+   * `provider.search` within a scope is open and names every Provider it asked,
+   * and `provider.configured` names them all. A draft made this the Owner's as
+   * "configuration", which review found hid nothing a visitor could not read
+   * off a search.
    */
-  asks: ownerProcedure
+  asks: openProcedure
     .input(z.object({ id: z.uuid() }))
     .output(z.object({ providers: z.array(z.string().min(1)) }))
     .handler(async ({ input, context }) => ({

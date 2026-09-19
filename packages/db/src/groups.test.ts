@@ -12,6 +12,7 @@ import {
   findProvidersAGroupAsks,
   GroupRefused,
   groupItems,
+  groups,
   items,
   putItemInGroupByHand,
   renameGroupByHand,
@@ -326,6 +327,19 @@ describe("a Group the Owner deleted asks nobody", () => {
     await askProviderByHand(db, { groupId: group, providerIdentity: "http://wiki.test:8080" });
 
     await deleteGroupByHand(db, group);
+
+    expect(await findProvidersAGroupAsks(db, group)).toStrictEqual([]);
+  });
+
+  it("asks nobody even where a Provider row outlived the Group, which is what a race leaves", async () => {
+    // THE STATE A DELETION RACING AN ASK LEAVES BEHIND: the ask read the Group
+    // live, the deletion tombstoned it and its rows, and the ask's insert landed
+    // after. A tombstone is not a DELETE, so no foreign key refuses that insert.
+    // Built here by tombstoning the Group alone, because the interleaving itself
+    // cannot be scheduled from a test.
+    const group = await createGroupByHand(db, { name: "A scope deleted mid-ask" });
+    await askProviderByHand(db, { groupId: group, providerIdentity: "http://wiki.test:8080" });
+    await db.update(groups).set({ deletedAt: sql`now()` }).where(eq(groups.id, group));
 
     expect(await findProvidersAGroupAsks(db, group)).toStrictEqual([]);
   });

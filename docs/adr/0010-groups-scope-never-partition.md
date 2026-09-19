@@ -82,7 +82,8 @@ rather than all of them, and since CNCORE-182 about two:
   addition at a time, and a list edited down to what exists would stop refusing the sixth thing.
 
 **So the negative half of this record is the half that is now testable, and the positive half was
-still a promise** when this was written; CNCORE-179 and CNCORE-180 keep the first two of its five. `group_items` carries no medium, no field set, no vocabulary and no source order,
+still a promise** when this was written; CNCORE-179 and CNCORE-180 keep the first two of its five,
+and CNCORE-182 the third. `group_items` carries no medium, no field set, no vocabulary and no source order,
 and `groupPublic` emits an id and a name — which is the shape refusing to accumulate rather than a
 payload waiting to be filled in.
 
@@ -116,9 +117,13 @@ so inherits the cap, the walk and both positions of the size.
 between a scope and a partition read from the other side. An Item deleted from the catalogue stays
 gone from a group it still sits in — deleting an Item names no group, so its membership is live and
 only the catalogue's rule keeps it out. And it reads the MEMBERSHIP's tombstone without joining
-`groups`, which is safe because `deleteGroupByHand` tombstones both in one transaction and
-`putItemInGroupByHand` refuses a group that has gone; CNCORE-178's test of the deletion said this
-read was coming and asserts the half it depends on.
+`groups`, which is safe against every write but one: `deleteGroupByHand` tombstones both in one
+transaction and `putItemInGroupByHand` refuses a group that has gone, but a put that checked the
+group live before a deletion landed inserts after it, and no foreign key refuses a row whose group
+is only tombstoned. Review of CNCORE-182 found that race, which leaves a live membership under a
+dead group; CNCORE-230 is the fix, and CNCORE-182's own table reads through `groups` for that
+reason. CNCORE-178's test of the deletion said this read was coming and asserts the half it depends
+on.
 
 **A GROUP THAT NAMES NOTHING NARROWS TO NOTHING**, which is [[0066-path-is-identity-query-is-the-route]]'s
 rule for a parameter that is not an identity: whether it names anything is what the answer says. A
@@ -240,6 +245,6 @@ ran.
 
 **WHY THIS RECORD STAYS `proposed`.** Three of its five scoped things are built: browsing, search
 and which providers are asked. The other two, scanner roots and the review queue, do not exist as
-constructs, for the reason the list near the top gives, so there is nothing to scope and the record
-cannot say its mechanism is whole.
+constructs, for the reason the CNCORE-178 section's bullet on them gives, so there is nothing to
+scope and the record cannot say its mechanism is whole.
 

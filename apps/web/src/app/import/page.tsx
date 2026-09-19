@@ -329,6 +329,15 @@ export default async function ImportPage({
   // query there is no list of Groups to find this one in, and every Group would
   // read as gone.
   const scope = theScope(groups ?? [], query === undefined ? undefined : narrowedTo);
+  // NOBODY WAS ASKED: narrowed to a Group that is there, and no Provider in
+  // either list. Every Provider asked is in `answered` or in `failed`, so both
+  // empty is nobody asked rather than nothing found -- and ONE value decides
+  // which of the two notices below renders, so they cannot both, or neither.
+  const asksNobody =
+    scope.group !== undefined &&
+    found !== undefined &&
+    found.answered.length === 0 &&
+    found.failed.length === 0;
 
   return (
     <main className="container mx-auto max-w-3xl px-4 py-8">
@@ -383,23 +392,16 @@ export default async function ImportPage({
         />
       )}
       {query !== undefined && scope.gone && <NoSuchGroup asked={{ q: query }} path="/import" />}
-      {found !== undefined &&
-        query !== undefined &&
-        scope.group !== undefined &&
-        found.answered.length === 0 &&
-        found.failed.length === 0 && (
-          <AsksNoProvider
-            everything={theStartOf({ path: "/import", asked: { q: query } })}
-            group={scope.group.name}
-            owner={owner}
-          />
-        )}
-      {found !== undefined &&
-        query !== undefined &&
-        !scope.gone &&
-        (found.answered.length > 0 || found.failed.length > 0 || scope.group === undefined) && (
-          <Results aPasswordIsSet={aPasswordIsSet} found={found} owner={owner} query={query} />
-        )}
+      {query !== undefined && asksNobody && scope.group !== undefined && (
+        <AsksNoProvider
+          everything={theStartOf({ path: "/import", asked: { q: query } })}
+          group={scope.group.name}
+          owner={owner}
+        />
+      )}
+      {found !== undefined && query !== undefined && !scope.gone && !asksNobody && (
+        <Results aPasswordIsSet={aPasswordIsSet} found={found} owner={owner} query={query} />
+      )}
       <BrowseBox configured={configured.providers} container={container} provider={provider} />
       {container !== undefined &&
         (namedContainer === undefined ? (
