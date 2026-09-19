@@ -5,6 +5,7 @@ import {
   documentFrom,
   followed,
   itemsListedOn,
+  mainOf,
   markedCurrentIn,
   scopeLinked,
   sectionIn,
@@ -83,10 +84,19 @@ describe("/search", () => {
     // and a page printing the column is showing a reader the schema. The pair
     // is the point -- `Work` is a capital away from `work` and could not tell
     // a read of the label from a read of the key.
+    //
+    // READ OFF WHAT A READER IS SHOWN rather than off the document, since
+    // CNCORE-175. The kind picker narrows this Listing by the key -- a kind is
+    // a row in `item_kinds` and an address names it the way `?group=` names a
+    // Group by its id -- so `time_span` is now legitimately in an `href` and
+    // must still be nowhere a reader can read it. `textOf` drops every tag and
+    // with it every attribute, which is exactly that distinction; asserting
+    // over the whole document would forbid the address as well as the copy.
     const { text } = await documentAt(`/search?q=${encodeURIComponent("Hartnell")}`);
+    const shown = textOf(mainOf(text));
 
-    expect(text).toContain("Time span");
-    expect(text).not.toContain(timeSpan.kind);
+    expect(shown).toContain("Time span");
+    expect(shown).not.toContain(timeSpan.kind);
   });
 
   it("treats a per cent sign as text rather than as a wildcard", async () => {

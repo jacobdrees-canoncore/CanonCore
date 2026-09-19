@@ -8,12 +8,20 @@ import {
   JumpToALetter,
   Listing,
   NarrowToAGroup,
+  NarrowToAKind,
   NoSuchGroup,
+  OrderTheListing,
   PastTheEnd,
   theScope,
   Walk,
 } from "@/components/listing";
-import { oneGroup, type WhereThePageStarts, whereThePageStarts } from "@/components/query-params";
+import {
+  oneGroup,
+  oneKind,
+  oneOrder,
+  type WhereThePageStarts,
+  whereThePageStarts,
+} from "@/components/query-params";
 import { TheirWords } from "@/components/their-words";
 
 /**
@@ -34,7 +42,11 @@ import { TheirWords } from "@/components/their-words";
  * A server component fetching its own API is a round trip to itself, and oRPC
  * documents `call` as the way to avoid it.
  */
-async function readWorkBrowsing(at: WhereThePageStarts, group: string | undefined) {
+async function readWorkBrowsing(
+  at: WhereThePageStarts,
+  group: string | undefined,
+  chosen: { order?: "added"; kind?: string },
+) {
   /*
    * PRERENDERING STOPS HERE (ADR-0117), and the line is the rule rather than
    * the effect.
@@ -60,11 +72,13 @@ async function readWorkBrowsing(at: WhereThePageStarts, group: string | undefine
   // AND EVERY GROUP THERE IS, which the picker offers and the Group this page
   // was narrowed to is found among -- the front page's pair, for its reason
   // (CNCORE-180).
-  const [works, { groups }] = await Promise.all([
-    call(appRouter.catalogue.works, { ...at, group }, { context }),
+  const [works, { kinds }, { groups }] = await Promise.all([
+    call(appRouter.catalogue.works, { ...at, group, ...chosen }, { context }),
+    // EVERY KIND THERE IS, which the narrowing picker offers (CNCORE-175).
+    call(appRouter.item.kinds, undefined, { context }),
     call(appRouter.group.list, undefined, { context }),
   ]);
-  return { works, groups };
+  return { works, kinds, groups };
 }
 
 export default async function WorksPage({
@@ -75,6 +89,8 @@ export default async function WorksPage({
     before?: string | string[];
     letter?: string | string[];
     group?: string | string[];
+    kind?: string | string[];
+    order?: string | string[];
   }>;
 }) {
   // WHERE THE PAGE STARTS, read on the SERVER so the page a reader is served
@@ -84,10 +100,14 @@ export default async function WorksPage({
   //
   // AND THE GROUP BESIDE IT (CNCORE-180), which `oneGroup` reads for every
   // surface that narrows.
-  const { after, before, letter, group } = await searchParams;
+  const { after, before, letter, group, kind, order } = await searchParams;
   const at = whereThePageStarts({ after, before, letter });
   const narrowedTo = oneGroup(group);
-  const { works, groups } = await readWorkBrowsing(at, narrowedTo);
+  // WHAT THE READER CHOSE ABOUT THE ANSWER (CNCORE-175), read exactly as the
+  // Catalogue reads it. Narrowing this Listing to a kind does not make it the
+  // Catalogue: ADR-0077's question is the surface's, and this narrows it.
+  const chosen = { order: oneOrder(order), kind: oneKind(kind) };
+  const { works, kinds, groups } = await readWorkBrowsing(at, narrowedTo, chosen);
   const rows = works.rows;
   const scope = theScope(groups, narrowedTo);
   // NOTHING TO WATCH IN WHAT WAS ASKED, which is the Group's Works when there
@@ -104,12 +124,25 @@ export default async function WorksPage({
         )}
       </div>
       {groups.length > 0 && (
-        <NarrowToAGroup path="/works" groups={groups} narrowedTo={narrowedTo} />
+        <NarrowToAGroup path="/works" groups={groups} narrowedTo={narrowedTo} chosen={chosen} />
       )}
-      {works.total > 0 && (
-        <JumpToALetter path="/works" narrowed={scope.narrowed} jumpedTo={at.letter} />
+      <NarrowToAKind path="/works" kinds={kinds} narrowed={scope.narrowed} chosen={chosen} />
+      <OrderTheListing path="/works" narrowed={scope.narrowed} chosen={chosen} />
+      {/*
+        THE ALPHABET BELONGS TO THIS LISTING'S OWN ORDER, and is hidden in the
+        other one: a jump SEEKS on the leading key, and the recently-added
+        order leads on a timestamp nothing is filed under. The read path already
+        declines a letter there, so the links would be controls that do nothing.
+      */}
+      {works.total > 0 && chosen.order === undefined && (
+        <JumpToALetter
+          path="/works"
+          narrowed={scope.narrowed}
+          chosen={chosen}
+          jumpedTo={at.letter}
+        />
       )}
-      {scope.gone && <NoSuchGroup path="/works" />}
+      {scope.gone && <NoSuchGroup path="/works" chosen={chosen} />}
       {nothingToWatch && <NothingToWatch within={scope.group?.name} />}
       {/*
         ITEMS BEHIND IT AND NOTHING ON THIS PAGE, which is what a cursor makes
@@ -117,7 +150,7 @@ export default async function WorksPage({
         any more. Rare, and a DEAD END if nothing says so.
       */}
       {works.total > 0 && rows.length === 0 && (
-        <PastTheEnd path="/works" narrowed={scope.narrowed} jumpedTo={at.letter} />
+        <PastTheEnd path="/works" narrowed={scope.narrowed} chosen={chosen} jumpedTo={at.letter} />
       )}
       {rows.length > 0 && (
         <>
@@ -125,6 +158,7 @@ export default async function WorksPage({
           <Walk
             path="/works"
             narrowed={scope.narrowed}
+            chosen={chosen}
             continuesAfter={works.continuesAfter}
             continuesBefore={works.continuesBefore}
           />

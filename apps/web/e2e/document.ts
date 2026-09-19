@@ -647,9 +647,40 @@ export function momentsIn(text: string): { machine: string; printed: string }[] 
  * one control, free to disagree about what counts as picking.
  */
 export function scopesIn(text: string): string {
-  const found = text.match(/<nav aria-label="Narrow to a Group"[^>]*>(.*?)<\/nav>/);
-  if (!found) throw new Error("the page offered no way to narrow to a Group");
+  return navIn(text, "Narrow to a Group");
+}
+
+/**
+ * ONE PICKER ON A PAGE, by the words it is labelled with.
+ *
+ * WRITTEN ONCE BECAUSE THERE ARE THREE OF THEM NOW (CNCORE-175): the Group
+ * picker above, the order and the kind. Each is a `nav` whose `aria-label` is
+ * how a reader with a screen reader tells it from the others, so it is also how
+ * a test tells them apart -- and three copies of this regex would be three
+ * readings of what a picker IS, free to drift the day one of them renders
+ * something else.
+ */
+export function navIn(text: string, label: string): string {
+  const found = text.match(new RegExp(`<nav aria-label="${label}"[^>]*>(.*?)</nav>`));
+  if (!found) throw new Error(`the page offered no ${label}`);
   return found[1] as string;
+}
+
+/**
+ * The address one picker links a choice at, by the words a reader picks it by
+ * -- `scopeLinked` for any picker (CNCORE-175).
+ */
+export function pickedIn(text: string, label: string, words: string): string {
+  const found = linkedIn(navIn(text, label), words);
+  if (found === undefined) throw new Error(`the ${label} offered nothing called ${words}`);
+  return found;
+}
+
+/** The words the given picker marks as the page's own. */
+export function markedCurrentInPicker(text: string, label: string): string[] {
+  return [...navIn(text, label).matchAll(/<a aria-current="true"[^>]*>(.*?)<\/a>/g)].map(
+    ([, words]) => textOf(words ?? ""),
+  );
 }
 
 /**

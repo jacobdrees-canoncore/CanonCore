@@ -14,14 +14,22 @@ import {
   JumpToALetter,
   Listing,
   NarrowToAGroup,
+  NarrowToAKind,
   NoSuchGroup,
+  OrderTheListing,
   PastTheEnd,
   theScope,
   Walk,
 } from "@/components/listing";
 import { noPasswordSet } from "@/components/no-password";
 import { NoProviderAllowlisted } from "@/components/no-provider-allowlisted";
-import { oneGroup, type WhereThePageStarts, whereThePageStarts } from "@/components/query-params";
+import {
+  oneGroup,
+  oneKind,
+  oneOrder,
+  type WhereThePageStarts,
+  whereThePageStarts,
+} from "@/components/query-params";
 import { TheirWords } from "@/components/their-words";
 import { callerContext } from "@/session";
 
@@ -39,7 +47,11 @@ import { callerContext } from "@/session";
  * component fetching its own API is a round trip to itself, and oRPC documents
  * `call` as the way to avoid it.
  */
-async function readFrontPage(at: WhereThePageStarts, group: string | undefined) {
+async function readFrontPage(
+  at: WhereThePageStarts,
+  group: string | undefined,
+  chosen: { order?: "added"; kind?: string },
+) {
   /*
    * PRERENDERING STOPS HERE, and this line is the whole difference between a
    * front page and a photograph of one.
@@ -86,8 +98,13 @@ async function readFrontPage(at: WhereThePageStarts, group: string | undefined) 
   // this page read every request as a visitor's and could not have told the
   // owner from one if it had tried.
   const context = await callerContext();
-  const [catalogue, { groups }, providers, instance] = await Promise.all([
-    call(appRouter.catalogue.list, { ...at, group }, { context }),
+  const [catalogue, { kinds }, { groups }, providers, instance] = await Promise.all([
+    call(appRouter.catalogue.list, { ...at, group, ...chosen }, { context }),
+    // EVERY KIND THERE IS, which the narrowing picker offers by the label
+    // `item_kinds` carries beside each (CNCORE-175). Asked whether or not the
+    // page is narrowed, as the Groups above it are, because they are what a
+    // reader chooses FROM.
+    call(appRouter.item.kinds, undefined, { context }),
     // EVERY GROUP THERE IS, whether or not the page is narrowed: they are what
     // the picker offers, and the one this page was narrowed to is found among
     // them by `theScope` (CNCORE-179).
@@ -98,6 +115,7 @@ async function readFrontPage(at: WhereThePageStarts, group: string | undefined) 
   return {
     catalogue,
     groups,
+    kinds,
     providers,
     owner: context.session !== null,
     aPasswordIsSet: instance.password,
@@ -112,6 +130,8 @@ export default async function CataloguePage({
     before?: string | string[];
     letter?: string | string[];
     group?: string | string[];
+    kind?: string | string[];
+    order?: string | string[];
   }>;
 }) {
   // WHERE THE PAGE STARTS, read on the SERVER so the page a reader is served
@@ -121,12 +141,18 @@ export default async function CataloguePage({
   //
   // AND THE GROUP BESIDE IT (CNCORE-179), which `oneGroup` reads for every
   // surface that narrows -- in lower case, for the reason it gives.
-  const { after, before, letter, group } = await searchParams;
+  const { after, before, letter, group, kind, order } = await searchParams;
   const at = whereThePageStarts({ after, before, letter });
   const narrowedTo = oneGroup(group);
-  const { catalogue, groups, providers, owner, aPasswordIsSet } = await readFrontPage(
+  // WHAT THE READER CHOSE ABOUT THE ANSWER (CNCORE-175): the order this Listing
+  // is read in and the kind it is narrowed to. `oneOrder` answers only a word
+  // this app has a walk for, so a hand-edited `?order=` is this page in its own
+  // order rather than a seam refusing the request.
+  const chosen = { order: oneOrder(order), kind: oneKind(kind) };
+  const { catalogue, groups, kinds, providers, owner, aPasswordIsSet } = await readFrontPage(
     at,
     narrowedTo,
+    chosen,
   );
   // ONE NAME FOR ONE FACT. It was three reads of `catalogue.total` in three
   // shapes -- `> 0`, `=== 0`, and a comparison inside `Holding` -- which is one
@@ -154,8 +180,21 @@ export default async function CataloguePage({
           />
         )}
       </div>
-      {groups.length > 0 && <NarrowToAGroup path="/" groups={groups} narrowedTo={narrowedTo} />}
-      {!empty && <JumpToALetter path="/" narrowed={scope.narrowed} jumpedTo={at.letter} />}
+      {groups.length > 0 && (
+        <NarrowToAGroup path="/" groups={groups} narrowedTo={narrowedTo} chosen={chosen} />
+      )}
+      <NarrowToAKind path="/" kinds={kinds} narrowed={scope.narrowed} chosen={chosen} />
+      <OrderTheListing path="/" narrowed={scope.narrowed} chosen={chosen} />
+      {/*
+        THE ALPHABET IS THE CATALOGUE'S OWN ORDER'S, and it is hidden rather
+        than ignored in the other one: a jump is a SEEK on the leading key, and
+        the recently-added order leads on a timestamp that nothing is filed
+        under. The read path already declines the letter there, so leaving the
+        links up would be a row of twenty-six controls that each do nothing.
+      */}
+      {!empty && chosen.order === undefined && (
+        <JumpToALetter path="/" narrowed={scope.narrowed} chosen={chosen} jumpedTo={at.letter} />
+      )}
       {/*
         WHY AN EMPTY CATALOGUE IS EMPTY, when the reason is configuration. The
         notice itself is `no-provider-allowlisted.tsx`, shared with `/import`
@@ -193,7 +232,7 @@ export default async function CataloguePage({
       {narrowedTo === undefined && empty && (
         <WhatToDoNext aPasswordIsSet={aPasswordIsSet} owner={owner} />
       )}
-      {scope.gone && <NoSuchGroup path="/" />}
+      {scope.gone && <NoSuchGroup path="/" chosen={chosen} />}
       {scope.group !== undefined && empty && <EmptyGroup name={scope.group.name} />}
       {/*
         A CATALOGUE WITH ITEMS IN IT AND NOTHING ON THIS PAGE, which is what a
@@ -201,7 +240,7 @@ export default async function CataloguePage({
         that item any more. It is rare and it is a DEAD END if nothing says so.
       */}
       {!empty && rows.length === 0 && (
-        <PastTheEnd path="/" narrowed={scope.narrowed} jumpedTo={at.letter} />
+        <PastTheEnd path="/" narrowed={scope.narrowed} chosen={chosen} jumpedTo={at.letter} />
       )}
       {rows.length > 0 && (
         <>
@@ -209,6 +248,7 @@ export default async function CataloguePage({
           <Walk
             path="/"
             narrowed={scope.narrowed}
+            chosen={chosen}
             continuesAfter={catalogue.continuesAfter}
             continuesBefore={catalogue.continuesBefore}
           />

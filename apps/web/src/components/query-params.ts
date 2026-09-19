@@ -120,6 +120,15 @@ export function oneGroup(parameter: string | string[] | undefined): string | und
  * appending decides is only how one Listing's step back sits beside the OTHER
  * Listing's cursor on the Item page: `?placedAfter=<id>&before=<id>`.
  *
+ * `kind` AND `order` ARRIVED WITH CNCORE-175 AND ARE NOT APPENDED EITHER, for
+ * the reason the pair below gives: no link out there carried either of them, so
+ * placing them inside the list re-spells nothing. `kind` sits BESIDE `group`
+ * because the two are the same act on different axes -- both narrow a Listing
+ * the reader is already looking at -- and `order` sits behind both because it
+ * sequences whatever they leave. All three stand ahead of the cursor, which is
+ * a position WITHIN an ordered, narrowed Listing and means nothing without
+ * them: `?group=<id>&kind=person&order=added&after=<id>`.
+ *
  * `provider` AND `container` ARRIVED WITH CNCORE-187 AND ARE NOT APPENDED,
  * which that rule allows rather than breaks: it exists so that no link already
  * out there is spelt a second way, and no link carried either of them until
@@ -135,6 +144,8 @@ const IN_THE_FIXED_ORDER = [
   "placed",
   "q",
   "group",
+  "kind",
+  "order",
   "provider",
   "container",
   "after",
@@ -164,4 +175,47 @@ export function inTheFixedOrder(query: LinkQuery): LinkQuery {
     if (value) written[name] = value;
   }
   return written;
+}
+
+/**
+ * THE ORDER A READER ASKED THIS LISTING FOR, read off its address (CNCORE-175).
+ *
+ * ONLY A WORD THIS APP HAS A WALK FOR COMES BACK, and anything else is
+ * `undefined` -- which is the Listing in its own order, the same answer an
+ * absent parameter gives. That is ADR-0066's rule for a parameter that is not
+ * an identity, applied where the set is CLOSED: a Group id is any string
+ * because whether it names a Group is the database's to answer, and an order is
+ * not, because the orders are the ones `order.ts` has written a comparison for.
+ *
+ * SO THE SURFACE NEVER SENDS ONE THE SEAM WOULD REFUSE. `browsedInput` declares
+ * an enum, so a caller naming no order is a BAD_REQUEST there -- correct for a
+ * caller that ought to know the set, and the wrong thing to show a reader who
+ * hand-edited a URL. Read here, `?order=banana` is the catalogue in its own
+ * order rather than an error page.
+ *
+ * `name` COMES BACK AS `undefined` RATHER THAN AS ITSELF, because it IS the
+ * absence: the bare address is the Listing in its own order, and the picker's
+ * "By name" link carries no `order` at all. Answering the word here would make
+ * `?order=name` a second address for the page `/` already is (ADR-0066).
+ */
+export function oneOrder(parameter: string | string[] | undefined): "added" | undefined {
+  return oneValue(parameter)?.toLowerCase() === "added" ? "added" : undefined;
+}
+
+/**
+ * THE KIND A READER NARROWED THIS LISTING TO, read the way `oneGroup` reads a
+ * Group and IN LOWER CASE for the same reason (CNCORE-175).
+ *
+ * THE LOWER CASE IS WHAT KEEPS THE PICKER AND THE LISTING AGREEING. A kind is a
+ * lower-case key in `item_kinds` (migration 1) and the picker marks its current
+ * chip by matching this against that key, so `?kind=Person` would narrow the
+ * Listing while no chip read as current -- the defect review of CNCORE-179
+ * found in the Group picker, which is why `oneGroup` lowers too.
+ *
+ * ANY STRING, UNLIKE `oneOrder` ABOVE, because the seven are the DATABASE's
+ * rather than this repository's: a kind nobody defined narrows to nothing and
+ * the page says so, which is what an absent row means everywhere else here.
+ */
+export function oneKind(parameter: string | string[] | undefined): string | undefined {
+  return oneValue(parameter)?.toLowerCase();
 }

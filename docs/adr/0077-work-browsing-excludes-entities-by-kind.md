@@ -195,3 +195,24 @@ complete except for its ordering. The grouping has to put kind before closeness
 in the order and in the cursor that walks it, because ADR-0119 makes the order
 and the walk one rule. So it is a change to the walk and not only to a sort
 key, and it is the slice that makes it that flips this record.
+
+## What this record does NOT refuse, clarified under CNCORE-175
+
+CNCORE-175's own description read this record as refusing a reader-facing narrowing by kind --
+"narrowing by kind is a surface rather than a flag on the Listing: ADR-0077 refuses that" -- and a
+`/verify` pass raised it against CNCORE-188's shared Listing contract as a conflict between the two.
+
+**IT IS AN OVER-EXTENSION OF THIS RECORD RATHER THAN A READING OF IT.** What this record refuses is a
+flag standing in for a surface's QUESTION: `readWorks` states the refusal in its own words, that a
+boolean on `list` "would make every future caller classify itself by remembering to pass one, and
+whatever the default was would decide for the ones that forgot". That is about which kinds a
+question INCLUDES, and it is not the reader's to change.
+
+A reader narrowing a Listing to one kind changes none of it. It narrows whichever question was
+asked, on the axis a Group already narrows it (ADR-0010), and composes with both: a narrowed
+`/works` is still work-browsing, because `narrowedToTheKind` is `and`ed onto that question's own
+`within` and cannot widen it. ADR-0150 owns that decision and carries the argument.
+
+**THIS RECORD'S STATUS IS UNCHANGED BY THAT TICKET.** It stays `proposed` for the reason the section
+above gives -- search does not group by kind with works first -- which CNCORE-175 neither built nor
+touched.

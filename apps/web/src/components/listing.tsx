@@ -137,6 +137,35 @@ type Asked = { q: string };
 type Narrowed = { group: string };
 
 /**
+ * WHAT THE READER CHOSE ABOUT THE ANSWER ITSELF (CNCORE-175): the order this
+ * Listing is read in, and the one kind it is narrowed to. Every link on the
+ * page carries both, for `Narrowed`'s reason above -- a `Next` that dropped
+ * either would walk on into a Listing the reader is not looking at.
+ *
+ * ONE SLOT FOR THE PAIR RATHER THAN TWO, because they are independent and a
+ * slot each would be four members of `Walking` where there is one question:
+ * what did the reader choose. The keys are OPTIONAL here where `Narrowed`'s is
+ * required, and `inTheFixedOrder` is what makes that safe -- it drops a key
+ * with no value rather than letting Next write `?order=`, which is the second
+ * spelling that shape exists to prevent.
+ *
+ * `order` IS ABSENT FOR THE LISTING'S OWN ORDER, never the word `name`. The
+ * bare address IS the catalogue in its own order, so spelling the default would
+ * mint a second address for the page `/` already is (ADR-0066). `oneOrder` one
+ * file over reads it back to `undefined` for the same reason.
+ */
+type Chosen = { order?: "added"; kind?: string };
+
+/**
+ * WHAT CATALOGUE SEARCH LETS A READER CHOOSE, which is the kind and not the
+ * order. Its Rows are ranked by how close a title is to what was typed
+ * (ADR-0120), and an order chosen over that would throw away the ranking that
+ * IS the answer -- so the slot exists on that surface with one key rather than
+ * the surface being left out of the pair entirely.
+ */
+type ChosenKind = Pick<Chosen, "kind">;
+
+/**
  * WHAT THE ITEM PAGE'S ADDRESS ALREADY CARRIES, which the listing being walked
  * joins rather than replaces.
  *
@@ -198,10 +227,22 @@ export type ItemPageListing = "members" | "appearances";
  * the Row finds.
  */
 type Walking =
-  | { path: "/" | "/works"; asked?: never; narrowed?: Narrowed; listing?: never }
-  | { path: "/search"; asked: Asked; narrowed?: Narrowed; listing?: never }
-  | { path: MembersPath; asked: TheRoute; narrowed?: never; listing: ItemPageListing }
-  | { path: "/import"; asked: Picked; narrowed?: never; listing?: never };
+  | {
+      path: "/" | "/works";
+      asked?: never;
+      narrowed?: Narrowed;
+      chosen?: Chosen;
+      listing?: never;
+    }
+  | { path: "/search"; asked: Asked; narrowed?: Narrowed; chosen?: ChosenKind; listing?: never }
+  | {
+      path: MembersPath;
+      asked: TheRoute;
+      narrowed?: never;
+      chosen?: never;
+      listing: ItemPageListing;
+    }
+  | { path: "/import"; asked: Picked; narrowed?: never; chosen?: never; listing?: never };
 
 /**
  * THE CONTAINERS ONE PROVIDER HOLDS, ON `/import` (CNCORE-187): a Listing by
@@ -232,7 +273,13 @@ type Picked = { provider: string };
  * make every exhaustive table about Listings name it. The list of what ONE
  * Provider holds, on the same page, is a Listing and is walked (`Picked`).
  */
-type Searched = { path: "/import"; asked: Asked; narrowed?: Narrowed; listing?: never };
+type Searched = {
+  path: "/import";
+  asked: Asked;
+  narrowed?: Narrowed;
+  chosen?: never;
+  listing?: never;
+};
 
 /**
  * ONE OF THE SURFACES A GROUP NARROWS, as the Group picker sees it: where it
@@ -386,6 +433,10 @@ function queryFor(walking: Walking | Searched, to: WhereTo | undefined): LinkQue
   return inTheFixedOrder({
     ...walking.asked,
     ...walking.narrowed,
+    // WHAT THE READER CHOSE ABOUT THE ANSWER (CNCORE-175), kept by every link
+    // this file writes exactly as the Group above it is. `inTheFixedOrder`
+    // decides where they sit and drops the ones with no value.
+    ...walking.chosen,
     [own.after]: undefined,
     [own.before]: undefined,
     ...startsAt,
@@ -995,5 +1046,145 @@ export function NoSuchGroup(surface: Narrowable) {
         </EmptyContent>
       </Empty>
     </section>
+  );
+}
+
+/**
+ * A SURFACE WHOSE LISTING A READER MAY ORDER (CNCORE-175): the two that are
+ * browsed. Catalogue search is not one, for the reason `ChosenKind` gives.
+ *
+ * THE SURFACE ARRIVES WITH ITS `chosen` STILL ON IT, unlike `Narrowable` above,
+ * and that is the difference between a picker that keeps the reader's other
+ * choice and one that clears it. Each link below is this Listing's start with
+ * ONE key of the pair replaced, so picking an order keeps the kind and picking
+ * a kind keeps the order.
+ */
+type Orderable = Extract<Walking, { path: "/" | "/works" }>;
+
+/**
+ * THE TWO ORDERS ONE CATALOGUE HAS OF ITSELF (story 24), in the words a reader
+ * picks them by.
+ *
+ * TWO, AND THE DISPATCHER CHOSE THEM (2026-09-19) for two reasons worth keeping
+ * beside the words: `created_at` is on every row, so the walk needs no keyless
+ * block where a release date -- sparse across this corpus -- would have needed
+ * one; and "Recently added" is the second view Plex and Jellyfin both lead
+ * with. A third is a line here, a value in `order.ts` and nothing else.
+ *
+ * `By name` IS THE ABSENCE and is written first, which is the arrangement the
+ * Group picker's `Everything` already has: the default is the Listing with
+ * nothing on it, so the address a reader starts at is the one they return to.
+ */
+const THE_ORDERS = [
+  { order: undefined, words: "By name" },
+  { order: "added", words: "Recently added" },
+] as const satisfies readonly { order?: "added"; words: string }[];
+
+/**
+ * WHERE A READER CHOOSES THE ORDER (story 24), beside the walk and the Group
+ * picker and built the same way: every link is this Listing's start, through
+ * `queryFor`, with the order set or cleared and everything else kept.
+ *
+ * LINKS RATHER THAN A CONTROL, which is `NarrowToAGroup`'s own argument: it
+ * works with no script, and an ordered Listing is an address somebody can send.
+ * It is a GET for a page that already exists, so there is nothing to post.
+ *
+ * IT DROPS THE CURSOR, because a position in one order is no position in
+ * another -- the same reason picking a Group drops it. `queryFor(_, undefined)`
+ * is what does that, and it is the one call every picker on this page makes.
+ *
+ * `aria-current` MARKS THE ORDER THE PAGE IS READ IN, which is what makes the
+ * choice visible rather than inferred from the Rows being in a different
+ * sequence.
+ */
+export function OrderTheListing({ chosen, ...surface }: Orderable) {
+  return (
+    <nav
+      aria-label="Order this Listing"
+      className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-muted-foreground text-sm"
+    >
+      {THE_ORDERS.map(({ order, words }) => (
+        <Link
+          key={words}
+          href={{
+            pathname: surface.path,
+            query: queryFor({ ...surface, chosen: { ...chosen, order } }, undefined),
+          }}
+          aria-current={chosen?.order === order ? "true" : undefined}
+          className="hover:underline aria-[current]:font-medium aria-[current]:text-foreground"
+        >
+          {words}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
+/** One Item kind as the picker offers it, read off the procedure that answers it. */
+type Kind = Awaited<ReturnType<AppRouterClient["item"]["kinds"]>>["kinds"][number];
+
+/**
+ * WHERE A READER NARROWS A LISTING TO ONE KIND (story 25), so People and Time
+ * spans do not crowd out what they can watch.
+ *
+ * NOT WORK-BROWSING BY ANOTHER ROUTE, and ADR-0077 is the line. That record
+ * decides which kinds a surface's QUESTION includes and says the surface
+ * classifies ITSELF by naming the question -- `/works` excludes the entity
+ * kinds whatever a reader picks here. This narrows whichever question was
+ * asked, on the same axis a Group narrows it, and composes with both: a
+ * narrowed `/works` is still work-browsing, and no value here turns `/` into
+ * it. So the two controls sit beside each other rather than one standing in for
+ * the other.
+ *
+ * THE KINDS ARE THE DATABASE'S OWN, read through `item.kinds` and offered by
+ * the LABEL it carries beside each -- `Time span`, never `time_span`. A list
+ * written here would go on offering the old word after a migration renamed one,
+ * and would offer seven after a migration added an eighth, which is the
+ * argument `findItemKinds` already makes for the create form.
+ *
+ * `Every kind` RATHER THAN `Everything`, which is the Group picker's word one
+ * line up. Two pickers on one page both saying "Everything" would leave a
+ * reader no way to tell which of the two they had just cleared -- and this one
+ * clears less: a Listing narrowed to a Group and to a kind, with the kind
+ * cleared, is still narrowed.
+ *
+ * `TheirWords` IS NOT NEEDED HERE, unlike the Group picker: these labels are
+ * the catalogue's own seven rather than the Owner's free text, so none of them
+ * is an unbroken word that pushes the page sideways.
+ */
+export function NarrowToAKind({
+  kinds,
+  chosen,
+  ...surface
+}: Extract<Walking, { path: "/" | "/works" | "/search" }> & { kinds: Kind[] }) {
+  return (
+    <nav
+      aria-label="Narrow to a kind"
+      className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-muted-foreground text-sm"
+    >
+      <Link
+        href={{
+          pathname: surface.path,
+          query: queryFor({ ...surface, chosen: { ...chosen, kind: undefined } }, undefined),
+        }}
+        aria-current={chosen?.kind === undefined ? "true" : undefined}
+        className="hover:underline aria-[current]:font-medium aria-[current]:text-foreground"
+      >
+        Every kind
+      </Link>
+      {kinds.map((kind) => (
+        <Link
+          key={kind.value}
+          href={{
+            pathname: surface.path,
+            query: queryFor({ ...surface, chosen: { ...chosen, kind: kind.value } }, undefined),
+          }}
+          aria-current={chosen?.kind === kind.value ? "true" : undefined}
+          className="hover:underline aria-[current]:font-medium aria-[current]:text-foreground"
+        >
+          {kind.label}
+        </Link>
+      ))}
+    </nav>
   );
 }
