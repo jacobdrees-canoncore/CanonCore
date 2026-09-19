@@ -1843,16 +1843,25 @@ async function aCatalogueSafeToScope() {
   const looseTitle = "An item in no scope at all";
   let crossover = "";
   let loose = "";
+  /*
+   * TWO PROVIDERS, BECAUSE A GROUP SCOPES WHICH ARE ASKED (ADR-0010, ADR-0025)
+   * and "only the one it asks" needs a second one to leave out (CNCORE-182).
+   * Each answers the same query with a record of its own, so which of them a
+   * narrowed search reached is readable off the page by the name each gives
+   * itself -- and each is NAMED TO THIS INSTANCE, since a Group picks among
+   * the configured Providers rather than adding to them.
+   */
+  const wiki = await aProviderAnswering(SCOPED.wiki);
+  const database = await aProviderAnswering(SCOPED.database);
   const instance = await anInstanceServing({
     suffix: "group",
     // Drawing a scope is the Owner's (ADR-0044, CNCORE-109), and what a visitor
     // is offered instead is asserted at the bottom of the file.
     ownerPassword: OWNER_PASSWORD,
-    // NOTHING REACHES OUT OF THIS INSTANCE. A Group scopes WHICH PROVIDERS ARE
-    // ASKED (ADR-0010), and that half is CNCORE-182's -- so this instance is
-    // given no provider rather than one it would be tempting to assert against.
-    allowlist: "",
-    providers: [],
+    // Loopback BY NAME, which is the whole of what ADR-0034's config boundary
+    // is for, and nothing wider: the two stubs above are all this reaches.
+    allowlist: "127.0.0.0/8",
+    providers: [wiki.url, database.url],
     fill: async (db) => {
       crossover = await anItemTitled(db, crossoverTitle);
       loose = await anItemTitled(db, looseTitle);
@@ -1861,9 +1870,68 @@ async function aCatalogueSafeToScope() {
 
   return {
     baseUrl: instance.baseUrl,
-    close: instance.close,
-    fixture: { crossover, crossoverTitle, loose, looseTitle },
+    // THE STUBS WITH THE INSTANCE, which is the lesson this suite's teardown
+    // carries a paragraph about: anything left listening outlives the run.
+    close: async () => {
+      await instance.close();
+      await wiki.close();
+      await database.close();
+    },
+    fixture: {
+      crossover,
+      crossoverTitle,
+      loose,
+      looseTitle,
+      providers: {
+        query: SCOPED.query,
+        wiki: { url: wiki.url, name: SCOPED.wiki.name },
+        database: { url: database.url, name: SCOPED.database.name },
+      },
+    },
   };
+}
+
+/**
+ * WHAT THE TWO PROVIDERS ON THE SCOPED INSTANCE ANSWER (CNCORE-182): one query,
+ * and a record from each under a name of its own.
+ *
+ * NAMES NOTHING ELSE ON A PAGE CARRIES, so a name found on `/import` is that
+ * Provider answering rather than a word that happened to be there.
+ */
+const SCOPED = {
+  query: "tenth planet",
+  wiki: { name: "A wiki the scope asks", title: "The Tenth Planet, per the wiki" },
+  database: { name: "A database left unasked", title: "The Tenth Planet, per the database" },
+};
+
+/**
+ * A PROVIDER THAT ANSWERS ONE RECORD TO A SEARCH FOR IT, under a name of its own.
+ *
+ * `search` AND `lookup`, AND NO `browse`: this stands for WHO IS ASKED, which is
+ * the fan-out's question, so it declares the two CMPP requires and nothing it
+ * would be tempting to assert against. It is not a stand-in for a real Provider,
+ * as the other stubs in this file are not.
+ */
+async function aProviderAnswering({ name, title }: { name: string; title: string }) {
+  const record = {
+    id: "265",
+    title,
+    kind: "TV story",
+    released: ["1966-10-08"],
+    url: "https://provider.test/the-tenth-planet",
+  };
+  const manifest = {
+    name,
+    versions: [1],
+    operations: ["search", "lookup"],
+    max_cache_age: 86400,
+    images: { stored_variant: null, per_role_limit: 0, quality_floor: 0 },
+  };
+  return onLoopback((path, answer) => {
+    if (path === "/") return answer(manifest, 200);
+    if (path.startsWith("/search")) return answer(searchOver([record], path), searchStatus(path));
+    return answer({ error: "no such record" }, 404);
+  });
 }
 
 /**
@@ -2288,6 +2356,16 @@ declare module "vitest" {
       /** The one a deleted scope has to leave standing (story 34). */
       loose: string;
       looseTitle: string;
+      /**
+       * The two Providers this instance searches, and the query each answers
+       * (CNCORE-182): a scope asks one of them, and a narrowed search reaches
+       * that one alone.
+       */
+      providers: {
+        query: string;
+        wiki: { url: string; name: string };
+        database: { url: string; name: string };
+      };
     };
     /**
      * And again, serving a catalogue NOBODY ELSE READS -- so a test may change

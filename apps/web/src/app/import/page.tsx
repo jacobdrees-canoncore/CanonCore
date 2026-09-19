@@ -1,16 +1,23 @@
 import type { Context } from "@canoncore/api/context";
 import { appRouter } from "@canoncore/api/routers";
 import { Button } from "@canoncore/ui/components/button";
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@canoncore/ui/components/empty";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@canoncore/ui/components/empty";
 import { Input } from "@canoncore/ui/components/input";
 import { Select } from "@canoncore/ui/components/select";
 import { call } from "@orpc/server";
 import Form from "next/form";
 import Link from "next/link";
+import { NarrowToAGroup, NoSuchGroup, theScope, theStartOf } from "@/components/listing";
 import { noPasswordSet } from "@/components/no-password";
 import { NoProviderAllowlisted } from "@/components/no-provider-allowlisted";
 import { ProviderProse } from "@/components/provider-prose";
-import { oneValue } from "@/components/query-params";
+import { oneGroup, oneValue } from "@/components/query-params";
 import { Reason } from "@/components/reason";
 import { callerContext } from "@/session";
 
@@ -19,6 +26,8 @@ import { browseOrdering, importRecord, purgeProvider } from "./actions";
 /** Which container the owner has asked about, and at which provider. */
 interface Asked {
   query?: string;
+  /** The Group the query is asked within, which decides who is asked (CNCORE-182). */
+  group?: string;
   provider?: string;
   container?: string;
   purge?: string;
@@ -38,7 +47,7 @@ interface Asked {
  * of the same name. That one is CNCORE-66 and lives at its own address. This page
  * searches PROVIDERS, so the word on it is Import rather than Search.
  */
-async function readImportPage({ query, provider, container, purge }: Asked) {
+async function readImportPage({ query, group, provider, container, purge }: Asked) {
   /*
    * NO `connection()` HERE, AND THAT IS ADR-0117 OBEYED RATHER THAN SKIPPED.
    * That record's rule is that a read surface declares it needs a request, and
@@ -84,10 +93,18 @@ async function readImportPage({ query, provider, container, purge }: Asked) {
   // a session including the owner, and the notice standing where each control
   // would be must not offer a login there. Joined here rather than awaited on
   // its own, which is the shape the front page reads the same three facts in.
-  const [allowlisted, configured, instance] = await Promise.all([
+  //
+  // AND EVERY GROUP THERE IS (CNCORE-182), which is the picker's list and how a
+  // Group that is not there is told from one that asks nobody. Read beside the
+  // other three, and only where a query was asked: the picker is offered with
+  // a search to narrow and not before.
+  const [allowlisted, configured, instance, groups] = await Promise.all([
     call(appRouter.provider.allowlisted, undefined, { context }),
     call(appRouter.provider.configured, undefined, { context }),
     call(appRouter.session.configured, undefined, { context }),
+    query === undefined
+      ? Promise.resolve(undefined)
+      : call(appRouter.group.list, undefined, { context }).then(({ groups }) => groups),
   ]);
   const searchable = searchableProvider(configured.providers, provider);
   /*
@@ -103,7 +120,7 @@ async function readImportPage({ query, provider, container, purge }: Asked) {
   const [found, namedContainer, preview] = await Promise.all([
     query === undefined
       ? Promise.resolve(undefined)
-      : call(appRouter.provider.search, { query }, { context }),
+      : call(appRouter.provider.search, { query, group }, { context }),
     searchable === undefined || container === undefined
       ? Promise.resolve(undefined)
       : aboutTheContainer(context, searchable, container),
@@ -132,6 +149,7 @@ async function readImportPage({ query, provider, container, purge }: Asked) {
     allowlisted,
     configured,
     found,
+    groups,
     namedContainer,
     preview,
     purging,
@@ -277,6 +295,7 @@ export default async function ImportPage({
 }: {
   searchParams: Promise<{
     q?: string | string[];
+    group?: string | string[];
     provider?: string | string[];
     container?: string | string[];
     purge?: string | string[];
@@ -284,6 +303,9 @@ export default async function ImportPage({
 }) {
   const asked = await searchParams;
   const query = oneValue(asked.q);
+  // THE GROUP THE PROVIDERS ARE ASKED WITHIN (CNCORE-182), read by `oneGroup`
+  // as every surface that narrows reads it.
+  const narrowedTo = oneGroup(asked.group);
   const provider = oneValue(asked.provider);
   const container = oneValue(asked.container);
   const {
@@ -291,16 +313,22 @@ export default async function ImportPage({
     aPasswordIsSet,
     configured,
     found,
+    groups,
     namedContainer,
     owner,
     preview,
     purging,
   } = await readImportPage({
     query,
+    group: narrowedTo,
     provider,
     container,
     purge: oneValue(asked.purge),
   });
+  // NARROWED ONLY WHERE SOMETHING WAS SEARCHED, for `/search`'s reason: with no
+  // query there is no list of Groups to find this one in, and every Group would
+  // read as gone.
+  const scope = theScope(groups ?? [], query === undefined ? undefined : narrowedTo);
 
   return (
     <main className="container mx-auto max-w-3xl px-4 py-8">
@@ -338,10 +366,40 @@ export default async function ImportPage({
         is left looking for the way to become one.
       */}
       {!owner && !aPasswordIsSet && <NoLogin />}
-      <SearchBox query={query} />
-      {found !== undefined && query !== undefined && (
-        <Results aPasswordIsSet={aPasswordIsSet} found={found} owner={owner} query={query} />
+      <SearchBox group={scope.group?.id} query={query} />
+      {/*
+        THE PICKER ONCE THERE IS A SEARCH TO NARROW (CNCORE-182), the one the
+        three Listings carry. Here a Group narrows WHO IS ASKED rather than
+        which Items are listed, which is ADR-0010's third scoped thing beside
+        browsing and search -- and `Everything` asks every Provider this
+        instance names, which is this page as it always was.
+      */}
+      {query !== undefined && groups !== undefined && groups.length > 0 && (
+        <NarrowToAGroup
+          asked={{ q: query }}
+          groups={groups}
+          narrowedTo={narrowedTo}
+          path="/import"
+        />
       )}
+      {query !== undefined && scope.gone && <NoSuchGroup asked={{ q: query }} path="/import" />}
+      {found !== undefined &&
+        query !== undefined &&
+        scope.group !== undefined &&
+        found.answered.length === 0 &&
+        found.failed.length === 0 && (
+          <AsksNoProvider
+            everything={theStartOf({ path: "/import", asked: { q: query } })}
+            group={scope.group.name}
+            owner={owner}
+          />
+        )}
+      {found !== undefined &&
+        query !== undefined &&
+        !scope.gone &&
+        (found.answered.length > 0 || found.failed.length > 0 || scope.group === undefined) && (
+          <Results aPasswordIsSet={aPasswordIsSet} found={found} owner={owner} query={query} />
+        )}
       <BrowseBox configured={configured.providers} container={container} provider={provider} />
       {container !== undefined &&
         (namedContainer === undefined ? (
@@ -620,7 +678,7 @@ function counted(howMany: number, noun: string): string {
  * `action` makes this a GET whose fields become search params, which is exactly
  * what a search is.
  */
-function SearchBox({ query }: { query?: string }) {
+function SearchBox({ group, query }: { group?: string; query?: string }) {
   return (
     <Form action="/import" className="mt-6 flex items-center gap-2">
       <Input
@@ -633,8 +691,78 @@ function SearchBox({ query }: { query?: string }) {
         placeholder="A title to look for"
         aria-label="A title to look for"
       />
+      {/*
+        THE GROUP RIDES ALONG, SO A SECOND SEARCH ASKS WHO THE FIRST ASKED
+        (CNCORE-182). This box sits on the narrowed page, under a picker that
+        still marks the Group, and a search from it that quietly asked every
+        Provider would contradict the page it was typed on. After the query,
+        so the address is `?q=<query>&group=<id>` in ADR-0066's fixed order --
+        the picker's own spelling -- and `Everything` is how it is cleared.
+        ONLY A GROUP THAT IS THERE: a dead one would carry "No such Group" on
+        to every search typed after it.
+      */}
+      {group !== undefined && <input name="group" type="hidden" value={group} />}
       <Button type="submit">Search</Button>
     </Form>
+  );
+}
+
+/**
+ * A SEARCH WITHIN A GROUP THAT ASKS NO PROVIDER (CNCORE-182, ADR-0025).
+ *
+ * IT REPLACES THE RESULTS RATHER THAN SITTING ABOVE THEM, because "Nothing
+ * matched" would be a claim about Providers nobody asked -- the confusion
+ * `Results` already keeps apart for a Provider that is down. A Group asks only
+ * the Providers the Owner told it to, and a new one has been told none.
+ *
+ * TOLD APART FROM A GROUP THAT ASKED AND HEARD NOTHING BY THE ANSWER ITSELF:
+ * every Provider that was asked is in `answered` or in `failed`, so both empty
+ * is nobody asked. No second read is needed to know it.
+ *
+ * THE WAY ON IS BOTH REMEDIES: choose the Group's Providers, which is the
+ * Owner's and is offered only to them, or ask every Provider this instance
+ * names, which is anybody's.
+ */
+function AsksNoProvider({
+  everything,
+  group,
+  owner,
+}: {
+  everything: ReturnType<typeof theStartOf>;
+  group: string;
+  owner: boolean;
+}) {
+  return (
+    <section aria-labelledby="asks-no-provider" className="mt-8">
+      <Empty className="border">
+        <EmptyHeader>
+          <EmptyTitle>
+            <h2 className="wrap-anywhere" id="asks-no-provider">
+              {group} asks no Provider
+            </h2>
+          </EmptyTitle>
+          <EmptyDescription>
+            Searching within a Group asks only the Providers it has been told to ask, and this one
+            asks none this instance searches.
+            {owner && (
+              <>
+                {" "}
+                Choose its Providers in{" "}
+                <Link className="underline" href="/groups">
+                  Groups
+                </Link>
+                .
+              </>
+            )}
+          </EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          <Link className="hover:underline" href={everything}>
+            Search every Provider
+          </Link>
+        </EmptyContent>
+      </Empty>
+    </section>
   );
 }
 

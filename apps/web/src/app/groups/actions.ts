@@ -10,8 +10,8 @@ import { whatTheFormCarries } from "@/form";
 import { callerContext } from "@/session";
 
 /**
- * DRAWING, RENAMING AND DELETING A BROWSING SCOPE, as Server Actions
- * (CNCORE-178).
+ * DRAWING, RENAMING AND DELETING A BROWSING SCOPE, and choosing which
+ * Providers it asks, as Server Actions (CNCORE-178, CNCORE-182).
  *
  * THE PROCEDURE IS WRITTEN ONCE AND EXPOSED TWICE, which is the shape every
  * action file here takes: `group.create`, `group.rename` and `group.delete`
@@ -96,6 +96,40 @@ export async function deleteGroup(form: FormData): Promise<void> {
 
   const { refused } = await whatTheProcedureAnswered(
     call(appRouter.group.delete, input, { context: await callerContext() }),
+  );
+  if (refused) return;
+  refresh();
+}
+
+/** What an ask or a stop carries: which scope, and which Provider by the URL that is its identity. */
+const askedProvider = z.object({ id: z.string(), baseUrl: z.string() });
+
+/**
+ * Telling a scope to ask one Provider when the Owner searches within it
+ * (CNCORE-182, ADR-0025).
+ */
+export async function askProvider(form: FormData): Promise<void> {
+  const input = whatTheFormCarries(form, askedProvider);
+  if (input === undefined) return;
+
+  const { refused } = await whatTheProcedureAnswered(
+    call(appRouter.group.ask, input, { context: await callerContext() }),
+  );
+  if (refused) return;
+  refresh();
+}
+
+/**
+ * Telling a scope to stop asking one Provider. No confirmation, for the reason
+ * taking an Item out gets none (ADR-0046): asking again is one click and the
+ * same row.
+ */
+export async function stopAskingProvider(form: FormData): Promise<void> {
+  const input = whatTheFormCarries(form, askedProvider);
+  if (input === undefined) return;
+
+  const { refused } = await whatTheProcedureAnswered(
+    call(appRouter.group.stopAsking, input, { context: await callerContext() }),
   );
   if (refused) return;
   refresh();

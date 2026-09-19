@@ -5,10 +5,11 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@canoncore/ui/
 import { Input } from "@canoncore/ui/components/input";
 import { Label } from "@canoncore/ui/components/label";
 import { call } from "@orpc/server";
+import Link from "next/link";
 
 import { callerContext } from "@/session";
 
-import { deleteGroup, drawGroup, renameGroup } from "./actions";
+import { askProvider, deleteGroup, drawGroup, renameGroup, stopAskingProvider } from "./actions";
 
 /**
  * The scopes this page renders, as the router answers them.
@@ -24,6 +25,32 @@ async function readGroups(context: Context) {
 }
 
 type GroupOnThePage = Awaited<ReturnType<typeof readGroups>>[number];
+
+/**
+ * WHAT THE OWNER IS SHOWN ABOUT WHO EACH SCOPE ASKS (CNCORE-182): the Providers
+ * this instance searches, and which of them each Group asks.
+ *
+ * THE OWNER'S ALONE, because `group.asks` is: which Providers a scope asks is
+ * this instance's configuration, handed over as URLs the Owner typed. A visitor
+ * is served the scopes and nothing about where they are searched.
+ *
+ * ONE READ PER GROUP, which is a count of scopes drawn by hand rather than of
+ * anything the corpus grows (`findGroups` gives the reason it is uncapped).
+ */
+async function readAsking(context: Context, groups: GroupOnThePage[]) {
+  const [{ providers }, asked] = await Promise.all([
+    call(appRouter.provider.configured, undefined, { context }),
+    Promise.all(
+      groups.map(async (group) => {
+        const { providers: asks } = await call(appRouter.group.asks, { id: group.id }, { context });
+        return [group.id, asks] as const;
+      }),
+    ),
+  ]);
+  return { configured: providers, asked: new Map(asked) };
+}
+
+type Asking = Awaited<ReturnType<typeof readAsking>>;
 
 /**
  * WHERE THE OWNER DRAWS A BROWSING SCOPE (CNCORE-178, ADR-0010).
@@ -46,6 +73,7 @@ export default async function GroupsPage() {
   const context = await callerContext();
   const owner = context.session !== null;
   const groups = await readGroups(context);
+  const asking = owner ? await readAsking(context, groups) : undefined;
 
   return (
     <main className="container mx-auto max-w-2xl px-4 py-8">
@@ -90,7 +118,7 @@ export default async function GroupsPage() {
         ) : (
           <ul className="mt-4 flex flex-col divide-y">
             {groups.map((group) => (
-              <Group group={group} key={group.id} owner={owner} />
+              <Group asking={asking} group={group} key={group.id} />
             ))}
           </ul>
         )}
@@ -102,9 +130,12 @@ export default async function GroupsPage() {
 /**
  * The form that draws a scope.
  *
- * ONE FIELD, because a Group IS one field (ADR-0010). Every other thing a
- * reader might expect to choose here -- a medium, a set of providers, a root --
- * is what that record refuses to let a scope accumulate.
+ * ONE FIELD, because a Group IS one field (ADR-0010). A medium, a field set or
+ * a root is what that record refuses to let a scope accumulate. Which Providers
+ * it asks IS one of the five things that record says a scope decides, and it is
+ * chosen below once the scope exists (CNCORE-182) rather than here: a new Group
+ * asks none until the Owner says, which is ADR-0025's sentence and not a gap in
+ * this form.
  */
 function DrawAGroup() {
   return (
@@ -142,7 +173,8 @@ function DrawAGroup() {
  * lets a reader -- and a test -- address one scope's controls rather than the
  * first ones on the page.
  */
-function Group({ group, owner }: { group: GroupOnThePage; owner: boolean }) {
+function Group({ asking, group }: { asking?: Asking; group: GroupOnThePage }) {
+  const owner = asking !== undefined;
   return (
     <li className="py-3">
       {/*
@@ -204,6 +236,86 @@ function Group({ group, owner }: { group: GroupOnThePage; owner: boolean }) {
           </section>
         </div>
       )}
+      {asking !== undefined && (
+        <Asks
+          asked={asking.asked.get(group.id) ?? []}
+          configured={asking.configured}
+          group={group}
+        />
+      )}
     </li>
+  );
+}
+
+/**
+ * WHICH PROVIDERS ONE SCOPE ASKS, AND THE WAY TO CHANGE IT (CNCORE-182,
+ * ADR-0025): every Provider this instance searches, each asked or not.
+ *
+ * EVERY CONFIGURED PROVIDER, NOT ONLY THE ASKED ONES, because the choice is
+ * among them: a Group picks from the Providers this instance names and never
+ * adds to them, so the list to choose from is `/settings`' own.
+ *
+ * A BUTTON PER PROVIDER RATHER THAN A SET OF TICKBOXES, which is `/settings`'
+ * own arrangement for the same list: each posts one change, so a stale page
+ * changes the one Provider its button names rather than writing back every
+ * box as that page last saw them.
+ *
+ * NO ORDER TO SET, which is the decision rather than a missing control. The
+ * source order is one for the whole instance (ADR-0025), so a Group chooses
+ * who is asked and never how they rank.
+ *
+ * NAMED BY URL, which is a deployment detail shown to the one person entitled
+ * to it -- `BrowseBox` on `/import` gives the reason. Each Provider is a section
+ * labelled by the scope and the URL together, because a page holds one per pair
+ * and the label is what lets a reader, and a test, address one pair's control.
+ */
+function Asks({
+  asked,
+  configured,
+  group,
+}: {
+  asked: readonly string[];
+  configured: readonly string[];
+  group: GroupOnThePage;
+}) {
+  return (
+    <section aria-labelledby={`asks-${group.id}`} className="mt-3">
+      <h4 className="text-sm" id={`asks-${group.id}`}>
+        Providers searched within {group.name}
+      </h4>
+      {configured.length === 0 ? (
+        <p className="mt-1 text-muted-foreground text-sm">
+          This instance searches no Provider yet. Name one in{" "}
+          <Link className="underline" href="/settings">
+            Settings
+          </Link>
+          , then choose here which Groups ask it.
+        </p>
+      ) : (
+        <ul className="mt-1 flex flex-col gap-1">
+          {configured.map((baseUrl) => {
+            const asks = asked.includes(baseUrl);
+            const label = `ask-${group.id}-${baseUrl}`;
+            return (
+              <li key={baseUrl}>
+                <section aria-labelledby={label} className="flex items-center gap-3 text-sm">
+                  <h5 className="min-w-0 flex-1 wrap-anywhere" id={label}>
+                    {baseUrl}
+                  </h5>
+                  <span className="text-muted-foreground">{asks ? "Asked" : "Not asked"}</span>
+                  <form action={asks ? stopAskingProvider : askProvider}>
+                    <input name="id" type="hidden" value={group.id} />
+                    <input name="baseUrl" type="hidden" value={baseUrl} />
+                    <Button size="sm" type="submit" variant="outline">
+                      {asks ? "Stop asking" : "Ask"}
+                    </Button>
+                  </form>
+                </section>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
   );
 }

@@ -183,11 +183,25 @@ type Walking =
   | { path: MembersPath; asked: TheRoute; narrowed?: never; listing: ItemPageListing };
 
 /**
- * ONE OF THE THREE SURFACES THAT ARE THEIR LISTING, as the Group picker sees
- * it: where it is, and what it was asked -- with no Group and no cursor,
- * because those are the two things the picker changes.
+ * PROVIDER SEARCH ON `/import`, WHICH A GROUP NARROWS AND NOTHING WALKS
+ * (CNCORE-182).
+ *
+ * A Group decides which Providers are asked (ADR-0025), so the picker belongs
+ * on the one surface that asks them -- with the same address shape as Catalogue
+ * search, `?q=<query>&group=<id>`. It is NOT one of `Walking`'s members,
+ * because a search a Provider answers is not a Listing: nothing pages it, so
+ * it owes the walk no sentence and takes no cursor, and adding it there would
+ * make every exhaustive table about Listings name it.
  */
-type Narrowable = Extract<Walking, { listing?: never }> & { narrowed?: never };
+type Searched = { path: "/import"; asked: Asked; narrowed?: Narrowed; listing?: never };
+
+/**
+ * ONE OF THE SURFACES A GROUP NARROWS, as the Group picker sees it: where it
+ * is, and what it was asked -- with no Group and no cursor, because those are
+ * the two things the picker changes. The three Listings that are their own
+ * surface, and Provider search.
+ */
+type Narrowable = Extract<Walking | Searched, { listing?: never }> & { narrowed?: never };
 
 /**
  * WHERE ONE OF THOSE LISTINGS STARTS, UNNARROWED: its address with what it
@@ -315,7 +329,7 @@ const IN_FIXED_ORDER = [
  * nothing composes on them: what the Listing asks (`/search`'s query), then
  * the Group it was narrowed to, then the cursor -- each absent where it is.
  */
-function queryFor(walking: Walking, at: string | undefined): Record<string, string> {
+function queryFor(walking: Walking | Searched, at: string | undefined): Record<string, string> {
   if (walking.listing === undefined) {
     const kept = { ...walking.asked, ...walking.narrowed };
     return at === undefined ? kept : { ...kept, after: at };

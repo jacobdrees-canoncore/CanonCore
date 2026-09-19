@@ -1,6 +1,16 @@
 import { describe, expect, inject, it } from "vitest";
 
-import { documentFrom, formIn, logInAt, sectionIn, submit, withFields } from "./document";
+import {
+  documentFrom,
+  formIn,
+  logInAt,
+  navigatingFormsIn,
+  scopeLinked,
+  sectionIn,
+  submit,
+  textOf,
+  withFields,
+} from "./document";
 
 /**
  * DRAWING, NAMING AND FILLING A BROWSING SCOPE (CNCORE-178), at ADR-0103's
@@ -219,6 +229,97 @@ describe("deleting a scope", () => {
     const item = await documentAt(`/items/${scopable.loose}`);
     expect(item.text).toContain(scopable.looseTitle);
     expect(sectionIn(item.text, "groups")).toContain("in no Group");
+  });
+});
+
+/**
+ * WHICH PROVIDERS A SCOPE ASKS (CNCORE-182, ADR-0025), chosen on `/groups` and
+ * acted on by searching the Providers from `/import` within it.
+ *
+ * THIS INSTANCE SEARCHES TWO PROVIDERS, each answering the query with a record
+ * under a name of its own, so which were ASKED is read off the page by those
+ * names: `/import` lists every Provider that answered, even one that matched
+ * nothing, so a name missing from a narrowed page is a Provider nobody asked.
+ */
+const { providers } = scopable;
+
+/** The section `/groups` renders for one scope asking one Provider. */
+function asking(groupId: string, providerUrl: string): string {
+  return `ask-${groupId}-${providerUrl}`;
+}
+
+/** Tells a scope to ask a Provider, or to stop, through the button `/groups` renders for the pair. */
+async function toggleAsking(groupId: string, providerUrl: string): Promise<string> {
+  const page = await pageText("/groups");
+  return (await submit(baseUrl, "/groups", formIn(page, asking(groupId, providerUrl)), owner)).text;
+}
+
+/** Provider search from `/import`, across everything, as the Owner is served it. */
+async function searchedFromImport(): Promise<string> {
+  return pageText(`/import?q=${encodeURIComponent(providers.query)}`);
+}
+
+describe("which Providers a scope asks", () => {
+  it("asks a Provider for a scope from `/groups`, and stops when told", async () => {
+    const id = await aScopeCalled("eee Asks, then stops");
+
+    const asked = await toggleAsking(id, providers.wiki.url);
+    expect(textOf(sectionIn(asked, asking(id, providers.wiki.url)))).toContain("Stop asking");
+    expect(textOf(sectionIn(asked, asking(id, providers.database.url)))).not.toContain(
+      "Stop asking",
+    );
+
+    const stopped = await toggleAsking(id, providers.wiki.url);
+    expect(textOf(sectionIn(stopped, asking(id, providers.wiki.url)))).not.toContain("Stop asking");
+  });
+
+  it("searches only the Providers a scope asks, picked from `/import`", async () => {
+    // THE TICKET'S FIRST CRITERION WHERE THE OWNER MEETS IT. Across everything
+    // both Providers answer; within the scope, only the one it asks does -- and
+    // the scope is PICKED on `/import`, off the same picker the Listings carry.
+    const id = await aScopeCalled("fff Asks the wiki alone");
+    await toggleAsking(id, providers.wiki.url);
+    const everything = await searchedFromImport();
+    expect(everything).toContain(providers.wiki.name);
+    expect(everything).toContain(providers.database.name);
+
+    const within = await pageText(scopeLinked(everything, "fff Asks the wiki alone"));
+
+    expect(within).toContain(providers.wiki.name);
+    expect(within).not.toContain(providers.database.name);
+  });
+
+  it("searches again within the same scope from the narrowed page's own box", async () => {
+    // THE BOX SITS UNDER A PICKER THAT STILL MARKS THE SCOPE, so a second
+    // search from it that asked every Provider would contradict the page it
+    // was typed on. What it submits is read off the form the page renders --
+    // query first, then the scope, which is the picker's own spelling.
+    const id = await aScopeCalled("fff Asks the wiki alone");
+    await toggleAsking(id, providers.wiki.url);
+    const within = await pageText(
+      scopeLinked(await searchedFromImport(), "fff Asks the wiki alone"),
+    );
+
+    // BY ITS ACTION, because the shell's header carries Catalogue search's box
+    // on every page and that one takes a `q` too.
+    const box = navigatingFormsIn(within).find(({ action }) => action.endsWith("/import"));
+
+    expect(box?.fields.map(([name]) => name)).toStrictEqual(["q", "group"]);
+    expect(box?.fields.find(([name]) => name === "group")?.[1]).toBe(id);
+  });
+
+  it("says a scope asks no Provider, rather than that nothing matched", async () => {
+    // A SCOPE NOBODY TOLD ANYTHING ASKS NOBODY (ADR-0025), and "Nothing
+    // matched" would be a claim about Providers that were never asked -- the
+    // exact confusion `/import` already keeps apart for one that is down.
+    await aScopeCalled("ggg Asks nobody");
+    const everything = await searchedFromImport();
+
+    const within = await pageText(scopeLinked(everything, "ggg Asks nobody"));
+
+    expect(textOf(sectionIn(within, "asks-no-provider"))).toContain("asks no Provider");
+    expect(within).not.toContain(providers.wiki.name);
+    expect(within).not.toContain("Nothing matched");
   });
 });
 
