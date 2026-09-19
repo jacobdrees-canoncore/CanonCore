@@ -164,6 +164,11 @@ let the range pick the newer one up later.
   work is in a third place: the other repo's `git status`. Say this when you brief the fold — the
   163/164 pair read as stalled on 2026-09-14 while it was writing a compose file and a 209-line
   test, and the question came back as "the orca worktree isnt doing anyhting".
+- **`orca terminal send` TYPES; `--enter` SENDS.** Without that flag the text lands in the agent's
+  input box and sits there, and the call still answers `Sent 187 bytes to term_...`. Two briefs
+  naming a merged ADR rung sat unsubmitted in two agents' prompts on 2026-09-19 while this loop's own
+  report said both had been told. Pass `--enter`, then read the terminal back: a cursor that has not
+  advanced is a brief nobody received.
 - **`orca terminal send` truncates a long message, silently.** The agent acts on the fragment. Keep
   each send to a couple of hundred bytes and split; read the terminal back to confirm it landed.
   This cost CNCORE-40 a whole pass.
