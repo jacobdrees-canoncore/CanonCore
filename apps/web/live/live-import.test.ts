@@ -26,10 +26,6 @@
  * is gated on, written as expectations so that a future run says which one broke.
  */
 
-import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
-import { createServer } from "node:net";
-import { join } from "node:path";
 import type { AppRouterClient } from "@canoncore/api/routers";
 import { createDb, writeProviderSettings } from "@canoncore/db";
 import { buildTestDatabase } from "@canoncore/db/testing/build-database";
@@ -39,20 +35,8 @@ import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, expect, test } from "vitest";
 
 import { logInAt } from "../e2e/document";
-import { OWNER_PASSWORD, theAppBuilt, theBuildServing, waitUntilAnswering } from "../e2e/instance";
-
-/**
- * WHERE `provider-wiki` IS CHECKED OUT, which is the one thing this file cannot derive.
- *
- * It is a SEPARATE REPOSITORY (ADR-0031) and there is no import to follow.
- *
- * REQUIRED, WITH NO DEFAULT. An earlier version of this defaulted to the worktree it was
- * written in -- which the dispatcher removes when this branch merges, so the default was
- * dead the day it landed and would have failed as `spawn ENOENT` naming a path nobody
- * recognises. Machine state is not repo state: a path that exists on one Mac is not a
- * value this repository knows, and the honest form of not knowing it is to ask.
- */
-const PROVIDER_WIKI = process.env.PROVIDER_WIKI_REPO;
+import { OWNER_PASSWORD, theAppBuilt, theBuildServing } from "../e2e/instance";
+import { theProviderServing } from "./provider";
 
 /**
  * THREE TIMELINES, CHOSEN RATHER THAN PICKED, AND EACH ONE ANSWERS SOMETHING.
@@ -91,30 +75,7 @@ const imported: Array<{
 }> = [];
 
 beforeAll(async () => {
-  if (!PROVIDER_WIKI) {
-    throw new Error(
-      "PROVIDER_WIKI_REPO is unset. It must name a `provider-wiki` checkout, which is a " +
-        "separate repository (ADR-0031):\n" +
-        "  PROVIDER_WIKI_REPO=/path/to/provider-wiki pnpm test:live",
-    );
-  }
-  if (!existsSync(join(PROVIDER_WIKI, "src/server.ts"))) {
-    throw new Error(
-      `PROVIDER_WIKI_REPO is ${PROVIDER_WIKI}, which holds no src/server.ts. It should be ` +
-        "the root of a `provider-wiki` checkout.",
-    );
-  }
-  const providerPort = await freePort();
-  const provider = spawn("node", ["src/server.ts"], {
-    cwd: PROVIDER_WIKI,
-    env: { ...process.env, PORT: String(providerPort), HOSTNAME_BIND: "127.0.0.1" },
-    stdio: "inherit",
-  });
-  owned.defer(() => {
-    provider.kill("SIGTERM");
-  });
-  const providerUrl = `http://127.0.0.1:${providerPort}`;
-  await waitUntilAnswering(providerUrl, provider);
+  const providerUrl = await theProviderServing(owned);
 
   const databaseUrl = await buildTestDatabase("web");
   db = createDb(databaseUrl, { maxConnections: 2 });
@@ -211,26 +172,3 @@ test("a story listed at several points of one timeline arrives as several Placem
   for (const row of rows) console.log(`  ${row.title}: ${row.times}x at ${row.positions}`);
   expect(rows.length).toBeGreaterThan(0);
 });
-
-/**
- * Asks the operating system for a port nothing else is on, for the provider.
- *
- * TODO(CNCORE-237): THE PORT IS FREE ONLY UNTIL THE PROBE CLOSES, and anything on
- * the machine can take it before the provider binds it. The e2e harness closed
- * the same window for `next start` under CNCORE-235 by letting the server choose
- * its own port and reading it back; this is the one caller of the old shape left.
- */
-function freePort(): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const probe = createServer();
-    probe.on("error", reject);
-    probe.listen(0, "127.0.0.1", () => {
-      const address = probe.address();
-      if (address === null || typeof address === "string") {
-        reject(new Error("could not read a port from the probe socket"));
-        return;
-      }
-      probe.close(() => resolve(address.port));
-    });
-  });
-}

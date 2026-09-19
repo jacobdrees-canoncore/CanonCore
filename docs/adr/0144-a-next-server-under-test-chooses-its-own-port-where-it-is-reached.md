@@ -123,9 +123,11 @@ line parser, which a design naming a port in advance would pass.
 
 - **A thief at the spawn.** `node:child_process` is mocked with a wrapper around the REAL `spawn`.
   Armed, it binds whatever port the command names (`--port` or `-p` in each spelling Next's parser
-  accepts, or `PORT` in its environment), on the host the command names or Node's default, before
-  the real `spawn` runs. The server process is loading Node when the port goes, so the window's
-  worst case is forced every time rather than waited for on a busy machine. Red on `main`'s
+  accepts, or `PORT` in its environment), on the host the command names (`--hostname` or `-H`, or
+  `HOSTNAME_BIND` in its environment since CNCORE-237) or Node's default, before the real `spawn`
+  runs. It lives in `e2e/port-thief.ts` since CNCORE-237, so the live suite can use it too. The
+  server process is loading Node when the port goes, so the window's worst case is forced every
+  time rather than waited for on a busy machine. Red on `main`'s
   `instance.ts` in 203ms: `⨯ Failed to start server`, `listen EADDRINUSE: address already in use
   :::52839`, `next start exited with 1 before answering`, the ticket's failure verbatim. **On this
   branch it takes nothing**, because a port of 0 names nothing: there the case is a guard that
@@ -148,12 +150,35 @@ thief closes each connection now, so the red is the ticket's own.
 file's peak is still one server, so ADR-0104's four-agent ceiling does not move. On this branch the
 file runs 8 of 8, and every server announces `http://127.0.0.1:<port>` and nothing else.
 
+## The live suite's provider, the same way (CNCORE-237)
+
+`live/live-import.test.ts` starts the real `provider-wiki`, another repository's server, and it was
+the last caller of `freePort`, with the same window open. It now goes through
+`theProviderServing` in `live/provider.ts`, which gives the provider `PORT=0` and
+`HOSTNAME_BIND=127.0.0.1` (`SERVER_HOST`, exported for it) and reads the port with
+`thePortItBound`, the same reader, off the provider's own `provider-wiki listening on <url>` line.
+`freePort` is gone. The reader takes the line as an `Announcement`, which is the only thing that
+differs between the two servers.
+
+- **`PORT=0` reaches the provider's listener as 0.** Its `src/server.ts` (at d028451) takes `PORT`
+  from the environment and `@hono/node-server` 2.1.1 defaults it with `??`, so 0 is not replaced.
+  Run by hand on 2026-09-19: it announced `http://127.0.0.1:52495`, `lsof` showed it listening on
+  exactly `127.0.0.1:52495`, and that URL answered 200.
+- **No poll after the line.** The provider prints it from its listening callback, and a listening
+  server answers, so `waitUntilAnswering` is `theBuildServing`'s alone now and no longer exported.
+- **The seam is the real provider with the thief armed**, in `live/provider.test.ts`. The dispatcher
+  chose it on 2026-09-19 over the live import alone, because it needs the checkout and NOT the
+  Owner's Credential, which lapses within a day and only the Owner renews. A check that needs the
+  credential rarely runs. Red on the probe's shape: `listen EADDRINUSE: address already in use
+  127.0.0.1:55233`, and the provider exited before it answered. Green on port 0, where the thief
+  takes nothing.
+- **The thief had to learn `HOSTNAME_BIND`, or it proves nothing on macOS.** Without it the thief
+  binds `::`, the provider binds `127.0.0.1` beside it (the table above), and the probe's shape
+  PASSED: measured 2026-09-19, the thief held `:::55440` and the provider still announced
+  `http://127.0.0.1:55440`.
+
 ## What this does not hold
 
-- **The live suite's provider process.** `live/live-import.test.ts` starts `provider-wiki`, another
-  repository's server, on a port from `freePort`, which now lives in that file as its one caller,
-  with the window still open. CNCORE-237 carries it. Its CanonCore server goes through
-  `theBuildServing` and is covered here.
 - **Sockets that are not listening.** Every measurement above is of listeners. What a connected
   socket's local port does to a later bind on the same port was not measured, and nothing here
   depends on it: a server that binds port 0 is handed a port the OS considers free for that bind.
