@@ -10,9 +10,11 @@ import {
   documentFrom,
   logInAt,
   postFormsIn,
+  quotesIn,
   type RenderedForm,
   sectionIn,
   submit,
+  textOf,
   withFields,
 } from "./document";
 import { HARNESS_CONNECTIONS } from "./instance";
@@ -403,7 +405,7 @@ describe("/import, taking a record from a provider that has stopped answering", 
     // which is the read surface doing what the write surface cannot, and the
     // whole of why a 500 here cost them the remedy. `/` is the manifest, the
     // first thing any operation asks for.
-    expect(taken.text).toContain(`<q>/ answered 503: ${lapsed.said}</q>`);
+    expect(quotesIn(taken.text)).toContain(`/ answered 503: ${lapsed.said}`);
     expect(taken.text).toContain(lapsed.url);
   });
 });
@@ -498,7 +500,7 @@ describe("/import, browsing a container the provider does not hold", () => {
     const container = browsed.container();
     // THE PROVIDER'S OWN NAME, off its manifest, because "who says they have not
     // got it" is the half of this the Owner acts on.
-    expect(container).toContain(`${holdsNothing.name} holds no container at that id`);
+    expect(textOf(container)).toContain(`${holdsNothing.name} holds no container at that id`);
     // AND NOTHING TO PRESS AGAIN, which is the half that makes this more than a
     // nicer error: the button that could not work is gone from the page the
     // owner lands on.
@@ -535,7 +537,7 @@ describe("/import, browsing at a provider that declines browse", () => {
     // names the wrong provider -- and "which provider does not do this" is the
     // half the Owner acts on. Its neighbour above asserted the name from the
     // start and this did not.
-    expect(container).toContain(`${declining.name} does not offer browse`);
+    expect(textOf(container)).toContain(`${declining.name} does not offer browse`);
     expect(postFormsIn(container)).toHaveLength(0);
   });
 });
@@ -956,7 +958,7 @@ describe("/import, browsing a container at a provider that has stopped answering
 
     expect(browsed.status).toBe(200);
     const container = browsed.container();
-    expect(container).toContain(`<q>/ answered 503: ${lapsed.said}</q>`);
+    expect(quotesIn(container)).toContain(`/ answered 503: ${lapsed.said}`);
     // AND NOTHING TO PRESS AGAIN, which is the half that makes this more than a
     // nicer error: the button that could not work is gone from the page the
     // owner lands on.
@@ -1155,7 +1157,7 @@ describe("/import, when the provider refuses", () => {
     const container = sectionIn(text, "container");
     // QUOTED. `<q>` is the whole of what says the catalogue is not the one
     // making this claim, and the lead sentence names the provider beside it.
-    expect(container).toContain(`<q>${said.reason.text}</q>`);
+    expect(quotesIn(container)).toContain(said.reason.text);
     expect(container).toContain(named.provider);
   });
 

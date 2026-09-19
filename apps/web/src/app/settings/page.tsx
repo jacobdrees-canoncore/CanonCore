@@ -6,6 +6,7 @@ import { Textarea } from "@canoncore/ui/components/textarea";
 import { call } from "@orpc/server";
 import { Moment } from "@/components/moment";
 import { NotLoggedIn } from "@/components/not-logged-in";
+import { ProviderProse } from "@/components/provider-prose";
 import { oneValue } from "@/components/query-params";
 import { Reason } from "@/components/reason";
 import { callerContext } from "@/session";
@@ -265,7 +266,8 @@ function ReachNotice({ reach }: { reach: Reach }) {
  * The Provider is named on the row directly above, so the quotation marks are
  * the whole of what is needed to stop the Owner reading it as CanonCore
  * speaking. Its LENGTH was settled before it arrived, at the same seam and by
- * the same function as every other provider text this app prints.
+ * the same function as every other provider text this app prints, and its WIDTH
+ * by the same component (CNCORE-217).
  *
  * THREE STATES THAT SAY THREE DIFFERENT THINGS, and the expired one says WHEN.
  * `expired` alone does not tell the Owner whether the session lapsed a minute
@@ -275,7 +277,10 @@ function ReachNotice({ reach }: { reach: Reach }) {
 function Credential({ credential }: { credential: DeclaredCredential }) {
   return (
     <p className="text-muted-foreground text-xs">
-      <q>{credential.label}</q> <State credential={credential} />
+      <q>
+        <ProviderProse>{credential.label}</ProviderProse>
+      </q>{" "}
+      <State credential={credential} />
       {credential.unlockUrl === null ? <PathRefused /> : null}
     </p>
   );

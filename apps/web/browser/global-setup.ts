@@ -1,11 +1,13 @@
 import { placeItemByHand } from "@canoncore/db";
-import { anItemTitled } from "@canoncore/db/testing/catalogue";
+import { anItemTitled, aProvider, aStatement } from "@canoncore/db/testing/catalogue";
+import { bounded } from "@canoncore/providers";
 import type { TestProject } from "vitest/node";
 
 import { anInstanceServing, OWNER_PASSWORD, theAppBuilt } from "../e2e/instance";
+import { aProviderThatFloodsItsName, FLOOD } from "../e2e/stubs";
 
 /**
- * ONE INSTANCE, FOR THE ONE THING A BROWSER IS NEEDED FOR (CNCORE-73).
+ * ONE INSTANCE, FOR THE THINGS A BROWSER IS NEEDED FOR (CNCORE-73, CNCORE-217).
  *
  * ADR-0103 reserved Playwright for "a rendered page, on the slice that first
  * has one", sharpened by CNCORE-4 to "the first slice with real INTERACTIVITY".
@@ -15,17 +17,19 @@ import { anInstanceServing, OWNER_PASSWORD, theAppBuilt } from "../e2e/instance"
  * ITS OWN VITEST PROJECT AND ITS OWN CI JOB, which is the ticket's first
  * acceptance criterion and was decided against the duplicated setup it costs.
  * What it duplicates is ONE instance rather than the page seam's seven: a
- * browser suite asserting one claim needs one ordering to drag, not a wiki
- * provider, a TMDB provider, a paged catalogue or a fresh install. And what the
+ * browser suite needs one ordering to drag and one Provider that floods its
+ * name, not a wiki provider, a TMDB provider, a paged catalogue or a fresh
+ * install. And what the
  * split buys is that a flake in the most brittle thing in this repository
  * reddens a check called "The page in a browser" instead of the one that says
  * the app serves pages at all.
  *
  * WHAT IT MAY ASSERT IS BOUNDED, and the bound is in ADR-0103 rather than in
- * this comment: that dragging reorders, and that the new order survives a
- * reload. Everything else about reordering -- the arithmetic, the refusals, the
- * write, what a visitor is shown -- is asserted without a browser, because
- * everything else can be.
+ * this comment: that dragging reorders, that the new order survives a reload,
+ * and since CNCORE-217 that a Provider's prose wraps inside the page -- which is
+ * layout, and no `fetch` can observe layout. Everything else about reordering --
+ * the arithmetic, the refusals, the write, what a visitor is shown -- is
+ * asserted without a browser, because everything else can be.
  *
  * FOUR MEMBERS AT 1, 5 AND 63 AND ONE WITH NO POSITION, which is
  * `aCatalogueSafeToReorder`'s fixture and for its reason: the GAPS are what
@@ -51,12 +55,18 @@ export default async function setup(project: TestProject) {
     OWNER_PASSWORD,
   });
 
+  const floodsItsName = await aProviderThatFloodsItsName();
+
   const instance = await anInstanceServing({
     suffix: "drag",
     ownerPassword: OWNER_PASSWORD,
-    // ADR-0034's default: an instance nobody has configured reaches nothing.
-    allowlist: "",
-    providers: [],
+    /*
+     * ONE PROVIDER, AND ONLY THE ONE WHOSE PROSE IS AS WIDE AS IT IS LONG
+     * (CNCORE-217). Loopback is admitted BY NAME, which is the config
+     * boundary's whole job (ADR-0034); nothing else here reaches out.
+     */
+    allowlist: "127.0.0.0/8",
+    providers: [floodsItsName.url],
     fill: async (db) => {
       const releaseOrder = await anItemTitled(db, "Release order", {
         isContainer: true,
@@ -72,26 +82,53 @@ export default async function setup(project: TestProject) {
         const itemId = await anItemTitled(db, title);
         await placeItemByHand(db, { containerId: releaseOrder, itemId, position });
       }
-      return { releaseOrder, inOrder: held.map(({ title }) => title) };
+
+      /*
+       * AN ITEM THAT PROVIDER CLAIMS A VALUE ABOUT, so its name is printed
+       * where the Item page prints a source (CNCORE-217). The label is the name
+       * as an import writes it -- `bounded` is the cut `cmppManifest` makes --
+       * and it is written here rather than imported because the ROW is not what
+       * this suite asserts: the page seam's row test already does.
+       */
+      const flooding = await aProvider(db, floodsItsName.url, bounded(FLOOD));
+      const claimed = await anItemTitled(db, "Claimed by a Provider that floods its name");
+      await aStatement(db, {
+        subjectItemId: claimed,
+        property: "title",
+        valueLiteral: "Claimed by a Provider that floods its name",
+        sourceId: flooding,
+      });
+
+      return {
+        dragging: { releaseOrder, inOrder: held.map(({ title }) => title) },
+        claimed,
+      };
     },
   });
 
-  project.provide("dragBaseUrl", instance.baseUrl);
-  project.provide("dragging", instance.fixture);
-  project.provide("dragOwnerPassword", OWNER_PASSWORD);
+  project.provide("browserBaseUrl", instance.baseUrl);
+  project.provide("dragging", instance.fixture.dragging);
+  project.provide("claimedByTheFlood", instance.fixture.claimed);
+  project.provide("browserOwnerPassword", OWNER_PASSWORD);
+  project.provide("floodedName", FLOOD);
 
   return async () => {
     await instance.close();
+    await floodsItsName.close();
   };
 }
 
 declare module "vitest" {
   interface ProvidedContext {
     /** The one instance this project serves, on its own database and its own port. */
-    dragBaseUrl: string;
+    browserBaseUrl: string;
     /** The ordering under the mouse: one container, and its members as rendered. */
     dragging: { releaseOrder: string; inOrder: string[] };
     /** ADR-0044's one password, which every control on that page is behind. */
-    dragOwnerPassword: string;
+    browserOwnerPassword: string;
+    /** The name the one Provider declares, before this app bounded it. */
+    floodedName: string;
+    /** An Item carrying a value that Provider claims, so its name is on the page. */
+    claimedByTheFlood: string;
   }
 }

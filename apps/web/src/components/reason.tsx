@@ -1,4 +1,5 @@
 import type { FailureReason } from "@canoncore/providers";
+import { ProviderProse } from "./provider-prose";
 
 /**
  * A REASON, SAID BY WHOEVER SAID IT (ADR-0123, CNCORE-95).
@@ -39,6 +40,14 @@ import type { FailureReason } from "@canoncore/providers";
  * THE CALLER NAMES THE PROVIDER, in the lead sentence it was already writing.
  * Naming it here too rendered the URL twice in `/import`'s search list.
  *
+ * AND WHAT IS QUOTED IS WRAPPED, BECAUSE `wrote` ANSWERED WHOSE SHAPE IT IS TOO
+ * (CNCORE-217). Text not refused at the config boundary is not this app's, so
+ * three hundred characters of it with no break in them are the Provider's to
+ * send and not the Provider's to lay out. CanonCore's own sentence is printed
+ * plainly, because `canoncore` means the config boundary refused and what that
+ * boundary judges is a URL the OWNER typed: every value in the sentence is the
+ * Owner's own, not a stranger's.
+ *
  * ITS OWN MODULE SINCE CNCORE-101, HAVING BEEN `/import`'s ALONE. The settings
  * surface is the THIRD reason surface, and ADR-0123 exists because this defect
  * already had two sites that each solved it separately. One rule for whose voice
@@ -47,5 +56,9 @@ import type { FailureReason } from "@canoncore/providers";
  */
 export function Reason({ reason }: { reason: FailureReason }) {
   if (reason.wrote === "canoncore") return <span>{reason.text}</span>;
-  return <q>{reason.text}</q>;
+  return (
+    <q>
+      <ProviderProse>{reason.text}</ProviderProse>
+    </q>
+  );
 }

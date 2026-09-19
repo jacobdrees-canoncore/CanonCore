@@ -1,4 +1,5 @@
 import { SOURCE_MARK_PX } from "./marks";
+import { ProviderProse } from "./provider-prose";
 
 /**
  * One source's obligation, in the shape the read path emits it.
@@ -33,6 +34,9 @@ export interface AttributionOnThePage {
  * THE NOTICE IS PRINTED VERBATIM. It is not truncated, not title-cased, and not
  * wrapped in words of ours -- a paraphrased licence notice breaches the licence as
  * surely as a missing one, and every transformation available here is a paraphrase.
+ * WRAPPING ITS LINES IS NOT ONE (CNCORE-217): `ProviderProse` changes where a line
+ * breaks and not a character of what is on it, which is how a notice with a word
+ * wider than the page is printed whole rather than off the edge.
  */
 export function Attribution({ attribution }: { attribution: AttributionOnThePage[] }) {
   if (attribution.length === 0) return null;
@@ -99,7 +103,9 @@ export function Attribution({ attribution }: { attribution: AttributionOnThePage
             )}
             {/* Verbatim, and the only styling is the size every other note on
                 this page is set in. */}
-            <p className="text-muted-foreground text-sm">{owed.notice}</p>
+            <p className="text-muted-foreground text-sm">
+              <ProviderProse>{owed.notice}</ProviderProse>
+            </p>
           </li>
         ))}
       </ul>

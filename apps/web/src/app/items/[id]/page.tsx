@@ -13,6 +13,7 @@ import { cache, Fragment } from "react";
 import { Attribution } from "@/components/attribution";
 import { Holding, type MembersPath, PastTheEnd, type TheRoute, Walk } from "@/components/listing";
 import { type Reorder, reorderedTo } from "@/components/ordering";
+import { ProviderProse } from "@/components/provider-prose";
 import { oneValue } from "@/components/query-params";
 import { SortableMembers } from "@/components/sortable-members";
 import { callerContext } from "@/session";
@@ -280,7 +281,7 @@ function AssertedBy({ sources }: { sources: string[] }) {
          * after a refresh has nothing to carry across to the wrong one.
          */
         <span data-source key={place}>
-          {source}
+          <ProviderProse>{source}</ProviderProse>
         </span>
       ))}
     </span>
@@ -748,9 +749,12 @@ function Values({ statements }: { statements: ItemOnThePage["statements"] }) {
             {/*
               The source's own LABEL rather than its kind. "Who asserted this"
               is answered by `provider-wiki`, where `provider` answers only what
-              sort of thing said it -- and the reader is asking the first.
+              sort of thing said it -- and the reader is asking the first. A
+              Provider's label is its declared name, so it is its prose too.
             */}
-            <span className="text-muted-foreground text-sm">{statement.sourceLabel}</span>
+            <span className="text-muted-foreground text-sm">
+              <ProviderProse>{statement.sourceLabel}</ProviderProse>
+            </span>
           </li>
         ))}
       </ul>

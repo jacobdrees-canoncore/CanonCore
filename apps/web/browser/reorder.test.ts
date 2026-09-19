@@ -1,6 +1,8 @@
 import { type Browser, type BrowserContext, chromium, type Locator, type Page } from "playwright";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 
+import { gatedTo } from "./gate";
+
 /**
  * DRAGGING A PLACEMENT TO REORDER A CONTAINER (CNCORE-73), in a real browser,
  * which is where ADR-0103's reserved seam is spent.
@@ -11,8 +13,9 @@ import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
  * asserted at the router, the refusals at the database, and the whole
  * capability is asserted WITHOUT a browser at the page seam, because every row
  * carries Move up and Move down as native forms. A browser test is the most
- * expensive and most brittle thing in this repository and this is the entire
- * budget for one.
+ * expensive and most brittle thing in this repository, and ADR-0103 bounds what
+ * this suite may spend one on: this file's two claims, and since CNCORE-217 a
+ * third in `prose-width.test.ts`.
  *
  * THE DRAG IS A MOUSE, NOT `dragTo`. Playwright's `locator.dragTo` moves the
  * pointer in ONE jump, and a single jump routinely fails a pointer sensor's
@@ -21,27 +24,15 @@ import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
  * failure this file is written against, so it moves in steps, and it ASSERTS
  * THE DRAG ACTUALLY STARTED before releasing.
  */
-const baseUrl = inject("dragBaseUrl");
+const baseUrl = inject("browserBaseUrl");
 const dragging = inject("dragging");
 
 let browser: Browser;
 let context: BrowserContext;
 let page: Page;
 
-/**
- * Everything the browser tried to reach that is not the instance under test.
- *
- * THE NODE GATE CANNOT SEE A BROWSER. `install-network-gate` patches undici
- * inside the Vitest process, and a browser is a subprocess making its own
- * requests -- so this suite would be the one place in the repository where a
- * page reaching a public host went unnoticed. `context.route()` is the only
- * thing positioned to see it.
- *
- * RECORDED AND THEN ASSERTED, rather than only aborted. An abort alone would
- * make the page fail in whatever way a blocked request makes it fail, which is
- * a puzzle rather than a message; the list below is what turns it into one.
- */
-const reachedOut: string[] = [];
+/** Everything the browser tried to reach that is not the instance under test. */
+let reachedOut: string[] = [];
 
 beforeAll(async () => {
   browser = await chromium.launch();
@@ -56,13 +47,7 @@ beforeAll(async () => {
    */
   context = await browser.newContext({ viewport: { width: 1280, height: 1600 } });
 
-  const instance = new URL(baseUrl).origin;
-  await context.route("**/*", (route) => {
-    const url = route.request().url();
-    if (new URL(url).origin === instance) return route.continue();
-    reachedOut.push(url);
-    return route.abort("blockedbyclient");
-  });
+  reachedOut = await gatedTo(context, baseUrl);
 
   page = await context.newPage();
   await logIn();
@@ -77,7 +62,7 @@ afterAll(async () => {
 /** ADR-0044's one password, exchanged for a session the way an owner does it. */
 async function logIn() {
   await page.goto(`${baseUrl}/login`);
-  await page.getByLabel("Password").fill(inject("dragOwnerPassword"));
+  await page.getByLabel("Password").fill(inject("browserOwnerPassword"));
   await page.getByRole("button", { name: "Log in" }).click();
   await page.waitForURL((url) => !url.pathname.startsWith("/login"));
 }

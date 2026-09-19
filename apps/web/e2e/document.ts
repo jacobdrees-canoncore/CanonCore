@@ -439,16 +439,69 @@ export async function logInAt(baseUrl: string, password: string): Promise<string
  * file. Every label it reads is one this suite seeded, and none carries one.
  */
 export function sourcesIn(row: string): string[] {
-  const names = [...row.matchAll(/<span\b[^>]*\bdata-source\b[^>]*>(.*?)<\/span>/gs)];
+  const names = [...row.matchAll(/<span\b[^>]*\bdata-source\b[^>]*>/g)].map((opening) => {
+    const from = (opening.index ?? 0) + opening[0].length;
+    const to = closingSpan(row, from);
+    return {
+      from: opening.index ?? 0,
+      to: to + "</span>".length,
+      name: textOf(row.slice(from, to)),
+    };
+  });
   names.forEach((name, place) => {
     const next = names[place + 1];
     if (next === undefined) return;
-    const between = row.slice((name.index ?? 0) + name[0].length, next.index);
+    const between = row.slice(name.to, next.from);
     if (between !== "") {
       throw new Error(`that row puts \`${between}\` between two sources: ${row}`);
     }
   });
-  return names.map(([, name]) => name ?? "");
+  return names.map(({ name }) => name);
+}
+
+/**
+ * Where the `</span>` closing a span begins, given where its content starts.
+ *
+ * COUNTED RATHER THAN MATCHED LAZILY, because a source's name is printed
+ * through `ProviderProse` and so holds a span of its own (CNCORE-217). A lazy
+ * match stops at THAT one's close, and reads the name as its inner tag's
+ * opening with the outer close left over as something between two sources.
+ */
+function closingSpan(html: string, from: number): number {
+  const tags = /<(\/?)span\b[^>]*>/g;
+  tags.lastIndex = from;
+  let depth = 0;
+  for (let tag = tags.exec(html); tag !== null; tag = tags.exec(html)) {
+    if (tag[1] === "") depth += 1;
+    else if (depth === 0) return tag.index;
+    else depth -= 1;
+  }
+  throw new Error(`a span never closes: ${html.slice(from)}`);
+}
+
+/**
+ * What an element SAYS: its content with every tag inside it removed, which is
+ * what a reader sees and what an assertion about the sentence is about.
+ *
+ * FOR A SENTENCE THAT NAMES A PROVIDER, which since CNCORE-217 prints the name
+ * through `ProviderProse` and so carries a span in the middle of what the Owner
+ * reads as one line.
+ */
+export function textOf(html: string): string {
+  return html.replaceAll(/<[^>]*>/g, "");
+}
+
+/**
+ * Everything a page QUOTES, one string per `<q>`.
+ *
+ * `<q>` IS THE WHOLE OF WHAT SAYS THE CATALOGUE IS NOT THE ONE MAKING A CLAIM
+ * (ADR-0123), so "this sentence is quoted" is an assertion about the element and
+ * what it says -- and not about the markup inside it, which since CNCORE-217 is a
+ * span deciding how wide the quotation may run. Read as text, so a change to how
+ * a quotation wraps is not a change to what it says.
+ */
+export function quotesIn(text: string): string[] {
+  return [...text.matchAll(/<q\b[^>]*>(.*?)<\/q>/gs)].map(([, quoted]) => textOf(quoted ?? ""));
 }
 
 /**
