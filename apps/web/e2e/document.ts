@@ -463,7 +463,7 @@ export function sourcesIn(row: string): string[] {
  * Where the `</span>` closing a span begins, given where its content starts.
  *
  * COUNTED RATHER THAN MATCHED LAZILY, because a source's name is printed
- * through `ProviderProse` and so holds a span of its own (CNCORE-217). A lazy
+ * through `TheirWords` and so holds a span of its own (CNCORE-217). A lazy
  * match stops at THAT one's close, and reads the name as its inner tag's
  * opening with the outer close left over as something between two sources.
  */
@@ -484,7 +484,7 @@ function closingSpan(html: string, from: number): number {
  * what a reader sees and what an assertion about the sentence is about.
  *
  * FOR A SENTENCE THAT NAMES A PROVIDER, which since CNCORE-217 prints the name
- * through `ProviderProse` and so carries a span in the middle of what the Owner
+ * through `TheirWords` and so carries a span in the middle of what the Owner
  * reads as one line.
  */
 export function textOf(html: string): string {

@@ -9,10 +9,9 @@ import Form from "next/form";
 import Link from "next/link";
 import { noPasswordSet } from "@/components/no-password";
 import { NoProviderAllowlisted } from "@/components/no-provider-allowlisted";
-import { ProviderProse } from "@/components/provider-prose";
-import { TheirWords } from "@/components/their-words";
 import { oneValue } from "@/components/query-params";
 import { Reason } from "@/components/reason";
+import { TheirWords } from "@/components/their-words";
 import { callerContext } from "@/session";
 
 import { browseOrdering, importRecord, purgeProvider } from "./actions";
@@ -422,6 +421,7 @@ function PurgeBox({ configured }: { configured: string[] }) {
             className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 py-3"
             key={baseUrl}
           >
+            {/* TODO(CNCORE-226): a base URL the Owner typed, printed raw. */}
             <span className="text-sm">{baseUrl}</span>
             <Form action="/import">
               <input type="hidden" name="purge" value={baseUrl} />
@@ -487,6 +487,7 @@ function Purge({ baseUrl, preview }: { baseUrl: string; preview: PurgePreview })
   return (
     <section aria-labelledby="purge" className="mt-10">
       <h2 className="font-medium text-sm" id="purge">
+        {/* TODO(CNCORE-226): a base URL the Owner typed, printed raw. */}
         Purge everything {baseUrl} contributed
       </h2>
       {takesNothing ? (
@@ -663,6 +664,7 @@ function Results({
   return (
     <section aria-labelledby="results" className="mt-8">
       <h2 id="results" className="font-medium text-sm">
+        {/* TODO(CNCORE-226): the reader's own query, printed raw. */}
         {matched === 0 ? `Nothing matched ${query}` : `${matched} found for ${query}`}
       </h2>
       {found.answered.map(({ provider, results }) => (
@@ -673,9 +675,9 @@ function Results({
               answers "who said this", and `http://127.0.0.1:39481` shows an
               owner a deployment detail where `provider-wiki` answers it.
               Bounded in length by `cmppManifest` and in width by
-              `ProviderProse`, since neither is the Provider's to choose.
+              `TheirWords`, since neither is the Provider's to choose.
             */}
-            <ProviderProse>{provider.name}</ProviderProse>
+            <TheirWords>{provider.name}</TheirWords>
             {results.length === 0 && " matched nothing"}
           </h3>
           {results.length > 0 && (
@@ -951,6 +953,7 @@ function Unreachable({ failed }: { failed: Found["failed"] }) {
       <ul className="mt-2 divide-y">
         {failed.map(({ baseUrl, reason }) => (
           <li key={baseUrl} className="py-2 text-sm">
+            {/* TODO(CNCORE-226): a base URL the Owner typed, printed raw. */}
             <span className="font-medium">{baseUrl}</span> <Reason reason={reason} />
           </li>
         ))}
@@ -1244,6 +1247,7 @@ function ItsOrdering({
         <span>
           <TheirWords>{said.title}</TheirWords>
         </span>
+        {/* TODO(CNCORE-226): the container id the Owner typed, printed raw. */}
         <span className="text-muted-foreground text-sm">{containerId}</span>
         {/*
           AND WHAT PRESSING THE BUTTON COSTS. One press writes this many
@@ -1342,6 +1346,7 @@ function StillHeld({ itemId }: { itemId: string }) {
 function NotReached({ baseUrl, reason }: { baseUrl: string; reason: FailureReason }) {
   return (
     <p className="text-muted-foreground text-sm">
+      {/* TODO(CNCORE-226): a base URL the Owner typed, printed raw. */}
       Nothing could be learned about that id from <span className="font-medium">{baseUrl}</span>.{" "}
       <Reason reason={reason} />
     </p>
@@ -1373,8 +1378,8 @@ function NotReached({ baseUrl, reason }: { baseUrl: string; reason: FailureReaso
 function DeclinesBrowse({ providerName }: { providerName: string }) {
   return (
     <p className="text-muted-foreground text-sm">
-      <ProviderProse>{providerName}</ProviderProse> does not offer browse, so it was not asked for
-      one. It can still be searched, and its records imported one at a time.
+      <TheirWords>{providerName}</TheirWords> does not offer browse, so it was not asked for one. It
+      can still be searched, and its records imported one at a time.
     </p>
   );
 }
@@ -1400,7 +1405,7 @@ function DeclinesBrowse({ providerName }: { providerName: string }) {
 function NoSuchContainer({ providerName }: { providerName: string }) {
   return (
     <p className="text-muted-foreground text-sm">
-      <ProviderProse>{providerName}</ProviderProse> holds no container at that id. A browse takes a
+      <TheirWords>{providerName}</TheirWords> holds no container at that id. A browse takes a
       container's own id rather than a record's, so check it at the provider before trying again.
     </p>
   );

@@ -6,9 +6,9 @@ import { Textarea } from "@canoncore/ui/components/textarea";
 import { call } from "@orpc/server";
 import { Moment } from "@/components/moment";
 import { NotLoggedIn } from "@/components/not-logged-in";
-import { ProviderProse } from "@/components/provider-prose";
 import { oneValue } from "@/components/query-params";
 import { Reason } from "@/components/reason";
+import { TheirWords } from "@/components/their-words";
 import { callerContext } from "@/session";
 
 import { editAllowlist, nameProvider, removeProvider } from "./actions";
@@ -121,6 +121,8 @@ export default async function SettingsPage({
                     IDENTITY (ADR-0031) and what the Source row on every
                     imported claim carries. Nothing here tidies it, because two
                     spellings would be two Providers.
+
+                    TODO(CNCORE-226): and it is printed raw.
                   */}
                   <p className="text-sm">{provider.baseUrl}</p>
                   <ReachNotice reach={provider.reach} />
@@ -162,6 +164,8 @@ export default async function SettingsPage({
             re-read cannot report it: "that was not a URL" and "nothing
             happened" are the same unchanged list. The entry is echoed so the
             owner can see which one it was.
+
+            TODO(CNCORE-226): and it is printed raw.
           */
           <p className="mt-3 text-muted-foreground text-sm">
             <span className="font-medium">{refused}</span> was not named, because it is not a URL. A
@@ -278,7 +282,7 @@ function Credential({ credential }: { credential: DeclaredCredential }) {
   return (
     <p className="text-muted-foreground text-xs">
       <q>
-        <ProviderProse>{credential.label}</ProviderProse>
+        <TheirWords>{credential.label}</TheirWords>
       </q>{" "}
       <State credential={credential} />
       {credential.unlockUrl === null ? <PathRefused /> : null}

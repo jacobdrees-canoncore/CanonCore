@@ -169,6 +169,7 @@ function NothingFound({ query }: { query: string }) {
       <Empty className="mt-6 border">
         <EmptyHeader>
           <EmptyTitle>
+            {/* TODO(CNCORE-226): the reader's own query, printed raw. */}
             <h2 id="nothing-found">Nothing matched {query}</h2>
           </EmptyTitle>
           <EmptyDescription>
