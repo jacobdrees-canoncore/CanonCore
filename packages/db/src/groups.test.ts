@@ -297,6 +297,27 @@ describe("a Group the Owner deleted", () => {
       putItemInGroupByHand(db, { groupId: group, itemId: story }),
     ).rejects.toBeInstanceOf(GroupRefused);
   });
+
+  it("names no Group on the Item where a membership outlived it, which is what a race leaves", async () => {
+    // THE STATE A DELETION RACING A PUT LEAVES BEHIND (CNCORE-230), asked of
+    // the Item page. Built by tombstoning the Group alone, as
+    // `catalogue.test.ts` builds it for the Listings and `import.test.ts` for
+    // the purge, because a deletion by hand tombstones the membership too and so
+    // cannot tell whether this reader reads the Group's tombstone at all.
+    //
+    // ASKED WITH THE GROUP NAMED FIRST: an answer of nothing is only worth
+    // something from a reader that named the Group a moment before.
+    const group = await createGroupByHand(db, { name: "A scope deleted mid-put" });
+    const story = await anItem(db);
+    await putItemInGroupByHand(db, { groupId: group, itemId: story });
+    expect(await findGroupsOfItem(db, story)).toStrictEqual([
+      { id: group, name: "A scope deleted mid-put" },
+    ]);
+
+    await db.update(groups).set({ deletedAt: sql`now()` }).where(eq(groups.id, group));
+
+    expect(await findGroupsOfItem(db, story)).toStrictEqual([]);
+  });
 });
 
 describe("askProviderByHand", () => {

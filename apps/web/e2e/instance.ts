@@ -180,7 +180,7 @@ export async function theBuildServing(
   };
   owned.defer(close);
   const deadline = Date.now() + STARTING_MS;
-  const baseUrl = `http://${SERVER_HOST}:${await thePortItBound(server, deadline)}`;
+  const baseUrl = `http://${SERVER_HOST}:${await thePortItBound(server, NEXT_START, deadline)}`;
   await waitUntilAnswering(baseUrl, server, deadline);
   return { baseUrl, pid: server.pid, close };
 }
@@ -196,11 +196,22 @@ export async function theBuildServing(
  * address bound, so that process answers the harness in the server's place.
  * Bound where it is reached, the server makes that bind `EADDRINUSE` instead --
  * and stops listening on the network, which a server under test never needed.
+ *
+ * `live/provider.ts` binds `provider-wiki` here too, and reaches it here (CNCORE-237).
  */
-const SERVER_HOST = "127.0.0.1";
+export const SERVER_HOST = "127.0.0.1";
 
 /**
- * THE PORT `next start` BOUND, read off the line it announces it on (CNCORE-235).
+ * A server this harness starts as a process: what to call it in an error, and
+ * the line it prints once it is listening, whose first group is the URL it bound.
+ */
+export type Announcement = { name: string; line: RegExp };
+
+/** `next start`'s own line, printed from the address its listener reports. */
+const NEXT_START: Announcement = { name: "next start", line: /- Local:\s+(\S+)\r?\n/ };
+
+/**
+ * THE PORT A SERVER BOUND, read off the line it announces it on (CNCORE-235).
  *
  * THE HARNESS USED TO CHOOSE THE PORT AND HAND IT OVER, and the handing over was
  * the defect. A probe bound port 0, read the number, closed, and passed it to
@@ -216,29 +227,39 @@ const SERVER_HOST = "127.0.0.1";
  * reports. Were a later Next to word it differently, every server here would fail
  * to start saying it named no port, rather than start somewhere unknown.
  *
+ * AND IT IS NOT NEXT'S ALONE (CNCORE-237). The live suite starts `provider-wiki`,
+ * another repository's server, and it had the same window through the same
+ * probe. That provider takes `PORT` from its environment, listens, reads the port
+ * back from its own listener and prints it, so it is given 0 and read the same
+ * way, off its own line. `Announcement` is the one thing that differs.
+ *
  * STDOUT IS PIPED TO READ IT AND PASSED ON, so a server's output still reaches
  * the run's own. Stderr is inherited as before, so an orphaned server still
  * holds the run's output open through it, which is why `settingUp` matters.
  */
-function thePortItBound(server: ChildProcess, deadline: number): Promise<number> {
+export function thePortItBound(
+  server: ChildProcess,
+  { name, line }: Announcement,
+  deadline = Date.now() + STARTING_MS,
+): Promise<number> {
   const { stdout } = server;
-  if (stdout === null) throw new Error("next start was spawned without a pipe on its stdout");
+  if (stdout === null) throw new Error(`${name} was spawned without a pipe on its stdout`);
   stdout.pipe(process.stdout, { end: false });
   return new Promise((resolve, reject) => {
     let heard = "";
     const hearing = (chunk: Buffer) => {
       heard += chunk.toString();
-      const url = /- Local:\s+(\S+)\r?\n/.exec(stripVTControlCharacters(heard))?.[1];
+      const url = line.exec(stripVTControlCharacters(heard))?.[1];
       if (url === undefined) return;
       done();
       // A URL with no port of its own reads as port 0, which is not one it bound.
       const port = URL.canParse(url) ? Number(new URL(url).port) : 0;
       if (port > 0) resolve(port);
-      else reject(new Error(`next start announced ${url}, which names no port`));
+      else reject(new Error(`${name} announced ${url}, which names no port`));
     };
     const exited = (code: number | null) => {
       done();
-      reject(new Error(`next start exited with ${code} before it named its port`));
+      reject(new Error(`${name} exited with ${code} before it named its port`));
     };
     const failed = (error: Error) => {
       done();
@@ -246,7 +267,7 @@ function thePortItBound(server: ChildProcess, deadline: number): Promise<number>
     };
     const giveUp = setTimeout(() => {
       done();
-      reject(new Error(`next start named no port within ${STARTING_MS / 1000}s`));
+      reject(new Error(`${name} named no port within ${STARTING_MS / 1000}s`));
     }, deadline - Date.now());
     const done = () => {
       clearTimeout(giveUp);
@@ -364,7 +385,7 @@ export async function anInstanceServing<Fixture>(
 /** A server's minute to start: to bind, to say where, and to answer there. */
 const STARTING_MS = 60_000;
 
-export async function waitUntilAnswering(
+async function waitUntilAnswering(
   baseUrl: string,
   server: ChildProcess,
   deadline = Date.now() + STARTING_MS,
