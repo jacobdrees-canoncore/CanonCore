@@ -791,9 +791,7 @@ describe("/ on a catalogue nothing is writing to", () => {
      */
     const { text } = await documentFrom(inject("stillBaseUrl"), "/");
 
-    expect(textOf(theRowTitled(text, "A story placed in no ordering"))).toContain(
-      "In no ordering",
-    );
+    expect(textOf(theRowTitled(text, "A story placed in no ordering"))).toContain("In no ordering");
     expect(textOf(theRowTitled(text, "A story placed without a position"))).toContain(
       "Also appears in An ordering that gives no position, no position given",
     );

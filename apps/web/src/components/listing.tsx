@@ -459,7 +459,11 @@ function WhereItSits({ id, sitsIn }: { id: string; sitsIn: Row["sitsIn"] }) {
 
 /** The Row's placements, one entry per Ordering in the order they arrived. */
 function byOrdering(first: Row["sitsIn"]["first"]) {
-  const orderings: { containerId: string; containerTitle: string | null; positions: (number | null)[] }[] = [];
+  const orderings: {
+    containerId: string;
+    containerTitle: string | null;
+    positions: (number | null)[];
+  }[] = [];
   for (const { containerId, containerTitle, position } of first) {
     const last = orderings.at(-1);
     if (last?.containerId === containerId) last.positions.push(position);
