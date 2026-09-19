@@ -61,7 +61,7 @@ const SLOWEST_SECONDS: Record<string, number> = {
  * THREE TIMES THE SLOWEST, because for every job that runs over a minute the
  * slowest is already 1.4 to 2.7 times the median: the spread a healthy runner
  * shows is inside the figure, and the rest is room for a suite to grow before
- * its ceiling needs measuring again. The image's is 3.9, and that one is a cold
+ * its ceiling needs measuring again. The image's is 3.6, and that one is a cold
  * build, which is the run a shorter window would have missed.
  */
 const HEADROOM = 3;
