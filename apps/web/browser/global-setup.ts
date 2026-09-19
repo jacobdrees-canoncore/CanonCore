@@ -1,5 +1,6 @@
 import { placeItemByHand } from "@canoncore/db";
-import { anItemTitled } from "@canoncore/db/testing/catalogue";
+import { anItemTitled, aProvider, aStatement } from "@canoncore/db/testing/catalogue";
+import { bounded } from "@canoncore/providers";
 import type { TestProject } from "vitest/node";
 
 import { anInstanceServing, OWNER_PASSWORD, theAppBuilt } from "../e2e/instance";
@@ -79,12 +80,33 @@ export default async function setup(project: TestProject) {
         const itemId = await anItemTitled(db, title);
         await placeItemByHand(db, { containerId: releaseOrder, itemId, position });
       }
-      return { releaseOrder, inOrder: held.map(({ title }) => title) };
+
+      /*
+       * AN ITEM THAT PROVIDER CLAIMS A VALUE ABOUT, so its name is printed
+       * where the Item page prints a source (CNCORE-217). The label is the name
+       * as an import writes it -- `bounded` is the cut `cmppManifest` makes --
+       * and it is written here rather than imported because the ROW is not what
+       * this suite asserts: the page seam's row test already does.
+       */
+      const flooding = await aProvider(db, floodsItsName.url, bounded(FLOOD));
+      const claimed = await anItemTitled(db, "Claimed by a Provider that floods its name");
+      await aStatement(db, {
+        subjectItemId: claimed,
+        property: "title",
+        valueLiteral: "Claimed by a Provider that floods its name",
+        sourceId: flooding,
+      });
+
+      return {
+        dragging: { releaseOrder, inOrder: held.map(({ title }) => title) },
+        claimed,
+      };
     },
   });
 
   project.provide("browserBaseUrl", instance.baseUrl);
-  project.provide("dragging", instance.fixture);
+  project.provide("dragging", instance.fixture.dragging);
+  project.provide("claimedByTheFlood", instance.fixture.claimed);
   project.provide("browserOwnerPassword", OWNER_PASSWORD);
   project.provide("floodedName", FLOOD);
 
@@ -104,5 +126,7 @@ declare module "vitest" {
     browserOwnerPassword: string;
     /** The name the one Provider declares, before this app bounded it. */
     floodedName: string;
+    /** An Item carrying a value that Provider claims, so its name is on the page. */
+    claimedByTheFlood: string;
   }
 }

@@ -72,4 +72,21 @@ describe("a Provider's name with no break in it", () => {
     await expect.poll(() => heading.count()).toBe(1);
     expect(await overrun(heading)).toStrictEqual({ element: 0, document: 0 });
   });
+
+  /*
+   * THE WITNESS THAT TELLS THE TWO RULES APART. The heading above is a block,
+   * and `overflow-wrap: break-word` passes it. A Values row is flex, and there
+   * `break-word` leaves the label's min-content at the whole word, so the label
+   * grows to it and the page scrolls -- the row asserted here, rather than the
+   * label, because the grown label holds its text perfectly well.
+   */
+  it("wraps inside the row where an Item's page names it as a source", async () => {
+    await page.goto(`${baseUrl}/items/${inject("claimedByTheFlood")}`);
+    const row = page.locator("section[aria-labelledby='values'] li").filter({
+      hasText: floodedName.slice(0, 100),
+    });
+
+    await expect.poll(() => row.count()).toBe(1);
+    expect(await overrun(row)).toStrictEqual({ element: 0, document: 0 });
+  });
 });

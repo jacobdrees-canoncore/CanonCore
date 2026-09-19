@@ -1353,8 +1353,8 @@ function NotReached({ baseUrl, reason }: { baseUrl: string; reason: FailureReaso
 function DeclinesBrowse({ providerName }: { providerName: string }) {
   return (
     <p className="text-muted-foreground text-sm">
-      {providerName} does not offer browse, so it was not asked for one. It can still be searched,
-      and its records imported one at a time.
+      <ProviderProse>{providerName}</ProviderProse> does not offer browse, so it was not asked for
+      one. It can still be searched, and its records imported one at a time.
     </p>
   );
 }
@@ -1380,8 +1380,8 @@ function DeclinesBrowse({ providerName }: { providerName: string }) {
 function NoSuchContainer({ providerName }: { providerName: string }) {
   return (
     <p className="text-muted-foreground text-sm">
-      {providerName} holds no container at that id. A browse takes a container's own id rather than
-      a record's, so check it at the provider before trying again.
+      <ProviderProse>{providerName}</ProviderProse> holds no container at that id. A browse takes a
+      container's own id rather than a record's, so check it at the provider before trying again.
     </p>
   );
 }
