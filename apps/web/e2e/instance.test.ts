@@ -1,6 +1,18 @@
+import { spawn } from "node:child_process";
+import { createServer } from "node:net";
 import { buildTestDatabase } from "@canoncore/db/testing/build-database";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { SERVER_CONNECTIONS, settingUp, theBuildServing, theServerEnvironment } from "./instance";
+
+/**
+ * THE REAL `spawn`, WRAPPED SO ONE CASE CAN PUT ANOTHER PROCESS IN ITS WAY
+ * (CNCORE-235). Every call goes through to Node's own until a case arms it, and
+ * then only the next one is intercepted: see `aPortThief` below.
+ */
+vi.mock("node:child_process", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:child_process")>();
+  return { ...actual, spawn: vi.fn(actual.spawn) };
+});
 
 /**
  * WHAT EVERY SERVER UNDER TEST IS RUN WITH (CNCORE-137).
@@ -70,6 +82,16 @@ describe("the environment a server under test runs with", () => {
 });
 
 /**
+ * EVERY SERVER BELOW STANDS ON `leak`, one at a time, for the two reasons the
+ * next block gives: a server start is not a read, and two at once cost an agent.
+ */
+let env: NodeJS.ProcessEnv;
+
+beforeAll(async () => {
+  env = { ...process.env, DATABASE_URL: await buildTestDatabase("leak"), OWNER_PASSWORD: "" };
+});
+
+/**
  * A SETUP THAT STARTS SERVERS, AND WHAT BECOMES OF THEM (CNCORE-229).
  *
  * THIS ONE DOES STAND SERVERS UP, where the block above refuses to, because
@@ -104,12 +126,6 @@ describe("the environment a server under test runs with", () => {
  * -- and ADR-0103 records the real setup closing three.
  */
 describe("a setup that starts servers", () => {
-  let env: NodeJS.ProcessEnv;
-
-  beforeAll(async () => {
-    env = { ...process.env, DATABASE_URL: await buildTestDatabase("leak"), OWNER_PASSWORD: "" };
-  });
-
   it(
     "closes the server it had started when it throws part-way, then throws what it threw",
     async () => {
@@ -147,6 +163,102 @@ describe("a setup that starts servers", () => {
     ONE_SERVER_MS,
   );
 });
+
+/**
+ * A SERVER'S PORT, AND ANOTHER PROCESS THAT WANTS IT (CNCORE-235).
+ *
+ * THE HARNESS USED TO CHOOSE A PORT AND THEN HAND IT OVER. A probe bound one,
+ * read its number and closed, and the number went to `next start`; from that
+ * close until Next's own bind the port was free to anybody. On 2026-09-19, with
+ * another worktree's suite running beside this one, something took it and the
+ * server died on `EADDRINUSE` before it answered. The rerun passed, which is
+ * what this defect looks like from outside.
+ *
+ * SO THE THIEF STRIKES AT THE WORST MOMENT THERE IS rather than waiting for a
+ * busy machine to supply one: just before the server's process starts, it binds
+ * whatever port that process was told to bind, where it would bind it. It is the
+ * real `spawn` and a real server either way; only the order is forced. The
+ * dispatcher chose this seam on 2026-09-19 as the one that holds both of the
+ * ticket's causes.
+ */
+describe("a server whose port another process wants", () => {
+  it(
+    "starts even when another process takes, just before it binds, any port it was told to use",
+    async () => {
+      await using owned = new AsyncDisposableStack();
+      aPortThief(owned);
+
+      const { baseUrl } = await theBuildServing(owned, env);
+
+      expect((await fetch(baseUrl)).status).toBeLessThan(500);
+    },
+    ONE_SERVER_MS,
+  );
+
+  /**
+   * AND ONCE IT HAS BOUND, THE ADDRESS THE HARNESS REACHES IT AT IS ITS OWN.
+   * The harness reaches every server at `127.0.0.1`, and a server bound to every
+   * address instead leaves that exact one open to another listener -- which, on
+   * the Mac four agents share, then answers the harness in the server's place,
+   * because a connection goes to the most specific address bound. Measured on
+   * 2026-09-19 with two listeners and one port, whichever bound first.
+   */
+  it(
+    "holds the address the harness reaches it at, so nothing else can listen there while it runs",
+    async () => {
+      await using owned = new AsyncDisposableStack();
+      const { baseUrl } = await theBuildServing(owned, env);
+      const { hostname, port } = new URL(baseUrl);
+
+      await expect(anotherListener(owned, Number(port), hostname)).rejects.toMatchObject({
+        code: "EADDRINUSE",
+      });
+    },
+    ONE_SERVER_MS,
+  );
+});
+
+/**
+ * ARMS THE NEXT `spawn` WITH ANOTHER PROCESS'S BIND. Whatever port the command
+ * names -- `--port` or `-p`, or `PORT` in its environment, the three places
+ * `next start` reads one -- this process binds before the real `spawn` runs, on
+ * the host the command names or on Node's default without one, which is exactly
+ * where the server would bind it. A port of 0 names nothing, so it takes nothing.
+ * What it holds goes on `owned`.
+ *
+ * BOUND BEFORE THE SERVER HAS LOADED NODE, let alone Next: with no host the bind
+ * is synchronous, and with one it waits only on the lookup's next tick.
+ */
+function aPortThief(owned: AsyncDisposableStack): void {
+  const real = vi.mocked(spawn).getMockImplementation();
+  if (real === undefined) throw new Error("`spawn` is not the wrapper `vi.mock` installs above");
+  vi.mocked(spawn).mockImplementationOnce((command, args, options) => {
+    const port = Number(named(args, "--port", "-p") ?? options.env?.PORT ?? 0);
+    if (port !== 0) void anotherListener(owned, port, named(args, "--hostname", "-H"));
+    return real(command, args, options);
+  });
+}
+
+/**
+ * A LISTENER THAT IS NOT THE SERVER, on this port and host, or on Node's default
+ * address without one. It hangs up on whatever connects, so nothing mistakes it
+ * for an app that answered. Settles once it is listening, or on why it could not;
+ * either way it is closed with `owned`.
+ */
+function anotherListener(owned: AsyncDisposableStack, port: number, host?: string): Promise<void> {
+  const other = createServer((socket) => socket.destroy());
+  owned.defer(() => new Promise<void>((resolve) => other.close(() => resolve())));
+  return new Promise((resolve, reject) => {
+    other.once("error", reject);
+    other.listen(port, host, resolve);
+  });
+}
+
+/** The value a command line gives an option, under either of its spellings. */
+function named(args: readonly string[], long: string, short: string): string | undefined {
+  const at = args.findIndex((arg) => arg === long || arg === short);
+  return at === -1 ? undefined : args[at + 1];
+}
 
 /**
  * HOW LONG A SIGNALLED SERVER MAY TAKE TO BE GONE. Eleven stopped one after
