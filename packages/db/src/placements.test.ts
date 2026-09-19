@@ -436,18 +436,6 @@ describe("a placement several sources assert", () => {
   });
 });
 
-/*
- * TODO(CNCORE-198): three of ADR-0119's four guarantees are asked here and the
- * fourth is not. Every `after` below names a real placement, or one a delete has
- * since taken; a cursor naming NOTHING -- a malformed id, or a well-formed one
- * nobody minted -- has never been put to this Listing, where a Container's
- * members carries three ways of it in one test.
- *
- * FOUND WHILE WRITING THE LISTING CONTRACT (CNCORE-171), in the sentence that
- * claimed this Listing was asked all four here. It is not ON that contract --
- * it rides on `item.get` and takes no page size, so the CAP is a question it
- * cannot be asked at that seam -- and this one is owed here regardless.
- */
 describe("findPlacementsOfItem, capped and walked", () => {
   it("caps the page and says how many appearances there are altogether", async () => {
     // ADR-0119's first sentence: every listing in CanonCore is capped. This was
@@ -492,6 +480,50 @@ describe("findPlacementsOfItem, capped and walked", () => {
     expect(second.rows.map((placement) => placement.id)).toStrictEqual([written[2]]);
     // The list ends here, so there is nothing to hand on.
     expect(second.continuesAfter).toBeNull();
+  });
+
+  it("starts at the beginning where the cursor names nothing", async () => {
+    // ADR-0066's rule for a parameter that is not an identity, and the fourth
+    // of ADR-0119's guarantees: a cursor that names nothing names no position
+    // either, so the walk starts over rather than erroring. A reader whose kept
+    // link was mangled gets the orderings rather than an error page.
+    //
+    // THREE WAYS TO NAME NOTHING, the three a Container's members is asked. A
+    // MALFORMED id reaches a `uuid` column as PostgreSQL error 22P02 unless
+    // `canBeAnId` stops it first; a well-formed one nobody minted reaches it
+    // and finds no row. The third is a placement that EXISTS and is ANOTHER
+    // ITEM's: resuming at it would cut this listing at a point in someone
+    // else's. Every other `after` this Listing is handed names one of its own
+    // placements, or one a delete has since taken, so until CNCORE-198 none of
+    // the three was asked -- and the whole db suite passed with the anchor
+    // read's item scope deleted.
+    const story = await anItem(db);
+    const written: string[] = [];
+    for (const position of [1, 2, 3]) {
+      const ordering = await anItemTitled(db, `Ordering asked with no cursor ${position}`, {
+        isContainer: true,
+        isOrdered: true,
+      });
+      written.push(await aPlacement(db, { containerId: ordering, itemId: story, position }));
+    }
+    // PAST THE LAST ROW OF THIS LISTING ON THE ORDER'S LEADING KEY rather than
+    // at a tie on it, for the reason the Container's members gives: an ordering
+    // titled to sort after all three, so an unscoped anchor cuts this listing to
+    // nothing whichever uuids were handed out.
+    const stranger = await aPlacement(db, {
+      containerId: await anItemTitled(db, "Ordering asked with no cursor 4", {
+        isContainer: true,
+        isOrdered: true,
+      }),
+      itemId: await anItem(db),
+      position: 1,
+    });
+
+    for (const after of ["not-a-uuid", crypto.randomUUID(), stranger]) {
+      const { rows } = await findPlacementsOfItem(db, story, { limit: 10, after });
+
+      expect(rows.map((placement) => placement.id)).toStrictEqual(written);
+    }
   });
 });
 
