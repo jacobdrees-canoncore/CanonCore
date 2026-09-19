@@ -1679,13 +1679,9 @@ describe("provider.containers", () => {
     const second = await page({ after: first.continuesAfter ?? "" });
     const third = await page({ after: second.continuesAfter ?? "" });
 
-    expect([first, second, third].map(({ containers }) => containers.map((c) => c.containerId))).toEqual(
-      [
-        ["416127", "258752"],
-        ["286338", "300001"],
-        ["112233"],
-      ],
-    );
+    expect(
+      [first, second, third].map(({ containers }) => containers.map((c) => c.containerId)),
+    ).toEqual([["416127", "258752"], ["286338", "300001"], ["112233"]]);
     expect([first, second, third].map(({ total }) => total)).toEqual([5, 5, 5]);
     expect(first).toMatchObject({ continuesBefore: null, continuesAfter: "258752" });
     expect(third).toMatchObject({ continuesBefore: "112233", continuesAfter: null });
@@ -1788,7 +1784,9 @@ describe("provider.containers", () => {
 
     expect(offered.itemId).toBeNull();
     expect(landed.placements).toHaveLength(2);
-    expect(after).toMatchObject({ containers: [{ containerId: "388305", itemId: landed.containerId }] });
+    expect(after).toMatchObject({
+      containers: [{ containerId: "388305", itemId: landed.containerId }],
+    });
   });
 
   it("answers a visitor too, because it costs a search's time and not a browse's", async () => {

@@ -8,13 +8,13 @@ import { afterAll, describe, expect, inject, it } from "vitest";
 import {
   documentAt,
   documentFrom,
+  followed,
+  linkedIn,
   logInAt,
+  navigatingFormsIn,
   postFormsIn,
   quotesIn,
   type RenderedForm,
-  followed,
-  linkedIn,
-  navigatingFormsIn,
   sectionIn,
   submit,
   textOf,
@@ -1047,7 +1047,9 @@ describe("/import, offering what a provider holds", () => {
     const wiki = inject("providerWikiUrl");
     const title = WAR_CHILD_MASTER.container.title;
     const before = await documentAt(picking(wiki), owner);
-    expect(rowTitled(sectionIn(before.text, "containers"), title)).not.toContain("In your catalogue");
+    expect(rowTitled(sectionIn(before.text, "containers"), title)).not.toContain(
+      "In your catalogue",
+    );
     const at = followed(linkedIn(sectionIn(before.text, "containers"), title), title);
 
     const offered = await documentAt(at, owner);
@@ -1349,6 +1351,14 @@ describe("/import, when the provider refuses", () => {
       expect(status).toBe(200);
       expect(() => sectionIn(text, "container")).toThrow();
       expect(sectionIn(text, "not-configured")).toContain("/settings");
+
+      // AND NAMED ALONE, which is how the browse box asks what one holds
+      // (CNCORE-187): the list is a read at the provider too, so it is no
+      // wider a door than the preview.
+      const alone = await documentAt(picking(named));
+      expect(alone.status).toBe(200);
+      expect(() => sectionIn(alone.text, "containers")).toThrow();
+      expect(sectionIn(alone.text, "not-configured")).toContain("/settings");
     }
   });
 });

@@ -1313,6 +1313,20 @@ async function stubTmdbProvider(): Promise<{ url: string; close: () => Promise<v
   };
   const records = [record, reloaded];
   /**
+   * THE SAME TWO AS A SEARCH ANSWERS THEM, which is thinner than a lookup, and
+   * the stub answered a lookup's record here until CNCORE-187 found it. The
+   * image's `searchResultToRecord` (read at `46a1189`) sends no writers, no
+   * series and `series_id: null`: TMDB's multi-search carries no collection, and
+   * filling one would cost a request per result. A stub whose search named The
+   * Matrix Collection would let a test pass here that the real image fails.
+   */
+  const searched = records.map((found) => ({
+    ...found,
+    writers: [],
+    series: null,
+    series_id: null,
+  }));
+  /**
    * The collection as a browse answers it: the container, and its parts in
    * release order.
    *
@@ -1339,7 +1353,7 @@ async function stubTmdbProvider(): Promise<{ url: string; close: () => Promise<v
   };
   return onLoopback((path, answer) => {
     if (path === "/") return answer(manifest, 200);
-    if (path.startsWith("/search")) return answer(searchOver(records, path), searchStatus(path));
+    if (path.startsWith("/search")) return answer(searchOver(searched, path), searchStatus(path));
     if (path === `/browse/${encodeURIComponent(MATRIX_COLLECTION)}`) {
       return answer(collection, 200);
     }
