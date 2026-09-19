@@ -254,8 +254,12 @@ checked at the end of that statement and accepts it, which the taken-out test sh
 **A RACE THAT IS NOT CLOSED, AND IS NOT THIS TICKET'S.** An Owner putting a doomed Item in a Group
 while that one statement runs can still commit a membership it did not see, and the foreign key then
 refuses the whole purge. The same is true of a Placement or a `based_on` written by hand in that
-moment, since every foreign key into `items` lacks a cascade. It fails safe: nothing is
-half-purged, and running the purge again succeeds.
+moment, since six of the seven foreign keys into `items` lack a cascade and theirs are among the six
+(`placements.item_id` and `container_id`, `statements.value_item_id`). It fails safe: nothing is
+half-purged, and running the purge again succeeds. The seventh, `statements.subject_item_id`, is
+`ON DELETE CASCADE`, so a statement ABOUT a doomed Item cannot refuse the purge this way. Migration
+1 gives no reason for that cascade, and this traversal relies on it: a derived statement left about
+a doomed Item goes with the Item by it (CNCORE-173). Counted from `pg_constraint` on 2026-09-19.
 
 **WHAT ASSERTS IT**, at the package seam in `packages/db/src/import.test.ts`, each asking the
 preview first and holding the purge to it: an Item in a Group is kept and still in the Group; one
