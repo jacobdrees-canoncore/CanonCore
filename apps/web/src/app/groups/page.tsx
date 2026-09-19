@@ -7,6 +7,7 @@ import { Label } from "@canoncore/ui/components/label";
 import { call } from "@orpc/server";
 import Link from "next/link";
 
+import { TheirWords } from "@/components/their-words";
 import { callerContext } from "@/session";
 
 import { askProvider, deleteGroup, drawGroup, renameGroup, stopAskingProvider } from "./actions";
@@ -193,7 +194,7 @@ function Group({
         name -- which is what a reader sees.
       */}
       <h3 className="font-medium" data-group-id={group.id} id={`group-${group.id}`}>
-        {group.name}
+        <TheirWords>{group.name}</TheirWords>
       </h3>
       {owner && (
         <div className="mt-2 flex flex-wrap items-end gap-3">
@@ -290,7 +291,7 @@ function Asks({
   return (
     <section aria-labelledby={`asks-${group.id}`} className="mt-3">
       <h4 className="text-sm" id={`asks-${group.id}`}>
-        Providers searched within {group.name}
+        Providers searched within <TheirWords>{group.name}</TheirWords>
       </h4>
       {configured.length === 0 ? (
         <p className="mt-1 text-muted-foreground text-sm">
@@ -314,8 +315,8 @@ function Asks({
             return (
               <li key={baseUrl}>
                 <section aria-labelledby={label} className="flex items-center gap-3 text-sm">
-                  <h5 className="min-w-0 flex-1 wrap-anywhere" id={label}>
-                    {baseUrl}
+                  <h5 className="min-w-0 flex-1" id={label}>
+                    <TheirWords>{baseUrl}</TheirWords>
                   </h5>
                   <span className="text-muted-foreground">{asks ? "Asked" : "Not asked"}</span>
                   {owner && (

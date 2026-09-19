@@ -5,7 +5,7 @@ import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
 import { describe, expect, inject, it } from "vitest";
 
-import { documentFrom } from "./document";
+import { documentFrom, headingOf } from "./document";
 import { theBuildServing } from "./instance";
 
 /**
@@ -210,7 +210,7 @@ describe("what /items/<id> costs", () => {
         // `<title>` and the page puts it in the heading, so a memo that outlived
         // the request would strand them together -- and asserting only one would
         // miss a memo that had stranded the other.
-        expect(after.text).toContain(`>${renamed}</h1>`);
+        expect(headingOf(after.text)).toBe(renamed);
         expect(after.text).toContain(`<title>${renamed}</title>`);
       } finally {
         await db.$client.end();

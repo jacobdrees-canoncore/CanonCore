@@ -21,6 +21,7 @@ import {
 import { noPasswordSet } from "@/components/no-password";
 import { NoProviderAllowlisted } from "@/components/no-provider-allowlisted";
 import { oneGroup, oneValue } from "@/components/query-params";
+import { TheirWords } from "@/components/their-words";
 import { callerContext } from "@/session";
 
 /**
@@ -221,8 +222,8 @@ function EmptyGroup({ name }: { name: string }) {
         <EmptyHeader>
           {/* A real heading, for the reason `NoProviderAllowlisted` gives. */}
           <EmptyTitle>
-            <h2 className="wrap-anywhere" id="empty-group">
-              {name} holds nothing yet
+            <h2 id="empty-group">
+              <TheirWords>{name}</TheirWords> holds nothing yet
             </h2>
           </EmptyTitle>
           <EmptyDescription>

@@ -276,12 +276,18 @@ person.
 **A submission missing a declared field must be refused with 400**, rather than stored in part. Half
 a credential stored is a provider reporting `valid` about something its upstream is about to refuse,
 which points the Owner's diagnosis at their source for a fault that is in the form they just
-submitted.
+submitted. **So must a submission holding a value the provider cannot send, under CNCORE-225**,
+with a JSON body and nothing changed: a value no request can carry is no more a credential than one
+left out, and the provider knows so without asking anyone. It is settled before any Spend, so it is
+not a third answer to the complete submission below. It is also the one rule here the suite does
+not encode, since which values a provider can send depends on how it carries them.
 
-**And under CNCORE-207: a complete submission is either HELD — below 400, the state `valid`, the
-moment it changed moved — or, by a provider that Spent it and was refused, REFUSED with `400` and a
-JSON body, leaving the state and the moment exactly as they were.** No third answer is conformant.
-The section at the end of this record carries why.
+**And under CNCORE-207: a complete submission, every declared field present and every value one
+the provider can send, is either HELD — below 400, the state `valid`, the moment it changed
+moved — or, by a provider that Spent it and was refused, REFUSED with `400` and a JSON body,
+leaving the state and the moment exactly as they were.** No third answer is conformant. Why is
+under "A provider may Spend what it is given, under CNCORE-207" and "A value no request can carry
+is refused before it is Spent, under CNCORE-225".
 
 **And under CNCORE-141: a provider whose declared `credential.state` is not `valid` owes `search`
 and `lookup` a `503` with a JSON body — while one reporting `valid` is still held to `200` and a
@@ -545,7 +551,9 @@ CNCORE-141 and CNCORE-156 each met.
   upstream accepted the value, and one that could not reach its upstream to Spend it at all all
   answer this way. The last is still honest: `valid` has only ever meant "nothing has refused this
   one yet", and an outage is no evidence about a credential — refusing then would lock the Owner out
-  of the one act that fixes an outage-shaped fault.
+  of the one act that fixes an outage-shaped fault. Could not REACH, which is not could not SEND:
+  a value no request can carry is refused before any Spend (CNCORE-225, below), and a provider that
+  read the one as the other held such a value and blamed the network for it.
 - **Refused**: exactly `400`, a JSON body carrying the reason, and NOTHING CHANGED. `400` for the
   reason CNCORE-141 pinned `503` rather than admitting "some refusal": a contract that let each
   provider choose would quietly become two integrations. It is also right on the merits — what
@@ -597,3 +605,58 @@ repositories. `verify`, `validate` and `unverified` are what it avoids, since ea
 stronger claim than `valid` makes; `provider-wiki`'s POST answer names its outage case `unverified`
 and CNCORE-214 carries the rename to that repository.
 
+
+## A value no request can carry is refused before it is Spent, under CNCORE-225
+
+**`provider-wiki` held a credential it could never send, and blamed the network for it.** It sends
+`cf_clearance` inside a `cookie` header and `user_agent` as the `user-agent` header, and `fetch`
+refuses some header values before a byte leaves. Measured on Node 24.19, 2026-09-19: a NUL anywhere,
+a CR or LF inside the header, and any character above U+00FF are refused as the header is built;
+every other control character but tab, and DEL, is refused at dispatch; a CR or LF at either edge is
+stripped and sent, and U+00FF itself is carried. Each refusal is a `TypeError`. Its `spend` read that
+`TypeError` as a wiki it could not reach, so the Held answer's outage case took it: `200`, `valid`,
+and every request after it answered `503` naming "the wiki or the network" for a credential that was
+the only fault. Zero requests had reached the stub standing in for the wiki. CNCORE-222
+(`jacobdrees-canoncore/provider-wiki#50`, merged 2026-09-19) refuses it at the unlock path instead,
+in the refused answer's shape and before any Spend — which this record, read literally, made a third
+answer, since its refusal of a complete submission came only "by a provider that Spent it and was
+refused".
+
+**IT SITS BESIDE THE MISSING FIELD, NOT UNDER THE COMPLETE SUBMISSION, AND THE REASON IS WHAT IT IS
+EVIDENCE OF.** An outage is no evidence about a credential, which is why a provider that could not
+reach its upstream holds what it was given. A value no request can carry is conclusive evidence
+about one, reached without asking anybody, so holding it is the mis-diagnosis this record exists to
+prevent. It is the caller's own mistake in the sense the `q` and the malformed id above are: settled
+BEFORE the source is reached, and so not a claim about the source. `provider-wiki` reads a session
+file holding such a value as `absent`, which is what it already said of a field present and unusable
+— the value is no more a credential than one left out.
+
+**SO THE CHECK IS MADE ON THE VALUE, BEFORE THE SPEND, AND NOT INFERRED FROM HOW THE SPEND FAILED.**
+`provider-wiki`'s `spend` could not tell `fetch` refusing a header from a wiki it could not reach,
+since both surface as a `TypeError`, and a provider reading the one as the other lands in the outage
+case with a value that never left.
+
+**`provider-wiki` ASKS `new Headers()`, AND THAT IS ONLY THE FIRST HALF OF `fetch`'S RULE.** It
+refuses what is refused as the header is built and accepts what is refused at dispatch, so a
+`user_agent` holding U+0001, U+001B or U+007F still answered `200`, `valid` and `not_spent`, with
+the file written and zero requests reaching the stub (measured 2026-09-19). CNCORE-222 found the two
+"refused exactly the same ones" over twelve shapes it did not list, so none of the characters they
+disagree on can have been among them. CNCORE-227 carries the rest to `provider-wiki`. Nothing here
+changes with it, since this record's rule is about what a provider can send, not about how it asks.
+
+**AND THE REFUSED SHAPE, NOT MERELY A `400`, for the reasons that shape was pinned.** A body carrying a
+reason is what lets the Owner fix the submission, and `provider-wiki`'s names the field, so the
+Owner copies that value again rather than both. A script asking in JSON is answered in JSON.
+Nothing changes, for the reason "A provider may Spend what it is given, under CNCORE-207" gives:
+nothing authenticates an unlock path, and a value with a line feed in it is as easy to make up as
+any other, so a refusal that wrote anything would let anyone reaching the port lapse the Owner's
+working session.
+
+**THE CONTRACT SUITE CANNOT WITNESS IT, and to the suite this refusal and a Spent one are the same
+answer.** Which values a provider can send is a fact about how it carries them — `provider-wiki`
+carries both fields as headers, and a provider putting them in a request body could carry a line
+feed — and CMPP says nothing about carriage. A suite submitting a value every provider must refuse
+would be writing "be `provider-wiki`" into the contract, which is the reason the body's shape is not
+required either. `provider-wiki`'s `test/unlock.test.ts` holds it for a line feed and a CR LF: `400`,
+the field at fault named and no other, the value not said back, the file already on disk unchanged
+byte for byte, and `valid` still.
