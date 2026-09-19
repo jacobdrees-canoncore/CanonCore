@@ -222,7 +222,8 @@ type Picked = { provider: string };
  * search, `?q=<query>&group=<id>`. It is NOT one of `Walking`'s members,
  * because a search a Provider answers is not a Listing: nothing pages it, so
  * it owes the walk no sentence and takes no cursor, and adding it there would
- * make every exhaustive table about Listings name it.
+ * make every exhaustive table about Listings name it. The list of what ONE
+ * Provider holds, on the same page, is a Listing and is walked (`Picked`).
  */
 type Searched = { path: "/import"; asked: Asked; narrowed?: Narrowed; listing?: never };
 

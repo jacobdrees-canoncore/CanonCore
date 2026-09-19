@@ -53,6 +53,8 @@ export const cmppRecord = z.object({
    * no candidate on `/import` carries one: a search-found film reaching its
    * collection needs a lookup per click, which is a mechanism of its own.
    * `provider-wiki` sends none, since a story sits in many timelines at once.
+   *
+   * TODO(CNCORE-238): read it, one lookup at a time.
    */
   series_id: z.string().nullable().default(null),
   /**

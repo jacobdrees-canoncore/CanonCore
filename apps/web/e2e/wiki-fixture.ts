@@ -27,8 +27,9 @@ import { LISTED_TIMELINES } from "./wiki-timelines";
  * rather than typed, exactly as ADR-0103's CNCORE-9 section requires.
  *
  * IT IS ITS OWN MODULE because it is DATA. `global-setup.ts` is the arrangement
- * -- build a database, build Next, start it, import -- and twenty-eight records
- * of Doctor Who in the middle of that buries the arrangement in the fixture.
+ * -- build a database, build Next, start it, import -- and dozens of records of
+ * Doctor Who in the middle of that bury the arrangement in the fixture. The 465
+ * timelines the provider lists are a module of their own, `wiki-timelines.ts`.
  */
 
 /**

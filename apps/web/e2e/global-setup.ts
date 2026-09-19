@@ -1245,11 +1245,13 @@ const THE_MATRIX_RELOADED = { id: "movie:604", title: "The Matrix Reloaded" };
  * `provider-tmdb`, and the contract suite holds the real image to it -- so this is
  * that fact reused rather than an assumption about what TMDB can be browsed by.
  *
- * WHY NOT A WIKI CATEGORY. Every container in `wiki-fixture.ts` is browsed before
+ * WHY NOT A WIKI CATEGORY. Every category in `wiki-fixture.ts` is browsed before
  * the first assertion runs: 91997 and 388305 by this file, 47650 and 47651 by
  * `multi-placement.test.ts`. A browse of one of those could not show an ORDERING
  * ARRIVING, because it had already arrived -- and a button wired to nothing would
  * pass. This collection is browsed by nothing else, so the transition is real.
+ * (The fixture's one timeline, 286338, is imported from the LIST by
+ * `import-page.test.ts` since CNCORE-187, which is a different road.)
  *
  * MEASURED AGAINST TMDB'S OWN API on 2026-09-11: `/3/collection/2344` is `The
  * Matrix Collection` and its parts are 603, 604, 605 and 624860. The stub answers

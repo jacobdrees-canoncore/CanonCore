@@ -210,9 +210,11 @@ async function readImportPage({ query, group, provider, container, purge, starts
  * THE TWO QUESTIONS THIS PAGE HAS ABOUT THE CONTAINER THE OWNER NAMED, and they
  * are two because they are asked of two different parties.
  *
- * WHETHER THE CATALOGUE ALREADY HOLDS IT is `held`'s. The owner typed this id,
- * so -- unlike a candidate, which arrives from a search that answered the same
- * question -- there is nothing else on the page that knows. It is also the only
+ * WHETHER THE CATALOGUE ALREADY HOLDS IT is `held`'s. The owner named this id
+ * -- picked it from the list, or typed it -- so, unlike a candidate, which
+ * arrives from a search that answered the same question, there is nothing else
+ * on the page that knows about THIS one: the list may be on another page of
+ * itself, or the provider may list nothing at all. It is also the only
  * way this surface can report a browse: an action's return value reaches a page
  * through `useActionState` alone, which is a client hook with nothing to give
  * when no script has loaded, and a redirect to the new container would emit a

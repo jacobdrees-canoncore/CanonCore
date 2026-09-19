@@ -290,13 +290,12 @@ async function browseIfOffered(
  * the optionality being honoured: `browse` is the operation a provider may
  * decline, and reading the declaration is the only way an app can tell.
  *
- * THE CONTAINER IS NAMED BY THE OWNER, and nothing here asks CMPP for one yet.
- * `search` returns stories and `browse` takes a container's own id; ADR-0033
- * declares `containers` as of CNCORE-185 and `provider-wiki` answers it since
- * CNCORE-208, but nothing in this app asks it until CNCORE-187, so until then
- * the owner supplies it exactly as they supply a record id to `import` -- see
- * that record's as-built sections, which carry the decision rather than leaving
- * it to be rediscovered.
+ * THE CONTAINER IS NAMED BY THE OWNER, by the provider's own id: picked from
+ * what `provider.containers` offers since CNCORE-187, or typed where a provider
+ * declines that operation. Either way it arrives here as an id, exactly as a
+ * record id reaches `import`, so a container picked from the list lands what
+ * one named by hand lands -- see ADR-0033's as-built sections, which carry the
+ * decision rather than leaving it to be rediscovered.
  *
  * Answers `null` when that id addresses no container, which is an answer rather
  * than a failure (ADR-0066).
@@ -657,10 +656,10 @@ export const provider = {
    * owner names rather than for candidates a search found.
    *
    * `search` ANSWERS THIS ALREADY FOR WHAT IT FOUND, and this exists for the case
-   * it cannot reach: a CONTAINER id. Nothing in this app asks CMPP for one until
-   * CNCORE-187 -- `search` returns stories and `browse` takes a container's own id
-   * (ADR-0033) -- so the owner types it, and a surface showing what they typed
-   * has no search answer to read the Item out of.
+   * it cannot reach: a CONTAINER id, which the owner names -- picked from
+   * `provider.containers` since CNCORE-187, or typed where a provider declines
+   * that operation (ADR-0033). A surface showing the one they named has no
+   * search answer to read the Item out of.
    *
    * NO REQUEST LEAVES THE APP. `baseUrl` is an IDENTITY here rather than an
    * address, exactly as it is for `purge`: the rows are this catalogue's, and the
@@ -1234,11 +1233,9 @@ export const provider = {
    * its ordering arrive together, so a bulk import yields placements for free
    * instead of asking the owner to place sixty episodes by hand.
    *
-   * IT TAKES THE CONTAINER'S ID FROM THE OWNER, because nothing here asks CMPP
-   * for one yet -- `search` returns stories and `browse` takes a container's own
-   * id, and the `containers` operation ADR-0033 declares under CNCORE-185 is
-   * asked by nothing in this app until CNCORE-187, though `provider-wiki`
-   * answers it. The owner names it, exactly as they name a record for `import`.
+   * IT TAKES THE CONTAINER'S ID FROM THE OWNER, who names it exactly as they
+   * name a record for `import`: picked from what `provider.containers` offers
+   * since CNCORE-187, or typed where a provider declines that operation.
    */
   browse: ownerProcedure
     .input(
@@ -1423,9 +1420,10 @@ export const provider = {
    * Provider (CNCORE-166).
    *
    * IMPORTING A CORPUS IS 465 FORM SUBMISSIONS OTHERWISE. `browse` takes ONE
-   * container id (ADR-0033) and nothing in this app asks "which Containers do you
-   * have" until CNCORE-187, so the ids are supplied rather than enumerated -- and supplying them
-   * one at a time, 465 times, is what this replaces.
+   * container id (ADR-0033), so the ids are supplied -- and supplying them one at
+   * a time, 465 times, is what this replaces. `provider.containers` answers
+   * "which Containers do you have" since CNCORE-187, for the Owner to pick ONE
+   * on `/import`; a run does not ask it, and its list is still the Owner's own.
    *
    * IT WRITES THE LIST DOWN AND ASKS THE PROVIDER NOTHING. The walk is
    * `importNextContainer` below, one Container a call, and the split is what

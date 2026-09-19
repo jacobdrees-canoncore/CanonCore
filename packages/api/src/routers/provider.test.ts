@@ -1369,9 +1369,9 @@ describe("provider.configured", () => {
  * owner names rather than about a query.
  *
  * `search` answers the same question for the candidates IT found. This is for the
- * record the owner names themselves -- a container id, which nothing in this app
- * asks CMPP for until CNCORE-187 (ADR-0033) -- so there is no search to carry the
- * answer.
+ * record the owner names themselves -- a container id, picked from what a
+ * provider lists or typed where it lists nothing (ADR-0033) -- so there is no
+ * search to carry the answer.
  */
 describe("provider.held", () => {
   it("answers the item one of a provider's records is held as, and omits the rest", async () => {

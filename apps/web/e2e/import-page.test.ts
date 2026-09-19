@@ -891,11 +891,11 @@ describe("/import, taking a Container and its ordering", () => {
      * the container and its ordering arrive together, so a bulk import yields
      * placements instead of asking the owner to place every member by hand.
      *
-     * THE OWNER NAMES THE CONTAINER, because nothing here asks CMPP for one yet
-     * -- `search` returns stories and `browse` takes a container's own id, and the
-     * `containers` operation ADR-0033 declares under CNCORE-185 is asked by
-     * nothing in this app until CNCORE-187, though `provider-wiki` answers it.
-     * That record's as-built sections carry the decision, and this form is it.
+     * THE OWNER NAMES THE CONTAINER BY ITS ID, which is what a decliner of
+     * `containers` leaves them -- and TMDB, whose collection this is, declines
+     * it (ADR-0033 under CNCORE-186). A container picked from a provider's list
+     * arrives at this same address; "/import, offering what a provider holds"
+     * below takes that road.
      *
      * THE MEMBER THIS WATCHES IS ONE THE CATALOGUE ALREADY HOLDS, and that is the
      * point: its Item exists before the browse and has no placement in this
