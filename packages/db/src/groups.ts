@@ -3,6 +3,7 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 import type { Database } from "./index";
 import { isRefusalOn, theOwnerId, type Writer } from "./placements";
 import { canBeAnId } from "./queries";
+import { rolledBack } from "./rolled-back";
 import { groupItems, groupProviders, groups, items } from "./schema";
 
 /**
@@ -282,25 +283,64 @@ export async function takeItemOutOfGroupByHand(
  * Answers whether it deleted anything (ADR-0066).
  */
 export async function deleteGroupByHand(db: Database, id: string): Promise<boolean> {
-  return db.transaction(async (tx) => {
-    const deleted = await tx
-      .update(groups)
-      .set({ deletedAt: sql`now()` })
-      .where(and(eq(groups.id, id), isNull(groups.deletedAt)))
-      .returning({ id: groups.id });
-    if (deleted.length === 0) return false;
+  return (await db.transaction((tx) => deleteGroupWithin(tx, id))) !== undefined;
+}
 
-    await tx
-      .update(groupItems)
-      .set({ deletedAt: sql`now()` })
-      .where(and(eq(groupItems.groupId, id), isNull(groupItems.deletedAt)));
-    await tx
-      .update(groupProviders)
-      .set({ deletedAt: sql`now()` })
-      .where(and(eq(groupProviders.groupId, id), isNull(groupProviders.deletedAt)));
+/**
+ * What deleting one Group takes with it beside the Group itself: how many Group
+ * memberships it had, and how many Providers it asked.
+ *
+ * NO ITEM IS COUNTED, BECAUSE NONE GOES (ADR-0010, story 34). `memberships` is
+ * the Group's list of which Items are in it, and every one of those Items stays
+ * where it is.
+ */
+export interface GroupDeletion {
+  memberships: number;
+  providers: number;
+}
 
-    return true;
-  });
+/**
+ * What deleting a Group WOULD take, counted by deleting it and rolling the
+ * deletion back (ADR-0046, CNCORE-210). Nothing for a Group that is not there.
+ *
+ * THE DELETE, NOT A DESCRIPTION OF IT, which is the purge preview's rule
+ * applied one table over: the numbers come from the statements
+ * `deleteGroupByHand` runs, so the confirmation the Owner acts on cannot
+ * promise a different deletion from the one it authorises. It costs the write
+ * locks on one Group's rows for three updates, and the `change_sequence` values
+ * those updates take through `touch_row` (`rolledBack` says why they stay spent).
+ */
+export async function previewGroupDeletion(
+  db: Database,
+  id: string,
+): Promise<GroupDeletion | undefined> {
+  return rolledBack(db, (tx) => deleteGroupWithin(tx, id));
+}
+
+/**
+ * The statements both of them run, inside a transaction neither of them owns
+ * here: the delete commits it, the preview rolls it back.
+ */
+async function deleteGroupWithin(tx: Writer, id: string): Promise<GroupDeletion | undefined> {
+  const deleted = await tx
+    .update(groups)
+    .set({ deletedAt: sql`now()` })
+    .where(and(eq(groups.id, id), isNull(groups.deletedAt)))
+    .returning({ id: groups.id });
+  if (deleted.length === 0) return undefined;
+
+  const memberships = await tx
+    .update(groupItems)
+    .set({ deletedAt: sql`now()` })
+    .where(and(eq(groupItems.groupId, id), isNull(groupItems.deletedAt)))
+    .returning({ id: groupItems.id });
+  const providers = await tx
+    .update(groupProviders)
+    .set({ deletedAt: sql`now()` })
+    .where(and(eq(groupProviders.groupId, id), isNull(groupProviders.deletedAt)))
+    .returning({ id: groupProviders.id });
+
+  return { memberships: memberships.length, providers: providers.length };
 }
 
 /**

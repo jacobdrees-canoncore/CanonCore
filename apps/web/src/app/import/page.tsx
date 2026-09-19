@@ -13,6 +13,7 @@ import { Select } from "@canoncore/ui/components/select";
 import { call } from "@orpc/server";
 import Form from "next/form";
 import Link from "next/link";
+import { counted } from "@/components/counted";
 import { NarrowToAGroup, NoSuchGroup, theScope, theStartOf } from "@/components/listing";
 import { noPasswordSet } from "@/components/no-password";
 import { NoProviderAllowlisted } from "@/components/no-provider-allowlisted";
@@ -659,18 +660,6 @@ function Stays({ howMany }: { howMany: number }) {
 
 /** What `previewPurge` answers, which is what `purge` then takes. */
 type PurgePreview = NonNullable<ImportPage["preview"]>;
-
-/**
- * A count and the thing it counts, agreeing about number.
- *
- * THE COUNTS ARE THE CONTENT of this surface rather than decoration on it, so
- * "1 statements" is not a typo an owner reads past -- it is the one part of a
- * permanent delete they have to trust, printed by something that plainly did not
- * read what it was printing.
- */
-function counted(howMany: number, noun: string): string {
-  return `${howMany} ${noun}${howMany === 1 ? "" : "s"}`;
-}
 
 /**
  * THE QUERY GOES IN THE URL, which is what makes a search a place rather than a

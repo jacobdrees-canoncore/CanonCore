@@ -5,6 +5,7 @@ import {
   findGroups,
   findProvidersAGroupAsks,
   GroupRefused,
+  previewGroupDeletion,
   putItemInGroupByHand,
   renameGroupByHand,
   stopAskingProviderByHand,
@@ -33,6 +34,16 @@ import { openProcedure, ownerProcedure } from "../index";
  * matters.
  */
 const nameByHand = z.string().trim().min(1, "A Group needs a name.");
+
+/**
+ * What deleting a scope would take beside the scope itself (ADR-0046): its
+ * Group memberships, and the Providers it asks. NO ITEM COUNT, because deleting
+ * a Group takes no Item (ADR-0010, story 34).
+ */
+const groupDeletion = z.object({
+  memberships: z.number().int().nonnegative(),
+  providers: z.number().int().nonnegative(),
+});
 
 /**
  * WHICH OF THE CONFIGURED PROVIDERS A GROUP ASKS (ADR-0025, CNCORE-182): the
@@ -258,11 +269,10 @@ export const group = {
    * DELETING A SCOPE THE OWNER NO LONGER USES (story 33), WHICH TOUCHES NO ITEM
    * (story 34).
    *
-   * THE ONE MUTATION HERE THAT WOULD DESERVE A CONFIRMATION, and ADR-0046 is
-   * where that is decided rather than here: a Group is where the Owner's
-   * curation of a scope lives, and deleting one is not the frequent act
-   * `take` is. What makes it safe rather than merely warned about is that it
-   * takes nothing with it -- every Item is exactly where it was, in every
+   * THE ONE MUTATION HERE WITH A CONFIRMATION IN FRONT OF IT (ADR-0046,
+   * CNCORE-210), which `previewDelete` below answers: nothing restores a
+   * deleted Group, and deleting one is not the frequent act `take` is. What it
+   * never takes is an Item -- every Item is exactly where it was, in every
    * Ordering and every other Group.
    */
   delete: ownerProcedure
@@ -272,5 +282,23 @@ export const group = {
     .handler(async ({ input, context, errors }) => {
       if (!(await deleteGroupByHand(context.db, input.id))) throw errors.NOT_FOUND();
       return { id: input.id };
+    }),
+
+  /**
+   * What `delete` would take, answered before it takes it (ADR-0046,
+   * CNCORE-210): the delete itself, rolled back, as `provider.previewPurge` is.
+   *
+   * THE OWNER'S, LIKE THE DELETE, because it is one. It takes the write locks
+   * of a real deletion for the length of it, so the door in front of it is the
+   * delete's door.
+   */
+  previewDelete: ownerProcedure
+    .input(z.object({ id: z.uuid() }))
+    .output(groupDeletion)
+    .errors({ NOT_FOUND: { message: "No Group at that id to delete." } })
+    .handler(async ({ input, context, errors }) => {
+      const counts = await previewGroupDeletion(context.db, input.id);
+      if (counts === undefined) throw errors.NOT_FOUND();
+      return counts;
     }),
 };
