@@ -527,7 +527,7 @@ describe("searchCatalogue", () => {
     // is NULL. So `items.title` and `items.sort_name` are both gone -- not
     // merely hidden -- the moment an item is deleted.
     //
-    // SO THE ANCHOR HAS NO PLACE IN THIS ORDER AND CANNOT BE GIVEN ONE.
+    // SO THE ITEM IS NO ANCHOR IN THIS ORDER AND CANNOT BE MADE ONE.
     // Closeness is `similarity(title, ...)`, and there is no title left to
     // measure. ADR-0119 reads the anchor WITHOUT the tombstone filter so that a
     // kept link goes on working, and that is still right -- it is what makes
@@ -619,7 +619,7 @@ describe("searchCatalogue", () => {
   });
 
   it("starts at the beginning where the cursor names an item with no title", async () => {
-    // AN ITEM WITH NO TITLE HAS NO PLACE IN THIS ORDER, which is a state the
+    // AN ITEM WITH NO TITLE IS NO ANCHOR IN THIS ORDER, which is a state the
     // catalogue's walk has no analogue for: closeness is
     // `similarity(title, ...)` and is NULL without a title, so such an anchor
     // can be ranked against nothing -- and a NULL on one side of the cursor's

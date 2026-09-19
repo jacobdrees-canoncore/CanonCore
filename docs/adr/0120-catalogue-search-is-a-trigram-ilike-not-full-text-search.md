@@ -163,7 +163,7 @@ belongs HERE is what the CHOICE OF MECHANISM costs, because every line of it fol
 
 **The query is resupplied on every page, and it costs nothing to ask for.** The order leads on
 `similarity(title, query)` — a function of the QUERY rather than a column of the Item — so the
-anchor's place cannot be read off the anchor row and is RECOMPUTED. There is no such thing as a
+anchor's closeness cannot be read off the anchor row and is RECOMPUTED. There is no such thing as a
 search request without a query, so the only thing paging needed was the cursor beside it.
 
 **Relevance ties are the common case, not a corner of one, and that is a property of trigram

@@ -780,14 +780,14 @@ describe("findPlacementsOfItem, the rows with no key at all", () => {
  *
  * That record reads the anchor WITHOUT the tombstone filter, deliberately, and
  * then lets each order decide what it found: an order built on ADR-0014's
- * projection loses its anchor's place to a delete, because the projection over
+ * projection loses its anchor to a delete, because the projection over
  * no live statements is NULL and the columns are GONE rather than hidden; an
  * order on a stored column a delete does not touch keeps it, which is why a kept
  * link into a container RESUMES.
  *
  * This order leads on the projection and continues on three stored columns. The
- * leading term is what decides, because a place that has lost its first term has
- * lost the whole place.
+ * leading term is what decides, because an anchor that has lost its first term
+ * is no anchor at all.
  */
 describe("findPlacementsOfItem, an anchor that has gone", () => {
   it("starts the listing over when the ordering the link was cut at is deleted", async () => {
@@ -825,7 +825,7 @@ describe("findPlacementsOfItem, an anchor that has gone", () => {
   it("resumes past an anchor whose own placement was removed", async () => {
     // The PLACEMENT's tombstone takes the row out of the listing and leaves
     // every column the order reads standing -- the container's key included,
-    // since the container is untouched. So this anchor keeps its place, which
+    // since the container is untouched. So this anchor outlives it, which
     // is the half of ADR-0119's split that RESUMES.
     const owner = await ownerSource(db);
     const story = await anItem(db);
@@ -855,7 +855,8 @@ describe("findPlacementsOfItem, an anchor that has gone", () => {
   it("still resumes from an ordering nobody has named, which is not the same absence", async () => {
     // A container with no key because nobody NAMED it sits at the end of the
     // order as one block and is resumed from by the three keys behind it. A
-    // container with no key because it is DELETED has lost its place. The two
+    // placement in a container with no key because it is DELETED is no anchor
+    // at all. The two
     // are one predicate apart, so the guard tests the PAIR rather than the
     // tombstone alone.
     const owner = await ownerSource(db);

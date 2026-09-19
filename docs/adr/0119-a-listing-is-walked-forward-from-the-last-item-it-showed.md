@@ -97,7 +97,7 @@ are GONE rather than merely hidden ([[0014-title-is-a-projection]]). Reading the
 tombstone therefore finds a row whose sort key is null, and the comparison's no-sort-key regime
 resumes from the untitled tail with everything between skipped.
 
-**THE ANSWER, UNDER CNCORE-110: an anchor whose place is gone names no position, so the walk starts
+**THE ANSWER, UNDER CNCORE-110: an anchor whose key is gone names no position, so the walk starts
 at the beginning.** Reading it without the tombstone filter stays, and only the reading is shared
 now: each order decides what a delete did to its anchor, and since CNCORE-195 it decides in its KEYS,
 a key a delete destroys naming its tombstone and the shared read refusing an anchor that has lost
@@ -116,8 +116,8 @@ over four Items still in it.
 
 **The split is what keeps the tombstone exception worth having, and it is a reason this record did
 not have before.** An order this app does not yet hold — on `release_date`, or on when a row was
-made — reads a column a delete does NOT destroy, so its anchor still has a place and can still be
-resumed from. Only the orders built on the projection lose one: the catalogue's and Catalogue
+made — reads a column a delete does NOT destroy, so its anchor outlives the delete and can still be
+resumed from. Only the orders built on the projection lose theirs: the catalogue's and Catalogue
 search's when this was written, and "Also appears in"'s since CNCORE-125, which leads on a
 container's. Each says so, the catalogue's and "Also appears in"'s by `destroyedBy` on the key and
 Catalogue search's by `everyRowHasIt` (CNCORE-195).
@@ -218,7 +218,7 @@ governed address rather than a parameter to add, and the section below is where 
 
 **AND CNCORE-66 SHIPPED WITHOUT IT AND CNCORE-88 ADDED IT, which is a fourth adoption and the one
 this record's scope had to widen for.** Catalogue search orders on `similarity(title, query)` — **a
-function of the QUERY, not a column of the Item** — so the anchor's place cannot be READ off the
+function of the QUERY, not a column of the Item** — so the anchor's closeness cannot be READ off the
 anchor row the way this record's walk reads `coalesce(sort_name, title)` off it. It is
 **recomputed**, against the query resupplied on every page.
 
@@ -226,7 +226,7 @@ anchor row the way this record's walk reads `coalesce(sort_name, title)` off it.
 argued the query was unavailable "because the cursor does not carry it" — true of the cursor and
 irrelevant, since there is no such thing as a search request without a query: a paged search is
 `?q=<query>&after=<id>`, and `searchCatalogue` takes the query as a required parameter already.
-Given it, the anchor's place is one primary-key lookup plus `similarity(anchor.title, $query)`, and
+Given it, reading the anchor is one primary-key lookup plus `similarity(anchor.title, $query)`, and
 the walk is an ordinary keyset one. **The door is open.** The overstatement is corrected here rather
 than below, because "cannot" is what stops somebody trying — and CNCORE-88 then walked through it,
 which is what the next section records.
@@ -441,14 +441,14 @@ parameter there ALREADY and would have cost nothing.
 
 **THE TOMBSTONE SPLIT ABOVE NOW HAS ITS OTHER HALF, and it behaves exactly as that section said it
 would.** The rule there is that the anchor is read WITHOUT the tombstone filter and each order
-decides what it found, in its keys since CNCORE-195 — and that the two orders built on the projection lose their anchor's place,
+decides what it found, in its keys since CNCORE-195 — and that the two orders built on the projection lose their anchor,
 because a deleted Item has neither `sort_name` nor `title` left. Its own words for the other case:
 "An order this app does not yet hold — on `release_date`, or on when a row was made — reads a column
-a delete does NOT destroy, so its anchor still has a place and can still be resumed from."
+a delete does NOT destroy, so its anchor outlives the delete and can still be resumed from."
 
 **`placements.position` IS THAT COLUMN.** No tombstone touches it: deleting the Item filters the row
 out of the listing and leaves the placement row untouched, and tombstoning the placement leaves its
-position standing too. So an anchor here keeps its place after the member it names is gone, and a
+position standing too. So an anchor here outlives the member it names, and a
 reader five pages into a Container is NOT sent back to its first page because one member went away
 under them. **Asserted rather than reasoned, on BOTH tombstones** — a container walked to a cursor, then the
 anchor's Item deleted in one test and the anchor's PLACEMENT deleted in another, the cursor asked
@@ -573,19 +573,19 @@ TWO CONTAINERS SHARING A NAME, and that is what the test for the id term is buil
 **THIS IS WHERE THAT SPLIT PAYS FOR ITSELF A SECOND TIME, and differently.** The rule above is that
 the anchor is read WITHOUT the tombstone filter and each order decides what it found, in its keys
 since CNCORE-195: an order on
-ADR-0014's projection loses its anchor's place to a delete, because the projection over no live
+ADR-0014's projection loses its anchor to a delete, because the projection over no live
 statements is NULL and the columns are GONE rather than hidden; an order on a stored column a delete
 does not touch keeps it, which is why a kept link into a Container RESUMES.
 
 **This order is BOTH.** It LEADS on the projection -- of the CONTAINER, which is another row
-entirely -- and continues on three stored columns that no tombstone touches. And **a place that has
-lost its FIRST term has lost the whole place**: the survivors behind it cannot rescue it, because
+entirely -- and continues on three stored columns that no tombstone touches. And **an anchor that has
+lost its FIRST term is no anchor at all**: the survivors behind it cannot rescue it, because
 resuming from `(null, precedence, ...)` resumes from the unnamed-Container block with every named
 one between SKIPPED, which is exactly the dead end CNCORE-110 measured on `/`. So a kept link whose
 ordering has since been deleted starts this listing over, and one whose own PLACEMENT was removed
 resumes past it. Both are asserted, and the guard is mutation-checked.
 
-**AND IT IS THE PAIR RATHER THAN THE TOMBSTONE ALONE, for the reason `stillHasAPlaceIn` in
+**AND IT IS THE PAIR RATHER THAN THE TOMBSTONE ALONE, for the reason `stillAnAnchorIn` in
 `order.ts` gives, which is where both Listings' pair is written since CNCORE-195.** A Container
 nobody NAMED has no key either and sits at the end of the order as one block, resumed from by the
 three keys behind it. `deletedAt` alone would refuse an anchor whose key a delete had left alone; a
@@ -645,7 +645,7 @@ other, which is what makes a start a start without dropping the other listing's.
 **AND THE FILTER CHIPS CARRY ONE AND DROP THE OTHER, which is not an asymmetry to tidy away.** A
 chip carries `after` forward because it has nothing to do with the Members listing and must not move
 it. A chip DROPS `placedAfter` because it changes what "Also appears in" is ASKING -- the answer is a
-different listing, and the old cursor names a place in the one the reader is leaving.
+different listing, and the old cursor names an anchor in the one the reader is leaving.
 
 ## A narrowing is part of the QUESTION, not a filter over the answer (CNCORE-129)
 
@@ -812,8 +812,8 @@ went NULL between two statements (CNCORE-113).
 
 **SO AN ORDER IS ONE VALUE NOW, IN `packages/db/src/order.ts`, AND THREE THINGS ARE READ OFF IT.**
 It names its keys once, most significant first, with the id behind them. `theOrderBy` renders the
-`ORDER BY`; `pastTheRowIn` renders the comparison; `PlaceIn<typeof order>` is the shape an anchor
-has to carry for it. A key added to an order reaches all three in the same edit, and a place that
+`ORDER BY`; `pastTheRowIn` renders the comparison; `AnchorIn<typeof order>` is the shape an anchor
+has to carry for it. A key added to an order reaches all three in the same edit, and an anchor that
 does not carry one is a TYPE ERROR rather than rows silently stepped over.
 
 **`Order` RATHER THAN `Ordering`, AND THE GLOSSARY IS WHY.** `CONTEXT.md` gives Ordering to the
@@ -822,6 +822,16 @@ Placement construct -- what a container keeps of its own members -- and
 what this repository refuses for `duplicate` and `record`. "The order" is what these files had
 always called this in prose (`pastInTheOrder`, `findInTheOrder`, `PlaceInTheOrder`), and
 `CONTEXT.md` now carries the entry.
+
+**`Anchor` RATHER THAN `Place`, FOR THE SAME REASON (CNCORE-224).** The shape an anchor carries and
+the reads that find one were `PlaceIn`, `thePlaceIn` and `stillHasAPlaceIn` until CNCORE-224, and
+`CONTEXT.md` gives Place to a location. They took the word these files already used for the row a
+cursor names (`findTheAnchor`, `TheAnchor`, `closenessOfTheAnchor`), so the family is `AnchorIn`,
+`theAnchorIn` and `stillAnAnchorIn`, and `CONTEXT.md` carries **Anchor**. It is ONE THING SEEN
+TWICE, not two senses: `TheAnchor` is the row read once for the two Listings over `items`, title
+included because Catalogue search computes its closeness, and `AnchorIn<O>` is that same row as
+order `O` reads it, which is where it sits. A commit or ticket from before CNCORE-224 that speaks of
+an anchor's "place" means the second.
 
 **CNCORE-169 BUILT IT AND MOVED THE CATALOGUE LISTING ONTO IT** -- both of ADR-0077's questions,
 since they share one order and differ only in their `WHERE`. The other three still wrote their terms
@@ -850,12 +860,12 @@ A KEY NOW SAYS THREE THINGS instead of being an expression alone.
   `explain (analyze)` runs per shape: 35.7-41.8 ms declared, against 34.7-48.3 ms for the
   hand-written predicate it replaces and 50.1-64.1 ms undeclared. The branch that can never be true
   was the most expensive thing in the statement.
-- **AND A PLACE MAY CARRY AN EXPRESSION RATHER THAN A VALUE.** Catalogue search's closeness is a
+- **AND AN ANCHOR MAY CARRY AN EXPRESSION RATHER THAN A VALUE.** Catalogue search's closeness is a
   function of the QUERY the request resupplies rather than a column of the anchor row, so it is
   computed in the walk's own statement and is deliberately not carried out through the driver and
   back -- what a `real` compares equal to depends on its inferred type, and relevance ties are the
-  common case. A computed value that is NULL means what a read answering `undefined` means: the
-  anchor has no place, so the walk starts the listing over. **THE TOMBSTONE SPLIT IS ONE RULE AT TWO
+  common case. A computed value that is NULL means what a read answering `undefined` means: there
+  is no anchor, so the walk starts the listing over. **THE TOMBSTONE SPLIT IS ONE RULE AT TWO
   MOMENTS**, which is what CNCORE-113 found the hard way, and the interface carries the SECOND
   moment -- the one no read can reach, because the value does not exist until the walk runs.
 
@@ -864,7 +874,7 @@ caller wrote out, which is two lists read by one index and therefore two lists t
 `pastTheRowIn` is the whole of it. `walkListing` went the same way in the same ticket: it took an
 `ORDER BY` and a cursor as separate parameters, so the pairing this mechanism abolishes was still
 expressible one function further out than the listings it had been removed from. It takes the order
-and the anchor's place in it, typed against each other.
+and the anchor in it, typed against each other.
 
 **WHAT DID NOT MOVE UNDER CNCORE-170, AND THAT TICKET ASKED FOR ONE OF IT.** Its second criterion
 names two shapes the interface had to carry, and the closeness was carried; **THE TOMBSTONE SPLIT ON
@@ -888,9 +898,9 @@ decision of this record's own and was a ticket rather than a paragraph (CNCORE-1
 selected the tombstone for the caller to rule on, and the third, which is the one built, does not
 select it at all.
 
-**AND THE REST OF THE ANCHOR READ DID NOT MOVE EITHER.** The catalogue's place is checked against its
+**AND THE REST OF THE ANCHOR READ DID NOT MOVE EITHER.** The catalogue's anchor is checked against its
 order by the TYPE rather than read through it; a Container's members and "Also appears in" do read
-theirs through the order (`select(thePlaceIn(order))` since CNCORE-195, a spread of `order.keys`
+theirs through the order (`select(theAnchorIn(order))` since CNCORE-195, a spread of `order.keys`
 before it), so a key added to either reaches its read as well.
 
 **ASSERTED AT THE PACKAGE EXPORT, BY TESTS THAT ALREADY EXISTED -- CNCORE-170 ADDED NONE, and that
@@ -929,7 +939,7 @@ ONE of the four, which is CNCORE-88's own measurement reproduced.
 ## A key a delete destroys says so (CNCORE-195)
 
 **THE TOMBSTONE SPLIT IS ON THE KEY NOW, AND EVERY ANCHOR READ APPLIES IT.** A key may say
-`destroyedBy: <tombstone column>`, and `stillHasAPlaceIn(order)` in `order.ts` renders, off the keys,
+`destroyedBy: <tombstone column>`, and `stillAnAnchorIn(order)` in `order.ts` renders, off the keys,
 the predicate that refuses a row whose key is null while that tombstone is set. The Catalogue
 Listing's key and "Also appears in"'s container key declare it, and all four anchor reads put the
 predicate in their own `where`. The two hand-written lines are gone, and so is the tombstone the reads
@@ -939,7 +949,7 @@ selected beside the keys (`containerDeletedAt`, and `deletedAt` on `TheAnchor`).
 tombstone and ruled on it in the caller, and that is what cost them: selecting it as an expression
 needed `findTheAnchor`'s shared select to change, and selecting it by a field's name coupled an order
 to a string. This one does not select it. The refusal is a PREDICATE, so it goes where predicates
-go: `findTheAnchor` is handed the order it is finding a place in and splices the predicate into its
+go: `findTheAnchor` is handed the order it is finding an anchor in and splices the predicate into its
 `where`, and its select stays exactly as this record fixed it. It is still one read shared by the
 Catalogue Listing and Catalogue search, and it still owns the shape guard. The declaration is a
 COLUMN rather than a name, so in the two reads that select through the order it is bound the way
@@ -952,7 +962,7 @@ rather than its type. A type could not carry it: "Also appears in"'s tombstone i
 too, joined in as the container.
 
 **AND A REFUSED ROW IS NOT READ AT ALL.** The read answers `undefined`, which is what it already
-answered for an id that names nothing. So "an anchor whose place is gone names no position" and
+answered for an id that names nothing. So "an anchor whose key is gone names no position" and
 ADR-0066's rule for a parameter that is not an identity now share one path, where before they were
 two answers that happened to agree.
 
@@ -962,7 +972,7 @@ an answer. Two keys declare it: the catalogue's `SORT_KEY`, destroyed by the ite
 "Also appears in"'s container key, destroyed by the CONTAINER's, because `items` is joined in as the
 container there. Catalogue search holds the same `SORT_KEY` and does NOT say it,
 and that is a rule rather than an omission. Both its keys say `everyRowHasIt`, and on such a key a
-null is no place whatever took it, which `findInTheRanking` refuses on the title; declaring it there
+null is no anchor whatever took it, which `findInTheRanking` refuses on the title; declaring it there
 would add a predicate that cannot change an answer. A Container's own order is
 `placements.position`, which no tombstone touches: that is the half of the split that resumes. It
 says nothing, and its read applies the predicate anyway and refuses nothing, so a key that order
@@ -970,8 +980,8 @@ gains is one its read cannot miss.
 
 **THE SELECT HAD TO LEARN ONE THING.** A key that says what a delete does to it is a description
 rather than an expression, and the two reads that spread `order.keys` into a `select` would have
-selected the description. `thePlaceIn(order)` selects each key's expression under its name, typed so
-the read still answers `PlaceIn<typeof order>`. That is the "second helper" the expression shape
+selected the description. `theAnchorIn(order)` selects each key's expression under its name, typed so
+the read still answers `AnchorIn<typeof order>`. That is the "second helper" the expression shape
 needed as well, but here it is not a second place the tombstone is spelled: it knows nothing about
 tombstones.
 
@@ -1099,7 +1109,7 @@ every Listing crosses several boundaries and none crosses many.
   both the test's own. Catalogue search's fixture ties on EVERY Row, so the id behind the keys is
   mutation-checked through a boundary here as well: dropping it fails all three walks.
 - **A DELETED anchor is not among the four.** "A cursor naming nothing" here is an id that named no
-  row and a string that is not an id; the anchor whose place a delete destroyed (CNCORE-110) needs a
+  row and a string that is not an id; the anchor a delete destroyed (CNCORE-110) needs a
   cursor cut at a row the test chose, and at this seam the only row a cursor can be cut at cheaply is
   whichever sorts first in a catalogue every other file is reading. It is asserted at the package
   export for all three Listings, each in its own order, which is where the two ways a key can be null

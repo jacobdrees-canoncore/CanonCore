@@ -58,7 +58,7 @@ async function readSearch(query: string, after: string | undefined, group: strin
   //
   // THE QUERY GOES DOWN WITH THE CURSOR, AND BOTH ARE NEEDED (ADR-0119). This
   // order leads on how close a title is to what was typed, so the anchor's
-  // place in it is RECOMPUTED against the query rather than read off the anchor
+  // closeness is RECOMPUTED against the query rather than read off the anchor
   // row -- which is why a paged search is `?q=<query>&after=<id>` and not a
   // cursor that could stand on its own.
   //
