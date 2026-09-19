@@ -2,17 +2,20 @@ import { eq, sql } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import {
+  askProviderByHand,
   createGroupByHand,
   type Database,
   deleteGroupByHand,
   findGroups,
   findGroupsOfItem,
   findItem,
+  findProvidersAGroupAsks,
   GroupRefused,
   groupItems,
   items,
   putItemInGroupByHand,
   renameGroupByHand,
+  stopAskingProviderByHand,
   takeItemOutOfGroupByHand,
 } from "./index";
 import { anItem, anItemTitled, connect } from "./testing/catalogue";
@@ -251,6 +254,97 @@ describe("a Group the Owner deleted", () => {
 
     await expect(
       putItemInGroupByHand(db, { groupId: group, itemId: story }),
+    ).rejects.toBeInstanceOf(GroupRefused);
+  });
+});
+
+describe("askProviderByHand", () => {
+  it("makes a Group ask the Providers the Owner named, and a Group nobody told asks none", async () => {
+    // ADR-0025's HALF THAT WAS MISSING (CNCORE-182). A Group picks which
+    // Providers are asked on its behalf, which is what delivers "this Group
+    // prefers the wiki": a Group that never asks TMDB is never answered by it.
+    // So the default is NONE rather than every configured Provider -- a Group
+    // the Owner has not told anything asks nobody, and says so.
+    const doctorWho = await createGroupByHand(db, { name: "Doctor Who, asked" });
+    const marvel = await createGroupByHand(db, { name: "Marvel, never told" });
+
+    await askProviderByHand(db, { groupId: doctorWho, providerIdentity: "http://wiki.test:8080" });
+    await askProviderByHand(db, { groupId: doctorWho, providerIdentity: "http://archive.test" });
+
+    // WRITTEN WIKI FIRST AND READ BACK ARCHIVE FIRST, so the order below is
+    // the function's and not the order the fixture happened to insert in.
+    expect(await findProvidersAGroupAsks(db, doctorWho)).toStrictEqual([
+      "http://archive.test",
+      "http://wiki.test:8080",
+    ]);
+    expect(await findProvidersAGroupAsks(db, marvel)).toStrictEqual([]);
+  });
+});
+
+describe("stopAskingProviderByHand", () => {
+  it("stops the Group asking one Provider and leaves the others it asks", async () => {
+    const group = await createGroupByHand(db, { name: "Doctor Who, narrowed" });
+    await askProviderByHand(db, { groupId: group, providerIdentity: "http://wiki.test:8080" });
+    await askProviderByHand(db, { groupId: group, providerIdentity: "http://tmdb.test" });
+
+    expect(
+      await stopAskingProviderByHand(db, { groupId: group, providerIdentity: "http://tmdb.test" }),
+    ).toBe(true);
+
+    expect(await findProvidersAGroupAsks(db, group)).toStrictEqual(["http://wiki.test:8080"]);
+  });
+
+  it("asks a Provider again under the id it always had", async () => {
+    // A TOMBSTONE RATHER THAN A DELETE (ADR-0075), which is what lets asking
+    // again come back to the same row -- the undo `takeItemOutOfGroupByHand`
+    // offers, one relation over.
+    const group = await createGroupByHand(db, { name: "Asked, stopped, asked" });
+    const provider = { groupId: group, providerIdentity: "http://wiki.test:8080" };
+    const first = await askProviderByHand(db, provider);
+    await stopAskingProviderByHand(db, provider);
+
+    expect(await askProviderByHand(db, provider)).toBe(first);
+    expect(await findProvidersAGroupAsks(db, group)).toStrictEqual(["http://wiki.test:8080"]);
+  });
+
+  it("answers false for a Provider the Group does not ask", async () => {
+    const group = await createGroupByHand(db, { name: "Asks nobody" });
+
+    expect(
+      await stopAskingProviderByHand(db, { groupId: group, providerIdentity: "http://wiki.test" }),
+    ).toBe(false);
+  });
+});
+
+describe("a Group the Owner deleted asks nobody", () => {
+  it("stops asking every Provider with the Group, in the same deletion", async () => {
+    // BOTH TOMBSTONES IN ONE TRANSACTION, for `deleteGroupByHand`'s reason:
+    // `findProvidersAGroupAsks` reads these rows without joining `groups`, so a
+    // row left live under a deleted Group is a Provider still asked for a scope
+    // nobody can pick.
+    const group = await createGroupByHand(db, { name: "A scope that asked the wiki" });
+    await askProviderByHand(db, { groupId: group, providerIdentity: "http://wiki.test:8080" });
+
+    await deleteGroupByHand(db, group);
+
+    expect(await findProvidersAGroupAsks(db, group)).toStrictEqual([]);
+  });
+
+  it("refuses a Provider asked for it, rather than reporting success and asking nobody", async () => {
+    const group = await createGroupByHand(db, { name: "A deleted scope, asked" });
+    await deleteGroupByHand(db, group);
+
+    await expect(
+      askProviderByHand(db, { groupId: group, providerIdentity: "http://wiki.test:8080" }),
+    ).rejects.toBeInstanceOf(GroupRefused);
+  });
+
+  it("refuses a Provider asked for a Group that was never drawn", async () => {
+    await expect(
+      askProviderByHand(db, {
+        groupId: crypto.randomUUID(),
+        providerIdentity: "http://wiki.test:8080",
+      }),
     ).rejects.toBeInstanceOf(GroupRefused);
   });
 });

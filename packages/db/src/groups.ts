@@ -2,7 +2,7 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 
 import type { Database } from "./index";
 import { isRefusalOn, theOwnerId, type Writer } from "./placements";
-import { groupItems, groups, items } from "./schema";
+import { groupItems, groupProviders, groups, items } from "./schema";
 
 /**
  * THE CATALOGUE REFUSING WHAT THE OWNER ASKED FOR, as opposed to failing to
@@ -259,10 +259,12 @@ export async function takeItemOutOfGroupByHand(
  * sat in, and in every other Group. An Owner who cannot trust that will not put
  * anything in a scope in the first place.
  *
- * BOTH TOMBSTONES, IN ONE TRANSACTION (ADR-0075). The Group and the rows naming
- * it go together, and leaving the memberships live would be a row that comes
- * back the day something reads `group_items` without joining `groups` -- which
- * is precisely what a narrowed Listing does. A transaction rather than two
+ * EVERY TOMBSTONE, IN ONE TRANSACTION (ADR-0075). The Group and the rows naming
+ * it go together -- its memberships and, since CNCORE-182, the Providers it asks
+ * -- and leaving either live would be a row that comes back the day something
+ * reads it without joining `groups`, which is precisely what a narrowed Listing
+ * does to `group_items` and what `findProvidersAGroupAsks` does to
+ * `group_providers`. A transaction rather than two
  * statements, because a Group deleted with its memberships still standing is the
  * state no reader can see and every later query would trip over.
  *
@@ -284,9 +286,116 @@ export async function deleteGroupByHand(db: Database, id: string): Promise<boole
       .update(groupItems)
       .set({ deletedAt: sql`now()` })
       .where(and(eq(groupItems.groupId, id), isNull(groupItems.deletedAt)));
+    await tx
+      .update(groupProviders)
+      .set({ deletedAt: sql`now()` })
+      .where(and(eq(groupProviders.groupId, id), isNull(groupProviders.deletedAt)));
 
     return true;
   });
+}
+
+/**
+ * THE OWNER TELLING A GROUP TO ASK A PROVIDER (ADR-0025, CNCORE-182), so that
+ * searching the Providers within the Group reaches it.
+ *
+ * THE PROVIDER BY ITS BASE URL, which is its identity (ADR-0031), and whether
+ * this instance is configured to reach it is not this function's question: the
+ * configuration is a string `@canoncore/providers` parses, and this package does
+ * not depend on that one (`settings.ts` gives the reason). `group.ask` is where
+ * a URL this instance does not name is refused.
+ *
+ * ASKING TWICE IS THE CHOICE ALREADY STANDING, and the same statement brings
+ * back a Provider the Owner stopped asking under the id it always had -- the
+ * whole of `putItemInGroupByHand`'s argument, one relation over.
+ *
+ * AND ONLY A LIVE GROUP, which the foreign key cannot say for the reason that
+ * function gives: a tombstone is not a DELETE, so the row would be written and
+ * then hidden, and the Owner told it worked while nothing changed.
+ */
+export async function askProviderByHand(
+  writer: Writer,
+  { groupId, providerIdentity }: { groupId: string; providerIdentity: string },
+): Promise<string> {
+  try {
+    if (!(await isLive(writer, groups, groupId))) {
+      throw new GroupRefused("the catalogue holds no such live Group");
+    }
+
+    const [written] = await writer
+      .insert(groupProviders)
+      .values({ ownerId: await theOwnerId(writer), groupId, providerIdentity })
+      .onConflictDoUpdate({
+        target: [groupProviders.ownerId, groupProviders.groupId, groupProviders.providerIdentity],
+        set: { deletedAt: null },
+      })
+      .returning({ id: groupProviders.id });
+    if (!written) throw new Error("insert returned no row in group_providers");
+    return written.id;
+  } catch (cause) {
+    // The race the liveness check cannot close, narrowed as `putItemInGroupByHand` narrows it.
+    if (cause instanceof GroupRefused) throw cause;
+    if (isRefusalOn(REFUSALS, cause)) {
+      throw new GroupRefused("the catalogue refused that Provider for that Group", { cause });
+    }
+    throw cause;
+  }
+}
+
+/**
+ * THE OWNER TELLING A GROUP TO STOP ASKING ONE PROVIDER, leaving every other
+ * Provider it asks standing.
+ *
+ * NOT A PURGE, and the words are kept apart (`CONTEXT.md`): every claim that
+ * Provider ever made stays in the catalogue, attributed to it. What changes is
+ * only who is asked when the Owner searches within this Group.
+ *
+ * A TOMBSTONE RATHER THAN A DELETE (ADR-0075), so asking again comes back to
+ * the same row under the same id. Answers whether it stopped anything, so a
+ * stale button is an answer rather than a fault (ADR-0066).
+ */
+export async function stopAskingProviderByHand(
+  writer: Writer,
+  { groupId, providerIdentity }: { groupId: string; providerIdentity: string },
+): Promise<boolean> {
+  const stopped = await writer
+    .update(groupProviders)
+    .set({ deletedAt: sql`now()` })
+    .where(
+      and(
+        eq(groupProviders.groupId, groupId),
+        eq(groupProviders.providerIdentity, providerIdentity),
+        isNull(groupProviders.deletedAt),
+      ),
+    )
+    .returning({ id: groupProviders.id });
+
+  return stopped.length > 0;
+}
+
+/**
+ * WHICH PROVIDERS THIS GROUP ASKS, as their base URLs.
+ *
+ * NONE FOR A GROUP NOBODY TOLD ANYTHING, which is ADR-0025's sentence rather
+ * than an empty default: a Group that never asks a Provider cannot be answered
+ * by it. Every configured Provider would be the other reading, and it would
+ * make a new Group a scope that asks TMDB until the Owner thought to say not to.
+ *
+ * AND NONE FOR A GROUP THAT IS NOT THERE, without joining `groups`, because
+ * `deleteGroupByHand` tombstones these rows with the Group in one transaction --
+ * the reading `inTheGroup` already makes of `group_items`.
+ *
+ * BY URL, WHICH IS A TOTAL ORDER AND NOT A RANKING. Nothing here ranks a
+ * Provider (ADR-0025); a caller that fans out keeps its own order, which is the
+ * configured one, so this order is only what makes the answer the same twice.
+ */
+export async function findProvidersAGroupAsks(db: Database, groupId: string): Promise<string[]> {
+  const asked = await db
+    .select({ providerIdentity: groupProviders.providerIdentity })
+    .from(groupProviders)
+    .where(and(eq(groupProviders.groupId, groupId), isNull(groupProviders.deletedAt)))
+    .orderBy(groupProviders.providerIdentity);
+  return asked.map(({ providerIdentity }) => providerIdentity);
 }
 
 /**
