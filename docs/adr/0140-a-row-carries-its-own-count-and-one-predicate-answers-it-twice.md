@@ -104,13 +104,16 @@ the rule three times, and it passed every check in the repository: the glossary 
 is neither. That is the honest limit of that check rather than a gap to apologise for — but it
 means a `_SQL alias_` is held by review alone, and review is what caught this one.
 
-## The figure is grouped, and so is every other number beside it
+## The figure is grouped, and so is every other count beside it
 
 `2,913` rather than `2913`. That is a decision about the WHOLE Listing rather than about the Row:
 the size of the Listing and the size of a Row's own Ordering sit on one screen, so a grouped Row
 beside "Showing 100 of 8052 items" would be the page disagreeing with itself about how it writes a
-number. One `Intl.NumberFormat("en-GB")`, built once for the reason `Moment` gives about a formatter
-one file over, and read by both.
+count. One `Intl.NumberFormat("en-GB")`, built once for the reason `Moment` gives about a formatter
+one file over, and read by every COUNT on the page. Not by every number: a Position, which the Row
+prints since [[0143-a-storys-row-names-where-it-sits-and-cuts-at-five-placements]], is an ordinal,
+written `#1234` as the item page writes it, because grouped it would run into the comma between two
+of them.
 
 **THE LOCALE IS FIXED RATHER THAN THE READER'S**, for that component's own reason: these pages
 render on the server with no script to correct them afterwards, so the default would be whichever

@@ -232,7 +232,7 @@ describe("what /items/<id> costs", () => {
  */
 describe("what a Listing costs", () => {
   it(
-    "costs the same over one Row as over every Row, so the figure is not a read per Row",
+    "costs the same over one Row as over every Row, so no figure on a Row is a read per Row",
     async () => {
       /*
        * THE ACCEPTANCE CRITERION THAT NOTHING ELSE CAN SEE: "the figure comes
@@ -249,6 +249,11 @@ describe("what a Listing costs", () => {
        * makes the wide page dearer than the narrow one by however many
        * Containers it listed, and a subquery in the Listing's own statement
        * cannot.
+       *
+       * AND WHERE A STORY SITS (CNCORE-184) IS HELD BY THE SAME ASSERTION, for
+       * the same reason: it is asked of every Row in the Listing's statement,
+       * so a read per Row would cost one statement per Row here. Driven red
+       * with a `findPlacementsOfItem` per Row: 8 statements against 3.
        *
        * THE WIDE PAGE IS ASSERTED TO HOLD MORE CONTAINERS THAN THE NARROW ONE,
        * INSIDE THE WINDOW. Without it this passes on a catalogue whose Rows are

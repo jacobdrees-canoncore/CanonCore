@@ -734,6 +734,19 @@ const AN_ORDERING_OF_ONE = "An ordering of one";
 const AN_EMPTY_ORDERING = "An ordering nothing was placed in";
 
 /**
+ * THE TWO ROWS CNCORE-184 NEEDS THAT THE STORIES ABOVE CANNOT BE.
+ *
+ * A story in NO ordering, because every story above sits in one, and a Row
+ * saying nothing looks the same as a Row that forgot to say. And a placement
+ * NO SOURCE GAVE A POSITION -- `CONTEXT.md`'s **Unplaced**, 701 of them in the
+ * Owner's corpus -- in an ordering of its own, since placing it in any of the
+ * orderings above would change the size that ordering is here to assert.
+ */
+const A_STORY_IN_NO_ORDERING = "A story placed in no ordering";
+const A_STORY_GIVEN_NO_POSITION = "A story placed without a position";
+const AN_ORDERING_THAT_GIVES_NO_POSITION = "An ordering that gives no position";
+
+/**
  * A FIFTH INSTANCE, and what is new about it is that NOTHING WRITES TO IT.
  *
  * CNCORE-93. "How much does this catalogue hold" is a fact about a WHOLE
@@ -805,7 +818,21 @@ function aCatalogueThatHoldsStill(owned: AsyncDisposableStack) {
 
       // PLACED IN BY NOTHING, which is the fixture: a Container is a Container
       // whether or not anything reached it (ADR-0004).
-      await anItemTitled(db, AN_EMPTY_ORDERING, { isContainer: true, isOrdered: true });
+      const empty = await anItemTitled(db, AN_EMPTY_ORDERING, {
+        isContainer: true,
+        isOrdered: true,
+      });
+
+      await anItemTitled(db, A_STORY_IN_NO_ORDERING);
+      const unnumbered = await anItemTitled(db, AN_ORDERING_THAT_GIVES_NO_POSITION, {
+        isContainer: true,
+        isOrdered: true,
+      });
+      await aPlacement(db, {
+        containerId: unnumbered,
+        itemId: await anItemTitled(db, A_STORY_GIVEN_NO_POSITION),
+        position: null,
+      });
 
       const largest = await anItemTitled(db, THE_LARGEST_ORDERING, {
         isContainer: true,
@@ -831,12 +858,16 @@ function aCatalogueThatHoldsStill(owned: AsyncDisposableStack) {
           AN_ORDERING_OF_THREE,
           AN_ORDERING_OF_ONE,
           AN_EMPTY_ORDERING,
+          A_STORY_IN_NO_ORDERING,
+          AN_ORDERING_THAT_GIVES_NO_POSITION,
+          A_STORY_GIVEN_NO_POSITION,
           THE_LARGEST_ORDERING,
         ],
         orderings: [
-          { title: AN_ORDERING_OF_THREE, holds: stories.length },
-          { title: AN_ORDERING_OF_ONE, holds: 1 },
-          { title: AN_EMPTY_ORDERING, holds: 0 },
+          { title: AN_ORDERING_OF_THREE, holds: stories.length, id: three },
+          { title: AN_ORDERING_OF_ONE, holds: 1, id: one },
+          { title: AN_EMPTY_ORDERING, holds: 0, id: empty },
+          { title: AN_ORDERING_THAT_GIVES_NO_POSITION, holds: 1, id: unnumbered },
           { title: THE_LARGEST_ORDERING, holds: AS_LARGE_AS_THE_LARGEST, id: largest },
         ],
       };
@@ -2485,11 +2516,11 @@ declare module "vitest" {
      */
     stillCatalogue: string[];
     /**
-     * The two Orderings it holds and how much each one holds (CNCORE-183) --
+     * The Orderings it holds and how much each one holds (CNCORE-183) --
      * the ticket's own three and 2,913, from the fixture that placed them
      * rather than from the app that has to report them.
      */
-    stillOrderings: { title: string; holds: number; id?: string }[];
+    stillOrderings: { title: string; holds: number; id: string }[];
     /** The wiki provider this run stood up: the real image in CI, a stub here. */
     providerWikiUrl: string;
     /** The TMDB provider, whose source row is what a TMDB claim is recorded against. */

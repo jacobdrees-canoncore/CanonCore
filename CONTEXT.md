@@ -143,8 +143,8 @@ One item's membership of one container, at one position, carrying every source t
 asserted it. THE SAME CONSTRUCT FROM EITHER END: from the item's, an ordering it sits in; from the
 container's, something that container holds. Both ends are named Placement in code, because a Repeat
 puts one item in one container twice and the placement is the only thing that can tell those two
-rows apart. The reader's words are "Also appears in" from the item's end and "Members" from the
-container's.
+rows apart. The reader's words are "Also appears in" from the item's end, counted as appearances,
+and "Members" from the container's.
 _Avoid_: record, edge, member, membership, link
 
 **Position**:
@@ -154,7 +154,9 @@ may have none.
 **Unplaced**:
 A member of a container no source has given a position in. It is a PLACEMENT WITH NO POSITION, never
 an absent placement: dropping it shrinks the container silently and numbering it last asserts an
-order the source never gave. The reader's words are "no position given".
+order the source never gave. The reader's words are "no position given". An item in NO container is
+not Unplaced, because it has no placement at all: it is at the root (ADR-0062), and a reader sees
+"In no ordering".
 _Avoid_: unordered, unsorted, orphan, missing
 
 **Repeat**:

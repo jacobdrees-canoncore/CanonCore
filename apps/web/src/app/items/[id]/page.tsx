@@ -13,6 +13,7 @@ import { cache, Fragment } from "react";
 import { Attribution } from "@/components/attribution";
 import { Holding, type MembersPath, PastTheEnd, type TheRoute, Walk } from "@/components/listing";
 import { type Reorder, reorderedTo } from "@/components/ordering";
+import { positionLabel } from "@/components/position";
 import { inTheFixedOrder, oneValue } from "@/components/query-params";
 import { SortableMembers } from "@/components/sortable-members";
 import { TheirWords } from "@/components/their-words";
@@ -207,22 +208,6 @@ const PROPERTY: Record<string, string> = {
   released: "Released",
   image: "Image",
 };
-
-/**
- * Where a placement sits, in the reader's words.
- *
- * A MEMBER WITH NO POSITION IS STILL A MEMBER (migration 2), and this is where
- * a reader meets one: the source put the item in this container and said
- * nothing about where. Printing `#null` would be the model leaking, and leaving
- * the row out would hide a membership that is real.
- *
- * The words say what is absent rather than guessing at it, because the two
- * other answers -- dropping the row, or numbering it last -- each assert
- * something no source ever claimed.
- */
-function positionLabel(position: number | null): string {
-  return position === null ? "No position given" : `#${position}`;
-}
 
 function propertyLabel(name: string): string {
   const known = PROPERTY[name];
@@ -1185,6 +1170,7 @@ function AlsoAppearsIn({
           unnarrowed list and a second notice below carried what the chips did to
           it; there is one number now, and it is the one the reader is looking at.
         */}
+        {/* TODO(CNCORE-236): these are appearances; a Repeat is one ordering twice. */}
         {rows.length > 0 && <Holding showing={rows.length} total={total} noun="ordering" />}
       </div>
       {/*

@@ -400,6 +400,13 @@ describe.each(EVERY_LISTING)("$procedure, on the Listing contract", ({ holds, pa
     const [row] = rows;
     if (!row) throw new Error("the Listing answered with nothing to enumerate");
 
-    expect(Object.keys(row).sort()).toStrictEqual(["holds", "id", "isContainer", "kind", "title"]);
+    expect(Object.keys(row).sort()).toStrictEqual([
+      "holds",
+      "id",
+      "isContainer",
+      "kind",
+      "sitsIn",
+      "title",
+    ]);
   });
 });
