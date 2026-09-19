@@ -979,13 +979,52 @@ the Owner's machine:
   LIVE tardis.wiki, was refused, and answered `503` with an attributed reason naming `/unlock`. So
   the route, the walk and the refusal path are demonstrated end to end against the real upstream.
 
-**WHAT IS NOT DEMONSTRATED IS THE ANSWER ITSELF: A `200` CARRYING REAL TIMELINES.** The Owner's
-Credential is refused by Cloudflare (403, confirmed directly before any of the above), so no
-`allpages` capture was taken and `provider-wiki`'s own tests shape the documented response through
-its stub. Nothing anywhere has seen this operation return a container. The first thing that can is
-this repository's contract job against the published images, once a live Credential exists -- and
-until it has, the answering half is built rather than demonstrated. THAT IS THE HALF THIS SECTION'S
-FIRST SENTENCE IS ABOUT, so it is the half the claim rests on.
+**WHAT WAS NOT DEMONSTRATED WHEN THIS WAS WRITTEN WAS THE ANSWER ITSELF, A `200` CARRYING REAL
+TIMELINES -- AND THE GAP WAS HIDING A DEFECT.** The Owner's Credential was refused by Cloudflare
+(403, confirmed directly before any of the above), so no `allpages` capture was taken and
+`provider-wiki`'s own tests shaped the documented response through its stub. This said "nothing
+anywhere has seen this operation return a container", and it was true: when the operation was first
+run live, under CNCORE-206, it answered `200 {"containers":[]}`. MediaWiki matches `apprefix`
+against a title WITHOUT its namespace -- measured, because `API:Allpages` does not say so -- and
+`provider-wiki` sent `Theory:Timeline` beside `apnamespace=114`, so the walk asked for pages titled
+`Theory:Theory:Timeline...` and the wiki correctly answered none. The stub never applied the
+prefix, so no test could see it. The decliner's `404` was chosen to keep "I hold none" apart from "I
+do not offer this", and this was a third answer neither reached: I OFFER THIS, I ANSWERED, AND I
+HOLD NONE, from a source holding 465. CNCORE-208 fixed it in
+[provider-wiki#46](https://github.com/jacobdrees-canoncore/provider-wiki/pull/46), merged as
+`d38d902`, and its test spends the prefix against a fake that applies MediaWiki's rule instead of
+ignoring it.
+
+**THE ANSWER IS NOW DEMONSTRATED, FROM SOURCE AND THEN FROM THE PUBLISHED IMAGE.** Measured
+2026-09-19 with the Owner's Credential, `provider-wiki` served from source at CNCORE-208's branch,
+one credential and one session for both rows:
+
+| `apprefix` | `GET /containers` |
+| -- | -- |
+| `Theory:Timeline`, as CNCORE-186 shipped it | `200 {"containers":[]}` |
+| `Timeline`, CNCORE-208 | `200`, 465 containers, 465 distinct ids, all `timeline`, all titled `Theory:Timeline` |
+
+A listed id, 416127 (`Theory:Timeline - Scaroth`), browsed to a container with 18 ordering entries,
+so an id it listed is an id it will browse. The same day the Owner recreated their `provider-wiki`
+container on the image published from that merge, labelled revision `d38d902`, and it answered 465
+again. Measured once more against that running container at 16:12 UTC: `200`, 465 containers, 465
+distinct ids, all `timeline`, all titled `Theory:Timeline`, and 416127 browsed to the same 18
+entries. THAT IS THE HALF THIS SECTION'S FIRST SENTENCE IS ABOUT, so the claim now rests on a
+measurement rather than on a stub.
+
+**WHAT IS STILL NOT DEMONSTRATED IS ANYTHING REPEATABLE.** Every row above is a hand-walk, dated, on
+the Owner's machine with the Owner's Credential, and nothing re-runs it. This said the first thing
+that could see a container was "this repository's contract job against the published images, once
+a live Credential exists", AND THAT JOB NEVER CAN: the fixed point of
+[[0122-a-provider-declares-the-credential-it-needs]] is that no CI job holds the Owner's session,
+because a credential reaching CI is distribution ([[0089-provider-distribution-tiers]]). So
+`contract` pulls `provider-wiki:latest` with an empty configuration directory, reads the locked
+`503` at `/containers`, and returns early by design. The demonstration is a dated measurement on the
+Owner's machine and will stay one. What CI holds instead is MediaWiki's rule, in `provider-wiki`'s
+fake, so the namespaced prefix cannot come back unseen. Whether the live wiki still answers 465 is
+known only as of the last walk. And the empty list has one other road in, open as of 2026-09-19:
+CNCORE-216, where `provider-wiki` reads every MediaWiki `error` body except `maxlag` as an answer
+and its `?? []` turns the refusal into `200 {"containers":[]}`.
 
 **STILL NOT BUILT, AND STILL THE ONLY REASON THIS RECORD IS `proposed`:** the declared fields.
 `max_cache_age` and the image policy travel the wire from two providers and are read by nothing.
