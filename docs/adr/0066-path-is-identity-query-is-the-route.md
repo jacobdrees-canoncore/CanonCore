@@ -238,9 +238,9 @@ it the reader stands -- `/search`'s `q` before `after`, and the item page's `pla
 It was held by the key order of the object `queryFor` in `apps/web/src/components/listing.tsx`
 spreads, which is how `/search`'s `q` then `after` was already held, until CNCORE-180 gave the Group
 a slot of its own there (below); either way it carries the Group forward on `Next`, on `Back to the
-start` and on the notice past the end. The item page's four are held by `IN_FIXED_ORDER` in the
-same function -- so the order is still written in two shapes, and stating it once for every surface
-is CNCORE-181's, as the scope surviving a reload and travelling in a shared link is.
+start` and on the notice past the end. The item page's four were held by `IN_FIXED_ORDER` in the
+same function, so the order was written in two shapes until CNCORE-181 stated it once for every
+surface (below).
 
 ## And on work-browsing and Catalogue search -- under CNCORE-180
 
@@ -256,12 +256,55 @@ its default does: the parameter already out there keeps its place and the one ar
 it, ahead of the cursor for the reason CNCORE-179 gives. So every surface now reads the same way:
 what the Listing asks, then the scope it asks it within, then where in it the reader stands.
 
-**AND IT IS HELD BY SLOTS RATHER THAN BY KEY ORDER.** `/search`'s query and the group are two
-parameters a page supplies, and a spread of one object the page built would spell them in whatever
-order the page wrote its keys. So `Walking` carries them in separate slots -- `asked`, then
-`narrowed` -- and `queryFor` spreads the slots in that order, with the cursor last: the order is the
-type's rather than each caller's. The group picker writes its links through the same function, so a
-link that narrows and a link that walks cannot disagree about the spelling of one page.
+**AND IT WAS HELD BY SLOTS RATHER THAN BY KEY ORDER, until CNCORE-181 held it by one list.**
+`/search`'s query and the group are two parameters a page supplies, and a spread of one object the
+page built would spell them in whatever order the page wrote its keys. So `Walking` carries them in
+separate slots -- `asked`, then `narrowed` -- and `queryFor` spread the slots in that order, with the
+cursor last. The slots stay, because they say which surface may carry which; the order is
+`inTheFixedOrder`'s since CNCORE-181 (below). The group picker writes its links through the same
+function, so a link that narrows and a link that walks cannot disagree about the spelling of one
+page.
+
+## One order for every surface, and the scope carried by the header -- under CNCORE-181
+
+**THE FIXED ORDER IS STATED ONCE: `via`, `placed`, `q`, `group`, `after`, `placedAfter`.** It is
+`IN_THE_FIXED_ORDER` in `apps/web/src/components/query-params.ts`, and `inTheFixedOrder` beside it
+writes every query this app puts in a link: `queryFor` for all five Listings, `theRoute` on the Item
+page, whose chips had been a THIRD statement of the order by the order it set its keys in, and the
+header's links. Each parameter is absent rather than empty where it has no value, which three
+callers had each done for themselves.
+
+**THE TWO HALVES INTERLEAVE WITHOUT RE-SPELLING ANYTHING.** `via` and `placed` are written only on an
+Item's page and `q` and `group` only on a Listing's, so no link carries one of each, and where the
+halves sit relative to each other decides no link's spelling. Within each half the order is the one
+already out there -- `via`, `placed`, `after`, `placedAfter`, and `q`, `group`, `after` -- so no link
+this app has emitted acquires a second spelling. `after` is one word in both and sits where both need
+it. `scope.test.ts` reads every link five surfaces emit against the list, written out in the test
+rather than imported, so the code cannot agree with itself.
+
+**THE ONE ADDRESS THE LIST CANNOT WRITE IS A FORM'S.** A browser submits a GET form's fields in
+document order, so the header's search box puts the reader's `q` first and the `group` it carries
+behind it, which is the list's order held by the markup. The same test reads that box beside every
+link.
+
+**AND THE HEADER CARRIES THE GROUP** a page is narrowed to: the wordmark to `/?group=<id>`, `Works` to
+`/works?group=<id>`, and the search box as a hidden field, so a second query asked from a narrowed page
+asks within the same scope. The cursor and `/search`'s query stay behind, because a position in one
+Listing is no position in another and a query is a question only one surface asks. **This record's
+own rule decides the one place it stops**: the Rows link the bare `/items/<id>` (CNCORE-179 above),
+so an Item's page is not narrowed and its header carries nothing. A reader goes back to the scope
+with Back rather than with the header -- the cost of an Item having one address, accepted rather
+than overlooked, and what a remembered scope held outside the address would be for if it is ever
+wanted.
+
+**READ WITH `useSearchParams` BECAUSE THE HEADER IS A LAYOUT.** Next hands a layout no
+`searchParams` -- a layout is not re-rendered on navigation, so the value would go stale -- and
+documents `useSearchParams` in a client component as the way. A route rendered per request reads it
+on the server as well, so the scope is in the HTML a reader with no script is served, and every route
+here is rendered per request because the header reads the session
+([[0117-a-read-surface-renders-per-request]]). Read in Next 16.3.5's own docs, 2026-09-19. A
+static route calling it outside a `Suspense` boundary FAILS THE BUILD rather than serving a header
+without its scope, so the day a route stops being dynamic says so loudly.
 
 ## What implementing it taught -- under CNCORE-14
 

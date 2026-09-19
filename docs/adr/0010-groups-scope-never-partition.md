@@ -149,9 +149,9 @@ assumed, and it is the thing to re-check if the database line `compose.yaml` pin
 
 **WHAT IT DOES NOT DO.** Work-browsing and Catalogue search did not narrow, and the procedures that
 answer them did not accept a group, until CNCORE-180 below: an input that parsed one and answered the
-whole catalogue would have been a promise the handler does not keep. The scope does not follow a
-reader from `/` to any other page, and a header link back to the catalogue drops it; carrying it
-further is CNCORE-181's. And a Row's own figure (`holds`, [[0140-a-row-carries-its-own-count-and-one-predicate-answers-it-twice]])
+whole catalogue would have been a promise the handler does not keep. The scope did not follow a
+reader from `/` to any other page, and a header link back to the catalogue dropped it, until
+CNCORE-181 below. And a Row's own figure (`holds`, [[0140-a-row-carries-its-own-count-and-one-predicate-answers-it-twice]])
 is NOT narrowed: an Ordering's Row counts every member, in or out of the group, because the figure's
 contract is what the reader finds by following the Row, and the Ordering's own page is not narrowed
 either.
@@ -209,9 +209,33 @@ does not touch that index at all: the planner starts from the group's 50 members
 them by the match, which is why it is the cheapest search in the table. Nothing was added to steer
 either choice.
 
-**WHAT IT DOES NOT DO.** The scope still does not travel between surfaces: a group picked on `/` is
-not carried to `/works`, and the search box in the header asks across everything wherever it is
-submitted from. A reader picks the group again on each surface, which is what CNCORE-181's reload and
-shared-link work is for. A Row's own figure is not narrowed on any of the three, for the reason
-CNCORE-179 gives above. And which providers a group asks is still CNCORE-182's, so this record stays
-`proposed`: two of its five scoped things are built, one is not, and two do not exist to be scoped.
+**WHAT IT DOES NOT DO.** The scope did not travel between surfaces: a group picked on `/` was not
+carried to `/works`, and the search box in the header asked across everything wherever it was
+submitted from, so a reader picked the group again on each surface -- until CNCORE-181 below. A
+Row's own figure is not narrowed on any of the three, for the reason CNCORE-179 gives above. And
+which providers a group asks is still CNCORE-182's, so this record stays `proposed`: two of its five
+scoped things are built, one is not, and two do not exist to be scoped.
+
+## As built, under CNCORE-181 — and this record stays PROPOSED
+
+**BUILT: THE SCOPE SURVIVES A RELOAD AND TRAVELS IN A SHARED LINK, AND FROM ONE SURFACE TO THE
+NEXT.** The group is in the address on all three Listings, so the address alone reproduces the
+page: `scope.test.ts` has the Owner pick a group on each surface and asks the picked address again,
+as the Owner and as a reader with no session, and all three are served the same page. Nothing holds
+the scope outside the address -- no session, no cookie, no script's memory.
+
+**THE HEADER CARRIES IT.** Its wordmark and `Works` link to the scope the page is narrowed to, and its
+search box carries it as a hidden field behind the reader's query, which closes what review of
+CNCORE-180 found: a second query typed on a narrowed search asked across everything. How the header
+reads an address a layout is never handed is
+[[0066-path-is-identity-query-is-the-route]]'s, under CNCORE-181.
+
+**AN ITEM IS ONE ITEM WHICHEVER GROUP LED TO IT.** The seeded instance's story sits in two groups,
+and every narrowed Listing -- three surfaces, two groups -- links it at the one bare `/items/<id>`,
+whose canonical is itself. So an Item's page is not narrowed, and its header carries no scope: a
+reader returns to the scope with Back. That is the cost of one address per Item, stated in
+[[0066-path-is-identity-query-is-the-route]] beside it.
+
+**WHAT IT DOES NOT DO.** It remembers no scope outside the address, so opening `/` fresh is the whole
+catalogue and following the header from an Item's page is too. Which providers a group asks is still
+CNCORE-182's, so this record stays `proposed` for the reason CNCORE-180 gives above.
