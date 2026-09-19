@@ -119,7 +119,8 @@ Item page's heading kept its own box at `0` while the rows below it held the pag
 The one that passed was `/import`'s heading over a Provider's answers, a block on a page with no
 flex row holding the word, which is ADR-0123's reason for having a second witness at all. **The sites
 without a witness** are the Item page's Members, `Also appears in`, `In Groups` and Note, the
-headings on `/groups`, and the container title on `/import`'s browse. Each is a flex item or a block
+headings on `/groups`, the container title on `/import`'s browse, the empty Group's heading on `/`,
+`/works` and `/search`, and the query in `/search`'s. Each is a flex item or a block
 already witnessed elsewhere on the same mechanism, which is ADR-0123's position for the credential
 label and the attribution notice.
 

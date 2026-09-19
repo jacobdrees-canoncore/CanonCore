@@ -2,7 +2,8 @@
  * TEXT THIS PAGE DID NOT WRITE, AT NO WIDTH ITS WRITER CHOSE (ADR-0142).
  *
  * A Provider's prose, a record's fields, an Item's values and a Group's name
- * are all somebody else's words: a Provider's, or the Owner's. Any of them can
+ * are all somebody else's words -- a Provider's, a sidecar's or the Owner's, or
+ * derived from theirs as a sort name is -- and any of them can
  * be one word with no break in it, and one such word is an unbreakable line
  * that decides how WIDE the page is -- measured on `/import`, a Provider's
  * heading ran 1,092 pixels past its own box, and a search result 1,754.

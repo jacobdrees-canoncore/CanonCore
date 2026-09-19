@@ -110,8 +110,22 @@ export async function aProviderThatFloodsItsName(): Promise<{
   url: string;
   close: () => Promise<void>;
 }> {
+  return aStubNamed(FLOOD, []);
+}
+
+/**
+ * A STUB THAT NAMES ITSELF AND SEARCHES WHAT IT HOLDS, and does nothing else.
+ *
+ * ONE FOR THE TWO STUBS HERE (CNCORE-223), which differ in what they flood and
+ * in nothing else, for the reason `searchOver` is shared: a second copy of a
+ * manifest and its routes is where two stubs quietly stop agreeing.
+ */
+function aStubNamed<Held extends { title: string }>(
+  name: string,
+  records: Held[],
+): Promise<{ url: string; close: () => Promise<void> }> {
   const manifest = {
-    name: FLOOD,
+    name,
     versions: [1],
     operations: ["search", "lookup"],
     max_cache_age: 86400,
@@ -119,7 +133,7 @@ export async function aProviderThatFloodsItsName(): Promise<{
   };
   return onLoopback((path, answer) => {
     if (path === "/") return answer(manifest, 200);
-    if (path.startsWith("/search")) return answer(searchOver([], path), searchStatus(path));
+    if (path.startsWith("/search")) return answer(searchOver(records, path), searchStatus(path));
     return answer({ error: "no such record" }, 404);
   });
 }
@@ -152,14 +166,7 @@ export async function aProviderThatFloodsItsRecord(): Promise<{
   url: string;
   close: () => Promise<void>;
 }> {
-  const manifest = {
-    name: "provider-unbroken",
-    versions: [1],
-    operations: ["search", "lookup"],
-    max_cache_age: 86400,
-    images: { stored_variant: null, per_role_limit: 0, quality_floor: 0 },
-  };
-  const records = [
+  return aStubNamed("provider-unbroken", [
     {
       id: "unbroken-title",
       title: UNBROKEN.title,
@@ -181,10 +188,5 @@ export async function aProviderThatFloodsItsRecord(): Promise<{
       released: [UNBROKEN.released],
       url: "http://127.0.0.1/unbroken-released",
     },
-  ];
-  return onLoopback((path, answer) => {
-    if (path === "/") return answer(manifest, 200);
-    if (path.startsWith("/search")) return answer(searchOver(records, path), searchStatus(path));
-    return answer({ error: "no such record" }, 404);
-  });
+  ]);
 }

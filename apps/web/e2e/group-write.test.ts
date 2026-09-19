@@ -45,11 +45,11 @@ async function pageText(path: string): Promise<string> {
 }
 
 /**
- * WHATEVER WRAPS A NAME before its words begin, which since CNCORE-223 is the
+ * THE OPENING TAGS BEFORE A NAME'S WORDS BEGIN, which since CNCORE-223 are the
  * span `TheirWords` prints it in. Skipped rather than spelled out, so the
  * readers here assert the name a reader sees and not how wide it may run.
  */
-const WRAPPED = "(?:<[a-z][^>]*>)*";
+const OPENING_TAGS = "(?:<[a-z][^>]*>)*";
 
 /**
  * The scopes a stretch of a page names, in the order it renders them.
@@ -59,9 +59,9 @@ const WRAPPED = "(?:<[a-z][^>]*>)*";
  * page whose list had gone.
  */
 function scopesIn(text: string): string[] {
-  return [...text.matchAll(new RegExp(`data-group-id="[^"]*"[^>]*>${WRAPPED}([^<]*)<`, "g"))].map(
-    (found) => found[1]?.trim() ?? "",
-  );
+  return [
+    ...text.matchAll(new RegExp(`data-group-id="[^"]*"[^>]*>${OPENING_TAGS}([^<]*)<`, "g")),
+  ].map((found) => found[1]?.trim() ?? "");
 }
 
 /**
@@ -87,9 +87,9 @@ function literal(name: string): string {
  * of what is under test.
  */
 function idOfScope(text: string, name: string): string {
-  const found = new RegExp(`data-group-id="([^"]+)"[^>]*>${WRAPPED}\\s*${literal(name)}\\s*<`).exec(
-    text,
-  );
+  const found = new RegExp(
+    `data-group-id="([^"]+)"[^>]*>${OPENING_TAGS}\\s*${literal(name)}\\s*<`,
+  ).exec(text);
   if (!found?.[1]) throw new Error(`no scope called ${name} is named on this page`);
   return found[1];
 }
@@ -118,7 +118,9 @@ async function drawAScope(name: string): Promise<string> {
  */
 async function aScopeCalled(name: string): Promise<string> {
   const listed = sectionIn(await pageText("/groups"), "groups");
-  if (new RegExp(`data-group-id="[^"]*"[^>]*>${WRAPPED}\\s*${literal(name)}\\s*<`).test(listed)) {
+  if (
+    new RegExp(`data-group-id="[^"]*"[^>]*>${OPENING_TAGS}\\s*${literal(name)}\\s*<`).test(listed)
+  ) {
     return idOfScope(listed, name);
   }
   return idOfScope(sectionIn(await drawAScope(name), "groups"), name);

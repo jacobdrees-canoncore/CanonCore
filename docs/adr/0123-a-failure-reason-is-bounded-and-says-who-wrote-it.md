@@ -222,7 +222,7 @@ CNCORE-101, on the page whose next control is a link the Owner is about to give 
 **WIDTH IS A THIRD LEVER**, and a 300-character ceiling is no answer to it either: 300 characters
 with no break in them are one line as wide as the Provider likes. CNCORE-217 closes it with a
 component, recorded under "Where the wrap lives" below: `ProviderProse` as built, and `TheirWords`
-since CNCORE-223 put every string the page did not write through it
+since CNCORE-223 put a record's fields, an Item's values and a Group's name through it as well
 ([[0142-text-the-page-did-not-write-wraps-anywhere-through-one-component]]).
 
 **THE `Reason` COMPONENT MOVED OUT OF `/import` FOR THE SAME REASON THE MAPPING DID.** This record
@@ -784,7 +784,8 @@ CanonCore's own sentence in `Reason` is printed plainly and not wrapped, because
 words. This gave a second reason, that the config boundary judges a URL the Owner typed and so every
 value in the sentence is the Owner's own rather than a stranger's, and that reason does not hold:
 ADR-0142 measured the Owner's words setting the page's width exactly as a stranger's do. The address
-inside the sentence is text the page did not write, and CNCORE-226 puts it through the component.
+inside the sentence is text the page did not write. It is still printed raw, and putting it through
+the component is CNCORE-226's.
 
 ### `anywhere`, because `break-word` passes one witness and fails the other
 

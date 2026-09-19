@@ -11,6 +11,9 @@ import {
   UNBROKEN,
 } from "../e2e/stubs";
 
+/** A Group's name, a word repeated for the reason `UNBROKEN`'s fields are. */
+const UNBROKEN_GROUP = "group".repeat(100);
+
 /**
  * ONE INSTANCE, FOR THE THINGS A BROWSER IS NEEDED FOR (CNCORE-73, CNCORE-217).
  *
@@ -43,9 +46,6 @@ import {
  * tell a permutation of asserted positions from a renumbering that happens to
  * agree with it (ADR-0116).
  */
-/** A Group's name, a word repeated for the reason `UNBROKEN`'s fields are. */
-const UNBROKEN_GROUP = "group".repeat(100);
-
 export default async function setup(project: TestProject) {
   /*
    * THIS PROJECT BUILDS ITS OWN APP, which is the duplicated setup the ticket
@@ -157,7 +157,7 @@ declare module "vitest" {
     dragging: { releaseOrder: string; inOrder: string[] };
     /** ADR-0044's one password, which every control on that page is behind. */
     browserOwnerPassword: string;
-    /** The name the one Provider declares, before this app bounded it. */
+    /** The name the first Provider declares, before this app bounded it. */
     floodedName: string;
     /** An Item carrying a value that Provider claims, so its name is on the page. */
     claimedByTheFlood: string;
