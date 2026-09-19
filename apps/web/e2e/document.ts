@@ -439,16 +439,69 @@ export async function logInAt(baseUrl: string, password: string): Promise<string
  * file. Every label it reads is one this suite seeded, and none carries one.
  */
 export function sourcesIn(row: string): string[] {
-  const names = [...row.matchAll(/<span\b[^>]*\bdata-source\b[^>]*>(.*?)<\/span>/gs)];
+  const names = [...row.matchAll(/<span\b[^>]*\bdata-source\b[^>]*>/g)].map((opening) => {
+    const from = (opening.index ?? 0) + opening[0].length;
+    const to = closingSpan(row, from);
+    return {
+      from: opening.index ?? 0,
+      to: to + "</span>".length,
+      name: textOf(row.slice(from, to)),
+    };
+  });
   names.forEach((name, place) => {
     const next = names[place + 1];
     if (next === undefined) return;
-    const between = row.slice((name.index ?? 0) + name[0].length, next.index);
+    const between = row.slice(name.to, next.from);
     if (between !== "") {
       throw new Error(`that row puts \`${between}\` between two sources: ${row}`);
     }
   });
-  return names.map(([, name]) => name ?? "");
+  return names.map(({ name }) => name);
+}
+
+/**
+ * Where the `</span>` closing a span begins, given where its content starts.
+ *
+ * COUNTED RATHER THAN MATCHED LAZILY, because a source's name is printed
+ * through `ProviderProse` and so holds a span of its own (CNCORE-217). A lazy
+ * match stops at THAT one's close, and reads the name as its inner tag's
+ * opening with the outer close left over as something between two sources.
+ */
+function closingSpan(html: string, from: number): number {
+  const tags = /<(\/?)span\b[^>]*>/g;
+  tags.lastIndex = from;
+  let depth = 0;
+  for (let tag = tags.exec(html); tag !== null; tag = tags.exec(html)) {
+    if (tag[1] === "") depth += 1;
+    else if (depth === 0) return tag.index;
+    else depth -= 1;
+  }
+  throw new Error(`a span never closes: ${html.slice(from)}`);
+}
+
+/**
+ * What an element SAYS: its content with every tag inside it removed, which is
+ * what a reader sees and what an assertion about the sentence is about.
+ *
+ * FOR A SENTENCE THAT NAMES A PROVIDER, which since CNCORE-217 prints the name
+ * through `ProviderProse` and so carries a span in the middle of what the Owner
+ * reads as one line.
+ */
+export function textOf(html: string): string {
+  return html.replaceAll(/<[^>]*>/g, "");
+}
+
+/**
+ * Everything a page QUOTES, one string per `<q>`.
+ *
+ * `<q>` IS THE WHOLE OF WHAT SAYS THE CATALOGUE IS NOT THE ONE MAKING A CLAIM
+ * (ADR-0123), so "this sentence is quoted" is an assertion about the element and
+ * what it says -- and not about the markup inside it, which since CNCORE-217 is a
+ * span deciding how wide the quotation may run. Read as text, so a change to how
+ * a quotation wraps is not a change to what it says.
+ */
+export function quotesIn(text: string): string[] {
+  return [...text.matchAll(/<q\b[^>]*>(.*?)<\/q>/gs)].map(([, quoted]) => textOf(quoted ?? ""));
 }
 
 /**
@@ -568,4 +621,47 @@ export function momentsIn(text: string): { machine: string; printed: string }[] 
   return [...text.matchAll(/<time\b[^>]*\bdatetime="([^"]*)"[^>]*>(.*?)<\/time>/gi)].map(
     ([, machine, printed]) => ({ machine: machine as string, printed: printed as string }),
   );
+}
+
+/**
+ * THE GROUP PICKER ON A LISTING PAGE, cut out of it so a link found in it is one
+ * a reader picks a scope with rather than any link on the page that happens to
+ * match (CNCORE-179).
+ *
+ * SHARED SINCE CNCORE-180, when the picker arrived on `/works` and `/search`
+ * beside `/`: three copies of how a test finds it would be three readings of
+ * one control, free to disagree about what counts as picking.
+ */
+export function scopesIn(text: string): string {
+  const found = text.match(/<nav aria-label="Narrow to a Group"[^>]*>(.*?)<\/nav>/);
+  if (!found) throw new Error("the page offered no way to narrow to a Group");
+  return found[1] as string;
+}
+
+/** The address the picker links a scope at, by the words a reader picks it by. */
+export function scopeLinked(text: string, name: string): string {
+  const found = [...scopesIn(text).matchAll(/<a [^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/g)].find(
+    ([, , words]) => words === name,
+  );
+  if (!found) throw new Error(`the picker offered nothing called ${name}`);
+  return found[1] as string;
+}
+
+/** The words of the one scope the picker marks as the page's own. */
+export function markedCurrentIn(text: string): string[] {
+  return [...scopesIn(text).matchAll(/<a aria-current="true"[^>]*>([^<]*)<\/a>/g)].map(
+    ([, words]) => words as string,
+  );
+}
+
+/**
+ * Every Item one rendered page links at, in the order it links them.
+ *
+ * SHARED SINCE CNCORE-180, which would otherwise have made five copies of it
+ * across three files: every walked Listing is oracled by the Items its pages
+ * link, and a copy that drifted -- a `?via=` it stopped trimming, say -- would
+ * be one walk counting differently from the rest.
+ */
+export function itemsLinkedFrom(text: string): string[] {
+  return [...text.matchAll(/href="\/items\/([^"?]+)"/g)].map(([, id]) => id as string);
 }

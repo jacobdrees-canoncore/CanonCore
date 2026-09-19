@@ -23,7 +23,7 @@ export const REASON_MAX_LENGTH = 300;
 const CUT = "…";
 
 /**
- * Why a provider could not be reached, in a form a page may print (ADR-0123).
+ * Why nothing could be read from a provider, in a form a page may print (ADR-0123).
  *
  * TWO FIELDS BECAUSE THERE ARE TWO KINDS OF STRING HERE, and until CNCORE-95
  * they travelled as one. A page handed only the text has no way to tell the
@@ -54,8 +54,8 @@ export const failureReason = z.object({
   /**
    * BOUNDED IN THE CONTRACT AND NOT ONLY IN THE HANDLER, so the ceiling is in
    * the output schema a caller is held to rather than an invariant they have to
-   * take on trust from two handlers that each remembered it. Not yet in the
-   * OpenAPI document (CNCORE-212).
+   * take on trust from two handlers that each remembered it -- and in the
+   * OpenAPI document a caller reads, which `route.test.ts` asserts (CNCORE-212).
    */
   text: z.string().min(1).max(REASON_MAX_LENGTH),
 });

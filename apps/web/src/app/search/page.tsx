@@ -1,9 +1,25 @@
 import { createContext } from "@canoncore/api/context";
 import { appRouter } from "@canoncore/api/routers";
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@canoncore/ui/components/empty";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@canoncore/ui/components/empty";
 import { call } from "@orpc/server";
-import { Holding, Listing, PastTheEnd, Walk } from "@/components/listing";
-import { oneValue } from "@/components/query-params";
+import Link from "next/link";
+import {
+  Holding,
+  Listing,
+  NarrowToAGroup,
+  NoSuchGroup,
+  PastTheEnd,
+  theScope,
+  theStartOf,
+  Walk,
+} from "@/components/listing";
+import { oneGroup, oneValue } from "@/components/query-params";
 
 /**
  * CATALOGUE SEARCH, which is what finding something without knowing its id
@@ -34,7 +50,7 @@ import { oneValue } from "@/components/query-params";
  * page looks correct on the server it was built against, which is every server
  * anybody would think to look at.
  */
-async function readSearch(query: string, after: string | undefined) {
+async function readSearch(query: string, after: string | undefined, group: string | undefined) {
   // The router is called IN-PROCESS, as the front page and the item page call
   // it. A server component fetching its own API is a round trip to itself, and
   // oRPC documents `call` as the way to avoid it.
@@ -44,15 +60,27 @@ async function readSearch(query: string, after: string | undefined) {
   // place in it is RECOMPUTED against the query rather than read off the anchor
   // row -- which is why a paged search is `?q=<query>&after=<id>` and not a
   // cursor that could stand on its own.
-  return call(appRouter.catalogue.search, { query, after }, { context: await createContext() });
+  //
+  // AND WITHIN THE GROUP A READER PICKED, beside every Group there is for the
+  // picker to offer -- the front page's pair, for its reason (CNCORE-180).
+  const context = await createContext();
+  const [results, { groups }] = await Promise.all([
+    call(appRouter.catalogue.search, { query, after, group }, { context }),
+    call(appRouter.group.list, undefined, { context }),
+  ]);
+  return { results, groups };
 }
 
 export default async function SearchPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string | string[]; after?: string | string[] }>;
+  searchParams: Promise<{
+    q?: string | string[];
+    group?: string | string[];
+    after?: string | string[];
+  }>;
 }) {
-  const { q, after } = await searchParams;
+  const { q, group, after } = await searchParams;
   /*
    * A REPEATED PARAMETER NAMES NO QUERY rather than the first of several. That
    * is the rule `/items/<id>` applies to `via` and `placed` (ADR-0066) and the
@@ -77,7 +105,21 @@ export default async function SearchPage({
   // already the page they asked for. `oneValue` owns what a repeated parameter
   // means, so all three reading surfaces answer that the same way.
   const from = oneValue(after);
-  const results = asked ? await readSearch(query, from) : null;
+  // AND THE GROUP IT IS ASKED WITHIN (CNCORE-180), which `oneGroup` reads for
+  // every surface that narrows.
+  const narrowedTo = oneGroup(group);
+  const read = asked ? await readSearch(query, from, narrowedTo) : null;
+  const results = read?.results ?? null;
+  const groups = read?.groups ?? [];
+  // NARROWED ONLY WHERE SOMETHING WAS SEARCHED. With no query there is no list
+  // of Groups to find this one in, and reading the parameter anyway would call
+  // every Group "gone" -- true of nothing, and one missed `results` check from
+  // rendering "No such Group" over a page that asked for no Group's answer.
+  const scope = theScope(groups, read === null ? undefined : narrowedTo);
+  // THIS LISTING AS THE WALK AND THE PICKER SEE IT: its address and the query.
+  // The Group rides separately, as `narrowed`, so `queryFor` writes the query,
+  // then the Group, then the cursor.
+  const surface = { path: "/search", asked: { q: query } } as const;
 
   return (
     <main className="container mx-auto max-w-3xl px-4 py-8">
@@ -96,8 +138,20 @@ export default async function SearchPage({
           <Holding showing={results.rows.length} total={results.total} noun="result" />
         )}
       </div>
+      {/*
+        THE PICKER ONCE THERE IS A SEARCH TO NARROW, and not before. `/search`
+        with no query answers nothing, so a Group picked there would narrow a
+        prompt -- and the box that asks the question is in the shell, which does
+        not carry a Group (ADR-0010 says where that is).
+      */}
+      {results !== null && groups.length > 0 && (
+        <NarrowToAGroup {...surface} groups={groups} narrowedTo={narrowedTo} />
+      )}
       {results === null && <NothingAsked />}
-      {results !== null && results.total === 0 && <NothingFound query={query} />}
+      {results !== null && scope.gone && <NoSuchGroup {...surface} />}
+      {results !== null && results.total === 0 && !scope.gone && (
+        <NothingFound query={query} within={scope.group?.name} everywhere={theStartOf(surface)} />
+      )}
       {/*
         MATCHES, AND NONE OF THEM ON THIS PAGE, which is what a cursor makes
         possible: the link was cut at a result, and nothing ranks after that
@@ -105,14 +159,14 @@ export default async function SearchPage({
         an empty list under a heading reads as a page that failed to load.
       */}
       {results !== null && results.total > 0 && results.rows.length === 0 && (
-        <PastTheEnd path="/search" asked={{ q: query }} />
+        <PastTheEnd {...surface} narrowed={scope.narrowed} />
       )}
       {results !== null && results.rows.length > 0 && (
         <>
           <Listing rows={results.rows} />
           <Walk
-            path="/search"
-            asked={{ q: query }}
+            {...surface}
+            narrowed={scope.narrowed}
             from={from}
             continuesAfter={results.continuesAfter}
           />
@@ -162,14 +216,33 @@ function NothingAsked() {
  * from a page that failed to load. It also names the one real limit of what was
  * searched, because a reader who knows the item is there deserves the reason
  * rather than the suspicion that the search is broken.
+ *
+ * AND IT NAMES THE GROUP IT SEARCHED, WHERE IT SEARCHED ONE (CNCORE-180). A
+ * search that found nothing in a scope has not searched the catalogue, and a
+ * bare "Nothing matched" would read as though it had -- so the sentence says
+ * where it looked, and the same search across the catalogue is one link away:
+ * `everywhere`, which is the picker's `Everything` rather than an address
+ * written here a second time.
  */
-function NothingFound({ query }: { query: string }) {
+function NothingFound({
+  query,
+  within,
+  everywhere,
+}: {
+  query: string;
+  within?: string;
+  everywhere: ReturnType<typeof theStartOf>;
+}) {
   return (
     <section aria-labelledby="nothing-found">
       <Empty className="mt-6 border">
         <EmptyHeader>
           <EmptyTitle>
-            <h2 id="nothing-found">Nothing matched {query}</h2>
+            {/* `wrap-anywhere` for the reason the Group picker gives. */}
+            <h2 className="wrap-anywhere" id="nothing-found">
+              Nothing matched {query}
+              {within !== undefined && ` in ${within}`}
+            </h2>
           </EmptyTitle>
           <EmptyDescription>
             {/*
@@ -184,6 +257,18 @@ function NothingFound({ query }: { query: string }) {
             yet.
           </EmptyDescription>
         </EmptyHeader>
+        {within !== undefined && (
+          <EmptyContent>
+            {/*
+              QUALIFIED, for the reason the `h1` above gives: `CONTEXT.md`
+              avoids "search" unqualified, and this link is Catalogue search
+              over the whole catalogue.
+            */}
+            <Link href={everywhere} className="hover:underline">
+              Search the whole catalogue
+            </Link>
+          </EmptyContent>
+        )}
       </Empty>
     </section>
   );

@@ -235,12 +235,33 @@ the unnarrowed catalogue and `/?group=<g>&after=<id>` is a narrowed one: two sta
 spelled twice, and no link carrying both parameters had been emitted before this. What decides the
 order instead is the shape the two other listings already have: what the listing IS, then where in
 it the reader stands -- `/search`'s `q` before `after`, and the item page's `placed` before `after`.
-It is held by the key order of the object `queryFor` in `apps/web/src/components/listing.tsx`
-spreads, which is how `/search`'s `q` then `after` was already held, and which carries the Group
-forward on `Next`, on `Back to the start` and on the notice past the end. The item page's four are
-held by `IN_FIXED_ORDER` in the same function -- so the order is still written in two shapes, and
-stating it once for every surface is CNCORE-181's, as the scope surviving a reload and travelling in
-a shared link is.
+It was held by the key order of the object `queryFor` in `apps/web/src/components/listing.tsx`
+spreads, which is how `/search`'s `q` then `after` was already held, until CNCORE-180 gave the Group
+a slot of its own there (below); either way it carries the Group forward on `Next`, on `Back to the
+start` and on the notice past the end. The item page's four are held by `IN_FIXED_ORDER` in the
+same function -- so the order is still written in two shapes, and stating it once for every surface
+is CNCORE-181's, as the scope surviving a reload and travelling in a shared link is.
+
+## And on work-browsing and Catalogue search -- under CNCORE-180
+
+**THE SAME PARAMETER ON THE OTHER TWO LISTINGS**: `/works?group=<id>` and
+`/search?q=<query>&group=<id>`, each walked with `after` behind it. Nothing about what it identifies
+changes: a Row on either links the bare `/items/<id>`, and a group naming nothing narrows to nothing,
+with the page saying the group is not there rather than that there is nothing to watch or nothing
+matched.
+
+**ON `/search` THE QUERY GOES FIRST: `q`, THEN `group`, THEN `after`.** The rule above does not bind
+here -- no link carrying a query and a group had been emitted, so neither order re-spells one -- and
+its default does: the parameter already out there keeps its place and the one arriving goes behind
+it, ahead of the cursor for the reason CNCORE-179 gives. So every surface now reads the same way:
+what the Listing asks, then the scope it asks it within, then where in it the reader stands.
+
+**AND IT IS HELD BY SLOTS RATHER THAN BY KEY ORDER.** `/search`'s query and the group are two
+parameters a page supplies, and a spread of one object the page built would spell them in whatever
+order the page wrote its keys. So `Walking` carries them in separate slots -- `asked`, then
+`narrowed` -- and `queryFor` spreads the slots in that order, with the cursor last: the order is the
+type's rather than each caller's. The group picker writes its links through the same function, so a
+link that narrows and a link that walks cannot disagree about the spelling of one page.
 
 ## What implementing it taught -- under CNCORE-14
 

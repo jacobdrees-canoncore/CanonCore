@@ -30,9 +30,9 @@ type GroupOnThePage = Awaited<ReturnType<typeof readGroups>>[number];
  *
  * A PAGE OF ITS OWN RATHER THAN A PANEL ON THE CATALOGUE, because a Group is
  * not a view of the catalogue: it is what a view is NARROWED TO, and the
- * surfaces that narrow are CNCORE-179's. This is where the scopes themselves
- * are kept, which is a different question from which one you are reading
- * through.
+ * surfaces that narrow are CNCORE-179's and CNCORE-180's. This is where the
+ * scopes themselves are kept, which is a different question from which one you
+ * are reading through.
  *
  * THE LIST IS OPEN AND THE CONTROLS ARE THE OWNER'S (ADR-0044, ADR-0072), which
  * is the item page's arrangement rather than `/devices`'s. Which scopes a

@@ -9,6 +9,7 @@ import Form from "next/form";
 import Link from "next/link";
 import { noPasswordSet } from "@/components/no-password";
 import { NoProviderAllowlisted } from "@/components/no-provider-allowlisted";
+import { ProviderProse } from "@/components/provider-prose";
 import { oneValue } from "@/components/query-params";
 import { Reason } from "@/components/reason";
 import { callerContext } from "@/session";
@@ -259,8 +260,8 @@ type ImportPage = Awaited<ReturnType<typeof readImportPage>>;
 type Found = NonNullable<ImportPage["found"]>;
 
 /**
- * WHY A PROVIDER COULD NOT BE REACHED (ADR-0123): the text, and whose sentence
- * it is.
+ * WHY NOTHING COULD BE READ FROM A PROVIDER (ADR-0123): the text, and whose
+ * sentence it is.
  *
  * TAKEN OFF THE PAYLOAD RATHER THAN IMPORTED FROM `@canoncore/providers`, which
  * publishes the same type. That package is a devDependency here -- the page
@@ -670,12 +671,10 @@ function Results({
               THE PROVIDER'S OWN NAME FOR ITSELF, off its manifest. A source
               answers "who said this", and `http://127.0.0.1:39481` shows an
               owner a deployment detail where `provider-wiki` answers it.
-
-              TODO(CNCORE-217): bounded in length by `cmppManifest` and not in
-              width. Three hundred characters with no break in them run past
-              the viewport's edge, measured on this heading.
+              Bounded in length by `cmppManifest` and in width by
+              `ProviderProse`, since neither is the Provider's to choose.
             */}
-            {provider.name}
+            <ProviderProse>{provider.name}</ProviderProse>
             {results.length === 0 && " matched nothing"}
           </h3>
           {results.length > 0 && (
@@ -714,6 +713,12 @@ function Candidate({
   return (
     <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
       <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        {/*
+          TODO(CNCORE-223): a record's fields are not a Provider's prose, so
+          `ProviderProse` does not wrap them (ADR-0123), and this title, the kind
+          and the release dates beside it are flex items here that grow to a
+          word with no break in it.
+        */}
         <span>{result.title}</span>
         {/*
           THE PROVIDER'S OWN WORD for what this is -- `TV story`, `audio story`,
@@ -919,19 +924,23 @@ function Held({ itemId }: { itemId: string }) {
 }
 
 /**
- * WHO WAS ASKED AND DID NOT ANSWER, and why.
+ * WHO WAS ASKED AND GAVE NOTHING THIS SEARCH COULD USE, and why.
  *
  * A provider that is down and a provider that matched nothing are different
  * answers, and an owner who cannot tell them apart concludes their query was
  * wrong when their source was merely offline. Named by URL because that is what
  * the owner typed and the only thing they can act on -- reading the provider's
  * own name for itself is one of the things that failed.
+ *
+ * THE HEADING IS NOT "COULD NOT BE REACHED", for the reason `NotReached` below
+ * gives. It is `/settings`' sentence made plural.
  */
 function Unreachable({ failed }: { failed: Found["failed"] }) {
   return (
-    <div className="mt-6">
-      {/* TODO(CNCORE-221): false of a Provider that answered badly, as `NotReached` below says. */}
-      <h3 className="text-muted-foreground text-sm">Could not be reached</h3>
+    <section aria-labelledby="failed" className="mt-6">
+      <h3 id="failed" className="text-muted-foreground text-sm">
+        Nothing could be read from these providers
+      </h3>
       <ul className="mt-2 divide-y">
         {failed.map(({ baseUrl, reason }) => (
           <li key={baseUrl} className="py-2 text-sm">
@@ -939,7 +948,7 @@ function Unreachable({ failed }: { failed: Found["failed"] }) {
           </li>
         ))}
       </ul>
-    </div>
+    </section>
   );
 }
 
@@ -1111,10 +1120,10 @@ function NotOneOfOurs() {
  * EVERY BRANCH HERE IS A SENTENCE RATHER THAN A FAILURE, which is what asking on
  * the GET buys: `provider.container` reaches the provider, and each of the things
  * it can say -- here it is, there is nothing at that id, this provider does not
- * do browse, this provider could not be reached -- is page copy an owner can act
- * on. Until CNCORE-92 all three refusals were found out by PRESSING the button,
- * where they arrived as a bare `Internal Server Error` with the provider's own
- * reason redacted out of it.
+ * do browse, nothing could be learned from this provider -- is page copy an
+ * owner can act on. Until CNCORE-92 all three refusals were found out by
+ * PRESSING the button, where they arrived as a bare `Internal Server Error` with
+ * the provider's own reason redacted out of it.
  *
  * SO THE BUTTON IS OFFERED ONLY WHERE A BROWSE WOULD WORK. Nothing to press is
  * the difference between a refusal reported and a refusal merely reworded.
@@ -1355,8 +1364,8 @@ function NotReached({ baseUrl, reason }: { baseUrl: string; reason: FailureReaso
 function DeclinesBrowse({ providerName }: { providerName: string }) {
   return (
     <p className="text-muted-foreground text-sm">
-      {providerName} does not offer browse, so it was not asked for one. It can still be searched,
-      and its records imported one at a time.
+      <ProviderProse>{providerName}</ProviderProse> does not offer browse, so it was not asked for
+      one. It can still be searched, and its records imported one at a time.
     </p>
   );
 }
@@ -1382,8 +1391,8 @@ function DeclinesBrowse({ providerName }: { providerName: string }) {
 function NoSuchContainer({ providerName }: { providerName: string }) {
   return (
     <p className="text-muted-foreground text-sm">
-      {providerName} holds no container at that id. A browse takes a container's own id rather than
-      a record's, so check it at the provider before trying again.
+      <ProviderProse>{providerName}</ProviderProse> holds no container at that id. A browse takes a
+      container's own id rather than a record's, so check it at the provider before trying again.
     </p>
   );
 }
