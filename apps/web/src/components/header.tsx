@@ -5,6 +5,7 @@ import Link from "next/link";
 import { callerContext } from "@/session";
 import { OUR_MARK_PX } from "./marks";
 import { ModeToggle } from "./mode-toggle";
+import { ScopedLink } from "./scope";
 import { SearchBox } from "./search-box";
 
 /**
@@ -12,10 +13,11 @@ import { SearchBox } from "./search-box";
  *
  * A SERVER COMPONENT SINCE CNCORE-139, and the `"use client"` it carried until
  * then bought nothing. Nothing in this file has state, an effect or a handler:
- * `ModeToggle` declares the directive for itself and the search box is a
- * `next/form`, which a server component renders perfectly well. What the
- * directive did cost was a header that could not read a session, and that was
- * the whole of the defect this file used to carry a TODO about.
+ * `ModeToggle` declares the directive for itself, and so since CNCORE-181 do
+ * the search box and `ScopedLink`, which read the address a layout is never
+ * handed. What the directive did cost was a header that could not read a
+ * session, and that was the whole of the defect this file used to carry a TODO
+ * about.
  */
 export default async function Header() {
   /*
@@ -75,9 +77,9 @@ export default async function Header() {
             class, so the relationship it is half of is in the served HTML where a
             test can read it back. See that file for the other half.
           */}
-          <Link href="/" className="font-semibold" style={{ fontSize: `${OUR_MARK_PX}px` }}>
+          <ScopedLink path="/" className="font-semibold" style={{ fontSize: `${OUR_MARK_PX}px` }}>
             CanonCore
-          </Link>
+          </ScopedLink>
           {/*
             THE TWO QUESTIONS ADR-0077 NAMES, side by side, which is what makes
             them two surfaces a reader chooses between rather than one page with
@@ -98,9 +100,9 @@ export default async function Header() {
             below it are not, which is the distinction this nav draws since
             CNCORE-139 and did not draw before.
           */}
-          <Link href="/works" className="text-base hover:underline">
+          <ScopedLink path="/works" className="text-base hover:underline">
             Works
-          </Link>
+          </ScopedLink>
           {/*
             AND WHICH SCOPES THIS CATALOGUE IS DIVIDED INTO (CNCORE-178,
             ADR-0010). It sits with the two reading surfaces rather than with

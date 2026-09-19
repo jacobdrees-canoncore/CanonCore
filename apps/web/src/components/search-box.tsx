@@ -1,6 +1,10 @@
+"use client";
+
 import { Button } from "@canoncore/ui/components/button";
 import { Input } from "@canoncore/ui/components/input";
 import Form from "next/form";
+
+import { useNarrowedTo } from "./scope";
 
 /**
  * CATALOGUE SEARCH's way in, and it sits in the SHELL rather than on the front
@@ -26,15 +30,19 @@ import Form from "next/form";
  * so search works with scripting off -- and the whole page-over-HTTP suite is a
  * reader with scripting off, which is why it can assert this at all.
  *
- * TODO(CNCORE-181): IT SEARCHES THE WHOLE CATALOGUE WHEREVER IT IS SUBMITTED
- * FROM, a narrowed page included. `/search` answers within a Group since
- * CNCORE-180, but the Group is picked on the results page: a reader on
- * `/search?q=rose&group=<id>` who types a second query here loses the scope
- * and picks it again. The box sits in the shell, which reads no page's query,
- * so carrying the Group into it is the scope travelling between surfaces --
- * CNCORE-181's, as ADR-0010 records under CNCORE-179.
+ * IT ASKS WITHIN THE GROUP THE PAGE IS NARROWED TO (CNCORE-181). A reader on
+ * `/search?q=rose&group=<id>` who types a second query here is still in that
+ * universe, and so is one who asks from a narrowed `/` or `/works`: the Group
+ * rides as a hidden field, read off the address by `useNarrowedTo` because the
+ * box sits in the shell and Next hands the shell no page's query. Which is why
+ * this is a client component, and it costs the reader no script: a route
+ * rendered per request reads the address on the server, so the field is in the
+ * served form. THE FIELD COMES AFTER `q`, which is the order a form submits
+ * its fields in and the order `/search`'s own links write: the query, then the
+ * Group it is asked within (ADR-0066).
  */
 export function SearchBox() {
+  const group = useNarrowedTo();
   return (
     <Form action="/search" className="flex items-center gap-2">
       {/*
@@ -54,6 +62,7 @@ export function SearchBox() {
         placeholder="Search the catalogue"
         className="h-8 w-48 sm:w-64"
       />
+      {group !== undefined && <input type="hidden" name="group" value={group} />}
       <Button type="submit" size="sm" variant="secondary">
         Search
       </Button>
