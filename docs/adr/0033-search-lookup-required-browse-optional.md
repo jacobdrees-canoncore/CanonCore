@@ -633,7 +633,8 @@ something an owner can read rather than something the code happens to do.
 
 **WHERE A CONTAINER ID COMES FROM, HELD TO FROM THE OTHER SIDE.** The CNCORE-17 section above decided
 that the owner names it, because no CMPP operation answers "which containers do you have" -- one does
-since CNCORE-185, and no provider answers it yet -- and a
+since CNCORE-185, no provider answered it with a container until CNCORE-208 on 2026-09-19 (the
+CNCORE-186 section below), and nothing in this app asks it until CNCORE-187 -- and a
 record's `series` is a name that can be renamed out from under an import. The surface obeys it
 literally: the owner picks a provider and types the container's own id. That is the one field on this
 page somebody types, and it is the one that can be wrong -- which is why the same section's named
@@ -936,12 +937,12 @@ THAT PROVIDER COMPUTES, ordered by release date because a category states member
 whatever (the CNCORE-102 reasoning, in that repo's own `categoryContainer`). Every page in namespace
 14 is a category, maintenance pages included, so listing them would hand the Owner the wiki's whole
 category namespace rather than a set anyone curated. **HOW MANY CATEGORIES THAT IS IS NOT MEASURED**
--- the Owner's Credential answers 403 from Cloudflare, so nothing counted them. NO FIGURE IS CLAIMED
-ANYWHERE FOR IT, and an earlier draft of this record and of both provider-side comments said
-"thousands" and "tens of thousands": three unhedged quantities against this record's own "not
-measured", which is the shape this repository keeps catching itself in. The decision turns on the
-population being UNASSERTED -- a category states membership and no sequence -- rather than on its
-size, so the size is not needed and is therefore not guessed.
+-- the Owner's Credential answered 403 from Cloudflare when this was written, so nothing counted
+them. NO FIGURE IS CLAIMED ANYWHERE FOR IT, and an earlier draft of this record and of both
+provider-side comments said "thousands" and "tens of thousands": three unhedged quantities against
+this record's own "not measured", which is the shape this repository keeps catching itself in. The
+decision turns on the population being UNASSERTED -- a category states membership and no sequence --
+rather than on its size, so the size is not needed and is therefore not guessed.
 
 **SO `containers` ANSWERS WHAT THE SOURCE ASSERTS AS A CONTAINER, NOT EVERY ID `browse` WILL TAKE,
 AND THE CONTRACT'S OWN WORDING SAID OTHERWISE.** `cmpp.ts` opened its schema "every container this
@@ -979,13 +980,52 @@ the Owner's machine:
   LIVE tardis.wiki, was refused, and answered `503` with an attributed reason naming `/unlock`. So
   the route, the walk and the refusal path are demonstrated end to end against the real upstream.
 
-**WHAT IS NOT DEMONSTRATED IS THE ANSWER ITSELF: A `200` CARRYING REAL TIMELINES.** The Owner's
-Credential is refused by Cloudflare (403, confirmed directly before any of the above), so no
-`allpages` capture was taken and `provider-wiki`'s own tests shape the documented response through
-its stub. Nothing anywhere has seen this operation return a container. The first thing that can is
-this repository's contract job against the published images, once a live Credential exists -- and
-until it has, the answering half is built rather than demonstrated. THAT IS THE HALF THIS SECTION'S
-FIRST SENTENCE IS ABOUT, so it is the half the claim rests on.
+**WHAT WAS NOT DEMONSTRATED WHEN THIS WAS WRITTEN WAS THE ANSWER ITSELF, A `200` CARRYING REAL
+TIMELINES -- AND THE GAP WAS HIDING A DEFECT.** The Owner's Credential was refused by Cloudflare
+(403, confirmed directly before any of the above), so no `allpages` capture was taken and
+`provider-wiki`'s own tests shaped the documented response through its stub. This said "nothing
+anywhere has seen this operation return a container", and it was true: when the operation was first
+run live, under CNCORE-206, it answered `200 {"containers":[]}`. MediaWiki matches `apprefix`
+against a title WITHOUT its namespace -- measured, because `API:Allpages` does not say so -- and
+`provider-wiki` sent `Theory:Timeline` beside `apnamespace=114`, so the walk asked for pages titled
+`Theory:Theory:Timeline...` and the wiki correctly answered none. The stub never applied the
+prefix, so no test could see it. The decliner's `404` was chosen to keep "I hold none" apart from "I
+do not offer this", and this was a third answer neither reached: I OFFER THIS, I ANSWERED, AND I
+HOLD NONE, from a source holding 465. CNCORE-208 fixed it in
+[provider-wiki#46](https://github.com/jacobdrees-canoncore/provider-wiki/pull/46), merged as
+`d38d902`, and its test spends the prefix against a fake that applies MediaWiki's rule instead of
+ignoring it.
+
+**THE ANSWER IS NOW DEMONSTRATED, FROM SOURCE AND THEN FROM THE PUBLISHED IMAGE.** Measured
+2026-09-19 with the Owner's Credential. The first two rows are one session against `provider-wiki`
+served from source. The third is the image published from CNCORE-208's merge: the Owner recreated
+their container on it that afternoon and saw 465, and the row is a second measurement against that
+same running container.
+
+| `provider-wiki` | `apprefix` | `GET /containers` |
+| -- | -- | -- |
+| from source, as CNCORE-186 shipped it | `Theory:Timeline` | `200 {"containers":[]}` |
+| from source, CNCORE-208's branch | `Timeline` | `200`, 465 containers, 465 distinct ids, all `timeline`, every title beginning `Theory:Timeline` |
+| the published image, labelled revision `d38d902`, 16:12 UTC | `Timeline` | the same |
+
+On each of the last two, a listed id, 416127 (`Theory:Timeline - Scaroth`), browsed to a container
+whose ordering holds 18 Placements, so an id it listed is an id it will browse. This said "until it
+has, the answering half is built rather than demonstrated". THAT IS THE HALF THIS SECTION'S FIRST
+SENTENCE IS ABOUT, so the claim now rests on a measurement rather than on a stub.
+
+**WHAT IS STILL NOT DEMONSTRATED IS ANYTHING REPEATABLE.** Every row above is a hand-walk, dated, on
+the Owner's machine with the Owner's Credential, and nothing re-runs it. This said the first thing
+that could see a container was "this repository's contract job against the published images, once
+a live Credential exists", AND THAT JOB NEVER CAN: the fixed point of
+[[0122-a-provider-declares-the-credential-it-needs]] is that no CI job holds the Owner's session,
+because a credential reaching CI is distribution ([[0089-provider-distribution-tiers]]). So
+`contract` pulls `provider-wiki:latest` with an empty configuration directory, reads the locked
+`503` at `/containers`, and returns early by design. The demonstration is a dated measurement on the
+Owner's machine and will stay one. What CI holds instead is MediaWiki's rule, in the fake
+`provider-wiki`'s own suite runs, so the namespaced prefix cannot come back unseen there. Whether the live wiki still answers 465 is
+known only as of the last walk. And the empty list has one other road in, open as of 2026-09-19:
+CNCORE-216, where `provider-wiki` reads every MediaWiki `error` body except `maxlag` as an answer
+and its `?? []` turns the refusal into `200 {"containers":[]}`.
 
 **STILL NOT BUILT, AND STILL THE ONLY REASON THIS RECORD IS `proposed`:** the declared fields.
 `max_cache_age` and the image policy travel the wire from two providers and are read by nothing.
