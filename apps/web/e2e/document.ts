@@ -638,13 +638,24 @@ export function scopesIn(text: string): string {
   return found[1] as string;
 }
 
+/**
+ * Where a stretch of a page links the words a reader follows, if it does.
+ *
+ * SHARED SINCE CNCORE-181, when the header came to be read for its links as the
+ * picker already was: two copies of how a test finds a link by its words would
+ * be two readings of one thing, free to disagree about what counts.
+ */
+export function linkedIn(html: string, words: string): string | undefined {
+  return [...html.matchAll(/<a [^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/g)].find(
+    ([, , linked]) => linked === words,
+  )?.[1];
+}
+
 /** The address the picker links a scope at, by the words a reader picks it by. */
 export function scopeLinked(text: string, name: string): string {
-  const found = [...scopesIn(text).matchAll(/<a [^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/g)].find(
-    ([, , words]) => words === name,
-  );
-  if (!found) throw new Error(`the picker offered nothing called ${name}`);
-  return found[1] as string;
+  const found = linkedIn(scopesIn(text), name);
+  if (found === undefined) throw new Error(`the picker offered nothing called ${name}`);
+  return found;
 }
 
 /** The words of the one scope the picker marks as the page's own. */

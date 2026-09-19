@@ -141,9 +141,10 @@ export default async function SearchPage({
       {/*
         THE PICKER ONCE THERE IS A SEARCH TO NARROW, and not before. `/search`
         with no query answers nothing, so a Group picked there would narrow a
-        prompt. The box that asks the question is in the shell, and carries a
-        Group only from a page already narrowed to one (CNCORE-181): a scope is
-        first picked where there is something to narrow.
+        prompt. The box that asks the question is in the shell, and carries
+        whatever Group the address names (CNCORE-181) -- which, for every link
+        this app writes, is a Listing already narrowed to it. A scope is first
+        picked where there is something to narrow.
       */}
       {results !== null && groups.length > 0 && (
         <NarrowToAGroup {...surface} groups={groups} narrowedTo={narrowedTo} />

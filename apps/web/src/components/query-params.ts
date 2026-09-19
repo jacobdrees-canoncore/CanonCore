@@ -54,9 +54,15 @@ export function oneGroup(parameter: string | string[] | undefined): string | und
 }
 
 /**
- * EVERY NON-IDENTIFYING PARAMETER THIS APP WRITES, IN THE ONE ORDER IT WRITES
- * THEM (ADR-0066): what the page is asked, then the scope it is asked within,
- * then where in it the reader stands.
+ * EVERY NON-IDENTIFYING PARAMETER THAT CAN SHARE A LINK WITH ANOTHER, IN THE
+ * ONE ORDER THIS APP WRITES THEM (ADR-0066): what the page is asked, then the
+ * scope it is asked within, then where in it the reader stands.
+ *
+ * NOT EVERY PARAMETER THE APP WRITES. A Member row links `?via=` alone, and a
+ * Server Action redirects to one `?refused=` or `?undo=`: an address carrying
+ * one parameter has no order to keep, so those are written where they are
+ * rather than routed through here. A second parameter on any of them belongs
+ * on this list first.
  *
  * STATED ONCE FOR EVERY SURFACE SINCE CNCORE-181. It was two shapes until
  * then: the Item page's four read off an array in `listing.tsx`, and the
@@ -82,8 +88,12 @@ export function oneGroup(parameter: string | string[] | undefined): string | und
  */
 const IN_THE_FIXED_ORDER = ["via", "placed", "q", "group", "after", "placedAfter"] as const;
 
-/** A query this app writes: any of its parameters, each at most once. */
-export type Query = { [name in (typeof IN_THE_FIXED_ORDER)[number]]?: string };
+/**
+ * THE QUERY OF ONE LINK: any of those parameters, each at most once. Not
+ * plain "query", which in this app already means what a reader typed into
+ * `/search`.
+ */
+export type LinkQuery = { [name in (typeof IN_THE_FIXED_ORDER)[number]]?: string };
 
 /**
  * A query IN THE FIXED ORDER, each parameter ABSENT rather than empty where it
@@ -91,8 +101,8 @@ export type Query = { [name in (typeof IN_THE_FIXED_ORDER)[number]]?: string };
  * second spelling of the address without it -- so dropping them here is what
  * lets a caller pass every parameter it might carry and set only some.
  */
-export function inTheFixedOrder(query: Query): Query {
-  const written: Query = {};
+export function inTheFixedOrder(query: LinkQuery): LinkQuery {
+  const written: LinkQuery = {};
   for (const name of IN_THE_FIXED_ORDER) {
     const value = query[name];
     if (value) written[name] = value;

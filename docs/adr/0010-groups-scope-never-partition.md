@@ -232,8 +232,8 @@ reads an address a layout is never handed is
 
 **AN ITEM IS ONE ITEM WHICHEVER GROUP LED TO IT.** The seeded instance's story sits in two groups,
 and every narrowed Listing -- three surfaces, two groups -- links it at the one bare `/items/<id>`,
-whose canonical is itself. So an Item's page is not narrowed, and its header carries no scope: a
-reader returns to the scope with Back. That is the cost of one address per Item, stated in
+whose canonical is itself. So an Item's page is not narrowed, and reached by any link this app
+writes its header has no scope to carry: a reader returns to the scope with Back. That is the cost of one address per Item, stated in
 [[0066-path-is-identity-query-is-the-route]] beside it.
 
 **WHAT IT DOES NOT DO.** It remembers no scope outside the address, so opening `/` fresh is the whole

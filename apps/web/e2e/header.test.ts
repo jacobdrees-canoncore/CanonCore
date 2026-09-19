@@ -1,6 +1,13 @@
 import { describe, expect, inject, it } from "vitest";
 
-import { documentFrom, logInAt, markedCurrentIn, navigatingFormsIn, withFields } from "./document";
+import {
+  documentFrom,
+  linkedIn,
+  logInAt,
+  markedCurrentIn,
+  navigatingFormsIn,
+  withFields,
+} from "./document";
 
 /**
  * THE SHELL EVERY PAGE CARRIES, over real HTTP (CNCORE-139).
@@ -80,11 +87,9 @@ describe("the header, to a reader with no session", () => {
 
 /** Where the header links the words a reader follows. */
 function headerLinked(header: string, words: string): string {
-  const found = [...header.matchAll(/<a [^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/g)].find(
-    ([, , linked]) => linked === words,
-  );
-  if (!found) throw new Error(`the header linked nothing called ${words}`);
-  return found[1] as string;
+  const found = linkedIn(header, words);
+  if (found === undefined) throw new Error(`the header linked nothing called ${words}`);
+  return found;
 }
 
 /**
@@ -98,10 +103,10 @@ describe("the header, on a page narrowed to a Group", () => {
 
   it("carries the Group to both reading surfaces, and nothing else the page was asked", async () => {
     // THE SCOPE IS THE READER'S, NOT THE PAGE'S. A reader narrowed to one
-    // universe on `/works` who follows `Catalogue` is still in it -- and the
-    // cursor stays behind, because a position in one Listing is no position in
-    // another, as does `/search`'s query, which is a question only that surface
-    // asks.
+    // universe on `/works` who follows the wordmark to the Catalogue is still
+    // in it -- and the cursor stays behind, because a position in one Listing
+    // is no position in another, as does `/search`'s query, which is a
+    // question only that surface asks.
     const narrowed = [
       `/?group=${group.id}&after=${crypto.randomUUID()}`,
       `/works?group=${group.id}`,
@@ -124,7 +129,12 @@ describe("the header, on a page narrowed to a Group", () => {
     // had to pick the Group again. The box asks within the scope the page is
     // narrowed to, whichever surface it is asked from -- the query first and
     // the Group behind it, which is the order `/search`'s own links write.
-    for (const path of [`/works?group=${group.id}`, `/search?q=story&group=${group.id}`]) {
+    const narrowed = [
+      `/?group=${group.id}`,
+      `/works?group=${group.id}`,
+      `/search?q=story&group=${group.id}`,
+    ];
+    for (const path of narrowed) {
       const [box] = navigatingFormsIn(headerOf((await documentFrom(baseUrl, path)).text));
       if (box === undefined) throw new Error("the header carried no search box");
       expect(box.fields).toStrictEqual([

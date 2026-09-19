@@ -170,8 +170,9 @@ which review of CNCORE-125 is why: this sentence claimed both while the Members 
 `placedAfter`, resetting the other list to its first page. A chip carries `after`
 forward, because it has nothing to do with the Members listing; a chip DROPS `placedAfter`, because
 it changes what "Also appears in" is ASKING and the old cursor names a place in the listing being
-left. The fixed order of all four is held in one function and which cursor a walk appends in one
-more, so no surface writes either by hand.
+left. The fixed order of all four was held in one function for the walks and which cursor a walk
+appends in one more -- but the chips held it by the order `theRoute` set its keys in, a third
+statement of it that CNCORE-181 found and folded into one (below).
 
 **NOT BUILT: next.** This record also decides that the next item is DERIVED from the placement in
 the query rather than stored in a playqueue. Nothing derives one yet, because there is no playback.
@@ -239,8 +240,8 @@ It was held by the key order of the object `queryFor` in `apps/web/src/component
 spreads, which is how `/search`'s `q` then `after` was already held, until CNCORE-180 gave the Group
 a slot of its own there (below); either way it carries the Group forward on `Next`, on `Back to the
 start` and on the notice past the end. The item page's four were held by `IN_FIXED_ORDER` in the
-same function, so the order was written in two shapes until CNCORE-181 stated it once for every
-surface (below).
+same function and the chips' by `theRoute`'s key order, so the order was written three times until
+CNCORE-181 stated it once for every surface (below).
 
 ## And on work-browsing and Catalogue search -- under CNCORE-180
 
@@ -269,10 +270,12 @@ page.
 
 **THE FIXED ORDER IS STATED ONCE: `via`, `placed`, `q`, `group`, `after`, `placedAfter`.** It is
 `IN_THE_FIXED_ORDER` in `apps/web/src/components/query-params.ts`, and `inTheFixedOrder` beside it
-writes every query this app puts in a link: `queryFor` for all five Listings, `theRoute` on the Item
-page, whose chips had been a THIRD statement of the order by the order it set its keys in, and the
-header's links. Each parameter is absent rather than empty where it has no value, which three
-callers had each done for themselves.
+writes every link where two of these parameters can meet: `queryFor` for all five Listings,
+`theRoute` on the Item page, whose chips had been a THIRD statement of the order by the order it set
+its keys in, and the header's links. Each parameter is absent rather than empty where it has no
+value, which three callers had each done for themselves. **What it does not write is an address that
+carries one parameter and never more**: a Member row's bare `?via=`, and a Server Action's redirect
+to `?refused=` or `?undo=`, have no order to keep.
 
 **THE TWO HALVES INTERLEAVE WITHOUT RE-SPELLING ANYTHING.** `via` and `placed` are written only on an
 Item's page and `q` and `group` only on a Listing's, so no link carries one of each, and where the
@@ -292,10 +295,14 @@ link.
 asks within the same scope. The cursor and `/search`'s query stay behind, because a position in one
 Listing is no position in another and a query is a question only one surface asks. **This record's
 own rule decides the one place it stops**: the Rows link the bare `/items/<id>` (CNCORE-179 above),
-so an Item's page is not narrowed and its header carries nothing. A reader goes back to the scope
-with Back rather than with the header -- the cost of an Item having one address, accepted rather
-than overlooked, and what a remembered scope held outside the address would be for if it is ever
-wanted.
+so an Item's page is not narrowed, and no link this app writes gives its header a scope to carry. A
+reader goes back to the scope with Back rather than with the header -- the cost of an Item having
+one address, accepted rather than overlooked, and what a remembered scope held outside the address
+would be for if it is ever wanted. **The header carries whatever Group the address names, on any
+page**, rather than checking the page is a Listing first: every link this app writes names one only
+on a Listing, and an address typed with one elsewhere is carried on to the next Listing as it asked.
+A check on the path would be a second list of which surfaces narrow, beside the pages that decide
+it.
 
 **READ WITH `useSearchParams` BECAUSE THE HEADER IS A LAYOUT.** Next hands a layout no
 `searchParams` -- a layout is not re-rendered on navigation, so the value would go stale -- and
@@ -305,6 +312,9 @@ here is rendered per request because the header reads the session
 ([[0117-a-read-surface-renders-per-request]]). Read in Next 16.3.5's own docs, 2026-09-19. A
 static route calling it outside a `Suspense` boundary FAILS THE BUILD rather than serving a header
 without its scope, so the day a route stops being dynamic says so loudly.
+
+**AND THIS RECORD STAYS PROPOSED, for the reason it always has.** CNCORE-181 stated the order once and
+carried the scope; neither is `next`, which is still derived by nothing because there is no playback.
 
 ## What implementing it taught -- under CNCORE-14
 

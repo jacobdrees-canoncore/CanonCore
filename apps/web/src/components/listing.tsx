@@ -8,7 +8,7 @@ import {
 } from "@canoncore/ui/components/empty";
 import Link from "next/link";
 
-import { inTheFixedOrder, type Query } from "./query-params";
+import { inTheFixedOrder, type LinkQuery } from "./query-params";
 
 /**
  * ONE LISTING, RENDERED -- shared by FOUR surfaces now.
@@ -302,7 +302,7 @@ function endsHere(walking: Walking): string {
  * has already needed once: walking `Members` on a page that already carried
  * `?placedAfter=` appended `after` BEHIND it, a second spelling of one address.
  */
-function queryFor(walking: Walking, at: string | undefined): Query {
+function queryFor(walking: Walking, at: string | undefined): LinkQuery {
   const own = walking.listing === undefined ? "after" : CURSOR[walking.listing];
   return inTheFixedOrder({ ...walking.asked, ...walking.narrowed, [own]: at });
 }
