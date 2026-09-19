@@ -31,7 +31,9 @@ function aServerOnTheCountedCatalogue() {
 }
 
 /**
- * ONE SERVER PER MEASUREMENT, STARTED AND STOPPED INSIDE IT.
+ * ONE SERVER PER WINDOW, STARTED BEFORE IT AND STOPPED INSIDE IT -- and a
+ * figure is at least two windows, because `statementsWhile` answers only with a
+ * figure it counted twice (CNCORE-218), so it is at least two servers.
  *
  * THE STOP IS NOT TIDINESS, IT IS THE READING. A PostgreSQL backend accumulates
  * what it did and publishes it on exit, so a count taken while the server still
@@ -67,26 +69,38 @@ async function costOf(asking: (baseUrl: string) => Promise<unknown>): Promise<nu
    * `statementsWhile` opens its window on an empty database, so starting the
    * server first puts all of it on the far side of the first reading: what is
    * counted is the request and nothing else.
+   *
+   * SO THE SERVER IS STARTED THROUGH `preparing`, which `statementsWhile` runs
+   * before each window's wait for an empty database and never counts. Whichever
+   * one is still running when this returns or throws is stopped here, since a
+   * leaked `next start` is a CI job that never ends.
    */
-  const server = await aServerOnTheCountedCatalogue();
-  let stopped = false;
+  let running: Awaited<ReturnType<typeof aServerOnTheCountedCatalogue>> | undefined;
   try {
-    return await statementsWhile(databaseUrl, async () => {
-      await asking(server.baseUrl);
-      server.close();
-      stopped = true;
-    });
+    return await statementsWhile(
+      databaseUrl,
+      async (server) => {
+        await asking(server.baseUrl);
+        server.close();
+        running = undefined;
+      },
+      async () => {
+        running = await aServerOnTheCountedCatalogue();
+        return running;
+      },
+    );
   } finally {
-    if (!stopped) server.close();
+    running?.close();
   }
 }
 
 /**
- * LONGER THAN VITEST'S FIVE SECONDS, BECAUSE A MEASUREMENT STARTS A SERVER AND
- * THEN WAITS FOR ITS POOL TO LET GO. node-postgres holds an idle client for ten
+ * LONGER THAN VITEST'S FIVE SECONDS, BECAUSE A WINDOW STARTS A SERVER AND THEN
+ * WAITS FOR ITS POOL TO LET GO. node-postgres holds an idle client for ten
  * seconds, and that wait is what keeps the server's own startup out of the
- * count. Two measurements is two of those, which is well past the default and
- * nowhere near the hook timeout this config already sets for a build.
+ * count. A figure is two windows, or three when autovacuum lands in one, so a
+ * test's two figures are four to six of those: well past the default, and
+ * inside this with room.
  */
 const LONG_ENOUGH_TO_SERVE_AND_STOP_MS = 120_000;
 

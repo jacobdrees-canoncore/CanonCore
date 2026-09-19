@@ -28,8 +28,37 @@ import { Client } from "pg";
  * `TEST_DATABASE_SUFFIXES` carries `cost`. `pg_stat_database` counts a whole
  * database rather than one request, so a second reader lands in the middle of
  * the measurement and cannot be told from the work under test.
+ *
+ * AND AUTOVACUUM TALKS TO EVERY DATABASE, HOWEVER QUIET, which is why one
+ * window is never the answer (CNCORE-218). A worker visits each database once a
+ * naptime and commits transactions there without ever counting as a session,
+ * so a visit inside a window reads as the work having asked more. MEASURED on
+ * PostgreSQL 18.6, 2026-09-19, on a freshly filled counted catalogue with
+ * nothing connected: the first visit moved `xact_commit` by 17 with `sessions`
+ * flat -- CI's +17 exactly -- because the migrations leave seven system
+ * catalogs past their analyze threshold; every visit after it moved it by 2,
+ * sixty seconds apart, having nothing to do. `VACUUM ANALYZE` first cut the
+ * first visit to 4 and left every other one at 2, so analyzing ahead of the
+ * windows is not the fix and looks like one. Nothing in the statistics says
+ * which backend committed what, and a visit that finds nothing to do is over
+ * before a poll can see it connected.
+ *
+ * SO THE INSTRUMENT COUNTS WINDOWS UNTIL ONE FIGURE HAS COME ROUND TWICE. A
+ * visit only ever ADDS, and it reaches a given database at most once a
+ * naptime, so two windows inside one naptime cannot both carry it and the
+ * figure they agree on is the work's own. Two that agree across a longer span
+ * could both carry one, so that figure is refused rather than reported.
  */
 export async function statementsWhile(
+  databaseUrl: string,
+  doing: () => Promise<unknown>,
+): Promise<number>;
+export async function statementsWhile<Prepared>(
+  databaseUrl: string,
+  doing: (prepared: Prepared) => Promise<unknown>,
+  preparing: () => Promise<Prepared>,
+): Promise<number>;
+export async function statementsWhile<Prepared>(
   databaseUrl: string,
   /**
    * THE WORK, AND IT MUST END WITH EVERY CONNECTION IT OPENED CLOSED -- so a
@@ -37,30 +66,100 @@ export async function statementsWhile(
    * than tidiness, and the docblock on `whenNothingIsConnected` below is why: an
    * OPEN connection has not published what it did, so a count taken over one is
    * a count of whatever happened to have been flushed.
+   *
+   * IT RUNS ONCE PER WINDOW, AND THERE ARE AT LEAST TWO, so it has to be work
+   * that can be done again.
    */
-  doing: () => Promise<unknown>,
+  doing: (prepared: Prepared) => Promise<unknown>,
+  /**
+   * WHAT EACH WINDOW NEEDS STANDING BEFORE IT OPENS, and none of it is counted.
+   * It runs before the wait for an empty database, so whatever it connected
+   * has let go before the first reading. A server under test is started here:
+   * its boot is not the request, and the harness's readiness probes vary with
+   * how fast the machine was that second.
+   */
+  preparing?: () => Promise<Prepared>,
 ): Promise<number> {
   const counter = await aCounterOn(databaseUrl);
   try {
-    await counter.whenNothingIsConnected();
-    const before = await counter.reading();
-    await doing();
-    await counter.whenNothingIsConnected();
-    const after = await counter.reading();
-    /*
-     * THE CONNECTIONS ARE PART OF THE ARITHMETIC, WHICH IS THE ONE THING HERE
-     * THAT IS NOT OBVIOUS. A session is worth exactly one transaction on top of
-     * the statements it carried -- MEASURED on PostgreSQL 18.6, 2026-09-15: a
-     * pool that connects and asks NOTHING moves the transaction counter by one
-     * per connection; six statements over one connection move it by seven; six
-     * at once over a pool of four move it by ten, against four sessions. So the
-     * sessions opened inside the window are subtracted and the answer is
-     * statements alone, whatever pool size the work happened to use.
-     */
-    return after.transactions - before.transactions - (after.sessions - before.sessions);
+    const naptimeMs = await counter.naptimeMs();
+    const windows: CountedWindow[] = [];
+    while (windows.length < MOST_WINDOWS) {
+      const prepared = (await preparing?.()) as Prepared;
+      const counted = await oneWindow(counter, () => doing(prepared));
+      const agreeing = windows.find((earlier) => earlier.figure === counted.figure);
+      if (agreeing) {
+        /*
+         * WITHIN ONE NAPTIME, LESS A SECOND, OR NOT AT ALL. A visit publishes
+         * when it exits, so it can have begun before the window it lands in:
+         * the second is for that, and the longest visit measured lasted 0.14s.
+         * NOT ASSERTED, because reaching it costs a minute of windows; in CI
+         * three take about thirty seconds.
+         */
+        const spannedMs = counted.closedAt - agreeing.openedAt;
+        if (spannedMs < naptimeMs - 1_000) return counted.figure;
+        throw new Error(
+          `the two windows that agreed on ${counted.figure} spanned ${spannedMs}ms, and ` +
+            `autovacuum may visit this database every ${naptimeMs}ms, so both could carry a ` +
+            "visit and nothing here can say the figure is the work's.",
+        );
+      }
+      windows.push(counted);
+    }
+    throw new Error(
+      `no figure came round twice in ${MOST_WINDOWS} windows ` +
+        `(${windows.map(({ figure }) => figure).join(", ")}), so nothing here can say what the ` +
+        "work cost. Either its own cost varies or something other than autovacuum is talking " +
+        "to this database.",
+    );
   } finally {
     await counter.close();
   }
+}
+
+/**
+ * THREE, BECAUSE A NAPTIME ALLOWS ONE VISIT AND THREE WINDOWS SURVIVE ONE.
+ * With one of three carrying a visit, the other two agree. Three figures with
+ * no repeat among them are a cost that varies, or a database something besides
+ * autovacuum is talking to, and more windows would only hide it.
+ */
+const MOST_WINDOWS = 3;
+
+/** What one window counted, and when, which is what says two of them agree. */
+interface CountedWindow {
+  figure: number;
+  /** Just before the first reading, so the span can only be over-stated. */
+  openedAt: number;
+  /** Just after the last. */
+  closedAt: number;
+}
+
+async function oneWindow(
+  counter: Awaited<ReturnType<typeof aCounterOn>>,
+  doing: () => Promise<unknown>,
+): Promise<CountedWindow> {
+  await counter.whenNothingIsConnected();
+  const openedAt = Date.now();
+  const before = await counter.reading();
+  await doing();
+  await counter.whenNothingIsConnected();
+  const after = await counter.reading();
+  const closedAt = Date.now();
+  /*
+   * THE CONNECTIONS ARE PART OF THE ARITHMETIC, WHICH IS THE ONE THING HERE
+   * THAT IS NOT OBVIOUS. A session is worth exactly one transaction on top of
+   * the statements it carried -- MEASURED on PostgreSQL 18.6, 2026-09-15: a
+   * pool that connects and asks NOTHING moves the transaction counter by one
+   * per connection; six statements over one connection move it by seven; six
+   * at once over a pool of four move it by ten, against four sessions. So the
+   * sessions opened inside the window are subtracted and the answer is
+   * statements alone, whatever pool size the work happened to use.
+   */
+  return {
+    figure: after.transactions - before.transactions - (after.sessions - before.sessions),
+    openedAt,
+    closedAt,
+  };
 }
 
 /**
@@ -77,6 +176,7 @@ export async function statementsWhile(
 async function aCounterOn(databaseUrl: string): Promise<{
   reading: () => Promise<Reading>;
   whenNothingIsConnected: () => Promise<void>;
+  naptimeMs: () => Promise<number>;
   close: () => Promise<void>;
 }> {
   const url = new URL(databaseUrl);
@@ -89,6 +189,7 @@ async function aCounterOn(databaseUrl: string): Promise<{
   return {
     reading: () => reading(client, database),
     whenNothingIsConnected: () => whenNothingIsConnected(client, database),
+    naptimeMs: () => naptimeMs(client),
     close: () => client.end(),
   };
 }
@@ -175,4 +276,18 @@ async function reading(client: Client, database: string): Promise<Reading> {
     sessions: Number(row.sessions),
     connected: Number(row.connected),
   };
+}
+
+/**
+ * How often autovacuum may visit a database, READ OFF THE SERVER rather than
+ * assumed to be its default, because it is the bound two agreeing windows are
+ * held to. It is cluster-wide and `pg_settings` gives it in seconds.
+ */
+async function naptimeMs(client: Client): Promise<number> {
+  const { rows } = await client.query<{ seconds: string }>(
+    "select setting as seconds from pg_settings where name = 'autovacuum_naptime'",
+  );
+  const [row] = rows;
+  if (!row) throw new Error("the server reports no autovacuum_naptime");
+  return Number(row.seconds) * 1_000;
 }
