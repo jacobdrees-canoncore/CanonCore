@@ -5,6 +5,7 @@ import { call } from "@orpc/server";
 
 import { Moment } from "@/components/moment";
 import { NotLoggedIn } from "@/components/not-logged-in";
+import { TheirWords } from "@/components/their-words";
 import { callerContext } from "@/session";
 
 import { endDevice } from "./actions";
@@ -76,8 +77,14 @@ export default async function DevicesPage() {
           {devices.map((device) => (
             <li className="flex items-center justify-between gap-4 py-3" key={device.id}>
               <div>
-                {/* TODO(CNCORE-226): the names a device declared, printed raw. */}
-                <p className="text-sm">{nameOf(device)}</p>
+                {/*
+                  A CLIENT'S WORDS ABOUT ITSELF, which nothing bounds in length
+                  or width (ADR-0142). The page's own fallback rides inside, as
+                  `Untitled item` does, and so does the separator.
+                */}
+                <p className="text-sm">
+                  <TheirWords>{nameOf(device)}</TheirWords>
+                </p>
                 <p className="text-muted-foreground text-xs">
                   Last used <Moment at={device.lastSeenAt} />
                 </p>

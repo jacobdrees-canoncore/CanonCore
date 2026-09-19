@@ -481,8 +481,10 @@ function PurgeBox({ configured }: { configured: string[] }) {
             className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 py-3"
             key={baseUrl}
           >
-            {/* TODO(CNCORE-226): a base URL the Owner typed, printed raw. */}
-            <span className="text-sm">{baseUrl}</span>
+            {/* A BASE URL THE OWNER TYPED, and so not this page's words (ADR-0142). */}
+            <span className="text-sm">
+              <TheirWords>{baseUrl}</TheirWords>
+            </span>
             <Form action="/import">
               <input type="hidden" name="purge" value={baseUrl} />
               {/*
@@ -547,8 +549,7 @@ function Purge({ baseUrl, preview }: { baseUrl: string; preview: PurgePreview })
   return (
     <section aria-labelledby="purge" className="mt-10">
       <h2 className="font-medium text-sm" id="purge">
-        {/* TODO(CNCORE-226): a base URL the Owner typed, printed raw. */}
-        Purge everything {baseUrl} contributed
+        Purge everything <TheirWords>{baseUrl}</TheirWords> contributed
       </h2>
       {takesNothing ? (
         <NothingLeft />
@@ -794,8 +795,14 @@ function Results({
   return (
     <section aria-labelledby="results" className="mt-8">
       <h2 id="results" className="font-medium text-sm">
-        {/* TODO(CNCORE-226): the reader's own query, printed raw. */}
-        {matched === 0 ? `Nothing matched ${query}` : `${matched} found for ${query}`}
+        {/*
+          THE READER'S OWN QUERY, which nothing bounds in width and a link
+          carrying `?q=` shows to whoever follows it. It goes through
+          `TheirWords` and the sentence around it does not, as on `/search`
+          (ADR-0142).
+        */}
+        {matched === 0 ? "Nothing matched " : `${matched} found for `}
+        <TheirWords>{query}</TheirWords>
       </h2>
       {found.answered.map(({ provider, results }) => (
         <div key={provider.baseUrl} className="mt-4">
@@ -1083,8 +1090,10 @@ function Unreachable({ failed }: { failed: Found["failed"] }) {
       <ul className="mt-2 divide-y">
         {failed.map(({ baseUrl, reason }) => (
           <li key={baseUrl} className="py-2 text-sm">
-            {/* TODO(CNCORE-226): a base URL the Owner typed, printed raw. */}
-            <span className="font-medium">{baseUrl}</span> <Reason reason={reason} />
+            <span className="font-medium">
+              <TheirWords>{baseUrl}</TheirWords>
+            </span>{" "}
+            <Reason reason={reason} />
           </li>
         ))}
       </ul>
@@ -1377,8 +1386,9 @@ function ItsOrdering({
         <span>
           <TheirWords>{said.title}</TheirWords>
         </span>
-        {/* TODO(CNCORE-226): the container id the Owner typed, printed raw. */}
-        <span className="text-muted-foreground text-sm">{containerId}</span>
+        <span className="text-muted-foreground text-sm">
+          <TheirWords>{containerId}</TheirWords>
+        </span>
         {/*
           AND WHAT PRESSING THE BUTTON COSTS. One press writes this many
           placements, which is the whole reason `browse` exists (ADR-0033) and
@@ -1476,9 +1486,11 @@ function StillHeld({ itemId }: { itemId: string }) {
 function NotReached({ baseUrl, reason }: { baseUrl: string; reason: FailureReason }) {
   return (
     <p className="text-muted-foreground text-sm">
-      {/* TODO(CNCORE-226): a base URL the Owner typed, printed raw. */}
-      Nothing could be learned about that id from <span className="font-medium">{baseUrl}</span>.{" "}
-      <Reason reason={reason} />
+      Nothing could be learned about that id from{" "}
+      <span className="font-medium">
+        <TheirWords>{baseUrl}</TheirWords>
+      </span>
+      . <Reason reason={reason} />
     </p>
   );
 }

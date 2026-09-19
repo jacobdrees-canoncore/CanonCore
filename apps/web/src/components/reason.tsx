@@ -43,14 +43,15 @@ import { TheirWords } from "./their-words";
  * AND WHAT IS QUOTED IS WRAPPED, BECAUSE `wrote` ANSWERED WHOSE SHAPE IT IS TOO
  * (CNCORE-217). Text not refused at the config boundary is not this app's, so
  * three hundred characters of it with no break in them are the Provider's to
- * send and not the Provider's to lay out. CanonCore's own sentence is printed
- * plainly, because `canoncore` means the config boundary refused and the
- * sentence is this app's own words.
+ * send and not the Provider's to lay out.
  *
- * TODO(CNCORE-226): the URL inside that sentence is one the OWNER typed, and
- * that is no longer a reason to leave it unwrapped. This said "every value in
- * the sentence is the Owner's own, not a stranger's", and ADR-0142 measured
- * the Owner's words setting the page's width exactly as a stranger's do.
+ * CANONCORE'S OWN SENTENCE IS WRAPPED TOO, WHOLE, THOUGH IT IS THIS APP'S WORDS
+ * (CNCORE-226). The config boundary interpolates the address the Owner typed,
+ * and ADR-0142 measured the Owner's words setting the page's width exactly as a
+ * stranger's do. The sentence arrives as one string, so the address cannot be
+ * wrapped alone, and it does not need to be: `anywhere` breaks only a word that
+ * does not fit its line, and no word this app wrote is that wide, which is why
+ * a fallback rides inside a title.
  *
  * ITS OWN MODULE SINCE CNCORE-101, HAVING BEEN `/import`'s ALONE. The settings
  * surface is the THIRD reason surface, and ADR-0123 exists because this defect
@@ -59,10 +60,6 @@ import { TheirWords } from "./their-words";
  * function decides WHOSE the text is, and this decides how the page says so.
  */
 export function Reason({ reason }: { reason: FailureReason }) {
-  if (reason.wrote === "canoncore") return <span>{reason.text}</span>;
-  return (
-    <q>
-      <TheirWords>{reason.text}</TheirWords>
-    </q>
-  );
+  const said = <TheirWords>{reason.text}</TheirWords>;
+  return reason.wrote === "canoncore" ? said : <q>{said}</q>;
 }

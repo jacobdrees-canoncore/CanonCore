@@ -104,9 +104,9 @@ describe("a record's fields with no break in them", () => {
    * would fail, as the Values row is above: the row asserted rather than the
    * field, because a field that grew to the word holds its text perfectly well.
    *
-   * EACH QUERY IS SHORT, so the heading echoing it does not decide the width:
-   * that heading prints the query raw, which is CNCORE-226's, and a query as
-   * wide as the field would be witnessing it instead of the row.
+   * EACH QUERY IS SHORT, so the heading echoing it has no part in the width
+   * and each witness is its row's alone. That heading wraps the query too since
+   * CNCORE-226, which a query as wide as the field would be witnessing instead.
    */
   it.each([
     { field: "title", query: unbroken.title.slice(0, 10), run: unbroken.title },
@@ -175,5 +175,36 @@ describe("a Group's name with no break in it", () => {
 
     await expect.poll(() => chips.textContent()).toContain(inject("unbrokenGroup"));
     expect(await overrun(chips)).toStrictEqual({ element: 0, document: 0 });
+  });
+});
+
+describe("a device's declared name with no break in it", () => {
+  /*
+   * THE OWNER'S PAGE ALONE, so this logs in, and logs out again after, since
+   * every witness above is what a visitor is shown.
+   */
+  beforeAll(async () => {
+    await page.goto(`${baseUrl}/login`);
+    await page.getByLabel("Password").fill(inject("browserOwnerPassword"));
+    await page.getByRole("button", { name: "Log in" }).click();
+    await page.waitForURL((url) => !url.pathname.startsWith("/login"));
+  });
+
+  afterAll(async () => {
+    await context.clearCookies();
+  });
+
+  /*
+   * A DEVICE'S ROW IS FLEX: its names beside the button that logs it out, the
+   * shape `/settings` gives a Provider's base URL beside its own. The row is
+   * asserted rather than the name, for the reason a search result's is.
+   */
+  it("wraps inside its row on /devices", async () => {
+    const name = inject("unbrokenDevice");
+    await page.goto(`${baseUrl}/devices`);
+    const row = page.locator("main li").filter({ hasText: name.slice(0, 100) });
+
+    await expect.poll(() => row.count()).toBe(1);
+    expect(await overrun(row)).toStrictEqual({ element: 0, document: 0 });
   });
 });
