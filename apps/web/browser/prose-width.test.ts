@@ -21,7 +21,11 @@ import { gatedTo } from "./gate";
  * size the flex item may not shrink below at the whole word.
  */
 const baseUrl = inject("browserBaseUrl");
-const floodedName = inject("floodedName");
+/**
+ * A run of the Provider's name long enough to find it by and short enough to be
+ * inside the 300 characters the page is given.
+ */
+const aRunOfTheName = inject("floodedName").slice(0, 100);
 
 let browser: Browser;
 let context: BrowserContext;
@@ -63,9 +67,7 @@ async function overrun(element: Locator) {
 describe("a Provider's name with no break in it", () => {
   it("wraps inside the heading over its answers on /import", async () => {
     await page.goto(`${baseUrl}/import?q=anything`);
-    const heading = page.getByRole("heading", { level: 3 }).filter({
-      hasText: floodedName.slice(0, 100),
-    });
+    const heading = page.getByRole("heading", { level: 3 }).filter({ hasText: aRunOfTheName });
 
     // LISTED, which the next assertion cannot tell from being dropped: a page
     // that left this Provider out would overrun nothing, and pass.
@@ -83,7 +85,7 @@ describe("a Provider's name with no break in it", () => {
   it("wraps inside the row where an Item's page names it as a source", async () => {
     await page.goto(`${baseUrl}/items/${inject("claimedByTheFlood")}`);
     const row = page.locator("section[aria-labelledby='values'] li").filter({
-      hasText: floodedName.slice(0, 100),
+      hasText: aRunOfTheName,
     });
 
     await expect.poll(() => row.count()).toBe(1);

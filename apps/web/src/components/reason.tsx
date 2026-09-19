@@ -44,8 +44,9 @@ import { ProviderProse } from "./provider-prose";
  * (CNCORE-217). Text not refused at the config boundary is not this app's, so
  * three hundred characters of it with no break in them are the Provider's to
  * send and not the Provider's to lay out. CanonCore's own sentence is printed
- * plainly: every value it interpolates is cut at 80 by `shortly`, and it is the
- * Owner's own host.
+ * plainly, because `canoncore` means the config boundary refused and what that
+ * boundary judges is a URL the OWNER typed: every value in the sentence is the
+ * Owner's own, not a stranger's.
  *
  * ITS OWN MODULE SINCE CNCORE-101, HAVING BEEN `/import`'s ALONE. The settings
  * surface is the THIRD reason surface, and ADR-0123 exists because this defect

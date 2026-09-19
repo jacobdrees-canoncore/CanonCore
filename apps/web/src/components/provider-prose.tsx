@@ -12,7 +12,7 @@
  * word that will not fit its line. `break-word` leaves the element's min-content
  * width at the whole word, and a flex item may not shrink below that -- so on
  * the Item page, whose rows are flex, the label's box grew to the word and the
- * page scrolled 909 pixels while its text sat neatly inside the grown box.
+ * page scrolled 933 pixels while its text sat neatly inside the grown box.
  * `anywhere` counts the break when sizing, which is the half a flex row needs.
  *
  * A COMPONENT RATHER THAN ONE RULE ON `body`, and that was measured rather than
@@ -20,7 +20,8 @@
  * item shrink below its own longest word, and the header's `CanonCore` became a
  * column seventeen pixels wide, one letter to a line. A stranger's text breaking
  * mid-word to fit this page is the right trade; this page's own words breaking
- * that way is not, so the rule goes where the stranger's text is and no further.
+ * that way is not, so this puts it on a Provider's text and leaves the page's
+ * own words alone.
  *
  * WHAT IT DOES NOT DO is quote, bound or attribute. `Reason` quotes, the
  * contract bounds, and each caller names the Provider in its own sentence; this

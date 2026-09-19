@@ -1027,8 +1027,9 @@ defined, and still scrolls the Item page 933 pixels sideways, because a flex ite
 below a min-content that `break-word` leaves at the whole word. A test that proves a rule is PRESENT
 cannot tell a rule that works from one that does not, and this case is exactly that difference.
 
-**ONE INSTANCE STILL, AND IT NOW REACHES ONE PROVIDER.** `aProviderThatFloodsItsName` stands up
-beside it and is the only thing its allowlist admits. The stub MOVED to `e2e/stubs.ts` rather than
+**ONE INSTANCE STILL, AND IT NOW SEARCHES ONE PROVIDER.** `aProviderThatFloodsItsName` stands up
+beside it and is the only Provider it is configured to search. Its allowlist admits loopback, as the
+page seam's instances' does; it is the configured list that names one. The stub MOVED to `e2e/stubs.ts` rather than
 being copied, for the reason `anInstanceServing` moved to `e2e/instance.ts`: a second project needing
 the same stub is a second caller, and a second copy is where two stubs quietly stop agreeing about
 what a CMPP search does.

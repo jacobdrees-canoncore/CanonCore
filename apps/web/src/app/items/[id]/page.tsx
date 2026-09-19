@@ -1536,9 +1536,7 @@ function Note({ itemId, note }: { itemId: string; note: NoteOnThePage }) {
             list prints one: "who asserted this" is answered by `Owner`, where
             `owner` answers only what sort of thing said it.
           */}
-          <span className="text-muted-foreground text-sm">
-            <ProviderProse>{note.sourceLabel}</ProviderProse>
-          </span>
+          <span className="text-muted-foreground text-sm">{note.sourceLabel}</span>
         </p>
       )}
       <form action={annotateItem} className="mt-2 flex flex-col items-start gap-2">

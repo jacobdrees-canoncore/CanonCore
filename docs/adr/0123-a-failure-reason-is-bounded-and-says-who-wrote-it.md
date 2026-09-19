@@ -744,20 +744,27 @@ each asserts what the document CONTAINS, and this is how the document LAYS OUT.
 **A PROVIDER'S PROSE IS PRINTED THROUGH `ProviderProse`**, in `apps/web/src/components/provider-prose.tsx`,
 which sets `overflow-wrap: anywhere` and nothing else. The contract bounds the length and this bounds
 the width, and neither is the Provider's to choose. A new surface printing a Provider's text prints it
-through this component, and the two components most likely to gain a surface already do: `Reason`
-wraps what it quotes, and `AssertedBy` wraps every name it lists, so a new reason surface or a new
-list of sources gets the wrap without having to know about it.
+through this component. `Reason` wraps what it quotes, so a new reason surface gets the wrap without
+having to know about it; `AssertedBy` wraps every name it lists, which covers the Item page's two
+lists of sources and any list that reuses it, and is private to that page.
 
 Every surface that printed a Provider's prose takes it: on `/import`, the heading over a Provider's
 answers and the two container sentences naming it; `Reason`'s `provider` branch, wherever it is
-rendered; the credential's `label` on settings; and on Item pages, a statement's source label, a
-note's, `AssertedBy`, and the attribution notice. **The notice was not on CNCORE-217's list** and was
-found by sweeping for every place a Provider's text is printed. Wrapping it is not one of the
-transformations the notice's verbatim rule forbids, because it changes where a line breaks and not a
-character of what is on it.
+rendered; the credential's `label` on settings; and on Item pages, a statement's source label,
+`AssertedBy`, and the attribution notice. A source label is the Owner's, a sidecar's or a
+computation's as often as a Provider's, and it is wrapped wherever it is printed because it is a
+Provider's declared name whenever a Provider asserted the value.
 
-CanonCore's own sentence in `Reason` is printed plainly and not wrapped. Every value it interpolates
-is cut at 80 characters by `shortly`, and the value is the Owner's own host.
+**The notice was not on CNCORE-217's list** and was found by sweeping for every place a Provider's
+text is printed. Wrapping it is not one of the transformations the notice's verbatim rule forbids,
+because it changes where a line breaks and not a character of what is on it. **A note's source label
+WAS on the list and is not wrapped**: the ticket inferred it, and the schema rules it out. `note`
+declares `assertableBy` the owner alone, and the database refuses a note moved onto a Provider's
+source (`constraints.test.ts`), so that label is never a Provider's.
+
+CanonCore's own sentence in `Reason` is printed plainly and not wrapped. `canoncore` means the config
+boundary refused, and that boundary judges a URL the Owner typed, so every value in the sentence is
+the Owner's own rather than a stranger's.
 
 ### `anywhere`, because `break-word` passes one witness and fails the other
 
@@ -786,9 +793,16 @@ refused. **`overflow-wrap: anywhere` on `body` changed no element's box on any o
 pixels, and at 375 it wrecked the header.** It lets every flex item shrink below its own longest
 word, and the header's `CanonCore` link became a column seventeen pixels wide and 336 tall, one letter
 to a line, with `Works` and `Groups` beside it the same. A stranger's text breaking mid-word to fit
-this page is the right trade. This page's own words breaking that way is not. So the rule goes on
-the stranger's text and nowhere else, which is also where `.claude/rules/frontend.md` puts a
-formatted value: in `apps/web/src/components`, beside the pages that render it.
+this page is the right trade. This page's own words breaking that way is not. So `anywhere` goes on
+text whose shape the page did not choose and not on the page's own words, and `ProviderProse` is that
+for a Provider's text. It lives where `.claude/rules/frontend.md` puts a formatted value: in
+`apps/web/src/components`, beside the pages that render it.
+
+**THE OWNER'S TEXT IS THE SAME QUESTION FROM THE OTHER SIDE, AND IT IS ALREADY ANSWERED ONCE.**
+CNCORE-179 put a raw `wrap-anywhere` on a Group's name on the Catalogue page, for the reason given
+here: the Owner's words, with no cap. That site is not a Provider's prose and does not take this
+component. Whether a Group's name, an Item's title and a record's fields share one component of
+their own is CNCORE-223's question.
 
 **THE HEADER ALREADY OVERRAN A 375-PIXEL VIEWPORT BY 231 PIXELS BEFORE ANY OF THIS**, measured
 with no wrap rule at all. That is not this record's defect: it is the page before the phone client
@@ -799,11 +813,12 @@ rather than fixed it.
 
 This record's CNCORE-165 section keeps a record's fields out of the manifest's bound, because cutting
 a title would corrupt the catalogue. The same is true of wrapping in the other direction: a record's
-title is not a Provider's prose in this record's sense, and `ProviderProse` is not applied to one.
-**A title with no break in it is therefore still a width lever, and an unbounded one**, and `/import`
-prints a search result's title as a flex item. That is inferred from the mechanism the table
-measures and was not walked. It is a question about every Item's title, whoever wrote it, rather
-than about a Provider's, so it has its own ticket (CNCORE-223).
+fields are not a Provider's prose in this record's sense, and `ProviderProse` is not applied to them.
+**A field with no break in it is therefore still a width lever, and an unbounded one.** `/import`
+prints a search result's `title`, `kind` and `released` as flex items, each a `z.string().min(1)` in
+`cmpp.ts` with no ceiling. That is inferred from the mechanism the table measures and was not
+walked. It is a question about every Item's fields, whoever wrote them, rather than about a
+Provider's prose, so it has its own ticket (CNCORE-223).
 
 ### Asserted in a browser, because only a browser can see it
 
