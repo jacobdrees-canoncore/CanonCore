@@ -1228,4 +1228,33 @@ describe("findPlacementsOfItem, stepped back", () => {
     expect(order.length).toBeGreaterThan(9);
     expect(wrong).toStrictEqual([]);
   });
+
+  it("says how many Rows come before a page, from every ordering either way, across all four keys", async () => {
+    // WHERE THE READER IS (ADR-0133), over the order whose count is the easiest
+    // to get silently wrong. Two of its keys are the SPOKESMAN'S, a lateral the
+    // size joins only when narrowed -- so a count of the Rows behind a Cut that
+    // did not join its own would not fail: its `"spokesman"` would resolve to
+    // the page's, one scope out, and compare every Row against the page's Row.
+    // The fixture's spokesmen differ between Rows, which is what makes that
+    // visible.
+    const { id } = await anItemInMoreOrderingsThanOnePage(db, {
+      title: "A story told where it sits, from every ordering",
+      orderings: 9,
+    });
+    const order = (await findPlacementsOfItem(db, id, { limit: 1000 })).rows.map(
+      (placement) => placement.id,
+    );
+
+    const wrong: string[] = [];
+    for (const [at, placement] of order.entries()) {
+      const past = await findPlacementsOfItem(db, id, { limit: 1, after: placement });
+      if (past.rowsBefore !== at + 1) wrong.push(`past ${at}: ${past.rowsBefore}`);
+      if (at === 0) continue;
+      const back = await findPlacementsOfItem(db, id, { limit: 1, before: placement });
+      if (back.rowsBefore !== at - 1) wrong.push(`back from ${at}: ${back.rowsBefore}`);
+    }
+
+    expect(order.length).toBeGreaterThan(9);
+    expect(wrong).toStrictEqual([]);
+  });
 });

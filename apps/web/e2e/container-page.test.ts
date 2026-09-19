@@ -245,7 +245,7 @@ describe("/items/<a container holding more than one page>", () => {
     expect(status).toBe(200);
     expect(membersLinkedFrom(text)).toHaveLength(100);
     expect(sectionIn(text, "members")).toContain(
-      `Showing 100 of ${container.holds.length} members`,
+      `Showing members 1 to 100 of ${container.holds.length}`,
     );
   });
 
@@ -263,6 +263,10 @@ describe("/items/<a container holding more than one page>", () => {
     );
 
     expect(membersLinkedFrom(back.text)).toStrictEqual(membersLinkedFrom(second.text));
+    // AND SAYS IT IS THE SECOND HUNDRED (ADR-0133).
+    expect(sectionIn(back.text, "members")).toContain(
+      `Showing members 101 to 200 of ${container.holds.length}`,
+    );
   });
 
   it("reaches every member by following links, and lands on none of them twice", async () => {

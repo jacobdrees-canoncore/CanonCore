@@ -761,7 +761,7 @@ const AN_ORDERING_THAT_GIVES_NO_POSITION = "An ordering that gives no position";
  * listing, so the FRESH instance renders no count at all -- an empty catalogue
  * shows what to do next instead (ADR-0094). The PAGED one is written to by
  * nothing and would serve, except that 254 items is more than a page, so it
- * renders `Holding`'s OTHER arm -- "Showing 100 of 254 items", which
+ * renders `Holding`'s OTHER arm -- "Showing items 1 to 100 of 254", which
  * `front-page.test.ts` already asserts. The plain-total arm needs a catalogue
  * that is NON-EMPTY, SMALLER THAN ONE PAGE and WRITTEN TO BY NOTHING, and that
  * is the whole of this fixture.

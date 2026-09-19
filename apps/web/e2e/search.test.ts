@@ -167,6 +167,9 @@ describe("/search on a result set larger than one page", () => {
 
     expect(previous).toMatch(new RegExp(`^/search\\?q=${QUERY}&before=`));
     expect(itemsListedOn(back.text)).toStrictEqual(itemsListedOn(second.text));
+    // AND IT SAYS IT IS THE SECOND HUNDRED, which is `/search` handing the
+    // count through as well as the Rows (ADR-0133).
+    expect(back.text).toMatch(/>Showing results 101 to 200 of \d+<\/p>/);
   });
 
   it("reaches every match by following links, and lands on none of them twice", async () => {
@@ -218,11 +221,15 @@ describe("/search on a result set larger than one page", () => {
     const second = await documentFrom(pagedBaseUrl, next);
 
     expect(itemsListedOn(first.text)).toHaveLength(100);
-    const holding = `<p class="text-muted-foreground text-sm">Showing 100 of ${searchable} results</p>`;
-    expect(first.text).toContain(holding);
-    // THE SAME SENTENCE ON PAGE TWO. A shrinking total renders here as a page
-    // quietly reporting a smaller library than the one before it.
-    expect(second.text).toContain(holding);
+    expect(first.text).toContain(
+      `<p class="text-muted-foreground text-sm">Showing results 1 to 100 of ${searchable}</p>`,
+    );
+    // THE SAME SIZE ON PAGE TWO, beside the Rows it has moved on to (ADR-0133).
+    // A shrinking total renders here as a page quietly reporting a smaller
+    // library than the one before it.
+    expect(second.text).toContain(
+      `<p class="text-muted-foreground text-sm">Showing results 101 to 200 of ${searchable}</p>`,
+    );
   });
 
   it("offers a way back to the start of the SAME search from every page but the first", async () => {
@@ -269,6 +276,10 @@ describe("/search on a result set larger than one page", () => {
     // a reader stranded past the end of their results wants the results, not
     // the prompt.
     expect(sectionIn(beyond.text, "past-the-end")).toContain(`href="/search?q=${QUERY}"`);
+    // AND IT CLAIMS TO SHOW NOTHING (ADR-0133). A page with no Rows has no
+    // first or last to name, which is why every other surface says nothing
+    // above its ending: said here, it read "Showing results 255 to 254".
+    expect(beyond.text).not.toMatch(/>Showing results? /);
   });
 });
 
@@ -310,7 +321,7 @@ describe("/search narrowed to a Group", () => {
     expect(itemsListedOn(text)).toHaveLength(100);
     expect(itemsListedOn(text).every((id) => group.holds.includes(id))).toBe(true);
     expect(text).toContain(
-      `<p class="text-muted-foreground text-sm">Showing 100 of ${matchedInTheGroup.length} results</p>`,
+      `<p class="text-muted-foreground text-sm">Showing results 1 to 100 of ${matchedInTheGroup.length}</p>`,
     );
     expect(markedCurrentIn(text)).toStrictEqual([group.name]);
     expect(markedCurrentIn(whole.text)).toStrictEqual(["Everything"]);

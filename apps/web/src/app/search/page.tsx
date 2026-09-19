@@ -142,8 +142,18 @@ export default async function SearchPage({
           `<h1>Catalogue</h1>` the pair now reads Catalogue / Catalogue search.
         */}
         <h1 className="text-3xl font-medium">Catalogue search</h1>
-        {results !== null && results.total > 0 && (
-          <Holding showing={results.rows.length} total={results.total} noun="result" />
+        {/*
+          ON A PAGE WITH ROWS, as every other surface has it: a page past the
+          end has no first or last to name (ADR-0133), and `PastTheEnd` below
+          says what it is instead.
+        */}
+        {results !== null && results.rows.length > 0 && (
+          <Holding
+            showing={results.rows.length}
+            rowsBefore={results.rowsBefore}
+            total={results.total}
+            noun="result"
+          />
         )}
       </div>
       {/*

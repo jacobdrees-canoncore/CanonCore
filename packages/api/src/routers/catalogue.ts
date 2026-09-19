@@ -202,8 +202,14 @@ export const catalogue = {
  * them. Written ONCE for all THREE questions, so they cannot come to disagree
  * about what a listing is.
  */
-function asListing({ rows, total, continuesAfter, continuesBefore }: Catalogue): CataloguePublic {
-  return { rows: rows.map(asRow), total, continuesAfter, continuesBefore };
+function asListing({
+  rows,
+  total,
+  rowsBefore,
+  continuesAfter,
+  continuesBefore,
+}: Catalogue): CataloguePublic {
+  return { rows: rows.map(asRow), total, rowsBefore, continuesAfter, continuesBefore };
 }
 
 /**

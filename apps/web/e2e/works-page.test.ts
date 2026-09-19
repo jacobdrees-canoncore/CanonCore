@@ -234,6 +234,12 @@ describe("/works on a list larger than one page", () => {
     );
     expect(itemsListedOn(back.text)).toHaveLength(100);
     expect(itemsListedOn(onAgain.text)).toStrictEqual(itemsListedOn(jumped.text));
+    // AND THE JUMP SAYS WHERE IT LANDED: the last four of the list, which is
+    // `/works` handing the count through (ADR-0133). How many Works this
+    // instance holds is the page's own figure; that the four are its last is
+    // the fixture's.
+    const size = Number(works.text.match(/>Showing items 1 to 100 of (\d+)<\/p>/)?.[1]);
+    expect(jumped.text).toContain(`>Showing items ${size - 3} to ${size} of ${size}</p>`);
   });
 });
 
@@ -254,7 +260,7 @@ describe("/works narrowed to a Group larger than one page", () => {
     const first = scopeLinked((await documentFrom(pagedBaseUrl, "/works")).text, group.name);
     const firstPage = await documentFrom(pagedBaseUrl, first);
     expect(firstPage.text).toContain(
-      `<p class="text-muted-foreground text-sm">Showing 100 of ${group.holds.length} items</p>`,
+      `<p class="text-muted-foreground text-sm">Showing items 1 to 100 of ${group.holds.length}</p>`,
     );
     const walked: string[] = [];
     let path: string | undefined = first;

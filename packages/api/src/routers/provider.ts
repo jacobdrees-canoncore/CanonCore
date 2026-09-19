@@ -601,6 +601,15 @@ function aPageOf<Listed extends { id: string }>(
   return {
     page,
     total: listed.length,
+    /*
+     * WHERE THE READER IS (ADR-0133), AND HERE IT IS FREE. Every other Listing
+     * COUNTS the Rows behind its Cut, because a keyset walk cannot know how
+     * many it has passed; this walk is over an answer the provider gave WHOLE,
+     * so the index the page was cut at IS that number and nothing is asked for
+     * it. It is still not an address: `containers` takes the two cursors and no
+     * number, so no page can be jumped to by one (ADR-0119).
+     */
+    rowsBefore: start,
     continuesAfter: start + limit < listed.length ? (page.at(-1)?.id ?? null) : null,
     continuesBefore: start > 0 ? (page[0]?.id ?? null) : null,
   };
@@ -1159,6 +1168,12 @@ export const provider = {
           ),
           /** How many the provider holds altogether, which a page may not show. */
           total: z.number().int().nonnegative(),
+          /**
+           * How many of them sort before this page's first, so it can say which
+           * it is showing: containers `rowsBefore + 1` to
+           * `rowsBefore + containers.length` of `total` (ADR-0133).
+           */
+          rowsBefore: z.number().int().nonnegative(),
           /** The last container this page shows where more follow it, or `null` (ADR-0119). */
           continuesAfter: z.string().nullable(),
           /** The first container this page shows where more come before it, or `null`. */
@@ -1216,7 +1231,10 @@ export const provider = {
       if (said.containers === null) {
         return { answer: "containers-not-offered" as const, providerName };
       }
-      const { page, total, continuesAfter, continuesBefore } = aPageOf(said.containers, input);
+      const { page, total, rowsBefore, continuesAfter, continuesBefore } = aPageOf(
+        said.containers,
+        input,
+      );
       const held = await findItemsProvided(context.db, {
         identity: input.baseUrl,
         externalIds: page.map(({ id }) => id),
@@ -1231,6 +1249,7 @@ export const provider = {
           itemId: held.get(id) ?? null,
         })),
         total,
+        rowsBefore,
         continuesAfter,
         continuesBefore,
       };
