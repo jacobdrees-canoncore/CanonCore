@@ -1542,7 +1542,8 @@ for refusing over dropping, arriving through readers inside this repository rath
 **THE NAME IS READ BEFORE THE LINK IS, AND A DANGLING ONE IS REFUSED**, where `directoriesUnder`
 drops one. That is a measured difference rather than an inconsistency: there, a thing that stats as
 nothing is not a package to pnpm or to turbo either, so all three readers agree. Here no stat is
-taken at all, which is what keeps this ONE rule rather than two, and a path in the corpus wearing
+taken of a document -- CNCORE-211 takes one only of a link a recursive read would descend, in the
+section below -- which is what keeps this ONE rule rather than two, and a path in the corpus wearing
 `.md` that nothing can open is exactly the unremarked document being refused -- reading it would
 throw ENOENT out of the sweep at a line naming a path and no reason.
 
@@ -1559,25 +1560,129 @@ and no others:
 * **Naming only the first offender** reddens every-offender-named, alone.
 * **Taking a stat before refusing**, so a dangling one drops, reddens the dangling row, alone.
 * **Refusing every symlink** rather than one wearing a document's name reddens the two boundary
-  rows: the ordinary `.txt` link, and the descended directory.
+  rows: the ordinary `.txt` link, and the descended directory -- a row CNCORE-211 flipped into a
+  refusal, so this mutation is re-measured against the flipped rows in the section below.
 * **Dropping `parentPath` from every path the reader spells** reddens the nested row, the descended
   row, the `.txt` link row -- whose one document is then spelled relative to the process rather than
   the tree -- AND the repository-wide citation test, which is the control proving the extracted
-  reader is wired into `prose()` rather than sitting beside it.
-* **Never recursing** reddens the nested row and the descended row.
+  reader is wired into `prose()` rather than sitting beside it. CNCORE-211 replaced the read that
+  returned `parentPath`, so the same mutation is now dropping the directory being walked from each
+  path, re-measured in the section below.
+* **Never recursing** reddens the nested row and the descended row, the second flipped by CNCORE-211
+  and re-measured in the section below.
 
 **AND THE WIRING CHANGES NOTHING ABOUT WHAT IS SWEPT**, which was checked rather than assumed:
 `prose()` returns the same 188 documents, in the same spelling, before and after the extraction.
 
-**WHAT THIS DOES NOT HOLD, said here rather than left to be found.** A symlinked DIRECTORY under
-`docs/` is not this shape and is left to CNCORE-211. Measured on node v24.19.0, `readdirSync` with
-`recursive: true` DESCENDS one and returns what is inside it as ordinary files, `isFile= true`, with
-`parentPath` pointing through the link -- so nothing drops out and this ticket's silence is absent.
-What it leaves instead is every path under it being one git does not hold, and, where it points back
-inside `docs/`, the same fake ambiguity measured above. **A CYCLE IS SILENT HERE, which is not what
-CNCORE-200 found of one**: measured the same day, with `docs/adr/up` a symlink to `..`, the
-recursive read returned WITHOUT throwing -- 99 entries, 33 copies of one document, the deepest 65
-segments down. CNCORE-200's ELOOP came from `statSync`, a different call, and does not describe this
-read. One pointing OUT of the repository walks whatever it names. It is NOT the shape ruled out of
-scope as "the parent itself" under CNCORE-200, where `readdirSync`, pnpm and turbo all agreed; here
-node and git do not.
+**WHAT THIS DID NOT HOLD, AND CNCORE-211 CLOSED IT, in the section below.** A symlinked DIRECTORY
+under `docs/` is not this shape, because node descends one rather than dropping it, so this
+ticket's silence is absent and three different wrongs arrive instead. What they are, and why the
+directory is refused too, are measured there rather than here as well.
+
+## A symlinked directory under `docs/` is descended by node and held as a link by git -- under CNCORE-211
+
+**NOT THE SILENCE ABOVE, AND WORSE THAN IT.** `Dirent.isFile()` drops a symlinked DOCUMENT out of
+the sweep; a symlinked DIRECTORY is not dropped at all. Measured 2026-09-19 on node v24.19.0, with
+`docs/linked` a symlink to a sibling `elsewhere/` holding `outside.md`:
+`readdirSync(docs, { recursive: true, withFileTypes: true })` DESCENDS it and returns
+`linked/outside.md` with `isFile= true` and `parentPath` pointing through the link. Node's own
+documentation for v24.19.0 says nothing about links under `readdirSync`, so this is behaviour
+measured rather than promised. Nothing drops out, and three different wrongs arrive instead:
+
+* **Every path under it is one git does not hold.** Measured the same day on git 2.54.0 (Apple
+  Git-157), committing that tree: `git ls-files -s` lists `docs/linked` as mode `120000`, a 12-byte
+  blob whose whole content is `../elsewhere`, and no `docs/linked/outside.md`. `git grep` finds the
+  document's text at `elsewhere/outside.md` and nowhere else. The sweep would report a citation at
+  a path that exists only in a checkout.
+* **One pointing back inside `docs/` is silent rather than merely wrong.** It reaches every document
+  under it twice, which is the FAKE ambiguity measured in the section above: `byBasename()` drops
+  the name, so every bare-filename citation of that record stops being reported. The sweep gets
+  narrower by gaining a file.
+* **A CYCLE IS SILENT, which is not what CNCORE-200 found of one.** With `docs/adr/up` a symlink to
+  `..`, the recursive read returned WITHOUT throwing: 99 entries, 33 copies of one document, the
+  deepest 65 segments down. CNCORE-200's ELOOP comes from `statSync`, a different call, and does
+  not describe this read. And one pointing OUT of the repository walks whatever it names: the
+  CNCORE-204 review killed a link to `~/.config` still walking at 20 seconds.
+
+**SO IT IS REFUSED, ON THE ARGUMENT OF THE SECTION ABOVE, ONE LEVEL UP.** Node and git answer two
+ways about every path under the link, and no sweep can be right about a shape its readers answer
+two ways. It is NOT the shape ruled out of scope as "the parent itself" under CNCORE-200. There,
+`readdirSync`, pnpm and turbo all agreed about a symlinked `packages/`, so refusing would have
+invented a problem. Here node and git disagree.
+
+**RESOLVING IS WRONG IN WHICHEVER SPELLING IT KEEPS.** A resolved link could be swept under one of
+two spellings, and each lands on a silence this record has already named. Keep the LINK's spelling
+and the documents are swept at paths git does not hold, which is the first wrong above, and a
+mirror still reaches them twice. Keep the REAL spelling and a citation written through the link,
+`docs/linked/outside.md` with a line number, names a path missing from `held`. That reads as
+HISTORY and is affirmatively excused, which is the exact silence the section above removed. Either
+spelling also needs a visited set, or a cycle walks again. This paragraph is reasoned from the rule
+rather than measured, because neither version was built.
+
+**REFUSED BEFORE ANYTHING READS THROUGH IT, WHICH IS WHY THE WALK IS NO LONGER NODE'S.**
+`readdirSync` takes `encoding`, `withFileTypes` and `recursive`, and nothing else: read from node
+v24.19.0's `doc/api/fs.md` and from `@types/node` 26.6.1. Nothing stops a recursive read at a link,
+so refusing what one returns would still walk the link first, and for a cycle or a link out of the
+repository the walk IS the cost. `markdownIn` therefore walks the tree itself, one non-recursive
+read per directory, and never enters a link. The measurement that tells the two apart, taken the
+same day: with the link's target made unreadable (mode `000`), node's recursive read throws EACCES
+while `statSync` of the link still answers `isDirectory() = true`. A row asks exactly that, with
+node's EACCES asserted first as its control. Under root, which does not enforce permission bits,
+that control fails loudly rather than letting the row pass vacuously.
+
+**A DIRECTORY WEARS NO NAME, SO A STAT IS TAKEN HERE, AND ONLY WHERE IT CAN MATTER.** The document
+rule refuses on the name before the link is read, and takes no stat. A directory has no document
+name to read, so the one way to tell a link to one from a link to a file is `statSync`, which
+follows the link: one stat of it, never a read through it. The stat is taken only by a read that
+recurses. The root read enters no directory, so a link beside the root documents is nothing it
+sweeps, and refusing one would invent a problem.
+
+**A DANGLING ONE IS DROPPED HERE, WHERE A DANGLING DOCUMENT IS REFUSED, AND THE DIFFERENCE IS THE
+NAME.** A link that stats as nothing has nothing under it to sweep. Node's recursive read does not
+descend one either (measured the same day), and it wears no document's name to be refused on.
+`throwIfNoEntry: false` is what drops it, for `directoriesUnder`'s reason. A link that is its own
+target is different: `statSync` throws ELOOP straight through, naming the path. That is loud, and
+it is left alone for CNCORE-200's reason.
+
+**WHAT REFUSING COSTS.** A symlinked directory that holds no markdown at all, such as a
+`docs/images` linked from elsewhere, is refused too. Knowing what is under a link means walking it,
+and walking it is the hazard. That cost is accepted: such a directory is written as a real one,
+whose files git holds at their own paths. No directory under `docs/` is a symlink today, since
+`find docs -type l` prints nothing, so nothing is refused.
+
+**THE PINNED ROW IS GONE, AND THE ONES REPLACING IT ARE CHECKED BY MUTATION.** The row "is
+descended rather than dropped, so its documents are swept under it" pinned the descent as a
+boundary marker. It passed on exactly what this ticket calls wrong, and it is flipped into the
+first refusal row. Six rows now ask the shape directly, beside the section above's rows in
+`doc-line-citations.test.ts`. Measured against the finished branch, with 13 tests in the file:
+
+* **Following the link**, which is the defect, reddens four: the refusal, the unreadable target,
+  the cycle, and every-offender-named (`4 failed | 9 passed (13)`).
+* **Walking through and refusing after**, which is node's recursive read with the refusal filtered
+  out of what it returns, reddens exactly the two rows written to catch it: the unreadable target
+  and the cycle (`2 failed | 11 passed (13)`). The first refusal row passes it, which is why those
+  two exist.
+* **Dropping `throwIfNoEntry: false`** reddens the file-or-nothing row, alone. So does **refusing
+  every link a recursive read meets**, without the stat.
+* **Dropping the guard that stops a read which does not recurse** reddens the root-read row AND
+  both repository-wide tests, because the root read then descends the whole tree
+  (`3 failed | 10 passed (13)`). The guard is load-bearing twice.
+* **Throwing only the first refusal** reddens every-offender-named, alone. So does **naming only the
+  first directory**.
+
+The section above's mutations whose rows this flipped, re-measured against this reader: **refusing
+every symlink** reddens the `.txt` row and five of the six directory rows, every-offender-named
+being the one that expects a refusal anyway (`6 failed | 7 passed (13)`). **Never recursing**
+reddens the nested document row, the cycle row and the file-or-nothing row (`3 failed`). **Dropping
+the directory being walked from each path**, which replaces dropping `parentPath`, reddens ten of
+the thirteen, both repository-wide tests among them (`10 failed | 3 passed (13)`).
+
+**AND THE WALK CHANGES NOTHING ABOUT WHAT IS SWEPT.** Compared directly, `prose()` returns the
+same 188 documents, in the same spelling and order, as node's recursive read did before.
+
+**WHAT THIS DOES NOT HOLD, said here rather than left to be found.** `sweep-shard-citations.test.ts`
+reads `docs/research/competitor-sweep` with node's recursive `readdirSync`, so it would still
+descend a link there. That is covered rather than fixed: the corpus lies under `docs/`, so a link
+in it fails this sweep by name in the same package's suite, and the refusal holds only as long as
+this file does. `recordsByNumber` and `adr-numbering.test.ts` read `docs/adr` without recursing, so
+neither descends anything.
