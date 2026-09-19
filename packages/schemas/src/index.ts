@@ -381,7 +381,16 @@ export const groupsPublic = z.object({ groups: z.array(groupPublic) });
 export type GroupsPublic = z.infer<typeof groupsPublic>;
 
 /**
- * A Group the Owner just wrote, by the id that names it.
+ * THE GROUP A MUTATION ADDRESSED, by the id that names it -- which is not the
+ * same claim as "a Group row was created", and review caught the difference.
+ *
+ * `create` DID write one. `rename` and `delete` changed one. `put` and `take`
+ * wrote or tombstoned a row in `group_items` and answer the GROUP's id anyway,
+ * because the Group is what the caller named and what it goes back to: there is
+ * no surface addressed by a membership's own id, where ADR-0061 makes a
+ * Placement's id the only thing that can name one of two Repeats. The id of the
+ * `group_items` row is deliberately not emitted -- nothing reads one, and
+ * ADR-0045 makes adding a field the deliberate act.
  *
  * ITS OWN SCHEMA RATHER THAN `itemWritten`, though the shape is identical, for
  * the reason `placementWritten` gives: the two name different subjects, and a

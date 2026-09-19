@@ -305,12 +305,25 @@ export default async function setup(project: TestProject) {
  * half until the routes became the owner's; it sets no password by design, so
  * it can no longer show an owner anything at all, and the combination that
  * would carry that half -- empty, nothing allowlisted, an owner -- has no
- * instance here. An ELEVENTH server is what would recover it -- this file
- * starts ten, nine through `anInstanceServing` and one through
- * `theBuildServing` -- and ADR-0104 refuses it: a single run of this suite
- * already peaks at about a hundred client connections, which is the whole of
- * the default budget CI's own `postgres:18` service gets. So the gap is named
- * rather than filled, here and in ADR-0094.
+ * instance here. A TWELFTH server is what would recover it -- this file starts
+ * ELEVEN, ten through `anInstanceServing` and one through `theBuildServing`.
+ *
+ * THIS PARAGRAPH REFUSED THE ELEVENTH ON A BUDGET THAT NO LONGER HOLDS, and
+ * CNCORE-178 took it. It read "a single run of this suite already peaks at
+ * about a hundred client connections, which is the whole of the default budget
+ * CI's own `postgres:18` service gets" -- and a hundred is ADR-0104's UNBOUNDED
+ * figure, which CNCORE-137 superseded in that same record by bounding each
+ * server's pool to four: 55 to 60 bounded, against 91 to 103 before. Measured
+ * again on 2026-09-19 with the eleventh server standing, sampling
+ * `pg_stat_activity` once a second through a full run: THE PEAK IS 67, with the
+ * new `_test_group` database carrying 6 of them at that tick. CI gives each job
+ * its own `postgres:18` and runs one worktree against it, so the ceiling this
+ * is measured against there is the default 100 and 67 sits inside it.
+ *
+ * SO THE GAP IS STILL NAMED RATHER THAN FILLED, here and in ADR-0094, but the
+ * reason is now scope rather than connections: the instance that would recover
+ * it is CNCORE-133's to add, and this ticket had no business adding a server
+ * for somebody else's assertion.
  *
  * AN ALLOWLIST AND NO PROVIDER NAMED, which is a real state rather than a
  * half-built one: they are two settings and neither is derivable from the other
@@ -1715,8 +1728,8 @@ async function aCatalogueSafeToEdit(wikiUrl: string) {
 }
 
 /**
- * A TENTH INSTANCE, and what is new about it is that IT CAN BE SCOPED
- * (CNCORE-178).
+ * AN ELEVENTH INSTANCE -- the tenth through `anInstanceServing` -- and what is
+ * new about it is that IT CAN BE SCOPED (CNCORE-178).
  *
  * `aCatalogueSafeToEdit`'s reason, one construct along, and it bites HARDER
  * here than for a title. A Group is a catalogue-wide fact: `group.list` answers

@@ -50,9 +50,13 @@ if the list were not closed.
 Verified against source on 2026-09-10; corrections applied. Working in `docs/research/verify-adr-plex.md`.
 ## As built, under CNCORE-178 — and this record stays PROPOSED
 
-**BUILT: the group, and nothing it scopes.** Migration 19 adds `groups` — an id, the Owner's name
-and nothing else — and `group_items`, which is the many-to-many table this record's first sentence
-asks for. The Owner creates, names, renames and deletes a scope from `/groups`, puts an Item in one
+**BUILT: the group, and nothing it scopes.** Migration 19 adds `groups` — an id, the Owner's name,
+and the owner id, timestamps, tombstone and change sequence every table in this catalogue carries
+(ADR-0044, ADR-0075) — and `group_items`, which is the many-to-many table this record's first
+sentence asks for and which carries ADR-0040's merge stamp besides. **"Nothing else" means no
+SCOPING column**, which is this record's subject: no medium, no field set, no vocabulary, no source
+order, no root. It is not a claim that the table is two columns wide, which is how an earlier draft
+of this sentence read and which review caught against criterion five of the ticket. The Owner creates, names, renames and deletes a scope from `/groups`, puts an Item in one
 from the Item's own page, and puts ONE ITEM IN SEVERAL at once, which is the case the whole decision
 rests on. Deleting a group tombstones it and its memberships in one transaction and names no Item at
 all: the function does not mention `items`, which is the strongest form that promise can take.

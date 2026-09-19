@@ -53,9 +53,18 @@ export const group = {
    * here, because an order decided at the caller is an order each caller
    * decides differently.
    */
-  list: openProcedure
-    .output(groupsPublic)
-    .handler(async ({ context }) => ({ groups: await findGroups(context.db) })),
+  list: openProcedure.output(groupsPublic).handler(async ({ context }) => ({
+    // ADR-0045 NAMES EVERY FIELD, so the rows are mapped rather than spread
+    // -- the same line `item.get` takes for the same list one router over.
+    // Spreading works today because `findGroups` selects exactly these two
+    // columns, and it is the strip-list that record refuses: a column added
+    // to `groups` later would ride out on this payload without a line being
+    // written for it. Review caught the two conventions in one change.
+    groups: (await findGroups(context.db)).map((group) => ({
+      id: group.id,
+      name: group.name,
+    })),
+  })),
 
   /**
    * THE OWNER DRAWING A SCOPE, named in their own words (stories 30 and 31).

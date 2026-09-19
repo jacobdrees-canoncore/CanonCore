@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import {
@@ -10,6 +10,7 @@ import {
   findItem,
   GroupRefused,
   groupItems,
+  items,
   putItemInGroupByHand,
   renameGroupByHand,
   takeItemOutOfGroupByHand,
@@ -219,6 +220,37 @@ describe("what the catalogue refuses", () => {
 
     await expect(
       putItemInGroupByHand(db, { groupId: group, itemId: crypto.randomUUID() }),
+    ).rejects.toBeInstanceOf(GroupRefused);
+  });
+});
+
+describe("a Group the Owner deleted", () => {
+  it("refuses an Item put into it, rather than reporting success and showing nothing", async () => {
+    // THE TRAP `renameGroupByHand` CLOSES, ON THE OTHER WRITE. A tombstone
+    // never removes the row, so `group_items`' foreign key is perfectly happy
+    // to point at a deleted Group -- and `findGroupsOfItem` then filters it
+    // out, which is the Owner told it worked while the page shows nothing
+    // (ADR-0075, ADR-0066). Reachable from a second tab or a stale form.
+    const group = await createGroupByHand(db, { name: "A deleted scope" });
+    const story = await anItem(db);
+    await deleteGroupByHand(db, group);
+
+    await expect(
+      putItemInGroupByHand(db, { groupId: group, itemId: story }),
+    ).rejects.toBeInstanceOf(GroupRefused);
+    expect(await findGroupsOfItem(db, story)).toStrictEqual([]);
+  });
+
+  it("refuses an Item the Owner deleted, which is the same hole at the other end", async () => {
+    // BOTH ENDS TOMBSTONE, so both ends need the check. Asserted separately
+    // rather than trusted to the one above, because they are two foreign keys
+    // and a guard written for one of them looks complete.
+    const group = await createGroupByHand(db, { name: "A scope for a gone Item" });
+    const story = await anItem(db);
+    await db.update(items).set({ deletedAt: sql`now()` }).where(eq(items.id, story));
+
+    await expect(
+      putItemInGroupByHand(db, { groupId: group, itemId: story }),
     ).rejects.toBeInstanceOf(GroupRefused);
   });
 });

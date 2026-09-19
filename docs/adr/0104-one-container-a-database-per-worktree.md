@@ -177,7 +177,9 @@ migrator, and the root export is what the web app bundles — re-exporting that 
 decision above is untouched by this; what it needed was a number nobody had put on it.
 
 `pnpm test:e2e` stands up TEN CanonCore servers at once, each a real app process holding the pool a
-real one holds, against ten databases in this container. That is ONE worktree. The whole point of
+real one holds, against ten databases in this container. That is ONE worktree. (ELEVEN since
+CNCORE-178, which added a scopable instance; the arithmetic below is the ten it was measured on, and
+the re-measurement at eleven is at the end of this section.) The whole point of
 the decision above is that the next worktree's ten live here too, and the default budget of 100 is
 for all of them together.
 
@@ -238,6 +240,17 @@ that were actually sampled and no split between the two is claimed.
 
 **The agent ceiling moves from 2 to 4.** `288 / 103 = 2.79` before and `288 / 60 = 4.80` after, both
 flooring the worst observed peak.
+
+**RE-MEASURED AT ELEVEN SERVERS, 2026-09-19, under CNCORE-178 and with the same sampler: 67.** That
+ticket added a scopable instance, because a Group is a catalogue-wide fact and there is nowhere on a
+shared instance for a scope to be private. The breakdown at the peak tick: `_test_web` 11, then 7,
+7, 7, `_test_group` 6, 6, 6, 4, 4, 3, 2, 2, and `postgres` 2. The ceiling still floors to four
+(`288 / 67 = 4.29`), and CI — one `postgres:18` per job, one worktree against it, the default 100 —
+has room. **WHAT THIS CORRECTS IS A REFUSAL, NOT THE NUMBER.** `apps/web/e2e/global-setup.ts` and
+ADR-0094 both refused an eleventh server citing "about a hundred client connections" from this
+record, which is the UNBOUNDED row of the table above; CNCORE-137 superseded it in the row beneath
+and neither sentence was updated, so a stale figure went on refusing work for two revisions. Both
+are corrected in place.
 
 **AND 288 IS THE CONSERVATIVE READING OF A QUESTION THE OWNER'S DOCS DO NOT ANSWER.** It is
 `max_connections` 300 less 3 superuser-reserved less the ~9 background backends, which is

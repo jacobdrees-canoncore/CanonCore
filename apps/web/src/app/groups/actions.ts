@@ -73,12 +73,22 @@ const deletedGroup = z.object({ id: z.string() });
 /**
  * Deleting a scope, WHICH TAKES NO ITEM WITH IT (ADR-0010, story 34).
  *
- * NO CONFIRMATION IN FRONT OF IT, and that is ADR-0046's test applied rather
- * than skipped: what makes an action safe is what it costs to undo, and this
- * costs the Owner the scope's own membership list and nothing else. Every Item
- * is exactly where it was, in every Ordering and every other Group. The page
- * says so beside the button, because a reader deciding whether to press it is
- * the reader who needs that sentence.
+ * TODO(CNCORE-210): THIS DELETE IS PERMANENT AND CARRIES NO CONFIRMATION, and
+ * ADR-0046 asks for one. An earlier draft of this docstring claimed the record
+ * endorsed the omission -- "ADR-0046's test applied: what makes an action safe
+ * is what it costs to undo" -- and THAT TEST IS NOT IN THE RECORD. What it
+ * actually says is "DELETE PERMANENTLY keeps a confirmation that is never
+ * dismissible by accident", against "REMOVE FROM THIS CONTAINER gets no dialog
+ * at all and offers undo instead". Taking an Item out of a Group is the second
+ * kind and rightly has no dialog; deleting the Group is the first kind, and
+ * there is no restore procedure for one.
+ *
+ * WHAT IS TRUE IS THE MITIGATION, NOT THE EXEMPTION: deleting a scope takes no
+ * Item with it, so what it costs is the scope's own membership list, and the
+ * page says so above the button. That is why this ships without the dialog
+ * rather than why it does not need one -- ADR-0046 rules on deleting an ITEM
+ * and has never been applied to a Group, so the confirmation is owed and is a
+ * surface of its own (CNCORE-69 built the purge's, which is the pattern).
  */
 export async function deleteGroup(form: FormData): Promise<void> {
   const input = whatTheFormCarries(form, deletedGroup);

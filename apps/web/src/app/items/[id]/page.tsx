@@ -631,9 +631,8 @@ async function Groups({
         <ul className="mt-2 flex flex-col gap-2">
           {groups.map((group) => (
             <li className="flex items-center gap-3 text-sm" key={group.id}>
-              <span data-group-id={group.id} data-group-name="">
-                {group.name}
-              </span>
+              {/* One marker, for the reason `/groups` gives beside its own. */}
+              <span data-group-id={group.id}>{group.name}</span>
               {owner && (
                 <section aria-labelledby={`take-out-of-group-${group.id}`}>
                   <h3 className="sr-only" id={`take-out-of-group-${group.id}`}>

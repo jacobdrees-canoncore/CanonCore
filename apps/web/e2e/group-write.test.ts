@@ -52,9 +52,22 @@ async function pageText(path: string): Promise<string> {
  * page whose list had gone.
  */
 function scopesIn(text: string): string[] {
-  return [...text.matchAll(/data-group-name[^>]*>([^<]*)</g)].map(
+  return [...text.matchAll(/data-group-id="[^"]*"[^>]*>([^<]*)</g)].map(
     (found) => found[1]?.trim() ?? "",
   );
+}
+
+/**
+ * A scope's name as a regex LITERAL, for the two readers below that build a
+ * pattern from one.
+ *
+ * ESCAPED RATHER THAN INTERPOLATED RAW, which review asked for. Every name this
+ * file uses is one it wrote itself and none carries a metacharacter, so nothing
+ * is broken today -- and the day one carries a bracket, the failure is a
+ * pattern that quietly matches the wrong row rather than an error that says so.
+ */
+function literal(name: string): string {
+  return name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 /**
@@ -67,9 +80,7 @@ function scopesIn(text: string): string[] {
  * of what is under test.
  */
 function idOfScope(text: string, name: string): string {
-  const found = new RegExp(
-    `data-group-id="([^"]+)"[^>]*data-group-name[^>]*>\\s*${name}\\s*<`,
-  ).exec(text);
+  const found = new RegExp(`data-group-id="([^"]+)"[^>]*>\\s*${literal(name)}\\s*<`).exec(text);
   if (!found?.[1]) throw new Error(`no scope called ${name} is named on this page`);
   return found[1];
 }
@@ -98,7 +109,7 @@ async function drawAScope(name: string): Promise<string> {
  */
 async function aScopeCalled(name: string): Promise<string> {
   const listed = sectionIn(await pageText("/groups"), "groups");
-  if (new RegExp(`data-group-name[^>]*>\\s*${name}\\s*<`).test(listed)) {
+  if (new RegExp(`data-group-id="[^"]*"[^>]*>\\s*${literal(name)}\\s*<`).test(listed)) {
     return idOfScope(listed, name);
   }
   return idOfScope(sectionIn(await drawAScope(name), "groups"), name);

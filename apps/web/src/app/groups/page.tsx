@@ -145,12 +145,15 @@ function DrawAGroup() {
 function Group({ group, owner }: { group: GroupOnThePage; owner: boolean }) {
   return (
     <li className="py-3">
-      <h3
-        className="font-medium"
-        data-group-id={group.id}
-        data-group-name=""
-        id={`group-${group.id}`}
-      >
+      {/*
+        `data-group-id` IS THE ONE MARKER, and it is here because the page-seam
+        suite reads this list back by it (`group-write.test.ts`). It used to sit
+        beside a `data-group-name=""` that carried no name, which review called
+        what it was: an attribute whose own name says it holds something it does
+        not. The id is enough to find the element, and the heading's text is the
+        name -- which is what a reader sees.
+      */}
+      <h3 className="font-medium" data-group-id={group.id} id={`group-${group.id}`}>
         {group.name}
       </h3>
       {owner && (

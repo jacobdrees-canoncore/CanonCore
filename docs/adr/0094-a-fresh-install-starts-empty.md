@@ -224,8 +224,9 @@ does not hide its surface, only its buttons (ADR-0072), so a notice stands where
 — and a notice only renders where there is a control, which needs a provider this instance is
 configured to reach. THREE servers in the suite set no owner password, and all three also reach
 nothing: no instance here is in the combination that half needs, which is no password AND a provider
-configured. A fourth would recover it and ADR-0104 refuses an eleventh server, for the connection
-budget this record already cites above. (The first draft of this paragraph said the fresh install
+configured. A fourth would recover it, and the eleventh server this record twice
+said ADR-0104 refuses is now standing (CNCORE-178) — so the refusal below is corrected rather than
+repeated here, and what is still missing is a server nobody has had reason to add. (The first draft of this paragraph said the fresh install
 was the ONLY password-less server. It is not — `aCatalogueLargerThanOnePage` and
 `aCatalogueThatHoldsStill` set none either — and the sentence is corrected rather than merely
 softened, because a false reason for a true conclusion is the thing this record keeps being caught
@@ -245,10 +246,16 @@ allowlist states, and rendering them now needs an owner. `anInstanceAllowlistedA
 so the half CNCORE-131 built the fixture for still fails a page gated on `!providers.any`. The other
 half — an owner, an empty catalogue, NOTHING allowlisted — has no instance: the only empty
 unallowlisted instance here is the fresh install, whose whole fixture is that nobody can log in to
-it. An ELEVENTH server would recover it — the suite starts ten — and ADR-0104 refuses one: under
-"What sharing one container costs, and the ceiling nobody had counted" it measured on 2026-09-13
-that a single run of this suite already peaks at about a hundred client connections, which is the
-whole of the default budget CI's own `postgres:18` service gets.
+it. A TWELFTH server would recover it — the suite starts ELEVEN since CNCORE-178 — and the
+refusal this paragraph rested on has expired. It read that ADR-0104 refuses an eleventh, because
+under "What sharing one container costs, and the ceiling nobody had counted" it measured on
+2026-09-13 that a single run peaks at about a hundred client connections, the whole of the default
+budget CI's own `postgres:18` service gets. **A HUNDRED WAS THE UNBOUNDED FIGURE, AND CNCORE-137
+SUPERSEDED IT IN THAT SAME RECORD** by bounding each server's pool to four: 55 to 60 bounded against
+91 to 103 before. Re-measured 2026-09-19 with the eleventh standing, same sampler: **67**. So the
+budget was never what kept this gap open after CNCORE-137, and saying so is the point — the gap is
+open because no ticket has wanted that instance, which is a different and much weaker reason than
+the one written here for two revisions.
 
 **WHAT `accepted` DOES NOT ASSERT, BECAUSE THE TITLE IS TWO REFUSALS AND ONLY ONE HAS MET AN
 INSTANCE.** "Never shipped" is the half above, walked. "Never demoed" is not: there IS no public

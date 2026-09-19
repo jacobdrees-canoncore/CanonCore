@@ -2,7 +2,7 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 
 import type { Database } from "./index";
 import { isRefusalOn, theOwnerId, type Writer } from "./placements";
-import { groupItems, groups } from "./schema";
+import { groupItems, groups, items } from "./schema";
 
 /**
  * THE CATALOGUE REFUSING WHAT THE OWNER ASKED FOR, as opposed to failing to
@@ -143,12 +143,25 @@ export async function renameGroupByHand(
  * where a Provider already placed it would otherwise corroborate the Provider
  * rather than making their own claim. Nothing asserts a Group but the Owner, so
  * there is no second Source here to be mistaken for.
+ *
+ * AND BOTH ENDS ARE CHECKED LIVE FIRST, WHICH THE FOREIGN KEYS CANNOT DO. A
+ * tombstone is not a DELETE (ADR-0075), so `group_items`' references resolve
+ * perfectly well to a Group the Owner deleted or an Item they removed -- the
+ * row would be written, this would answer success, and `findGroupsOfItem` would
+ * then hide it again because it honours both tombstones. That is the Owner told
+ * it worked while the page shows nothing changed, which is exactly the trap
+ * `renameGroupByHand` above closes on the other write, and it is reachable from
+ * two tabs or one stale form. Found by review.
  */
 export async function putItemInGroupByHand(
   writer: Writer,
   { groupId, itemId }: { groupId: string; itemId: string },
 ): Promise<string> {
   try {
+    if (!(await isLive(writer, groups, groupId)) || !(await isLive(writer, items, itemId))) {
+      throw new GroupRefused("the catalogue holds no such live Group or Item");
+    }
+
     const ownerId = await theOwnerId(writer);
     const [written] = await writer
       .insert(groupItems)
@@ -161,7 +174,11 @@ export async function putItemInGroupByHand(
     if (!written) throw new Error("insert returned no row in group_items");
     return written.id;
   } catch (cause) {
-    // NARROWED, SO A FAULT STAYS A FAULT.
+    // NARROWED, SO A FAULT STAYS A FAULT. The liveness refusal above is already
+    // a `GroupRefused` and passes through untouched; this is the RACE the check
+    // cannot close -- a Group deleted between the check and the insert -- which
+    // the foreign key does catch, and which is the same refusal either way.
+    if (cause instanceof GroupRefused) throw cause;
     if (isRefusalOn(REFUSALS, cause)) {
       throw new GroupRefused("the catalogue refused that Item in that Group", { cause });
     }
@@ -270,4 +287,24 @@ export async function deleteGroupByHand(db: Database, id: string): Promise<boole
 
     return true;
   });
+}
+
+/**
+ * Whether that id addresses a row anybody can still read.
+ *
+ * ONE HELPER OVER BOTH TABLES, because the question is the same one twice and
+ * `by-hand.ts` already has `isALiveItem` for its own half -- a third copy of
+ * "is the tombstone null" is a third place for the next tombstoned table to be
+ * added to one of them and not the others.
+ */
+async function isLive(
+  writer: Writer,
+  table: typeof groups | typeof items,
+  id: string,
+): Promise<boolean> {
+  const [found] = await writer
+    .select({ id: table.id })
+    .from(table)
+    .where(and(eq(table.id, id), isNull(table.deletedAt)));
+  return found !== undefined;
 }
