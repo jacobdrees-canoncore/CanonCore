@@ -13,7 +13,13 @@ the frontier, and hand it back.
 ## The loop
 
 Run `monitor.sh` (beside this file) under the Monitor tool, `persistent: true`, with `SCRATCH` set.
-It wakes you on change and never on a heartbeat. One pass per event. Its header names every line it
+It wakes you on change and never on a heartbeat. One pass per event.
+
+**THE WATCH CAN END WITHOUT FAILING.** `persistent: true` is not always honoured: on 2026-09-19 the
+tool capped it at 30 minutes three times running and said so only in its start message. The one
+notice at expiry is easy to read as another event. Re-arm on that notice, with the same `SCRATCH`
+so the diff resumes instead of re-announcing the board. A merged change to `monitor.sh` also does
+nothing until you stop the running watch and start it again. Its header names every line it
 emits; `ROOM` and `IDLE` are read under **How full**, the `DRIFT-` lines under **Drift**.
 
 **1. Read the diff, then re-check its central claim.** A green check is not a review, and the PR's

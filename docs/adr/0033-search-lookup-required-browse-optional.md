@@ -635,10 +635,11 @@ something an owner can read rather than something the code happens to do.
 **WHERE A CONTAINER ID COMES FROM, HELD TO FROM THE OTHER SIDE.** The CNCORE-17 section above decided
 that the owner names it, because no CMPP operation answers "which containers do you have" -- one does
 since CNCORE-185, no provider answered it with a container until CNCORE-208 on 2026-09-19 (the
-CNCORE-186 section below), and nothing in this app asks it until CNCORE-187 -- and a
-record's `series` is a name that can be renamed out from under an import. The surface obeys it
-literally: the owner picks a provider and types the container's own id. That is the one field on this
-page somebody types, and it is the one that can be wrong -- which is why the same section's named
+CNCORE-186 section below), and this app asks it since CNCORE-187 (the CNCORE-187 section below)
+-- and a record's `series` is a name that can be renamed out from under an import. The surface
+obeyed it literally until CNCORE-187: the owner picked a provider and typed the container's own id.
+They still do at a provider that declines `containers`, and anywhere for a container a list leaves
+out. That is the one field on this page somebody types, and it is the one that can be wrong -- which is why the same section's named
 refusals matter more now than when they were written. **A provider that declines `browse` and an id
 that addresses no container reached the owner as neither: the surface this section describes threw
 all three declared errors away and answered a bare `Internal Server Error`, eighteen bytes of plain
@@ -655,7 +656,10 @@ collection is `collection:2344` somewhere outside the product, which is the same
 to knock down one level up. **It is still not proposed here**, because the cheaper fix is nearer: a
 record already carries `series` and `series_id`, and `series_id` IS a browsable container id at both
 providers -- so the candidate an owner is looking at could offer its own container without any new
-operation. Whatever builds that is where the choice gets made.
+operation. Whatever builds that is where the choice gets made. **THAT WAS FALSE OF BOTH PROVIDERS'
+SEARCHES**: the paragraph below finds the wiki sends no `series_id`, and CNCORE-187 found
+`provider-tmdb` sends it on a lookup and a browse and NEVER on a search, so no candidate can offer its
+container at either (the CNCORE-187 section below).
 
 **THAT REASON IS WRONG, AND THE OPERATION IS PROPOSED AFTER ALL (CNCORE-185).** Checked 2026-09-13:
 `provider-wiki` emits no `series_id` anywhere -- the string does not occur in one of its source files
@@ -667,9 +671,10 @@ provider whose records have one parent, and the provider this catalogue is built
 
 So both are owed, and they answer different questions. `series_id` should stop being stripped by the
 consumer schema, which is this record's own unbuilt half below wearing a different hat -- a declared
-field travelling the wire and read by nothing. And an operation that LISTS containers is what serves
-a provider whose containers no record can name: it is `containers`, declared under CNCORE-185 in the
-last section of this record. Neither is what keeps this record `proposed`: that is
+field travelling the wire and read by nothing. It stopped under CNCORE-187 and is still read by
+nothing, for the reason the CNCORE-187 section below gives. And an operation that LISTS containers is what serves
+a provider whose containers no record can name: it is `containers`, declared in the CNCORE-185 section
+below. Neither is what keeps this record `proposed`: that is
 still `max_cache_age` and the image policy, and landing either of these does not flip it.
 
 **A NEW CALLER OF `search` THAT IS NOT A SEARCH.** `provider.held` asks which of a provider's records
@@ -867,9 +872,10 @@ CANONCORE'S, answered by a PROCEDURE to its own caller after reading the manifes
 says so itself, that they "are codes of this app's own rather than common defs". No provider has
 ever answered `BROWSE_NOT_OFFERED`, and none can. So the 422 rule governs the app's layer and this
 404 governs the provider's, and they are not in competition. **THE STATUS OF ITS OWN THAT AN OWNER
-READS IS STILL OWED, AND IT IS CNCORE-187'S**, where a surface asks and a Provider that declines has
-to say so to a person. What the contract fixes here is narrower and is the half that had to come
-first: the wire answer, which rules out the empty list and the fault.
+READS WAS OWED TO CNCORE-187**, where a surface asks and a Provider that declines has to say so to a
+person, and it turned out not to be a status: the CNCORE-187 section below says why it is an
+answer at 200. What the contract fixes here is narrower and is the half that had to come first: the
+wire answer, which rules out the empty list and the fault.
 
 **WHAT IS NOT ASSERTED IS THE DECLINER'S BODY**, where a declared refusal's is. Both real providers
 answer their framework's plain-text 404 here, and requiring JSON would be the contract obliging a
@@ -881,10 +887,11 @@ ticket's, and saying so is cheaper than leaving a rule half-applied and unremark
 CNCORE-186 is where ONE does -- this said "where both do" and was wrong when it was written, which
 the section below sets out: `provider-wiki` answers and `provider-tmdb` declines, because TMDB
 publishes no bounded enumeration of its containers and this operation carries no cursor. CNCORE-187
-is where a surface asks. Nothing in this repository calls
-it, and `packages/contract` depends on no `@canoncore/*` package, so nothing could. Half a mechanism
-looks finished from outside, so it is written here: what exists today is a shape, a declaration rule
-and a conformance suite that would hold a provider to both.
+is where a surface asks, and the CNCORE-187 section below is that. When this landed nothing in
+this repository called it, and `packages/contract` still does not: it depends on no `@canoncore/*`
+package, so nothing there could. Half a mechanism looks finished from outside, so it was written
+here: what existed then was a shape, a declaration rule and a conformance suite that would hold a
+provider to both.
 
 **SO A THIRD CONFORMANCE WITNESS STANDS FOR THE OFFERED BRANCH**, exactly as the first stands for
 `browse`'s declined one and for the same reason. On the day the contract landed, NOTHING under test
@@ -1031,3 +1038,65 @@ and its `?? []` turns the refusal into `200 {"containers":[]}`.
 **STILL NOT BUILT, AND STILL THE ONLY REASON THIS RECORD IS `proposed`:** the declared fields.
 `max_cache_age` and the image policy travel the wire from two providers and are read by nothing.
 Seven sections have now said so.
+
+
+## And under CNCORE-187: the Owner picks a Container -- and this record STILL STAYS PROPOSED
+
+**THE APP'S HALF OF `containers` LANDED.** `/import` asks the Provider the Owner picks which
+Containers it holds and offers them to pick from. `provider.containers` reads the manifest first and
+asks only a Provider declaring the operation, as `browse` is read, and it answers one of three
+things, as `provider.container` does: the containers, `containers-not-offered`, or `unreachable` with
+the Provider's own bounded sentence ([[0123-a-failure-reason-is-bounded-and-says-who-wrote-it]]). A
+lapsed Credential's `503` naming `/unlock`, which the CNCORE-186 section measured live at this path,
+reaches the Owner as that sentence and never as an empty list.
+
+**THE STATUS OF ITS OWN THAT AN OWNER READS, WHICH THE CNCORE-185 SECTION SAID WAS OWED, IS NOT A
+STATUS.** `containers-not-offered` is an ANSWER at 200, beside `provider.container`'s
+`browse-not-offered`, for that procedure's reason: the caller is a page being read, and a declared
+error on a read puts the outcome back on the throwing path CNCORE-92 took these off. The page says
+"provider-tmdb does not list the containers it holds, so name the one you want by its own id", and
+the id field stays under it.
+
+**OPEN, BY [[0131-an-outbound-read-that-costs-a-browse-is-the-owners]]'s RULE RATHER THAN AN
+EXCEPTION TO IT.** A read is the Owner's when it spends a third party's time, and the line is the
+`patient` cap. This one is `brief`. Measured 2026-09-19 against `provider-wiki`'s published image,
+`GET /containers` answered `200` with 465 containers, 465 distinct ids and 90,683 bytes, 0.26s to
+first byte, where a search measured 0.25s. So it is `provider.search`'s case. The preview a picked
+row leads to is `provider.container`, which stays the Owner's.
+
+**WALKED BY THIS APP, BECAUSE THE PROVIDER'S ANSWER IS WHOLE.** The operation carries no cursor, so
+every page is cut from one answer, in the Provider's own order, by
+[[0119-a-listing-is-walked-forward-from-the-last-item-it-showed]]'s cursor: the Provider's id for
+the last container a page showed, and for a step back the first. A cursor naming nothing it listed
+starts the list over, a step back that reaches the start answers the first page whole, and the page
+is a Listing's cap, which a caller may not raise. The cost is the whole list read again for every
+page, 90,683 bytes at the wiki. A cursor added to CMPP later is an optional field (ADR-0032) and
+would remove it; nothing measured needs one.
+
+**PICKED FROM THE LIST IS BROWSED BY ID, WHICH IS HOW IT LANDS THE SAME.** A picked row leads to
+`/import?provider=<url>&container=<id>`, the address the id box reaches, so the preview and the
+button are the ones CNCORE-92 built and the write is `browse`. Asserted at the page seam: the row's
+link is that address, and following it imports `Theory:Timeline - "War Child" Master`'s five
+members in the wiki's own order, which is not their release order.
+
+**THE ID BOX STAYS, UNDER EVERY ANSWER.** For a decliner it is the only way in. For `provider-wiki`
+it reaches what the list leaves out, because the CNCORE-186 section narrowed `containers` to what the
+source asserts as one: its categories browse and are not listed.
+
+**`series_id` STOPPED BEING STRIPPED AND IS READ BY NOTHING, AND THE REASON FOR READING IT WAS FALSE
+AT THE SECOND PROVIDER TOO.** The CNCORE-68 section expected a search candidate to offer its own
+container through it. `provider-tmdb` sends `series_id` on a lookup and a browse and NEVER on a
+search: read at `46a1189`, `searchResultToRecord` hardcodes `series_id: null`, because TMDB's
+multi-search carries no collection and filling one would cost a request per result. So no candidate
+can offer its container at either provider. This suite's TMDB stub answered a search with a
+lookup's record, `series_id` included, and was corrected to answer as the image does. The consumer
+schema keeps the field, asserted on a lookup at the package export; what reads it is CNCORE-238,
+one lookup when the Owner asks rather than one per result. The dispatcher chose that over building
+the reader here, 2026-09-19.
+
+**NOT BUILT: an import run over what a Provider lists.** `provider.beginImportRun` still takes the
+Owner's own list ([[0135-an-import-run-is-rows-and-the-walk-is-one-container-a-call]]).
+
+**STILL NOT BUILT, AND STILL THE ONLY REASON THIS RECORD IS `proposed`:** the declared fields.
+`max_cache_age` and the image policy travel the wire from two providers and are read by nothing.
+Eight sections have now said so.

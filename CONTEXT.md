@@ -73,8 +73,9 @@ _Avoid_: search, unqualified
 **Listing**:
 What a capped list answers with: a page of rows, how many there are altogether, how many sort before
 the page, and where the list carries on. Every list in CanonCore is one, over items or over
-placements alike. How many sort before the page is where the reader IS (ADR-0133), emitted as
-`rowsBefore`, and never an address: nothing takes it back as a number of rows to skip.
+placements alike -- and over the Containers a Provider holds, which the Provider answers whole and
+`/import` walks a page at a time. How many sort before the page is where the reader IS (ADR-0133),
+emitted as `rowsBefore`, and never an address: nothing takes it back as a number of rows to skip.
 
 **Order**:
 The sequence a Listing is read in: the keys it sorts on, most significant first, and the id behind
@@ -374,8 +375,9 @@ _Avoid_: list (a Listing is a different thing), discovery, index
 **Import run**:
 One walk over a LIST of Container ids at one Provider, and where it got to. The list is the Owner's
 own -- CMPP has declared an operation answering "which Containers do you have" since CNCORE-185,
-`provider-wiki` answers it since CNCORE-208, and nothing in this app asks it until CNCORE-187 -- and
-the walk browses one Container at a time because a Provider is one process. A Container of a run is done when it has LANDED, so
+`provider-wiki` answers it since CNCORE-208, and `/import` asks it since CNCORE-187 so the Owner can
+pick ONE, but a run does not ask it -- and the walk browses one Container at a time because a
+Provider is one process. A Container of a run is done when it has LANDED, so
 handing the same list over again asks again for whatever refused as well as for whatever was never
 reached: a lapsed Credential does not stop a run, it makes the rest of it refuse (ADR-0135).
 _Not_ the Run below, which is one execution of a Task. An import run is something the Owner starts,

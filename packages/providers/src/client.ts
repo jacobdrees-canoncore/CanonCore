@@ -13,10 +13,12 @@ import {
 } from "./boundary";
 import {
   type CmppBrowse,
+  type CmppContainers,
   type CmppManifest,
   type CmppRecord,
   type CmppSearch,
   cmppBrowse,
+  cmppContainers,
   cmppManifest,
   cmppRecord,
   cmppSearch,
@@ -47,6 +49,12 @@ export interface ProviderClient {
    * because "may I" and "how" are two questions and only the second is here.
    */
   browse(id: string): Promise<CmppBrowse | null>;
+  /**
+   * The containers the provider's source asserts, as records. OPTIONAL OF A
+   * PROVIDER and declared, as `browse` is (ADR-0033), so a caller asks the
+   * manifest before calling for the reason given there.
+   */
+  containers(): Promise<CmppContainers>;
   close(): Promise<void>;
 }
 
@@ -361,6 +369,11 @@ export function createProviderClient({
     // together -- an operation gets the longer cap BECAUSE it returns an ordering
     // whose size is the source's business rather than this client's.
     browse: (id) => readOrNull(`/browse/${encodeURIComponent(id)}`, cmppBrowse, "patient"),
+    // BRIEF, BECAUSE IT IS MEASURED AS BRIEF. `provider-wiki` answered all 465
+    // of its timelines in 0.26s to first byte and 90,683 bytes on 2026-09-19,
+    // beside a search's 0.25s. A provider that cannot answer its containers in
+    // one quick call declines the operation (ADR-0033 under CNCORE-186).
+    containers: () => read("/containers", cmppContainers, "brief"),
     async close() {
       // ALL FOUR, and a missed one leaks its sockets until the process ends. The
       // grid is walked rather than listed for exactly that reason: a fifth
