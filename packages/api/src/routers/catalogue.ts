@@ -25,6 +25,13 @@ const listingInput = z.object({
   /** ADR-0119's cursor, written once for every listing in `./listing`. */
   after: aCursor,
   /**
+   * THE STEP BACK (CNCORE-174): the first Row of the page a reader is on, and
+   * the answer is the page that ends short of it. The cursor read from the
+   * other end, so the same declaration and the same rule for one naming
+   * nothing.
+   */
+  before: aCursor,
+  /**
    * THE GROUP A READER HAS NARROWED THE LISTING TO (ADR-0010), on all three
    * questions: the Catalogue since CNCORE-179, and work-browsing and Catalogue
    * search since CNCORE-180. It was on `list` alone while it was the only
@@ -43,6 +50,24 @@ const listingInput = z.object({
    */
   group: z.string().optional(),
 });
+
+/**
+ * What the two Listings FILED BY NAME take: everything above, and a letter to
+ * jump to (CNCORE-174).
+ *
+ * THE FIRST ROW FILED UNDER IT, or the first after it where nothing is -- a
+ * SEEK on the sort key the walk already reads, and no offset: ADR-0119 names
+ * the A-Z jump as the navigation that fits a keyset walk, where a numbered
+ * page does not. A string rather than one of 26, for `aCursor`'s reason: any
+ * value is a place in the alphabet, and a reader typing `?letter=Ma` is asking
+ * a question with an answer.
+ *
+ * NOT ON CATALOGUE SEARCH, which is why this is an extension rather than a
+ * line in `listingInput`. A ranking leads on how close a title is to what a
+ * reader typed, so nothing in it is FILED under a letter, and a jump there
+ * would be a seek on the wrong key.
+ */
+const filedByNameInput = listingInput.extend({ letter: z.string().optional() });
 
 /**
  * What Catalogue search takes: the same ceiling, the same cursor, the same
@@ -89,13 +114,15 @@ export const catalogue = {
    * is `works` below rather than this one with a flag on it.
    */
   list: openProcedure
-    .input(listingInput)
+    .input(filedByNameInput)
     .output(cataloguePublic)
     .handler(async ({ input, context }) => {
       const listing = await readCatalogue(context.db, {
         limit: input.limit,
         after: input.after,
+        before: input.before,
         group: input.group,
+        letter: input.letter,
       });
       return asListing(listing);
     }),
@@ -117,13 +144,15 @@ export const catalogue = {
    * the cap, the cursor and `continuesAfter` included (ADR-0119).
    */
   works: openProcedure
-    .input(listingInput)
+    .input(filedByNameInput)
     .output(cataloguePublic)
     .handler(async ({ input, context }) => {
       const listing = await readWorks(context.db, {
         limit: input.limit,
         after: input.after,
+        before: input.before,
         group: input.group,
+        letter: input.letter,
       });
       return asListing(listing);
     }),
@@ -157,6 +186,7 @@ export const catalogue = {
         query: input.query,
         limit: input.limit,
         after: input.after,
+        before: input.before,
         group: input.group,
       });
       return asListing(found);
@@ -172,8 +202,8 @@ export const catalogue = {
  * them. Written ONCE for all THREE questions, so they cannot come to disagree
  * about what a listing is.
  */
-function asListing({ rows, total, continuesAfter }: Catalogue): CataloguePublic {
-  return { rows: rows.map(asRow), total, continuesAfter };
+function asListing({ rows, total, continuesAfter, continuesBefore }: Catalogue): CataloguePublic {
+  return { rows: rows.map(asRow), total, continuesAfter, continuesBefore };
 }
 
 /**

@@ -9,7 +9,15 @@ import {
   placementSources,
   placements,
 } from "./index";
-import { anItemTitled, aPlacement, aProvider, connect, ownerSource } from "./testing/catalogue";
+import {
+  aContainerLargerThanOnePage,
+  anItemTitled,
+  aPlacement,
+  aProvider,
+  connect,
+  ownerSource,
+  someStories,
+} from "./testing/catalogue";
 
 let db: Database;
 
@@ -422,6 +430,56 @@ async function walkEveryMemberOf(containerId: string, limit: number): Promise<st
   }
   throw new Error(`the walk never ended: ${walked.length} placements`);
 }
+
+describe("findPlacementsInContainer, stepped back", () => {
+  it("steps back from every member to the one before it, across the tie, the Repeat and the Unplaced", async () => {
+    // THE STEP BACK OVER A CONTAINER'S OWN ORDER (CNCORE-174), from every Row
+    // so every boundary is crossed rather than whichever a page size falls on.
+    // The fixture holds each shape this order has: two placements sharing a
+    // position, which only the placement's id separates; a Repeat; and the
+    // Unplaced block, which sorts LAST forward and so comes FIRST read back.
+    const stories = await someStories(db, 8, "A story stepped back through its ordering");
+    const { id } = await aContainerLargerThanOnePage(db, {
+      title: "An ordering stepped back through",
+      holding: stories,
+    });
+    const order = (await findPlacementsInContainer(db, id, { limit: 1000 })).rows.map(
+      (placement) => placement.id,
+    );
+
+    const wrong: string[] = [];
+    for (const [at, placement] of order.entries()) {
+      if (at === 0) continue;
+      const { rows } = await findPlacementsInContainer(db, id, { limit: 1, before: placement });
+      if (rows[0]?.id !== order[at - 1]) wrong.push(`${at}: ${rows[0]?.id} for ${order[at - 1]}`);
+    }
+
+    expect(order).toHaveLength(9);
+    expect(wrong).toStrictEqual([]);
+  });
+
+  it("answers the page before, and says nothing comes before the first", async () => {
+    const stories = await someStories(db, 8, "A story on a page stepped back to");
+    const { id } = await aContainerLargerThanOnePage(db, {
+      title: "An ordering stepped back a page",
+      holding: stories,
+    });
+    const first = await findPlacementsInContainer(db, id, { limit: 4 });
+    const second = await findPlacementsInContainer(db, id, {
+      limit: 4,
+      after: first.continuesAfter ?? "",
+    });
+
+    const back = await findPlacementsInContainer(db, id, {
+      limit: 4,
+      before: second.continuesBefore ?? "",
+    });
+
+    expect(second.continuesBefore).toBe(second.rows[0]?.id);
+    expect(back.rows.map((row) => row.id)).toStrictEqual(first.rows.map((row) => row.id));
+    expect(back.continuesBefore).toBeNull();
+  });
+});
 
 describe("findPlacementsInContainer, on who asserted each placement", () => {
   it("tells two sources disagreeing about position from one source saying it twice", async () => {

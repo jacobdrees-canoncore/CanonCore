@@ -504,6 +504,8 @@ describe("item.get on a container", () => {
     // an array can carry the page and cannot carry what the page is not showing.
     expect(Object.keys(placementsOfItemPublic.shape).sort()).toStrictEqual([
       "continuesAfter",
+      // THE STEP BACK (CNCORE-174), the cursor read from the other end.
+      "continuesBefore",
       // IT WENT RED HERE WHEN CNCORE-129 ADDED `everyPlacedBy`, which is the
       // enumeration working: a listing a reader can narrow has to say what it
       // can be narrowed TO, and that is a field because it is a second question
@@ -522,6 +524,8 @@ describe("item.get on a container", () => {
     // this, which is the enumeration working.
     expect(Object.keys(placementsInContainerPublic.shape).sort()).toStrictEqual([
       "continuesAfter",
+      // THE STEP BACK (CNCORE-174), the cursor read from the other end.
+      "continuesBefore",
       "rows",
       "total",
     ]);
@@ -582,6 +586,33 @@ describe("item.get on a container larger than one page", () => {
     // SORTED SETS COMPARE EQUAL EVEN WITH A REPEAT IN THEM, so the one criterion
     // the comparison above cannot see gets its own line.
     expect(new Set(walked).size).toBe(walked.length);
+  });
+
+  it("steps back to the page of members the reader came from", async () => {
+    // THE STEP BACK (CNCORE-174), on the Listing a thousand-member ordering is
+    // walked in -- where "no way back but to start again" is thirty presses.
+    // `before` walks it back as `after` walks it on, and leaves `placedBefore`
+    // to "Also appears in", as the two cursors forward leave each other.
+    const { id } = await aContainerLargerThanOnePage(db, {
+      title: "An ordering the router steps back through",
+      holding: await someStories(db, 120, "A story the router steps back past"),
+    });
+    const first = await call(appRouter.item.get, { id }, { context });
+    const second = await call(
+      appRouter.item.get,
+      { id, after: first.holds.continuesAfter ?? "" },
+      { context },
+    );
+
+    const back = await call(
+      appRouter.item.get,
+      { id, before: second.holds.continuesBefore ?? "" },
+      { context },
+    );
+
+    expect(second.holds.continuesBefore).toBe(second.holds.rows[0]?.id);
+    expect(back.holds.rows).toStrictEqual(first.holds.rows);
+    expect(back.holds.continuesBefore).toBeNull();
   });
 });
 
@@ -1058,6 +1089,28 @@ describe("item.get on an item in more orderings than one page", () => {
 
     expect([...walked].sort()).toStrictEqual(sitsIn.map((p) => p.id).sort());
     expect(new Set(walked).size).toBe(walked.length);
+  });
+
+  it("steps back to the page of orderings the reader came from", async () => {
+    // THE STEP BACK (CNCORE-174) on "Also appears in", which walks with its own
+    // pair: `placedAfter` on, and `placedBefore` back.
+    const { id } = paged;
+    const first = await call(appRouter.item.get, { id }, { context });
+    const second = await call(
+      appRouter.item.get,
+      { id, placedAfter: first.placements.continuesAfter ?? "" },
+      { context },
+    );
+
+    const back = await call(
+      appRouter.item.get,
+      { id, placedBefore: second.placements.continuesBefore ?? "" },
+      { context },
+    );
+
+    expect(second.placements.continuesBefore).toBe(second.placements.rows[0]?.id);
+    expect(back.placements.rows).toStrictEqual(first.placements.rows);
+    expect(back.placements.continuesBefore).toBeNull();
   });
 
   it("narrows to one origin at the query, and counts what the narrowing holds", async () => {

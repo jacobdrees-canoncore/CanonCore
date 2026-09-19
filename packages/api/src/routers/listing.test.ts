@@ -57,8 +57,17 @@ interface AListing {
   readonly page: (input: {
     limit?: number;
     after?: string;
+    before?: string;
     group?: string;
+    letter?: string;
   }) => Promise<CataloguePublic>;
+  /**
+   * WHETHER ITS ROWS ARE FILED UNDER LETTERS, which is whether a jump to one
+   * means anything (CNCORE-174). The two Listings ordered by sort name are;
+   * Catalogue search ranks by closeness to what a reader typed, and nothing in
+   * a ranking is filed under a letter, so it takes none.
+   */
+  readonly filedByName: boolean;
 }
 
 /** What Catalogue search is asked for, and what its own Rows are titled. */
@@ -103,11 +112,13 @@ const EVERY_LISTING: AListing[] = eachAlsoNarrowed([
     procedure: "catalogue.list",
     holds: (db) => aRunAndTheShapesTheOrderHas(db, "Walked by the catalogue's own contract"),
     page: (input) => call(appRouter.catalogue.list, input, { context }),
+    filedByName: true,
   },
   {
     procedure: "catalogue.works",
     holds: (db) => aRunAndTheShapesTheOrderHas(db, "Walked by work-browsing's contract"),
     page: (input) => call(appRouter.catalogue.works, input, { context }),
+    filedByName: true,
   },
   {
     procedure: "catalogue.search",
@@ -123,6 +134,7 @@ const EVERY_LISTING: AListing[] = eachAlsoNarrowed([
     holds: (db) => rowsSharingOneTitle(db, WHAT_A_READER_TYPED),
     page: (input) =>
       call(appRouter.catalogue.search, { ...input, query: WHAT_A_READER_TYPED }, { context }),
+    filedByName: false,
   },
 ]);
 
@@ -155,10 +167,11 @@ function eachAlsoNarrowed(listings: AListing[]): AListing[] {
  * ones put in it: the one kind of entry here the shared catalogue cannot reach
  * into.
  */
-function narrowedToAGroup({ procedure, holds, page }: AListing): AListing {
+function narrowedToAGroup({ procedure, holds, page, filedByName }: AListing): AListing {
   let group = "";
   return {
     procedure: `${procedure}, narrowed to a Group`,
+    filedByName,
     holds: async (db) => {
       group = await createGroupByHand(db, { name: `Walked by ${procedure}, narrowed` });
       const rows = await holds(db);
@@ -230,8 +243,22 @@ async function aRunAndTheShapesTheOrderHas(db: Database, titled: string): Promis
   // a cursor written in one regime never reaches from any page.
   const keyless = await Promise.all([anItem(db), anItem(db)]);
 
-  return [...run, ...tied, ...keyless];
+  // AND ONE FILED UNDER ANOTHER LETTER, ahead of the run, so a jump to the
+  // run's own letter has something to land PAST (CNCORE-174). Without it every
+  // Row here files under one letter or none, and a jump that ignored the
+  // letter would land at the start and be right by accident.
+  const elsewhere = await anItemTitled(db, `${FILED_EARLIER}, ${titled}`);
+
+  return [...run, ...tied, ...keyless, elsewhere];
 }
+
+/**
+ * THE LETTER THE CATALOGUE'S RUNS ARE FILED UNDER, and the words that file a
+ * Row ahead of them. Both run titles open "Walked by", and a Row opening
+ * "Another letter" is filed under A whichever way the collation reads it.
+ */
+const THE_RUNS_LETTER = "W";
+const FILED_EARLIER = "Another letter";
 
 /** Rows that tie on every key an order has, leaving only the id behind them. */
 function rowsSharingOneTitle(db: Database, title: string): Promise<string[]> {
@@ -279,7 +306,28 @@ async function everyRowWalked(page: AListing["page"], total: number): Promise<st
   }
 }
 
-describe.each(EVERY_LISTING)("$procedure, on the Listing contract", ({ holds, page }) => {
+/**
+ * EVERY PAGE ONE LISTING IS WALKED IN, forward from the start: `everyRowWalked`,
+ * keeping where each page began and ended, which is what a step back is
+ * checked against.
+ */
+async function everyPageWalked(page: AListing["page"], total: number): Promise<string[][]> {
+  const limit = aPageThatCuts(total);
+  const pages: string[][] = [];
+  for (let after: string | undefined; ; ) {
+    const answer = await page({ limit, after });
+    pages.push(answer.rows.map((row) => row.id));
+    if (answer.continuesAfter === null) return pages;
+    if (pages.length > total) throw new Error(`the walk ran past ${total} pages`);
+    after = answer.continuesAfter;
+  }
+}
+
+describe.each(EVERY_LISTING)("$procedure, on the Listing contract", ({
+  holds,
+  page,
+  filedByName,
+}) => {
   let ofItsOwn: string[];
 
   beforeAll(async () => {
@@ -361,6 +409,61 @@ describe.each(EVERY_LISTING)("$procedure, on the Listing contract", ({ holds, pa
     expect(beyond.rows).toStrictEqual([]);
     expect(beyond.continuesAfter).toBeNull();
     expect(beyond.total).toBe(total);
+  });
+
+  it("steps back to the page the reader came from, from every page of the walk", async () => {
+    // THE STEP BACK (CNCORE-174), ORACLED AGAINST THE WALK FORWARD rather than
+    // against a second reading of the same thing: a different statement, read
+    // the other way round, has to hand back each page the forward walk handed
+    // out. Every page past the first is stepped back from, so a Listing's hard
+    // shapes -- the tie, the keyless tail, the Rows tied on every key -- are
+    // crossed backward wherever the walk crossed them forward.
+    const { total } = await page({ limit: 1 });
+    const forward = await everyPageWalked(page, total);
+    const limit = aPageThatCuts(total);
+
+    const back: string[][] = [];
+    const offered: (string | null)[] = [];
+    for (const [at, leaving] of forward.entries()) {
+      if (at === 0) continue;
+      const answer = await page({ limit, before: leaving[0] });
+      back.push(answer.rows.map((row) => row.id));
+      offered.push(answer.continuesBefore);
+    }
+
+    expect(forward.length).toBeGreaterThan(1);
+    expect(back).toStrictEqual(forward.slice(0, -1));
+    // AND EACH SAYS WHETHER THERE IS A STEP BACK FROM IT IN TURN: from every
+    // page but the first, and from its own first Row.
+    expect(offered).toStrictEqual(forward.slice(0, -1).map((rows, at) => (at === 0 ? null : rows[0])));
+  });
+
+  it.runIf(filedByName)("lands a jump to a letter at the first Row filed under it", async () => {
+    // THE JUMP (CNCORE-174) IS A SEEK INTO THE SAME ORDER, not a filter over
+    // it: the page it lands on is a run of the walk, from some Row onward.
+    // Where that Row falls is bracketed by the Rows this Listing was given --
+    // the one filed under an earlier letter behind it, the run filed under
+    // this one at or past it.
+    //
+    // BRACKETED RATHER THAN PINNED, where the Listing is the whole catalogue:
+    // what else is filed under W there is whatever other files left, so the
+    // exact Row a jump lands on is not this test's to know. A Group holds only
+    // what was put in it, so narrowed the bracket closes to one Row. The exact
+    // landing over Rows opening in a mark or in lower case is asserted at the
+    // package export, where the fixture is the test's own.
+    const { total } = await page({ limit: 1 });
+    const walked = (await everyPageWalked(page, total)).flat();
+    const limit = aPageThatCuts(total);
+
+    const jumped = await page({ limit, letter: THE_RUNS_LETTER });
+    const landed = walked.indexOf(jumped.rows[0]?.id ?? "");
+
+    expect(landed).toBeGreaterThan(-1);
+    expect(jumped.rows.map((row) => row.id)).toStrictEqual(walked.slice(landed, landed + limit));
+    const [elsewhere, ...filedUnderIt] = [ofItsOwn.at(-1), ...ofItsOwn.slice(0, -1)];
+    expect(walked.indexOf(elsewhere ?? "")).toBeLessThan(landed);
+    for (const id of filedUnderIt) expect(walked.indexOf(id)).toBeGreaterThanOrEqual(landed);
+    expect(jumped.continuesBefore).toBe(jumped.rows[0]?.id);
   });
 
   it("starts at the beginning when the cursor names nothing", async () => {
