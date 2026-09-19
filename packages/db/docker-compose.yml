@@ -42,6 +42,33 @@ services:
     # 300 IS THREE OF THOSE SUITES, which is what a machine running three
     # worktrees needs and is the number ADR-0104's own decision implies.
     command: ["postgres", "-c", "max_connections=300"]
+    # THE SAME ONE CONTAINER HOLDS EVERY DATABASE'S STATISTICS IN /dev/shm, AND
+    # DOCKER'S DEFAULT OF 64 MB HOLDS THE LIVE WORKTREES' BUT NOT THE DEAD ONES'.
+    #
+    # PostgreSQL 18 keeps its cumulative statistics, an entry for every table
+    # and index any database has touched, in a dynamic shared memory area. Its
+    # segments are files in /dev/shm, sized 1, 2, 2, 4, 4, 8, 8, 16, 16, 32 MB
+    # and on, each fallocated in full, and one goes back only once every entry
+    # in it is gone. A clean restart writes the statistics out and reads them
+    # back in, so restarting frees nothing.
+    #
+    # MEASURED ON THIS REPO, 2026-09-19: a database of this schema costs about
+    # 57 KiB there, and 64 MB ran out at database 1,090 of them with the same
+    # `could not resize shared memory segment ... to 33554432 bytes` the shared
+    # container was failing with. Four agents and the main checkout own about
+    # 95 databases, 5 MB. What filled it was 1,149, most of them left by removed
+    # worktrees, and nothing drops those until CNCORE-231.
+    #
+    # 256 MB IS THE FIRST SIZE THAT HOLDS THE 253 MB STEP of that series, about
+    # 4,500 databases, and the example the postgres image's docs give for this
+    # error. 512 MB would be most of what a 2 GB Docker VM has free: /dev/shm is
+    # RAM, and past that the OOM killer picks a process anywhere in the VM
+    # instead of PostgreSQL failing in its own container. ADR-0104 has the
+    # arithmetic, and `src/docker-compose.test.ts` fails if this goes.
+    #
+    # TODO(CNCORE-233): a worktree whose copy of this file differs recreates
+    # the container on `db:start`, cutting every other worktree's run.
+    shm_size: 256mb
     volumes:
       - canoncore_postgres_data:/var/lib/postgresql
     healthcheck:
