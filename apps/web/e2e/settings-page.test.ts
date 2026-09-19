@@ -178,7 +178,7 @@ async function aProviderRefusingWith(said: string): Promise<{ url: string }> {
  * IT IS NOT A STAND-IN FOR A REAL PROVIDER and must not grow into one. It
  * serves a manifest, which is the whole of what this page reads.
  */
-async function aProviderOwing(notice: string): Promise<{ url: string }> {
+async function aProviderWhoseNoticeIs(notice: string): Promise<{ url: string }> {
   const { url, server } = await onLoopback((_request, response) => {
     response.writeHead(200, { "content-type": "application/json" });
     response.end(JSON.stringify({ name: "a provider owing a notice", attribution: { notice } }));
@@ -632,8 +632,8 @@ describe("/settings, unlocking a provider", () => {
    *
    * The notice is printed verbatim or not at all, so past its ceiling nothing is
    * read from this Provider: no search, no import. What the Owner needs from
-   * this page is which fault it is. The reason is the Provider's manifest as zod
-   * refused it, quoted, and its path names the field.
+   * this page is which fault it is. The reason is zod's issue list for the
+   * Provider's manifest, quoted, and its path names the field.
    *
    * AND THE NOTICE ITSELF IS NOWHERE ON THE PAGE, which is the other half.
    * A refusal that quoted the value would put the flood on the page.
@@ -641,7 +641,7 @@ describe("/settings, unlocking a provider", () => {
   it("says nothing could be read from a Provider whose notice runs past the ceiling, and why", async () => {
     const cookie = await logInAt(baseUrl, ownerPassword);
     const flood = "licence".repeat(200);
-    const owing = await aProviderOwing(flood);
+    const owing = await aProviderWhoseNoticeIs(flood);
     await allow(cookie, "127.0.0.1/32");
     await name(cookie, owing.url);
 

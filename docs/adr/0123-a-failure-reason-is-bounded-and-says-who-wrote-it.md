@@ -680,9 +680,9 @@ still somebody remembering.
 
 **THIS RECORD STAYS `accepted`, AND THAT IS A CLAIM WORTH CHECKING.** What this section DECIDES is
 built: framed prose is bounded at its field, and every string in the manifest is classified under a
-test. It left one question open, how a verbatim notice is bounded, and the test held the two fields
-at "undecided" so neither could be mistaken for done. CNCORE-213 decided it and built what it
-decided, so no string in the manifest is undecided now.
+test. It left one question open, how a verbatim notice is bounded, and the test named the two
+fields against CNCORE-213 so neither could be mistaken for done. That ticket decided it and built
+what it decided, and the test's reason for each field now names its ceiling.
 
 ### The output schema states it, and oRPC enforces it
 
@@ -741,7 +741,8 @@ A Provider's `attribution.notice` and its mark's `alt` reach every Item page tha
 claims. Until CNCORE-213 their only bound was `MAX_BODY_BYTES`, four mebibytes, and they were
 spelled `z.string().min(1)` exactly as `name` had been. `boundedProse` is the wrong tool for them.
 `Attribution` prints a notice verbatim because a paraphrased licence notice breaches the licence as
-surely as a missing one, and a cut is a paraphrase. So the bound is a refusal, as `logo.data_uri`'s
+surely as a missing one ([[0036-tmdb-licence-constraints]] checked TMDB's character for character),
+and a cut is a paraphrase. So the bound is a refusal, as `logo.data_uri`'s
 already was.
 
 ### The ceiling is 1,000 characters, for both
@@ -781,14 +782,24 @@ Without it, none of the Provider's content can be shown.
 
 **AND THE SETTINGS PAGE DOES NOT SAY "UNREACHABLE".** A manifest this app will not parse already
 lands in `Reach`'s `unreachable` kind, which the page renders as "Nothing could be read from this
-Provider." with the reason quoted as the Provider's. That sentence is true of this case. Measured on
-zod 4.6.5 against a four-mebibyte notice, the reason is zod's issue list, 190 characters once
-collapsed to one line:
+Provider." with the reason quoted as the Provider's. That sentence is true of this case. **`/import`
+IS THE EXCEPTION**: a search this Provider failed is listed under "Could not be reached", which
+`NotReached` on the same page calls false of any Provider that answered. That heading was already
+wrong for a `500` or a malformed manifest, so it is not this refusal's defect, and it is filed as
+CNCORE-221. Measured on zod 4.6.5 against a four-mebibyte notice, the reason is zod's issue list,
+183 characters once collapsed to one line:
 
     [ { "origin": "string", "code": "too_big", "maximum": 1000, "inclusive": true, "path": [ "attribution", "notice" ], "message": "Too big: expected string to have <=1000 characters" } ]
 
 It is inside `REASON_MAX_LENGTH`, it names the field and the ceiling, and it carries none of the
 value, because zod's `reportInput` defaults to `false` and nothing here sets it.
+
+**A THIRD SHAPE WAS AVAILABLE, AND IT IS NOT TAKEN.** The settings page could report "reached, but
+owes a notice past the ceiling" while search and import went on refusing. That buys a sentence the
+reason above already says, at the cost of a manifest read two ways: refused for use and admitted for
+display. What the Owner loses without it is the refused Provider's credential state and Unlock link
+on that page, since both are read off the manifest that was refused. Nothing from that Provider
+can be used either way, so there is nothing for an Unlock to unblock.
 
 ### What it leaves as it was
 
@@ -805,7 +816,11 @@ value, because zod's `reportInput` defaults to `false` and nothing here sets it.
 - **The read path does not restate the ceiling.** `attributionPublic.notice` stays `z.string()`, as
   `sourceLabel` stayed unbounded there after CNCORE-165. Everything that writes the column parses
   the manifest first, and restating the ceiling on `item.get`'s output would turn a row written by
-  hand into a 500 on a public page.
+  hand into a 500 on a public page. **That is not the argument `attributionPublic.logo.dataUri`
+  rejects**, where the read path restates the wire's regex so it is "a shape" rather than "a rule
+  somebody remembers". The regex guards a SINK: a string that fails it is not a mark, and is not
+  put in an `img`'s `src` at any cost. The length guards a COST: an over-long notice is still the
+  notice, and a 500 would print no notice at all along with no page.
 - **A ceiling on length is not one on width.** A thousand characters with no break in them run off
   the page as three hundred do, and that is CNCORE-217's, for every surface.
 
