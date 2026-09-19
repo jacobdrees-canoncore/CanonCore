@@ -19,7 +19,7 @@ const PROVIDER_WIKI = process.env.PROVIDER_WIKI_REPO;
 
 /**
  * WHAT `provider-wiki` PRINTS ONCE IT IS LISTENING, from the port its own listener
- * reports: the last line of its `src/server.ts`, read at d028451. Were it worded
+ * reports: the last statement of its `src/server.ts`, read at d028451. Were it worded
  * differently, the provider would fail to start saying it named no port, rather
  * than start somewhere unknown.
  */
@@ -40,9 +40,10 @@ const PROVIDER_WIKI_STARTED: Announcement = {
  * so the OS chooses in the bind that holds it. ADR-0144 carries why that closes
  * the window.
  *
- * BOUND AND REACHED AT `SERVER_HOST`, one constant for both, as a Next server
- * under test is. The URL is built from it and the port alone, never taken whole
- * from the line.
+ * TOLD TO BIND AT `SERVER_HOST` AND REACHED THERE, one constant for both, as a
+ * Next server under test is. The URL is built from it and the port alone, never
+ * taken whole from the line: ADR-0144's "The port is the harness's, not Next's
+ * URL", for the same reason.
  *
  * ITS LINE IS PRINTED ONCE IT IS LISTENING, which is when it answers, so there
  * is no poll after it. It goes on `owned` as it is spawned, before the read, so

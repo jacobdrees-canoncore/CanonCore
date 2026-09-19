@@ -26,9 +26,11 @@ import { vi } from "vitest";
  * names -- as `--port` or `-p` in any spelling, or as `PORT` in its environment,
  * the places `next start` and `provider-wiki` read one -- this process binds
  * before the real `spawn` runs, on the host the command names (`--hostname` or
- * `-H` for Next, `HOSTNAME_BIND` for `provider-wiki`) or on Node's default
- * without one, which is exactly where the server would bind it. A port of 0
- * names nothing, so it takes nothing. What it holds goes on `owned`.
+ * `-H` for Next, `HOSTNAME_BIND` for `provider-wiki`), which is exactly where
+ * the server would bind it. Without one it binds Node's default, which is
+ * `next start`'s too; `provider-wiki`'s own is `127.0.0.1`, and the harness
+ * always names it. A port of 0 names nothing, so it takes nothing. What it holds
+ * goes on `owned`.
  *
  * THE HOST MATTERS ON macOS, where a bind on `::` leaves `127.0.0.1` free to
  * bind beside it (ADR-0144's table). A thief that ignored `HOSTNAME_BIND` would

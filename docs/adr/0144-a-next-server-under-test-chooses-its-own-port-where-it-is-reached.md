@@ -9,7 +9,8 @@ Every `next start` the test harness spawns goes through `theBuildServing` in
 in the bind that holds it, Next announces it on its `- Local:` line, and the harness reads it from
 there and reaches the server at `127.0.0.1` on it. Nothing names a port in advance, so no port is
 free between being chosen and being bound, and nothing else can listen where the harness reaches a
-server.
+server. The live suite's `provider-wiki`, another repository's server, is started the same way since
+CNCORE-237, through the same reader: see "The live suite's provider, the same way (CNCORE-237)".
 
 That is the shape every in-process stub in this repository already had: `stubs.ts`,
 `settings-page.test.ts` and `packages/api`'s provider tests all `listen(0, "127.0.0.1")` and read

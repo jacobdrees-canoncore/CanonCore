@@ -1839,9 +1839,11 @@ so no server in this harness can be started without an owner. That is `theServer
 argument, made for ownership where that one is made for the connection bound. `anInstanceServing`
 takes the stack for the same reason and ends its pool through it. That also covers the fixtures that
 do work after their server answers: `aCatalogueSafeToPurge` browses two providers through its app,
-and a throw there used to strand an instance whose close only the returned value held. The two test
-files that start servers of their own, `item-page-cost.test.ts` and `live/live-import.test.ts`, hold
-a stack too, in place of the bookkeeping each kept by hand. `waitUntilAnswering` no longer kills a
+and a throw there used to strand an instance whose close only the returned value held. The three
+test files that start servers of their own, `item-page-cost.test.ts`, `live/live-import.test.ts` and
+`live/provider.test.ts`, hold a stack too, in place of the bookkeeping each kept by hand; the two in
+`live/` start `provider-wiki` through `theProviderServing`, which puts it on the stack as it spawns
+(CNCORE-237). `waitUntilAnswering` no longer kills a
 server that times out, since its owner does.
 
 **What goes on the stack by hand is only what dies with the process.** A loopback stub or a
