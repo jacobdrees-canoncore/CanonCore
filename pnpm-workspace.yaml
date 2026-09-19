@@ -63,7 +63,7 @@ catalog:
   # ADR-0073's dates. `parse` rather than the default `edtf()` export, which
   # short-circuits any string of 5+ digits to a Unix millisecond timestamp.
   edtf: ^4.11.1
-  zod: ^4.4.3
+  zod: ^4.6.5
   dotenv: ^17.4.2
   "@t3-oss/env-core": ^0.13.11
 
