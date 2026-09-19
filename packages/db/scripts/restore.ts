@@ -50,14 +50,14 @@ const { rows } = await client.query<{ owner: string; items: string; placements: 
           (select count(*) from placements) as placements`,
 );
 await client.end();
-const read = rows[0];
+const held = rows[0];
 
 console.log(`branch      ${branch}`);
 console.log(`database    ${database} (replaced from ${dump})`);
 console.log(`ladder      dumped at ${ladder.dumped}`);
 console.log(`            carried to ${ladder.head}`);
-console.log(`owner       ${read?.owner}`);
-console.log(`holds       ${read?.items} Items, ${read?.placements} Placements`);
+console.log(`owner       ${held?.owner}`);
+console.log(`holds       ${held?.items} Items, ${held?.placements} Placements`);
 if (env.envWritten) console.log("env         wrote apps/web/.env");
 else if (env.envNamesThisDatabase) console.log("env         apps/web/.env already points here");
 else {

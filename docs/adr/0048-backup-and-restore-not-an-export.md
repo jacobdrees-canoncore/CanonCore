@@ -58,9 +58,10 @@ preserve the same property, and naming both stops the check being bolted onto on
 
 ## Rehearsed outside the product, under CNCORE-168, and this record stays PROPOSED
 
-**WHAT WAS BUILT IS THE DUMP AND A DEVELOPMENT RESTORE, AND NOTHING INSIDE THE PRODUCT.** The Owner's
-catalogue is dumped nightly by a job on their own machine, and `pnpm db:restore` makes a worktree's
-database a copy of one (`packages/db/src/restore.ts`). No backup task sits on ADR-0049's registry,
+**WHAT WAS BUILT IS THE DUMP AND A DEVELOPMENT RESTORE, AND NOTHING INSIDE THE PRODUCT.** A job on
+the Owner's own machine dumps their catalogue, nightly once they load it as a LaunchAgent (a
+background service is theirs to start, so it was written and run by hand rather than loaded), and
+`pnpm db:restore` makes a worktree's database a copy of one (`packages/db/src/restore.ts`). No backup task sits on ADR-0049's registry,
 no surface restores anything, and neither owner-id refusal exists, because the one restore there is
 replaces a database nobody owns. That is why this record stays proposed. What follows is what the
 rehearsal taught the mechanism that will be built.
@@ -68,7 +69,8 @@ rehearsal taught the mechanism that will be built.
 **THE LADDER STAMP NEEDED NOTHING INVENTED: THE LEDGER IS INSIDE THE DUMP.** `pg_dump` of the whole
 database carries `drizzle.__drizzle_migrations`, so every dump states its own ladder version and the
 restore reads it off the copy rather than off a file name or a sidecar. The stamp is the newest
-rung's journal `when`, which is Drizzle's `created_at` and all its ledger stores; the job repeats it
+rung's journal `when`, which is Drizzle's `created_at` (the ledger holds that and a hash per rung,
+and no tag); the job repeats it
 in the file name (`ladder-<when>`) for a person choosing one. Measured 2026-09-19: the Owner's install
 stood at `1789387200000`, migration 18, while `main` held migration 20.
 
@@ -77,8 +79,8 @@ stood at `1789387200000`, migration 18, while `main` held migration 20.
 against the copy it answers the only question a restore owes: has this dump run a rung this code does
 not have, or one that has changed since? Either refuses, and the copy is dropped. A dump BEHIND the
 code is carried forward by `migrateToHead`. That is the populated database this record said a
-migration must meet first, and it has now happened. On 2026-09-19 a worktree on `main` restored the
-Owner's dump, taken at migration 18, and ran migrations 19 and 20 against their 8,052 Items before
+migration must meet first, and it has now happened. On 2026-09-19 this branch's worktree, whose
+ladder is `main`'s, restored the Owner's dump, taken at migration 18, and ran migrations 19 and 20 against their 8,052 Items before
 the Owner's own install had run either. The copy kept the install's owner id, and this branch's front page
 served it: "Showing 100 of 8,052 items".
 
@@ -124,9 +126,15 @@ written since the last dump. ADR-0049's visible registry is the in-product form 
 
 **SYNC IS NOT HISTORY.** This Mac has no Time Machine destination; `~/Documents` syncs to iCloud
 Drive, so that is where the dumps go. Sync replaces a good file with a bad one everywhere, so the job
-keeps the newest fourteen and the rotation is the only way back. Each dump is written under a partial
-name, read back with `pg_restore --list`, and only then renamed, so the rotation never keeps a
-truncated one. The in-product backup owes a retention of its own for the same reason.
+keeps the newest fourteen and the rotation is the only way back. The in-product backup owes a
+retention of its own for the same reason.
+
+**A DUMP IS READ BACK WHOLE BEFORE IT COUNTS.** Each is written under a partial name, restored to a
+script sent nowhere (`pg_restore --file=/dev/null`, which touches no database), and only then renamed,
+so the rotation never keeps a truncated one; a failed run deletes its partial. `pg_restore --list`
+IS NOT A READ-BACK: it reads only the table of contents at the front, and passed an archive cut to
+half its length that `--file=/dev/null` refused ("could not read from input file: end of file").
+The job's first draft used `--list`, and review measured the difference.
 
 **AT CORPUS SIZE.** The Owner's database is 48 MB, holding 8,052 Items (ADR-0137), and dumps to a
 4.9 MB archive in about a second. `pnpm db:restore` made a worktree's copy of it, including the
@@ -134,7 +142,9 @@ two migrations, in 3.0 s of wall time.
 
 **NOTHING IN THIS REPOSITORY CAN REACH THE OWNER'S DATABASE, and this is how that holds rather than
 how it is hoped.** The install's database publishes no port, which `install-path.test.ts` holds
-("publishes no port, so nothing on the host can name it"). `restoreDatabase` reads a file and refuses
+("publishes no port, so nothing on the host can name it") for the `compose.yaml` an install
+downloads. An install runs its OWN copy of that file, which no test here can see, so the property
+holds on the Owner's machine only while their copy keeps the service as shipped. `restoreDatabase` reads a file and refuses
 anything else, and runs only inside a container that publishes a port on this machine. The job that
 does reach it, by `docker compose exec`, lives beside the install rather than in this repository.
 The two things here that DO reach the install, `import:list` and `test:corpus`, come in through the

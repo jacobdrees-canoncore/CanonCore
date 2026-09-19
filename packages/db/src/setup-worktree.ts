@@ -100,9 +100,10 @@ export function pointEnvFileAt(
 /**
  * Runs `work` while holding a PostgreSQL advisory lock keyed on the database
  * name, on a connection to the server rather than to the database being set up
- * -- which may not exist yet.
+ * -- which may not exist yet. `restore.ts` takes the same lock, so a setup and
+ * a restore of one database cannot interleave.
  */
-async function holdingSetupLock<T>(
+export async function holdingSetupLock<T>(
   serverUrl: string,
   database: string,
   work: () => Promise<T>,

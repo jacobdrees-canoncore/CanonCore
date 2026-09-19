@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { closeSync, openSync } from "node:fs";
-import { cp, mkdtemp, writeFile } from "node:fs/promises";
+import { cp, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { asc } from "drizzle-orm";
@@ -238,5 +238,42 @@ describe("restoring a dump into a database of its own", () => {
         dump: await dumpOf(target),
       }),
     ).rejects.toThrow(/not on this machine/);
+  });
+
+  it("reads a file back whole before it drops anything, refusing one that is not a whole dump", async () => {
+    // THE DROP IS THE EXPENSIVE STEP, so nothing is dropped for a file that
+    // cannot become the copy: a mistyped path to some other file, or a dump
+    // cut short -- which `pg_restore --list` passes, because it reads only the
+    // table of contents at the front of the archive.
+    const target = await buildTestDatabase("copy");
+    const before = await catalogueAt(target);
+    const whole = await readFile(await dumpOf(target));
+    const directory = await mkdtemp(join(tmpdir(), "canoncore-not-a-dump-"));
+    const notADump = join(directory, "notes.txt");
+    await writeFile(notADump, "this is not an archive\n");
+    const cutShort = join(directory, "cut-short.dump");
+    await writeFile(cutShort, whole.subarray(0, Math.floor(whole.length / 2)));
+
+    for (const dump of [notADump, cutShort]) {
+      await expect(
+        restoreDatabase({ serverUrl: serverOf(target), database: databaseNameOf(target), dump }),
+      ).rejects.toThrow(/not a dump on disk/);
+    }
+    expect(await catalogueAt(target)).toEqual(before);
+  });
+
+  it("refuses a database name that is not a plain identifier, before it touches anything", async () => {
+    // `pg_restore --dbname` reads a value holding `=` or a URI prefix as a
+    // CONNECTION STRING, so a name is held to what `worktreeDatabaseName`
+    // produces rather than trusted to arrive that way.
+    const target = await buildTestDatabase("copy");
+    const before = await catalogueAt(target);
+
+    for (const database of [`${databaseNameOf(target)} host=elsewhere`, "postgresql://x/y", ""]) {
+      await expect(
+        restoreDatabase({ serverUrl: serverOf(target), database, dump: await dumpOf(target) }),
+      ).rejects.toThrow(/not a database this restore will name/);
+    }
+    expect(await catalogueAt(target)).toEqual(before);
   });
 });

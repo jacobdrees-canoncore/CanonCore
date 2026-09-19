@@ -5,6 +5,7 @@ import { Client } from "pg";
 
 import { type AppliedRung, checkAppliedRungsAreFrozen, readJournal } from "./ladder.ts";
 import { migrateToHead, migrationsFolder } from "./migrate.ts";
+import { holdingSetupLock } from "./setup-worktree.ts";
 
 /**
  * A worktree's COPY of a catalogue, created from a dump (CNCORE-168, ADR-0048).
@@ -33,86 +34,93 @@ export interface RestoredDatabase {
  * restored with `pg_restore` run INSIDE the container serving it. Then held to
  * this worktree's ladder and carried up to its head.
  *
- * A REFUSED RESTORE LEAVES NO DATABASE BEHIND, so nothing is left reading a
- * half-restored catalogue or one this ladder cannot carry.
+ * EVERYTHING THAT CAN REFUSE WITHOUT THE DROP REFUSES BEFORE IT: the name, the
+ * file, the server, and the archive read back whole. A refusal after the drop
+ * -- a ladder this code cannot carry, a restore that failed -- leaves NO
+ * database behind, so nothing is left reading a half-made copy.
  */
 export async function restoreDatabase({
   serverUrl,
   database,
   dump,
 }: DatabaseRestore): Promise<RestoredDatabase> {
+  // HELD TO WHAT `worktreeDatabaseName` PRODUCES rather than trusted to arrive
+  // that way. `pg_restore --dbname` reads a value holding `=` or a URI prefix as
+  // a connection string, and PostgreSQL truncates a name past 63 bytes SILENTLY,
+  // onto whatever database the shorter name is -- and this is about to drop it.
+  // So the SQL below may interpolate it as `setup-worktree.ts` does.
+  if (!/^[a-z0-9_]{1,63}$/.test(database)) {
+    throw new Error(`${JSON.stringify(database)} is not a database this restore will name.`);
+  }
   // A COPY IS THE ONLY THING A WORKTREE READS. A connection string names a
-  // catalogue rather than a dump of one, and is refused before anything here
-  // has dropped the database it was about to replace.
+  // catalogue rather than a dump of one.
   if (!(await stat(dump).catch(() => undefined))?.isFile()) {
     throw new Error(`${dump} is not a dump on disk. A restore reads a copy, never a catalogue.`);
   }
   const container = containerServing(serverUrl);
+  // READ BACK WHOLE, and `--list` is not that: it reads only the table of
+  // contents at the front, and passed an archive cut to half its length. A
+  // script sent nowhere reads every entry and touches no database.
+  const readBack = pgRestore(container, dump, ["--file=/dev/null"]);
+  if (readBack.status !== 0) {
+    throw new Error(`${dump} is not a dump on disk that pg_restore can read: ${readBack.stderr}`);
+  }
+
   const target = new URL(serverUrl);
   target.pathname = `/${database}`;
   const url = target.toString();
 
-  await onServer(serverUrl, async (admin) => {
-    await admin.query(`drop database if exists ${quote(database)} with (force)`);
-    await admin.query(`create database ${quote(database)} template template0`);
-  });
-  try {
-    pgRestore({ container, username: decodeURIComponent(target.username), database, dump });
-
-    const applied = await appliedRungsIn(url);
-    const problems = await checkAppliedRungsAreFrozen(async () => applied, migrationsFolder);
-    if (problems.length > 0) {
-      throw new Error(`this worktree's ladder cannot carry the dump:\n${problems.join("\n")}`);
-    }
-    const journal = await readJournal(migrationsFolder);
-    const newest = Math.max(...applied.map((rung) => Number(rung.created_at)));
-    const dumped = journal.find((entry) => entry.when === newest);
-    const head = journal.at(-1);
-    if (dumped === undefined || head === undefined) {
-      throw new Error("the dump has run no rung of this ladder at all");
-    }
-
-    await migrateToHead(url);
-    return { url, ladder: { dumped: dumped.tag, head: head.tag } };
-  } catch (error) {
-    await onServer(serverUrl, (admin) =>
-      admin.query(`drop database if exists ${quote(database)} with (force)`),
-    );
-    throw error;
-  }
-}
-
-function pgRestore({
-  container,
-  username,
-  database,
-  dump,
-}: {
-  container: string;
-  username: string;
-  database: string;
-  dump: string;
-}): void {
-  const archive = openSync(dump, "r");
-  try {
-    const restored = spawnSync(
-      "docker",
-      [
-        "exec",
-        "--interactive",
-        container,
-        "pg_restore",
+  // `db:setup`'s own lock, so the two cannot interleave on one database: a
+  // setup finding the empty one mid-restore would migrate it underneath.
+  return holdingSetupLock(serverUrl, database, async () => {
+    await onServer(serverUrl, async (admin) => {
+      await admin.query(`drop database if exists "${database}" with (force)`);
+      await admin.query(`create database "${database}" template template0`);
+    });
+    try {
+      const restored = pgRestore(container, dump, [
         "--single-transaction",
         "--no-owner",
         "--no-privileges",
         "--username",
-        username,
+        decodeURIComponent(target.username),
         "--dbname",
         database,
-      ],
-      { stdio: [archive, "ignore", "pipe"], encoding: "utf8" },
-    );
-    if (restored.status !== 0) throw new Error(`pg_restore refused the dump: ${restored.stderr}`);
+      ]);
+      if (restored.status !== 0) throw new Error(`pg_restore refused the dump: ${restored.stderr}`);
+
+      const applied = await appliedRungsIn(url);
+      const problems = await checkAppliedRungsAreFrozen(async () => applied, migrationsFolder);
+      if (problems.length > 0) {
+        throw new Error(`this worktree's ladder cannot carry the dump:\n${problems.join("\n")}`);
+      }
+      const journal = await readJournal(migrationsFolder);
+      const newest = Math.max(...applied.map((rung) => Number(rung.created_at)));
+      const dumped = journal.find((entry) => entry.when === newest);
+      const head = journal.at(-1);
+      if (dumped === undefined || head === undefined) {
+        throw new Error("the dump has run no rung of this ladder at all");
+      }
+
+      await migrateToHead(url);
+      return { url, ladder: { dumped: dumped.tag, head: head.tag } };
+    } catch (error) {
+      await onServer(serverUrl, (admin) =>
+        admin.query(`drop database if exists "${database}" with (force)`),
+      );
+      throw error;
+    }
+  });
+}
+
+/** `pg_restore` inside `container`, reading the archive on its stdin. */
+function pgRestore(container: string, dump: string, args: string[]) {
+  const archive = openSync(dump, "r");
+  try {
+    return spawnSync("docker", ["exec", "--interactive", container, "pg_restore", ...args], {
+      stdio: [archive, "ignore", "pipe"],
+      encoding: "utf8",
+    });
   } finally {
     closeSync(archive);
   }
@@ -174,13 +182,8 @@ export function containerServing(serverUrl: string): string {
   if (names.length !== 1 || name === undefined) {
     throw new Error(
       `expected one running container publishing port ${published}, found ${names.length}. ` +
-        "Run `pnpm db:start` first.",
+        "Check `docker ps` for the development database before starting anything (CNCORE-233).",
     );
   }
   return name;
-}
-
-/** Database names are identifiers, not parameters, so they cannot be bound. */
-function quote(identifier: string): string {
-  return `"${identifier.replaceAll('"', '""')}"`;
 }
