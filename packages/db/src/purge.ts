@@ -2,6 +2,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 
 import type { Database } from "./index";
 import { theOwnerId } from "./placements";
+import { rolledBack } from "./rolled-back";
 import {
   aliases,
   groupItems,
@@ -70,23 +71,6 @@ export async function purgeProvider(
 }
 
 /**
- * The counts, thrown rather than returned, so that the transaction which
- * produced them rolls back on the way out.
- *
- * Drizzle's `transaction` commits on a normal return and rolls back on ANY
- * throw, so throwing is how the preview declines the commit. It carries the
- * counts because they are computed and then deliberately discarded along with
- * everything else, and `rollback()` -- the other way to refuse the commit --
- * has nowhere to put them.
- */
-class PreviewTaken extends Error {
-  constructor(readonly counts: PurgedProvider) {
-    super("A purge preview, rolled back");
-    this.name = "PreviewTaken";
-  }
-}
-
-/**
  * What a purge WOULD take, counted by taking it and then rolling it back.
  *
  * ADR-0046 puts counts in front of a permanent delete, and a purge is the delete
@@ -119,14 +103,7 @@ export async function previewProviderPurge(
   db: Database,
   { identity }: { identity: string },
 ): Promise<PurgedProvider> {
-  try {
-    return await db.transaction(async (tx) => {
-      throw new PreviewTaken(await purgeWithin(tx, identity));
-    });
-  } catch (error) {
-    if (error instanceof PreviewTaken) return error.counts;
-    throw error;
-  }
+  return rolledBack(db, (tx) => purgeWithin(tx, identity));
 }
 
 /**

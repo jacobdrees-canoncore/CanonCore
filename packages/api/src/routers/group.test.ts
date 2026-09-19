@@ -240,6 +240,41 @@ describe("group.delete", () => {
   });
 });
 
+describe("group.previewDelete", () => {
+  it("counts the scope's memberships before anything is deleted (ADR-0046)", async () => {
+    const group = await call(
+      appRouter.group.create,
+      { name: "ccc A scope to preview" },
+      { context: asTheOwner },
+    );
+    for (const itemId of [await anItem(db), await anItem(db)]) {
+      await call(appRouter.group.put, { groupId: group.id, itemId }, { context: asTheOwner });
+    }
+
+    expect(
+      await call(appRouter.group.previewDelete, { id: group.id }, { context: asTheOwner }),
+    ).toStrictEqual({ memberships: 2, providers: 0 });
+
+    const { groups } = await call(appRouter.group.list, {}, { context });
+    expect(groups).toStrictEqual(expect.arrayContaining([expect.objectContaining(group)]));
+  });
+
+  it("answers NOT_FOUND for a scope that is already gone", async () => {
+    const group = await call(
+      appRouter.group.create,
+      { name: "ccc Previewed after it went" },
+      { context: asTheOwner },
+    );
+    await call(appRouter.group.delete, { id: group.id }, { context: asTheOwner });
+
+    const { error } = await safe(
+      call(appRouter.group.previewDelete, { id: group.id }, { context: asTheOwner }),
+    );
+
+    expect(isDefinedError(error) && error.code).toBe("NOT_FOUND");
+  });
+});
+
 /**
  * An Owner's context on an instance that names exactly these Providers.
  *
@@ -339,6 +374,7 @@ describe("who may ask", () => {
       safe(call(appRouter.group.create, { name: "Mine now" }, { context })),
       safe(call(appRouter.group.rename, { id: group.id, name: "Mine now" }, { context })),
       safe(call(appRouter.group.delete, { id: group.id }, { context })),
+      safe(call(appRouter.group.previewDelete, { id: group.id }, { context })),
       safe(call(appRouter.group.put, { groupId: group.id, itemId: story }, { context })),
       safe(call(appRouter.group.take, { groupId: group.id, itemId: story }, { context })),
       safe(call(appRouter.group.ask, { id: group.id, baseUrl: "http://wiki.test" }, { context })),
@@ -352,6 +388,7 @@ describe("who may ask", () => {
     ]);
 
     expect(refusals.map(({ error }) => (error as { code?: string })?.code)).toStrictEqual([
+      "UNAUTHORIZED",
       "UNAUTHORIZED",
       "UNAUTHORIZED",
       "UNAUTHORIZED",
