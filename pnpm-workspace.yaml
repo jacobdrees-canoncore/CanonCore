@@ -74,7 +74,7 @@ catalog:
   shadcn: ^4.16.0
   class-variance-authority: ^0.7.1
   cn: ^0.2.4
-  lucide-react: ^1.27.0
+  lucide-react: ^1.46.0
   # THE DRAG (CNCORE-73), AND EXACT VERSIONS RATHER THAN CARETS. dnd-kit's 0.x
   # packages release in lockstep and ship breaking changes in MINOR bumps, filed
   # under "Minor Changes": 0.4.0 split `DragDropEvents` and moved `feedback` into
