@@ -1269,12 +1269,13 @@ not one level up.** It is still refused, for a different reason.
 **WHAT IS REFUSED IS A CONFIG THE SWEEP CANNOT PLACE.** `isInside` is the rule that keeps a package
 from being asserted against a config it does not own -- it is why `--config ../../elsewhere.ts`
 fails -- and it reads the PATH. A symlink's path is inside the package while the file it names may
-be anywhere, so it is a spelling of that climb `isInside` cannot see. It said THE one spelling until
-review, which overclaimed: what is closed is bounded by the filename rule, and the paragraph below
-says what is left. Resolving would make a
-symlink the single way to hold a package's config outside the package and stay green, against a
-rule this file already enforces in the spelling it can read, and against this record's own refusal
-of a shared base config.
+be anywhere, so it is a spelling of that climb `isInside` cannot see -- and `isInside` still cannot,
+because it still reads the path; what changed under CNCORE-202 is that the sweep over SCRIPTS
+stopped asking it of the path, so the climb is no longer reachable there. It said THE one spelling
+until review, which overclaimed: what is closed HERE is bounded by the filename rule, and the
+paragraph below says what was left. Resolving would make a symlink the single way to hold a
+package's config outside the package and stay green, against a rule this file already enforces in
+the spelling it can read, and against this record's own refusal of a shared base config.
 
 **IT COSTS BEING NARROWER THAN VITEST FOR A WITHIN-PACKAGE SYMLINK, deliberately.** A link pointing
 at a file in its own package is no climb, and Vitest runs it; this refuses it anyway. Refusing to
@@ -1439,16 +1440,28 @@ standing open. There is no silence left to refuse.
 
 **CHECKED BY MUTATION, WITH THE CONTROL RUN, because green is not evidence.** Measured 2026-09-19 on
 this repository: `packages/tokens/shared.ts` added as a symlink to a repo-root `escaped.config.ts`,
-with `"test:escape": "vitest run --config ./shared.ts"`. Four tests go red, each naming the path --
-`packages/tokens runs test:escape against a config outside the package: ./shared.ts`. **The same
-mutation against the old rule was GREEN, 183 passed**, which is the sentence this whole section
-rests on. And the escaping config DECLARED the gate and is refused anyway, which is the point worth
-keeping: what is refused is a package being asserted against a config it does not own, not a suite
-being ungated.
+with `"test:escape": "vitest run --config ./shared.ts"`. Against this branch's suite the mutation
+reddens FOUR tests, each naming the path -- `packages/tokens runs test:escape against a config
+outside the package: ./shared.ts` -- for `4 failed | 182 passed (186)`. **The control is the same
+mutation with the call site put back to `isInside` and nothing else changed: `186 passed (186)`,
+fully green**, and that pair is the sentence this whole section rests on.
 
-**WHAT THIS DOES NOT HOLD.** The DISK side of the sweep still reads one filename shape, so a config
-named outside `vitest.*.config.ts` is held by the SCRIPT side alone: it is imported and held to
-installing the gate, while `configFilesOnDisk` does not list it, which loosens the count guard by
-one rather than leaving a suite ungated. `ungatedPackages` is left asking its question of unresolved
-paths on purpose -- both of its sides are built from the same `repoRoot`, so they agree or fail
-together, and resolving there would buy nothing and cost a `realpath` per package.
+**BOTH HALVES OF THAT PAIR ARE RUN ON THE SAME TESTS, which is the part a figure taken mid-change
+gets wrong.** This section first recorded the control as `183 passed`, a number measured while three
+of the six rows below existed: true when it was taken and reproducible by nobody afterwards, since
+the suite reads 180 on `main` and 186 here. Re-measured against both ends. And the escaping config
+DECLARED the gate and is refused anyway, which is the point worth keeping: what is refused is a
+package being asserted against a config it does not own, not a suite being ungated.
+
+**WHAT THIS DOES NOT HOLD, AND IT IS NOT A NEW RESIDUAL.** The DISK side of the sweep still reads
+one filename shape -- the bound `configFilesOnDisk` has always stated in its own comment, and which
+this change does not touch. A config named outside `vitest.*.config.ts` is therefore held by the
+SCRIPT side alone: it is imported and held to installing the gate, while `configFilesOnDisk` does
+not list it, which LOOSENS the count guard by one rather than leaving a suite ungated. No ticket is
+opened for it, deliberately: the section above carried one because a climb was reachable, and
+nothing here is.
+
+`ungatedPackages` is left asking its question of unresolved paths on purpose -- both of its sides
+are built from the same `repoRoot` and `configFilesIn` has already refused any symlink among them,
+so they agree or fail together, and resolving there would buy nothing and cost a `realpath` per
+package.
