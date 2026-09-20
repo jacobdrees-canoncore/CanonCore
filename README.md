@@ -157,11 +157,15 @@ apps/
   web/          Next.js app; also the server (the oRPC handlers mount in one catch-all route)
 packages/
   api/          the API contract: the oRPC router and its context
+  contract/     the CMPP conformance suite both providers are held to
   db/           the Drizzle schema and the migration ladder
+  env/          the parsed, validated environment every process reads
+  providers/    the CMPP client: how CanonCore talks to a provider
   schemas/      hand-written Zod, shared by the contract and its consumers
+  tasks/        the recurring-work registry, its scheduler and its runner
   tokens/       design tokens as a plain TypeScript object
   ui/           shared components and the stylesheet that mirrors the tokens
-  config/       the shared tsconfig base; no TypeScript of its own
+  config/       the shared tsconfig base, and every check this repository makes of its own CI
 ```
 
 Packages export TypeScript source directly and have no build step.
@@ -294,9 +298,13 @@ fails if the page is unreachable — every other suite passes with the app never
 the high-water mark (skipped forever, reported as success) and a shipped migration edited after the
 fact (Drizzle stores a SHA-256 and never reads it back). See ADR-0047.
 
-`packages/config` contains no TypeScript, but it is typechecked all the same: `src/base-config.test-d.ts`
-asserts through `@ts-expect-error` that the strictness every other package inherits is actually on,
-and fails if any of it is switched off.
+`packages/config` ships the shared tsconfig base, and it is typechecked like anything else:
+`src/base-config.test-d.ts` asserts through `@ts-expect-error` that the strictness every other
+package inherits is actually on, and fails if any of it is switched off. It is not a config-only
+package -- `src/` is where this repository checks its own CI, and `.github/scripts/run-suite.sh`
+calls it "every check this repository makes of its own CI": the workflow's jobs, timeouts and Node
+major, the network gate every suite installs, the Turbo cache inputs, the licence, the ADR
+numbering, and since CNCORE-251 the figures this tree states about itself.
 
 CI runs each of these as a separate job, plus a secret scan and a job asserting that a missing
 `DATABASE_URL` fails the build rather than the first request. The migration job does two builds: the

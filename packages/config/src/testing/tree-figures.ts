@@ -326,15 +326,9 @@ function codeOf(path: string): string {
  * inside another.
  */
 export function procedureAnswerCallSites(): { total: number; redirecting: number } {
-  const files = [
-    "devices",
-    "groups",
-    "import",
-    "items",
-    "login",
-    "settings",
-    "tasks",
-  ].map((area) => `apps/web/src/app/${area}/actions.ts`);
+  const files = ["devices", "groups", "import", "items", "login", "settings", "tasks"].map(
+    (area) => `apps/web/src/app/${area}/actions.ts`,
+  );
   files.push("apps/web/src/app/groups/page.tsx");
 
   let total = 0;
@@ -359,7 +353,9 @@ export function procedureAnswerCallSites(): { total: number; redirecting: number
  * migration inserts, which is the only place it exists.
  */
 export function propertiesSeededByMigrationOne(): number {
-  const sql = read("packages/db/src/migrations/20260910145307_migration_1_catalogue_and_projection.sql");
+  const sql = read(
+    "packages/db/src/migrations/20260910145307_migration_1_catalogue_and_projection.sql",
+  );
   const values = /INSERT INTO "properties"[\s\S]*?CROSS JOIN \(VALUES([\s\S]*?)\n\)/.exec(sql);
   if (values === null) {
     throw new Error("migration 1 no longer seeds `properties` through a CROSS JOIN (VALUES ...)");
@@ -381,4 +377,23 @@ export function migrationRungs(): number {
     entries: unknown[];
   };
   return journal.entries.length;
+}
+
+/**
+ * The peak Postgres connections one `pnpm test:e2e` takes.
+ *
+ * NOT DERIVED FROM THE TREE, AND SO READ FROM THE ONE PLACE THAT OWNS IT.
+ * This is a measurement of a running suite against a running database -- it
+ * cannot be recomputed by reading files, and `apps/web/e2e/global-setup.ts` is
+ * where it was taken and where its date and method are written down. What this
+ * function is for is the OTHER statements of it: `CLAUDE.md` and the dispatch
+ * skill both rest the four-agent ceiling on this number, and both carried
+ * `55-60` for the eight days after the eleventh server pushed it to 67.
+ *
+ * So the rule here is corpus-figures.test.ts's rather than this file's usual
+ * one: one population has one size, and the restatements are held to the
+ * source rather than to each other.
+ */
+export function peakConnectionsInOneE2eRun(): number {
+  return countStatedIn("apps/web/e2e/global-setup.ts", /THE PEAK IS (\d+), with the new/g);
 }

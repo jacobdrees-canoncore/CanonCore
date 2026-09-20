@@ -7,6 +7,7 @@ import {
   handBuiltRedirectsIn,
   jobsRequestingANodeMajor,
   migrationRungs,
+  peakConnectionsInOneE2eRun,
   procedureAnswerCallSites,
   propertiesSeededByMigrationOne,
   serversStoodUpByTheHttpSuite,
@@ -16,6 +17,88 @@ import {
   suitesReadingTheRepository,
   vitestConfigs,
 } from "./testing/tree-figures";
+
+/**
+ * EVERY FIGURE THIS REPOSITORY STATES ABOUT ITSELF, HELD TO A COUNT TAKEN FROM
+ * THE TREE (CNCORE-251).
+ *
+ * A figure measured once, written into prose, and never re-measured is this
+ * repository's most common defect. The scan of 2026-09-20 found roughly
+ * thirty-five standing at once, in decision records, in `CLAUDE.md`, in
+ * `ci.yml`, in a README saying a package holding 7,882 lines has no TypeScript
+ * in it, and in test NAMES that printed the wrong number on every run. Every
+ * one of them was true the day it was written, which is what makes the class
+ * invisible: nothing is broken, and the tree simply moves out from under the
+ * sentence.
+ *
+ * `corpus-figures.test.ts` had the only mechanism against this and covered ONE
+ * population -- the `Theory:Timeline` corpus -- because that is what CNCORE-157
+ * asked for. Its own `TODO(CNCORE-158)` asked for the widening and that ticket
+ * was Canceled, so the gap read as somebody's and was nobody's. This file is
+ * the widening, pointed at the populations that one could not reach.
+ *
+ * ## What this covers
+ *
+ * A claim is a FILE, a PATTERN that reads a figure out of its prose, and a
+ * DERIVATION that counts the same population off the tree. The claim passes
+ * when the two agree. A pattern that stops matching THROWS rather than quietly
+ * covering nothing, so a reworded sentence goes red and the table has to follow
+ * it -- `node-major.test.ts`'s rule and the actionlint probe's, because an
+ * assertion that something must BE there cannot be allowed to pass by no longer
+ * finding it.
+ *
+ * ## What this does NOT cover, said here rather than left to be discovered
+ *
+ * **A FIGURE MISSING FROM THE TABLE IS NOT CAUGHT.** A new sentence quoting a
+ * count is covered only by being added, exactly as a new place stating the Node
+ * major is covered only by being added to `node-major.test.ts`. This is a
+ * roll call, not a sweep of the prose: nothing here reads an arbitrary number
+ * out of an arbitrary document and decides whether it is stale, because
+ * deciding which numbers in English are claims about this tree is not a
+ * problem a regular expression settles.
+ *
+ * **A FIGURE THAT IS NOT DERIVABLE FROM THE TREE IS OUT OF SCOPE HERE, AND THE
+ * RULE FOR IT IS THE DATE.** Three kinds live in this repository and none of
+ * them can be recomputed by reading files:
+ *
+ * - **Durations on the forge.** `SLOWEST_SECONDS` in `ci-timeouts.test.ts` is
+ *   the specimen CNCORE-251 was raised on: that suite enforced
+ *   `ceiling == max(5, ceil(3 * slowest / 60))` and stayed green for eight days
+ *   while two of the figures it multiplies went stale by 50 per cent. Reading
+ *   it from the Actions API would put a network call in a suite the network
+ *   gate exists to keep offline, so the rule is ADR-0141's: the window, the
+ *   query and the date are written beside the table, and a ceiling moves by
+ *   moving the window and taking the measurement again.
+ * - **Measurements of a running system.** The peak Postgres connections one
+ *   `pnpm test:e2e` takes is 67, taken by sampling `pg_stat_activity` through a
+ *   real run. `peakConnectionsInOneE2eRun` does NOT recompute it -- it reads it
+ *   out of `apps/web/e2e/global-setup.ts`, which is where it was taken and
+ *   where its date and method are written. What the claims below then catch is
+ *   the RESTATEMENTS drifting from that one source, which is how `CLAUDE.md`
+ *   and the dispatch skill both carried `55-60` for eight days after the
+ *   eleventh server pushed it to 67.
+ * - **Another repository's corpus.** The `Theory:Timeline` figures belong to
+ *   `provider-wiki`. `corpus-figures.test.ts` holds them to carrying their
+ *   population and their date, and says at length why no check on this side of
+ *   the boundary can do more.
+ *
+ * **AND TWO POPULATIONS THIS TREE HOLDS ARE DELIBERATELY ABSENT**, because
+ * neither has a structural signal a derivation could read without inventing
+ * one:
+ *
+ * - **The Listings.** There are six -- `catalogue.list`, `catalogue.works`,
+ *   `catalogue.search`, `item.get`'s members and "Also appears in", and
+ *   `provider.containers`. They share no output schema and no input type:
+ *   `item.get`'s two take plain optional strings rather than a cursor and
+ *   answer inside a larger object, so every signal that finds the other four
+ *   misses them. A derivation would be a list of six names checked against
+ *   itself, which is a tautology rather than a count.
+ * - **The suites that need the loopback carve-out.** "Need" is a judgement
+ *   about what a suite does at runtime, not a fact on disk. That figure was in
+ *   a test NAME in `network-gate.test.ts` and printed the wrong number on every
+ *   run; it is now a phrase rather than a count, which is the honest answer
+ *   when nothing derives it.
+ */
 
 /**
  * A claim this tree makes about itself, and the count that settles it.
@@ -167,6 +250,18 @@ const CLAIMS: Claim[] = [
     derive: migrationRungs,
   },
   {
+    file: "CLAUDE.md",
+    pattern: /peaks at (\d+) of 288 usable connections/g,
+    population: "the peak connections one `pnpm test:e2e` takes",
+    derive: peakConnectionsInOneE2eRun,
+  },
+  {
+    file: ".claude/skills/dispatch/SKILL.md",
+    pattern: /peaking at (\d+) of 288 usable connections/g,
+    population: "the peak connections one `pnpm test:e2e` takes",
+    derive: peakConnectionsInOneE2eRun,
+  },
+  {
     file: "packages/config/vitest.config.ts",
     pattern: /what the other (\w+) configs are checked against/g,
     population: "the Vitest configs other than this one",
@@ -216,6 +311,24 @@ describe("a figure this tree states about itself", () => {
     expect(asCount("ELEVEN")).toBe(11);
     expect(asCount("twenty-one")).toBe(21);
     expect(asCount("27")).toBe(27);
+  });
+
+  /**
+   * BEFORE ANY COMPARISON, because a table that matched nothing would satisfy
+   * "they all agree" by having no subject -- `corpus-figures.test.ts`'s reason,
+   * and `sweep-shard-citations.test.ts`'s for asking whether it found citations
+   * at all. Every claim is read here, so a pattern that has stopped matching
+   * throws in this test rather than silently shrinking the one below.
+   */
+  it("reads every claim it lists, and more than one file states one", () => {
+    expect(CLAIMS.length).toBeGreaterThan(10);
+    expect(new Set(CLAIMS.map(({ file }) => file)).size).toBeGreaterThan(5);
+
+    for (const claim of CLAIMS) {
+      const stated = countStatedIn(claim.file, claim.pattern);
+      expect(Number.isInteger(stated), `${claim.file} states ${stated}`).toBe(true);
+      expect(stated, `${claim.file} states ${stated}`).toBeGreaterThan(0);
+    }
   });
 
   it("is stated in the tree as the tree counts it", () => {

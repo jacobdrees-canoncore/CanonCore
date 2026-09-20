@@ -255,10 +255,12 @@ because it works on rows and these are literals in a file. Named here because th
 reader decides what goes in the fixture, and the licence is a property of the row rather than an
 afterthought about it.
 
-**THE ROSTER ABOVE IS NOT WHAT IS COMMITTED TODAY.** `provider-wiki`'s `fixture/rows.sql` still
-holds the five classic serials CNCORE-15 built, and 135 of its 519 lines name them or their page
-ids. Changing it is CNCORE-9's work in that repository, and this record names the destination rather
-than the current state. Written down because this record is otherwise read as a description of a
+**THE ROSTER ABOVE WAS NOT WHAT WAS COMMITTED WHEN THIS WAS WRITTEN, AND IT HAS SINCE LANDED.**
+`provider-wiki`'s `fixture/rows.sql` then held the five classic serials CNCORE-15 built, and 135 of
+its 519 lines named them or their page ids. Changing it was CNCORE-9's work in that repository and
+that work is done: ADR-0060 records the fixture as "two classic serials plus new Who rows, under
+CNCORE-9". So this record describes the file rather than specifying it (corrected under
+CNCORE-252). Written down because this record is otherwise read as a description of a
 file, and for the length of one ticket it is a specification for one instead.
 
 ## Evidence

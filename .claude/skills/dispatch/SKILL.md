@@ -109,7 +109,8 @@ in a worktree.
 
 **`ROOM n` MEANS n SLOTS ARE FREE, AND THE MONITOR COUNTS THEM.** Do not count worktrees yourself; a
 freed slot used to wait on you remembering to. Four is a CANONCORE count, from one `pnpm test:e2e`
-peaking at 55-60 of 288 usable connections on the shared Postgres (CNCORE-137). `provider-wiki` runs
+peaking at 67 of 288 usable connections on the shared Postgres -- four fit, at 268 of 288
+(CNCORE-137, re-measured under CNCORE-178). `provider-wiki` runs
 DuckDB fixtures and `provider-tmdb` hits the live API, so neither is in the four. Six agents with
 four contending is the shape, not a breach.
 
