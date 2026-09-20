@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { OutboundRefused } from "./boundary";
+import { shortenTo } from "./shorten";
 
 /**
  * ADR-0123. How much of a reason the Owner reads before it is cut.
@@ -18,9 +19,6 @@ import { OutboundRefused } from "./boundary";
  * asserts the reason equals it exactly.
  */
 export const REASON_MAX_LENGTH = 300;
-
-/** What stands in for the part of a reason the Owner does not get to read. */
-const CUT = "…";
 
 /**
  * Why nothing could be read from a provider, in a form a page may print (ADR-0123).
@@ -133,7 +131,7 @@ function unwrapped(thrown: unknown): unknown {
  * send, known to be the provider's without anything having to decide.
  */
 export function bounded(text: string): string {
-  return cap(oneLine(text));
+  return shortenTo(oneLine(text), REASON_MAX_LENGTH);
 }
 
 /**
@@ -224,20 +222,3 @@ function oneLine(message: string): string {
  * with a mixed-direction layout to preserve.
  */
 const CONTROLS = /[\u202a-\u202e\u2066-\u2069\u200b-\u200d\ufeff]/g;
-
-/**
- * The text, cut to `REASON_MAX_LENGTH` INCLUDING the marker that says so.
- *
- * CUT ON A WHOLE CHARACTER. `slice` counts UTF-16 units, so a cut landing
- * between the two halves of an astral character leaves a lone surrogate that
- * renders as a replacement glyph -- and a provider picks the byte offsets here
- * by choosing what it sends. Dropping a trailing high surrogate costs one
- * character of a reason that was being truncated anyway.
- */
-function cap(text: string): string {
-  if (text.length <= REASON_MAX_LENGTH) return text;
-  const kept = text.slice(0, REASON_MAX_LENGTH - CUT.length);
-  const last = kept.charCodeAt(kept.length - 1);
-  const whole = last >= 0xd800 && last <= 0xdbff ? kept.slice(0, -1) : kept;
-  return `${whole}${CUT}`;
-}

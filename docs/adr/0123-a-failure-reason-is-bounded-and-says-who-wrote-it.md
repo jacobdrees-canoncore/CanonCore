@@ -205,10 +205,25 @@ decide.
 its own private `bounded` at this same 300, collapsing and cutting the same way, for what a task
 THREW. Publishing this one does not absorb it: `@canoncore/tasks` depends on `@canoncore/db` alone,
 and taking a dependency on `@canoncore/providers` — the outbound HTTP client, two undici dispatchers
-and ADR-0034's boundaries — to reach a four-line string function would couple the task registry to
+and ADR-0034's boundaries — to reach one string function would couple the task registry to
 the provider stack for nothing. The number is the shared thing and this record is where it is
 shared; that file takes it "rather than chosen again" and says so. Recorded because a reader who
 finds the second copy should meet a decision rather than an oversight.
+
+**AND THE COST OF THAT SEPARATION IS THE GUARD, WHICH THIS PARAGRAPH DID NOT COUNT (CNCORE-272).**
+Keeping the copy out of reach means every property the cut has must be applied here BY HAND, and the
+whole-character cut below was not: `registry.ts` cut on a UTF-16 unit until CNCORE-272. The decision
+above stands — the dependency is not worth it — so what was owed is the guard WRITTEN TWICE rather
+than the copy removed, and it is paid: `registry.ts` drops a trailing high surrogate itself, and its
+comment says it is a copy on purpose so the next reader does not "repair" it with an import.
+
+**AND THE DAMAGE THERE IS WORSE THAN ON A PAGE, which only running it showed.** `detail` is a UTF-8
+column, and a lone surrogate has no encoding in UTF-8 — so the round trip through Postgres turns one
+into U+FFFD. It comes back WELL-FORMED, which means nothing downstream can tell a character was ever
+lost, and it is permanent in the history rather than a rendering artefact. Measured while the test
+was red: the stored detail read `…aaa\ufffd…`. A witness asserting `isWellFormed()` at this seam
+therefore passes whatever happens and guards nothing; the assertion that bites is that the detail
+holds no U+FFFD and equals the whole-character cut.
 
 **THE CAP IS NOT THE ONLY LEVER A PROVIDER HAS OVER A PAGE, which this record framed as a question of
 LENGTH alone.** Bidirectional overrides (U+202A–U+202E, U+2066–U+2069) re-order the glyphs around
@@ -218,6 +233,20 @@ whitespace, so `oneLine`'s `\s+` never touched them, and a 300-character ceiling
 either. They are stripped rather than escaped: a reason and a credential's label are single
 sentences of prose, not documents with a mixed-direction layout to preserve. Found reviewing
 CNCORE-101, on the page whose next control is a link the Owner is about to give a credential to.
+
+**AND THE TASK REGISTRY STRIPS THEM TOO, IN ITS OWN COPY ON PURPOSE (CNCORE-274).** The third
+truncation below takes BOTH of this record's levers, not just the cut. It had only the cut for a
+while, and that is the shape this record warns about everywhere else: `registry.ts` collapsed `\s+`,
+which is no answer to either family, and `tasks/page.tsx` renders `detail` as prose without wrapping
+it — so a task's thrown message could run backwards through the sentence that page wrote about it.
+U+FEFF is the one `\s` DOES match, so it became a space rather than nothing: a different wrong
+answer rather than a right one.
+
+It is a COPY, for the reason the cut is a copy — the dependency this record refuses is refused for
+the strip as well — so the rule is that a record bounding a stranger's text on two levers is written
+in the task registry on two, BY HAND, and kept in step there. A reader who finds the second
+`CONTROLS` should meet that decision rather than an oversight, which is why it is written here and
+not only at the site.
 
 **WIDTH IS A THIRD LEVER**, and a 300-character ceiling is no answer to it either: 300 characters
 with no break in them are one line as wide as the Provider likes. CNCORE-217 closes it with a
@@ -1045,3 +1074,58 @@ at all. Those two are bounded on the argument above, not on a red test.
 **THIS RECORD STAYS `accepted`.** Its mechanism was whole and is untouched; what CNCORE-249 changes
 is three callers that were not obeying it, plus two the sweep found. The rule this section adds for
 the next reader is written at the head of `client.ts` as well, where a sixth refusal would be added.
+
+## The cut is one function, because two copies of it were two rules (CNCORE-269, CNCORE-272)
+
+`shortly` bounds a value where it ENTERS a refusal at 80; `bounded` bounds the whole sentence on its
+way to a page at 300. Two numbers, one rule — and written as two functions they were two rules.
+`bounded`'s carried the hazard in a comment and guarded it. `shortly`'s did neither.
+
+**THE DEFECT WAS NOT THE GLYPH, IT WAS WHERE THE BOUND LIVED.** No call site could reach it: all ten
+pass a URL, a host, an address or a latin-1 header — percent-encoded, punycoded, or handed back by
+Node as latin-1 — so no astral character could straddle a cut. The bound held **by accident of its
+callers rather than by the function**, which is this record's own opening complaint one level down.
+The next caller to route a provider's own prose through `shortly` — a record title, a Provider's
+name, a credential label — is the one that would have found it, and by then the accident reads as a
+guarantee.
+
+So the cut is `shortenTo(text, max)` in `packages/providers/src/shorten.ts`, and both call it. **The
+CEILINGS do not move into it.** 80 is a fact about those refusals and 300 is a fact about a reason,
+so each stays beside the sentences it bounds; what is shared is the cut, and the reason for its shape
+is written once. That is this record's "one function rather than two local truncations" applied to
+the truncation itself rather than to the mapping around it.
+
+**IT IS NOT NAMED `cut`.** `CONTEXT.md` makes **Cut** a Listing's keyset boundary — a point an Order
+is read from, with no number — and the glossary is binding on names in code. `shortenTo` matches
+`shortly` beside it and `readAtMost` above it.
+
+**ASSERTED AT BOTH SEAMS, WITH THE ASTRAL CHARACTER STRADDLING THE CUT.** A U+1F600 opening one unit
+before each boundary puts one half on each side of it. `shortly`'s witness is red before the change,
+on `isWellFormed()`; `bounded`'s was green from the start and is there to catch the day the two stop
+agreeing, which is the only thing a shared function can still get wrong.
+
+**THE THIRD COPY IS NOT FOLDED IN, AND THAT IS THE SAME DECISION AS BEFORE.** `registry.ts` gets the
+guard by hand under CNCORE-272, in the same pass, because the two share ONE REASON TO CHANGE — a
+truncation counting UTF-16 units splits an astral character — while the dependency that would unify
+them is the one this record already refused. Two copies of five lines, each saying why it is a copy,
+is the price of `@canoncore/tasks` not depending on the outbound HTTP stack.
+
+**A CODE POINT IS WHAT IS PROMISED, NOT A GRAPHEME CLUSTER**, and the difference is stated so the
+next reader does not take the stronger reading. A ZWJ sequence, a flag's two regional indicators or
+a base and its combining mark can still be parted by either cut. That is left, and the reason is that
+both halves remain VALID characters that render as themselves — where a lone surrogate is not a
+character at all, which is what makes it alone worth the guard.
+
+**AND THE THIRD COPY HAS TAKEN BOTH PROPERTIES, NOT ONLY THE CUT (CNCORE-274).** It had only the cut
+when this section was first written, so "two numbers, one rule" was true of the cut and an overclaim
+about the strip. `registry.ts` now carries its own `CONTROLS` beside its own marker, stripping before
+it collapses and collapsing before it cuts, in the order `reason.ts` uses. Both levers, written
+twice, kept in step by hand — which is the whole price of `@canoncore/tasks` not depending on the
+outbound HTTP stack, and it is paid rather than described.
+
+**THIS RECORD STAYS `accepted`, AND THE WORD IS MEANT NARROWLY.** Its MECHANISM — a reason bounded
+at a stated ceiling, attributed to whoever wrote it — was whole throughout and is untouched: every
+one of the three truncations always cut, and the field was never unbounded. What was uneven is a
+PROPERTY OF THE CUT, namely where it is allowed to land, which two of the three did not honour.
+That is a correctness gap inside a mechanism rather than a missing half of one, which is the
+distinction `proposed` exists to mark and this does not meet.
