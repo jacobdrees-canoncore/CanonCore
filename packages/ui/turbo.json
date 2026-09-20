@@ -12,13 +12,22 @@
       // the stylesheet itself declares. `utilities.test.ts` compiles that
       // stylesheet with the real Tailwind, resolving `tailwindcss`,
       // `tw-animate-css` and `shadcn/tailwind.css` out of `node_modules`, and
-      // `directives.test.ts` reads `@base-ui/react`'s own files to ask whether it
-      // marks a client boundary. None of that is hashable as this package's
-      // sources, and caching on a subset means a change in `apps/` replays a
-      // stale pass -- the false green these suites exist to catch (ADR-0158).
+      // `directives.test.ts` sweeps `apps/web/src/components` beside this
+      // package's since CNCORE-283, builds its importer graph over the whole of
+      // `apps/web/src` -- `providers.tsx`'s only importer is `app/layout.tsx` --
+      // and reads imported packages' own files to ask whether they mark a client
+      // boundary. None of that is hashable as this package's sources, and caching
+      // on a subset means a change in `apps/` replays a stale pass -- the false
+      // green these suites exist to catch (ADR-0158, ADR-0164).
       //
-      // The three files ran in well under a second on 2026-09-20, measured by the
-      // suite itself; that is cheaper than the lie.
+      // THE UNCACHED TASK IS WHAT ADR-0126 ASKS FOR HERE. That record's other
+      // instrument is an `inputs` list naming the files a task reads outside its
+      // package, and it does not fit: this sweep reads two whole trees and
+      // resolves out of `node_modules`, which is the case `packages/config` is
+      // uncached for rather than the enumerable one `packages/schemas` declares.
+      //
+      // The three files ran in 166ms on 2026-09-20, measured by the suite itself;
+      // that is cheaper than the lie.
       "cache": false
     }
   }

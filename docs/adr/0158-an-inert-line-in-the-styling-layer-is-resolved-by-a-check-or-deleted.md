@@ -137,25 +137,32 @@ the directive for itself because it calls `useTheme()`. The `onClick` it hands d
 client to client and crosses no serialization boundary. A server component may RENDER a client
 component; what it may not do is PASS it a function, and no server component did either.
 
-**THE RULE IS NOW COMPLETE FOR `packages/ui` AND WOULD FIRE FALSELY OUTSIDE IT**, which is a
-boundary rather than an oversight, and the counterexample is named so it is not rediscovered.
-`apps/web/src/components/providers.tsx` is what the server component `layout.tsx` renders, and it
-holds no hook, no bound handler and no browser global: it wraps `theme-provider.tsx`, which wraps
-`next-themes`. The boundary must be declared somewhere in that chain, and the module the server
-actually renders is the one the tightened rule would look inside and find nothing in — so it would
-call `providers.tsx` unearned, and be wrong.
+**THE RULE WAS COMPLETE FOR `packages/ui` AND WOULD HAVE FIRED FALSELY OUTSIDE IT, AND CNCORE-283
+FIXED THAT BY ADDING A SECOND GROUND (ADR-0164).** The counterexample is kept here because it is what
+the fix turns on. `apps/web/src/components/providers.tsx` is what the server component `layout.tsx`
+renders, and it holds no hook, no bound handler and no browser global: it wraps `theme-provider.tsx`,
+which wraps `next-themes`. The tightened rule would look inside it, find nothing, and call it
+unearned — so the rule now also earns a directive on a SERVER importer together with a client
+boundary BELOW the module, which is what `providers.tsx` has and `label.tsx` does not.
 
-**AND THAT CHAIN IS UNTIDY, WHICH IS A FINDING RATHER THAN A TIDY-UP FOR THIS RECORD.** Both modules
-in it carry the directive and neither has a direct client API, so one of the two is redundant by
+**THIS RECORD USED TO SAY THE BOUNDARY MUST BE DECLARED SOMEWHERE IN THAT CHAIN. MEASURED AGAINST
+THE BUNDLE, THAT IS FALSE.** `next-themes@0.4.6` ships `"use client"` in its own dist, so it declares
+the boundary itself: built with neither directive the app serves HTTP 200 and carries the identical
+pre-paint theme script. Keeping the boundary at `providers.tsx` is a choice with a price -- 503 bytes
+of cached chunk against 293 bytes on every request -- rather than a necessity, and ADR-0164 owns the
+figures and takes that choice.
+
+**AND THAT CHAIN WAS UNTIDY; CNCORE-283 SETTLED IT, MEASURED AGAINST THE BUNDLE.** Both modules in
+it carried the directive and neither has a direct client API, so one of the two was redundant by
 exactly the argument that removed `dropdown-menu.tsx`'s: `theme-provider.tsx`'s only importer is
-`providers.tsx`, which is already a client module. Which one keeps it is a choice nobody has made
-explicitly. **The first draft of this section asserted that `theme-provider.tsx` was the module the
+`providers.tsx`, which is already a client module. `theme-provider.tsx`'s directive is the one that
+went, and removing it left the client bundle byte-identical and the per-request payload unmoved. **The first draft of this section asserted that `theme-provider.tsx` was the module the
 boundary lands on; it is not, and the error survived into a ticket before review caught it** — which
 is the same defect this record is about, a sentence that reads as load-bearing and is not.
 
-What separates all three cases is not what they import, it is who imports THEM; CNCORE-283 is open
-on a check built on the importer graph and on settling that chain, and until it lands this one stays
-where it is.
+**What separates the three cases is not what they import, NOR who imports them, but both at once**
+-- the correction CNCORE-283 arrived at by measuring rather than by reasoning, since the importer
+graph alone earns `label.tsx`'s directive at a measured +707 bytes. ADR-0164 carries the rule.
 
 ## An overridden value gets deleted rather than tokenised
 
@@ -172,23 +179,27 @@ arithmetic and on the measurement in CNCORE-261 instead.
 
 ## Why this stays PROPOSED
 
-**Half the mechanism landed, and it is the smaller half.** Both checks run over `packages/ui` and
-nothing else. `apps/web` is where most of this application's classes are written and where most of
-its `"use client"` modules live, and neither check looks at it.
+**The directive half is finished and the class half is not.** Since CNCORE-283 the directive check
+sweeps `apps/web/src/components` beside this package's and builds an importer graph over the whole of
+`apps/web/src` (ADR-0164). The CLASS check still runs over `packages/ui` and nothing else, and
+`apps/web` is where most of this application's classes are written.
 
-The two are not the same amount of work. The class check is nearly portable — it needs the app's
+The two were never the same amount of work. The class check is nearly portable — it needs the app's
 modules added to the sweep and `cva` is not used there, so the extractor gets simpler rather than
-harder. The directive check is not, and CNCORE-276 CHANGED THE REASON WHY rather than removing it.
-This record used to say that pointing the check at `apps/web` would mostly produce passes on the
-import-graph ground and report a confidence it had not earned. That ground no longer exists, so the
-failure mode is now the opposite one and it is worse: run over `apps/web` today, the check would
-report `providers.tsx` as unearned and be WRONG, because that module's reason is the render graph
-rather than anything inside the file.
+harder. The directive check was not, and this record twice named a reason that measurement then
+overtook: first that pointing it at `apps/web` would mostly pass on the import-graph ground, then --
+once CNCORE-276 deleted that ground -- that it would report `providers.tsx` unearned and be wrong.
+The second reason was right, and CNCORE-283 answered it with a second GROUND rather than by leaving
+the directory unswept.
 
-**What would finish it** is the class check extended over `apps/web`, and a directive check whose
-ground is the IMPORTER graph — a directive earned by a direct client API, or by the module having an
-importer that is itself a server module. That is CNCORE-283. Until both exist, the finding this
-record was written for could recur one directory over and nothing would say so.
+**What would finish it is now the class check extended over `apps/web`, and nothing else.** The
+directive half landed under CNCORE-283. **The ground this record named for it was wrong as written**:
+a directive earned by a direct client API, or by the module having an importer that is itself a
+server module, earns `label.tsx`'s at a measured +707 bytes -- this record's own founding case,
+readmitted by the check meant to catch it. The ground that holds is the CONJUNCTION of a server
+importer and a client boundary below the module, and ADR-0164 owns it. Until the class check follows,
+the finding this record was written for could still recur one directory over in a CLASS and nothing
+would say so.
 
 ## Evidence
 
