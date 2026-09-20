@@ -4,6 +4,7 @@ import { dirname, join, resolve } from "node:path";
 import { pnpmSetupSteps, workflow } from "./ci-workflow";
 import { repoRoot } from "./repo-root";
 import { configFilesOnDisk, namedConfig, suiteScripts } from "./vitest-configs";
+import { packageDirectories } from "./workspace";
 
 /**
  * Every count this repository states about ITSELF, derived from the tree that
@@ -123,7 +124,22 @@ const COUNT_WORDS: Record<string, number> = {
  * above promises. NO COUNT IS STATED HERE: ADR-0153 is the document that
  * states it, once, and this is the reason rather than the figure.
  */
-const TENS: Record<string, number> = { twenty: 20, thirty: 30 };
+// EVERY TEN RATHER THAN THE ONES IN USE, because the short version is the
+// defect this module is about. It held `twenty` and `thirty` until this table
+// grew to fifty claims (CNCORE-286) and the reader threw on its own figure --
+// "a table that runs out exactly where the tree grows past it", as the comment
+// below already said. The tens are a CLOSED set, so writing all of them is the
+// one list here that never needs revisiting.
+const TENS: Record<string, number> = {
+  twenty: 20,
+  thirty: 30,
+  forty: 40,
+  fifty: 50,
+  sixty: 60,
+  seventy: 70,
+  eighty: 80,
+  ninety: 90,
+};
 
 export function asCount(written: string): number {
   const word = written.trim().toLowerCase().replace(/,/g, "");
@@ -250,6 +266,49 @@ export function configsRunningTheirFilesSerially(): number {
  */
 export function suitesInRepo(): number {
   return suiteScripts().length;
+}
+
+/**
+ * The packages whose manifest declares a task, for the sentences that count
+ * them -- `typecheck` by twelve, `test` by eleven, `build` by one.
+ *
+ * THE MANIFEST RATHER THAN TURBO'S PLAN, which is the opposite of the choice
+ * `typecheck-wiring.test.ts` makes twenty lines from a sentence this derives,
+ * and the difference is what each one is ABOUT. That file asks whether turbo
+ * WILL RUN the task, so turbo's plan is the only answer that means anything --
+ * reading `scripts` back to assert the entry is present would restate turbo's
+ * decision in a second language. The sentences here say "is DECLARED BY", which
+ * is a fact about the manifest and nothing else. A dry run cannot even answer
+ * it: ADR-0103 measured that `--dry=json` reports one task per workspace
+ * package whatever the task is, so a plan read as the declaring set reads every
+ * package as declaring everything.
+ *
+ * AND IT IS WHY THIS IS CHEAP ENOUGH TO LIVE HERE. Every other derivation in
+ * this module reads files; spawning turbo would put a subprocess behind a claims
+ * table that runs on every `test`.
+ */
+/**
+ * The packages this workspace declares, which is the "of the twelve" half of
+ * every sentence that counts a task's share of them.
+ *
+ * HELD APART FROM `packagesDeclaring("typecheck")` THOUGH THE TWO AGREE TODAY.
+ * Every package declares that script, so both are twelve, and a claim pointed
+ * at the wrong one of them would stay green until a package arrived without it
+ * -- the exact day the sentence needs to move. `packageDirectories` is the
+ * reader `typecheck-wiring.test.ts` and `network-gate-wiring.test.ts` already
+ * share (CNCORE-197), so this adds a population rather than a second walk.
+ */
+export function packagesInWorkspace(): number {
+  return packageDirectories().length;
+}
+
+export function packagesDeclaring(task: string): number {
+  return packageDirectories().filter((directory) => {
+    const { scripts } = JSON.parse(read(`${directory}/package.json`)) as {
+      scripts?: Record<string, string>;
+    };
+    return scripts?.[task] !== undefined;
+  }).length;
 }
 
 /**

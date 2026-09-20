@@ -10,6 +10,8 @@ import {
   jobsRequestingANodeMajor,
   migrationRungs,
   movePlacementRefusalCauses,
+  packagesDeclaring,
+  packagesInWorkspace,
   peakConnectionsInOneE2eRun,
   placementRefusalCauses,
   procedureAnswerCallSites,
@@ -341,6 +343,150 @@ const CLAIMS: Claim[] = [
     population: "the causes `placement.move` can be refused by",
     derive: movePlacementRefusalCauses,
   },
+  /*
+   * THE PACKAGE COUNT, WHICH WAS PROSE NOTHING DERIVED (CNCORE-286).
+   * `typecheck-wiring.test.ts` is the file whose whole subject is that A COUNT
+   * IS NOT A ROLL CALL, and its own header stated a count nothing counted.
+   * `@canoncore/text` arriving as the twelfth package (CNCORE-282) left every
+   * sentence below stale at once and NOTHING went red; they were corrected by
+   * hand in that PR only because a reviewer read for them. The suite counts
+   * beside them DID go red, because `suitesInRepo` was already in this table --
+   * the contrast that makes this a gap rather than an oversight.
+   *
+   * THREE POPULATIONS, NOT ONE, and two of them are equal only by accident.
+   * The packages declaring `typecheck` is twelve, the packages declaring `test`
+   * is eleven, and the packages the workspace declares at all is twelve. A
+   * thirteenth package added without a `typecheck` script moves the last of
+   * those and leaves the first where it was, so a claim pointed at the wrong
+   * one stays green through exactly the change that should redden it.
+   *
+   * WHAT IS LEFT TO THE DATE RATHER THAN DERIVED, both in ADR-0103 and on
+   * purpose. Its "Counted 2026-09-14 ... Recounted 2026-09-20" line carries its
+   * date and its method, which is ADR-0153's other half and not this one; and
+   * the sentence it quotes to correct -- "`typecheck` and `build` ... eleven
+   * packages each" -- is a QUOTATION OF A PAST ERROR, so deriving it would
+   * rewrite the record's own evidence.
+   */
+  {
+    file: "packages/config/src/typecheck-wiring.test.ts",
+    pattern: /`typecheck` is declared by (\w+) packages/g,
+    population: "the packages declaring `typecheck`",
+    derive: () => packagesDeclaring("typecheck"),
+  },
+  {
+    file: "packages/config/src/typecheck-wiring.test.ts",
+    pattern: /dropping its script leaves (\w+) running/g,
+    population: "the packages still typechecked with one script deleted",
+    derive: () => packagesDeclaring("typecheck") - 1,
+  },
+  {
+    file: "packages/config/src/typecheck-wiring.test.ts",
+    pattern: /would be (\w+) names transcribed into a workflow/g,
+    population: "the packages this workspace declares",
+    derive: packagesInWorkspace,
+  },
+  {
+    file: "packages/config/src/typecheck-wiring.test.ts",
+    pattern: /still saw (\w+) and passed/g,
+    population: "the packages this workspace declares",
+    derive: packagesInWorkspace,
+  },
+  {
+    file: "packages/config/src/typecheck-wiring.test.ts",
+    pattern: /`test` is declared by (\w+) of the/g,
+    population: "the packages declaring `test`",
+    derive: () => packagesDeclaring("test"),
+  },
+  {
+    file: "packages/config/src/typecheck-wiring.test.ts",
+    pattern: /`test` is declared by \w+ of the (\w+):/g,
+    population: "the packages this workspace declares",
+    derive: packagesInWorkspace,
+  },
+  /*
+   * THE RECORD ARGUING FROM THE SAME COUNTS, held separately for the reason
+   * ADR-0155's pair is: a figure may be stated once per document, and each copy
+   * is one that can drift on its own.
+   */
+  {
+    file: "docs/adr/0103-tests-bite-at-package-exports-and-the-router.md",
+    pattern: /`test` is declared by (\w+) of the/g,
+    population: "the packages declaring `test`",
+    derive: () => packagesDeclaring("test"),
+  },
+  {
+    file: "docs/adr/0103-tests-bite-at-package-exports-and-the-router.md",
+    pattern: /is declared by \w+ of the (\w+) packages while/g,
+    population: "the packages this workspace declares",
+    derive: packagesInWorkspace,
+  },
+  {
+    file: "docs/adr/0103-tests-bite-at-package-exports-and-the-router.md",
+    pattern: /while `typecheck` is declared by all (\w+)/g,
+    population: "the packages declaring `typecheck`",
+    derive: () => packagesDeclaring("typecheck"),
+  },
+  {
+    file: "docs/adr/0103-tests-bite-at-package-exports-and-the-router.md",
+    pattern: /`typecheck` is declared by (\w+) packages and had only the count/g,
+    population: "the packages declaring `typecheck`",
+    derive: () => packagesDeclaring("typecheck"),
+  },
+  {
+    file: "docs/adr/0103-tests-bite-at-package-exports-and-the-router.md",
+    pattern: /dropping its script left (\w+) running/g,
+    population: "the packages still typechecked with one script deleted",
+    derive: () => packagesDeclaring("typecheck") - 1,
+  },
+  {
+    file: "docs/adr/0103-tests-bite-at-package-exports-and-the-router.md",
+    pattern: /would be (\w+) names transcribed into `ci\.yml`/g,
+    population: "the packages this workspace declares",
+    derive: packagesInWorkspace,
+  },
+  /*
+   * THE NEXT PACKAGE, WHICH IS AN ORDINAL AND STILL A COUNT OF THIS TREE. The
+   * sentence names the package that would go unwritten-down, so it is the total
+   * plus one and goes stale on the same day the total does -- it read "twelfth"
+   * before `@canoncore/text`. `asCount` already reads ordinals, so nothing had
+   * to be taught to cover it.
+   */
+  {
+    file: "docs/adr/0103-tests-bite-at-package-exports-and-the-router.md",
+    pattern: /and the (\w+) package would simply not be one/g,
+    population: "the package a thirteenth would be",
+    derive: () => packagesInWorkspace() + 1,
+  },
+  /*
+   * THE DRY RUN'S TRAP, which is the one place this record counts a task NO
+   * package but one declares. Both halves are held: `db:studio` is declared
+   * once, and a plan names every package anyway -- the measurement the sentence
+   * exists for.
+   */
+  {
+    file: "docs/adr/0103-tests-bite-at-package-exports-and-the-router.md",
+    pattern: /`db:studio`, declared by exactly (\w+) package/g,
+    population: "the packages declaring `db:studio`",
+    derive: () => packagesDeclaring("db:studio"),
+  },
+  {
+    file: "docs/adr/0103-tests-bite-at-package-exports-and-the-router.md",
+    pattern: /package, plans (\w+)/g,
+    population: "the packages this workspace declares",
+    derive: packagesInWorkspace,
+  },
+  {
+    file: "docs/adr/0103-tests-bite-at-package-exports-and-the-router.md",
+    pattern: /the two name the same (\w+) packages/g,
+    population: "the packages this workspace declares",
+    derive: packagesInWorkspace,
+  },
+  {
+    file: "docs/adr/0103-tests-bite-at-package-exports-and-the-router.md",
+    pattern: /an unfiltered plan of (\w+) and passing/g,
+    population: "the packages this workspace declares",
+    derive: packagesInWorkspace,
+  },
 ];
 
 describe("a figure this tree states about itself", () => {
@@ -351,6 +497,23 @@ describe("a figure this tree states about itself", () => {
   it("counts the suites this repository runs, and the few that name a config", () => {
     expect(suitesInRepo()).toBe(16);
     expect(suitesNamingAConfig()).toBe(4);
+  });
+
+  it("counts the packages declaring a task, against ADR-0103's recount", () => {
+    expect(packagesDeclaring("typecheck")).toBe(12);
+    expect(packagesDeclaring("test")).toBe(11);
+    expect(packagesDeclaring("build")).toBe(1);
+  });
+
+  /**
+   * THE TOTAL IS A DIFFERENT POPULATION FROM `typecheck`'s, and the two are
+   * equal only by accident of every package declaring that script today. A
+   * thirteenth package added without one moves this and leaves
+   * `packagesDeclaring("typecheck")` where it was, which is the drift that
+   * would make "eleven of the twelve" wrong in its second half alone.
+   */
+  it("counts the packages the workspace declares", () => {
+    expect(packagesInWorkspace()).toBe(12);
   });
 
   it("counts the jobs that ask pnpm/setup for a Node major", () => {
@@ -420,6 +583,11 @@ describe("a figure this tree states about itself", () => {
     expect(asCount("ELEVEN")).toBe(11);
     expect(asCount("twenty-one")).toBe(21);
     expect(asCount("27")).toBe(27);
+    // THE TENS RAN OUT AT THIRTY and this table grew past it (CNCORE-286), which
+    // is the failure its own comment predicted: a word list that stops is a
+    // reader that throws on the day the count it reads moves past the end.
+    expect(asCount("fifty")).toBe(50);
+    expect(asCount("ninety-nine")).toBe(99);
   });
 
   /**
