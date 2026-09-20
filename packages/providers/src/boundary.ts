@@ -75,6 +75,12 @@ const VALUE_MAX = 80;
  * An Owner who typed a long host still recognises its opening, and what they
  * cannot do without is the sentence SAYING WHAT TO DO, which is what keeping the
  * value short is protecting.
+ *
+ * TODO(CNCORE-269): this cuts on a UTF-16 unit where `cap` in `reason.ts` cuts on
+ * a WHOLE CHARACTER, so a cut landing between the halves of an astral character
+ * would leave a lone surrogate. Unreachable from all ten call sites today --
+ * every value reaching it is a URL, a host, an address or a latin-1 header -- so
+ * that ticket holds it rather than the change that found it.
  */
 export function shortly(value: string): string {
   return value.length <= VALUE_MAX ? value : `${value.slice(0, VALUE_MAX - 1)}…`;

@@ -30,6 +30,11 @@ import { documentAt, logInAt, mainOf, markedCurrentInPicker, pickedIn } from "./
  * `expected '<main ...>' to be '<main ...>'`. The seeded Group nobody writes to
  * is a Listing that holds still, and what is under test here is whether the
  * ADDRESS carries the choice -- never whether the catalogue is quiet.
+ *
+ * TODO(CNCORE-271): THE GROUP DID NOT SETTLE CATALOGUE SEARCH. The same
+ * assertion failed once more on 2026-09-20, on `/search?q=season&...&kind=person`
+ * and in the full suite, with three later runs of the same commit green. The
+ * two browsed Listings are quiet; this surface is not.
  */
 const ORDER = "Order this Listing";
 const KIND = "Narrow to a kind";

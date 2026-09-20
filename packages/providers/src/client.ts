@@ -26,6 +26,22 @@ import {
 import { bounded, REASON_MAX_LENGTH } from "./reason";
 
 /**
+ * EVERY VALUE THIS FILE INTERPOLATES INTO A REFUSAL GOES THROUGH `shortly`, with
+ * no exception for one this app owns (ADR-0123, CNCORE-249).
+ *
+ * The cap does not BOUND a sentence assembled from a value of any length, it
+ * TRUNCATES it, and what it takes is the END -- the half carrying the verdict
+ * and the remedy. So the value is bounded WHERE IT ENTERS and the prose around
+ * it is then fixed-length and always survives.
+ *
+ * THE FILE WAS WALKED WHOLE RATHER THAN PATCHED AT THE THREE SITES THAT WERE
+ * FILED, and a fourth and fifth value were bounded with them. ADR-0123 under
+ * "The rule had three sites in one file that broke it" carries the rest: which
+ * values are the provider's and which the Owner's, why the Owner's own is
+ * bounded too, the arithmetic at each site, and which two have no test and why.
+ */
+
+/**
  * A provider, as CanonCore knows it: a URL, and a validated response shape
  * (ADR-0031). Never a plugin, never code running inside the app.
  */
@@ -308,7 +324,7 @@ export function createProviderClient({
       dispatcher = contentDispatchers[waiting];
     }
 
-    throw new OutboundRefused(`refused ${base.origin}: more than ${MAX_HOPS} redirects.`);
+    throw new OutboundRefused(`refused ${shortly(base.origin)}: more than ${MAX_HOPS} redirects.`);
   }
 
   /**
@@ -399,7 +415,7 @@ function hopTo(location: string, from: URL): URL {
     return new URL(location, from);
   } catch {
     throw new OutboundRefused(
-      `refused a redirect from ${from.origin}: \`${location}\` is not a URL.`,
+      `refused a redirect from ${shortly(from.origin)}: \`${shortly(location)}\` is not a URL.`,
     );
   }
 }
@@ -515,12 +531,13 @@ async function firstBytesOf(response: Response): Promise<string> {
  */
 async function readJson(response: Response): Promise<unknown> {
   const body = response.body;
-  if (!body) throw new OutboundRefused(`refused ${response.url}: the response carried no body.`);
+  if (!body)
+    throw new OutboundRefused(`refused ${shortly(response.url)}: the response carried no body.`);
 
   const { bytes, cut } = await readAtMost(body, MAX_BODY_BYTES);
   if (cut) {
     throw new OutboundRefused(
-      `refused ${response.url}: the response body is larger than the ${MAX_BODY_BYTES}-byte size this client will read.`,
+      `refused ${shortly(response.url)}: the response body is larger than the ${MAX_BODY_BYTES}-byte size this client will read.`,
     );
   }
   return JSON.parse(new TextDecoder().decode(bytes));
