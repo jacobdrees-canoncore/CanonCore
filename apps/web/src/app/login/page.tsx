@@ -114,6 +114,21 @@ function LogInForm({ refused }: { refused?: string }) {
         A VALUE THIS PAGE DOES NOT RECOGNISE SAYS NOTHING, which is what keeps
         the parameter from being a way to put a sentence of somebody else's
         choosing in front of a visitor.
+
+        SO NOTHING HERE IS BOUNDED, AND NOTHING HERE NEEDS TO BE (CNCORE-281).
+        That ticket was filed believing this surface echoed `?refused=` into a
+        sentence unbounded, alongside `/settings`, which did. Measured, it does
+        not: the parameter is never printed. It is compared against `REFUSED`'s
+        two words and decides only WHICH of the two fixed sentences below
+        renders, so the longest thing a crafted link can put on this page is
+        one of this page's own paragraphs.
+
+        WHAT WOULD BREAK THAT IS PRINTING IT, not failing to cap it. An edit
+        that rendered `refused` -- to say "we did not understand `<x>`", the
+        obvious next kindness -- would need `shortly` or its like in the same
+        breath, because at that moment the value stops being a switch and
+        becomes this page's voice (ADR-0123). Comparing it against a wider set
+        is safe; printing it is not.
       */}
       {refused === REFUSED.password && (
         <p className="mt-4 text-sm" role="alert">

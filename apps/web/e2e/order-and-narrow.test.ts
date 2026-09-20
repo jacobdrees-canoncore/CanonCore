@@ -148,7 +148,12 @@ describe("a Listing narrowed to a kind it holds none of", () => {
     const { status, text } = await documentAt(`/?${GROUP}&kind=concept`);
 
     expect(status).toBe(200);
-    expect(mainOf(text)).toContain("Nothing here is");
+    // THE RESOLVED LABEL AND NOT THE BARE STEM (CNCORE-281). `concept` IS a
+    // kind, so this heading names it -- and "Nothing here is" alone now also
+    // matches "Nothing here is of that kind", the heading for a kind that is
+    // no kind at all. Asserting the stem would pass on either, which is one
+    // test covering two states and telling them apart on neither.
+    expect(mainOf(text)).toContain("Nothing here is Concept");
     expect(mainOf(text)).not.toContain("ships no catalogue");
     // AND THE WAY OUT IS ON THE PAGE, which is what makes it a state rather
     // than a dead end.
@@ -191,10 +196,12 @@ describe("a Listing narrowed to a kind that is not a kind at all", () => {
     // link somebody else composed puts their sentence inside this app's `h2`,
     // under this app's styling, on this app's page.
     //
-    // A CRAFTED SENTENCE RATHER THAN `?kind=banana`, which is the difference
-    // between this test and the typo above it. A typo renders one harmless
-    // word and passes an assertion that the echo is gone for the wrong
-    // reason; the harm ADR-0123 names needs a value shaped like something the
+    // A CRAFTED SENTENCE RATHER THAN `?kind=banana`. The block above drives
+    // `?kind=concept` -- a REAL kind this catalogue holds none of, which is a
+    // different state from this one and names its label in the heading. What
+    // is under test here is the kind that is no kind at all, and a one-word
+    // `banana` would pass an assertion that the echo is gone while proving
+    // nothing about the harm: ADR-0123's is a value shaped like something the
     // catalogue would say.
     //
     // LOWER CASE AND NO MARKUP, because both would let this pass without the
@@ -205,6 +212,16 @@ describe("a Listing narrowed to a kind that is not a kind at all", () => {
     const main = mainOf(text);
 
     expect(status).toBe(200);
+    // THE PAGE'S PROSE, AND NOT EVERY BYTE OF IT. The crafted value is still
+    // in this document, percent-encoded, inside the `?kind=` every picker and
+    // walk link carries forward -- which is the address being kept, not a
+    // sentence, and is what those links are for. The spaces are why the two do
+    // not collide here: `crafted` holds them literally and an `href` holds
+    // `%20`. So this reaches the heading and would NOT catch an echo that had
+    // been URL-encoded first. Bounding that copy is a separate question from
+    // whose voice the page speaks in.
+    // TODO(CNCORE-284): that ticket puts a ceiling on `?kind=` at the read
+    // path and in the links; this comment comes out when it lands.
     expect(main).not.toContain(crafted);
 
     // AND IT IS STILL THE RIGHT EMPTINESS, which is what stops the fix being

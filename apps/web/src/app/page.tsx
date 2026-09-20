@@ -359,21 +359,23 @@ function NoItemsOfThatKind({
         <EmptyHeader>
           {/* A real heading, for the reason `NoProviderAllowlisted` gives. */}
           <EmptyTitle>
-            <h2 id="no-items-of-that-kind">
-              {/*
-                THE READER'S OWN WORDS GO THROUGH `TheirWords` AND THE SENTENCE
-                AROUND THEM DOES NOT (ADR-0142) -- and where there are none to
-                print, the sentence closes over the gap rather than leaving a
-                blank where a kind would have been.
-              */}
-              {kind === undefined ? (
-                <>Nothing here is of that kind</>
-              ) : (
-                <>
-                  Nothing here is <TheirWords>{kind}</TheirWords>
-                </>
-              )}
-            </h2>
+            {/*
+              PLAIN, AND `TheirWords` IS GONE FROM IT (ADR-0142). The wrap was
+              right while this printed what was TYPED: free text of any shape,
+              including one unbroken word that sets the page's width. It can no
+              longer be that. What reaches here is an `item_kinds` label or
+              nothing, and ADR-0142 lists exactly that under what stays plain --
+              "the reader's word for an Item's kind, which `item_kinds` holds
+              and `CONTEXT.md` settles (`Time span`)". The kind picker says the
+              same of the same seven labels, and the Rows print `row.kind` bare.
+              Leaving the wrap on would have been this page claiming a width
+              risk the catalogue's own seven words cannot pose.
+
+              ONE SENTENCE WITH A HOLE IN IT, rather than two spellings of it.
+              The page's own words are written once, so a later edit cannot
+              change the named heading and leave the unnamed one behind.
+            */}
+            <h2 id="no-items-of-that-kind">Nothing here is {kind ?? "of that kind"}</h2>
           </EmptyTitle>
           <EmptyDescription>
             This page is narrowed to one kind of Item, and the catalogue holds none of it.
