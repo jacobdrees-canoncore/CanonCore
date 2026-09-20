@@ -79,11 +79,15 @@ emitted as `rowsBefore`, and never an address: nothing takes it back as a number
 
 **Order**:
 The sequence a Listing is read in: the keys it sorts on, most significant first, and the id behind
-them that makes it total. ONE VALUE PER LISTING, from which both the sort and the cursor comparison
+them that makes it total. ONE VALUE PER PAGE, from which both the sort and the cursor comparison
 that walks it are derived — they were two statements a sentence required to name the same terms,
 and four defects came from them disagreeing anyway. NEVER AN ORDERING, which is what a container
 keeps of its own members and is the Placement construct below; a second sense of that word here
 would be the hazard this glossary already refuses for `duplicate` and `record`.
+THE READER CHOOSES AMONG THEM on the Listings that are browsed — by name, or by what was added most
+recently — and the one they chose rides the address (ADR-0150). So a Listing has several orders it
+MAY be read in and exactly one it IS read in on any page, which is the value above; "the order" with
+no reader in the sentence means that one.
 _Avoid_: ordering
 
 **Anchor**:

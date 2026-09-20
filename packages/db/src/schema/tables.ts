@@ -258,6 +258,19 @@ export const items = pgTable(
     check("items_ordered_implies_container", sql`not ${t.isOrdered} or ${t.isContainer}`),
     index("items_sort_name").on(t.sortName),
     /**
+     * CNCORE-175. The recently-added order, which is the second view of the
+     * catalogue a reader can choose: `created_at desc, id`, exactly the terms
+     * the walk sorts and cuts on.
+     *
+     * BOTH COLUMNS, IN THE WALK'S OWN DIRECTIONS, because a keyset walk
+     * compares the PAIR -- `(created_at, id)` against the anchor's -- and an
+     * index on the timestamp alone leaves the tie-break to a sort. Two Items
+     * added in one import share a `created_at` to the microsecond, and an
+     * import writes thousands at a time, so the tie is the normal case here
+     * rather than the rare one.
+     */
+    index("items_created_at").on(t.createdAt.desc(), t.id),
+    /**
      * CNCORE-66. Catalogue search, which matches ANYWHERE inside a title: a
      * reader who has typed `yler` is looking for "Rose Tyler". A b-tree cannot
      * serve that and neither can full-text search, which matches lexemes and

@@ -985,9 +985,22 @@ export interface Catalogue {
  */
 export async function readCatalogue(
   db: Database,
-  { group, ...at }: { limit: number; group?: string; letter?: string } & WhereAPageIs,
+  {
+    group,
+    kind,
+    ...at
+  }: {
+    limit: number;
+    group?: string;
+    kind?: string;
+    letter?: string;
+    order?: ChosenOrder;
+  } & WhereAPageIs,
 ): Promise<Catalogue> {
-  return readListing(db, { ...at, within: withinTheGroup(db, group, IN_THE_CATALOGUE) });
+  return readListing(db, {
+    ...at,
+    within: narrowedToTheKind(kind, withinTheGroup(db, group, IN_THE_CATALOGUE)),
+  });
 }
 
 /**
@@ -1006,9 +1019,22 @@ export async function readCatalogue(
  */
 export async function readWorks(
   db: Database,
-  { group, ...at }: { limit: number; group?: string; letter?: string } & WhereAPageIs,
+  {
+    group,
+    kind,
+    ...at
+  }: {
+    limit: number;
+    group?: string;
+    kind?: string;
+    letter?: string;
+    order?: ChosenOrder;
+  } & WhereAPageIs,
 ): Promise<Catalogue> {
-  return readListing(db, { ...at, within: withinTheGroup(db, group, WORK_BROWSING) });
+  return readListing(db, {
+    ...at,
+    within: narrowedToTheKind(kind, withinTheGroup(db, group, WORK_BROWSING)),
+  });
 }
 
 /**
@@ -1041,8 +1067,36 @@ export async function readWorks(
  */
 async function readListing(
   db: Database,
-  { limit, within, letter, ...at }: { limit: number; within: SQL; letter?: string } & WhereAPageIs,
+  {
+    limit,
+    within,
+    letter,
+    order = "name",
+    ...at
+  }: { limit: number; within: SQL; letter?: string; order?: ChosenOrder } & WhereAPageIs,
 ): Promise<Catalogue> {
+  /*
+   * THE ORDER AND THE ANCHOR READ IN IT ARE PICKED TOGETHER, in one branch,
+   * which is what keeps them a pair. `theCutAt` is typed `ACutIn<O>` against
+   * the order in the same call, so a cursor read in one order cannot reach a
+   * walk in the other -- the compiler holds what a sentence used to
+   * (`order.ts`, ADR-0119).
+   *
+   * AND A LETTER IS THE CATALOGUE'S ORDER'S ALONE. A jump is a SEEK on the
+   * leading key, and the leading key here is a timestamp: `?letter=` on a
+   * recently-added page names nothing to seek to, so this order takes no
+   * letter rather than seeking to a value no Row has. The address is answered
+   * as the start of the Listing, which is where a parameter naming nothing
+   * leaves a page (ADR-0066).
+   */
+  if (order === "added") {
+    return walkListing(db, {
+      within,
+      order: RECENTLY_ADDED,
+      cut: await theCutAt(at, (id) => findInTheAddedOrder(db, id)),
+      limit,
+    });
+  }
   // ONE VALUE HANDED OVER, AND THE WALK READS BOTH STATEMENTS OFF IT
   // (CNCORE-169, CNCORE-170). The sort and the comparison that walks it are the
   // same keys because there is one place they are named.
@@ -1696,6 +1750,37 @@ export function withinTheGroup(db: Database, group: string | undefined, within: 
 }
 
 /**
+ * ONE LISTING'S QUESTION, NARROWED TO THE KIND A READER PICKED (CNCORE-175,
+ * story 25) -- or left as it was, where they picked none.
+ *
+ * THE READER'S NARROWING, NEVER THE SURFACE'S QUESTION, and ADR-0077 is what
+ * draws that line. That record decides which kinds a surface's QUESTION
+ * includes: work-browsing answers "what can I watch" and excludes the entity
+ * kinds, the catalogue answers "what is in this catalogue" and excludes
+ * nothing, and NEITHER is the reader's to change -- "naming the question lets a
+ * surface classify itself". This narrows whichever question was asked, which is
+ * a different act on a different axis, and it is `and`ed on exactly as
+ * `withinTheGroup` above is. So a narrowed `/works` is still work-browsing, and
+ * no value of this parameter turns `/` into it: the entity kinds a narrowed
+ * catalogue shows are ones the catalogue's own question already included.
+ *
+ * A KIND THAT NAMES NOTHING NARROWS TO NOTHING, which is ADR-0066's rule for a
+ * parameter that is not an identity and the same answer `inTheGroup` gives. It
+ * needs no shape guard, which that function does: `kind` is `text` and a
+ * comparison against it is a comparison, where a non-uuid against a `uuid`
+ * column is error 22P02.
+ *
+ * IT TAKES NO `Database`, where `withinTheGroup` does, because a kind is a
+ * column on the row rather than a membership to be looked up. One `eq` against
+ * `items.kind` -- the single-valued, decidable column ADR-0005 insists on -- is
+ * the whole of it, and a subquery here would be reaching for a table to learn
+ * what the row already says.
+ */
+export function narrowedToTheKind(kind: string | undefined, within: SQL): SQL {
+  return kind === undefined ? within : (and(within, eq(items.kind, kind)) as SQL);
+}
+
+/**
  * THE KEY THE CATALOGUE SORTS ON (ADR-0014), written once.
  *
  * The order and the cursor that walks it are one rule, and spelling it twice is
@@ -1743,6 +1828,95 @@ const THE_CATALOGUES_ORDER = {
  */
 type AnchorInTheOrder = AnchorIn<typeof THE_CATALOGUES_ORDER>;
 
+/**
+ * THE OTHER VIEW ONE CATALOGUE HAS OF ITSELF (CNCORE-175, story 24): what the
+ * Owner added most recently, first.
+ *
+ * A SECOND ORDER RATHER THAN A SECOND LISTING, which is the whole of why
+ * `walkListing` takes the order as a parameter: the catalogue asked in this
+ * order is the same question over the same Rows, and only the sequence differs.
+ * A Listing of its own would be a second cap, a second cursor and a second
+ * count to keep honest -- the arrangement `readListing` above carries a
+ * paragraph about.
+ *
+ * `largestFirst`, BECAUSE "RECENTLY ADDED" READS FROM THE NEWEST END. That is
+ * one word here and it reaches both statements: `theOrderBy` renders `desc` and
+ * `pastTheRowIn` turns the comparison round to match, which is the pairing
+ * `order.ts` exists to make impossible to get wrong.
+ *
+ * `everyRowHasIt`, BECAUSE `created_at` IS `notNull` WITH A DEFAULT: no Row of
+ * this Listing is without one, so the key has no keyless block and the walk
+ * needs no branch for one. It is the property that made this the order the
+ * dispatcher chose over release date, which is sparse and would have needed the
+ * block (2026-09-19).
+ *
+ * AND NO `destroyedBy`, BECAUSE A DELETE LEAVES IT STANDING. The catalogue's
+ * own key is a projection that a delete empties (ADR-0014, ADR-0119), so a
+ * cursor into it is refused and the walk starts over; `created_at` is a stored
+ * column no tombstone touches, so an anchor here outlives the delete and a kept
+ * link resumes. `stillAnAnchorIn` reads that difference off these keys rather
+ * than being told it.
+ *
+ * NO LETTER JUMPS IT, and that is not an omission: `atOrPast` seeks on the
+ * LEADING key, and nothing in a sequence of timestamps is filed under a letter.
+ * It is the deviation `JumpToALetter` already records for Catalogue search,
+ * whose order is a ranking, arrived at for the same reason.
+ */
+const RECENTLY_ADDED = {
+  keys: { addedAt: { key: items.createdAt, largestFirst: true, everyRowHasIt: true } },
+  id: items.id,
+} satisfies TheOrder;
+
+/**
+ * WHICH ORDER A READER ASKED A LISTING FOR, by the word its address carries.
+ *
+ * `name` IS THE ABSENCE, which is what makes the catalogue's own order the one
+ * a bare address answers in: the picker's "By name" link is this Listing with
+ * no `order` on it, exactly as the Group picker's "Everything" is this Listing
+ * with no `group` on it (CNCORE-179). A second spelling of the default would be
+ * two addresses for one page, which ADR-0066's fixed order exists to prevent.
+ *
+ * A WORD RATHER THAN THE ORDER ITSELF, because a caller outside this package
+ * gets `readCatalogue`, `readWorks` or `searchCatalogue` and never a walk it
+ * has to supply an order to -- `walkListing`'s own rule, applied to the seam
+ * one function out.
+ */
+export const CHOSEN_ORDERS = ["name", "added"] as const;
+
+export type ChosenOrder = (typeof CHOSEN_ORDERS)[number];
+
+/**
+ * Where one item sits in the recently-added order, by the id a reader arrived
+ * with -- `findInTheOrder`'s pair, reading the key that order names.
+ *
+ * THE TIMESTAMP IS HANDED OVER AS AN EXPRESSION, never as the `Date` a column
+ * read answers with, and `AValueFor` in `order.ts` carries the measurement: a
+ * `Date` is millisecond-precision and this column is microsecond-precision, so
+ * binding one back skips every Row tied with the anchor. The value is read as
+ * TEXT at the column's own precision and cast back here, so the comparison sees
+ * exactly the instant the anchor row holds.
+ *
+ * A BOUND PARAMETER INSIDE THE CAST, never `sql.raw`: the text came from this
+ * database a statement ago, and it is bound rather than spliced all the same,
+ * which is the rule `AnchorIn` states for every expression an anchor carries.
+ *
+ * AND THE TEXT IS `to_char` IN UTC RATHER THAN `::text`, which is what makes the
+ * round trip independent of the SESSION. A `timestamptz` cast to text renders
+ * in that session's `DateStyle`, and the read and the walk are two statements
+ * that may be served by two connections of the pool -- so a `DateStyle` that
+ * differed between them would parse the anchor as a different instant. Spelling
+ * the format here, in UTC and to the microsecond, means neither setting is
+ * load-bearing.
+ */
+async function findInTheAddedOrder(
+  db: Database,
+  id: string,
+): Promise<AnchorIn<typeof RECENTLY_ADDED> | undefined> {
+  const anchor = await findTheAnchor(db, RECENTLY_ADDED, id);
+  if (anchor === undefined) return undefined;
+  return { addedAt: sql`${anchor.addedAt}::timestamptz`, id: anchor.id };
+}
+
 /** One row a cursor might name, read the way every walk has to read it. */
 export interface TheAnchor {
   /**
@@ -1763,6 +1937,23 @@ export interface TheAnchor {
    * order at all. One read answers both (CNCORE-88).
    */
   title: string | null;
+  /**
+   * WHEN THE CATALOGUE GAINED THE ROW, which the recently-added order walks on
+   * (CNCORE-175). READ BESIDE THE OTHER TWO for the reason the title above is:
+   * the select does not move with the order, so one read answers every order
+   * over `items` and each caller takes the keys its own order names.
+   *
+   * NO TOMBSTONE DESTROYS IT, which is why this key names no `destroyedBy` and
+   * an anchor in that order outlives the delete: a kept link into it resumes
+   * where a link into the catalogue's own order would start over.
+   *
+   * READ AS TEXT AT THE COLUMN'S OWN PRECISION, never as a `Date`. A
+   * `timestamptz` keeps microseconds and a `Date` keeps milliseconds, so the
+   * round trip through one drops the last three digits and the walk skips every
+   * Row tied with its anchor -- measured, and written up on `AValueFor` in
+   * `order.ts`, which refuses the lossy type outright.
+   */
+  addedAt: string;
   id: string;
 }
 
@@ -1813,7 +2004,12 @@ export async function findTheAnchor(
 ): Promise<TheAnchor | undefined> {
   if (!canBeAnId(id)) return undefined;
   const [anchor] = await db
-    .select({ sortKey: SORT_KEY, title: items.title, id: items.id })
+    .select({
+      sortKey: SORT_KEY,
+      title: items.title,
+      addedAt: sql<string>`to_char(${items.createdAt} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
+      id: items.id,
+    })
     .from(items)
     .where(and(eq(items.id, id), stillAnAnchorIn(order)));
   return anchor;

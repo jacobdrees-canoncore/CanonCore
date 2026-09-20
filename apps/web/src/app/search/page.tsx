@@ -13,6 +13,7 @@ import {
   Holding,
   Listing,
   NarrowToAGroup,
+  NarrowToAKind,
   NoSuchGroup,
   PastTheEnd,
   theScope,
@@ -21,6 +22,7 @@ import {
 } from "@/components/listing";
 import {
   oneGroup,
+  oneKind,
   oneValue,
   type WhereThePageStarts,
   whereThePageStarts,
@@ -56,7 +58,12 @@ import { TheirWords } from "@/components/their-words";
  * page looks correct on the server it was built against, which is every server
  * anybody would think to look at.
  */
-async function readSearch(query: string, at: WhereThePageStarts, group: string | undefined) {
+async function readSearch(
+  query: string,
+  at: WhereThePageStarts,
+  group: string | undefined,
+  chosen: { kind?: string },
+) {
   // The router is called IN-PROCESS, as the front page and the item page call
   // it. A server component fetching its own API is a round trip to itself, and
   // oRPC documents `call` as the way to avoid it.
@@ -70,11 +77,15 @@ async function readSearch(query: string, at: WhereThePageStarts, group: string |
   // AND WITHIN THE GROUP A READER PICKED, beside every Group there is for the
   // picker to offer -- the front page's pair, for its reason (CNCORE-180).
   const context = await createContext();
-  const [results, { groups }] = await Promise.all([
-    call(appRouter.catalogue.search, { query, ...at, group }, { context }),
+  const [results, { kinds }, { groups }] = await Promise.all([
+    call(appRouter.catalogue.search, { query, ...at, group, ...chosen }, { context }),
+    // EVERY KIND THERE IS, which the narrowing picker offers (CNCORE-175).
+    // ADR-0077 says search answers with all seven, and it still does: this is
+    // the reader narrowing the answer rather than the surface's question.
+    call(appRouter.item.kinds, undefined, { context }),
     call(appRouter.group.list, undefined, { context }),
   ]);
-  return { results, groups };
+  return { results, kinds, groups };
 }
 
 export default async function SearchPage({
@@ -83,11 +94,12 @@ export default async function SearchPage({
   searchParams: Promise<{
     q?: string | string[];
     group?: string | string[];
+    kind?: string | string[];
     after?: string | string[];
     before?: string | string[];
   }>;
 }) {
-  const { q, group, after, before } = await searchParams;
+  const { q, group, kind, after, before } = await searchParams;
   /*
    * A REPEATED PARAMETER NAMES NO QUERY rather than the first of several. That
    * is the rule `/items/<id>` applies to `via` and `placed` (ADR-0066) and the
@@ -116,9 +128,16 @@ export default async function SearchPage({
   // AND THE GROUP IT IS ASKED WITHIN (CNCORE-180), which `oneGroup` reads for
   // every surface that narrows.
   const narrowedTo = oneGroup(group);
-  const read = asked ? await readSearch(query, at, narrowedTo) : null;
+  // THE KIND A READER NARROWED THE RESULTS TO (CNCORE-175). No ORDER here:
+  // this Listing leads on how close a title is to what was typed (ADR-0120),
+  // and an order chosen over that would discard the ranking that IS the answer.
+  const chosen = { kind: oneKind(kind) };
+  const read = asked ? await readSearch(query, at, narrowedTo, chosen) : null;
   const results = read?.results ?? null;
   const groups = read?.groups ?? [];
+  // THE SEVEN, OR NONE WHERE NOTHING WAS SEARCHED -- the picker is rendered
+  // only beside results, for the reason `scope` gives one line down.
+  const kinds = read?.kinds ?? [];
   // NARROWED ONLY WHERE SOMETHING WAS SEARCHED. With no query there is no list
   // of Groups to find this one in, and reading the parameter anyway would call
   // every Group "gone" -- true of nothing, and one missed `results` check from
@@ -127,7 +146,7 @@ export default async function SearchPage({
   // THIS LISTING AS THE WALK AND THE PICKER SEE IT: its address and the query.
   // The Group rides separately, as `narrowed`, so `queryFor` writes the query,
   // then the Group, then the cursor.
-  const surface = { path: "/search", asked: { q: query } } as const;
+  const surface = { path: "/search", asked: { q: query }, chosen } as const;
 
   return (
     <main className="container mx-auto max-w-3xl px-4 py-8">
@@ -167,10 +186,23 @@ export default async function SearchPage({
       {results !== null && groups.length > 0 && (
         <NarrowToAGroup {...surface} groups={groups} narrowedTo={narrowedTo} />
       )}
+      {results !== null && <NarrowToAKind {...surface} kinds={kinds} narrowed={scope.narrowed} />}
       {results === null && <NothingAsked />}
       {results !== null && scope.gone && <NoSuchGroup {...surface} />}
       {results !== null && results.total === 0 && !scope.gone && (
-        <NothingFound query={query} within={scope.group?.name} everywhere={theStartOf(surface)} />
+        <NothingFound
+          query={query}
+          within={scope.group?.name}
+          /*
+           * THE WHOLE CATALOGUE MEANS BOTH NARROWINGS DROPPED (CNCORE-175), not
+           * just the Group. This link says "Search the whole catalogue", and a
+           * reader narrowed to a Group AND a kind who followed it would land on
+           * a search still narrowed to one kind -- the link's own words untrue
+           * of where it goes. The query is kept, because clearing a scope is
+           * not clearing the question.
+           */
+          everywhere={theStartOf({ ...surface, chosen: undefined })}
+        />
       )}
       {/*
         MATCHES, AND NONE OF THEM ON THIS PAGE, which is what a cursor makes

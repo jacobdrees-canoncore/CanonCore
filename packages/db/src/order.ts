@@ -224,9 +224,37 @@ export interface TheOrder {
  */
 export type AnchorIn<O extends TheOrder> = {
   readonly [K in keyof O["keys"]]: O["keys"][K] extends { readonly everyRowHasIt: true }
-    ? string | number | SQL
-    : string | number | null | SQL;
+    ? AValueFor
+    : AValueFor | null;
 } & { readonly id: string };
+
+/**
+ * WHAT ONE KEY'S VALUE MAY BE -- and a `Date` IS DELIBERATELY NOT AMONG THEM,
+ * which is a refusal rather than an omission (CNCORE-175).
+ *
+ * A TIMESTAMP KEY'S ANCHOR IS AN `SQL` CAST, NEVER THE `Date` IT READS AS, and
+ * the reason is measured rather than argued. PostgreSQL's `timestamptz` keeps
+ * MICROSECONDS and a JavaScript `Date` keeps MILLISECONDS, so a value read into
+ * one and bound back loses the last three digits: measured on this repository's
+ * own rows 2026-09-19, `2026-09-19 22:06:29.990727+00` binds back as
+ * `...990`. Against a key at `.990727` the tie branch `eq(key, value)` then
+ * matches NOTHING and `lt(key, value)` excludes the row, so every Row tied with
+ * the anchor is silently skipped -- 6 Rows walked of a Listing holding 10,
+ * which is the failure this whole module exists to make impossible, arriving
+ * through the VALUE rather than through the terms.
+ *
+ * AN IMPORT IS WHERE IT BITES, because one statement writes thousands of Items
+ * inside one transaction and `now()` is the transaction's: they share a
+ * `created_at` to the microsecond, so the tie is the normal case in this order
+ * rather than a corner of it.
+ *
+ * SO A KEY WHOSE COLUMN IS FINER THAN ITS JavaScript TYPE HANDS OVER AN
+ * EXPRESSION, read at the column's own precision and cast back -- which the
+ * `SQL` member here is for, and which Catalogue search's computed key already
+ * uses. Leaving `Date` out is what makes the lossy version a type error at the
+ * read rather than rows missing from a page nobody counted.
+ */
+type AValueFor = string | number | SQL;
 
 /** What a key is selected by: its expression, without what it says about it. */
 type TheExpressionOf<K extends AKey> = K extends { readonly key: infer E } ? E : K;

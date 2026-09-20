@@ -1382,3 +1382,24 @@ offered from the first page, `before` written ahead of `placedAfter`, and `befor
 
 **THE STATUS STAYS `accepted`.** The walk was whole; the step back and the jump are whole on it, in
 every Listing each applies to.
+
+## A SEVENTH WAY THE TWO STATEMENTS COME APART, found under CNCORE-175: through the VALUE
+
+Every defect above is the sort and the cursor comparison naming different TERMS. A second order
+arriving on this walk found the same failure -- Rows silently stepped over -- reached through the
+**anchor's value** instead, and nothing in this record or in `order.ts` would have caught it.
+
+PostgreSQL's `timestamptz` keeps MICROSECONDS; a JavaScript `Date` keeps MILLISECONDS. An anchor read
+into one and bound back therefore loses its last three digits, so `eq(key, value)` matches nothing
+and `lt(key, value)` excludes the anchor's own tie group. Measured 2026-09-19 on this repository's
+rows: an anchor at `2026-09-19 22:06:29.990727+00` binds back as `...990`, and the Listing contract
+test walked **6 Rows of a Listing holding 10, and 24 of 30**.
+
+The rule is ADR-0150's and is stated there: **a key whose column is finer than its JavaScript type
+hands over an EXPRESSION, read at the column's own precision and cast back**, and `AValueFor` refuses
+`Date` outright so the lossy version cannot compile. It is recorded here too because this is the
+record a reader consults before adding an order, and the terms being right is no longer the whole of
+what that costs.
+
+**THE STATUS STAYS `accepted`.** The walk is whole; this is a hazard it now names rather than a half
+of it that was missing.

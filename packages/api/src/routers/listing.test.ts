@@ -59,7 +59,9 @@ interface AListing {
     after?: string;
     before?: string;
     group?: string;
+    kind?: string;
     letter?: string;
+    order?: "name" | "added";
   }) => Promise<CataloguePublic>;
   /**
    * WHETHER ITS ROWS ARE FILED UNDER LETTERS, which is whether a jump to one
@@ -469,6 +471,62 @@ describe.each(EVERY_LISTING)(
       expect(beyond.rows).toStrictEqual([]);
       expect(beyond.rowsBefore).toBe(total);
     });
+
+    /*
+     * NARROWED TO ONE KIND (CNCORE-175), asked of every Listing here because a
+     * narrowing that reached two of them and not the third would be one control
+     * meaning different things on three surfaces -- which is the argument
+     * `withinTheGroup` already makes about a Group, applied to the other axis.
+     *
+     * WHAT THIS SEAM ASSERTS IS THE WIRING, and the read path's own tests hold
+     * the narrowing itself (`catalogue.test.ts`). So the fixture is the one
+     * fact every entry in the table above shares -- its Rows are Works -- and
+     * the assertion is that a kind they ARE keeps them and a kind they are NOT
+     * drops them. A procedure that dropped the parameter on the floor answers
+     * both alike and fails.
+     *
+     * RELATIVE TO THE LISTING'S OWN ROWS RATHER THAN TO AN EXACT TOTAL, because
+     * three of the six entries are unnarrowed and this suite's catalogue is
+     * shared: how many Time spans some other file has seeded is not a number
+     * this test may pin.
+     */
+    it("narrows to one kind, and the size follows what it narrowed to", async () => {
+      const everyKind = await page({ limit: A_PAGE });
+      const asWorks = await page({ limit: A_PAGE, kind: "work" });
+      const asTimeSpans = await page({ limit: A_PAGE, kind: "time_span" });
+
+      expect(asWorks.total).toBeGreaterThanOrEqual(ofItsOwn.length);
+      expect(asWorks.total).toBeLessThanOrEqual(everyKind.total);
+      // THE SIZE FOLLOWS, which is story 26: a narrowed page that reported the
+      // unnarrowed total would be reporting a total it is not showing from.
+      expect(asTimeSpans.total).toBeLessThan(everyKind.total);
+      expect(asTimeSpans.rows.map((row) => row.id)).toEqual(expect.not.arrayContaining(ofItsOwn));
+    });
+
+    /*
+     * THE ORDER A READER CHOSE (CNCORE-175), on the two Listings that take one.
+     * Catalogue search's order is a ranking on what the reader typed
+     * (ADR-0120), so it is not offered one and does not appear here.
+     *
+     * THE WALK IS THE ASSERTION, not the first page: a second order reopens the
+     * seam every defect in ADR-0119 came through -- the sort and the cursor
+     * comparison naming different terms -- and a first page agrees with any
+     * comparison at all. Reaching exactly `total` DISTINCT Rows is the two
+     * halves agreeing, which is the oracle the walk above already uses.
+     */
+    it.runIf(filedByName)(
+      "walks the whole Listing in the order a reader chose, skipping and repeating nothing",
+      async () => {
+        const inTheChosenOrder: AListing["page"] = (input) => page({ ...input, order: "added" });
+        const { total } = await inTheChosenOrder({ limit: 1 });
+
+        const walked = await everyRowWalked(inTheChosenOrder, total);
+
+        expect(walked).toHaveLength(total);
+        expect(new Set(walked).size).toBe(total);
+        expect(walked).toEqual(expect.arrayContaining(ofItsOwn));
+      },
+    );
 
     it.runIf(filedByName)("lands a jump to a letter at the first Row filed under it", async () => {
       // THE JUMP (CNCORE-174) IS A SEEK INTO THE SAME ORDER, not a filter over

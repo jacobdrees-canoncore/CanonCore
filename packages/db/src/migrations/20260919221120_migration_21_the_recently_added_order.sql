@@ -1,0 +1,15 @@
+-- CNCORE-175. The recently-added order: the second view of the catalogue a
+-- reader can choose, `created_at desc, id`.
+--
+-- THE INDEX CARRIES BOTH TERMS IN THE WALK'S OWN DIRECTIONS, because a keyset
+-- walk compares the PAIR against its anchor rather than the timestamp alone.
+-- An import writes thousands of Items inside one transaction, so they share a
+-- `created_at` to the microsecond and the id is what separates them: on the
+-- timestamp alone the tie-break falls to a sort over every Item sharing the
+-- instant, which at import size is most of the catalogue.
+--
+-- PLAIN RATHER THAN CONCURRENTLY, which drizzle could not run here anyway --
+-- it wraps a migration in a transaction and `CREATE INDEX CONCURRENTLY` is
+-- refused inside one. The lock is a write lock on `items` for as long as the
+-- build takes, which at ADR-0137's 8,052 rows is milliseconds.
+CREATE INDEX "items_created_at" ON "items" USING btree ("created_at" DESC NULLS LAST,"id");
