@@ -116,9 +116,12 @@ const COUNT_WORDS: Record<string, number> = {
  * reaches it, rather than guessed at now.
  *
  * `thirty` IS HERE BECAUSE A CLAIM REACHED IT, which is this table working
- * rather than an exception to it. It read `twenty` alone until CNCORE-255 added
- * the two placement-refusal claims and pushed ADR-0153's own count of itself to
- * thirty-one; the throw named the missing word, as the sentence above promises.
+ * rather than an exception to it. It read `twenty` alone until two tickets
+ * pushed the table past twenty-nine in the same week -- CNCORE-255's two
+ * placement-refusal claims and CNCORE-253's two about this suite's
+ * parallelism -- and each one's throw named the missing word, as the sentence
+ * above promises. NO COUNT IS STATED HERE: ADR-0153 is the document that
+ * states it, once, and this is the reason rather than the figure.
  */
 const TENS: Record<string, number> = { twenty: 20, thirty: 30 };
 
@@ -214,6 +217,28 @@ export function ciJobs(): number {
  */
 export function vitestConfigs(): number {
   return configFilesOnDisk().length;
+}
+
+/**
+ * The Vitest configs that run their files ONE AT A TIME.
+ *
+ * `apps/web/vitest.e2e.config.ts` states this count to argue that its own
+ * absence of the setting is a decision rather than an oversight (CNCORE-253),
+ * and that argument is exactly the kind that goes stale: a sixth config taking
+ * the setting would leave the sentence saying five, and a fifth dropping it
+ * would leave the sentence arguing against a majority that no longer exists.
+ *
+ * READ AS TEXT AND ANCHORED AT THE LINE, rather than through `testBlockOf`,
+ * because `derive` is synchronous and importing a config is not. The anchor is
+ * what makes the text reading safe here: `^\s*fileParallelism` cannot match a
+ * commented-out line, which is the failure `testBlockOf`'s own docblock warns a
+ * text search has. A line that sets it to anything but `false` is not counted
+ * either, since what is being counted is the suites that run serially.
+ */
+export function configsRunningTheirFilesSerially(): number {
+  return configFilesOnDisk().filter((config) =>
+    /^\s*fileParallelism:\s*false\b/m.test(readFileSync(config, "utf8")),
+  ).length;
 }
 
 /**

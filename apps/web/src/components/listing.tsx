@@ -961,6 +961,18 @@ export function theScope(groups: Group[], narrowedTo: string | undefined) {
  * narrow. Uncapped, for the reason `findGroups` gives -- a Group is drawn by
  * hand, so there are as many as universes the Owner curates.
  *
+ * SO THIS IS CATALOGUE-WIDE STATE, SITTING INSIDE `<main>`, AND A TEST THAT
+ * SHARES AN INSTANCE CAN SEE IT (CNCORE-253, CNCORE-271). Everything else on a
+ * narrowed Listing answers to the address: the Rows are the Group's, and
+ * `Holding`'s count is that Group's size. This picker answers to the whole
+ * catalogue, so a Group created ANYWHERE -- by another test file, by an import
+ * running beside it -- changes this page without its address changing. Two e2e
+ * files compare one address against itself byte-for-byte to prove the address
+ * decides the page, and for four months they were comparing this too: the fix
+ * is `steadyMainOf` in `apps/web/e2e/document.ts`, which cuts this `<nav>` out
+ * of what they compare. Nothing here needs to change for that, and that is the
+ * point -- rendering every Group is what the picker is FOR (ADR-0155).
+ *
  * `aria-current` MARKS THE ONE THE PAGE IS NARROWED TO, and it is what makes
  * the narrowing visible rather than inferred from a smaller count. No chip is
  * current on a page naming a Group that is not there, which is `NoSuchGroup`'s

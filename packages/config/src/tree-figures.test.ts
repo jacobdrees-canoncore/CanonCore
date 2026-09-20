@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   asCount,
   ciJobs,
+  configsRunningTheirFilesSerially,
   countStatedIn,
   handBuiltRedirectsIn,
   jobsRequestingANodeMajor,
@@ -123,6 +124,24 @@ type Claim = {
 };
 
 const CLAIMS: Claim[] = [
+  {
+    file: "apps/web/vitest.e2e.config.ts",
+    pattern: /([\w-]+) sibling configs set it/g,
+    population: "the Vitest configs that run their files serially",
+    derive: configsRunningTheirFilesSerially,
+  },
+  /*
+   * THE RECORD THAT ARGUES FROM THE SAME COUNT, held separately. ADR-0153 lets
+   * a figure be stated once PER DOCUMENT, so the config and the record each
+   * state it once -- and each copy is one that can drift, which is why there
+   * are two claims here rather than one covering both.
+   */
+  {
+    file: "docs/adr/0155-a-shared-instance-assertion-holds-only-what-the-address-decides.md",
+    pattern: /([\w-]+) sibling configs set it/g,
+    population: "the Vitest configs that run their files serially",
+    derive: configsRunningTheirFilesSerially,
+  },
   {
     file: ".github/workflows/ci.yml",
     pattern: /not the (\w+) `The page over HTTP` stands up/g,

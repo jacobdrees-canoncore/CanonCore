@@ -1,6 +1,7 @@
 import { describe, expect, inject, it } from "vitest";
 
 import {
+  aGroupArrivesAt,
   documentAt,
   documentFrom,
   logInAt,
@@ -8,6 +9,7 @@ import {
   markedCurrentIn,
   navigatingFormsIn,
   scopeLinked,
+  steadyMainOf,
 } from "./document";
 
 /**
@@ -41,13 +43,28 @@ describe("a Group the Owner picked", () => {
       const seen = await documentAt(picked, owner);
       expect(markedCurrentIn(seen.text), picked).toStrictEqual([workBrowsing.group.name]);
 
+      /*
+       * THE ADVERSARY, FORCED RATHER THAN WAITED FOR: a Group created between
+       * two fetches of one address is what `import-page.test.ts` does to this
+       * instance by accident, and what CNCORE-271 was. `steadyMainOf` below is
+       * what makes the comparison survive it.
+       */
+      await aGroupArrivesAt(inject("baseUrl"), owner);
       const reloaded = await documentAt(picked, owner);
       const shared = await documentAt(picked);
 
       expect(reloaded.status).toBe(200);
       expect(shared.status).toBe(200);
-      expect(mainOf(reloaded.text)).toBe(mainOf(seen.text));
-      expect(mainOf(shared.text)).toBe(mainOf(seen.text));
+      expect(steadyMainOf(reloaded.text)).toBe(steadyMainOf(seen.text));
+      expect(steadyMainOf(shared.text)).toBe(steadyMainOf(seen.text));
+      /*
+       * AND THE SCOPE IS STILL THE ONE THE ADDRESS NAMES, for all three. This
+       * is what the byte comparison used to cover about the picker and
+       * `steadyMainOf` no longer does: a scope held in a session would mark
+       * nothing current for the reader who has none.
+       */
+      expect(markedCurrentIn(reloaded.text), picked).toStrictEqual([workBrowsing.group.name]);
+      expect(markedCurrentIn(shared.text), picked).toStrictEqual([workBrowsing.group.name]);
     }
   });
 });
