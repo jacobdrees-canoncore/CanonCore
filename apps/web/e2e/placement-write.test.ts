@@ -254,10 +254,10 @@ describe("reaching an item the picker does not offer", () => {
      * container's page and what changes is how the Owner gets to an item
      * through it.
      */
-    const before = await containerPage(curatable.storyOrder, owner);
+    const before = await containerPage(curatable.reaching, owner);
     expect(offeredIn(before.text)).not.toContain(curatable.beyondThePageTitle);
 
-    const found = await searchThePicker(curatable.storyOrder, "Zoe");
+    const found = await searchThePicker(curatable.reaching, "Zoe");
     expect(offeredIn(found.text)).toContain(curatable.beyondThePageTitle);
 
     /*
@@ -273,9 +273,10 @@ describe("reaching an item the picker does not offer", () => {
     const after = await submit(baseUrl, found.at, form, owner);
 
     expect(after.status).toBe(200);
-    expect(
-      membersIn(after.text).filter((row) => row.includes(curatable.beyondThePageTitle)),
-    ).toStrictEqual([expect.stringContaining("#300")]);
+    expect(membersIn(after.text)).toStrictEqual([
+      expect.stringContaining(curatable.beyondThePageTitle),
+    ]);
+    expect(membersIn(after.text)[0]).toContain("#300");
   });
 
   it("keeps the picker narrowed when the catalogue refuses the placement", async () => {
@@ -289,7 +290,7 @@ describe("reaching an item the picker does not offer", () => {
      * THE SECOND PLACEMENT AT ONE POSITION IS THE REFUSAL, which ADR-0009
      * licences only at a DIFFERENT position.
      */
-    const found = await searchThePicker(curatable.releaseOrder, "Zoe");
+    const found = await searchThePicker(curatable.reaching, "Zoe");
     const twice = withFields(formIn(found.text, "place-an-item"), {
       itemId: curatable.beyondThePage,
       position: "301",

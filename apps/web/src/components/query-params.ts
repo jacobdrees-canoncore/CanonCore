@@ -128,6 +128,16 @@ export function oneGroup(parameter: string | string[] | undefined): string | und
  * are present -- rather than splitting the hidden fields around a text input to
  * slot the query into the middle of the list.
  *
+ * `placing` RATHER THAN `q`, THOUGH BOTH REACH `catalogue.search`. The two
+ * name different things and the difference is WHOSE QUESTION it is: `q` is the
+ * page's own -- `/search` IS its query, and the shell's box submits one from
+ * every page in the app -- where this narrows ONE CONTROL on a page that is
+ * about something else entirely. An Item's page carrying `?q=` would read as
+ * that page having been searched, beside a header box that submits `q` to
+ * `/search` and means the other thing. `CONTEXT.md` binds the CONCEPT, which is
+ * Catalogue search, and this is a second surface asking it rather than a second
+ * name for it.
+ *
  * IT SHARES A LINK WITH `refused` AND `because`, which is why it sits behind
  * them rather than beside `placed`. A refused placement redirects back to the
  * picker the Owner was looking at, and that picker is the narrowed one or their

@@ -1714,13 +1714,17 @@ async function aCatalogueSafeToCurate(owned: AsyncDisposableStack) {
        * edit.
        *
        * AND IT IS SAFE HERE BECAUSE NEITHER READER ORACLES THIS CATALOGUE AS A
-       * SET. `placement-write.test.ts` and `select.test.ts` are the only two,
-       * and both replay the form the page rendered with the fields they want
-       * SET -- so what the picker happens to offer is not what either asserts
-       * against. THAT IS THE CONSTRAINT ON THE NEXT READER: a test that walks
-       * this instance's catalogue, or counts it, or reads the picker's options
-       * as an exact list, is one this filler breaks. `pagedCatalogue` is the
-       * instance for a set oracle; this one is for writing.
+       * SET, though they reach that from different directions and the
+       * difference is the thing to carry forward. `placement-write.test.ts`
+       * replays the form the page rendered with the fields it wants SET, so
+       * what the picker happens to OFFER is never what it submits;
+       * `select.test.ts` reads the rendered `<select>`'s CLASS ATTRIBUTE and
+       * never its options at all. Neither can see this filler.
+       *
+       * THAT IS THE CONSTRAINT ON THE NEXT READER: a test that walks this
+       * instance's catalogue, counts it, or reads the picker's options as an
+       * exact list is one this filler breaks. `pagedCatalogue` is the instance
+       * for a set oracle; this one is for writing.
        *
        * A HUNDRED AND TWENTY, against a picker capped at a hundred. Twenty past
        * the cap rather than one, so an off-by-one in a cursor or a cap cannot
@@ -1735,7 +1739,19 @@ async function aCatalogueSafeToCurate(owned: AsyncDisposableStack) {
        * search rather than by a query that matches the whole fixture.
        */
       const beyondThePage = await anItemTitled(db, "Zoe and the far end of the catalogue");
-      return { releaseOrder, storyOrder, story, otherStory, beyondThePage };
+      /*
+       * AND AN ORDERING NO EARLIER TEST ORACLES, which is what keeps reaching
+       * past the cap independent of the two above. `placement-write.test.ts`
+       * asserts the membership of BOTH of those EXACTLY -- `toStrictEqual` on
+       * one row -- so a later test placing into either survives only by being
+       * declared after it, and a file whose correctness is its declaration
+       * order is one the next `it` reorders by accident.
+       */
+      const reaching = await anItemTitled(db, "Where the far end lands", {
+        isContainer: true,
+        isOrdered: true,
+      });
+      return { releaseOrder, storyOrder, story, otherStory, beyondThePage, reaching };
     },
   });
 
@@ -1748,6 +1764,7 @@ async function aCatalogueSafeToCurate(owned: AsyncDisposableStack) {
       releaseOrderTitle: "Release order",
       storyOrderTitle: "Story order",
       beyondThePageTitle: "Zoe and the far end of the catalogue",
+      reachingTitle: "Where the far end lands",
     },
   };
 }
@@ -2474,11 +2491,18 @@ declare module "vitest" {
        * it.
        */
       beyondThePage: string;
+      /**
+       * An ordering NO OTHER TEST IN THAT FILE ORACLES, so reaching past the
+       * picker's cap can place into something without standing on the exact
+       * membership assertions two containers above it carry (CNCORE-256).
+       */
+      reaching: string;
       storyTitle: string;
       otherTitle: string;
       releaseOrderTitle: string;
       storyOrderTitle: string;
       beyondThePageTitle: string;
+      reachingTitle: string;
     };
     /**
      * And again, serving a catalogue whose ORDERINGS a test may rearrange. A

@@ -140,7 +140,7 @@ Read before proposing anything in the grilling.
 - **ADR-0005** puts anything finer than the seven kinds in a `category` statement.
 - **ADR-0119** caps every listing and requires the cap be named to the reader.
 
-## Six hypotheses that were wrong
+## Six hypotheses about defects: five wrong, one right
 
 Recorded so they are not re-derived. Each looked like a defect. **Five are deliberate. The second
 was not, and it is left standing here rather than deleted because HOW it was cleared is the thing

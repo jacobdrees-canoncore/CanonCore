@@ -23,7 +23,7 @@ placed at all. On the Owner's own install that is **100 reachable of 8,052**
 ## A sentence can satisfy the rule it was written for and still be false
 
 This string was READ and CLEARED five days before it was filed as a defect.
-`docs/research/walking-the-owners-install.md` lists it under "Six hypotheses that were wrong",
+`docs/research/walking-the-owners-install.md` listed it among six hypotheses it had cleared,
 because what was checked was the thing [[0119-a-listing-is-walked-forward-from-the-last-item-it-showed]]
 demands: **that the cap is named rather than silent.** It is, correctly, and the page has always
 said "Showing 100 of 8,052".
@@ -98,6 +98,14 @@ values it carried before were a uuid and a word from a closed set, and neither c
 or a space. **A query is the Owner's own text, and splicing that into a URL by hand is how a search
 for `a&b` becomes two parameters.**
 
+**THAT REDIRECT CARRIES THE NARROWING AND NOT THE TWO CURSORS, WHICH IS THIS RECORD'S RULE APPLIED
+TO ONE POSITION OF THREE.** The POST form submits what the WRITE needs plus `placing`, so `?via=`
+and both listings' positions are not on it to carry. It is pre-existing -- before this, a refusal
+dropped all three -- and it is **CNCORE-290** with a TODO at the form, rather than six more fields
+on a schema that already carries one reaching no procedure. Said here because the rule above is
+stated five times in this diff, and a rule kept selectively without saying so is one the next reader
+cannot tell was reasoned.
+
 ## No bound is owed here, and the reason is where the query lands
 
 [[0123-a-failure-reason-is-bounded-and-says-who-wrote-it]] requires a parameter that lands inside a
@@ -111,12 +119,28 @@ picker is this page's own, naming a COUNT. **Quoting the query in one of those s
 change that would owe a bound**, and whoever makes it owes it in the same edit.
 
 `/search` does quote its query, in "Nothing matched <query>", and does not bound it. That is a gap
-in that surface rather than a licence for this one, and it is filed rather than copied.
+in that surface rather than a licence for this one, and it is **CNCORE-291** rather than something
+copied here.
+
+## The half this does not build: an Item with no title
+
+The reach here is **reach by title**, and an Item that has none is outside it twice over. It sorts
+LAST, because the catalogue orders on `coalesce(sort_name, title)` with `nulls last`, so it is off
+the picker's page on a catalogue of any size; and no query finds it, because Catalogue search is
+`title ilike ...`, which is NULL for a row with no title -- `catalogue-search.ts` says so of itself.
+
+**Measured rather than assumed: ZERO of the Owner's 8,052 Items are untitled** (counted against the
+2026-09-20 dump). So nothing on the only install that exists is unreachable this way, and the state
+is still constructible -- `aCatalogueLargerThanOnePage` seeds two untitled Items deliberately. It is
+**CNCORE-292**, named here because a record that leaves half a mechanism unbuilt and says nothing is
+the false signal `CLAUDE.md` is about.
 
 ## What the e2e fixture cost, and the server that was NOT started
 
 Asserting this needs an instance that is **writable and larger than one page**, and none existed:
-the paged instance has 253 Items and no password by design, and the one that places had four Items.
+the paged instance is larger than one page several times over -- a catalogue of 253, a container
+holding it, and an Item in 210 orderings -- and sets no password by design, and the one that places
+had four Items.
 
 **A TWELFTH SERVER WAS REFUSED ON A MEASUREMENT.**
 [[0104-one-container-a-database-per-worktree]]'s peak of 67 connections of 288 -- which `CLAUDE.md`
@@ -125,8 +149,16 @@ turns into the four-agent ceiling -- was measured **with eleven servers standing
 derived from it in the same edit, for a fixture that can stand somewhere else.
 
 So the placing instance grew past one page instead. **That is safe there because neither of its two
-readers oracles its catalogue as a set** -- both replay the form the page rendered with the fields
-they want SET, so what the picker happens to offer is not what either asserts against. It is written
-into `global-setup.ts` beside the filler as the constraint on the next reader, because a test that
-walks that catalogue, counts it, or reads the picker's options as an exact list is one the filler
-breaks.
+readers oracles its catalogue as a set**, though they reach that from different directions and the
+difference is what the next reader needs: `placement-write.test.ts` replays the form the page
+rendered with the fields it wants SET, so what the picker OFFERS is never what it submits, and
+`select.test.ts` reads the rendered `<select>`'s CLASS ATTRIBUTE and never its options at all. It is
+written into `global-setup.ts` beside the filler, because a test that walks that catalogue, counts
+it, or reads the picker's options as an exact list is one the filler breaks.
+
+**AND THE FILLER'S OWN HAZARD IS NAMED THERE TOO.** The 120 stories sort ahead of the four Items
+that instance already had, so none of them is offered by the picker any more -- which matters not to
+the picker but to the file's ORDER: `placement-write.test.ts` asserts the membership of two
+containers EXACTLY, and a later test writing into either survives only by being declared after it.
+Reaching past the cap therefore places into a container of its own that nothing else oracles, rather
+than adding one more test whose correctness is its position in the file.

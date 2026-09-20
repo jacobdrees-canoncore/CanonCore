@@ -1923,6 +1923,16 @@ async function PlaceAnItem({
             ONLY WHERE THERE IS ONE, so an unnarrowed picker submits no field
             rather than an empty one -- which is what keeps `?placing=` off
             every address the unsearched picker produces (ADR-0066).
+
+            TODO(CNCORE-290): AND IT IS THE ONLY ONE OF THE THREE POSITIONS ON
+            THIS ADDRESS THAT A REFUSAL KEEPS. `?via=` and both listings'
+            cursors are not on this form, so a refused placement returns the
+            Owner to page one of Members and page one of "Also appears in" --
+            which is the rule this section states five times over applied to one
+            of three. It is PRE-EXISTING: before CNCORE-256 a refusal dropped
+            all three. Fixing it here would put six more fields on a form whose
+            schema already carries one that reaches no procedure, so it is a
+            ticket rather than this diff.
           */}
           {placing !== undefined && <input type="hidden" name="placing" value={placing} />}
           <div className="flex flex-1 flex-col gap-2">
