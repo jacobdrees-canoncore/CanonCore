@@ -172,6 +172,23 @@ describe("steadyMainOf", () => {
    * that agree about everything still on them. A reading that shrugged at a
    * missing picker would pass that, and the regression would be invisible.
    */
+  /**
+   * AND A PAGE WITH TWO PICKERS IS REFUSED FOR THE MIRROR REASON. Cutting the
+   * first of two leaves the SECOND inside the compared region -- catalogue-wide
+   * state back where it started, silently, and passing every run until a Group
+   * happens to arrive between two fetches. That is this ticket's own defect
+   * wearing the guard that was supposed to end it, which is why `mainOf`
+   * refuses two `<main>`s and this refuses two pickers.
+   */
+  it("refuses a page rendering two Group pickers rather than cutting only the first", () => {
+    const twice = aPageOffering("Doctor Who").replace(
+      "</nav>",
+      '</nav><nav aria-label="Narrow to a Group"><a href="/?group=x">A second picker</a></nav>',
+    );
+
+    expect(() => steadyMainOf(twice)).toThrow(/more than one/);
+  });
+
   it("refuses a page whose picker is gone rather than comparing what is left", () => {
     const noPicker = "<main><h1>Catalogue</h1><ul><li>a Row</li></ul></main>";
 

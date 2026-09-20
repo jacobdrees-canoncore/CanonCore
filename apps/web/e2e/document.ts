@@ -1,3 +1,6 @@
+import type { AppRouterClient } from "@canoncore/api/routers";
+import { createORPCClient } from "@orpc/client";
+import { RPCLink } from "@orpc/client/fetch";
 import { inject } from "vitest";
 
 /**
@@ -418,6 +421,36 @@ export async function logInAt(baseUrl: string, password: string): Promise<string
 }
 
 /**
+ * ONE GROUP, CREATED WHILE A COMPARISON IS HALF-MADE: the adversary the
+ * byte-for-byte assertions are held against (CNCORE-253, CNCORE-271).
+ *
+ * THIS IS `import-page.test.ts`'S ACCIDENT, ARMED. That file creates three
+ * Groups on the seeded instance from its own worker, and a Group landing
+ * between two fetches of one address used to change what `<main>` held without
+ * the address changing. Waiting for that timing is waiting on the scheduler --
+ * it showed once in four full runs -- so the files that compare an address
+ * against itself force it instead, every run.
+ *
+ * SHARED RATHER THAN WRITTEN TWICE, which is `withFields`' reason one file
+ * over: `scope.test.ts` and `order-and-narrow.test.ts` both need it, and two
+ * copies of "what another file does to this instance" is how two suites come
+ * to disagree about what they are defending against.
+ *
+ * THROUGH THE ROUTER AS THE OWNER, which is the road the product takes -- a row
+ * written straight into the database would put a Group on the page through a
+ * door the app never opened. `group.create` is an `ownerProcedure`, so a
+ * cookie that is not the Owner's answers `Unauthorized` and creates nothing,
+ * and an adversary that quietly created nothing would leave every comparison
+ * it guards passing for the wrong reason.
+ */
+export async function aGroupArrivesAt(baseUrl: string, cookie: string): Promise<void> {
+  const asTheOwner: AppRouterClient = createORPCClient(
+    new RPCLink({ url: `${baseUrl}/api/rpc`, headers: { cookie } }),
+  );
+  await asTheOwner.group.create({ name: `A Group that arrived mid-read ${crypto.randomUUID()}` });
+}
+
+/**
  * The sources ONE RENDERED ROW names, one string each.
  *
  * READ OFF THE ELEMENTS RATHER THAN OFF A SEPARATOR, which is the whole of
@@ -586,7 +619,18 @@ export function steadyMainOf(text: string): string {
   // SPLICED BY INDEX RATHER THAN `replace`d, because a Group's name is the
   // Owner's own words: one holding `$&` would have `replace` paste the match
   // back in, and the cut would silently not happen.
-  return main.slice(0, picker.at) + main.slice(picker.at + picker.whole.length);
+  const cut = main.slice(0, picker.at) + main.slice(picker.at + picker.whole.length);
+  /*
+   * AND EXACTLY ONE OF THEM, which `mainOf` above demands of `<main>` for the
+   * same reason. Cutting the first of two would leave the second INSIDE what is
+   * compared -- catalogue-wide state back in the region, silently, and passing
+   * every run until a Group happened to arrive. A page rendering two Group
+   * pickers is a defect either way, so it is said rather than cut around.
+   */
+  if (hasNav(cut, THE_GROUP_PICKER)) {
+    throw new Error(`that page rendered more than one ${THE_GROUP_PICKER}`);
+  }
+  return cut;
 }
 
 /**
@@ -730,9 +774,30 @@ export function navIn(text: string, label: string): string {
  * there being one of these at all.
  */
 function oneNav(text: string, label: string): { at: number; whole: string; inner: string } {
-  const found = new RegExp(`<nav aria-label="${label}"[^>]*>(.*?)</nav>`).exec(text);
+  const found = navPattern(label).exec(text);
   if (!found) throw new Error(`the page offered no ${label}`);
   return { at: found.index, whole: found[0], inner: found[1] as string };
+}
+
+/** Whether a stretch of a page carries a picker with these words at all. */
+function hasNav(text: string, label: string): boolean {
+  return navPattern(label).test(text);
+}
+
+/**
+ * ONE PICKER, BY ITS LABEL, as a pattern.
+ *
+ * THE LABEL IS ESCAPED, which matters now that a caller CUTS BYTES by the
+ * match's index and length rather than only reading inside it. Every label
+ * passed today is a literal, but these are aria-labels -- prose a designer
+ * writes -- and the first one to carry a `(` or a `?` would make this match a
+ * different span than the picker. Read, that is a wrong answer; cut, it silently
+ * excises the wrong bytes and the comparison still passes.
+ */
+function navPattern(label: string): RegExp {
+  return new RegExp(
+    `<nav aria-label="${label.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&")}"[^>]*>(.*?)</nav>`,
+  );
 }
 
 /**

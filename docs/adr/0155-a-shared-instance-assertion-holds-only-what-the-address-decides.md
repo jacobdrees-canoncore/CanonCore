@@ -27,8 +27,8 @@ So the comparison was a bet on timing, and it lost twice:
   alone and failed in the full suite, `expected '<main ...>' to be '<main ...>'`.
 - **CNCORE-271, 2026-09-20.** One full `pnpm test:e2e` failed on
   `/search?q=season&group=<id>&kind=person` with the same message. Three later runs of the same
-  commit passed, 24 files and 337 then 338 tests. So it arrives as a red run on somebody's unrelated
-  branch, which is the worst shape a defect can have.
+  commit passed -- "24 files / 337 then 338 tests", as CNCORE-271 records them. So it arrives as a
+  red run on somebody's unrelated branch, which is the worst shape a defect can have.
 
 **THE FIRST FIX REACHED THE ROWS AND WAS TAKEN FOR A FIX OF THE PAGE.** Narrowing every surface to a
 seeded Group nobody writes to froze the Rows, and the docblock recording that is still correct about
@@ -47,7 +47,7 @@ why the correction is written INTO that sentence rather than beside it.
 - **What the picker SAYS is still compared, as a fact.** Both callers assert `markedCurrentIn` is the
   same for the Owner's fetch, the reload and the session-less fetch. That is the half of the picker
   the address really does decide, and it does not depend on how many Groups exist.
-- **The timing is forced rather than waited for.** `aGroupArrives` creates a Group through the
+- **The timing is forced rather than waited for.** `aGroupArrivesAt` creates a Group through the
   router, as the Owner, between two fetches -- doing deliberately what `import-page.test.ts` does by
   accident. What took four full runs to show once now happens every run.
 - **`NarrowToAGroup` says what it is.** The component carries a paragraph naming itself as
@@ -62,9 +62,9 @@ why the correction is written INTO that sentence rather than beside it.
 - **`fileParallelism: false` for this suite.** It would have prevented both failures, by making it
   impossible for another file's write to land between two fetches. It does not fix the assertion: the
   dependency on catalogue-wide state stays, waiting for whoever runs two files at once. It also pays
-  the suite's wall clock on every run forever to buy isolation the fix already provides. The five
-  configs that DO set it share one database across their files with nothing else separating them,
-  which is a different condition from this suite's.
+  the suite's wall clock on every run forever to buy isolation the fix already provides. Those
+  configs share one database across their files with nothing else separating them, which is a
+  different condition from this suite's.
 - **Moving the two files to an instance nothing writes to.** The suite already has one:
   `aCatalogueThatHoldsStill`, built by CNCORE-93 for exactly this class of problem. It cannot take
   these tests, and the reason is its own contract rather than an accident. It is created with
@@ -82,7 +82,8 @@ why the correction is written INTO that sentence rather than beside it.
   everything else so a changed Row still differs, and that it refuses a page whose picker is gone.
   The first of those is the production failure in miniature and was RED before the fix, with the
   ticket's own message.
-- **The property, over real HTTP.** `aGroupArrives` in both files. Measured on this branch on
+- **The property, over real HTTP.** `aGroupArrivesAt`, called by both files and living in
+  `document.ts` so there is one of it. Measured on this branch on
   2026-09-20: with the adversary armed and `mainOf` still being compared, `scope.test.ts` and
   `order-and-narrow.test.ts` failed 3 of 8 tests, and the diff between the two `<main>`s was exactly
   the anchors of the Groups that had arrived and nothing else. With `steadyMainOf` they pass.

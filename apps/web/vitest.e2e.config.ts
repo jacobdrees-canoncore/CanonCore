@@ -39,15 +39,15 @@ export default defineConfig({
      * that never interleaves leaves that dependency standing and waiting for
      * whoever runs two files at once; it is fixed where it was, in what the
      * assertion compares (`steadyMainOf`), and the timing that used to be a
-     * bet is forced every run by `aGroupArrives`.
+     * bet is forced every run by `aGroupArrivesAt`.
      *
      * WHAT THE PARALLELISM IS WORTH HERE WAS NOT MEASURED, and saying so is
      * the honest half: the serial run needed to price it was not taken, so no
      * ratio is stated. What IS known is the parallel side -- `pnpm test:e2e`
-     * on this branch ran 24 files and 341 tests in 145s, and again in 147s --
-     * on this Mac on 2026-09-20, load average around 9 with other agents
-     * working, every file of it standing up or sharing a real Next server.
-     * `time pnpm test:e2e` takes it again.
+     * on this branch ran 24 files and 342 tests in 166s -- on this Mac on
+     * 2026-09-20, load average around 9 with other agents working, every file
+     * of it standing up or sharing a real Next server. `time pnpm test:e2e`
+     * takes it again.
      */
   },
 });
