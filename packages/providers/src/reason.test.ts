@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   assertConfigUrl,
+  bounded,
   OutboundRefused,
   parseAllowlist,
   REASON_MAX_LENGTH,
@@ -286,5 +287,27 @@ describe("text that rewrites the page around it", () => {
     const { text } = reasonFor(new Error(`before${control}after`));
 
     expect(text).toBe("beforeafter");
+  });
+});
+
+/**
+ * THE SAME CUT AS `shortly`'S, ASSERTED AT THE OTHER SEAM (CNCORE-269).
+ *
+ * The two bound a stranger's string for one reason and cut it through one
+ * function, so this is here to catch the day they stop agreeing -- and to hold
+ * the ground while they were merged. `slice` counts UTF-16 units, and a
+ * provider picks the offsets by choosing what it sends.
+ */
+describe("a reason cut where an astral character straddles the bound", () => {
+  it("keeps no lone surrogate, at either ceiling", () => {
+    // REASON_MAX_LENGTH is 300 and the marker takes the last, so the cut falls
+    // at unit 299. A U+1F600 opening at unit 298 straddles it.
+    const straddling = `${"a".repeat(298)}\u{1F600}${"b".repeat(10)}`;
+
+    const cut = bounded(straddling);
+
+    expect(cut.isWellFormed()).toBe(true);
+    expect(cut).toBe(`${"a".repeat(298)}\u2026`);
+    expect(cut.length).toBeLessThanOrEqual(REASON_MAX_LENGTH);
   });
 });

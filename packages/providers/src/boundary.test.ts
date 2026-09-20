@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-
+import { shortly } from "./boundary";
 import {
   allowsAnything,
   assertConfigAddress,
@@ -436,5 +436,39 @@ describe("whether an allowlist names anything at all", () => {
   it("says yes for a host, and yes for a range", () => {
     expect(allowsAnything(parseAllowlist("wiki.example"))).toBe(true);
     expect(allowsAnything(parseAllowlist("127.0.0.0/8"))).toBe(true);
+  });
+});
+
+/**
+ * A VALUE IS CUT ON A WHOLE CHARACTER, which `cap` in `reason.ts` documented at
+ * length and this function did not do (CNCORE-269).
+ *
+ * `slice` counts UTF-16 units, so a cut landing between the two halves of an
+ * astral character leaves a lone surrogate -- a replacement glyph on the
+ * Owner's page, in the sentence telling them what to go and fix. The two
+ * functions cut a stranger's string to length for the same reason and now do it
+ * through one, so neither can drift from the other's guard.
+ *
+ * UNREACHABLE FROM TODAY'S CALL SITES AND ASSERTED ANYWAY. Every value reaching
+ * this is a URL, a host, an address or a latin-1 header, so no astral character
+ * can straddle the cut -- the bound holds by accident of its callers rather than
+ * by the function, and the next caller to route a provider's own prose through
+ * it is the one that finds out.
+ */
+describe("a value a refusal quotes back", () => {
+  it("leaves a value inside the bound alone", () => {
+    expect(shortly("wiki.example.com")).toBe("wiki.example.com");
+  });
+
+  it("cuts on a whole character when an astral one straddles the boundary", () => {
+    // VALUE_MAX is 80 and the marker takes the last of them, so the cut falls
+    // at unit 79. A U+1F600 opening at unit 78 therefore has one half on each
+    // side of it, and a bare `slice` keeps the high surrogate alone.
+    const straddling = `${"a".repeat(78)}\u{1F600}${"b".repeat(10)}`;
+
+    const shortened = shortly(straddling);
+
+    expect(shortened.isWellFormed()).toBe(true);
+    expect(shortened).toBe(`${"a".repeat(78)}\u2026`);
   });
 });
