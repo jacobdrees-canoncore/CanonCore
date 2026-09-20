@@ -32,7 +32,7 @@ export async function documentFrom(
  * test that says nothing about a session is asserting what a visitor to the demo
  * sees, which is the stricter of the two readings.
  */
-function headersWith(cookie: string | undefined): HeadersInit {
+function headersWith(cookie: string | undefined): Record<string, string> {
   return cookie === undefined ? {} : { cookie };
 }
 
@@ -70,6 +70,31 @@ export async function documentAt(
   cookie?: string,
 ): Promise<{ status: number; text: string }> {
   return documentFrom(inject("baseUrl"), path, cookie);
+}
+
+/**
+ * One address AS NEXT'S OWN ROUTER ASKS FOR IT when a `<Link>` to it enters the
+ * viewport, rather than as a reader asks for it.
+ *
+ * `RSC: 1` AND `Next-Router-Prefetch: 1` ARE THE WHOLE DIFFERENCE, and they are
+ * the two headers the router sends on an automatic prefetch. What comes back is
+ * what a reader who merely scrolled would have cost this instance -- which for
+ * every dynamic route here is nothing at all (ADR-0161).
+ *
+ * THE HEADERS ARE SENT RATHER THAN A LINK SCROLLED INTO VIEW, because the
+ * subject is what the SERVER does with such a request. A browser would answer
+ * the second question -- whether the router issues one -- and Next's own
+ * reference answers that already: prefetching is production-only, and this
+ * suite serves a production build.
+ */
+export async function prefetchAt(
+  path: string,
+  cookie?: string,
+): Promise<{ status: number; text: string }> {
+  const response = await fetch(`${inject("baseUrl")}${path}`, {
+    headers: { ...headersWith(cookie), "Next-Router-Prefetch": "1", RSC: "1" },
+  });
+  return { status: response.status, text: decoded(await response.text()) };
 }
 
 /**

@@ -13,6 +13,7 @@ import {
   logInAt,
   navigatingFormsIn,
   postFormsIn,
+  prefetchAt,
   quotesIn,
   type RenderedForm,
   sectionIn,
@@ -757,14 +758,18 @@ function askingAbout({ provider, record }: { provider: string; record: string })
  * submitting it reaches.
  *
  * A NAVIGATING FORM RATHER THAN A LINK, WHICH IS THE CRITERION RATHER THAN A
- * STYLE. Next prefetches a `<Link>`'s own address when it enters the viewport,
- * and this address COSTS A LOOKUP AT A THIRD PARTY -- so a link here would spend
- * one per candidate on a reader who merely scrolled past, which is the "one
+ * STYLE. This address COSTS A LOOKUP AT A THIRD PARTY, so a link here would put
+ * one per candidate on an address a reader reaches without asking -- the "one
  * request per Provider" a search is supposed to cost turned into one per result.
  * A string-action form prefetches its ACTION PATH instead, whose fields are not
  * known until submission (`PurgeBox` takes the same measure for the same
  * reason). Read as a form here so that a regression to a link fails rather than
- * quietly costing what this ticket exists to avoid.
+ * quietly costing what ADR-0149 exists to avoid.
+ *
+ * NOT "ON A READER WHO MERELY SCROLLED PAST", which is what this said and what
+ * ADR-0161 measured as false on 2026-09-20: a prefetch of this dynamic route is
+ * skipped. The criterion is unchanged, because the cost returns with one
+ * `prefetch={true}` or one `loading.tsx`.
  */
 function itsContainerAsked(row: string): {
   provider: string;
@@ -1104,13 +1109,21 @@ describe("/import, reaching the Container a found record names", () => {
      * this seam can see is the thing that would spend it: an ADDRESS Next is
      * allowed to prefetch.
      *
-     * A `<Link>` IS PREFETCHED WHEN IT ENTERS THE VIEWPORT, so a way onward
-     * spelled as one would run a lookup per candidate for a reader who merely
-     * scrolled -- one request per RESULT, which is exactly the design this
-     * ticket rejected as too expensive to do eagerly. A string-action form's
-     * fields are not known until submission, so its action path is all that is
-     * prefetched. That is why the control is a form, and this is the assertion
-     * that fails on the day somebody simplifies it into a link.
+     * A WAY ONWARD SPELLED AS A `<Link>` would put a lookup per candidate on an
+     * address a reader reaches without asking -- one request per RESULT, which
+     * is exactly the design ADR-0149 rejected as too expensive to do eagerly. A
+     * string-action form's fields are not known until submission, so its action
+     * path is all that is prefetched. That is why the control is a form, and
+     * this is the assertion that fails on the day somebody simplifies it into a
+     * link.
+     *
+     * IT NO LONGER CLAIMS THE COST ARRIVES ON A SCROLL, because it does not
+     * (ADR-0161, CNCORE-245). The sentence here said a link "would run a lookup
+     * per candidate for a reader who merely scrolled"; measured on 2026-09-20,
+     * a prefetch of this dynamic route renders nothing, which the test below
+     * this one asserts. THE ASSERTION STAYS AS IT IS: what it reads for is a
+     * prefetchABLE address, and that is still the thing that would spend the
+     * lookup the moment one `prefetch={true}` or one `loading.tsx` lands.
      */
     const found = await documentAt(searching(providerSearch.query), owner);
 
@@ -1124,6 +1137,41 @@ describe("/import, reaching the Container a found record names", () => {
     expect(
       itsContainerAsked(rowTitled(found.text, providerSearch.held)).record.length,
     ).toBeGreaterThan(0);
+  });
+
+  it("renders nothing for a prefetch, so scrolling past a link to it spends no Provider request", async () => {
+    /*
+     * THE COST THE THREE RECORDS RESTED ON, MEASURED RATHER THAN INFERRED
+     * (CNCORE-245, CNCORE-240). ADR-0149 and ADR-0151 each said a `<Link>` to an
+     * address like this one would spend its cost "because a reader scrolled
+     * past". It does not, and ADR-0161 carries the measurement and the
+     * CONDITION it holds under.
+     *
+     * THE ADDRESS IS THE MOST EXPENSIVE ONE THIS PAGE HAS: `q` alone is a whole
+     * fan-out, one request to every Provider in scope, which is the cost
+     * ADR-0151 refuses to hang on a link.
+     *
+     * TWO REQUESTS AT ONE ADDRESS, DIFFERING ONLY IN THE HEADERS NEXT'S ROUTER
+     * SENDS. Asserting the absence alone would pass against a 404, a redirect
+     * or a page that had stopped rendering results at all, so the rendered
+     * fetch is what makes the prefetch's silence mean something.
+     *
+     * THE WITNESS IS A PROVIDER'S NAME RATHER THAN A RESULT, and it has to be.
+     * A candidate's title can equal the QUERY -- `providerSearch.held` does --
+     * and the prefetch's answer echoes the address back inside its routing
+     * payload, so a title would be found there and report a fan-out that never
+     * happened. This name reaches the page only because the Provider holding
+     * it was ASKED: it matches nothing and is listed anyway, which is what
+     * makes it the fan-out's own fingerprint.
+     */
+    const asked = searching(providerSearch.query);
+    const fannedOut = providerSearch.floodsItsName.name.slice(0, 100);
+    const rendered = await documentAt(asked);
+    const prefetched = await prefetchAt(asked);
+
+    expect(rendered.text).toContain(fannedOut);
+    expect(prefetched.status).toBe(200);
+    expect(prefetched.text).not.toContain(fannedOut);
   });
 
   it("says a Provider names no Container for a record, rather than offering a link to nothing", async () => {
@@ -1225,16 +1273,22 @@ describe("/import, reaching the Container a found record names", () => {
     /*
      * THE SECOND CRITERION, AT THE SEAM THAT CAN SEE IT, and it is ADR-0149's
      * own argument applied rather than its conclusion copied. That record made
-     * the row's control a form because Next PREFETCHES A `<Link>`'s ADDRESS
-     * when it enters the viewport or is hovered, and the address it reached
-     * spent a lookup at a third party.
+     * the row's control a form because the address it reached spends a lookup
+     * at a third party.
      *
      * THE ADDRESS BACK CARRIES `q`, SO IT SPENDS A WHOLE SEARCH -- a fan-out to
-     * every Provider this instance names. A way back spelled as a link would
-     * run that for a reader who merely scrolled to the bottom of the answer,
-     * which is the cost this ticket exists to refuse. A string-action form's
-     * fields are not known until submission, so `/import` is all that is
-     * prefetched and it searches nothing.
+     * every Provider this instance names. A way back spelled as a link would put
+     * that on an address a reader reaches without asking for those results,
+     * which is the cost ADR-0151 refuses. A string-action form's fields are not
+     * known until submission, so `/import` is all that is prefetched and it
+     * searches nothing.
+     *
+     * THE NAME OF THIS TEST IS TRUE FOR A SECOND REASON NOW MEASURED. Scrolling
+     * past a link here runs no search either, because a prefetch of this dynamic
+     * route is skipped entirely (ADR-0161, 2026-09-20) -- which is what this
+     * comment once attributed to the form alone. The form is still the control,
+     * and the structural read below is still the assertion, because that second
+     * reason ends with one `prefetch={true}` or one `loading.tsx`.
      *
      * READ AS THE ABSENCE OF A PREFETCHABLE `q` ANYWHERE ON THE PAGE, which is
      * the structural shape ADR-0149 asserted the same fact in: not a count of

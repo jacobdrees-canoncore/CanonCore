@@ -273,11 +273,17 @@ function Group({
             AND IT DELETES NOTHING: it asks (ADR-0046, CNCORE-210). A GET to
             this page naming the scope, which renders what the deletion would
             take and the one button that takes it -- the ellipsis is the
-            convention for a command that asks before it acts. `Form` RATHER
-            THAN `Link`, for the purge's reason on `/import`: Next prefetches a
-            link's own address, and this address runs the delete and rolls it
-            back, so a list of links would do that for every scope a reader
-            scrolled past.
+            convention for a command that asks before it acts. That is this
+            control's FIRST reason to be a form and it depends on no framework
+            behaviour at all.
+
+            `Form` RATHER THAN `Link` IS THE SECOND, for the purge's reason on
+            `/import`: this address runs the delete and rolls it back, so a list
+            of links would put that on an address nobody asked for. NOT, as this
+            comment once said, "for every scope a reader scrolled past" -- a
+            prefetch of this dynamic route is skipped and runs nothing, measured
+            2026-09-20 (ADR-0161). The absence is a property of the
+            configuration, and the form holds under every change that ends it.
           */}
           <section aria-labelledby={`delete-${group.id}`}>
             <h4 className="sr-only" id={`delete-${group.id}`}>

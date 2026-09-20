@@ -44,10 +44,19 @@ spent on purpose.
 
 ## The control is a form, and that is the mechanism rather than a style choice
 
-**Next prefetches a `<Link>`'s own address when it enters the viewport.** The address that resolves a
-Container runs the lookup, so a way onward spelled as a link would spend one request per candidate
-**because a reader scrolled past** — silently converting the rule above into exactly what it refuses,
-for numbers nobody asked to see.
+**Next prefetches a `<Link>`'s own address when it enters the viewport.** **THAT PREFETCH SPENDS
+NOTHING HERE, AND THE SENTENCE THIS REPLACES SAID IT SPENT A REQUEST PER CANDIDATE "because a reader
+scrolled past"** — measured on a production instance on 2026-09-20 and false:
+[[0161-a-prefetch-of-these-surfaces-renders-nothing]] carries the figures. A dynamic route's
+prefetch is skipped, this page is dynamic, and what comes back renders no candidate and asks no
+Provider.
+
+**THE CONTROL IS STILL A FORM, AND THE ARGUMENT IS NOW THE OTHER ONE IN THIS SECTION.** A cost that
+is absent by CONFIGURATION is one a `prefetch={true}`, a `loading.tsx` above the read or Partial
+Prefetching each restore, and the address that resolves a Container would run the lookup the moment
+any of the three landed. A control whose correctness turns on three settings nobody is thinking
+about is not a control this record wants, so the rule above is kept by the shape of the control
+rather than by the framework's current default.
 
 A string-action `<Form>` prefetches its ACTION PATH instead, its fields not being known until
 submission — here `/import` naming no record and looking nothing up. `PurgeBox` on the same page

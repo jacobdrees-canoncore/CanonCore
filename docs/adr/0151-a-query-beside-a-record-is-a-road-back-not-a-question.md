@@ -61,20 +61,28 @@ RESULTS and allows the cost that scales with the PROVIDERS, taken on an ask.
 
 ADR-0149 made the row's control a `<Form>` because **Next prefetches a `<Link>`'s own address when
 it enters the viewport or is hovered** — verified against Next's own `<Link>` reference on the 16.3.5
-this repo runs, where `prefetch` defaults to `auto` and only `false` disables both — and that
-address spent a lookup at a third party.
+this repo runs, where `prefetch` defaults to `auto` and only `false` disables both. **THAT VERSION
+FACT IS CORRECT AND STANDS; WHAT FOLLOWED IT DID NOT.** This record said that address "spent a lookup
+at a third party" and that a link carrying `q` "would run it for a reader who merely scrolled to the
+foot of the answer". Measured on 2026-09-20, neither happens:
+[[0161-a-prefetch-of-these-surfaces-renders-nothing]] has the figures. The prefetch of a dynamic
+route is skipped, and every surface here is dynamic, so it renders nothing and asks nobody.
 
-The address BACK carries `q`, so it spends a **whole search**: a fan-out to every Provider in scope.
-A link there would run it for a reader who merely scrolled to the foot of the answer. A
-string-action `<Form>` prefetches its ACTION PATH, which is `/import` carrying no query and asking
-nobody. Same measure, same reason, one operation over.
+The address BACK carries `q`, so ASKED it costs a **whole search**: a fan-out to every Provider in
+scope. **The form is still the right control for it, on the reason that survives the measurement**
+rather than the one that did not: a `<Form>`'s fields are not known until submission, so its ACTION
+PATH is all there is to prefetch — `/import` carrying no query — and that stays true under the
+`prefetch={true}`, the `loading.tsx` or the Partial Prefetching that would each put a link's cost
+back. Same measure, same reason, one operation over.
 
 ## What the test taught: the notices carried the fan-out, not the control
 
 Carrying `q` turned the Group picker back on, because it rendered on `query !== undefined`. **Its
 links carry `q`, and they are ordinary prefetchable `<Link>`s** — so the page reached by one click
-held three addresses Next would run a search for on scroll. The control was a form and the leak was
-beside it.
+held three addresses that ASK every Provider in scope, on a page nobody had asked a question from.
+The sentence this replaces said Next would run a search for them "on scroll"; it would not
+([[0161-a-prefetch-of-these-surfaces-renders-nothing]]), and the leak is the addresses being there
+rather than the scroll reaching them. The control was a form and the leak was beside it.
 
 Caught by the assertion that reads the WHOLE page for a prefetchable `q` rather than reading the
 control, which is the shape ADR-0149 chose for the same reason and the reason to keep choosing it:
@@ -114,8 +122,11 @@ The query survives as far as the page that NAMES the Container. It is not carrie
 
 That address is **the same one a Container picked from the list reaches** — ADR-0149 keeps it as one
 procedure behind one door rather than two roads to two spellings of it — and differentiating it by
-where the reader came from would undo that. And the way onward to it is a `<Link>` whose prefetch is
-already the Owner's browse; hanging `q` on it would add a search fan-out to a prefetch, which is the
-thing this record exists to refuse.
+where the reader came from would undo that. And the way onward to it is a `<Link>` to a page whose
+own cost is the Owner's browse; hanging `q` on it would put a search fan-out on an address a reader
+reaches by clicking, which is the thing this record exists to refuse. **THAT ADDRESS IS PREFETCHED NO
+MORE THAN ANY OTHER HERE** ([[0161-a-prefetch-of-these-surfaces-renders-nothing]]): the sentence this
+replaces said the fan-out would be added "to a prefetch", and the cost it names is spent on the
+click rather than on the scroll.
 
 So the road from a search ends where the shared road begins.
