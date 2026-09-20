@@ -150,9 +150,14 @@ describe("placeItemByHand", () => {
     const story = await anItem(db);
     await placeItemByHand(db, { containerId: category, itemId: story, position: null });
 
+    // AND THE SENTENCE COVERS THIS HALF TOO (CNCORE-255). One SQLSTATE carries
+    // both faces of this constraint, so the one sentence reporting it has to
+    // hold when there is no position as well as when there is.
     await expect(
       placeItemByHand(db, { containerId: category, itemId: story, position: null }),
-    ).rejects.toBeInstanceOf(PlacementRefused);
+    ).rejects.toThrow(
+      "That item is already in that container at that position, or already there with no position given.",
+    );
   });
 });
 

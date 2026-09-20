@@ -54,17 +54,26 @@ export const placement = {
     .output(placementWritten)
     .errors({
       BAD_REQUEST: {
-        message: "That item is already placed there, or no such item or container.",
+        /*
+         * EVERY CAUSE THAT REACHES HERE, which is the contract this publishes
+         * and the fallback if one ever arrives without a sentence of its own.
+         * The Owner normally reads the MATCHED cause instead -- see the handler.
+         */
+        message:
+          "That item is already in that container at that position, no such item or container, a container cannot hold something it already sits inside, or that position is outside the range the catalogue can store.",
       },
     })
     .handler(async ({ input, context, errors }) => {
       /*
        * THE DATABASE DECIDES, AND ONLY ITS REFUSAL IS TRANSLATED HERE, which is
-       * the rule `item.create` records at greater length. Two things can refuse
-       * this write and both live in the schema:
+       * the rule `item.create` records at greater length. FOUR things can refuse
+       * this write and all four live in the schema, which is the same list the
+       * declared sentence above names (CNCORE-255):
        * `placements_container_item_position` -- the same item, in the same
-       * container, at the same position, or with no position twice -- and the
-       * foreign key to `items`.
+       * container, at the same position, or with no position twice -- the
+       * foreign key to `items`, `refuse_placement_cycle` (migration 15), and a
+       * position the 32-bit column cannot hold. An earlier version of this
+       * comment said "two", and the declared sentence named those same two.
        *
        * A REPEAT AT ONE POSITION IS THE OWNER ASKING FOR SOMETHING IMPOSSIBLE
        * rather than the server breaking, so it is a BAD_REQUEST. ADR-0009
@@ -74,7 +83,18 @@ export const placement = {
       try {
         return { id: await placeItemByHand(context.db, input) };
       } catch (cause) {
-        if (cause instanceof PlacementRefused) throw errors.BAD_REQUEST({ cause });
+        /*
+         * THE MESSAGE IS PASSED, NOT JUST THE CAUSE. `ORPCError.toJSON`
+         * serialises `{defined, code, status, message, data}` and NOTHING
+         * ELSE, so a `cause` never crosses the wire and the Owner would read
+         * the declared sentence above -- which names four causes and settles
+         * none of them. `provider.beginImportRun` and `settings.ts` pass
+         * `cause.message` for the same reason. The cause still travels for the
+         * server's own chain.
+         */
+        if (cause instanceof PlacementRefused) {
+          throw errors.BAD_REQUEST({ message: cause.message, cause });
+        }
         throw cause;
       }
     }),
@@ -135,22 +155,38 @@ export const placement = {
     .errors({
       NOT_FOUND: { message: "No placement at that id to move." },
       BAD_REQUEST: {
-        message: "That move is refused: a container cannot hold something it already sits inside.",
+        /*
+         * ALL FIVE, which is one more than `place` has: a move can also name a
+         * sibling outside its destination. Contract and fallback both; the
+         * Owner normally reads the matched cause -- see the handler.
+         */
+        message:
+          "That item is already in that container at that position, no such item or container, a container cannot hold something it already sits inside, that position is outside the range the catalogue can store, or that move named a sibling this container does not hold.",
       },
     })
     .handler(async ({ input, context, errors }) => {
       /*
        * TWO ANSWERS, AND THEY ARE DIFFERENT THINGS. A placement that is not
        * there is NOT_FOUND -- a stale page, a shared link -- and a move the
-       * catalogue refuses is BAD_REQUEST, which today is a cycle (migration 15)
-       * or a Repeat landing on a tuple another copy holds (ADR-0009). Neither
-       * is a fault, and `by-hand.ts` is where that narrowing is argued.
+       * catalogue refuses is BAD_REQUEST. Neither is a fault, and `by-hand.ts`
+       * is where that narrowing is argued.
+       *
+       * FIVE CAUSES REACH THAT BAD_REQUEST, and this list is the same one the
+       * declared sentence above names (CNCORE-255): a Repeat landing on a tuple
+       * another copy holds (ADR-0009), an item or container that is not there,
+       * a cycle (migration 15), a position the 32-bit column cannot hold, and a
+       * sibling outside the destination container. An earlier version of this
+       * comment named the first and third only, which is how the declared
+       * sentence came to name one of five and nobody noticed.
        */
       try {
         if (!(await movePlacementByHand(context.db, input))) throw errors.NOT_FOUND();
         return { id: input.id };
       } catch (cause) {
-        if (cause instanceof PlacementRefused) throw errors.BAD_REQUEST({ cause });
+        // THE MESSAGE IS PASSED, NOT JUST THE CAUSE -- `place`'s reason above.
+        if (cause instanceof PlacementRefused) {
+          throw errors.BAD_REQUEST({ message: cause.message, cause });
+        }
         throw cause;
       }
     }),

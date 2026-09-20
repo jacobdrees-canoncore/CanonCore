@@ -262,6 +262,10 @@ describe("what a move may not reach", () => {
       position: 1,
     });
 
+    // THE SENTENCE NAMES THE OVERFLOW (CNCORE-255). This is the one cause of
+    // the five that no router test drives, so the refusal's own words are where
+    // it is pinned: a generic "the catalogue refused that move" would leave the
+    // Owner with nothing to change.
     await expect(
       movePlacementByHand(db, {
         id: placed,
@@ -269,6 +273,6 @@ describe("what a move may not reach", () => {
         position: Number.MAX_SAFE_INTEGER,
         siblings: [],
       }),
-    ).rejects.toThrow(PlacementRefused);
+    ).rejects.toThrow("That position is outside the range the catalogue can store.");
   });
 });

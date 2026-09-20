@@ -150,13 +150,37 @@ export async function theOwnerSource(writer: Writer, ownerId: string): Promise<s
  * wrapped error is one fact about this driver.
  */
 export function isRefusalOn(codes: ReadonlySet<string>, error: unknown): boolean {
+  for (const code of sqlstatesIn(error)) if (codes.has(code)) return true;
+  return false;
+}
+
+/**
+ * THE SAME WALK, ANSWERING THE REASON INSTEAD OF WHETHER THERE IS ONE
+ * (CNCORE-255). A caller that has a sentence per SQLSTATE needs to know WHICH
+ * code matched, and `isRefusalOn` throws that away -- which is how
+ * `placement.place` and `placement.move` came to answer one cause out of the
+ * four and five that reach them.
+ *
+ * KEYED ON THE RECORD RATHER THAN A SET BESIDE IT, so a code cannot be added to
+ * the narrowing without a sentence to report it by. The two-structure version
+ * is the shape that lets them drift.
+ */
+function refusalIn(reasons: Readonly<Record<string, string>>, error: unknown): string | undefined {
+  for (const code of sqlstatesIn(error)) {
+    const reason = reasons[code];
+    if (reason !== undefined) return reason;
+  }
+  return undefined;
+}
+
+/** Every SQLSTATE on the `cause` chain, outermost first. */
+function* sqlstatesIn(error: unknown): Generator<string> {
   let current: unknown = error;
   while (current instanceof Error) {
     const { code } = current as { code?: unknown };
-    if (typeof code === "string" && codes.has(code)) return true;
+    if (typeof code === "string") yield code;
     current = current.cause;
   }
-  return false;
 }
 
 /**
@@ -199,10 +223,24 @@ export class PlacementRefused extends Error {}
  * and escaped as a 500. Measured, not reasoned about. It is the same class as
  * the other three: the owner asked for something the catalogue cannot store.
  * Found by review of CNCORE-73, and it fixes `placeItemByHand` as well as the
- * move because the narrowing is ONE set read by both -- which is the reason a
- * set is the right shape for it.
+ * move because the narrowing is ONE structure read by both -- which is the
+ * reason to keep it in one place. It was a SET until CNCORE-255, and that
+ * sentence read "a set is the right shape for it": the shape was wrong, because
+ * a set can say THAT the owner was refused and not WHICH of these four did it,
+ * and both routers pass this message to the Owner verbatim.
+ *
+ * SO EACH CODE CARRIES THE SENTENCE THE OWNER READS, and a code cannot join the
+ * narrowing without one. A fifth refusal is raised directly by
+ * `movePlacementByHand` below -- a sibling outside the destination container --
+ * which is why `placement.move` names five causes where `place` names these four.
  */
-const PLACEMENT_REFUSALS = new Set(["23505", "23503", "23514", "22003"]);
+const PLACEMENT_REFUSALS: Readonly<Record<string, string>> = {
+  "23505":
+    "That item is already in that container at that position, or already there with no position given.",
+  "23503": "No such item or container.",
+  "23514": "A container cannot hold something it already sits inside.",
+  "22003": "That position is outside the range the catalogue can store.",
+};
 
 /**
  * THE OWNER PUTTING AN ITEM IN A CONTAINER, naming the placement it creates.
@@ -242,10 +280,11 @@ export async function placeItemByHand(
     return placementId;
   } catch (cause) {
     // NARROWED, SO A FAULT STAYS A FAULT. Only the rules the owner can break
-    // become a refusal; everything else is rethrown untouched.
-    if (isRefusalOn(PLACEMENT_REFUSALS, cause)) {
-      throw new PlacementRefused("the catalogue refused that placement", { cause });
-    }
+    // become a refusal; everything else is rethrown untouched. THE SENTENCE IS
+    // THE MATCHED CODE'S, not the set's: `placement.place` passes this message
+    // to the Owner verbatim, so a generic one would lose the cause (CNCORE-255).
+    const refused = refusalIn(PLACEMENT_REFUSALS, cause);
+    if (refused !== undefined) throw new PlacementRefused(refused, { cause });
     throw cause;
   }
 }
@@ -511,7 +550,7 @@ export async function movePlacementByHand(
          * purpose. One transaction, so nothing lands.
          */
         if (!shifted) {
-          throw new PlacementRefused("that move named a sibling this container does not hold");
+          throw new PlacementRefused("That move named a sibling this container does not hold.");
         }
       }
 
@@ -521,9 +560,8 @@ export async function movePlacementByHand(
     // NARROWED, SO A FAULT STAYS A FAULT -- `placeItemByHand`'s rule. The
     // refusal thrown just above is already the right type and passes through.
     if (cause instanceof PlacementRefused) throw cause;
-    if (isRefusalOn(PLACEMENT_REFUSALS, cause)) {
-      throw new PlacementRefused("the catalogue refused that move", { cause });
-    }
+    const refused = refusalIn(PLACEMENT_REFUSALS, cause);
+    if (refused !== undefined) throw new PlacementRefused(refused, { cause });
     throw cause;
   }
 }
