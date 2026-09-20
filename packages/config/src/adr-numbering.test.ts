@@ -1,4 +1,4 @@
-import { readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -64,5 +64,117 @@ describe("the decision records", () => {
       .filter(([, files]) => files.length > 1)
       .map(([number, files]) => `${number}: ${files.join(", ")}`);
     expect(shared).toStrictEqual([]);
+  });
+});
+
+/**
+ * A RECORD AND THE CODE THAT IMPLEMENTS IT, HELD TOGETHER BY A CITATION.
+ *
+ * The record above catches two records sharing a number. This catches the other
+ * direction: a record whose own implementation never names it. Nothing is
+ * broken when that happens, which is what makes it invisible -- the code works,
+ * the record is true, and the only thing missing is the thread between them. A
+ * reader who opens the file cannot find the reasoning, and a reader who opens
+ * the record cannot find the code, so the next change to either is made without
+ * the other.
+ *
+ * MEASURED RATHER THAN HYPOTHETICAL (CNCORE-248). `narrowedToTheKind` and its
+ * two call sites landed in `queries.ts` -- a file citing thirty-one records,
+ * including the one [[0150-the-reader-chooses-the-order-and-the-kind-the-surface-keeps-the-question]]
+ * exists to distinguish itself FROM -- and not the record that decided it.
+ * `sort_name_v1()` and `derived:sort-name-v1` are read back through
+ * `by-hand.ts`, which cites eleven records and not
+ * [[0134-a-sort-name-is-derived-by-stripping-a-leading-article]].
+ *
+ * BOTH SPELLINGS, AND THAT IS THE POINT RATHER THAN A DETAIL. This tree cites a
+ * record two ways -- `ADR-0134` in a source comment, `[[0134-the-slug]]` in
+ * prose -- and the sweep that found the two above matched only the first. It
+ * reported ADR-0136 as cited nowhere when `ui-callers.test.ts` cites it in the
+ * wiki-link form, so the method under-reported exactly the citations that are
+ * hardest to find by eye. A checker that knew one spelling would licence the
+ * same mistake.
+ *
+ * A ROLL CALL, NOT A SWEEP, which is [[0153-a-figure-about-this-tree-is-derived-or-dated]]'s
+ * shape and its limit: a record missing from this table is not caught. The
+ * alternative -- every `accepted` record must be named by some file -- asks the
+ * wrong question, because a record can be whole with no code to cite it at all.
+ * [[0072-no-visibility-system]] is the specimen: it decides that a thing does
+ * NOT exist, so what makes it whole is an ABSENCE, and there is no file for an
+ * absence to be cited from.
+ */
+type Implementation = {
+  readonly adr: string;
+  readonly file: string;
+  readonly holds: string;
+};
+
+const IMPLEMENTED_BY: Implementation[] = [
+  {
+    adr: "0058",
+    file: "apps/web/src/app/layout.tsx",
+    holds: "the product's own name, where the generator left a lowercase placeholder",
+  },
+  {
+    adr: "0132",
+    file: ".claude/skills/closing-a-spec/SKILL.md",
+    holds: "the gate a project passes before it is finished",
+  },
+  {
+    adr: "0134",
+    file: "packages/db/src/by-hand.ts",
+    holds: "the Owner's sort name, standing beside the computed one it outranks",
+  },
+  {
+    adr: "0150",
+    file: "packages/db/src/queries.ts",
+    holds: "`narrowedToTheKind`, and the two Listings that apply it",
+  },
+];
+
+/**
+ * The slug a record is cited by in prose, or a throw naming the number.
+ *
+ * IT RESOLVES THROUGH THE TREE rather than holding the filename, so a record
+ * RENAMED -- which changes the wiki-link form of every citation of it -- is
+ * reported here instead of quietly making this checker look for a spelling
+ * nothing uses any more.
+ */
+function slugOf(number: string): string {
+  const found = numbered().filter((record) => record.number === number);
+  if (found.length !== 1) {
+    throw new Error(
+      `${found.length} records are numbered ${number}, not 1, so no citation of it resolves`,
+    );
+  }
+  return (found[0] as { file: string }).file.replace(/\.md$/, "");
+}
+
+/** Whether a file names a record, in EITHER spelling this tree uses. */
+function cites(file: string, number: string): boolean {
+  const text = readFileSync(join(repoRoot, file), "utf8");
+  return new RegExp(`ADR-${number}\\b`).test(text) || text.includes(`[[${slugOf(number)}]]`);
+}
+
+describe("a record and the code that implements it", () => {
+  /**
+   * BEFORE THE ROLL CALL, because a table whose files had moved would satisfy
+   * "they all cite their record" by throwing on none of them -- and a read that
+   * cannot find its subject is the failure `ui-callers.test.ts` raises at the
+   * root of its own chain for the same reason.
+   */
+  it("names files this repository actually holds", () => {
+    expect(IMPLEMENTED_BY.length).toBeGreaterThan(0);
+
+    for (const { adr, file } of IMPLEMENTED_BY) {
+      expect(() => readFileSync(join(repoRoot, file), "utf8"), `${file} is gone`).not.toThrow();
+      expect(slugOf(adr).startsWith(`${adr}-`), `ADR-${adr} is gone`).toBe(true);
+    }
+  });
+
+  it("is named by the file that implements it", () => {
+    const silent = IMPLEMENTED_BY.flatMap(({ adr, file, holds }) =>
+      cites(file, adr) ? [] : [`${file} holds ${holds} and never names ADR-${adr}`],
+    );
+    expect(silent).toStrictEqual([]);
   });
 });
