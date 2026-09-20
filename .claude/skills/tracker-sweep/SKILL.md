@@ -16,6 +16,13 @@ arrives is a good body with nothing else set. Twelve tickets were filed that way
 team's first Backlog state. It looks filed, it has a number, and it sits outside every view the
 workflow uses. This is the one that hides, because nothing about it reads as broken.
 
+**BUT TWO KINDS OF TICKET BELONG IN `Backlog`, AND MOVING THEM IS THE DAMAGE, NOT THE REPAIR.** A
+`to-spec` ticket IS the spec and `CLAUDE.md` says Backlog holds nothing else; `blocked-externally`
+is the one other thing `docs/agents/triage-labels.md` admits there, and CNCORE-76 and CNCORE-107 are
+correctly filed that way. `monitor.sh` already carries the exemption --
+`parked = labels & {"to-spec", "blocked-externally"}` -- so the check that REPORTS drift has always
+known what this skill did not. Sweeping without it moves five specs into the frontier.
+
 **A missing label.** Triage is deliberately off on this team, so a label is the only place triage
 state lives. An unlabelled ticket has no triage state at all rather than a default one.
 
@@ -31,8 +38,14 @@ dependency that does not exist yet.
 Read every non-Done ticket with `orca linear list-issues --team CNCORE --json`. For each, take the
 state, the labels and the assignee, and flag any of the four above.
 
-**Repair the mechanical three without asking**: state to `Todo`, add `ready-for-agent`, set the
-assignee. They have one right answer and the user gains nothing from being consulted about it.
+**Repair the mechanical three without asking, ON A TICKET THAT IS NOT PARKED**: state to `Todo`, add
+`ready-for-agent`, set the assignee. They have one right answer and the user gains nothing from being
+consulted about it.
+
+**A PARKED TICKET GETS ITS OWN ANSWER.** Leave the state alone, and the label a spec carries is
+`ready-for-human` rather than `ready-for-agent` (`docs/agents/triage-labels.md`). A spec swept into
+`Todo` with `ready-for-agent` on it is a whole project's plan offered to the next dispatch as one
+ticket.
 
 **Do not clear `needs-triage`.** That label is a decision somebody made, not drift. Clear it only
 when you have settled the question it marks, and say what you settled.
