@@ -3,6 +3,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
+import { flatten } from "./testing/flatten";
 import { repoRoot } from "./testing/repo-root";
 
 /**
@@ -50,20 +51,6 @@ import { repoRoot } from "./testing/repo-root";
  * population; that is CNCORE-247's own census boundary, kept deliberately.
  */
 const adrDirectory = join(repoRoot, "docs", "adr");
-
-/**
- * TEXT AS ONE LINE, so a pattern survives being re-wrapped.
- *
- * `corpus-figures.test.ts` states the reason and this file MEASURED it: the first
- * version of the ADR-0081 assertion below matched the raw bytes, and it passed on
- * the unfixed record. The sentence it was looking for is hard-wrapped at 100
- * columns, so "the" and "earliest" sit on either side of a newline and the
- * pattern simply did not match -- a check GREEN on the very defect it names,
- * which is the false signal `CLAUDE.md` is about.
- */
-function flatten(text: string): string {
-  return text.replace(/\s+/g, " ").trim();
-}
 
 /**
  * A record's number, status, whole text and DECISION BLOCK, keyed by the four
