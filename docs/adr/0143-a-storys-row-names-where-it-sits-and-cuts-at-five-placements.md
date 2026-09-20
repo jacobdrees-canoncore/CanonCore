@@ -183,8 +183,10 @@ past a hundred Placements has an "Also appears in" that walks. The fixture's own
 ## Re-taking the figures
 
 **THE DISTRIBUTION ABOVE IS NOT ASSERTED ANYWHERE**, and on purpose, for ADR-0137's reason about its
-timings: it is a measurement of one catalogue on one day. The widest figure, 48, is the one the corpus
-suite asserts as a floor. Re-take the rest read-only against an install with:
+timings: it is a measurement of one catalogue on one day. The widest figure, 48, is what the corpus
+suite DERIVES its floor from: `corpus-stands.test.ts` asserts `mostOrderings: 45`, set below the
+measurement on that file's own rule that an exact count reddens on the next edit while a floor still
+catches a truncation. Re-take the rest read-only against an install with:
 
 ```sql
 with live as (

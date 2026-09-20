@@ -11,10 +11,17 @@ tables. The two halves are one decision, because the second follows from the fir
 ## Why the stable line
 
 Stable has not moved since 2026-03-27 while `1.0.0` sits at `rc.4`, which is a real argument for
-moving and was weighed. What settles it the other way is that nothing is downstream of the schema
-yet: `packages/db/src/schema/index.ts` is `export {}`, and the migration ladder of ADR-0047 has no
-rungs. The cost of moving later is therefore close to zero, and the cost of being wrong now is a
-release candidate under every other ticket in version one. Take the cheap option while it is cheap.
+moving and was weighed. What settled it the other way was that nothing was downstream of the
+schema yet: `packages/db/src/schema/index.ts` was `export {}`, and the migration ladder of ADR-0047
+had no rungs. The cost of moving later was therefore close to zero, and the cost of being wrong was
+a release candidate under every other ticket in version one. Take the cheap option while it is
+cheap.
+
+**NEITHER HALF OF THAT PREMISE HOLDS NOW, AND THE DECISION IS UNCHANGED BY IT** (CNCORE-252). That
+file is three `export *` lines and the ladder has TWENTY-THREE rungs, so the cheap option was taken
+while it was cheap and moving is no longer close to free. What reopens this is the revisit trigger
+named below -- `drizzle-orm` 1.0 shipping stable -- and not this paragraph going out of date, which
+is the difference between an argument's premise expiring and a decision being superseded.
 
 ## Why the Zod schemas are hand-written
 
@@ -42,10 +49,13 @@ new dependency cost. That is the moment to reopen this, and the moment the argum
 
 ## What is in the package meanwhile
 
-Only what something reads. Today that is the health check's result contract, wired into the
-router's `.output()` so it is load-bearing rather than decorative: a handler that stops answering
-what the contract promises fails with `Output validation failed`, which was demonstrated rather
-than assumed. Domain schemas arrive on the slices that need them, per ADR-0051.
+Only what something reads. THAT WAS THE HEALTH CHECK'S RESULT CONTRACT ALONE WHEN THIS WAS
+WRITTEN, wired into the router's `.output()` so it is load-bearing rather than decorative: a handler
+that stops answering what the contract promises fails with `Output validation failed`, which was
+demonstrated rather than assumed. `packages/schemas/src/index.ts` is 766 lines now and carries the
+whole public read path -- Placements, Statements, attributions, Groups, Items, catalogue rows and
+the owner's note. That is the rule working rather than failing: domain schemas arrive on the slices
+that need them, per ADR-0051.
 
 There is also a standing reason to expect hand-written schemas to stay worth their keep. The write
 model is the statements-and-properties catalogue of ADR-0012, not a table per concept, so what the

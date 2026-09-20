@@ -376,7 +376,7 @@ export const item = {
          * CAPPED AND WALKED SINCE CNCORE-125, and it was the LAST listing in
          * the app that was neither. It answered every live placement, which
          * ADR-0119's first sentence forbids. The cap is `A_PAGE`, the same
-         * ceiling the other four serve, and the caller cannot raise it.
+         * ceiling the other five serve, and the caller cannot raise it.
          */
         findPlacementsOfItem(context.db, found.id, {
           limit: A_PAGE,
@@ -397,7 +397,7 @@ export const item = {
          * CAPPED AND WALKED SINCE CNCORE-89. It answered every live placement,
          * which ADR-0119's first sentence forbids -- and `browse` imports a
          * whole category in one call, which ADR-0077 measures at 1,049 stories.
-         * The cap is `A_PAGE`, the same ceiling the other four listings serve,
+         * The cap is `A_PAGE`, the same ceiling the other five listings serve,
          * and the caller cannot raise it.
          */
         findPlacementsInContainer(context.db, found.id, {

@@ -268,7 +268,9 @@ page.
 
 ## One order for every surface, and the scope carried by the header -- under CNCORE-181
 
-**THE FIXED ORDER IS STATED ONCE: `via`, `placed`, `q`, `group`, `after`, `placedAfter`.** It is
+**THE FIXED ORDER IS STATED ONCE, AND IT IS FOURTEEN PARAMETERS:** `via`, `placed`, `q`, `group`,
+`kind`, `order`, `provider`, `container`, `record`, `after`, `placedAfter`, `letter`, `before`,
+`placedBefore`. It is
 `IN_THE_FIXED_ORDER` in `apps/web/src/components/query-params.ts`, and `inTheFixedOrder` beside it
 writes every link where two of these parameters can meet: `queryFor` for all five Listings,
 `theRoute` on the Item page, whose chips had been a THIRD statement of the order by the order it set

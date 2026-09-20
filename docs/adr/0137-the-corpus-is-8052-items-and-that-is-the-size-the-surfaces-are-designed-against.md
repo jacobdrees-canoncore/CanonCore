@@ -124,10 +124,15 @@ files under D, and the front page's first screen runs `... Agent Provocateur`, `
 Ambition`, with the article stripped rather than sorted on (ADR-0134, CNCORE-173). That story sits
 in **47** Orderings, one short of the corpus maximum.
 
-**WHAT THE FRONT PAGE STILL DOES NOT OFFER IS THE REST OF THE WALK.** It says "Showing 100 of 8052
-items" and ends in a single `Next` link, so the eighty-first page is eighty presses away. That is
-CNCORE-159's navigation stage rather than a defect found here, and it is recorded because this is
-the first time anyone has seen it at the size the argument is about.
+**WHAT THE FRONT PAGE DID NOT OFFER WHEN THIS WAS WRITTEN WAS THE REST OF THE WALK.** It said
+"Showing 100 of 8052 items" and ended in a single `Next` link, so the eighty-first page was eighty
+presses away. That was CNCORE-159's navigation stage rather than a defect found here, and it is
+recorded because this was the first time anyone had seen it at the size the argument is about.
+
+**THAT STAGE LANDED FOUR DAYS LATER AND THIS PARAGRAPH DID NOT FOLLOW IT** (CNCORE-252). CNCORE-174
+put the alphabet bar on `/` and CNCORE-188 added `Previous` and a position -- "items 3,201 to
+3,300" rather than a bare "Showing 100" -- so the walk this names as missing is the walk the front
+page has. `JumpToALetter` and the `Previous` link are both in `apps/web/src/components/listing.tsx`.
 
 ## ADR-0119's index stays unadded, and now for a measured reason rather than an absent one
 

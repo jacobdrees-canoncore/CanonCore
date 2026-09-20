@@ -94,10 +94,15 @@ reasons that are properties of the key rather than preferences:
 
 The dispatcher has said a third is wiring later. **WHAT A THIRD ACTUALLY COSTS, COUNTED RATHER THAN
 ASSERTED** -- an earlier draft of this record said "a value in `order.ts` and a line in
-`THE_ORDERS`", and review measured that false. It is four places: the order value beside
-`RECENTLY_ADDED`, its anchor read, a branch in `readListing`, and its words in `THE_ORDERS`. Two
-more that WOULD have been copies are not: `CHOSEN_ORDERS` is the read path's own list and the
-router's `z.enum` reads it, and `Chosen` is exported so no page retypes it.
+`THE_ORDERS`", and review measured that false. It is SIX places: the order value beside
+`RECENTLY_ADDED`, its anchor read, a branch in `readListing`, its words in `THE_ORDERS`, the value
+`oneOrder` reads out of the query string in `apps/web/src/components/query-params.ts`, and that
+function's own return type, which spells the orders as literals. **THE LAST TWO WERE MISSED WHEN
+THIS WAS COUNTED** and are added under CNCORE-252; `oneOrder` answers `"added"` or nothing, so a
+third order it does not name is a parameter the page silently drops. Two more that WOULD have
+been copies are not:
+`CHOSEN_ORDERS` is the read path's own list and the router's `z.enum` reads it, and `Chosen` is
+exported so no page retypes it.
 
 **THE BRANCH IN `readListing` IS NOT REDUCIBLE TO A LOOKUP, and that is a decision rather than a
 shortfall.** `theCutAt` is typed `ACutIn<O>` against the order in the same call, which is the whole

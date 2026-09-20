@@ -27,7 +27,7 @@ const UNBROKEN_DEVICE = "device".repeat(60);
  *
  * ITS OWN VITEST PROJECT AND ITS OWN CI JOB, which is the ticket's first
  * acceptance criterion and was decided against the duplicated setup it costs.
- * What it duplicates is ONE instance rather than the page seam's seven: a
+ * What it duplicates is ONE instance rather than the page seam's eleven: a
  * browser suite needs one ordering to drag and two Providers that flood what
  * they send, not a wiki provider, a TMDB provider, a paged catalogue or a
  * fresh install. And what the

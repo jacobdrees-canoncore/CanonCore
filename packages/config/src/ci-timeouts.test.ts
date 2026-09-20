@@ -22,14 +22,22 @@ import { workflow } from "./testing/ci-workflow";
  * Each job's SLOWEST SUCCESSFUL RUN, in seconds, which is the measurement its
  * ceiling is derived from.
  *
- * Read from the Actions API over every attempt of the 600 runs of `CI` created
- * 2026-09-11T18:52Z to 2026-09-19T15:50Z, as the job's own `started_at` to
+ * Read from the Actions API over every attempt of the 808 runs of `CI` created
+ * 2026-09-11T18:33Z to 2026-09-20T19:20Z, as the job's own `started_at` to
  * `completed_at`. That span includes the wait between a job starting and its
  * first step, which reached two minutes once, so it is the larger of the two
  * readings. The query, and each job's median beside its slowest, are in
- * ADR-0141. A run after the window can be slower -- `typecheck` took 88 seconds
- * on this ticket's own pull request, 68 of them before its first step -- and
- * that is what the multiple below is for.
+ * ADR-0141.
+ *
+ * RE-MEASURED UNDER CNCORE-252, AND THAT IS THE WHOLE POINT OF CNCORE-251.
+ * `ci-timeouts.test.ts` enforced `ceiling == max(5, ceil(3 * slowest / 60))`
+ * and passed for eight days while the figures it multiplies went stale: over
+ * the runs since the first window closed, `e2e` ran 243s against a recorded
+ * 159 and `provider` 260s against 166, so both kept about 2x headroom while
+ * this file asserted 3x. The check was green and its own premise was not. Five
+ * figures moved on re-measurement -- `typecheck` 58 to 88, `e2e` 159 to 243,
+ * `credentials` 4 to 6, `provider` 166 to 260, `contract` 73 to 82 -- and two
+ * ceilings moved with them.
  *
  * RESTATED HERE RATHER THAN FETCHED, as `ci-workflow.test.ts` restates a
  * vendor's input list: the suite needs no network, and changing a ceiling
@@ -43,17 +51,17 @@ import { workflow } from "./testing/ci-workflow";
 const SLOWEST_SECONDS: Record<string, number> = {
   secrets: 52,
   docs: 41,
-  typecheck: 58,
+  typecheck: 88,
   lint: 84,
   build: 74,
   "env-guard": 83,
   test: 216,
   migrations: 114,
-  e2e: 159,
+  e2e: 243,
   browser: 116,
-  credentials: 4,
-  provider: 166,
-  contract: 73,
+  credentials: 6,
+  provider: 260,
+  contract: 82,
   // The amd64 leg, the slower of the matrix's two, on a cold build: one key
   // sets both.
   image: 413,

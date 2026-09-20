@@ -501,7 +501,9 @@ cannot survive one item appearing twice.
 
 ## "Also appears in", decided under CNCORE-125 -- and the SHARED COMPARISON HAD TO GROW
 
-**THE FIFTH LISTING HAS ADOPTED THIS RECORD, AND IT IS THE LAST ONE THERE IS.** Every ordering one
+**THE FIFTH LISTING HAS ADOPTED THIS RECORD. IT WAS THE LAST ONE THERE WAS AND IS NOT NOW:**
+`provider.containers` is a SIXTH, added under CNCORE-133 and counted explicitly by ADR-0133, so this
+sentence's claim to be closed was falsified by the next record but one. Every ordering one
 Item sits in -- "Also appears in" on `/items/<id>` -- is capped at `A_PAGE`, says what it is not
 showing, and is walked forward. After CNCORE-89 it was the only listing in the app that was none of
 those: `findPlacementsOfItem` took no `limit` and no `after` while `item.get` awaited it on every
@@ -525,9 +527,9 @@ figure it needs to choose where a Row's membership list truncates.
 made and for the mirror of its reason. A Repeat is one Item twice in ONE Container (ADR-0009), so
 from this end a CONTAINER id names two rows and cannot say which of them a page ended on. Both
 listings whose rows are placements name the row the page ended on; the rule underneath is that a
-cursor names the ROW, and in three of the five listings that row is an Item.
+cursor names the ROW, and in three of the six listings that row is an Item.
 
-## The comparison covered FOUR of the five listings and not this one
+## The comparison covered FOUR of the five listings there were then, and not this one
 
 **THE TICKET ASKED WHETHER `pastInTwoRegimes` COVERED THIS ORDER AND SAID TO CHECK RATHER THAN
 ASSUME. IT DID NOT, AND IT GREW -- INCLUDING OUT OF ITS NAME.** That function took ONE key and an

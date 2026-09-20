@@ -1,8 +1,52 @@
 import { and, asc, eq, isNull, ne, sql } from "drizzle-orm";
 
 import type { Database } from "./index";
-import { theOwnerId } from "./placements";
+import { isRefusalOn, theOwnerId } from "./placements";
 import { importRunContainers, importRuns } from "./schema";
+
+/**
+ * The catalogue REFUSING a list the Owner handed over, as opposed to failing to
+ * write one it accepted.
+ *
+ * A TYPE RATHER THAN A `catch` AT THE CALLER, which is the argument
+ * `ItemRefused` and `GroupRefused` already make in their own files: a router
+ * that caught everything would tell the Owner their list was malformed when
+ * what happened was a dead connection pool.
+ *
+ * NOT `RefusalReason` BELOW, AND THE TWO MUST NOT BE MISTAKEN FOR EACH OTHER.
+ * That is ONE CONTAINER refusing part-way through a walk, written against its
+ * row and read back beside the ones that landed; this is the whole list refused
+ * before any of it is written, so there is no run to write it against.
+ */
+export class ImportRunRefused extends Error {}
+
+/**
+ * The refusals a list the Owner handed over can actually provoke, by their
+ * SQLSTATE. THEY LIVE HERE RATHER THAN IN THE ROUTER, because which constraint
+ * means "you asked for something impossible" is a fact about the schema, and
+ * the schema is this package's -- the argument `by-hand.ts` and `groups.ts`
+ * each make about their own.
+ *
+ * `54000` is `import_run_containers_named_once` refusing to INDEX an id: a
+ * btree cannot hold a value over 2704 bytes, measured at "index row size 3872
+ * exceeds btree version 4 maximum 2704" on 2026-09-20. Nothing bounds an id's
+ * length on the way in -- `containerIds` is `z.array(z.string().min(1)).min(1)`
+ * -- so an ordinary list reaches it. Bounding that input is CNCORE-268.
+ *
+ * `23505` IS THAT SAME INDEX REFUSING A REPEAT, and `theRepeatIn` below turns
+ * every list that could reach it away first. It is a backstop rather than the
+ * path, and it is here because the whole lesson of CNCORE-254 is that a
+ * constraint nobody thought reachable was reached -- by the shape the feature
+ * was built for.
+ *
+ * ANYTHING ELSE IS NOT THE OWNER'S DOING and goes on being a fault: a dropped
+ * connection, a disk full, a trigger raising for a reason nobody predicted.
+ */
+// TODO(CNCORE-268): bound an id's length on the way in, so 54000 is a refusal
+// that says WHY. Caught here, the Owner reads "the catalogue refused that list"
+// and is told neither which id nor that its length is the problem -- which is
+// the complaint CNCORE-254 made about the repeated id, one constraint over.
+const REFUSALS = new Set(["23505", "54000"]);
 
 /** How one Container of a run went. `pending` until it has been asked for. */
 export type ContainerOutcome = "pending" | "landed" | "refused";
@@ -64,26 +108,109 @@ export async function beginImportRun(
   db: Database,
   { providerIdentity, containerIds }: { providerIdentity: string; containerIds: string[] },
 ): Promise<ImportRun> {
+  const repeated = theRepeatIn(containerIds);
+  if (repeated !== undefined) {
+    throw new ImportRunRefused(
+      `${repeated.externalId} is listed twice, at positions ${repeated.first + 1} and ${repeated.again + 1}`,
+    );
+  }
+
   const resumable = await theRunStillWalkingThisList(db, { providerIdentity, containerIds });
   if (resumable !== undefined) {
     await askAgainForWhatHasNotLanded(db, resumable);
     return readImportRun(db, resumable);
   }
 
-  const ownerId = await theOwnerId(db);
-  const [run] = await db.insert(importRuns).values({ ownerId, providerIdentity }).returning();
-  if (!run) throw new Error("opening an import run returned no row");
+  const runId = await openTheRun(db, { providerIdentity, containerIds });
 
-  await db.insert(importRunContainers).values(
-    containerIds.map((externalId, listPosition) => ({
-      ownerId,
-      runId: run.id,
-      externalId,
-      listPosition,
-    })),
-  );
+  // READ BACK AFTER THE COMMIT, which is what makes the run this answers the
+  // one that is durably there rather than one a later statement could undo.
+  return readImportRun(db, runId);
+}
 
-  return readImportRun(db, run.id);
+/**
+ * Writes the run row and every Container of its list, and turns what the
+ * Owner's own list can provoke into a refusal they can read.
+ *
+ * ONE TRANSACTION, because a run and the list it walks are one fact. They were
+ * two statements with nothing around them until CNCORE-254, so a list that
+ * failed to write left the run row standing over none of its members -- and a
+ * run reporting zero Containers reads as an import that found nothing rather
+ * than as one that never happened. `importProvidedRecord` makes the same
+ * argument about an Item and its title statement.
+ */
+async function openTheRun(
+  db: Database,
+  { providerIdentity, containerIds }: { providerIdentity: string; containerIds: string[] },
+): Promise<string> {
+  try {
+    return await db.transaction(async (tx) => {
+      const ownerId = await theOwnerId(tx);
+      const [run] = await tx.insert(importRuns).values({ ownerId, providerIdentity }).returning();
+      if (!run) throw new Error("opening an import run returned no row");
+
+      await tx.insert(importRunContainers).values(
+        containerIds.map((externalId, listPosition) => ({
+          ownerId,
+          runId: run.id,
+          externalId,
+          listPosition,
+        })),
+      );
+      return run.id;
+    });
+  } catch (cause) {
+    if (isRefusalOn(REFUSALS, cause)) {
+      throw new ImportRunRefused("the catalogue refused that list", { cause });
+    }
+    throw cause;
+  }
+}
+
+/**
+ * The first id this list names twice, and the two places it sits, or
+ * `undefined` if it names each once.
+ *
+ * REFUSED RATHER THAN DEDUPED (ADR-0154). An import list is a document the
+ * Owner authored, so an id on it twice is a typo rather than a claim made
+ * twice -- which is what separates this from `putItemInGroupByHand`, where the
+ * same conflict is MET rather than raised because a button clicked twice across
+ * tabs is the claim already standing. The reading migration 18 wrote down is
+ * this one: a repeat "would give the run two answers for one Container with
+ * nothing to say which is current".
+ *
+ * IT ANSWERS THE REPEAT RATHER THAN THE SENTENCE, so the words the Owner reads
+ * are built once, where they are thrown.
+ *
+ * WHICH AND WHERE, because the shape this exists for is a hand-assembled list
+ * of 465 and "an id is repeated" is not something a reader can act on.
+ *
+ * THESE ARE POSITIONS IN THE LIST, NOT LINES OF A FILE, and the caller must not
+ * describe them as lines: `theContainerIdsIn` drops blank lines and `#`
+ * comments before this ever sees the ids, so position 12 of a commented list is
+ * some later line of the file. They count from one because the Owner is
+ * counting things, and nobody counts from zero; finding the id is then a search
+ * for the id itself, which is what the sentence names first.
+ *
+ * ONLY THE FIRST. Reporting every repeat would ask the Owner to read a list to
+ * fix a list, and the next attempt names the next one -- where a first refusal
+ * they can act on in one edit is the whole of ADR-0123's reading of a reason.
+ */
+function theRepeatIn(containerIds: string[]): RepeatedId | undefined {
+  const firstAt = new Map<string, number>();
+  for (const [at, externalId] of containerIds.entries()) {
+    const first = firstAt.get(externalId);
+    if (first !== undefined) return { externalId, first, again: at };
+    firstAt.set(externalId, at);
+  }
+  return undefined;
+}
+
+/** An id named twice, and the two places in the list it sits. */
+interface RepeatedId {
+  externalId: string;
+  first: number;
+  again: number;
 }
 
 /**

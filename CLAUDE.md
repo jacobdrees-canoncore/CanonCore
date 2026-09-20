@@ -125,7 +125,9 @@ OWNER and reads what that owner says today. It ruled 11 claims contradicted on 2
   `--linear-issue CNCORE-<n>` so `--current` resolves in every later call.
 - Every worktree shares one Postgres container with its OWN database inside, on **55432** not 5432,
   since a local Postgres shadows 5432 silently and you test the wrong engine (ADR-0104). **Four
-  agents at once**: one `pnpm test:e2e` peaks at 55-60 of 288 usable connections (CNCORE-137).
+  agents at once**: one `pnpm test:e2e` peaks at 67 of 288 usable connections, re-measured
+  2026-09-19 with the eleventh server standing, so four still fit (4 x 67 = 268 < 288). The
+  measurement lives in `apps/web/e2e/global-setup.ts`; this restates it (CNCORE-137, CNCORE-178).
 - Prefer Orca's tools: the browser (`orca tab`, `snapshot`, `click`, `fill`) over Playwright, and
   `orca terminal` over an ad hoc PTY, since a real PTY lets `terminal read`/`send` answer a prompt.
 - Credentials live in `~/.config/canoncore/`, outside every repo so no commit can reach them and

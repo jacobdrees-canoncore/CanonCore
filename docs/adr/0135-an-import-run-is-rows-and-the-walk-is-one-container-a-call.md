@@ -135,7 +135,10 @@ is untouched.
 
 That gap is a SURFACE rather than a mechanism: everything behind it — the run, the walk, the report,
 the resume — is in the app and reachable by any client of its API. What a page would additionally
-need is somewhere for a five-and-a-half-hour operation to live while nobody is watching it, which is
+need is somewhere for an eleven-minute operation to live while nobody is watching it -- the
+five-and-a-half hours this record estimated further up is corrected to eleven minutes by its own
+re-measurement above, and this sentence is the third statement of it, corrected under CNCORE-252 --
+which is
 a background worker this repository does not have and which ADR-0049's registry is not: that is
 RECURRING work on a daily trigger. Whatever builds it inherits this record's procedures rather than
 replacing them.
