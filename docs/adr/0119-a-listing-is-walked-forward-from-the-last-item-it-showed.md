@@ -529,7 +529,7 @@ from this end a CONTAINER id names two rows and cannot say which of them a page 
 listings whose rows are placements name the row the page ended on; the rule underneath is that a
 cursor names the ROW, and in three of the six listings that row is an Item.
 
-## The comparison covered FOUR of the five listings and not this one
+## The comparison covered FOUR of the five listings there were then, and not this one
 
 **THE TICKET ASKED WHETHER `pastInTwoRegimes` COVERED THIS ORDER AND SAID TO CHECK RATHER THAN
 ASSUME. IT DID NOT, AND IT GREW -- INCLUDING OUT OF ITS NAME.** That function took ONE key and an
