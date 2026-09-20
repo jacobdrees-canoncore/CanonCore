@@ -27,7 +27,7 @@ function markdown(): string[] {
  * `docs/adr/` is the authority (`CLAUDE.md`) and records are cited by number
  * from three places -- other records as `[[0120-the-slug]]`, source comments as
  * `ADR-0120`, and tickets -- so five suites in this package had to enumerate it
- * and each wrote its own copy of this parse. `ADR-0169` carries the fold.
+ * and each wrote its own copy of this parse. `ADR-0171` carries the fold.
  *
  * IT ASKS THE TREE rather than a list somebody maintains, which is
  * `adr-numbering.test.ts`'s reason in its own words: "a record added without

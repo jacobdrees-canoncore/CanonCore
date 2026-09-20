@@ -85,6 +85,6 @@ folds at three. CNCORE-277 took that fold and this file now reads through
 right that the reads disagree about comments and test files and that what they
 share is about three lines; what it could not see is that one of the five was
 already missing the `-z` its neighbour argued for, which is what settled the
-question. [[0169-the-fold-is-of-the-read-not-of-the-question-it-answers]] has the
+question. [[0171-the-fold-is-of-the-read-not-of-the-question-it-answers]] has the
 measurement, and it is also the fifth copy of the record-number parse, folded at
 the same time (CNCORE-294).

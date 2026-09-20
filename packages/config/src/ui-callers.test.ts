@@ -229,7 +229,7 @@ function unimportedModules(sources: Map<string, string>): string[] {
  * [[0136-a-control-is-a-primitive-and-a-surfaces-words-sit-beside-its-pages]]'s
  * line. It reached five (CNCORE-277), and `turbo-cache-inputs.test.ts` -- the
  * neighbour that note named -- was holding the IDENTICAL pathspec WITHOUT the
- * `-z` argued two paragraphs up. [[0169-the-fold-is-of-the-read-not-of-the-question-it-answers]]
+ * `-z` argued two paragraphs up. [[0171-the-fold-is-of-the-read-not-of-the-question-it-answers]]
  * carries the fold and that measurement.
  *
  * WHAT STAYS HERE IS WHAT IS THIS SUITE'S OWN: the pathspec, the test-file

@@ -8,7 +8,7 @@ import { repoRoot } from "./repo-root";
  *
  * Five suites in this package asked it: `ui-callers.test.ts`,
  * `biome-config.test.ts`, `turbo-cache-inputs.test.ts`, `adr-as-built.test.ts`
- * and `adr-identifiers.test.ts`. `ADR-0169` carries the fold and its argument;
+ * and `adr-identifiers.test.ts`. `ADR-0171` carries the fold and its argument;
  * what is here is the part that has to be true for all five.
  *
  * GIT RATHER THAN A DIRECTORY WALK, which is `biome-config.test.ts`'s reason in

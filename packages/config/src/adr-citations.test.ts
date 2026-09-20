@@ -89,7 +89,7 @@ const CITATION = /ADR-(\d{4})\b|docs\/adr\/(\d{4})-|\[\[(\d{4})-/g;
  *
  * THE PARSE IS `adr-records.ts`'s SINCE CNCORE-294, which is where the TODO
  * that used to sit here pointed. It named three other copies; there were four,
- * and `ADR-0169` carries the fold.
+ * and `ADR-0171` carries the fold.
  */
 function heldNumbers(): Set<string> {
   return new Set(records().map((record) => record.number));

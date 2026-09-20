@@ -98,7 +98,7 @@ function identifiersNamedIn(markdown: string): Set<string> {
 
 /**
  * THE WALK IS `trackedFiles`, which this file was the fifth copy of. CNCORE-277
- * took the fold and [[0169-the-fold-is-of-the-read-not-of-the-question-it-answers]]
+ * took the fold and [[0171-the-fold-is-of-the-read-not-of-the-question-it-answers]]
  * carries it, including the `-z` reason this note used to restate: without it
  * `core.quotePath` octal-escapes a non-ASCII filename into one that then fails
  * to open.

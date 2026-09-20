@@ -203,7 +203,7 @@ const CITED_ACROSS_THE_BOUNDARY = ["0097"];
  * `corpus-figures.test.ts` raise at the root of their own chains.
  *
  * THE WALK IS `trackedFiles`, which this file was the fourth copy of and which
- * CNCORE-277 folded at five. [[0169-the-fold-is-of-the-read-not-of-the-question-it-answers]]
+ * CNCORE-277 folded at five. [[0171-the-fold-is-of-the-read-not-of-the-question-it-answers]]
  * carries that decision and the measurement that settled it.
  *
  * WHAT STAYED HERE IS WHAT THIS READ WANTS AND THE OTHERS DO NOT: the pathspec,
