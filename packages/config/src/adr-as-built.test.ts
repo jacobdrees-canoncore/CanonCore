@@ -1,8 +1,9 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { flatten } from "./testing/flatten";
+import { records as numberedRecords } from "./testing/adr-records";
 import { repoRoot } from "./testing/repo-root";
 import { isTrackedAs, trackedFiles } from "./testing/tracked-files";
 
@@ -50,8 +51,6 @@ import { isTrackedAs, trackedFiles } from "./testing/tracked-files";
  * source, so root `CLAUDE.md` citing ADR-0055 does not put that record in the
  * population; that is CNCORE-247's own census boundary, kept deliberately.
  */
-const adrDirectory = join(repoRoot, "docs", "adr");
-
 /**
  * A record's number, status, whole text and DECISION BLOCK, keyed by the four
  * digits it is cited by.
@@ -74,10 +73,8 @@ type AdrRecord = { file: string; status: string; raw: string; text: string; deci
 
 function theRecords(): Map<string, AdrRecord> {
   const records = new Map<string, AdrRecord>();
-  for (const file of readdirSync(adrDirectory).filter((name) => name.endsWith(".md"))) {
-    const number = /^(\d{4})-/.exec(file)?.[1];
-    if (number === undefined) continue;
-    const raw = readFileSync(join(adrDirectory, file), "utf8");
+  for (const { number, file, path } of numberedRecords()) {
+    const raw = readFileSync(join(repoRoot, path), "utf8");
     records.set(number, {
       file,
       // THE FRONTMATTER BLOCK, not any line that opens `status:`. Anchored to the

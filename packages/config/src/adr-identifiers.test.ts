@@ -1,8 +1,9 @@
 import { execFileSync } from "node:child_process";
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
+import { records as numberedRecords } from "./testing/adr-records";
 import { repoRoot } from "./testing/repo-root";
 import { isTrackedAs, trackedFiles } from "./testing/tracked-files";
 
@@ -55,8 +56,6 @@ import { isTrackedAs, trackedFiles } from "./testing/tracked-files";
  * the form rather than checking the quote". Each is named below with the reason
  * it is not a defect, read rather than assumed.
  */
-const adrDirectory = join(repoRoot, "docs", "adr");
-
 /**
  * A CAMELCASE IDENTIFIER AND NOTHING ELSE: lower-case first letter, at least one
  * upper-case letter after it, letters and digits only.
@@ -276,9 +275,9 @@ function goneSymbolsNamedByRecords(): GoneSymbol[] {
   const inTheTree = identifiersInTheTree();
   const gone: GoneSymbol[] = [];
 
-  for (const file of readdirSync(adrDirectory).filter((name) => name.endsWith(".md"))) {
+  for (const { file, path } of numberedRecords()) {
     if (file === THIS_RECORD) continue;
-    const named = identifiersNamedIn(readFileSync(join(adrDirectory, file), "utf8"));
+    const named = identifiersNamedIn(readFileSync(join(repoRoot, path), "utf8"));
     for (const identifier of named) {
       if (inTheTree.has(identifier)) continue;
       if (identifier in NAMED_A_GONE_SYMBOL_ON_PURPOSE) continue;
@@ -322,12 +321,12 @@ describe("an identifier a record names", () => {
    * that stopped matching would turn this file green having read nothing.
    */
   it("is read from a corpus that is actually there", () => {
-    const records = readdirSync(adrDirectory).filter((name) => name.endsWith(".md"));
-    expect(records.length).toBeGreaterThan(100);
+    const corpus = numberedRecords();
+    expect(corpus.length).toBeGreaterThan(100);
 
     const named = new Set<string>();
-    for (const file of records) {
-      for (const identifier of identifiersNamedIn(readFileSync(join(adrDirectory, file), "utf8"))) {
+    for (const { path } of corpus) {
+      for (const identifier of identifiersNamedIn(readFileSync(join(repoRoot, path), "utf8"))) {
         named.add(identifier);
       }
     }

@@ -1,8 +1,9 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { markdownIn } from "./testing/markdown-corpus";
+import { records } from "./testing/adr-records";
 import { repoRoot } from "./testing/repo-root";
 
 /**
@@ -72,8 +73,6 @@ import { repoRoot } from "./testing/repo-root";
  * `doc-line-citations.test.ts`. Source comments are the population
  * `adr-as-built.test.ts` reads, and a dead one there is not caught here.
  */
-const adrDirectory = join(repoRoot, "docs", "adr");
-
 /** The heading the amnesty lives under, in `docs/research/README.md`. */
 const AMNESTY_HEADING = "## Citations to records that never landed";
 
@@ -89,22 +88,12 @@ const CITATION = /ADR-(\d{4})\b|docs\/adr\/(\d{4})-|\[\[(\d{4})-/g;
 /**
  * Every record's number, as the four digits its filename opens with.
  *
- * TODO(CNCORE-294): this parse is the FOURTH copy of itself in this package --
- * `adr-numbering.test.ts`'s `numbered()`, `doc-line-citations.test.ts`'s
- * `recordsByNumber()` and `adr-as-built.test.ts` each hold their own. Raised by
- * this ticket's own review and filed rather than fixed here, because the other
- * three are files CNCORE-259 does not otherwise touch. `testing/repo-root.ts`
- * is the shape it should take, for the reason its docblock gives (CNCORE-58).
+ * THE PARSE IS `adr-records.ts`'s SINCE CNCORE-294, which is where the TODO
+ * that used to sit here pointed. It named three other copies; there were four,
+ * and `ADR-0169` carries the fold.
  */
-function records(): Set<string> {
-  return new Set(
-    readdirSync(adrDirectory)
-      .filter((file) => file.endsWith(".md"))
-      .flatMap((file) => {
-        const number = /^(\d{4})-/.exec(file)?.[1];
-        return number === undefined ? [] : [number];
-      }),
-  );
+function heldNumbers(): Set<string> {
+  return new Set(records().map((record) => record.number));
 }
 
 /**
@@ -188,7 +177,7 @@ describe("an ADR number a document cites", () => {
    * `doc-line-citations.test.ts` each raise at the root of their own chain.
    */
   it("is read at all, so a green run cannot mean the reader went silent", () => {
-    expect(records().size).toBeGreaterThan(0);
+    expect(heldNumbers().size).toBeGreaterThan(0);
     expect(prose().length).toBeGreaterThan(0);
     expect(citations().length).toBeGreaterThan(0);
     expect(
@@ -198,7 +187,7 @@ describe("an ADR number a document cites", () => {
   });
 
   it("names a record this tree holds, or one the amnesty accounts for", () => {
-    const held = records();
+    const held = heldNumbers();
     const accounted = disclosed();
 
     const dangling = citations()
@@ -219,7 +208,7 @@ describe("an ADR number a document cites", () => {
    * is to be deleted when that happens, and this is what says so.
    */
   it("is not accounted for by the amnesty once a record takes the number", () => {
-    const held = records();
+    const held = heldNumbers();
 
     const masked = [...disclosed()]
       .filter((number) => held.has(number))

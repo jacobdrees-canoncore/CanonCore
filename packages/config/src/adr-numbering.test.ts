@@ -1,7 +1,8 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
+import { records, unnumbered } from "./testing/adr-records";
 import { repoRoot } from "./testing/repo-root";
 
 /**
@@ -31,32 +32,25 @@ import { repoRoot } from "./testing/repo-root";
  * IT ASKS THE TREE rather than a list somebody maintains, so a record added
  * without touching this file is still covered.
  */
-const adrDirectory = join(repoRoot, "docs", "adr");
-
-/** Every record's number, as the four digits its filename opens with. */
-function numbered(): { number: string; file: string }[] {
-  return readdirSync(adrDirectory)
-    .filter((file) => file.endsWith(".md"))
-    .map((file) => ({ number: /^(\d{4})-/.exec(file)?.[1], file }))
-    .flatMap(({ number, file }) => (number === undefined ? [] : [{ number, file }]));
-}
-
 describe("the decision records", () => {
   /**
-   * And the reader above is one that can answer at all: an empty directory, or a
+   * And the reader is one that can answer at all: an empty directory, or a
    * naming convention this stopped matching, would satisfy the uniqueness
    * assertion by having no subject.
+   *
+   * IT ASKS `unnumbered` RATHER THAN COMPARING TWO COUNTS. The reader reports
+   * the files it could not number instead of dropping them, so a failure NAMES
+   * the badly-named record where the old shape -- `numbered().length` against a
+   * second `readdirSync` -- could only say that two numbers differed.
    */
   it("are all named with a four-digit number", () => {
-    const files = readdirSync(adrDirectory).filter((file) => file.endsWith(".md"));
-
-    expect(files.length).toBeGreaterThan(0);
-    expect(numbered().length).toBe(files.length);
+    expect(records().length).toBeGreaterThan(0);
+    expect(unnumbered()).toStrictEqual([]);
   });
 
   it("use each number exactly once", () => {
     const seen = new Map<string, string[]>();
-    for (const { number, file } of numbered()) {
+    for (const { number, file } of records()) {
       seen.set(number, [...(seen.get(number) ?? []), file]);
     }
 
@@ -148,7 +142,7 @@ const IMPLEMENTED_BY: Implementation[] = [
  * nothing uses any more.
  */
 function slugOf(number: string): string {
-  const [record, ...rest] = numbered().filter((found) => found.number === number);
+  const [record, ...rest] = records().filter((found) => found.number === number);
   if (record === undefined || rest.length > 0) {
     throw new Error(
       `${rest.length + (record === undefined ? 0 : 1)} records are numbered ${number}, ` +
