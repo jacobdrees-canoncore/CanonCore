@@ -46,7 +46,9 @@ rediscover as an improvement.
 A CONSEQUENCE WORTH STATING, because it otherwise reads as a bug: Tailscale's addresses are
 `100.64.0.0/10`, so they classify as `carrierGradeNat` and are REFUSED in content. That is correct —
 response content is untrusted whatever network it names. A provider reached over a private network is
-a CONFIG URL, so it goes on the allowlist above, deliberately and by name. `127.0.0.0/8` is `loopback`
+a CONFIG URL, so it goes on the allowlist above, deliberately and by name -- **which means the
+CIDR written down, never the hostname alone. CNCORE-244 found this record's own phrase, copied
+into the refusal, sending a first-time Owner to allowlist the name and nothing else.** `127.0.0.0/8` is `loopback`
 and equally not `unicast`, so localhost is not exempt either. This matters most for the wiki provider,
 which ADR-0089 pins to one person and which can never be distributed.
 
@@ -101,7 +103,8 @@ pinning hook, asks what the socket is about to connect to -- which is DNS's answ
 owner's. Without it an allowlisted HOSTNAME resolving to `169.254.169.254` connects, and the host
 check cannot see that by construction. An address passes when it is `unicast` OR sits in an
 allowlisted CIDR, and it is the second half that makes `127.0.0.0/8` and `100.64.0.0/10` reachable
-by name.
+by name -- again the CIDR written down, not the host. Both entries are needed and they are
+different entries; see CNCORE-244 below for what reading this as the hostname cost.
 
 A WILDCARD ENTRY THROWS AT PARSE TIME rather than being read as a literal host. "No wildcards" was
 already this record's phrasing; what implementation added is that silently keeping one leaves the

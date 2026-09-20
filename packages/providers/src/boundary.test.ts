@@ -1,4 +1,3 @@
-import ipaddr from "ipaddr.js";
 import { describe, expect, it } from "vitest";
 // NOT FROM `./index`, WHERE ITS SIBLINGS BELOW COME FROM. `shortly` is
 // deliberately absent from that enumeration -- a symbol is public there because
@@ -183,7 +182,7 @@ describe("a config URL", () => {
     );
 
     expect(refusal).toContain("`172.19.0.3/32`");
-    expect(coversAddress(cidrQuotedIn(refusal), "172.19.0.3")).toBe(true);
+    expect(admitsAfterAllowlisting(cidrQuotedIn(refusal), "172.19.0.3")).toBe(true);
     // ADR-0123's ceiling, with the Owner's own origin in the sentence as well.
     expect(refusal.length).toBeLessThanOrEqual(300);
     // AND NOT THE CLAUSE THAT SENT A FIRST-TIME OWNER TO ALLOWLIST A NAME.
@@ -375,7 +374,7 @@ describe("a config address", () => {
    *
    * MEASURED ON A BLANK INSTANCE, 2026-09-20: an allowlist of `provider-wiki`
    * was refused with that sentence, and `provider-wiki, 172.19.0.0/16` imported
-   * 465 containers. The Owner's own install carries both entries, which is why
+   * 465 Containers. The Owner's own install carries both entries, which is why
    * the defect survived until a first-run walk reached it.
    *
    * SO THE SENTENCE NAMES BOTH HALVES, and it can: reaching here means the HOST
@@ -388,12 +387,12 @@ describe("a config address", () => {
     const refusal = refusalFrom(() => assert("172.19.0.3"));
 
     // THE HALF ALREADY DONE, said so the Owner does not go and do it again.
-    expect(refusal).toContain("host is allowlisted");
+    expect(refusal).toContain("Its host is allowlisted");
     // THE HALF THAT IS MISSING, as something to copy rather than to compose.
     expect(refusal).toContain("`172.19.0.3/32`");
-    // AND THE QUOTED RANGE REALLY ADMITS THE REFUSED ADDRESS, asked of
-    // ipaddr.js rather than of the string that produced it.
-    expect(coversAddress(cidrQuotedIn(refusal), "172.19.0.3")).toBe(true);
+    // AND THE QUOTED RANGE REALLY ADMITS THE REFUSED ADDRESS ONCE ALLOWLISTED,
+    // which is the promise the sentence makes and the one the old one broke.
+    expect(admitsAfterAllowlisting(cidrQuotedIn(refusal), "172.19.0.3")).toBe(true);
     // AND IT NO LONGER INVITES THE ONE THING THAT CANNOT WORK.
     expect(refusal).not.toContain("goes on the allowlist by name");
   });
@@ -459,9 +458,22 @@ function cidrQuotedIn(refusal: string): string {
   return quoted;
 }
 
-/** Whether a CIDR admits an address, asked of ipaddr.js rather than of our own prose. */
-function coversAddress(cidr: string, address: string): boolean {
-  return ipaddr.parse(address).match(ipaddr.parseCIDR(cidr));
+/**
+ * Whether pasting this CIDR into the allowlist actually admits this address.
+ *
+ * THROUGH `parseAllowlist` AND THE BOUNDARY ITSELF, which is the Owner's real
+ * path, rather than through `ipaddr.parseCIDR` alone. A quoted entry that
+ * ipaddr.js reads and `parseAllowlist` then files somewhere else would still
+ * pass the narrower check -- and this whole ticket is one remedy that read
+ * correctly and did not work.
+ */
+function admitsAfterAllowlisting(cidr: string, address: string): boolean {
+  try {
+    assertConfigAddress(parseAllowlist(cidr))(address);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**

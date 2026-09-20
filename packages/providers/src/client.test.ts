@@ -863,7 +863,7 @@ describe("the client's outbound boundaries", () => {
     // read it. The sentence now says that half is done and quotes the one that
     // is not, as something to copy.
     expect(reason.text).toContain("Its host is allowlisted");
-    expect(reason.text).toContain("`::1/128`");
+    expect(reason.text).toContain("Add `::1/128`");
     expect(reason.text).not.toContain("fetch failed");
     await client.close();
   });

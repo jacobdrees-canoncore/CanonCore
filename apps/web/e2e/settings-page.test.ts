@@ -863,7 +863,7 @@ describe("/settings, unlocking a provider", () => {
     // pinning hook refuses on whichever record it reaches first, so the address
     // in this sentence is the resolver's choice and only its SHAPE is assertable
     // from here. The unit test pins the exact string for a single address.
-    expect(row).toMatch(/Allowlist `(?:127\.0\.0\.1\/32|::1\/128)` too/);
+    expect(row).toMatch(/Add `(?:127\.0\.0\.1\/32|::1\/128)` or your network/);
     expect(row).not.toContain("fetch failed");
     // AND SAID PLAINLY, because it is this catalogue's sentence about the
     // Owner's own settings rather than a Provider's claim.
