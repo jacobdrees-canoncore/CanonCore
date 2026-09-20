@@ -11,9 +11,8 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-
-import { markdownIn } from "./testing/markdown-corpus";
 import { records } from "./testing/adr-records";
+import { markdownIn } from "./testing/markdown-corpus";
 import { repoRoot } from "./testing/repo-root";
 
 /**

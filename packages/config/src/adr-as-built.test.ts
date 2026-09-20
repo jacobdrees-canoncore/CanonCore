@@ -1,9 +1,8 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-
-import { flatten } from "./testing/flatten";
 import { records as numberedRecords } from "./testing/adr-records";
+import { flatten } from "./testing/flatten";
 import { repoRoot } from "./testing/repo-root";
 import { isTrackedAs, trackedFiles } from "./testing/tracked-files";
 
