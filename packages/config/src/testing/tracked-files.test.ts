@@ -120,4 +120,15 @@ describe("whether git tracks a path under exactly that name", () => {
   it("is false for a directory, which matches its children rather than itself", () => {
     expect(isTrackedAs("packages/config/src/testing")).toBe(false);
   });
+
+  /**
+   * A NAME IS A NAME, NEVER A PATHSPEC DIRECTIVE. Git reads magic even after
+   * `--`, so these two would otherwise be a directive and a glob rather than
+   * things to look for. Both are false because no file is called either, and
+   * neither may answer TRUE by matching something else.
+   */
+  it("reads a magic-looking or glob-looking name as a name", () => {
+    expect(isTrackedAs(":(exclude)docs/**")).toBe(false);
+    expect(isTrackedAs("packages/config/*.json")).toBe(false);
+  });
 });

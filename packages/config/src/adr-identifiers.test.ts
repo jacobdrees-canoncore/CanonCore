@@ -267,6 +267,11 @@ function goneSymbolsNamedByRecords(): GoneSymbol[] {
   const inTheTree = identifiersInTheTree();
   const gone: GoneSymbol[] = [];
 
+  // THE POPULATION IS THE NUMBERED RECORDS, which is narrower than "every `.md`
+  // under docs/adr/" that this loop used to read. The two are the same set only
+  // because `adr-numbering.test.ts` holds `unnumbered()` to being empty -- so
+  // an unnumbered document here is that suite's red, not a record this one
+  // silently skips. Said rather than left to be inferred from another file.
   for (const { file, path } of numberedRecords()) {
     if (file === THIS_RECORD) continue;
     const named = identifiersNamedIn(readFileSync(join(repoRoot, path), "utf8"));

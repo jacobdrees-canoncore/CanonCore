@@ -33,12 +33,25 @@ import { repoRoot } from "./repo-root";
  * EISDIR on. All five callers wrote that filter out by hand; a sixth would have
  * had to know to.
  *
- * IT DOES NOT GUARD AGAINST AN EMPTY ANSWER, deliberately. Every caller already
- * raises on one, and raises in its own words about its own population --
- * "no tracked module under packages/ui/src", "no tracked source file cites a
- * record". A guard here could only say "git found nothing", which is the one
- * phrasing that tells a reader least, and it would make `isTrackedAs` below
- * impossible: that one is ASKING whether the answer is empty.
+ * IT DOES NOT GUARD AGAINST AN EMPTY ANSWER, deliberately. Three of the five
+ * raise on one in their own words about their own population -- "no tracked
+ * module under packages/ui/src", "no tracked source file cites a record" --
+ * and `biome-config.test.ts` asserts the count is above zero. A guard here
+ * could only say "git found nothing", which is the one phrasing that tells a
+ * reader least, and it would make `isTrackedAs` below impossible: that one is
+ * ASKING whether the answer is empty.
+ *
+ * THE FIFTH, `turbo-cache-inputs.test.ts`, HAS NO WORDED GUARD and is named
+ * here rather than counted in: an empty walk reddens it only indirectly,
+ * through a list comparison that would report the wrong thing. That is a gap in
+ * that suite, not a reason to put the guard here, and stating it is cheaper
+ * than a sentence claiming all five are covered.
+ *
+ * IT THROWS WHERE ONE CALLER USED TO SHRUG. `biome-config.test.ts` spawned this
+ * with `spawnSync` and read `result.stdout` without checking the status, so a
+ * git that ran and failed handed it an empty list rather than an error.
+ * `execFileSync` throws on a non-zero exit, which is the louder of the two and
+ * the one a suite wants.
  *
  * `maxBuffer` IS THE UNION OF WHAT THE CALLERS SET, taken rather than argued:
  * two of the five raised it to 32MB for the whole-tree pathspec and the others
@@ -70,7 +83,18 @@ export function trackedFiles(pathspec: string[] = []): string[] {
  * worth stating: a pathspec naming a DIRECTORY matches every file beneath it,
  * so a guard asking only "did git return anything" would be satisfied by a
  * child and read a rename as fine.
+ *
+ * `:(literal)` MAKES THE COMMAND SAY WHAT THE SENTENCE ABOVE SAYS, and it is
+ * belt-and-braces rather than a fix for a live defect -- the distinction is
+ * worth writing down because the tidier claim would be the false one. Git reads
+ * pathspec MAGIC even after `--`, so a path opening with `:` is a directive
+ * rather than a name; but comparing git's answer to `path` ITSELF already
+ * rejects anything magic or a glob would produce, since a match found that way
+ * comes back spelled differently from the pattern that found it. The prefix
+ * closes the gap at the command instead of relying on that, which is worth one
+ * string on a helper that is now shared and will meet paths this file has not
+ * seen.
  */
 export function isTrackedAs(path: string): boolean {
-  return trackedFiles([path])[0] === path;
+  return trackedFiles([`:(literal)${path}`])[0] === path;
 }

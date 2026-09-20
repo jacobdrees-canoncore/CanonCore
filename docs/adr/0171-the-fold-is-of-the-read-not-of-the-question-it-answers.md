@@ -11,7 +11,7 @@ not, which is the ordinary way a threshold is crossed.
 
 **WHAT FOLDS IS THE MECHANISM -- the command, its arguments, the split, the filter that makes the
 result safe to use. WHAT STAYS WITH THE CALLER IS THE QUESTION -- the pathspec, the projection, and
-each caller's own guard against an empty answer, worded for its own population.** A seam drawn
+each caller's own guard against an empty answer.** A seam drawn
 anywhere else is either an abstraction that lies about what the callers wanted, or a copy waiting to
 drift.
 
@@ -89,6 +89,22 @@ non-ASCII or newline-bearing tracked path to show itself, and there is none here
 assert against would be putting a hostile filename in the repository permanently to test a helper.
 What replaced the assertion is that there is now ONE call site, so the two halves cannot disagree --
 which is the only thing that was ever wrong.
+
+**AND FOUR OF THE FIVE GUARD AN EMPTY ANSWER, NOT ALL FIVE.** `ui-callers.test.ts`,
+`adr-as-built.test.ts` and `adr-identifiers.test.ts` each throw in their own words about their own
+population; `biome-config.test.ts` asserts a count above zero. `turbo-cache-inputs.test.ts` has no
+worded guard at all -- an empty walk reddens it only through a list comparison that would then
+report the wrong thing. That is a gap in that suite rather than a reason to move the guard into the
+shared reader, and it is named here because the first draft of this record said "every caller",
+which was the tidier sentence and the false one.
+
+**THE SHARED READER DOES NOT REFUSE A SYMLINK, and neither did any of the five it replaced.**
+`git ls-files` reports a tracked symlink as an ordinary path and `readFileSync` follows it, so a
+tracked link pointing outside the tree would be read and scanned. ADR-0103 spent a section on
+exactly this for `configFilesIn` and `prose()` and refused it there; this fold carried the previous
+behaviour rather than changing five suites at once, and `tracked-files.test.ts`'s "every path it
+hands back opens" row passes straight through a link. Stating the boundary is what the fold makes
+possible -- there is now one place for a future refusal to go.
 
 `tracked-files.test.ts` asserts the contract that IS observable: git's answer rather than the
 directory's, every path it returns opens, no empty string survives the split, a pathspec narrows

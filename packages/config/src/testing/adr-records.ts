@@ -15,7 +15,14 @@ export type NumberedRecord = {
   path: string;
 };
 
-/** Every `.md` in the directory, read once. */
+/**
+ * Every `.md` in the directory.
+ *
+ * ONE PLACE, NOT ONE READ: the listing is taken fresh on each call, and
+ * `adr-numbering.test.ts` calls both exported readers so it lists twice. Saying
+ * "read once" here would be the kind of sentence
+ * [[0171-the-fold-is-of-the-read-not-of-the-question-it-answers]] is about.
+ */
 function markdown(): string[] {
   return readdirSync(adrDirectory).filter((file) => file.endsWith(".md"));
 }
@@ -60,6 +67,9 @@ export function records(): NumberedRecord[] {
 
 /**
  * The `.md` files in `docs/adr/` whose names do NOT open with four digits.
+ *
+ * FILENAMES, the same spelling `records()` gives as `file`, so the two answers
+ * can be compared and added without a caller converting either.
  *
  * REPORTED RATHER THAN FILTERED AWAY, because `adr-numbering.test.ts` asks
  * whether every record is named with a number and can only ask it of a reader
