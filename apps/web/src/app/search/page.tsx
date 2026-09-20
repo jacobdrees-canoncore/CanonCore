@@ -24,6 +24,7 @@ import {
   oneGroup,
   oneKind,
   oneValue,
+  theQueryQuoted,
   type WhereThePageStarts,
   whereThePageStarts,
 } from "@/components/query-params";
@@ -111,6 +112,17 @@ export default async function SearchPage({
   // renders its box and nothing else -- so the empty string is this page's
   // answer to "nothing asked" rather than a second reading of the parameter.
   const query = oneValue(q) ?? "";
+  /**
+   * THE QUERY AS THIS PAGE QUOTES IT, WHICH IS NOT THE QUERY IT ASKS WITH
+   * (ADR-0170). `readSearch` below takes `query` and so does `surface`, whose
+   * `?q=` every picker and walk link carries; only the heading takes this one.
+   *
+   * `theQueryQuoted` OWNS THE CEILING AND BOTH LEVERS, beside `oneValue` which
+   * owns how the parameter is read, because `/import` quotes the same reader's
+   * query in its own two sentences and a second copy here is the drift that
+   * module exists to prevent (CNCORE-296).
+   */
+  const quoted = theQueryQuoted(query);
   /*
    * THE EMPTY QUERY IS ANSWERED HERE AND AGAIN BELOW THIS SEAM, and the
    * repetition is deliberate. This decides what to RENDER -- a prompt rather
@@ -216,7 +228,7 @@ export default async function SearchPage({
       {results !== null && scope.gone && <NoSuchGroup {...surface} />}
       {results !== null && results.total === 0 && !scope.gone && (
         <NothingFound
-          query={query}
+          quoted={quoted}
           within={scope.group?.name}
           ofKind={theKindsName}
           narrowedToAKind={narrowedToAKind}
@@ -304,13 +316,20 @@ function NothingAsked() {
  * written here a second time.
  */
 function NothingFound({
-  query,
+  quoted,
   within,
   ofKind,
   narrowedToAKind,
   everywhere,
 }: {
-  query: string;
+  /**
+   * THE QUERY AS THIS SENTENCE QUOTES IT, already bounded at the read
+   * (ADR-0123). Named apart from the query itself so that what this heading
+   * speaks and what the catalogue was asked cannot quietly become one value
+   * again: the bound belongs at the seam, and a component reaching for the
+   * whole query to print would be that seam moved here.
+   */
+  quoted: string;
   within?: string;
   ofKind?: string;
   narrowedToAKind: boolean;
@@ -335,7 +354,7 @@ function NothingFound({
                   No <TheirWords>{ofKind}</TheirWords> matched{" "}
                 </>
               )}
-              <TheirWords>{query}</TheirWords>
+              <TheirWords>{quoted}</TheirWords>
               {within !== undefined && (
                 <>
                   {" "}

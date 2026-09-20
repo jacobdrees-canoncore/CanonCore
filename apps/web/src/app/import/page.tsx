@@ -29,6 +29,7 @@ import {
   inTheFixedOrder,
   oneGroup,
   oneValue,
+  theQueryQuoted,
   type WhereThePageStarts,
   whereThePageStarts,
 } from "@/components/query-params";
@@ -65,7 +66,24 @@ interface Asked {
  * would land on results the Owner never saw.
  */
 interface TheSearchThatFound {
+  /**
+   * WHAT WAS ASKED: the whole query, which is what the Providers were sent and
+   * what every link and the hidden field replaying this search carry. Never
+   * printed -- see `quoted` (ADR-0170, CNCORE-296).
+   */
   q: string;
+  /**
+   * THE SAME QUERY AS THIS PAGE QUOTES IT, bounded on both of ADR-0123's levers
+   * where `?q=` was read.
+   *
+   * TWO FIELDS RATHER THAN ONE, and the pair is the point. `q` is this page's
+   * QUESTION as well as its sentence, so a single shortened value would change
+   * what was asked of every Provider along with what the heading says -- and a
+   * value ending in the cut marker asks something no record can match. Named
+   * apart so that a sentence reaching for `q` is visibly the wrong field rather
+   * than a quiet regression.
+   */
+  quoted: string;
   group?: string;
 }
 
@@ -471,7 +489,10 @@ export default async function ImportPage({
    * search typed after it -- and this page now has two controls spelling that
    * Group instead of one. They read it from here so they cannot disagree.
    */
-  const search = query === undefined ? undefined : { q: query, group: scope.group?.id };
+  const search =
+    query === undefined
+      ? undefined
+      : { q: query, quoted: theQueryQuoted(query), group: scope.group?.id };
   /*
    * THE SEARCH THAT RAN, AND WHAT IT FOUND, as ONE value (CNCORE-239).
    *
@@ -990,13 +1011,16 @@ function Results({
     <section aria-labelledby="results" className="mt-8">
       <h2 id="results" className="font-medium text-sm">
         {/*
-          THE READER'S OWN QUERY, which nothing bounds in width and a link
-          carrying `?q=` shows to whoever follows it. It goes through
-          `TheirWords` and the sentence around it does not, as on `/search`
-          (ADR-0142).
+          THE READER'S OWN QUERY, BOUNDED WHERE IT WAS READ (CNCORE-296).
+          `?q=` is composed by anybody and this sentence is one the page speaks
+          in its OWN voice, so `search.quoted` and never `search.q`: ADR-0123
+          decides how much of it this app repeats, and ADR-0170 why the field
+          it is repeated from is not the field the Providers were asked with.
+          `TheirWords` still settles the WIDTH, as on `/search`, and the
+          sentence around it does not go through it (ADR-0142).
         */}
         {matched === 0 ? "Nothing matched " : `${matched} found for `}
-        <TheirWords>{search.q}</TheirWords>
+        <TheirWords>{search.quoted}</TheirWords>
       </h2>
       {found.answered.map(({ provider, results }) => (
         <div key={provider.baseUrl} className="mt-4">
@@ -1332,10 +1356,12 @@ function TheWayBack({ search }: { search: TheSearchThatFound }) {
       <TheSearchCarried search={search} />
       <Button className="mt-3 h-8 px-2.5 text-xs" type="submit" variant="outline">
         {/*
-          THE READER'S OWN QUERY, which nothing bounds in width, so it goes
-          through `TheirWords` as it does in the results heading (ADR-0142).
+          THE READER'S OWN QUERY, BOUNDED AS IN THE RESULTS HEADING
+          (CNCORE-296) -- this is the page's own sentence too, and the button
+          beside it carries the WHOLE query so the way back reaches the results
+          that were actually found.
         */}
-        Back to results for <TheirWords>{search.q}</TheirWords>
+        Back to results for <TheirWords>{search.quoted}</TheirWords>
       </Button>
     </Form>
   );

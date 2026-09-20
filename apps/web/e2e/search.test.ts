@@ -223,6 +223,160 @@ describe("/search", () => {
   });
 });
 
+/**
+ * THE QUERY IS THE ONE PARAMETER IN THIS APP THAT IS FREE TEXT BY DESIGN, and
+ * it lands inside a heading this page speaks in its OWN voice: `Nothing
+ * matched <what you typed>`. ADR-0123 makes whose words a reader is shown the
+ * question this app answers at every seam, and an address anybody can compose
+ * and send is where that question gets asked for real.
+ *
+ * ASSERTED WHERE THE OTHER BOUNDED PARAMETERS ARE. `settings-page.test.ts`
+ * drives `?refused=` at a length nobody typed, and `order-and-narrow.test.ts`
+ * drives a crafted `?kind=` -- both against a served document, because a bound
+ * that holds in a unit test and not over HTTP has not been applied at the seam
+ * a reader arrives through.
+ */
+describe("/search on a query somebody else composed", () => {
+  /**
+   * A CUT, WHICH IS THE FIRST OF ADR-0123'S TWO LEVERS: how MUCH of a
+   * stranger's text this page repeats inside its own sentence.
+   *
+   * MEASURED RATHER THAN ARGUED. Served to the Owner's own install, 16,000
+   * characters of `?q=` arrive verbatim inside `<h2 id="nothing-found">`; at
+   * 20,000 the server answers 431 before the page is reached, so the HTTP
+   * header limit is the only ceiling there was. `TheirWords` does not close
+   * this -- it says of itself that it does not "quote, bound or attribute",
+   * settling WIDTH by breaking a long word, and a value of any length still
+   * occupies the page.
+   */
+  it("quotes back only the opening of a query somebody made enormous", async () => {
+    const flood = `zzzznothinghere${"a".repeat(400)}`;
+
+    const { status, text } = await documentAt(`/search?q=${encodeURIComponent(flood)}`);
+
+    expect(status).toBe(200);
+    const shown = textOf(sectionIn(text, "nothing-found"));
+    // THE ANSWER IS STILL GIVEN, which is the half a bound must not cost.
+    expect(shown).toContain("Nothing matched");
+    expect(shown).not.toContain(flood);
+    // AND THE READER STILL RECOGNISES WHAT THEY ASKED, which is what the
+    // opening is kept for.
+    expect(shown).toContain("zzzznothinghere");
+  });
+
+  /**
+   * A CONTROL STRIP, WHICH IS ADR-0123'S SECOND LEVER: not how much a stranger
+   * may put on a page it does not own, but what that text may DO to the page's
+   * own words.
+   *
+   * THE CEILING ABOVE NEVER TOUCHES THIS, which is the whole reason the levers
+   * are applied as a pair. `U+202E` re-orders the glyphs after it, and the
+   * heading's span is not bidi-isolated -- so a query well under 80 characters
+   * runs CanonCore's own sentence backwards, at no length a cut could catch.
+   * A cut alone is the half-mechanism CNCORE-274, CNCORE-268 and CNCORE-282
+   * each found somewhere else.
+   *
+   * MEASURED, NOT ARGUED. Served to the Owner's own install before this
+   * landed, `<h2 id="nothing-found">` came back holding the raw `U+202E`.
+   */
+  it("strips a control character rather than letting it re-order its own sentence", async () => {
+    // RIGHT-TO-LEFT OVERRIDE, then the scam sentence written backwards -- which
+    // is how it is composed to be READ, forwards, once the override has turned
+    // it around inside this page's heading.
+    const reversing = "\u202esseccaerotseroteyap zzzznothinghere";
+
+    const { status, text } = await documentAt(`/search?q=${encodeURIComponent(reversing)}`);
+
+    expect(status).toBe(200);
+    const shown = textOf(sectionIn(text, "nothing-found"));
+    // THE ANSWER IS STILL GIVEN, and the reader still sees what they asked --
+    // minus the one character that was never theirs to aim at this page.
+    expect(shown).toContain("Nothing matched");
+    expect(shown).toContain("zzzznothinghere");
+    expect(shown).not.toContain("\u202e");
+  });
+
+  /**
+   * WHAT IS SEARCHED IS THE WHOLE QUERY, AND ONLY WHAT IS PRINTED IS SHORT.
+   *
+   * THE TWO ARE DIFFERENT VALUES, which is what this surface has that the four
+   * other bounded parameters do not: `?refused=`, a Container id and an
+   * outbound URL are quoted and nothing else, so one bounded value serves. A
+   * query is the page's QUESTION as well as its sentence, and a single
+   * shortened value would change the answer -- Catalogue search matches
+   * `title ilike '%<query>%'`, so a cut query asks something else and one
+   * ending in the cut marker asks something nothing can answer.
+   *
+   * THE STRIP IS WHAT MAKES THIS OBSERVABLE, and no shorter witness exists at
+   * this seam. A query long enough for the CUT to bite matches no seeded title
+   * either way, so the cut alone cannot tell the two implementations apart.
+   * A zero-width space can: `Hartnell` finds the Time span item, and
+   * `Hartnell` with one appended finds nothing -- unless the search were given
+   * the bounded value, which has it stripped back out and WOULD match. So a
+   * page that searched what it prints fails here by FINDING something.
+   */
+  it("asks the catalogue the whole query, not the one it quotes back", async () => {
+    // A ZERO-WIDTH SPACE: absent from every title, invisible to a reader, and
+    // removed by the strip -- so it is in the query the catalogue is asked and
+    // gone from the query this page quotes.
+    const withAZeroWidth = "Hartnell\u200b";
+
+    const { status, text } = await documentAt(`/search?q=${encodeURIComponent(withAZeroWidth)}`);
+
+    expect(status).toBe(200);
+    // THE WHOLE QUERY WAS ASKED, so nothing matched. Were the bounded value
+    // asked instead, this page would be showing the Time span item.
+    expect(text).not.toContain(timeSpan.title);
+    const shown = textOf(sectionIn(text, "nothing-found"));
+    expect(shown).toContain("Nothing matched");
+    // AND THE QUOTED ONE IS THE STRIPPED ONE.
+    expect(shown).toContain("Hartnell");
+    expect(shown).not.toContain("\u200b");
+  });
+
+  /**
+   * AND THE LINKS CARRY THE WHOLE QUERY, which is the third place the two
+   * values could collapse back into one and the only one with no visible
+   * symptom on the page it is written on.
+   *
+   * A WALK IS A SECOND SEARCH. `surface.asked` writes `?q=` into every picker
+   * and walk link this page renders, so a link built from the QUOTED value
+   * would send a reader to a search for the opening of their query plus a cut
+   * marker -- a different question from the one page one answered, and one
+   * ending in `…` that no title satisfies. The page it was clicked from would
+   * look perfectly correct.
+   *
+   * READ OFF THE `href`S AND NOT THE DOCUMENT. Next puts the address into its
+   * own flight payload in a `<script>`, so the whole query is somewhere in
+   * these bytes whatever the links carry -- an assertion over the document
+   * would pass on the broken implementation too, which is the trap
+   * `settings-page.test.ts` names for its own negative.
+   */
+  it("writes the whole query into the links, not the one it quotes", async () => {
+    const flood = `zzzznothinghere${"a".repeat(400)}`;
+
+    const { status, text } = await documentAt(`/search?q=${encodeURIComponent(flood)}`);
+
+    expect(status).toBe(200);
+    // `flatMap` RATHER THAN `map`, because a capture group is typed
+    // `string | undefined` however certain it is to have participated, and
+    // `next build` type-checks this file even where `pnpm typecheck` does not.
+    const carried = [...text.matchAll(/href="(\/search\?[^"]*)"/g)].flatMap(([, href]) =>
+      href === undefined ? [] : [href.replaceAll("&amp;", "&")],
+    );
+    // THE PAGE DOES WRITE SOME, or the assertions below hold vacuously: the
+    // kind picker and the way out of the narrowing are both rendered beside a
+    // search that found nothing.
+    expect(carried.length).toBeGreaterThan(0);
+    for (const href of carried) {
+      expect(href).toContain(encodeURIComponent(flood));
+      // AND NOT THE CUT MARKER, which is what a link built from `quoted` would
+      // carry and the only part of it that cannot appear by accident.
+      expect(href).not.toContain(encodeURIComponent("…"));
+    }
+  });
+});
+
 describe("/search on a result set larger than one page", () => {
   /**
    * WHAT `q` IS. Every titled item in the paged instance carries `story` in its
