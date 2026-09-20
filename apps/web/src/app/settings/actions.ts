@@ -77,7 +77,7 @@ const theAllowlistWritten = z.object({ allowlist: z.string() });
  *
  * WRITTEN IN ADR-0066'S FIXED ORDER, which `query-params.ts` asks of any
  * address that grows a second parameter: `refused` names what the page is
- * talking about and `why` qualifies it.
+ * talking about and `because` qualifies it.
  */
 export async function nameProvider(form: FormData): Promise<void> {
   const input = whatTheFormCarries(form, theProviderNamed);
@@ -93,12 +93,12 @@ export async function nameProvider(form: FormData): Promise<void> {
    * parameter carrying it would be read as absent anyway -- so the page is told
    * only what happened, and its sentence for this one names no entry.
    */
-  if (refused.code === "NOTHING_NAMED") redirect(`/settings?why=${REFUSED.nothing}`);
+  if (refused.code === "NOTHING_NAMED") redirect(`/settings?because=${REFUSED.nothing}`);
   const entry = encodeURIComponent(input.baseUrl);
   if (refused.code === "NOT_ONE_PROVIDER") {
-    redirect(`/settings?refused=${entry}&why=${REFUSED.several}`);
+    redirect(`/settings?refused=${entry}&because=${REFUSED.several}`);
   }
-  if (refused.code === "NOT_A_URL") redirect(`/settings?refused=${entry}&why=${REFUSED.notAUrl}`);
+  if (refused.code === "NOT_A_URL") redirect(`/settings?refused=${entry}&because=${REFUSED.notAUrl}`);
 }
 
 /**

@@ -13,8 +13,14 @@ import { oneValue } from "@/components/query-params";
  * exists to say. That is the defect this ticket is fixing, so it is not one to
  * leave a fresh way of reaching.
  *
+ * THE NAME IS SHARED WITH CNCORE-255, which reached the same shape
+ * independently on `/items/<id>`: `?refused=<what>&because=<code>` reads as the
+ * sentence it is, and `CONTEXT.md` binds names in code and UI copy alike. Two
+ * parameters meaning one thing on two surfaces is the divergence this wave
+ * keeps finding, and a shipped parameter name is hard to take back.
+ *
  * THREE WORDS AND NOT THE PROCEDURE'S SENTENCE, which is the decision worth
- * reading twice. `?why=` sits in an address the OWNER can edit, so a value
+ * reading twice. `?because=` sits in an address the OWNER can edit, so a value
  * copied out of a refusal's message would be a way to put a sentence of
  * somebody else's choosing in front of a reader under CanonCore's own styling
  * -- `/login/page.tsx` already states that rule of its own parameter, and
@@ -37,13 +43,13 @@ const THE_THREE = Object.values(REFUSED);
 /**
  * WHICH OF THE THREE AN ADDRESS NAMES, or nothing at all.
  *
- * ANYTHING ELSE IS NOTHING, which is what keeps `?why=` from being an opening.
+ * ANYTHING ELSE IS NOTHING, which is what keeps `?because=` from being an opening.
  * It is read exactly as `oneValue` reads every other parameter -- a repeated or
  * blank one names nothing -- and then held to the closed set, so a hand-edited
  * address renders the page with no notice rather than a notice of the editor's
  * choosing.
  */
-export function oneWhy(parameter: string | string[] | undefined): WhyNotNamed | undefined {
+export function oneBecause(parameter: string | string[] | undefined): WhyNotNamed | undefined {
   const word = oneValue(parameter);
   return THE_THREE.find((known) => known === word);
 }

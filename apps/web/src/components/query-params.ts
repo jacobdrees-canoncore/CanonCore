@@ -90,7 +90,7 @@ export function oneGroup(parameter: string | string[] | undefined): string | und
  * rather than routed through here. A second parameter on any of them belongs
  * on this list first.
  *
- * `refused` AND `why` ARE THAT SECOND PARAMETER ARRIVING (CNCORE-262), and the
+ * `refused` AND `because` ARE THAT SECOND PARAMETER ARRIVING (CNCORE-262), and the
  * sentence above is the instruction being followed rather than a rule being
  * broken. `/settings` refuses an entry in one of THREE ways with three
  * different remedies, and the reason cannot ride in `?refused=` itself: one of
@@ -102,8 +102,11 @@ export function oneGroup(parameter: string | string[] | undefined): string | und
  * APPENDED, which is the rule a newcomer meets. `?refused=` is out there today
  * on `/login` and on an Item's page, and each of those carries it ALONE -- so
  * no address anywhere is re-spelled by fixing a position for it here, and the
- * exemption two paragraphs up is exactly why. `why` sits behind `refused`
- * because it qualifies it: what was refused, then what was wrong with it.
+ * exemption two paragraphs up is exactly why. `because` sits behind `refused`
+ * since it qualifies it: what was refused, then what was wrong with it --
+ * `?refused=<what>&because=<code>`, which reads as the sentence it is. The name
+ * is CNCORE-255's too, reached independently for the same pair on an Item's
+ * page, so the two surfaces spell one concept one way (`CONTEXT.md`).
  *
  * STATED ONCE FOR EVERY SURFACE SINCE CNCORE-181. It was two shapes until
  * then: the Item page's four read off an array in `listing.tsx`, and the
@@ -180,7 +183,7 @@ const IN_THE_FIXED_ORDER = [
   "before",
   "placedBefore",
   "refused",
-  "why",
+  "because",
 ] as const;
 
 /**

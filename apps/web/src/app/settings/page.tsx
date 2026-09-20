@@ -12,7 +12,7 @@ import { TheirWords } from "@/components/their-words";
 import { callerContext } from "@/session";
 
 import { editAllowlist, nameProvider, removeProvider } from "./actions";
-import { oneWhy } from "./refusal";
+import { oneBecause } from "./refusal";
 
 /**
  * WHERE THE OWNER SAYS WHAT THIS INSTANCE REACHES (CNCORE-99, ADR-0121).
@@ -95,7 +95,7 @@ export default async function SettingsPage({
    * blank. It is held to a closed set in `refusal.ts`, because this parameter
    * is in an address the Owner can edit.
    */
-  const why = oneWhy(asked.why);
+  const because = oneBecause(asked.because);
 
   return (
     <main className="container mx-auto max-w-2xl px-4 py-8">
@@ -169,7 +169,7 @@ export default async function SettingsPage({
           />
           <Button type="submit">Name it</Button>
         </form>
-        {why === undefined ? null : <NotNamed why={why} entry={refused} />}
+        {because === undefined ? null : <NotNamed because={because} entry={refused} />}
       </section>
 
       <section aria-labelledby="allowlist" className="mt-8">
@@ -230,13 +230,13 @@ export default async function SettingsPage({
  * there is nothing to show, and a run of spaces would render as a gap the Owner
  * would read as a missing word.
  *
- * AND THE SENTENCES ARE THIS PAGE'S, never the procedure's. `?why=` is in an
+ * AND THE SENTENCES ARE THIS PAGE'S, never the procedure's. `?because=` is in an
  * address the Owner can edit, so a page that printed text out of the parameter
  * would show a stranger's sentence in CanonCore's own voice; `refusal.ts`
  * admits three words and nothing else, and every word below is written here.
  */
-function NotNamed({ why, entry }: { why: WhyNotNamed; entry?: string }) {
-  if (why === "nothing-named") {
+function NotNamed({ because, entry }: { because: WhyNotNamed; entry?: string }) {
+  if (because === "nothing-named") {
     return (
       <p className="mt-3 text-muted-foreground text-sm">
         Nothing was named, so nothing changed. A Provider is a URL and nothing more, so name it by
@@ -248,7 +248,7 @@ function NotNamed({ why, entry }: { why: WhyNotNamed; entry?: string }) {
   return (
     <p className="mt-3 text-muted-foreground text-sm">
       <WhichEntry entry={entry} />{" "}
-      {why === "not-one-provider" ? (
+      {because === "not-one-provider" ? (
         <>
           was not named, because it is more than one Provider. A Provider is a URL and nothing more,
           so name them one at a time.
