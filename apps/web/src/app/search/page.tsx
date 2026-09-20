@@ -146,15 +146,28 @@ export default async function SearchPage({
   /*
    * THE KIND THIS SEARCH WAS NARROWED TO, IN THE READER'S OWN WORD (CNCORE-262)
    * -- `Time span`, never `time_span`, which is `item_kinds`' label and what
-   * `CONTEXT.md` binds UI copy to. The front page reads it exactly this way and
-   * for the same reason; a `?kind=` naming no kind at all falls back to what
-   * was typed, because "nothing here is of that kind" is still the honest
-   * sentence about it.
+   * `CONTEXT.md` binds UI copy to.
+   *
+   * ONLY A KIND THIS CATALOGUE HAS, AND NEVER WHAT WAS TYPED. `oneKind` lowers
+   * the parameter and passes any string, deliberately, because the seven are
+   * the DATABASE's rather than this repository's -- so `?kind=` carries text
+   * anybody can compose, and falling back to it would print a stranger's words
+   * inside this page's own sentence. That is the harm ADR-0123 names and the
+   * rule `/items/<id>` states in as many words for its own `?because=`:
+   * "a query is composed by anybody, so it is checked against the closed set
+   * rather than rendered on trust". `kinds` IS that closed set and is already
+   * in hand, so the label is looked up in it and an unknown kind simply names
+   * nothing.
+   *
+   * WHETHER IT NARROWED IS A SEPARATE FACT FROM WHAT IT IS CALLED, and they
+   * are read apart for that reason. `?kind=banana` narrows the answer to
+   * nothing while naming no kind at all: the page must still not blame
+   * alternative titles and must still offer the way out, and only the HEADING
+   * has nothing to print.
    */
-  const narrowedToAKind =
-    chosen.kind === undefined
-      ? undefined
-      : (kinds.find(({ value }) => value === chosen.kind)?.label ?? chosen.kind);
+  const narrowedToAKind = chosen.kind !== undefined;
+  const theKindsName =
+    chosen.kind === undefined ? undefined : kinds.find(({ value }) => value === chosen.kind)?.label;
   // THIS LISTING AS THE WALK AND THE PICKER SEE IT: its address and the query.
   // The Group rides separately, as `narrowed`, so `queryFor` writes the query,
   // then the Group, then the cursor.
@@ -205,7 +218,8 @@ export default async function SearchPage({
         <NothingFound
           query={query}
           within={scope.group?.name}
-          ofKind={narrowedToAKind}
+          ofKind={theKindsName}
+          narrowedToAKind={narrowedToAKind}
           /*
            * THE WHOLE CATALOGUE MEANS BOTH NARROWINGS DROPPED (CNCORE-175), not
            * just the Group. This link says "Search the whole catalogue", and a
@@ -293,11 +307,13 @@ function NothingFound({
   query,
   within,
   ofKind,
+  narrowedToAKind,
   everywhere,
 }: {
   query: string;
   within?: string;
   ofKind?: string;
+  narrowedToAKind: boolean;
   everywhere: ReturnType<typeof theStartOf>;
 }) {
   return (
@@ -345,7 +361,7 @@ function NothingFound({
             is named where it is the honest answer, and the narrowing is named
             where that is.
           */}
-            {ofKind === undefined ? (
+            {!narrowedToAKind ? (
               <>
                 Search reads the title each item goes by. An item known here under a different title
                 &mdash; a translation, or a name a source does not prefer &mdash; is not found by it
@@ -367,7 +383,7 @@ function NothingFound({
           exactly what to offer and offered nothing. The condition is now the
           same question the link's own words ask: was this the whole catalogue?
         */}
-        {(within !== undefined || ofKind !== undefined) && (
+        {(within !== undefined || narrowedToAKind) && (
           <EmptyContent>
             {/*
               QUALIFIED, for the reason the `h1` above gives: `CONTEXT.md`

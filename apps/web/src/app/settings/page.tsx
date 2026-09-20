@@ -1,5 +1,5 @@
 import { appRouter } from "@canoncore/api/routers";
-import type { DeclaredCredential, Reach, WhyNotNamed } from "@canoncore/providers";
+import type { DeclaredCredential, Reach } from "@canoncore/providers";
 import { Button, buttonVariants } from "@canoncore/ui/components/button";
 import { Input } from "@canoncore/ui/components/input";
 import { Textarea } from "@canoncore/ui/components/textarea";
@@ -12,7 +12,7 @@ import { TheirWords } from "@/components/their-words";
 import { callerContext } from "@/session";
 
 import { editAllowlist, nameProvider, removeProvider } from "./actions";
-import { oneBecause } from "./refusal";
+import { oneBecause, type WhyItWasRefused } from "./refusal";
 
 /**
  * WHERE THE OWNER SAYS WHAT THIS INSTANCE REACHES (CNCORE-99, ADR-0121).
@@ -165,6 +165,15 @@ export default async function SettingsPage({
             defaultValue=""
             name="baseUrl"
             placeholder="http://provider-wiki:8080"
+            /*
+              THE BROWSER SAYS SO FIRST, AND THE SERVER STILL ANSWERS IT
+              (CNCORE-262). `required` is native HTML and needs no script, so
+              an empty box is caught before the round trip -- but it is a
+              CONVENIENCE and never the check: a hand-composed POST carries no
+              browser, and a box of spaces satisfies `required` anyway. The
+              refusal behind it is what actually holds, which is why both exist.
+            */
+            required
             type="text"
           />
           <Button type="submit">Name it</Button>
@@ -235,32 +244,55 @@ export default async function SettingsPage({
  * would show a stranger's sentence in CanonCore's own voice; `refusal.ts`
  * admits three words and nothing else, and every word below is written here.
  */
-function NotNamed({ because, entry }: { because: WhyNotNamed; entry?: string }) {
+function NotNamed({ because, entry }: { because: WhyItWasRefused; entry?: string }) {
   if (because === "nothing-named") {
     return (
       <p className="mt-3 text-muted-foreground text-sm">
-        Nothing was named, so nothing changed. A Provider is a URL and nothing more, so name it by
-        its base URL, scheme included.
+        Nothing was named, so nothing changed. <ByItsBaseUrl />
       </p>
     );
   }
 
   return (
     <p className="mt-3 text-muted-foreground text-sm">
-      <WhichEntry entry={entry} />{" "}
+      <WhichEntry entry={entry} /> was not named, because{" "}
       {because === "not-one-provider" ? (
         <>
-          was not named, because it is more than one Provider. A Provider is a URL and nothing more,
-          so name them one at a time.
+          it is more than one Provider. A Provider is a URL and nothing more, so name them one at a
+          time.
+        </>
+      ) : because === "setting-unreadable" ? (
+        /*
+          NOT ABOUT THE ENTRY, AND IT SAYS SO. The three other sentences tell
+          the Owner to change what they typed; this one must not, because what
+          they typed may have been perfect. The Providers already stored would
+          not parse, so there was no list to add one to -- a different fault
+          with a different fix, which is `ReachNotice`'s argument below applied
+          to the field above it.
+        */
+        <>
+          this instance cannot read the Providers it already has. That setting has to be readable
+          before another can be added to it.
         </>
       ) : (
         <>
-          was not named, because it is not a URL. A Provider is a URL and nothing more, so name it
-          by its base URL, scheme included.
+          it is not a URL. <ByItsBaseUrl />
         </>
       )}
     </p>
   );
+}
+
+/**
+ * The remedy two of these sentences share, written once.
+ *
+ * ONE FRAGMENT RATHER THAN TWO IDENTICAL ONES, which is the argument `On`
+ * below already makes in this file: the same clause written out twice is two
+ * places for it to drift, and on a rendered sentence that shows up as wording
+ * a reader meets in two versions rather than as anything a type would catch.
+ */
+function ByItsBaseUrl() {
+  return <>A Provider is a URL and nothing more, so name it by its base URL, scheme included.</>;
 }
 
 /**

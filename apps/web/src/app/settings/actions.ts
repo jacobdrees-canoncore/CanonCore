@@ -45,6 +45,26 @@ import { REFUSED } from "./refusal";
  */
 const theProviderNamed = z.object({ baseUrl: z.string().min(1) });
 
+/**
+ * WHAT THE OWNER TYPED INTO THE BOX, INCLUDING NOTHING AT ALL (CNCORE-262).
+ *
+ * NO `.min(1)`, AND THAT IS THE WHOLE DIFFERENCE FROM THE SCHEMA ABOVE. An
+ * empty box is a real thing an Owner submits -- likelier than any other
+ * mistake on this page -- and `.min(1)` refused it HERE, so the action returned
+ * before the procedure was called and the page rendered unchanged with nothing
+ * said. That is the silence this file's own docstring forbids, reached by the
+ * one route nobody had looked at.
+ *
+ * SO AN EMPTY BOX AND A BOX OF SPACES TAKE THE SAME PATH, which is right: they
+ * are the same mistake, and `parseProviderUrls` already reads them as the same
+ * absence. The procedure answers `NOTHING_NAMED` to both and the page says so.
+ *
+ * REMOVING STILL TAKES `theProviderNamed`, because its field is HIDDEN: an
+ * empty value there is a malformed request rather than a person's mistake, and
+ * there is no sentence to say about it.
+ */
+const theEntryTyped = z.object({ baseUrl: z.string() });
+
 /** ADR-0034's allowlist, replaced wholesale with the text the owner wrote. */
 const theAllowlistWritten = z.object({ allowlist: z.string() });
 
@@ -69,7 +89,8 @@ const theAllowlistWritten = z.object({ allowlist: z.string() });
  * correctly. A value the Owner typed can be blank; the word for what was wrong
  * with it cannot, so they are two parameters.
  *
- * READ AS A CODE AND WRITTEN AS THE PAGE'S OWN WORD, never as the message. The
+ * READ AS A CODE AND WRITTEN AS THE PAGE'S OWN WORD, never as the message
+ * (ADR-0156). The
  * address is the Owner's to edit, so anything copied from a refusal into it
  * could be re-shown as CanonCore's own sentence; `refusal.ts` holds the closed
  * set and the page holds the words. This is `/login`'s arrangement, which reads
@@ -80,7 +101,7 @@ const theAllowlistWritten = z.object({ allowlist: z.string() });
  * talking about and `because` qualifies it.
  */
 export async function nameProvider(form: FormData): Promise<void> {
-  const input = whatTheFormCarries(form, theProviderNamed);
+  const input = whatTheFormCarries(form, theEntryTyped);
   if (input === undefined) return;
 
   const { refused } = await whatTheProcedureAnswered(

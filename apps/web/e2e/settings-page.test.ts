@@ -13,6 +13,7 @@ import {
   type RenderedForm,
   sectionIn,
   submit,
+  textOf,
   withFields,
 } from "./document";
 
@@ -312,6 +313,80 @@ describe("/settings", () => {
     expect(answer).toContain("one at a time");
     expect(answer).not.toContain("it is not a URL");
     expect(providersIn(answer)).not.toContain(two);
+  });
+
+  /**
+   * AN EMPTY BOX IS THE COMMONEST MISTAKE AND WAS THE SILENT ONE (CNCORE-262).
+   *
+   * IT NEVER REACHED THE PROCEDURE AT ALL. `theProviderNamed` declared
+   * `z.string().min(1)`, so `whatTheFormCarries` refused it and the action
+   * returned before calling anything -- the page re-rendered unchanged and said
+   * nothing. Found by review of this ticket's own first pass, which had fixed
+   * the box of SPACES and left the emptier case beside it untouched.
+   */
+  it("says an empty box named nothing, which is the same mistake as a box of spaces", async () => {
+    const cookie = await logInAt(baseUrl, ownerPassword);
+
+    const answer = await name(cookie, "");
+
+    expect(answer).toContain("Nothing was named");
+  });
+
+  /**
+   * A REFUSAL THAT IS NOT ABOUT WHAT THE OWNER TYPED STILL ENDS SOMEWHERE.
+   *
+   * THE ACTION MATCHES ON THREE CODES AND THE PROCEDURE CAN ANSWER A FOURTH:
+   * the Providers already stored may not parse, which is `BAD_REQUEST` and is
+   * not about the entry. Three `if`s with no fall-through redirected NOWHERE,
+   * which is this page's original defect reintroduced by the fix for it --
+   * review caught it, and the catch-all is what closes it.
+   *
+   * THE PAGE'S HALF IS WHAT IS ASSERTED HERE. Reaching the action's half needs
+   * a stored setting this surface refuses to write, so `settings.test.ts` holds
+   * the procedure's end and this holds the sentence.
+   */
+  it("says a refusal that was not about the entry was not about the entry", async () => {
+    const cookie = await logInAt(baseUrl, ownerPassword);
+
+    const { text } = await documentFrom(
+      baseUrl,
+      "/settings?refused=http%3A%2F%2Ffine.test%3A8080&because=setting-unreadable",
+      cookie,
+    );
+
+    expect(text).toContain("cannot read the Providers it already has");
+  });
+
+  /**
+   * A `?because=` THIS PAGE DOES NOT RECOGNISE SAYS NOTHING (ADR-0123).
+   *
+   * THE PARAMETER IS IN AN ADDRESS THE OWNER CAN EDIT, so a page that printed
+   * what it carried would be a way to put a stranger's sentence in front of a
+   * reader under CanonCore's own styling. `/login/page.tsx` states that rule of
+   * its own parameter and this is the same rule asserted rather than assumed.
+   */
+  it("renders no notice at all for a reason it does not recognise", async () => {
+    const cookie = await logInAt(baseUrl, ownerPassword);
+    const forged = "Your account has been suspended, telephone 0800";
+
+    const { text } = await documentFrom(
+      baseUrl,
+      `/settings?refused=x&because=${encodeURIComponent(forged)}`,
+      cookie,
+    );
+
+    /*
+     * READ OFF WHAT A READER IS SHOWN, never off the document. Next puts the
+     * address into its own flight payload in a `<script>`, so EVERY query
+     * parameter on every page is somewhere in the bytes -- asserting over the
+     * whole document would fail on a page that renders the value nowhere,
+     * which is exactly the state being asserted. `textOf` drops every tag and
+     * with it every script, which is the distinction that matters here: the
+     * sentence is not put in front of the Owner.
+     */
+    const shown = textOf(mainOf(text));
+    expect(shown).not.toContain("was not named");
+    expect(shown).not.toContain("telephone 0800");
   });
 
   it("removes a provider the owner is finished with", async () => {

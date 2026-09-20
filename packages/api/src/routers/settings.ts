@@ -240,7 +240,15 @@ export const settings = {
    * as a 500 from the next page that needed the setting.
    */
   nameProvider: ownerProcedure
-    .input(z.object({ baseUrl: z.string().min(1) }))
+    /*
+     * NO `.min(1)` ON THE ENTRY (CNCORE-262). An empty box is a real thing an
+     * Owner submits, and refusing it in the INPUT SCHEMA answers a generic
+     * `BAD_REQUEST` instead of the one refusal that names what happened --
+     * `nameProvider` already reads an empty string as naming nothing and says
+     * so. A schema refusal here would be a second rule for a fact the parse
+     * already settles, and the less useful of the two.
+     */
+    .input(z.object({ baseUrl: z.string() }))
     .errors({ ...NOT_A_SETTING, ...NOT_ONE_PROVIDER })
     .handler(async ({ input, context, errors }) => {
       const configured = await readProviderSettings(context.db);

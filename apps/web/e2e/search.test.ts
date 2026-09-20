@@ -146,6 +146,37 @@ describe("/search", () => {
     expect(everywhere).not.toContain("kind=");
   });
 
+  /**
+   * A `?kind=` NAMING NO KIND NARROWS THE ANSWER AND NAMES NOTHING.
+   *
+   * `oneKind` passes any string deliberately -- the seven kinds are the
+   * DATABASE's rather than this repository's -- so the parameter carries text
+   * anybody can compose, and an earlier pass of CNCORE-262 fell back to
+   * printing it inside this page's own heading. Review caught it: that is the
+   * harm ADR-0123 names and the rule `/items/<id>` states for its own
+   * `?because=`, "a query is composed by anybody, so it is checked against the
+   * closed set rather than rendered on trust".
+   *
+   * AND THE OTHER TWO ARMS STILL FIRE, which is why the narrowing and the
+   * kind's NAME are read apart: nothing of that kind matched, so the page must
+   * not blame alternative titles and must still offer the way out.
+   */
+  it("narrows by a kind that does not exist without printing what was typed", async () => {
+    const forged = "Person, and your session has expired";
+
+    const { status, text } = await documentAt(
+      `/search?q=${encodeURIComponent(itemTitle)}&kind=${encodeURIComponent(forged)}`,
+    );
+
+    expect(status).toBe(200);
+    const said = sectionIn(text, "nothing-found");
+    expect(textOf(said)).not.toContain("your session has expired");
+    expect(textOf(said)).not.toContain("under a different title");
+    const everywhere = said.match(/href="(\/search\?[^"]*)"/)?.[1]?.replaceAll("&amp;", "&");
+    expect(everywhere).toBeDefined();
+    expect(everywhere).not.toContain("kind=");
+  });
+
   it("treats a per cent sign as text rather than as a wildcard", async () => {
     // THE WHOLE CATALOGUE IS WHAT THE BUG LOOKS LIKE. Unescaped, `%` becomes
     // the pattern `%%%` and matches every titled row, so the failure renders as

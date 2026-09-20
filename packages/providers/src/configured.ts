@@ -82,8 +82,13 @@ export function parseProviderUrls(configured: string): string[] {
     // them, in front of the request -- one rule in two places is two rules that
     // drift.
     if (!URL.canParse(entry)) {
+      // THROUGH `shortly`, like every other value this package interpolates
+      // into a refusal (ADR-0123, CNCORE-249). It was raw here while the
+      // sibling refusal below was bounded, which is one rule obeyed in one of
+      // two places -- and the value is the owner's own configured string, so
+      // its length is not something this package gets to assume.
       throw new OutboundRefused(
-        `provider \`${entry}\` is not a URL. ADR-0031 makes a provider a URL and nothing more, so each entry is a provider's base URL.`,
+        `provider \`${shortly(entry)}\` is not a URL. ADR-0031 makes a provider a URL and nothing more, so each entry is a provider's base URL.`,
       );
     }
   }

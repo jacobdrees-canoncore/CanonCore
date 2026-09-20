@@ -99,14 +99,23 @@ export function oneGroup(parameter: string | string[] | undefined): string | und
  * the word for what is wrong with it are two facts, so they are two
  * parameters, and this is where their order is settled.
  *
- * APPENDED, which is the rule a newcomer meets. `?refused=` is out there today
- * on `/login` and on an Item's page, and each of those carries it ALONE -- so
- * no address anywhere is re-spelled by fixing a position for it here, and the
- * exemption two paragraphs up is exactly why. `because` sits behind `refused`
- * since it qualifies it: what was refused, then what was wrong with it --
- * `?refused=<what>&because=<code>`, which reads as the sentence it is. The name
- * is CNCORE-255's too, reached independently for the same pair on an Item's
- * page, so the two surfaces spell one concept one way (`CONTEXT.md`).
+ * APPENDED, AND THE ORDER IS MATCHED RATHER THAN INVENTED. An Item's page
+ * already writes `?refused=<id>&because=<code>` -- CNCORE-255, merged as
+ * `5431ab0`, which reached this pair independently -- so the order this list
+ * fixes is the one out there, and `/login` carries `?refused=` alone and is
+ * re-spelled by nothing. `because` sits behind `refused` since it qualifies
+ * it: what was refused, then what was wrong with it, which reads as the
+ * sentence it is.
+ *
+ * AN EARLIER VERSION OF THIS PARAGRAPH SAID `?refused=` WAS CARRIED ALONE
+ * EVERYWHERE, and review caught it: `items/actions.ts` had been writing the
+ * pair since that merge. The conclusion was right and its premise was not,
+ * which is worse than being wrong outright -- a reader checking the claim
+ * finds the counter-example and has no way to tell whether the order was
+ * chosen or guessed. Corrected in the sentence it corrects, not beside it.
+ *
+ * SO THE TWO SURFACES SPELL ONE CONCEPT ONE WAY, which `CONTEXT.md` binds and
+ * the dispatcher settled on 2026-09-20: `because` on both, never `why` on one.
  *
  * STATED ONCE FOR EVERY SURFACE SINCE CNCORE-181. It was two shapes until
  * then: the Item page's four read off an array in `listing.tsx`, and the

@@ -164,11 +164,35 @@ describe("naming a provider", () => {
       return isDefinedError(error) ? error : undefined;
     };
 
+    expect((await refusalFor(""))?.code).toBe("NOTHING_NAMED");
     expect((await refusalFor("   "))?.code).toBe("NOTHING_NAMED");
     expect((await refusalFor("http://a.test:8080 http://b.test:8080"))?.code).toBe(
       "NOT_ONE_PROVIDER",
     );
     expect((await refusalFor("wiki.test"))?.code).toBe("NOT_A_URL");
+  });
+
+  /**
+   * AND A SETTING THAT NO LONGER PARSES IS A FOURTH THING, NOT ONE OF THE THREE
+   * (CNCORE-262).
+   *
+   * `nameProvider` PARSES THE STORED STRING BEFORE IT PARSES THE ENTRY, so an
+   * instance whose `providerUrls` row has gone bad refuses a perfectly good
+   * entry -- and the Owner must not be told their URL was the problem. It stays
+   * `BAD_REQUEST` and the surface says something else about it.
+   */
+  it("refuses a good entry when the stored setting is the thing that will not parse", async () => {
+    await writeProviderSettings(db, { providerUrls: "wiki.test" });
+
+    const { error } = await safe(
+      call(
+        appRouter.settings.nameProvider,
+        { baseUrl: "http://fine.test:8080" },
+        { context: await theNextRequest() },
+      ),
+    );
+
+    expect(isDefinedError(error) && error.code).toBe("BAD_REQUEST");
   });
 
   /**

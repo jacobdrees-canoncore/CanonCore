@@ -19,8 +19,8 @@ import { oneValue } from "@/components/query-params";
  * parameters meaning one thing on two surfaces is the divergence this wave
  * keeps finding, and a shipped parameter name is hard to take back.
  *
- * THREE WORDS AND NOT THE PROCEDURE'S SENTENCE, which is the decision worth
- * reading twice. `?because=` sits in an address the OWNER can edit, so a value
+ * THREE WORDS AND NOT THE PROCEDURE'S SENTENCE, which is ADR-0156 and is the
+ * decision worth reading twice. `?because=` sits in an address the OWNER can edit, so a value
  * copied out of a refusal's message would be a way to put a sentence of
  * somebody else's choosing in front of a reader under CanonCore's own styling
  * -- `/login/page.tsx` already states that rule of its own parameter, and
@@ -35,7 +35,20 @@ export const REFUSED = {
   several: "not-one-provider",
   /** One entry, and it is not a URL -- commonly a host with no scheme. */
   notAUrl: "not-a-url",
-} as const satisfies Record<string, WhyNotNamed>;
+  /**
+   * NOT ABOUT THE ENTRY AT ALL: the Providers already stored would not parse,
+   * so there was no list to add one to.
+   *
+   * IT IS HERE SO THAT NOTHING FALLS THROUGH SILENTLY. The three above are the
+   * refusals the Owner's own text can raise; this is every other refusal the
+   * procedure can answer with, and without it an action matching on three
+   * codes would simply return -- rendering the unchanged page that this whole
+   * ticket exists to stop. `WhyNotNamed` does not carry it, because
+   * `@canoncore/providers` never raises it: it is the SURFACE's word for "a
+   * refusal that was not about what you typed".
+   */
+  unreadable: "setting-unreadable",
+} as const;
 
 /** The three, as the page matches what an address carries against them. */
 const THE_THREE = Object.values(REFUSED);
@@ -49,7 +62,21 @@ const THE_THREE = Object.values(REFUSED);
  * address renders the page with no notice rather than a notice of the editor's
  * choosing.
  */
-export function oneBecause(parameter: string | string[] | undefined): WhyNotNamed | undefined {
+export type WhyItWasRefused = (typeof REFUSED)[keyof typeof REFUSED];
+
+/**
+ * THE THREE `@canoncore/providers` RAISES, held against its own type, so a
+ * fourth added there without a word here fails to compile rather than arriving
+ * on the page as whatever the last branch happened to be.
+ */
+const _theProvidersPackageAgrees: Record<WhyNotNamed, WhyItWasRefused> = {
+  "nothing-named": REFUSED.nothing,
+  "not-one-provider": REFUSED.several,
+  "not-a-url": REFUSED.notAUrl,
+};
+void _theProvidersPackageAgrees;
+
+export function oneBecause(parameter: string | string[] | undefined): WhyItWasRefused | undefined {
   const word = oneValue(parameter);
   return THE_THREE.find((known) => known === word);
 }
