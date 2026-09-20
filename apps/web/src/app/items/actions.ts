@@ -1,6 +1,7 @@
 "use server";
 
 import { appRouter } from "@canoncore/api/routers";
+import { isAPlacementRefusalCause } from "@canoncore/db";
 import { call, isDefinedError } from "@orpc/server";
 import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
@@ -280,7 +281,35 @@ export async function placeItemInContainer(form: FormData): Promise<void> {
    */
   if (refused) {
     if (isDefinedError(refused) && refused.code === "BAD_REQUEST") {
-      redirect(`/items/${input.containerId}?refused=${input.itemId}`);
+      /*
+       * AND THE CAUSE TRAVELS WITH IT (CNCORE-275). `placement.place` answers
+       * WHICH of its four causes refused the write, and dropping that here is
+       * what left the page guessing: it rendered a hardcoded two-cause sentence,
+       * so a cycle or an out-of-range position was reported as "already placed,
+       * or no longer in the catalogue" -- a false reason rather than a vague one.
+       *
+       * THE CODE, NOT THE SENTENCE, which is the shape CNCORE-262 took on this
+       * same question. A redirect puts whatever this carries into a URL the
+       * Owner can edit and a stranger can compose, so a sentence here would let
+       * a forged link print arbitrary text in this app's voice. A word from a
+       * closed set cannot, and it leaves the MEANING with this action rather
+       * than with whoever typed the address (ADR-0123). The page owns the copy.
+       */
+      const said = (refused.data as { because?: unknown } | undefined)?.because;
+      /*
+       * CHECKED RATHER THAN CAST THROUGH. `whatTheProcedureAnswered` answers
+       * `ORPCError<ORPCErrorCode, unknown>` -- `isARefusal` widens `data` on
+       * purpose, because `/api/rpc` shares that predicate and cares only
+       * whether a thing is a refusal -- so the cause is READ here rather than
+       * assumed. A refusal that somehow carries no cause falls back to the
+       * vague sentence instead of putting `undefined` in the address.
+       */
+      const because = typeof said === "string" && isAPlacementRefusalCause(said) ? said : undefined;
+      redirect(
+        because === undefined
+          ? `/items/${input.containerId}?refused=${input.itemId}`
+          : `/items/${input.containerId}?refused=${input.itemId}&because=${because}`,
+      );
     }
     return;
   }
@@ -439,9 +468,26 @@ export async function movePlacement(form: FormData): Promise<void> {
    * A REFUSAL IS AN ANSWER (CNCORE-127), and this action has nothing to add to
    * either of the two it can meet, so what comes back is not read. NOT_FOUND is
    * a stale page -- the placement was removed in another tab, or the link was
-   * shared -- and BAD_REQUEST is the catalogue refusing the move itself, which today is a container asked to
-   * hold something it already sits inside (migration 15). Neither is a fault,
-   * and the container AS IT STANDS is the honest answer to both.
+   * shared -- and BAD_REQUEST is the catalogue refusing the move itself.
+   * Neither is a fault, and the container AS IT STANDS is the honest answer to
+   * both.
+   *
+   * THIS USED TO NAME ONE OF FIVE. The clause "which today is a container asked
+   * to hold something it already sits inside (migration 15)" stood here, and
+   * `placement.move` can also be refused by a Repeat at one position, an item
+   * or container that is not there, a position the column cannot hold, and a
+   * placement outside the destination container. CNCORE-255 made the procedure
+   * answer whichever one it was, so the clause is gone rather than extended: a
+   * list written here is a second copy of a set that lives in `placements.ts`.
+   *
+   * AND THIS PATH STILL SHOWS NO SENTENCE, WHICH IS THE DELIBERATE HALF. Unlike
+   * `placeItemInContainer` -- which carries the refusal through its redirect
+   * since CNCORE-275, because it was rendering a FALSE reason -- a refused move
+   * shows none at all, and the row snapping back to where the server says it
+   * sits is the feedback. That is CNCORE-127's reading and ADR-0116's: with
+   * script the drag has already moved the row, so `refresh()` is what corrects
+   * it, and there is no redirect here to carry a sentence on. Saying so rather
+   * than leaving it to be noticed.
    */
   await whatTheProcedureAnswered(
     call(

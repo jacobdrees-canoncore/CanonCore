@@ -8,7 +8,9 @@ import {
   handBuiltRedirectsIn,
   jobsRequestingANodeMajor,
   migrationRungs,
+  movePlacementRefusalCauses,
   peakConnectionsInOneE2eRun,
+  placementRefusalCauses,
   procedureAnswerCallSites,
   propertiesSeededByMigrationOne,
   runsInTheTimeoutWindow,
@@ -318,6 +320,18 @@ const CLAIMS: Claim[] = [
     pattern: /what the other (\w+) configs are checked against/g,
     population: "the Vitest configs other than this one",
     derive: () => vitestConfigs() - 1,
+  },
+  {
+    file: "packages/api/src/routers/placement.ts",
+    pattern: /(\w+) things can refuse/g,
+    population: "the causes `placement.place` can be refused by",
+    derive: placementRefusalCauses,
+  },
+  {
+    file: "packages/api/src/routers/placement.ts",
+    pattern: /(\w+) CAUSES REACH THAT BAD_REQUEST/g,
+    population: "the causes `placement.move` can be refused by",
+    derive: movePlacementRefusalCauses,
   },
 ];
 

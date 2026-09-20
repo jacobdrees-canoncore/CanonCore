@@ -1,5 +1,6 @@
 import type { Context } from "@canoncore/api/context";
 import { appRouter } from "@canoncore/api/routers";
+import { isAPlacementRefusalCause, type PlacementRefusalCause } from "@canoncore/db";
 import { Button } from "@canoncore/ui/components/button";
 import { Input } from "@canoncore/ui/components/input";
 import { Label } from "@canoncore/ui/components/label";
@@ -365,6 +366,7 @@ interface TheQuery {
   placedBefore?: string | string[];
   undo?: string | string[];
   refused?: string | string[];
+  because?: string | string[];
 }
 
 export default async function ItemPage({
@@ -399,7 +401,7 @@ export default async function ItemPage({
    * An array means the parameter was repeated; a route is one route, so a
    * repeated one names no ordering rather than the first of several.
    */
-  const { via, placed, after, placedAfter, before, placedBefore, undo, refused } =
+  const { via, placed, after, placedAfter, before, placedBefore, undo, refused, because } =
     await searchParams;
   /*
    * `oneValue` OWNS WHAT A REPEATED OR BLANK PARAMETER MEANS, and this page is
@@ -448,6 +450,19 @@ export default async function ItemPage({
    * nothing, and an id naming no item simply says an item is already there.
    */
   const refusedItem = oneValue(refused);
+  /*
+   * THE SENTENCE THE CATALOGUE ANSWERED, AND ONLY IF IT IS ONE OF OURS
+   * (CNCORE-275). `placeItemInContainer` puts `placement.place`'s own refusal
+   * in the query so this page can say which of its FOUR causes refused the
+   * write. A query is composed by anybody, so it is checked against the closed
+   * set rather than rendered on trust: unchecked, a crafted link would put
+   * arbitrary text in this app's voice on this app's page, which is the harm
+   * ADR-0123 names. Anything else falls back to the sentence below.
+   */
+  const refusedBecause = ((): PlacementRefusalCause | undefined => {
+    const said = oneValue(because);
+    return said !== undefined && isAPlacementRefusalCause(said) ? said : undefined;
+  })();
 
   /*
    * THE NARROWING GOES TO THE READ PATH (CNCORE-129), where it used to be
@@ -557,6 +572,7 @@ export default async function ItemPage({
           containerId={item.id}
           undone={undone}
           refused={refusedItem}
+          because={refusedBecause}
           context={context}
         />
       )}
@@ -1610,16 +1626,42 @@ function Note({ itemId, note }: { itemId: string; note: NoteOnThePage }) {
  * showed the first hundred of a thousand would be the listing lying about its
  * own extent.
  */
+/**
+ * WHAT EACH REFUSAL SAYS TO A READER, in the reader's words rather than the
+ * catalogue's. ADR-0009 licences a Repeat at DIFFERENT positions, so the first
+ * of these is about the POSITION rather than about placing the item twice --
+ * and saying so is the difference between a rule an owner can work with and a
+ * wall.
+ *
+ * TOTAL ON THE CAUSE, so this cannot answer four of five. `not-in-this-container`
+ * cannot reach the place form today -- only `placement.move` raises it -- and it
+ * is answered anyway, because a `Record` that skipped it would need a partial
+ * type and a partial type is what lets the next cause go unanswered.
+ */
+const WHAT_WAS_REFUSED: Record<PlacementRefusalCause, string> = {
+  "already-there":
+    "Nothing was placed. That item is already here at that position, and a Repeat is allowed only at a different one.",
+  "no-such-item-or-container": "Nothing was placed. That item is no longer in the catalogue.",
+  cycle: "Nothing was placed. A container cannot hold itself, or anything it already sits inside.",
+  "position-out-of-range":
+    "Nothing was placed. That position is outside the range this catalogue can store.",
+  "not-in-this-container":
+    "Nothing was placed. That move named a placement this container does not hold.",
+};
+
 async function PlaceAnItem({
   containerId,
   undone,
   refused,
+  because,
   context,
 }: {
   containerId: string;
   undone?: string;
   /** The item a placement was just refused for, if one was (ADR-0116). */
   refused?: string;
+  /** WHY the catalogue refused it, already checked to name a cause we raise. */
+  because?: PlacementRefusalCause;
   context: Context;
 }) {
   /*
@@ -1645,22 +1687,35 @@ async function PlaceAnItem({
       */}
       {undone && <UndoRemoval placementId={undone} containerId={containerId} />}
       {/*
-        WHAT THE CATALOGUE WOULD NOT DO, in the reader's words. ADR-0009 licences
-        a Repeat at DIFFERENT positions, so the refusal is usually about the
+        WHAT THE CATALOGUE WOULD NOT DO, IN ITS OWN WORDS. ADR-0009 licences a
+        Repeat at DIFFERENT positions, so the refusal is usually about the
         POSITION rather than about placing the item twice -- and saying so is the
         difference between a rule an owner can work with and a wall.
 
-        IT NAMES BOTH REASONS, BECAUSE `BAD_REQUEST` CARRIES BOTH. Review found
-        this asserting the first one alone while `PLACEMENT_REFUSALS` also holds
-        `23503` -- an item or container that is not there -- so an owner whose
-        item had since been deleted was told it was already placed, which is a
-        false reason rather than a vague one. The router's own message says both;
-        this is that message in the reader's words.
+        THE COPY IS THIS PAGE'S, THE MEANING IS THE ACTION'S (CNCORE-262,
+        CNCORE-275). `placeItemInContainer` carries a CAUSE through its redirect
+        -- a word from a closed set, never a sentence -- because a redirect puts
+        whatever it carries in a URL a stranger can compose, and prose there
+        would let a forged link speak in this app's voice (ADR-0123).
+
+        AND THE ANSWER IS TOTAL, which is what stopped this drifting a third
+        time. A sentence written here can only name the causes known the day it
+        was typed: it named ONE while `PLACEMENT_REFUSALS` held two, review
+        caught that, and then CNCORE-255 made `placement.place` answer whichever
+        of its FOUR refused the write -- so the hardcoded pair was a false reason
+        again, for the two it had never heard of. `WHAT_WAS_REFUSED` is keyed on
+        `PlacementRefusalCause`, so a fifth cause is a TYPE ERROR here rather
+        than a fifth silent misreport.
+
+        THE FALLBACK IS VAGUE ON PURPOSE, for an old link or a hand-edited query
+        where no cause survived. Vague is honest there; naming one would be
+        guessing at it.
       */}
       {refused && (
         <p className="mt-2 text-sm text-destructive">
-          Nothing was placed. That item is either already here at that position, in which case a
-          Repeat is allowed at a different one, or it is no longer in the catalogue.
+          {because === undefined
+            ? "Nothing was placed. The catalogue refused it."
+            : WHAT_WAS_REFUSED[because]}
         </p>
       )}
       <form action={placeItemInContainer} className="mt-2 flex items-end gap-2">

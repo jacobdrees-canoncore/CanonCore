@@ -150,9 +150,25 @@ describe("placeItemByHand", () => {
     const story = await anItem(db);
     await placeItemByHand(db, { containerId: category, itemId: story, position: null });
 
-    await expect(
-      placeItemByHand(db, { containerId: category, itemId: story, position: null }),
-    ).rejects.toBeInstanceOf(PlacementRefused);
+    // AND THE SENTENCE COVERS THIS HALF TOO (CNCORE-255). One SQLSTATE carries
+    // both faces of this constraint, so the one sentence reporting it has to
+    // hold when there is no position as well as when there is.
+    const refused = await placeItemByHand(db, {
+      containerId: category,
+      itemId: story,
+      position: null,
+    }).then(
+      () => undefined,
+      (cause: unknown) => cause,
+    );
+
+    // THE CLASS AS WELL AS THE WORDS -- `toThrow` passed a string matches a
+    // substring and checks no class, so it would accept a plain `Error`.
+    expect(refused).toBeInstanceOf(PlacementRefused);
+    expect(refused).toHaveProperty(
+      "message",
+      "That item is already in that container at that position, or already there with no position given.",
+    );
   });
 });
 

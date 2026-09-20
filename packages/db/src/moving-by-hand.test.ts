@@ -172,9 +172,27 @@ describe("a Placement cycle", () => {
   it("refuses placing a container inside itself", async () => {
     const container = await anItem(db, { isContainer: true, isOrdered: true });
 
-    await expect(
-      placeItemByHand(db, { containerId: container, itemId: container, position: 1 }),
-    ).rejects.toThrow(PlacementRefused);
+    const refused = await placeItemByHand(db, {
+      containerId: container,
+      itemId: container,
+      position: 1,
+    }).then(
+      () => undefined,
+      (cause: unknown) => cause,
+    );
+
+    /*
+     * THE SELF-HOLD HALF OF `23514`, which is a SECOND raise inside
+     * `refuse_placement_cycle` -- `container % cannot hold itself` at
+     * `item_id = container_id`, beside the walk's `% already holds %`. Both
+     * carry `ERRCODE = check_violation`, so one sentence reports both and it
+     * has to hold for both. It named the walk alone until review of CNCORE-255.
+     */
+    expect(refused).toBeInstanceOf(PlacementRefused);
+    expect(refused).toHaveProperty(
+      "message",
+      "A container cannot hold itself, or something it already sits inside.",
+    );
   });
 
   it("refuses placing a container inside one it already holds, two levels down", async () => {
@@ -262,13 +280,27 @@ describe("what a move may not reach", () => {
       position: 1,
     });
 
-    await expect(
-      movePlacementByHand(db, {
-        id: placed,
-        containerId: container,
-        position: Number.MAX_SAFE_INTEGER,
-        siblings: [],
-      }),
-    ).rejects.toThrow(PlacementRefused);
+    // THE SENTENCE NAMES THE OVERFLOW (CNCORE-255). This is the one cause of
+    // the five that no router test drives, so the refusal's own words are where
+    // it is pinned: a generic "the catalogue refused that move" would leave the
+    // Owner with nothing to change.
+    const refused = await movePlacementByHand(db, {
+      id: placed,
+      containerId: container,
+      position: Number.MAX_SAFE_INTEGER,
+      siblings: [],
+    }).then(
+      () => undefined,
+      (cause: unknown) => cause,
+    );
+
+    // BOTH, AND `toThrow` GIVES NEITHER ON ITS OWN: passed a string it matches
+    // a SUBSTRING and checks no class, so a plain `Error` carrying this text
+    // would pass. The class is what tells a refusal from a broken catalogue.
+    expect(refused).toBeInstanceOf(PlacementRefused);
+    expect(refused).toHaveProperty(
+      "message",
+      "That position is outside the range the catalogue can store.",
+    );
   });
 });

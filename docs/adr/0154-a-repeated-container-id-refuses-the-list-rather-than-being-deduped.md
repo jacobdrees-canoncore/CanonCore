@@ -81,10 +81,18 @@ own: it is a fact about the schema, and the schema is that package's.
 ## A refusal's sentence does not cross the wire by itself
 
 Worth writing down, because it cost this record a review round and it will cost the next one.
-`errors.BAD_REQUEST({ cause })` is the shape `item.create`, `group.put` and `placement.place` all
-use, and it **drops the sentence**: `ORPCError.toJSON` serialises `{defined, code, status, message,
-data}` and nothing else, so the `cause` never leaves the server and the caller reads the sentence
-DECLARED on the procedure -- which, being declared once, can name no id.
+`errors.BAD_REQUEST({ cause })` is the shape `item.create` and `group.put` use, and it **drops the
+sentence**: `ORPCError.toJSON` serialises `{defined, code, status, message, data}` and nothing else,
+so the `cause` never leaves the server and the caller reads the sentence DECLARED on the procedure
+-- which, being declared once, can name no id.
+
+**`placement.place` WAS THE THIRD NAME IN THAT SENTENCE, AND CNCORE-255 TOOK IT OUT OF THE LIST.**
+It had the defect this paragraph predicts: its declared sentence named two of the four causes that
+reach it, and `placement.move`'s named one of five, so a move refused for naming a placement outside
+its destination was answered with a sentence about cycles -- wrong rather than merely vague. Both
+now pass `message`. The two that remain are not defects: `item.create` names both members of
+`by-hand.ts`'s set and `group.put` the one member of `groups.ts`'s, so nothing is lost by declaring
+those sentences once.
 
 A refusal whose whole value is naming the id has to pass `message` explicitly, as
 `settings.ts` already does for `OutboundRefused`:
