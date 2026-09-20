@@ -1936,6 +1936,15 @@ const aProviderOfTwoContainers = (asked: string[] = []) =>
 const THE_LIST = ["402219", "388305"];
 
 /**
+ * A CONTAINER ID SHAPED LIKE A PAGE TITLE, which is the shape CNCORE-268's
+ * ceiling leaves room for: `provider-wiki` sends pageids, but CMPP declares an
+ * id as `z.string().min(1)` and a Provider may send a title instead. The
+ * padding below is derived from it rather than written out, so the fixtures
+ * cannot drift from the prefix and quietly stop being the lengths they claim.
+ */
+const A_TITLE = "Theory:Timeline - ";
+
+/**
  * A RECORD THAT NAMES THE CONTAINER IT SITS IN, which is TMDB's shape rather
  * than the wiki's (CNCORE-238).
  *
@@ -2254,7 +2263,7 @@ describe("provider.beginImportRun", () => {
    */
   it("answers BAD_REQUEST for a Container id longer than a Container id may be", async () => {
     const baseUrl = await aProviderOfTwoContainers();
-    const overlong = `Theory:Timeline - ${"x".repeat(282)}`;
+    const overlong = A_TITLE + "x".repeat(300 - A_TITLE.length);
 
     const { error } = await safe(
       call(
@@ -2264,9 +2273,45 @@ describe("provider.beginImportRun", () => {
       ),
     );
 
+    expect(overlong).toHaveLength(300);
     expect(isDefinedError(error) && error.code).toBe("BAD_REQUEST");
     expect(error?.message).toBe(
       `Theory:Timeline - ${"x".repeat(61)}… is 300 characters, at position 2, and a Container id is at most 255`,
+    );
+  });
+
+  /**
+   * THE SECOND OF ADR-0123's TWO LEVERS, WHICH THIS TOOK ONLY ONE OF UNTIL
+   * REVIEW. The cut answers how MUCH of a stranger's value lands in a sentence;
+   * `CONTROLS` answers what that value may DO to the words around it. A
+   * bidirectional override re-orders the glyphs on either side of itself, so an
+   * id carrying one runs the clause naming the ceiling that refused it
+   * backwards through the Owner's page -- and the cut alone does not touch it.
+   *
+   * THIS IS NOT A HYPOTHETICAL PROVIDER. `/import` lists a Provider's own
+   * Containers for the Owner to pick from since CNCORE-187, so the id in this
+   * sentence can be one a Provider chose rather than one the Owner typed, which
+   * is exactly the "stranger choosing text on a page it does not own" ADR-0123
+   * opens with.
+   *
+   * IT IS THE SAME HALF `@canoncore/tasks` WAS MISSING (CNCORE-274), found in a
+   * fresh copy one ticket later, which is the argument for `boundedTo` applying
+   * both levers in one call rather than publishing the cut for callers to
+   * compose.
+   */
+  it("strips a bidirectional override from the id it quotes back", async () => {
+    const baseUrl = await aProviderOfTwoContainers();
+    // U+202E, right-to-left override: everything after it renders reversed.
+    const reversing = `${A_TITLE}\u202e${"x".repeat(300 - A_TITLE.length - 1)}`;
+
+    const { error } = await safe(
+      call(appRouter.provider.beginImportRun, { baseUrl, containerIds: [reversing] }, { context }),
+    );
+
+    expect(reversing).toHaveLength(300);
+    expect(error?.message).not.toContain("\u202e");
+    expect(error?.message).toBe(
+      `Theory:Timeline - ${"x".repeat(61)}… is 300 characters, at position 1, and a Container id is at most 255`,
     );
   });
 
@@ -2281,11 +2326,11 @@ describe("provider.beginImportRun", () => {
    * away, so this one carries its id all the way into the run and reads it back
    * off `import_run_containers` through the report. 255 ASCII characters index
    * comfortably: `import_run_containers_named_once` refuses at 2704 BYTES, and
-   * ADR-0160's ceiling cannot reach it because 255 characters are at most 1020.
+   * the test below writes the dearest id the bound admits, at 765.
    */
   it("opens a run over a Container id of exactly the length one may be", async () => {
     const baseUrl = await aProviderOfTwoContainers();
-    const theLongest = `Theory:Timeline - ${"x".repeat(237)}`;
+    const theLongest = A_TITLE + "x".repeat(255 - A_TITLE.length);
 
     const run = await call(
       appRouter.provider.beginImportRun,
@@ -2322,7 +2367,7 @@ describe("provider.beginImportRun", () => {
     let dearest = "";
     for (let block = 0; dearest.length < 255; block += 1) {
       for (const byte of createHash("sha256").update(String(block)).digest()) {
-        if (dearest.length < 255) dearest += String.fromCodePoint(0x4e00 + ((byte << 5) % 0x5000));
+        if (dearest.length < 255) dearest += String.fromCodePoint(0x4e00 + byte * 20);
       }
     }
 

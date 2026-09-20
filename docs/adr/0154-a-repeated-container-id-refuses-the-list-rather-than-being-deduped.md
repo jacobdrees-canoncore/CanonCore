@@ -70,9 +70,12 @@ a repeat by name; the index holds the invariant behind it. **The whole lesson of
 a constraint nobody thought reachable was reached by the ordinary case**, so the write is narrowed
 rather than left to escape: 23505 as a backstop, and 54000 because
 `import_run_containers_named_once` is a btree and a btree cannot index a value over 2704 bytes --
-measured at "index row size 3872 exceeds btree version 4 maximum 2704" on 2026-09-20. Nothing bounds
-an id's length on the way in, so an ordinary list reaches that one. Bounding it is CNCORE-268 and is
-not this record.
+measured at "index row size 3872 exceeds btree version 4 maximum 2704" on 2026-09-20. Nothing bounded
+an id's length on the way in when this record was taken, so an ordinary list reached that one.
+**CNCORE-268 has since bounded it at the router**, at 255 characters, so 54000 is now a backstop
+rather than a path an import list can walk: see
+[[0160-a-container-id-is-bounded-where-the-list-arrives]], which also says why the ceiling went
+there rather than into `beginImportRun` beside this record's own check.
 
 Which SQLSTATEs mean "you asked for something impossible" lives in `import-runs.ts` beside the write
 rather than in the router, which is the rule `by-hand.ts` and `groups.ts` each record about their
