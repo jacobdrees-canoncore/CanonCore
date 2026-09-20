@@ -219,12 +219,18 @@ const CITED_ACROSS_THE_BOUNDARY = ["0097"];
  * asked nothing, which is the shape both `ui-callers.test.ts` and
  * `corpus-figures.test.ts` raise at the root of their own chains.
  *
- * TODO(CNCORE-277): this is the FOURTH copy of the `git ls-files -z` walk in this
- * package, and ADR-0136 folds at three. It is left here rather than extracted
- * because the four are not the same read -- `ui-callers.test.ts` strips comments
- * and drops tests, this one deliberately keeps both -- so the shared core is
- * about three lines and the argument is whether a seam that small earns a module.
- * That ticket decides it; a fold done in passing here would be one nobody chose.
+ * THE FOURTH COPY OF THIS READ, and the threshold is now CROSSED rather than
+ * approached: [[0136-a-control-is-a-primitive-and-a-surfaces-words-sit-beside-its-pages]]
+ * folds at three, and this joins `ui-callers.test.ts`, `biome-config.test.ts` and
+ * `turbo-cache-inputs.test.ts`. `ui-callers.test.ts` carries the equivalent note
+ * for the second copy, written when two was still under the line; this is the
+ * same note one side of it.
+ *
+ * CNCORE-277 CARRIES THE FOLD, and it is not done here because the four are not
+ * the same read: that one strips comments and drops test files, both deliberately,
+ * where this one keeps both for reasons argued above. What they share is about
+ * three lines, so whether a seam that small earns a module is a decision somebody
+ * takes rather than a tidy-up done in passing.
  *
  * AND IT EXCLUDES ITSELF, which is not tidiness but a defect this file HAD. The
  * comments above name ADR-0001 and ADR-0055 to explain what they are not, and
