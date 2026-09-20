@@ -35,11 +35,20 @@ export default async function LoginPage({
   const asked = await searchParams;
   const context = await callerContext();
   const configured = await call(appRouter.session.configured, {}, { context });
+  const owner = context.session !== null;
 
   return (
     <main className="container mx-auto max-w-md px-4 py-8">
-      <h1 className="text-3xl font-medium">Log in</h1>
-      {context.session !== null ? (
+      {/*
+        AND IT IS HEADED FOR WHICHEVER OF THE TWO IT IS SERVING (CNCORE-243).
+        This address has always answered a reader with a session with the
+        account below rather than a form, and greeted them `Log in` over the
+        top of it. Nothing sent them here while that was only a wrong word on a
+        page they had typed the address of; the header links it now, under
+        `Account`, and the page a link promises has to be the page that arrives.
+      */}
+      <h1 className="text-3xl font-medium">{owner ? "Account" : "Log in"}</h1>
+      {owner ? (
         <LoggedIn />
       ) : configured.password ? (
         <LogInForm refused={oneValue(asked.refused)} />
@@ -121,6 +130,18 @@ function LogInForm({ refused }: { refused?: string }) {
   );
 }
 
+/**
+ * THE OWNER'S OWN PAGE, WHICH IS WHAT THE HEADER'S `Account` REACHES
+ * (CNCORE-243).
+ *
+ * The four links below each say they are here rather than in the header, and
+ * that reason is unchanged: the header is served to every reader, and a visitor
+ * who found any of these would be told only that they are not the owner. What
+ * changed is that "this page is where an owner already comes" is now true by
+ * construction rather than by their memory of the address -- from CNCORE-139
+ * until CNCORE-243 nothing in the product linked here once they had a session,
+ * so all four hung off a page reachable only by typing it.
+ */
 function LoggedIn() {
   return (
     <>

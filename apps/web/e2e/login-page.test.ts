@@ -4,7 +4,10 @@ import {
   carrying,
   documentAt,
   documentFrom,
+  headingOf,
+  linkedIn,
   logInAt,
+  mainOf,
   postFormsIn,
   sectionIn,
   submit,
@@ -84,6 +87,42 @@ describe("/login", () => {
     expect(
       postFormsIn(text).some(({ fields }) => fields.some(([name]) => name === "password")),
     ).toBe(false);
+  });
+
+  it("is headed for the reader it is serving, which is two readers", async () => {
+    // THE SAME ADDRESS SERVES BOTH, and until CNCORE-243 it greeted both with
+    // `Log in`. It is the one page carrying `/settings`, `/tasks`, `/devices`
+    // and Log out, so the header now sends the owner here under `Account` --
+    // and a page that answered that link with the word for the step they have
+    // already taken would be the lie the header link avoided.
+    const visitor = await documentAt("/login");
+    expect(headingOf(visitor.text)).toBe("Log in");
+
+    const cookie = await logInAt(baseUrl, ownerPassword);
+    const owner = await documentFrom(baseUrl, "/login", cookie);
+
+    expect(headingOf(owner.text)).toBe("Account");
+  });
+
+  it("carries the owner to every surface that hangs off it", async () => {
+    // THE HALF THE HEADER'S LINK IS FOR. `Account` is worth having because
+    // THESE are behind it: none of the three is in any nav, and on a filled
+    // install this is the only page that carries them, so an owner reaches
+    // them through here or by typing an address. Nothing asserted that until
+    // now -- all four could have been deleted from this page with the suite
+    // still green, which is the walk-not-a-test the ticket refuses.
+    const cookie = await logInAt(baseUrl, ownerPassword);
+
+    const { text } = await documentFrom(baseUrl, "/login", cookie);
+
+    const account = mainOf(text);
+    expect(linkedIn(account, "Settings")).toBe("/settings");
+    expect(linkedIn(account, "Tasks")).toBe("/tasks");
+    expect(linkedIn(account, "Devices")).toBe("/devices");
+    // AND THE ONE THAT IS NOT A LINK, because logging out WRITES: it ends a
+    // session row (ADR-0043), so it is a form rather than an address anybody
+    // can be walked onto.
+    expect(postFormsIn(account).length).toBe(1);
   });
 
   it("ends the session it started, so the token stops working", async () => {

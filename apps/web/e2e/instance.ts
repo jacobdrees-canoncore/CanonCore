@@ -374,6 +374,13 @@ export async function anInstanceServing<Fixture>(
     providerUrls: providers.join("\n"),
   });
   const fixture = await fill(db);
+  /*
+   * TODO(CNCORE-270): an `OWNER_PASSWORD` in `apps/web/.env` reaches the
+   * instances this leaves without one. `undefined` keeps the key out of the
+   * child's env, and then Next loads that file and fills it back in -- so the
+   * three password-less servers acquire the developer's password and ADR-0044's
+   * read-only fixture stops being one.
+   */
   const server = await theBuildServing(owned, {
     ...process.env,
     DATABASE_URL: databaseUrl,
