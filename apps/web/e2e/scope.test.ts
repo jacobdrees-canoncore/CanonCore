@@ -87,15 +87,19 @@ describe("an Item reached through a Group", () => {
  * `via` and `placed` on an Item's page and `q` and `group` on a Listing's --
  * what the page is asked -- then the Members cursor and the "Also appears in"
  * one, and behind them the three CNCORE-174 appended: the letter a Listing was
- * jumped to, and each Listing's step back. Written out here rather than
- * imported, because a test that read the order off the code would agree with
- * whatever the code said.
+ * jumped to, and each Listing's step back -- and beside the Group, the kind a
+ * Listing is narrowed to and the order it is read in (CNCORE-175), which go
+ * where the narrowing already is and ahead of every cursor. Written out here
+ * rather than imported, because a test that read the order off the code would
+ * agree with whatever the code said.
  */
 const IN_THE_ONE_ORDER = [
   "via",
   "placed",
   "q",
   "group",
+  "kind",
+  "order",
   "after",
   "placedAfter",
   "letter",

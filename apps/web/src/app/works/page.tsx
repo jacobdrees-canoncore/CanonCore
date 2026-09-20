@@ -4,16 +4,24 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@canoncore/ui/
 import { call } from "@orpc/server";
 import { connection } from "next/server";
 import {
+  type Chosen,
+  filedByLetter,
   Holding,
   JumpToALetter,
   Listing,
   NarrowToAGroup,
   NoSuchGroup,
+  OrderTheListing,
   PastTheEnd,
   theScope,
   Walk,
 } from "@/components/listing";
-import { oneGroup, type WhereThePageStarts, whereThePageStarts } from "@/components/query-params";
+import {
+  oneGroup,
+  oneOrder,
+  type WhereThePageStarts,
+  whereThePageStarts,
+} from "@/components/query-params";
 import { TheirWords } from "@/components/their-words";
 
 /**
@@ -34,7 +42,7 @@ import { TheirWords } from "@/components/their-words";
  * A server component fetching its own API is a round trip to itself, and oRPC
  * documents `call` as the way to avoid it.
  */
-async function readWorkBrowsing(at: WhereThePageStarts, group: string | undefined) {
+async function readWorkBrowsing(at: WhereThePageStarts, group: string | undefined, chosen: Chosen) {
   /*
    * PRERENDERING STOPS HERE (ADR-0117), and the line is the rule rather than
    * the effect.
@@ -61,7 +69,7 @@ async function readWorkBrowsing(at: WhereThePageStarts, group: string | undefine
   // was narrowed to is found among -- the front page's pair, for its reason
   // (CNCORE-180).
   const [works, { groups }] = await Promise.all([
-    call(appRouter.catalogue.works, { ...at, group }, { context }),
+    call(appRouter.catalogue.works, { ...at, group, ...chosen }, { context }),
     call(appRouter.group.list, undefined, { context }),
   ]);
   return { works, groups };
@@ -75,6 +83,7 @@ export default async function WorksPage({
     before?: string | string[];
     letter?: string | string[];
     group?: string | string[];
+    order?: string | string[];
   }>;
 }) {
   // WHERE THE PAGE STARTS, read on the SERVER so the page a reader is served
@@ -84,10 +93,17 @@ export default async function WorksPage({
   //
   // AND THE GROUP BESIDE IT (CNCORE-180), which `oneGroup` reads for every
   // surface that narrows.
-  const { after, before, letter, group } = await searchParams;
+  const { after, before, letter, group, order } = await searchParams;
   const at = whereThePageStarts({ after, before, letter });
   const narrowedTo = oneGroup(group);
-  const { works, groups } = await readWorkBrowsing(at, narrowedTo);
+  // THE ORDER AND NOTHING ELSE (CNCORE-175). `?kind=` IS NOT READ HERE, and
+  // that is the other half of offering no kind picker: this page's Rows are all
+  // Works by ADR-0077's own predicate, so honouring a hand-typed `?kind=person`
+  // would narrow the Listing to nothing with no control on the page saying so
+  // and no way to clear it. A parameter a surface does not offer is one it does
+  // not read.
+  const chosen: Chosen = { order: oneOrder(order) };
+  const { works, groups } = await readWorkBrowsing(at, narrowedTo, chosen);
   const rows = works.rows;
   const scope = theScope(groups, narrowedTo);
   // NOTHING TO WATCH IN WHAT WAS ASKED, which is the Group's Works when there
@@ -104,12 +120,38 @@ export default async function WorksPage({
         )}
       </div>
       {groups.length > 0 && (
-        <NarrowToAGroup path="/works" groups={groups} narrowedTo={narrowedTo} />
+        <NarrowToAGroup path="/works" groups={groups} narrowedTo={narrowedTo} chosen={chosen} />
       )}
-      {works.total > 0 && (
-        <JumpToALetter path="/works" narrowed={scope.narrowed} jumpedTo={at.letter} />
+      {/*
+        NO KIND PICKER HERE, AND THAT IS THE RECORD RATHER THAN AN OMISSION.
+        Work-browsing IS a kind: ADR-0077's predicate is `kind = 'work' AND (NOT
+        is_container OR holds_work)`, so every Row this page can reach is a
+        Work -- measured against the live schema, one distinct kind. A picker
+        would offer seven options of which six answer "nothing to watch" and the
+        seventh changes nothing, which is a control that cannot be used rather
+        than one a reader might not need.
+
+        THE SEAM STILL TAKES `kind`, because `listingInput` is shared by all
+        three questions and the Listing contract asks every one of them the same
+        thing. What earns the parameter its place (ADR-0138) is the Catalogue
+        and Catalogue search, where the kinds a reader can pick genuinely differ.
+      */}
+      <OrderTheListing path="/works" narrowed={scope.narrowed} chosen={chosen} />
+      {/*
+        THE ALPHABET BELONGS TO THIS LISTING'S OWN ORDER, and is hidden in the
+        other one: a jump SEEKS on the leading key, and the recently-added
+        order leads on a timestamp nothing is filed under. The read path already
+        declines a letter there, so the links would be controls that do nothing.
+      */}
+      {works.total > 0 && filedByLetter(chosen) && (
+        <JumpToALetter
+          path="/works"
+          narrowed={scope.narrowed}
+          chosen={chosen}
+          jumpedTo={at.letter}
+        />
       )}
-      {scope.gone && <NoSuchGroup path="/works" />}
+      {scope.gone && <NoSuchGroup path="/works" chosen={chosen} />}
       {nothingToWatch && <NothingToWatch within={scope.group?.name} />}
       {/*
         ITEMS BEHIND IT AND NOTHING ON THIS PAGE, which is what a cursor makes
@@ -117,7 +159,7 @@ export default async function WorksPage({
         any more. Rare, and a DEAD END if nothing says so.
       */}
       {works.total > 0 && rows.length === 0 && (
-        <PastTheEnd path="/works" narrowed={scope.narrowed} jumpedTo={at.letter} />
+        <PastTheEnd path="/works" narrowed={scope.narrowed} chosen={chosen} jumpedTo={at.letter} />
       )}
       {rows.length > 0 && (
         <>
@@ -125,6 +167,7 @@ export default async function WorksPage({
           <Walk
             path="/works"
             narrowed={scope.narrowed}
+            chosen={chosen}
             continuesAfter={works.continuesAfter}
             continuesBefore={works.continuesBefore}
           />

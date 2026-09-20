@@ -19,6 +19,7 @@ import {
 } from "./index";
 import { buildTestDatabase } from "./testing/build-database";
 import {
+  aGroupHolding,
   anItem,
   anItemTitled,
   aPlacement,
@@ -1130,3 +1131,126 @@ async function pagesOf(db: Database, pageSize: number): Promise<string[][]> {
   }
   throw new Error(`the walk did not end after ${total} pages of ${pageSize}`);
 }
+
+/**
+ * THE ORDER A READER CHOSE (CNCORE-175, story 24): the second view of one
+ * catalogue the spec asks for, which is the same Rows read off a different key.
+ *
+ * NARROWED TO A GROUP HOLDING EXACTLY THE FIXTURE, because every file in this
+ * suite writes to one database at once and "the most recently added Item in the
+ * catalogue" is a claim no test here can make on its own. The narrowing is the
+ * one that already exists (CNCORE-179); what is under test is the ORDER the
+ * Rows come back in.
+ *
+ * AND THE TWO ORDERS DISAGREE ON THIS FIXTURE BY CONSTRUCTION, which is what
+ * stops the assertion passing against an order that changed nothing: `Alpha`
+ * was added first and files first, `Zeta` was added last and files last. Both
+ * are asked in the one test, so the order NOT chosen is a control rather than
+ * an assumption -- a fixture whose alphabet agreed with its timestamps would
+ * pass whichever key the walk actually read.
+ */
+describe("readCatalogue, in the order a reader chose", () => {
+  it("leads on the most recently added Item, where the catalogue's own order leads on the alphabet", async () => {
+    const addedFirst = await anItemTitled(db, "Alpha, added first", {
+      createdAt: new Date("2031-01-01T00:00:00Z"),
+    });
+    const addedLast = await anItemTitled(db, "Zeta, added last", {
+      createdAt: new Date("2031-01-02T00:00:00Z"),
+    });
+    const group = await aGroupHolding(db, {
+      name: "Two Items whose orders disagree",
+      holding: [addedFirst, addedLast],
+    });
+
+    const byName = await readCatalogue(db, { limit: 10, group });
+    expect(byName.rows.map((row) => row.id)).toEqual([addedFirst, addedLast]);
+
+    const byAdded = await readCatalogue(db, { limit: 10, group, order: "added" });
+    expect(byAdded.rows.map((row) => row.id)).toEqual([addedLast, addedFirst]);
+  });
+
+  /*
+   * THE WALK IN THE NEW ORDER, which is the case `order.ts` exists for: the
+   * sort and the cursor comparison are two statements, and every defect
+   * ADR-0119 carries came of them naming different terms. A second order is
+   * exactly the change that reopens it, so the assertion is the whole Listing
+   * walked a page at a time and compared against the sequence the fixture was
+   * built in -- not a first page, which agrees with any comparison at all.
+   *
+   * THE PAGE IS SMALLER THAN THE FIXTURE ON PURPOSE, so the walk crosses
+   * several cuts rather than ending on its first.
+   */
+  it("walks the whole Listing in that order, a page at a time, skipping and repeating nothing", async () => {
+    const oldestFirst: string[] = [];
+    for (let minute = 0; minute < 7; minute += 1) {
+      // THE TITLES RUN OPPOSITE TO THE TIMESTAMPS, so the catalogue's own order
+      // is the reverse of this one and a walk that quietly fell back to it
+      // fails rather than passing on a fixture that agreed with both.
+      oldestFirst.push(
+        await anItemTitled(db, `Walked in the added order ${String(7 - minute).padStart(2, "0")}`, {
+          createdAt: new Date(Date.UTC(2031, 1, 1, 0, minute)),
+        }),
+      );
+    }
+    const group = await aGroupHolding(db, {
+      name: "Seven Items walked in the added order",
+      holding: oldestFirst,
+    });
+
+    const walked: string[] = [];
+    let after: string | undefined;
+    for (let page = 0; page <= oldestFirst.length; page += 1) {
+      const answer = await readCatalogue(db, { limit: 2, group, order: "added", after });
+      walked.push(...answer.rows.map((row) => row.id));
+      if (answer.continuesAfter === null) break;
+      after = answer.continuesAfter;
+    }
+
+    expect(walked).toEqual([...oldestFirst].reverse());
+  });
+});
+
+/**
+ * NARROWED TO ONE KIND (CNCORE-175, stories 25 and 26): the Owner's own control
+ * over which kinds a Listing shows, so People and Time spans do not crowd out
+ * what they can watch.
+ *
+ * NOT WORK-BROWSING BY A SECOND ROUTE, and the distinction is ADR-0077's. That
+ * record settles which kinds a surface's QUESTION includes -- work-browsing
+ * excludes the entity kinds and the catalogue excludes nothing -- and it is not
+ * the reader's to change. THIS narrows whichever question was asked, the way a
+ * Group does (ADR-0010, CNCORE-179), and composes with it rather than replacing
+ * it. The Listing still answers "what is in this catalogue"; it answers with
+ * less of it.
+ *
+ * THE SIZE IS ASSERTED BESIDE THE ROWS, because that is story 26 and it is the
+ * half a narrowing gets wrong: `theSize` reads the same `within` as the Rows do,
+ * so a narrowing that reached one and not the other would report a total the
+ * page is not showing from -- the exact lie `readListing` says the cap exists to
+ * prevent.
+ */
+describe("readCatalogue, narrowed to one kind", () => {
+  it("answers with that kind alone, and the size follows what it narrowed to", async () => {
+    const story = await anItemTitled(db, "A story among the narrowed");
+    const person = await anItemTitled(db, "A person among the narrowed", { kind: "person" });
+    const timeSpan = await anItemTitled(db, "A time span among the narrowed", {
+      kind: "time_span",
+    });
+    const group = await aGroupHolding(db, {
+      name: "Three Items of three kinds",
+      holding: [story, person, timeSpan],
+    });
+
+    // UNNARROWED FIRST, which is what clearing the narrowing answers with: the
+    // absence of the parameter, never a second spelling of "every kind".
+    const everyKind = await readCatalogue(db, { limit: 10, group });
+    expect([...everyKind.rows.map((row) => row.id)].sort()).toEqual(
+      [story, person, timeSpan].sort(),
+    );
+    expect(everyKind.total).toBe(3);
+
+    const onlyPeople = await readCatalogue(db, { limit: 10, group, kind: "person" });
+    expect(onlyPeople.rows.map((row) => row.id)).toEqual([person]);
+    expect(onlyPeople.total).toBe(1);
+  });
+});

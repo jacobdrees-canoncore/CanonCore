@@ -64,6 +64,8 @@ export {
   type AttributionOwed,
   type Catalogue,
   type CatalogueRow,
+  CHOSEN_ORDERS,
+  type ChosenOrder,
   type FoundItem,
   findAttributionOwed,
   findItem,

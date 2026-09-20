@@ -7,6 +7,7 @@ import {
   type Catalogue,
   findTheAnchor,
   IN_THE_CATALOGUE,
+  narrowedToTheKind,
   SORT_KEY,
   theCutAt,
   type WhereAPageIs,
@@ -112,7 +113,13 @@ export function titleMatches(query: string) {
  */
 export async function searchCatalogue(
   db: Database,
-  { query, limit, group, ...at }: { query: string; limit: number; group?: string } & WhereAPageIs,
+  {
+    query,
+    limit,
+    group,
+    kind,
+    ...at
+  }: { query: string; limit: number; group?: string; kind?: string } & WhereAPageIs,
 ): Promise<Catalogue> {
   /*
    * AN EMPTY QUERY IS ANSWERED BEFORE THE QUERY RUNS, and this line is a fix
@@ -164,7 +171,22 @@ export async function searchCatalogue(
      * rather than replacing it, and it arrives before the size is taken -- so
      * `total` is how many matched IN THE GROUP.
      */
-    within: withinTheGroup(db, group, and(IN_THE_CATALOGUE, titleMatches(wanted)) as SQL),
+    /*
+     * AND NARROWED TO THE KIND A READER PICKED (CNCORE-175), through the same
+     * `narrowedToTheKind` the other two Listings take theirs through, so the
+     * narrowing means one thing on all three. It joins the match rather than
+     * replacing it, and it arrives before the size is taken -- so `total` is
+     * how many matched OF THAT KIND.
+     *
+     * ADR-0077 SAYS SEARCH RETURNS ALL SEVEN KINDS, and it still does: that
+     * record decides what this surface's QUESTION includes, and this is the
+     * reader narrowing the answer to it. Unnarrowed, a Character's name still
+     * finds the Character.
+     */
+    within: narrowedToTheKind(
+      kind,
+      withinTheGroup(db, group, and(IN_THE_CATALOGUE, titleMatches(wanted)) as SQL),
+    ),
     order: ranking,
     cut,
     limit,

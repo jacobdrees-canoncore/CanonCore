@@ -62,6 +62,15 @@ interface SeededItem {
   kind?: string;
   isContainer?: boolean;
   isOrdered?: boolean;
+  /**
+   * WHEN THE CATALOGUE GAINED IT, for the same reason `id` above is here: one
+   * order in this catalogue reads this column and nothing else (CNCORE-175),
+   * so which Item a fixture puts first in it is decided by whatever `now()`
+   * handed out unless a test says. Named, such a test asserts rather than
+   * hopes -- and the two Items of a fixture written microseconds apart are
+   * exactly the pair whose order nobody can read a failure out of.
+   */
+  createdAt?: Date;
 }
 
 export async function anItem(db: Database, values: SeededItem = {}): Promise<string> {
