@@ -318,19 +318,29 @@ function reasonFor(thrown: unknown): string {
  * 300 IS ADR-0123's NUMBER, taken rather than chosen again, because this is the
  * same question that record answered about a different reader.
  *
- * TODO(CNCORE-272): this cuts on a UTF-16 unit where `shortenTo` in
- * `@canoncore/providers` cuts on a WHOLE CHARACTER, so a cut landing between the
- * halves of an astral character would leave a lone surrogate. ADR-0123 keeps
- * this copy out of that function's reach ON PURPOSE -- the dependency is not
- * worth a string function -- so the guard is owed here BY HAND rather than by
- * importing it. Unreachable from the two registered tasks today, which read this
- * catalogue's own rows.
+ * CUT ON A WHOLE CHARACTER, AND THIS IS A COPY ON PURPOSE (CNCORE-272).
+ * `slice` counts UTF-16 units, so a cut landing between the two halves of an
+ * astral character leaves a lone surrogate. `@canoncore/providers` cuts through
+ * one `shortenTo` for this reason, and ADR-0123 keeps this copy OUT OF ITS
+ * REACH deliberately: `@canoncore/tasks` depends on `@canoncore/db` alone, and
+ * taking the provider stack -- an HTTP client, two undici dispatchers and
+ * ADR-0034's boundaries -- to reach a five-line string function would couple
+ * this registry to it for nothing. The cost of that decision is this guard,
+ * owed here BY HAND, and until CNCORE-272 it was not paid. Do not repair the
+ * duplication by importing: the duplication is the decision.
+ *
+ * THE DAMAGE HERE IS NOT THE SAME AS ON A PAGE, and it is worse. `detail` is a
+ * UTF-8 column and a lone surrogate has no encoding in it, so the round trip
+ * turns one into U+FFFD -- well-formed on the way back out, so nothing
+ * downstream can tell it was ever a character, and permanent in the history.
  */
 function bounded(detail: string): string {
   const collapsed = detail.replace(/\s+/g, " ").trim();
-  return collapsed.length <= BOUNDED_DETAIL
-    ? collapsed
-    : `${collapsed.slice(0, BOUNDED_DETAIL - 1)}\u2026`;
+  if (collapsed.length <= BOUNDED_DETAIL) return collapsed;
+  const kept = collapsed.slice(0, BOUNDED_DETAIL - 1);
+  const last = kept.charCodeAt(kept.length - 1);
+  const whole = last >= 0xd800 && last <= 0xdbff ? kept.slice(0, -1) : kept;
+  return `${whole}\u2026`;
 }
 
 export const BOUNDED_DETAIL = 300;

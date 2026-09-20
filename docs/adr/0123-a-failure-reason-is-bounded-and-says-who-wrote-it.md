@@ -210,13 +210,20 @@ the provider stack for nothing. The number is the shared thing and this record i
 shared; that file takes it "rather than chosen again" and says so. Recorded because a reader who
 finds the second copy should meet a decision rather than an oversight.
 
-**AND THE COST OF THAT SEPARATION IS THE GUARD, WHICH THIS PARAGRAPH DID NOT COUNT (CNCORE-269).**
+**AND THE COST OF THAT SEPARATION IS THE GUARD, WHICH THIS PARAGRAPH DID NOT COUNT (CNCORE-272).**
 Keeping the copy out of reach means every property the cut has must be applied here BY HAND, and the
-whole-character cut below was not: `registry.ts` still cuts on a UTF-16 unit. The decision above
-stands — the dependency is not worth it — so what is owed is the guard written twice rather than the
-copy removed, and CNCORE-272 holds it. Unreachable there for the same reason it was unreachable in
-`shortly`: the two registered tasks read this catalogue's own rows, and `registry.ts`'s own comment
-names a provider's body among its inputs as ANTICIPATED rather than current.
+whole-character cut below was not: `registry.ts` cut on a UTF-16 unit until CNCORE-272. The decision
+above stands — the dependency is not worth it — so what was owed is the guard WRITTEN TWICE rather
+than the copy removed, and it is paid: `registry.ts` drops a trailing high surrogate itself, and its
+comment says it is a copy on purpose so the next reader does not "repair" it with an import.
+
+**AND THE DAMAGE THERE IS WORSE THAN ON A PAGE, which only running it showed.** `detail` is a UTF-8
+column, and a lone surrogate has no encoding in UTF-8 — so the round trip through Postgres turns one
+into U+FFFD. It comes back WELL-FORMED, which means nothing downstream can tell a character was ever
+lost, and it is permanent in the history rather than a rendering artefact. Measured while the test
+was red: the stored detail read `…aaa\ufffd…`. A witness asserting `isWellFormed()` at this seam
+therefore passes whatever happens and guards nothing; the assertion that bites is that the detail
+holds no U+FFFD and equals the whole-character cut.
 
 **THE CAP IS NOT THE ONLY LEVER A PROVIDER HAS OVER A PAGE, which this record framed as a question of
 LENGTH alone.** Bidirectional overrides (U+202A–U+202E, U+2066–U+2069) re-order the glyphs around
@@ -1054,7 +1061,7 @@ at all. Those two are bounded on the argument above, not on a red test.
 is three callers that were not obeying it, plus two the sweep found. The rule this section adds for
 the next reader is written at the head of `client.ts` as well, where a sixth refusal would be added.
 
-## The cut is one function, because two copies of it were two rules (CNCORE-269)
+## The cut is one function, because two copies of it were two rules (CNCORE-269, CNCORE-272)
 
 `shortly` bounds a value where it ENTERS a refusal at 80; `bounded` bounds the whole sentence on its
 way to a page at 300. Two numbers, one rule — and written as two functions they were two rules.
@@ -1083,5 +1090,11 @@ before each boundary puts one half on each side of it. `shortly`'s witness is re
 on `isWellFormed()`; `bounded`'s was green from the start and is there to catch the day the two stop
 agreeing, which is the only thing a shared function can still get wrong.
 
-**THIS RECORD STAYS `accepted`.** Its mechanism was whole; what changes is that one of its two
-truncations was obeying a rule the other only documented.
+**THE THIRD COPY IS NOT FOLDED IN, AND THAT IS THE SAME DECISION AS BEFORE.** `registry.ts` gets the
+guard by hand under CNCORE-272, in the same pass, because the two share ONE REASON TO CHANGE — a
+truncation counting UTF-16 units splits an astral character — while the dependency that would unify
+them is the one this record already refused. Two copies of five lines, each saying why it is a copy,
+is the price of `@canoncore/tasks` not depending on the outbound HTTP stack.
+
+**THIS RECORD STAYS `accepted`.** Its mechanism was whole; what changes is that one of its three
+truncations was obeying a rule the other two only documented.
