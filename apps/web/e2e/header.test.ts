@@ -49,7 +49,7 @@ function headerOf(text: string): string {
 }
 
 describe("the header, to the owner", () => {
-  it("offers both routes that fill a catalogue, and no login", async () => {
+  it("offers both routes that fill a catalogue", async () => {
     // WHY THE ROUTES ARE STILL HERE AT ALL, which is the half a thinner header
     // could quietly lose: an import surface or a create form reachable only by
     // typing its address is one an owner has to be told about, and an owner who
@@ -62,7 +62,33 @@ describe("the header, to the owner", () => {
     const header = headerOf(text);
     expect(header).toContain('href="/new"');
     expect(header).toContain('href="/import"');
-    expect(header).not.toContain('href="/login"');
+  });
+
+  // THIS TEST ALSO ASSERTED `not.toContain('href="/login"')` UNTIL CNCORE-243,
+  // as "and no login" in its own name. The address was a proxy for the words
+  // and it stopped being one: the owner's header links `/login` now, under
+  // `Account`, and what must not be offered is the LOGIN -- which is a claim
+  // about what the link says. The test below makes it where the control is.
+
+  it("ends the row with the way to their own page, called something they can take", async () => {
+    // WHAT THINNING THE NAV LEFT WITH NO DOOR (CNCORE-243). `/login` is where
+    // an owner logs out and the only page linking `/settings`, `/tasks` and
+    // `/devices` -- and once they have a session nothing in the product links
+    // `/login`, so all four were reachable by typing an address and no other
+    // way. Plex and Jellyfin both end the header with one account control and
+    // hang the administrative routes off it, which keeps the nav a map of the
+    // collection while giving the account a visible door.
+    const owner = await logInAt(baseUrl, inject("ownerPassword"));
+
+    const { status, text } = await documentFrom(baseUrl, "/works", owner);
+
+    expect(status).toBe(200);
+    const header = headerOf(text);
+    expect(headerLinked(header, "Account")).toBe("/login");
+    // AND IT DOES NOT SAY `Log in` TO SOMEBODY WHO IS LOGGED IN, which is the
+    // lie CNCORE-139 dropped the link to avoid and the reason the words here
+    // are not simply that link brought back.
+    expect(linkedIn(header, "Log in")).toBeUndefined();
   });
 });
 
@@ -79,7 +105,13 @@ describe("the header, to a reader with no session", () => {
 
     expect(status).toBe(200);
     const header = headerOf(text);
-    expect(header).toContain('href="/login"');
+    // READ AS THE WORDS SINCE CNCORE-243, where `toContain('href="/login"')`
+    // was enough before it. That address is now what BOTH postures link -- the
+    // owner's `Account` and this reader's `Log in` -- so the proxy stopped
+    // telling them apart, and a header that offered this reader the owner's
+    // control would have passed the assertion it replaces.
+    expect(headerLinked(header, "Log in")).toBe("/login");
+    expect(linkedIn(header, "Account")).toBeUndefined();
     expect(header).not.toContain('href="/new"');
     expect(header).not.toContain('href="/import"');
   });

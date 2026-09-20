@@ -182,6 +182,34 @@ export default async function Header() {
             in` that logged you out would be the sort of lie this whole ticket
             is about.
           */}
+          {/*
+            AND THE OWNER'S OWN PAGE, WHICH THINNING THE NAV LEFT WITH NO DOOR
+            (CNCORE-243). The link below prevents the visitor's gap; this one
+            closes the owner's, and it is the same gap seen from the other
+            posture. `/login` is where an owner logs out and it is the ONLY
+            page in the product linking `/settings`, `/tasks` and `/devices` --
+            so once they had a session, nothing linked `/login` and all four
+            were reachable by typing an address and no other way.
+
+            ONE CONTROL RATHER THAN FOUR NAV LINKS, which is what Plex and
+            Jellyfin both do: the account sits at the end of the header and the
+            administrative routes hang off it. That keeps the nav a map of the
+            collection -- the distinction this file draws between `/works` and
+            `/import` -- while giving the account a visible door, and it is why
+            the paragraph above is right that the nav never was an index of
+            every surface an owner has.
+
+            IT SAYS `Account`, NOT `Log in`, to somebody who is logged in. Same
+            address, because `/login` renders the account page for a caller who
+            has a session; the words are what a reader chooses by, and the
+            label that lies is the one CNCORE-139 refused to leave here. The
+            page's own heading reads `Account` for them too.
+          */}
+          {owner && (
+            <Link className="text-sm hover:underline" href="/login">
+              Account
+            </Link>
+          )}
           {offerTheLogin && (
             <Link className="text-sm hover:underline" href="/login">
               Log in
