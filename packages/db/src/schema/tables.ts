@@ -956,10 +956,18 @@ export const importRunContainers = pgTable(
     // cannot share a place in one list -- which is what makes the order total
     // rather than merely usual.
     uniqueIndex("import_run_containers_in_list_order").on(t.runId, t.listPosition),
-    // ONE CONTAINER APPEARS ONCE IN A RUN. A list naming an id twice would spend
-    // 43.8s asking a Provider a question it has already answered, and would give
-    // the run two answers for one Container. ADR-0009's REPEAT is the opposite
-    // case and untouched: a story may sit twice in one ORDERING.
+    // ONE CONTAINER APPEARS ONCE IN A RUN, and this index HOLDS that invariant
+    // rather than saving anything. Migration 18 framed it as saving a repeated
+    // browse -- "43.8s spent asking a Provider a question it has already
+    // answered" -- and an index does no such thing: it refused the INSERT, for
+    // the whole list, and the 23505 reached the Owner as a 500 (CNCORE-254).
+    // What saves the browse is `beginImportRun` refusing a repeat by name and
+    // position before a row is written (ADR-0154), so this stands behind a
+    // check rather than alone. Migration 18 is frozen and cannot say so; rung
+    // 22 carries the corrected sentence as a COMMENT ON the index itself.
+    // ADR-0009's REPEAT is the opposite case and untouched: a story may sit
+    // twice in one ORDERING, which is a claim about a Container's members
+    // rather than about a list of Containers to import.
     uniqueIndex("import_run_containers_named_once").on(t.runId, t.externalId),
   ],
 );
