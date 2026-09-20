@@ -117,6 +117,23 @@ export function oneGroup(parameter: string | string[] | undefined): string | und
  * SO THE TWO SURFACES SPELL ONE CONCEPT ONE WAY, which `CONTEXT.md` binds and
  * the dispatcher settled on 2026-09-20: `because` on both, never `why` on one.
  *
+ * `placing` ARRIVED WITH CNCORE-256 AND IS APPENDED, which is this list's
+ * default for a parameter no link out there carries yet -- and here it is the
+ * RIGHT default rather than merely the safe one. It is what the Owner narrowed
+ * the placement picker to, and the control that carries it is a FORM: the one
+ * spelling this list cannot write, because a browser submits fields in the
+ * order they stand in the document. Last is the one position that lets the
+ * picker's search stand its fields in the fixed order with the query LAST and
+ * every parameter the address already carried ahead of it, whichever of them
+ * are present -- rather than splitting the hidden fields around a text input to
+ * slot the query into the middle of the list.
+ *
+ * IT SHARES A LINK WITH `refused` AND `because`, which is why it sits behind
+ * them rather than beside `placed`. A refused placement redirects back to the
+ * picker the Owner was looking at, and that picker is the narrowed one or their
+ * search is gone at the moment they most need it: `?refused=<id>&because=<code>&placing=<query>`
+ * is that address, and this is the order it is written in.
+ *
  * STATED ONCE FOR EVERY SURFACE SINCE CNCORE-181. It was two shapes until
  * then: the Item page's four read off an array in `listing.tsx`, and the
  * Listings' `q`, `group`, `after` held by the order `queryFor` spread its slots
@@ -193,6 +210,7 @@ const IN_THE_FIXED_ORDER = [
   "placedBefore",
   "refused",
   "because",
+  "placing",
 ] as const;
 
 /**

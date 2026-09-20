@@ -18,6 +18,7 @@ import {
   aProvider,
   aStatement,
   ownerSource,
+  someStories,
   theOwner,
 } from "@canoncore/db/testing/catalogue";
 import { createORPCClient } from "@orpc/client";
@@ -1687,15 +1688,55 @@ async function aCatalogueSafeToCurate(owned: AsyncDisposableStack) {
     // ADR-0034's default: an instance nobody has configured reaches nothing.
     allowlist: "",
     providers: [],
-    fill: async (db) => ({
-      releaseOrder: await anItemTitled(db, "Release order", {
+    fill: async (db) => {
+      const releaseOrder = await anItemTitled(db, "Release order", {
         isContainer: true,
         isOrdered: true,
-      }),
-      storyOrder: await anItemTitled(db, "Story order", { isContainer: true, isOrdered: true }),
-      story: await anItemTitled(db, "The Tenth Planet"),
-      otherStory: await anItemTitled(db, "The Daleks"),
-    }),
+      });
+      const storyOrder = await anItemTitled(db, "Story order", {
+        isContainer: true,
+        isOrdered: true,
+      });
+      const story = await anItemTitled(db, "The Tenth Planet");
+      const otherStory = await anItemTitled(db, "The Daleks");
+      /*
+       * AND A CATALOGUE LARGER THAN THE PLACEMENT PICKER'S OWN PAGE
+       * (CNCORE-256), which is the only state its REACH is observable in. The
+       * picker is one page of the catalogue by name, so a catalogue that fits
+       * on one page renders every item it holds and an Item that cannot be
+       * reached does not exist to be asserted about.
+       *
+       * ON THIS INSTANCE RATHER THAN A TWELFTH, and the reason is a measurement
+       * rather than thrift. ADR-0104's peak of 67 connections of 288 -- which
+       * `CLAUDE.md` turns into the four-agent ceiling -- was measured WITH
+       * ELEVEN SERVERS STANDING, and this file starts exactly eleven. A twelfth
+       * would invalidate the figure and the ceiling derived from it in the same
+       * edit.
+       *
+       * AND IT IS SAFE HERE BECAUSE NEITHER READER ORACLES THIS CATALOGUE AS A
+       * SET. `placement-write.test.ts` and `select.test.ts` are the only two,
+       * and both replay the form the page rendered with the fields they want
+       * SET -- so what the picker happens to offer is not what either asserts
+       * against. THAT IS THE CONSTRAINT ON THE NEXT READER: a test that walks
+       * this instance's catalogue, or counts it, or reads the picker's options
+       * as an exact list, is one this filler breaks. `pagedCatalogue` is the
+       * instance for a set oracle; this one is for writing.
+       *
+       * A HUNDRED AND TWENTY, against a picker capped at a hundred. Twenty past
+       * the cap rather than one, so an off-by-one in a cursor or a cap cannot
+       * make the far item reachable by accident.
+       */
+      await someStories(db, 120, "Filler story");
+      /*
+       * THE ITEM THE PICKER CANNOT OFFER, titled to sort AFTER every filler --
+       * `Zoe` against `Filler story NNNN` -- so it stands at the far end of the
+       * catalogue by name and lands well past the first hundred. Its first word
+       * is in no other title here, which is what makes it findable by one
+       * search rather than by a query that matches the whole fixture.
+       */
+      const beyondThePage = await anItemTitled(db, "Zoe and the far end of the catalogue");
+      return { releaseOrder, storyOrder, story, otherStory, beyondThePage };
+    },
   });
 
   return {
@@ -1706,6 +1747,7 @@ async function aCatalogueSafeToCurate(owned: AsyncDisposableStack) {
       otherTitle: "The Daleks",
       releaseOrderTitle: "Release order",
       storyOrderTitle: "Story order",
+      beyondThePageTitle: "Zoe and the far end of the catalogue",
     },
   };
 }
@@ -2416,16 +2458,27 @@ declare module "vitest" {
      * somebody's fixture, asserted row by row.
      */
     curatableBaseUrl: string;
-    /** Two empty orderings and two items, for the owner's own hand to place. */
+    /**
+     * Two empty orderings and two items, for the owner's own hand to place --
+     * and a catalogue larger than the placement picker's own page behind them.
+     */
     curatable: {
       releaseOrder: string;
       storyOrder: string;
       story: string;
       otherStory: string;
+      /**
+       * The ONE item on this instance that sorts past the picker's first
+       * hundred, which is the only state its reach is observable in
+       * (CNCORE-256). The picker cannot offer it; a search of the picker finds
+       * it.
+       */
+      beyondThePage: string;
       storyTitle: string;
       otherTitle: string;
       releaseOrderTitle: string;
       storyOrderTitle: string;
+      beyondThePageTitle: string;
     };
     /**
      * And again, serving a catalogue whose ORDERINGS a test may rearrange. A

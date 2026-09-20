@@ -4,6 +4,7 @@ import {
   documentFrom,
   formIn,
   logInAt,
+  navigatingFormsIn,
   postFormsIn,
   type RenderedForm,
   sectionIn,
@@ -177,6 +178,197 @@ describe("placing an item in a container", () => {
         (row) => row.includes(curatable.storyTitle) && row.includes("No position given"),
       ),
     ).toHaveLength(1);
+  });
+});
+
+/**
+ * WHAT THE PICKER IS OFFERING, as the titles a reader reads in it.
+ *
+ * THE OPTIONS RATHER THAN THE CHOSEN ONE, which is what `selectsIn` answers and
+ * why this is not that helper. A browser submits one value; what this file has
+ * to see is the whole list, because the defect under test is an item the list
+ * does not CONTAIN.
+ */
+function offeredIn(text: string): string[] {
+  const picker = /<select\b[^>]*\bname="itemId"[^>]*>(.*?)<\/select>/is.exec(
+    sectionIn(text, "place-an-item"),
+  );
+  if (!picker) throw new Error("the placement picker rendered no list of items to choose from");
+  return [...(picker[1] ?? "").matchAll(/<option\b[^>]*>(.*?)<\/option>/gis)].map(
+    ([, title]) => title ?? "",
+  );
+}
+
+/**
+ * The picker's own search, submitted the way a browser submits a GET form: the
+ * address its fields name, asked for.
+ *
+ * NOT `submit`, WHICH POSTS. This control navigates -- it asks the container's
+ * own page a narrower question rather than changing anything -- so what a
+ * browser does with it is build an address and follow it, and that is what is
+ * replayed here.
+ */
+async function searchThePicker(container: string, query: string) {
+  const { text } = await containerPage(container, owner);
+  const [box] = navigatingFormsIn(sectionIn(text, "place-an-item"));
+  if (!box) throw new Error("the placement picker offers no search of its own");
+  const asked = new URLSearchParams(withFields(box, { placing: query }).fields);
+  return { at: `${box.action}?${asked}`, ...(await documentAt(`${box.action}?${asked}`, owner)) };
+}
+
+/**
+ * THE FIELD A VISIBLE LABEL NAMES, as the name it submits under -- or a throw
+ * saying which half is missing.
+ *
+ * IT FOLLOWS THE LABEL TO THE FIELD RATHER THAN LOOKING FOR EITHER ALONE, which
+ * is the whole point of it here. CNCORE-256 is a notice that named a remedy
+ * NOTHING ON THE PAGE PROVIDED, and a test that merely found the words would
+ * have passed against exactly that page. What says a remedy exists is that the
+ * words lead to a control: a label, its `for`, a field carrying that id, and a
+ * name that gets submitted.
+ */
+function theFieldLabelled(section: string, label: string): string {
+  const named = new RegExp(`<label\\b[^>]*\\bfor="([^"]*)"[^>]*>${label}</label>`, "i").exec(
+    section,
+  )?.[1];
+  if (named === undefined) throw new Error(`nothing in that section is labelled \`${label}\``);
+  const field = new RegExp(`<(?:input|select|textarea)\\b[^>]*\\bid="${named}"[^>]*>`, "i").exec(
+    section,
+  )?.[0];
+  if (field === undefined) throw new Error(`\`${label}\` labels no field on that page`);
+  const submits = /\bname\s*=\s*"([^"]*)"/i.exec(field)?.[1];
+  if (submits === undefined) throw new Error(`the field \`${label}\` names submits nothing`);
+  return submits;
+}
+
+describe("reaching an item the picker does not offer", () => {
+  it("finds an item past the picker's first hundred, and places it", async () => {
+    /*
+     * THE CRITERION (CNCORE-256), AND ITS FIRST LINE IS THE DEFECT. The picker
+     * is ONE PAGE of the catalogue by name -- ADR-0119's cap, a hundred rows --
+     * so an item sorting past the hundredth cannot be chosen from it at all. On
+     * the Owner's own install that is 100 reachable of 8,052.
+     *
+     * AND THE REMEDY IS REACH RATHER THAN RELOCATION. ADR-0061 gives the
+     * container its membership outright, so the control stays on the
+     * container's page and what changes is how the Owner gets to an item
+     * through it.
+     */
+    const before = await containerPage(curatable.storyOrder, owner);
+    expect(offeredIn(before.text)).not.toContain(curatable.beyondThePageTitle);
+
+    const found = await searchThePicker(curatable.storyOrder, "Zoe");
+    expect(offeredIn(found.text)).toContain(curatable.beyondThePageTitle);
+
+    /*
+     * AND PLACING IT IS THE HALF THAT MAKES THIS REACH rather than a narrower
+     * list to look at. The form the narrowed page rendered, posted to the
+     * address that page was served at -- which is what an empty `action` means
+     * in HTML and what a browser with no script does with it.
+     */
+    const form = withFields(formIn(found.text, "place-an-item"), {
+      itemId: curatable.beyondThePage,
+      position: "300",
+    });
+    const after = await submit(baseUrl, found.at, form, owner);
+
+    expect(after.status).toBe(200);
+    expect(
+      membersIn(after.text).filter((row) => row.includes(curatable.beyondThePageTitle)),
+    ).toStrictEqual([expect.stringContaining("#300")]);
+  });
+
+  it("keeps the picker narrowed when the catalogue refuses the placement", async () => {
+    /*
+     * A REFUSAL MUST NOT COST THE OWNER THEIR SEARCH. The refusal travels
+     * through a redirect (CNCORE-255), which builds an address of its own --
+     * so an address that named only what was refused would hand back the
+     * UNNARROWED picker, and the item the Owner was placing would be out of
+     * reach again at the one moment they are being asked to try something else.
+     *
+     * THE SECOND PLACEMENT AT ONE POSITION IS THE REFUSAL, which ADR-0009
+     * licences only at a DIFFERENT position.
+     */
+    const found = await searchThePicker(curatable.releaseOrder, "Zoe");
+    const twice = withFields(formIn(found.text, "place-an-item"), {
+      itemId: curatable.beyondThePage,
+      position: "301",
+    });
+    await submit(baseUrl, found.at, twice, owner);
+
+    const again = await submit(baseUrl, found.at, twice, owner);
+
+    expect(sectionIn(again.text, "place-an-item")).toContain(
+      "That item is already here at that position",
+    );
+    expect(offeredIn(again.text)).toContain(curatable.beyondThePageTitle);
+  });
+
+  it("names a remedy that exists on the page the notice is on", async () => {
+    /*
+     * THE TICKET'S SECOND CRITERION, AND THE DEFECT IT REPLACES. This notice
+     * read "Search for one to place it from its own page" -- and an Item's own
+     * page offers `EditTitle`, `EditSortName`, `Note`, `Members`, a read-only
+     * "Also appears in" and its Groups, and NO way to place it into anything.
+     * So the one instruction the Owner was given could not be followed.
+     *
+     * ASSERTED BY FOLLOWING THE WORDS TO A CONTROL rather than by matching
+     * them. A test that only read the sentence would have gone green against
+     * the sentence this replaces, which is precisely the failure being fixed.
+     */
+    const { text } = await containerPage(curatable.storyOrder, owner);
+    const section = sectionIn(text, "place-an-item");
+
+    expect(section).toContain("Find an item above");
+
+    // The words lead to a label, the label to a field, and the field is the one
+    // this section's own search submits -- on this page, not on the item's.
+    const submits = theFieldLabelled(section, "Find an item");
+    const [box] = navigatingFormsIn(section);
+    expect(box?.fields.map(([name]) => name)).toContain(submits);
+  });
+
+  it("carries the rest of the address, so searching it moves nothing else on the page", async () => {
+    /*
+     * `TheRoute`'s RULE FOR A THIRD CONTROL ON ONE ADDRESS. A Container IS an
+     * Item (ADR-0004), so `/items/<id>` already carries the ordering the reader
+     * arrived through, the origin "Also appears in" is narrowed to, and where
+     * each of those two listings stands. The picker is a third thing with a
+     * position of its own, and a search aimed at it must leave the other two
+     * exactly where the Owner left them -- which is the same argument the two
+     * cursors already make about each other.
+     *
+     * `?via=` IS THE ONE THIS INSTANCE CAN CARRY. It identifies nothing
+     * (ADR-0066), so a value naming no placement is a legitimate address and
+     * the page renders the same either way -- what is under test is whether the
+     * control hands it on, not what it means.
+     */
+    const { text } = await documentAt(`/items/${curatable.storyOrder}?via=carried-through`, owner);
+    const [box] = navigatingFormsIn(sectionIn(text, "place-an-item"));
+
+    expect(box?.fields).toContainEqual(["via", "carried-through"]);
+    // AND THE QUERY STANDS LAST, because a browser submits fields in document
+    // order and that order IS the address this control writes (ADR-0066).
+    expect(box?.fields.at(-1)?.[0]).toBe("placing");
+  });
+
+  it("says so when nothing matches, rather than offering a picker with nothing in it", async () => {
+    /*
+     * ADR-0116's rule where a search comes back empty: the select is
+     * `required`, so an empty one is a control the Owner can press Place on
+     * and be refused by for something that is not their doing. And an empty
+     * list under a heading reads as a section that failed to load rather than
+     * as an answer, which is the argument `/search` makes for its own
+     * "nothing matched".
+     */
+    const found = await searchThePicker(curatable.storyOrder, "Nothing here goes by this name");
+    const section = sectionIn(found.text, "place-an-item");
+
+    expect(section).toContain("Nothing in the catalogue matches that");
+    expect(() => offeredIn(found.text)).toThrow();
+    // AND THE WAY BACK, which is the state a reader is most stuck in: a search
+    // that found nothing, with no list to pick from and nothing to edit.
+    expect(section).toContain("Show the whole catalogue");
   });
 });
 

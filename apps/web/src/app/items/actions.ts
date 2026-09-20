@@ -8,6 +8,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { whatTheProcedureAnswered } from "@/answer";
+import { inTheFixedOrder } from "@/components/query-params";
 import { whatTheFormCarries, whatTheFormRepeats } from "@/form";
 import { callerContext } from "@/session";
 
@@ -229,10 +230,31 @@ const positionField = z
   .transform((typed) => (typed === null || Number.isInteger(typed) ? typed : null))
   .catch(null);
 
+/**
+ * WHAT THE PLACEMENT PICKER WAS NARROWED TO, AS A FIELD (CNCORE-256).
+ *
+ * IT REACHES NO PROCEDURE. Like `namedPlacement`'s `containerId` below, it
+ * exists only to build the address a refusal redirects to -- so the Owner's
+ * search is still in the box when the page comes back saying why nothing was
+ * placed, rather than the picker they were reaching THROUGH being emptied at
+ * the moment they have to choose again.
+ *
+ * ABSENT AND BLANK ARE ONE ANSWER, which is `oneValue`'s rule one file over and
+ * is what keeps the two ends agreeing: an unnarrowed picker submits no field at
+ * all, and a field of spaces is a box somebody tabbed through. Either way there
+ * is no narrowing to carry, and `inTheFixedOrder` drops the parameter rather
+ * than writing `?placing=`.
+ */
+const theNarrowing = z
+  .string()
+  .transform((typed) => (typed.trim() === "" ? undefined : typed))
+  .catch(undefined);
+
 const placedMember = z.object({
   containerId: z.string(),
   itemId: z.string(),
   position: positionField,
+  placing: theNarrowing,
 });
 
 /**
@@ -246,8 +268,18 @@ export async function placeItemInContainer(form: FormData): Promise<void> {
   const input = whatTheFormCarries(form, placedMember);
   if (input === undefined) return;
 
+  /*
+   * THE NARROWING IS THIS ACTION'S AND NOT THE PROCEDURE'S, so it is taken off
+   * before the call rather than passed through it. `removePlacement` below
+   * makes the same separation for the same reason: a form carries what the
+   * SURFACE needs as well as what the write needs, and handing a procedure a
+   * field it never declared would be this action deciding what `placement.place`
+   * takes.
+   */
+  const { placing, ...placed } = input;
+
   const { refused } = await whatTheProcedureAnswered(
-    call(appRouter.placement.place, input, { context: await callerContext() }),
+    call(appRouter.placement.place, placed, { context: await callerContext() }),
   );
 
   /*
@@ -305,11 +337,26 @@ export async function placeItemInContainer(form: FormData): Promise<void> {
        * vague sentence instead of putting `undefined` in the address.
        */
       const because = typeof said === "string" && isAPlacementRefusalCause(said) ? said : undefined;
-      redirect(
-        because === undefined
-          ? `/items/${input.containerId}?refused=${input.itemId}`
-          : `/items/${input.containerId}?refused=${input.itemId}&because=${because}`,
+      /*
+       * IN THE ONE FIXED ORDER, AND ENCODED BY THE PLATFORM (CNCORE-256). This
+       * built its address with two hand-written arms, which was correct while
+       * both values were a uuid and a word from a closed set -- neither can
+       * carry a `&`, a `#` or a space. `placing` is the Owner's own TEXT, and
+       * splicing that into a query string by hand is how a search for `a&b`
+       * becomes two parameters and a search for `100%` becomes no address at
+       * all.
+       *
+       * `inTheFixedOrder` IS THE SAME FUNCTION EVERY LINK ON THAT PAGE GOES
+       * THROUGH, so what this redirect writes and what the picker's own controls
+       * write are one spelling rather than two (ADR-0066) -- and it drops a
+       * parameter with no value, which is what replaces the two arms: a refusal
+       * carrying no cause, or reached from an unnarrowed picker, simply writes
+       * fewer parameters.
+       */
+      const asked = new URLSearchParams(
+        inTheFixedOrder({ refused: input.itemId, because, placing }),
       );
+      redirect(`/items/${input.containerId}?${asked}`);
     }
     return;
   }

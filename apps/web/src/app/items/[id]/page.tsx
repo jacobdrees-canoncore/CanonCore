@@ -8,6 +8,7 @@ import { Select } from "@canoncore/ui/components/select";
 import { Textarea } from "@canoncore/ui/components/textarea";
 import { call, isDefinedError, safe } from "@orpc/server";
 import type { Metadata } from "next";
+import Form from "next/form";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { cache, Fragment } from "react";
@@ -353,9 +354,16 @@ export async function generateMetadata({
 
 /**
  * EVERY PARAMETER THIS ROUTE READS, named once because `generateMetadata` above
- * takes the same object. Six of the eight are the read's question (ADR-0066's
+ * takes the same object. Six of the ten are the read's question (ADR-0066's
  * `via`, `placed`, `after`, `placedAfter`, and the two step backs CNCORE-174
- * added, `before` and `placedBefore`) and two are what a write just did.
+ * added, `before` and `placedBefore`), three are what a write just did, and
+ * `placing` is what the Owner narrowed the placement picker to (CNCORE-256).
+ *
+ * `placing` IS NOT THE READ'S QUESTION, which is why it is not in `TheAddress`
+ * below and never reaches `theItem`. It changes which items the picker OFFERS
+ * and nothing about the item this page is about -- so folding it into the read's
+ * arguments would change the memo key that `generateMetadata` and the page share
+ * for an answer neither of them would read differently.
  */
 interface TheQuery {
   via?: string | string[];
@@ -367,6 +375,7 @@ interface TheQuery {
   undo?: string | string[];
   refused?: string | string[];
   because?: string | string[];
+  placing?: string | string[];
 }
 
 export default async function ItemPage({
@@ -401,7 +410,7 @@ export default async function ItemPage({
    * An array means the parameter was repeated; a route is one route, so a
    * repeated one names no ordering rather than the first of several.
    */
-  const { via, placed, after, placedAfter, before, placedBefore, undo, refused, because } =
+  const { via, placed, after, placedAfter, before, placedBefore, undo, refused, because, placing } =
     await searchParams;
   /*
    * `oneValue` OWNS WHAT A REPEATED OR BLANK PARAMETER MEANS, and this page is
@@ -478,6 +487,25 @@ export default async function ItemPage({
     const said = oneValue(because);
     return said !== undefined && isAPlacementRefusalCause(said) ? said : undefined;
   })();
+  /*
+   * WHAT THE OWNER NARROWED THE PLACEMENT PICKER TO (CNCORE-256), read on the
+   * SERVER like every other parameter here, so the page they are served is
+   * already the page they asked for.
+   *
+   * IT IDENTIFIES NOTHING (ADR-0066). A query naming no item narrows the picker
+   * to nothing and the section says so, which is what an absent row means
+   * everywhere else here -- there is nothing a reader can type that this has to
+   * refuse, and `catalogue.search` says as much of its own input.
+   *
+   * IT IS NEVER PRINTED IN THIS PAGE'S OWN VOICE, which is what keeps ADR-0123
+   * off this parameter. It goes back into the search box as its `defaultValue`
+   * -- the Owner's own words handed back inside a form field, which is what
+   * `/import` does with `q` under ADR-0151 -- and every sentence beside the
+   * picker is this page's, naming a COUNT rather than what was typed. Rendering
+   * it inside one of those sentences is the change that would owe a bound here,
+   * as `/settings` owes one on `?refused=`.
+   */
+  const placingWhat = oneValue(placing);
 
   /*
    * THE NARROWING GOES TO THE READ PATH (CNCORE-129), where it used to be
@@ -588,13 +616,22 @@ export default async function ItemPage({
           undone={undone}
           refused={refusedItem}
           because={refusedBecause}
+          placing={placingWhat}
+          /*
+           * EVERYTHING THE ADDRESS ALREADY CARRIES, so searching the picker
+           * leaves both listings where the Owner left them. This is the rule
+           * `TheRoute` states about the two cursors, applied to a third control
+           * on the same address: a gesture aimed at one of them may not move
+           * another. BOTH positions, because this form is not a walk of either.
+           */
+          carried={theRoute({ arrivedThrough, showingOnly, membersAt, appearancesAt })}
           context={context}
         />
       )}
       <Members
         itemId={item.id}
         holds={item.holds}
-        route={theRoute({ arrivedThrough, showingOnly, appearancesAt })}
+        route={theRoute({ arrivedThrough, showingOnly, appearancesAt, placing: placingWhat })}
         owner={owner}
       />
       <AlsoAppearsIn
@@ -604,6 +641,7 @@ export default async function ItemPage({
         showingOnly={showingOnly}
         membersAt={membersAt}
         appearancesAt={appearancesAt}
+        placing={placingWhat}
       />
       {/*
         WHICH SCOPES THIS ITEM IS IN (ADR-0010, story 38), AFTER THE ORDERINGS
@@ -1094,9 +1132,22 @@ function theRoute({
   showingOnly,
   membersAt,
   appearancesAt,
+  placing,
 }: {
   arrivedThrough?: string;
   showingOnly?: string;
+  /**
+   * WHAT THE PLACEMENT PICKER IS NARROWED TO (CNCORE-256), carried by every
+   * link this page writes rather than by the picker's own control alone.
+   *
+   * A THIRD POSITION ON ONE ADDRESS, and the argument is the one the two
+   * cursors already make: the picker, the Members list and "Also appears in"
+   * are independent, so a link that walks or narrows any one of them must leave
+   * the other two exactly where the Owner left them. A `Next` under Members
+   * that dropped this would empty the Owner's search box because they turned
+   * somebody else's page.
+   */
+  placing?: string;
   /**
    * WHERE THE TWO LISTINGS STAND, and a caller passes the ones its own links
    * must CARRY. Each is a cursor on or a step back since CNCORE-174, so each is
@@ -1120,6 +1171,7 @@ function theRoute({
     placed: showingOnly,
     ...membersAt,
     ...appearancesAt,
+    placing,
   });
 }
 
@@ -1141,6 +1193,7 @@ function AlsoAppearsIn({
   showingOnly,
   membersAt,
   appearancesAt,
+  placing,
 }: {
   itemId: string;
   placements: ItemOnThePage["placements"];
@@ -1163,6 +1216,12 @@ function AlsoAppearsIn({
   membersAt: Pick<TheRoute, "after" | "before">;
   /** Where THIS listing stands, if the page was asked with a position in it. */
   appearancesAt: Pick<TheRoute, "placedAfter" | "placedBefore">;
+  /**
+   * What the placement picker is narrowed to, which this section's links carry
+   * FORWARD rather than drop (CNCORE-256) -- `membersAt`'s reason, for the
+   * third independent thing on this address.
+   */
+  placing?: string;
 }) {
   const { rows, total, rowsBefore, continuesAfter, continuesBefore, everyPlacedBy } = placements;
   /*
@@ -1200,7 +1259,7 @@ function AlsoAppearsIn({
   // `/items/<id>` is where this listing is walked, for the same reason the
   // Members list is: a Container IS an Item and this is the item's own page.
   const path: MembersPath = `/items/${itemId}`;
-  const route = theRoute({ arrivedThrough, showingOnly, membersAt, appearancesAt });
+  const route = theRoute({ arrivedThrough, showingOnly, membersAt, appearancesAt, placing });
 
   return (
     <section className="mt-8" aria-labelledby="also-appears-in">
@@ -1253,6 +1312,7 @@ function AlsoAppearsIn({
           arrivedThrough={arrivedThrough}
           showingOnly={showingOnly}
           membersAt={membersAt}
+          placing={placing}
         >
           All
         </FilterLink>
@@ -1264,6 +1324,7 @@ function AlsoAppearsIn({
             showingOnly={showingOnly}
             origin={origin}
             membersAt={membersAt}
+            placing={placing}
           >
             {placedByLabel(origin)}
           </FilterLink>
@@ -1404,6 +1465,7 @@ function FilterLink({
   showingOnly,
   origin,
   membersAt,
+  placing,
   children,
 }: {
   itemId: string;
@@ -1412,6 +1474,12 @@ function FilterLink({
   origin?: string;
   /** Where the Members listing stands, which a chip carries rather than moves. */
   membersAt: Pick<TheRoute, "after" | "before">;
+  /**
+   * What the placement picker is narrowed to, which a chip carries for the
+   * mirror of `membersAt`'s reason: a chip has nothing to do with the picker,
+   * so it must not empty it (CNCORE-256).
+   */
+  placing?: string;
   children: React.ReactNode;
 }) {
   // An object rather than a string: Next's typed routes match a string href
@@ -1422,7 +1490,7 @@ function FilterLink({
   // `origin` RATHER THAN `showingOnly` IS WHAT THIS CHIP NARROWS TO: the chip
   // for an origin points AT it, and the `All` chip has none and therefore drops
   // `placed` -- which is what makes it All.
-  const query = theRoute({ arrivedThrough, showingOnly: origin, membersAt });
+  const query = theRoute({ arrivedThrough, showingOnly: origin, membersAt, placing });
 
   return (
     <Link
@@ -1669,6 +1737,8 @@ async function PlaceAnItem({
   undone,
   refused,
   because,
+  placing,
+  carried,
   context,
 }: {
   containerId: string;
@@ -1677,6 +1747,14 @@ async function PlaceAnItem({
   refused?: string;
   /** WHY the catalogue refused it, already checked to name a cause we raise. */
   because?: PlacementRefusalCause;
+  /** What the Owner narrowed this picker to, if they have searched it. */
+  placing?: string;
+  /**
+   * EVERYTHING ELSE THE ADDRESS CARRIES, which the search keeps rather than
+   * drops: the ordering the reader arrived through, the origin "Also appears
+   * in" is narrowed to, and where each of the two listings stands.
+   */
+  carried: TheRoute;
   context: Context;
 }) {
   /*
@@ -1687,8 +1765,30 @@ async function PlaceAnItem({
    * another file. The listing itself is open (ADR-0044) --
    * what makes this section the owner's is that the page renders it only for
    * them, which is the same posture `Note` and `EditTitle` take.
+   *
+   * WHICHEVER QUESTION THE OWNER ASKED (CNCORE-256): the catalogue, or the
+   * catalogue narrowed to what they typed. Both are ONE PAGE of the same
+   * listing and answer the same shape (`cataloguePublic`), so what changes
+   * between them is which items the picker offers and nothing about how this
+   * section counts them or words its sentences.
+   *
+   * `catalogue.search` RATHER THAN A SECOND SEARCH PATH. It is the procedure
+   * `/search` asks, which is what stops the picker becoming a second answer to
+   * "what is in this catalogue" -- the escaping of `LIKE` metacharacters, the
+   * cap, the count and the ranking (ADR-0120) are all one seam's, and a picker
+   * that matched titles its own way would be a second set of rules for one
+   * question. `list` IS STILL THE UNASKED CASE rather than a search for the
+   * empty string: an escaped empty query is the pattern `%%`, which matches
+   * every titled row and would silently drop the untitled ones from a picker
+   * that had not been searched at all.
    */
-  const { rows, total } = await call(appRouter.catalogue.list, {}, { context });
+  const { rows, total } =
+    placing === undefined
+      ? await call(appRouter.catalogue.list, {}, { context })
+      : await call(appRouter.catalogue.search, { query: placing }, { context });
+  // WHERE THE PICKER'S OWN CONTROLS SUBMIT AND POINT: this container's page,
+  // which is the one address this section lives at (ADR-0004, ADR-0066).
+  const here: MembersPath = `/items/${containerId}`;
 
   return (
     <section className="mt-8" aria-labelledby="place-an-item">
@@ -1733,11 +1833,101 @@ async function PlaceAnItem({
             : WHAT_WAS_REFUSED[because]}
         </p>
       )}
-      <form action={placeItemInContainer} className="mt-2 flex items-end gap-2">
-        <input type="hidden" name="containerId" value={containerId} />
+      {/*
+        THE WAY TO AN ITEM THE PICKER IS NOT OFFERING (CNCORE-256), and the
+        reason it is HERE rather than on the item's own page. ADR-0061 gives
+        every container its membership outright, so the control that changes
+        this ordering belongs to this ordering -- what was missing was never a
+        second control at the item's end but a way to REACH one item through
+        this one. The notice below said otherwise and named a control that has
+        never existed.
+
+        A `<Form>` RATHER THAN A `<form action="/items/...">`, which is
+        ADR-0109's rule and not a preference: Next prefixes `<Link>`, `<Form>`
+        and `router.push()` under a `basePath` and nothing else, so a raw form
+        here renders identically today and points at the wrong place the day
+        this app is served from a path. It also needs no script, which is what
+        the whole of this section is built on.
+
+        IT IS A GET AND THE ONE BESIDE IT IS A POST, which is the difference
+        between asking this page a narrower question and changing what the
+        container holds. A reader with no script gets both.
+      */}
+      <Form action={here} className="mt-2 flex items-end gap-2">
+        {/*
+          EVERYTHING THE ADDRESS ALREADY CARRIED, so a search of the picker
+          leaves the Members list and "Also appears in" exactly where the Owner
+          left them -- `TheRoute`'s rule for the two cursors, applied to a third
+          control on one address.
+
+          IN THE FIXED ORDER, WHICH IS WHY THIS IS A MAP RATHER THAN SEVEN
+          HAND-WRITTEN INPUTS. A browser submits fields in the order they stand
+          in the document, so the document order IS the address this control
+          writes -- and `carried` is `inTheFixedOrder`'s own object, whose keys
+          are already in that order. The query goes LAST because `placing` is
+          last in that list, which is the position it was given so that this
+          form could stand its fields in one run (ADR-0066).
+        */}
+        {Object.entries(carried).map(([name, value]) => (
+          <input key={name} type="hidden" name={name} value={value} />
+        ))}
         <div className="flex flex-1 flex-col gap-2">
-          <Label htmlFor="itemId">Item</Label>
+          <Label htmlFor="placing">Find an item</Label>
           {/*
+            PREFILLED WITH WHAT WAS ASKED, which is ADR-0151's posture on
+            `/import`'s box: a control that cleared itself would make the Owner
+            retype the query to change one letter of it, and the box is also the
+            only place this section shows them what it is narrowed to.
+
+            AND THAT IS WHY NO SENTENCE HERE QUOTES IT. The Owner's words go
+            back into their own field; every sentence beside this picker is the
+            page's own and names a COUNT. So `?placing=` never lands inside a
+            sentence this app speaks in its own voice, and ADR-0123's bound --
+            which `/settings` owes on `?refused=` for exactly that reason -- is
+            not owed here.
+          */}
+          <Input
+            id="placing"
+            name="placing"
+            type="search"
+            defaultValue={placing ?? ""}
+            placeholder="Part of a title"
+            autoComplete="off"
+          />
+        </div>
+        <Button type="submit" variant="secondary">
+          Find
+        </Button>
+      </Form>
+      {/*
+        NO PICKER AT ALL WHERE NOTHING MATCHED, rather than an empty one. The
+        select is `required`, so an empty one is a control the Owner can press
+        Place on and be refused by for a reason that is not their fault -- and
+        ADR-0116's rule is that a UI permitting a gesture and then failing the
+        write is worse than one that does not offer it. The sentence below says
+        what happened and offers the way back.
+      */}
+      {rows.length > 0 && (
+        <form action={placeItemInContainer} className="mt-2 flex items-end gap-2">
+          <input type="hidden" name="containerId" value={containerId} />
+          {/*
+            WHAT THE PICKER IS NARROWED TO, SO A REFUSAL CAN HAND IT BACK
+            (CNCORE-256). This form posts to the container's own address and
+            the response to a SUCCESSFUL placement is that same page rendered
+            again -- narrowing included, because the address never changed. A
+            REFUSAL is the one that leaves: it redirects to an address this
+            action builds (CNCORE-255), and an address built without this would
+            answer the Owner's refusal with the picker emptied of the search
+            that found the item they were placing.
+
+            ONLY WHERE THERE IS ONE, so an unnarrowed picker submits no field
+            rather than an empty one -- which is what keeps `?placing=` off
+            every address the unsearched picker produces (ADR-0066).
+          */}
+          {placing !== undefined && <input type="hidden" name="placing" value={placing} />}
+          <div className="flex flex-1 flex-col gap-2">
+            <Label htmlFor="itemId">Item</Label>
+            {/*
             A `<select>` RATHER THAN AN ID TYPED IN, because an owner curating an
             ordering knows what they want to add by its NAME. It needs no script:
             a select posts its chosen option as an ordinary field, which is the
@@ -1750,41 +1940,96 @@ async function PlaceAnItem({
             is where this slips" -- and then wore a hand-copy of the right
             metrics, which is what drifted on the third surface to copy them.
           */}
-          <Select id="itemId" name="itemId" required>
-            {rows.map((row) => (
-              <option key={row.id} value={row.id}>
-                {row.title ?? "Untitled item"}
-              </option>
-            ))}
-          </Select>
-        </div>
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="position">Position</Label>
-          {/*
+            <Select id="itemId" name="itemId" required>
+              {rows.map((row) => (
+                <option key={row.id} value={row.id}>
+                  {row.title ?? "Untitled item"}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="position">Position</Label>
+            {/*
             NOT `required`, AND THAT IS THE WHOLE OF CONTEXT.md's Unplaced. An
             owner may say "this belongs in here" without claiming where, and an
             empty field is how they say it -- the action reads `""` as no
             position rather than as a number it failed to parse.
           */}
-          <Input
-            id="position"
-            name="position"
-            type="number"
-            step="1"
-            autoComplete="off"
-            className="w-28"
-          />
-        </div>
-        <Button type="submit">Place</Button>
-      </form>
+            <Input
+              id="position"
+              name="position"
+              type="number"
+              step="1"
+              autoComplete="off"
+              className="w-28"
+            />
+          </div>
+          <Button type="submit">Place</Button>
+        </form>
+      )}
       {/*
-        THE CAP IS NEVER SILENT (ADR-0119). A picker offering the first hundred
-        items of a larger catalogue has to say so, or an owner who cannot find
-        what they are looking for reads it as the item not existing.
+        THE CAP IS NEVER SILENT (ADR-0119), AND THE COUNT IS THE LISTING'S OWN
+        SENTENCE RATHER THAN A SECOND SPELLING OF IT (CNCORE-256). `Holding` is
+        what every other Listing in this app counts itself with -- the grouped
+        figure, the plural, and ADR-0133's "items 1 to 100 of 8,052" -- and this
+        section printed its own `Showing {rows.length} of {total} items` beside
+        it, which is one rule in two places and one of them without the
+        thousands separator a catalogue this size needs.
+
+        `result` WHERE THE OWNER SEARCHED AND `item` WHERE THEY DID NOT, which
+        is the distinction `Holding` takes the noun for: a search counts how
+        many MATCHED, and the unasked picker counts what the catalogue holds.
+        `rowsBefore` IS ZERO because this picker does not walk -- it is always
+        the first page of whichever question was asked, and the way past the
+        first page is the search above rather than a cursor.
+      */}
+      <Holding
+        showing={rows.length}
+        rowsBefore={0}
+        total={total}
+        noun={placing === undefined ? "item" : "result"}
+      />
+      {/*
+        AND THE REMEDY IS NAMED ONLY WHERE THERE IS ONE TO NAME, which is the
+        whole of CNCORE-256. This sentence read "Search for one to place it from
+        its own page" -- and an Item's own page offers no way to place it into
+        anything, so the one thing the notice told the Owner to do could not be
+        done. The remedy now sits one control above it.
+
+        THE THREE STATES ARE THE THREE ANSWERS, and each names what to do next:
+        a capped catalogue points at the search, a capped SEARCH points at
+        narrowing it further, and a search that matched nothing offers the whole
+        catalogue back. A page showing everything it has says nothing extra,
+        because there is nothing the Owner cannot already reach.
       */}
       {rows.length < total && (
-        <p className="mt-2 text-muted-foreground text-sm">
-          Showing {rows.length} of {total} items. Search for one to place it from its own page.
+        <p className="mt-1 text-muted-foreground text-sm">
+          {placing === undefined
+            ? "Find an item above to place one that is not on this list."
+            : "Narrow the search above to reach the matches that are not on this list."}
+        </p>
+      )}
+      {placing !== undefined && total === 0 && (
+        <p className="mt-1 text-muted-foreground text-sm">
+          Nothing in the catalogue matches that. Search reads the title each item goes by, so an
+          item known here under another title is not found by it yet.
+        </p>
+      )}
+      {/*
+        THE WAY OUT OF THE NARROWING, offered whenever there is one to leave --
+        including from a search that matched nothing, which is the state a
+        reader is most stuck in. It is the picker's address with `placing`
+        dropped and everything else the page carries kept, built from `carried`
+        rather than spelled out here: an address written by hand would be a
+        second spelling of this page (ADR-0066), and a `<Link>` is what Next
+        rewrites under a `basePath` (ADR-0109).
+      */}
+      {placing !== undefined && (
+        <p className="mt-1 text-sm">
+          <Link href={{ pathname: here, query: carried }} className="hover:underline">
+            Show the whole catalogue
+          </Link>
         </p>
       )}
     </section>
