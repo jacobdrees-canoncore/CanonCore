@@ -329,7 +329,15 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     steps:
+      # THE PICKAXE NEEDS THE HISTORY (CNCORE-246). `adr-identifiers.test.ts`
+      # asks git whether an identifier a record names was ever this tree's, and
+      # checkout's default depth of 1 would answer "never ours" to every one --
+      # so that check would pass having read nothing, which is the false signal
+      # it exists to remove. It refuses to run on a shallow clone rather than
+      # trusting this line to stay here.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - uses: pnpm/setup@v2
         with:
           runtime: node@24
