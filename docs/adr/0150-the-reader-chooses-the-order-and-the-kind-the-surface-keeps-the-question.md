@@ -45,9 +45,23 @@ search would be two scopes wearing one name". The same sentence holds word for w
 `?kind=` reaches all three Listings through one predicate and one picker, and the size follows it on
 all three because `theSize` reads the same `within` as the Rows do (CNCORE-172).
 
-**AND THE PICKER IS ON ALL THREE RATHER THAN ON THE TWO THAT BROWSE.** ADR-0138 is why: a parameter
-the seam accepts and no surface sends is a capability with no caller. ADR-0077 says search "returns
-all seven kinds", and it still does -- unnarrowed, a Character's name finds the Character.
+**THE SEAM TAKES IT ON ALL THREE; THE PICKER IS ON TWO.** ADR-0138 is why the seam earns it: a
+parameter no surface sends is a capability with no caller, and the Catalogue and Catalogue search
+both send it. ADR-0077 says search "returns all seven kinds", and it still does -- unnarrowed, a
+Character's name finds the Character.
+
+**WORK-BROWSING GETS NO PICKER, AND THAT IS A DECISION RATHER THAN AN OMISSION.** Work-browsing IS a
+kind: its predicate is `kind = 'work' AND (NOT is_container OR holds_work)`, so every Row it can
+reach is a Work -- measured against the live schema under CNCORE-175, **one distinct kind**. A picker
+there would offer seven options of which six answer "nothing to watch" and the seventh changes
+nothing, which is a control that cannot be used rather than one a reader might not need. The
+nearest question a reader of that page might actually have -- stories or the containers holding them
+-- is `is_container` (ADR-0004) and not a kind at all, so a kind picker could not answer it either.
+
+The seam still accepts `kind` there, because `listingInput` is shared by all three questions and the
+Listing contract asks every one of them the same thing. Narrowing what a surface OFFERS is a
+surface's business; narrowing what the seam ACCEPTS per question would make work-browsing the odd
+one out at the contract for a reason that lives in a page.
 
 ## The order is on the two browsed Listings and NOT on Catalogue search
 
@@ -109,7 +123,8 @@ an expression (Catalogue search's closeness, ADR-0120); this is the second reaso
 every Listing, so a fourth inherits them rather than being remembered.
 
 **WHAT IS DELIBERATELY NOT IN IT**, named so nothing reads as a missing half: Catalogue search takes
-no order (above), and the two Listings on the Item page take neither -- a Container's Members are in
+no order and work-browsing offers no kind picker (both above), and the two Listings on the Item page
+take neither -- a Container's Members are in
 its own order (ADR-0018) and "Also appears in" never runs past one page (ADR-0143), and neither is a
 question a reader was offered here.
 

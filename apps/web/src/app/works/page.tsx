@@ -8,7 +8,6 @@ import {
   JumpToALetter,
   Listing,
   NarrowToAGroup,
-  NarrowToAKind,
   NoSuchGroup,
   OrderTheListing,
   PastTheEnd,
@@ -72,13 +71,11 @@ async function readWorkBrowsing(
   // AND EVERY GROUP THERE IS, which the picker offers and the Group this page
   // was narrowed to is found among -- the front page's pair, for its reason
   // (CNCORE-180).
-  const [works, { kinds }, { groups }] = await Promise.all([
+  const [works, { groups }] = await Promise.all([
     call(appRouter.catalogue.works, { ...at, group, ...chosen }, { context }),
-    // EVERY KIND THERE IS, which the narrowing picker offers (CNCORE-175).
-    call(appRouter.item.kinds, undefined, { context }),
     call(appRouter.group.list, undefined, { context }),
   ]);
-  return { works, kinds, groups };
+  return { works, groups };
 }
 
 export default async function WorksPage({
@@ -107,7 +104,7 @@ export default async function WorksPage({
   // Catalogue reads it. Narrowing this Listing to a kind does not make it the
   // Catalogue: ADR-0077's question is the surface's, and this narrows it.
   const chosen = { order: oneOrder(order), kind: oneKind(kind) };
-  const { works, kinds, groups } = await readWorkBrowsing(at, narrowedTo, chosen);
+  const { works, groups } = await readWorkBrowsing(at, narrowedTo, chosen);
   const rows = works.rows;
   const scope = theScope(groups, narrowedTo);
   // NOTHING TO WATCH IN WHAT WAS ASKED, which is the Group's Works when there
@@ -126,7 +123,20 @@ export default async function WorksPage({
       {groups.length > 0 && (
         <NarrowToAGroup path="/works" groups={groups} narrowedTo={narrowedTo} chosen={chosen} />
       )}
-      <NarrowToAKind path="/works" kinds={kinds} narrowed={scope.narrowed} chosen={chosen} />
+      {/*
+        NO KIND PICKER HERE, AND THAT IS THE RECORD RATHER THAN AN OMISSION.
+        Work-browsing IS a kind: ADR-0077's predicate is `kind = 'work' AND (NOT
+        is_container OR holds_work)`, so every Row this page can reach is a
+        Work -- measured against the live schema, one distinct kind. A picker
+        would offer seven options of which six answer "nothing to watch" and the
+        seventh changes nothing, which is a control that cannot be used rather
+        than one a reader might not need.
+
+        THE SEAM STILL TAKES `kind`, because `listingInput` is shared by all
+        three questions and the Listing contract asks every one of them the same
+        thing. What earns the parameter its place (ADR-0138) is the Catalogue
+        and Catalogue search, where the kinds a reader can pick genuinely differ.
+      */}
       <OrderTheListing path="/works" narrowed={scope.narrowed} chosen={chosen} />
       {/*
         THE ALPHABET BELONGS TO THIS LISTING'S OWN ORDER, and is hidden in the
