@@ -190,7 +190,19 @@ export default async function SearchPage({
       {results === null && <NothingAsked />}
       {results !== null && scope.gone && <NoSuchGroup {...surface} />}
       {results !== null && results.total === 0 && !scope.gone && (
-        <NothingFound query={query} within={scope.group?.name} everywhere={theStartOf(surface)} />
+        <NothingFound
+          query={query}
+          within={scope.group?.name}
+          /*
+           * THE WHOLE CATALOGUE MEANS BOTH NARROWINGS DROPPED (CNCORE-175), not
+           * just the Group. This link says "Search the whole catalogue", and a
+           * reader narrowed to a Group AND a kind who followed it would land on
+           * a search still narrowed to one kind -- the link's own words untrue
+           * of where it goes. The query is kept, because clearing a scope is
+           * not clearing the question.
+           */
+          everywhere={theStartOf({ ...surface, chosen: undefined })}
+        />
       )}
       {/*
         MATCHES, AND NONE OF THEM ON THIS PAGE, which is what a cursor makes
