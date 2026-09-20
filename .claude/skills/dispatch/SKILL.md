@@ -20,7 +20,8 @@ tool capped it at 30 minutes three times running and said so only in its start m
 notice at expiry is easy to read as another event. Re-arm on that notice, with the same `SCRATCH`
 so the diff resumes instead of re-announcing the board. A merged change to `monitor.sh` also does
 nothing until you stop the running watch and start it again. Its header names every line it
-emits; `ROOM` and `IDLE` are read under **How full**, the `DRIFT-` lines under **Drift**.
+emits; `ROOM`, `IDLE`, `UNBOUND` and `UNBOUND-BLIND` are read under **How full**, the `DRIFT-` lines
+under **Drift**.
 
 **1. Read the diff, then re-check its central claim.** A green check is not a review, and the PR's
 own reasoning is not evidence either. Take the one load-bearing claim the work rests on and put it
@@ -121,6 +122,19 @@ while the count read full. Parked: answer what is technical and yours, and carry
 `CLAUDE.md` reserves for the user (money, a licence, a background service). Finished: merge and
 remove. Dead: read the terminal before assuming the work is lost.
 
+**AND A PARKED AGENT IS UNREACHABLE, so this read comes BEFORE a broadcast and not only after one.**
+Anything sent to it goes to the prompt widget rather than the chat, where `--enter` answers the
+question on its behalf (ADR-0162). Answer the prompt first, then send.
+
+**`UNBOUND <worktree>` MEANS A WORKTREE THAT CANNOT BRIEF ITS OWN AGENT**, because `--prompt
+"/implement"` carries no ticket number and the binding is the whole brief. It reads
+`linkedLinearIssue`, which is the field the 2026-09-20 wave got wrong by reading `linkedIssue`
+beside it. It emits on the ABSENCE, so a pass with no `UNBOUND` line has already answered the
+question — which is the direction that fails safe, since a worktree wrongly reported bound is the
+one that sends an agent out blind. **`UNBOUND-BLIND` means the listing itself could not be trusted**
+— unparseable, an unexpected shape, or `truncated` on a paged read — so that pass saw nothing rather
+than saw nothing wrong, and silence keeps its one meaning.
+
 **`GONE <worktree>` MEANS NO AGENT AT ALL, AND THE WORK IS PROBABLY STILL THERE.** A session restart
 killed two agents at once on 2026-09-19. Their worktrees held seven commits between them, five never
 pushed, and their PRs read `+0` — which is exactly what an abandoned worktree looks like. Check
@@ -205,11 +219,21 @@ let the range pick the newer one up later.
   work is in a third place: the other repo's `git status`. Say this when you brief the fold — the
   163/164 pair read as stalled on 2026-09-14 while it was writing a compose file and a 209-line
   test, and the question came back as "the orca worktree isnt doing anyhting".
-- **`orca terminal send` TYPES; `--enter` SENDS.** Without that flag the text lands in the agent's
-  input box and sits there, and the call still answers `Sent 187 bytes to term_...`. Two briefs
-  naming a merged ADR rung sat unsubmitted in two agents' prompts on 2026-09-19 while this loop's own
-  report said both had been told. Pass `--enter`, then read the terminal back: a cursor that has not
-  advanced is a brief nobody received.
+- **`orca terminal send` TYPES; `--enter` SENDS — AND `--enter` IS STILL NOT DELIVERY.** There are
+  three ways a brief fails to arrive and all three answer `ok: true` with a byte count (ADR-0162).
+  Without the flag the text lands in the input box and sits there: two briefs naming a merged ADR
+  rung sat unsubmitted on 2026-09-19 while this loop's own report said both had been told. **With
+  the flag, mid-turn, it QUEUES rather than submits** — the UI shows `ctrl+x ctrl+s to send now` and
+  it lands only when the turn ends, measured three times on 2026-09-20 against cncore-205, 254 and
+  252, each an attribution correction that would have arrived after the PR body it was correcting.
+  `printf '\030\023'` flushes it, and the hint disappearing is the confirmation. **And with the
+  flag, to a PARKED agent, the input goes to the PROMPT WIDGET, where `--enter` SELECTS the option
+  under the cursor** — on a multi-select with a free-text field the text can land in the field.
+  Measured broadcasting to eight agents on 2026-09-20: six received it, two were parked, and BOTH
+  known tells read clean because nothing ever reached the input box. So **read `--screen` BEFORE
+  sending, not only after**: `Enter to select` on the screen means the agent is unreachable until
+  its prompt is answered. `--screen` is required rather than preferred — the default read returns
+  stacked fragments rather than what the terminal renders, so it cannot show an input box at all.
 - **`orca terminal send` truncates a long message, silently.** The agent acts on the fragment. Keep
   each send to a couple of hundred bytes and split; read the terminal back to confirm it landed.
   This cost CNCORE-40 a whole pass.
@@ -219,7 +243,25 @@ let the range pick the newer one up later.
   deleted. Say what merged and when.
 - **`save-issue` reports `linear_write_unconfirmed` on writes that landed.** Read back rather than
   retry.
-- **`orca worktree set --linear-issue` answers `ok: true` and binds nothing.** Measured twice on
-  2026-09-13, by path and by branch: `linkedIssue` stayed `null` both times. Bind at
-  `worktree create` or not at all — an unbound worktree is invisible to `--current` and to the
-  monitor, so a later `set` is not the repair it looks like.
+- **A LINEAR BINDING IS READ AT `linkedLinearIssue`. `linkedIssue` IS GITHUB'S FIELD AND IS ALWAYS
+  `null` HERE**, because this repo does not use GitHub Issues (`CLAUDE.md`). Reading the wrong one
+  is how both of this gotcha's previous versions went wrong: it used to say `set --linear-issue`
+  "answers `ok: true` and binds nothing", on a 2026-09-13 measurement of `linkedIssue`, and the
+  2026-09-20 wave read five worktrees as unbound the same way. That field cannot show a Linear
+  binding's absence OR its presence, so neither reading established anything. **Both
+  `create --linear-issue` and `set --linear-issue` bind**, re-measured 2026-09-20 against probe
+  worktrees created and removed for it, each confirmed by an independent `orca worktree list` read
+  rather than by the write's own response (ADR-0162).
+- **`--current` RESOLVES FROM THE CALLER TERMINAL, NOT THE WORKING DIRECTORY, so a dispatcher cannot
+  audit a binding with it.** `cd` into another worktree and ask, and you get `linear_no_linked_issue`
+  about YOUR shell's worktree while the one you are standing in is bound. Measured from a terminal
+  belonging to `cncore-265`, standing in `cncore-281`: it answered **CNCORE-265**.
+  `docs/research/multi-repo.md` had already measured this under "The trap, which produced a false
+  negative inside this research", and ruled there that a null `linkedLinearIssueWorkspaceId` "is not
+  a signal of anything" — so that field is not the tell either. **AND IT IS FIVE FOR FIVE FOR YOU
+  SPECIFICALLY**, because you dispatch from the main worktree and that checkout carries no binding
+  of its own: `--current` from there returns `linear_no_linked_issue` for EVERY worktree you stand
+  in, bound or not, however many times you re-run it. **The dispatched agent is unaffected**, since
+  Orca gives it a terminal in its own worktree. So audit a binding with `linkedLinearIssue` from
+  `orca worktree list`, or read a `monitor.sh` pass with no `UNBOUND` line as that question already
+  answered; leave `--current` to the agent reading its OWN ticket.

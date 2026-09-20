@@ -4,6 +4,8 @@
 #   ROOM <n>                             n CanonCore slots free of the four
 #   IDLE <worktree>                      an agent has gone quiet: parked, done or dead
 #   GONE <worktree>                      a worktree with no agent at all
+#   UNBOUND <worktree>                   a worktree with no Linear binding to brief its agent
+#   UNBOUND-BLIND                        the worktree listing could not be trusted this pass
 #   READY <repo> #<n> <state> <branch>   a PR left draft and wants reading
 #   TICKET <id> <state> <title>          a ticket changed state
 #   DRIFT-BEHIND <id>                    Todo, but a worktree or PR exists for it
@@ -69,6 +71,52 @@ for w in sorted(glob.glob(os.path.expanduser("~/orca/workspaces/CanonCore/*/")))
     w = w.rstrip("/")
     if "trash" not in w and w not in held:
         print("GONE", w.split("/")[-1])
+' 2>/dev/null || true
+
+    # A WORKTREE WITH NO BINDING CANNOT BRIEF ITS OWN AGENT. Dispatch sends
+    # `--prompt "/implement"` and nothing more, so the binding carries the whole
+    # ticket; without it the agent wakes up with no idea what to build. The
+    # create call answers `ok: true` either way, which is why this is read here
+    # rather than trusted there (ADR-0162).
+    #
+    # IT READS `linkedLinearIssue`, NOT `linkedIssue`. The second is the GITHUB
+    # issue number and is null on every CanonCore worktree because this repo does
+    # not use GitHub Issues, so it can show a Linear binding neither present nor
+    # absent. Reading it is how the 2026-09-20 wave declared five worktrees
+    # unbound on evidence that could not say either way -- the same misread as a
+    # 2026-09-13 note about `set --linear-issue`, seven days apart.
+    #
+    # EMITTING ON AN ABSENCE ONLY FAILS SAFE IF ABSENCE IS DISTINGUISHABLE FROM
+    # NOT HAVING LOOKED, which is the trap the drift lines below set `blind` for.
+    # A listing that did not parse, or that came back short, would otherwise read
+    # as every worktree bound -- the exact false all-clear this block exists to
+    # remove. `orca worktree list` is paged and says so in `truncated`, so a
+    # short read emits UNBOUND-BLIND rather than silence, and silence keeps its
+    # one meaning: every worktree was seen, and every one is bound.
+    orca worktree list --json 2>/dev/null | python3 -c '
+import json, sys
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    print("UNBOUND-BLIND")
+    sys.exit()
+# BOTH SHAPES, as the IDLE and GONE blocks above accept: a runtime that drops the
+# `result` envelope would otherwise silence this check rather than trip it.
+r = d.get("result") or d
+if not isinstance(r, dict) or "worktrees" not in r:
+    print("UNBOUND-BLIND")
+    sys.exit()
+if r.get("truncated"):
+    print("UNBOUND-BLIND")
+for w in r.get("worktrees") or []:
+    path = (w.get("path") or "").rstrip("/")
+    if "/workspaces/CanonCore/" not in path or "trash" in path or w.get("isArchived"):
+        continue
+    if not w.get("linkedLinearIssue"):
+        # NAME SPLIT OFF THE PATH, and any newline in it dropped: this is a line
+        # protocol read by `comm` and `grep -qx`, so a name carrying a newline
+        # would inject whole lines the dispatcher reads as fact.
+        print("UNBOUND", path.split("/")[-1].replace("\n", " "))
 ' 2>/dev/null || true
 
     for r in $REPOS; do
