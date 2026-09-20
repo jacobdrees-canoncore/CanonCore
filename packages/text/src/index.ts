@@ -41,9 +41,12 @@
  * A reviewer must be able to SEE what is matched, so every member is escaped.
  *
  * STRIPPED RATHER THAN ESCAPED, because there is no legitimate use for one in
- * the values these bound: a reason, a credential's label, a task's detail and a
- * Container id are single sentences or single tokens, not documents with a
- * mixed-direction layout to preserve.
+ * the values these bound: a reason, a credential's label, a task's detail, a
+ * Container id and a catalogue-search query are single sentences or single
+ * tokens, not documents with a mixed-direction layout to preserve. The query
+ * joined them with CNCORE-291 and is the one a reader TYPED rather than one a
+ * Provider or the Owner stored -- which changes who chose it and nothing about
+ * its shape, since a search box submits one line.
  */
 const CONTROLS = /[\u202a-\u202e\u2066-\u2069\u200b-\u200d\ufeff]/g;
 

@@ -8,7 +8,12 @@ status: accepted
 > `shortenTo` and `boundedTo` and depends on nothing. Every site that puts a stranger's PROSE in a
 > sentence reaches both levers through `boundedTo`: `@canoncore/providers` (`bounded`),
 > `@canoncore/db` (the repeat's refusal), `@canoncore/api` (the overlong-id refusal),
-> `@canoncore/tasks` (a task's detail) and `apps/web` (`?refused=`). `shortenTo` has exactly one
+> `@canoncore/tasks` (a task's detail) and `apps/web` (`?refused=` -- **and `?q=` on `/search`,
+> which this list MISSED and CNCORE-291 added**: it was a sixth site putting a stranger's prose in
+> one of this app's own sentences, reaching neither lever, while the sentence here said every such
+> site reached both. The claim was about the CALLERS that existed, and the site nobody had counted
+> is exactly the one it could not see; a count of `boundedTo`'s callers is not a count of the places
+> that owe it). `shortenTo` has exactly one
 > caller, `shortly`, whose values are parsed URLs and hosts rather than prose. No hand-written copy
 > of either lever survives in the tree, checked by grepping `0xd800`, `202a` and `feff`. The
 > repeat's refusal in `packages/db/src/import-runs.ts` bounds its Container id on both, with two

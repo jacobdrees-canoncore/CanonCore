@@ -118,9 +118,13 @@ the Owner's own words handed back inside their own form field -- `/import`'s pos
 picker is this page's own, naming a COUNT. **Quoting the query in one of those sentences is the
 change that would owe a bound**, and whoever makes it owes it in the same edit.
 
-`/search` does quote its query, in "Nothing matched <query>", and does not bound it. That is a gap
-in that surface rather than a licence for this one, and it is **CNCORE-291** rather than something
-copied here.
+`/search` does quote its query, in "Nothing matched <query>", and **did not bound it when this
+record was taken**. That was a gap in that surface rather than a licence for this one, and it was
+**CNCORE-291** rather than something copied here. **CLOSED**
+([[0168-a-value-a-page-both-asks-with-and-quotes-is-two-values]]): `?q=` is bounded on both levers
+where it is read. The reasoning above is untouched, because it turns on where a value LANDS -- that
+one lands in a form field and this one landed in a sentence, which is why only one of them owed a
+bound.
 
 ## The half this does not build: an Item with no title
 

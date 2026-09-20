@@ -128,7 +128,9 @@ export default async function SearchPage({
   /**
    * THE QUERY AS THIS PAGE QUOTES IT, WHICH IS NOT THE QUERY IT ASKS WITH.
    *
-   * TWO VALUES, AND THAT IS THE WHOLE POINT OF DERIVING ONE HERE. What is
+   * TWO VALUES, AND THAT IS THE WHOLE POINT OF DERIVING ONE HERE (ADR-0168,
+   * which is this surface's own record because no other bounded parameter has
+   * to meet it). What is
    * SEARCHED is the whole query and what is PRINTED is this: a single
    * shortened value would change the ANSWER as well as the sentence, because
    * Catalogue search matches `title ilike '%<query>%'` -- so a cut query is a
