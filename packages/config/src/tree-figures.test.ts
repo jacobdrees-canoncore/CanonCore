@@ -637,61 +637,85 @@ describe("a figure this tree states about itself", () => {
    * (CNCORE-278, ADR-0175).
    *
    * ADR-0153 states how many claims this table holds and how many files it
-   * reads, and two rows above hold both figures to the table itself. Those two
-   * rows are the only thing standing between that record and an unguarded
-   * figure, and DELETING THEM IS SILENT: the suite was run with both removed on
-   * 2026-09-21 and all fifteen tests passed, leaving "fifty-five claims across
-   * twenty-four files" checked by nothing.
+   * reads, and two rows above hold both figures to the table itself. THE FIGURE
+   * IS NOT REPEATED HERE, because a count belongs to one document and a copy in
+   * this comment would be a drift site of exactly the kind this file exists to
+   * refuse -- that record states it, and this refers to it.
+   *
+   * DELETING THOSE TWO ROWS WAS SILENT. Measured 2026-09-21 against the file as
+   * it stood at `d10673d`, before this test existed: both rows removed, and
+   * every test in the file still passed, leaving the record's own figure checked
+   * by nothing. THE MEASUREMENT CANNOT BE RE-TAKEN NOW AND THAT IS THE POINT --
+   * with this test present the same deletion goes red, which is the whole
+   * difference it makes. So the count of tests it passed is deliberately not
+   * quoted: it was a property of a file that no longer exists.
    *
    * That is this file's own "A FIGURE MISSING FROM THE TABLE IS NOT CAUGHT"
    * arriving at the one document that states the table's size. Everywhere else
-   * a missing claim is a figure nobody derives; here it is the derivation of
-   * the record that governs every other claim.
+   * a missing claim is a figure nobody derives; here it is the derivation of the
+   * record that governs every other claim. ADR-0169 is the general form: a green
+   * check is read as the rule being kept, not as the question it asked being
+   * answered.
    *
    * THE APPEND PATH IS NOT WHAT THIS GUARDS, because it was measured LOUD.
    * CNCORE-278 was filed asserting that the stated count goes silently wrong
    * whenever two branches append and only one updates the prose. Two claims
-   * were appended with the prose left alone on 2026-09-21 and the comparison
-   * below reported `states 55 for the claims this table holds; the tree holds
-   * 57`. A conflict plus that red is the right failure for an append and no
-   * guard is owed it; the dispatcher filed the premise and the measurement
-   * refused it.
+   * were appended with the prose left alone on 2026-09-21, and the comparison
+   * below named the record, the population and both numbers. A conflict plus
+   * that red is the right failure for an append and no guard is owed it; the
+   * dispatcher filed the premise and the measurement refused it.
    *
    * HELD TO PRESENCE AND TO TRACKING, never to today's number. Asserting that
    * `derive()` equals `CLAIMS.length` would recompute the value the way the row
    * does and pass by construction. What can go wrong without the comparison
-   * below noticing is a row FROZEN to a constant -- `() => 55` agrees with the
+   * below noticing is a row FROZEN to a constant -- one that agrees with the
    * prose the day it is written and never moves again -- so the row is held to
-   * moving when the table moves.
+   * moving when the table moves. Both halves were shown red by deleting the
+   * behaviour they name, which is ADR-0168's rule.
+   *
+   * BY CONTAINMENT AND NOT IN ORDER, so that a THIRD figure about this table can
+   * be added without editing this assertion. Holding the populations to an exact
+   * list would contradict ADR-0175's own sentence -- that a third figure is
+   * covered only by being added, exactly as a claim is -- by reddening until
+   * somebody edited here too, and would also turn a cosmetic reorder of the rows
+   * into a failure.
    *
    * WHAT THIS DOES NOT COVER, said here rather than left to be discovered:
    * ADR-0153's two figures and nothing else. Every other self-referential claim
    * in this table is unswept, and the dispatcher declined a sweep of them on
    * 2026-09-21 as speculative without evidence that another carries the same
-   * hole. A third figure about this table is covered only by being added here,
-   * exactly as a claim is.
+   * hole.
    */
   it("keeps the rows that hold ADR-0153's own figures, tracking rather than frozen", () => {
     const record = "docs/adr/0153-a-figure-about-this-tree-is-derived-or-dated.md";
     const aboutThisTable = CLAIMS.filter((claim) => claim.file === record);
 
-    expect(aboutThisTable.map(({ population }) => population)).toStrictEqual([
-      "the claims this table holds",
-      "the files this table reads",
-    ]);
+    expect(aboutThisTable.map(({ population }) => population)).toEqual(
+      expect.arrayContaining(["the claims this table holds", "the files this table reads"]),
+    );
 
-    // A THROWAWAY ROW ON A NEW FILE MOVES BOTH POPULATIONS AT ONCE, which is
-    // what tells a derivation of the table from a constant that matches it
-    // today. Restored in `finally` because the rows below read the same array.
-    const [claims, files] = aboutThisTable as [Claim, Claim];
-    const statedClaims = claims.derive();
-    const statedFiles = files.derive();
-    CLAIMS.push({ ...(CLAIMS[0] as Claim), file: "docs/adr/0153-a-file-no-claim-names.md" });
+    // A THROWAWAY ROW ON A FILE NO CLAIM NAMES MOVES BOTH POPULATIONS AT ONCE,
+    // which is what tells a derivation of the table from a constant that matches
+    // it today. NOT SHAPED LIKE A RECORD: a second `docs/adr/0153-` path is the
+    // ambiguity `adr-numbering.test.ts` argues against, and nothing here needs
+    // it to look like one.
+    //
+    // REMOVED BY IDENTITY rather than by position, because `pop()` would take
+    // whatever sits last. Restored in `finally` because every row below reads
+    // this same array -- and a leak would be loud rather than silent, since
+    // `countStatedIn` throws on a file it cannot read.
+    const claims = aboutThisTable.find((c) => c.population === "the claims this table holds");
+    const files = aboutThisTable.find((c) => c.population === "the files this table reads");
+    const sentinel: Claim = { ...(CLAIMS[0] as Claim), file: "a-file-no-claim-names" };
+    const statedClaims = (claims as Claim).derive();
+    const statedFiles = (files as Claim).derive();
+    CLAIMS.push(sentinel);
     try {
-      expect(claims.derive()).toBe(statedClaims + 1);
-      expect(files.derive()).toBe(statedFiles + 1);
+      expect((claims as Claim).derive()).toBe(statedClaims + 1);
+      expect((files as Claim).derive()).toBe(statedFiles + 1);
     } finally {
-      CLAIMS.pop();
+      const at = CLAIMS.indexOf(sentinel);
+      if (at !== -1) CLAIMS.splice(at, 1);
     }
   });
 

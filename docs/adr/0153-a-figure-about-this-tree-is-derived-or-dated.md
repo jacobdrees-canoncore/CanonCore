@@ -72,11 +72,20 @@ was wrong.
 
 ## What this does NOT cover, said here rather than left to be discovered
 
-**A figure missing from the table is not caught.** This is a roll call, not a sweep of the prose.
-Nothing reads an arbitrary number out of an arbitrary document and decides whether it is stale,
-because deciding which numbers in English are claims about this tree is not a problem a regular
-expression settles. A new sentence quoting a count is covered only by being added, exactly as a new
-place stating the Node major is covered only by being added to `node-major.test.ts`.
+**A figure missing from the table is not caught, EXCEPT THIS RECORD'S OWN TWO FIGURES, which are
+(CNCORE-278, [[0175-a-claims-table-is-a-rung-and-the-removable-part-was-the-self-claim]]).** This is
+a roll call, not a sweep of the prose. Nothing reads an arbitrary number out of an arbitrary document
+and decides whether it is stale, because deciding which numbers in English are claims about this tree
+is not a problem a regular expression settles. A new sentence quoting a count is covered only by
+being added, exactly as a new place stating the Node major is covered only by being added to
+`node-major.test.ts`.
+
+**The exception is narrow and it is here because this is the document that states the table's size.**
+The two rows that hold the figures in "Why this stays PROPOSED" below were themselves deletable with
+the whole file still passing, measured 2026-09-21 -- the roll call's own limit arriving at the record
+that governs the roll call. `tree-figures.test.ts` now holds those two rows to being present and to
+tracking the table, so a figure this record states about itself cannot go unguarded in silence. No
+other self-referential claim in that table is swept; that was declined as speculative.
 
 **Two populations this tree holds are deliberately absent**, because neither has a structural signal
 a derivation could read without inventing one. The six Listings share no output schema and no input

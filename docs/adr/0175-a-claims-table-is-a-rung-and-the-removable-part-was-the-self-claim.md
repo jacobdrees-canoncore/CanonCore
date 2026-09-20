@@ -38,7 +38,8 @@ docs/adr/0153-a-figure-about-this-tree-is-derived-or-dated.md states 55
 for the claims this table holds; the tree holds 57
 ```
 
-One test failed and fourteen passed. CNCORE-251 landed the two self-claims WITH the table, so the
+That comparison names the record, the population and both numbers, so the drift is reported rather
+than left standing. CNCORE-251 landed the two self-claims WITH the table, so the
 derived half of ADR-0153 covered its own figure from the first commit. Every append path ends in a
 conflict git reports or a check that goes red:
 
@@ -52,18 +53,33 @@ body was corrected in the sentence that carried it.
 
 ## The silent path is the self-claim's absence
 
-ADR-0153 says in its own words that **a figure missing from the table is not caught** -- it is a roll
+ADR-0153 says under "What this does NOT cover, said here rather than left to be discovered" that
+**a figure missing from the table is not caught** -- it is a roll
 call, not a sweep of the prose. That limit is correct everywhere except at one document, and
 ADR-0153 is that document, because it is the one that states the table's size.
 
-Measured 2026-09-21: with the two rows holding the record's own figures deleted, **all fifteen tests
-passed.** "Fifty-five claims across twenty-four files" was then a figure nothing derived and nothing
-compared, in the record whose whole thesis is that such a figure drifts. The guard that holds every
-other claim honest was the one thing no claim held.
+Measured 2026-09-21, against the file as it stood at `d10673d` before the guard below existed: with
+the two rows holding the record's own figures deleted, **every test in the file still passed.** The
+figure ADR-0153 states about itself was then derived by nothing and compared to nothing, in the
+record whose whole thesis is that such a figure drifts. The guard that holds every other claim honest
+was the one thing no claim held.
+
+**THE COUNT OF TESTS THAT PASSED IS DELIBERATELY NOT QUOTED, AND NEITHER IS THE TABLE'S SIZE.** Both
+are figures this tree states about itself, and a copy here would be a drift site of exactly the class
+this record governs -- ADR-0153 states the table's size once and this refers to it. The test count is
+worse than a copy: it was a property of a file that no longer exists, because **the measurement
+cannot be re-taken now and that is the point.** With the guard present the same deletion goes red,
+which is the whole difference it makes.
 
 **THE REMOVABLE PART WAS THE SELF-CLAIM.** That is the finding, and it generalises past this table: a
 mechanism that checks a population does not check its own presence in that population, so the row
 covering the checker is the row whose deletion nothing reports.
+
+[[0169-a-check-answers-at-one-granularity-and-that-is-part-of-its-claim]] is the same shape one step
+out, and it was taken three records earlier: a green check is read as the rule being kept rather than
+as the question it asked being answered. This table is read as "a figure about this tree is derived"
+when what it answers is "these listed figures are derived", and the row stating how many there are is
+inside the population it counts.
 
 ## What was built
 
@@ -81,11 +97,21 @@ Asserting that `derive()` equals `CLAIMS.length` was refused as tautological -- 
 value the way the row does and passes by construction, which is the hollow assertion CNCORE-257
 measured ten of.
 
+**PROVED BY DELETING THE BEHAVIOUR EACH HALF NAMES**, which is
+[[0168-an-assertion-is-checked-by-deleting-the-behaviour-it-names]]'s rule. That record says nothing
+enforces it and it is one reviewers apply by hand; all ten of its cases were audited after the fact,
+and this is the rule run FORWARD on an assertion as it was written. Four mutations, each red in the
+check that should own it: both rows deleted, and one row deleted, go red here; a row frozen to a
+constant goes red here while the comparison stays GREEN; a row repointed at a different real
+population goes red in the comparison instead, reporting 24 stated against 55 in the tree.
+
 ## What this does NOT cover, said here rather than left to be discovered
 
 **ADR-0153's two figures and nothing else.** A sweep of every self-referential claim in the table was
 declined by the dispatcher on 2026-09-21 as speculative without evidence that another carries the
-same hole. A third figure about that table is covered only by being added, exactly as a claim is.
+same hole. A third figure about that table is covered only by being added, exactly as a claim is --
+and the guard is written by CONTAINMENT rather than as an exact list so that adding one does not
+redden it, which is what would have made that sentence false.
 
 **No guard on the append, by decision rather than omission.** A conflict is the right failure for a
 shared list whose appends land in one region of one file: it is reported at merge, it names the file,
