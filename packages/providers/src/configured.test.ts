@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   nameProvider,
   OutboundRefused,
-  parseProviderUrls,
   ProviderNotNamed,
+  parseProviderUrls,
   removeProvider,
 } from "./index";
 

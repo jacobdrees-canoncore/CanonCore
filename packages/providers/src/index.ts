@@ -37,8 +37,8 @@ export {
 } from "./cmpp";
 export {
   nameProvider,
-  parseProviderUrls,
   ProviderNotNamed,
+  parseProviderUrls,
   removeProvider,
   type WhyNotNamed,
 } from "./configured";

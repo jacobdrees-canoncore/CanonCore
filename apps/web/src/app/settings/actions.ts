@@ -98,7 +98,8 @@ export async function nameProvider(form: FormData): Promise<void> {
   if (refused.code === "NOT_ONE_PROVIDER") {
     redirect(`/settings?refused=${entry}&because=${REFUSED.several}`);
   }
-  if (refused.code === "NOT_A_URL") redirect(`/settings?refused=${entry}&because=${REFUSED.notAUrl}`);
+  if (refused.code === "NOT_A_URL")
+    redirect(`/settings?refused=${entry}&because=${REFUSED.notAUrl}`);
 }
 
 /**

@@ -363,7 +363,14 @@ describe("a figure this tree states about itself", () => {
   it("counts the hand-built redirects ADR-0109's rule governs, per file", () => {
     expect(handBuiltRedirectsIn("apps/web/src/app/login/actions.ts")).toBe(4);
     expect(handBuiltRedirectsIn("apps/web/src/app/items/actions.ts")).toBe(4);
-    expect(handBuiltRedirectsIn("apps/web/src/app/settings/actions.ts")).toBe(1);
+    // THREE SINCE CNCORE-262, and it was one. `nameProvider` ended at one
+    // address carrying the refused entry; it now ends at one of three, because
+    // the three ways an entry can fail to name a Provider have three different
+    // remedies and the page writes a sentence for each. The rule this figure
+    // governs is unchanged -- every one of them is a hand-built path string
+    // that Next does not prefix (ADR-0109), which is what makes them the
+    // addresses to revisit on the day a host imposes a `basePath`.
+    expect(handBuiltRedirectsIn("apps/web/src/app/settings/actions.ts")).toBe(3);
   });
 
   it("counts the call sites that read a procedure's answer, and those that redirect on it", () => {
