@@ -7,7 +7,9 @@ import {
   handBuiltRedirectsIn,
   jobsRequestingANodeMajor,
   migrationRungs,
+  movePlacementRefusalCauses,
   peakConnectionsInOneE2eRun,
+  placementRefusalCauses,
   procedureAnswerCallSites,
   propertiesSeededByMigrationOne,
   runsInTheTimeoutWindow,
@@ -300,6 +302,18 @@ const CLAIMS: Claim[] = [
     population: "the Vitest configs other than this one",
     derive: () => vitestConfigs() - 1,
   },
+  {
+    file: "packages/api/src/routers/placement.ts",
+    pattern: /(\w+) things can refuse/g,
+    population: "the causes `placement.place` can be refused by",
+    derive: placementRefusalCauses,
+  },
+  {
+    file: "packages/api/src/routers/placement.ts",
+    pattern: /(\w+) CAUSES REACH THAT BAD_REQUEST/g,
+    population: "the causes `placement.move` can be refused by",
+    derive: movePlacementRefusalCauses,
+  },
 ];
 
 describe("a figure this tree states about itself", () => {
@@ -317,7 +331,7 @@ describe("a figure this tree states about itself", () => {
   });
 
   it("counts the suites in this package that read the repository at large", () => {
-    expect(suitesReadingTheRepository()).toBe(21);
+    expect(suitesReadingTheRepository()).toBe(22);
   });
 
   it("counts the hand-built redirects ADR-0109's rule governs, per file", () => {

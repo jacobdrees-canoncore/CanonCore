@@ -18,3 +18,23 @@ bytes live.
 
 CanonCore is also domain-general. It is self-hosted software plus ONE public read-only demo instance
 (`docs/demo.md`); everything else is software someone else runs.
+
+## As built — and this record stays PROPOSED
+
+Three claims, in three different states, which is why this section exists at all: read straight
+through, the record reads as one settled thing.
+
+**BUILT: never ingesting, and the `source` reservation.** The first holds by ABSENCE — no
+migration creates a `files` table, so nothing references bytes yet and nothing could ingest them if
+it tried. The second is real and is the only part of this record that any code leans on: `sources`
+names who asserted a value throughout the schema (ADR-0071's four kinds), and nothing uses the word
+for where bytes live. Its one citer is `provider-wiki`'s CMPP module, in another repository.
+
+**NOT BUILT: the opaque-id playback route, and the file row it would serve.** There is no playback
+route of any kind, app-owned or otherwise, and no file row for one to resolve. So "access control
+and progress work" states a constraint on a path that does not exist — recorded before the path, in
+the right order, but not a description of how anything behaves today. ADR-0023's path-is-location
+holds either way, since nothing serves a file at all.
+
+**AND THE DEMO SENTENCE IS ABOUT A PUBLIC INSTANCE, NOT A MECHANISM.** `docs/demo.md` describes one
+by hand; ADR-0089 records that no PUBLIC image exists.

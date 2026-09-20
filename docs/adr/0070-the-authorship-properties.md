@@ -39,3 +39,23 @@ Reference targets freeze at creation, so these are set on the first insert.
 ## Evidence
 
 Verified against source on 2026-09-10; corrections applied. Working in `docs/research/verify-adr-standards.md`. **The archive is deleted (ADR-0129) and every figure above was re-derived from the LIVE wiki on 2026-09-13 by `provider-wiki`'s `pnpm measure:live`.** The archive-era working is `docs/research/verify-new-adrs-archive.md`, which stays as the frozen record it is: it describes a corpus taken 2026-09-04, not the wiki.
+
+## As built, under CNCORE-4 — and this record stays PROPOSED
+
+**BUILT: both properties, split as this record requires, with their targets frozen.** Migration 1
+seeds `created_by` with `reference_target` `person` and `credited_to` with `character`, and
+ADR-0015 freezes that target — so the split is a shape the catalogue cannot later collapse by
+accident, which is the one thing this decision most needed to be true early.
+
+**NOT BUILT: any write of either, and the kinds they point at.** Nothing in the product writes a
+`created_by` or a `credited_to` statement. The importer refuses the only source of them it has:
+`import.ts` lists writers among what is DELIBERATELY NOT IMPORTED, and it writes every item as
+`kind: "work"`, so no `person` and no `character` item has ever been created outside a test
+fixture. The three books credited to Newt Scamander, Kennilworthy Whisp and Beedle the Bard — the
+case this record turns on, and the reason the two properties may not share one — cannot be written
+down today.
+
+**THE `Writer` FIGURES ABOVE COUNT THE WIKI, NEVER THIS CATALOGUE.** 11,095 credits across 9,278
+stories is what the source holds and what makes the distinction worth deciding; none of them has
+been imported, and this section is here so the measurement is not read as a description of the
+catalogue's contents.

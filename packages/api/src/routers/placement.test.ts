@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import type { Database } from "@canoncore/db";
 import { anItem, anItemTitled, connect } from "@canoncore/db/testing/catalogue";
 import { env } from "@canoncore/env/server";
@@ -129,6 +131,45 @@ describe("what the owner is refused", () => {
     const { error } = await safe(call(appRouter.placement.place, placed, { context: asTheOwner }));
 
     expect(isDefinedError(error) && error.code).toBe("BAD_REQUEST");
+    /*
+     * AND THE SENTENCE NAMES THIS CAUSE RATHER THAN THE SET (CNCORE-255).
+     * `ORPCError.toJSON` serialises `{defined, code, status, message, data}`
+     * and drops `cause`, so a handler passing only the cause answers the
+     * DECLARED sentence -- which names four causes and leaves the Owner to
+     * guess which one they hit. `provider.beginImportRun` asserts its own
+     * sentence for the same reason.
+     */
+    expect(error?.message).toBe(
+      "That item is already in that container at that position, or already there with no position given.",
+    );
+    /*
+     * AND THE CAUSE AS A WORD, which is what a SURFACE reads. `data` crosses the
+     * wire where `cause` does not, so this is the half `placeItemInContainer`
+     * routes on to pick its copy -- the message is for an API caller, and
+     * asserting only the message would leave the web's half unpinned.
+     */
+    expect(isDefinedError(error) && error.data).toStrictEqual({ because: "already-there" });
+  });
+
+  it("refuses an item that is not there, naming THAT cause", async () => {
+    /*
+     * THE FOREIGN KEY TO `items`, which is the one cause of the five that no
+     * test drove at either layer before CNCORE-255 -- every `randomUUID` in
+     * these suites was a PLACEMENT id, which answers NOT_FOUND instead. A
+     * sentence with no witness is a sentence nobody has read.
+     */
+    const container = await anItem(db, { isContainer: true, isOrdered: true });
+
+    const { error } = await safe(
+      call(
+        appRouter.placement.place,
+        { containerId: container, itemId: randomUUID(), position: 1 },
+        { context: asTheOwner },
+      ),
+    );
+
+    expect(isDefinedError(error) && error.code).toBe("BAD_REQUEST");
+    expect(error?.message).toBe("No such item or container.");
   });
 
   it("refuses a visitor with no session, on all four procedures", async () => {
@@ -314,6 +355,11 @@ describe("placement.move", () => {
     );
 
     expect(isDefinedError(error) && error.code).toBe("BAD_REQUEST");
+    // AND THE SENTENCE IS THIS REFUSAL'S, not the cycle's. This is the cause
+    // `move` named NOTHING about until CNCORE-255: the declared sentence spoke
+    // only of a container holding what it sits inside, which is a different
+    // refusal, so the Owner was told the wrong thing rather than too little.
+    expect(error?.message).toBe("That move named a placement this container does not hold.");
     // AND NOTHING LANDED, which is the half a refusal alone would not prove.
     const origin = await call(appRouter.item.get, { id: releaseOrder }, { context });
     expect(origin.holds.rows.map(({ id, position }) => ({ id, position }))).toStrictEqual([
@@ -367,5 +413,10 @@ describe("placement.move", () => {
     );
 
     expect(isDefinedError(error) && error.code).toBe("BAD_REQUEST");
+    // THE ONE CAUSE THE OLD SENTENCE GOT RIGHT, kept as a guard so the change
+    // that made the other four true cannot quietly cost this one its answer.
+    expect(error?.message).toBe(
+      "A container cannot hold itself, or something it already sits inside.",
+    );
   });
 });
