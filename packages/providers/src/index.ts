@@ -51,7 +51,6 @@ export {
 } from "./credential";
 export {
   bounded,
-  boundedTo,
   type FailureReason,
   failureReason,
   REASON_MAX_LENGTH,

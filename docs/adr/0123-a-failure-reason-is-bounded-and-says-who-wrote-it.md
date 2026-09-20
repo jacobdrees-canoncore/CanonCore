@@ -201,21 +201,30 @@ attribution: `wrote` is decided by WHICH BOUNDARY REFUSED, and a label was refus
 a provider's text on a manifest it chose to send, known to be the provider's with nothing having to
 decide.
 
-**A THIRD TRUNCATION ALREADY EXISTS AND IS DELIBERATELY LEFT.** `packages/tasks/src/registry.ts` has
-its own private `bounded` at this same 300, collapsing and cutting the same way, for what a task
-THREW. Publishing this one does not absorb it: `@canoncore/tasks` depends on `@canoncore/db` alone,
-and taking a dependency on `@canoncore/providers` — the outbound HTTP client, two undici dispatchers
-and ADR-0034's boundaries — to reach one string function would couple the task registry to
-the provider stack for nothing. The number is the shared thing and this record is where it is
-shared; that file takes it "rather than chosen again" and says so. Recorded because a reader who
-finds the second copy should meet a decision rather than an oversight.
+**A THIRD TRUNCATION ONCE EXISTED AND WAS DELIBERATELY LEFT; IT IS GONE, AND THE REASONING THAT LEFT
+IT IS CORRECTED BY [[0161-the-levers-that-bound-a-strangers-text-live-in-a-leaf]].**
+`packages/tasks/src/registry.ts` had its own private `bounded` at this same 300, collapsing and
+cutting the same way, for what a task THREW. Publishing this one did not absorb it:
+`@canoncore/tasks` depends on `@canoncore/db` alone, and taking a dependency on
+`@canoncore/providers` — the outbound HTTP client, two undici dispatchers and ADR-0034's boundaries
+— to reach one string function would couple the task registry to the provider stack for nothing.
 
-**AND THE COST OF THAT SEPARATION IS THE GUARD, WHICH THIS PARAGRAPH DID NOT COUNT (CNCORE-272).**
-Keeping the copy out of reach means every property the cut has must be applied here BY HAND, and the
-whole-character cut below was not: `registry.ts` cut on a UTF-16 unit until CNCORE-272. The decision
-above stands — the dependency is not worth it — so what was owed is the guard WRITTEN TWICE rather
-than the copy removed, and it is paid: `registry.ts` drops a trailing high surrogate itself, and its
-comment says it is a copy on purpose so the next reader does not "repair" it with an import.
+**That cost was real and refusing it was right. What this paragraph missed is that the levers did
+not have to live in `@canoncore/providers` at all.** ADR-0161 moves them to `@canoncore/text`, a
+package depending on nothing, which costs a caller the lines themselves and none of the stack
+refused above. `registry.ts` calls `boundedTo` now, and so does `packages/db/src/import-runs.ts`,
+which is the site this record's hand-copy rule left unbounded on BOTH levers until CNCORE-282. The
+number is still the shared thing this record shares, and each caller still names its own.
+
+**AND THE COST OF THAT SEPARATION WAS THE GUARD, WHICH THIS PARAGRAPH DID NOT COUNT (CNCORE-272).**
+Keeping the copy out of reach meant every property the cut has had to be applied there BY HAND, and
+the whole-character cut below was not: `registry.ts` cut on a UTF-16 unit until CNCORE-272. **This
+paragraph then concluded that what was owed is the guard WRITTEN TWICE rather than the copy removed,
+and instructed the next reader not to "repair" it with an import. That conclusion is withdrawn by
+ADR-0161.** It held only while the sole way to share the levers was to depend on the provider stack,
+and a copy owed "by hand" went on to drift a second time (CNCORE-274) before anybody checked. The
+import the comment forbade now exists and points at a leaf, so there is nothing left to keep in
+step.
 
 **AND THE DAMAGE THERE IS WORSE THAN ON A PAGE, which only running it showed.** `detail` is a UTF-8
 column, and a lone surrogate has no encoding in UTF-8 — so the round trip through Postgres turns one
@@ -1089,8 +1098,11 @@ The next caller to route a provider's own prose through `shortly` — a record t
 name, a credential label — is the one that would have found it, and by then the accident reads as a
 guarantee.
 
-So the cut is `shortenTo(text, max)` in `packages/providers/src/shorten.ts`, and both call it. **The
-CEILINGS do not move into it.** 80 is a fact about those refusals and 300 is a fact about a reason,
+So the cut is `shortenTo(text, max)`, and both call it. It lived in
+`packages/providers/src/shorten.ts` until [[0161-the-levers-that-bound-a-strangers-text-live-in-a-leaf]]
+moved it, with the control strip beside it, into `@canoncore/text` — a package depending on nothing,
+so the three callers this record had to leave writing their own could stop. **The CEILINGS do not
+move into it**, and that is as true of the leaf as it was of this package. 80 is a fact about those refusals and 300 is a fact about a reason,
 so each stays beside the sentences it bounds; what is shared is the cut, and the reason for its shape
 is written once. That is this record's "one function rather than two local truncations" applied to
 the truncation itself rather than to the mapping around it.
@@ -1104,11 +1116,14 @@ before each boundary puts one half on each side of it. `shortly`'s witness is re
 on `isWellFormed()`; `bounded`'s was green from the start and is there to catch the day the two stop
 agreeing, which is the only thing a shared function can still get wrong.
 
-**THE THIRD COPY IS NOT FOLDED IN, AND THAT IS THE SAME DECISION AS BEFORE.** `registry.ts` gets the
-guard by hand under CNCORE-272, in the same pass, because the two share ONE REASON TO CHANGE — a
-truncation counting UTF-16 units splits an astral character — while the dependency that would unify
-them is the one this record already refused. Two copies of five lines, each saying why it is a copy,
-is the price of `@canoncore/tasks` not depending on the outbound HTTP stack.
+**THE THIRD COPY WAS NOT FOLDED IN, AND THAT WAS THE SAME DECISION AS BEFORE — SINCE REVERSED BY
+ADR-0161.** `registry.ts` got the guard by hand under CNCORE-272, in the same pass, because the two
+share ONE REASON TO CHANGE — a truncation counting UTF-16 units splits an astral character — while
+the dependency that would unify them is the one this record already refused. "Two copies of five
+lines, each saying why it is a copy, is the price of `@canoncore/tasks` not depending on the
+outbound HTTP stack" was this record's sentence, and the price turned out to be higher: the copies
+drifted twice and a third site was found bounded on neither lever. ADR-0161 buys the same separation
+for one leaf package instead.
 
 **A CODE POINT IS WHAT IS PROMISED, NOT A GRAPHEME CLUSTER**, and the difference is stated so the
 next reader does not take the stronger reading. A ZWJ sequence, a flag's two regional indicators or
@@ -1116,12 +1131,15 @@ a base and its combining mark can still be parted by either cut. That is left, a
 both halves remain VALID characters that render as themselves — where a lone surrogate is not a
 character at all, which is what makes it alone worth the guard.
 
-**AND THE THIRD COPY HAS TAKEN BOTH PROPERTIES, NOT ONLY THE CUT (CNCORE-274).** It had only the cut
-when this section was first written, so "two numbers, one rule" was true of the cut and an overclaim
-about the strip. `registry.ts` now carries its own `CONTROLS` beside its own marker, stripping before
-it collapses and collapsing before it cuts, in the order `reason.ts` uses. Both levers, written
-twice, kept in step by hand — which is the whole price of `@canoncore/tasks` not depending on the
-outbound HTTP stack, and it is paid rather than described.
+**AND THE THIRD COPY TOOK BOTH PROPERTIES, NOT ONLY THE CUT (CNCORE-274) — BEFORE ADR-0161 REMOVED
+THE COPY ALTOGETHER.** It had only the cut when this section was first written, so "two numbers, one
+rule" was true of the cut and an overclaim about the strip. `registry.ts` then carried its own
+`CONTROLS` beside its own marker, stripping before it collapses and collapsing before it cuts, in
+the order `reason.ts` uses. **"Both levers, written twice, kept in step by hand" was the price this
+record named, and naming it twice in two tickets is what showed it was not being paid.** Both levers
+are written ONCE now, in `@canoncore/text`, and every caller reaches them through `boundedTo`. The
+ORDER above survives the move and is load-bearing: a cut applied first can leave a bidirectional
+override as the last character it kept, re-ordering the marker and everything written after it.
 
 **THIS RECORD STAYS `accepted`, AND THE WORD IS MEANT NARROWLY.** Its MECHANISM — a reason bounded
 at a stated ceiling, attributed to whoever wrote it — was whole throughout and is untouched: every

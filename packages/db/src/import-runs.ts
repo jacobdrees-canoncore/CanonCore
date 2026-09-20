@@ -1,3 +1,4 @@
+import { boundedTo } from "@canoncore/text";
 import { and, asc, eq, isNull, ne, sql } from "drizzle-orm";
 
 import type { Database } from "./index";
@@ -115,7 +116,8 @@ export async function beginImportRun(
   const repeated = theRepeatIn(containerIds);
   if (repeated !== undefined) {
     throw new ImportRunRefused(
-      `${repeated.externalId} is listed twice, at positions ${repeated.first + 1} and ${repeated.again + 1}`,
+      `${boundedTo(repeated.externalId, ID_IN_A_SENTENCE)} is listed twice, ` +
+        `at positions ${repeated.first + 1} and ${repeated.again + 1}`,
     );
   }
 
@@ -170,6 +172,30 @@ async function openTheRun(
     throw cause;
   }
 }
+
+/**
+ * A CONTAINER ID AS THIS REFUSAL QUOTES IT BACK, which is 80 characters of it.
+ *
+ * ADR-0123's ceiling for a value interpolated into a refusal, TAKEN RATHER THAN
+ * CHOSEN AGAIN, and the same number `provider.ts` takes for the sentence beside
+ * this one -- the two refusals are one complaint a constraint apart, so an id
+ * too long and an id twice quote back the same amount of it.
+ *
+ * THE CEILING IS THIS FILE'S AND THE LEVERS ARE NOT (ADR-0161). `boundedTo`
+ * applies both of ADR-0123's -- how MUCH of a stranger's value lands in the
+ * sentence, and what it may DO to the words around it -- and the number stays
+ * here, beside the sentence it bounds. Until CNCORE-282 this sentence took
+ * NEITHER lever: CNCORE-268 capped what could arrive at 255 characters at the
+ * router, which is a smaller flood rather than this record's mechanism.
+ *
+ * REACHED THROUGH `@canoncore/text` RATHER THAN COPIED. ADR-0123 refused the
+ * import that would have shared these levers and was right about the dependency
+ * it was offered -- `@canoncore/providers` brings an HTTP client, two undici
+ * dispatchers and ADR-0034's boundaries. ADR-0161 moves them to a leaf that
+ * depends on nothing, so this package reaches them at the cost of the lines
+ * themselves.
+ */
+const ID_IN_A_SENTENCE = 80;
 
 /**
  * The first id this list names twice, and the two places it sits, or

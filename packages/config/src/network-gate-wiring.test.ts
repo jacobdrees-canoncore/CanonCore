@@ -281,7 +281,7 @@ describe("the network gate's wiring", () => {
     // emptying is refused in `workspaceDirectories()`, since every sweep in
     // this file descends from it. `configFilesOnDisk()` collapsing on its own
     // -- its filename rule narrowed, or the configs renamed to `.mts` -- would
-    // leave this comparing fifteen suites to zero configs and passing, and it
+    // leave this comparing sixteen suites to zero configs and passing, and it
     // is the test ABOVE that fails then: with no config found, every package
     // reads as owning none.
     expect(found.length).toBeGreaterThanOrEqual(configFilesOnDisk().length);
@@ -388,7 +388,7 @@ describe("the rules the sweep is made of", () => {
     ["vitest run --config=vitest.e2e.config.ts", "vitest.e2e.config.ts"],
     ["vitest run -c vitest.e2e.config.ts", "vitest.e2e.config.ts"],
     ["vitest run -c=vitest.e2e.config.ts", "vitest.e2e.config.ts"],
-    // Names none, which is the ordinary case here: eleven of this repo's fifteen
+    // Names none, which is the ordinary case here: twelve of this repo's sixteen
     // suites run the package's own `vitest.config.ts` without saying so, and the
     // four that name a config at all are `apps/web`'s `test:e2e`, `test:live` and
     // `test:browser`, and `packages/api`'s `test:corpus`.

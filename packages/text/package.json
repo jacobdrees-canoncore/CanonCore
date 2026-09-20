@@ -1,5 +1,5 @@
 {
-  "name": "@canoncore/providers",
+  "name": "@canoncore/text",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -10,12 +10,6 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest"
-  },
-  "dependencies": {
-    "@canoncore/text": "workspace:*",
-    "ipaddr.js": "catalog:",
-    "undici": "catalog:",
-    "zod": "catalog:"
   },
   "devDependencies": {
     "@canoncore/config": "workspace:*",

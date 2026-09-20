@@ -1,9 +1,7 @@
 import type { LookupAddress } from "node:dns";
 import type { LookupFunction } from "node:net";
-
+import { shortenTo } from "@canoncore/text";
 import ipaddr from "ipaddr.js";
-
-import { shortenTo } from "./shorten";
 
 /**
  * ADR-0034. An outbound request that was not made, and why.
@@ -78,10 +76,16 @@ const VALUE_MAX = 80;
  * cannot do without is the sentence SAYING WHAT TO DO, which is what keeping the
  * value short is protecting.
  *
- * THE CUT ITSELF IS `shortenTo`'S, shared with `bounded` in `reason.ts`, and
- * that is where the reason for its shape is written (CNCORE-269). This function
- * is the CEILING and not the cut: 80 is a fact about these sentences, and it
- * belongs beside them.
+ * THE CUT ITSELF IS `shortenTo`'S, in `@canoncore/text`, and that is where the
+ * reason for its shape is written (CNCORE-269, ADR-0161). This function is the
+ * CEILING and not the cut: 80 is a fact about these sentences, and it belongs
+ * beside them.
+ *
+ * THE CUT ALONE, AND NOT `boundedTo`'S PAIR. Every caller below quotes a URL, a
+ * host or an address that has already been through a parser, so there is no
+ * prose here for the control strip to act on. A caller quoting a stranger's
+ * PROSE reaches for `boundedTo` instead, which is what `bounded` does one file
+ * over.
  */
 export function shortly(value: string): string {
   return shortenTo(value, VALUE_MAX);

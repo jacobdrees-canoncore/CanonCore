@@ -1,7 +1,7 @@
+import { boundedTo, oneLine } from "@canoncore/text";
 import { z } from "zod";
 
 import { OutboundRefused } from "./boundary";
-import { shortenTo } from "./shorten";
 
 /**
  * ADR-0123. How much of a reason the Owner reads before it is cut.
@@ -135,27 +135,6 @@ export function bounded(text: string): string {
 }
 
 /**
- * A stranger's text on BOTH OF ADR-0123's LEVERS, at a ceiling the caller names.
- *
- * ONE CALL BECAUSE THEY ARE ONE MECHANISM, and that is the whole reason this
- * exists rather than `shortenTo` being published for callers to compose
- * themselves. The cut answers how MUCH a stranger may put on a page it does not
- * own; `CONTROLS` answers what that text may DO to the page's own words. A
- * caller reaching for the cut alone takes half a mechanism and looks finished,
- * which is precisely what CNCORE-274 found in `@canoncore/tasks`' copy and what
- * CNCORE-268 did here before review caught it: a bidirectional override in a
- * Container id re-orders the clause naming the ceiling that refused it.
- *
- * THE CEILING IS THE CALLER'S AND THE LEVERS ARE NOT. 300 is a fact about the
- * sentences `bounded` guards and 80 is a fact about the ones the router writes,
- * so the number stays beside the sentence it bounds (CNCORE-269); what is shared
- * is the pair of levers, and this is the one place applying both.
- */
-export function boundedTo(text: string, max: number): string {
-  return shortenTo(oneLine(text), max);
-}
-
-/**
  * A PROSE FIELD A PROVIDER DECLARES ABOUT ITSELF, BOUNDED AT THE FIELD RATHER
  * THAN AT EACH SURFACE THAT PRINTS IT (ADR-0123, CNCORE-165).
  *
@@ -204,42 +183,3 @@ export function boundedProse(whenSilent: string): z.ZodType<string, unknown> {
  * a failure that named no reason is that it named none.
  */
 const SILENT = "the provider failed without saying why.";
-
-/**
- * The message as ONE LINE, with runs of whitespace collapsed.
- *
- * A REASON IS A SENTENCE ON A PAGE, not a document. A `ZodError`'s message is
- * PRETTY-PRINTED JSON -- newlines and six-space indents -- so without this the
- * cap spends most of its 300 characters on the provider's indentation and the
- * Owner reads a fragment of a stack of braces. Collapsed, the same 300 carries
- * the codes and paths that say what was actually wrong.
- *
- * IT ALSO MAKES `min(1)` MEAN SOMETHING. A message of nothing but whitespace
- * trims to empty here and falls through to `SILENT` below, where before it
- * satisfied the schema and rendered as a blank space -- a reason the Owner can
- * see is missing, rather than one they cannot see at all.
- */
-function oneLine(message: string): string {
-  return message.replace(CONTROLS, "").replace(/\s+/g, " ").trim();
-}
-
-/**
- * The characters that change how the text AROUND them reads, stripped.
- *
- * NOT A WHITESPACE PROBLEM, which is why `\s+` above does not catch them. The
- * bidirectional overrides (U+202A-U+202E, U+2066-U+2069) re-order the glyphs on
- * either side of themselves, so a provider can make its quoted text run backwards
- * through the sentence CanonCore wrote around it -- and on this page that
- * sentence sits beside a link the Owner is about to give a credential to.
- * U+200B-U+200D and U+FEFF are the zero-width family, which splits a word a
- * reader is scanning for without leaving a mark.
- *
- * THE SAME ARGUMENT AS THE CAP, AT A DIFFERENT LEVER. ADR-0123 bounds how MUCH a
- * stranger may put on a page it does not own; this bounds what that text may do
- * to the page's own words. A cap alone leaves the shorter attack untouched.
- *
- * STRIPPED RATHER THAN ESCAPED, because there is no legitimate use for one here:
- * a reason and a credential's label are single sentences of prose, not documents
- * with a mixed-direction layout to preserve.
- */
-const CONTROLS = /[\u202a-\u202e\u2066-\u2069\u200b-\u200d\ufeff]/g;
