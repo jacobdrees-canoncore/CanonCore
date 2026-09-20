@@ -8,7 +8,7 @@ import { defineConfig } from "vitest/config";
  *
  * This package is where the gate itself lives, and it is listed here by the
  * same public specifier every other suite uses -- never by a relative path.
- * The specifier is what the other ten configs are checked against, so a suite
+ * The specifier is what the other fourteen configs are checked against, so a suite
  * spelling it differently would be a suite this one could not vouch for.
  */
 export default defineConfig({

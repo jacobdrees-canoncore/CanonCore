@@ -1,7 +1,9 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { workflow } from "./ci-workflow";
 import { repoRoot } from "./repo-root";
+import { configFilesOnDisk } from "./vitest-configs";
 
 /**
  * Every count this repository states about ITSELF, derived from the tree that
@@ -158,4 +160,26 @@ export function countStatedIn(path: string, pattern: RegExp): number {
     );
   }
   return asCount((found[0] as RegExpMatchArray)[1] as string);
+}
+
+/**
+ * The jobs `.github/workflows/ci.yml` runs.
+ *
+ * ASKED OF THE PARSED WORKFLOW rather than counted off the indentation, because
+ * `on:` holds keys at the same depth as a job and a line-counting rule reads
+ * `push` as one of them.
+ */
+export function ciJobs(): number {
+  return Object.keys(workflow().jobs ?? {}).length;
+}
+
+/**
+ * The Vitest configs this repository holds.
+ *
+ * `configFilesOnDisk` is the reader `network-gate-wiring.test.ts` and
+ * `packages/db` already share, and this is a third claim over the same files
+ * rather than a second way of finding them.
+ */
+export function vitestConfigs(): number {
+  return configFilesOnDisk().length;
 }

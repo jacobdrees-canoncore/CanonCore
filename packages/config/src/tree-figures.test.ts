@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   asCount,
+  ciJobs,
   countStatedIn,
   serversStoodUpByTheHttpSuite,
   serversVia,
+  vitestConfigs,
 } from "./testing/tree-figures";
 
 /**
@@ -65,6 +67,18 @@ const CLAIMS: Claim[] = [
     pattern: /this file starts ELEVEN, (\w+) through `anInstanceServing`/g,
     population: "the servers started through `anInstanceServing`",
     derive: () => serversVia("anInstanceServing"),
+  },
+  {
+    file: ".github/workflows/ci.yml",
+    pattern: /so the (\w+) jobs this workflow runs cost \$0\.00/g,
+    population: "the jobs ci.yml runs",
+    derive: ciJobs,
+  },
+  {
+    file: "packages/config/vitest.config.ts",
+    pattern: /what the other (\w+) configs are checked against/g,
+    population: "the Vitest configs other than this one",
+    derive: () => vitestConfigs() - 1,
   },
 ];
 

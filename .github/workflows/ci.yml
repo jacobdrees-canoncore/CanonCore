@@ -483,8 +483,9 @@ jobs:
     timeout-minutes: 6
     # ITS OWN JOB, WHICH IS CNCORE-73's FIRST ACCEPTANCE CRITERION, and it was
     # decided against the duplicated setup rather than against money: CNCORE-80
-    # established that standard runners are free in a public repository, so a
-    # fourteenth job costs $0.00 and so does folding (ADR-0111, corrected).
+    # established that standard runners are free in a public repository, so the
+    # fifteen jobs this workflow runs cost $0.00 between them, split or folded
+    # (ADR-0111, corrected).
     #
     # WHAT IT DUPLICATES IS ONE INSTANCE, not the eleven `The page over HTTP`
     # stands up: the suite needs one ordering to drag and, since CNCORE-217, one
