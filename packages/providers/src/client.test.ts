@@ -45,6 +45,27 @@ const json = (response: ServerResponse, body: unknown, status = 200) => {
   response.end(JSON.stringify(body));
 };
 
+/**
+ * MORE JSON THAN `MAX_BODY_BYTES` ADMITS: one valid document that simply never
+ * stops arriving.
+ *
+ * SHARED BY THE TWO TESTS THAT NEED A BODY PAST THE CEILING, because they differ
+ * only in the shape they open and close with and written twice they would stop
+ * agreeing about what "past" means. A body with no end is a body that fills
+ * memory and no timeout catches it: `bodyTimeout` caps the GAP between chunks,
+ * so a provider sending steadily and forever never trips it, and on loopback
+ * that is a great deal of bytes.
+ */
+function moreThanWillBeRead(response: ServerResponse, opens: string, closes: string): void {
+  response.writeHead(200, { "content-type": "application/json" });
+  response.write(opens);
+  const chunk = `"${"x".repeat(64 * 1024)}",`;
+  for (let written = 0; written < 6 * 1024 * 1024; written += chunk.length) {
+    response.write(chunk);
+  }
+  response.end(closes);
+}
+
 /** What the wiki provider actually answers, trimmed to one record. */
 const MANIFEST = {
   name: "provider-wiki",
@@ -862,6 +883,42 @@ describe("what the client will take from a provider", () => {
     await expect(client.manifest()).rejects.toThrow(OutboundRefused);
   });
 
+  /**
+   * AND THE VERDICT SURVIVES A `Location` LONG ENOUGH TO BLOW THE CAP, which is
+   * the case above does NOT reach. `http://[invalid` is 15 characters, so it
+   * exercises the fixed prose alone -- the same shape of gap ADR-0123 found in
+   * its own guard, where a short host meant the variable half was never tried.
+   *
+   * THE VALUE HERE IS THE PROVIDER'S AND IT SITS AHEAD OF THE VERDICT. Measured
+   * against the live install's 25-character origin, a `Location` past 233
+   * characters pushes `is not a URL.` off the end of a 300-character reason, and
+   * the Owner is left the provider's string with no judgement on it.
+   *
+   * ASSERTED THROUGH `reasonFor` BECAUSE THAT IS WHERE THE CAP IS APPLIED, as
+   * the two cap assertions earlier in this file are.
+   */
+  it("keeps the verdict when the Location it cannot parse is a long one", async () => {
+    // Unparseable for the same reason as the case above -- an unclosed IPv6
+    // bracket -- and long, which that one is not.
+    const baseUrl = await stubProvider((_, response) => {
+      response.writeHead(302, { location: `http://[${"a".repeat(400)}` });
+      response.end();
+    });
+    const client = createProviderClient({ baseUrl, allowlist: onLoopback() });
+
+    const thrown = await client.manifest().catch((error: unknown) => error);
+    const reason = reasonFor(thrown);
+
+    expect(reason.text.length).toBeLessThanOrEqual(REASON_MAX_LENGTH);
+    // THE VERDICT, which is the half the cap was taking away.
+    expect(reason.text).toContain("is not a URL.");
+    // BOUNDED WHERE IT ENTERS, so the sentence never needed cutting at all: the
+    // Error a caller holds is inside the cap, not only what a page renders of it.
+    expect(thrown instanceof Error ? thrown.message.length : 0).toBeLessThanOrEqual(
+      REASON_MAX_LENGTH,
+    );
+  });
+
   it("refuses a Location naming a scheme that is not HTTP", async () => {
     const baseUrl = await stubProvider((_, response) => {
       response.writeHead(302, { location: "file:///etc/passwd" });
@@ -872,25 +929,73 @@ describe("what the client will take from a provider", () => {
     await expect(client.manifest()).rejects.toThrow(OutboundRefused);
   });
 
-  /**
-   * A body with no end is a body that fills memory, and no timeout catches it:
-   * `bodyTimeout` caps the GAP between chunks, so a provider sending steadily and
-   * forever never trips it, and on loopback that is a great deal of bytes.
-   */
   it("refuses a response body past the size it will read", async () => {
-    const baseUrl = await stubProvider((_, response) => {
-      response.writeHead(200, { "content-type": "application/json" });
-      // Valid JSON that simply never stops arriving.
-      response.write('{"name":"provider-wiki","versions":[1],"operations":[');
-      const chunk = `"${"x".repeat(64 * 1024)}",`;
-      for (let written = 0; written < 6 * 1024 * 1024; written += chunk.length) {
-        response.write(chunk);
-      }
-      response.end('"search"]}');
-    });
+    const baseUrl = await stubProvider((_, response) =>
+      moreThanWillBeRead(
+        response,
+        '{"name":"provider-wiki","versions":[1],"operations":[',
+        '"search"]}',
+      ),
+    );
     const client = createProviderClient({ baseUrl, allowlist: onLoopback() });
 
     await expect(client.manifest()).rejects.toThrow(/too large|size/i);
+  });
+
+  /**
+   * AND THE SAME SENTENCE'S SIBLING KEEPS ITS VERDICT TOO, which the test above
+   * cannot show. It asserts on the Error's own message through `rejects.toThrow`
+   * and that message is never cut -- `reasonFor` is where the cap lives -- so it
+   * passes at any URL length and says nothing about this.
+   *
+   * THE VERDICT IS THE WHOLE VALUE OF THIS REFUSAL. `the response body is larger
+   * than the N-byte size this client will read` is the half naming the limit,
+   * and it sits at the very end behind an unbounded URL.
+   */
+  it("keeps the verdict when an oversized body arrives on a long path", async () => {
+    const baseUrl = await stubProvider((_, response) =>
+      moreThanWillBeRead(response, '{"results":[', '"end"]}'),
+    );
+    const client = createProviderClient({ baseUrl, allowlist: onLoopback() });
+
+    const thrown = await client.search("dalek ".repeat(100)).catch((error: unknown) => error);
+    const reason = reasonFor(thrown);
+
+    expect(reason.text.length).toBeLessThanOrEqual(REASON_MAX_LENGTH);
+    // THE LIMIT THE OWNER IS BEING TOLD ABOUT, which is the end of the sentence.
+    expect(reason.text).toContain("size this client will read.");
+  });
+
+  /**
+   * A REFUSAL THAT NAMES THE URL IS BOUNDED AT THE URL, which is ADR-0123's rule
+   * applied where no provider TEXT appears at all.
+   *
+   * `response.url` is the address this request landed on: the Owner's base and
+   * the caller's own path on the first hop, and a URL the PROVIDER chose on any
+   * hop after one. Neither has a length, and both sit AHEAD of the verdict in
+   * this sentence.
+   *
+   * DRIVEN FROM THE CALLER'S PATH BECAUSE THAT IS THE HALF A LOOPBACK STUB CAN
+   * REACH. A content hop to `127.0.0.1` is refused by `assertContentAddress`
+   * before it is followed, so no redirect completes in this file and the
+   * provider-chosen spelling of this value has no test here. What is asserted is
+   * the LENGTH, and the path supplies it either way.
+   */
+  it("keeps the verdict when a provider answers nothing on a long path", async () => {
+    // 204 is `ok`, so it reaches `readJson`, and undici gives a null-body status
+    // no body at all -- which is the sentence this asserts on.
+    const baseUrl = await stubProvider((_, response) => {
+      response.writeHead(204);
+      response.end();
+    });
+    const client = createProviderClient({ baseUrl, allowlist: onLoopback() });
+
+    const thrown = await client.search("dalek ".repeat(100)).catch((error: unknown) => error);
+    const reason = reasonFor(thrown);
+
+    expect(reason.text.length).toBeLessThanOrEqual(REASON_MAX_LENGTH);
+    // THE VERDICT, which is what the URL's length was pushing off the end.
+    expect(reason.text).toContain("the response carried no body.");
   });
 
   it("still reads an ordinary response", async () => {
