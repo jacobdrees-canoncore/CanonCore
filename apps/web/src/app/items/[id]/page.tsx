@@ -508,7 +508,7 @@ export default async function ItemPage({
   const placingWhat = oneValue(placing);
   /*
    * WHERE THE OWNER IS STANDING, which is what every FORM on this page has to
-   * hand back (ADR-0168) and what no link needs, because a link is built from
+   * hand back (ADR-0172) and what no link needs, because a link is built from
    * `theRoute` at the point it is written.
    *
    * ONE OBJECT FOR THREE FORMS -- the place, the remove and the undo -- because
@@ -912,7 +912,7 @@ function Members({
    * -- `Walk` sets that per link and drops it for a `Back to the start`. The
    * Remove on each row is a FORM that redirects, and it is not a walk of this
    * listing: it has to hand back the page the reader is on, this listing's own
-   * cursor included (ADR-0168, CNCORE-293).
+   * cursor included (ADR-0172, CNCORE-293).
    */
   whereTheOwnerIs: TheRoute;
   /** Whether to offer the controls that CHANGE this ordering (CNCORE-109). */
@@ -2173,7 +2173,7 @@ function MoveTo({
 }
 
 /**
- * THE ADDRESS THE OWNER IS ON, AS HIDDEN FIELDS (ADR-0168).
+ * THE ADDRESS THE OWNER IS ON, AS HIDDEN FIELDS (ADR-0172).
  *
  * WRITTEN ONCE FOR EVERY FORM ON THIS PAGE THAT CARRIES ONE: the remove and the
  * undo here, and the picker's search and place form in `PlaceAnItem`. The three

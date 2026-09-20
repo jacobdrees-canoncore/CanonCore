@@ -105,7 +105,7 @@ positions were not on it to carry; it was pre-existing, since before this a refu
 three. It was left as **CNCORE-290** with a TODO at the form rather than six more fields on a schema
 that already carried one reaching no procedure. **That ticket took those fields**, the TODO is gone,
 and the rule for the whole page now lives in
-[[0168-a-form-that-can-be-refused-carries-the-address-it-was-submitted-from]] -- which holds it for
+[[0172-a-form-that-can-be-refused-carries-the-address-it-was-submitted-from]] -- which holds it for
 all three forms on this page that redirect, the removal and the undo included (CNCORE-293, folded
 into the same pass). Said here because the rule above is stated
 five times in this diff, and a rule kept selectively without saying so is one the next reader cannot

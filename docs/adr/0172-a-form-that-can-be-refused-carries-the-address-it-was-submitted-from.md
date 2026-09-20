@@ -17,8 +17,20 @@ status: accepted
 > **No procedure changed** -- `placement.place`, `placement.remove` and `placement.restore` are
 > asked as they stand -- so nothing is owed at the second seam, and no provider repository is
 > touched. **CNCORE-290 and CNCORE-293 in one pass**, folded by the dispatcher on 2026-09-20 because
-> they are one reason to change. **Drafted as 0166**, renumbered at rebase when CNCORE-259 landed
-> its own 0166 and 0167.
+> they are one reason to change. **Drafted as 0166, then 0168, then 0170, and landed as
+> 0172.** The same free number was handed to more than one branch three times on 2026-09-20:
+> CNCORE-259 took 0166 and 0167, CNCORE-257 took 0168, and CNCORE-291 took 0170 in an open PR.
+> Disclosed rather than quietly renamed, which is
+> [[0167-a-citation-to-a-record-that-never-landed-is-disclosed-not-rewritten]]'s posture applied to
+> a number that moved rather than one that never landed.
+>
+> **AND THE NUMBER WAS CHECKED AGAINST `main` ALONE, WHICH IS WHY IT MOVED THREE TIMES.** A record
+> is written on a branch and cited there long before it merges, so the numbers in flight are held by
+> OPEN PULL REQUESTS rather than by this tree -- and two of the three clashes were with branches
+> that had not landed. `adr-numbering.test.ts` caught the second in CI, which is what that guard is
+> for; it cannot catch the third, because a number taken on another open branch is not in this tree
+> to be counted. **The cheap check is `git ls-tree` over every remote branch**, which answers in one
+> command what `ls docs/adr/` cannot.
 
 `/items/<id>` is one address with **three independent positions on it**: where the Members list
 stands, where "Also appears in" stands, and what the placement picker is narrowed to. A Container
