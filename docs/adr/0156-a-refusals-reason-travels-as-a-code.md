@@ -111,7 +111,10 @@ Two properties came out of writing it that the record above would not have predi
   left the value beside it open. CNCORE-268 reached the same need within the hour from the other
   end — bounding a Container id inside the refusal that names it — and published `shortenTo` from
   `@canoncore/providers` for it, so the cut was already shared by the time this landed and only the
-  ceiling had to be chosen beside the sentence it bounds.
+  ceiling had to be chosen beside the sentence it bounds. **Both levers moved to `@canoncore/text`
+  days later ([[0163-the-levers-that-bound-a-strangers-text-live-in-a-leaf]], CNCORE-282), and this
+  surface takes the PAIR through `boundedTo` rather than the cut alone: the sentence above owes a
+  bound on the echoed value, and a cut without the control strip was only half of one.**
 
 **NOT BUILT.** The rule governs a reason that travels; it says nothing about the refusals that never
 set out. **Eleven call sites end `if (refused) return;`** and report through the page's re-read

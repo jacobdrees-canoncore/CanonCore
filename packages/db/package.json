@@ -30,6 +30,7 @@
   },
   "dependencies": {
     "@canoncore/env": "workspace:*",
+    "@canoncore/text": "workspace:*",
     "dotenv": "catalog:",
     "drizzle-orm": "catalog:",
     "edtf": "catalog:",

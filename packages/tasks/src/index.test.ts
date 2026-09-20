@@ -117,14 +117,20 @@ describe("what a break wrote", () => {
   });
 
   /**
-   * CUT ON A WHOLE CHARACTER, WRITTEN OUT HERE BY HAND (CNCORE-272).
+   * CUT ON A WHOLE CHARACTER (CNCORE-272).
    *
    * `slice` counts UTF-16 units, so a cut landing between the two halves of an
    * astral character leaves a lone surrogate -- a replacement glyph in the
-   * sentence the history shows the Owner. `@canoncore/providers` cuts through
-   * one `shortenTo` for exactly this, and ADR-0123 keeps THIS copy out of its
-   * reach on purpose: the dependency is not worth a string function. The cost of
-   * that decision is this guard, owed here by hand, and it was not paid.
+   * sentence the history shows the Owner.
+   *
+   * THE ASSERTION OUTLIVED THE COPY IT GUARDED, WHICH IS WHY IT STAYS. This was
+   * written by hand beside a hand-written cut, because ADR-0123 kept the shared
+   * one out of this package's reach; ADR-0163 moved the levers to
+   * `@canoncore/text`, a leaf depending on nothing, and `bounded` now reaches
+   * them in one call. What this asserts is the BEHAVIOUR the registry owes its
+   * reader, which is the registry's to keep whoever implements it -- and it is
+   * the witness that would go red the day this package is pointed at something
+   * that cuts differently.
    */
   it("cuts on a whole character when an astral one straddles the boundary", async () => {
     // 300 written out as above, so the constant cannot assert itself. The marker
@@ -161,10 +167,11 @@ describe("what a break wrote", () => {
    * backwards through the sentence `tasks/page.tsx` wrote about it. Neither
    * family is whitespace, so collapsing `\s+` never touched them.
    *
-   * THE SECOND COPY OF A SECOND PROPERTY, and a copy for the reason the cut is
-   * one: ADR-0123 refuses the dependency on `@canoncore/providers` that would
-   * share it, so what that record bounds on TWO levers has to be written here
-   * on two as well.
+   * ASSERTED HERE BECAUSE THE PAGE IS HERE. This was a second hand-written
+   * copy of a second property until ADR-0163 moved both levers to
+   * `@canoncore/text`; what survives the move is the claim that a DETAIL
+   * reaching `tasks/page.tsx` carries neither family, which is this package's
+   * to make about its own column whatever applies them.
    */
   it.each([
     ["\u202e", "a right-to-left override"],

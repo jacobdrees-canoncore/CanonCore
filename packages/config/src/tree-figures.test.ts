@@ -348,7 +348,7 @@ describe("a figure this tree states about itself", () => {
   });
 
   it("counts the suites this repository runs, and the few that name a config", () => {
-    expect(suitesInRepo()).toBe(15);
+    expect(suitesInRepo()).toBe(16);
     expect(suitesNamingAConfig()).toBe(4);
   });
 

@@ -20,7 +20,6 @@ import {
   type Allowlist,
   allowsAnything,
   bounded,
-  boundedTo,
   type CmppBrowse,
   type CmppManifest,
   type CmppRecord,
@@ -32,6 +31,7 @@ import {
   reasonFor,
   searchProviders,
 } from "@canoncore/providers";
+import { boundedTo } from "@canoncore/text";
 import { z } from "zod";
 
 import { openProcedure, ownerProcedure } from "../index";
@@ -564,7 +564,9 @@ const CONTAINER_ID_MAX_LENGTH = 255;
  * cut; an id refused FOR ITS LENGTH is precisely the value that would otherwise
  * eat the clause explaining why it was refused.
  *
- * THE LEVERS ARE `boundedTo`'S AND THE NUMBER IS THIS FILE'S (CNCORE-269).
+ * THE LEVERS ARE `boundedTo`'S AND THE NUMBER IS THIS FILE'S (CNCORE-269),
+ * reached through `@canoncore/text` since ADR-0163 moved them to a leaf every
+ * package can import.
  * ADR-0123 bounds a stranger's text on two -- how MUCH of it lands in the
  * sentence, and what it may DO to the words around it -- and this reaches for
  * both through one call, because taking the cut alone is half a mechanism that
@@ -1760,9 +1762,10 @@ export const provider = {
        * at nothing. That is NOT ADR-0123 satisfied: the record's ceiling for an
        * interpolated value is 80 and its second lever strips the controls that
        * re-order the words around it, and a 255-character id reaches the
-       * repeat's sentence with neither applied. `@canoncore/db` cannot call
-       * `boundedTo` -- ADR-0123 keeps that package out of this one's reach
-       * deliberately -- so closing it is CNCORE-282 rather than a line here.
+       * repeat's sentence with neither applied. CNCORE-282 closed that: the
+       * levers moved to `@canoncore/text`, a leaf depending on nothing, so
+       * `@canoncore/db` bounds the repeat's sentence on both without taking the
+       * outbound HTTP stack ADR-0123 refused it (ADR-0163).
        *
        * NOT A `z.string().max()` ON THE INPUT, though that is where the gap was
        * found. oRPC answers an input-validation failure with the DECLARED

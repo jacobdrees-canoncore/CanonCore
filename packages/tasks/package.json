@@ -12,7 +12,8 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@canoncore/db": "workspace:*"
+    "@canoncore/db": "workspace:*",
+    "@canoncore/text": "workspace:*"
   },
   "devDependencies": {
     "@canoncore/config": "workspace:*",

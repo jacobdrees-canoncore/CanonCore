@@ -66,7 +66,7 @@ the only package in that position — its export opens a Postgres connection, so
 test without one — and is not any more: it has a schema and twenty-six suite files now. NO package
 is in that position today. The one package with no `test` script is `packages/contract`, which is
 not an instance of this rule at all: it has plenty to test and runs it as `test:contract`. That is
-why `test` is declared by TEN of the eleven packages while `typecheck` is declared by all eleven,
+why `test` is declared by ELEVEN of the twelve packages while `typecheck` is declared by all twelve,
 and the difference is what the canary in `typecheck-wiring.test.ts` is built on (CNCORE-197).
 
 The same false green exists one level up, and is closed the same way: `turbo run <task>` exits 0
@@ -134,8 +134,8 @@ The two holes are disjoint, which is what makes the pair whole.
 
 **The roll call is asked in one place and every other task is held by a suite, which is the whole
 mechanism rather than half of one.** `test @canoncore/config` is the case CNCORE-190 measured and
-closed in the script. `typecheck` is declared by ELEVEN packages and had only the count, so one of
-them dropping its script left ten running and the job green — the identical hole, and nothing else
+closed in the script. `typecheck` is declared by TWELVE packages and had only the count, so one of
+them dropping its script left eleven running and the job green — the identical hole, and nothing else
 caught it, because `network-gate-wiring.test.ts` covers `test` alone. **CNCORE-197 closed it in
 `packages/config/src/typecheck-wiring.test.ts`**, which holds every package `pnpm-workspace.yaml`
 declares to appearing in turbo's plan for `typecheck` with a command to run. Measured 2026-09-15
@@ -152,7 +152,7 @@ script holds the one task no suite can hold, each suite holds a task it is not r
 stay disjoint. A roll call for a task that IS `test` would have to go back into the script.
 
 **BOTH SIDES ARE DERIVED, WHICH IS WHAT KEEPS IT FROM GOING STALE IN THE DIRECTION THAT MATTERS.** A
-second argument per package would be eleven names transcribed into `ci.yml`, and the twelfth package
+second argument per package would be twelve names transcribed into `ci.yml`, and the thirteenth package
 would simply not be one anybody had written down. Nothing was added to the workflow: the packages
 come from `pnpm-workspace.yaml` and the plan from turbo, so a package added without a `typecheck`
 script is named on its first CI run rather than waiting for somebody to notice.
@@ -160,7 +160,7 @@ script is named on its first CI run rather than waiting for somebody to notice.
 **AND A DRY RUN PLANS EVERY PACKAGE, WHICH IS THE TRAP THIS NEARLY FELL INTO.** `turbo run <task>
 --dry=json` reports one task PER WORKSPACE PACKAGE whatever the task is, marking the ones that will
 not run `"<NONEXISTENT>"` rather than leaving them out — `db:studio`, declared by exactly one
-package, plans eleven. So a check reading the plan as the list of packages that will run the task
+package, plans twelve. So a check reading the plan as the list of packages that will run the task
 reads every package as running every task, and passes with the script deleted: the vacuous green
 this record is about, reproduced inside the guard against it. Measured on turbo 2.10.12,
 2026-09-15, and caught before it shipped by the canary the file carries — the same comparison over
@@ -172,9 +172,9 @@ gets the distinction rather than rediscovering it.
 
 **WHAT THIS DOES NOT HOLD, since half a mechanism reads whole from outside.** The plan the suite
 reads is UNFILTERED, and what CI runs is the ROOT script. `pnpm typecheck` is `turbo run typecheck`
-today, so the two name the same eleven packages — but a root script narrowed to
+today, so the two name the same twelve packages — but a root script narrowed to
 `turbo run typecheck -F web` would typecheck one package, keep the count non-zero, and leave this
-suite reading an unfiltered plan of eleven and passing. A filtered root script is a shape this repo
+suite reading an unfiltered plan of twelve and passing. A filtered root script is a shape this repo
 uses on purpose (`db:migrate` is `turbo run db:migrate -F @canoncore/db --`), so refusing one
 outright would be a new rule rather than CNCORE-197's, and it is written here rather than left for
 somebody to find.
@@ -183,7 +183,8 @@ somebody to find.
 package, `web`, so the count reaching zero and the script being deleted are the same event. That
 sentence said "`typecheck` and `build` … eleven packages each" when it was first written, which was
 an unchecked figure for the second of them and would have sent somebody to close a hole that does
-not exist. Counted 2026-09-14: `test` 10, `typecheck` 11, `build` 1.
+not exist. Counted 2026-09-14: `test` 10, `typecheck` 11, `build` 1. Recounted 2026-09-20 with
+`@canoncore/text` standing (CNCORE-282): `test` 11, `typecheck` 12, `build` 1.
 
 **And a scratch fixture does not stand in for a real run**, which this record owes to the roll call
 being wrong TWICE before it was right — once on the size of a real log and once on the shape of a

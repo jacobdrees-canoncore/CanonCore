@@ -10,8 +10,8 @@ import { packageDirectories } from "./testing/workspace";
  *
  * `run-suite.sh` catches the count reaching ZERO -- `pnpm typecheck` running no
  * task at all, which is what a deleted root script or a task nobody declares
- * gives. `typecheck` is declared by ELEVEN packages, so one of them dropping its
- * script leaves ten running, the count stays non-zero, and the job goes green
+ * gives. `typecheck` is declared by TWELVE packages, so one of them dropping its
+ * script leaves eleven running, the count stays non-zero, and the job goes green
  * having typechecked one package fewer than it thinks (CNCORE-197). That is the
  * half CNCORE-190 named and deliberately did not build.
  *
@@ -24,7 +24,7 @@ import { packageDirectories } from "./testing/workspace";
  * ones -- and the script's roll call is what keeps the difference real.
  *
  * NOTHING IS ADDED TO `ci.yml`, which is the point rather than a convenience. A
- * second argument per package would be eleven names transcribed into a workflow,
+ * second argument per package would be twelve names transcribed into a workflow,
  * going stale in the direction that matters the first time a package is added:
  * the new one would simply not be a package anybody had written down. Both sides
  * here are DERIVED -- the packages from `pnpm-workspace.yaml`, the plan from
@@ -35,7 +35,7 @@ import { packageDirectories } from "./testing/workspace";
  * typecheck` is `turbo run typecheck` today, so the two are the same set -- but
  * a root script narrowed to `turbo run typecheck -F web` would typecheck one
  * package with the count non-zero while this file, reading an unfiltered plan,
- * still saw eleven and passed. A filtered root script is a shape this repo uses
+ * still saw twelve and passed. A filtered root script is a shape this repo uses
  * on purpose (`db:migrate` is `turbo run db:migrate -F @canoncore/db --`), so
  * refusing one outright would be a new rule rather than this one's.
  */
@@ -130,7 +130,7 @@ describe("the typecheck roll call", () => {
    * it builds its own subject, so a comparison that had stopped asking would
    * still have to answer it. This one is turbo's plan exactly as it comes.
    *
-   * `test` is declared by ten of the eleven: `packages/contract` runs its suite
+   * `test` is declared by eleven of the twelve: `packages/contract` runs its suite
    * as `test:contract`, so turbo plans a task for it that will not run. A
    * comparison reporting nothing HERE reports nothing above for the same reason,
    * and one reporting everything is broken the other way -- naming the package

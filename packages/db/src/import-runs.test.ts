@@ -103,6 +103,51 @@ describe("beginImportRun", () => {
     expect((refusal as Error).message).toBe("249643 is listed twice, at positions 1 and 3");
   });
   /**
+   * ADR-0123'S SECOND LEVER, AT THE SENTENCE THIS ONE BUILDS. A bidirectional
+   * override re-orders the glyphs on either side of itself, so an id carrying
+   * one runs the clause the refusal wrote AROUND it -- "is listed twice, at
+   * positions 1 and 3" -- backwards through the Owner's page. It does that at
+   * any length, which is why CNCORE-268's 255-character ceiling at the router
+   * did not touch it: that bounded how much could arrive, not what it could do.
+   *
+   * THE WHOLE SENTENCE IS ASSERTED, not merely the absence of the character.
+   * What the lever protects is the CLAUSE, and a test that only checked the id
+   * had been scrubbed would pass on a sentence whose remedy had been reversed.
+   */
+  it("strips a bidirectional override from the id it quotes, so the clause around it still reads forwards", async () => {
+    const listing249643Twice = ["249\u202e643", "105893", "249\u202e643"];
+
+    const refusal = await beginImportRun(db, {
+      providerIdentity: aProvider(),
+      containerIds: listing249643Twice,
+    }).catch((cause: unknown) => cause);
+
+    expect((refusal as Error).message).toBe("249643 is listed twice, at positions 1 and 3");
+  });
+  /**
+   * THE OTHER LEVER, AND IT IS REACHABLE RATHER THAN THEORETICAL. ADR-0160
+   * bounds a Container id at 255 characters at the router, so an id of 120 is
+   * one the Owner's own list can carry all the way to this sentence -- where
+   * unbounded it would push the clause naming the two positions off whatever is
+   * reading it. 80 is ADR-0123's ceiling for a value a refusal quotes back.
+   *
+   * THE CLAUSE IS ASSERTED WHOLE. What the ceiling protects is the half of the
+   * sentence that says what to do about it, so a test asserting only the id's
+   * length would pass on a sentence that had lost its remedy.
+   */
+  it("quotes back only as much of an overlong id as leaves the clause after it standing", async () => {
+    const tooLongToQuote = "2".repeat(120);
+
+    const refusal = await beginImportRun(db, {
+      providerIdentity: aProvider(),
+      containerIds: [tooLongToQuote, "105893", tooLongToQuote],
+    }).catch((cause: unknown) => cause);
+
+    expect((refusal as Error).message).toBe(
+      `${"2".repeat(79)}\u2026 is listed twice, at positions 1 and 3`,
+    );
+  });
+  /**
    * THE RUN ROW AND ITS CONTAINERS ARE ONE WRITE. They were two statements with
    * nothing around them until CNCORE-254, so a list that failed to write left
    * the run row standing over none of its members -- and a run reporting zero

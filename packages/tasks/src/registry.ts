@@ -9,6 +9,7 @@ import {
   type TaskOutcome,
   type TaskRun,
 } from "@canoncore/db";
+import { boundedTo } from "@canoncore/text";
 
 export type { TaskOutcome, TaskRun } from "@canoncore/db";
 
@@ -311,73 +312,34 @@ function reasonFor(thrown: unknown): string {
  * listing an issue per bad field. ADR-0123 measured that last one at 378,782
  * characters, and this column is read onto a page.
  *
- * COLLAPSED BEFORE IT IS CUT, which that record also learned the hard way: a
- * pretty-printed error spends the whole allowance on its own indentation and
- * hands the reader a stack of braces.
- *
  * 300 IS ADR-0123's NUMBER, taken rather than chosen again, because this is the
- * same question that record answered about a different reader.
+ * same question that record answered about a different reader. THE NUMBER IS
+ * THIS FILE'S AND THE LEVERS ARE NOT, which is the split ADR-0163 keeps: a
+ * ceiling stays beside the sentence it bounds, and what is shared is the pair.
  *
- * CUT ON A WHOLE CHARACTER, AND THIS IS A COPY ON PURPOSE (CNCORE-272).
- * `slice` counts UTF-16 units, so a cut landing between the two halves of an
- * astral character leaves a lone surrogate. `@canoncore/providers` cuts through
- * one `shortenTo` for this reason, and ADR-0123 keeps this copy OUT OF ITS
- * REACH deliberately: `@canoncore/tasks` depends on `@canoncore/db` alone, and
- * taking the provider stack -- an HTTP client, two undici dispatchers and
- * ADR-0034's boundaries -- to reach one string function would couple
- * this registry to it for nothing. The cost of that decision is this guard,
- * owed here BY HAND, and until CNCORE-272 it was not paid. Do not repair the
- * duplication by importing: the duplication is the decision.
+ * BOTH LEVERS ARRIVE IN ONE CALL, AND THIS WAS A HAND COPY UNTIL CNCORE-282.
+ * ADR-0123 refused the import that would have shared them and was right about
+ * the dependency it was offered: reaching `@canoncore/providers` for one string
+ * function would have taken an HTTP client, two undici dispatchers and
+ * ADR-0034's boundaries. What that record did not consider is that the levers
+ * need not live there. ADR-0163 moves them to `@canoncore/text`, which depends
+ * on nothing, so this registry reaches them at the cost of the lines
+ * themselves.
  *
- * THE DAMAGE HERE IS NOT THE SAME AS ON A PAGE, and it is worse. `detail` is a
- * UTF-8 column and a lone surrogate has no encoding in it, so the round trip
- * turns one into U+FFFD -- well-formed on the way back out, so nothing
- * downstream can tell it was ever a character, and permanent in the history.
+ * THE COPY IS GONE BECAUSE IT DRIFTED TWICE, WHICH IS THE EVIDENCE RATHER THAN
+ * A TIDINESS ARGUMENT. It lacked the surrogate guard until CNCORE-272 and the
+ * control strip until CNCORE-274; each gap held for as long as it did because
+ * "keep them in step by hand" is an instruction nobody is around to follow.
  *
- * AND IT IS BOUNDED ON TWO LEVERS, NOT ONE (CNCORE-274). The cut answers how
- * MUCH a stranger may put on a page it does not own; `CONTROLS` below answers
- * what that text may DO to the page's own words. ADR-0123 carries both, and for
- * a while this copy had taken only the first -- which is half a mechanism, and
- * half a mechanism looks finished from outside.
+ * THE DAMAGE HERE IS NOT THE SAME AS ON A PAGE, and it is worse, which is why
+ * the surrogate guard inside that call matters to this caller in particular.
+ * `detail` is a UTF-8 column and a lone surrogate has no encoding in it, so the
+ * round trip turns one into U+FFFD -- well-formed on the way back out, so
+ * nothing downstream can tell it was ever a character, and permanent in the
+ * history.
  */
 function bounded(detail: string): string {
-  const collapsed = detail.replace(CONTROLS, "").replace(/\s+/g, " ").trim();
-  if (collapsed.length <= BOUNDED_DETAIL) return collapsed;
-  const kept = collapsed.slice(0, BOUNDED_DETAIL - MARKER.length);
-  const last = kept.charCodeAt(kept.length - 1);
-  const whole = last >= 0xd800 && last <= 0xdbff ? kept.slice(0, -1) : kept;
-  return `${whole}${MARKER}`;
+  return boundedTo(detail, BOUNDED_DETAIL);
 }
-
-/**
- * The characters that change how the text AROUND them reads, stripped.
- *
- * NOT A WHITESPACE PROBLEM, which is why collapsing `\s+` does not catch them.
- * The bidirectional overrides (U+202A-U+202E, U+2066-U+2069) re-order the glyphs
- * on either side of themselves, so what a task threw can run backwards through
- * the sentence `tasks/page.tsx` wrote around it. U+200B-U+200D and U+FEFF are
- * the zero-width family, which splits a word a reader is scanning for without
- * leaving a mark. U+FEFF alone IS matched by `\s`, so before this it became a
- * SPACE rather than nothing -- a different wrong answer, not a right one.
- *
- * A COPY OF `reason.ts`'s, FOR THE REASON THE CUT IS A COPY. ADR-0123 refuses
- * the dependency that would share it, so a record bounding a stranger's text on
- * two levers has to be written here on two. Keep them in step by hand; do not
- * "repair" the duplication with an import.
- *
- * STRIPPED RATHER THAN ESCAPED: a detail is a single sentence of prose, not a
- * document with a mixed-direction layout to preserve.
- */
-const CONTROLS = /[\u202a-\u202e\u2066-\u2069\u200b-\u200d\ufeff]/g;
-
-/**
- * What stands in for the part of a detail the history does not show.
- *
- * NAMED RATHER THAN INLINED TWICE, so the copy above is the same SHAPE as
- * `shortenTo`'s and not merely the same behaviour. `BOUNDED_DETAIL - 1` was
- * right only while the marker was one UTF-16 unit, which is the kind of
- * agreement-by-coincidence that put these two out of step to begin with.
- */
-const MARKER = "\u2026";
 
 export const BOUNDED_DETAIL = 300;
