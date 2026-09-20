@@ -269,7 +269,7 @@ orca worktree current --json
 **`--current` ANSWERS ABOUT THE CALLER'S TERMINAL, NOT THE WORKING DIRECTORY.** It is the right tool
 for an agent reading its OWN ticket, and the wrong one for checking somebody else's worktree: `cd`
 into another worktree and ask, and you are told `linear_no_linked_issue` about YOUR shell's worktree
-while the one you are standing in is bound (ADR-0161). Measured from a terminal belonging to
+while the one you are standing in is bound (ADR-0162). Measured from a terminal belonging to
 `cncore-265`, standing in `cncore-281`: it answered **CNCORE-265**. `ORCA_WORKTREE_ID` cannot be
 overridden to fake it, and `docs/research/multi-repo.md` measured the same trap under "The trap,
 which produced a false negative inside this research". **A dispatched agent is unaffected**, because

@@ -126,7 +126,7 @@ OWNER and reads what that owner says today. It ruled 11 claims contradicted on 2
 - Use `orca worktree create` for parallel work, binding each to its ticket with
   `--linear-issue CNCORE-<n>`; `create` and `set` both bind, whatever older notes say. **Confirm at
   `linkedLinearIssue`, never `linkedIssue`** (GitHub's field, null here) — and never with
-  `--current`, which answers about the CALLER's worktree, not the one you stand in (ADR-0161).
+  `--current`, which answers about the CALLER's worktree, not the one you stand in (ADR-0162).
 - Every worktree shares one Postgres container with its OWN database inside, on **55432** not 5432,
   since a local Postgres shadows 5432 silently and you test the wrong engine (ADR-0104). **Four
   agents at once**: one `pnpm test:e2e` peaks at 67 of 288 usable connections, re-measured
@@ -137,7 +137,7 @@ OWNER and reads what that owner says today. It ruled 11 claims contradicted on 2
   send does not always reach the chat: input to an agent PARKED on a prompt goes to the WIDGET,
   where `--enter` SELECTS the option under the cursor, and mid-turn `--enter` queues instead of
   submitting until `ctrl+x ctrl+s` (`printf '\030\023'`) flushes it. All three answer `ok: true`
-  (ADR-0161).
+  (ADR-0162).
 - Credentials live in `~/.config/canoncore/`, outside every repo so no commit can reach them and
   every worktree reads one copy: `provider-tmdb.env` (that provider throws at startup without its
   token; CI uses the repo secret) and `whatbox.env` (the slot's login, for SSH or its web UI).
@@ -173,7 +173,7 @@ the sentence it corrects — placed beside one, it leaves the old claim standing
   more in the prompt. The binding is the brief — `--current` resolves the ticket, so there is no
   task spec to keep in step with it — but a brief is CONFIRMED WHERE IT LANDS, never at the call
   that sent it, so check the binding before the agent needs it: `monitor.sh` emits `UNBOUND` for a
-  worktree carrying none (ADR-0161). Each slice lands on `main` behind its own PR, because a
+  worktree carrying none (ADR-0162). Each slice lands on `main` behind its own PR, because a
   slice waiting on an integration branch is not demoable on its own (ADR-0051). Recompute the
   frontier from the tracker as each PR merges, because no DAG is doing it here — **then STOP.
   Recomputing is yours; STARTING A WAVE IS THE USER'S.** Merging authorises removing ITS worktree,

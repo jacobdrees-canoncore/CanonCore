@@ -77,13 +77,14 @@ for w in sorted(glob.glob(os.path.expanduser("~/orca/workspaces/CanonCore/*/")))
     # `--prompt "/implement"` and nothing more, so the binding carries the whole
     # ticket; without it the agent wakes up with no idea what to build. The
     # create call answers `ok: true` either way, which is why this is read here
-    # rather than trusted there (ADR-0161).
+    # rather than trusted there (ADR-0162).
     #
     # IT READS `linkedLinearIssue`, NOT `linkedIssue`. The second is the GITHUB
     # issue number and is null on every CanonCore worktree because this repo does
-    # not use GitHub Issues. Reading it is exactly how the 2026-09-20 wave
-    # declared five worktrees unbound while all five bindings were intact, and
-    # hand-briefed five agents that did not need it.
+    # not use GitHub Issues, so it can show a Linear binding neither present nor
+    # absent. Reading it is how the 2026-09-20 wave declared five worktrees
+    # unbound on evidence that could not say either way -- the same misread as a
+    # 2026-09-13 note about `set --linear-issue`, seven days apart.
     #
     # EMITTING ON AN ABSENCE ONLY FAILS SAFE IF ABSENCE IS DISTINGUISHABLE FROM
     # NOT HAVING LOOKED, which is the trap the drift lines below set `blind` for.

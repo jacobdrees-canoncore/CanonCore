@@ -124,7 +124,7 @@ remove. Dead: read the terminal before assuming the work is lost.
 
 **AND A PARKED AGENT IS UNREACHABLE, so this read comes BEFORE a broadcast and not only after one.**
 Anything sent to it goes to the prompt widget rather than the chat, where `--enter` answers the
-question on its behalf (ADR-0161). Answer the prompt first, then send.
+question on its behalf (ADR-0162). Answer the prompt first, then send.
 
 **`UNBOUND <worktree>` MEANS A WORKTREE THAT CANNOT BRIEF ITS OWN AGENT**, because `--prompt
 "/implement"` carries no ticket number and the binding is the whole brief. It reads
@@ -220,7 +220,7 @@ let the range pick the newer one up later.
   163/164 pair read as stalled on 2026-09-14 while it was writing a compose file and a 209-line
   test, and the question came back as "the orca worktree isnt doing anyhting".
 - **`orca terminal send` TYPES; `--enter` SENDS — AND `--enter` IS STILL NOT DELIVERY.** There are
-  three ways a brief fails to arrive and all three answer `ok: true` with a byte count (ADR-0161).
+  three ways a brief fails to arrive and all three answer `ok: true` with a byte count (ADR-0162).
   Without the flag the text lands in the input box and sits there: two briefs naming a merged ADR
   rung sat unsubmitted on 2026-09-19 while this loop's own report said both had been told. **With
   the flag, mid-turn, it QUEUES rather than submits** — the UI shows `ctrl+x ctrl+s to send now` and
@@ -251,7 +251,7 @@ let the range pick the newer one up later.
   binding's absence OR its presence, so neither reading established anything. **Both
   `create --linear-issue` and `set --linear-issue` bind**, re-measured 2026-09-20 against probe
   worktrees created and removed for it, each confirmed by an independent `orca worktree list` read
-  rather than by the write's own response (ADR-0161).
+  rather than by the write's own response (ADR-0162).
 - **`--current` RESOLVES FROM THE CALLER TERMINAL, NOT THE WORKING DIRECTORY, so a dispatcher cannot
   audit a binding with it.** `cd` into another worktree and ask, and you get `linear_no_linked_issue`
   about YOUR shell's worktree while the one you are standing in is bound. Measured from a terminal
