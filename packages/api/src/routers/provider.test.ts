@@ -2189,6 +2189,40 @@ describe("provider.beginImportRun", () => {
 
     expect(asked).toEqual([]);
   });
+  /**
+   * WHAT THE OWNER MET INSTEAD WAS A 500, AND FOR THE WHOLE LIST. An unnarrowed
+   * 23505 from `import_run_containers_named_once` escaped as a
+   * `DrizzleQueryError`, which is not an `ORPCError`, so the mount logged it as
+   * a fault and oRPC answered 500 -- "something broke" for a list the Owner
+   * could have fixed in one edit, with none of the other 464 Containers
+   * imported (CNCORE-254).
+   *
+   * `ImportRunRefused` TRANSLATED, AND NOTHING ELSE: a dead pool stays a fault,
+   * which is the rule `group.put` and `item.create` each record about their
+   * own.
+   */
+  it("answers BAD_REQUEST for a list naming one Container twice", async () => {
+    const baseUrl = await aProviderOfTwoContainers();
+
+    const { error } = await safe(
+      call(
+        appRouter.provider.beginImportRun,
+        { baseUrl, containerIds: ["402219", "388305", "402219"] },
+        { context },
+      ),
+    );
+
+    expect(isDefinedError(error) && error.code).toBe("BAD_REQUEST");
+    /*
+     * AND THE SENTENCE ITSELF, because the code alone is what let this ship
+     * half-built: `ORPCError.toJSON` serialises `{defined, code, status,
+     * message, data}` and drops `cause`, so a handler passing only the cause
+     * answers the DECLARED sentence -- which names no id. A test asserting
+     * `error.code` would pass on that, and the Owner would still be reading
+     * "that list cannot be imported" with no way to find the repeat.
+     */
+    expect(error?.message).toBe("402219 is listed twice, at positions 1 and 3");
+  });
 });
 
 describe("provider.importNextContainer", () => {

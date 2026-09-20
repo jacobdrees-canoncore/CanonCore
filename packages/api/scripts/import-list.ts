@@ -37,7 +37,7 @@ import { readFile } from "node:fs/promises";
 import { importContainerList, theContainerIdsIn } from "@canoncore/api/import-list";
 import type { AppRouterClient } from "@canoncore/api/routers";
 import { SESSION_COOKIE } from "@canoncore/api/session-cookie";
-import { createORPCClient } from "@orpc/client";
+import { createORPCClient, ORPCError } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
 
 const USAGE = `Imports a list of Containers into a running CanonCore.
@@ -86,6 +86,16 @@ const { token } = await rpc().session.logIn({ password });
 const owner = rpc({ cookie: `${SESSION_COOKIE}=${token}` });
 
 const began = Date.now();
+
+/*
+ * A REFUSED LIST PRINTS AS A SENTENCE, NOT AS A STACK TRACE. `beginImportRun`
+ * refuses a list naming an id twice and says which id and where (CNCORE-254,
+ * ADR-0154), and that sentence is the whole point of refusing rather than
+ * deduping -- so reaching the Owner as an unhandled rejection, under a stack
+ * from inside the RPC client, would waste it. BAD_REQUEST is the one code this
+ * means: everything else is a fault and keeps its stack, because a dead
+ * instance and a mistyped list are not the same news.
+ */
 const report = await importContainerList(
   owner,
   { baseUrl: provider, containerIds },
@@ -114,7 +124,13 @@ const report = await importContainerList(
       );
     },
   },
-);
+).catch((cause: unknown) => {
+  if (cause instanceof ORPCError && cause.code === "BAD_REQUEST") {
+    console.error(`${list}: ${cause.message}`);
+    process.exit(1);
+  }
+  throw cause;
+});
 
 const landed = report.containers.filter((container) => container.outcome === "landed");
 const refused = report.containers.filter((container) => container.outcome === "refused");

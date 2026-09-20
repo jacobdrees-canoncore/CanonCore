@@ -4,6 +4,7 @@ import {
   findItemsProvided,
   type ImportedContainer,
   type ImportedRecord,
+  ImportRunRefused,
   importBrowsedContainer,
   importProvidedRecord,
   nextPendingContainer,
@@ -1652,12 +1653,43 @@ export const provider = {
       }),
     )
     .output(importRunReport)
-    .handler(async ({ input, context }) => {
-      const run = await beginImportRun(context.db, {
-        providerIdentity: input.baseUrl,
-        containerIds: input.containerIds,
-      });
-      return { runId: run.id, containers: run.containers.map(asReportedContainer) };
+    .errors({
+      BAD_REQUEST: { message: "That list of Container ids cannot be imported as it stands." },
+    })
+    .handler(async ({ input, context, errors }) => {
+      /*
+       * THE LIST IS REFUSED BEFORE ANY OF IT IS WRITTEN, AND ONLY THAT REFUSAL
+       * IS TRANSLATED HERE -- the rule `group.put` and `item.create` each
+       * record about their own: what the Owner asked for being impossible is a
+       * BAD_REQUEST, and everything else goes on being a fault.
+       *
+       * WITHOUT THIS THE OWNER MET A 500 FOR THE WHOLE LIST. An unnarrowed
+       * 23505 escaped as a `DrizzleQueryError`, which is not an `ORPCError`, so
+       * the mount logged it as a fault and none of the other 464 Containers
+       * were imported (CNCORE-254). The sentence naming the repeated id and
+       * where it sits is the refusal's own, written where the list is read.
+       */
+      try {
+        const run = await beginImportRun(context.db, {
+          providerIdentity: input.baseUrl,
+          containerIds: input.containerIds,
+        });
+        return { runId: run.id, containers: run.containers.map(asReportedContainer) };
+      } catch (cause) {
+        /*
+         * THE MESSAGE IS PASSED, NOT JUST THE CAUSE, and that is the whole
+         * difference between a refusal the Owner can act on and one they
+         * cannot. `ORPCError.toJSON` serialises `{defined, code, status,
+         * message, data}` and NOTHING ELSE, so a `cause` never crosses the
+         * wire -- the caller would read the declared sentence above, which
+         * names no id. `settings.ts` passes `cause.message` for the same
+         * reason. The cause still travels for the server's own chain.
+         */
+        if (cause instanceof ImportRunRefused) {
+          throw errors.BAD_REQUEST({ message: cause.message, cause });
+        }
+        throw cause;
+      }
     }),
 
   /**

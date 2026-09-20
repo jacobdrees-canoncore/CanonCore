@@ -1,13 +1,18 @@
+import { createHash } from "node:crypto";
+
+import { eq } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import {
   beginImportRun,
   type Database,
+  ImportRunRefused,
   nextPendingContainer,
   readImportRun,
   recordContainerLanded,
   recordContainerRefused,
 } from "./index";
+import { importRuns } from "./schema";
 import { connect } from "./testing/catalogue";
 
 let db: Database;
@@ -31,6 +36,21 @@ const aProvider = () => `http://127.0.0.1:39481/${++providers}`;
  */
 const THREE = ["249643", "105893", "226288"];
 
+/**
+ * AN ID NO BTREE CAN HOLD. `import_run_containers_named_once` indexes
+ * `external_id`, and PostgreSQL refuses an index row over 2704 bytes: measured
+ * here as "index row size 3872 exceeds btree version 4 maximum 2704" on
+ * 2026-09-20.
+ *
+ * INCOMPRESSIBLE ON PURPOSE. 3000 repeated digits TOAST down to something that
+ * fits and the row writes perfectly well, so a fixture built the obvious way
+ * would pass while proving nothing. Hashes are deterministic as well as
+ * incompressible, which a random string would not be.
+ */
+const TOO_LONG_TO_INDEX = Array.from({ length: 125 }, (_, at) =>
+  createHash("sha256").update(String(at)).digest("hex"),
+).join("");
+
 describe("beginImportRun", () => {
   it("opens a run holding the list in the order the Owner handed it over", async () => {
     const run = await beginImportRun(db, {
@@ -52,6 +72,85 @@ describe("beginImportRun", () => {
       "pending",
       "pending",
     ]);
+  });
+
+  /**
+   * THE LIST IS A DOCUMENT THE OWNER WROTE, so an id on it twice is a typo
+   * rather than a claim made twice. ADR-0154 takes that decision, and says why
+   * the opposite reading -- `groups.ts`'s conflict MET rather than raised,
+   * because asking twice is the claim already standing -- does not carry here.
+   *
+   * AND THE SENTENCE SAYS WHERE. The case this exists for is a hand-assembled
+   * list of 465, where "one of these is repeated" is not something a reader can
+   * act on.
+   *
+   * POSITIONS IN THE LIST, NOT LINES OF THE FILE. `theContainerIdsIn` drops
+   * blank lines and `#` comments before an id reaches here, so the two numbers
+   * do not address the file directly -- which is why the sentence names the id
+   * first, and the id is what the Owner searches their file for.
+   */
+  it("refuses a list naming one Container twice, saying which id and where it repeats", async () => {
+    const listing249643Twice = ["249643", "105893", "249643"];
+
+    const refusal = await beginImportRun(db, {
+      providerIdentity: aProvider(),
+      containerIds: listing249643Twice,
+    }).catch((cause: unknown) => cause);
+
+    expect(refusal).toBeInstanceOf(ImportRunRefused);
+    expect((refusal as Error).message).toBe("249643 is listed twice, at positions 1 and 3");
+  });
+  /**
+   * THE RUN ROW AND ITS CONTAINERS ARE ONE WRITE. They were two statements with
+   * nothing around them until CNCORE-254, so a list that failed to write left
+   * the run row standing over none of its members -- and a run reporting zero
+   * Containers reads as an import that found nothing rather than as one that
+   * never happened.
+   *
+   * DRIVEN BY AN ID TOO LONG TO INDEX RATHER THAN BY A REPEAT, because a repeat
+   * is refused above before anything is written and so proves nothing about the
+   * transaction. `import_run_containers_named_once` is a btree, and a btree
+   * cannot hold a value over 2704 bytes: measured at "index row size 3872
+   * exceeds btree version 4 maximum 2704" on this server, 2026-09-20. It is
+   * incompressible on purpose -- 3000 repeated digits TOAST down to something
+   * that fits, and the test would pass while writing the row.
+   *
+   * NOTHING BOUNDS AN ID'S LENGTH ON THE WAY IN, which is what makes this
+   * reachable rather than contrived: `containerIds` is `z.array(z.string()
+   * .min(1)).min(1)` with no maximum. That gap is CNCORE-268, and it is not
+   * this ticket -- what is this ticket's is that failing here leaves no orphan.
+   */
+  it("leaves no run behind when the list it was opened with cannot be written", async () => {
+    const provider = aProvider();
+
+    await expect(
+      beginImportRun(db, { providerIdentity: provider, containerIds: [TOO_LONG_TO_INDEX] }),
+    ).rejects.toThrow();
+
+    const orphans = await db
+      .select()
+      .from(importRuns)
+      .where(eq(importRuns.providerIdentity, provider));
+    expect(orphans).toEqual([]);
+  });
+  /**
+   * A CONSTRAINT THIS LIST CAN REACH NEVER REACHES THE OWNER AS A FAULT. The
+   * insert was unnarrowed until CNCORE-254, so SQLSTATE 23505 escaped as a
+   * `DrizzleQueryError` -- which is not an `ORPCError`, so the mount logged it
+   * as a fault and oRPC answered 500. The Owner met "something broke" for a
+   * list they could have fixed in one edit.
+   *
+   * WHICH SQLSTATES THOSE ARE IS A FACT ABOUT THE SCHEMA, so they live in
+   * `import-runs.ts` beside the write rather than in the router, exactly as
+   * `by-hand.ts` and `groups.ts` say of their own.
+   */
+  it("refuses a list the database will not index, rather than letting it escape as a fault", async () => {
+    const refusal = await beginImportRun(db, {
+      providerIdentity: aProvider(),
+      containerIds: [TOO_LONG_TO_INDEX],
+    }).catch((cause: unknown) => cause);
+
+    expect(refusal).toBeInstanceOf(ImportRunRefused);
   });
 });
 
