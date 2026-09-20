@@ -5,17 +5,20 @@ status: accepted
 # A form that redirects carries back the whole address it was submitted from
 
 > **ACCEPTED 2026-09-20, whole, in one repository.** All three forms on `/items/<id>` that REDIRECT
-> -- the place form, the Remove on each Member row, and the Undo -- carry every non-identifying
-> parameter of their own address as hidden fields, written through `inTheFixedOrder` by one
-> component; and all three actions rebuild that address through one function. So a refused
-> placement, a removal and an undo each leave the Owner exactly where they found them. Four
-> assertions at [[0103-tests-bite-at-package-exports-and-the-router]]'s fourth seam
+> -- the place form, the Remove on each Member row, and the Undo -- carry **every parameter of
+> `TheRoute`**, which is what the reader's position on this page is made of, as hidden fields
+> written through `inTheFixedOrder` by one component; and all three actions rebuild that address
+> through one function. The place form carries the standing `undo` offer as well, for the reason
+> below. So a refused placement, a removal and an undo each leave the Owner exactly where they found
+> them. Five assertions at [[0103-tests-bite-at-package-exports-and-the-router]]'s fourth seam
 > (`apps/web/e2e/placement-write.test.ts`) hold it: a refusal from the forward cursors, a refusal
-> from the step back, a removal, and the undo. `undo` joins `IN_THE_FIXED_ORDER`, which is what it
-> owes the moment it stops being alone on an address. **No procedure changed** -- `placement.place`,
-> `placement.remove` and `placement.restore` are asked as they stand -- so nothing is owed at the
-> second seam, and no provider repository is touched. **CNCORE-290 and CNCORE-293 in one pass**,
-> folded by the dispatcher on 2026-09-20 because they are one reason to change.
+> from the step back, a removal, the undo, and a refusal met with an offer already standing. `undo`
+> joins `IN_THE_FIXED_ORDER`, which is what it owes the moment it stops being alone on an address.
+> **No procedure changed** -- `placement.place`, `placement.remove` and `placement.restore` are
+> asked as they stand -- so nothing is owed at the second seam, and no provider repository is
+> touched. **CNCORE-290 and CNCORE-293 in one pass**, folded by the dispatcher on 2026-09-20 because
+> they are one reason to change. **Drafted as 0166**, renumbered at rebase when CNCORE-259 landed
+> its own 0166 and 0167.
 
 `/items/<id>` is one address with **three independent positions on it**: where the Members list
 stands, where "Also appears in" stands, and what the placement picker is narrowed to. A Container
@@ -39,10 +42,15 @@ reads them, and the one function that orders them.
 
 ## Five gestures, three of which redirect
 
-`movePlacement` is the one mutation here that does NOT redirect: it calls `refresh()`, so the
-browser never leaves and the address is kept by doing nothing. **The other three redirect, and each
-one had to be told where to go back to.** `placeItemInContainer` is the only one that can also be
-REFUSED, which is what made it the first place the gap showed:
+This page renders **nine** mutating forms. Six of them -- `retitleItem`, `sortItemAs`,
+`annotateItem`, `putItemInGroup`, `takeItemOutOfGroup` and `movePlacement` -- call `refresh()`
+rather than redirecting, so the browser never leaves and the address is kept by doing nothing at
+all. **Three redirect, and each one had to be told where to go back to.**
+
+That split is the whole of why this record is about FORMS rather than about actions: a Server Action
+gets no request URL, so a redirect can only rebuild what its form was given. The six that refresh
+never had the problem and never will. `placeItemInContainer` is the only one of the three that can
+also be REFUSED, which is what made it the first place the gap showed:
 
 - **Before CNCORE-256** a refusal dropped all three positions.
 - **CNCORE-256** gave the picker a search and made the refusal keep it, and
@@ -74,11 +82,17 @@ backward one, and it was checked by removing the two fields and watching only th
 ## Through `inTheFixedOrder` on BOTH ends, which is the whole of "one spelling"
 
 A browser submits a form's fields in the order they stand in the document, which
-`query-params.ts` already names as "the one spelling this list cannot write". So both forms in this
-section now run their hidden fields off `inTheFixedOrder`'s own object in one `Object.entries` --
-the search that narrows the picker, and the place form that can be refused off it. Two
-hand-written spellings of one address is how the order drifts, and the order IS the rule
-(ADR-0066): one view of this page, one address.
+`query-params.ts` already names as "the one spelling this list cannot write". So **all four forms on
+this page that carry an address now render those fields through ONE component**, `TheAddressBack`,
+over `inTheFixedOrder`'s own object: the picker's search, the place form, the Remove on each Member
+row, and the Undo.
+
+**The search is a GET and the other three POST, and that difference does not reach this.** A
+navigating form's fields simply ARE the address it asks for; a posting form's are the only thing its
+redirect can rebuild one from. Both come down to the same mechanism, so a second copy of the map was
+a second place for the order to drift -- and the order IS the rule (ADR-0066): one view of this
+page, one address. **This was two copies when the record was first written**, with the search
+keeping a hand-written map; review caught it against this paragraph's own claim.
 
 **The place form carries `placing` and the search form does not**, and that asymmetry is load-
 bearing rather than untidy. The search has a TEXT INPUT under that name; a hidden field beside it
@@ -122,6 +136,22 @@ this work left at both actions, and the dispatcher folded it into the same pass 
 `CLAUDE.md`'s rule is that tickets sharing ONE REASON TO CHANGE go in one pass, and two agents on
 one redirect path is the collision that rule exists to stop. Recorded because the ticket trail says
 "filed, then closed by the diff that filed it", and a reader finding that wants the reason.
+
+## `refused` and `because` are NOT carried, and that is the same rule
+
+Three parameters of `IN_THE_FIXED_ORDER` reach this address and are deliberately absent from every
+form: `refused`, `because` and -- on two of the three forms -- `undo`.
+
+**They are MINTED BY A GESTURE rather than describing where the reader stands.** A refusal writes
+its own `refused` and `because` over whatever stood there, a removal writes its own `undo`, and the
+undo spends one. Carrying an old value forward would re-assert an outcome that has been superseded:
+a page saying "Nothing was placed" about a placement two gestures ago.
+
+**The place form is the exception, and the exception proves the rule.** It is the only form that can
+meet an offer it has nothing to do with: a removal leaves the Owner on `?undo=<id>` with both
+controls rendered, so a refusal from that page must leave the offer standing. There the offer IS
+part of where the reader is, because nothing this form does bears on it. Found by review of the
+first half against the second.
 
 ## What a query with nothing in it writes
 

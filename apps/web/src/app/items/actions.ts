@@ -308,17 +308,43 @@ const theAddressItCameFrom = z.object({
  * and a plain `string` satisfies none of them. That type is the template
  * literal `listing.tsx` already declares for this same address, so the two
  * surfaces that build it agree by construction rather than by care.
+ *
+ * `containerId` IS THE ONE VALUE HERE THAT IS NOT ESCAPED, and each caller
+ * establishes its shape before calling. It lands in the PATH, where a `?`, a
+ * `#` or a `../` would mean something; everything in `query` lands in a
+ * `URLSearchParams`, which percent-encodes it. `namedPlacement` declares
+ * `z.uuid()` and checks it here; `placedMember` declares `z.string()` and is
+ * checked one layer down, for the reason `placeItemInContainer` sets out at
+ * the line that builds its address -- reaching it at all means
+ * `placement.place` already accepted the value as `z.uuid()`. Said here
+ * because this function is now shared by callers that establish it two
+ * different ways, and a reader of this line can see neither.
  */
 function theContainerAt(containerId: string, query: LinkQuery): MembersPath {
   const asked = new URLSearchParams(inTheFixedOrder(query));
   return asked.size > 0 ? `/items/${containerId}?${asked}` : `/items/${containerId}`;
 }
 
+/**
+ * AND THE OFFER STANDING OVER IT, WHICH ONLY THIS FORM CARRIES (CNCORE-290).
+ *
+ * `undo` IS NOT IN `theAddressItCameFrom` ABOVE, because the other two forms
+ * must not hand one back: a removal MINTS an offer, replacing whatever stood
+ * before it, and the undo SPENDS one. This form is the only one that meets an
+ * offer it has nothing to do with and has to leave it alone.
+ *
+ * AND THE STATE IS REACHABLE, which is why this is a field rather than an
+ * argument about one. A removal leaves the Owner on `?undo=<id>` with BOTH
+ * controls rendered -- the offer, and the place form under it -- so a refusal
+ * from that page rebuilds the address, and an address built without this drops
+ * an offer the Owner never acted on. Found by review.
+ */
 const placedMember = z.object({
   containerId: z.string(),
   itemId: z.string(),
   position: positionField,
   ...theAddressItCameFrom.shape,
+  undo: aParameterOfTheAddress,
 });
 
 /**

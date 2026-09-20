@@ -16,7 +16,7 @@ import { Attribution } from "@/components/attribution";
 import { Holding, type MembersPath, PastTheEnd, type TheRoute, Walk } from "@/components/listing";
 import { type Reorder, reorderedTo } from "@/components/ordering";
 import { positionLabel } from "@/components/position";
-import { inTheFixedOrder, oneValue } from "@/components/query-params";
+import { inTheFixedOrder, type LinkQuery, oneValue } from "@/components/query-params";
 import { SortableMembers } from "@/components/sortable-members";
 import { TheirWords } from "@/components/their-words";
 import { callerContext } from "@/session";
@@ -1841,7 +1841,7 @@ async function PlaceAnItem({
    * function already drops a parameter with no value and is what fixes the
    * order both forms' fields stand in (ADR-0066).
    */
-  const carried = inTheFixedOrder({ ...whereTheOwnerIs, placing: undefined });
+  const carriedBySearch = inTheFixedOrder({ ...whereTheOwnerIs, placing: undefined });
 
   return (
     <section className="mt-8" aria-labelledby="place-an-item">
@@ -1919,17 +1919,21 @@ async function PlaceAnItem({
           left them -- `TheRoute`'s rule for the two cursors, applied to a third
           control on one address.
 
-          IN THE FIXED ORDER, WHICH IS WHY THIS IS A MAP RATHER THAN SEVEN
-          HAND-WRITTEN INPUTS. A browser submits fields in the order they stand
-          in the document, so the document order IS the address this control
-          writes -- and `carried` is `inTheFixedOrder`'s own object, whose keys
-          are already in that order. The query goes LAST because `placing` is
-          last in that list, which is the position it was given so that this
-          form could stand its fields in one run (ADR-0066).
+          IN THE FIXED ORDER, WHICH IS WHY THIS IS `TheAddressBack` RATHER THAN
+          SEVEN HAND-WRITTEN INPUTS. A browser submits fields in the order they
+          stand in the document, so the document order IS the address this
+          control writes -- and `carriedBySearch` is `inTheFixedOrder`'s own
+          object, whose keys are already in that order. The query goes LAST
+          because `placing` is last in that list, which is the position it was
+          given so that this form could stand its fields in one run (ADR-0066).
+
+          WITHOUT THE NARROWING, WHICH THE TEXT INPUT BELOW HOLDS. A hidden
+          field beside that input would submit `placing` TWICE, which `oneValue`
+          reads as no narrowing at all -- emptying the box the Owner just typed
+          into. It is the one thing this form carries differently from the three
+          that post, and it is why `TheAddressBack` takes any `LinkQuery`.
         */}
-        {Object.entries(carried).map(([name, value]) => (
-          <input key={name} type="hidden" name={name} value={value} />
-        ))}
+        <TheAddressBack query={carriedBySearch} />
         <div className="flex flex-1 flex-col gap-2">
           <Label htmlFor="placing">Find an item</Label>
           {/*
@@ -1987,19 +1991,25 @@ async function PlaceAnItem({
             one place, which is worse than not stating it -- the next reader
             cannot tell whether the omission was reasoned.
 
-            THROUGH `TheAddressBack`, WHICH THE REMOVE AND THE UNDO ALSO USE.
-            The three forms that redirect off this page spell these fields once
-            between them, in the one order `inTheFixedOrder` fixes (ADR-0066) --
-            three copies of the map is three chances for one to drop a
-            parameter, which is the defect twice over.
+            THROUGH `TheAddressBack`, WHICH ALL FOUR FORMS ON THIS PAGE USE --
+            the search above, this, the Remove on each Member row and the Undo.
+            They spell these fields once between them, in the one order
+            `inTheFixedOrder` fixes (ADR-0066); four copies of the map is four
+            chances for one to drop a parameter, which is this defect over
+            again.
 
-            AND IT CARRIES `placing`, WHICH THE SEARCH ABOVE DOES NOT. That form
-            has a text input under this name and a hidden field beside it would
-            submit `placing` TWICE -- which `oneValue` reads as no narrowing at
-            all, emptying the box the Owner just typed into. This form has no
-            such input, so the narrowing rides as a field like the rest.
+            IT CARRIES `placing`, WHICH THE SEARCH ABOVE DOES NOT, for the
+            reason given there: this form has no text input under that name.
+
+            AND IT CARRIES ANY STANDING `undo`, WHICH NOTHING ELSE DOES. A
+            removal leaves the Owner on `?undo=<id>` with the offer above and
+            this form below it, so a refusal here rebuilds an address that has
+            an offer on it -- one this gesture never touched. Dropped, the
+            Owner loses the way back to a member they removed because a
+            DIFFERENT item could not be placed. The remove and undo forms carry
+            no `undo`, because a removal MINTS one and the undo SPENDS it.
           */}
-          <TheAddressBack whereTheOwnerIs={whereTheOwnerIs} />
+          <TheAddressBack query={inTheFixedOrder({ ...whereTheOwnerIs, undo: undone })} />
           <div className="flex flex-1 flex-col gap-2">
             <Label htmlFor="itemId">Item</Label>
             {/*
@@ -2102,7 +2112,7 @@ async function PlaceAnItem({
       */}
       {placing !== undefined && (
         <p className="mt-1 text-sm">
-          <Link href={{ pathname: here, query: carried }} className="hover:underline">
+          <Link href={{ pathname: here, query: carriedBySearch }} className="hover:underline">
             Show the whole catalogue
           </Link>
         </p>
@@ -2165,10 +2175,17 @@ function MoveTo({
 /**
  * THE ADDRESS THE OWNER IS ON, AS HIDDEN FIELDS (ADR-0168).
  *
- * WRITTEN ONCE FOR THE FORMS THAT REDIRECT, which is the remove and the undo
- * here and the place form in `PlaceAnItem`. All three land wherever the action
- * sends them, and a Server Action gets no request URL -- so a parameter that is
- * not a field on the form is one the answer cannot carry.
+ * WRITTEN ONCE FOR EVERY FORM ON THIS PAGE THAT CARRIES ONE: the remove and the
+ * undo here, and the picker's search and place form in `PlaceAnItem`. The three
+ * that POST land wherever their action sends them and a Server Action gets no
+ * request URL, so a parameter that is not a field is one the answer cannot
+ * carry; the fourth NAVIGATES, and a GET form's fields simply ARE the address
+ * it asks for. One mechanism, so one component.
+ *
+ * `LinkQuery` RATHER THAN `TheRoute`, because the four do not carry the same
+ * set: the search drops the narrowing its own text input holds, and the place
+ * form adds the `undo` offer standing over it. What they share is that each
+ * hands `inTheFixedOrder`'s own object straight here.
  *
  * IN THE FIXED ORDER, WHICH IS WHY THIS IS A MAP AND NOT HAND-WRITTEN INPUTS. A
  * browser submits fields in the order they stand in the document, so document
@@ -2177,8 +2194,8 @@ function MoveTo({
  * (ADR-0066). A parameter with no value is not a key, so it renders nothing
  * rather than an empty field.
  */
-function TheAddressBack({ whereTheOwnerIs }: { whereTheOwnerIs: TheRoute }) {
-  return Object.entries(whereTheOwnerIs).map(([name, value]) => (
+function TheAddressBack({ query }: { query: LinkQuery }) {
+  return Object.entries(query).map(([name, value]) => (
     <input key={name} type="hidden" name={name} value={value} />
   ));
 }
@@ -2211,7 +2228,7 @@ function RemovePlacement({
     <form action={removePlacement}>
       <input type="hidden" name="id" value={placementId} />
       <input type="hidden" name="containerId" value={containerId} />
-      <TheAddressBack whereTheOwnerIs={whereTheOwnerIs} />
+      <TheAddressBack query={whereTheOwnerIs} />
       <Button type="submit" variant="ghost" size="sm">
         Remove
       </Button>
@@ -2240,7 +2257,7 @@ function UndoRemoval({
     <form action={restorePlacement} className="mt-2 flex items-baseline gap-3">
       <input type="hidden" name="id" value={placementId} />
       <input type="hidden" name="containerId" value={containerId} />
-      <TheAddressBack whereTheOwnerIs={whereTheOwnerIs} />
+      <TheAddressBack query={whereTheOwnerIs} />
       <p className="text-muted-foreground text-sm">Removed from this container.</p>
       <Button type="submit" variant="outline" size="sm">
         Undo

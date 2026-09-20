@@ -456,11 +456,28 @@ describe("where a refusal leaves the Owner", () => {
    */
   async function refusedFrom(at: string) {
     const { text } = await documentAt(at, owner);
-    const itself = withFields(formIn(text, "place-an-item"), {
+    const itself = withFields(thePlaceForm(text), {
       itemId: curatable.reaching,
       position: "500",
     });
     return submit(baseUrl, at, itself, owner);
+  }
+
+  /**
+   * THE PLACE FORM, WHICH IS NOT ALWAYS THE FIRST FORM IN ITS SECTION.
+   *
+   * FOUND BY THE FIELD IT SUBMITS rather than by position. `formIn` answers the
+   * first POST form under a heading, and when an offer is standing
+   * `UndoRemoval` renders ABOVE this one -- so on the one page where both
+   * controls are up, "the form in that section" is the undo. That is how the
+   * assertion below first went red: on the harness, not on the page.
+   */
+  function thePlaceForm(text: string): RenderedForm {
+    const form = postFormsIn(sectionIn(text, "place-an-item")).find(({ fields }) =>
+      fields.some(([name]) => name === "itemId"),
+    );
+    if (!form) throw new Error("that page offers no form for placing an item");
+    return form;
   }
 
   it("hands back every parameter the address carried, in the fixed order", async () => {
@@ -598,6 +615,36 @@ describe("where a refusal leaves the Owner", () => {
     // AND PUT IT BACK, since the undo restored the member this test placed.
     const restored = await documentAt(at, owner);
     await submit(baseUrl, at, rowFor(restored.text, curatable.beyondThePageTitle, "#601"), owner);
+  });
+
+  it("keeps a standing undo offer when a LATER placement is refused", async () => {
+    /*
+     * THE OFFER IS PART OF THE ADDRESS TOO, and it is the one parameter of it
+     * that another gesture can destroy outright. A removal leaves the Owner on
+     * `?undo=<id>` with BOTH controls on the page: the offer above, and the
+     * place form below it. Refuse something from that page and the redirect
+     * rebuilds the address -- so an offer it did not carry is an offer gone,
+     * for a gesture that never touched the removal.
+     *
+     * WHICH IS THIS RULE EATING ITS OWN TAIL: `undo` joined the fixed order in
+     * this same pass, and the form that had to learn to carry it is the one
+     * CNCORE-290 was about. Found by review of that half, against the half
+     * filed as CNCORE-293.
+     *
+     * NET ZERO AGAIN: the member this places is removed by the removal that
+     * mints the offer, and the refusal writes nothing.
+     */
+    const at = `/items/${curatable.reaching}?${new URLSearchParams(wholeAddress)}`;
+    const removal = await aMemberAt("602", at);
+    const offered = await submit(baseUrl, at, removal, owner);
+
+    const refused = await refusedFrom(pathOf(offered.url));
+
+    expect(new URL(refused.url).search).toBe(
+      "?via=arrived-through-this&placed=narrowed-to-this&after=members-page-two" +
+        `&placedAfter=appearances-page-two&refused=${curatable.reaching}` +
+        `&because=cycle&placing=Zoe&undo=${placementNamedBy(removal)}`,
+    );
   });
 });
 
