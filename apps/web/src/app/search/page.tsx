@@ -1,6 +1,5 @@
 import { createContext } from "@canoncore/api/context";
 import { appRouter } from "@canoncore/api/routers";
-import { boundedTo } from "@canoncore/text";
 import {
   Empty,
   EmptyContent,
@@ -25,6 +24,7 @@ import {
   oneGroup,
   oneKind,
   oneValue,
+  theQueryQuoted,
   type WhereThePageStarts,
   whereThePageStarts,
 } from "@/components/query-params";
@@ -89,19 +89,6 @@ async function readSearch(
   return { results, kinds, groups };
 }
 
-/**
- * HOW MUCH OF THE QUERY THE PAGE'S OWN SENTENCE QUOTES BACK.
- *
- * THE SAME 80 EVERY OTHER VALUE QUOTED IN A SENTENCE TAKES -- `?refused=` on
- * `/settings`, a Container id in the repeat's refusal and the overlong-id one,
- * a URL at the outbound boundary -- and decided HERE rather than imported,
- * which is ADR-0123's arrangement kept by ADR-0163: the levers are shared, from
- * `@canoncore/text`, and each ceiling sits beside the sentences it bounds. A
- * reader who typed a long query still recognises its opening, and what they
- * cannot do without is the clause saying where to look next.
- */
-const QUERY_IN_A_SENTENCE = 80;
-
 export default async function SearchPage({
   searchParams,
 }: {
@@ -126,39 +113,16 @@ export default async function SearchPage({
   // answer to "nothing asked" rather than a second reading of the parameter.
   const query = oneValue(q) ?? "";
   /**
-   * THE QUERY AS THIS PAGE QUOTES IT, WHICH IS NOT THE QUERY IT ASKS WITH.
+   * THE QUERY AS THIS PAGE QUOTES IT, WHICH IS NOT THE QUERY IT ASKS WITH
+   * (ADR-0168). `readSearch` below takes `query` and so does `surface`, whose
+   * `?q=` every picker and walk link carries; only the heading takes this one.
    *
-   * TWO VALUES, AND THAT IS THE WHOLE POINT OF DERIVING ONE HERE (ADR-0168,
-   * which is this surface's own record because no other bounded parameter has
-   * to meet it). What is
-   * SEARCHED is the whole query and what is PRINTED is this: a single
-   * shortened value would change the ANSWER as well as the sentence, because
-   * Catalogue search matches `title ilike '%<query>%'` -- so a cut query is a
-   * different question, and one ending in the cut marker is a question nothing
-   * can answer. The links carry the whole one too, or a walk would search
-   * something other than what the first page did.
-   *
-   * BOUNDED WHERE IT IS READ, as `/settings` bounds its own entry
-   * (`theEntryRefused`), rather than where it is printed. A value off the
-   * address has no earlier seam than the read, and `?q=` reaches this page
-   * having touched nothing else -- there is no form submission to bound it at,
-   * and the box in the shell is not on the path a crafted link takes.
-   *
-   * AND THAT IS WHY IT IS BOUNDED RATHER THAN LEFT TO `TheirWords`. That
-   * component says of itself that it does not "quote, bound or attribute": it
-   * settles WIDTH by breaking a long word, and a value of any length still
-   * occupies the page. ADR-0142 fixes how somebody else's text is laid out;
-   * ADR-0123 fixes how much of it this app repeats, and they are two questions.
-   *
-   * BOTH LEVERS, THROUGH ONE CALL (ADR-0163). `?q=` is the one parameter in
-   * this app that is FREE TEXT by design, so it carries prose -- and a cut
-   * alone is the half-mechanism ADR-0123 keeps finding: a bidirectional
-   * override re-orders the sentence written AROUND the query at any length,
-   * which a ceiling never touches. Measured on the Owner's own install before
-   * this landed: 16,000 characters arrived verbatim inside this page's `h2`,
-   * and a `U+202E` arrived with them.
+   * `theQueryQuoted` OWNS THE CEILING AND BOTH LEVERS, beside `oneValue` which
+   * owns how the parameter is read, because `/import` quotes the same reader's
+   * query in its own two sentences and a second copy here is the drift that
+   * module exists to prevent (CNCORE-296).
    */
-  const quoted = boundedTo(query, QUERY_IN_A_SENTENCE);
+  const quoted = theQueryQuoted(query);
   /*
    * THE EMPTY QUERY IS ANSWERED HERE AND AGAIN BELOW THIS SEAM, and the
    * repetition is deliberate. This decides what to RENDER -- a prompt rather

@@ -333,6 +333,48 @@ describe("/search on a query somebody else composed", () => {
     expect(shown).toContain("Hartnell");
     expect(shown).not.toContain("\u200b");
   });
+
+  /**
+   * AND THE LINKS CARRY THE WHOLE QUERY, which is the third place the two
+   * values could collapse back into one and the only one with no visible
+   * symptom on the page it is written on.
+   *
+   * A WALK IS A SECOND SEARCH. `surface.asked` writes `?q=` into every picker
+   * and walk link this page renders, so a link built from the QUOTED value
+   * would send a reader to a search for the opening of their query plus a cut
+   * marker -- a different question from the one page one answered, and one
+   * ending in `…` that no title satisfies. The page it was clicked from would
+   * look perfectly correct.
+   *
+   * READ OFF THE `href`S AND NOT THE DOCUMENT. Next puts the address into its
+   * own flight payload in a `<script>`, so the whole query is somewhere in
+   * these bytes whatever the links carry -- an assertion over the document
+   * would pass on the broken implementation too, which is the trap
+   * `settings-page.test.ts` names for its own negative.
+   */
+  it("writes the whole query into the links, not the one it quotes", async () => {
+    const flood = `zzzznothinghere${"a".repeat(400)}`;
+
+    const { status, text } = await documentAt(`/search?q=${encodeURIComponent(flood)}`);
+
+    expect(status).toBe(200);
+    // `flatMap` RATHER THAN `map`, because a capture group is typed
+    // `string | undefined` however certain it is to have participated, and
+    // `next build` type-checks this file even where `pnpm typecheck` does not.
+    const carried = [...text.matchAll(/href="(\/search\?[^"]*)"/g)].flatMap(([, href]) =>
+      href === undefined ? [] : [href.replaceAll("&amp;", "&")],
+    );
+    // THE PAGE DOES WRITE SOME, or the assertions below hold vacuously: the
+    // kind picker and the way out of the narrowing are both rendered beside a
+    // search that found nothing.
+    expect(carried.length).toBeGreaterThan(0);
+    for (const href of carried) {
+      expect(href).toContain(encodeURIComponent(flood));
+      // AND NOT THE CUT MARKER, which is what a link built from `quoted` would
+      // carry and the only part of it that cannot appear by accident.
+      expect(href).not.toContain(encodeURIComponent("…"));
+    }
+  });
 });
 
 describe("/search on a result set larger than one page", () => {

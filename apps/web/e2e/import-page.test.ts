@@ -213,6 +213,81 @@ describe("/import", () => {
   });
 });
 
+/**
+ * THE SAME DEFECT `/search` CARRIED, ONE SURFACE OVER (CNCORE-296, folded into
+ * CNCORE-291 because it is one reason to change rather than two).
+ *
+ * `?q=` is composed by anybody and this page speaks it in two sentences of its
+ * own: the results heading, and the way back from a candidate. Both went
+ * through `TheirWords` alone, which says of itself that it does not "quote,
+ * bound or attribute" -- it settles WIDTH, and a value of any length still
+ * occupies the page.
+ *
+ * ASSERTED WHERE `/search`'S THREE AND `?refused=`'S TWO ARE: against a served
+ * document, because a bound that holds in a unit test and not over HTTP has not
+ * been applied at the seam a reader arrives through.
+ */
+describe("/import on a query somebody else composed", () => {
+  it("quotes back only the opening of a query somebody made enormous", async () => {
+    const flood = `zzzznothinghere${"a".repeat(400)}`;
+
+    const { status, text } = await documentAt(searching(flood), owner);
+
+    expect(status).toBe(200);
+    const shown = textOf(sectionIn(text, "results"));
+    // THE ANSWER IS STILL GIVEN, which is the half a bound must not cost.
+    expect(shown).toContain("Nothing matched");
+    expect(shown).not.toContain(flood);
+    // AND THE READER STILL RECOGNISES WHAT THEY ASKED.
+    expect(shown).toContain("zzzznothinghere");
+  });
+
+  it("strips a control character rather than letting it re-order its own sentence", async () => {
+    // RIGHT-TO-LEFT OVERRIDE, then the scam sentence written backwards -- how
+    // it is composed to be READ once the override turns it around inside this
+    // page's own heading. Well under any ceiling, which is the point: a cut
+    // alone never reaches this.
+    const reversing = "\u202esseccaerotseroteyap zzzznothinghere";
+
+    const { status, text } = await documentAt(searching(reversing), owner);
+
+    expect(status).toBe(200);
+    const shown = textOf(sectionIn(text, "results"));
+    expect(shown).toContain("Nothing matched");
+    expect(shown).toContain("zzzznothinghere");
+    expect(shown).not.toContain("\u202e");
+  });
+
+  it("writes the whole query into the links, not the one it quotes", async () => {
+    // THE TWO VALUES, at the place they could collapse back into one with no
+    // visible symptom. The Group picker beside a search carries `?q=` forward,
+    // so a link built from the QUOTED value would narrow a search for the
+    // opening of the query plus a cut marker -- a different question from the
+    // one this page answered, asked of the Providers, and the page it was
+    // clicked from would look perfectly correct.
+    //
+    // THE PROVIDER CALL ITSELF NEEDS NO WITNESS HERE, because it does not read
+    // this carrier at all: `provider.search` is called with the `query` read
+    // off the address, and `search.quoted` cannot reach it. What follows is
+    // the half that a carrier CAN get wrong.
+    const flood = `zzzznothinghere${"a".repeat(400)}`;
+
+    const { status, text } = await documentAt(searching(flood), owner);
+
+    expect(status).toBe(200);
+    // READ OFF THE `href`S AND NOT THE DOCUMENT: Next puts the address into its
+    // own flight payload, so the whole query is in these bytes either way.
+    const carried = [...text.matchAll(/href="(\/import\?[^"]*)"/g)].flatMap(([, href]) =>
+      href === undefined ? [] : [href.replaceAll("&amp;", "&")],
+    );
+    expect(carried.length).toBeGreaterThan(0);
+    for (const href of carried) {
+      expect(href).toContain(encodeURIComponent(flood));
+      expect(href).not.toContain(encodeURIComponent("\u2026"));
+    }
+  });
+});
+
 describe("/import, taking a record", () => {
   it("imports a candidate the catalogue does not hold, and the Item is reachable", async () => {
     const { recordId, title } = await aCandidateNotHeld();

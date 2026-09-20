@@ -1,3 +1,5 @@
+import { boundedTo } from "@canoncore/text";
+
 /**
  * WHAT ONE QUERY PARAMETER SAYS, when a reader may have supplied it more than
  * once or not at all.
@@ -28,6 +30,62 @@
  * the same mistake -- which is the reading `searchProviders` already applies one
  * layer down (ADR-0033 under CNCORE-33).
  */
+/**
+ * HOW MUCH OF THE READER'S QUERY A PAGE'S OWN SENTENCE QUOTES BACK.
+ *
+ * THE 80 A VALUE QUOTED IN A SENTENCE TAKES, which is `?refused=`'s on
+ * `/settings` and a Container id's in the two refusals that name one. It is not
+ * every ceiling in the tree: a REASON and a task's DETAIL take 300, because
+ * those are prose a reader has to act on rather than a value being quoted back
+ * (`packages/text/src/index.ts` draws that line in as many words). A reader who
+ * typed a long query still recognises its opening, and what they cannot do
+ * without is the clause saying where to look next.
+ *
+ * ONE NUMBER FOR BOTH SURFACES, AND THAT IS THIS MODULE'S OWN ARGUMENT. The
+ * docblock above exists because `/search` and `/import` had drifted to three
+ * spellings of how a parameter is read; two spellings of how much of it may be
+ * quoted would be the same defect at the next lever. ADR-0163 keeps each
+ * ceiling beside the sentences it bounds, and these ARE those sentences: one
+ * app, one reader, one query.
+ */
+const QUERY_IN_A_SENTENCE = 80;
+
+/**
+ * THE QUERY AS A PAGE QUOTES IT, WHICH IS NEVER THE QUERY IT ASKS WITH.
+ *
+ * TWO VALUES, DELIBERATELY (ADR-0168). What is SEARCHED is the whole query and
+ * what is PRINTED is this. A single shortened value would change the ANSWER as
+ * well as the sentence -- Catalogue search matches `title ilike '%<query>%'`
+ * (ADR-0120), and `/import` sends the words to a Provider -- so a cut query is
+ * a different question, and one ending in the cut marker is a question nothing
+ * can answer. The links and the hidden field that replay a search carry the
+ * whole one for the same reason.
+ *
+ * BOUNDED WHERE THE PARAMETER IS READ, as `/settings` bounds its own entry
+ * (`theEntryRefused`), rather than where it is printed. A value off the address
+ * has no earlier seam than the read: a crafted `?q=` reaches either page having
+ * touched nothing else, so a bound applied at the search box would guard the
+ * one path that was never the problem.
+ *
+ * AND NOT LEFT TO `TheirWords`. That component says of itself that it does not
+ * "quote, bound or attribute": it settles WIDTH by breaking a long word, and a
+ * value of any length still occupies the page. ADR-0142 fixes how somebody
+ * else's text is laid out; ADR-0123 fixes how much of it this app repeats.
+ *
+ * BOTH OF ADR-0123'S LEVERS, THROUGH ONE CALL. A cut alone is the
+ * half-mechanism that record keeps finding: a bidirectional override re-orders
+ * the sentence written AROUND the query at any length, which a ceiling never
+ * touches.
+ */
+// TODO(CNCORE-298): nothing in this tree reports a surface that prints a value
+// it did not write inside its own sentence without passing through here. Both
+// sites this function exists for were found by a person reading a diff --
+// `/search` by inspection, `/import` by the review of the ticket that fixed
+// `/search` -- so the list is only ever as good as the last such reading.
+export function theQueryQuoted(query: string): string {
+  return boundedTo(query, QUERY_IN_A_SENTENCE);
+}
+
 export function oneValue(parameter: string | string[] | undefined): string | undefined {
   return typeof parameter === "string" && parameter.trim() !== "" ? parameter : undefined;
 }

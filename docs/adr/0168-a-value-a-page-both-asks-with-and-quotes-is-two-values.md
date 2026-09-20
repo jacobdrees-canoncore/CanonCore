@@ -4,25 +4,38 @@ status: accepted
 
 # A value a page both asks with and quotes is two values
 
-> **ACCEPTED 2026-09-20, whole, in one repository.** `/search` bounds `?q=` on both of ADR-0123's
-> levers where it READS the parameter, through one `boundedTo` call at a ceiling of 80 that sits
-> beside the sentence it bounds; the bounded value reaches the heading alone, and the whole query
-> reaches the read path and every link the page writes. Three tests at ADR-0103's fourth seam drive
-> a crafted address against a served document (`apps/web/e2e/search.test.ts`): the cut, the control
-> strip, and the two values being different. The last two were each checked RED against the wrong
-> implementation -- `shortenTo` in place of `boundedTo`, and the bounded value passed to
-> `readSearch`. No provider repository is touched, so nothing is owed at a second one.
+> **ACCEPTED 2026-09-21, whole, in one repository.** `/search` and `/import` bound `?q=` on both of
+> ADR-0123's levers where they READ it, through one `theQueryQuoted` call
+> (`apps/web/src/components/query-params.ts`) holding one ceiling of 80 for both surfaces. The
+> bounded value reaches their four sentences and nothing else; the whole query reaches the read
+> path, the Providers, every link either page writes and the hidden field that replays a search.
+> Seven tests at ADR-0103's fourth seam drive crafted addresses against served documents
+> (`apps/web/e2e/search.test.ts`, `apps/web/e2e/import-page.test.ts`): the cut, the control strip
+> and the links at each surface, plus the two values at `/search`. **Every one was checked RED
+> against the wrong implementation** -- `shortenTo` for `boundedTo`, the quoted value passed to
+> `readSearch`, the quoted value written into `surface.asked`, and both sentences reverted at
+> `/import`. No provider repository is touched, so nothing is owed at a second one.
 
 [[0123-a-failure-reason-is-bounded-and-says-who-wrote-it]] requires a parameter landing inside a
 sentence this app speaks in its own voice to be bounded WHERE IT IS READ. Five sites answer it:
 `bounded` in `@canoncore/providers`, the repeat's refusal in `@canoncore/db`, the overlong-id
 refusal in `@canoncore/api`, a task's detail in `@canoncore/tasks`, and `?refused=` on `/settings`.
 
-**`/search` was the sixth and answered nothing.** `const query = oneValue(q) ?? ""` went straight
-into `<h2>Nothing matched <TheirWords>{query}</TheirWords></h2>`, and `TheirWords` says of itself
-that it does not "quote, bound or attribute" -- it settles WIDTH by breaking a long word
-([[0142-text-the-page-did-not-write-wraps-anywhere-through-one-component]]), and a value of any
-length still occupies the page.
+**`?q=` was the sixth AND the seventh, and both answered nothing.** On `/search`,
+`const query = oneValue(q) ?? ""` went straight into
+`<h2>Nothing matched <TheirWords>{query}</TheirWords></h2>`. On `/import` the same reader's query
+went into two more of the page's own sentences -- the results heading, whose comment said it was
+printed "as on `/search`", and "Back to results for" on the way back from a candidate.
+`TheirWords` says of itself that it does not "quote, bound or attribute" -- it settles WIDTH by
+breaking a long word ([[0142-text-the-page-did-not-write-wraps-anywhere-through-one-component]]),
+and a value of any length still occupies the page.
+
+**The second surface was found by a reviewer, not by the fix**, which is the part worth keeping.
+This record was first written naming `/search` as the sixth site and asserting the set was then
+complete -- the identical error it had just corrected in ADR-0163, committed in the sentence
+correcting it. Nothing in the tree reports a site that owes a bound and lacks one, so the count is
+only ever as good as the last person to read every page. CNCORE-296 was filed for `/import` and
+folded into this ticket, because one reason to change is one pass.
 
 ## Measured on the Owner's own install, before this landed
 
@@ -46,7 +59,7 @@ a decision this app took. CNCORE-291 was filed saying `/search?q=<100kB>` puts 1
 harm is unchanged and the number is now one that was taken rather than recalled
 ([[0153-a-figure-about-this-tree-is-derived-or-dated]]).
 
-## The other five bound ONE value, and this surface cannot
+## The other five bound ONE value, and these two cannot
 
 This is the whole of what `/search` has that they do not, and it is why copying `/settings`'
 `theEntryRefused` line for line would have been wrong.
@@ -61,10 +74,16 @@ marker asks something no title can satisfy. The links carry it too: `surface.ask
 into every walk and picker link, and a walk built from the short value would search something other
 than what page one searched.
 
-So the read seam yields **two values with two names**: `query`, which the catalogue is asked and the
-links carry, and `quoted`, which the heading speaks. `NothingFound` takes `quoted` and has no access
-to the other, because a component reaching for the whole query to print would be the seam moved back
-into the render.
+So the read seam yields **two values with two names**: `query`, which the catalogue and the
+Providers are asked and the links carry, and `quoted`, which the sentences speak. `NothingFound`
+takes `quoted` and has no access to the other; `/import`'s `TheSearchThatFound` carries both as
+`q` and `quoted`, named apart so a sentence reaching for `q` is visibly the wrong field.
+
+**ONE CEILING FOR BOTH SURFACES, in `query-params.ts` beside `oneValue`.** ADR-0163 keeps each
+ceiling beside the sentences it bounds, and these ARE those sentences: one app, one reader, one
+query. That module exists because `/search` and `/import` had already drifted to three spellings of
+how a parameter is READ -- its own docblock says so -- and two spellings of how much of it may be
+QUOTED would be the same defect one lever along.
 
 **The general rule, for the surface that meets this next:** a parameter a page both ACTS on and
 SPEAKS is bounded for speaking only, at the read, as a second value named apart from the first.
@@ -106,12 +125,55 @@ a "Nothing matched" that does not say what did not match is a worse page.
 What the bound buys is that the stranger chooses at most 80 characters of it and cannot re-order
 CanonCore's own words around them.
 
+### And a stripped query can make the sentence untrue
+
+`boundedTo` is `shortenTo(oneLine(...))`, and `oneLine` collapses whitespace and strips controls. So
+`?q=Hartnell<ZWSP>` prints **"Nothing matched Hartnell"** over a catalogue that holds a Hartnell
+item, above a description blaming alternative titles -- the wrong-reason harm CNCORE-262 named one
+heading over.
+
+**It is not a regression and it is not new**, which is why it is recorded rather than fixed here: a
+zero-width space renders as nothing, so that heading read "Nothing matched Hartnell" before this
+record too. What changed is that the falsehood is now in the page's DATA rather than only in its
+rendering, and is therefore sayable.
+
+**The option not taken is stripping BOTH values** -- searching the cleaned query as well as printing
+it -- which would make the sentence true and would also change what every reader's query matches.
+That is a change to the QUESTION this surface asks, which this record deliberately does not make and
+CNCORE-291 put out of scope in as many words ("What is SEARCHED is the whole query"). Weighed and
+left, rather than not weighed: the argument above is about the CUT, and it carries the STRIP along
+with it.
+
+### Nothing bounds the length that reaches the database, and that is measured rather than assumed
+
+The whole query reaches `catalogue.search` (`query: z.string()`, no maximum) and becomes an `ilike`
+pattern whose trigrams are extracted and ANDed on the GIN index. Escaping is correct, so this is a
+cost question and not an injection one.
+
+**Measured against the Owner's own install on 2026-09-21**, which holds 8,052 Items, served over
+HTTP end to end:
+
+| `?q=` | time to serve `/search` |
+| --- | --- |
+| 10 characters | 0.19s |
+| 1,000 characters | 0.10s |
+| 16,000 characters | 0.15s |
+
+A 16,000-character pattern costs no more than a ten-character one at this population, so the
+unbounded read path is left as it is rather than given a ceiling nothing has asked for. The figure
+carries its population and date because it is a fact about a running system
+([[0153-a-figure-about-this-tree-is-derived-or-dated]]), and it would have to be taken again at a
+much larger one.
+
 ## What this does not change
 
-**The search box owes nothing.** It renders an empty `<Input name="q">` and replays no query, so
-there is no `defaultValue` path of the kind [[0165-a-picker-reaches-past-its-cap-through-the-listings-own-search]]
-excuses for `?placing=`. That record's reasoning is untouched: it turns on where a value LANDS, and
-this one lands in a sentence while that one lands in a form field.
+**The search box owes nothing, and neither does `/import`'s replay field.** The box renders an empty
+`<Input name="q">`; `TheSearchCarried` renders `<input name="q" type="hidden" value={search.q}>`,
+which carries the WHOLE query on purpose -- a replay built from the quoted value would resubmit a
+search for the opening of the query plus a cut marker. Both are the `defaultValue` case
+[[0165-a-picker-reaches-past-its-cap-through-the-listings-own-search]] excuses for `?placing=`, and
+that record's reasoning is untouched: it turns on where a value LANDS, and these land in a form
+field while the four sentences this record bounds land in the page's own voice.
 
 **The Group's name and the kind's label stay unbounded in the same heading**, and deliberately.
 They are the catalogue's own words -- a Group the Owner named, and one of `item_kinds`' seven labels
