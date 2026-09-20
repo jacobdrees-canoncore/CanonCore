@@ -89,7 +89,7 @@ is the honest answer when nothing derives it.
 ## Why this stays PROPOSED
 
 **Half the mechanism landed.** The DERIVED half is built and runs: `tree-figures.test.ts` holds
-twenty-nine claims across eighteen files to counts taken from the tree, and it caught every drift
+thirty claims across nineteen files to counts taken from the tree, and it caught every drift
 CNCORE-252 fixed in those populations. Those two figures are themselves claims in that table, which
 is the rule applied to the record that states it.
 

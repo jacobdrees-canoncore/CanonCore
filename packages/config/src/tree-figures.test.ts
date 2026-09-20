@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   asCount,
   ciJobs,
+  configsRunningTheirFilesSerially,
   countStatedIn,
   handBuiltRedirectsIn,
   jobsRequestingANodeMajor,
@@ -120,6 +121,12 @@ type Claim = {
 };
 
 const CLAIMS: Claim[] = [
+  {
+    file: "apps/web/vitest.e2e.config.ts",
+    pattern: /([\w-]+) sibling configs set it/g,
+    population: "the Vitest configs that run their files serially",
+    derive: configsRunningTheirFilesSerially,
+  },
   {
     file: ".github/workflows/ci.yml",
     pattern: /not the (\w+) `The page over HTTP` stands up/g,
