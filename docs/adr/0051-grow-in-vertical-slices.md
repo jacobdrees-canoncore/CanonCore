@@ -65,3 +65,28 @@ is exactly the artefact the opening sentence is defending against.
 packages: the client, a schema, a procedure, a page and its tests, with the protocol decisions and
 the rendering decisions in one review. The `?q=` reading alone took a decision at two levels; it
 would have arrived alongside a page, and the page is what a reviewer looks at.
+
+## As built — and this record stays PROPOSED
+
+**BUILT: the practice, and it is in force rather than aspirational.** Migration 1 carries only what
+was tested as unretrofittable, which is this rule applied at the moment it was hardest to keep.
+`statements` carries two subject columns rather than three, and the schema gives this record as the
+reason: nothing decides `subject_edition_id`, "so ADR-0051's default applies and it waits for the
+slice that can also give it a foreign key". The build dispatches a worktree per ticket, which is
+what makes a shared Turborepo cache a defect and is why `turbo.json` pins `cacheDir` and a check
+fails if the line goes.
+
+**AND THE COLUMN THAT DOES SHIP WITHOUT ITS TABLE IS `placements.edition_id`**, which is the same
+rule reaching the opposite answer: ADR-0092 decides that one by name, so it lands early. The schema
+sets the two side by side deliberately, "because an implementer reading these two columns together
+will otherwise assume one is a mistake". A reader who takes the absent column for the present one
+has this record exactly backwards, which is why both are named here.
+
+**NOT BUILT: anything that ENFORCES the practice.** No check anywhere asks whether a slice is
+demoable on its own, and nothing could: "demoable" is a judgement about what a pull request shows a
+person, not a fact on disk. So the one departure on record was caught by a human noticing and
+writing it down — the section above, where CNCORE-77 shipped a slice that renders nothing — and
+that is the only mechanism this record has for catching itself failing.
+
+That is the half a reader should not assume is covered, and it is why the status is unchanged here
+(CNCORE-247).

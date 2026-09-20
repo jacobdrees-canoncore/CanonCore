@@ -350,7 +350,7 @@ describe("a figure this tree states about itself", () => {
   });
 
   it("counts the suites in this package that read the repository at large", () => {
-    expect(suitesReadingTheRepository()).toBe(21);
+    expect(suitesReadingTheRepository()).toBe(22);
   });
 
   it("counts the hand-built redirects ADR-0109's rule governs, per file", () => {
