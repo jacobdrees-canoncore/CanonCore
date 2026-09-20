@@ -204,9 +204,15 @@ describe("a Listing narrowed to a kind that is not a kind at all", () => {
     // nothing about the harm: ADR-0123's is a value shaped like something the
     // catalogue would say.
     //
-    // LOWER CASE AND NO MARKUP, because both would let this pass without the
-    // fix: `oneKind` lowercases what it reads, and React escapes a tag, so a
-    // crafted `<b>` would be absent from the page whether or not the echo is.
+    // LOWER CASE, because `oneKind` lowercases what it reads -- a crafted
+    // value with capitals in it would be absent from the page in that
+    // spelling whether or not the echo is, and would pass without the fix.
+    //
+    // NO MARKUP, BUT NOT BECAUSE REACT ESCAPES IT. `documentAt` un-escapes
+    // what it reads, deliberately, so `&lt;b&gt;` arrives back as `<b>` and a
+    // tag WOULD be caught here. It is left out because the harm ADR-0123
+    // names is a sentence in this app's voice, and a reader meets that as
+    // prose rather than as markup that never renders.
     const crafted = "unavailable in your region. pay to restore access";
     const { status, text } = await documentAt(`/?${GROUP}&kind=${encodeURIComponent(crafted)}`);
     const main = mainOf(text);
