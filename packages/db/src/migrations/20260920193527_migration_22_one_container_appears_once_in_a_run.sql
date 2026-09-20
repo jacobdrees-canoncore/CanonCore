@@ -1,0 +1,22 @@
+-- WHAT MIGRATION 18 SAID ABOUT THIS INDEX WAS WRONG, AND MIGRATION 18 CANNOT BE
+-- CORRECTED. It framed `import_run_containers_named_once` as saving a browse
+-- already paid for -- "A list naming an id twice would browse it twice -- 43.8s spent
+-- asking a Provider a question it has already answered" -- but an index does
+-- not skip a browse. It refused the INSERT, SQLSTATE 23505, for the whole list:
+-- all 465 Containers, none of them imported, and a `DrizzleQueryError` that was
+-- not an `ORPCError` reaching the Owner as a 500 (CNCORE-254).
+--
+-- A SHIPPED RUNG IS FROZEN. `checkAppliedRungsAreFrozen` hashes every applied
+-- rung against the file on disk, so editing migration 18's comment would fail
+-- `pnpm db:check-ladder` on every database that has already run it -- including
+-- the Owner's own install. The fix for a frozen rung is a new rung, which is
+-- what this is, and it carries the corrected sentence as a `COMMENT ON` so the
+-- correction sits ON the object rather than in a file beside it. ADR-0154
+-- records the decision the correction describes.
+--
+-- WHAT THE INDEX ACTUALLY DOES is hold the invariant. What SAVES the browse is
+-- `beginImportRun` reading the list first and refusing a repeat by name, before
+-- a row is written -- so the index is now the backstop behind a check rather
+-- than the only thing standing there.
+COMMENT ON INDEX "import_run_containers_named_once" IS
+  'One Container appears once in a run. beginImportRun refuses a list naming an id twice, by name and position, before anything is written (ADR-0154); this index holds that invariant behind it. Migration 18 described this index as saving a repeated browse: it did not, it refused the whole insert. The REPEAT of ADR-0009 is the opposite case and untouched, since a story may sit twice in one ORDERING, which is a claim about the members of a Container rather than about a list of Containers to import.';
