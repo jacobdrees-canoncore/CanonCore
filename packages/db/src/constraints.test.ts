@@ -1,19 +1,29 @@
+import { createHash } from "node:crypto";
+
 import { eq, sql } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import {
   aliases,
+  createGroupByHand,
   type Database,
+  groupItems,
+  groupProviders,
   items,
   owners,
+  placementSources,
   placements,
   properties,
+  sessions,
+  settings,
   sources,
   statements,
+  taskRuns,
   vocabularyValues,
 } from "./index";
 import {
   anItem,
+  aPlacement,
   aProvider,
   aStatement,
   connect,
@@ -793,5 +803,266 @@ describe("the Owner note", () => {
     });
 
     expect(title).toBeTruthy();
+  });
+});
+
+/**
+ * ADR-0025's ORDER IS GLOBAL, and `sources_order` is what makes it a total one.
+ * Two sources sharing a place would leave which of them outranks the other to
+ * the planner, and rank precedence is the first term of the projection's own
+ * ordering -- so the field a reader sees would depend on the plan.
+ *
+ * THIS IS THE CONSTRAINT THE DATA PROJECT MEETS FIRST. `import.ts` allocates
+ * with `max(source_order) + 1` per owner on every first import from a new
+ * Provider, and a second Provider is a second source row. It has fired in anger
+ * once already, under CNCORE-7.
+ */
+describe("a source's place in the global order", () => {
+  it("refuses a second source claiming a place another source already holds", async () => {
+    const taken = await aProvider(db, "https://provider.test/order-taken");
+    const [holder] = await db.select().from(sources).where(eq(sources.id, taken));
+
+    expect(
+      await refusal(
+        db.insert(sources).values({
+          ownerId,
+          kind: "provider",
+          identity: "https://provider.test/order-wanted",
+          label: "order-wanted",
+          sourceOrder: holder!.sourceOrder,
+        }),
+      ),
+    ).toBe("sources_order");
+  });
+
+  /**
+   * AND THE ALLOCATOR AVOIDS IT, which is the half already relied on. `max + 1`
+   * is the one value always free, and this is what `import.ts:548` and the
+   * fixture above both compute.
+   */
+  it("gives the next source the place after the last, so the allocator never collides", async () => {
+    const [before] = await db
+      .select({ highest: sql<number>`max(${sources.sourceOrder})` })
+      .from(sources);
+    const next = await aProvider(db, "https://provider.test/order-next");
+    const [row] = await db.select().from(sources).where(eq(sources.id, next));
+
+    expect(row!.sourceOrder).toBe(Number(before!.highest) + 1);
+  });
+});
+
+/**
+ * FOUR CONSTRAINTS WHERE THE AVOIDANCE IS TESTED AND THE REFUSAL IS NOT. Each
+ * sits behind a find-or-create path, and each of those paths has a test
+ * asserting it does not collide -- `groups.test.ts`'s "puts the same Item in one
+ * Group once, however many times the Owner asks" is the shape. What none of them
+ * asserts is that the database refuses a collision that gets past the path,
+ * which is the half that still holds when a second writer appears or a path is
+ * rewritten.
+ *
+ * EACH NAMES THE CONSTRAINT IT EXPECTS, so a row that trips a neighbouring rule
+ * fails here rather than passing as though it had proved this one.
+ */
+describe("find-or-create, and the refusal underneath it", () => {
+  it("refuses one provider's identity written as a source twice", async () => {
+    const identity = "https://provider.test/identity-twice";
+    await aProvider(db, identity);
+
+    expect(
+      await refusal(
+        db.insert(sources).values({
+          ownerId,
+          kind: "provider",
+          identity,
+          label: "identity-twice, again",
+          // ALLOCATED RATHER THAN CHOSEN, so `sources_order` cannot be what
+          // fires and pass this test for the wrong reason.
+          sourceOrder: sql`(select coalesce(max("source_order"), 0) + 1 from "sources" where "owner_id" = ${ownerId})`,
+        }),
+      ),
+    ).toBe("sources_identity");
+  });
+
+  /**
+   * ADR-0017. Two sources agreeing about a placement are corroboration and are
+   * recorded against one row EACH; one source agreeing with itself is the same
+   * claim twice, and there is nothing for a second row to hold.
+   */
+  it("refuses one source corroborating one placement twice", async () => {
+    const container = await anItem(db, { isContainer: true, isOrdered: true });
+    const story = await anItem(db);
+    const source = await aProvider(db, "https://provider.test/corroborates-twice");
+    const placement = await aPlacement(db, {
+      containerId: container,
+      itemId: story,
+      position: 1,
+      sourceId: source,
+    });
+
+    expect(
+      await refusal(
+        db.insert(placementSources).values({ ownerId, placementId: placement, sourceId: source }),
+      ),
+    ).toBe("placement_sources_placement_source");
+  });
+
+  /**
+   * ADR-0010. A Group SCOPES rather than partitions, so an Item sits in several
+   * at once -- but twice in ONE is the same claim twice, and a browse reading
+   * both would show the Item twice in a scope that holds it once.
+   */
+  it("refuses one Item put in one Group twice", async () => {
+    const group = await createGroupByHand(db, { name: "Refuses a repeated member" });
+    const story = await anItem(db);
+    await db.insert(groupItems).values({ ownerId, groupId: group, itemId: story });
+
+    expect(
+      await refusal(db.insert(groupItems).values({ ownerId, groupId: group, itemId: story })),
+    ).toBe("group_items_group_item");
+  });
+
+  /** The same argument at the Group's other edge: asking one Provider twice. */
+  it("refuses one Group asking one Provider twice", async () => {
+    const group = await createGroupByHand(db, { name: "Refuses a repeated Provider" });
+    const providerIdentity = "https://provider.test/asked-twice";
+    await db.insert(groupProviders).values({ ownerId, groupId: group, providerIdentity });
+
+    expect(
+      await refusal(
+        db.insert(groupProviders).values({ ownerId, groupId: group, providerIdentity }),
+      ),
+    ).toBe("group_providers_group_provider");
+  });
+});
+
+/**
+ * ADR-0049's TWO RULES ABOUT A RUN, which `task-runs.ts` types as "null exactly
+ * while `outcome` is `running`" and which nothing tried to break until
+ * CNCORE-260.
+ */
+describe("a run of one task", () => {
+  it("refuses an outcome nobody defined, because stopped is distinct from broken", async () => {
+    expect(
+      await refusal(
+        db.insert(taskRuns).values({
+          ownerId,
+          taskKey: "sweep",
+          outcome: "finished",
+          // ENDED ON PURPOSE, so `task_runs_running_has_no_end` is satisfied and
+          // cannot be what fires: an unknown outcome with a null end breaks both.
+          endedAt: new Date(),
+        }),
+      ),
+    ).toBe("task_runs_outcome_is_known");
+  });
+
+  /**
+   * RUNNING IS EXACTLY "HAS NOT ENDED", stored once rather than as two facts
+   * free to disagree. The row this refuses is the one the schema names: one
+   * reading `completed` with no end time, which a reader would take for a run
+   * still going.
+   */
+  it("refuses a run that has finished without saying when", async () => {
+    expect(
+      await refusal(
+        db.insert(taskRuns).values({ ownerId, taskKey: "sweep", outcome: "completed" }),
+      ),
+    ).toBe("task_runs_running_has_no_end");
+  });
+});
+
+/**
+ * ADR-0044's argument at a second table. `settings.ts` calls this index "WHAT
+ * MAKES THE RACE LOUD RATHER THAN SILENT": two writers each creating the
+ * configuration row would otherwise leave two, and which one a read answers with
+ * is then the planner's choice rather than the Owner's.
+ */
+describe("the settings row", () => {
+  it("refuses a second settings row", async () => {
+    await db.delete(settings);
+    await db.insert(settings).values({ ownerId });
+
+    expect(await refusal(db.insert(settings).values({ ownerId }))).toBe("settings_single_row");
+  });
+});
+
+/**
+ * THE TOKEN IS THE LOOKUP KEY (ADR-0043), so two rows answering one token would
+ * make which session a caller holds -- and therefore which capabilities and
+ * which device -- depend on the planner. The column is a SHA-256 of the secret
+ * and never the secret, so this writes hashes rather than tokens.
+ */
+describe("a session's token", () => {
+  it("refuses two sessions verifying one token", async () => {
+    const tokenHash = createHash("sha256").update("one token, two rows").digest("hex");
+    await db.insert(sessions).values({ ownerId, tokenHash });
+
+    expect(await refusal(db.insert(sessions).values({ ownerId, tokenHash }))).toBe(
+      "sessions_token_hash_unique",
+    );
+  });
+});
+
+/**
+ * THE NINETEEN `touch_row` TRIGGERS, ASSERTED AS A GROUP (CNCORE-260).
+ *
+ * THIS ASSERTS ATTACHMENT AND NOT THE FUNCTION'S BEHAVIOUR, which is the whole
+ * reason it is one test rather than nineteen. `touch_row` is ONE shared
+ * function, and two tests already prove what it DOES: "gives every row a number
+ * and advances it on every change" above, and settings.test.ts's "ADR-0075's
+ * SUBSTRATE" which asserts both halves on the one table where a change is always
+ * an UPDATE. Nineteen behavioural tests would re-prove one function nineteen
+ * times over.
+ *
+ * WHAT VARIES PER TABLE IS WHETHER THE TRIGGER IS ATTACHED AT ALL, so that is
+ * what this queries. Migration 1 attached it to the eleven tables that existed
+ * then IN A LOOP -- "a loop rather than eleven copy-pasted statements, because
+ * eleven copies are eleven chances for a later table to be added to ten of
+ * them" -- and every table since has sat OUTSIDE that loop and had to say so
+ * itself. Migrations 10, 13, 16, 18, 19 and 20 each did. This is what fails the
+ * day one does not.
+ */
+describe("touch_row", () => {
+  const tablesCarrying = async (column: string) =>
+    (
+      await db.execute<{ table: string }>(sql`
+        select c.relname as "table"
+        from pg_class c
+        join pg_namespace n on n.oid = c.relnamespace
+        join pg_attribute a on a.attrelid = c.oid
+        where n.nspname = 'public'
+          and c.relkind = 'r'
+          and a.attname = ${column}
+          and a.attnum > 0
+          and not a.attisdropped
+      `)
+    ).rows.map(({ table }) => table);
+
+  it("is attached to every table that carries a change sequence", async () => {
+    const carryTheColumn = await tablesCarrying("change_sequence");
+    const carryTheTrigger = (
+      await db.execute<{ table: string }>(sql`
+        select c.relname as "table"
+        from pg_trigger t
+        join pg_class c on c.oid = t.tgrelid
+        join pg_namespace n on n.oid = c.relnamespace
+        join pg_proc p on p.oid = t.tgfoid
+        where n.nspname = 'public'
+          and p.proname = 'touch_row'
+          and not t.tgisinternal
+      `)
+    ).rows.map(({ table }) => table);
+
+    /*
+     * THE POPULATION IS ASSERTED FIRST, because the difference between two empty
+     * sets is empty: a query that stopped matching anything would pass this test
+     * while proving nothing at all. Nineteen is what both sides measured on
+     * 2026-09-20; the floor rather than the figure, so adding a twentieth table
+     * WITH its trigger stays green and adding one without goes red.
+     */
+    expect(carryTheColumn.length).toBeGreaterThanOrEqual(19);
+
+    const missing = carryTheColumn.filter((table) => !carryTheTrigger.includes(table));
+    expect(missing).toEqual([]);
   });
 });
