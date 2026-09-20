@@ -18,6 +18,12 @@ does not overturn that."
 precedes demo ([[0055-web-now-phone-next-tv-last]], `docs/demo.md`). This record inserts ONE effort
 ahead of all three; it does not reorder them, and it does not license a second insertion.
 
+**A SECOND AND THIRD INSERTION WERE LATER TAKEN, WITH THEIR OWN ARGUMENT, BY
+[[0152-two-more-efforts-go-ahead-of-the-playback-half]].** That clause above did its job: it stopped
+the ordering being widened by whoever held the roadmap, and forced the widening to be recorded. The
+three named successors are still in this order, and 0152 declines to license a fourth for the same
+reason this one declined to license a second.
+
 ## Why: ADR-0001's two failure modes both point the same way
 
 [[0001-no-release-cadence-rule-in-the-specification]] names them:

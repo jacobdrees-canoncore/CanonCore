@@ -378,9 +378,50 @@ The form that works:
 orca linear comment add CNCORE-240 --body-file /tmp/c.md --json   # id is positional
 ```
 
-**A READ-BACK CANNOT CONFIRM A COMMENT, BECAUSE `issue --json` CARRIES NO COMMENTS AT ALL.** Its
-`result.issue` holds exactly: `id`, `identifier`, `title`, `url`, `description`, `state`, `team`,
+**A COMMENT NEEDS `--comments`, AND WITHOUT IT A READ-BACK REPORTS ZERO.** Bare `issue --json` returns
+`result.issue` holding exactly `id`, `identifier`, `title`, `url`, `description`, `state`, `team`,
 `project`, `cycle`, `assignee`, `labels`, `priority`, `priorityLabel`, `estimate`, `dueDate`,
-`branchName`, `createdAt`, `updatedAt`. No comments key, so a comment that landed reads back as zero
-comments and invites exactly the retry that produces duplicates. **Confirm a comment by the `id` the
-write returned** (`result.comment.id`), not by reading the issue.
+`branchName`, `createdAt`, `updatedAt` -- and no comments key, so a comment that landed reads back as
+none and invites the retry that produces duplicates.
+
+```sh
+orca linear issue CNCORE-245 --comments --json    # result.comments[], bodyTruncated: false
+```
+
+`--comments` adds a sibling `result.comments` array with every body in full. Corrected 2026-09-20: an
+earlier version of this section said comments could not be read back at all, which sent a verifying
+agent to check ticket bodies instead of the corrections posted against them.
+
+**AND A CORRECTION IN A COMMENT DOES NOT CORRECT THE TICKET.** Nine tickets were amended by comment on
+2026-09-20 and every body still stated the superseded claim; an implementer reads the body. Put the
+correction in the description with `save-issue --body-file`, and verify it by the ABSENCE of the old
+sentence -- `save-issue` reports `ok: false` on writes that land, so presence of the new text is not
+the check.
+
+## Deleting a PROJECT takes its issues off the board, and they become read-only
+
+Measured 2026-09-20, after the Owner deleted the project "A catalogue you can navigate", which held
+one Canceled issue. Three tools give three different answers about the same entity:
+
+| Asked | Answer |
+| --- | --- |
+| `orca linear project list` | 4 projects. The deleted one is gone. |
+| `orca linear list-issues --team CNCORE` | **Does not return CNCORE-104.** It is off the board. |
+| `orca linear issue CNCORE-104 --json` | **Resolves it in full** — identifier, `Canceled` state, title, and the deleted project's name. |
+| The issue's URL in a browser | **Loads**, with its title. No "not found". |
+| `orca linear comment add CNCORE-104` | **Refused**: `linear_write_failed`, "Entity not found: Issue - Could not find referenced Issue." |
+
+So a citation by number SURVIVES a project deletion for a reader — `CLAUDE.md`'s "supersedes
+CNCORE-104" still resolves — and nothing can be written to that issue again. Linear keeps the project
+under the team's archive in "Recently deleted projects" for 30 days before removing it permanently.
+
+**THERE IS NO MANUAL ARCHIVE FOR A PROJECT.** Linear's own `docs/projects` describes one manual action,
+Delete, via "the three dots next to the project name beside the Overview and Issues tabs". Archiving is
+automatic: a project archives once it has been completed past the workspace's auto-archive period and
+every issue inside it is archived. Do not send anybody looking for an Archive button.
+
+**Two cautions this corrects, both of which were mine.** Telling somebody to archive a project names an
+action that does not exist. And warning that deletion would leave a `CLAUDE.md` citation "pointing at
+nothing" was wrong — it points at a page that still loads. What deletion actually costs is the WRITE
+path and the board listing, so the thing to check before deleting is whether anything still needs to
+append to that issue, not whether anything cites it.

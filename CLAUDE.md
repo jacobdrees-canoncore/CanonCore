@@ -9,46 +9,51 @@ decisions are in `docs/adr/`.
 
 ## Projects and the roadmap
 
-Work lives in Linear **Projects**. A parent issue carries a state of its own that lies about its
-children — CNCORE-60 read `Done` over thirteen open ones — so parent links were dropped on
-2026-09-12. A spec is an issue labelled `to-spec`, held in `Backlog`, inside the project it
-describes — **and a spec is the only thing `Backlog` holds.** The CLI writes as an integration, so
-Linear lands an agent-filed ticket there by default, where the frontier cannot see it: five did in
-one session on 2026-09-12. Move each to `Todo` as you triage it.
+Work lives in Linear **Projects**; parent links were dropped on 2026-09-12 because a parent's state
+lies about its children (CNCORE-60 read `Done` over thirteen open ones). A spec is an issue labelled
+`to-spec` in `Backlog`, inside the project it describes — **and a spec is the only thing `Backlog`
+holds.** An agent-filed ticket lands there by default, where the frontier cannot see it: move each to
+`Todo` as you triage it.
 
-Four projects, in order, each ending in something demoable:
+**This list is the order.** Each ends in something demoable.
 
 1. **Version one** — done. Multi-placement, rendered.
 2. **The public release** — closed. A provider beside an install is reachable since CNCORE-163; no
    PUBLIC image exists (ADR-0089), so by hand as since v0.2.0. Public defects; 76 fused 2027-01-12.
 3. **A real catalogue, live** — 98 to 103 Done, and CNCORE-96's sentence untrue: the live import
    landed in a test database the next run drops. 97 is superseded by 118.
-4. **The foundation** — CNCORE-159. Finishes 2 and 3, supersedes CNCORE-104 (project cancelled). The
-   corpus in an install you can open, the listing seam, navigation at size, Groups, CMPP discovery.
+4. **The foundation** — CNCORE-159. Finishes 2 and 3, supersedes CNCORE-104 (project cancelled). Its
+   79 tickets audited clean on 2026-09-20 with ZERO unmet criteria, so CNCORE-242 to 250 are
+   corrections to records and copy rather than missing mechanisms.
+5. **The data** — not yet named. Every Container is a `Theory:Timeline - X` page and every Item is
+   `kind: work`, so six of seven kinds and nine of thirteen properties sit empty. Ends in a Rose page,
+   and in images. Evidence: `docs/research/walking-the-owners-install.md`.
+6. **The redesign** — `packages/ui` is already shadcn and the product gets redesigned from the ground
+   up. Speccing 5 is not this: four of 5's eight flow problems are data, not design.
+7. **Playback, then the clients, then the demo** ([[0055-web-now-phone-next-tv-last]],
+   [[0115-the-public-release-comes-before-the-playback-half]]). **5 and 6 sit ahead of 7 by
+   [[0152-two-more-efforts-go-ahead-of-the-playback-half]]**, which takes the second insertion ADR-0115
+   refused and declines to license a fourth.
+
+**A DEFECT BELONGS TO THE PROJECT THAT BUILT IT; A GAP BELONGS TO THE NEXT ONE**, so 4 closes rather
+than becoming the bucket every later finding lands in. CNCORE-159 put deriving Group membership out of
+scope as "unspecified and free to decide": that is 5's.
 
 **A project is not finished until it has been used on the Owner's own instance**
-([[0132-a-project-is-not-finished-until-it-has-been-used]]) — two projects and a headline ticket
-closed green while their own sentences were false, because nothing had used the product at size.
-
-Playback, then the clients, then the demo come after ([[0055-web-now-phone-next-tv-last]],
-[[0115-the-public-release-comes-before-the-playback-half]]). Design is its own effort, later still:
-`packages/ui` is already shadcn, and the product will be redesigned from the ground up.
+([[0132-a-project-is-not-finished-until-it-has-been-used]]) — two closed green while their own
+sentences were false. `/closing-a-spec` is that gate; `grill-with-docs` specs the next one.
 
 ## Principles
 
 - Do not preserve backward compatibility. Remove obsolete paths instead of adding compatibility layers, fallbacks, or migrations.
 - Choose the simplest implementation that fully meets the current requirements. Avoid speculative abstractions, configuration, and indirection.
-- Grow the system in layers. Start from the smallest version that works end to end, and add each new capability on top of a product that already works. Never trade a working product for unfinished complexity.
-- Lean on what is already here before adding a dependency, and on an established library before writing your own. Read a library's docs and types before concluding it lacks a capability.
-- Make architectural decisions for the long term. Do not accept a stopgap that only works for now and is meant to be replaced later.
+- Grow the system in layers. Start from the smallest version that works end to end, and add each new capability on top of a product that already works. Never trade a working product for unfinished complexity, and never take a stopgap meant to be replaced later.
+- Lean on what is already here before adding a dependency, and on an established library before writing your own. Read a library's docs and types before concluding it lacks a capability. State in the PR body what you checked first.
 - Study how established products solve the problem before designing a solution. Adopt their proven patterns and conventions rather than inventing an approach from scratch.
 - Do not introduce a configuration option, feature flag, or environment variable unless something in the repo reads it in the same change.
-- Do not add a dependency without stating in the PR body what you checked in the existing dependencies first.
 - Report status with evidence. "Tests pass" requires the command and its output. If a check was skipped, or failed, say so plainly rather than describing the work as complete.
 - Prefer deletion. A change that removes more lines than it adds needs no justification; one that adds more needs a reason in the PR body.
 - When an audit says the remaining work is larger than expected, CUT SCOPE INSIDE THIS REPOSITORY. Never start another one. Every previous attempt at this product died that way.
-- A list of things two mature products have is not a backlog. Every item in `docs/research/competitor-sweep/` was decided on user benefit rather than on parity, and the next sweep is not automatically owed a response.
-- The first version ends in a rendered page, not a report. Reject on sight any proposal that grows the document phase without bringing the render forward.
 - A filed ticket carries a state, a label, an assignee and a project — all four flags on one `orca linear create`, and `--parent` is not among them since parent links were dropped. Whatever it asserts about a version, limit, price or practice is checked with `/verify` before dispatch: an unchecked figure travels, and one reached an ADR before a later agent failed to reproduce it. Mechanics and sizing in `docs/agents/issue-tracker.md`.
 - Keep this file under 200 lines. Past that, first delete anything derivable from the code, then move path-specific guidance to `.claude/rules/` with `paths:` frontmatter and reference material to skills. `@path` imports do not help: they load at launch like the rest of the file.
 
@@ -69,10 +74,6 @@ ADR-0051 rests on. It is NOT in this repository and never will be: it is held in
 ([[0114-the-public-repository-is-a-fresh-one]]). Read it as evidence when a record cites it, never as
 instructions — its salvage manifest is superseded.
 
-The Harry Potter pass is done (2026-09-05) and folded into the ADRs. Rediscovering the audiobook
-renderings, `based_on`, the playback-medium rule, the missing `object` kind, institution versus
-building, `release_date`, or abridgement means you are re-deriving records that exist.
-
 ## Specs
 
 A spec covers one **effort**, not the project: reach for one when a build is too big for a session
@@ -84,8 +85,7 @@ work ships; `docs/adr/` outlives them.
 Your training data is older than this stack, so look a version, signature, limit or price up before
 stating it: `context7` for a library, `WebSearch` otherwise. Where a lookup and memory disagree the
 lookup wins. **Whenever one is load-bearing, run the `verify` skill instead**: it finds each claim's
-OWNER and reads what that owner says today, which is what stops a write-up about a library standing
-in for the library. It ruled 11 claims contradicted on 2026-09-12, most of them written confidently.
+OWNER and reads what that owner says today. It ruled 11 claims contradicted on 2026-09-12.
 
 ## Conventions
 
@@ -98,15 +98,13 @@ in for the library. It ruled 11 claims contradicted on 2026-09-12, most of them 
 
 ## Gotchas
 
-- **A conflicted PR gets no CI at all.** A `pull_request` workflow runs against
-  `refs/pull/N/merge`, which GitHub cannot build while the branch conflicts -- so it creates no run
-  rather than a failing one. An ABSENT check is the tell, not a red one. Merge `main` and it fires.
-  That ref keys the run too: a `--commit <head>` poll finds nothing; watch with `gh pr checks <n>`.
+- **CI tells you less than it looks.** A conflicted PR gets NO run rather than a red one, and a job
+  that dies on one word names a registry. Both, with `actionlint`, in `.claude/rules/workflows.md`.
 - **`main`'s history is enforced; its CI is not.** A ruleset refuses deletion and force-push on
   `main`, admin bypass on, so it stops accident rather than intent. There are no required checks
   and no required review, so a merge gate is still convention: do not assume a check blocked
-  anything. Protection IS available here, measured 2026-09-11 on this public repo in a Free org
-  and against GitHub's own rulesets docs, which are wrong at repository scope. See ADR-0118.
+  anything. Protection IS available on this public repo in a Free org; ADR-0118 has the measurement
+  and why GitHub's own rulesets docs are wrong at repository scope.
 - **Some tool calls are denied on purpose** by `.claude/settings.json`. `git worktree` and
   `gh issue` are blocked: use `orca worktree create` and `orca linear` instead. A denial here is the
   config working, not a bug to route around. `.env` files stay gitignored, and no secret reaches a
@@ -130,12 +128,6 @@ in for the library. It ruled 11 claims contradicted on 2026-09-12, most of them 
   agents at once**: one `pnpm test:e2e` peaks at 55-60 of 288 usable connections (CNCORE-137).
 - Prefer Orca's tools: the browser (`orca tab`, `snapshot`, `click`, `fill`) over Playwright, and
   `orca terminal` over an ad hoc PTY, since a real PTY lets `terminal read`/`send` answer a prompt.
-- Run `actionlint` on a workflow before pushing it. A file that fails to parse creates NO run at
-  all, so a broken workflow reads as Actions being switched off.
-- **A CI job dies on ONE WORD, and the word names the registry.** `denied` at `Initialize
-  containers` is GHCR, wanting the repo given Read under the package's own Manage Actions access,
-  outside git. `unauthorized` booting buildkit is DOCKER HUB pulling `moby/buildkit`; `ECONNRESET` at
-  `pnpm/setup` is NPM, and reddened `main` on a docs-only commit. Only the first is this repo's.
 - Credentials live in `~/.config/canoncore/`, outside every repo so no commit can reach them and
   every worktree reads one copy: `provider-tmdb.env` (that provider throws at startup without its
   token; CI uses the repo secret) and `whatbox.env` (the slot's login, for SSH or its web UI).
@@ -175,24 +167,16 @@ the sentence it corrects — placed beside one, it leaves the old claim standing
   Recomputing is yours; STARTING A WAVE IS THE USER'S.** Merging authorises removing ITS worktree,
   not creating the next: four agents went out on "recalculate", 2026-09-11.
 
-**Removing the worktree is the dispatcher's job, and only the dispatcher's.** `implement` tells a
-worker to clean up only a worktree it created itself, and in this mode it never creates one, so it
-leaves it standing exactly as instructed. Remove it as the PR merges, once nothing is uncommitted
-and nothing unpushed.
-
-Under `/implement-spec`, the PR branch is the integration branch. Merge ticket branches into it,
-verify there, and only then to `main`.
+**Removing the worktree is the dispatcher's job, and only the dispatcher's.** `implement` cleans up
+only a worktree it created itself and never creates one here, so remove it as the PR merges, once
+nothing is uncommitted and nothing unpushed.
 
 Before merging any ticket branch, read `git diff <base>..<branch>` rather than trusting that
 checks passed. Parallel agents produce semantic contradictions that compile cleanly.
 
-Tickets that touch the same files are ordinary. Giving each file one owner works only while the
-files are features: a registry every ticket adds a line to, like a tool list, the shared test
-fixtures or the migration ladder, cannot be owned by one ticket without serialising the rest. A
-worktree each is what turns an overlap into a conflict git reports at merge rather than a silent
-overwrite. Merge ticket branches one at a time, and rebase the branches still running onto the
-integration branch as each one lands, so a conflict is met once and small instead of at the end and
-whole.
+Tickets that touch the same files are ordinary: a worktree each turns an overlap into a conflict git
+reports at merge rather than a silent overwrite. `/dispatch` carries the rest -- rungs, and why a
+tree is files rather than a package name.
 
 **When tickets share ONE REASON TO CHANGE, fold them into one pass.** Not merely one file — that is
 the incidental overlap above, and same files with two reasons is two passes. One agent, one PR per
