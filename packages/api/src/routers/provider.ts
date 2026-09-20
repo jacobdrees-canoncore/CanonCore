@@ -1676,7 +1676,18 @@ export const provider = {
         });
         return { runId: run.id, containers: run.containers.map(asReportedContainer) };
       } catch (cause) {
-        if (cause instanceof ImportRunRefused) throw errors.BAD_REQUEST({ cause });
+        /*
+         * THE MESSAGE IS PASSED, NOT JUST THE CAUSE, and that is the whole
+         * difference between a refusal the Owner can act on and one they
+         * cannot. `ORPCError.toJSON` serialises `{defined, code, status,
+         * message, data}` and NOTHING ELSE, so a `cause` never crosses the
+         * wire -- the caller would read the declared sentence above, which
+         * names no id. `settings.ts` passes `cause.message` for the same
+         * reason. The cause still travels for the server's own chain.
+         */
+        if (cause instanceof ImportRunRefused) {
+          throw errors.BAD_REQUEST({ message: cause.message, cause });
+        }
         throw cause;
       }
     }),

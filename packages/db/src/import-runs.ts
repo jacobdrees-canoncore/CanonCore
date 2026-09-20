@@ -109,7 +109,11 @@ export async function beginImportRun(
   { providerIdentity, containerIds }: { providerIdentity: string; containerIds: string[] },
 ): Promise<ImportRun> {
   const repeated = theRepeatIn(containerIds);
-  if (repeated !== undefined) throw new ImportRunRefused(repeated);
+  if (repeated !== undefined) {
+    throw new ImportRunRefused(
+      `${repeated.externalId} is listed twice, at positions ${repeated.first + 1} and ${repeated.again + 1}`,
+    );
+  }
 
   const resumable = await theRunStillWalkingThisList(db, { providerIdentity, containerIds });
   if (resumable !== undefined) {
@@ -164,8 +168,8 @@ async function openTheRun(
 }
 
 /**
- * The sentence for the first id this list names twice, or `undefined` if it
- * names each once.
+ * The first id this list names twice, and the two places it sits, or
+ * `undefined` if it names each once.
  *
  * REFUSED RATHER THAN DEDUPED (ADR-0154). An import list is a document the
  * Owner authored, so an id on it twice is a typo rather than a claim made
@@ -175,25 +179,38 @@ async function openTheRun(
  * this one: a repeat "would give the run two answers for one Container with
  * nothing to say which is current".
  *
- * THE SENTENCE SAYS WHICH AND WHERE, because the shape this exists for is a
- * hand-assembled list of 465 and "an id is repeated" is not something a reader
- * can act on. POSITIONS COUNT FROM ONE: the Owner is looking at the lines of
- * their own file, and no file has a line 0.
+ * IT ANSWERS THE REPEAT RATHER THAN THE SENTENCE, so the words the Owner reads
+ * are built once, where they are thrown.
+ *
+ * WHICH AND WHERE, because the shape this exists for is a hand-assembled list
+ * of 465 and "an id is repeated" is not something a reader can act on.
+ *
+ * THESE ARE POSITIONS IN THE LIST, NOT LINES OF A FILE, and the caller must not
+ * describe them as lines: `theContainerIdsIn` drops blank lines and `#`
+ * comments before this ever sees the ids, so position 12 of a commented list is
+ * some later line of the file. They count from one because the Owner is
+ * counting things, and nobody counts from zero; finding the id is then a search
+ * for the id itself, which is what the sentence names first.
  *
  * ONLY THE FIRST. Reporting every repeat would ask the Owner to read a list to
- * fix a list, and the next run says the next one -- where a first refusal they
- * can act on in one edit is the whole of ADR-0123's reading of a reason.
+ * fix a list, and the next attempt names the next one -- where a first refusal
+ * they can act on in one edit is the whole of ADR-0123's reading of a reason.
  */
-function theRepeatIn(containerIds: string[]): string | undefined {
+function theRepeatIn(containerIds: string[]): RepeatedId | undefined {
   const firstAt = new Map<string, number>();
   for (const [at, externalId] of containerIds.entries()) {
-    const already = firstAt.get(externalId);
-    if (already !== undefined) {
-      return `${externalId} is listed twice, at positions ${already + 1} and ${at + 1}`;
-    }
+    const first = firstAt.get(externalId);
+    if (first !== undefined) return { externalId, first, again: at };
     firstAt.set(externalId, at);
   }
   return undefined;
+}
+
+/** An id named twice, and the two places in the list it sits. */
+interface RepeatedId {
+  externalId: string;
+  first: number;
+  again: number;
 }
 
 /**

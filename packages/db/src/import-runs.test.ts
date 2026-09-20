@@ -82,8 +82,12 @@ describe("beginImportRun", () => {
    *
    * AND THE SENTENCE SAYS WHERE. The case this exists for is a hand-assembled
    * list of 465, where "one of these is repeated" is not something a reader can
-   * act on. Positions count from one, as the Owner counts the lines of their
-   * own file.
+   * act on.
+   *
+   * POSITIONS IN THE LIST, NOT LINES OF THE FILE. `theContainerIdsIn` drops
+   * blank lines and `#` comments before an id reaches here, so the two numbers
+   * do not address the file directly -- which is why the sentence names the id
+   * first, and the id is what the Owner searches their file for.
    */
   it("refuses a list naming one Container twice, saying which id and where it repeats", async () => {
     const listing249643Twice = ["249643", "105893", "249643"];

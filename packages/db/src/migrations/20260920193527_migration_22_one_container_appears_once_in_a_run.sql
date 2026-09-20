@@ -1,6 +1,6 @@
 -- WHAT MIGRATION 18 SAID ABOUT THIS INDEX WAS WRONG, AND MIGRATION 18 CANNOT BE
--- CORRECTED. It framed `import_run_containers_named_once` as saving duplicated
--- work -- "A list naming an id twice would browse it twice -- 43.8s spent
+-- CORRECTED. It framed `import_run_containers_named_once` as saving a browse
+-- already paid for -- "A list naming an id twice would browse it twice -- 43.8s spent
 -- asking a Provider a question it has already answered" -- but an index does
 -- not skip a browse. It refused the INSERT, SQLSTATE 23505, for the whole list:
 -- all 465 Containers, none of them imported, and a `DrizzleQueryError` that was

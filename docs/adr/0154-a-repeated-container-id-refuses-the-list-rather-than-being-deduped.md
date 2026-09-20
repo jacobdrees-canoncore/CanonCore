@@ -48,6 +48,12 @@ is 465 hand-assembled lines and "an id is repeated" is not something a reader ca
 first repeat is reported: naming every one would ask the Owner to read a list in order to fix a
 list, and the next attempt names the next.
 
+**Those are positions in the LIST, not lines of the file**, and the distinction is worth holding:
+`theContainerIdsIn` drops blank lines and `#` comments before an id reaches the run, so position 12
+of a commented list is some later line of the file. The sentence therefore names the **id** first,
+which is what the Owner can search their own file for; the positions say how many there are and
+which two, not where to put the cursor.
+
 ### What deduping would have cost, said out loud
 
 It is not free, and the cost is not obvious. `theRunStillWalkingThisList` resumes a run by matching
@@ -72,9 +78,28 @@ Which SQLSTATEs mean "you asked for something impossible" lives in `import-runs.
 rather than in the router, which is the rule `by-hand.ts` and `groups.ts` each record about their
 own: it is a fact about the schema, and the schema is that package's.
 
+## A refusal's sentence does not cross the wire by itself
+
+Worth writing down, because it cost this record a review round and it will cost the next one.
+`errors.BAD_REQUEST({ cause })` is the shape `item.create`, `group.put` and `placement.place` all
+use, and it **drops the sentence**: `ORPCError.toJSON` serialises `{defined, code, status, message,
+data}` and nothing else, so the `cause` never leaves the server and the caller reads the sentence
+DECLARED on the procedure -- which, being declared once, can name no id.
+
+A refusal whose whole value is naming the id has to pass `message` explicitly, as
+`settings.ts` already does for `OutboundRefused`:
+
+```ts
+throw errors.BAD_REQUEST({ message: cause.message, cause });
+```
+
+The cause still travels for the server's own chain. **A test asserting `error.code` alone passes on
+the broken version**, which is how this nearly shipped half-built: the code was right and the words
+were gone. The router test asserts the sentence itself.
+
 ## Migration 18 could not be corrected, so rung 22 carries the correction
 
-Migration 18 frames the index as saving duplicated work -- "43.8s spent asking a Provider a question
+Migration 18 frames the index as saving a browse already paid for -- "43.8s spent asking a Provider a question
 it has already answered". An index does not skip a browse. What saves the browse is the refusal
 above, reading the list before anything is asked for.
 

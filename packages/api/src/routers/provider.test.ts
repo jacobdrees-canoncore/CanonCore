@@ -2213,6 +2213,15 @@ describe("provider.beginImportRun", () => {
     );
 
     expect(isDefinedError(error) && error.code).toBe("BAD_REQUEST");
+    /*
+     * AND THE SENTENCE ITSELF, because the code alone is what let this ship
+     * half-built: `ORPCError.toJSON` serialises `{defined, code, status,
+     * message, data}` and drops `cause`, so a handler passing only the cause
+     * answers the DECLARED sentence -- which names no id. A test asserting
+     * `error.code` would pass on that, and the Owner would still be reading
+     * "that list cannot be imported" with no way to find the repeat.
+     */
+    expect(error?.message).toBe("402219 is listed twice, at positions 1 and 3");
   });
 });
 
