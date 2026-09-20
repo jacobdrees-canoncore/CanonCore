@@ -125,7 +125,7 @@ describe("what a break wrote", () => {
    *
    * THE ASSERTION OUTLIVED THE COPY IT GUARDED, WHICH IS WHY IT STAYS. This was
    * written by hand beside a hand-written cut, because ADR-0123 kept the shared
-   * one out of this package's reach; ADR-0161 moved the levers to
+   * one out of this package's reach; ADR-0163 moved the levers to
    * `@canoncore/text`, a leaf depending on nothing, and `bounded` now reaches
    * them in one call. What this asserts is the BEHAVIOUR the registry owes its
    * reader, which is the registry's to keep whoever implements it -- and it is
@@ -168,7 +168,7 @@ describe("what a break wrote", () => {
    * family is whitespace, so collapsing `\s+` never touched them.
    *
    * ASSERTED HERE BECAUSE THE PAGE IS HERE. This was a second hand-written
-   * copy of a second property until ADR-0161 moved both levers to
+   * copy of a second property until ADR-0163 moved both levers to
    * `@canoncore/text`; what survives the move is the claim that a DETAIL
    * reaching `tasks/page.tsx` carries neither family, which is this package's
    * to make about its own column whatever applies them.

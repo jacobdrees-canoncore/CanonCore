@@ -5,12 +5,16 @@ status: accepted
 # The levers that bound a stranger's text live in a leaf every package can reach
 
 > **ACCEPTED 2026-09-20, whole, in one repository.** `@canoncore/text` publishes `oneLine`,
-> `shortenTo` and `boundedTo` and depends on nothing; `@canoncore/providers`, `@canoncore/db`,
-> `@canoncore/tasks` and `@canoncore/api` all reach ADR-0123's two levers through it, and no
-> hand-written copy of either lever survives in the tree. The repeat's refusal in
-> `packages/db/src/import-runs.ts` bounds its Container id on both, with two witnesses at
-> `beginImportRun` (`packages/db/src/import-runs.test.ts`). No provider repository is touched, so
-> nothing is owed at a second one.
+> `shortenTo` and `boundedTo` and depends on nothing. Every site that puts a stranger's PROSE in a
+> sentence reaches both levers through `boundedTo`: `@canoncore/providers` (`bounded`),
+> `@canoncore/db` (the repeat's refusal), `@canoncore/api` (the overlong-id refusal),
+> `@canoncore/tasks` (a task's detail) and `apps/web` (`?refused=`). `shortenTo` has exactly one
+> caller, `shortly`, whose values are parsed URLs and hosts rather than prose. No hand-written copy
+> of either lever survives in the tree, checked by grepping `0xd800`, `202a` and `feff`. The
+> repeat's refusal in `packages/db/src/import-runs.ts` bounds its Container id on both, with two
+> witnesses at `beginImportRun` that were each checked RED against the unpatched sentence
+> (`packages/db/src/import-runs.test.ts`). No provider repository is touched, so nothing is owed at
+> a second one.
 
 [[0123-a-failure-reason-is-bounded-and-says-who-wrote-it]] bounds a stranger's text on two levers: a
 CUT, answering how MUCH of a value lands in a sentence, and a CONTROL STRIP, answering what that
@@ -77,6 +81,15 @@ already been through a parser, so there is no prose there for the strip to act o
 a stranger's PROSE reaches for `boundedTo`, which applies both in one call — and applying both in
 one call is what stops the next caller taking half.
 
+**AND PUBLISHING THE CUT AT ALL COST SOMETHING WITHIN THE HOUR, WHICH IS WORTH WRITING DOWN RATHER
+THAN DISCOVERING TWICE.** `apps/web/src/app/settings/refusal.ts` bounded `?refused=` — a value off a
+forgeable address, landing in a sentence the page speaks in its own voice — with the CUT ALONE,
+while its own docblock claimed the file "holds both rules, one per parameter". ADR-0160 had already
+named that shape: "taking the cut alone is half a mechanism that looks finished from outside." It
+was caught reviewing THIS change and is fixed here. The lesson is not to hide the cut, because
+`shortly` genuinely needs it; it is that a published cut is a fork in the road, so the doc comment
+beside it has to say which way a prose caller goes.
+
 **IT IS NOT NAMED `cut`, AND THAT CONSTRAINT SURVIVES THE MOVE.** `CONTEXT.md` makes **Cut** a
 Listing's keyset boundary, and the glossary is binding on names in code. The package is
 `@canoncore/text` and the function is still `shortenTo`.
@@ -84,11 +97,18 @@ Listing's keyset boundary, and the glossary is binding on names in code. The pac
 ## What this costs
 
 **A twelfth workspace package**, which is the honest price. It is one `package.json`, one
-`tsconfig.json`, one `vitest.config.ts` and one source file, and the repository's own roll calls
-absorbed it rather than needing to be told about it: `typecheck-wiring.test.ts` counts packages off
-`pnpm-workspace.yaml`, `network-gate-wiring.test.ts` counts suites off the tree, and
-`tree-figures.test.ts` went red on four stated figures that had said fifteen and eleven. Those are
-ADR-0153's mechanism working, and updating them is the whole of the wiring this cost.
+`tsconfig.json`, one `vitest.config.ts` and one source file, and the mechanised parts of the
+repository absorbed it rather than needing to be told: `typecheck-wiring.test.ts` counts packages
+off `pnpm-workspace.yaml`, turbo, biome and `ci.yml` are glob-driven, and `tree-figures.test.ts`
+went red on four stated figures that had said fifteen and fourteen. That last is ADR-0153's
+mechanism working.
+
+**BUT NOT EVERY STALE FIGURE WAS CAUGHT, AND CLAIMING OTHERWISE WOULD BE THE OVERCLAIM ADR-0153
+EXISTS TO STOP.** The package counts in `typecheck-wiring.test.ts` and in ADR-0103 — "ELEVEN
+packages", "TEN of the eleven" — are PROSE with no entry in `tree-figures.test.ts`'s claims table,
+so nothing went red and they were corrected here by hand after a reviewer found them. A figure that
+only a reader can catch is exactly the shape that record refuses. Adding the package count to the
+claims table is **CNCORE-286**.
 
 **Set against three copies of five lines that drifted twice in one project**, and a fourth owed the
 next time a package puts a stranger's value in a sentence. The trade is one leaf against a rule

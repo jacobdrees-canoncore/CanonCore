@@ -2,7 +2,7 @@
  * The two levers ADR-0123 bounds a stranger's text on, in the one place every
  * package that needs them can reach.
  *
- * A LEAF, AND THAT IS THE WHOLE REASON THIS PACKAGE EXISTS (ADR-0161). It
+ * A LEAF, AND THAT IS THE WHOLE REASON THIS PACKAGE EXISTS (ADR-0163). It
  * depends on nothing -- not a workspace package, not a third-party one -- so
  * reaching for it costs a caller exactly the lines below. ADR-0123 refused the
  * import that would have shared these levers, and it was right about the
@@ -34,12 +34,18 @@
  * stranger may put on a page it does not own; this bounds what that text may do
  * to the page's own words. A cap alone leaves the shorter attack untouched.
  *
+ * WRITTEN AS `\u` ESCAPES, AND THAT SPELLING IS PART OF THE RULE. This class was
+ * briefly spelled with the literal characters in it, which is invisible in a
+ * diff, unreadable in review, and puts an RLO in the source of the very function
+ * that exists to strip one -- the Trojan Source hazard, inside its own defence.
+ * A reviewer must be able to SEE what is matched, so every member is escaped.
+ *
  * STRIPPED RATHER THAN ESCAPED, because there is no legitimate use for one in
  * the values these bound: a reason, a credential's label, a task's detail and a
  * Container id are single sentences or single tokens, not documents with a
  * mixed-direction layout to preserve.
  */
-const CONTROLS = /[‪-‮⁦-⁩​-‍﻿]/g;
+const CONTROLS = /[\u202a-\u202e\u2066-\u2069\u200b-\u200d\ufeff]/g;
 
 /**
  * What stands in for the part of a string its reader does not get to read.

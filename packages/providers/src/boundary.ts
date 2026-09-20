@@ -77,7 +77,7 @@ const VALUE_MAX = 80;
  * value short is protecting.
  *
  * THE CUT ITSELF IS `shortenTo`'S, in `@canoncore/text`, and that is where the
- * reason for its shape is written (CNCORE-269, ADR-0161). This function is the
+ * reason for its shape is written (CNCORE-269, ADR-0163). This function is the
  * CEILING and not the cut: 80 is a fact about these sentences, and it belongs
  * beside them.
  *

@@ -128,11 +128,17 @@ the clause naming the ceiling backwards through the page. Taking the cut alone i
 that looks finished from outside -- which is what CNCORE-274 found in `@canoncore/tasks`' copy, and
 what a fresh copy here reproduced one ticket later.
 
-So `@canoncore/providers` publishes **`boundedTo(text, max)`, both levers in one call**, and keeps
-`shortenTo` private. A caller supplies only its own ceiling, because that number is a fact about
-its own sentences (CNCORE-269); the levers are not its to choose between. That is deliberately a
-narrower export than the cut: publishing the cut is what let this diff take half the mechanism in
-the first place.
+So **`boundedTo(text, max)` applies both levers in one call**, and a caller supplies only its own
+ceiling, because that number is a fact about its own sentences (CNCORE-269); the levers are not its
+to choose between. That is deliberately a narrower export than the cut: publishing the cut is what
+let this diff take half the mechanism in the first place.
+
+**IT WAS `@canoncore/providers` THAT PUBLISHED IT, AND IT IS NOT ANY MORE
+([[0163-the-levers-that-bound-a-strangers-text-live-in-a-leaf]], CNCORE-282).** Both levers moved to
+`@canoncore/text`, a package depending on nothing, so `@canoncore/db` and `@canoncore/tasks` reach
+them without taking the outbound HTTP stack ADR-0123 refused them. `@canoncore/providers` publishes
+neither function now. The rule above is unchanged — one call, both levers, the caller's own ceiling
+— only its address is.
 
 **The id a Provider chose can reach this sentence**, which is why the levers are not theoretical
 here. `/import` lists a Provider's own Containers for the Owner to pick from since CNCORE-187, so
@@ -151,10 +157,15 @@ naming no id and no length, which is the defect this record closes rather than a
 
 ## What this record does NOT close
 
-`theRepeatIn`'s own sentence still interpolates a Container id raw, on neither lever. This bound
-caps what can reach it at 255 characters rather than at nothing, which is a smaller flood and not
-the mechanism: 255 is not 80, and no lever strips the controls. `@canoncore/db` cannot call
-`boundedTo`, because ADR-0123 keeps `@canoncore/providers` out of that package's reach deliberately
-and `@canoncore/tasks` writes its own pair by hand for the same reason. Closing it means either a
-third hand-written copy or moving the levers somewhere both packages reach, which is a decision
-rather than a line: **CNCORE-282**.
+`theRepeatIn`'s own sentence still interpolated a Container id raw, on neither lever, when this
+record was taken. This bound caps what can reach it at 255 characters rather than at nothing, which
+is a smaller flood and not the mechanism: 255 is not 80, and no lever strips the controls.
+`@canoncore/db` could not call `boundedTo`, because ADR-0123 kept `@canoncore/providers` out of that
+package's reach deliberately and `@canoncore/tasks` wrote its own pair by hand for the same reason.
+Closing it meant either a third hand-written copy or moving the levers somewhere both packages
+reach, which is a decision rather than a line: **CNCORE-282**.
+
+**CLOSED, AND BY THE SECOND OPTION**
+([[0163-the-levers-that-bound-a-strangers-text-live-in-a-leaf]]). The levers live in
+`@canoncore/text` and the repeat's sentence bounds its id on both at a ceiling of 80, beside the
+sentence it bounds. The two hand-written copies this paragraph names are gone with it.

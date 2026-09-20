@@ -314,7 +314,7 @@ function reasonFor(thrown: unknown): string {
  *
  * 300 IS ADR-0123's NUMBER, taken rather than chosen again, because this is the
  * same question that record answered about a different reader. THE NUMBER IS
- * THIS FILE'S AND THE LEVERS ARE NOT, which is the split ADR-0161 keeps: a
+ * THIS FILE'S AND THE LEVERS ARE NOT, which is the split ADR-0163 keeps: a
  * ceiling stays beside the sentence it bounds, and what is shared is the pair.
  *
  * BOTH LEVERS ARRIVE IN ONE CALL, AND THIS WAS A HAND COPY UNTIL CNCORE-282.
@@ -322,7 +322,7 @@ function reasonFor(thrown: unknown): string {
  * the dependency it was offered: reaching `@canoncore/providers` for one string
  * function would have taken an HTTP client, two undici dispatchers and
  * ADR-0034's boundaries. What that record did not consider is that the levers
- * need not live there. ADR-0161 moves them to `@canoncore/text`, which depends
+ * need not live there. ADR-0163 moves them to `@canoncore/text`, which depends
  * on nothing, so this registry reaches them at the cost of the lines
  * themselves.
  *

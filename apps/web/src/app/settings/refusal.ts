@@ -1,5 +1,5 @@
 import type { WhyNotNamed } from "@canoncore/providers";
-import { shortenTo } from "@canoncore/text";
+import { boundedTo } from "@canoncore/text";
 
 import { oneValue } from "@/components/query-params";
 
@@ -86,7 +86,7 @@ export function oneBecause(parameter: string | string[] | undefined): WhyItWasRe
  * HOW MUCH OF THE REFUSED ENTRY THE SENTENCE QUOTES BACK.
  *
  * THE SAME 80 `shortly` USES INSIDE `@canoncore/providers`, and decided here
- * rather than imported, which is ADR-0123's own arrangement kept by ADR-0161:
+ * rather than imported, which is ADR-0123's own arrangement kept by ADR-0163:
  * the levers are shared, from `@canoncore/text`, and each ceiling sits beside
  * the sentences it bounds. An Owner who typed a
  * long base URL still recognises its opening, and what they cannot do without
@@ -117,8 +117,16 @@ const ENTRY_MAX = 80;
  * THIS PAGE SPEAKS IN ITS OWN VOICE, which is the harm the closed set above
  * exists to prevent, arriving through the other parameter. Holding one and not
  * the other would leave the door open beside the lock.
+ *
+ * BOTH LEVERS, THROUGH ONE CALL (CNCORE-282). This took the CUT alone until
+ * review caught it, and a cut alone is the half-mechanism ADR-0123 keeps
+ * finding: a bidirectional override in `?refused=` re-orders the sentence
+ * written AROUND the entry, at any length, so the ceiling above never touched
+ * it. The docblock claimed this file "holds both rules, one per parameter"
+ * while it held one and a half. `boundedTo` applies the strip and the cut
+ * together, which is why ADR-0163 publishes the pair rather than the cut.
  */
 export function theEntryRefused(parameter: string | string[] | undefined): string | undefined {
   const entry = oneValue(parameter);
-  return entry === undefined ? undefined : shortenTo(entry, ENTRY_MAX);
+  return entry === undefined ? undefined : boundedTo(entry, ENTRY_MAX);
 }

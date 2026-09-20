@@ -565,7 +565,7 @@ const CONTAINER_ID_MAX_LENGTH = 255;
  * eat the clause explaining why it was refused.
  *
  * THE LEVERS ARE `boundedTo`'S AND THE NUMBER IS THIS FILE'S (CNCORE-269),
- * reached through `@canoncore/text` since ADR-0161 moved them to a leaf every
+ * reached through `@canoncore/text` since ADR-0163 moved them to a leaf every
  * package can import.
  * ADR-0123 bounds a stranger's text on two -- how MUCH of it lands in the
  * sentence, and what it may DO to the words around it -- and this reaches for
@@ -1765,7 +1765,7 @@ export const provider = {
        * repeat's sentence with neither applied. CNCORE-282 closed that: the
        * levers moved to `@canoncore/text`, a leaf depending on nothing, so
        * `@canoncore/db` bounds the repeat's sentence on both without taking the
-       * outbound HTTP stack ADR-0123 refused it (ADR-0161).
+       * outbound HTTP stack ADR-0123 refused it (ADR-0163).
        *
        * NOT A `z.string().max()` ON THE INPUT, though that is where the gap was
        * found. oRPC answers an input-validation failure with the DECLARED
