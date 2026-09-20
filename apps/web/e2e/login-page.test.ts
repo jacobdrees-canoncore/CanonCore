@@ -4,6 +4,7 @@ import {
   carrying,
   documentAt,
   documentFrom,
+  headingOf,
   logInAt,
   postFormsIn,
   sectionIn,
@@ -84,6 +85,21 @@ describe("/login", () => {
     expect(
       postFormsIn(text).some(({ fields }) => fields.some(([name]) => name === "password")),
     ).toBe(false);
+  });
+
+  it("is headed for the reader it is serving, which is two readers (CNCORE-243)", async () => {
+    // THE SAME ADDRESS SERVES BOTH, and until CNCORE-243 it greeted both with
+    // `Log in`. It is the one page carrying `/settings`, `/tasks`, `/devices`
+    // and Log out, so the header now sends the owner here under `Account` --
+    // and a page that answered that link with the word for the step they have
+    // already taken would be the lie the header link avoided.
+    const visitor = await documentAt("/login");
+    expect(headingOf(visitor.text)).toBe("Log in");
+
+    const cookie = await logInAt(baseUrl, ownerPassword);
+    const owner = await documentFrom(baseUrl, "/login", cookie);
+
+    expect(headingOf(owner.text)).toBe("Account");
   });
 
   it("ends the session it started, so the token stops working", async () => {

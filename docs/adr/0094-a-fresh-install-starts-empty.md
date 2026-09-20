@@ -168,7 +168,8 @@ a client one, so the directive bought nothing and cost the header the only fact 
 directive came off and neither child changed.
 
 **SO THE HEADER ANSWERS THE SAME THREE ANSWERS OFF THE SAME TWO FACTS AS THE EMPTY STATE.** An
-owner sees both routes, unchanged. A reader with no session on an instance that HAS a password is
+owner sees both routes, unchanged — and since CNCORE-243 below, an `Account` control they did not
+have here before, because "unchanged" is exactly what this sentence got wrong about their posture. A reader with no session on an instance that HAS a password is
 offered `/login`, and that link PREVENTS A GAP RATHER THAN CLOSING ONE, which is worth stating the
 right way round. A rendered path to `/login` already existed and ran through the very link this
 change removes: `New item` in the nav, followed to `/new`, which answers a caller with no session
@@ -178,6 +179,44 @@ that path away, and the empty state's own login goes with the first Item, so a h
 nothing in their place would leave the owner of a filled catalogue reaching `/login` by typing it.
 A reader on an instance with NO password is offered neither, for the reason nothing else offers
 that reader a login either: nobody can log in there, the owner included.
+
+**AND THINNING A NAV FOR ONE READER STRANDED THE OTHER, WHICH THIS RECORD'S OWN EVIDENCE NAMED AND
+NOBODY READ AS A CONSEQUENCE (CNCORE-243).** The paragraph above defends the thinner header with
+"`/settings`, `/tasks` and `/devices` are the owner's surfaces too, and not one of them has ever
+been in the nav". That sentence is true, it carries the argument, and it is also the defect: all
+three hang off `/login`, together with Log out, and `/login` is the one page that links them. The
+header was the only thing in the product rendering a link to `/login`, and dropping it for the owner
+— correctly, since a control labelled `Log in` that logs you out is a lie — dropped the route to
+the page carrying the other four. An owner with a session could reach Settings, Tasks, Devices and
+Log out by typing an address and no other way, from CNCORE-139 until the first walk of the Owner's
+install found it ([[0132-a-project-is-not-finished-until-it-has-been-used]], eleven routes walked in
+both postures, this the only navigation defect).
+
+**THE GAP IS IN THE COUNTING, AND IT IS WORTH STATING AS A RULE.** "Three answers off two facts"
+counts what each reader is OFFERED and not what each reader LOSES, so a change that reads as
+subtraction for the visitor and no change for the owner was in fact a subtraction for both. A link
+removed because it lies to one posture has to be replaced for the other posture, in the same change,
+or the removal is only half made.
+
+**ONE CONTROL, NOT FOUR NAV LINKS**, which is what Plex and Jellyfin both do: the account sits at
+the end of the header and the administrative routes hang off it. That keeps the nav a map of the
+collection — the distinction this record draws between `/works` and `/import` — and it leaves the
+sentence above true rather than working around it, since those three surfaces are still not in the
+nav. The words are `Account` rather than `Log in`, and `/login` is headed `Account` for a reader
+with a session, because the page a link promises has to be the page that arrives. **THAT WORD SITS
+IN MILD TENSION WITH ADR-0044'S "no signup, no account to create", AND IS CHOSEN ANYWAY**: that
+record refuses an account to CREATE, not a name for the page where the one owner's session lives,
+and it is the word both incumbents use. `CONTEXT.md` does not carry it, for the reason it carries no
+other surface name.
+
+**ASSERTED IN BOTH POSTURES, AND ONE OLD ASSERTION HAD TO GO WITH IT.** `header.test.ts` reads the
+owner's header for an `Account` link at `/login` and refuses any link labelled `Log in` there, and
+the visitor's for the reverse. That file asserted `not.toContain('href="/login"')` for the owner
+until now: the ADDRESS was standing in for the WORDS, and both postures link that address once one
+of them calls it something else, so the proxy stopped telling them apart and was replaced where it
+stood rather than deleted. The four document-wide `not.toContain('href="/login"')` assertions this
+record lists elsewhere are unaffected: every one of them is made against the instance that sets no
+password, where nobody holds a session and no `Account` control renders.
 
 **AND EVERY SURFACE THAT OFFERS A LOGIN NOW READS WHETHER THERE IS ONE, WHICH IS SEVEN RATHER THAN
 TWO (CNCORE-144, CNCORE-146).** `/new`, `/import`, `/tasks`, `/settings` and `/devices` each
