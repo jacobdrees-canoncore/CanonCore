@@ -5,6 +5,7 @@ import {
   ciJobs,
   configsRunningTheirFilesSerially,
   countStatedIn,
+  directiveCarriers,
   handBuiltRedirectsIn,
   jobsRequestingANodeMajor,
   migrationRungs,
@@ -376,6 +377,22 @@ describe("a figure this tree states about itself", () => {
   it("counts the call sites that read a procedure's answer, and those that redirect on it", () => {
     expect(procedureAnswerCallSites().total).toBe(27);
     expect(procedureAnswerCallSites().redirecting).toBe(7);
+  });
+
+  /**
+   * ADR-0164's count of them, which was WRONG IN ITS FIRST DRAFT and is the
+   * reason this row exists. The record said six while the change it documents
+   * removed `theme-provider.tsx`'s directive, leaving five -- a count true when
+   * the sentence was drafted and false when it merged, in the record whose own
+   * thesis is a sentence that reads as load-bearing and is not.
+   */
+  it("counts the modules carrying `use client`, against ADR-0164's sentence", () => {
+    expect(directiveCarriers()).toBe(
+      countStatedIn(
+        "docs/adr/0164-a-use-client-directive-is-earned-by-a-server-importer-and-a-boundary-below.md",
+        /all (\w+) live in `apps\/web\/src\/components`/g,
+      ),
+    );
   });
 
   it("counts the properties migration 1 seeds", () => {
