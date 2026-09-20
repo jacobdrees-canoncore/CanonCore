@@ -61,7 +61,7 @@ import { A_PAGE, aCursor } from "./listing";
  * mapping that record names, and a procedure re-deriving it from a message would
  * be the fifth site it exists to prevent.
  */
-export class ProviderFailed extends Error {
+class ProviderFailed extends Error {
   constructor(readonly reason: FailureReason) {
     super(reason.text);
   }
@@ -176,7 +176,7 @@ const providerRefused = {
 const declaredName = z.string().min(1).max(REASON_MAX_LENGTH);
 
 /** What an import needs: the URL the owner typed, and which record to take. */
-export interface ImportRequest {
+interface ImportRequest {
   baseUrl: string;
   recordId: string;
 }
@@ -184,17 +184,26 @@ export interface ImportRequest {
 /**
  * Reaching a provider and writing what it answers, as a plain function.
  *
- * SEPARATE FROM THE PROCEDURE so that anything that is not an oRPC call can do
- * a real import -- the end-to-end suite stands up a provider and imports through
- * THIS, rather than re-implementing the three steps and then proving its own
- * re-implementation renders. The procedure below is the transport and the error
- * mapping; this is the operation.
+ * SEPARATE FROM THE PROCEDURE BECAUSE THEY ARE TWO JOBS: the procedure below is
+ * the transport and the error mapping, and this is the operation. One reads a
+ * provider and writes what it answers; the other decides which declared error
+ * that becomes.
+ *
+ * IT IS NOT EXPORTED, AND THE REASON IT USED TO BE WAS UNTRUE (CNCORE-263). This
+ * docstring said the end-to-end suite imported through THIS rather than through
+ * the procedure. It does not and never did: `apps/web/e2e/global-setup.ts` calls
+ * `client.provider.import`, which is the transport this function sits under, so
+ * the suite exercises MORE than the sentence claimed rather than less. The
+ * `export` kept a name on `@canoncore/api`'s surface for a consumer that did not
+ * exist, and `packages/api/package.json` published a `./routers/provider` subpath
+ * to serve it that nothing ever imported. Both are gone; the one caller is
+ * `provider.import`'s handler, below.
  *
  * Answers `null` when the provider holds no record at that id, because that is
  * an answer rather than a failure: it is what an ambiguous `search` candidate
  * looks like once the candidate turns out to be gone (ADR-0033).
  */
-export async function importRecordFromProvider(
+async function importRecordFromProvider(
   db: Database,
   allowlist: Allowlist,
   { baseUrl, recordId }: ImportRequest,
@@ -223,7 +232,7 @@ export async function importRecordFromProvider(
 }
 
 /** What a browse needs: the URL the owner typed, and which container to take. */
-export interface BrowseRequest {
+interface BrowseRequest {
   baseUrl: string;
   containerId: string;
 }
@@ -237,7 +246,7 @@ export interface BrowseRequest {
  * for something this provider does not do, and that is a sentence to put in
  * front of them rather than an empty result to puzzle over.
  */
-export class BrowseNotOffered extends Error {}
+class BrowseNotOffered extends Error {}
 
 /**
  * What one provider answers when asked to browse: whether it OFFERS the
@@ -285,9 +294,18 @@ async function browseIfOffered(
  * Reaching a provider's `browse` and writing the container and ordering it
  * answers, as a plain function.
  *
- * SEPARATE FROM THE PROCEDURE for the reason `importRecordFromProvider` is: the
- * end-to-end suite does a real browse through THIS, rather than re-implementing
- * the steps and then proving its own re-implementation renders.
+ * SEPARATE FROM THE PROCEDURE for the reason `importRecordFromProvider` is, and
+ * with a second one it does not have: TWO CALLERS IN THIS FILE PERFORM THIS
+ * BROWSE AND MUST NOT DRIFT. `oneContainerIntoTheCatalogue` runs it inside a walk
+ * where every failure has to become an answer, because an error would end a list
+ * of 465 at its seventh id; `provider.browse` runs it once and raises the
+ * declared errors a UI narrows on. The operation is the same and only the posture
+ * towards failure differs, which is exactly the split `browseIfOffered` above is
+ * shared for.
+ *
+ * IT IS NOT EXPORTED EITHER, AND FOR THE SAME CORRECTION (CNCORE-263). The
+ * end-to-end suite browses through `client.provider.browse`, the procedure, not
+ * through this.
  *
  * THE MANIFEST IS READ BEFORE ANYTHING IS ASKED FOR, and its `operations` list
  * is what decides whether to call at all (ADR-0033). A provider that does not
@@ -305,7 +323,7 @@ async function browseIfOffered(
  * Answers `null` when that id addresses no container, which is an answer rather
  * than a failure (ADR-0066).
  */
-export async function browseIntoCatalogue(
+async function browseIntoCatalogue(
   db: Database,
   allowlist: Allowlist,
   { baseUrl, containerId }: BrowseRequest,

@@ -1,5 +1,7 @@
 {
   "name": "@canoncore/api",
+  "version": "0.0.0",
+  "private": true,
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
@@ -7,7 +9,6 @@
     "./corpus-census": "./src/corpus-census.ts",
     "./import-list": "./src/import-list.ts",
     "./routers": "./src/routers/index.ts",
-    "./routers/provider": "./src/routers/provider.ts",
     "./session-cookie": "./src/session-cookie.ts"
   },
   "scripts": {
@@ -25,11 +26,7 @@
     "@canoncore/tasks": "workspace:*",
     "@canoncore/text": "workspace:*",
     "@orpc/client": "catalog:",
-    "@orpc/openapi": "catalog:",
     "@orpc/server": "catalog:",
-    "@orpc/zod": "catalog:",
-    "dotenv": "catalog:",
-    "next": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
