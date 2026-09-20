@@ -64,6 +64,14 @@ three passes on the record where it was already being hunted.
 **PascalCase is out.** `Item`, `Container`, `Placement` and `Group` are `CONTEXT.md`'s words and sit
 in backticks as prose constantly; a rule reaching them would be reading the glossary, not the code.
 
+**AN INVENTED NAME PASSES SILENTLY**, and that is the cost of scoping to history
+rather than to the tree. A symbol a record misspells, or names that never existed
+anywhere, was never ours and never foreign either, so nothing distinguishes it
+from Plex's `playQueueItemID` -- it reads as true exactly the way the defect this
+record is about does. What is bought with that is a check nobody has to feed: the
+alternative populations were a 47-entry map of other products' APIs, or a rule
+that taxes every record for studying one.
+
 **It reads `docs/adr/` alone**, not `CONTEXT.md`, the README or `docs/research/`. The README carried
 this same defect under CNCORE-246 and is not covered here.
 
