@@ -5,22 +5,27 @@ status: accepted
 # A brief is confirmed at the receiving end, not at the call that sent it
 
 > **ACCEPTED 2026-09-20, whole, in one repository.** The dispatch loop now confirms a brief where it
-> lands rather than where it was sent: `monitor.sh` emits `UNBOUND` for a CanonCore worktree carrying
-> no Linear binding, reading `linkedLinearIssue`; the three sentences that told a dispatcher a call's
-> `ok: true` was evidence are corrected in place in `CLAUDE.md`,
-> `.claude/skills/dispatch/SKILL.md` and `docs/agents/issue-tracker.md`. **NOT BUILT, and not ours to
-> build: the `orca` CLI's own error text.** `linear_no_linked_issue` conflates two different
-> failures and lives upstream, so this record routes around it rather than fixing it.
+> lands rather than where it was sent. **BUILT AS A CHECK: the binding channel only** — `monitor.sh`
+> emits `UNBOUND` for a CanonCore worktree carrying no Linear binding, reading `linkedLinearIssue`,
+> and `UNBOUND-BLIND` when the listing was truncated, so silence means every worktree was seen and
+> bound. **BUILT AS PROCEDURE, WITH NO CHECK POSSIBLE FROM THIS REPOSITORY: the two `terminal send`
+> channels**, whose confirmation is a dispatcher reading a rendered screen; nothing here can observe
+> another agent's input box. The sentences that told a dispatcher a call's `ok: true` was evidence
+> are corrected in place in `CLAUDE.md`, `.claude/skills/dispatch/SKILL.md` and
+> `docs/agents/issue-tracker.md`. **NOT BUILT, and not ours to build: the `orca` CLI's own error
+> text**, which lives upstream.
 
 Three times on 2026-09-20 the dispatcher believed an agent had been briefed when it had not, and each
 time the call said so. They are one defect with three faces: **an `ok: true` describes the call, not
 the arrival.**
 
-## What was actually wrong with the binding, which is not what it looked like
+## The binding was never the defect
 
-`orca worktree create --linear-issue CNCORE-<n>` **stores the binding and returns it.** Measured on
-2026-09-20 against a probe worktree created and removed for the purpose, and against all seven live
-CanonCore worktrees. `linkedLinearIssue` sits in the same object as `ok: true`:
+`orca worktree create --linear-issue CNCORE-<n>` **stores the binding and returns it**, and so does
+`orca worktree set --linear-issue`, which a note of 2026-09-13 had recorded as binding nothing.
+Measured 2026-09-20 against two probe worktrees created and removed for it, one bound at `create`
+and one bound afterwards by `set`, each confirmed by an independent `orca worktree list` read rather
+than by the write's own response. `linkedLinearIssue` sits in the same object as `ok: true`:
 
 ```
 "linkedIssue": null,                 <- the GITHUB issue number
@@ -28,35 +33,52 @@ CanonCore worktrees. `linkedLinearIssue` sits in the same object as `ok: true`:
 "linkedLinearIssue": "CNCORE-265",   <- the Linear binding, present at create
 ```
 
-The wave of 2026-09-20 was read as five unbound worktrees. It was not. **`linkedIssue` is a different
-system's field**, null on every CanonCore worktree because GitHub Issues is unused here
-(`CLAUDE.md`), and it sits two lines above the one that carries the answer. Every worktree in that
-wave carries its correct binding today:
+**`linkedIssue` is a different system's field**, null on every CanonCore worktree because GitHub
+Issues is unused here (`CLAUDE.md`), and it sits two lines above the one that carries the answer.
+Both the 2026-09-13 note and the 2026-09-20 wave read it and concluded a Linear binding was absent.
+**That field cannot show a Linear binding's absence OR its presence**, so neither reading
+established anything; this record does not claim the five worktrees of the wave were bound, because
+they have since merged and been removed and cannot be re-read.
+
+What can be read is every CanonCore worktree standing at the time of writing, all of them bound,
+including `cncore-244`, which the dispatcher created through the ordinary dispatch path during this
+very ticket. The list is not quoted here because it turns over within the hour — it did so twice
+while this record was being written, which is
+[[0153-a-figure-about-this-tree-is-derived-or-dated]]'s point exactly. Take it again instead:
+
+```bash
+orca worktree list --json | python3 -c 'import json,sys; [print(w["path"].split("/")[-1], w["linkedLinearIssue"]) for w in json.load(sys.stdin)["result"]["worktrees"]]'
+```
+
+## Why `--current` answered `linear_no_linked_issue`, which this repository already knew
+
+**`--current` resolves from the CALLER TERMINAL, not the working directory.** That is not a new
+finding: `docs/research/multi-repo.md` measured it under "The trap, which produced a false negative
+inside this research", and ruled under "The chain, measured end to end" that a null
+`linkedLinearIssueWorkspaceId` "is not a signal of anything". Checking a binding by hand from
+another worktree's shell returns
 
 ```
-cncore-245 -> CNCORE-245   cncore-265 -> CNCORE-265   cncore-281 -> CNCORE-281
-cncore-262 -> CNCORE-262   cncore-276 -> CNCORE-276   cncore-282 -> CNCORE-282
+linear_no_linked_issue: "The current worktree is not linked to Linear."
 ```
 
-### The half that is measured, and the half that is not
+about the SHELL's worktree, not the one you are standing in. `ORCA_WORKTREE_ID` cannot be overridden
+to fake it either.
 
-`orca linear issue --current --json` genuinely answered `linear_no_linked_issue` five times that
-day. That is the dispatcher's own measurement and this record does not dispute it. **It has not been
-reproduced since**, and no cause for it is asserted here, because none was measured.
+Re-measured here on 2026-09-20, because a first pass had missed it and drawn the wrong conclusion:
+from a terminal belonging to `cncore-265`, standing in `cncore-281`, `--current` answered
+**CNCORE-265**. The cwd is not consulted at all.
 
-What the tree does show is why the two cannot be told apart. **The stored binding is a bare
-identifier with no workspace attached** -- `linkedLinearIssueWorkspaceId` is `null` on all seven --
-so `--current` resolves the workspace at READ time, from whatever is connected. That resolution is a
-second step that can fail on its own, and when it does, the error it returns names the BINDING.
+**This invalidated two of this record's own first-draft measurements.** Both probe worktrees had
+been bound to CNCORE-265 — the same ticket as the terminal doing the asking — so their `--current`
+reads could not distinguish the probe's binding from the caller's, and proved nothing. They are
+withdrawn rather than restated. The binding measurements above stand, because they are `worktree
+list` reads and never touch `--current`.
 
-A null workspace id is **not** the discriminator, and this was checked before being asserted: it is
-null on `cncore-265`, where `--current` resolves correctly. It cannot be the cause of a failure on a
-worktree where there is no failure.
-
-So the honest statement is the narrow one: **the binding is stored at create; resolving it is a
-separate step; and `linear_no_linked_issue` cannot be read as "never bound".** The check that tells
-them apart is `linkedLinearIssue` on the worktree, and `orca linear team list` for the connection --
-which `docs/agents/issue-tracker.md` already names as the authorisation test.
+So the likeliest reading of the five failures is the documented trap: a by-hand check from the wrong
+terminal. The research is explicit that **the normal dispatch path is unaffected**, because the
+agent is given a terminal Orca created in its own worktree — as this ticket's own agent was, which
+resolved CNCORE-265 from `--current` on its first call.
 
 ## The other two faces, both the dispatcher's measurements
 
@@ -64,11 +86,12 @@ which `docs/agents/issue-tracker.md` already names as the authorisation test.
 lands in the input box, the UI shows `ctrl+x ctrl+s to send now`, and the call still answers
 `ok: true` with a byte count. Measured three times on 2026-09-20 against cncore-205, cncore-254 and
 cncore-252. In all three the message was an attribution correction, and in all three it would have
-arrived after the PR body it was meant to correct had been written. `printf '\030\023'` flushes it.
+arrived after the PR body it was meant to correct had been written. `ctrl+x ctrl+s`, sent as
+`printf '\030\023'`, flushes it.
 
 **Input sent to a PARKED agent goes to the prompt widget, not the chat.** Measured broadcasting a
 merge notice to eight agents: six received it, two were sitting on an `AskUserQuestion`. Both known
-tells read clean -- no `ctrl+x ctrl+s` hint, no unsent text -- because the input never reached the
+tells read clean — no `ctrl+x ctrl+s` hint, no unsent text — because the input never reached the
 box. Worse, **`--enter` on a parked agent SELECTS the option under the cursor**, and on a
 multi-select with a free-text field the text can land in the field. Neither agent's answer was
 corrupted here; that was luck, not design.
@@ -77,11 +100,11 @@ corrupted here; that was luck, not design.
 
 **Every channel is confirmed by reading the RECEIVING end, and the confirmation names the field or
 the pixels that answer it.** Not the call's exit code, which is uniformly `ok: true` across all
-three.
+three, and not a read that resolves against the asker instead of the subject.
 
 | channel | what a green call proves | what confirms arrival |
 | --- | --- | --- |
-| `worktree create --linear-issue` | the call was accepted | `linkedLinearIssue` on the worktree |
+| `worktree create/set --linear-issue` | the call was accepted | `linkedLinearIssue` on the worktree |
 | `terminal send --enter`, mid-turn | bytes were written | `--screen`, with no `ctrl+x ctrl+s` hint |
 | `terminal send --enter`, parked | bytes were written | `--screen`, read BEFORE sending |
 
@@ -92,23 +115,26 @@ what the terminal renders, so it cannot show an input box at all.
 fixes rather than the check. The other two are recoverable by re-sending. A send into a prompt widget
 is not: it may already have answered a question on the agent's behalf.
 
+**And the binding is read from `worktree list`, never from `--current`.** `--current` answers about
+the asker, so it is the right tool for an agent reading its OWN ticket and the wrong one for a
+dispatcher auditing somebody else's worktree.
+
 ## Why the monitor takes the binding check rather than the prose
 
 A dispatcher reading the wrong field is exactly what prose cannot prevent, because the instruction
-and the mistake look identical at the moment of the mistake. `monitor.sh` already classifies every
-CanonCore worktree each pass for `ROOM`, `IDLE` and `GONE`; `UNBOUND` is the same read, and it would
-have answered the whole question of 2026-09-20 in one line without anybody choosing a field.
+and the mistake look identical at the moment of the mistake — twice now, seven days apart, by the
+same route. `monitor.sh` already classifies every CanonCore worktree each pass for `ROOM`, `IDLE`
+and `GONE`; `UNBOUND` is the same read, and it chooses the field once so nobody has to choose it
+again.
 
-It emits on the ABSENCE, so a silent monitor means every worktree is bound -- the direction that
-fails safe, since a worktree wrongly reported bound is the one that sends an agent out blind.
+It emits on the ABSENCE, which only fails safe if absence is distinguishable from not having looked.
+So the listing is checked for `truncated` and a short read emits `UNBOUND-BLIND`, the same shape
+`LINEAR-BLIND` already uses for a board that could not be read.
 
 ## What this does not decide
 
-The `orca` CLI's error text is upstream and unchanged. A future runtime that stores
-`linkedLinearIssueWorkspaceId` at create, or separates "not linked" from "could not resolve", would
-make the read-time step reliable and this record's routing unnecessary; nothing here is a reason to
-keep the workaround once that lands.
+The `orca` CLI's error text is upstream and unchanged. A future runtime that separates "not linked"
+from "resolved against a different worktree" would make the by-hand check safe and this record's
+routing unnecessary; nothing here is a reason to keep the workaround once that lands.
 
-Figures here are dated and carry their population, which is
-[[0153-a-figure-about-this-tree-is-derived-or-dated]]'s rule. Decided by the DISPATCHER on
-2026-09-20, not by the Owner.
+Decided by the DISPATCHER on 2026-09-20, not by the Owner.

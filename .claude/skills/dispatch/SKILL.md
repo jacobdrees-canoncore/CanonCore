@@ -20,7 +20,8 @@ tool capped it at 30 minutes three times running and said so only in its start m
 notice at expiry is easy to read as another event. Re-arm on that notice, with the same `SCRATCH`
 so the diff resumes instead of re-announcing the board. A merged change to `monitor.sh` also does
 nothing until you stop the running watch and start it again. Its header names every line it
-emits; `ROOM`, `IDLE` and `UNBOUND` are read under **How full**, the `DRIFT-` lines under **Drift**.
+emits; `ROOM`, `IDLE`, `UNBOUND` and `UNBOUND-BLIND` are read under **How full**, the `DRIFT-` lines
+under **Drift**.
 
 **1. Read the diff, then re-check its central claim.** A green check is not a review, and the PR's
 own reasoning is not evidence either. Take the one load-bearing claim the work rests on and put it
@@ -130,7 +131,9 @@ question on its behalf (ADR-0161). Answer the prompt first, then send.
 `linkedLinearIssue`, which is the field the 2026-09-20 wave got wrong by reading `linkedIssue`
 beside it. It emits on the ABSENCE, so a pass with no `UNBOUND` line has already answered the
 question — which is the direction that fails safe, since a worktree wrongly reported bound is the
-one that sends an agent out blind.
+one that sends an agent out blind. **`UNBOUND-BLIND` means the listing itself could not be trusted**
+— unparseable, an unexpected shape, or `truncated` on a paged read — so that pass saw nothing rather
+than saw nothing wrong, and silence keeps its one meaning.
 
 **`GONE <worktree>` MEANS NO AGENT AT ALL, AND THE WORK IS PROBABLY STILL THERE.** A session restart
 killed two agents at once on 2026-09-19. Their worktrees held seven commits between them, five never
@@ -244,14 +247,19 @@ let the range pick the newer one up later.
   `null` HERE**, because this repo does not use GitHub Issues (`CLAUDE.md`). Reading the wrong one
   is how both of this gotcha's previous versions went wrong: it used to say `set --linear-issue`
   "answers `ok: true` and binds nothing", on a 2026-09-13 measurement of `linkedIssue`, and the
-  2026-09-20 wave then read five worktrees as unbound the same way and hand-briefed five agents that
-  did not need it. **Both `create --linear-issue` and `set --linear-issue` bind**, re-measured
-  2026-09-20 against probe worktrees created and removed for it; `create` returns the binding in its
-  own response, and `--current` resolves after either. Read it back rather than trusting a flag.
-- **`linear_no_linked_issue` FROM `--current` DOES NOT MEAN THE WORKTREE IS UNBOUND.** The stored
-  binding is a bare identifier with no workspace on it (`linkedLinearIssueWorkspaceId` is `null`
-  everywhere, including where `--current` works), so resolution is a READ-TIME step that can fail on
-  its own — and when it does, the error it returns names the binding. It answered five times on
-  2026-09-20 and has not reproduced since; no cause is claimed. Check `linkedLinearIssue` for the
-  binding and `orca linear team list` for the connection (`docs/agents/issue-tracker.md`), and treat
-  a `monitor.sh` pass with no `UNBOUND` line as the binding half already answered.
+  2026-09-20 wave read five worktrees as unbound the same way. That field cannot show a Linear
+  binding's absence OR its presence, so neither reading established anything. **Both
+  `create --linear-issue` and `set --linear-issue` bind**, re-measured 2026-09-20 against probe
+  worktrees created and removed for it, each confirmed by an independent `orca worktree list` read
+  rather than by the write's own response (ADR-0161).
+- **`--current` RESOLVES FROM THE CALLER TERMINAL, NOT THE WORKING DIRECTORY, so a dispatcher cannot
+  audit a binding with it.** `cd` into another worktree and ask, and you get `linear_no_linked_issue`
+  about YOUR shell's worktree while the one you are standing in is bound. Measured from a terminal
+  belonging to `cncore-265`, standing in `cncore-281`: it answered **CNCORE-265**.
+  `docs/research/multi-repo.md` had already measured this under "The trap, which produced a false
+  negative inside this research", and ruled there that a null `linkedLinearIssueWorkspaceId` "is not
+  a signal of anything" — so that field is not the tell either. The five failures of 2026-09-20 are
+  most likely this trap. **The dispatched agent is unaffected**, because Orca gives it a terminal in
+  its own worktree. So audit a binding with `linkedLinearIssue` from `orca worktree list`, or read a
+  `monitor.sh` pass with no `UNBOUND` line as that question already answered; leave `--current` to
+  the agent reading its OWN ticket.

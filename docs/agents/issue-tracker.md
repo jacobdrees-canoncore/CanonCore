@@ -264,31 +264,38 @@ orca worktree create --name <slug> --linear-issue CNCORE-12 --agent claude --pro
 orca worktree current --json
 ```
 
-**`--current` IS NOT A RELIABLE READ, AND ITS FAILURE NAMES THE WRONG THING.** It is the normal way
-an agent reads its own ticket, so a dispatched agent that cannot resolve it has no brief at all
-(ADR-0161). Two separate things can go wrong and the error does not distinguish them.
+### A further way it lies: `linear_no_linked_issue` on a worktree that IS bound
+
+**`--current` ANSWERS ABOUT THE CALLER'S TERMINAL, NOT THE WORKING DIRECTORY.** It is the right tool
+for an agent reading its OWN ticket, and the wrong one for checking somebody else's worktree: `cd`
+into another worktree and ask, and you are told `linear_no_linked_issue` about YOUR shell's worktree
+while the one you are standing in is bound (ADR-0161). Measured from a terminal belonging to
+`cncore-265`, standing in `cncore-281`: it answered **CNCORE-265**. `ORCA_WORKTREE_ID` cannot be
+overridden to fake it, and `docs/research/multi-repo.md` measured the same trap under "The trap,
+which produced a false negative inside this research". **A dispatched agent is unaffected**, because
+Orca gives it a terminal in its own worktree.
 
 **The binding itself is sound.** Both `create --linear-issue` and `set --linear-issue` store it, and
 `create` returns it in its own response — measured 2026-09-20 against probe worktrees made and
-removed for it, after a 2026-09-13 note claiming `set` "binds nothing" was found to have read the
-wrong field. **Confirm a binding at `linkedLinearIssue`. `linkedIssue` beside it is the GITHUB issue
-number and is `null` on every worktree here**, because this repo does not use GitHub Issues; reading
-it is what declared five bound worktrees unbound on 2026-09-20.
+removed for it, each read back through `orca worktree list` rather than through the write's own
+answer, after a 2026-09-13 note claiming `set` "binds nothing" was found to have read the wrong
+field. **Confirm a binding at `linkedLinearIssue`. `linkedIssue` beside it is the GITHUB issue
+number and is `null` on every worktree here**, because this repo does not use GitHub Issues. That
+field cannot show a Linear binding's absence or its presence, so reading it is what declared five
+worktrees unbound on 2026-09-20 on evidence that could not say either way.
 
 ```bash
 orca worktree list --json | python3 -c 'import json,sys; [print(w["path"].split("/")[-1], w["linkedLinearIssue"]) for w in json.load(sys.stdin)["result"]["worktrees"]]'
 ```
 
-**Resolving it is a second step.** The stored binding is a bare identifier with no workspace on it
-(`linkedLinearIssueWorkspaceId` is `null` even where `--current` works), so the workspace is
-resolved at read time and can fail on its own. When it does, the error is
-`linear_no_linked_issue` — which names the binding, not the connection. It answered that five times
-on 2026-09-20 and has not reproduced since; no cause is claimed here.
+`linkedLinearIssueWorkspaceId` is `null` on every bound worktree, so it is not the tell either;
+`docs/research/multi-repo.md` rules it "not a signal of anything" under "The chain, measured end to
+end".
 
-So when `--current` refuses, read the two halves separately rather than re-binding: check
-`linkedLinearIssue` above for the binding, and `orca linear team list` for the connection, which is
-the authorisation test under "Preconditions". If both answer, pass the ticket id explicitly and
-carry on — an agent briefed by hand is fine; one silently briefed by nothing is not.
+So when `--current` refuses, do not re-bind. Read `linkedLinearIssue` above from a terminal of your
+own, and check `orca linear team list` for the connection, which is the authorisation test under
+"Preconditions". If both answer, pass the ticket id explicitly and carry on — an agent briefed by
+hand is fine; one silently briefed by nothing is not.
 
 ## Wayfinding operations
 
