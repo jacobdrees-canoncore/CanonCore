@@ -14,7 +14,8 @@ Stable has not moved since 2026-03-27 while `1.0.0` sits at `rc.4`, which is a r
 moving and was weighed. What settled it the other way was that nothing was downstream of the
 schema yet: `packages/db/src/schema/index.ts` was `export {}`, and the migration ladder of ADR-0047
 had no rungs. The cost of moving later was therefore close to zero, and the cost of being wrong was
-a release candidate under every other ticket in version one. Take the cheap option while it is cheap.
+a release candidate under every other ticket in version one. Take the cheap option while it is
+cheap.
 
 **NEITHER HALF OF THAT PREMISE HOLDS NOW, AND THE DECISION IS UNCHANGED BY IT** (CNCORE-252). That
 file is three `export *` lines and the ladder has TWENTY-THREE rungs, so the cheap option was taken

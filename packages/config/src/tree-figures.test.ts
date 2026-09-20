@@ -10,11 +10,14 @@ import {
   peakConnectionsInOneE2eRun,
   procedureAnswerCallSites,
   propertiesSeededByMigrationOne,
+  runsInTheTimeoutWindow,
   serversStoodUpByTheHttpSuite,
   serversVia,
   suitesInRepo,
   suitesNamingAConfig,
   suitesReadingTheRepository,
+  timeoutWindowAsTheSuiteRestatesIt,
+  timeoutWindowBounds,
   vitestConfigs,
 } from "./testing/tree-figures";
 
@@ -30,8 +33,9 @@ import {
  * A figure measured once, written into prose, and never re-measured is this
  * repository's most common defect. The scan of 2026-09-20 found roughly
  * thirty-five standing at once, in decision records, in `CLAUDE.md`, in
- * `ci.yml`, in a README saying a package holding 7,882 lines has no TypeScript
- * in it, and in test NAMES that printed the wrong number on every run. Every
+ * `ci.yml`, in a README saying the package that holds every check this
+ * repository makes of its own CI has no TypeScript in it, and in test NAMES
+ * that printed the wrong number on every run. Every
  * one of them was true the day it was written, which is what makes the class
  * invisible: nothing is broken, and the tree simply moves out from under the
  * sentence.
@@ -184,7 +188,7 @@ const CLAIMS: Claim[] = [
   },
   {
     file: "packages/config/src/network-gate-wiring.test.ts",
-    pattern: /here: (\w+) of this repo's fifteen suites run the package's own/g,
+    pattern: /here: (\w+) of this repo's [\w-]+ suites run the package's own/g,
     population: "the suites that name no config",
     derive: () => suitesInRepo() - suitesNamingAConfig(),
   },
@@ -285,6 +289,12 @@ const CLAIMS: Claim[] = [
     derive: () => new Set(CLAIMS.map(({ file }) => file)).size,
   },
   {
+    file: "packages/config/src/ci-timeouts.test.ts",
+    pattern: /over every attempt of the ([\d,]+) runs of `CI` created/g,
+    population: "the CI runs ADR-0141's ceilings were measured over",
+    derive: runsInTheTimeoutWindow,
+  },
+  {
     file: "packages/config/vitest.config.ts",
     pattern: /what the other (\w+) configs are checked against/g,
     population: "the Vitest configs other than this one",
@@ -327,6 +337,18 @@ describe("a figure this tree states about itself", () => {
 
   it("counts the rungs on the migration ladder, off the journal", () => {
     expect(migrationRungs()).toBe(23);
+  });
+
+  /**
+   * ADR-0141 OWNS THE WINDOW AND `ci-timeouts.test.ts` RESTATES IT, so the two
+   * are held together rather than to the forge. Both were moved by hand when
+   * the window moved under CNCORE-252 -- a record and the suite that multiplies
+   * its figures, edited in one pass by one agent, with nothing checking that
+   * the second edit happened. That is the drift this whole file is about,
+   * standing in the mechanism's own specimen.
+   */
+  it("restates ADR-0141's measurement window without moving it", () => {
+    expect(timeoutWindowAsTheSuiteRestatesIt()).toStrictEqual(timeoutWindowBounds());
   });
 
   it("reads a count written as a word", () => {

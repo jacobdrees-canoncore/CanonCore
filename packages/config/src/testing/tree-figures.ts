@@ -106,11 +106,16 @@ const COUNT_WORDS: Record<string, number> = {
   eighteenth: 18,
   nineteen: 19,
   nineteenth: 19,
-  twenty: 20,
   twentieth: 20,
 };
 
-const TENS: Record<string, number> = { twenty: 20, thirty: 30, forty: 40, fifty: 50 };
+/**
+ * The tens a compound opens with. `twenty` ALONE, because that is as far as any
+ * sentence in this tree counts today and a word this does not know THROWS with
+ * a message naming it -- so the next one is added when a claim reaches it,
+ * rather than guessed at now.
+ */
+const TENS: Record<string, number> = { twenty: 20 };
 
 export function asCount(written: string): number {
   const word = written.trim().toLowerCase().replace(/,/g, "");
@@ -291,10 +296,7 @@ export function suitesReadingTheRepository(): number {
  * opens.
  */
 export function handBuiltRedirectsIn(path: string): number {
-  const code = read(path)
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/^[ \t]*\/\/.*$/gm, "");
-  return [...code.matchAll(/\bredirect\(/g)].length;
+  return [...codeOf(path).matchAll(/\bredirect\(/g)].length;
 }
 
 /** The code of a file, with every comment taken out of it. */
@@ -396,4 +398,51 @@ export function migrationRungs(): number {
  */
 export function peakConnectionsInOneE2eRun(): number {
   return countStatedIn("apps/web/e2e/global-setup.ts", /THE PEAK IS (\d+), with the new/g);
+}
+
+/** ADR-0141's measurement window, as that record states it. */
+const TIMEOUT_WINDOW =
+  /Every attempt of the ([\d,]+) runs of `CI` created (\S+) to (\S+), successful/g;
+
+const TIMEOUTS_RECORD =
+  "docs/adr/0141-every-ci-job-stops-at-three-times-its-slowest-measured-run.md";
+
+/**
+ * The number of CI runs ADR-0141's ceiling figures were measured over.
+ *
+ * NOT DERIVABLE FROM THE TREE, for the reason that record gives: the durations
+ * live on the forge, and reading them here would put a network call inside a
+ * suite the network gate exists to keep offline. So the RECORD owns the window
+ * and `ci-timeouts.test.ts` restates it -- and a restatement is the thing that
+ * drifts. Both were moved by hand when the window moved under CNCORE-252, which
+ * is exactly the edit nothing would have caught.
+ */
+export function runsInTheTimeoutWindow(): number {
+  return countStatedIn(TIMEOUTS_RECORD, TIMEOUT_WINDOW);
+}
+
+/** The window's own bounds, so the two statements of it can be compared whole. */
+export function timeoutWindowBounds(): { from: string; to: string } {
+  const found = [...flatten(TIMEOUTS_RECORD, read(TIMEOUTS_RECORD)).matchAll(TIMEOUT_WINDOW)];
+  if (found.length !== 1) {
+    throw new Error(
+      `${TIMEOUTS_RECORD} states its measurement window ${found.length} times, not 1`,
+    );
+  }
+  const [, , from, to] = found[0] as RegExpMatchArray;
+  return { from: from as string, to: to as string };
+}
+
+/** What `ci-timeouts.test.ts` says that window was, which must be the same one. */
+export function timeoutWindowAsTheSuiteRestatesIt(): { from: string; to: string } {
+  const suite = flatten(
+    "packages/config/src/ci-timeouts.test.ts",
+    read("packages/config/src/ci-timeouts.test.ts"),
+  );
+  const found = [...suite.matchAll(/runs of `CI` created (\S+) to (\S+), as the job's own/g)];
+  if (found.length !== 1) {
+    throw new Error(`ci-timeouts.test.ts states its window ${found.length} times, not 1`);
+  }
+  const [, from, to] = found[0] as RegExpMatchArray;
+  return { from: from as string, to: to as string };
 }

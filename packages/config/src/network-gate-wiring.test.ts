@@ -16,10 +16,12 @@ import {
   configFilesIn,
   configFilesOnDisk,
   namedConfig,
+  packageScripts,
   runsASuite,
+  suiteScripts,
   testBlockOf,
 } from "./testing/vitest-configs";
-import { packageDirectories, workspaceDirectories } from "./testing/workspace";
+import { packageDirectories } from "./testing/workspace";
 
 /**
  * A test that reads every Vitest config in the repository, for the same reason
@@ -43,8 +45,6 @@ const GATE = "@canoncore/config/testing/install-network-gate";
  * process does not have.
  */
 const GATE_IN_GLOBAL_SETUP = "@canoncore/config/testing/gate-global-setup";
-
-type Manifest = { name?: string; scripts?: Record<string, string> };
 
 // And a script whose NAME says it is a suite, which is the half the rule above
 // cannot do: `"test": "jest"` would simply not match it, and would drop out of
@@ -144,39 +144,36 @@ function resolvesInside(directory: string, file: string): boolean {
 type Suite = { package: string; script: string; config: string };
 
 function suites(): Suite[] {
-  return workspaceDirectories().flatMap((directory) => {
-    const manifest = join(repoRoot, directory, "package.json");
-    // A directory under `apps/` or `packages/` with no manifest is NOT A
-    // PACKAGE, which is how pnpm reads it too. Skipped rather than read, or a
-    // stray directory takes the whole sweep down with an ENOENT that says
-    // nothing about the gate.
-    if (!existsSync(manifest)) return [];
-    const parsed = JSON.parse(readFileSync(manifest, "utf8")) as Manifest;
-    return Object.entries(parsed.scripts ?? {}).flatMap(([name, command]) => {
-      // Asserted, not assumed, and it is the half the filter below cannot do:
-      // `"test": "jest"` and `"test": "vitest"` alike match no command that runs
-      // a suite, so they do not FAIL that filter -- they fall out of it, and the
-      // package leaves the sweep without anybody deciding that it should. Two
-      // assertions rather than one, because a watch script is held to the first
-      // and is the one script here exempt from the second.
-      if (isTestScriptName(name)) {
-        expect(/^vitest\b/.test(command), `${directory} runs ${name} as \`${command}\``).toBe(true);
-        if (!isWatchScriptName(name)) {
-          expect(
-            runsASuite(command),
-            `${directory} runs ${name} without running a suite: \`${command}\``,
-          ).toBe(true);
-        }
-      }
-      if (!runsASuite(command)) return [];
-      const namedPath = namedConfig(command);
-      const config = join(repoRoot, directory, namedPath ?? "vitest.config.ts");
+  // Asserted, not assumed, and it is the half the filter below cannot do:
+  // `"test": "jest"` and `"test": "vitest"` alike match no command that runs a
+  // suite, so they do not FAIL that filter -- they fall out of it, and the
+  // package leaves the sweep without anybody deciding that it should. Two
+  // assertions rather than one, because a watch script is held to the first and
+  // is the one script here exempt from the second.
+  //
+  // OVER `packageScripts()` RATHER THAN A WALK OF ITS OWN (CNCORE-251), which
+  // is why that reader answers with EVERY script rather than only the ones
+  // running a suite: this question cannot be asked of a list already filtered
+  // by the command.
+  for (const { directory, script, command } of packageScripts()) {
+    if (!isTestScriptName(script)) continue;
+    expect(/^vitest\b/.test(command), `${directory} runs ${script} as \`${command}\``).toBe(true);
+    if (!isWatchScriptName(script)) {
       expect(
-        resolvesInside(join(repoRoot, directory), config),
-        `${directory} runs ${name} against a config outside the package: ${namedPath}`,
+        runsASuite(command),
+        `${directory} runs ${script} without running a suite: \`${command}\``,
       ).toBe(true);
-      return [{ package: parsed.name ?? directory, script: name, config }];
-    });
+    }
+  }
+
+  return suiteScripts().map(({ directory, package: name, script, command }) => {
+    const namedPath = namedConfig(command);
+    const config = join(repoRoot, directory, namedPath ?? "vitest.config.ts");
+    expect(
+      resolvesInside(join(repoRoot, directory), config),
+      `${directory} runs ${script} against a config outside the package: ${namedPath}`,
+    ).toBe(true);
+    return { package: name, script, config };
   });
 }
 

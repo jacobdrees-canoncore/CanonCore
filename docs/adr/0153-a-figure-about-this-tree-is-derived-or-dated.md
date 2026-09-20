@@ -24,8 +24,10 @@ The sample is worth reading, because the range is the argument:
   why nobody noticed.
 - `ci.yml` argued from "a fourteenth job" in a workflow that runs fifteen.
 - `network-gate.test.ts` counted suites in a test NAME, and printed the wrong number on every run.
-- The README said `packages/config` "contains no TypeScript" of a package holding 32 files and
-  7,882 lines -- the package that holds every check this repository makes of its own CI.
+- The README said `packages/config` "contains no TypeScript" of the package that holds every check
+  this repository makes of its own CI. It held 32 files and 7,882 lines when the scan was taken on
+  2026-09-20 -- a figure of the defect AS FOUND, dated here because it is a measurement of a tree
+  that has moved since, which is this record's own rule for a figure it does not derive.
 - ADR-0119 declared five Listings and closed the question in capitals: "THE FIFTH LISTING HAS
   ADOPTED THIS RECORD, AND IT IS THE LAST ONE THERE IS." ADR-0133 added a sixth two records later.
 
@@ -41,7 +43,8 @@ reported it. That is the disease in one file: the test's input is the figure nob
 
 ## The rule
 
-**Derived where the tree holds the answer.** `packages/config/src/tree-figures.test.ts` is a table of
+**Derived where the tree holds the answer.** `packages/config/src/tree-figures.test.ts` is a table
+of
 claims -- a file, a pattern that reads a figure out of its prose, and a derivation that counts the
 same population off the tree. The claim passes when the two agree. A pattern that stops matching
 THROWS rather than quietly covering nothing, so a reworded sentence goes red and the table follows
@@ -86,7 +89,7 @@ is the honest answer when nothing derives it.
 ## Why this stays PROPOSED
 
 **Half the mechanism landed.** The DERIVED half is built and runs: `tree-figures.test.ts` holds
-twenty-eight claims across seventeen files to counts taken from the tree, and it caught every drift
+twenty-nine claims across eighteen files to counts taken from the tree, and it caught every drift
 CNCORE-252 fixed in those populations. Those two figures are themselves claims in that table, which
 is the rule applied to the record that states it.
 
@@ -99,7 +102,23 @@ from outside, so this says which half.
 
 **What would finish it** is the date rule applied to the records that state an underivable figure,
 the way `corpus-figures.test.ts` applies it to one. That is a sweep of `docs/adr/` rather than a
-line of code, and it was not in CNCORE-251's scope.
+line of code.
+
+**AND ONE CRITERION OF CNCORE-251 IS NOT MET, NAMED HERE RATHER THAN LEFT TO BE FOUND.** That
+ticket asked that "`SLOWEST_SECONDS` is derived from the forge, **or** the test fails when the
+recorded figure is more than a stated distance from the real one". NEITHER limb is built. The
+figures were re-measured by hand under CNCORE-252 and `ci-timeouts.test.ts` still multiplies a
+number nothing re-checks, so the disease can recur in its own specimen. Both limbs need the real
+figure, and the real figure is on the forge: a suite that fetched it would need the network the
+gate exists to refuse, so this cannot be a unit test. What it could be is a CI job or a scheduled
+script that re-reads the window and fails when a recorded figure has fallen a stated distance
+behind -- which is a mechanism of its own, and the dispatcher ruled on 2026-09-20 that this PR was
+not to build a second staleness mechanism beside the one it already carries.
+
+**WHAT DID LAND AGAINST THAT CRITERION** is smaller and worth having: ADR-0141 owns the window,
+`ci-timeouts.test.ts` restates it, and `tree-figures.test.ts` now holds the restatement to the
+record. Both were moved by hand when the window moved, by one agent in one pass, with nothing
+checking that the second edit happened. That is caught now. The figures themselves are not.
 
 ## The cancelled predecessor, recorded so it is not proposed again
 

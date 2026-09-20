@@ -121,19 +121,15 @@ export interface TestBlock {
 }
 
 /**
- * A script that RUNS a suite rather than watching one, in either spelling
- * Vitest documents for it.
+ * A script that RUNS a suite rather than watching one, in either spelling Vitest
+ * documents for it.
  *
- * MOVED HERE FROM `network-gate-wiring.test.ts` (CNCORE-251), which is this
- * module's own reason applied to itself. That file had the only answer to
- * "what is a suite here", and `tree-figures.test.ts` needs the same one to
- * hold this repository's prose to its suite count. Two enumerations of the
- * same population, drifting apart quietly, is the defect that ticket exists
- * for -- so there is one, and both read it.
- *
- * The sweep is named after the COMMAND rather than after a list of script
- * names, because a list is what left `packages/contract`'s `test:contract`
- * outside it with nobody deciding that it should (CNCORE-46).
+ * MOVED HERE FROM `network-gate-wiring.test.ts` UNDER CNCORE-251, WITH ITS
+ * REASONING, because that file held the only answer to "what is a suite here"
+ * and `tree-figures.test.ts` needs the same one. Two enumerations of one
+ * population drifting apart is the defect that ticket exists for. The sweep is named after the COMMAND rather than after a
+ * list of script names, because a list is what left `packages/contract`'s
+ * `test:contract` outside it with nobody deciding that it should be (CNCORE-46).
  *
  * BARE `vitest` IS NEITHER, and not because of what it is called: `watch`
  * defaults to `!process.env.CI && process.stdin.isTTY`, so it watches on a
@@ -149,17 +145,65 @@ export function runsASuite(command: string): boolean {
  * `undefined` where it names none and Vitest falls back to the package's own
  * `vitest.config.ts`.
  *
- * FOUR SPELLINGS, NOT THE ONE THIS READ FIRST -- the measurements and the
- * traps are in `network-gate-wiring.test.ts`'s own table, which still asks
- * this function every one of them.
+ * FOUR SPELLINGS, NOT THE ONE THIS READ FIRST. Vitest documents the option as
+ * `-c, --config <path>` (`docs/guide/cli-generated.md`, read 2026-09-11), and
+ * its parser takes `=` for the short flag as well as the long one. Measured
+ * against this repo's vitest 5.0.0, all four carry the path to the config
+ * loader: `--config nope.ts`, `--config=nope.ts`, `-c nope.ts`, `-c=nope.ts`.
+ * Only the first was read here, so a script written any other way read as
+ * naming NO config -- the sweep then claimed the package's default
+ * `vitest.config.ts` and asserted against the wrong file, and where the
+ * mis-spelled config WAS that default, asserted twice about one file and never
+ * noticed (CNCORE-51).
+ *
+ * THE FLAG MUST START A WORD AND END AT `=` OR A SPACE, and the two halves hold
+ * out different things, which is worth saying because the rows below pinned only
+ * one of them until review asked which half did the work.
+ *
+ * ENDING AT `=` OR A SPACE is what keeps `--configLoader` -- a real Vitest flag
+ * (`'bundle' | 'runner' | 'native'`) naming no path -- and the `-c` inside
+ * `--coverage` out. A rule looking for either flag anywhere reads those as the
+ * configs `Loader` and `overage`.
+ *
+ * STARTING A WORD is what keeps out a flag's VALUE that ends in `-c`, which
+ * nothing about the separator catches: `--project app-c src/foo.test.ts` reads
+ * without it as naming the config `src/foo.test.ts`. All of them are rows below.
+ *
+ * AND ONLY THE FIRST COMMAND IS VITEST'S, which is the half widening to `-c`
+ * made necessary: `-c` is another program's flag far more often than `--config`
+ * is, so `vitest run && playwright test -c playwright.config.ts` read the
+ * PLAYWRIGHT config as the one this suite runs. Rows below for `&&` and `;`.
+ *
+ * A path is taken to the first space, so a QUOTED one with a space in it comes
+ * back with its quotes attached and resolves to a file that is not there. No
+ * config in this repo is named that way. Which assertion it fails depends on
+ * the name: `is installed by every suite` for the suite now pointed at nothing,
+ * and `sweeps every Vitest config` as well when the real config is one of the
+ * `vitest.*.config.ts` files that sweep reads off the disk.
+ *
+ * WHAT IS TRUSTED HERE, since the value travels: this is a script string out of
+ * a workspace `package.json`, and `testBlockOf` IMPORTS what it resolves
+ * to, which is execution rather than a read. `isInside` is asserted on the way
+ * and constrains the DIRECTORY, not the filename, so a script naming any file
+ * inside its own package has that file imported. That is the same trust the
+ * repo already extends to these manifests -- CI runs their scripts -- and the
+ * import is ADR-0103's deliberate choice, since a commented-out gate still
+ * reads as present to a text search.
+ *
+ * AND IT TRAVELS FURTHER NOW THAT THIS IS EXPORTED. The containment check is
+ * the CALLER'S -- `network-gate-wiring.test.ts` asserts `resolvesInside` on the
+ * way -- so a new caller that feeds this to an `import()` owes that check too.
+ * This paragraph moved here with the function under CNCORE-251; moving it
+ * without the warning would have handed every future importer a
+ * path-to-execution with nothing saying so.
  */
 export function namedConfig(command: string): string | undefined {
   const [vitests] = command.split(/[;&|]/);
   return (vitests as string).match(/(?:^|\s)(?:--config|-c)(?:=|\s+)(\S+)/)?.[1];
 }
 
-/** One suite: a package directory, one of its scripts, and that script's command. */
-export interface SuiteScript {
+/** One script: the package directory that declares it, its name, and its command. */
+export interface PackageScript {
   readonly directory: string;
   readonly package: string;
   readonly script: string;
@@ -167,13 +211,26 @@ export interface SuiteScript {
 }
 
 /**
- * Every script in this workspace that runs a suite.
+ * EVERY script every workspace package declares, which is the ONE walk over the
+ * manifests (CNCORE-251).
  *
- * NO ASSERTIONS HERE, unlike `network-gate-wiring.test.ts`'s `suites()`, which
- * wraps this and adds the ones it needs. A reader that threw on a manifest it
- * disliked could not be used to COUNT, and counting is what this is for.
+ * `network-gate-wiring.test.ts` had this walk to itself and `tree-figures.test.ts`
+ * needed the same answer, which is the Shotgun Surgery this module exists to
+ * hold: a change to how a manifest is read meant editing two places and nothing
+ * made the second obvious.
+ *
+ * EVERY script rather than only the ones that run a suite, because the two
+ * callers need different halves of the same read. The gate's sweep asserts over
+ * scripts whose NAME says they are a suite -- `"test": "jest"` matches no
+ * command that runs one, so it does not FAIL a command filter, it falls out of
+ * it and the package leaves the sweep with nobody deciding that it should. A
+ * reader that had already filtered could not ask that question at all.
+ *
+ * A directory under `apps/` or `packages/` with no manifest is NOT A PACKAGE,
+ * which is how pnpm reads it too. Skipped rather than read, or a stray directory
+ * takes the whole sweep down with an ENOENT that says nothing about the gate.
  */
-export function suiteScripts(): SuiteScript[] {
+export function packageScripts(): PackageScript[] {
   return workspaceDirectories().flatMap((directory) => {
     const manifest = join(repoRoot, directory, "package.json");
     if (!existsSync(manifest)) return [];
@@ -181,13 +238,23 @@ export function suiteScripts(): SuiteScript[] {
       name?: string;
       scripts?: Record<string, string>;
     };
-    return Object.entries(parsed.scripts ?? {})
-      .filter(([, command]) => runsASuite(command))
-      .map(([script, command]) => ({
-        directory,
-        package: parsed.name ?? directory,
-        script,
-        command,
-      }));
+    return Object.entries(parsed.scripts ?? {}).map(([script, command]) => ({
+      directory,
+      package: parsed.name ?? directory,
+      script,
+      command,
+    }));
   });
+}
+
+/**
+ * The scripts that RUN a suite, which is `packageScripts` through `runsASuite`.
+ *
+ * NO ASSERTIONS HERE, unlike `network-gate-wiring.test.ts`'s `suites()`, which
+ * builds on this and adds the ones the gate's sweep needs. A reader that threw
+ * on a manifest it disliked could not be used to COUNT, and counting is what
+ * `tree-figures.test.ts` needs it for.
+ */
+export function suiteScripts(): PackageScript[] {
+  return packageScripts().filter(({ command }) => runsASuite(command));
 }
