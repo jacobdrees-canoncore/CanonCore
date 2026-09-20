@@ -533,12 +533,12 @@ cursor names the ROW, and in three of the six listings that row is an Item.
 
 **THE TICKET ASKED WHETHER `pastInTwoRegimes` COVERED THIS ORDER AND SAID TO CHECK RATHER THAN
 ASSUME. IT DID NOT, AND IT GREW -- INCLUDING OUT OF ITS NAME.** That function took ONE key and an
-id, and is `pastTheRow` now. This order is FIVE terms:
+id, and is `pastTheRowIn` now. This order is FIVE terms:
 the CONTAINER's projected key `coalesce(sort_name, title)` (ADR-0014), then ADR-0017's two deciding
 which source SPEAKS -- the rank's precedence (ADR-0024) and the one global source order (ADR-0025)
 -- then ADR-0018's position, then the placement's id.
 
-**SO IT TAKES A LIST OF KEYS NOW, and is named `pastTheRow`.** One key was never the rule; it was
+**SO IT TAKES A LIST OF KEYS NOW, and is named `pastTheRowIn`.** One key was never the rule; it was
 the number the first four listings happened to need. The rule underneath is that **the comparison
 must name EVERY term the `ORDER BY` does** -- A RULE THIS RECORD STATED AND NOTHING ENFORCED, until
 CNCORE-169 made it a value rather than a sentence, under "The rule became a VALUE rather than a
@@ -1318,7 +1318,7 @@ no key of one letter or fewer (checked 2026-09-19).
 **THE JUMP REACHES TWO LISTINGS OF FIVE, AND THAT IS A DEVIATION FROM CNCORE-174, NOT A READING OF
 IT.** Its criterion says both "work on every Listing, because both come from the shared contract".
 The step back does: it comes from the shared page and reaches all five. The jump reaches the
-catalogue and work-browsing, which lead on the sort key, and its letter is on `filedByNameInput`, an
+catalogue and work-browsing, which lead on the sort key, and its letter is on `browsedInput`, an
 extension of the shared input rather than part of it. Two of the other three have no alphabet to
 jump in: Catalogue search leads on closeness to what a reader typed, and a Container's members are
 in its own order. **"Also appears in" HAS ONE**, since it leads on the Container's sort name, and an

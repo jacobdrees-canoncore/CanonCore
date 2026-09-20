@@ -59,7 +59,8 @@ which two, not where to put the cursor.
 It is not free, and the cost is not obvious. `theRunStillWalkingThisList` resumes a run by matching
 the handed-over list against the stored one, exactly and in order, so a dedupe applied at the insert
 alone would leave every re-run of the same file matching nothing and opening a **second run over all
-465** -- browsing every Container again, silently, at five and a half hours. That is precisely the
+465** -- browsing every Container again, silently, and asking a third party for all of it a second
+time. That is precisely the
 failure `theContainerIdsIn` was extracted and tested to prevent. A dedupe would also have to travel
 to `scripts/import-list.ts`, whose `[n/465]` counter divides by the raw list length.
 

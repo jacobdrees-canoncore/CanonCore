@@ -109,9 +109,10 @@ const report = await importContainerList(
       );
     },
     /*
-     * A LINE PER CONTAINER, AS IT HAPPENS. The corpus is about five and a half
-     * hours, so a command that printed only at the end would be a command
-     * nobody could tell from a hung one.
+     * A LINE PER CONTAINER, AS IT HAPPENS. The corpus is 465 Containers and
+     * about eleven minutes (ADR-0137), so a command that printed only at the
+     * end would be a command nobody could tell from a hung one -- eleven
+     * minutes of silence is well past where a person starts pressing ^C.
      */
     onStepped: (step) => {
       const done = containerIds.length - step.remaining;

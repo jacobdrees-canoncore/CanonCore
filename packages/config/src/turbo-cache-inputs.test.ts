@@ -114,7 +114,7 @@ const READS_OUTSIDE_ITS_PACKAGE = [
 const NOTHING_FOR_TURBO_TO_HASH = [
   {
     package: "@canoncore/config",
-    // Twenty-three suites here read the repository at large -- `biome-config.test.ts`
+    // Twenty-four suites here read the repository at large -- `biome-config.test.ts`
     // asks whether the linter reaches every file git tracks -- so the inputs
     // cannot be enumerated and the task opts out of caching entirely instead.
     // Asserted below rather than taken on trust: this excuse rotting back into a
@@ -395,7 +395,7 @@ describe("the packages that reach outside themselves", () => {
 
   it("really is uncached where that is the excuse given", () => {
     // The one excuse above that could rot back into the defect. `packages/config`
-    // holds twenty-three suites reading the repository at large; the day its task caches,
+    // holds twenty-four suites reading the repository at large; the day its task caches,
     // all of them start replaying stale passes and no other check would notice.
     const uncached = NOTHING_FOR_TURBO_TO_HASH.filter(({ why }) => why.includes("uncached"));
 

@@ -59,9 +59,14 @@ preserve the same property, and naming both stops the check being bolted onto on
 ## Rehearsed outside the product, under CNCORE-168, and this record stays PROPOSED
 
 **WHAT WAS BUILT IS THE DUMP AND A DEVELOPMENT RESTORE, AND NOTHING INSIDE THE PRODUCT.** A job on
-the Owner's own machine dumps their catalogue, nightly once they load it as a LaunchAgent (a
-background service is theirs to start, so it was written and run by hand rather than loaded), and
-`pnpm db:restore` makes a worktree's database a copy of one (`packages/db/src/restore.ts`). No backup task sits on ADR-0049's registry,
+the Owner's own machine dumps their catalogue nightly at 03:15, LOADED as a LaunchAgent
+(`com.jacobrees.canoncore.dump`) on 2026-09-19 and firing unattended since -- `dump.log` carries a
+run at 2026-09-20T10:33:32Z, which is `StartCalendarInterval` catching up a slot the machine slept
+through rather than a person at a terminal. This sentence said the job was written and run BY HAND
+rather than loaded until CNCORE-246 corrected it: that was true the day it was written and stopped
+being true the day the Owner loaded it, and a reader of the record alone would have ruled its own
+criterion a deviation. `pnpm db:restore` makes a worktree's database a copy of one
+(`packages/db/src/restore.ts`). No backup task sits on ADR-0049's registry,
 no surface restores anything, and neither owner-id refusal exists, because the one restore there is
 replaces a database nobody owns. That is why this record stays proposed. What follows is what the
 rehearsal taught the mechanism that will be built.

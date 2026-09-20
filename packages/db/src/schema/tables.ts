@@ -846,8 +846,10 @@ export const settings = pgTable(
  * (CNCORE-166, migration 18).
  *
  * WHY THE WALK'S POSITION IS A ROW RATHER THAN A VARIABLE. The wiki's corpus is
- * 465 Containers and a Container costs 43.8s end to end (measured against the
- * live wiki, 2026-09-13), so the whole list is about five and a half hours. A
+ * 465 Containers, and 43.8s is what the LARGEST of them costs end to end
+ * (measured against the live wiki, 2026-09-13) rather than what a typical one
+ * does -- the whole list landed in about eleven minutes (ADR-0137), and this
+ * comment multiplied the two until CNCORE-246. A
  * walk keeping its position in one process's memory starts again from the
  * beginning whenever anything interrupts it -- and the thing that interrupts it
  * is the ordinary one: ADR-0122's Credential lapses, and every Container after

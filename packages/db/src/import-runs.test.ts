@@ -534,7 +534,8 @@ describe("what a run's Containers will not hold", () => {
    * WHAT MAKES THE ORDER TOTAL RATHER THAN MERELY USUAL, in migration 18's own
    * words. A resume reads this run's Containers by `list_position`, so two rows
    * claiming one place put the walk's next Container at the planner's discretion
-   * -- and the walk is five and a half hours the Owner does not want to repeat.
+   * -- and the walk is 465 Containers at a third party the Owner does not want
+   * to ask twice.
    *
    * A FRESH `external_id` ON PURPOSE, for the same reason reversed: `named_once`
    * must not be what fires.
