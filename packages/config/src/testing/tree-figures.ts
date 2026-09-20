@@ -1,0 +1,148 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+import { repoRoot } from "./repo-root";
+
+/**
+ * Every count this repository states about ITSELF, derived from the tree that
+ * is the subject of the claim.
+ *
+ * A figure measured once, written into prose, and never re-measured is this
+ * repository's most common defect (CNCORE-251). The 688-file scan of
+ * 2026-09-20 found roughly thirty-five of them, in decision records, in
+ * `CLAUDE.md`, in `ci.yml`, and in test NAMES that printed the wrong number on
+ * every run. Each was true when it was written.
+ *
+ * WHAT MAKES ONE CATCHABLE IS THAT THE TREE STILL HOLDS THE ANSWER. A count of
+ * this repository's own files, jobs, configs or call sites can be taken again
+ * by anything that can read the tree, so the claim and the answer can be put
+ * beside each other and a drift reported. That is all this module does: one
+ * function per population, and `tree-figures.test.ts` holds each against the
+ * sentence that states it.
+ */
+const read = (path: string): string => readFileSync(join(repoRoot, path), "utf8");
+
+/**
+ * The servers `apps/web`'s `test:e2e` stands up, counted where they are started.
+ *
+ * `anInstanceServing` and `theBuildServing` are the two spawns in
+ * `e2e/instance.ts`, and `global-setup.ts` is the only file that calls either
+ * to stand a server up for the suite. Counting the CALLS rather than the
+ * fixtures is what makes this the servers rather than the exports: a fixture
+ * reused by two suites is still one server, and a fixture nothing calls is none.
+ */
+export function serversStoodUpByTheHttpSuite(): number {
+  const setup = read("apps/web/e2e/global-setup.ts");
+  return [...setup.matchAll(/\b(?:anInstanceServing|theBuildServing)\(owned\b/g)].length;
+}
+
+/**
+ * A count written the way these files write one, as a numeral or as a word.
+ *
+ * THE PROSE SPELLS THEM OUT, which is why this exists rather than `Number`.
+ * "the seven `The page over HTTP` stands up", "ELEVEN, ten through
+ * `anInstanceServing`", "the six jobs", "nine suites here": every figure this
+ * module was built for is a word in a sentence, and half of them are shouted.
+ * A reader that handled digits alone would match none of them.
+ *
+ * ORDINALS COUNT TOO, because a sentence naming the last of a series states the
+ * size of it: "the tenth -- the fresh install" is a claim that there are ten.
+ *
+ * AN UNKNOWN WORD THROWS rather than returning `NaN`. A figure that silently
+ * became `NaN` would equal no derived count and report as a drift, sending the
+ * next reader to re-measure a tree that was never wrong.
+ */
+const COUNT_WORDS: Record<string, number> = {
+  one: 1,
+  first: 1,
+  two: 2,
+  second: 2,
+  three: 3,
+  third: 3,
+  four: 4,
+  fourth: 4,
+  five: 5,
+  fifth: 5,
+  six: 6,
+  sixth: 6,
+  seven: 7,
+  seventh: 7,
+  eight: 8,
+  eighth: 8,
+  nine: 9,
+  ninth: 9,
+  ten: 10,
+  tenth: 10,
+  eleven: 11,
+  eleventh: 11,
+  twelve: 12,
+  twelfth: 12,
+  thirteen: 13,
+  thirteenth: 13,
+  fourteen: 14,
+  fourteenth: 14,
+  fifteen: 15,
+  fifteenth: 15,
+  sixteen: 16,
+  sixteenth: 16,
+  seventeen: 17,
+  seventeenth: 17,
+  eighteen: 18,
+  eighteenth: 18,
+  nineteen: 19,
+  nineteenth: 19,
+  twenty: 20,
+  twentieth: 20,
+};
+
+export function asCount(written: string): number {
+  const word = written.trim().toLowerCase().replace(/,/g, "");
+  if (/^\d+$/.test(word)) return Number(word);
+  const known = COUNT_WORDS[word];
+  if (known === undefined) {
+    throw new Error(
+      `\`${written}\` is not a count this reader knows. Either the sentence was reworded and ` +
+        "the claim has to follow it, or the word belongs in COUNT_WORDS.",
+    );
+  }
+  return known;
+}
+
+/**
+ * A file as ONE LINE, with the comment leader taken off first.
+ *
+ * Every claim below sits in prose hard-wrapped at 100 columns, so a pattern
+ * matching raw bytes would break on a reflow that changed no claim -- the
+ * reason `corpus-figures.test.ts` flattens before matching. What that file does
+ * not have to do is step over a comment leader: these sentences live inside
+ * JSDoc and YAML comments, where the wrap inserts ` * ` or ` # ` mid-sentence.
+ *
+ * MARKDOWN IS LEFT ALONE, because `#` opens a heading there and `*` opens a
+ * bold span, and stripping either would rewrite the document this is reading.
+ */
+function flatten(path: string, text: string): string {
+  const stripped = path.endsWith(".md")
+    ? text
+    : text.replace(/^[ \t]*(?:\*|#)[ \t]?/gm, "").replace(/^[ \t]*\/\*+[ \t]?/gm, "");
+  return stripped.replace(/\s+/g, " ").trim();
+}
+
+/**
+ * The one count a pattern reads out of a file, or a throw naming the pattern.
+ *
+ * EXACTLY ONE MATCH, never the first of several, for `corpus-figures.test.ts`'s
+ * reason: a sentence duplicated by a copy edit is two statements of the figure,
+ * refreshed one at a time, which is the defect this file exists for in
+ * miniature. A pattern that stops matching throws rather than quietly covering
+ * nothing, so a reworded sentence goes red and the claim has to follow it.
+ */
+export function countStatedIn(path: string, pattern: RegExp): number {
+  const found = [...flatten(path, read(path)).matchAll(pattern)];
+  if (found.length !== 1) {
+    throw new Error(
+      `${path} has ${found.length} sentences matching ${pattern}, not 1. Either the sentence ` +
+        "was reworded and this claim has to follow it, or the figure is now stated twice.",
+    );
+  }
+  return asCount((found[0] as RegExpMatchArray)[1] as string);
+}
