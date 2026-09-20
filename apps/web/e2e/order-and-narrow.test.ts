@@ -201,9 +201,7 @@ describe("a Listing narrowed to a kind that is not a kind at all", () => {
     // fix: `oneKind` lowercases what it reads, and React escapes a tag, so a
     // crafted `<b>` would be absent from the page whether or not the echo is.
     const crafted = "unavailable in your region. pay to restore access";
-    const { status, text } = await documentAt(
-      `/?${GROUP}&kind=${encodeURIComponent(crafted)}`,
-    );
+    const { status, text } = await documentAt(`/?${GROUP}&kind=${encodeURIComponent(crafted)}`);
     const main = mainOf(text);
 
     expect(status).toBe(200);
