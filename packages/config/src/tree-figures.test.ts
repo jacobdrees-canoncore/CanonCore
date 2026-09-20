@@ -326,7 +326,7 @@ describe("a figure this tree states about itself", () => {
   });
 
   it("counts the rungs on the migration ladder, off the journal", () => {
-    expect(migrationRungs()).toBe(22);
+    expect(migrationRungs()).toBe(23);
   });
 
   it("reads a count written as a word", () => {
