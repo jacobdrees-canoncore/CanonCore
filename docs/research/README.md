@@ -47,6 +47,38 @@ falsify the record of what was known when. To resolve one, use git history — o
 `supersession-check.md` and `supersession-check-2.md`, which record exactly what moved and where it
 went.
 
+## Citations to records that never landed
+
+Seven numbers are cited here as though they named a record, and `docs/adr/` has never held any of
+them: **ADR-0079, ADR-0080, ADR-0086, ADR-0093, ADR-0095, ADR-0098 and ADR-0099**, cited 40 times
+across five files.
+
+These are NOT the deleted files above, and the difference is the whole of it. Each was a record on
+the 2026-09-10 branch `audit-new-adrs-internal.md` was auditing — its own title is "ADR-0073..0099"
+and its method says "every record 0073-0099 was read in full" — and **that audit is what stopped
+them merging.** It judged each against the bar for a record at all, found seven that restated,
+planned or instructed rather than decided, and named where each one's content belonged instead. So
+the citations are accurate about what was known when they were written: they name the proposals the
+audit was evaluating, and the audit's own verdict is the reason the number is free.
+
+Where each one's content went, which is what a reader meeting the number needs:
+
+| Number | What it decided | Where the content lives now |
+|---|---|---|
+| **ADR-0079** | Seed only the properties the first surface needs — "roughly a dozen", nine listed | The irreversible half is the freeze, which 0079 cited rather than owned: `0015-property-definitions-partly-freeze.md`. The seeded set is migration one's, in `packages/db/`. |
+| **ADR-0080** | A rating value carries `bestRating` and `worstRating` beside it, Schema.org's shape | `0012-statements-and-a-properties-catalogue.md`, which carries the sentence under its rating property. |
+| **ADR-0086** | Report watch progress every 10 seconds, and immediately on any user interaction | `0019-watch-events-are-the-truth.md`, under "How often". The audit called it "an implementation note… or one line in 0019", and that is where it is. |
+| **ADR-0093** | Do not name screens before they exist | `CLAUDE.md`, under "Principles", where an instruction to the people doing the work belongs. The audit's own reason: it "introduces no new evidence and no alternative". |
+| **ADR-0095** | The demo is four groups, Breaking Bad among them, and needs four providers | `docs/demo.md`. Demo content is the most reversible thing in the product, so it is planning material rather than a decision. |
+| **ADR-0098** | Cataloguing and displaying are separable | Already decided: `0003-items-exist-with-no-file.md` holds the rule, and `0063-medium-is-a-playback-medium.md` carried 0098's second paragraph verbatim. What was new was a reversal, and this repo's form for that is a `## Supersedes` section in the affected record. |
+| **ADR-0099** | "Also appears in" is one list with a filter, not a split layout | **Nowhere, on purpose.** A list layout versus two lists is reversible in an afternoon, so it is a requirement on the ticket that builds the screen rather than a record. It also broke 0093 on a false premise, which 1.10 of the audit sets out. |
+
+**The citations are left as they were written**, for the reason the section above gives: editing
+research to match a later decision would falsify the record of what was known when. This section is
+how a dead number resolves, and `adr-citations.test.ts` holds it — every ADR number cited in prose
+must name a record this tree holds or be accounted for here, so the eighth is caught rather than
+joining these quietly. ADR-0167 records the decision.
+
 ## The fetch recipes, which are not obvious
 
 - **Plex support docs**: plain `curl -s "https://support.plex.tv/articles/<slug>/"`. No User-Agent,
