@@ -205,7 +205,7 @@ decide.
 its own private `bounded` at this same 300, collapsing and cutting the same way, for what a task
 THREW. Publishing this one does not absorb it: `@canoncore/tasks` depends on `@canoncore/db` alone,
 and taking a dependency on `@canoncore/providers` — the outbound HTTP client, two undici dispatchers
-and ADR-0034's boundaries — to reach a four-line string function would couple the task registry to
+and ADR-0034's boundaries — to reach one string function would couple the task registry to
 the provider stack for nothing. The number is the shared thing and this record is where it is
 shared; that file takes it "rather than chosen again" and says so. Recorded because a reader who
 finds the second copy should meet a decision rather than an oversight.
@@ -1096,5 +1096,21 @@ truncation counting UTF-16 units splits an astral character — while the depend
 them is the one this record already refused. Two copies of five lines, each saying why it is a copy,
 is the price of `@canoncore/tasks` not depending on the outbound HTTP stack.
 
-**THIS RECORD STAYS `accepted`.** Its mechanism was whole; what changes is that one of its three
-truncations was obeying a rule the other two only documented.
+**A CODE POINT IS WHAT IS PROMISED, NOT A GRAPHEME CLUSTER**, and the difference is stated so the
+next reader does not take the stronger reading. A ZWJ sequence, a flag's two regional indicators or
+a base and its combining mark can still be parted by either cut. That is left, and the reason is that
+both halves remain VALID characters that render as themselves — where a lone surrogate is not a
+character at all, which is what makes it alone worth the guard.
+
+**AND THE CUT IS THE ONLY PROPERTY THE THIRD COPY HAS TAKEN.** `reason.ts` strips the control
+characters above before it cuts; `registry.ts` collapses whitespace and does not, and `tasks/page.tsx`
+renders that column as prose without wrapping it. So "two numbers, one rule" is true of the cut and
+not yet of the strip — CNCORE-274 holds the second, and it is named here rather than left for a
+reader to discover the asymmetry from the two files.
+
+**THIS RECORD STAYS `accepted`, AND THE WORD IS MEANT NARROWLY.** Its MECHANISM — a reason bounded
+at a stated ceiling, attributed to whoever wrote it — was whole throughout and is untouched: every
+one of the three truncations always cut, and the field was never unbounded. What was uneven is a
+PROPERTY OF THE CUT, namely where it is allowed to land, which two of the three did not honour.
+That is a correctness gap inside a mechanism rather than a missing half of one, which is the
+distinction `proposed` exists to mark and this does not meet.

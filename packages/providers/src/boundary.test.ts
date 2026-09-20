@@ -1,4 +1,8 @@
 import { describe, expect, it } from "vitest";
+// NOT FROM `./index`, WHERE ITS SIBLINGS BELOW COME FROM. `shortly` is
+// deliberately absent from that enumeration -- a symbol is public there because
+// a line was written for it -- and nothing outside this package calls it. Do not
+// "fix" this by exporting it.
 import { shortly } from "./boundary";
 import {
   allowsAnything,
@@ -470,5 +474,7 @@ describe("a value a refusal quotes back", () => {
 
     expect(shortened.isWellFormed()).toBe(true);
     expect(shortened).toBe(`${"a".repeat(78)}\u2026`);
+    // VALUE_MAX written out, so the constant cannot assert itself.
+    expect(shortened.length).toBeLessThanOrEqual(80);
   });
 });

@@ -298,16 +298,16 @@ describe("text that rewrites the page around it", () => {
  * the ground while they were merged. `slice` counts UTF-16 units, and a
  * provider picks the offsets by choosing what it sends.
  */
-describe("a reason cut where an astral character straddles the bound", () => {
+describe("a reason shortened where an astral character straddles the bound", () => {
   it("keeps no lone surrogate, at either ceiling", () => {
     // REASON_MAX_LENGTH is 300 and the marker takes the last, so the cut falls
     // at unit 299. A U+1F600 opening at unit 298 straddles it.
     const straddling = `${"a".repeat(298)}\u{1F600}${"b".repeat(10)}`;
 
-    const cut = bounded(straddling);
+    const shortened = bounded(straddling);
 
-    expect(cut.isWellFormed()).toBe(true);
-    expect(cut).toBe(`${"a".repeat(298)}\u2026`);
-    expect(cut.length).toBeLessThanOrEqual(REASON_MAX_LENGTH);
+    expect(shortened.isWellFormed()).toBe(true);
+    expect(shortened).toBe(`${"a".repeat(298)}\u2026`);
+    expect(shortened.length).toBeLessThanOrEqual(REASON_MAX_LENGTH);
   });
 });

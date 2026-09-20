@@ -324,7 +324,7 @@ function reasonFor(thrown: unknown): string {
  * one `shortenTo` for this reason, and ADR-0123 keeps this copy OUT OF ITS
  * REACH deliberately: `@canoncore/tasks` depends on `@canoncore/db` alone, and
  * taking the provider stack -- an HTTP client, two undici dispatchers and
- * ADR-0034's boundaries -- to reach a five-line string function would couple
+ * ADR-0034's boundaries -- to reach one string function would couple
  * this registry to it for nothing. The cost of that decision is this guard,
  * owed here BY HAND, and until CNCORE-272 it was not paid. Do not repair the
  * duplication by importing: the duplication is the decision.
@@ -333,14 +333,30 @@ function reasonFor(thrown: unknown): string {
  * UTF-8 column and a lone surrogate has no encoding in it, so the round trip
  * turns one into U+FFFD -- well-formed on the way back out, so nothing
  * downstream can tell it was ever a character, and permanent in the history.
+ *
+ * TODO(CNCORE-274): the CUT is copied here and the CONTROL STRIP is not.
+ * `reason.ts` removes the bidirectional overrides and the zero-width family
+ * before it cuts; `\s+` above touches neither, and `tasks/page.tsx` renders this
+ * column as prose without wrapping it. ADR-0123 counts that as the second lever
+ * a stranger has over a page, so it is the third property owed here by hand.
  */
 function bounded(detail: string): string {
   const collapsed = detail.replace(/\s+/g, " ").trim();
   if (collapsed.length <= BOUNDED_DETAIL) return collapsed;
-  const kept = collapsed.slice(0, BOUNDED_DETAIL - 1);
+  const kept = collapsed.slice(0, BOUNDED_DETAIL - MARKER.length);
   const last = kept.charCodeAt(kept.length - 1);
   const whole = last >= 0xd800 && last <= 0xdbff ? kept.slice(0, -1) : kept;
-  return `${whole}\u2026`;
+  return `${whole}${MARKER}`;
 }
+
+/**
+ * What stands in for the part of a detail the history does not show.
+ *
+ * NAMED RATHER THAN INLINED TWICE, so the copy above is the same SHAPE as
+ * `shortenTo`'s and not merely the same behaviour. `BOUNDED_DETAIL - 1` was
+ * right only while the marker was one UTF-16 unit, which is the kind of
+ * agreement-by-coincidence that put these two out of step to begin with.
+ */
+const MARKER = "\u2026";
 
 export const BOUNDED_DETAIL = 300;
