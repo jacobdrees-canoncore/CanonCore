@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
+import { flatten } from "./testing/flatten";
 import { repoRoot } from "./testing/repo-root";
 
 /**
@@ -36,18 +37,6 @@ const CAP_PER_QUESTION = "0130-a-providers-cap-is-per-kind-of-question.md";
 /** A record's raw text, read once. */
 function read(file: string): string {
   return readFileSync(join(adrDirectory, file), "utf8");
-}
-
-/**
- * TEXT AS ONE LINE, so a pattern survives being re-wrapped.
- *
- * Every figure below sits in prose hard-wrapped at 100 columns, and prose gets
- * re-wrapped whenever a word above it changes length. Matching raw bytes would
- * redden this suite on a reflow that changed no claim, and a check that cries
- * wolf on formatting is a check people learn to silence.
- */
-function flatten(text: string): string {
-  return text.replace(/\s+/g, " ").trim();
 }
 
 /** A whole record as one line. */

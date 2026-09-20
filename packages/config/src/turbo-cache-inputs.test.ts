@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join, resolve, sep } from "node:path";
 import { describe, expect, it } from "vitest";
 import { repoRoot } from "./testing/repo-root";
+import { trackedFiles } from "./testing/tracked-files";
 import { plannedTasks } from "./testing/turbo-dry-run";
 
 /**
@@ -114,7 +115,7 @@ const READS_OUTSIDE_ITS_PACKAGE = [
 const NOTHING_FOR_TURBO_TO_HASH = [
   {
     package: "@canoncore/config",
-    // Twenty-five suites here read the repository at large -- `biome-config.test.ts`
+    // Twenty-seven suites here read the repository at large -- `biome-config.test.ts`
     // asks whether the linter reaches every file git tracks -- so the inputs
     // cannot be enumerated and the task opts out of caching entirely instead.
     // Asserted below rather than taken on trust: this excuse rotting back into a
@@ -303,13 +304,7 @@ function importsOf(path: string, source: string, helpers: Map<string, string>): 
  * lists above name files and this names only packages.
  */
 function packagesReachingOutsideThemselves(): string[] {
-  const tracked = execFileSync(
-    "git",
-    ["ls-files", "packages/*.ts", "packages/*.tsx", "apps/*.ts", "apps/*.tsx"],
-    { cwd: repoRoot, encoding: "utf8" },
-  )
-    .split("\n")
-    .filter((path) => path.length > 0);
+  const tracked = trackedFiles(["packages/*.ts", "packages/*.tsx", "apps/*.ts", "apps/*.tsx"]);
 
   const sources = new Map(
     tracked.map((path) => [path, withoutComments(readFileSync(join(repoRoot, path), "utf8"))]),
@@ -395,7 +390,7 @@ describe("the packages that reach outside themselves", () => {
 
   it("really is uncached where that is the excuse given", () => {
     // The one excuse above that could rot back into the defect. `packages/config`
-    // holds twenty-five suites reading the repository at large; the day its task caches,
+    // holds twenty-seven suites reading the repository at large; the day its task caches,
     // all of them start replaying stale passes and no other check would notice.
     const uncached = NOTHING_FOR_TURBO_TO_HASH.filter(({ why }) => why.includes("uncached"));
 

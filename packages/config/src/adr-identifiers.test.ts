@@ -1,9 +1,11 @@
 import { execFileSync } from "node:child_process";
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
+import { records as numberedRecords } from "./testing/adr-records";
 import { repoRoot } from "./testing/repo-root";
+import { isTrackedAs, trackedFiles } from "./testing/tracked-files";
 
 /**
  * A record naming one of THIS REPOSITORY'S symbols is naming something that can
@@ -54,8 +56,6 @@ import { repoRoot } from "./testing/repo-root";
  * the form rather than checking the quote". Each is named below with the reason
  * it is not a defect, read rather than assumed.
  */
-const adrDirectory = join(repoRoot, "docs", "adr");
-
 /**
  * A CAMELCASE IDENTIFIER AND NOTHING ELSE: lower-case first letter, at least one
  * upper-case letter after it, letters and digits only.
@@ -97,22 +97,14 @@ function identifiersNamedIn(markdown: string): Set<string> {
 }
 
 /**
- * THE FIFTH COPY OF THE TRACKED-FILES WALK, and CNCORE-277 already owns the
- * fold rather than this file pretending not to have noticed.
+ * THE WALK IS `trackedFiles`, which this file was the fifth copy of. CNCORE-277
+ * took the fold and [[0171-the-fold-is-of-the-read-not-of-the-question-it-answers]]
+ * carries it, including the `-z` reason this note used to restate: without it
+ * `core.quotePath` octal-escapes a non-ASCII filename into one that then fails
+ * to open.
  *
- * [[0136-a-control-is-a-primitive-and-a-surfaces-words-sit-beside-its-pages]]
- * folds at three; `ui-callers.test.ts`, `biome-config.test.ts`,
- * `turbo-cache-inputs.test.ts` and `adr-as-built.test.ts` are the first four,
- * and that last one carries the same note one side of it. CNCORE-277 was filed
- * on the fourth and is where the decision goes: the reads genuinely disagree
- * -- `ui-callers.test.ts` strips comments and drops test files, `adr-as-built`
- * keeps both -- so what they share is about three lines, and whether a seam
- * that small earns a module is a call somebody takes rather than a tidy-up done
- * in passing by a ticket about stale sentences.
- *
- * `-z` RATHER THAN LINES, so a path is whatever git says it is:
- * `ui-callers.test.ts`'s finding, where `core.quotePath` octal-escapes a
- * non-ASCII filename into one that then fails to open.
+ * WHAT IS THIS FILE'S OWN IS THE PATHSPEC, and it stayed: `docs/**` and `*.md`
+ * are excluded for the reason argued below, and so is this file.
  *
  * AND IT EXCLUDES ITSELF, which is not tidiness but the defect `adr-as-built`
  * HAD and fixed. This file NAMES `filedByNameInput` and `pastTheRow` in the
@@ -142,13 +134,7 @@ const THIS_RECORD =
   "0166-an-identifier-a-record-names-is-checked-against-what-this-tree-once-held.md";
 
 function trackedSource(): string[] {
-  return execFileSync(
-    "git",
-    ["ls-files", "-z", "--", ".", ":(exclude)docs/**", ":(exclude)*.md", `:(exclude)${THIS_FILE}`],
-    { cwd: repoRoot, encoding: "utf8", maxBuffer: 32 * 1024 * 1024 },
-  )
-    .split("\0")
-    .filter((path) => path.length > 0);
+  return trackedFiles([".", ":(exclude)docs/**", ":(exclude)*.md", `:(exclude)${THIS_FILE}`]);
 }
 
 /** Every identifier-shaped token the tracked source holds TODAY. */
@@ -266,12 +252,7 @@ const NAMED_A_GONE_SYMBOL_ON_PURPOSE: Readonly<Record<string, string>> = {
  * prose, and the check goes GREEN ON ITS OWN SUBJECT.
  */
 function refuseToRunIfThisFileIsNotExcluded(): void {
-  const self = execFileSync("git", ["ls-files", "-z", "--", THIS_FILE], {
-    cwd: repoRoot,
-    encoding: "utf8",
-  }).split("\0")[0];
-
-  if (self !== THIS_FILE) {
+  if (!isTrackedAs(THIS_FILE)) {
     throw new Error(
       `${THIS_FILE} is not tracked under that path, so this suite no longer excludes itself ` +
         "and every identifier its own comments name is in the population it enforces.",
@@ -286,9 +267,14 @@ function goneSymbolsNamedByRecords(): GoneSymbol[] {
   const inTheTree = identifiersInTheTree();
   const gone: GoneSymbol[] = [];
 
-  for (const file of readdirSync(adrDirectory).filter((name) => name.endsWith(".md"))) {
+  // THE POPULATION IS THE NUMBERED RECORDS, which is narrower than "every `.md`
+  // under docs/adr/" that this loop used to read. The two are the same set only
+  // because `adr-numbering.test.ts` holds `unnumbered()` to being empty -- so
+  // an unnumbered document here is that suite's red, not a record this one
+  // silently skips. Said rather than left to be inferred from another file.
+  for (const { file, path } of numberedRecords()) {
     if (file === THIS_RECORD) continue;
-    const named = identifiersNamedIn(readFileSync(join(adrDirectory, file), "utf8"));
+    const named = identifiersNamedIn(readFileSync(join(repoRoot, path), "utf8"));
     for (const identifier of named) {
       if (inTheTree.has(identifier)) continue;
       if (identifier in NAMED_A_GONE_SYMBOL_ON_PURPOSE) continue;
@@ -332,12 +318,12 @@ describe("an identifier a record names", () => {
    * that stopped matching would turn this file green having read nothing.
    */
   it("is read from a corpus that is actually there", () => {
-    const records = readdirSync(adrDirectory).filter((name) => name.endsWith(".md"));
-    expect(records.length).toBeGreaterThan(100);
+    const corpus = numberedRecords();
+    expect(corpus.length).toBeGreaterThan(100);
 
     const named = new Set<string>();
-    for (const file of records) {
-      for (const identifier of identifiersNamedIn(readFileSync(join(adrDirectory, file), "utf8"))) {
+    for (const { path } of corpus) {
+      for (const identifier of identifiersNamedIn(readFileSync(join(repoRoot, path), "utf8"))) {
         named.add(identifier);
       }
     }

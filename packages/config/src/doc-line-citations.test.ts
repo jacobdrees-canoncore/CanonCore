@@ -11,7 +11,7 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-
+import { records } from "./testing/adr-records";
 import { markdownIn } from "./testing/markdown-corpus";
 import { repoRoot } from "./testing/repo-root";
 
@@ -129,14 +129,7 @@ function byBasename(): Map<string, string> {
 
 /** Each record's path, keyed by the four digits its filename opens with. */
 function recordsByNumber(): Map<string, string> {
-  return new Map(
-    readdirSync(join(repoRoot, "docs", "adr"))
-      .filter((file) => file.endsWith(".md"))
-      .flatMap((file) => {
-        const number = /^(\d{4})-/.exec(file)?.[1];
-        return number === undefined ? [] : [[number, join("docs/adr", file)] as const];
-      }),
-  );
+  return new Map(records().map((record) => [record.number, record.path] as const));
 }
 
 /**

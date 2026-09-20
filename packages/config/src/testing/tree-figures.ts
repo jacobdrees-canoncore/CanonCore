@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
 import { pnpmSetupSteps, workflow } from "./ci-workflow";
+import { flatten } from "./flatten";
 import { repoRoot } from "./repo-root";
 import { configFilesOnDisk, namedConfig, suiteScripts } from "./vitest-configs";
 import { packageDirectories } from "./workspace";
@@ -161,10 +162,11 @@ export function asCount(written: string): number {
  * A file as ONE LINE, with the comment leader taken off first.
  *
  * Every claim below sits in prose hard-wrapped at 100 columns, so a pattern
- * matching raw bytes would break on a reflow that changed no claim -- the
- * reason `corpus-figures.test.ts` flattens before matching. What that file does
- * not have to do is step over a comment leader: these sentences live inside
- * JSDoc and YAML comments, where the wrap inserts ` * ` or ` # ` mid-sentence.
+ * matching raw bytes would break on a reflow that changed no claim -- which is
+ * `flatten`'s reason, stated where `flatten` is. THE COLLAPSE ITSELF COMES FROM
+ * THERE; what this adds is the step over a comment leader, which a Markdown
+ * corpus does not need: these sentences live inside JSDoc and YAML comments,
+ * where the wrap inserts ` * ` or ` # ` mid-sentence.
  *
  * MARKDOWN IS LEFT ALONE, because `#` opens a heading there and `*` opens a
  * bold span, and stripping either would rewrite the document this is reading.
@@ -175,14 +177,14 @@ export function asCount(written: string): number {
  * at the start, because `https://` is two of the same characters in the middle
  * of a word.
  */
-function flatten(path: string, text: string): string {
+function flattenSource(path: string, text: string): string {
   const stripped = path.endsWith(".md")
     ? text
     : text
         .replace(/^[ \t]*\/\*+[ \t]?/gm, "")
         .replace(/^[ \t]*\/\/[ \t]?/gm, "")
         .replace(/^[ \t]*(?:\*|#)[ \t]?/gm, "");
-  return stripped.replace(/\s+/g, " ").trim();
+  return flatten(stripped);
 }
 
 /**
@@ -195,7 +197,7 @@ function flatten(path: string, text: string): string {
  * nothing, so a reworded sentence goes red and the claim has to follow it.
  */
 export function countStatedIn(path: string, pattern: RegExp): number {
-  const found = [...flatten(path, read(path)).matchAll(pattern)];
+  const found = [...flattenSource(path, read(path)).matchAll(pattern)];
   if (found.length !== 1) {
     throw new Error(
       `${path} has ${found.length} sentences matching ${pattern}, not 1. Either the sentence ` +
@@ -587,7 +589,7 @@ export function runsInTheTimeoutWindow(): number {
 
 /** The window's own bounds, so the two statements of it can be compared whole. */
 export function timeoutWindowBounds(): { from: string; to: string } {
-  const found = [...flatten(TIMEOUTS_RECORD, read(TIMEOUTS_RECORD)).matchAll(TIMEOUT_WINDOW)];
+  const found = [...flattenSource(TIMEOUTS_RECORD, read(TIMEOUTS_RECORD)).matchAll(TIMEOUT_WINDOW)];
   if (found.length !== 1) {
     throw new Error(
       `${TIMEOUTS_RECORD} states its measurement window ${found.length} times, not 1`,
@@ -599,7 +601,7 @@ export function timeoutWindowBounds(): { from: string; to: string } {
 
 /** What `ci-timeouts.test.ts` says that window was, which must be the same one. */
 export function timeoutWindowAsTheSuiteRestatesIt(): { from: string; to: string } {
-  const suite = flatten(
+  const suite = flattenSource(
     "packages/config/src/ci-timeouts.test.ts",
     read("packages/config/src/ci-timeouts.test.ts"),
   );

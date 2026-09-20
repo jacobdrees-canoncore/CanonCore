@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { repoRoot } from "./testing/repo-root";
+import { trackedFiles } from "./testing/tracked-files";
 
 /**
  * The linter and formatter are shared configuration, which is this package's
@@ -20,16 +21,6 @@ const biome = join(repoRoot, "node_modules", ".bin", "biome");
 
 /** The extensions Biome 2.5 parses. It does not handle Markdown, YAML or SQL. */
 const LINTABLE = /\.(?:tsx?|jsx?|mjs|cjs|jsonc?|css)$/;
-
-/**
- * git rather than a directory walk, so the question asked is "is anything in
- * the REPOSITORY unlinted?" -- build output and node_modules are not tracked
- * and so cannot produce a false failure.
- */
-function gitTrackedFiles(): string[] {
-  const result = spawnSync("git", ["ls-files", "-z"], { cwd: repoRoot, encoding: "utf8" });
-  return result.stdout.split("\0").filter(Boolean);
-}
 
 let fixtures: string;
 
@@ -155,7 +146,7 @@ describe("the shared Biome configuration", () => {
     // `packages/db` is exactly the case that makes the difference matter, so
     // this asks the stronger question: of everything git tracks that Biome can
     // parse, is anything being skipped?
-    const tracked = gitTrackedFiles().filter((path) => LINTABLE.test(path));
+    const tracked = trackedFiles().filter((path) => LINTABLE.test(path));
     expect(tracked.length).toBeGreaterThan(0);
 
     // The one exclusion `biome.jsonc` declares, restated here so that adding a

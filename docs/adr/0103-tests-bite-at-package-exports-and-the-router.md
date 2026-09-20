@@ -1613,7 +1613,9 @@ document IS here and an edit here DOES move its lines. So a path citation into o
 unchecked; it was affirmatively excused, by a rule written to excuse something else. The two NUMBER
 forms, a record cited as `ADR-` plus its number and by its bare number, were never affected: they
 resolve through `recordsByNumber`, which reads names without `Dirent` and so already counted a
-symlinked record.
+symlinked record. That read is `testing/adr-records.ts`'s since CNCORE-294
+([[0171-the-fold-is-of-the-read-not-of-the-question-it-answers]]); `recordsByNumber` is now a
+projection over it and the sentence holds unchanged, because the fold kept the `Dirent`-free read.
 
 **CNCORE-201'S REASON DOES NOT TRANSFER, AND CNCORE-200'S DOES -- WITH A READER THE TICKET SAID A
 DOCUMENT LACKS.** CNCORE-201 refuses a symlinked Vitest config because `isInside` places a config by
@@ -1831,7 +1833,9 @@ reads `docs/research/competitor-sweep` with node's recursive `readdirSync`, so i
 descend a link there. That is covered rather than fixed: the corpus lies under `docs/`, so a link
 in it fails this sweep by name in the same package's suite, and the refusal holds only as long as
 this file does. `recordsByNumber` and `adr-numbering.test.ts` read `docs/adr` without recursing, so
-neither descends anything.
+neither descends anything -- both through `testing/adr-records.ts` since CNCORE-294, which is one
+reader for all five and recurses no more than the five did
+([[0171-the-fold-is-of-the-read-not-of-the-question-it-answers]]).
 
 ## A server is owned from the moment it spawns -- under CNCORE-229
 

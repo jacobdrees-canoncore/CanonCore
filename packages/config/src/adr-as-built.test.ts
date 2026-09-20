@@ -1,9 +1,10 @@
-import { execFileSync } from "node:child_process";
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-
+import { records as numberedRecords } from "./testing/adr-records";
+import { flatten } from "./testing/flatten";
 import { repoRoot } from "./testing/repo-root";
+import { isTrackedAs, trackedFiles } from "./testing/tracked-files";
 
 /**
  * `CLAUDE.md`'s rule about half a mechanism, held over the records code leans on.
@@ -49,22 +50,6 @@ import { repoRoot } from "./testing/repo-root";
  * source, so root `CLAUDE.md` citing ADR-0055 does not put that record in the
  * population; that is CNCORE-247's own census boundary, kept deliberately.
  */
-const adrDirectory = join(repoRoot, "docs", "adr");
-
-/**
- * TEXT AS ONE LINE, so a pattern survives being re-wrapped.
- *
- * `corpus-figures.test.ts` states the reason and this file MEASURED it: the first
- * version of the ADR-0081 assertion below matched the raw bytes, and it passed on
- * the unfixed record. The sentence it was looking for is hard-wrapped at 100
- * columns, so "the" and "earliest" sit on either side of a newline and the
- * pattern simply did not match -- a check GREEN on the very defect it names,
- * which is the false signal `CLAUDE.md` is about.
- */
-function flatten(text: string): string {
-  return text.replace(/\s+/g, " ").trim();
-}
-
 /**
  * A record's number, status, whole text and DECISION BLOCK, keyed by the four
  * digits it is cited by.
@@ -87,10 +72,8 @@ type AdrRecord = { file: string; status: string; raw: string; text: string; deci
 
 function theRecords(): Map<string, AdrRecord> {
   const records = new Map<string, AdrRecord>();
-  for (const file of readdirSync(adrDirectory).filter((name) => name.endsWith(".md"))) {
-    const number = /^(\d{4})-/.exec(file)?.[1];
-    if (number === undefined) continue;
-    const raw = readFileSync(join(adrDirectory, file), "utf8");
+  for (const { number, file, path } of numberedRecords()) {
+    const raw = readFileSync(join(repoRoot, path), "utf8");
     records.set(number, {
       file,
       // THE FRONTMATTER BLOCK, not any line that opens `status:`. Anchored to the
@@ -219,18 +202,14 @@ const CITED_ACROSS_THE_BOUNDARY = ["0097"];
  * asked nothing, which is the shape both `ui-callers.test.ts` and
  * `corpus-figures.test.ts` raise at the root of their own chains.
  *
- * THE FOURTH COPY OF THIS READ, and the threshold is now CROSSED rather than
- * approached: [[0136-a-control-is-a-primitive-and-a-surfaces-words-sit-beside-its-pages]]
- * folds at three, and this joins `ui-callers.test.ts`, `biome-config.test.ts` and
- * `turbo-cache-inputs.test.ts`. `ui-callers.test.ts` carries the equivalent note
- * for the second copy, written when two was still under the line; this is the
- * same note one side of it.
+ * THE WALK IS `trackedFiles`, which this file was the fourth copy of and which
+ * CNCORE-277 folded at five. [[0171-the-fold-is-of-the-read-not-of-the-question-it-answers]]
+ * carries that decision and the measurement that settled it.
  *
- * CNCORE-277 CARRIES THE FOLD, and it is not done here because the four are not
- * the same read: that one strips comments and drops test files, both deliberately,
- * where this one keeps both for reasons argued above. What they share is about
- * three lines, so whether a seam that small earns a module is a decision somebody
- * takes rather than a tidy-up done in passing.
+ * WHAT STAYED HERE IS WHAT THIS READ WANTS AND THE OTHERS DO NOT: the pathspec,
+ * the comments and test files KEPT rather than stripped for the reasons argued
+ * above, and the non-emptiness guard worded for this population. Those were
+ * always the disagreement; the three lines under them were not.
  *
  * AND IT EXCLUDES ITSELF, which is not tidiness but a defect this file HAD. The
  * comments above name ADR-0001 and ADR-0055 to explain what they are not, and
@@ -241,13 +220,12 @@ const CITED_ACROSS_THE_BOUNDARY = ["0097"];
 const THIS_FILE = "packages/config/src/adr-as-built.test.ts";
 
 function citedBySource(): Set<string> {
-  const tracked = execFileSync(
-    "git",
-    ["ls-files", "-z", "--", ".", ":(exclude)docs/**", ":(exclude)*.md", `:(exclude)${THIS_FILE}`],
-    { cwd: repoRoot, encoding: "utf8", maxBuffer: 32 * 1024 * 1024 },
-  )
-    .split("\0")
-    .filter((path) => path.length > 0);
+  const tracked = trackedFiles([
+    ".",
+    ":(exclude)docs/**",
+    ":(exclude)*.md",
+    `:(exclude)${THIS_FILE}`,
+  ]);
 
   const cited = new Set<string>();
   for (const path of tracked) {
@@ -267,11 +245,7 @@ function citedBySource(): Set<string> {
   // renaming this file would leave the exclusion matching nothing and quietly
   // hand its own prose back to the population -- an exclusion that stops
   // excluding reports nothing by its nature.
-  const self = execFileSync("git", ["ls-files", "-z", "--", THIS_FILE], {
-    cwd: repoRoot,
-    encoding: "utf8",
-  }).split("\0")[0];
-  if (self !== THIS_FILE) {
+  if (!isTrackedAs(THIS_FILE)) {
     throw new Error(
       `${THIS_FILE} is not tracked under that path, so this suite no longer excludes itself and ` +
         "every record its comments name is now in the population it enforces.",
