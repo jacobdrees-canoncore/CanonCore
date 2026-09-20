@@ -83,14 +83,10 @@ function flatten(text: string): string {
  * decision block, and what a record DECLARES about its halves is read from the
  * whole of it.
  */
-function theRecords(): Map<
-  string,
-  { file: string; status: string; text: string; decision: string }
-> {
-  const records = new Map<
-    string,
-    { file: string; status: string; text: string; decision: string }
-  >();
+type Record_ = { file: string; status: string; raw: string; text: string; decision: string };
+
+function theRecords(): Map<string, Record_> {
+  const records = new Map<string, Record_>();
   for (const file of readdirSync(adrDirectory).filter((name) => name.endsWith(".md"))) {
     const number = /^(\d{4})-/.exec(file)?.[1];
     if (number === undefined) continue;
@@ -98,12 +94,84 @@ function theRecords(): Map<
     records.set(number, {
       file,
       status: /^status:\s*(\S+)/m.exec(raw)?.[1] ?? "unstated",
+      raw,
       text: flatten(raw),
       decision: flatten(raw.split(/^## /m)[0] ?? ""),
     });
   }
   return records;
 }
+
+/**
+ * A record DECLARES its halves if it carries a bolded run naming BUILT, or a
+ * section heading that does.
+ *
+ * THE WORD ALONE IS NOT THE NOTE, which is the measurement CNCORE-273 came out
+ * of. CNCORE-247's census asked `grep -ciE built` and counted 24 records as
+ * noted; asking for a DECLARATION instead drops four of them, because "a product
+ * built on multi-placement" and "ADR-0066 as built" are prose about other things.
+ * A check satisfied by the word would pass a record that says nothing about its
+ * own halves, which is the whole defect.
+ *
+ * TWO FORMS RATHER THAN ONE, because the corpus genuinely uses both and neither
+ * is wrong. `**NOT BUILT: the artwork half.**` is the commonest; ADR-0048 writes
+ * `**WHAT WAS BUILT IS THE DUMP ...**`, and headings run from `## As built, under
+ * CNCORE-4` to `## Half built, under CNCORE-6`. Narrowing to one spelling would
+ * be this check legislating a house style rather than reading the one that exists.
+ */
+const DECLARATION = /\*\*[^*]*\bBUILT\b/;
+const AS_BUILT_HEADING = /^#{2,3} .*\bbuilt\b/im;
+
+function declaresItsHalves(record: Record_): boolean {
+  return DECLARATION.test(record.text) || AS_BUILT_HEADING.test(record.raw);
+}
+
+/**
+ * The records in the population that declare nothing ON PURPOSE, each with the
+ * reason, because an unexplained exception is the thing this file exists to
+ * refuse one level up.
+ *
+ * THE FIRST TWO ARE THE HONEST-PENDING CASE and CNCORE-247 argues them: ADR-0028's
+ * one citation explains why `external_ids` exists so that matching needs no
+ * confidence score, and no scorer exists, so there is no half to declare;
+ * ADR-0065's citation is a cross-reference justifying an omission from a unique
+ * key. They are settled and are not reopened here.
+ *
+ * THE OTHER THREE ARE CNCORE-248's, which owns the same defect in the records the
+ * spec's own closing pass handed it. They leave this map when that ticket lands.
+ *
+ * NOTHING HERE IS A TODO, and that is deliberate. CNCORE-273 opened with four
+ * more records in this map behind a `TODO`, and they were folded into CNCORE-247's
+ * pass instead: a map of work somebody could have done is a backlog wearing an
+ * exception's clothes, and the next reader cannot tell it from a record that
+ * genuinely has no half to declare.
+ *
+ * ADR-0046 IS WHY THE RULE DID NOT WIDEN. It said "Nothing here is built." in as
+ * many words, which is a complete declaration that this check could not read, and
+ * the cheap fix was to accept a bare sentence. The DISPATCHER ruled against it on
+ * 2026-09-20: a bare sentence reintroduces the word-level proxy this work exists
+ * to replace, and one record taking the bold is cheaper than a weaker check.
+ */
+const SILENT_ON_PURPOSE: Readonly<Record<string, string>> = {
+  "0028": "no scorer exists, so there is no half to declare (CNCORE-247)",
+  "0065": "its citation is a cross-reference justifying an omission, not a dependency (CNCORE-247)",
+  "0058": "CNCORE-248",
+  "0072": "CNCORE-248",
+  "0132": "CNCORE-248",
+};
+
+/**
+ * ADR-0097 IS NAMED RATHER THAN DERIVED, and the naming is the point.
+ *
+ * Its only citer is `provider-wiki`'s `src/cmpp.ts`, which holds this record's
+ * `source` word reservation. No PR on this side can see that tree, so a purely
+ * derived population would leave ADR-0097 out and READ AS COVERAGE IT DOES NOT
+ * HAVE -- the same boundary `corpus-figures.test.ts` states it cannot close, in
+ * its own words: "rename either there and this stays GREEN while ADR-0128 points
+ * at nothing". Naming the exception with its reason is the check stating its own
+ * edge. Decided by the DISPATCHER on 2026-09-20, not by the Owner.
+ */
+const CITED_ACROSS_THE_BOUNDARY = ["0097"];
 
 /**
  * Every record number the repository's SOURCE cites, as `ADR-0081`.
@@ -116,11 +184,19 @@ function theRecords(): Map<
  * fine. A pathspec that stopped matching would turn this whole file green having
  * asked nothing, which is the shape both `ui-callers.test.ts` and
  * `corpus-figures.test.ts` raise at the root of their own chains.
+ *
+ * AND IT EXCLUDES ITSELF, which is not tidiness but a defect this file HAD. The
+ * comments above name ADR-0001 and ADR-0055 to explain what they are not, and
+ * that alone put both records into the population and demanded an as-built note
+ * of each. A check that recruits a record by discussing it would grow its own
+ * subject every time somebody explained it.
  */
+const THIS_FILE = "packages/config/src/adr-as-built.test.ts";
+
 function citedBySource(): Set<string> {
   const tracked = execFileSync(
     "git",
-    ["ls-files", "-z", "--", ".", ":(exclude)docs/**", ":(exclude)*.md"],
+    ["ls-files", "-z", "--", ".", ":(exclude)docs/**", ":(exclude)*.md", `:(exclude)${THIS_FILE}`],
     { cwd: repoRoot, encoding: "utf8", maxBuffer: 32 * 1024 * 1024 },
   )
     .split("\0")
@@ -141,10 +217,60 @@ function citedBySource(): Set<string> {
         "pathspec stopped matching or the citation form moved away from `ADR-0081`.",
     );
   }
+
+  // THE SELF-EXCLUSION IS CHECKED RATHER THAN TRUSTED. It is a literal path, so
+  // renaming this file would leave the exclusion matching nothing and quietly
+  // hand its own prose back to the population -- an exclusion that stops
+  // excluding reports nothing by its nature.
+  const self = execFileSync("git", ["ls-files", "-z", "--", THIS_FILE], {
+    cwd: repoRoot,
+    encoding: "utf8",
+  }).split("\0")[0];
+  if (self !== THIS_FILE) {
+    throw new Error(
+      `${THIS_FILE} is not tracked under that path, so this suite no longer excludes itself and ` +
+        "every record its comments name is now in the population it enforces.",
+    );
+  }
+
   return cited;
 }
 
 describe("a proposed record that source leans on", () => {
+  /**
+   * THE RULE ITSELF, over every `proposed` record this repository's code cites.
+   *
+   * `accepted` records are not asked: `CLAUDE.md` reads that status as "its
+   * MECHANISM is whole", so there is no missing half to declare. `proposed` means
+   * DECIDED BUT NOT YET IMPLEMENTED, and a proposed record that code already
+   * leans on is exactly the case where a reader cannot tell which sentences
+   * describe behaviour and which describe intent.
+   */
+  it("declares which half was built, or is named here as silent with its reason", () => {
+    const records = theRecords();
+    const population = [...citedBySource(), ...CITED_ACROSS_THE_BOUNDARY]
+      .filter((number) => records.get(number)?.status === "proposed")
+      .sort();
+
+    // THE POPULATION IS REPORTED BEFORE IT IS JUDGED, so a reader of a failure
+    // can tell "none are silent" from "none were asked".
+    expect(population.length, "no proposed record is cited by source at all").toBeGreaterThan(10);
+
+    const silent = population.filter((number) => {
+      const record = records.get(number);
+      return record !== undefined && !declaresItsHalves(record);
+    });
+
+    expect(
+      silent.filter((number) => SILENT_ON_PURPOSE[number] === undefined),
+      `${silent.length} cited proposed records declare neither half, and these are not named as ` +
+        "deliberate. Each needs a note in the house style the corpus already uses -- a `## As " +
+        "built, under CNCORE-n` section with a bolded `**BUILT: ...**` and `**NOT BUILT: ...**` " +
+        "-- or an entry in SILENT_ON_PURPOSE saying why it has no half to declare. Half a " +
+        "mechanism looks finished from outside (CLAUDE.md).",
+    ).toEqual([]);
+  });
+
   /**
    * CNCORE-247's SHARPEST FINDING, and the one that is a CORRECTION rather than
    * an addition: ADR-0081 stated as present fact something its own migration
