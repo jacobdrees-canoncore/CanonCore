@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { sectionIn } from "./document";
+import { mainOf, sectionIn, steadyMainOf } from "./document";
 
 /**
  * `sectionIn` READ DIRECTLY, over markup written here rather than served.
@@ -101,5 +101,80 @@ describe("sectionIn", () => {
     ].join("");
 
     expect(() => sectionIn(page, "filter")).toThrow(/rendered no/);
+  });
+});
+
+/**
+ * `steadyMainOf` READ DIRECTLY, over markup written here rather than served.
+ *
+ * WHAT IT IS FOR IS A COMPARISON THAT CANNOT BE MADE ANY OTHER WAY. Two files
+ * fetch one address three times and require the three answers to be identical,
+ * which is the only way to ask whether the ADDRESS decides the page -- and the
+ * shape that breaks it is a Group arriving between two of those fetches, from
+ * another file, on the instance they share. A test that waited for that would
+ * be waiting on the scheduler: CNCORE-271's flake took four full runs to show
+ * once. So the shape is written out here, where it is every run.
+ */
+describe("steadyMainOf", () => {
+  /** A Catalogue page narrowed to a Group, with the picker offering these. */
+  function aPageOffering(...groups: string[]): string {
+    return [
+      '<main class="container mx-auto max-w-3xl px-4 py-8">',
+      '<h1 class="text-3xl font-medium">Catalogue</h1>',
+      '<nav aria-label="Narrow to a Group" class="mt-2 flex flex-wrap">',
+      '<a href="/" class="picked">Everything</a>',
+      ...groups.map((name) => `<a href="/?group=${name}" class="picked">${name}</a>`),
+      "</nav>",
+      '<nav aria-label="Narrow to a kind" class="mt-2"><a href="/">Every kind</a></nav>',
+      "<ul><li>a Row</li></ul>",
+      "</main>",
+    ].join("");
+  }
+
+  /**
+   * THE DEFECT, AS THE SUITE MEETS IT (CNCORE-253, CNCORE-271). `import-page`
+   * creates three Groups on the shared instance while `scope` and
+   * `order-and-narrow` compare one address against itself, and the picker
+   * renders EVERY Group there is, uncapped, inside the same `<main>`. So one
+   * Group landing between two fetches is a byte difference in a region neither
+   * test is asking about.
+   */
+  it("holds still when a Group is added, where the whole main does not", () => {
+    const before = aPageOffering("Doctor Who");
+    const after = aPageOffering("Doctor Who", "Imported at 12:04:07");
+
+    expect(mainOf(after)).not.toBe(mainOf(before));
+    expect(steadyMainOf(after)).toBe(steadyMainOf(before));
+  });
+
+  /**
+   * AND IT CUTS THE PICKER, NOT THE PAGE. Both assertions above pass against a
+   * reading that answered the empty string, or that cut from the picker to the
+   * end of `<main>` -- and either would take the Rows with it, which is what
+   * the callers are actually comparing. GREEN THE DAY IT WAS WRITTEN, for the
+   * reason `sectionIn`'s own guards were: what it pins is that the next reading
+   * of this cannot quietly widen.
+   */
+  it("keeps everything else, so a Row that changed still differs", () => {
+    const before = aPageOffering("Doctor Who");
+    const rowChanged = before.replace("a Row", "another Row");
+
+    expect(steadyMainOf(rowChanged)).not.toBe(steadyMainOf(before));
+    expect(steadyMainOf(before)).toContain("a Row");
+    expect(steadyMainOf(before)).toContain("Narrow to a kind");
+  });
+
+  /**
+   * AND A PAGE WITH NO PICKER IS SAID SO RATHER THAN COMPARED ANYWAY. This is
+   * the hazard that comes with cutting a region out at all: a picker that
+   * vanished between two fetches -- or on the session-less fetch alone, which
+   * is the posture `scope.test.ts` exists to check -- would leave two pages
+   * that agree about everything still on them. A reading that shrugged at a
+   * missing picker would pass that, and the regression would be invisible.
+   */
+  it("refuses a page whose picker is gone rather than comparing what is left", () => {
+    const noPicker = "<main><h1>Catalogue</h1><ul><li>a Row</li></ul></main>";
+
+    expect(() => steadyMainOf(noPicker)).toThrow(/Narrow to a Group/);
   });
 });

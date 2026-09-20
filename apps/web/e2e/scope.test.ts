@@ -1,3 +1,6 @@
+import type { AppRouterClient } from "@canoncore/api/routers";
+import { createORPCClient } from "@orpc/client";
+import { RPCLink } from "@orpc/client/fetch";
 import { describe, expect, inject, it } from "vitest";
 
 import {
@@ -8,6 +11,7 @@ import {
   markedCurrentIn,
   navigatingFormsIn,
   scopeLinked,
+  steadyMainOf,
 } from "./document";
 
 /**
@@ -19,6 +23,32 @@ import {
  * and one that holds it and nothing else. Nobody writes to either.
  */
 const workBrowsing = inject("workBrowsing");
+
+/**
+ * THE RPC SURFACE ASKED AS THE OWNER, for `aGroupArrives` below alone.
+ * `group.create` is an `ownerProcedure`, so a client with no session would
+ * answer `Unauthorized` and create nothing -- and an adversary that created
+ * nothing leaves the comparison below passing for the wrong reason.
+ */
+const asTheOwner: AppRouterClient = createORPCClient(
+  new RPCLink({
+    url: `${inject("baseUrl")}/api/rpc`,
+    headers: { cookie: await logInAt(inject("baseUrl"), inject("ownerPassword")) },
+  }),
+);
+
+/**
+ * ONE GROUP, ARRIVING WHILE A COMPARISON IS HALF-MADE (CNCORE-253).
+ *
+ * `NarrowToAGroup` renders every Group there is, uncapped, inside the `<main>`
+ * this test compares byte-for-byte -- and `import-page.test.ts` creates three
+ * on this same instance from its own worker. That made the comparison below a
+ * bet on timing. This takes the bet away by forcing it: the page is fetched,
+ * a Group arrives, the page is fetched again.
+ */
+async function aGroupArrives(): Promise<void> {
+  await asTheOwner.group.create({ name: `A Group that arrived mid-read ${crypto.randomUUID()}` });
+}
 
 /** Where a page links one Item, query and all, wherever on the page it does. */
 function linksTo(text: string, itemId: string): string[] {
@@ -41,13 +71,22 @@ describe("a Group the Owner picked", () => {
       const seen = await documentAt(picked, owner);
       expect(markedCurrentIn(seen.text), picked).toStrictEqual([workBrowsing.group.name]);
 
+      await aGroupArrives();
       const reloaded = await documentAt(picked, owner);
       const shared = await documentAt(picked);
 
       expect(reloaded.status).toBe(200);
       expect(shared.status).toBe(200);
-      expect(mainOf(reloaded.text)).toBe(mainOf(seen.text));
-      expect(mainOf(shared.text)).toBe(mainOf(seen.text));
+      expect(steadyMainOf(reloaded.text)).toBe(steadyMainOf(seen.text));
+      expect(steadyMainOf(shared.text)).toBe(steadyMainOf(seen.text));
+      /*
+       * AND THE SCOPE IS STILL THE ONE THE ADDRESS NAMES, for all three. This
+       * is what the byte comparison used to cover about the picker and
+       * `steadyMainOf` no longer does: a scope held in a session would mark
+       * nothing current for the reader who has none.
+       */
+      expect(markedCurrentIn(reloaded.text), picked).toStrictEqual([workBrowsing.group.name]);
+      expect(markedCurrentIn(shared.text), picked).toStrictEqual([workBrowsing.group.name]);
     }
   });
 });

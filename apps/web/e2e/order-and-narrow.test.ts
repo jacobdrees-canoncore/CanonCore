@@ -1,6 +1,17 @@
+import type { AppRouterClient } from "@canoncore/api/routers";
+import { createORPCClient } from "@orpc/client";
+import { RPCLink } from "@orpc/client/fetch";
 import { describe, expect, inject, it } from "vitest";
 
-import { documentAt, logInAt, mainOf, markedCurrentInPicker, pickedIn } from "./document";
+import {
+  documentAt,
+  logInAt,
+  mainOf,
+  markedCurrentIn,
+  markedCurrentInPicker,
+  pickedIn,
+  steadyMainOf,
+} from "./document";
 
 /**
  * THE ORDER AND THE NARROWING IN THE ADDRESS (CNCORE-175), over real HTTP:
@@ -31,27 +42,81 @@ import { documentAt, logInAt, mainOf, markedCurrentInPicker, pickedIn } from "./
  * is a Listing that holds still, and what is under test here is whether the
  * ADDRESS carries the choice -- never whether the catalogue is quiet.
  *
- * TODO(CNCORE-271): THE GROUP DID NOT SETTLE CATALOGUE SEARCH. The same
- * assertion failed once more on 2026-09-20, on `/search?q=season&...&kind=person`
- * and in the full suite, with three later runs of the same commit green. The
- * two browsed Listings are quiet; this surface is not.
+ * AND NARROWING REACHED THE ROWS ONLY, WHICH IS WHY IT WENT RED AGAIN
+ * (CNCORE-271). A Group freezes this Listing's ROWS. It cannot freeze the Group
+ * PICKER, which renders every Group there is, uncapped, and sits inside the
+ * same `<main>` -- so the fix above was never sufficient, and the sentence it
+ * is written in is corrected here rather than left standing. MEASURED
+ * 2026-09-20: one full run failed on `/search?q=season&...&kind=person` with
+ * `expected '<main ...>' to be '<main ...>'` again, and three later runs of the
+ * same commit passed. `import-page.test.ts` creates three Groups on this
+ * instance, which is where they come from.
+ *
+ * SO THE COMPARISON IS `steadyMainOf` AND THE TIMING IS FORCED. The picker is
+ * cut out of what is compared, for the reason written beside that function
+ * (CNCORE-253), and `aGroupArrives` below does deliberately what another file
+ * was doing by accident -- between two fetches, every run, rather than once in
+ * four.
  */
 const ORDER = "Order this Listing";
 const KIND = "Narrow to a kind";
 /** The seeded Group whose Rows nobody writes to, as `scope.test.ts` uses it. */
 const GROUP = `group=${inject("workBrowsing").group.id}`;
 
+/**
+ * THE RPC SURFACE ASKED AS THE OWNER, for `aGroupArrives` alone. `group.create`
+ * is an `ownerProcedure`, so asking it without a session answers `Unauthorized`
+ * rather than creating anything -- and an adversary that quietly created
+ * nothing would leave every comparison below passing for the wrong reason.
+ * `import-page.test.ts` builds one the same way.
+ */
+const asTheOwner: AppRouterClient = createORPCClient(
+  new RPCLink({
+    url: `${inject("baseUrl")}/api/rpc`,
+    headers: { cookie: await logInAt(inject("baseUrl"), inject("ownerPassword")) },
+  }),
+);
+
+/**
+ * ONE GROUP, CREATED THE WAY THE PRODUCT CREATES ONE, while a comparison is
+ * half-made.
+ *
+ * THIS IS `import-page.test.ts`'S ACCIDENT, ARMED. That file creates three
+ * Groups on this same instance from its own worker, and CNCORE-271 is what
+ * happened when one landed between two fetches here. Waiting for that timing is
+ * waiting on the scheduler -- it showed once in four full runs -- so this makes
+ * it certain instead, which is the difference between a test that holds the
+ * property and a test that has not happened to catch it yet.
+ *
+ * THROUGH THE ROUTER AS THE OWNER, which is the road the product takes. A row
+ * written straight into the database would put a Group on the page through a
+ * door the app never opened.
+ */
+async function aGroupArrives(): Promise<void> {
+  await asTheOwner.group.create({ name: `A Group that arrived mid-read ${crypto.randomUUID()}` });
+}
+
 /** The same page asked again, and asked by somebody with no session. */
 async function reloadedAndShared(address: string, owner: string) {
   const seen = await documentAt(address, owner);
+  await aGroupArrives();
   const reloaded = await documentAt(address, owner);
   // NO SESSION, which is what makes it a SHARED link rather than a remembered
   // one: a choice held in a session would pass the reload and fail this.
   const shared = await documentAt(address);
 
   expect(seen.status, address).toBe(200);
-  expect(mainOf(reloaded.text), address).toBe(mainOf(seen.text));
-  expect(mainOf(shared.text), address).toBe(mainOf(seen.text));
+  expect(steadyMainOf(reloaded.text), address).toBe(steadyMainOf(seen.text));
+  expect(steadyMainOf(shared.text), address).toBe(steadyMainOf(seen.text));
+  /*
+   * AND WHAT THE GROUP PICKER SAYS, which `steadyMainOf` stops comparing as
+   * bytes and this keeps as a FACT: the scope the address names is the one
+   * marked current, for the Owner, on a reload and for a reader with no
+   * session. That is the half of the picker the address really does decide,
+   * and it does not depend on how many Groups exist.
+   */
+  expect(markedCurrentIn(reloaded.text), address).toStrictEqual(markedCurrentIn(seen.text));
+  expect(markedCurrentIn(shared.text), address).toStrictEqual(markedCurrentIn(seen.text));
   return seen;
 }
 

@@ -544,6 +544,52 @@ export function mainOf(text: string): string {
 }
 
 /**
+ * `<main>` WITHOUT THE STATE THE WHOLE CATALOGUE DECIDES: today, the Group
+ * picker, cut out along with its `<nav>`.
+ *
+ * WHAT IT IS FOR IS THE ONE ASSERTION THAT CANNOT BE MADE ANY OTHER WAY
+ * (CNCORE-253, CNCORE-271). `scope` and `order-and-narrow` fetch one address
+ * three times -- as the Owner, again, and with no session -- and require the
+ * three answers to be IDENTICAL, because that is the only way to ask whether
+ * the ADDRESS decides the page rather than a session or a script. Comparing
+ * anything less than the whole region would let a difference hide in what was
+ * left out.
+ *
+ * AND THE PICKER IS NOT SOMETHING THE ADDRESS DECIDES. `NarrowToAGroup` renders
+ * EVERY Group there is, uncapped, and it sits inside `<main>` -- so on the
+ * instance this suite shares, one Group created by another file between two of
+ * those fetches is a byte difference in a region neither test is asking about.
+ * `import-page.test.ts` creates three.
+ *
+ * NARROWING TO A STILL GROUP WAS THE PREVIOUS FIX AND IT REACHED THE ROWS ONLY.
+ * `order-and-narrow`'s own docblock records it: the seeded Group nobody writes
+ * to froze that Listing's Rows. The picker is catalogue-wide and sits in the
+ * same `<main>`, so it went on moving -- which is CNCORE-271, the same
+ * assertion failing again on Catalogue search four months of runs later.
+ *
+ * IT REFUSES A PAGE WITH NO PICKER rather than handing back the whole `<main>`.
+ * Cutting a region out is how an assertion quietly stops covering it, and a
+ * picker that vanished between two fetches is exactly the regression this
+ * suite should go red on. `markedCurrentIn` beside each caller is the other
+ * half: what the picker SAYS is still compared across all three fetches, as a
+ * fact that does not depend on how many Groups exist.
+ *
+ * WHAT IT DOES NOT CUT is everything else in `<main>`, and that is deliberate.
+ * `Holding`'s count is the NARROWED Listing's when there is a Group, the kind
+ * picker is the `item_kinds` table's rather than the catalogue's, and the
+ * alphabet is a constant -- so on a page narrowed to a Group nobody writes to,
+ * the rest of `<main>` holds still already.
+ */
+export function steadyMainOf(text: string): string {
+  const main = mainOf(text);
+  const picker = oneNav(main, THE_GROUP_PICKER);
+  // SPLICED BY INDEX RATHER THAN `replace`d, because a Group's name is the
+  // Owner's own words: one holding `$&` would have `replace` paste the match
+  // back in, and the cut would silently not happen.
+  return main.slice(0, picker.at) + main.slice(picker.at + picker.whole.length);
+}
+
+/**
  * One `<section>` of a page, by the heading it is labelled with.
  *
  * IT ENDS AT ITS OWN CLOSING TAG, COUNTED, which is the whole of CNCORE-147.
@@ -647,8 +693,16 @@ export function momentsIn(text: string): { machine: string; printed: string }[] 
  * one control, free to disagree about what counts as picking.
  */
 export function scopesIn(text: string): string {
-  return navIn(text, "Narrow to a Group");
+  return navIn(text, THE_GROUP_PICKER);
 }
+
+/**
+ * THE GROUP PICKER'S LABEL, named once because two readers now need it: the one
+ * above, which cuts it out to look INSIDE it, and `steadyMainOf`, which cuts it
+ * out to look at everything else. Two spellings of it would be a page whose
+ * picker one reader finds and the other silently does not.
+ */
+const THE_GROUP_PICKER = "Narrow to a Group";
 
 /**
  * ONE PICKER ON A PAGE, by the words it is labelled with.
@@ -661,9 +715,24 @@ export function scopesIn(text: string): string {
  * something else.
  */
 export function navIn(text: string, label: string): string {
-  const found = text.match(new RegExp(`<nav aria-label="${label}"[^>]*>(.*?)</nav>`));
+  return oneNav(text, label).inner;
+}
+
+/**
+ * One picker as BOTH a slice and a position: what is inside it, and where the
+ * whole element sits.
+ *
+ * THE POSITION IS WHAT `steadyMainOf` NEEDS and `navIn` never did, and it is
+ * why this is one function rather than a second regex beside it. A reader that
+ * found the picker to look inside it and a reader that found it to cut it out
+ * would be two readings of what a picker IS, free to drift the day one of them
+ * renders something else -- which is the argument `navIn` already made for
+ * there being one of these at all.
+ */
+function oneNav(text: string, label: string): { at: number; whole: string; inner: string } {
+  const found = new RegExp(`<nav aria-label="${label}"[^>]*>(.*?)</nav>`).exec(text);
   if (!found) throw new Error(`the page offered no ${label}`);
-  return found[1] as string;
+  return { at: found.index, whole: found[0], inner: found[1] as string };
 }
 
 /**
