@@ -4,6 +4,8 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@canoncore/ui/
 import { call } from "@orpc/server";
 import { connection } from "next/server";
 import {
+  type Chosen,
+  filedByLetter,
   Holding,
   JumpToALetter,
   Listing,
@@ -16,7 +18,6 @@ import {
 } from "@/components/listing";
 import {
   oneGroup,
-  oneKind,
   oneOrder,
   type WhereThePageStarts,
   whereThePageStarts,
@@ -41,11 +42,7 @@ import { TheirWords } from "@/components/their-words";
  * A server component fetching its own API is a round trip to itself, and oRPC
  * documents `call` as the way to avoid it.
  */
-async function readWorkBrowsing(
-  at: WhereThePageStarts,
-  group: string | undefined,
-  chosen: { order?: "added"; kind?: string },
-) {
+async function readWorkBrowsing(at: WhereThePageStarts, group: string | undefined, chosen: Chosen) {
   /*
    * PRERENDERING STOPS HERE (ADR-0117), and the line is the rule rather than
    * the effect.
@@ -86,7 +83,6 @@ export default async function WorksPage({
     before?: string | string[];
     letter?: string | string[];
     group?: string | string[];
-    kind?: string | string[];
     order?: string | string[];
   }>;
 }) {
@@ -97,13 +93,16 @@ export default async function WorksPage({
   //
   // AND THE GROUP BESIDE IT (CNCORE-180), which `oneGroup` reads for every
   // surface that narrows.
-  const { after, before, letter, group, kind, order } = await searchParams;
+  const { after, before, letter, group, order } = await searchParams;
   const at = whereThePageStarts({ after, before, letter });
   const narrowedTo = oneGroup(group);
-  // WHAT THE READER CHOSE ABOUT THE ANSWER (CNCORE-175), read exactly as the
-  // Catalogue reads it. Narrowing this Listing to a kind does not make it the
-  // Catalogue: ADR-0077's question is the surface's, and this narrows it.
-  const chosen = { order: oneOrder(order), kind: oneKind(kind) };
+  // THE ORDER AND NOTHING ELSE (CNCORE-175). `?kind=` IS NOT READ HERE, and
+  // that is the other half of offering no kind picker: this page's Rows are all
+  // Works by ADR-0077's own predicate, so honouring a hand-typed `?kind=person`
+  // would narrow the Listing to nothing with no control on the page saying so
+  // and no way to clear it. A parameter a surface does not offer is one it does
+  // not read.
+  const chosen: Chosen = { order: oneOrder(order) };
   const { works, groups } = await readWorkBrowsing(at, narrowedTo, chosen);
   const rows = works.rows;
   const scope = theScope(groups, narrowedTo);
@@ -144,7 +143,7 @@ export default async function WorksPage({
         order leads on a timestamp nothing is filed under. The read path already
         declines a letter there, so the links would be controls that do nothing.
       */}
-      {works.total > 0 && chosen.order === undefined && (
+      {works.total > 0 && filedByLetter(chosen) && (
         <JumpToALetter
           path="/works"
           narrowed={scope.narrowed}

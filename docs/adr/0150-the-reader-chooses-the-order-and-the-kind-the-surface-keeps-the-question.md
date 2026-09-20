@@ -63,6 +63,12 @@ Listing contract asks every one of them the same thing. Narrowing what a surface
 surface's business; narrowing what the seam ACCEPTS per question would make work-browsing the odd
 one out at the contract for a reason that lives in a page.
 
+**AND THE PAGE DOES NOT READ `?kind=` EITHER, which is the other half of offering no picker.**
+Honouring a hand-typed `/works?kind=person` would narrow the Listing to nothing with no control on
+the page saying so and no way to clear it -- a page that is empty for a reason it does not state,
+which is the failure the notices below exist to prevent. A parameter a surface does not offer is one
+it does not read.
+
 ## The order is on the two browsed Listings and NOT on Catalogue search
 
 Catalogue search leads on how close a title is to what the reader typed (ADR-0120). An order chosen
@@ -86,10 +92,22 @@ reasons that are properties of the key rather than preferences:
 - **Recently added is the second view Plex and Jellyfin both lead with**, which is the
   study-the-incumbents rule rather than an invention.
 
-A third order is a value in `order.ts` and a line in `THE_ORDERS`, and the dispatcher has said one
-is wiring later. `name` is THE ABSENCE and never a word in the address: the bare address is the
-Listing in its own order, so spelling the default would mint a second address for the page `/`
-already is (ADR-0066).
+The dispatcher has said a third is wiring later. **WHAT A THIRD ACTUALLY COSTS, COUNTED RATHER THAN
+ASSERTED** -- an earlier draft of this record said "a value in `order.ts` and a line in
+`THE_ORDERS`", and review measured that false. It is four places: the order value beside
+`RECENTLY_ADDED`, its anchor read, a branch in `readListing`, and its words in `THE_ORDERS`. Two
+more that WOULD have been copies are not: `CHOSEN_ORDERS` is the read path's own list and the
+router's `z.enum` reads it, and `Chosen` is exported so no page retypes it.
+
+**THE BRANCH IN `readListing` IS NOT REDUCIBLE TO A LOOKUP, and that is a decision rather than a
+shortfall.** `theCutAt` is typed `ACutIn<O>` against the order in the same call, which is the whole
+mechanism `order.ts` exists for -- an anchor read in one order cannot reach a walk in another. A map
+from a word to an `{ order, anchorIn }` pair erases that pairing into a union the compiler cannot
+discharge, and the cast that would make it compile is exactly the check ADR-0119's four defects were
+each missing. A branch per order is what keeps the compiler holding it.
+
+`name` is THE ABSENCE and never a word in the address: the bare address is the Listing in its own
+order, so spelling the default would mint a second address for the page `/` already is (ADR-0066).
 
 Migration 21 indexes `(created_at desc, id)` -- both terms in the walk's own directions, because a
 keyset walk compares the PAIR and an import writes thousands of Items sharing a `created_at`.
@@ -115,11 +133,26 @@ So the anchor is read as TEXT at the column's own precision and cast back, and `
 rather than rows missing from a page nobody counted. A key computed by the walk already handed over
 an expression (Catalogue search's closeness, ADR-0120); this is the second reason to.
 
+## An empty page must say WHICH emptiness it is, and a narrowing adds a reason
+
+`/` already told three of them apart: an empty catalogue, an empty Group, and a Group that is not
+there. A kind is a fourth, and review found the Catalogue telling a reader the wrong one --
+`/?kind=person` on an install holding 8,052 Items (ADR-0137) rendered `WhatToDoNext`, which says
+CanonCore ships no catalogue and offers the routes that fill one.
+
+**THAT NOTICE IS A CLAIM ABOUT THE INSTALL, SO IT IS GATED ON THE PAGE BEING NARROWED BY NEITHER
+AXIS.** The rule was already written for a Group -- "an empty GROUP must not [offer those routes],
+because the catalogue it was narrowed out of may hold thousands of Items" -- and a kind is the same
+fact on the other axis. `NoItemsOfThatKind` says which emptiness it is and carries the way out,
+through the same `withEveryKind` the picker's own `Every kind` link is built from, so the escape and
+the control cannot become two spellings of one address (ADR-0066).
+
 ## As built, under CNCORE-175
 
 **ACCEPTED, AND WHAT THAT COVERS.** Both halves are whole at all three seams: the read path
 (`RECENTLY_ADDED`, `narrowedToTheKind`, migration 21), every Listing procedure (`browsedInput`,
-`listingInput`), and the three surfaces with a picker each. The Listing contract test asks both of
+`listingInput`), and the surfaces: an order picker on the two browsed Listings, and a kind picker on
+the Catalogue and on Catalogue search. The Listing contract test asks both of
 every Listing, so a fourth inherits them rather than being remembered.
 
 **WHAT IS DELIBERATELY NOT IN IT**, named so nothing reads as a missing half: Catalogue search takes

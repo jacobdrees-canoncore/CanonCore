@@ -1881,7 +1881,9 @@ const RECENTLY_ADDED = {
  * has to supply an order to -- `walkListing`'s own rule, applied to the seam
  * one function out.
  */
-export type ChosenOrder = "name" | "added";
+export const CHOSEN_ORDERS = ["name", "added"] as const;
+
+export type ChosenOrder = (typeof CHOSEN_ORDERS)[number];
 
 /**
  * Where one item sits in the recently-added order, by the id a reader arrived
@@ -1897,6 +1899,14 @@ export type ChosenOrder = "name" | "added";
  * A BOUND PARAMETER INSIDE THE CAST, never `sql.raw`: the text came from this
  * database a statement ago, and it is bound rather than spliced all the same,
  * which is the rule `AnchorIn` states for every expression an anchor carries.
+ *
+ * AND THE TEXT IS `to_char` IN UTC RATHER THAN `::text`, which is what makes the
+ * round trip independent of the SESSION. A `timestamptz` cast to text renders
+ * in that session's `DateStyle`, and the read and the walk are two statements
+ * that may be served by two connections of the pool -- so a `DateStyle` that
+ * differed between them would parse the anchor as a different instant. Spelling
+ * the format here, in UTC and to the microsecond, means neither setting is
+ * load-bearing.
  */
 async function findInTheAddedOrder(
   db: Database,
@@ -1997,7 +2007,7 @@ export async function findTheAnchor(
     .select({
       sortKey: SORT_KEY,
       title: items.title,
-      addedAt: sql<string>`${items.createdAt}::text`,
+      addedAt: sql<string>`to_char(${items.createdAt} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
       id: items.id,
     })
     .from(items)

@@ -7,7 +7,7 @@ import {
   EmptyTitle,
 } from "@canoncore/ui/components/empty";
 import Link from "next/link";
-import { Fragment } from "react";
+import { Fragment, type ReactNode } from "react";
 
 import { positionLabel } from "./position";
 import { inTheFixedOrder, type LinkQuery } from "./query-params";
@@ -154,7 +154,7 @@ type Narrowed = { group: string };
  * mint a second address for the page `/` already is (ADR-0066). `oneOrder` one
  * file over reads it back to `undefined` for the same reason.
  */
-type Chosen = { order?: "added"; kind?: string };
+export type Chosen = { order?: "added"; kind?: string };
 
 /**
  * WHAT CATALOGUE SEARCH LETS A READER CHOOSE, which is the kind and not the
@@ -827,7 +827,7 @@ export function JumpToALetter({
           key={letter}
           href={{ pathname: walking.path, query: queryFor(walking, { letter }) }}
           aria-current={jumpedTo?.toUpperCase() === letter ? "true" : undefined}
-          className="hover:underline aria-[current]:font-medium aria-[current]:text-foreground"
+          className={PICKED}
         >
           {letter}
         </Link>
@@ -976,14 +976,11 @@ export function NarrowToAGroup({
   ...surface
 }: Narrowable & { groups: Group[]; narrowedTo?: string }) {
   return (
-    <nav
-      aria-label="Narrow to a Group"
-      className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-muted-foreground text-sm"
-    >
+    <Picker label="Narrow to a Group">
       <Link
         href={theStartOf(surface)}
         aria-current={narrowedTo === undefined ? "true" : undefined}
-        className="hover:underline aria-[current]:font-medium aria-[current]:text-foreground"
+        className={PICKED}
       >
         Everything
       </Link>
@@ -995,12 +992,12 @@ export function NarrowToAGroup({
             query: queryFor({ ...surface, narrowed: { group: group.id } }, undefined),
           }}
           aria-current={group.id === narrowedTo ? "true" : undefined}
-          className="hover:underline aria-[current]:font-medium aria-[current]:text-foreground"
+          className={PICKED}
         >
           <TheirWords>{group.name}</TheirWords>
         </Link>
       ))}
-    </nav>
+    </Picker>
   );
 }
 
@@ -1062,6 +1059,58 @@ export function NoSuchGroup(surface: Narrowable) {
 type Orderable = Extract<Walking, { path: "/" | "/works" }>;
 
 /**
+ * WHAT EVERY PICKER ON A LISTING LOOKS LIKE, written once for the three of them
+ * (CNCORE-175). The Group picker, the kind and the order are one shape -- a
+ * labelled `nav` of links, one of them marked current -- and they had three
+ * copies of the same two class lists between them, which is the drift this file
+ * already carries a paragraph about for the rules it shares.
+ *
+ * THE LABEL IS WHAT TELLS THEM APART, for a reader with a screen reader and for
+ * the suite alike: `navIn` finds a picker by it.
+ */
+function Picker({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <nav
+      aria-label={label}
+      className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-muted-foreground text-sm"
+    >
+      {children}
+    </nav>
+  );
+}
+
+/** How one option of a picker reads, marked or not. */
+const PICKED = "hover:underline aria-[current]:font-medium aria-[current]:text-foreground";
+
+/**
+ * WHETHER THIS LISTING IS FILED UNDER LETTERS, which is whether a jump to one
+ * means anything (CNCORE-174, ADR-0119).
+ *
+ * READ OFF THE ORDER THE READER CHOSE, in one place, because the rule was
+ * written three times: the read path declines a letter in the recently-added
+ * order, and each of the two pages gated its own alphabet on the same
+ * condition. The read path's is the authority over what a letter DOES; this is
+ * the one statement of what a page OFFERS.
+ */
+export function filedByLetter(chosen: Chosen | undefined): boolean {
+  return chosen?.order === undefined;
+}
+
+/**
+ * THIS LISTING WITH THE KIND CLEARED AND EVERYTHING ELSE KEPT -- the picker's
+ * `Every kind` as an address, exported for the notice that stands where a
+ * narrowed Listing has nothing on it. Written here rather than on the page so
+ * that the way out and the picker cannot become two spellings of one address
+ * (ADR-0066), which is `theStartOf`'s own reason one export up.
+ */
+export function withEveryKind(surface: Extract<Walking, { path: "/" | "/works" | "/search" }>) {
+  return {
+    pathname: surface.path,
+    query: queryFor({ ...surface, chosen: { ...surface.chosen, kind: undefined } }, undefined),
+  };
+}
+
+/**
  * THE TWO ORDERS ONE CATALOGUE HAS OF ITSELF (story 24), in the words a reader
  * picks them by.
  *
@@ -1099,10 +1148,7 @@ const THE_ORDERS = [
  */
 export function OrderTheListing({ chosen, ...surface }: Orderable) {
   return (
-    <nav
-      aria-label="Order this Listing"
-      className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-muted-foreground text-sm"
-    >
+    <Picker label="Order this Listing">
       {THE_ORDERS.map(({ order, words }) => (
         <Link
           key={words}
@@ -1111,12 +1157,12 @@ export function OrderTheListing({ chosen, ...surface }: Orderable) {
             query: queryFor({ ...surface, chosen: { ...chosen, order } }, undefined),
           }}
           aria-current={chosen?.order === order ? "true" : undefined}
-          className="hover:underline aria-[current]:font-medium aria-[current]:text-foreground"
+          className={PICKED}
         >
           {words}
         </Link>
       ))}
-    </nav>
+    </Picker>
   );
 }
 
@@ -1158,17 +1204,11 @@ export function NarrowToAKind({
   ...surface
 }: Extract<Walking, { path: "/" | "/works" | "/search" }> & { kinds: Kind[] }) {
   return (
-    <nav
-      aria-label="Narrow to a kind"
-      className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-muted-foreground text-sm"
-    >
+    <Picker label="Narrow to a kind">
       <Link
-        href={{
-          pathname: surface.path,
-          query: queryFor({ ...surface, chosen: { ...chosen, kind: undefined } }, undefined),
-        }}
+        href={withEveryKind({ ...surface, chosen })}
         aria-current={chosen?.kind === undefined ? "true" : undefined}
-        className="hover:underline aria-[current]:font-medium aria-[current]:text-foreground"
+        className={PICKED}
       >
         Every kind
       </Link>
@@ -1180,11 +1220,11 @@ export function NarrowToAKind({
             query: queryFor({ ...surface, chosen: { ...chosen, kind: kind.value } }, undefined),
           }}
           aria-current={chosen?.kind === kind.value ? "true" : undefined}
-          className="hover:underline aria-[current]:font-medium aria-[current]:text-foreground"
+          className={PICKED}
         >
           {kind.label}
         </Link>
       ))}
-    </nav>
+    </Picker>
   );
 }

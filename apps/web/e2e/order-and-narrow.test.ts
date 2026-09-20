@@ -78,6 +78,30 @@ describe("the kind a reader narrowed to", () => {
   });
 });
 
+describe("a Listing narrowed to a kind it holds none of", () => {
+  it("says which emptiness it is, rather than that the catalogue is empty", async () => {
+    // THE LIE THIS REPLACES: `WhatToDoNext` says CanonCore ships no catalogue
+    // and offers the routes that fill one, which is a claim about the INSTALL.
+    // A reader who narrowed to a kind the catalogue holds none of was being
+    // told their catalogue was empty while it held everything it always had.
+    // The rule already existed for a Group -- "an empty GROUP must not offer
+    // those routes, because the catalogue it was narrowed out of may hold
+    // thousands of Items" -- and a kind is the same fact on the other axis.
+    //
+    // `concept` IS THE KIND CHOSEN BECAUSE NOTHING SEEDS ONE. This instance
+    // holds a Work, a Person, a Character and a Time span, so narrowing to any
+    // of those leaves Rows on the page and asserts nothing about an empty one.
+    const { status, text } = await documentAt("/?kind=concept");
+
+    expect(status).toBe(200);
+    expect(mainOf(text)).toContain("Nothing here is");
+    expect(mainOf(text)).not.toContain("ships no catalogue");
+    // AND THE WAY OUT IS ON THE PAGE, which is what makes it a state rather
+    // than a dead end.
+    expect(mainOf(text)).toContain("Show every kind");
+  });
+});
+
 describe("the order and the kind together", () => {
   it("are cleared one at a time, each without clearing the other", async () => {
     const owner = await logInAt(inject("baseUrl"), inject("ownerPassword"));

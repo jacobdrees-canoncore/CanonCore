@@ -10,6 +10,8 @@ import { call } from "@orpc/server";
 import Link from "next/link";
 import { connection } from "next/server";
 import {
+  type Chosen,
+  filedByLetter,
   Holding,
   JumpToALetter,
   Listing,
@@ -20,6 +22,7 @@ import {
   PastTheEnd,
   theScope,
   Walk,
+  withEveryKind,
 } from "@/components/listing";
 import { noPasswordSet } from "@/components/no-password";
 import { NoProviderAllowlisted } from "@/components/no-provider-allowlisted";
@@ -47,11 +50,7 @@ import { callerContext } from "@/session";
  * component fetching its own API is a round trip to itself, and oRPC documents
  * `call` as the way to avoid it.
  */
-async function readFrontPage(
-  at: WhereThePageStarts,
-  group: string | undefined,
-  chosen: { order?: "added"; kind?: string },
-) {
+async function readFrontPage(at: WhereThePageStarts, group: string | undefined, chosen: Chosen) {
   /*
    * PRERENDERING STOPS HERE, and this line is the whole difference between a
    * front page and a photograph of one.
@@ -167,6 +166,15 @@ export default async function CataloguePage({
   // and whether a `group` naming no Group -- deleted since the link was kept,
   // or never one -- was handed in. A walk within a Group stays within it.
   const scope = theScope(groups, narrowedTo);
+  // THE KIND THE PAGE IS NARROWED TO, as the page needs it: whether it is
+  // narrowed at all, and the Owner's word for the kind where it names one.
+  // A `kind` naming nothing narrows to nothing, which is ADR-0066's rule --
+  // and the notice below says so rather than the page claiming the catalogue
+  // is empty.
+  const narrowedToAKind =
+    chosen.kind === undefined
+      ? undefined
+      : (kinds.find(({ value }) => value === chosen.kind)?.label ?? chosen.kind);
 
   return (
     <main className="container mx-auto max-w-3xl px-4 py-8">
@@ -192,7 +200,7 @@ export default async function CataloguePage({
         under. The read path already declines the letter there, so leaving the
         links up would be a row of twenty-six controls that each do nothing.
       */}
-      {!empty && chosen.order === undefined && (
+      {!empty && filedByLetter(chosen) && (
         <JumpToALetter path="/" narrowed={scope.narrowed} chosen={chosen} jumpedTo={at.letter} />
       )}
       {/*
@@ -229,11 +237,35 @@ export default async function CataloguePage({
         a third thing, which a reader can only tell from the second by being
         told.
       */}
-      {narrowedTo === undefined && empty && (
+      {/*
+        AN EMPTY CATALOGUE IS ONLY ONE OF FOUR REASONS THIS PAGE IS BLANK, and
+        telling a reader the wrong one is worse than telling them nothing.
+        `WhatToDoNext` says CanonCore ships no catalogue and offers the routes
+        that fill one, which is FALSE of an install holding 8,052 Items that a
+        reader has narrowed to a kind it has none of (ADR-0137). So it is gated
+        on the page being narrowed by NEITHER axis -- the comment below already
+        drew that line for a Group, and a kind is the same fact on the other
+        axis.
+      */}
+      {narrowedTo === undefined && chosen.kind === undefined && empty && (
         <WhatToDoNext aPasswordIsSet={aPasswordIsSet} owner={owner} />
       )}
       {scope.gone && <NoSuchGroup path="/" chosen={chosen} />}
-      {scope.group !== undefined && empty && <EmptyGroup name={scope.group.name} />}
+      {/*
+        THE KIND IS SAID BEFORE THE GROUP where both narrow and the page is
+        empty, because it is the one a reader can clear from here: the notice
+        carries the way out, and clearing the kind is what is most likely to
+        put Rows back on the page.
+      */}
+      {narrowedToAKind !== undefined && empty && !scope.gone && (
+        <NoItemsOfThatKind
+          kind={narrowedToAKind}
+          everyKind={withEveryKind({ path: "/", narrowed: scope.narrowed, chosen })}
+        />
+      )}
+      {scope.group !== undefined && empty && narrowedToAKind === undefined && (
+        <EmptyGroup name={scope.group.name} />
+      )}
       {/*
         A CATALOGUE WITH ITEMS IN IT AND NOTHING ON THIS PAGE, which is what a
         cursor makes possible: the link was cut at an item, and nothing is after
@@ -255,6 +287,60 @@ export default async function CataloguePage({
         </>
       )}
     </main>
+  );
+}
+
+/**
+ * A KIND THE CATALOGUE HOLDS NONE OF (CNCORE-175), which looks exactly like an
+ * empty catalogue until the page says which it is -- `EmptyGroup`'s argument
+ * below, on the other narrowing axis.
+ *
+ * IT IS NOT `WhatToDoNext`, AND THAT IS THE WHOLE POINT. That notice says
+ * CanonCore ships no catalogue and offers the routes that fill one, which is a
+ * claim about the INSTALL; this page may be showing nothing while the catalogue
+ * behind it holds 8,052 Items (ADR-0137). Offering a reader who narrowed to
+ * `Person` a walkthrough of importing from a provider is advice about a problem
+ * they do not have.
+ *
+ * AND THE WAY OUT IS ON IT, the same address the picker's `Every kind` is,
+ * through `withEveryKind` so the two cannot become two spellings of one address
+ * (ADR-0066). It keeps the Group, because a reader clearing the kind has not
+ * asked to leave their scope.
+ *
+ * THE KIND IS NAMED IN THE READER'S OWN WORD -- `Time span`, never `time_span`
+ * -- which is `item_kinds`' label and what `CONTEXT.md` binds UI copy to. A
+ * `?kind=` naming no kind at all falls back to what was typed, because the
+ * honest sentence there is still "nothing here is of that kind".
+ */
+function NoItemsOfThatKind({
+  kind,
+  everyKind,
+}: {
+  kind: string;
+  everyKind: ReturnType<typeof withEveryKind>;
+}) {
+  return (
+    <section aria-labelledby="no-items-of-that-kind" className="mt-6">
+      <Empty className="border">
+        <EmptyHeader>
+          {/* A real heading, for the reason `NoProviderAllowlisted` gives. */}
+          <EmptyTitle>
+            <h2 id="no-items-of-that-kind">
+              Nothing here is <TheirWords>{kind}</TheirWords>
+            </h2>
+          </EmptyTitle>
+          <EmptyDescription>
+            This page is narrowed to one kind of Item, and the catalogue holds none of it.
+            Everything else it holds is still there.
+          </EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          <Link href={everyKind} className="hover:underline">
+            Show every kind
+          </Link>
+        </EmptyContent>
+      </Empty>
+    </section>
   );
 }
 

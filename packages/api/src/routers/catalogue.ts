@@ -1,4 +1,10 @@
-import { type Catalogue, readCatalogue, readWorks, searchCatalogue } from "@canoncore/db";
+import {
+  type Catalogue,
+  CHOSEN_ORDERS,
+  readCatalogue,
+  readWorks,
+  searchCatalogue,
+} from "@canoncore/db";
 import { type CataloguePublic, type CatalogueRowPublic, cataloguePublic } from "@canoncore/schemas";
 import { z } from "zod";
 
@@ -112,17 +118,25 @@ const browsedInput = listingInput.extend({
    *
    * AN ENUM WHERE `kind` AND `group` ARE STRINGS, and the difference is who
    * owns the set. Those two name rows in tables the Owner and the migrations
-   * fill, so any string is a question with an answer; these two are the orders
-   * THIS REPOSITORY has written a walk for, the whole set is in `order.ts`, and
-   * a third is a change here. A word naming no order is a BAD_REQUEST rather
-   * than a silent fall back to the default, because falling back would answer a
-   * reader's shared link with a page that is not the one they sent.
+   * fill, so any string is a question with an answer; these are the orders THIS
+   * REPOSITORY has written a walk for, so the set is closed and knowable.
+   *
+   * `CHOSEN_ORDERS` IS THE READ PATH'S OWN LIST rather than a second copy of
+   * it, so an order added there cannot be one this seam goes on refusing.
+   *
+   * A WORD NAMING NO ORDER IS REFUSED HERE AND NEVER REACHES A READER, and the
+   * two halves of that are worth keeping apart. This seam refuses it, which is
+   * right for a caller that ought to know the set. No SURFACE ever sends one:
+   * `oneOrder` reads the address and answers `undefined` for anything it does
+   * not recognise, so a reader who hand-edits `?order=banana` is served the
+   * Listing in its own order rather than a validation error. The refusal bounds
+   * the seam; the surface bounds the reader.
    *
    * `name` IS THE DEFAULT AND THE ABSENCE BOTH, so the bare address is the
    * catalogue in its own order and the picker's "By name" link carries no
    * `order` at all -- one address for one page (ADR-0066).
    */
-  order: z.enum(["name", "added"]).default("name"),
+  order: z.enum(CHOSEN_ORDERS).default("name"),
 });
 
 /**
