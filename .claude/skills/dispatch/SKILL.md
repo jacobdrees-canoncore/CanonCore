@@ -193,6 +193,11 @@ let the range pick the newer one up later.
 
 ## Gotchas
 
+- **AN ABSENT CHECK IS THE TELL, NOT A RED ONE.** A conflicted PR gets no CI at all: a `pull_request`
+  workflow runs against `refs/pull/N/merge`, which GitHub cannot build while the branch conflicts, so
+  it creates no run rather than a failing one. Merge `main` and it fires. That ref keys the run too,
+  so a `--commit <head>` poll finds nothing — watch with `gh pr checks <n>`.
+
 - **A CROSS-REPO FOLD MAKES BOTH ITS WORKTREES LOOK DEAD, and neither pane is lying.** The agent
   lives in one worktree and reaches into the other with `cd`, so the repo holding the FILES has no
   agent in it and the worktree holding the AGENT shows `+0,-0` until the second half starts. The

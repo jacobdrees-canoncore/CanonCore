@@ -9,12 +9,11 @@ decisions are in `docs/adr/`.
 
 ## Projects and the roadmap
 
-Work lives in Linear **Projects**. A parent issue carries a state of its own that lies about its
-children — CNCORE-60 read `Done` over thirteen open ones — so parent links were dropped on
-2026-09-12. A spec is an issue labelled `to-spec`, held in `Backlog`, inside the project it
-describes — **and a spec is the only thing `Backlog` holds.** The CLI writes as an integration, so
-Linear lands an agent-filed ticket there by default, where the frontier cannot see it: five did in
-one session on 2026-09-12. Move each to `Todo` as you triage it.
+Work lives in Linear **Projects**; parent links were dropped on 2026-09-12 because a parent's state
+lies about its children (CNCORE-60 read `Done` over thirteen open ones). A spec is an issue labelled
+`to-spec` in `Backlog`, inside the project it describes — **and a spec is the only thing `Backlog`
+holds.** An agent-filed ticket lands there by default, where the frontier cannot see it: move each to
+`Todo` as you triage it.
 
 Five projects, in order, each ending in something demoable:
 
@@ -29,9 +28,18 @@ Five projects, in order, each ending in something demoable:
    CNCORE-242 to 249 are corrections to records and copy, not missing mechanisms.
 5. **Not yet named** — the catalogue knows what its things ARE. Every Container is a
    `Theory:Timeline - X` page and every Item is `kind: work`, so six of seven kinds and nine of
-   thirteen properties sit empty and there is no Rose page. CNCORE-159 put deriving Group membership
-   out of scope as "unspecified and free to decide", so it is 5's. Ends in Rose Tyler's infobox and
-   her 160 appearances, which is also where images come from.
+   thirteen properties sit empty. CNCORE-159 put deriving Group membership out of scope as
+   "unspecified and free to decide", so it is 5's. Ends in a Rose page, and in images.
+
+**A DEFECT BELONGS TO THE PROJECT THAT BUILT IT; A GAP BELONGS TO THE NEXT ONE.** So 4 takes every
+correction to what 4 shipped and then CLOSES, rather than becoming the bucket every later finding
+lands in — a project that never ends is the parent-issue lie at project scale. A capability nobody
+built is not a defect: 5 is where it goes.
+
+The sequence, once: **4's open tickets → the interview that specs 5 → 5 → the redesign → playback,
+clients, demo.** `grill-with-docs` is the interview, not `grill-me`, because this is a working
+directory and the decisions belong in `CONTEXT.md` and `docs/adr/`. `/closing-a-spec` is what makes
+"finished" a fact at each hand-off.
 
 **THE JOURNEYS CONVERSATION SITS BETWEEN 4 AND 5, AND IT IS NOT THE REDESIGN.** Four of the eight
 flow problems measured on 2026-09-20 are data problems — no way in, no hierarchy to descend, no
@@ -41,8 +49,8 @@ CNCORE-242's and CNCORE-243's shapes on the way. Evidence:
 `docs/research/walking-the-owners-install.md`.
 
 **A project is not finished until it has been used on the Owner's own instance**
-([[0132-a-project-is-not-finished-until-it-has-been-used]]) — two projects and a headline ticket
-closed green while their own sentences were false, because nothing had used the product at size.
+([[0132-a-project-is-not-finished-until-it-has-been-used]]) — two projects and a headline ticket closed
+green while their own sentences were false, because nothing had used the product at size.
 
 Playback, then the clients, then the demo come after ([[0055-web-now-phone-next-tv-last]],
 [[0115-the-public-release-comes-before-the-playback-half]]). Design is its own effort, later still:
@@ -52,16 +60,13 @@ Playback, then the clients, then the demo come after ([[0055-web-now-phone-next-
 
 - Do not preserve backward compatibility. Remove obsolete paths instead of adding compatibility layers, fallbacks, or migrations.
 - Choose the simplest implementation that fully meets the current requirements. Avoid speculative abstractions, configuration, and indirection.
-- Grow the system in layers. Start from the smallest version that works end to end, and add each new capability on top of a product that already works. Never trade a working product for unfinished complexity.
-- Lean on what is already here before adding a dependency, and on an established library before writing your own. Read a library's docs and types before concluding it lacks a capability.
-- Make architectural decisions for the long term. Do not accept a stopgap that only works for now and is meant to be replaced later.
+- Grow the system in layers. Start from the smallest version that works end to end, and add each new capability on top of a product that already works. Never trade a working product for unfinished complexity, and never take a stopgap meant to be replaced later.
+- Lean on what is already here before adding a dependency, and on an established library before writing your own. Read a library's docs and types before concluding it lacks a capability. State in the PR body what you checked first.
 - Study how established products solve the problem before designing a solution. Adopt their proven patterns and conventions rather than inventing an approach from scratch.
 - Do not introduce a configuration option, feature flag, or environment variable unless something in the repo reads it in the same change.
-- Do not add a dependency without stating in the PR body what you checked in the existing dependencies first.
 - Report status with evidence. "Tests pass" requires the command and its output. If a check was skipped, or failed, say so plainly rather than describing the work as complete.
 - Prefer deletion. A change that removes more lines than it adds needs no justification; one that adds more needs a reason in the PR body.
 - When an audit says the remaining work is larger than expected, CUT SCOPE INSIDE THIS REPOSITORY. Never start another one. Every previous attempt at this product died that way.
-- A list of things two mature products have is not a backlog. Every item in `docs/research/competitor-sweep/` was decided on user benefit rather than on parity, and the next sweep is not automatically owed a response.
 - A filed ticket carries a state, a label, an assignee and a project — all four flags on one `orca linear create`, and `--parent` is not among them since parent links were dropped. Whatever it asserts about a version, limit, price or practice is checked with `/verify` before dispatch: an unchecked figure travels, and one reached an ADR before a later agent failed to reproduce it. Mechanics and sizing in `docs/agents/issue-tracker.md`.
 - Keep this file under 200 lines. Past that, first delete anything derivable from the code, then move path-specific guidance to `.claude/rules/` with `paths:` frontmatter and reference material to skills. `@path` imports do not help: they load at launch like the rest of the file.
 
@@ -106,10 +111,8 @@ OWNER and reads what that owner says today. It ruled 11 claims contradicted on 2
 
 ## Gotchas
 
-- **A conflicted PR gets no CI at all.** A `pull_request` workflow runs against
-  `refs/pull/N/merge`, which GitHub cannot build while the branch conflicts -- so it creates no run
-  rather than a failing one. An ABSENT check is the tell, not a red one. Merge `main` and it fires.
-  That ref keys the run too: a `--commit <head>` poll finds nothing; watch with `gh pr checks <n>`.
+- **CI tells you less than it looks.** A conflicted PR gets NO run rather than a red one, and a job
+  that dies on one word names a registry. Both, with `actionlint`, in `.claude/rules/workflows.md`.
 - **`main`'s history is enforced; its CI is not.** A ruleset refuses deletion and force-push on
   `main`, admin bypass on, so it stops accident rather than intent. There are no required checks
   and no required review, so a merge gate is still convention: do not assume a check blocked
@@ -138,12 +141,6 @@ OWNER and reads what that owner says today. It ruled 11 claims contradicted on 2
   agents at once**: one `pnpm test:e2e` peaks at 55-60 of 288 usable connections (CNCORE-137).
 - Prefer Orca's tools: the browser (`orca tab`, `snapshot`, `click`, `fill`) over Playwright, and
   `orca terminal` over an ad hoc PTY, since a real PTY lets `terminal read`/`send` answer a prompt.
-- Run `actionlint` on a workflow before pushing it. A file that fails to parse creates NO run at
-  all, so a broken workflow reads as Actions being switched off.
-- **A CI job dies on ONE WORD, and the word names the registry.** `denied` at `Initialize
-  containers` is GHCR, wanting the repo given Read under the package's own Manage Actions access,
-  outside git. `unauthorized` booting buildkit is DOCKER HUB pulling `moby/buildkit`; `ECONNRESET` at
-  `pnpm/setup` is NPM, and reddened `main` on a docs-only commit. Only the first is this repo's.
 - Credentials live in `~/.config/canoncore/`, outside every repo so no commit can reach them and
   every worktree reads one copy: `provider-tmdb.env` (that provider throws at startup without its
   token; CI uses the repo secret) and `whatbox.env` (the slot's login, for SSH or its web UI).
