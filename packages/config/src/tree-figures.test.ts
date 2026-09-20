@@ -20,7 +20,12 @@ import {
 
 /**
  * EVERY FIGURE THIS REPOSITORY STATES ABOUT ITSELF, HELD TO A COUNT TAKEN FROM
- * THE TREE (CNCORE-251).
+ * THE TREE (ADR-0153, CNCORE-251).
+ *
+ * ADR-0153 IS THE RULE AND THIS IS ITS DERIVED HALF. That record stays
+ * `proposed` because the other half -- a figure that cannot be derived carries
+ * its date and its query -- is a convention enforced for one population in
+ * `corpus-figures.test.ts` and nowhere else. The record says which half landed.
  *
  * A figure measured once, written into prose, and never re-measured is this
  * repository's most common defect. The scan of 2026-09-20 found roughly
@@ -260,6 +265,24 @@ const CLAIMS: Claim[] = [
     pattern: /peaking at (\d+) of 288 usable connections/g,
     population: "the peak connections one `pnpm test:e2e` takes",
     derive: peakConnectionsInOneE2eRun,
+  },
+  /*
+   * THE RECORD'S OWN FIGURES, held the same way as everything else (ADR-0153).
+   * A record arguing that a count about this tree must be derived cannot be the
+   * one place stating an underived one, and the first draft of it said "sixteen
+   * claims across nine files" when the table held twenty-six across sixteen.
+   */
+  {
+    file: "docs/adr/0153-a-figure-about-this-tree-is-derived-or-dated.md",
+    pattern: /holds ([\w-]+) claims across/g,
+    population: "the claims this table holds",
+    derive: () => CLAIMS.length,
+  },
+  {
+    file: "docs/adr/0153-a-figure-about-this-tree-is-derived-or-dated.md",
+    pattern: /claims across ([\w-]+) files to counts taken from the tree/g,
+    population: "the files this table reads",
+    derive: () => new Set(CLAIMS.map(({ file }) => file)).size,
   },
   {
     file: "packages/config/vitest.config.ts",

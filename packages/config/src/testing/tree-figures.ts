@@ -10,7 +10,7 @@ import { configFilesOnDisk, namedConfig, suiteScripts } from "./vitest-configs";
  * is the subject of the claim.
  *
  * A figure measured once, written into prose, and never re-measured is this
- * repository's most common defect (CNCORE-251). The 688-file scan of
+ * repository's most common defect (ADR-0153, CNCORE-251). The 688-file scan of
  * 2026-09-20 found roughly thirty-five of them, in decision records, in
  * `CLAUDE.md`, in `ci.yml`, and in test NAMES that printed the wrong number on
  * every run. Each was true when it was written.
