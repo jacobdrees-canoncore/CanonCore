@@ -140,15 +140,22 @@ Read before proposing anything in the grilling.
 - **ADR-0005** puts anything finer than the seven kinds in a `category` statement.
 - **ADR-0119** caps every listing and requires the cap be named to the reader.
 
-## Six hypotheses that were wrong
+## Six hypotheses about defects: five wrong, one right
 
-Recorded so they are not re-derived. Each looked like a defect and each is deliberate.
+Recorded so they are not re-derived. Each looked like a defect. **Five are deliberate. The second
+was not, and it is left standing here rather than deleted because HOW it was cleared is the thing
+worth keeping** (CNCORE-256, [[0165-a-picker-reaches-past-its-cap-through-the-listings-own-search]]).
 
 1. `/` says 8,052 and `/works` says 8,026. The 26 are Containers that hold no work; the predicate is
    ADR-0077's and the database returns exactly 26.
-2. The by-hand placement picker offers 100 of 8,052 with no search. It says so on the page --
-   "Showing 100 of 8052 items. Search for one to place it from its own page." -- which is ADR-0119's
-   own rule being kept.
+2. The by-hand placement picker offers 100 of 8,052 with no search. **THIS WAS A REAL DEFECT AND
+   THIS ENTRY CLEARED IT WRONGLY.** What was checked is that the cap is NAMED -- "Showing 100 of
+   8052 items. Search for one to place it from its own page." -- which is ADR-0119's own rule and
+   which the page kept correctly. What nobody checked is the rest of the sentence: **an Item's own
+   page offered no way to place it into anything**, so the remedy named did not exist and 7,952
+   Items could not be placed at all. A cap that is named and a remedy that exists are two claims,
+   and satisfying the rule that was in mind says nothing about the half no rule covered. Fixed under
+   CNCORE-256: the picker carries the catalogue's own search, and the notice names it.
 3. `?kind=nonsense` echoes the parameter. It goes through `<TheirWords>`, React-escaped.
 4. The letter empty state interpolates `letter` only when it is in `THE_ALPHABET`, with the
    reasoning written beside it.

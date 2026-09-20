@@ -193,6 +193,24 @@ export type TheRoute = {
   placedAfter?: string;
   before?: string;
   placedBefore?: string;
+  /**
+   * WHAT THE OWNER NARROWED THE PLACEMENT PICKER TO (CNCORE-256), which every
+   * link on this page carries for the reason the two cursors do: the picker is
+   * a THIRD thing on this address that has a position of its own, and a walk of
+   * either listing that dropped it would empty the Owner's search box because
+   * they turned a page of something else.
+   *
+   * IT IS NOT A CURSOR, so it is not one of the pairs above and no `Walk` owns
+   * it. A cursor says where in a listing a reader stands and is dropped by a
+   * `Back to the start`; this says which items the picker is offering at all,
+   * and only the picker's own search and its way out change it.
+   *
+   * ON THE OWNER'S PAGE ALONE IN PRACTICE, since the picker renders only for
+   * them (ADR-0044) -- but it is a key here rather than a parameter passed
+   * beside, because `inTheFixedOrder` is what decides where it sits in an
+   * address and this type is what that function's callers on this page hand it.
+   */
+  placing?: string;
 };
 
 /**
