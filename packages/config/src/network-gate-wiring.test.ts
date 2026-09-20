@@ -12,7 +12,13 @@ import { tmpdir } from "node:os";
 import { basename, dirname, join, relative } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { repoRoot } from "./testing/repo-root";
-import { configFilesIn, configFilesOnDisk, testBlockOf } from "./testing/vitest-configs";
+import {
+  configFilesIn,
+  configFilesOnDisk,
+  namedConfig,
+  runsASuite,
+  testBlockOf,
+} from "./testing/vitest-configs";
 import { packageDirectories, workspaceDirectories } from "./testing/workspace";
 
 /**
@@ -39,72 +45,6 @@ const GATE = "@canoncore/config/testing/install-network-gate";
 const GATE_IN_GLOBAL_SETUP = "@canoncore/config/testing/gate-global-setup";
 
 type Manifest = { name?: string; scripts?: Record<string, string> };
-
-// A script that RUNS a suite rather than watching one, in either spelling Vitest
-// documents for it. The sweep is named after the COMMAND rather than after a
-// list of script names, because a list is what left `packages/contract`'s
-// `test:contract` outside it with nobody deciding that it should be (CNCORE-46).
-//
-// BARE `vitest` IS NEITHER, and not because of what it is called: `watch`
-// defaults to `!process.env.CI && process.stdin.isTTY`, so it watches on a
-// laptop and runs once in CI. A command whose meaning depends on where it runs
-// is the one thing a suite's command must not be.
-function runsASuite(command: string): boolean {
-  return /^vitest run\b/.test(command) || /^vitest\b.*\s--run\b/.test(command);
-}
-
-// And WHICH config that command runs, in every spelling Vitest accepts, or
-// `undefined` where it names none and Vitest falls back to the package's own
-// `vitest.config.ts`.
-//
-// FOUR SPELLINGS, NOT THE ONE THIS READ FIRST. Vitest documents the option as
-// `-c, --config <path>` (`docs/guide/cli-generated.md`, read 2026-09-11), and
-// its parser takes `=` for the short flag as well as the long one. Measured
-// against this repo's vitest 5.0.0, all four carry the path to the config
-// loader: `--config nope.ts`, `--config=nope.ts`, `-c nope.ts`, `-c=nope.ts`.
-// Only the first was read here, so a script written any other way read as
-// naming NO config -- the sweep then claimed the package's default
-// `vitest.config.ts` and asserted against the wrong file, and where the
-// mis-spelled config WAS that default, asserted twice about one file and never
-// noticed (CNCORE-51).
-//
-// THE FLAG MUST START A WORD AND END AT `=` OR A SPACE, and the two halves hold
-// out different things, which is worth saying because the rows below pinned only
-// one of them until review asked which half did the work.
-//
-// ENDING AT `=` OR A SPACE is what keeps `--configLoader` -- a real Vitest flag
-// (`'bundle' | 'runner' | 'native'`) naming no path -- and the `-c` inside
-// `--coverage` out. A rule looking for either flag anywhere reads those as the
-// configs `Loader` and `overage`.
-//
-// STARTING A WORD is what keeps out a flag's VALUE that ends in `-c`, which
-// nothing about the separator catches: `--project app-c src/foo.test.ts` reads
-// without it as naming the config `src/foo.test.ts`. All of them are rows below.
-//
-// AND ONLY THE FIRST COMMAND IS VITEST'S, which is the half widening to `-c`
-// made necessary: `-c` is another program's flag far more often than `--config`
-// is, so `vitest run && playwright test -c playwright.config.ts` read the
-// PLAYWRIGHT config as the one this suite runs. Rows below for `&&` and `;`.
-//
-// A path is taken to the first space, so a QUOTED one with a space in it comes
-// back with its quotes attached and resolves to a file that is not there. No
-// config in this repo is named that way. Which assertion it fails depends on
-// the name: `is installed by every suite` for the suite now pointed at nothing,
-// and `sweeps every Vitest config` as well when the real config is one of the
-// `vitest.*.config.ts` files that sweep reads off the disk.
-//
-// WHAT IS TRUSTED HERE, since the value travels: this is a script string out of
-// a workspace `package.json`, and `testBlockOf` IMPORTS what it resolves
-// to, which is execution rather than a read. `isInside` is asserted on the way
-// and constrains the DIRECTORY, not the filename, so a script naming any file
-// inside its own package has that file imported. That is the same trust the
-// repo already extends to these manifests -- CI runs their scripts -- and the
-// import is ADR-0103's deliberate choice, since a commented-out gate still
-// reads as present to a text search.
-function namedConfig(command: string): string | undefined {
-  const [vitests] = command.split(/[;&|]/);
-  return (vitests as string).match(/(?:^|\s)(?:--config|-c)(?:=|\s+)(\S+)/)?.[1];
-}
 
 // And a script whose NAME says it is a suite, which is the half the rule above
 // cannot do: `"test": "jest"` would simply not match it, and would drop out of
@@ -344,7 +284,7 @@ describe("the network gate's wiring", () => {
     // emptying is refused in `workspaceDirectories()`, since every sweep in
     // this file descends from it. `configFilesOnDisk()` collapsing on its own
     // -- its filename rule narrowed, or the configs renamed to `.mts` -- would
-    // leave this comparing fourteen suites to zero configs and passing, and it
+    // leave this comparing fifteen suites to zero configs and passing, and it
     // is the test ABOVE that fails then: with no config found, every package
     // reads as owning none.
     expect(found.length).toBeGreaterThanOrEqual(configFilesOnDisk().length);
@@ -451,9 +391,10 @@ describe("the rules the sweep is made of", () => {
     ["vitest run --config=vitest.e2e.config.ts", "vitest.e2e.config.ts"],
     ["vitest run -c vitest.e2e.config.ts", "vitest.e2e.config.ts"],
     ["vitest run -c=vitest.e2e.config.ts", "vitest.e2e.config.ts"],
-    // Names none, which is the ordinary case here: ten of this repo's eleven
-    // suites run the package's own `vitest.config.ts` without saying so, and
-    // `apps/web`'s `test:e2e` is the only one that names a config at all.
+    // Names none, which is the ordinary case here: eleven of this repo's fifteen
+    // suites run the package's own `vitest.config.ts` without saying so, and the
+    // four that name a config at all are `apps/web`'s `test:e2e`, `test:live` and
+    // `test:browser`, and `packages/api`'s `test:corpus`.
     ["vitest run", undefined],
     // THE THREE THAT MUST NOT MATCH, one per half of the rule. `--configLoader`
     // is a real Vitest flag that names no path and `--coverage` has a `-c`
@@ -584,8 +525,7 @@ describe("a symlinked Vitest config", () => {
 /**
  * And the shape the block above cannot be right about either, ASKED DIRECTLY
  * for the same reason: no script in this repository names a config that is a
- * symlink, and `apps/web`'s `test:e2e` is the only one that names a config at
- * all (CNCORE-202).
+ * symlink, and only four of them name a config at all (CNCORE-202).
  *
  * A SCRATCH TREE RATHER THAN A TABLE OF PATHS, unlike the block above, and the
  * filesystem is the whole reason: what is under test is the difference between

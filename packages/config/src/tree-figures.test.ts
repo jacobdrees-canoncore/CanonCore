@@ -6,6 +6,8 @@ import {
   countStatedIn,
   serversStoodUpByTheHttpSuite,
   serversVia,
+  suitesInRepo,
+  suitesNamingAConfig,
   vitestConfigs,
 } from "./testing/tree-figures";
 
@@ -75,6 +77,36 @@ const CLAIMS: Claim[] = [
     derive: ciJobs,
   },
   {
+    file: "packages/config/src/network-gate-wiring.test.ts",
+    pattern: /comparing (\w+) suites to zero configs/g,
+    population: "the suites this repository runs",
+    derive: suitesInRepo,
+  },
+  {
+    file: "packages/config/src/network-gate-wiring.test.ts",
+    pattern: /of this repo's (\w+) suites run the package's own/g,
+    population: "the suites this repository runs",
+    derive: suitesInRepo,
+  },
+  {
+    file: "packages/config/src/network-gate-wiring.test.ts",
+    pattern: /here: (\w+) of this repo's fifteen suites run the package's own/g,
+    population: "the suites that name no config",
+    derive: () => suitesInRepo() - suitesNamingAConfig(),
+  },
+  {
+    file: "packages/config/src/network-gate-wiring.test.ts",
+    pattern: /the (\w+) that name a config at all are/g,
+    population: "the suites that name a config",
+    derive: suitesNamingAConfig,
+  },
+  {
+    file: "packages/config/src/network-gate-wiring.test.ts",
+    pattern: /only (\w+) of them name a config at all/g,
+    population: "the suites that name a config",
+    derive: suitesNamingAConfig,
+  },
+  {
     file: "packages/config/vitest.config.ts",
     pattern: /what the other (\w+) configs are checked against/g,
     population: "the Vitest configs other than this one",
@@ -85,6 +117,11 @@ const CLAIMS: Claim[] = [
 describe("a figure this tree states about itself", () => {
   it("counts the servers `The page over HTTP` stands up", () => {
     expect(serversStoodUpByTheHttpSuite()).toBe(11);
+  });
+
+  it("counts the suites this repository runs, and the few that name a config", () => {
+    expect(suitesInRepo()).toBe(15);
+    expect(suitesNamingAConfig()).toBe(4);
   });
 
   it("reads a count written as a word", () => {

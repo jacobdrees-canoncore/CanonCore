@@ -1,4 +1,4 @@
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { repoRoot } from "./repo-root";
@@ -118,4 +118,76 @@ export interface TestBlock {
   setupFiles?: string | string[];
   globalSetup?: string | string[];
   sequence?: { sequencer?: unknown };
+}
+
+/**
+ * A script that RUNS a suite rather than watching one, in either spelling
+ * Vitest documents for it.
+ *
+ * MOVED HERE FROM `network-gate-wiring.test.ts` (CNCORE-251), which is this
+ * module's own reason applied to itself. That file had the only answer to
+ * "what is a suite here", and `tree-figures.test.ts` needs the same one to
+ * hold this repository's prose to its suite count. Two enumerations of the
+ * same population, drifting apart quietly, is the defect that ticket exists
+ * for -- so there is one, and both read it.
+ *
+ * The sweep is named after the COMMAND rather than after a list of script
+ * names, because a list is what left `packages/contract`'s `test:contract`
+ * outside it with nobody deciding that it should (CNCORE-46).
+ *
+ * BARE `vitest` IS NEITHER, and not because of what it is called: `watch`
+ * defaults to `!process.env.CI && process.stdin.isTTY`, so it watches on a
+ * laptop and runs once in CI. A command whose meaning depends on where it runs
+ * is the one thing a suite's command must not be.
+ */
+export function runsASuite(command: string): boolean {
+  return /^vitest run\b/.test(command) || /^vitest\b.*\s--run\b/.test(command);
+}
+
+/**
+ * And WHICH config that command runs, in every spelling Vitest accepts, or
+ * `undefined` where it names none and Vitest falls back to the package's own
+ * `vitest.config.ts`.
+ *
+ * FOUR SPELLINGS, NOT THE ONE THIS READ FIRST -- the measurements and the
+ * traps are in `network-gate-wiring.test.ts`'s own table, which still asks
+ * this function every one of them.
+ */
+export function namedConfig(command: string): string | undefined {
+  const [vitests] = command.split(/[;&|]/);
+  return (vitests as string).match(/(?:^|\s)(?:--config|-c)(?:=|\s+)(\S+)/)?.[1];
+}
+
+/** One suite: a package directory, one of its scripts, and that script's command. */
+export interface SuiteScript {
+  readonly directory: string;
+  readonly package: string;
+  readonly script: string;
+  readonly command: string;
+}
+
+/**
+ * Every script in this workspace that runs a suite.
+ *
+ * NO ASSERTIONS HERE, unlike `network-gate-wiring.test.ts`'s `suites()`, which
+ * wraps this and adds the ones it needs. A reader that threw on a manifest it
+ * disliked could not be used to COUNT, and counting is what this is for.
+ */
+export function suiteScripts(): SuiteScript[] {
+  return workspaceDirectories().flatMap((directory) => {
+    const manifest = join(repoRoot, directory, "package.json");
+    if (!existsSync(manifest)) return [];
+    const parsed = JSON.parse(readFileSync(manifest, "utf8")) as {
+      name?: string;
+      scripts?: Record<string, string>;
+    };
+    return Object.entries(parsed.scripts ?? {})
+      .filter(([, command]) => runsASuite(command))
+      .map(([script, command]) => ({
+        directory,
+        package: parsed.name ?? directory,
+        script,
+        command,
+      }));
+  });
 }

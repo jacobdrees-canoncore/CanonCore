@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import { workflow } from "./ci-workflow";
 import { repoRoot } from "./repo-root";
-import { configFilesOnDisk } from "./vitest-configs";
+import { configFilesOnDisk, namedConfig, suiteScripts } from "./vitest-configs";
 
 /**
  * Every count this repository states about ITSELF, derived from the tree that
@@ -134,11 +134,20 @@ export function asCount(written: string): number {
  *
  * MARKDOWN IS LEFT ALONE, because `#` opens a heading there and `*` opens a
  * bold span, and stripping either would rewrite the document this is reading.
+ *
+ * `//` IS STRIPPED AT THE LINE START ONLY. It is the leader on every line of a
+ * wrapped line comment, and a sentence read with those left in has a `//` in
+ * the middle of it that no pattern written against the prose would match. Only
+ * at the start, because `https://` is two of the same characters in the middle
+ * of a word.
  */
 function flatten(path: string, text: string): string {
   const stripped = path.endsWith(".md")
     ? text
-    : text.replace(/^[ \t]*(?:\*|#)[ \t]?/gm, "").replace(/^[ \t]*\/\*+[ \t]?/gm, "");
+    : text
+        .replace(/^[ \t]*\/\*+[ \t]?/gm, "")
+        .replace(/^[ \t]*\/\/[ \t]?/gm, "")
+        .replace(/^[ \t]*(?:\*|#)[ \t]?/gm, "");
   return stripped.replace(/\s+/g, " ").trim();
 }
 
@@ -182,4 +191,23 @@ export function ciJobs(): number {
  */
 export function vitestConfigs(): number {
   return configFilesOnDisk().length;
+}
+
+/**
+ * The suites this repository runs, counted off the manifests that declare them.
+ *
+ * A SUITE IS A SCRIPT THAT RUNS ONE, which is `runsASuite`'s rule rather than a
+ * second one written here. `test:watch` is not a suite: it runs the config its
+ * `run` twin already covers.
+ */
+export function suitesInRepo(): number {
+  return suiteScripts().length;
+}
+
+/**
+ * The suites that name a config rather than falling back to their package's
+ * own `vitest.config.ts`.
+ */
+export function suitesNamingAConfig(): number {
+  return suiteScripts().filter(({ command }) => namedConfig(command) !== undefined).length;
 }
