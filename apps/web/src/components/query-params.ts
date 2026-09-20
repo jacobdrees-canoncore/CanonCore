@@ -85,10 +85,37 @@ export function oneGroup(parameter: string | string[] | undefined): string | und
  * scope it is asked within, then where in it the reader stands.
  *
  * NOT EVERY PARAMETER THE APP WRITES. A Member row links `?via=` alone, and a
- * Server Action redirects to one `?refused=` or `?undo=`: an address carrying
+ * Server Action redirects to one `?undo=`: an address carrying
  * one parameter has no order to keep, so those are written where they are
  * rather than routed through here. A second parameter on any of them belongs
  * on this list first.
+ *
+ * `refused` AND `because` ARE THAT SECOND PARAMETER ARRIVING (CNCORE-262), and the
+ * sentence above is the instruction being followed rather than a rule being
+ * broken. `/settings` refuses an entry in one of THREE ways with three
+ * different remedies, and the reason cannot ride in `?refused=` itself: one of
+ * the three is an entry that is blank, which `oneValue` reads as an absent
+ * parameter -- correctly -- so the page rendered nothing at all. The entry and
+ * the word for what is wrong with it are two facts, so they are two
+ * parameters, and this is where their order is settled.
+ *
+ * APPENDED, AND THE ORDER IS MATCHED RATHER THAN INVENTED. An Item's page
+ * already writes `?refused=<id>&because=<code>` -- CNCORE-255, merged as
+ * `5431ab0`, which reached this pair independently -- so the order this list
+ * fixes is the one out there, and `/login` carries `?refused=` alone and is
+ * re-spelled by nothing. `because` sits behind `refused` since it qualifies
+ * it: what was refused, then what was wrong with it, which reads as the
+ * sentence it is.
+ *
+ * AN EARLIER VERSION OF THIS PARAGRAPH SAID `?refused=` WAS CARRIED ALONE
+ * EVERYWHERE, and review caught it: `items/actions.ts` had been writing the
+ * pair since that merge. The conclusion was right and its premise was not,
+ * which is worse than being wrong outright -- a reader checking the claim
+ * finds the counter-example and has no way to tell whether the order was
+ * chosen or guessed. Corrected in the sentence it corrects, not beside it.
+ *
+ * SO THE TWO SURFACES SPELL ONE CONCEPT ONE WAY, which `CONTEXT.md` binds and
+ * the dispatcher settled on 2026-09-20: `because` on both, never `why` on one.
  *
  * STATED ONCE FOR EVERY SURFACE SINCE CNCORE-181. It was two shapes until
  * then: the Item page's four read off an array in `listing.tsx`, and the
@@ -164,6 +191,8 @@ const IN_THE_FIXED_ORDER = [
   "letter",
   "before",
   "placedBefore",
+  "refused",
+  "because",
 ] as const;
 
 /**

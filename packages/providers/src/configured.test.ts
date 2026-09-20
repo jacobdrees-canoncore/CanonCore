@@ -1,6 +1,32 @@
 import { describe, expect, it } from "vitest";
 
-import { nameProvider, OutboundRefused, parseProviderUrls, removeProvider } from "./index";
+import {
+  nameProvider,
+  OutboundRefused,
+  ProviderNotNamed,
+  parseProviderUrls,
+  removeProvider,
+} from "./index";
+
+/**
+ * THE REFUSAL A CALL RAISED, so a test can read WHICH refusal it was rather
+ * than only that there was one.
+ *
+ * `toThrow` MATCHES A CLASS OR A MESSAGE AND NEITHER IS THE QUESTION HERE
+ * (CNCORE-262). Three of this file's refusals are the same class, and matching
+ * on the SENTENCE would pin the wording of a message the settings surface is
+ * specifically not allowed to render -- the page owns those words, and a test
+ * asserting them here would make the sentence two files' to change.
+ */
+function refusalFrom(run: () => unknown): ProviderNotNamed {
+  try {
+    run();
+  } catch (cause) {
+    if (cause instanceof ProviderNotNamed) return cause;
+    throw cause;
+  }
+  throw new Error("nothing was refused, and something should have been");
+}
 
 /**
  * WHICH PROVIDERS THIS INSTANCE SEARCHES, read out of one configured string.
@@ -60,6 +86,21 @@ describe("nameProvider", () => {
    */
   it("refuses an entry that is not a URL", () => {
     expect(() => nameProvider("", "wiki.test")).toThrow(OutboundRefused);
+  });
+
+  /**
+   * A BOX OF SPACES NAMED NOTHING, AND THAT IS NOT THE SAME MISTAKE AS NAMING
+   * TWO (CNCORE-262). One `if` answered both -- `entry === undefined` and
+   * `rest.length > 0` raised the identical sentence -- so an Owner who
+   * submitted an empty box was told to "name them one at a time", which is
+   * advice about a mistake they did not make.
+   *
+   * `parseProviderUrls` SPLITS WHITESPACE AWAY, so a run of spaces is no
+   * entries at all: the absence an empty box is, wearing another spelling.
+   * That is `oneValue`'s own reading of a blank parameter, one layer down.
+   */
+  it("says a blank entry named NOTHING, rather than that it was several", () => {
+    expect(refusalFrom(() => nameProvider("", "   ")).why).toBe("nothing-named");
   });
 
   /**

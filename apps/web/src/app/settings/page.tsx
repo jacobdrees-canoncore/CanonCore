@@ -6,12 +6,12 @@ import { Textarea } from "@canoncore/ui/components/textarea";
 import { call } from "@orpc/server";
 import { Moment } from "@/components/moment";
 import { NotLoggedIn } from "@/components/not-logged-in";
-import { oneValue } from "@/components/query-params";
 import { Reason } from "@/components/reason";
 import { TheirWords } from "@/components/their-words";
 import { callerContext } from "@/session";
 
 import { editAllowlist, nameProvider, removeProvider } from "./actions";
+import { oneBecause, theEntryRefused, type WhyItWasRefused } from "./refusal";
 
 /**
  * WHERE THE OWNER SAYS WHAT THIS INSTANCE REACHES (CNCORE-99, ADR-0121).
@@ -84,7 +84,24 @@ export default async function SettingsPage({
   }
 
   const { providers, allowlist } = await call(appRouter.settings.read, {}, { context });
-  const refused = oneValue((await searchParams).refused);
+  const asked = await searchParams;
+  /*
+   * THE ENTRY, BOUNDED WHERE IT IS READ (ADR-0123). `?refused=` is in an
+   * address anybody can compose, and it lands inside a sentence this page
+   * speaks in its own voice, so its LENGTH is not the composer's to choose any
+   * more than its WORDS are -- `refusal.ts` holds both rules, one per
+   * parameter.
+   */
+  const refused = theEntryRefused(asked.refused);
+  /*
+   * WHICH REFUSAL, read apart from WHAT was refused (CNCORE-262). The entry can
+   * be blank -- a box of spaces is a real thing an Owner submits -- and
+   * `oneValue` reads a blank parameter as an absent one, so a page that took
+   * the reason from the entry could not report the one refusal whose entry is
+   * blank. It is held to a closed set in `refusal.ts`, because this parameter
+   * is in an address the Owner can edit.
+   */
+  const because = oneBecause(asked.because);
 
   return (
     <main className="container mx-auto max-w-2xl px-4 py-8">
@@ -154,27 +171,20 @@ export default async function SettingsPage({
             defaultValue=""
             name="baseUrl"
             placeholder="http://provider-wiki:8080"
+            /*
+              THE BROWSER SAYS SO FIRST, AND THE SERVER STILL ANSWERS IT
+              (CNCORE-262). `required` is native HTML and needs no script, so
+              an empty box is caught before the round trip -- but it is a
+              CONVENIENCE and never the check: a hand-composed POST carries no
+              browser, and a box of spaces satisfies `required` anyway. The
+              refusal behind it is what actually holds, which is why both exist.
+            */
+            required
             type="text"
           />
           <Button type="submit">Name it</Button>
         </form>
-        {refused === undefined ? null : (
-          /*
-            THE ONE REFUSAL THIS SURFACE HAS TO RENDER. An entry that is not a
-            URL is the one thing on this page a person can get wrong, and a
-            re-read cannot report it: "that was not a URL" and "nothing
-            happened" are the same unchanged list. The entry is echoed so the
-            owner can see which one it was, through `TheirWords`, since it is
-            the Owner's words and not this page's (ADR-0142).
-          */
-          <p className="mt-3 text-muted-foreground text-sm">
-            <span className="font-medium">
-              <TheirWords>{refused}</TheirWords>
-            </span>{" "}
-            was not named, because it is not a URL. A Provider is a URL and nothing more, so name it
-            by its base URL, scheme included.
-          </p>
-        )}
+        {because === undefined ? null : <NotNamed because={because} entry={refused} />}
       </section>
 
       <section aria-labelledby="allowlist" className="mt-8">
@@ -210,6 +220,101 @@ export default async function SettingsPage({
         </form>
       </section>
     </main>
+  );
+}
+
+/**
+ * WHAT THE OWNER TYPED THAT WAS NOT A PROVIDER, AND WHICH OF THE THREE IT WAS
+ * (CNCORE-262).
+ *
+ * THE REFUSALS THIS SURFACE HAS TO RENDER, because a re-read cannot report one:
+ * "that was not a URL" and "nothing happened" are the same unchanged list, and
+ * the Owner typed the entry. That is this file's own docstring, and until this
+ * ticket the page honoured it with ONE sentence for three different mistakes.
+ *
+ * THREE REMEDIES, AND TWO OF THEM WERE WRONG. Nothing typed, two pasted at
+ * once, and one entry with no scheme are corrected by typing one, typing fewer,
+ * and adding a scheme -- opposite instructions. The page said "it is not a URL
+ * ... scheme included" to all three, which is false of the paste (both entries
+ * were URLs and both had schemes) and rendered not at all for the blank one.
+ * `ReachNotice` below already refuses to collapse three faults into one
+ * sentence; this is the same argument at the field above it.
+ *
+ * THE ENTRY IS ECHOED WHERE THERE IS ONE, through `TheirWords`, since it is the
+ * Owner's words and not this page's (ADR-0142). The blank refusal names none:
+ * there is nothing to show, and a run of spaces would render as a gap the Owner
+ * would read as a missing word.
+ *
+ * AND THE SENTENCES ARE THIS PAGE'S, never the procedure's. `?because=` is in an
+ * address the Owner can edit, so a page that printed text out of the parameter
+ * would show a stranger's sentence in CanonCore's own voice; `refusal.ts`
+ * admits three words and nothing else, and every word below is written here.
+ */
+function NotNamed({ because, entry }: { because: WhyItWasRefused; entry?: string }) {
+  if (because === "nothing-named") {
+    return (
+      <p className="mt-3 text-muted-foreground text-sm">
+        Nothing was named, so nothing changed. <ByItsBaseUrl />
+      </p>
+    );
+  }
+
+  return (
+    <p className="mt-3 text-muted-foreground text-sm">
+      <WhichEntry entry={entry} /> was not named, because{" "}
+      {because === "not-one-provider" ? (
+        <>
+          it is more than one Provider. A Provider is a URL and nothing more, so name them one at a
+          time.
+        </>
+      ) : because === "setting-unreadable" ? (
+        /*
+          NOT ABOUT THE ENTRY, AND IT SAYS SO. The three other sentences tell
+          the Owner to change what they typed; this one must not, because what
+          they typed may have been perfect. The Providers already stored would
+          not parse, so there was no list to add one to -- a different fault
+          with a different fix, which is `ReachNotice`'s argument below applied
+          to the field above it.
+        */
+        <>
+          this instance cannot read the Providers it already has. That setting has to be readable
+          before another can be added to it.
+        </>
+      ) : (
+        <>
+          it is not a URL. <ByItsBaseUrl />
+        </>
+      )}
+    </p>
+  );
+}
+
+/**
+ * The remedy two of these sentences share, written once.
+ *
+ * ONE FRAGMENT RATHER THAN TWO IDENTICAL ONES, which is the argument `On`
+ * below already makes in this file: the same clause written out twice is two
+ * places for it to drift, and on a rendered sentence that shows up as wording
+ * a reader meets in two versions rather than as anything a type would catch.
+ */
+function ByItsBaseUrl() {
+  return <>A Provider is a URL and nothing more, so name it by its base URL, scheme included.</>;
+}
+
+/**
+ * The entry the sentence above is about, or what stands in for it.
+ *
+ * AN ADDRESS NAMING A REASON AND NO ENTRY IS REACHABLE BY HAND, and nothing
+ * else: every redirect this app writes carries both. Rather than render a
+ * sentence opening with a gap, it opens with a phrase that is true of the state
+ * -- the Owner is reading a page they were sent to by editing its address.
+ */
+function WhichEntry({ entry }: { entry?: string }) {
+  if (entry === undefined) return <>That entry</>;
+  return (
+    <span className="font-medium">
+      <TheirWords>{entry}</TheirWords>
+    </span>
   );
 }
 

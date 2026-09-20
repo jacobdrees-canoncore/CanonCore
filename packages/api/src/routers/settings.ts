@@ -3,6 +3,7 @@ import {
   failureReason,
   nameProvider,
   OutboundRefused,
+  ProviderNotNamed,
   parseAllowlist,
   parseProviderUrls,
   REASON_MAX_LENGTH,
@@ -26,6 +27,60 @@ import { ownerProcedure } from "../index";
 const NOT_A_SETTING = {
   BAD_REQUEST: { message: "That is not a setting this instance can read." },
 } as const;
+
+/**
+ * THE THREE WAYS ONE BOX CAN FAIL TO NAME A PROVIDER (CNCORE-262).
+ *
+ * THREE CODES RATHER THAN ONE, because three different corrections follow from
+ * them and a caller cannot pick one from a status. An entry that is nothing, an
+ * entry that is several and an entry that is not a URL send the Owner to type
+ * one, to type fewer, and to add a scheme; `BAD_REQUEST` covered all three, so
+ * the settings surface could only ever print one sentence and printed the one
+ * about schemes at an Owner who had pasted two URLs that both had schemes.
+ *
+ * `status: 400` ON EVERY ONE, AND IT IS NOT DECORATION. oRPC resolves a status
+ * as `status ?? COMMON_ORPC_ERROR_DEFS[code]?.status ?? 500` (read in
+ * `@orpc/client@1.15.1`), and none of these three is a code it knows -- so
+ * leaving it off would answer 500, `isARefusal` in `answer.ts` would stop
+ * reading them as refusals, and the Server Action would rethrow into Next's
+ * bare `Internal Server Error`. These ARE refusals: the Owner asked for
+ * something this instance will not do, which is an answer.
+ *
+ * THE MESSAGES ARE THE FALLBACK AND NOT THE SURFACE'S WORDS. `ProviderNotNamed`
+ * carries its own sentence and it is passed through below; what an API caller
+ * and a log read is that one. The settings page reads the CODE and writes its
+ * own sentence, because a procedure's message copied into an address is a
+ * sentence nobody owns (`settings/actions.ts`).
+ */
+const NOT_ONE_PROVIDER = {
+  NOTHING_NAMED: {
+    status: 400,
+    message: "No provider was named.",
+  },
+  NOT_ONE_PROVIDER: {
+    status: 400,
+    message: "That is more than one provider, and they are named one at a time.",
+  },
+  NOT_A_URL: {
+    status: 400,
+    message: "That entry is not a URL, and a provider is a URL and nothing more.",
+  },
+} as const;
+
+/**
+ * WHICH REFUSAL TO ANSWER WITH, read off the one the parse raised.
+ *
+ * A MAP RATHER THAN A CHAIN OF `if`s, so the three words `@canoncore/providers`
+ * can raise and the three this router can answer are checked against each other
+ * by the type rather than by eye: a fourth added there with no answer here
+ * fails to compile, which is the only way a new refusal cannot quietly arrive
+ * as whatever the last branch happened to be.
+ */
+const ANSWERED_AS = {
+  "nothing-named": "NOTHING_NAMED",
+  "not-one-provider": "NOT_ONE_PROVIDER",
+  "not-a-url": "NOT_A_URL",
+} as const satisfies Record<ProviderNotNamed["why"], keyof typeof NOT_ONE_PROVIDER>;
 
 /**
  * HOW FAR THIS INSTANCE GOT WITH ONE NAMED PROVIDER, and what it found there.
@@ -185,8 +240,16 @@ export const settings = {
    * as a 500 from the next page that needed the setting.
    */
   nameProvider: ownerProcedure
-    .input(z.object({ baseUrl: z.string().min(1) }))
-    .errors(NOT_A_SETTING)
+    /*
+     * NO `.min(1)` ON THE ENTRY (CNCORE-262). An empty box is a real thing an
+     * Owner submits, and refusing it in the INPUT SCHEMA answers a generic
+     * `BAD_REQUEST` instead of the one refusal that names what happened --
+     * `nameProvider` already reads an empty string as naming nothing and says
+     * so. A schema refusal here would be a second rule for a fact the parse
+     * already settles, and the less useful of the two.
+     */
+    .input(z.object({ baseUrl: z.string() }))
+    .errors({ ...NOT_A_SETTING, ...NOT_ONE_PROVIDER })
     .handler(async ({ input, context, errors }) => {
       const configured = await readProviderSettings(context.db);
       try {
@@ -194,9 +257,24 @@ export const settings = {
           providerUrls: nameProvider(configured.providerUrls, input.baseUrl),
         });
       } catch (cause) {
+        /*
+         * WHICH OF THE THREE, WHERE THE ENTRY IS WHAT WAS REFUSED (CNCORE-262).
+         * `ProviderNotNamed` is raised only for the text the Owner typed into
+         * the box, and it says which mistake it was; the surface needs that to
+         * pick a remedy, and reading it off the SENTENCE would tie this router
+         * to wording that is deliberately not its own.
+         */
+        if (cause instanceof ProviderNotNamed) {
+          throw errors[ANSWERED_AS[cause.why]]({ message: cause.message });
+        }
         // ONLY THE BOUNDARY'S OWN REFUSAL, which is `item.create`'s lesson: a
         // bare catch here would answer BAD_REQUEST for a dead connection pool
         // and tell the owner their URL was the problem.
+        //
+        // WHAT IS LEFT HERE IS THE SETTING ALREADY STORED, not the entry: the
+        // first thing `nameProvider` parses is the configured string, so a row
+        // that no longer reads refuses here while the Owner's entry was fine.
+        // That is not one of the three above and must not be answered as one.
         if (cause instanceof OutboundRefused) throw errors.BAD_REQUEST({ message: cause.message });
         throw cause;
       }

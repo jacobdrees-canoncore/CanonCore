@@ -13,6 +13,7 @@ import {
   type RenderedForm,
   sectionIn,
   submit,
+  textOf,
   withFields,
 } from "./document";
 
@@ -266,6 +267,159 @@ describe("/settings", () => {
     expect(answer).toContain("was not named");
     expect(answer).toContain(notAUrl);
     expect(providersIn(answer)).not.toContain(notAUrl);
+  });
+
+  /**
+   * A BOX OF SPACES IS REFUSED OUT LOUD (CNCORE-262), and it used to be the one
+   * refusal on this page that rendered NOTHING.
+   *
+   * THE WHOLE CHAIN WORKED AND THE OWNER STILL SAW AN UNCHANGED PAGE.
+   * `z.string().min(1)` accepts `" "`, `parseProviderUrls` splits the space
+   * away to no entries, the procedure refused, the action redirected to
+   * `?refused=%20` -- and `oneValue` reads a blank parameter as an ABSENT one,
+   * correctly, so the page had nothing to render. Every step was right and the
+   * outcome was the exact thing this surface's own docstring forbids: "your
+   * entry was not a URL" and "nothing happened" rendering identically.
+   *
+   * WHICH IS WHY THE REASON TRAVELS SEPARATELY FROM THE ENTRY. A value the
+   * Owner typed can be blank; the word saying what was wrong with it cannot.
+   */
+  it("says a box of nothing but spaces named nothing, rather than saying nothing", async () => {
+    const cookie = await logInAt(baseUrl, ownerPassword);
+
+    const answer = await name(cookie, "   ");
+
+    expect(answer).toContain("Nothing was named");
+  });
+
+  /**
+   * TWO PROVIDERS AT ONCE IS ITS OWN MISTAKE, WITH ITS OWN REMEDY (CNCORE-262).
+   *
+   * THE OLD SENTENCE WAS FALSE OF IT TWICE OVER. It said "it is not a URL" and
+   * "name it by its base URL, scheme included" at an Owner who had pasted two
+   * entries that were both URLs and both had schemes -- so the one fact they
+   * needed, that a Provider is named one at a time, was the one thing the page
+   * did not say. `packages/providers` raised that sentence all along; the
+   * surface just had no way to tell which refusal it had met.
+   */
+  it("tells an Owner who pasted two to name them one at a time, not to add a scheme", async () => {
+    const cookie = await logInAt(baseUrl, ownerPassword);
+    // BOTH ARE URLS AND BOTH CARRY A SCHEME, which is what makes the old
+    // sentence untrue rather than merely unhelpful.
+    const two = "http://a.test:8080 http://b.test:8080";
+
+    const answer = await name(cookie, two);
+
+    expect(answer).toContain("one at a time");
+    expect(answer).not.toContain("it is not a URL");
+    expect(providersIn(answer)).not.toContain(two);
+  });
+
+  /**
+   * AN EMPTY BOX IS THE COMMONEST MISTAKE AND WAS THE SILENT ONE (CNCORE-262).
+   *
+   * IT NEVER REACHED THE PROCEDURE AT ALL. `theProviderNamed` declared
+   * `z.string().min(1)`, so `whatTheFormCarries` refused it and the action
+   * returned before calling anything -- the page re-rendered unchanged and said
+   * nothing. Found by review of this ticket's own first pass, which had fixed
+   * the box of SPACES and left the emptier case beside it untouched.
+   */
+  it("says an empty box named nothing, which is the same mistake as a box of spaces", async () => {
+    const cookie = await logInAt(baseUrl, ownerPassword);
+
+    const answer = await name(cookie, "");
+
+    expect(answer).toContain("Nothing was named");
+  });
+
+  /**
+   * A REFUSAL THAT IS NOT ABOUT WHAT THE OWNER TYPED STILL ENDS SOMEWHERE.
+   *
+   * THE ACTION MATCHES ON THREE CODES AND THE PROCEDURE CAN ANSWER A FOURTH:
+   * the Providers already stored may not parse, which is `BAD_REQUEST` and is
+   * not about the entry. Three `if`s with no fall-through redirected NOWHERE,
+   * which is this page's original defect reintroduced by the fix for it --
+   * review caught it, and the catch-all is what closes it.
+   *
+   * THE PAGE'S HALF IS WHAT IS ASSERTED HERE. Reaching the action's half needs
+   * a stored setting this surface refuses to write, so `settings.test.ts` holds
+   * the procedure's end and this holds the sentence.
+   */
+  it("says a refusal that was not about the entry was not about the entry", async () => {
+    const cookie = await logInAt(baseUrl, ownerPassword);
+
+    const { text } = await documentFrom(
+      baseUrl,
+      "/settings?refused=http%3A%2F%2Ffine.test%3A8080&because=setting-unreadable",
+      cookie,
+    );
+
+    expect(text).toContain("cannot read the Providers it already has");
+  });
+
+  /**
+   * A `?because=` THIS PAGE DOES NOT RECOGNISE SAYS NOTHING (ADR-0123).
+   *
+   * THE PARAMETER IS IN AN ADDRESS THE OWNER CAN EDIT, so a page that printed
+   * what it carried would be a way to put a stranger's sentence in front of a
+   * reader under CanonCore's own styling. `/login/page.tsx` states that rule of
+   * its own parameter and this is the same rule asserted rather than assumed.
+   */
+  it("renders no notice at all for a reason it does not recognise", async () => {
+    const cookie = await logInAt(baseUrl, ownerPassword);
+    const forged = "Your account has been suspended, telephone 0800";
+
+    const { text } = await documentFrom(
+      baseUrl,
+      `/settings?refused=x&because=${encodeURIComponent(forged)}`,
+      cookie,
+    );
+
+    /*
+     * READ OFF WHAT A READER IS SHOWN, never off the document. Next puts the
+     * address into its own flight payload in a `<script>`, so EVERY query
+     * parameter on every page is somewhere in the bytes -- asserting over the
+     * whole document would fail on a page that renders the value nowhere,
+     * which is exactly the state being asserted. `textOf` drops every tag and
+     * with it every script, which is the distinction that matters here: the
+     * sentence is not put in front of the Owner.
+     */
+    const shown = textOf(mainOf(text));
+    expect(shown).not.toContain("was not named");
+    expect(shown).not.toContain("telephone 0800");
+  });
+
+  /**
+   * THE ECHOED ENTRY IS BOUNDED, AND THE ADDRESS IS WHY (ADR-0123).
+   *
+   * `?refused=` lands inside a sentence this page speaks in its OWN voice, and
+   * anybody can compose the address it arrives in -- so its LENGTH is no more
+   * the composer's to choose than its words are. `TheirWords` does not close
+   * this: that component says of itself that it does not "quote, bound or
+   * attribute", because it settles WIDTH by breaking a long word, and a value
+   * of any length still fills the page.
+   *
+   * IT IS BOUNDED WHERE IT IS READ rather than where the redirect is built.
+   * A hand-typed address never passes through the Server Action at all, so a
+   * bound applied there would guard the one path that was never the problem.
+   * This test drives the address directly for exactly that reason.
+   */
+  it("quotes back only the opening of an entry somebody made enormous", async () => {
+    const cookie = await logInAt(baseUrl, ownerPassword);
+    const flood = `http://${"a".repeat(400)}.test:8080`;
+
+    const { text } = await documentFrom(
+      baseUrl,
+      `/settings?refused=${encodeURIComponent(flood)}&because=not-a-url`,
+      cookie,
+    );
+
+    const shown = textOf(mainOf(text));
+    // THE REFUSAL IS STILL SAID, which is the half a bound must not cost.
+    expect(shown).toContain("was not named");
+    expect(shown).not.toContain(flood);
+    // AND THE OWNER STILL RECOGNISES WHAT THEY ARE BEING TOLD ABOUT.
+    expect(shown).toContain("http://aaaaaaaaaa");
   });
 
   it("removes a provider the owner is finished with", async () => {

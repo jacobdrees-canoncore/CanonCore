@@ -171,6 +171,11 @@ export default async function CataloguePage({
   // A `kind` naming nothing narrows to nothing, which is ADR-0066's rule --
   // and the notice below says so rather than the page claiming the catalogue
   // is empty.
+  // TODO(CNCORE-281): the `?? chosen.kind` fallback prints an unknown `?kind=`
+  // inside this page's own heading, which is the harm ADR-0123 names for a
+  // value read off an address anybody can compose. `/search` dropped the same
+  // fallback under CNCORE-262 -- the closed set, `kinds`, is already in hand
+  // here too -- and this half was left because it is outside that ticket.
   const narrowedToAKind =
     chosen.kind === undefined
       ? undefined
