@@ -9,8 +9,9 @@ language, confidence and observed_at. Two things are deliberately not claims and
 statements: artwork, which carries four attributes of its own and is a table (ADR-0038), and a
 file's technical properties, which are measured off the bytes rather than asserted by anybody and so
 have nothing to give provenance to (ADR-0042). A `properties` table declares each field's datatype,
-value-kind, cardinality and validation -- all four in the DATABASE, since CNCORE-47, and all four
-read. The validation declaration names a check and its parameters, and the code that RUNS it is
+value-kind, cardinality and validation -- all four in the DATABASE, since CNCORE-47, and three of
+the four read: `cardinality` is declared and NOT YET ENFORCED, which `queries.ts` says in as many
+words where it takes the winning note rather than trusting `single` to have kept there to one. The validation declaration names a check and its parameters, and the code that RUNS it is
 TypeScript, for the reason the section below gives.
 
 Without that catalogue this design is `wp_postmeta`. The test separating a sound attribute model

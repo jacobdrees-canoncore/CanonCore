@@ -349,3 +349,20 @@ export function procedureAnswerCallSites(): { total: number; redirecting: number
   }
   return { total, redirecting };
 }
+
+/**
+ * The properties migration 1 seeds into the catalogue.
+ *
+ * ADR-0029 refuses runtime writes to `properties`, so this number only ever
+ * moves in a migration -- and the record that refuses it quotes the number
+ * while arguing about the door it leaves open. Read off the `VALUES` list the
+ * migration inserts, which is the only place it exists.
+ */
+export function propertiesSeededByMigrationOne(): number {
+  const sql = read("packages/db/src/migrations/20260910145307_migration_1_catalogue_and_projection.sql");
+  const values = /INSERT INTO "properties"[\s\S]*?CROSS JOIN \(VALUES([\s\S]*?)\n\)/.exec(sql);
+  if (values === null) {
+    throw new Error("migration 1 no longer seeds `properties` through a CROSS JOIN (VALUES ...)");
+  }
+  return [...(values[1] as string).matchAll(/^\s*\('[a-z_]+'/gm)].length;
+}

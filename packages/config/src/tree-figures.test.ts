@@ -7,6 +7,7 @@ import {
   handBuiltRedirectsIn,
   jobsRequestingANodeMajor,
   procedureAnswerCallSites,
+  propertiesSeededByMigrationOne,
   serversStoodUpByTheHttpSuite,
   serversVia,
   suitesInRepo,
@@ -153,6 +154,12 @@ const CLAIMS: Claim[] = [
     derive: () => procedureAnswerCallSites().total,
   },
   {
+    file: "docs/adr/0029-only-the-product-adds-fields.md",
+    pattern: /which was not among the (\w+) migration 1 seeded/g,
+    population: "the properties migration 1 seeds",
+    derive: propertiesSeededByMigrationOne,
+  },
+  {
     file: "packages/config/vitest.config.ts",
     pattern: /what the other (\w+) configs are checked against/g,
     population: "the Vitest configs other than this one",
@@ -187,6 +194,10 @@ describe("a figure this tree states about itself", () => {
   it("counts the call sites that read a procedure's answer, and those that redirect on it", () => {
     expect(procedureAnswerCallSites().total).toBe(27);
     expect(procedureAnswerCallSites().redirecting).toBe(7);
+  });
+
+  it("counts the properties migration 1 seeds", () => {
+    expect(propertiesSeededByMigrationOne()).toBe(11);
   });
 
   it("reads a count written as a word", () => {

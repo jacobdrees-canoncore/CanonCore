@@ -25,8 +25,8 @@ at runtime is the system working; adding a reference-table row at runtime is a b
 ## The rule operating, under CNCORE-74 -- and this record stays PROPOSED
 
 **THE FIRST PROPERTY MINTED SINCE THIS RECORD WENT IN THROUGH A MIGRATION.** The owner note is a
-Statement against a `note` property ([[0096-a-note-is-not-a-table]]), which was not among the twelve
-migration 1 seeded, so CNCORE-74 added a thirteenth -- in migration 12, which is the only door this
+Statement against a `note` property ([[0096-a-note-is-not-a-table]]), which was not among the eleven
+migration 1 seeded, so CNCORE-74 added a twelfth -- in migration 12, which is the only door this
 record leaves open. Nothing at runtime writes `properties`, and the owner got their free text
 without a field of their own being defined, which is this record's refusal holding in the case most
 likely to break it.
