@@ -21,6 +21,7 @@ import {
   OrderTheListing,
   PastTheEnd,
   theScope,
+  theStartOf,
   Walk,
   withEveryKind,
 } from "@/components/listing";
@@ -285,7 +286,7 @@ export default async function CataloguePage({
         />
       )}
       {scope.group !== undefined && empty && !narrowedToAKind && (
-        <EmptyGroup name={scope.group.name} />
+        <EmptyGroup name={scope.group.name} everything={theStartOf({ path: "/", chosen })} />
       )}
       {/*
         A CATALOGUE WITH ITEMS IN IT AND NOTHING ON THIS PAGE, which is what a
@@ -401,11 +402,26 @@ function NoItemsOfThatKind({
  * they are simply not in this Group. What fills a Group is putting an Item in
  * it from that Item's own page (CNCORE-178), so that is the sentence here.
  *
- * AND THE WAY OUT IS ON IT, the same `/` the picker's `Everything` is, so a
- * reader who landed here from a shared link has somewhere to go without
- * finding the picker first.
+ * AND THE WAY OUT IS ON IT, the picker's own `Everything` through `theStartOf`
+ * so the two cannot become two spellings of one address (ADR-0066) -- a reader
+ * who landed here from a shared link has somewhere to go without finding the
+ * picker first.
+ *
+ * IT WAS A LITERAL `/` UNTIL CNCORE-246, AND CNCORE-175 IS WHAT MADE THAT
+ * WRONG. Once `theStartOf` carried `chosen` the picker wrote `/?order=added`
+ * and this link dropped the order, so leaving a Group threw away a choice the
+ * reader had made. `NoSuchGroup` and `NoItemsOfThatKind` were computed already;
+ * this was the one empty state of the three still spelling its address by hand,
+ * and the docblock claiming it was "the same `/` the picker's `Everything` is"
+ * read as though somebody had checked.
  */
-function EmptyGroup({ name }: { name: string }) {
+function EmptyGroup({
+  name,
+  everything,
+}: {
+  name: string;
+  everything: ReturnType<typeof theStartOf>;
+}) {
   return (
     <section aria-labelledby="empty-group" className="mt-6">
       <Empty className="border">
@@ -421,7 +437,7 @@ function EmptyGroup({ name }: { name: string }) {
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
-          <Link className="hover:underline" href="/">
+          <Link className="hover:underline" href={everything}>
             Show everything
           </Link>
         </EmptyContent>

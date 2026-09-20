@@ -226,9 +226,17 @@ The OpenAPI reference is served at `/api/rpc/api-reference`.
 
 ### Importing a list of Containers
 
-A Provider's `browse` takes ONE container id and CMPP has no operation answering "which Containers
-do you have" (ADR-0033), so importing a corpus means handing over the ids yourself. `import:list`
-walks them, one at a time, into a RUNNING instance:
+A Provider's `browse` takes ONE container id, and CMPP DOES have an operation answering "which
+Containers do you have": `containers`, declared under CNCORE-185 (ADR-0033). `provider-wiki` has
+answered it with a Container since CNCORE-208, and `/import` asks it since CNCORE-187, so a
+Provider's Containers can be browsed on any install rather than named from memory. This paragraph
+said the opposite until CNCORE-246, and cited ADR-0033 for it after that record had corrected its
+own two sentences in place.
+
+**`import:list` still has a job, and what changed is where its list comes from rather than whether
+it is needed.** `/import` brings in one Container at a time, and nothing writes the browse's answer
+out as a file, so the list below is still assembled by hand -- the ids just no longer have to come
+out of the Owner's head. It walks them, one at a time, into a RUNNING instance:
 
 ```bash
 OWNER_PASSWORD=... pnpm --filter @canoncore/api import:list \

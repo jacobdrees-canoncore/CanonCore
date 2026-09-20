@@ -7,7 +7,7 @@ import { defineConfig } from "vitest/config";
  * `vitest.config.ts` beside this one builds a database from empty and calls the
  * router in the same process, which is the right shape for CI: it needs no
  * network and no install. This one asserts against a RUNNING CanonCore holding
- * the Doctor Who corpus -- 465 Orderings that took five and a half hours to
+ * the Doctor Who corpus -- 465 Orderings that took roughly ELEVEN MINUTES to
  * import behind the Owner's wiki Credential, which no CI job may hold
  * (ADR-0122) and which expires within a day.
  *
@@ -57,9 +57,16 @@ export default defineConfig({
     setupFiles: ["@canoncore/config/testing/install-network-gate"],
     include: ["corpus/**/*.test.ts"],
     /*
-     * THE WALK IS THOUSANDS OF REQUESTS. 465 Orderings, 29,844 slots and a
+     * THE WALK IS THOUSANDS OF REQUESTS. 465 Orderings, 30,896 Placements and a
      * hundred rows an answer is some eight hundred round trips before the last
-     * assertion, and the largest Ordering alone is thirty of them.
+     * assertion, and the largest Ordering alone is thirty of them (2,907).
+     *
+     * BOTH FIGURES ARE ADR-0137'S CENSUS OF THE OWNER'S INSTALL, and both were
+     * wrong here until CNCORE-246. This said 29,844 SLOTS, which is CNCORE-159's
+     * number and not this install's -- ADR-0137 states why the two are not a
+     * like-for-like comparison and that nothing should be read into the gap --
+     * and `slots` is the wrong word besides, since ADR-0116 spends it on a
+     * POSITION that Placements can share.
      */
     testTimeout: 1_800_000,
     hookTimeout: 1_800_000,

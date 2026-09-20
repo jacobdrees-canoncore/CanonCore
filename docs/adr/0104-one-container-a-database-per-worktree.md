@@ -119,11 +119,13 @@ one of its own derivatives. The worst branch lands on 63 exactly, and no existin
 `worktreeDatabaseName` ends every name in eight hex characters, so a worktree database can never end
 in `_test` and be mistaken for a derived one.
 
-**The recovery is idempotent, and the existing refusal is what makes that safe.** `buildTestDatabase()`
-with no suffix, called from a worker, now resolves to the database that worker is already running
+**The recovery is idempotent, and the existing refusal is what makes that safe.** `buildSuiteDatabase(suffix)`,
+called from a worker, resolves to the database that worker is already running
 against rather than quietly building a `_test_test` below it — and since the next thing it does is
 `drop database ... with (force)`, the `name === database` guard is what turns that into a refusal.
-Both halves are pinned by `worktree-database.test.ts`.
+Both halves are pinned by `worktree-database.test.ts`. This sentence said `buildTestDatabase()` with
+no suffix until CNCORE-246; CNCORE-199 took the default off both builders and gave the suite's
+database its own verb, which the section below states and this paragraph had not caught up with.
 
 **`TEST_DATABASE_SUFFIXES` is the mechanism that ships** (CNCORE-112). One declaration;
 `buildTestDatabase` takes a member of it and nothing else; the reservation test ranges over it rather
@@ -364,7 +366,7 @@ than adopted.
 ## The run database was one name for three suites, and turbo's topology was all that hid it
 
 **`global-setup.ts` IS SHARED BY THREE SUITES AND BUILT THE SAME DATABASE FOR ALL OF THEM.**
-`buildTestDatabase()` with no suffix is the bare `<worktree>_test`, which that function DROPS
+`buildTestDatabase()` with no suffix WAS the bare `<worktree>_test`, which that function DROPS
 `with (force)` and recreates — and `packages/db`, `packages/api` and `packages/tasks` each list
 `@canoncore/db/testing/global-setup`. Everything above is about two WORKTREES colliding on one
 database; this is three SUITES inside one worktree colliding on it, and the same record covers both

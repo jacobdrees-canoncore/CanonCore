@@ -134,12 +134,18 @@ describe("worktreeDatabaseName", () => {
   it("hands back the run's OWN database when a suite asks from inside it", () => {
     // THE EDGE THE RECOVERY ABOVE CREATES, pinned rather than left to be
     // discovered. Naming from the worktree database makes the derivation
-    // idempotent, so `buildTestDatabase()` -- no suffix -- called from a WORKER
+    // idempotent, so `buildSuiteDatabase(suffix)` called from a WORKER
     // resolves to the very database that worker is running against, rather than
     // to the `<worktree>_test_test` it used to build quietly.
     //
+    // IT SAID `buildTestDatabase()` -- NO SUFFIX -- UNTIL CNCORE-246. CNCORE-199
+    // took the default off both builders and gave a suite's own database its own
+    // verb, so that call has not type-checked since and the suffix is always
+    // named now. ADR-0104 says so in one place and said the opposite in two
+    // others, which is the defect this ticket is about.
+    //
     // That is the safer of the two and still not safe on its own, because what
-    // `buildTestDatabase` does next is `drop database ... with (force)`. The
+    // `buildSuiteDatabase` does next is `drop database ... with (force)`. The
     // name being EQUAL is what its own `name === database` guard refuses on, so
     // this asserts the equality that guard depends on.
     const name = worktreeDatabaseName("jacobdrees/cncore-150-db-name-length");
