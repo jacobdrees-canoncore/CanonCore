@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { repoRoot } from "./testing/repo-root";
+import { withoutComments } from "./testing/without-comments";
 
 /**
  * THE THREE THINGS ADR-0161'S MEASUREMENT RESTS ON, held to the tree rather than
@@ -85,11 +86,14 @@ function appAndUiSources(): string[] {
  * and those explanations say the word `prefetch` more often than any JSX does. A
  * reader that counted the raw bytes would find the argument for the rule and
  * report it as a breach of it.
+ *
+ * THE STRIPPING IS `without-comments.ts` SINCE CNCORE-300, where the reason it
+ * cannot be a regular expression is written down: the two lines that stood here
+ * read a `/*` inside a string as opening a comment, and took a `//` only at a
+ * line start, so a trailing `// prefetch` survived into a count of `prefetch`.
  */
 function codeOf(path: string): string {
-  return readFileSync(join(repoRoot, path), "utf8")
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/^[ \t]*\/\/.*$/gm, "");
+  return withoutComments(readFileSync(join(repoRoot, path), "utf8"));
 }
 
 describe("the configuration ADR-0161's measurement holds under", () => {
