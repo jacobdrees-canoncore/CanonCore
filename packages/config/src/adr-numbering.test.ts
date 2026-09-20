@@ -137,6 +137,11 @@ const IMPLEMENTED_BY: Implementation[] = [
     file: "packages/db/src/queries.ts",
     holds: "`narrowedToTheKind`, and the two Listings that apply it",
   },
+  {
+    adr: "0168",
+    file: "apps/web/live/live-import.test.ts",
+    holds: "three claims that were printouts, each now asserting what its name says",
+  },
 ];
 
 /**

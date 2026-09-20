@@ -499,19 +499,31 @@ describe("/settings", () => {
   });
 
   /**
-   * ADR-0044's VISITOR, told where the door is and nothing else -- which is
-   * `/devices`'s rule applied to a page that carries MORE than a list of
-   * sessions: the allowlist names the hosts and address ranges on this owner's
-   * own network, and `provider.allowlisted` answers a yes-or-no to anybody
-   * precisely so that it never has to disclose them (ADR-0034).
+   * ADR-0044's VISITOR, shown nothing -- which is `/devices`'s rule applied to a
+   * page that carries MORE than a list of sessions: the allowlist names the
+   * hosts and address ranges on this owner's own network, and
+   * `provider.allowlisted` answers a yes-or-no to anybody precisely so that it
+   * never has to disclose them (ADR-0034).
+   *
+   * IT NO LONGER SAYS "TOLD WHERE THE DOOR IS", because the assertion that said
+   * so was the shell's and is gone (ADR-0168). Where the door is, is asserted at
+   * the bottom of this file, on the page.
    */
   it("shows a visitor no settings at all", async () => {
     const { status, text } = await documentFrom(baseUrl, "/settings");
 
     expect(status).toBe(200);
+    /*
+     * AND NOT `expect(text).toContain("/login")`, WHICH STOOD HERE UNTIL CNCORE-257
+     * (ADR-0168).
+     * The header offers `/login` to every reader with no session on an instance
+     * that has a password (CNCORE-139), so that read the SHELL: measured on the
+     * Owner's install, emptying `<main>` entirely leaves it green. The page's own
+     * naming of that step is asserted at the bottom of this file, through
+     * `mainOf`, which is the only read that can tell the two apart.
+     */
     expect(() => sectionIn(text, "providers")).toThrow();
     expect(() => sectionIn(text, "allowlist")).toThrow();
-    expect(text).toContain("/login");
   });
 });
 

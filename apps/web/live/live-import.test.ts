@@ -63,9 +63,40 @@ const TIMELINES = [
   { id: "249643", name: "Theory:Timeline - Doctor Who universe/AHistory", atLeast: 2_500 },
 ];
 
+/**
+ * The REAL positions in an aggregated array, with the NULLs dropped.
+ *
+ * Both claims below are about where a story SITS, and a NULL is the absence of that
+ * (ADR-0018): counting one would let `{null, 29}` read as two points. `unknown`
+ * because `array_agg` arrives untyped, and a row is a database answer rather than a
+ * value this file constructed.
+ */
+function realPositions(aggregated: unknown): number[] {
+  if (!Array.isArray(aggregated))
+    throw new Error(`not an aggregate: ${JSON.stringify(aggregated)}`);
+  return aggregated.filter((at): at is number => typeof at === "number");
+}
+
+/**
+ * WHAT EACH ORDERING SAYS ABOUT ONE ITEM, as one string per ordering that SPOKE.
+ *
+ * An ordering holding the item at no position said nothing (ADR-0018) rather than
+ * disagreeing, so it is dropped; the rest are compared whole, because two orderings
+ * agree only if they put the story in all the same places. A Set of them sized above
+ * one IS the disagreement.
+ */
+function whatEachOrderingSays(row: Record<string, unknown>): Set<string> {
+  const orderings = row.by_ordering;
+  if (!Array.isArray(orderings)) throw new Error(`no orderings on ${JSON.stringify(row)}`);
+  return new Set(
+    orderings.map((positions) => realPositions(positions).join(",")).filter((said) => said !== ""),
+  );
+}
+
 const owned = new AsyncDisposableStack();
 let db: ReturnType<typeof createDb>;
 let client: AppRouterClient;
+let providerUrl: string;
 const imported: Array<{
   id: string;
   name: string;
@@ -75,7 +106,7 @@ const imported: Array<{
 }> = [];
 
 beforeAll(async () => {
-  const providerUrl = await theProviderServing(owned);
+  providerUrl = await theProviderServing(owned);
 
   const databaseUrl = await buildTestDatabase("web");
   db = createDb(databaseUrl, { maxConnections: 2 });
@@ -137,29 +168,85 @@ test("a real Theory:Timeline browses in from the live wiki and lands its Items",
   expect(Number(totals?.items)).toBeGreaterThan(100);
 });
 
+/**
+ * AND `rows.length > 0` IS NOT THAT ASSERTION, WHICH IS WHY IT IS NOT THE ONE MADE
+ * (CNCORE-257, ADR-0168). `sources` IS NEVER EMPTY ON A MIGRATED DATABASE: migration 1 seeds
+ * `owner` and migration 17 seeds `derived:sort-name-v1`. Measured on a database this
+ * file's own `buildTestDatabase("web")` had just built -- two rows, `items` 0,
+ * `placements` 0 -- so the count passed with the ENTIRE live import deleted, while
+ * `kind`, `identity` and `label` were selected for `console.log` alone.
+ *
+ * THE IDENTITY IS THE PROVIDER THIS RUN STARTED, not merely the word "provider". A
+ * source row naming some other provider would be a catalogue that recorded the wrong
+ * origin for what landed, which is the failure this claim is here to refuse.
+ */
 test("the wiki is recorded as the Source of what landed", async () => {
   const { rows } = await db.execute(sql`SELECT kind, identity, label FROM sources`);
   console.log(`  sources: ${JSON.stringify(rows)}`);
-  expect(rows.length).toBeGreaterThan(0);
+  expect(rows).toContainEqual({ kind: "provider", identity: providerUrl, label: "provider-wiki" });
 });
 
+/**
+ * THE POSITIONS THEMSELVES, BECAUSE THE DISAGREEMENT IS THE CLAIM (CNCORE-257, ADR-0168).
+ *
+ * `rows.length > 0` said only that some item was in two orderings, and the `positions`
+ * it aggregated went to `console.log`. Multi-placement is not "a member of two lists" --
+ * a folder tree with symlinks does that -- it is TWO ORDERINGS DISAGREEING ABOUT WHERE
+ * THE SAME STORY GOES, which is ADR-0018's whole argument against Calibre's
+ * `series_index` (that record, at its Calibre paragraph and at its nullable-column one).
+ * Delete the disagreement -- every placement of one item at one position -- and the old
+ * count passed unchanged; measured on a database seeded to exactly that shape, where the
+ * assertion below reddens.
+ *
+ * THE FIXTURE WAS CHOSEN FOR IT: the header's `The Quantum Archangel (novel)` at 29 of
+ * one timeline and 370 of another. Read as "some row disagrees with itself" rather than
+ * as those two numbers, for the reason the floors above are floors -- editors edit. On
+ * the Owner's install on 2026-09-20 that was 5,680 of 5,789 items in several orderings.
+ *
+ * READ PER ORDERING AND COMPARED ACROSS THEM, NOT POOLED. Pooling every position of an
+ * item and counting the distinct ones is satisfied by a REPEAT INSIDE ONE ordering --
+ * which is the test below this one, ADR-0009's, and would leave this one green on a
+ * catalogue where no two orderings disagreed about anything. Each ordering says where it
+ * puts the story; two saying different things is the claim.
+ *
+ * NULLS ARE NOT A DISAGREEMENT. A member a source placed nowhere carries `position`
+ * NULL (ADR-0018): an ordering holding the story at no position said nothing rather than
+ * something else, so it is dropped rather than counted as a third opinion.
+ */
 test("one Item sits in SEVERAL Orderings at different Positions", async () => {
   const { rows } = await db.execute(sql`
-    SELECT i.title, count(DISTINCT p.container_id) AS orderings,
-           array_agg(DISTINCT p.position) AS positions
-    FROM items i JOIN placements p ON p.item_id = i.id
+    SELECT i.title, count(*) AS orderings,
+           jsonb_agg(per.positions ORDER BY per.container_id) AS by_ordering
+    FROM (
+      SELECT item_id, container_id, array_agg(position ORDER BY position) AS positions
+      FROM placements GROUP BY item_id, container_id
+    ) per
+    JOIN items i ON i.id = per.item_id
     GROUP BY i.id, i.title
-    HAVING count(DISTINCT p.container_id) > 1
-    ORDER BY count(DISTINCT p.container_id) DESC, i.title
+    HAVING count(*) > 1
+    ORDER BY count(*) DESC, i.title
     LIMIT 5`);
   for (const row of rows)
-    console.log(`  ${row.title}: ${row.orderings} orderings at ${row.positions}`);
-  expect(rows.length).toBeGreaterThan(0);
+    console.log(`  ${row.title}: ${row.orderings} orderings saying ${row.by_ordering}`);
+  expect(rows.some((row) => whatEachOrderingSays(row).size > 1)).toBe(true);
 });
 
 /**
  * ADR-0009's REPEAT, which is the shape a folder tree cannot hold at all: the same story
  * listed at several points of ONE chronology, for a recap or a bookend.
+ *
+ * AND `count(*) > 1` IS NOT THAT SHAPE, WHICH IS WHAT `rows.length > 0` COULD NOT SEE
+ * (CNCORE-257, ADR-0168). A group of two rows passes that `HAVING` when one of them has NO
+ * position: `{null, 29}` is a member placed once and declared once, not a story at
+ * several points. Measured on the Owner's install on 2026-09-20 -- of 1,537 groups
+ * passing it, 27 are that shape. Seeded to only that shape, the old count passed and the
+ * assertion below reddens.
+ *
+ * A REPEATED POSITION IS NOT THE MECHANISM AND CANNOT BE. `placements_container_item_position`
+ * is UNIQUE NULLS NOT DISTINCT over (owner, container, item, position), so two placements
+ * of one item in one container MUST differ in position; the same measurement found zero
+ * repeated ones, as the constraint requires. The repeat is SEVERAL REAL POINTS, and that
+ * is what is counted here.
  */
 test("a story listed at several points of one timeline arrives as several Placements", async () => {
   const { rows } = await db.execute(sql`
@@ -170,5 +257,5 @@ test("a story listed at several points of one timeline arrives as several Placem
     ORDER BY count(*) DESC
     LIMIT 5`);
   for (const row of rows) console.log(`  ${row.title}: ${row.times}x at ${row.positions}`);
-  expect(rows.length).toBeGreaterThan(0);
+  expect(rows.some((row) => realPositions(row.positions).length > 1)).toBe(true);
 });

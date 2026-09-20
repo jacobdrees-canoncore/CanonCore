@@ -354,23 +354,6 @@ describe("annotating an Item by hand", () => {
   });
 
   /**
-   * A BOX HOLDING THREE SPACES IS A BOX THE OWNER CLEARED, which the trim on
-   * `noteByHand` makes true and which was undocumented and untested until
-   * review said so.
-   */
-  it("removes the note when the owner leaves only whitespace", async () => {
-    const { itemId } = await createItemByHand(db, { kind: "work", title: "The Tenth Planet" });
-    await annotateItemByHand(db, { itemId, note: "Something I later thought better of" });
-
-    // THE TRIM IS THE ROUTER'S, so this is the db function given what it would
-    // be handed -- which is the honest test of THIS seam. `item.annotate` is
-    // where the trim itself is asserted.
-    await annotateItemByHand(db, { itemId, note: "" });
-
-    expect(await findNoteOfItem(db, itemId)).toBeNull();
-  });
-
-  /**
    * EDITING REPLACES, and the `single` cardinality migration 12 declares is
    * what that means: a note is the owner's own free text about an item, so a
    * second one is a correction rather than a rival value. `assertClaims` makes
@@ -390,6 +373,17 @@ describe("annotating an Item by hand", () => {
     expect(await liveNotesOn(itemId)).toBe(1);
   });
 
+  /**
+   * AND A BOX HOLDING THREE SPACES IS A BOX THE OWNER CLEARED, which is the
+   * SAME call as this one by the time it arrives: the trim is `noteByHand`'s,
+   * in `packages/api/src/routers/item.ts`, so this seam is handed `""` either
+   * way. A second test passing `note: ""` under a whitespace title stood here
+   * until CNCORE-257 (ADR-0168) -- identical statements, a name for a behaviour it could
+   * not reach. Deleting the trim leaves every test in THIS package green and
+   * reddens `item.test.ts`'s `removes the note when nothing but whitespace is
+   * submitted`, which is where the trim is asserted because that is where it
+   * lives.
+   */
   it("removes the note when the owner clears it", async () => {
     const { itemId } = await createItemByHand(db, { kind: "work", title: "The Tenth Planet" });
     await annotateItemByHand(db, { itemId, note: "Something I later thought better of" });
