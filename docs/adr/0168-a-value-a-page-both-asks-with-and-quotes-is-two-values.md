@@ -7,14 +7,20 @@ status: accepted
 > **ACCEPTED 2026-09-21, whole, in one repository.** `/search` and `/import` bound `?q=` on both of
 > ADR-0123's levers where they READ it, through one `theQueryQuoted` call
 > (`apps/web/src/components/query-params.ts`) holding one ceiling of 80 for both surfaces. The
-> bounded value reaches their four sentences and nothing else; the whole query reaches the read
-> path, the Providers, every link either page writes and the hidden field that replays a search.
-> Seven tests at ADR-0103's fourth seam drive crafted addresses against served documents
+> bounded value reaches their THREE sentences and nothing else -- `/search`'s "Nothing matched",
+> `/import`'s results heading and its "Back to results for" -- while the whole query reaches the
+> read path, the Providers, every link either page writes and the hidden field that replays a
+> search. Seven tests at ADR-0103's fourth seam drive crafted addresses against served documents
 > (`apps/web/e2e/search.test.ts`, `apps/web/e2e/import-page.test.ts`): the cut, the control strip
 > and the links at each surface, plus the two values at `/search`. **Every one was checked RED
 > against the wrong implementation** -- `shortenTo` for `boundedTo`, the quoted value passed to
 > `readSearch`, the quoted value written into `surface.asked`, and both sentences reverted at
-> `/import`. No provider repository is touched, so nothing is owed at a second one.
+> `/import`. Both surfaces were walked by hand against a running branch, `/import` with the
+> `provider-wiki` container named. **ONE CLAIM HERE HAS NO WITNESS and cannot have one at this
+> seam**: that `/import`'s hidden replay field carries the whole query. It renders only beside
+> results, and every query that finds results is one where the two values are identical, so no
+> served document can tell the implementations apart. It is held by reading instead. No provider
+> repository is touched, so nothing is owed at a second one.
 
 [[0123-a-failure-reason-is-bounded-and-says-who-wrote-it]] requires a parameter landing inside a
 sentence this app speaks in its own voice to be bounded WHERE IT IS READ. Five sites answer it:
