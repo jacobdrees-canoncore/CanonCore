@@ -94,6 +94,32 @@ arrangements. **THE CONDITION THAT MAKES IT LIVE is the first provider to assert
 whoever meets it owns the decision this record declined — at which point the fix is to say where a
 derived source sits in the order ONCE, rather than to let an allocation rule answer it by accident.
 
+## As built, under CNCORE-173 -- and the rung that implements this cannot cite it
+
+The computation is `sort_name_v1()` and the claim it asserts is the source `derived:sort-name-v1`,
+both introduced by migration 17, `a_sort_name_is_derived`, which also backfills every Item that
+already existed. `packages/db/src/by-hand.ts` is where the Owner's own sort name is written and
+where the computed claim is read back standing behind it, and it is the file that CITES this record.
+
+**THE RUNG NAMES EVERY RECORD IT LEANS ON EXCEPT THIS ONE, AND THAT CANNOT BE FIXED WHERE IT
+HAPPENED.** [[0047-migrations-are-a-forward-only-ladder]]'s freeze check hashes every applied rung
+against Drizzle's ledger, so editing a shipped rung fails `db:check-ladder` on every database that
+has run it -- the Owner's install included. The rung was frozen the moment a release applied it,
+which is that record's rule working rather than an obstacle to route around.
+
+So the citation went to `by-hand.ts`, which is live code and the file a reader of this mechanism
+actually opens, and `packages/config/src/adr-numbering.test.ts` holds it there in both spellings.
+A new rung carrying only a `COMMENT ON` was the alternative -- the shape CNCORE-254 took for
+[[0154-a-repeated-container-id-refuses-the-list-rather-than-being-deduped]] -- and the DISPATCHER
+ruled on 2026-09-20 that a whole rung is too much for a citation, where it was the right price for
+documenting a constraint. Recorded under CNCORE-248.
+
+**WHAT THIS TEACHES THE NEXT RUNG** is that a migration's prose is written ONCE and is unamendable
+from the moment it ships, so a rung that implements a record has to cite it in the same commit. The
+sixteen minutes between migration 17 and this record on 2026-09-14 is the whole of the gap: the rung
+landed first and the record explaining it arrived after, by which point the rung could still have
+been edited and nobody did. After the first release it was too late permanently.
+
 ## Consequences
 
 Every Item with a title now carries two statements rather than one, and the second is CanonCore's

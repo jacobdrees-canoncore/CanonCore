@@ -1,8 +1,26 @@
 ---
-status: proposed
+status: accepted
 ---
 
 # A project is not finished until it has been used on the Owner's own instance
+
+> **ACCEPTED 2026-09-20, whole, in one repository.** The mechanism is
+> `.claude/skills/closing-a-spec/SKILL.md`. It opens on this record's own output rule -- the output
+> is tickets, or nothing -- and makes "Does the Owner's instance run it?" its step 1, with concrete
+> commands that compare the RUNNING install against `main` rather than against the board: the rungs
+> its database has applied, and the age of its image. It says why BOTH are needed, which is that
+> either alone reads clean. The local-only checks this record argues for exist and are
+> reachable by nothing but a person at the install -- `packages/api/corpus/corpus-stands.test.ts`,
+> `packages/api/src/corpus-census.ts`, `packages/api/vitest.corpus.config.ts` and
+> `apps/web/live/live-import.test.ts` -- and `CLAUDE.md` names the skill as the gate.
+>
+> **THE STATUS ALTERNATIVE WAS WEIGHED AND REFUSED** -- a different one from the habit-versus-gate
+> choice below, and the one a reviewer of this flip reaches for first:
+> hold this `proposed` until a project has been CLOSED through the gate rather than merely checked
+> by it. That applies the GATE-MET test, and `CLAUDE.md` says in as many words that `accepted` means
+> a record's MECHANISM is whole, "never merely that its own gate was met". A record whose mechanism
+> IS a gate would be the only record that could never reach `accepted` under its own rule. Ruled by
+> the DISPATCHER on 2026-09-20, under CNCORE-248.
 
 A project ends when the Owner has pulled it onto their own running CanonCore and looked at it. Not
 when its tickets read Done, not when CI is green, not when a tag ships. Those are necessary and none
@@ -101,6 +119,30 @@ as a blocking gate. It supports the value and not the teeth.
 A project that passes the gate and still ships an untrue sentence. That would mean the Owner can
 look at the product and not see what is wrong with it, and the answer would be a harder question
 than a gate — what the Owner is failing to notice, and what would make it visible.
+
+## As built, under CNCORE-159 -- and the record was the last thing to hear about it
+
+**THE MECHANISM SHIPPED AND THIS RECORD WAS NOT TOUCHED**, which left it reading as an argument FOR
+a gate that already existed. That is the defect CNCORE-248 was raised on, and it is this record's
+own failure mode one level down: something was built, everything depending on it went on reading a
+document that said it had not been.
+
+The gate has been RUN, and it did what this record says a gate does rather than what a habit does.
+Its first pass over CNCORE-159 stalled the project instead of noting a concern: the install was
+found running a stale image over a database short of `main`'s ladder, and the spec did not close.
+Its second pass caught the case the two commands exist to separate -- the ladder agreeing while the
+image was older than the newest merge, because a ticket carrying no migration moves one and not the
+other. Both catches are written into the skill with their dates.
+
+**AND ITS OUTPUT WAS TICKETS.** This record's own rule -- "the output of the gate is tickets when
+something is wrong and nothing when nothing is" -- held on the first run that could have broken it:
+that pass filed corrections rather than a report, and CNCORE-248 is one of them. A gate whose output
+is a document is a document phase, and this one did not become that when it had the chance.
+
+**WHAT IS DELIBERATELY NOT CLAIMED**, so no half reads as finished: no project has yet been CLOSED
+through this gate end to end. CNCORE-159 is the first to reach it and is still open on the
+corrections the gate produced. The mechanism is whole; the first full passage through it is owed,
+and that is a fact about this project's progress rather than about this record's status.
 
 ## Evidence
 

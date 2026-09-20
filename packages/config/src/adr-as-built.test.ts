@@ -165,14 +165,17 @@ function declaresItsHalves(record: AdrRecord): boolean {
  * reason, because an unexplained exception is the thing this file exists to
  * refuse one level up.
  *
- * THE FIRST TWO ARE THE HONEST-PENDING CASE and CNCORE-247 argues them: ADR-0028's
+ * BOTH ARE THE HONEST-PENDING CASE and CNCORE-247 argues them: ADR-0028's
  * one citation explains why `external_ids` exists so that matching needs no
  * confidence score, and no scorer exists, so there is no half to declare;
  * ADR-0065's citation is a cross-reference justifying an omission from a unique
  * key. They are settled and are not reopened here.
  *
- * THE OTHER THREE ARE CNCORE-248's, which owns the same defect in the records the
- * spec's own closing pass handed it. They leave this map when that ticket lands.
+ * THREE MORE LEFT THIS MAP UNDER CNCORE-248, and they left because the check
+ * below MADE them rather than because anybody remembered. ADR-0058, ADR-0072 and
+ * ADR-0132 were parked here by CNCORE-247, which could see the defect and did not
+ * own the records. All three are `accepted` now, an accepted record is never asked
+ * for an as-built note, and the entries could not outlive the work they waited on.
  *
  * NOTHING HERE IS A TODO, and that is deliberate. CNCORE-273 opened with four
  * more records in this map behind a `TODO`, and they were folded into CNCORE-247's
@@ -189,9 +192,6 @@ function declaresItsHalves(record: AdrRecord): boolean {
 const SILENT_ON_PURPOSE: Readonly<Record<string, string>> = {
   "0028": "no scorer exists, so there is no half to declare (CNCORE-247)",
   "0065": "its citation is a cross-reference justifying an omission, not a dependency (CNCORE-247)",
-  "0058": "CNCORE-248",
-  "0072": "CNCORE-248",
-  "0132": "CNCORE-248",
 };
 
 /**
@@ -332,9 +332,11 @@ describe("a proposed record that source leans on", () => {
    * reads, and the map drifts into a list of names somebody once wrote down --
    * which is precisely what a derived population was chosen over.
    *
-   * IT IS THE HALF THAT MAKES CNCORE-248 CHEAP: when that ticket writes notes into
-   * ADR-0058, ADR-0072 and ADR-0132, this goes red until their three lines are
-   * deleted, so the map cannot outlive the work it was waiting on.
+   * IT IS THE HALF THAT MADE CNCORE-248 CHEAP, AND IT FIRED. When that ticket
+   * flipped ADR-0058, ADR-0072 and ADR-0132 to `accepted`, this went red naming
+   * each one -- "an accepted record is not asked for an as-built note at all, so
+   * the entry should go" -- until the three lines were deleted. The map could not
+   * outlive the work it was waiting on, which is the property a TODO does not have.
    */
   it("keeps no exception that has stopped applying", () => {
     const records = theRecords();

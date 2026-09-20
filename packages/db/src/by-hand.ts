@@ -119,7 +119,7 @@ async function titledByTheOwner(
 
 /**
  * The owner saying where one item FILES, which is the one claim the computation
- * cannot make for itself (CNCORE-173).
+ * cannot make for itself (ADR-0134, CNCORE-173).
  *
  * `[]` FOR THE EMPTY STRING, which is `notedByTheOwner` below rather than
  * `titledByTheOwner` above, and the choice turns on what the empty value

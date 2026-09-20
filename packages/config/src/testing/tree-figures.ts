@@ -412,6 +412,53 @@ export function migrationRungs(): number {
 }
 
 /**
+ * The mentions of a visibility system in the schema and on the ladder.
+ *
+ * WHY A REFUSAL NEEDS THIS MORE THAN A COUNT DOES. ADR-0072 decides that this
+ * product HAS no visibility system, and the evidence it rests on is a search
+ * that comes back empty of one. An absence is the one claim that goes false
+ * without anybody touching the sentence stating it: the record stays true right
+ * up until somebody adds the column, and then it is wrong in a file nobody was
+ * asked to reread. So the search is RUN here rather than quoted there.
+ *
+ * ONE HIT IS EXPECTED AND IT IS NOT A VISIBILITY SYSTEM. `tables.ts` calls an
+ * ADR-0049 task-run row "THE VISIBILITY", meaning a failure that can still be
+ * seen in the morning rather than a rule about who may see what. It is COUNTED
+ * rather than skipped by a pattern, because a filter written to step over the
+ * one known hit is a filter that would step over a real one worded the same
+ * way -- and the number moving at all is the signal worth having.
+ *
+ * LINES RATHER THAN MATCHES, which is what `grep -c` counts and what the
+ * record's sentence means by a hit.
+ */
+const A_VISIBILITY_SYSTEM = /visibilit|unlisted|is_public/i;
+
+export function visibilityMentionsInTheSchema(): number {
+  let mentions = 0;
+  let filesRead = 0;
+
+  for (const place of ["schema", "migrations"]) {
+    const directory = join(repoRoot, "packages", "db", "src", place);
+    for (const entry of readdirSync(directory, { recursive: true, withFileTypes: true })) {
+      if (!entry.isFile() || !/\.(ts|sql)$/.test(entry.name)) continue;
+      filesRead += 1;
+      mentions += readFileSync(join(entry.parentPath, entry.name), "utf8")
+        .split("\n")
+        .filter((line) => A_VISIBILITY_SYSTEM.test(line)).length;
+    }
+  }
+
+  // THE ABSENCE NEEDS A SUBJECT, which is `ui-callers.test.ts`'s rule at the
+  // root of its own chain: a walk that read nothing would report "no visibility
+  // system" having looked at no schema, and that reads identically to the
+  // record being right.
+  if (filesRead === 0) {
+    throw new Error("no schema or migration file was read, so the absence has no subject");
+  }
+  return mentions;
+}
+
+/**
  * The peak Postgres connections one `pnpm test:e2e` takes.
  *
  * NOT DERIVED FROM THE TREE, AND SO READ FROM THE ONE PLACE THAT OWNS IT.
