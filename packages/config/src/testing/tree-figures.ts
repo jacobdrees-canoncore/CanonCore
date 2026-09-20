@@ -366,3 +366,19 @@ export function propertiesSeededByMigrationOne(): number {
   }
   return [...(values[1] as string).matchAll(/^\s*\('[a-z_]+'/gm)].length;
 }
+
+/**
+ * The rungs on ADR-0047's forward-only migration ladder.
+ *
+ * THE JOURNAL RATHER THAN THE HIGHEST NUMBER, and the two differ by one.
+ * ADR-0047 settles it in the repo's own words -- "Migration 2 -- rung 3 in the
+ * journal, since migration 1 is two rungs" -- because migration 1 ships as two
+ * files. A record quoting the highest migration NUMBER as the ladder's length
+ * is off by one for that reason and no other.
+ */
+export function migrationRungs(): number {
+  const journal = JSON.parse(read("packages/db/src/migrations/meta/_journal.json")) as {
+    entries: unknown[];
+  };
+  return journal.entries.length;
+}

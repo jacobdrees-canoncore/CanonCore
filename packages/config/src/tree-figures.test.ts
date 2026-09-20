@@ -6,6 +6,7 @@ import {
   countStatedIn,
   handBuiltRedirectsIn,
   jobsRequestingANodeMajor,
+  migrationRungs,
   procedureAnswerCallSites,
   propertiesSeededByMigrationOne,
   serversStoodUpByTheHttpSuite,
@@ -160,6 +161,12 @@ const CLAIMS: Claim[] = [
     derive: propertiesSeededByMigrationOne,
   },
   {
+    file: "docs/adr/0102-drizzle-stays-on-the-stable-line.md",
+    pattern: /the ladder has ([\w-]+) rungs/g,
+    population: "the rungs on the migration ladder",
+    derive: migrationRungs,
+  },
+  {
     file: "packages/config/vitest.config.ts",
     pattern: /what the other (\w+) configs are checked against/g,
     population: "the Vitest configs other than this one",
@@ -198,6 +205,10 @@ describe("a figure this tree states about itself", () => {
 
   it("counts the properties migration 1 seeds", () => {
     expect(propertiesSeededByMigrationOne()).toBe(11);
+  });
+
+  it("counts the rungs on the migration ladder, off the journal", () => {
+    expect(migrationRungs()).toBe(22);
   });
 
   it("reads a count written as a word", () => {

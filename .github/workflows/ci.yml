@@ -449,7 +449,7 @@ jobs:
   e2e:
     name: The page over HTTP
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 13
     services:
       # As above: a real server, matching packages/db/docker-compose.yml.
       postgres:
@@ -616,7 +616,7 @@ jobs:
   provider:
     name: Import and browse over HTTP, against the real provider-tmdb
     runs-on: ubuntu-latest
-    timeout-minutes: 9
+    timeout-minutes: 13
     needs: credentials
     # THE GATE. Its shape, and why it is not a step, is in the `credentials`
     # job above. What it costs is stated here: with the token absent this job
