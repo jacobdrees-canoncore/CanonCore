@@ -420,6 +420,234 @@ describe("what the owner is refused", () => {
   });
 });
 
+/**
+ * EVERY NON-IDENTIFYING PARAMETER `/items/<id>` TAKES, on one address.
+ *
+ * NONE OF THEM IDENTIFIES ANYTHING, which is what makes them safe to write out
+ * by hand (ADR-0066): `via` names the ordering a reader arrived through and
+ * `placed` the origin "Also appears in" is narrowed to, and a cursor naming no
+ * Row is the start of its listing rather than an error -- `canBeAnId` guards
+ * the shape before the comparison, so the page renders the same either way.
+ * What is under test is whether a REFUSAL hands them back, not what they mean.
+ *
+ * `placing` IS THE ONE THAT HAS TO MATCH SOMETHING, because a search matching
+ * nothing renders no place form at all (ADR-0116) and there would be nothing to
+ * submit. "Zoe" is the one title on this instance past the picker's first
+ * hundred.
+ *
+ * THE FORWARD CURSORS, WHICH IS HALF THE PAIR. `after` and `before` never share
+ * a link -- each names where one page starts -- so the step back is a second
+ * address and the test below it.
+ */
+const wholeAddress = {
+  via: "arrived-through-this",
+  placed: "narrowed-to-this",
+  after: "members-page-two",
+  placedAfter: "appearances-page-two",
+  placing: "Zoe",
+};
+
+describe("where a refusal leaves the Owner", () => {
+  /**
+   * A CONTAINER PLACED INSIDE ITSELF, which refuses and writes NOTHING --
+   * `refuse_placement_cycle`, migration 15. So these tests leave the instance
+   * exactly as they found it and may run in any order beside the rest of this
+   * file, which is what every other refusal here has to be careful about.
+   */
+  async function refusedFrom(at: string) {
+    const { text } = await documentAt(at, owner);
+    const itself = withFields(thePlaceForm(text), {
+      itemId: curatable.reaching,
+      position: "500",
+    });
+    return submit(baseUrl, at, itself, owner);
+  }
+
+  /**
+   * THE PLACE FORM, WHICH IS NOT ALWAYS THE FIRST FORM IN ITS SECTION.
+   *
+   * FOUND BY THE FIELD IT SUBMITS rather than by position. `formIn` answers the
+   * first POST form under a heading, and when an offer is standing
+   * `UndoRemoval` renders ABOVE this one -- so on the one page where both
+   * controls are up, "the form in that section" is the undo. That is how the
+   * assertion below first went red: on the harness, not on the page.
+   */
+  function thePlaceForm(text: string): RenderedForm {
+    const form = postFormsIn(sectionIn(text, "place-an-item")).find(({ fields }) =>
+      fields.some(([name]) => name === "itemId"),
+    );
+    if (!form) throw new Error("that page offers no form for placing an item");
+    return form;
+  }
+
+  it("hands back every parameter the address carried, in the fixed order", async () => {
+    /*
+     * THE TICKET'S FIRST CRITERION (CNCORE-290). CNCORE-256 gave this redirect
+     * `?placing=` and left the other two positions on the address behind: the
+     * POST form submitted what the WRITE needs and the narrowing, so `?via=`,
+     * `?placed=` and both listings' cursors were not on it to carry. A reader
+     * on page three of Members who was refused one placement came back to page
+     * one of Members AND page one of "Also appears in".
+     *
+     * ASSERTED AS ONE STRING RATHER THAN PARAMETER BY PARAMETER, because the
+     * ORDER is half the rule: ADR-0066 fixes where each sits so that one view
+     * of this page has one address, and an assertion that only asked whether
+     * each was present would pass against a redirect that re-spelled the lot.
+     */
+    const refused = await refusedFrom(
+      `/items/${curatable.reaching}?${new URLSearchParams(wholeAddress)}`,
+    );
+
+    expect(new URL(refused.url).search).toBe(
+      "?via=arrived-through-this&placed=narrowed-to-this&after=members-page-two" +
+        `&placedAfter=appearances-page-two&refused=${curatable.reaching}&because=cycle&placing=Zoe`,
+    );
+  });
+
+  it("hands back a STEP BACK in either listing, which the forward cursors do not cover", async () => {
+    /*
+     * THE OTHER HALF OF BOTH PAIRS (CNCORE-174). `after` and `before` never
+     * share a link -- each names where ONE page starts -- so an address
+     * carrying the forward pair proves nothing about the backward one, and a
+     * form carrying only `after` and `placedAfter` would send a reader who had
+     * stepped BACK through either listing to its start on a refusal. Which of
+     * each pair the Owner holds is theirs rather than this action's.
+     *
+     * AND `?placing=` IS ABSENT RATHER THAN EMPTY, which this asserts by
+     * asking an address that carries no narrowing: the picker here is the
+     * unsearched one, so `inTheFixedOrder` drops the parameter instead of
+     * writing a second spelling of this address (ADR-0066).
+     */
+    const steppedBack = new URLSearchParams({
+      before: "members-page-one",
+      placedBefore: "appearances-page-one",
+    });
+    const refused = await refusedFrom(`/items/${curatable.reaching}?${steppedBack}`);
+
+    expect(new URL(refused.url).search).toBe(
+      "?before=members-page-one&placedBefore=appearances-page-one" +
+        `&refused=${curatable.reaching}&because=cycle`,
+    );
+  });
+
+  /**
+   * WHAT A FORM POSTS BACK TO, as `submit` wants it: the path and the query,
+   * without the origin it came back with. `submit` joins what it is given to a
+   * base URL, so handing it an absolute one would ask for `http://hosthttp://host/...`.
+   */
+  function pathOf(url: string): string {
+    const landed = new URL(url);
+    return `${landed.pathname}${landed.search}`;
+  }
+
+  /**
+   * The id of the Placement one rendered form names, read off the form itself.
+   *
+   * FROM THE FORM RATHER THAN FROM THE ADDRESS IT LANDS ON, which is what keeps
+   * the assertions below from agreeing with the action by construction: the
+   * form is what the page rendered BEFORE the action ran, so an `?undo=` read
+   * out of the answer and compared to itself would pass whatever was written.
+   */
+  function placementNamedBy(form: RenderedForm): string {
+    const named = form.fields.find(([name]) => name === "id")?.[1];
+    if (named === undefined) throw new Error("that form names no placement");
+    return named;
+  }
+
+  /** One member of `reaching`, placed and then found by the row it renders as. */
+  async function aMemberAt(position: string, at: string) {
+    await place(curatable.reaching, { itemId: curatable.beyondThePage, position });
+    const { text } = await documentAt(at, owner);
+    return rowFor(text, curatable.beyondThePageTitle, `#${position}`);
+  }
+
+  it("hands the whole address back from a REMOVAL, with the undo offer appended", async () => {
+    /*
+     * CNCORE-293, FOLDED IN BECAUSE IT IS ONE REASON TO CHANGE. A removal
+     * redirects like the refusal above -- it has to, because with no script an
+     * offer can only reach the page through the URL (ADR-0046) -- and it built
+     * that address from the two fields its form carried and nothing else. So
+     * the most frequent editing act on this page was also the one that moved
+     * the reader furthest.
+     *
+     * `?undo=` LAST, WHICH IS ADR-0066's APPENDING RULE. It was written alone
+     * until now, and an address carrying ONE parameter has no order to keep; a
+     * second one is what puts it on the fixed list, behind everything already
+     * out there.
+     *
+     * NET ZERO ON THIS ORDERING. The member is placed by this test and removed
+     * by it, so what `reaching` holds afterwards is what it held before --
+     * which is what keeps this independent of where it is declared in the file.
+     */
+    const at = `/items/${curatable.reaching}?${new URLSearchParams(wholeAddress)}`;
+    const removal = await aMemberAt("600", at);
+
+    const gone = await submit(baseUrl, at, removal, owner);
+
+    expect(new URL(gone.url).search).toBe(
+      `?${new URLSearchParams(wholeAddress)}&undo=${placementNamedBy(removal)}`,
+    );
+  });
+
+  it("hands the whole address back from the UNDO, spending the offer and nothing else", async () => {
+    /*
+     * THE SECOND HALF, AND THE TWO ARE NOT ONE CHANGE. `restorePlacement`
+     * drops `?undo=` on purpose -- the offer is spent, and leaving it on would
+     * re-offer an undo of a removal already taken back -- so the question here
+     * is whether it drops anything ELSE, which is a different decision wearing
+     * the same line of code.
+     *
+     * FROM THE ADDRESS THE REMOVAL LANDED ON, because that is the only page
+     * that renders an Undo at all: with no script the offer lives in the URL.
+     */
+    const at = `/items/${curatable.reaching}?${new URLSearchParams(wholeAddress)}`;
+    const offered = await submit(baseUrl, at, await aMemberAt("601", at), owner);
+
+    const back = await submit(
+      baseUrl,
+      pathOf(offered.url),
+      formIn(offered.text, "place-an-item"),
+      owner,
+    );
+
+    expect(new URL(back.url).search).toBe(`?${new URLSearchParams(wholeAddress)}`);
+
+    // AND PUT IT BACK, since the undo restored the member this test placed.
+    const restored = await documentAt(at, owner);
+    await submit(baseUrl, at, rowFor(restored.text, curatable.beyondThePageTitle, "#601"), owner);
+  });
+
+  it("keeps a standing undo offer when a LATER placement is refused", async () => {
+    /*
+     * THE OFFER IS PART OF THE ADDRESS TOO, and it is the one parameter of it
+     * that another gesture can destroy outright. A removal leaves the Owner on
+     * `?undo=<id>` with BOTH controls on the page: the offer above, and the
+     * place form below it. Refuse something from that page and the redirect
+     * rebuilds the address -- so an offer it did not carry is an offer gone,
+     * for a gesture that never touched the removal.
+     *
+     * WHICH IS THIS RULE EATING ITS OWN TAIL: `undo` joined the fixed order in
+     * this same pass, and the form that had to learn to carry it is the one
+     * CNCORE-290 was about. Found by review of that half, against the half
+     * filed as CNCORE-293.
+     *
+     * NET ZERO AGAIN: the member this places is removed by the removal that
+     * mints the offer, and the refusal writes nothing.
+     */
+    const at = `/items/${curatable.reaching}?${new URLSearchParams(wholeAddress)}`;
+    const removal = await aMemberAt("602", at);
+    const offered = await submit(baseUrl, at, removal, owner);
+
+    const refused = await refusedFrom(pathOf(offered.url));
+
+    expect(new URL(refused.url).search).toBe(
+      "?via=arrived-through-this&placed=narrowed-to-this&after=members-page-two" +
+        `&placedAfter=appearances-page-two&refused=${curatable.reaching}` +
+        `&because=cycle&placing=Zoe&undo=${placementNamedBy(removal)}`,
+    );
+  });
+});
+
 describe("taking a member out again", () => {
   it("removes it from this container, leaves its other placements, and offers an undo", async () => {
     // ADR-0061 and ADR-0046 in one gesture: the member goes from THIS ordering

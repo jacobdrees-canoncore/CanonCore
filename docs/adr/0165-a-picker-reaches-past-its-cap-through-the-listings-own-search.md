@@ -98,13 +98,19 @@ values it carried before were a uuid and a word from a closed set, and neither c
 or a space. **A query is the Owner's own text, and splicing that into a URL by hand is how a search
 for `a&b` becomes two parameters.**
 
-**THAT REDIRECT CARRIES THE NARROWING AND NOT THE TWO CURSORS, WHICH IS THIS RECORD'S RULE APPLIED
-TO ONE POSITION OF THREE.** The POST form submits what the WRITE needs plus `placing`, so `?via=`
-and both listings' positions are not on it to carry. It is pre-existing -- before this, a refusal
-dropped all three -- and it is **CNCORE-290** with a TODO at the form, rather than six more fields
-on a schema that already carries one reaching no procedure. Said here because the rule above is
-stated five times in this diff, and a rule kept selectively without saying so is one the next reader
-cannot tell was reasoned.
+**THAT REDIRECT CARRIED THE NARROWING AND NOT THE TWO CURSORS, WHICH WAS THIS RECORD'S RULE APPLIED
+TO ONE POSITION OF THREE -- AND CNCORE-290 HAS SINCE APPLIED IT TO ALL THREE.** As this record
+shipped, the POST form submitted what the WRITE needs plus `placing`, so `?via=` and both listings'
+positions were not on it to carry; it was pre-existing, since before this a refusal dropped all
+three. It was left as **CNCORE-290** with a TODO at the form rather than six more fields on a schema
+that already carried one reaching no procedure. **That ticket took those fields**, the TODO is gone,
+and the rule for the whole page now lives in
+[[0172-a-form-that-can-be-refused-carries-the-address-it-was-submitted-from]] -- which holds it for
+all three forms on this page that redirect, the removal and the undo included (CNCORE-293, folded
+into the same pass). Said here because the rule above is stated
+five times in this diff, and a rule kept selectively without saying so is one the next reader cannot
+tell was reasoned. **Naming the half that was kept is what made the rest cheap**: the fix arrived as
+a ticket carrying a measurement rather than as a defect rediscovered from a reader's complaint.
 
 ## No bound is owed here, and the reason is where the query lands
 

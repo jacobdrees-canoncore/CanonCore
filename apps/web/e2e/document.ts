@@ -296,8 +296,28 @@ export async function submit(
   at: string,
   form: RenderedForm,
   cookie?: string,
-): Promise<{ status: number; text: string }> {
+): Promise<Submitted> {
   return submitted(baseUrl, at, form, cookie);
+}
+
+/**
+ * WHAT CAME BACK FROM A SUBMISSION: the document, and WHERE THE READER ENDED UP.
+ *
+ * `url` IS THE ADDRESS AFTER EVERY REDIRECT, which is the browser's address bar
+ * and not the address the form was posted to. Most surfaces here answer the POST
+ * itself, so the two are the same string and nothing reads this; a Server Action
+ * that REDIRECTS makes them differ, and the difference is the whole of what a
+ * reader keeps -- what a reload, a Back or a bookmark asks for next (CNCORE-290).
+ *
+ * READ OFF THE RESPONSE RATHER THAN PREDICTED, which is the point of taking it
+ * from here at all. `fetch` follows the `303` and reports where it landed, so
+ * this is the address the server chose; a test that rebuilt the expected address
+ * the way the action builds it would agree with the action by construction.
+ */
+export interface Submitted {
+  status: number;
+  text: string;
+  url: string;
 }
 
 /**
@@ -327,7 +347,7 @@ export async function submitAsAFilePart(
   form: RenderedForm,
   name: string,
   cookie?: string,
-): Promise<{ status: number; text: string }> {
+): Promise<Submitted> {
   if (!form.fields.some(([key]) => key === name)) {
     throw new Error(`that form carries no \`${name}\`: ${JSON.stringify(form.fields)}`);
   }
@@ -349,11 +369,11 @@ async function submitted(
   form: RenderedForm,
   cookie?: string,
   asAFilePart?: string,
-): Promise<{ status: number; text: string }> {
+): Promise<Submitted> {
   const response = await post(baseUrl, form.action === "" ? at : form.action, form, cookie, {
     asAFilePart,
   });
-  return { status: response.status, text: decoded(await response.text()) };
+  return { status: response.status, text: decoded(await response.text()), url: response.url };
 }
 
 /**

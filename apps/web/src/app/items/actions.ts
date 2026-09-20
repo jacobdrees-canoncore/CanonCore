@@ -8,7 +8,8 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { whatTheProcedureAnswered } from "@/answer";
-import { inTheFixedOrder } from "@/components/query-params";
+import type { MembersPath } from "@/components/listing";
+import { inTheFixedOrder, type LinkQuery } from "@/components/query-params";
 import { whatTheFormCarries, whatTheFormRepeats } from "@/form";
 import { callerContext } from "@/session";
 
@@ -231,30 +232,119 @@ const positionField = z
   .catch(null);
 
 /**
- * WHAT THE PLACEMENT PICKER WAS NARROWED TO, AS A FIELD (CNCORE-256).
+ * ONE PARAMETER OF THE ADDRESS THIS FORM WAS SUBMITTED FROM, AS A FIELD.
  *
- * IT REACHES NO PROCEDURE. Like `namedPlacement`'s `containerId` below, it
- * exists only to build the address a refusal redirects to -- so the Owner's
- * search is still in the box when the page comes back saying why nothing was
- * placed, rather than the picker they were reaching THROUGH being emptied at
- * the moment they have to choose again.
+ * IT REACHES NO PROCEDURE. Like `namedPlacement`'s `containerId` below, these
+ * exist only to build the address a refusal redirects to -- so the page that
+ * comes back saying why nothing was placed is the page the Owner was standing
+ * on, rather than the first page of everything they had walked past.
  *
  * ABSENT AND BLANK ARE ONE ANSWER, which is `oneValue`'s rule one file over and
- * is what keeps the two ends agreeing: an unnarrowed picker submits no field at
- * all, and a field of spaces is a box somebody tabbed through. Either way there
- * is no narrowing to carry, and `inTheFixedOrder` drops the parameter rather
- * than writing `?placing=`.
+ * is what keeps the two ends agreeing: a parameter the address did not carry is
+ * no field at all, and a field of spaces is one a browser submitted empty.
+ * Either way there is nothing to carry, and `inTheFixedOrder` drops the
+ * parameter rather than writing `?placing=`.
  */
-const theNarrowing = z
+const aParameterOfTheAddress = z
   .string()
   .transform((typed) => (typed.trim() === "" ? undefined : typed))
   .catch(undefined);
 
+/**
+ * WHERE THE OWNER WAS STANDING WHEN THEY PRESSED PLACE (CNCORE-290).
+ *
+ * `TheRoute`'s KEYS, WHICH IS THE POINT RATHER THAN A COINCIDENCE. That type is
+ * what every link on `/items/<id>` carries, and a refusal is this page's third
+ * way of arriving at itself beside a walk and a chip -- so what it hands back
+ * is the same set, read here as fields because this one arrives through a form.
+ *
+ * CNCORE-256 CARRIED ONE OF THEM AND ADR-0165 SAID SO. That ticket gave the
+ * picker a search and made the refusal keep it, which is `placing`; `via`,
+ * `placed` and both listings' cursors stayed off the form, so a reader on page
+ * three of Members who was refused one placement came back to page one of
+ * Members AND page one of "Also appears in". The rule was stated five times in
+ * that diff and kept in one place, which is worse than not stating it: the next
+ * reader cannot tell whether the omission was reasoned.
+ *
+ * BOTH CURSORS OF BOTH LISTINGS, THOUGH NO ADDRESS CARRIES ALL FOUR. `after`
+ * and `before` never share a link -- each names where ONE page starts -- but
+ * which of the pair the Owner is holding is theirs rather than this action's,
+ * and a form carrying only the forward one would send a reader who stepped back
+ * to the start. `inTheFixedOrder` writes the ones with values and drops the
+ * rest, so the address that comes back carries what the address that went in
+ * carried and nothing else.
+ */
+const theAddressItCameFrom = z.object({
+  via: aParameterOfTheAddress,
+  placed: aParameterOfTheAddress,
+  after: aParameterOfTheAddress,
+  placedAfter: aParameterOfTheAddress,
+  before: aParameterOfTheAddress,
+  placedBefore: aParameterOfTheAddress,
+  placing: aParameterOfTheAddress,
+});
+
+/**
+ * THIS CONTAINER'S PAGE, AT THE ADDRESS THE OWNER WAS STANDING ON (ADR-0172).
+ *
+ * THE ONE PLACE THE THREE REDIRECTS ON THIS PAGE BUILD AN ADDRESS. A refusal, a
+ * removal and an undo all leave through `redirect()` and all have to land where
+ * the reader was; written three times that is three chances for one of them to
+ * drop a parameter, which is the defect CNCORE-290 and CNCORE-293 between them
+ * fixed twice over.
+ *
+ * `inTheFixedOrder` IS APPLIED HERE RATHER THAN BY EACH CALLER, so the order
+ * every link on this page is written in is the order these three write too
+ * (ADR-0066), and a caller cannot forget it.
+ *
+ * AND A QUERY WITH NOTHING IN IT WRITES NO `?`. `restorePlacement` spends the
+ * only parameter its address is guaranteed to carry, so it is the one of the
+ * three that can end with an empty query -- and `/items/<id>?` is a second
+ * spelling of the bare address, which is what ADR-0066 exists to refuse. The
+ * other two always carry something and would never have found it.
+ *
+ * IT ANSWERS `MembersPath` RATHER THAN `string`, which is what `redirect` will
+ * take: Next's typed routes check a destination against the routes that exist,
+ * and a plain `string` satisfies none of them. That type is the template
+ * literal `listing.tsx` already declares for this same address, so the two
+ * surfaces that build it agree by construction rather than by care.
+ *
+ * `containerId` IS THE ONE VALUE HERE THAT IS NOT ESCAPED, and each caller
+ * establishes its shape before calling. It lands in the PATH, where a `?`, a
+ * `#` or a `../` would mean something; everything in `query` lands in a
+ * `URLSearchParams`, which percent-encodes it. `namedPlacement` declares
+ * `z.uuid()` and checks it here; `placedMember` declares `z.string()` and is
+ * checked one layer down, for the reason `placeItemInContainer` sets out at
+ * the line that builds its address -- reaching it at all means
+ * `placement.place` already accepted the value as `z.uuid()`. Said here
+ * because this function is now shared by callers that establish it two
+ * different ways, and a reader of this line can see neither.
+ */
+function theContainerAt(containerId: string, query: LinkQuery): MembersPath {
+  const asked = new URLSearchParams(inTheFixedOrder(query));
+  return asked.size > 0 ? `/items/${containerId}?${asked}` : `/items/${containerId}`;
+}
+
+/**
+ * AND THE OFFER STANDING OVER IT, WHICH ONLY THIS FORM CARRIES (CNCORE-290).
+ *
+ * `undo` IS NOT IN `theAddressItCameFrom` ABOVE, because the other two forms
+ * must not hand one back: a removal MINTS an offer, replacing whatever stood
+ * before it, and the undo SPENDS one. This form is the only one that meets an
+ * offer it has nothing to do with and has to leave it alone.
+ *
+ * AND THE STATE IS REACHABLE, which is why this is a field rather than an
+ * argument about one. A removal leaves the Owner on `?undo=<id>` with BOTH
+ * controls rendered -- the offer, and the place form under it -- so a refusal
+ * from that page rebuilds the address, and an address built without this drops
+ * an offer the Owner never acted on. Found by review.
+ */
 const placedMember = z.object({
   containerId: z.string(),
   itemId: z.string(),
   position: positionField,
-  placing: theNarrowing,
+  ...theAddressItCameFrom.shape,
+  undo: aParameterOfTheAddress,
 });
 
 /**
@@ -269,17 +359,28 @@ export async function placeItemInContainer(form: FormData): Promise<void> {
   if (input === undefined) return;
 
   /*
-   * THE NARROWING IS THIS ACTION'S AND NOT THE PROCEDURE'S, so it is taken off
+   * THE ADDRESS IS THIS ACTION'S AND NOT THE PROCEDURE'S, so it is taken off
    * before the call rather than passed through it. `removePlacement` below
    * makes the same separation for the same reason: a form carries what the
    * SURFACE needs as well as what the write needs, and handing a procedure a
    * field it never declared would be this action deciding what `placement.place`
    * takes.
+   *
+   * THE WRITE'S THREE FIELDS ARE NAMED AND THE REST IS THE ADDRESS, which is
+   * the way round that stays true as the form grows (CNCORE-290). Named the
+   * other way -- a `placing` lifted off and the remainder handed on -- it held
+   * while the surface carried ONE field of its own, and the seventh would have
+   * been the one somebody forgot to lift. What `placement.place` takes is the
+   * closed set here, so the open one is everything else.
    */
-  const { placing, ...placed } = input;
+  const { containerId, itemId, position, ...where } = input;
 
   const { refused } = await whatTheProcedureAnswered(
-    call(appRouter.placement.place, placed, { context: await callerContext() }),
+    call(
+      appRouter.placement.place,
+      { containerId, itemId, position },
+      { context: await callerContext() },
+    ),
   );
 
   /*
@@ -353,10 +454,7 @@ export async function placeItemInContainer(form: FormData): Promise<void> {
        * carrying no cause, or reached from an unnarrowed picker, simply writes
        * fewer parameters.
        */
-      const asked = new URLSearchParams(
-        inTheFixedOrder({ refused: input.itemId, because, placing }),
-      );
-      redirect(`/items/${input.containerId}?${asked}`);
+      redirect(theContainerAt(containerId, { ...where, refused: itemId, because }));
     }
     return;
   }
@@ -373,8 +471,16 @@ export async function placeItemInContainer(form: FormData): Promise<void> {
  * Action endpoint accepts whatever `FormData` it is sent. Unchecked, a `?` or a
  * `#` in it lands unescaped beside `?undo=` and a `../` walks out of `/items/`.
  * Found by review.
+ *
+ * AND WHERE THE OWNER WAS, AS THE PLACE FORM CARRIES IT (CNCORE-293). These two
+ * forms redirect, so what they do not carry is what their address cannot say --
+ * and until now they carried nothing about position at all.
  */
-const namedPlacement = z.object({ id: z.uuid(), containerId: z.uuid() });
+const namedPlacement = z.object({
+  id: z.uuid(),
+  containerId: z.uuid(),
+  ...theAddressItCameFrom.shape,
+});
 
 /**
  * The owner taking a member out of one container, and being offered it back.
@@ -389,26 +495,36 @@ const namedPlacement = z.object({ id: z.uuid(), containerId: z.uuid() });
  * reaches a page only through `useActionState`, a client hook with nothing to
  * give when nothing has loaded -- so post/redirect/get is what carries "you just
  * removed this" to the page that offers it back. `?undo=` names the placement,
- * LAST of the parameters this page takes: ADR-0066's fixed spelling order is
- * `via` then `placed`, CNCORE-89 appended `after`, and this appends rather than
- * inserts for the same reason.
+ * LAST of the parameters this page takes -- and since CNCORE-293 it says so on
+ * `IN_THE_FIXED_ORDER` rather than by being written alone. ADR-0066's spelling
+ * order is `via` then `placed`, CNCORE-89 appended `after`, and this appends
+ * rather than inserts for the same reason.
  *
  * IT IDENTIFIES NOTHING, which is what keeps it ADR-0066-shaped: the path is the
  * container's identity and the query is how the reader got to this view of it. A
  * stale or foreign id offers an undo the catalogue then declines, which
  * `restorePlacement` below turns back into the plain container page.
+ *
+ * AND `?undo=` IS NO LONGER ALL IT CARRIES (CNCORE-293). This form submitted
+ * the placement and the container and nothing about WHERE the Owner was, so a
+ * removal from page three of Members returned them to page one of Members AND
+ * page one of "Also appears in" -- the defect CNCORE-290 fixed on the refusal
+ * one action up, standing on the gesture ADR-0046 calls the most frequent one
+ * there is. That is also what put `undo` on `IN_THE_FIXED_ORDER`:
+ * `query-params.ts` says a parameter owes the list a place the moment it stops
+ * being alone on an address.
  */
 export async function removePlacement(form: FormData): Promise<void> {
   const named = whatTheFormCarries(form, namedPlacement);
   if (named === undefined) return;
-  const { id, containerId } = named;
+  const { id, containerId, ...where } = named;
 
   const { refused } = await whatTheProcedureAnswered(
     call(appRouter.placement.remove, { id }, { context: await callerContext() }),
   );
   if (refused) return;
 
-  redirect(`/items/${containerId}?undo=${id}`);
+  redirect(theContainerAt(containerId, { ...where, undo: id }));
 }
 
 /**
@@ -418,11 +534,17 @@ export async function removePlacement(form: FormData): Promise<void> {
  * it on would re-offer an undo of a removal that has already been taken back,
  * and a reader refreshing would meet a button that reads as though nothing had
  * happened.
+ *
+ * IT SPENDS THE OFFER AND NOTHING ELSE, WHICH IS TWO DECISIONS WEARING ONE LINE
+ * (CNCORE-293). Dropping `?undo=` is deliberate, as above; dropping `?via=`,
+ * both listings' cursors and the picker's search was the defect
+ * `removePlacement` carried, met a SECOND time by a reader who took the undo
+ * and was moved again for accepting it.
  */
 export async function restorePlacement(form: FormData): Promise<void> {
   const named = whatTheFormCarries(form, namedPlacement);
   if (named === undefined) return;
-  const { id, containerId } = named;
+  const { id, containerId, ...where } = named;
 
   /*
    * A DECLINED UNDO IS THE PLAIN CONTAINER PAGE, not a 500. `?undo=` is a
@@ -444,7 +566,7 @@ export async function restorePlacement(form: FormData): Promise<void> {
     call(appRouter.placement.restore, { id }, { context: await callerContext() }),
   );
 
-  redirect(`/items/${containerId}`);
+  redirect(theContainerAt(containerId, where));
 }
 
 /**
