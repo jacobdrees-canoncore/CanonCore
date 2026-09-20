@@ -51,3 +51,20 @@ edge case. One further constraint the same sweep supplies, and it changes where 
 **subtitles rather than codecs are where direct-play-only actually breaks** — on PlayStation "any
 subtitle at all disqualifies direct play", and image-based PGS and VOBSUB effectively cannot be
 offered at all. A remux answer that considers only video and audio codecs will not have answered it.
+
+## As built — and this record stays PROPOSED
+
+**BUILT: the refusal, which holds by ABSENCE.** There is no transcoding, no quality ladder and no
+ffmpeg anywhere in the tree, and nothing plays anything at all, so the largest scope constraint in
+the product is kept by there being no playback to break it.
+
+**NOT BUILT: everything the refusal buys.** Playability as the file's probed properties checked
+against the device's declared capabilities does not exist, and neither does the refusal that names
+the property that failed. The three source sites citing this record lean on it to leave a column
+EMPTY rather than to fill one: `sessions.capabilities` is opaque and unset because direct play is
+what makes the capability distinction decisive, and pinning a shape now would invent the one the
+first client has to answer (ADR-0043, itself half built).
+
+**THE REMUX GAP ABOVE IS NOT A THIRD HALF.** That section marks a question this record deliberately
+does not answer, which is a different thing from a mechanism built halfway: there is nothing there
+to finish, only something to decide when the playback slice arrives.

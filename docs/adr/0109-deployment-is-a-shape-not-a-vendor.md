@@ -769,3 +769,21 @@ Acceptable Use Policy at <https://whatbox.ca/policies/acceptable_use> and its Te
 for a support response time and carrying none; the account's own support history, holding one ticket;
 and the mail search described above. **The allowance itself has no source to cite, and that is the
 finding rather than a gap in the search.**
+
+## As built — and this record stays PROPOSED
+
+**BUILT: the coding rule, and the measurements behind it.** "A URL that the framework does not
+rewrite is never hand-built" is adopted, and the list of what Next.js rewrites was MEASURED under
+CNCORE-68 rather than recalled, with `redirect()` found not to be on it. The clause about something
+starting the process again after a reboot was measured against a real shared host under CNCORE-18,
+which is the section above. The source that cites this record leans on the rule at the sites it
+names.
+
+**NOT BUILT: `basePath`, `metadataBase`, and the host that would need either.** Both are refused
+today under `CLAUDE.md`'s rule against a configuration option nothing in the repo reads, and this
+record says so in as many words. So the SHAPE is a commitment rather than a deployment: nothing
+serves this app from a path prefix, nothing terminates TLS in front of it, and the hand-built
+canonical in the Item page is correct only because no `basePath` exists.
+
+**THE HANDOFF IS THE PART TO KEEP.** The two arrive together with the host that needs them, and the
+canonical is the specific thing to re-check on that day.
