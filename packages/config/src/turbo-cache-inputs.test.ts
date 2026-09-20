@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join, resolve, sep } from "node:path";
 import { describe, expect, it } from "vitest";
 import { repoRoot } from "./testing/repo-root";
+import { trackedFiles } from "./testing/tracked-files";
 import { plannedTasks } from "./testing/turbo-dry-run";
 
 /**
@@ -303,13 +304,7 @@ function importsOf(path: string, source: string, helpers: Map<string, string>): 
  * lists above name files and this names only packages.
  */
 function packagesReachingOutsideThemselves(): string[] {
-  const tracked = execFileSync(
-    "git",
-    ["ls-files", "packages/*.ts", "packages/*.tsx", "apps/*.ts", "apps/*.tsx"],
-    { cwd: repoRoot, encoding: "utf8" },
-  )
-    .split("\n")
-    .filter((path) => path.length > 0);
+  const tracked = trackedFiles(["packages/*.ts", "packages/*.tsx", "apps/*.ts", "apps/*.tsx"]);
 
   const sources = new Map(
     tracked.map((path) => [path, withoutComments(readFileSync(join(repoRoot, path), "utf8"))]),

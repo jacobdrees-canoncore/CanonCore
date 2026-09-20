@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { repoRoot } from "./testing/repo-root";
+import { isTrackedAs, trackedFiles } from "./testing/tracked-files";
 
 /**
  * A record naming one of THIS REPOSITORY'S symbols is naming something that can
@@ -142,13 +143,7 @@ const THIS_RECORD =
   "0166-an-identifier-a-record-names-is-checked-against-what-this-tree-once-held.md";
 
 function trackedSource(): string[] {
-  return execFileSync(
-    "git",
-    ["ls-files", "-z", "--", ".", ":(exclude)docs/**", ":(exclude)*.md", `:(exclude)${THIS_FILE}`],
-    { cwd: repoRoot, encoding: "utf8", maxBuffer: 32 * 1024 * 1024 },
-  )
-    .split("\0")
-    .filter((path) => path.length > 0);
+  return trackedFiles([".", ":(exclude)docs/**", ":(exclude)*.md", `:(exclude)${THIS_FILE}`]);
 }
 
 /** Every identifier-shaped token the tracked source holds TODAY. */
@@ -266,12 +261,7 @@ const NAMED_A_GONE_SYMBOL_ON_PURPOSE: Readonly<Record<string, string>> = {
  * prose, and the check goes GREEN ON ITS OWN SUBJECT.
  */
 function refuseToRunIfThisFileIsNotExcluded(): void {
-  const self = execFileSync("git", ["ls-files", "-z", "--", THIS_FILE], {
-    cwd: repoRoot,
-    encoding: "utf8",
-  }).split("\0")[0];
-
-  if (self !== THIS_FILE) {
+  if (!isTrackedAs(THIS_FILE)) {
     throw new Error(
       `${THIS_FILE} is not tracked under that path, so this suite no longer excludes itself ` +
         "and every identifier its own comments name is in the population it enforces.",

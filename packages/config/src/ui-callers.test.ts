@@ -1,8 +1,8 @@
-import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { repoRoot } from "./testing/repo-root";
+import { trackedFiles } from "./testing/tracked-files";
 
 /**
  * A ROLL CALL OVER `packages/ui`, HOLDING EVERY MODULE IN IT TO HAVING A CALLER.
@@ -223,20 +223,27 @@ function unimportedModules(sources: Map<string, string>): string[] {
  * its bytes octal-escaped, which then fails to open -- a read throwing ENOENT on
  * a file that is sitting right there.
  *
- * THE SECOND COPY OF THIS READ, and deliberately not folded with
- * `turbo-cache-inputs.test.ts`'s: [[0136-a-control-is-a-primitive-and-a-surfaces-words-sit-beside-its-pages]]
- * folds at three, on the argument that two copies are cheaper than an abstraction
- * neither caller can see the shape of yet. That one keeps the test files this one
- * drops, so the readers are not the same read.
+ * THE READ ITSELF IS `trackedFiles`, and the note that used to sit here is
+ * spent. It read "THE SECOND COPY OF THIS READ, and deliberately not folded",
+ * which was true when two was under
+ * [[0136-a-control-is-a-primitive-and-a-surfaces-words-sit-beside-its-pages]]'s
+ * line. It reached five (CNCORE-277), and `turbo-cache-inputs.test.ts` -- the
+ * neighbour that note named -- was holding the IDENTICAL pathspec WITHOUT the
+ * `-z` argued two paragraphs up. [[0169-the-fold-is-of-the-read-not-of-the-question-it-answers]]
+ * carries the fold and that measurement.
+ *
+ * WHAT STAYS HERE IS WHAT IS THIS SUITE'S OWN: the pathspec, the test-file
+ * filter and the comment stripping. Those are the three things the five readers
+ * genuinely disagreed about, and the fold deliberately left them with their
+ * callers.
  */
 function theTrackedSources(): Map<string, string> {
-  const tracked = execFileSync(
-    "git",
-    ["ls-files", "-z", "packages/*.ts", "packages/*.tsx", "apps/*.ts", "apps/*.tsx"],
-    { cwd: repoRoot, encoding: "utf8" },
-  )
-    .split("\0")
-    .filter((path) => path.length > 0 && !/\.(test|test-d)\.tsx?$/.test(path));
+  const tracked = trackedFiles([
+    "packages/*.ts",
+    "packages/*.tsx",
+    "apps/*.ts",
+    "apps/*.tsx",
+  ]).filter((path) => !/\.(test|test-d)\.tsx?$/.test(path));
 
   // NON-EMPTINESS IS RAISED HERE, at the root of the chain, which is where
   // `workspace.ts` puts it and for the same reason. An empty answer from the roll

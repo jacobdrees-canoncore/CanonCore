@@ -1,10 +1,10 @@
-import { execFileSync } from "node:child_process";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { flatten } from "./testing/flatten";
 import { repoRoot } from "./testing/repo-root";
+import { isTrackedAs, trackedFiles } from "./testing/tracked-files";
 
 /**
  * `CLAUDE.md`'s rule about half a mechanism, held over the records code leans on.
@@ -228,13 +228,12 @@ const CITED_ACROSS_THE_BOUNDARY = ["0097"];
 const THIS_FILE = "packages/config/src/adr-as-built.test.ts";
 
 function citedBySource(): Set<string> {
-  const tracked = execFileSync(
-    "git",
-    ["ls-files", "-z", "--", ".", ":(exclude)docs/**", ":(exclude)*.md", `:(exclude)${THIS_FILE}`],
-    { cwd: repoRoot, encoding: "utf8", maxBuffer: 32 * 1024 * 1024 },
-  )
-    .split("\0")
-    .filter((path) => path.length > 0);
+  const tracked = trackedFiles([
+    ".",
+    ":(exclude)docs/**",
+    ":(exclude)*.md",
+    `:(exclude)${THIS_FILE}`,
+  ]);
 
   const cited = new Set<string>();
   for (const path of tracked) {
@@ -254,11 +253,7 @@ function citedBySource(): Set<string> {
   // renaming this file would leave the exclusion matching nothing and quietly
   // hand its own prose back to the population -- an exclusion that stops
   // excluding reports nothing by its nature.
-  const self = execFileSync("git", ["ls-files", "-z", "--", THIS_FILE], {
-    cwd: repoRoot,
-    encoding: "utf8",
-  }).split("\0")[0];
-  if (self !== THIS_FILE) {
+  if (!isTrackedAs(THIS_FILE)) {
     throw new Error(
       `${THIS_FILE} is not tracked under that path, so this suite no longer excludes itself and ` +
         "every record its comments name is now in the population it enforces.",
