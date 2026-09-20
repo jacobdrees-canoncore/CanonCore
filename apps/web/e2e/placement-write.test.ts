@@ -194,14 +194,14 @@ describe("what the owner is refused", () => {
     expect(after.status).toBe(200);
     /*
      * AND IT SAYS WHICH OF THE FOUR (CNCORE-275). This asserted "Nothing was
-     * placed" while the page wrote its own sentence, and that sentence named
-     * two causes out of `placement.place`'s four -- so a cycle or a position
-     * the column cannot hold rendered as "already here, or no longer in the
-     * catalogue", a FALSE reason rather than a vague one. The page now renders
-     * the procedure's own refusal, so this asserts the words the Owner reads.
+     * placed" alone, which passed while the page named two causes out of
+     * `placement.place`'s four -- so a cycle or a position the column cannot
+     * hold rendered as "already here, or no longer in the catalogue", a FALSE
+     * reason rather than a vague one. The action now carries the CAUSE and the
+     * page answers it, so this asserts the words the Owner reads.
      */
     expect(sectionIn(after.text, "place-an-item")).toContain(
-      "That item is already in that container at that position",
+      "That item is already here at that position",
     );
   });
 
@@ -221,7 +221,9 @@ describe("what the owner is refused", () => {
     const after = await place(curatable.releaseOrder, itself);
 
     expect(after.status).toBe(200);
-    expect(sectionIn(after.text, "place-an-item")).toContain("A container cannot hold itself");
+    expect(sectionIn(after.text, "place-an-item")).toContain(
+      "A container cannot hold itself, or anything it already sits inside",
+    );
   });
 });
 

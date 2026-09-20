@@ -142,6 +142,13 @@ describe("what the owner is refused", () => {
     expect(error?.message).toBe(
       "That item is already in that container at that position, or already there with no position given.",
     );
+    /*
+     * AND THE CAUSE AS A WORD, which is what a SURFACE reads. `data` crosses the
+     * wire where `cause` does not, so this is the half `placeItemInContainer`
+     * routes on to pick its copy -- the message is for an API caller, and
+     * asserting only the message would leave the web's half unpinned.
+     */
+    expect(isDefinedError(error) && error.data).toStrictEqual({ because: "already-there" });
   });
 
   it("refuses an item that is not there, naming THAT cause", async () => {

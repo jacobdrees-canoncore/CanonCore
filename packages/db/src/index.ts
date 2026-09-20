@@ -52,9 +52,10 @@ export {
 export {
   type AssertedPlacement,
   assertPlacement,
-  isAPlacementRefusal,
+  isAPlacementRefusalCause,
   movePlacementByHand,
-  PLACEMENT_REFUSAL_SENTENCES,
+  PLACEMENT_REFUSAL_CAUSES,
+  type PlacementRefusalCause,
   PlacementRefused,
   placeItemByHand,
   type Reorder,

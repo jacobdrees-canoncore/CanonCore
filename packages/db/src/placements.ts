@@ -165,7 +165,10 @@ export function isRefusalOn(codes: ReadonlySet<string>, error: unknown): boolean
  * the narrowing without a sentence to report it by. The two-structure version
  * is the shape that lets them drift.
  */
-function refusalIn(reasons: Readonly<Record<string, string>>, error: unknown): string | undefined {
+function refusalIn(
+  reasons: Readonly<Record<string, { because: PlacementRefusalCause; sentence: string }>>,
+  error: unknown,
+): { because: PlacementRefusalCause; sentence: string } | undefined {
   for (const code of sqlstatesIn(error)) {
     // `hasOwn`, SO `constructor` AND `toString` ARE NOT REASONS. `code` is a
     // driver's string and this lookup is a plain object, so an inherited member
@@ -195,7 +198,21 @@ function* sqlstatesIn(error: unknown): Generator<string> {
  * asked to put one -- and a surface that caught one class for both would report
  * "no such kind of item" when what happened was a Repeat at one position.
  */
-export class PlacementRefused extends Error {}
+export class PlacementRefused extends Error {
+  /**
+   * WHICH refusal this is, for a surface that has to route on it rather than
+   * print it. The message stays the sentence an API caller reads.
+   */
+  readonly because: PlacementRefusalCause;
+
+  constructor(
+    { because, sentence }: { because: PlacementRefusalCause; sentence: string },
+    options?: ErrorOptions,
+  ) {
+    super(sentence, options);
+    this.because = because;
+  }
+}
 
 /**
  * The refusals the owner can actually provoke here, by their SQLSTATE.
@@ -240,13 +257,55 @@ export class PlacementRefused extends Error {}
  * THE FIFTH REFUSAL, raised directly by `movePlacementByHand` rather than by a
  * SQLSTATE, which is why it sits beside the map instead of inside it.
  */
-const A_PLACEMENT_THIS_CONTAINER_DOES_NOT_HOLD =
-  "That move named a placement this container does not hold.";
+/**
+ * WHY a placement was refused, as a word rather than a sentence.
+ *
+ * THE CODE TRAVELS AND THE COPY DOES NOT (CNCORE-262, CNCORE-275). A refusal
+ * raised in a Server Action reaches the Owner's page through a REDIRECT, so
+ * whatever carries the reason sits in a URL the Owner can edit and a stranger
+ * can compose. Sending the sentence would let a forged link print arbitrary
+ * text in this app's voice; sending a word from a closed set cannot, and it
+ * leaves the meaning where [[0123-a-failure-reason-is-bounded-and-says-who-wrote-it]]
+ * puts it -- with the action, not with whoever typed the address.
+ *
+ * NOT THE SQLSTATE, which is this package's private business: `23514` in an
+ * address bar tells the Owner nothing and pins a schema detail into a URL.
+ */
+export const PLACEMENT_REFUSAL_CAUSES = [
+  "already-there",
+  "no-such-item-or-container",
+  "cycle",
+  "position-out-of-range",
+  "not-in-this-container",
+] as const;
 
-const PLACEMENT_REFUSALS: Readonly<Record<string, string>> = {
-  "23505":
-    "That item is already in that container at that position, or already there with no position given.",
-  "23503": "No such item or container.",
+/**
+ * ONE LIST, AND THE TYPE IS READ OFF IT. Written twice -- a union beside an
+ * array -- the two drift, and a surface answering "every cause" would go on
+ * compiling while it answered four of five. It is also the tuple `z.enum`
+ * needs, so the wire schema is this list rather than a third copy.
+ */
+export type PlacementRefusalCause = (typeof PLACEMENT_REFUSAL_CAUSES)[number];
+
+/** Whether a word handed in from outside names a cause this catalogue raises. */
+export function isAPlacementRefusalCause(word: string): word is PlacementRefusalCause {
+  return (PLACEMENT_REFUSAL_CAUSES as readonly string[]).includes(word);
+}
+
+const A_PLACEMENT_THIS_CONTAINER_DOES_NOT_HOLD = {
+  because: "not-in-this-container",
+  sentence: "That move named a placement this container does not hold.",
+} as const;
+
+const PLACEMENT_REFUSALS: Readonly<
+  Record<string, { because: PlacementRefusalCause; sentence: string }>
+> = {
+  "23505": {
+    because: "already-there",
+    sentence:
+      "That item is already in that container at that position, or already there with no position given.",
+  },
+  "23503": { because: "no-such-item-or-container", sentence: "No such item or container." },
   /*
    * TWO RAISES SHARE THIS ONE CODE, so the sentence has to hold for both.
    * `refuse_placement_cycle` (migration 15) raises `container % cannot hold
@@ -255,35 +314,15 @@ const PLACEMENT_REFUSALS: Readonly<Record<string, string>> = {
    * earlier version of this line named the walk alone, which is the defect
    * CNCORE-255 exists to close, one level down from the router.
    */
-  "23514": "A container cannot hold itself, or something it already sits inside.",
-  "22003": "That position is outside the range the catalogue can store.",
+  "23514": {
+    because: "cycle",
+    sentence: "A container cannot hold itself, or something it already sits inside.",
+  },
+  "22003": {
+    because: "position-out-of-range",
+    sentence: "That position is outside the range the catalogue can store.",
+  },
 };
-
-/**
- * EVERY SENTENCE A PLACEMENT REFUSAL CAN CARRY, which a surface uses to decide
- * whether a string it was handed is one of ours.
- *
- * IT EXISTS BECAUSE THE SENTENCE TRAVELS THROUGH A URL. `placeItemInContainer`
- * refuses inside a Server Action and then redirects, so the only way the
- * sentence reaches the page the Owner lands on is the query -- and a query is
- * something anybody can compose. Rendering it unchecked would let a crafted
- * link put arbitrary text in this app's own voice on this app's own page, which
- * is the harm [[0123-a-failure-reason-is-bounded-and-says-who-wrote-it]] names
- * when it says a stranger must not choose the content of text on a page it does
- * not own. Checking against the set rather than capping the length is the
- * stronger answer available here, because the population is closed.
- *
- * ONE SOURCE, so the page holds no copy of these sentences to drift from.
- */
-export const PLACEMENT_REFUSAL_SENTENCES: readonly string[] = [
-  ...Object.values(PLACEMENT_REFUSALS),
-  A_PLACEMENT_THIS_CONTAINER_DOES_NOT_HOLD,
-];
-
-/** Whether a string handed in from outside is a refusal this catalogue wrote. */
-export function isAPlacementRefusal(text: string): boolean {
-  return PLACEMENT_REFUSAL_SENTENCES.includes(text);
-}
 
 /**
  * THE OWNER PUTTING AN ITEM IN A CONTAINER, naming the placement it creates.

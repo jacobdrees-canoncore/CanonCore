@@ -110,12 +110,17 @@ const COUNT_WORDS: Record<string, number> = {
 };
 
 /**
- * The tens a compound opens with. `twenty` ALONE, because that is as far as any
- * sentence in this tree counts today and a word this does not know THROWS with
- * a message naming it -- so the next one is added when a claim reaches it,
- * rather than guessed at now.
+ * The tens a compound opens with. `twenty` and `thirty`, because that is as far
+ * as any sentence in this tree counts today and a word this does not know
+ * THROWS with a message naming it -- so the next one is added when a claim
+ * reaches it, rather than guessed at now.
+ *
+ * `thirty` IS HERE BECAUSE A CLAIM REACHED IT, which is this table working
+ * rather than an exception to it. It read `twenty` alone until CNCORE-255 added
+ * the two placement-refusal claims and pushed ADR-0153's own count of itself to
+ * thirty-one; the throw named the missing word, as the sentence above promises.
  */
-const TENS: Record<string, number> = { twenty: 20 };
+const TENS: Record<string, number> = { twenty: 20, thirty: 30 };
 
 export function asCount(written: string): number {
   const word = written.trim().toLowerCase().replace(/,/g, "");
@@ -445,4 +450,46 @@ export function timeoutWindowAsTheSuiteRestatesIt(): { from: string; to: string 
   }
   const [, from, to] = found[0] as RegExpMatchArray;
   return { from: from as string, to: to as string };
+}
+
+/**
+ * The causes `placement.place` can be refused by: the SQLSTATEs
+ * `placements.ts` narrows, each keyed to a cause and the sentence it carries.
+ *
+ * THE MAP IS THE POPULATION, not a list written beside it. CNCORE-255 made that
+ * record `code -> { because, sentence }` precisely so a code cannot join the
+ * narrowing without both, and this counts the same keys the router's prose
+ * claims.
+ */
+export function placementRefusalCauses(): number {
+  const body =
+    /const PLACEMENT_REFUSALS: Readonly<\s*Record<string, \{ because: PlacementRefusalCause; sentence: string \}>\s*> = \{([\s\S]*?)\n\};/.exec(
+      read("packages/db/src/placements.ts"),
+    );
+  if (body === null) {
+    throw new Error(
+      "`PLACEMENT_REFUSALS` is no longer a record literal in `packages/db/src/placements.ts`",
+    );
+  }
+  return [...(body[1] as string).matchAll(/^\s*"(\d{5})":/gm)].length;
+}
+
+/**
+ * The causes `placement.move` can be refused by: `place`'s four, plus the one
+ * it raises directly rather than through a SQLSTATE.
+ *
+ * `PLACEMENT_REFUSAL_CAUSES` IS THE WHOLE SET and the type is read off it, so
+ * counting it is counting what every surface must answer -- which is the point
+ * of the list being one list.
+ */
+export function movePlacementRefusalCauses(): number {
+  const body = /export const PLACEMENT_REFUSAL_CAUSES = \[([\s\S]*?)\n\] as const;/.exec(
+    read("packages/db/src/placements.ts"),
+  );
+  if (body === null) {
+    throw new Error(
+      "`PLACEMENT_REFUSAL_CAUSES` is no longer an `as const` array in `packages/db/src/placements.ts`",
+    );
+  }
+  return [...(body[1] as string).matchAll(/^\s*"[a-z-]+",$/gm)].length;
 }

@@ -1,5 +1,6 @@
 import {
   movePlacementByHand,
+  PLACEMENT_REFUSAL_CAUSES,
   PlacementRefused,
   placeItemByHand,
   removePlacementByHand,
@@ -63,6 +64,13 @@ export const placement = {
          */
         message:
           "That item is already in that container at that position, no such item or container, a container cannot hold itself or something it already sits inside, or that position is outside the range the catalogue can store.",
+        /*
+         * AND WHICH ONE, AS A WORD (CNCORE-262, CNCORE-275). `data` is
+         * serialised where `cause` is not, so this is what lets a surface ROUTE
+         * on the refusal -- pick its own copy, or carry the reason through a
+         * redirect -- instead of printing a sentence it was handed.
+         */
+        data: z.object({ because: z.enum(PLACEMENT_REFUSAL_CAUSES) }),
       },
     })
     .handler(async ({ input, context, errors }) => {
@@ -97,7 +105,11 @@ export const placement = {
          * still travels for the server's own chain.
          */
         if (cause instanceof PlacementRefused) {
-          throw errors.BAD_REQUEST({ message: cause.message, cause });
+          throw errors.BAD_REQUEST({
+            message: cause.message,
+            data: { because: cause.because },
+            cause,
+          });
         }
         throw cause;
       }
@@ -166,6 +178,8 @@ export const placement = {
          */
         message:
           "That item is already in that container at that position, no such item or container, a container cannot hold itself or something it already sits inside, that position is outside the range the catalogue can store, or that move named a placement this container does not hold.",
+        /* WHICH ONE, as `place` above. */
+        data: z.object({ because: z.enum(PLACEMENT_REFUSAL_CAUSES) }),
       },
     })
     .handler(async ({ input, context, errors }) => {
@@ -189,7 +203,11 @@ export const placement = {
       } catch (cause) {
         // THE MESSAGE IS PASSED, NOT JUST THE CAUSE -- `place`'s reason above.
         if (cause instanceof PlacementRefused) {
-          throw errors.BAD_REQUEST({ message: cause.message, cause });
+          throw errors.BAD_REQUEST({
+            message: cause.message,
+            data: { because: cause.because },
+            cause,
+          });
         }
         throw cause;
       }

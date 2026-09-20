@@ -1,6 +1,7 @@
 "use server";
 
 import { appRouter } from "@canoncore/api/routers";
+import { isAPlacementRefusalCause } from "@canoncore/db";
 import { call, isDefinedError } from "@orpc/server";
 import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
@@ -281,18 +282,34 @@ export async function placeItemInContainer(form: FormData): Promise<void> {
   if (refused) {
     if (isDefinedError(refused) && refused.code === "BAD_REQUEST") {
       /*
-       * AND THE SENTENCE TRAVELS WITH IT (CNCORE-275). `placement.place` answers
+       * AND THE CAUSE TRAVELS WITH IT (CNCORE-275). `placement.place` answers
        * WHICH of its four causes refused the write, and dropping that here is
        * what left the page guessing: it rendered a hardcoded two-cause sentence,
        * so a cycle or an out-of-range position was reported as "already placed,
        * or no longer in the catalogue" -- a false reason rather than a vague one.
        *
-       * ENCODED, BECAUSE IT IS PROSE GOING INTO A URL. The page does not trust
-       * it back: `isAPlacementRefusal` checks it against the closed set before
-       * rendering, since a query is something anybody can compose.
+       * THE CODE, NOT THE SENTENCE, which is the shape CNCORE-262 took on this
+       * same question. A redirect puts whatever this carries into a URL the
+       * Owner can edit and a stranger can compose, so a sentence here would let
+       * a forged link print arbitrary text in this app's voice. A word from a
+       * closed set cannot, and it leaves the MEANING with this action rather
+       * than with whoever typed the address (ADR-0123). The page owns the copy.
        */
-      const because = encodeURIComponent(refused.message);
-      redirect(`/items/${input.containerId}?refused=${input.itemId}&because=${because}`);
+      const said = (refused.data as { because?: unknown } | undefined)?.because;
+      /*
+       * CHECKED RATHER THAN CAST THROUGH. `whatTheProcedureAnswered` answers
+       * `ORPCError<ORPCErrorCode, unknown>` -- `isARefusal` widens `data` on
+       * purpose, because `/api/rpc` shares that predicate and cares only
+       * whether a thing is a refusal -- so the cause is READ here rather than
+       * assumed. A refusal that somehow carries no cause falls back to the
+       * vague sentence instead of putting `undefined` in the address.
+       */
+      const because = typeof said === "string" && isAPlacementRefusalCause(said) ? said : undefined;
+      redirect(
+        because === undefined
+          ? `/items/${input.containerId}?refused=${input.itemId}`
+          : `/items/${input.containerId}?refused=${input.itemId}&because=${because}`,
+      );
     }
     return;
   }
