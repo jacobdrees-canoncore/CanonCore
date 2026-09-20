@@ -121,7 +121,7 @@ change that would owe a bound**, and whoever makes it owes it in the same edit.
 `/search` does quote its query, in "Nothing matched <query>", and **did not bound it when this
 record was taken**. That was a gap in that surface rather than a licence for this one, and it was
 **CNCORE-291** rather than something copied here. **CLOSED**
-([[0168-a-value-a-page-both-asks-with-and-quotes-is-two-values]]): `?q=` is bounded on both levers
+([[0170-a-value-a-page-both-asks-with-and-quotes-is-two-values]]): `?q=` is bounded on both levers
 where it is read. The reasoning above is untouched, because it turns on where a value LANDS -- that
 one lands in a form field and this one landed in a sentence, which is why only one of them owed a
 bound.

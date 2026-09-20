@@ -53,7 +53,7 @@ const QUERY_IN_A_SENTENCE = 80;
 /**
  * THE QUERY AS A PAGE QUOTES IT, WHICH IS NEVER THE QUERY IT ASKS WITH.
  *
- * TWO VALUES, DELIBERATELY (ADR-0168). What is SEARCHED is the whole query and
+ * TWO VALUES, DELIBERATELY (ADR-0170). What is SEARCHED is the whole query and
  * what is PRINTED is this. A single shortened value would change the ANSWER as
  * well as the sentence -- Catalogue search matches `title ilike '%<query>%'`
  * (ADR-0120), and `/import` sends the words to a Provider -- so a cut query is

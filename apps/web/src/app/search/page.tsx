@@ -114,7 +114,7 @@ export default async function SearchPage({
   const query = oneValue(q) ?? "";
   /**
    * THE QUERY AS THIS PAGE QUOTES IT, WHICH IS NOT THE QUERY IT ASKS WITH
-   * (ADR-0168). `readSearch` below takes `query` and so does `surface`, whose
+   * (ADR-0170). `readSearch` below takes `query` and so does `surface`, whose
    * `?q=` every picker and walk link carries; only the heading takes this one.
    *
    * `theQueryQuoted` OWNS THE CEILING AND BOTH LEVERS, beside `oneValue` which

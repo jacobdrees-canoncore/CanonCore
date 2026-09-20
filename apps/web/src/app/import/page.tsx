@@ -69,7 +69,7 @@ interface TheSearchThatFound {
   /**
    * WHAT WAS ASKED: the whole query, which is what the Providers were sent and
    * what every link and the hidden field replaying this search carry. Never
-   * printed -- see `quoted` (ADR-0168, CNCORE-296).
+   * printed -- see `quoted` (ADR-0170, CNCORE-296).
    */
   q: string;
   /**
@@ -1014,7 +1014,7 @@ function Results({
           THE READER'S OWN QUERY, BOUNDED WHERE IT WAS READ (CNCORE-296).
           `?q=` is composed by anybody and this sentence is one the page speaks
           in its OWN voice, so `search.quoted` and never `search.q`: ADR-0123
-          decides how much of it this app repeats, and ADR-0168 why the field
+          decides how much of it this app repeats, and ADR-0170 why the field
           it is repeated from is not the field the Providers were asked with.
           `TheirWords` still settles the WIDTH, as on `/search`, and the
           sentence around it does not go through it (ADR-0142).
