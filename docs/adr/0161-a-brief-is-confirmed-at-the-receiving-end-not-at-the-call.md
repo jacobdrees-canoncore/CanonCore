@@ -75,10 +75,29 @@ reads could not distinguish the probe's binding from the caller's, and proved no
 withdrawn rather than restated. The binding measurements above stand, because they are `worktree
 list` reads and never touch `--current`.
 
-So the likeliest reading of the five failures is the documented trap: a by-hand check from the wrong
-terminal. The research is explicit that **the normal dispatch path is unaffected**, because the
-agent is given a terminal Orca created in its own worktree — as this ticket's own agent was, which
-resolved CNCORE-265 from `--current` on its first call.
+### Why it was five for five, and why it reproduces for a dispatcher and not for an agent
+
+The rule is not "sometimes fails". It is **the caller's own worktree answers**, and that makes the
+outcome a property of who is asking:
+
+| the caller's terminal belongs to | `--current` answers |
+| --- | --- |
+| a bound ticket worktree | that terminal's ticket, whatever directory it stands in |
+| the MAIN worktree, which is unbound | `linear_no_linked_issue`, every time |
+
+A dispatcher works from the main worktree (`CLAUDE.md`: "Dispatch from the main worktree"), and
+`/Users/jacobrees/orca/projects/CanonCore` carries `linkedLinearIssue: null` — it is a checkout, not
+a ticket. So a by-hand check from there returns `linear_no_linked_issue` for **every** worktree the
+dispatcher stands in, bound or not, which is exactly the five-for-five the wave saw and the
+re-verification on `cncore-282` that followed it. The research document had measured this same
+unbound-caller case; this record adds the bound-caller half, and the two together fix the rule.
+
+**The normal dispatch path is unaffected**, because Orca gives the agent a terminal in its own
+worktree — as this ticket's own agent had, resolving CNCORE-265 from `--current` on its first call,
+before anybody told it a ticket number.
+
+So the hand-briefing the wave fell back on was not noise: from the dispatcher's terminal the check
+could not have returned anything else, and no amount of re-running it would have said otherwise.
 
 ## The other two faces, both the dispatcher's measurements
 

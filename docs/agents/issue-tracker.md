@@ -275,6 +275,11 @@ overridden to fake it, and `docs/research/multi-repo.md` measured the same trap 
 which produced a false negative inside this research". **A dispatched agent is unaffected**, because
 Orca gives it a terminal in its own worktree.
 
+**For a dispatcher it fails every time, not intermittently.** Dispatch runs from the main worktree,
+and that checkout has no binding of its own, so `--current` from there answers
+`linear_no_linked_issue` about ITSELF for every worktree you stand in — bound or not, however often
+you re-run it. A repeated failure is therefore evidence of nothing.
+
 **The binding itself is sound.** Both `create --linear-issue` and `set --linear-issue` store it, and
 `create` returns it in its own response — measured 2026-09-20 against probe worktrees made and
 removed for it, each read back through `orca worktree list` rather than through the write's own

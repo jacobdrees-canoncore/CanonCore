@@ -258,8 +258,10 @@ let the range pick the newer one up later.
   belonging to `cncore-265`, standing in `cncore-281`: it answered **CNCORE-265**.
   `docs/research/multi-repo.md` had already measured this under "The trap, which produced a false
   negative inside this research", and ruled there that a null `linkedLinearIssueWorkspaceId` "is not
-  a signal of anything" — so that field is not the tell either. The five failures of 2026-09-20 are
-  most likely this trap. **The dispatched agent is unaffected**, because Orca gives it a terminal in
-  its own worktree. So audit a binding with `linkedLinearIssue` from `orca worktree list`, or read a
-  `monitor.sh` pass with no `UNBOUND` line as that question already answered; leave `--current` to
-  the agent reading its OWN ticket.
+  a signal of anything" — so that field is not the tell either. **AND IT IS FIVE FOR FIVE FOR YOU
+  SPECIFICALLY**, because you dispatch from the main worktree and that checkout carries no binding
+  of its own: `--current` from there returns `linear_no_linked_issue` for EVERY worktree you stand
+  in, bound or not, however many times you re-run it. **The dispatched agent is unaffected**, since
+  Orca gives it a terminal in its own worktree. So audit a binding with `linkedLinearIssue` from
+  `orca worktree list`, or read a `monitor.sh` pass with no `UNBOUND` line as that question already
+  answered; leave `--current` to the agent reading its OWN ticket.
