@@ -19,9 +19,22 @@ import { documentAt, logInAt, mainOf, markedCurrentInPicker, pickedIn } from "./
  * every Row there a Work, so a picker would offer six options that answer
  * nothing. `pickedIn` throws where a picker is absent, so each loop below is
  * also the assertion that the picker is there at all.
+ *
+ * EVERY SURFACE IS NARROWED TO A GROUP FIRST, which is `scope.test.ts`'s own
+ * arrangement and is load-bearing here rather than incidental. The files of
+ * this suite share one catalogue and write to it concurrently, and the
+ * recently-added order puts whatever arrived last at the TOP -- so two fetches
+ * of `/?order=added` seconds apart are two different pages, and the
+ * reload-and-share assertion below fails on a catalogue doing exactly what it
+ * should. MEASURED: this test passed run alone and failed in the full suite,
+ * `expected '<main ...>' to be '<main ...>'`. The seeded Group nobody writes to
+ * is a Listing that holds still, and what is under test here is whether the
+ * ADDRESS carries the choice -- never whether the catalogue is quiet.
  */
 const ORDER = "Order this Listing";
 const KIND = "Narrow to a kind";
+/** The seeded Group whose Rows nobody writes to, as `scope.test.ts` uses it. */
+const GROUP = `group=${inject("workBrowsing").group.id}`;
 
 /** The same page asked again, and asked by somebody with no session. */
 async function reloadedAndShared(address: string, owner: string) {
@@ -41,9 +54,12 @@ describe("the order a reader picked", () => {
   it("survives a reload, and a link to it opens the same page for anybody", async () => {
     const owner = await logInAt(inject("baseUrl"), inject("ownerPassword"));
 
-    for (const surface of ["/", "/works"]) {
+    for (const surface of [`/?${GROUP}`, `/works?${GROUP}`]) {
       const ordered = pickedIn((await documentAt(surface, owner)).text, ORDER, "Recently added");
       expect(ordered, surface).toContain("order=added");
+      // THE GROUP IS STILL ON IT, which is the other half of "keeps everything
+      // else": an order picked inside a scope must not walk the reader out of it.
+      expect(ordered, surface).toContain(GROUP);
 
       const seen = await reloadedAndShared(ordered, owner);
       expect(markedCurrentInPicker(seen.text, ORDER), ordered).toStrictEqual(["Recently added"]);
@@ -58,9 +74,10 @@ describe("the kind a reader narrowed to", () => {
     // THE CATALOGUE AND CATALOGUE SEARCH, which are the two whose kinds differ.
     // Search carries its query through the narrowing, which is the half that
     // would break if the picker wrote this Listing's start without `q`.
-    for (const surface of ["/", "/search?q=season"]) {
+    for (const surface of [`/?${GROUP}`, `/search?q=season&${GROUP}`]) {
       const narrowed = pickedIn((await documentAt(surface, owner)).text, KIND, "Person");
       expect(narrowed, surface).toContain("kind=person");
+      expect(narrowed, surface).toContain(GROUP);
 
       const seen = await reloadedAndShared(narrowed, owner);
       expect(markedCurrentInPicker(seen.text, KIND), narrowed).toStrictEqual(["Person"]);
@@ -91,7 +108,7 @@ describe("a Listing narrowed to a kind it holds none of", () => {
     // `concept` IS THE KIND CHOSEN BECAUSE NOTHING SEEDS ONE. This instance
     // holds a Work, a Person, a Character and a Time span, so narrowing to any
     // of those leaves Rows on the page and asserts nothing about an empty one.
-    const { status, text } = await documentAt("/?kind=concept");
+    const { status, text } = await documentAt(`/?${GROUP}&kind=concept`);
 
     expect(status).toBe(200);
     expect(mainOf(text)).toContain("Nothing here is");
@@ -110,7 +127,7 @@ describe("the order and the kind together", () => {
     // already ordered -- which is what asserts that neither drops the other.
     // Picking them independently from the start would pass against a pair of
     // controls that each cleared the other.
-    const ordered = pickedIn((await documentAt("/", owner)).text, ORDER, "Recently added");
+    const ordered = pickedIn((await documentAt(`/?${GROUP}`, owner)).text, ORDER, "Recently added");
     const both = pickedIn((await documentAt(ordered, owner)).text, KIND, "Person");
     expect(both).toContain("order=added");
     expect(both).toContain("kind=person");
