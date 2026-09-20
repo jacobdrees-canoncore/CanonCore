@@ -30,6 +30,7 @@ import {
   REASON_MAX_LENGTH,
   reasonFor,
   searchProviders,
+  shortenTo,
 } from "@canoncore/providers";
 import { z } from "zod";
 
@@ -525,6 +526,91 @@ function asReportedContainer(container: RunContainer): z.infer<typeof runContain
     };
   }
   return { containerId: container.externalId, outcome: "pending" };
+}
+
+/**
+ * HOW LONG A CONTAINER ID MAY BE, AND THE NUMBER IS ABOUT PROVIDERS RATHER THAN
+ * ABOUT POSTGRES (ADR-0160).
+ *
+ * `import_run_containers_named_once` is a btree and cannot index a value over
+ * 2704 bytes -- reproduced on this tree's PostgreSQL 18.6 as "index row size
+ * 8016 exceeds btree version 4 maximum 2704" -- but that is the wrong ceiling
+ * to take, because an id anywhere near it is already wrong. Measured against the
+ * Owner's own install on 2026-09-20: its 466 Container ids run 4 to 6
+ * characters, and all 8,052 Item external ids run 2 to 6, averaging 5.5. They
+ * are MediaWiki pageids.
+ *
+ * 255 IS THE HEADROOM A PROVIDER COULD HONESTLY NEED. CMPP declares a record's
+ * id as `z.string().min(1)`, so a Provider is free to use a page title where
+ * `provider-wiki` uses a pageid, and MediaWiki caps a title at 255 bytes
+ * (mediawiki.org, `Page_title_size_limitations`, last edited 2025-11-07; 255
+ * because that is what one byte of length can express). This is 255
+ * CHARACTERS, which is the more generous reading of that ceiling and never the
+ * meaner one: a 255-byte title is at most 255 characters and may be as few as
+ * 64.
+ *
+ * AND IT CANNOT REACH THE BTREE, which is what makes this a bound rather than a
+ * guess standing next to one. The ceiling is counted in `String.length`, which
+ * is UTF-16 UNITS, and the most UTF-8 bytes one unit can cost is 3: a character
+ * needing 4 bytes is an astral one and spends TWO units to get them, so it is
+ * cheaper per unit rather than dearer. 255 units is therefore at most 765
+ * bytes, measured, against a 2704-byte limit. The obvious arithmetic -- 4 bytes
+ * a character, 1020 -- is the wrong worst case AND the wrong unit, and it
+ * happens to be safe here; it is written out because a later ceiling chosen
+ * that way would not be.
+ *
+ * `import-runs.ts` keeps catching 54000 anyway, as it keeps catching 23505
+ * behind `theRepeatIn`: a backstop that CNCORE-254's transaction test still
+ * drives, and the lesson there was that a constraint nobody thought reachable
+ * was reached.
+ */
+const A_CONTAINER_ID = 255;
+
+/**
+ * A CONTAINER ID AS THIS REFUSAL QUOTES IT BACK, which is 80 characters of it.
+ *
+ * ADR-0123's ceiling for a value interpolated into a refusal, TAKEN RATHER THAN
+ * CHOSEN AGAIN, because this is the same question that record answered about a
+ * different reader -- the argument `tasks/registry.ts` makes in those words
+ * about that record's other number. The record's rule is that the value is
+ * bounded WHERE IT ENTERS the sentence, so the prose around it is fixed-length
+ * and cannot be cut; an id refused FOR ITS LENGTH is precisely the value that
+ * would otherwise eat the clause explaining why it was refused.
+ *
+ * THE CUT IS `shortenTo`'S AND NOT A COPY OF IT (CNCORE-269). The number lives
+ * here beside the sentence it bounds; the cut -- whole code points, the marker
+ * inside the bound -- is imported, because the two hand-written copies of it in
+ * this repository fell out of step twice.
+ */
+const IN_A_SENTENCE = 80;
+
+/**
+ * The first id on this list that is longer than a Container id may be, and
+ * where it sits, or `undefined` if every one of them fits.
+ *
+ * IT MIRRORS `theRepeatIn`, which is the point: the two refusals are one
+ * complaint a constraint apart, and CNCORE-268 exists because CNCORE-254 closed
+ * the repeat's half and left this one answering "the catalogue refused that
+ * list" -- a sentence naming neither the id nor its length.
+ *
+ * IT ANSWERS THE ID RATHER THAN THE SENTENCE, so the words the Owner reads are
+ * built once, where they are thrown.
+ *
+ * ONLY THE FIRST, for the reason ADR-0154 gives about the repeat: naming every
+ * one would ask the Owner to read a list in order to fix a list, and the next
+ * attempt names the next.
+ */
+function theOverlongIdIn(containerIds: string[]): OverlongId | undefined {
+  for (const [at, externalId] of containerIds.entries()) {
+    if (externalId.length > A_CONTAINER_ID) return { externalId, at };
+  }
+  return undefined;
+}
+
+/** An id longer than a Container id may be, and where in the list it sits. */
+interface OverlongId {
+  externalId: string;
+  at: number;
 }
 
 /**
@@ -1669,6 +1755,40 @@ export const provider = {
        * were imported (CNCORE-254). The sentence naming the repeated id and
        * where it sits is the refusal's own, written where the list is read.
        */
+      /*
+       * THE LENGTH IS REFUSED HERE AND THE REPEAT IS REFUSED IN THE STORE, and
+       * the line between them is what each rule is ABOUT (ADR-0160). A repeat
+       * is a property of the LIST -- it needs every id and its positions, and
+       * the run's identity is that exact list in that exact order, which is
+       * `theRunStillWalkingThisList`'s whole business -- so it belongs where
+       * the run is opened. A length is a property of ONE ID, which is the
+       * boundary's ordinary work and is where `declaredName` and `task`'s key
+       * are already bounded.
+       *
+       * BEFORE THE REPEAT, SO EVERY SENTENCE AFTER IT IS BOUNDED. `theRepeatIn`
+       * interpolates an id into its own refusal with no ceiling of its own, and
+       * ADR-0123's rule is that a value is bounded where it ENTERS a sentence.
+       * Refusing the length first means the id that reaches that sentence has
+       * already been held to 255, so the repeat's words cannot be flooded by a
+       * value this app never bounded.
+       *
+       * NOT A `z.string().max()` ON THE INPUT, though that is where the gap was
+       * found. oRPC answers an input-validation failure with the DECLARED
+       * sentence and zod's issue list, so the bound would hold and the Owner
+       * would read "That list of Container ids cannot be imported as it
+       * stands." -- which names no id and no length, and is the exact defect
+       * this ticket exists to close.
+       */
+      const overlong = theOverlongIdIn(input.containerIds);
+      if (overlong !== undefined) {
+        throw errors.BAD_REQUEST({
+          message:
+            `${shortenTo(overlong.externalId, IN_A_SENTENCE)} is ` +
+            `${overlong.externalId.length} characters, at position ${overlong.at + 1}, ` +
+            `and a Container id is at most ${A_CONTAINER_ID}`,
+        });
+      }
+
       try {
         const run = await beginImportRun(context.db, {
           providerIdentity: input.baseUrl,
