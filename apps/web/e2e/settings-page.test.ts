@@ -1,3 +1,4 @@
+import { lookup } from "node:dns/promises";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 
 import { afterAll, describe, expect, inject, it } from "vitest";
@@ -865,17 +866,28 @@ describe("/settings, unlocking a provider", () => {
     const { text } = await documentFrom(baseUrl, "/settings", cookie);
     const row = rowFor(text, named);
 
+    // WHAT `localhost` ANSWERS WITH HERE, ASKED RATHER THAN ASSUMED. It is
+    // dual-stack on the machine this was written on -- `::1` and then
+    // `127.0.0.1`, in that order -- and a single record elsewhere. The promise
+    // the refusal makes does not vary with that, which is why this asserts the
+    // promise instead of the environment.
+    const resolved = await lookup("localhost", { all: true });
+
     // THE HALF THE OWNER ACTS ON, which `fetch failed` has none of.
-    expect(row).toContain("no allowlisted CIDR covers it");
+    expect(row).toContain("no allowlisted CIDR covers");
     // BOTH HALVES OF IT SINCE CNCORE-244, and this row is where the defect was
     // reachable: the Owner has allowlisted `localhost` and is being told to go
     // and allowlist a host by name, which is what they just did.
     expect(row).toContain("Its host is allowlisted");
-    // AND THE CIDR TO COPY. `localhost` answers with ::1 AND 127.0.0.1, and the
-    // pinning hook refuses on whichever record it reaches first, so the address
-    // in this sentence is the resolver's choice and only its SHAPE is assertable
-    // from here. The unit test pins the exact string for a single address.
-    expect(row).toMatch(/Add `(?:127\.0\.0\.1\/32|::1\/128)` or your network/);
+    // AND A CIDR FOR EVERY ADDRESS THAT NEEDS ONE, SINCE CNCORE-287. This
+    // assertion accepted EITHER address until now, which ENCODED the defect
+    // rather than closing it: the hook refused on whichever record came back
+    // first, so an Owner on a dual-stack host allowlisted the address they were
+    // given and was refused again for the other one. Asserting the resolver's
+    // whole answer is what makes a second round trip a failing test.
+    for (const { address, family } of resolved) {
+      expect(row).toContain(`${address}/${family === 6 ? 128 : 32}`);
+    }
     expect(row).not.toContain("fetch failed");
     // AND SAID PLAINLY, because it is this catalogue's sentence about the
     // Owner's own settings rather than a Provider's claim.

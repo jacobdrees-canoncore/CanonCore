@@ -6,13 +6,15 @@ import { describe, expect, it } from "vitest";
 import { shortly } from "./boundary";
 import {
   allowsAnything,
-  assertConfigAddress,
+  assertConfigAddresses,
   assertConfigUrl,
   assertContentAddress,
+  assertContentAddresses,
   assertContentUrl,
   OutboundRefused,
   parseAllowlist,
   pinnedLookup,
+  reasonFor,
 } from "./index";
 
 /**
@@ -231,7 +233,7 @@ describe("the pinning lookup hook", () => {
    * checked and lets it be the one that answers.
    */
   it("refuses when a later record fails, not only the first", async () => {
-    const lookup = pinnedLookup(assertContentAddress, async () =>
+    const lookup = pinnedLookup(assertContentAddresses, async () =>
       records("93.184.216.34", "169.254.169.254"),
     );
 
@@ -242,7 +244,7 @@ describe("the pinning lookup hook", () => {
   });
 
   it("refuses when a later AAAA record fails behind a good A record", async () => {
-    const lookup = pinnedLookup(assertContentAddress, async () =>
+    const lookup = pinnedLookup(assertContentAddresses, async () =>
       records("93.184.216.34", "fd00:ec2::254"),
     );
 
@@ -259,7 +261,7 @@ describe("the pinning lookup hook", () => {
    * first record, arriving through a different door.
    */
   it("checks every record even when the caller asked for a single address", async () => {
-    const lookup = pinnedLookup(assertContentAddress, async () =>
+    const lookup = pinnedLookup(assertContentAddresses, async () =>
       records("93.184.216.34", "169.254.169.254"),
     );
 
@@ -298,6 +300,47 @@ describe("the pinning lookup hook", () => {
     expect(result).toEqual(["93.184.216.34", 4]);
   });
 
+  /**
+   * THE HOOK IS WHERE CNCORE-287'S DEFECT LIVED, and this is it at the seam the
+   * Owner's connection actually goes through. `localhost` answers with `::1`
+   * AND `127.0.0.1` -- measured on this machine, in that order -- and the loop
+   * that used to stand here could only ever report the first, so allowlisting
+   * what the refusal said produced the same sentence about the other address.
+   *
+   * ONE REFUSAL, BOTH CIDRS: the whole list reaches the rule that writes the
+   * remedy, which is the contract change this ticket is.
+   */
+  it("hands a dual-stack host's whole answer to the boundary, in one refusal", async () => {
+    const lookup = pinnedLookup(assertConfigAddresses(parseAllowlist("localhost")), async () =>
+      records("::1", "127.0.0.1"),
+    );
+
+    const { error } = await run(lookup, { all: true });
+
+    expect(error).toBeInstanceOf(OutboundRefused);
+    expect(error?.message).toContain("::1/128");
+    expect(error?.message).toContain("127.0.0.1/32");
+  });
+
+  /**
+   * AND THE CONTENT BOUNDARY KEEPS ITS OWN RULE ACROSS THE SAME CONTRACT
+   * (ADR-0034). The type both hooks take is shared; the rules are not. A
+   * content hop's list must never be judged against the allowlist, or an
+   * address the Owner named for their PROVIDER would become reachable from
+   * anything a provider's response points at -- which is the split this record
+   * exists to hold.
+   */
+  it("still refuses a content hop the allowlist would have admitted", async () => {
+    const allowlisted = parseAllowlist("127.0.0.0/8");
+    const answer = async () => records("127.0.0.1");
+
+    const config = pinnedLookup(assertConfigAddresses(allowlisted), answer);
+    const content = pinnedLookup(assertContentAddresses, answer);
+
+    expect((await run(config, { all: true })).error).toBeNull();
+    expect((await run(content, { all: true })).error).toBeInstanceOf(OutboundRefused);
+  });
+
   it("reports a hostname that resolves to nothing rather than answering empty", async () => {
     const lookup = pinnedLookup(refuseNothing, async () => []);
 
@@ -333,8 +376,8 @@ describe("the pinning lookup hook", () => {
  */
 describe("a config address", () => {
   it("admits an ordinary public address", () => {
-    const assert = assertConfigAddress(parseAllowlist("wiki.example.com"));
-    expect(() => assert("93.184.216.34")).not.toThrow();
+    const assert = assertConfigAddresses(parseAllowlist("wiki.example.com"));
+    expect(() => assert(["93.184.216.34"])).not.toThrow();
   });
 
   /**
@@ -343,10 +386,10 @@ describe("a config address", () => {
    * because the owner named the range.
    */
   it("admits an address the owner allowlisted by CIDR, even though content refuses it", () => {
-    const assert = assertConfigAddress(parseAllowlist("127.0.0.0/8, 100.64.0.0/10"));
+    const assert = assertConfigAddresses(parseAllowlist("127.0.0.0/8, 100.64.0.0/10"));
 
-    expect(() => assert("127.0.0.1")).not.toThrow();
-    expect(() => assert("100.100.20.3")).not.toThrow();
+    expect(() => assert(["127.0.0.1"])).not.toThrow();
+    expect(() => assert(["100.100.20.3"])).not.toThrow();
     // The same two addresses, through the content rule, are still refused.
     expect(() => assertContentAddress("127.0.0.1")).toThrow(OutboundRefused);
     expect(() => assertContentAddress("100.100.20.3")).toThrow(OutboundRefused);
@@ -358,10 +401,10 @@ describe("a config address", () => {
    * the socket connects to.
    */
   it("refuses an allowlisted host that resolves somewhere the owner never named", () => {
-    const assert = assertConfigAddress(parseAllowlist("wiki.example.com"));
+    const assert = assertConfigAddresses(parseAllowlist("wiki.example.com"));
 
-    expect(() => assert("169.254.169.254")).toThrow(OutboundRefused);
-    expect(() => assert("127.0.0.1")).toThrow(OutboundRefused);
+    expect(() => assert(["169.254.169.254"])).toThrow(OutboundRefused);
+    expect(() => assert(["127.0.0.1"])).toThrow(OutboundRefused);
   });
 
   /**
@@ -382,9 +425,9 @@ describe("a config address", () => {
    * host before any socket is opened. What is missing is always the CIDR.
    */
   it("names both halves and quotes a CIDR that admits the address it refused", () => {
-    const assert = assertConfigAddress(parseAllowlist("provider-wiki"));
+    const assert = assertConfigAddresses(parseAllowlist("provider-wiki"));
 
-    const refusal = refusalFrom(() => assert("172.19.0.3"));
+    const refusal = refusalFrom(() => assert(["172.19.0.3"]));
 
     // THE HALF ALREADY DONE, said so the Owner does not go and do it again.
     expect(refusal).toContain("Its host is allowlisted");
@@ -411,9 +454,9 @@ describe("a config address", () => {
    * recalled.
    */
   it("stays inside ADR-0123's 300 characters with every value at full stretch", () => {
-    const assert = assertConfigAddress(parseAllowlist("provider-wiki"));
+    const assert = assertConfigAddresses(parseAllowlist("provider-wiki"));
 
-    const refusal = refusalFrom(() => assert("2001:3f:ffff:ffff:ffff:ffff:ffff:ffff"));
+    const refusal = refusalFrom(() => assert(["2001:3f:ffff:ffff:ffff:ffff:ffff:ffff"]));
 
     // 300 written out, so ADR-0123's constant cannot assert itself.
     expect(refusal.length).toBeLessThanOrEqual(300);
@@ -424,15 +467,115 @@ describe("a config address", () => {
   });
 
   /**
+   * THE DEFECT CNCORE-244 LEFT ONE STEP LATER (CNCORE-287). Its remedy is whole
+   * only for a host with ONE address. `localhost` answers with `::1` AND
+   * `127.0.0.1` -- measured on this machine, in that order -- and the hook threw
+   * on the first record that failed, so the Owner was told to add `::1/128`,
+   * did exactly that, and was refused again for `127.0.0.1`. Same sentence,
+   * different address, which is CNCORE-244's own opening line recurring.
+   *
+   * SO ONE REFUSAL ACCOUNTS FOR EVERY ADDRESS THAT NEEDS A CIDR. The Owner
+   * pastes the whole list once rather than discovering it an address at a time.
+   */
+  it("names every address that needs a CIDR, not only the first one checked", () => {
+    const assert = assertConfigAddresses(parseAllowlist("localhost"));
+
+    const refusal = refusalFrom(() => assert(["::1", "127.0.0.1"]));
+
+    // BOTH ADDRESSES, as CIDRs to paste rather than as addresses to compose.
+    expect(cidrsQuotedIn(refusal)).toEqual(["::1/128", "127.0.0.1/32"]);
+    // AND EACH ONE REALLY ADMITS THE ADDRESS IT WAS OFFERED FOR, through the
+    // Owner's own path: `parseAllowlist` and then the boundary itself.
+    expect(admitsAfterAllowlisting("::1/128", "::1")).toBe(true);
+    expect(admitsAfterAllowlisting("127.0.0.1/32", "127.0.0.1")).toBe(true);
+    // AND THE WHOLE PASTE ADMITS THE WHOLE HOST, which is the promise that
+    // being refused twice broke: allowlisting what it said ends the refusal.
+    expect(() =>
+      assertConfigAddresses(parseAllowlist("localhost, ::1/128, 127.0.0.1/32"))([
+        "::1",
+        "127.0.0.1",
+      ]),
+    ).not.toThrow();
+  });
+
+  /**
+   * ADR-0123'S PROPERTY IS "THE VERDICT AND THE REMEDY SURVIVE", AND THAT IS A
+   * CLAIM ABOUT EVERY N RATHER THAN ABOUT THE SIZES SOMEBODY TRIED.
+   *
+   * The list is the only part of this sentence that grows, so the list is what
+   * is bounded: an entry is added only when the FINISHED sentence still fits.
+   * Measured first -- at 39-character ULA addresses the sentence passes 300 on
+   * the FOURTH entry -- so six is comfortably past where a fixed shape would
+   * have been truncated, and nothing about DNS stops a host answering with
+   * more.
+   *
+   * WHAT COULD NOT BE NAMED IS COUNTED. A partial list the Owner cannot tell is
+   * partial is one they paste and get refused for again, which is this
+   * ticket's own defect wearing a different hat.
+   */
+  it("keeps its verdict and remedy however many addresses need a CIDR", () => {
+    const assert = assertConfigAddresses(parseAllowlist("provider-wiki"));
+    // Six ULA addresses, each rendering at the full 39 characters IPv6 allows.
+    const many = ["bcde", "bcdf", "bce0", "bce1", "bce2", "bce3"].map(
+      (group) => `fd12:3456:789a:${group}:f012:3456:789a:bcde`,
+    );
+
+    const refusal = refusalFrom(() => assert(many));
+
+    // 300 written out, so ADR-0123's constant cannot assert itself.
+    expect(refusal.length).toBeLessThanOrEqual(300);
+    // THE VERDICT AND THE REMEDY, which are what a cut would have eaten.
+    expect(refusal).toContain("no allowlisted CIDR covers them");
+    expect(refusal.endsWith("or your network's range (ADR-0034).")).toBe(true);
+    // IT SAYS HOW MANY IT IS HOLDING, so the count is never a guess.
+    expect(refusal).toContain("refused 6 of this host's addresses");
+    // AND IT SAYS SO WHEN IT COULD NOT NAME THEM ALL, rather than handing over
+    // a list that looks complete.
+    const listed = cidrsQuotedIn(refusal);
+    expect(listed.length).toBeLessThan(many.length);
+    expect(refusal).toContain(`and ${many.length - listed.length} more,`);
+    // EVERY CIDR IT DID NAME STILL WORKS, which is the half a cut would keep
+    // looking correct while breaking.
+    for (const cidr of listed) {
+      expect(admitsAfterAllowlisting(cidr, cidr.replace("/128", ""))).toBe(true);
+    }
+  });
+
+  /**
+   * THE CEILING THIS SENTENCE IS ASSEMBLED AGAINST IS ADR-0123'S, ASSERTED
+   * THROUGH THE REAL BOUNDARY RATHER THAN BY COMPARING TWO CONSTANTS.
+   *
+   * `SENTENCE_MAX` is written in `boundary.ts` and `REASON_MAX_LENGTH` in
+   * `reason.ts` -- separately, because that module imports `OutboundRefused`
+   * from this one and reaching back for the constant would close a cycle. So
+   * the two numbers could drift, and what catches that is the only thing that
+   * matters about them agreeing: a refusal built at full stretch reaches a page
+   * WHOLE. If the assembly ceiling ever rose above the reason cap, `reasonFor`
+   * would truncate what this function was careful to fit.
+   */
+  it("survives the reason cap it was assembled against, unchanged", () => {
+    const assert = assertConfigAddresses(parseAllowlist("provider-wiki"));
+    const many = ["bcde", "bcdf", "bce0", "bce1", "bce2", "bce3"].map(
+      (group) => `fd12:3456:789a:${group}:f012:3456:789a:bcde`,
+    );
+
+    const refusal = refusalFrom(() => assert(many));
+    const reason = reasonFor(new OutboundRefused(refusal, "config"));
+
+    expect(reason.text).toBe(refusal);
+    expect(reason.wrote).toBe("canoncore");
+  });
+
+  /**
    * A ZONE ID IS THE ONLY UNBOUNDED PART OF AN ADDRESS, and it is meaningless
    * in a CIDR. `fe80::1%eth0` is valid to ipaddr.js and an interface name has
    * no length limit, so a remedy built by pasting the address into a string
    * would be both wrong and, once cut, unusable.
    */
   it("drops a scope id rather than quoting a CIDR nobody can allowlist", () => {
-    const assert = assertConfigAddress(parseAllowlist("provider-wiki"));
+    const assert = assertConfigAddresses(parseAllowlist("provider-wiki"));
 
-    const refusal = refusalFrom(() => assert(`fe80::1%${"eth".repeat(40)}`));
+    const refusal = refusalFrom(() => assert([`fe80::1%${"eth".repeat(40)}`]));
 
     expect(refusal.length).toBeLessThanOrEqual(300);
     expect(refusal).toContain("`fe80::1/128`");
@@ -458,6 +601,17 @@ function cidrQuotedIn(refusal: string): string {
   return quoted;
 }
 
+/** Every CIDR a refusal quotes back, in the order the Owner reads them. */
+function cidrsQuotedIn(refusal: string): string[] {
+  const found: string[] = [];
+  for (const match of refusal.matchAll(/`([^`]+)`/g)) {
+    const inside = match[1] ?? "";
+    for (const entry of inside.split(", ")) if (/\/\d+$/.test(entry)) found.push(entry);
+  }
+  if (found.length === 0) throw new Error(`no CIDR is quoted in: ${refusal}`);
+  return found;
+}
+
 /**
  * Whether pasting this CIDR into the allowlist actually admits this address.
  *
@@ -469,7 +623,7 @@ function cidrQuotedIn(refusal: string): string {
  */
 function admitsAfterAllowlisting(cidr: string, address: string): boolean {
   try {
-    assertConfigAddress(parseAllowlist(cidr))(address);
+    assertConfigAddresses(parseAllowlist(cidr))([address]);
     return true;
   } catch {
     return false;
@@ -510,10 +664,10 @@ describe("an allowlist entry that is a bare address", () => {
   it("still admits a pinned connection to it", () => {
     // The address rule has to agree with the host rule, or the URL passes and
     // the socket is then refused -- which reads as a network fault.
-    const assert = assertConfigAddress(parseAllowlist("127.0.0.1"));
+    const assert = assertConfigAddresses(parseAllowlist("127.0.0.1"));
 
-    expect(() => assert("127.0.0.1")).not.toThrow();
-    expect(() => assert("127.0.0.2")).toThrow(OutboundRefused);
+    expect(() => assert(["127.0.0.1"])).not.toThrow();
+    expect(() => assert(["127.0.0.2"])).toThrow(OutboundRefused);
   });
 });
 
