@@ -330,6 +330,9 @@ importers:
       '@canoncore/providers':
         specifier: workspace:*
         version: link:../../packages/providers
+      '@canoncore/text':
+        specifier: workspace:*
+        version: link:../../packages/text
       '@tailwindcss/postcss':
         specifier: 'catalog:'
         version: 4.3.3

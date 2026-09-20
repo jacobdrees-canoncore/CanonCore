@@ -39,6 +39,7 @@
   "devDependencies": {
     "@canoncore/config": "workspace:*",
     "@canoncore/providers": "workspace:*",
+    "@canoncore/text": "workspace:*",
     "@tailwindcss/postcss": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",

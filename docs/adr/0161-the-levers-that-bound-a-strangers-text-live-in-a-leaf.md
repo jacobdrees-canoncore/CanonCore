@@ -51,6 +51,18 @@ moment this record was taken was three copies and three different subsets of one
 made each gap survive is that half a mechanism looks finished from outside — which is ADR-0123's own
 sentence about itself, turned on its own remedy.
 
+**AND A FOURTH CALLER ARRIVED WHILE THIS RECORD WAS BEING WRITTEN, WHICH IS THE STRONGEST EVIDENCE
+HERE BECAUSE NOBODY ARRANGED IT.** CNCORE-262 needed the cut in `apps/web/src/app/settings/refusal.ts`
+to bound the entry `/settings` echoes back out of its own address, and published `shortenTo` from
+`@canoncore/providers` to get it — its own docblock saying the alternative was "a fourth
+hand-maintained copy of the same five lines". It merged into `main` on 2026-09-20 while CNCORE-282
+was in flight, and the two changes did not conflict: git merged an export of a file the other branch
+had deleted, and only the typechecker noticed. Three tickets in one project independently concluded
+that the cut has to be reachable from outside the package that happened to hold it. This record is
+that conclusion taken once, at the level it belongs: `apps/web` imports from `@canoncore/text`, and
+`@canoncore/providers` re-exports nothing, so there is ONE import path rather than two spellings of
+the same function.
+
 ## What moves, and what does not
 
 **The LEVERS move. The CEILINGS do not.** 80 is a fact about a value a refusal quotes back, 300 is a

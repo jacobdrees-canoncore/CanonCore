@@ -1,4 +1,5 @@
-import { shortenTo, type WhyNotNamed } from "@canoncore/providers";
+import type { WhyNotNamed } from "@canoncore/providers";
+import { shortenTo } from "@canoncore/text";
 
 import { oneValue } from "@/components/query-params";
 
@@ -85,8 +86,9 @@ export function oneBecause(parameter: string | string[] | undefined): WhyItWasRe
  * HOW MUCH OF THE REFUSED ENTRY THE SENTENCE QUOTES BACK.
  *
  * THE SAME 80 `shortly` USES INSIDE `@canoncore/providers`, and decided here
- * rather than imported, which is ADR-0123's own arrangement: the cut is shared
- * and each ceiling sits beside the sentences it bounds. An Owner who typed a
+ * rather than imported, which is ADR-0123's own arrangement kept by ADR-0161:
+ * the levers are shared, from `@canoncore/text`, and each ceiling sits beside
+ * the sentences it bounds. An Owner who typed a
  * long base URL still recognises its opening, and what they cannot do without
  * is the clause saying what to do -- which is exactly what keeping the value
  * short protects.
