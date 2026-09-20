@@ -81,7 +81,7 @@ export async function createItem(form: FormData): Promise<void> {
    * THE ADDRESS IS HAND-BUILT, AND ADR-0109 NAMES THAT CLASS: Next prefixes
    * `<Link>`, `<Form>` and `router.push()` under a `basePath` and `redirect()`
    * measurably does not. No `basePath` is set, so this is correct today; it
-   * joins `login/actions.ts`'s two redirects and the item page's canonical as
+   * joins `login/actions.ts`'s four redirects and the item page's canonical as
    * what has to be revisited on the day a host imposes one.
    *
    * IT IS ALSO WHY THIS ACTION NEEDS NO RETURN VALUE. An action's return

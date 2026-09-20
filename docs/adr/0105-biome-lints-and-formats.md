@@ -27,7 +27,9 @@ That ordering is why the larger rule ecosystem, which is ESLint's real advantage
 Versions from the npm registry that morning: `@biomejs/biome` 2.5.13 (published that same day, on a
 weekly cadence since 2.5.6 in July), `eslint` 10.10.0, `prettier` 3.9.6, `oxlint` 1.82.0.
 
-**The catalogue pins `^2.5.12`, not `^2.5.13`, and that is the interesting part.** pnpm has defaulted
+**The catalogue pinned `^2.5.12`, not `^2.5.13`, and that is the interesting part.** (It pins
+`^2.5.14` today; the decision below is about the choice made that morning, and the caret is what
+carried it there without anybody waiving a cooldown. Corrected under CNCORE-252.) pnpm has defaulted
 `minimumReleaseAge` to 1440 minutes since v11, so this repo already carries a 24-hour supply-chain
 cooldown on every dependency. 2.5.13 was hours old. Taking it made `pnpm add` write a nine-entry
 `minimumReleaseAgeExclude` block into `pnpm-workspace.yaml` — which waives that cooldown for exactly

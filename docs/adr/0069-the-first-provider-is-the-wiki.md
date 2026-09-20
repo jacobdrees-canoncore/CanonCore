@@ -9,9 +9,12 @@ defined against a source we control rather than against a rate-limited third-par
 database COULD answer `search`, `lookup` AND `browse`. This one ships `search` and `lookup` only
 anyway, and `browse` arrives in a later ticket, decided 2026-09-10 in
 `docs/research/multi-repo.md` section 9 and carried by CNCORE-15. Until that ticket lands the TMDB
-provider declares `browse` and this one does not, and that pair is the only thing in version one
-exercising ADR-0033's optionality, so being ABLE to answer all three is not a reason to add
-`browse` here.
+provider declared `browse` and this one did not, and that pair was the only thing in version one
+exercising ADR-0033's optionality, so being ABLE to answer all three was not a reason to add
+`browse` here. **CNCORE-15's SUCCESSOR LANDED AND THIS ONE DECLARES `browse` NOW** (CNCORE-252):
+ADR-0033 records `provider-wiki` answering "`search`, `lookup` and -- since CNCORE-17 -- `browse`",
+and says in as many words that "nothing in the tree is currently a provider WITHOUT `browse`". The
+decision this record takes -- which provider goes first, and why -- is untouched by that.
 
 EXPECT A 403 FROM THE LIVE WIKI AND DO NOT TREAT IT AS A BUG. tardis.wiki sits behind Cloudflare bot
 protection, which answers any non-browser client regardless of permission (verified 2026-09-05).
