@@ -4,10 +4,12 @@ import {
   asCount,
   ciJobs,
   countStatedIn,
+  jobsRequestingANodeMajor,
   serversStoodUpByTheHttpSuite,
   serversVia,
   suitesInRepo,
   suitesNamingAConfig,
+  suitesReadingTheRepository,
   vitestConfigs,
 } from "./testing/tree-figures";
 
@@ -107,6 +109,24 @@ const CLAIMS: Claim[] = [
     derive: suitesNamingAConfig,
   },
   {
+    file: "packages/config/src/node-major.test.ts",
+    pattern: /which only exists while the (\w+) jobs agree/g,
+    population: "the jobs that ask pnpm/setup for a Node major",
+    derive: jobsRequestingANodeMajor,
+  },
+  {
+    file: "packages/config/src/turbo-cache-inputs.test.ts",
+    pattern: /([\w-]+) suites here read the repository at large/g,
+    population: "the suites in packages/config that read the repository at large",
+    derive: suitesReadingTheRepository,
+  },
+  {
+    file: "packages/config/src/turbo-cache-inputs.test.ts",
+    pattern: /holds ([\w-]+) suites reading the repository at large/g,
+    population: "the suites in packages/config that read the repository at large",
+    derive: suitesReadingTheRepository,
+  },
+  {
     file: "packages/config/vitest.config.ts",
     pattern: /what the other (\w+) configs are checked against/g,
     population: "the Vitest configs other than this one",
@@ -124,9 +144,19 @@ describe("a figure this tree states about itself", () => {
     expect(suitesNamingAConfig()).toBe(4);
   });
 
+  it("counts the jobs that ask pnpm/setup for a Node major", () => {
+    expect(jobsRequestingANodeMajor()).toBe(10);
+  });
+
+  it("counts the suites in this package that read the repository at large", () => {
+    expect(suitesReadingTheRepository()).toBe(21);
+  });
+
   it("reads a count written as a word", () => {
     expect(asCount("seven")).toBe(7);
     expect(asCount("ELEVEN")).toBe(11);
+    expect(asCount("twenty-one")).toBe(21);
+    expect(asCount("27")).toBe(27);
   });
 
   it("is stated in the tree as the tree counts it", () => {

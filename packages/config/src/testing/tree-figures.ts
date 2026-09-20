@@ -1,7 +1,7 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { readdirSync, readFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 
-import { workflow } from "./ci-workflow";
+import { pnpmSetupSteps, workflow } from "./ci-workflow";
 import { repoRoot } from "./repo-root";
 import { configFilesOnDisk, namedConfig, suiteScripts } from "./vitest-configs";
 
@@ -110,9 +110,22 @@ const COUNT_WORDS: Record<string, number> = {
   twentieth: 20,
 };
 
+const TENS: Record<string, number> = { twenty: 20, thirty: 30, forty: 40, fifty: 50 };
+
 export function asCount(written: string): number {
   const word = written.trim().toLowerCase().replace(/,/g, "");
   if (/^\d+$/.test(word)) return Number(word);
+
+  // A COMPOUND IS ITS TWO HALVES ADDED, which is the only arithmetic here:
+  // `twenty-one` is a count these comments really write, and listing every one
+  // of them would be a table that runs out exactly where the tree grows past it.
+  const [tens, unit] = word.split("-");
+  if (unit !== undefined && TENS[tens as string] !== undefined) {
+    const ones = COUNT_WORDS[unit];
+    if (ones !== undefined && ones < 10) return (TENS[tens as string] as number) + ones;
+  }
+  if (TENS[word] !== undefined) return TENS[word] as number;
+
   const known = COUNT_WORDS[word];
   if (known === undefined) {
     throw new Error(
@@ -210,4 +223,54 @@ export function suitesInRepo(): number {
  */
 export function suitesNamingAConfig(): number {
   return suiteScripts().filter(({ command }) => namedConfig(command) !== undefined).length;
+}
+
+/**
+ * The jobs that ask `pnpm/setup` for a Node runtime.
+ *
+ * `pnpmSetupSteps` is `ci-workflow.ts`'s reader, shared with
+ * `node-major.test.ts` and `ci-workflow.test.ts` -- the walk this counts over
+ * had been written out three times before that module took it (CNCORE-56).
+ */
+export function jobsRequestingANodeMajor(): number {
+  return new Set(pnpmSetupSteps(workflow()).map(({ job }) => job)).size;
+}
+
+/**
+ * The suites in THIS package that read the repository at large.
+ *
+ * TRANSITIVELY, because reaching the tree through `ci-workflow.ts` or
+ * `workspace.ts` is reaching it. `ci-timeouts.test.ts` imports no path of its
+ * own and asks `.github/workflows/ci.yml` every question it has, so a count of
+ * direct importers would leave it out and understate what a cached task would
+ * break.
+ *
+ * WHY THE COUNT MATTERS rather than the list: `turbo.json` opts this package's
+ * test task out of caching because its real inputs are the whole repository,
+ * and the size of that population is the argument. A figure that drifts low
+ * makes the excuse look smaller than it is.
+ */
+export function suitesReadingTheRepository(): number {
+  const source = join(repoRoot, "packages", "config", "src");
+  const files = readdirSync(source, { recursive: true, withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".ts"))
+    .map((entry) => join(entry.parentPath, entry.name));
+
+  const importsOf = new Map<string, string[]>(
+    files.map((file) => [
+      file,
+      [...readFileSync(file, "utf8").matchAll(/from "(\.[^"]+)"/g)].map(
+        (match) => `${resolve(dirname(file), match[1] as string)}.ts`,
+      ),
+    ]),
+  );
+  const theTree = join(source, "testing", "repo-root.ts");
+
+  const reaches = (file: string, seen = new Set<string>()): boolean => {
+    if (seen.has(file)) return false;
+    seen.add(file);
+    return (importsOf.get(file) ?? []).some((dep) => dep === theTree || reaches(dep, seen));
+  };
+
+  return files.filter((file) => file.endsWith(".test.ts") && reaches(file)).length;
 }
