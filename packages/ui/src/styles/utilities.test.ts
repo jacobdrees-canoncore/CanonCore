@@ -1,4 +1,4 @@
-import { globSync, readFileSync } from "node:fs";
+import { existsSync, globSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { basename, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -55,32 +55,90 @@ const componentsDirectory = fileURLToPath(new URL("../components", import.meta.u
 const VARIANT_MARKERS = new Set(["group", "peer"]);
 
 /**
- * `@import` as Node resolves it, which is what `@tailwindcss/postcss` does in the
- * real build.
+ * The directory a bare specifier's package sits in, found by walking `node_modules`
+ * upward from `base`.
  *
- * THE `style` CONDITION IS THE PART WORTH WRITING DOWN. `tailwindcss` publishes
- * its stylesheet as `"style": "./index.css"` and its JavaScript under `import`,
- * so plain resolution hands back `dist/lib.mjs` for `@import "tailwindcss"` -- a
- * module, not a stylesheet, which then fails to parse as CSS somewhere far from
- * the cause. The manifest is read for `style` first, and resolution is only the
- * fallback.
+ * NODE'S OWN RESOLVER CANNOT BE ASKED THIS. `require.resolve("<id>/package.json")`
+ * is the obvious way and it throws `ERR_PACKAGE_PATH_NOT_EXPORTED` for any package
+ * whose `exports` map does not publish its manifest -- `tw-animate-css` is one, and
+ * it publishes nothing BUT stylesheets, so the packages this has to handle are
+ * exactly the ones that refuse the question.
  */
-async function loadStylesheet(id: string, base: string) {
-  if (id.startsWith(".")) {
-    const path = resolve(base, id);
-    return { path, base: dirname(path), content: readFileSync(path, "utf8") };
+function packageDirectory(id: string, base: string): string {
+  for (let directory = base; ; directory = dirname(directory)) {
+    const candidate = resolve(directory, "node_modules", id);
+    if (existsSync(resolve(candidate, "package.json"))) return candidate;
+    if (dirname(directory) === directory) throw new Error(`cannot find \`${id}\` from ${base}`);
   }
-
-  const require = createRequire(`${base}/`);
-  const manifest = require.resolve(`${id}/package.json`, { paths: [base] });
-  const { style } = JSON.parse(readFileSync(manifest, "utf8")) as { style?: string };
-  const path = style ? resolve(dirname(manifest), style) : require.resolve(id, { paths: [base] });
-
-  return { path, base: dirname(path), content: readFileSync(path, "utf8") };
 }
 
 /**
- * The string literals a call expression holds, at any depth.
+ * `@import`, resolved the way the real build resolves it.
+ *
+ * THE `style` CONDITION IS THE WHOLE JOB. A package that ships CSS publishes it
+ * under `style` and its JavaScript under `import`, so ordinary resolution answers
+ * `@import "tailwindcss"` with `dist/lib.js` -- a module, not a stylesheet, which
+ * then fails to parse as CSS somewhere a long way from the cause. Both spellings
+ * are in this stylesheet's three imports and both are read: `tailwindcss` puts
+ * `style` at the top level of its manifest, `tw-animate-css` puts it inside
+ * `exports["."]`, and `shadcn/tailwind.css` names the file outright and needs
+ * neither.
+ */
+async function loadStylesheet(id: string, base: string) {
+  const read = (path: string) => ({
+    path,
+    base: dirname(path),
+    content: readFileSync(path, "utf8"),
+  });
+
+  if (id.startsWith(".")) return read(resolve(base, id));
+
+  if (id.endsWith(".css")) {
+    return read(createRequire(`${base}/`).resolve(id, { paths: [base] }));
+  }
+
+  const directory = packageDirectory(id, base);
+  const manifest = JSON.parse(readFileSync(resolve(directory, "package.json"), "utf8")) as {
+    style?: string;
+    exports?: { "."?: { style?: string } };
+  };
+  const style = manifest.style ?? manifest.exports?.["."]?.style;
+  if (!style) throw new Error(`\`${id}\` publishes no stylesheet under \`style\``);
+
+  return read(resolve(directory, style));
+}
+
+/**
+ * The source with any `defaultVariants: { … }` blanked out, keeping its length so
+ * that every other offset still points where it did.
+ *
+ * ITS VALUES NAME VARIANTS, NOT CLASSES. `defaultVariants: { variant: "default",
+ * size: "default" }` says which row of the `variants` table to start from, and
+ * `default` is no more a class than `icon-sm` is. Left in, it is the one place a
+ * variant name reaches a class position, and the check reports it as a class that
+ * resolves to nothing -- which it does, correctly and uselessly.
+ */
+function withoutDefaultVariants(source: string): string {
+  const at = source.indexOf("defaultVariants");
+  if (at === -1) return source;
+
+  const opened = source.indexOf("{", at);
+  if (opened === -1) return source;
+
+  let depth = 0;
+  for (let scan = opened; scan < source.length; scan++) {
+    if (source[scan] === "{") depth++;
+    else if (source[scan] === "}" && --depth === 0) {
+      const blanked = source.slice(at, scan + 1).replace(/[^\n]/g, " ");
+      return withoutDefaultVariants(source.slice(0, at) + blanked + source.slice(scan + 1));
+    }
+  }
+
+  return source;
+}
+
+/**
+ * The string literals a call expression holds that are VALUES, at any depth.
  *
  * SCANNED RATHER THAN PARSED, and the balance is tracked rather than the closing
  * paren guessed at, because `cva`'s second argument is an object of nested
@@ -88,6 +146,12 @@ async function loadStylesheet(id: string, base: string) {
  * over while balancing so that a `)` inside a class string -- which
  * `[&_svg:not([class*='size-'])]:size-4` has, twice -- does not end the call
  * early and take the rest of its own class list with it.
+ *
+ * A LITERAL FOLLOWED BY `:` IS A KEY AND IS DROPPED. `cva`'s size table quotes
+ * three of its names because they contain a hyphen -- `"icon-xs"`, `"icon-sm"`,
+ * `"icon-lg"` -- and a scan that took every literal reported all three as classes
+ * resolving to nothing. They are the names of rows, and the rows' VALUES beside
+ * them are the classes.
  *
  * A TEMPLATE LITERAL WITH A SUBSTITUTION IS SKIPPED. Half of it is a runtime
  * value, so the class list it produces is not in the file to be read, and
@@ -110,7 +174,8 @@ function stringLiteralsInCall(source: string, openParen: number): string[] {
       const closed = source.indexOf(character, at + 1);
       if (closed === -1) break;
       const literal = source.slice(at + 1, closed);
-      if (!(character === "`" && literal.includes("${"))) found.push(literal);
+      const isKey = /^\s*:/.test(source.slice(closed + 1));
+      if (!isKey && !(character === "`" && literal.includes("${"))) found.push(literal);
       at = closed;
     }
   }
@@ -132,7 +197,8 @@ function stringLiteralsInCall(source: string, openParen: number): string[] {
  * wrong for this question, because it would hand back `use client`, `label` and
  * every import specifier, and this file would report them all as broken classes.
  */
-function classesWrittenIn(source: string): string[] {
+function classesWrittenIn(module: string): string[] {
+  const source = withoutDefaultVariants(module);
   const written: string[] = [];
 
   for (const { 0: match, index } of source.matchAll(/\b(?:cn|cva)\s*\(/g)) {
