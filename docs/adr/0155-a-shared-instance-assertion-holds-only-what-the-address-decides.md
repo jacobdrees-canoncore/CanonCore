@@ -89,14 +89,23 @@ why the correction is written INTO that sentence rather than beside it.
   the anchors of the Groups that had arrived and nothing else. With `steadyMainOf` they pass.
   `git show` of this record's commit takes it again.
 
-## Which half of this landed
+## As built, under CNCORE-253 and CNCORE-271 — and this record stays PROPOSED
 
-**THE RULE IS ENFORCED FOR ONE POPULATION AND STATED FOR ALL OF THEM**, which is why this record is
-`proposed` rather than `accepted` -- ADR-0153's own shape, one record earlier.
+**THE RULE IS ENFORCED FOR ONE POPULATION AND STATED FOR ALL OF THEM**, which is the whole reason
+this is `proposed` rather than `accepted` -- ADR-0153's own shape, two records earlier.
 
-What landed is the Group picker: the two assertions that compared it no longer do, the component
-says what it is, and a test goes red if either changes. What did NOT land is any check that a THIRD
-file cannot write the same assertion tomorrow. "Catalogue-wide state" is a judgement about what a
-region answers to rather than a fact on disk, so no sweep here derives it, and this record does not
-pretend one does. The next file to compare a served region byte-for-byte is held by this sentence
-and by review, and by nothing else.
+**BUILT: the Group picker, in the two files that compared it.** `steadyMainOf` cuts that `<nav>` out
+of what a byte-for-byte comparison sees, refuses a page with no picker and refuses a page with two,
+and `document.test.ts` pins all three on fixture markup. `markedCurrentIn` keeps what the picker
+SAYS under assertion for all three fetches. `aGroupArrivesAt` forces, every run, the timing that took
+four full runs to show once. `NarrowToAGroup` says what it is. The parallelism decision is written
+in `vitest.e2e.config.ts` and its one figure is held to the tree by `tree-figures.test.ts`. A test
+goes red if any of that changes.
+
+**NOT BUILT: any check that a THIRD file cannot write the same assertion tomorrow.** "Catalogue-wide
+state" is a judgement about what a region answers to rather than a fact on disk, so nothing here
+derives it, and no sweep enumerates the assertions that would need it. A check that caught one
+spelling -- `expect(mainOf(a)).toBe(mainOf(b))`, say -- would go green on the next surface that grew
+a catalogue-wide control and would claim the rule while covering a corner of it, which is the false
+signal this record exists to argue against. So the next file to compare a served region byte-for-byte
+is held by this sentence and by review, and by nothing else.
