@@ -1,5 +1,6 @@
 import type { Context } from "@canoncore/api/context";
 import { appRouter } from "@canoncore/api/routers";
+import { isAPlacementRefusal } from "@canoncore/db";
 import { Button } from "@canoncore/ui/components/button";
 import { Input } from "@canoncore/ui/components/input";
 import { Label } from "@canoncore/ui/components/label";
@@ -365,6 +366,7 @@ interface TheQuery {
   placedBefore?: string | string[];
   undo?: string | string[];
   refused?: string | string[];
+  because?: string | string[];
 }
 
 export default async function ItemPage({
@@ -399,7 +401,7 @@ export default async function ItemPage({
    * An array means the parameter was repeated; a route is one route, so a
    * repeated one names no ordering rather than the first of several.
    */
-  const { via, placed, after, placedAfter, before, placedBefore, undo, refused } =
+  const { via, placed, after, placedAfter, before, placedBefore, undo, refused, because } =
     await searchParams;
   /*
    * `oneValue` OWNS WHAT A REPEATED OR BLANK PARAMETER MEANS, and this page is
@@ -448,6 +450,19 @@ export default async function ItemPage({
    * nothing, and an id naming no item simply says an item is already there.
    */
   const refusedItem = oneValue(refused);
+  /*
+   * THE SENTENCE THE CATALOGUE ANSWERED, AND ONLY IF IT IS ONE OF OURS
+   * (CNCORE-275). `placeItemInContainer` puts `placement.place`'s own refusal
+   * in the query so this page can say which of its FOUR causes refused the
+   * write. A query is composed by anybody, so it is checked against the closed
+   * set rather than rendered on trust: unchecked, a crafted link would put
+   * arbitrary text in this app's voice on this app's page, which is the harm
+   * ADR-0123 names. Anything else falls back to the sentence below.
+   */
+  const refusedBecause = ((): string | undefined => {
+    const said = oneValue(because);
+    return said !== undefined && isAPlacementRefusal(said) ? said : undefined;
+  })();
 
   /*
    * THE NARROWING GOES TO THE READ PATH (CNCORE-129), where it used to be
@@ -557,6 +572,7 @@ export default async function ItemPage({
           containerId={item.id}
           undone={undone}
           refused={refusedItem}
+          because={refusedBecause}
           context={context}
         />
       )}
@@ -1614,12 +1630,15 @@ async function PlaceAnItem({
   containerId,
   undone,
   refused,
+  because,
   context,
 }: {
   containerId: string;
   undone?: string;
   /** The item a placement was just refused for, if one was (ADR-0116). */
   refused?: string;
+  /** WHY the catalogue refused it, already checked to be one of our sentences. */
+  because?: string;
   context: Context;
 }) {
   /*
@@ -1645,32 +1664,34 @@ async function PlaceAnItem({
       */}
       {undone && <UndoRemoval placementId={undone} containerId={containerId} />}
       {/*
-        WHAT THE CATALOGUE WOULD NOT DO, in the reader's words. ADR-0009 licences
-        a Repeat at DIFFERENT positions, so the refusal is usually about the
+        WHAT THE CATALOGUE WOULD NOT DO, IN ITS OWN WORDS. ADR-0009 licences a
+        Repeat at DIFFERENT positions, so the refusal is usually about the
         POSITION rather than about placing the item twice -- and saying so is the
         difference between a rule an owner can work with and a wall.
 
-        IT NAMES BOTH REASONS, BECAUSE `BAD_REQUEST` CARRIES BOTH. Review found
-        this asserting the first one alone while `PLACEMENT_REFUSALS` also holds
-        `23503` -- an item or container that is not there -- so an owner whose
-        item had since been deleted was told it was already placed, which is a
-        false reason rather than a vague one.
+        THE SENTENCE IS THE PROCEDURE'S, NOT THIS PAGE'S (CNCORE-275). It used to
+        be written here, and a sentence written here can only ever name the
+        causes that were known on the day it was typed. It named ONE while
+        `PLACEMENT_REFUSALS` held two, and review caught that; then CNCORE-255
+        made `placement.place` answer whichever of its FOUR causes refused the
+        write -- a Repeat at one position, no such item or container, a cycle,
+        or a position the column cannot hold -- and the hardcoded pair was a
+        false reason again, this time for the two it did not know about. A fifth
+        cause would have done it a third time.
 
-        TODO(CNCORE-275): AND IT IS TWO OF FOUR NOW, so the same false reason is
-        back. That last clause used to read "The router's own message says both;
-        this is that message in the reader's words", and it was true while the
-        router named two. CNCORE-255 made `placement.place` answer the cause
-        that actually refused it -- a Repeat at one position, no such item or
-        container, a cycle, or a position the column cannot hold -- so a cycle
-        or an overflow renders here as one of the two sentences below, which is
-        false rather than vague. The fix is to READ the refusal rather than
-        extend this list, and it needs a decision this copy cannot take: the
-        sentence has to survive `placeItemInContainer`'s redirect.
+        So there is no list here to fall behind. `placeItemInContainer` carries
+        the procedure's own sentence through its redirect and this renders it.
+        `refusedBecause` has already checked it against the closed set, because
+        a query is composed by anybody and ADR-0123 will not have a stranger
+        choosing text on a page they do not own.
+
+        THE FALLBACK IS VAGUE ON PURPOSE. It is reached when the sentence did
+        not survive -- an old link, a hand-edited query -- and being vague is the
+        honest answer there, where naming a cause would be guessing at one.
       */}
       {refused && (
         <p className="mt-2 text-sm text-destructive">
-          Nothing was placed. That item is either already here at that position, in which case a
-          Repeat is allowed at a different one, or it is no longer in the catalogue.
+          {because ?? "Nothing was placed. The catalogue refused it."}
         </p>
       )}
       <form action={placeItemInContainer} className="mt-2 flex items-end gap-2">

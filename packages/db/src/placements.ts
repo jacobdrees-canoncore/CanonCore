@@ -236,6 +236,13 @@ export class PlacementRefused extends Error {}
  * `movePlacementByHand` below -- a sibling outside the destination container --
  * which is why `placement.move` names five causes where `place` names these four.
  */
+/**
+ * THE FIFTH REFUSAL, raised directly by `movePlacementByHand` rather than by a
+ * SQLSTATE, which is why it sits beside the map instead of inside it.
+ */
+const A_PLACEMENT_THIS_CONTAINER_DOES_NOT_HOLD =
+  "That move named a placement this container does not hold.";
+
 const PLACEMENT_REFUSALS: Readonly<Record<string, string>> = {
   "23505":
     "That item is already in that container at that position, or already there with no position given.",
@@ -251,6 +258,32 @@ const PLACEMENT_REFUSALS: Readonly<Record<string, string>> = {
   "23514": "A container cannot hold itself, or something it already sits inside.",
   "22003": "That position is outside the range the catalogue can store.",
 };
+
+/**
+ * EVERY SENTENCE A PLACEMENT REFUSAL CAN CARRY, which a surface uses to decide
+ * whether a string it was handed is one of ours.
+ *
+ * IT EXISTS BECAUSE THE SENTENCE TRAVELS THROUGH A URL. `placeItemInContainer`
+ * refuses inside a Server Action and then redirects, so the only way the
+ * sentence reaches the page the Owner lands on is the query -- and a query is
+ * something anybody can compose. Rendering it unchecked would let a crafted
+ * link put arbitrary text in this app's own voice on this app's own page, which
+ * is the harm [[0123-a-failure-reason-is-bounded-and-says-who-wrote-it]] names
+ * when it says a stranger must not choose the content of text on a page it does
+ * not own. Checking against the set rather than capping the length is the
+ * stronger answer available here, because the population is closed.
+ *
+ * ONE SOURCE, so the page holds no copy of these sentences to drift from.
+ */
+export const PLACEMENT_REFUSAL_SENTENCES: readonly string[] = [
+  ...Object.values(PLACEMENT_REFUSALS),
+  A_PLACEMENT_THIS_CONTAINER_DOES_NOT_HOLD,
+];
+
+/** Whether a string handed in from outside is a refusal this catalogue wrote. */
+export function isAPlacementRefusal(text: string): boolean {
+  return PLACEMENT_REFUSAL_SENTENCES.includes(text);
+}
 
 /**
  * THE OWNER PUTTING AN ITEM IN A CONTAINER, naming the placement it creates.
@@ -562,7 +595,7 @@ export async function movePlacementByHand(
          * purpose. One transaction, so nothing lands.
          */
         if (!shifted) {
-          throw new PlacementRefused("That move named a placement this container does not hold.");
+          throw new PlacementRefused(A_PLACEMENT_THIS_CONTAINER_DOES_NOT_HOLD);
         }
       }
 

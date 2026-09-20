@@ -52,7 +52,9 @@ export {
 export {
   type AssertedPlacement,
   assertPlacement,
+  isAPlacementRefusal,
   movePlacementByHand,
+  PLACEMENT_REFUSAL_SENTENCES,
   PlacementRefused,
   placeItemByHand,
   type Reorder,

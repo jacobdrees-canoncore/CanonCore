@@ -280,7 +280,19 @@ export async function placeItemInContainer(form: FormData): Promise<void> {
    */
   if (refused) {
     if (isDefinedError(refused) && refused.code === "BAD_REQUEST") {
-      redirect(`/items/${input.containerId}?refused=${input.itemId}`);
+      /*
+       * AND THE SENTENCE TRAVELS WITH IT (CNCORE-275). `placement.place` answers
+       * WHICH of its four causes refused the write, and dropping that here is
+       * what left the page guessing: it rendered a hardcoded two-cause sentence,
+       * so a cycle or an out-of-range position was reported as "already placed,
+       * or no longer in the catalogue" -- a false reason rather than a vague one.
+       *
+       * ENCODED, BECAUSE IT IS PROSE GOING INTO A URL. The page does not trust
+       * it back: `isAPlacementRefusal` checks it against the closed set before
+       * rendering, since a query is something anybody can compose.
+       */
+      const because = encodeURIComponent(refused.message);
+      redirect(`/items/${input.containerId}?refused=${input.itemId}&because=${because}`);
     }
     return;
   }
@@ -443,13 +455,22 @@ export async function movePlacement(form: FormData): Promise<void> {
    * Neither is a fault, and the container AS IT STANDS is the honest answer to
    * both.
    *
-   * TODO(CNCORE-275): "which today is a container asked to hold something it
-   * already sits inside (migration 15)" stood here and named ONE of five.
+   * THIS USED TO NAME ONE OF FIVE. The clause "which today is a container asked
+   * to hold something it already sits inside (migration 15)" stood here, and
    * `placement.move` can also be refused by a Repeat at one position, an item
    * or container that is not there, a position the column cannot hold, and a
-   * placement outside the destination container. Since CNCORE-255 the procedure
-   * answers whichever one it was, and this action still shows the Owner none of
-   * them.
+   * placement outside the destination container. CNCORE-255 made the procedure
+   * answer whichever one it was, so the clause is gone rather than extended: a
+   * list written here is a second copy of a set that lives in `placements.ts`.
+   *
+   * AND THIS PATH STILL SHOWS NO SENTENCE, WHICH IS THE DELIBERATE HALF. Unlike
+   * `placeItemInContainer` -- which carries the refusal through its redirect
+   * since CNCORE-275, because it was rendering a FALSE reason -- a refused move
+   * shows none at all, and the row snapping back to where the server says it
+   * sits is the feedback. That is CNCORE-127's reading and ADR-0116's: with
+   * script the drag has already moved the row, so `refresh()` is what corrects
+   * it, and there is no redirect here to carry a sentence on. Saying so rather
+   * than leaving it to be noticed.
    */
   await whatTheProcedureAnswered(
     call(

@@ -192,7 +192,36 @@ describe("what the owner is refused", () => {
     const after = await place(curatable.releaseOrder, twice);
 
     expect(after.status).toBe(200);
-    expect(sectionIn(after.text, "place-an-item")).toContain("Nothing was placed");
+    /*
+     * AND IT SAYS WHICH OF THE FOUR (CNCORE-275). This asserted "Nothing was
+     * placed" while the page wrote its own sentence, and that sentence named
+     * two causes out of `placement.place`'s four -- so a cycle or a position
+     * the column cannot hold rendered as "already here, or no longer in the
+     * catalogue", a FALSE reason rather than a vague one. The page now renders
+     * the procedure's own refusal, so this asserts the words the Owner reads.
+     */
+    expect(sectionIn(after.text, "place-an-item")).toContain(
+      "That item is already in that container at that position",
+    );
+  });
+
+  it("says a container cannot hold itself, which the page could never have named", async () => {
+    /*
+     * THE CAUSE THE HARDCODED SENTENCE HAD NO WORDS FOR. A container placed
+     * inside itself is refused by `refuse_placement_cycle` (migration 15), and
+     * before CNCORE-275 this page answered it with "already here at that
+     * position ... or no longer in the catalogue" -- neither of which is true.
+     * This is the assertion that the page stopped inventing the reason.
+     */
+    const itself = {
+      itemId: curatable.releaseOrder,
+      position: "41",
+    };
+
+    const after = await place(curatable.releaseOrder, itself);
+
+    expect(after.status).toBe(200);
+    expect(sectionIn(after.text, "place-an-item")).toContain("A container cannot hold itself");
   });
 });
 
