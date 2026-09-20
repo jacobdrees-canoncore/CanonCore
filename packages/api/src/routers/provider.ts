@@ -1899,8 +1899,8 @@ export const provider = {
    * What a run did: every Container of it, in the Owner's order, with what
    * landed and what refused.
    *
-   * READ BACK RATHER THAN ONLY STREAMED, because a walk of five and a half hours
-   * is one nobody watches to the end. "Which of my 465 refused, and why" is a
+   * READ BACK RATHER THAN ONLY STREAMED, because a walk over 465 Containers is
+   * one nobody watches to the end, at eleven minutes as much as at five hours. "Which of my 465 refused, and why" is a
    * question asked once, afterwards -- and a caller that had to accumulate it
    * from every step would lose the lot to a closed terminal.
    *

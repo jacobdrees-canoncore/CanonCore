@@ -119,6 +119,25 @@ function identifiersNamedIn(markdown: string): Set<string> {
  */
 const THIS_FILE = "packages/config/src/adr-identifiers.test.ts";
 
+/**
+ * AND THE RECORD THAT DEFINES THIS RULE IS OUT OF THE POPULATION IT DEFINES,
+ * which is the same defect one level up and was MEASURED rather than foreseen.
+ *
+ * ADR-0162 states the rule and argues it from examples -- `filedByNameInput`,
+ * `pastTheRow`, `globalDependencies`, `thePlaceIn` -- so writing it put twelve
+ * gone symbols straight back into the population and reddened this check on its
+ * own record. `adr-as-built.test.ts` names the shape exactly: "a check that
+ * recruits a record by discussing it would grow its own subject every time
+ * somebody explained it."
+ *
+ * IT IS THE ONE RECORD EXCLUDED, and narrowly: every other record is read, and
+ * a record that merely CITES ADR-0162 is still read. What is excused is the
+ * record whose subject IS the gone symbol, which cannot state its own rule
+ * without naming one.
+ */
+const THIS_RECORD =
+  "0162-an-identifier-a-record-names-is-checked-against-what-this-tree-once-held.md";
+
 function trackedSource(): string[] {
   return execFileSync(
     "git",
@@ -153,12 +172,32 @@ function identifiersInTheTree(): Set<string> {
  * excludes it: a record naming a symbol is the thing under test, so a pickaxe
  * that counted the record's own prose would answer "ours" for every identifier
  * any document ever mentioned, and the population would become all 57 again.
+ *
+ * AND THIS FILE IS EXCLUDED FROM BOTH WALKS, WHICH IS ONE FACT AND NOT TWO.
+ * Excluding it from the tree alone is worse than excluding it from neither, and
+ * this check REDDENED ON ITSELF proving it: the moment the commit adding this
+ * file landed, `bestRating`, `transpilePackages`, `playQueueItemID`,
+ * `noUnnecessaryConditions` and `folderMillis` were in the history (this file's
+ * own docblock names them as examples of what is FOREIGN) and absent from the
+ * tree (which skips this file) -- so five identifiers no Plex, Next, Biome or
+ * Drizzle ever handed us were reported as symbols this repository had renamed
+ * away. An exclusion applied to one side of a comparison invents the difference
+ * it was meant to remove.
  */
 function theHistoryHeld(identifier: string): boolean {
   return (
     execFileSync(
       "git",
-      ["log", "--format=%H", "-S", identifier, "--", ".", ":(exclude)*.md"],
+      [
+        "log",
+        "--format=%H",
+        "-S",
+        identifier,
+        "--",
+        ".",
+        ":(exclude)*.md",
+        `:(exclude)${THIS_FILE}`,
+      ],
       { cwd: repoRoot, encoding: "utf8", maxBuffer: 16 * 1024 * 1024 },
     ).trim().length > 0
   );
@@ -194,7 +233,8 @@ const NAMED_A_GONE_SYMBOL_ON_PURPOSE: Readonly<Record<string, string>> = {
   freePort: "ADR-0144 records the port race it caused and the reader that replaced it",
   globalDependencies: "ADR-0126 records it as REFUSED, which is the decision the record exists for",
   pastInTwoRegimes: "ADR-0119 reports that it did not cover the order and grew out of its own name",
-  stillHasAPlaceIn: "ADR-0119 says the reads 'were `thePlaceIn` and `stillHasAPlaceIn` until CNCORE-224'",
+  stillHasAPlaceIn:
+    "ADR-0119 says the reads 'were `thePlaceIn` and `stillHasAPlaceIn` until CNCORE-224'",
   thePlaceIn: "ADR-0119, the same sentence",
 };
 
@@ -205,6 +245,7 @@ function goneSymbolsNamedByRecords(): GoneSymbol[] {
   const gone: GoneSymbol[] = [];
 
   for (const file of readdirSync(adrDirectory).filter((name) => name.endsWith(".md"))) {
+    if (file === THIS_RECORD) continue;
     const named = identifiersNamedIn(readFileSync(join(adrDirectory, file), "utf8"));
     for (const identifier of named) {
       if (inTheTree.has(identifier)) continue;
@@ -214,7 +255,9 @@ function goneSymbolsNamedByRecords(): GoneSymbol[] {
     }
   }
 
-  return gone.sort((a, b) => `${a.record}${a.identifier}`.localeCompare(`${b.record}${b.identifier}`));
+  return gone.sort((a, b) =>
+    `${a.record}${a.identifier}`.localeCompare(`${b.record}${b.identifier}`),
+  );
 }
 
 describe("an identifier a record names", () => {
@@ -256,17 +299,36 @@ describe("an identifier a record names", () => {
         named.add(identifier);
       }
     }
-    expect(named.size, "the records name no camelCase identifiers at all, so this file read nothing").toBeGreaterThan(200);
+    expect(
+      named.size,
+      "the records name no camelCase identifiers at all, so this file read nothing",
+    ).toBeGreaterThan(200);
   });
 
+  /**
+   * A PICKAXE PER UNRESOLVED IDENTIFIER, over every commit this repository has.
+   *
+   * VITEST'S DEFAULT IS FIVE SECONDS AND THIS RUNS IN ABOUT FIVE AND A THIRD, so
+   * it FLAKED rather than failed -- green alone, red once in eight in the full
+   * suite, and the failure said "Test timed out in 5000ms" rather than naming a
+   * record. A check whose verdict depends on how busy the machine is teaches a
+   * reader to re-run it, which is how a real finding gets re-run away.
+   *
+   * THE COST IS THE FOREIGN IDENTIFIERS, and it is inherent rather than sloppy:
+   * one that WAS ours is found early and stops the walk, where the 47 that never
+   * were can only be established by reading every commit to the end.
+   */
   it("is not one this repository has renamed away", () => {
     const gone = goneSymbolsNamedByRecords();
 
     expect(
-      gone.map(({ record, identifier }) => `${record} names \`${identifier}\`, which this tree no longer has`),
+      gone.map(
+        ({ record, identifier }) =>
+          `${record} names \`${identifier}\`, which this tree no longer has`,
+      ),
       "a record names a symbol this repository's history holds and its tree does not: correct the sentence that carries it, or -- if the sentence is reporting the removal rather than asserting the symbol -- name it in `NAMED_A_GONE_SYMBOL_ON_PURPOSE` with the reason",
     ).toEqual([]);
-  });
+  }, 60_000);
 
   /**
    * AND THE MAP IS HELD TO THE SAME STANDARD IT EXCUSES.
@@ -287,5 +349,5 @@ describe("an identifier a record names", () => {
       stale,
       "an entry in `NAMED_A_GONE_SYMBOL_ON_PURPOSE` names an identifier that is back in the tree, or that this history never held -- it is excusing nothing and should go",
     ).toEqual([]);
-  });
+  }, 60_000);
 });

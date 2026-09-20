@@ -2189,7 +2189,7 @@ describe("provider.beginImportRun", () => {
    * NO REQUEST LEAVES THE APP HERE, which is what separates opening a run from
    * walking one. Opening writes down a list; it is `importNextContainer` that
    * spends a third party's time (ADR-0131), and an Owner who typed a list of 465
-   * would otherwise wait five and a half hours before the first row of it existed.
+   * would otherwise wait out the whole walk before the first row of it existed.
    */
   it("asks the Provider nothing, because opening a run is writing a list down", async () => {
     const asked: string[] = [];
@@ -2484,7 +2484,7 @@ describe("provider.importNextContainer", () => {
   /**
    * THE RUN IS WHAT REPORTS, and it has to still be reporting after the walk has
    * finished: the Owner reads "which of my 465 refused" once, at the end, rather
-   * than by scrolling back through five and a half hours of output.
+   * than by scrolling back through a whole walk's output.
    */
   it("leaves the run reporting what landed and what refused, with each reason", async () => {
     const baseUrl = await aProviderOfTwoContainers();

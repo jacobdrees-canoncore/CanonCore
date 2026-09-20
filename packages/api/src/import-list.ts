@@ -24,9 +24,11 @@ export interface ContainerList {
  * is resumed by matching the LIST it is walking. A reader that answered a
  * different list for the same file -- one trailing newline, one stray space --
  * would not resume: it would open a second run over all 465 Containers and
- * browse every one of them again, silently, at five and a half hours. The
- * failure is invisible at the moment it happens and expensive afterwards, which
- * is the definition of something to put behind a test.
+ * browse every one of them again, silently -- the eleven minutes the corpus
+ * actually costs (ADR-0137) spent twice, and 465 requests at a Provider that
+ * did not need them. The failure is invisible at the moment it happens and
+ * expensive afterwards, which is the definition of something to put behind a
+ * test.
  *
  * BLANK LINES AND `#` COMMENTS GO, because a list of 465 Provider ids is
  * unreadable without notes beside them: the ids are the Provider's own and
@@ -90,8 +92,8 @@ export interface WalkingTheList {
  * IT HOLDS NO POSITION OF ITS OWN. Where the walk has got to is rows (migration
  * 18), so this function is free to die at Container 200 of 465: the next call
  * with the same list carries on from 201 rather than from the beginning, and
- * five and a half hours of browsing is not something to ask an Owner to spend
- * twice.
+ * the corpus's eleven minutes of browsing is not something to ask an Owner to
+ * spend twice, nor a Provider to serve twice.
  *
  * A REFUSAL DOES NOT STOP IT. One Container the Provider will not answer for is
  * one Container, and the 464 after it are still worth asking for -- the reason
