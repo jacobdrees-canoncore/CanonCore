@@ -4,8 +4,8 @@ import { dirname, join, resolve } from "node:path";
 import { pnpmSetupSteps, workflow } from "./ci-workflow";
 import { flatten } from "./flatten";
 import { repoRoot } from "./repo-root";
-import { withoutComments } from "./without-comments";
 import { configFilesOnDisk, namedConfig, suiteScripts } from "./vitest-configs";
+import { withoutComments } from "./without-comments";
 import { packageDirectories } from "./workspace";
 
 /**

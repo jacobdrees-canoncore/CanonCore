@@ -19,9 +19,17 @@ The three that crossed, and what each one kept:
 
 | Read | Copies | Folded into | Kept by the caller |
 | --- | --- | --- | --- |
-| `git ls-files` over the tracked tree | 5 files, 7 sites | `testing/tracked-files.ts` | pathspec, comment stripping, test-file filter, non-emptiness guard |
+| `git ls-files` over the tracked tree | 5 files, 7 sites | `testing/tracked-files.ts` | pathspec, ~~comment stripping~~, test-file filter, non-emptiness guard |
 | `readdirSync` over `docs/adr/` with `/^(\d{4})-/` | 5 files, 7 sites | `testing/adr-records.ts` | status parse, decision-block split, identifier scan, self-exclusion |
 | `text.replace(/\s+/g, " ").trim()` | 3 files | `testing/flatten.ts` | comment-leader stripping, in `tree-figures.ts` alone |
+
+**COMMENT STRIPPING LEFT THAT LIST UNDER CNCORE-300, which is why it is struck through above rather
+than quietly edited.** It was kept by the callers here because the five disagreed about it, and that
+was true of the RULES they had. It stopped being true when the stripping stopped being a regular
+expression: all four spellings held the same defect -- a `/*` inside a string or a line comment
+opening a comment and swallowing source to the next `*/` -- and a scan that knows a literal from code
+has nothing left for them to disagree about.
+[[0177-a-stripper-that-must-read-code-is-a-scan-not-a-pattern]] carries it, with the measurement.
 
 ## The drift had already happened, which is what settled it
 

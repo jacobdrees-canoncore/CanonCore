@@ -277,10 +277,7 @@ function theTrackedSources(): Map<string, string> {
   }
 
   return new Map(
-    tracked.map((path) => [
-      path,
-      withoutComments(readFileSync(join(repoRoot, path), "utf8")),
-    ]),
+    tracked.map((path) => [path, withoutComments(readFileSync(join(repoRoot, path), "utf8"))]),
   );
 }
 

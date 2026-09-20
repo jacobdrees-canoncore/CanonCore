@@ -100,6 +100,7 @@ describe("source with its comments taken out", () => {
    */
   it("reads a template literal as text, across an interpolation", () => {
     const source = [
+      // biome-ignore lint/suspicious/noTemplateCurlyInString: the subject of the row
       "const url = `http://${host}:${port}/*`;",
       'import { Card } from "@canoncore/ui/components/card";',
       "const done = 1; /* a real comment */",
@@ -107,6 +108,7 @@ describe("source with its comments taken out", () => {
 
     const code = withoutComments(source);
 
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: the text left alone, quoted
     expect(code).toContain("http://${host}");
     expect(code).toContain("@canoncore/ui/components/card");
   });
@@ -117,9 +119,10 @@ describe("source with its comments taken out", () => {
    * would redden every one of them on the paragraph explaining the rule.
    */
   it("takes out a block comment and a line comment alike", () => {
-    const source = ["/* a docblock saying redirect( */", "const a = 1; // and a note saying <Link"].join(
-      "\n",
-    );
+    const source = [
+      "/* a docblock saying redirect( */",
+      "const a = 1; // and a note saying <Link",
+    ].join("\n");
 
     const code = withoutComments(source);
 

@@ -4,8 +4,8 @@ import { dirname, join, resolve, sep } from "node:path";
 import { describe, expect, it } from "vitest";
 import { repoRoot } from "./testing/repo-root";
 import { trackedFiles } from "./testing/tracked-files";
-import { withoutComments } from "./testing/without-comments";
 import { plannedTasks } from "./testing/turbo-dry-run";
+import { withoutComments } from "./testing/without-comments";
 
 /**
  * A SUITE THAT READS A FILE OUTSIDE ITS PACKAGE IS CACHED AGAINST THAT FILE.
