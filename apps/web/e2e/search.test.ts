@@ -99,6 +99,53 @@ describe("/search", () => {
     expect(shown).not.toContain(timeSpan.kind);
   });
 
+  /**
+   * A SEARCH NARROWED TO A KIND IT HAS NONE OF (CNCORE-262).
+   *
+   * THREE THINGS WERE WRONG AND ALL THREE WERE THE SAME OMISSION: this page
+   * read `?kind=` to narrow the ANSWER and never once to explain it.
+   *
+   * The heading named the Group and never the kind, so a reader saw "Nothing
+   * matched X" over a catalogue that holds plenty of X. The explanation blamed
+   * alternative titles -- "an item known here under a different title ... is
+   * not found by it yet" -- which is FALSE of this state: the titles matched,
+   * and a kind filter is what discarded them. And the way out was COMPUTED
+   * (`everywhere` drops both narrowings) and then gated on there being a GROUP,
+   * so a reader narrowed to a kind alone had a link built for them and never
+   * rendered.
+   *
+   * THE FRONT PAGE ALREADY GREW THIS ARM AND SAID WHY (ADR-0137): a notice
+   * claiming the catalogue is empty is false of an install holding 8,052 Items
+   * that a reader has narrowed to a kind it has none of. `/search` reads the
+   * same `?kind=` and had none of it.
+   *
+   * `Person` RATHER THAN `person`, which is `item_kinds`' label and what
+   * `CONTEXT.md` binds UI copy to -- the same distinction the kind picker is
+   * held to one test up.
+   */
+  it("names the kind it was narrowed to, and offers the way out of it", async () => {
+    // THE TITLE MATCHES AND THE KIND DISCARDS IT, which is the state the old
+    // sentence was untrue of: the seeded item is a Work, so asking for it as a
+    // Person finds nothing for a reason that has nothing to do with titles.
+    const { status, text } = await documentAt(
+      `/search?q=${encodeURIComponent(itemTitle)}&kind=person`,
+    );
+
+    expect(status).toBe(200);
+    const said = sectionIn(text, "nothing-found");
+    expect(textOf(said)).toContain("Person");
+    // THE SENTENCE THAT WAS FALSE HERE. Alternative titles are a real limit of
+    // this search and the honest thing to say when nothing matched at all; it
+    // is the wrong answer when a narrowing is what emptied the page.
+    expect(textOf(said)).not.toContain("under a different title");
+
+    // THE ESCAPE IT ALREADY COMPUTED, now rendered. It drops the kind, which is
+    // what makes "the whole catalogue" true of where it goes.
+    const everywhere = said.match(/href="(\/search\?[^"]*)"/)?.[1]?.replaceAll("&amp;", "&");
+    expect(everywhere).toBeDefined();
+    expect(everywhere).not.toContain("kind=");
+  });
+
   it("treats a per cent sign as text rather than as a wildcard", async () => {
     // THE WHOLE CATALOGUE IS WHAT THE BUG LOOKS LIKE. Unescaped, `%` becomes
     // the pattern `%%%` and matches every titled row, so the failure renders as

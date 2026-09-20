@@ -143,6 +143,18 @@ export default async function SearchPage({
   // every Group "gone" -- true of nothing, and one missed `results` check from
   // rendering "No such Group" over a page that asked for no Group's answer.
   const scope = theScope(groups, read === null ? undefined : narrowedTo);
+  /*
+   * THE KIND THIS SEARCH WAS NARROWED TO, IN THE READER'S OWN WORD (CNCORE-262)
+   * -- `Time span`, never `time_span`, which is `item_kinds`' label and what
+   * `CONTEXT.md` binds UI copy to. The front page reads it exactly this way and
+   * for the same reason; a `?kind=` naming no kind at all falls back to what
+   * was typed, because "nothing here is of that kind" is still the honest
+   * sentence about it.
+   */
+  const narrowedToAKind =
+    chosen.kind === undefined
+      ? undefined
+      : (kinds.find(({ value }) => value === chosen.kind)?.label ?? chosen.kind);
   // THIS LISTING AS THE WALK AND THE PICKER SEE IT: its address and the query.
   // The Group rides separately, as `narrowed`, so `queryFor` writes the query,
   // then the Group, then the cursor.
@@ -193,6 +205,7 @@ export default async function SearchPage({
         <NothingFound
           query={query}
           within={scope.group?.name}
+          ofKind={narrowedToAKind}
           /*
            * THE WHOLE CATALOGUE MEANS BOTH NARROWINGS DROPPED (CNCORE-175), not
            * just the Group. This link says "Search the whole catalogue", and a
@@ -279,10 +292,12 @@ function NothingAsked() {
 function NothingFound({
   query,
   within,
+  ofKind,
   everywhere,
 }: {
   query: string;
   within?: string;
+  ofKind?: string;
   everywhere: ReturnType<typeof theStartOf>;
 }) {
   return (
@@ -297,7 +312,14 @@ function NothingFound({
               page's width.
             */}
             <h2 id="nothing-found">
-              Nothing matched <TheirWords>{query}</TheirWords>
+              {ofKind === undefined ? (
+                <>Nothing matched </>
+              ) : (
+                <>
+                  No <TheirWords>{ofKind}</TheirWords> matched{" "}
+                </>
+              )}
+              <TheirWords>{query}</TheirWords>
               {within !== undefined && (
                 <>
                   {" "}
@@ -313,13 +335,39 @@ function NothingFound({
             statements and are not searched, which is a real limit rather than a
             bug, and one a reader hunting a title they have definitely seen will
             otherwise spend a while disbelieving.
+
+            AND IT IS THE WRONG REASON WHERE A KIND NARROWED THE ANSWER
+            (CNCORE-262). Stated unconditionally it asserted that alternative
+            titles are why this page is empty, which is FALSE of a reader who
+            narrowed to a kind: the titles matched perfectly well and the
+            filter discarded them. A reader sent looking for a title problem
+            they do not have is worse off than one told nothing. So the limit
+            is named where it is the honest answer, and the narrowing is named
+            where that is.
           */}
-            Search reads the title each item goes by. An item known here under a different title
-            &mdash; a translation, or a name a source does not prefer &mdash; is not found by it
-            yet.
+            {ofKind === undefined ? (
+              <>
+                Search reads the title each item goes by. An item known here under a different title
+                &mdash; a translation, or a name a source does not prefer &mdash; is not found by it
+                yet.
+              </>
+            ) : (
+              <>
+                This search is narrowed to one kind of Item, and nothing of that kind matched. The
+                catalogue may still hold something of another.
+              </>
+            )}
           </EmptyDescription>
         </EmptyHeader>
-        {within !== undefined && (
+        {/*
+          THE WAY OUT OF WHICHEVER NARROWING THERE IS (CNCORE-262). This link
+          was computed with both narrowings dropped and then rendered only
+          where there was a GROUP, so a reader narrowed to a kind ALONE had it
+          built for them and never shown -- the one state where the page knows
+          exactly what to offer and offered nothing. The condition is now the
+          same question the link's own words ask: was this the whole catalogue?
+        */}
+        {(within !== undefined || ofKind !== undefined) && (
           <EmptyContent>
             {/*
               QUALIFIED, for the reason the `h1` above gives: `CONTEXT.md`
