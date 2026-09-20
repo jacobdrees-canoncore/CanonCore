@@ -39,7 +39,7 @@ you to.
 
 ```bash
 orca linear create --team CNCORE --title "<title>" --state Todo --body-file - --json
-orca linear create --team CNCORE --title "<title>" --parent CNCORE-1 --state Todo --json
+orca linear create --team CNCORE --title "<title>" --project <project-uuid> --state Todo --json
 orca linear comment add CNCORE-12 --body "<text>" --json
 orca linear attach --current --url <pr-url> --title "PR link" --json
 ```
@@ -55,15 +55,21 @@ trying to search projects too fast", and the same batch by UUID did not. A UUID 
 complexity points an hour on an API key, so a batch this size cannot be hitting either — do not write
 a number into a backoff.
 
-**A ticket is not filed until it carries a state, a label, an assignee, and a PARENT if it belongs
-to a spec.** This is not tidiness. Triage is off on this team, so a label is the only place triage
+**A ticket is not filed until it carries a state, a label, an assignee and a PROJECT.** All four are
+flags on one `create`, and `--parent` is not among them: parent links were dropped on 2026-09-12
+because a parent's state lies about its children — CNCORE-60 read `Done` over thirteen open ones
+(`CLAUDE.md`). This is not tidiness. Triage is off on this team, so a label is the only place triage
 state lives (`docs/agents/triage-labels.md`) and an unlabelled ticket has no triage state at all
 rather than a default one. Four tickets were filed without one on 2026-09-10 — three missing labels,
 one missing an assignee — by agents that had read this file, which is why the rule is a sentence
 rather than an inference.
 
-**Version one got this RIGHT, and the measurement is worth keeping.** Checked 2026-09-11: 18 of its
-57 tickets declare `## Parent` / `CNCORE-2` in their body, and after two repairs all 18 carry the
+**THE PARAGRAPHS BELOW RECORD THE PARENT-LINK ERA, WHICH ENDED 2026-09-12.** They are kept as the
+measurement they were, not as a practice to copy: nothing filed now carries a parent. Read them for
+what version one's shape was and for the read-the-right-key lesson, which outlived the mechanism.
+
+**Version one got this right under the convention of its day, and the measurement is worth keeping.**
+Checked 2026-09-11: 18 of its 57 tickets declare `## Parent` / `CNCORE-2` in their body, and after two repairs all 18 carry the
 link. The blocking graph among them is dense — CNCORE-6 and CNCORE-7 each block four tickets. The
 other 39 claimed no parent: they are the audit tail, the ADR corrections and the Node chain,
 DISCOVERED while building rather than planned into the spec.
@@ -90,13 +96,14 @@ reads exactly like a board with no structure at all, and this file briefly said 
 `create` "sets none of the last two, so every one of them is a second call" and prescribed
 `orca linear label add` and `orca linear assignee set` afterwards. That is wrong and it cost roughly
 114 redundant calls across version one's 57 tickets. `orca linear create --help` documents
-`--state`, `--label` (repeatable), `--assignee`, and `--parent` / `--parent-current` on the create
-call itself:
+`--state`, `--label` (repeatable), `--assignee` and `--project` on the create call itself:
 
 ```bash
 orca linear create --team CNCORE --title "<title>" --state Todo \
-  --label ready-for-agent --assignee me --parent CNCORE-<spec> --body-file - --json
+  --label ready-for-agent --assignee me --project <project-uuid> --body-file - --json
 ```
+
+Pass the project its **UUID, never its name**, for the reason the batch note above gives.
 
 **Measured on CNCORE-60, 2026-09-11**: `--state` and `--label` bind on the create call.
 `--assignee me` is UNVERIFIED — the check that should have proved it read the wrong JSON key (see
@@ -129,7 +136,7 @@ for exactly this reason; a command retyped from memory is where they get dropped
 | A person (assignee, member) | `.displayName` | `.name` (always `None`) |
 | A label or a state | `.name` | `.displayName` |
 | Whether a relation BLOCKS | `.relationship` == `"blocks"` / `"blockedBy"` | `.type`, which is `"blocks"` on BOTH directions |
-| An issue's PARENT | the parent's `result.children` | `result.issue.parent` — **there is no such key** |
+| An issue's PARENT *(era ended 2026-09-12)* | the parent's `result.children` | `result.issue.parent` — **there is no such key** |
 
 **The relation one bites the frontier**, which is the single most-run query here. A relation reads:
 
@@ -150,7 +157,8 @@ Filtering on the spelling you just typed matches no relation at all. Measured 20
 tickets of CNCORE-159: twenty-three edges between them read back as twenty-eight unblocked tickets,
 and the frontier was reported flat before a second pass caught it.
 
-**The parent one is the newest and it reads as a failed write rather than a failed read**, which is
+**The parent one is about a mechanism this repo no longer uses** — parent links were dropped on
+2026-09-12 — and it is kept because the SHAPE recurs: a read that reads as a failed write, which is
 worse than the others. `orca linear create --parent CNCORE-60` binds; the issue payload simply
 carries no `parent` key, so `.get("parent")` answers `None` for every ticket in the team — CNCORE-65,
 whose parent has never been in doubt, included. Measured 2026-09-11 while filing CNCORE-82 and
@@ -191,25 +199,39 @@ orca linear relation add --current --related CNCORE-9 --type blocks --json
 ```
 
 The **frontier** is every open ticket whose `blocked-by` relations are all closed. Recompute it
-with `orca linear issue <spec-id> --children --relations --json` after each merge, rather than
-assuming ticket order.
+after each merge rather than assuming ticket order, and note it costs N+1 calls now that there is no
+parent to walk:
 
-Sub-issues (`--parent`) express "part of this spec". Relations (`blocked-by`) express ordering.
-Use both: a spec is the parent, blocking is the graph.
+```bash
+orca linear list-issues --team CNCORE --project <project-uuid> --state Todo --json  # candidates
+orca linear issue <id> --relations --json                                           # per candidate
+```
 
-### Why a parent and not a Linear PROJECT
+The **PROJECT** expresses "part of this effort". Relations (`blocked-by`) express ordering. Use both:
+a project is the container, blocking is the graph.
 
-Linear's own guidance points the other way — sub-issues are for work "too large to be a single issue
-but too small to be a project", and a 15-to-50-ticket spec is project-sized. **The CLI settles it
-against that guidance.** `orca linear issue <id> --children --relations --depth 3 --json` returns the
-graph in one call; `list-issues --project <p>` returns a flat list with **no relations field at all**.
-The frontier is computed from blocking edges, so only the parent walk can do the job. There is also
-no `project create` in `orca linear`, so a project is a manual UI step per spec.
+### Why a PROJECT and not a parent
 
-**Add a project when two specs run at once, and not before.** It buys a target date, a progress
-graph and somewhere to hang documents; it cannot replace the parent, and the two compose — sub-issues
-inherit the parent's project. Three or more concurrent efforts is when an Initiative over Projects
-starts earning its keep.
+**Work lives in Linear Projects, and parent links were dropped on 2026-09-12** (`CLAUDE.md`). The
+reason is that a parent's state LIES ABOUT ITS CHILDREN: CNCORE-60 read `Done` over thirteen open
+ones, so the one call that made the parent walk attractive was also the call that answered wrongly.
+A container whose status is computed from nothing is worse than no container, because it reads as an
+answer.
+
+**The convenience was real and it was not enough.** `orca linear issue <id> --children --relations
+--depth 3 --json` did return the graph in one call, and `list-issues --project <p>` still returns a
+flat list with **no `relations` field at all** — re-measured 2026-09-20 against "The foundation",
+where a three-issue page came back carrying `state`, `labels`, `assignee` and `project` and no
+relations key. So the frontier costs a call per candidate now, as the recipe above shows. That is the
+price of the swap, paid deliberately: a slower frontier that is right beats a single call that is
+wrong.
+
+**There is no `project create` in `orca linear`**, so a project is still a manual UI step per effort —
+see "Creating anything needs the web UI". Pass an existing one by UUID on `create`.
+
+**A spec is an issue, not a container.** It is labelled `to-spec` and sits in `Backlog` inside the
+project it describes, and a spec is the only thing `Backlog` holds. An agent-filed ticket lands in
+`Backlog` by default, where the frontier cannot see it: move each to `Todo` as you triage it.
 
 ### Sizing a spec: plan for the tail
 
@@ -307,7 +329,8 @@ hand is fine; one silently briefed by nothing is not.
 Used by `/wayfinder`. The map is a Linear issue; each decision is a child issue.
 
 - **Map**: one issue in team `CNCORE` holding the Notes / Decisions-so-far / Fog body.
-- **Child ticket**: `orca linear create --team CNCORE --parent <map-id> --state Todo`, one per decision.
+- **Child ticket**: `orca linear create --team CNCORE --project <project-uuid> --state Todo`, one per
+  decision, carrying a `blocked-by` to the map rather than a parent link.
 - **Blocking**: `orca linear relation add <child> --related <blocker> --type blocked-by`.
 - **Frontier**: open children of the map with no open `blocked-by` and no assignee.
 - **Claim**: `orca linear assignee set <id> --me --json`, before any work.
@@ -389,10 +412,20 @@ name answers `linear_invalid_project` / `linear_invalid_label`. Projects are mad
 `/settings/...` or the projects view, labels at **Settings → Workspace → Labels**
 (`/settings/issue-labels`) rather than the team page, since the triage labels are workspace-scoped.
 
-Both dialogs defeat the obvious automation. What works, verified 2026-09-12: focus the field through
-`orca eval`, type with `orca type` for real key events, then invoke the button with `.click()` from
-`orca eval`. Linear's inline LABEL row needs more — React's native value setter, then `input`,
-`change`, the three `Enter` keyboard events, `blur()` and `focusout`. Anything less leaves the value
+**Orca's own browser tools are enough, and the elaborate recipe below is no longer the way.**
+Verified 2026-09-13 creating `blocked-externally`: `orca click --element <New label>`, then
+`orca fill --element <ref> --value <name>`, then `orca computer press-key --app Orca --key Return`.
+`orca fill` dispatches the events React wants, which is what the hand-rolled sequence was
+compensating for. `docs/agents/triage-labels.md` carries the same correction, and carried it first —
+this file went on presenting the superseded form with no label on it, which is the defect CNCORE-259
+was filed for.
+
+**What that supersedes**, kept because it explains why the recipe was elaborate: focus the field
+through `orca eval`, type with `orca type` for real key events, then invoke the button with
+`.click()` from `orca eval`. Linear's inline LABEL row needed more — React's native value setter,
+then `input`, `change`, the three `Enter` keyboard events, `blur()` and `focusout`.
+
+**The failure mode is the reason to read the label back either way:** anything less leaves the value
 on screen and unsaved, which looks exactly like success.
 
 **The API rate-limits after roughly seven rapid writes.** Pace them about a second apart and retry

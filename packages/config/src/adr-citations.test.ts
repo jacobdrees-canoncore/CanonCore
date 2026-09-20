@@ -20,11 +20,21 @@ import { repoRoot } from "./testing/repo-root";
  * `docs/research/` and have never existed in `docs/adr/`. They are not deleted
  * records. They were records on the 2026-09-10 branch that
  * `audit-new-adrs-internal.md` was auditing, and that audit is what caused each
- * to be folded elsewhere rather than merged: 0086's ten-second rule into
- * ADR-0019, 0080's `bestRating` into ADR-0012, 0093's instruction into
+ * to be folded elsewhere rather than merged: 0086's ten-second rule into record
+ * 0019, 0080's `bestRating` into record 0012, 0093's instruction into
  * `CLAUDE.md`'s Principles. So the research is accurate about what was known
  * when it was written, and the numbers it cites are the proposals it was
  * evaluating.
+ *
+ * THE NUMBERS ABOVE ARE BARE ON PURPOSE, and a later reader should not tidy them
+ * into the prefixed spelling. In source, that spelling is how a file says it
+ * DEPENDS on a record -- it is the population `adr-as-built.test.ts` reads,
+ * which then asks every `proposed` record so cited to declare which half was
+ * built. This file depends on ADR-0167 and on nothing else; it merely NAMES
+ * those records as destinations. Written with the prefix, two of them were
+ * pulled into that check and it failed on records this file does not lean on --
+ * which happened twice while writing this docblock, the second time on the
+ * sentence warning against it.
  *
  * THE BODIES ARE LEFT AS WRITTEN, which is `docs/research/README.md`'s standing
  * decision and not a new one: "editing research to match a later deletion would
@@ -53,7 +63,7 @@ import { repoRoot } from "./testing/repo-root";
  *
  * PROSE ONLY -- everything under `docs/` plus the markdown at the root, which
  * is `doc-line-citations.test.ts`'s established scope. It steps around a
- * measured false positive: CNCORE-247 counted ADR-0001 as cited when its only
+ * measured false positive: CNCORE-247 counted record 0001 as cited when its only
  * match was the synthetic fixture `0001-a.md` inside
  * `doc-line-citations.test.ts`. Source comments are the population
  * `adr-as-built.test.ts` reads, and a dead one there is not caught here.
