@@ -30,7 +30,7 @@ with.
 
 **AND "EVERY SENTENCE THIS APP WRITES" IS NOT A FIXED LENGTH, WHICH AN EARLIER VERSION OF THIS
 RECORD MISSED.** It claimed the longest refusal in `boundary.ts` was 172 characters and that the
-Owner's sentences therefore arrived whole. Both halves were wrong. `assertConfigAddress` with a full
+Owner's sentences therefore arrived whole. Both halves were wrong. `assertConfigAddresses` with a full
 IPv6 address is 199, and — the one that matters — **`assertConfigUrl` interpolates the host TWICE**,
 once as the origin and once on its own, so the refusal grows at twice the rate of whatever the Owner
 typed. Measured: a 147-character hostname, an ordinary AWS load balancer name, produces a
@@ -50,8 +50,13 @@ one: it used `wiki.example.com`, so it only ever exercised the half that never v
 half is the half that consumed the headroom.
 
 **A VALUE CAN ALSO BE BOUNDED BY ITS OWN SYNTAX, AND THEN `shortly` IS THE WRONG TOOL -- under
-CNCORE-244.** `assertConfigAddress` now carries THREE values: the address, ipaddr.js's name for its
-range, and a CIDR the Owner is told to copy into their allowlist. Two of them are addresses, and an
+CNCORE-244.** `assertConfigAddresses` carries THREE values when it refuses ONE address: the address,
+ipaddr.js's name for its range, and a CIDR the Owner is told to copy into their allowlist. **It
+refuses a LIST of them since CNCORE-287, and that sentence spends its budget differently** -- it
+drops the range name and names the addresses once, because carrying both puts two full-stretch IPv6
+addresses at 318. A remedy whose length grows with its input cannot be made to fit by bounding each
+value, which is what
+[[0174-a-remedy-is-assembled-against-the-cap-that-carries-it]] answers and this paragraph does not. Two of them are addresses, and an
 address that has passed `ipaddr.isValid` is at most 15 characters as IPv4 and 39 as IPv6, so it needs
 no ceiling -- it needs REBUILDING FROM THE PARSE, which is a stronger guarantee than a cut. **The
 difference is not cosmetic: a remedy that has been TRUNCATED is a remedy that cannot work**, which is
@@ -308,7 +313,7 @@ lived inside `/import/page.tsx` while that page was the only caller and moved to
 `apps/web/src/components/reason.tsx` when the third arrived; this sentence said "both `/import`
 sections" until then. An earlier build moved that naming into the component instead, which rendered
 the URL twice in the search list and — worse — dropped it entirely when the reason came from
-`assertConfigAddress`, which names an ADDRESS rather than the provider. The lead sentence is the
+`assertConfigAddresses`, which names an ADDRESS rather than the provider. The lead sentence is the
 right place for it precisely because the reason cannot be relied on to contain it.
 
 **The `provider` branch is rendered by a test, which it was not at first.** The suite's one
@@ -455,7 +460,7 @@ Everything above asks `wrote` of the thing that was thrown. **For every refusal 
 the thing that was thrown is not the refusal.**
 
 [[0034-two-outbound-boundaries]]'s connection pinning lives in the DNS `lookup` hook, which is
-undici's callback and not this app's stack. So `assertConfigAddress` throws, undici catches it at the
+undici's callback and not this app's stack. So `assertConfigAddresses` throws, undici catches it at the
 connector, and what arrives at `reasonFor` is `TypeError: fetch failed` with the refusal on `cause`.
 Nothing here read `cause`. **Both of this record's fields then answered wrongly, and the second is the
 worse one:** the sentence naming the remedy was replaced by eight words that name nothing, and
@@ -560,7 +565,7 @@ figure taken from a review rather than from the tree.)
 ask of itself.** Attribution is decided by the link the walk lands on rather than by the thing that
 was thrown, so it is worth saying why that is not a way for a stranger to speak in this catalogue's
 voice: the branch fires only on an `OutboundRefused` whose `boundary` is `config`, and the only
-things that construct one are `assertConfigUrl`, `assertConfigAddress` and `assertHttpScheme` — all
+things that construct one are `assertConfigUrl`, `assertConfigAddresses` and `assertHttpScheme` — all
 three judging a base URL the OWNER typed. A provider supplies text, never an error object, so it
 cannot put one in a chain. The conservative direction this record already chose holds: everything
 undecided still lands on `provider`.
