@@ -83,17 +83,21 @@ function flatten(text: string): string {
  * decision block, and what a record DECLARES about its halves is read from the
  * whole of it.
  */
-type Record_ = { file: string; status: string; raw: string; text: string; decision: string };
+type AdrRecord = { file: string; status: string; raw: string; text: string; decision: string };
 
-function theRecords(): Map<string, Record_> {
-  const records = new Map<string, Record_>();
+function theRecords(): Map<string, AdrRecord> {
+  const records = new Map<string, AdrRecord>();
   for (const file of readdirSync(adrDirectory).filter((name) => name.endsWith(".md"))) {
     const number = /^(\d{4})-/.exec(file)?.[1];
     if (number === undefined) continue;
     const raw = readFileSync(join(adrDirectory, file), "utf8");
     records.set(number, {
       file,
-      status: /^status:\s*(\S+)/m.exec(raw)?.[1] ?? "unstated",
+      // THE FRONTMATTER BLOCK, not any line that opens `status:`. Anchored to the
+      // leading `---` fence because these records discuss their own statuses in
+      // prose, and a body line beginning with the word would otherwise be read as
+      // the record's status.
+      status: /^---\n(?:.*\n)*?status:\s*(\S+)/.exec(raw)?.[1] ?? "unstated",
       raw,
       text: flatten(raw),
       decision: flatten(raw.split(/^## /m)[0] ?? ""),
@@ -133,10 +137,27 @@ function theRecords(): Map<string, Record_> {
  * accepting one would put this check back to matching a word in prose.
  */
 const DECLARATION = /\*\*[^*]*\bBUILT\b/;
-const AS_BUILT_HEADING = /^#{2,3} .*(\bbuilt\b|stays PROPOSED)/im;
+const AS_BUILT_HEADING = /^#{2,3} .*(\bbuilt\b|stays PROPOSED)/i;
 
-function declaresItsHalves(record: Record_): boolean {
-  return DECLARATION.test(record.text) || AS_BUILT_HEADING.test(record.raw);
+/**
+ * AND THE HEADING'S OWN SECTION HAS TO SAY SOMETHING, which closes the hole the
+ * widening above would otherwise open.
+ *
+ * `## Why this stays PROPOSED` over an empty section would pass a record that
+ * declares nothing, which is the word-level proxy this file refuses one function
+ * up -- so the section under such a heading must carry a bolded run, the thing
+ * every real note in this corpus uses to mark the halves. Measured before it was
+ * adopted: ADR-0153 is the only record in the population that passes by heading
+ * alone today, and its section carries `**Half the mechanism landed.**`, so this
+ * reddens nothing that was green.
+ */
+function declaresItsHalves(record: AdrRecord): boolean {
+  if (DECLARATION.test(record.text)) return true;
+
+  return record.raw
+    .split(/^(?=#{2,3} )/m)
+    .filter((section) => AS_BUILT_HEADING.test(section))
+    .some((section) => section.includes("**"));
 }
 
 /**
@@ -197,6 +218,13 @@ const CITED_ACROSS_THE_BOUNDARY = ["0097"];
  * fine. A pathspec that stopped matching would turn this whole file green having
  * asked nothing, which is the shape both `ui-callers.test.ts` and
  * `corpus-figures.test.ts` raise at the root of their own chains.
+ *
+ * TODO(CNCORE-277): this is the FOURTH copy of the `git ls-files -z` walk in this
+ * package, and ADR-0136 folds at three. It is left here rather than extracted
+ * because the four are not the same read -- `ui-callers.test.ts` strips comments
+ * and drops tests, this one deliberately keeps both -- so the shared core is
+ * about three lines and the argument is whether a seam that small earns a module.
+ * That ticket decides it; a fold done in passing here would be one nobody chose.
  *
  * AND IT EXCLUDES ITSELF, which is not tidiness but a defect this file HAD. The
  * comments above name ADR-0001 and ADR-0055 to explain what they are not, and
@@ -264,8 +292,15 @@ describe("a proposed record that source leans on", () => {
       .sort();
 
     // THE POPULATION IS REPORTED BEFORE IT IS JUDGED, so a reader of a failure
-    // can tell "none are silent" from "none were asked".
-    expect(population.length, "no proposed record is cited by source at all").toBeGreaterThan(10);
+    // can tell "none are silent" from "none were asked". The floor is the size of
+    // the exception map rather than a number somebody picked: a population that
+    // had shrunk to its own exceptions would satisfy the assertion below by
+    // excusing everything it asked.
+    expect(
+      population.length,
+      "the cited proposed records are no more numerous than the exceptions granted to them, so " +
+        "this check is excusing everything it asks",
+    ).toBeGreaterThan(Object.keys(SILENT_ON_PURPOSE).length);
 
     const silent = population.filter((number) => {
       const record = records.get(number);

@@ -60,7 +60,7 @@ the product is kept by there being no playback to break it.
 
 **NOT BUILT: everything the refusal buys.** Playability as the file's probed properties checked
 against the device's declared capabilities does not exist, and neither does the refusal that names
-the property that failed. The two source sites citing this record lean on it to leave a column
+the property that failed. The three source sites citing this record lean on it to leave a column
 EMPTY rather than to fill one: `sessions.capabilities` is opaque and unset because direct play is
 what makes the capability distinction decisive, and pinning a shape now would invent the one the
 first client has to answer (ADR-0043, itself half built).

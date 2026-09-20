@@ -17,10 +17,15 @@ confirmation on the common action is what teaches people to dismiss the dangerou
 
 ## What the delete path INHERITS, decided under CNCORE-31
 
-Nothing here is built. When it is, know that DELETE PERMANENTLY already has a
-consequence it does not have to write: tombstoning an item tombstones the
-statements it is the subject of, by trigger (ADR-0075, migration 5). So a delete
-is `deleted_at` on the item and nothing else, and the claims go with it.
+Nothing WAS built when this section was written, and that is no longer true of
+the record as a whole — CNCORE-34, CNCORE-69 and CNCORE-210 have landed since,
+and the as-built note at the foot says which limbs those were. What is still
+unbuilt is the one this section is about: DELETE PERMANENTLY on an Item.
+
+When it is built, know that it already has a consequence it does not have to
+write: tombstoning an item tombstones the statements it is the subject of, by
+trigger (ADR-0075, migration 5). So a delete is `deleted_at` on the item and
+nothing else, and the claims go with it.
 
 That is a consequence this record's PREVIEW should count, since it is part of
 what the owner is about to lose, and it is the one the preview cannot see by
@@ -276,10 +281,12 @@ them, whichever version prefetches.
 
 ## As built — and this record stays PROPOSED
 
-**"NOTHING HERE IS BUILT" ABOVE IS OUT OF DATE, which is the first reason this section exists.**
-It was written under CNCORE-31 and was true then. CNCORE-34, CNCORE-69 and CNCORE-210 each landed
-afterwards and each added a section to this record without going back to that sentence, so a reader
-starting at the top meets a flat denial and then four decisions that contradict it.
+**THE INHERITANCE SECTION'S "NOTHING HERE IS BUILT" WAS TRUE UNDER CNCORE-31 AND STOPPED BEING
+TRUE.** CNCORE-34, CNCORE-69 and CNCORE-210 each landed afterwards and each added a section to this
+record without going back to that sentence, so a reader starting at the top met a flat denial and
+then four decisions contradicting it. It is corrected where it stands rather than from down here,
+because a correction placed beside a claim leaves the claim standing (`CLAUDE.md`); this section is
+the inventory it now points at (CNCORE-247).
 
 **BUILT: removal with its undo, and the two deletes that are not an item's.** `placement.remove`
 takes an Item out of one container with NO confirmation in front of it and offers `placement.restore`
