@@ -12,13 +12,15 @@ import {
   recordContainerLanded,
   recordContainerRefused,
 } from "./index";
-import { importRuns } from "./schema";
-import { connect } from "./testing/catalogue";
+import { importRunContainers, importRuns } from "./schema";
+import { connect, refusal, theOwner } from "./testing/catalogue";
 
 let db: Database;
+let ownerId: string;
 
 beforeAll(async () => {
   db = await connect();
+  ownerId = await theOwner(db);
 });
 
 /**
@@ -360,5 +362,146 @@ describe("resuming a run", () => {
     });
 
     expect(elsewhere.id).not.toBe(first.id);
+  });
+});
+
+/**
+ * MIGRATION 18'S SIX, EACH MET HEAD ON. The suite above drives this table
+ * through `beginImportRun`, `recordContainerLanded` and `recordContainerRefused`
+ * and every write it makes is a legal one, so until CNCORE-260 the six rules the
+ * rung declares were carried by nothing but the fact that no code broke them
+ * yet. What each one is FOR is only visible when something tries.
+ *
+ * DIRECTLY AGAINST THE TABLE, WHICH IS THE SEAM ON PURPOSE. The functions exist
+ * to write legal rows and a test that went through them could not reach these at
+ * all -- CNCORE-254 is the worked example, where the repeat it refuses by name
+ * now never gets as far as `named_once`. The database is the thing under test
+ * here, so the database is what these write to.
+ *
+ * EACH NAMES THE CONSTRAINT IT EXPECTS. `refusal` answers with the constraint
+ * PostgreSQL named, so a write that trips a neighbouring rule fails here rather
+ * than passing as though it had proved the rule in the title -- which is the
+ * ordinary way a test like this rots.
+ */
+describe("what a run's Containers will not hold", () => {
+  it("refuses an outcome nobody defined, because those three words are the whole vocabulary", async () => {
+    const run = await beginImportRun(db, { providerIdentity: aProvider(), containerIds: THREE });
+
+    expect(
+      await refusal(
+        db
+          .update(importRunContainers)
+          .set({ outcome: "finished" })
+          .where(eq(importRunContainers.runId, run.id)),
+      ),
+    ).toBe("import_run_containers_outcome_is_known");
+  });
+  /**
+   * THE EQUIVALENCE RUNS BOTH WAYS, which is the half a nullable column would
+   * lose. A row saying it landed while holding no counts is a run that cannot
+   * say what it wrote, and the rung's own sentence calls that the row "this
+   * database will not hold".
+   */
+  it("refuses a Container that landed without saying what it wrote", async () => {
+    const run = await beginImportRun(db, { providerIdentity: aProvider(), containerIds: THREE });
+
+    expect(
+      await refusal(
+        db
+          .update(importRunContainers)
+          .set({ outcome: "landed" })
+          .where(eq(importRunContainers.runId, run.id)),
+      ),
+    ).toBe("import_run_containers_landed_counts_what_it_wrote");
+  });
+
+  /**
+   * AND THE OTHER WAY, at the end an Owner has to act on. `refused` is the one
+   * outcome that asks the Owner to do something, and a refusal carrying no
+   * sentence tells them only that a Container did not arrive -- which of
+   * ADR-0033's three it was, and whether it is worth asking again, is exactly
+   * what the sentence holds.
+   */
+  it("refuses a Container that refused without saying why", async () => {
+    const run = await beginImportRun(db, { providerIdentity: aProvider(), containerIds: THREE });
+
+    expect(
+      await refusal(
+        db
+          .update(importRunContainers)
+          .set({ outcome: "refused" })
+          .where(eq(importRunContainers.runId, run.id)),
+      ),
+    ).toBe("import_run_containers_refused_says_why");
+  });
+
+  /**
+   * WHO WROTE THE SENTENCE IS A CLOSED SET OF TWO, because a surface attributes
+   * a Provider's words and does not attribute this app's own (ADR-0123). A third
+   * value would reach a surface that has no branch for it, and the surface would
+   * either attribute CanonCore's own sentence to a third party or drop the
+   * attribution from a Provider's.
+   */
+  it("refuses a reason written by somebody who is neither this app nor the Provider", async () => {
+    const run = await beginImportRun(db, { providerIdentity: aProvider(), containerIds: THREE });
+
+    expect(
+      await refusal(
+        db
+          .update(importRunContainers)
+          .set({ outcome: "refused", reasonText: "403 Forbidden", reasonWrote: "the-wiki-itself" })
+          .where(eq(importRunContainers.runId, run.id)),
+      ),
+    ).toBe("import_run_containers_reason_wrote_is_known");
+  });
+
+  /**
+   * THE BACKSTOP BEHIND CNCORE-254'S CHECK, and not the same assertion. The test
+   * above -- "refuses a list naming one Container twice" -- drives
+   * `beginImportRun`, which reads the list and refuses a repeat by name before a
+   * row is written, so it never reaches this index at all. ADR-0154 names that
+   * arrangement: the check saves the insert, and the index holds the invariant
+   * behind it. What this asserts is the half nothing else can reach.
+   *
+   * A FRESH `list_position` ON PURPOSE, so `in_list_order` cannot be what fires
+   * and pass this test for the wrong reason.
+   */
+  it("refuses one Container named twice in a run, whatever place in the list it claims", async () => {
+    const run = await beginImportRun(db, { providerIdentity: aProvider(), containerIds: THREE });
+
+    expect(
+      await refusal(
+        db.insert(importRunContainers).values({
+          ownerId,
+          runId: run.id,
+          externalId: "249643",
+          listPosition: 9,
+        }),
+      ),
+    ).toBe("import_run_containers_named_once");
+  });
+
+  /**
+   * WHAT MAKES THE ORDER TOTAL RATHER THAN MERELY USUAL, in migration 18's own
+   * words. A resume reads this run's Containers by `list_position`, so two rows
+   * claiming one place put the walk's next Container at the planner's discretion
+   * -- and the walk is five and a half hours the Owner does not want to repeat.
+   *
+   * A FRESH `external_id` ON PURPOSE, for the same reason reversed: `named_once`
+   * must not be what fires.
+   */
+  it("refuses two Containers claiming one place in the list", async () => {
+    const run = await beginImportRun(db, { providerIdentity: aProvider(), containerIds: THREE });
+
+    expect(
+      await refusal(
+        db.insert(importRunContainers).values({
+          ownerId,
+          runId: run.id,
+          externalId: "302341",
+          listPosition: 0,
+        }),
+      ),
+    ).toBe("import_run_containers_in_list_order");
   });
 });
