@@ -234,6 +234,20 @@ either. They are stripped rather than escaped: a reason and a credential's label
 sentences of prose, not documents with a mixed-direction layout to preserve. Found reviewing
 CNCORE-101, on the page whose next control is a link the Owner is about to give a credential to.
 
+**AND THE TASK REGISTRY STRIPS THEM TOO, IN ITS OWN COPY ON PURPOSE (CNCORE-274).** The third
+truncation below takes BOTH of this record's levers, not just the cut. It had only the cut for a
+while, and that is the shape this record warns about everywhere else: `registry.ts` collapsed `\s+`,
+which is no answer to either family, and `tasks/page.tsx` renders `detail` as prose without wrapping
+it — so a task's thrown message could run backwards through the sentence that page wrote about it.
+U+FEFF is the one `\s` DOES match, so it became a space rather than nothing: a different wrong
+answer rather than a right one.
+
+It is a COPY, for the reason the cut is a copy — the dependency this record refuses is refused for
+the strip as well — so the rule is that a record bounding a stranger's text on two levers is written
+in the task registry on two, BY HAND, and kept in step there. A reader who finds the second
+`CONTROLS` should meet that decision rather than an oversight, which is why it is written here and
+not only at the site.
+
 **WIDTH IS A THIRD LEVER**, and a 300-character ceiling is no answer to it either: 300 characters
 with no break in them are one line as wide as the Provider likes. CNCORE-217 closes it with a
 component, recorded under "Where the wrap lives" below: `ProviderProse` as built, and `TheirWords`
@@ -1102,11 +1116,12 @@ a base and its combining mark can still be parted by either cut. That is left, a
 both halves remain VALID characters that render as themselves — where a lone surrogate is not a
 character at all, which is what makes it alone worth the guard.
 
-**AND THE CUT IS THE ONLY PROPERTY THE THIRD COPY HAS TAKEN.** `reason.ts` strips the control
-characters above before it cuts; `registry.ts` collapses whitespace and does not, and `tasks/page.tsx`
-renders that column as prose without wrapping it. So "two numbers, one rule" is true of the cut and
-not yet of the strip — CNCORE-274 holds the second, and it is named here rather than left for a
-reader to discover the asymmetry from the two files.
+**AND THE THIRD COPY HAS TAKEN BOTH PROPERTIES, NOT ONLY THE CUT (CNCORE-274).** It had only the cut
+when this section was first written, so "two numbers, one rule" was true of the cut and an overclaim
+about the strip. `registry.ts` now carries its own `CONTROLS` beside its own marker, stripping before
+it collapses and collapsing before it cuts, in the order `reason.ts` uses. Both levers, written
+twice, kept in step by hand — which is the whole price of `@canoncore/tasks` not depending on the
+outbound HTTP stack, and it is paid rather than described.
 
 **THIS RECORD STAYS `accepted`, AND THE WORD IS MEANT NARROWLY.** Its MECHANISM — a reason bounded
 at a stated ceiling, attributed to whoever wrote it — was whole throughout and is untouched: every

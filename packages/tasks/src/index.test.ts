@@ -151,6 +151,42 @@ describe("what a break wrote", () => {
     expect(latest?.detail).not.toContain("\ufffd");
     expect(latest?.detail).toBe(`${"a".repeat(298)}\u2026`);
   });
+
+  /**
+   * A TASK CHOOSES WHAT ITS TEXT DOES TO THE PAGE, NOT ONLY HOW MUCH OF IT
+   * THERE IS (CNCORE-274, ADR-0123).
+   *
+   * The cut answers the length lever and does nothing about a bidirectional
+   * override, which re-orders the glyphs around itself -- so a detail can run
+   * backwards through the sentence `tasks/page.tsx` wrote about it. Neither
+   * family is whitespace, so collapsing `\s+` never touched them.
+   *
+   * THE SECOND COPY OF A SECOND PROPERTY, and a copy for the reason the cut is
+   * one: ADR-0123 refuses the dependency on `@canoncore/providers` that would
+   * share it, so what that record bounds on TWO levers has to be written here
+   * on two as well.
+   */
+  it.each([
+    ["\u202e", "a right-to-left override"],
+    ["\u2066", "a directional isolate"],
+    ["\u200b", "a zero-width space"],
+    ["\ufeff", "a zero-width no-break space"],
+  ])("strips %j from what a task threw, which is %s", async (control, _what) => {
+    const key = `rewriting_${control.charCodeAt(0)}`;
+    const registry = createRegistry([
+      aTask({
+        key,
+        run: async () => {
+          throw new Error(`before${control}after`);
+        },
+      }),
+    ]);
+
+    await registry.run(db, key);
+
+    const [latest] = await registry.history(db, key);
+    expect(latest?.detail).toBe("beforeafter");
+  });
 });
 
 /** A task that reports when it has started and then waits to be stopped. */

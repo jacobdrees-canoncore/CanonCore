@@ -334,20 +334,41 @@ function reasonFor(thrown: unknown): string {
  * turns one into U+FFFD -- well-formed on the way back out, so nothing
  * downstream can tell it was ever a character, and permanent in the history.
  *
- * TODO(CNCORE-274): the CUT is copied here and the CONTROL STRIP is not.
- * `reason.ts` removes the bidirectional overrides and the zero-width family
- * before it cuts; `\s+` above touches neither, and `tasks/page.tsx` renders this
- * column as prose without wrapping it. ADR-0123 counts that as the second lever
- * a stranger has over a page, so it is the third property owed here by hand.
+ * AND IT IS BOUNDED ON TWO LEVERS, NOT ONE (CNCORE-274). The cut answers how
+ * MUCH a stranger may put on a page it does not own; `CONTROLS` below answers
+ * what that text may DO to the page's own words. ADR-0123 carries both, and for
+ * a while this copy had taken only the first -- which is half a mechanism, and
+ * half a mechanism looks finished from outside.
  */
 function bounded(detail: string): string {
-  const collapsed = detail.replace(/\s+/g, " ").trim();
+  const collapsed = detail.replace(CONTROLS, "").replace(/\s+/g, " ").trim();
   if (collapsed.length <= BOUNDED_DETAIL) return collapsed;
   const kept = collapsed.slice(0, BOUNDED_DETAIL - MARKER.length);
   const last = kept.charCodeAt(kept.length - 1);
   const whole = last >= 0xd800 && last <= 0xdbff ? kept.slice(0, -1) : kept;
   return `${whole}${MARKER}`;
 }
+
+/**
+ * The characters that change how the text AROUND them reads, stripped.
+ *
+ * NOT A WHITESPACE PROBLEM, which is why collapsing `\s+` does not catch them.
+ * The bidirectional overrides (U+202A-U+202E, U+2066-U+2069) re-order the glyphs
+ * on either side of themselves, so what a task threw can run backwards through
+ * the sentence `tasks/page.tsx` wrote around it. U+200B-U+200D and U+FEFF are
+ * the zero-width family, which splits a word a reader is scanning for without
+ * leaving a mark. U+FEFF alone IS matched by `\s`, so before this it became a
+ * SPACE rather than nothing -- a different wrong answer, not a right one.
+ *
+ * A COPY OF `reason.ts`'s, FOR THE REASON THE CUT IS A COPY. ADR-0123 refuses
+ * the dependency that would share it, so a record bounding a stranger's text on
+ * two levers has to be written here on two. Keep them in step by hand; do not
+ * "repair" the duplication with an import.
+ *
+ * STRIPPED RATHER THAN ESCAPED: a detail is a single sentence of prose, not a
+ * document with a mixed-direction layout to preserve.
+ */
+const CONTROLS = /[\u202a-\u202e\u2066-\u2069\u200b-\u200d\ufeff]/g;
 
 /**
  * What stands in for the part of a detail the history does not show.
