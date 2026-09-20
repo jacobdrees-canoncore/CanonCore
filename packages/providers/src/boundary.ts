@@ -178,7 +178,7 @@ export function parseAllowlist(configured: string): Allowlist {
     // was true and useless.
     if (ipaddr.isValid(entry)) {
       const address = ipaddr.parse(entry);
-      ranges.push([address, address.kind() === "ipv6" ? 128 : 32]);
+      ranges.push([address, fullPrefix(address)]);
       continue;
     }
     // Lower-cased on the way in AND on the way out: a hostname is
@@ -277,7 +277,7 @@ export function assertConfigUrl(url: URL, allowlist: Allowlist): void {
     const address = ipaddr.parse(bare);
     if (allowlist.ranges.some((range) => matches(address, range))) return;
     throw new OutboundRefused(
-      `refused ${shortly(url.origin)}: ${shortly(bare)} is on no allowlisted CIDR. A provider on a private network goes on the allowlist by name (ADR-0034).`,
+      `refused ${shortly(url.origin)}: ${withoutScope(address)} is on no allowlisted CIDR. Add \`${coveringCidr(address)}\` or your network's range (ADR-0034).`,
       "config",
     );
   }
@@ -302,6 +302,65 @@ function matches(
 ): boolean {
   if (address.kind() !== network.kind()) return false;
   return address.match(network, bits);
+}
+
+/**
+ * The narrowest CIDR that admits one address, as a refusal hands it to the
+ * Owner to copy into their allowlist (CNCORE-244).
+ *
+ * REBUILT FROM THE PARSE RATHER THAN FROM THE STRING, which is what makes it
+ * WHOLE. Everything else a refusal interpolates is bounded by `shortly`, and a
+ * remedy that has been CUT is a remedy that cannot work -- which is the defect
+ * this function was added to end, reintroduced one layer down. An address
+ * rebuilt from `parts` or `octets` is at most 39 characters and carries no zone
+ * id, so it needs no ceiling and can never be truncated.
+ *
+ * A SINGLE ADDRESS AND NOT THE BLOCK AROUND IT, deliberately. Offering the
+ * enclosing block instead turns `::1` into `::/64`, which covers every
+ * IPv4-MAPPED address -- ADR-0034 records that trap and the matching one in
+ * ipaddr.js's `SpecialRanges`, and why an allowlist is narrowed by preference.
+ * The sentence names the network's range as the Owner's other option, which is
+ * the entry the README tells them to read off `docker network inspect` and the
+ * one that survives the network being recreated.
+ */
+function coveringCidr(address: ipaddr.IPv4 | ipaddr.IPv6): string {
+  return `${withoutScope(address)}/${fullPrefix(address)}`;
+}
+
+/**
+ * The prefix length that covers exactly one address of this family.
+ *
+ * SHARED WITH `parseAllowlist`, which is the OTHER END OF THE SAME ROUND TRIP:
+ * this is the CIDR a refusal hands the Owner, and that is how their paste of it
+ * is read back. Written twice they could disagree, and the way they would fail
+ * is silent -- a refusal quoting an entry the parser then files as a different
+ * range.
+ */
+function fullPrefix(address: ipaddr.IPv4 | ipaddr.IPv6): 32 | 128 {
+  return address instanceof ipaddr.IPv6 ? 128 : 32;
+}
+
+/**
+ * An address as a refusal prints it: rebuilt from the parse, SO IT CARRIES NO
+ * SCOPE ID.
+ *
+ * A zone is the one part of an address with no length limit -- `fe80::1%eth0`
+ * is valid and an interface name can be anything -- and `toString` keeps it.
+ * Measured: a 120-character zone took this refusal to 304 characters, over
+ * ADR-0123's ceiling, and the clause it pushed off the end was the remedy. It
+ * is also meaningless in a CIDR, so dropping it is what makes the quoted
+ * allowlist entry one that works.
+ *
+ * WHICH IS WHY THESE TWO VALUES NEED NO `shortly`. Everything left is bounded
+ * by the address syntax itself: 15 characters for IPv4 and 39 for IPv6.
+ *
+ * NOT NAMED `bounded`, which is `reason.ts`'s word for ADR-0123's 300-character
+ * cap and is published beside `reasonFor`. One word for two ceilings in one
+ * package is how the next reader comes to apply the wrong one.
+ */
+function withoutScope(address: ipaddr.IPv4 | ipaddr.IPv6): string {
+  if (address instanceof ipaddr.IPv6) return new ipaddr.IPv6(address.parts).toString();
+  return address.toString();
 }
 
 /**
@@ -374,6 +433,13 @@ export function pinnedLookup(
         // would look like a result.
         if (!first) throw new OutboundRefused(`refused ${hostname}: it resolves to no address.`);
 
+        // TODO(CNCORE-287): this throws on the FIRST record that fails, so a
+        // DUAL-STACK host's refusal names one address and the Owner who
+        // allowlists it is refused again on the next one. The config refusal
+        // quotes a CIDR to copy (CNCORE-244) and that remedy is whole only for
+        // a host with one address. Naming them all means changing what this
+        // hook hands `assertAddress`, which is shared with the CONTENT
+        // boundary -- so it is its own ticket rather than a widening of that one.
         for (const { address } of addresses) assertAddress(address);
 
         // Only now does the shape of the answer matter.
@@ -407,10 +473,20 @@ export function pinnedLookup(
  * -- so an allowlisted HOSTNAME resolving to 169.254.169.254 fails here. That is
  * DNS rebinding, and the host check cannot see it by construction.
  *
+ * ITS REFUSAL SAYS "Its host is allowlisted", AND THAT IS A PRECONDITION RATHER
+ * THAN A GUESS. `assertConfigUrl` refuses an unallowlisted host before a socket
+ * opens, a base URL whose host is a literal ADDRESS is matched against the
+ * ranges there and never reaches this hook, and `client.ts` swaps to the
+ * CONTENT dispatcher for every hop after the first. So reaching here means the
+ * name passed and a CIDR is what is missing. A second caller that does not hold
+ * that would make the sentence false; there is one, and ADR-0034 records why.
+ *
  * An address passes when it is ordinary (`unicast`) OR sits in a CIDR the owner
  * allowlisted. The second half is the whole point of the config boundary
  * existing: `127.0.0.0/8` and `100.64.0.0/10` are refused in content and
- * reachable here, BY NAME, because the owner wrote them down.
+ * reachable here, BY NAME, because the owner wrote them down -- and "by name"
+ * means the CIDR written down, never the hostname. That reading is what
+ * CNCORE-244 found this phrase sending a first-time Owner off to do.
  */
 export function assertConfigAddress(allowlist: Allowlist): AssertAddress {
   return (address) => {
@@ -423,8 +499,9 @@ export function assertConfigAddress(allowlist: Allowlist): AssertAddress {
     const parsed = ipaddr.parse(address);
     if (parsed.range() === UNICAST) return;
     if (allowlist.ranges.some((range) => matches(parsed, range))) return;
+    const covering = coveringCidr(parsed);
     throw new OutboundRefused(
-      `refused ${shortly(address)}: ipaddr.js classifies it as \`${parsed.range()}\` and no allowlisted CIDR covers it. A provider on a private network goes on the allowlist by name (ADR-0034).`,
+      `refused ${withoutScope(parsed)}: ipaddr.js classifies it as \`${parsed.range()}\` and no allowlisted CIDR covers it. Its host is allowlisted; that admits the name only. Add \`${covering}\` or your network's range (ADR-0034).`,
       "config",
     );
   };

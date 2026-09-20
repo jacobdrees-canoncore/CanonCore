@@ -857,7 +857,13 @@ describe("the client's outbound boundaries", () => {
     // AND THE HALF THAT SAYS WHAT TO DO, which is the one thing a stranger
     // following the README needs and the one thing `fetch failed` has none of.
     expect(reason.text).toContain("no allowlisted CIDR covers it");
-    expect(reason.text).toContain("goes on the allowlist by name");
+    // BOTH HALVES OF IT SINCE CNCORE-244. This test is the README's scenario,
+    // and until then the remedy it asserted was "goes on the allowlist by
+    // name" -- which is what the stranger has ALREADY DONE by the time they
+    // read it. The sentence now says that half is done and quotes the one that
+    // is not, as something to copy.
+    expect(reason.text).toContain("Its host is allowlisted");
+    expect(reason.text).toContain("Add `::1/128`");
     expect(reason.text).not.toContain("fetch failed");
     await client.close();
   });

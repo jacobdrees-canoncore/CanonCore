@@ -46,7 +46,9 @@ rediscover as an improvement.
 A CONSEQUENCE WORTH STATING, because it otherwise reads as a bug: Tailscale's addresses are
 `100.64.0.0/10`, so they classify as `carrierGradeNat` and are REFUSED in content. That is correct —
 response content is untrusted whatever network it names. A provider reached over a private network is
-a CONFIG URL, so it goes on the allowlist above, deliberately and by name. `127.0.0.0/8` is `loopback`
+a CONFIG URL, so it goes on the allowlist above, deliberately and by name -- **which means the
+CIDR written down, never the hostname alone. CNCORE-244 found this record's own phrase, copied
+into the refusal, sending a first-time Owner to allowlist the name and nothing else.** `127.0.0.0/8` is `loopback`
 and equally not `unicast`, so localhost is not exempt either. This matters most for the wiki provider,
 which ADR-0089 pins to one person and which can never be distributed.
 
@@ -101,7 +103,8 @@ pinning hook, asks what the socket is about to connect to -- which is DNS's answ
 owner's. Without it an allowlisted HOSTNAME resolving to `169.254.169.254` connects, and the host
 check cannot see that by construction. An address passes when it is `unicast` OR sits in an
 allowlisted CIDR, and it is the second half that makes `127.0.0.0/8` and `100.64.0.0/10` reachable
-by name.
+by name -- again the CIDR written down, not the host. Both entries are needed and they are
+different entries; see CNCORE-244 below for what reading this as the hostname cost.
 
 A WILDCARD ENTRY THROWS AT PARSE TIME rather than being read as a literal host. "No wildcards" was
 already this record's phrasing; what implementation added is that silently keeping one leaves the
@@ -145,6 +148,39 @@ check and the address check take DIFFERENT ENTRIES for one Provider — the cont
 first, the network's range for the second — so an allowlist holding only the name admits the Provider
 and then refuses the socket, and that is now the commonest way to misconfigure one rather than a case
 a reader has to imagine. The README's install section is where an Owner meets it.
+
+**AND THE REFUSAL SENT THAT OWNER BACK TO DO THE ONE THING THAT CANNOT WORK -- under CNCORE-244.**
+It ended "a provider on a private network goes on the allowlist by name (ADR-0034)", which is this
+record's own phrasing and reads, to somebody setting this up for the first time, as "put the host's
+name on the allowlist". They have already done that: it is why the host check passed and why the
+ADDRESS check is the one refusing them. Measured on a blank instance on 2026-09-20 with
+`provider-wiki` reachable on `canoncore_providers` -- an allowlist of `provider-wiki` was refused
+with that sentence, and `provider-wiki, 172.19.0.0/16` imported 465 Containers. The Owner's own
+install carries both entries, so only a first-run walk could reach it.
+
+**THE SENTENCE CAN NAME BOTH HALVES BECAUSE THE FIRST HAS ALWAYS PASSED BY THE TIME IT THROWS, and
+that is a fact about the two-check design rather than a guess about the reader.** `assertConfigUrl`
+refuses an unallowlisted host before any socket opens, and a base URL whose host is a literal ADDRESS
+is matched against the ranges there and never reaches the lookup hook at all. So every refusal
+`assertConfigAddress` raises is one where the Owner allowlisted the NAME and not a CIDR. It now says
+that half is done and quotes the half that is missing.
+
+**IT QUOTES A SINGLE ADDRESS, AND BOTH OBVIOUS WIDENINGS SHIP A HOLE** -- the same trap as restating
+the deny rule in IANA's terms, arriving through the remedy instead of through the check. Zeroing the
+low bits to offer `172.19.0.0/16` is the more useful-looking suggestion, and it turns `::1` into
+`::/64`, which covers every IPv4-MAPPED address: the refusal would be telling the Owner to allowlist
+`::ffff:169.254.169.254`. Reading the enclosing block out of ipaddr.js's own `SpecialRanges` fails
+identically, because `ipv4Mapped` is `::ffff:0:0/96`. Measured against ipaddr.js 2.5.0. An allowlist
+is narrowed by preference -- this record already quotes OWASP's "Deny-lists are bypass-prone. Prefer
+allow-lists." -- so the refusal offers `::1/128` and `172.19.0.3/32`. The README's install section is
+where the Owner is told to read the network's own range off `docker network inspect` instead, which
+is the entry that survives the network being recreated.
+
+**THE SAME CLAUSE SAT ON `assertConfigUrl`'S BARE-ADDRESS REFUSAL AND MOVED WITH IT.** CNCORE-244
+names only the address check, and correcting that one alone would have left the identical sentence
+standing in the function next door -- where it is wronger still, because a base URL that IS an
+address never consults the hostname set, so there is no name half to name and a CIDR is the whole
+remedy rather than the missing half of one.
 
 
 ## A THIRD PLACE A URL IS JUDGED, and it is not a third boundary -- under CNCORE-79
