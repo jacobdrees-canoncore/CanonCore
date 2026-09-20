@@ -161,6 +161,31 @@ Recorded so they are not re-derived. Each looked like a defect and each is delib
 Three rows written while testing, all reversible: the Group `Doctor Who universe`, its one
 membership (Rose's timeline), and a hand-made `Rose Tyler` of kind `character`.
 
+## The empty catalogue is better designed than the full one
+
+Measured on a blank throwaway instance, 2026-09-20, after the walk above. It matters to the grilling
+because it locates the problem precisely: **the first-run journey is good and the at-size journey is
+not**, so what is missing is not care about the reader.
+
+Every empty state on a fresh install explains itself and links to its own fix. `/` carries "No
+provider is allowlisted" and "This catalogue is empty" and links to `/settings`. `/works` says
+"Nothing to watch yet" and explains why Entities are excluded from it. `/groups` says the catalogue
+has not been divided into scopes. `/import` distinguishes "No provider is allowlisted" from "No
+provider is configured", which are two different problems with two different remedies. `/new` tells a
+visitor only the Owner can add, and offers the login.
+
+So the product knows how to orient somebody. It stops doing it the moment there is data:
+
+- the front page's links to `/settings` are part of the EMPTY state, so the Owner's route to their own
+  settings disappears with the first Item (this is what makes CNCORE-243 worse than it looks)
+- nothing replaces those notices with an orientation for a catalogue that HAS 8,052 Items
+- the first screen goes from three explained sentences to an alphabetical list opening on
+  `£436 (short story)`
+
+One first-run defect was found and filed as CNCORE-244: the allowlist refusal names the requirement
+and then offers a remedy that cannot work, so an Owner configuring their first Provider on a private
+network does exactly what they are told and is refused again.
+
 ## For the grilling
 
 The Owner's direction, in their words: every imported Item should already be in a Doctor Who

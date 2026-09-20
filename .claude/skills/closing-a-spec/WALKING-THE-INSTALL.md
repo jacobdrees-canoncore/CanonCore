@@ -78,16 +78,37 @@ reachable from a filled install, and a spec whose feature only works on a catalo
 is not closed. **An import is the case that REQUIRES blank**: a second import into 8,052 Items cannot
 show what a first one produces.
 
-**GIVE IT ITS OWN COMPOSE PROJECT, BECAUSE THE DEFAULT NAME IS ALREADY TAKEN TWICE.** Measured
-2026-09-20: `canoncore-canoncore-1` and `canoncore-database-1` (the live install, working dir
-`~/canoncore`) and `canoncore-postgres` (this repo's `packages/db`) all carry
-`com.docker.compose.project=canoncore`. Two projects, one name, two working directories. That is why
-`--remove-orphans` takes the catalogue down -- the orphans ARE the live install -- and why a compose
-command aimed at a throwaway must name its own project rather than inherit that one:
+**A PROJECT NAME OF ITS OWN IS NOT ENOUGH, AND BELIEVING IT IS COSTS THE CATALOGUE.** This is the
+trap, measured 2026-09-20 while writing this file, and it is the reverse of what it looks like.
 
-```sh
-docker compose -p canoncore-gate up -d      # never the bare project name
+The Owner's `compose.yaml` pins its volume with an explicit name, so that the catalogue survives the
+directory being renamed:
+
+```yaml
+volumes:
+  canoncore_data:
+    name: canoncore_data      # NOT prefixed with the project. That is the point of it.
 ```
 
-Check `docker ps` before any compose command in `packages/db`, and never `db:down` or
-`--remove-orphans` while the install is up.
+A pinned volume is project-INDEPENDENT. So `docker compose -p canoncore-gate up` against that file
+mounts **the Owner's live catalogue** into the throwaway, and puts a second Postgres on one data
+directory. `canoncore_providers` is pinned the same way. `docker compose config --format json` prints
+both resolved names and is how you check rather than assume.
+
+So a throwaway is **self-contained, deriving from nothing**: the published image, its own volume under
+its own project, its own port, and fresh secrets rather than the live ones. Joining the Provider
+network read-only is safe, because that is the one name it is right to share.
+
+```sh
+docker compose -p canoncore-gate config --format json   # volumes MUST resolve to canoncore-gate_*
+```
+
+Tear it down with `down -v`, then read `docker volume ls` back: `canoncore_data` is still there, or
+something was wrong with the file.
+
+**AND THE DEFAULT PROJECT NAME IS ALREADY TAKEN TWICE.** `canoncore-canoncore-1` and
+`canoncore-database-1` (the live install, working dir `~/canoncore`) and `canoncore-postgres` (this
+repo's `packages/db`) all carry `com.docker.compose.project=canoncore`. Two projects, one name, two
+directories -- which is why the orphans ARE the live install, and why Compose helpfully prints
+`--remove-orphans` as the suggested remedy. Check `docker ps` before any compose command in
+`packages/db`, and never `db:down` or `--remove-orphans` while the install is up.

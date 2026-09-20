@@ -359,3 +359,28 @@ on screen and unsaved, which looks exactly like success.
 
 **The API rate-limits after roughly seven rapid writes.** Pace them about a second apart and retry
 with backoff; a burst produces a run of failures that look like rejections and are not.
+
+## Three more, measured 2026-09-20 during the first `closing-a-spec` run
+
+**`create` answers `ok: false` on a ticket that landed, exactly as `save-issue` does.** CNCORE-248
+was filed with `ok: False` and no identifier in the JSON, and a board read three seconds later showed
+it present and correct. So the fourth-way rule above governs `create` too: **read the board back, never
+re-send.** `CNCORE-241` is what re-sending produces — a byte-identical duplicate of CNCORE-240, now
+carrying the `Duplicate` state somebody had to set by hand.
+
+**`comment add` takes the issue positionally, and `--issue` is not a flag.** `orca linear comment add
+--issue CNCORE-240 --body-file x.md` answers `ok: false` and writes nothing, which is
+indistinguishable from the lie above until you read the usage: `comment add [<id>] [--current]`. So a
+genuine failure and a false one wear the same face here, and the usage line is what tells them apart.
+The form that works:
+
+```sh
+orca linear comment add CNCORE-240 --body-file /tmp/c.md --json   # id is positional
+```
+
+**A READ-BACK CANNOT CONFIRM A COMMENT, BECAUSE `issue --json` CARRIES NO COMMENTS AT ALL.** Its
+`result.issue` holds exactly: `id`, `identifier`, `title`, `url`, `description`, `state`, `team`,
+`project`, `cycle`, `assignee`, `labels`, `priority`, `priorityLabel`, `estimate`, `dueDate`,
+`branchName`, `createdAt`, `updatedAt`. No comments key, so a comment that landed reads back as zero
+comments and invites exactly the retry that produces duplicates. **Confirm a comment by the `id` the
+write returned** (`result.comment.id`), not by reading the issue.

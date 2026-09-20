@@ -132,10 +132,10 @@ in for the library. It ruled 11 claims contradicted on 2026-09-12, most of them 
   `orca terminal` over an ad hoc PTY, since a real PTY lets `terminal read`/`send` answer a prompt.
 - Run `actionlint` on a workflow before pushing it. A file that fails to parse creates NO run at
   all, so a broken workflow reads as Actions being switched off.
-- **A CI image job dies on ONE WORD, and the word names the registry.** `denied` at `Initialize
+- **A CI job dies on ONE WORD, and the word names the registry.** `denied` at `Initialize
   containers` is GHCR, wanting the repo given Read under the package's own Manage Actions access,
-  which lives outside git. `unauthorized: authentication required` while booting buildkit is DOCKER
-  HUB pulling `moby/buildkit` anonymously: nothing to do with this repo, and it clears on a rerun.
+  outside git. `unauthorized` booting buildkit is DOCKER HUB pulling `moby/buildkit`; `ECONNRESET` at
+  `pnpm/setup` is NPM, and reddened `main` on a docs-only commit. Only the first is this repo's.
 - Credentials live in `~/.config/canoncore/`, outside every repo so no commit can reach them and
   every worktree reads one copy: `provider-tmdb.env` (that provider throws at startup without its
   token; CI uses the repo secret) and `whatbox.env` (the slot's login, for SSH or its web UI).

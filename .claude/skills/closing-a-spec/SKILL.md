@@ -27,6 +27,11 @@ docker exec <db> psql -U canoncore -d canoncore -Atc \
 docker inspect <app> --format '{{.Created}}'              # against main's newest merge
 ```
 
+**BOTH CHECKS, BECAUSE EITHER ONE ALONE READS CLEAN.** A ticket carrying no migration moves the image
+and not the ladder, so the rungs agree while the app is old. On 2026-09-20 the second run of this gate
+read 22 rungs against 22 files and the image was ten minutes older than CNCORE-239's merge, which had
+shipped two `apps/web` files and no SQL. The ladder is not a proxy for the build.
+
 Behind on either → the spec is not closed. Update it, then walk it.
 
 **WALK IT LOGGED IN, AND WALK A BLANK INSTANCE BESIDE IT.** Logged out is a different product: five
@@ -48,49 +53,17 @@ taxonomy, the two-instance rule and the compose project-name hazard that can tak
 
 Read the project, not the tickets you remember. CNCORE-159's ran to 80.
 
-**FETCH THE BOARD ONCE, YOURSELF, AND HAND IT TO THE AGENTS AS TEXT.** One call carries every
-description, so nothing else needs the tracker:
+**GET THE BOARD AND THE COMMIT MAP IN FRONT OF THE AGENTS BEFORE ANY OF THEM STARTS.** One board
+fetch, every repo fetched from `origin`, and every ticket mapped to its commit by you. Without the map,
+twelve agents hunt the same twelve tickets and some report provider work as missing.
 
-```sh
-orca linear list-issues --team CNCORE --json > /tmp/board.json   # NO --limit
-```
+**A TICKET WITH NO COMMIT ON `main` IS NOT UNMET.** It landed in a provider repo, or was FOLDED into
+another ticket's commit, or is nowhere at all -- and only the third is a finding. Then check the CODE,
+not the log: CNCORE-205 read `Done` with nothing fixed and the log could not say so.
 
-**`--limit` IS THE TRAP.** Under a burst of calls it answers `ok: true` with zero rows, which is
-indistinguishable from an empty board -- measured 2026-09-20, seven rapid calls, every one empty while
-the no-limit call returned 241. An agent that hits that concludes the spec has no tickets. The same
-lie is why `monitor.sh` carries a `LINEAR-BLIND` guard.
-
-The fixed point to diff against is the parent of the spec's first merge:
-
-```sh
-git log --format=%H --reverse --grep="CNCORE-<first>" | head -1   # then ^
-```
-
-**MAP EVERY TICKET TO ITS COMMIT YOURSELF, BEFORE ANY AGENT STARTS.** `git log --grep "CNCORE-<n>:"`
-over `main` matched 68 of 80 on the first run. Without the map, twelve agents hunt the same twelve
-tickets and some report provider work as missing.
-
-**A TICKET WITH NO COMMIT ON `main` IS NOT UNMET.** The twelve split three ways, and only the last is
-a finding:
-
-- **It landed in a provider repo.** Six did. Grep `provider-wiki` and `provider-tmdb` too.
-- **It was FOLDED into another ticket's commit**, which carries the receiving ticket's number in its
-  subject and the folded one in its body. Five were. `--grep "CNCORE-<n>"` without the colon finds them.
-- **It is nowhere, in any repo.** One was: CNCORE-205.
-
-**THEN CHECK THE CODE, NOT THE LOG.** CNCORE-205 read `Done` and nothing had fixed it. `apiParams`
-still spread `params` last, exactly as the ticket described. The log cannot tell you that; only the
-code can.
-
-**"CLOSED BY MENTION" IS A WHOLE CLASS, AND THE TRACKER DOES IT SILENTLY.** A PR body that NAMES a
-ticket closes it through the integration, whether or not the PR touched it. CanonCore#135 wrote
-"filed rather than fixed, CNCORE-205" and the integration closed it two seconds after the merge. So
-the habit of citing a ticket you are deliberately NOT fixing is the thing that marks it done. Look for
-`Done` tickets whose only trace is a mention in someone else's PR body.
-
-**AND LOOK IN THE PROVIDER REPOS' `CLAUDE.md`.** An agent DID catch CNCORE-205 at the time and wrote
-it down — in `provider-wiki`'s `CLAUDE.md`, where this board cannot see it. It was right not to change
-another ticket's status itself; the flag just landed somewhere the tracker never reads.
+Read [AUDITING-THE-TICKETS.md](AUDITING-THE-TICKETS.md) for the board fetch and the `--limit` trap, the
+fixed point, the mapping commands, the three classes, "closed by mention", and why the provider repos'
+own `CLAUDE.md` is worth grepping.
 
 Then one agent per handful of tickets, each ruling every criterion MET, DEVIATION-STATED,
 SILENTLY-UNMET or CANNOT-TELL. **Only the last two reach you.** A criterion marked `[~]` with a stated
@@ -99,6 +72,18 @@ reason is closed; one silently unmet is a ticket.
 Two shapes to look for, both seen on 2026-09-20: a criterion whose **premise** was false (CNCORE-187's
 assumed a search carries a container; no provider sends one), and a test that **passed with the
 feature deleted** (CNCORE-174's step-back, because stepping back from page 2 reaches the start anyway).
+
+**AND ASK EACH AGENT FOR WHAT IT FOUND BESIDE THE CRITERIA, BECAUSE THAT IS WHERE THE YIELD IS.** The
+second run put 79 tickets through ten auditors and every acceptance criterion was MET or
+DEVIATION-STATED -- **zero unmet, across roughly 230 of them.** Four of the eight tickets it filed came
+from things agents noticed while reading and reported as "not a criterion verdict, but worth your
+attention", including the run's only code defect (CNCORE-249: a provider's own string interpolated
+into a refusal unbounded, where the rule forbidding it is stated two files away and `shortly` is
+already imported).
+
+So the brief asks for both, and keeps them apart: a criterion verdict, and anything true and checkable
+found on the way. **A pass that reports only criteria will report nothing on a healthy spec**, which
+reads as the gate working when it is the gate looking in one place.
 
 ## 3. Do the records say what is now true?
 
@@ -169,6 +154,29 @@ duplication CNCORE-234 removed from code, left standing in the records.
 Propose the single record, and prefer a check over a rule where one is possible: a mechanical fault
 gets a test, and `adr-numbering.test.ts` is the local shape for it -- it asks the tree rather than a
 list somebody maintains.
+
+**THEN MEASURE THE RULE, BECAUSE ONE STATED THREE TIMES IS ONE NOBODY MEASURED ONCE.** A claim gets
+restated rather than checked precisely when it sounds obvious, and each restatement makes the next
+reader likelier to inherit it than test it. So the third sighting is the signal to go and measure.
+
+The second run did, and the rule was FALSE. ADR-0046, ADR-0149 and ADR-0151 all rest on two claims:
+that Next prefetches a `<Link>`'s address, and that the prefetch therefore spends the Provider call.
+The first is true -- 12 RSC requests on one scroll. The second is not: a prefetch of
+`/import?q=Cyberman` returns **298 bytes in 6 ms** where the real render is **27,803 bytes in 152 ms**,
+and a page carrying 100 Provider-spending links prefetched 10,213 bytes in total. **Prefetching an
+ADDRESS is not rendering the PAGE**, and these are dynamic routes, so the fan-out the three records
+refuse does not occur. ADR-0151 had verified the prefetch HAPPENS against Next's own docs; the cost
+was inferred from it and never put to a running instance.
+
+Read the claim as TWO claims, because that is how one true half carries one false half for three
+records and three tickets. And the ticket had said so itself -- CNCORE-240's body reads "NOT MEASURED
+against a running instance ... so that ticket measures it before it changes anything". **A ticket
+admitting its own premise is unmeasured is the cheapest finding on the board**; grep the tracker and
+the records for that admission before doing anything harder.
+
+Then say which way the correction runs. Here the mechanism stays (a `<Form>` is still right for a
+control that acts) and only the stated cost goes, so the ticket carries the wrong reactions it must
+rule out. A measurement that refutes a reason is not a licence to undo the thing the reason defended.
 
 ## What this is not
 
