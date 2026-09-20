@@ -40,8 +40,8 @@ on 2026-09-20, under CNCORE-245 and CNCORE-240:
 | same, with `RSC: 1` and `Next-Router-Prefetch: 1` | **298** | **6 ms** | no |
 | `GET /import?q=Sontaran` | 27,803 | 116 ms | yes |
 | same, prefetched | **298** | **7 ms** | no |
-| `GET /import?provider=..&container=286338` | 158,341 | * | yes |
-| same, prefetched | **396** | * | no |
+| `GET /import?provider=..&container=286338` | 158,341 | not recorded | yes |
+| same, prefetched | **396** | not recorded | no |
 
 And in a browser, scrolling a results page carrying 100 Container links produced 12 RSC prefetch
 requests totalling 10,213 bytes, the largest 1,193 -- read from
@@ -60,11 +60,13 @@ vs. dynamic routes*: without Cache Components, a static route is prefetched in f
 dynamic route is skipped unless it has a `loading.js` boundary**. Its table spells the same thing as
 "No, unless `loading.js`".
 
-Every surface here that spends a Provider's time is dynamic. `/import` reads `searchParams`, which
-[[0117-a-read-surface-renders-per-request]] names as one of the two ways of declaring it, and `/`,
-`/works` and `/search` `await connection()`, which that record names as the other. There is no
-`loading` file anywhere under `apps/web/src/app`, no `<Link>` in this repository sets `prefetch`,
-and neither `cacheComponents` nor `partialPrefetching` is enabled.
+Every surface here that spends a Provider's time is dynamic. **`/import` is the only one that spends
+it**, and it reads `searchParams` -- which [[0117-a-read-surface-renders-per-request]] names as one
+of the two ways of declaring a route dynamic. `/` and `/works` `await connection()`, that record's
+other way; `/search` does neither and is dynamic by `searchParams` too, which its own comment says
+at length is ADR-0117 followed rather than forgotten. There is no `loading` file anywhere under
+`apps/web/src/app`, no `<Link>` under `apps/web/src` or `packages/ui/src` sets `prefetch`, and
+neither `cacheComponents` nor `partialPrefetching` is enabled.
 
 Two further reasons the asserted cost could never have been observed, neither of which the three
 records mention. **Prefetching is production-only** -- the `<Link>` reference says so in as many
@@ -112,8 +114,9 @@ that only `false` disables it is exactly right for 16.3.5. The error in all thre
 INFERENCE drawn from the fact, not the fact -- which is why each correction lands in the sentence
 that draws it and nowhere else.
 
-**AND A `<Link>` IS NOT FREE.** It is free HERE, because of the four conditions above. A surface that
-becomes prerenderable puts the cost back without anybody editing a link.
+**AND A `<Link>` IS NOT FREE.** It is free HERE, because this route is dynamic and the three changes
+above have not been made. A surface that becomes prerenderable puts the cost back without anybody
+editing a link.
 
 ## What CNCORE-240 asked, answered
 
@@ -127,15 +130,32 @@ the prefetch they have. The `TODO(CNCORE-240)` that stood beside the picker is g
 ## As built, under CNCORE-245 and CNCORE-240
 
 **BUILT: the measurement, the assertion and the condition.** `prefetchAt` in `apps/web/e2e/document.ts`
-asks an address the way Next's router asks it; the fourth seam holds `/import?q=` to rendering no
-Provider's answer under those headers, with a fingerprint that cannot be confused with the echoed
-query; and `packages/config/src/prefetch-condition.test.ts` refuses a `loading` boundary, an explicit
-`prefetch` prop and either half of Partial Prefetching, each failure naming this record. Each of the
-three guards was broken on purpose on 2026-09-20 and seen to fail.
+asks an address the way Next's router asks it. The fourth seam holds TWO addresses to rendering no
+Provider's answer under those headers: `/import?q=`, and `/import?q=&group=` -- **the picker's own
+address, which is the one CNCORE-240 was about**, where a Group decides which Providers are asked and
+so is a fan-out of its own rather than the same one narrowed. And
+`packages/config/src/prefetch-condition.test.ts` refuses a `loading` boundary, a `prefetch` prop set
+by hand and either half of Partial Prefetching, each failure naming this record. Each of the three
+guards was broken on purpose on 2026-09-20 and seen to fail, and the seam's assertion was seen to
+fail with the prefetch headers removed.
+
+**THE FINGERPRINT IS THE HARD PART OF THAT ASSERTION, and it is written down because it caught this
+work twice.** A prefetch answers with a routing payload that ECHOES THE ADDRESS, so the query comes
+back inside it. The catalogue's own witness -- `The Matrix` -- IS the query, so asserting its absence
+fails against a response that rendered nothing. Unnarrowed, the witness is a Provider that matches
+every query and answers nothing, listed only because it was ASKED; narrowed to a Group that Provider
+is not in, it is the title read as MARKUP (`>title<`), which a JSON echo cannot produce.
 
 **BUILT: the three corrections, in the sentences that were wrong.** ADR-0046, ADR-0149 and ADR-0151
-each carry the corrected cost in place, and the code comments that restate it on `/import` and
-`/groups` carry it too -- a correction placed beside a claim leaves the claim standing.
+each carry the corrected cost in place, and so does every code comment that restated it -- on
+`/import`, on `/groups`, and at the two e2e seams that argued from it. A correction placed beside a
+claim leaves the claim standing.
+
+**THE EIGHTH COMMENT WAS FOUND BY REVIEW RATHER THAN BY THE SWEEP**, and that is worth recording
+because the sweep looked sound. Grepping for the sentence found seven; `purge-page.test.ts` carried
+an eighth whose wrapping put "enters the" and "viewport" on either side of a newline, so a
+line-oriented search could not see it. A prose claim spanning a line break is invisible to the
+obvious tool, which is the other half of why nothing here sweeps for the old rule.
 
 **NOT BUILT: any check that a FOURTH document cannot state the old rule tomorrow.** Nothing sweeps
 prose for the sentence "because a reader scrolled past". The three records and the comments were

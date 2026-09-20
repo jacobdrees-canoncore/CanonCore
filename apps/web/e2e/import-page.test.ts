@@ -1174,6 +1174,50 @@ describe("/import, reaching the Container a found record names", () => {
     expect(prefetched.text).not.toContain(fannedOut);
   });
 
+  it("renders nothing for a prefetch of the picker's own address either, which is what CNCORE-240 asked", async () => {
+    /*
+     * THE ADDRESS THAT TICKET IS ACTUALLY ABOUT, asserted rather than inferred
+     * from the one above. CNCORE-240 asked "how many Provider requests a
+     * scrolled `/import` results page spends on prefetch alone" and named the
+     * Group picker's links: `?q=&group=` each, one per Group plus `Everything`,
+     * every one an ordinary `<Link>`. A Group here decides WHICH PROVIDERS ARE
+     * ASKED (CNCORE-182), so that address is a fan-out of its own rather than
+     * the same one narrowed.
+     *
+     * IT IS THE SAME ROUTE AND SO THE SAME ANSWER -- which is exactly why the
+     * ticket's N+1 does not occur, and exactly why asserting only `?q=` would
+     * leave a reader to work that out. The seam reads the address somebody
+     * worried about.
+     *
+     * NO COUNT OF REQUESTS, because no seam here can take one: this suite runs
+     * against a stub locally and the REAL `provider-tmdb` image in CI, which
+     * records nothing and cannot be made to (ADR-0149). What is asserted is the
+     * rendering that would have required the requests.
+     */
+    const scope = await asTheOwner.group.create({
+      name: `Only one Provider ${crypto.randomUUID()}`,
+    });
+    await asTheOwner.group.ask({ id: scope.id, baseUrl: providerSearch.browsable.provider });
+
+    const narrowed = `${searching(providerSearch.query)}&group=${scope.id}`;
+    const rendered = await documentAt(narrowed, owner);
+    const prefetched = await prefetchAt(narrowed, owner);
+
+    /*
+     * A ROW RATHER THAN A TITLE, for the reason the test above gives and this
+     * one cannot borrow: the Provider that matches nothing is not in this
+     * Group, so its name is no fingerprint here. `>title<` is `rowTitled`'s own
+     * reading -- the title as the WHOLE TEXT of an element -- and the routing
+     * payload echoes the query as a JSON value, never as markup.
+     */
+    const row = `>${providerSearch.held}<`;
+    expect(rendered.text).toContain(row);
+    expect(prefetched.status).toBe(200);
+    expect(prefetched.text).not.toContain(row);
+    // AND NO PROVIDER OF THIS GROUP WAS NAMED, which the address cannot echo.
+    expect(prefetched.text).not.toContain(providerSearch.browsable.provider);
+  });
+
   it("says a Provider names no Container for a record, rather than offering a link to nothing", async () => {
     /*
      * THE ORDINARY ANSWER AT A PROVIDER LIKE `provider-wiki`, where a story

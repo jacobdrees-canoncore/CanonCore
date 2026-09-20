@@ -51,13 +51,30 @@ import { repoRoot } from "./testing/repo-root";
  */
 const APP = join(repoRoot, "apps", "web", "src", "app");
 
-/** Every source file on a surface a `<Link>` can be written on. */
-function surfaceFiles(): string[] {
+/**
+ * Every file under one directory whose name the pattern accepts, as a path
+ * relative to the repository root.
+ *
+ * ONE WALK FOR BOTH QUESTIONS BELOW, which look for different names under
+ * different roots and were otherwise the same six lines twice.
+ */
+function filesUnder(root: string, named: RegExp): string[] {
+  return readdirSync(root, { recursive: true, withFileTypes: true })
+    .filter((entry) => entry.isFile() && named.test(entry.name))
+    .map((entry) => join(entry.parentPath, entry.name).slice(repoRoot.length + 1));
+}
+
+/**
+ * Every TypeScript source in the two trees this app's components live in.
+ *
+ * THOSE TWO AND NOT THE REPOSITORY, because they are where a rendered `<Link>`
+ * can be: `apps/web/src` holds the pages and their components, `packages/ui/src`
+ * the primitives they build from. The word `<Link>` appears elsewhere -- in this
+ * suite's own prose, in a router's comment -- and none of those render.
+ */
+function appAndUiSources(): string[] {
   return [join(repoRoot, "apps", "web", "src"), join(repoRoot, "packages", "ui", "src")].flatMap(
-    (root) =>
-      readdirSync(root, { recursive: true, withFileTypes: true })
-        .filter((entry) => entry.isFile() && /\.tsx?$/.test(entry.name))
-        .map((entry) => join(entry.parentPath, entry.name)),
+    (root) => filesUnder(root, /\.tsx?$/),
   );
 }
 
@@ -70,36 +87,44 @@ function surfaceFiles(): string[] {
  * report it as a breach of it.
  */
 function codeOf(path: string): string {
-  return readFileSync(path, "utf8")
+  return readFileSync(join(repoRoot, path), "utf8")
     .replace(/\/\*[\s\S]*?\*\//g, "")
     .replace(/^[ \t]*\/\/.*$/gm, "");
 }
 
 describe("the configuration ADR-0161's measurement holds under", () => {
-  it("reads surfaces that really carry links, so it cannot pass by finding nothing", () => {
-    const files = surfaceFiles();
-    expect(files.length).toBeGreaterThan(20);
-    expect(files.filter((file) => codeOf(file).includes("<Link")).length).toBeGreaterThan(0);
+  it("reads pages and links that are really there, so nothing below passes by finding nothing", () => {
+    const sources = appAndUiSources();
+    expect(sources.length).toBeGreaterThan(20);
+    expect(sources.filter((file) => codeOf(file).includes("<Link")).length).toBeGreaterThan(0);
+    // AND THE ROUTE TREE, which the `loading` question reads and this one does
+    // not: an empty or moved `app/` would satisfy "no boundaries" by having no
+    // pages, which is the hazard this file's docblock names.
+    expect(filesUnder(APP, /^page\.tsx$/).length).toBeGreaterThan(5);
   });
 
   it("puts no `loading` boundary above a read, which is what would make a dynamic route prefetchable", () => {
-    const boundaries = readdirSync(APP, { recursive: true, withFileTypes: true })
-      .filter((entry) => entry.isFile() && /^loading\.(tsx|ts|jsx|js)$/.test(entry.name))
-      .map((entry) => join(entry.parentPath, entry.name).slice(repoRoot.length + 1));
+    const boundaries = filesUnder(APP, /^loading\.(tsx|ts|jsx|js)$/);
 
     expect(boundaries, "ADR-0161: a `loading` boundary puts the prefetch back").toStrictEqual([]);
   });
 
-  it("forces no prefetch on any link, so every one of them takes the automatic default", () => {
-    const forced = surfaceFiles()
-      .filter((file) => /\bprefetch\s*=/.test(codeOf(file)))
-      .map((file) => file.slice(repoRoot.length + 1));
+  it("sets `prefetch` on no link at all, so every one of them takes the automatic default", () => {
+    const set = appAndUiSources().filter((file) => /\bprefetch\s*=/.test(codeOf(file)));
 
-    expect(forced, "ADR-0161: `prefetch={true}` prefetches the whole route").toStrictEqual([]);
+    /*
+     * ANY VALUE, NOT ONLY `true`. `prefetch={true}` is what puts the cost back;
+     * `prefetch={false}` is strictly safer and would still fail here, and that
+     * is deliberate rather than a miss. A regular expression cannot read
+     * `prefetch={someVariable}`, and ADR-0161's measurement is of the AUTOMATIC
+     * default -- so any hand-set value is a departure from what was measured
+     * and belongs in front of the record before it lands.
+     */
+    expect(set, "ADR-0161: this measured the automatic default, not a set one").toStrictEqual([]);
   });
 
   it("enables neither half of Partial Prefetching, which renders a route at prefetch time", () => {
-    const config = codeOf(join(repoRoot, "apps", "web", "next.config.ts"));
+    const config = codeOf(join("apps", "web", "next.config.ts"));
 
     expect(/\bcacheComponents\b/.test(config), "ADR-0161: Cache Components").toBe(false);
     expect(/\bpartialPrefetching\b/.test(config), "ADR-0161: Partial Prefetching").toBe(false);

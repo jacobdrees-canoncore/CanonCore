@@ -229,13 +229,20 @@ describe("/import, confirming a purge", () => {
  * become search params on the action's own address.
  *
  * WHICH IS WHY THE CONTROL IS A FORM AND NOT A LINK, and it is worth knowing
- * before somebody simplifies it into one. A `<Link href="/import?purge=...">`
- * would be PREFETCHED -- Next fetches a link's own address when it enters the
- * viewport -- and the address of a preview runs the purge traversal, taking the
- * write locks of a real delete because an owner moved the mouse near the button.
- * A string-action `<Form>` prefetches its ACTION PATH instead -- its fields are
- * not known until submission -- which here is `/import` carrying no provider and
- * previewing nothing (Next's own `<Form>` reference, read 2026-09-12).
+ * before somebody simplifies it into one. The address of a preview RUNS THE
+ * PURGE TRAVERSAL, taking the write locks of a real delete, so a
+ * `<Link href="/import?purge=...">` would put that on an address a reader
+ * reaches without asking for numbers.
+ *
+ * NOT "BECAUSE AN OWNER MOVED THE MOUSE NEAR THE BUTTON", which is what this
+ * comment said and what ADR-0161 measured as false on 2026-09-20: this route is
+ * dynamic and has no `loading` boundary, so its prefetch is skipped and takes no
+ * lock. The form stays because that absence is a property of the CONFIGURATION
+ * -- one `prefetch={true}`, one `loading.tsx` or Partial Prefetching restores it
+ * -- and because a string-action `<Form>` prefetches its ACTION PATH under all of
+ * them, its fields not being known until submission, which here is `/import`
+ * carrying no provider and previewing nothing (Next's own `<Form>` reference,
+ * read 2026-09-12).
  */
 function follow(form: RenderedForm): string {
   const asked = new URLSearchParams(form.fields);
