@@ -1,14 +1,5 @@
-import {
-  closeSync,
-  existsSync,
-  globSync,
-  openSync,
-  readFileSync,
-  readSync,
-  statSync,
-} from "node:fs";
-import { createRequire } from "node:module";
-import { basename, dirname, join, resolve } from "node:path";
+import { globSync, readFileSync } from "node:fs";
+import { basename, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
@@ -28,25 +19,57 @@ import { describe, expect, it } from "vitest";
  * `rsc: true`, so the defect arrives with the primitive rather than being
  * introduced by anybody, and it arrives again the next time one is added.
  * `header.tsx` records removing the same thing under CNCORE-139: "the
- * `\"use client\"` it carried until then bought nothing."
+ * `"use client"` it carried until then bought nothing."
  *
  * THE RULE IS DERIVED, NOT LISTED, which is ADR-0153's preference and the
  * difference between a check and a note. A list of the modules allowed to carry
  * the directive would pass forever by being edited whenever it failed. This asks
- * the tree instead: does anything in this module, or in a package it imports,
- * actually need a browser?
+ * the module instead: does anything in it actually need a browser?
  *
- * WHAT IT DOES NOT ASK, said here rather than left to be found: whether a module
- * that HAS a reason genuinely needs the directive. A component importing a client
- * library may still be fine as a server component if it only passes props
- * through, and deciding that needs the render graph rather than the import graph.
- * The question here is the cheaper half: a directive with NOTHING behind it.
+ * THE RULE USED TO HAVE A SECOND, WEAKER LIMB, AND CNCORE-276 DELETED IT. A
+ * module was also allowed the directive when a package it imported marked a
+ * client boundary of its own, and `dropdown-menu.tsx` was the only module that
+ * ever passed on that ground. CNCORE-276 measured it rather than arguing it, and
+ * the client bundle came out byte-for-byte identical with the directive and
+ * without it. ADR-0158 owns that measurement -- its population, its date and the
+ * command that takes it again -- and this file does not restate the figure,
+ * because a figure stated twice drifts in one of them (ADR-0153).
  *
- * THE TWO GROUNDS ARE NOT EQUALLY STRONG, AND THE WEAKER ONE IS NAMED. One module
- * -- `dropdown-menu.tsx` -- passes on the import graph alone rather than on a
- * hook, a handler or a browser global, and the last row of this file asserts that
- * it is the only one, so a second cannot join it quietly. CNCORE-276 is open on
- * whether it needs the directive at all.
+ * WHAT DECIDED IT WAS THE RENDER GRAPH. `dropdown-menu.tsx` has one importer in
+ * this repository, `apps/web/src/components/mode-toggle.tsx`, which declares
+ * `"use client"` for itself because it calls `useTheme()`. The `onClick` it hands
+ * to `DropdownMenuItem` therefore travels client to client and crosses no
+ * serialization boundary. A server component may RENDER a client component; what
+ * it may not do is PASS it a function, and here no server component does either.
+ *
+ * THIS FILE COVERS `packages/ui` AND NOTHING ELSE, which is a boundary rather
+ * than an oversight. Inside this package the rule above is complete: every
+ * component here is a primitive, and no module in it carries the directive at
+ * all since CNCORE-276.
+ *
+ * ONE DIRECTORY OVER THE SAME RULE WOULD FIRE FALSELY, and the counterexample is
+ * named here so the next reader does not have to rediscover it.
+ * `apps/web/src/components/providers.tsx` is what the server component
+ * `apps/web/src/app/layout.tsx` renders, and it holds no hook, no bound handler
+ * and no browser global: it wraps `theme-provider.tsx`, which wraps
+ * `next-themes`. The boundary has to be declared somewhere in that chain, and the
+ * module the server actually renders is the one the tightened rule would look
+ * inside and find nothing in. It would call `providers.tsx` unearned and be
+ * wrong.
+ *
+ * AND THE CHAIN IS UNTIDY IN A WAY WORTH WRITING DOWN RATHER THAN FIXING HERE.
+ * Both modules in it carry the directive and neither has a direct client API, so
+ * one of the two is redundant by exactly the argument that removed
+ * `dropdown-menu.tsx`'s: `theme-provider.tsx`'s only importer is `providers.tsx`,
+ * which is already a client module. Which of the two should keep it is a choice
+ * nobody has made explicitly, and it is not this package's to make.
+ *
+ * WHAT SEPARATES THESE CASES IS NOT WHAT THEY IMPORT, IT IS WHO IMPORTS THEM, and
+ * a check that asked the importer graph would judge all three correctly.
+ * CNCORE-283 is open on building it, on extending the sweep to `apps/web`, and on
+ * settling which module in that chain keeps its directive. Until it lands,
+ * pointing this check at that directory would report `providers.tsx` as unearned
+ * and be wrong.
  */
 
 const componentsDirectory = fileURLToPath(new URL(".", import.meta.url));
@@ -72,79 +95,9 @@ const CLIENT_API = [
   /\b(?:window|document|localStorage|sessionStorage|navigator)\s*\./,
 ];
 
-/** Bare package specifiers a module imports for their VALUES, not their types. */
-function packagesImportedBy(source: string): string[] {
-  const specifiers = [...source.matchAll(/^import\s+(type\s+)?[\s\S]*?from\s+["']([^"']+)["']/gm)]
-    .filter(([, type]) => type === undefined)
-    .map(([, , specifier]) => specifier ?? "");
-
-  // `@canoncore/*` is this repository, whose modules are the subject rather than
-  // the evidence, and a relative import is a sibling this sweep already reads.
-  return specifiers.filter((id) => !id.startsWith(".") && !id.startsWith("@canoncore/"));
-}
-
-/**
- * Whether a package marks a client boundary of its own.
- *
- * READ OFF THE PACKAGE'S OWN FILES rather than assumed from its name. A library
- * of client components declares the directive on the modules that need it -- and
- * one that does not is a library this module can render on the server. The
- * boolean is derived on every run, so no count of which files carry it is written
- * down here to go stale (ADR-0153).
- *
- * IT STOPS AT THE FIRST HIT, CAPS THE DIRECTORIES AND READS ONLY EACH FILE'S
- * HEAD, because the question is whether ANY module declares it and a deep
- * `node_modules` tree is the one place a test can accidentally read a hundred
- * megabytes. An earlier version claimed that bound while calling `readFileSync`
- * and slicing afterwards, which reads every byte before throwing them away.
- */
-/** A file's first bytes, read without pulling the whole file into memory. */
-function headOf(path: string, bytes = 200): string {
-  const handle = openSync(path, "r");
-  try {
-    const buffer = Buffer.alloc(bytes);
-    return buffer.toString("utf8", 0, readSync(handle, buffer, 0, bytes, 0));
-  } finally {
-    closeSync(handle);
-  }
-}
-
-function marksAClientBoundary(id: string, from: string): boolean {
-  let directory: string;
-  try {
-    directory = dirname(createRequire(`${from}/`).resolve(id, { paths: [from] }));
-  } catch {
-    return false;
-  }
-
-  const seen: string[] = [directory];
-  for (let index = 0; index < seen.length && index < 200; index++) {
-    const current = seen[index] ?? "";
-    for (const entry of globSync("*", { cwd: current })) {
-      const path = join(current, entry);
-      if (!existsSync(path)) continue;
-      if (statSync(path).isDirectory()) {
-        if (entry !== "node_modules") seen.push(path);
-        continue;
-      }
-      if (!/\.(?:mjs|cjs|js)$/.test(entry)) continue;
-      if (DIRECTIVE.test(headOf(path))) return true;
-    }
-  }
-
-  return false;
-}
-
 /** Whether the module itself does something only a browser can do. */
 function usesAClientApiDirectly(source: string): boolean {
   return CLIENT_API.some((pattern) => pattern.test(source));
-}
-
-/** Whether a module has any reason at all to be a client module. */
-function hasAClientReason(source: string): boolean {
-  if (usesAClientApiDirectly(source)) return true;
-
-  return packagesImportedBy(source).some((id) => marksAClientBoundary(id, componentsDirectory));
 }
 
 /** The package's components, keyed by file name so a failure names the file. */
@@ -160,22 +113,7 @@ function theComponents(): Map<string, string> {
 /** Those of `modules` that declare the directive with nothing behind it. */
 function unearnedDirectives(modules: Map<string, string>): string[] {
   return [...modules]
-    .filter(([, source]) => DIRECTIVE.test(source) && !hasAClientReason(source))
-    .map(([file]) => file)
-    .sort();
-}
-
-/**
- * Those that pass on the WEAKER of the two grounds: nothing in the module needs a
- * browser, and it is allowed its directive only because a package it imports
- * marks a boundary of its own.
- */
-function passingOnImportsAlone(modules: Map<string, string>): string[] {
-  return [...modules]
-    .filter(
-      ([, source]) =>
-        DIRECTIVE.test(source) && !usesAClientApiDirectly(source) && hasAClientReason(source),
-    )
+    .filter(([, source]) => DIRECTIVE.test(source) && !usesAClientApiDirectly(source))
     .map(([file]) => file)
     .sort();
 }
@@ -185,14 +123,17 @@ describe('the "use client" directives in packages/ui', () => {
    * THE ROLL CALL ITSELF. `label.tsx` failed this the day it was written, and the
    * next primitive vendored from a registry that ships the directive fails it on
    * arrival rather than after it has shipped a chunk to a browser.
+   *
+   * IT PASSES ON AN EMPTY SET SINCE CNCORE-276, because no module in this package
+   * carries the directive any more. That is why the two rows below exist: an
+   * empty list is also what a check that had stopped reading returns.
    */
   it("holds every one of them to a reason in the module that carries it", () => {
     expect(unearnedDirectives(theComponents())).toStrictEqual([]);
   });
 
   /**
-   * THE RED, DRIVEN RATHER THAN DESCRIBED. The row above passes on an empty list,
-   * and an empty list is also what a check that had stopped reading returns.
+   * THE RED, DRIVEN RATHER THAN DESCRIBED.
    *
    * THE SUBJECT IS BUILT FROM THE REAL `label.tsx`, not from a fixture written to
    * fail: its source with the directive put back is exactly the state CNCORE-261
@@ -211,40 +152,30 @@ describe('the "use client" directives in packages/ui', () => {
   });
 
   /**
-   * AND THE REASON IS READ FROM THE TREE RATHER THAN GRANTED. `dropdown-menu.tsx`
-   * keeps its directive because `@base-ui/react/menu` marks a client boundary of
-   * its own; if that stopped being true the row above would start failing, and
-   * this says so in one line rather than leaving the next reader to find out by
-   * watching an unrelated test go red.
+   * THE SAME RED, FOR THE MODULE CNCORE-276 REMOVED THE DIRECTIVE FROM.
+   *
+   * This is the row that would have gone quietly green under the old rule and is
+   * the reason the weaker limb is gone: `dropdown-menu.tsx` imports
+   * `@base-ui/react/menu`, which declares client boundaries of its own, so the
+   * import-graph limb granted it a reason it did not need. With that limb deleted
+   * the module is judged on itself, and it holds no state, no effect and no
+   * handler -- every one of its components spreads props onto a base-ui
+   * primitive.
+   *
+   * SO THE DIRECTIVE COMING BACK IS A FAILURE, not a matter of taste, and the
+   * bundle measurement in this file's header is what stands behind that.
    */
-  it("reads a client boundary out of an imported package, not out of its name", () => {
-    expect(marksAClientBoundary("@base-ui/react/menu", componentsDirectory)).toBe(true);
-    expect(marksAClientBoundary("class-variance-authority", componentsDirectory)).toBe(false);
-  });
+  it("names the directive CNCORE-276 removed, if it ever comes back", () => {
+    const modules = theComponents();
+    const dropdown = modules.get("dropdown-menu.tsx");
+    expect(dropdown, "dropdown-menu.tsx has moved or been renamed").toBeDefined();
+    expect(
+      DIRECTIVE.test(dropdown ?? ""),
+      "dropdown-menu.tsx still carries the directive CNCORE-276 removed",
+    ).toBe(false);
 
-  /**
-   * THE SOFT SPOT, NAMED RATHER THAN LEFT INSIDE THE GREEN ABOVE.
-   *
-   * The roll call accepts two different kinds of answer and they are not equally
-   * strong. A module that calls a hook, binds a handler or touches a browser
-   * global has a reason IN ITSELF, and there is nothing further to ask. A module
-   * that has none of those and is allowed its directive only because a package it
-   * imports marks a boundary has been judged on the IMPORT graph, which is the
-   * wrong graph for the question: what decides whether a module must be a client
-   * module is what its call sites PASS it, and that is the render graph.
-   *
-   * SO THIS NAMES WHO PASSES ON THE WEAKER GROUND. `dropdown-menu.tsx` is the
-   * whole list, it holds no state, no effect and no handler, and every one of its
-   * components spreads props onto a base-ui primitive -- so it may well not need
-   * the directive at all. CNCORE-276 is open on exactly that and will measure it
-   * against the bundle rather than reason about it.
-   *
-   * A CHECK THAT PASSES ONE MODULE ON WEAKER GROUNDS WITHOUT SAYING SO READS AS
-   * COVERAGE IT DOES NOT HAVE. This row is the difference between a boundary
-   * somebody chose and a gap nobody noticed: a second module joining the list
-   * fails here and has to be argued for, rather than arriving inside a green run.
-   */
-  it("names the module that passes on the import graph alone (CNCORE-276)", () => {
-    expect(passingOnImportsAlone(theComponents())).toStrictEqual(["dropdown-menu.tsx"]);
+    modules.set("dropdown-menu.tsx", `"use client";\n\n${dropdown}`);
+
+    expect(unearnedDirectives(modules)).toStrictEqual(["dropdown-menu.tsx"]);
   });
 });
