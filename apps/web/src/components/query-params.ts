@@ -84,11 +84,27 @@ export function oneGroup(parameter: string | string[] | undefined): string | und
  * ONE ORDER THIS APP WRITES THEM (ADR-0066): what the page is asked, then the
  * scope it is asked within, then where in it the reader stands.
  *
- * NOT EVERY PARAMETER THE APP WRITES. A Member row links `?via=` alone, and a
- * Server Action redirects to one `?undo=`: an address carrying
- * one parameter has no order to keep, so those are written where they are
- * rather than routed through here. A second parameter on any of them belongs
- * on this list first.
+ * NOT EVERY PARAMETER THE APP WRITES. A Member row links `?via=` alone: an
+ * address carrying one parameter has no order to keep, so it is written where
+ * it is rather than routed through here. A second parameter on it belongs on
+ * this list first.
+ *
+ * `undo` WAS THE OTHER SUCH PARAMETER AND IS NOW ON THE LIST (CNCORE-293),
+ * which is that sentence being followed rather than broken. A removal
+ * redirects to the container carrying the offer back, and it used to carry
+ * NOTHING ELSE -- so a reader who removed a member from page three of Members
+ * came back to page one of Members and page one of "Also appears in", with the
+ * placement picker's search emptied. The moment that redirect carries where
+ * the reader was standing, the offer stops being alone on its address and the
+ * order becomes a real question.
+ *
+ * IT IS APPENDED, BEHIND EVERYTHING INCLUDING `placing`, and the merits agree
+ * with the default here. It is the only parameter on this list that no reader
+ * and no link ever asks for: a removal MINTS it, `restorePlacement` spends it,
+ * and no control carries it forward -- so it is the one thing on an address
+ * that is neither what the page was asked nor where in it the reader stands.
+ * Last is where that belongs, and appending re-spells no link already out
+ * there.
  *
  * `refused` AND `because` ARE THAT SECOND PARAMETER ARRIVING (CNCORE-262), and the
  * sentence above is the instruction being followed rather than a rule being
@@ -221,6 +237,7 @@ const IN_THE_FIXED_ORDER = [
   "refused",
   "because",
   "placing",
+  "undo",
 ] as const;
 
 /**

@@ -506,6 +506,28 @@ export default async function ItemPage({
    * as `/settings` owes one on `?refused=`.
    */
   const placingWhat = oneValue(placing);
+  /*
+   * WHERE THE OWNER IS STANDING, which is what every FORM on this page has to
+   * hand back (ADR-0168) and what no link needs, because a link is built from
+   * `theRoute` at the point it is written.
+   *
+   * ONE OBJECT FOR THREE FORMS -- the place, the remove and the undo -- because
+   * all three REDIRECT, and a redirect can only carry what its form was given.
+   * Built here rather than inside each section so that the three cannot come to
+   * disagree about what "the address" means, which is the drift CNCORE-290 and
+   * CNCORE-293 were two instances of.
+   *
+   * BOTH CURSORS, UNLIKE THE ROUTE `Members` WALKS WITH. A walk sets its own
+   * cursor per link and so is handed a route WITHOUT one; a form is not a walk
+   * of either listing, so it carries the pair exactly as the reader left them.
+   */
+  const whereTheOwnerIs = theRoute({
+    arrivedThrough,
+    showingOnly,
+    membersAt,
+    appearancesAt,
+    placing: placingWhat,
+  });
 
   /*
    * THE NARROWING GOES TO THE READ PATH (CNCORE-129), where it used to be
@@ -624,7 +646,7 @@ export default async function ItemPage({
            * on the same address: a gesture aimed at one of them may not move
            * another. BOTH positions, because this form is not a walk of either.
            */
-          carried={theRoute({ arrivedThrough, showingOnly, membersAt, appearancesAt })}
+          whereTheOwnerIs={whereTheOwnerIs}
           context={context}
         />
       )}
@@ -632,6 +654,7 @@ export default async function ItemPage({
         itemId={item.id}
         holds={item.holds}
         route={theRoute({ arrivedThrough, showingOnly, appearancesAt, placing: placingWhat })}
+        whereTheOwnerIs={whereTheOwnerIs}
         owner={owner}
       />
       <AlsoAppearsIn
@@ -876,12 +899,22 @@ function Members({
   itemId,
   holds,
   route,
+  whereTheOwnerIs,
   owner,
 }: {
   itemId: string;
   holds: ItemOnThePage["holds"];
   /** ADR-0066's other two parameters, which every link here has to keep. */
   route: TheRoute;
+  /**
+   * THE WHOLE ADDRESS, WHICH IS NOT `route` ABOVE AND THE DIFFERENCE IS THE
+   * CURSOR. `route` is what the WALK links carry, so it holds no Members cursor
+   * -- `Walk` sets that per link and drops it for a `Back to the start`. The
+   * Remove on each row is a FORM that redirects, and it is not a walk of this
+   * listing: it has to hand back the page the reader is on, this listing's own
+   * cursor included (ADR-0168, CNCORE-293).
+   */
+  whereTheOwnerIs: TheRoute;
   /** Whether to offer the controls that CHANGE this ordering (CNCORE-109). */
   owner: boolean;
 }) {
@@ -1023,7 +1056,13 @@ function Members({
               label="Move down"
             />
           )}
-          {owner && <RemovePlacement placementId={placement.id} containerId={itemId} />}
+          {owner && (
+            <RemovePlacement
+              placementId={placement.id}
+              containerId={itemId}
+              whereTheOwnerIs={whereTheOwnerIs}
+            />
+          )}
         </span>
       </>
     ),
@@ -1738,7 +1777,7 @@ async function PlaceAnItem({
   refused,
   because,
   placing,
-  carried,
+  whereTheOwnerIs,
   context,
 }: {
   containerId: string;
@@ -1750,11 +1789,12 @@ async function PlaceAnItem({
   /** What the Owner narrowed this picker to, if they have searched it. */
   placing?: string;
   /**
-   * EVERYTHING ELSE THE ADDRESS CARRIES, which the search keeps rather than
-   * drops: the ordering the reader arrived through, the origin "Also appears
-   * in" is narrowed to, and where each of the two listings stands.
+   * THE WHOLE ADDRESS THE OWNER IS ON, which both forms in this section carry
+   * rather than drop: the ordering the reader arrived through, the origin "Also
+   * appears in" is narrowed to, where each of the two listings stands, and what
+   * this picker is narrowed to.
    */
-  carried: TheRoute;
+  whereTheOwnerIs: TheRoute;
   context: Context;
 }) {
   /*
@@ -1789,6 +1829,19 @@ async function PlaceAnItem({
   // WHERE THE PICKER'S OWN CONTROLS SUBMIT AND POINT: this container's page,
   // which is the one address this section lives at (ADR-0004, ADR-0066).
   const here: MembersPath = `/items/${containerId}`;
+  /*
+   * AND THE SAME ADDRESS WITHOUT THE NARROWING, for the SEARCH form alone.
+   *
+   * THAT FORM HAS A TEXT INPUT NAMED `placing`, so a hidden field beside it
+   * would submit the name TWICE -- which `oneValue` reads as no narrowing at
+   * all, emptying the box the Owner just typed into. The place form has no such
+   * input and carries the whole thing.
+   *
+   * THROUGH `inTheFixedOrder` RATHER THAN BY DELETING A KEY, because that
+   * function already drops a parameter with no value and is what fixes the
+   * order both forms' fields stand in (ADR-0066).
+   */
+  const carried = inTheFixedOrder({ ...whereTheOwnerIs, placing: undefined });
 
   return (
     <section className="mt-8" aria-labelledby="place-an-item">
@@ -1800,7 +1853,13 @@ async function PlaceAnItem({
         offered only when a removal just happened, which `?undo=` is how a page
         with no script gets told.
       */}
-      {undone && <UndoRemoval placementId={undone} containerId={containerId} />}
+      {undone && (
+        <UndoRemoval
+          placementId={undone}
+          containerId={containerId}
+          whereTheOwnerIs={whereTheOwnerIs}
+        />
+      )}
       {/*
         WHAT THE CATALOGUE WOULD NOT DO, IN ITS OWN WORDS. ADR-0009 licences a
         Repeat at DIFFERENT positions, so the refusal is usually about the
@@ -1911,30 +1970,36 @@ async function PlaceAnItem({
         <form action={placeItemInContainer} className="mt-2 flex items-end gap-2">
           <input type="hidden" name="containerId" value={containerId} />
           {/*
-            WHAT THE PICKER IS NARROWED TO, SO A REFUSAL CAN HAND IT BACK
-            (CNCORE-256). This form posts to the container's own address and
-            the response to a SUCCESSFUL placement is that same page rendered
-            again -- narrowing included, because the address never changed. A
-            REFUSAL is the one that leaves: it redirects to an address this
-            action builds (CNCORE-255), and an address built without this would
-            answer the Owner's refusal with the picker emptied of the search
-            that found the item they were placing.
+            WHERE THE OWNER IS STANDING, SO A REFUSAL CAN PUT THEM BACK
+            (CNCORE-290). This form posts to the container's own address and the
+            response to a SUCCESSFUL placement is that same page rendered again
+            -- every position on it included, because the address never changed.
+            A REFUSAL is the one that leaves: it redirects to an address the
+            action builds (CNCORE-255), and an address built without these would
+            answer the Owner by moving three things they did not touch.
 
-            ONLY WHERE THERE IS ONE, so an unnarrowed picker submits no field
-            rather than an empty one -- which is what keeps `?placing=` off
-            every address the unsearched picker produces (ADR-0066).
+            ALL THREE POSITIONS, WHICH IS THE RULE THIS SECTION STATES ARRIVING
+            WHOLE. CNCORE-256 carried the narrowing and ADR-0165 wrote down that
+            it carried only that: `?via=` and both listings' cursors were not on
+            this form, so a reader on page three of Members who was refused one
+            placement came back to page one of Members AND page one of "Also
+            appears in". The rule was stated five times in that diff and kept in
+            one place, which is worse than not stating it -- the next reader
+            cannot tell whether the omission was reasoned.
 
-            TODO(CNCORE-290): AND IT IS THE ONLY ONE OF THE THREE POSITIONS ON
-            THIS ADDRESS THAT A REFUSAL KEEPS. `?via=` and both listings'
-            cursors are not on this form, so a refused placement returns the
-            Owner to page one of Members and page one of "Also appears in" --
-            which is the rule this section states five times over applied to one
-            of three. It is PRE-EXISTING: before CNCORE-256 a refusal dropped
-            all three. Fixing it here would put six more fields on a form whose
-            schema already carries one that reaches no procedure, so it is a
-            ticket rather than this diff.
+            THROUGH `TheAddressBack`, WHICH THE REMOVE AND THE UNDO ALSO USE.
+            The three forms that redirect off this page spell these fields once
+            between them, in the one order `inTheFixedOrder` fixes (ADR-0066) --
+            three copies of the map is three chances for one to drop a
+            parameter, which is the defect twice over.
+
+            AND IT CARRIES `placing`, WHICH THE SEARCH ABOVE DOES NOT. That form
+            has a text input under this name and a hidden field beside it would
+            submit `placing` TWICE -- which `oneValue` reads as no narrowing at
+            all, emptying the box the Owner just typed into. This form has no
+            such input, so the narrowing rides as a field like the rest.
           */}
-          {placing !== undefined && <input type="hidden" name="placing" value={placing} />}
+          <TheAddressBack whereTheOwnerIs={whereTheOwnerIs} />
           <div className="flex flex-1 flex-col gap-2">
             <Label htmlFor="itemId">Item</Label>
             {/*
@@ -2098,23 +2163,55 @@ function MoveTo({
 }
 
 /**
+ * THE ADDRESS THE OWNER IS ON, AS HIDDEN FIELDS (ADR-0168).
+ *
+ * WRITTEN ONCE FOR THE FORMS THAT REDIRECT, which is the remove and the undo
+ * here and the place form in `PlaceAnItem`. All three land wherever the action
+ * sends them, and a Server Action gets no request URL -- so a parameter that is
+ * not a field on the form is one the answer cannot carry.
+ *
+ * IN THE FIXED ORDER, WHICH IS WHY THIS IS A MAP AND NOT HAND-WRITTEN INPUTS. A
+ * browser submits fields in the order they stand in the document, so document
+ * order IS the address these controls write; `whereTheOwnerIs` is
+ * `inTheFixedOrder`'s own object, whose keys are already in that order
+ * (ADR-0066). A parameter with no value is not a key, so it renders nothing
+ * rather than an empty field.
+ */
+function TheAddressBack({ whereTheOwnerIs }: { whereTheOwnerIs: TheRoute }) {
+  return Object.entries(whereTheOwnerIs).map(([name, value]) => (
+    <input key={name} type="hidden" name={name} value={value} />
+  ));
+}
+
+/**
  * TAKING ONE MEMBER OUT, as a form naming the PLACEMENT (ADR-0061).
  *
  * IT CARRIES THE CONTAINER TOO, because the action redirects back to it with
  * the undo offer -- and a Server Action gets no request URL, so anything it
  * needs has to be in the form.
+ *
+ * WHICH IS ALSO WHY IT CARRIES THE REST OF THE ADDRESS (CNCORE-293). That same
+ * sentence is the whole defect: the action cannot know where the reader was
+ * standing unless this form says so, and it did not -- so removing a member
+ * from page three of Members answered with page one of Members and page one of
+ * "Also appears in". A removal is the most frequent editing act there is
+ * (ADR-0046), so it was the commonest gesture on this page that moved the
+ * reader furthest.
  */
 function RemovePlacement({
   placementId,
   containerId,
+  whereTheOwnerIs,
 }: {
   placementId: string;
   containerId: string;
+  whereTheOwnerIs: TheRoute;
 }) {
   return (
     <form action={removePlacement}>
       <input type="hidden" name="id" value={placementId} />
       <input type="hidden" name="containerId" value={containerId} />
+      <TheAddressBack whereTheOwnerIs={whereTheOwnerIs} />
       <Button type="submit" variant="ghost" size="sm">
         Remove
       </Button>
@@ -2130,11 +2227,20 @@ function RemovePlacement({
  * tombstoned only the placement: every source that ever stood behind it was
  * left standing, so there is nothing here to reconstruct (ADR-0017).
  */
-function UndoRemoval({ placementId, containerId }: { placementId: string; containerId: string }) {
+function UndoRemoval({
+  placementId,
+  containerId,
+  whereTheOwnerIs,
+}: {
+  placementId: string;
+  containerId: string;
+  whereTheOwnerIs: TheRoute;
+}) {
   return (
     <form action={restorePlacement} className="mt-2 flex items-baseline gap-3">
       <input type="hidden" name="id" value={placementId} />
       <input type="hidden" name="containerId" value={containerId} />
+      <TheAddressBack whereTheOwnerIs={whereTheOwnerIs} />
       <p className="text-muted-foreground text-sm">Removed from this container.</p>
       <Button type="submit" variant="outline" size="sm">
         Undo
