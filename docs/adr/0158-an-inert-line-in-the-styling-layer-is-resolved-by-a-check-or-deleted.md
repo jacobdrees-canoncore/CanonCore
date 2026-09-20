@@ -105,16 +105,33 @@ day; one execution settled it in a minute.
 
 ## The directive is judged on a reason, not on a list
 
-A module may carry `"use client"` when something in it needs a browser — a hook call, a handler it
-binds, a browser global — or when a package it imports marks a client boundary of its own, which is
-read off that package's files rather than assumed from its name.
+A module may carry `"use client"` when something in it needs a browser: a hook call, a handler it
+binds, a browser global.
 
-**The second ground is weaker than the first and is named where it is used.** Whether a module that
-merely RENDERS a client component must itself be a client module is a question about the render
-graph, and the import graph cannot answer it. One module passes on that ground alone; the check
-asserts that it is the only one, so a second cannot join it inside a green run, and CNCORE-276 is
-open on whether that one needs its directive at all. **A check that passes something on weaker
-grounds without saying so reads as coverage it does not have.**
+**There was a second, weaker ground, and CNCORE-276 removed it.** A module was also allowed the
+directive when a package it imported marked a client boundary of its own, read off that package's
+files rather than assumed from its name. Exactly one module ever passed on it, `dropdown-menu.tsx`,
+and this record left open whether that one needed its directive at all. **It did not.** Measured on
+2026-09-20 rather than argued: `apps/web` built clean three times and the client bundle came to
+930,306 bytes with the directive and 930,306 without, every content-addressed chunk byte-identical.
+The two bytes that did move, a chunk id and the `movePlacement` server-action hash, also move
+between two builds of IDENTICAL source, so they are the build's nondeterminism. The directive went,
+and the limb that was only ever keeping it went with it.
+
+**What decided it was the render graph, which is why the import graph could never have.**
+`dropdown-menu.tsx` has one importer here, `apps/web/src/components/mode-toggle.tsx`, which declares
+the directive for itself because it calls `useTheme()`. The `onClick` it hands down therefore travels
+client to client and crosses no serialization boundary. A server component may RENDER a client
+component; what it may not do is PASS it a function, and no server component did either.
+
+**THE RULE IS NOW COMPLETE FOR `packages/ui` AND WOULD FIRE FALSELY OUTSIDE IT**, which is a
+boundary rather than an oversight, and the counterexample is named so it is not rediscovered.
+`apps/web/src/components/theme-provider.tsx` carries the directive with no hook, no bound handler and
+no browser global — the same shape `dropdown-menu.tsx` had, and the opposite answer, because
+`layout.tsx` is a server component that reaches `next-themes` through it. Something in that chain
+must declare the boundary. What separates the two is not what they import, it is who imports THEM;
+CNCORE-283 is open on a check built on the importer graph, and until it lands this one stays where
+it is.
 
 ## An overridden value gets deleted rather than tokenised
 
@@ -137,14 +154,17 @@ its `"use client"` modules live, and neither check looks at it.
 
 The two are not the same amount of work. The class check is nearly portable — it needs the app's
 modules added to the sweep and `cva` is not used there, so the extractor gets simpler rather than
-harder. The directive check is not: `apps/web`'s client modules are real client modules, and the
-interesting question there is the one this record already calls weaker, so pointing the current
-check at them would mostly produce passes on the import-graph ground and report a confidence it has
-not earned.
+harder. The directive check is not, and CNCORE-276 CHANGED THE REASON WHY rather than removing it.
+This record used to say that pointing the check at `apps/web` would mostly produce passes on the
+import-graph ground and report a confidence it had not earned. That ground no longer exists, so the
+failure mode is now the opposite one and it is worse: run over `apps/web` today, the check would
+report `theme-provider.tsx` as unearned and be WRONG, because that module's reason is the render
+graph rather than anything inside the file.
 
-**What would finish it** is the class check extended over `apps/web`, and a directive check built on
-what call sites PASS rather than on what modules IMPORT. Until both exist, the finding this record
-was written for could recur one directory over and nothing would say so.
+**What would finish it** is the class check extended over `apps/web`, and a directive check whose
+ground is the IMPORTER graph — a directive earned by a direct client API, or by the module having an
+importer that is itself a server module. That is CNCORE-283. Until both exist, the finding this
+record was written for could recur one directory over and nothing would say so.
 
 ## Evidence
 

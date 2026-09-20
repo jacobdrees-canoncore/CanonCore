@@ -141,9 +141,15 @@ const NOTHING_FOR_TURBO_TO_HASH = [
     // `globals.css.test.ts` holds every `@source` in the stylesheet to matching a
     // file, and one of them points at `apps/**/*.{ts,tsx}` -- so the suite's
     // answer depends on a glob over another package, which is the dependency the
-    // stylesheet itself declares (ADR-0158). The other two reach into
-    // `node_modules`: `utilities.test.ts` compiles the stylesheet with the real
-    // Tailwind, and `directives.test.ts` reads `@base-ui/react`'s own files.
+    // stylesheet itself declares (ADR-0158). `utilities.test.ts` reaches into
+    // `node_modules`, compiling the stylesheet with the real Tailwind.
+    //
+    // `directives.test.ts` USED TO BE A THIRD REASON and no longer is: it read
+    // `@base-ui/react`'s own files to decide whether an imported package marked a
+    // client boundary, and CNCORE-276 deleted that limb after measuring that the
+    // one directive it kept alive bought nothing. It now reads only this
+    // package's own components. The `why` below is unchanged because the other
+    // two still hold on their own.
     //
     // A GLOB IS NOT A FILE LIST, which is why this is here rather than in
     // `READS_OUTSIDE_ITS_PACKAGE`. Naming the files under `apps/` would mean a
