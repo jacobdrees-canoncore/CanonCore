@@ -203,18 +203,14 @@ const CITED_ACROSS_THE_BOUNDARY = ["0097"];
  * asked nothing, which is the shape both `ui-callers.test.ts` and
  * `corpus-figures.test.ts` raise at the root of their own chains.
  *
- * THE FOURTH COPY OF THIS READ, and the threshold is now CROSSED rather than
- * approached: [[0136-a-control-is-a-primitive-and-a-surfaces-words-sit-beside-its-pages]]
- * folds at three, and this joins `ui-callers.test.ts`, `biome-config.test.ts` and
- * `turbo-cache-inputs.test.ts`. `ui-callers.test.ts` carries the equivalent note
- * for the second copy, written when two was still under the line; this is the
- * same note one side of it.
+ * THE WALK IS `trackedFiles`, which this file was the fourth copy of and which
+ * CNCORE-277 folded at five. [[0169-the-fold-is-of-the-read-not-of-the-question-it-answers]]
+ * carries that decision and the measurement that settled it.
  *
- * CNCORE-277 CARRIES THE FOLD, and it is not done here because the four are not
- * the same read: that one strips comments and drops test files, both deliberately,
- * where this one keeps both for reasons argued above. What they share is about
- * three lines, so whether a seam that small earns a module is a decision somebody
- * takes rather than a tidy-up done in passing.
+ * WHAT STAYED HERE IS WHAT THIS READ WANTS AND THE OTHERS DO NOT: the pathspec,
+ * the comments and test files KEPT rather than stripped for the reasons argued
+ * above, and the non-emptiness guard worded for this population. Those were
+ * always the disagreement; the three lines under them were not.
  *
  * AND IT EXCLUDES ITSELF, which is not tidiness but a defect this file HAD. The
  * comments above name ADR-0001 and ADR-0055 to explain what they are not, and

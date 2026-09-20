@@ -97,22 +97,14 @@ function identifiersNamedIn(markdown: string): Set<string> {
 }
 
 /**
- * THE FIFTH COPY OF THE TRACKED-FILES WALK, and CNCORE-277 already owns the
- * fold rather than this file pretending not to have noticed.
+ * THE WALK IS `trackedFiles`, which this file was the fifth copy of. CNCORE-277
+ * took the fold and [[0169-the-fold-is-of-the-read-not-of-the-question-it-answers]]
+ * carries it, including the `-z` reason this note used to restate: without it
+ * `core.quotePath` octal-escapes a non-ASCII filename into one that then fails
+ * to open.
  *
- * [[0136-a-control-is-a-primitive-and-a-surfaces-words-sit-beside-its-pages]]
- * folds at three; `ui-callers.test.ts`, `biome-config.test.ts`,
- * `turbo-cache-inputs.test.ts` and `adr-as-built.test.ts` are the first four,
- * and that last one carries the same note one side of it. CNCORE-277 was filed
- * on the fourth and is where the decision goes: the reads genuinely disagree
- * -- `ui-callers.test.ts` strips comments and drops test files, `adr-as-built`
- * keeps both -- so what they share is about three lines, and whether a seam
- * that small earns a module is a call somebody takes rather than a tidy-up done
- * in passing by a ticket about stale sentences.
- *
- * `-z` RATHER THAN LINES, so a path is whatever git says it is:
- * `ui-callers.test.ts`'s finding, where `core.quotePath` octal-escapes a
- * non-ASCII filename into one that then fails to open.
+ * WHAT IS THIS FILE'S OWN IS THE PATHSPEC, and it stayed: `docs/**` and `*.md`
+ * are excluded for the reason argued below, and so is this file.
  *
  * AND IT EXCLUDES ITSELF, which is not tidiness but the defect `adr-as-built`
  * HAD and fixed. This file NAMES `filedByNameInput` and `pastTheRow` in the

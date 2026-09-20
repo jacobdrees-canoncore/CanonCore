@@ -78,8 +78,13 @@ this same defect under CNCORE-246 and is not covered here.
 **It needs the history, so it refuses a shallow clone** rather than answering "never ours" to
 everything and passing having read nothing. `ci.yml`'s `test` job sets `fetch-depth: 0` for it.
 
-**It is the fifth copy of the `git ls-files` walk**, and
+**It WAS the fifth copy of the `git ls-files` walk**, and
 [[0136-a-control-is-a-primitive-and-a-surfaces-words-sit-beside-its-pages]]
-folds at three. CNCORE-277 owns that fold and is not pre-empted here: the reads
-genuinely disagree about comments and test files, so what they share is about
-three lines.
+folds at three. CNCORE-277 took that fold and this file now reads through
+`testing/tracked-files.ts` like the other four. The sentence that stood here was
+right that the reads disagree about comments and test files and that what they
+share is about three lines; what it could not see is that one of the five was
+already missing the `-z` its neighbour argued for, which is what settled the
+question. [[0169-the-fold-is-of-the-read-not-of-the-question-it-answers]] has the
+measurement, and it is also the fifth copy of the record-number parse, folded at
+the same time (CNCORE-294).
