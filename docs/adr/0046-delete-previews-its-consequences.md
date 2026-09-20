@@ -273,3 +273,25 @@ established is the documented behaviour of the component, and the version it was
 checked against is not. The decision does not turn on the difference: a form
 whose fields are unknown until submission cannot prefetch an address carrying
 them, whichever version prefetches.
+
+## As built — and this record stays PROPOSED
+
+**"NOTHING HERE IS BUILT" ABOVE IS OUT OF DATE, which is the first reason this section exists.**
+It was written under CNCORE-31 and was true then. CNCORE-34, CNCORE-69 and CNCORE-210 each landed
+afterwards and each added a section to this record without going back to that sentence, so a reader
+starting at the top meets a flat denial and then four decisions that contradict it.
+
+**BUILT: removal with its undo, and the two deletes that are not an item's.** `placement.remove`
+takes an Item out of one container with NO confirmation in front of it and offers `placement.restore`
+instead, which is exactly this record's rule for the frequent act. The provider purge and the
+confirmation in front of it are built. `group.delete` is built, and `group.previewDelete` is the
+PREVIEW this record asks for — built, but for a Group.
+
+**NOT BUILT: DELETE PERMANENTLY on an Item, and therefore the three-outcome preview itself.** The
+item router carries no delete procedure of any kind, so the dialog this record is named for — three
+outcomes with their counts shown first, cancel and remove and delete permanently offered together,
+the middle one only when the Item is multi-placed — has never been rendered. What exists is the
+removal limb alone, plus the same shape built separately for a Group and for a provider purge.
+
+**AND THE DANGLING REFERENCE IS STILL OPEN**, as the inheritance section says: the tombstone trigger
+does not touch statements where the deleted Item is the VALUE rather than the subject.

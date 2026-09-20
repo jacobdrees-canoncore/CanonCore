@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync, readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -118,9 +118,22 @@ function theRecords(): Map<string, Record_> {
  * `**WHAT WAS BUILT IS THE DUMP ...**`, and headings run from `## As built, under
  * CNCORE-4` to `## Half built, under CNCORE-6`. Narrowing to one spelling would
  * be this check legislating a house style rather than reading the one that exists.
+ *
+ * `stays PROPOSED` IS A HEADING THIS READS TOO, and ADR-0153 is why it had to be.
+ * That record landed from CNCORE-252 while CNCORE-247 was in flight, and this
+ * check went red on it the moment it arrived -- which is the derived population
+ * working exactly as `adr-numbering.test.ts` argues a population should. Reading
+ * it, `## Why this stays PROPOSED` declares BOTH halves as squarely as any `## As
+ * built` does: "**Half the mechanism landed**", the derived half runs, the dated
+ * half is a convention. So the heading is read rather than the record reformatted.
+ *
+ * THAT IS NOT THE SAME CONCESSION THE DISPATCHER REFUSED for ADR-0046. What is
+ * accepted here is a SECTION whose subject is the record's own unfinished half; a
+ * bare sentence in the middle of a section is not that, however true it is, and
+ * accepting one would put this check back to matching a word in prose.
  */
 const DECLARATION = /\*\*[^*]*\bBUILT\b/;
-const AS_BUILT_HEADING = /^#{2,3} .*\bbuilt\b/im;
+const AS_BUILT_HEADING = /^#{2,3} .*(\bbuilt\b|stays PROPOSED)/im;
 
 function declaresItsHalves(record: Record_): boolean {
   return DECLARATION.test(record.text) || AS_BUILT_HEADING.test(record.raw);
@@ -204,9 +217,7 @@ function citedBySource(): Set<string> {
 
   const cited = new Set<string>();
   for (const path of tracked) {
-    for (const [, number] of readFileSync(join(repoRoot, path), "utf8").matchAll(
-      /ADR-(\d{4})/g,
-    )) {
+    for (const [, number] of readFileSync(join(repoRoot, path), "utf8").matchAll(/ADR-(\d{4})/g)) {
       if (number !== undefined) cited.add(number);
     }
   }
@@ -269,6 +280,77 @@ describe("a proposed record that source leans on", () => {
         "-- or an entry in SILENT_ON_PURPOSE saying why it has no half to declare. Half a " +
         "mechanism looks finished from outside (CLAUDE.md).",
     ).toEqual([]);
+  });
+
+  /**
+   * AN EXCEPTION THAT NO LONGER APPLIES IS THE DEFECT ONE LEVEL UP.
+   *
+   * Every name in `SILENT_ON_PURPOSE` has to still BE in the population, still be
+   * `proposed`, and still declare nothing. Without this, a record that gained a
+   * note keeps its excuse, a record that went `accepted` keeps an entry nothing
+   * reads, and the map drifts into a list of names somebody once wrote down --
+   * which is precisely what a derived population was chosen over.
+   *
+   * IT IS THE HALF THAT MAKES CNCORE-248 CHEAP: when that ticket writes notes into
+   * ADR-0058, ADR-0072 and ADR-0132, this goes red until their three lines are
+   * deleted, so the map cannot outlive the work it was waiting on.
+   */
+  it("keeps no exception that has stopped applying", () => {
+    const records = theRecords();
+    const population = new Set(citedBySource());
+
+    for (const [number, reason] of Object.entries(SILENT_ON_PURPOSE)) {
+      const record = records.get(number);
+      expect(record, `SILENT_ON_PURPOSE names ADR-${number}, which is not a record`).toBeDefined();
+      if (record === undefined) continue;
+
+      // A REASON IS A TICKET OR A SENTENCE, and a length floor alone is not the
+      // test: `CNCORE-248` is a complete reason in ten characters -- it says who
+      // owns the record and when the entry goes -- and an early version of this
+      // line reddened it for being short.
+      expect(
+        /CNCORE-\d+/.test(reason) || reason.length >= 20,
+        `SILENT_ON_PURPOSE gives ADR-${number} the reason "${reason}", which neither names the ` +
+          "ticket that owns it nor says why it has no half to declare.",
+      ).toBe(true);
+      expect(
+        population.has(number),
+        `SILENT_ON_PURPOSE excuses ADR-${number}, which no source file cites any more. The ` +
+          "exception is excusing nothing and should go.",
+      ).toBe(true);
+      expect(
+        record.status,
+        `SILENT_ON_PURPOSE excuses ADR-${number}, which is now \`${record.status}\`. An accepted ` +
+          "record is not asked for an as-built note at all, so the entry should go.",
+      ).toBe("proposed");
+      expect(
+        declaresItsHalves(record),
+        `ADR-${number} now declares its halves, so its SILENT_ON_PURPOSE entry is stale and has ` +
+          "to be deleted -- an excuse outliving its reason is what this map must not become.",
+      ).toBe(false);
+    }
+  });
+
+  /**
+   * AND THE CROSS-REPO ENTRY STAYS HONEST. ADR-0097 is named because no source in
+   * THIS tree cites it; the day one does, the derived population covers it and the
+   * hand-kept entry is a second mechanism for one job.
+   */
+  it("names across the boundary only what this tree cannot see", () => {
+    const records = theRecords();
+    const population = citedBySource();
+
+    for (const number of CITED_ACROSS_THE_BOUNDARY) {
+      expect(
+        records.get(number),
+        `CITED_ACROSS_THE_BOUNDARY names ADR-${number}, which is not a record`,
+      ).toBeDefined();
+      expect(
+        population.has(number),
+        `ADR-${number} is named as cited only from another repository, but source here cites it ` +
+          "now. The derived population already covers it, so the hand-kept name should go.",
+      ).toBe(false);
+    }
   });
 
   /**
