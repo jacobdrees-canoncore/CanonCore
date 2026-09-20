@@ -25,7 +25,7 @@ Settings > Linear.
 
 ```bash
 orca linear issue CNCORE-12 --full --json          # one issue, all context
-orca linear issue --current --full --json              # the issue linked to this worktree
+orca linear issue --current --full --json              # this worktree's ticket; see "Worktree binding"
 orca linear issue CNCORE-1 --children --relations --depth 3 --json   # a spec and its graph
 orca linear list-issues --team CNCORE --state Todo --json
 orca linear search "<text>" --json
@@ -263,6 +263,32 @@ Create the worktree bound to its ticket, and every later `--current` call resolv
 orca worktree create --name <slug> --linear-issue CNCORE-12 --agent claude --prompt "<brief>" --json
 orca worktree current --json
 ```
+
+**`--current` IS NOT A RELIABLE READ, AND ITS FAILURE NAMES THE WRONG THING.** It is the normal way
+an agent reads its own ticket, so a dispatched agent that cannot resolve it has no brief at all
+(ADR-0161). Two separate things can go wrong and the error does not distinguish them.
+
+**The binding itself is sound.** Both `create --linear-issue` and `set --linear-issue` store it, and
+`create` returns it in its own response — measured 2026-09-20 against probe worktrees made and
+removed for it, after a 2026-09-13 note claiming `set` "binds nothing" was found to have read the
+wrong field. **Confirm a binding at `linkedLinearIssue`. `linkedIssue` beside it is the GITHUB issue
+number and is `null` on every worktree here**, because this repo does not use GitHub Issues; reading
+it is what declared five bound worktrees unbound on 2026-09-20.
+
+```bash
+orca worktree list --json | python3 -c 'import json,sys; [print(w["path"].split("/")[-1], w["linkedLinearIssue"]) for w in json.load(sys.stdin)["result"]["worktrees"]]'
+```
+
+**Resolving it is a second step.** The stored binding is a bare identifier with no workspace on it
+(`linkedLinearIssueWorkspaceId` is `null` even where `--current` works), so the workspace is
+resolved at read time and can fail on its own. When it does, the error is
+`linear_no_linked_issue` — which names the binding, not the connection. It answered that five times
+on 2026-09-20 and has not reproduced since; no cause is claimed here.
+
+So when `--current` refuses, read the two halves separately rather than re-binding: check
+`linkedLinearIssue` above for the binding, and `orca linear team list` for the connection, which is
+the authorisation test under "Preconditions". If both answer, pass the ticket id explicitly and
+carry on — an agent briefed by hand is fine; one silently briefed by nothing is not.
 
 ## Wayfinding operations
 

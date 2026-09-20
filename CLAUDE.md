@@ -113,8 +113,9 @@ OWNER and reads what that owner says today. It ruled 11 claims contradicted on 2
 ## Agent skills
 
 - **Filing, reading or relating an issue** — Linear (workspace `jacobrees-canoncore`, team
-  `CNCORE`) through the `orca linear` CLI; GitHub Issues is unused. It lies five ways, one being
-  `ok: false` on writes that LANDED. `docs/agents/issue-tracker.md`.
+  `CNCORE`) through the `orca linear` CLI; GitHub Issues is unused. It lies SEVERAL ways — COUNT
+  them there rather than quoting a figure from here — two being `ok: false` on writes that LANDED
+  and `linear_no_linked_issue` on a worktree that IS bound. `docs/agents/issue-tracker.md`.
 - **Labelling or triaging one** — `docs/agents/triage-labels.md`. Roles are workspace labels, `wontfix`
   is Canceled, `to-spec` / `provider-repo` are kinds not roles.
 - **Adding a term or a record** — one `CONTEXT.md`, one `docs/adr/`, both at root. `docs/agents/domain.md`.
@@ -122,14 +123,21 @@ OWNER and reads what that owner says today. It ruled 11 claims contradicted on 2
 ## Working substrate
 
 - Use `orca worktree create` for parallel work, binding each to its ticket with
-  `--linear-issue CNCORE-<n>` so `--current` resolves in every later call.
+  `--linear-issue CNCORE-<n>`. The binding IS stored at create and comes back in that same call's
+  JSON, so confirm it at **`linkedLinearIssue`, never `linkedIssue`** — the second names GitHub and
+  is null on every worktree here, and reading it declared a whole wave unbound whose bindings were
+  all intact. `--current` answering `linear_no_linked_issue` cannot tell "never bound" from "could
+  not resolve just now", so read the worktree before believing it (ADR-0161).
 - Every worktree shares one Postgres container with its OWN database inside, on **55432** not 5432,
   since a local Postgres shadows 5432 silently and you test the wrong engine (ADR-0104). **Four
   agents at once**: one `pnpm test:e2e` peaks at 67 of 288 usable connections, re-measured
   2026-09-19 with the eleventh server standing, so four still fit (4 x 67 = 268 < 288). The
   measurement lives in `apps/web/e2e/global-setup.ts`; this restates it (CNCORE-137, CNCORE-178).
 - Prefer Orca's tools: the browser (`orca tab`, `snapshot`, `click`, `fill`) over Playwright, and
-  `orca terminal` over an ad hoc PTY, since a real PTY lets `terminal read`/`send` answer a prompt.
+  `orca terminal` over an ad hoc PTY. But **read `--screen` BEFORE sending to an agent**, because a
+  send does not always reach the chat: input to an agent PARKED on a prompt goes to the WIDGET,
+  where `--enter` SELECTS the option under the cursor, and mid-turn `--enter` queues instead of
+  submitting (`printf '\030\023'` flushes it). All three answer `ok: true` (ADR-0161).
 - Credentials live in `~/.config/canoncore/`, outside every repo so no commit can reach them and
   every worktree reads one copy: `provider-tmdb.env` (that provider throws at startup without its
   token; CI uses the repo secret) and `whatbox.env` (the slot's login, for SSH or its web UI).
@@ -163,7 +171,9 @@ the sentence it corrects — placed beside one, it leaves the old claim standing
 - Dispatch from the main worktree, which is how this repo builds by default: a child worktree per
   ticket, created with `--linear-issue CNCORE-<n> --agent claude --prompt "/implement"` and nothing
   more in the prompt. The binding is the brief — `--current` resolves the ticket, so there is no
-  task spec to keep in step with it — and each slice lands on `main` behind its own PR, because a
+  task spec to keep in step with it — but a brief is CONFIRMED WHERE IT LANDS, never at the call
+  that sent it, so check the binding before the agent needs it: `monitor.sh` emits `UNBOUND` for a
+  worktree carrying none (ADR-0161). Each slice lands on `main` behind its own PR, because a
   slice waiting on an integration branch is not demoable on its own (ADR-0051). Recompute the
   frontier from the tracker as each PR merges, because no DAG is doing it here — **then STOP.
   Recomputing is yours; STARTING A WAVE IS THE USER'S.** Merging authorises removing ITS worktree,

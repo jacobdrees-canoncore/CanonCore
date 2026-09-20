@@ -4,6 +4,7 @@
 #   ROOM <n>                             n CanonCore slots free of the four
 #   IDLE <worktree>                      an agent has gone quiet: parked, done or dead
 #   GONE <worktree>                      a worktree with no agent at all
+#   UNBOUND <worktree>                   a worktree with no Linear binding to brief its agent
 #   READY <repo> #<n> <state> <branch>   a PR left draft and wants reading
 #   TICKET <id> <state> <title>          a ticket changed state
 #   DRIFT-BEHIND <id>                    Todo, but a worktree or PR exists for it
@@ -69,6 +70,38 @@ for w in sorted(glob.glob(os.path.expanduser("~/orca/workspaces/CanonCore/*/")))
     w = w.rstrip("/")
     if "trash" not in w and w not in held:
         print("GONE", w.split("/")[-1])
+' 2>/dev/null || true
+
+    # A WORKTREE WITH NO BINDING CANNOT BRIEF ITS OWN AGENT. Dispatch sends
+    # `--prompt "/implement"` and nothing more, so the binding carries the whole
+    # ticket; without it the agent wakes up with no idea what to build. The
+    # create call answers `ok: true` either way, which is why this is read here
+    # rather than trusted there (ADR-0161).
+    #
+    # IT READS `linkedLinearIssue`, NOT `linkedIssue`. The second is the GITHUB
+    # issue number and is null on every CanonCore worktree because this repo does
+    # not use GitHub Issues. Reading it is exactly how the 2026-09-20 wave
+    # declared five worktrees unbound while all five bindings were intact, and
+    # hand-briefed five agents that did not need it.
+    #
+    # A FAILED QUERY IS NOT AN UNBOUND BOARD, the same trap the drift lines below
+    # set `blind` for. This emits on the ABSENCE of a binding, so a listing that
+    # did not parse would otherwise report every worktree at once. It exits quiet
+    # instead: silence means every worktree is bound, and that is the direction
+    # that fails safe -- a worktree wrongly called bound is the one that sends an
+    # agent out blind.
+    orca worktree list --json 2>/dev/null | python3 -c '
+import json, sys
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    sys.exit()
+for w in (d.get("result") or {}).get("worktrees") or []:
+    path = (w.get("path") or "").rstrip("/")
+    if "/workspaces/CanonCore/" not in path or "trash" in path:
+        continue
+    if not w.get("linkedLinearIssue"):
+        print("UNBOUND", path.split("/")[-1])
 ' 2>/dev/null || true
 
     for r in $REPOS; do
