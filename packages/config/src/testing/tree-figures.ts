@@ -32,8 +32,21 @@ const read = (path: string): string => readFileSync(join(repoRoot, path), "utf8"
  * reused by two suites is still one server, and a fixture nothing calls is none.
  */
 export function serversStoodUpByTheHttpSuite(): number {
+  return serversVia("anInstanceServing") + serversVia("theBuildServing");
+}
+
+/**
+ * The servers `global-setup.ts` stands up through ONE of the two spawns.
+ *
+ * THE SPLIT IS STATED AS OFTEN AS THE TOTAL IS -- "ten through
+ * `anInstanceServing` and one through `theBuildServing`", "Nine of this suite's
+ * servers ... and the tenth" -- and a sentence naming the last of a series
+ * states the size of it. So both halves are derivable here rather than the
+ * total alone, and a claim can be held to whichever one it makes.
+ */
+export function serversVia(spawn: "anInstanceServing" | "theBuildServing"): number {
   const setup = read("apps/web/e2e/global-setup.ts");
-  return [...setup.matchAll(/\b(?:anInstanceServing|theBuildServing)\(owned\b/g)].length;
+  return [...setup.matchAll(new RegExp(`\\b${spawn}\\(owned\\b`, "g"))].length;
 }
 
 /**

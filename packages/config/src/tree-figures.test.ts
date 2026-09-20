@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { asCount, countStatedIn, serversStoodUpByTheHttpSuite } from "./testing/tree-figures";
+import {
+  asCount,
+  countStatedIn,
+  serversStoodUpByTheHttpSuite,
+  serversVia,
+} from "./testing/tree-figures";
 
 /**
  * A claim this tree makes about itself, and the count that settles it.
@@ -18,6 +23,48 @@ const CLAIMS: Claim[] = [
     pattern: /not the (\w+) `The page over HTTP` stands up/g,
     population: "the servers `The page over HTTP` stands up",
     derive: serversStoodUpByTheHttpSuite,
+  },
+  {
+    file: "apps/web/vitest.browser.config.ts",
+    pattern: /`e2e` stands up (\w+) instances/g,
+    population: "the servers `The page over HTTP` stands up",
+    derive: serversStoodUpByTheHttpSuite,
+  },
+  {
+    file: "apps/web/browser/global-setup.ts",
+    pattern: /rather than the page seam's (\w+):/g,
+    population: "the servers `The page over HTTP` stands up",
+    derive: serversStoodUpByTheHttpSuite,
+  },
+  {
+    file: "apps/web/e2e/instance.ts",
+    pattern: /the page seam stands up (\w+) instances off ONE build/g,
+    population: "the servers `The page over HTTP` stands up",
+    derive: serversStoodUpByTheHttpSuite,
+  },
+  {
+    file: "apps/web/e2e/instance.ts",
+    pattern: /a helper that built per instance would build (\w+) times/g,
+    population: "the servers `The page over HTTP` stands up",
+    derive: serversStoodUpByTheHttpSuite,
+  },
+  {
+    file: "apps/web/e2e/instance.ts",
+    pattern: /(\w+) of this suite's servers are started by `anInstanceServing`/g,
+    population: "the servers started through `anInstanceServing`",
+    derive: () => serversVia("anInstanceServing"),
+  },
+  {
+    file: "apps/web/e2e/instance.ts",
+    pattern: /and the (\w+) -- the fresh install/g,
+    population: "the servers `The page over HTTP` stands up",
+    derive: serversStoodUpByTheHttpSuite,
+  },
+  {
+    file: "apps/web/e2e/global-setup.ts",
+    pattern: /this file starts ELEVEN, (\w+) through `anInstanceServing`/g,
+    population: "the servers started through `anInstanceServing`",
+    derive: () => serversVia("anInstanceServing"),
   },
 ];
 

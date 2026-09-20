@@ -55,8 +55,8 @@ export const SERVER_CONNECTIONS = 4;
 /**
  * THE ENVIRONMENT EVERY SERVER UNDER TEST RUNS WITH.
  *
- * ONE FUNCTION SO THE BOUND CANNOT BE FORGOTTEN AT A CALL SITE. Nine of this
- * suite's servers are started by `anInstanceServing` below and the tenth -- the
+ * ONE FUNCTION SO THE BOUND CANNOT BE FORGOTTEN AT A CALL SITE. Ten of this
+ * suite's servers are started by `anInstanceServing` below and the eleventh -- the
  * fresh install, which builds between its database and its server -- calls
  * `theBuildServing` directly. Both reach the spawn through this function, so
  * there is no way to start a server in this harness that is not bounded.
@@ -409,8 +409,8 @@ async function waitUntilAnswering(
  * `next build`, which every instance's server then serves.
  *
  * IT IS NOT PART OF `anInstanceServing`, and that is CNCORE-111's own reason
- * written the other way round: the page seam stands up SEVEN instances off ONE
- * build, so a helper that built per instance would build seven times. Each
+ * written the other way round: the page seam stands up ELEVEN instances off ONE
+ * build, so a helper that built per instance would build eleven times. Each
  * PROJECT builds once and says so, which is why this is exported rather than
  * folded in.
  *

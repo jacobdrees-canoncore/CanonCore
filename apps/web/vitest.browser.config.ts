@@ -4,7 +4,7 @@ import { defineConfig } from "vitest/config";
  * THE PAGE IN A BROWSER: ADR-0103's sixth seam and the one it held in reserve.
  *
  * A PROJECT OF ITS OWN RATHER THAN MORE OF `e2e/` (CNCORE-73). The two suites
- * want opposite things from a harness. `e2e` stands up seven instances and two
+ * want opposite things from a harness. `e2e` stands up eleven instances and two
  * providers so that many files can each assert against the state they need;
  * this one wants ONE instance and a browser -- an ordering to drag, and since
  * CNCORE-217 a Provider whose name has no break in it, joined under CNCORE-223
