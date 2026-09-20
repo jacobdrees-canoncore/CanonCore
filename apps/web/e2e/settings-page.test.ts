@@ -855,7 +855,15 @@ describe("/settings, unlocking a provider", () => {
 
     // THE HALF THE OWNER ACTS ON, which `fetch failed` has none of.
     expect(row).toContain("no allowlisted CIDR covers it");
-    expect(row).toContain("goes on the allowlist by name");
+    // BOTH HALVES OF IT SINCE CNCORE-244, and this row is where the defect was
+    // reachable: the Owner has allowlisted `localhost` and is being told to go
+    // and allowlist a host by name, which is what they just did.
+    expect(row).toContain("Its host is allowlisted");
+    // AND THE CIDR TO COPY. `localhost` answers with ::1 AND 127.0.0.1, and the
+    // pinning hook refuses on whichever record it reaches first, so the address
+    // in this sentence is the resolver's choice and only its SHAPE is assertable
+    // from here. The unit test pins the exact string for a single address.
+    expect(row).toMatch(/Allowlist `(?:127\.0\.0\.1\/32|::1\/128)` too/);
     expect(row).not.toContain("fetch failed");
     // AND SAID PLAINLY, because it is this catalogue's sentence about the
     // Owner's own settings rather than a Provider's claim.

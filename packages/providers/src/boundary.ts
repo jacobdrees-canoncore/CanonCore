@@ -277,7 +277,7 @@ export function assertConfigUrl(url: URL, allowlist: Allowlist): void {
     const address = ipaddr.parse(bare);
     if (allowlist.ranges.some((range) => matches(address, range))) return;
     throw new OutboundRefused(
-      `refused ${shortly(url.origin)}: ${shortly(bare)} is on no allowlisted CIDR. A provider on a private network goes on the allowlist by name (ADR-0034).`,
+      `refused ${shortly(url.origin)}: ${withoutScope(address)} is on no allowlisted CIDR. Allowlist \`${coveringCidr(address)}\` (ADR-0034).`,
       "config",
     );
   }
@@ -302,6 +302,55 @@ function matches(
 ): boolean {
   if (address.kind() !== network.kind()) return false;
   return address.match(network, bits);
+}
+
+/**
+ * The narrowest CIDR that admits one address, as a refusal hands it to the
+ * Owner to copy into their allowlist (CNCORE-244).
+ *
+ * REBUILT FROM THE PARSE RATHER THAN FROM THE STRING, which is what makes it
+ * WHOLE. Everything else a refusal interpolates is bounded by `shortly`, and a
+ * remedy that has been CUT is a remedy that cannot work -- which is the defect
+ * this function was added to end, reintroduced one layer down. An address
+ * rebuilt from `parts` or `octets` is at most 39 characters and carries no zone
+ * id, so it needs no ceiling and can never be truncated.
+ *
+ * A SINGLE ADDRESS AND NOT THE BLOCK AROUND IT, deliberately, and the obvious
+ * widenings both ship holes. Zeroing the low bits to offer `172.19.0.0/16`
+ * reads as the more useful suggestion and turns `::1` into `::/64` -- which
+ * covers every IPv4-MAPPED address, so the refusal would be telling the Owner
+ * to allowlist `::ffff:169.254.169.254`. Reading the enclosing block out of
+ * ipaddr.js's own `SpecialRanges` fails the same way: `ipv4Mapped` is
+ * `::ffff:0:0/96`. An allowlist is narrowed by preference (ADR-0034 quotes
+ * OWASP: "Deny-lists are bypass-prone. Prefer allow-lists."), and an Owner who
+ * wants the network's range writes the network's range -- which is what
+ * `parseAllowlist`'s bare-address rule already assumes they may do.
+ */
+function coveringCidr(address: ipaddr.IPv4 | ipaddr.IPv6): string {
+  return `${withoutScope(address)}/${address.kind() === "ipv6" ? 128 : 32}`;
+}
+
+/**
+ * An address as a refusal prints it: rebuilt from the parse, SO IT CARRIES NO
+ * SCOPE ID.
+ *
+ * A zone is the one part of an address with no length limit -- `fe80::1%eth0`
+ * is valid and an interface name can be anything -- and `toString` keeps it.
+ * Measured: a 120-character zone took this refusal to 304 characters, over
+ * ADR-0123's ceiling, and the clause it pushed off the end was the remedy. It
+ * is also meaningless in a CIDR, so dropping it is what makes the quoted
+ * allowlist entry one that works.
+ *
+ * WHICH IS WHY THESE TWO VALUES NEED NO `shortly`. Everything left is bounded
+ * by the address syntax itself: 15 characters for IPv4 and 39 for IPv6.
+ *
+ * NOT NAMED `bounded`, which is `reason.ts`'s word for ADR-0123's 300-character
+ * cap and is published beside `reasonFor`. One word for two ceilings in one
+ * package is how the next reader comes to apply the wrong one.
+ */
+function withoutScope(address: ipaddr.IPv4 | ipaddr.IPv6): string {
+  if (address.kind() === "ipv6") return new ipaddr.IPv6((address as ipaddr.IPv6).parts).toString();
+  return address.toString();
 }
 
 /**
@@ -423,8 +472,9 @@ export function assertConfigAddress(allowlist: Allowlist): AssertAddress {
     const parsed = ipaddr.parse(address);
     if (parsed.range() === UNICAST) return;
     if (allowlist.ranges.some((range) => matches(parsed, range))) return;
+    const covering = coveringCidr(parsed);
     throw new OutboundRefused(
-      `refused ${shortly(address)}: ipaddr.js classifies it as \`${parsed.range()}\` and no allowlisted CIDR covers it. A provider on a private network goes on the allowlist by name (ADR-0034).`,
+      `refused ${withoutScope(parsed)}: ipaddr.js classifies it as \`${parsed.range()}\` and no allowlisted CIDR covers it. Its host is allowlisted, which admits the name only. Allowlist \`${covering}\` too (ADR-0034).`,
       "config",
     );
   };

@@ -1,3 +1,4 @@
+import ipaddr from "ipaddr.js";
 import { describe, expect, it } from "vitest";
 // NOT FROM `./index`, WHERE ITS SIBLINGS BELOW COME FROM. `shortly` is
 // deliberately absent from that enumeration -- a symbol is public there because
@@ -161,6 +162,32 @@ describe("a config URL", () => {
     expect(() => assertConfigUrl(new URL("http://169.254.169.254/"), allowlist)).toThrow(
       OutboundRefused,
     );
+  });
+
+  /**
+   * THE SAME MISLEADING REMEDY SAT ON THIS SENTENCE TOO (CNCORE-244). The
+   * ticket names the ADDRESS check, and this one carried the identical closing
+   * clause -- so correcting only the refusal it named would have left the old
+   * claim standing in the function next door.
+   *
+   * THERE IS NO HOST HALF TO NAME HERE, which is why the sentence is not the
+   * same one. `parseAllowlist` files a bare address under RANGES, and this
+   * branch never consults the hostname set at all, so a CIDR is the whole
+   * remedy rather than the missing half of one.
+   */
+  it("offers a CIDR that admits it, for a base URL whose host IS an address", () => {
+    const allowlist = parseAllowlist("provider-wiki");
+
+    const refusal = refusalFrom(() =>
+      assertConfigUrl(new URL("http://172.19.0.3:8080/"), allowlist),
+    );
+
+    expect(refusal).toContain("`172.19.0.3/32`");
+    expect(coversAddress(cidrQuotedIn(refusal), "172.19.0.3")).toBe(true);
+    // ADR-0123's ceiling, with the Owner's own origin in the sentence as well.
+    expect(refusal.length).toBeLessThanOrEqual(300);
+    // AND NOT THE CLAUSE THAT SENT A FIRST-TIME OWNER TO ALLOWLIST A NAME.
+    expect(refusal).not.toContain("goes on the allowlist by name");
   });
 
   it("matches an IPv6 host inside an allowlisted IPv6 CIDR", () => {
@@ -337,7 +364,105 @@ describe("a config address", () => {
     expect(() => assert("169.254.169.254")).toThrow(OutboundRefused);
     expect(() => assert("127.0.0.1")).toThrow(OutboundRefused);
   });
+
+  /**
+   * THE REMEDY A REFUSAL NAMES HAS TO BE ONE THE OWNER CAN CARRY OUT
+   * (CNCORE-244). This sentence used to end "a provider on a private network
+   * goes on the allowlist by name (ADR-0034)", which a first-time Owner reads
+   * as "put the host's name on the allowlist" -- and that is the one thing
+   * which cannot work, because this check exists precisely so that a name never
+   * admits a private address.
+   *
+   * MEASURED ON A BLANK INSTANCE, 2026-09-20: an allowlist of `provider-wiki`
+   * was refused with that sentence, and `provider-wiki, 172.19.0.0/16` imported
+   * 465 containers. The Owner's own install carries both entries, which is why
+   * the defect survived until a first-run walk reached it.
+   *
+   * SO THE SENTENCE NAMES BOTH HALVES, and it can: reaching here means the HOST
+   * half already passed, because `assertConfigUrl` refuses an unallowlisted
+   * host before any socket is opened. What is missing is always the CIDR.
+   */
+  it("names both halves and quotes a CIDR that admits the address it refused", () => {
+    const assert = assertConfigAddress(parseAllowlist("provider-wiki"));
+
+    const refusal = refusalFrom(() => assert("172.19.0.3"));
+
+    // THE HALF ALREADY DONE, said so the Owner does not go and do it again.
+    expect(refusal).toContain("host is allowlisted");
+    // THE HALF THAT IS MISSING, as something to copy rather than to compose.
+    expect(refusal).toContain("`172.19.0.3/32`");
+    // AND THE QUOTED RANGE REALLY ADMITS THE REFUSED ADDRESS, asked of
+    // ipaddr.js rather than of the string that produced it.
+    expect(coversAddress(cidrQuotedIn(refusal), "172.19.0.3")).toBe(true);
+    // AND IT NO LONGER INVITES THE ONE THING THAT CANNOT WORK.
+    expect(refusal).not.toContain("goes on the allowlist by name");
+  });
+
+  /**
+   * ADR-0123'S CEILING, ASSERTED AT FULL STRETCH RATHER THAN ON THE FIXED PROSE.
+   * That record's own lesson is that a refusal assembled from a value of any
+   * length is not BOUNDED by the 300-character cap but TRUNCATED by it, and
+   * what gets truncated is the END -- the clause naming the remedy. This
+   * sentence now carries THREE values, so it is the one most able to overrun.
+   *
+   * THE WORST CASE IS MEASURED, NOT IMAGINED. `2001:30::/28` is ipaddr.js
+   * 2.5.0's `droneRemoteIdProtocolEntityTags`, the longest range name it can
+   * return at 31 characters, and an address filling that prefix renders at its
+   * longest too. Read off the library's own `SpecialRanges` table rather than
+   * recalled.
+   */
+  it("stays inside ADR-0123's 300 characters with every value at full stretch", () => {
+    const assert = assertConfigAddress(parseAllowlist("provider-wiki"));
+
+    const refusal = refusalFrom(() => assert("2001:3f:ffff:ffff:ffff:ffff:ffff:ffff"));
+
+    // 300 written out, so ADR-0123's constant cannot assert itself.
+    expect(refusal.length).toBeLessThanOrEqual(300);
+    // AND THE REMEDY SURVIVED WHOLE, which is the half the cap used to eat.
+    expect(refusal).toContain("`2001:3f:ffff:ffff:ffff:ffff:ffff:ffff/128`");
+    expect(refusal).toContain("(ADR-0034)");
+    expect(refusal).toContain("droneRemoteIdProtocolEntityTags");
+  });
+
+  /**
+   * A ZONE ID IS THE ONLY UNBOUNDED PART OF AN ADDRESS, and it is meaningless
+   * in a CIDR. `fe80::1%eth0` is valid to ipaddr.js and an interface name has
+   * no length limit, so a remedy built by pasting the address into a string
+   * would be both wrong and, once cut, unusable.
+   */
+  it("drops a scope id rather than quoting a CIDR nobody can allowlist", () => {
+    const assert = assertConfigAddress(parseAllowlist("provider-wiki"));
+
+    const refusal = refusalFrom(() => assert(`fe80::1%${"eth".repeat(40)}`));
+
+    expect(refusal.length).toBeLessThanOrEqual(300);
+    expect(refusal).toContain("`fe80::1/128`");
+    expect(refusal).not.toContain("eth");
+  });
 });
+
+/** The message of the `OutboundRefused` a call throws, or a failure saying it did not. */
+function refusalFrom(call: () => void): string {
+  try {
+    call();
+  } catch (error) {
+    if (error instanceof OutboundRefused) return error.message;
+    throw error;
+  }
+  throw new Error("expected an OutboundRefused, and nothing was thrown");
+}
+
+/** The single CIDR a refusal quotes back in backticks, as the Owner would copy it. */
+function cidrQuotedIn(refusal: string): string {
+  const quoted = /`([^`]+\/\d+)`/.exec(refusal)?.[1];
+  if (!quoted) throw new Error(`no CIDR is quoted in: ${refusal}`);
+  return quoted;
+}
+
+/** Whether a CIDR admits an address, asked of ipaddr.js rather than of our own prose. */
+function coversAddress(cidr: string, address: string): boolean {
+  return ipaddr.parse(address).match(ipaddr.parseCIDR(cidr));
+}
 
 /**
  * Found in review: an owner who allowlists a bare ADDRESS rather than a CIDR was
