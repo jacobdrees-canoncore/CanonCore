@@ -105,7 +105,7 @@ against it.
 
 **What the count catches is the count reaching ZERO, and that is not the same as a deleted
 suite.** `test:e2e`, `test:browser` and `test:contract` are each declared by one package, so for
-those the two are one. `test` is declared by ten: delete one package's and nine still run, which
+those the two are one. `test` is declared by eleven: delete one package's and ten still run, which
 the guard reads as a pass. What catches that is `network-gate-wiring.test.ts`, which holds every
 Vitest config on disk to being run by some suite — so the orphaned config fails it. Measured on
 2026-09-14: deleting `packages/tokens`' `test` script turns the Test job red there, not here.
@@ -185,6 +185,25 @@ sentence said "`typecheck` and `build` … eleven packages each" when it was fir
 an unchecked figure for the second of them and would have sent somebody to close a hole that does
 not exist. Counted 2026-09-14: `test` 10, `typecheck` 11, `build` 1. Recounted 2026-09-20 with
 `@canoncore/text` standing (CNCORE-282): `test` 11, `typecheck` 12, `build` 1.
+
+**Those two lines are dated and the present-tense counts above are DERIVED, which is the split
+ADR-0153 draws and CNCORE-286 built here.** Each one is a claim in `tree-figures.test.ts`, so a
+package arriving or dropping a script reddens the suite rather than waiting for a reviewer to read
+for it. The dated recounts stay dated: they are measurements of a day, and deriving them would erase
+the evidence rather than maintain it.
+
+**AND ONE OF THEM WAS ALREADY WRONG WHEN THAT SWEEP RAN, which is the argument rather than a
+footnote.** "`test` is declared by eleven" above read `ten` until CNCORE-286, and the clause after it
+read `nine`. `@canoncore/text` broke both (CNCORE-282); the hand-correction that caught this record's
+other six missed these two, because a reviewer reading for a figure is a reviewer who can stop
+reading. That is the whole case for deriving them instead.
+
+**THE DERIVATION READS THE MANIFEST, THOUGH `typecheck-wiring.test.ts` DELIBERATELY ASKS TURBO.**
+The two are not in tension, because they are about different things. That suite asks whether turbo
+WILL RUN the task, where reading `scripts` back would restate turbo's decision in a second language
+and pass wherever the two disagree. The sentences here say a task is DECLARED BY so many packages,
+which is a fact about the manifest alone -- and a dry run cannot answer it at all, since the trap
+measured above reports one task per workspace package whatever the task is.
 
 **And a scratch fixture does not stand in for a real run**, which this record owes to the roll call
 being wrong TWICE before it was right — once on the size of a real log and once on the shape of a
