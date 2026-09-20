@@ -1016,7 +1016,8 @@ describe("a session's token", () => {
 });
 
 /**
- * THE NINETEEN `touch_row` TRIGGERS, ASSERTED AS A GROUP (CNCORE-260, ADR-0159).
+ * THE `touch_row` TRIGGERS, ASSERTED AS A GROUP (CNCORE-260, ADR-0159). The count
+ * is stated once, at the floor below, rather than here as well.
  *
  * THIS ASSERTS ATTACHMENT AND NOT THE FUNCTION'S BEHAVIOUR, which is the whole
  * reason it is one test rather than one per table. `touch_row` is ONE shared

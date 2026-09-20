@@ -5,8 +5,8 @@ status: accepted
 # A database rule earns a test when a write can reach it
 
 > **ACCEPTED 2026-09-20, whole, in one repository.** Fifteen violating writes landed against the
-> rules a path in this repository can actually reach, the nineteen `touch_row` triggers are asserted
-> as a group by attachment rather than nineteen times by behaviour, and the nine rules no write can
+> rules a path in this repository can actually reach, the `touch_row` triggers are asserted as a
+> group by attachment rather than one test per table, and the nine rules no write can
 > reach are listed below with the reason each is left. No provider repository is touched, so nothing
 > is owed at a second one.
 
@@ -26,7 +26,20 @@ naming. Counting `CONSTRAINT` across `migrations/*.sql` answers what the ladder 
 database answers what it HOLDS, which is the thing a violating write meets. That is also why this
 count is not in `tree-figures.test.ts` -- that suite runs behind the network gate with no PostgreSQL
 to ask, so the roll call lives where the database already is. Taken 2026-09-20 and re-derived on
-every run since: 35 rules, 26 tested, 9 left.
+every run since. Of the 35 above, 26 are tested and 9 are left.
+
+### What the roll call does not catch, said here rather than left to be found
+
+It matches a rule's NAME against the text of the suite, so a rule named only in a comment counts as
+covered. That is the same bound `tree-figures.test.ts` carries -- it is a roll call, not a proof --
+and it is acceptable for the same reason: every test here asserts the name because `refusal` answers
+with the name PostgreSQL gave, so a mention and an assertion are the same thing in practice today.
+What it does catch, and what nothing caught before, is a rule arriving with NEITHER a test nor a
+decision.
+
+It reads `packages/db/src/*.test.ts` only. Verified 2026-09-20: every rule any test asserts is
+asserted there, none in `testing/` and none outside `packages/db`. A rule first asserted from
+`packages/api` would read here as untested and turn the roll call red, which is the safe direction.
 
 ## The criterion is reachability, and the ticket that filed this had it inverted
 
@@ -70,7 +83,7 @@ fail when given the wrong name.
 - **`task_runs_outcome_is_known`, `task_runs_running_has_no_end`, `settings_single_row`,
   `sessions_token_hash_unique`**.
 
-## The nineteen `touch_row` triggers are asserted by ATTACHMENT, not nineteen times by behaviour
+## The `touch_row` triggers are asserted by ATTACHMENT, not once per table by behaviour
 
 Decided by the dispatcher on 2026-09-20. `touch_row` is ONE shared function and two tests already
 prove what it DOES -- `constraints.test.ts`'s "gives every row a number and advances it on every
