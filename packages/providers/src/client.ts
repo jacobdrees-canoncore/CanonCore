@@ -29,33 +29,16 @@ import { bounded, REASON_MAX_LENGTH } from "./reason";
  * EVERY VALUE THIS FILE INTERPOLATES INTO A REFUSAL GOES THROUGH `shortly`, with
  * no exception for one this app owns (ADR-0123, CNCORE-249).
  *
- * The rule is ADR-0123's: a refusal assembled from a value of any length is not
- * BOUNDED by the 300-character cap, it is TRUNCATED by it, and what the cap
- * takes is the END of the sentence -- the half carrying the verdict and the
- * remedy. So the value is bounded WHERE IT ENTERS and the prose around it is
- * then fixed-length and always survives.
+ * The cap does not BOUND a sentence assembled from a value of any length, it
+ * TRUNCATES it, and what it takes is the END -- the half carrying the verdict
+ * and the remedy. So the value is bounded WHERE IT ENTERS and the prose around
+ * it is then fixed-length and always survives.
  *
- * THE WHOLE FILE WAS WALKED RATHER THAN THE ONE SITE THAT WAS FOUND. Three
- * refusals interpolated raw -- `hopTo`'s `Location`, and `readJson`'s
- * `response.url` twice -- while `failed` bounded its path twenty lines away.
- * Two more values were found by the sweep and are bounded here for the first
- * time: `hopTo`'s `from.origin`, which is a URL THE PROVIDER CHOSE on every hop
- * after the first, and the hop-limit refusal's `base.origin`.
- *
- * `base.origin` IS THE OWNER'S OWN VALUE AND IS BOUNDED ANYWAY, which is the one
- * decision here that had two defensible answers. ADR-0123 settles it: everything
- * is capped INCLUDING OUR OWN, because exempting one branch means the bound
- * holds only while every caller agrees about which branch it is on. It is also
- * the same string `assertConfigUrl` already bounds for a MEASURED reason -- a
- * 147-character load balancer name is an ordinary thing for an Owner to type --
- * so leaving it raw here would assert that the Owner's value is short in one
- * file while the file next door has measured that it is not.
- *
- * WHAT NO TEST COVERS, AND WHY. The two origins cannot be driven to full stretch
- * from `client.test.ts`: reaching either needs a redirect to COMPLETE, and every
- * hop after the first is a content URL, so `assertContentAddress` refuses the
- * loopback address a stub in that file listens on before the hop is followed.
- * They are bounded on the argument above rather than on a red test.
+ * THE FILE WAS WALKED WHOLE RATHER THAN PATCHED AT THE THREE SITES THAT WERE
+ * FILED, and a fourth and fifth value were bounded with them. ADR-0123 under
+ * "The rule had three sites in one file that broke it" carries the rest: which
+ * values are the provider's and which the Owner's, why the Owner's own is
+ * bounded too, the arithmetic at each site, and which two have no test and why.
  */
 
 /**

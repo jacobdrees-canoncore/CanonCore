@@ -45,6 +45,27 @@ const json = (response: ServerResponse, body: unknown, status = 200) => {
   response.end(JSON.stringify(body));
 };
 
+/**
+ * MORE JSON THAN `MAX_BODY_BYTES` ADMITS: one valid document that simply never
+ * stops arriving.
+ *
+ * SHARED BY THE TWO TESTS THAT NEED A BODY PAST THE CEILING, because they differ
+ * only in the shape they open and close with and written twice they would stop
+ * agreeing about what "past" means. A body with no end is a body that fills
+ * memory and no timeout catches it: `bodyTimeout` caps the GAP between chunks,
+ * so a provider sending steadily and forever never trips it, and on loopback
+ * that is a great deal of bytes.
+ */
+function moreThanWillBeRead(response: ServerResponse, opens: string, closes: string): void {
+  response.writeHead(200, { "content-type": "application/json" });
+  response.write(opens);
+  const chunk = `"${"x".repeat(64 * 1024)}",`;
+  for (let written = 0; written < 6 * 1024 * 1024; written += chunk.length) {
+    response.write(chunk);
+  }
+  response.end(closes);
+}
+
 /** What the wiki provider actually answers, trimmed to one record. */
 const MANIFEST = {
   name: "provider-wiki",
@@ -908,22 +929,14 @@ describe("what the client will take from a provider", () => {
     await expect(client.manifest()).rejects.toThrow(OutboundRefused);
   });
 
-  /**
-   * A body with no end is a body that fills memory, and no timeout catches it:
-   * `bodyTimeout` caps the GAP between chunks, so a provider sending steadily and
-   * forever never trips it, and on loopback that is a great deal of bytes.
-   */
   it("refuses a response body past the size it will read", async () => {
-    const baseUrl = await stubProvider((_, response) => {
-      response.writeHead(200, { "content-type": "application/json" });
-      // Valid JSON that simply never stops arriving.
-      response.write('{"name":"provider-wiki","versions":[1],"operations":[');
-      const chunk = `"${"x".repeat(64 * 1024)}",`;
-      for (let written = 0; written < 6 * 1024 * 1024; written += chunk.length) {
-        response.write(chunk);
-      }
-      response.end('"search"]}');
-    });
+    const baseUrl = await stubProvider((_, response) =>
+      moreThanWillBeRead(
+        response,
+        '{"name":"provider-wiki","versions":[1],"operations":[',
+        '"search"]}',
+      ),
+    );
     const client = createProviderClient({ baseUrl, allowlist: onLoopback() });
 
     await expect(client.manifest()).rejects.toThrow(/too large|size/i);
@@ -940,15 +953,9 @@ describe("what the client will take from a provider", () => {
    * and it sits at the very end behind an unbounded URL.
    */
   it("keeps the verdict when an oversized body arrives on a long path", async () => {
-    const baseUrl = await stubProvider((_, response) => {
-      response.writeHead(200, { "content-type": "application/json" });
-      response.write('{"results":[');
-      const chunk = `"${"x".repeat(64 * 1024)}",`;
-      for (let written = 0; written < 6 * 1024 * 1024; written += chunk.length) {
-        response.write(chunk);
-      }
-      response.end('"end"]}');
-    });
+    const baseUrl = await stubProvider((_, response) =>
+      moreThanWillBeRead(response, '{"results":[', '"end"]}'),
+    );
     const client = createProviderClient({ baseUrl, allowlist: onLoopback() });
 
     const thrown = await client.search("dalek ".repeat(100)).catch((error: unknown) => error);

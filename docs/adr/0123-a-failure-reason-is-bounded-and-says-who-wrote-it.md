@@ -969,8 +969,10 @@ can be used either way, so there is nothing for an Unlock to unblock.
 
 The first `/closing-a-spec` run over CNCORE-159 found `packages/providers/src/client.ts`
 interpolating a provider's own string raw into a refusal at three places, while the same file obeyed
-this record twenty lines away in `failed` and imported `shortly` at the top to do it. The rule was
-available at each site and simply not applied.
+this record **thirty-one lines away** in `failed` and imported `shortly` at the top to do it. The
+rule was available at each site and simply not applied. (CNCORE-249 said "twenty lines away" and
+this record repeated it before counting: `hopTo`'s refusal and `failed`'s `shortly(path)` are 31
+lines apart, and were 31 apart before this change too. An unchecked figure travels.)
 
 | Site | Interpolated raw | Whose value |
 | -- | -- | -- |
@@ -986,14 +988,16 @@ site this record had not looked at.
 
 ### What the sweep added to the three
 
-**THE FILE WAS WALKED WHOLE RATHER THAN PATCHED AT THE SITES FILED**, and two more values were
-found.
+**THE FILE WAS WALKED WHOLE RATHER THAN PATCHED AT THE SITES FILED**, which bound two values beyond
+the three. Only the first of them was the sweep's own finding; the second is the ticket's third
+criterion, which asked for it to be decided either way.
 
 - **`hopTo`'s `from.origin` is the PROVIDER'S on every hop after the first.** `url = hopTo(location,
   url)` reassigns, so from the second hop on, the URL this sentence names as the one redirecting is
   itself a URL the provider chose. Nothing bounds its length: `assertContentUrl` checks the scheme
-  and, for a literal address, the range — never how long the host is. The ticket's table had this
-  one as fixed-length prose.
+  and, for a literal address, the range — never how long the host is. **This is the sweep's finding.**
+  The ticket's table named three values and this was not among them; its arithmetic did treat an
+  origin as length-bearing, but as the Owner's and assumed short.
 - **The hop-limit refusal's `base.origin`** is the Owner's configured value, and is bounded anyway.
 
 **THE OWNER'S OWN VALUE IS BOUNDED TOO, AND THAT IS THE ONE DECISION HERE WITH TWO DEFENSIBLE
@@ -1011,9 +1015,17 @@ the whole content of the sentence once there has been more than one; and these s
 provider remedy to be crowded out. Dropping them would cost information to buy headroom that
 bounding already buys.
 
-**THE LONGEST REFUSAL THIS FILE CAN NOW PRODUCE IS 202 CHARACTERS**, at `hopTo` with both of its
-values at full stretch. Measured, not imagined: 42 of prose and two values `shortly` caps at 80. The
-hop limit is 112, the absent body 119 and the oversized body 167.
+**THE LONGEST `OutboundRefused` THIS FILE CAN NOW PRODUCE IS 202 CHARACTERS**, at `hopTo` with both
+of its values at full stretch. Measured, not imagined: 42 of prose and two values `shortly` caps at
+80. The hop limit is 112, the absent body 119 and the oversized body 167.
+
+**THAT FIGURE COUNTS THE FOUR REFUSALS AND NOT `failed`, WHICH IS THE FIFTH SENTENCE THIS FILE
+BUILDS AND THE LONGEST.** An earlier draft of this section said "the longest refusal this file can
+now produce", which reads as covering it and does not. `failed` is not a refusal — it reports what a
+provider said about its own failure — and it is bounded by a different arithmetic, already recorded
+under "The origin leaves the sentence": 95 characters of framing around a `bounded()` reason, so 395
+at full stretch, cut to 300 by `reasonFor` on its way to a page. The four above never need that cut
+at all.
 
 ### Asserted where the cap is applied, and what has no witness
 
