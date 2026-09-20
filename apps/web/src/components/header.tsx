@@ -162,27 +162,6 @@ export default async function Header() {
           <SearchBox />
           <ModeToggle />
           {/*
-            AND THE ONE STEP A READER WITHOUT A SESSION CAN TAKE (CNCORE-139).
-            It is the other half of thinning the nav above, and it PREVENTS A
-            GAP RATHER THAN CLOSING ONE: the path to `/login` ran through `New
-            item` until this change, because the refusal at `/new` offers a
-            login of its own to anybody who arrives without a session. Dropping
-            that link from the nav drops the route to the page carrying it, and
-            the empty state's login goes with the first Item -- so a thinner
-            header offering nothing in their place would leave the owner of a
-            filled catalogue typing the address the README gives them.
-
-            AT THE END OF THE ROW RATHER THAN IN THE NAV, because the nav is
-            destinations in the catalogue and this is not one: it is the
-            account, and it belongs beside the other two controls that are about
-            the reader rather than about the collection.
-
-            NOT SHOWN TO THE OWNER, who has already taken it. `/login` renders
-            a Log out form for them instead, and a header link labelled `Log
-            in` that logged you out would be the sort of lie this whole ticket
-            is about.
-          */}
-          {/*
             AND THE OWNER'S OWN PAGE, WHICH THINNING THE NAV LEFT WITH NO DOOR
             (CNCORE-243). The link below prevents the visitor's gap; this one
             closes the owner's, and it is the same gap seen from the other
@@ -210,6 +189,27 @@ export default async function Header() {
               Account
             </Link>
           )}
+          {/*
+            AND THE ONE STEP A READER WITHOUT A SESSION CAN TAKE (CNCORE-139).
+            It is the other half of thinning the nav above, and it PREVENTS A
+            GAP RATHER THAN CLOSING ONE: the path to `/login` ran through `New
+            item` until this change, because the refusal at `/new` offers a
+            login of its own to anybody who arrives without a session. Dropping
+            that link from the nav drops the route to the page carrying it, and
+            the empty state's login goes with the first Item -- so a thinner
+            header offering nothing in their place would leave the owner of a
+            filled catalogue typing the address the README gives them.
+
+            AT THE END OF THE ROW RATHER THAN IN THE NAV, because the nav is
+            destinations in the catalogue and this is not one: it is the
+            account, and it belongs beside the other two controls that are about
+            the reader rather than about the collection.
+
+            NOT SHOWN TO THE OWNER, who has already taken it. `/login` renders
+            a Log out form for them instead, and a header link labelled `Log
+            in` that logged you out would be the sort of lie this whole ticket
+            is about.
+          */}
           {offerTheLogin && (
             <Link className="text-sm hover:underline" href="/login">
               Log in
