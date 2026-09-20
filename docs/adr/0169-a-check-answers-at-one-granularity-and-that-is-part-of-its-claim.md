@@ -107,10 +107,30 @@ can never match. They are not modules and not exports; they are the same defect 
 shape, which is worth one sentence here rather than a fourth rung.
 
 **THE CHECK REFUSES A FORM IT CANNOT READ**, which is the choice `theExportsResolver` beside it
-already makes: `export default` and `export *` throw rather than being skipped, because a name
-quietly not collected is a name nothing can ever report as dead. Every module in the package writes
-one `export { ... }` list today, and a walk that knew only that form would go green on the first one
-to write `export function` instead.
+already makes: a name quietly not collected is a name nothing can ever report as dead.
+
+**AND IT DID NOT, WHEN THIS RECORD FIRST SAID SO.** The sentence above was written against a walk
+that collected an `export { ... }` list and an `export <kind> <name>` declaration and SILENTLY
+SKIPPED six other legal spellings: `export type { Foo }`, `export abstract class`,
+`export function*`, `export async function*`, `export declare function`, and a destructured
+`export const { a, b } = o`. Both review axes found it independently, and `export type { Foo }` is
+the live one -- every module in the package writes an `export { ... }` list, which is one keyword
+away from it.
+
+**THE REPAIR IS THE SHAPE, NOT THE SIX PATTERNS.** A walk that enumerates the forms it knows is a
+walk whose coverage is a list somebody maintains, and the seventh spelling is silent again. It now
+starts from every `export` keyword in the module and demands a classification, throwing on one it
+cannot read -- so an unknown form is LOUD by construction rather than by having been thought of.
+The same move on the calling side: `export { X } from` and `import Thing, { X } from` are read
+(missing either reported a name that IS used as dead, a red on correct code), and a namespace
+`import * as Ui from` is refused rather than ignored, because one local binding reaches every name
+in the module and no attribution is honest.
+
+**THAT IS THIS RECORD'S OWN SUBJECT, ARRIVING IN ITS OWN INSTRUMENT.** A check answers at one
+granularity; it also answers over one POPULATION, and a docblock claiming a refusal it does not
+perform is the same overclaim one rung down. Thirteen rows now hold the reader to its coverage --
+nine of them fail against the walk this record first described -- because a coverage claim in prose
+is one nothing can go red about.
 
 **A NAME IN A STRING IS NOT A CALLER, AND THE ADVERSARIAL CASE IS THE ROW THAT SAYS SO.** Parsing
 the import CLAUSE defeats a bare `"CardTitle"` by construction. What it does not defeat is a whole
@@ -129,6 +149,6 @@ that ticket landed and the operation answers 503. The witness that actually hold
 the stub that declines a credential, which the same comment names first.
 
 **AND `provider-wiki`'s `ci.yml` CARRIED THE DOCKERFILE'S LINKAGE WORD FOR WORD**, which is
-[[0153-a-figure-lives-in-one-place]]'s point arriving as a false reason rather than a stale number:
+[[0153-a-figure-about-this-tree-is-derived-or-dated]]'s point arriving as a false reason rather than a stale number:
 "The image carries the fixture and is what CanonCore's CI runs as a service container." One
 sentence, one true half, in two files that nothing compares.

@@ -20,6 +20,12 @@ pages that render them.
 not yet written goes red rather than sitting unread — ADR-0138, which is what 59% of this package
 being unreachable cost. Pulling five things from the registry to pick one means deleting four.
 
+**It names any dead EXPORT too, since CNCORE-263, and until then it did not.** A module with one
+live export answered for all of them, so eleven of `dropdown-menu.tsx`'s fifteen sat unreachable
+with this suite green — ADR-0169. Take a primitive and use four of its fifteen parts and the other
+eleven now go red, which is the same rule as the paragraph above and the reason to import a
+registry component's pieces rather than its whole surface.
+
 The registries are declared in the ROOT `package.json`, not in either `components.json`. The MCP
 resolves config from its working directory and the repo root has no `components.json`, so a leaf
 declaration leaves the MCP blind to the registry. `SHADCNBLOCKS_API_KEY` lives in a gitignored

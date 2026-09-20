@@ -176,7 +176,7 @@ const providerRefused = {
 const declaredName = z.string().min(1).max(REASON_MAX_LENGTH);
 
 /** What an import needs: the URL the owner typed, and which record to take. */
-export interface ImportRequest {
+interface ImportRequest {
   baseUrl: string;
   recordId: string;
 }
@@ -232,7 +232,7 @@ async function importRecordFromProvider(
 }
 
 /** What a browse needs: the URL the owner typed, and which container to take. */
-export interface BrowseRequest {
+interface BrowseRequest {
   baseUrl: string;
   containerId: string;
 }

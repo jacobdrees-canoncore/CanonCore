@@ -107,7 +107,11 @@ function theExportsResolver(): {
       for (const { matcher, target } of published) {
         const found = matcher.exec(subpath);
         if (found === null) continue;
-        return join("packages", "ui", target.replace("*", found[1] ?? ""));
+        return join(
+          "packages",
+          "ui",
+          target.replace("*", () => found[1] ?? ""),
+        );
       }
       return undefined;
     },
@@ -214,6 +218,13 @@ function unimportedModules(sources: Map<string, string>): string[] {
  * written to answer it. The same filter keeps `globals.css.test.ts` from being
  * asked to have a caller, which nothing imports because Vitest RUNS it.
  *
+ * TODO(CNCORE-300): the stripper below is a regex, so a `/*` inside a STRING
+ * opens a comment and swallows source to the next `*\/`. `"**\/*"` in
+ * `apps/web/browser/gate.ts` already carries the shape. It cuts both ways -- a
+ * swallowed import reports a live name dead, a swallowed `export { ... }` list
+ * reports nothing at all -- and zero imports are lost today, measured by
+ * comparing the specifiers found before and after over every tracked source.
+ *
  * COMMENTS ARE STRIPPED because this package's records cite module paths in prose
  * -- `select.tsx`'s own docblock is three paragraphs about what it replaced --
  * and a walk reading those would count a record of a deletion as a caller.
@@ -265,40 +276,59 @@ function theTrackedSources(): Map<string, string> {
 /**
  * Every name a module under `packages/ui/src` PUBLISHES.
  *
- * BOTH FORMS, AND A REFUSAL FOR THE REST. This package writes one `export { ... }`
- * list per module today, and a walk that knew only that form would go silently
- * green on the first module to write `export function` instead -- the failure mode
- * ADR-0138 names, a check agreeing with whatever it happens to read. `export
- * default` and `export *` are REFUSED rather than skipped, for the reason
- * `theExportsResolver` refuses a map it cannot read: a name quietly not collected
- * is a name nothing can report as dead.
+ * IT CLASSIFIES EVERY `export` IT FINDS AND REFUSES WHAT IT CANNOT, which is a
+ * stronger promise than matching the forms this package happens to write and one
+ * this file made and did not keep. The first version collected an `export { ... }`
+ * list and a `export <kind> <name>` declaration, and SILENTLY SKIPPED six other
+ * legal spellings -- `export type { Foo }`, `export abstract class`,
+ * `export function*`, `export async function*`, `export declare function`, and a
+ * destructured `export const { a, b } = o`. `export type { Foo }` is the live one:
+ * every module here writes an `export { ... }` list today and that is one keyword
+ * away from it. A name quietly not collected is a name nothing can ever report as
+ * dead, so the walk now starts from every `export` keyword and THROWS on one it
+ * cannot read. Caught by review before it ever mattered, which is the only reason
+ * this reads as a paragraph rather than as an incident.
  *
  * AN ALIAS PUBLISHES ITS RIGHT-HAND SIDE. `export { Card as Panel }` puts `Panel`
  * on the package's surface and `Card` nowhere, so `Panel` is the name a caller
  * has to import and therefore the name to hold to having one.
+ *
+ * THE REFUSAL ONLY EVER FIRES ON `packages/ui`, because that is the only tree
+ * whose exports are collected. A module elsewhere may spell an export however it
+ * likes.
  */
 function exportedNamesIn(path: string, source: string): string[] {
-  for (const refused of [/^\s*export\s+default\b/m, /^\s*export\s*\*/m]) {
-    if (refused.test(source)) {
-      throw new Error(`${path} publishes in a form this roll call cannot name`);
-    }
-  }
-
   const names: string[] = [];
 
-  for (const [, clause] of source.matchAll(/^\s*export\s*\{([^}]*)\}/gm)) {
-    for (const published of (clause ?? "").split(",")) {
-      const named = published.trim().replace(/^type\s+/, "");
-      if (named.length === 0) continue;
-      const parts = named.split(/\s+as\s+/);
-      names.push((parts[1] ?? parts[0] ?? "").trim());
-    }
-  }
+  for (const keyword of source.matchAll(/^[ \t]*export\b/gm)) {
+    const statement = source.slice((keyword.index ?? 0) + keyword[0].indexOf("export"));
 
-  for (const [, declared] of source.matchAll(
-    /^\s*export\s+(?:async\s+)?(?:function|const|let|var|class|interface|type|enum)\s+([A-Za-z_$][\w$]*)/gm,
-  )) {
-    names.push(declared as string);
+    // `export { A, B }` and `export type { A, B }`, each optionally `from` somewhere
+    // else -- `lib/utils.ts` publishes `cn` by re-exporting the `cn` package.
+    const clause = /^export\s+type\s*\{([^}]*)\}|^export\s*\{([^}]*)\}/.exec(statement);
+    if (clause !== null) {
+      for (const published of (clause[1] ?? clause[2] ?? "").split(",")) {
+        const named = published.trim().replace(/^type\s+/, "");
+        if (named.length === 0) continue;
+        const parts = named.split(/\s+as\s+/);
+        names.push((parts[1] ?? parts[0] ?? "").trim());
+      }
+      continue;
+    }
+
+    const declared =
+      /^export\s+(?:declare\s+)?(?:abstract\s+)?(?:async\s+)?(?:function\s*\*?|const|let|var|class|interface|type|enum)\s+([A-Za-z_$][\w$]*)/.exec(
+        statement,
+      );
+    if (declared?.[1] !== undefined) {
+      names.push(declared[1]);
+      continue;
+    }
+
+    throw new Error(
+      `${path} publishes in a form this roll call cannot name, so it cannot report it dead: ` +
+        `\`${(statement.split("\n")[0] ?? "").trim()}\``,
+    );
   }
 
   return names.filter((name) => name.length > 0);
@@ -319,13 +349,33 @@ function exportedNamesIn(path: string, source: string): string[] {
  * string literal is still text this reads, and the row below builds exactly that
  * and requires it to count for nothing -- an anchor is what refuses it, because
  * a literal is introduced by the `=` or the `(` that precedes it on its line.
- * THE BOUNDARY, said rather than left to be found: an import spelled at the start
- * of a line inside a template literal would be read as one. Nothing in this
- * repository does that, and a walk that parsed TypeScript rather than reading it
- * is the instrument if one ever does.
  *
- * AN ALIAS IMPORTS ITS LEFT-HAND SIDE, which is the mirror of the rule above:
- * `import { Card as Panel }` reaches the name `Card`, whatever it is called here.
+ * `export { X } from` IS AN IMPORT HERE, and leaving it out was an asymmetry with
+ * `uiImportsIn` above, which reads a bare `from` and so has always counted the
+ * re-export form. A surface that re-published a primitive would have kept the
+ * MODULE alive while every NAME in it read as dead -- a red on correct code, which
+ * is the failure mode a check gets deleted for.
+ *
+ * A DEFAULT BINDING MAY PRECEDE THE BRACE. `import Thing, { Card } from` is legal
+ * and was invisible to the first version of this, for the same reason and with the
+ * same consequence.
+ *
+ * AND A NAMESPACE IMPORT IS REFUSED RATHER THAN IGNORED. `import * as Ui from
+ * "@canoncore/ui/components/card"` reaches every name in that module through
+ * `Ui.`, which this walk cannot attribute and a `Ui.` sweep would attribute to the
+ * wrong module the moment two namespaces shared a local name. Ignoring it would
+ * report every name in a module that IS used as dead; refusing it says so out
+ * loud. Nothing in this repository writes one.
+ *
+ * WHAT IT STILL DOES NOT READ, said rather than left to be found: a dynamic
+ * `await import("@canoncore/ui/...")` destructured into names, and an import
+ * spelled at the start of a line inside a template literal. Neither occurs here,
+ * and a walk that PARSED TypeScript rather than reading it is the instrument if
+ * one ever does.
+ *
+ * AN ALIAS IMPORTS ITS LEFT-HAND SIDE, which is the mirror of `exportedNamesIn`'s
+ * rule: `import { Card as Panel }` reaches the name `Card`, whatever it is called
+ * here.
  */
 function importedNamesIn(
   path: string,
@@ -334,8 +384,19 @@ function importedNamesIn(
 ): Array<[string, string]> {
   const found: Array<[string, string]> = [];
 
+  for (const [, specifier] of source.matchAll(
+    /^[ \t]*import\s+\*\s+as\s+[A-Za-z_$][\w$]*\s+from\s*["'`]([^"'`\n]+)["'`]/gm,
+  )) {
+    if ((specifier as string).startsWith(`${name}/`)) {
+      throw new Error(
+        `${path} imports all of \`${specifier}\` as a namespace, which this roll call cannot ` +
+          "attribute to a published name",
+      );
+    }
+  }
+
   for (const [, clause, specifier] of source.matchAll(
-    /^\s*import\s+(?:type\s+)?\{([^}]*)\}\s*from\s*["'`]([^"'`\n]+)["'`]/gm,
+    /^[ \t]*(?:import|export)\s+(?:type\s+)?(?:[A-Za-z_$][\w$]*\s*,\s*)?\{([^}]*)\}\s*from\s*["'`]([^"'`\n]+)["'`]/gm,
   )) {
     const targets: string[] = [];
     if ((specifier as string).startsWith(`${name}/`)) {
@@ -557,5 +618,92 @@ describe("the export roll call over packages/ui", () => {
     expect(uncalledExports(mentioned)).toStrictEqual([
       "packages/ui/src/components/card.tsx CardTitle",
     ]);
+  });
+  /**
+   * THE READER'S COVERAGE, WHICH THE TREE CANNOT DEMONSTRATE. Every module in
+   * `packages/ui` writes one `export { ... }` list, so the rows above exercise
+   * exactly one of the spellings TypeScript permits -- and the first version of
+   * this file silently collected nothing from six others while its docblock
+   * claimed it refused what it could not read. These take the repository's real
+   * sources and add one probe module, which is what `unimportedModules` takes its
+   * sources rather than reading them FOR: the state a check exists to catch is
+   * one the repository is not in.
+   */
+  const withAProbeModule = (published: string): Map<string, string> =>
+    new Map([
+      ...theTrackedSources(),
+      [`${UI_SOURCE}components/probe.tsx`, published] as [string, string],
+    ]);
+
+  it.each([
+    ["a type-only list", "export type { Probe };"],
+    ["an abstract class", "export abstract class Probe {}"],
+    ["a generator", "export function* Probe() {}"],
+    ["an async generator", "export async function* Probe() {}"],
+    ["an ambient declaration", "export declare function Probe(): void;"],
+  ])("collects a name published as %s", (_form, published) => {
+    expect(uncalledExports(withAProbeModule(published))).toStrictEqual([
+      "packages/ui/src/components/probe.tsx Probe",
+    ]);
+  });
+
+  /**
+   * AND REFUSES THE REST RATHER THAN SKIPPING IT, which is the promise the
+   * docblock makes and the one that was untrue. A destructured `export const`
+   * publishes names this walk cannot read off the pattern; `default` publishes a
+   * name the importing side chooses; `export *` publishes a set that depends on
+   * another module. All three are loud rather than empty, because a name quietly
+   * not collected is a name nothing can ever report as dead.
+   */
+  it.each([
+    ["a default", "export default Probe;"],
+    ["a star re-export", 'export * from "@canoncore/ui/components/card";'],
+    ["a destructured const", "export const { Probe } = somewhere;"],
+  ])("refuses %s rather than passing over it", (_form, published) => {
+    expect(() => uncalledExports(withAProbeModule(published))).toThrow(/cannot name/);
+  });
+
+  /**
+   * THE CALLING SIDE'S COVERAGE, in the same shape and for the same reason. Each
+   * spelling below reaches `CardTitle` and must credit it, with the module's real
+   * importer removed so the probe is the only thing keeping it alive. A walk that
+   * missed one would report a name that IS used as dead, which is a red on correct
+   * code -- the failure mode a check gets deleted for rather than fixed.
+   */
+  const withAProbeCaller = (spelling: string): Map<string, string> =>
+    new Map([
+      ...[...theTrackedSources()].map(
+        ([path, source]) =>
+          [path, path.startsWith(UI_SOURCE) ? source : source.replaceAll("CardTitle", "")] as [
+            string,
+            string,
+          ],
+      ),
+      ["apps/web/src/components/probe.tsx", spelling] as [string, string],
+    ]);
+
+  it.each([
+    ["a named import", 'import { CardTitle } from "@canoncore/ui/components/card";'],
+    ["a re-export", 'export { CardTitle } from "@canoncore/ui/components/card";'],
+    ["an aliased import", 'import { CardTitle as Heading } from "@canoncore/ui/components/card";'],
+    [
+      "a default beside a named one",
+      'import Thing, { CardTitle } from "@canoncore/ui/components/card";',
+    ],
+  ])("counts %s as a caller", (_spelling, source) => {
+    expect(uncalledExports(withAProbeCaller(source))).toStrictEqual([]);
+  });
+
+  /**
+   * AND REFUSES A NAMESPACE IMPORT, which reaches every name in the module through
+   * one local binding. Ignoring it would report every name in a module that is
+   * used as dead; a `Ui.` sweep would credit the wrong module the moment two
+   * namespaces shared a local name. Saying so out loud is the only honest answer,
+   * and nothing in this repository writes one.
+   */
+  it("refuses a namespace import rather than reading past it", () => {
+    expect(() =>
+      uncalledExports(withAProbeCaller('import * as Ui from "@canoncore/ui/components/card";')),
+    ).toThrow(/namespace/);
   });
 });
