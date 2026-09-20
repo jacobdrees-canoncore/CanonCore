@@ -70,6 +70,15 @@ The surface that searches the owner's own catalogue, across every item kind. Not
 of the same name.
 _Avoid_: search, unqualified
 
+**Account**:
+The Owner's own page: where they log out, and the one surface carrying Settings, Tasks and Devices,
+which sit in no nav (CNCORE-243). It is served at `/login`, which answers a reader with a session
+with this and a reader without one with the password field — one address, two surfaces, and the
+heading says which. NOT an account to create: ADR-0044 is one owner, one password and no signup, and
+this is the name of the page where that one session is managed rather than of a thing anybody
+registers for. It is what Plex and Jellyfin both call the same control.
+_Avoid_: profile, user, my account, sign in (for the Owner's own control)
+
 **Listing**:
 What a capped list answers with: a page of rows, how many there are altogether, how many sort before
 the page, and where the list carries on. Every list in CanonCore is one, over items or over

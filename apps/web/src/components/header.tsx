@@ -162,6 +162,38 @@ export default async function Header() {
           <SearchBox />
           <ModeToggle />
           {/*
+            AND THE OWNER'S OWN PAGE, WHICH THINNING THE NAV LEFT WITH NO DOOR
+            (CNCORE-243). The link below prevents the visitor's gap; this one
+            closes the owner's, and it is the same gap seen from the other
+            posture. `/login` is where an owner logs out, and `/tasks` and
+            `/devices` are linked from nowhere else at all -- `/settings` also
+            from five notices, every one of which renders only on an empty
+            catalogue or an instance with nothing allowlisted, which an owner
+            leaves behind the moment they fill one and name a Provider. So on a
+            working install this page carries all four, and once the owner had
+            a session nothing linked it: all four were reachable by typing an
+            address and no other way.
+
+            ONE CONTROL RATHER THAN FOUR NAV LINKS, which is what Plex and
+            Jellyfin both do: the account sits at the end of the header and the
+            administrative routes hang off it. That keeps the nav a map of the
+            collection -- the distinction this file draws between `/works` and
+            `/import` -- while giving the account a visible door, and it is why
+            the paragraph above is right that the nav never was an index of
+            every surface an owner has.
+
+            IT SAYS `Account`, NOT `Log in`, to somebody who is logged in. Same
+            address, because `/login` renders the account page for a caller who
+            has a session; the words are what a reader chooses by, and the
+            label that lies is the one CNCORE-139 refused to leave here. The
+            page's own heading reads `Account` for them too.
+          */}
+          {owner && (
+            <Link className="text-sm hover:underline" href="/login">
+              Account
+            </Link>
+          )}
+          {/*
             AND THE ONE STEP A READER WITHOUT A SESSION CAN TAKE (CNCORE-139).
             It is the other half of thinning the nav above, and it PREVENTS A
             GAP RATHER THAN CLOSING ONE: the path to `/login` ran through `New
