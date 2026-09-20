@@ -4,12 +4,20 @@ Started 2026-09-06. This is the consolidation document for a complete pass over 
 incumbent products: every documentation page, every website page, and the Jellyfin source
 repository, checked against `prompt.md`.
 
-**STATUS: in progress.** Agents still running. Findings sections are filled in as each
-lands. Do not read the findings as final until STATUS reads complete.
+**STATUS: complete.** All 13 shard files read `STATUS: complete` and
+`CONSOLIDATED-FINDINGS.md` is the output — 19 corrections owed to `prompt.md`, 13 internal
+contradictions, 87 gaps ranked into three tiers, and 13 counter-signals. Read the findings there
+rather than here: this file is the plan and the shard map, and the consolidation is the result.
 
-> **NEXT STEP, AGREED IN ADVANCE — do not skip.**
-> When all 13 files read `STATUS: complete`, TELL JACOB TO RUN THE GRILL SKILL.
-> He wants to be grilled on three questions, in this order:
+> **WHAT HAPPENED NEXT, kept because it records what the sweep was for.** The findings were
+> carried into `docs/research/resolution/`, which the research README records as **complete — all 24
+> items**: the 13 internal contradictions above plus the 11 Tier A gaps, each answered with what Plex
+> does, what Jellyfin does and what the standards say. That directory is what the ADRs were argued
+> from, so the sweep's output reached `docs/adr/` rather than stopping here.
+>
+> The step below is left as it was agreed, because it is the record of the intent and because
+> **nothing in this repository establishes that the grill was run in this form.** The three questions
+> were, in this order:
 > 1. **What to actually do** with what the sweep found — act, defer, or refuse.
 > 2. **How to improve `prompt.md`** — including absorbing the ~30 line-referenced
 >    corrections the two verification agents produced.
@@ -108,7 +116,8 @@ certificate` error; the `r.jina.ai` proxy handles it.
 
 ## Shard map
 
-Eleven agents. Each writes incrementally to its own file so that a lost transcript costs
+Thirteen agents, one per row below, and `CONSOLIDATED-FINDINGS.md` calls it "a 13-file
+competitive sweep" too. Each writes incrementally to its own file so that a lost transcript costs
 nothing — a hard-won lesson from the previous session, where two completed research reports
 were destroyed because everything was held for a final report that never arrived.
 

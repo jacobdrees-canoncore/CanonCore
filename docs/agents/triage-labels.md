@@ -57,9 +57,15 @@ Linear's own `Bug` / `Feature` / `Improvement` sit on. They compose with a triag
 replacing one, so an issue carries one of each.
 
 - **`to-spec`** — this issue IS a spec, produced by `/to-spec`, and is a container rather than a
-  unit of work. It names the four: CNCORE-2, CNCORE-60, CNCORE-96 and CNCORE-104. A spec carries
-  `--state Backlog` for the reason above, and `ready-for-human` once it needs `/to-tickets` run on
-  it, because splitting a spec is a human's call.
+  unit of work. It names four specs, one per project on the roadmap: **CNCORE-2** (Version one),
+  **CNCORE-60** (The public release), **CNCORE-96** (A real catalogue, live) and **CNCORE-159** (The
+  foundation). All four read `Done` — a spec is closed when its project ships, so `Done` is not the
+  thing that separates them from the fifth. **CNCORE-104** carries the label too and is `Canceled`
+  along with its project, superseded by CNCORE-159 (`CLAUDE.md`). So a listing by label returns the
+  four and a listing including cancelled work returns five. Counted from the board 2026-09-20 rather than
+  quoted, because this list has been wrong once already. A spec carries `--state Backlog` for the
+  reason above, and `ready-for-human` once it needs `/to-tickets` run on it, because splitting a spec
+  is a human's call.
 - **`provider-repo`** — the work lands in `provider-wiki` or `provider-tmdb` rather than here.
 
 ## `blocked-externally` is the only other thing `Backlog` may hold
