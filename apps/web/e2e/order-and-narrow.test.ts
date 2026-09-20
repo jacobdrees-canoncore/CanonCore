@@ -181,3 +181,42 @@ describe("the order and the kind together", () => {
     expect(orderCleared).not.toContain("order=");
   });
 });
+
+describe("a Listing narrowed to a kind that is not a kind at all", () => {
+  it("does not speak a crafted word in its own voice", async () => {
+    // A QUERY IS COMPOSED BY ANYBODY (ADR-0123). `oneKind` passes any string
+    // deliberately -- the seven kinds are the DATABASE's rather than this
+    // repository's -- so the page cannot tell a typo from a forged link, and
+    // it is the FORGED one that decides what this heading may do. Echoed, a
+    // link somebody else composed puts their sentence inside this app's `h2`,
+    // under this app's styling, on this app's page.
+    //
+    // A CRAFTED SENTENCE RATHER THAN `?kind=banana`, which is the difference
+    // between this test and the typo above it. A typo renders one harmless
+    // word and passes an assertion that the echo is gone for the wrong
+    // reason; the harm ADR-0123 names needs a value shaped like something the
+    // catalogue would say.
+    //
+    // LOWER CASE AND NO MARKUP, because both would let this pass without the
+    // fix: `oneKind` lowercases what it reads, and React escapes a tag, so a
+    // crafted `<b>` would be absent from the page whether or not the echo is.
+    const crafted = "unavailable in your region. pay to restore access";
+    const { status, text } = await documentAt(
+      `/?${GROUP}&kind=${encodeURIComponent(crafted)}`,
+    );
+    const main = mainOf(text);
+
+    expect(status).toBe(200);
+    expect(main).not.toContain(crafted);
+
+    // AND IT IS STILL THE RIGHT EMPTINESS, which is what stops the fix being
+    // "render nothing". The three wrong answers are all reachable from here:
+    // the install-level notice (`WhatToDoNext`), the Group's own emptiness --
+    // false, since this Group holds Rows that a real kind would show -- and a
+    // blank page with no way out of the narrowing.
+    expect(main).toContain("Nothing here is of that kind");
+    expect(main).toContain("Show every kind");
+    expect(main).not.toContain("ships no catalogue");
+    expect(main).not.toContain("holds nothing yet");
+  });
+});
