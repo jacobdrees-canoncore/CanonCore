@@ -27,8 +27,22 @@ docker exec <db> psql -U canoncore -d canoncore -Atc \
 docker inspect <app> --format '{{.Created}}'              # against main's newest merge
 ```
 
-Behind on either → the spec is not closed. Update it, walk the spec's own headline claims against the
-real catalogue, and only then read the rest of this.
+Behind on either → the spec is not closed. Update it, then walk it.
+
+**WALK IT LOGGED IN, AND WALK A BLANK INSTANCE BESIDE IT.** Logged out is a different product: five
+of eleven routes render only a refusal. A filled install cannot show the first-run journey, and an
+import is only honestly tested from zero. The Owner's install is never reset.
+
+**ENUMERATE THE SURFACES, THEN THINK THE CASE SPACE WITH THE `sequentialthinking` TOOL.** Clicking
+around finds what a page volunteers; the taxonomy finds what it hides. It is the difference between
+five cases and fifteen, and it is what found CNCORE-242.
+
+**AND EXERCISE EACH FEATURE ONCE, END TO END.** An empty feature and a broken one are identical from
+the outside. Both of the Owner's complaints on 2026-09-20 were empty stores behind correct features,
+and one row each told them apart.
+
+Read [WALKING-THE-INSTALL.md](WALKING-THE-INSTALL.md) for the route enumeration, the eight-class case
+taxonomy, the two-instance rule and the compose project-name hazard that can take the catalogue down.
 
 ## 2. Did every ticket in the project land what it said?
 
@@ -121,6 +135,27 @@ This gate throws false positives, and two arrived inside ten minutes on its firs
 So: **retry a tracker read before believing it, and read the record before believing a grep.** File
 only what survives that. A gate that files noise is worse than one nobody runs, because the noise
 looks like work.
+
+**AND IN THE PRODUCT, THE REASONING IS BESIDE THE CODE.** Six suspected defects were put up on
+2026-09-20 and all six were deliberate, with the answer inside twenty lines of the thing that looked
+wrong:
+
+| Looked like | Actually |
+| --- | --- |
+| `/` says 8,052, `/works` says 8,026 | ADR-0077's predicate; the database returns exactly 26 Containers holding no work |
+| A picker offering 100 of 8,052 | says so on the page, which is ADR-0119's own rule being kept |
+| `?kind=nonsense` echoed back | goes through `<TheirWords>`, React-escaped |
+| A letter interpolated into a sentence | only when it is in `THE_ALPHABET`, reasoned in a comment beside it |
+| A 2,907-member container would struggle | paginates at 100, loads in ~2.3s |
+| A Groups form wrote nothing | the automation had not submitted it |
+
+**SO GREP FOR THE REASONING BEFORE FILING, AND SEARCH THE ADRs FOR THE SURFACE'S NAME.** In a repo
+that writes its reasons in place, a suspected defect is usually a decision you have not read yet. Two
+of the six survive as findings only because the reasoning was absent rather than disagreed with.
+
+**AND SEPARATE A DATA GAP FROM A DEFECT BEFORE IT REACHES A TICKET.** Both of the Owner's own
+complaints were empty stores behind correct features. A ticket that says a feature is broken when the
+feature is starved sends an agent to fix working code.
 
 ## 5. Is the same fault filed three times?
 
