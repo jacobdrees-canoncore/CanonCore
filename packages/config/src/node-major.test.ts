@@ -210,7 +210,7 @@ function dockerfileMajor(contents: string = readFileSync(dockerfile, "utf8")): s
  * The one major `ci.yml` runs on, or a throw naming the jobs that disagree.
  *
  * Every caller wants "the major this repository runs", which only exists while
- * the six jobs agree. Collapsing them here rather than in a test of its own is
+ * the ten jobs agree. Collapsing them here rather than in a test of its own is
  * what lets that disagreement fail whichever test asked, instead of needing a
  * separate assertion to notice it.
  */

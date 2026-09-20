@@ -52,7 +52,7 @@ describe("the network gate", () => {
     expect(await refusal(fetch("https://example.com/"))).toMatchObject({ code: REFUSED });
   });
 
-  it("leaves loopback reachable, which three of this repo's suites need", async () => {
+  it("leaves loopback reachable, which the suites that stand a server up need", async () => {
     const response = await fetch(`${await onLoopback()}/anything`);
 
     expect(response.status).toBe(200);

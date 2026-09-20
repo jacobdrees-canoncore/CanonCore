@@ -313,10 +313,23 @@ describe("the Theory:Timeline corpus as docs/adr/ states it", () => {
    * string as well is a rewrite of two records that are correct, and CNCORE-157
    * asked for ADR-0128's copy.
    *
-   * TODO(CNCORE-158): widen this to every record that states the corpus size. The
-   * one-size assertion above catches those two records DISAGREEING; nothing here
-   * catches them agreeing on a stale number, which is the same defect one step
-   * earlier.
+   * THE WIDENING THIS ASKED FOR IS DONE ELSEWHERE, AND NOT FOR THIS POPULATION
+   * (CNCORE-251). A `TODO(CNCORE-158)` stood here asking for every record
+   * stating the corpus size to be held to the date rule, on the argument that
+   * the one-size assertion above catches those records DISAGREEING while
+   * nothing catches them agreeing on a stale number. That ticket reads
+   * `Canceled`, and its own criteria ended with this TODO being deleted by work
+   * that was then declined -- so it read as a gap somebody was going to close,
+   * and nobody was.
+   *
+   * WHAT REPLACES IT IS `tree-figures.test.ts`, which holds the figures this
+   * repository states about ITSELF to a count taken from the tree. The corpus
+   * size is not one of those and never can be: it is `provider-wiki`'s
+   * measurement of a wiki this repository never asks, so there is nothing here
+   * to derive it from. The rule that applies to it is the one this block
+   * already enforces -- a figure that cannot be derived carries the population
+   * it was counted over and the date it was taken -- and that is the whole of
+   * what this file can honestly do about it.
    */
   it("carries the population and the measurement date in ADR-0128's own sentences", () => {
     // DISTINCT SENTENCES RATHER THAN PATTERNS, because five patterns over one sentence

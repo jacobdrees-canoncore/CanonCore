@@ -25,7 +25,8 @@ printing inside their suite step and never ended. Measured off the Actions API:
 | `35449620352` | 23.2 min             | 23.1 min                       | a person, cancelling |
 | `35450796466` | 30.0 min             | 29.9 min                       | a person, cancelling |
 
-Both jobs have a median under a minute and a half. Nothing in the repository would have ended them
+`The page over HTTP` has a median of 84 seconds and the provider job 147, so both hung for eight
+to twenty times their ordinary run. Nothing in the repository would have ended them
 before six hours, and nothing said they were stuck: a job that never exits reports neither a pass
 nor a failure. **That is the hole CNCORE-160, CNCORE-190 and CNCORE-197 closed from the other
 side.** They made every job prove its suite ran rather than exit zero having run nothing. A job that
@@ -61,35 +62,42 @@ the ceiling came from anything.
 and CNCORE-137 for figures, and those carry Postgres connection counts on the development Mac: a
 different machine answering a different question. The durations below come from the Actions API.
 
-Every attempt of the 600 runs of `CI` created 2026-09-11T18:52Z to 2026-09-19T15:50Z, successful
-jobs only, each timed from the job's own `started_at` to its `completed_at`:
+Every attempt of the 808 runs of `CI` created 2026-09-11T18:33Z to 2026-09-20T19:20Z, successful
+jobs only, each timed from the job's own `started_at` to its `completed_at`. **RE-MEASURED UNDER
+CNCORE-252; the first window closed 2026-09-19T15:50Z at 600 runs, and the table below replaces it
+rather than sitting beside it.** Five figures moved -- `typecheck` 58 to 88, `e2e` 159 to 243,
+`credentials` 4 to 6, `provider` 166 to 260, `contract` 73 to 82 -- and two ceilings moved with
+them: `e2e` from 8 minutes to 13 and `provider` from 9 to 13. Nothing was failing, because both had
+kept about 2x headroom where this rule means 3x, which is exactly the failure CNCORE-251 names: the
+check enforcing this ratio was green for eight days while the figure it multiplies went stale.
 
 | Job                                                                     | Runs | Median | Slowest | Ceiling |
 | ----------------------------------------------------------------------- | ---: | -----: | ------: | ------: |
-| `secrets`: Secret scan                                                  |  608 |    12s |     52s |   5 min |
-| `docs`: Agent docs                                                      |  604 |     6s |     41s |   5 min |
-| `typecheck`: Typecheck                                                  |  559 |    20s |     58s |   5 min |
-| `lint`: Lint                                                            |  561 |    17s |     84s |   5 min |
-| `build`: Build                                                          |  553 |    33s |     74s |   5 min |
-| `env-guard`: Env guard                                                  |  562 |    17s |     83s |   5 min |
-| `test`: Test                                                            |  574 |    81s |    216s |  11 min |
-| `migrations`: Migration ladder                                          |  593 |    46s |    114s |   6 min |
-| `e2e`: The page over HTTP                                               |  575 |    80s |    159s |   8 min |
-| `browser`: The page in a browser                                        |  350 |    81s |    116s |   6 min |
-| `credentials`: Which provider credentials this run can reach            |   69 |     3s |      4s |   5 min |
-| `provider`: Import and browse over HTTP, against the real provider-tmdb |  207 |    86s |    166s |   9 min |
-| `contract`: One contract, both providers, no app                        |  540 |    42s |     73s |   5 min |
-| `image`: The image, built and run (linux/amd64, ubuntu-latest)          |  549 |   114s |    413s |  21 min |
-| `image`: The image, built and run (linux/arm64, ubuntu-24.04-arm)       |  557 |    99s |    245s |  21 min |
-| `image-manifest`: One image, both architectures                         |  134 |    19s |     64s |   5 min |
+| `secrets`: Secret scan                                                  |  815 |    12s |     52s |   5 min |
+| `docs`: Agent docs                                                      |  812 |     6s |     41s |   5 min |
+| `typecheck`: Typecheck                                                  |  758 |    21s |     88s |   5 min |
+| `lint`: Lint                                                            |  758 |    17s |     84s |   5 min |
+| `build`: Build                                                          |  750 |    34s |     74s |   5 min |
+| `env-guard`: Env guard                                                  |  760 |    17s |     83s |   5 min |
+| `test`: Test                                                            |  771 |    86s |    216s |  11 min |
+| `migrations`: Migration ladder                                          |  799 |    46s |    114s |   6 min |
+| `e2e`: The page over HTTP                                               |  766 |    84s |    243s |  13 min |
+| `browser`: The page in a browser                                        |  540 |    81s |    116s |   6 min |
+| `credentials`: Which provider credentials this run can reach            |  269 |     3s |      6s |   5 min |
+| `provider`: Import and browse over HTTP, against the real provider-tmdb |  392 |   147s |    260s |  13 min |
+| `contract`: One contract, both providers, no app                        |  741 |    42s |     82s |   5 min |
+| `image`: The image, built and run (linux/amd64, ubuntu-latest)          |  743 |   112s |    413s |  21 min |
+| `image`: The image, built and run (linux/arm64, ubuntu-24.04-arm)       |  752 |   100s |    245s |  21 min |
+| `image-manifest`: One image, both architectures                         |  183 |    20s |     64s |   5 min |
 
 A job can succeed more often than there are runs, because a rerun is a second attempt at it.
 
 **The span is the larger of the two readings, on purpose.** A job's `started_at` can precede its
-first step by two minutes (the slowest `Test` above spent 113 seconds before `Set up job` began), so
+first step by two minutes (the slowest `Test` in the first window spent 113 seconds before `Set up
+job` began), so
 timing from the job rather than from its steps can only over-state a duration, never under-state it.
 
-**The window is 600 runs because 200 missed the image's shape.** The first measurement took the
+**The first window was 600 runs because 200 missed the image's shape.** That first measurement took the
 200 most recent, 2026-09-13 onward, and put `image` at 13 minutes off an arm64 run of 245 seconds.
 The slowest image run is older: a push to `main` on 2026-09-12 (`34710132555`) whose build step took
 330 seconds against a median of 63, a cold cache doing the whole build, and 413 seconds in all. A

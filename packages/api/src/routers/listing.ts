@@ -17,11 +17,13 @@ import { z } from "zod";
  * ceiling (ADR-0119). The cap is unchanged by it: one answer still costs one
  * page, and a reader walks as many as they care to.
  *
- * IT LIVES BESIDE THE ROUTERS RATHER THAN INSIDE ONE OF THEM, because FIVE
+ * IT LIVES BESIDE THE ROUTERS RATHER THAN INSIDE ONE OF THEM, because SIX
  * listings read it now and only three of them are on the catalogue router. A
- * container's own members and "Also appears in" are the other two and both hang
- * off `item.get`, since a
- * Container is an Item and its page is the Item page (ADR-0004, ADR-0066) --
+ * container's own members and "Also appears in" are two of the other three and
+ * both hang off `item.get`, since a
+ * Container is an Item and its page is the Item page (ADR-0004, ADR-0066); the
+ * third is `provider.containers`, which walks what a Provider offers rather
+ * than what the catalogue holds (ADR-0133) --
  * so a copy of this number over there would be a second ceiling nobody chose,
  * which is the drift `listingInput` already carries a paragraph about.
  */

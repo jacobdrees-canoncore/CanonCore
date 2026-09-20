@@ -180,6 +180,10 @@ refuses a provider.
 
 **WHAT IS NOT BUILT.** Nothing carries an owner's old `PROVIDER_URLS` across: the environment of the
 process running a migration is not the environment the server will run with, and a rung reading one
-would be guessing at the other. There is no released version ([[0047-migrations-are-a-forward-only-ladder]]),
-so the only instances in that position are developers' own, and the remedy is to name the providers
-again on a page.
+would be guessing at the other. There was no released version when this was written
+([[0047-migrations-are-a-forward-only-ladder]]), so the only instances in that position were
+developers' own, and the remedy is to name the providers again on a page. **`v0.1.0` AND `v0.2.0`
+ARE BOTH TAGGED NOW** (CNCORE-252), and this sentence was committed nine hours after `v0.1.0` was
+cut, so an owner upgrading across this rung can be in that position. The remedy is unchanged and
+the reason for not building the carry-across is unchanged; what is no longer true is that nobody
+but a developer can meet it.
