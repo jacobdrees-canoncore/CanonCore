@@ -3,7 +3,7 @@ import { createEnv } from "@t3-oss/env-core";
 import { serverSchema } from "./schema";
 
 /**
- * A COPY OF THE ENVIRONMENT RATHER THAN THE ENVIRONMENT ITSELF (ADR-0169,
+ * A COPY OF THE ENVIRONMENT RATHER THAN THE ENVIRONMENT ITSELF (ADR-0173,
  * CNCORE-270).
  *
  * `emptyStringAsUndefined` is what makes an empty value mean unset, and t3-env

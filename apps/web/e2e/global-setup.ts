@@ -412,10 +412,8 @@ function freshInstall(owned: AsyncDisposableStack) {
      * NOT NEXT'S OWN ENV LOADING, which this paragraph blamed until CNCORE-270
      * measured it: `@next/env` 16.3.5 leaves a key that is PRESENT alone
      * whatever its value, and dotenv 17.4.2 does the same. It was dotenv
-     * filling an ABSENT key -- absent because READING THE CONFIGURATION HAD
-     * DELETED IT, `createEnv` having been handed `process.env` itself and
-     * `emptyStringAsUndefined` being implemented as a delete. It reads a copy
-     * now, and `packages/env/src/server.ts` carries that with the measurement.
+     * filling an ABSENT key, absent because READING THE CONFIGURATION HAD
+     * DELETED IT -- ADR-0173 carries the mechanism, and the copy that ended it.
      * CI never saw it because a fresh checkout has no `.env`. They are rows now
      * (CNCORE-99), and nothing on a developer's machine can put one in this
      * instance's database.

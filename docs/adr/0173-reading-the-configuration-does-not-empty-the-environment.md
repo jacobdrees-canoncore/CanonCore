@@ -60,23 +60,33 @@ it returns (`emptyStringAsUndefined`) is not obliged to say so.
 
 ## Evidence
 
-CNCORE-270, measured 2026-09-21 at `a54f125`.
+CNCORE-270, measured 2026-09-21: the defect at `a54f125`, the fix at `d10673d`.
 
-**The defect, end to end.** Build `apps/web` once, then start `next start` twice with
-`OWNER_PASSWORD: ""` in its environment -- once with a password line in `apps/web/.env` and once
-without -- and fetch `/login` and `/works` from each:
+**The defect, end to end.** Build `apps/web` once, then start `next start` with
+`OWNER_PASSWORD: ""` in its environment and fetch `/login` from it. Three conditions, the third
+being the owner's own hand-walk, which had to go on working:
 
-| `apps/web/.env` | `/login` says "no password set" | `/login` offers a form | header offers `/login` |
+| `apps/web/.env` | environment | says "no password set" | offers a form |
 | --- | --- | --- | --- |
-| no `OWNER_PASSWORD` | yes | no | no |
-| `OWNER_PASSWORD` set | **no** | **yes** | **yes** |
+| no password | `OWNER_PASSWORD=""` | yes | no |
+| password | `OWNER_PASSWORD=""` | **no**, and **yes** after the fix | **yes**, and **no** after |
+| password | nothing | no | yes, before and after |
+
+The middle row is the defect and the fix in one line. The third is the practice that provoked it,
+unchanged.
+
+**And the criterion the ticket wrote, taken whole.** With the `OWNER_PASSWORD` line STILL in
+`apps/web/.env` -- the state that used to redden two tests -- `pnpm test:e2e` ran 24 files and
+371 tests green, `header.test.ts` and `login-page.test.ts` among them, beside `pnpm test`
+(11 packages), `pnpm typecheck` (12) and `pnpm lint`.
 
 **The door, named.** Take it again by preloading a module that replaces `process.env` with a Proxy
 trapping `set` and `deleteProperty` and printing a stack, then starting a server the same way. On
 2026-09-21 that printed, in order, `DELETE OWNER_PASSWORD` at
-`createEnv (@t3-oss/env-core/dist/index.js:10)` called from `packages/env/src/server.ts:14`, and
-then `SET OWNER_PASSWORD="the-developers-own-password"` at dotenv's `populate`, from the server
-bundle's own copy of that module.
+`createEnv (@t3-oss/env-core/dist/index.js:10)` called from this repository's own
+`packages/env/src/server.ts` -- the frame's line number is the require hook's compiled form and
+does not index the source -- and then `SET OWNER_PASSWORD="the-developers-own-password"` at
+dotenv's `populate`, from the server bundle's own copy of that module.
 
 **The loaders, cleared.** With `OWNER_PASSWORD` present and empty, `loadEnvConfig` from
 `@next/env` 16.3.5 leaves it empty, and so does `dotenv/config` 17.4.2, against a `.env` naming a

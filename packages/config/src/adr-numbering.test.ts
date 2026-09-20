@@ -137,7 +137,7 @@ const IMPLEMENTED_BY: Implementation[] = [
     holds: "three claims that were printouts, each now asserting what its name says",
   },
   {
-    adr: "0169",
+    adr: "0173",
     file: "packages/env/src/server.ts",
     holds: "the copy `createEnv` empties, in place of the process's own environment",
   },

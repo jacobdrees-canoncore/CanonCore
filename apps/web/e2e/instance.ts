@@ -383,19 +383,17 @@ export async function anInstanceServing<Fixture>(
   const fixture = await fill(db);
   /*
    * AN INSTANCE PASSED THE EMPTY STRING IS ONE NOBODY CAN LOG IN TO, AND IT
-   * STAYS ONE (CNCORE-270).
+   * STAYS ONE (ADR-0173, CNCORE-270).
    *
    * The empty string is passed rather than the key omitted for the reason the
-   * docblock above gives, and that used to be undone further in. Reading the
-   * configuration DELETED the empty key out of the server's own environment --
-   * `createEnv` was handed `process.env` itself and implements
-   * `emptyStringAsUndefined` as a delete -- and the next `dotenv/config` in
-   * that process, finding it absent, refilled it from `apps/web/.env`. So a
-   * developer who had set a password to hand-walk a branch, which `README.md`
-   * tells them to and `CLAUDE.md` requires, handed it to all three of
-   * ADR-0044's read-only instances instead, and the failure surfaced as an
-   * assertion about a header. `packages/env/src/server.ts` reads a COPY now;
-   * its `server.test.ts` holds both halves.
+   * docblock above gives, and that used to be undone further in: reading the
+   * configuration deleted the empty key out of the server's own environment, and
+   * the next `dotenv/config` in that process refilled it from `apps/web/.env`.
+   * So a developer who had set a password to hand-walk a branch, which
+   * `README.md` tells them to and `CLAUDE.md` requires, handed it to all three
+   * of ADR-0044's read-only instances instead, and the failure surfaced as an
+   * assertion about a header. ADR-0173 carries the mechanism and the
+   * measurement; `packages/env/src/server.ts` holds the one line.
    */
   const server = await theBuildServing(owned, {
     ...process.env,

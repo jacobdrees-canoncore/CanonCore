@@ -153,8 +153,11 @@ describe("server env", () => {
     // purpose, so `session.logIn` refuses every password and nobody gets in.
     process.env.OWNER_PASSWORD = "";
 
-    // The copy `next.config.ts` pulls in, and then the server bundle's own,
-    // which loads dotenv again against the file beside it.
+    // The copy `next.config.ts` pulls in, which is the load that used to do the
+    // deleting. Then the dotenv the SERVER BUNDLE's own copy runs, driven here
+    // rather than imported: `dotenv/config` resolves its file from the working
+    // directory and caches its options at first load, so a second `import` of
+    // this module would read neither the file below nor a fresh option set.
     await import("./server");
     const { config } = await import("dotenv");
     config({ path: join(directory, ".env"), quiet: true });
