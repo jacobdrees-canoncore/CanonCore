@@ -230,7 +230,9 @@ describe("the shared Biome configuration", () => {
     );
 
     const schema = resolve(repoRoot, declared ?? "");
-    expect(schema).toBe(join(repoRoot, "node_modules", "@biomejs", "biome", "configuration_schema.json"));
+    expect(schema).toBe(
+      join(repoRoot, "node_modules", "@biomejs", "biome", "configuration_schema.json"),
+    );
     expect(existsSync(schema), `${declared} does not resolve to a file`).toBe(true);
   });
 

@@ -6,7 +6,8 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 /**
- * A `"use client"` IN THIS PACKAGE HAS A REASON IN THE MODULE THAT CARRIES IT.
+ * A `"use client"` IN THIS PACKAGE HAS A REASON IN THE MODULE THAT CARRIES IT
+ * (ADR-0158).
  *
  * `label.tsx` carried one until CNCORE-261 and rendered a bare `<label>` with no
  * state, effect, handler, ref or browser API behind it. The cost is not
@@ -153,7 +154,7 @@ function passingOnImportsAlone(modules: Map<string, string>): string[] {
     .sort();
 }
 
-describe("the \"use client\" directives in packages/ui", () => {
+describe('the "use client" directives in packages/ui', () => {
   /**
    * THE ROLL CALL ITSELF. `label.tsx` failed this the day it was written, and the
    * next primitive vendored from a registry that ships the directive fails it on

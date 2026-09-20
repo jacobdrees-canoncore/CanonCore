@@ -136,6 +136,22 @@ const NOTHING_FOR_TURBO_TO_HASH = [
     // file's content belongs in the key.
     why: "it names the workspace root as a directory to trace from, and reads no file",
   },
+  {
+    package: "@canoncore/ui",
+    // `globals.css.test.ts` holds every `@source` in the stylesheet to matching a
+    // file, and one of them points at `apps/**/*.{ts,tsx}` -- so the suite's
+    // answer depends on a glob over another package, which is the dependency the
+    // stylesheet itself declares (ADR-0158). The other two reach into
+    // `node_modules`: `utilities.test.ts` compiles the stylesheet with the real
+    // Tailwind, and `directives.test.ts` reads `@base-ui/react`'s own files.
+    //
+    // A GLOB IS NOT A FILE LIST, which is why this is here rather than in
+    // `READS_OUTSIDE_ITS_PACKAGE`. Naming the files under `apps/` would mean a
+    // list that churns on every file added there, and naming a representative few
+    // would be the "is it represented?" check ADR-0105 warns about. The task opts
+    // out of caching instead, exactly as `@canoncore/config`'s does.
+    why: "its test task is uncached, because its inputs are a glob over `apps/` and `node_modules`",
+  },
 ];
 
 describe.each(READS_OUTSIDE_ITS_PACKAGE)(

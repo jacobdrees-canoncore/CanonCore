@@ -77,11 +77,13 @@ function sourceGlobs(sheet: string): string[] {
 
 /** Those of them that match no file at all. */
 function matchingNothing(sheet: string): string[] {
-  return sourceGlobs(sheet).filter((glob) => globSync(glob, { cwd: dirname(stylesheet) }).length === 0);
+  return sourceGlobs(sheet).filter(
+    (glob) => globSync(glob, { cwd: dirname(stylesheet) }).length === 0,
+  );
 }
 
 /**
- * EVERY `@source` IN THE STYLESHEET POINTS AT FILES THAT EXIST.
+ * EVERY `@source` IN THE STYLESHEET POINTS AT FILES THAT EXIST (ADR-0158).
  *
  * `globals.css:4` read `@source "../../../apps/**\/*.{ts,tsx}"` until CNCORE-261.
  * From `packages/ui/src/styles`, three `..` is `packages/`, so the glob was

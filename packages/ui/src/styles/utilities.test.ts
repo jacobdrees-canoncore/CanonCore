@@ -7,7 +7,7 @@ import { __unstable__loadDesignSystem } from "tailwindcss";
 import { beforeAll, describe, expect, it } from "vitest";
 
 /**
- * EVERY CLASS THIS PACKAGE WRITES RESOLVES TO SOME CSS.
+ * EVERY CLASS THIS PACKAGE WRITES RESOLVES TO SOME CSS (ADR-0158).
  *
  * Nothing asked this before CNCORE-261, and that is why four `cn-*` names sat
  * across five sites for as long as they did: `cn-font-heading` on `card.tsx` and
