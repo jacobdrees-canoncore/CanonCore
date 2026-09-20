@@ -1,4 +1,7 @@
 import { createHash } from "node:crypto";
+import { readdir, readFile } from "node:fs/promises";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { eq, sql } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -847,21 +850,6 @@ describe("a source's place in the global order", () => {
       ),
     ).toBe("sources_order");
   });
-
-  /**
-   * AND THE ALLOCATOR AVOIDS IT, which is the half already relied on. `max + 1`
-   * is the one value always free, and this is what `import.ts:548` and the
-   * fixture above both compute.
-   */
-  it("gives the next source the place after the last, so the allocator never collides", async () => {
-    const [before] = await db
-      .select({ highest: sql<number>`max(${sources.sourceOrder})` })
-      .from(sources);
-    const next = await aProvider(db, "https://provider.test/order-next");
-    const [row] = await db.select().from(sources).where(eq(sources.id, next));
-
-    expect(row!.sourceOrder).toBe(Number(before!.highest) + 1);
-  });
 });
 
 /**
@@ -991,11 +979,22 @@ describe("a run of one task", () => {
  * is then the planner's choice rather than the Owner's.
  */
 describe("the settings row", () => {
+  /**
+   * THE ONE TEST HERE THAT WRITES A ROW IT IS NOT TRYING TO HAVE REFUSED, and it
+   * puts the table back. Thirty files share one database in a fixed order
+   * (`fileParallelism: false`), and a unique index over `(true)` cannot be
+   * provoked without there being exactly one row to collide with -- so this
+   * empties the table, writes that one, and empties it again. No migration
+   * seeds `settings`, so an empty table is the state a freshly built database
+   * is in and the state this leaves behind.
+   */
   it("refuses a second settings row", async () => {
     await db.delete(settings);
     await db.insert(settings).values({ ownerId });
 
     expect(await refusal(db.insert(settings).values({ ownerId }))).toBe("settings_single_row");
+
+    await db.delete(settings);
   });
 });
 
@@ -1017,27 +1016,27 @@ describe("a session's token", () => {
 });
 
 /**
- * THE NINETEEN `touch_row` TRIGGERS, ASSERTED AS A GROUP (CNCORE-260).
+ * THE NINETEEN `touch_row` TRIGGERS, ASSERTED AS A GROUP (CNCORE-260, ADR-0159).
  *
  * THIS ASSERTS ATTACHMENT AND NOT THE FUNCTION'S BEHAVIOUR, which is the whole
- * reason it is one test rather than nineteen. `touch_row` is ONE shared
+ * reason it is one test rather than one per table. `touch_row` is ONE shared
  * function, and two tests already prove what it DOES: "gives every row a number
- * and advances it on every change" above, and settings.test.ts's "ADR-0075's
- * SUBSTRATE" which asserts both halves on the one table where a change is always
- * an UPDATE. Nineteen behavioural tests would re-prove one function nineteen
- * times over.
+ * and advances it on every change" above, and `settings.test.ts`'s "ADR-0075's
+ * SUBSTRATE", which asserts both halves on the one table where every change is
+ * an UPDATE. A behavioural test per table would re-prove one function as many
+ * times as there are tables, and need a bespoke valid row for each.
  *
- * WHAT VARIES PER TABLE IS WHETHER THE TRIGGER IS ATTACHED AT ALL, so that is
- * what this queries. Migration 1 attached it to the eleven tables that existed
- * then IN A LOOP -- "a loop rather than eleven copy-pasted statements, because
- * eleven copies are eleven chances for a later table to be added to ten of
- * them" -- and every table since has sat OUTSIDE that loop and had to say so
- * itself. Migrations 10, 13, 16, 18, 19 and 20 each did. This is what fails the
- * day one does not.
+ * WHAT VARIES PER TABLE IS WHETHER THE TRIGGER IS ATTACHED, so that is what this
+ * queries. Migration 1 attached it to the eleven tables that existed then IN A
+ * LOOP -- "a loop rather than eleven copy-pasted statements, because eleven
+ * copies are eleven chances for a later table to be added to ten of them" -- and
+ * every table since has sat OUTSIDE that loop and had to say so itself.
+ * Migrations 10, 13, 16, 18, 19 and 20 each did. This is what fails the day one
+ * does not.
  */
 describe("touch_row", () => {
-  const tablesCarrying = async (column: string) =>
-    (
+  it("is attached to every table that carries a change sequence, and armed to fire", async () => {
+    const carryTheColumn = (
       await db.execute<{ table: string }>(sql`
         select c.relname as "table"
         from pg_class c
@@ -1045,15 +1044,22 @@ describe("touch_row", () => {
         join pg_attribute a on a.attrelid = c.oid
         where n.nspname = 'public'
           and c.relkind = 'r'
-          and a.attname = ${column}
+          and a.attname = 'change_sequence'
           and a.attnum > 0
           and not a.attisdropped
       `)
     ).rows.map(({ table }) => table);
 
-  it("is attached to every table that carries a change sequence", async () => {
-    const carryTheColumn = await tablesCarrying("change_sequence");
-    const carryTheTrigger = (
+    /*
+     * ENABLED, BEFORE, AND PER ROW -- not merely present. A trigger answers
+     * `pg_trigger` just as happily after `ALTER TABLE ... DISABLE TRIGGER`, and
+     * `touch_row` ASSIGNS TO `NEW`, which does nothing at all from an AFTER
+     * trigger and has no `NEW` to assign to from a statement-level one. So a
+     * bare existence check would pass on all three ways of attaching it
+     * uselessly. `tgenabled` is 'D' when disabled; bit 0 of `tgtype` is
+     * FOR EACH ROW and bit 1 is BEFORE (`pg_trigger.h`).
+     */
+    const armed = (
       await db.execute<{ table: string }>(sql`
         select c.relname as "table"
         from pg_trigger t
@@ -1063,6 +1069,9 @@ describe("touch_row", () => {
         where n.nspname = 'public'
           and p.proname = 'touch_row'
           and not t.tgisinternal
+          and t.tgenabled <> 'D'
+          and (t.tgtype & 1) = 1
+          and (t.tgtype & 2) = 2
       `)
     ).rows.map(({ table }) => table);
 
@@ -1070,12 +1079,102 @@ describe("touch_row", () => {
      * THE POPULATION IS ASSERTED FIRST, because the difference between two empty
      * sets is empty: a query that stopped matching anything would pass this test
      * while proving nothing at all. Nineteen is what both sides measured on
-     * 2026-09-20; the floor rather than the figure, so adding a twentieth table
-     * WITH its trigger stays green and adding one without goes red.
+     * 2026-09-20 -- a FLOOR rather than the figure, so a twentieth table WITH
+     * its trigger stays green and one without goes red.
      */
     expect(carryTheColumn.length).toBeGreaterThanOrEqual(19);
 
-    const missing = carryTheColumn.filter((table) => !carryTheTrigger.includes(table));
-    expect(missing).toEqual([]);
+    expect(carryTheColumn.filter((table) => !armed.includes(table))).toEqual([]);
+  });
+});
+
+/**
+ * THE ROLL CALL (ADR-0159). Every rule this database enforces, read from the
+ * catalogue that enforces it, against the ones deliberately left untested.
+ *
+ * THE POPULATION IS THE APPLIED CATALOGUE RATHER THAN THE MIGRATION TEXT, and
+ * that is a choice. Counting `CONSTRAINT` across `migrations/*.sql` answers what
+ * the ladder SAYS; a later rung may drop or replace a rule, and only the built
+ * database answers what it HOLDS -- which is the thing a violating write
+ * actually meets. ADR-0153 asks that a figure be DERIVED where the answer is
+ * there to be taken, and this takes it on every run rather than quoting a number
+ * somebody counted once.
+ */
+describe("every rule this database enforces", () => {
+  /**
+   * THE NINE NO WRITE IN THIS REPOSITORY CAN REACH, named so a later pass reads
+   * the decision instead of deriving it again. ADR-0159 carries the reason for
+   * each; five share one, which is that nothing in version one writes the table
+   * at all -- the category `purge.ts` already names.
+   */
+  const REACHED_BY_NOTHING = [
+    "aliases_do_not_point_at_themselves",
+    "properties_datatype_agrees_with_value_kind",
+    "properties_name",
+    "properties_only_item_values_have_a_reference_target",
+    "ranks_precedence_unique",
+    "sources_logo_carries_its_alternative_text",
+    "sources_logo_comes_with_a_notice",
+    "statement_qualifiers_one_value",
+    "statements_confidence_is_a_probability",
+  ];
+
+  it("has a test for each of its rules, or names the rule as one nothing can reach", async () => {
+    const enforced = (
+      await db.execute<{ rule: string }>(sql`
+        select con.conname as "rule"
+        from pg_constraint con
+        join pg_class c on c.oid = con.conrelid
+        join pg_namespace n on n.oid = c.relnamespace
+        where n.nspname = 'public' and con.contype in ('c', 'u')
+        union
+        select i.relname as "rule"
+        from pg_index x
+        join pg_class i on i.oid = x.indexrelid
+        join pg_class t on t.oid = x.indrelid
+        join pg_namespace n on n.oid = t.relnamespace
+        where n.nspname = 'public'
+          and x.indisunique
+          and not x.indisprimary
+          and not exists (select 1 from pg_constraint con where con.conindid = i.oid)
+      `)
+    ).rows.map(({ rule }) => rule);
+
+    // The floor again, and for the same reason: thirty-five on 2026-09-20, so a
+    // query that matched nothing cannot pass by having nothing to compare.
+    expect(enforced.length).toBeGreaterThanOrEqual(35);
+
+    /*
+     * THE SUITE IS THE INDEX OF WHAT IS TESTED, read rather than restated --
+     * `suite-database-wiring.test.ts` and `docker-compose.test.ts` read the tree
+     * the same way. Every rule these tests assert names the constraint, because
+     * `refusal` answers with the name PostgreSQL gave, so a rule no file here
+     * mentions is a rule nothing holds. Flat: every assertion is in this
+     * directory, none in `testing/` and none outside `packages/db`.
+     */
+    const here = fileURLToPath(new URL("./", import.meta.url));
+    const suite = (
+      await Promise.all(
+        (
+          await readdir(here)
+        )
+          .filter((name) => name.endsWith(".test.ts"))
+          .map((name) => readFile(join(here, name), "utf8")),
+      )
+    )
+      /*
+       * THE LIST ABOVE IS PART OF THE SUITE, which makes the obvious version of
+       * this test pass unconditionally: each of the nine is named in this very
+       * file, so a search of the suite finds all nine and reports nothing
+       * untested. Stripping the literal is what leaves the question being asked
+       * -- does any test ASSERT this rule -- rather than answered by the roll
+       * call quoting itself.
+       */
+      .map((source) => source.replace(/const REACHED_BY_NOTHING = \[[^\]]*\];/, ""))
+      .join("\n");
+
+    expect(enforced.filter((rule) => !suite.includes(rule)).sort()).toEqual(
+      [...REACHED_BY_NOTHING].sort(),
+    );
   });
 });

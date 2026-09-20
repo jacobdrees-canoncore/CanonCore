@@ -14,11 +14,19 @@ This database enforces **35 rules** -- 19 CHECK constraints, 11 UNIQUE constrain
 indexes. Eleven of them had a test. The other twenty-four were carried by nothing but the absence of
 code that broke them, which is a different thing from being held.
 
-**The figures here are DATED rather than derived, and this is the exception ADR-0153 provides for.**
-They are counted from `pg_constraint` union `pg_index` against a built database, and
-`tree-figures.test.ts` runs behind the network gate with no PostgreSQL to ask. The query is in
-`constraints.test.ts`, it runs on every test run, and the population it reads is the live catalogue
-rather than a number in prose. Taken 2026-09-20: 35 rules, 26 now tested, 9 left.
+**The figures here are DERIVED, which is the arm of ADR-0153 that binds wherever the answer is
+there to be taken.** `constraints.test.ts` holds the roll call: it counts the rules from
+`pg_constraint` union `pg_index` against the built database, reads the suite to find which of them
+any test actually asserts, and requires the remainder to be EXACTLY the nine named below. So the
+population, the coverage and this list are one assertion that runs on every test run, and a rule
+added without a test or a decision turns it red.
+
+**Against the applied catalogue rather than the migration text**, and that is the choice worth
+naming. Counting `CONSTRAINT` across `migrations/*.sql` answers what the ladder SAYS; only the built
+database answers what it HOLDS, which is the thing a violating write meets. That is also why this
+count is not in `tree-figures.test.ts` -- that suite runs behind the network gate with no PostgreSQL
+to ask, so the roll call lives where the database already is. Taken 2026-09-20 and re-derived on
+every run since: 35 rules, 26 tested, 9 left.
 
 ## The criterion is reachability, and the ticket that filed this had it inverted
 
@@ -67,12 +75,15 @@ fail when given the wrong name.
 Decided by the dispatcher on 2026-09-20. `touch_row` is ONE shared function and two tests already
 prove what it DOES -- `constraints.test.ts`'s "gives every row a number and advances it on every
 change" and `settings.test.ts`'s assertion of both halves on the one table where every change is an
-UPDATE. Nineteen behavioural tests would re-prove one function nineteen times, and would need
-nineteen bespoke valid rows to do it.
+UPDATE. A behavioural test per table would re-prove one function once per table, and need a bespoke
+valid row for each.
 
 **What varies per table is whether the trigger is attached at all**, so that is what the test
 queries: every table carrying a `change_sequence` column, against every table carrying a `touch_row`
-trigger, with the difference asserted empty. Migration 1 attached it to eleven tables in a loop
+trigger that is ENABLED, BEFORE and FOR EACH ROW, with the difference asserted empty. All three
+matter, because `touch_row` assigns to `NEW`: it does nothing from an AFTER trigger, has no `NEW` to
+assign to from a statement-level one, and answers `pg_trigger` just as happily after
+`ALTER TABLE ... DISABLE TRIGGER`. A bare existence check passes on all three. Migration 1 attached it to eleven tables in a loop
 precisely because "eleven copies are eleven chances for a later table to be added to ten of them",
 and every table since has sat outside that loop and had to say so itself. Migrations 10, 13, 16, 18,
 19 and 20 each did; this is what fails the day one does not.
@@ -82,7 +93,10 @@ is empty and a query that stopped matching anything would otherwise pass while p
 
 ## The nine left, and why each is left
 
-Listed so a later pass does not re-derive this. **Five of them share one reason**: nothing in version
+Listed so a later pass does not re-derive this, and **held to that list by the roll call** in
+`constraints.test.ts` rather than by this table alone: the nine below are named there too, and the
+test requires the rules no test asserts to be exactly them. Adding a rule without a test, testing one
+of the nine, or dropping one, each turns it red. **Five of them share one reason**: nothing in version
 one writes the table at all, which `purge.ts:313` already names as a standing category -- "nothing in
 version one writes a qualifier or a merge alias, so neither of these can hold a row yet". Verified
 2026-09-20 by counting runtime insert call sites outside tests and fixtures: `aliases`, `ranks`,
