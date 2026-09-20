@@ -36,17 +36,12 @@ correction to what 4 shipped and then CLOSES, rather than becoming the bucket ev
 lands in — a project that never ends is the parent-issue lie at project scale. A capability nobody
 built is not a defect: 5 is where it goes.
 
-The sequence, once: **4's open tickets → the interview that specs 5 → 5 → the redesign → playback,
-clients, demo.** `grill-with-docs` is the interview, not `grill-me`, because this is a working
-directory and the decisions belong in `CONTEXT.md` and `docs/adr/`. `/closing-a-spec` is what makes
-"finished" a fact at each hand-off.
+**Foundation, then data, then the redesign, then playback.** `/closing-a-spec` closes each one and
+`grill-with-docs` specs the next, into `CONTEXT.md` and `docs/adr/` rather than a scratch file.
 
-**THE JOURNEYS CONVERSATION SITS BETWEEN 4 AND 5, AND IT IS NOT THE REDESIGN.** Four of the eight
-flow problems measured on 2026-09-20 are data problems — no way in, no hierarchy to descend, no
-images, wiki plumbing in titles — so a first screen designed before 5 is designed for 8,052
-undifferentiated works and then designed again. It decides what 5 must produce, and settles
-CNCORE-242's and CNCORE-243's shapes on the way. Evidence:
-`docs/research/walking-the-owners-install.md`.
+**SPECCING THE DATA IS NOT THE REDESIGN.** Four of the eight flow problems measured on 2026-09-20 are
+data problems — no way in, no hierarchy, no images, wiki plumbing in titles — so that interview
+decides what the data must produce. Evidence: `docs/research/walking-the-owners-install.md`.
 
 **A project is not finished until it has been used on the Owner's own instance**
 ([[0132-a-project-is-not-finished-until-it-has-been-used]]) — two projects and a headline ticket closed
