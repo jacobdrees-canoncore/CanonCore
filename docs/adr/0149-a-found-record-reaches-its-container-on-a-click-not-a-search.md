@@ -5,7 +5,10 @@ status: accepted
 # A found record reaches its Container on a click, not on the search
 
 > **ACCEPTED 2026-09-19, whole, in one repository.** `provider.containerOf` answers the Container
-> one record names, `/import` renders it at `?provider=&record=`, and both halves are asserted — at
+> one record names, `/import` renders it at `?provider=&record=` — and, since CNCORE-239, at
+> `?q=&group=&provider=&record=`, the search riding along unasked so the way back needs no second
+> fan-out ([[0151-a-query-beside-a-record-is-a-road-back-not-a-question]]) — and both halves are
+> asserted — at
 > [[0103-tests-bite-at-package-exports-and-the-router]]'s second seam
 > (`packages/api/src/routers/provider.test.ts`) and its fourth (`apps/web/e2e/import-page.test.ts`).
 > No provider repository is touched: `provider-tmdb` and `provider-wiki` already send what this
@@ -52,10 +55,15 @@ already takes this measure for the same reason, one operation over; this is that
 third party's time in place of the database's write locks.
 
 **IT IS ASSERTED AS A STRUCTURAL FACT RATHER THAN A COUNT**, at the fourth seam: the searched page is
-held to contain no `record=` anywhere in it. What a lookup COSTS is asserted a layer down, where a
-stub records the paths it was asked for; in CI the fourth seam runs against the real `provider-tmdb`
-image, which records nothing and cannot be made to. The prefetchable address is the thing that would
-spend it, and that the seam can see.
+held to contain no `record=` anywhere in it. **AND THE SAME SEAM NOW READS THE PAGE THAT CLICK
+REACHES for a prefetchable `q`**, which is where CNCORE-239 found this rule leaking through the
+GROUP PICKER rather than through any control: a notice rendered on `q` being present, whose links
+are ordinary `<Link>`s. A seam that watches one component cannot see a cost arriving through
+another ([[0151-a-query-beside-a-record-is-a-road-back-not-a-question]]).
+
+What a lookup COSTS is asserted a layer down, where a stub records the paths it was asked for; in CI
+the fourth seam runs against the real `provider-tmdb` image, which records nothing and cannot be
+made to. The prefetchable address is the thing that would spend it, and that the seam can see.
 
 ## It answers an id, and the preview stays where it was
 

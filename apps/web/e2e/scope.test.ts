@@ -89,9 +89,10 @@ describe("an Item reached through a Group", () => {
  * one, and behind them the three CNCORE-174 appended: the letter a Listing was
  * jumped to, and each Listing's step back -- and beside the Group, the kind a
  * Listing is narrowed to and the order it is read in (CNCORE-175), which go
- * where the narrowing already is and ahead of every cursor. Written out here
- * rather than imported, because a test that read the order off the code would
- * agree with whatever the code said.
+ * where the narrowing already is and ahead of every cursor. Behind those,
+ * `/import`'s own three: the Provider, the Container and the record. Written
+ * out here rather than imported, because a test that read the order off the
+ * code would agree with whatever the code said.
  */
 const IN_THE_ONE_ORDER = [
   "via",
@@ -100,6 +101,13 @@ const IN_THE_ONE_ORDER = [
   "group",
   "kind",
   "order",
+  // AND `/import`'s OWN THREE, which never share a link with the narrowing
+  // above -- `provider` and `container` from CNCORE-187, `record` from
+  // CNCORE-239, when the way to a record's Container began carrying the search
+  // that found it and one form came to write four parameters at once.
+  "provider",
+  "container",
+  "record",
   "after",
   "placedAfter",
   "letter",

@@ -56,6 +56,20 @@ interface Asked {
 }
 
 /**
+ * THE SEARCH A CANDIDATE WAS FOUND BY (CNCORE-239), carried by the way onward
+ * from that candidate so the page it reaches can offer the way back.
+ *
+ * ONE VALUE RATHER THAN TWO PROPS, because `q` alone does not name the results:
+ * a Group narrows WHO IS ASKED (CNCORE-182), so the same words in a different
+ * scope are a different page of results. A way back that dropped the Group
+ * would land on results the Owner never saw.
+ */
+interface TheSearchThatFound {
+  q: string;
+  group?: string;
+}
+
+/**
  * FINDING SOMETHING IN A PROVIDER AND IMPORTING IT, in one motion.
  *
  * Until this page, filling a catalogue meant hand-POSTing RPC with an id
@@ -136,10 +150,34 @@ async function readImportPage({
   // Group that is not there is told from one that asks nobody. Read beside the
   // other three, and only where a query was asked: the picker is offered with
   // a search to narrow and not before.
+  /*
+   * WHETHER THE `q` ON THIS ADDRESS IS A QUESTION TO ASK OR A ROAD BACK
+   * (CNCORE-239, ADR-0151). It is the same parameter carrying two different
+   * meanings, and which one it carries is decided by what stands beside it.
+   *
+   * ALONE, IT IS A QUESTION: the Owner typed words and the page asks every
+   * Provider in scope. BESIDE A `record`, IT IS WHERE THE OWNER CAME FROM --
+   * the search that found the candidate they just clicked -- and asking it
+   * again would be a Provider fan-out per click on a road ADR-0149 built
+   * expressly to cost ONE lookup.
+   *
+   * SO CARRYING THE QUERY IS NOT RE-RUNNING IT, and that is the whole of this
+   * ticket: the fan-out was never a consequence of the parameter, but of this
+   * guard conflating "a query is in the address" with "run a search".
+   */
+  const theQueryIsAsked = query !== undefined && record === undefined;
   const [allowlisted, configured, instance, groups] = await Promise.all([
     call(appRouter.provider.allowlisted, undefined, { context }),
     call(appRouter.provider.configured, undefined, { context }),
     call(appRouter.session.configured, undefined, { context }),
+    /*
+     * WHENEVER A QUERY IS ON THE ADDRESS, ASKED OR NOT. A page carrying a
+     * search it does not run still has to know whether the Group that search
+     * named is THERE, because the box and the way back both spell that Group
+     * and a page whose two controls disagreed about it would send the Owner
+     * two places. This is a read of THIS catalogue, not of a Provider, so it
+     * is not the cost ADR-0149 defers.
+     */
     query === undefined
       ? Promise.resolve(undefined)
       : call(appRouter.group.list, undefined, { context }).then(({ groups }) => groups),
@@ -156,9 +194,9 @@ async function readImportPage({
     context.session === null ? undefined : purgeableProvider(configured.providers, purge);
 
   const [found, namedContainer, preview, offered, itsContainer] = await Promise.all([
-    query === undefined
-      ? Promise.resolve(undefined)
-      : call(appRouter.provider.search, { query, group }, { context }),
+    theQueryIsAsked
+      ? call(appRouter.provider.search, { query, group }, { context })
+      : Promise.resolve(undefined),
     searchable === undefined || container === undefined
       ? Promise.resolve(undefined)
       : aboutTheContainer(context, searchable, container),
@@ -423,6 +461,28 @@ export default async function ImportPage({
   // query there is no list of Groups to find this one in, and every Group would
   // read as gone.
   const scope = theScope(groups ?? [], query === undefined ? undefined : narrowedTo);
+  /*
+   * THE SEARCH THIS PAGE IS SHOWING OR CAME FROM (CNCORE-239), which is one
+   * value because `q` alone does not name a page of results: a Group narrows
+   * WHO IS ASKED (CNCORE-182), so the same words in a different scope are
+   * different results. Its Group is the RESOLVED one rather than the address's
+   * own word for it, which is `SearchBox`'s existing rule -- "ONLY A GROUP THAT
+   * IS THERE", because a dead one would carry "No such Group" on to every
+   * search typed after it -- and this page now has two controls spelling that
+   * Group instead of one. They read it from here so they cannot disagree.
+   */
+  const search = query === undefined ? undefined : { q: query, group: scope.group?.id };
+  /*
+   * THE SEARCH THAT RAN, AND WHAT IT FOUND, as ONE value (CNCORE-239).
+   *
+   * Every section below that exists because of a search reads this rather than
+   * testing `q`, so there is one answer to "did this page search" instead of
+   * four that can drift apart. `found` and `search` are both present or both
+   * absent -- the reader asks the Provider exactly when the query is asked --
+   * and pairing them here is what says so to the type checker as well as to a
+   * reader.
+   */
+  const searched = found !== undefined && search !== undefined ? { found, search } : undefined;
   // NOBODY WAS ASKED: narrowed to a Group that is there, and no Provider in
   // either list. Every Provider asked is in `answered` or in `failed`, so both
   // empty is nobody asked rather than nothing found -- and ONE value decides
@@ -477,24 +537,48 @@ export default async function ImportPage({
         browsing and search -- and `Everything` asks every Provider this
         instance names, which is this page as it always was.
       */}
-      {query !== undefined && groups !== undefined && groups.length > 0 && (
+      {/*
+        ON A SEARCH HAVING RUN, NOT ON `q` BEING PRESENT (CNCORE-239). A page
+        reached from a candidate row carries the query without asking it, and
+        this picker's links carry `q` -- so rendering it there would put a
+        PREFETCHABLE SEARCH on the page, which Next runs when it enters the
+        viewport or is hovered. That is the per-scroll fan-out ADR-0149 refuses,
+        arriving through the notices rather than through the control. Found by
+        the test that reads this page for prefetchable addresses.
+
+        TODO(CNCORE-240): AND THE SAME LINKS STILL STAND ON THE RESULTS PAGE,
+        where this picker is correct to render. Each carries `?q=&group=` and
+        each is an ordinary prefetchable `<Link>`, so a results page offering N
+        Groups may spend N+1 provider fan-outs on a reader who merely scrolled.
+        NOT MEASURED against a running instance -- it is composed from the
+        component, Next's documented prefetch default and CNCORE-182 -- so that
+        ticket measures it before it changes anything.
+      */}
+      {searched !== undefined && groups !== undefined && groups.length > 0 && (
         <NarrowToAGroup
-          asked={{ q: query }}
+          asked={{ q: searched.search.q }}
           groups={groups}
           narrowedTo={narrowedTo}
           path="/import"
         />
       )}
-      {query !== undefined && scope.gone && <NoSuchGroup asked={{ q: query }} path="/import" />}
-      {query !== undefined && asksNobody && scope.group !== undefined && (
+      {searched !== undefined && scope.gone && (
+        <NoSuchGroup asked={{ q: searched.search.q }} path="/import" />
+      )}
+      {searched !== undefined && asksNobody && scope.group !== undefined && (
         <AsksNoProvider
-          everything={theStartOf({ path: "/import", asked: { q: query } })}
+          everything={theStartOf({ path: "/import", asked: { q: searched.search.q } })}
           group={scope.group.name}
           owner={owner}
         />
       )}
-      {found !== undefined && query !== undefined && !scope.gone && !asksNobody && (
-        <Results aPasswordIsSet={aPasswordIsSet} found={found} owner={owner} query={query} />
+      {searched !== undefined && !scope.gone && !asksNobody && (
+        <Results
+          aPasswordIsSet={aPasswordIsSet}
+          found={searched.found}
+          owner={owner}
+          search={searched.search}
+        />
       )}
       {/*
         THE CONTAINER A FOUND RECORD NAMES (CNCORE-238), rendered above the
@@ -502,7 +586,7 @@ export default async function ImportPage({
         asked, and the way onward from it is a link into that box's own address.
       */}
       {searchable !== undefined && itsContainer !== undefined && (
-        <ItsContainer baseUrl={searchable} said={itsContainer} />
+        <ItsContainer baseUrl={searchable} said={itsContainer} search={search} />
       )}
       <BrowseBox configured={configured.providers} provider={provider} />
       {/*
@@ -887,12 +971,13 @@ function Results({
   aPasswordIsSet,
   found,
   owner,
-  query,
+  search,
 }: {
   aPasswordIsSet: boolean;
   found: Found;
   owner: boolean;
-  query: string;
+  /** What was asked, and of whom: the heading reads it, and every row carries it. */
+  search: TheSearchThatFound;
 }) {
   const matched = found.answered.reduce((total, { results }) => total + results.length, 0);
 
@@ -906,7 +991,7 @@ function Results({
           (ADR-0142).
         */}
         {matched === 0 ? "Nothing matched " : `${matched} found for `}
-        <TheirWords>{query}</TheirWords>
+        <TheirWords>{search.q}</TheirWords>
       </h2>
       {found.answered.map(({ provider, results }) => (
         <div key={provider.baseUrl} className="mt-4">
@@ -930,6 +1015,7 @@ function Results({
                     baseUrl={provider.baseUrl}
                     owner={owner}
                     result={result}
+                    search={search}
                   />
                 </li>
               ))}
@@ -948,11 +1034,13 @@ function Candidate({
   baseUrl,
   owner,
   result,
+  search,
 }: {
   aPasswordIsSet: boolean;
   baseUrl: string;
   owner: boolean;
   result: Found["answered"][number]["results"][number];
+  search: TheSearchThatFound;
 }) {
   return (
     <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
@@ -1011,7 +1099,7 @@ function Candidate({
       </span>
       <span className="flex items-baseline gap-3">
         {result.itemId !== null && <Held itemId={result.itemId} />}
-        <ItsContainerAsked baseUrl={baseUrl} recordId={result.recordId} />
+        <ItsContainerAsked baseUrl={baseUrl} recordId={result.recordId} search={search} />
         <Take
           aPasswordIsSet={aPasswordIsSet}
           baseUrl={baseUrl}
@@ -1055,15 +1143,29 @@ function Candidate({
  * because nothing is withheld here: there is no operation this reader is not
  * being offered, so there is nothing for a `LogIn` to name.
  *
- * TODO(CNCORE-239): THE ADDRESS CARRIES NO `q`, SO SUBMITTING THIS LOSES THE
- * SEARCH that found the record -- the browser's Back button is the only way to
- * those results. Carrying the query would make the page re-run it, which is a
- * Provider fan-out per click on a road built to cost one lookup (ADR-0149), so
- * the way back is its own decision rather than a field to add here.
+ * AND IT CARRIES THE SEARCH THAT FOUND THE RECORD (CNCORE-239), which is what
+ * lets the page it reaches offer the way back to those results rather than
+ * leaving the browser's own Back as the only one. CARRYING THE QUERY IS NOT
+ * RE-RUNNING IT: the page searches on a guard of its own, and that guard reads
+ * this record. So the click still costs ONE lookup and no second fan-out, which
+ * is ADR-0149's rule untouched (ADR-0151).
+ *
+ * THE FIELDS STAND IN ADR-0066's FIXED ORDER, because a browser submits a form
+ * in the order its fields stand in the document -- so this is the one spelling
+ * of the address, the same order `inTheFixedOrder` writes it in.
  */
-function ItsContainerAsked({ baseUrl, recordId }: { baseUrl: string; recordId: string }) {
+function ItsContainerAsked({
+  baseUrl,
+  recordId,
+  search,
+}: {
+  baseUrl: string;
+  recordId: string;
+  search: TheSearchThatFound;
+}) {
   return (
     <Form action="/import">
+      <TheSearchCarried search={search} />
       <input name="provider" type="hidden" value={baseUrl} />
       <input name="record" type="hidden" value={recordId} />
       <Button className="h-8 px-2.5 text-xs" type="submit" variant="ghost">
@@ -1094,9 +1196,12 @@ function ItsContainerAsked({ baseUrl, recordId }: { baseUrl: string; recordId: s
 function ItsContainer({
   baseUrl,
   said,
+  search,
 }: {
   baseUrl: string;
   said: NonNullable<ImportPage["itsContainer"]>;
+  /** The search that found the record, where this page was reached from one. */
+  search?: TheSearchThatFound;
 }) {
   return (
     <section aria-labelledby="its-container" className="mt-8">
@@ -1152,7 +1257,72 @@ function ItsContainer({
           .
         </p>
       )}
+      {search !== undefined && <TheWayBack search={search} />}
     </section>
+  );
+}
+
+/**
+ * A SEARCH, SPELLED AS THE FIELDS A FORM CARRIES IT IN (CNCORE-239).
+ *
+ * WRITTEN ONCE BECAUSE TWO FORMS CARRY IT: the way ONWARD from a candidate and
+ * the way BACK from the answer. Both owe ADR-0066 the same obligation -- the
+ * fields stand in the fixed order, and a Group with no value is ABSENT rather
+ * than written as `?group=`, which would be a second spelling of the address
+ * without it (the reason `inTheFixedOrder` drops empty values). Two copies of
+ * that rule are two that can drift, which is the argument `query-params.ts`
+ * makes about the order itself, one module over.
+ */
+function TheSearchCarried({ search }: { search: TheSearchThatFound }) {
+  return (
+    <>
+      <input name="q" type="hidden" value={search.q} />
+      {search.group !== undefined && <input name="group" type="hidden" value={search.group} />}
+    </>
+  );
+}
+
+/**
+ * THE WAY BACK TO THE RESULTS THAT FOUND THIS RECORD (CNCORE-239, ADR-0151).
+ *
+ * WITHOUT IT THE SEARCH IS GONE: this page carries the query but does not ask
+ * it, so the box is prefilled and no results stand under it, and the browser's
+ * own Back was the only road to them. A road that starts at a search and
+ * discards it is unfinished -- which is the difference between this and the
+ * container picker one row over, where what is dropped is a list the page
+ * re-offers identically at an address of its own.
+ *
+ * A FORM RATHER THAN A `Link`, WHICH IS ADR-0149's ARGUMENT APPLIED RATHER THAN
+ * ITS CONCLUSION COPIED. That record made the row's control a form because Next
+ * prefetches a `<Link>`'s address when it enters the viewport or is hovered
+ * (verified against Next 16's own reference), and that address spent a lookup.
+ * THIS address carries `q`, so it spends a WHOLE SEARCH -- a fan-out to every
+ * Provider in scope -- and a link here would run it for a reader who merely
+ * scrolled to the foot of the answer. A string-action form prefetches its
+ * ACTION PATH, which is `/import` carrying no query and asking nobody.
+ *
+ * SO THE RETURN COSTS ONE FAN-OUT, SPENT WHEN THE OWNER ASKS FOR IT. That is
+ * what ADR-0149 permits rather than what it refuses: a cost that scales with
+ * the PROVIDERS, taken on a click, where the cost it defers is the one that
+ * scales with the RESULTS.
+ *
+ * IT STANDS IN EVERY ARM, including the two that report a failure. A record
+ * whose Provider could not be reached is exactly when the Owner wants the other
+ * candidates back, and a way back offered only on success is missing where it
+ * is needed most.
+ */
+function TheWayBack({ search }: { search: TheSearchThatFound }) {
+  return (
+    <Form action="/import">
+      <TheSearchCarried search={search} />
+      <Button className="mt-3 h-8 px-2.5 text-xs" type="submit" variant="outline">
+        {/*
+          THE READER'S OWN QUERY, which nothing bounds in width, so it goes
+          through `TheirWords` as it does in the results heading (ADR-0142).
+        */}
+        Back to results for <TheirWords>{search.q}</TheirWords>
+      </Button>
+    </Form>
   );
 }
 

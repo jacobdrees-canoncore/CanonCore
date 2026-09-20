@@ -766,7 +766,12 @@ function askingAbout({ provider, record }: { provider: string; record: string })
  * reason). Read as a form here so that a regression to a link fails rather than
  * quietly costing what this ticket exists to avoid.
  */
-function itsContainerAsked(row: string): { provider: string; record: string } {
+function itsContainerAsked(row: string): {
+  provider: string;
+  record: string;
+  query?: string;
+  group?: string;
+} {
   const asks = navigatingFormsIn(row).find(({ action }) => action.endsWith("/import"));
   if (!asks) throw new Error(`that candidate offers no way to its container:\n${row}`);
   const carried = (name: string) => {
@@ -774,7 +779,59 @@ function itsContainerAsked(row: string): { provider: string; record: string } {
     if (!found) throw new Error(`that control carries no \`${name}\`: ${JSON.stringify(asks)}`);
     return found[1];
   };
-  return { provider: carried("provider"), record: carried("record") };
+  const optional = (name: string) => asks.fields.find(([key]) => key === name)?.[1];
+  return {
+    provider: carried("provider"),
+    record: carried("record"),
+    // THE SEARCH THAT FOUND THE RECORD (CNCORE-239), optional here so that the
+    // assertion about it reads as a missing QUERY rather than a missing form.
+    query: optional("q"),
+    group: optional("group"),
+  };
+}
+
+/**
+ * WHERE A NAVIGATING CONTROL SENDS A BROWSER: its action with its fields on it,
+ * which is what a browser puts in the address bar on submit.
+ */
+function whereItSubmits(within: string): string {
+  const [form] = navigatingFormsIn(within);
+  if (!form) throw new Error(`nothing there navigates:\n${within}`);
+  return `${form.action}?${new URLSearchParams(form.fields)}`;
+}
+
+/**
+ * ONE ADDRESS, READ AS A DESTINATION RATHER THAN AS A STRING: its path and what
+ * it carries, each parameter once.
+ *
+ * BECAUSE A SPACE HAS TWO LAWFUL SPELLINGS HERE and they mean one address. A
+ * browser submitting a GET form writes `application/x-www-form-urlencoded`, so
+ * a space arrives as `+`, while a link this suite navigates directly writes
+ * `%20` through `encodeURIComponent`. Comparing the two as text asserts which
+ * road the address came down, which is not what any of these tests are about.
+ */
+/**
+ * THIS PAGE'S OWN SEARCH BOX, found by the label its input carries.
+ *
+ * NOT BY ITS FIELDS AND NOT BY ITS POSITION, both of which find the wrong form
+ * here and PASS. Three navigating forms on this document carry a `q`: the site
+ * header's box, which submits to `/search` and carries the Group too; this
+ * page's box; and the way back, whose `q` is hidden. The first draft of this
+ * helper took the first form carrying a `q` and matched the HEADER -- so the
+ * assertion below went green against a box on another surface entirely, while
+ * the box it names carried nothing.
+ */
+function theSearchBox(text: string): RenderedForm {
+  const labelled = /<form\b[^>]*>(?:(?!<\/form>).)*aria-label="A title to look for"/is.exec(text);
+  if (!labelled) throw new Error("the page rendered no search box of its own");
+  const [form] = navigatingFormsIn(text.slice(labelled.index));
+  if (!form) throw new Error("that search box does not navigate");
+  return form;
+}
+
+function asADestination(address: string): { path: string; carrying: [string, string][] } {
+  const at = new URL(address, "http://import.test");
+  return { path: at.pathname, carrying: [...at.searchParams].sort() };
 }
 
 describe("/import, before a container's ordering is imported", () => {
@@ -1092,6 +1149,189 @@ describe("/import, reaching the Container a found record names", () => {
     // NO WAY ONWARD, which is the half that makes the sentence worth printing.
     expect(linkedIn(section, "A work this provider holds")).toBeUndefined();
     expect(section).not.toContain("container=");
+  });
+
+  it("carries the search that found the record, so the way onward keeps it", async () => {
+    /*
+     * CNCORE-239, THE FIRST HALF. The control CNCORE-238 built submits
+     * `provider` and `record` AND NOTHING ELSE, so the search that found the
+     * candidate is gone from the page it reaches: an empty box, no results, and
+     * the browser's own Back the only way to them.
+     *
+     * WHAT IS ASSERTED IS THE CONTROL'S OWN FIELDS rather than the page after
+     * it, because the fields ARE the address: `next/form` writes them into the
+     * query, so a control that carries the query cannot reach a page that lost
+     * it. Read off the rendered row for the same reason the record id is --
+     * this suite runs against a stub here and the real `provider-tmdb` image in
+     * CI, and a literal would assert which one was running.
+     */
+    const found = await documentAt(searching(providerSearch.query), owner);
+
+    const asks = itsContainerAsked(rowTitled(found.text, providerSearch.held));
+
+    expect(asks.query).toBe(providerSearch.query);
+  });
+
+  it("carries the Group the search was narrowed within, which is part of those results", async () => {
+    /*
+     * CNCORE-239, AND THE REASON `q` ALONE IS NOT THE SEARCH. A Group on this
+     * page narrows WHO IS ASKED (CNCORE-182, ADR-0010's third scoped thing), so
+     * the same words in a different scope are a different page of results. A
+     * way back carrying only the words would land the Owner on results they
+     * never saw -- every Provider's, rather than this Group's.
+     *
+     * THE SCOPE IS MADE HERE RATHER THAN IN THE HARNESS, because it is this
+     * assertion's own fixture: one Group asking the one Provider that answers
+     * this query. Made through the router as the Owner, which is the road the
+     * picker takes, so it is narrowed the way the product narrows it.
+     */
+    const scope = await asTheOwner.group.create({
+      name: `Only one Provider ${crypto.randomUUID()}`,
+    });
+    await asTheOwner.group.ask({ id: scope.id, baseUrl: providerSearch.browsable.provider });
+
+    const found = await documentAt(`${searching(providerSearch.query)}&group=${scope.id}`, owner);
+
+    const asks = itsContainerAsked(rowTitled(found.text, providerSearch.held));
+    expect(asks.query).toBe(providerSearch.query);
+    expect(asks.group).toBe(scope.id);
+  });
+
+  it("offers the way back to those results, so returning takes no browser Back", async () => {
+    /*
+     * CNCORE-239's FIRST CRITERION. Until this, the search that found the
+     * record was gone from the page it reached -- an empty box, no results, and
+     * the browser's own Back the only road to them. Walked against the real
+     * `provider-tmdb` image while the ticket was filed: twenty results for The
+     * Matrix, none of them on the page after one click.
+     *
+     * THE WAY BACK IS ASSERTED AS AN ADDRESS rather than as a word on a button,
+     * because what makes it a way back is where it goes: the same search, with
+     * the same words. A test reading the label would pass against a control
+     * that said "Back to results" and went to the front page.
+     */
+    const found = await documentAt(searching(providerSearch.query), owner);
+    const row = rowTitled(found.text, providerSearch.held);
+
+    const named = await documentFrom(baseUrl, whereItSubmits(row));
+
+    expect(named.status).toBe(200);
+    expect(asADestination(whereItSubmits(sectionIn(named.text, "its-container")))).toStrictEqual(
+      asADestination(searching(providerSearch.query)),
+    );
+  });
+
+  it("spells the way back as a form, so scrolling past it runs no search", async () => {
+    /*
+     * THE SECOND CRITERION, AT THE SEAM THAT CAN SEE IT, and it is ADR-0149's
+     * own argument applied rather than its conclusion copied. That record made
+     * the row's control a form because Next PREFETCHES A `<Link>`'s ADDRESS
+     * when it enters the viewport or is hovered, and the address it reached
+     * spent a lookup at a third party.
+     *
+     * THE ADDRESS BACK CARRIES `q`, SO IT SPENDS A WHOLE SEARCH -- a fan-out to
+     * every Provider this instance names. A way back spelled as a link would
+     * run that for a reader who merely scrolled to the bottom of the answer,
+     * which is the cost this ticket exists to refuse. A string-action form's
+     * fields are not known until submission, so `/import` is all that is
+     * prefetched and it searches nothing.
+     *
+     * READ AS THE ABSENCE OF A PREFETCHABLE `q` ANYWHERE ON THE PAGE, which is
+     * the structural shape ADR-0149 asserted the same fact in: not a count of
+     * requests, but the thing that would spend them.
+     */
+    const found = await documentAt(searching(providerSearch.query), owner);
+    const row = rowTitled(found.text, providerSearch.held);
+
+    const named = await documentFrom(baseUrl, whereItSubmits(row));
+
+    const anchors = [...named.text.matchAll(/<a\b[^>]*\bhref="(\/[^"]*)"/g)].map(
+      ([, href]) => href as string,
+    );
+    expect(anchors.filter((href) => href.includes("q="))).toStrictEqual([]);
+    // AND THE CONTROL IS THERE ALL THE SAME, so this passes for the right
+    // reason rather than because nothing offers a way back at all.
+    expect(whereItSubmits(sectionIn(named.text, "its-container"))).toContain("q=");
+  });
+
+  it("carries the search without asking it, so reaching a Container costs one lookup", async () => {
+    /*
+     * CNCORE-239's SECOND CRITERION, WHICH IS THE WHOLE TRADE. The obvious way
+     * to keep the search is to put `q` in the address, and the obvious
+     * consequence is that the page RE-RUNS it -- a Provider fan-out on every
+     * click, on a road ADR-0149 built expressly to cost ONE lookup.
+     *
+     * THE FAN-OUT WAS NEVER A CONSEQUENCE OF THE PARAMETER. It came from a
+     * guard that read "a query is in the address" as "run a search", and those
+     * are two facts. So the query rides along and is asked only when the Owner
+     * asks for it back.
+     *
+     * ASSERTED AS THE ABSENCE OF THE RESULTS, which is the structural shape
+     * this seam can see: the page renders every Provider it asked, including
+     * the ones that matched nothing, so a results section is what a search
+     * leaves behind. No section, no search -- while `q` is demonstrably on the
+     * page, which is what stops this passing for the wrong reason.
+     */
+    const found = await documentAt(searching(providerSearch.query), owner);
+    const row = rowTitled(found.text, providerSearch.held);
+
+    const named = await documentFrom(baseUrl, whereItSubmits(row));
+
+    // THE QUERY IS HERE: the way back carries it, so the page plainly has it.
+    expect(whereItSubmits(sectionIn(named.text, "its-container"))).toContain("q=");
+    // AND NOTHING WAS SEARCHED FOR IT.
+    expect(() => sectionIn(named.text, "results")).toThrow();
+  });
+
+  it("returns to the Group's own results, not to every Provider's", async () => {
+    /*
+     * THE GROUP SURVIVES THE ROUND TRIP (CNCORE-182). A Group narrows WHO IS
+     * ASKED, so a way back carrying only the words would land the Owner on a
+     * different page of results -- every Provider's rather than this Group's --
+     * while looking exactly like the one they left.
+     */
+    const scope = await asTheOwner.group.create({
+      name: `One Provider and no other ${crypto.randomUUID()}`,
+    });
+    await asTheOwner.group.ask({ id: scope.id, baseUrl: providerSearch.browsable.provider });
+    const at = `${searching(providerSearch.query)}&group=${scope.id}`;
+
+    const found = await documentAt(at, owner);
+    const named = await documentFrom(
+      baseUrl,
+      whereItSubmits(rowTitled(found.text, providerSearch.held)),
+    );
+
+    expect(asADestination(whereItSubmits(sectionIn(named.text, "its-container")))).toStrictEqual(
+      asADestination(at),
+    );
+  });
+
+  it("keeps the Group in the box too, so a second search asks who the first asked", async () => {
+    /*
+     * THE BOX AND THE WAY BACK HAVE TO AGREE, which is a thing carrying the
+     * query made possible to get wrong. The box is now PREFILLED on this page
+     * -- it was empty before -- so pressing Enter in it is a road the Owner
+     * has, and one that dropped the Group would quietly ask every Provider and
+     * land on results the button one section down would not.
+     *
+     * `SearchBox`'s own comment already forbids exactly this: "a search from it
+     * that quietly asked every Provider would contradict the page it was typed
+     * on" (CNCORE-182). Found in review of this ticket.
+     */
+    const scope = await asTheOwner.group.create({
+      name: `A Group the box must keep ${crypto.randomUUID()}`,
+    });
+    await asTheOwner.group.ask({ id: scope.id, baseUrl: providerSearch.browsable.provider });
+    const at = `${searching(providerSearch.query)}&group=${scope.id}`;
+
+    const found = await documentAt(at, owner);
+    const named = await documentFrom(
+      baseUrl,
+      whereItSubmits(rowTitled(found.text, providerSearch.held)),
+    );
+
+    expect(theSearchBox(named.text).fields).toContainEqual(["group", scope.id]);
   });
 });
 
