@@ -1,4 +1,12 @@
-import { existsSync, globSync, readFileSync, statSync } from "node:fs";
+import {
+  closeSync,
+  existsSync,
+  globSync,
+  openSync,
+  readFileSync,
+  readSync,
+  statSync,
+} from "node:fs";
 import { createRequire } from "node:module";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -55,7 +63,12 @@ const DIRECTIVE = /^\s*(?:\/\/[^\n]*\n|\/\*[\s\S]*?\*\/\s*)*["']use client["']/;
  */
 const CLIENT_API = [
   /\buse[A-Z]\w*\s*\(/, // a hook call: useState(, useTheme(, useId(
-  /\bon[A-Z]\w*\s*[=:]/, // a handler bound here: onClick=, onOpenChange:
+  // A handler BOUND here, not one merely declared in a props type. `onClick={fn}`
+  // and `onClick: () => …` are bindings; `onClick: () => void` in an interface is
+  // a type, and matching it would hand a module a reason it does not have -- a
+  // false pass in the permissive direction, which is the one that matters.
+  /\bon[A-Z]\w*=\{/,
+  /\bon[A-Z]\w*:\s*(?:\(|function\b|[A-Za-z_$][\w$]*\s*(?:,|\)|$))/m,
   /\b(?:window|document|localStorage|sessionStorage|navigator)\s*\./,
 ];
 
@@ -79,10 +92,23 @@ function packagesImportedBy(source: string): string[] {
  * boolean is derived on every run, so no count of which files carry it is written
  * down here to go stale (ADR-0153).
  *
- * IT STOPS AT THE FIRST HIT AND CAPS THE WALK, because the question is whether
- * ANY module declares it and a deep `node_modules` tree is the one place a test
- * can accidentally read a hundred megabytes.
+ * IT STOPS AT THE FIRST HIT, CAPS THE DIRECTORIES AND READS ONLY EACH FILE'S
+ * HEAD, because the question is whether ANY module declares it and a deep
+ * `node_modules` tree is the one place a test can accidentally read a hundred
+ * megabytes. An earlier version claimed that bound while calling `readFileSync`
+ * and slicing afterwards, which reads every byte before throwing them away.
  */
+/** A file's first bytes, read without pulling the whole file into memory. */
+function headOf(path: string, bytes = 200): string {
+  const handle = openSync(path, "r");
+  try {
+    const buffer = Buffer.alloc(bytes);
+    return buffer.toString("utf8", 0, readSync(handle, buffer, 0, bytes, 0));
+  } finally {
+    closeSync(handle);
+  }
+}
+
 function marksAClientBoundary(id: string, from: string): boolean {
   let directory: string;
   try {
@@ -102,7 +128,7 @@ function marksAClientBoundary(id: string, from: string): boolean {
         continue;
       }
       if (!/\.(?:mjs|cjs|js)$/.test(entry)) continue;
-      if (DIRECTIVE.test(readFileSync(path, "utf8").slice(0, 200))) return true;
+      if (DIRECTIVE.test(headOf(path))) return true;
     }
   }
 

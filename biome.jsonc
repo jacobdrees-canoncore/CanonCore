@@ -4,9 +4,14 @@
   // version expressed a second time, and ADR-0101 is the record of what that
   // costs. It had already drifted three times: CNCORE-25 fixed it by lowering the
   // schema, Dependabot then raised the binary in both provider repos and touched
-  // neither schema, and the catalogue moved to ^2.5.14 leaving this at 2.5.12.
-  // The mismatch is an `info`, which `--error-on-warnings` surfaces and nothing
-  // else does, so `pnpm lint` printed it on every run and no check failed.
+  // neither schema, and the catalogue moved again here leaving this line behind.
+  // The mismatch is an `info` Biome prints on stderr on EVERY ordinary run --
+  // `check` and `ci` alike, with or without `--error-on-warnings` -- while
+  // exiting 0 in every one of those cases. NO FLAG MAKES IT FAIL, so `pnpm lint`
+  // printed it on every run and nothing ever went red. That is ADR-0105's
+  // "visible, ignored, accumulating" exactly. (`--config-path` skips the check
+  // altogether, which is why handing Biome the config explicitly looks clean and
+  // is how this was nearly filed as unreproducible.)
   // This path cannot drift: it IS the schema of the binary beside it (CNCORE-261).
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
 

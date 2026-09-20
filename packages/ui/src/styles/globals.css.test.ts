@@ -99,13 +99,19 @@ function matchingNothing(sheet: string): string[] {
  * consumer has not created yet -- so the only signal is a missing utility in a
  * stylesheet nobody diffs.
  *
- * NODE'S OWN GLOB RATHER THAN TAILWIND'S SCANNER, and the numbers were checked
- * against the scanner before choosing. `@tailwindcss/oxide@4.3.3`, which is what
- * the build actually runs, returns 0, 10 and 91 for the three globs at issue;
- * `node:fs`'s `globSync` returns 0, 10 and 91. Asking the question through a
- * package Tailwind treats as internal would mean pinning its version in the
- * catalogue beside the `tailwindcss` that already owns it, to learn the same
- * answer.
+ * NODE'S OWN GLOB RATHER THAN TAILWIND'S SCANNER, and the two were compared
+ * before choosing: on 2026-09-20 `@tailwindcss/oxide@4.3.3`, which is what the
+ * build actually runs, and `node:fs`'s `globSync` returned the SAME COUNT for
+ * each of the three globs at issue, agreeing in particular that the broken one
+ * matched nothing. Asking the question through a package Tailwind treats as
+ * internal would mean pinning its version in the catalogue beside the
+ * `tailwindcss` that already owns it, to learn the same answer.
+ *
+ * THE COUNTS THEMSELVES ARE NOT WRITTEN DOWN, and the first draft of this comment
+ * is why (ADR-0153). It said "0, 10 and 91", which was true of `main` and false
+ * by the end of the same commit: the two test files this branch adds under
+ * `packages/ui/src` took the middle figure to 12. A count of this tree stated in
+ * prose beside a check that DERIVES it is a second, worse copy of the answer.
  */
 describe("globals.css's @source globs", () => {
   it("holds every one of them to matching a file", () => {

@@ -17,7 +17,8 @@
       // sources, and caching on a subset means a change in `apps/` replays a
       // stale pass -- the false green these suites exist to catch (ADR-0158).
       //
-      // The three files run in about 150ms; that is cheaper than the lie.
+      // The three files ran in well under a second on 2026-09-20, measured by the
+      // suite itself; that is cheaper than the lie.
       "cache": false
     }
   }

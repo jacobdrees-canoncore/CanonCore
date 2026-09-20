@@ -12,9 +12,10 @@ import { beforeAll, describe, expect, it } from "vitest";
  * Nothing asked this before CNCORE-261, and that is why four `cn-*` names sat
  * across five sites for as long as they did: `cn-font-heading` on `card.tsx` and
  * `empty.tsx`, `cn-menu-target cn-menu-translucent` twice on `dropdown-menu.tsx`
- * and `cn-rtl-flip` once. The live production stylesheet contained zero `cn-`
- * selectors while `/search` served `cn-font-heading` twice, so three of them
- * shipped to browsers to be matched by nothing.
+ * and `cn-rtl-flip` once. Measured against the Owner's running install on
+ * 2026-09-20 by fetching the stylesheet the front page links: 42,260 bytes
+ * containing ZERO `cn-` selectors, while `/search` served `cn-font-heading`
+ * twice. So three of them shipped to browsers to be matched by nothing.
  *
  * A CLASS THAT RESOLVES TO NOTHING IS INVISIBLE TO EVERY OTHER CHECK HERE. It
  * typechecks, because it is a string. It lints, because it is a valid string. It
@@ -109,8 +110,12 @@ async function loadStylesheet(id: string, base: string) {
 }
 
 /**
- * The source with any `defaultVariants: { … }` blanked out, keeping its length so
- * that every other offset still points where it did.
+ * The source with any `defaultVariants: { … }` blanked out.
+ *
+ * BLANKED RATHER THAN CUT because it is the smaller operation, not because any
+ * caller holds an offset into the original -- everything downstream reads the
+ * string this returns. An earlier comment claimed the offsets mattered; they do
+ * not, and a reason that is not true is worse than none.
  *
  * ITS VALUES NAME VARIANTS, NOT CLASSES. `defaultVariants: { variant: "default",
  * size: "default" }` says which row of the `variants` table to start from, and
@@ -244,26 +249,57 @@ describe("the classes packages/ui writes", () => {
     return asked.filter((_, index) => compiled[index] === null);
   }
 
+  /** The unresolved classes of each module, keyed by file, empty entries dropped. */
+  function unresolvedByFile(modules: Map<string, string>): Record<string, string[]> {
+    const unresolved = new Map<string, string[]>();
+
+    for (const [file, source] of modules) {
+      const broken = resolvingToNothing(classesWrittenIn(source));
+      if (broken.length > 0) unresolved.set(file, [...new Set(broken)].sort());
+    }
+
+    return Object.fromEntries(unresolved);
+  }
+
   /**
    * THE ROLL CALL ITSELF, file by file so that a failure says which component to
    * open rather than handing back one flat list of names.
    */
   it("holds every one of them to compiling to some CSS", () => {
-    const unresolved = new Map<string, string[]>();
+    expect(unresolvedByFile(theComponents())).toStrictEqual({});
+  });
 
-    for (const [file, source] of theComponents()) {
-      const broken = resolvingToNothing(classesWrittenIn(source));
-      if (broken.length > 0) unresolved.set(file, [...new Set(broken)].sort());
-    }
+  /**
+   * AND EVERY MODULE REALLY WAS ASKED, which the row above cannot say either.
+   *
+   * `theComponents()` throws when it finds no FILES, but nothing guarded the
+   * CLASSES: `classesWrittenIn` recognises `className="…"`, a string in `cn(…)`
+   * and a string in `cva(…)`, and a component switching to `clsx`, to
+   * `className={"…"}` or to a template literal would leave the sweep silently.
+   * The roll call would go green having read a file and extracted nothing, which
+   * is the one answer this file must never give.
+   *
+   * DERIVED, NOT A FLOOR: every module here writes at least one class, so the
+   * question is asked per file rather than against a total somebody wrote down.
+   */
+  it("extracts classes from every module, rather than reading one and finding none", () => {
+    const empty = [...theComponents()]
+      .filter(([, source]) => classesWrittenIn(source).length === 0)
+      .map(([file]) => file);
 
-    expect(Object.fromEntries(unresolved)).toStrictEqual({});
+    expect(empty).toStrictEqual([]);
   });
 
   /**
    * THE RED, DRIVEN RATHER THAN DESCRIBED. The row above passes on an empty map,
-   * and an empty map is also what a check that had stopped reading returns. This
-   * one puts back the exact four names CNCORE-261 deleted and requires every one
-   * to be named.
+   * and an empty map is also what a check that had stopped reading returns.
+   *
+   * IT GOES THROUGH THE EXTRACTOR, not around it. An earlier version handed the
+   * four names straight to `resolvingToNothing`, which proved Tailwind rejects
+   * them and proved nothing about the pipeline that has to FIND them -- so a
+   * broken extractor would have left this row and the roll call both green. This
+   * one puts the markers back into the real `card.tsx`, exactly where CNCORE-261
+   * found one of them, and requires all four to come back named.
    *
    * THE MARKERS ARE THE SUBJECT BECAUSE THEY LOOK LIKE UTILITIES. A canary on
    * `zzz-not-a-class` would prove only that Tailwind rejects gibberish; these are
@@ -271,8 +307,17 @@ describe("the classes packages/ui writes", () => {
    */
   it("names the classes that resolve to nothing, which the row above cannot say", () => {
     const markers = ["cn-font-heading", "cn-menu-target", "cn-menu-translucent", "cn-rtl-flip"];
+    const modules = theComponents();
+    const card = modules.get("card.tsx") ?? "";
 
-    expect(resolvingToNothing(["text-sm", ...markers, "size-4"])).toStrictEqual(markers);
+    const restored = card.replace(
+      '"text-sm font-medium',
+      `"${markers.join(" ")} text-sm font-medium`,
+    );
+    expect(restored, "card.tsx no longer carries the class list this canary edits").not.toBe(card);
+    modules.set("card.tsx", restored);
+
+    expect(unresolvedByFile(modules)).toStrictEqual({ "card.tsx": [...markers].sort() });
   });
 
   /**
