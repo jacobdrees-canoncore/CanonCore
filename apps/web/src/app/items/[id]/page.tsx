@@ -448,6 +448,21 @@ export default async function ItemPage({
    * THE PLACEMENT THE CATALOGUE WOULD NOT MAKE, so the page can say so rather
    * than the owner meeting a 500 (ADR-0116). Like `?undo=` it identifies
    * nothing, and an id naming no item simply says an item is already there.
+   *
+   * AND IT IS NEVER PRINTED, WHICH IS WHY IT CARRIES NO CEILING (CNCORE-281).
+   * That ticket was filed believing this value reached a sentence unbounded,
+   * alongside `/settings`, which did. Measured, it does not reach one at all:
+   * `PlaceAnItem` takes it and reads it as `{refused && ...}`, a BARE BOOLEAN,
+   * and every sentence it gates is this page's own -- the four in
+   * `WHAT_WAS_REFUSED`, keyed on `?because=`'s closed set, or the vague
+   * fallback. A crafted `?refused=` of any length therefore changes whether
+   * that paragraph appears and nothing about what it says.
+   *
+   * SO THE THING TO KEEP IS THAT IT STAYS A SWITCH. Rendering it -- naming the
+   * item that was refused, the obvious next kindness -- would make this the
+   * page's voice, and ADR-0123's bound would be owed in the same edit. The
+   * type says `string` because `oneValue` answers one; nothing downstream may
+   * read it as words without capping it first.
    */
   const refusedItem = oneValue(refused);
   /*

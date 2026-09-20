@@ -148,7 +148,12 @@ describe("a Listing narrowed to a kind it holds none of", () => {
     const { status, text } = await documentAt(`/?${GROUP}&kind=concept`);
 
     expect(status).toBe(200);
-    expect(mainOf(text)).toContain("Nothing here is");
+    // THE RESOLVED LABEL AND NOT THE BARE STEM (CNCORE-281). `concept` IS a
+    // kind, so this heading names it -- and "Nothing here is" alone now also
+    // matches "Nothing here is of that kind", the heading for a kind that is
+    // no kind at all. Asserting the stem would pass on either, which is one
+    // test covering two states and telling them apart on neither.
+    expect(mainOf(text)).toContain("Nothing here is Concept");
     expect(mainOf(text)).not.toContain("ships no catalogue");
     // AND THE WAY OUT IS ON THE PAGE, which is what makes it a state rather
     // than a dead end.
@@ -179,5 +184,60 @@ describe("the order and the kind together", () => {
     const orderCleared = pickedIn((await documentAt(both, owner)).text, ORDER, "By name");
     expect(orderCleared).toContain("kind=person");
     expect(orderCleared).not.toContain("order=");
+  });
+});
+
+describe("a Listing narrowed to a kind that is not a kind at all", () => {
+  it("does not speak a crafted word in its own voice", async () => {
+    // A QUERY IS COMPOSED BY ANYBODY (ADR-0123). `oneKind` passes any string
+    // deliberately -- the seven kinds are the DATABASE's rather than this
+    // repository's -- so the page cannot tell a typo from a forged link, and
+    // it is the FORGED one that decides what this heading may do. Echoed, a
+    // link somebody else composed puts their sentence inside this app's `h2`,
+    // under this app's styling, on this app's page.
+    //
+    // A CRAFTED SENTENCE RATHER THAN `?kind=banana`. The block above drives
+    // `?kind=concept` -- a REAL kind this catalogue holds none of, which is a
+    // different state from this one and names its label in the heading. What
+    // is under test here is the kind that is no kind at all, and a one-word
+    // `banana` would pass an assertion that the echo is gone while proving
+    // nothing about the harm: ADR-0123's is a value shaped like something the
+    // catalogue would say.
+    //
+    // LOWER CASE, because `oneKind` lowercases what it reads -- a crafted
+    // value with capitals in it would be absent from the page in that
+    // spelling whether or not the echo is, and would pass without the fix.
+    //
+    // NO MARKUP, BUT NOT BECAUSE REACT ESCAPES IT. `documentAt` un-escapes
+    // what it reads, deliberately, so `&lt;b&gt;` arrives back as `<b>` and a
+    // tag WOULD be caught here. It is left out because the harm ADR-0123
+    // names is a sentence in this app's voice, and a reader meets that as
+    // prose rather than as markup that never renders.
+    const crafted = "unavailable in your region. pay to restore access";
+    const { status, text } = await documentAt(`/?${GROUP}&kind=${encodeURIComponent(crafted)}`);
+    const main = mainOf(text);
+
+    expect(status).toBe(200);
+    // THE PAGE'S PROSE, AND NOT EVERY BYTE OF IT. The crafted value is still
+    // in this document, percent-encoded, inside the `?kind=` every picker and
+    // walk link carries forward -- which is the address being kept, not a
+    // sentence, and is what those links are for. The spaces are why the two do
+    // not collide here: `crafted` holds them literally and an `href` holds
+    // `%20`. So this reaches the heading and would NOT catch an echo that had
+    // been URL-encoded first. Bounding that copy is a separate question from
+    // whose voice the page speaks in.
+    // TODO(CNCORE-284): that ticket puts a ceiling on `?kind=` at the read
+    // path and in the links; this comment comes out when it lands.
+    expect(main).not.toContain(crafted);
+
+    // AND IT IS STILL THE RIGHT EMPTINESS, which is what stops the fix being
+    // "render nothing". The three wrong answers are all reachable from here:
+    // the install-level notice (`WhatToDoNext`), the Group's own emptiness --
+    // false, since this Group holds Rows that a real kind would show -- and a
+    // blank page with no way out of the narrowing.
+    expect(main).toContain("Nothing here is of that kind");
+    expect(main).toContain("Show every kind");
+    expect(main).not.toContain("ships no catalogue");
+    expect(main).not.toContain("holds nothing yet");
   });
 });

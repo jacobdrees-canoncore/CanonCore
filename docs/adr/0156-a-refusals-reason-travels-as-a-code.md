@@ -65,8 +65,23 @@ Three surfaces report a refusal through an address, and all three carry a code:
 `/login` carries the reason in `?refused=` itself and identifies nothing, because it has nothing to
 echo: the value refused is a password. That is the same rule with one parameter rather than two.
 
-Of the two that DO echo a value, only `/settings` bounds it; `/items/<id>` echoes a uuid, whose
-length it does not check either. CNCORE-281 holds that half.
+Of the two that carry a value, **only `/settings` echoes one, and it is the only one that needed
+bounding.** An earlier version of this sentence read that `/items/<id>` "echoes a uuid, whose length
+it does not check either", and CNCORE-281 was filed to bound it. Measured, it prints nothing:
+`PlaceAnItem` takes `?refused=` and reads it as `{refused && ...}`, a bare boolean, and every
+sentence it gates is the page's own -- the four in `WHAT_WAS_REFUSED`, keyed on `?because=`'s closed
+set, or the vague fallback. A crafted `?refused=` of any length decides whether that paragraph
+appears and nothing about what it says, so no ceiling is owed there and none was added.
+
+**THE TABLE ABOVE SHOWS THE ADDRESS, NOT WHAT REACHES THE PAGE, which is how this went wrong.**
+`?refused=<id>&because=` is the shape the action redirects to at both surfaces, and reading a
+CEILING as owed wherever a value RIDES is the mistake: what decides that is whether the page prints
+it. CNCORE-281 checked all three and found one printed value, `/settings`' entry, which CNCORE-262
+bounded before merge. `/login` and `/items/<id>` carry a value and speak neither.
+
+So the rule below stands unchanged and its scope is narrower than it looked: a bound is owed where a
+surface ECHOES, and both surfaces that do not now say so beside their own parameter, so the next
+edit meets the rule rather than rediscovering it.
 
 ## As built, under CNCORE-262: the rule is whole where a reason travels, and eleven refusals do not travel at all
 

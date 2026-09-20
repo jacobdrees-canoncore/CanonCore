@@ -166,20 +166,36 @@ export default async function CataloguePage({
   // and whether a `group` naming no Group -- deleted since the link was kept,
   // or never one -- was handed in. A walk within a Group stays within it.
   const scope = theScope(groups, narrowedTo);
-  // THE KIND THE PAGE IS NARROWED TO, as the page needs it: whether it is
-  // narrowed at all, and the Owner's word for the kind where it names one.
-  // A `kind` naming nothing narrows to nothing, which is ADR-0066's rule --
-  // and the notice below says so rather than the page claiming the catalogue
-  // is empty.
-  // TODO(CNCORE-281): the `?? chosen.kind` fallback prints an unknown `?kind=`
-  // inside this page's own heading, which is the harm ADR-0123 names for a
-  // value read off an address anybody can compose. `/search` dropped the same
-  // fallback under CNCORE-262 -- the closed set, `kinds`, is already in hand
-  // here too -- and this half was left because it is outside that ticket.
-  const narrowedToAKind =
-    chosen.kind === undefined
-      ? undefined
-      : (kinds.find(({ value }) => value === chosen.kind)?.label ?? chosen.kind);
+  /*
+   * THE KIND THE PAGE IS NARROWED TO, AS TWO FACTS AND NOT ONE (CNCORE-281).
+   * The comment here already named both -- "whether it is narrowed at all, and
+   * the Owner's word for the kind where it names one" -- while a single
+   * variable carried them, and collapsing them is what made the echo
+   * necessary: a page that reads "narrowed" off the NAME has to invent a name
+   * for a kind it cannot name, and what it invented was the reader's own text.
+   *
+   * ONLY A KIND THIS CATALOGUE HAS, AND NEVER WHAT WAS TYPED. `oneKind` lowers
+   * the parameter and passes any string, deliberately, because the seven kinds
+   * are the DATABASE's rather than this repository's -- so `?kind=` carries
+   * text anybody can compose, and falling back to it printed a stranger's
+   * words inside this page's own heading. That is the harm ADR-0123 names, and
+   * the rule `/items/<id>` states in as many words for its own `?because=`:
+   * "a query is composed by anybody, so it is checked against the closed set
+   * rather than rendered on trust". `kinds` IS that closed set and is already
+   * in hand here, so an unknown kind simply names nothing.
+   *
+   * A `kind` NAMING NOTHING STILL NARROWS TO NOTHING, which is ADR-0066's rule
+   * and unchanged: the notice below says which emptiness this is rather than
+   * the page claiming the catalogue is empty. Only the HEADING has nothing to
+   * print.
+   *
+   * `/search` READS IT EXACTLY THIS WAY (CNCORE-262). Two surfaces narrow on
+   * this one parameter, and a rule kept on one of them holds only until
+   * somebody copies the other line.
+   */
+  const narrowedToAKind = chosen.kind !== undefined;
+  const theKindsName =
+    chosen.kind === undefined ? undefined : kinds.find(({ value }) => value === chosen.kind)?.label;
 
   return (
     <main className="container mx-auto max-w-3xl px-4 py-8">
@@ -252,7 +268,7 @@ export default async function CataloguePage({
         drew that line for a Group, and a kind is the same fact on the other
         axis.
       */}
-      {narrowedTo === undefined && chosen.kind === undefined && empty && (
+      {narrowedTo === undefined && !narrowedToAKind && empty && (
         <WhatToDoNext aPasswordIsSet={aPasswordIsSet} owner={owner} />
       )}
       {scope.gone && <NoSuchGroup path="/" chosen={chosen} />}
@@ -262,13 +278,13 @@ export default async function CataloguePage({
         carries the way out, and clearing the kind is what is most likely to
         put Rows back on the page.
       */}
-      {narrowedToAKind !== undefined && empty && !scope.gone && (
+      {narrowedToAKind && empty && !scope.gone && (
         <NoItemsOfThatKind
-          kind={narrowedToAKind}
+          kind={theKindsName}
           everyKind={withEveryKind({ path: "/", narrowed: scope.narrowed, chosen })}
         />
       )}
-      {scope.group !== undefined && empty && narrowedToAKind === undefined && (
+      {scope.group !== undefined && empty && !narrowedToAKind && (
         <EmptyGroup name={scope.group.name} />
       )}
       {/*
@@ -313,15 +329,28 @@ export default async function CataloguePage({
  * asked to leave their scope.
  *
  * THE KIND IS NAMED IN THE READER'S OWN WORD -- `Time span`, never `time_span`
- * -- which is `item_kinds`' label and what `CONTEXT.md` binds UI copy to. A
- * `?kind=` naming no kind at all falls back to what was typed, because the
- * honest sentence there is still "nothing here is of that kind".
+ * -- which is `item_kinds`' label and what `CONTEXT.md` binds UI copy to.
+ *
+ * AND IT IS NAMED ONLY WHERE THE CATALOGUE HAS ONE TO NAME (CNCORE-281). This
+ * fell back to what was TYPED, on the argument that "nothing here is of that
+ * kind" is the honest sentence about a typo. It is -- and a typo is not the
+ * value that decides what this heading may do. `?kind=` is composed by
+ * anybody, so the fallback rendered a stranger's sentence inside this app's
+ * own `h2`, under this app's styling, which is the harm ADR-0123 names.
+ *
+ * SO THE HONEST SENTENCE IS SAID WITHOUT QUOTING THEM. The notice is
+ * unchanged in every other respect: it still refuses to blame the install,
+ * still distinguishes itself from an empty Group, and still carries the way
+ * out. Only the reader's own text is gone from it -- which costs a reader who
+ * mistyped nothing they did not already know, since the kind they typed is in
+ * the address bar above the page.
  */
 function NoItemsOfThatKind({
   kind,
   everyKind,
 }: {
-  kind: string;
+  /** `item_kinds`' label, and ABSENT where the address named no kind of this catalogue's. */
+  kind?: string;
   everyKind: ReturnType<typeof withEveryKind>;
 }) {
   return (
@@ -330,9 +359,23 @@ function NoItemsOfThatKind({
         <EmptyHeader>
           {/* A real heading, for the reason `NoProviderAllowlisted` gives. */}
           <EmptyTitle>
-            <h2 id="no-items-of-that-kind">
-              Nothing here is <TheirWords>{kind}</TheirWords>
-            </h2>
+            {/*
+              PLAIN, AND `TheirWords` IS GONE FROM IT (ADR-0142). The wrap was
+              right while this printed what was TYPED: free text of any shape,
+              including one unbroken word that sets the page's width. It can no
+              longer be that. What reaches here is an `item_kinds` label or
+              nothing, and ADR-0142 lists exactly that under what stays plain --
+              "the reader's word for an Item's kind, which `item_kinds` holds
+              and `CONTEXT.md` settles (`Time span`)". The kind picker says the
+              same of the same seven labels, and the Rows print `row.kind` bare.
+              Leaving the wrap on would have been this page claiming a width
+              risk the catalogue's own seven words cannot pose.
+
+              ONE SENTENCE WITH A HOLE IN IT, rather than two spellings of it.
+              The page's own words are written once, so a later edit cannot
+              change the named heading and leave the unnamed one behind.
+            */}
+            <h2 id="no-items-of-that-kind">Nothing here is {kind ?? "of that kind"}</h2>
           </EmptyTitle>
           <EmptyDescription>
             This page is narrowed to one kind of Item, and the catalogue holds none of it.
