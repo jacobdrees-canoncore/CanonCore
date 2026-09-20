@@ -70,6 +70,16 @@ rather than recalled, because the obvious guess is `carrierGradeNat` at 15 and i
 refuses an address filling `2001:30::/28`, which is what produces that longest range name alongside a
 full-length address, and holds the whole sentence at or under 300 with the remedy still in it.
 
+**AND THIS SHARPENS WHAT [[0163-the-levers-that-bound-a-strangers-text-live-in-a-leaf]] SAYS ABOUT
+`shortly`'s CALLERS.** That record notes `shortenTo`'s one caller takes "parsed URLs and hosts rather
+than prose", which is why the cut is safe there. The sharper line is not URL-versus-prose but WHETHER
+PARSING BOUNDED THE VALUE. `shortly` survives at four sites and every one is a value parsing did not
+bound: a `href`, two origins and a hostname, which are the owner's string as typed, and -- the one
+that looks like a counter-example and is not -- the address in "it is not a readable address", which
+reaches that sentence precisely BECAUSE `ipaddr.isValid` refused it. Where parsing SUCCEEDS the cut
+is the wrong tool, because rebuilding from the parse keeps the whole value where cutting keeps a
+prefix, and a prefix of an address is not an address.
+
 ## The mechanism CNCORE-95 named is not the mechanism, and the defect is larger than it said
 
 The ticket's words are that a refused body reaches the Owner as "a zod message that serialises the
