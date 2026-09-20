@@ -6,10 +6,10 @@ status: accepted
 
 > **ACCEPTED 2026-09-20, whole, in one repository.** The mechanism is
 > `.claude/skills/closing-a-spec/SKILL.md`. It opens on this record's own output rule -- the output
-> is tickets, or nothing -- and makes "Does the Owner's instance run it?" its step 1, with two
-> concrete commands that compare the RUNNING install against `main` rather than against the board:
-> the rungs its database has applied, and the age of its image. It says why both are needed, which
-> is that either alone reads clean. The local-only checks this record argues for exist and are
+> is tickets, or nothing -- and makes "Does the Owner's instance run it?" its step 1, with concrete
+> commands that compare the RUNNING install against `main` rather than against the board: the rungs
+> its database has applied, and the age of its image. It says why BOTH are needed, which is that
+> either alone reads clean. The local-only checks this record argues for exist and are
 > reachable by nothing but a person at the install -- `packages/api/corpus/corpus-stands.test.ts`,
 > `packages/api/src/corpus-census.ts`, `packages/api/vitest.corpus.config.ts` and
 > `apps/web/live/live-import.test.ts` -- and `CLAUDE.md` names the skill as the gate.

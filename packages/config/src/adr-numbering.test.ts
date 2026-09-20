@@ -79,12 +79,20 @@ describe("the decision records", () => {
  * the other.
  *
  * MEASURED RATHER THAN HYPOTHETICAL (CNCORE-248). `narrowedToTheKind` and its
- * two call sites landed in `queries.ts` -- a file citing thirty-one records,
- * including the one [[0150-the-reader-chooses-the-order-and-the-kind-the-surface-keeps-the-question]]
- * exists to distinguish itself FROM -- and not the record that decided it.
+ * two call sites landed in `queries.ts`, which cites its records heavily --
+ * ADR-0077 among them, the record
+ * [[0150-the-reader-chooses-the-order-and-the-kind-the-surface-keeps-the-question]]
+ * exists to distinguish itself FROM -- and not the one that decided it.
  * `sort_name_v1()` and `derived:sort-name-v1` are read back through
- * `by-hand.ts`, which cites eleven records and not
+ * `by-hand.ts`, which named its neighbours and not
  * [[0134-a-sort-name-is-derived-by-stripping-a-leading-article]].
+ *
+ * NEITHER SENTENCE COUNTS THOSE CITATIONS, and the first draft of this
+ * docblock did -- "thirty-one records" and "eleven records", both made wrong by
+ * the very commit that wrote them, because it added the thirty-second and the
+ * twelfth. [[0153-a-figure-about-this-tree-is-derived-or-dated]] asks for a
+ * figure to be derived or dated, and a count that is decoration is better
+ * deleted than derived.
  *
  * BOTH SPELLINGS, AND THAT IS THE POINT RATHER THAN A DETAIL. This tree cites a
  * record two ways -- `ADR-0134` in a source comment, `[[0134-the-slug]]` in
@@ -140,13 +148,14 @@ const IMPLEMENTED_BY: Implementation[] = [
  * nothing uses any more.
  */
 function slugOf(number: string): string {
-  const found = numbered().filter((record) => record.number === number);
-  if (found.length !== 1) {
+  const [record, ...rest] = numbered().filter((found) => found.number === number);
+  if (record === undefined || rest.length > 0) {
     throw new Error(
-      `${found.length} records are numbered ${number}, not 1, so no citation of it resolves`,
+      `${rest.length + (record === undefined ? 0 : 1)} records are numbered ${number}, ` +
+        "not 1, so no citation of it resolves",
     );
   }
-  return (found[0] as { file: string }).file.replace(/\.md$/, "");
+  return record.file.replace(/\.md$/, "");
 }
 
 /** Whether a file names a record, in EITHER spelling this tree uses. */
@@ -166,8 +175,7 @@ describe("a record and the code that implements it", () => {
     expect(IMPLEMENTED_BY.length).toBeGreaterThan(0);
 
     for (const { adr, file } of IMPLEMENTED_BY) {
-      expect(() => readFileSync(join(repoRoot, file), "utf8"), `${file} is gone`).not.toThrow();
-      expect(slugOf(adr).startsWith(`${adr}-`), `ADR-${adr} is gone`).toBe(true);
+      expect(() => cites(file, adr), `${file} or ADR-${adr} is gone`).not.toThrow();
     }
   });
 

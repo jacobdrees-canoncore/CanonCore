@@ -20,6 +20,7 @@ import {
   suitesReadingTheRepository,
   timeoutWindowAsTheSuiteRestatesIt,
   timeoutWindowBounds,
+  visibilityMentionsInTheSchema,
   vitestConfigs,
 } from "./testing/tree-figures";
 
@@ -295,6 +296,12 @@ const CLAIMS: Claim[] = [
     pattern: /over every attempt of the ([\d,]+) runs of `CI` created/g,
     population: "the CI runs ADR-0141's ceilings were measured over",
     derive: runsInTheTimeoutWindow,
+  },
+  {
+    file: "docs/adr/0072-no-visibility-system.md",
+    pattern: /returns (\w+) hit/g,
+    population: "the mentions of a visibility system in the schema and on the ladder",
+    derive: visibilityMentionsInTheSchema,
   },
   {
     file: "packages/config/vitest.config.ts",
