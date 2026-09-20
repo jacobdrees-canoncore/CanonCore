@@ -115,6 +115,78 @@ describe("what a break wrote", () => {
     // which is the correction ADR-0123 records against itself.
     expect(latest?.detail).not.toContain("\n");
   });
+
+  /**
+   * CUT ON A WHOLE CHARACTER, WRITTEN OUT HERE BY HAND (CNCORE-272).
+   *
+   * `slice` counts UTF-16 units, so a cut landing between the two halves of an
+   * astral character leaves a lone surrogate -- a replacement glyph in the
+   * sentence the history shows the Owner. `@canoncore/providers` cuts through
+   * one `shortenTo` for exactly this, and ADR-0123 keeps THIS copy out of its
+   * reach on purpose: the dependency is not worth a string function. The cost of
+   * that decision is this guard, owed here by hand, and it was not paid.
+   */
+  it("cuts on a whole character when an astral one straddles the boundary", async () => {
+    // 300 written out as above, so the constant cannot assert itself. The marker
+    // takes the last of them, so the cut falls at unit 299; a U+1F600 opening at
+    // unit 298 therefore has one half on each side of it.
+    const straddling = `${"a".repeat(298)}\u{1F600}${"b".repeat(10)}`;
+    const registry = createRegistry([
+      aTask({
+        key: "straddling",
+        run: async () => {
+          throw new Error(straddling);
+        },
+      }),
+    ]);
+
+    await registry.run(db, "straddling");
+
+    const [latest] = await registry.history(db, "straddling");
+    // NOT `isWellFormed`, WHICH PASSES HERE WHATEVER HAPPENS. The column is
+    // UTF-8 and a lone surrogate has no encoding in it, so the round trip
+    // through Postgres turns one into U+FFFD -- well-formed, permanent, and the
+    // replacement glyph the guard exists to keep off the page. Measured: this
+    // assertion read `...aaa\ufffd\u2026` before the cut was fixed.
+    expect(latest?.detail).not.toContain("\ufffd");
+    expect(latest?.detail).toBe(`${"a".repeat(298)}\u2026`);
+  });
+
+  /**
+   * A TASK CHOOSES WHAT ITS TEXT DOES TO THE PAGE, NOT ONLY HOW MUCH OF IT
+   * THERE IS (CNCORE-274, ADR-0123).
+   *
+   * The cut answers the length lever and does nothing about a bidirectional
+   * override, which re-orders the glyphs around itself -- so a detail can run
+   * backwards through the sentence `tasks/page.tsx` wrote about it. Neither
+   * family is whitespace, so collapsing `\s+` never touched them.
+   *
+   * THE SECOND COPY OF A SECOND PROPERTY, and a copy for the reason the cut is
+   * one: ADR-0123 refuses the dependency on `@canoncore/providers` that would
+   * share it, so what that record bounds on TWO levers has to be written here
+   * on two as well.
+   */
+  it.each([
+    ["\u202e", "a right-to-left override"],
+    ["\u2066", "a directional isolate"],
+    ["\u200b", "a zero-width space"],
+    ["\ufeff", "a zero-width no-break space"],
+  ])("strips %j from what a task threw, which is %s", async (control, _what) => {
+    const key = `rewriting_${control.charCodeAt(0)}`;
+    const registry = createRegistry([
+      aTask({
+        key,
+        run: async () => {
+          throw new Error(`before${control}after`);
+        },
+      }),
+    ]);
+
+    await registry.run(db, key);
+
+    const [latest] = await registry.history(db, key);
+    expect(latest?.detail).toBe("beforeafter");
+  });
 });
 
 /** A task that reports when it has started and then waits to be stopped. */

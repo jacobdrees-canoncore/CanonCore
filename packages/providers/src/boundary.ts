@@ -3,6 +3,8 @@ import type { LookupFunction } from "node:net";
 
 import ipaddr from "ipaddr.js";
 
+import { shortenTo } from "./shorten";
+
 /**
  * ADR-0034. An outbound request that was not made, and why.
  *
@@ -76,14 +78,13 @@ const VALUE_MAX = 80;
  * cannot do without is the sentence SAYING WHAT TO DO, which is what keeping the
  * value short is protecting.
  *
- * TODO(CNCORE-269): this cuts on a UTF-16 unit where `cap` in `reason.ts` cuts on
- * a WHOLE CHARACTER, so a cut landing between the halves of an astral character
- * would leave a lone surrogate. Unreachable from all ten call sites today --
- * every value reaching it is a URL, a host, an address or a latin-1 header -- so
- * that ticket holds it rather than the change that found it.
+ * THE CUT ITSELF IS `shortenTo`'S, shared with `bounded` in `reason.ts`, and
+ * that is where the reason for its shape is written (CNCORE-269). This function
+ * is the CEILING and not the cut: 80 is a fact about these sentences, and it
+ * belongs beside them.
  */
 export function shortly(value: string): string {
-  return value.length <= VALUE_MAX ? value : `${value.slice(0, VALUE_MAX - 1)}…`;
+  return shortenTo(value, VALUE_MAX);
 }
 
 /**
