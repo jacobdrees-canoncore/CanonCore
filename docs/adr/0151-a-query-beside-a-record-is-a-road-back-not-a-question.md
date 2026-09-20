@@ -89,8 +89,10 @@ control, which is the shape ADR-0149 chose for the same reason and the reason to
 a seam that watches one component cannot see a cost that arrives through another.
 
 So everything scoped to a search now keys off **a search having RUN** rather than off `q` being
-present, through one value (`searched`) that pairs the results with the query that got them. Four
-independent tests of the same fact were four that could drift apart.
+present. TWO VALUES CARRY THAT, one per half, and naming only the second hides where the cost is
+actually decided: `theQueryIsAsked` decides whether the fan-out RUNS at all, and `searched` -- which
+pairs the results with the query that got them -- gates what the page RENDERS. Four independent
+tests of the same fact were four that could drift apart.
 
 ## What review taught: a prefilled box is a second control, and it has to agree
 
