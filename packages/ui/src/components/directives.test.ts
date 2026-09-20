@@ -65,7 +65,7 @@ import { describe, expect, it } from "vitest";
  * - ON THE IMPORT HALF ALONE `dropdown-menu.tsx` passes. That is the limb
  *   CNCORE-276 deleted, after the bundle came out identical without its directive.
  * - ON THE IMPORTER HALF ALONE `label.tsx` passes, because its four importers are
- *   all server pages -- and restoring its directive measures +707 bytes. That half
+ *   all server pages -- and restoring its directive measures real bytes. That half
  *   is the whole of the rule CNCORE-283 was filed proposing, so the ticket's own
  *   rule would have greenlit the exact defect ADR-0158 was written for.
  *
@@ -176,6 +176,14 @@ function headOf(path: string, bytes = 200): string {
  * HEAD, because the question is whether ANY module declares it and a deep
  * `node_modules` tree is the one place a test can accidentally read a hundred
  * megabytes.
+ *
+ * THAT HEAD IS 200 BYTES, WHICH IS AN ASSUMPTION ABOUT BYTES THIS REPOSITORY
+ * DOES NOT OWN. A dist file opening with a licence banner longer than that would
+ * hide its directive, the package would read as marking no boundary, and
+ * `providers.tsx` would be reported unearned -- a false failure rather than a
+ * false pass. What holds it is the row below asserting `next-themes` reads as a
+ * boundary: the one package a verdict here currently turns on is checked by
+ * name, so the assumption breaking is a named red rather than a silent one.
  *
  * RESOLVED FROM THE IMPORTING MODULE'S OWN DIRECTORY, which is not a detail:
  * pnpm's store is strict, so `next-themes` exists under `apps/web` and nowhere
@@ -315,6 +323,20 @@ function reachesAClientBoundary(path: string, graph: Map<string, string>): boole
     for (const specifier of specifiersOf(source)) {
       const target = moduleFor(specifier, current, graph);
       if (target === null) {
+        // A SPECIFIER THAT NAMED A REPOSITORY MODULE AND DID NOT RESOLVE IS
+        // SKIPPED, and this is the one place this check answers "no" where it
+        // means "could not tell". A relative import landing outside the swept
+        // trees is a `.css` or a type-only module; a `@canoncore/` one is a
+        // workspace package other than `ui`, whose modules are not in the graph.
+        //
+        // THE LIMIT IS THAT A WORKSPACE PACKAGE DECLARING A BOUNDARY WOULD READ
+        // AS NO BOUNDARY, and the verdict that follows is a FALSE UNEARNED --
+        // the failure direction this whole check exists to avoid. It is
+        // tolerable only because `@canoncore/ui` is the one package here holding
+        // components and it IS in the graph, aliased; the rest are server
+        // packages with no React in them. A client component appearing in one of
+        // them is the day this needs the alias list extended rather than this
+        // comment re-read.
         if (specifier.startsWith(".") || specifier.startsWith("@canoncore/")) continue;
         if (marksAClientBoundary(specifier, from)) return true;
         continue;
@@ -343,8 +365,9 @@ function reachesAClientBoundary(path: string, graph: Map<string, string>): boole
  * rather than argued. On the import half alone `dropdown-menu.tsx` passes, which
  * is the limb CNCORE-276 deleted after the bundle came out identical without it.
  * On the importer half alone `label.tsx` passes -- its four importers are all
- * server pages -- and restoring its directive measured +707 bytes, the founding
- * defect of ADR-0158 walking back in through the check written to catch it.
+ * server pages -- and restoring its directive costs real bytes (ADR-0164 has the
+ * figure), the founding defect of ADR-0158 walking back in through the check
+ * written to catch it.
  */
 function importersWithin(graph: Map<string, string>): Map<string, string[]> {
   const importers = new Map<string, string[]>();
@@ -358,11 +381,23 @@ function importersWithin(graph: Map<string, string>): Map<string, string[]> {
   return importers;
 }
 
-/** The graph a module is judged against: the repository, with the subject's own source over it. */
-function graphFor(modules: Map<string, string>, graph: Map<string, string>): Map<string, string> {
-  const forJudging = new Map(graph);
-  for (const [path, source] of modules) forJudging.set(path, source);
-  return forJudging;
+/**
+ * The graph a module is judged against, and the two facts read off it.
+ *
+ * THE SUBJECT'S OWN SOURCE GOES OVER THE REPOSITORY'S, so a row can hand in
+ * `label.tsx` with its directive put back and have the whole graph judged as if
+ * that were the tree. Derived once here rather than in each caller, because the
+ * client closure and the importer map are two readings of one walk.
+ */
+function judgeAgainst(modules: Map<string, string>): {
+  graph: Map<string, string>;
+  client: Set<string>;
+  importers: Map<string, string[]>;
+} {
+  const graph = new Map(theGraph());
+  for (const [path, source] of modules) graph.set(path, source);
+
+  return { graph, client: clientGraph(graph), importers: importersWithin(graph) };
 }
 
 /**
@@ -372,15 +407,12 @@ function graphFor(modules: Map<string, string>, graph: Map<string, string>): Map
  * that reads it is the row proving that ground is not enough on its own.
  */
 function serverImportersOf(path: string, modules: Map<string, string>): string[] {
-  const forJudging = graphFor(modules, theGraph());
-  const client = clientGraph(forJudging);
-  return (importersWithin(forJudging).get(path) ?? []).filter((one) => !client.has(one)).sort();
+  const { client, importers } = judgeAgainst(modules);
+  return (importers.get(path) ?? []).filter((one) => !client.has(one)).sort();
 }
 
-function unearnedDirectives(modules: Map<string, string>, graph = theGraph()): string[] {
-  const forJudging = graphFor(modules, graph);
-  const client = clientGraph(forJudging);
-  const importers = importersWithin(forJudging);
+function unearnedDirectives(modules: Map<string, string>): string[] {
+  const { graph, client, importers } = judgeAgainst(modules);
 
   return [...modules]
     .filter(([path, source]) => {
@@ -388,7 +420,7 @@ function unearnedDirectives(modules: Map<string, string>, graph = theGraph()): s
       if (usesAClientApiDirectly(source)) return false;
 
       const hasAServerImporter = (importers.get(path) ?? []).some((one) => !client.has(one));
-      return !(hasAServerImporter && reachesAClientBoundary(path, forJudging));
+      return !(hasAServerImporter && reachesAClientBoundary(path, graph));
     })
     .map(([path]) => path)
     .sort();
@@ -509,7 +541,7 @@ describe('the "use client" directives in packages/ui and apps/web', () => {
     );
 
     expect(serverImportersOf(path, modules)).toStrictEqual(["apps/web/src/app/layout.tsx"]);
-    expect(reachesAClientBoundary(path, graphFor(modules, theGraph()))).toBe(true);
+    expect(reachesAClientBoundary(path, judgeAgainst(modules).graph)).toBe(true);
     expect(unearnedDirectives(modules)).not.toContain(path);
   });
 
@@ -521,7 +553,7 @@ describe('the "use client" directives in packages/ui and apps/web', () => {
    * `apps/web` that is right about the chain and WRONG about the primitives, and
    * `label.tsx` is the proof -- its importers are four server pages, so the
    * proposed rule would have earned its directive and greenlit the exact defect
-   * ADR-0158 was written for. Measured, restoring it costs 707 bytes.
+   * ADR-0158 was written for, and restoring it costs bytes ADR-0164 measured.
    *
    * SO THE SECOND GROUND IS A CONJUNCTION, and this row holds it to that by
    * asserting the half that would have passed alongside the verdict that refuses
@@ -536,10 +568,18 @@ describe('the "use client" directives in packages/ui and apps/web', () => {
 
     modules.set(path, `"use client";\n\n${label}`);
 
-    // The ground CNCORE-283 proposed: it has server importers, so that rule earns it.
-    expect(serverImportersOf(path, modules).length).toBeGreaterThan(0);
+    // The ground CNCORE-283 proposed: every one of its importers is a server
+    // module, so that rule earns it. NAMED RATHER THAN COUNTED, because the
+    // argument in ADR-0164 rests on WHICH modules these are -- four route
+    // entries, none of them reachable from a client boundary.
+    expect(serverImportersOf(path, modules)).toStrictEqual([
+      "apps/web/src/app/groups/page.tsx",
+      "apps/web/src/app/items/[id]/page.tsx",
+      "apps/web/src/app/login/page.tsx",
+      "apps/web/src/app/new/page.tsx",
+    ]);
     // The ground it is actually held to: nothing below it needs a browser.
-    expect(reachesAClientBoundary(path, graphFor(modules, theGraph()))).toBe(false);
+    expect(reachesAClientBoundary(path, judgeAgainst(modules).graph)).toBe(false);
     expect(unearnedDirectives(modules)).toContain(path);
   });
 

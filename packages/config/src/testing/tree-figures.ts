@@ -412,6 +412,32 @@ export function migrationRungs(): number {
 }
 
 /**
+ * The modules carrying `"use client"` across both component trees.
+ *
+ * ADR-0164 sweeps its rule over `packages/ui/src/components` and
+ * `apps/web/src/components` and states how many carriers stand today, so the
+ * sentence and the tree are put beside each other here. The count moved by one
+ * the day that record was written -- CNCORE-283 removed `theme-provider.tsx`'s
+ * directive in the same change -- which is exactly the drift ADR-0153 is about.
+ *
+ * THE DIRECTIVE IS THE FIRST THING THAT IS NOT A COMMENT OR BLANK, the same
+ * test `directives.test.ts` applies. `header.tsx` discusses the directive at
+ * length in its own doc comment and carries none, so a looser grep would count
+ * it.
+ */
+export function directiveCarriers(): number {
+  const directive = /^\s*(?:\/\/[^\n]*\n|\/\*[\s\S]*?\*\/\s*)*["']use client["']/;
+
+  return ["packages/ui/src/components", "apps/web/src/components"]
+    .flatMap((root) =>
+      readdirSync(join(repoRoot, root), { withFileTypes: true })
+        .filter((entry) => entry.isFile() && entry.name.endsWith(".tsx"))
+        .map((entry) => read(`${root}/${entry.name}`)),
+    )
+    .filter((source) => directive.test(source)).length;
+}
+
+/**
  * The mentions of a visibility system in the schema and on the ladder.
  *
  * WHY A REFUSAL NEEDS THIS MORE THAN A COUNT DOES. ADR-0072 decides that this

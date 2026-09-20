@@ -119,7 +119,7 @@ encodes.
 **A ROUTE ENTRY HAS NO IMPORTER**, so the conjunction cannot decide one: `page.tsx` and `layout.tsx`
 are rendered by the framework rather than imported by a module, and the importer half would find
 nothing and report every one of them unearned. The sweep is therefore the two COMPONENT trees
-deliberately, and today that is every carrier in the repository -- all six live in
+deliberately, and today that is every carrier in the repository -- all five live in
 `apps/web/src/components`. A directive appearing on a page would go unjudged, and would need a ground
 this rule does not have.
 

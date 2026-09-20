@@ -11,11 +11,12 @@ import type * as React from "react";
  * so the directive here marked a boundary that had been crossed one level up --
  * exactly the argument that removed `dropdown-menu.tsx`'s under CNCORE-276.
  *
- * MEASURED, NOT REASONED (ADR-0164 owns the figures). Removing it left the client
- * bundle byte-identical at 930,326 bytes and the per-request RSC payload
- * unchanged at 37,799, where removing `providers.tsx`'s as well moved both. The
- * boundary belongs where a SERVER module renders through it, and that is
- * `providers.tsx`.
+ * MEASURED, NOT REASONED. Removing it left the client bundle byte-identical and
+ * the per-request RSC payload unmoved, where removing `providers.tsx`'s as well
+ * moved both. ADR-0164 owns those figures with their date and their commit, and
+ * this file does not restate them, because a figure stated twice drifts in one
+ * of them (ADR-0153). The boundary belongs where a SERVER module renders through
+ * it, and that is `providers.tsx`.
  */
 export function ThemeProvider({
   children,

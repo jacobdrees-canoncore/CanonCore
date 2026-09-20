@@ -148,21 +148,23 @@ boundary BELOW the module, which is what `providers.tsx` has and `label.tsx` doe
 **THIS RECORD USED TO SAY THE BOUNDARY MUST BE DECLARED SOMEWHERE IN THAT CHAIN. MEASURED AGAINST
 THE BUNDLE, THAT IS FALSE.** `next-themes@0.4.6` ships `"use client"` in its own dist, so it declares
 the boundary itself: built with neither directive the app serves HTTP 200 and carries the identical
-pre-paint theme script. Keeping the boundary at `providers.tsx` is a choice with a price -- 503 bytes
-of cached chunk against 293 bytes on every request -- rather than a necessity, and ADR-0164 owns the
-figures and takes that choice.
+pre-paint theme script. Keeping the boundary at `providers.tsx` is a choice with a price -- cached
+chunk against payload on every request -- rather than a necessity. ADR-0164 owns those figures, with
+their date and their commit, and takes that choice.
 
 **AND THAT CHAIN WAS UNTIDY; CNCORE-283 SETTLED IT, MEASURED AGAINST THE BUNDLE.** Both modules in
 it carried the directive and neither has a direct client API, so one of the two was redundant by
 exactly the argument that removed `dropdown-menu.tsx`'s: `theme-provider.tsx`'s only importer is
 `providers.tsx`, which is already a client module. `theme-provider.tsx`'s directive is the one that
-went, and removing it left the client bundle byte-identical and the per-request payload unmoved. **The first draft of this section asserted that `theme-provider.tsx` was the module the
+went, and removing it left the client bundle byte-identical and the per-request payload unmoved.
+
+**The first draft of this section asserted that `theme-provider.tsx` was the module the
 boundary lands on; it is not, and the error survived into a ticket before review caught it** — which
 is the same defect this record is about, a sentence that reads as load-bearing and is not.
 
 **What separates the three cases is not what they import, NOR who imports them, but both at once**
 -- the correction CNCORE-283 arrived at by measuring rather than by reasoning, since the importer
-graph alone earns `label.tsx`'s directive at a measured +707 bytes. ADR-0164 carries the rule.
+graph alone earns `label.tsx`'s directive, at a cost ADR-0164 measured. That record carries the rule.
 
 ## An overridden value gets deleted rather than tokenised
 
@@ -195,7 +197,7 @@ the directory unswept.
 **What would finish it is now the class check extended over `apps/web`, and nothing else.** The
 directive half landed under CNCORE-283. **The ground this record named for it was wrong as written**:
 a directive earned by a direct client API, or by the module having an importer that is itself a
-server module, earns `label.tsx`'s at a measured +707 bytes -- this record's own founding case,
+server module, earns `label.tsx`'s at a measured cost -- this record's own founding case,
 readmitted by the check meant to catch it. The ground that holds is the CONJUNCTION of a server
 importer and a client boundary below the module, and ADR-0164 owns it. Until the class check follows,
 the finding this record was written for could still recur one directory over in a CLASS and nothing
