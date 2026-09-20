@@ -82,7 +82,7 @@ const AMNESTY = join(repoRoot, "docs", "research", "README.md");
  * its trailing `-` so `docs/adr/0080-...md` matches and a bare directory does
  * not.
  */
-const CITATION = /ADR-(\d{4})\b|docs\/adr\/(\d{4})-|\[\[(\d{4})-/g;
+const CITATION = /ADR-(\d{4})\b|docs\/adr\/(\d{4})-|\[\[(\d{4})-([^\]]*)\]\]/g;
 
 /**
  * Every record's number, as the four digits its filename opens with.
@@ -117,7 +117,13 @@ function prose(): string[] {
   ].sort();
 }
 
-type Citation = { readonly file: string; readonly line: number; readonly number: string };
+type Citation = {
+  readonly file: string;
+  readonly line: number;
+  readonly number: string;
+  /** The words after the number, when the citation was written in the prose form. */
+  readonly slug: string | undefined;
+};
 
 function citations(): Citation[] {
   const found: Citation[] = [];
@@ -128,7 +134,12 @@ function citations(): Citation[] {
         for (const match of text.matchAll(CITATION)) {
           const number = match[1] ?? match[2] ?? match[3];
           if (number !== undefined) {
-            found.push({ file: file.slice(repoRoot.length + 1), line: index + 1, number });
+            found.push({
+              file: file.slice(repoRoot.length + 1),
+              line: index + 1,
+              number,
+              slug: match[3] === undefined ? undefined : `${match[3]}-${match[4] ?? ""}`,
+            });
           }
         }
       });
@@ -196,6 +207,45 @@ describe("an ADR number a document cites", () => {
       );
 
     expect(dangling).toStrictEqual([]);
+  });
+
+  /**
+   * THE SLUG HALF, which nothing in this build resolved until CNCORE-264.
+   *
+   * The rule above holds the NUMBER. A citation can pass it and still name
+   * nothing: `[[0066-an-id-that-cannot-be-an-identity-addresses-nothing]]`
+   * resolves to record 0066, which exists, while the words after the number are
+   * a SENTENCE THAT RECORD NEVER CARRIED AS ITS NAME. That is the harder half
+   * of the same defect, because the number keeps the citation honest-looking:
+   * a reader who checks the number finds a record and stops.
+   *
+   * MEASURED RATHER THAN HYPOTHETICAL (CNCORE-264). `/verify` swept the corpus
+   * on 2026-09-20 and reported ADR-0149 as the only record carrying a broken
+   * one, twice for 0066 and once for 0123. By the time this check first ran, on
+   * 2026-09-21, THREE MORE had landed in records written in between -- ADR-0156
+   * twice and ADR-0160 once -- which is the rate that makes this mechanical
+   * rather than a thing care can hold. Each was a record's SUBJECT written in
+   * place of its name, and ADR-0160's differed from the real slug by one word.
+   *
+   * IT ASKS ONLY OF A NUMBER THE TREE HOLDS, and that is what makes the amnesty
+   * and this rule agree instead of contradicting each other. A number the
+   * amnesty accounts for has NO FILE by design, so there is no name for a slug
+   * to be wrong against, and demanding one would ask the seven disclosed
+   * records to exist after ADR-0167 decided they never will. `[[0086-the-slug]]`
+   * in ADR-0167 -- the metasyntactic placeholder that record uses to STATE this
+   * spelling -- is covered by exactly that, rather than by an exception written
+   * for it.
+   */
+  it("is named by the slug the record actually carries", () => {
+    const named = new Map(records().map(({ number, file }) => [number, file.replace(/\.md$/, "")]));
+
+    const misnamed = citations().flatMap(({ file, line, number, slug }) => {
+      const real = named.get(number);
+      if (slug === undefined || real === undefined || slug === real) return [];
+      return [`${file}:${line} cites [[${slug}]], but record ${number} is ${real}`];
+    });
+
+    expect(misnamed).toStrictEqual([]);
   });
 
   /**

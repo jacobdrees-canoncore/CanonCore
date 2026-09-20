@@ -117,7 +117,7 @@ Theory:Timeline - xxx… is 300 characters, at position 2, and a Container id is
 ```
 
 **The id is bounded where it ENTERS the sentence**, which is
-[[0123-a-failure-reason-is-bounded-and-it-says-who-wrote-it]]'s rule and its 80 characters, taken
+[[0123-a-failure-reason-is-bounded-and-says-who-wrote-it]]'s rule and its 80 characters, taken
 rather than chosen again because it is the same question that record answered about a different
 reader. An id refused FOR ITS LENGTH is precisely the value that would otherwise eat the clause
 explaining why it was refused -- the correction that record makes against itself, arriving here as

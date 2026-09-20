@@ -114,7 +114,7 @@ ANSWER in the union (`no-container`) rather than a failure, and the page prints 
 link in it**. A way onward that leads to a preview of nothing is worse than no way onward.
 
 It is kept distinct from `no-such-record` — the Provider holding nothing at that id, which
-[[0066-an-id-that-cannot-be-an-identity-addresses-nothing]] makes an answer too — because the two
+[[0066-path-is-identity-query-is-the-route]] makes an answer too — because the two
 have different remedies and an Owner told the wrong one goes looking for the wrong fix.
 
 **NO `lookup-not-offered` ARM EXISTS, AND THAT IS CMPP RATHER THAN AN OMISSION.** `CONTEXT.md` makes
@@ -135,7 +135,7 @@ what it did. So the one thing this union exists to prevent — a provider having
 one. Reproduced before it was fixed: `Output validation failed … expected string to have >=1
 characters`.
 
-An empty id **names no Container** ([[0066-an-id-that-cannot-be-an-identity-addresses-nothing]]: an
+An empty id **names no Container** ([[0066-path-is-identity-query-is-the-route]]: an
 id that cannot BE an identity addresses nothing), and an empty name is **no name**, so it joins
 `null` rather than meeting the same refusal one field over.
 
@@ -146,7 +146,7 @@ string. The guard is `!value`, not `value !== null`.
 ## What implementation taught: a wrapper loses whose sentence it is
 
 `askingTheProvider` raises `ProviderFailed(reasonFor(error))`, which carries the reason as a VALUE and
-leaves no `cause`. [[0123-a-reason-is-bounded-and-attributed]]'s `reasonFor` walks the `cause` chain
+leaves no `cause`. [[0123-a-failure-reason-is-bounded-and-says-who-wrote-it]]'s `reasonFor` walks the `cause` chain
 to find the innermost link that said something — so called on that wrapper it stops AT the wrapper,
 finds no `OutboundRefused`, and **attributes CanonCore's own refusal to the Provider.**
 
