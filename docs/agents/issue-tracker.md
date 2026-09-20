@@ -378,9 +378,22 @@ The form that works:
 orca linear comment add CNCORE-240 --body-file /tmp/c.md --json   # id is positional
 ```
 
-**A READ-BACK CANNOT CONFIRM A COMMENT, BECAUSE `issue --json` CARRIES NO COMMENTS AT ALL.** Its
-`result.issue` holds exactly: `id`, `identifier`, `title`, `url`, `description`, `state`, `team`,
+**A COMMENT NEEDS `--comments`, AND WITHOUT IT A READ-BACK REPORTS ZERO.** Bare `issue --json` returns
+`result.issue` holding exactly `id`, `identifier`, `title`, `url`, `description`, `state`, `team`,
 `project`, `cycle`, `assignee`, `labels`, `priority`, `priorityLabel`, `estimate`, `dueDate`,
-`branchName`, `createdAt`, `updatedAt`. No comments key, so a comment that landed reads back as zero
-comments and invites exactly the retry that produces duplicates. **Confirm a comment by the `id` the
-write returned** (`result.comment.id`), not by reading the issue.
+`branchName`, `createdAt`, `updatedAt` -- and no comments key, so a comment that landed reads back as
+none and invites the retry that produces duplicates.
+
+```sh
+orca linear issue CNCORE-245 --comments --json    # result.comments[], bodyTruncated: false
+```
+
+`--comments` adds a sibling `result.comments` array with every body in full. Corrected 2026-09-20: an
+earlier version of this section said comments could not be read back at all, which sent a verifying
+agent to check ticket bodies instead of the corrections posted against them.
+
+**AND A CORRECTION IN A COMMENT DOES NOT CORRECT THE TICKET.** Nine tickets were amended by comment on
+2026-09-20 and every body still stated the superseded claim; an implementer reads the body. Put the
+correction in the description with `save-issue --body-file`, and verify it by the ABSENCE of the old
+sentence -- `save-issue` reports `ok: false` on writes that land, so presence of the new text is not
+the check.
