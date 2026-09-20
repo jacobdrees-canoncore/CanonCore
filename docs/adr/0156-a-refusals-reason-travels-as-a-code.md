@@ -93,7 +93,10 @@ Two properties came out of writing it that the record above would not have predi
   attribute". **A surface adopting this rule owes a bound on the echoed value as surely as a closed
   set on the reason, and the two are separate rules about separate parameters.** Raised by the
   DISPATCHER on 2026-09-20 against CNCORE-262's own PR, which had argued the case for the reason and
-  left the value beside it open.
+  left the value beside it open. CNCORE-268 reached the same need within the hour from the other
+  end — bounding a Container id inside the refusal that names it — and published `shortenTo` from
+  `@canoncore/providers` for it, so the cut was already shared by the time this landed and only the
+  ceiling had to be chosen beside the sentence it bounds.
 
 **NOT BUILT.** The rule governs a reason that travels; it says nothing about the refusals that never
 set out. **Eleven call sites end `if (refused) return;`** and report through the page's re-read

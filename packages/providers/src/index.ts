@@ -65,7 +65,7 @@ export {
   searchProviders,
 } from "./search";
 /**
- * THE CUT ITSELF, AND NOT EITHER CEILING (CNCORE-269, CNCORE-262).
+ * THE CUT ITSELF, AND NOT EITHER CEILING (CNCORE-269, CNCORE-268, CNCORE-262).
  *
  * `shortly` and `bounded` stay private -- `boundary.test.ts` says so of the
  * first in as many words -- because each carries a NUMBER that belongs beside
@@ -76,5 +76,12 @@ export {
  * sentence, and the alternative was a fourth hand-maintained copy of the same
  * five lines -- which is the cost ADR-0123 records `packages/tasks` already
  * paying, and the drift CNCORE-269 merged two copies to end.
+ *
+ * TWO TICKETS PUBLISHED IT IN THE SAME HOUR AND FOR THE SAME REASON, which is
+ * the strongest argument for it either could make. CNCORE-268 needed the cut to
+ * bound a Container id inside the refusal that names it; CNCORE-262 needed it to
+ * bound the entry `/settings` echoes back out of its own address. Neither knew
+ * of the other, both arrived at "publish the cut, keep the ceilings private",
+ * and this docblock is the two landing as one line rather than as two.
  */
 export { shortenTo } from "./shorten";
