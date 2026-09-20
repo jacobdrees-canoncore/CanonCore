@@ -34,6 +34,19 @@ import {
   theOwner,
 } from "./testing/catalogue";
 
+/**
+ * WHAT THIS DATABASE REFUSES, ASSERTED BY WRITES THAT TRY IT.
+ *
+ * ADR-0159 IS THE CRITERION AND THE ROLL CALL. A rule some path in this
+ * repository can reach earns a violating write here; one no path can reach is
+ * listed in that record with the reason it is left, so a later pass does not
+ * re-derive the population. Nine are left as of 2026-09-20, five of them because
+ * nothing in version one writes the table at all.
+ *
+ * EVERY TEST NAMES THE CONSTRAINT IT EXPECTS, because `refusal` answers with the
+ * name PostgreSQL gave. A write that trips a neighbouring rule then fails here
+ * rather than passing as though it had proved the rule in its title.
+ */
 let db: Database;
 let ownerId: string;
 
