@@ -170,6 +170,13 @@ export async function theBuildServing(
   pid: number | undefined;
   close: () => void;
 }> {
+  /*
+   * TODO(CNCORE-302): `next.config.ts` sets `output: "standalone"`, and Next warns
+   * once per server that `next start` is not the entry point that configuration
+   * ships. A warning rather than a throw -- the `output: "export"` branch beside
+   * it throws -- so nothing here is broken by it. But this suite argues that it
+   * tests the SHIPPED page, and a deployment runs `.next/standalone/server.js`.
+   */
   const server = spawn("next", ["start", "--hostname", SERVER_HOST, "--port", "0"], {
     cwd: webRoot,
     env: theServerEnvironment(env),
