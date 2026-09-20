@@ -170,7 +170,8 @@ describe("/devices", () => {
 
     expect(status).toBe(200);
     /*
-     * AND NOT `expect(text).toContain("Log in")`, WHICH STOOD HERE UNTIL CNCORE-257.
+     * AND NOT `expect(text).toContain("Log in")`, WHICH STOOD HERE UNTIL CNCORE-257
+     * (ADR-0168).
      * The header offers `/login` to every reader with no session on an instance
      * that has a password (CNCORE-139), so that read the SHELL: measured on the
      * Owner's install, emptying `<main>` entirely leaves it green. The page's own

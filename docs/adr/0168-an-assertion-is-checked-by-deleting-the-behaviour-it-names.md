@@ -63,14 +63,56 @@ absent position rather than a repeat.
 
 ## Evidence
 
-CNCORE-257, 2026-09-20. Each mutation and its result is in that PR's body. Two were run
-against the Owner's own install rather than a seed; the provider-wiki one left 21 files / 348
-tests green and `tsc --noEmit` clean.
+CNCORE-257, 2026-09-20. Every figure here is a measurement of a running system rather than
+a count of this tree, so each carries what it was taken over and how to take it again
+([[0153-a-figure-about-this-tree-is-derived-or-dated]]).
 
-## What has NOT landed
+**The seeded `sources`,** over a database `buildTestDatabase("web")` had just built:
 
-**NOTHING ENFORCES THIS.** There is no mutation-testing check in CI and none is proposed
-here; a run that deletes behaviour at random is a different decision, with a cost this
-record has not priced. What landed is the ten sites and the practice written down, so the
-half that is missing is the half that would catch the eleventh. Until it exists this is a
-rule reviewers apply by hand, which is how all ten arrived.
+```sql
+SELECT kind, identity, label FROM sources;                      -- 2 rows
+SELECT count(*) FROM items; SELECT count(*) FROM placements;    -- 0, 0
+```
+
+**The placement shapes,** over the Owner's own install, whose catalogue is a real live
+import rather than a seed:
+
+```sql
+WITH g AS (
+  SELECT count(*) AS times,
+         count(*) FILTER (WHERE p.position IS NULL) AS nulls,
+         count(DISTINCT p.position) AS distinct_real
+  FROM items i JOIN placements p ON p.item_id = i.id
+  GROUP BY i.id, p.container_id HAVING count(*) > 1)
+SELECT count(*), count(*) FILTER (WHERE nulls > 0),
+       count(*) FILTER (WHERE distinct_real < times - nulls) FROM g;
+```
+
+which answered 1,537 / 27 / 0 on 2026-09-20.
+
+**The three refusal pages,** over that same install, with no session: fetch `/tasks`,
+`/settings` and `/devices`, replace `<main>.*</main>` with nothing, and the document still
+contains `/login` and `Log in`.
+
+**The provider suites,** over each repository at the commit this ticket branched from:
+`pnpm test && pnpm exec tsc --noEmit` in `provider-wiki` (21 files / 348 tests) and in
+`provider-tmdb` (10 files / 118 tests), each re-run with the mutation named above applied.
+
+## As built, under CNCORE-257
+
+**BUILT: the ten sites, and the practice written down.** Each of the ten was checked by
+deleting its subject before it was touched, and each replacement was shown red on that same
+mutation. The four shapes above are what that found, and the live-import claims carry the
+measurement in the docblock beside the assertion it justifies.
+
+**NOT BUILT: nothing enforces this.** There is no mutation-testing check in CI and none is
+proposed here; a run that deletes behaviour at random is a different decision, with a cost
+this record has not priced. So the half that is missing is the half that would catch the
+eleventh, and until it exists this is a rule reviewers apply by hand -- which is how all ten
+arrived. `adr-numbering.test.ts`'s roll call is the nearest thing standing, and it is a roll
+call rather than a sweep.
+
+**AND ONE OF THE TEN WAS NOT RUN.** `live-import.test.ts` needs the Owner's tardis.wiki
+Credential, which expires within a day and which only the Owner renews. Its three
+replacements are typechecked, measured against a seeded catalogue for the red half and
+against the Owner's install for the green half, and unexecuted in the file they live in.

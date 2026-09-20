@@ -170,7 +170,7 @@ test("a real Theory:Timeline browses in from the live wiki and lands its Items",
 
 /**
  * AND `rows.length > 0` IS NOT THAT ASSERTION, WHICH IS WHY IT IS NOT THE ONE MADE
- * (CNCORE-257). `sources` IS NEVER EMPTY ON A MIGRATED DATABASE: migration 1 seeds
+ * (CNCORE-257, ADR-0168). `sources` IS NEVER EMPTY ON A MIGRATED DATABASE: migration 1 seeds
  * `owner` and migration 17 seeds `derived:sort-name-v1`. Measured on a database this
  * file's own `buildTestDatabase("web")` had just built -- two rows, `items` 0,
  * `placements` 0 -- so the count passed with the ENTIRE live import deleted, while
@@ -187,7 +187,7 @@ test("the wiki is recorded as the Source of what landed", async () => {
 });
 
 /**
- * THE POSITIONS THEMSELVES, BECAUSE THE DISAGREEMENT IS THE CLAIM (CNCORE-257).
+ * THE POSITIONS THEMSELVES, BECAUSE THE DISAGREEMENT IS THE CLAIM (CNCORE-257, ADR-0168).
  *
  * `rows.length > 0` said only that some item was in two orderings, and the `positions`
  * it aggregated went to `console.log`. Multi-placement is not "a member of two lists" --
@@ -236,7 +236,7 @@ test("one Item sits in SEVERAL Orderings at different Positions", async () => {
  * listed at several points of ONE chronology, for a recap or a bookend.
  *
  * AND `count(*) > 1` IS NOT THAT SHAPE, WHICH IS WHAT `rows.length > 0` COULD NOT SEE
- * (CNCORE-257). A group of two rows passes that `HAVING` when one of them has NO
+ * (CNCORE-257, ADR-0168). A group of two rows passes that `HAVING` when one of them has NO
  * position: `{null, 29}` is a member placed once and declared once, not a story at
  * several points. Measured on the Owner's install on 2026-09-20 -- of 1,537 groups
  * passing it, 27 are that shape. Seeded to only that shape, the old count passed and the

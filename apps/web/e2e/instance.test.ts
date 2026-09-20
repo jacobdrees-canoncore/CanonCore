@@ -180,7 +180,7 @@ describe("a setup that starts servers", () => {
  * dispatcher chose this seam on 2026-09-19 as the one that holds both of the
  * ticket's causes.
  *
- * AND TODAY IT TAKES NOTHING, WHICH IS THE POINT AND NOT A GAP (CNCORE-257).
+ * AND TODAY IT TAKES NOTHING, WHICH IS THE POINT AND NOT A GAP (CNCORE-257, ADR-0168).
  * `theBuildServing` spawns `next start --port 0`, so the thief resolves 0 and
  * `port-thief.ts`'s `if (port !== 0)` is false -- measured here, which printed
  * `resolved port=0, host=127.0.0.1; binds=false`. `port-thief.ts:32` says it in

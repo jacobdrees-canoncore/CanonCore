@@ -378,7 +378,7 @@ describe("annotating an Item by hand", () => {
    * SAME call as this one by the time it arrives: the trim is `noteByHand`'s,
    * in `packages/api/src/routers/item.ts`, so this seam is handed `""` either
    * way. A second test passing `note: ""` under a whitespace title stood here
-   * until CNCORE-257 -- identical statements, a name for a behaviour it could
+   * until CNCORE-257 (ADR-0168) -- identical statements, a name for a behaviour it could
    * not reach. Deleting the trim leaves every test in THIS package green and
    * reddens `item.test.ts`'s `removes the note when nothing but whitespace is
    * submitted`, which is where the trim is asserted because that is where it
