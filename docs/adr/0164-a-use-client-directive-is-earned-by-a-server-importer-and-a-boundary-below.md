@@ -92,6 +92,13 @@ is identical in both dimensions; `dropdown-menu.tsx` was identical when CNCORE-2
 `providers.tsx` moves 202 bytes of chunk and 293 bytes of every request. That correspondence is the
 evidence the static rule is tracking something real.
 
+**THE LOAD-BEARING ROW WAS TAKEN AGAIN ON A MAIN THAT HAD MOVED.** The table above is pinned to
+`7f7e188`; by the time this branch merged, `main` had advanced five commits and touched two of the
+route entries the importer graph reads. The comparison this change actually rests on -- the client
+bundle with `theme-provider.tsx`'s directive and without -- was re-taken at `205be63` and came out
+930,326 both ways, with a same-source control identical again. **A figure that decides something is
+worth taking twice, on the tree it will land in.**
+
 **FIGURES DRIFT WITH THE DEPENDENCY TREE, WHICH IS WHY EACH IS DATED AND PINNED (ADR-0153).**
 ADR-0158 records 930,306 for the same population; this one reads 930,326 at `7f7e188` after a fresh
 install. Neither is wrong -- they are different trees, twenty bytes apart -- and a figure quoted
