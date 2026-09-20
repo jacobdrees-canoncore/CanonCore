@@ -139,11 +139,17 @@ lists providers and previews only the one named in its own address.
 
 WHICH IS ALSO WHY THE CONTROL IS A FORM AND NOT A LINK, and this one is a trap
 rather than a preference. Next PREFETCHES a `<Link>`'s own address when it enters
-the viewport, and the address of a preview RUNS THE TRAVERSAL -- so a list of
-links would spend a purge's locks per provider because a reader scrolled past. A
-string-action `<Form>` prefetches its ACTION PATH instead -- the fields are not
-known until submission -- which here is `/import` naming no provider and
-previewing nothing. Next's `<Form>` reference, read 2026-09-12: `prefetch`
+the viewport, and the address of a preview RUNS THE TRAVERSAL. **THE SENTENCE
+THIS REPLACES SAID A LIST OF LINKS WOULD THEREFORE SPEND A PURGE'S LOCKS PER
+PROVIDER "because a reader scrolled past", AND THAT IS FALSE HERE** -- measured
+on 2026-09-20, ADR-0161: a dynamic route's prefetch is skipped, `/import` is
+dynamic, and the prefetch renders no preview and takes no lock. The trap is real
+and CONDITIONAL: a `prefetch={true}`, a `loading.tsx` above the read, or Partial
+Prefetching each spring it, and a form is what keeps this control right under
+every one of them rather than under today's default alone. A string-action
+`<Form>` prefetches its ACTION PATH instead -- the fields are not known until
+submission -- which here is `/import` naming no provider and previewing
+nothing. Next's `<Form>` reference, read 2026-09-12: `prefetch`
 defaults to true and what it fetches is "the destination path", with "shared UI
 such as layout and loading files for the target route".
 

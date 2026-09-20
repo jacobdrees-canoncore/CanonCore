@@ -540,19 +540,19 @@ export default async function ImportPage({
       {/*
         ON A SEARCH HAVING RUN, NOT ON `q` BEING PRESENT (CNCORE-239). A page
         reached from a candidate row carries the query without asking it, and
-        this picker's links carry `q` -- so rendering it there would put a
-        PREFETCHABLE SEARCH on the page, which Next runs when it enters the
-        viewport or is hovered. That is the per-scroll fan-out ADR-0149 refuses,
-        arriving through the notices rather than through the control. Found by
-        the test that reads this page for prefetchable addresses.
+        this picker's links carry `q` -- so rendering it there would put an
+        address that ASKS every Provider onto a page nobody asked it from. That
+        is the fan-out ADR-0149 defers, arriving through the notices rather than
+        through the control. Found by the test that reads this page for
+        prefetchable addresses.
 
-        TODO(CNCORE-240): AND THE SAME LINKS STILL STAND ON THE RESULTS PAGE,
-        where this picker is correct to render. Each carries `?q=&group=` and
-        each is an ordinary prefetchable `<Link>`, so a results page offering N
-        Groups may spend N+1 provider fan-outs on a reader who merely scrolled.
-        NOT MEASURED against a running instance -- it is composed from the
-        component, Next's documented prefetch default and CNCORE-182 -- so that
-        ticket measures it before it changes anything.
+        AND SCROLLING PAST THOSE LINKS SPENDS NOTHING, MEASURED (ADR-0161,
+        CNCORE-240). The sentence that stood here said a results page offering N
+        Groups might spend N+1 provider fan-outs on a reader who merely
+        scrolled, and said it was composed rather than measured. Measured on
+        2026-09-20: this route is dynamic and has no `loading` boundary, so its
+        prefetch is skipped and renders nobody's answer. The links stay as they
+        are; what holds is ADR-0161's condition, not the picker.
       */}
       {searched !== undefined && groups !== undefined && groups.length > 0 && (
         <NarrowToAGroup
@@ -637,14 +637,19 @@ export default async function ImportPage({
  * asking. Listing only providers with rows would need a preview per provider to
  * decide the list, which is a purge traversal each, on every render of this page.
  *
- * A FORM RATHER THAN A LINK, WHICH IS NOT A STYLE CHOICE. Next prefetches a
- * `<Link>`'s own address when it enters the viewport, and the address of a
+ * A FORM RATHER THAN A LINK, WHICH IS NOT A STYLE CHOICE. The address of a
  * preview RUNS THE PURGE TRAVERSAL -- it takes the write locks of a real delete
- * and rolls them back (ADR-0046). A link here would spend that on every provider
- * in this list, for numbers nobody asked to see, because a reader scrolled past.
- * A string-action `<Form>` prefetches its ACTION PATH instead -- its fields are
- * not known until submission -- which here is `/import` naming no provider and
- * previewing nothing (Next's `<Form>` reference, read 2026-09-12).
+ * and rolls them back (ADR-0046) -- so a list of links would put that cost on an
+ * address a reader reaches without asking for numbers.
+ *
+ * NOT, AS THIS COMMENT ONCE SAID, "because a reader scrolled past": a prefetch
+ * of this route renders nothing and takes no lock, measured 2026-09-20
+ * (ADR-0161). The form is still the control, because that absence is a property
+ * of this CONFIGURATION -- one `prefetch={true}`, one `loading.tsx` or Partial
+ * Prefetching puts the traversal back on the scroll -- and because a string-
+ * action `<Form>` prefetches its ACTION PATH whichever way that goes, its fields
+ * not being known until submission, which here is `/import` naming no provider
+ * and previewing nothing (Next's `<Form>` reference, read 2026-09-12).
  *
  * NAMED BY URL, which is a deployment detail shown to the one person entitled to
  * it, for the reason `BrowseBox` gives: the owner typed these into their own
@@ -1123,15 +1128,19 @@ function Candidate({
  * own click, and a search still costs one request per Provider.
  *
  * A FORM RATHER THAN A `Link`, AND THAT IS THE MECHANISM RATHER THAN A STYLE
- * CHOICE -- the same measure `PurgeBox` takes, for the same reason. Next
- * prefetches a `<Link>`'s own address when it enters the viewport, and the
- * address this reaches SPENDS A LOOKUP AT A THIRD PARTY. A link here would
- * spend one per candidate because a reader scrolled past, which is precisely
- * the per-result cost this design exists to avoid -- turning a cheap search
- * into an expensive one, invisibly, for numbers nobody asked to see. A
- * string-action `<Form>` prefetches its ACTION PATH instead, its fields not
- * being known until submission (Next's `<Form>` reference), which here is
- * `/import` naming no record and looking nothing up.
+ * CHOICE -- the same measure `PurgeBox` takes, for the same reason. The address
+ * this reaches SPENDS A LOOKUP AT A THIRD PARTY, one per candidate, which is
+ * precisely the per-result cost this design exists to avoid.
+ *
+ * WHAT THIS COMMENT GOT WRONG WAS WHEN IT WOULD BE SPENT. It said a link would
+ * spend one per candidate "because a reader scrolled past"; measured on
+ * 2026-09-20, a prefetch of this dynamic route is skipped and renders no row at
+ * all (ADR-0161). The form stays because that absence holds only while nothing
+ * here sets `prefetch={true}`, adds a `loading.tsx` or enables Partial
+ * Prefetching -- and because a string-action `<Form>` prefetches its ACTION PATH
+ * under all of them, its fields not being known until submission (Next's
+ * `<Form>` reference), which here is `/import` naming no record and looking
+ * nothing up.
  *
  * OFFERED TO ANYONE, because the read behind it is open (ADR-0131): a `lookup`
  * is `brief`, so this is `provider.search`'s case and a visitor to ADR-0044's
@@ -1186,12 +1195,14 @@ function ItsContainerAsked({
  * lookup; the `patient` browse is still theirs to ask for, or not.
  *
  * AND A LINK IS RIGHT HERE WHERE A FORM WAS RIGHT ON THE ROW, which is not a
- * contradiction. What Next prefetches at this address is `provider.container`
- * -- the browse -- and that read is the OWNER'S: for a visitor it renders the
- * notice rather than reaching a provider, and for the Owner it is the page they
- * asked for by following the link. The row's control could not be a link
- * because it would have been prefetched for EVERY candidate; there is exactly
- * one of these.
+ * contradiction, though the reason this comment gave was wrong. It said what
+ * Next prefetches at this address is `provider.container` -- the browse. It
+ * prefetches nothing: the route is dynamic, so the prefetch is skipped
+ * (ADR-0161). What makes a link right here is the COUNT rather than the
+ * prefetch. There is exactly one of these, reached on a click the Owner made,
+ * where the row's control would have stood once per candidate -- and the read
+ * behind it is the OWNER'S either way: for a visitor it renders the notice
+ * rather than reaching a provider.
  */
 function ItsContainer({
   baseUrl,
@@ -1293,13 +1304,17 @@ function TheSearchCarried({ search }: { search: TheSearchThatFound }) {
  * re-offers identically at an address of its own.
  *
  * A FORM RATHER THAN A `Link`, WHICH IS ADR-0149's ARGUMENT APPLIED RATHER THAN
- * ITS CONCLUSION COPIED. That record made the row's control a form because Next
- * prefetches a `<Link>`'s address when it enters the viewport or is hovered
- * (verified against Next 16's own reference), and that address spent a lookup.
- * THIS address carries `q`, so it spends a WHOLE SEARCH -- a fan-out to every
- * Provider in scope -- and a link here would run it for a reader who merely
- * scrolled to the foot of the answer. A string-action form prefetches its
- * ACTION PATH, which is `/import` carrying no query and asking nobody.
+ * ITS CONCLUSION COPIED. That record made the row's control a form because the
+ * address it reaches spends a lookup; THIS address carries `q`, so it spends a
+ * WHOLE SEARCH -- a fan-out to every Provider in scope.
+ *
+ * "FOR A READER WHO MERELY SCROLLED" IS THE PART THAT WAS NEVER TRUE, and it
+ * stood in this comment and in ADR-0151 alike. A prefetch of this route is
+ * skipped and renders nothing, measured 2026-09-20 (ADR-0161). The form is the
+ * control because the fan-out belongs to a reader who ASKED for those results
+ * back, and because a string-action form prefetches its ACTION PATH -- `/import`
+ * carrying no query and asking nobody -- under every setting that would put the
+ * link's cost back.
  *
  * SO THE RETURN COSTS ONE FAN-OUT, SPENT WHEN THE OWNER ASKS FOR IT. That is
  * what ADR-0149 permits rather than what it refuses: a cost that scales with
