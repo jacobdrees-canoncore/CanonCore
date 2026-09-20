@@ -119,10 +119,11 @@ one of its own derivatives. The worst branch lands on 63 exactly, and no existin
 `worktreeDatabaseName` ends every name in eight hex characters, so a worktree database can never end
 in `_test` and be mistaken for a derived one.
 
-**The recovery is idempotent, and the existing refusal is what makes that safe.** `buildSuiteDatabase(suffix)`,
-called from a worker, resolves to the database that worker is already running
-against rather than quietly building a `_test_test` below it — and since the next thing it does is
-`drop database ... with (force)`, the `name === database` guard is what turns that into a refusal.
+**The recovery is idempotent, and the existing refusal is what makes that safe.**
+`buildSuiteDatabase(suffix)`, called from a worker, resolves to the database that
+worker is already running against rather than quietly building a `_test_test`
+below it — and since the next thing it does is `drop database ... with (force)`,
+the `name === database` guard is what turns that into a refusal.
 Both halves are pinned by `worktree-database.test.ts`. This sentence said `buildTestDatabase()` with
 no suffix until CNCORE-246; CNCORE-199 took the default off both builders and gave the suite's
 database its own verb, which the section below states and this paragraph had not caught up with.

@@ -70,7 +70,8 @@ this same defect under CNCORE-246 and is not covered here.
 **It needs the history, so it refuses a shallow clone** rather than answering "never ours" to
 everything and passing having read nothing. `ci.yml`'s `test` job sets `fetch-depth: 0` for it.
 
-**It is the fifth copy of the `git ls-files` walk**, which
-[[0136-a-control-is-a-primitive-and-a-surfaces-words-sit-beside-its-pages]] folds at three. CNCORE-277
-owns that fold and is not pre-empted here: the reads genuinely disagree about comments and test
-files, so what they share is about three lines.
+**It is the fifth copy of the `git ls-files` walk**, and
+[[0136-a-control-is-a-primitive-and-a-surfaces-words-sit-beside-its-pages]]
+folds at three. CNCORE-277 owns that fold and is not pre-empted here: the reads
+genuinely disagree about comments and test files, so what they share is about
+three lines.

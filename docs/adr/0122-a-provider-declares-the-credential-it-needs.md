@@ -180,8 +180,9 @@ standing in the catalogue. **The route, and not this record's own subject.** The
 state or an Unlock link; `provider-wiki`, which does declare one, would not run on an arm64 host
 when that walk ran (CNCORE-189, closed since: both images serve `linux/amd64` and `linux/arm64` in
 the registry, and this Mac's `provider-wiki` image is `linux/arm64` with the container healthy,
-re-measured 2026-09-20 under CNCORE-246). The mechanism is whole and each half is checked — the credential half by the volume
-`provider-wiki` now mounts, the route half by the walk — but no single pass has yet run this
+re-measured 2026-09-20 under CNCORE-246). The mechanism is whole and each half is
+checked — the credential half by the volume `provider-wiki` now mounts, the route
+half by the walk — but no single pass has yet run this
 record's whole sentence against an install, and [[0132-a-project-is-not-finished-until-it-has-been-used]]
 is the standard that says so out loud rather than letting the flip imply otherwise. The Unlock link's own destination — the
 Provider's published port in the OWNER'S browser, not the container hostname — is a deployment fact

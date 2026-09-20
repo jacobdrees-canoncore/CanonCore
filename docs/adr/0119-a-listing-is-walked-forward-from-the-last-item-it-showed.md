@@ -844,7 +844,7 @@ an anchor's "place" means the second.
 **CNCORE-169 BUILT IT AND MOVED THE CATALOGUE LISTING ONTO IT** -- both of ADR-0077's questions,
 since they share one order and differ only in their `WHERE`. The other three still wrote their terms
 out beside their `ORDER BY`, and they were not all in the same state either: a Container's members
-and "Also appears in" called `pastTheRowIn`, the same comparison one layer down, while **CATALOGUE
+and "Also appears in" called `pastTheRow`, the same comparison one layer down, while **CATALOGUE
 SEARCH CALLED NEITHER** -- `pastInTheRanking` hand-built its own predicate, ending in the tuple row
 comparison this record says cannot express both regimes, which it got away with only because no
 untitled row can match an `ilike`.
@@ -877,7 +877,7 @@ A KEY NOW SAYS THREE THINGS instead of being an expression alone.
   MOMENTS**, which is what CNCORE-113 found the hard way, and the interface carries the SECOND
   moment -- the one no read can reach, because the value does not exist until the walk runs.
 
-**SO THE COMPARISON HAS ONE IMPLEMENTATION, AND `pastTheRowIn` IS GONE.** It took a LIST of terms a
+**SO THE COMPARISON HAS ONE IMPLEMENTATION, AND `pastTheRow` IS GONE.** It took a LIST of terms a
 caller wrote out, which is two lists read by one index and therefore two lists that can come apart.
 `pastTheRowIn` is the whole of it. `walkListing` went the same way in the same ticket: it took an
 `ORDER BY` and a cursor as separate parameters, so the pairing this mechanism abolishes was still

@@ -60,6 +60,10 @@ const adrDirectory = join(repoRoot, "docs", "adr");
  * A CAMELCASE IDENTIFIER AND NOTHING ELSE: lower-case first letter, at least one
  * upper-case letter after it, letters and digits only.
  *
+ * BOTH HALVES ARE IN THE PATTERN, which they were not: the name said "at least
+ * one upper-case letter" while that half sat two lines below as a separate
+ * `test`, so the constant did not mean what it was called.
+ *
  * NARROW ON PURPOSE. A backtick span in these records is far more often a word
  * (`browse`, `containers`, `source`), a path, a command, a column or a SQL
  * fragment than it is a symbol, and every one of those resolves -- or fails to
@@ -71,7 +75,7 @@ const adrDirectory = join(repoRoot, "docs", "adr");
  * and `Group` are `CONTEXT.md`'s domain words and appear in backticks as prose
  * constantly; a rule reaching them would be reading the glossary, not the code.
  */
-const A_CAMELCASE_IDENTIFIER = /^[a-z][A-Za-z0-9]*$/;
+const A_CAMELCASE_IDENTIFIER = /^[a-z][a-z0-9]*[A-Z][A-Za-z0-9]*$/;
 
 /**
  * Backticked spans, with FENCED BLOCKS DROPPED FIRST.
@@ -87,7 +91,6 @@ function identifiersNamedIn(markdown: string): Set<string> {
     const identifier = span?.trim();
     if (identifier === undefined) continue;
     if (!A_CAMELCASE_IDENTIFIER.test(identifier)) continue;
-    if (!/[A-Z]/.test(identifier)) continue;
     named.add(identifier);
   }
   return named;
@@ -141,7 +144,7 @@ const THIS_RECORD =
 function trackedSource(): string[] {
   return execFileSync(
     "git",
-    ["ls-files", "-z", "--", ".", ":(exclude)*.md", `:(exclude)${THIS_FILE}`],
+    ["ls-files", "-z", "--", ".", ":(exclude)docs/**", ":(exclude)*.md", `:(exclude)${THIS_FILE}`],
     { cwd: repoRoot, encoding: "utf8", maxBuffer: 32 * 1024 * 1024 },
   )
     .split("\0")
@@ -167,6 +170,14 @@ function identifiersInTheTree(): Set<string> {
 
 /**
  * Whether this repository's own history ever held the identifier in SOURCE.
+ *
+ * `docs/**` IS EXCLUDED AS WELL AS `*.md`, and leaving it out ERRED GREEN.
+ * `docs/research/` holds scraped dumps of other products -- `plex-schema-dumps/
+ * migrations.tsv` among them -- which are tracked and are not markdown, so they
+ * fed the "in the tree" set with `includeInGlobal` and `readOnly`. A record
+ * naming one of Plex's columns would have been scored RESOLVED against Plex's
+ * own scraped schema. `adr-as-built.test.ts` already excludes `docs/**` for the
+ * same reason; this file copied its walk and not that pathspec.
  *
  * MARKDOWN IS EXCLUDED FROM THE PICKAXE for the same reason the tree walk
  * excludes it: a record naming a symbol is the thing under test, so a pickaxe
@@ -195,6 +206,7 @@ function theHistoryHeld(identifier: string): boolean {
         identifier,
         "--",
         ".",
+        ":(exclude)docs/**",
         ":(exclude)*.md",
         `:(exclude)${THIS_FILE}`,
       ],
@@ -209,9 +221,10 @@ function theHistoryHeld(identifier: string): boolean {
  *
  * Every one of these was opened and read before it was written down. The first
  * draft of this map was the pickaxe's output taken on trust, and it was wrong
- * about `containerDeletedAt`: ADR-0119:954 says the tombstone the reads selected
- * "is gone", which is a record correctly reporting a removal, not a stale claim
- * about a live one. A map of things a tool flagged is not a map of things a
+ * about `containerDeletedAt`: ADR-0119, under "A key a delete destroys says so
+ * (CNCORE-195)", says the tombstone the reads selected beside the keys "is
+ * gone" -- a record correctly reporting a removal, not a stale claim about a
+ * live one. A map of things a tool flagged is not a map of things a
  * person checked.
  *
  * NOTHING HERE IS A TODO, which is `adr-as-built.test.ts`'s rule and holds for
@@ -233,14 +246,43 @@ const NAMED_A_GONE_SYMBOL_ON_PURPOSE: Readonly<Record<string, string>> = {
   freePort: "ADR-0144 records the port race it caused and the reader that replaced it",
   globalDependencies: "ADR-0126 records it as REFUSED, which is the decision the record exists for",
   pastInTwoRegimes: "ADR-0119 reports that it did not cover the order and grew out of its own name",
+  // CNCORE-246 corrected the two sentences asserting this name in the PRESENT tense (it is
+  // `pastTheRowIn`) and wrongly renamed two more that report it GONE -- one of which then read
+  // "`pastTheRowIn` IS GONE" two lines above "`pastTheRowIn` is the whole of it". Caught by the
+  // spec review, not by this check, which cannot see it: the name it was renamed to IS in the
+  // tree. A blanket replace is the wrong tool for a record that talks about its own past.
+  pastTheRow:
+    "ADR-0119 reports the one-key comparison as GONE, which it is -- `pastTheRowIn` replaced it",
   stillHasAPlaceIn:
     "ADR-0119 says the reads 'were `thePlaceIn` and `stillHasAPlaceIn` until CNCORE-224'",
   thePlaceIn: "ADR-0119, the same sentence",
 };
 
+/**
+ * AND THE EXCLUSION IS CHECKED RATHER THAN TRUSTED, which is `adr-as-built.test.ts`'s
+ * guard and its words: "an exclusion that stops excluding reports nothing by its
+ * nature". Rename this file and both pathspecs above quietly match nothing --
+ * `filedByNameInput` and `pastTheRow` re-enter the tree set from this file's own
+ * prose, and the check goes GREEN ON ITS OWN SUBJECT.
+ */
+function refuseToRunIfThisFileIsNotExcluded(): void {
+  const self = execFileSync("git", ["ls-files", "-z", "--", THIS_FILE], {
+    cwd: repoRoot,
+    encoding: "utf8",
+  }).split("\0")[0];
+
+  if (self !== THIS_FILE) {
+    throw new Error(
+      `${THIS_FILE} is not tracked under that path, so this suite no longer excludes itself ` +
+        "and every identifier its own comments name is in the population it enforces.",
+    );
+  }
+}
+
 type GoneSymbol = { identifier: string; record: string };
 
 function goneSymbolsNamedByRecords(): GoneSymbol[] {
+  refuseToRunIfThisFileIsNotExcluded();
   const inTheTree = identifiersInTheTree();
   const gone: GoneSymbol[] = [];
 
