@@ -29,11 +29,11 @@ import { describe, expect, it } from "vitest";
  * THE RULE USED TO HAVE A SECOND, WEAKER LIMB, AND CNCORE-276 DELETED IT. A
  * module was also allowed the directive when a package it imported marked a
  * client boundary of its own, and `dropdown-menu.tsx` was the only module that
- * ever passed on that ground. CNCORE-276 measured it rather than arguing it:
- * `apps/web` built clean three times, and the client bundle came to 930,306
- * bytes with the directive and 930,306 without, every content-addressed chunk
- * byte-identical. The directive bought nothing, so it went, and with it the limb
- * that was only ever keeping it.
+ * ever passed on that ground. CNCORE-276 measured it rather than arguing it, and
+ * the client bundle came out byte-for-byte identical with the directive and
+ * without it. ADR-0158 owns that measurement -- its population, its date and the
+ * command that takes it again -- and this file does not restate the figure,
+ * because a figure stated twice drifts in one of them (ADR-0153).
  *
  * WHAT DECIDED IT WAS THE RENDER GRAPH. `dropdown-menu.tsx` has one importer in
  * this repository, `apps/web/src/components/mode-toggle.tsx`, which declares
@@ -49,20 +49,27 @@ import { describe, expect, it } from "vitest";
  *
  * ONE DIRECTORY OVER THE SAME RULE WOULD FIRE FALSELY, and the counterexample is
  * named here so the next reader does not have to rediscover it.
- * `apps/web/src/components/theme-provider.tsx` carries the directive and holds no
- * hook, no bound handler and no browser global -- it spreads props onto
- * `next-themes`' provider and nothing else, which is exactly the shape
- * `dropdown-menu.tsx` had. Its answer is the opposite one, because
- * `apps/web/src/app/layout.tsx` is a SERVER component and reaches `next-themes`
- * through it. Something in that chain has to declare the boundary and that module
- * is where it lands, so its reason is the render graph rather than anything a
- * reader could find inside the file.
+ * `apps/web/src/components/providers.tsx` is what the server component
+ * `apps/web/src/app/layout.tsx` renders, and it holds no hook, no bound handler
+ * and no browser global: it wraps `theme-provider.tsx`, which wraps
+ * `next-themes`. The boundary has to be declared somewhere in that chain, and the
+ * module the server actually renders is the one the tightened rule would look
+ * inside and find nothing in. It would call `providers.tsx` unearned and be
+ * wrong.
  *
- * WHAT SEPARATES THE TWO IS NOT WHAT THEY IMPORT, IT IS WHO IMPORTS THEM, and a
- * check that asked the importer graph would judge both correctly. CNCORE-283 is
- * open on building it and on extending the sweep to `apps/web`; until it lands,
- * pointing this check at that directory would report `theme-provider.tsx` as
- * unearned and be wrong.
+ * AND THE CHAIN IS UNTIDY IN A WAY WORTH WRITING DOWN RATHER THAN FIXING HERE.
+ * Both modules in it carry the directive and neither has a direct client API, so
+ * one of the two is redundant by exactly the argument that removed
+ * `dropdown-menu.tsx`'s: `theme-provider.tsx`'s only importer is `providers.tsx`,
+ * which is already a client module. Which of the two should keep it is a choice
+ * nobody has made explicitly, and it is not this package's to make.
+ *
+ * WHAT SEPARATES THESE CASES IS NOT WHAT THEY IMPORT, IT IS WHO IMPORTS THEM, and
+ * a check that asked the importer graph would judge all three correctly.
+ * CNCORE-283 is open on building it, on extending the sweep to `apps/web`, and on
+ * settling which module in that chain keeps its directive. Until it lands,
+ * pointing this check at that directory would report `providers.tsx` as unearned
+ * and be wrong.
  */
 
 const componentsDirectory = fileURLToPath(new URL(".", import.meta.url));

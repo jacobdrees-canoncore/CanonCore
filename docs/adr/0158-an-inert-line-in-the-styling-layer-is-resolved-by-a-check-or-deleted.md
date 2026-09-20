@@ -111,12 +111,25 @@ binds, a browser global.
 **There was a second, weaker ground, and CNCORE-276 removed it.** A module was also allowed the
 directive when a package it imported marked a client boundary of its own, read off that package's
 files rather than assumed from its name. Exactly one module ever passed on it, `dropdown-menu.tsx`,
-and this record left open whether that one needed its directive at all. **It did not.** Measured on
-2026-09-20 rather than argued: `apps/web` built clean three times and the client bundle came to
-930,306 bytes with the directive and 930,306 without, every content-addressed chunk byte-identical.
-The two bytes that did move, a chunk id and the `movePlacement` server-action hash, also move
-between two builds of IDENTICAL source, so they are the build's nondeterminism. The directive went,
-and the limb that was only ever keeping it went with it.
+and this record left open whether that one needed its directive at all. **It did not.**
+
+**THE MEASUREMENT, WHICH THIS RECORD OWNS AND OTHER FILES REFER TO RATHER THAN RESTATE (ADR-0153).**
+Population: every `.js` under `apps/web/.next/static/chunks` — the whole client bundle, not one
+chunk. Taken 2026-09-20, on Next 16.3.5 with Turbopack, from three clean builds with `.next` removed
+between them. The query that takes it again:
+
+```bash
+rm -rf apps/web/.next
+DATABASE_URL=… NODE_ENV=production pnpm --filter web build
+find apps/web/.next/static/chunks -name '*.js' -exec stat -f '%z' {} \; | awk '{s+=$1} END {print s}'
+```
+
+**930,306 bytes with the directive and 930,306 without**, every content-addressed chunk
+byte-identical. Two things did move, a chunk id and the `movePlacement` server-action hash — and
+they move between two builds of IDENTICAL source as well, so they are the build's nondeterminism
+rather than the directive's doing. That control is the half worth keeping: without a second
+same-source build the two differing bytes read as a real effect. The directive went, and the limb
+that was only ever keeping it went with it.
 
 **What decided it was the render graph, which is why the import graph could never have.**
 `dropdown-menu.tsx` has one importer here, `apps/web/src/components/mode-toggle.tsx`, which declares
@@ -126,12 +139,23 @@ component; what it may not do is PASS it a function, and no server component did
 
 **THE RULE IS NOW COMPLETE FOR `packages/ui` AND WOULD FIRE FALSELY OUTSIDE IT**, which is a
 boundary rather than an oversight, and the counterexample is named so it is not rediscovered.
-`apps/web/src/components/theme-provider.tsx` carries the directive with no hook, no bound handler and
-no browser global — the same shape `dropdown-menu.tsx` had, and the opposite answer, because
-`layout.tsx` is a server component that reaches `next-themes` through it. Something in that chain
-must declare the boundary. What separates the two is not what they import, it is who imports THEM;
-CNCORE-283 is open on a check built on the importer graph, and until it lands this one stays where
-it is.
+`apps/web/src/components/providers.tsx` is what the server component `layout.tsx` renders, and it
+holds no hook, no bound handler and no browser global: it wraps `theme-provider.tsx`, which wraps
+`next-themes`. The boundary must be declared somewhere in that chain, and the module the server
+actually renders is the one the tightened rule would look inside and find nothing in — so it would
+call `providers.tsx` unearned, and be wrong.
+
+**AND THAT CHAIN IS UNTIDY, WHICH IS A FINDING RATHER THAN A TIDY-UP FOR THIS RECORD.** Both modules
+in it carry the directive and neither has a direct client API, so one of the two is redundant by
+exactly the argument that removed `dropdown-menu.tsx`'s: `theme-provider.tsx`'s only importer is
+`providers.tsx`, which is already a client module. Which one keeps it is a choice nobody has made
+explicitly. **The first draft of this section asserted that `theme-provider.tsx` was the module the
+boundary lands on; it is not, and the error survived into a ticket before review caught it** — which
+is the same defect this record is about, a sentence that reads as load-bearing and is not.
+
+What separates all three cases is not what they import, it is who imports THEM; CNCORE-283 is open
+on a check built on the importer graph and on settling that chain, and until it lands this one stays
+where it is.
 
 ## An overridden value gets deleted rather than tokenised
 
@@ -158,8 +182,8 @@ harder. The directive check is not, and CNCORE-276 CHANGED THE REASON WHY rather
 This record used to say that pointing the check at `apps/web` would mostly produce passes on the
 import-graph ground and report a confidence it had not earned. That ground no longer exists, so the
 failure mode is now the opposite one and it is worse: run over `apps/web` today, the check would
-report `theme-provider.tsx` as unearned and be WRONG, because that module's reason is the render
-graph rather than anything inside the file.
+report `providers.tsx` as unearned and be WRONG, because that module's reason is the render graph
+rather than anything inside the file.
 
 **What would finish it** is the class check extended over `apps/web`, and a directive check whose
 ground is the IMPORTER graph — a directive earned by a direct client API, or by the module having an
@@ -170,5 +194,6 @@ record was written for could recur one directory over and nothing would say so.
 
 Every figure above came from running the thing named, on 2026-09-20: the glob counts from
 `@tailwindcss/oxide@4.3.3` and `node:fs`, the marker table from shadcn 4.21.0's own exported
-transforms, the specificity from Tailwind's compiled output for the two candidates, and the client
-chunk from the running install. The stylesheet and computed-style measurements are CNCORE-261's.
+transforms, the specificity from Tailwind's compiled output for the two candidates, the client chunk
+from the running install, and the 930,306-byte bundle from the three clean builds whose command is
+written out above (CNCORE-276). The stylesheet and computed-style measurements are CNCORE-261's.
