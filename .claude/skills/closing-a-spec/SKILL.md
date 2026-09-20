@@ -1,7 +1,6 @@
 ---
 name: closing-a-spec
-description: "Close a finished spec: check the project's tickets landed, the records it cites say what is true, and the Owner's own instance runs it. Files tickets for what is wrong and nothing when nothing is. Run it by typing /closing-a-spec once a spec's last ticket merges."
-disable-model-invocation: true
+description: "Closes a finished spec by checking three things the board cannot: that the Owner's instance runs what was built, that each acceptance criterion was met rather than marked met, and that the records the spec touched still say what is true. Files tickets for what is wrong and nothing when nothing is. Use when a spec's last ticket merges, or when asked to audit, retro or close a spec or Linear project."
 ---
 
 A spec reads `Done` when its tickets do. That is not the same as being done.
@@ -33,9 +32,29 @@ real catalogue, and only then read the rest of this.
 
 ## 2. Did every ticket in the project land what it said?
 
-Read the Linear project, not the tickets you remember. For each one: its acceptance criteria against
-the merged diff. A criterion marked `[~]` with a stated reason is closed; one silently unmet is a
-ticket.
+Read the project, not the tickets you remember. CNCORE-159's ran to 80.
+
+**FETCH THE BOARD ONCE, YOURSELF, AND HAND IT TO THE AGENTS AS TEXT.** One call carries every
+description, so nothing else needs the tracker:
+
+```sh
+orca linear list-issues --team CNCORE --json > /tmp/board.json   # NO --limit
+```
+
+**`--limit` IS THE TRAP.** Under a burst of calls it answers `ok: true` with zero rows, which is
+indistinguishable from an empty board -- measured 2026-09-20, seven rapid calls, every one empty while
+the no-limit call returned 241. An agent that hits that concludes the spec has no tickets. The same
+lie is why `monitor.sh` carries a `LINEAR-BLIND` guard.
+
+The fixed point to diff against is the parent of the spec's first merge:
+
+```sh
+git log --format=%H --reverse --grep="CNCORE-<first>" | head -1   # then ^
+```
+
+Then one agent per handful of tickets, each ruling every criterion MET, DEVIATION-STATED,
+SILENTLY-UNMET or CANNOT-TELL. **Only the last two reach you.** A criterion marked `[~]` with a stated
+reason is closed; one silently unmet is a ticket.
 
 Two shapes to look for, both seen on 2026-09-20: a criterion whose **premise** was false (CNCORE-187's
 assumed a search carries a container; no provider sends one), and a test that **passed with the
@@ -64,14 +83,31 @@ would have been wrong 27 times. An `accepted` record cited nowhere is the sharpe
 that has a legitimate shape: ADR-0101's mechanism is the `catalog:` convention itself, which needs no
 comment naming it.
 
-## 4. Is the same fault filed three times?
+## 4. Expect to be wrong, and check before you file
+
+This gate throws false positives, and two arrived inside ten minutes on its first run:
+
+- **A fifth Linear project** that `CLAUDE.md`'s "four projects" does not list. It holds one Canceled
+  issue and `CLAUDE.md` accounts for it by that ticket's number. Read the record before calling a
+  discrepancy one.
+- **A CLI defect** that was the throttle above. Three repeat runs killed it.
+
+So: **retry a tracker read before believing it, and read the record before believing a grep.** File
+only what survives that. A gate that files noise is worse than one nobody runs, because the noise
+looks like work.
+
+## 5. Is the same fault filed three times?
 
 Count root causes, not tickets. `/import`'s prefetch trap produced CNCORE-210, 238 and 240 -- three
 passes, one cause, no record saying an address that spends a Provider call must not be a `<Link>`.
-**Three tickets on one cause is an ADR that was never written.** Propose the record, and prefer a
-check over a rule where one is possible: a mechanical fault gets a test, and
-`adr-numbering.test.ts` is the local shape for it -- it asks the tree rather than a list somebody
-maintains.
+**Three tickets on one cause is a rule written three times instead of once.** Checked on the first
+run: the fact that Next prefetches a `<Link>`'s address appears in ADR-0046, ADR-0149 AND ADR-0151,
+once per incident, and 14 `<Link>`s on that page have never been swept against it. That is the same
+duplication CNCORE-234 removed from code, left standing in the records.
+
+Propose the single record, and prefer a check over a rule where one is possible: a mechanical fault
+gets a test, and `adr-numbering.test.ts` is the local shape for it -- it asks the tree rather than a
+list somebody maintains.
 
 ## What this is not
 
