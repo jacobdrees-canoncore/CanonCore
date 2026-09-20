@@ -170,9 +170,17 @@ async function readImportPage({
     call(appRouter.provider.allowlisted, undefined, { context }),
     call(appRouter.provider.configured, undefined, { context }),
     call(appRouter.session.configured, undefined, { context }),
-    theQueryIsAsked
-      ? call(appRouter.group.list, undefined, { context }).then(({ groups }) => groups)
-      : Promise.resolve(undefined),
+    /*
+     * WHENEVER A QUERY IS ON THE ADDRESS, ASKED OR NOT. A page carrying a
+     * search it does not run still has to know whether the Group that search
+     * named is THERE, because the box and the way back both spell that Group
+     * and a page whose two controls disagreed about it would send the Owner
+     * two places. This is a read of THIS catalogue, not of a Provider, so it
+     * is not the cost ADR-0149 defers.
+     */
+    query === undefined
+      ? Promise.resolve(undefined)
+      : call(appRouter.group.list, undefined, { context }).then(({ groups }) => groups),
   ]);
   const searchable = searchableProvider(configured.providers, provider);
   /*
@@ -452,17 +460,18 @@ export default async function ImportPage({
   // NARROWED ONLY WHERE SOMETHING WAS SEARCHED, for `/search`'s reason: with no
   // query there is no list of Groups to find this one in, and every Group would
   // read as gone.
-  const scope = theScope(groups ?? [], found === undefined ? undefined : narrowedTo);
+  const scope = theScope(groups ?? [], query === undefined ? undefined : narrowedTo);
   /*
    * THE SEARCH THIS PAGE IS SHOWING OR CAME FROM (CNCORE-239), which is one
    * value because `q` alone does not name a page of results: a Group narrows
    * WHO IS ASKED (CNCORE-182), so the same words in a different scope are
-   * different results. Read off the ADDRESS rather than off `scope`, so that
-   * the way back is exactly this address with the record dropped -- on a page
-   * that ran no search there is no list of Groups for `scope` to resolve one
-   * against.
+   * different results. Its Group is the RESOLVED one rather than the address's
+   * own word for it, which is `SearchBox`'s existing rule -- "ONLY A GROUP THAT
+   * IS THERE", because a dead one would carry "No such Group" on to every
+   * search typed after it -- and this page now has two controls spelling that
+   * Group instead of one. They read it from here so they cannot disagree.
    */
-  const search = query === undefined ? undefined : { q: query, group: narrowedTo };
+  const search = query === undefined ? undefined : { q: query, group: scope.group?.id };
   /*
    * THE SEARCH THAT RAN, AND WHAT IT FOUND, as ONE value (CNCORE-239).
    *
@@ -536,6 +545,14 @@ export default async function ImportPage({
         viewport or is hovered. That is the per-scroll fan-out ADR-0149 refuses,
         arriving through the notices rather than through the control. Found by
         the test that reads this page for prefetchable addresses.
+
+        TODO(CNCORE-240): AND THE SAME LINKS STILL STAND ON THE RESULTS PAGE,
+        where this picker is correct to render. Each carries `?q=&group=` and
+        each is an ordinary prefetchable `<Link>`, so a results page offering N
+        Groups may spend N+1 provider fan-outs on a reader who merely scrolled.
+        NOT MEASURED against a running instance -- it is composed from the
+        component, Next's documented prefetch default and CNCORE-182 -- so that
+        ticket measures it before it changes anything.
       */}
       {searched !== undefined && groups !== undefined && groups.length > 0 && (
         <NarrowToAGroup
@@ -560,7 +577,6 @@ export default async function ImportPage({
           aPasswordIsSet={aPasswordIsSet}
           found={searched.found}
           owner={owner}
-          query={searched.search.q}
           search={searched.search}
         />
       )}
@@ -955,13 +971,12 @@ function Results({
   aPasswordIsSet,
   found,
   owner,
-  query,
   search,
 }: {
   aPasswordIsSet: boolean;
   found: Found;
   owner: boolean;
-  query: string;
+  /** What was asked, and of whom: the heading reads it, and every row carries it. */
   search: TheSearchThatFound;
 }) {
   const matched = found.answered.reduce((total, { results }) => total + results.length, 0);
@@ -976,7 +991,7 @@ function Results({
           (ADR-0142).
         */}
         {matched === 0 ? "Nothing matched " : `${matched} found for `}
-        <TheirWords>{query}</TheirWords>
+        <TheirWords>{search.q}</TheirWords>
       </h2>
       {found.answered.map(({ provider, results }) => (
         <div key={provider.baseUrl} className="mt-4">
@@ -1150,14 +1165,7 @@ function ItsContainerAsked({
 }) {
   return (
     <Form action="/import">
-      <input name="q" type="hidden" value={search.q} />
-      {/*
-        AND THE GROUP ONLY WHERE THERE IS ONE. An empty field would put
-        `?group=` in the address, which is a second spelling of the address
-        without it -- the reason `inTheFixedOrder` drops empty values rather
-        than writing them (ADR-0066).
-      */}
-      {search.group !== undefined && <input name="group" type="hidden" value={search.group} />}
+      <TheSearchCarried search={search} />
       <input name="provider" type="hidden" value={baseUrl} />
       <input name="record" type="hidden" value={recordId} />
       <Button className="h-8 px-2.5 text-xs" type="submit" variant="ghost">
@@ -1255,6 +1263,26 @@ function ItsContainer({
 }
 
 /**
+ * A SEARCH, SPELLED AS THE FIELDS A FORM CARRIES IT IN (CNCORE-239).
+ *
+ * WRITTEN ONCE BECAUSE TWO FORMS CARRY IT: the way ONWARD from a candidate and
+ * the way BACK from the answer. Both owe ADR-0066 the same obligation -- the
+ * fields stand in the fixed order, and a Group with no value is ABSENT rather
+ * than written as `?group=`, which would be a second spelling of the address
+ * without it (the reason `inTheFixedOrder` drops empty values). Two copies of
+ * that rule are two that can drift, which is the argument `query-params.ts`
+ * makes about the order itself, one module over.
+ */
+function TheSearchCarried({ search }: { search: TheSearchThatFound }) {
+  return (
+    <>
+      <input name="q" type="hidden" value={search.q} />
+      {search.group !== undefined && <input name="group" type="hidden" value={search.group} />}
+    </>
+  );
+}
+
+/**
  * THE WAY BACK TO THE RESULTS THAT FOUND THIS RECORD (CNCORE-239, ADR-0151).
  *
  * WITHOUT IT THE SEARCH IS GONE: this page carries the query but does not ask
@@ -1286,8 +1314,7 @@ function ItsContainer({
 function TheWayBack({ search }: { search: TheSearchThatFound }) {
   return (
     <Form action="/import">
-      <input name="q" type="hidden" value={search.q} />
-      {search.group !== undefined && <input name="group" type="hidden" value={search.group} />}
+      <TheSearchCarried search={search} />
       <Button className="mt-3 h-8 px-2.5 text-xs" type="submit" variant="outline">
         {/*
           THE READER'S OWN QUERY, which nothing bounds in width, so it goes

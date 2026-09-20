@@ -810,6 +810,25 @@ function whereItSubmits(within: string): string {
  * `%20` through `encodeURIComponent`. Comparing the two as text asserts which
  * road the address came down, which is not what any of these tests are about.
  */
+/**
+ * THIS PAGE'S OWN SEARCH BOX, found by the label its input carries.
+ *
+ * NOT BY ITS FIELDS AND NOT BY ITS POSITION, both of which find the wrong form
+ * here and PASS. Three navigating forms on this document carry a `q`: the site
+ * header's box, which submits to `/search` and carries the Group too; this
+ * page's box; and the way back, whose `q` is hidden. The first draft of this
+ * helper took the first form carrying a `q` and matched the HEADER -- so the
+ * assertion below went green against a box on another surface entirely, while
+ * the box it names carried nothing.
+ */
+function theSearchBox(text: string): RenderedForm {
+  const labelled = /<form\b[^>]*>(?:(?!<\/form>).)*aria-label="A title to look for"/is.exec(text);
+  if (!labelled) throw new Error("the page rendered no search box of its own");
+  const [form] = navigatingFormsIn(text.slice(labelled.index));
+  if (!form) throw new Error("that search box does not navigate");
+  return form;
+}
+
 function asADestination(address: string): { path: string; carrying: [string, string][] } {
   const at = new URL(address, "http://import.test");
   return { path: at.pathname, carrying: [...at.searchParams].sort() };
@@ -1286,6 +1305,33 @@ describe("/import, reaching the Container a found record names", () => {
     expect(asADestination(whereItSubmits(sectionIn(named.text, "its-container")))).toStrictEqual(
       asADestination(at),
     );
+  });
+
+  it("keeps the Group in the box too, so a second search asks who the first asked", async () => {
+    /*
+     * THE BOX AND THE WAY BACK HAVE TO AGREE, which is a thing carrying the
+     * query made possible to get wrong. The box is now PREFILLED on this page
+     * -- it was empty before -- so pressing Enter in it is a road the Owner
+     * has, and one that dropped the Group would quietly ask every Provider and
+     * land on results the button one section down would not.
+     *
+     * `SearchBox`'s own comment already forbids exactly this: "a search from it
+     * that quietly asked every Provider would contradict the page it was typed
+     * on" (CNCORE-182). Found in review of this ticket.
+     */
+    const scope = await asTheOwner.group.create({
+      name: `A Group the box must keep ${crypto.randomUUID()}`,
+    });
+    await asTheOwner.group.ask({ id: scope.id, baseUrl: providerSearch.browsable.provider });
+    const at = `${searching(providerSearch.query)}&group=${scope.id}`;
+
+    const found = await documentAt(at, owner);
+    const named = await documentFrom(
+      baseUrl,
+      whereItSubmits(rowTitled(found.text, providerSearch.held)),
+    );
+
+    expect(theSearchBox(named.text).fields).toContainEqual(["group", scope.id]);
   });
 });
 

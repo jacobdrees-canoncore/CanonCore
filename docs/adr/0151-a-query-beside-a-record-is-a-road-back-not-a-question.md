@@ -84,6 +84,29 @@ So everything scoped to a search now keys off **a search having RUN** rather tha
 present, through one value (`searched`) that pairs the results with the query that got them. Four
 independent tests of the same fact were four that could drift apart.
 
+## What review taught: a prefilled box is a second control, and it has to agree
+
+Carrying the query makes the page's own search box **prefilled**, where before it was empty. That
+turns it into a road the Owner has — type nothing, press Enter — and the first version of this change
+left it carrying `q` and **no Group**, because the scope was resolved only where a search had run.
+So the box re-ran the search UNSCOPED and landed on results the way back one section down would not.
+
+`SearchBox`'s own comment had already forbidden exactly that, for CNCORE-182's reason: "a search from
+it that quietly asked every Provider would contradict the page it was typed on." The rule was
+written; what was new was a SECOND control spelling the same Group, and nothing making the two agree.
+
+So the Group is resolved from `group.list` **whenever a query is on the address, asked or not**, and
+both controls read it from one value. That is a read of this catalogue rather than of a Provider, so
+it is not the cost this record defers — and it keeps `SearchBox`'s "ONLY A GROUP THAT IS THERE",
+which also means **no unresolved id from the address is ever carried onward**.
+
+**THE HELPER THAT ASSERTED THIS PASSED AGAINST THE WRONG FORM FIRST.** Three navigating forms on this
+document carry a `q`: the site header's box, which submits to `/search` and carries the Group too;
+the page's own; and the way back, whose `q` is hidden. A helper that took "the first form carrying a
+`q`" matched the HEADER, and went green while the box it named carried nothing. It is found by the
+label its input carries instead. A seam that identifies a control by its shape finds whichever
+control happens to share that shape.
+
 ## Where the search stops riding, and why that is a line rather than a gap
 
 The query survives as far as the page that NAMES the Container. It is not carried onward to
