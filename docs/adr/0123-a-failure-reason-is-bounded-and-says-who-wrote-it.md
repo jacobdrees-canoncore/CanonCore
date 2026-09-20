@@ -210,6 +210,14 @@ the provider stack for nothing. The number is the shared thing and this record i
 shared; that file takes it "rather than chosen again" and says so. Recorded because a reader who
 finds the second copy should meet a decision rather than an oversight.
 
+**AND THE COST OF THAT SEPARATION IS THE GUARD, WHICH THIS PARAGRAPH DID NOT COUNT (CNCORE-269).**
+Keeping the copy out of reach means every property the cut has must be applied here BY HAND, and the
+whole-character cut below was not: `registry.ts` still cuts on a UTF-16 unit. The decision above
+stands — the dependency is not worth it — so what is owed is the guard written twice rather than the
+copy removed, and CNCORE-272 holds it. Unreachable there for the same reason it was unreachable in
+`shortly`: the two registered tasks read this catalogue's own rows, and `registry.ts`'s own comment
+names a provider's body among its inputs as ANTICIPATED rather than current.
+
 **THE CAP IS NOT THE ONLY LEVER A PROVIDER HAS OVER A PAGE, which this record framed as a question of
 LENGTH alone.** Bidirectional overrides (U+202A–U+202E, U+2066–U+2069) re-order the glyphs around
 themselves, so a short reason can run backwards through the sentence CanonCore wrote about it, and
@@ -1045,3 +1053,35 @@ at all. Those two are bounded on the argument above, not on a red test.
 **THIS RECORD STAYS `accepted`.** Its mechanism was whole and is untouched; what CNCORE-249 changes
 is three callers that were not obeying it, plus two the sweep found. The rule this section adds for
 the next reader is written at the head of `client.ts` as well, where a sixth refusal would be added.
+
+## The cut is one function, because two copies of it were two rules (CNCORE-269)
+
+`shortly` bounds a value where it ENTERS a refusal at 80; `bounded` bounds the whole sentence on its
+way to a page at 300. Two numbers, one rule — and written as two functions they were two rules.
+`bounded`'s carried the hazard in a comment and guarded it. `shortly`'s did neither.
+
+**THE DEFECT WAS NOT THE GLYPH, IT WAS WHERE THE BOUND LIVED.** No call site could reach it: all ten
+pass a URL, a host, an address or a latin-1 header — percent-encoded, punycoded, or handed back by
+Node as latin-1 — so no astral character could straddle a cut. The bound held **by accident of its
+callers rather than by the function**, which is this record's own opening complaint one level down.
+The next caller to route a provider's own prose through `shortly` — a record title, a Provider's
+name, a credential label — is the one that would have found it, and by then the accident reads as a
+guarantee.
+
+So the cut is `shortenTo(text, max)` in `packages/providers/src/shorten.ts`, and both call it. **The
+CEILINGS do not move into it.** 80 is a fact about those refusals and 300 is a fact about a reason,
+so each stays beside the sentences it bounds; what is shared is the cut, and the reason for its shape
+is written once. That is this record's "one function rather than two local truncations" applied to
+the truncation itself rather than to the mapping around it.
+
+**IT IS NOT NAMED `cut`.** `CONTEXT.md` makes **Cut** a Listing's keyset boundary — a point an Order
+is read from, with no number — and the glossary is binding on names in code. `shortenTo` matches
+`shortly` beside it and `readAtMost` above it.
+
+**ASSERTED AT BOTH SEAMS, WITH THE ASTRAL CHARACTER STRADDLING THE CUT.** A U+1F600 opening one unit
+before each boundary puts one half on each side of it. `shortly`'s witness is red before the change,
+on `isWellFormed()`; `bounded`'s was green from the start and is there to catch the day the two stop
+agreeing, which is the only thing a shared function can still get wrong.
+
+**THIS RECORD STAYS `accepted`.** Its mechanism was whole; what changes is that one of its two
+truncations was obeying a rule the other only documented.

@@ -317,6 +317,14 @@ function reasonFor(thrown: unknown): string {
  *
  * 300 IS ADR-0123's NUMBER, taken rather than chosen again, because this is the
  * same question that record answered about a different reader.
+ *
+ * TODO(CNCORE-272): this cuts on a UTF-16 unit where `shortenTo` in
+ * `@canoncore/providers` cuts on a WHOLE CHARACTER, so a cut landing between the
+ * halves of an astral character would leave a lone surrogate. ADR-0123 keeps
+ * this copy out of that function's reach ON PURPOSE -- the dependency is not
+ * worth a string function -- so the guard is owed here BY HAND rather than by
+ * importing it. Unreachable from the two registered tasks today, which read this
+ * catalogue's own rows.
  */
 function bounded(detail: string): string {
   const collapsed = detail.replace(/\s+/g, " ").trim();
