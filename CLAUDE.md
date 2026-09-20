@@ -31,7 +31,9 @@ holds.** An agent-filed ticket lands there by default, where the frontier cannot
 6. **The redesign** — `packages/ui` is already shadcn and the product gets redesigned from the ground
    up. Speccing 5 is not this: four of 5's eight flow problems are data, not design.
 7. **Playback, then the clients, then the demo** ([[0055-web-now-phone-next-tv-last]],
-   [[0115-the-public-release-comes-before-the-playback-half]]).
+   [[0115-the-public-release-comes-before-the-playback-half]]). **5 and 6 sit ahead of 7 by
+   [[0152-two-more-efforts-go-ahead-of-the-playback-half]]**, which takes the second insertion ADR-0115
+   refused and declines to license a fourth.
 
 **A DEFECT BELONGS TO THE PROJECT THAT BUILT IT; A GAP BELONGS TO THE NEXT ONE**, so 4 closes rather
 than becoming the bucket every later finding lands in. CNCORE-159 put deriving Group membership out of
