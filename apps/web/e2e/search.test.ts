@@ -223,6 +223,48 @@ describe("/search", () => {
   });
 });
 
+/**
+ * THE QUERY IS THE ONE PARAMETER IN THIS APP THAT IS FREE TEXT BY DESIGN, and
+ * it lands inside a heading this page speaks in its OWN voice: `Nothing
+ * matched <what you typed>`. ADR-0123 makes whose words a reader is shown the
+ * question this app answers at every seam, and an address anybody can compose
+ * and send is where that question gets asked for real.
+ *
+ * ASSERTED WHERE THE OTHER BOUNDED PARAMETERS ARE. `settings-page.test.ts`
+ * drives `?refused=` at a length nobody typed, and `order-and-narrow.test.ts`
+ * drives a crafted `?kind=` -- both against a served document, because a bound
+ * that holds in a unit test and not over HTTP has not been applied at the seam
+ * a reader arrives through.
+ */
+describe("/search on a query somebody else composed", () => {
+  /**
+   * A CUT, WHICH IS THE FIRST OF ADR-0123'S TWO LEVERS: how MUCH of a
+   * stranger's text this page repeats inside its own sentence.
+   *
+   * MEASURED RATHER THAN ARGUED. Served to the Owner's own install, 16,000
+   * characters of `?q=` arrive verbatim inside `<h2 id="nothing-found">`; at
+   * 20,000 the server answers 431 before the page is reached, so the HTTP
+   * header limit is the only ceiling there was. `TheirWords` does not close
+   * this -- it says of itself that it does not "quote, bound or attribute",
+   * settling WIDTH by breaking a long word, and a value of any length still
+   * occupies the page.
+   */
+  it("quotes back only the opening of a query somebody made enormous", async () => {
+    const flood = `zzzznothinghere${"a".repeat(400)}`;
+
+    const { status, text } = await documentAt(`/search?q=${encodeURIComponent(flood)}`);
+
+    expect(status).toBe(200);
+    const shown = textOf(sectionIn(text, "nothing-found"));
+    // THE ANSWER IS STILL GIVEN, which is the half a bound must not cost.
+    expect(shown).toContain("Nothing matched");
+    expect(shown).not.toContain(flood);
+    // AND THE READER STILL RECOGNISES WHAT THEY ASKED, which is what the
+    // opening is kept for.
+    expect(shown).toContain("zzzznothinghere");
+  });
+});
+
 describe("/search on a result set larger than one page", () => {
   /**
    * WHAT `q` IS. Every titled item in the paged instance carries `story` in its
