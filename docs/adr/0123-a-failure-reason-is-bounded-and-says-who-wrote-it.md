@@ -964,3 +964,72 @@ can be used either way, so there is nothing for an Unlock to unblock.
 - **The page** (`settings-page.test.ts`): the Provider's row says nothing could be read from it and
   quotes zod's `too_big` at `attribution.notice`, and the notice is nowhere on the page. VERIFIED BY
   BREAKING IT: without the ceiling the row said nothing at all, and the test failed on it.
+
+## The rule had three sites in one file that broke it, so the file was swept (CNCORE-249)
+
+The first `/closing-a-spec` run over CNCORE-159 found `packages/providers/src/client.ts`
+interpolating a provider's own string raw into a refusal at three places, while the same file obeyed
+this record twenty lines away in `failed` and imported `shortly` at the top to do it. The rule was
+available at each site and simply not applied.
+
+| Site | Interpolated raw | Whose value |
+| -- | -- | -- |
+| `hopTo` | the provider's `Location` header | the provider's |
+| `readJson`, no body | `response.url` | the caller's path, or a provider's redirect target |
+| `readJson`, oversized | `response.url` | the same |
+
+**MEASURED AT THE SITE THAT WAS FOUND.** `hopTo`'s prose is 42 characters. With the live install's
+own 25-character origin, `http://provider-wiki:8080`, a `Location` longer than **233 characters**
+pushes `is not a URL.` past the cap, and the Owner is handed the provider's string with no verdict
+on it. That is this record's own defect — the cap eating the half that says what is wrong — at a
+site this record had not looked at.
+
+### What the sweep added to the three
+
+**THE FILE WAS WALKED WHOLE RATHER THAN PATCHED AT THE SITES FILED**, and two more values were
+found.
+
+- **`hopTo`'s `from.origin` is the PROVIDER'S on every hop after the first.** `url = hopTo(location,
+  url)` reassigns, so from the second hop on, the URL this sentence names as the one redirecting is
+  itself a URL the provider chose. Nothing bounds its length: `assertContentUrl` checks the scheme
+  and, for a literal address, the range — never how long the host is. The ticket's table had this
+  one as fixed-length prose.
+- **The hop-limit refusal's `base.origin`** is the Owner's configured value, and is bounded anyway.
+
+**THE OWNER'S OWN VALUE IS BOUNDED TOO, AND THAT IS THE ONE DECISION HERE WITH TWO DEFENSIBLE
+ANSWERS.** This record settles it against itself: everything is capped INCLUDING OUR OWN, because
+exempting one branch means the bound holds only while every caller agrees which branch it is on. It
+is also the same string `assertConfigUrl` already bounds for a measured reason — a 147-character
+load balancer name is an ordinary thing for an Owner to type — so leaving it raw in this file would
+assert that the Owner's value is short while the file next door has measured that it is not.
+
+**BOUNDED RATHER THAN DROPPED, WHICH IS THE OPPOSITE OF WHAT `failed` DID**, and the difference is
+whether the value is redundant. The origin left `failed`'s sentence because every reason surface
+prints it in its own lead already and it was competing with a provider's remedy for the same 300.
+Neither holds here. `hopTo`'s origin names WHICH HOP redirected, which no page prints and which is
+the whole content of the sentence once there has been more than one; and these sentences carry no
+provider remedy to be crowded out. Dropping them would cost information to buy headroom that
+bounding already buys.
+
+**THE LONGEST REFUSAL THIS FILE CAN NOW PRODUCE IS 202 CHARACTERS**, at `hopTo` with both of its
+values at full stretch. Measured, not imagined: 42 of prose and two values `shortly` caps at 80. The
+hop limit is 112, the absent body 119 and the oversized body 167.
+
+### Asserted where the cap is applied, and what has no witness
+
+The three filed sites are asserted in `client.test.ts` through `reasonFor`, because that is where
+the cap is applied and an assertion on the raw `Error` would pass at any length. Each drives a real
+loopback stub and asserts the reason ends with its verdict — `is not a URL.`, `the response carried
+no body.`, `size this client will read.` — so removing `shortly` again turns each red. **VERIFIED BY
+WATCHING THEM FAIL FIRST**: each was written before its fix and failed on the missing verdict, with
+the provider's string filling all 300 characters.
+
+**THE TWO ORIGINS HAVE NO WITNESS, AND THAT IS STATED RATHER THAN LEFT TO BE NOTICED.** Driving
+either to full stretch needs a redirect to COMPLETE, and every hop after the first is a content URL
+— so `assertContentAddress` refuses the loopback address every stub in that file listens on before
+the hop is followed. No test in `client.test.ts` completes a redirect, and none covers the hop limit
+at all. Those two are bounded on the argument above, not on a red test.
+
+**THIS RECORD STAYS `accepted`.** Its mechanism was whole and is untouched; what CNCORE-249 changes
+is three callers that were not obeying it, plus two the sweep found. The rule this section adds for
+the next reader is written at the head of `client.ts` as well, where a sixth refusal would be added.

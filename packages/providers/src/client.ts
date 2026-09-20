@@ -26,6 +26,39 @@ import {
 import { bounded, REASON_MAX_LENGTH } from "./reason";
 
 /**
+ * EVERY VALUE THIS FILE INTERPOLATES INTO A REFUSAL GOES THROUGH `shortly`, with
+ * no exception for one this app owns (ADR-0123, CNCORE-249).
+ *
+ * The rule is ADR-0123's: a refusal assembled from a value of any length is not
+ * BOUNDED by the 300-character cap, it is TRUNCATED by it, and what the cap
+ * takes is the END of the sentence -- the half carrying the verdict and the
+ * remedy. So the value is bounded WHERE IT ENTERS and the prose around it is
+ * then fixed-length and always survives.
+ *
+ * THE WHOLE FILE WAS WALKED RATHER THAN THE ONE SITE THAT WAS FOUND. Three
+ * refusals interpolated raw -- `hopTo`'s `Location`, and `readJson`'s
+ * `response.url` twice -- while `failed` bounded its path twenty lines away.
+ * Two more values were found by the sweep and are bounded here for the first
+ * time: `hopTo`'s `from.origin`, which is a URL THE PROVIDER CHOSE on every hop
+ * after the first, and the hop-limit refusal's `base.origin`.
+ *
+ * `base.origin` IS THE OWNER'S OWN VALUE AND IS BOUNDED ANYWAY, which is the one
+ * decision here that had two defensible answers. ADR-0123 settles it: everything
+ * is capped INCLUDING OUR OWN, because exempting one branch means the bound
+ * holds only while every caller agrees about which branch it is on. It is also
+ * the same string `assertConfigUrl` already bounds for a MEASURED reason -- a
+ * 147-character load balancer name is an ordinary thing for an Owner to type --
+ * so leaving it raw here would assert that the Owner's value is short in one
+ * file while the file next door has measured that it is not.
+ *
+ * WHAT NO TEST COVERS, AND WHY. The two origins cannot be driven to full stretch
+ * from `client.test.ts`: reaching either needs a redirect to COMPLETE, and every
+ * hop after the first is a content URL, so `assertContentAddress` refuses the
+ * loopback address a stub in that file listens on before the hop is followed.
+ * They are bounded on the argument above rather than on a red test.
+ */
+
+/**
  * A provider, as CanonCore knows it: a URL, and a validated response shape
  * (ADR-0031). Never a plugin, never code running inside the app.
  */
@@ -308,7 +341,7 @@ export function createProviderClient({
       dispatcher = contentDispatchers[waiting];
     }
 
-    throw new OutboundRefused(`refused ${base.origin}: more than ${MAX_HOPS} redirects.`);
+    throw new OutboundRefused(`refused ${shortly(base.origin)}: more than ${MAX_HOPS} redirects.`);
   }
 
   /**
@@ -399,7 +432,7 @@ function hopTo(location: string, from: URL): URL {
     return new URL(location, from);
   } catch {
     throw new OutboundRefused(
-      `refused a redirect from ${from.origin}: \`${location}\` is not a URL.`,
+      `refused a redirect from ${shortly(from.origin)}: \`${shortly(location)}\` is not a URL.`,
     );
   }
 }
@@ -515,12 +548,13 @@ async function firstBytesOf(response: Response): Promise<string> {
  */
 async function readJson(response: Response): Promise<unknown> {
   const body = response.body;
-  if (!body) throw new OutboundRefused(`refused ${response.url}: the response carried no body.`);
+  if (!body)
+    throw new OutboundRefused(`refused ${shortly(response.url)}: the response carried no body.`);
 
   const { bytes, cut } = await readAtMost(body, MAX_BODY_BYTES);
   if (cut) {
     throw new OutboundRefused(
-      `refused ${response.url}: the response body is larger than the ${MAX_BODY_BYTES}-byte size this client will read.`,
+      `refused ${shortly(response.url)}: the response body is larger than the ${MAX_BODY_BYTES}-byte size this client will read.`,
     );
   }
   return JSON.parse(new TextDecoder().decode(bytes));
