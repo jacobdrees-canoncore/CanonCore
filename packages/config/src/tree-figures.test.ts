@@ -633,6 +633,69 @@ describe("a figure this tree states about itself", () => {
   });
 
   /**
+   * THE TABLE COVERS ITS OWN SIZE, AND THAT COVER IS THE REMOVABLE PART
+   * (CNCORE-278, ADR-0175).
+   *
+   * ADR-0153 states how many claims this table holds and how many files it
+   * reads, and two rows above hold both figures to the table itself. Those two
+   * rows are the only thing standing between that record and an unguarded
+   * figure, and DELETING THEM IS SILENT: the suite was run with both removed on
+   * 2026-09-21 and all fifteen tests passed, leaving "fifty-five claims across
+   * twenty-four files" checked by nothing.
+   *
+   * That is this file's own "A FIGURE MISSING FROM THE TABLE IS NOT CAUGHT"
+   * arriving at the one document that states the table's size. Everywhere else
+   * a missing claim is a figure nobody derives; here it is the derivation of
+   * the record that governs every other claim.
+   *
+   * THE APPEND PATH IS NOT WHAT THIS GUARDS, because it was measured LOUD.
+   * CNCORE-278 was filed asserting that the stated count goes silently wrong
+   * whenever two branches append and only one updates the prose. Two claims
+   * were appended with the prose left alone on 2026-09-21 and the comparison
+   * below reported `states 55 for the claims this table holds; the tree holds
+   * 57`. A conflict plus that red is the right failure for an append and no
+   * guard is owed it; the dispatcher filed the premise and the measurement
+   * refused it.
+   *
+   * HELD TO PRESENCE AND TO TRACKING, never to today's number. Asserting that
+   * `derive()` equals `CLAIMS.length` would recompute the value the way the row
+   * does and pass by construction. What can go wrong without the comparison
+   * below noticing is a row FROZEN to a constant -- `() => 55` agrees with the
+   * prose the day it is written and never moves again -- so the row is held to
+   * moving when the table moves.
+   *
+   * WHAT THIS DOES NOT COVER, said here rather than left to be discovered:
+   * ADR-0153's two figures and nothing else. Every other self-referential claim
+   * in this table is unswept, and the dispatcher declined a sweep of them on
+   * 2026-09-21 as speculative without evidence that another carries the same
+   * hole. A third figure about this table is covered only by being added here,
+   * exactly as a claim is.
+   */
+  it("keeps the rows that hold ADR-0153's own figures, tracking rather than frozen", () => {
+    const record = "docs/adr/0153-a-figure-about-this-tree-is-derived-or-dated.md";
+    const aboutThisTable = CLAIMS.filter((claim) => claim.file === record);
+
+    expect(aboutThisTable.map(({ population }) => population)).toStrictEqual([
+      "the claims this table holds",
+      "the files this table reads",
+    ]);
+
+    // A THROWAWAY ROW ON A NEW FILE MOVES BOTH POPULATIONS AT ONCE, which is
+    // what tells a derivation of the table from a constant that matches it
+    // today. Restored in `finally` because the rows below read the same array.
+    const [claims, files] = aboutThisTable as [Claim, Claim];
+    const statedClaims = claims.derive();
+    const statedFiles = files.derive();
+    CLAIMS.push({ ...(CLAIMS[0] as Claim), file: "docs/adr/0153-a-file-no-claim-names.md" });
+    try {
+      expect(claims.derive()).toBe(statedClaims + 1);
+      expect(files.derive()).toBe(statedFiles + 1);
+    } finally {
+      CLAIMS.pop();
+    }
+  });
+
+  /**
    * BEFORE ANY COMPARISON, because a table that matched nothing would satisfy
    * "they all agree" by having no subject -- `corpus-figures.test.ts`'s reason,
    * and `sweep-shard-citations.test.ts`'s for asking whether it found citations
