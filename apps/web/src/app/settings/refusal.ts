@@ -1,4 +1,4 @@
-import type { WhyNotNamed } from "@canoncore/providers";
+import { shortenTo, type WhyNotNamed } from "@canoncore/providers";
 
 import { oneValue } from "@/components/query-params";
 
@@ -79,4 +79,44 @@ void _theProvidersPackageAgrees;
 export function oneBecause(parameter: string | string[] | undefined): WhyItWasRefused | undefined {
   const word = oneValue(parameter);
   return THE_THREE.find((known) => known === word);
+}
+
+/**
+ * HOW MUCH OF THE REFUSED ENTRY THE SENTENCE QUOTES BACK.
+ *
+ * THE SAME 80 `shortly` USES INSIDE `@canoncore/providers`, and decided here
+ * rather than imported, which is ADR-0123's own arrangement: the cut is shared
+ * and each ceiling sits beside the sentences it bounds. An Owner who typed a
+ * long base URL still recognises its opening, and what they cannot do without
+ * is the clause saying what to do -- which is exactly what keeping the value
+ * short protects.
+ */
+const ENTRY_MAX = 80;
+
+/**
+ * THE ENTRY A REFUSAL IS ABOUT, AT A LENGTH THIS PAGE CHOSE.
+ *
+ * BOUNDED AT THE SEAM, WHICH FOR A QUERY PARAMETER IS HERE. `Reason` states the
+ * rule -- "the LENGTH is not the Provider's to choose either, and that is
+ * settled before it arrives: `reasonFor` caps it at the seam rather than the
+ * page truncating what it was handed" -- and a value off the address has no
+ * earlier seam than the read. It never passes through the Server Action at all:
+ * a hand-typed `/settings?refused=...` reaches this page having touched
+ * nothing else, so a bound applied where the redirect is BUILT would guard the
+ * one path that was never the problem.
+ *
+ * AND THAT IS WHY IT IS BOUNDED RATHER THAN LEFT TO `TheirWords`. That
+ * component says of itself that it does not "quote, bound or attribute" -- it
+ * settles WIDTH, by breaking a long word, and a value of any length still
+ * occupies the page. ADR-0142 fixes how somebody else's text is laid out;
+ * ADR-0123 fixes how much of it this app repeats, and they are two questions.
+ *
+ * WITHOUT IT A FORGEABLE ADDRESS PUTS AN UNBOUNDED STRING INSIDE A SENTENCE
+ * THIS PAGE SPEAKS IN ITS OWN VOICE, which is the harm the closed set above
+ * exists to prevent, arriving through the other parameter. Holding one and not
+ * the other would leave the door open beside the lock.
+ */
+export function theEntryRefused(parameter: string | string[] | undefined): string | undefined {
+  const entry = oneValue(parameter);
+  return entry === undefined ? undefined : shortenTo(entry, ENTRY_MAX);
 }

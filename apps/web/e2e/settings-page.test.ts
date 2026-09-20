@@ -389,6 +389,39 @@ describe("/settings", () => {
     expect(shown).not.toContain("telephone 0800");
   });
 
+  /**
+   * THE ECHOED ENTRY IS BOUNDED, AND THE ADDRESS IS WHY (ADR-0123).
+   *
+   * `?refused=` lands inside a sentence this page speaks in its OWN voice, and
+   * anybody can compose the address it arrives in -- so its LENGTH is no more
+   * the composer's to choose than its words are. `TheirWords` does not close
+   * this: that component says of itself that it does not "quote, bound or
+   * attribute", because it settles WIDTH by breaking a long word, and a value
+   * of any length still fills the page.
+   *
+   * IT IS BOUNDED WHERE IT IS READ rather than where the redirect is built.
+   * A hand-typed address never passes through the Server Action at all, so a
+   * bound applied there would guard the one path that was never the problem.
+   * This test drives the address directly for exactly that reason.
+   */
+  it("quotes back only the opening of an entry somebody made enormous", async () => {
+    const cookie = await logInAt(baseUrl, ownerPassword);
+    const flood = `http://${"a".repeat(400)}.test:8080`;
+
+    const { text } = await documentFrom(
+      baseUrl,
+      `/settings?refused=${encodeURIComponent(flood)}&because=not-a-url`,
+      cookie,
+    );
+
+    const shown = textOf(mainOf(text));
+    // THE REFUSAL IS STILL SAID, which is the half a bound must not cost.
+    expect(shown).toContain("was not named");
+    expect(shown).not.toContain(flood);
+    // AND THE OWNER STILL RECOGNISES WHAT THEY ARE BEING TOLD ABOUT.
+    expect(shown).toContain("http://aaaaaaaaaa");
+  });
+
   it("removes a provider the owner is finished with", async () => {
     const cookie = await logInAt(baseUrl, ownerPassword);
     const provider = "http://no-longer-wanted.test:8080";

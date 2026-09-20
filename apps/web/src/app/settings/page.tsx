@@ -6,13 +6,12 @@ import { Textarea } from "@canoncore/ui/components/textarea";
 import { call } from "@orpc/server";
 import { Moment } from "@/components/moment";
 import { NotLoggedIn } from "@/components/not-logged-in";
-import { oneValue } from "@/components/query-params";
 import { Reason } from "@/components/reason";
 import { TheirWords } from "@/components/their-words";
 import { callerContext } from "@/session";
 
 import { editAllowlist, nameProvider, removeProvider } from "./actions";
-import { oneBecause, type WhyItWasRefused } from "./refusal";
+import { oneBecause, theEntryRefused, type WhyItWasRefused } from "./refusal";
 
 /**
  * WHERE THE OWNER SAYS WHAT THIS INSTANCE REACHES (CNCORE-99, ADR-0121).
@@ -86,7 +85,14 @@ export default async function SettingsPage({
 
   const { providers, allowlist } = await call(appRouter.settings.read, {}, { context });
   const asked = await searchParams;
-  const refused = oneValue(asked.refused);
+  /*
+   * THE ENTRY, BOUNDED WHERE IT IS READ (ADR-0123). `?refused=` is in an
+   * address anybody can compose, and it lands inside a sentence this page
+   * speaks in its own voice, so its LENGTH is not the composer's to choose any
+   * more than its WORDS are -- `refusal.ts` holds both rules, one per
+   * parameter.
+   */
+  const refused = theEntryRefused(asked.refused);
   /*
    * WHICH REFUSAL, read apart from WHAT was refused (CNCORE-262). The entry can
    * be blank -- a box of spaces is a real thing an Owner submits -- and

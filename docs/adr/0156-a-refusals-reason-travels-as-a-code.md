@@ -65,6 +65,9 @@ Three surfaces report a refusal through an address, and all three carry a code:
 `/login` carries the reason in `?refused=` itself and identifies nothing, because it has nothing to
 echo: the value refused is a password. That is the same rule with one parameter rather than two.
 
+Of the two that DO echo a value, only `/settings` bounds it; `/items/<id>` echoes a uuid, whose
+length it does not check either. CNCORE-281 holds that half.
+
 ## As built, under CNCORE-262: the rule is whole where a reason travels, and eleven refusals do not travel at all
 
 **BUILT.** Every surface that puts a reason in an address puts a code there, and each holds it to a
@@ -80,6 +83,17 @@ Two properties came out of writing it that the record above would not have predi
   three; `/settings` renders four. The fourth is the surface's own word for a refusal that was not
   about the reader's text, so the two sets are related by a total function rather than equal, and the
   type holds that rather than a comment.
+
+- **The closed set holds the REASON and nothing holds the VALUE, unless something is made to.**
+  `?because=` is admitted from three words; `?refused=` is the Owner's own text and cannot be, since
+  the whole point is to echo it. So the second parameter needs the other half of ADR-0123 — a
+  CEILING — and it needs it at the READ rather than at the redirect, because an address somebody
+  typed by hand never passes through the Server Action that builds one. `TheirWords` does not
+  supply it: that component settles WIDTH, and says of itself that it does not "quote, bound or
+  attribute". **A surface adopting this rule owes a bound on the echoed value as surely as a closed
+  set on the reason, and the two are separate rules about separate parameters.** Raised by the
+  DISPATCHER on 2026-09-20 against CNCORE-262's own PR, which had argued the case for the reason and
+  left the value beside it open.
 
 **NOT BUILT.** The rule governs a reason that travels; it says nothing about the refusals that never
 set out. **Eleven call sites end `if (refused) return;`** and report through the page's re-read

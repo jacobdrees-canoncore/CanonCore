@@ -64,3 +64,17 @@ export {
   type SearchedProvider,
   searchProviders,
 } from "./search";
+/**
+ * THE CUT ITSELF, AND NOT EITHER CEILING (CNCORE-269, CNCORE-262).
+ *
+ * `shortly` and `bounded` stay private -- `boundary.test.ts` says so of the
+ * first in as many words -- because each carries a NUMBER that belongs beside
+ * the sentences it bounds, and a caller outside this package is not bounding
+ * one of those sentences. What a caller outside CAN need is the cut: ending on
+ * a whole code point, with the marker inside the bound. `apps/web` reached for
+ * it when the settings surface began echoing an address's own value into a
+ * sentence, and the alternative was a fourth hand-maintained copy of the same
+ * five lines -- which is the cost ADR-0123 records `packages/tasks` already
+ * paying, and the drift CNCORE-269 merged two copies to end.
+ */
+export { shortenTo } from "./shorten";
