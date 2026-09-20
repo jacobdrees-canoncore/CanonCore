@@ -129,6 +129,16 @@ export function oneGroup(parameter: string | string[] | undefined): string | und
  * `group`, which never share a link with them, and ahead of the cursor.
  * `?provider=<url>&container=<id>&after=<id>` is a container picked from page
  * two, and the form's own `?provider=<url>&container=<id>` is this order too.
+ *
+ * `record` ARRIVED WITH CNCORE-238 AND JOINED THIS LIST AT CNCORE-239, which is
+ * when it first shared an address with anything. It was written by ONE form and
+ * nothing else -- and an address carrying a single parameter has no order to
+ * keep, which is the exemption two paragraphs up. Then the way to a record's
+ * Container began carrying the SEARCH that found it, so that form writes `q`,
+ * `group`, `provider` and `record` together and the order became a real
+ * question. It sits behind `container` because it is the same half of the list:
+ * what the page is asked. A browser submits a form in the order its fields
+ * stand in the document, so the fields there stand in this one.
  */
 const IN_THE_FIXED_ORDER = [
   "via",
@@ -137,6 +147,7 @@ const IN_THE_FIXED_ORDER = [
   "group",
   "provider",
   "container",
+  "record",
   "after",
   "placedAfter",
   "letter",

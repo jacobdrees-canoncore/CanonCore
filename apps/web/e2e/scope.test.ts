@@ -96,6 +96,12 @@ const IN_THE_ONE_ORDER = [
   "placed",
   "q",
   "group",
+  // `provider` AND `container` ARRIVED WITH CNCORE-187 and `record` with
+  // CNCORE-239, when the way to a record's Container began carrying the search
+  // that found it -- four parameters on one form, which is an order to keep.
+  "provider",
+  "container",
+  "record",
   "after",
   "placedAfter",
   "letter",
