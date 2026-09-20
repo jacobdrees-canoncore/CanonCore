@@ -64,17 +64,33 @@ const TIMELINES = [
 ];
 
 /**
- * The REAL positions a row aggregated, with the NULLs dropped.
+ * The REAL positions in an aggregated array, with the NULLs dropped.
  *
  * Both claims below are about where a story SITS, and a NULL is the absence of that
- * (ADR-0018): counting one would let `{null, 29}` read as two points. `unknown[]`
+ * (ADR-0018): counting one would let `{null, 29}` read as two points. `unknown`
  * because `array_agg` arrives untyped, and a row is a database answer rather than a
  * value this file constructed.
  */
-function placedAt(row: Record<string, unknown>): number[] {
-  const positions = row.positions;
-  if (!Array.isArray(positions)) throw new Error(`no positions on ${JSON.stringify(row)}`);
-  return [...new Set(positions.filter((at): at is number => typeof at === "number"))];
+function realPositions(aggregated: unknown): number[] {
+  if (!Array.isArray(aggregated))
+    throw new Error(`not an aggregate: ${JSON.stringify(aggregated)}`);
+  return aggregated.filter((at): at is number => typeof at === "number");
+}
+
+/**
+ * WHAT EACH ORDERING SAYS ABOUT ONE ITEM, as one string per ordering that SPOKE.
+ *
+ * An ordering holding the item at no position said nothing (ADR-0018) rather than
+ * disagreeing, so it is dropped; the rest are compared whole, because two orderings
+ * agree only if they put the story in all the same places. A Set of them sized above
+ * one IS the disagreement.
+ */
+function whatEachOrderingSays(row: Record<string, unknown>): Set<string> {
+  const orderings = row.by_ordering;
+  if (!Array.isArray(orderings)) throw new Error(`no orderings on ${JSON.stringify(row)}`);
+  return new Set(
+    orderings.map((positions) => realPositions(positions).join(",")).filter((said) => said !== ""),
+  );
 }
 
 const owned = new AsyncDisposableStack();
@@ -187,22 +203,32 @@ test("the wiki is recorded as the Source of what landed", async () => {
  * as those two numbers, for the reason the floors above are floors -- editors edit. On
  * the Owner's install on 2026-09-20 that was 5,680 of 5,789 items in several orderings.
  *
+ * READ PER ORDERING AND COMPARED ACROSS THEM, NOT POOLED. Pooling every position of an
+ * item and counting the distinct ones is satisfied by a REPEAT INSIDE ONE ordering --
+ * which is the test below this one, ADR-0009's, and would leave this one green on a
+ * catalogue where no two orderings disagreed about anything. Each ordering says where it
+ * puts the story; two saying different things is the claim.
+ *
  * NULLS ARE NOT A DISAGREEMENT. A member a source placed nowhere carries `position`
- * NULL (ADR-0018), and `{null, 29}` is one ordering speaking and one silent -- so the
- * positions compared here are the real ones.
+ * NULL (ADR-0018): an ordering holding the story at no position said nothing rather than
+ * something else, so it is dropped rather than counted as a third opinion.
  */
 test("one Item sits in SEVERAL Orderings at different Positions", async () => {
   const { rows } = await db.execute(sql`
-    SELECT i.title, count(DISTINCT p.container_id) AS orderings,
-           array_agg(DISTINCT p.position) AS positions
-    FROM items i JOIN placements p ON p.item_id = i.id
+    SELECT i.title, count(*) AS orderings,
+           jsonb_agg(per.positions ORDER BY per.container_id) AS by_ordering
+    FROM (
+      SELECT item_id, container_id, array_agg(position ORDER BY position) AS positions
+      FROM placements GROUP BY item_id, container_id
+    ) per
+    JOIN items i ON i.id = per.item_id
     GROUP BY i.id, i.title
-    HAVING count(DISTINCT p.container_id) > 1
-    ORDER BY count(DISTINCT p.container_id) DESC, i.title
+    HAVING count(*) > 1
+    ORDER BY count(*) DESC, i.title
     LIMIT 5`);
   for (const row of rows)
-    console.log(`  ${row.title}: ${row.orderings} orderings at ${row.positions}`);
-  expect(rows.some((row) => placedAt(row).length > 1)).toBe(true);
+    console.log(`  ${row.title}: ${row.orderings} orderings saying ${row.by_ordering}`);
+  expect(rows.some((row) => whatEachOrderingSays(row).size > 1)).toBe(true);
 });
 
 /**
@@ -231,5 +257,5 @@ test("a story listed at several points of one timeline arrives as several Placem
     ORDER BY count(*) DESC
     LIMIT 5`);
   for (const row of rows) console.log(`  ${row.title}: ${row.times}x at ${row.positions}`);
-  expect(rows.some((row) => placedAt(row).length > 1)).toBe(true);
+  expect(rows.some((row) => realPositions(row.positions).length > 1)).toBe(true);
 });
