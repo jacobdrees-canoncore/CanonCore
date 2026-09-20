@@ -44,7 +44,7 @@ the require hook, and the server bundle's own. The first deleted the key and the
 refilled it. **ONE LOAD CANNOT SHOW THIS**, which is why a suite that loads the module in every
 other case missed it.
 
-## Neither loader was at fault, and both were blamed for a year
+## Neither loader was at fault, and both were blamed
 
 `apps/web/e2e/global-setup.ts` has said since CNCORE-99 that the leak was "not dotenv doing it ...
 but Next's own env loading inside the server". CNCORE-270 was filed with a third account again:
