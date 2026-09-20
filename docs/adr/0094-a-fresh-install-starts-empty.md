@@ -168,8 +168,9 @@ a client one, so the directive bought nothing and cost the header the only fact 
 directive came off and neither child changed.
 
 **SO THE HEADER ANSWERS THE SAME THREE ANSWERS OFF THE SAME TWO FACTS AS THE EMPTY STATE.** An
-owner sees both routes, unchanged — and since CNCORE-243 below, an `Account` control they did not
-have here before, because "unchanged" is exactly what this sentence got wrong about their posture. A reader with no session on an instance that HAS a password is
+owner sees both routes, unchanged — and since CNCORE-243 below, an `Account` control they did
+not have here before, because "unchanged" is exactly what this sentence got wrong about their
+posture. A reader with no session on an instance that HAS a password is
 offered `/login`, and that link PREVENTS A GAP RATHER THAN CLOSING ONE, which is worth stating the
 right way round. A rendered path to `/login` already existed and ran through the very link this
 change removes: `New item` in the nav, followed to `/new`, which answers a caller with no session
@@ -184,7 +185,12 @@ that reader a login either: nobody can log in there, the owner included.
 NOBODY READ AS A CONSEQUENCE (CNCORE-243).** The paragraph above defends the thinner header with
 "`/settings`, `/tasks` and `/devices` are the owner's surfaces too, and not one of them has ever
 been in the nav". That sentence is true, it carries the argument, and it is also the defect: all
-three hang off `/login`, together with Log out, and `/login` is the one page that links them. The
+three hang off `/login`, together with Log out. `/tasks` and `/devices` are linked from NOWHERE
+else in the product; `/settings` is linked from five notices as well (`/`, `/groups`, `/import`
+twice, and `no-provider-allowlisted.tsx`), and every one of them renders only on an empty catalogue
+or an instance with nothing allowlisted — the two states an owner leaves behind for good the moment
+they fill one and name a Provider. So on a working install `/login` is the one page that links all
+four, which is the install the walk measured. The
 header was the only thing in the product rendering a link to `/login`, and dropping it for the owner
 — correctly, since a control labelled `Log in` that logs you out is a lie — dropped the route to
 the page carrying the other four. An owner with a session could reach Settings, Tasks, Devices and
@@ -206,17 +212,21 @@ nav. The words are `Account` rather than `Log in`, and `/login` is headed `Accou
 with a session, because the page a link promises has to be the page that arrives. **THAT WORD SITS
 IN MILD TENSION WITH ADR-0044'S "no signup, no account to create", AND IS CHOSEN ANYWAY**: that
 record refuses an account to CREATE, not a name for the page where the one owner's session lives,
-and it is the word both incumbents use. `CONTEXT.md` does not carry it, for the reason it carries no
-other surface name.
+and it is the word both incumbents use. `CONTEXT.md` CARRIES it, beside `Work-browsing` and
+`Catalogue search`: that file is binding on UI copy and already names surfaces, so a new one that
+stayed out of it would be a word in the product that the glossary does not govern. (This paragraph
+said the opposite first, on the false ground that the glossary carries no surface names.)
 
 **ASSERTED IN BOTH POSTURES, AND ONE OLD ASSERTION HAD TO GO WITH IT.** `header.test.ts` reads the
 owner's header for an `Account` link at `/login` and refuses any link labelled `Log in` there, and
 the visitor's for the reverse. That file asserted `not.toContain('href="/login"')` for the owner
 until now: the ADDRESS was standing in for the WORDS, and both postures link that address once one
 of them calls it something else, so the proxy stopped telling them apart and was replaced where it
-stood rather than deleted. The four document-wide `not.toContain('href="/login"')` assertions this
-record lists elsewhere are unaffected: every one of them is made against the instance that sets no
-password, where nobody holds a session and no `Account` control renders.
+stood rather than deleted. The document-wide `not.toContain('href="/login"')` assertions this
+record lists elsewhere are unaffected, and the reason is a property rather than a count: every one
+of them is made against the instance that sets no password, where nobody holds a session and so no
+`Account` control renders. (A count stood here first and was wrong by one, which is the trap this
+record's own "COUNT rather than quote a figure" lesson is about.)
 
 **AND EVERY SURFACE THAT OFFERS A LOGIN NOW READS WHETHER THERE IS ONE, WHICH IS SEVEN RATHER THAN
 TWO (CNCORE-144, CNCORE-146).** `/new`, `/import`, `/tasks`, `/settings` and `/devices` each

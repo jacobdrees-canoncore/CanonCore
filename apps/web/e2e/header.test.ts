@@ -72,12 +72,11 @@ describe("the header, to the owner", () => {
 
   it("ends the row with the way to their own page, called something they can take", async () => {
     // WHAT THINNING THE NAV LEFT WITH NO DOOR (CNCORE-243). `/login` is where
-    // an owner logs out and the only page linking `/settings`, `/tasks` and
-    // `/devices` -- and once they have a session nothing in the product links
-    // `/login`, so all four were reachable by typing an address and no other
-    // way. Plex and Jellyfin both end the header with one account control and
-    // hang the administrative routes off it, which keeps the nav a map of the
-    // collection while giving the account a visible door.
+    // an owner logs out, and on a filled install it is the only page carrying
+    // `/settings`, `/tasks` and `/devices` -- so once they have a session and
+    // nothing links `/login`, all four are reachable by typing an address and
+    // no other way. `header.tsx` carries the rest of the reason, including
+    // what the two incumbents do and why this is one control and not four.
     const owner = await logInAt(baseUrl, inject("ownerPassword"));
 
     const { status, text } = await documentFrom(baseUrl, "/works", owner);

@@ -165,10 +165,14 @@ export default async function Header() {
             AND THE OWNER'S OWN PAGE, WHICH THINNING THE NAV LEFT WITH NO DOOR
             (CNCORE-243). The link below prevents the visitor's gap; this one
             closes the owner's, and it is the same gap seen from the other
-            posture. `/login` is where an owner logs out and it is the ONLY
-            page in the product linking `/settings`, `/tasks` and `/devices` --
-            so once they had a session, nothing linked `/login` and all four
-            were reachable by typing an address and no other way.
+            posture. `/login` is where an owner logs out, and `/tasks` and
+            `/devices` are linked from nowhere else at all -- `/settings` also
+            from five notices, every one of which renders only on an empty
+            catalogue or an instance with nothing allowlisted, which an owner
+            leaves behind the moment they fill one and name a Provider. So on a
+            working install this page carries all four, and once the owner had
+            a session nothing linked it: all four were reachable by typing an
+            address and no other way.
 
             ONE CONTROL RATHER THAN FOUR NAV LINKS, which is what Plex and
             Jellyfin both do: the account sits at the end of the header and the
