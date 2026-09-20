@@ -43,11 +43,16 @@ export default defineConfig({
      *
      * WHAT THE PARALLELISM IS WORTH HERE WAS NOT MEASURED, and saying so is
      * the honest half: the serial run needed to price it was not taken, so no
-     * ratio is stated. What IS known is the parallel side -- `pnpm test:e2e`
-     * on this branch ran 24 files and 342 tests in 166s -- on this Mac on
-     * 2026-09-20, load average around 9 with other agents working, every file
-     * of it standing up or sharing a real Next server. `time pnpm test:e2e`
-     * takes it again.
+     * ratio is stated. What IS known is the parallel side -- the whole suite
+     * ran in a little over two minutes on this Mac on 2026-09-20, load average
+     * around 9 with other agents working, every file of it standing up or
+     * sharing a real Next server. `time pnpm test:e2e` takes it again.
+     *
+     * NO FILE OR TEST COUNT IS QUOTED HERE ON PURPOSE. Those move with every
+     * merge -- this sentence said 341, then 342, then 343 across one
+     * afternoon's rebases -- and a figure that rots weekly is ADR-0153's
+     * defect, not its remedy. The duration and the conditions are what the
+     * decision rests on; `tree-figures.ts` derives the counts that matter.
      */
   },
 });
