@@ -1654,8 +1654,18 @@ async function PlaceAnItem({
         this asserting the first one alone while `PLACEMENT_REFUSALS` also holds
         `23503` -- an item or container that is not there -- so an owner whose
         item had since been deleted was told it was already placed, which is a
-        false reason rather than a vague one. The router's own message says both;
-        this is that message in the reader's words.
+        false reason rather than a vague one.
+
+        TODO(CNCORE-275): AND IT IS TWO OF FOUR NOW, so the same false reason is
+        back. That last clause used to read "The router's own message says both;
+        this is that message in the reader's words", and it was true while the
+        router named two. CNCORE-255 made `placement.place` answer the cause
+        that actually refused it -- a Repeat at one position, no such item or
+        container, a cycle, or a position the column cannot hold -- so a cycle
+        or an overflow renders here as one of the two sentences below, which is
+        false rather than vague. The fix is to READ the refusal rather than
+        extend this list, and it needs a decision this copy cannot take: the
+        sentence has to survive `placeItemInContainer`'s redirect.
       */}
       {refused && (
         <p className="mt-2 text-sm text-destructive">

@@ -439,9 +439,17 @@ export async function movePlacement(form: FormData): Promise<void> {
    * A REFUSAL IS AN ANSWER (CNCORE-127), and this action has nothing to add to
    * either of the two it can meet, so what comes back is not read. NOT_FOUND is
    * a stale page -- the placement was removed in another tab, or the link was
-   * shared -- and BAD_REQUEST is the catalogue refusing the move itself, which today is a container asked to
-   * hold something it already sits inside (migration 15). Neither is a fault,
-   * and the container AS IT STANDS is the honest answer to both.
+   * shared -- and BAD_REQUEST is the catalogue refusing the move itself.
+   * Neither is a fault, and the container AS IT STANDS is the honest answer to
+   * both.
+   *
+   * TODO(CNCORE-275): "which today is a container asked to hold something it
+   * already sits inside (migration 15)" stood here and named ONE of five.
+   * `placement.move` can also be refused by a Repeat at one position, an item
+   * or container that is not there, a position the column cannot hold, and a
+   * placement outside the destination container. Since CNCORE-255 the procedure
+   * answers whichever one it was, and this action still shows the Owner none of
+   * them.
    */
   await whatTheProcedureAnswered(
     call(

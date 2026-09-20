@@ -352,7 +352,7 @@ describe("placement.move", () => {
     // `move` named NOTHING about until CNCORE-255: the declared sentence spoke
     // only of a container holding what it sits inside, which is a different
     // refusal, so the Owner was told the wrong thing rather than too little.
-    expect(error?.message).toBe("That move named a sibling this container does not hold.");
+    expect(error?.message).toBe("That move named a placement this container does not hold.");
     // AND NOTHING LANDED, which is the half a refusal alone would not prove.
     const origin = await call(appRouter.item.get, { id: releaseOrder }, { context });
     expect(origin.holds.rows.map(({ id, position }) => ({ id, position }))).toStrictEqual([
@@ -408,6 +408,8 @@ describe("placement.move", () => {
     expect(isDefinedError(error) && error.code).toBe("BAD_REQUEST");
     // THE ONE CAUSE THE OLD SENTENCE GOT RIGHT, kept as a guard so the change
     // that made the other four true cannot quietly cost this one its answer.
-    expect(error?.message).toBe("A container cannot hold something it already sits inside.");
+    expect(error?.message).toBe(
+      "A container cannot hold itself, or something it already sits inside.",
+    );
   });
 });

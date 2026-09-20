@@ -167,8 +167,10 @@ export function isRefusalOn(codes: ReadonlySet<string>, error: unknown): boolean
  */
 function refusalIn(reasons: Readonly<Record<string, string>>, error: unknown): string | undefined {
   for (const code of sqlstatesIn(error)) {
-    const reason = reasons[code];
-    if (reason !== undefined) return reason;
+    // `hasOwn`, SO `constructor` AND `toString` ARE NOT REASONS. `code` is a
+    // driver's string and this lookup is a plain object, so an inherited member
+    // would otherwise answer here and be thrown as the Owner's sentence.
+    if (Object.hasOwn(reasons, code)) return reasons[code];
   }
   return undefined;
 }
@@ -238,7 +240,15 @@ const PLACEMENT_REFUSALS: Readonly<Record<string, string>> = {
   "23505":
     "That item is already in that container at that position, or already there with no position given.",
   "23503": "No such item or container.",
-  "23514": "A container cannot hold something it already sits inside.",
+  /*
+   * TWO RAISES SHARE THIS ONE CODE, so the sentence has to hold for both.
+   * `refuse_placement_cycle` (migration 15) raises `container % cannot hold
+   * itself` when `item_id = container_id`, and `% already holds % through
+   * placements` for the walk -- both `USING ERRCODE = 'check_violation'`. An
+   * earlier version of this line named the walk alone, which is the defect
+   * CNCORE-255 exists to close, one level down from the router.
+   */
+  "23514": "A container cannot hold itself, or something it already sits inside.",
   "22003": "That position is outside the range the catalogue can store.",
 };
 
@@ -281,8 +291,10 @@ export async function placeItemByHand(
   } catch (cause) {
     // NARROWED, SO A FAULT STAYS A FAULT. Only the rules the owner can break
     // become a refusal; everything else is rethrown untouched. THE SENTENCE IS
-    // THE MATCHED CODE'S, not the set's: `placement.place` passes this message
-    // to the Owner verbatim, so a generic one would lose the cause (CNCORE-255).
+    // THE MATCHED CODE'S, not the set's: `placement.place` answers this message
+    // rather than its declared one, so a generic sentence would lose the cause
+    // (CNCORE-255). What READS it is the procedure's caller -- the web surface
+    // still renders its own copy and discards this, which is CNCORE-275.
     const refused = refusalIn(PLACEMENT_REFUSALS, cause);
     if (refused !== undefined) throw new PlacementRefused(refused, { cause });
     throw cause;
@@ -550,7 +562,7 @@ export async function movePlacementByHand(
          * purpose. One transaction, so nothing lands.
          */
         if (!shifted) {
-          throw new PlacementRefused("That move named a sibling this container does not hold.");
+          throw new PlacementRefused("That move named a placement this container does not hold.");
         }
       }
 

@@ -57,10 +57,12 @@ export const placement = {
         /*
          * EVERY CAUSE THAT REACHES HERE, which is the contract this publishes
          * and the fallback if one ever arrives without a sentence of its own.
-         * The Owner normally reads the MATCHED cause instead -- see the handler.
+         * A CALLER normally reads the MATCHED cause instead -- see the handler.
+         * The web surface is not yet such a caller: it renders its own copy and
+         * discards this (CNCORE-275).
          */
         message:
-          "That item is already in that container at that position, no such item or container, a container cannot hold something it already sits inside, or that position is outside the range the catalogue can store.",
+          "That item is already in that container at that position, no such item or container, a container cannot hold itself or something it already sits inside, or that position is outside the range the catalogue can store.",
       },
     })
     .handler(async ({ input, context, errors }) => {
@@ -86,11 +88,13 @@ export const placement = {
         /*
          * THE MESSAGE IS PASSED, NOT JUST THE CAUSE. `ORPCError.toJSON`
          * serialises `{defined, code, status, message, data}` and NOTHING
-         * ELSE, so a `cause` never crosses the wire and the Owner would read
+         * ELSE, so a `cause` never crosses the wire and the caller would read
          * the declared sentence above -- which names four causes and settles
-         * none of them. `provider.beginImportRun` and `settings.ts` pass
-         * `cause.message` for the same reason. The cause still travels for the
-         * server's own chain.
+         * none of them. This is the rule ADR-0154 records after the same defect
+         * one constraint over, and it names this procedure as a site still
+         * using the dropped-sentence shape; `provider.beginImportRun` and
+         * `settings.ts` pass `cause.message` for the same reason. The cause
+         * still travels for the server's own chain.
          */
         if (cause instanceof PlacementRefused) {
           throw errors.BAD_REQUEST({ message: cause.message, cause });
@@ -157,11 +161,11 @@ export const placement = {
       BAD_REQUEST: {
         /*
          * ALL FIVE, which is one more than `place` has: a move can also name a
-         * sibling outside its destination. Contract and fallback both; the
-         * Owner normally reads the matched cause -- see the handler.
+         * placement outside its destination. Contract and fallback both; a
+         * caller normally reads the matched cause -- see the handler.
          */
         message:
-          "That item is already in that container at that position, no such item or container, a container cannot hold something it already sits inside, that position is outside the range the catalogue can store, or that move named a sibling this container does not hold.",
+          "That item is already in that container at that position, no such item or container, a container cannot hold itself or something it already sits inside, that position is outside the range the catalogue can store, or that move named a placement this container does not hold.",
       },
     })
     .handler(async ({ input, context, errors }) => {
@@ -175,7 +179,7 @@ export const placement = {
        * declared sentence above names (CNCORE-255): a Repeat landing on a tuple
        * another copy holds (ADR-0009), an item or container that is not there,
        * a cycle (migration 15), a position the 32-bit column cannot hold, and a
-       * sibling outside the destination container. An earlier version of this
+       * placement outside the destination container. An earlier version of this
        * comment named the first and third only, which is how the declared
        * sentence came to name one of five and nobody noticed.
        */
