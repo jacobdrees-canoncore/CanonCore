@@ -179,10 +179,24 @@ describe("a setup that starts servers", () => {
  * real `spawn` and a real server either way; only the order is forced. The
  * dispatcher chose this seam on 2026-09-19 as the one that holds both of the
  * ticket's causes.
+ *
+ * AND TODAY IT TAKES NOTHING, WHICH IS THE POINT AND NOT A GAP (CNCORE-257).
+ * `theBuildServing` spawns `next start --port 0`, so the thief resolves 0 and
+ * `port-thief.ts`'s `if (port !== 0)` is false -- measured here, which printed
+ * `resolved port=0, host=127.0.0.1; binds=false`. `port-thief.ts:32` says it in
+ * one line: "A port of 0 names nothing, so it takes nothing."
+ *
+ * ITS WORTH IS AS A GUARD RATHER THAN AS A REPRODUCTION, exactly as the same
+ * helper's case in `live/provider.test.ts` is. Nothing below reproduces
+ * CNCORE-235, because the design that made it possible is gone. What this
+ * fails on is the RETURN of that design: give the server a port before its own
+ * bind and the thief takes it, and this reddens where the suite used to redden
+ * at random on somebody else's machine. The name used to promise the
+ * reproduction and hold the guard.
  */
 describe("a server whose port another process wants", () => {
   it(
-    "starts even when another process takes, just before it binds, any port it was told to use",
+    "starts with a thief armed, which takes nothing while the server is told no port in advance",
     async () => {
       await using owned = new AsyncDisposableStack();
       aPortThief(owned);

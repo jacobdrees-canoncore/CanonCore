@@ -169,7 +169,14 @@ describe("/devices", () => {
     const { status, text } = await documentAt("/devices");
 
     expect(status).toBe(200);
-    expect(text).toContain("Log in");
+    /*
+     * AND NOT `expect(text).toContain("Log in")`, WHICH STOOD HERE UNTIL CNCORE-257.
+     * The header offers `/login` to every reader with no session on an instance
+     * that has a password (CNCORE-139), so that read the SHELL: measured on the
+     * Owner's install, emptying `<main>` entirely leaves it green. The page's own
+     * naming of that step is asserted at the bottom of this file, through
+     * `mainOf`, which is the only read that can tell the two apart.
+     */
     expect(() => sectionIn(text, "devices")).toThrow();
   });
 });

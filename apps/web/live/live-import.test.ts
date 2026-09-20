@@ -63,9 +63,24 @@ const TIMELINES = [
   { id: "249643", name: "Theory:Timeline - Doctor Who universe/AHistory", atLeast: 2_500 },
 ];
 
+/**
+ * The REAL positions a row aggregated, with the NULLs dropped.
+ *
+ * Both claims below are about where a story SITS, and a NULL is the absence of that
+ * (ADR-0018): counting one would let `{null, 29}` read as two points. `unknown[]`
+ * because `array_agg` arrives untyped, and a row is a database answer rather than a
+ * value this file constructed.
+ */
+function placedAt(row: Record<string, unknown>): number[] {
+  const positions = row.positions;
+  if (!Array.isArray(positions)) throw new Error(`no positions on ${JSON.stringify(row)}`);
+  return [...new Set(positions.filter((at): at is number => typeof at === "number"))];
+}
+
 const owned = new AsyncDisposableStack();
 let db: ReturnType<typeof createDb>;
 let client: AppRouterClient;
+let providerUrl: string;
 const imported: Array<{
   id: string;
   name: string;
@@ -75,7 +90,7 @@ const imported: Array<{
 }> = [];
 
 beforeAll(async () => {
-  const providerUrl = await theProviderServing(owned);
+  providerUrl = await theProviderServing(owned);
 
   const databaseUrl = await buildTestDatabase("web");
   db = createDb(databaseUrl, { maxConnections: 2 });
@@ -137,12 +152,45 @@ test("a real Theory:Timeline browses in from the live wiki and lands its Items",
   expect(Number(totals?.items)).toBeGreaterThan(100);
 });
 
+/**
+ * AND `rows.length > 0` IS NOT THAT ASSERTION, WHICH IS WHY IT IS NOT THE ONE MADE
+ * (CNCORE-257). `sources` IS NEVER EMPTY ON A MIGRATED DATABASE: migration 1 seeds
+ * `owner` and migration 17 seeds `derived:sort-name-v1`. Measured on a database this
+ * file's own `buildTestDatabase("web")` had just built -- two rows, `items` 0,
+ * `placements` 0 -- so the count passed with the ENTIRE live import deleted, while
+ * `kind`, `identity` and `label` were selected for `console.log` alone.
+ *
+ * THE IDENTITY IS THE PROVIDER THIS RUN STARTED, not merely the word "provider". A
+ * source row naming some other provider would be a catalogue that recorded the wrong
+ * origin for what landed, which is the failure this claim is here to refuse.
+ */
 test("the wiki is recorded as the Source of what landed", async () => {
   const { rows } = await db.execute(sql`SELECT kind, identity, label FROM sources`);
   console.log(`  sources: ${JSON.stringify(rows)}`);
-  expect(rows.length).toBeGreaterThan(0);
+  expect(rows).toContainEqual({ kind: "provider", identity: providerUrl, label: "provider-wiki" });
 });
 
+/**
+ * THE POSITIONS THEMSELVES, BECAUSE THE DISAGREEMENT IS THE CLAIM (CNCORE-257).
+ *
+ * `rows.length > 0` said only that some item was in two orderings, and the `positions`
+ * it aggregated went to `console.log`. Multi-placement is not "a member of two lists" --
+ * a folder tree with symlinks does that -- it is TWO ORDERINGS DISAGREEING ABOUT WHERE
+ * THE SAME STORY GOES, which is ADR-0018's whole argument against Calibre's
+ * `series_index` (that record, at its Calibre paragraph and at its nullable-column one).
+ * Delete the disagreement -- every placement of one item at one position -- and the old
+ * count passed unchanged; measured on a database seeded to exactly that shape, where the
+ * assertion below reddens.
+ *
+ * THE FIXTURE WAS CHOSEN FOR IT: the header's `The Quantum Archangel (novel)` at 29 of
+ * one timeline and 370 of another. Read as "some row disagrees with itself" rather than
+ * as those two numbers, for the reason the floors above are floors -- editors edit. On
+ * the Owner's install on 2026-09-20 that was 5,680 of 5,789 items in several orderings.
+ *
+ * NULLS ARE NOT A DISAGREEMENT. A member a source placed nowhere carries `position`
+ * NULL (ADR-0018), and `{null, 29}` is one ordering speaking and one silent -- so the
+ * positions compared here are the real ones.
+ */
 test("one Item sits in SEVERAL Orderings at different Positions", async () => {
   const { rows } = await db.execute(sql`
     SELECT i.title, count(DISTINCT p.container_id) AS orderings,
@@ -154,12 +202,25 @@ test("one Item sits in SEVERAL Orderings at different Positions", async () => {
     LIMIT 5`);
   for (const row of rows)
     console.log(`  ${row.title}: ${row.orderings} orderings at ${row.positions}`);
-  expect(rows.length).toBeGreaterThan(0);
+  expect(rows.some((row) => placedAt(row).length > 1)).toBe(true);
 });
 
 /**
  * ADR-0009's REPEAT, which is the shape a folder tree cannot hold at all: the same story
  * listed at several points of ONE chronology, for a recap or a bookend.
+ *
+ * AND `count(*) > 1` IS NOT THAT SHAPE, WHICH IS WHAT `rows.length > 0` COULD NOT SEE
+ * (CNCORE-257). A group of two rows passes that `HAVING` when one of them has NO
+ * position: `{null, 29}` is a member placed once and declared once, not a story at
+ * several points. Measured on the Owner's install on 2026-09-20 -- of 1,537 groups
+ * passing it, 27 are that shape. Seeded to only that shape, the old count passed and the
+ * assertion below reddens.
+ *
+ * A REPEATED POSITION IS NOT THE MECHANISM AND CANNOT BE. `placements_container_item_position`
+ * is UNIQUE NULLS NOT DISTINCT over (owner, container, item, position), so two placements
+ * of one item in one container MUST differ in position; the same measurement found zero
+ * repeated ones, as the constraint requires. The repeat is SEVERAL REAL POINTS, and that
+ * is what is counted here.
  */
 test("a story listed at several points of one timeline arrives as several Placements", async () => {
   const { rows } = await db.execute(sql`
@@ -170,5 +231,5 @@ test("a story listed at several points of one timeline arrives as several Placem
     ORDER BY count(*) DESC
     LIMIT 5`);
   for (const row of rows) console.log(`  ${row.title}: ${row.times}x at ${row.positions}`);
-  expect(rows.length).toBeGreaterThan(0);
+  expect(rows.some((row) => placedAt(row).length > 1)).toBe(true);
 });
