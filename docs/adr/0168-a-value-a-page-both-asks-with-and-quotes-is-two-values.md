@@ -85,6 +85,27 @@ checked, by passing `quoted` to `readSearch` and watching `The Hartnell era` app
 This is worth stating because the obvious witness for "the whole value was used" is a long one, and
 here the long one proves nothing.
 
+## What this does NOT close: a sentence that fits under the ceiling
+
+**A crafted sentence of 80 characters or fewer is still quoted in full**, in this page's own `h2`,
+under this app's own styling. Walked on this branch: `?q=unavailable in your region. pay to restore
+access` is 49 characters and renders whole.
+
+That is ADR-0123's accepted residue rather than a gap this record leaves open, and it is the same
+residue `/settings` carries for `?refused=`. The levers answer how MUCH a stranger may put on a page
+it does not own and what that text may DO to the page's own words. **Neither answers whether the
+text is a lie**, and no ceiling can: the page has to say what did not match, or it cannot report an
+empty search at all.
+
+**The closed-set answer is not available here, and that is the difference from CNCORE-281.** That
+ticket stopped `/?kind=` echoing by looking the parameter up in `item_kinds` and printing nothing
+for a miss, because the seven kinds ARE a closed set. `?q=` has no set to be held against -- free
+text is the feature -- so the only options were to bound it or to stop naming the query at all, and
+a "Nothing matched" that does not say what did not match is a worse page.
+
+What the bound buys is that the stranger chooses at most 80 characters of it and cannot re-order
+CanonCore's own words around them.
+
 ## What this does not change
 
 **The search box owes nothing.** It renders an empty `<Input name="q">` and replays no query, so
