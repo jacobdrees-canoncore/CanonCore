@@ -1,5 +1,3 @@
-"use client";
-
 import { cn } from "@canoncore/ui/lib/utils";
 import type * as React from "react";
 
