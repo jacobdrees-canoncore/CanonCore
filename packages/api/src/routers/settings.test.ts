@@ -135,13 +135,59 @@ describe("naming a provider", () => {
       ),
     );
 
-    expect(isDefinedError(error) && error.code).toBe("BAD_REQUEST");
+    expect(isDefinedError(error) && error.code).toBe("NOT_A_URL");
     const { providers } = await call(
       appRouter.settings.read,
       {},
       { context: await theNextRequest() },
     );
     expect(providers).toEqual([]);
+  });
+
+  /**
+   * THREE MISTAKES THE OWNER CAN MAKE IN ONE BOX, AND THE PROCEDURE TELLS THEM
+   * APART (CNCORE-262). One `BAD_REQUEST` covered all three, so the surface
+   * above could only ever print one sentence -- and it printed the one about
+   * schemes at an Owner who had pasted two URLs that both had schemes.
+   *
+   * THE CODE AND NOT THE MESSAGE IS WHAT IS ASSERTED. `settings/actions.ts` may
+   * not copy a procedure's sentence into an address -- "a sentence nobody owns"
+   * -- so the code is the whole of what travels, and a test pinning the wording
+   * here would pin it in the one place that is specifically not allowed to
+   * carry it.
+   */
+  it("tells nothing named, several named and not a URL apart", async () => {
+    const refusalFor = async (baseUrl: string) => {
+      const { error } = await safe(
+        call(appRouter.settings.nameProvider, { baseUrl }, { context: await theNextRequest() }),
+      );
+      return isDefinedError(error) ? error : undefined;
+    };
+
+    expect((await refusalFor("   "))?.code).toBe("NOTHING_NAMED");
+    expect((await refusalFor("http://a.test:8080 http://b.test:8080"))?.code).toBe(
+      "NOT_ONE_PROVIDER",
+    );
+    expect((await refusalFor("wiki.test"))?.code).toBe("NOT_A_URL");
+  });
+
+  /**
+   * AND ALL THREE ARE REFUSALS RATHER THAN FAULTS, which is one line of oRPC
+   * away from being false. `fallbackORPCErrorStatus` reads
+   * `status ?? COMMON_ORPC_ERROR_DEFS[code]?.status ?? 500`, and none of these
+   * three codes is one oRPC knows -- so a definition that left `status` off
+   * would answer 500, `isARefusal` in `answer.ts` would stop recognising it,
+   * and the Server Action would rethrow into Next's bare `Internal Server
+   * Error`. That is the exact outcome `answer.ts` exists to prevent, so the
+   * status is asserted here rather than trusted to a default.
+   */
+  it("answers all three as refusals, under the status `answer.ts` reads", async () => {
+    for (const baseUrl of ["   ", "http://a.test:8080 http://b.test:8080", "wiki.test"]) {
+      const { error } = await safe(
+        call(appRouter.settings.nameProvider, { baseUrl }, { context: await theNextRequest() }),
+      );
+      expect(isDefinedError(error) && error.status).toBe(400);
+    }
   });
 });
 

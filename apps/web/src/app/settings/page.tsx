@@ -1,5 +1,5 @@
 import { appRouter } from "@canoncore/api/routers";
-import type { DeclaredCredential, Reach } from "@canoncore/providers";
+import type { DeclaredCredential, Reach, WhyNotNamed } from "@canoncore/providers";
 import { Button, buttonVariants } from "@canoncore/ui/components/button";
 import { Input } from "@canoncore/ui/components/input";
 import { Textarea } from "@canoncore/ui/components/textarea";
@@ -12,6 +12,7 @@ import { TheirWords } from "@/components/their-words";
 import { callerContext } from "@/session";
 
 import { editAllowlist, nameProvider, removeProvider } from "./actions";
+import { oneWhy } from "./refusal";
 
 /**
  * WHERE THE OWNER SAYS WHAT THIS INSTANCE REACHES (CNCORE-99, ADR-0121).
@@ -84,7 +85,17 @@ export default async function SettingsPage({
   }
 
   const { providers, allowlist } = await call(appRouter.settings.read, {}, { context });
-  const refused = oneValue((await searchParams).refused);
+  const asked = await searchParams;
+  const refused = oneValue(asked.refused);
+  /*
+   * WHICH REFUSAL, read apart from WHAT was refused (CNCORE-262). The entry can
+   * be blank -- a box of spaces is a real thing an Owner submits -- and
+   * `oneValue` reads a blank parameter as an absent one, so a page that took
+   * the reason from the entry could not report the one refusal whose entry is
+   * blank. It is held to a closed set in `refusal.ts`, because this parameter
+   * is in an address the Owner can edit.
+   */
+  const why = oneWhy(asked.why);
 
   return (
     <main className="container mx-auto max-w-2xl px-4 py-8">
@@ -158,23 +169,7 @@ export default async function SettingsPage({
           />
           <Button type="submit">Name it</Button>
         </form>
-        {refused === undefined ? null : (
-          /*
-            THE ONE REFUSAL THIS SURFACE HAS TO RENDER. An entry that is not a
-            URL is the one thing on this page a person can get wrong, and a
-            re-read cannot report it: "that was not a URL" and "nothing
-            happened" are the same unchanged list. The entry is echoed so the
-            owner can see which one it was, through `TheirWords`, since it is
-            the Owner's words and not this page's (ADR-0142).
-          */
-          <p className="mt-3 text-muted-foreground text-sm">
-            <span className="font-medium">
-              <TheirWords>{refused}</TheirWords>
-            </span>{" "}
-            was not named, because it is not a URL. A Provider is a URL and nothing more, so name it
-            by its base URL, scheme included.
-          </p>
-        )}
+        {why === undefined ? null : <NotNamed why={why} entry={refused} />}
       </section>
 
       <section aria-labelledby="allowlist" className="mt-8">
@@ -210,6 +205,78 @@ export default async function SettingsPage({
         </form>
       </section>
     </main>
+  );
+}
+
+/**
+ * WHAT THE OWNER TYPED THAT WAS NOT A PROVIDER, AND WHICH OF THE THREE IT WAS
+ * (CNCORE-262).
+ *
+ * THE REFUSALS THIS SURFACE HAS TO RENDER, because a re-read cannot report one:
+ * "that was not a URL" and "nothing happened" are the same unchanged list, and
+ * the Owner typed the entry. That is this file's own docstring, and until this
+ * ticket the page honoured it with ONE sentence for three different mistakes.
+ *
+ * THREE REMEDIES, AND TWO OF THEM WERE WRONG. Nothing typed, two pasted at
+ * once, and one entry with no scheme are corrected by typing one, typing fewer,
+ * and adding a scheme -- opposite instructions. The page said "it is not a URL
+ * ... scheme included" to all three, which is false of the paste (both entries
+ * were URLs and both had schemes) and rendered not at all for the blank one.
+ * `ReachNotice` below already refuses to collapse three faults into one
+ * sentence; this is the same argument at the field above it.
+ *
+ * THE ENTRY IS ECHOED WHERE THERE IS ONE, through `TheirWords`, since it is the
+ * Owner's words and not this page's (ADR-0142). The blank refusal names none:
+ * there is nothing to show, and a run of spaces would render as a gap the Owner
+ * would read as a missing word.
+ *
+ * AND THE SENTENCES ARE THIS PAGE'S, never the procedure's. `?why=` is in an
+ * address the Owner can edit, so a page that printed text out of the parameter
+ * would show a stranger's sentence in CanonCore's own voice; `refusal.ts`
+ * admits three words and nothing else, and every word below is written here.
+ */
+function NotNamed({ why, entry }: { why: WhyNotNamed; entry?: string }) {
+  if (why === "nothing-named") {
+    return (
+      <p className="mt-3 text-muted-foreground text-sm">
+        Nothing was named, so nothing changed. A Provider is a URL and nothing more, so name it by
+        its base URL, scheme included.
+      </p>
+    );
+  }
+
+  return (
+    <p className="mt-3 text-muted-foreground text-sm">
+      <WhichEntry entry={entry} />{" "}
+      {why === "not-one-provider" ? (
+        <>
+          was not named, because it is more than one Provider. A Provider is a URL and nothing more,
+          so name them one at a time.
+        </>
+      ) : (
+        <>
+          was not named, because it is not a URL. A Provider is a URL and nothing more, so name it
+          by its base URL, scheme included.
+        </>
+      )}
+    </p>
+  );
+}
+
+/**
+ * The entry the sentence above is about, or what stands in for it.
+ *
+ * AN ADDRESS NAMING A REASON AND NO ENTRY IS REACHABLE BY HAND, and nothing
+ * else: every redirect this app writes carries both. Rather than render a
+ * sentence opening with a gap, it opens with a phrase that is true of the state
+ * -- the Owner is reading a page they were sent to by editing its address.
+ */
+function WhichEntry({ entry }: { entry?: string }) {
+  if (entry === undefined) return <>That entry</>;
+  return (
+    <span className="font-medium">
+      <TheirWords>{entry}</TheirWords>
+    </span>
   );
 }
 

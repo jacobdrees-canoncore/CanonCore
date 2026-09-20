@@ -85,10 +85,25 @@ export function oneGroup(parameter: string | string[] | undefined): string | und
  * scope it is asked within, then where in it the reader stands.
  *
  * NOT EVERY PARAMETER THE APP WRITES. A Member row links `?via=` alone, and a
- * Server Action redirects to one `?refused=` or `?undo=`: an address carrying
+ * Server Action redirects to one `?undo=`: an address carrying
  * one parameter has no order to keep, so those are written where they are
  * rather than routed through here. A second parameter on any of them belongs
  * on this list first.
+ *
+ * `refused` AND `why` ARE THAT SECOND PARAMETER ARRIVING (CNCORE-262), and the
+ * sentence above is the instruction being followed rather than a rule being
+ * broken. `/settings` refuses an entry in one of THREE ways with three
+ * different remedies, and the reason cannot ride in `?refused=` itself: one of
+ * the three is an entry that is blank, which `oneValue` reads as an absent
+ * parameter -- correctly -- so the page rendered nothing at all. The entry and
+ * the word for what is wrong with it are two facts, so they are two
+ * parameters, and this is where their order is settled.
+ *
+ * APPENDED, which is the rule a newcomer meets. `?refused=` is out there today
+ * on `/login` and on an Item's page, and each of those carries it ALONE -- so
+ * no address anywhere is re-spelled by fixing a position for it here, and the
+ * exemption two paragraphs up is exactly why. `why` sits behind `refused`
+ * because it qualifies it: what was refused, then what was wrong with it.
  *
  * STATED ONCE FOR EVERY SURFACE SINCE CNCORE-181. It was two shapes until
  * then: the Item page's four read off an array in `listing.tsx`, and the
@@ -164,6 +179,8 @@ const IN_THE_FIXED_ORDER = [
   "letter",
   "before",
   "placedBefore",
+  "refused",
+  "why",
 ] as const;
 
 /**

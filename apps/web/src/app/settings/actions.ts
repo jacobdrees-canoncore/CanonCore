@@ -9,6 +9,8 @@ import { whatTheProcedureAnswered } from "@/answer";
 import { whatTheFormCarries } from "@/form";
 import { callerContext } from "@/session";
 
+import { REFUSED } from "./refusal";
+
 /**
  * SAYING WHAT THIS INSTANCE REACHES, as Server Actions (CNCORE-99).
  *
@@ -53,6 +55,29 @@ const theAllowlistWritten = z.object({ allowlist: z.string() });
  * owner types into. The entry travels in the query rather than the refusal's own
  * sentence: what is wrong with it is one fact this page can state for itself,
  * and a procedure's message copied into an address is a sentence nobody owns.
+ *
+ * AND WITH THE REASON BESIDE IT SINCE CNCORE-262, because the entry alone could
+ * not carry one. Three mistakes reach here -- nothing typed, several typed, and
+ * one entry that is not a URL -- with three opposite remedies, and the page had
+ * one sentence for all of them: it told an Owner who had pasted two URLs that
+ * theirs "is not a URL" and to add a scheme both of them already had.
+ *
+ * THE BLANK ENTRY IS WHY THE REASON CANNOT RIDE IN `?refused=`. `oneValue`
+ * reads a blank parameter as an ABSENT one -- rightly, for a parameter that
+ * asks a question -- so `?refused=%20` rendered nothing whatever, and the
+ * silence this file's own docstring forbids arrived by every step behaving
+ * correctly. A value the Owner typed can be blank; the word for what was wrong
+ * with it cannot, so they are two parameters.
+ *
+ * READ AS A CODE AND WRITTEN AS THE PAGE'S OWN WORD, never as the message. The
+ * address is the Owner's to edit, so anything copied from a refusal into it
+ * could be re-shown as CanonCore's own sentence; `refusal.ts` holds the closed
+ * set and the page holds the words. This is `/login`'s arrangement, which reads
+ * `refused.code` for the same reason.
+ *
+ * WRITTEN IN ADR-0066'S FIXED ORDER, which `query-params.ts` asks of any
+ * address that grows a second parameter: `refused` names what the page is
+ * talking about and `why` qualifies it.
  */
 export async function nameProvider(form: FormData): Promise<void> {
   const input = whatTheFormCarries(form, theProviderNamed);
@@ -61,7 +86,19 @@ export async function nameProvider(form: FormData): Promise<void> {
   const { refused } = await whatTheProcedureAnswered(
     call(appRouter.settings.nameProvider, input, { context: await callerContext() }),
   );
-  if (refused) redirect(`/settings?refused=${encodeURIComponent(input.baseUrl)}`);
+  if (refused === undefined) return;
+
+  /*
+   * NOTHING TO ECHO WHERE NOTHING WAS TYPED. The entry is whitespace, and a
+   * parameter carrying it would be read as absent anyway -- so the page is told
+   * only what happened, and its sentence for this one names no entry.
+   */
+  if (refused.code === "NOTHING_NAMED") redirect(`/settings?why=${REFUSED.nothing}`);
+  const entry = encodeURIComponent(input.baseUrl);
+  if (refused.code === "NOT_ONE_PROVIDER") {
+    redirect(`/settings?refused=${entry}&why=${REFUSED.several}`);
+  }
+  if (refused.code === "NOT_A_URL") redirect(`/settings?refused=${entry}&why=${REFUSED.notAUrl}`);
 }
 
 /**

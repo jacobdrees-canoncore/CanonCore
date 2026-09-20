@@ -35,7 +35,13 @@ export {
   cmppRecord,
   cmppSearch,
 } from "./cmpp";
-export { nameProvider, parseProviderUrls, removeProvider } from "./configured";
+export {
+  nameProvider,
+  parseProviderUrls,
+  ProviderNotNamed,
+  removeProvider,
+  type WhyNotNamed,
+} from "./configured";
 export {
   type DeclaredCredential,
   type ProviderReach,

@@ -268,6 +268,52 @@ describe("/settings", () => {
     expect(providersIn(answer)).not.toContain(notAUrl);
   });
 
+  /**
+   * A BOX OF SPACES IS REFUSED OUT LOUD (CNCORE-262), and it used to be the one
+   * refusal on this page that rendered NOTHING.
+   *
+   * THE WHOLE CHAIN WORKED AND THE OWNER STILL SAW AN UNCHANGED PAGE.
+   * `z.string().min(1)` accepts `" "`, `parseProviderUrls` splits the space
+   * away to no entries, the procedure refused, the action redirected to
+   * `?refused=%20` -- and `oneValue` reads a blank parameter as an ABSENT one,
+   * correctly, so the page had nothing to render. Every step was right and the
+   * outcome was the exact thing this surface's own docstring forbids: "your
+   * entry was not a URL" and "nothing happened" rendering identically.
+   *
+   * WHICH IS WHY THE REASON TRAVELS SEPARATELY FROM THE ENTRY. A value the
+   * Owner typed can be blank; the word saying what was wrong with it cannot.
+   */
+  it("says a box of nothing but spaces named nothing, rather than saying nothing", async () => {
+    const cookie = await logInAt(baseUrl, ownerPassword);
+
+    const answer = await name(cookie, "   ");
+
+    expect(answer).toContain("Nothing was named");
+  });
+
+  /**
+   * TWO PROVIDERS AT ONCE IS ITS OWN MISTAKE, WITH ITS OWN REMEDY (CNCORE-262).
+   *
+   * THE OLD SENTENCE WAS FALSE OF IT TWICE OVER. It said "it is not a URL" and
+   * "name it by its base URL, scheme included" at an Owner who had pasted two
+   * entries that were both URLs and both had schemes -- so the one fact they
+   * needed, that a Provider is named one at a time, was the one thing the page
+   * did not say. `packages/providers` raised that sentence all along; the
+   * surface just had no way to tell which refusal it had met.
+   */
+  it("tells an Owner who pasted two to name them one at a time, not to add a scheme", async () => {
+    const cookie = await logInAt(baseUrl, ownerPassword);
+    // BOTH ARE URLS AND BOTH CARRY A SCHEME, which is what makes the old
+    // sentence untrue rather than merely unhelpful.
+    const two = "http://a.test:8080 http://b.test:8080";
+
+    const answer = await name(cookie, two);
+
+    expect(answer).toContain("one at a time");
+    expect(answer).not.toContain("it is not a URL");
+    expect(providersIn(answer)).not.toContain(two);
+  });
+
   it("removes a provider the owner is finished with", async () => {
     const cookie = await logInAt(baseUrl, ownerPassword);
     const provider = "http://no-longer-wanted.test:8080";

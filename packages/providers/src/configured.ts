@@ -8,7 +8,50 @@
  * refused at the boundary rather than here.
  */
 
-import { OutboundRefused } from "./boundary";
+import { OutboundRefused, shortly } from "./boundary";
+
+/**
+ * WHICH REFUSAL AN ENTRY MET, as a word rather than as a sentence (CNCORE-262).
+ *
+ * THREE MISTAKES WITH THREE DIFFERENT REMEDIES, and the whole reason this type
+ * exists is that they must never be told alike. An entry that is nothing, an
+ * entry that is several and an entry that is not a URL send the Owner to three
+ * different corrections -- type one, name them one at a time, and include the
+ * scheme -- so a surface that collapsed any two of them would hand out the
+ * wrong one. That is `ReachNotice`'s argument on the settings page already,
+ * arriving at the field directly above it.
+ *
+ * A WORD AND NOT THE SENTENCE, because the sentence is the SURFACE'S. ADR-0123
+ * settles whose words a reader is being shown, and a refusal raised here is
+ * read by an API caller, a log and a page that each say it differently; a
+ * message copied out of this file into an address is a sentence nobody owns,
+ * which is the rule `settings/actions.ts` already states in its own words.
+ */
+export type WhyNotNamed = "nothing-named" | "not-one-provider" | "not-a-url";
+
+/**
+ * An entry the Owner typed that names no one provider, AND WHICH OF THE THREE
+ * WAYS it failed to (CNCORE-262).
+ *
+ * A SUBCLASS RATHER THAN A FIELD ON `OutboundRefused`, because `why` is a fact
+ * about ONE question -- "is this text one provider" -- and that class answers
+ * ADR-0034's two boundaries for every outbound request there is. A field added
+ * there would be `undefined` at every site but these three and would read as
+ * something every refusal ought to carry.
+ *
+ * `config` AS THE BOUNDARY, which is what this refusal actually is: it judges a
+ * URL THE OWNER TYPED, so it is this app talking to them about a setting only
+ * they can change, rather than a provider's claim quoted back.
+ */
+export class ProviderNotNamed extends OutboundRefused {
+  readonly why: WhyNotNamed;
+
+  constructor(message: string, why: WhyNotNamed) {
+    super(message, "config");
+    this.name = "ProviderNotNamed";
+    this.why = why;
+  }
+}
 
 /**
  * Reads the providers this instance searches out of one configured string:
@@ -82,14 +125,49 @@ export function nameProvider(configured: string, baseUrl: string): string {
   // The entry is parsed rather than trusted: `parseProviderUrls` is what refuses
   // one that is not a URL, and what strips the whitespace around what the owner
   // typed into a form.
-  const [entry, ...rest] = parseProviderUrls(baseUrl);
-  if (entry === undefined || rest.length > 0) {
-    throw new OutboundRefused(
-      `\`${baseUrl}\` is not one provider. A provider is a URL and nothing more (ADR-0031), so name them one at a time.`,
+  const [entry, ...rest] = whatWasNamed(baseUrl);
+  /*
+   * NOTHING NAMED AND SEVERAL NAMED ARE TWO MISTAKES, and one `if` answered
+   * both until CNCORE-262. `parseProviderUrls` splits whitespace away, so a box
+   * of spaces is NO entries -- the absence an empty box is, wearing another
+   * spelling -- and it met the sentence written for the owner who pasted two,
+   * telling them to "name them one at a time" about a mistake they had not
+   * made. The remedies are opposites: type one, or type fewer.
+   */
+  if (entry === undefined) {
+    throw new ProviderNotNamed(
+      "no provider was named. A provider is a URL and nothing more (ADR-0031), so name it by its base URL.",
+      "nothing-named",
+    );
+  }
+  if (rest.length > 0) {
+    throw new ProviderNotNamed(
+      `\`${shortly(baseUrl)}\` is not one provider. A provider is a URL and nothing more (ADR-0031), so name them one at a time.`,
+      "not-one-provider",
     );
   }
   if (named.includes(entry)) return configured;
   return [...named, entry].join(BETWEEN_ENTRIES);
+}
+
+/**
+ * The entries ONE THING THE OWNER TYPED splits into, with a refusal that says
+ * WHICH mistake it was rather than only that there was one (CNCORE-262).
+ *
+ * IT RE-RAISES RATHER THAN RE-ASKS. Whether an entry is a URL stays
+ * `parseProviderUrls`'s question and is asked exactly once; what this adds is
+ * the word `not-a-url`, so all three refusals the naming path can raise carry
+ * the same discriminator and the surface reads one field instead of three
+ * shapes. Asking the question a second time here would be the second rule this
+ * file's own docstring refuses.
+ */
+function whatWasNamed(baseUrl: string): string[] {
+  try {
+    return parseProviderUrls(baseUrl);
+  } catch (cause) {
+    if (cause instanceof OutboundRefused) throw new ProviderNotNamed(cause.message, "not-a-url");
+    throw cause;
+  }
 }
 
 /**
