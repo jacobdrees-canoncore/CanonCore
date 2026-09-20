@@ -1750,8 +1750,8 @@ export function withinTheGroup(db: Database, group: string | undefined, within: 
 }
 
 /**
- * ONE LISTING'S QUESTION, NARROWED TO THE KIND A READER PICKED (CNCORE-175,
- * story 25) -- or left as it was, where they picked none.
+ * ONE LISTING'S QUESTION, NARROWED TO THE KIND A READER PICKED (ADR-0150;
+ * CNCORE-175, story 25) -- or left as it was, where they picked none.
  *
  * THE READER'S NARROWING, NEVER THE SURFACE'S QUESTION, and ADR-0077 is what
  * draws that line. That record decides which kinds a surface's QUESTION
