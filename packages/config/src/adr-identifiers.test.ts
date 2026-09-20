@@ -123,7 +123,7 @@ const THIS_FILE = "packages/config/src/adr-identifiers.test.ts";
  * AND THE RECORD THAT DEFINES THIS RULE IS OUT OF THE POPULATION IT DEFINES,
  * which is the same defect one level up and was MEASURED rather than foreseen.
  *
- * ADR-0162 states the rule and argues it from examples -- `filedByNameInput`,
+ * ADR-0164 states the rule and argues it from examples -- `filedByNameInput`,
  * `pastTheRow`, `globalDependencies`, `thePlaceIn` -- so writing it put twelve
  * gone symbols straight back into the population and reddened this check on its
  * own record. `adr-as-built.test.ts` names the shape exactly: "a check that
@@ -131,12 +131,12 @@ const THIS_FILE = "packages/config/src/adr-identifiers.test.ts";
  * somebody explained it."
  *
  * IT IS THE ONE RECORD EXCLUDED, and narrowly: every other record is read, and
- * a record that merely CITES ADR-0162 is still read. What is excused is the
+ * a record that merely CITES ADR-0164 is still read. What is excused is the
  * record whose subject IS the gone symbol, which cannot state its own rule
  * without naming one.
  */
 const THIS_RECORD =
-  "0162-an-identifier-a-record-names-is-checked-against-what-this-tree-once-held.md";
+  "0164-an-identifier-a-record-names-is-checked-against-what-this-tree-once-held.md";
 
 function trackedSource(): string[] {
   return execFileSync(
