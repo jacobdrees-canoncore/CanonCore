@@ -15,41 +15,31 @@ lies about its children (CNCORE-60 read `Done` over thirteen open ones). A spec 
 holds.** An agent-filed ticket lands there by default, where the frontier cannot see it: move each to
 `Todo` as you triage it.
 
-Five projects, in order, each ending in something demoable:
+**This list is the order.** Each ends in something demoable.
 
 1. **Version one** — done. Multi-placement, rendered.
 2. **The public release** — closed. A provider beside an install is reachable since CNCORE-163; no
    PUBLIC image exists (ADR-0089), so by hand as since v0.2.0. Public defects; 76 fused 2027-01-12.
 3. **A real catalogue, live** — 98 to 103 Done, and CNCORE-96's sentence untrue: the live import
    landed in a test database the next run drops. 97 is superseded by 118.
-4. **The foundation** — CNCORE-159. Finishes 2 and 3, supersedes CNCORE-104 (project cancelled). The
-   corpus in an install you can open, the listing seam, navigation at size, Groups, CMPP discovery.
-   Its 79 tickets audited clean by `/closing-a-spec` on 2026-09-20 — **zero unmet criteria** — so
-   CNCORE-242 to 249 are corrections to records and copy, not missing mechanisms.
-5. **Not yet named** — the catalogue knows what its things ARE. Every Container is a
-   `Theory:Timeline - X` page and every Item is `kind: work`, so six of seven kinds and nine of
-   thirteen properties sit empty. CNCORE-159 put deriving Group membership out of scope as
-   "unspecified and free to decide", so it is 5's. Ends in a Rose page, and in images.
+4. **The foundation** — CNCORE-159. Finishes 2 and 3, supersedes CNCORE-104 (project cancelled). Its
+   79 tickets audited clean on 2026-09-20 with ZERO unmet criteria, so CNCORE-242 to 250 are
+   corrections to records and copy rather than missing mechanisms.
+5. **The data** — not yet named. Every Container is a `Theory:Timeline - X` page and every Item is
+   `kind: work`, so six of seven kinds and nine of thirteen properties sit empty. Ends in a Rose page,
+   and in images. Evidence: `docs/research/walking-the-owners-install.md`.
+6. **The redesign** — `packages/ui` is already shadcn and the product gets redesigned from the ground
+   up. Speccing 5 is not this: four of 5's eight flow problems are data, not design.
+7. **Playback, then the clients, then the demo** ([[0055-web-now-phone-next-tv-last]],
+   [[0115-the-public-release-comes-before-the-playback-half]]).
 
-**A DEFECT BELONGS TO THE PROJECT THAT BUILT IT; A GAP BELONGS TO THE NEXT ONE.** So 4 takes every
-correction to what 4 shipped and then CLOSES, rather than becoming the bucket every later finding
-lands in — a project that never ends is the parent-issue lie at project scale. A capability nobody
-built is not a defect: 5 is where it goes.
-
-**Foundation, then data, then the redesign, then playback.** `/closing-a-spec` closes each one and
-`grill-with-docs` specs the next, into `CONTEXT.md` and `docs/adr/` rather than a scratch file.
-
-**SPECCING THE DATA IS NOT THE REDESIGN.** Four of the eight flow problems measured on 2026-09-20 are
-data problems — no way in, no hierarchy, no images, wiki plumbing in titles — so that interview
-decides what the data must produce. Evidence: `docs/research/walking-the-owners-install.md`.
+**A DEFECT BELONGS TO THE PROJECT THAT BUILT IT; A GAP BELONGS TO THE NEXT ONE**, so 4 closes rather
+than becoming the bucket every later finding lands in. CNCORE-159 put deriving Group membership out of
+scope as "unspecified and free to decide": that is 5's.
 
 **A project is not finished until it has been used on the Owner's own instance**
-([[0132-a-project-is-not-finished-until-it-has-been-used]]) — two projects and a headline ticket closed
-green while their own sentences were false, because nothing had used the product at size.
-
-Playback, then the clients, then the demo come after ([[0055-web-now-phone-next-tv-last]],
-[[0115-the-public-release-comes-before-the-playback-half]]). Design is its own effort, later still:
-`packages/ui` is already shadcn, and the product will be redesigned from the ground up.
+([[0132-a-project-is-not-finished-until-it-has-been-used]]) — two closed green while their own
+sentences were false. `/closing-a-spec` is that gate; `grill-with-docs` specs the next one.
 
 ## Principles
 
