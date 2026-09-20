@@ -57,11 +57,12 @@ Linear's own `Bug` / `Feature` / `Improvement` sit on. They compose with a triag
 replacing one, so an issue carries one of each.
 
 - **`to-spec`** — this issue IS a spec, produced by `/to-spec`, and is a container rather than a
-  unit of work. It names four live specs, one per project on the roadmap: **CNCORE-2** (Version one),
+  unit of work. It names four specs, one per project on the roadmap: **CNCORE-2** (Version one),
   **CNCORE-60** (The public release), **CNCORE-96** (A real catalogue, live) and **CNCORE-159** (The
-  foundation). A fifth issue carries the label and is not a live spec: **CNCORE-104** is `Canceled`
-  along with its project, superseded by CNCORE-159 (`CLAUDE.md`), so a listing by label returns four
-  and a listing including cancelled work returns five. Counted from the board 2026-09-20 rather than
+  foundation). All four read `Done` — a spec is closed when its project ships, so `Done` is not the
+  thing that separates them from the fifth. **CNCORE-104** carries the label too and is `Canceled`
+  along with its project, superseded by CNCORE-159 (`CLAUDE.md`). So a listing by label returns the
+  four and a listing including cancelled work returns five. Counted from the board 2026-09-20 rather than
   quoted, because this list has been wrong once already. A spec carries `--state Backlog` for the
   reason above, and `ready-for-human` once it needs `/to-tickets` run on it, because splitting a spec
   is a human's call.

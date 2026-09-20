@@ -159,8 +159,10 @@ and the frontier was reported flat before a second pass caught it.
 
 **The parent one is about a mechanism this repo no longer uses** — parent links were dropped on
 2026-09-12 — and it is kept because the SHAPE recurs: a read that reads as a failed write, which is
-worse than the others. `orca linear create --parent CNCORE-60` binds; the issue payload simply
-carries no `parent` key, so `.get("parent")` answers `None` for every ticket in the team — CNCORE-65,
+worse than the others. **Do not copy the call in this paragraph**; it is quoted from the era, and
+`--parent` is not a flag this repo passes any more. As it stood: `orca linear create --parent
+CNCORE-60` bound, and the issue payload simply
+carried no `parent` key, so `.get("parent")` answered `None` for every ticket in the team — CNCORE-65,
 whose parent has never been in doubt, included. Measured 2026-09-11 while filing CNCORE-82 and
 CNCORE-83: both read `parent: None`, both were already in CNCORE-60's `children`, and a
 `save-issue --parent-id` "fix" was a no-op that re-set what was there. **Verify a parent from the

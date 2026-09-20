@@ -15,7 +15,9 @@ status: proposed
 > `proposed` for the same shape: a rule enforced over one population and no other.
 
 Seven numbers — 0079, 0080, 0086, 0093, 0095, 0098 and 0099 — are cited 40 times across five files
-in `docs/research/`, and `docs/adr/` has never held any of them. Each citation reads as though it
+in `docs/research/`, counting the three forms the check matches, and `docs/adr/` has never held any
+of them. A sixth file names 0080 in the unmatched list form, so the figure is citations the check
+sees rather than every mention. Each citation reads as though it
 names a record. None of them does.
 
 ## They were never deleted, and that is the whole of it

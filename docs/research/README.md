@@ -51,7 +51,10 @@ went.
 
 Seven numbers are cited here as though they named a record, and `docs/adr/` has never held any of
 them: **ADR-0079, ADR-0080, ADR-0086, ADR-0093, ADR-0095, ADR-0098 and ADR-0099**, cited 40 times
-across five files.
+across five files in the three forms `adr-citations.test.ts` matches. A SIXTH file,
+`verify-new-adrs-standards.md`, names 0080 twice in the list form `ADR 0005, 0012, 0080`, which that
+check does not read — every one of the seven is still caught, because each is cited at least once in
+a matched form, but the count is of citations the check sees rather than of every mention.
 
 These are NOT the deleted files above, and the difference is the whole of it. Each was a record on
 the 2026-09-10 branch `audit-new-adrs-internal.md` was auditing — its own title is "ADR-0073..0099"

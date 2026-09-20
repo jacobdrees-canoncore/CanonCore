@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
+import { markdownIn } from "./testing/markdown-corpus";
 import { repoRoot } from "./testing/repo-root";
 
 /**
@@ -17,7 +18,10 @@ import { repoRoot } from "./testing/repo-root";
  *
  * MEASURED RATHER THAN HYPOTHETICAL. Seven numbers -- 0079, 0080, 0086, 0093,
  * 0095, 0098 and 0099 -- were cited 40 times across five files in
- * `docs/research/` and have never existed in `docs/adr/`. They are not deleted
+ * `docs/research/`, counting the three forms below, and have never existed in
+ * `docs/adr/`. A sixth file names 0080 in the list form this does not match,
+ * which is why the figure is "citations this check sees" and not "mentions".
+ * They are not deleted
  * records. They were records on the 2026-09-10 branch that
  * `audit-new-adrs-internal.md` was auditing, and that audit is what caused each
  * to be folded elsewhere rather than merged: 0086's ten-second rule into record
@@ -82,7 +86,16 @@ const AMNESTY = join(repoRoot, "docs", "research", "README.md");
  */
 const CITATION = /ADR-(\d{4})\b|docs\/adr\/(\d{4})-|\[\[(\d{4})-/g;
 
-/** Every record's number, as the four digits its filename opens with. */
+/**
+ * Every record's number, as the four digits its filename opens with.
+ *
+ * TODO(CNCORE-294): this parse is the FOURTH copy of itself in this package --
+ * `adr-numbering.test.ts`'s `numbered()`, `doc-line-citations.test.ts`'s
+ * `recordsByNumber()` and `adr-as-built.test.ts` each hold their own. Raised by
+ * this ticket's own review and filed rather than fixed here, because the other
+ * three are files CNCORE-259 does not otherwise touch. `testing/repo-root.ts`
+ * is the shape it should take, for the reason its docblock gives (CNCORE-58).
+ */
 function records(): Set<string> {
   return new Set(
     readdirSync(adrDirectory)
@@ -94,20 +107,26 @@ function records(): Set<string> {
   );
 }
 
-/** Every markdown document the rule governs: all of `docs/`, plus the root's own. */
+/**
+ * Every markdown document the rule governs: all of `docs/`, plus the root's own.
+ *
+ * THROUGH `markdownIn`, WHICH IS THE ONLY READER ALLOWED TO ANSWER THIS
+ * (ADR-0103). The first draft of this file enumerated the corpus itself, with
+ * `readdirSync(docs, { recursive: true })` filtered on `isFile()`. Both halves
+ * are what that record refuses: node DESCENDS a symlinked directory and takes
+ * no option not to, returning paths git does not hold, and `isFile()` is lstat
+ * so it drops a symlinked DOCUMENT in silence. A cycle returned 99 entries
+ * without throwing when ADR-0103 measured it. Nothing here reported any of it,
+ * because a tree with no links answers the same either way -- which is exactly
+ * why the rule is a shared reader rather than a thing each sweep remembers.
+ */
 function prose(): string[] {
-  const underDocs = readdirSync(join(repoRoot, "docs"), {
-    recursive: true,
-    withFileTypes: true,
-  })
-    .filter((entry) => entry.isFile() && entry.name.endsWith(".md"))
-    .map((entry) => join(entry.parentPath, entry.name));
-
-  const atRoot = readdirSync(repoRoot, { withFileTypes: true })
-    .filter((entry) => entry.isFile() && entry.name.endsWith(".md"))
-    .map((entry) => join(repoRoot, entry.name));
-
-  return [...underDocs, ...atRoot].sort();
+  return [
+    ...markdownIn(join(repoRoot, "docs"), { recursive: true }).map((path) =>
+      join(repoRoot, "docs", path),
+    ),
+    ...markdownIn(repoRoot).map((path) => join(repoRoot, path)),
+  ].sort();
 }
 
 type Citation = { readonly file: string; readonly line: number; readonly number: string };
@@ -155,7 +174,7 @@ function disclosed(): Set<string> {
     section
       .split("\n")
       .filter((line) => line.trimStart().startsWith("|"))
-      .flatMap((row) => /ADR-(\d{4})\b/.exec(row)?.[1] ?? []),
+      .flatMap((row) => [...row.matchAll(/ADR-(\d{4})\b/g)].flatMap((found) => found[1] ?? [])),
   );
 }
 
