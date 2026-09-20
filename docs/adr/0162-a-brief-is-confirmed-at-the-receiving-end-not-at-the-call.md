@@ -85,9 +85,9 @@ outcome a property of who is asking:
 | a bound ticket worktree | that terminal's ticket, whatever directory it stands in |
 | the MAIN worktree, which is unbound | `linear_no_linked_issue`, every time |
 
-A dispatcher works from the main worktree (`CLAUDE.md`: "Dispatch from the main worktree"), and
-`/Users/jacobrees/orca/projects/CanonCore` carries `linkedLinearIssue: null` — it is a checkout, not
-a ticket. So a by-hand check from there returns `linear_no_linked_issue` for **every** worktree the
+A dispatcher works from the main worktree (`CLAUDE.md`: "Dispatch from the main worktree"), and the
+repository's own checkout carries `linkedLinearIssue: null` — it is a checkout, not a ticket. So a
+by-hand check from there returns `linear_no_linked_issue` for **every** worktree the
 dispatcher stands in, bound or not, which is exactly the five-for-five the wave saw and the
 re-verification on `cncore-282` that followed it. The research document had measured this same
 unbound-caller case; this record adds the bound-caller half, and the two together fix the rule.
