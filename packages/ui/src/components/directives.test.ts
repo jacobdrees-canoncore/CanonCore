@@ -30,10 +30,14 @@ import { describe, expect, it } from "vitest";
  * WHAT IT DOES NOT ASK, said here rather than left to be found: whether a module
  * that HAS a reason genuinely needs the directive. A component importing a client
  * library may still be fine as a server component if it only passes props
- * through -- `dropdown-menu.tsx` is that shape, since `@base-ui/react/menu` marks
- * its own boundary -- and deciding that needs the render graph rather than the
- * import graph. CNCORE-276 carries it. The question here is the cheaper half: a
- * directive with NOTHING behind it.
+ * through, and deciding that needs the render graph rather than the import graph.
+ * The question here is the cheaper half: a directive with NOTHING behind it.
+ *
+ * THE TWO GROUNDS ARE NOT EQUALLY STRONG, AND THE WEAKER ONE IS NAMED. One module
+ * -- `dropdown-menu.tsx` -- passes on the import graph alone rather than on a
+ * hook, a handler or a browser global, and the last row of this file asserts that
+ * it is the only one, so a second cannot join it quietly. CNCORE-276 is open on
+ * whether it needs the directive at all.
  */
 
 const componentsDirectory = fileURLToPath(new URL(".", import.meta.url));
@@ -104,9 +108,14 @@ function marksAClientBoundary(id: string, from: string): boolean {
   return false;
 }
 
+/** Whether the module itself does something only a browser can do. */
+function usesAClientApiDirectly(source: string): boolean {
+  return CLIENT_API.some((pattern) => pattern.test(source));
+}
+
 /** Whether a module has any reason at all to be a client module. */
 function hasAClientReason(source: string): boolean {
-  if (CLIENT_API.some((pattern) => pattern.test(source))) return true;
+  if (usesAClientApiDirectly(source)) return true;
 
   return packagesImportedBy(source).some((id) => marksAClientBoundary(id, componentsDirectory));
 }
@@ -125,6 +134,21 @@ function theComponents(): Map<string, string> {
 function unearnedDirectives(modules: Map<string, string>): string[] {
   return [...modules]
     .filter(([, source]) => DIRECTIVE.test(source) && !hasAClientReason(source))
+    .map(([file]) => file)
+    .sort();
+}
+
+/**
+ * Those that pass on the WEAKER of the two grounds: nothing in the module needs a
+ * browser, and it is allowed its directive only because a package it imports
+ * marks a boundary of its own.
+ */
+function passingOnImportsAlone(modules: Map<string, string>): string[] {
+  return [...modules]
+    .filter(
+      ([, source]) =>
+        DIRECTIVE.test(source) && !usesAClientApiDirectly(source) && hasAClientReason(source),
+    )
     .map(([file]) => file)
     .sort();
 }
@@ -169,5 +193,31 @@ describe("the \"use client\" directives in packages/ui", () => {
   it("reads a client boundary out of an imported package, not out of its name", () => {
     expect(marksAClientBoundary("@base-ui/react/menu", componentsDirectory)).toBe(true);
     expect(marksAClientBoundary("class-variance-authority", componentsDirectory)).toBe(false);
+  });
+
+  /**
+   * THE SOFT SPOT, NAMED RATHER THAN LEFT INSIDE THE GREEN ABOVE.
+   *
+   * The roll call accepts two different kinds of answer and they are not equally
+   * strong. A module that calls a hook, binds a handler or touches a browser
+   * global has a reason IN ITSELF, and there is nothing further to ask. A module
+   * that has none of those and is allowed its directive only because a package it
+   * imports marks a boundary has been judged on the IMPORT graph, which is the
+   * wrong graph for the question: what decides whether a module must be a client
+   * module is what its call sites PASS it, and that is the render graph.
+   *
+   * SO THIS NAMES WHO PASSES ON THE WEAKER GROUND. `dropdown-menu.tsx` is the
+   * whole list, it holds no state, no effect and no handler, and every one of its
+   * components spreads props onto a base-ui primitive -- so it may well not need
+   * the directive at all. CNCORE-276 is open on exactly that and will measure it
+   * against the bundle rather than reason about it.
+   *
+   * A CHECK THAT PASSES ONE MODULE ON WEAKER GROUNDS WITHOUT SAYING SO READS AS
+   * COVERAGE IT DOES NOT HAVE. This row is the difference between a boundary
+   * somebody chose and a gap nobody noticed: a second module joining the list
+   * fails here and has to be argued for, rather than arriving inside a green run.
+   */
+  it("names the module that passes on the import graph alone (CNCORE-276)", () => {
+    expect(passingOnImportsAlone(theComponents())).toStrictEqual(["dropdown-menu.tsx"]);
   });
 });

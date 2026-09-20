@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { repoRoot } from "./testing/repo-root";
 
@@ -193,6 +193,69 @@ describe("the shared Biome configuration", () => {
     // reader hunting for two files that do not exist. `git add` the resolution
     // and re-run. Met 2026-09-12 merging `main` into CNCORE-109.
     expect(checked).toBe(tracked.length - excluded.length);
+  });
+
+  /**
+   * THE SCHEMA THE CONFIG DECLARES IS THE INSTALLED BINARY'S OWN FILE.
+   *
+   * `biome.jsonc` named `https://biomejs.dev/schemas/2.5.12/schema.json` until
+   * CNCORE-261, against a catalogue of `^2.5.14` and a binary reporting 2.5.14.
+   * A version written into a URL is a second place the dependency's version
+   * lives, and [[0101-the-catalogue-is-the-only-place-a-version-is-written]] is
+   * the record of what that costs -- one version, expressed twice, one edit away
+   * from disagreeing.
+   *
+   * IT HAD ALREADY DISAGREED THREE TIMES. CNCORE-25 fixed the same drift by
+   * LOWERING the schema to match the binary; Dependabot then raised the binary in
+   * both provider repos and touched neither schema, and the catalogue here moved
+   * to `^2.5.14` with the URL left behind. A fix that has to be reapplied after
+   * every bump is a convention, not a mechanism.
+   *
+   * SO THE VERSION IS NOT WRITTEN DOWN AT ALL. The path points into the installed
+   * package, whose schema is by construction the schema of the binary beside it,
+   * and a bump moves both together because it is the same install. That removes
+   * the failure mode rather than adding a check that detects it -- which is why
+   * this row asserts the SHAPE and not a number: a test comparing the URL's
+   * version to `biome --version` would go green on every bump only after somebody
+   * had already been failed by it.
+   */
+  it("names a schema with no version in it, inside the installed package", () => {
+    const declared = /"\$schema"\s*:\s*"([^"]+)"/.exec(
+      readFileSync(join(repoRoot, "biome.jsonc"), "utf8"),
+    )?.[1];
+
+    expect(declared, "biome.jsonc declares no `$schema`").toBeDefined();
+    expect(declared, "a version written into the schema URL is the drift this removed").not.toMatch(
+      /\d+\.\d+\.\d+/,
+    );
+
+    const schema = resolve(repoRoot, declared ?? "");
+    expect(schema).toBe(join(repoRoot, "node_modules", "@biomejs", "biome", "configuration_schema.json"));
+    expect(existsSync(schema), `${declared} does not resolve to a file`).toBe(true);
+  });
+
+  /**
+   * AND THE BINARY DOES NOT OBJECT TO IT, which is the half a path check cannot
+   * see: a path can resolve to a stale copy and still be wrong.
+   *
+   * THE DIAGNOSTIC IS AN `info` AND `--error-on-warnings` IS WHAT SURFACES IT.
+   * Without that flag Biome filters it out entirely, so the mismatch was invisible
+   * to `biome check` and printed by `pnpm lint` on every run -- the exact shape
+   * ADR-0105 names, "visible, ignored, accumulating", caught by the very flag that
+   * record added for the same reason one severity up. The flags are read from the
+   * `lint` script rather than repeated, so what this proves is what CI runs.
+   */
+  it("raises no schema mismatch when the binary reads the configuration it discovers", () => {
+    const manifest = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8")) as {
+      scripts: Record<string, string>;
+    };
+    const [, ...flags] = (manifest.scripts.lint ?? "").split(/\s+/);
+
+    const result = spawnSync(biome, flags, { cwd: repoRoot, encoding: "utf8" });
+    const output = `${result.stdout}${result.stderr}`;
+
+    expect(output, "biome did not run").toMatch(/Checked \d+ files?/);
+    expect(output).not.toContain("configuration schema version does not match");
   });
 
   it("is what the repository's own `pnpm lint` actually runs", () => {

@@ -1,5 +1,14 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.5.12/schema.json",
+  // THE INSTALLED BINARY'S OWN SCHEMA, BY PATH, SO NO VERSION IS WRITTEN HERE.
+  // A `https://biomejs.dev/schemas/<version>/schema.json` URL is the dependency's
+  // version expressed a second time, and ADR-0101 is the record of what that
+  // costs. It had already drifted three times: CNCORE-25 fixed it by lowering the
+  // schema, Dependabot then raised the binary in both provider repos and touched
+  // neither schema, and the catalogue moved to ^2.5.14 leaving this at 2.5.12.
+  // The mismatch is an `info`, which `--error-on-warnings` surfaces and nothing
+  // else does, so `pnpm lint` printed it on every run and no check failed.
+  // This path cannot drift: it IS the schema of the binary beside it (CNCORE-261).
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
 
   // `.jsonc` rather than `.json` so every departure from Biome's defaults can
   // carry its reason. Biome reads both.
