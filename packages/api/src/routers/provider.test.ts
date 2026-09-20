@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { createServer, type Server } from "node:http";
 import { type Database, items, sources, writeProviderSettings } from "@canoncore/db";
 import { connect } from "@canoncore/db/testing/catalogue";
@@ -1935,6 +1936,15 @@ const aProviderOfTwoContainers = (asked: string[] = []) =>
 const THE_LIST = ["402219", "388305"];
 
 /**
+ * A CONTAINER ID SHAPED LIKE A PAGE TITLE, which is the shape CNCORE-268's
+ * ceiling leaves room for: `provider-wiki` sends pageids, but CMPP declares an
+ * id as `z.string().min(1)` and a Provider may send a title instead. The
+ * padding below is derived from it rather than written out, so the fixtures
+ * cannot drift from the prefix and quietly stop being the lengths they claim.
+ */
+const A_TITLE = "Theory:Timeline - ";
+
+/**
  * A RECORD THAT NAMES THE CONTAINER IT SITS IN, which is TMDB's shape rather
  * than the wiki's (CNCORE-238).
  *
@@ -2222,6 +2232,153 @@ describe("provider.beginImportRun", () => {
      * "that list cannot be imported" with no way to find the repeat.
      */
     expect(error?.message).toBe("402219 is listed twice, at positions 1 and 3");
+  });
+
+  /**
+   * AN ID'S LENGTH IS REFUSED HERE, AND THE SENTENCE SAYS SO (CNCORE-268).
+   *
+   * Nothing bounded it until now: `containerIds` was
+   * `z.array(z.string().min(1)).min(1)`, a minimum and no maximum, so an
+   * ordinary list reached `import_run_containers_named_once` -- a btree, which
+   * cannot index a value over 2704 bytes. CNCORE-254 caught the 54000 that
+   * comes back and turned it into a BAD_REQUEST, which stopped the 500 and left
+   * a sentence that does not say why: the Owner read "the catalogue refused
+   * that list" and was told neither which id nor that its length was the
+   * problem.
+   *
+   * THE OPENING OF THE ID, NOT THE WHOLE OF IT. ADR-0123's rule is that a value
+   * is bounded WHERE IT ENTERS a sentence, so the prose around it is
+   * fixed-length and cannot be cut -- and an id refused for its length is
+   * precisely the value that would eat the sentence explaining itself. 80 is
+   * that record's ceiling for an interpolated value and the marker is one
+   * character of it, so 79 of this id survive: 18 of `Theory:Timeline - ` and
+   * 61 of the padding. Written out here rather than computed, so the assertion
+   * cannot agree with the code by sharing its arithmetic.
+   *
+   * AND WHERE IT SITS, because the id the Owner reads back is cut and a cut id
+   * is not something they can search their own file for. That is ADR-0154's
+   * reading of the repeat's positions, one constraint over: a position in the
+   * LIST, not a line of the file, since `theContainerIdsIn` drops blank lines
+   * and `#` comments before an id reaches here.
+   */
+  it("answers BAD_REQUEST for a Container id longer than a Container id may be", async () => {
+    const baseUrl = await aProviderOfTwoContainers();
+    const overlong = A_TITLE + "x".repeat(300 - A_TITLE.length);
+
+    const { error } = await safe(
+      call(
+        appRouter.provider.beginImportRun,
+        { baseUrl, containerIds: ["402219", overlong] },
+        { context },
+      ),
+    );
+
+    expect(overlong).toHaveLength(300);
+    expect(isDefinedError(error) && error.code).toBe("BAD_REQUEST");
+    expect(error?.message).toBe(
+      `Theory:Timeline - ${"x".repeat(61)}… is 300 characters, at position 2, and a Container id is at most 255`,
+    );
+  });
+
+  /**
+   * THE SECOND OF ADR-0123's TWO LEVERS, WHICH THIS TOOK ONLY ONE OF UNTIL
+   * REVIEW. The cut answers how MUCH of a stranger's value lands in a sentence;
+   * `CONTROLS` answers what that value may DO to the words around it. A
+   * bidirectional override re-orders the glyphs on either side of itself, so an
+   * id carrying one runs the clause naming the ceiling that refused it
+   * backwards through the Owner's page -- and the cut alone does not touch it.
+   *
+   * THIS IS NOT A HYPOTHETICAL PROVIDER. `/import` lists a Provider's own
+   * Containers for the Owner to pick from since CNCORE-187, so the id in this
+   * sentence can be one a Provider chose rather than one the Owner typed, which
+   * is exactly the "stranger choosing text on a page it does not own" ADR-0123
+   * opens with.
+   *
+   * IT IS THE SAME HALF `@canoncore/tasks` WAS MISSING (CNCORE-274), found in a
+   * fresh copy one ticket later, which is the argument for `boundedTo` applying
+   * both levers in one call rather than publishing the cut for callers to
+   * compose.
+   */
+  it("strips a bidirectional override from the id it quotes back", async () => {
+    const baseUrl = await aProviderOfTwoContainers();
+    // U+202E, right-to-left override: everything after it renders reversed.
+    const reversing = `${A_TITLE}\u202e${"x".repeat(300 - A_TITLE.length - 1)}`;
+
+    const { error } = await safe(
+      call(appRouter.provider.beginImportRun, { baseUrl, containerIds: [reversing] }, { context }),
+    );
+
+    expect(reversing).toHaveLength(300);
+    expect(error?.message).not.toContain("\u202e");
+    expect(error?.message).toBe(
+      `Theory:Timeline - ${"x".repeat(61)}… is 300 characters, at position 1, and a Container id is at most 255`,
+    );
+  });
+
+  /**
+   * THE BOUND ITSELF, AND THE SIDE OF IT A LEGAL ID SITS ON. 255 is the longest
+   * a Container id may be, not the first length refused, and a bound asserted
+   * only from above passes just as well when it is written one character tight
+   * -- which would refuse an id a Provider is entitled to use.
+   *
+   * IT ALSO WRITES, which is the half the refusal test cannot show. A bound
+   * that let nothing through would satisfy every assertion about what it turns
+   * away, so this one carries its id all the way into the run and reads it back
+   * off `import_run_containers` through the report. 255 ASCII characters index
+   * comfortably: `import_run_containers_named_once` refuses at 2704 BYTES, and
+   * the test below writes the dearest id the bound admits, at 765.
+   */
+  it("opens a run over a Container id of exactly the length one may be", async () => {
+    const baseUrl = await aProviderOfTwoContainers();
+    const theLongest = A_TITLE + "x".repeat(255 - A_TITLE.length);
+
+    const run = await call(
+      appRouter.provider.beginImportRun,
+      { baseUrl, containerIds: [theLongest] },
+      { context },
+    );
+
+    expect(theLongest).toHaveLength(255);
+    expect(run.containers).toEqual([{ containerId: theLongest, outcome: "pending" }]);
+  });
+
+  /**
+   * THE BOUND CANNOT REACH THE CONSTRAINT IT PROTECTS, AT THE WORST ID IT
+   * ADMITS. ADR-0160 rests on that: it is why 54000 stays a backstop in
+   * `import-runs.ts` rather than a path the Owner can still walk, and it is
+   * arithmetic until something writes one.
+   *
+   * THE WORST CASE IS NOT THE OBVIOUS ONE. `A_CONTAINER_ID` counts UTF-16
+   * units, and a 4-byte character spends two of them, so an emoji id is
+   * CHEAPER per unit than this. Three bytes in one unit is the dearest an id
+   * can be, which is the CJK block: 255 units, 765 bytes, measured.
+   *
+   * AND INCOMPRESSIBLE, which is the trap CNCORE-268 was filed with. TOAST
+   * compresses before the index sees the value, so `repeat('9', 3000)` writes
+   * perfectly well and an id built that way would prove nothing about its
+   * length -- reproduced on this tree's PostgreSQL 18.6, where the compressible
+   * 3000-character value inserted and an 8000-character hash string did not.
+   * These code points are drawn off a sha256 stream so the row cannot be
+   * rescued that way, and deterministically so the fixture is the same one on
+   * every run.
+   */
+  it("indexes the dearest id the bound admits, incompressible and at full stretch", async () => {
+    const baseUrl = await aProviderOfTwoContainers();
+    let dearest = "";
+    for (let block = 0; dearest.length < 255; block += 1) {
+      for (const byte of createHash("sha256").update(String(block)).digest()) {
+        if (dearest.length < 255) dearest += String.fromCodePoint(0x4e00 + byte * 20);
+      }
+    }
+
+    const run = await call(
+      appRouter.provider.beginImportRun,
+      { baseUrl, containerIds: [dearest] },
+      { context },
+    );
+
+    expect(Buffer.byteLength(dearest, "utf8")).toBe(765);
+    expect(run.containers).toEqual([{ containerId: dearest, outcome: "pending" }]);
   });
 });
 

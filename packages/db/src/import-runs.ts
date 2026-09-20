@@ -29,23 +29,27 @@ export class ImportRunRefused extends Error {}
  *
  * `54000` is `import_run_containers_named_once` refusing to INDEX an id: a
  * btree cannot hold a value over 2704 bytes, measured at "index row size 3872
- * exceeds btree version 4 maximum 2704" on 2026-09-20. Nothing bounds an id's
- * length on the way in -- `containerIds` is `z.array(z.string().min(1)).min(1)`
- * -- so an ordinary list reaches it. Bounding that input is CNCORE-268.
+ * exceeds btree version 4 maximum 2704" on 2026-09-20. It is a BACKSTOP rather
+ * than the path, as 23505 is: `provider.beginImportRun` bounds a Container id
+ * at 255 characters before it opens a run (ADR-0160, CNCORE-268), and 255
+ * characters cannot exceed 765 bytes, so no list arriving through the router
+ * reaches this.
+ *
+ * THAT IS THE ROUTER'S BOUND AND NOT THIS FUNCTION'S, which is worth holding
+ * because a caller here does NOT inherit it. `import-runs.test.ts` drives the
+ * transaction below with an id no btree can hold, and it can only do that by
+ * calling `beginImportRun` directly; a repeat cannot drive it, because
+ * `theRepeatIn` turns that list away before a row is written. So this catch has
+ * a live witness while the path it guards has none.
  *
  * `23505` IS THAT SAME INDEX REFUSING A REPEAT, and `theRepeatIn` below turns
- * every list that could reach it away first. It is a backstop rather than the
- * path, and it is here because the whole lesson of CNCORE-254 is that a
- * constraint nobody thought reachable was reached -- by the shape the feature
- * was built for.
+ * every list that could reach it away first. It is here because the whole
+ * lesson of CNCORE-254 is that a constraint nobody thought reachable was
+ * reached -- by the shape the feature was built for.
  *
  * ANYTHING ELSE IS NOT THE OWNER'S DOING and goes on being a fault: a dropped
  * connection, a disk full, a trigger raising for a reason nobody predicted.
  */
-// TODO(CNCORE-268): bound an id's length on the way in, so 54000 is a refusal
-// that says WHY. Caught here, the Owner reads "the catalogue refused that list"
-// and is told neither which id nor that its length is the problem -- which is
-// the complaint CNCORE-254 made about the repeated id, one constraint over.
 const REFUSALS = new Set(["23505", "54000"]);
 
 /** How one Container of a run went. `pending` until it has been asked for. */

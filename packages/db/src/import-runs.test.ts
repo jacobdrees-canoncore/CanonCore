@@ -117,10 +117,14 @@ describe("beginImportRun", () => {
    * incompressible on purpose -- 3000 repeated digits TOAST down to something
    * that fits, and the test would pass while writing the row.
    *
-   * NOTHING BOUNDS AN ID'S LENGTH ON THE WAY IN, which is what makes this
-   * reachable rather than contrived: `containerIds` is `z.array(z.string()
-   * .min(1)).min(1)` with no maximum. That gap is CNCORE-268, and it is not
-   * this ticket -- what is this ticket's is that failing here leaves no orphan.
+   * THE WAY IN IS BOUNDED NOW, AND THIS SEAM IS NOT (CNCORE-268, ADR-0160).
+   * `provider.beginImportRun` refuses a Container id over 255 characters before
+   * it opens a run, so no list arriving through the router reaches the index.
+   * This calls `beginImportRun` DIRECTLY, which is what keeps the write
+   * reachable -- and it is the only thing that does, since a repeat is turned
+   * away by `theRepeatIn` before a row is written. Bounding the length HERE
+   * instead would leave the transaction below with nothing to drive it, which
+   * is why ADR-0160 put the ceiling at the router and left 54000 a backstop.
    */
   it("leaves no run behind when the list it was opened with cannot be written", async () => {
     const provider = aProvider();

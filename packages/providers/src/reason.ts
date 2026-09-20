@@ -131,7 +131,28 @@ function unwrapped(thrown: unknown): unknown {
  * send, known to be the provider's without anything having to decide.
  */
 export function bounded(text: string): string {
-  return shortenTo(oneLine(text), REASON_MAX_LENGTH);
+  return boundedTo(text, REASON_MAX_LENGTH);
+}
+
+/**
+ * A stranger's text on BOTH OF ADR-0123's LEVERS, at a ceiling the caller names.
+ *
+ * ONE CALL BECAUSE THEY ARE ONE MECHANISM, and that is the whole reason this
+ * exists rather than `shortenTo` being published for callers to compose
+ * themselves. The cut answers how MUCH a stranger may put on a page it does not
+ * own; `CONTROLS` answers what that text may DO to the page's own words. A
+ * caller reaching for the cut alone takes half a mechanism and looks finished,
+ * which is precisely what CNCORE-274 found in `@canoncore/tasks`' copy and what
+ * CNCORE-268 did here before review caught it: a bidirectional override in a
+ * Container id re-orders the clause naming the ceiling that refused it.
+ *
+ * THE CEILING IS THE CALLER'S AND THE LEVERS ARE NOT. 300 is a fact about the
+ * sentences `bounded` guards and 80 is a fact about the ones the router writes,
+ * so the number stays beside the sentence it bounds (CNCORE-269); what is shared
+ * is the pair of levers, and this is the one place applying both.
+ */
+export function boundedTo(text: string, max: number): string {
+  return shortenTo(oneLine(text), max);
 }
 
 /**
