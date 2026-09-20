@@ -55,6 +55,14 @@ check asks the tree for the records and the README for the disclosures, so a rec
 entry written is covered without touching it — `adr-numbering.test.ts`'s reason in its own words, "a
 record added without touching this file is still covered".
 
+**IT IS THE THIRD GUARD OF ONE FAMILY, and they divide by what the pointer NAMES rather than by
+where it sits.** `doc-line-citations.test.ts` holds a pointer to a LINE, which an edit above it
+breaks. [[0166-an-identifier-a-record-names-is-checked-against-what-this-tree-once-held]] holds a
+pointer to a SYMBOL, which a rename breaks, and resolves it against what this tree once held. This
+holds a pointer to a RECORD, which is broken from birth when the record never landed. All three are
+the shape `doc-line-citations.test.ts` names at its own root — a pointer that stays syntactically
+fine while becoming false — and none of them could catch the others' population.
+
 **The amnesty is a register, not an allowlist.** An entry whose number a later record takes stops
 being a disclosure and starts masking that record, so the check refuses it and the entry is deleted
 when that happens.
