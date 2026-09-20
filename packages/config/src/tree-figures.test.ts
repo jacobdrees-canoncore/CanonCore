@@ -487,6 +487,48 @@ const CLAIMS: Claim[] = [
     population: "the packages this workspace declares",
     derive: packagesInWorkspace,
   },
+  /*
+   * THE PARAGRAPH ABOUT THE COUNT REACHING ZERO, which had gone stale AND was
+   * missed by the hand-correction that caught this record's others. It read
+   * "`test` is declared by ten: delete one package's and nine still run" until
+   * CNCORE-286 -- broken by `@canoncore/text` (CNCORE-282) like the rest, and
+   * left standing because a reviewer reading for a figure is a reviewer who can
+   * stop reading. It is the argument for this table rather than a row in it.
+   */
+  {
+    file: "docs/adr/0103-tests-bite-at-package-exports-and-the-router.md",
+    pattern: /`test` is declared by (\w+): delete/g,
+    population: "the packages declaring `test`",
+    derive: () => packagesDeclaring("test"),
+  },
+  {
+    file: "docs/adr/0103-tests-bite-at-package-exports-and-the-router.md",
+    pattern: /delete one package's and (\w+) still run/g,
+    population: "the packages still running `test` with one script deleted",
+    derive: () => packagesDeclaring("test") - 1,
+  },
+  /*
+   * THE TASKS ONE PACKAGE DECLARES, which is the case the paragraph contrasts
+   * `test` against. THE HIGHEST OF THE THREE rather than one of them: the
+   * sentence asserts the same figure for all three at once, so a claim reading
+   * only `test:e2e` would stay green while `test:browser` gained a second
+   * declarer and the sentence became false.
+   */
+  {
+    file: "docs/adr/0103-tests-bite-at-package-exports-and-the-router.md",
+    pattern: /are each declared by (\w+) package/g,
+    population: "the packages declaring each of `test:e2e`, `test:browser` and `test:contract`",
+    derive: () =>
+      Math.max(
+        ...["test:e2e", "test:browser", "test:contract"].map((task) => packagesDeclaring(task)),
+      ),
+  },
+  {
+    file: "docs/adr/0103-tests-bite-at-package-exports-and-the-router.md",
+    pattern: /it is declared by exactly (\w+) package/g,
+    population: "the packages declaring `build`",
+    derive: () => packagesDeclaring("build"),
+  },
 ];
 
 describe("a figure this tree states about itself", () => {
@@ -587,7 +629,7 @@ describe("a figure this tree states about itself", () => {
     // is the failure its own comment predicted: a word list that stops is a
     // reader that throws on the day the count it reads moves past the end.
     expect(asCount("fifty")).toBe(50);
-    expect(asCount("ninety-nine")).toBe(99);
+    expect(asCount("fifty-one")).toBe(51);
   });
 
   /**

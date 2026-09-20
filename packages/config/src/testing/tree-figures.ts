@@ -111,34 +111,26 @@ const COUNT_WORDS: Record<string, number> = {
 };
 
 /**
- * The tens a compound opens with. `twenty` and `thirty`, because that is as far
- * as any sentence in this tree counts today and a word this does not know
- * THROWS with a message naming it -- so the next one is added when a claim
- * reaches it, rather than guessed at now.
+ * The tens a compound opens with, as far as a sentence in this tree counts
+ * today and no further: a word this does not know THROWS with a message naming
+ * it, so the next one is added when a claim reaches it rather than guessed at
+ * now.
  *
- * `thirty` IS HERE BECAUSE A CLAIM REACHED IT, which is this table working
+ * EACH ONE IS HERE BECAUSE A CLAIM REACHED IT, which is this table working
  * rather than an exception to it. It read `twenty` alone until two tickets
  * pushed the table past twenty-nine in the same week -- CNCORE-255's two
  * placement-refusal claims and CNCORE-253's two about this suite's
- * parallelism -- and each one's throw named the missing word, as the sentence
- * above promises. NO COUNT IS STATED HERE: ADR-0153 is the document that
- * states it, once, and this is the reason rather than the figure.
+ * parallelism. `forty` and `fifty` came the same way under CNCORE-286, which
+ * brought the package count in and carried the table past fifty in one go; the
+ * throw named `fifty` exactly as the sentence above promises. NO COUNT IS
+ * STATED HERE: ADR-0153 is the document that states it, once, and this is the
+ * reason rather than the figure.
  */
-// EVERY TEN RATHER THAN THE ONES IN USE, because the short version is the
-// defect this module is about. It held `twenty` and `thirty` until this table
-// grew to fifty claims (CNCORE-286) and the reader threw on its own figure --
-// "a table that runs out exactly where the tree grows past it", as the comment
-// below already said. The tens are a CLOSED set, so writing all of them is the
-// one list here that never needs revisiting.
 const TENS: Record<string, number> = {
   twenty: 20,
   thirty: 30,
   forty: 40,
   fifty: 50,
-  sixty: 60,
-  seventy: 70,
-  eighty: 80,
-  ninety: 90,
 };
 
 export function asCount(written: string): number {
@@ -270,45 +262,55 @@ export function suitesInRepo(): number {
 
 /**
  * The packages whose manifest declares a task, for the sentences that count
- * them -- `typecheck` by twelve, `test` by eleven, `build` by one.
+ * them. NO FIGURE IS STATED HERE: the documents that state one are held to it
+ * below, and a count repeated in the derivation would be a second copy to
+ * drift -- the rule this whole module exists to apply.
  *
  * THE MANIFEST RATHER THAN TURBO'S PLAN, which is the opposite of the choice
- * `typecheck-wiring.test.ts` makes twenty lines from a sentence this derives,
- * and the difference is what each one is ABOUT. That file asks whether turbo
- * WILL RUN the task, so turbo's plan is the only answer that means anything --
- * reading `scripts` back to assert the entry is present would restate turbo's
- * decision in a second language. The sentences here say "is DECLARED BY", which
- * is a fact about the manifest and nothing else. A dry run cannot even answer
- * it: ADR-0103 measured that `--dry=json` reports one task per workspace
- * package whatever the task is, so a plan read as the declaring set reads every
- * package as declaring everything.
+ * `typecheck-wiring.test.ts` makes about a sentence a few lines from one this
+ * derives, and the difference is what each one is ABOUT. That file asks whether
+ * turbo WILL RUN the task, so turbo's plan is the only answer that means
+ * anything -- reading `scripts` back to assert the entry is present would
+ * restate turbo's decision in a second language. The sentences here say "is
+ * DECLARED BY", which is a fact about the manifest and nothing else. A dry run
+ * cannot even answer it: ADR-0103 measured that `--dry=json` reports one task
+ * per workspace package whatever the task is, so a plan read as the declaring
+ * set reads every package as declaring everything.
  *
  * AND IT IS WHY THIS IS CHEAP ENOUGH TO LIVE HERE. Every other derivation in
- * this module reads files; spawning turbo would put a subprocess behind a claims
- * table that runs on every `test`.
+ * this module reads files; spawning turbo would put a subprocess behind a
+ * claims table that runs on every `test`.
+ *
+ * `Object.hasOwn` RATHER THAN `scripts?.[task] !== undefined`, because the
+ * second reads the prototype: `packagesDeclaring("constructor")` answered with
+ * EVERY package, since `Object.prototype.constructor` is not undefined. A
+ * derivation that counts everything is the vacuous green `directoriesUnder`
+ * and CNCORE-160 both exist to refuse, arriving here through a task name
+ * instead of a directory read.
  */
+export function packagesDeclaring(task: string): number {
+  return packageDirectories().filter((directory) => {
+    const { scripts } = JSON.parse(read(join(directory, "package.json"))) as {
+      scripts?: Record<string, string>;
+    };
+    return Object.hasOwn(scripts ?? {}, task);
+  }).length;
+}
+
 /**
- * The packages this workspace declares, which is the "of the twelve" half of
- * every sentence that counts a task's share of them.
+ * The packages this workspace declares, which is the "of the ..." half of every
+ * sentence that counts a task's share of them.
  *
  * HELD APART FROM `packagesDeclaring("typecheck")` THOUGH THE TWO AGREE TODAY.
- * Every package declares that script, so both are twelve, and a claim pointed
- * at the wrong one of them would stay green until a package arrived without it
- * -- the exact day the sentence needs to move. `packageDirectories` is the
- * reader `typecheck-wiring.test.ts` and `network-gate-wiring.test.ts` already
- * share (CNCORE-197), so this adds a population rather than a second walk.
+ * Every package declares that script, so both answer the same number, and a
+ * claim pointed at the wrong one of them would stay green until a package
+ * arrived without it -- the exact day the sentence needs to move.
+ * `packageDirectories` is the reader `typecheck-wiring.test.ts` and
+ * `network-gate-wiring.test.ts` already share (CNCORE-197), so this adds a
+ * population rather than a second walk.
  */
 export function packagesInWorkspace(): number {
   return packageDirectories().length;
-}
-
-export function packagesDeclaring(task: string): number {
-  return packageDirectories().filter((directory) => {
-    const { scripts } = JSON.parse(read(`${directory}/package.json`)) as {
-      scripts?: Record<string, string>;
-    };
-    return scripts?.[task] !== undefined;
-  }).length;
 }
 
 /**
