@@ -243,6 +243,8 @@ const NAMED_A_GONE_SYMBOL_ON_PURPOSE: Readonly<Record<string, string>> = {
   asEntry: "ADR-0124 reports CNCORE-114 renaming it, as the standing cost of the check's scope",
   catalogueEntryPublic: "ADR-0124 says CNCORE-114 'has since renamed both to `catalogueRowPublic`'",
   containerDeletedAt: "ADR-0119 says the tombstone the reads selected beside the keys is GONE",
+  emptyMediaVariants:
+    "ADR-0169 reports CNCORE-263 deleting it with `EmptyMedia`, the one export it styled",
   freePort: "ADR-0144 records the port race it caused and the reader that replaced it",
   globalDependencies: "ADR-0126 records it as REFUSED, which is the decision the record exists for",
   pastInTwoRegimes: "ADR-0119 reports that it did not cover the order and grew out of its own name",

@@ -529,9 +529,15 @@ describe.each(underTest.map((p) => [p.name, p] as const))(
         // contract has just excused from answering. What stops that becoming the
         // silent no-op this floor exists to prevent is `ADR-0122's optionality`
         // below: something under test always DECLINES a credential, is never
-        // locked, and meets the floor. Today `provider-wiki` clears it anyway
-        // through `browse`, which still reads its committed fixture; CNCORE-102
-        // moves that operation live too, and this line is already right for it.
+        // locked, and meets the floor.
+        //
+        // AND THAT WITNESS IS NOW THE ONLY THING HOLDING IT UP (CNCORE-263). This
+        // comment used to add that `provider-wiki` cleared the floor anyway
+        // through `browse`, "which still reads its committed fixture", with
+        // CNCORE-102 named as future work. That ticket has landed: `browse` reads
+        // the live wiki and answers 503 without a credential, which the
+        // `browse` row below states in the same file. A locked `provider-wiki`
+        // contributes no URL to this floor at all.
         if (!cannotReachItsSource(declared.credential)) expect(urls.length).toBeGreaterThan(0);
 
         for (const url of urls) {

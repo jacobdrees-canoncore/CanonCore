@@ -64,6 +64,13 @@ already ([[0126-a-task-declares-the-files-it-reads-outside-its-package]]), so it
 stale pass over a file it never read; beside `packages/ui` it would be cached against the one
 directory that cannot answer the question.
 
+**IT ASKED PER MODULE UNTIL CNCORE-263, WHICH IS THE RUNG IT MISSED AND THE ONE
+[[0169-a-check-answers-at-one-granularity-and-that-is-part-of-its-claim]] ADDS.** A module with one
+live export answers the roll call for all of them, so fifteen exported names with no importer sat
+inside three modules this check reports as healthy -- eleven of them in `dropdown-menu.tsx`, whose
+four live exports are all imported by `mode-toggle.tsx` alone. The file now carries a second roll
+call at export granularity, over this package alone and for a stated reason.
+
 **WHAT IT DOES NOT ANSWER:** whether the caller is itself reachable. A module imported only by a
 component no route renders still counts as reached, because the walk starts at every tracked source
 outside the package rather than at the router. It catches a module nothing imports. A subtree that
