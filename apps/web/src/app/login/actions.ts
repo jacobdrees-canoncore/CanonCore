@@ -24,7 +24,8 @@ const offered = z.object({ password: z.string() });
  * browser is sent to, which is post/redirect/get and is also what stops a
  * refresh re-submitting the password.
  *
- * BOTH ADDRESSES ARE HAND-BUILT, AND ADR-0109 NAMES THAT CLASS: Next prefixes
+ * ALL FOUR OF THIS FILE'S ADDRESSES ARE HAND-BUILT, AND ADR-0109 NAMES THAT
+ * CLASS: Next prefixes
  * `<Link>`, `<Form>` and `router.push()` under a `basePath`, and `redirect()`
  * measurably does not. No `basePath` is set, so these are correct today; they
  * join the item page's canonical as what has to be revisited on the day a host

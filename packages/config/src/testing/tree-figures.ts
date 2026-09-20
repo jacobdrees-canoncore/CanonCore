@@ -274,3 +274,78 @@ export function suitesReadingTheRepository(): number {
 
   return files.filter((file) => file.endsWith(".test.ts") && reaches(file)).length;
 }
+
+/**
+ * The hand-built `redirect()` calls in ONE file, which is the population
+ * ADR-0109's coding rule governs.
+ *
+ * COMMENTS ARE STRIPPED FIRST, and that is the whole difficulty. Every file
+ * holding one of these also EXPLAINS it, quoting `redirect()` in the prose
+ * above the call: a naive count of the token reads `login/actions.ts` as five
+ * and `items/actions.ts` as five, and the figure that goes into the comment is
+ * then wrong in the same file that states it.
+ *
+ * PER FILE RATHER THAN PER FUNCTION, because that is the unit the sentences
+ * use -- "`login/actions.ts`'s four redirects" -- and because a function-scoped
+ * count would need a parser to say where one ends. The file is what a reader
+ * opens.
+ */
+export function handBuiltRedirectsIn(path: string): number {
+  const code = read(path)
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^[ \t]*\/\/.*$/gm, "");
+  return [...code.matchAll(/\bredirect\(/g)].length;
+}
+
+/** The code of a file, with every comment taken out of it. */
+function codeOf(path: string): string {
+  return read(path)
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^[ \t]*\/\/.*$/gm, "");
+}
+
+/**
+ * The call sites that read what a procedure answered, and how many of them sit
+ * in a function that redirects on it.
+ *
+ * WHY THE SECOND NUMBER IS THE ONE WITH A CONSEQUENCE. `answer.ts` uses oRPC's
+ * `safe` rather than a `try` precisely because `redirect()` works by throwing,
+ * and a `try` written at one of these call sites would be one `catch` away from
+ * swallowing the redirect as though it were the refusal. The size of the
+ * population that could make that mistake is the argument for the design, so a
+ * figure that drifts low makes the design look more cautious than it needs to
+ * be.
+ *
+ * PER FUNCTION, because "redirects on what comes back" is a claim about one
+ * function's control flow: the answer is read and then, in the same body, a
+ * redirect is raised on it. A file-level count would read `items/actions.ts` as
+ * ten call sites that all redirect, when four of its ten do.
+ *
+ * THE SPLIT IS ON THE EXPORT, which is where a Server Action begins. It is
+ * cruder than a parser and it is enough: nothing in this tree nests one action
+ * inside another.
+ */
+export function procedureAnswerCallSites(): { total: number; redirecting: number } {
+  const files = [
+    "devices",
+    "groups",
+    "import",
+    "items",
+    "login",
+    "settings",
+    "tasks",
+  ].map((area) => `apps/web/src/app/${area}/actions.ts`);
+  files.push("apps/web/src/app/groups/page.tsx");
+
+  let total = 0;
+  let redirecting = 0;
+  for (const file of files) {
+    for (const body of codeOf(file).split(/\n(?=export (?:async )?(?:function|const) )/)) {
+      const calls = [...body.matchAll(/\bwhatTheProcedureAnswered\(/g)].length;
+      if (calls === 0) continue;
+      total += calls;
+      if (/\bredirect\(/.test(body)) redirecting += calls;
+    }
+  }
+  return { total, redirecting };
+}

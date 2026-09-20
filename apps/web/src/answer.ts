@@ -62,9 +62,9 @@ export type Answered<TOutput, TError> =
  * WITH something to say about a particular refusal reads `refused` instead,
  * which is how `/login` tells a mistyped password from a bound that is holding.
  *
- * `safe` RATHER THAN `try`, because `redirect()` works by THROWING and six of
- * the fourteen call sites redirect on what comes back -- counted with
- * `git grep -o` rather than by eye. Only the `call` is handed over here, so a
+ * `safe` RATHER THAN `try`, because `redirect()` works by THROWING and seven of
+ * the twenty-seven call sites redirect on what comes back -- counted by
+ * `packages/config/src/tree-figures.test.ts` rather than by eye. Only the `call` is handed over here, so a
  * redirect raised on the outcome is outside this function and nobody's to
  * catch; a `try` written at a call site instead would be one `catch` away from
  * swallowing that redirect as though it were the refusal.

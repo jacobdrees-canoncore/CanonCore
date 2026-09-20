@@ -4,7 +4,9 @@ import {
   asCount,
   ciJobs,
   countStatedIn,
+  handBuiltRedirectsIn,
   jobsRequestingANodeMajor,
+  procedureAnswerCallSites,
   serversStoodUpByTheHttpSuite,
   serversVia,
   suitesInRepo,
@@ -127,6 +129,30 @@ const CLAIMS: Claim[] = [
     derive: suitesReadingTheRepository,
   },
   {
+    file: "apps/web/src/app/items/actions.ts",
+    pattern: /`login\/actions\.ts`'s (\w+) redirects/g,
+    population: "the hand-built redirects in login/actions.ts",
+    derive: () => handBuiltRedirectsIn("apps/web/src/app/login/actions.ts"),
+  },
+  {
+    file: "apps/web/src/app/login/actions.ts",
+    pattern: /ALL (\w+) OF THIS FILE'S ADDRESSES ARE HAND-BUILT/g,
+    population: "the hand-built redirects in login/actions.ts",
+    derive: () => handBuiltRedirectsIn("apps/web/src/app/login/actions.ts"),
+  },
+  {
+    file: "apps/web/src/answer.ts",
+    pattern: /works by THROWING and ([\w-]+) of the twenty-seven call sites/g,
+    population: "the call sites that redirect on a procedure's answer",
+    derive: () => procedureAnswerCallSites().redirecting,
+  },
+  {
+    file: "apps/web/src/answer.ts",
+    pattern: /of the ([\w-]+) call sites redirect on what comes back/g,
+    population: "the call sites that read a procedure's answer",
+    derive: () => procedureAnswerCallSites().total,
+  },
+  {
     file: "packages/config/vitest.config.ts",
     pattern: /what the other (\w+) configs are checked against/g,
     population: "the Vitest configs other than this one",
@@ -150,6 +176,17 @@ describe("a figure this tree states about itself", () => {
 
   it("counts the suites in this package that read the repository at large", () => {
     expect(suitesReadingTheRepository()).toBe(21);
+  });
+
+  it("counts the hand-built redirects ADR-0109's rule governs, per file", () => {
+    expect(handBuiltRedirectsIn("apps/web/src/app/login/actions.ts")).toBe(4);
+    expect(handBuiltRedirectsIn("apps/web/src/app/items/actions.ts")).toBe(4);
+    expect(handBuiltRedirectsIn("apps/web/src/app/settings/actions.ts")).toBe(1);
+  });
+
+  it("counts the call sites that read a procedure's answer, and those that redirect on it", () => {
+    expect(procedureAnswerCallSites().total).toBe(27);
+    expect(procedureAnswerCallSites().redirecting).toBe(7);
   });
 
   it("reads a count written as a word", () => {
