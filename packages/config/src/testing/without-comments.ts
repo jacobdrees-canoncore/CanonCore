@@ -42,20 +42,21 @@
  * did this, and every hand-written row stayed green.
  *
  * A `/` OPENS A REGEX ONLY WHERE A VALUE CAN START, which is as far as a scan can resolve that
- * ambiguity without parsing. The token before it decides. After a punctuator ending in `(`, `,`,
- * `=`, `:`, `[`, `!`, `&`, `|`, `?`, `{`, `}`, `;`, `+`, `-`, `*`, `%`, `^`, `~`, `>` or `.` --
- * which takes in `=>`, `>=` and a spread's `...` -- a `/` opens a regex. So it does after a
- * keyword a value can follow, like `return` or `default`, and after a `)` that closes the head of
- * an `if`, `while`, `for` or `with`, since a statement follows that `)` where an operator follows
- * any other. After anything else -- an identifier, a number, `]`, a quote, an expression's `)`,
- * and `<` in `</div>` -- it divides.
+ * ambiguity without parsing, and the code before it decides, read back past whitespace and
+ * blanked comments. After a punctuator ending in `(`, `,`, `=`, `:`, `[`, `!`, `&`, `|`, `?`,
+ * `{`, `}`, `;`, `+`, `-`, `*`, `%`, `^`, `~` or `>`, which takes in `=>`, or after a spread's
+ * `...`, a `/` opens a regex. So it does after a keyword a value can follow, like `return` or
+ * `default`, though not after a property of that name, and after a `)` that closes the head of an
+ * `if`, `while`, `for` or `with`. After anything else -- an identifier, a number, `]`, a quote,
+ * any other `)`, and `<` in `</div>` -- it divides.
  *
- * A WRONG GUESS IN EITHER DIRECTION CAN DELETE CODE, and the list above is what keeps them rare. A
+ * A WRONG GUESS IN EITHER DIRECTION CAN DELETE CODE, and the rule above is what keeps them rare. A
  * regex read as division is read as code, so a `/*` inside it opens a comment that runs to the
- * next `*\/`. A regex after `=>` did that until CNCORE-324, and three shapes still would: one
- * after `<`, which is left out for `</div>`; one after the head of a `for await`, whose `(`
- * follows `await`; and one opening the line after a TypeScript type left without its semicolon.
- * Division read as a regex -- after `i++`, a non-null `x!`, or text in JSX -- is usually
+ * next `*\/`. A regex after `=>` did that until CNCORE-324, and four shapes still would: a regex
+ * after `<`, which is left out for `</div>`; after the head of a `for await`, whose `(` follows
+ * `await`; as the divisor in `a / /re/`; and opening the line after a statement left without its
+ * semicolon, which Biome, the formatter all three repositories run, never leaves. Division read
+ * as a regex -- after `i++`, a non-null `x!`, or a variable named `of`, for instance -- is usually
  * harmless, because the run it starts cannot cross a line and is abandoned there. But where a
  * second `/` follows on that line inside a string or template, the run ends inside the literal,
  * the rest of it is read as code, and a `/*` there opens a comment too. Measured 2026-09-21
@@ -94,14 +95,8 @@ function scan(source: string): { code: string; comments: Comment[] } {
   let braces = 0;
   let inTemplate = false;
 
-  // The last token that could decide whether a `/` divides or opens a regex.
-  let significant = "";
-  let word = "";
-  let previousWord = "";
-
   // Whether each open `(` began the head of an `if`, `while`, `for` or `with`, and whether the
-  // last `)` closed one: a statement follows that `)`, where an expression's `)` is followed by
-  // an operator.
+  // last `)` closed one. It is the one thing about the code before a `/` that `out` cannot say.
   const heads: boolean[] = [];
   let closedAHead = false;
 
@@ -120,13 +115,11 @@ function scan(source: string): { code: string; comments: Comment[] } {
         out += here;
         at += 1;
         inTemplate = false;
-        significant = "`";
       } else if (pair === "${") {
         out += pair;
         at += 2;
         suspended.push(braces);
         inTemplate = false;
-        significant = "{";
       } else {
         out += here;
         at += 1;
@@ -152,17 +145,11 @@ function scan(source: string): { code: string; comments: Comment[] } {
       continue;
     }
 
-    if (
-      here === "/" &&
-      regexCanStartAfter(significant, word.length > 0 ? word : previousWord, closedAHead)
-    ) {
+    if (here === "/" && regexCanStartAfter(out, closedAHead)) {
       const closed = endOfRegex(source, at);
       if (closed !== undefined) {
         out += source.slice(at, closed);
         at = closed;
-        significant = "/";
-        word = "";
-        previousWord = "";
         continue;
       }
     }
@@ -171,11 +158,6 @@ function scan(source: string): { code: string; comments: Comment[] } {
       const closed = endOfQuoted(source, at, here);
       out += source.slice(at, closed);
       at = closed;
-      significant = here;
-      if (word.length > 0) {
-        previousWord = word;
-        word = "";
-      }
       continue;
     }
 
@@ -195,22 +177,11 @@ function scan(source: string): { code: string; comments: Comment[] } {
         braces -= 1;
       }
     }
-    if (here === "(") {
-      heads.push(
-        /[A-Za-z0-9_$]/.test(significant) && HEADS.has(word.length > 0 ? word : previousWord),
-      );
-    }
+    if (here === "(") heads.push(HEADS.has(keywordEnding(out)));
     if (here === ")") closedAHead = heads.pop() === true;
 
     out += here;
     at += 1;
-    if (!/\s/.test(here)) significant = here;
-    if (/[A-Za-z0-9_$]/.test(here)) {
-      word += here;
-    } else if (word.length > 0) {
-      previousWord = word;
-      word = "";
-    }
   }
 
   if (inTemplate) {
@@ -247,22 +218,41 @@ const BEFORE_A_REGEX = new Set([
 const HEADS = new Set(["if", "while", "for", "with"]);
 
 /**
- * Whether a `/` here can open a regex literal rather than divide, from the token before it: the
- * last character of a punctuator, the word it was if it was one, and whether a `)` closed a head.
+ * Whether a `/` after `code` can open a regex literal rather than divide, read from the last thing
+ * in `code` that is not whitespace. A blanked comment is whitespace, so it is read past.
  *
  * `<` IS LEFT OUT ALTHOUGH A VALUE CAN FOLLOW IT, because the `/` of a closing JSX tag like
  * `</div>` follows it too. Read as a regex, that `/` would run to the next one on its line and
  * take whatever lay between, a `{/* comment *\/}` among it, for the regex's body.
  */
-function regexCanStartAfter(
-  significant: string,
-  precedingWord: string,
-  closedAHead: boolean,
-): boolean {
-  if (significant === "") return true;
-  if (significant === ")") return closedAHead;
-  if (BEFORE_A_REGEX.has(precedingWord) && /[A-Za-z0-9_$]/.test(significant)) return true;
-  return "(,=:[!&|?{};+-*%^~>.".includes(significant);
+function regexCanStartAfter(code: string, closedAHead: boolean): boolean {
+  const end = endOfCode(code);
+  const last = code[end - 1];
+  if (last === undefined) return true;
+  if (last === ")") return closedAHead;
+  if (last === ".") return code.slice(end - 3, end) === "...";
+  if (/[A-Za-z0-9_$]/.test(last)) return BEFORE_A_REGEX.has(keywordEnding(code));
+  return "(,=:[!&|?{};+-*%^~>".includes(last);
+}
+
+/**
+ * The word `code` ends in, past any whitespace, or `""` if it ends in something else.
+ *
+ * A WORD AFTER A `.` IS A PROPERTY AND NOT A KEYWORD, so `mod.default` and `Symbol.for(key)` end
+ * in `""`: the `/` after either divides.
+ */
+function keywordEnding(code: string): string {
+  const end = endOfCode(code);
+  let start = end;
+  while (start > 0 && /[A-Za-z0-9_$]/.test(code[start - 1] as string)) start -= 1;
+  return code[endOfCode(code, start) - 1] === "." ? "" : code.slice(start, end);
+}
+
+/** One past the last character of `code` before `from` that is not whitespace, or 0. */
+function endOfCode(code: string, from = code.length): number {
+  let end = from;
+  while (end > 0 && /\s/.test(code[end - 1] as string)) end -= 1;
+  return end;
 }
 
 /**

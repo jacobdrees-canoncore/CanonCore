@@ -204,19 +204,22 @@ describe("source with its comments taken out", () => {
 
 describe("the comments in a source", () => {
   /**
-   * A `/` IS A REGEX OR A DIVISION BY THE TOKEN BEFORE IT, and each row below is one shape of that
-   * token. Every source is invented, and this block is the same in all three suites that hold the
+   * A `/` IS A REGEX OR A DIVISION BY THE CODE BEFORE IT, and each row below is one shape of that
+   * code. Every source is invented, and this block is the same in all three suites that hold the
    * scan.
    *
-   * THIS TABLE IS THE DIRECTION THAT DELETES. A regex read as division is read as code, so the
-   * `/*` inside it opens a comment that runs to the next `*\/`, and `/** a *\/` goes with it. The
-   * first row is the shape CNCORE-324 was filed in. Every row but `return` and the operator was
-   * red before that ticket, and those two are the shapes that already held. The `if` head calls
-   * a function, so the scan has to know which `(` its `)` closes and not only the last one opened.
+   * THIS TABLE IS A REGEX THE SCAN MUST NOT READ AS DIVISION. Read as code, the `/*` inside it
+   * opens a comment that runs to the next `*\/`, and `/** a *\/` goes with it. The first row is
+   * the shape CNCORE-324 was filed in. Every row but `return` and the operator was red before that
+   * ticket, and those two are the shapes that already held. The `if` head calls a function, so the
+   * scan has to know which `(` its `)` closes and not only the last one opened.
    */
   it.each([
     ["after `=>`", "const hasStar = (s: string) => /a\\/*/.test(s);"],
     ["after the `)` of an `if` head", "if (ready(s)) /a\\/*/.test(s);"],
+    ["after the `)` of a `for` head", "for (const s of lines) /a\\/*/.test(s);"],
+    ["after the `)` of a `while` head", "while (more(s)) /a\\/*/.test(s);"],
+    ["after the `)` of a `with` head", "with (scope) /a\\/*/.test(s);"],
     ["after `default`", "export default /a\\/*/;"],
     ["after `extends`", "class Pattern extends /a\\/*/.constructor {}"],
     ["after `...`", "const parts = [.../a\\/*/.exec(s)];"],
@@ -229,15 +232,25 @@ describe("the comments in a source", () => {
   });
 
   /**
-   * AND THIS ONE IS THE DIRECTION THAT DOES NOT. A division read as a regex runs to the next `/`
-   * on its line, so the comment after it is read as code and survives, and a regex cannot span a
-   * line, so the loss stops there. Each row is red if its token joins the table above: an
-   * expression's `)` is why only a head's `)` does, and `</td>` is why `<` never does.
+   * AND THIS ONE IS A DIVISION IT MUST NOT READ AS A REGEX. Read as one, `/ 2; /` is a literal and
+   * the comment after it is read as code, so it is never found. Each row is red if its code joins
+   * the table above: an expression's `)` is why only a head's `)` does, a property named
+   * `default` and a method named `for` are why a word after a `.` is never a keyword, and `</td>`
+   * is why `<` never does. The property and method rows were red on this scan's first fix under
+   * CNCORE-324, which took `config.default` for the keyword and `cache.for(` for a head.
    */
   it.each([
     ["an identifier", "const half = total / 2; /* a comment */ const third = total / 3;"],
     ["an expression's `)`", "const half = (a + b) / 2; /* a comment */ const third = (a + b) / 3;"],
     ["`]`", "const half = sizes[0] / 2; /* a comment */ const third = sizes[0] / 3;"],
+    [
+      "a property named like a keyword",
+      "const half = config.default / 2; /* a comment */ const third = config.default / 3;",
+    ],
+    [
+      "a method named like a head",
+      "const half = cache.for(key) / 2; /* a comment */ const third = cache.for(key) / 3;",
+    ],
     [
       "the `<` of a closing JSX tag",
       "const cell = <td>{n}</td>; /* a comment */ const row = <tr></tr>;",
