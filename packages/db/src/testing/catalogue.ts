@@ -287,29 +287,13 @@ export async function aStatement(
  * wrapper would pass for any failure at all, including a typo in the test's own
  * SQL -- so this walks down to the PostgreSQL error underneath.
  *
- * AND IT ANSWERS FOR AN INTEGRITY VIOLATION AND NOTHING ELSE (CNCORE-280). It
- * used to answer with the `message` of whatever error carried a SQLSTATE at all,
+ * AND IT ANSWERS FOR AN INTEGRITY VIOLATION AND NOTHING ELSE (ADR-0184). It used
+ * to answer with the `message` of whatever error carried a SQLSTATE at all,
  * which reads as a refusal and is not one: a server that could not RUN the
- * statement carries a SQLSTATE too. Measured here on 2026-09-21, a statement
- * cancelled by `statement_timeout` came back from this function as
- * `canceling statement due to statement timeout` -- in the position where a
- * caller reads the name of the rule that bit, so the assertion printed
- * `expected 'canceling statement ...' to be 'items_kind_item_kinds_kind_fk'`
- * and blamed the schema for a condition of the server.
- *
- * THAT IS WHAT MADE THE FLAKE UNREADABLE. One worktree's suites share a server
- * with every other worktree's (ADR-0104), so a refusal's answer moved with what
- * the rest of the machine was doing -- and the line it printed named a
- * constraint, which is the one thing it had not measured. Running the suite
- * alone cannot disagree, because alone is the condition in which the server
- * always serves.
- *
- * CLASS 23 IS THE WHOLE POPULATION HERE, and is measured rather than assumed:
- * all 43 calls to this were instrumented on 2026-09-21 and every one answered
- * 23503, 23505 or 23514, because every `RAISE EXCEPTION` in `migrations/`
- * carries `USING ERRCODE = 'check_violation'`. A trigger raised WITHOUT one
- * would be P0001 and would land in the throw below -- loudly, at the change
- * that added it, rather than as a wrong constraint name months later.
+ * statement carries a SQLSTATE too, so one came back in the position where the
+ * caller reads the name of the rule that bit. That record carries the
+ * measurement, the population it was taken over, and why a trigger raised
+ * without an errcode lands in the throw below rather than widening the class.
  */
 export async function refusal(write: Promise<unknown>): Promise<string> {
   try {
@@ -320,13 +304,37 @@ export async function refusal(write: Promise<unknown>): Promise<string> {
   throw new Error("expected the database to refuse this write; it accepted it");
 }
 
+/**
+ * THE SQLSTATE CLASS THAT MEANS THE DATABASE REFUSED A WRITE: 23, integrity
+ * constraint violation -- `23503` foreign key, `23505` unique, `23514` check.
+ * A CLASS rather than a list of those three, because the next member is a new
+ * kind of RULE rather than a new kind of answer.
+ *
+ * ASKED OF A FIVE-CHARACTER CODE ONLY, because that is what a SQLSTATE is. The
+ * `code` this reads off an error is whatever the thrower put there, and
+ * node-postgres puts a libuv errno in the same field -- so a prefix test alone
+ * would admit any code beginning `23` and answer with its message, which is the
+ * defect ADR-0184 removes.
+ */
+const INTEGRITY_VIOLATION = "23";
+const SQLSTATE_LENGTH = 5;
+
+function isARefusal(code: string): boolean {
+  return code.length === SQLSTATE_LENGTH && code.startsWith(INTEGRITY_VIOLATION);
+}
+
+/** `SQLSTATE 57014`, or the driver's own field name where the code is not one. */
+function named(code: string): string {
+  return code.length === SQLSTATE_LENGTH ? `SQLSTATE ${code}` : `error code ${code}`;
+}
+
 function describeRefusal(error: unknown): string {
   let current: unknown = error;
   let reported: { code: string; message: string } | undefined;
   while (current instanceof Error) {
     const code = (current as { code?: unknown }).code;
     if (typeof code === "string" && code !== "") {
-      if (code.startsWith(INTEGRITY_VIOLATION)) {
+      if (isARefusal(code)) {
         const constraint = (current as { constraint?: unknown }).constraint;
         // A trigger's RAISE EXCEPTION carries no constraint name, only a message.
         return typeof constraint === "string" ? constraint : current.message;
@@ -339,24 +347,12 @@ function describeRefusal(error: unknown): string {
     reported === undefined
       ? `not a PostgreSQL refusal: ${String(error)}`
       : `the database did not refuse this write, it failed to serve it: ` +
-          `SQLSTATE ${reported.code}, ${reported.message}. That is a condition of the ` +
+          `${named(reported.code)}, ${reported.message}. That is a condition of the ` +
           `server rather than a rule of the schema, so it says nothing about the ` +
           `constraint this test names.`,
     { cause: error },
   );
 }
-
-/**
- * THE SQLSTATE CLASS THAT MEANS THE DATABASE REFUSED A WRITE: 23, integrity
- * constraint violation -- `23503` foreign key, `23505` unique, `23514` check,
- * and the rest of the family.
- *
- * A CLASS RATHER THAN A LIST OF CODES, because the rules here already refuse
- * through three of its members and the next one is a new kind of RULE rather
- * than a new kind of answer. Every other class PostgreSQL has is the server
- * saying something about itself.
- */
-const INTEGRITY_VIOLATION = "23";
 
 /**
  * A CATALOGUE LARGER THAN ONE PAGE, answering with every id it wrote.

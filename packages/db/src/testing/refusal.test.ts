@@ -13,9 +13,11 @@
  * fixture error would assert only that the classifier agrees with whoever wrote
  * the fixture.
  *
- * NOTHING HERE WRITES A ROW. Every statement below is refused or unreachable,
- * which is what lets this file sit in the shared catalogue these suites run
- * against without being part of any other file's fixture (CNCORE-199).
+ * NOTHING HERE WRITES A ROW, AND NOTHING HERE KEEPS A CONNECTION. Every
+ * statement below is refused or unreachable, which is what lets this file sit in
+ * the shared catalogue these suites run against without being part of any other
+ * file's fixture (CNCORE-199); every pool it opens is closed in `finally`, which
+ * is what keeps it off the budget ADR-0104 shares out.
  */
 import { sql } from "drizzle-orm";
 import { expect, inject, it } from "vitest";
@@ -28,19 +30,30 @@ it("refuses to answer for a server that could not run the statement", async () =
   // meets: `set` is a session setting and a pool hands out whichever session
   // is free.
   const db = createDb(inject("databaseUrl"), { maxConnections: 1 });
-  await db.execute(sql`set statement_timeout = 1`);
+  try {
+    await db.execute(sql`set statement_timeout = 1`);
 
-  await expect(refusal(db.execute(sql`select pg_sleep(1)`))).rejects.toThrow(
-    /failed to serve it: SQLSTATE 57014, canceling statement due to statement timeout/,
-  );
+    await expect(refusal(db.execute(sql`select pg_sleep(1)`))).rejects.toThrow(
+      /failed to serve it: SQLSTATE 57014, canceling statement due to statement timeout/,
+    );
+  } finally {
+    // CLOSED IN `finally`, as `by-hand.test.ts` and `statements.test.ts` close
+    // theirs. A record arguing that every worktree shares one server is the
+    // last place to leave a handle on it -- and this pool's session is holding
+    // a one-millisecond `statement_timeout`.
+    await db.$client.end();
+  }
 });
 
 it("refuses to answer for a server it could not reach at all", async () => {
   const nowhere = createDb("postgresql://postgres:password@127.0.0.1:1/nothing");
-
-  await expect(refusal(nowhere.execute(sql`select 1`))).rejects.toThrow(
-    /failed to serve it: SQLSTATE ECONNREFUSED/,
-  );
+  try {
+    await expect(refusal(nowhere.execute(sql`select 1`))).rejects.toThrow(
+      /failed to serve it: error code ECONNREFUSED/,
+    );
+  } finally {
+    await nowhere.$client.end();
+  }
 });
 
 it("answers with the constraint name whichever integrity rule refused the write", async () => {
