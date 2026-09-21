@@ -7,7 +7,7 @@ status: accepted
 `.claude/skills/dispatch/retire.sh` runs `pnpm db:drop-worktree <branch>` straight after
 `orca worktree rm`, naming the branch the removed worktree had checked out and taking it off that
 worktree before the removal deletes it. **Since CNCORE-334 the dispatcher does not run either by
-hand** (ADR-0198): the two were a rule in three documents with no mechanism, and the ORDER below is
+hand** (ADR-0199): the two were a rule in three documents with no mechanism, and the ORDER below is
 the reason they had to become one command. It drops that branch's database and every `_test…`
 database derived from it, however young, and refuses while any live worktree still owns them.
 `dropDatabases`, the one function through which both this command and `db:setup`'s sweep drop

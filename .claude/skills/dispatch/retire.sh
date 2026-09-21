@@ -164,7 +164,7 @@ fi
 # ticket edited while THIS branch's change to it never merged -- which is the
 # unsafe reading, passed as though it were the safe one. A guard that cannot
 # refuse the incident it was written for is the defect one level down, so the
-# blob is compared instead of the timestamp (ADR-0198).
+# blob is compared instead of the timestamp (ADR-0199).
 #
 # NUL-DELIMITED, because a filename is not a word: `for f in $(git diff --name-only)`
 # splits one holding a space into two paths that exist nowhere, and a path that
