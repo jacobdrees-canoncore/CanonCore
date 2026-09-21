@@ -248,12 +248,6 @@ const CLAIMS: Claim[] = [
     derive: jobsRequestingANodeMajor,
   },
   {
-    file: "docs/adr/0112-the-node-major-is-the-newest-lts-line.md",
-    pattern: /a bump applied to (\w+) of them throws/g,
-    population: "the jobs that ask pnpm/setup for a Node major, less the one left unbumped",
-    derive: () => jobsRequestingANodeMajor() - 1,
-  },
-  {
     file: "packages/config/src/turbo-cache-inputs.test.ts",
     pattern: /([\w-]+) suites here read the repository at large/g,
     population: "the suites in packages/config that read the repository at large",

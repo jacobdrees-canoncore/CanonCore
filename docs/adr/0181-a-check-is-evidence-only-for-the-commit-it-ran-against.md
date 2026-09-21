@@ -259,16 +259,23 @@ world — the head with no runs beside the pre-rebase commit's green.
 The rule is stated in `.claude/skills/dispatch/SKILL.md`, `.claude/rules/workflows.md` and
 `CLAUDE.md`.
 
-**BUILT: adoption, and this record was owed its flip before it got one.** The dispatcher's scratch
-copies were retired on 2026-09-21 against CNCORE-288's merge, and both are confirmed absent, so
-`.claude/skills/dispatch/gate.sh` and `merge-if-green.sh` are the ones its merges run. This record
-asked to be flipped to `accepted` IN THE SAME ACTION as that retirement. The dispatcher retired the
-pair and did not flip it, so it stood `proposed` for the rest of that day, describing a gate as not
-yet in use while it was the only one in use; CNCORE-328 flipped it.
+**BUILT: adoption, and this record was owed its flip before it got one.** The dispatcher retired the
+scratch pair on 2026-09-21 against CNCORE-288's merge and did not flip this record in the same
+action, as the paragraph this replaces asked. It stood `proposed` for the rest of that day,
+describing a gate as not yet in use while the repository's was the only one in use; CNCORE-328
+flipped it. A status is evidence only for the moment it was written, which is this record's own
+subject in a second medium.
 
-**That gap is this record's own defect in a second medium, which is why it is written down rather
-than tidied away.** A status is evidence only for the moment it was written, exactly as a check is
-evidence only for the commit it ran against, and `proposed` over an adopted mechanism reads as a
-live caveat the same way a pre-rebase green reads as a pass. The remedy is the one above: the
-condition and the action that satisfies it belong in one step, because a condition nobody re-reads
-is not a gate.
+**NOT RETIRED, AND FOUND BY CNCORE-328 RATHER THAN ASSERTED: one scratch gate outlived the pair.**
+No `gate.py` and no scratch `merge-if-green.sh` survive anywhere, so nothing in scratch can MERGE
+any more and the repository's fused command is the only one. But a 28-line `gate.sh` was still in a
+dispatcher scratchpad on 2026-09-21, last written 2026-09-20 23:13, before this record existed, and
+it is a generation older than everything decided above: it reads `check_runs` without
+`total_count` or `per_page`, so page two is invisible to it; it asks for no `mergeStateStatus`, so
+it cannot say which zero it met; it never confirms the head against the branch's own ref; it does
+not know a draft; and it names `failure` as the bad set and lets every other conclusion past, which
+is the third hat this record refuses by name. Swept with `find /private/tmp/claude-501 -name
+'gate.sh' -o -name 'gate.py' -o -name 'merge-if-green.sh'`, which also returns the repository's own
+copy inside three worktree checkouts; the population is every scratchpad on this Mac, and the
+command retakes it. **A stale gate that can still be invoked is this record's defect wearing its
+last hat**, so the file is named here rather than left for whoever runs it next.

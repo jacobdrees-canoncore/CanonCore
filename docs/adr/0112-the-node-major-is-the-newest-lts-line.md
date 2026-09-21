@@ -108,7 +108,7 @@ split `ci.yml` or a split `Dockerfile` fails whichever test asked rather than ne
 of its own:
 
 - the rule's selector is right, including across the eight days when no line is Active LTS;
-- `ci.yml` names ONE major — ten jobs state it, and a bump applied to nine of them throws;
+- `ci.yml` names ONE major — ten jobs state it, and a bump applied to all but one throws;
 - the `Dockerfile` names ONE major — every stage building `FROM node:` states it;
 - that major is the one this rule selects **on the day the suite runs**, in both files;
 - `README.md` tells a contributor to install that same major;
