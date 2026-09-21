@@ -59,8 +59,8 @@ export function serversVia(spawn: "anInstanceServing" | "theBuildServing"): numb
  *
  * THE PROSE SPELLS THEM OUT, which is why this exists rather than `Number`.
  * "the seven `The page over HTTP` stands up", "ELEVEN, ten through
- * `anInstanceServing`", "the six jobs", "nine suites here": every figure this
- * module was built for is a word in a sentence, and half of them are shouted.
+ * `anInstanceServing`", "nine suites here": every figure this module was built
+ * for is a word in a sentence, and half of them are shouted.
  * A reader that handled digits alone would match none of them.
  *
  * ORDINALS COUNT TOO, because a sentence naming the last of a series states the
