@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { flatten } from "./flatten";
 import { repoRoot } from "./repo-root";
 import { withoutCommentLeaders } from "./sentences";
 import { trackedFiles } from "./tracked-files";
@@ -9,12 +10,20 @@ import { trackedFiles } from "./tracked-files";
  * THE EQUAL PAIR: a count stated against itself, which is how this tree writes
  * "every one of them". `18 of 18 stayed green`.
  *
- * THE BOUNDARIES ARE THE WHOLE DIFFICULTY. `1 of 1,566` is a RATIO and not a
- * pair, and a plain `\b` reads its `1 of 1` as one -- the comma is a word
- * boundary, so three sites in this tree matched before the class below was
- * widened to the separators a grouped number wears.
+ * THE BOUNDARIES ARE THE WHOLE DIFFICULTY, AND THE FIRST VERSION GOT THE BACK
+ * ONE WRONG IN THE EXPENSIVE DIRECTION. `1 of 1,566` is a RATIO and not a pair,
+ * and a plain `\b` reads its `1 of 1` as one, because the comma is a word
+ * boundary. Widening the guard to `(?![\d,.])` fixed that and QUIETLY REFUSED
+ * ORDINARY SENTENCE PUNCTUATION with it: `629 of 629.` and `300 of 300,` ended
+ * a clause, so the guard saw a `.` or a `,` and threw the match away. Four live
+ * figures in this tree escaped the sweep that way and were found by review, not
+ * by the check -- a sweep silently matching less than it claims, which is the
+ * class this whole file exists to end.
+ *
+ * SO THE BACK GUARD REFUSES A DIGIT, OR A SEPARATOR THAT IS ITSELF FOLLOWED BY
+ * ONE. That is the shape of a longer number continuing, and nothing else.
  */
-const EQUAL_PAIR = /(?<![\d,.])(\d[\d,]*) of \1(?![\d,.])/g;
+const EQUAL_PAIR = /(?<![\d,.])(\d[\d,]*) of \1(?![\d]|[,.]\d)/g;
 
 /**
  * ONE PART OF A RUN SUMMARY, IN VITEST'S OWN SPELLING: a count and the outcome
@@ -126,13 +135,21 @@ export type StatedFigure = {
  * having defeated two hand sweeps of a different figure. Flattening first
  * catches it; the offset map is what keeps the line number a reader can go to
  * after flattening has thrown the newlines away.
+ *
+ * EACH LINE GOES THROUGH `flatten` RATHER THAN THROUGH A `trim` WRITTEN HERE,
+ * which is that module's own rule -- a caller needing more WRAPS it. The first
+ * version trimmed and joined, which left a line's INTERNAL runs of whitespace
+ * alone, so `18  of  18` written with two spaces was a figure this sweep could
+ * not see. Collapsing per line rather than over the whole file is what keeps
+ * the map: a run of whitespace spanning a newline would otherwise become one
+ * character and take the line boundary with it.
  */
 function flattenedWithLines(path: string, text: string): { flat: string; lineAt: number[] } {
   const pieces: string[] = [];
   const lineAt: number[] = [];
   let first = true;
   for (const [index, raw] of withoutCommentLeaders(path, text).split("\n").entries()) {
-    const piece = (first ? "" : " ") + raw.trim();
+    const piece = (first ? "" : " ") + flatten(raw);
     first = false;
     pieces.push(piece);
     for (let at = 0; at < piece.length; at += 1) lineAt.push(index + 1);
@@ -153,6 +170,35 @@ export function statedFigures(): StatedFigure[] {
 }
 
 /**
+ * THE LINES THAT REALLY OPEN A SECTION, WHICH IS NOT EVERY LINE STARTING `#`.
+ *
+ * A FENCED BLOCK IS FULL OF THEM, AND THIS WAS MEASURED ON A LIVE SITE RATHER
+ * THAN GUARDED AGAINST IN THE ABSTRACT. Forty-two lines in this tree's tracked
+ * markdown open with `#` inside a fence. ADR-0181 holds a `gh` transcript whose
+ * first line is `#230    isDraft            true`, and reading that as a
+ * heading cut a sixteen-line pretend section out of the middle of the block --
+ * one carrying no date, when the REAL section around it opens "A draft answers
+ * every question but the one being asked" and carries `2026-09-21` two lines
+ * down. So the sweep called an anchored figure bare, and the register grew a
+ * row to excuse it. That row was bought rather than earned, which is the one
+ * thing the register's own docblock forbids, and a check whose blind spot
+ * manufactures its own exemptions is worse than no check.
+ *
+ * A FENCE IS THREE BACKTICKS OR THREE TILDES AT THE LINE START, and it toggles.
+ * An unclosed fence runs to the end of the file, which is what a markdown
+ * reader does with one too.
+ */
+function sectionOpenersIn(lines: string[]): Set<number> {
+  const openers = new Set<number>();
+  let inFence = false;
+  for (const [index, line] of lines.entries()) {
+    if (/^(?:```|~~~)/.test(line)) inFence = !inFence;
+    else if (!inFence && line.startsWith("#")) openers.add(index);
+  }
+  return openers;
+}
+
+/**
  * THE STRETCH OF PROSE A FIGURE'S ANCHOR MAY STAND IN.
  *
  * TWO UNITS, BECAUSE A WRITER STATES A MEASUREMENT IN TWO PLACES. A document's
@@ -170,12 +216,12 @@ export function statedFigures(): StatedFigure[] {
 export function contextOf(path: string, line: number): string {
   const lines = readFileSync(join(repoRoot, path), "utf8").split("\n");
   const at = line - 1;
-  const opensASection = (index: number): boolean => lines[index]?.startsWith("#") === true;
   if (path.endsWith(".md")) {
+    const headings = sectionOpenersIn(lines);
     let start = at;
-    while (start > 0 && !opensASection(start)) start -= 1;
+    while (start > 0 && !headings.has(start)) start -= 1;
     let end = at + 1;
-    while (end < lines.length && !opensASection(end)) end += 1;
+    while (end < lines.length && !headings.has(end)) end += 1;
     return lines.slice(start, end).join("\n");
   }
   const inComment = (index: number): boolean =>
@@ -222,8 +268,17 @@ type Registration = {
  * that one too and destroy the claim it is part of.
  *
  * `foreign` IS A SENTENCE WEARING THE SHAPE AND NOT BEING ONE. A page's own
- * copy, and another tool's transcript, are not claims about how this tree's
- * tests ran and no anchor would make them truer.
+ * copy, a research shard's progress log, and a record's specimen of a spelling
+ * are not claims about how this tree's tests ran, and no anchor would make
+ * them truer.
+ *
+ * THE PROVIDER COPIES CARRY A THIRD, `record`, AND THIS ONE DOES NOT -- which
+ * is a fact about the repositories rather than drift between the copies. Each
+ * provider's `CLAUDE.md` is a PASS LOG, and CNCORE-142's rule keeps a past
+ * pass's sentences standing and corrects them beside rather than rewriting
+ * them, so a figure in one needs a kind saying exactly that and naming where
+ * its correction stands. This repository keeps no pass log, so that kind would
+ * have no population here and is left out rather than declared unused.
  *
  * WHAT IS NOT A KIND: stale. A figure that merely went out of date is not
  * registered, it is repaired -- anchored to the tree it was taken on, or
@@ -262,11 +317,20 @@ const THE_REGISTER: Registration[] = [
     kind: "foreign",
     why: "the record's own specimen of the second spelling, which is the one every hand pass missed; quoting it is how the section says which shapes are covered",
   },
+  /*
+   * ADR-0181 HAD A ROW HERE AND IT IS GONE, which is the register's own rule
+   * catching the register. That record's `gh` transcript opens `#230 isDraft
+   * true`, the section walk read the `#` as a heading, and the pretend section
+   * it cut out carried no date -- so two anchored figures were reported bare
+   * and a row appeared to excuse them. Making the walk fence-aware anchored
+   * them properly, and holding an entry to excusing something UNANCHORED, not
+   * merely to finding something, is what then reported the row as idle.
+   */
   {
-    path: "docs/adr/0181-a-check-is-evidence-only-for-the-commit-it-ran-against.md",
-    figure: "16 of 16",
+    path: "docs/research/competitor-sweep/sweep-plex-support-B.md",
+    figure: "110 of 110",
     kind: "foreign",
-    why: "a transcript of what `gh` and the merge gate printed about GitHub's check-runs on one commit, which is a record of another tool's output and not a count of tests",
+    why: "a research shard's own progress log -- `Done: 110 of 110. Shard complete.` counts the support threads that sweep had read, not anything this tree runs. It was invisible until the back guard stopped refusing a figure that ends a sentence",
   },
 ];
 
@@ -275,9 +339,14 @@ const THE_REGISTER: Registration[] = [
  *
  * A pattern cannot be written without the spelling it matches, and a fixture
  * cannot prove a spelling is caught without containing it. Both are
- * irreducible in the way `corpus-import-cost.ts` means the word, and both were
- * measured: between them they state twenty of the figures this sweep finds,
- * which as register rows would be a register that is mostly itself.
+ * irreducible in the way `corpus-import-cost.ts` means the word. Between them
+ * they state MORE FIGURES THAN THE REST OF THIS TREE DOES, which as register
+ * rows would be a register that is mostly itself -- 30 against 37, measured
+ * 2026-09-21. THE FIRST DRAFT OF THIS SENTENCE SAID "twenty" AND WAS WRONG THE
+ * DAY IT WAS WRITTEN, in the file whose whole subject is a stated count going
+ * stale, and it was invisible to this sweep because a count spelled as a WORD
+ * is not a spelling this reads. Review found it. That is the honest limit of
+ * the mechanism, stated where somebody meets it.
  *
  * NAMED BY PATH AND HELD TO FINDING SOMETHING, which is what keeps this an
  * exemption rather than a hole. A third name added to buy silence reddens the
@@ -300,22 +369,40 @@ export function figuresInTheIrreducible(): { path: string; found: number }[] {
   }));
 }
 
-/** Whether anybody has answered for this figure by hand. */
+/**
+ * Whether anybody has answered for this figure by hand.
+ *
+ * MATCHED ON PATH AND WORDS, NOT ON LINE, and the cost is worth stating: one
+ * row excuses EVERY occurrence of those words in that file. That is what a
+ * register wants for a record quoting the same transcript twice, and it means
+ * a THIRD occurrence appearing later is excused without anybody deciding it
+ * should be. A line number would close that and open a worse one -- every row
+ * going stale on the edit above it, which is the drift this file is about.
+ */
 const isRegistered = ({ path, figure }: StatedFigure): boolean =>
   THE_REGISTER.some((entry) => entry.path === path && entry.figure === figure);
 
 /**
- * Every register entry that finds nothing in the tree.
+ * Every register entry that is not excusing anything.
  *
- * HELD TO EMPTY, so the register cannot rot in either direction. An entry
- * whose figure was repaired leaves a row standing that would excuse the next
- * figure to wear those words at that path, and an entry added for a figure
- * that was never there is a row bought rather than earned.
+ * HELD TO EMPTY, so the register cannot rot in any of the three directions. An
+ * entry whose figure was repaired leaves a row standing that would excuse the
+ * next figure to wear those words at that path; an entry added for a figure
+ * that was never there is a row bought rather than earned; and an entry for a
+ * figure that is ANCHORED needs no excusing at all.
+ *
+ * THE THIRD ONE IS MEASURED AND IS WHY THIS READS `unanchoredFigures` RATHER
+ * THAN `statedFigures`. The first version asked only whether the figure
+ * EXISTED, and a fence bug in the markdown section walk had called ADR-0181's
+ * two bare when its section carries a date -- so the register grew a row for
+ * them, the row found its figure, and nothing reported that the row was
+ * excusing a figure already lawful. A register that quietly absorbs the
+ * reader's blind spots is how an allowlist grows back.
  */
 export function idleRegistrations(): Registration[] {
-  const found = statedFigures();
+  const owed = unanchoredFigures();
   return THE_REGISTER.filter(
-    (entry) => !found.some(({ path, figure }) => path === entry.path && figure === entry.figure),
+    (entry) => !owed.some(({ path, figure }) => path === entry.path && figure === entry.figure),
   );
 }
 

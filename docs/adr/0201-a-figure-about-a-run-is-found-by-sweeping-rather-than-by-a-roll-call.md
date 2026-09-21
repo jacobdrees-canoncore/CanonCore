@@ -54,7 +54,11 @@ the question get asked. A figure is lawful three ways:
 - **Anchored.** That record's second form, executed here for the first time: the figure's own
   section, in a document, or its own comment block, in a source file, names the date or the commit
   it was taken on. A reader who knows which tree can go and take it again.
-- **Registered**, as `argument`, `foreign` or `record`, with the reason written beside it.
+- **Registered**, with the reason written beside it: as `argument`, ADR-0188's carve-out where the
+  number IS the claim; as `foreign`, a sentence wearing the shape and not being one; or — in the
+  provider repositories only — as `record`, a pass log's account of what a past pass measured,
+  bounded by naming where its correction stands. CanonCore keeps no pass log, so that third kind
+  has no population here and is left out rather than declared unused.
 
 Anything else is red, naming the file and the line and the three ways out.
 
@@ -82,17 +86,33 @@ a ticket in their own sentence — CNCORE-206's loop beside one, CNCORE-214's re
 — and neither names a tree. A rule counting a ticket as an anchor passes both controls green, which
 is how this one was chosen.
 
-| repository | tracked files | figures found | lawful by anchor | registered | repaired here |
-| -- | -- | -- | -- | -- | -- |
-| CanonCore | 546 | 38 | 26 | 3 | 9 |
-| `provider-wiki` | 60 | 46 | 38 | 3 | 5 |
-| `provider-tmdb` | 28 | 3 | 3 | 0 | 0 |
+Measured 2026-09-21 on each branch as it stands. **The counts exclude each repository's own reader
+and its suite**, which between them state more figures than the rest of a tree does — every one a
+specimen of a spelling — and which are excused by name rather than by row.
 
-**87 figures, and 12 of them were defects** — nine here and three in `provider-wiki`, every one
-ADR-0188's exact shape: a load-bearing failure count with an unrouted total beside it. The total
-goes and the count stays. Two more in `provider-wiki` gained the date their measurement already
-carried in `src/archive.ts`. The rest were lawful before this check existed and are lawful now,
-which is the answer to the ticket's own warning that the upper bound is not the finding.
+| repository | files swept | figures now | anchored | registered | deleted here | dated here |
+| -- | -- | -- | -- | -- | -- | -- |
+| CanonCore | 549 | 37 | 33 | 4 | 9 | 0 |
+| `provider-wiki` | 60 | 45 | 42 | 3 | 3 | 2 |
+| `provider-tmdb` | 28 | 3 | 3 | 0 | 0 | 0 |
+
+So 97 figures stood before this pass and 85 stand after it.
+
+**97 figures, and 14 of them needed work** — twelve deleted and two dated. The rest were lawful
+before this check existed and are lawful now, which is the answer to the ticket's own warning that
+the upper bound is not the finding.
+
+**Twelve deleted under ADR-0188**, nine here and three in `provider-wiki`. Most are a load-bearing
+failure count with an unrouted total beside it, and the total goes while the count stays. **They
+are not all that shape**, and saying so would be this record making the kind of blanket claim it
+exists to refuse: ADR-0036's is a BEFORE and AFTER pair whose before is a green total, where what
+carries the argument is the change between them and the sentence "the one is this test". The test
+applied was ADR-0188's in every case — does an argument rest on the number — not a pattern.
+
+**Two dated rather than deleted**, in `provider-wiki`'s `test/search.test.ts`. Not every repair is
+a deletion: that sentence's subject is that the fixture figure MOVES with the roster, so the
+figures are the claim and only the day they were taken was missing — which `src/archive.ts` had
+carried at 2026-09-11 for the same mutation all along.
 
 **One of the twelve could not have been found by any `git grep`.** `test/browse.test.ts`'s total was
 wrapped across a line break — `64 of` ending one comment line and `64 passing` opening the next — so
@@ -102,8 +122,16 @@ file before reading it and keeps an offset map so the line number survives the f
 ## What this does not cover, said here rather than left to be discovered
 
 - **It reads two spellings.** `44 of 45`, an unequal pair, is not read, and neither is a count
-  written as a word. Both were left out deliberately: the unequal pair is overwhelmingly a figure
-  about something other than a test run, and this tree states dozens of them.
+  written as a word. The unequal pair is left out deliberately: it is overwhelmingly a figure about
+  something other than a test run, and this tree states dozens of them. **THE WORD IS A REAL HOLE
+  AND IT HAS ALREADY COST SOMETHING.** `run-figures.ts`'s own docblock said its two excused files
+  state "twenty" figures when they state thirty, and this sweep could not see it: a count spelled
+  as a word, standing unanchored in the very file arguing against unanchored counts. Code review
+  found it, which is what found all three of the sweeps this record replaces.
+- **An entry excuses a file's words, not a line.** One row covers every occurrence of those words
+  in that file, which is what a record quoting one transcript twice wants and means a third
+  occurrence later is excused without anybody deciding it should be. A line number would close
+  that hole and open a worse one: every row going stale on the edit above it.
 - **It cannot tell a stale figure from a fresh one.** It asks whether a reader could check the
   figure, never whether the figure is true. An anchored figure that is wrong stays green.
 - **A lone `N failed` is not read**, because `port 55432 failed:` and `10 failed guesses per subnet`

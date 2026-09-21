@@ -104,8 +104,38 @@ describe("the context an anchor is looked for in", () => {
       "docs/adr/0103-tests-bite-at-package-exports-and-the-router.md",
       1505,
     );
-    expect(context).toMatch(/^#/);
-    expect(context.split("\n").length).toBeGreaterThan(1);
+
+    expect(context).toContain("199 passed");
+    expect(context.split("\n")[0]).toMatch(/^#+ /);
+    // AND IT STOPS AT THE NEXT HEADING rather than running to the end of the
+    // file, which is the half a "starts with a hash" assertion cannot see.
+    expect(
+      context
+        .split("\n")
+        .slice(1)
+        .filter((line) => /^#+ /.test(line)),
+    ).toStrictEqual([]);
+  });
+
+  /**
+   * A FENCED BLOCK IS NOT A RUN OF HEADINGS, AND THIS ROW IS A LIVE SITE
+   * RATHER THAN A FIXTURE. ADR-0181 holds a `gh` transcript opening `#230
+   * isDraft true`. Read as a heading it cuts a pretend section out of the
+   * middle of the block, one carrying no date -- so two figures whose real
+   * section is dated were reported bare, and the register grew a row to excuse
+   * them. That row was bought rather than earned, which is the one thing the
+   * register forbids.
+   */
+  it("is the real section, not one a fenced transcript's `#` appears to open", () => {
+    const context = contextOf(
+      "docs/adr/0181-a-check-is-evidence-only-for-the-commit-it-ran-against.md",
+      162,
+    );
+
+    expect(context.split("\n")[0]).toBe(
+      "## A draft answers every question but the one being asked",
+    );
+    expect(carriesAnAnchor(context)).toBe(true);
   });
 
   it("is the comment block, in a source file", () => {
