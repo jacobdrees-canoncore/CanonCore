@@ -450,6 +450,10 @@ async function failed(response: Response, path: string): Promise<Error> {
   // A BODY IS THE PROVIDER'S CHOICE AND AN EMPTY ONE IS A CHOICE IT MAY MAKE.
   // Said nothing, so there is nothing to introduce: the sentence stops where it
   // stopped before CNCORE-140 rather than trailing a colon into blank space.
+  // TODO(CNCORE-308): "said nothing" is inferred from `said === ""`, and `said`
+  // came through `bounded` -- so a body of only stripped characters reaches this
+  // branch having said something nobody can show. The SENTENCE only omits, which
+  // is why ADR-0176 left it; this reason is the part that is wrong.
   return new Error(said === "" ? `${answered}.` : `${answered}: ${said}`);
 }
 

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   assertConfigUrl,
   bounded,
+  failureReason,
   OutboundRefused,
   parseAllowlist,
   REASON_MAX_LENGTH,
@@ -288,6 +289,26 @@ describe("reasonFor", () => {
     const { text } = reasonFor(new Error("fetch failed", { cause: new Error("\u200b") }));
 
     expect(text).toBe("fetch failed");
+  });
+
+  /**
+   * NEITHER FALLBACK IS BOUNDED BY ANYTHING BUT THIS ASSERTION (ADR-0176).
+   *
+   * `bounded` caps a PROVIDER'S text; a fallback is this app's own sentence and
+   * never passes through it. So the contract's `max(REASON_MAX_LENGTH)` is the
+   * only thing standing between a sentence edited past the ceiling and a 500 at
+   * the output boundary -- which is exactly the failure `SILENT` exists to
+   * prevent, arriving through the fix for it.
+   *
+   * ASSERTED AGAINST THE REAL BOUNDARY rather than by counting characters here,
+   * which is ADR-0123's rule for the cap and ADR-0153's for a figure: a number
+   * written into a test is a second copy of a ceiling, and `failureReason` is
+   * the schema every reason surface is actually held to.
+   */
+  it("hands both fallbacks to the contract that has to accept them", () => {
+    for (const thrown of [new Error(), new Error("\u200b\u200b\u200b")]) {
+      expect(() => failureReason.parse(reasonFor(thrown))).not.toThrow();
+    }
   });
 
   /**

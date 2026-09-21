@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { boundedTo, quotedTo, shortenTo } from "./index";
+import { boundedTo, holdsUnshowable, quotedTo, shortenTo } from "./index";
 
 /**
  * ADR-0163. The levers live here so every package that puts a stranger's text
@@ -131,5 +131,30 @@ describe("quotedTo", () => {
     expect(quotedTo("﻿", 80, "a query")).toBe(
       "a query made only of characters that cannot be shown",
     );
+  });
+});
+
+/**
+ * THE PREDICATE IS PUBLISHED, SO WHAT IT ANSWERS ON ITS OWN IS PART OF THE
+ * CONTRACT (ADR-0176).
+ *
+ * `quotedTo` above asks it only behind `if (quoted !== "")`, and `boundedOr` in
+ * `@canoncore/providers` only behind `bounded(text) ||`, so neither can reach
+ * the case below. A THIRD CALLER CAN. Pinned here rather than left to be
+ * discovered, because the mistake it invites -- reading a `true` as "the whole
+ * value went" -- says "made only of" about a value that partly survived, which
+ * is the one error `UNSHOWABLE`'s docblock says must not happen.
+ */
+describe("holdsUnshowable", () => {
+  it("answers about the strip and not about emptiness, so a partly unshowable value is true", () => {
+    expect(holdsUnshowable("249\u202e643")).toBe(true);
+    // AND THE SAME VALUE IS STILL QUOTED, which is what the guard buys: the two
+    // together are the distinction, and this half alone is not it.
+    expect(quotedTo("249\u202e643", 80, "an id")).toBe("249643");
+  });
+
+  it("is false for ordinary whitespace, which is showable", () => {
+    expect(holdsUnshowable("   ")).toBe(false);
+    expect(holdsUnshowable("")).toBe(false);
   });
 });

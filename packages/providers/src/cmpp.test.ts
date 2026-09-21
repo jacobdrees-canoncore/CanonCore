@@ -140,6 +140,7 @@ describe("a declared credential", () => {
       "this Provider needs something, and named it in words made only of characters that cannot " +
         "be shown.",
     );
+    expect(credential?.label.length).toBeLessThanOrEqual(REASON_MAX_LENGTH);
   });
 
   /** A provider that needs nothing declares nothing, and stays conformant. */
@@ -193,6 +194,10 @@ describe("a provider's declared name", () => {
     const { name } = cmppManifest.parse({ name: "\u200b\u200b\u200b" });
 
     expect(name).toBe("a Provider whose name is made only of characters that cannot be shown");
+    // AND IT CLEARS THE CEILING IT REPLACED A BOUNDED VALUE WITH. A fallback is
+    // this file's own sentence and never passes through `bounded`, so nothing but
+    // this holds it under the length every surface printing a name declares.
+    expect(name.length).toBeLessThanOrEqual(REASON_MAX_LENGTH);
   });
 });
 

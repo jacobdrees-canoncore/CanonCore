@@ -1,4 +1,4 @@
-import { boundedTo, oneLine, strippedToNothing, unshowable } from "@canoncore/text";
+import { boundedTo, holdsUnshowable, oneLine, unshowable } from "@canoncore/text";
 import { z } from "zod";
 
 import { OutboundRefused } from "./boundary";
@@ -159,13 +159,13 @@ export function bounded(text: string): string {
  * sentence a page prints and the other stands in for a NAME. A default would
  * have to pick, and picking is what makes a field read in two voices.
  *
- * THE QUESTION IS `strippedToNothing`'S AND NOT `trim()`'S, which is the whole
+ * THE QUESTION IS `holdsUnshowable`'S AND NOT `trim()`'S, which is the whole
  * reason this reaches the leaf for it. U+FEFF is whitespace to `trim` AND a
  * member of the zero-width family, so a guard spelled `text.trim() === ""` would
  * answer "nothing there" for exactly the value these words exist to name.
  */
 function boundedOr(text: string, whenSilent: string, whenUnshowable: string): string {
-  return bounded(text) || (strippedToNothing(text) ? whenUnshowable : whenSilent);
+  return bounded(text) || (holdsUnshowable(text) ? whenUnshowable : whenSilent);
 }
 
 /**
@@ -239,7 +239,7 @@ const SILENT = "the provider failed without saying why.";
  * nothing but them arrives at the same empty string `new Error()` does -- and the
  * sentence for it asserted that a provider which NAMED a reason named none.
  * ADR-0179 settled that a value nobody can show is not a value nobody sent, and
- * `strippedToNothing` asks which of the two happened rather than whether the
+ * `holdsUnshowable` asks which of the two happened rather than whether the
  * result is empty.
  *
  * THE PHRASE IS `@canoncore/text`'S AND THE FRAME IS THIS FILE'S, which is
