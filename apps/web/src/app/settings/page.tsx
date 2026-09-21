@@ -157,7 +157,7 @@ export default async function SettingsPage({
           <p className="mt-4 text-muted-foreground text-sm">
             No Provider is named, so this instance searches none. Name one below.
           </p>
-        ) : (
+        ) : providers.kind === "allowlist-unreadable" ? (
           <>
             {/*
               WHICH OF THE TWO SETTINGS IS THE BROKEN ONE (CNCORE-329, ADR-0121).
@@ -166,47 +166,23 @@ export default async function SettingsPage({
               reading, because ADR-0034's boundary admits nothing it cannot
               read. Said ONCE above the list rather than on every row: it is a
               fact about the instance, not about any Provider.
+
+              AND THE EMPTY CASE NEVER REACHES HERE, which the arm above settles
+              and is right rather than a gap. "None of THESE was reached" has no
+              subject when the list is empty, and "No Provider is named" is true
+              of that instance whatever the allowlist does. The Allowlist
+              section below still names the fault, so the Owner is told once
+              rather than not at all.
             */}
-            {providers.kind === "allowlist-unreadable" ? (
-              <p className="mt-4 text-muted-foreground text-sm">
-                This instance <CannotReadTheAllowlist />, so none of these was reached: the boundary
-                that admits a Provider admits nothing it cannot read. Correcting it below is what
-                brings them back.
-              </p>
-            ) : null}
-            <ul className="mt-4 flex flex-col divide-y">
-              {providers.named.map((provider) => (
-                <li
-                  className="flex items-center justify-between gap-4 py-3"
-                  data-provider={provider.baseUrl}
-                  key={provider.baseUrl}
-                >
-                  <div>
-                    {/*
-                    THE URL AS THE OWNER TYPED IT, which is the Provider's
-                    IDENTITY (ADR-0031) and what the Source row on every
-                    imported claim carries. Nothing here tidies it, because two
-                    spellings would be two Providers. And not this page's words,
-                    so it wraps where one of them would not (ADR-0142).
-                  */}
-                    <p className="text-sm">
-                      <TheirWords>{provider.baseUrl}</TheirWords>
-                    </p>
-                    {"reach" in provider ? <ReachNotice reach={provider.reach} /> : null}
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    {"reach" in provider ? <UnlockAt reach={provider.reach} /> : null}
-                    <form action={removeProvider}>
-                      <input name="baseUrl" type="hidden" value={provider.baseUrl} />
-                      <Button size="sm" type="submit" variant="outline">
-                        Remove
-                      </Button>
-                    </form>
-                  </div>
-                </li>
-              ))}
-            </ul>
+            <p className="mt-4 text-muted-foreground text-sm">
+              This instance <CannotReadTheAllowlist />, so none of these was reached: the boundary
+              that admits a Provider admits nothing it cannot read. Correcting it below is what
+              brings them back.
+            </p>
+            <ProviderRows named={providers.named} />
           </>
+        ) : (
+          <ProviderRows named={providers.named} />
         )}
       </section>
 
@@ -434,6 +410,68 @@ function ByItsBaseUrl() {
  */
 function CannotReadWhatIsStored() {
   return <>cannot read the Providers it already has</>;
+}
+
+/**
+ * THE PROVIDERS THIS INSTANCE NAMES, ONE ROW EACH, WITH OR WITHOUT A READING.
+ *
+ * ONE COMPONENT FOR TWO ARMS, TAKING `reach` AS OPTIONAL -- and the optional
+ * field is right HERE where it was refused in the contract. `settings.read`
+ * answers a union precisely so that "reached" and "there is no reading" cannot
+ * be confused by a caller; by the time a row is being drawn the arm is already
+ * known, and what is left is one question about markup: is there a notice to
+ * draw or not.
+ *
+ * IT REPLACES `"reach" in provider`, WHICH IS THE CORRECTION REVIEW CAUGHT.
+ * Both arms were mapped by one `.map`, and each row asked a STRUCTURAL question
+ * of a value whose arm the page had already discriminated. That reads as a
+ * narrowing and is not one: a fourth arm added to the union with no `reach`
+ * would satisfy it, compile, and silently draw no notice -- which is exactly
+ * the property ADR-0199 claims the union has and that shape quietly gave up.
+ * The arm is chosen ONCE, above.
+ */
+function ProviderRows({ named }: { named: readonly { baseUrl: string; reach?: Reach }[] }) {
+  return (
+    <ul className="mt-4 flex flex-col divide-y">
+      {named.map(({ baseUrl, reach }) => (
+        <li
+          className="flex items-center justify-between gap-4 py-3"
+          data-provider={baseUrl}
+          key={baseUrl}
+        >
+          <div>
+            {/*
+              THE URL AS THE OWNER TYPED IT, which is the Provider's IDENTITY
+              (ADR-0031) and what the Source row on every imported claim
+              carries. Nothing here tidies it, because two spellings would be
+              two Providers. And not this page's words, so it wraps where one
+              of them would not (ADR-0142).
+            */}
+            <p className="text-sm">
+              <TheirWords>{baseUrl}</TheirWords>
+            </p>
+            {reach === undefined ? null : <ReachNotice reach={reach} />}
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            {reach === undefined ? null : <UnlockAt reach={reach} />}
+            {/*
+              REMOVE IS OFFERED IN BOTH ARMS, AND THAT IS LOAD-BEARING
+              (CNCORE-329). `removeProvider` parses the Providers string and
+              never the allowlist, so these rows stay the Owner's to act on
+              while the setting beside them is unreadable -- which is why the
+              list is rendered at all in that state rather than withheld.
+            */}
+            <form action={removeProvider}>
+              <input name="baseUrl" type="hidden" value={baseUrl} />
+              <Button size="sm" type="submit" variant="outline">
+                Remove
+              </Button>
+            </form>
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 /**

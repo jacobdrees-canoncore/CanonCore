@@ -541,6 +541,36 @@ describe("/settings", () => {
   });
 
   /**
+   * AND THE ROWS ARE STILL THE OWNER'S TO ACT ON, WHICH IS A CLAIM A RECORD
+   * MAKES AND NOTHING CHECKED.
+   *
+   * ADR-0199 argues the list is rendered in this state rather than withheld
+   * because "`removeProvider` parses the Providers string and never the
+   * allowlist, so every row is live while the setting beside it is broken".
+   * That is a sentence about a procedure two packages away, asserted from a
+   * page that shows a button -- exactly the shape ADR-0197 exists about, where
+   * copy and a branch both looked like coverage and neither ran. So the button
+   * is pressed.
+   */
+  it("removes a Provider while the allowlist it is admitted by will not parse", async () => {
+    const cookie = await logInAt(baseUrl, ownerPassword);
+    await withTheSettingsRow(
+      { providerAllowlist: "*.wiki.test", providerUrls: "http://fine.test:8080" },
+      async () => {
+        const { text } = await documentFrom(baseUrl, "/settings", cookie);
+        expect(providersIn(text)).toEqual(["http://fine.test:8080"]);
+
+        const removed = await submit(baseUrl, "/settings", formIn(text, "providers"), cookie);
+
+        expect(providersIn(removed.text)).toEqual([]);
+        // AND THE ALLOWLIST IS STILL THE BROKEN ONE, so this asserts a Remove
+        // that worked THROUGH the fault rather than one that quietly repaired it.
+        expect(textOf(mainOf(removed.text))).toContain("cannot read the Allowlist it already has");
+      },
+    );
+  });
+
+  /**
    * BOTH SETTINGS AT ONCE, WHICH IS ONE STATE AND OWES TWO SENTENCES.
    *
    * ADR-0121's condition is that the surface says WHICH of the two refuses, and

@@ -12,7 +12,7 @@ status: accepted
 > through the instance's own database. **The ALLOWLIST half is built too, under CNCORE-329**, which
 > is the sentence this banner carried in the negative: `parseAllowlist` threw out of the same
 > `read`, and it now answers a union of its own, with the page naming WHICH of the two settings it
-> cannot read. [[0198-a-stored-setting-that-will-not-parse-must-not-remove-the-surface-that-repairs-it]]
+> cannot read. [[0199-a-stored-setting-that-will-not-parse-must-not-remove-the-surface-that-repairs-it]]
 > carries the general rule both halves turned out to share, and the half neither of them had: a
 > control that still works in the state the refusal names. This record's number was assigned by the
 > dispatcher.
@@ -204,5 +204,5 @@ the row is bad and that is unchanged — the way out is a third write rather tha
 either, so the parse-before-store rule
 [[0121-an-instance-names-its-providers-beside-the-allowlist-that-admits-them]] puts on every
 settings write is untouched.
-[[0198-a-stored-setting-that-will-not-parse-must-not-remove-the-surface-that-repairs-it]] has the
+[[0199-a-stored-setting-that-will-not-parse-must-not-remove-the-surface-that-repairs-it]] has the
 argument, including why the Allowlist had never had this defect and the Providers had.

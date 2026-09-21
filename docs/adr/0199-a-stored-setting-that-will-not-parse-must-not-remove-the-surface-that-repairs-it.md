@@ -8,7 +8,10 @@ status: accepted
 > ANSWER can carry the refusal rather than in an expression that throws out of the read; the page
 > says WHICH of the two it cannot read, including both; and each setting has a wholesale editor that
 > parses only what is SUBMITTED, so a row no other write will touch is repairable from the page.
-> CNCORE-329 and CNCORE-331, folded on this one rule. Its number was assigned by the dispatcher.
+> CNCORE-329 and CNCORE-331, folded on this one rule. The dispatcher assigned 0198, which was free
+> on `main` and taken on `jacobdrees/cncore-334`; renumbered to 0199 at review. A number is free
+> only against every LIVE branch, never against `main` alone, and that is worth re-checking at each
+> rebase rather than once at branch time.
 
 [[0197-a-surface-that-cannot-render-its-own-refusal-has-not-reported-it]] found half of this and
 said so in its own banner: a surface owes a writer for a refusal AND a read that survives the state

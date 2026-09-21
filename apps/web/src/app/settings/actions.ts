@@ -2,6 +2,7 @@
 
 import { appRouter } from "@canoncore/api/routers";
 import type { WhySettingNotRead } from "@canoncore/providers";
+import { shortenTo } from "@canoncore/text";
 import { call } from "@orpc/server";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -10,7 +11,12 @@ import { whatTheProcedureAnswered } from "@/answer";
 import { whatTheFormCarries } from "@/form";
 import { callerContext } from "@/session";
 
-import { REFUSED, REFUSED_SAVING_THE_ALLOWLIST, REFUSED_SAVING_THE_PROVIDERS } from "./refusal";
+import {
+  ENTRY_MAX,
+  REFUSED,
+  REFUSED_SAVING_THE_ALLOWLIST,
+  REFUSED_SAVING_THE_PROVIDERS,
+} from "./refusal";
 
 /**
  * SAYING WHAT THIS INSTANCE REACHES, as Server Actions (CNCORE-99).
@@ -263,7 +269,14 @@ export async function editProviders(form: FormData): Promise<void> {
  */
 function theAddressAfterARefusedSave(
   refused: { code: string; data?: unknown },
-  words: Record<WhySettingNotRead, string>,
+  /*
+   * INDEXED BY A PLAIN `string`, SO AN UNKNOWN WORD ANSWERS `undefined` RATHER
+   * THAN BEING CAST INTO A KEY. Each table below still `satisfies
+   * Record<WhySettingNotRead, string>` where it is DECLARED, which is where
+   * the totality check belongs; what arrives here came off a wire and is read
+   * rather than trusted.
+   */
+  words: Readonly<Record<string, string | undefined>>,
   /*
    * A TEMPLATE LITERAL TYPE AND NOT `string`, because `redirect()` takes a
    * `RouteImpl` under Next's typed routes: the addresses this file builds by
@@ -273,8 +286,29 @@ function theAddressAfterARefusedSave(
    */
 ): `/settings?${string}` {
   const said = whyTheSettingWasNotRead(refused);
-  if (said === undefined) return `/settings?because=${REFUSED.unexplained}`;
-  return `/settings?refused=${encodeURIComponent(said.entry)}&because=${words[said.why]}`;
+  const because = said === undefined ? undefined : words[said.why];
+  /*
+   * A WORD THIS SURFACE DOES NOT HOLD FALLS BACK RATHER THAN TRAVELLING AS
+   * `undefined`. Cast into the table instead, an unrecognised `why` indexed to
+   * nothing and wrote `?because=undefined`, which `oneBecauseSavingThe*` then
+   * rightly refuses -- so the page rendered NO sentence at all, which is the
+   * silence this file's docstring forbids, rebuilt inside the branch added to
+   * end it. `items/actions.ts` states the rule: checked rather than cast
+   * through, "instead of putting `undefined` in the address".
+   */
+  if (said === undefined || because === undefined) {
+    return `/settings?because=${REFUSED.unexplained}`;
+  }
+  /*
+   * CUT BEFORE IT BECOMES A HEADER. Both wholesale settings are textareas with
+   * no ceiling on what they hold, and this value goes into a `Location` -- one
+   * entry past the server's header limit turns a refusal into a crash, before
+   * any page is reached to bound anything. THE CUT ALONE, not `boundedTo`: the
+   * strip is the page's to apply, and applying it here would flatten an entry
+   * made only of control characters to nothing, costing `WhichEntry` the
+   * sentence ADR-0179 gives that case.
+   */
+  return `/settings?refused=${encodeURIComponent(shortenTo(said.entry, ENTRY_MAX))}&because=${because}`;
 }
 
 /**
@@ -289,11 +323,17 @@ function theAddressAfterARefusedSave(
 function whyTheSettingWasNotRead(refused: {
   code: string;
   data?: unknown;
-}): { entry: string; why: WhySettingNotRead } | undefined {
+}): { entry: string; why: string } | undefined {
   if (refused.code !== "SETTING_NOT_READ") return undefined;
   const said = refused.data as { entry?: unknown; why?: unknown } | undefined;
   if (typeof said?.entry !== "string" || typeof said.why !== "string") return undefined;
-  return { entry: said.entry, why: said.why as WhySettingNotRead };
+  /*
+   * `why` STAYS A `string` HERE AND IS RESOLVED BY THE TABLE. Narrowing it to
+   * `WhySettingNotRead` would be a cast -- this value came off a wire, and the
+   * docblock above promises it is read rather than assumed. The lookup is what
+   * decides whether this surface knows the word.
+   */
+  return { entry: said.entry, why: said.why };
 }
 
 /**

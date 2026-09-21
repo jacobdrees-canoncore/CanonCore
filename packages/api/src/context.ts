@@ -89,7 +89,7 @@ export type Context = Awaited<ReturnType<typeof createContext>>;
  * self-hoster restoring a dump did not write that row by hand and has no psql
  * prompt to fix it from. `settings.read` does not come through this function
  * at all -- it reads the row itself and parses each setting where the ANSWER
- * can carry the refusal (ADR-0198) -- so that page renders whatever the row
+ * can carry the refusal (ADR-0199) -- so that page renders whatever the row
  * holds, says which of the two settings is unreadable, and offers a textarea
  * that replaces it. Every OTHER surface asking what this instance reaches
  * still throws here, and that half stands: they have no repair to offer, and

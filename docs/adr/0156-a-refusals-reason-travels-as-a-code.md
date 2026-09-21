@@ -138,8 +138,16 @@ called `whatTheProcedureAnswered` and dropped the result without binding `refuse
 refused save re-rendered the page with the STORED allowlist in the box and the Owner's edit gone.
 The eleven at least report through a re-read that SHOWS what happened; a textarea reverting shows
 the opposite. Both wholesale saves redirect now
-([[0198-a-stored-setting-that-will-not-parse-must-not-remove-the-surface-that-repairs-it]]), so the
+([[0199-a-stored-setting-that-will-not-parse-must-not-remove-the-surface-that-repairs-it]]), so the
 population below is unchanged and the file that looked like a twelfth never was one.
+
+**WHAT THAT FIXED IS THE SILENCE AND NOT THE REVERT, and the two are worth keeping apart.** The
+Owner is now told which entry was refused and why. Their TYPING is still gone: the redirect carries
+the offending entry, the page re-renders the textarea from the STORED value, and what they had
+composed is not in either. That is every form on this surface rather than these two, since
+`/settings` reports by re-reading; carrying a whole submitted setting back through an address the
+Owner can edit is a question [[0123-a-failure-reason-is-bounded-and-says-who-wrote-it]] would have
+to answer first, and nobody has asked it.
 That is `answer.ts`'s documented pattern and is right wherever the re-read actually shows what
 happened: the Group that is gone is gone from the list. It is NOT right wherever a re-read renders
 identically to a refusal, which is the case `settings/actions.ts` was written to name and the case

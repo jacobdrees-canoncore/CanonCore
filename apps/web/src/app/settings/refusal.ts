@@ -224,8 +224,18 @@ export function oneBecauseSavingTheProviders(
  * long base URL still recognises its opening, and what they cannot do without
  * is the clause saying what to do -- which is exactly what keeping the value
  * short protects.
+ *
+ * EXPORTED SINCE CNCORE-329, FOR A SECOND BOUND WITH A DIFFERENT JOB. This one
+ * settles how much of a stranger's value a SENTENCE repeats, and it is applied
+ * at the READ because a hand-typed address never passes through an action
+ * (ADR-0156). `settings/actions.ts` now also cuts at the address it BUILDS,
+ * which is not the same rule wearing a second hat: an entry rides in a
+ * `Location` header, the two wholesale settings are textareas with no ceiling
+ * on what they hold, and a header past the server's limit turns a refusal into
+ * a crash before any page reads anything. Same ceiling, because a value the
+ * page will cut to 80 anyway loses nothing by arriving that long.
  */
-const ENTRY_MAX = 80;
+export const ENTRY_MAX = 80;
 
 /**
  * THE ENTRY A REFUSAL IS ABOUT, AT A LENGTH THIS PAGE CHOSE.
