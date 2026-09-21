@@ -1,11 +1,16 @@
 # ONE PROJECT NAME FOR EVERY WORKTREE, SO ONE CONTAINER FOR ALL OF THEM
-# (ADR-0104). It is also the project the Owner's install runs as, so from this
-# directory Compose calls that install's app and database ORPHANS and suggests
-# `--remove-orphans` for them. NEVER TAKE IT. From the install's side the same
-# flag would remove this container. From this side it stops and removes the
-# Owner's running install. Its catalogue survives on the named volume
-# `canoncore_data`, but the instance is down until somebody notices. `db:start`
-# sets COMPOSE_IGNORE_ORPHANS so that it never prints the suggestion.
+# (ADR-0104). The requirement is that the name be ONE name, and never that it be
+# a PARTICULAR one: nothing reads it, and the container is reached by the
+# `container_name` below, which Compose does not prefix with the project.
+#
+# IT IS `canoncore-dev` SO THAT THIS STACK AND THE OWNER'S INSTALL ARE DISJOINT
+# (CNCORE-250). Both ran as `canoncore` until then, from two directories, so
+# each one's ordinary `up` called the other's containers ORPHANS and recommended
+# `--remove-orphans` for them -- which from here stops and removes the Owner's
+# running instance, and from there removes this container. Compose only ever
+# considers containers carrying its OWN `com.docker.compose.project`, so two
+# names is the whole of the fix. `src/docker-compose.test.ts` fails if the two
+# files are ever brought back onto one name.
 #
 # A CHANGE TO THIS FILE DOES NOT REACH THE RUNNING CONTAINER BY ITSELF, ON
 # PURPOSE. `db:start` passes `--no-recreate`: it creates the container when there
@@ -16,9 +21,22 @@
 # container of its own. Once the change is on `main`, the Owner applies it from
 # the main checkout while no suite is running:
 #
-#   COMPOSE_IGNORE_ORPHANS=true docker compose up -d --dry-run   # `Recreate` = it differs
-#   COMPOSE_IGNORE_ORPHANS=true docker compose up -d
-name: canoncore
+#   docker compose up -d --dry-run   # `Recreate` = it differs
+#   docker compose up -d
+#
+# THE RENAME IS THE ONE CHANGE THAT ROUTE CANNOT APPLY, because the running
+# container is labelled with the OLD project and the new one therefore does not
+# own it. Once, from the main checkout with no suite running:
+#
+#   docker compose config --format json   # the volume MUST read canoncore_canoncore_postgres_data
+#   docker stop -t 60 canoncore-postgres && docker rm canoncore-postgres
+#   docker compose up -d
+#
+# Every worktree's database is on the pinned volume at the foot of this file and
+# `docker rm` does not touch a named volume, so what that costs is the
+# connections, as any recreate does. NAME THE CONTAINER, never the install's:
+# `canoncore-canoncore-1` and `canoncore-database-1` are the Owner's instance.
+name: canoncore-dev
 
 services:
   postgres:
@@ -107,5 +125,17 @@ services:
       retries: 5
     restart: unless-stopped
 
+# PINNED BY NAME, SO THE PROJECT NAME ABOVE CARRIES NO DATA. A volume with no
+# `name:` of its own is prefixed with the project, so renaming the project would
+# have pointed this service at a NEW AND EMPTY volume and left every worktree's
+# database on the old one. Measured 2026-09-21 with `docker compose config`,
+# which resolves volume names the way Compose does: unpinned, `canoncore-dev`
+# read `canoncore-dev_canoncore_postgres_data` where `canoncore` read
+# `canoncore_canoncore_postgres_data` -- the volume that exists.
+#
+# The pinned name is the one the volume ALREADY HAS, which is why the rename
+# keeps the databases rather than migrating them. `compose.yaml` pins the
+# install's `canoncore_data` for the same reason, one collision earlier.
 volumes:
   canoncore_postgres_data:
+    name: canoncore_canoncore_postgres_data
