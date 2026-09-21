@@ -1190,14 +1190,22 @@ describe("provider.search within a Group", () => {
    */
   it("refuses a Group above the ceiling, and accepts one at it", async () => {
     await expect(
-      call(appRouter.provider.search, { query: "tenth planet", group: "x".repeat(A_NARROWING + 1) }, { context }),
+      call(
+        appRouter.provider.search,
+        { query: "tenth planet", group: "x".repeat(A_NARROWING + 1) },
+        { context },
+      ),
     ).rejects.toThrow("Input validation failed");
 
     // AT THE CEILING IT ASKS NOBODY, which is what a Group naming nothing does
     // here: the answer rather than a BAD_REQUEST, exactly as the declaration
     // says. A ceiling on the LENGTH does not change that.
     await expect(
-      call(appRouter.provider.search, { query: "tenth planet", group: "x".repeat(A_NARROWING) }, { context }),
+      call(
+        appRouter.provider.search,
+        { query: "tenth planet", group: "x".repeat(A_NARROWING) },
+        { context },
+      ),
     ).resolves.toBeDefined();
   });
 

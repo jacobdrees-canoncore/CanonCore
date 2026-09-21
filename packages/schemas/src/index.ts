@@ -17,7 +17,6 @@ export const healthCheckResult = z.literal("OK");
 
 export type HealthCheckResult = z.infer<typeof healthCheckResult>;
 
-
 /**
  * What the read path emits for one item.
  *
