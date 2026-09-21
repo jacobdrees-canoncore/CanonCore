@@ -630,7 +630,16 @@ describe("/settings", () => {
       expect(refused.url).toContain("because=providers-not-a-url");
       expect(refused.url).toContain("tmdb.test");
       const shown = textOf(mainOf(refused.text));
-      expect(shown).toContain("That list was not saved");
+      /*
+       * THE WHOLE SENTENCE, SPACE INCLUDED, because the clause after it is a
+       * separate component and the space between them is a `{" "}` of its
+       * own. Walking this by hand read it as "is not a URL.A Provider" -- an
+       * accessibility tree joins adjacent text nodes and drops the
+       * whitespace-only one, so the only way to tell a snapshot artefact from
+       * a missing space is to read the HTML, which is what this does.
+       */
+      expect(shown).toContain("That list was not saved, because");
+      expect(shown).toContain("is not a URL. A Provider is a URL and nothing more");
       /*
        * AND THE BOX IS STILL THERE TO TRY AGAIN IN, which is the half a
        * sentence alone does not settle: the stored row is untouched by a
