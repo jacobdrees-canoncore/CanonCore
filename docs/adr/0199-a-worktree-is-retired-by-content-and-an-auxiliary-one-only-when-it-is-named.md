@@ -163,8 +163,8 @@ them, including the world where `main` edited the file later but never took the 
 
 **AND THE REMOVAL'S OWN GUARD WAS THE PART REVIEW CAUGHT, not the comparison.** `$tree` is read out
 of a `gitdir` file and handed to `rm -rf`, and the first guard written for it was a depth test —
-`case "$tree" in /*/*)` — which `/Users/jacobrees` passes, so a `gitdir` naming a home directory
-plus one `--aux` would have removed it. What replaced it asks GIT whether the path is a worktree
+`case "$tree" in /*/*)` — which the Owner's own home directory passes, two components being all it
+has, so a `gitdir` naming it would have removed it on one `--aux`. What replaced it asks GIT whether the path is a worktree
 sharing this repository's common directory, which is a question no unrelated path can answer and is
 the same question that tells a worktree from a main checkout. The plan of what to remove is
 NUL-delimited on disk for the reason the file enumeration already was: built as newline records, a

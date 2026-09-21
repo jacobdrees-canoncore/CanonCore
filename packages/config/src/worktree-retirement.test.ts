@@ -677,8 +677,9 @@ describe("the checkout the retirement is pointed at", () => {
  *
  * `$tree` is read out of a file under `.git/worktrees/<name>/gitdir` and is
  * then handed to `rm -rf`. The first guard written for it was a depth test,
- * `case "$tree" in /*\/*)`, which `/Users/jacobrees` passes -- so a `gitdir`
- * naming a home directory plus one `--aux` would have removed it, and
+ * `case "$tree" in /*\/*)`, which the OWNER'S HOME DIRECTORY passes -- two
+ * components is all it has -- so a `gitdir` naming it would have removed it on
+ * one `--aux`, and
  * `cd && pwd -P` resolves symlinks INTO whatever it names. What replaced it
  * asks git whether the path is a worktree sharing this repository's own common
  * directory, which is a question no unrelated path can answer.

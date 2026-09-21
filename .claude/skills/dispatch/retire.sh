@@ -295,9 +295,9 @@ for entry in "$registrations"/*; do
 
   # THE TREE MUST BE A WORKTREE OF THIS REPOSITORY, AND GIT IS WHO SAYS SO.
   # `$tree` comes out of a FILE, and it is about to be handed to `rm -rf`. The
-  # guard this replaces was a `case "$tree" in /*/*)` depth test, which
-  # `/Users/jacobrees` passes -- so a `gitdir` reading `/Users/jacobrees/.git`
-  # plus one `--aux` would have removed a home directory, and `cd && pwd -P`
+  # guard this replaces was a `case "$tree" in /*/*)` depth test, which the
+  # OWNER'S HOME DIRECTORY passes -- two components is all it has -- so a
+  # `gitdir` naming it would have removed it on one `--aux`, and `cd && pwd -P`
   # resolves symlinks INTO whatever it names. Asking git whether the path is a
   # worktree sharing THIS repository's common directory is a question no
   # unrelated path can answer, and it is the same question that told this
