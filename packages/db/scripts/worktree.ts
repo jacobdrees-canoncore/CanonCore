@@ -2,7 +2,9 @@
  * What a `db:*` script needs to know about the worktree it runs in that only a
  * running process knows: the server, the branch, and the app's `.env`. Shared
  * by `setup.ts` and `restore.ts`, which both act on the worktree's OWN database
- * and must not disagree about which server that is on.
+ * and must not disagree about which server that is on, and by
+ * `drop-worktree.ts`, which acts on a removed worktree's and takes only the
+ * server and the repository from here.
  */
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";

@@ -20,6 +20,7 @@
     "db:migrate": "turbo run db:migrate -F @canoncore/db --",
     "db:setup": "turbo run db:setup -F @canoncore/db --",
     "db:restore": "turbo run db:restore -F @canoncore/db --",
+    "db:drop-worktree": "turbo run db:drop-worktree -F @canoncore/db --",
     "db:seed": "turbo run db:seed -F @canoncore/db --",
     "db:check-ladder": "turbo run db:check-ladder -F @canoncore/db --",
     "db:start": "turbo run db:start -F @canoncore/db --",

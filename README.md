@@ -204,12 +204,17 @@ anything a worktree of this checkout owns, never overwrites `apps/web/.env`, and
 existing one names a different database. `pnpm db:seed` adds another item to whatever `.env` points
 at.
 
-**It also sweeps the container**, since every worktree runs it and nothing else would. A removed
+**It also sweeps the container**, since every worktree runs it. A removed
 worktree's database and every `_test…` database derived from it are dropped, and the line
 `swept N databases no live worktree owns` says how many. It drops only names `db:setup` itself could
 have produced, never one younger than an hour or somebody is connected to, and never anything built
 by hand. A second clone on the same machine is not one of this checkout's worktrees, so each clone
 sweeps the other's: ADR-0104 has that and the rest.
+
+**Removing a worktree leaves its databases behind until somebody drops them.** `orca worktree rm`
+takes the files only. `pnpm db:drop-worktree <branch>`, run after the removal, drops the removed
+branch's database and every `_test…` one derived from it, however young. It refuses while a
+worktree still has that branch checked out, and refuses any list that names `canoncore`: ADR-0191.
 
 **Real data comes from a dump, never from an install.** `pnpm db:restore <dump>` DROPS this
 worktree's database and creates it from a `pg_dump --format=custom` archive, then migrates it up to

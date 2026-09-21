@@ -21,6 +21,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:setup": "node scripts/setup.ts",
     "db:restore": "node scripts/restore.ts",
+    "db:drop-worktree": "node scripts/drop-worktree.ts",
     "db:check-ladder": "node scripts/check-ladder.ts",
     "db:seed": "node scripts/seed.ts",
     "db:start": "COMPOSE_IGNORE_ORPHANS=true docker compose up -d --no-recreate",

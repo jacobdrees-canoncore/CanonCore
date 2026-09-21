@@ -12,9 +12,10 @@ import { isNamedAfterABranch, MARKER, worktreeDatabaseName } from "./worktree-da
  * `db:setup` RUNS IT, because every worktree runs that to join the container
  * and so nobody has to remember to. `orca worktree rm` takes a worktree's files
  * and nothing else, and before this the cluster only grew: 1,250 databases and
- * 11 GB on 2026-09-19, 1,151 of them a removed worktree's. Orca's archive
- * hook was the other place for it and is skipped unless `--run-hooks` is
- * passed, which is remembering by another name.
+ * 11 GB on 2026-09-19, 1,151 of them a removed worktree's. It is the
+ * backstop: the dispatcher drops a removed worktree's databases at once with
+ * `dropRemovedWorktree`, below, and this takes whatever that missed an hour
+ * later (ADR-0191).
  *
  * WHAT IT MAY DROP IS NARROW ON PURPOSE: only a name `worktreeDatabaseName`
  * could have produced, with any tail the harness derives from it. The server's
@@ -39,23 +40,7 @@ export async function sweepDeadDatabases({
   /** Any worktree of the repository; `git worktree list` answers for all of them. */
   repository: string;
 }): Promise<Swept> {
-  const admin = new Client({ connectionString: serverUrl });
-  await admin.connect();
-  let listing: ListedDatabase[];
-  try {
-    // A database's age is its PG_VERSION file's, which CREATE DATABASE writes
-    // and nothing rewrites. `true` is `missing_ok`: a database whose file is
-    // not where this looks has no age, and so is never swept.
-    const { rows } = await admin.query<{ name: string; ageInSeconds: number | null }>(
-      `select datname as name,
-              extract(epoch from now() - (pg_stat_file('base/' || oid || '/PG_VERSION', true)).modification)::float8
-                as "ageInSeconds"
-         from pg_database`,
-    );
-    listing = rows;
-  } finally {
-    await admin.end();
-  }
+  const listing = await listDatabases(serverUrl);
   return dropDatabases(
     serverUrl,
     deadDatabases(listing, ownedDatabases(repository)),
@@ -65,6 +50,69 @@ export async function sweepDeadDatabases({
         ownedDatabases(repository),
       ).length === 1,
   );
+}
+
+/**
+ * Drops the databases of `branch`'s worktree, which the dispatcher has just
+ * removed: the one its branch names and every test database derived from it
+ * (ADR-0191). `pnpm db:drop-worktree` runs it.
+ *
+ * HOWEVER YOUNG, which is what the sweep cannot do. A worktree's suites
+ * rebuild their databases on every run, so its last run before the merge left
+ * them inside the sweep's hour. Nothing here needs that grace: the caller
+ * names one family, and `worktreeDatabaseName`'s fingerprint of the whole
+ * branch makes the family exact. It is held to the sweep's narrowness too,
+ * `isNamedAfterABranch`, so a name somebody built by hand under the family's
+ * root is never a member.
+ *
+ * REFUSED WHILE ANY LIVE WORKTREE OWNS IT, so running this before
+ * `orca worktree rm` rather than after drops nothing. The owners are asked
+ * again for each name under `db:setup`'s lock, as the sweep asks: a ticket
+ * re-dispatched straight after its removal gets its branch back and adopts
+ * whatever is still standing.
+ */
+export async function dropRemovedWorktree({
+  serverUrl,
+  repository,
+  branch,
+}: {
+  serverUrl: string;
+  repository: string;
+  branch: string;
+}): Promise<Swept> {
+  const root = worktreeDatabaseName(branch);
+  if (derivesFrom(root, ownedDatabases(repository))) {
+    throw new Error(`refusing: ${branch} is still checked out in a worktree, so these are its`);
+  }
+  const family = (await listDatabases(serverUrl))
+    .map(({ name }) => name)
+    .filter((name) => isNamedAfterABranch(name) && derivesFrom(name, [root]));
+  return dropDatabases(
+    serverUrl,
+    family,
+    (database) => !derivesFrom(database, ownedDatabases(repository)),
+  );
+}
+
+/** Every database on the server, by name, with its age. */
+async function listDatabases(serverUrl: string): Promise<ListedDatabase[]> {
+  const admin = new Client({ connectionString: serverUrl });
+  await admin.connect();
+  try {
+    // A database's age is its PG_VERSION file's, which CREATE DATABASE writes
+    // and nothing rewrites. `true` is `missing_ok`: a database whose file is
+    // not where this looks has no age, and so is never swept.
+    const { rows } = await admin.query<ListedDatabase>(
+      `select datname as name,
+              extract(epoch from now() - (pg_stat_file('base/' || oid || '/PG_VERSION', true)).modification)::float8
+                as "ageInSeconds"
+         from pg_database
+        order by datname`,
+    );
+    return rows;
+  } finally {
+    await admin.end();
+  }
 }
 
 /**
@@ -111,9 +159,14 @@ export function deadDatabases(
         ageInSeconds !== null &&
         ageInSeconds >= GRACE_SECONDS &&
         isNamedAfterABranch(name) &&
-        !owners.some((owner) => name === owner || name.startsWith(`${owner}${MARKER}`)),
+        !derivesFrom(name, owners),
     )
     .map(({ name }) => name);
+}
+
+/** Whether `database` is one of `roots`, or a test database derived from one. */
+function derivesFrom(database: string, roots: readonly string[]): boolean {
+  return roots.some((root) => database === root || database.startsWith(`${root}${MARKER}`));
 }
 
 /** A database as the sweep's listing reads it. */
@@ -139,12 +192,22 @@ export interface Swept {
   inUse: string[];
 }
 
+/** What the Owner's install calls its catalogue (ADR-0191). */
+const THE_OWNERS_CATALOGUE = "canoncore";
+
 /** Drops each of `databases` that is still dead when its turn comes. */
 export async function dropDatabases(
   serverUrl: string,
   databases: readonly string[],
   stillDead: (database: string) => boolean,
 ): Promise<Swept> {
+  // REFUSED WHOLE, AND BEFORE ANY CONNECTION (ADR-0191). `canoncore` is what
+  // the Owner's install calls its catalogue, so no list that names it is ever
+  // one to act on, whichever server answers. Every caller's filter already
+  // excludes it; this is the check that holds when one of them is wrong.
+  if (databases.includes(THE_OWNERS_CATALOGUE)) {
+    throw new Error(`refusing to drop anything: the list names ${THE_OWNERS_CATALOGUE}`);
+  }
   const swept: Swept = { dropped: [], inUse: [] };
   const admin = new Client({ connectionString: serverUrl });
   await admin.connect();

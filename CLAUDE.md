@@ -184,7 +184,7 @@ the sentence it corrects — placed beside one, it leaves the old claim standing
 
 **Removing the worktree is the dispatcher's job, and only the dispatcher's.** `implement` cleans up
 only a worktree it created itself and never creates one here, so remove it as the PR merges, once
-nothing is uncommitted and nothing unpushed.
+nothing is uncommitted and nothing unpushed, then drop its databases (`/dispatch`, step 2).
 
 Before merging any ticket branch, read `git diff <base>..<branch>` rather than trusting that
 checks passed. Parallel agents produce semantic contradictions that compile cleanly.
