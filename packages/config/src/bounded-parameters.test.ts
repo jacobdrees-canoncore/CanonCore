@@ -11,6 +11,10 @@ import { trackedFiles } from "./testing/tracked-files";
  * A SURFACE DOES NOT PRINT A VALUE IT DID NOT WRITE INSIDE ONE OF ITS OWN
  * SENTENCES WITHOUT BOUNDING IT FIRST (ADR-0123, ADR-0163, ADR-0170, ADR-0178).
  *
+ * TODO(CNCORE-314): "Seven sites" is a count in prose that nothing holds, in
+ * the file whose own argument is that a count is not a check (ADR-0188). It
+ * was not re-measured under CNCORE-311, which noticed it.
+ *
  * WHY A CHECK AND NOT CARE. Seven sites in this tree owe that bound. The sixth
  * and the seventh were `?q=` at `/search` and `/import`, and BOTH WERE FOUND BY
  * A PERSON READING A DIFF: `/search` by inspection while CNCORE-256 was deciding
