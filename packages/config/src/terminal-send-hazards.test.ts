@@ -251,6 +251,8 @@ describe("the sentence that warns about the prompt widget", () => {
  * before driving one; the day somebody does, a count written in without the
  * screen state it was read at is the identical defect, and this reddens on it.
  */
+const REQUIRED_COLUMNS = ["kind", "questions", "tab bar at rest", "keystrokes to submit"];
+
 function keystrokeTable(): { headings: string[]; rows: Record<string, string>[] } {
   const path = theRecordThatAnswersIt();
   const lines = readFileSync(join(repoRoot, path), "utf8").split("\n");
@@ -290,44 +292,95 @@ function keystrokeTable(): { headings: string[]; rows: Record<string, string>[] 
     const cells = cellsOf(line);
     return Object.fromEntries(headings.map((heading, at) => [heading, cells[at] ?? ""]));
   });
+
+  // THE READER IS THE GUARD, which is `theRecordThatAnswersIt` above and
+  // `adr-records.unnumbered` in their own words: a helper that cannot answer for
+  // what it returned throws, rather than handing back something every caller
+  // then has to re-check. Three rules read this table and only one of them was
+  // asserting the shape, so a table inserted ABOVE this one in the record -- or
+  // this one reverted to the kind-by-question-count grid -- left the other two
+  // passing over a population that was not the keystroke recipes at all.
+  //
+  // THE COLUMNS ARE NAMED HERE AND NOT JUST COUNTED, because the rules below
+  // reach for them BY NAME. Renaming `kind` collapses every pair key the
+  // contradiction rule builds into one, and it would go green for the wrong
+  // reason rather than red.
+  const missing = REQUIRED_COLUMNS.filter((column) => !headings.includes(column));
+  if (missing.length > 0 || rows.length === 0) {
+    throw new Error(
+      `${path}'s first table is not the keystroke recipes: it has ${rows.length} row(s) and is ` +
+        `missing the column(s) ${missing.join(", ") || "(none)"}. Its headings are ` +
+        `${headings.join(", ")}. Every rule below reads those columns by name, so they would ` +
+        "otherwise pass over a table that answers a different question.",
+    );
+  }
+
   return { headings, rows };
 }
 
-/** A cell that declares its own row unread, which is the one row owed nothing. */
-const UNREAD = /NOT MEASURED/i;
+/** The record, flattened, for the sentences below; `keystrokeTable` reads it by line. */
+function recordText(): string {
+  return flatten(readFileSync(join(repoRoot, theRecordThatAnswersIt()), "utf8"));
+}
+
+/**
+ * `NOT MEASURED` IS A DECLARATION ABOUT A ROW; `NOT RECORDED` IS A FACT ABOUT A
+ * CELL, and the difference is the whole of the rule below.
+ *
+ * Nobody has driven a multi-question multi-select, so that row declares itself
+ * unmeasured in its keystrokes cell and is owed nothing. Somebody DID drive
+ * CNCORE-288's widget and did not write its tab bar down, so that cell says
+ * `NOT RECORDED` and the row is still a measurement.
+ *
+ * MEASURED, AND THE FIRST DRAFT HAD IT WRONG. That draft tested `NOT MEASURED`
+ * against the whole row joined, so one cell exempted all five and a row reading
+ * `| multi-select | several | NOT MEASURED | FOUR down arrows then TWO Enters |
+ * CNCORE-999 |` went GREEN -- a count with no screen state, which is the exact
+ * defect the block above says this catches. Found by planting it (CNCORE-337
+ * review). A check green on the defect it names is worse than no check.
+ */
+const DECLARES_THE_ROW_UNMEASURED = /NOT MEASURED/i;
 
 describe("ADR-0187's keystroke table", () => {
   /**
-   * BEFORE THE RULE, and here the guard is doing more than counting. A revert to
-   * the kind-by-question-count grid loses the tab bar column, and the rule under
-   * it would then pass by having nothing to ask -- the failure every derived
-   * population in this package raises at the root of its own chain.
+   * BEFORE THE RULES, and it asks the one thing the reader's own throw cannot:
+   * that the reader resolves. The throw fires inside whichever rule runs first,
+   * which reports a missing column as a failure of that rule; this row says
+   * plainly that the population is the keystroke recipes.
    */
-  it("gives the tab bar a column of its own", () => {
-    const { headings, rows } = keystrokeTable();
-    expect(headings).toContain("tab bar at rest");
-    expect(rows.length).toBeGreaterThan(0);
+  it("is found in the record, under the columns the rules below read", () => {
+    expect(() => keystrokeTable()).not.toThrow();
+    expect(keystrokeTable().rows.length).toBeGreaterThan(0);
   });
 
-  it("fills every column of a row it has not declared unread", () => {
+  it("says what screen every count it gives was counted from", () => {
     const { headings, rows } = keystrokeTable();
     const first = headings[0] ?? "";
-    const halfFilled = rows
-      .filter((row) => !UNREAD.test(Object.values(row).join(" ")))
+
+    const unpinned = rows
+      // THE KEYSTROKES CELL ALONE DECLARES THE ROW, for the reason the constant
+      // above carries: read across the whole row, one `NOT MEASURED` exempted
+      // the count sitting beside it.
+      .filter((row) => !DECLARES_THE_ROW_UNMEASURED.test(row["keystrokes to submit"] ?? ""))
       .flatMap((row) =>
-        headings
-          .filter((heading) => (row[heading] ?? "") === "")
-          .map((heading) => {
-            return `${row[first] ?? "(unlabelled row)"}: ${heading} is empty`;
-          }),
+        headings.flatMap((heading) => {
+          const cell = row[heading] ?? "";
+          const label = `${row[first] ?? "(unlabelled row)"}: ${heading}`;
+          if (cell === "") return [`${label} is empty`];
+          // A ROW THAT GIVES A COUNT IS A MEASUREMENT, so no cell of it can say
+          // the measurement was not taken. `NOT RECORDED` is the word for a
+          // screen somebody saw and did not write down, and it stays lawful.
+          return DECLARES_THE_ROW_UNMEASURED.test(cell) ? [`${label} says NOT MEASURED`] : [];
+        }),
       );
 
     expect(
-      halfFilled,
-      "a row of ADR-0187's keystroke table states a keystroke count without saying what screen " +
+      unpinned,
+      "a row of ADR-0187's keystroke table gives a keystroke count without saying what screen " +
         "it was counted from. That is the defect CNCORE-337 measured: a count read off one " +
-        "screen state travels as a property of the widget. Fill the cell, or write NOT MEASURED " +
-        "in the row.",
+        "screen state travels as a property of the widget. Either fill the cell -- with the " +
+        "reading, or with NOT RECORDED if nobody wrote it down -- or declare the whole row by " +
+        "putting NOT MEASURED in its `keystrokes to submit` cell.",
     ).toStrictEqual([]);
   });
 
@@ -352,7 +405,7 @@ describe("ADR-0187's keystroke table", () => {
 
     const counts = new Map<string, Set<string>>();
     for (const row of rows) {
-      if (UNREAD.test(Object.values(row).join(" "))) continue;
+      if (DECLARES_THE_ROW_UNMEASURED.test(row["keystrokes to submit"] ?? "")) continue;
       const pair = `${row.kind ?? ""}, ${row.questions ?? ""} question(s)`;
       counts.set(pair, (counts.get(pair) ?? new Set()).add(row["keystrokes to submit"] ?? ""));
     }
@@ -390,7 +443,7 @@ describe("ADR-0187's keystroke table", () => {
    * from a drift.
    */
   it("no longer offers the count as a property of the kind and the question count", () => {
-    const text = flatten(readFileSync(join(repoRoot, theRecordThatAnswersIt()), "utf8"));
+    const text = recordText();
 
     expect(
       text,
@@ -422,7 +475,7 @@ describe("ADR-0187's keystroke table", () => {
    * standing.
    */
   it("no longer says the cursor row alone tells a reader what the next Enter does", () => {
-    const text = flatten(readFileSync(join(repoRoot, theRecordThatAnswersIt()), "utf8"));
+    const text = recordText();
 
     expect(
       text,

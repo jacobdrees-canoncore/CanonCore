@@ -58,7 +58,7 @@ What cannot wait is a message that the agent's CURRENT turn would otherwise act 
 ADR number already taken by a live branch, a rung that merged under it, an attribution correction
 that the PR body being written right now will otherwise carry. Everything else waits.
 
-## Getting through the widget, by shape
+## Getting through the widget: what was read, and at which screen
 
 A parked agent is unreachable until its prompt is answered, and **`--enter` SELECTS the option under
 the cursor**. The way through is to answer it deliberately, and **the keystroke count does NOT
@@ -94,10 +94,16 @@ separate key flag. The down arrow is `orca terminal send --text $'\x1b[B'`.
 
 ## Until the review screen clears, the widget eats the chat
 
-**The widget is still open after Submit.** Enter on the Submit row opens a third screen — "Review
-your answers / Ready to submit your answers?" — and until that final Enter lands, **every `send`
-aimed at the chat goes INTO the widget and is lost, silently, while `orca terminal send` answers
-`Sent N bytes`.**
+**WHERE AN ENTER OPENS A REVIEW SCREEN, THE WIDGET IS STILL OPEN BEHIND IT.** Enter on the Submit
+row opens a third screen — "Review your answers / Ready to submit your answers?" — and until that
+final Enter lands, **every `send` aimed at the chat goes INTO the widget and is lost, silently,
+while `orca terminal send` answers `Sent N bytes`.**
+
+**But a submission does not always get one** (CNCORE-337). CNCORE-336's two-question single-select
+submitted on one bare Enter with no review screen at all, so there was nothing left to clear, and a
+dispatcher waiting for one would have pressed its Enter into the chat instead. The table above says
+per row whether a review screen came. **Confirm the widget has closed with `--screen`, never from
+the count** — which is this record's rule everywhere else and is not suspended here.
 
 Measured 2026-09-21 on CNCORE-302. The answer registered as `User answered Claude's questions`, and
 the three messages sent after it — the dispatcher attribution and both reasons — appear nowhere in

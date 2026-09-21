@@ -338,8 +338,9 @@ let the range pick the newer one up later.
   disappearing is the confirmation. **And with the
   flag, to a PARKED agent, the input goes to the PROMPT WIDGET, where `--enter` SELECTS the option
   under the cursor** — on a multi-select with a free-text field the text can land in the field. The
-  keystrokes that answer it, per widget shape, are ADR-0187, and so is the confirm screen that eats
-  every chat send until it clears. **So WAIT FOR THE PROMPT where the message can wait, and flush
+  keystrokes that answer it are ADR-0187, read PER SCREEN rather than per widget shape — two
+  measurements of one shape disagree there — and so is the confirm screen that eats every chat send
+  until it clears, on the screens that get one. **So WAIT FOR THE PROMPT where the message can wait, and flush
   only where it cannot**: a queued message arrives by itself when the turn ends, at no cost, and the
   flush buys earliness by spending the turn in progress.
   Measured broadcasting to eight agents on 2026-09-20: six received it, two were parked, and BOTH
