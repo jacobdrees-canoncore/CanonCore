@@ -134,8 +134,8 @@ for counts would mean deciding which numbers in English are claims about this tr
 [[0153-a-figure-about-this-tree-is-derived-or-dated]] already declined as not a problem a regular
 expression settles.
 
-**Three counts of the same kind were met on the way and left standing, each named rather than
-fixed:**
+**Three counts of the same kind were met on the way and left to other passes, each named rather
+than fixed here:**
 
 - **`bounded-parameters.test.ts`: "Seven sites in this tree owe that bound".**
   - It counts a DIFFERENT population: the sites owing ADR-0123's levers, not ADR-0179's phrase.
@@ -143,12 +143,13 @@ fixed:**
   - It was not measured, so whether it is right is unknown.
   - CNCORE-314 carries it.
 - **`client.ts`: "the four sentences stay one concept".**
-  - The count is true today, but the four span three files, so it is the kind this record
-    describes.
-  - The same docblock's "NO FULL STOP, UNLIKE THE OTHER THREE" is FALSE, because `UNSHOWABLE_NAME`
+  - The count was true, but the four span three files, so it was the kind this record describes.
+  - The same docblock's "NO FULL STOP, UNLIKE THE OTHER THREE" was FALSE, because `UNSHOWABLE_NAME`
     has no stop either. That is a claim about punctuation, a different reason to change the same
-    sentence, so it is a separate pass.
-  - CNCORE-315 carries both, with a `TODO` at the site.
+    sentence, so it was a separate pass.
+  - CNCORE-315 took both, and neither stands now. The figure is deleted by this record's test, and
+    the stop is argued from the clause's own slot
+    ([[0193-a-fallback-is-punctuated-for-its-slot-and-argued-from-it]]).
 - **`holdsUnshowable`'s docblock in `packages/text/src/index.ts`: "ALL THREE CALLERS ASK IT".**
   - It counts a different population again: `holdsUnshowable`'s callers.
   - It is true today: `quotedTo`, `boundedOr` and `failed`.
