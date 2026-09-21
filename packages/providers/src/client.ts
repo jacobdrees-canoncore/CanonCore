@@ -503,6 +503,10 @@ async function failed(response: Response, path: string): Promise<Error> {
  * `UNSHOWABLE_REASON` names a REASON and `cmpp.ts` names a NAME and a LABEL, and
  * the four sentences stay one concept by sharing the words after the noun.
  *
+ * TODO(CNCORE-315): "UNLIKE THE OTHER THREE" is false about `UNSHOWABLE_NAME`,
+ * which has no full stop either, and "the four sentences" above counts a
+ * population spread over three files (ADR-0188).
+ *
  * NO FULL STOP, UNLIKE THE OTHER THREE. Those ARE the sentence a page prints;
  * this one is a clause inside a sentence `failed` finishes, and a stop here would
  * land mid-sentence.

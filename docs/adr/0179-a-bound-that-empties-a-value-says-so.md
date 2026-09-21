@@ -21,7 +21,8 @@ status: accepted
 > `@canoncore/providers` — a package absent from the four above, and one this record's own "What this
 > does not cover" had named as owing them.
 > [[0176-saying-nothing-and-saying-nothing-showable-are-two-sentences]] carries those, so the
-> enumeration is dated rather than corrected away.
+> enumeration is dated rather than corrected away. The source that restated the six no longer
+> states a count at all: [[0188-a-count-nobody-routes-by-is-deleted-rather-than-derived]].
 
 [[0123-a-failure-reason-is-bounded-and-says-who-wrote-it]] bounds a stranger's text on two levers,
 and [[0163-the-levers-that-bound-a-strangers-text-live-in-a-leaf]] moved both into `@canoncore/text`

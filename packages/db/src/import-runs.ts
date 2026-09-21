@@ -213,9 +213,8 @@ const ID_IN_A_SENTENCE = 80;
  *
  * THE WORDS ARE `quotedTo`'S AND THE NOUN IS THIS FILE'S. Every site owing the
  * same sentence about a value the strip emptied takes the phrase from
- * `@canoncore/text` so one concept ships in one voice -- how many there are is
- * not counted here, and ADR-0188 says why. What this file knows, and that leaf
- * does not, is that the value is an id.
+ * `@canoncore/text`, so one concept ships in one voice; what this file knows,
+ * and that leaf does not, is that the value is an id.
  *
  * IT CARRIES THE CEILING WITH IT, which is the one thing ADR-0163 said would
  * stay put. That record left `ID_IN_A_SENTENCE` spelled in two files with a

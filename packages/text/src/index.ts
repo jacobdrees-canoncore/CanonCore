@@ -165,13 +165,14 @@ export function boundedTo(text: string, max: number): string {
  * fits every field, kept.
  *
  * AND NO COUNT OF THEM, WHICH IS A DECISION RATHER THAN AN OMISSION (ADR-0188).
- * This sentence said "six sites in four packages" and was wrong three times
- * over. The figure was never the argument -- sharing a phrase needs MORE THAN
- * ONE caller, not six -- and the population has no settled edge: six direct
- * calls, four `quotedTo` callers and eleven surfaces are all honest readings of
- * "sites that owe these words". What is worth reporting is a surface that owes
- * the phrase and does not reach it, which `bounded-parameters.test.ts` already
- * does for the surfaces where that is derivable (ADR-0178).
+ * This sentence carried one and it was wrong three times over. The figure was
+ * never the argument -- sharing a phrase needs MORE THAN ONE caller, and how
+ * many more changes nothing -- and "sites that owe these words" has no settled
+ * edge to count: call sites, `quotedTo`'s callers and the surfaces printing the
+ * phrase are all honest readings and give different answers. ADR-0188 holds
+ * the read, dated. What is worth reporting is a surface that owes the phrase
+ * and does not reach it, which `bounded-parameters.test.ts` does for the
+ * surfaces where that is derivable (ADR-0178).
  */
 const UNSHOWABLE = "made only of characters that cannot be shown";
 
@@ -179,17 +180,19 @@ const UNSHOWABLE = "made only of characters that cannot be shown";
  * The words naming a value that could not be shown at all, for a caller placing
  * them in a sentence of its own (ADR-0179).
  *
- * PUBLISHED BESIDE `quotedTo` FOR THE CALLER THAT OWNS THE WHOLE SENTENCE, on
- * the same argument that publishes `shortenTo` beside `boundedTo`. A caller
- * whose value IS the sentence a reader reads -- `@canoncore/tasks`' `detail`
- * was the first and is no longer the only one -- needs these words with a
- * capital and a full stop of its own. A caller quoting a value INSIDE a
- * sentence it wrote wants `quotedTo`, which applies the levers and the fallback
- * in one call.
+ * PUBLISHED BESIDE `quotedTo` FOR A CALLER THAT NEEDS THE WORDS APART FROM ITS
+ * BOUND, on the same argument that publishes `shortenTo` beside `boundedTo`.
+ * `quotedTo` bounds a value and falls back to these words in one call, which is
+ * what a caller interpolating a value into its own sentence wants. A caller
+ * reaches here instead when it needs the phrase WITHOUT that bound: to
+ * recognise the fallback `quotedTo` handed back, as `@canoncore/tasks` does
+ * before it adds a full stop; or because it bounds on a path of its own, as
+ * `@canoncore/providers` does through `bounded` and the wrappers built on it.
  *
- * THE CRITERION AND NOT A COUNT (ADR-0188). This said "FOR ONE CALLER" and
- * named `@canoncore/tasks`; there are six now, and a reader at this fork routes
- * by which half of the sentence they own rather than by how many went each way.
+ * THE CRITERION AND NOT A COUNT (ADR-0188). This said "FOR ONE CALLER" and named
+ * `@canoncore/tasks`, which was the first. The noun, the frame and the
+ * punctuation stay each caller's own, and none of them decides which way a
+ * caller goes: whether it needs the words apart from `quotedTo`'s bound does.
  */
 export function unshowable(thing: string): string {
   return `${thing} ${UNSHOWABLE}`;

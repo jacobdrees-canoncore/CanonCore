@@ -15,10 +15,11 @@ status: accepted
 > twice, and now `client.ts`. **That is a count of this package, and no tree-wide figure is restated
 > here on purpose.** ADR-0179's own sweep got that wrong twice, and this branch nearly did a third
 > time: `@canoncore/tasks` reaches the phrase BOTH ways, directly and through `quotedTo`, so "sites"
-> and "packages" do not divide the way a grep suggests. Two sentences in `@canoncore/text` still
-> carry a figure counting the tree before CNCORE-305 — already stale when this branch started —
-> and CNCORE-311 carries them, with a TODO at each, because the figure wants a READ rather than a
-> grep.
+> and "packages" do not divide the way a grep suggests. Two sentences in `@canoncore/text` carried
+> a figure counting the tree before CNCORE-305 — already stale when this branch started — and
+> CNCORE-311 took them, because the figure wanted a READ rather than a grep. **Neither states a
+> number now:** [[0188-a-count-nobody-routes-by-is-deleted-rather-than-derived]] deleted the figure
+> rather than correcting it again.
 >
 > **Four witnesses in `client.test.ts`:**
 > a plain body of only stripped characters, an `error` FIELD of them, an empty `error` beside an
