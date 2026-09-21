@@ -96,10 +96,14 @@ export function placedFiguresIn(text: string): { figure: string; at: number }[] 
  * is how this one was chosen.
  *
  * THE COMMIT MUST WEAR ITS BACKTICKS, which is this tree's idiom for naming
- * one. A bare hex run is how a TOOL prints a commit, and the sentences quoting
- * tool output -- ADR-0181's merge-gate transcript -- are specimens of what
- * something else said rather than measurements taken here. They are registered
- * by hand below instead, which says what they are rather than inferring it.
+ * one. A bare hex run is how a TOOL prints a commit, so `PASSED b409673 16 of
+ * 16` inside ADR-0181's merge-gate transcript is a quotation of what something
+ * else said rather than a measurement taken here, and reading it as an anchor
+ * would let a pasted log vouch for the prose around it.
+ *
+ * THAT RECORD IS ANCHORED ANYWAY, BY THE SECTION ITS TRANSCRIPT SITS IN, which
+ * carries the date the dispatcher ran the gate. The distinction is worth
+ * keeping: what anchors those two figures is the prose, not the log.
  */
 const AN_ANCHOR = /\d{4}-\d{2}-\d{2}|`[0-9a-f]{7,40}`/;
 
