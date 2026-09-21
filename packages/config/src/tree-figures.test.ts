@@ -577,7 +577,8 @@ describe("a figure this tree states about itself", () => {
   it("counts the suites in this package that read the repository at large", () => {
     // Thirty-six since CNCORE-334, whose `worktree-retirement.test.ts` runs the
     // dispatcher's retirement out of `.claude/skills/dispatch/`, as the merge
-    // gate's suite does. Thirty-five since CNCORE-327, whose `corpus-import-cost.test.ts` sweeps every
+    // gate's suite beside it does.
+    // Thirty-five since CNCORE-327, whose `corpus-import-cost.test.ts` sweeps every
     // tracked TEXT file -- source, prose and the frozen migration ladder alike --
     // for the superseded cost of importing the corpus. Thirty-four since
     // CNCORE-258, whose `stacked-docblocks.test.ts` sweeps every

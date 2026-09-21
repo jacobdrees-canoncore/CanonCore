@@ -1,18 +1,24 @@
 ---
-status: proposed
+status: accepted
 ---
 
 # A worktree is retired by content, and an auxiliary one only when it is named
 
-> **PROPOSED 2026-09-21, MECHANISM WHOLE AND ADOPTION OWED, for CanonCore.** `retire.sh` sits beside
-> `merge-if-green.sh` in `.claude/skills/dispatch/`, `packages/config/src/worktree-retirement.test.ts`
-> drives it over seventeen worlds built from a real bare origin, a real linked worktree and a real
-> squash merge, and both documents that used to state this rule now point at it. **NOT BUILT: its
-> first real retirement.** Nothing has yet been retired with it in anger, because no ticket merged
-> while it was being written, and cncore-333's three real auxiliary trees were left standing on
-> purpose: they were live. [[0181-a-check-is-evidence-only-for-the-commit-it-ran-against]] stood
-> `proposed` for the same reason and CNCORE-328 flipped it on adoption; the first dispatcher to
-> retire with this one flips this record. This record's number was assigned by the dispatcher.
+> **ACCEPTED 2026-09-21, for CanonCore.** The mechanism is whole, which is what this status means
+> here: `retire.sh` sits beside `merge-if-green.sh` in `.claude/skills/dispatch/`, it does the
+> comparison, the refusals, the removal, the database drop and the auxiliary scan,
+> `packages/config/src/worktree-retirement.test.ts` drives it over twenty-five worlds built from a
+> real bare origin, a real linked worktree and a real squash merge, and both documents that used to
+> state this rule now point at it. `proposed` was written here first and corrected on review:
+> [[0181-a-check-is-evidence-only-for-the-commit-it-ran-against]] records that standing `proposed`
+> over a whole mechanism, waiting on adoption, is itself a false signal, and it was owed its own flip
+> before CNCORE-328 gave it one.
+>
+> **NOT YET EXERCISED, which is adoption and not a missing half:** no merged worktree has been
+> retired with it, because none merged while it was written. cncore-333's three real auxiliary trees
+> were deliberately left standing — they were live when found, and they were cleaned by hand before
+> this landed, so the scan has run against the fixture's real git worktrees and not against those.
+> This record's number was assigned by the dispatcher.
 
 `/dispatch` step 2 is "merge, and remove the worktree in the same action", and it already stated the
 safety rule for the second half: a squash merge makes ancestry the wrong test, so compare CONTENT
@@ -53,6 +59,27 @@ A second explanation covers what the blob cannot reach: `main`'s history on the 
 ticket's own subject, which is the work landing and the merge or a later amend altering it on the
 way in. It is anchored to the start of the subject, because this repository's squash subjects open
 `CNCORE-<n>:` and a ticket MENTIONED in someone else's subject is not the same fact.
+
+**IT READS EVERY COMMIT ON THE FILE SINCE THE FORK, AND THE TICKET SAID `main`'S LAST.** That is the
+other half of the deviation and it is not a widening for its own sake: where a difference exists at
+all, `main`'s last commit on that file is USUALLY a later ticket's, which is the whole reason the
+file differs. Measured by rebuilding the cncore-316 world in a throwaway repository — the branch
+changes a file, the squash lands it, then `main` edits the same file under CNCORE-313:
+
+| test | verdict on that world |
+| --- | --- |
+| the scratch script's `merge-base --is-ancestor` | does NOT explain — a false STOP |
+| "`main`'s LAST commit on it names this ticket" | does NOT explain — `CNCORE-313: later (#249)` |
+| blob identity, all commits since the fork | EXPLAINS, naming `CNCORE-316: work (#123)` |
+
+**So the specified pair is wrong in BOTH directions**: read as "a later commit touching it" it passes
+the unsafe case, and read as "`main`'s LAST commit names this ticket" it refuses the founding
+incident. Anchoring the subject to `^CNCORE-<n>:` does leave a FOLD unreachable — `CLAUDE.md`'s fold
+rule gives one PR subject naming several tickets, and only the first sits at the start — and that is
+accepted rather than fixed by widening: a fold's content still matches by blob, and admitting a
+ticket named anywhere in a subject re-admits the mention this anchor exists to refuse. A folded
+ticket whose file was ALSO altered on the way in reads UNEXPLAINED and stops, which is the safe
+direction.
 
 ## The upstream is expected to be gone, which inverts the merge gate's reading of the same fact
 
@@ -130,9 +157,19 @@ already been deleted is pruned unasked: no files, no agent, no work, nothing to 
 `ticket-named` or stops on it, refuses a main checkout, refuses uncommitted and unpushed work,
 scans the registrations, removes the worktree, drops the databases where the checkout has them, and
 reports one line per file and one verdict line with a non-zero exit on everything but `RETIRED`.
-`packages/config/src/worktree-retirement.test.ts` drives it over seventeen worlds at the script's
-own process boundary, with `orca` and `pnpm` stubbed on `PATH`; the STOP is measured in five of
+`packages/config/src/worktree-retirement.test.ts` drives it over twenty-five worlds at the script's
+own process boundary, with `orca` and `pnpm` stubbed on `PATH`; the STOP is measured in twelve of
 them, including the world where `main` edited the file later but never took the branch's version.
+
+**AND THE REMOVAL'S OWN GUARD WAS THE PART REVIEW CAUGHT, not the comparison.** `$tree` is read out
+of a `gitdir` file and handed to `rm -rf`, and the first guard written for it was a depth test —
+`case "$tree" in /*/*)` — which `/Users/jacobrees` passes, so a `gitdir` naming a home directory
+plus one `--aux` would have removed it. What replaced it asks GIT whether the path is a worktree
+sharing this repository's common directory, which is a question no unrelated path can answer and is
+the same question that tells a worktree from a main checkout. The plan of what to remove is
+NUL-delimited on disk for the reason the file enumeration already was: built as newline records, a
+`gitdir` holding a newline became a second record whose first field was an arbitrary absolute path.
+A guard that reads narrower than the thing it protects is this record's own subject one level down.
 `SKILL.md` step 2 and `CLAUDE.md` both point at the script.
 
 **NOT BUILT: adoption, and the three real trees.** No merged worktree has been retired with it, and

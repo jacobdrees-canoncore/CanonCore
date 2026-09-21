@@ -61,6 +61,8 @@ type World = {
   readonly uncommitted?: Edit;
   /** Commits the remote never got. */
   readonly held?: Edit;
+  /** Files the branch DELETED, and the squash takes the deletion unless `squashed` says otherwise. */
+  readonly deleted?: readonly string[];
   /** False for a main checkout's package.json with no `db:drop-worktree` -- a provider repo. */
   readonly databases?: boolean;
   /** Push the branch, so it has an upstream; false is a branch never pushed at all. */
@@ -88,6 +90,8 @@ type Aux = {
   readonly scratch?: boolean;
   /** The tree deleted by hand, leaving only the registration behind. */
   readonly treeGone?: boolean;
+  /** A `gitdir` file written by hand, for the paths this script must refuse to remove. */
+  readonly gitdirSays?: string;
 };
 
 const TICKET = 334;
@@ -146,6 +150,7 @@ function aMergedTicket(world: World) {
 
   run(main, "worktree", "add", "-q", "-b", BRANCH, worktree);
   write(worktree, world.branch);
+  for (const path of world.deleted ?? []) rmSync(join(worktree, path), { force: true });
   run(worktree, "add", "-A");
   run(worktree, "commit", "-qm", `CNCORE-${TICKET}: the branch's own work`);
   if (world.pushed ?? true) run(worktree, "push", "-q", "-u", "origin", BRANCH);
@@ -154,6 +159,13 @@ function aMergedTicket(world: World) {
   // CONTENT under a subject of main's own, so none of the branch's commits is an
   // ancestor of `main` afterwards. That is what makes ancestry the wrong test.
   write(main, world.squashed ?? world.branch);
+  // THE SQUASH TAKES THE DELETION ONLY WHEN `squashed` DOES NOT SAY OTHERWISE.
+  // Applied unconditionally, a world meant to show a deletion that never
+  // landed deleted the file on BOTH sides, so there was no difference to
+  // report and the test passed the retirement it was written to stop.
+  if (world.squashed === undefined) {
+    for (const path of world.deleted ?? []) rmSync(join(main, path), { force: true });
+  }
   run(main, "add", "-A");
   run(main, "commit", "-qm", world.subject ?? `CNCORE-${TICKET}: the branch's own work (#256)`);
   if (world.after) {
@@ -199,6 +211,12 @@ function aMergedTicket(world: World) {
     if (tree.dirty) writeFileSync(join(path, CARRIED), "a job in progress\n");
     if (tree.scratch) mkdirSync(join(path, "node_modules"), { recursive: true });
     if (tree.treeGone) rmSync(path, { recursive: true, force: true });
+    // THE REGISTRATION'S OWN RECORD OF WHERE THE TREE IS, rewritten. This is
+    // the value the script reads out of a file and then removes, so the worlds
+    // that matter most are the ones where it says something else.
+    if (tree.gitdirSays !== undefined) {
+      writeFileSync(join(main, ".git", "worktrees", tree.name, "gitdir"), tree.gitdirSays);
+    }
     aux[tree.name] = path;
   }
 
@@ -648,6 +666,176 @@ describe("the checkout the retirement is pointed at", () => {
     );
 
     expect(output).toMatch(/matches no registration/);
+    expect(removed).toBe(false);
+    expect(status).not.toBe(0);
+  });
+});
+
+/**
+ * WHAT THE REMOVAL WILL NOT ACT ON, which is the half a review found rather
+ * than the half that was designed.
+ *
+ * `$tree` is read out of a file under `.git/worktrees/<name>/gitdir` and is
+ * then handed to `rm -rf`. The first guard written for it was a depth test,
+ * `case "$tree" in /*\/*)`, which `/Users/jacobrees` passes -- so a `gitdir`
+ * naming a home directory plus one `--aux` would have removed it, and
+ * `cd && pwd -P` resolves symlinks INTO whatever it names. What replaced it
+ * asks git whether the path is a worktree sharing this repository's own common
+ * directory, which is a question no unrelated path can answer.
+ */
+describe("a path the registration claims is a worktree", () => {
+  it("is refused when git does not vouch for it, though it was asserted", () => {
+    const outsider = mkdtempSync(join(tmpdir(), "retire-outsider-"));
+    writeFileSync(join(outsider, "precious.txt"), "not this script's to remove\n");
+
+    const { status, output, removed } = retiring(
+      {
+        branch: { [CARRIED]: "the branch's version\n" },
+        aux: [{ name: "wt-head", at: "branch", gitdirSays: `${outsider}/.git` }],
+      },
+      undefined,
+      ["--aux", "wt-head"],
+    );
+
+    expect(output).toContain("UNATTRIBUTED");
+    expect(output).toMatch(/does not answer as a worktree/);
+    expect(existsSync(join(outsider, "precious.txt"))).toBe(true);
+    expect(removed).toBe(false);
+    expect(status).not.toBe(0);
+    rmSync(outsider, { recursive: true, force: true });
+  });
+
+  /**
+   * AND A `gitdir` OF MORE THAN ONE LINE IS REFUSED ON PURPOSE. The plan of
+   * what to remove was once newline records split by `read -r entry tree`, so a
+   * second line in this file became a second record whose first field was an
+   * arbitrary absolute path -- and that path was `rm -rf`'d. The plan is
+   * NUL-delimited now, which closes the injection; this refusal is the other
+   * half, so the malformed file is reported rather than quietly pruned.
+   */
+  it("is refused when the registration names more than one path", () => {
+    const { status, output, removed } = retiring(
+      {
+        branch: { [CARRIED]: "the branch's version\n" },
+        aux: [{ name: "wt-head", at: "branch", gitdirSays: "/tmp/one/.git\n/tmp/two/.git\n" }],
+      },
+      undefined,
+      ["--aux", "wt-head"],
+    );
+
+    expect(output).toMatch(/more than one line|not an absolute path/);
+    expect(removed).toBe(false);
+    expect(status).not.toBe(0);
+  });
+
+  /**
+   * NAMING A SIBLING ORCA WORKTREE IS REFUSED BY NAME. Skipped silently by the
+   * sibling rule, the assertion then failed as "matches no registration" about
+   * a registration that plainly does exist, which sends the dispatcher looking
+   * for the wrong thing.
+   */
+  it("refuses an --aux naming another ticket's Orca worktree, saying which it is", () => {
+    const { status, output, removed, sibling } = retiring(
+      { branch: { [CARRIED]: "the branch's version\n" }, sibling: true },
+      undefined,
+      ["--aux", "cncore-999"],
+    );
+
+    expect(output).toMatch(/Orca worktree/);
+    expect(output).not.toMatch(/matches no registration/);
+    expect(existsSync(sibling)).toBe(true);
+    expect(removed).toBe(false);
+    expect(status).not.toBe(0);
+  });
+});
+
+describe("the ticket the explanations are read for", () => {
+  /**
+   * `--ticket` OVERRIDES THE DERIVATION, and until a review reproduced it the
+   * flag was parsed and then thrown away by a leftover positional read four
+   * lines on -- so it was advertised in the usage string, covered by no test,
+   * and silently ignored. That matters for the provider criterion: a provider
+   * worktree whose branch and directory carry no `CNCORE-<n>` loses the
+   * `ticket-named` explanation with no way to supply it.
+   */
+  it("reads the explanations for the ticket the argument names", () => {
+    const { output } = retiring({ branch: { [CARRIED]: "v\n" } }, undefined, [
+      "--ticket",
+      "CNCORE-999",
+    ]);
+
+    expect(output).toContain("CNCORE-999");
+    expect(output).not.toContain("CNCORE-334");
+  });
+
+  it("refuses a --ticket that is not a CNCORE-<n>, since it reaches a grep pattern", () => {
+    const { status, output, removed } = retiring({ branch: { [CARRIED]: "v\n" } }, undefined, [
+      "--ticket",
+      "CNCORE-.*",
+    ]);
+
+    expect(output).toMatch(/is not a CNCORE/);
+    expect(removed).toBe(false);
+    expect(status).not.toBe(0);
+  });
+});
+
+describe("what a stopped retirement leaves alone", () => {
+  /**
+   * AN ASSERTED TREE STILL GOES NOWHERE IF THE TICKET HAS NOT LANDED, which is
+   * the dispatcher's added criterion -- "refuses to touch one whose owning
+   * ticket is still open" -- met by construction rather than by a second
+   * lookup. Ownership is recorded nowhere, so there is no ticket state to read;
+   * what IS readable is whether THIS branch's content reached `main`, and every
+   * removal sits behind that gate. A retirement that stops removes nothing.
+   */
+  it("removes no asserted auxiliary tree when the content comparison stops", () => {
+    const { status, output, removed, auxPath } = retiring(
+      {
+        branch: { [CARRIED]: "the branch's version\n", [OTHER]: "export const other = 2;\n" },
+        squashed: { [CARRIED]: "the branch's version\n" },
+        aux: [{ name: "wt-head", at: "branch", scratch: true }],
+      },
+      undefined,
+      ["--aux", "wt-head"],
+    );
+
+    expect(output).toContain("UNEXPLAINED");
+    expect(existsSync(auxPath("wt-head"))).toBe(true);
+    expect(removed).toBe(false);
+    expect(status).not.toBe(0);
+  });
+
+  /**
+   * AND A DELETION THAT LANDED IS NOT A DIFFERENCE AT ALL, which is why the
+   * blob test never having a blob for a deleted file is not the gap it looks
+   * like. If the deletion reached `main`, neither side has the file and it is
+   * never iterated; if `main` still HAS it, the deletion did NOT land and
+   * stopping is the right answer. The one reading that would be wrong -- a
+   * landed deletion reported UNEXPLAINED -- cannot arise.
+   */
+  it("does not report a deletion that landed on main", () => {
+    const { status, output, removed } = retiring({
+      branch: { [CARRIED]: "the branch's version\n" },
+      deleted: [OTHER],
+    });
+
+    expect(output).not.toContain("UNEXPLAINED");
+    expect(output).not.toContain(OTHER);
+    expect(removed).toBe(true);
+    expect(status).toBe(0);
+  });
+
+  /** And one that did NOT land stops it, because the file is still on `main`. */
+  it("stops on a deletion main never took", () => {
+    const { status, output, removed } = retiring({
+      branch: { [CARRIED]: "the branch's version\n" },
+      deleted: [OTHER],
+      squashed: { [CARRIED]: "the branch's version\n", [OTHER]: "export const other = 1;\n" },
+    });
+
+    expect(output).toContain("UNEXPLAINED");
+    expect(output).toContain(OTHER);
     expect(removed).toBe(false);
     expect(status).not.toBe(0);
   });

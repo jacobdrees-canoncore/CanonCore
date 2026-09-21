@@ -25,7 +25,15 @@ ticket=""
 asserted=" "
 while [ $# -gt 0 ]; do
   case "$1" in
-    --ticket) ticket="${2:?--ticket needs a CNCORE-<n>}"; shift 2;;
+    # STRICTLY SHAPED, because it reaches a `grep` pattern below: the loose
+    # `CNCORE-*` check this replaces admitted `CNCORE-.*`, which matches every
+    # subject there is and would explain any difference at all.
+    --ticket)
+      case "${2:?--ticket needs a CNCORE-<n>}" in
+        CNCORE-[0-9] | CNCORE-[0-9][0-9] | CNCORE-[0-9][0-9][0-9] | CNCORE-[0-9][0-9][0-9][0-9]) ;;
+        *) echo "STOPPED: '--ticket $2' is not a CNCORE-<n>"; exit 1;;
+      esac
+      ticket="$2"; shift 2;;
     # AN AUXILIARY TREE IS NAMED, NEVER INFERRED. See the scan below for why
     # this is an argument rather than something the script works out.
     --aux)
@@ -60,8 +68,15 @@ fi
 # and whose databases are the live install's -- and hands back where
 # `db:drop-worktree` has to run from, with no path written down anywhere
 # (ADR-0192, and ADR-0191 on the drop).
-read -r gitdir common < <(git -C "$wt" rev-parse --path-format=absolute --git-dir --git-common-dir 2>/dev/null | tr '\n' ' ')
-if [ -z "${common:-}" ]; then
+# ONE LINE EACH, NEVER SPLIT ON WHITESPACE. Read through `tr '\n' ' '` into two
+# words, a worktree under a path containing a space mis-parsed `common`, `main`
+# came out wrong, the manifest read below failed, and the script printed
+# `databases none` and exited 0 -- RETIRED over databases still standing. This
+# is the shape `gate.sh` beside this file already uses for the same reason.
+{ read -r gitdir; read -r common; } < <(
+  git -C "$wt" rev-parse --path-format=absolute --git-dir --git-common-dir 2>/dev/null
+)
+if [ -z "${gitdir:-}" ] || [ -z "${common:-}" ]; then
   echo "STOPPED: $wt does not answer as a git checkout"
   exit 1
 fi
@@ -85,17 +100,16 @@ esac
 # carry its branch shape. An argument overrides both. WITHOUT ONE, ONE OF THE
 # TWO EXPLANATIONS BELOW CANNOT FIRE, so the script SAYS which ticket it is
 # reading for rather than quietly explaining less than it claims to.
-ticket="${2:-}"
 if [ -z "$ticket" ]; then
   ticket=$(printf '%s\n' "$branch" "$(basename -- "$wt")" |
     sed -n 's|.*[Cc][Nn][Cc][Oo][Rr][Ee]-\([0-9][0-9]*\).*|\1|p' | head -1)
   [ -n "$ticket" ] && ticket="CNCORE-$ticket"
 fi
-case "$ticket" in
-  "" ) echo "  ticket    none derivable from '$branch' -- only landed content will explain a difference";;
-  CNCORE-* ) echo "  ticket    $ticket";;
-  * ) echo "STOPPED: '$ticket' is not a ticket identifier"; exit 1;;
-esac
+if [ -n "$ticket" ]; then
+  echo "  ticket       $ticket"
+else
+  echo "  ticket       none derivable from '$branch' -- only landed content will explain a difference"
+fi
 
 # NOTHING UNCOMMITTED AND NOTHING UNPUSHED, which is the condition `CLAUDE.md`
 # puts on removing a worktree. `merge-if-green.sh` checks both before the merge
@@ -205,14 +219,46 @@ done < <(git -C "$wt" diff --name-only -z "$base" HEAD)
 # the removal is `rm -rf` of the tree AND of its entry under `worktrees/`.
 workspace=$(dirname -- "$wt")
 registrations="$common/worktrees"
-takes=""
+remove_names=" "
 matched=" "
+
+# THE PLAN IS NUL-DELIMITED ON DISK, NOT A DELIMITED STRING. Built as newline
+# records split by `read -r entry tree`, a `gitdir` file holding a NEWLINE
+# yielded a SECOND record whose first field was an arbitrary absolute path --
+# and that path was then `rm -rf`'d. This script already refuses to split git's
+# filenames on whitespace for the same reason; the plan it builds from them had
+# no business being weaker than its input.
+plan=$(mktemp) || { echo "STOPPED: cannot make a temporary file"; exit 1; }
+trap 'rm -f "$plan"' EXIT
+
 for entry in "$registrations"/*; do
   [ -d "$entry" ] || continue
   name=$(basename -- "$entry")
+
+  # A REGISTRATION NAME IS BUILT BACK INTO A PATH THIS SCRIPT REMOVES, so its
+  # shape is checked before anything is built from it.
+  case "$name" in
+    *[!A-Za-z0-9._-]* | "" | .* )
+      echo "  UNATTRIBUTED (a registration whose name this script will not build a path from)"
+      stopped=1
+      continue;;
+  esac
+
   gitdir=$(cat "$entry/gitdir" 2>/dev/null) || gitdir=""
   if [ -z "$gitdir" ]; then
     echo "  UNATTRIBUTED $name  (no gitdir recorded in $entry)"
+    stopped=1
+    continue
+  fi
+  # A `gitdir` IS ONE ABSOLUTE PATH AND NOTHING ELSE. Anything else reaches
+  # `dirname` and then a removal decision, and a multi-line one used to land in
+  # the prune branch by accident rather than be refused on purpose.
+  case "$gitdir" in
+    /*) ;;
+    *) echo "  UNATTRIBUTED $name  (its gitdir is not an absolute path)"; stopped=1; continue;;
+  esac
+  if [ "$gitdir" != "$(printf '%s' "$gitdir" | head -1)" ]; then
+    echo "  UNATTRIBUTED $name  (its gitdir is more than one line)"
     stopped=1
     continue
   fi
@@ -221,26 +267,65 @@ for entry in "$registrations"/*; do
 
   # The retiring worktree's own registration, which its removal takes.
   [ "$tree" = "$wt" ] && continue
+
   # ANOTHER TICKET'S ORCA WORKTREE, beside this one in the same workspace
   # directory. Orca lists it and `/dispatch` retires it on its own PR; sweeping
-  # it up here would take a live ticket's whole checkout.
-  [ "$(dirname -- "$tree")" = "$workspace" ] && continue
+  # it up here would take a live ticket's whole checkout. NAMING ONE WITH
+  # `--aux` IS REFUSED RATHER THAN IGNORED: skipped silently, the assertion then
+  # failed as "matches no registration" about a registration that plainly does
+  # exist, which sends the dispatcher looking for the wrong thing.
+  if [ "$(dirname -- "$tree")" = "$workspace" ]; then
+    case "$asserted" in
+      *" $name "*)
+        echo "STOPPED: --aux $name names an Orca worktree ($tree), which is retired on its own PR"
+        exit 1;;
+    esac
+    continue
+  fi
 
   # A REGISTRATION WHOSE TREE IS ALREADY GONE IS PRUNED UNASKED: no files, no
   # agent, no work, and nothing to break. It is what `git worktree prune` would
-  # do, and that is the command this repository denies.
+  # do, and that is the command this repository denies. Only the ENTRY is
+  # removed here, so no path read out of a file reaches `rm -rf` on this path.
   if [ ! -d "$tree" ]; then
     echo "  aux-pruned   $name  (registration only; $tree is gone)"
-    takes="$takes$entry|
-"
+    printf '%s\0%s\0' "$entry" "" >> "$plan"
     continue
   fi
+
+  # THE TREE MUST BE A WORKTREE OF THIS REPOSITORY, AND GIT IS WHO SAYS SO.
+  # `$tree` comes out of a FILE, and it is about to be handed to `rm -rf`. The
+  # guard this replaces was a `case "$tree" in /*/*)` depth test, which
+  # `/Users/jacobrees` passes -- so a `gitdir` reading `/Users/jacobrees/.git`
+  # plus one `--aux` would have removed a home directory, and `cd && pwd -P`
+  # resolves symlinks INTO whatever it names. Asking git whether the path is a
+  # worktree sharing THIS repository's common directory is a question no
+  # unrelated path can answer, and it is the same question that told this
+  # worktree from a main checkout above.
+  belongs=$(git -C "$tree" rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || belongs=""
+  if [ "$belongs" != "$common" ]; then
+    echo "  UNATTRIBUTED $name  ($tree does not answer as a worktree of $common)"
+    stopped=1
+    continue
+  fi
+  # AND NEVER ONE OF THE PATHS THIS SCRIPT IS STANDING ON, however it answered.
+  case "$tree" in
+    "$main" | "$workspace" | "$HOME" | "/" )
+      echo "  UNATTRIBUTED $name  ($tree is not a path this script will remove)"
+      stopped=1
+      continue;;
+  esac
 
   # A TRACKED CHANGE IS SOMEBODY'S EDIT, AND AN ASSERTION IS NOT A LICENCE TO
   # DESTROY IT -- the condition `CLAUDE.md` puts on the worktree itself, applied
   # wherever the work sits. Untracked files are not the signal: a scratch
-  # `node_modules` is what these trees are for.
-  aux_dirty=$(git -C "$tree" status --porcelain --untracked-files=no 2>/dev/null)
+  # `node_modules` is what these trees are for. A READ THAT FAILED IS NOT A
+  # CLEAN ONE: it used to come back empty and pass.
+  if ! aux_dirty=$(git -C "$tree" status --porcelain --untracked-files=no 2>&1); then
+    echo "  UNATTRIBUTED $name  (cannot read $tree -- $aux_dirty)"
+    stopped=1
+    continue
+  fi
   if [ -n "$aux_dirty" ]; then
     echo "  AUX-DIRTY    $name  ($tree holds uncommitted tracked work)"
     echo "$aux_dirty" | sed 's/^/                 /'
@@ -251,12 +336,12 @@ for entry in "$registrations"/*; do
   case "$asserted" in
     *" $name "*)
       echo "  aux-asserted $name  ($tree)"
-      takes="$takes$entry|$tree
-"
+      printf '%s\0%s\0' "$entry" "$tree" >> "$plan"
       matched="$matched$name "
       ;;
     *)
       echo "  UNATTRIBUTED $name  ($tree, at $(git -C "$tree" log --oneline -1 2>/dev/null | cut -c1-50))"
+      echo "               retire it with this too, if it is this ticket's: --aux $name"
       stopped=1
       ;;
   esac
@@ -280,18 +365,21 @@ fi
 # ONLY NOW DOES ANYTHING GO. Every refusal above had to come first: the incident
 # this script exists for was a removal chained into the same command as the
 # check, so it ran before the check's output was read.
-while IFS='|' read -r entry tree; do
+#
+# THE TREE GOES BEFORE ITS REGISTRATION. The other order leaves, on a failure
+# between the two, a tree that git no longer knows about -- which is the harder
+# of the two leftovers to notice, since nothing lists it.
+while IFS= read -r -d '' entry && IFS= read -r -d '' tree; do
   [ -n "$entry" ] || continue
-  # `rm -rf` IS CHECKED BEFORE IT IS RUN, because these paths come out of a file
-  # rather than off the command line. An empty or short one would be a sweep of
-  # somewhere else entirely.
-  case "$entry" in /*/*) rm -rf -- "$entry";; *) echo "STOPPED: refusing to remove '$entry'"; exit 1;; esac
-  if [ -n "$tree" ]; then
-    case "$tree" in /*/*) rm -rf -- "$tree";; *) echo "STOPPED: refusing to remove '$tree'"; exit 1;; esac
+  if [ -n "$tree" ] && ! rm -rf -- "$tree"; then
+    echo "STOPPED: could not remove $tree, so its registration is left pointing at it"
+    exit 1
   fi
-done <<EOF
-$takes
-EOF
+  if ! rm -rf -- "$entry"; then
+    echo "STOPPED: removed $tree but could not remove its registration $entry"
+    exit 1
+  fi
+done < "$plan"
 
 # THE REMOVAL COMES FIRST AND THE DROP SECOND, and the order is not a
 # preference: `db:drop-worktree` REFUSES while a live worktree still owns the
@@ -308,7 +396,9 @@ echo "  removed      $wt"
 # than inferred from its name: the question is whether the drop this script
 # would run exists there at all. Every provider repo would otherwise need
 # listing here, which is a fourth repository's maintenance burden.
-if drop=$(MAIN="$main" python3 -c '
+# `python3` RATHER THAN A GREP, and it is not a new dependency: `gate.sh` beside
+# this file already parses two JSON documents with it.
+if MAIN="$main" python3 -c '
 import json, os, sys
 try:
     with open(os.path.join(os.environ["MAIN"], "package.json"), encoding="utf-8") as manifest:
@@ -316,7 +406,7 @@ try:
 except Exception:
     sys.exit(1)
 sys.exit(0 if "db:drop-worktree" in scripts else 1)
-'); then
+'; then
   if ! dropped=$(cd -- "$main" && pnpm db:drop-worktree "$branch" 2>&1); then
     echo "STOPPED: the worktree is gone but its databases are not -- $dropped"
     echo "         re-run: (cd $main && pnpm db:drop-worktree $branch)"
