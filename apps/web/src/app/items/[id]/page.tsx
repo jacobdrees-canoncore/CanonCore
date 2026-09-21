@@ -462,10 +462,13 @@ export default async function ItemPage({
    * That ticket was filed believing this value reached a sentence unbounded,
    * alongside `/settings`, which did. Measured, it does not reach one at all:
    * `PlaceAnItem` takes it and reads it as `{refused && ...}`, a BARE BOOLEAN,
-   * and every sentence it gates is this page's own -- the four in
+   * and every sentence it gates is this page's own -- those in
    * `WHAT_WAS_REFUSED`, keyed on `?because=`'s closed set, or the vague
-   * fallback. A crafted `?refused=` of any length therefore changes whether
-   * that paragraph appears and nothing about what it says.
+   * fallback. This sentence used to count them, and counted the causes this
+   * FORM can provoke rather than the ones that `Record` answers, which are not
+   * the same population; its own docblock has the distinction. A crafted
+   * `?refused=` of any length therefore changes whether that paragraph appears
+   * and nothing about what it says.
    *
    * SO THE THING TO KEEP IS THAT IT STAYS A SWITCH. Rendering it -- naming the
    * item that was refused, the obvious next kindness -- would make this the
@@ -1878,8 +1881,10 @@ async function PlaceAnItem({
         caught that, and then CNCORE-255 made `placement.place` answer whichever
         of its FOUR refused the write -- so the hardcoded pair was a false reason
         again, for the two it had never heard of. `WHAT_WAS_REFUSED` is keyed on
-        `PlacementRefusalCause`, so a fifth cause is a TYPE ERROR here rather
-        than a fifth silent misreport.
+        `PlacementRefusalCause`, so a NEW cause is a TYPE ERROR here rather than
+        another silent misreport. That is not a hypothesis any more:
+        `not-in-this-container` arrived after this was written and the type
+        carried it in, which is the mechanism doing what the sentence promised.
 
         THE FALLBACK IS VAGUE ON PURPOSE, for an old link or a hand-edited query
         where no cause survived. Vague is honest there; naming one would be

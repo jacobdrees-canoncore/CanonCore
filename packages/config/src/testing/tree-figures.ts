@@ -58,10 +58,18 @@ export function serversVia(spawn: "anInstanceServing" | "theBuildServing"): numb
  * A count written the way these files write one, as a numeral or as a word.
  *
  * THE PROSE SPELLS THEM OUT, which is why this exists rather than `Number`.
- * "the seven `The page over HTTP` stands up", "ELEVEN, ten through
- * `anInstanceServing`", "the six jobs", "nine suites here": every figure this
- * module was built for is a word in a sentence, and half of them are shouted.
- * A reader that handled digits alone would match none of them.
+ * A figure in these files is written "seven", "ELEVEN" or "Thirty-four" and
+ * never `7`, half of them shouted. A reader that handled digits alone would
+ * match none of them.
+ *
+ * THOSE ARE WORD FORMS AND NOT QUOTATIONS, since CNCORE-328, which is the whole
+ * of the change. This docblock used to quote four live sentences to make the
+ * same point and THREE had drifted from the sentence they quoted -- `ci.yml`
+ * says eleven `The page over HTTP` where this said seven, `turbo-cache-inputs`
+ * says thirty-four suites where this said nine, and the fourth quoted a job
+ * count no sentence in this tree states any more. Each of those sentences is
+ * held by the table below; a quotation of one sitting beside it is a further
+ * copy nothing holds, which is the defect this module exists to report.
  *
  * ORDINALS COUNT TOO, because a sentence naming the last of a series states the
  * size of it: "the tenth -- the fresh install" is a claim that there are ten.

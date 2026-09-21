@@ -235,6 +235,18 @@ const CLAIMS: Claim[] = [
     population: "the jobs that ask pnpm/setup for a Node major",
     derive: jobsRequestingANodeMajor,
   },
+  /*
+   * THE RECORD'S COPY OF THE FIGURE ITS OWN TEST DERIVES (CNCORE-328). The row
+   * above held `node-major.test.ts` and nothing held ADR-0112, so the test said
+   * ten while the record it implements said six -- one population, two figures,
+   * and the stated one is the one that drifted.
+   */
+  {
+    file: "docs/adr/0112-the-node-major-is-the-newest-lts-line.md",
+    pattern: /names ONE major — (\w+) jobs state it/g,
+    population: "the jobs that ask pnpm/setup for a Node major",
+    derive: jobsRequestingANodeMajor,
+  },
   {
     file: "packages/config/src/turbo-cache-inputs.test.ts",
     pattern: /([\w-]+) suites here read the repository at large/g,

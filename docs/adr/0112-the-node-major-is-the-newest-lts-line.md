@@ -108,7 +108,7 @@ split `ci.yml` or a split `Dockerfile` fails whichever test asked rather than ne
 of its own:
 
 - the rule's selector is right, including across the eight days when no line is Active LTS;
-- `ci.yml` names ONE major — six jobs state it, and a bump applied to five of them throws;
+- `ci.yml` names ONE major — ten jobs state it, and a bump applied to all but one throws;
 - the `Dockerfile` names ONE major — every stage building `FROM node:` states it;
 - that major is the one this rule selects **on the day the suite runs**, in both files;
 - `README.md` tells a contributor to install that same major;
@@ -220,7 +220,7 @@ holds `ci.yml`, `package.json` and `README.md` to one major and to this rule. CN
 
 **Every assertion except one was shown failing against a broken version of its own subject before
 being kept**, which is worth stating exactly rather than as a round number. Run and observed: a
-half-applied bump across the six jobs; a `ci.yml` with no `pnpm/setup` step at all; `engines` turned
+half-applied bump across the jobs; a `ci.yml` with no `pnpm/setup` step at all; `engines` turned
 into a pin; `engines` above the major CI runs; a README naming a different major; a README whose
 setup sentence was reworded out from under the regex; the clock advanced to 2026-10-28; and two
 wrong readings of the schedule table — ignoring whether a line has reached LTS, and an off-by-one on
