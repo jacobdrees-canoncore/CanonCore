@@ -501,15 +501,16 @@ async function failed(response: Response, path: string): Promise<Error> {
  * ADR-0179's split kept and the reason this is not spelled out here. The noun is
  * `a body` because that is what this site is about: `reasonFor`'s
  * `UNSHOWABLE_REASON` names a REASON and `cmpp.ts` names a NAME and a LABEL, and
- * the four sentences stay one concept by sharing the words after the noun.
+ * the fallbacks built on `unshowable` stay one concept by sharing the words after
+ * the noun.
  *
- * TODO(CNCORE-315): "UNLIKE THE OTHER THREE" is false about `UNSHOWABLE_NAME`,
- * which has no full stop either, and "the four sentences" above counts a
- * population spread over three files (ADR-0188).
- *
- * NO FULL STOP, UNLIKE THE OTHER THREE. Those ARE the sentence a page prints;
- * this one is a clause inside a sentence `failed` finishes, and a stop here would
- * land mid-sentence.
+ * NO FULL STOP, BECAUSE THIS IS A CLAUSE (ADR-0193). A fallback is punctuated for
+ * the slot it fills, never to match the others sharing its phrase. What a page
+ * prints as a whole sentence takes a stop, so `UNSHOWABLE_REASON` and
+ * `UNSHOWABLE_LABEL` carry one: each is printed as it stands. A name does not, so
+ * `UNSHOWABLE_NAME` has none: a stop would read as part of the name. And this is
+ * a clause inside a sentence `failed` finishes, so the stop is `failed`'s, and
+ * one here would land mid-sentence.
  */
 const UNSHOWABLE_BODY = unshowable("a body");
 
