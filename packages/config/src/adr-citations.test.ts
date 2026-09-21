@@ -85,6 +85,21 @@ const AMNESTY = join(repoRoot, "docs", "research", "README.md");
 const CITATION = /ADR-(\d{4})\b|docs\/adr\/(\d{4})-|\[\[(\d{4})-/g;
 
 /**
+ * The prose form ALONE, closing bracket and all, for the slug rule below.
+ *
+ * A SECOND READER RATHER THAN A TIGHTER `CITATION`, which is the whole reason
+ * it is written out again here. Adding `([^\]]*)\]\]` to the alternative above
+ * would capture the slug, and would also NARROW the number rule: a wiki link
+ * broken across two lines stops matching, so it would escape the dangling-number
+ * and amnesty checks it is caught by today. Nothing in the corpus is written
+ * that way now, which is exactly why the narrowing would have gone unnoticed --
+ * the rule above would simply have asked less, silently, and no test would say
+ * so. The two rules want different things from the same spelling, so they read
+ * it separately.
+ */
+const SLUG_CITATION = /\[\[(\d{4})-([^\]]*)\]\]/g;
+
+/**
  * Every record's number, as the four digits its filename opens with.
  *
  * THE PARSE IS `adr-records.ts`'s SINCE CNCORE-294, which is where the TODO
@@ -119,6 +134,9 @@ function prose(): string[] {
 
 type Citation = { readonly file: string; readonly line: number; readonly number: string };
 
+/** A citation written in the prose form, which is the only one carrying a slug. */
+type SlugCitation = Citation & { readonly slug: string };
+
 function citations(): Citation[] {
   const found: Citation[] = [];
   for (const file of prose()) {
@@ -129,6 +147,28 @@ function citations(): Citation[] {
           const number = match[1] ?? match[2] ?? match[3];
           if (number !== undefined) {
             found.push({ file: file.slice(repoRoot.length + 1), line: index + 1, number });
+          }
+        }
+      });
+  }
+  return found;
+}
+
+/** Every `[[NNNN-slug]]` the prose writes, with the slug it names. */
+function slugCitations(): SlugCitation[] {
+  const found: SlugCitation[] = [];
+  for (const file of prose()) {
+    readFileSync(file, "utf8")
+      .split("\n")
+      .forEach((text, index) => {
+        for (const [, number, rest] of text.matchAll(SLUG_CITATION)) {
+          if (number !== undefined && rest !== undefined) {
+            found.push({
+              file: file.slice(repoRoot.length + 1),
+              line: index + 1,
+              number,
+              slug: `${number}-${rest}`,
+            });
           }
         }
       });
@@ -183,6 +223,15 @@ describe("an ADR number a document cites", () => {
       disclosed().size,
       `${AMNESTY_HEADING} is gone from docs/research/README.md`,
     ).toBeGreaterThan(0);
+
+    // AND THE SLUG HALF HAS A SUBJECT. The three counts above are all satisfied by
+    // the two spellings that carry no slug, so the prose form could stop matching
+    // entirely and the rule below would pass by asking nothing -- the same silence
+    // this test exists to refuse, one capture group down.
+    expect(
+      slugCitations().length,
+      "no citation was read in the [[0120-the-slug]] form",
+    ).toBeGreaterThan(0);
   });
 
   it("names a record this tree holds, or one the amnesty accounts for", () => {
@@ -196,6 +245,67 @@ describe("an ADR number a document cites", () => {
       );
 
     expect(dangling).toStrictEqual([]);
+  });
+
+  /**
+   * THE SLUG HALF, which nothing in this build resolved until CNCORE-264.
+   *
+   * The rule above holds the NUMBER. A citation can pass it and still name
+   * nothing: `[[0066-an-id-that-cannot-be-an-identity-addresses-nothing]]`
+   * resolves to record 0066, which exists, while the words after the number are
+   * a SENTENCE THAT RECORD NEVER CARRIED AS ITS NAME. That is the harder half
+   * of the same defect, because the number keeps the citation honest-looking:
+   * a reader who checks the number finds a record and stops.
+   *
+   * HERE RATHER THAN IN `adr-numbering.test.ts`, WHICH IS WHERE CNCORE-264 ASKED
+   * FOR IT. That file holds the records' own numbering and a hand-kept roll call;
+   * it runs no citation sweep, so landing this there meant a second copy of
+   * `prose()` and `citations()` -- and the first draft, written there, hardcoded
+   * `["CONTEXT.md", "CLAUDE.md"]` as the non-record corpus and missed
+   * `docs/research/walking-the-owners-install.md`, which cites a record this way.
+   * `markdownIn` is the only reader allowed to answer that question (ADR-0103),
+   * and it is already wired up here. The amnesty below is the other half of the
+   * reason.
+   *
+   * MEASURED RATHER THAN HYPOTHETICAL (CNCORE-264). `/verify` swept the corpus on
+   * 2026-09-20 and reported ADR-0149 as the only record carrying a broken one --
+   * THREE OCCURRENCES, being 0066 twice and 0123 once. By the time this check
+   * first ran, on 2026-09-21, FOUR MORE had landed in records written in between:
+   * three in ADR-0156 and one in ADR-0160. SEVEN OCCURRENCES ACROSS THREE
+   * RECORDS, which is the rate that makes this mechanical rather than a thing
+   * care can hold. Each was a record's SUBJECT written in place of its name, and
+   * ADR-0160's differed from the real slug by one word.
+   *
+   * IT ASKS ONLY OF A NUMBER THE TREE HOLDS, and that is what makes the amnesty
+   * and this rule agree instead of contradicting each other. A number the
+   * amnesty accounts for has NO FILE by design, so there is no name for a slug
+   * to be wrong against, and demanding one would ask the seven disclosed
+   * records to exist after ADR-0167 decided they never will. `[[0086-the-slug]]`
+   * in ADR-0167 -- the metasyntactic placeholder that record uses to STATE this
+   * spelling -- is covered by exactly that, rather than by an exception written
+   * for it.
+   *
+   * EVERY SLUG A NUMBER HAS, NOT THE LAST ONE. The lookup is a number to the SET
+   * of names carried by records under it, which is `adr-records.ts`'s rule in its
+   * own words: "a map keyed by number keeps the last of a colliding pair". Two
+   * records under one number is the defect `adr-numbering.test.ts` exists to
+   * catch and has caught once, and a reader shaped that way would hold every
+   * citation of the pair against whichever file was listed second.
+   */
+  it("is named by the slug the record actually carries", () => {
+    const named = new Map<string, Set<string>>();
+    for (const { number, file } of records()) {
+      const slug = file.replace(/\.md$/, "");
+      named.set(number, (named.get(number) ?? new Set()).add(slug));
+    }
+
+    const misnamed = slugCitations().flatMap(({ file, line, number, slug }) => {
+      const real = named.get(number);
+      if (real === undefined || real.has(slug)) return [];
+      return [`${file}:${line} cites [[${slug}]], but ${number} is ${[...real].join(", ")}`];
+    });
+
+    expect(misnamed).toStrictEqual([]);
   });
 
   /**

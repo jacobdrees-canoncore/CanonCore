@@ -1145,11 +1145,16 @@ function Candidate({
  * THE WAY FROM A FOUND RECORD TO THE CONTAINER ITS PROVIDER NAMES (CNCORE-238).
  *
  * A SEARCH CANDIDATE CANNOT CARRY THE ANSWER, which is what this exists for.
- * `provider-tmdb` fills `series_id` on a lookup and a browse and NEVER on a
- * search -- `searchResultToRecord` hardcodes `null` -- because TMDB's
+ * The rule is about WHAT A RECORD SITS IN rather than which operation produced
+ * it: a record that SITS IN a Container carries `series_id` on a lookup and a
+ * browse and NEVER on a search, and a record that IS one carries none.
+ * `provider-tmdb`'s `searchResultToRecord` hardcodes `null` because TMDB's
  * multi-search carries no collection and filling one would cost a REQUEST PER
- * RESULT. So the id is fetched for the one record the Owner points at, on their
- * own click, and a search still costs one request per Provider.
+ * RESULT. Stated as "on a lookup and a browse" this read as a claim about
+ * operations, and `collectionPartToRecord` -- a browse mapper whose records DO
+ * sit in a Container -- answered null against it until CNCORE-264. So the id is
+ * fetched for the one record the Owner points at, on their own click, and a
+ * search still costs one request per Provider.
  *
  * A FORM RATHER THAN A `Link`, AND THAT IS THE MECHANISM RATHER THAN A STYLE
  * CHOICE -- the same measure `PurgeBox` takes, for the same reason. The address

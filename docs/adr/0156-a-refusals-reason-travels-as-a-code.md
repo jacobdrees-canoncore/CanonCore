@@ -6,7 +6,7 @@ status: proposed
 
 A Server Action that reports a refusal reports it through the ADDRESS it redirects to, because with
 no script loaded there is nowhere else for one to go: `useActionState` is a client hook, and
-[[0066-one-address-one-page]] reads the four ways an action can end out of the installed Next and
+[[0066-path-is-identity-query-is-the-route]] reads the four ways an action can end out of the installed Next and
 finds no 400 among them. So the reason becomes a query parameter.
 
 **It travels as a word from a closed set the SURFACE owns, and never as the procedure's own
@@ -21,7 +21,7 @@ tidiness.
 **The address is the reader's to edit.** A query parameter is composed by anybody: a link in an
 email, a paste in a chat, a bookmark somebody doctored. A page that prints what the parameter
 carries is a page that will render a stranger's sentence in CanonCore's own voice, under CanonCore's
-own styling, on CanonCore's own domain. [[0123-whose-words-is-the-reader-reading]] makes whose words
+own styling, on CanonCore's own domain. [[0123-a-failure-reason-is-bounded-and-says-who-wrote-it]] makes whose words
 a reader is seeing the question this app answers at every seam, and this is that question at the one
 seam where the answer is supplied by whoever wrote the URL. `/login` stated the rule first, of its
 own parameter: "a value this page does not recognise says nothing, which is what keeps the parameter
@@ -44,7 +44,7 @@ found by the only route that could have found it: one of the three refusals has 
 somebody submitted without filling in — so `/settings?refused=%20` rendered nothing whatever. Every
 step was correct and the outcome was the exact silence the surface existed to prevent. A value a
 person typed can be blank; the word for what was wrong with it cannot. So they are two parameters,
-in [[0066-one-address-one-page]]'s fixed order: `?refused=<what>&because=<code>`, which reads as the
+in [[0066-path-is-identity-query-is-the-route]]'s fixed order: `?refused=<what>&because=<code>`, which reads as the
 sentence it is.
 
 **The name is `because` on every surface.** CNCORE-255 and CNCORE-262 reached the pair independently

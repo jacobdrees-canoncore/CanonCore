@@ -87,10 +87,15 @@ check enforcing this ratio was green for eight days while the figure it multipli
 | `provider`: Import and browse over HTTP, against the real provider-tmdb |  392 |   147s |    260s |  13 min |
 | `contract`: One contract, both providers, no app                        |  741 |    42s |     82s |   5 min |
 | `image`: The image, built and run (linux/amd64, ubuntu-latest)          |  743 |   112s |    413s |  21 min |
-| `image`: The image, built and run (linux/arm64, ubuntu-24.04-arm)       |  752 |   100s |    245s |  21 min |
+| `image`: The image, built and run (linux/arm64, ubuntu-24.04-arm)       |  752 |   100s |    245s |  21 min¹ |
 | `image-manifest`: One image, both architectures                         |  183 |    20s |     64s |   5 min |
 
 A job can succeed more often than there are runs, because a rerun is a second attempt at it.
+
+¹ The one row the `Ceiling` formula does not produce from its own line: 245 seconds gives 13,
+and this is amd64's 21 because the two legs are one job and share one `timeout-minutes`. "Two
+legs, one ceiling" below is the reason, marked here so the row is not read as arithmetic that
+disagrees with itself.
 
 **The span is the larger of the two readings, on purpose.** A job's `started_at` can precede its
 first step by two minutes (the slowest `Test` in the first window spent 113 seconds before `Set up
@@ -125,7 +130,8 @@ its own length on every hang.
 its work is, and each lands on ONE job of a run at random rather than on the whole run. The first is
 the wait between a job starting and its first step: a second at the median, and up to 113. Of 7,972
 successful jobs, 23 waited over half a minute, each the only one in its run to do so while the next
-longest waited one or two seconds. The second is a setup spike: `pnpm/setup` takes a median of ten
+longest waited one or two seconds -- three seconds in one of the 23 (run `34753903876`), and one or
+two in the other 22. The second is a setup spike: `pnpm/setup` takes a median of ten
 seconds across 5,566 successful steps, and eleven of them took between 26 and 78. Each time, the
 next slowest `pnpm/setup` in the same run took 11 to 14 seconds, so this is not a cold cache, which
 would slow the whole run. A short job's own sample may contain neither: tripled, `credentials`'s
@@ -184,7 +190,9 @@ restages #138's shape: the suite passes, and the job never ends. Commit `f13845d
 | Complete job                                           | 16:20:13 | 16:20:13 | `success`   |
 
 The job ran from 16:11:59 to 16:20:15, **8m16s against a ceiling of eight**, where #138's ran for
-half an hour and would have run for six hours. Every other job in that run passed. It was the second
+half an hour and would have run for six hours. Fourteen of the other fifteen jobs in that run
+passed; `image-manifest` was SKIPPED rather than passing, its `if:` barring it off anything but
+`main` and a tag. It was the second
 run of the fifteen ceilings on a real runner, and neither cut anything healthy. On the first, for
 `e178b40`, `Typecheck` took 88 seconds against the window's slowest of 58, and 68 of them were
 spent before its first step: the first of the two costs the floor is for, landing on one job at

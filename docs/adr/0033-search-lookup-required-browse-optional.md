@@ -658,8 +658,12 @@ record already carries `series` and `series_id`, and `series_id` IS a browsable 
 providers -- so the candidate an owner is looking at could offer its own container without any new
 operation. Whatever builds that is where the choice gets made. **THAT WAS FALSE OF BOTH PROVIDERS'
 SEARCHES**: the paragraph below finds the wiki sends no `series_id`, and CNCORE-187 found
-`provider-tmdb` sends it on a lookup and a browse and NEVER on a search, so no candidate can offer its
-container at either (the CNCORE-187 section below).
+`provider-tmdb`'s SEARCH carries none -- `searchResultToRecord` hardcodes `series_id: null` -- so no
+candidate can offer its container at either (the CNCORE-187 section below). CNCORE-187 WROTE THAT AS
+"on a lookup and a browse and never on a search", naming operations where the rule is about what a
+record SITS IN (CNCORE-264): `collectionPartToRecord` is a browse mapper and answered null until
+`provider-tmdb#29`. The conclusion this paragraph rests on is about the SEARCH alone and is
+unchanged.
 
 **THAT REASON IS WRONG, AND THE OPERATION IS PROPOSED AFTER ALL (CNCORE-185).** Checked 2026-09-13:
 `provider-wiki` emits no `series_id` anywhere -- the string does not occur in one of its source files
@@ -1092,10 +1096,14 @@ source asserts as one: its categories browse and are not listed.
 
 **`series_id` STOPPED BEING STRIPPED AND IS NOW READ, ONE LOOKUP AT A TIME — AND THE REASON THE
 CNCORE-68 SECTION GAVE FOR READING IT WAS FALSE AT THE SECOND PROVIDER TOO.** That section expected a
-SEARCH CANDIDATE to offer its own container through it, and no candidate can: `provider-tmdb` sends
-`series_id` on a lookup and a browse and NEVER on a search — read at `46a1189`,
-`searchResultToRecord` hardcodes `series_id: null`, because TMDB's multi-search carries no collection
-and filling one would cost a request per result. So the field was kept and read by nothing under
+SEARCH CANDIDATE to offer its own container through it, and no candidate can: `provider-tmdb`'s
+`searchResultToRecord` hardcodes `series_id: null` — read at `46a1189` — because TMDB's multi-search
+carries no collection and filling one would cost a request per result. **THIS SENTENCE READ "on a
+lookup and a browse and NEVER on a search" UNTIL CNCORE-264**, which named operations where the rule
+is about what a record SITS IN: a record that sits in a Container carries `series_id` on a lookup and
+a browse and never on a search, and a record that IS one carries none. `collectionPartToRecord` was a
+browse mapper serving records that DO sit in one and answered null against it until
+`provider-tmdb#29`. So the field was kept and read by nothing under
 CNCORE-187 (the consumer schema asserting it on a lookup at the package export), and the reader
 arrived one ticket later as a mechanism of its own: **CNCORE-238, 2026-09-19.**
 `provider.containerOf` answers the Container ONE record names, on the Owner's own click, and

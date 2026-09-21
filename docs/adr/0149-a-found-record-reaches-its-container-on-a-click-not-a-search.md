@@ -12,7 +12,13 @@ status: accepted
 > [[0103-tests-bite-at-package-exports-and-the-router]]'s second seam
 > (`packages/api/src/routers/provider.test.ts`) and its fourth (`apps/web/e2e/import-page.test.ts`).
 > No provider repository is touched: `provider-tmdb` and `provider-wiki` already send what this
-> reads, so there is no cross-repo pair here and nothing waiting on a second ticket.
+> reads. **CORRECTED 2026-09-21 (CNCORE-264): there WAS a cross-repo pair here, one path over.**
+> `collectionPartToRecord` is a browse mapper and it hardcoded `series_id: null`, so a record reached
+> by BROWSING a collection could not reach its Container -- the same dead end this record exists to
+> close, on the path it did not look at. `provider-tmdb#29` fills it, MERGED as `638ff0a` before this
+> correction landed, which is the order a cross-repo pair flips in. The mechanism THIS record
+> decided is unchanged and still whole; what was wrong was the sentence below, which read the three
+> mappers it checked as though they were all of them.
 
 Spec CNCORE-159's story 61 is "reach a Container from a record I found by searching". Until this it
 was unmet for TMDB, and the reason is a fact about the source rather than a gap in the app: **a CMPP
@@ -20,7 +26,14 @@ search cannot carry a Container.**
 
 `provider-tmdb`'s `searchResultToRecord` hardcodes `series_id: null` (`src/records.ts:119`, read at
 `46a1189`), because TMDB's multi-search carries no collection and filling one would cost **a request
-per result**. Its `lookup` and `browse` paths do fill it (lines 190, 270, 301). MEASURED AGAINST THE
+per result**. **THE RULE IS ABOUT WHAT A RECORD SITS IN, NOT ABOUT WHICH OPERATION PRODUCED IT**, and
+the first draft of this sentence -- "its `lookup` and `browse` paths do fill it" -- got that wrong by
+naming operations. A record that SITS IN a Container carries `series_id` on a lookup and a browse and
+never on a search; a record that IS one carries none. So `seriesToRecord` and `collectionToRecord`
+answering null is correct rather than the same defect, they being Containers themselves -- while
+`collectionPartToRecord`, a browse mapper serving records that DO sit in one, answered null until
+`provider-tmdb#29` (`638ff0a`) and was a real defect (CNCORE-264). That PR fills the collection's
+NAME beside its id, the two having travelled together in every other record this provider emits. MEASURED AGAINST THE
 RUNNING IMAGE on 2026-09-19, not recalled: `/search?q=The Matrix` answers `movie:603` with
 `"series_id":null`, and `/lookup/movie%3A603` answers the same record with
 `"series_id":"collection:2344"`.
@@ -114,7 +127,7 @@ ANSWER in the union (`no-container`) rather than a failure, and the page prints 
 link in it**. A way onward that leads to a preview of nothing is worse than no way onward.
 
 It is kept distinct from `no-such-record` — the Provider holding nothing at that id, which
-[[0066-an-id-that-cannot-be-an-identity-addresses-nothing]] makes an answer too — because the two
+[[0066-path-is-identity-query-is-the-route]] makes an answer too — because the two
 have different remedies and an Owner told the wrong one goes looking for the wrong fix.
 
 **NO `lookup-not-offered` ARM EXISTS, AND THAT IS CMPP RATHER THAN AN OMISSION.** `CONTEXT.md` makes
@@ -135,7 +148,7 @@ what it did. So the one thing this union exists to prevent — a provider having
 one. Reproduced before it was fixed: `Output validation failed … expected string to have >=1
 characters`.
 
-An empty id **names no Container** ([[0066-an-id-that-cannot-be-an-identity-addresses-nothing]]: an
+An empty id **names no Container** ([[0066-path-is-identity-query-is-the-route]]: an
 id that cannot BE an identity addresses nothing), and an empty name is **no name**, so it joins
 `null` rather than meeting the same refusal one field over.
 
@@ -146,7 +159,7 @@ string. The guard is `!value`, not `value !== null`.
 ## What implementation taught: a wrapper loses whose sentence it is
 
 `askingTheProvider` raises `ProviderFailed(reasonFor(error))`, which carries the reason as a VALUE and
-leaves no `cause`. [[0123-a-reason-is-bounded-and-attributed]]'s `reasonFor` walks the `cause` chain
+leaves no `cause`. [[0123-a-failure-reason-is-bounded-and-says-who-wrote-it]]'s `reasonFor` walks the `cause` chain
 to find the innermost link that said something — so called on that wrapper it stops AT the wrapper,
 finds no `OutboundRefused`, and **attributes CanonCore's own refusal to the Provider.**
 
