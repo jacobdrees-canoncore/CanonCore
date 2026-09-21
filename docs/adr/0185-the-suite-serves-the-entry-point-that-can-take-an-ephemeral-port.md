@@ -22,7 +22,7 @@ is unset, and the `output: 'export'` branch beside it throws where this one does
 `node_modules` at 16.3.5 on 2026-09-21).
 
 What it costs is an argument. This suite's whole claim is that it tests the SHIPPED page, and
-`global-setup.ts` makes it twice -- at `freshInstall` and at `aCatalogueTooBigForOnePage`, both
+`global-setup.ts` makes it twice — at `freshInstall` and at `aCatalogueTooBigForOnePage`, both
 saying THE SAME BUILD started again rather than a second build of it, which is the shape
 [[0117-a-read-surface-renders-per-request]] exists to serve. Those two sentences are about the
 BUILD. This record is about the ENTRY POINT, which they do not speak to and which is the second
@@ -34,11 +34,19 @@ half of the same claim: a deployment runs `.next/standalone/apps/web/server.js`,
 Both entry points load the same `.next/server` output through the same `startServer`. They differ
 in FOUR things, and only one of them can produce a defect:
 
-1. **Which `node_modules` resolve.** The shipped tree carries the TRACED SUBSET. A module the app
-   reaches at runtime but tracing missed works under `next start` and fails under the server that
-   ships. **This is the one that matters, and it is not hypothetical here**: the `Dockerfile` builds
-   the migrator a module tree of its own precisely because `drizzle-orm` is a part the trace does
-   not carry.
+1. **Which `node_modules` resolve.** The shipped tree carries only what tracing found —
+   **30 packages, measured on 16.3.4**, `pg` among them — where `next start` resolves from the
+   whole workspace. A module the app reaches at runtime that the trace did not carry works under
+   `next start` and fails under the server that ships, and `next start` cannot see the difference
+   because it never consults the subset. **This is the one that matters.**
+
+   The `Dockerfile`'s migrator tree is the evidence that the two module sets really are different,
+   and it is **NOT itself an instance of the defect** — worth saying, because the first draft of
+   this record claimed it was. Its comment says the opposite of a trace miss: Turbopack compiles
+   the parts of `drizzle-orm` the app reaches INTO the server chunks, so they are not addressable
+   as a module, and the migrator is a part the app NEVER reaches. Tracing correctly left it out.
+   What the workaround shows is how small the shipped subset is, and therefore how much of it
+   `next start` is not exercising.
 2. **The config source** — `next.config.ts` from disk, against a string baked into `server.js`.
 3. **The working directory** — `apps/web`, against the standalone tree, which `server.js` `chdir`s
    into.
@@ -108,10 +116,13 @@ The claim would become false with nothing in the diff saying so, which is
 
 So the condition is an assertion rather than a sentence: `packages/config/src/image.test.ts`, "the
 smoke test the e2e suite's entry point leans on". Both halves are held to ONE step, and that was a
-correction a mutation forced — the first draft asked only for a step running `canoncore:smoke`,
-and deleting the image from the step that SERVES left it green, because the step proving the
-container
-REFUSES to serve an unmigrated database runs the same tag.
+correction two mutations forced, and the second is the sharper one. The first draft asked only
+for a step running `canoncore:smoke`, and deleting the image from the step that SERVES left it
+green, because the step proving the container REFUSES to serve an unmigrated database runs the
+same tag. Then the 404 assertion turned out to be satisfiable by PROSE: the step explains itself
+in a comment naming 404, and flipping the guard to `= "200"` left the test green. Stripping the
+comments was still not enough — `not 404.` stands in the guard's own error message — so what is
+pinned is the COMPARISON, `$code` tested against 404.
 
 ## Three things refused, each for its own reason
 

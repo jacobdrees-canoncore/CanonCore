@@ -171,9 +171,9 @@ export async function theBuildServing(
   close: () => void;
 }> {
   /*
-   * `next start`, AND NEXT WARNS ONCE PER SERVER THAT IT IS NOT THE ENTRY POINT
-   * `output: "standalone"` SHIPS. The warning is expected here and is not a
-   * fault to chase (ADR-0185, CNCORE-302).
+   * THE SERVER IS `next start`, AND NEXT WARNS ONCE PER SERVER THAT THIS IS NOT
+   * THE ENTRY POINT `output: "standalone"` SHIPS. That warning is expected here
+   * and is not a fault to chase (ADR-0185, CNCORE-302).
    *
    * THE SHIPPED ENTRY POINT CANNOT TAKE AN EPHEMERAL PORT, which is what
    * decides this. `next build` writes the glue, and it reads

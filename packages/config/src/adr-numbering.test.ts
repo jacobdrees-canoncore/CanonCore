@@ -152,6 +152,12 @@ const IMPLEMENTED_BY: Implementation[] = [
     holds:
       "`next start`, and the warning about the entry point this suite deliberately does not serve",
   },
+  {
+    adr: "0185",
+    file: "packages/config/src/image.test.ts",
+    holds:
+      "the condition that record is conditional on, which is the half that can stop being true",
+  },
 ];
 
 /**
