@@ -158,6 +158,26 @@ correction, because a record that could not live under its own rule would be a r
 keep. **Any check whose population is the index should be run once after `git add`**, or its author
 is reading a tree that is missing exactly the files they just wrote.
 
+**IT THEN HAPPENED A SECOND TIME, TO THE PERSON WHO HAD JUST WRITTEN THAT SENTENCE.** A code review
+asked for a suite over the shared sentence cutter; its rows reached for the wrapped spelling because
+that is the cut they demonstrate; the whole package was run green while that file was still
+untracked; and it was committed and pushed without being run again. The dispatcher found the red on
+the pushed head. A rule written into a record in the same pass that breaks it is the strongest
+evidence there is that the rule needs a mechanism rather than a reader's attention, which is this
+record's whole argument arriving at its own author.
+
+**AND THE REFLEX FIX WAS THE WRONG ONE, WHICH IS THE PART WORTH KEEPING.** A third name on the
+exclusion list turns that red green in one line and is silent for ever after. It was wrong because
+the cutter is GENERAL: those rows need a sentence that wraps, any sentence wraps, and the figure was
+doing no work in them. It is described where it matters, in this check's own fixtures where the
+spelling IS the subject, and absent from the cutter's suite, which is
+[[0190-the-prose-corpus-is-named-once-and-claude-is-prose]]'s shape for the same self-reference.
+
+**SO AN EXCLUSION HERE ANSWERS FOR ITSELF.** Every excused file is swept separately and must still
+produce findings, so an exclusion that has stopped being necessary reports nothing and the suite
+refuses it. That is `bounded-parameters.test.ts`'s rule turned on this check's own escape hatch, and
+it is what makes the shortcut above go red on the run that takes it rather than never.
+
 **A ticket's count of the sites is a sweep's output, and inherits that sweep's blind spot.**
 CNCORE-327 named four fixable sites in a table headed by the spelling that hid each one. It was
 filed by the instrument it was written to replace, so its four were the four that instrument could
@@ -170,6 +190,9 @@ see. Correcting the ticket's premise was the first thing the check did.
   phrase broken across a 100-column wrap, the arithmetic with no words, the shouted-and-hyphenated
   form, and a numeric one nothing has yet written. **Grep found zero of the four; the check went red
   on all four.**
+- **The exclusion list shown red two ways**: by adding a file that does not need excusing, which
+  names that file; and by renaming an excused one, which throws naming the path. The first is the
+  shortcut this record argues against, refused by the mechanism rather than by care.
 - **That plant is no longer the evidence, which is the change the code review bought.** It was a
   measurement taken once, by hand, into a file then restored -- everything it proved stopped
   existing with it. `corpus-import-cost.test.ts` now carries a row per spelling and a row per near
@@ -179,7 +202,7 @@ see. Correcting the ticket's premise was the first thing the check did.
 - **The floor shown red by emptying the swept list**, and the rule shown green over that same empty
   list, which is the measurement the floor section above rests on.
 - **The frozen-rung set shown red by pointing its name at a rung the ladder does not hold.**
-- `pnpm --filter @canoncore/config test`: 39 files, 409 tests, green. The new suite moved
+- `pnpm --filter @canoncore/config test`: 39 files, 410 tests, green. The new suite moved
   `suitesReadingTheRepository` from 34 to 35 and `tree-figures.test.ts` caught both restatements of
   the old count in `turbo-cache-inputs.test.ts` -- the drift mechanism catching this record's own
   change, unprompted.

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   carriesItsCorrection,
   filesSwept,
+  statementsExcludedFromTheSweep,
   statementsInFrozenProse,
   statementsOfTheSupersededCost,
   statementsReadingAsALiveCost,
@@ -126,6 +127,27 @@ describe("the superseded cost of importing the corpus", () => {
    */
   it("is looked for across the whole tracked tree", () => {
     expect(filesSwept()).toBeGreaterThan(500);
+  });
+
+  /**
+   * AN EXCLUSION EARNS ITS PLACE OR IT GOES, and this row is what stops the list
+   * above growing whenever the check is inconvenient.
+   *
+   * Two files are excused: the reader, whose patterns ARE the spellings they
+   * refuse, and this suite, whose fixture rows are those spellings again. Both
+   * are irreducible -- a pattern cannot be written without the phrase and a
+   * fixture cannot prove a spelling is caught without containing it.
+   *
+   * WHAT THIS REFUSES IS THE THIRD NAME. `testing/sentences.test.ts` used the
+   * wrapped spelling to demonstrate a cut that any sentence demonstrates, and
+   * the cheap fix was to add it here. That would have been a check quietly
+   * asking less, with nothing to say so. Held to EVERY excluded file finding
+   * something, so a name added to buy silence rather than because the file
+   * cannot be written otherwise reddens on the run that adds it.
+   */
+  it("excuses only files that would otherwise be found, so the list cannot buy silence", () => {
+    const idle = statementsExcludedFromTheSweep().filter(({ found }) => found === 0);
+    expect(idle).toStrictEqual([]);
   });
 
   it("is never stated as a live cost", () => {

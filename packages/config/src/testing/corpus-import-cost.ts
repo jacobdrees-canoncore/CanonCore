@@ -191,6 +191,16 @@ export function filesSwept(): number {
  * passes the sentence rule too, so the looser bound was buying only the
  * loophole.
  */
+function statementsIn({ path, text }: { path: string; text: string }): Statement[] {
+  return blocksOf(withoutCommentLeaders(path, text))
+    .map(sentencesOf)
+    .flatMap((sentences) =>
+      sentences.flatMap((sentence) =>
+        statesTheSupersededCost(sentence) ? [{ path, sentence }] : [],
+      ),
+    );
+}
+
 export function statementsOfTheSupersededCost(): Statement[] {
   const moved = THE_CHECKS_OWN_FILES.filter((path) => !isTrackedAs(path));
   if (moved.length > 0) {
@@ -201,15 +211,29 @@ export function statementsOfTheSupersededCost(): Statement[] {
   }
   return trackedText()
     .filter(({ path }) => !THE_CHECKS_OWN_FILES.includes(path))
-    .flatMap(({ path, text }) =>
-      blocksOf(withoutCommentLeaders(path, text))
-        .map(sentencesOf)
-        .flatMap((sentences) =>
-          sentences.flatMap((sentence) =>
-            statesTheSupersededCost(sentence) ? [{ path, sentence }] : [],
-          ),
-        ),
-    );
+    .flatMap(statementsIn);
+}
+
+/**
+ * What each excluded file WOULD hand this check if it were swept.
+ *
+ * THE EXEMPTION IS EXECUTED RATHER THAN LISTED, which is the difference between
+ * an exclusion and a silencer. A name on a list buys silence for whatever is
+ * behind it forever; this answers what that silence is COSTING, so an exclusion
+ * that has stopped being necessary reports nothing and the suite refuses it.
+ *
+ * IT WAS EARNED BY THE FAILURE IT WOULD HAVE CAUGHT. `testing/sentences.test.ts`
+ * reached for the wrapped spelling to demonstrate the cut, turned this check red
+ * on its own author's branch, and the reflex fix was a third name on the list
+ * above. That fix would have been silent forever: the cutter is general, any
+ * sentence wraps, and the figure was doing no work in those rows. The row below
+ * is what makes taking that shortcut go red instead.
+ */
+export function statementsExcludedFromTheSweep(): { path: string; found: number }[] {
+  return THE_CHECKS_OWN_FILES.map((path) => ({
+    path,
+    found: statementsIn({ path, text: readFileSync(join(repoRoot, path), "utf8") }).length,
+  }));
 }
 
 /**

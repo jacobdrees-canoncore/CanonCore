@@ -15,6 +15,20 @@ import { blocksOf, sentencesOf, withoutCommentLeaders } from "./sentences";
  * That is `bounded-parameters.test.ts`'s rule arriving at a shared reader: "an
  * exemption nothing executes is an exemption nobody can check." Every other
  * module in this directory has a sibling suite for the same reason.
+ *
+ * NOTHING HERE QUOTES THE SUPERSEDED CORPUS-IMPORT COST, AND THAT IS DELIBERATE
+ * RATHER THAN INCIDENTAL. The first draft of these rows reached for it, because
+ * the wrapped spelling is what sent CNCORE-327 looking for this cutter -- and
+ * `corpus-import-cost.test.ts` sweeps every tracked file for exactly that
+ * phrase, so three rows here turned that check red on its own author's branch.
+ *
+ * THE ANSWER IS NOT TO EXEMPT THIS FILE. A cutter is general: what these rows
+ * need is a sentence that WRAPS, and any sentence wraps. The figure was never
+ * doing work here, so it is DESCRIBED where it matters -- in that check's own
+ * fixtures, where the spelling is the subject and the exclusion is earned --
+ * and absent here, which is [[0190-the-prose-corpus-is-named-once-and-claude-is-prose]]'s
+ * shape for the same self-reference. An exclusion widened to cover a file that
+ * did not need it is a check that has quietly stopped asking.
  */
 describe("blocksOf", () => {
   /**
@@ -55,8 +69,8 @@ describe("sentencesOf", () => {
    * a reader matching raw bytes finds neither.
    */
   it("reads a sentence broken across a wrap as one sentence", () => {
-    expect(sentencesOf("a walk of 465 Containers is about five\nand a half hours.")).toEqual([
-      "a walk of 465 Containers is about five and a half hours.",
+    expect(sentencesOf("a walk of 465 Containers is asked for one\nContainer a call.")).toEqual([
+      "a walk of 465 Containers is asked for one Container a call.",
     ]);
   });
 
@@ -99,8 +113,10 @@ describe("withoutCommentLeaders", () => {
    */
   it("takes the JSDoc leader off, so a wrapped docblock sentence reads as one", () => {
     expect(
-      sentencesOf(withoutCommentLeaders("a.ts", "/**\n * about five\n * and a half hours.\n */")),
-    ).toEqual(["about five and a half hours.", "/"]);
+      sentencesOf(
+        withoutCommentLeaders("a.ts", "/**\n * asked for one\n * Container a call.\n */"),
+      ),
+    ).toEqual(["asked for one Container a call.", "/"]);
   });
 
   it("takes a line comment's leader off at the line start only, because `https://` is not one", () => {
@@ -115,8 +131,8 @@ describe("withoutCommentLeaders", () => {
    */
   it("takes SQL's leader off a rung", () => {
     expect(
-      withoutCommentLeaders("m.sql", "-- the whole list\n-- is about five and a half hours."),
-    ).toBe("the whole list\nis about five and a half hours.");
+      withoutCommentLeaders("m.sql", "-- the whole list\n-- is walked one Container a call."),
+    ).toBe("the whole list\nis walked one Container a call.");
   });
 
   /**
