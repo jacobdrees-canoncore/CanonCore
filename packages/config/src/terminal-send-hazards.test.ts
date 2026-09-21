@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
+import { records } from "./testing/adr-records";
 import { flatten } from "./testing/flatten";
 import { markdownIn } from "./testing/markdown-corpus";
 import { repoRoot } from "./testing/repo-root";
@@ -44,19 +45,84 @@ import { repoRoot } from "./testing/repo-root";
 const SWEPT = ["docs", ".claude"] as const;
 
 /**
- * Flattened prose, cut into sentences.
+ * A document cut into BLOCKS -- paragraphs, bullets, headings, table rows.
  *
- * FLATTENED FIRST because every document here is hard-wrapped at 100 columns,
- * so the claim and its cost routinely sit either side of a newline --
- * `flatten.ts` carries the measurement of what matching raw bytes cost
- * `adr-as-built.test.ts`.
+ * THE BLOCK IS WHAT BOUNDS A WINDOW, and it had to be, because `flatten` eats
+ * newlines and markdown does not end a bullet or a heading with a full stop.
+ * Measured on this tree before the fix: splitting the whole flattened document
+ * gave ADR-0162 a 634-character "sentence", and 7 of its 52 fragments had a
+ * `## ` heading swallowed mid-string. A hazard in an unterminated bullet would
+ * then make "the sentence and the ones beside it" span the rest of the file --
+ * the document-level check the docblock below says it refuses. The guarantee
+ * was accidental before this; now it is structural.
+ *
+ * A NEW BLOCK OPENS on a blank line, a list marker, a heading, or a table row,
+ * because each of those is a place markdown changes subject without punctuation.
  */
-function sentencesOf(text: string): string[] {
-  return flatten(text).split(/(?<=[.!?])\s+/);
+function blocksOf(text: string): string[] {
+  const blocks: string[] = [];
+  let current: string[] = [];
+  const close = (): void => {
+    if (current.length > 0) blocks.push(current.join("\n"));
+    current = [];
+  };
+  for (const line of text.split("\n")) {
+    if (line.trim() === "" || /^\s*(?:[-*+]\s|\d+\.\s|#{1,6}\s|\|)/.test(line)) close();
+    if (line.trim() !== "") current.push(line);
+  }
+  close();
+  return blocks;
 }
 
-/** Every markdown document under `docs/` and `.claude/`, plus the root's own. */
-function corpus(): { path: string; sentences: string[] }[] {
+/**
+ * The abbreviations this corpus actually writes, which a full stop does not end
+ * a sentence after.
+ *
+ * MEASURED, NOT IMAGINED, and both directions were reproduced before this
+ * existed. A false SPLIT reddens prose that is correct: "`ctrl+x ctrl+s`
+ * flushes it, e.g. on a rung broadcast. It interrupts the turn." cuts after
+ * `e.g.` and leaves a flush claim with no cost clause. A false split also lets
+ * a claim ESCAPE in silence: "Flush it with `ctrl+x ctrl+s`, i.e. Escape then
+ * Enter. That flushes it." puts the recipe in one fragment and `flushes it` in
+ * another, so no fragment is a claim at all and the population guard still
+ * passes because other claims remain. The second is the worse one, which is why
+ * this is a guard and not a tidy-up.
+ */
+const ABBREVIATION = /\b(?:e\.g|i\.e|etc|cf|vs|viz|al|no|fig|mr|mrs|ms|dr|st)\.$/i;
+
+/**
+ * One block's sentences.
+ *
+ * FLATTENED FIRST because every document here is hard-wrapped at 100 columns,
+ * so a claim and its cost routinely sit either side of a newline --
+ * `flatten.ts` carries the measurement of what matching raw bytes cost
+ * `adr-as-built.test.ts`. Flattening a BLOCK rather than the document is what
+ * keeps that fix from buying a false join.
+ */
+function sentencesOf(block: string): string[] {
+  const sentences: string[] = [];
+  for (const fragment of flatten(block).split(/(?<=[.!?])\s+/)) {
+    const previous = sentences.at(-1);
+    if (previous !== undefined && ABBREVIATION.test(previous)) {
+      sentences[sentences.length - 1] = `${previous} ${fragment}`;
+    } else {
+      sentences.push(fragment);
+    }
+  }
+  return sentences;
+}
+
+/**
+ * Every markdown document under `docs/` and `.claude/`, plus the root's own.
+ *
+ * TODO(CNCORE-313): this is the THIRD suite to spell the directory list for
+ * itself -- `adr-citations.test.ts` and `doc-line-citations.test.ts` have their
+ * own -- and the three have already diverged, because only this one sweeps
+ * `.claude/`. `markdown-corpus.ts` ended the duplication one level down, at the
+ * walk; the level above it is still copied per suite. Not folded here because
+ * it would edit two suites this ticket does not otherwise touch.
+ */
+function corpus(): { path: string; blocks: string[][] }[] {
   const paths = [
     ...SWEPT.flatMap((directory) =>
       markdownIn(join(repoRoot, directory), { recursive: true }).map((path) =>
@@ -67,7 +133,7 @@ function corpus(): { path: string; sentences: string[] }[] {
   ];
   return paths.map((path) => ({
     path,
-    sentences: sentencesOf(readFileSync(join(repoRoot, path), "utf8")),
+    blocks: blocksOf(readFileSync(join(repoRoot, path), "utf8")).map(sentencesOf),
   }));
 }
 
@@ -103,8 +169,10 @@ const isFlushClaim = (sentence: string): boolean =>
 const THE_COST = /interrupt/i;
 
 function flushClaims(): { path: string; sentence: string }[] {
-  return corpus().flatMap(({ path, sentences }) =>
-    sentences.filter(isFlushClaim).map((sentence) => ({ path, sentence })),
+  return corpus().flatMap(({ path, blocks }) =>
+    blocks.flatMap((sentences) =>
+      sentences.filter(isFlushClaim).map((sentence) => ({ path, sentence })),
+    ),
   );
 }
 
@@ -136,21 +204,30 @@ describe("the sentence that says the flush works", () => {
  * who has only that has been told what not to do and not what to do, so the
  * options are to guess the keystrokes or to leave the agent parked. That is
  * what left the widget recipe undocumented for as long as it was, and on
- * 2026-09-21 it cost four messages -- sent into a multi-select whose confirm
+ * 2026-09-21 it cost three measured messages, four by the dispatcher's own
+ * count -- sent into a multi-select whose confirm
  * screen was still open, eaten in silence while `orca terminal send` answered
  * `Sent N bytes`.
  *
- * THE WINDOW IS THE SENTENCE AND THE ONE AFTER IT, not the document. A pointer
- * three sections away from the warning is the shape `CLAUDE.md` refuses --
- * "placed beside one, it leaves the old claim standing" -- and a
- * document-level check would pass `CLAUDE.md`, which cites a dozen records
- * elsewhere in the file and would satisfy the rule without the hazard gaining
- * anything.
+ * THE WINDOW IS THE SENTENCE AND THE ONES EITHER SIDE OF IT, WITHIN ONE BLOCK,
+ * never the document. A pointer three sections away from the warning is the
+ * shape `CLAUDE.md` refuses -- "placed beside one, it leaves the old claim
+ * standing" -- and a document-level check would pass `CLAUDE.md`, which cites a
+ * dozen records elsewhere in the file and would satisfy the rule without the
+ * hazard gaining anything. `blocksOf` is what makes that bound real rather than
+ * a property of where the full stops happen to fall.
  *
- * THE RECORD EXCLUDES ITSELF, which is `adr-records.ts`'s idiom in its own
- * words. ADR-0187 IS the way through, so it states the hazard in order to
- * answer it; asking it to cite itself beside its own answer would be asking for
- * a pointer to the paragraph underneath.
+ * THE RECORD EXCLUDES ITSELF. ADR-0187 IS the way through, so it states the
+ * hazard in order to answer it; asking it to cite itself beside its own answer
+ * would be asking for a pointer to the paragraph underneath.
+ *
+ * IT EXCLUDES THAT RECORD BY ITS EXACT PATH, RESOLVED THROUGH THE TREE, and the
+ * first draft did not -- it asked whether a path CONTAINED `0187-`, which
+ * exempts `docs/research/sweep-0187-x.md` and anything under a `0187-` directory
+ * as silently as it exempts the record. `slugOf` in `adr-numbering.test.ts`
+ * resolves the same way and for the same reason: a record RENAMED should move
+ * this exclusion with it rather than leave it looking for a spelling nothing
+ * uses.
  */
 
 /** The hazard, in the spelling all three carriers share. */
@@ -165,20 +242,57 @@ const THE_HAZARD = /SELECTS the option under the cursor/i;
  * renumbering that orphans these pointers should redden something. This is that
  * something, and `adr-citations.test.ts` catches the other half by refusing a
  * cited number the tree holds no record for.
+ *
+ * WRITTEN OUT ONCE, THOUGH. The first draft spelled it in the citation regex
+ * and again in the resolver's throw, and a mutation run proved they could
+ * disagree: pointing the resolver at a number the tree lacks produced the
+ * message "0 records are numbered 0187", naming the number it had NOT looked
+ * for. A failure that misreports its own subject is worse than no failure.
  */
-const THE_WAY_THROUGH = /ADR-0187\b|docs\/adr\/0187-|\[\[0187-/;
+const ANSWERING_RECORD = "0187";
 
-/** The record that IS the answer, which is why it is not asked the question. */
-const ANSWERS_IT = "0187-";
+const THE_WAY_THROUGH = new RegExp(
+  `ADR-${ANSWERING_RECORD}\\b|docs/adr/${ANSWERING_RECORD}-|\\[\\[${ANSWERING_RECORD}-`,
+);
 
-function hazardsOwedAnAnswer(): { path: string; window: string }[] {
+/**
+ * The record that IS the answer, which is why it is not asked the question, as
+ * the tree spells its path today.
+ */
+function theRecordThatAnswersIt(): string {
+  const [record, ...rest] = records().filter(({ number }) => number === ANSWERING_RECORD);
+  if (record === undefined || rest.length > 0) {
+    throw new Error(
+      `${rest.length + (record === undefined ? 0 : 1)} records are numbered ` +
+        `${ANSWERING_RECORD}, not 1, so this suite cannot say which document holds the way through`,
+    );
+  }
+  return record.path;
+}
+
+function hazardsOwedAnAnswer(): { path: string; beside: string }[] {
+  const answersIt = theRecordThatAnswersIt();
   return corpus()
-    .filter(({ path }) => !path.includes(ANSWERS_IT))
-    .flatMap(({ path, sentences }) =>
-      sentences.flatMap((sentence, index) =>
-        THE_HAZARD.test(sentence)
-          ? [{ path, window: [sentence, sentences[index + 1] ?? ""].join(" ") }]
-          : [],
+    .filter(({ path }) => path !== answersIt)
+    .flatMap(({ path, blocks }) =>
+      blocks.flatMap((sentences) =>
+        sentences.flatMap((sentence, index) =>
+          THE_HAZARD.test(sentence)
+            ? [
+                {
+                  path,
+                  // BESIDE MEANS EITHER SIDE, which is what this test is named
+                  // for. Looking only forward would redden a pointer written
+                  // into the sentence BEFORE the warning, which is as adjacent
+                  // as one written after it. Bounded by the block, so "beside"
+                  // cannot quietly become "somewhere in this document".
+                  beside: [sentences[index - 1] ?? "", sentence, sentences[index + 1] ?? ""].join(
+                    " ",
+                  ),
+                },
+              ]
+            : [],
+        ),
       ),
     );
 }
@@ -191,8 +305,8 @@ describe("the sentence that warns about the prompt widget", () => {
 
   it("names the record holding the way through, beside the warning", () => {
     const unanswered = hazardsOwedAnAnswer()
-      .filter(({ window }) => !THE_WAY_THROUGH.test(window))
-      .map(({ path, window }) => `${path}: ${window}`);
+      .filter(({ beside }) => !THE_WAY_THROUGH.test(beside))
+      .map(({ path, beside }) => `${path}: ${beside}`);
     expect(unanswered).toStrictEqual([]);
   });
 });

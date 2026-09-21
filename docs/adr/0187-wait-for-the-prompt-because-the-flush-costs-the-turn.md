@@ -58,10 +58,10 @@ sends stray Enters into whatever comes next.
 | | one question | several questions |
 | --- | --- | --- |
 | **single-select** | ONE Enter. It selects and SUBMITS. There is no review screen. | Enter selects and ADVANCES to the next question. After the last comes a "Review your answers" screen whose default is `Submit answers`. Two questions is THREE Enters. |
-| **multi-select** | Enter TOGGLES the option under the cursor, `[ ]` to `[✔]`, and the cursor STAYS PUT. Submit is its own row below the last option, reached with the DOWN ARROW. Enter there opens the review screen; its default is `Submit answers`. | **NOT MEASURED.** |
+| **multi-select** | Enter TOGGLES the option under the cursor, `[ ]` to `[✔]`, and the cursor STAYS PUT. Submit is its own row, below the last option and ABOVE "Chat about this", reached with the DOWN ARROW (`orca terminal send --text $'\x1b[B'`) — from option 1 of a four-option question that is four presses, and a fifth overshoots into "Chat about this". Enter there opens the review screen; its default is `Submit answers`. | **NOT MEASURED.** |
 
 Each measured cell was measured on 2026-09-21: the single-question single-select on this record's
-own dispatch, the two-question single-select on CNCORE-306's filing, the single-question
+own dispatch, the two-question single-select on CNCORE-288's parked question, the single-question
 multi-select on CNCORE-302.
 
 **The asymmetry in the first column is the surprising part and is recorded as measured rather than
@@ -82,12 +82,15 @@ aimed at the chat goes INTO the widget and is lost, silently, while `orca termin
 Measured 2026-09-21 on CNCORE-302. The answer registered as `User answered Claude's questions`, and
 the three messages sent after it — the dispatcher attribution and both reasons — appear nowhere in
 the transcript. The agent was left with a bare choice and no idea who made it or why. It was found
-only by reading `--screen` back; no tool result said anything had gone missing. A fourth message was
-lost the same way the same night.
+only by reading `--screen` back; no tool result said anything had gone missing. The dispatcher's own
+count for the night is FOUR; three are the ones above, read out of that transcript, and the fourth is
+taken from that count rather than from a transcript this record has seen.
 
 **So attribution cannot ride in the selection.** An answer arrives looking exactly like a human's,
 which the Owner's own standing rule refuses: a dispatched agent's questions are answered by the
-dispatcher, and the record has to say so. That naming message is sent AFTER the widget has closed,
+dispatcher, and the record has to say so. **That message names the dispatcher AND the date**, since
+an answer with an author and no date cannot be placed against the wave that produced it. It is sent
+AFTER the widget has closed,
 confirmed closed by `--screen` — and it is the one message worth interrupting a turn for.
 
 ## Read `--screen` between every keystroke

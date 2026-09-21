@@ -140,8 +140,11 @@ three, and not a read that resolves against the asker instead of the subject.
 what the terminal renders, so it cannot show an input box at all.
 
 **The parked case is read before the send, not after it**, and that is the ordering this record
-fixes rather than the check. The other two are recoverable by re-sending. A send into a prompt widget
-is not: it may already have answered a question on the agent's behalf.
+fixes rather than the check. The other two are recoverable by re-sending — the MESSAGE is, at least,
+and that is all this sentence ever meant. A TURN a flush interrupted is not recoverable by anything,
+which is the cost corrected into this record above; re-sending the words does not give back the work
+the agent abandoned to read them. A send into a prompt widget is recoverable by neither: it may
+already have answered a question on the agent's behalf.
 
 **And the binding is read from `worktree list`, never from `--current`.** `--current` answers about
 the asker, so it is the right tool for an agent reading its OWN ticket and the wrong one for a
