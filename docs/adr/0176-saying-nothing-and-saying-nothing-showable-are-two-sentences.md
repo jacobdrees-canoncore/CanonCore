@@ -24,7 +24,9 @@ status: accepted
 > PARTLY unshowable value, and means "the value went" only inside a guard its caller owns — pinned in
 > `index.test.ts` rather than left in a docblock. The fallbacks' own ceiling is asserted, having been
 > held by nothing. And `failed()` in `client.ts` keeps its exclusion while its COMMENT does not:
-> CNCORE-308.
+> CNCORE-308 — **which then took the exclusion off it too.** [[0186-a-failure-body-nobody-can-show-is-reported-rather-than-omitted]] answered the question deferred
+> below and gave that site a third branch, so the fallbacks reaching `unshowable` are FOUR rather
+> than the three this paragraph counts.
 
 [[0179-a-bound-that-empties-a-value-says-so]] settled that **a value nobody can show is not a value
 nobody sent**, and gave six callers one phrase for it. It also recorded, in its own "What this does
@@ -132,16 +134,20 @@ Provider, and this sentence says so instead of implying a demonstration nobody r
 COMMENT.** A body of only controls gives `said === ""` and the sentence stops at `${answered}.`, so
 the Owner is told the status and not told there was a body. That is an OMISSION, not a contradiction:
 nothing there asserts the Provider sent nothing, which is the claim this record exists to remove, and
-it is why the site was not folded into a diff agreed for three.
+it is why the site was not folded into a diff agreed for three. **The exclusion was right and it did
+not last: [[0186-a-failure-body-nobody-can-show-is-reported-rather-than-omitted]] reports that body.** This paragraph's reading is kept rather than corrected away,
+because that record is built on it — the omission is not a contradiction, and what it turned out to
+be instead is a sentence whose absence the Owner had been taught to read.
 
 **Its comment is another matter, and ADR-0179 did not read it.** `// Said nothing, so there is nothing
 to introduce` sits on `said === ""`, and `said` arrived through `bounded` — so the premise is this
 record's conflation, stated beside a line whose output happens to be merely incomplete. A wrong reason
 for a right line is what the next change to that line reads, which is the argument
 [[0179-a-bound-that-empties-a-value-says-so]] makes about its own refuted `shortenTo` paragraph.
-**CNCORE-308** carries it, and with it the question this record does not decide: whether the Owner
+**CNCORE-308** carried it, and with it the question this record did not decide: whether the Owner
 should be told a body arrived that could not be shown, given that no body and an unshowable body
-render identically today.
+rendered identically. **The answer is yes**, and [[0186-a-failure-body-nobody-can-show-is-reported-rather-than-omitted]] has it: the two failures have different remedies,
+and the Owner reached for the wrong one because the sentences were the same.
 
 **Nothing reports a fallback that answers two inputs with one sentence**, so the count of them is
 only ever as good as the last reading. ADR-0179 said as much about its own list, and was wrong by one

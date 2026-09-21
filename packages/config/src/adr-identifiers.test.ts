@@ -241,6 +241,8 @@ const NAMED_A_GONE_SYMBOL_ON_PURPOSE: Readonly<Record<string, string>> = {
   // tree. A blanket replace is the wrong tool for a record that talks about its own past.
   pastTheRow:
     "ADR-0119 reports the one-key comparison as GONE, which it is -- `pastTheRowIn` replaced it",
+  saidBy:
+    "ADR-0186 reports CNCORE-308 renaming it to `offeredBy`, and ADR-0179's bullet about it is kept as a dated reading of the site that record excluded",
   stillHasAPlaceIn:
     "ADR-0119 says the reads 'were `thePlaceIn` and `stillHasAPlaceIn` until CNCORE-224'",
   thePlaceIn: "ADR-0119, the same sentence",

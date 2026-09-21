@@ -662,6 +662,96 @@ describe("the CMPP client", () => {
   });
 
   /*
+   * AND A BODY MADE OF NOTHING THE STRIP LEAVES IS A PROVIDER THAT SAID
+   * SOMETHING, WHICH THE OWNER IS TOLD (CNCORE-308, ADR-0186).
+   *
+   * THREE ZERO-WIDTH SPACES ARE A BODY. `bounded` empties it, so before this the
+   * sentence stopped at `answered 500.` -- the same words a provider that sent NO
+   * body gets, for a provider whose error path is producing garbage. Those are
+   * different next moves for the Owner and they read identically.
+   */
+  it("says a failure body arrived when it is made only of characters that cannot be shown", async () => {
+    const baseUrl = await stubProvider((_, response) => {
+      response.writeHead(500, { "content-type": "text/plain" });
+      response.end("\u200b\u200b\u200b");
+    });
+    const client = createProviderClient({ baseUrl, allowlist: onLoopback() });
+
+    await expect(client.search("dalek")).rejects.toThrow(
+      "/search?q=dalek answered 500 with a body made only of characters that cannot be shown.",
+    );
+  });
+
+  /*
+   * AND THE SAME IS TRUE OF THE FIELD, which reaches the branch by a different
+   * road. `errorIn` unwraps `error` out of a JSON envelope, so this one is
+   * already a sentence the provider wrote by the time it is bounded, where the
+   * test above is the whole body quoted as itself.
+   */
+  it("says so when the reason field itself is made only of characters that cannot be shown", async () => {
+    const baseUrl = await stubProvider((_, response) =>
+      json(response, { error: "\u200b\u200b\u200b", provider: "provider-wiki" }, 503),
+    );
+    const client = createProviderClient({ baseUrl, allowlist: onLoopback() });
+
+    await expect(client.search("dalek")).rejects.toThrow(
+      "/search?q=dalek answered 503 with a body made only of characters that cannot be shown.",
+    );
+  });
+
+  /*
+   * AND THE QUESTION IS ASKED OF THE STRING THAT WAS BOUNDED, NOT OF THE BODY IT
+   * CAME OUT OF. This provider wrote `error` and put NOTHING in it, which is a
+   * silence -- and it put a zero-width space in a key beside it, which is its own
+   * business and not its reason.
+   *
+   * ASKING `holdsUnshowable` OF THE RAW BODY IS THE OBVIOUS SPELLING AND IT IS
+   * WRONG HERE: the envelope holds a stripped character, the reason does not, and
+   * the Owner would be told the provider's reason could not be shown when the
+   * provider gave none. `errorIn(text) ?? text` is the value that enters the
+   * sentence, so it is the value the question is about.
+   */
+  it("reads an empty reason beside an unshowable key as a provider saying nothing", async () => {
+    const baseUrl = await stubProvider((_, response) =>
+      json(response, { error: "", note: "\u200b" }, 503),
+    );
+    const client = createProviderClient({ baseUrl, allowlist: onLoopback() });
+
+    await expect(client.search("dalek")).rejects.toThrow("/search?q=dalek answered 503.");
+  });
+
+  /*
+   * AND THE SENTENCE SAYING SO SURVIVES THE CEILING IT IS READ THROUGH, WHICH
+   * NOTHING HELD (ADR-0176's lesson at this seam).
+   *
+   * THIS ONE CARRIES NO PROVIDER TEXT AND IS STILL NOT SAFE BY CONSTRUCTION.
+   * `bounded` in `reasonFor` cuts at `REASON_MAX_LENGTH` and keeps the OPENING,
+   * so what a sentence edited past the ceiling loses is its END -- here the whole
+   * clause saying a body arrived. It would degrade back into `answered 500…`,
+   * which is the defect CNCORE-308 removed, arriving through the fix for it and
+   * looking like a truncation rather than a claim.
+   *
+   * AT FULL STRETCH, driven rather than assumed: the query is long enough that
+   * `shortly` cuts the path to its own ceiling, so this is the longest this
+   * sentence can be.
+   */
+  it("keeps the whole unshowable-body sentence inside the reason the Owner reads", async () => {
+    const baseUrl = await stubProvider((_, response) => {
+      response.writeHead(500, { "content-type": "text/plain" });
+      response.end("\u200b");
+    });
+    const client = createProviderClient({ baseUrl, allowlist: onLoopback() });
+
+    const refused = await client.search("z".repeat(200)).catch((error: unknown) => error);
+    const said = (refused as Error).message;
+    const { text } = reasonFor(refused);
+
+    expect(said).toMatch(/ with a body made only of characters that cannot be shown\.$/);
+    expect(text).toBe(said);
+    expect(text.length).toBeLessThanOrEqual(REASON_MAX_LENGTH);
+  });
+
+  /*
    * THE REASON THE BODY WAS BEING CANCELLED IS PRESERVED RATHER THAN REVERTED,
    * which is the half of CNCORE-140 that could have been lost fixing the other.
    *
@@ -718,10 +808,17 @@ describe("the CMPP client", () => {
    * where the sentence is printed.
    *
    * `reasonFor` caps what a PAGE renders, and that cap was already here. This
-   * asserts the other consumer: `FailedProvider` in `search.ts` carries this
-   * Error itself and reads `reason.message`, so text that was only bounded on
-   * the way to a page would reach that one at whatever length the provider
-   * chose. ADR-0123's rule is that the value is bounded WHERE IT ENTERS.
+   * asserts the ERROR ITSELF: `FailedProvider` in `search.ts` carries it whole,
+   * as a `reason` typed `unknown` since ADR-0183 so that it travels as it was
+   * thrown, so text only bounded on the way to a page would reach whoever holds
+   * that Error at whatever length the provider chose. ADR-0123's rule is that
+   * the value is bounded WHERE IT ENTERS.
+   *
+   * "READS `reason.message`" IS WHAT THIS SAID AND NOTHING DOES. Corrected
+   * under CNCORE-308: `asError` went with ADR-0183 and the one consumer of that
+   * field, `provider.ts`'s `failed.map`, hands it to `reasonFor`. The assertion
+   * below is unchanged, because it was always about the Error's own message
+   * rather than about who reads it.
    *
    * IT FAILS IF THE INNER BOUND IS REMOVED, which the page-level cap alone does
    * not -- 300 characters get rendered either way, and the Error grows to
