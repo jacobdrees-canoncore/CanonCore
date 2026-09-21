@@ -74,20 +74,22 @@ const owner = await logInAt(baseUrl, inject("ownerPassword"));
  * THE SAME RPC SURFACE, ASKED AS THE OWNER, which `client` above deliberately
  * is not. Everything this file asks through it is an `ownerProcedure`, so asking
  * it without a session answers `Unauthorized` rather than what the test is
- * asking about.
- *
- * ONE OF THEM IS A READ. `provider.container` moved behind the session under
- * CNCORE-154 (ADR-0131): it answers by running the whole browse at a third
- * party, which CNCORE-151 gave sixty seconds. The assertions that read it are
- * asking what the PROVIDER says so they can compare it against what the page
- * rendered, so they need the answer rather than the refusal. The rest are
- * writes: the import a witness provider refuses, and the Groups a search is
- * narrowed by.
- *
- * ONE CLIENT, ON `owner`'S COOKIE, because there is one Owner: the pages this
- * file reads as the Owner and the procedures it asks here are one caller with
- * one session. `purge-page.test.ts` builds its client the same way for the same
+ * asking about. `purge-page.test.ts` builds its client the same way for the same
  * reason.
+ *
+ * `provider.container` IS AN `ownerProcedure` DESPITE BEING A READ. It moved
+ * behind the session under CNCORE-154 (ADR-0131): it answers by running the
+ * whole browse at a third party, which CNCORE-151 gave sixty seconds. The
+ * assertions that read it are asking what the PROVIDER says so they can compare
+ * it against what the page rendered, so they need the answer rather than the
+ * refusal.
+ *
+ * ONE OWNER CLIENT, ON `owner`'S COOKIE, because there is one Owner: the pages
+ * this file reads with `owner` and the procedures it asks here are one caller
+ * with one session.
+ *
+ * TODO(CNCORE-323): building a client at a test instance is written out across
+ * `e2e/` and `live/` rather than being one function.
  */
 const asTheOwner: AppRouterClient = createORPCClient(
   new RPCLink({ url: `${baseUrl}/api/rpc`, headers: { cookie: owner } }),
