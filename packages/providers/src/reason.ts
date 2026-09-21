@@ -75,10 +75,36 @@ export type FailureReason = z.infer<typeof failureReason>;
  */
 export function reasonFor(thrown: unknown): FailureReason {
   const spoke = unwrapped(thrown);
-  const message = spoke instanceof Error ? spoke.message : String(spoke);
+  const message = wordsOf(spoke);
   const ours = spoke instanceof OutboundRefused && spoke.boundary === "config";
-  const said = boundedOr(message, SILENT, UNSHOWABLE_REASON);
+  const said =
+    message === undefined ? NOT_A_MESSAGE : boundedOr(message, SILENT, UNSHOWABLE_REASON);
   return { wrote: ours ? "canoncore" : "provider", text: said };
+}
+
+/**
+ * THE WORDS THE THING THAT SPOKE ACTUALLY HAS, or nothing when it has none
+ * (ADR-0183).
+ *
+ * `String(spoke)` STOOD HERE AND ANSWERED FOR TWO INPUTS. A thrown STRING is the
+ * Provider's own words and `String` is right for it: `throw "rate limited"` is
+ * quoted verbatim, bounded, and that half is kept. A thrown value that is
+ * neither an `Error` nor a string has no sentence of its own, and `String`
+ * SUPPLIED one -- measured on node 24.19.0, `undefined` became `"undefined"`,
+ * `null` became `"null"` and `{}` became `"[object Object]"`, each handed to the
+ * Owner with `wrote: "provider"` on it. CNCORE-96 binds this surface to the
+ * opposite.
+ *
+ * `undefined` RATHER THAN THE EMPTY STRING, because the empty string is a real
+ * answer on this path and already has two sentences waiting for it: it is what a
+ * silent `Error` and a thrown `""` both give, and `boundedOr` tells those from a
+ * value the strip emptied. Returning `""` for a value that never spoke would
+ * fold this branch into that question and put ADR-0176's conflation back in a
+ * third spelling.
+ */
+function wordsOf(spoke: unknown): string | undefined {
+  if (spoke instanceof Error) return spoke.message;
+  return typeof spoke === "string" ? spoke : undefined;
 }
 
 /**
@@ -248,3 +274,25 @@ const SILENT = "the provider failed without saying why.";
  * alike or the field reads as two voices.
  */
 const UNSHOWABLE_REASON = `${unshowable("the provider's reason was")}.`;
+
+/**
+ * What is said when what was thrown is not a message at all (ADR-0183).
+ *
+ * THE OTHER TWO ARE ABOUT A VALUE THAT HAD WORDS AND LOST THEM. `SILENT` is a
+ * failure that named no reason and `UNSHOWABLE_REASON` a reason made of nothing
+ * anybody can show; both are reached through a string somebody wrote. This one
+ * is reached when nothing on the path ever held a string -- `throw undefined`,
+ * or `Promise.reject()` with no argument -- so there is no text to report and
+ * saying so is the whole of what is left to say.
+ *
+ * IT DOES NOT NAME THE VALUE, WHICH IS THE WHOLE OF CNCORE-307. Naming it is
+ * what `String(spoke)` did. The three fallbacks travel under `wrote: "provider"`
+ * because ADR-0123 decides that by WHICH BOUNDARY refused and no boundary here
+ * did -- so each is a sentence ABOUT a Provider, which a page may print in a
+ * Provider's voice, and none is a QUOTE of one. `undefined` is not a sentence
+ * about anything: it reads as a word the Provider used, which is the line
+ * CNCORE-96 draws. A repair reaching for the value again -- `typeof`,
+ * `JSON.stringify`, `${spoke}` -- lands on the wrong side of it in a smaller
+ * font, and the last of those THROWS on a thrown symbol.
+ */
+const NOT_A_MESSAGE = "the provider failed with something that is not a message.";

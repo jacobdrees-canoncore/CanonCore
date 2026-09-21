@@ -200,7 +200,9 @@ export function unshowable(thing: string): string {
  * unshowable with the sentence for one that said nothing. ADR-0176 gave it and
  * the two `boundedProse` fallbacks a second sentence each, reaching
  * `holdsUnshowable` below for the same question this function asks. The line
- * now reads `boundedOr(message, SILENT, UNSHOWABLE_REASON)`.
+ * now reads `boundedOr(message, SILENT, UNSHOWABLE_REASON)`, behind the guard
+ * ADR-0183 put in front of it: a throw that carried no string at all -- `throw
+ * undefined` -- asks none of these three questions and gets a fourth sentence.
  */
 export function quotedTo(text: string, max: number, thing: string): string {
   const quoted = boundedTo(text, max);
