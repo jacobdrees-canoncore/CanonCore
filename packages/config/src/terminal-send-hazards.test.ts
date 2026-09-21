@@ -3,9 +3,9 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { records } from "./testing/adr-records";
-import { flatten } from "./testing/flatten";
 import { proseIn } from "./testing/markdown-corpus";
 import { repoRoot } from "./testing/repo-root";
+import { blocksOf, sentencesOf } from "./testing/sentences";
 
 /**
  * A HAZARD SENTENCE CARRIES WHAT IT COSTS, IN THE SENTENCE ITSELF (CNCORE-306).
@@ -41,73 +41,13 @@ import { repoRoot } from "./testing/repo-root";
  * pass.
  */
 
-/**
- * A document cut into BLOCKS -- paragraphs, bullets, headings, table rows.
- *
- * THE BLOCK IS WHAT BOUNDS A WINDOW, and it had to be, because `flatten` eats
- * newlines and markdown does not end a bullet or a heading with a full stop.
- * Measured on this tree before the fix: splitting the whole flattened document
- * gave ADR-0162 a 634-character "sentence", and 7 of its 52 fragments had a
- * `## ` heading swallowed mid-string. A hazard in an unterminated bullet would
- * then make "the sentence and the ones beside it" span the rest of the file --
- * the document-level check the docblock below says it refuses. The guarantee
- * was accidental before this; now it is structural.
- *
- * A NEW BLOCK OPENS on a blank line, a list marker, a heading, or a table row,
- * because each of those is a place markdown changes subject without punctuation.
+/*
+ * `blocksOf` AND `sentencesOf` MOVED TO `testing/sentences.ts` UNDER CNCORE-327,
+ * with the measurements that argue for them. This suite wrote that cutter and
+ * the corpus-cost check needs the identical cut over a wider population --
+ * `flatten.ts`'s reason for being a module rather than a line each caller
+ * repeats, and `tracked-files.ts`'s specimen of what a second copy costs.
  */
-function blocksOf(text: string): string[] {
-  const blocks: string[] = [];
-  let current: string[] = [];
-  const close = (): void => {
-    if (current.length > 0) blocks.push(current.join("\n"));
-    current = [];
-  };
-  for (const line of text.split("\n")) {
-    if (line.trim() === "" || /^\s*(?:[-*+]\s|\d+\.\s|#{1,6}\s|\|)/.test(line)) close();
-    if (line.trim() !== "") current.push(line);
-  }
-  close();
-  return blocks;
-}
-
-/**
- * The abbreviations this corpus actually writes, which a full stop does not end
- * a sentence after.
- *
- * MEASURED, NOT IMAGINED, and both directions were reproduced before this
- * existed. A false SPLIT reddens prose that is correct: "`ctrl+x ctrl+s`
- * flushes it, e.g. on a rung broadcast. It interrupts the turn." cuts after
- * `e.g.` and leaves a flush claim with no cost clause. A false split also lets
- * a claim ESCAPE in silence: "Flush it with `ctrl+x ctrl+s`, i.e. Escape then
- * Enter. That flushes it." puts the recipe in one fragment and `flushes it` in
- * another, so no fragment is a claim at all and the population guard still
- * passes because other claims remain. The second is the worse one, which is why
- * this is a guard and not a tidy-up.
- */
-const ABBREVIATION = /\b(?:e\.g|i\.e|etc|cf|vs|viz|al|no|fig|mr|mrs|ms|dr|st)\.$/i;
-
-/**
- * One block's sentences.
- *
- * FLATTENED FIRST because every document here is hard-wrapped at 100 columns,
- * so a claim and its cost routinely sit either side of a newline --
- * `flatten.ts` carries the measurement of what matching raw bytes cost
- * `adr-as-built.test.ts`. Flattening a BLOCK rather than the document is what
- * keeps that fix from buying a false join.
- */
-function sentencesOf(block: string): string[] {
-  const sentences: string[] = [];
-  for (const fragment of flatten(block).split(/(?<=[.!?])\s+/)) {
-    const previous = sentences.at(-1);
-    if (previous !== undefined && ABBREVIATION.test(previous)) {
-      sentences[sentences.length - 1] = `${previous} ${fragment}`;
-    } else {
-      sentences.push(fragment);
-    }
-  }
-  return sentences;
-}
 
 /** Every document in the prose corpus, cut into blocks of sentences. */
 function corpus(): { path: string; blocks: string[][] }[] {

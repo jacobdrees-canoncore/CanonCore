@@ -1726,9 +1726,9 @@ export const provider = {
    *
    * IT WRITES THE LIST DOWN AND ASKS THE PROVIDER NOTHING. The walk is
    * `importNextContainer` below, one Container a call, and the split is what
-   * makes a five-and-a-half-hour import possible at all: no single request waits
-   * on more than one browse, and where the walk has got to is a row rather than
-   * something held in a caller's memory.
+   * makes an import longer than any one request possible at all: no single
+   * request waits on more than one browse, and where the walk has got to is a
+   * row rather than something held in a caller's memory.
    *
    * HANDING OVER THE SAME LIST AGAIN CARRIES ON RATHER THAN STARTING OVER, which
    * is what makes the Owner's own command the whole of the interface: they type

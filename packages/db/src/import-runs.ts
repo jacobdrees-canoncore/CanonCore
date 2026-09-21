@@ -106,8 +106,8 @@ export interface ImportRun {
  *
  * THE LIST IS WRITTEN DOWN BEFORE ANYTHING IS ASKED FOR, which is what the run
  * is for. A walk that held its list in memory would have nothing to resume from:
- * the corpus is 465 Containers at 43.8s each, so the interruption is not the
- * exotic case but the ordinary one.
+ * the corpus is 465 Containers and ADR-0122's Credential lapses within a day,
+ * so the interruption is not the exotic case but the ordinary one.
  */
 export async function beginImportRun(
   db: Database,
