@@ -41,6 +41,20 @@ finding the next line refutes.
 commits — then ancestry is the wrong safety test, so compare CONTENT against `origin/main` before
 removing.
 
+**MERGE WITH `merge-if-green.sh <n> [repo] [worktree]` (beside this file), NEVER `gh pr merge` BY
+HAND.** It resolves the PR's head and asks about THAT COMMIT's check-runs, because a check is
+evidence only for the commit it ran against (ADR-0181) and a rebased PR goes on showing the old
+head's green. It is one command rather than a gate you read and a merge you then type, because
+`gate.py <n> | tail -2 && gh pr merge` once merged over a printed `BLOCKED` in the scratch version
+this replaces — a pipeline's exit status is the LAST command's, and `tail` always succeeds. Give it the worktree path too and it
+refuses over uncommitted or unpushed work, which is the condition `CLAUDE.md` already puts on
+removing one.
+
+**IT REFUSES A DRAFT, WHICH NOTHING ELSE ON THE PULL REQUEST DOES.** A draft answers `OPEN`, `CLEAN`
+and sixteen green checks, so every other field calls it mergeable — #230 read `PASSED` on 2026-09-21
+while its agent was still writing it. `READY` above is the line that says a PR has left draft; the
+gate now says it too.
+
 **A merge that claims a RUNG tells every live agent the new number, in the same action.** A rung is
 a line on a ladder no ticket owns: the migration index, the shared fixture, a tool list. CNCORE-74
 and CNCORE-119 each built `migration_12`; the second was still in its worktree when the first
@@ -233,10 +247,18 @@ let the range pick the newer one up later.
 
 ## Gotchas
 
-- **AN ABSENT CHECK IS THE TELL, NOT A RED ONE.** A conflicted PR gets no CI at all: a `pull_request`
-  workflow runs against `refs/pull/N/merge`, which GitHub cannot build while the branch conflicts, so
-  it creates no run rather than a failing one. Merge `main` and it fires. That ref keys the run too,
-  so a `--commit <head>` poll finds nothing — watch with `gh pr checks <n>`.
+- **AN ABSENT CHECK IS THE TELL, NOT A RED ONE — AND THERE ARE TWO ABSENCES.** A conflicted PR gets
+  no CI at all: a `pull_request` workflow runs against `refs/pull/N/merge`, which GitHub cannot build
+  while the branch conflicts, so it creates no run rather than a failing one. Merge `main` and it
+  fires. That ref keys the run too, so a `--commit <head>` poll finds nothing — watch with
+  `gh pr checks <n>`. **THE SECOND ABSENCE PRESENTS AS A PASS, AND `gh pr checks` IS WHAT SHOWS IT
+  TO YOU.** After a rebase there is no run for the new head, and the PR displays the OLD head's
+  results without naming the commit they belong to (ADR-0181). So that command watches a conflicted
+  PR and does NOT gate a merge: it answers about the pull request, and the question is about the
+  commit. **ZERO HAS NO TIMESTAMP ON IT EITHER** — a commit pushed seconds ago and one whose branch
+  conflicts both read zero, the first clears by waiting and the second never does. #210 waited
+  4m05s; on #221 that was read as "not yet" and the merge went in 3m42s before its run finished.
+  `gate.sh` names which of the two it is rather than leaving you to infer it at speed.
 
 - **A CROSS-REPO FOLD MAKES BOTH ITS WORKTREES LOOK DEAD, and neither pane is lying.** The agent
   lives in one worktree and reaches into the other with `cd`, so the repo holding the FILES has no
