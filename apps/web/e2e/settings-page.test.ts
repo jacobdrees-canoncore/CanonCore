@@ -59,6 +59,48 @@ const freshBaseUrl = inject("freshBaseUrl");
  */
 const configurableDatabaseUrl = inject("configurableDatabaseUrl");
 
+/**
+ * A SETTING WRITTEN STRAIGHT INTO THE INSTANCE'S OWN DATABASE, AND PUT BACK.
+ *
+ * ROUND THE SURFACE, WHICH IS THE POINT RATHER THAN A SHORTCUT. Every settings
+ * write parses before it stores, so a row that does not parse is a state NO
+ * route through this app can produce -- and it is how an instance really
+ * arrives in one: a hand-edited database, a restored dump, a value written by
+ * something older than the parse.
+ *
+ * TWO GUARDS, BECAUSE THERE ARE TWO THINGS TO PUT BACK AND THEY FAIL
+ * INDEPENDENTLY. The outer one ends the pool whatever happens, including a
+ * throw from the read itself -- a handle nothing ends is how this suite hangs
+ * rather than fails (`instance.ts`, CNCORE-229). The inner one puts the row
+ * back, and it sits INSIDE the read that captured the old value and OUTSIDE
+ * the assertions, or a failing expectation leaves an unreadable setting behind
+ * for every test after it in this file.
+ *
+ * BOTH COLUMNS GO BACK, not only the one written. A caller that breaks the
+ * allowlist and restores the Providers leaves the instance broken in the other
+ * direction, which is the shape this file's tests would all then meet.
+ */
+async function withTheSettingsRow(
+  row: { providerAllowlist?: string; providerUrls?: string },
+  run: () => Promise<void>,
+): Promise<void> {
+  const db = createDb(configurableDatabaseUrl, { maxConnections: HARNESS_CONNECTIONS });
+  try {
+    const before = await readProviderSettings(db);
+    try {
+      await writeProviderSettings(db, row);
+      await run();
+    } finally {
+      await writeProviderSettings(db, {
+        providerAllowlist: before.providerAllowlist,
+        providerUrls: before.providerUrls,
+      });
+    }
+  } finally {
+    await db.$client.end();
+  }
+}
+
 /** Every Provider the page names, read off the rows it renders. */
 function providersIn(text: string): string[] {
   return [...sectionIn(text, "providers").matchAll(/data-provider="([^"]*)"/g)].map(
@@ -452,6 +494,233 @@ describe("/settings", () => {
     } finally {
       await db.$client.end();
     }
+  });
+
+  /**
+   * THE OTHER SETTING, WHICH COST THE SAME PAGE FOR THE SAME REASON
+   * (CNCORE-329).
+   *
+   * `parseAllowlist` sat inside `reachProviders`' argument list, so a stored
+   * allowlist that does not parse threw out of the one read behind this page --
+   * bare, not an `ORPCError`, with no error boundary anywhere in `apps/web` to
+   * catch it. The Owner got no page at all.
+   *
+   * WORSE THAN THE PROVIDERS HALF, WHICH IS WHY IT IS ITS OWN TICKET. CNCORE-326
+   * deliberately kept the allowlist readable when the PROVIDERS are bad, because
+   * that textarea is the one control still worth using. When the ALLOWLIST is
+   * the bad one, that control is exactly what was unreachable.
+   *
+   * IT SAYS WHICH OF THE TWO, AND SAYS IT OF THE RIGHT ONE. ADR-0121 accepts two
+   * settings for one concept only on the condition that the SURFACE says which
+   * refuses, so the negative assertion is half the witness: a page that reported
+   * "cannot read the Providers" here would send the Owner to repair a setting
+   * that is perfectly good and leave the broken one alone.
+   */
+  it("renders when the stored allowlist will not parse, and names the allowlist", async () => {
+    const cookie = await logInAt(baseUrl, ownerPassword);
+    await withTheSettingsRow(
+      { providerAllowlist: "*.wiki.test", providerUrls: "http://fine.test:8080" },
+      async () => {
+        const { status, text } = await documentFrom(baseUrl, "/settings", cookie);
+
+        expect(status).toBe(200);
+        const shown = textOf(mainOf(text));
+        expect(shown).toContain("cannot read the Allowlist it already has");
+        expect(shown).not.toContain("cannot read the Providers it already has");
+        /*
+         * THE PROVIDERS ARE STILL LISTED AND THE TEXT IS STILL IN THE BOX, and
+         * both are the repair rather than decoration. `removeProvider` never
+         * parses the allowlist, so those rows are live; and the textarea holds
+         * the Owner's own bad text, which is the only thing they can correct it
+         * from.
+         */
+        expect(providersIn(text)).toEqual(["http://fine.test:8080"]);
+        expect(formIn(text, "allowlist").fields).toContainEqual(["allowlist", "*.wiki.test"]);
+      },
+    );
+  });
+
+  /**
+   * AND THE ROWS ARE STILL THE OWNER'S TO ACT ON, WHICH IS A CLAIM A RECORD
+   * MAKES AND NOTHING CHECKED.
+   *
+   * ADR-0199 argues the list is rendered in this state rather than withheld
+   * because "`removeProvider` parses the Providers string and never the
+   * allowlist, so every row is live while the setting beside it is broken".
+   * That is a sentence about a procedure two packages away, asserted from a
+   * page that shows a button -- exactly the shape ADR-0197 exists about, where
+   * copy and a branch both looked like coverage and neither ran. So the button
+   * is pressed.
+   */
+  it("removes a Provider while the allowlist it is admitted by will not parse", async () => {
+    const cookie = await logInAt(baseUrl, ownerPassword);
+    await withTheSettingsRow(
+      { providerAllowlist: "*.wiki.test", providerUrls: "http://fine.test:8080" },
+      async () => {
+        const { text } = await documentFrom(baseUrl, "/settings", cookie);
+        expect(providersIn(text)).toEqual(["http://fine.test:8080"]);
+
+        const removed = await submit(baseUrl, "/settings", formIn(text, "providers"), cookie);
+
+        expect(providersIn(removed.text)).toEqual([]);
+        // AND THE ALLOWLIST IS STILL THE BROKEN ONE, so this asserts a Remove
+        // that worked THROUGH the fault rather than one that quietly repaired it.
+        expect(textOf(mainOf(removed.text))).toContain("cannot read the Allowlist it already has");
+      },
+    );
+  });
+
+  /**
+   * BOTH SETTINGS AT ONCE, WHICH IS ONE STATE AND OWES TWO SENTENCES.
+   *
+   * ADR-0121's condition is that the surface says WHICH of the two refuses, and
+   * an instance whose rows are both bad needs both remedies carried out. A page
+   * reporting only the first fault it met would send the Owner round twice --
+   * and this is the arrangement CNCORE-326 left inverted, since the allowlist's
+   * parse sat INSIDE the Providers' readable arm: both rows bad rendered, and
+   * only the allowlist bad did not.
+   */
+  it("names both settings when neither will parse", async () => {
+    const cookie = await logInAt(baseUrl, ownerPassword);
+    await withTheSettingsRow(
+      { providerAllowlist: "*.wiki.test", providerUrls: "wiki.test" },
+      async () => {
+        const { status, text } = await documentFrom(baseUrl, "/settings", cookie);
+
+        expect(status).toBe(200);
+        const shown = textOf(mainOf(text));
+        expect(shown).toContain("cannot read the Providers it already has");
+        expect(shown).toContain("cannot read the Allowlist it already has");
+      },
+    );
+  });
+
+  /**
+   * THE ROUTE BACK, WHICH DID NOT EXIST UNTIL CNCORE-331.
+   *
+   * `nameProvider` and `removeProvider` both parse the STORED string before
+   * they look at the entry, so while the row is bad every control on this page
+   * refused -- and removing is the one that would have repaired it. ADR-0197
+   * recorded, under "what this costs", that the page could SAY what was wrong
+   * and offer nothing to do about it. The Owner's only route was a psql prompt.
+   *
+   * THE WHOLE ROUND TRIP, THROUGH THE PAGE. The row is written round the
+   * surface because no surface will write it; everything after that is the
+   * Owner: they open `/settings`, they type into the box the page offers them,
+   * and the instance they get back is one that reads. A witness that stopped at
+   * the textarea RENDERING would pass on a form posting to nothing.
+   */
+  it("offers a way back from a Providers setting that will not parse", async () => {
+    const cookie = await logInAt(baseUrl, ownerPassword);
+    await withTheSettingsRow({ providerUrls: "wiki.test" }, async () => {
+      const { text } = await documentFrom(baseUrl, "/settings", cookie);
+      expect(textOf(mainOf(text))).toContain("cannot read the Providers it already has");
+
+      const repaired = await submit(
+        baseUrl,
+        "/settings",
+        withFields(formIn(text, "providers"), { providers: "http://fine.test:8080" }),
+        cookie,
+      );
+
+      expect(providersIn(repaired.text)).toEqual(["http://fine.test:8080"]);
+      expect(textOf(mainOf(repaired.text))).not.toContain(
+        "cannot read the Providers it already has",
+      );
+    });
+  });
+
+  /**
+   * AND THE REPAIR ITSELF CAN BE REFUSED, WHICH IS COPY THAT NEEDS A WITNESS.
+   *
+   * ADR-0197's whole subject is a sentence declared, rendered and reached by
+   * nothing: the state it was written for was one no surface could produce, so
+   * the branch looked covered from a grep and had never run. A textarea added
+   * for a state only a hand-edited row reaches is exactly that shape again, so
+   * the refusal ON that textarea is asserted from the state it lives in rather
+   * than reasoned about.
+   *
+   * THE ENTRY IS NAMED BECAUSE THE CONTROL TAKES A LIST. An Owner who typed
+   * forty lines cannot be sent back to "an entry".
+   */
+  it("says which line it would not save, when the Providers repair is refused", async () => {
+    const cookie = await logInAt(baseUrl, ownerPassword);
+    await withTheSettingsRow({ providerUrls: "wiki.test" }, async () => {
+      const { text } = await documentFrom(baseUrl, "/settings", cookie);
+
+      const refused = await submit(
+        baseUrl,
+        "/settings",
+        withFields(formIn(text, "providers"), {
+          providers: "http://fine.test:8080\ntmdb.test",
+        }),
+        cookie,
+      );
+
+      expect(refused.url).toContain("because=providers-not-a-url");
+      expect(refused.url).toContain("tmdb.test");
+      const shown = textOf(mainOf(refused.text));
+      /*
+       * THE WHOLE SENTENCE, SPACE INCLUDED, because the clause after it is a
+       * separate component and the space between them is a `{" "}` of its
+       * own. Walking this by hand read it as "is not a URL.A Provider" -- an
+       * accessibility tree joins adjacent text nodes and drops the
+       * whitespace-only one, so the only way to tell a snapshot artefact from
+       * a missing space is to read the HTML, which is what this does.
+       */
+      expect(shown).toContain("That list was not saved, because");
+      expect(shown).toContain("is not a URL. A Provider is a URL and nothing more");
+      /*
+       * AND THE BOX IS STILL THERE TO TRY AGAIN IN, which is the half a
+       * sentence alone does not settle: the stored row is untouched by a
+       * refused save, so the page is back in the state the repair exists for.
+       */
+      expect(shown).toContain("cannot read the Providers it already has");
+    });
+  });
+
+  /**
+   * A SAVE THAT WAS REFUSED SAYS SO, AND UNTIL CNCORE-329 IT SAID NOTHING.
+   *
+   * `editAllowlist`'s action dropped what the procedure answered on the floor
+   * -- it did not even bind `refused` -- so a wildcard the Owner typed was
+   * answered with the page re-rendered, the textarea holding the STORED value,
+   * and their edit gone with no sentence about it. That is worse than the
+   * eleven call sites ADR-0156 lists under "not built": those end
+   * `if (refused) return;` and at least report through a re-read that SHOWS
+   * something. A textarea reverting shows the opposite of what happened.
+   *
+   * WHICH RULE, BECAUSE THE TWO REMEDIES ARE OPPOSITE. A wildcard is replaced
+   * by the hosts it stood for; a malformed CIDR is corrected in place. That is
+   * CNCORE-262's whole argument, arriving at the setting beside the one it was
+   * made about.
+   *
+   * THE ADDRESS AS WELL AS THE SENTENCE, for the reason ADR-0197 states: the
+   * sentence alone cannot tell a fixed action from a silent one on a page that
+   * has its own reasons to mention the allowlist.
+   */
+  it("says which entry it would not save, when the allowlist is refused", async () => {
+    const cookie = await logInAt(baseUrl, ownerPassword);
+    const { text } = await documentFrom(baseUrl, "/settings", cookie);
+
+    const refused = await submit(
+      baseUrl,
+      "/settings",
+      withFields(formIn(text, "allowlist"), { allowlist: "wiki.test, *.wiki.test" }),
+      cookie,
+    );
+
+    expect(refused.url).toContain("because=allowlist-wildcard");
+    expect(refused.url).toContain(encodeURIComponent("*.wiki.test"));
+    const shown = textOf(mainOf(refused.text));
+    expect(shown).toContain("was not saved");
+    expect(shown).toContain("no wildcards");
+    // AND THE STORED ALLOWLIST IS UNTOUCHED, which is parse-before-store: the
+    // refusal is the whole of what happened.
+    expect(formIn(refused.text, "allowlist").fields).not.toContainEqual([
+      "allowlist",
+      "wiki.test, *.wiki.test",
+    ]);
   });
 
   /**

@@ -6,6 +6,7 @@ import {
   ProviderNotNamed,
   parseProviderUrls,
   removeProvider,
+  SettingNotRead,
 } from "./index";
 
 /**
@@ -53,6 +54,31 @@ describe("parseProviderUrls", () => {
    */
   it("refuses an entry that is not a URL at all", () => {
     expect(() => parseProviderUrls("http://wiki.test:8080, wiki.test")).toThrow(OutboundRefused);
+  });
+
+  /**
+   * WHICH ENTRY, AS A FIELD, BECAUSE THE PROVIDERS ARE NOW SAVED WHOLESALE TOO
+   * (CNCORE-331).
+   *
+   * `settings.editProviders` replaces this whole string with what the Owner
+   * typed into a textarea, so the refusal has to name the line that broke it --
+   * exactly as the Allowlist's does, and for the same reason. Until that editor
+   * existed the only caller parsing an untrusted STRING was `nameProvider`,
+   * which judges one entry and already has it in hand.
+   *
+   * AND IT IS NOT A `ProviderNotNamed`, WHICH IS THE HALF WORTH PINNING. That
+   * class means "the text the Owner typed into the box names no one provider",
+   * and `settings.nameProvider` reads `instanceof ProviderNotNamed` to tell
+   * that from a STORED row that no longer parses -- the first thing
+   * `nameProvider` parses is the configured string. Were this the same class,
+   * an Owner whose row is bad would be told their own perfectly good URL was
+   * the problem.
+   */
+  it("names the entry that would not read, as a refusal about the setting", () => {
+    const refused = () => parseProviderUrls("http://wiki.test:8080, wiki.test");
+    expect(refused).toThrow(SettingNotRead);
+    expect(refused).toThrow(expect.objectContaining({ entry: "wiki.test", why: "not-a-url" }));
+    expect(refused).not.toThrow(ProviderNotNamed);
   });
 });
 

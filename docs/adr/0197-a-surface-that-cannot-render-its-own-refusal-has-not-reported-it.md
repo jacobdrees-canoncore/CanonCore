@@ -1,17 +1,21 @@
 ---
-status: proposed
+status: accepted
 ---
 
 # A surface that cannot render its own refusal has not reported it
 
-> **PROPOSED 2026-09-21, HALF BUILT, for CanonCore.** The Providers half is whole: `/settings`'
-> action carries a fall-through to `REFUSED.unreadable`, `settings.read` answers an unreadable
-> Providers setting instead of throwing it, the page renders that state as a third thing rather than
-> as an empty list, the closed set grew a fifth word for a refusal this page cannot name, and
-> `apps/web/e2e/settings-page.test.ts` reaches the action's half through the instance's own
-> database. **The ALLOWLIST half is not built.** `parseAllowlist` still throws out of
-> the same `read`, so a stored allowlist that does not parse costs the Owner the same page for the
-> same reason, and CNCORE-329 holds it. This record's number was assigned by the dispatcher.
+> **ACCEPTED 2026-09-21, for CanonCore. It was PROPOSED and HALF BUILT for a day.** The Providers
+> half landed with CNCORE-326: `/settings`' action carries a fall-through to `REFUSED.unreadable`,
+> `settings.read` answers an unreadable Providers setting instead of throwing it, the page renders
+> that state as a third thing rather than as an empty list, the closed set grew a fifth word for a
+> refusal this page cannot name, and `apps/web/e2e/settings-page.test.ts` reaches the action's half
+> through the instance's own database. **The ALLOWLIST half is built too, under CNCORE-329**, which
+> is the sentence this banner carried in the negative: `parseAllowlist` threw out of the same
+> `read`, and it now answers a union of its own, with the page naming WHICH of the two settings it
+> cannot read. [[0199-a-stored-setting-that-will-not-parse-must-not-remove-the-surface-that-repairs-it]]
+> carries the general rule both halves turned out to share, and the half neither of them had: a
+> control that still works in the state the refusal names. This record's number was assigned by the
+> dispatcher.
 
 [[0156-a-refusals-reason-travels-as-a-code]] settles how a refusal's reason gets from a Server Action
 to a reader: as a word from a closed set the surface owns, in the address the action redirects to,
@@ -96,6 +100,11 @@ named `page.tsx:123` before anybody looked for it.
 The allowlist is answered as before, from the stored string with no parse in the way. Two settings,
 neither derivable from the other (ADR-0121), and a read that refused wholesale would take away the
 one control still working over a fault in the setting beside it.
+
+**AND THE ALLOWLIST IS A UNION OF ITS OWN SINCE CNCORE-329**, carrying the Owner's text in BOTH
+arms, because the box that repairs an unreadable allowlist is the box that renders it. The sentence
+above is about this read not refusing WHOLESALE, which still holds; what it did not say is that the
+allowlist's own parse was still in the way, one arm over.
 
 ## The witness has to go round the surface, and that is why there was none
 
@@ -187,3 +196,13 @@ the page itself.
 the stored string first, so both refuse while the row is bad, and the page can now say so without
 offering a repair. CNCORE-331 holds that, and the page's own sentence states the position plainly
 rather than pointing at a control that would refuse.
+
+**IT DOES NOW, AND THE SENTENCE ABOVE IS WHAT CNCORE-331 CLOSED.** The Providers section renders a
+textarea where it cannot render a list, `settings.editProviders` parses what is SUBMITTED and never
+what is stored, and the page's sentence points at it. The two writes named above still refuse while
+the row is bad and that is unchanged — the way out is a third write rather than a loosening of
+either, so the parse-before-store rule
+[[0121-an-instance-names-its-providers-beside-the-allowlist-that-admits-them]] puts on every
+settings write is untouched.
+[[0199-a-stored-setting-that-will-not-parse-must-not-remove-the-surface-that-repairs-it]] has the
+argument, including why the Allowlist had never had this defect and the Providers had.

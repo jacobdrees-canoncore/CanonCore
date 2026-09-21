@@ -131,6 +131,23 @@ Two properties came out of writing it that the record above would not have predi
 **NOT BUILT.** The rule governs a reason that travels; it says nothing about the refusals that never
 set out. **Eleven call sites end `if (refused) return;`** and report through the page's re-read
 alone — four in `app/groups/actions.ts`, six in `app/items/actions.ts`, one in `app/login/actions.ts`.
+**`settings/actions.ts` HOLDS NONE OF THEM, and CNCORE-329 was filed believing it held one** —
+measured with `grep -rn "if (refused) return" apps/web/src`, which returns those eleven and nothing
+from this file. What it held was a WORSE shape that this count does not reach: `editAllowlist`
+called `whatTheProcedureAnswered` and dropped the result without binding `refused` at all, so a
+refused save re-rendered the page with the STORED allowlist in the box and the Owner's edit gone.
+The eleven at least report through a re-read that SHOWS what happened; a textarea reverting shows
+the opposite. Both wholesale saves redirect now
+([[0199-a-stored-setting-that-will-not-parse-must-not-remove-the-surface-that-repairs-it]]), so the
+population below is unchanged and the file that looked like a twelfth never was one.
+
+**WHAT THAT FIXED IS THE SILENCE AND NOT THE REVERT, and the two are worth keeping apart.** The
+Owner is now told which entry was refused and why. Their TYPING is still gone: the redirect carries
+the offending entry, the page re-renders the textarea from the STORED value, and what they had
+composed is not in either. That is every form on this surface rather than these two, since
+`/settings` reports by re-reading; carrying a whole submitted setting back through an address the
+Owner can edit is a question [[0123-a-failure-reason-is-bounded-and-says-who-wrote-it]] would have
+to answer first, and nobody has asked it.
 That is `answer.ts`'s documented pattern and is right wherever the re-read actually shows what
 happened: the Group that is gone is gone from the list. It is NOT right wherever a re-read renders
 identically to a refusal, which is the case `settings/actions.ts` was written to name and the case

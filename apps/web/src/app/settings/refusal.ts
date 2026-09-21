@@ -91,6 +91,46 @@ export const REFUSED = {
 } as const;
 
 /**
+ * WHY A WHOLESALE SAVE OF THE ALLOWLIST WAS REFUSED (CNCORE-329).
+ *
+ * ITS OWN SET, BECAUSE ITS OWN CONTROL RENDERS IT. `REFUSED` above is what the
+ * "Name a Provider" box can be told; these are what the Allowlist textarea can
+ * be told, and a page holding one set for both would have to work out which
+ * section a word belonged in before it could place the sentence. Two sets ARE
+ * that answer, and the placement then cannot be got wrong.
+ *
+ * TWO WORDS BECAUSE `parseAllowlist` HOLDS TWO RULES WITH OPPOSITE REMEDIES. A
+ * wildcard is replaced by the hosts it stood for; a malformed range is
+ * corrected in place. One word for both is CNCORE-262's defect, and this page
+ * is where that ticket was filed.
+ */
+export const REFUSED_SAVING_THE_ALLOWLIST = {
+  /** ADR-0034 takes exact hosts and CIDRs, and a wildcard is neither. */
+  wildcard: "allowlist-wildcard",
+  /** An entry with a `/` in it that `ipaddr.js` will not read as a range. */
+  notACidr: "allowlist-not-a-cidr",
+} as const;
+
+/**
+ * WHY A WHOLESALE SAVE OF THE PROVIDERS WAS REFUSED (CNCORE-331).
+ *
+ * ONE WORD, BECAUSE `parseProviderUrls` HOLDS ONE RULE: an entry is a URL or it
+ * is not. The three in `REFUSED` above are about ONE entry typed into a box --
+ * nothing typed, several typed -- and neither is a mistake you can make in a
+ * textarea that takes a list.
+ *
+ * NOT `REFUSED.notAUrl`, WHICH IT LOOKS LIKE AND IS NOT. That word's sentence
+ * ends "so name IT by its base URL", about the single entry the Owner just
+ * typed; this one is about one line among many, and the Owner has to be told
+ * WHICH. Sharing the word would put the wrong sentence under the wrong
+ * control -- and under a control the other sentence does not even mention.
+ */
+export const REFUSED_SAVING_THE_PROVIDERS = {
+  /** One line of the list is not a URL, and ADR-0031 makes a Provider a URL. */
+  notAUrl: "providers-not-a-url",
+} as const;
+
+/**
  * THE CLOSED SET, as the page matches what an address carries against it.
  *
  * IT IS READ OFF `REFUSED` AND WAS NEVER THE THREE ITS NAME CLAIMED. This was
@@ -114,6 +154,14 @@ const THE_CLOSED_SET = Object.values(REFUSED);
  */
 export type WhyItWasRefused = (typeof REFUSED)[keyof typeof REFUSED];
 
+/** What the Allowlist's textarea can be told, as a type the page switches on. */
+export type WhyTheAllowlistWasRefused =
+  (typeof REFUSED_SAVING_THE_ALLOWLIST)[keyof typeof REFUSED_SAVING_THE_ALLOWLIST];
+
+/** What the Providers' repair textarea can be told. */
+export type WhyTheProvidersWereRefused =
+  (typeof REFUSED_SAVING_THE_PROVIDERS)[keyof typeof REFUSED_SAVING_THE_PROVIDERS];
+
 /**
  * THE THREE `@canoncore/providers` RAISES, held against its own type, so a
  * fourth added there without a word here fails to compile rather than arriving
@@ -131,9 +179,39 @@ const _theProvidersPackageAgrees: Record<WhyNotNamed, WhyItWasRefused> = {
 };
 void _theProvidersPackageAgrees;
 
-export function oneBecause(parameter: string | string[] | undefined): WhyItWasRefused | undefined {
+/**
+ * WHICH WORD OF ONE CLOSED SET AN ADDRESS NAMES, or nothing at all.
+ *
+ * ONE READER FOR THE THREE SETS, because "hold it to the set and answer nothing
+ * otherwise" is one rule about all of them -- and written out per set it is
+ * three places for the `oneValue` call, or the `find`, to quietly stop
+ * agreeing. The SETS differ because three controls render three groups of
+ * sentence; the READING does not differ at all.
+ */
+function theWordIn<Word extends string>(
+  words: readonly Word[],
+  parameter: string | string[] | undefined,
+): Word | undefined {
   const word = oneValue(parameter);
-  return THE_CLOSED_SET.find((known) => known === word);
+  return words.find((known) => known === word);
+}
+
+export function oneBecause(parameter: string | string[] | undefined): WhyItWasRefused | undefined {
+  return theWordIn(THE_CLOSED_SET, parameter);
+}
+
+/** Which refusal the Allowlist's own save met, held to its own closed set. */
+export function oneBecauseSavingTheAllowlist(
+  parameter: string | string[] | undefined,
+): WhyTheAllowlistWasRefused | undefined {
+  return theWordIn(Object.values(REFUSED_SAVING_THE_ALLOWLIST), parameter);
+}
+
+/** Which refusal the Providers' own save met, held to its own closed set. */
+export function oneBecauseSavingTheProviders(
+  parameter: string | string[] | undefined,
+): WhyTheProvidersWereRefused | undefined {
+  return theWordIn(Object.values(REFUSED_SAVING_THE_PROVIDERS), parameter);
 }
 
 /**
@@ -146,8 +224,18 @@ export function oneBecause(parameter: string | string[] | undefined): WhyItWasRe
  * long base URL still recognises its opening, and what they cannot do without
  * is the clause saying what to do -- which is exactly what keeping the value
  * short protects.
+ *
+ * EXPORTED SINCE CNCORE-329, FOR A SECOND BOUND WITH A DIFFERENT JOB. This one
+ * settles how much of a stranger's value a SENTENCE repeats, and it is applied
+ * at the READ because a hand-typed address never passes through an action
+ * (ADR-0156). `settings/actions.ts` now also cuts at the address it BUILDS,
+ * which is not the same rule wearing a second hat: an entry rides in a
+ * `Location` header, the two wholesale settings are textareas with no ceiling
+ * on what they hold, and a header past the server's limit turns a refusal into
+ * a crash before any page reads anything. Same ceiling, because a value the
+ * page will cut to 80 anyway loses nothing by arriving that long.
  */
-const ENTRY_MAX = 80;
+export const ENTRY_MAX = 80;
 
 /**
  * THE ENTRY A REFUSAL IS ABOUT, AT A LENGTH THIS PAGE CHOSE.

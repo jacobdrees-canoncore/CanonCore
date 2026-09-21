@@ -10,8 +10,17 @@ import { Reason } from "@/components/reason";
 import { TheirWords } from "@/components/their-words";
 import { callerContext } from "@/session";
 
-import { editAllowlist, nameProvider, removeProvider } from "./actions";
-import { oneBecause, theEntryRefused, UNSHOWABLE_ENTRY, type WhyItWasRefused } from "./refusal";
+import { editAllowlist, editProviders, nameProvider, removeProvider } from "./actions";
+import {
+  oneBecause,
+  oneBecauseSavingTheAllowlist,
+  oneBecauseSavingTheProviders,
+  theEntryRefused,
+  UNSHOWABLE_ENTRY,
+  type WhyItWasRefused,
+  type WhyTheAllowlistWasRefused,
+  type WhyTheProvidersWereRefused,
+} from "./refusal";
 
 /**
  * WHERE THE OWNER SAYS WHAT THIS INSTANCE REACHES (CNCORE-99, ADR-0121).
@@ -102,6 +111,15 @@ export default async function SettingsPage({
    * is in an address the Owner can edit.
    */
   const because = oneBecause(asked.because);
+  /*
+   * AND THE TWO WHOLESALE SAVES, EACH HELD TO ITS OWN CLOSED SET (CNCORE-329,
+   * CNCORE-331). Three controls on this page can be refused and each writes its
+   * own sentences, so a word is read under the section that owns it -- which is
+   * what stops an allowlist refusal rendering under "Name a Provider", where
+   * its remedy would make no sense at all.
+   */
+  const savingTheAllowlist = oneBecauseSavingTheAllowlist(asked.because);
+  const savingTheProviders = oneBecauseSavingTheProviders(asked.because);
 
   return (
     <main className="container mx-auto max-w-2xl px-4 py-8">
@@ -130,47 +148,41 @@ export default async function SettingsPage({
           none would be the likelier reading of the two and the false one.
         */}
         {providers.kind === "unreadable" ? (
-          <p className="mt-4 text-muted-foreground text-sm">
-            This instance <CannotReadWhatIsStored />, so none can be listed. Naming a Provider reads
-            that setting and so does removing one, so both are refused until it is readable.
-          </p>
+          <RepairTheProviders
+            asWritten={providers.asWritten}
+            because={savingTheProviders}
+            entry={refused}
+          />
         ) : providers.named.length === 0 ? (
           <p className="mt-4 text-muted-foreground text-sm">
             No Provider is named, so this instance searches none. Name one below.
           </p>
+        ) : providers.kind === "allowlist-unreadable" ? (
+          <>
+            {/*
+              WHICH OF THE TWO SETTINGS IS THE BROKEN ONE (CNCORE-329, ADR-0121).
+              The rows below are real and still removable -- `removeProvider`
+              never parses the allowlist -- but not one of them carries a
+              reading, because ADR-0034's boundary admits nothing it cannot
+              read. Said ONCE above the list rather than on every row: it is a
+              fact about the instance, not about any Provider.
+
+              AND THE EMPTY CASE NEVER REACHES HERE, which the arm above settles
+              and is right rather than a gap. "None of THESE was reached" has no
+              subject when the list is empty, and "No Provider is named" is true
+              of that instance whatever the allowlist does. The Allowlist
+              section below still names the fault, so the Owner is told once
+              rather than not at all.
+            */}
+            <p className="mt-4 text-muted-foreground text-sm">
+              This instance <CannotReadTheAllowlist />, so none of these was reached: the boundary
+              that admits a Provider admits nothing it cannot read. Correcting it below is what
+              brings them back.
+            </p>
+            <ProviderRows named={providers.named} />
+          </>
         ) : (
-          <ul className="mt-4 flex flex-col divide-y">
-            {providers.named.map((provider) => (
-              <li
-                className="flex items-center justify-between gap-4 py-3"
-                data-provider={provider.baseUrl}
-                key={provider.baseUrl}
-              >
-                <div>
-                  {/*
-                    THE URL AS THE OWNER TYPED IT, which is the Provider's
-                    IDENTITY (ADR-0031) and what the Source row on every
-                    imported claim carries. Nothing here tidies it, because two
-                    spellings would be two Providers. And not this page's words,
-                    so it wraps where one of them would not (ADR-0142).
-                  */}
-                  <p className="text-sm">
-                    <TheirWords>{provider.baseUrl}</TheirWords>
-                  </p>
-                  <ReachNotice reach={provider.reach} />
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  <UnlockAt reach={provider.reach} />
-                  <form action={removeProvider}>
-                    <input name="baseUrl" type="hidden" value={provider.baseUrl} />
-                    <Button size="sm" type="submit" variant="outline">
-                      Remove
-                    </Button>
-                  </form>
-                </div>
-              </li>
-            ))}
-          </ul>
+          <ProviderRows named={providers.named} />
         )}
       </section>
 
@@ -221,17 +233,33 @@ export default async function SettingsPage({
           <span className="font-medium">Empty refuses every Provider</span>, which is what a fresh
           instance starts with: it reaches nothing at all until you name a host here.
         </p>
+        {/*
+          AND WHETHER THIS INSTANCE CAN READ WHAT IS IN IT (CNCORE-329). The
+          parse sat in `settings.read`'s return expression and threw out of the
+          only read behind this page, so a stored allowlist that did not parse
+          cost the Owner the page -- including this box, which is the one thing
+          that repairs it. It renders now, holding their own text.
+        */}
+        {allowlist.kind === "unreadable" ? (
+          <p className="mt-2 text-muted-foreground text-sm">
+            This instance <CannotReadTheAllowlist />, so it admits nothing and reaches no Provider.
+            Correct it below and save; what is stored is unchanged until you do.
+          </p>
+        ) : null}
         <form action={editAllowlist} className="mt-4 flex flex-col items-start gap-2">
           <Textarea
             aria-label="The hosts and address ranges a Provider may be fetched from"
             className="max-w-sm"
-            defaultValue={allowlist}
+            defaultValue={allowlist.asWritten}
             name="allowlist"
             placeholder="wiki.example.com, 100.64.0.0/10"
             rows={3}
           />
           <Button type="submit">Save the allowlist</Button>
         </form>
+        {savingTheAllowlist === undefined ? null : (
+          <AllowlistNotSaved because={savingTheAllowlist} entry={refused} />
+        )}
       </section>
     </main>
   );
@@ -382,6 +410,232 @@ function ByItsBaseUrl() {
  */
 function CannotReadWhatIsStored() {
   return <>cannot read the Providers it already has</>;
+}
+
+/**
+ * THE PROVIDERS THIS INSTANCE NAMES, ONE ROW EACH, WITH OR WITHOUT A READING.
+ *
+ * ONE COMPONENT FOR TWO ARMS, TAKING `reach` AS OPTIONAL -- and the optional
+ * field is right HERE where it was refused in the contract. `settings.read`
+ * answers a union precisely so that "reached" and "there is no reading" cannot
+ * be confused by a caller; by the time a row is being drawn the arm is already
+ * known, and what is left is one question about markup: is there a notice to
+ * draw or not.
+ *
+ * IT REPLACES `"reach" in provider`, WHICH IS THE CORRECTION REVIEW CAUGHT.
+ * Both arms were mapped by one `.map`, and each row asked a STRUCTURAL question
+ * of a value whose arm the page had already discriminated. That reads as a
+ * narrowing and is not one: a fourth arm added to the union with no `reach`
+ * would satisfy it, compile, and silently draw no notice -- which is exactly
+ * the property ADR-0199 claims the union has and that shape quietly gave up.
+ * The arm is chosen ONCE, above.
+ */
+function ProviderRows({ named }: { named: readonly { baseUrl: string; reach?: Reach }[] }) {
+  return (
+    <ul className="mt-4 flex flex-col divide-y">
+      {named.map(({ baseUrl, reach }) => (
+        <li
+          className="flex items-center justify-between gap-4 py-3"
+          data-provider={baseUrl}
+          key={baseUrl}
+        >
+          <div>
+            {/*
+              THE URL AS THE OWNER TYPED IT, which is the Provider's IDENTITY
+              (ADR-0031) and what the Source row on every imported claim
+              carries. Nothing here tidies it, because two spellings would be
+              two Providers. And not this page's words, so it wraps where one
+              of them would not (ADR-0142).
+            */}
+            <p className="text-sm">
+              <TheirWords>{baseUrl}</TheirWords>
+            </p>
+            {reach === undefined ? null : <ReachNotice reach={reach} />}
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            {reach === undefined ? null : <UnlockAt reach={reach} />}
+            {/*
+              REMOVE IS OFFERED IN BOTH ARMS, AND THAT IS LOAD-BEARING
+              (CNCORE-329). `removeProvider` parses the Providers string and
+              never the allowlist, so these rows stay the Owner's to act on
+              while the setting beside them is unreadable -- which is why the
+              list is rendered at all in that state rather than withheld.
+            */}
+            <form action={removeProvider}>
+              <input name="baseUrl" type="hidden" value={baseUrl} />
+              <Button size="sm" type="submit" variant="outline">
+                Remove
+              </Button>
+            </form>
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * THE ONE CONTROL THAT WORKS WHEN THE PROVIDERS SETTING WILL NOT PARSE
+ * (CNCORE-331).
+ *
+ * A TEXTAREA WHERE THE LIST WOULD BE, AND NEVER BESIDE IT. A Provider is a
+ * source with an identity (ADR-0031), so a row with a Remove button is the
+ * right control for one and this is not an improvement on it. It renders
+ * INSTEAD of a list that cannot be rendered, which is also what keeps the two
+ * from disagreeing: an Owner is never offered both a list and the raw text of
+ * the setting behind it, with a Save on each.
+ *
+ * IT HOLDS THEIR OWN TEXT, WHICH IS THE WHOLE REPAIR. `editProviders` parses
+ * what is SUBMITTED and never what is stored, so this box is live in exactly
+ * the state where `nameProvider` and `removeProvider` both refuse. An empty
+ * box is a legal save and clears the setting outright, which is the exit for
+ * an Owner who cannot see what is wrong with it.
+ *
+ * THE SENTENCE IS A STATEMENT AND NOW ALSO AN INSTRUCTION. ADR-0197 wrote that
+ * it "states the position plainly rather than pointing at a control that would
+ * refuse" -- correct while there was no such control, and the reason this half
+ * was left. There is one now, so it points.
+ */
+function RepairTheProviders({
+  asWritten,
+  because,
+  entry,
+}: {
+  asWritten: string;
+  because?: WhyTheProvidersWereRefused;
+  entry?: string;
+}) {
+  return (
+    <>
+      <p className="mt-4 text-muted-foreground text-sm">
+        This instance <CannotReadWhatIsStored />, so none can be listed. Naming a Provider reads
+        that setting and so does removing one, so both are refused until it is readable. Correct it
+        below, one Provider per line, or empty the box to start again.
+      </p>
+      <form action={editProviders} className="mt-4 flex flex-col items-start gap-2">
+        <Textarea
+          aria-label="The base URLs this instance searches, one per line"
+          className="max-w-sm"
+          defaultValue={asWritten}
+          name="providers"
+          placeholder="http://provider-wiki:8080"
+          rows={3}
+        />
+        <Button type="submit">Save the Providers</Button>
+      </form>
+      {because === undefined ? null : <ProvidersNotSaved because={because} entry={entry} />}
+    </>
+  );
+}
+
+/**
+ * WHY THE PROVIDERS WERE NOT SAVED, AND WHICH LINE DID IT (CNCORE-331).
+ *
+ * THE ENTRY IS NAMED, WHICH IS THE DIFFERENCE FROM THE BOX ABOVE. "Name a
+ * Provider" takes one entry and the Owner is looking straight at it; this
+ * takes a LIST, so "an entry in it is not a URL" sends them reading their own
+ * setting line by line for the one that is wrong. `SettingNotRead` carries the
+ * line for exactly this, and it rides in `?refused=` as every other echoed
+ * value on this page does.
+ *
+ * A `switch` WITH A `never` DEFAULT OVER A SET OF ONE, which looks like
+ * ceremony and is the check. A second word added to
+ * `REFUSED_SAVING_THE_PROVIDERS` makes `because` something other than this
+ * literal, so the compiler names the missing branch -- where an `if` or a bare
+ * sentence would render the wrong one. That is this page's own lesson: the
+ * `?:` chain `WhyNot` replaced fell through to "it is not a URL", which is the
+ * very sentence below.
+ */
+function ProvidersNotSaved({
+  because,
+  entry,
+}: {
+  because: WhyTheProvidersWereRefused;
+  entry?: string;
+}) {
+  switch (because) {
+    case "providers-not-a-url":
+      return (
+        <p className="mt-3 text-muted-foreground text-sm">
+          That list was not saved, because <WhichEntry entry={entry} /> is not a URL.{" "}
+          <ByItsBaseUrl />
+        </p>
+      );
+    default: {
+      const unhandled: never = because;
+      return unhandled;
+    }
+  }
+}
+
+/**
+ * WHY THE ALLOWLIST WAS NOT SAVED, one sentence per rule (CNCORE-329).
+ *
+ * TWO REMEDIES THAT ARE NOT THE SAME INSTRUCTION, which is the whole reason
+ * this reads `?because=` rather than saying "an entry would not read". A
+ * wildcard is DELETED and replaced by the hosts it stood for; a malformed
+ * range is CORRECTED where it stands. Told the wrong one, an Owner edits the
+ * wrong entry -- which is CNCORE-262's defect, and this is the setting beside
+ * the one that ticket was about.
+ *
+ * A `switch` WITH A `never` DEFAULT, which is `WhyNot`'s lesson below and was
+ * learned on this page: the `?:` chain it replaced ended in an `else`, so a
+ * word with no branch rendered as whatever the last arm happened to be.
+ *
+ * THE SAVE IS REPORTED HERE AND NOT UNDER "NAME A PROVIDER", because a
+ * sentence about wildcards under a box that takes one URL is an instruction
+ * about a control the Owner was not using. `refusal.ts` holds a set per
+ * control for exactly this.
+ */
+function AllowlistNotSaved({
+  because,
+  entry,
+}: {
+  because: WhyTheAllowlistWasRefused;
+  entry?: string;
+}) {
+  return (
+    <p className="mt-3 text-muted-foreground text-sm">
+      <WhichEntry entry={entry} /> was not saved, because <WhyNotAllowed because={because} />
+    </p>
+  );
+}
+
+function WhyNotAllowed({ because }: { because: WhyTheAllowlistWasRefused }) {
+  switch (because) {
+    case "allowlist-wildcard":
+      return (
+        <>
+          the Allowlist takes exact hosts and address ranges, and no wildcards. Name the hosts it
+          stood for, or the range that covers them.
+        </>
+      );
+    case "allowlist-not-a-cidr":
+      return (
+        <>
+          it is not an address range this instance can read. A range is an address and a prefix, as
+          in <span className="font-medium">100.64.0.0/10</span>.
+        </>
+      );
+    default: {
+      const unhandled: never = because;
+      return unhandled;
+    }
+  }
+}
+
+/**
+ * The fault the Allowlist's two sentences share, written once (CNCORE-329).
+ *
+ * ONE FRAGMENT FOR TWO SECTIONS, which is `CannotReadWhatIsStored`'s argument
+ * below at the setting beside it. The Providers section says what follows for
+ * the LIST -- none of it was reached; the Allowlist section says what follows
+ * for the BOUNDARY -- it admits nothing. One fact, two consequences, and the
+ * clause naming the fact is spelled in one place so the two cannot drift into
+ * wording a reader meets in two versions.
+ */
+function CannotReadTheAllowlist() {
+  return <>cannot read the Allowlist it already has</>;
 }
 
 /**

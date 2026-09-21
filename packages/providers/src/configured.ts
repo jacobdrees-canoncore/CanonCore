@@ -8,7 +8,7 @@
  * refused at the boundary rather than here.
  */
 
-import { OutboundRefused, shortly } from "./boundary";
+import { OutboundRefused, SettingNotRead, shortly } from "./boundary";
 
 /**
  * WHICH REFUSAL AN ENTRY MET, as a word rather than as a sentence (CNCORE-262).
@@ -87,8 +87,10 @@ export function parseProviderUrls(configured: string): string[] {
       // sibling refusal below was bounded, which is one rule obeyed in one of
       // two places -- and the value is the owner's own configured string, so
       // its length is not something this package gets to assume.
-      throw new OutboundRefused(
+      throw new SettingNotRead(
         `provider \`${shortly(entry)}\` is not a URL. ADR-0031 makes a provider a URL and nothing more, so each entry is a provider's base URL.`,
+        "not-a-url",
+        entry,
       );
     }
   }
