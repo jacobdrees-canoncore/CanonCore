@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import { repoRoot } from "./repo-root";
 import { blocksOf, sentencesOf, withoutCommentLeaders } from "./sentences";
-import { trackedFiles } from "./tracked-files";
+import { isTrackedAs, trackedFiles } from "./tracked-files";
 
 /**
  * THE SUPERSEDED COST OF IMPORTING THE CORPUS, IN EVERY SPELLING IT HAS BEEN
@@ -65,6 +65,32 @@ const THE_WORDS = /(?:five[\s-]+and[\s-]+a[\s-]+half|5\.5|5[\s-]*1\/2|5½)[\s-]*
  */
 const THE_ARITHMETIC = /465[^.]{0,160}?43\.8|43\.8[^.]{0,160}?465/;
 
+/**
+ * THIS MODULE, WHICH CANNOT BE ITS OWN SUBJECT.
+ *
+ * The patterns above ARE the spellings they refuse -- there is no way to write
+ * a reader for a phrase without writing the phrase -- so sweeping this file
+ * hands its own regexes back to it as findings. That was not foreseen: it was
+ * MEASURED on 2026-09-21, when the first commit of this work turned three
+ * untracked files into tracked ones and the check went red naming its own
+ * source, having been green through every run before it while `git ls-files`
+ * could not see them.
+ *
+ * THE RECORD IS NOT EXEMPT AND THE SUITE IS NOT EITHER, which is the line worth
+ * drawing. ADR-0195 explains this rule and states the figure repeatedly, and
+ * every one of those sentences carries the correction, because a record that
+ * could not live under its own rule would be a rule nobody should keep. Only
+ * the file that IS the pattern is excused.
+ *
+ * GUARDED BY `isTrackedAs` FOR THE REASON IT EXISTS: "an exclusion that stops
+ * excluding reports nothing by its nature". A literal path goes stale in
+ * silence on a rename -- handing this file's own regexes to the rule as
+ * findings, which is the loud direction -- and `adr-as-built.test.ts` and
+ * `adr-identifiers.test.ts` each carry the same guard for the same
+ * self-exclusion.
+ */
+const THIS_READER = "packages/config/src/testing/corpus-import-cost.ts";
+
 /** A sentence stating the superseded cost, and the block-bounded window it sits in. */
 export interface Statement {
   readonly path: string;
@@ -118,25 +144,33 @@ export function filesSwept(): number {
  * standing."
  */
 export function statementsOfTheSupersededCost(): Statement[] {
-  return trackedText().flatMap(({ path, text }) =>
-    blocksOf(withoutCommentLeaders(path, text))
-      .map(sentencesOf)
-      .flatMap((sentences) =>
-        sentences.flatMap((sentence, index) =>
-          THE_WORDS.test(sentence) || THE_ARITHMETIC.test(sentence)
-            ? [
-                {
-                  path,
-                  sentence,
-                  beside: [sentences[index - 1] ?? "", sentence, sentences[index + 1] ?? ""].join(
-                    " ",
-                  ),
-                },
-              ]
-            : [],
+  if (!isTrackedAs(THIS_READER)) {
+    throw new Error(
+      `${THIS_READER} is not tracked under that path, so this check's own patterns would be ` +
+        "swept as findings. Move the exclusion with the file.",
+    );
+  }
+  return trackedText()
+    .filter(({ path }) => path !== THIS_READER)
+    .flatMap(({ path, text }) =>
+      blocksOf(withoutCommentLeaders(path, text))
+        .map(sentencesOf)
+        .flatMap((sentences) =>
+          sentences.flatMap((sentence, index) =>
+            THE_WORDS.test(sentence) || THE_ARITHMETIC.test(sentence)
+              ? [
+                  {
+                    path,
+                    sentence,
+                    beside: [sentences[index - 1] ?? "", sentence, sentences[index + 1] ?? ""].join(
+                      " ",
+                    ),
+                  },
+                ]
+              : [],
+          ),
         ),
-      ),
-  );
+    );
 }
 
 /**
