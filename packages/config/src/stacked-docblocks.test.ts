@@ -48,6 +48,24 @@ describe("a docblock stacked on another", () => {
     expect(stackedDocblocks(source)).toStrictEqual([3]);
   });
 
+  /**
+   * A BLANK LINE DOES NOT SEPARATE THEM. Nothing but a declaration gives the upper
+   * block something to sit on, and `terminal-send-hazards.test.ts` held a pair with
+   * a blank line between them when this was written.
+   */
+  it("is reported across a blank line too", () => {
+    const source = [
+      "export const first = 1;",
+      "",
+      "/** What `second` is. */",
+      "",
+      "/** What `third` is. */",
+      "export const third = 3;",
+    ].join("\n");
+
+    expect(stackedDocblocks(source)).toStrictEqual([3]);
+  });
+
   it("is not a file's own header sitting over its first declaration", () => {
     const source = [
       'import { z } from "zod";',

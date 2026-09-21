@@ -738,6 +738,26 @@ describe("the Owner note", () => {
   });
 
   /**
+   * THE OTHER HALF, and it is what makes the rule a declaration rather than a
+   * lock on the table. `title` declares no `assertableBy`, so it is open to every
+   * source, and the import writes one for every record it takes -- so a trigger
+   * that refused a provider's claim outright would break the import that exists
+   * today.
+   */
+  it("leaves a property that declares nothing open to a provider", async () => {
+    const story = await anItem(db);
+
+    const title = await aStatement(db, {
+      subjectItemId: story,
+      property: "title",
+      valueLiteral: "What the provider calls it",
+      sourceId: await aProvider(db, "provider-that-may-still-title"),
+    });
+
+    expect(title).toBeTruthy();
+  });
+
+  /**
    * THE OTHER HALF OF `UPDATE OF "source_id", "property_id"`, and without it the
    * test below would pass just as well against a trigger that had stopped
    * firing on updates altogether. Moving an existing claim onto a source the
@@ -809,26 +829,6 @@ describe("the Owner note", () => {
     }
 
     expect((await readItem(db, story))?.deletedAt).not.toBeNull();
-  });
-
-  /**
-   * THE OTHER HALF, and it is what makes the rule a declaration rather than a
-   * lock on the table. `title` declares no `assertableBy`, so it is open to every
-   * source, and the import writes one for every record it takes -- so a trigger
-   * that refused a provider's claim outright would break the import that exists
-   * today.
-   */
-  it("leaves a property that declares nothing open to a provider", async () => {
-    const story = await anItem(db);
-
-    const title = await aStatement(db, {
-      subjectItemId: story,
-      property: "title",
-      valueLiteral: "What the provider calls it",
-      sourceId: await aProvider(db, "provider-that-may-still-title"),
-    });
-
-    expect(title).toBeTruthy();
   });
 });
 

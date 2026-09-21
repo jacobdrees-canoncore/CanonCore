@@ -60,14 +60,15 @@ repositories. Four were in CanonCore. Run over the tree at `9e20133` on 2026-09-
   `placedAfter` arrived later. "Twelve of the thirteen properties" became the argument it rested on,
   which is that `title` declares no `assertableBy` and the import writes one, by
   [[0188-a-count-nobody-routes-by-is-deleted-rather-than-derived]]. "ADR-0045 again" lost its "again",
-  whose antecedent had moved, by [[0193-a-fallback-is-punctuated-for-its-slot-and-argued-from-it]].
+  whose antecedent had moved below it.
 
 ## What the check reads
 
 **Only a docblock on a docblock.** A plain `/*` above one is a heading over a run of fields, as
 `THE EXTENSIONS` is in `packages/contract/src/cmpp.ts`. A plain `/*` below one is a note on how the
 thing is built, as the note on `setup` is in `apps/web/e2e/global-setup.ts`. The tree holds both
-lawfully, and a row pins each.
+lawfully, and a row pins each. **A blank line between two docblocks does not separate them**, since
+only a declaration gives the upper one something to sit on.
 
 **A file's header is exempt.** A header is the file's first docblock with nothing but imports and a
 directive above it. A module's own block sitting on its first declaration's is how this tree writes
@@ -77,15 +78,17 @@ a header, dozens of times over.
 refused a pattern for reading comments, because a pattern cannot tell a `/**` in a string from one
 in code. `testing/without-comments.ts` now also answers `commentsIn`, which gives each comment's
 position and text. Both come out of the same loop, so there is still one scan and not a second
-tokenizer. The one pattern this check does use matches imports and a directive, and it reads only
+tokenizer. The two patterns this check does use match an import and a directive, and they read only
 what the scan left above the first docblock. The comments there are already blanked, so what remains
 is statements.
 
 **Every row was checked against the mutation it names**, which is
-[[0168-an-assertion-is-checked-by-deleting-the-behaviour-it-names]] applied. There were six
-mutations: dropping the whitespace test, admitting a plain comment on either side, dropping the
-header exemption, dropping the directive, and taking the first docblock as the header wherever it
-sits. Each turns at least one fixture row red, and not only the sweep over the tree.
+[[0168-an-assertion-is-checked-by-deleting-the-behaviour-it-names]] applied. There were seven
+mutations: dropping the whitespace test, narrowing it to a single newline, admitting a plain comment
+on either side, dropping the header exemption, dropping the directive, and taking the first docblock
+as the header wherever it sits. Each turns at least one fixture row red, and not only the sweep over
+the tree. **The single-newline one was found by review**, when every fixture row stayed green under
+it, and the blank-line row was added for it.
 
 ## What this does not cover
 
@@ -101,7 +104,6 @@ sits. Each turns at least one fixture row red, and not only the sweep over the t
   finds them.
 - **The provider repositories.** Neither has the scan, and porting it is a second copy to keep in
   step. CNCORE-321 carries that, with a `TODO` naming it at the check.
-- **The count this suite moved.** `packages/config` now holds 34 suites that read the repository at
-  large, up from the 33 CNCORE-295 left, and `tree-figures.test.ts` holds the figure where `turbo-cache-inputs.test.ts`
-  states it. By ADR-0188's test that count may route nobody. Whether it should be deleted is left to
-  a pass about that count.
+- **The count this suite moved.** This suite reads the repository at large, so it moved the figure
+  `tree-figures.test.ts` holds and `turbo-cache-inputs.test.ts` states. By ADR-0188's test that
+  count may route nobody. Whether it should be deleted is left to a pass about that count.

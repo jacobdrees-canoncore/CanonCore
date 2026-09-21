@@ -303,8 +303,8 @@ export const item = {
         id: z.string(),
         /*
          * WHICH ORIGIN "ALSO APPEARS IN" IS NARROWED TO (ADR-0066, CNCORE-129),
-         * and it sits ahead of the two cursors because that is the order the
-         * address is spelled in -- `via`, `placed`, `after`, `placedAfter`.
+         * and it sits ahead of the cursors because that is the order the
+         * address is spelled in: `via` and `placed` come before every cursor.
          *
          * IT IS THE QUESTION RATHER THAN A FILTER OVER THE ANSWER, which is the
          * whole of this ticket. `?placed=` reached the surface and ran over the
@@ -339,9 +339,9 @@ export const item = {
          */
         before: aCursor,
         /*
-         * "ALSO APPEARS IN"'S OWN CURSOR (ADR-0119, CNCORE-125), and the second
-         * one on this procedure because there are two independent listings on
-         * one item page: `after` walks what a container HOLDS, and this walks
+         * "ALSO APPEARS IN"'S OWN CURSOR (ADR-0119, CNCORE-125), and a cursor of
+         * its own because there are two independent listings on one item
+         * page: `after` walks what a container HOLDS, and this walks
          * every ordering the item SITS IN.
          *
          * NAMED FOR THE LISTING RATHER THAN BEING A SECOND `after`, because one

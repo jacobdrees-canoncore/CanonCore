@@ -2,9 +2,9 @@
  * A source with its comments taken out, SCANNED rather than matched, so a `/*`
  * inside a string is text and not the start of a comment.
  *
- * FOUR SUITES READ SOURCE AS TEXT and every one of them has to do this first,
- * because a comment is prose ABOUT code and each of those suites counts a token
- * that its own prose says out loud. `prefetch-condition.test.ts` explains the
+ * A SUITE THAT READS SOURCE AS TEXT has to do this first, because a comment is
+ * prose ABOUT code and a suite counting a token would count its own prose saying
+ * it out loud. `prefetch-condition.test.ts` explains the
  * rule using the word `prefetch`; `tree-figures.ts` quotes `redirect()` in the
  * paragraph above the call it is counting; `turbo-cache-inputs.test.ts` writes
  * `../../../` into a note about climbs and measured that sentence alone
