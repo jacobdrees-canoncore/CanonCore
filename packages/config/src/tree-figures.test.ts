@@ -273,7 +273,7 @@ const CLAIMS: Claim[] = [
   },
   {
     file: "apps/web/src/answer.ts",
-    pattern: /works by THROWING and ([\w-]+) of the twenty-seven call sites/g,
+    pattern: /works by THROWING and ([\w-]+) of the twenty-eight call sites/g,
     population: "the call sites that redirect on a procedure's answer",
     derive: () => procedureAnswerCallSites().redirecting,
   },
@@ -597,6 +597,17 @@ describe("a figure this tree states about itself", () => {
   it("counts the hand-built redirects ADR-0109's rule governs, per file", () => {
     expect(handBuiltRedirectsIn("apps/web/src/app/login/actions.ts")).toBe(4);
     expect(handBuiltRedirectsIn("apps/web/src/app/items/actions.ts")).toBe(4);
+    // SEVEN SINCE CNCORE-329, five since CNCORE-326, three since CNCORE-262,
+    // and it was one. The two newest are the WHOLESALE SAVES -- the allowlist's
+    // textarea and the Providers' repair textarea -- neither of which reported
+    // a refusal at all before that ticket: `editAllowlist` dropped what the
+    // procedure answered without even binding it, so an Owner's edit vanished
+    // into a box that re-rendered with the stored value. Each builds its
+    // address through one shared function and raises the `redirect()` ITSELF,
+    // which is deliberate and is this figure's doing: the count below splits a
+    // file on its exports, so a `redirect()` left inside that helper would have
+    // been attributed to whichever export it happened to follow.
+    //
     // FIVE SINCE CNCORE-326, three since CNCORE-262, and it was one.
     // `nameProvider` ended at one address carrying the refused entry; it then
     // ended at one of three, because the three ways an ENTRY can fail to name a
@@ -611,12 +622,17 @@ describe("a figure this tree states about itself", () => {
     // governs is unchanged -- every one of them is a hand-built path string
     // that Next does not prefix (ADR-0109), which is what makes them the
     // addresses to revisit on the day a host imposes a `basePath`.
-    expect(handBuiltRedirectsIn("apps/web/src/app/settings/actions.ts")).toBe(5);
+    expect(handBuiltRedirectsIn("apps/web/src/app/settings/actions.ts")).toBe(7);
   });
 
   it("counts the call sites that read a procedure's answer, and those that redirect on it", () => {
-    expect(procedureAnswerCallSites().total).toBe(27);
-    expect(procedureAnswerCallSites().redirecting).toBe(7);
+    // TWENTY-EIGHT AND NINE SINCE CNCORE-331, and the second moved by two on
+    // one new call site. `settings.editProviders` is the twenty-eighth; the
+    // pair that now REDIRECT are it and `editAllowlist`, which read a
+    // procedure's answer and threw it away until CNCORE-329 gave both a
+    // refusal worth reporting.
+    expect(procedureAnswerCallSites().total).toBe(28);
+    expect(procedureAnswerCallSites().redirecting).toBe(9);
   });
 
   /**

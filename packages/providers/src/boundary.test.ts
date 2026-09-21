@@ -15,6 +15,7 @@ import {
   parseAllowlist,
   pinnedLookup,
   reasonFor,
+  SettingNotRead,
 } from "./index";
 
 /**
@@ -145,6 +146,35 @@ describe("a config URL", () => {
    */
   it("refuses a wildcard entry rather than reading it as a literal host", () => {
     expect(() => parseAllowlist("*.example.com")).toThrow(OutboundRefused);
+  });
+
+  /**
+   * WHICH RULE THE ENTRY BROKE, AND WHICH ENTRY, AS DATA (CNCORE-329).
+   *
+   * TWO MISTAKES WITH TWO DIFFERENT REMEDIES, which is `ProviderNotNamed`'s
+   * argument arriving at the setting beside it: a wildcard is dropped and
+   * rewritten as the exact hosts it stood for, a malformed CIDR is corrected in
+   * place, and a surface told only that "an entry would not read" hands out
+   * neither. `/settings` writes a sentence per word.
+   *
+   * AND THE ENTRY, BECAUSE THE ALLOWLIST IS SAVED WHOLESALE. What the Owner
+   * submits is the whole text, so "something in it is wrong" leaves them
+   * reading their own list looking for it. The message already named the entry
+   * and a message is not something a surface may print (ADR-0156), so the value
+   * travels as a field.
+   */
+  it("says which rule an entry broke and which entry broke it", () => {
+    const wildcard = () => parseAllowlist("wiki.example.com, *.example.com");
+    expect(wildcard).toThrow(SettingNotRead);
+    expect(wildcard).toThrow(expect.objectContaining({ entry: "*.example.com", why: "wildcard" }));
+
+    const cidr = () => parseAllowlist("10.0.0.0/99");
+    expect(cidr).toThrow(SettingNotRead);
+    expect(cidr).toThrow(expect.objectContaining({ entry: "10.0.0.0/99", why: "not-a-cidr" }));
+
+    // STILL AN `OutboundRefused`, which is what every existing catcher reads it
+    // as -- `settings.editAllowlist`, and `createContext`'s own parse.
+    expect(wildcard).toThrow(OutboundRefused);
   });
 
   it("reads several entries, separated by commas and whitespace", () => {

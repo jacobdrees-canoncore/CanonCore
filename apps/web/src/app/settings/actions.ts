@@ -1,6 +1,7 @@
 "use server";
 
 import { appRouter } from "@canoncore/api/routers";
+import type { WhySettingNotRead } from "@canoncore/providers";
 import { call } from "@orpc/server";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -9,7 +10,11 @@ import { whatTheProcedureAnswered } from "@/answer";
 import { whatTheFormCarries } from "@/form";
 import { callerContext } from "@/session";
 
-import { REFUSED } from "./refusal";
+import {
+  REFUSED,
+  REFUSED_SAVING_THE_ALLOWLIST,
+  REFUSED_SAVING_THE_PROVIDERS,
+} from "./refusal";
 
 /**
  * SAYING WHAT THIS INSTANCE REACHES, as Server Actions (CNCORE-99).
@@ -67,6 +72,15 @@ const theEntryTyped = z.object({ baseUrl: z.string() });
 
 /** ADR-0034's allowlist, replaced wholesale with the text the owner wrote. */
 const theAllowlistWritten = z.object({ allowlist: z.string() });
+
+/**
+ * The Providers setting, replaced wholesale with the text the Owner wrote.
+ *
+ * NO `.min(1)`, AND HERE IT IS THE REPAIR RATHER THAN A COURTESY. An empty box
+ * clears a stored setting that will not parse outright, which is the exit an
+ * Owner needs most when nothing else on the page will answer them.
+ */
+const theProvidersWritten = z.object({ providers: z.string() });
 
 /**
  * Names one more Provider for this instance to search.
@@ -174,12 +188,136 @@ export async function removeProvider(form: FormData): Promise<void> {
   );
 }
 
-/** Replaces ADR-0034's allowlist with what the owner wrote. */
+/**
+ * Replaces ADR-0034's allowlist with what the owner wrote.
+ *
+ * A REFUSED SAVE SAYS SO, AND UNTIL CNCORE-329 IT SAID NOTHING AT ALL. This
+ * dropped what the procedure answered on the floor -- it did not even bind
+ * `refused` -- so an Owner who typed a wildcard got the page back with the
+ * STORED allowlist in the box and their edit gone, with no sentence about
+ * either. That is worse than the eleven call sites ADR-0156 lists under "not
+ * built": those end `if (refused) return;` and report through a re-read that
+ * SHOWS what happened. A textarea reverting shows the opposite of what
+ * happened, which is this file's own docstring being broken by the one control
+ * it does not mention.
+ */
 export async function editAllowlist(form: FormData): Promise<void> {
   const input = whatTheFormCarries(form, theAllowlistWritten);
   if (input === undefined) return;
 
-  await whatTheProcedureAnswered(
+  const { refused } = await whatTheProcedureAnswered(
     call(appRouter.settings.editAllowlist, input, { context: await callerContext() }),
   );
+  if (refused === undefined) return;
+  redirect(theAddressAfterARefusedSave(refused, WHEN_THE_ALLOWLIST_IS_REFUSED));
 }
+
+/**
+ * Replaces the Providers setting with what the Owner wrote (CNCORE-331).
+ *
+ * THE ONLY WRITE THAT WORKS WHILE THE ROW IS BAD, which is the whole of why it
+ * exists. `nameProvider` and `removeProvider` both parse the stored string
+ * before they touch the entry, so an instance whose Providers setting will not
+ * parse refused every control on this page -- including the one that would
+ * have repaired it. The page renders this form INSTEAD of the list it cannot
+ * render, so the two never stand together.
+ */
+export async function editProviders(form: FormData): Promise<void> {
+  const input = whatTheFormCarries(form, theProvidersWritten);
+  if (input === undefined) return;
+
+  const { refused } = await whatTheProcedureAnswered(
+    call(appRouter.settings.editProviders, input, { context: await callerContext() }),
+  );
+  if (refused === undefined) return;
+  redirect(theAddressAfterARefusedSave(refused, WHEN_THE_PROVIDERS_ARE_REFUSED));
+}
+
+/**
+ * WHERE A REFUSED WHOLESALE SAVE SENDS THE OWNER, AND WITH WHICH WORD
+ * (CNCORE-329).
+ *
+ * IT BUILDS THE ADDRESS AND THE CALLER RAISES THE REDIRECT, which is a
+ * division worth stating because the obvious shape was to redirect in here.
+ * `redirect()` works by THROWING, and `tree-figures.test.ts` counts the call
+ * sites that redirect on what a procedure answered BY FUNCTION, splitting the
+ * file on its exports -- so a `redirect()` hidden in a helper below them
+ * counts against whichever export it happens to follow and against no other.
+ * Both of these actions redirect; a figure that saw one of them would make the
+ * hazard that shape exists for look rarer than it is.
+ *
+ * ONE FUNCTION FOR BOTH TEXTAREAS OTHERWISE, because the rest is one shape:
+ * read the code, read `why` off its data, and name the ENTRY that broke it
+ * beside the SURFACE's word for what is wrong with it. What differs is only
+ * the table, which is why the table is the argument.
+ *
+ * THE TABLE IS TOTAL OVER `why`, WHICH IS THE PROPERTY WORTH HAVING. Each
+ * setting's parse can raise only some of the words -- `parseAllowlist` never
+ * answers `not-a-url` -- and the impossible ones map to the catch-all rather
+ * than being left out, so a fourth rule added in `@canoncore/providers` fails
+ * to compile here instead of arriving on the page as whatever the last branch
+ * happened to be. That is `ANSWERED_AS`'s argument in the router, at the other
+ * end of the same wire.
+ *
+ * AND THE CATCH-ALL NAMES NO CAUSE, which is ADR-0197's correction kept. Every
+ * other refusal these procedures can raise -- `ownerProcedure`'s
+ * `UNAUTHORIZED` at status 401 above all, which `answer.ts` reads as a refusal
+ * like any under 500 -- reaches it, and an Owner whose session merely expired
+ * must not be told their allowlist holds a wildcard.
+ */
+function theAddressAfterARefusedSave(
+  refused: { code: string; data?: unknown },
+  words: Record<WhySettingNotRead, string>,
+  /*
+   * A TEMPLATE LITERAL TYPE AND NOT `string`, because `redirect()` takes a
+   * `RouteImpl` under Next's typed routes: the addresses this file builds by
+   * hand are checked against the routes that exist (ADR-0109), and a bare
+   * `string` returned from here would have thrown that check away for the two
+   * call sites it feeds.
+   */
+): `/settings?${string}` {
+  const said = whyTheSettingWasNotRead(refused);
+  if (said === undefined) return `/settings?because=${REFUSED.unexplained}`;
+  return `/settings?refused=${encodeURIComponent(said.entry)}&because=${words[said.why]}`;
+}
+
+/**
+ * THE ENTRY AND THE RULE A `SETTING_NOT_READ` CARRIES, or nothing where the
+ * refusal was something else.
+ *
+ * READ AS DATA RATHER THAN TRUSTED, which is `items/actions.ts`' arrangement
+ * for the same shape: `refused.data` is typed as the declared map WIDENED to
+ * anything throwable, so the narrowing has to be done here rather than assumed
+ * from the code alone.
+ */
+function whyTheSettingWasNotRead(refused: {
+  code: string;
+  data?: unknown;
+}): { entry: string; why: WhySettingNotRead } | undefined {
+  if (refused.code !== "SETTING_NOT_READ") return undefined;
+  const said = refused.data as { entry?: unknown; why?: unknown } | undefined;
+  if (typeof said?.entry !== "string" || typeof said.why !== "string") return undefined;
+  return { entry: said.entry, why: said.why as WhySettingNotRead };
+}
+
+/**
+ * The Allowlist's own word per rule, and the catch-all for the one its parse
+ * cannot raise.
+ */
+const WHEN_THE_ALLOWLIST_IS_REFUSED = {
+  wildcard: REFUSED_SAVING_THE_ALLOWLIST.wildcard,
+  "not-a-cidr": REFUSED_SAVING_THE_ALLOWLIST.notACidr,
+  // `parseAllowlist` never asks whether an entry is a URL; the allowlist holds
+  // hosts and ranges. Named as a refusal this page cannot name rather than left
+  // out, so the record stays total.
+  "not-a-url": REFUSED.unexplained,
+} as const satisfies Record<WhySettingNotRead, string>;
+
+/** The Providers' own word, and the catch-all for the two its parse cannot raise. */
+const WHEN_THE_PROVIDERS_ARE_REFUSED = {
+  "not-a-url": REFUSED_SAVING_THE_PROVIDERS.notAUrl,
+  // Neither rule belongs to this setting: a Provider is a URL (ADR-0031), and
+  // wildcards and ranges are the allowlist's vocabulary.
+  wildcard: REFUSED.unexplained,
+  "not-a-cidr": REFUSED.unexplained,
+} as const satisfies Record<WhySettingNotRead, string>;

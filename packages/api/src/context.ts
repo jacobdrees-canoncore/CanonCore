@@ -73,16 +73,27 @@ export type Context = Awaited<ReturnType<typeof createContext>>;
  * cost when it happened per request: a typo in `PROVIDER_ALLOWLIST` turned
  * every read path into 500s, so the parse was moved to module load, where the
  * same typo stopped the server starting instead. There is no module load to
- * move to now. What stands in its place is that `settings.nameProvider` and
- * `settings.editAllowlist` parse what they are given BEFORE they write it, so a
- * value that cannot be parsed is refused at the surface that typed it and never
- * reaches a row -- the store is validated at its only writer rather than at
- * every reader. What that leaves is a value written around the product, by hand
- * in SQL: it throws where it is READ, which the laziness above keeps to the
- * surfaces that ask what this instance reaches rather than spreading over the
- * whole app -- `/settings` among them, so the page that would repair it is down
- * with the rest. Accepted rather than designed around: nothing in the product
- * can write that row, and whoever wrote it by hand can fix it the same way.
+ * move to now. What stands in its place is that every settings WRITE parses
+ * what it is given BEFORE it stores it, so a value that cannot be parsed is
+ * refused at the surface that typed it and never reaches a row -- the store is
+ * validated at its writers rather than at every reader. What that leaves is a
+ * value written around the product: it throws where it is READ, which the
+ * laziness above keeps to the surfaces that ask what this instance reaches
+ * rather than spreading over the whole app.
+ *
+ * `/settings` IS NO LONGER AMONG THEM, AND THIS SENTENCE SAID IT WAS
+ * (CNCORE-329, CNCORE-331). It read "`/settings` among them, so the page that
+ * would repair it is down with the rest", and closed by accepting that on the
+ * grounds that "whoever wrote it by hand can fix it the same way". Both halves
+ * are now false, and the second was the weaker of the two from the start: a
+ * self-hoster restoring a dump did not write that row by hand and has no psql
+ * prompt to fix it from. `settings.read` does not come through this function
+ * at all -- it reads the row itself and parses each setting where the ANSWER
+ * can carry the refusal (ADR-0198) -- so that page renders whatever the row
+ * holds, says which of the two settings is unreadable, and offers a textarea
+ * that replaces it. Every OTHER surface asking what this instance reaches
+ * still throws here, and that half stands: they have no repair to offer, and
+ * a refusal is the honest answer from a page that cannot fix it.
  */
 function settingsReadOnce(db: Database): () => Promise<ProviderSettings> {
   let reading: Promise<ProviderSettings> | undefined;

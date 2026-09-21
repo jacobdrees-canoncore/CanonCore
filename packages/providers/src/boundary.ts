@@ -46,6 +46,65 @@ export class OutboundRefused extends Error {
 }
 
 /**
+ * WHICH RULE ONE ENTRY OF A STORED SETTING BROKE, AND WHICH ENTRY (CNCORE-329).
+ *
+ * A SETTING IS SAVED WHOLESALE, AND THAT IS WHAT MAKES THE FIELDS NECESSARY.
+ * The Allowlist and the Providers are each one text the Owner replaces, so a
+ * refusal saying only that the text would not read leaves them re-reading their
+ * own list for the entry that broke it. `ProviderNotNamed` needs neither field:
+ * it judges ONE entry the Owner typed into a box, and the surface already has
+ * that entry in hand.
+ *
+ * `why` AND NOT THE SENTENCE, for the reason ADR-0156 gives and CNCORE-262
+ * found the hard way: a wildcard and a malformed CIDR have OPPOSITE remedies --
+ * name the hosts it stood for, or correct the prefix -- and a surface handed
+ * one sentence for both gives out the wrong one half the time. The message goes
+ * on reaching a log and an API caller; the page reads the word and writes its
+ * own sentence.
+ *
+ * A SIBLING OF `ProviderNotNamed` RATHER THAN ITS PARENT OR ITS CHILD, and the
+ * catch order in `settings.nameProvider` is why. That handler asks
+ * `instanceof ProviderNotNamed` FIRST to tell a bad ENTRY from a bad STORED
+ * ROW, and the two must stay distinguishable: `nameProvider` parses the stored
+ * string before it parses what was typed, so a row that no longer reads raises
+ * this while the Owner's entry was perfect. Told apart, that answers "the
+ * setting is unreadable"; merged, it would tell them their URL was the problem.
+ *
+ * BOTH PARSERS RAISE IT, which is what makes it one class rather than two. The
+ * Allowlist and the Providers are two settings and not derivable from each
+ * other (ADR-0121), but "an entry inside a wholesale setting would not read" is
+ * one fact about both, and the surface that repairs either reads the same two
+ * fields off it.
+ */
+export class SettingNotRead extends OutboundRefused {
+  /** The one entry that would not read, as the Owner wrote it. */
+  readonly entry: string;
+  /** Which rule it broke, so a surface can pick the remedy that matches. */
+  readonly why: WhySettingNotRead;
+
+  constructor(message: string, why: WhySettingNotRead, entry: string) {
+    // `config` BECAUSE IT JUDGES A SETTING ONLY THE OWNER CAN CHANGE, which is
+    // what that boundary means (ADR-0123): this is CanonCore talking to them
+    // about their own text, never a provider's claim quoted back.
+    super(message, "config");
+    this.name = "SettingNotRead";
+    this.entry = entry;
+    this.why = why;
+  }
+}
+
+/**
+ * The rules a wholesale setting's entry can break, as words rather than
+ * sentences.
+ *
+ * TWO FROM THE ALLOWLIST AND ONE FROM THE PROVIDERS, and they are one type
+ * because one surface renders all three: `/settings` holds a sentence per word
+ * and the page that grows a fourth fails to compile rather than rendering it as
+ * whatever the last branch happened to be (ADR-0197).
+ */
+export type WhySettingNotRead = "wildcard" | "not-a-cidr" | "not-a-url";
+
+/**
  * What `ipaddr.js` calls an address that matched none of its named special
  * ranges. Everything else -- loopback, private, linkLocal, carrierGradeNat,
  * uniqueLocal, multicast, reserved, ipv4Mapped, unspecified -- is named, and
@@ -173,13 +232,19 @@ export function parseAllowlist(configured: string): Allowlist {
 
   for (const entry of configured.split(/[\s,]+/).filter(Boolean)) {
     if (entry.includes("*")) {
-      throw new OutboundRefused(
-        `allowlist entry \`${entry}\` uses a wildcard, and ADR-0034's allowlist takes exact hosts and CIDRs only.`,
+      throw new SettingNotRead(
+        `allowlist entry \`${shortly(entry)}\` uses a wildcard, and ADR-0034's allowlist takes exact hosts and CIDRs only.`,
+        "wildcard",
+        entry,
       );
     }
     if (entry.includes("/")) {
       if (!ipaddr.isValidCIDR(entry)) {
-        throw new OutboundRefused(`allowlist entry \`${entry}\` is not a readable CIDR.`);
+        throw new SettingNotRead(
+          `allowlist entry \`${shortly(entry)}\` is not a readable CIDR.`,
+          "not-a-cidr",
+          entry,
+        );
       }
       ranges.push(ipaddr.parseCIDR(entry));
       continue;

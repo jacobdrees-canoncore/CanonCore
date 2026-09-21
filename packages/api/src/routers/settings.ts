@@ -1,5 +1,6 @@
 import { readProviderSettings, writeProviderSettings } from "@canoncore/db";
 import {
+  type Allowlist,
   failureReason,
   nameProvider,
   OutboundRefused,
@@ -9,6 +10,8 @@ import {
   REASON_MAX_LENGTH,
   reachProviders,
   removeProvider,
+  SettingNotRead,
+  type WhySettingNotRead,
 } from "@canoncore/providers";
 import { z } from "zod";
 
@@ -64,6 +67,52 @@ const NOT_ONE_PROVIDER = {
   NOT_A_URL: {
     status: 400,
     message: "That entry is not a URL, and a provider is a URL and nothing more.",
+  },
+} as const;
+
+/**
+ * AN ENTRY INSIDE A WHOLESALE SETTING THAT THIS INSTANCE CANNOT READ
+ * (CNCORE-329, CNCORE-331).
+ *
+ * ONE CODE FOR BOTH SETTINGS, WITH THE RULE AS DATA, and that is the shape
+ * `placement.ts` already uses for the same problem: a refusal with several
+ * causes carries the cause rather than being split into several codes. Three
+ * codes here -- one per rule -- would make the API surface grow every time
+ * ADR-0034 gains a rule, and the SURFACE would still have to map them to its
+ * own words, which is the mapping `why` already is.
+ *
+ * SEPARATE FROM `NOT_ONE_PROVIDER`'S THREE, WHICH IT LOOKS LIKE AND IS NOT.
+ * Those judge one entry the Owner typed into a BOX, and their remedies are
+ * about that entry: type one, type fewer, add a scheme. This judges one line
+ * inside a TEXT the Owner replaced wholesale, so the surface has to say WHICH
+ * line as well as what is wrong with it -- the Owner cannot be sent back to
+ * "the entry" when they submitted forty of them.
+ *
+ * `status: 400` FOR THE REASON `NOT_ONE_PROVIDER` STATES, and it is load
+ * bearing rather than decoration: oRPC does not know this code, so an omitted
+ * status resolves to 500, `isARefusal` in `answer.ts` stops reading it as a
+ * refusal, and the Server Action rethrows into Next's bare
+ * `Internal Server Error`. This IS a refusal -- the Owner asked for something
+ * this instance will not do, which is an answer.
+ *
+ * THE ENTRY IS NOT BOUNDED HERE AND IS BOUNDED AT THE PAGE, which ADR-0156
+ * settles: `?refused=` is in an address anybody can compose, so a ceiling
+ * applied where the redirect is BUILT would guard the one path that was never
+ * the problem. `theEntryRefused` cuts it at the READ, which is the seam that
+ * catches a hand-typed address too. It is the Owner's own text either way --
+ * ADR-0123's ceiling is for a STRANGER's, and the stranger here is whoever
+ * wrote the URL rather than whoever wrote the setting.
+ */
+const NOT_A_READABLE_SETTING = {
+  SETTING_NOT_READ: {
+    status: 400,
+    message: "An entry in that setting is not one this instance can read.",
+    data: z.object({
+      /** The one line that would not read, as the Owner wrote it. */
+      entry: z.string(),
+      /** Which rule it broke, so the surface can pick the matching remedy. */
+      why: z.enum(["wildcard", "not-a-cidr", "not-a-url"] satisfies WhySettingNotRead[]),
+    }),
   },
 } as const;
 
@@ -198,8 +247,82 @@ const providersConfigured = z.discriminatedUnion("kind", [
       }),
     ),
   }),
-  /** The stored setting did not survive the parse every read of it goes through. */
-  z.object({ kind: z.literal("unreadable") }),
+  /**
+   * THE PROVIDERS READ AND THE ALLOWLIST DID NOT, so they are named and none of
+   * them was reached (CNCORE-329).
+   *
+   * A THIRD ARM RATHER THAN A FOURTH `Reach`, and the difference is whose fact
+   * it is. "This instance cannot read the boundary that admits anything" is
+   * true of the INSTANCE, not of any one Provider -- carried on each row it
+   * would render as the same sentence repeated down the page, and
+   * `@canoncore/providers` would hold a per-Provider shape for something no
+   * Provider has anything to do with.
+   *
+   * NO `reach`, WHICH IS THE POINT RATHER THAN AN OMISSION. ADR-0034 makes the
+   * allowlist the boundary every config URL is held to, so nothing may be sent
+   * until it parses: `not-admitted` would be a lie (the allowlist has not
+   * refused this host, it has failed to be read) and `unreachable` would be a
+   * lie about a request nobody made. The honest answer is that there is no
+   * reading, and a shape with no field for one is how it stays honest.
+   *
+   * THE LIST IS STILL ANSWERED, because Remove still works: `removeProvider`
+   * parses the Providers string and never the allowlist, so these rows are the
+   * Owner's to act on while the setting beside them is broken.
+   */
+  z.object({
+    kind: z.literal("allowlist-unreadable"),
+    named: z.array(z.object({ baseUrl: z.string().min(1) })),
+  }),
+  /**
+   * The stored setting did not survive the parse every read of it goes through.
+   *
+   * IT CARRIES THE STRING, AND THAT IS THE REPAIR RATHER THAN A QUOTATION
+   * (CNCORE-331). ADR-0197 wrote that this arm "carries nothing, on purpose",
+   * and what it was refusing was the REFUSAL'S MESSAGE -- a sentence about the
+   * Owner's setting, written by `@canoncore/providers`, which the page must
+   * not speak in its own voice. This is a different value: the Owner's OWN
+   * stored text, rendered into the textarea that replaces it, exactly as the
+   * allowlist's has always been. Withholding it would hand them an empty box
+   * whose Save wipes the setting they came to fix.
+   */
+  z.object({ kind: z.literal("unreadable"), asWritten: z.string() }),
+]);
+
+/**
+ * THE PROVIDERS SECTION'S THREE STATES, published so a reader can NARROW them
+ * rather than restate them.
+ *
+ * ONE EXPORT RATHER THAN A SHAPE SPELLED OUT AT EACH READER. `settings.test.ts`
+ * holds a helper that takes this union and hands back the read arm's rows; it
+ * described the union structurally instead, and TypeScript then inferred the
+ * row type from the WRONG arm -- every caller's rows came back as the arm with
+ * no `reach` on it. A union restated by hand is a union free to drift from the
+ * contract, and this one drifted within the hour of gaining a third arm.
+ */
+export type ProvidersConfigured = z.output<typeof providersConfigured>;
+
+/**
+ * ADR-0034's ALLOWLIST AS THE OWNER WROTE IT, AND WHETHER IT READS (CNCORE-329).
+ *
+ * THE TEXT IS ANSWERED IN BOTH ARMS, AND THAT IS THE WHOLE REPAIR ROUTE. The
+ * textarea renders this value, so withholding it on the arm where it does not
+ * parse would take away the one control that can fix it -- the Owner would be
+ * shown an empty box, and saving it would replace their allowlist with nothing.
+ * `editAllowlist` parses only what is SUBMITTED, never what is stored, so the
+ * box is live in exactly the state this arm names.
+ *
+ * A UNION RATHER THAN A FLAG BESIDE THE STRING, matching the Providers above:
+ * a page that ignores the second arm fails to compile, which is the property
+ * ADR-0197 asks a third state to have.
+ *
+ * IT IS NOT DERIVED FROM `providers` AND MUST NOT BE. The two are separate
+ * settings and neither follows from the other (ADR-0121): an instance can have
+ * both bad, and the surface owes the Owner both sentences, since fixing one
+ * would otherwise send them round again for the other.
+ */
+const allowlistConfigured = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("read"), asWritten: z.string() }),
+  z.object({ kind: z.literal("unreadable"), asWritten: z.string() }),
 ]);
 
 /**
@@ -218,6 +341,91 @@ function theProvidersStored(configured: string): string[] | undefined {
     if (cause instanceof OutboundRefused) return undefined;
     throw cause;
   }
+}
+
+/**
+ * ADR-0034's boundary as a stored string names it, or nothing where it does not
+ * parse (CNCORE-329).
+ *
+ * THE SAME SHAPE AS `theProvidersStored` ABOVE AND DELIBERATELY NOT THE SAME
+ * FUNCTION. They call different parsers over different settings; what they
+ * share is a three-line `try`, and a generic taking a parser would make one
+ * function whose name could only say "parse something, catching one class" --
+ * which is what the two call sites already say in fewer words.
+ */
+function theAllowlistStored(configured: string): Allowlist | undefined {
+  try {
+    return parseAllowlist(configured);
+  } catch (cause) {
+    if (cause instanceof OutboundRefused) return undefined;
+    throw cause;
+  }
+}
+
+/**
+ * PARSES WHAT THE OWNER SUBMITTED, AND TURNS ITS REFUSAL INTO ONE THIS SURFACE
+ * DECLARES (CNCORE-329, CNCORE-331).
+ *
+ * ONE FUNCTION FOR THE TWO WHOLESALE WRITES, because it is one rule about both:
+ * a Setting is saved as a whole text, so the refusal has to name the LINE that
+ * broke it and which rule it broke. Written out twice it would be two places
+ * for the mapping to drift, and the drift would show up as one setting
+ * reporting a cause its own page has no sentence for.
+ *
+ * `SettingNotRead` FIRST AND `OutboundRefused` BEHIND IT, which is the order
+ * `nameProvider` already keeps for a reason of the same shape: the specific
+ * refusal carries the fields the surface needs, and the general one is the
+ * fallback that must not be answered as though it had them. A bare catch would
+ * answer "an entry in that setting is unreadable" for a bug in a parser.
+ */
+function theSettingSubmitted(
+  parse: () => unknown,
+  errors: {
+    BAD_REQUEST: (options: { message: string }) => Error;
+    SETTING_NOT_READ: (options: {
+      message: string;
+      data: { entry: string; why: WhySettingNotRead };
+    }) => Error;
+  },
+): void {
+  try {
+    parse();
+  } catch (cause) {
+    if (cause instanceof SettingNotRead) {
+      throw errors.SETTING_NOT_READ({
+        data: { entry: cause.entry, why: cause.why },
+        message: cause.message,
+      });
+    }
+    if (cause instanceof OutboundRefused) throw errors.BAD_REQUEST({ message: cause.message });
+    throw cause;
+  }
+}
+
+/**
+ * WHAT THE PROVIDERS SECTION IS ANSWERED WITH, given how each setting read.
+ *
+ * THREE STATES OFF TWO PARSES, and the middle one is the one with no reading.
+ * A Provider's reach is not a fact about the Providers setting alone: reaching
+ * one means asking ADR-0034's boundary first, so the allowlist failing to parse
+ * leaves the list knowable and every reading of it unknowable. The Providers
+ * failing to parse leaves nothing at all, whatever the allowlist did.
+ *
+ * ORDERED WITH THE PROVIDERS' OWN FAULT FIRST, because it is the one that
+ * empties this section. An instance with both rows bad is answered `unreadable`
+ * here and `unreadable` on the allowlist beside it, which is how the page says
+ * both rather than the first one it met.
+ */
+async function theProvidersAnswered(
+  named: string[] | undefined,
+  allowlist: Allowlist | undefined,
+  asWritten: string,
+): Promise<ProvidersConfigured> {
+  if (named === undefined) return { asWritten, kind: "unreadable" };
+  if (allowlist === undefined) {
+    return { kind: "allowlist-unreadable", named: named.map((baseUrl) => ({ baseUrl })) };
+  }
+  return { kind: "read", named: await reachProviders({ allowlist, baseUrls: named }) };
 }
 
 /**
@@ -273,42 +481,38 @@ export const settings = {
       z.object({
         providers: providersConfigured,
         /** ADR-0034's allowlist, as the owner wrote it: hosts and CIDRs. */
-        allowlist: z.string(),
+        allowlist: allowlistConfigured,
       }),
     )
     .handler(async ({ context }) => {
       const configured = await readProviderSettings(context.db);
       /*
-       * THE STORED SETTING IS PARSED WHERE THE ANSWER CAN CARRY THE REFUSAL
-       * (CNCORE-326). `parseProviderUrls` threw out of this handler bare, and
-       * this read is the only way to `/settings` -- so a row that no longer
-       * parses cost the Owner the page rather than the list, including the
-       * allowlist below, which parses perfectly well and is the one control
-       * that could still be used.
+       * BOTH STORED SETTINGS ARE PARSED WHERE THE ANSWER CAN CARRY THE REFUSAL
+       * (CNCORE-326 for the Providers, CNCORE-329 for the allowlist). Each
+       * threw out of this handler bare, and this read is the only way to
+       * `/settings` -- so a row that no longer parses cost the Owner the whole
+       * page rather than the one setting it is about, INCLUDING the other
+       * setting, which reads perfectly well and is what they would go and fix.
+       *
+       * BOTH ARE READ WHATEVER THE OTHER DID, which is the correction this
+       * ticket carries over CNCORE-326's half. The allowlist's parse sat inside
+       * the Providers' `read` arm, so an instance with BOTH rows bad rendered
+       * and one with only the allowlist bad did not -- the exact opposite of
+       * what the fault deserves. Two settings, neither derivable from the other
+       * (ADR-0121), so each is asked independently and the page is told about
+       * both.
        */
       const named = theProvidersStored(configured.providerUrls);
+      const allowlist = theAllowlistStored(configured.providerAllowlist);
       return {
-        providers:
-          named === undefined
-            ? { kind: "unreadable" as const }
-            : {
-                kind: "read" as const,
-                named: await reachProviders({
-                  baseUrls: named,
-                  // TODO(CNCORE-329): `parseAllowlist` still throws out of this
-                  // handler, so an unreadable ALLOWLIST row costs the Owner the
-                  // page the way an unreadable Providers row did. It is REACHED
-                  // only where the Providers row reads, since the other arm
-                  // returns before this expression -- so an instance with both
-                  // rows bad now renders, and one with only the allowlist bad
-                  // does not. Left deliberately: it is the half ADR-0197
-                  // records as NOT built, and it needs a sentence of its own,
-                  // since ADR-0121 makes saying WHICH of the two settings
-                  // refuses the surface's job.
-                  allowlist: parseAllowlist(configured.providerAllowlist),
-                }),
-              },
-        allowlist: configured.providerAllowlist,
+        providers: await theProvidersAnswered(named, allowlist, configured.providerUrls),
+        allowlist: {
+          kind: allowlist === undefined ? ("unreadable" as const) : ("read" as const),
+          // AS THE OWNER WROTE IT, IN BOTH ARMS. The textarea renders this and
+          // is what repairs an unreadable one, so a blank box here would offer
+          // them a save that wipes the setting they came to fix.
+          asWritten: configured.providerAllowlist,
+        },
       };
     }),
 
@@ -390,6 +594,47 @@ export const settings = {
     }),
 
   /**
+   * Replaces the Providers setting with what the Owner wrote (CNCORE-331).
+   *
+   * THE ROUTE BACK FROM A ROW THAT WILL NOT PARSE, and it exists because the
+   * other two writes cannot be one. `nameProvider` and `removeProvider` both
+   * parse the STORED string before they look at the entry, so while the row is
+   * bad both refuse -- and removing is the one that would have repaired it.
+   * ADR-0197 recorded that the page could say what was wrong and offer nothing
+   * to do about it; this is the something.
+   *
+   * WHOLESALE, WHICH IS THE ALLOWLIST'S OWN ARRANGEMENT RATHER THAN A NEW ONE.
+   * `editAllowlist` has never had this defect for exactly one reason: it parses
+   * what is SUBMITTED and never what is stored, so a bad allowlist has always
+   * been repairable from its own textarea. The asymmetry was the bug.
+   *
+   * IT DOES NOT REPLACE THE LIST WITH A TEXTAREA ON THE PAGE. A Provider is a
+   * source with an identity (ADR-0031) and a row with a Remove button is the
+   * right control for one; the textarea is what the page renders INSTEAD of a
+   * list it cannot render, so the two never stand together and cannot disagree
+   * about what the setting holds.
+   *
+   * AND PARSE-BEFORE-STORE IS UNTOUCHED, which is ADR-0121's condition on every
+   * settings write: what the surface accepts is exactly what a configured
+   * instance can read back. The INPUT is parsed before it reaches a row, as in
+   * all three writes beside it. The stored value is not, and never should have
+   * been here -- it is the thing being replaced.
+   */
+  editProviders: ownerProcedure
+    /*
+     * NO `.min(1)`: AN EMPTY BOX IS THE "CLEAR IT AND START AGAIN" REPAIR.
+     * An instance naming no Provider searches none (ADR-0121), which is what a
+     * fresh one does -- and an Owner whose row is unreadable and unfixable by
+     * hand needs that exit more than anyone.
+     */
+    .input(z.object({ providers: z.string() }))
+    .errors({ ...NOT_A_SETTING, ...NOT_A_READABLE_SETTING })
+    .handler(async ({ input, context, errors }) => {
+      theSettingSubmitted(() => parseProviderUrls(input.providers), errors);
+      await writeProviderSettings(context.db, { providerUrls: input.providers });
+    }),
+
+  /**
    * Replaces ADR-0034's allowlist with what the owner wrote.
    *
    * WHOLESALE RATHER THAN ENTRY BY ENTRY, because the allowlist is a text the
@@ -403,17 +648,17 @@ export const settings = {
    */
   editAllowlist: ownerProcedure
     .input(z.object({ allowlist: z.string() }))
-    .errors(NOT_A_SETTING)
+    .errors({ ...NOT_A_SETTING, ...NOT_A_READABLE_SETTING })
     .handler(async ({ input, context, errors }) => {
-      try {
-        // PARSED FOR ITS REFUSAL, NOT FOR ITS ANSWER. What is stored is the
-        // owner's own text -- `parseAllowlist` is what every read of this value
-        // runs, so a value it cannot read must not reach a row.
-        parseAllowlist(input.allowlist);
-      } catch (cause) {
-        if (cause instanceof OutboundRefused) throw errors.BAD_REQUEST({ message: cause.message });
-        throw cause;
-      }
+      // PARSED FOR ITS REFUSAL, NOT FOR ITS ANSWER. What is stored is the
+      // owner's own text -- `parseAllowlist` is what every read of this value
+      // runs, so a value it cannot read must not reach a row.
+      //
+      // AND THE REFUSAL NAMES THE LINE (CNCORE-329). This answered a bare
+      // `BAD_REQUEST`, so the Server Action above it had nothing to report
+      // with and reported nothing: the Owner's edit vanished from a textarea
+      // that re-rendered with the stored value, with no sentence about why.
+      theSettingSubmitted(() => parseAllowlist(input.allowlist), errors);
       await writeProviderSettings(context.db, { providerAllowlist: input.allowlist });
     }),
 };

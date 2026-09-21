@@ -22,6 +22,8 @@ export {
   pinnedLookup,
   type Resolve,
   type ResolvedAddress,
+  SettingNotRead,
+  type WhySettingNotRead,
 } from "./boundary";
 export { createProviderClient, type ProviderClient } from "./client";
 export {
