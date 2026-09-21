@@ -661,6 +661,10 @@ describe("the network a Provider beside the install joins", () => {
    * here, so a rename moves the document with it instead of leaving a third copy
    * to disagree.
    */
+  it("names that network in the README's install section, taken off the compose file", () => {
+    expect(installSection()).toContain(String(pinnedProviderNetwork()));
+  });
+
   /**
    * AND IT IS THE NAME THE OTHER REPOSITORY JOINS, pinned here as a literal in a
    * file that derives everything else it checks.
@@ -679,10 +683,6 @@ describe("the network a Provider beside the install joins", () => {
    */
   it("pins the name `provider-wiki` joins from its own repository", () => {
     expect(pinnedProviderNetwork()).toBe("canoncore_providers");
-  });
-
-  it("names that network in the README's install section, taken off the compose file", () => {
-    expect(installSection()).toContain(String(pinnedProviderNetwork()));
   });
 
   it("tells a container address from the localhost one the Owner's browser uses", () => {

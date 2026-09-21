@@ -17,21 +17,6 @@ import { quotedTo } from "@canoncore/text";
  */
 
 /**
- * The single value of a parameter, or nothing.
- *
- * AN ARRAY IS NOTHING, never the first of several. A page asks ONE question, so a
- * repeated parameter names no answer rather than whichever answer came first --
- * the rule `/items/<id>` applies to `via` and `placed` (ADR-0066).
- *
- * AND SO IS A BLANK ONE. `?q=` and `?q=%20%20` are a box somebody submitted
- * without filling in, which is the absent case wearing two other spellings; a
- * surface that treated them as a question would search for nothing and report
- * that nothing matched. Trimmed rather than compared to the empty string, because
- * a box a reader tabbed through holds spaces rather than nothing and the two are
- * the same mistake -- which is the reading `searchProviders` already applies one
- * layer down (ADR-0033 under CNCORE-33).
- */
-/**
  * HOW MUCH OF THE READER'S QUERY A PAGE'S OWN SENTENCE QUOTES BACK.
  *
  * THE 80 A VALUE QUOTED IN A SENTENCE TAKES, which is `?refused=`'s on
@@ -99,6 +84,21 @@ export function theQueryQuoted(query: string): string {
   return quotedTo(query, QUERY_IN_A_SENTENCE, "a query");
 }
 
+/**
+ * The single value of a parameter, or nothing.
+ *
+ * AN ARRAY IS NOTHING, never the first of several. A page asks ONE question, so a
+ * repeated parameter names no answer rather than whichever answer came first --
+ * the rule `/items/<id>` applies to `via` and `placed` (ADR-0066).
+ *
+ * AND SO IS A BLANK ONE. `?q=` and `?q=%20%20` are a box somebody submitted
+ * without filling in, which is the absent case wearing two other spellings; a
+ * surface that treated them as a question would search for nothing and report
+ * that nothing matched. Trimmed rather than compared to the empty string, because
+ * a box a reader tabbed through holds spaces rather than nothing and the two are
+ * the same mistake -- which is the reading `searchProviders` already applies one
+ * layer down (ADR-0033 under CNCORE-33).
+ */
 export function oneValue(parameter: string | string[] | undefined): string | undefined {
   return typeof parameter === "string" && parameter.trim() !== "" ? parameter : undefined;
 }

@@ -94,8 +94,8 @@ export async function createItemByHand(
 }
 
 /**
- * The owner claiming a title for one item, which is the ONE operation both
- * functions above perform.
+ * The owner claiming a title for one item, which is the ONE operation
+ * `createItemByHand` above and `retitleItemByHand` below both perform.
  *
  * SHARED BECAUSE THEY MUST NOT DRIFT, not merely because it is four lines
  * twice. A title the owner gave on CREATE and a title they gave by EDITING are

@@ -2261,42 +2261,6 @@ export interface PlacementsInContainer {
 }
 
 /**
- * What one container holds, in its own order -- CAPPED, COUNTED AND WALKED
- * (ADR-0119, CNCORE-89).
- *
- * THE MIRROR OF `findPlacementsOfItem`, which reads the same table the other
- * way round: that one answers every ordering an item sits in, and this one
- * answers every item one ordering holds. Both are the placement, read from the
- * end the reader is standing at.
- *
- * IT DOES NOT GO THROUGH `walkListing`, AND THE REASON IS THE RELATION RATHER
- * THAN THE ORDER. That function is a walk over `items`: it selects an item's
- * id, joins `item_kinds` for the reader's word and counts `items` matching the
- * question asked. This walks `placements` -- a different relation, whose rows
- * carry a placement's id, no kind at all, an aggregate of who asserted them,
- * and a count of memberships rather than of items. What the two DO share is the
- * page itself, and that is shared: the cap, the extra row, the cursor and the
- * count-in-one-snapshot are `onePage` above, and the two-regime cursor is
- * `pastTheRowIn`, which is `order.ts`'s since CNCORE-169 -- both written once
- * for every listing that has one, because those are the rules that have
- * historically gone wrong separately.
- *
- * THE ORDER IS `position` AND THEN THE PLACEMENT'S ID, named once in
- * `THE_CONTAINERS_OWN_ORDER` below. Both halves are load-bearing in the cursor
- * for the reasons `pastTheRowIn` gives, and they are the same two regimes the
- * catalogue's own walk has: a position nothing asserted is NULL and sorts last
- * as one block, and two placements may share a position (ADR-0009 keeps no unique
- * constraint on it, so a novel and the film adapting it can sit at one point
- * without an order being invented between them).
- *
- * AND THE CAP IS WHAT THE LATERAL MADE URGENT, which is CNCORE-90 measuring for
- * this ticket rather than a coincidence. Each row carries a lateral naming who
- * asserted it: 4.4 ms against 0.8 ms without it, over 1,049 members with two
- * sources each, measured 2026-09-12 on the PostgreSQL 18.6 `compose.yaml` pins
- * (ADR-0017 carries the measurement and what it rests on). That was the cost of
- * the uncapped page this replaces; a capped one pays it over 100 rows.
- */
-/**
  * WHAT ONE CONTAINER HOLDS, as the predicate rather than as a query -- written
  * once because TWO SURFACES ANSWER THE SAME NUMBER FROM IT and a reader sees
  * both (ADR-0140): the Members listing reports it as its own `total`, and the catalogue
@@ -2453,6 +2417,42 @@ function whereItSits(db: Database): SQL<SitsIn> {
     .where(whatItSitsIn(items.id, container.deletedAt))})`;
 }
 
+/**
+ * What one container holds, in its own order -- CAPPED, COUNTED AND WALKED
+ * (ADR-0119, CNCORE-89).
+ *
+ * THE MIRROR OF `findPlacementsOfItem`, which reads the same table the other
+ * way round: that one answers every ordering an item sits in, and this one
+ * answers every item one ordering holds. Both are the placement, read from the
+ * end the reader is standing at.
+ *
+ * IT DOES NOT GO THROUGH `walkListing`, AND THE REASON IS THE RELATION RATHER
+ * THAN THE ORDER. That function is a walk over `items`: it selects an item's
+ * id, joins `item_kinds` for the reader's word and counts `items` matching the
+ * question asked. This walks `placements` -- a different relation, whose rows
+ * carry a placement's id, no kind at all, an aggregate of who asserted them,
+ * and a count of memberships rather than of items. What the two DO share is the
+ * page itself, and that is shared: the cap, the extra row, the cursor and the
+ * count-in-one-snapshot are `onePage` above, and the two-regime cursor is
+ * `pastTheRowIn`, which is `order.ts`'s since CNCORE-169 -- both written once
+ * for every listing that has one, because those are the rules that have
+ * historically gone wrong separately.
+ *
+ * THE ORDER IS `position` AND THEN THE PLACEMENT'S ID, named once in
+ * `THE_CONTAINERS_OWN_ORDER` below. Both halves are load-bearing in the cursor
+ * for the reasons `pastTheRowIn` gives, and they are the same two regimes the
+ * catalogue's own walk has: a position nothing asserted is NULL and sorts last
+ * as one block, and two placements may share a position (ADR-0009 keeps no unique
+ * constraint on it, so a novel and the film adapting it can sit at one point
+ * without an order being invented between them).
+ *
+ * AND THE CAP IS WHAT THE LATERAL MADE URGENT, which is CNCORE-90 measuring for
+ * this ticket rather than a coincidence. Each row carries a lateral naming who
+ * asserted it: 4.4 ms against 0.8 ms without it, over 1,049 members with two
+ * sources each, measured 2026-09-12 on the PostgreSQL 18.6 `compose.yaml` pins
+ * (ADR-0017 carries the measurement and what it rests on). That was the cost of
+ * the uncapped page this replaces; a capped one pays it over 100 rows.
+ */
 export async function findPlacementsInContainer(
   db: Database,
   containerId: string,

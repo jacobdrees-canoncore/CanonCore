@@ -302,18 +302,6 @@ export const item = {
       z.object({
         id: z.string(),
         /*
-         * THE MEMBERS LISTING'S CURSOR (ADR-0119, CNCORE-89), and the one input
-         * on this procedure that is not about which item is being asked for.
-         *
-         * IT SITS ON `item.get` RATHER THAN ON A LISTING PROCEDURE OF ITS OWN,
-         * because a Container IS an Item (ADR-0004) and its page is the Item
-         * page: a `container.members` would be one thing at two addresses, which
-         * is the case ADR-0066's canonical link relation exists to collapse.
-         * The three listings that ARE their surface have the whole query for a
-         * cursor; this one and "Also appears in" both ride beside the item they
-         * are a listing OF.
-         */
-        /*
          * WHICH ORIGIN "ALSO APPEARS IN" IS NARROWED TO (ADR-0066, CNCORE-129),
          * and it sits ahead of the two cursors because that is the order the
          * address is spelled in -- `via`, `placed`, `after`, `placedAfter`.
@@ -332,6 +320,18 @@ export const item = {
          * not declare, so a stale link would read as a broken server.
          */
         placed: z.string().optional(),
+        /*
+         * THE MEMBERS LISTING'S CURSOR (ADR-0119, CNCORE-89), which says where in
+         * the listing to start rather than which item is being asked for.
+         *
+         * IT SITS ON `item.get` RATHER THAN ON A LISTING PROCEDURE OF ITS OWN,
+         * because a Container IS an Item (ADR-0004) and its page is the Item
+         * page: a `container.members` would be one thing at two addresses, which
+         * is the case ADR-0066's canonical link relation exists to collapse.
+         * The three listings that ARE their surface have the whole query for a
+         * cursor; this one and "Also appears in" both ride beside the item they
+         * are a listing OF.
+         */
         after: aCursor,
         /*
          * THE MEMBERS LISTING'S STEP BACK (CNCORE-174): the first member of the

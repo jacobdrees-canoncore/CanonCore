@@ -483,12 +483,6 @@ describe("provider.import", () => {
   });
 
   /**
-   * ADR-0034's config boundary, reached through the router: a base URL the
-   * owner never allowlisted is refused as a REFUSED error a caller can narrow
-   * on, not as a 500. The owner typed the URL, so the answer has to be
-   * something a UI can put in front of them.
-   */
-  /**
    * A PROVIDER THAT ANSWERED IS NOT A PROVIDER THAT WAS REFUSED, and until
    * CNCORE-149 only the second reached a caller. `client.ts` raises a plain
    * `Error` for a non-2xx, which is not an `OutboundRefused` and fell past the
@@ -521,6 +515,12 @@ describe("provider.import", () => {
     });
   });
 
+  /**
+   * ADR-0034's config boundary, reached through the router: a base URL the
+   * owner never allowlisted is refused as a REFUSED error a caller can narrow
+   * on, not as a 500. The owner typed the URL, so the answer has to be
+   * something a UI can put in front of them.
+   */
   it("refuses a base URL that is not on the allowlist", async () => {
     const { error } = await safe(
       call(
@@ -708,13 +708,6 @@ describe("provider.browse", () => {
 });
 
 /**
- * ADR-0033: "a third party's licence terms stay declared fields rather than
- * special cases in our core", and ADR-0036 is the licence that makes it concrete.
- * The app takes the obligation off the manifest and writes it beside the source
- * that imposed it, so every claim that source made can be traced back to the
- * words the app owes for showing it.
- */
-/**
  * CNCORE-29. ADR-0073 says a date is an EDTF string; the wire schema is
  * `z.array(z.string())`, so until now `soon` travelled the whole path and was
  * rendered on the item page verbatim. It is now quarantined at the catalogue's
@@ -766,6 +759,13 @@ describe("a provider whose dates are not EDTF", () => {
   });
 });
 
+/**
+ * ADR-0033: "a third party's licence terms stay declared fields rather than
+ * special cases in our core", and ADR-0036 is the licence that makes it concrete.
+ * The app takes the obligation off the manifest and writes it beside the source
+ * that imposed it, so every claim that source made can be traced back to the
+ * words the app owes for showing it.
+ */
 describe("the attribution an import carries with it", () => {
   it("writes what the provider declares onto the source it creates", async () => {
     const baseUrl = await stubProvider(undefined, { attribution: ATTRIBUTION });

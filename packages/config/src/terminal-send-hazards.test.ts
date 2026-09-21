@@ -175,41 +175,6 @@ describe("the sentence that says the flush works", () => {
   });
 });
 
-/**
- * THE HAZARD THAT NAMES NO WAY THROUGH IT (CNCORE-306).
- *
- * The same three documents tell a dispatcher that input to a PARKED agent goes
- * to the prompt widget, where `--enter` SELECTS the option under the cursor.
- * True, and stated as a hazard with nothing on the other side of it: a reader
- * who has only that has been told what not to do and not what to do, so the
- * options are to guess the keystrokes or to leave the agent parked. That is
- * what left the widget recipe undocumented for as long as it was, and on
- * 2026-09-21 it cost three measured messages, four by the dispatcher's own
- * count -- sent into a multi-select whose confirm
- * screen was still open, eaten in silence while `orca terminal send` answered
- * `Sent N bytes`.
- *
- * THE WINDOW IS THE SENTENCE AND THE ONES EITHER SIDE OF IT, WITHIN ONE BLOCK,
- * never the document. A pointer three sections away from the warning is the
- * shape `CLAUDE.md` refuses -- "placed beside one, it leaves the old claim
- * standing" -- and a document-level check would pass `CLAUDE.md`, which cites a
- * dozen records elsewhere in the file and would satisfy the rule without the
- * hazard gaining anything. `blocksOf` is what makes that bound real rather than
- * a property of where the full stops happen to fall.
- *
- * THE RECORD EXCLUDES ITSELF. ADR-0187 IS the way through, so it states the
- * hazard in order to answer it; asking it to cite itself beside its own answer
- * would be asking for a pointer to the paragraph underneath.
- *
- * IT EXCLUDES THAT RECORD BY ITS EXACT PATH, RESOLVED THROUGH THE TREE, and the
- * first draft did not -- it asked whether a path CONTAINED `0187-`, which
- * exempts `docs/research/sweep-0187-x.md` and anything under a `0187-` directory
- * as silently as it exempts the record. `slugOf` in `adr-numbering.test.ts`
- * resolves the same way and for the same reason: a record RENAMED should move
- * this exclusion with it rather than leave it looking for a spelling nothing
- * uses.
- */
-
 /** The hazard, in the spelling all three carriers share. */
 const THE_HAZARD = /SELECTS the option under the cursor/i;
 
@@ -250,6 +215,40 @@ function theRecordThatAnswersIt(): string {
   return record.path;
 }
 
+/**
+ * THE HAZARD THAT NAMES NO WAY THROUGH IT (CNCORE-306).
+ *
+ * The same three documents tell a dispatcher that input to a PARKED agent goes
+ * to the prompt widget, where `--enter` SELECTS the option under the cursor.
+ * True, and stated as a hazard with nothing on the other side of it: a reader
+ * who has only that has been told what not to do and not what to do, so the
+ * options are to guess the keystrokes or to leave the agent parked. That is
+ * what left the widget recipe undocumented for as long as it was, and on
+ * 2026-09-21 it cost three measured messages, four by the dispatcher's own
+ * count -- sent into a multi-select whose confirm
+ * screen was still open, eaten in silence while `orca terminal send` answered
+ * `Sent N bytes`.
+ *
+ * THE WINDOW IS THE SENTENCE AND THE ONES EITHER SIDE OF IT, WITHIN ONE BLOCK,
+ * never the document. A pointer three sections away from the warning is the
+ * shape `CLAUDE.md` refuses -- "placed beside one, it leaves the old claim
+ * standing" -- and a document-level check would pass `CLAUDE.md`, which cites a
+ * dozen records elsewhere in the file and would satisfy the rule without the
+ * hazard gaining anything. `blocksOf` is what makes that bound real rather than
+ * a property of where the full stops happen to fall.
+ *
+ * THE RECORD EXCLUDES ITSELF. ADR-0187 IS the way through, so it states the
+ * hazard in order to answer it; asking it to cite itself beside its own answer
+ * would be asking for a pointer to the paragraph underneath.
+ *
+ * IT EXCLUDES THAT RECORD BY ITS EXACT PATH, RESOLVED THROUGH THE TREE, and the
+ * first draft did not -- it asked whether a path CONTAINED `0187-`, which
+ * exempts `docs/research/sweep-0187-x.md` and anything under a `0187-` directory
+ * as silently as it exempts the record. `slugOf` in `adr-numbering.test.ts`
+ * resolves the same way and for the same reason: a record RENAMED should move
+ * this exclusion with it rather than leave it looking for a spelling nothing
+ * uses.
+ */
 function hazardsOwedAnAnswer(): { path: string; beside: string }[] {
   const answersIt = theRecordThatAnswersIt();
   return corpus()

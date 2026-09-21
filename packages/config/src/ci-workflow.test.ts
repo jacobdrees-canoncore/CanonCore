@@ -153,10 +153,10 @@ function pullRequest(branch: string, number: number, run_id: string): GithubCont
   return { workflow: "CI", ref: `refs/pull/${number}/merge`, run_id, head_ref: branch };
 }
 
-/** The registry the private provider images live in (ADR-0089). */
 /** The workflow this suite reads, as `git grep` pathspecs in it spell the path. */
 const WORKFLOW_PATH = ".github/workflows/ci.yml";
 
+/** The registry the private provider images live in (ADR-0089). */
 const PRIVATE_REGISTRY = "ghcr.io/jacobdrees-canoncore/";
 
 /** The jobs holding a step that answers `matches`, named as the file names them. */

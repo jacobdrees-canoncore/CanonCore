@@ -1219,7 +1219,9 @@ export function withEveryKind(surface: Extract<Walking, { path: "/" | "/works" |
  * beside the words: `created_at` is on every row, so the walk needs no keyless
  * block where a release date -- sparse across this corpus -- would have needed
  * one; and "Recently added" is the second view Plex and Jellyfin both lead
- * with. A third is a line here, a value in `order.ts` and nothing else.
+ * with. A THIRD IS NOT A LINE HERE ALONE: the `satisfies` below names the orders
+ * this list may hold, so a third line will not compile until it is widened, and
+ * ADR-0150 names every other place a third order reaches.
  *
  * `By name` IS THE ABSENCE and is written first, which is the arrangement the
  * Group picker's `Everything` already has: the default is the Listing with

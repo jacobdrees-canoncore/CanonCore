@@ -215,6 +215,41 @@ export class PlacementRefused extends Error {
 }
 
 /**
+ * WHY a placement was refused, as a word rather than a sentence.
+ *
+ * THE CODE TRAVELS AND THE COPY DOES NOT (CNCORE-262, CNCORE-275). A refusal
+ * raised in a Server Action reaches the Owner's page through a REDIRECT, so
+ * whatever carries the reason sits in a URL the Owner can edit and a stranger
+ * can compose. Sending the sentence would let a forged link print arbitrary
+ * text in this app's voice; sending a word from a closed set cannot, and it
+ * leaves the meaning where [[0123-a-failure-reason-is-bounded-and-says-who-wrote-it]]
+ * puts it -- with the action, not with whoever typed the address.
+ *
+ * NOT THE SQLSTATE, which is this package's private business: `23514` in an
+ * address bar tells the Owner nothing and pins a schema detail into a URL.
+ */
+export const PLACEMENT_REFUSAL_CAUSES = [
+  "already-there",
+  "no-such-item-or-container",
+  "cycle",
+  "position-out-of-range",
+  "not-in-this-container",
+] as const;
+
+/**
+ * ONE LIST, AND THE TYPE IS READ OFF IT. Written twice -- a union beside an
+ * array -- the two drift, and a surface answering "every cause" would go on
+ * compiling while it answered four of five. It is also the tuple `z.enum`
+ * needs, so the wire schema is this list rather than a third copy.
+ */
+export type PlacementRefusalCause = (typeof PLACEMENT_REFUSAL_CAUSES)[number];
+
+/** Whether a word handed in from outside names a cause this catalogue raises. */
+export function isAPlacementRefusalCause(word: string): word is PlacementRefusalCause {
+  return (PLACEMENT_REFUSAL_CAUSES as readonly string[]).includes(word);
+}
+
+/**
  * The refusals the owner can actually provoke here, by their SQLSTATE.
  *
  * `23505` is `placements_container_item_position`: the same item, in the same
@@ -253,50 +288,6 @@ export class PlacementRefused extends Error {
  * `movePlacementByHand` below -- a sibling outside the destination container --
  * which is why `placement.move` names five causes where `place` names these four.
  */
-/**
- * THE FIFTH REFUSAL, raised directly by `movePlacementByHand` rather than by a
- * SQLSTATE, which is why it sits beside the map instead of inside it.
- */
-/**
- * WHY a placement was refused, as a word rather than a sentence.
- *
- * THE CODE TRAVELS AND THE COPY DOES NOT (CNCORE-262, CNCORE-275). A refusal
- * raised in a Server Action reaches the Owner's page through a REDIRECT, so
- * whatever carries the reason sits in a URL the Owner can edit and a stranger
- * can compose. Sending the sentence would let a forged link print arbitrary
- * text in this app's voice; sending a word from a closed set cannot, and it
- * leaves the meaning where [[0123-a-failure-reason-is-bounded-and-says-who-wrote-it]]
- * puts it -- with the action, not with whoever typed the address.
- *
- * NOT THE SQLSTATE, which is this package's private business: `23514` in an
- * address bar tells the Owner nothing and pins a schema detail into a URL.
- */
-export const PLACEMENT_REFUSAL_CAUSES = [
-  "already-there",
-  "no-such-item-or-container",
-  "cycle",
-  "position-out-of-range",
-  "not-in-this-container",
-] as const;
-
-/**
- * ONE LIST, AND THE TYPE IS READ OFF IT. Written twice -- a union beside an
- * array -- the two drift, and a surface answering "every cause" would go on
- * compiling while it answered four of five. It is also the tuple `z.enum`
- * needs, so the wire schema is this list rather than a third copy.
- */
-export type PlacementRefusalCause = (typeof PLACEMENT_REFUSAL_CAUSES)[number];
-
-/** Whether a word handed in from outside names a cause this catalogue raises. */
-export function isAPlacementRefusalCause(word: string): word is PlacementRefusalCause {
-  return (PLACEMENT_REFUSAL_CAUSES as readonly string[]).includes(word);
-}
-
-const A_PLACEMENT_THIS_CONTAINER_DOES_NOT_HOLD = {
-  because: "not-in-this-container",
-  sentence: "That move named a placement this container does not hold.",
-} as const;
-
 const PLACEMENT_REFUSALS: Readonly<
   Record<string, { because: PlacementRefusalCause; sentence: string }>
 > = {
@@ -323,6 +314,15 @@ const PLACEMENT_REFUSALS: Readonly<
     sentence: "That position is outside the range the catalogue can store.",
   },
 };
+
+/**
+ * THE FIFTH REFUSAL, raised directly by `movePlacementByHand` rather than by a
+ * SQLSTATE, which is why it sits beside the map instead of inside it.
+ */
+const A_PLACEMENT_THIS_CONTAINER_DOES_NOT_HOLD = {
+  because: "not-in-this-container",
+  sentence: "That move named a placement this container does not hold.",
+} as const;
 
 /**
  * THE OWNER PUTTING AN ITEM IN A CONTAINER, naming the placement it creates.

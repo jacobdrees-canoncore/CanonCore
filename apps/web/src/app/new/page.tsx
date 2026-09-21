@@ -235,7 +235,7 @@ function NewItemForm({ kinds }: { kinds: { value: string; label: string }[] }) {
           which `items_ordered_implies_container` (migration 1) refuses -- and
           with no script a Server Action that throws renders a bare `Internal
           Server Error`, so the owner would lose the page they were on. That is
-          the exact failure `NotYours` above refuses to inflict on a visitor,
+          the exact failure `WhoCanAdd` above refuses to inflict on a visitor,
           and it was reachable here by ticking one box.
 
           THE FIX IS TO MAKE THE STATE UNREPRESENTABLE rather than to validate

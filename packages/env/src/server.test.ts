@@ -61,11 +61,6 @@ describe("server env", () => {
   });
 
   /**
-   * A POOL OF NONE IS NOT A SMALL POOL, it is a process that can never reach
-   * its database -- and it fails at the first query rather than at startup,
-   * which is the failure this refuses to let start.
-   */
-  /**
    * THE CONTAINER'S OWN PATH, and it is the one that would break silently.
    * `compose.yaml` interpolates `${DATABASE_MAX_CONNECTIONS:-}`, so an
    * installation that sets nothing hands the container an EMPTY STRING rather
@@ -82,6 +77,11 @@ describe("server env", () => {
     expect(env.DATABASE_MAX_CONNECTIONS).toBe(10);
   });
 
+  /**
+   * A POOL OF NONE IS NOT A SMALL POOL, it is a process that can never reach
+   * its database -- and it fails at the first query rather than at startup,
+   * which is the failure this refuses to let start.
+   */
   it.each(["0", "-1", "not a number"])("refuses a pool bound of %s", async (value) => {
     process.env.DATABASE_URL = "postgresql://postgres:password@localhost:5432/canoncore";
     process.env.DATABASE_MAX_CONNECTIONS = value;

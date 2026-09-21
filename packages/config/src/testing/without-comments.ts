@@ -81,7 +81,19 @@
  * be reading one.
  */
 export function withoutComments(source: string): string {
+  return scan(source).code;
+}
+
+/** Every comment in a source, where it opens and what it says, from the same scan. */
+export function commentsIn(source: string): Comment[] {
+  return scan(source).comments;
+}
+
+export type Comment = { readonly at: number; readonly text: string };
+
+function scan(source: string): { code: string; comments: Comment[] } {
   let out = "";
+  const comments: Comment[] = [];
   let at = 0;
 
   // The brace depth at which each enclosing template literal was suspended by a
@@ -128,6 +140,7 @@ export function withoutComments(source: string): string {
     if (pair === "/*") {
       const closed = source.indexOf("*/", at + 2);
       const stop = closed === -1 ? source.length : closed + 2;
+      comments.push({ at, text: source.slice(at, stop) });
       out += blanked(source.slice(at, stop));
       at = stop;
       continue;
@@ -136,6 +149,7 @@ export function withoutComments(source: string): string {
     if (pair === "//") {
       const newline = source.indexOf("\n", at);
       const stop = newline === -1 ? source.length : newline;
+      comments.push({ at, text: source.slice(at, stop) });
       out += blanked(source.slice(at, stop));
       at = stop;
       continue;
@@ -200,7 +214,7 @@ export function withoutComments(source: string): string {
     );
   }
 
-  return out;
+  return { code: out, comments };
 }
 
 /** The keywords a `/` may follow and still open a regex rather than divide. */

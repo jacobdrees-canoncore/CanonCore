@@ -116,7 +116,7 @@ const READS_OUTSIDE_ITS_PACKAGE = [
 const NOTHING_FOR_TURBO_TO_HASH = [
   {
     package: "@canoncore/config",
-    // Thirty-three suites here read the repository at large -- `biome-config.test.ts`
+    // Thirty-four suites here read the repository at large -- `biome-config.test.ts`
     // asks whether the linter reaches every file git tracks -- so the inputs
     // cannot be enumerated and the task opts out of caching entirely instead.
     // Asserted below rather than taken on trust: this excuse rotting back into a
@@ -187,27 +187,6 @@ describe.each(READS_OUTSIDE_ITS_PACKAGE)(
   },
 );
 
-/**
- * The packages whose tracked sources reach outside their own directory, RECOMPUTED
- * from the sources rather than listed.
- *
- * THIS IS THE HALF THAT STOPS THE LISTS ABOVE ROTTING. A hand-kept list of
- * packages goes stale the day a new suite reads a root file: it would be cached
- * against everything except the file it checks, exactly as `glossary.test.ts` was,
- * and nothing here would say so. Silence is the one failure mode a guard must not
- * have -- the argument `glossary.test.ts` makes for its own canary, and ADR-0124's
- * for an EXACT-match allowance over a subset.
- *
- * TWO WAYS OUT OF A PACKAGE, because there are two in the tree. A relative climb
- * is counted against how deep the file sits inside its package, so `../../../` is
- * an escape from `src/` and merely `packages/` from `src/testing/` -- the depth is
- * positional, which is the counting `repo-root.ts` exists to do once. The other is
- * importing `repoRoot` itself, whose whole purpose is to leave.
- *
- * IT CANNOT SEE WHICH FILE a `repoRoot` import goes on to open, which is why the
- * lists above name files and this only names packages. It answers "does this
- * package belong on a list", never "is that list complete".
- */
 /**
  * Where each of `@canoncore/config`'s published helpers actually lives, read off
  * that package's own `exports` rather than guessed -- so a renamed or added helper
@@ -377,7 +356,7 @@ describe("the packages that reach outside themselves", () => {
 
   it("really is uncached where that is the excuse given", () => {
     // The one excuse above that could rot back into the defect. `packages/config`
-    // holds thirty-three suites reading the repository at large; the day its task caches,
+    // holds thirty-four suites reading the repository at large; the day its task caches,
     // all of them start replaying stale passes and no other check would notice.
     const uncached = NOTHING_FOR_TURBO_TO_HASH.filter(({ why }) => why.includes("uncached"));
 
