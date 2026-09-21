@@ -47,7 +47,13 @@ evidence only for the commit it ran against (ADR-0181) and a rebased PR goes on 
 head's green. It is one command rather than a gate you read and a merge you then type, because
 `gate.py <n> | tail -2 && gh pr merge` once merged over a printed `BLOCKED` in the scratch version
 this replaces — a pipeline's exit status is the LAST command's, and `tail` always succeeds. Give it the worktree path too and it
-refuses over uncommitted work, which is the condition `CLAUDE.md` already puts on removing one.
+refuses over uncommitted or unpushed work, which is the condition `CLAUDE.md` already puts on
+removing one.
+
+**IT REFUSES A DRAFT, WHICH NOTHING ELSE ON THE PULL REQUEST DOES.** A draft answers `OPEN`, `CLEAN`
+and sixteen green checks, so every other field calls it mergeable — #230 read `PASSED` on 2026-09-21
+while its agent was still writing it. `READY` above is the line that says a PR has left draft; the
+gate now says it too.
 
 **A merge that claims a RUNG tells every live agent the new number, in the same action.** A rung is
 a line on a ladder no ticket owns: the migration index, the shared fixture, a tool list. CNCORE-74

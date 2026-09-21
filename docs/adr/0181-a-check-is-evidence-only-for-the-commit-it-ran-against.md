@@ -148,6 +148,28 @@ ref away with the merge, so the tip check finds no ref and would report a missin
 symptom, phrased as though something were broken, at a dispatcher who would then go looking for it.
 Observed on #210 and #221 the moment the tip check landed.
 
+## A draft answers every question but the one being asked
+
+Found by the dispatcher running this gate against real pull requests on 2026-09-21, which is the
+check `CLAUDE.md` asks for before a figure travels, applied to a mechanism.
+
+```
+#230    isDraft            true
+        state              OPEN
+        mergeStateStatus   CLEAN
+        check-runs         16 of 16 green
+        this gate said     PASSED b409673 16 of 16 checks passed on this commit
+```
+
+**Nothing else on the pull request reveals it.** A draft is open, its branch is clean, and its CI is
+as green as any other's, so every field this gate already read called it mergeable. The fused merge
+command would have taken another agent's unfinished work while it was still writing it.
+
+**It is one more field on a `gh pr view` already being made** — the same trade as reading
+`mergeStateStatus` to say which zero. `monitor.sh` beside this gate already treats draft as not
+ready, firing its `READY` line only on `isDraft==false`, so the gate was the one step in the loop
+that did not know. `BLOCKED DRAFT`, named like the rest.
+
 ## What this does not cover
 
 Nothing makes the dispatcher RUN the gate. There are no required checks (ADR-0118) and no required
@@ -165,12 +187,12 @@ the blocking. `actionlint` before pushing is still what catches it.
 `state` in one `gh pr view`, confirms that head against `git ls-remote` on the branch, reads
 `repos/<slug>/commits/<head>/check-runs` across every page and holds the result against
 `total_count`, and exits non-zero on every outcome but `PASSED`. Its outcomes are `PASSED`,
-`NO-RUN`, `RUNNING`, `FAILED`, `UNKNOWN-CONCLUSION`, `SUPERSEDED`, `LAGGING`, `MERGED`/`CLOSED`
-and `UNREADABLE`.
+`NO-RUN`, `RUNNING`, `FAILED`, `UNKNOWN-CONCLUSION`, `SUPERSEDED`, `LAGGING`, `DRAFT`,
+`MERGED`/`CLOSED` and `UNREADABLE`.
 `.claude/skills/dispatch/merge-if-green.sh` runs it and merges only on its exit status, with nothing
 piped, and refuses a named worktree that is unreadable, is not the root of its repository, or holds
 uncommitted or unpushed work.
-`packages/config/src/merge-gate.test.ts` drives both through a stubbed `gh` and `git` over twenty
+`packages/config/src/merge-gate.test.ts` drives both through a stubbed `gh` and `git` over twenty-one
 scenarios, including #210's own world — the head with no runs beside the pre-rebase commit's green.
 The rule is stated in `.claude/skills/dispatch/SKILL.md`, `.claude/rules/workflows.md` and
 `CLAUDE.md`.

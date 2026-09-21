@@ -21,6 +21,7 @@
 #   BLOCKED SUPERSEDED ...     every run on it was cancelled by a newer push
 #   BLOCKED UNKNOWN-CONCLUSION  a conclusion this gate does not know, so not evidence
 #   BLOCKED MERGED|CLOSED ...  the PR is not open, so there is nothing to merge
+#   BLOCKED DRAFT <n> ...      the PR is still a draft, which no other field says
 #   BLOCKED LAGGING <n> ...    the PR's head field has not caught up with the branch
 #   BLOCKED UNREADABLE ...     the question could not be asked at all
 set -uo pipefail
@@ -37,13 +38,13 @@ case "$repo" in
 esac
 slug="jacobdrees-canoncore/$repo"
 
-view=$(gh pr view "$pr" --repo "$slug" --json headRefOid,headRefName,mergeStateStatus,state 2>/dev/null) ||
+view=$(gh pr view "$pr" --repo "$slug" --json headRefOid,headRefName,isDraft,mergeStateStatus,state 2>/dev/null) ||
   { echo "BLOCKED UNREADABLE cannot read #$pr in $slug"; exit 1; }
 
 # ONE PARSE OF ONE SNAPSHOT. Asking `gh` four times would be four snapshots, and
 # during a force-push they disagree -- which is the very window the tip check
 # below exists for, so reading the fields separately would undermine it.
-{ read -r head; read -r branch; read -r prstate; read -r mergestate; } < <(
+{ read -r head; read -r branch; read -r prstate; read -r mergestate; read -r draft; } < <(
   VIEW="$view" python3 -c '
 import json, os
 try:
@@ -52,6 +53,7 @@ except Exception:
     pr = {}
 for key in ("headRefOid", "headRefName", "state", "mergeStateStatus"):
     print(pr.get(key) or "")
+print("draft" if pr.get("isDraft") else "")
 '
 )
 [ -n "$head" ] || { echo "BLOCKED UNREADABLE #$pr names no head commit"; exit 1; }
@@ -63,6 +65,18 @@ for key in ("headRefOid", "headRefName", "state", "mergeStateStatus"):
 # broken, at a dispatcher who would then go looking for it.
 if [ "${prstate:-OPEN}" != "OPEN" ]; then
   echo "BLOCKED $prstate #$pr is not open, so there is nothing to merge"
+  exit 1
+fi
+
+# A DRAFT IS NOT A MERGE CANDIDATE, AND NOTHING ELSE ON THE PULL REQUEST SAYS
+# SO. Measured on #230, 2026-09-21: `isDraft` true, `state` OPEN,
+# `mergeStateStatus` CLEAN and sixteen checks green -- on which this gate said
+# PASSED, and the fused merge would have taken another agent's unfinished work
+# while it was still writing it. `monitor.sh` beside this file already fires
+# `READY` only on `isDraft==false`, so the gate was the one step in the loop
+# that did not know.
+if [ -n "$draft" ]; then
+  echo "BLOCKED DRAFT #$pr is still a draft, so it is not offered for merge"
   exit 1
 fi
 

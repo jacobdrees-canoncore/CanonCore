@@ -67,6 +67,7 @@ type PullRequestFields = {
   readonly headRefName?: string;
   readonly mergeStateStatus?: string;
   readonly state?: string;
+  readonly isDraft?: boolean;
 };
 
 type World = {
@@ -467,6 +468,35 @@ describe("a check the gate reads", () => {
 
     expect(output).toContain("BLOCKED");
     expect(output).not.toContain("refs/heads/ ");
+    expect(status).not.toBe(0);
+  });
+
+  /**
+   * A DRAFT IS NOT A MERGE CANDIDATE, AND NOTHING ELSE ON THE PULL REQUEST SAYS
+   * SO. Measured on #230, 2026-09-21: `isDraft` true, `state` OPEN,
+   * `mergeStateStatus` CLEAN, sixteen checks green -- and this gate printed
+   * `PASSED b409673 16 of 16`. `merge-if-green.sh` would have merged another
+   * agent's unfinished work while it was still writing it.
+   *
+   * IT IS THE SAME ARGUMENT AS NAMING WHICH ZERO: one more field on a
+   * `gh pr view` already being made, turning a silent wrong answer into a named
+   * outcome. `monitor.sh` beside this file already treats draft as not ready --
+   * its `READY` line fires on `isDraft==false` -- so the gate was the one place
+   * in the loop that did not.
+   */
+  it("refuses a draft, which every other field on the pull request calls mergeable", () => {
+    const { status, output } = gateAgainst({
+      pr: {
+        headRefOid: REBASED,
+        mergeStateStatus: "CLEAN",
+        state: "OPEN",
+        isDraft: true,
+      },
+      checks: { [REBASED]: [check("Test", "success"), check("Build", "success")] },
+    });
+
+    expect(output).toContain("DRAFT");
+    expect(output).not.toContain("PASSED");
     expect(status).not.toBe(0);
   });
 });
