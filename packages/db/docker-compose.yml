@@ -59,7 +59,15 @@ services:
     # its suite beside it takes the total past the ceiling. The failure is
     # `sorry, too many clients already`, and it surfaces as an unrelated test
     # failing in whichever suite asked last rather than as anything naming the
-    # limit.
+    # limit -- EXCEPT through `refusal`, which since ADR-0184 throws naming the
+    # SQLSTATE rather than answering as though a constraint had bitten. Every
+    # other seam still reports it the way this sentence says.
+    #
+    # AND THAT PEAK IS `pnpm test:e2e`'s, NOT `pnpm test`'s (CNCORE-280). The
+    # same sampling through a whole green `pnpm test` on 2026-09-21 peaks at
+    # THIRTEEN connections, because turbo's `dependsOn: ["^test"]` serialises
+    # the three suites that reach a database. A flake under `pnpm test` is
+    # therefore not this ceiling, and ADR-0184 says what was measured instead.
     #
     # 300 IS THREE OF THOSE SUITES, which is what a machine running three
     # worktrees needs and is the number ADR-0104's own decision implies.

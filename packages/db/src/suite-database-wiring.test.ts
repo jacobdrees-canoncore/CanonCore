@@ -35,6 +35,18 @@ import { packageNameAt, suiteDatabaseSuffixAt } from "./testing/suite-database";
  */
 const BUILDS_A_CATALOGUE = fileURLToPath(new URL("./testing/global-setup.ts", import.meta.url));
 
+/**
+ * Vitest's own per-test default, which is the floor the budget above has to
+ * clear rather than a figure this repository chose.
+ *
+ * READ OFF THE INSTALLED PACKAGE rather than recalled: `testTimeout?: number`
+ * carries `@default 5000` in vitest 5.0.0's own `UserConfig` types, and
+ * CNCORE-280 captured `Error: Test timed out in 5000ms.` from a real run of this
+ * repository's suites. Both agree, so the number is the owner's and the
+ * observation's, not this file's.
+ */
+const VITEST_DEFAULT_TEST_TIMEOUT_MS = 5_000;
+
 function buildsACatalogue(named: string, config: string): boolean {
   return named.startsWith(".")
     ? resolve(dirname(config), named) === BUILDS_A_CATALOGUE
@@ -76,6 +88,28 @@ describe("a suite that builds a catalogue", () => {
     // refusal it is, naming itself.
     const claimed = found.map((config) => suiteDatabaseSuffixAt(dirname(config)));
     expect(new Set(claimed).size).toBe(claimed.length);
+  });
+
+  it("gives its first test a budget a contended machine cannot exhaust", async () => {
+    const unbudgeted = [];
+    for (const config of await suitesWithACatalogue()) {
+      const { testTimeout } = await testBlockOf(config);
+      if (testTimeout === undefined || testTimeout <= VITEST_DEFAULT_TEST_TIMEOUT_MS) {
+        unbudgeted.push(relative(repoRoot, config));
+      }
+    }
+
+    // WHY IT IS THESE SUITES AND NOT EVERY SUITE, and it is the same reason as
+    // below: only these talk to the one PostgreSQL every worktree shares
+    // (ADR-0104). A suite whose work is in its own process is timed against a
+    // machine it is the only claimant on; these are timed against whatever
+    // three other worktrees are doing, and the FIRST test in a file pays the
+    // connection on top (CNCORE-280).
+    //
+    // ABOVE THE DEFAULT, not at any particular figure. What each suite needs is
+    // its own to say; what none of them may do is leave the budget at a number
+    // chosen for a suite that reaches nothing. ADR-0184 carries the measurement.
+    expect(unbudgeted).toStrictEqual([]);
   });
 
   it("orders its files the same way on every run", async () => {

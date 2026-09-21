@@ -111,13 +111,15 @@ export async function testBlockOf(config: string): Promise<TestBlock> {
 
 /**
  * What the sweeps ask a config, which is deliberately not Vitest's whole
- * `UserConfig`: naming the three keys is what makes a sweep reading a fourth a
+ * `UserConfig`: naming the keys is what makes a sweep reading an unlisted one a
  * compile error rather than a silent `undefined`.
  */
 export interface TestBlock {
   setupFiles?: string | string[];
   globalSetup?: string | string[];
   sequence?: { sequencer?: unknown };
+  /** Read by `suite-database-wiring.test.ts`, which holds ADR-0184's floor. */
+  testTimeout?: number;
 }
 
 /**

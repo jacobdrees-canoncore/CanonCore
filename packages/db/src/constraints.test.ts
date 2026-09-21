@@ -49,6 +49,15 @@ import {
  * EVERY TEST NAMES THE CONSTRAINT IT EXPECTS, because `refusal` answers with the
  * name PostgreSQL gave. A write that trips a neighbouring rule then fails here
  * rather than passing as though it had proved the rule in its title.
+ *
+ * RUNNING THIS FILE ALONE PROVES NOTHING ABOUT A FLAKE IN IT (ADR-0184). One of
+ * these failed once under a concurrent `pnpm test` and passed three times after
+ * it, alone and in company -- which is not evidence the rule holds. Every
+ * worktree's suites share one server (ADR-0104), so alone is the condition in
+ * which the server always serves. That record carries what was measured, and
+ * both of the things a test here can otherwise report the machine as: `refusal`
+ * answering a server's condition as a constraint's name, and a per-test budget
+ * set for a suite that reaches nothing.
  */
 let db: Database;
 let ownerId: string;

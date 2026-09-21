@@ -286,6 +286,14 @@ export async function aStatement(
  * "Failed query: ..." and says nothing about which rule bit. Asserting on the
  * wrapper would pass for any failure at all, including a typo in the test's own
  * SQL -- so this walks down to the PostgreSQL error underneath.
+ *
+ * AND IT ANSWERS FOR AN INTEGRITY VIOLATION AND NOTHING ELSE (ADR-0184). It used
+ * to answer with the `message` of whatever error carried a SQLSTATE at all,
+ * which reads as a refusal and is not one: a server that could not RUN the
+ * statement carries a SQLSTATE too, so one came back in the position where the
+ * caller reads the name of the rule that bit. That record carries the
+ * measurement, the population it was taken over, and why a trigger raised
+ * without an errcode lands in the throw below rather than widening the class.
  */
 export async function refusal(write: Promise<unknown>): Promise<string> {
   try {
@@ -296,17 +304,54 @@ export async function refusal(write: Promise<unknown>): Promise<string> {
   throw new Error("expected the database to refuse this write; it accepted it");
 }
 
+/**
+ * THE SQLSTATE CLASS THAT MEANS THE DATABASE REFUSED A WRITE: 23, integrity
+ * constraint violation -- `23503` foreign key, `23505` unique, `23514` check.
+ * A CLASS rather than a list of those three, because the next member is a new
+ * kind of RULE rather than a new kind of answer.
+ *
+ * ASKED OF A FIVE-CHARACTER CODE ONLY, because that is what a SQLSTATE is. The
+ * `code` this reads off an error is whatever the thrower put there, and
+ * node-postgres puts a libuv errno in the same field -- so a prefix test alone
+ * would admit any code beginning `23` and answer with its message, which is the
+ * defect ADR-0184 removes.
+ */
+const INTEGRITY_VIOLATION = "23";
+const SQLSTATE_LENGTH = 5;
+
+function isARefusal(code: string): boolean {
+  return code.length === SQLSTATE_LENGTH && code.startsWith(INTEGRITY_VIOLATION);
+}
+
+/** `SQLSTATE 57014`, or the driver's own field name where the code is not one. */
+function named(code: string): string {
+  return code.length === SQLSTATE_LENGTH ? `SQLSTATE ${code}` : `error code ${code}`;
+}
+
 function describeRefusal(error: unknown): string {
   let current: unknown = error;
+  let reported: { code: string; message: string } | undefined;
   while (current instanceof Error) {
-    const constraint = (current as { constraint?: unknown }).constraint;
-    if (typeof constraint === "string") return constraint;
-    // A trigger's RAISE EXCEPTION carries no constraint name, only a message.
     const code = (current as { code?: unknown }).code;
-    if (typeof code === "string" && code !== "") return current.message;
+    if (typeof code === "string" && code !== "") {
+      if (isARefusal(code)) {
+        const constraint = (current as { constraint?: unknown }).constraint;
+        // A trigger's RAISE EXCEPTION carries no constraint name, only a message.
+        return typeof constraint === "string" ? constraint : current.message;
+      }
+      reported ??= { code, message: current.message };
+    }
     current = current.cause;
   }
-  throw new Error(`not a PostgreSQL refusal: ${String(error)}`);
+  throw new Error(
+    reported === undefined
+      ? `not a PostgreSQL refusal: ${String(error)}`
+      : `the database did not refuse this write, it failed to serve it: ` +
+          `${named(reported.code)}, ${reported.message}. That is a condition of the ` +
+          `server rather than a rule of the schema, so it says nothing about the ` +
+          `constraint this test names.`,
+    { cause: error },
+  );
 }
 
 /**
