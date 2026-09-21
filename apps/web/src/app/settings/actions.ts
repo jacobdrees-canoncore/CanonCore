@@ -10,11 +10,7 @@ import { whatTheProcedureAnswered } from "@/answer";
 import { whatTheFormCarries } from "@/form";
 import { callerContext } from "@/session";
 
-import {
-  REFUSED,
-  REFUSED_SAVING_THE_ALLOWLIST,
-  REFUSED_SAVING_THE_PROVIDERS,
-} from "./refusal";
+import { REFUSED, REFUSED_SAVING_THE_ALLOWLIST, REFUSED_SAVING_THE_PROVIDERS } from "./refusal";
 
 /**
  * SAYING WHAT THIS INSTANCE REACHES, as Server Actions (CNCORE-99).

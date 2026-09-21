@@ -169,42 +169,42 @@ export default async function SettingsPage({
             */}
             {providers.kind === "allowlist-unreadable" ? (
               <p className="mt-4 text-muted-foreground text-sm">
-                This instance <CannotReadTheAllowlist />, so none of these was reached: the
-                boundary that admits a Provider admits nothing it cannot read. Correcting it below
-                is what brings them back.
+                This instance <CannotReadTheAllowlist />, so none of these was reached: the boundary
+                that admits a Provider admits nothing it cannot read. Correcting it below is what
+                brings them back.
               </p>
             ) : null}
             <ul className="mt-4 flex flex-col divide-y">
-            {providers.named.map((provider) => (
-              <li
-                className="flex items-center justify-between gap-4 py-3"
-                data-provider={provider.baseUrl}
-                key={provider.baseUrl}
-              >
-                <div>
-                  {/*
+              {providers.named.map((provider) => (
+                <li
+                  className="flex items-center justify-between gap-4 py-3"
+                  data-provider={provider.baseUrl}
+                  key={provider.baseUrl}
+                >
+                  <div>
+                    {/*
                     THE URL AS THE OWNER TYPED IT, which is the Provider's
                     IDENTITY (ADR-0031) and what the Source row on every
                     imported claim carries. Nothing here tidies it, because two
                     spellings would be two Providers. And not this page's words,
                     so it wraps where one of them would not (ADR-0142).
                   */}
-                  <p className="text-sm">
-                    <TheirWords>{provider.baseUrl}</TheirWords>
-                  </p>
-                  {"reach" in provider ? <ReachNotice reach={provider.reach} /> : null}
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  {"reach" in provider ? <UnlockAt reach={provider.reach} /> : null}
-                  <form action={removeProvider}>
-                    <input name="baseUrl" type="hidden" value={provider.baseUrl} />
-                    <Button size="sm" type="submit" variant="outline">
-                      Remove
-                    </Button>
-                  </form>
-                </div>
-              </li>
-            ))}
+                    <p className="text-sm">
+                      <TheirWords>{provider.baseUrl}</TheirWords>
+                    </p>
+                    {"reach" in provider ? <ReachNotice reach={provider.reach} /> : null}
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {"reach" in provider ? <UnlockAt reach={provider.reach} /> : null}
+                    <form action={removeProvider}>
+                      <input name="baseUrl" type="hidden" value={provider.baseUrl} />
+                      <Button size="sm" type="submit" variant="outline">
+                        Remove
+                      </Button>
+                    </form>
+                  </div>
+                </li>
+              ))}
             </ul>
           </>
         )}
@@ -575,8 +575,8 @@ function WhyNotAllowed({ because }: { because: WhyTheAllowlistWasRefused }) {
     case "allowlist-not-a-cidr":
       return (
         <>
-          it is not an address range this instance can read. A range is an address and a prefix,
-          as in <span className="font-medium">100.64.0.0/10</span>.
+          it is not an address range this instance can read. A range is an address and a prefix, as
+          in <span className="font-medium">100.64.0.0/10</span>.
         </>
       );
     default: {
