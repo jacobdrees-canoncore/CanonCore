@@ -31,6 +31,19 @@ whole corpus landed in roughly ELEVEN MINUTES**, measured 2026-09-15 into the Ow
 Everything this record decides about resuming still holds: what was wrong was the size of the job,
 not the need to survive losing it.
 
+**MIGRATION 18'S PROSE STILL CARRIES THE SUPERSEDED ESTIMATE, AND CANNOT BE CORRECTED WHERE IT
+STANDS.** The rung repeats the sentence above almost word for word, and
+[[0047-migrations-are-a-forward-only-ladder]]'s freeze check hashes every applied rung against
+Drizzle's ledger: editing it fails `db:check-ladder` on every database that has run it, the Owner's
+install included. It is the same wall
+[[0134-a-sort-name-is-derived-by-stripping-a-leading-article]] met, and the same answer -- the rung
+was frozen the moment a release applied it, which is that record's rule working rather than an
+obstacle to route around. So the correction lives here, and
+[[0195-a-corrected-figure-is-held-by-a-check-rather-than-by-another-sweep]]'s check REPORTS that rung
+by name rather than refusing it, holding the set to exactly one so a new rung stating the figure is
+caught while it can still be edited. A reader of migration 18 owes it eleven minutes, not the
+estimate it quotes, and nobody should try to fix it there (CNCORE-327).
+
 ## The run is rows, at the grain of one Container
 
 Migration 18: `import_runs` carries which Provider the walk is at, and `import_run_containers`

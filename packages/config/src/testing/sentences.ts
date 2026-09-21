@@ -90,20 +90,23 @@ export function sentencesOf(block: string): string[] {
  * MARKDOWN IS LEFT ALONE, because `#` opens a heading there and `*` opens a
  * bold span, and stripping either would rewrite the document being read.
  *
- * `--` IS STRIPPED TOO, WHICH `tree-figures.ts` HAS NO CALLER FOR. It is SQL's
- * line comment, and the migration ladder is the one population whose prose is
- * unamendable (ADR-0047): a rung's sentences can only ever be READ, so a reader
- * that cannot see into them is a reader blind to the one place a correction
- * can never land.
+ * `--` IS STRIPPED FOR `.sql` AND ONLY THERE. It is SQL's line comment, and the
+ * migration ladder is the one population whose prose is unamendable (ADR-0047):
+ * a rung's sentences can only ever be READ, so a reader that cannot see into
+ * them is blind to the one place a correction can never land. SCOPED TO THE
+ * EXTENSION rather than applied everywhere, because YAML opens a document with
+ * `---` and a blanket strip turns that into `-` -- a real collision with
+ * `ci.yml`, which `tree-figures.ts` reads, found when this module was folded
+ * into that one.
  *
  * `//` IS STRIPPED AT THE LINE START ONLY, because `https://` is two of the
  * same characters in the middle of a word.
  */
 export function withoutCommentLeaders(path: string, text: string): string {
   if (path.endsWith(".md")) return text;
-  return text
+  const stripped = path.endsWith(".sql") ? text.replace(/^[ \t]*--[ \t]?/gm, "") : text;
+  return stripped
     .replace(/^[ \t]*\/\*+[ \t]?/gm, "")
     .replace(/^[ \t]*\/\/[ \t]?/gm, "")
-    .replace(/^[ \t]*--[ \t]?/gm, "")
     .replace(/^[ \t]*(?:\*|#)[ \t]?/gm, "");
 }

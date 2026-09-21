@@ -21,7 +21,9 @@ The three that crossed, and what each one kept:
 | --- | --- | --- | --- |
 | `git ls-files` over the tracked tree | 5 files, 7 sites | `testing/tracked-files.ts` | pathspec, ~~comment stripping~~, test-file filter, non-emptiness guard |
 | `readdirSync` over `docs/adr/` with `/^(\d{4})-/` | 5 files, 7 sites | `testing/adr-records.ts` | status parse, decision-block split, identifier scan, self-exclusion |
-| `text.replace(/\s+/g, " ").trim()` | 3 files | `testing/flatten.ts` | comment-leader stripping, in `tree-figures.ts` alone |
+| `text.replace(/\s+/g, " ").trim()` | 3 files | `testing/flatten.ts` | ~~comment-leader stripping, in `tree-figures.ts` alone~~ |
+| comment-leader stripping | 2 files | `testing/sentences.ts` | the `--` step, for `.sql` alone |
+| cutting a document into blocks and sentences | 2 files | `testing/sentences.ts` | nothing |
 
 **COMMENT STRIPPING LEFT THAT LIST UNDER CNCORE-300, which is why it is struck through above rather
 than quietly edited.** It was kept by the callers here because the five disagreed about it, and that
@@ -119,9 +121,28 @@ directory's, every path it returns opens, no empty string survives the split, a 
 within the same population, an exclusion excludes, and `isTrackedAs` is false for a directory --
 the near miss where a directory pathspec matches its children and a rename reads as fine.
 
-**A CALLER THAT NEEDS MORE WRAPS THESE RATHER THAN REWRITING THEM.** `tree-figures.ts` is the worked
-example: it strips the ` * ` and ` # ` leaders a wrap inserts into a JSDoc or YAML comment, then
-calls `flatten`. That is a caller of the shared read, not a fourth copy of it.
+**A CALLER THAT NEEDS MORE WRAPS THESE RATHER THAN REWRITING THEM.** `tree-figures.ts` was the
+worked example: it stripped the ` * ` and ` # ` leaders a wrap inserts into a JSDoc or YAML comment,
+then called `flatten`.
+
+**AND THE LEADER STEP THEN CROSSED THE LINE ITSELF, WHICH IS WHY ITS CELL ABOVE IS STRUCK THROUGH
+RATHER THAN QUIETLY EDITED** (CNCORE-327). "In `tree-figures.ts` alone" was true for as long as one
+file needed it. `corpus-import-cost.test.ts` needed the identical three replacements, byte for byte,
+plus a fourth for SQL, and wrote them out a second time -- the duplication this record exists to
+refuse, arriving in the cell that said it could not. It is now in `testing/sentences.ts` and
+`tree-figures.ts` calls it, so the worked example above is a caller of TWO shared reads and still
+not a copy of either.
+
+**THE `--` STEP IS SCOPED TO `.sql` AND THAT IS NOT TIDINESS.** The ladder is the one population
+whose prose is unamendable ([[0047-migrations-are-a-forward-only-ladder]]), so a reader blind to
+SQL's leader is blind to the one place a correction can never land. Applied everywhere it would
+turn YAML's `---` document separator into `-`, in `ci.yml`, which `tree-figures.ts` reads -- a
+collision found by making this fold rather than by reasoning about it.
+
+**THE CUT IS WHERE THE SECOND CALLER ARRIVED, NOT WHERE A THIRD MIGHT.** Two callers is the
+threshold this record already set for these reads; `sentences.ts` crossed it with two and carries a
+suite of its own, because what is worth one home here is not the expression but the measurements
+above it.
 
 ## What this does not decide
 

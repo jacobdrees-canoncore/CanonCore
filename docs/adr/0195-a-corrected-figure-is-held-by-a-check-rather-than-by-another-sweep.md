@@ -57,11 +57,17 @@ both directions: it survives a rename by matching nothing, and survives a rewrit
 whatever replaced the prose. A document that quotes the estimate in order to correct it is covered
 here without being named, and on the day it stops correcting it, it is not.
 
-**The window is the sentence and the ones either side of it, bounded by the block**, which is
-`terminal-send-hazards.test.ts`'s bound and `CLAUDE.md`'s rule: "Put the correction in the sentence
-it corrects -- placed beside one, it leaves the old claim standing." A document-level check would
-pass ADR-0135 on the strength of a correction three sections away from the estimate, which is the
-shape that rule exists to refuse.
+**THE UNIT IS THE SENTENCE**, which is `CLAUDE.md`'s rule in its own words: "Put the correction in
+the sentence it corrects -- placed beside one, it leaves the old claim standing." A document-level
+check would pass ADR-0135 on the strength of a correction three sections away from the estimate,
+which is the shape that rule exists to refuse.
+
+**A WINDOW OF THE NEIGHBOURING SENTENCES WAS TRIED FIRST, AND WAS LOOSER THAN THE RULE IT
+ENFORCES.** The word `largest` stands in 69 tracked files, so a window let any neighbour carrying it
+for an unrelated reason excuse a live claim beside it: "The largest Ordering holds 500 Placements."
+would have exempted a stale sentence sitting next to it. The code review on this ticket found that,
+and tightening cost nothing -- measured across the whole tree, every statement that passes the
+window rule passes the sentence rule too, so the looser bound was buying only the loophole.
 
 **What counts as the correction is ADR-0135's and ADR-0137's own vocabulary**, not this check's
 invention: the measured **eleven minutes**, or 43.8s named as the **LARGEST** page rather than a
@@ -121,6 +127,11 @@ name moves, which is the honest trade and not a gap.
   ADR-0133's "five and a half TIMES" and `docs/research/resolution/resolve-X1-X6.md`'s "five and a
   half YEARS" both wear the words and neither is this figure. The unit is what separates them, and
   both were measured as false positives before the pattern carried it.
+- **A PRODUCT SPLIT ACROSS TWO SENTENCES IS INVISIBLE, BY CONSTRUCTION.** The arithmetic is caught
+  by both factors standing in ONE sentence, so "the corpus is 465 Containers. Each browse cost
+  43.8s." asserts the same thing and matches nothing. Widening the unit is what the paragraph above
+  refuses for the correction, and it cannot be one thing here and another there: the sentence is the
+  unit or it is not. Named here so the next reader meets it as a decision rather than as a hole.
 - **THE NUMERIC SPELLINGS ARE REFUSED BEFORE ANYTHING WRITES THEM.** Nothing in this tree spells the
   superseded figure in digits -- as `5.5`, as a fraction or with a vulgar half, each against the
   word `hours` -- and the measured cost those forms would be wrong about is eleven minutes. They are
@@ -159,10 +170,16 @@ see. Correcting the ticket's premise was the first thing the check did.
   phrase broken across a 100-column wrap, the arithmetic with no words, the shouted-and-hyphenated
   form, and a numeric one nothing has yet written. **Grep found zero of the four; the check went red
   on all four.**
+- **That plant is no longer the evidence, which is the change the code review bought.** It was a
+  measurement taken once, by hand, into a file then restored -- everything it proved stopped
+  existing with it. `corpus-import-cost.test.ts` now carries a row per spelling and a row per near
+  miss, so fourteen forms and five things that merely wear the words are checked on every run.
+  ADR-0133's "five and a half TIMES" and a research document's "five and a half YEARS" are two of
+  the rows rather than a sentence promising somebody once looked.
 - **The floor shown red by emptying the swept list**, and the rule shown green over that same empty
   list, which is the measurement the floor section above rests on.
 - **The frozen-rung set shown red by pointing its name at a rung the ladder does not hold.**
-- `pnpm --filter @canoncore/config test`: 38 files, 371 tests, green. The new suite moved
+- `pnpm --filter @canoncore/config test`: 39 files, 409 tests, green. The new suite moved
   `suitesReadingTheRepository` from 34 to 35 and `tree-figures.test.ts` caught both restatements of
   the old count in `turbo-cache-inputs.test.ts` -- the drift mechanism catching this record's own
   change, unprompted.

@@ -577,7 +577,8 @@ describe("a figure this tree states about itself", () => {
   it("counts the suites in this package that read the repository at large", () => {
     // Thirty-five since CNCORE-327, whose `corpus-import-cost.test.ts` sweeps every
     // tracked TEXT file -- source, prose and the frozen migration ladder alike --
-    // for the superseded cost of importing the corpus. Thirty-four since CNCORE-258, whose `stacked-docblocks.test.ts` sweeps every
+    // for the superseded cost of importing the corpus. Thirty-four since
+    // CNCORE-258, whose `stacked-docblocks.test.ts` sweeps every
     // tracked source for a docblock standing on another. Thirty-three since
     // CNCORE-295, whose `dispatch-monitor.test.ts` runs the dispatcher's monitor out
     // of `.claude/skills/dispatch/`. Thirty-two since CNCORE-313, whose

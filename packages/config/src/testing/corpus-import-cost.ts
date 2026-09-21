@@ -41,10 +41,27 @@ import { isTrackedAs, trackedFiles } from "./tracked-files";
  *
  * THE NUMERIC FORMS ARE HERE BEFORE ANYTHING WRITES THEM, which is the one
  * place this reader looks past today's tree. A sweep is defeated by the
- * spelling nobody thought of, so `5.5 hours`, `5 1/2 hours` and `5½ hours` are
+ * spelling nobody thought of, so the digit forms and `five point five` are
  * refused now rather than after the next miss.
+ *
+ * THE SEPARATOR CLASS CARRIES NON-ASCII HYPHENS, and that is not decoration:
+ * this tree's prose is full of `--` and en dashes, an editor that
+ * "smartens" punctuation turns `five-and-a-half` into a NON-BREAKING hyphen,
+ * and `[\s-]` would then match none of it. A spelling that renders identically
+ * to the eye and not to the pattern is the exact failure this check exists to
+ * end.
+ *
+ * THE UNIT TAKES `hrs` AS WELL AS `hours`, because an abbreviation is a
+ * spelling and the whole argument of this module is that the next miss is a
+ * spelling nobody enumerated.
  */
-const THE_WORDS = /(?:five[\s-]+and[\s-]+a[\s-]+half|5\.5|5[\s-]*1\/2|5½)[\s-]*hour/i;
+const HYPHEN = "[\\s\\u002d\\u2010-\\u2015\\u2212\\u00ad]";
+
+const THE_WORDS = new RegExp(
+  `(?:five${HYPHEN}+and${HYPHEN}+a${HYPHEN}+half|five${HYPHEN}+point${HYPHEN}+five|5\\.5|5${HYPHEN}*1/2|5½)` +
+    `${HYPHEN}*(?:hour|hr)`,
+  "i",
+);
 
 /**
  * THE SAME QUANTITY STATED AS ARITHMETIC, WITH NO WORDS TO GREP FOR.
@@ -62,41 +79,70 @@ const THE_WORDS = /(?:five[\s-]+and[\s-]+a[\s-]+half|5\.5|5[\s-]*1\/2|5½)[\s-]*
  * `tables.ts:849` and ADR-0033 are two of them. They pass because they say
  * which figure is which, which is the whole of the correction; a sentence that
  * puts both down and says neither is the defect.
+ *
+ * TWO TESTS RATHER THAN ONE PATTERN WITH A GAP IN THE MIDDLE, and the first
+ * draft was the gap. It read `465[^.]{0,160}?43\.8`, bounding the span with
+ * "no full stop" to keep it inside a sentence -- which the CALLER already
+ * guarantees, since what arrives here IS one sentence. So the exclusion bought
+ * nothing and cost real matches: any decimal between the two factors ends the
+ * span, and "465 Containers, each 25.5s to 43.8s" went unmatched. Asking for
+ * both factors says what the rule means and has no distance limit to be wrong
+ * about.
  */
-const THE_ARITHMETIC = /465[^.]{0,160}?43\.8|43\.8[^.]{0,160}?465/;
+const isTheArithmetic = (sentence: string): boolean =>
+  /\b465\b/.test(sentence) && /\b43\.8/.test(sentence);
 
 /**
- * THIS MODULE, WHICH CANNOT BE ITS OWN SUBJECT.
+ * THE CHECK'S OWN TWO FILES, WHICH CANNOT BE ITS OWN SUBJECT.
  *
  * The patterns above ARE the spellings they refuse -- there is no way to write
- * a reader for a phrase without writing the phrase -- so sweeping this file
- * hands its own regexes back to it as findings. That was not foreseen: it was
- * MEASURED on 2026-09-21, when the first commit of this work turned three
- * untracked files into tracked ones and the check went red naming its own
- * source, having been green through every run before it while `git ls-files`
- * could not see them.
+ * a reader for a phrase without writing the phrase -- and the suite beside it
+ * holds a fixture row per spelling, which is the same sentence again. Sweeping
+ * either hands the check its own working parts back as findings.
  *
- * THE RECORD IS NOT EXEMPT AND THE SUITE IS NOT EITHER, which is the line worth
- * drawing. ADR-0195 explains this rule and states the figure repeatedly, and
- * every one of those sentences carries the correction, because a record that
- * could not live under its own rule would be a rule nobody should keep. Only
- * the file that IS the pattern is excused.
+ * BOTH WERE MEASURED RATHER THAN FORESEEN, on 2026-09-21, and separately. The
+ * first commit turned three untracked files tracked at once and the run went
+ * red naming this module's regexes, having been green before only because
+ * `git ls-files` could not yet see them. The suite followed the same way: it
+ * stated no spelling until a code review asked for the hand-planted evidence to
+ * become rows, and the rows put the spellings in the tree.
+ *
+ * THE RECORD IS NOT EXEMPT, which is the line worth drawing. ADR-0195 explains
+ * this rule and states the figure repeatedly, and every one of those sentences
+ * carries its correction, because a record that could not live under its own
+ * rule would be a rule nobody should keep. Only the two files that ARE the
+ * check are excused.
  *
  * GUARDED BY `isTrackedAs` FOR THE REASON IT EXISTS: "an exclusion that stops
  * excluding reports nothing by its nature". A literal path goes stale in
- * silence on a rename -- handing this file's own regexes to the rule as
+ * silence on a rename -- handing these files' own spellings to the rule as
  * findings, which is the loud direction -- and `adr-as-built.test.ts` and
  * `adr-identifiers.test.ts` each carry the same guard for the same
  * self-exclusion.
  */
-const THIS_READER = "packages/config/src/testing/corpus-import-cost.ts";
+const THE_CHECKS_OWN_FILES = [
+  "packages/config/src/testing/corpus-import-cost.ts",
+  "packages/config/src/corpus-import-cost.test.ts",
+];
 
-/** A sentence stating the superseded cost, and the block-bounded window it sits in. */
+/** A sentence stating the superseded cost, and where it stands. */
 export interface Statement {
   readonly path: string;
   readonly sentence: string;
-  readonly beside: string;
 }
+
+/**
+ * Whether one sentence states the superseded cost, in any spelling.
+ *
+ * EXPORTED SO THE SPELLINGS ARE FIXTURE ROWS RATHER THAN A CLAIM IN PROSE. The
+ * first version of this module was argued entirely from a hand plant into
+ * `import-runs.ts` -- a measurement taken once, by a person, into a file that
+ * was then restored. Everything it proved is proved again on every run now, and
+ * the near misses this pattern must NOT match ("five and a half TIMES", "five
+ * and a half YEARS") are rows rather than a sentence promising somebody checked.
+ */
+export const statesTheSupersededCost = (sentence: string): boolean =>
+  THE_WORDS.test(sentence) || isTheArithmetic(sentence);
 
 /**
  * Every tracked file this tree holds as TEXT.
@@ -111,12 +157,7 @@ export interface Statement {
  */
 function trackedText(): { path: string; text: string }[] {
   return trackedFiles().flatMap((path) => {
-    let text: string;
-    try {
-      text = readFileSync(join(repoRoot, path), "utf8");
-    } catch {
-      return [];
-    }
+    const text = readFileSync(join(repoRoot, path), "utf8");
     return text.includes("\0") ? [] : [{ path, text }];
   });
 }
@@ -137,37 +178,35 @@ export function filesSwept(): number {
 /**
  * Every sentence in the tracked tree that states the superseded cost.
  *
- * THE WINDOW IS THE SENTENCE AND THE ONES EITHER SIDE OF IT, WITHIN ONE BLOCK,
- * never the document -- `terminal-send-hazards.test.ts`'s bound and its reason.
- * A correction three sections away from an estimate is the shape `CLAUDE.md`
- * refuses in as many words: "placed beside one, it leaves the old claim
- * standing."
+ * THE SENTENCE IS THE UNIT, never the paragraph and never the document, which
+ * is `CLAUDE.md`'s rule in its own words: "Put the correction in the sentence it
+ * corrects -- placed beside one, it leaves the old claim standing."
+ *
+ * A WINDOW OF THE NEIGHBOURING SENTENCES WAS TRIED FIRST AND WAS LOOSER THAN
+ * THE RULE IT ENFORCES. `largest` stands in 69 tracked files, so a window let
+ * any neighbour carrying that word for an unrelated reason excuse a live claim
+ * beside it -- "The largest Ordering holds 500 Placements." would have exempted
+ * a stale sentence sitting next to it. Tightening cost nothing: measured across
+ * the whole tree on 2026-09-21, every statement that passes the window rule
+ * passes the sentence rule too, so the looser bound was buying only the
+ * loophole.
  */
 export function statementsOfTheSupersededCost(): Statement[] {
-  if (!isTrackedAs(THIS_READER)) {
+  const moved = THE_CHECKS_OWN_FILES.filter((path) => !isTrackedAs(path));
+  if (moved.length > 0) {
     throw new Error(
-      `${THIS_READER} is not tracked under that path, so this check's own patterns would be ` +
-        "swept as findings. Move the exclusion with the file.",
+      `${moved.join(", ")} is not tracked under that path, so this check's own spellings would ` +
+        "be swept as findings. Move the exclusion with the file.",
     );
   }
   return trackedText()
-    .filter(({ path }) => path !== THIS_READER)
+    .filter(({ path }) => !THE_CHECKS_OWN_FILES.includes(path))
     .flatMap(({ path, text }) =>
       blocksOf(withoutCommentLeaders(path, text))
         .map(sentencesOf)
         .flatMap((sentences) =>
-          sentences.flatMap((sentence, index) =>
-            THE_WORDS.test(sentence) || THE_ARITHMETIC.test(sentence)
-              ? [
-                  {
-                    path,
-                    sentence,
-                    beside: [sentences[index - 1] ?? "", sentence, sentences[index + 1] ?? ""].join(
-                      " ",
-                    ),
-                  },
-                ]
-              : [],
+          sentences.flatMap((sentence) =>
+            statesTheSupersededCost(sentence) ? [{ path, sentence }] : [],
           ),
         ),
     );
@@ -221,9 +260,12 @@ const THE_CORRECTION =
  */
 export function statementsReadingAsALiveCost(): Statement[] {
   return statementsOfTheSupersededCost().filter(
-    ({ path, beside }) => !isFrozenProse(path) && !THE_CORRECTION.test(beside),
+    ({ path, sentence }) => !isFrozenProse(path) && !carriesItsCorrection(sentence),
   );
 }
+
+/** Whether a sentence stating the superseded cost also says what is true. */
+export const carriesItsCorrection = (sentence: string): boolean => THE_CORRECTION.test(sentence);
 
 /**
  * The rung whose prose states the superseded cost and can never be edited.
