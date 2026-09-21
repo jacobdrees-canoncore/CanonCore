@@ -69,7 +69,8 @@ import { repoRoot } from "./testing/repo-root";
  * since CNCORE-313 rather than a copy of a neighbour's (ADR-0190). It steps around a
  * measured false positive: CNCORE-247 counted record 0001 as cited when its only
  * match was the synthetic fixture `0001-a.md` inside
- * `doc-line-citations.test.ts`. Source comments are the population
+ * `doc-line-citations.test.ts`, which is in `testing/markdown-corpus.test.ts`
+ * since CNCORE-313. Source comments are the population
  * `adr-as-built.test.ts` reads, and a dead one there is not caught here.
  */
 /** The heading the amnesty lives under, in `docs/research/README.md`. */

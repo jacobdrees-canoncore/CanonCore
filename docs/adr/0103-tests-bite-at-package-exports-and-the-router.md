@@ -1605,26 +1605,27 @@ package.
 documents and once for the recursive read under `docs/` -- so a symlinked document read back
 `isFile= false isSymbolicLink= true` and entered neither list. Measured on node v24.19.0.
 
-**AND IT WAS NOT MERELY UNREAD, WHICH IS WHAT MAKES THIS WORSE THAN THE TWO ABOVE.** `prose()` feeds
-the `held` set that decides which PATH and bare-filename citations this sweep BANS, and a target
-missing from `held` is read as HISTORY -- the exemption `docs/research/README.md` earns for files
-this tree does not hold, because an edit here cannot move a file that is not here. A symlinked
-document IS here and an edit here DOES move its lines. So a path citation into one was not left
-unchecked; it was affirmatively excused, by a rule written to excuse something else. The two NUMBER
-forms, a record cited as `ADR-` plus its number and by its bare number, were never affected: they
-resolve through `recordsByNumber`, which reads names without `Dirent` and so already counted a
-symlinked record. That read is `testing/adr-records.ts`'s since CNCORE-294
-([[0171-the-fold-is-of-the-read-not-of-the-question-it-answers]]); `recordsByNumber` is now a
-projection over it and the sentence holds unchanged, because the fold kept the `Dirent`-free read.
+**AND IT WAS NOT MERELY UNREAD, WHICH IS WHAT MAKES THIS WORSE THAN THE TWO ABOVE.** `prose()`,
+which is `proseIn` since CNCORE-313, feeds the `held` set that decides which PATH and bare-filename
+citations this sweep BANS, and a target missing from `held` is read as HISTORY -- the exemption
+`docs/research/README.md` earns for files this tree does not hold, because an edit here cannot move
+a file that is not here. A symlinked document IS here and an edit here DOES move its lines. So a
+path citation into one was not left unchecked; it was affirmatively excused, by a rule written to
+excuse something else. The two NUMBER forms, a record cited as `ADR-` plus its number and by its
+bare number, were never affected: they resolve through `recordsByNumber`, which reads names without
+`Dirent` and so already counted a symlinked record. That read is `testing/adr-records.ts`'s since
+CNCORE-294 ([[0171-the-fold-is-of-the-read-not-of-the-question-it-answers]]); `recordsByNumber` is
+now a projection over it and the sentence holds unchanged, because the fold kept the `Dirent`-free
+read.
 
 **CNCORE-201'S REASON DOES NOT TRANSFER, AND CNCORE-200'S DOES -- WITH A READER THE TICKET SAID A
 DOCUMENT LACKS.** CNCORE-201 refuses a symlinked Vitest config because `isInside` places a config by
-its PATH and a symlink is a spelling of a climb that path cannot show. `prose()` has no placement
-rule at all -- a document's path is simply its name -- so that reason is absent. CNCORE-200 refuses
-a symlinked package directory because pnpm and turbo answer differently about it, and the ticket
-expected no such pair here, since `readFileSync` follows the link and so does every editor. That
-premise was measured and is false: git is the second reader, and it does not follow the link. So the
-argument is CNCORE-200's, and the readers and what they disagree about are new.
+its PATH and a symlink is a spelling of a climb that path cannot show. `prose()` (now `proseIn`)
+has no placement rule at all -- a document's path is simply its name -- so that reason is absent.
+CNCORE-200 refuses a symlinked package directory because pnpm and turbo answer differently about it,
+and the ticket expected no such pair here, since `readFileSync` follows the link and so does every
+editor. That premise was measured and is false: git is the second reader, and it does not follow the
+link. So the argument is CNCORE-200's, and the readers and what they disagree about are new.
 
 **WHAT IS REFUSED IS A DOCUMENT THIS REPOSITORY HOLDS TWO ANSWERS FOR ABOUT ITS LINES**, which is
 the one thing this sweep is entirely about. Measured 2026-09-19 on git 2.54.0 (Apple Git-157) and
@@ -1684,10 +1685,12 @@ throw ENOENT out of the sweep at a line naming a path and no reason.
 **ASKED DIRECTLY, AND CHECKED BY MUTATION RATHER THAN BY BEING GREEN.** No markdown document in this
 repository is a symlink, so the repository is the one place the question cannot be put: the read is
 `markdownIn(directory, { recursive })`, taking an absolute path so a scratch tree drives every row.
-The rows sit in `doc-line-citations.test.ts` beside the rule rather than moving to `testing/`,
-because only this sweep lists markdown this way; `isWorkspacePattern` moved only once a SECOND sweep
-descended from it. Six mutations against CNCORE-204's finished branch, each reddening the rows that
-name it and no others:
+The rows sat in `doc-line-citations.test.ts` beside the rule rather than moving to `testing/`,
+because only this sweep listed markdown this way; `isWorkspacePattern` moved only once a SECOND
+sweep descended from it. CNCORE-259 was that second sweep, and the rows moved under CNCORE-313 to
+`testing/markdown-corpus.test.ts`, beside the reader every prose sweep now reads through
+([[0190-the-prose-corpus-is-named-once-and-claude-is-prose]]). Six mutations against CNCORE-204's
+finished branch, each reddening the rows that name it and no others:
 
 * **No refusal at all** -- the defect this ticket names -- reddens four: the root document, the
   nested one, every-offender-named, and the dangling one.
@@ -1797,8 +1800,9 @@ whose files git holds at their own paths. No directory under `docs/` is a symlin
 **THE PINNED ROW IS GONE, AND THE ONES REPLACING IT ARE CHECKED BY MUTATION.** The row "is
 descended rather than dropped, so its documents are swept under it" pinned the descent as a
 boundary marker. It passed on exactly what this ticket calls wrong, and it is flipped into the
-first refusal row. Seven rows now ask the shape directly, beside the section above's rows in
-`doc-line-citations.test.ts`. Measured against the finished branch, with 14 tests in the file:
+first refusal row. Seven rows now ask the shape directly, beside the section above's rows, in
+`doc-line-citations.test.ts` then and in `testing/markdown-corpus.test.ts` since CNCORE-313.
+Measured against the finished branch, with 14 tests in the file:
 
 * **Following the link**, which is the defect, reddens four: the refusal, the unreadable target,
   the cycle, and every-offender-named (`4 failed | 10 passed (14)`).

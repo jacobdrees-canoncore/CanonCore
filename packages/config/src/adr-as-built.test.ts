@@ -32,7 +32,8 @@ import { isTrackedAs, trackedFiles } from "./testing/tracked-files";
  * this a question about CODE depending on a record rather than about prose
  * cross-referencing it. It also steps around a measured false positive: CNCORE-247
  * first counted ADR-0001 as cited, and its only match was the synthetic fixture
- * named `0001-a.md` inside `doc-line-citations.test.ts`.
+ * named `0001-a.md` inside `doc-line-citations.test.ts`, which is in
+ * `testing/markdown-corpus.test.ts` since CNCORE-313.
  *
  * COMMENTS ARE NOT STRIPPED, which is the opposite of what `ui-callers.test.ts`
  * does and for the opposite reason. A citation of a record lives in a comment
