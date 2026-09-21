@@ -141,6 +141,11 @@ const IMPLEMENTED_BY: Implementation[] = [
     file: "packages/env/src/server.ts",
     holds: "the copy `createEnv` empties, in place of the process's own environment",
   },
+  {
+    adr: "0181",
+    file: ".claude/skills/dispatch/gate.sh",
+    holds: "the head resolved and asked about by name, in place of the pull request's own rollup",
+  },
 ];
 
 /**

@@ -98,8 +98,11 @@ OWNER and reads what that owner says today. It ruled 11 claims contradicted on 2
 
 ## Gotchas
 
-- **CI tells you less than it looks.** A conflicted PR gets NO run rather than a red one, and a job
-  that dies on one word names a registry. Both, with `actionlint`, in `.claude/rules/workflows.md`.
+- **CI tells you less than it looks.** A check is evidence only for the commit it ran against, so a
+  REBASED PR shows the old head's green while nothing has run on what would merge (ADR-0181); a
+  conflicted one gets no run at all; a job that dies on one word names a registry. Gate every merge
+  with `.claude/skills/dispatch/merge-if-green.sh`. The rest, with `actionlint`, in
+  `.claude/rules/workflows.md`.
 - **`main`'s history is enforced; its CI is not.** A ruleset refuses deletion and force-push on
   `main`, admin bypass on, so it stops accident rather than intent. There are no required checks
   and no required review, so a merge gate is still convention: do not assume a check blocked

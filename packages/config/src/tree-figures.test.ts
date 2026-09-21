@@ -563,10 +563,14 @@ describe("a figure this tree states about itself", () => {
   });
 
   it("counts the suites in this package that read the repository at large", () => {
-    // Twenty-eight since CNCORE-300, whose `without-comments.test.ts` sweeps every
-    // tracked source to prove the scan leaves no docblock standing, and
-    // twenty-nine since CNCORE-298 added `bounded-parameters.test.ts`.
-    expect(suitesReadingTheRepository()).toBe(29);
+    // Thirty, and it was twenty-eight this morning. CNCORE-300's
+    // `without-comments.test.ts` sweeps every tracked source to prove the scan
+    // leaves no docblock standing; CNCORE-298 added `bounded-parameters.test.ts`;
+    // CNCORE-288 added `merge-gate.test.ts`, which runs the dispatcher's merge
+    // gate out of `.claude/skills/dispatch/` and so reaches for the tree. The
+    // last two landed the same day and each read the other's figure as its own,
+    // which is the collision ADR-0153 calls a rung.
+    expect(suitesReadingTheRepository()).toBe(30);
   });
 
   it("counts the hand-built redirects ADR-0109's rule governs, per file", () => {
