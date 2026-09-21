@@ -197,7 +197,7 @@ missing:
   sharing a label. That is green against the query as written, and it is there for what a later
   reading of that answer would do -- two identical rows look like a redundancy, and a `distinct` or a
   group-by on the label would drop one. VERIFIED BY BREAKING IT: deduping the answer on the label
-  turns `Tests 292 passed (292)` into `Tests 1 failed | 291 passed (292)`, and the one is this test.
+  turns a green run into `Tests 1 failed`, and the one is this test.
 - **The page renders one notice per row.** Two sources sharing a label, each owing a notice on one
   item, put TWO notices under Sources in the served HTML. COUNTED OFF THE ROWS RATHER THAN THE
   NOTICE TEXT, because two instances of one provider declare ONE licence -- the sentence is

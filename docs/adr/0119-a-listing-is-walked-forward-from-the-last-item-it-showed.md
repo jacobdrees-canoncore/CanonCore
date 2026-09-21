@@ -598,7 +598,7 @@ nobody NAMED has no key either and sits at the end of the order as one block, re
 three keys behind it. `deletedAt` alone would refuse an anchor whose key a delete had left alone; a
 null key alone would refuse the unnamed Container. **THERE IS A TEST FOR EACH HALF NOW, and this
 sentence said so before it was true.** Until CNCORE-195 only the second half had one: refusing on the
-tombstone alone passed 91 of 91 tests across the four anchor reads' files. A deleted anchor whose key
+tombstone alone passed every test across the four anchor reads' files. A deleted anchor whose key
 survived is a row a test can produce -- migration 5 tombstones an item's statements only at the
 moment `deleted_at` is set, so a title asserted afterwards is live and projects the key back -- and
 the catalogue's walk is now asserted to resume past one. That is the only test the tombstone-alone
@@ -1012,7 +1012,7 @@ that the tests reach the declaration. Each of these was run and read rather than
 - **Refusing on the NULL ALONE** fails the untitled-container walk and resume, two tests, and the
   catalogue's walk into its untitled tail, one.
 - **Refusing on the TOMBSTONE ALONE** fails exactly one test, the one this ticket added, and passed
-  91 of 91 before it existed. The section on "Also appears in" now says why it could be written.
+  every one of them before it existed. The section on "Also appears in" now says why it could be written.
 - **Refusing EVERY anchor** fails 25 tests across all four reads' files: the catalogue 4, Catalogue
   search 6, a Container's members 4 and "Also appears in" 11. That is the evidence that every anchor
   read applies the predicate, rather than only the two whose orders declare something.
@@ -1209,14 +1209,14 @@ be written against the new one at all.
 
 **Against the two-query shape this replaces**, where the new assertions were written: the standalone
 count over `items` with its `where` taken off failed all three contract assertions and NOTHING else
-in the api suite — 3 failed, 199 passed — so those assertions are the only readers of that position
+in the api suite — 3 failed — so those assertions are the only readers of that position
 at that seam. The container count's join moved to `placements.containerId`, the mirror Listing's
 join and the copy that file was one edit away from, failed the package-export assertion and nothing
 else, `expected 4 to be 3`: the deleted member counted, visible ONLY where no Row carries the size.
 
 **Against the shape as built, the first of those cannot be written** — there is no standalone count
 to take a `where` off — and the mutation that reaches the same position is `askedOnItsOwn` answering
-zero: 3 failed, 199 passed in the api suite, all three the new assertion, and 2 failed, 327 passed at
+zero: 3 failed in the api suite, all three the new assertion, and 2 failed at
 the package export, which is a Container's members and "Also appears in". All five Listings have a
 live assertion on the size's second position. **AND THE SECOND MUTATION NOW FAILS TWICE AND EARLIER**:
 one join, so moving it breaks both positions together — `expected 4 to be 3` on the past-the-end

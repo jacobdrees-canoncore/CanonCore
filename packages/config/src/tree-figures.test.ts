@@ -605,7 +605,17 @@ describe("a figure this tree states about itself", () => {
     // Thirty-six since CNCORE-336, which added `temp-directory-cleanup.test.ts`:
     // it sweeps every tracked source for a temporary directory the file making
     // it never removes.
-    expect(suitesReadingTheRepository()).toBe(37);
+    //
+    // Thirty-eight since CNCORE-339, which added `run-figures.test.ts`: it
+    // sweeps every tracked source and document for a figure stating how a run
+    // went, and reddens on one that neither derives from the tree nor says
+    // which tree it was taken on. That one is the layer this file cannot be:
+    // the table above is a ROLL CALL and says so, blind to a figure nobody
+    // added to it, and the sweep is what finds those. THIS PASS IS THE THIRD
+    // BRANCH IN A ROW TO MEET THAT RUNG, after CNCORE-334's and CNCORE-336's,
+    // and the count below is re-derived from a red run at the rebase rather
+    // than carried across it -- which is what the entry above asks for.
+    expect(suitesReadingTheRepository()).toBe(38);
   });
 
   it("counts the hand-built redirects ADR-0109's rule governs, per file", () => {

@@ -368,7 +368,7 @@ Unlocking changes what a provider answers, is asserted against the witness alone
 **AND THE CASE IS WITNESSED ON EVERY MACHINE, not only where the image can be pulled.**
 `provider-wiki` is the only real provider that declares a credential, its image is private on GHCR,
 and CI gives it nothing — so the branch was entered nowhere a developer could run it, and this
-record's own optionality guard failed outright there (measured: `Tests 2 failed | 48 passed`).
+record's own optionality guard failed outright there (measured: `Tests 2 failed`).
 `lockedProvider()` in `participants.ts` is a second conformance witness alongside the one ADR-0033
 has: well-formed, reachable, currently unable to answer, and Unlockable, on a real socket and
 indistinguishable to the suite from a real provider.
