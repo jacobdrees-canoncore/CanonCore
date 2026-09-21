@@ -131,8 +131,8 @@ export default async function SettingsPage({
         */}
         {providers.kind === "unreadable" ? (
           <p className="mt-4 text-muted-foreground text-sm">
-            This instance <CannotReadWhatIsStored />, so none can be listed. Naming one reads that
-            setting first, and so does removing one, so both are refused until it is readable.
+            This instance <CannotReadWhatIsStored />, so none can be listed. Naming a Provider reads
+            that setting and so does removing one, so both are refused until it is readable.
           </p>
         ) : providers.named.length === 0 ? (
           <p className="mt-4 text-muted-foreground text-sm">
