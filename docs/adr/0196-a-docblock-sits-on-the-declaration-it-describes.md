@@ -8,8 +8,9 @@ status: accepted
 > refuses a `/**` standing directly on another `/**` in any tracked `.ts` or `.tsx` under
 > `packages/` or `apps/`, except a file's own header. It found 27 at `9e20133`. Every one is now
 > moved, merged or deleted, and the check is green. **The provider repositories hold no check.**
-> Their instances were fixed by hand under CNCORE-258, and CNCORE-321 carries a check for each. The
-> number was assigned by the dispatcher.
+> Their instances were fixed by hand under CNCORE-258, in two PRs MERGED before this one:
+> `provider-wiki#61` as `8aa5bff` and `provider-tmdb#32` as `1f4f3c3`. CNCORE-321 carries a check
+> for each. The number was assigned by the dispatcher.
 
 ## Why a misplaced block is worse than none
 
