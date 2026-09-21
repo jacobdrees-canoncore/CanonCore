@@ -594,7 +594,11 @@ describe("a figure this tree states about itself", () => {
     // Four landed the same day, and the first two each read the other's figure
     // as its own, which is the collision ADR-0153 calls a rung. This one was
     // re-derived from a red run rather than copied from the comment above it.
-    expect(suitesReadingTheRepository()).toBe(35);
+    //
+    // Thirty-six since CNCORE-336, which added `temp-directory-cleanup.test.ts`:
+    // it sweeps every tracked source for a temporary directory the file making
+    // it never removes.
+    expect(suitesReadingTheRepository()).toBe(36);
   });
 
   it("counts the hand-built redirects ADR-0109's rule governs, per file", () => {

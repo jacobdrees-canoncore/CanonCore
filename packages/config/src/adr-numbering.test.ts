@@ -158,6 +158,11 @@ const IMPLEMENTED_BY: Implementation[] = [
     holds:
       "the condition that record is conditional on, which is the half that can stop being true",
   },
+  {
+    adr: "0200",
+    file: "packages/config/src/temp-directory-cleanup.test.ts",
+    holds: "the sweep for a temporary directory the file making it never removes",
+  },
 ];
 
 /**

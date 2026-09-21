@@ -1,8 +1,8 @@
 import { spawnSync } from "node:child_process";
-import { chmodSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { repoRoot } from "./testing/repo-root";
 
@@ -67,6 +67,10 @@ function checkout(dir: string, on: string) {
 /** One pass of the real monitor against a world, and every line it emitted. */
 function onePassOf(world: World): string[] {
   const home = mkdtempSync(join(tmpdir(), "dispatch-monitor-"));
+  // REGISTERED HERE RATHER THAN IN THE THREE CALLERS, because this is where the
+  // directory is made: a caller that forgot would leak, and one of three is the
+  // shape CNCORE-336 found across the repository.
+  onTestFinished(() => rmSync(home, { recursive: true, force: true }));
   const bin = join(home, "bin");
   const scratch = join(home, "scratch");
   mkdirSync(bin);
