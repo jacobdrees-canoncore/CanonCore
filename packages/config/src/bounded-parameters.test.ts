@@ -12,22 +12,21 @@ import { trackedFiles } from "./testing/tracked-files";
  * SENTENCES WITHOUT BOUNDING IT FIRST (ADR-0123, ADR-0163, ADR-0170, ADR-0178).
  *
  * WHY A CHECK AND NOT CARE. `?q=` at `/search` and `/import` both owed that
- * bound after a record had said every site answered it, and BOTH WERE FOUND BY
- * A PERSON READING A DIFF: `/search` by inspection while CNCORE-256 was deciding
- * something else, `/import` by the code review ON CNCORE-291 -- in the same
- * sentence where that ticket asserted the set was now complete. ADR-0163 had
- * made the identical claim one record earlier and was wrong the same way. Two
- * for two is not a run of bad luck, it is the absence of an instrument: a count
- * of `boundedTo`'s callers is a count of the sites that ANSWER the rule and
- * never of the sites that OWE it.
+ * bound, and BOTH WERE FOUND BY A PERSON READING A DIFF: `/search` by inspection
+ * while CNCORE-256 was deciding something else, `/import` by the code review ON
+ * CNCORE-291 -- in the same sentence where that ticket asserted the set was now
+ * complete. ADR-0163 had made the identical claim one record earlier and was
+ * wrong the same way. Two for two is not a run of bad luck, it is the absence
+ * of an instrument: a count of `boundedTo`'s callers is a count of the sites
+ * that ANSWER the rule and never of the sites that OWE it.
  *
  * AND NO COUNT OF THOSE SITES, WHICH IS A DECISION RATHER THAN AN OMISSION
- * (ADR-0194). This paragraph opened with one, and it was a figure this file
- * never derived: another record's list, copied in, most of which sits in the
- * packages below that render nothing. The argument never rested on it -- two
- * misses, each found by a person, is the case for an instrument however many
- * sites there are -- and the population this file DOES derive is reported by
- * name wherever it fails, which is the only form of it worth holding.
+ * (ADR-0194). The paragraph above opened with one, and it was a figure this
+ * file never derived: another record's list, copied in, most of which sits in
+ * the packages below that render nothing. The argument never rested on it --
+ * two misses, each found by a person, is the case for an instrument however
+ * many sites there are -- and the population this file DOES derive is reported
+ * by name wherever it fails, which is the only form of it worth holding.
  *
  * THE POPULATION IS DERIVED FROM THE TREE, which is ADR-0153's preference and
  * the difference between a check and a note. Nothing here lists the surfaces,
