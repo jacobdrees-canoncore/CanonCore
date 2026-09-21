@@ -1,3 +1,4 @@
+import { A_NARROWING } from "@canoncore/schemas";
 import { quotedTo } from "@canoncore/text";
 
 /**
@@ -144,9 +145,15 @@ export function whereThePageStarts(parameters: {
  * read the parameter. It was one line on the front page with that paragraph
  * above it, and a surface copying the line without the paragraph is the one
  * that would drop the `toLowerCase`.
+ *
+ * AND BOUNDED AT `A_NARROWING` SINCE CNCORE-309, through `aNarrowing` below and
+ * for the reasons `oneKind` gives: a Group id was carried into the read path's
+ * comparison and into every link on the page at whatever length a stranger
+ * chose, on the line above the `kind` CNCORE-284 was filed about. A uuid is 36
+ * characters, so no id this app writes comes near the ceiling.
  */
 export function oneGroup(parameter: string | string[] | undefined): string | undefined {
-  return oneValue(parameter)?.toLowerCase();
+  return aNarrowing(parameter);
 }
 
 /**
@@ -370,7 +377,46 @@ export function oneOrder(parameter: string | string[] | undefined): "added" | un
  * ANY STRING, UNLIKE `oneOrder` ABOVE, because the seven are the DATABASE's
  * rather than this repository's: a kind nobody defined narrows to nothing and
  * the page says so, which is what an absent row means everywhere else here.
+ *
+ * ANY STRING OF AT MOST `A_NARROWING`, SINCE CNCORE-284. Whether the value
+ * names a kind stays the database's answer; how long it may be does not, and
+ * nothing bounded it on the way in -- so `?kind=` of a megabyte reached the
+ * comparison the read path runs per request AND was written into the `href` of
+ * every link `queryFor` builds, one copy per Group in the served document.
+ *
+ * PAST THE CEILING IT IS ABSENT, NOT CUT, and that is ADR-0182's decision
+ * rather than an implementation detail. What this answers is CARRIED -- into
+ * the read and into every link -- and never printed, since CNCORE-281 took it
+ * out of the front page's heading and CNCORE-262 out of `/search`'s. A cut
+ * value carried forward is a narrowing the reader never asked for, sent back by
+ * their next click; `theQueryQuoted` keeps the WHOLE query in what replays a
+ * search for that same reason. Absent is the Listing unnarrowed, which is what
+ * the paragraph above already says a cleared narrowing is, and the picker marks
+ * "Every kind" current over exactly the page that was served.
  */
 export function oneKind(parameter: string | string[] | undefined): string | undefined {
-  return oneValue(parameter)?.toLowerCase();
+  return aNarrowing(parameter);
+}
+
+/**
+ * A NARROWING READ OFF THE ADDRESS: lowered, and absent past `A_NARROWING`
+ * (CNCORE-284, CNCORE-309, ADR-0182).
+ *
+ * ONE FUNCTION BECAUSE THIS MODULE'S FIRST PARAGRAPH SAYS SO. `oneKind` and
+ * `oneGroup` were the same two lines with different paragraphs above them, and
+ * the ceiling would have been a third copy of a rule this file exists to hold
+ * once -- the drift that docblock records arriving through the narrowings
+ * instead of through the surfaces. The two stay as separate exports because
+ * what each one IS differs and each owes its own argument for the lower case;
+ * what they SHARE is how a narrowing is read.
+ *
+ * THE LOWER CASE COMES FIRST AND THE LENGTH IS MEASURED AFTER, which is
+ * `toLowerCase` on a value nobody has bounded yet -- deliberate, and cheap: the
+ * parameter is already in memory, so lowering it allocates one more string of
+ * the same size rather than doing work proportional to anything else. Measuring
+ * first would bound the value this function does not return.
+ */
+function aNarrowing(parameter: string | string[] | undefined): string | undefined {
+  const narrowing = oneValue(parameter)?.toLowerCase();
+  return narrowing !== undefined && narrowing.length <= A_NARROWING ? narrowing : undefined;
 }

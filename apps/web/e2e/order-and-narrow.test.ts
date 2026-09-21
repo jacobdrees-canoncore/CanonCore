@@ -1,3 +1,4 @@
+import { A_NARROWING } from "@canoncore/schemas";
 import { describe, expect, inject, it } from "vitest";
 
 import {
@@ -60,6 +61,19 @@ const ORDER = "Order this Listing";
 const KIND = "Narrow to a kind";
 /** The seeded Group whose Rows nobody writes to, as `scope.test.ts` uses it. */
 const GROUP = `group=${inject("workBrowsing").group.id}`;
+
+/**
+ * Every address this document links, which is the sink a narrowing's ceiling
+ * protects (CNCORE-284).
+ *
+ * READ AS BYTES RATHER THAN THROUGH `navIn`, deliberately: the copies under
+ * test are spread into EVERY link `queryFor` writes -- two pickers, the walk
+ * and the jump bar -- and asking one picker at a time would be asking whether
+ * the value reached the links this test remembered to name.
+ */
+function hrefsIn(text: string): string[] {
+  return [...text.matchAll(/href="([^"]*)"/g)].map(([, href]) => href ?? "");
+}
 
 /** The same page asked again, and asked by somebody with no session. */
 async function reloadedAndShared(address: string, owner: string) {
@@ -226,8 +240,14 @@ describe("a Listing narrowed to a kind that is not a kind at all", () => {
     // `%20`. So this reaches the heading and would NOT catch an echo that had
     // been URL-encoded first. Bounding that copy is a separate question from
     // whose voice the page speaks in.
-    // TODO(CNCORE-284): that ticket puts a ceiling on `?kind=` at the read
-    // path and in the links; this comment comes out when it lands.
+    //
+    // AND CNCORE-284 HAS ANSWERED THAT QUESTION, WHICH DOES NOT MAKE THE COPY
+    // GO AWAY (ADR-0182). The ceiling bounds HOW MUCH may be carried, not
+    // WHETHER: `crafted` is 48 characters, well inside `A_NARROWING`, so it
+    // still travels in every `href` on this page -- deliberately, because
+    // carrying the reader's narrowing forward is what those links are for. What
+    // the ceiling ends is the copy whose SIZE a stranger picks, and the test
+    // below drives that one.
     expect(main).not.toContain(crafted);
 
     // AND IT IS STILL THE RIGHT EMPTINESS, which is what stops the fix being
@@ -239,5 +259,73 @@ describe("a Listing narrowed to a kind that is not a kind at all", () => {
     expect(main).toContain("Show every kind");
     expect(main).not.toContain("ships no catalogue");
     expect(main).not.toContain("holds nothing yet");
+  });
+
+  /*
+   * AND A NARROWING PAST THE CEILING REACHES NO LINK ON THE PAGE (CNCORE-284,
+   * ADR-0182).
+   *
+   * THE `href`s RATHER THAN THE WHOLE DOCUMENT, and the difference was MEASURED
+   * rather than reasoned about. This assertion was first written over `text`
+   * entire and went red with the ceiling in place: Next serialises the address
+   * it was asked for into the RSC flight payload -- `0:{"P":null,"c":["","?group=
+   * ...&kind=..."]}` -- so the request URL is echoed there three times whatever
+   * this app does with the parameter. That echo is NEXT'S copy of the address,
+   * not a link CanonCore wrote, and it is a CONSTANT three rather than one per
+   * Group: the harm CNCORE-284 describes is the document growing with the shape
+   * of the catalogue, and that is what the ceiling ends. ADR-0182 records the
+   * residue rather than this test hiding it.
+   *
+   * THE SINK IS EVERY `href`: `Everything`, each Group's link, both order links
+   * and the `#` entry CNCORE-242 added, each spread from `walking.chosen` by
+   * `queryFor`. That is where one copy per Group came from.
+   *
+   * AN ALPHANUMERIC NEEDLE, SO ONE ASSERTION CATCHES BOTH SPELLINGS. The test
+   * above needed prose to reach a heading and was blind to the encoded copies
+   * for exactly that reason: its spaces are `%20` in an `href`. This value
+   * percent-encodes to itself, so a copy in a link and a copy in a sentence are
+   * the same needle and neither hides behind the other.
+   *
+   * BOTH SIDES OF THE CEILING IN ONE TEST, because only the pair says what was
+   * built. A kind INSIDE the bound is still carried into every link -- that is
+   * what those links are for -- and asserting only the absence would pass just
+   * as well against a page that had stopped carrying narrowings at all.
+   *
+   * THE PAGE IS THE LISTING UNNARROWED, which is the other half of the decision.
+   * `oneKind` answers nothing past the bound, so the address records no
+   * narrowing and the picker describes the page that was served. "Nothing here
+   * is of that kind" would mean a narrowing had been honoured and its value
+   * hidden, which is not what was built.
+   */
+  it("carries a kind past the ceiling into no link, and one inside it into every link", async () => {
+    const flood = "kindflood".repeat(Math.ceil((A_NARROWING + 1) / "kindflood".length));
+    expect(flood.length).toBeGreaterThan(A_NARROWING);
+
+    const { status, text } = await documentAt(`/?${GROUP}&kind=${encodeURIComponent(flood)}`);
+    expect(status).toBe(200);
+
+    const flooded = hrefsIn(text);
+    // THE PREMISE IS PINNED: a page writing no links at all would satisfy the
+    // assertion below while proving nothing. `/` carries the pickers, the walk
+    // and the jump bar, so this floor is far under what it serves.
+    expect(flooded.length).toBeGreaterThan(10);
+    // NOT AN OPENING OF IT EITHER, which is why the needle is the REPEATED unit
+    // rather than the whole value: a cut at `A_NARROWING` leaves eleven whole
+    // `kindflood`s in every one of those links, so this line reddens against
+    // the answer ADR-0182 refused as readily as against no bound at all.
+    // Mutation-checked, both ways.
+    expect(flooded.filter((href) => href.includes("kindflood"))).toStrictEqual([]);
+
+    // AND `kind=` ITSELF IS NOT THE TEST, because the kind PICKER writes one
+    // into each option it offers -- that is the picker working. What says the
+    // narrowing was dropped is which option the picker marks CURRENT, below.
+
+    const main = mainOf(text);
+    expect(main).not.toContain("Nothing here is of that kind");
+    expect(markedCurrentInPicker(main, KIND)).toStrictEqual(["Every kind"]);
+
+    // AND THE SAME PAGE, ASKED WITH A KIND INSIDE THE BOUND, CARRIES IT.
+    const narrowed = await documentAt(`/?${GROUP}&kind=person`);
+    expect(hrefsIn(narrowed.text).some((href) => href.includes("kind=person"))).toBe(true);
   });
 });

@@ -7,6 +7,7 @@ import {
   searchCatalogue,
 } from "@canoncore/db";
 import {
+  A_NARROWING,
   type BrowsedListingPublic,
   browsedListingPublic,
   type CataloguePublic,
@@ -60,8 +61,14 @@ const listingInput = z.object({
    * answering a BAD_REQUEST no caller can narrow on.
    *
    * ABSENT IS THE LISTING UNNARROWED, which is what clearing the scope is.
+   *
+   * AND BOUNDED AT `A_NARROWING`, the same ceiling and for the same reason as
+   * the `kind` below (CNCORE-309, ADR-0182). This parameter was unbounded on
+   * the line ABOVE the one CNCORE-284 was filed about, which is why the two are
+   * one pass: a ceiling reaching only the parameter somebody happened to report
+   * leaves its neighbour to be reported next.
    */
-  group: z.string().optional(),
+  group: z.string().max(A_NARROWING).optional(),
   /**
    * THE KIND A READER HAS NARROWED THE LISTING TO (CNCORE-175, story 25), on
    * all three questions -- so a narrowing means one thing wherever it is
@@ -84,8 +91,15 @@ const listingInput = z.object({
    * migration adds an eighth. `item.kinds` is what a surface offers them from.
    *
    * ABSENT IS THE LISTING UNNARROWED, which is what clearing the narrowing is.
+   *
+   * AND BOUNDED AT `A_NARROWING`, which is the one thing about it this seam CAN
+   * decide (CNCORE-284, ADR-0182). Whether the value names a kind is the
+   * database's answer; how LONG it may be is not, and until this ceiling nothing
+   * on the way in put one on it -- so a megabyte `?kind=` was carried into the
+   * comparison this handler runs per request. A length is a property of ONE
+   * VALUE, which ADR-0160 calls the boundary's ordinary work.
    */
-  kind: z.string().optional(),
+  kind: z.string().max(A_NARROWING).optional(),
 });
 
 /**

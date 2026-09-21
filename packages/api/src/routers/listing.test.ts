@@ -7,7 +7,7 @@ import {
   ownerSource,
   someStories,
 } from "@canoncore/db/testing/catalogue";
-import type { CataloguePublic } from "@canoncore/schemas";
+import { A_NARROWING, type CataloguePublic } from "@canoncore/schemas";
 import { call } from "@orpc/server";
 import { beforeAll, describe, expect, it } from "vitest";
 
@@ -111,7 +111,18 @@ const A_RUN_OF_THEM = 5;
  * in" needed neither: it is the Listing that already had the size's second
  * position asserted, which is how that gap was found.
  */
-const EVERY_LISTING: AListing[] = eachAlsoNarrowed([
+/**
+ * THE THREE QUESTIONS THEMSELVES, before each is also asked narrowed to a Group.
+ *
+ * NAMED BECAUSE ONE BLOCK BELOW CANNOT USE THE NARROWED ENTRIES (CNCORE-309).
+ * `narrowedToAGroup` spreads its own Group over the input it is handed, so a
+ * test that drives `group` through one of those entries drives the fixture's id
+ * and not its own value -- a premise that is not vacuous but INVERTED, which
+ * would read as the ceiling failing to hold. The narrowing ceiling is a fact
+ * about `listingInput`, which all three questions share, so asking it of the
+ * three is asking it of every Listing here.
+ */
+const EVERY_QUESTION: AListing[] = [
   {
     procedure: "catalogue.list",
     holds: (db) => aRunAndTheShapesTheOrderHas(db, "Walked by the catalogue's own contract"),
@@ -140,7 +151,9 @@ const EVERY_LISTING: AListing[] = eachAlsoNarrowed([
       call(appRouter.catalogue.search, { ...input, query: WHAT_A_READER_TYPED }, { context }),
     filedByName: false,
   },
-]);
+];
+
+const EVERY_LISTING: AListing[] = eachAlsoNarrowed(EVERY_QUESTION);
 
 /** Every Listing above, followed by the same Listing narrowed to a Group. */
 function eachAlsoNarrowed(listings: AListing[]): AListing[] {
@@ -326,6 +339,45 @@ async function everyPageWalked(page: AListing["page"], total: number): Promise<s
     after = answer.continuesAfter;
   }
 }
+
+/*
+ * A NARROWING IS BOUNDED, AND ON THE CAP'S OWN ARGUMENT (CNCORE-284, CNCORE-309,
+ * ADR-0182). `limit` is the cost of one answer, which a caller may not choose;
+ * `kind` and `group` are values a caller chooses the LENGTH of, carried into the
+ * comparison this Listing runs per request and into every link the page that
+ * asked is then built from.
+ *
+ * ASKED OF THE THREE QUESTIONS RATHER THAN OF EVERY ENTRY, for the reason
+ * `EVERY_QUESTION` gives: all three share `listingInput`, and the narrowed
+ * entries cannot be asked about `group` at all.
+ *
+ * BOTH HALVES, in the words the cap test uses of itself: a refusal alone is
+ * satisfied by a procedure that refuses everything.
+ */
+describe.each(EVERY_QUESTION)("$procedure, on the narrowing ceiling", ({ page }) => {
+  it("refuses a narrowing above the ceiling, and accepts one at it", async () => {
+    // THE MESSAGE IS oRPC'S OWN, matched for the reason the cap test gives:
+    // calling a procedure that is not there raises as readily as a validator.
+    await expect(page({ kind: "x".repeat(A_NARROWING + 1) })).rejects.toThrow(
+      "Input validation failed",
+    );
+
+    // AT THE CEILING IT IS A QUESTION WITH AN ANSWER, and the answer is nothing:
+    // no kind is spelled `xxx...`, so the Listing narrows to nothing rather than
+    // the seam refusing it. That is ADR-0066's rule for a parameter that is not
+    // an identity, which a ceiling on its LENGTH does not change.
+    await expect(page({ kind: "x".repeat(A_NARROWING) })).resolves.toBeDefined();
+
+    // AND THE `group` BESIDE IT (CNCORE-309), asked here rather than in a block
+    // of its own because it is not a second rule: one ceiling, one object, two
+    // lines. A test naming only `kind` passes over the parameter that was
+    // unbounded on the line above it, which is how this one came to be found.
+    await expect(page({ group: "x".repeat(A_NARROWING + 1) })).rejects.toThrow(
+      "Input validation failed",
+    );
+    await expect(page({ group: "x".repeat(A_NARROWING) })).resolves.toBeDefined();
+  });
+});
 
 describe.each(EVERY_LISTING)(
   "$procedure, on the Listing contract",

@@ -17,6 +17,8 @@
   "dependencies": {
     "@canoncore/api": "workspace:*",
     "@canoncore/db": "workspace:*",
+    "@canoncore/schemas": "workspace:*",
+    "@canoncore/text": "workspace:*",
     "@canoncore/tasks": "workspace:*",
     "@canoncore/env": "workspace:*",
     "@canoncore/ui": "workspace:*",
@@ -39,7 +41,6 @@
   "devDependencies": {
     "@canoncore/config": "workspace:*",
     "@canoncore/providers": "workspace:*",
-    "@canoncore/text": "workspace:*",
     "@tailwindcss/postcss": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
