@@ -273,7 +273,8 @@ let the range pick the newer one up later.
   the flag, mid-turn, it QUEUES rather than submits** — the UI shows `ctrl+x ctrl+s to send now` and
   it lands only when the turn ends, measured three times on 2026-09-20 against cncore-205, 254 and
   252, each an attribution correction that would have arrived after the PR body it was correcting.
-  `printf '\030\023'` flushes it, and the hint disappearing is the confirmation. **And with the
+  `printf '\030\023'` flushes it **and INTERRUPTS the turn in progress**, and the hint
+  disappearing is the confirmation. **And with the
   flag, to a PARKED agent, the input goes to the PROMPT WIDGET, where `--enter` SELECTS the option
   under the cursor** — on a multi-select with a free-text field the text can land in the field.
   Measured broadcasting to eight agents on 2026-09-20: six received it, two were parked, and BOTH

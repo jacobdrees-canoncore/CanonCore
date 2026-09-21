@@ -106,7 +106,12 @@ lands in the input box, the UI shows `ctrl+x ctrl+s to send now`, and the call s
 `ok: true` with a byte count. Measured three times on 2026-09-20 against cncore-205, cncore-254 and
 cncore-252. In all three the message was an attribution correction, and in all three it would have
 arrived after the PR body it was meant to correct had been written. `ctrl+x ctrl+s`, sent as
-`printf '\030\023'`, flushes it.
+`printf '\030\023'`, flushes it **and INTERRUPTS the turn in progress**: the agent abandons what it
+was doing and answers the brief instead. Corrected here on 2026-09-21 under CNCORE-306, which
+measured the flush against CNCORE-288's agent mid-search and read back
+`|_ Interrupted - What should Claude do instead?`. The first draft of this sentence stopped at
+"flushes it", which invites the harmless reading — that the queued text merely arrives — when the
+behaviour is closer to Escape followed by Enter.
 
 **Input sent to a PARKED agent goes to the prompt widget, not the chat.** Measured broadcasting a
 merge notice to eight agents: six received it, two were sitting on an `AskUserQuestion`. Both known

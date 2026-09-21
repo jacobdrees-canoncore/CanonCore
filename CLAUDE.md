@@ -139,8 +139,8 @@ OWNER and reads what that owner says today. It ruled 11 claims contradicted on 2
   `orca terminal` over an ad hoc PTY. But **read `--screen` BEFORE sending to an agent**, because a
   send does not always reach the chat: input to an agent PARKED on a prompt goes to the WIDGET,
   where `--enter` SELECTS the option under the cursor, and mid-turn `--enter` queues instead of
-  submitting until `ctrl+x ctrl+s` (`printf '\030\023'`) flushes it. All three answer `ok: true`
-  (ADR-0162).
+  submitting until `ctrl+x ctrl+s` (`printf '\030\023'`) flushes it **and INTERRUPTS the turn in
+  progress**. All three answer `ok: true` (ADR-0162).
 - Credentials live in `~/.config/canoncore/`, outside every repo so no commit can reach them and
   every worktree reads one copy: `provider-tmdb.env` (that provider throws at startup without its
   token; CI uses the repo secret) and `whatbox.env` (the slot's login, for SSH or its web UI).
