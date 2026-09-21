@@ -67,8 +67,9 @@ not tell a value that said nothing from one that said nothing showable, which is
 under "What this does not cover" reported against itself. CNCORE-305 gave it a second sentence and
 that line now reads `boundedOr(message, SILENT, UNSHOWABLE_REASON)`;
 [[0176-saying-nothing-and-saying-nothing-showable-are-two-sentences]] carries it. CNCORE-307 then put
-a guard in front of that call rather than inside it, because a throw carrying NO string reaches none
-of these three questions ([[0183-a-thrown-thing-with-no-words-is-not-a-provider-saying-undefined]]). The shape quoted
+a guard in FRONT of that call rather than inside it, because a throw carrying no string at all
+reaches none of these three questions —
+[[0183-a-thrown-thing-with-no-words-is-not-a-provider-saying-undefined]]. The shape quoted
 above is kept as what this record was written from rather than corrected away, because the argument
 for `quotedTo` was taken from it.
 

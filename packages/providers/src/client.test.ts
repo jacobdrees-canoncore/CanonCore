@@ -1111,7 +1111,12 @@ describe("searching every provider at once", () => {
     // caller can still tell an `OutboundRefused` from a provider that answered
     // badly -- which is the distinction `packages/api` maps onto a declared
     // error rather than a 500 (ADR-0034).
-    expect(found.failed[0]?.reason.message).toMatch(/500/);
+    expect(found.failed[0]?.reason).toBeInstanceOf(Error);
+    // READ THROUGH `reasonFor` RATHER THAN OFF `.message`, because the field is
+    // `unknown` since ADR-0183: the wrap that used to make it an `Error` is what
+    // spelled a wordless throw before anything could say otherwise. This is the
+    // consumer `packages/api` actually uses, so it asserts what the Owner reads.
+    expect(reasonFor(found.failed[0]?.reason).text).toMatch(/500/);
   });
 
   /**

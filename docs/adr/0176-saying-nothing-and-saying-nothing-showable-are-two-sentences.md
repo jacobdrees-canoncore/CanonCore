@@ -111,8 +111,8 @@ defect sit under a test named for it: the wrong sentence is as non-empty as the 
 strengthening here found something the ticket had not asked about — **`String(undefined)` is
 `"undefined"`**, so a thrown `undefined` reaches no fallback at all and the Owner reads CanonCore's
 spelling of a value in a Provider's voice. CNCORE-307 carried it and
-[[0183-a-thrown-thing-with-no-words-is-not-a-provider-saying-undefined]] closed it with a fourth
-sentence; it was a different defect, because nothing was stripped.
+[[0183-a-thrown-thing-with-no-words-is-not-a-provider-saying-undefined]] closed it with a THIRD
+sentence beside this record's two; it was a different defect, because nothing was stripped.
 
 ## How far each of the three is reachable, which is not equally far
 

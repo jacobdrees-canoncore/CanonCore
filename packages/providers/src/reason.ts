@@ -1,4 +1,4 @@
-import { boundedTo, holdsUnshowable, oneLine, unshowable } from "@canoncore/text";
+import { boundedTo, holdsUnshowable, oneLine, unshowable, wordsThrown } from "@canoncore/text";
 import { z } from "zod";
 
 import { OutboundRefused } from "./boundary";
@@ -75,36 +75,11 @@ export type FailureReason = z.infer<typeof failureReason>;
  */
 export function reasonFor(thrown: unknown): FailureReason {
   const spoke = unwrapped(thrown);
-  const message = wordsOf(spoke);
+  const message = wordsThrown(spoke);
   const ours = spoke instanceof OutboundRefused && spoke.boundary === "config";
   const said =
     message === undefined ? NOT_A_MESSAGE : boundedOr(message, SILENT, UNSHOWABLE_REASON);
   return { wrote: ours ? "canoncore" : "provider", text: said };
-}
-
-/**
- * THE WORDS THE THING THAT SPOKE ACTUALLY HAS, or nothing when it has none
- * (ADR-0183).
- *
- * `String(spoke)` STOOD HERE AND ANSWERED FOR TWO INPUTS. A thrown STRING is the
- * Provider's own words and `String` is right for it: `throw "rate limited"` is
- * quoted verbatim, bounded, and that half is kept. A thrown value that is
- * neither an `Error` nor a string has no sentence of its own, and `String`
- * SUPPLIED one -- measured on node 24.19.0, `undefined` became `"undefined"`,
- * `null` became `"null"` and `{}` became `"[object Object]"`, each handed to the
- * Owner with `wrote: "provider"` on it. CNCORE-96 binds this surface to the
- * opposite.
- *
- * `undefined` RATHER THAN THE EMPTY STRING, because the empty string is a real
- * answer on this path and already has two sentences waiting for it: it is what a
- * silent `Error` and a thrown `""` both give, and `boundedOr` tells those from a
- * value the strip emptied. Returning `""` for a value that never spoke would
- * fold this branch into that question and put ADR-0176's conflation back in a
- * third spelling.
- */
-function wordsOf(spoke: unknown): string | undefined {
-  if (spoke instanceof Error) return spoke.message;
-  return typeof spoke === "string" ? spoke : undefined;
 }
 
 /**

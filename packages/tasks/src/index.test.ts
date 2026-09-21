@@ -248,6 +248,38 @@ describe("what a break wrote", () => {
     const [latest] = await registry.history(db, key);
     expect(latest?.detail).toBe("A detail made only of characters that cannot be shown.");
   });
+
+  /**
+   * AND A RUN THAT THREW SOMETHING WITH NO WORDS IN IT LEAVES A SENTENCE RATHER
+   * THAN THE WORD `undefined` (CNCORE-310, ADR-0183).
+   *
+   * This registry's own `reasonFor` read a non-`Error` throw as
+   * `String(thrown)`, so a task that threw `undefined` left the WORD
+   * `undefined` in the history and the page printed it as the sentence the run
+   * left behind. The two sentences above are about a detail that HAD words and
+   * lost them to the strip; this is about a throw that never carried any.
+   *
+   * REACHABLE FROM AN ORDINARY TASK. `task.run` is an async function, so a bare
+   * `Promise.reject()` anywhere inside it rejects with `undefined` and lands in
+   * this catch.
+   */
+  it("says a run threw something that is not a message, rather than spelling it", async () => {
+    const key = "throwing_nothing_sayable";
+    const registry = createRegistry([
+      aTask({
+        key,
+        run: async () => {
+          await Promise.reject();
+          return "";
+        },
+      }),
+    ]);
+
+    await registry.run(db, key);
+
+    const [latest] = await registry.history(db, key);
+    expect(latest?.detail).toBe("It failed with something that is not a message.");
+  });
 });
 
 /** A task that reports when it has started and then waits to be stopped. */
