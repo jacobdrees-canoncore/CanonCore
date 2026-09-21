@@ -219,13 +219,6 @@ function unimportedModules(sources: Map<string, string>): string[] {
  * written to answer it. The same filter keeps `globals.css.test.ts` from being
  * asked to have a caller, which nothing imports because Vitest RUNS it.
  *
- * TODO(CNCORE-300): the stripper below is a regex, so a `/*` inside a STRING
- * opens a comment and swallows source to the next `*\/`. `"**\/*"` in
- * `apps/web/browser/gate.ts` already carries the shape. It cuts both ways -- a
- * swallowed import reports a live name dead, a swallowed `export { ... }` list
- * reports nothing at all -- and zero imports are lost today, measured by
- * comparing the specifiers found before and after over every tracked source.
- *
  * COMMENTS ARE STRIPPED because this package's records cite module paths in prose
  * -- `select.tsx`'s own docblock is three paragraphs about what it replaced --
  * and a walk reading those would count a record of a deletion as a caller.
