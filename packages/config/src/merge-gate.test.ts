@@ -42,6 +42,10 @@ import { repoRoot } from "./testing/repo-root";
  */
 const dispatch = (script: string) => join(repoRoot, ".claude", "skills", "dispatch", script);
 
+/** The real `git`, kept so the stub below can hand it everything but `ls-remote`. */
+const realGit =
+  (spawnSync("which", ["git"], { encoding: "utf8" }).stdout ?? "").trim() || "/usr/bin/git";
+
 /**
  * One PR, and what each commit's check-runs say -- the two answers `gh` gives
  * and the only two the gate has to go on.
@@ -57,6 +61,8 @@ type World = {
   readonly checks: Readonly<Record<string, readonly Record<string, unknown>[]>>;
   /** A `total_count` this many higher than the runs actually handed over. */
   readonly shortBy?: number;
+  /** What the branch's ref really points at, when it differs from the PR's field. */
+  readonly branchTip?: string;
 };
 
 /** A check-run as the gate reads one: a name, a status and a conclusion. */
@@ -113,6 +119,23 @@ function inAWorldOf(world: World, script: string, args: readonly string[]) {
     ].join("\n"),
   );
   chmodSync(join(bin, "gh"), 0o755);
+  // A `git` that answers `ls-remote` from the world and hands everything else to
+  // the real one, which `merge-if-green.sh` still needs for its worktree check.
+  writeFileSync(
+    join(bin, "git"),
+    [
+      "#!/usr/bin/env bash",
+      'if [ "$1" = "ls-remote" ]; then',
+      `  printf '%s\\trefs/heads/branch\\n' ${JSON.stringify(
+        world.branchTip ?? (world.pr.headRefOid as string),
+      )}`,
+      "  exit 0",
+      "fi",
+      `exec ${JSON.stringify(realGit)} "$@"`,
+      "",
+    ].join("\n"),
+  );
+  chmodSync(join(bin, "git"), 0o755);
   const ran = spawnSync("bash", [dispatch(script), ...args], {
     encoding: "utf8",
     env: { ...process.env, PATH: `${bin}:${process.env.PATH ?? ""}` },
@@ -305,6 +328,59 @@ describe("a check the gate reads", () => {
     expect(output).toContain("UNREADABLE");
     expect(output).toContain("1 check-runs of 5");
     expect(output).not.toContain("PASSED");
+    expect(status).not.toBe(0);
+  });
+
+  /**
+   * THE PR'S OWN HEAD FIELD LAGS A FORCE-PUSH, which makes resolving the head
+   * from it necessary and not sufficient.
+   *
+   * MEASURED ON THIS TICKET'S OWN BRANCH, 2026-09-21. Seconds after a rebase
+   * and force-push, `git ls-remote` reported the new tip while
+   * `gh pr view --json headRefOid` still answered with the PRE-REBASE commit,
+   * and the gate duly gave a verdict about it -- a commit that was no longer on
+   * the branch and would not have been what merged. Both agreed moments later.
+   *
+   * SO THE HEAD IS CONFIRMED AGAINST A SECOND SOURCE. The two disagreeing is
+   * not a verdict either way: it means the question was asked during the window
+   * where GitHub has the push and the pull request does not, and the honest
+   * answer is to refuse and look again.
+   */
+  it("refuses while the PR's head and the branch's real tip disagree", () => {
+    const { status, output } = gateAgainst({
+      pr: { headRefOid: PRE_REBASE, mergeStateStatus: "CLEAN", headRefName: "jacobdrees/x" },
+      checks: { [PRE_REBASE]: [check("Test", "success"), check("Build", "success")] },
+      branchTip: REBASED,
+    });
+
+    expect(output).toContain("BLOCKED");
+    expect(output).toContain(REBASED.slice(0, 7));
+    expect(output).toContain(PRE_REBASE.slice(0, 7));
+    expect(output).not.toContain("PASSED");
+    expect(status).not.toBe(0);
+  });
+
+  /**
+   * A PULL REQUEST THAT IS ALREADY CLOSED IS NOT A MERGE CANDIDATE, and it has
+   * to say so in those words. `--delete-branch` takes the head ref away with
+   * the merge, so the tip check above finds no ref and would otherwise report
+   * `UNREADABLE cannot read refs/heads/...` -- a symptom, phrased as though
+   * something were broken, at a dispatcher who would then go looking for it.
+   * Observed on #210 and #221 the moment the tip check landed.
+   */
+  it("says a closed pull request is closed, rather than blaming its missing branch", () => {
+    const { status, output } = gateAgainst({
+      pr: {
+        headRefOid: REBASED,
+        headRefName: "jacobdrees/cncore-244",
+        mergeStateStatus: "UNKNOWN",
+        state: "MERGED",
+      },
+      checks: { [REBASED]: [check("Test", "success")] },
+    });
+
+    expect(output).toContain("MERGED");
+    expect(output).not.toContain("UNREADABLE");
     expect(status).not.toBe(0);
   });
 });

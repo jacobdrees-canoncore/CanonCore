@@ -18,16 +18,43 @@
 #   BLOCKED RUNNING <sha7> ... a run exists and has not answered yet
 #   BLOCKED FAILED <sha7> ...  a check on THIS commit concluded failure
 #   BLOCKED SUPERSEDED ...     every run on it was cancelled by a newer push
+#   BLOCKED MERGED|CLOSED ...  the PR is not open, so there is nothing to merge
+#   BLOCKED LAGGING <n> ...    the PR's head field has not caught up with the branch
 #   BLOCKED UNREADABLE ...     the question could not be asked at all
 set -uo pipefail
 pr="${1:?usage: gate.sh <pr-number> [repo]}"
 repo="${2:-CanonCore}"
 slug="jacobdrees-canoncore/$repo"
 
-view=$(gh pr view "$pr" --repo "$slug" --json headRefOid,mergeStateStatus 2>/dev/null) ||
+view=$(gh pr view "$pr" --repo "$slug" --json headRefOid,headRefName,mergeStateStatus,state 2>/dev/null) ||
   { echo "BLOCKED UNREADABLE cannot read #$pr in $slug"; exit 1; }
 head=$(VIEW="$view" python3 -c 'import json,os;print(json.loads(os.environ["VIEW"]).get("headRefOid") or "")')
 [ -n "$head" ] || { echo "BLOCKED UNREADABLE #$pr names no head commit"; exit 1; }
+
+# A CLOSED PR IS NOT A MERGE CANDIDATE, and it is said in those words. Merging
+# with `--delete-branch` takes the head ref away, so the tip check below would
+# otherwise report a missing ref -- a symptom phrased as though something were
+# broken, at a dispatcher who would then go looking for it.
+state=$(VIEW="$view" python3 -c 'import json,os;print(json.loads(os.environ["VIEW"]).get("state") or "OPEN")')
+if [ "$state" != "OPEN" ]; then
+  echo "BLOCKED $state #$pr is not open, so there is nothing to merge"
+  exit 1
+fi
+
+# THE PR'S OWN HEAD FIELD LAGS A FORCE-PUSH, so resolving from it is necessary
+# and not sufficient. Measured on CNCORE-288's branch, 2026-09-21: seconds after
+# a rebase, `git ls-remote` had the new tip while `gh pr view` still answered
+# with the PRE-REBASE commit, and this gate gave a verdict about a commit that
+# was no longer on the branch. The two disagreeing is not a verdict either way
+# -- it means the question was asked inside that window -- so it refuses and
+# the dispatcher looks again.
+branch=$(VIEW="$view" python3 -c 'import json,os;print(json.loads(os.environ["VIEW"]).get("headRefName") or "")')
+tip=$(GIT_TERMINAL_PROMPT=0 git ls-remote "https://github.com/$slug.git" "refs/heads/$branch" 2>/dev/null | cut -f1)
+[ -n "$tip" ] || { echo "BLOCKED UNREADABLE cannot read refs/heads/$branch in $slug"; exit 1; }
+if [ "$tip" != "$head" ]; then
+  echo "BLOCKED LAGGING #$pr says its head is ${head:0:7}, the branch is at ${tip:0:7} -- ask again"
+  exit 1
+fi
 
 # EVERY PAGE, BECAUSE THIRTY IS THE PAGE AND THIRTY-TWO WAS THE ANSWER. This
 # endpoint serves 30 per page by default. #210's head carries 32 check-runs --

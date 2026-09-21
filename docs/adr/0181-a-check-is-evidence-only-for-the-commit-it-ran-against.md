@@ -113,6 +113,31 @@ was a failure the gate passed.
 **`--slurp` cannot be combined with `--jq`** (gh 2.97.0 refuses it outright), which is why this gate
 hands raw JSON to a parser rather than asking `gh` to filter.
 
+## The pull request's own head field lags a force-push
+
+Resolving `headRefOid` is necessary and it is not sufficient, which this branch found by doing it.
+Seconds after rebasing and force-pushing CNCORE-288's own branch on 2026-09-21:
+
+```
+local HEAD           bd47ff6
+git ls-remote        bd47ff6      the branch, already moved
+gh pr view #228      06e1936      the PULL REQUEST, still on the pre-rebase commit
+gate said            BLOCKED RUNNING 06e1936 ...
+```
+
+The gate gave a verdict about a commit that was **no longer on the branch**, which is this record's
+own defect committed by the gate that refuses it. Both sources agreed a moment later.
+
+**So the head is confirmed against a second source** — `git ls-remote` on the repository's public
+HTTPS URL, which is what was correct in the measurement — and the two disagreeing is not a verdict
+either way. It means the question was asked inside the window where GitHub has the push and the
+pull request does not, and the honest answer is `LAGGING`: refuse, and look again.
+
+**A closed pull request is named as closed** for the same reason. `--delete-branch` takes the head
+ref away with the merge, so the tip check finds no ref and would report a missing branch — a
+symptom, phrased as though something were broken, at a dispatcher who would then go looking for it.
+Observed on #210 and #221 the moment the tip check landed.
+
 ## What this does not cover
 
 Nothing makes the dispatcher RUN the gate. There are no required checks (ADR-0118) and no required
@@ -126,11 +151,14 @@ so.
 ## As built, under CNCORE-288
 
 **BUILT: the gate, the fused merge command, and the rule at the three places a dispatcher reads.**
-`.claude/skills/dispatch/gate.sh` resolves `headRefOid` and `mergeStateStatus` in one
-`gh pr view`, queries `repos/<slug>/commits/<head>/check-runs`, and exits non-zero on every outcome
-but `PASSED`. `.claude/skills/dispatch/merge-if-green.sh` runs it and merges only on its exit
-status, with nothing piped, and refuses a named worktree that is unreadable or holds uncommitted
-work. `packages/config/src/merge-gate.test.ts` drives both through a stubbed `gh` over ten
+`.claude/skills/dispatch/gate.sh` resolves `headRefOid`, `headRefName`, `mergeStateStatus` and
+`state` in one `gh pr view`, confirms that head against `git ls-remote` on the branch, reads
+`repos/<slug>/commits/<head>/check-runs` across every page and holds the result against
+`total_count`, and exits non-zero on every outcome but `PASSED`. Its outcomes are `PASSED`,
+`NO-RUN`, `RUNNING`, `FAILED`, `SUPERSEDED`, `LAGGING`, `MERGED`/`CLOSED` and `UNREADABLE`.
+`.claude/skills/dispatch/merge-if-green.sh` runs it and merges only on its exit status, with nothing
+piped, and refuses a named worktree that is unreadable or holds uncommitted work.
+`packages/config/src/merge-gate.test.ts` drives both through a stubbed `gh` and `git` over fourteen
 scenarios, including #210's own world — the head with no runs beside the pre-rebase commit's green.
 The rule is stated in `.claude/skills/dispatch/SKILL.md`, `.claude/rules/workflows.md` and
 `CLAUDE.md`.
