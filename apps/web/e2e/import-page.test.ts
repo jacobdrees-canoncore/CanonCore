@@ -71,33 +71,30 @@ const client: AppRouterClient = createORPCClient(new RPCLink({ url: `${baseUrl}/
 const owner = await logInAt(baseUrl, inject("ownerPassword"));
 
 /**
- * THE SAME ROUTER, ASKED AS THE OWNER, for the one procedure on it that is the
- * owner's despite being a read.
+ * THE SAME RPC SURFACE, ASKED AS THE OWNER, which `client` above deliberately
+ * is not. Everything this file asks through it is an `ownerProcedure`, so asking
+ * it without a session answers `Unauthorized` rather than what the test is
+ * asking about.
  *
- * `provider.container` MOVED BEHIND THE SESSION under CNCORE-154 (ADR-0131): it
- * answers by running the whole browse at a third party, which CNCORE-151 gave
- * sixty seconds, and the anonymous `client` above can no longer ask it. The
- * assertions that read it are asking what the PROVIDER says so they can compare
- * it against what the page rendered, so they need the answer rather than the
- * refusal.
+ * ONE OF THEM IS A READ. `provider.container` moved behind the session under
+ * CNCORE-154 (ADR-0131): it answers by running the whole browse at a third
+ * party, which CNCORE-151 gave sixty seconds. The assertions that read it are
+ * asking what the PROVIDER says so they can compare it against what the page
+ * rendered, so they need the answer rather than the refusal. The rest are
+ * writes: the import a witness provider refuses, and the Groups a search is
+ * narrowed by.
+ *
+ * ONE CLIENT, ON `owner`'S COOKIE, because there is one Owner: the pages this
+ * file reads as the Owner and the procedures it asks here are one caller with
+ * one session. `purge-page.test.ts` builds its client the same way for the same
+ * reason.
  */
-const asOwner: AppRouterClient = createORPCClient(
+const asTheOwner: AppRouterClient = createORPCClient(
   new RPCLink({ url: `${baseUrl}/api/rpc`, headers: { cookie: owner } }),
 );
 
 /** The same owner on the empty instance, for the one read that needs one. */
 const ownerOfTheEmptyOne = await logInAt(allowlistedBaseUrl, inject("ownerPassword"));
-
-/**
- * THE SAME RPC SURFACE, ASKED AS THE OWNER, which `client` above deliberately
- * is not: the reads in this file are a visitor's, and `provider.import` is an
- * `ownerProcedure` since CNCORE-109 -- so asking it without a session answers
- * `Unauthorized` rather than what the provider said. `purge-page.test.ts` builds
- * one the same way for the same reason.
- */
-const asTheOwner: AppRouterClient = createORPCClient(
-  new RPCLink({ url: `${baseUrl}/api/rpc`, headers: { cookie: owner } }),
-);
 
 /**
  * THE CATALOGUE'S OWN ROWS, which this file reaches for exactly once and for a
@@ -820,7 +817,7 @@ async function browsingInsteadAt(provider: string) {
 
 /** What one provider says about the container the URL names, asked of the router. */
 async function whatTheProviderSays(named: { provider: string; container: string }) {
-  return asOwner.provider.container({ baseUrl: named.provider, containerId: named.container });
+  return asTheOwner.provider.container({ baseUrl: named.provider, containerId: named.container });
 }
 
 /** A record's own container, asked of the URL the page builds for it (CNCORE-238). */
