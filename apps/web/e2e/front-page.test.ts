@@ -525,7 +525,14 @@ describe("/ on a catalogue larger than one page", () => {
 
     expect(lettersOfferedIn(front.text)).toStrictEqual(["#", ...THE_ALPHABET]);
 
-    const jumped = await documentFrom(pagedBaseUrl, followed(letterLinked(front.text, "#"), "#"));
+    // FOLLOWED FROM SOMEWHERE ELSE IN THE LISTING, which is what makes the
+    // landing worth asserting. Followed from `/`, the page the entry answers
+    // is the page the link was read off, so arriving at the right Row would
+    // say nothing about the entry -- a reload asserts as much. Jumped to S
+    // first, the reader is 4,000 Rows away, and only an entry that really
+    // carries them to the foot of the order lands here.
+    const atS = await documentFrom(pagedBaseUrl, followed(letterLinked(front.text, "S"), "S"));
+    const jumped = await documentFrom(pagedBaseUrl, followed(letterLinked(atS.text, "#"), "#"));
 
     expect(jumped.status).toBe(200);
     // IT LANDS ON THE ROW ITSELF, which is the start of a Listing filed by
@@ -533,7 +540,9 @@ describe("/ on a catalogue larger than one page", () => {
     // the seek to the foot of the order and the start of the Listing are one
     // page rather than two spellings to keep in step.
     expect(itemsListedOn(jumped.text)[0]).toBe(inject("pagedBeforeTheAlphabet"));
-    // AND NOTHING LIES BEHIND IT, so the page offers no step back to itself.
+    // AND NOTHING LIES BEHIND IT, so the page offers no step back to itself --
+    // where the page it was followed FROM had one.
+    expect(walkLinked(atS.text, "Previous")).toBeDefined();
     expect(walkLinked(jumped.text, "Previous")).toBeUndefined();
     // AND THE READER CAN STILL JUMP TO ANY LETTER FROM IT, which is the half
     // of the criterion an entry rendered instead of the alphabet would fail.
@@ -558,7 +567,12 @@ describe("/ on a catalogue larger than one page", () => {
     const narrowed = await documentFrom(pagedBaseUrl, `/?group=${id}`);
 
     expect(lettersOfferedIn(narrowed.text)).toStrictEqual(THE_ALPHABET);
-    expect(itemsListedOn(narrowed.text)[0]).toBe(inject("pagedCatalogue")[0]);
+    // AND THE ROW THAT WOULD JUSTIFY ONE IS NOT IN THIS LISTING, said
+    // directly rather than by naming whichever Row happens to sort first:
+    // which Item that is, is the catalogue fixture's business and not this
+    // assertion's, and `pagedCatalogue` is a SET oracle by its own docblock.
+    expect(itemsListedOn(narrowed.text)).not.toContain(inject("pagedBeforeTheAlphabet"));
+    expect(itemsListedOn(narrowed.text)).toHaveLength(100);
   });
 
   it("says the catalogue ends here, where a link outlived the items after it", async () => {

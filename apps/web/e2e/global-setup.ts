@@ -515,24 +515,6 @@ function aCatalogueTooBigForOnePage(owned: AsyncDisposableStack) {
         orderings: 210,
       });
       /*
-       * AND A GROUP LARGER THAN ONE PAGE (CNCORE-179), which is the same family
-       * of state again: a scope that fits on one page cannot say whether walking
-       * it carries the scope from page to page, and that is the criterion.
-       *
-       * IT HOLDS THE CATALOGUE'S OWN STORIES AND NOTHING THAT HOLDS THEM, so it
-       * is a strict part of this instance rather than all of it: the container
-       * and the two hundred orderings above are outside it. Narrowed to the
-       * whole catalogue, a page that dropped the scope and one that kept it
-       * would read identically. And the stories carry the tied
-       * pair and the keyless tail, so the walk within the Group meets every
-       * shape the catalogue's order has.
-       *
-       * AND A GROUP NOTHING WAS PUT IN, which is the state a reader can only be
-       * told about: a scope with no Items looks exactly like a broken one until
-       * the page says which it is. Nobody writes to this instance, so neither
-       * Group moves while it is read.
-       */
-      /*
        * AND ONE ROW THAT SORTS BEFORE A (CNCORE-242), which is the only state
        * the jump bar's first entry is observable in: A to Z reaches every
        * other Row this instance holds, so an entry offered for these and an
@@ -559,6 +541,24 @@ function aCatalogueTooBigForOnePage(owned: AsyncDisposableStack) {
        * instance.
        */
       const beforeTheAlphabet = await anItemTitled(db, "42 (a TV story filed before A)");
+      /*
+       * AND A GROUP LARGER THAN ONE PAGE (CNCORE-179), which is the same family
+       * of state again: a scope that fits on one page cannot say whether walking
+       * it carries the scope from page to page, and that is the criterion.
+       *
+       * IT HOLDS THE CATALOGUE'S OWN STORIES AND NOTHING THAT HOLDS THEM, so it
+       * is a strict part of this instance rather than all of it: the container
+       * and the two hundred orderings above are outside it. Narrowed to the
+       * whole catalogue, a page that dropped the scope and one that kept it
+       * would read identically. And the stories carry the tied
+       * pair and the keyless tail, so the walk within the Group meets every
+       * shape the catalogue's order has.
+       *
+       * AND A GROUP NOTHING WAS PUT IN, which is the state a reader can only be
+       * told about: a scope with no Items looks exactly like a broken one until
+       * the page says which it is. Nobody writes to this instance, so neither
+       * Group moves while it is read.
+       */
       const groupName = "The stories, and nothing that holds them";
       const emptyGroupName = "A Group nothing was put in";
       const group = await aGroupHolding(db, { name: groupName, holding: catalogue.every });

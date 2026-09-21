@@ -148,18 +148,18 @@ describe("catalogue.list", () => {
     // files wrote, so a read that dropped the `group` would answer `true`
     // whatever this test put in its own scope.
     const has = await createGroupByHand(db, { name: "A scope with a Row before A" });
-    const has_not = await createGroupByHand(db, { name: "A scope with none" });
+    const lacks = await createGroupByHand(db, { name: "A scope with none" });
     await putItemInGroupByHand(db, {
       groupId: has,
       itemId: await anItemTitled(db, "42 (a TV story on a narrowed front page)"),
     });
     await putItemInGroupByHand(db, {
-      groupId: has_not,
+      groupId: lacks,
       itemId: await anItemTitled(db, "Aliens of London, on a narrowed front page"),
     });
 
     const before = await call(appRouter.catalogue.list, { group: has }, { context });
-    const none = await call(appRouter.catalogue.list, { group: has_not }, { context });
+    const none = await call(appRouter.catalogue.list, { group: lacks }, { context });
 
     expect(before.beforeTheAlphabet).toBe(true);
     expect(none.beforeTheAlphabet).toBe(false);

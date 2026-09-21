@@ -925,10 +925,23 @@ export function walkLinked(text: string, words: string): string | undefined {
   return walk === undefined ? undefined : linkedIn(walk, words);
 }
 
+/**
+ * THE JUMP BAR, BY THE LABEL IT CARRIES (CNCORE-174).
+ *
+ * ONE SPELLING FOR THREE READERS (CNCORE-242). Each of the three below wrote
+ * the same `<nav aria-label="Jump to a letter">` match out by hand, and
+ * `navIn` beside them had been the shared reader of a picker since CNCORE-181
+ * the whole time. Three copies agreed only because each was copied, which is
+ * the argument `queries.ts` already makes about a predicate.
+ */
+const THE_JUMP_BAR = "Jump to a letter";
+
 /** Where the letters above a listing link one of them, if they do (CNCORE-174). */
 export function letterLinked(text: string, letter: string): string | undefined {
-  const letters = text.match(/<nav aria-label="Jump to a letter"[^>]*>(.*?)<\/nav>/)?.[1];
-  return letters === undefined ? undefined : linkedIn(letters, letter);
+  // ABSENT IS `undefined` RATHER THAN A THROW, because a Listing in the
+  // recently-added order offers no bar at all and that is a state a caller
+  // asks about. `navIn` throws, so the question is asked before it is read.
+  return hasNav(text, THE_JUMP_BAR) ? linkedIn(navIn(text, THE_JUMP_BAR), letter) : undefined;
 }
 
 /**
@@ -941,16 +954,16 @@ export function letterLinked(text: string, letter: string): string | undefined {
  * it up would pass with A to Z gone.
  */
 export function lettersOfferedIn(text: string): string[] {
-  const letters = text.match(/<nav aria-label="Jump to a letter"[^>]*>(.*?)<\/nav>/)?.[1] ?? "";
-  return [...letters.matchAll(/<a [^>]*>(.*?)<\/a>/g)].map(([, words]) => textOf(words ?? ""));
+  return [...navIn(text, THE_JUMP_BAR).matchAll(/<a [^>]*>(.*?)<\/a>/g)].map(([, words]) =>
+    textOf(words ?? ""),
+  );
 }
 
 /** The letters the page marks as the one it was jumped to. */
 export function lettersMarkedCurrentIn(text: string): string[] {
-  const letters = text.match(/<nav aria-label="Jump to a letter"[^>]*>(.*?)<\/nav>/)?.[1] ?? "";
-  return [...letters.matchAll(/<a [^>]*aria-current="true"[^>]*>(.*?)<\/a>/g)].map(([, words]) =>
-    textOf(words ?? ""),
-  );
+  return [
+    ...navIn(text, THE_JUMP_BAR).matchAll(/<a [^>]*aria-current="true"[^>]*>(.*?)<\/a>/g),
+  ].map(([, words]) => textOf(words ?? ""));
 }
 
 /** A link the page was expected to offer, or a failure naming the one it did not. */

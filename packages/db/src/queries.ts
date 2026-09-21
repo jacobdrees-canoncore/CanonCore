@@ -1008,7 +1008,7 @@ export interface BrowsedListing extends Catalogue {
    * them, and corrects CNCORE-242's own sentence saying they agree.
    *
    * ASKED AS THE COMPLEMENT OF THE JUMP TO A, so it is one predicate read from
-   * both ends rather than a second spelling of the bucket. The Rows behind
+   * both ends rather than a second spelling of it. The Rows behind
    * that Cut are exactly the Rows the jump to A leaves behind, which is the
    * count that Listing already reports as `rowsBefore` -- 37 of the Owner's
    * 8,052 Items, measured 2026-09-20 under CNCORE-242.
@@ -1189,6 +1189,16 @@ async function readListing(
  * count would be a number no surface prints, and the row this stops at is the
  * cheapest answer to the question actually asked. `size.behind` is the shape
  * for the figure if one is ever wanted, and it rides on the Rows.
+ *
+ * IT DOES NOT GO THROUGH `theSize`, AND THAT SEAM'S OWN REASON IS WHY. That
+ * function exists so a Listing's count cannot be drawn from a different
+ * relation or a different `WHERE` than its Rows: the caller supplies the FROM
+ * and the JOINs and has nowhere to put a predicate. Neither half can bite
+ * here. This COUNTS NOTHING and JOINS NOTHING -- it stops at the first Row it
+ * finds -- and the predicate it asks is not one it wrote: `theRowsBehind` is
+ * the shared complement, over the Listing's own `within` in the same call.
+ * Routing it through `TheSize` would mean a method on a shared interface for
+ * one caller, or a second `TheSize` built beside the one `walkListing` makes.
  *
  * A SECOND STATEMENT, AND THE SNAPSHOT IT CANNOT SHARE IS NOT ONE ANYTHING
  * READS TOGETHER. A `total` that disagreed with the Rows beside it would

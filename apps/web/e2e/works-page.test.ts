@@ -6,6 +6,7 @@ import {
   followed,
   itemsListedOn,
   letterLinked,
+  lettersOfferedIn,
   markedCurrentIn,
   scopeLinked,
   sectionIn,
@@ -240,6 +241,26 @@ describe("/works on a list larger than one page", () => {
     // the fixture's.
     const size = Number(works.text.match(/>Showing items 1 to 100 of (\d+)<\/p>/)?.[1]);
     expect(jumped.text).toContain(`>Showing items ${size - 3} to ${size} of ${size}</p>`);
+  });
+
+  it("offers the Rows sorting before A here too, and lands on them", async () => {
+    // CNCORE-242 ON THE OTHER BROWSED SURFACE, and it is a second assertion
+    // rather than a repetition. The bar is one component, but the value it is
+    // handed comes from a DIFFERENT read on a DIFFERENT page: `/` passes
+    // `catalogue.beforeTheAlphabet` and this passes `works.beforeTheAlphabet`,
+    // and ADR-0077 makes those two different questions. A page wired to the
+    // wrong Listing's answer compiles and renders, and only asking both
+    // surfaces can see it.
+    const pagedBaseUrl = inject("pagedBaseUrl");
+    const works = await documentFrom(pagedBaseUrl, "/works");
+
+    expect(lettersOfferedIn(works.text)[0]).toBe("#");
+
+    const jumped = await documentFrom(pagedBaseUrl, followed(letterLinked(works.text, "#"), "#"));
+
+    expect(jumped.status).toBe(200);
+    expect(itemsListedOn(jumped.text)[0]).toBe(inject("pagedBeforeTheAlphabet"));
+    expect(walkLinked(jumped.text, "Previous")).toBeUndefined();
   });
 });
 

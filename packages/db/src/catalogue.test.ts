@@ -973,9 +973,9 @@ describe("readCatalogue, and what sorts before the alphabet", () => {
   it("files a non-Latin sort name past Z rather than before A, where a jump to Z reaches it", async () => {
     // THE ONE SHAPE NEITHER END OF THE BAR IS NAMED FOR (CNCORE-242,
     // ADR-0180), measured rather than assumed. Under this catalogue's
-    // collation a Cyrillic title sorts PAST Z, so it is not in the bucket
-    // before A -- and the bucket must not claim it, which a first-character
-    // test would.
+    // collation a Cyrillic title sorts PAST Z, so it is not BEFORE THE
+    // ALPHABET (`CONTEXT.md`) -- and that entry must not claim it, which a
+    // first-character test would.
     //
     // AND IT IS REACHED, WHICH IS WHERE THIS PRODUCT PARTS FROM JELLYFIN. A
     // letter here is a SEEK rather than a filter, so a jump to Z lands at or

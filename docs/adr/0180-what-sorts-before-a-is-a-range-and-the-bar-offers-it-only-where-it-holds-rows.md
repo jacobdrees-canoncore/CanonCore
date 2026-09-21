@@ -86,6 +86,18 @@ It is asked of the Listing **in front of the reader** rather than of the catalog
 Group or to a kind, a Listing holding nothing before A offers no entry. `beforeTheAlphabet` rides on
 the same `WHERE` the Rows and the size are drawn from.
 
+## The glossary gains a headword
+
+`CONTEXT.md` gains **Before the alphabet**, beside the Listing family it belongs to — Listing,
+Order, Anchor, Cut, Size, Row. The diff ships both UI copy and a field on the public read path
+(`beforeTheAlphabet`), and the glossary is binding on both, so a concept reaching those with no
+headword is the gap `docs/agents/domain.md` names.
+
+Its `_Avoid_` word is **bucket**, which is ICU's and is what the ticket, this record and two code
+comments all drifted to. The word keeps its meaning where it names ANOTHER product's construct —
+ICU's underflow bucket, Jellyfin's — exactly as `CONTEXT.md` licenses `record` for a provider's own
+external record.
+
 ## `#` is attested, not coined
 
 `CONTEXT.md` has no word of its own for this and bars none — the banned names are `canon`, `record`,
