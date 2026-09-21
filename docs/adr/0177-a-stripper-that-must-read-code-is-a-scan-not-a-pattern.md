@@ -246,7 +246,9 @@ Biome prints that as `1 / 2`.
 
 **THE THREE COPIES ARE NOW ONE FILE.** The scan's docblock was rewritten so that every file it names
 says which repository holds it, and `testing/without-comments.ts` is byte-identical to both
-providers' `test/setup/without-comments.ts`, prose included. Under CNCORE-321 only the code was, and
+providers' `test/setup/without-comments.ts`, prose included. **The provider pair is merged**:
+provider-wiki#63 as `4e7a519` and provider-tmdb#34 as `d117a3f`, and at both commits the file hashes
+the same as it does here. Under CNCORE-321 only the code was, and
 the correction that pass made to the docblock here reached the providers' in different words. The
 history this docblock carried -- the 178-source measurement, and why the fold is
 [[0171-the-fold-is-of-the-read-not-of-the-question-it-answers]]'s seam -- is this record's, above,
