@@ -17,8 +17,8 @@ import { join, relative } from "node:path";
  * `Dirent.isFile()` is lstat, so it is FALSE for a symlink pointing at a file
  * and `isSymbolicLink()` is true instead. Filtering on the first alone took a
  * symlinked document out of the sweeps in silence -- and the silence was wider
- * than a document going unread. `doc-line-citations.test.ts`'s `prose()` feeds
- * the `held` set that decides which PATH and bare-filename citations that sweep
+ * than a document going unread. The corpus feeds `doc-line-citations.test.ts`'s
+ * `held` set, which decides which PATH and bare-filename citations that sweep
  * BANS, and a target missing from it reads as HISTORY, the exemption
  * `docs/research/README.md` earns for files this tree does not hold. So a path
  * citation into a symlinked document was not merely unchecked: it was
@@ -103,4 +103,65 @@ export function markdownIn(directory: string, { recursive = false } = {}): strin
     .join("\n");
   if (refusal !== "") throw new Error(refusal);
   return documents.map((path) => relative(directory, path));
+}
+
+/**
+ * The directories whose markdown is prose this repository writes, walked
+ * recursively; the root's own documents join them through a read that is not.
+ *
+ * `.claude/` IS IN, AND THAT IS THE DECISION THREE COPIES OF THIS LIST MADE BY
+ * ACCIDENT (CNCORE-313). It holds the rules and skills an agent reads as
+ * instructions, written and edited here like anything under `docs/`, so its
+ * lines move under an edit and its citations of records can dangle -- nothing
+ * about it earns the exemption `docs/research/README.md` gives history. Two of
+ * the three suites left it out and one put it in, and none of them said why.
+ */
+const PROSE_DIRECTORIES = ["docs", ".claude"] as const;
+
+/**
+ * Markdown git tracks that is NOT prose this repository writes, each NAMED with
+ * its reason rather than left out by a directory list that happens to miss it
+ * -- a pattern that missed one generated file would miss the second the same
+ * way. `markdown-corpus.test.ts` asks git for every tracked document and fails
+ * on one that is neither in the corpus nor named here, so a new directory of
+ * prose is DECIDED rather than excused.
+ */
+export const NOT_PROSE: readonly string[] = [
+  // Written and re-added by `next dev`, which says so in its own text: a rule
+  // these sweeps enforce could demand an edit the next `next dev` reverts. Its
+  // directory cannot be named instead, because `apps/web/node_modules` is pnpm's
+  // symlinks and a recursive `markdownIn` refuses every one of them.
+  "apps/web/AGENTS.md",
+];
+
+/**
+ * THE PROSE CORPUS: every markdown document under `PROSE_DIRECTORIES`, plus
+ * the root's own, spelled relative to `root` and sorted.
+ *
+ * ONE READER SINCE CNCORE-313, and the divergence is why rather than the
+ * tidiness. `adr-citations.test.ts`, `doc-line-citations.test.ts` and
+ * `terminal-send-hazards.test.ts` each spelled this list, and only the last had
+ * `.claude/` in it. `doc-line-citations.test.ts` builds from it the `held` set
+ * that decides which citations it BANS, so a document outside it was not merely
+ * unswept: a citation into it read as history and was EXCUSED -- the silence
+ * this module's own docblock records for a symlink, one level up. Nothing
+ * reported it, because each suite was consistent with itself. The measurement
+ * is in ADR-0190.
+ *
+ * READ FROM THE TREE, NOT LISTED, below the directory level: `CONTEXT.md` and
+ * `CLAUDE.md` are cited by line more than any record is, and a fourth root
+ * document is covered the day it lands without touching this.
+ *
+ * SORTED because POSIX leaves `readdir`'s order unspecified, and two of the
+ * three suites were already sorting their own copy. A caller keeps its own
+ * projection and its own guard against an empty answer, which is ADR-0171's
+ * line between the read and the question.
+ */
+export function proseIn(root: string): string[] {
+  return [
+    ...PROSE_DIRECTORIES.flatMap((directory) =>
+      markdownIn(join(root, directory), { recursive: true }).map((path) => join(directory, path)),
+    ),
+    ...markdownIn(root),
+  ].sort();
 }

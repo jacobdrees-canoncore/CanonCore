@@ -5,7 +5,8 @@ status: proposed
 # A citation to a record that never landed is disclosed, not rewritten
 
 > **PROPOSED 2026-09-20. BUILT OVER PROSE, WHICH IS ONE POPULATION OF TWO.**
-> `adr-citations.test.ts` holds every ADR number cited in `docs/` and in the root's markdown to a
+> `adr-citations.test.ts` holds every ADR number cited in `docs/`, in `.claude/` (since CNCORE-313,
+> [[0190-the-prose-corpus-is-named-once-and-claude-is-prose]]) and in the root's markdown to a
 > record this tree holds or an entry in `docs/research/README.md`'s amnesty, and that amnesty now
 > names all seven numbers this repository cites and never took. **SINCE CNCORE-264 it also holds the
 > SLUG**, where the number resolves and the words after it are a sentence no record carries as its

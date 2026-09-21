@@ -1,18 +1,8 @@
-import {
-  chmodSync,
-  mkdirSync,
-  mkdtempSync,
-  readdirSync,
-  readFileSync,
-  rmSync,
-  symlinkSync,
-  writeFileSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
+import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { records } from "./testing/adr-records";
-import { markdownIn } from "./testing/markdown-corpus";
+import { proseIn } from "./testing/markdown-corpus";
 import { repoRoot } from "./testing/repo-root";
 
 /**
@@ -63,18 +53,6 @@ import { repoRoot } from "./testing/repo-root";
  * paths the tree actually holds decides it the same way everywhere.
  */
 
-/**
- * The prose this rule governs is everything under `docs/` plus every markdown
- * document at the root, READ FROM THE TREE rather than listed here: `CONTEXT.md`
- * and `CLAUDE.md` are cited by line more than any record is, and a fourth root
- * document added later would otherwise be silently uncovered. A symlinked one
- * is the case that sentence promised to cover and did not, and `markdownIn`
- * below refuses it rather than letting it leave this sweep unremarked.
- */
-function rootProse(): string[] {
-  return markdownIn(repoRoot);
-}
-
 type Citation = { readonly file: string; readonly line: number; readonly cite: string };
 
 /**
@@ -103,14 +81,6 @@ const FORMS = [
   { by: "number", pattern: /(?<![\w:.-])(\d{4}):(\d+)(?:-\d+)?(?![\d.:])/g },
 ] as const;
 
-/** Every markdown file this rule governs, spelled as the tree spells it. */
-function prose(): string[] {
-  const underDocs = markdownIn(join(repoRoot, "docs"), { recursive: true }).map((path) =>
-    join("docs", path),
-  );
-  return [...underDocs, ...rootProse()].sort();
-}
-
 /**
  * Each document's path keyed by its BARE FILENAME, for the corpus's habit of
  * citing `verify-plex-claims.md:317` once the directory is established by an
@@ -120,7 +90,7 @@ function prose(): string[] {
  */
 function byBasename(): Map<string, string> {
   const seen = new Map<string, string | null>();
-  for (const path of prose()) {
+  for (const path of proseIn(repoRoot)) {
     const name = path.slice(path.lastIndexOf("/") + 1);
     seen.set(name, seen.has(name) ? null : path);
   }
@@ -135,9 +105,15 @@ function recordsByNumber(): Map<string, string> {
 /**
  * Every line citation whose target this tree holds. A citation the tree cannot
  * resolve is history, and is left where `docs/research/README.md` leaves it.
+ *
+ * "HOLDS" MEANS "THE CORPUS HOLDS", so a document the corpus leaves out is not
+ * merely unswept: a citation into it reads as history and is EXCUSED. That is
+ * why the corpus is `proseIn`'s rather than this file's -- `.claude/` sat
+ * outside this sweep's own copy and inside another suite's until CNCORE-313
+ * (ADR-0190).
  */
 function resolvableLineCitations(): Citation[] {
-  const held = new Set(prose());
+  const held = new Set(proseIn(repoRoot));
   const records = recordsByNumber();
   const named = byBasename();
   const found: Citation[] = [];
@@ -154,7 +130,7 @@ function resolvableLineCitations(): Citation[] {
     return cited === base && named.has(base);
   };
 
-  for (const file of prose()) {
+  for (const file of proseIn(repoRoot)) {
     readFileSync(join(repoRoot, file), "utf8")
       .split("\n")
       .forEach((text, index) => {
@@ -176,7 +152,7 @@ describe("a document citing another document", () => {
     // below by having nothing left to check. Non-empty rather than a pinned
     // count: the historical citations this deliberately permits are the subject
     // here, and their number is not this suite's to police.
-    expect(prose().length).toBeGreaterThan(0);
+    expect(proseIn(repoRoot).length).toBeGreaterThan(0);
     expect(recordsByNumber().size).toBeGreaterThan(0);
   });
 
@@ -185,212 +161,5 @@ describe("a document citing another document", () => {
       ({ file, line, cite }) => `${file}:${line} cites \`${cite}\``,
     );
     expect(byLine).toEqual([]);
-  });
-});
-
-/**
- * And the shape this sweep cannot be right about, ASKED DIRECTLY for the reason
- * `workspace.test.ts` and `network-gate-wiring.test.ts` ask theirs directly: no
- * markdown document in this repository is a symlink, so the repository is the
- * one place the question cannot be put (CNCORE-204).
- */
-describe("a symlinked markdown document", () => {
-  let directory: string;
-
-  beforeEach(() => {
-    directory = mkdtempSync(join(tmpdir(), "canoncore-prose-"));
-  });
-
-  afterEach(() => {
-    rmSync(directory, { recursive: true, force: true });
-  });
-
-  it("is refused by name rather than dropped out of the sweep", () => {
-    writeFileSync(join(directory, "CLAUDE.md"), "");
-    symlinkSync(join(directory, "CLAUDE.md"), join(directory, "AGENTS.md"));
-
-    expect(() => markdownIn(directory)).toThrow(/AGENTS\.md/);
-  });
-
-  it("is refused under a nested directory too, which is where the corpus lives", () => {
-    mkdirSync(join(directory, "adr"));
-    writeFileSync(join(directory, "adr", "0001-a.md"), "");
-    symlinkSync(join(directory, "adr", "0001-a.md"), join(directory, "adr", "mirror.md"));
-
-    expect(() => markdownIn(directory, { recursive: true })).toThrow(/adr\/mirror\.md/);
-  });
-
-  /**
-   * NAMED RATHER THAN COUNTED, which is the line this package already takes
-   * about `ungatedPackages`, `directoriesUnder` and `configFilesIn`: two
-   * symlinked documents are two things to fix, and a message carrying the first
-   * sends the reader back for the second.
-   */
-  it("is named alongside every other one, rather than the first standing for them all", () => {
-    writeFileSync(join(directory, "CLAUDE.md"), "");
-    symlinkSync(join(directory, "CLAUDE.md"), join(directory, "one.md"));
-    symlinkSync(join(directory, "CLAUDE.md"), join(directory, "two.md"));
-
-    const sweep = (): unknown => markdownIn(directory);
-    expect(sweep).toThrow(/one\.md/);
-    expect(sweep).toThrow(/two\.md/);
-  });
-
-  /**
-   * A corpus may hold as many symlinks to files as it likes; what it may not
-   * hold is one wearing a DOCUMENT'S name, or one a recursive read would
-   * descend. Nothing cites a line of a file this sweep never reads, so refusing
-   * one would invent a problem.
-   */
-  it("is not an ordinary symlink that no markdown filename matches", () => {
-    writeFileSync(join(directory, "CLAUDE.md"), "");
-    writeFileSync(join(directory, "notes.txt"), "");
-    symlinkSync(join(directory, "notes.txt"), join(directory, "link.txt"));
-
-    expect(markdownIn(directory)).toStrictEqual(["CLAUDE.md"]);
-  });
-
-  /**
-   * REFUSED WHEN IT DANGLES, where `directoriesUnder` drops one -- a measured
-   * difference rather than an inconsistency. There, a thing that stats as
-   * nothing is not a package to pnpm or to turbo either, so all three readers
-   * agree. Here the name is read BEFORE the link is, and a path at the root of
-   * the corpus wearing `.md` that nothing can open is exactly the unremarked
-   * document this refuses. Reading it would throw ENOENT out of the sweep at a
-   * line naming no reason; this names one.
-   */
-  it("is refused when it dangles, because the name is read before the link is", () => {
-    symlinkSync(join(directory, "gone.md"), join(directory, "AGENTS.md"));
-
-    expect(() => markdownIn(directory)).toThrow(/AGENTS\.md/);
-  });
-});
-
-/**
- * And the shape a recursive read got wrong by DESCENDING rather than by
- * dropping, asked directly for the same reason: no directory under `docs/` is a
- * symlink, so the repository cannot put the question (CNCORE-211).
- */
-describe("a symlinked directory under the corpus", () => {
-  let directory: string;
-
-  beforeEach(() => {
-    directory = mkdtempSync(join(tmpdir(), "canoncore-prose-"));
-  });
-
-  afterEach(() => {
-    rmSync(directory, { recursive: true, force: true });
-  });
-
-  it("is refused by name rather than descended", () => {
-    mkdirSync(join(directory, "elsewhere"));
-    writeFileSync(join(directory, "elsewhere", "outside.md"), "");
-    mkdirSync(join(directory, "corpus"));
-    symlinkSync(join(directory, "elsewhere"), join(directory, "corpus", "linked"));
-
-    expect(() => markdownIn(join(directory, "corpus"), { recursive: true })).toThrow(
-      /symlinked directory.*corpus\/linked$/,
-    );
-  });
-
-  /**
-   * REFUSED BEFORE IT IS READ, which the row above cannot tell apart from
-   * walking the link first and refusing after. Walking is the cost that matters
-   * -- a link out of the repository walks whatever it names -- so the target
-   * here is one nothing can open. Node's recursive read throws EACCES on it
-   * while a stat of the link still answers, and the first assertion is that
-   * control: it fails loudly rather than passing vacuously wherever permission
-   * bits are not enforced, as they are not for root.
-   */
-  /**
-   * The corpus's own directory is walked into like every directory under it,
-   * and `docs` is an entry git holds exactly as it holds one beneath it -- so a
-   * link THERE splits node and git over every document in the corpus at once.
-   */
-  it("is refused when it is the corpus itself, which a recursive read enters first", () => {
-    mkdirSync(join(directory, "elsewhere"));
-    writeFileSync(join(directory, "elsewhere", "outside.md"), "");
-    symlinkSync(join(directory, "elsewhere"), join(directory, "corpus"));
-
-    expect(() => markdownIn(join(directory, "corpus"), { recursive: true })).toThrow(
-      /symlinked directory.*corpus$/,
-    );
-  });
-
-  it("is refused before it is read through, so a target nothing can open is no obstacle", () => {
-    mkdirSync(join(directory, "elsewhere"));
-    writeFileSync(join(directory, "elsewhere", "outside.md"), "");
-    mkdirSync(join(directory, "corpus"));
-    symlinkSync(join(directory, "elsewhere"), join(directory, "corpus", "linked"));
-    chmodSync(join(directory, "elsewhere"), 0o000);
-
-    try {
-      expect(() => readdirSync(join(directory, "elsewhere"))).toThrow(/EACCES/);
-      expect(() => markdownIn(join(directory, "corpus"), { recursive: true })).toThrow(
-        /symlinked directory.*corpus\/linked$/,
-      );
-    } finally {
-      chmodSync(join(directory, "elsewhere"), 0o755);
-    }
-  });
-
-  /**
-   * ONE path, named once. Node's recursive read of this tree does not throw: it
-   * returns a copy of the document at every depth until it gives up, and a
-   * reader that followed the link, or walked it before refusing, would name the
-   * link at every depth it reached.
-   */
-  it("is refused once when it is a cycle, rather than walked until the read gives up", () => {
-    mkdirSync(join(directory, "adr"));
-    writeFileSync(join(directory, "adr", "0001-a.md"), "");
-    symlinkSync("..", join(directory, "adr", "up"));
-
-    expect(() => markdownIn(directory, { recursive: true })).toThrow(
-      new RegExp(`symlinked directory.*: ${RegExp.escape(join(directory, "adr", "up"))}$`),
-    );
-  });
-
-  /**
-   * The root read sweeps the root's own documents and enters no directory, so a
-   * link beside them is nothing it reads -- refusing one would invent a problem,
-   * and stat every link at the root to do it.
-   */
-  it("is not refused by a read that does not recurse, since that read enters no directory", () => {
-    writeFileSync(join(directory, "CLAUDE.md"), "");
-    mkdirSync(join(directory, "elsewhere"));
-    symlinkSync(join(directory, "elsewhere"), join(directory, "linked"));
-
-    expect(markdownIn(directory)).toStrictEqual(["CLAUDE.md"]);
-  });
-
-  it("is named alongside every other refusal, a symlinked document's included", () => {
-    mkdirSync(join(directory, "elsewhere"));
-    writeFileSync(join(directory, "CLAUDE.md"), "");
-    symlinkSync(join(directory, "elsewhere"), join(directory, "linked-one"));
-    symlinkSync(join(directory, "elsewhere"), join(directory, "linked-two"));
-    symlinkSync(join(directory, "CLAUDE.md"), join(directory, "AGENTS.md"));
-
-    const sweep = (): unknown => markdownIn(directory, { recursive: true });
-    expect(sweep).toThrow(/AGENTS\.md/);
-    expect(sweep).toThrow(/linked-one/);
-    expect(sweep).toThrow(/linked-two/);
-  });
-
-  /**
-   * A DANGLING one is dropped here where a dangling DOCUMENT is refused, and the
-   * difference is the name. A document is refused on the name it wears, before
-   * the link is read; a directory wears none, so it is known only by a stat, and
-   * a link that stats as nothing has nothing under it to sweep -- the reason
-   * `directoriesUnder` drops one. Without `throwIfNoEntry: false` it would throw
-   * ENOENT out of the sweep, naming a path and no reason.
-   */
-  it("is only a link that stats as a directory, so one to a file or to nothing is left alone", () => {
-    mkdirSync(join(directory, "adr"));
-    writeFileSync(join(directory, "adr", "0001-a.md"), "");
-    writeFileSync(join(directory, "adr", "notes.txt"), "");
-    symlinkSync(join(directory, "adr", "notes.txt"), join(directory, "adr", "link.txt"));
-    symlinkSync(join(directory, "gone"), join(directory, "adr", "dangling"));
-
-    expect(markdownIn(directory, { recursive: true })).toStrictEqual([join("adr", "0001-a.md")]);
   });
 });

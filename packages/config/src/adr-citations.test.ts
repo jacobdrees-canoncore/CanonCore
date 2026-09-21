@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { records } from "./testing/adr-records";
-import { markdownIn } from "./testing/markdown-corpus";
+import { proseIn } from "./testing/markdown-corpus";
 import { repoRoot } from "./testing/repo-root";
 
 /**
@@ -65,11 +65,12 @@ import { repoRoot } from "./testing/repo-root";
  * positive that decided this. Every one of the seven is still caught, because
  * each is cited at least once in one of the three forms.
  *
- * PROSE ONLY -- everything under `docs/` plus the markdown at the root, which
- * is `doc-line-citations.test.ts`'s established scope. It steps around a
+ * PROSE ONLY -- the corpus `proseIn` names, which is every prose sweep's
+ * since CNCORE-313 rather than a copy of a neighbour's (ADR-0190). It steps around a
  * measured false positive: CNCORE-247 counted record 0001 as cited when its only
  * match was the synthetic fixture `0001-a.md` inside
- * `doc-line-citations.test.ts`. Source comments are the population
+ * `doc-line-citations.test.ts`, which is in `testing/markdown-corpus.test.ts`
+ * since CNCORE-313. Source comments are the population
  * `adr-as-built.test.ts` reads, and a dead one there is not caught here.
  */
 /** The heading the amnesty lives under, in `docs/research/README.md`. */
@@ -110,28 +111,6 @@ function heldNumbers(): Set<string> {
   return new Set(records().map((record) => record.number));
 }
 
-/**
- * Every markdown document the rule governs: all of `docs/`, plus the root's own.
- *
- * THROUGH `markdownIn`, WHICH IS THE ONLY READER ALLOWED TO ANSWER THIS
- * (ADR-0103). The first draft of this file enumerated the corpus itself, with
- * `readdirSync(docs, { recursive: true })` filtered on `isFile()`. Both halves
- * are what that record refuses: node DESCENDS a symlinked directory and takes
- * no option not to, returning paths git does not hold, and `isFile()` is lstat
- * so it drops a symlinked DOCUMENT in silence. A cycle returned 99 entries
- * without throwing when ADR-0103 measured it. Nothing here reported any of it,
- * because a tree with no links answers the same either way -- which is exactly
- * why the rule is a shared reader rather than a thing each sweep remembers.
- */
-function prose(): string[] {
-  return [
-    ...markdownIn(join(repoRoot, "docs"), { recursive: true }).map((path) =>
-      join(repoRoot, "docs", path),
-    ),
-    ...markdownIn(repoRoot).map((path) => join(repoRoot, path)),
-  ].sort();
-}
-
 type Citation = { readonly file: string; readonly line: number; readonly number: string };
 
 /** A citation written in the prose form, which is the only one carrying a slug. */
@@ -139,14 +118,14 @@ type SlugCitation = Citation & { readonly slug: string };
 
 function citations(): Citation[] {
   const found: Citation[] = [];
-  for (const file of prose()) {
-    readFileSync(file, "utf8")
+  for (const file of proseIn(repoRoot)) {
+    readFileSync(join(repoRoot, file), "utf8")
       .split("\n")
       .forEach((text, index) => {
         for (const match of text.matchAll(CITATION)) {
           const number = match[1] ?? match[2] ?? match[3];
           if (number !== undefined) {
-            found.push({ file: file.slice(repoRoot.length + 1), line: index + 1, number });
+            found.push({ file, line: index + 1, number });
           }
         }
       });
@@ -157,14 +136,14 @@ function citations(): Citation[] {
 /** Every `[[NNNN-slug]]` the prose writes, with the slug it names. */
 function slugCitations(): SlugCitation[] {
   const found: SlugCitation[] = [];
-  for (const file of prose()) {
-    readFileSync(file, "utf8")
+  for (const file of proseIn(repoRoot)) {
+    readFileSync(join(repoRoot, file), "utf8")
       .split("\n")
       .forEach((text, index) => {
         for (const [, number, rest] of text.matchAll(SLUG_CITATION)) {
           if (number !== undefined && rest !== undefined) {
             found.push({
-              file: file.slice(repoRoot.length + 1),
+              file,
               line: index + 1,
               number,
               slug: `${number}-${rest}`,
@@ -217,7 +196,7 @@ describe("an ADR number a document cites", () => {
    */
   it("is read at all, so a green run cannot mean the reader went silent", () => {
     expect(heldNumbers().size).toBeGreaterThan(0);
-    expect(prose().length).toBeGreaterThan(0);
+    expect(proseIn(repoRoot).length).toBeGreaterThan(0);
     expect(citations().length).toBeGreaterThan(0);
     expect(
       disclosed().size,
@@ -260,10 +239,10 @@ describe("an ADR number a document cites", () => {
    * HERE RATHER THAN IN `adr-numbering.test.ts`, WHICH IS WHERE CNCORE-264 ASKED
    * FOR IT. That file holds the records' own numbering and a hand-kept roll call;
    * it runs no citation sweep, so landing this there meant a second copy of
-   * `prose()` and `citations()` -- and the first draft, written there, hardcoded
+   * the corpus read and `citations()` -- and the first draft, written there, hardcoded
    * `["CONTEXT.md", "CLAUDE.md"]` as the non-record corpus and missed
    * `docs/research/walking-the-owners-install.md`, which cites a record this way.
-   * `markdownIn` is the only reader allowed to answer that question (ADR-0103),
+   * `proseIn` is the only reader allowed to answer that question (ADR-0190),
    * and it is already wired up here. The amnesty below is the other half of the
    * reason.
    *
