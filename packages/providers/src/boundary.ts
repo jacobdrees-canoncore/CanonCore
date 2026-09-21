@@ -616,9 +616,9 @@ function refusalNaming(cidrs: readonly string[]): string {
   // place.
   //
   // THE SENTENCE STILL GROWS AFTER THE LIST STOPS, BY THE DIGITS OF TWO COUNTS
-  // -- 263 at four addresses, 264 at ten, 268 at a thousand. That is why the
-  // test below walks N rather than sampling it: the part nothing measures is
-  // the part that was supposed to be fixed-length.
+  // -- 263 at four addresses, 264 at ten, 268 at a thousand. That is why
+  // `boundary.test.ts` WALKS N rather than sampling it: the part nothing
+  // measures is the part that was supposed to be fixed-length.
   let listed = cidrs.slice(0, 1);
   for (const cidr of cidrs.slice(1)) {
     const wider = [...listed, cidr];
