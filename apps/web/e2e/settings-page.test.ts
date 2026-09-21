@@ -1,6 +1,7 @@
 import { lookup } from "node:dns/promises";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 
+import { createDb, readProviderSettings, writeProviderSettings } from "@canoncore/db";
 import { afterAll, describe, expect, inject, it } from "vitest";
 
 import {
@@ -17,6 +18,7 @@ import {
   textOf,
   withFields,
 } from "./document";
+import { HARNESS_CONNECTIONS } from "./instance";
 
 /**
  * WHERE THE OWNER SAYS WHAT THIS INSTANCE REACHES, over real HTTP (CNCORE-99).
@@ -43,6 +45,19 @@ const ownerPassword = inject("ownerPassword");
  * owner's whole, so on that instance it is a refusal nobody can ever lift.
  */
 const freshBaseUrl = inject("freshBaseUrl");
+/**
+ * THE CONFIGURABLE INSTANCE'S OWN DATABASE, and the only way to the state below
+ * (CNCORE-326).
+ *
+ * WRITING ROUND THE SURFACE IS THE POINT RATHER THAN A SHORTCUT. All three
+ * settings writes parse before they store, so an instance whose Providers
+ * setting does not parse is one NO route through this app can produce -- which
+ * is exactly why the refusal raised for it had never been reached from here,
+ * and why the assertion below the page's own half conceded it could not get
+ * there. A row is how an instance actually arrives in this state: a hand-edited
+ * database, a restored dump, a value written by something older than the parse.
+ */
+const configurableDatabaseUrl = inject("configurableDatabaseUrl");
 
 /** Every Provider the page names, read off the rows it renders. */
 function providersIn(text: string): string[] {
@@ -342,9 +357,18 @@ describe("/settings", () => {
    * which is this page's original defect reintroduced by the fix for it --
    * review caught it, and the catch-all is what closes it.
    *
-   * THE PAGE'S HALF IS WHAT IS ASSERTED HERE. Reaching the action's half needs
-   * a stored setting this surface refuses to write, so `settings.test.ts` holds
-   * the procedure's end and this holds the sentence.
+   * THE PAGE'S HALF IS WHAT IS ASSERTED HERE, BY DRIVING THE ADDRESS DIRECTLY.
+   * This reads `?because=` off an address and renders the sentence for it,
+   * which is the page's whole end of the mechanism and is worth asserting on
+   * its own: a hand-typed address reaches this page having touched nothing
+   * else.
+   *
+   * AND THE ACTION'S HALF IS THE TEST BELOW, WHICH DID NOT EXIST UNTIL
+   * CNCORE-326. This docblock used to close by saying that reaching it "needs a
+   * stored setting this surface refuses to write" -- true, and taken as a
+   * reason not to, so the redirect that builds this address was asserted by
+   * nothing and had in fact never been written. The way in is the ROW: the
+   * instance's own database, which `configurableDatabaseUrl` now hands over.
    */
   it("says a refusal that was not about the entry was not about the entry", async () => {
     const cookie = await logInAt(baseUrl, ownerPassword);
@@ -356,6 +380,78 @@ describe("/settings", () => {
     );
 
     expect(text).toContain("cannot read the Providers it already has");
+  });
+
+  /**
+   * AND THE ACTION'S HALF, WHICH NOTHING COULD REACH UNTIL CNCORE-326.
+   *
+   * THE TEST ABOVE DRIVES THE ADDRESS BY HAND AND SAYS SO. Its own docblock
+   * conceded the gap -- "reaching the action's half needs a stored setting this
+   * surface refuses to write" -- and while that was true, the redirect that
+   * builds the address was run by nothing at all, so the fall-through it needed
+   * was never written. ADR-0197 carries the history; this is what would have
+   * caught it.
+   *
+   * THE STATE IS REACHED THROUGH THE ROW, BECAUSE NO SURFACE WILL WRITE IT.
+   * `nameProvider` parses the stored string before it parses the entry, so a
+   * row that no longer reads refuses a perfectly good entry -- and the Owner
+   * must not be told their URL was the problem, since it was not.
+   *
+   * IT ASSERTS THE ADDRESS AS WELL AS THE SENTENCE, and the two are different
+   * halves. The address is what the ACTION chose, read off where the response
+   * landed rather than rebuilt here (`Submitted.url` says why); the sentence is
+   * what the PAGE wrote once it got there. A test holding only the sentence
+   * would pass on a page that says it for its own reasons, which this page now
+   * does -- the read reports an unreadable setting in the Providers section
+   * above, so the silence would be covered over by the very thing that makes
+   * the section honest.
+   *
+   * THE ROW GOES BACK IN A `finally`, because this file's other tests read the
+   * Providers this instance names, and an unreadable setting left behind is one
+   * they would all meet.
+   */
+  it("tells an Owner naming a good Provider that the stored setting is what refused", async () => {
+    const db = createDb(configurableDatabaseUrl, { maxConnections: HARNESS_CONNECTIONS });
+    /*
+     * TWO GUARDS, BECAUSE THERE ARE TWO THINGS TO PUT BACK AND THEY FAIL
+     * INDEPENDENTLY. The outer one ends the pool whatever happens, including a
+     * throw from the read itself -- a handle nothing ends is how this suite
+     * hangs rather than fails (`instance.ts`, CNCORE-229). The inner one puts
+     * the row back, and it has to sit INSIDE the read that captured the old
+     * value and OUTSIDE the assertions, or a failing expectation leaves an
+     * unreadable setting behind for every test after it in this file.
+     */
+    try {
+      const before = await readProviderSettings(db);
+      try {
+        await writeProviderSettings(db, { providerUrls: "wiki.test" });
+        const cookie = await logInAt(baseUrl, ownerPassword);
+        const entry = "http://fine.test:8080";
+
+        const { text } = await documentFrom(baseUrl, "/settings", cookie);
+        const named = await submit(
+          baseUrl,
+          "/settings",
+          withFields(formIn(text, "name-a-provider"), { baseUrl: entry }),
+          cookie,
+        );
+
+        expect(named.url).toContain("because=setting-unreadable");
+        expect(named.url).toContain(encodeURIComponent(entry));
+        const shown = textOf(mainOf(named.text));
+        expect(shown).toContain("was not named");
+        expect(shown).toContain("cannot read the Providers it already has");
+        // AND NOT ONE OF THE THREE, which is the whole of what this refusal is
+        // not. Telling the Owner to add a scheme to an entry that has one is the
+        // wrong remedy CNCORE-262 exists to have stopped.
+        expect(shown).not.toContain("it is not a URL");
+        expect(shown).not.toContain("one at a time");
+      } finally {
+        await writeProviderSettings(db, { providerUrls: before.providerUrls });
+      }
+    } finally {
+      await db.$client.end();
+    }
   });
 
   /**
@@ -992,6 +1088,46 @@ describe("/settings, on an instance nobody can log in to", () => {
 });
 
 describe("/settings, to a reader with no session on an instance that has a password", () => {
+  /**
+   * A SESSION THAT DIED IS NOT THE STORED SETTING FAILING TO PARSE (CNCORE-326).
+   *
+   * `ownerProcedure` refuses a caller with no session by throwing
+   * `ORPCError("UNAUTHORIZED")`, which carries status 401 -- MEASURED, not
+   * assumed -- and `answer.ts` reads anything under 500 as a refusal. So it
+   * arrives at `nameProvider`'s fall-through exactly as the stored-setting
+   * refusal does, and a catch-all that NAMES a cause names the wrong one:
+   * `?because=setting-unreadable` says this instance cannot read its Providers
+   * at an Owner whose Providers are fine and whose session simply expired
+   * between the GET and the POST.
+   *
+   * THE PAGE HIDES IT, WHICH IS WHY THE ADDRESS IS WHAT IS ASSERTED. The
+   * session check returns `NotLoggedIn` before `searchParams` is read, so the
+   * false sentence renders nowhere and every assertion about the TEXT passes
+   * either way. That is precisely the shape this ticket exists to refuse: a
+   * mechanism that is wrong where nothing looks. ADR-0156 asks for a branch for
+   * "a refusal this page cannot name", and one that names a cause is not it.
+   */
+  it("is not told the stored setting is unreadable when it is the session that is gone", async () => {
+    const cookie = await logInAt(baseUrl, ownerPassword);
+    const { text } = await documentFrom(baseUrl, "/settings", cookie);
+
+    // The same form, posted with NO cookie: the refusal is UNAUTHORIZED.
+    const named = await submit(
+      baseUrl,
+      "/settings",
+      withFields(formIn(text, "name-a-provider"), { baseUrl: "http://fine.test:8080" }),
+    );
+
+    expect(named.url).not.toContain("setting-unreadable");
+    /*
+     * AND IT IS STILL ANSWERED, which the line above does not settle on its
+     * own: a silent return satisfies it too, and silence is the thing this
+     * ticket exists to end. The fall-through carries the word that names no
+     * cause, so both halves of the correction are pinned here.
+     */
+    expect(named.url).toContain("because=unexplained");
+  });
+
   it("still names the step that would make them the owner", async () => {
     // The answer the fix must not cost. This reader may BE the owner and simply
     // not have used the password yet.

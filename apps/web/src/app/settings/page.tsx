@@ -120,13 +120,27 @@ export default async function SettingsPage({
           the CMPP contract rather than code you install, so nothing named here runs inside your
           catalogue.
         </p>
-        {providers.length === 0 ? (
+        {/*
+          THREE STATES AND NOT TWO (CNCORE-326). An unreadable setting used to
+          be none of them: `settings.read` threw where it was parsed, so this
+          page -- the only reader that procedure has -- did not render at all.
+          The state it now reports must not be folded into the empty one below
+          it: "no Provider is named" is what a FRESH instance says, and telling
+          an Owner whose Providers are stored and unreadable that they have
+          none would be the likelier reading of the two and the false one.
+        */}
+        {providers.kind === "unreadable" ? (
+          <p className="mt-4 text-muted-foreground text-sm">
+            This instance <CannotReadWhatIsStored />, so none can be listed. Naming a Provider reads
+            that setting and so does removing one, so both are refused until it is readable.
+          </p>
+        ) : providers.named.length === 0 ? (
           <p className="mt-4 text-muted-foreground text-sm">
             No Provider is named, so this instance searches none. Name one below.
           </p>
         ) : (
           <ul className="mt-4 flex flex-col divide-y">
-            {providers.map((provider) => (
+            {providers.named.map((provider) => (
               <li
                 className="flex items-center justify-between gap-4 py-3"
                 data-provider={provider.baseUrl}
@@ -224,8 +238,8 @@ export default async function SettingsPage({
 }
 
 /**
- * WHAT THE OWNER TYPED THAT WAS NOT A PROVIDER, AND WHICH OF THE THREE IT WAS
- * (CNCORE-262).
+ * WHAT THE OWNER TYPED THAT WAS NOT A PROVIDER, AND WHICH REFUSAL IT MET
+ * (CNCORE-262, CNCORE-326).
  *
  * THE REFUSALS THIS SURFACE HAS TO RENDER, because a re-read cannot report one:
  * "that was not a URL" and "nothing happened" are the same unchanged list, and
@@ -248,7 +262,13 @@ export default async function SettingsPage({
  * AND THE SENTENCES ARE THIS PAGE'S, never the procedure's. `?because=` is in an
  * address the Owner can edit, so a page that printed text out of the parameter
  * would show a stranger's sentence in CanonCore's own voice; `refusal.ts`
- * admits three words and nothing else, and every word below is written here.
+ * admits five words and nothing else, and every word below is written here.
+ *
+ * FIVE SINCE CNCORE-326, AND THE LAST TWO ARE NOT ABOUT THE ENTRY. The three
+ * the Owner's own text can raise are joined by the stored setting that would
+ * not parse, and by a refusal this page cannot name at all -- which says only
+ * that nothing changed, because naming a cause it was not given is the harm
+ * the closed set exists to prevent, arriving from the inside.
  */
 function NotNamed({ because, entry }: { because: WhyItWasRefused; entry?: string }) {
   if (because === "nothing-named") {
@@ -259,34 +279,82 @@ function NotNamed({ because, entry }: { because: WhyItWasRefused; entry?: string
     );
   }
 
+  /*
+    A REFUSAL THIS PAGE CANNOT NAME SAYS SO, AND STOPS (CNCORE-326). It has no
+    "because" clause, because it has no because: the one thing known is that
+    the entry was not named and that nothing changed. Writing a cause here that
+    the refusal did not carry is what the word below this one exists to stop.
+  */
+  if (because === "unexplained") {
+    return (
+      <p className="mt-3 text-muted-foreground text-sm">
+        <WhichEntry entry={entry} /> was not named, and this instance did not say why. Nothing
+        changed.
+      </p>
+    );
+  }
+
   return (
     <p className="mt-3 text-muted-foreground text-sm">
-      <WhichEntry entry={entry} /> was not named, because{" "}
-      {because === "not-one-provider" ? (
+      <WhichEntry entry={entry} /> was not named, because <WhyNot because={because} />
+    </p>
+  );
+}
+
+/**
+ * THE CLAUSE AFTER "because", one per word that has one.
+ *
+ * A `switch` RATHER THAN THE `?:` CHAIN IT REPLACES, and that is this ticket's
+ * own lesson applied to the file it was found in. The chain ended in an `else`
+ * holding "it is not a URL", so a word added to `REFUSED` with no branch here
+ * did not fail to compile -- it RENDERED, as whatever the last arm happened to
+ * be, telling an Owner to add a scheme to an entry that had one. That is
+ * CNCORE-262's defect exactly, waiting behind the same shape that hid this
+ * ticket's. Every word is a `case`, and the two that take no clause never
+ * reach here.
+ *
+ * `never` IS WHAT MAKES IT A CHECK. A sixth word with no `case` makes `because`
+ * something other than `never` at the end, which does not assign -- so the
+ * compiler names the omission rather than the page silently mis-answering it.
+ */
+function WhyNot({
+  because,
+}: {
+  because: Exclude<WhyItWasRefused, "nothing-named" | "unexplained">;
+}) {
+  switch (because) {
+    case "not-one-provider":
+      return (
         <>
           it is more than one Provider. A Provider is a URL and nothing more, so name them one at a
           time.
         </>
-      ) : because === "setting-unreadable" ? (
-        /*
-          NOT ABOUT THE ENTRY, AND IT SAYS SO. The three other sentences tell
-          the Owner to change what they typed; this one must not, because what
-          they typed may have been perfect. The Providers already stored would
-          not parse, so there was no list to add one to -- a different fault
-          with a different fix, which is `ReachNotice`'s argument below applied
-          to the field above it.
-        */
+      );
+    /*
+      NOT ABOUT THE ENTRY, AND IT SAYS SO. The other sentences tell the Owner to
+      change what they typed; this one must not, because what they typed may
+      have been perfect. The Providers already stored would not parse, so there
+      was no list to add one to -- a different fault with a different fix, which
+      is `ReachNotice`'s argument below applied to the field above it.
+    */
+    case "setting-unreadable":
+      return (
         <>
-          this instance cannot read the Providers it already has. That setting has to be readable
-          before another can be added to it.
+          this instance <CannotReadWhatIsStored />. That setting has to be readable before another
+          can be added to it.
         </>
-      ) : (
+      );
+    case "not-a-url":
+      return (
         <>
           it is not a URL. <ByItsBaseUrl />
         </>
-      )}
-    </p>
-  );
+      );
+    default: {
+      const unhandled: never = because;
+      return unhandled;
+    }
+  }
 }
 
 /**
@@ -299,6 +367,21 @@ function NotNamed({ because, entry }: { because: WhyItWasRefused; entry?: string
  */
 function ByItsBaseUrl() {
   return <>A Provider is a URL and nothing more, so name it by its base URL, scheme included.</>;
+}
+
+/**
+ * The fault two of these sentences share, written once (CNCORE-326).
+ *
+ * TWO SECTIONS SAY IT AND THEY SAY DIFFERENT THINGS WITH IT. The Providers
+ * section states what is true of the LIST -- there is none to show; the notice
+ * under the box states what became of the ENTRY the Owner just typed. Both rest
+ * on the one fact, and `ByItsBaseUrl` above is this file's own argument for why
+ * that fact is spelled in one place: the same clause written out twice is two
+ * places for it to drift, which shows up as wording a reader meets in two
+ * versions rather than as anything a type would catch.
+ */
+function CannotReadWhatIsStored() {
+  return <>cannot read the Providers it already has</>;
 }
 
 /**

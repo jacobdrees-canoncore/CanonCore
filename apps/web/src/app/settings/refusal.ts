@@ -20,14 +20,16 @@ import { oneValue } from "@/components/query-params";
  * parameters meaning one thing on two surfaces is the divergence this wave
  * keeps finding, and a shipped parameter name is hard to take back.
  *
- * THREE WORDS AND NOT THE PROCEDURE'S SENTENCE, which is ADR-0156 and is the
- * decision worth reading twice. `?because=` sits in an address the OWNER can edit, so a value
+ * THE PAGE'S OWN WORDS AND NOT THE PROCEDURE'S SENTENCE, which is ADR-0156 and
+ * is the decision worth reading twice. `?because=` sits in an address the OWNER can edit, so a value
  * copied out of a refusal's message would be a way to put a sentence of
  * somebody else's choosing in front of a reader under CanonCore's own styling
  * -- `/login/page.tsx` already states that rule of its own parameter, and
  * ADR-0123 makes whose words a reader is shown the question this app answers at
- * every seam. A closed set of three cannot say anything this page did not
- * write, and the page owns every sentence below.
+ * every seam. A closed set cannot say anything this page did not write, and the
+ * page owns every sentence below. There are FIVE of them: the three the Owner's
+ * own text can raise, the stored setting that would not parse, and the
+ * catch-all for a refusal this page cannot name at all.
  */
 export const REFUSED = {
   /** The box held nothing, or nothing but whitespace. */
@@ -40,22 +42,69 @@ export const REFUSED = {
    * NOT ABOUT THE ENTRY AT ALL: the Providers already stored would not parse,
    * so there was no list to add one to.
    *
-   * IT IS HERE SO THAT NOTHING FALLS THROUGH SILENTLY. The three above are the
-   * refusals the Owner's own text can raise; this is every other refusal the
-   * procedure can answer with, and without it an action matching on three
-   * codes would simply return -- rendering the unchanged page that this whole
-   * ticket exists to stop. `WhyNotNamed` does not carry it, because
-   * `@canoncore/providers` never raises it: it is the SURFACE's word for "a
-   * refusal that was not about what you typed".
+   * IT IS HERE SO THAT NOTHING FALLS THROUGH SILENTLY, AND UNTIL CNCORE-326 IT
+   * DID NOT DO THAT. The three above are the refusals the Owner's own
+   * text can raise; this is every other refusal the procedure can answer with.
+   * `WhyNotNamed` does not carry it, because `@canoncore/providers` never
+   * raises it: it is the SURFACE's word for "a refusal that was not about what
+   * you typed".
+   *
+   * THE SENTENCE WAS DECLARED HERE AND RENDERED ON THE PAGE, AND NOTHING EVER
+   * WROTE IT. This docblock said an action matching on three codes "would
+   * simply return -- rendering the unchanged page that this whole ticket exists
+   * to stop", in the present tense, of a fall-through that had never been
+   * added: `git show 80b976d -- apps/web/src/app/settings/actions.ts` (the
+   * commit that declared this word, 2026-09-20) landed exactly three `if`s, and
+   * `git log 80b976d..origin/main` for that file was empty. A tree-wide grep found the declaration, the render and a hand-typed
+   * address in one e2e test -- no writer. `actions.ts` carries the fall-through
+   * now, and `settings-page.test.ts` reaches it.
    */
   unreadable: "setting-unreadable",
+  /**
+   * A REFUSAL THIS PAGE CANNOT NAME, which is the only thing a true catch-all
+   * may say (CNCORE-326).
+   *
+   * THE WORD ABOVE LOOKED LIKE THIS ONE AND IS NOT. `setting-unreadable` names
+   * a CAUSE -- the stored Providers setting failing to parse -- and the page
+   * writes a specific, actionable sentence for it. Taken as the fall-through it
+   * asserted that cause of every refusal the procedure can raise, and
+   * `ownerProcedure` raises one that is nothing of the kind:
+   * `ORPCError("UNAUTHORIZED")`, status 401, which `answer.ts` reads as a
+   * refusal like any other under 500. An Owner whose session expired between
+   * the GET and the POST would have been told their stored Providers cannot be
+   * read, which is false and hides the remedy.
+   *
+   * SO THE TWO ARE SEPARATED: the code that means the setting gets the sentence
+   * about the setting, and everything else gets this, which says only that the
+   * entry was not named and that this instance did not say why. ADR-0156 asks
+   * for "a branch for a refusal this page cannot name"; a branch that names one
+   * is not that branch, and the page owes an Owner no sentence it cannot stand
+   * behind (ADR-0123).
+   *
+   * IT RENDERS NOWHERE FOR THE UNAUTHORIZED CASE, AND IS STILL THE RIGHT WORD.
+   * `SettingsPage` answers a caller with no session with `NotLoggedIn` before
+   * it reads `?because=` at all, so that Owner sees the login they need rather
+   * than either sentence. The address is what was wrong, and an address is what
+   * a reload, a Back or a bookmark keeps.
+   */
+  unexplained: "unexplained",
 } as const;
 
-/** The three, as the page matches what an address carries against them. */
-const THE_THREE = Object.values(REFUSED);
+/**
+ * THE CLOSED SET, as the page matches what an address carries against it.
+ *
+ * IT IS READ OFF `REFUSED` AND WAS NEVER THE THREE ITS NAME CLAIMED. This was
+ * `THE_THREE` while `Object.values` answered FOUR of them, so the name and the
+ * value had disagreed since the catch-all was declared -- harmlessly, because
+ * reading the set from the object is what kept `oneBecause` admitting the
+ * fourth word the whole time, which is the one half of this mechanism that did
+ * work. Named for what it is rather than for how many, so the next word added
+ * above does not make a liar of it again (CNCORE-326).
+ */
+const THE_CLOSED_SET = Object.values(REFUSED);
 
 /**
- * WHICH OF THE THREE AN ADDRESS NAMES, or nothing at all.
+ * WHICH OF THE CLOSED SET AN ADDRESS NAMES, or nothing at all.
  *
  * ANYTHING ELSE IS NOTHING, which is what keeps `?because=` from being an opening.
  * It is read exactly as `oneValue` reads every other parameter -- a repeated or
@@ -69,6 +118,11 @@ export type WhyItWasRefused = (typeof REFUSED)[keyof typeof REFUSED];
  * THE THREE `@canoncore/providers` RAISES, held against its own type, so a
  * fourth added there without a word here fails to compile rather than arriving
  * on the page as whatever the last branch happened to be.
+ *
+ * THREE HERE AND FOUR ABOVE IS THE POINT RATHER THAN A GAP, which ADR-0156
+ * records as the second property this shape produced: the set the SURFACE
+ * admits is not the set the PROCEDURE raises, so the two are related by a total
+ * function rather than being equal.
  */
 const _theProvidersPackageAgrees: Record<WhyNotNamed, WhyItWasRefused> = {
   "nothing-named": REFUSED.nothing,
@@ -79,7 +133,7 @@ void _theProvidersPackageAgrees;
 
 export function oneBecause(parameter: string | string[] | undefined): WhyItWasRefused | undefined {
   const word = oneValue(parameter);
-  return THE_THREE.find((known) => known === word);
+  return THE_CLOSED_SET.find((known) => known === word);
 }
 
 /**
